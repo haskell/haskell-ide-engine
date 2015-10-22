@@ -59,3 +59,7 @@ discussion on IRC around it. These layers may well live in a single repository
 (this one), as two separate layers or just be a feature of how haskell-ide is
 built.
 
+## Documentation
+
+Rather than use the wiki we will put the documentation in the `docs` directory
+here, so collaborators can either edit or provide pull requests.
