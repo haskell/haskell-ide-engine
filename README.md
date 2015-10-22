@@ -1,8 +1,7 @@
 Home to the community effort to provide a common service backend for any IDE
 making use of Haskell in general and GHC in particular.
 
-Status
-------
+## Status
 
 This is currently a blank canvas. There has been a fair amount of discussion
 about what needs to be done/exist, this is the place where it should all come
@@ -29,13 +28,12 @@ you to it.
 [badge-license]: https://img.shields.io/badge/license-BSD3-green.svg?dummy
 [license]: https://github.com/haskell/haskell-ide/blob/master/LICENSE
 
-Next steps
-----------
+## Next steps
 
 After lots of discussion around layers and licensing, it looks like the way
 forward is as follows
 
-## BIOS layer
+### BIOS layer
 
 ghc-mod stays an AGPL project, and is used for its "awesome sauce" in terms of
 the BIOS functions that it does so well. This interface is
@@ -43,12 +41,12 @@ the BIOS functions that it does so well. This interface is
 and if a license-constrained user wants to do something else it is also easy to
 replace, if there is strong control of the operating environment.
 
-## Plugin layer
+### Plugin layer
 
 A layer providing a point to integrate tools and existing functions, probably
 including ghci.
 
-## IDE interfacing layer
+### IDE interfacing layer
 
 This provides a set of logical channels that can be integrated into standard
 IDEs. The details still need to be worked out, but I would imagine something
