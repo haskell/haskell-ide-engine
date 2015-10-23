@@ -54,6 +54,9 @@ like a channel for querying information about a project, one for a ghci session,
 and whatever others are needed. These logical channels can then run over
 whatever transport is appropriate to the specific IDE being integrated.
 
+According to #2 it seems the consensus is toward (re) using the Idris protocol,
+as the languages are similar enough and it offers cross-IDE support already.
+
 The Plugin and IDE layers are very fuzzy at this point, and there has been some
 discussion on IRC around it. These layers may well live in a single repository
 (this one), as two separate layers or just be a feature of how haskell-ide is
@@ -61,5 +64,9 @@ built.
 
 ## Documentation
 
-Rather than use the wiki we will put the documentation in the `docs` directory
-here, so collaborators can either edit or provide pull requests.
+Rather than use the wiki we will put the documentation in the
+[docs](https://github.com/haskell/haskell-ide/tree/master/docs) directory here,
+so collaborators can either edit or provide pull requests.
+
+  * [Inspirations](https://github.com/haskell/haskell-ide/blob/master/docs/Inspirations.md)
+  * [Tools](https://github.com/haskell/haskell-ide/blob/master/docs/Tools.md) that could/should be integrated into haskell-ide
