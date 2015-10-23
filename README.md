@@ -54,8 +54,9 @@ like a channel for querying information about a project, one for a ghci session,
 and whatever others are needed. These logical channels can then run over
 whatever transport is appropriate to the specific IDE being integrated.
 
-According to #2 it seems the consensus is toward (re) using the Idris protocol,
-as the languages are similar enough and it offers cross-IDE support already.
+According to [#2](https://github.com/haskell/haskell-ide/issues/2) it seems the
+consensus is toward (re) using the Idris protocol, as the languages are similar
+enough and it offers cross-IDE support already.
 
 The Plugin and IDE layers are very fuzzy at this point, and there has been some
 discussion on IRC around it. These layers may well live in a single repository
