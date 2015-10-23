@@ -6,6 +6,8 @@ Basically a list of what other projects are doing to solve similar problems, in 
 
 * https://github.com/kRITZCREEK/psc-ide - Editor Support for the PureScript programming language
 
+* https://github.com/epost/psc-query - PureScript source code knowledge extraction and querying support.
+
 * https://github.com/neovim/neovim/wiki/Plugin-UI-architecture
 
 * https://github.com/omnisharp - Cross platform *** development in the editor of your choice
