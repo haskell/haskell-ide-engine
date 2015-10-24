@@ -32,6 +32,13 @@ Basically a list of what other projects are doing to solve similar problems, in 
 
 * [emacs-devel mailing list: re IDE](https://lists.gnu.org/archive/html/emacs-devel/2015-10/msg00669.html)
 
+* [Incremental lexer for IDE](http://blog.haskell-exists.com/yuras/posts/incremental-lexer.html)
+
+* [Lazy Functional Incremental Parsing](http://www.cse.chalmers.se/~bernardy/FunctionalIncrementalParsing.pdf) by JP Bernardy, as used in Yi editor
+
+* [Robust & Precise incremental parsing of Haskell](http://publications.lib.chalmers.se/records/fulltext/117337.pdf) thesis by Anders Karlsson, also wrt Yi editor
+
+
 ## Scion-Tools
 
 From the `haskell-ide` mailing list:
