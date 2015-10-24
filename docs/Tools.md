@@ -2,7 +2,9 @@
 
 * HaRe
 * codex
+* dead code detection (https://github.com/soenkehahn/dead-code-detection)
 * djinn 
+* exference (https://github.com/lspitzner/exference/)
 * ghc-mod
 * ghci / ghci-ng
 * hasktags
@@ -18,3 +20,4 @@
 * scan reformatting tool (http://projects.haskell.org/style-scanner/)
 * scion / scion-tools
 * stylish-haskell
+
