@@ -15,16 +15,35 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Lib
+  exposed-modules:     Haskell.Ide.Monad
+                       Haskell.Ide.Plugin
+                       Haskell.Ide.Options
+                       Haskell.Ide.Types
+  other-modules:       Paths_haskell_ide
   build-depends:       base >= 4.7 && < 5
+                     , directory
+                     , ghc >= 7.10.2 && < 7.11
+                     , ghc-mod >= 5.4
+                     , optparse-applicative
+                     , optparse-simple >= 0.0.3
+                     , transformers
+  ghc-options:         -Wall
   default-language:    Haskell2010
 
 executable haskell-ide
   hs-source-dirs:      app
   main-is:             Main.hs
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  other-modules:       Paths_haskell_ide
   build-depends:       base
+                     , Cabal >= 1.22
+                     , ghc
+                     , ghc-mod
+                     , gitrev >= 1.1
                      , haskell-ide
+                     , optparse-applicative
+                     , optparse-simple
+                     , transformers
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
   default-language:    Haskell2010
 
 test-suite haskell-ide-test
@@ -33,7 +52,7 @@ test-suite haskell-ide-test
   main-is:             Spec.hs
   build-depends:       base
                      , haskell-ide
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
   default-language:    Haskell2010
 
 source-repository head
