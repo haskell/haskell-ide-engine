@@ -10,6 +10,10 @@ Basically a list of what other projects are doing to solve similar problems, in 
 
 * https://github.com/neovim/neovim/wiki/Plugin-UI-architecture
 
+* https://github.com/ensime/ensime-server - ENhanced Scala Interaction Mode for text Editors
+
+* https://github.com/knupfer/haskell-emacs - to check out communication between Emacs and Haskell
+
 * https://github.com/omnisharp - Cross platform *** development in the editor of your choice
   (ignore the language, look at the tooling). Detail: https://github.com/OmniSharp/omnisharp-emacs/blob/master/src/actions/omnisharp-auto-complete-actions.el
 
