@@ -7,6 +7,10 @@ Basically a list of what other projects are doing to solve similar problems, in 
 * https://github.com/kRITZCREEK/psc-ide - Editor Support for the PureScript programming language
 
 * https://github.com/atom-haskell/ide-haskell - atom plugin
+ 
+* https://github.com/the-lambda-church/merlin - Context sensitive completion for OCaml in Vim and Emacs
+
+* https://github.com/Sarcasm/irony-mode - A C/C++ minor mode for Emacs powered by libclang
 
 * https://github.com/epost/psc-query - PureScript source code knowledge extraction and querying support.
 
