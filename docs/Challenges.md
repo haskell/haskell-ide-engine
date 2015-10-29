@@ -20,7 +20,7 @@ Lets avoid a lot of layers.
 
 ## Flycheck
 
-- Works pretty well/reliably (for @bitemyapp anyway), but a bit slow. Basically fires off a `stack build` or `hlint` from the command line and parses stdout.
+- Works pretty well/reliably (for @bitemyapp anyway), but a bit slow. Basically fires off a `stack build` (or `cabal build`) or `hlint` from the command line and parses stdout.
 
 - Emacs-only
 
