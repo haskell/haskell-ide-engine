@@ -20,4 +20,3 @@
 * scan reformatting tool (http://projects.haskell.org/style-scanner/)
 * scion / scion-tools
 * stylish-haskell
-
