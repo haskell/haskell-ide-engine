@@ -18,4 +18,10 @@
 
 Lets avoid a lot of layers.
 
-## Scion
+## Flycheck
+
+- Works pretty well/reliably (for @bitemyapp anyway), but a bit slow. Basically fires off a `stack build` or `hlint` from the command line and parses stdout.
+
+- Emacs-only
+
+- Easier to get working reliably than ghc-mod
