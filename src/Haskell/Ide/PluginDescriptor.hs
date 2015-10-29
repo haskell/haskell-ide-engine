@@ -27,12 +27,45 @@ data PluginDescriptor = PluginDescriptor
 -- |Ideally a UiCommand is defined in such a way that it can be exposed via the
 -- native CLI for the tool being exposed as well. Perhaps use
 -- Options.Applicative for this in some way.
-data UiCommands = [UiCommand]
-  {
+data UiCommand = UiCommand
+  { uiCmdName :: String
+  , uiContexts :: [AcceptedContext]
+  , uiAdditionalParams :: [RequiredParam]
   }
 
--- | A service is something generic, and includes (but is not limited to)
+
 data Service = Service
   { svcName :: String
   -- , svcXXX :: undefined
   }
+
+-- |Define what context will be accepted from the frontend for the specific
+-- command. Matches up to corresponding values for CommandContext
+data AcceptedContext = CtxNone        -- ^ No context required, global command
+                     | CtxPoint       -- ^ A single (Line,Col) in a specific file
+                     | CtxRegion      -- ^ A region within a specific file
+                     | CtxFile        -- ^ Works on a whole file
+                     | CtxCabalTarget -- ^ Works on a specific cabal target
+                     deriving (Eq,Show)
+
+-- | The actual details of a context when sent from the front-end to the plugin,
+-- according to the matching AcceptContext
+data CommandContext = NoContext                  -- ^ No or global context
+                    | RowCol Int Int             -- ^ A single (Line,Col) in a specific file
+                    | Region (Int,Int) (Int,Int) -- ^ A region within a specific file
+                    | WholeFile                  -- ^ Works on the whole file
+                    | CabalTarget                -- ^ Works on a specific cabal target
+                    deriving (Eq,Show)
+
+data SessionContext = CabalSession CabalSection AbsFilePath
+                    | SimpleSession AbsFilePath
+                    deriving (Eq,Show)
+
+-- |It will simplify things to always work with an absolute file path
+type AbsFilePath = FilePath
+
+data CabalSection = CabalSection String deriving (Show,Eq)
+
+-- |Initially all params will be returned as strings. This can become a much
+-- richer structure in time.
+data RequiredParam = RP String -- ^ Prompt
