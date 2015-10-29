@@ -15,9 +15,8 @@ JSON has wide and popular support in a variety of languages. Supporting a unifor
 Return a promise id and let the client decide when to block on getting the response?
 
 `GET /type/?data=blah -> {"promise": 0}`, then `GET /promise/0` when you're ready for the answer.
- how does it work if there are other async events coming too, and/or it is a long running command so there is no knowledge in the front end of when it has finished?
-21:19 < bitemyapp> alanz: get -> 1, get -> 2, get -> 3
-21:19 < bitemyapp> alanz: okay, call them continuation or callback ids. point is to uniquely (but temporarily) identify an ongoing computation across the wall.
+
+How does it work if there are other async events coming too, and/or it is a long running command so there is no knowledge in the front end of when it has finished? You perform multiple requests, you got: `get -> 1, get -> 2, get -> 3`. When you want answers, those callback ids in any order you like. Point is to uniquely (but temporarily) identify an ongoing computation across the wall.
 
 This is a bit like codata; it's a stretch, but bear with me! In total languages, if you have an indefinite stream of data, you have to keep giving control back to the caller rather than make them block indefinitely. You can either block or give them a chance to block on another continuation.
 
