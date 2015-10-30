@@ -17,3 +17,5 @@ cabal.sandbox.config
 *.log
 *.out
 *.pdf
+/docs/hcar/auto/2015.el
+/docs/hcar/prv_2015.fmt
