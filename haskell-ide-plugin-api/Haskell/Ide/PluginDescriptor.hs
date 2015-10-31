@@ -1,5 +1,3 @@
-module Haskell.Ide.PluginDescriptor where
-
 -- | Experimenting with a data structure to define a plugin.
 --
 -- The general idea is that a given plugin returns this structure during the
@@ -17,7 +15,7 @@ module Haskell.Ide.PluginDescriptor where
 --       shared resource management, e.g. default Calendar app, default SMS app,
 --       all making use of Contacts service.
 
--- ---------------------------------------------------------------------
+module Haskell.Ide.PluginDescriptor where
 
 import qualified Data.Map as Map
 
@@ -90,6 +88,7 @@ type ParamVal = String
 
 data IdeResponse = IdeResponseOk String
                  | IdeResponseFail String
+                 deriving Show
 
 type Dispatcher = IdeRequest -> IO IdeResponse
 
