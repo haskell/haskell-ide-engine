@@ -1,9 +1,11 @@
-resolver: lts-3.11
+#resolver: lts-3.11
+# Nightly has ghc-mod/cabal-helper, not in lts yet
+resolver: nightly-2015-10-27
 packages:
 - .
 - example-plugin
 - haskell-ide-example-plugin2
 - haskell-ide-plugin-api
 extra-deps:
-- ghc-mod-5.4.0.0
-- cabal-helper-0.6.1.0
+# - ghc-mod-5.4.0.0
+# - cabal-helper-0.6.1.0
