@@ -17,6 +17,11 @@ module Haskell.Ide.PluginDescriptor where
 --       shared resource management, e.g. default Calendar app, default SMS app,
 --       all making use of Contacts service.
 
+-- ---------------------------------------------------------------------
+
+import qualified Data.Map as Map
+
+-- ---------------------------------------------------------------------
 
 data PluginDescriptor = PluginDescriptor
   { pdUiCommands :: [UiCommand]
@@ -28,11 +33,12 @@ data PluginDescriptor = PluginDescriptor
 -- native CLI for the tool being exposed as well. Perhaps use
 -- Options.Applicative for this in some way.
 data UiCommand = UiCommand
-  { uiCmdName :: String
-  , uiContexts :: [AcceptedContext]
+  { uiCmdName :: CommandName
+  , uiContexts :: [AcceptedContext] -- TODO: should this be a non empty list? or should empty list imply CtxNone.
   , uiAdditionalParams :: [RequiredParam]
   }
 
+type CommandName = String
 
 data Service = Service
   { svcName :: String
@@ -69,3 +75,22 @@ data CabalSection = CabalSection String deriving (Show,Eq)
 -- |Initially all params will be returned as strings. This can become a much
 -- richer structure in time.
 data RequiredParam = RP String -- ^ Prompt
+
+-- ---------------------------------------------------------------------
+
+data IdeRequest = IdeRequest
+  { ideCommand :: CommandName
+  , ideSession :: SessionContext
+  , ideContext :: CommandContext
+  , ideParams  :: Map.Map ParamId ParamVal
+  }
+
+type ParamId = String
+type ParamVal = String
+
+data IdeResponse = IdeResponseOk String
+                 | IdeResponseFail String
+
+type Dispatcher = IdeRequest -> IO IdeResponse
+
+-- EOF
