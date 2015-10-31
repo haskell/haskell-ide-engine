@@ -1,4 +1,4 @@
-name:                haskell-ide-example-plugin
+name:                haskell-ide-example-plugin2
 version:             0.1.0.0
 synopsis:            Haskell IDE example plugin
 license:             BSD3
@@ -12,7 +12,7 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Haskell.Ide.ExamplePlugin
+  exposed-modules:     Haskell.Ide.ExamplePlugin2
   build-depends:       base >= 4.7 && < 5
                      , haskell-ide-engine
   ghc-options:         -Wall

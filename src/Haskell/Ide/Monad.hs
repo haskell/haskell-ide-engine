@@ -10,7 +10,7 @@ import qualified Language.Haskell.GhcMod.Monad as GM
 import qualified Language.Haskell.GhcMod.Types as GM
 import           Module (mkModuleName)
 import           Options.Applicative.Simple
-import qualified Paths_haskell_ide as Meta
+import qualified Paths_haskell_ide_engine as Meta
 import           System.Directory
 
 runIdeM :: IdeM a -> IO a

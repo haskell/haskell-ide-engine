@@ -1,8 +1,8 @@
-name:                haskell-ide
+name:                haskell-ide-engine
 version:             0.1.0.0
 synopsis:            Provide a common engine to power any Haskell IDE
 description:         Please see README.md
-homepage:            http://github.com/githubuser/haskell-ide#readme
+homepage:            http://github.com/githubuser/haskell-ide-engine#readme
 license:             BSD3
 license-file:        LICENSE
 author:              Many,TBD when we release
@@ -19,7 +19,7 @@ library
                        Haskell.Ide.Plugin
                        Haskell.Ide.Options
                        Haskell.Ide.Types
-  other-modules:       Paths_haskell_ide
+  other-modules:       Paths_haskell_ide_engine
   build-depends:       base >= 4.7 && < 5
                      , directory
                      , ghc >= 7.10.2 && < 7.11
@@ -30,16 +30,17 @@ library
   ghc-options:         -Wall
   default-language:    Haskell2010
 
-executable haskell-ide
+executable haskell-ide-engine
   hs-source-dirs:      app
   main-is:             Main.hs
-  other-modules:       Paths_haskell_ide
+  other-modules:       Paths_haskell_ide_engine
   build-depends:       base
                      , Cabal >= 1.22
                      , ghc
                      , ghc-mod
                      , gitrev >= 1.1
-                     , haskell-ide
+                     , haskell-ide-engine
+                     , haskell-ide-plugin-api
                      , optparse-applicative
                      , optparse-simple
                      , transformers
@@ -51,10 +52,10 @@ test-suite haskell-ide-test
   hs-source-dirs:      test
   main-is:             Spec.hs
   build-depends:       base
-                     , haskell-ide
+                     , haskell-ide-engine
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
   default-language:    Haskell2010
 
 source-repository head
   type:     git
-  location: https://github.com/haskell/haskell-ide
+  location: https://github.com/haskell/haskell-ide-engine

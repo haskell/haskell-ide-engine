@@ -1,7 +1,9 @@
-resolver: lts-3.8
+resolver: lts-3.11
 packages:
 - .
 - example-plugin
+- haskell-ide-example-plugin2
+- haskell-ide-plugin-api
 extra-deps:
 - ghc-mod-5.4.0.0
 - cabal-helper-0.6.1.0
