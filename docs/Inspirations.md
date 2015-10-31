@@ -16,6 +16,8 @@ Basically a list of what other projects are doing to solve similar problems, in 
 
 * https://github.com/neovim/neovim/wiki/Plugin-UI-architecture
 
+* https://github.com/neovimhaskell/nvim-hs - Neovim API for Haskell plugins as well as the plugin provider 
+
 * https://github.com/ensime/ensime-server - ENhanced Scala Interaction Mode for text Editors
 
 * https://github.com/knupfer/haskell-emacs - to check out communication between Emacs and Haskell
