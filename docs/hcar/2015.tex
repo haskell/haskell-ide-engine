@@ -1,0 +1,44 @@
+\documentclass[DIV16,twocolumn,10pt]{scrreprt}
+\usepackage{paralist}
+\usepackage{graphicx}
+\usepackage[final]{hcar}
+
+\begin{document}
+
+\begin{hcarentry}{haskell-ide-engine, a project for unifying IDE functionality}
+\report{Chris Allen}
+\status{Open source, just beginning}
+\participants{Alan Zimmerman, Michael Sloan, Gracjan Polak, Daniel Gr\"ober, others welcome}
+
+\makeheader
+
+\textit{haskell-ide} is a backend for driving the sort of features programmers
+expect out of IDE environments. Perhaps soon to be called
+\textit{haskell-ide-engine}, \textit{haskell-ide} is a project to unify tooling
+efforts into something different text editors, and indeed IDEs as well, could
+use to avoid duplication of effort.
+
+Features like type errors, linting, refactoring, and reformatting code are
+planned. People who are familiar with a particular part of the chain can
+focus their efforts there, knowing that the other parts will be handled by
+other components of the backend. Inspiration is being taken from the work the
+Idris community has done toward an interactive editing environment as well. This
+is a deliberately broad scope, the initial versions will be very limited at
+first. The sooner we can get started the sooner we will have something concrete
+to criticise and improve.
+
+Help is very much needed and wanted so if this is a problem that interests you,
+please pitch in! This is not a project just for a small inner circle. Anyone
+who wants to will be added to the project on github, address your request to
+@alanz or @hvr.
+
+\FurtherReading
+  \url{https://github.com/haskell/haskell-ide-engine} \\
+  \url{https://mail.haskell.org/pipermail/haskell-cafe/2015-October/121875.html} \\
+  \url{https://www.fpcomplete.com/blog/2015/10/new-haskell-ide-repo} \\
+  \url{https://www.reddit.com/r/haskell/comments/3pt560/ann_haskellide_project/} \\
+  \url{https://www.reddit.com/r/haskell/comments/3qbgmo/fp_complete_the_new_haskellide_repo/}
+
+\end{hcarentry}
+
+\end{document}

@@ -9,7 +9,7 @@ together.
 
 Right now there is a google group/mailing list for
 [haskell-ide](https://groups.google.com/forum/#!forum/haskell-ide) and an empty
-IRC channel at #haskell-ide on freenode.
+IRC channel at #haskell-ide-engine on freenode.
 
 The initial discussions have taken place in a number of email threads/IRC
 channels, this should become the place where these discussions happen in future.

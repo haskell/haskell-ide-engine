@@ -2,7 +2,10 @@
 
 * HaRe
 * codex
+* dead code detection (https://github.com/soenkehahn/dead-code-detection)
 * djinn 
+* exference (https://github.com/lspitzner/exference/)
+* flycheck
 * ghc-mod
 * ghci / ghci-ng
 * hasktags

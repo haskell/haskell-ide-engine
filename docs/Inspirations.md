@@ -6,9 +6,21 @@ Basically a list of what other projects are doing to solve similar problems, in 
 
 * https://github.com/kRITZCREEK/psc-ide - Editor Support for the PureScript programming language
 
+* https://github.com/atom-haskell/ide-haskell - atom plugin
+ 
+* https://github.com/the-lambda-church/merlin - Context sensitive completion for OCaml in Vim and Emacs
+
+* https://github.com/Sarcasm/irony-mode - A C/C++ minor mode for Emacs powered by libclang
+
 * https://github.com/epost/psc-query - PureScript source code knowledge extraction and querying support.
 
 * https://github.com/neovim/neovim/wiki/Plugin-UI-architecture
+
+* https://github.com/neovimhaskell/nvim-hs - Neovim API for Haskell plugins as well as the plugin provider 
+
+* https://github.com/ensime/ensime-server - ENhanced Scala Interaction Mode for text Editors
+
+* https://github.com/knupfer/haskell-emacs - to check out communication between Emacs and Haskell
 
 * https://github.com/omnisharp - Cross platform *** development in the editor of your choice
   (ignore the language, look at the tooling). Detail: https://github.com/OmniSharp/omnisharp-emacs/blob/master/src/actions/omnisharp-auto-complete-actions.el
@@ -31,6 +43,13 @@ Basically a list of what other projects are doing to solve similar problems, in 
 * https://www.rust-lang.org/ides.html Rust Language proposed IDE support
 
 * [emacs-devel mailing list: re IDE](https://lists.gnu.org/archive/html/emacs-devel/2015-10/msg00669.html)
+
+* [Incremental lexer for IDE](http://blog.haskell-exists.com/yuras/posts/incremental-lexer.html)
+
+* [Lazy Functional Incremental Parsing](http://www.cse.chalmers.se/~bernardy/FunctionalIncrementalParsing.pdf) by JP Bernardy, as used in Yi editor
+
+* [Robust & Precise incremental parsing of Haskell](http://publications.lib.chalmers.se/records/fulltext/117337.pdf) thesis by Anders Karlsson, also wrt Yi editor
+
 
 ## Scion-Tools
 
