@@ -63,6 +63,7 @@ data CommandContext = NoContext                  -- ^ No or global context
 
 data SessionContext = CabalSession CabalSection AbsFilePath
                     | SimpleSession AbsFilePath
+                    | NoSession
                     deriving (Eq,Show)
 
 -- |It will simplify things to always work with an absolute file path
@@ -81,13 +82,14 @@ data IdeRequest = IdeRequest
   , ideSession :: SessionContext
   , ideContext :: CommandContext
   , ideParams  :: Map.Map ParamId ParamVal
-  }
+  } deriving Show
 
 type ParamId = String
 type ParamVal = String
 
 data IdeResponse = IdeResponseOk String
                  | IdeResponseFail String
+                 | IdeResponseError String
                  deriving Show
 
 type Dispatcher = IdeRequest -> IO IdeResponse
