@@ -159,9 +159,9 @@ stdioListener :: Chan ChannelRequest -> IO ()
 stdioListener cin = do
   cout <- newChan :: IO (Chan ChannelResponse)
   hSetBuffering stdout NoBuffering
-  putStrLn $ "IE version : " ++ version
+  putStrLn $ "HIE version : " ++ version
   let
-    prompt = "IE> "
+    prompt = "HIE> "
     loop cid = do
       putStr prompt
       cmdArg <- getLine
