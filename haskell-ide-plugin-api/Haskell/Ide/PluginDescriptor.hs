@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 -- | Experimenting with a data structure to define a plugin.
 --
 -- The general idea is that a given plugin returns this structure during the
@@ -17,8 +18,10 @@
 
 module Haskell.Ide.PluginDescriptor where
 
-import Data.Aeson
+import           Data.Aeson
+import           Data.Aeson.Types
 import qualified Data.Map as Map
+import           GHC.Generics
 
 -- ---------------------------------------------------------------------
 
@@ -51,7 +54,7 @@ data AcceptedContext = CtxNone        -- ^ No context required, global command
                      | CtxRegion      -- ^ A region within a specific file
                      | CtxFile        -- ^ Works on a whole file
                      | CtxCabalTarget -- ^ Works on a specific cabal target
-                     deriving (Eq,Show)
+                     deriving (Eq,Show,Generic)
 
 -- | The actual details of a context when sent from the front-end to the plugin,
 -- according to the matching AcceptContext
@@ -60,17 +63,17 @@ data CommandContext = NoContext                  -- ^ No or global context
                     | Region (Int,Int) (Int,Int) -- ^ A region within a specific file
                     | WholeFile                  -- ^ Works on the whole file
                     | CabalTarget                -- ^ Works on a specific cabal target
-                    deriving (Eq,Show)
+                    deriving (Eq,Show,Generic)
 
 data SessionContext = CabalSession CabalSection AbsFilePath
                     | SimpleSession AbsFilePath
                     | NoSession
-                    deriving (Eq,Show)
+                    deriving (Eq,Show, Generic)
 
 -- |It will simplify things to always work with an absolute file path
 type AbsFilePath = FilePath
 
-data CabalSection = CabalSection String deriving (Show,Eq)
+data CabalSection = CabalSection String deriving (Show,Eq,Generic)
 
 -- |Initially all params will be returned as strings. This can become a much
 -- richer structure in time.
@@ -103,4 +106,27 @@ data IdeResponse = IdeResponseOk    Value -- ^ Command Succeeded
 -- type Dispatcher = IdeRequest -> IdeM IdeResponse
 type Dispatcher = IdeRequest -> IO IdeResponse
 
+-- ---------------------------------------------------------------------
+-- JSON instances
+instance ToJSON SessionContext where
+    toJSON = genericToJSON defaultOptions
+
+instance FromJSON SessionContext where
+    -- No need to provide a parseJSON implementation.
+
+-- -------------------------------------
+
+instance ToJSON CabalSection where
+    toJSON = genericToJSON defaultOptions
+
+instance FromJSON CabalSection where
+    -- No need to provide a parseJSON implementation.
+
+-- -------------------------------------
+
+instance ToJSON CommandContext where
+    toJSON = genericToJSON defaultOptions
+
+instance FromJSON CommandContext where
+    -- No need to provide a parseJSON implementation.
 -- EOF
