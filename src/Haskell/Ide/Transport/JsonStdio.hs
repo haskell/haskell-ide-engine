@@ -33,16 +33,16 @@ jsonStdioTransport cin = do
   hSetBuffering stdout NoBuffering
   let
     loop cid stream = do
-      putStrLn "calling go"
+      -- putStrLn "calling go"
       (req,stream') <- runStateT decodeMsg stream
       case req of
-        Just (Left err) -> putStrLn (show err)
+        Just (Left err) -> putStr $ show (HieError (A.String $ T.pack $ show err))
         Just (Right r) -> do
           writeChan cin (wireToChannel cout cid r)
           rsp <- readChan cout
           BL.putStr $ A.encode (channelToWire rsp)
-        Nothing -> putStrLn $ "got Nothing"
-      putStrLn $ "got:" ++ show req
+        Nothing -> putStr $ show (HieError (A.String $ T.pack $ "Got Nothing"))
+      -- putStrLn $ "got:" ++ show req
       loop (cid + 1) stream'
   loop 1 P.stdin
 
