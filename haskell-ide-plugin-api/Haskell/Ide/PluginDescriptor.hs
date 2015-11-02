@@ -17,6 +17,7 @@
 
 module Haskell.Ide.PluginDescriptor where
 
+import Data.Aeson
 import qualified Data.Map as Map
 
 -- ---------------------------------------------------------------------
@@ -90,11 +91,11 @@ type ParamVal = String
 -- TODO: should probably be able to return a plugin-specific type. Not sure how
 -- to encode it. Perhaps as an instance of a class which says it can be encoded
 -- on the wire.
-data IdeResponse = IdeResponseOk String -- ^ Command Succeeded
-                 | IdeResponseFail String -- ^ Command Failed
-                 | IdeResponseError String -- ^ some error in haskell-ide-engine
-                                           -- driver. Equivalent to HTTP 500
-                                           -- status
+data IdeResponse = IdeResponseOk    Value -- ^ Command Succeeded
+                 | IdeResponseFail  Value -- ^ Command Failed
+                 | IdeResponseError Value -- ^ some error in haskell-ide-engine
+                                          -- driver. Equivalent to HTTP 500
+                                          -- status
                  deriving Show
 
 

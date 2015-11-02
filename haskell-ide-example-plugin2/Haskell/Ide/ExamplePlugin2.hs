@@ -1,8 +1,11 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.ExamplePlugin2 where
 
 import Haskell.Ide.PluginDescriptor
 
+import Data.Aeson
 import qualified Data.Map as Map
+import qualified Data.Text as T
 
 -- ---------------------------------------------------------------------
 
@@ -31,18 +34,18 @@ example2Descriptor = PluginDescriptor
 example2Dispatcher :: Dispatcher
 example2Dispatcher (IdeRequest name session ctx params) = do
   case name of
-    "sayHello"   -> return (IdeResponseOk sayHello)
+    "sayHello"   -> return (IdeResponseOk (String sayHello))
     "sayHelloTo" -> do
       case Map.lookup "name" params of
         Nothing -> return $ IdeResponseFail "expecting parameter `name`"
         Just n -> do
           r <- sayHelloTo n
-          return $ IdeResponseOk r
+          return $ IdeResponseOk (String r)
 
 -- ---------------------------------------------------------------------
 
-sayHello :: String
+sayHello :: T.Text
 sayHello = "hello from ExamplePlugin2"
 
-sayHelloTo :: String -> IO String
-sayHelloTo n = return $ "hello " ++ n ++ " from ExamplePlugin2"
+sayHelloTo :: String -> IO T.Text
+sayHelloTo n = return $ T.pack $ "hello " ++ n ++ " from ExamplePlugin2"

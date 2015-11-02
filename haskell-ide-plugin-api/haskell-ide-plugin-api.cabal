@@ -14,6 +14,7 @@ cabal-version:       >=1.10
 library
   exposed-modules:     Haskell.Ide.PluginDescriptor
   build-depends:       base >= 4.7 && < 5
+                     , aeson
                      , containers
   ghc-options:         -Wall
   default-language:    Haskell2010

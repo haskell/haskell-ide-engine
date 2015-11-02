@@ -7,11 +7,13 @@ import           Control.Concurrent
 import           Control.Exception
 import           Control.Monad
 import           Control.Monad.IO.Class
+import           Data.Aeson
 import           Data.Char
 import           Data.Foldable
 import           Data.IORef
 import           Data.List
 import           Data.Traversable
+import qualified Data.Text as T
 import           Data.Version (showVersion)
 import           Development.GitRev (gitCommitCount)
 import           Distribution.System (buildArch)
@@ -139,7 +141,7 @@ run opts = do
     timeNow <- getCurrentTime
     -- putStrLn $ "main loop:got:" ++ show req
     r <- case Map.lookup (cinPlugin req) plugins of
-      Nothing -> return (IdeResponseError ("No plugin found for:" ++ cinPlugin req ))
+      Nothing -> return (IdeResponseError (String $ T.pack $ "No plugin found for:" ++ cinPlugin req ))
       Just (PluginReg desc disp) -> disp (cinReq req)
     let cr = CResp (cinPlugin req) (cinReqId req) r
     timeEnd <- getCurrentTime
@@ -211,8 +213,8 @@ baseDescriptor = PluginDescriptor
 baseDispatcher :: Dispatcher
 baseDispatcher (IdeRequest name session ctx params) = do
   case name of
-    "version"   -> return (IdeResponseOk version)
-    "plugins"   -> return (IdeResponseOk (show $ Map.keys plugins))
+    "version"   -> return (IdeResponseOk (String $ T.pack version))
+    "plugins"   -> return (IdeResponseOk (String $ T.pack $ show $ Map.keys plugins))
     -- "command"   -> return (IdeResponseOk (Map.keys plugins))
 
 -- ---------------------------------------------------------------------
