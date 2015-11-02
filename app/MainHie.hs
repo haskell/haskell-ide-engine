@@ -1,5 +1,4 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE FlexibleInstances #-}
 
 module Main where
 
@@ -22,6 +21,7 @@ import           Haskell.Ide.Monad
 import           Haskell.Ide.Options
 import           Haskell.Ide.Plugin
 import           Haskell.Ide.PluginDescriptor
+import           Haskell.Ide.Transport.JsonStdio
 import           Haskell.Ide.Types
 import qualified Language.Haskell.GhcMod.LightGhc as GM
 import qualified Language.Haskell.GhcMod.Monad as GM
@@ -62,7 +62,7 @@ main = do
     (global, ()) <-
         simpleOptions
             versionString'
-            "haskell-ide - Provide a common engine to power any Haskell IDE"
+            "haskell-ide-engine - Provide a common engine to power any Haskell IDE"
             ""
             (numericVersion <*> globalOptsParser)
             empty
@@ -84,12 +84,6 @@ version =
 
 -- ---------------------------------------------------------------------
 
-data PluginReg = PluginReg PluginDescriptor Dispatcher
-type PluginId = String
-
-type Plugins = Map.Map PluginId PluginReg
-
-
 plugins :: Plugins
 plugins = Map.fromList
   [
@@ -100,41 +94,27 @@ plugins = Map.fromList
   , ("base", PluginReg baseDescriptor baseDispatcher)
   ]
 
-type RequestId = Int
-
-data ChannelRequest = CReq
-  { cinPlugin    :: PluginId
-  , cinReqId     :: RequestId -- ^An identifier for the request, can tie back to
-                            -- e.g. a promise id. It is returned with the
-                            -- ChannelResponse.
-  , cinReq       :: IdeRequest
-  , cinReplyChan :: Chan ChannelResponse
-  } deriving Show
-
-instance Show (Chan ChannelResponse) where
-  show _ = "(Chan ChannelResponse)"
- 
-data ChannelResponse = CResp
-  { couPlugin :: PluginId
-  , coutReqId :: RequestId
-  , coutResp  :: IdeResponse
-  } deriving Show
-
 -- ---------------------------------------------------------------------
 
-
--- ---------------------------------------------------------------------
-
-run :: t -> IO ()
+run :: GlobalOpts -> IO ()
 run opts = do
   putStrLn $ "run entered"
   cin <- newChan :: IO (Chan ChannelRequest)
 
+  -- putStrLn $ "run:calling go"
+  -- forkIO go2
+  -- r <- go
+  -- putStrLn $ "run:go returned " ++ show r
+
+  forkIO (runner cin)
   -- Can have multiple listeners, each using a different transport protocol, so
   -- long as they can pass through a ChannelRequest
   -- forkIO (listener cin)
-  forkIO (stdioListener cin)
+  if (optRepl opts)
+     then stdioListener cin
+     else jsonStdioTransport cin
 
+runner cin = do
   forever $ do
     -- putStrLn $ "run:top of loop"
     req <- readChan cin
@@ -217,30 +197,3 @@ baseDispatcher (IdeRequest name session ctx params) = do
     "plugins"   -> return (IdeResponseOk (String $ T.pack $ show $ Map.keys plugins))
     -- "command"   -> return (IdeResponseOk (Map.keys plugins))
 
--- ---------------------------------------------------------------------
-
-startCmdOpts :: Parser [FilePath]
-startCmdOpts =
-    many (strArgument
-        ( metavar "TARGET"
-       <> help "Specify Haskell files to load"
-        ))
-
-startCmd :: [FilePath] -> GlobalOpts -> IO ()
-startCmd targets opts = runIdeM $ do
-    let pkgOpts
-            | null (optPluginPackages opts) = []
-            | otherwise =
-                "-hide-all-packages" :
-                concatMap (\pkg -> ["-package", pkg])
-                          ("haskell-ide" : optPluginPackages opts)
-    -- Load and initialize the plugins.
-    liftIO $ putStrLn "Initializing plugins"
-    _plugins <- GM.withLightHscEnv pkgOpts $ \hsc_env ->
-        liftIO $ forM (optPluginModules opts) $ \mn -> do
-            plugin <- loadPlugin hsc_env (mkModuleName mn)
-            forM_ (initializeHook plugin) id
-            return plugin
-    liftIO $ putStrLn "Done initializing plugins"
-    -- Load target filepaths specified on the CLI.
-    setTargets (map Left targets)
