@@ -87,11 +87,19 @@ data IdeRequest = IdeRequest
 type ParamId = String
 type ParamVal = String
 
-data IdeResponse = IdeResponseOk String
-                 | IdeResponseFail String
-                 | IdeResponseError String
+-- TODO: should probably be able to return a plugin-specific type. Not sure how
+-- to encode it. Perhaps as an instance of a class which says it can be encoded
+-- on the wire.
+data IdeResponse = IdeResponseOk String -- ^ Command Succeeded
+                 | IdeResponseFail String -- ^ Command Failed
+                 | IdeResponseError String -- ^ some error in haskell-ide-engine
+                                           -- driver. Equivalent to HTTP 500
+                                           -- status
                  deriving Show
 
+
+-- This should probabaly become
+-- type Dispatcher = IdeRequest -> IdeM IdeResponse
 type Dispatcher = IdeRequest -> IO IdeResponse
 
 -- EOF

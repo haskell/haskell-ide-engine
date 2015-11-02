@@ -139,7 +139,7 @@ run opts = do
     timeNow <- getCurrentTime
     -- putStrLn $ "main loop:got:" ++ show req
     r <- case Map.lookup (cinPlugin req) plugins of
-      Nothing -> return (IdeResponseFail ("No plugin found for:" ++ cinPlugin req ))
+      Nothing -> return (IdeResponseError ("No plugin found for:" ++ cinPlugin req ))
       Just (PluginReg desc disp) -> disp (cinReq req)
     let cr = CResp (cinPlugin req) (cinReqId req) r
     timeEnd <- getCurrentTime
@@ -165,10 +165,12 @@ stdioListener cin = do
     loop cid = do
       putStr prompt
       cmdArg <- getLine
+      -- This command parsing should be built up from the PluginDescriptors
       let
         req = case dropWhileEnd isSpace cmdArg of
-          "hello"   -> Right $ ("eg2",IdeRequest "sayHello" NoSession NoContext Map.empty)
-          "version" -> Right $ ("base",IdeRequest "version" NoSession NoContext Map.empty)
+          "hello"   -> Right $ ("eg2", IdeRequest "sayHello" NoSession NoContext Map.empty)
+          "version" -> Right $ ("base",IdeRequest "version"  NoSession NoContext Map.empty)
+          "plugins" -> Right $ ("base",IdeRequest "plugins"  NoSession NoContext Map.empty)
           cmd     -> Left $ "unrecognised command:" ++ cmd
       case req of
         Left err -> putStrLn err
@@ -191,6 +193,16 @@ baseDescriptor = PluginDescriptor
           , uiContexts = [CtxNone]
           , uiAdditionalParams = []
           }
+      , UiCommand
+          { uiCmdName = "plugins"
+          , uiContexts = [CtxNone]
+          , uiAdditionalParams = []
+          }
+      , UiCommand
+          { uiCmdName = "commands"
+          , uiContexts = [CtxNone]
+          , uiAdditionalParams = [RP "plugin"]
+          }
       ]
   , pdExposedServices = []
   , pdUsedServices    = []
@@ -200,6 +212,8 @@ baseDispatcher :: Dispatcher
 baseDispatcher (IdeRequest name session ctx params) = do
   case name of
     "version"   -> return (IdeResponseOk version)
+    "plugins"   -> return (IdeResponseOk (show $ Map.keys plugins))
+    -- "command"   -> return (IdeResponseOk (Map.keys plugins))
 
 -- ---------------------------------------------------------------------
 
