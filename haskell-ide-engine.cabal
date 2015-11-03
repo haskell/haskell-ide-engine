@@ -55,6 +55,7 @@ executable hie
                      , haskell-ide-engine
                      , haskell-ide-plugin-api
                      , haskell-ide-example-plugin2
+                     , logging
                      , optparse-applicative
                      , optparse-simple
                      , text

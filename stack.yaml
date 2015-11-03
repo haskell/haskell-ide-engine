@@ -3,9 +3,9 @@
 resolver: nightly-2015-10-27
 packages:
 - .
-- example-plugin
 - haskell-ide-example-plugin2
 - haskell-ide-plugin-api
 extra-deps:
+ - logging-3.0.2
 # - ghc-mod-5.4.0.0
 # - cabal-helper-0.6.1.0
