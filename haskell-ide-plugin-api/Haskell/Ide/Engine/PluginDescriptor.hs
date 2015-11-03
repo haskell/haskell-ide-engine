@@ -56,19 +56,19 @@ data AcceptedContext = CtxNone        -- ^ No context required, global command
                      | CtxCabalTarget -- ^ Works on a specific cabal target
                      deriving (Eq,Show,Generic)
 
--- | The actual details of a context when sent from the front-end to the plugin,
--- according to the matching AcceptContext
-data CommandContext = NoContext                  -- ^ No or global context
-                    | RowCol Int Int             -- ^ A single (Line,Col) in a specific file
-                    | Region (Int,Int) (Int,Int) -- ^ A region within a specific file
-                    | WholeFile                  -- ^ Works on the whole file
-                    | CabalTarget                -- ^ Works on a specific cabal target
-                    deriving (Eq,Show,Generic)
+type Pos = (Int,Int)
 
-data SessionContext = CabalSession CabalSection AbsFilePath
-                    | SimpleSession AbsFilePath
-                    | NoSession
-                    deriving (Eq,Show, Generic)
+data Context = Context
+                { ctxCabal    :: Maybe CabalSection
+                , ctxFile     :: Maybe AbsFilePath
+                , ctxStartPos :: Maybe Pos
+                , ctxEndPos   :: Maybe Pos
+                }
+             deriving (Eq,Show,Generic)
+
+emptyContext :: Context
+emptyContext = Context Nothing Nothing Nothing Nothing
+
 
 -- |It will simplify things to always work with an absolute file path
 type AbsFilePath = FilePath
@@ -84,8 +84,7 @@ data RequiredParam = RP String -- ^ Prompt
 
 data IdeRequest = IdeRequest
   { ideCommand :: CommandName
-  , ideSession :: SessionContext
-  , ideContext :: CommandContext
+  , ideContext :: Context
   , ideParams  :: Map.Map ParamId ParamVal
   } deriving Show
 
@@ -109,10 +108,10 @@ type Dispatcher = IdeRequest -> IO IdeResponse
 
 -- ---------------------------------------------------------------------
 -- JSON instances
-instance ToJSON SessionContext where
+instance ToJSON Context where
     toJSON = genericToJSON defaultOptions
 
-instance FromJSON SessionContext where
+instance FromJSON Context where
     -- No need to provide a parseJSON implementation.
 
 -- -------------------------------------
@@ -123,11 +122,4 @@ instance ToJSON CabalSection where
 instance FromJSON CabalSection where
     -- No need to provide a parseJSON implementation.
 
--- -------------------------------------
-
-instance ToJSON CommandContext where
-    toJSON = genericToJSON defaultOptions
-
-instance FromJSON CommandContext where
-    -- No need to provide a parseJSON implementation.
 -- EOF

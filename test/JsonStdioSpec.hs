@@ -30,69 +30,102 @@ jsonSpec :: Spec
 jsonSpec = do
   describe "JSON Generation WireRequest" $ do
     it "generates a WireRequest 1" $ do
-      let wr = WireReq "eg1:hello" NoSession NoContext Map.empty
-      (encode wr) `shouldBe` "{\"context\":{\"tag\":\"NoContext\",\"contents\":[]},\
+      let wr = WireReq "eg1:hello" emptyContext Map.empty
+      (encode wr) `shouldBe` "{\"context\":{\"ctxEndPos\":null,\
+                                           \\"ctxCabal\":null,\
+                                           \\"ctxStartPos\":null,\
+                                           \\"ctxFile\":null},\
                               \\"params\":{},\
-                              \\"cmd\":\"eg1:hello\",\
-                              \\"session\":{\"tag\":\"NoSession\",\"contents\":[]}}"
+                              \\"cmd\":\"eg1:hello\"}"
 
     it "generates a WireRequest 2" $ do
-      let wr = WireReq "eg2:helloTo" (SimpleSession "/home/foo/Bar.hs") (RowCol 3 4) (Map.fromList [("name","foo")])
-      (encode wr) `shouldBe` "{\"context\":{\"tag\":\"RowCol\",\"contents\":[3,4]},\
+      let wr = WireReq "eg2:helloTo" (Context (Just (CabalSection "lib")) Nothing Nothing Nothing ) (Map.fromList [("name","foo")])
+      (encode wr) `shouldBe` "{\"context\":{\"ctxEndPos\":null,\
+                                           \\"ctxCabal\":\"lib\",\
+                                           \\"ctxStartPos\":null,\
+                                           \\"ctxFile\":null},\
                               \\"params\":{\"name\":\"foo\"},\
-                              \\"cmd\":\"eg2:helloTo\",\
-                              \\"session\":{\"tag\":\"SimpleSession\",\"contents\":\"/home/foo/Bar.hs\"}}"
+                              \\"cmd\":\"eg2:helloTo\"}"
 
     it "generates a WireRequest 3" $ do
-      let wr = WireReq "eg2:helloTo" (CabalSession (CabalSection "test") "/home/foo/Bar.hs")
-                                                   (Region (5,6) (7,8)) (Map.fromList [("name","foo"),("p3","val")])
-      (encode wr) `shouldBe` "{\"context\":{\"tag\":\"Region\",\"contents\":[[5,6],[7,8]]},\
+      let wr = WireReq "eg2:helloTo" (Context (Just (CabalSection "lib")) (Just "/home/foo/Bar.hs") Nothing Nothing )
+                                                    (Map.fromList [("name","foo"),("p3","val")])
+      (encode wr) `shouldBe` "{\"context\":{\"ctxEndPos\":null,\
+                                           \\"ctxCabal\":\"lib\",\
+                                           \\"ctxStartPos\":null,\
+                                           \\"ctxFile\":\"/home/foo/Bar.hs\"},\
                               \\"params\":{\"name\":\"foo\",\"p3\":\"val\"},\
-                              \\"cmd\":\"eg2:helloTo\",\
-                              \\"session\":{\"tag\":\"CabalSession\",\"contents\":[\"test\",\"/home/foo/Bar.hs\"]}}"
+                              \\"cmd\":\"eg2:helloTo\"}"
 
     it "generates a WireRequest 4" $ do
-      let wr = WireReq "eg4:hello4" NoSession WholeFile Map.empty
-      (encode wr) `shouldBe` "{\"context\":{\"tag\":\"WholeFile\",\"contents\":[]},\
+      let wr = WireReq "eg4:hello4" (Context (Just (CabalSection "lib")) (Just "/home/foo/Bar.hs") (Just (1,2)) Nothing ) Map.empty
+      (encode wr) `shouldBe` "{\"context\":{\"ctxEndPos\":null,\
+                                           \\"ctxCabal\":\"lib\",\
+                                           \\"ctxStartPos\":[1,2],\
+                                           \\"ctxFile\":\"/home/foo/Bar.hs\"},\
                               \\"params\":{},\
-                              \\"cmd\":\"eg4:hello4\",\
-                              \\"session\":{\"tag\":\"NoSession\",\"contents\":[]}}"
+                              \\"cmd\":\"eg4:hello4\"}"
 
+    it "generates a WireRequest 5" $ do
+      let wr = WireReq "eg5:hello5" (Context (Just (CabalSection "lib")) (Just "/home/foo/Bar.hs") (Just (1,2)) (Just (3,4)) ) Map.empty
+      (encode wr) `shouldBe` "{\"context\":{\"ctxEndPos\":[3,4],\
+                                           \\"ctxCabal\":\"lib\",\
+                                           \\"ctxStartPos\":[1,2],\
+                                           \\"ctxFile\":\"/home/foo/Bar.hs\"},\
+                              \\"params\":{},\
+                              \\"cmd\":\"eg5:hello5\"}"
 
   describe "JSON Parsing WireRequest" $ do
     it "parses a WireRequest 1" $ do
-      let wr = WireReq "eg1:hello" NoSession NoContext Map.empty
-      (decode "{\"context\":{\"tag\":\"NoContext\",\"contents\":[]},\
+      let wr = WireReq "eg1:hello" emptyContext Map.empty
+      (decode "{\"context\":{\"ctxEndPos\":null,\
+                            \\"ctxCabal\":null,\
+                            \\"ctxStartPos\":null,\
+                            \\"ctxFile\":null},\
                \\"params\":{},\
-               \\"cmd\":\"eg1:hello\",\
-               \\"session\":{\"tag\":\"NoSession\",\"contents\":[]}}")
+               \\"cmd\":\"eg1:hello\"}")
          `shouldBe` (Just wr)
 
     it "parses a WireRequest 2" $ do
-      let wr = WireReq "eg2:helloTo" (SimpleSession "/home/foo/Bar.hs") (RowCol 3 4) (Map.fromList [("name","foo")])
-      (decode "{\"context\":{\"tag\":\"RowCol\",\"contents\":[3,4]},\
+      let wr = WireReq "eg2:helloTo" (Context (Just (CabalSection "lib")) Nothing Nothing Nothing ) (Map.fromList [("name","foo")])
+      (decode "{\"context\":{\"ctxEndPos\":null,\
+                            \\"ctxCabal\":\"lib\",\
+                            \\"ctxStartPos\":null,\
+                            \\"ctxFile\":null},\
                \\"params\":{\"name\":\"foo\"},\
-               \\"cmd\":\"eg2:helloTo\",\
-               \\"session\":{\"tag\":\"SimpleSession\",\"contents\":\"/home/foo/Bar.hs\"}}")
+               \\"cmd\":\"eg2:helloTo\"}")
          `shouldBe` (Just wr)
 
     it "parses a WireRequest 3" $ do
-      let wr = WireReq "eg2:helloTo" (CabalSession (CabalSection "test") "/home/foo/Bar.hs")
-                                                   (Region (5,6) (7,8)) (Map.fromList [("name","foo"),("p3","val")])
-      (decode "{\"context\":{\"tag\":\"Region\",\"contents\":[[5,6],[7,8]]},\
+      let wr = WireReq "eg2:helloTo" (Context (Just (CabalSection "lib")) (Just "/home/foo/Bar.hs") Nothing Nothing )
+                                                    (Map.fromList [("name","foo"),("p3","val")])
+      (decode "{\"context\":{\"ctxEndPos\":null,\
+                            \\"ctxCabal\":\"lib\",\
+                            \\"ctxStartPos\":null,\
+                            \\"ctxFile\":\"/home/foo/Bar.hs\"},\
                \\"params\":{\"name\":\"foo\",\"p3\":\"val\"},\
-               \\"cmd\":\"eg2:helloTo\",\
-               \\"session\":{\"tag\":\"CabalSession\",\"contents\":[\"test\",\"/home/foo/Bar.hs\"]}}")
+               \\"cmd\":\"eg2:helloTo\"}")
          `shouldBe` (Just wr)
 
     it "parses a WireRequest 4" $ do
-      let wr = WireReq "eg4:hello4" NoSession WholeFile Map.empty
-      (decode "{\"context\":{\"tag\":\"WholeFile\",\"contents\":[]},\
+      let wr = WireReq "eg4:hello4" (Context (Just (CabalSection "lib")) (Just "/home/foo/Bar.hs") (Just (1,2)) Nothing ) Map.empty
+      (decode "{\"context\":{\"ctxEndPos\":null,\
+                            \\"ctxCabal\":\"lib\",\
+                            \\"ctxStartPos\":[1,2],\
+                            \\"ctxFile\":\"/home/foo/Bar.hs\"},\
                \\"params\":{},\
-               \\"cmd\":\"eg4:hello4\",\
-               \\"session\":{\"tag\":\"NoSession\",\"contents\":[]}}")
+               \\"cmd\":\"eg4:hello4\"}")
          `shouldBe` (Just wr)
 
+    it "parses a WireRequest 5" $ do
+      let wr = WireReq "eg5:hello5" (Context (Just (CabalSection "lib")) (Just "/home/foo/Bar.hs") (Just (1,2)) (Just (3,4)) ) Map.empty
+      (decode "{\"context\":{\"ctxEndPos\":[3,4],\
+                            \\"ctxCabal\":\"lib\",\
+                            \\"ctxStartPos\":[1,2],\
+                            \\"ctxFile\":\"/home/foo/Bar.hs\"},\
+               \\"params\":{},\
+               \\"cmd\":\"eg5:hello5\"}")
+         `shouldBe` (Just wr)
 
   describe "JSON Generation WireResponse" $ do
     it "generates a WireResponse Ok" $ do
@@ -123,3 +156,4 @@ jsonSpec = do
       let wr = HieError (String "Funny problem")
       (decode "{\"tag\":\"HieError\",\"contents\":\"Funny problem\"}")
           `shouldBe` (Just wr)
+

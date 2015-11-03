@@ -32,7 +32,7 @@ example2Descriptor = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 example2Dispatcher :: Dispatcher
-example2Dispatcher (IdeRequest name session ctx params) = do
+example2Dispatcher (IdeRequest name ctx params) = do
   case name of
     "sayHello"   -> return (IdeResponseOk (String sayHello))
     "sayHelloTo" -> do

@@ -6,7 +6,7 @@ module Haskell.Ide.Engine.Transport.JsonStdio where
 
 import           Control.Concurrent
 import           Control.Logging
-import           Control.Lens
+import           Control.Lens hiding (Context)
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Types as A
 import           Data.Char
@@ -65,7 +65,6 @@ wireToChannel cout ri wr =
     , cinReqId = ri
     , cinReq = IdeRequest
                  { ideCommand = tail command
-                 , ideSession = session wr
                  , ideContext = context wr
                  , ideParams  = params wr
                  }
@@ -87,8 +86,7 @@ channelToWire cr =
 
 data WireRequest = WireReq
   { cmd     :: T.Text -- ^combination of PluginId ":" CommandName
-  , session :: SessionContext
-  , context :: CommandContext
+  , context :: Context
   , params  :: Map.Map ParamId ParamVal
   } deriving (Show,Eq,Generic)
 

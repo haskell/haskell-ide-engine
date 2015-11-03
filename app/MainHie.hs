@@ -23,6 +23,7 @@ import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.Plugin
 import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.REPL
 import           Haskell.Ide.Engine.Transport.JsonStdio
 import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.GhcMod.LightGhc as GM
@@ -74,19 +75,6 @@ main = do
 
 -- ---------------------------------------------------------------------
 
-version =
-    let commitCount = $gitCommitCount
-    in  concat $ concat
-            [ [$(simpleVersion Meta.version)]
-              -- Leave out number of commits for --depth=1 clone
-              -- See https://github.com/commercialhaskell/stack/issues/792
-            , [" (" ++ commitCount ++ " commits)" | commitCount /= ("1"::String) &&
-                                                    commitCount /= ("UNKNOWN" :: String)]
-            , [" ", display buildArch]
-            ]
-
--- ---------------------------------------------------------------------
-
 plugins :: Plugins
 plugins = Map.fromList
   [
@@ -121,7 +109,7 @@ run opts = do
     -- Can have multiple listeners, each using a different transport protocol, so
     -- long as they can pass through a ChannelRequest
     if (optRepl opts)
-       then stdioListener cin
+       then replListener plugins cin
        else jsonStdioTransport cin
 
     -- At least one needs to be launched, othewise a threadDelay with a large
@@ -151,35 +139,6 @@ dispatcher cin = do
 listener :: Chan ChannelRequest -> IO ()
 listener = assert False undefined
 
-
-stdioListener :: Chan ChannelRequest -> IO ()
-stdioListener cin = do
-  cout <- newChan :: IO (Chan ChannelResponse)
-  hSetBuffering stdout NoBuffering
-  putStrLn $ "HIE version : " ++ version
-  let
-    prompt = "HIE> "
-    loop cid = do
-      putStr prompt
-      cmdArg <- getLine
-      -- This command parsing should be built up from the PluginDescriptors
-      let
-        req = case dropWhileEnd isSpace cmdArg of
-          "hello"   -> Right $ ("eg2", IdeRequest "sayHello" NoSession NoContext Map.empty)
-          "version" -> Right $ ("base",IdeRequest "version"  NoSession NoContext Map.empty)
-          "plugins" -> Right $ ("base",IdeRequest "plugins"  NoSession NoContext Map.empty)
-          cmd     -> case Map.lookup cmd replPluginInfo of
-                          Nothing -> Left $ "unrecognised command:" ++ cmd
-                          Just (pi,uic) -> Right $ (pi,IdeRequest (uiCmdName uic) NoSession NoContext Map.empty)
-      case req of
-        Left err -> putStrLn err
-        Right (plugin,req) -> do
-          writeChan cin (CReq plugin cid req cout)
-          rsp <- readChan cout
-          putStrLn $ show (coutResp rsp)
-      loop (cid + 1)
-  loop 1
-
 -- ---------------------------------------------------------------------
 
 baseDescriptor :: PluginDescriptor
@@ -208,18 +167,9 @@ baseDescriptor = PluginDescriptor
   }
 
 baseDispatcher :: Dispatcher
-baseDispatcher (IdeRequest name session ctx params) = do
+baseDispatcher (IdeRequest name ctx params) = do
   case name of
     "version"   -> return (IdeResponseOk (String $ T.pack version))
     "plugins"   -> return (IdeResponseOk (String $ T.pack $ show $ Map.keys plugins))
     -- "command"   -> return (IdeResponseOk (Map.keys plugins))
 
--- ---------------------------------------------------------------------
-
-replPluginInfo :: Map.Map String (String,UiCommand)
-replPluginInfo = Map.fromList commands
-  where
-    commands = concatMap extractCommands $ Map.toList plugins
-    extractCommands (pluginName,PluginReg descriptor _) = cmds
-      where
-        cmds = map (\uic -> (pluginName ++ ":" ++ (uiCmdName uic),(pluginName,uic))) $ pdUiCommands descriptor
