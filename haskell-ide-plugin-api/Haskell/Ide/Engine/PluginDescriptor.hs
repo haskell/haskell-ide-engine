@@ -16,7 +16,7 @@
 --       shared resource management, e.g. default Calendar app, default SMS app,
 --       all making use of Contacts service.
 
-module Haskell.Ide.PluginDescriptor where
+module Haskell.Ide.Engine.PluginDescriptor where
 
 import           Data.Aeson
 import           Data.Aeson.Types

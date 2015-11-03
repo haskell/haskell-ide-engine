@@ -15,11 +15,11 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Haskell.Ide.Monad
-                       Haskell.Ide.Plugin
-                       Haskell.Ide.Options
-                       Haskell.Ide.Transport.JsonStdio
-                       Haskell.Ide.Types
+  exposed-modules:     Haskell.Ide.Engine.Monad
+                       Haskell.Ide.Engine.Plugin
+                       Haskell.Ide.Engine.Options
+                       Haskell.Ide.Engine.Transport.JsonStdio
+                       Haskell.Ide.Engine.Types
   other-modules:       Paths_haskell_ide_engine
   build-depends:       base >= 4.7 && < 5
                      , aeson
@@ -67,6 +67,7 @@ test-suite haskell-ide-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Spec.hs
+  other-modules:       JsonStdioSpec
   build-depends:       base
                      , aeson
                      , containers

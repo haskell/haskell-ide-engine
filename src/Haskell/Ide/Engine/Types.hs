@@ -1,9 +1,9 @@
 {-# LANGUAGE FlexibleInstances #-}
-module Haskell.Ide.Types where
+module Haskell.Ide.Engine.Types where
 
 import           Control.Concurrent
 import qualified Data.Map as Map
-import           Haskell.Ide.PluginDescriptor
+import           Haskell.Ide.Engine.PluginDescriptor
 import qualified Language.Haskell.GhcMod as GM
 import qualified Language.Haskell.GhcMod.Monad.Types as GM
 

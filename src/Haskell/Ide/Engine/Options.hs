@@ -1,4 +1,4 @@
-module Haskell.Ide.Options where
+module Haskell.Ide.Engine.Options where
 
 import Options.Applicative.Simple
 

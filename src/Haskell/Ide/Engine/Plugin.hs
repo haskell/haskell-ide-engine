@@ -1,21 +1,19 @@
 {-# LANGUAGE CPP #-}
 
-module Haskell.Ide.Plugin where
+module Haskell.Ide.Engine.Plugin where
 
-import Haskell.Ide.Types
+import Haskell.Ide.Engine.Types
 
 import DynamicLoading
 import FastString
 import HscTypes
 import Module
-import Name (Name)
 import OccName ( mkVarOcc, mkTcOcc )
 import Outputable
 import Panic
-import PrelNames ( tcQual_RDR )
-import RdrName ( RdrName, mkRdrQual )
+import RdrName ( mkRdrQual )
 import TypeRep ( mkTyConTy )
-import Unique ( mkPreludeTyConUnique )
+-- import Unique ( mkPreludeTyConUnique )
 
 -- Copy-modified from DynamicLoading
 loadPlugin :: HscEnv -> ModuleName -> IO Plugin

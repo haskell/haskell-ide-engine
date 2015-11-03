@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 -- |Provide a protocol adapter/transport for JSON over stdio
 
-module Haskell.Ide.Transport.JsonStdio where
+module Haskell.Ide.Engine.Transport.JsonStdio where
 
 import           Control.Concurrent
 import           Control.Lens
@@ -11,11 +11,11 @@ import           Data.Char
 import           Data.List
 import qualified Data.Map as Map
 import           GHC.Generics
-import           Haskell.Ide.Monad
-import           Haskell.Ide.Options
-import           Haskell.Ide.Plugin
-import           Haskell.Ide.PluginDescriptor
-import           Haskell.Ide.Types
+import           Haskell.Ide.Engine.Monad
+import           Haskell.Ide.Engine.Options
+import           Haskell.Ide.Engine.Plugin
+import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.Types
 import           Pipes
 import qualified Pipes.Aeson as P
 import qualified Pipes.ByteString as P
@@ -27,6 +27,7 @@ import           Pipes.Parse
 import           Pipes.Prelude hiding (show)
 import           System.IO
 
+-- TODO: Can pass in a handle, then it is general
 jsonStdioTransport :: Chan ChannelRequest -> IO ()
 jsonStdioTransport cin = do
   cout <- newChan :: IO (Chan ChannelResponse)

@@ -1,16 +1,16 @@
-module Haskell.Ide.Monad where
+module Haskell.Ide.Engine.Monad where
 
 import           Control.Exception
 import           Control.Monad.IO.Class
 import           Data.IORef
-import           Haskell.Ide.Plugin
-import           Haskell.Ide.Types
-import qualified Language.Haskell.GhcMod.LightGhc as GM
+-- import           Haskell.Ide.Engine.Plugin
+import           Haskell.Ide.Engine.Types
+-- import qualified Language.Haskell.GhcMod.LightGhc as GM
 import qualified Language.Haskell.GhcMod.Monad as GM
 import qualified Language.Haskell.GhcMod.Types as GM
-import           Module (mkModuleName)
-import           Options.Applicative.Simple
-import qualified Paths_haskell_ide_engine as Meta
+-- import           Module (mkModuleName)
+-- import           Options.Applicative.Simple
+-- import qualified Paths_haskell_ide_engine as Meta
 import           System.Directory
 
 runIdeM :: IdeM a -> IO a

@@ -17,12 +17,12 @@ import           Data.Version (showVersion)
 import           Development.GitRev (gitCommitCount)
 import           Distribution.System (buildArch)
 import           Distribution.Text (display)
-import           Haskell.Ide.Monad
-import           Haskell.Ide.Options
-import           Haskell.Ide.Plugin
-import           Haskell.Ide.PluginDescriptor
-import           Haskell.Ide.Transport.JsonStdio
-import           Haskell.Ide.Types
+import           Haskell.Ide.Engine.Monad
+import           Haskell.Ide.Engine.Options
+import           Haskell.Ide.Engine.Plugin
+import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.Transport.JsonStdio
+import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.GhcMod.LightGhc as GM
 import qualified Language.Haskell.GhcMod.Monad as GM
 import qualified Language.Haskell.GhcMod.Types as GM

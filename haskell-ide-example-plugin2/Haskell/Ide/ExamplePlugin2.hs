@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.ExamplePlugin2 where
 
-import Haskell.Ide.PluginDescriptor
+import Haskell.Ide.Engine.PluginDescriptor
 
 import Data.Aeson
 import qualified Data.Map as Map
