@@ -1,9 +1,11 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
 -- |Provide a protocol adapter/transport for JSON over stdio
 
 module Haskell.Ide.Engine.Transport.JsonStdio where
 
 import           Control.Concurrent
+import           Control.Logging
 import           Control.Lens
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Types as A
@@ -34,7 +36,7 @@ jsonStdioTransport cin = do
   hSetBuffering stdout NoBuffering
   let
     loop cid stream = do
-      -- putStrLn "calling go"
+      debug "jsonStdioTransport:calling go"
       (req,stream') <- runStateT decodeMsg stream
       case req of
         Just (Left err) -> putStr $ show (HieError (A.String $ T.pack $ show err))
@@ -43,7 +45,7 @@ jsonStdioTransport cin = do
           rsp <- readChan cout
           BL.putStr $ A.encode (channelToWire rsp)
         Nothing -> putStr $ show (HieError (A.String $ T.pack $ "Got Nothing"))
-      -- putStrLn $ "got:" ++ show req
+      debug $ T.pack $ "jsonStdioTransport:got:" ++ show req
       loop (cid + 1) stream'
   loop 1 P.stdin
 

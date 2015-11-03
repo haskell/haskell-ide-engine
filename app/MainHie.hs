@@ -1,9 +1,11 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Main where
 
 import           Control.Concurrent
 import           Control.Exception
+import           Control.Logging
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Aeson
@@ -32,6 +34,7 @@ import qualified Data.Map as Map
 import qualified Paths_haskell_ide_engine as Meta
 import           Data.Time
 import           System.IO
+import           Prelude hiding (log)
 
 -- ---------------------------------------------------------------------
 -- plugins
@@ -98,28 +101,38 @@ plugins = Map.fromList
 
 run :: GlobalOpts -> IO ()
 run opts = do
-  putStrLn $ "run entered"
-  cin <- newChan :: IO (Chan ChannelRequest)
+  let withLogFun = case optLogFile opts of
+        Just f -> withFileLogging f
+        Nothing -> withStdoutLogging
 
-  -- putStrLn $ "run:calling go"
-  -- forkIO go2
-  -- r <- go
-  -- putStrLn $ "run:go returned " ++ show r
+  withLogFun $ do
+    if optDebugOn opts
+      then setLogLevel LevelDebug
+      else setLogLevel LevelError
 
-  forkIO (runner cin)
-  -- Can have multiple listeners, each using a different transport protocol, so
-  -- long as they can pass through a ChannelRequest
-  -- forkIO (listener cin)
-  if (optRepl opts)
-     then stdioListener cin
-     else jsonStdioTransport cin
+    log $ T.pack $ "run entered for HIE " ++ version
+    cin <- newChan :: IO (Chan ChannelRequest)
 
-runner cin = do
+    -- launch the dispatcher.
+    forkIO (dispatcher cin)
+
+    -- Can have multiple listeners, each using a different transport protocol, so
+    -- long as they can pass through a ChannelRequest
+    if (optRepl opts)
+       then stdioListener cin
+       else jsonStdioTransport cin
+
+    -- At least one needs to be launched, othewise a threadDelay with a large
+    -- number should be given. Or some other waiting action.
+
+-- ---------------------------------------------------------------------
+
+dispatcher cin = do
   forever $ do
-    -- putStrLn $ "run:top of loop"
+    debug "run:top of loop"
     req <- readChan cin
     timeNow <- getCurrentTime
-    -- putStrLn $ "main loop:got:" ++ show req
+    debug $ T.pack $ "main loop:got:" ++ show req
     r <- case Map.lookup (cinPlugin req) plugins of
       Nothing -> return (IdeResponseError (String $ T.pack $ "No plugin found for:" ++ cinPlugin req ))
       Just (PluginReg desc disp) -> disp (cinReq req)

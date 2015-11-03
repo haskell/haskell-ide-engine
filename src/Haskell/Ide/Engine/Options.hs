@@ -4,14 +4,27 @@ import Options.Applicative.Simple
 
 data GlobalOpts = GlobalOpts
     { optRepl :: Bool
+    , optDebugOn :: Bool
+    , optLogFile :: Maybe String
     } deriving (Show)
 
 globalOptsParser :: Parser GlobalOpts
 globalOptsParser = GlobalOpts
-    <$> ( flag False True
-        ( long "repl"
-       <> help "Run a REPL for simple testing"
-        ))
+    <$> flag False True
+         ( long "repl"
+        <> help "Run a REPL for simple testing"
+         )
+    <*> switch
+         ( long "debug"
+        <> short 'd'
+        <> help "Generate debug output"
+         )
+    <*> (optional $ strOption
+         ( long "logfile"
+        <> short 'l'
+        <> metavar "LOGFILE"
+        <> help "File to log to, defaults to stdout"
+         ))
 {-
 data GlobalOpts = GlobalOpts
     { optPluginModules :: [String]

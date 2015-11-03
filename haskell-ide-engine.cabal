@@ -30,6 +30,7 @@ library
                      , ghc-mod >= 5.4
                      , haskell-ide-plugin-api
                      , lens
+                     , logging
                      , optparse-applicative
                      , optparse-simple >= 0.0.3
                      , pipes
