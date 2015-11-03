@@ -38,7 +38,7 @@ data UiCommand = UiCommand
   { uiCmdName :: CommandName
   , uiContexts :: [AcceptedContext] -- TODO: should this be a non empty list? or should empty list imply CtxNone.
   , uiAdditionalParams :: [RequiredParam]
-  }
+  } deriving (Show)
 
 type CommandName = String
 
@@ -78,6 +78,7 @@ data CabalSection = CabalSection String deriving (Show,Eq,Generic)
 -- |Initially all params will be returned as strings. This can become a much
 -- richer structure in time.
 data RequiredParam = RP String -- ^ Prompt
+                   deriving (Show)
 
 -- ---------------------------------------------------------------------
 

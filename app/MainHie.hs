@@ -113,6 +113,8 @@ run opts = do
     log $ T.pack $ "run entered for HIE " ++ version
     cin <- newChan :: IO (Chan ChannelRequest)
 
+    -- log $ T.pack $ "replPluginInfo:" ++ show replPluginInfo
+
     -- launch the dispatcher.
     forkIO (dispatcher cin)
 
@@ -166,7 +168,9 @@ stdioListener cin = do
           "hello"   -> Right $ ("eg2", IdeRequest "sayHello" NoSession NoContext Map.empty)
           "version" -> Right $ ("base",IdeRequest "version"  NoSession NoContext Map.empty)
           "plugins" -> Right $ ("base",IdeRequest "plugins"  NoSession NoContext Map.empty)
-          cmd     -> Left $ "unrecognised command:" ++ cmd
+          cmd     -> case Map.lookup cmd replPluginInfo of
+                          Nothing -> Left $ "unrecognised command:" ++ cmd
+                          Just (pi,uic) -> Right $ (pi,IdeRequest (uiCmdName uic) NoSession NoContext Map.empty)
       case req of
         Left err -> putStrLn err
         Right (plugin,req) -> do
@@ -210,3 +214,12 @@ baseDispatcher (IdeRequest name session ctx params) = do
     "plugins"   -> return (IdeResponseOk (String $ T.pack $ show $ Map.keys plugins))
     -- "command"   -> return (IdeResponseOk (Map.keys plugins))
 
+-- ---------------------------------------------------------------------
+
+replPluginInfo :: Map.Map String (String,UiCommand)
+replPluginInfo = Map.fromList commands
+  where
+    commands = concatMap extractCommands $ Map.toList plugins
+    extractCommands (pluginName,PluginReg descriptor _) = cmds
+      where
+        cmds = map (\uic -> (pluginName ++ ":" ++ (uiCmdName uic),(pluginName,uic))) $ pdUiCommands descriptor
