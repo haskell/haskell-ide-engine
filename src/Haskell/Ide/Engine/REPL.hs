@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.Engine.REPL where
 
@@ -18,6 +17,7 @@ import           Data.Version (showVersion)
 import           Development.GitRev (gitCommitCount)
 import           Distribution.System (buildArch)
 import           Distribution.Text (display)
+import           Haskell.Ide.Engine.BasePlugin
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.Plugin
@@ -57,13 +57,14 @@ replListener plugins cin = do
       cmdArg <- getLine
       -- This command parsing should be built up from the PluginDescriptors
       let
-        req = case dropWhileEnd isSpace cmdArg of
-          "hello"   -> Right $ ("eg2", IdeRequest "sayHello" emptyContext Map.empty)
-          "version" -> Right $ ("base",IdeRequest "version"  emptyContext Map.empty)
-          "plugins" -> Right $ ("base",IdeRequest "plugins"  emptyContext Map.empty)
-          cmdStr   -> case Map.lookup cmdStr (replPluginInfo plugins) of
+        req = case words cmdArg of
+          -- "hello"   -> Right $ ("eg2", IdeRequest "sayHello" emptyContext Map.empty)
+          -- "version" -> Right $ ("base",IdeRequest "version"  emptyContext Map.empty)
+          -- "plugins" -> Right $ ("base",IdeRequest "plugins"  emptyContext Map.empty)
+          [] -> Left $ "empty command"
+          (cmdStr:ps) -> case Map.lookup cmdStr (replPluginInfo plugins) of
                           Nothing -> Left $ "unrecognised command:" ++ cmdStr
-                          Just (plugin,uic) -> Right $ (plugin,IdeRequest (uiCmdName uic) (envContext env) Map.empty)
+                          Just (plugin,uic) -> Right $ (plugin,IdeRequest (uiCmdName uic) (envContext env) (convertToParams ps))
       case req of
         Left err -> putStrLn err
         Right (plugin,reqVal) -> do
@@ -75,23 +76,19 @@ replListener plugins cin = do
 
 -- ---------------------------------------------------------------------
 
-version =
-    let commitCount = $gitCommitCount
-    in  concat $ concat
-            [ [$(simpleVersion Meta.version)]
-              -- Leave out number of commits for --depth=1 clone
-              -- See https://github.com/commercialhaskell/stack/issues/792
-            , [" (" ++ commitCount ++ " commits)" | commitCount /= ("1"::String) &&
-                                                    commitCount /= ("UNKNOWN" :: String)]
-            , [" ", display buildArch]
-            ]
+convertToParams :: [String] -> Map.Map String String
+convertToParams ss = Map.fromList $ map splitOnColon ss
 
 -- ---------------------------------------------------------------------
 
-replPluginInfo :: Plugins -> Map.Map String (String,UiCommand)
-replPluginInfo plugins = Map.fromList commands
+-- |Split a string of the form "first:rest" into ("first","rest")
+splitOnColon :: String -> (String,String)
+splitOnColon "" = ("","")
+splitOnColon str = (first,second)
   where
-    commands = concatMap extractCommands $ Map.toList plugins
-    extractCommands (pluginName,PluginReg descriptor _) = cmds
-      where
-        cmds = map (\uic -> (pluginName ++ ":" ++ (uiCmdName uic),(pluginName,uic))) $ pdUiCommands descriptor
+    (first,rest) = break (==':') str
+    second = case rest of
+      "" -> ""
+      _ -> tail rest
+
+-- ---------------------------------------------------------------------

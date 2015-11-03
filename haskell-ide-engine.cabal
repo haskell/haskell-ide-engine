@@ -15,7 +15,8 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Haskell.Ide.Engine.Monad
+  exposed-modules:     Haskell.Ide.Engine.BasePlugin
+                       Haskell.Ide.Engine.Monad
                        Haskell.Ide.Engine.Plugin
                        Haskell.Ide.Engine.Options
                        Haskell.Ide.Engine.REPL

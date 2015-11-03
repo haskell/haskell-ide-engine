@@ -19,6 +19,7 @@ import           Data.Version (showVersion)
 import           Development.GitRev (gitCommitCount)
 import           Distribution.System (buildArch)
 import           Distribution.Text (display)
+import           Haskell.Ide.Engine.BasePlugin
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.Plugin
@@ -82,7 +83,7 @@ plugins = Map.fromList
     -- up via a config file of some kind.
     ("eg2", PluginReg example2Descriptor example2Dispatcher)
     -- The base plugin, able to answer questions about the IDE Engine environment.
-  , ("base", PluginReg baseDescriptor baseDispatcher)
+  , ("base", PluginReg baseDescriptor (baseDispatcher plugins))
   ]
 
 -- ---------------------------------------------------------------------
@@ -117,6 +118,8 @@ run opts = do
 
 -- ---------------------------------------------------------------------
 
+-- |Listen on a Chan for ChannelRequest from the assorted listeners, and route
+-- them through to the appropriate plugin for processing.
 dispatcher cin = do
   forever $ do
     debug "run:top of loop"
@@ -138,38 +141,4 @@ dispatcher cin = do
 -- whatever it takes.
 listener :: Chan ChannelRequest -> IO ()
 listener = assert False undefined
-
--- ---------------------------------------------------------------------
-
-baseDescriptor :: PluginDescriptor
-baseDescriptor = PluginDescriptor
-  {
-    pdUiCommands =
-      [
-        UiCommand
-          { uiCmdName = "version"
-          , uiContexts = [CtxNone]
-          , uiAdditionalParams = []
-          }
-      , UiCommand
-          { uiCmdName = "plugins"
-          , uiContexts = [CtxNone]
-          , uiAdditionalParams = []
-          }
-      , UiCommand
-          { uiCmdName = "commands"
-          , uiContexts = [CtxNone]
-          , uiAdditionalParams = [RP "plugin"]
-          }
-      ]
-  , pdExposedServices = []
-  , pdUsedServices    = []
-  }
-
-baseDispatcher :: Dispatcher
-baseDispatcher (IdeRequest name ctx params) = do
-  case name of
-    "version"   -> return (IdeResponseOk (String $ T.pack version))
-    "plugins"   -> return (IdeResponseOk (String $ T.pack $ show $ Map.keys plugins))
-    -- "command"   -> return (IdeResponseOk (Map.keys plugins))
 
