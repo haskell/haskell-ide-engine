@@ -99,7 +99,7 @@ data IdeRequest = IdeRequest
   { ideCommand :: CommandName
   , ideContext :: Context
   , ideParams  :: Map.Map ParamId ParamVal
-  } deriving Show
+  } deriving (Show,Generic)
 
 type ParamId = String
 type ParamVal = String
@@ -139,6 +139,13 @@ instance ToJSON CabalSection where
 instance FromJSON CabalSection where
     -- No need to provide a parseJSON implementation.
 
+-- -------------------------------------
+
+instance ToJSON IdeRequest where
+    toJSON = genericToJSON defaultOptions
+
+instance FromJSON IdeRequest where
+    -- No need to provide a parseJSON implementation.
 -- -------------------------------------
 
 instance ToJSON IdeResponse where
