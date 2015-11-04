@@ -21,12 +21,12 @@ you to it.
 [![License BSD3][badge-license]][license]
 [![Build Status][badge-travis]][travis]
 
-[badge-travis]: https://travis-ci.org/haskell/haskell-ide.png?branch=master
-[travis]: https://travis-ci.org/haskell/haskell-ide
-[badge-hackage]: https://img.shields.io/hackage/v/haskell-ide.svg?dummy
-[hackage]: https://hackage.haskell.org/package/haskell-ide
+[badge-travis]: https://travis-ci.org/haskell/haskell-ide-engine.png?branch=master
+[travis]: https://travis-ci.org/haskell/haskell-ide-engine
+[badge-hackage]: https://img.shields.io/hackage/v/haskell-ide-engine.svg?dummy
+[hackage]: https://hackage.haskell.org/package/haskell-ide-engine
 [badge-license]: https://img.shields.io/badge/license-BSD3-green.svg?dummy
-[license]: https://github.com/haskell/haskell-ide/blob/master/LICENSE
+[license]: https://github.com/haskell/haskell-ide-engine/blob/master/LICENSE
 
 ## Next steps
 
