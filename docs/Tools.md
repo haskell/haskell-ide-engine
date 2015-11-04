@@ -71,7 +71,7 @@
   ([app](http://hayoo.fh-wedel.de/),
   [github](https://github.com/hunt-framework/hayoo),
   [hackage](http://hackage.haskell.org/package/Hayoo))
-* `hoogle`: Haskell API search engine
+* `hoogle`: Haskell API search engine -
   ([haskell wiki](https://wiki.haskell.org/Hoogle),
   [haskell.org app](https://www.haskell.org/hoogle/),
   [stackage.org app](http://www.stackage.org/),
