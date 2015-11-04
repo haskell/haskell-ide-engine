@@ -2,22 +2,23 @@
 
 #### Linters / Refactoring
 
-* __HaRe__: Haskell Refactoring Tool
-  [github](https://github.com/alanz/HaRe)
-  [website](http://www.cs.kent.ac.uk/projects/refactor-fp/)
-
-* __dead-code-detection__: Detects dead code in haskell projects.
-  [github](https://github.com/soenkehahn/dead-code-detection)
-  [hackage](http://hackage.haskell.org/package/dead-code-detection)
-
-* __argon__: Monitor cyclomatic complexity in Haskell programs.
-  [github](https://github.com/rubik/argon)
-  [hackage](http://hackage.haskell.org/package/argon)
-
-* __style-scanner__: Lexical style suggestions for source code.
-  [darcs](http://code.haskell.org/style-scanner/)
-  [hackage](http://hackage.haskell.org/package/scan)
-  [website](http://projects.haskell.org/style-scanner/)
+* __HaRe__: Haskell Refactoring Tool -
+  ( [github](https://github.com/alanz/HaRe)
+  , [website](http://www.cs.kent.ac.uk/projects/refactor-fp/)
+  )
+* __dead-code-detection__: Detects dead code in haskell projects -
+  ( [github](https://github.com/soenkehahn/dead-code-detection)
+  , [hackage](http://hackage.haskell.org/package/dead-code-detection)
+  )
+* __argon__: Monitor cyclomatic complexity in Haskell programs -
+  ( [github](https://github.com/rubik/argon)
+  , [hackage](http://hackage.haskell.org/package/argon)
+  )
+* __style-scanner__: Lexical style suggestions for source code -
+  ( [darcs](http://code.haskell.org/style-scanner/)
+  , [hackage](http://hackage.haskell.org/package/scan)
+  , [website](http://projects.haskell.org/style-scanner/)
+  )
 
 * __stylish-haskell__: Haskell code prettifier
   [github](https://github.com/jaspervdj/stylish-haskell)
