@@ -2,13 +2,13 @@
 module Haskell.Ide.Engine.REPL where
 
 import           Control.Concurrent
-import           Data.List
+-- import           Data.List
 import           Haskell.Ide.Engine.BasePlugin
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
 import qualified Data.Map as Map
 import           System.IO
-import           Prelude hiding (log)
+-- import           Prelude hiding (log)
 
 -- ---------------------------------------------------------------------
 

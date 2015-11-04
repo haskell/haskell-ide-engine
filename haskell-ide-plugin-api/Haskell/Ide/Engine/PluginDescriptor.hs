@@ -112,7 +112,7 @@ data IdeResponse = IdeResponseOk    Value -- ^ Command Succeeded
                  | IdeResponseError Value -- ^ some error in haskell-ide-engine
                                           -- driver. Equivalent to HTTP 500
                                           -- status
-                 deriving Show
+                 deriving (Show,Generic)
 
 class (Monad m) => HasIdeState m where
   getPlugins :: m Plugins
@@ -137,6 +137,14 @@ instance ToJSON CabalSection where
     toJSON = genericToJSON defaultOptions
 
 instance FromJSON CabalSection where
+    -- No need to provide a parseJSON implementation.
+
+-- -------------------------------------
+
+instance ToJSON IdeResponse where
+    toJSON = genericToJSON defaultOptions
+
+instance FromJSON IdeResponse where
     -- No need to provide a parseJSON implementation.
 
 -- EOF

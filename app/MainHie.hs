@@ -17,6 +17,7 @@ import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.REPL
+import           Haskell.Ide.Engine.Transport.JsonHttp
 import           Haskell.Ide.Engine.Transport.JsonStdio
 import           Haskell.Ide.Engine.Types
 import           Options.Applicative.Simple
@@ -93,6 +94,9 @@ run opts = do
 
     -- launch the dispatcher.
     _ <- forkIO (runIdeM (IdeState plugins) (dispatcher cin))
+
+    -- TODO: pass port in as a param from GlobalOpts
+    _ <- forkIO (jsonHttpListener cin)
 
     -- Can have multiple listeners, each using a different transport protocol, so
     -- long as they can pass through a ChannelRequest
