@@ -21,3 +21,4 @@
 * scan reformatting tool (http://projects.haskell.org/style-scanner/)
 * scion / scion-tools
 * stylish-haskell
+* argon (https://github.com/rubik/argon)
