@@ -77,15 +77,15 @@
 
 #### Ide backends
 
-* `scion`: Haskell IDE library + [scion-browser](https://hackage.haskell.org/package/scion-browser) CLI -
-  [hackage](https://hackage.haskell.org/package/scion)
+* `scion`: Haskell IDE library -
+  ([hackage](https://hackage.haskell.org/package/scion))
 * `buildwrapper`: A library and an executable that provide an easy API for a Haskell IDE
-  [github](https://github.com/JPMoresmau/BuildWrapper)
-  [hackage](https://hackage.haskell.org/package/buildwrapper)
+  ([github](https://github.com/JPMoresmau/BuildWrapper),
+  [hackage](https://hackage.haskell.org/package/buildwrapper))
 * `ghc-mod`: Haskell ide-backend -
-  [github](https://github.com/kazu-yamamoto/ghc-mod)
-  [hackage](https://hackage.haskell.org/package/ghc-mod)
-  [website](http://www.mew.org/~kazu/proj/ghc-mod/)
+  ([github](https://github.com/kazu-yamamoto/ghc-mod),
+  [hackage](https://hackage.haskell.org/package/ghc-mod),
+  [website](http://www.mew.org/~kazu/proj/ghc-mod/))
 * `ide-backend`: drives the GHC API to build, query, and run your code -
   ([github](https://github.com/fpco/ide-backend),
   [hackage](http://hackage.haskell.org/package/ide-backend))
@@ -100,4 +100,4 @@
   ([github](https://github.com/ucsd-progsys/liquidhaskell),
   [website](http://goto.ucsd.edu/~rjhala/liquid/haskell/blog/about/))
 * `mote`: ... -
-  [github](https://github.com/imeckler/mote)
+  ([github](https://github.com/imeckler/mote))
