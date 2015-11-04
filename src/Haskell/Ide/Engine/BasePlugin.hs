@@ -2,37 +2,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.Engine.BasePlugin where
 
-import           Control.Concurrent
-import           Control.Exception
-import           Control.Logging
 import           Control.Monad
-import           Control.Monad.IO.Class
 import           Data.Aeson
-import           Data.Char
 import           Data.Foldable
-import           Data.IORef
 import           Data.List
-import           Data.Traversable
 import qualified Data.Text as T
-import           Data.Version (showVersion)
 import           Development.GitRev (gitCommitCount)
 import           Distribution.System (buildArch)
 import           Distribution.Text (display)
-import           Haskell.Ide.Engine.Monad
-import           Haskell.Ide.Engine.Options
-import           Haskell.Ide.Engine.Plugin
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.Transport.JsonStdio
-import           Haskell.Ide.Engine.Types
-import qualified Language.Haskell.GhcMod.LightGhc as GM
-import qualified Language.Haskell.GhcMod.Monad as GM
-import qualified Language.Haskell.GhcMod.Types as GM
-import           Module (mkModuleName)
 import           Options.Applicative.Simple
 import qualified Data.Map as Map
 import qualified Paths_haskell_ide_engine as Meta
-import           Data.Time
-import           System.IO
 import           Prelude hiding (log)
 
 -- ---------------------------------------------------------------------
@@ -46,37 +27,47 @@ baseDescriptor = PluginDescriptor
           { uiCmdName = "version"
           , uiContexts = [CtxNone]
           , uiAdditionalParams = []
+          , uiFunc = versionCmd
           }
       , UiCommand
           { uiCmdName = "plugins"
           , uiContexts = [CtxNone]
           , uiAdditionalParams = []
+          , uiFunc = pluginsCmd
           }
       , UiCommand
           { uiCmdName = "commands"
           , uiContexts = [CtxNone]
           , uiAdditionalParams = [RP "plugin"]
+          , uiFunc = commandsCmd
           }
       ]
   , pdExposedServices = []
   , pdUsedServices    = []
   }
 
-baseDispatcher :: Plugins -> Dispatcher
-baseDispatcher plugins r@(IdeRequest name ctx params) = do
-  debug $ T.pack $ "baseDispatcher:got " ++ show r
-  case name of
-    "version"   -> return (IdeResponseOk (String $ T.pack version))
-    "plugins"   -> return (IdeResponseOk (String $ T.pack $ show $ Map.keys plugins))
-    "commands"  -> case Map.lookup "plugin" params of
-                     Nothing -> return (IdeResponseFail (String $ T.pack $ "need 'plugin' parameter"))
-                     Just p -> case Map.lookup p plugins of
-                       Nothing -> return (IdeResponseFail (String $ T.pack $ "Can't find plugin:'"++ p ++ "'"))
-                       Just (PluginReg pl _) -> return (IdeResponseOk (String $ T.pack $ intercalate "," $ map uiCmdName $ pdUiCommands pl))
-    _           -> return (IdeResponseFail (String $ T.pack $ "command \"" ++ name ++ "\" not recognised"))
+-- ---------------------------------------------------------------------
+
+versionCmd :: Dispatcher
+versionCmd _ = return (IdeResponseOk (String $ T.pack version))
+
+pluginsCmd :: Dispatcher
+pluginsCmd _ = do
+  plugins <- getPlugins
+  return (IdeResponseOk (String $ T.pack $ show $ Map.keys plugins))
+
+commandsCmd :: Dispatcher
+commandsCmd req = do
+  plugins <- getPlugins
+  case Map.lookup "plugin" (ideParams req) of
+    Nothing -> return (IdeResponseFail (String $ T.pack $ "need 'plugin' parameter"))
+    Just p -> case Map.lookup p plugins of
+      Nothing -> return (IdeResponseFail (String $ T.pack $ "Can't find plugin:'"++ p ++ "'"))
+      Just pl -> return (IdeResponseOk (String $ T.pack $ intercalate "," $ map uiCmdName $ pdUiCommands pl))
 
 -- ---------------------------------------------------------------------
 
+version :: String
 version =
     let commitCount = $gitCommitCount
     in  concat $ concat
@@ -94,7 +85,7 @@ replPluginInfo :: Plugins -> Map.Map String (String,UiCommand)
 replPluginInfo plugins = Map.fromList commands
   where
     commands = concatMap extractCommands $ Map.toList plugins
-    extractCommands (pluginName,PluginReg descriptor _) = cmds
+    extractCommands (pluginName,descriptor) = cmds
       where
         cmds = map (\uic -> (pluginName ++ ":" ++ (uiCmdName uic),(pluginName,uic))) $ pdUiCommands descriptor
 

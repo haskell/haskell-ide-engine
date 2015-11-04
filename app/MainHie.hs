@@ -1,42 +1,43 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Main where
 
 import           Control.Concurrent
 import           Control.Exception
 import           Control.Logging
-import           Control.Monad
-import           Control.Monad.IO.Class
-import           Data.Aeson
-import           Data.Char
-import           Data.Foldable
-import           Data.IORef
-import           Data.List
-import           Data.Traversable
-import qualified Data.Text as T
+-- import           Control.Monad
+-- import           Control.Monad.IO.Class
+-- import           Data.Aeson
+-- import           Data.Char
+-- import           Data.Foldable
+-- import           Data.IORef
+-- import           Data.List
+-- import           Data.Traversable
+-- import qualified Data.Text as T
 import           Data.Version (showVersion)
 import           Development.GitRev (gitCommitCount)
 import           Distribution.System (buildArch)
 import           Distribution.Text (display)
 import           Haskell.Ide.Engine.BasePlugin
+import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
+import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.Options
-import           Haskell.Ide.Engine.Plugin
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.REPL
 import           Haskell.Ide.Engine.Transport.JsonStdio
 import           Haskell.Ide.Engine.Types
-import qualified Language.Haskell.GhcMod.LightGhc as GM
-import qualified Language.Haskell.GhcMod.Monad as GM
-import qualified Language.Haskell.GhcMod.Types as GM
-import           Module (mkModuleName)
+-- import qualified Language.Haskell.GhcMod.LightGhc as GM
+-- import qualified Language.Haskell.GhcMod.Monad as GM
+-- import qualified Language.Haskell.GhcMod.Types as GM
+-- import           Module (mkModuleName)
 import           Options.Applicative.Simple
 import qualified Data.Map as Map
 import qualified Paths_haskell_ide_engine as Meta
-import           Data.Time
-import           System.IO
-import           Prelude hiding (log)
+-- import           Data.Time
+-- import           System.IO
 
 -- ---------------------------------------------------------------------
 -- plugins
@@ -76,18 +77,6 @@ main = do
 
 -- ---------------------------------------------------------------------
 
-plugins :: Plugins
-plugins = Map.fromList
-  [
-    -- Note: statically including known plugins. In future this map could be set
-    -- up via a config file of some kind.
-    ("eg2", PluginReg example2Descriptor example2Dispatcher)
-    -- The base plugin, able to answer questions about the IDE Engine environment.
-  , ("base", PluginReg baseDescriptor (baseDispatcher plugins))
-  ]
-
--- ---------------------------------------------------------------------
-
 run :: GlobalOpts -> IO ()
 run opts = do
   let withLogFun = case optLogFile opts of
@@ -99,13 +88,13 @@ run opts = do
       then setLogLevel LevelDebug
       else setLogLevel LevelError
 
-    log $ T.pack $ "run entered for HIE " ++ version
+    logm $  "run entered for HIE " ++ version
     cin <- newChan :: IO (Chan ChannelRequest)
 
     -- log $ T.pack $ "replPluginInfo:" ++ show replPluginInfo
 
     -- launch the dispatcher.
-    forkIO (dispatcher cin)
+    _ <- forkIO (runIdeM (IdeState plugins) (dispatcher cin))
 
     -- Can have multiple listeners, each using a different transport protocol, so
     -- long as they can pass through a ChannelRequest
@@ -118,23 +107,6 @@ run opts = do
 
 -- ---------------------------------------------------------------------
 
--- |Listen on a Chan for ChannelRequest from the assorted listeners, and route
--- them through to the appropriate plugin for processing.
-dispatcher cin = do
-  forever $ do
-    debug "run:top of loop"
-    req <- readChan cin
-    timeNow <- getCurrentTime
-    debug $ T.pack $ "main loop:got:" ++ show req
-    r <- case Map.lookup (cinPlugin req) plugins of
-      Nothing -> return (IdeResponseError (String $ T.pack $ "No plugin found for:" ++ cinPlugin req ))
-      Just (PluginReg desc disp) -> disp (cinReq req)
-    let cr = CResp (cinPlugin req) (cinReqId req) r
-    timeEnd <- getCurrentTime
-    writeChan (cinReplyChan req) cr
-
--- ---------------------------------------------------------------------
-
 -- |Do whatever it takes to get a request from the IDE.
 -- pass the request through to the main event dispatcher, and listen on the
 -- reply channel for the response, which should go back to the IDE, using
@@ -142,3 +114,15 @@ dispatcher cin = do
 listener :: Chan ChannelRequest -> IO ()
 listener = assert False undefined
 
+-- ---------------------------------------------------------------------
+
+-- | This will be read from a configuration, eventually
+plugins :: Plugins
+plugins = Map.fromList
+  [
+    -- Note: statically including known plugins. In future this map could be set
+    -- up via a config file of some kind.
+    ("eg2", example2Descriptor)
+    -- The base plugin, able to answer questions about the IDE Engine environment.
+  , ("base", baseDescriptor)
+  ]

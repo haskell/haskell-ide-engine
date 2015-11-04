@@ -6,16 +6,10 @@ module Haskell.Ide.Engine.Transport.JsonStdio where
 
 import           Control.Concurrent
 import           Control.Logging
-import           Control.Lens hiding (Context)
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Types as A
-import           Data.Char
-import           Data.List
 import qualified Data.Map as Map
 import           GHC.Generics
-import           Haskell.Ide.Engine.Monad
-import           Haskell.Ide.Engine.Options
-import           Haskell.Ide.Engine.Plugin
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
 import           Pipes
@@ -26,7 +20,6 @@ import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Text as T
 import           Pipes.Parse
-import           Pipes.Prelude hiding (show)
 import           System.IO
 
 -- TODO: Can pass in a handle, then it is general

@@ -1,26 +1,59 @@
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 module Haskell.Ide.Engine.Monad where
 
+import qualified DynFlags      as GHC
+import qualified GHC           as GHC
+import qualified HscTypes      as GHC
+
+import           Control.Applicative
 import           Control.Exception
-import           Control.Monad.IO.Class
+import           Control.Monad.State
 import           Data.IORef
--- import           Haskell.Ide.Engine.Plugin
-import           Haskell.Ide.Engine.Types
--- import qualified Language.Haskell.GhcMod.LightGhc as GM
+import           Exception
+import           Haskell.Ide.Engine.PluginDescriptor
 import qualified Language.Haskell.GhcMod.Monad as GM
 import qualified Language.Haskell.GhcMod.Types as GM
--- import           Module (mkModuleName)
--- import           Options.Applicative.Simple
--- import qualified Paths_haskell_ide_engine as Meta
 import           System.Directory
 
-runIdeM :: IdeM a -> IO a
-runIdeM f = do
+-- Monad transformer stuff
+import Control.Monad.Trans.Control ( control, liftBaseOp, liftBaseOp_)
+
+-- ---------------------------------------------------------------------
+
+-- type IdeM a = GM.GhcModT (GM.GmOutT IO) a
+newtype IdeM a = IdeM { unIdeM :: GM.GhcModT (GM.GmOutT (StateT IdeState IO)) a}
+      deriving ( Functor
+               , Applicative
+               , Alternative
+               , Monad
+               , MonadPlus
+               , MonadIO
+               , GM.GmEnv
+               , GM.GmOut
+               , GM.MonadIO
+               , ExceptionMonad
+               )
+
+data IdeState = IdeState
+  {
+    idePlugins :: Plugins
+  } deriving (Show)
+
+-- ---------------------------------------------------------------------
+
+runIdeM :: IdeState -> IdeM a -> IO a
+runIdeM initState f = do
     initializedRef <- newIORef False
-    let inner = GM.runGmOutT opts $ GM.runGhcModT opts $ do
+    let inner' = GM.runGmOutT opts $ GM.runGhcModT opts $ do
             liftIO $ writeIORef initializedRef True
-            f
+            (unIdeM f)
+        inner = runStateT inner' initState
         opts = GM.defaultOptions
-    (eres, _) <- inner `catch` \ex -> case ex of
+    ((eres, _),_s) <- inner `catch` \ex -> case ex of
         GM.GMEWrongWorkingDirectory projDir _ -> do
             -- Only switch dirs if the exception occurs during
             -- initialization. This way we don't mysteriously restart
@@ -38,5 +71,33 @@ runIdeM f = do
         Left err -> throwIO err
         Right res -> return res
 
+-- ---------------------------------------------------------------------
+
 setTargets :: [Either FilePath GM.ModuleName] -> IdeM ()
-setTargets targets = GM.runGmlT targets (return ())
+setTargets targets = IdeM $ GM.runGmlT targets (return ())
+
+-- ---------------------------------------------------------------------
+
+instance GM.MonadIO (StateT IdeState IO) where
+  liftIO = liftIO
+
+instance MonadState IdeState IdeM where
+    get   = IdeM (lift $ lift $ lift get)
+    put s = IdeM (lift $ lift $ lift (put s))
+
+instance GHC.GhcMonad IdeM where
+  getSession     = IdeM $ GM.unGmlT GM.gmlGetSession
+  setSession env = IdeM $ GM.unGmlT (GM.gmlSetSession env)
+
+instance GHC.HasDynFlags IdeM where
+  getDynFlags = GHC.hsc_dflags <$> GHC.getSession
+
+instance ExceptionMonad (StateT IdeState IO) where
+    gcatch act handler = control $ \run ->
+        run act `gcatch` (run . handler)
+
+    gmask = liftBaseOp gmask . liftRestore
+     where liftRestore f r = f $ liftBaseOp_ r
+
+instance HasIdeState IdeM where
+  getPlugins = gets idePlugins

@@ -1,29 +1,11 @@
 {-# LANGUAGE FlexibleInstances #-}
+
 module Haskell.Ide.Engine.Types where
 
 import           Control.Concurrent
-import qualified Data.Map as Map
 import           Haskell.Ide.Engine.PluginDescriptor
-import qualified Language.Haskell.GhcMod as GM
-import qualified Language.Haskell.GhcMod.Monad.Types as GM
-
-type IdeM a = GM.GhcModT (GM.GmOutT IO) a
-
-data Plugin = Plugin
-    { initializeHook :: Maybe (IO ())
-    }
-
-defaultPlugin :: Plugin
-defaultPlugin = Plugin
-    { initializeHook = Nothing
-    }
 
 -- ---------------------------------------------------------------------
-
-data PluginReg = PluginReg PluginDescriptor Dispatcher
-type PluginId = String
-
-type Plugins = Map.Map PluginId PluginReg
 
 
 type RequestId = Int

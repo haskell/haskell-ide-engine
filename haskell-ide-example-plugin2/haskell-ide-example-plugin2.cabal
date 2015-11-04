@@ -18,5 +18,6 @@ library
                      , aeson
                      , containers
                      , text
+                     , transformers
   ghc-options:         -Wall
   default-language:    Haskell2010

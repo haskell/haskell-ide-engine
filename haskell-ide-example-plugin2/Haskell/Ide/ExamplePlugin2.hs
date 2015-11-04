@@ -3,7 +3,8 @@ module Haskell.Ide.ExamplePlugin2 where
 
 import Haskell.Ide.Engine.PluginDescriptor
 
-import Data.Aeson
+import           Control.Monad.IO.Class
+import           Data.Aeson
 import qualified Data.Map as Map
 import qualified Data.Text as T
 
@@ -18,11 +19,13 @@ example2Descriptor = PluginDescriptor
           { uiCmdName = "sayHello"
           , uiContexts = [CtxNone]
           , uiAdditionalParams = []
+          , uiFunc = sayHelloCmd
           }
       , UiCommand
           { uiCmdName = "sayHelloTo"
           , uiContexts = [CtxNone]
           , uiAdditionalParams = [RP "name"]
+          , uiFunc = sayHelloToCmd
           }
       ]
   , pdExposedServices = []
@@ -31,6 +34,19 @@ example2Descriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
+sayHelloCmd :: Dispatcher
+sayHelloCmd _ = return (IdeResponseOk (String sayHello))
+
+sayHelloToCmd :: Dispatcher
+sayHelloToCmd req = do
+  case Map.lookup "name" (ideParams req) of
+    Nothing -> return $ IdeResponseFail "expecting parameter `name`"
+    Just n -> do
+      r <- liftIO $ sayHelloTo n
+      return $ IdeResponseOk (String r)
+
+-- ---------------------------------------------------------------------
+{-
 example2Dispatcher :: Dispatcher
 example2Dispatcher (IdeRequest name ctx params) = do
   case name of
@@ -39,8 +55,9 @@ example2Dispatcher (IdeRequest name ctx params) = do
       case Map.lookup "name" params of
         Nothing -> return $ IdeResponseFail "expecting parameter `name`"
         Just n -> do
-          r <- sayHelloTo n
+          r <- liftIO $ sayHelloTo n
           return $ IdeResponseOk (String r)
+-}
 
 -- ---------------------------------------------------------------------
 

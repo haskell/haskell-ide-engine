@@ -1,4 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE RankNTypes #-}
 -- | Experimenting with a data structure to define a plugin.
 --
 -- The general idea is that a given plugin returns this structure during the
@@ -18,34 +21,40 @@
 
 module Haskell.Ide.Engine.PluginDescriptor where
 
+import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Aeson.Types
 import qualified Data.Map as Map
+import qualified GHC
 import           GHC.Generics
 
 -- ---------------------------------------------------------------------
 
 data PluginDescriptor = PluginDescriptor
-  { pdUiCommands :: [UiCommand]
+  { pdUiCommands      :: [UiCommand]
   , pdExposedServices :: [Service]
-  , pdUsedServices :: [Service]
-  }
+  , pdUsedServices    :: [Service]
+  } deriving (Show)
 
 -- |Ideally a UiCommand is defined in such a way that it can be exposed via the
 -- native CLI for the tool being exposed as well. Perhaps use
 -- Options.Applicative for this in some way.
 data UiCommand = UiCommand
-  { uiCmdName :: CommandName
-  , uiContexts :: [AcceptedContext] -- TODO: should this be a non empty list? or should empty list imply CtxNone.
-  , uiAdditionalParams :: [RequiredParam]
-  } deriving (Show)
+  { uiCmdName  :: !CommandName
+  , uiContexts :: ![AcceptedContext] -- TODO: should this be a non empty list? or should empty list imply CtxNone.
+  , uiAdditionalParams :: ![RequiredParam]
+  , uiFunc :: !Dispatcher
+  }
+
+instance Show UiCommand where
+  show (UiCommand name ctxs params _func) = "(UiCommand " ++ show name ++ " " ++ show ctxs ++ " " ++ show params ++ ")"
 
 type CommandName = String
 
 data Service = Service
   { svcName :: String
   -- , svcXXX :: undefined
-  }
+  } deriving (Show)
 
 -- |Define what context will be accepted from the frontend for the specific
 -- command. Matches up to corresponding values for CommandContext
@@ -80,6 +89,10 @@ data CabalSection = CabalSection String deriving (Show,Eq,Generic)
 data RequiredParam = RP String -- ^ Prompt
                    deriving (Show)
 
+type PluginId = String
+
+type Plugins = Map.Map PluginId PluginDescriptor
+
 -- ---------------------------------------------------------------------
 
 data IdeRequest = IdeRequest
@@ -101,10 +114,14 @@ data IdeResponse = IdeResponseOk    Value -- ^ Command Succeeded
                                           -- status
                  deriving Show
 
+class (Monad m) => HasIdeState m where
+  getPlugins :: m Plugins
 
--- This should probabaly become
--- type Dispatcher = IdeRequest -> IdeM IdeResponse
-type Dispatcher = IdeRequest -> IO IdeResponse
+-- Not sure if this should be completely generalised to not have GhcMonad in it
+type Dispatcher = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m) => IdeRequest -> m IdeResponse
+
+-- instance Show Dispatcher where
+--   show _ = "Dispatcher"
 
 -- ---------------------------------------------------------------------
 -- JSON instances
