@@ -104,7 +104,7 @@
     [github](https://github.com/lspitzner/exference/)
     [pdf](https://github.com/lspitzner/exference-paper/raw/master/exference.pdf)
 
-#### Others / Not yet classified
+#### Others...
 
 * `hscope`: partial cscope line oriented mode reimplementation for Haskell code -
   ([github](https://github.com/bosu/hscope),
