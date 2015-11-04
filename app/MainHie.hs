@@ -7,20 +7,10 @@ module Main where
 import           Control.Concurrent
 import           Control.Exception
 import           Control.Logging
--- import           Control.Monad
--- import           Control.Monad.IO.Class
--- import           Data.Aeson
--- import           Data.Char
--- import           Data.Foldable
--- import           Data.IORef
--- import           Data.List
--- import           Data.Traversable
--- import qualified Data.Text as T
 import           Data.Version (showVersion)
 import           Development.GitRev (gitCommitCount)
 import           Distribution.System (buildArch)
 import           Distribution.Text (display)
-import           Haskell.Ide.Engine.BasePlugin
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadFunctions
@@ -29,20 +19,28 @@ import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.REPL
 import           Haskell.Ide.Engine.Transport.JsonStdio
 import           Haskell.Ide.Engine.Types
--- import qualified Language.Haskell.GhcMod.LightGhc as GM
--- import qualified Language.Haskell.GhcMod.Monad as GM
--- import qualified Language.Haskell.GhcMod.Types as GM
--- import           Module (mkModuleName)
 import           Options.Applicative.Simple
 import qualified Data.Map as Map
 import qualified Paths_haskell_ide_engine as Meta
--- import           Data.Time
--- import           System.IO
 
 -- ---------------------------------------------------------------------
 -- plugins
 
-import Haskell.Ide.ExamplePlugin2
+import           Haskell.Ide.Engine.BasePlugin
+import           Haskell.Ide.ExamplePlugin2
+
+-- ---------------------------------------------------------------------
+
+-- | This will be read from a configuration, eventually
+plugins :: Plugins
+plugins = Map.fromList
+  [
+    -- Note: statically including known plugins. In future this map could be set
+    -- up via a config file of some kind.
+    ("eg2", example2Descriptor)
+    -- The base plugin, able to answer questions about the IDE Engine environment.
+  , ("base", baseDescriptor)
+  ]
 
 -- ---------------------------------------------------------------------
 
@@ -114,15 +112,3 @@ run opts = do
 listener :: Chan ChannelRequest -> IO ()
 listener = assert False undefined
 
--- ---------------------------------------------------------------------
-
--- | This will be read from a configuration, eventually
-plugins :: Plugins
-plugins = Map.fromList
-  [
-    -- Note: statically including known plugins. In future this map could be set
-    -- up via a config file of some kind.
-    ("eg2", example2Descriptor)
-    -- The base plugin, able to answer questions about the IDE Engine environment.
-  , ("base", baseDescriptor)
-  ]

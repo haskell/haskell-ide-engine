@@ -3,6 +3,7 @@
 module Haskell.Ide.Engine.BasePlugin where
 
 import           Control.Monad
+import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Foldable
 import           Data.List
@@ -15,6 +16,7 @@ import           Options.Applicative.Simple
 import qualified Data.Map as Map
 import qualified Paths_haskell_ide_engine as Meta
 import           Prelude hiding (log)
+import           System.Directory
 
 -- ---------------------------------------------------------------------
 
@@ -41,6 +43,18 @@ baseDescriptor = PluginDescriptor
           , uiAdditionalParams = [RP "plugin"]
           , uiFunc = commandsCmd
           }
+      , UiCommand
+          { uiCmdName = "pwd"
+          , uiContexts = [CtxNone]
+          , uiAdditionalParams = []
+          , uiFunc = pwdCmd
+          }
+      , UiCommand
+          { uiCmdName = "cwd"
+          , uiContexts = [CtxNone]
+          , uiAdditionalParams = [RP "dir"]
+          , uiFunc = cwdCmd
+          }
       ]
   , pdExposedServices = []
   , pdUsedServices    = []
@@ -64,6 +78,19 @@ commandsCmd req = do
     Just p -> case Map.lookup p plugins of
       Nothing -> return (IdeResponseFail (String $ T.pack $ "Can't find plugin:'"++ p ++ "'"))
       Just pl -> return (IdeResponseOk (String $ T.pack $ intercalate "," $ map uiCmdName $ pdUiCommands pl))
+
+pwdCmd :: Dispatcher
+pwdCmd _ = do
+  dir <- liftIO $ getCurrentDirectory
+  return (IdeResponseOk (String $ T.pack dir))
+
+cwdCmd :: Dispatcher
+cwdCmd req = do
+  case Map.lookup "dir" (ideParams req) of
+    Nothing -> return (IdeResponseFail (String $ T.pack $ "need 'dir' parameter"))
+    Just dir -> do
+      liftIO $ setCurrentDirectory dir
+      return (IdeResponseOk Null)
 
 -- ---------------------------------------------------------------------
 
