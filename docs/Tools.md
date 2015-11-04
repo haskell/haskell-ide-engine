@@ -2,6 +2,10 @@
 
 #### Linters / Refactoring
 
+* `hlint`: suggests changes to simplify code and make it easier to read -
+  ([github](https://github.com/ndmitchell/hlint),
+  [hackage](https://hackage.haskell.org/package/hlint),
+  [website](http://community.haskell.org/~ndm/hlint/))
 * `HaRe`: Haskell Refactoring Tool -
   ([github](https://github.com/alanz/HaRe),
   [website](http://www.cs.kent.ac.uk/projects/refactor-fp/))
@@ -18,16 +22,9 @@
 * `stylish-haskell`: Haskell code prettifier -
   ([github](https://github.com/jaspervdj/stylish-haskell),
   [hackage](http://hackage.haskell.org/package/stylish-haskell))
-* `hfmt`: Code reformatter, using hlint, hindent, and stylish-haskell -
-  ([hackage](http://hackage.haskell.org/package/hfmt),
-  [github](https://github.com/danstiner/hfmt))
 * `hindent`: Extensible Haskell pretty printer -
   ([github](https://github.com/chrisdone/hindent),
   [hackage](https://hackage.haskell.org/package/hindent))
-* `hlint`: suggests changes to simplify code and make it easier to read -
-  ([github](https://github.com/ndmitchell/hlint),
-  [hackage](https://hackage.haskell.org/package/hlint),
-  [website](http://community.haskell.org/~ndm/hlint/))
 * `apply-refact`: ...
 * `pointfree`: Tool for refactoring expressions into pointfree form -
   ([hackage](http://hackage.haskell.org/package/pointfree)
@@ -36,6 +33,9 @@
 * `pointful`: Tool for refactoring expressions into pointfull form -
   ([github](https://github.com/23Skidoo/pointful),
   [hackage](http://hackage.haskell.org/package/pointful))
+* `hfmt`: Code reformatter, using hlint, hindent, and stylish-haskell -
+  ([hackage](http://hackage.haskell.org/package/hfmt),
+  [github](https://github.com/danstiner/hfmt))
 
 #### Ctags generation
 
@@ -45,11 +45,11 @@
 * `hasktags`: Produces ctags tags and etags TAGS files for Haskell programs -
   ([github](https://github.com/MarcWeber/hasktags),
   [hackage](https://hackage.haskell.org/package/hasktags))
-* `lushtags`: ... -
+* :skull: `lushtags`: ... -
   ([github](https://github.com/bitc/lushtags))
-* `gasbag`: ... -
+* :skull: `gasbag`: ... -
   ([github](http://kingfisher.nfshost.com/sw/gasbag))
-* `hothasktags`: ... -
+* :skull: `hothasktags`: ... -
   ([github](http://hackage.haskell.org/package/hothasktags))
 
 #### Code Generation
@@ -64,11 +64,19 @@
 
 #### Documentation generation / lookup
 
-* `haddock`: A Haskell Documentation Tool -
+* `haddock`: A Haskell Documentation generation Tool -
   ([github](https://github.com/haskell/haddock),
   [website](https://www.haskell.org/haddock/))
-* `hayoo`: ...
-* `hoogle`: ...
+* `hayoo`: Search Hackage by function, signature or package -
+  ([app](http://hayoo.fh-wedel.de/),
+  [github](https://github.com/hunt-framework/hayoo),
+  [hackage](http://hackage.haskell.org/package/Hayoo))
+* `hoogle`: Haskell API search engine
+  ([haskell wiki](https://wiki.haskell.org/Hoogle),
+  [haskell.org app](https://www.haskell.org/hoogle/),
+  [stackage.org app](http://www.stackage.org/),
+  [hackage](http://hackage.haskell.org/package/hoogle),
+  [github](https://github.com/ndmitchell/hoogle))
 
 #### REPL
 
@@ -77,27 +85,30 @@
 
 #### Ide backends
 
-* `scion`: Haskell IDE library -
-  ([hackage](https://hackage.haskell.org/package/scion))
-* `buildwrapper`: A library and an executable that provide an easy API for a Haskell IDE
-  ([github](https://github.com/JPMoresmau/BuildWrapper),
-  [hackage](https://hackage.haskell.org/package/buildwrapper))
+* `ide-backend`: drives the GHC API to build, query, and run your code -
+  ([github](https://github.com/fpco/ide-backend),
+  [hackage](http://hackage.haskell.org/package/ide-backend))
 * `ghc-mod`: Haskell ide-backend -
   ([github](https://github.com/kazu-yamamoto/ghc-mod),
   [hackage](https://hackage.haskell.org/package/ghc-mod),
   [website](http://www.mew.org/~kazu/proj/ghc-mod/))
-* `ide-backend`: drives the GHC API to build, query, and run your code -
-  ([github](https://github.com/fpco/ide-backend),
-  [hackage](http://hackage.haskell.org/package/ide-backend))
+* `buildwrapper`: A library and an executable that provide an easy API for a Haskell IDE
+  ([github](https://github.com/JPMoresmau/BuildWrapper),
+  [hackage](https://hackage.haskell.org/package/buildwrapper))
+* `hsdev`: ide bakcend: autocompletion, symbol info, go-to declaration, find references etc. -
+  ([hackage](http://hackage.haskell.org/package/hsdev),
+  [github](https://github.com/mvoidex/hsdev))
+* :skull: `scion`: Haskell IDE library -
+  ([hackage](https://hackage.haskell.org/package/scion))
 
 #### Others / Not yet classified
 
-* `flycheck`: ...
 * `hscope`: partial cscope line oriented mode reimplementation for Haskell code -
   ([github](https://github.com/bosu/hscope),
   [hackage](https://hackage.haskell.org/package/hscope))
 * `liquid haskell`: Refinement Types: static verifier for Haskell, based on Liquid Types -
   ([github](https://github.com/ucsd-progsys/liquidhaskell),
   [website](http://goto.ucsd.edu/~rjhala/liquid/haskell/blog/about/))
-* `mote`: ... -
+* `mote`: (Agda Style programmer's assistant for Vim) -
   ([github](https://github.com/imeckler/mote))
+* `flycheck`: ...
