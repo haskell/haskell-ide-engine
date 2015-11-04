@@ -77,6 +77,9 @@
   [stackage.org app](http://www.stackage.org/),
   [hackage](http://hackage.haskell.org/package/hoogle),
   [github](https://github.com/ndmitchell/hoogle))
+* `doctest` - checks examples in source code comments and include them in generated documentation-
+  ([github](https://github.com/sol/doctest),
+  [hackage](https://hackage.haskell.org/package/doctest))
 
 #### REPL
 
