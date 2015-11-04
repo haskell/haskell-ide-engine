@@ -37,31 +37,6 @@
   ([hackage](http://hackage.haskell.org/package/hfmt),
   [github](https://github.com/danstiner/hfmt))
 
-#### Ctags generation
-
-* `codex`: A ctags file generator for cabal/stack project dependencies -
-  ([github](https://github.com/aloiscochard/codex),
-  [hackage](https://hackage.haskell.org/package/codex))
-* `hasktags`: Produces ctags tags and etags TAGS files for Haskell programs -
-  ([github](https://github.com/MarcWeber/hasktags),
-  [hackage](https://hackage.haskell.org/package/hasktags))
-* :skull: `lushtags`: ... -
-  ([github](https://github.com/bitc/lushtags))
-* :skull: `gasbag`: ... -
-  ([github](http://kingfisher.nfshost.com/sw/gasbag))
-* :skull: `hothasktags`: ... -
-  ([github](http://hackage.haskell.org/package/hothasktags))
-
-#### Code Generation
-
-* `djinn`: Generate Haskell code from a type -
-  ([github](https://github.com/augustss/djinn),
-  [hackage](https://hackage.haskell.org/package/djinn),
-  [lambda-the-ultimate](http://lambda-the-ultimate.org/node/1178))
-* `exference`: Haskell tool to generate expressions from types.
-  [github](https://github.com/lspitzner/exference/)
-  [pdf](https://github.com/lspitzner/exference-paper/raw/master/exference.pdf)
-
 #### Documentation generation / lookup
 
 * `haddock`: A Haskell Documentation generation Tool -
@@ -81,7 +56,7 @@
   ([github](https://github.com/sol/doctest),
   [hackage](https://hackage.haskell.org/package/doctest))
 
-#### REPL
+#### console / REPL
 
 * `ghci`: ...
 * `ghci-ng`: ...
@@ -103,6 +78,31 @@
   [github](https://github.com/mvoidex/hsdev))
 * :skull: `scion`: Haskell IDE library -
   ([hackage](https://hackage.haskell.org/package/scion))
+
+#### Ctags generation
+
+  * `codex`: A ctags file generator for cabal/stack project dependencies -
+    ([github](https://github.com/aloiscochard/codex),
+    [hackage](https://hackage.haskell.org/package/codex))
+  * `hasktags`: Produces ctags tags and etags TAGS files for Haskell programs -
+    ([github](https://github.com/MarcWeber/hasktags),
+    [hackage](https://hackage.haskell.org/package/hasktags))
+  * :skull: `lushtags`: ... -
+    ([github](https://github.com/bitc/lushtags))
+  * :skull: `gasbag`: ... -
+    ([github](http://kingfisher.nfshost.com/sw/gasbag))
+  * :skull: `hothasktags`: ... -
+    ([github](http://hackage.haskell.org/package/hothasktags))
+
+#### Code Generation
+
+  * `djinn`: Generate Haskell code from a type -
+    ([github](https://github.com/augustss/djinn),
+    [hackage](https://hackage.haskell.org/package/djinn),
+    [lambda-the-ultimate](http://lambda-the-ultimate.org/node/1178))
+  * `exference`: Haskell tool to generate expressions from types.
+    [github](https://github.com/lspitzner/exference/)
+    [pdf](https://github.com/lspitzner/exference-paper/raw/master/exference.pdf)
 
 #### Others / Not yet classified
 
