@@ -51,7 +51,7 @@ This project doesn't start from scratch:
 
 ## Architecture
 
-1. BIOS layer
+1. __BIOS layer__:
 
     ghc-mod stays an AGPL project, and is used for its "awesome sauce" in terms of
     the BIOS functions that it does so well. This interface is
@@ -59,12 +59,12 @@ This project doesn't start from scratch:
     and if a license-constrained user wants to do something else it is also easy to
     replace, if there is strong control of the operating environment.
 
-2. Plugin layer
+2. __Plugin layer__:
 
     A layer providing a point to integrate tools and existing functions, probably
     including ghci.
 
-3. IDE interfacing layer
+3. __IDE interfacing layer__:
 
     This provides a set of logical channels that can be integrated into standard
     IDEs. The details still need to be worked out, but I would imagine something
@@ -80,6 +80,13 @@ This project doesn't start from scratch:
     discussion on IRC around it. These layers may well live in a single repository
     (this one), as two separate layers or just be a feature of how
     haskell-ide-engine is built.
+
+You can see more info [in the docs folder](/docs) at the root of the project, especially:
+
+ - The [Architecture discussion](/docs/Architecture.md)
+ - The [Protocol discussion](/docs/Protocol.md)
+ - The [Design discussion](/docs/Design.md)
+
 
 ## Documentation
 
