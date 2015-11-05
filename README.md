@@ -1,6 +1,6 @@
 # haskell-ide-engine
-[![Available on Hackage][badge-hackage]][hackage] 
-[![License BSD3][badge-license]][license] 
+[![Available on Hackage][badge-hackage]][hackage]
+[![License BSD3][badge-license]][license]
 [![Build Status][badge-travis]][travis]
 
 [badge-travis]: https://travis-ci.org/haskell/haskell-ide-engine.png?branch=master
@@ -11,12 +11,13 @@
 [license]: https://github.com/haskell/haskell-ide-engine/blob/master/LICENSE
 
 
-This project aims to be the universal `IDE interface` to all `haskell tools`.
-It will adapt to all ide by offering a `command line interface` and a `webservice`:
+This project aims to be the __universal IDE interface__ to __all haskell tools__.
+
+It will adapt to all ide by offering a `command line interface` and a `webservice`.
 
  - [ ] cabal / stack project `Configuration` and `Compilation`
  - [ ] Errors Checking, Warnings, Linter, Dead code detection
- - [ ] Refactoring tools, Code beautify, Auto-apply suggestions
+ - [ ] Refactoring tools, Code beautify, Auto-apply suggestion
  - [ ] Code generation
  - [ ] Run testing Suite, check coverage
  - [ ] Autocompletion
@@ -35,19 +36,20 @@ This project doesn't start from scratch:
 1. See why [we should superseed previous tools](/docs/Challenges)
 2. See the [list of existting tools / features ](/docs/Tools.md)
 
-### Architecture
-Right now there is a google group/mailing list for
-[haskell-ide](https://groups.google.com/forum/#!forum/haskell-ide) and an
-IRC channel at #haskell-ide-engine on freenode.
+## Join the project !
 
-If anyone wants to be a member of this project, contact @alanz or @hvr to add
-you to it.
+:love: We need your help! Haskell tooling dream is near :love:
+
+You can already:
+
+ - Register in our [google group mailing list](https://groups.google.com/forum/#!forum/haskell-ide)
+ - Join our IRC channel at `#haskell-ide-engine` on `freenode`.
+ - Ask @alanz or @hvr to join the project
+
+-------------
 
 
-## Next steps
 
-After lots of discussion around layers and licensing, it looks like the way
-forward is as follows
 
 ### BIOS layer
 
