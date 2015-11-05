@@ -1,22 +1,4 @@
-Home to the community effort to provide a common service backend for any IDE
-making use of Haskell in general and GHC in particular.
-
-## Status
-
-This is currently a blank canvas. There has been a fair amount of discussion
-about what needs to be done/exist, this is the place where it should all come
-together.
-
-Right now there is a google group/mailing list for
-[haskell-ide](https://groups.google.com/forum/#!forum/haskell-ide) and an empty
-IRC channel at #haskell-ide-engine on freenode.
-
-The initial discussions have taken place in a number of email threads/IRC
-channels, this should become the place where these discussions happen in future.
-
-If anyone wants to be a member of this project, contact @alanz or @hvr to add
-you to it.
-
+# haskell-ide-engine 
 [![Available on Hackage][badge-hackage]][hackage]
 [![License BSD3][badge-license]][license]
 [![Build Status][badge-travis]][travis]
@@ -27,6 +9,37 @@ you to it.
 [hackage]: https://hackage.haskell.org/package/haskell-ide-engine
 [badge-license]: https://img.shields.io/badge/license-BSD3-green.svg?dummy
 [license]: https://github.com/haskell/haskell-ide-engine/blob/master/LICENSE
+
+
+This project aims to be the universal `IDE interface` to all `haskell tools`, providing
+
+  - [ ] Project Configuration
+  - [ ] Project Compilation
+  - [ ] Errors
+  - [ ] Warnings
+  - [ ] Linter
+  - [ ] Testing
+  - [ ] Get type at point
+  - [ ] Autocompletion
+  - [ ] Code beautify
+  - [ ] Jump to definition
+  - [ ] Call tracking
+  - [ ] REPL
+  - [ ] Documentation
+
+## About
+
+ - isn't this _again_ an other `ghc-mod` or `ide-backend` like project ?
+    No:
+    > Both the ghc-mod and ide-backend maintainers have agreed to contribute code to this new repository and then rebase the old repos on this. The reason we're using a new repo instead of modifying one of the existing ones is so that the existing projects experience no disruption during this migration process. If this was a new set of people starting a new project without support from existing projects, I'd agree with you. But Alan's reached out to existing players already, which is an important distinction.
+
+Right now there is a google group/mailing list for
+[haskell-ide](https://groups.google.com/forum/#!forum/haskell-ide) and an
+IRC channel at #haskell-ide-engine on freenode.
+
+If anyone wants to be a member of this project, contact @alanz or @hvr to add
+you to it.
+
 
 ## Next steps
 
