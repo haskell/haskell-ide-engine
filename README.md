@@ -11,9 +11,9 @@
 [license]: https://github.com/haskell/haskell-ide-engine/blob/master/LICENSE
 
 
-This project aims to be the __universal IDE interface__ to __all haskell tools__.
+This project aims to be the __universal IDE interface__ to __all haskell tools__, proving a __full-featured and easy to query ide-backend__.
 
-It will adapt to all ide by offering a `command line interface` and a `webservice`.
+You'll find:
 
  - [ ] cabal / stack project `Configuration` and `Compilation`
  - [ ] Errors Checking, Warnings, Linter, Dead code detection
@@ -24,6 +24,7 @@ It will adapt to all ide by offering a `command line interface` and a `webservic
  - [ ] Get type at point
  - [ ] Jump to definition, find Usages, Browse documentation, Generate ctags
  - [ ] REPL
+
 
 ### Is this _again_ an other `ghc-mod` or `ide-backend` like project ?
 
