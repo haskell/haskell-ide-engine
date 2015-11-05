@@ -1,4 +1,7 @@
-# haskell-ide-engine [![Available on Hackage][badge-hackage]][hackage] [![License BSD3][badge-license]][license] [![Build Status][badge-travis]][travis]
+# haskell-ide-engine
+[![Available on Hackage][badge-hackage]][hackage] 
+[![License BSD3][badge-license]][license] 
+[![Build Status][badge-travis]][travis]
 
 [badge-travis]: https://travis-ci.org/haskell/haskell-ide-engine.png?branch=master
 [travis]: https://travis-ci.org/haskell/haskell-ide-engine
