@@ -22,11 +22,11 @@ before_install:
   - chmod a+x ~/.local/bin/stack
 
 install:
-  - stack +RTS -N2 -RTS setup
-  - stack +RTS -N2 -RTS build --only-snapshot --pedantic
+  - travis_long stack +RTS -N2 -RTS setup
+  - travis_long stack +RTS -N2 -RTS build --only-snapshot --pedantic
 
 script:
-  - stack +RTS -N2 -RTS build --test --haddock --pedantic
+  - travis_long stack +RTS -N2 -RTS build --test --haddock --pedantic
 
 # coveralls.io coverage reports
 # after_script:
