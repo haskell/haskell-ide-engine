@@ -103,7 +103,8 @@ run opts = do
     -- Can have multiple listeners, each using a different transport protocol, so
     -- long as they can pass through a ChannelRequest
     if (optRepl opts)
-       then replListener plugins cin
+       -- then replListener plugins cin
+       then replListener' plugins cin
        else jsonStdioTransport cin
 
     -- At least one needs to be launched, othewise a threadDelay with a large

@@ -36,6 +36,8 @@ data PluginDescriptor = PluginDescriptor
   , pdUsedServices    :: [Service]
   } deriving (Show)
 
+
+-- TODO: Rename UiCommand, it is confusing, remove Ui
 -- |Ideally a UiCommand is defined in such a way that it can be exposed via the
 -- native CLI for the tool being exposed as well. Perhaps use
 -- Options.Applicative for this in some way.
@@ -67,6 +69,7 @@ data AcceptedContext = CtxNone        -- ^ No context required, global command
                      | CtxRegion      -- ^ A region within a specific file
                      | CtxFile        -- ^ Works on a whole file
                      | CtxCabalTarget -- ^ Works on a specific cabal target
+                     | CtxProject     -- ^ Works on a the whole project
                      deriving (Eq,Show,Generic)
 
 type Pos = (Int,Int)

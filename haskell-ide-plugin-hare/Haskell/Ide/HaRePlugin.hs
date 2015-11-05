@@ -1,12 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.HaRePlugin where
 
-import Haskell.Ide.Engine.PluginDescriptor
-
+import           Control.Exception
 import           Control.Monad.IO.Class
 import           Data.Aeson
-import qualified Data.Map as Map
+import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.PluginUtils
+import           Language.Haskell.Refact.HaRe
+-- import qualified Data.Map as Map
 import qualified Data.Text as T
+import qualified Language.Haskell.GhcMod as GM (defaultOptions)
 
 -- ---------------------------------------------------------------------
 
@@ -17,19 +20,11 @@ hareDescriptor = PluginDescriptor
       [
         UiCommand
           { uiDesc = UiCommandDesc
-                     { uiCmdName = "sayHello"
-                     , uiContexts = [CtxNone]
-                     , uiAdditionalParams = []
+                     { uiCmdName = "rename"
+                     , uiContexts = [CtxPoint]
+                     , uiAdditionalParams = [RP "name"]
                      }
-          , uiFunc = sayHelloCmd
-          }
-      , UiCommand
-          { uiDesc = UiCommandDesc
-                       { uiCmdName = "sayHelloTo"
-                       , uiContexts = [CtxNone]
-                       , uiAdditionalParams = [RP "name"]
-                       }
-          , uiFunc = sayHelloToCmd
+          , uiFunc = renameCmd
           }
       ]
   , pdExposedServices = []
@@ -38,21 +33,33 @@ hareDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-sayHelloCmd :: Dispatcher
-sayHelloCmd _ = return (IdeResponseOk (String sayHello))
+renameCmd :: Dispatcher
+renameCmd req = do
+  case getParams ["name"] req of
+    Left err -> return err
+    Right [name] -> do
+      let
+        mf = do -- Maybe monad
+              fileName <- ctxFile (ideContext req)
+              pos      <- ctxStartPos (ideContext req)
+              return (fileName,pos)
+      case mf of
+        Nothing -> return (IdeResponseFail (String (T.pack $ "wrong context, needed file and pos")))
+        Just (filename,pos) -> do
+          res <- liftIO $ catchException $ rename defaultSettings GM.defaultOptions filename name pos
+          case res of
+            Left err -> return (IdeResponseFail (toJSON err))
+            Right fs -> return (IdeResponseOk (toJSON fs))
+    Right _ -> error "HarePlugin.renameCmd: should never get here"
 
-sayHelloToCmd :: Dispatcher
-sayHelloToCmd req = do
-  case Map.lookup "name" (ideParams req) of
-    Nothing -> return $ IdeResponseFail "expecting parameter `name`"
-    Just n -> do
-      r <- liftIO $ sayHelloTo n
-      return $ IdeResponseOk (String r)
+-- rename :: RefactSettings -> Options -> FilePath -> String -> SimpPos -> IO [FilePath] 
 
 -- ---------------------------------------------------------------------
 
-sayHello :: T.Text
-sayHello = "hello from ExamplePlugin2"
-
-sayHelloTo :: String -> IO T.Text
-sayHelloTo n = return $ T.pack $ "hello " ++ n ++ " from ExamplePlugin2"
+catchException :: (IO t) -> IO (Either String t)
+catchException f = do
+  res <- handle handler (f >>= \r -> return $ Right r)
+  return res
+  where
+    handler:: SomeException -> IO (Either String t)
+    handler e = return (Left (show e))

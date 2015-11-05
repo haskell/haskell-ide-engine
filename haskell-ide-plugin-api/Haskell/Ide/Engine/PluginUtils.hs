@@ -1,4 +1,4 @@
-module Haskell.Ide.Engine.Utils
+module Haskell.Ide.Engine.PluginUtils
   (
     getParams
   ) where

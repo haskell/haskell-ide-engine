@@ -14,9 +14,11 @@ cabal-version:       >=1.10
 library
   exposed-modules:     Haskell.Ide.HaRePlugin
   build-depends:       base >= 4.7 && < 5
-                     , haskell-ide-plugin-api
+                     , HaRe
                      , aeson
                      , containers
+                     , ghc-mod
+                     , haskell-ide-plugin-api
                      , text
                      , transformers
   ghc-options:         -Wall

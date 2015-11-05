@@ -24,7 +24,6 @@ library
                        Haskell.Ide.Engine.Transport.JsonStdio
                        Haskell.Ide.Engine.Transport.JsonHttp
                        Haskell.Ide.Engine.Types
-                       Haskell.Ide.Engine.Utils
   other-modules:       Paths_haskell_ide_engine
   build-depends:       base >= 4.7 && < 5
                      , Cabal >= 1.22
@@ -36,6 +35,7 @@ library
                      , ghc >= 7.10.2 && < 7.11
                      , ghc-mod >= 5.4
                      , gitrev >= 1.1
+                     , haskeline
                      , haskell-ide-plugin-api
                      , lens
                      , logging

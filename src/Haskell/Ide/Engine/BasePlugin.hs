@@ -12,7 +12,7 @@ import           Development.GitRev (gitCommitCount)
 import           Distribution.System (buildArch)
 import           Distribution.Text (display)
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.Utils
+import           Haskell.Ide.Engine.PluginUtils
 import           Options.Applicative.Simple (simpleVersion)
 import qualified Data.Map as Map
 import qualified Paths_haskell_ide_engine as Meta
