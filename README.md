@@ -15,7 +15,7 @@ This project aims to be the universal `IDE interface` to all `haskell tools`.
 It will adapt to all ide by offering a `command line interface` and a `webservice`:
 
  - [ ] cabal / stack project `Configuration` and `Compilation`
- - [ ] Errors Checking, Warnings, Linter, Dead code detection,
+ - [ ] Errors Checking, Warnings, Linter, Dead code detection
  - [ ] Refactoring tools, Code beautify, Auto-apply suggestions
  - [ ] Code generation
  - [ ] Run testing Suite, check coverage
