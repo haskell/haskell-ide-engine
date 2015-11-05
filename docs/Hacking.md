@@ -15,7 +15,7 @@ $ stack exec hie -- --repl
 HIE version : Version 0.1.0.0, Git revision 1db8ae98de2e197f5447c0a97f20ca4e06fdbc98 (dirty) (57 commits) x86_64
 HIE> base:version
 IdeResponseOk (String "Version 0.1.0.0, Git revision 1db8ae98de2e197f5447c0a97f20ca4e06fdbc98 (dirty) (57 commits) x86_64")
-HIE> 
+HIE>
 ```
 
 ### REPL commands
@@ -143,7 +143,7 @@ the `plugins` table.
 When a request is recived from any of the frontends, this is routed to the
 central dispatcher via a `Chan`. Based on the specified plugin name and
 `IdeRequest` `ideCommand` value the appropriate `UiCommand` is identified and
-its `uiFunc` is calle.
+its `uiFunc` is called.
 
 The `uiFunc` is of type `Dispatcher`, which is defined as
 
@@ -156,4 +156,3 @@ IO and the `HIE` state, which is currently only the table of plugins.
 
 It also makes the `GhcMonad` available. In a fully general version this my not
 be necessary.
-
