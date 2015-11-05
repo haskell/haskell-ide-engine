@@ -35,6 +35,12 @@ No:
 
  > Both the ghc-mod and ide-backend maintainers have agreed to contribute code to this new repository and then rebase the old repos on this. The reason we're using a new repo instead of modifying one of the existing ones is so that the existing projects experience no disruption during this migration process. If this was a new set of people starting a new project without support from existing projects, I'd agree with you. But Alan's reached out to existing players already, which is an important distinction.
 
+This project doesn't start from scratch:
+
+1. See why [we should superseed previous tools](/docs/Challenges)
+2. See the [list of existting tools / features ](/docs/Tools.md)
+
+### Architecture
 Right now there is a google group/mailing list for
 [haskell-ide](https://groups.google.com/forum/#!forum/haskell-ide) and an
 IRC channel at #haskell-ide-engine on freenode.
