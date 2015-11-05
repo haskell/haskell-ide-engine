@@ -27,10 +27,14 @@ This project aims to be the universal `IDE interface` to all `haskell tools`, pr
  - [ ] REPL
  - [ ] Documentation
 
+ via a `command line interface` or a `webservice` to best suit any possible editor.
+
 ## About
 
  - isn't this _again_ an other `ghc-mod` or `ide-backend` like project ?
+
     No:
+
     > Both the ghc-mod and ide-backend maintainers have agreed to contribute code to this new repository and then rebase the old repos on this. The reason we're using a new repo instead of modifying one of the existing ones is so that the existing projects experience no disruption during this migration process. If this was a new set of people starting a new project without support from existing projects, I'd agree with you. But Alan's reached out to existing players already, which is an important distinction.
 
 Right now there is a google group/mailing list for
