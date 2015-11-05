@@ -34,58 +34,53 @@ No:
 This project doesn't start from scratch:
 
 1. See why [we should superseed previous tools](/docs/Challenges)
-2. See the [list of existting tools / features ](/docs/Tools.md)
+2. Check the [list of existting tools / features ](/docs/Tools.md)
+3. See more [other tools / ide for inpiration](/docs/Inspirations.md)
 
-## Join the project !
+## It's time to join the project !
 
-:love: We need your help! Haskell tooling dream is near :love:
-
-You can already:
+:heart: Haskell tooling dream is near, we need your help ! :heart:
 
  - Register in our [google group mailing list](https://groups.google.com/forum/#!forum/haskell-ide)
  - Join our IRC channel at `#haskell-ide-engine` on `freenode`.
- - Ask @alanz or @hvr to join the project
+ - Fork this repo and hack as much as you can.
+ - Ask @alanz or @hvr to join the project.
 
 -------------
 
 
+## Architecture
 
+1. BIOS layer
 
-### BIOS layer
+    ghc-mod stays an AGPL project, and is used for its "awesome sauce" in terms of
+    the BIOS functions that it does so well. This interface is
+    [straightforward to use](http://alanz.github.io/haskell%20refactorer/2015/10/02/ghc-mod-for-tooling),
+    and if a license-constrained user wants to do something else it is also easy to
+    replace, if there is strong control of the operating environment.
 
-ghc-mod stays an AGPL project, and is used for its "awesome sauce" in terms of
-the BIOS functions that it does so well. This interface is
-[straightforward to use](http://alanz.github.io/haskell%20refactorer/2015/10/02/ghc-mod-for-tooling),
-and if a license-constrained user wants to do something else it is also easy to
-replace, if there is strong control of the operating environment.
+2. Plugin layer
 
-### Plugin layer
+    A layer providing a point to integrate tools and existing functions, probably
+    including ghci.
 
-A layer providing a point to integrate tools and existing functions, probably
-including ghci.
+3. IDE interfacing layer
 
-### IDE interfacing layer
+    This provides a set of logical channels that can be integrated into standard
+    IDEs. The details still need to be worked out, but I would imagine something
+    like a channel for querying information about a project, one for a ghci session,
+    and whatever others are needed. These logical channels can then run over
+    whatever transport is appropriate to the specific IDE being integrated.
 
-This provides a set of logical channels that can be integrated into standard
-IDEs. The details still need to be worked out, but I would imagine something
-like a channel for querying information about a project, one for a ghci session,
-and whatever others are needed. These logical channels can then run over
-whatever transport is appropriate to the specific IDE being integrated.
+    According to [#2](https://github.com/haskell/haskell-ide-engine/issues/2) it seems the
+    consensus is toward (re) using the Idris protocol, as the languages are similar
+    enough and it offers cross-IDE support already.
 
-According to [#2](https://github.com/haskell/haskell-ide-engine/issues/2) it seems the
-consensus is toward (re) using the Idris protocol, as the languages are similar
-enough and it offers cross-IDE support already.
-
-The Plugin and IDE layers are very fuzzy at this point, and there has been some
-discussion on IRC around it. These layers may well live in a single repository
-(this one), as two separate layers or just be a feature of how
-haskell-ide-engine is built.
+    The Plugin and IDE layers are very fuzzy at this point, and there has been some
+    discussion on IRC around it. These layers may well live in a single repository
+    (this one), as two separate layers or just be a feature of how
+    haskell-ide-engine is built.
 
 ## Documentation
 
-Rather than use the wiki we will put the documentation in the
-[docs](https://github.com/haskell/haskell-ide-engine/tree/master/docs) directory here,
-so collaborators can either edit or provide pull requests.
-
-  * [Inspirations](https://github.com/haskell/haskell-ide-engine/blob/master/docs/Inspirations.md)
-  * [Tools](https://github.com/haskell/haskell-ide-engine/blob/master/docs/Tools.md) that could/should be integrated into haskell-ide-engine
+All the documentation is [in the docs folder](/docs) at the root of the project.
