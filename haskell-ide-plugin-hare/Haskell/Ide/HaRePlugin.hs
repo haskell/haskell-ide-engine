@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Haskell.Ide.ExamplePlugin2 where
+module Haskell.Ide.HaRePlugin where
 
 import Haskell.Ide.Engine.PluginDescriptor
 
@@ -10,8 +10,8 @@ import qualified Data.Text as T
 
 -- ---------------------------------------------------------------------
 
-example2Descriptor :: PluginDescriptor
-example2Descriptor = PluginDescriptor
+hareDescriptor :: PluginDescriptor
+hareDescriptor = PluginDescriptor
   {
     pdUiCommands =
       [
@@ -48,20 +48,6 @@ sayHelloToCmd req = do
     Just n -> do
       r <- liftIO $ sayHelloTo n
       return $ IdeResponseOk (String r)
-
--- ---------------------------------------------------------------------
-{-
-example2Dispatcher :: Dispatcher
-example2Dispatcher (IdeRequest name ctx params) = do
-  case name of
-    "sayHello"   -> return (IdeResponseOk (String sayHello))
-    "sayHelloTo" -> do
-      case Map.lookup "name" params of
-        Nothing -> return $ IdeResponseFail "expecting parameter `name`"
-        Just n -> do
-          r <- liftIO $ sayHelloTo n
-          return $ IdeResponseOk (String r)
--}
 
 -- ---------------------------------------------------------------------
 

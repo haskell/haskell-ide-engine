@@ -12,7 +12,8 @@ import           Development.GitRev (gitCommitCount)
 import           Distribution.System (buildArch)
 import           Distribution.Text (display)
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Options.Applicative.Simple
+import           Haskell.Ide.Engine.Utils
+import           Options.Applicative.Simple (simpleVersion)
 import qualified Data.Map as Map
 import qualified Paths_haskell_ide_engine as Meta
 import           Prelude hiding (log)
@@ -26,33 +27,51 @@ baseDescriptor = PluginDescriptor
     pdUiCommands =
       [
         UiCommand
-          { uiCmdName = "version"
-          , uiContexts = [CtxNone]
-          , uiAdditionalParams = []
+          { uiDesc = UiCommandDesc
+                       { uiCmdName = "version"
+                       , uiContexts = [CtxNone]
+                       , uiAdditionalParams = []
+                       }
           , uiFunc = versionCmd
           }
       , UiCommand
-          { uiCmdName = "plugins"
-          , uiContexts = [CtxNone]
-          , uiAdditionalParams = []
+          { uiDesc = UiCommandDesc
+                       { uiCmdName = "plugins"
+                       , uiContexts = [CtxNone]
+                       , uiAdditionalParams = []
+                       }
           , uiFunc = pluginsCmd
           }
       , UiCommand
-          { uiCmdName = "commands"
-          , uiContexts = [CtxNone]
-          , uiAdditionalParams = [RP "plugin"]
+          { uiDesc = UiCommandDesc
+                       { uiCmdName = "commands"
+                       , uiContexts = [CtxNone]
+                       , uiAdditionalParams = [RP "plugin"]
+                       }
           , uiFunc = commandsCmd
           }
       , UiCommand
-          { uiCmdName = "pwd"
-          , uiContexts = [CtxNone]
-          , uiAdditionalParams = []
+          { uiDesc = UiCommandDesc
+                       { uiCmdName = "commandDetail"
+                       , uiContexts = [CtxNone]
+                       , uiAdditionalParams = [RP "plugin",RP "command"]
+                       }
+          , uiFunc = commandDetailCmd
+          }
+      , UiCommand
+          { uiDesc = UiCommandDesc
+                       { uiCmdName = "pwd"
+                       , uiContexts = [CtxNone]
+                       , uiAdditionalParams = []
+                       }
           , uiFunc = pwdCmd
           }
       , UiCommand
-          { uiCmdName = "cwd"
-          , uiContexts = [CtxNone]
-          , uiAdditionalParams = [RP "dir"]
+          { uiDesc = UiCommandDesc
+                       { uiCmdName = "cwd"
+                       , uiContexts = [CtxNone]
+                       , uiAdditionalParams = [RP "dir"]
+                       }
           , uiFunc = cwdCmd
           }
       ]
@@ -73,11 +92,26 @@ pluginsCmd _ = do
 commandsCmd :: Dispatcher
 commandsCmd req = do
   plugins <- getPlugins
+  -- TODO: Use Maybe Monad. What abut error reporting?
   case Map.lookup "plugin" (ideParams req) of
     Nothing -> return (IdeResponseFail (String $ T.pack $ "need 'plugin' parameter"))
     Just p -> case Map.lookup p plugins of
       Nothing -> return (IdeResponseFail (String $ T.pack $ "Can't find plugin:'"++ p ++ "'"))
-      Just pl -> return (IdeResponseOk (String $ T.pack $ intercalate "," $ map uiCmdName $ pdUiCommands pl))
+      Just pl -> return (IdeResponseOk (String $ T.pack $ intercalate "," $ map (uiCmdName . uiDesc) $ pdUiCommands pl))
+
+commandDetailCmd :: Dispatcher
+commandDetailCmd req = do
+  plugins <- getPlugins
+  case getParams ["plugin","command"] req of
+    Left err -> return err
+    Right [p,command] -> do
+      case Map.lookup p plugins of
+        Nothing -> return (IdeResponseFail (String $ T.pack $ "Can't find plugin:'"++ p ++ "'"))
+        Just pl -> case find (\uic -> command == (uiCmdName $ uiDesc uic) ) (pdUiCommands pl) of
+          Nothing -> return (IdeResponseFail (String $ T.pack $ "Can't find command:'"++ command ++ "'"))
+          Just detail -> return (IdeResponseOk (toJSON (uiDesc detail)))
+    Right _ -> error $ "commandDetailCmd:should not be possible"
+
 
 pwdCmd :: Dispatcher
 pwdCmd _ = do
@@ -114,6 +148,6 @@ replPluginInfo plugins = Map.fromList commands
     commands = concatMap extractCommands $ Map.toList plugins
     extractCommands (pluginName,descriptor) = cmds
       where
-        cmds = map (\uic -> (pluginName ++ ":" ++ (uiCmdName uic),(pluginName,uic))) $ pdUiCommands descriptor
+        cmds = map (\uic -> (pluginName ++ ":" ++ (uiCmdName $ uiDesc uic),(pluginName,uic))) $ pdUiCommands descriptor
 
 -- ---------------------------------------------------------------------

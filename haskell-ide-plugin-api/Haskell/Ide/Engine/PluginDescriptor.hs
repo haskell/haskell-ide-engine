@@ -40,14 +40,18 @@ data PluginDescriptor = PluginDescriptor
 -- native CLI for the tool being exposed as well. Perhaps use
 -- Options.Applicative for this in some way.
 data UiCommand = UiCommand
-  { uiCmdName  :: !CommandName
-  , uiContexts :: ![AcceptedContext] -- TODO: should this be a non empty list? or should empty list imply CtxNone.
-  , uiAdditionalParams :: ![RequiredParam]
+  { uiDesc :: !UiCommandDescriptor
   , uiFunc :: !Dispatcher
   }
 
 instance Show UiCommand where
-  show (UiCommand name ctxs params _func) = "(UiCommand " ++ show name ++ " " ++ show ctxs ++ " " ++ show params ++ ")"
+  show (UiCommand desc _func) = "(UiCommand " ++ show desc ++ ")"
+
+data UiCommandDescriptor = UiCommandDesc
+  { uiCmdName  :: !CommandName
+  , uiContexts :: ![AcceptedContext] -- TODO: should this be a non empty list? or should empty list imply CtxNone.
+  , uiAdditionalParams :: ![RequiredParam]
+  } deriving (Show,Generic)
 
 type CommandName = String
 
@@ -87,7 +91,7 @@ data CabalSection = CabalSection String deriving (Show,Eq,Generic)
 -- |Initially all params will be returned as strings. This can become a much
 -- richer structure in time.
 data RequiredParam = RP String -- ^ Prompt
-                   deriving (Show)
+                   deriving (Show,Generic)
 
 type PluginId = String
 
@@ -125,6 +129,7 @@ type Dispatcher = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m) => IdeReque
 
 -- ---------------------------------------------------------------------
 -- JSON instances
+
 instance ToJSON Context where
     toJSON = genericToJSON defaultOptions
 
@@ -141,11 +146,36 @@ instance FromJSON CabalSection where
 
 -- -------------------------------------
 
+instance ToJSON AcceptedContext where
+    toJSON = genericToJSON defaultOptions
+
+instance FromJSON AcceptedContext where
+    -- No need to provide a parseJSON implementation.
+
+-- -------------------------------------
+
+instance ToJSON RequiredParam where
+    toJSON = genericToJSON defaultOptions
+
+instance FromJSON RequiredParam where
+    -- No need to provide a parseJSON implementation.
+
+-- -------------------------------------
+
+instance ToJSON UiCommandDescriptor where
+    toJSON = genericToJSON defaultOptions
+
+instance FromJSON UiCommandDescriptor where
+    -- No need to provide a parseJSON implementation.
+
+-- -------------------------------------
+
 instance ToJSON IdeRequest where
     toJSON = genericToJSON defaultOptions
 
 instance FromJSON IdeRequest where
     -- No need to provide a parseJSON implementation.
+
 -- -------------------------------------
 
 instance ToJSON IdeResponse where

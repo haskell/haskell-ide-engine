@@ -24,6 +24,7 @@ library
                        Haskell.Ide.Engine.Transport.JsonStdio
                        Haskell.Ide.Engine.Transport.JsonHttp
                        Haskell.Ide.Engine.Types
+                       Haskell.Ide.Engine.Utils
   other-modules:       Paths_haskell_ide_engine
   build-depends:       base >= 4.7 && < 5
                      , Cabal >= 1.22
@@ -67,8 +68,9 @@ executable hie
                      , ghc-mod
                      , gitrev >= 1.1
                      , haskell-ide-engine
-                     , haskell-ide-plugin-api
                      , haskell-ide-example-plugin2
+                     , haskell-ide-plugin-api
+                     , haskell-ide-plugin-hare
                      , logging
                      , optparse-applicative
                      , optparse-simple

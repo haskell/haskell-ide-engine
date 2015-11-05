@@ -47,7 +47,7 @@ pluginCache :: Plugins -> Map.Map (String,String) UiCommand
 pluginCache plugins = Map.fromList r
   where
     doOne :: String -> PluginDescriptor -> [((String,String),UiCommand)]
-    doOne pn pd = map (\uic -> ((pn,uiCmdName uic),uic)) $ pdUiCommands pd
+    doOne pn pd = map (\uic -> ((pn,uiCmdName (uiDesc uic)),uic)) $ pdUiCommands pd
 
     r = concatMap (\(pn,pd) -> doOne pn pd) $ Map.toList plugins
 

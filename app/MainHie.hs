@@ -29,6 +29,7 @@ import qualified Paths_haskell_ide_engine as Meta
 
 import           Haskell.Ide.Engine.BasePlugin
 import           Haskell.Ide.ExamplePlugin2
+import           Haskell.Ide.HaRePlugin
 
 -- ---------------------------------------------------------------------
 
@@ -38,7 +39,8 @@ plugins = Map.fromList
   [
     -- Note: statically including known plugins. In future this map could be set
     -- up via a config file of some kind.
-    ("eg2", example2Descriptor)
+    ("eg2",  example2Descriptor)
+  , ("hare", hareDescriptor)
     -- The base plugin, able to answer questions about the IDE Engine environment.
   , ("base", baseDescriptor)
   ]

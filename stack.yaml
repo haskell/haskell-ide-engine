@@ -5,6 +5,7 @@ packages:
 - .
 - haskell-ide-example-plugin2
 - haskell-ide-plugin-api
+- haskell-ide-plugin-hare
 extra-deps:
  - logging-3.0.2
 # - ghc-mod-5.4.0.0
