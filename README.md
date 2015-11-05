@@ -1,4 +1,4 @@
-# haskell-ide-engine 
+# haskell-ide-engine
 [![Available on Hackage][badge-hackage]][hackage]
 [![License BSD3][badge-license]][license]
 [![Build Status][badge-travis]][travis]
@@ -13,19 +13,19 @@
 
 This project aims to be the universal `IDE interface` to all `haskell tools`, providing
 
-  - [ ] Project Configuration
-  - [ ] Project Compilation
-  - [ ] Errors
-  - [ ] Warnings
-  - [ ] Linter
-  - [ ] Testing
-  - [ ] Get type at point
-  - [ ] Autocompletion
-  - [ ] Code beautify
-  - [ ] Jump to definition
-  - [ ] Call tracking
-  - [ ] REPL
-  - [ ] Documentation
+ - [ ] Project Configuration
+ - [ ] Project Compilation
+ - [ ] Errors
+ - [ ] Warnings
+ - [ ] Linter
+ - [ ] Testing
+ - [ ] Get type at point
+ - [ ] Autocompletion
+ - [ ] Code beautify
+ - [ ] Jump to definition
+ - [ ] Call tracking
+ - [ ] REPL
+ - [ ] Documentation
 
 ## About
 
