@@ -13,7 +13,7 @@
 
 This project aims to be the __universal IDE interface__ to __all haskell tools__, proving a __full-featured and easy to query ide-backend__.
 
-Features:
+Features: (planned)
 
  - [ ] cabal / stack project `Configuration` and `Compilation`
  - [ ] Errors Checking, Warnings, Linter, Dead code detection
