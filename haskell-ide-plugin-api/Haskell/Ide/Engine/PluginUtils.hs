@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.Engine.PluginUtils
   (
     getParams
@@ -5,7 +6,6 @@ module Haskell.Ide.Engine.PluginUtils
 
 import           Data.Aeson
 import           Data.List
-import qualified Data.Text as T
 import           Haskell.Ide.Engine.PluginDescriptor
 import qualified Data.Map as Map
 import           Prelude hiding (log)
@@ -21,7 +21,7 @@ getParams params req = mapEithers checkOne params
   where
     checkOne :: ParamId -> Either IdeResponse ParamVal
     checkOne param = case Map.lookup param (ideParams req) of
-      Nothing -> Left $ IdeResponseFail (String $ T.pack $ "need `" ++ param ++ "` parameter")
+      Nothing -> Left $ IdeResponseFail (toJSON $ "need `" ++ show param ++ "` parameter")
       Just v  -> Right v
 
 
