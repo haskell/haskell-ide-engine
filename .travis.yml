@@ -18,16 +18,18 @@ before_install:
   - export PATH=~/.local/bin:$PATH
   # - travis_retry curl -L https://github.com/commercialhaskell/stack/releases/download/v0.1.6.0/stack-0.1.6.0-x86_64-linux.tar.gz | tar xz -C ~/.local/bin
   # - travis_retry curl -L https://github.com/commercialhaskell/stack/releases/download/v0.1.6.0/stack-0.1.6.0-linux-x86_64.tar.gz | tar xz -C ~/.local/bin
-  - travis_retry curl -L https://github.com/commercialhaskell/stack/releases/download/v0.1.4.0/stack-0.1.4.0-x86_64-linux.tar.gz | tar xz -C ~/.local/bin
+  # - travis_retry curl -L https://github.com/commercialhaskell/stack/releases/download/v0.1.4.0/stack-0.1.4.0-x86_64-linux.tar.gz | tar xz -C ~/.local/bin
+  - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
   - chmod a+x ~/.local/bin/stack
+  - stack --version
 
 install:
   - ./travis_long stack +RTS -N2 -RTS setup
   - ./travis_long stack +RTS -N2 -RTS build --only-snapshot --pedantic
 
 script:
-  # - ./travis_long stack +RTS -N2 -RTS build --test --haddock --pedantic
-  - ./travis_long stack +RTS -N2 -RTS build --test --haddock
+  - ./travis_long stack +RTS -N2 -RTS build --test --haddock --pedantic
+  # - ./travis_long stack +RTS -N2 -RTS build --test --haddock
 
 # coveralls.io coverage reports
 # after_script:
