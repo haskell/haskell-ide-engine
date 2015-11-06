@@ -4,8 +4,10 @@ addons:
   apt:
     sources:
     - hvr-ghc
+    - cassou-emacs
     packages:
     - libgmp-dev
+    - emacs24-nox
 
 cache:
   directories:
