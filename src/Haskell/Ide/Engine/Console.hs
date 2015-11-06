@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Haskell.Ide.Engine.REPL where
+module Haskell.Ide.Engine.Console where
 
 import           Control.Concurrent
 import           Control.Monad.IO.Class
@@ -21,8 +21,8 @@ emptyEnv = ReplEnv emptyContext
 
 -- ---------------------------------------------------------------------
 
-replListener' :: Plugins -> Chan ChannelRequest -> IO ()
-replListener' plugins cin = do
+consoleListener :: Plugins -> Chan ChannelRequest -> IO ()
+consoleListener plugins cin = do
   cout <- newChan :: IO (Chan ChannelResponse)
   let
     loop :: ReplEnv -> Int -> InputT IO ()
@@ -51,6 +51,7 @@ replListener' plugins cin = do
 
 -- ---------------------------------------------------------------------
 
+-- TODO: Delete this
 replListener :: Plugins -> Chan ChannelRequest -> IO ()
 replListener plugins cin = do
   cout <- newChan :: IO (Chan ChannelResponse)

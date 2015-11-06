@@ -11,12 +11,12 @@ import           Data.Version (showVersion)
 import           Development.GitRev (gitCommitCount)
 import           Distribution.System (buildArch)
 import           Distribution.Text (display)
+import           Haskell.Ide.Engine.Console
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.REPL
 import           Haskell.Ide.Engine.Transport.JsonHttp
 import           Haskell.Ide.Engine.Transport.JsonStdio
 import           Haskell.Ide.Engine.Types
@@ -102,9 +102,9 @@ run opts = do
 
     -- Can have multiple listeners, each using a different transport protocol, so
     -- long as they can pass through a ChannelRequest
-    if (optRepl opts)
+    if (optConsole opts)
        -- then replListener plugins cin
-       then replListener' plugins cin
+       then consoleListener plugins cin
        else jsonStdioTransport cin
 
     -- At least one needs to be launched, othewise a threadDelay with a large

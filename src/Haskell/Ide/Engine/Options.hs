@@ -3,7 +3,7 @@ module Haskell.Ide.Engine.Options where
 import Options.Applicative.Simple
 
 data GlobalOpts = GlobalOpts
-    { optRepl :: Bool
+    { optConsole :: Bool
     , optDebugOn :: Bool
     , optLogFile :: Maybe String
     } deriving (Show)
@@ -11,8 +11,10 @@ data GlobalOpts = GlobalOpts
 globalOptsParser :: Parser GlobalOpts
 globalOptsParser = GlobalOpts
     <$> flag False True
-         ( long "repl"
-        <> help "Run a REPL for simple testing"
+         ( long "console"
+        <> long "repl"
+        <> short 'c'
+        <> help "Run a console REPL for simple testing"
          )
     <*> switch
          ( long "debug"
