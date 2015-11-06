@@ -7,6 +7,7 @@ import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Foldable
 import           Data.List
+import           Data.Monoid
 import qualified Data.Text as T
 import           Development.GitRev (gitCommitCount)
 import           Distribution.System (buildArch)
@@ -29,6 +30,7 @@ baseDescriptor = PluginDescriptor
         Command
           { cmdDesc = CommandDesc
                         { cmdName = "version"
+                        , cmdUiDescription = "return HIE version"
                         , cmdContexts = [CtxNone]
                         , cmdAdditionalParams = []
                         }
@@ -37,6 +39,7 @@ baseDescriptor = PluginDescriptor
       , Command
           { cmdDesc = CommandDesc
                         { cmdName = "plugins"
+                        , cmdUiDescription = "list available plugins"
                         , cmdContexts = [CtxNone]
                         , cmdAdditionalParams = []
                         }
@@ -45,6 +48,7 @@ baseDescriptor = PluginDescriptor
       , Command
           { cmdDesc = CommandDesc
                         { cmdName = "commands"
+                        , cmdUiDescription = "list available commands for a given plugin"
                         , cmdContexts = [CtxNone]
                         , cmdAdditionalParams = [RP "plugin"]
                         }
@@ -53,6 +57,7 @@ baseDescriptor = PluginDescriptor
       , Command
           { cmdDesc = CommandDesc
                         { cmdName = "commandDetail"
+                        , cmdUiDescription = "list parameters required for a given command"
                         , cmdContexts = [CtxNone]
                         , cmdAdditionalParams = [RP "plugin",RP "command"]
                         }
@@ -61,6 +66,7 @@ baseDescriptor = PluginDescriptor
       , Command
           { cmdDesc = CommandDesc
                         { cmdName = "pwd"
+                        , cmdUiDescription = "return the current working directory for the HIE process"
                         , cmdContexts = [CtxNone]
                         , cmdAdditionalParams = []
                         }
@@ -69,6 +75,7 @@ baseDescriptor = PluginDescriptor
       , Command
           { cmdDesc = CommandDesc
                         { cmdName = "cwd"
+                        , cmdUiDescription = "change the current working directory for the HIE process"
                         , cmdContexts = [CtxNone]
                         , cmdAdditionalParams = [RP "dir"]
                        }
@@ -96,7 +103,7 @@ commandsCmd req = do
   case Map.lookup "plugin" (ideParams req) of
     Nothing -> return (IdeResponseFail (toJSON $ T.pack "need 'plugin' parameter"))
     Just p -> case Map.lookup p plugins of
-      Nothing -> return (IdeResponseFail (toJSON $ "Can't find plugin:'"++ p ++ "'"))
+      Nothing -> return (IdeResponseFail (toJSON $ "Can't find plugin:'" <> p <> "'"))
       Just pl -> return (IdeResponseOk (toJSON $ map (cmdName . cmdDesc) $ pdCommands pl))
 
 commandDetailCmd :: Dispatcher
@@ -106,9 +113,9 @@ commandDetailCmd req = do
     Left err -> return err
     Right [p,command] -> do
       case Map.lookup p plugins of
-        Nothing -> return (IdeResponseFail (toJSON $ "Can't find plugin:'"++ p ++ "'"))
+        Nothing -> return (IdeResponseFail (toJSON $ "Can't find plugin:'" <> p <> "'"))
         Just pl -> case find (\cmd -> command == (cmdName $ cmdDesc cmd) ) (pdCommands pl) of
-          Nothing -> return (IdeResponseFail (toJSON $ "Can't find command:'"++ command ++ "'"))
+          Nothing -> return (IdeResponseFail (toJSON $ "Can't find command:'" <> command <> "'"))
           Just detail -> return (IdeResponseOk (toJSON (cmdDesc detail)))
     Right _ -> error $ "commandDetailCmd:should not be possible"
 
@@ -121,9 +128,9 @@ pwdCmd _ = do
 cwdCmd :: Dispatcher
 cwdCmd req = do
   case Map.lookup "dir" (ideParams req) of
-    Nothing -> return (IdeResponseFail (String $ T.pack $ "need 'dir' parameter"))
+    Nothing -> return (IdeResponseFail (String "need 'dir' parameter"))
     Just dir -> do
-      liftIO $ setCurrentDirectory dir
+      liftIO $ setCurrentDirectory (T.unpack dir)
       return (IdeResponseOk Null)
 
 -- ---------------------------------------------------------------------
@@ -142,12 +149,12 @@ version =
 
 -- ---------------------------------------------------------------------
 
-replPluginInfo :: Plugins -> Map.Map String (String,Command)
+replPluginInfo :: Plugins -> Map.Map T.Text (T.Text,Command)
 replPluginInfo plugins = Map.fromList commands
   where
     commands = concatMap extractCommands $ Map.toList plugins
     extractCommands (pluginName,descriptor) = cmds
       where
-        cmds = map (\cmd -> (pluginName ++ ":" ++ (cmdName $ cmdDesc cmd),(pluginName,cmd))) $ pdCommands descriptor
+        cmds = map (\cmd -> (pluginName <> ":" <> (cmdName $ cmdDesc cmd),(pluginName,cmd))) $ pdCommands descriptor
 
 -- ---------------------------------------------------------------------

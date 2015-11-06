@@ -3,12 +3,13 @@ module Haskell.Ide.Engine.Console where
 
 import           Control.Concurrent
 import           Control.Monad.IO.Class
+import qualified Data.Map as Map
+import           Data.Monoid
+import qualified Data.Text as T
 import           Haskell.Ide.Engine.BasePlugin
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
-import qualified Data.Map as Map
 import           System.Console.Haskeline
-import           System.IO
 
 -- ---------------------------------------------------------------------
 
@@ -28,18 +29,18 @@ consoleListener plugins cin = do
     loop :: ReplEnv -> Int -> InputT IO ()
     loop env cid = do
         minput <- getInputLine "HIE> "
-        case minput of
+        case fmap T.pack minput of
             Nothing -> return ()
             Just "quit" -> return ()
             Just cmdArg -> do
               let
-                req = case words cmdArg of
+                req = case T.words cmdArg of
                   [] -> Left $ "empty command"
                   (cmdStr:ps) -> case Map.lookup cmdStr (replPluginInfo plugins) of
-                                  Nothing -> Left $ "unrecognised command:" ++ cmdStr
+                                  Nothing -> Left $ "unrecognised command:" <> cmdStr
                                   Just (plugin,cmd) -> Right $ (plugin,IdeRequest (cmdName $ cmdDesc cmd) (envContext env) (convertToParams ps))
               case req of
-                Left err -> outputStrLn err
+                Left err -> outputStrLn (T.unpack err)
                 Right (plugin,reqVal) -> do
                   liftIO $ writeChan cin (CReq plugin cid reqVal cout)
                   rsp <- liftIO $ readChan cout
@@ -52,6 +53,7 @@ consoleListener plugins cin = do
 -- ---------------------------------------------------------------------
 
 -- TODO: Delete this
+{-
 replListener :: Plugins -> Chan ChannelRequest -> IO ()
 replListener plugins cin = do
   cout <- newChan :: IO (Chan ChannelResponse)
@@ -76,22 +78,23 @@ replListener plugins cin = do
           putStrLn $ show (coutResp rsp)
       loop env (cid + 1)
   loop emptyEnv 1
+-}
 
 -- ---------------------------------------------------------------------
 
-convertToParams :: [String] -> Map.Map String String
+convertToParams :: [T.Text] -> Map.Map T.Text T.Text
 convertToParams ss = Map.fromList $ map splitOnColon ss
 
 -- ---------------------------------------------------------------------
 
 -- |Split a string of the form "first:rest" into ("first","rest")
-splitOnColon :: String -> (String,String)
+splitOnColon :: T.Text -> (T.Text,T.Text)
 splitOnColon "" = ("","")
 splitOnColon s = (first,second)
   where
-    (first,rest) = break (==':') s
+    (first,rest) = T.break (==':') s
     second = case rest of
       "" -> ""
-      _ -> tail rest
+      _ -> T.tail rest
 
 -- ---------------------------------------------------------------------

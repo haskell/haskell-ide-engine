@@ -25,6 +25,7 @@ import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Aeson.Types
 import qualified Data.Map as Map
+import qualified Data.Text as T
 import qualified GHC
 import           GHC.Generics
 
@@ -48,18 +49,16 @@ data Command = Command
 instance Show Command where
   show (Command desc _func) = "(Command " ++ show desc ++ ")"
 
+-- |Descriptor for a command. This is intended to be transferred to the IDE, so
+-- the IDE can integrate it into it's UI, and then send requests through to HIE.
 data CommandDescriptor = CommandDesc
-  { cmdName  :: !CommandName
+  { cmdName :: !CommandName -- ^As returned in the 'IdeRequest'
+  , cmdUiDescription :: !T.Text -- ^ Can be presented to the IDE user
   , cmdContexts :: ![AcceptedContext] -- TODO: should this be a non empty list? or should empty list imply CtxNone.
   , cmdAdditionalParams :: ![RequiredParam]
   } deriving (Show,Generic)
 
-type CommandName = String
-
-data Service = Service
-  { svcName :: String
-  -- , svcXXX :: undefined
-  } deriving (Show)
+type CommandName = T.Text
 
 -- |Define what context will be accepted from the frontend for the specific
 -- command. Matches up to corresponding values for CommandContext
@@ -88,14 +87,19 @@ emptyContext = Context Nothing Nothing Nothing Nothing
 -- |It will simplify things to always work with an absolute file path
 type AbsFilePath = FilePath
 
-data CabalSection = CabalSection String deriving (Show,Eq,Generic)
+data CabalSection = CabalSection T.Text deriving (Show,Eq,Generic)
 
--- |Initially all params will be returned as strings. This can become a much
+-- |Initially all params will be returned as text. This can become a much
 -- richer structure in time.
-data RequiredParam = RP String -- ^ Prompt
+data RequiredParam = RP T.Text -- ^ Prompt
                    deriving (Show,Generic)
 
-type PluginId = String
+data Service = Service
+  { svcName :: T.Text
+  -- , svcXXX :: undefined
+  } deriving (Show)
+
+type PluginId = T.Text
 
 type Plugins = Map.Map PluginId PluginDescriptor
 
@@ -107,8 +111,8 @@ data IdeRequest = IdeRequest
   , ideParams  :: Map.Map ParamId ParamVal
   } deriving (Show,Generic)
 
-type ParamId = String
-type ParamVal = String
+type ParamId = T.Text
+type ParamVal = T.Text
 
 -- TODO: should probably be able to return a plugin-specific type. Not sure how
 -- to encode it. Perhaps as an instance of a class which says it can be encoded
@@ -123,11 +127,8 @@ data IdeResponse = IdeResponseOk    Value -- ^ Command Succeeded
 class (Monad m) => HasIdeState m where
   getPlugins :: m Plugins
 
--- Not sure if this should be completely generalised to not have GhcMonad in it
-type Dispatcher = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m) => IdeRequest -> m IdeResponse
-
--- instance Show Dispatcher where
---   show _ = "Dispatcher"
+type Dispatcher = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m)
+                => IdeRequest -> m IdeResponse
 
 -- ---------------------------------------------------------------------
 -- JSON instances

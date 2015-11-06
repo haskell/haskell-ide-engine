@@ -35,7 +35,7 @@ instance ToJSON Greet
 -- API specification
 type HieApi =
   -- curl -v http://localhost:8081/req/base -X POST -H Content-Type:application/json --data-binary '{"ideParams":{},"ideCommand":"version","ideContext":{"ctxEndPos":null,"ctxCabal":null,"ctxStartPos":null,"ctxFile":null}}'
-       "req" :> Capture "plugin" String
+       "req" :> Capture "plugin" Text
              :> QueryParam "rid" Int -- optional request id
              :> ReqBody '[JSON] IdeRequest
              :> Post '[JSON] IdeResponse
@@ -66,7 +66,7 @@ server cin cout = hieH
           return (coutResp rsp)
           -- return (IdeResponseOk (String $ pack $ show r))
 
-        egH = return (IdeRequest "version" (Context Nothing Nothing Nothing Nothing) Map.empty)
+        egH = return (IdeRequest ("version"::Text) (Context Nothing Nothing Nothing Nothing) Map.empty)
 
 -- Turn the server into a WAI app. 'serve' is provided by servant,
 -- more precisely by the Servant.Server module.

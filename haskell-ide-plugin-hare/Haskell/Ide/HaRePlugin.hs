@@ -21,6 +21,7 @@ hareDescriptor = PluginDescriptor
         Command
           { cmdDesc = CommandDesc
                      { cmdName = "rename"
+                     , cmdUiDescription = "rename a variable or type"
                      , cmdContexts = [CtxPoint]
                      , cmdAdditionalParams = [RP "name"]
                      }
@@ -46,7 +47,7 @@ renameCmd req = do
       case mf of
         Nothing -> return (IdeResponseFail (String (T.pack $ "wrong context, needed file and pos")))
         Just (filename,pos) -> do
-          res <- liftIO $ catchException $ rename defaultSettings GM.defaultOptions filename name pos
+          res <- liftIO $ catchException $ rename defaultSettings GM.defaultOptions filename (show name) pos
           case res of
             Left err -> return (IdeResponseFail (toJSON err))
             Right fs -> return (IdeResponseOk (toJSON fs))

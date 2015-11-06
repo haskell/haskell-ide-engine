@@ -57,14 +57,14 @@ wireToChannel cout ri wr =
     { cinPlugin = plugin
     , cinReqId = ri
     , cinReq = IdeRequest
-                 { ideCommand = tail command
+                 { ideCommand = T.tail command
                  , ideContext = context wr
                  , ideParams  = params wr
                  }
     , cinReplyChan = cout
     }
     where
-      (plugin,command) = break (==':') (T.unpack $ cmd wr)
+      (plugin,command) = T.break (==':') (cmd wr)
 
 -- ---------------------------------------------------------------------
 

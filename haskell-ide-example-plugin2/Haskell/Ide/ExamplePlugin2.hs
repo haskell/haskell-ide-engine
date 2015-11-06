@@ -5,6 +5,7 @@ import Haskell.Ide.Engine.PluginDescriptor
 
 import           Control.Monad.IO.Class
 import           Data.Aeson
+import           Data.Monoid
 import qualified Data.Map as Map
 import qualified Data.Text as T
 
@@ -18,6 +19,7 @@ example2Descriptor = PluginDescriptor
         Command
           { cmdDesc = CommandDesc
                        { cmdName = "sayHello"
+                       , cmdUiDescription = "say hello"
                        , cmdContexts = [CtxNone]
                        , cmdAdditionalParams = []
                        }
@@ -26,6 +28,7 @@ example2Descriptor = PluginDescriptor
       , Command
           { cmdDesc = CommandDesc
                        { cmdName = "sayHelloTo"
+                       , cmdUiDescription = "say hello to the passed in param"
                        , cmdContexts = [CtxNone]
                        , cmdAdditionalParams = [RP "name"]
                        }
@@ -68,5 +71,5 @@ example2Dispatcher (IdeRequest name ctx params) = do
 sayHello :: T.Text
 sayHello = "hello from ExamplePlugin2"
 
-sayHelloTo :: String -> IO T.Text
-sayHelloTo n = return $ T.pack $ "hello " ++ n ++ " from ExamplePlugin2"
+sayHelloTo :: T.Text -> IO T.Text
+sayHelloTo n = return $ "hello " <> n <> " from ExamplePlugin2"
