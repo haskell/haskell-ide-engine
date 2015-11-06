@@ -16,15 +16,19 @@ example2Descriptor = PluginDescriptor
     pdUiCommands =
       [
         UiCommand
-          { uiCmdName = "sayHello"
-          , uiContexts = [CtxNone]
-          , uiAdditionalParams = []
+          { uiDesc = UiCommandDesc
+                     { uiCmdName = "sayHello"
+                     , uiContexts = [CtxNone]
+                     , uiAdditionalParams = []
+                     }
           , uiFunc = sayHelloCmd
           }
       , UiCommand
-          { uiCmdName = "sayHelloTo"
-          , uiContexts = [CtxNone]
-          , uiAdditionalParams = [RP "name"]
+          { uiDesc = UiCommandDesc
+                       { uiCmdName = "sayHelloTo"
+                       , uiContexts = [CtxNone]
+                       , uiAdditionalParams = [RP "name"]
+                       }
           , uiFunc = sayHelloToCmd
           }
       ]
