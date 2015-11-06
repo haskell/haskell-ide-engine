@@ -34,7 +34,7 @@ No:
 
 This project doesn't start from scratch:
 
-1. See why [we should superseed previous tools](/docs/Challenges.md)
+1. See why [we should supersede previous tools](/docs/Challenges.md)
 2. Check the [list of existting tools / features ](/docs/Tools.md)
 3. See more [other tools / ide for inpiration](/docs/Inspirations.md)
 
