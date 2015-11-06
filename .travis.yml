@@ -28,8 +28,9 @@ install:
   - ./travis_long stack +RTS -N2 -RTS build --only-snapshot --pedantic
 
 script:
-  - ./travis_long stack +RTS -N2 -RTS build --test --pedantic
   - ./travis_long stack +RTS -N2 -RTS build --haddock
+  - ./travis_long stack clean
+  - ./travis_long stack +RTS -N2 -RTS build --test --pedantic
   # - ./travis_long stack +RTS -N2 -RTS build --test --haddock
 
 # coveralls.io coverage reports
