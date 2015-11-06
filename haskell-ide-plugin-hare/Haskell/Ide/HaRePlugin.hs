@@ -16,15 +16,15 @@ import qualified Language.Haskell.GhcMod as GM (defaultOptions)
 hareDescriptor :: PluginDescriptor
 hareDescriptor = PluginDescriptor
   {
-    pdUiCommands =
+    pdCommands =
       [
-        UiCommand
-          { uiDesc = UiCommandDesc
-                     { uiCmdName = "rename"
-                     , uiContexts = [CtxPoint]
-                     , uiAdditionalParams = [RP "name"]
+        Command
+          { cmdDesc = CommandDesc
+                     { cmdName = "rename"
+                     , cmdContexts = [CtxPoint]
+                     , cmdAdditionalParams = [RP "name"]
                      }
-          , uiFunc = renameCmd
+          , cmdFunc = renameCmd
           }
       ]
   , pdExposedServices = []

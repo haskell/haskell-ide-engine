@@ -13,23 +13,23 @@ import qualified Data.Text as T
 example2Descriptor :: PluginDescriptor
 example2Descriptor = PluginDescriptor
   {
-    pdUiCommands =
+    pdCommands =
       [
-        UiCommand
-          { uiDesc = UiCommandDesc
-                     { uiCmdName = "sayHello"
-                     , uiContexts = [CtxNone]
-                     , uiAdditionalParams = []
-                     }
-          , uiFunc = sayHelloCmd
-          }
-      , UiCommand
-          { uiDesc = UiCommandDesc
-                       { uiCmdName = "sayHelloTo"
-                       , uiContexts = [CtxNone]
-                       , uiAdditionalParams = [RP "name"]
+        Command
+          { cmdDesc = CommandDesc
+                       { cmdName = "sayHello"
+                       , cmdContexts = [CtxNone]
+                       , cmdAdditionalParams = []
                        }
-          , uiFunc = sayHelloToCmd
+          , cmdFunc = sayHelloCmd
+          }
+      , Command
+          { cmdDesc = CommandDesc
+                       { cmdName = "sayHelloTo"
+                       , cmdContexts = [CtxNone]
+                       , cmdAdditionalParams = [RP "name"]
+                       }
+          , cmdFunc = sayHelloToCmd
           }
       ]
   , pdExposedServices = []

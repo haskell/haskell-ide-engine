@@ -37,7 +37,7 @@ replListener' plugins cin = do
                   [] -> Left $ "empty command"
                   (cmdStr:ps) -> case Map.lookup cmdStr (replPluginInfo plugins) of
                                   Nothing -> Left $ "unrecognised command:" ++ cmdStr
-                                  Just (plugin,uic) -> Right $ (plugin,IdeRequest (uiCmdName $ uiDesc uic) (envContext env) (convertToParams ps))
+                                  Just (plugin,cmd) -> Right $ (plugin,IdeRequest (cmdName $ cmdDesc cmd) (envContext env) (convertToParams ps))
               case req of
                 Left err -> outputStrLn err
                 Right (plugin,reqVal) -> do
@@ -66,7 +66,7 @@ replListener plugins cin = do
           [] -> Left $ "empty command"
           (cmdStr:ps) -> case Map.lookup cmdStr (replPluginInfo plugins) of
                           Nothing -> Left $ "unrecognised command:" ++ cmdStr
-                          Just (plugin,uic) -> Right $ (plugin,IdeRequest (uiCmdName $ uiDesc uic) (envContext env) (convertToParams ps))
+                          Just (plugin,cmd) -> Right $ (plugin,IdeRequest (cmdName $ cmdDesc cmd) (envContext env) (convertToParams ps))
       case req of
         Left err -> putStrLn err
         Right (plugin,reqVal) -> do

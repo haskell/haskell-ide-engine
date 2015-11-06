@@ -24,55 +24,55 @@ import           System.Directory
 baseDescriptor :: PluginDescriptor
 baseDescriptor = PluginDescriptor
   {
-    pdUiCommands =
+    pdCommands =
       [
-        UiCommand
-          { uiDesc = UiCommandDesc
-                       { uiCmdName = "version"
-                       , uiContexts = [CtxNone]
-                       , uiAdditionalParams = []
-                       }
-          , uiFunc = versionCmd
+        Command
+          { cmdDesc = CommandDesc
+                        { cmdName = "version"
+                        , cmdContexts = [CtxNone]
+                        , cmdAdditionalParams = []
+                        }
+          , cmdFunc = versionCmd
           }
-      , UiCommand
-          { uiDesc = UiCommandDesc
-                       { uiCmdName = "plugins"
-                       , uiContexts = [CtxNone]
-                       , uiAdditionalParams = []
-                       }
-          , uiFunc = pluginsCmd
+      , Command
+          { cmdDesc = CommandDesc
+                        { cmdName = "plugins"
+                        , cmdContexts = [CtxNone]
+                        , cmdAdditionalParams = []
+                        }
+          , cmdFunc = pluginsCmd
           }
-      , UiCommand
-          { uiDesc = UiCommandDesc
-                       { uiCmdName = "commands"
-                       , uiContexts = [CtxNone]
-                       , uiAdditionalParams = [RP "plugin"]
-                       }
-          , uiFunc = commandsCmd
+      , Command
+          { cmdDesc = CommandDesc
+                        { cmdName = "commands"
+                        , cmdContexts = [CtxNone]
+                        , cmdAdditionalParams = [RP "plugin"]
+                        }
+          , cmdFunc = commandsCmd
           }
-      , UiCommand
-          { uiDesc = UiCommandDesc
-                       { uiCmdName = "commandDetail"
-                       , uiContexts = [CtxNone]
-                       , uiAdditionalParams = [RP "plugin",RP "command"]
-                       }
-          , uiFunc = commandDetailCmd
+      , Command
+          { cmdDesc = CommandDesc
+                        { cmdName = "commandDetail"
+                        , cmdContexts = [CtxNone]
+                        , cmdAdditionalParams = [RP "plugin",RP "command"]
+                        }
+          , cmdFunc = commandDetailCmd
           }
-      , UiCommand
-          { uiDesc = UiCommandDesc
-                       { uiCmdName = "pwd"
-                       , uiContexts = [CtxNone]
-                       , uiAdditionalParams = []
-                       }
-          , uiFunc = pwdCmd
+      , Command
+          { cmdDesc = CommandDesc
+                        { cmdName = "pwd"
+                        , cmdContexts = [CtxNone]
+                        , cmdAdditionalParams = []
+                        }
+          , cmdFunc = pwdCmd
           }
-      , UiCommand
-          { uiDesc = UiCommandDesc
-                       { uiCmdName = "cwd"
-                       , uiContexts = [CtxNone]
-                       , uiAdditionalParams = [RP "dir"]
+      , Command
+          { cmdDesc = CommandDesc
+                        { cmdName = "cwd"
+                        , cmdContexts = [CtxNone]
+                        , cmdAdditionalParams = [RP "dir"]
                        }
-          , uiFunc = cwdCmd
+          , cmdFunc = cwdCmd
           }
       ]
   , pdExposedServices = []
@@ -94,10 +94,10 @@ commandsCmd req = do
   plugins <- getPlugins
   -- TODO: Use Maybe Monad. What abut error reporting?
   case Map.lookup "plugin" (ideParams req) of
-    Nothing -> return (IdeResponseFail (String $ T.pack $ "need 'plugin' parameter"))
+    Nothing -> return (IdeResponseFail (toJSON $ T.pack "need 'plugin' parameter"))
     Just p -> case Map.lookup p plugins of
-      Nothing -> return (IdeResponseFail (String $ T.pack $ "Can't find plugin:'"++ p ++ "'"))
-      Just pl -> return (IdeResponseOk (String $ T.pack $ intercalate "," $ map (uiCmdName . uiDesc) $ pdUiCommands pl))
+      Nothing -> return (IdeResponseFail (toJSON $ "Can't find plugin:'"++ p ++ "'"))
+      Just pl -> return (IdeResponseOk (toJSON $ map (cmdName . cmdDesc) $ pdCommands pl))
 
 commandDetailCmd :: Dispatcher
 commandDetailCmd req = do
@@ -106,10 +106,10 @@ commandDetailCmd req = do
     Left err -> return err
     Right [p,command] -> do
       case Map.lookup p plugins of
-        Nothing -> return (IdeResponseFail (String $ T.pack $ "Can't find plugin:'"++ p ++ "'"))
-        Just pl -> case find (\uic -> command == (uiCmdName $ uiDesc uic) ) (pdUiCommands pl) of
-          Nothing -> return (IdeResponseFail (String $ T.pack $ "Can't find command:'"++ command ++ "'"))
-          Just detail -> return (IdeResponseOk (toJSON (uiDesc detail)))
+        Nothing -> return (IdeResponseFail (toJSON $ "Can't find plugin:'"++ p ++ "'"))
+        Just pl -> case find (\cmd -> command == (cmdName $ cmdDesc cmd) ) (pdCommands pl) of
+          Nothing -> return (IdeResponseFail (toJSON $ "Can't find command:'"++ command ++ "'"))
+          Just detail -> return (IdeResponseOk (toJSON (cmdDesc detail)))
     Right _ -> error $ "commandDetailCmd:should not be possible"
 
 
@@ -142,12 +142,12 @@ version =
 
 -- ---------------------------------------------------------------------
 
-replPluginInfo :: Plugins -> Map.Map String (String,UiCommand)
+replPluginInfo :: Plugins -> Map.Map String (String,Command)
 replPluginInfo plugins = Map.fromList commands
   where
     commands = concatMap extractCommands $ Map.toList plugins
     extractCommands (pluginName,descriptor) = cmds
       where
-        cmds = map (\uic -> (pluginName ++ ":" ++ (uiCmdName $ uiDesc uic),(pluginName,uic))) $ pdUiCommands descriptor
+        cmds = map (\cmd -> (pluginName ++ ":" ++ (cmdName $ cmdDesc cmd),(pluginName,cmd))) $ pdCommands descriptor
 
 -- ---------------------------------------------------------------------

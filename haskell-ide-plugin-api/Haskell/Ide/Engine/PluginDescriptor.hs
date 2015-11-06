@@ -31,28 +31,27 @@ import           GHC.Generics
 -- ---------------------------------------------------------------------
 
 data PluginDescriptor = PluginDescriptor
-  { pdUiCommands      :: [UiCommand]
+  { pdCommands        :: [Command]
   , pdExposedServices :: [Service]
   , pdUsedServices    :: [Service]
   } deriving (Show)
 
 
--- TODO: Rename UiCommand, it is confusing, remove Ui
--- |Ideally a UiCommand is defined in such a way that it can be exposed via the
+-- |Ideally a Command is defined in such a way that it can be exposed via the
 -- native CLI for the tool being exposed as well. Perhaps use
 -- Options.Applicative for this in some way.
-data UiCommand = UiCommand
-  { uiDesc :: !UiCommandDescriptor
-  , uiFunc :: !Dispatcher
+data Command = Command
+  { cmdDesc :: !CommandDescriptor
+  , cmdFunc :: !Dispatcher
   }
 
-instance Show UiCommand where
-  show (UiCommand desc _func) = "(UiCommand " ++ show desc ++ ")"
+instance Show Command where
+  show (Command desc _func) = "(Command " ++ show desc ++ ")"
 
-data UiCommandDescriptor = UiCommandDesc
-  { uiCmdName  :: !CommandName
-  , uiContexts :: ![AcceptedContext] -- TODO: should this be a non empty list? or should empty list imply CtxNone.
-  , uiAdditionalParams :: ![RequiredParam]
+data CommandDescriptor = CommandDesc
+  { cmdName  :: !CommandName
+  , cmdContexts :: ![AcceptedContext] -- TODO: should this be a non empty list? or should empty list imply CtxNone.
+  , cmdAdditionalParams :: ![RequiredParam]
   } deriving (Show,Generic)
 
 type CommandName = String
@@ -165,10 +164,10 @@ instance FromJSON RequiredParam where
 
 -- -------------------------------------
 
-instance ToJSON UiCommandDescriptor where
+instance ToJSON CommandDescriptor where
     toJSON = genericToJSON defaultOptions
 
-instance FromJSON UiCommandDescriptor where
+instance FromJSON CommandDescriptor where
     -- No need to provide a parseJSON implementation.
 
 -- -------------------------------------

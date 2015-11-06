@@ -40,14 +40,14 @@ doDispatch pn desc req = do
   liftIO $ debug $ T.pack $ "doDispatch:req=" ++ show req
   case Map.lookup (pn,ideCommand req) (pluginCache plugins) of
     Nothing -> return (IdeResponseError (String $ T.pack $ "No such command:" ++ ideCommand req))
-    Just uic -> (uiFunc uic) req
+    Just cmd -> (cmdFunc cmd) req
 
 -- TODO: perhaps use this in IdeState instead
-pluginCache :: Plugins -> Map.Map (String,String) UiCommand
+pluginCache :: Plugins -> Map.Map (String,String) Command
 pluginCache plugins = Map.fromList r
   where
-    doOne :: String -> PluginDescriptor -> [((String,String),UiCommand)]
-    doOne pn pd = map (\uic -> ((pn,uiCmdName (uiDesc uic)),uic)) $ pdUiCommands pd
+    doOne :: String -> PluginDescriptor -> [((String,String),Command)]
+    doOne pn pd = map (\cmd -> ((pn,cmdName (cmdDesc cmd)),cmd)) $ pdCommands pd
 
     r = concatMap (\(pn,pd) -> doOne pn pd) $ Map.toList plugins
 
