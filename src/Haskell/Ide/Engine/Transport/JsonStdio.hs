@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 -- |Provide a protocol adapter/transport for JSON over stdio
 
@@ -8,7 +7,6 @@ import           Control.Concurrent
 import           Control.Logging
 import qualified Data.Aeson as A
 import qualified Data.Map as Map
-import           GHC.Generics
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
 import           Pipes
@@ -84,7 +82,7 @@ data WireRequest = WireReq
   { cmd     :: T.Text -- ^combination of PluginId ":" CommandName
   , context :: Context
   , params  :: Map.Map ParamId ParamVal
-  } deriving (Show,Eq,Generic)
+  } deriving (Show,Eq)
 
 instance A.ToJSON WireRequest where
     toJSON wr = A.object
@@ -105,7 +103,7 @@ instance A.FromJSON WireRequest where
 -- ---------------------------------------------------------------------
 
 data WireResponse = Ok A.Value | Fail A.Value | HieError A.Value
-                  deriving (Show,Eq,Generic)
+                  deriving (Show,Eq)
 
 instance A.ToJSON WireResponse where
     toJSON (Ok val) = A.object
