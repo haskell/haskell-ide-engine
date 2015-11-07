@@ -31,15 +31,19 @@ jsonStdioTransport cin = do
     loop cid stream = do
       debug "jsonStdioTransport:calling go"
       (req,stream') <- runStateT decodeMsg stream
+      debug $ T.pack $ "jsonStdioTransport:got:" ++ show req
       case req of
-        Just (Left err) -> putStr $ show (HieError (A.String $ T.pack $ show err))
+        Just (Left err) -> do
+          putStr $ show (HieError (A.String $ T.pack $ show err))
+          loop (cid + 1) stream'
         Just (Right r) -> do
           writeChan cin (wireToChannel cout cid r)
           rsp <- readChan cout
           BL.putStr $ A.encode (channelToWire rsp)
-        Nothing -> putStr $ show (HieError (A.String $ T.pack $ "Got Nothing"))
-      debug $ T.pack $ "jsonStdioTransport:got:" ++ show req
-      loop (cid + 1) stream'
+          loop (cid + 1) stream'
+        Nothing -> do
+          -- exit the loop
+          putStr $ show (HieError (A.String $ T.pack $ "Got Nothing"))
   loop 1 P.stdin
 
 decodeMsg :: (Monad m) => Parser B.ByteString m (Maybe (Either P.DecodingError WireRequest))
