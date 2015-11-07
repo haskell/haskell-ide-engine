@@ -7,13 +7,15 @@ import           Data.Aeson
 import           Haskell.Ide.Engine.PluginDescriptor
 -- import           Haskell.Ide.Engine.PluginUtils
 import qualified Data.Text as T
-import qualified GHC as GHC
--- import qualified Language.Haskell.GhcMod as GM
+-- import qualified GHC as GHC
+import qualified Language.Haskell.GhcMod as GM
+-- import qualified Language.Haskell.GhcMod.Types as GM
+import qualified Language.Haskell.GhcMod.Monad as GM
 
 -- ---------------------------------------------------------------------
 
-hareDescriptor :: PluginDescriptor
-hareDescriptor = PluginDescriptor
+ghcmodDescriptor :: PluginDescriptor
+ghcmodDescriptor = PluginDescriptor
   {
     pdCommands =
       [
@@ -42,7 +44,7 @@ checkCmd req = do
   case mf of
     Nothing -> return (IdeResponseFail (String (T.pack $ "wrong context, needed file and pos")))
     Just fileName -> do
-      doCheck fileName
+      liftIO $ doCheck fileName
 
 -- --   Warnings and errors are returned.
 -- checkSyntax :: IOish m
@@ -53,9 +55,20 @@ checkCmd req = do
 
 -- ---------------------------------------------------------------------
 
-doCheck :: (MonadIO m,GHC.GhcMonad m,HasIdeState m) => FilePath -> m IdeResponse
-doCheck _fileName = do
-  return $ IdeResponseError (toJSON $ T.pack "not implemented (yet)")
+-- doCheck :: (MonadIO m,GHC.GhcMonad m,HasIdeState m) => FilePath -> m IdeResponse
+doCheck :: FilePath -> IO IdeResponse
+doCheck fileName = do
+  -- r <- GM.checkSyntax [fileName]
+  let opts = GM.defaultOptions
+  (r,_l) <- GM.runGmOutT opts $ GM.runGhcModT opts $ do
+    -- s <- GM.getSession
+      -- GM.setSession s
+      -- setTargets [fileName]
+      GM.checkSyntax [fileName]
+  -- (Either GM.GhcModError String, GM.GhcModLog)
+  case r of
+    Left e -> return $ IdeResponseError (toJSON $ T.pack $ "doCheck:got " ++ show e)
+    Right checkResult -> return $ (IdeResponseOk (toJSON checkResult))
   -- runGhcModT $ do s <- getSession; liftIO $ runGhcModT $ do setSession s; check fileName
 
 -- ---------------------------------------------------------------------

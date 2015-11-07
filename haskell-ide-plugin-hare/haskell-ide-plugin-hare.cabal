@@ -17,6 +17,7 @@ library
                      , HaRe
                      , aeson
                      , containers
+                     , directory
                      , ghc-mod
                      , haskell-ide-plugin-api
                      , text

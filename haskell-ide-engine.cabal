@@ -70,6 +70,7 @@ executable hie
                      , haskell-ide-engine
                      , haskell-ide-example-plugin2
                      , haskell-ide-plugin-api
+                     , haskell-ide-plugin-ghcmod
                      , haskell-ide-plugin-hare
                      , logging
                      , optparse-applicative
@@ -84,13 +85,18 @@ test-suite haskell-ide-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Spec.hs
-  other-modules:       JsonStdioSpec
+  other-modules:       GhcModPluginSpec
+                       HaRePluginSpec
+                       JsonStdioSpec
   build-depends:       base
                      , aeson
                      , containers
                      , haskell-ide-engine
                      , haskell-ide-plugin-api
+                     , haskell-ide-plugin-hare
+                     , haskell-ide-plugin-ghcmod
                      , hspec
+                     , logging
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
   default-language:    Haskell2010
 

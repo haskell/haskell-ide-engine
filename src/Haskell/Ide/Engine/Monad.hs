@@ -101,3 +101,7 @@ instance ExceptionMonad (StateT IdeState IO) where
 
 instance HasIdeState IdeM where
   getPlugins = gets idePlugins
+
+  setTargets targets = IdeM $ GM.runGmlT (map Left targets) (return ())
+
+-- EOF

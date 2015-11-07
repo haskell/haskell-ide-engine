@@ -126,6 +126,9 @@ data IdeResponse = IdeResponseOk    Value -- ^ Command Succeeded
 
 class (Monad m) => HasIdeState m where
   getPlugins :: m Plugins
+  -- | Set up an underlying GHC session for the specific targets. Should map
+  -- down to ghc-mod setTargets.
+  setTargets :: [FilePath] -> m ()
 
 type Dispatcher = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m)
                 => IdeRequest -> m IdeResponse
