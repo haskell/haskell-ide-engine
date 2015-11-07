@@ -7,7 +7,6 @@ module Haskell.Ide.Engine.Transport.JsonStdio where
 import           Control.Concurrent
 import           Control.Logging
 import qualified Data.Aeson as A
-import qualified Data.Aeson.Types as A
 import qualified Data.Map as Map
 import           GHC.Generics
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -88,11 +87,20 @@ data WireRequest = WireReq
   } deriving (Show,Eq,Generic)
 
 instance A.ToJSON WireRequest where
-    toJSON = A.genericToJSON A.defaultOptions
+    toJSON wr = A.object
+                [ "cmd" A..= cmd wr
+                , "context" A..= context wr
+                , "params" A..= params wr
+                ]
 
 
-instance A.FromJSON WireRequest
-    -- No need to provide a parseJSON implementation.
+instance A.FromJSON WireRequest where
+    parseJSON (A.Object v) = WireReq <$>
+                           v A..: "cmd" <*>
+                           v A..:? "context" A..!= emptyContext <*>
+                           v A..:? "params" A..!= Map.empty
+    -- A non-Object value is of the wrong type, so fail.
+    parseJSON _          = mzero
 
 -- ---------------------------------------------------------------------
 
@@ -100,8 +108,27 @@ data WireResponse = Ok A.Value | Fail A.Value | HieError A.Value
                   deriving (Show,Eq,Generic)
 
 instance A.ToJSON WireResponse where
-    toJSON = A.genericToJSON A.defaultOptions
+    toJSON (Ok val) = A.object
+                      [ "tag" A..= ("Ok" :: T.Text)
+                      , "contents" A..= val
+                      ]
+    toJSON (Fail val) = A.object
+                      [ "tag" A..= ("Fail" :: T.Text)
+                      , "contents" A..= val
+                      ]
+    toJSON (HieError val) = A.object
+                      [ "tag" A..= ("HieError" :: T.Text)
+                      , "contents" A..= val
+                      ]
 
 
-instance A.FromJSON WireResponse
-    -- No need to provide a parseJSON implementation.
+instance A.FromJSON WireResponse where
+    parseJSON (A.Object v) = ((v A..: "tag") >>= decode) <*>
+                             v A..: "contents"
+      where
+        decode "Ok" = pure Ok
+        decode "Fail" = pure Fail
+        decode "HieError" = pure HieError
+        decode tag = fail ("Unrecognized tag '" ++ tag ++ "'")
+    -- A non-Object value is of the wrong type, so fail.
+    parseJSON _          = mzero
