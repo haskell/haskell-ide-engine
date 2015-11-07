@@ -4,8 +4,10 @@ addons:
   apt:
     sources:
     - hvr-ghc
+    - cassou-emacs
     packages:
     - libgmp-dev
+    - emacs24-nox
 
 cache:
   directories:
@@ -25,9 +27,10 @@ before_install:
 
 install:
   - ./travis_long stack +RTS -N2 -RTS setup
-  - ./travis_long stack +RTS -N2 -RTS build --only-snapshot --pedantic
+  - ./travis_long stack +RTS -N2 -RTS build
 
 script:
+  - ./travis_long stack exec emacs24 -- -q --batch -L elisp -l elisp/tests/haskell-ide-engine-tests.el -f ert-run-tests-batch-and-exit
   # - ./travis_long stack +RTS -N2 -RTS build --haddock
   # - ./travis_long stack clean
   - ./travis_long stack +RTS -N2 -RTS build --test --pedantic
