@@ -42,9 +42,7 @@
           (lambda (json)
             (setq response json)))
     (haskell-ide-engine-post-message
-     ;; emacs json package has no representation for empty objects
-     ;; '(("cmd" . "base:version") ("context" . ()) ("params" . ()))
-     "{\"cmd\": \"base:version\", \"context\": {}, \"params\": {}}")
+     '(("cmd" . "base:version") ("context" . ()) ("params" . ())))
 
     (sit-for 2)
     (should response)

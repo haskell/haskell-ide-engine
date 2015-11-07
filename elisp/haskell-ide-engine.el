@@ -74,11 +74,37 @@ running this function does nothing."
 
 Communication is asynchronous, response (if any) will be received
 by `haskell-ide-engine-handle-message'."
+
+  ;; We remove values that are empty lists from assoc lists at the top
+  ;; level because json serialization would use "null" for those. HIE
+  ;; accepts missing fields and default to empty when possible.
   (process-send-string haskell-ide-engine-process
-                       (if (stringp json)
-                           json
-                         (json-encode json)))
+                       (haskell-ide-engine-prepare-json json))
   ;; flush buffers
   (process-send-string haskell-ide-engine-process "\n"))
+
+(defun haskell-ide-engine-remove-alist-null-values (json)
+  "Remove null values from assoc lists.
+
+Items of the form '(\"key\" . ()) will be removed from assoc list
+JSON. Returns the new list."
+  (if (listp json)
+      (mapcar (lambda (item)
+                (if (consp item)
+                    (cons (car item) (haskell-ide-engine-remove-alist-null-values (cdr item)))
+                  item))
+              (cl-remove-if (lambda (item) (and (consp item) (null (cdr item)))) json))
+    json))
+
+(defun haskell-ide-engine-prepare-json (json)
+  "Prepare json for sending it to HIE process.
+
+Emacs build in json package and `json-encode' function encodes
+empty objects as \"null\". We remove such objects from
+association lists and count on HIE to use default values there."
+  (if (stringp json)
+      json
+    (json-encode (haskell-ide-engine-remove-alist-null-values json))))
+
 
 (provide 'haskell-ide-engine)
