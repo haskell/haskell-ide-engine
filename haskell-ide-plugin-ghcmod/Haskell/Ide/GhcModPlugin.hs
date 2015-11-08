@@ -25,6 +25,7 @@ ghcmodDescriptor = PluginDescriptor
           { cmdDesc = CommandDesc
                      { cmdName = "check"
                      , cmdUiDescription = "check a file for GHC warnings and errors"
+                     , cmdFileExtensions = [".hs",".lhs"]
                      , cmdContexts = [CtxFile]
                      , cmdAdditionalParams = []
                      }

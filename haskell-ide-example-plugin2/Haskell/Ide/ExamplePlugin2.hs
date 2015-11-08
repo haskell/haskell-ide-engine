@@ -20,6 +20,7 @@ example2Descriptor = PluginDescriptor
           { cmdDesc = CommandDesc
                        { cmdName = "sayHello"
                        , cmdUiDescription = "say hello"
+                       , cmdFileExtensions = []
                        , cmdContexts = [CtxNone]
                        , cmdAdditionalParams = []
                        }
@@ -29,6 +30,7 @@ example2Descriptor = PluginDescriptor
           { cmdDesc = CommandDesc
                        { cmdName = "sayHelloTo"
                        , cmdUiDescription = "say hello to the passed in param"
+                       , cmdFileExtensions = []
                        , cmdContexts = [CtxNone]
                        , cmdAdditionalParams = [RP "name"]
                        }

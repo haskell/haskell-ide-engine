@@ -56,6 +56,7 @@ instance Show Command where
 data CommandDescriptor = CommandDesc
   { cmdName :: !CommandName -- ^As returned in the 'IdeRequest'
   , cmdUiDescription :: !T.Text -- ^ Can be presented to the IDE user
+  , cmdFileExtensions :: ![T.Text] -- ^ File extensions this command can be applied to
   , cmdContexts :: ![AcceptedContext] -- TODO: should this be a non empty list? or should empty list imply CtxNone.
   , cmdAdditionalParams :: ![RequiredParam]
   } deriving (Show,Generic)
@@ -194,6 +195,7 @@ instance FromJSON RequiredParam where
 instance ToJSON CommandDescriptor where
     toJSON cmdDescriptor = object [ "name" .= cmdName cmdDescriptor
                                   , "ui_description" .= cmdUiDescription cmdDescriptor
+                                  , "file_extensions" .= cmdFileExtensions cmdDescriptor
                                   , "contexts" .= cmdContexts cmdDescriptor
                                   , "additional_params" .= cmdAdditionalParams cmdDescriptor ]
 
@@ -201,6 +203,7 @@ instance FromJSON CommandDescriptor where
     parseJSON (Object v) =
       CommandDesc <$> v .: "name"
                   <*> v .: "ui_description"
+                  <*> v .: "file_extensions"
                   <*> v .: "contexts"
                   <*> v .: "additional_params"
     parseJSON _ = empty
