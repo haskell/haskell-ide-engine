@@ -30,101 +30,27 @@ jsonSpec :: Spec
 jsonSpec = do
   describe "JSON Generation WireRequest" $ do
     it "generates a WireRequest 1" $ do
-      let wr = WireReq "eg1:hello" emptyContext Map.empty
-      (encode wr) `shouldBe` "{\"context\":{\"end_pos\":null,\
-                                           \\"cabal\":null,\
-                                           \\"start_pos\":null,\
-                                           \\"file\":null},\
-                              \\"params\":{},\
+      let wr = WireReq "eg1:hello" Map.empty
+      (encode wr) `shouldBe` "{\"params\":{},\
                               \\"cmd\":\"eg1:hello\"}"
 
     it "generates a WireRequest 2" $ do
-      let wr = WireReq "eg2:helloTo" (Context (Just (CabalSection "lib")) Nothing Nothing Nothing ) (Map.fromList [("name","foo")])
-      (encode wr) `shouldBe` "{\"context\":{\"end_pos\":null,\
-                                           \\"cabal\":\"lib\",\
-                                           \\"start_pos\":null,\
-                                           \\"file\":null},\
-                              \\"params\":{\"name\":\"foo\"},\
+      let wr = WireReq "eg2:helloTo"  (Map.fromList [("cabal",ParamText "lib"),("name",ParamText "foo")])
+      (encode wr) `shouldBe` "{\"params\":{\"cabal\":{\"tag\":\"text\",\"contents\":\"lib\"},\
+                                          \\"name\":{\"tag\":\"text\",\"contents\":\"foo\"}},\
                               \\"cmd\":\"eg2:helloTo\"}"
-
-    it "generates a WireRequest 3" $ do
-      let wr = WireReq "eg2:helloTo" (Context (Just (CabalSection "lib")) (Just "/home/foo/Bar.hs") Nothing Nothing )
-                                                    (Map.fromList [("name","foo"),("p3","val")])
-      (encode wr) `shouldBe` "{\"context\":{\"end_pos\":null,\
-                                           \\"cabal\":\"lib\",\
-                                           \\"start_pos\":null,\
-                                           \\"file\":\"/home/foo/Bar.hs\"},\
-                              \\"params\":{\"name\":\"foo\",\"p3\":\"val\"},\
-                              \\"cmd\":\"eg2:helloTo\"}"
-
-    it "generates a WireRequest 4" $ do
-      let wr = WireReq "eg4:hello4" (Context (Just (CabalSection "lib")) (Just "/home/foo/Bar.hs") (Just (1,2)) Nothing ) Map.empty
-      (encode wr) `shouldBe` "{\"context\":{\"end_pos\":null,\
-                                           \\"cabal\":\"lib\",\
-                                           \\"start_pos\":[1,2],\
-                                           \\"file\":\"/home/foo/Bar.hs\"},\
-                              \\"params\":{},\
-                              \\"cmd\":\"eg4:hello4\"}"
-
-    it "generates a WireRequest 5" $ do
-      let wr = WireReq "eg5:hello5" (Context (Just (CabalSection "lib")) (Just "/home/foo/Bar.hs") (Just (1,2)) (Just (3,4)) ) Map.empty
-      (encode wr) `shouldBe` "{\"context\":{\"end_pos\":[3,4],\
-                                           \\"cabal\":\"lib\",\
-                                           \\"start_pos\":[1,2],\
-                                           \\"file\":\"/home/foo/Bar.hs\"},\
-                              \\"params\":{},\
-                              \\"cmd\":\"eg5:hello5\"}"
 
   describe "JSON Parsing WireRequest" $ do
     it "parses a WireRequest 1" $ do
-      let wr = WireReq "eg1:hello" emptyContext Map.empty
-      (decode "{\"context\":{\"end_pos\":null,\
-                            \\"cabal\":null,\
-                            \\"start_pos\":null,\
-                            \\"file\":null},\
-               \\"params\":{},\
+      let wr = WireReq "eg1:hello" Map.empty
+      (decode "{\"params\":{},\
                \\"cmd\":\"eg1:hello\"}")
          `shouldBe` (Just wr)
 
     it "parses a WireRequest 2" $ do
-      let wr = WireReq "eg2:helloTo" (Context (Just (CabalSection "lib")) Nothing Nothing Nothing ) (Map.fromList [("name","foo")])
-      (decode "{\"context\":{\"end_pos\":null,\
-                            \\"cabal\":\"lib\",\
-                            \\"start_pos\":null,\
-                            \\"file\":null},\
-               \\"params\":{\"name\":\"foo\"},\
+      let wr = WireReq "eg2:helloTo" (Map.fromList [("name",ParamText "foo")])
+      (decode "{\"params\":{\"name\":{\"tag\":\"text\",\"contents\":\"foo\"}},\
                \\"cmd\":\"eg2:helloTo\"}")
-         `shouldBe` (Just wr)
-
-    it "parses a WireRequest 3" $ do
-      let wr = WireReq "eg2:helloTo" (Context (Just (CabalSection "lib")) (Just "/home/foo/Bar.hs") Nothing Nothing )
-                                                    (Map.fromList [("name","foo"),("p3","val")])
-      (decode "{\"context\":{\"end_pos\":null,\
-                            \\"cabal\":\"lib\",\
-                            \\"start_pos\":null,\
-                            \\"file\":\"/home/foo/Bar.hs\"},\
-               \\"params\":{\"name\":\"foo\",\"p3\":\"val\"},\
-               \\"cmd\":\"eg2:helloTo\"}")
-         `shouldBe` (Just wr)
-
-    it "parses a WireRequest 4" $ do
-      let wr = WireReq "eg4:hello4" (Context (Just (CabalSection "lib")) (Just "/home/foo/Bar.hs") (Just (1,2)) Nothing ) Map.empty
-      (decode "{\"context\":{\"end_pos\":null,\
-                            \\"cabal\":\"lib\",\
-                            \\"start_pos\":[1,2],\
-                            \\"file\":\"/home/foo/Bar.hs\"},\
-               \\"params\":{},\
-               \\"cmd\":\"eg4:hello4\"}")
-         `shouldBe` (Just wr)
-
-    it "parses a WireRequest 5" $ do
-      let wr = WireReq "eg5:hello5" (Context (Just (CabalSection "lib")) (Just "/home/foo/Bar.hs") (Just (1,2)) (Just (3,4)) ) Map.empty
-      (decode "{\"context\":{\"end_pos\":[3,4],\
-                            \\"cabal\":\"lib\",\
-                            \\"start_pos\":[1,2],\
-                            \\"file\":\"/home/foo/Bar.hs\"},\
-               \\"params\":{},\
-               \\"cmd\":\"eg5:hello5\"}")
          `shouldBe` (Just wr)
 
   describe "JSON Generation WireResponse" $ do

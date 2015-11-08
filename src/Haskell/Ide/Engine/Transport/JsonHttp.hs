@@ -66,7 +66,7 @@ server cin cout = hieH
           return (coutResp rsp)
           -- return (IdeResponseOk (String $ pack $ show r))
 
-        egH = return (IdeRequest ("version"::Text) (Context Nothing Nothing Nothing Nothing) Map.empty)
+        egH = return (IdeRequest ("version"::Text) Map.empty)
 
 -- Turn the server into a WAI app. 'serve' is provided by servant,
 -- more precisely by the Servant.Server module.

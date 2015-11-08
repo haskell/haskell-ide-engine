@@ -75,18 +75,6 @@ data AcceptedContext = CtxNone        -- ^ No context required, global command
 
 type Pos = (Int,Int)
 
-data Context = Context
-                { ctxCabal    :: Maybe CabalSection
-                , ctxFile     :: Maybe AbsFilePath
-                , ctxStartPos :: Maybe Pos
-                , ctxEndPos   :: Maybe Pos
-                }
-             deriving (Eq,Show,Generic)
-
-emptyContext :: Context
-emptyContext = Context Nothing Nothing Nothing Nothing
-
-
 -- |It will simplify things to always work with an absolute file path
 type AbsFilePath = FilePath
 
@@ -108,14 +96,25 @@ type Plugins = Map.Map PluginId PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
+-- |A request from the IDE to HIE. When a context is specified, the following
+-- parameter names must be used.
+--
+--  cabal     - for the cabal target
+--  file      - for the file name
+--  start_pos - for the first position
+--  end_pos   - for the second position
+--
+-- These will be checked by the dispatcher.
 data IdeRequest = IdeRequest
   { ideCommand :: CommandName
-  , ideContext :: Context
   , ideParams  :: Map.Map ParamId ParamVal
   } deriving (Show,Generic)
 
 type ParamId = T.Text
-type ParamVal = T.Text
+data ParamVal = ParamText T.Text
+              | ParamFile T.Text
+              | ParamPos (Int,Int)
+              deriving (Show,Generic,Eq)
 
 -- TODO: should probably be able to return a plugin-specific type. Not sure how
 -- to encode it. Perhaps as an instance of a class which says it can be encoded
@@ -139,18 +138,22 @@ type Dispatcher = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m)
 -- ---------------------------------------------------------------------
 -- JSON instances
 
-instance ToJSON Context where
-    toJSON ctxt = object [ "cabal" .= toJSON (ctxCabal ctxt)
-                         , "file" .= toJSON (ctxFile ctxt)
-                         , "start_pos" .= toJSON (ctxStartPos ctxt)
-                         , "end_pos" .= toJSON (ctxEndPos ctxt) ]
+instance ToJSON ParamVal where
+    toJSON (ParamText v) = object [ "tag" .= String "text"
+                                  , "contents" .= toJSON v ]
+    toJSON (ParamFile v) = object [ "tag" .= String "file"
+                                  , "contents" .= toJSON v ]
+    toJSON (ParamPos  v) = object [ "tag" .= String "pos"
+                                  , "contents" .= toJSON v ]
 
-instance FromJSON Context where
-    parseJSON (Object v) =
-      Context <$> v .: "cabal"
-              <*> v .: "file"
-              <*> v .: "start_pos"
-              <*> v .: "end_pos"
+instance FromJSON ParamVal where
+    parseJSON (Object v) = do
+      tag <- v .: "tag" :: Parser T.Text
+      case tag of
+        "text" -> ParamText <$> v .: "contents"
+        "file" -> ParamFile <$> v .: "contents"
+        "pos"  -> ParamPos <$> v .: "contents"
+        _ -> empty
     parseJSON _ = empty
 
 -- -------------------------------------
@@ -211,15 +214,13 @@ instance FromJSON CommandDescriptor where
 -- -------------------------------------
 
 instance ToJSON IdeRequest where
-  toJSON (IdeRequest{ideCommand = command,ideContext = context,ideParams = params}) =
+  toJSON (IdeRequest{ideCommand = command, ideParams = params}) =
     object [ "command" .= command
-           , "context" .= context
            , "params" .= params]
 
 instance FromJSON IdeRequest where
     parseJSON (Object v) =
       IdeRequest <$> v .: "command"
-                 <*> v .: "context"
                  <*> v .: "params"
     parseJSON _ = empty
 
