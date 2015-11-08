@@ -4,9 +4,11 @@
 
 module Main where
 
+import           Control.Monad
 import           Control.Concurrent
 import           Control.Exception
 import           Control.Logging
+import qualified Data.Map as Map
 import           Data.Version (showVersion)
 import           Development.GitRev (gitCommitCount)
 import           Distribution.System (buildArch)
@@ -21,7 +23,6 @@ import           Haskell.Ide.Engine.Transport.JsonHttp
 import           Haskell.Ide.Engine.Transport.JsonStdio
 import           Haskell.Ide.Engine.Types
 import           Options.Applicative.Simple
-import qualified Data.Map as Map
 import qualified Paths_haskell_ide_engine as Meta
 
 -- ---------------------------------------------------------------------
@@ -100,7 +101,8 @@ run opts = do
     _ <- forkIO (runIdeM (IdeState plugins) (dispatcher cin))
 
     -- TODO: pass port in as a param from GlobalOpts
-    _ <- forkIO (jsonHttpListener cin)
+    when (optHttp opts) $
+      void $ forkIO (jsonHttpListener cin (optPort opts))
 
     -- Can have multiple listeners, each using a different transport protocol, so
     -- long as they can pass through a ChannelRequest

@@ -82,5 +82,5 @@ runTestServer cin port = do
   run port (test cin cout)
 
 -- Put this all to work!
-jsonHttpListener :: Chan ChannelRequest -> IO ()
-jsonHttpListener cin = runTestServer cin 8001
+jsonHttpListener :: Chan ChannelRequest -> Port -> IO ()
+jsonHttpListener cin port = runTestServer cin port
