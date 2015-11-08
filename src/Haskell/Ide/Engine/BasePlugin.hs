@@ -103,7 +103,7 @@ versionCmd _ _ = return (IdeResponseOk (String $ T.pack version))
 pluginsCmd :: CommandFunc
 pluginsCmd _ _ = do
   plugins <- getPlugins
-  return (IdeResponseOk (String $ T.pack $ show $ Map.keys plugins))
+  return (IdeResponseOk (toJSON $ Map.keys plugins))
 
 commandsCmd :: CommandFunc
 commandsCmd _ req = do
