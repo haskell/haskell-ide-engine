@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -21,6 +22,7 @@
 
 module Haskell.Ide.Engine.PluginDescriptor where
 
+import           Control.Applicative
 import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Aeson.Types
@@ -137,57 +139,105 @@ type Dispatcher = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m)
 -- JSON instances
 
 instance ToJSON Context where
-    toJSON = genericToJSON defaultOptions
+    toJSON ctxt = object [ "cabal" .= toJSON (ctxCabal ctxt)
+                         , "file" .= toJSON (ctxFile ctxt)
+                         , "start_pos" .= toJSON (ctxStartPos ctxt)
+                         , "end_pos" .= toJSON (ctxEndPos ctxt) ]
 
 instance FromJSON Context where
-    -- No need to provide a parseJSON implementation.
+    parseJSON (Object v) =
+      Context <$> v .: "cabal"
+              <*> v .: "file"
+              <*> v .: "start_pos"
+              <*> v .: "end_pos"
+    parseJSON _ = empty
 
 -- -------------------------------------
 
 instance ToJSON CabalSection where
-    toJSON = genericToJSON defaultOptions
+    toJSON (CabalSection s) = toJSON s
 
 instance FromJSON CabalSection where
-    -- No need to provide a parseJSON implementation.
+    parseJSON (String s) = pure $ CabalSection s
+    parseJSON _ = empty
 
 -- -------------------------------------
 
 instance ToJSON AcceptedContext where
-    toJSON = genericToJSON defaultOptions
+    toJSON CtxNone = String "none"
+    toJSON CtxPoint = String "point"
+    toJSON CtxRegion = String "region"
+    toJSON CtxFile = String "file"
+    toJSON CtxCabalTarget = String "cabal_target"
+    toJSON CtxProject = String "project"
 
 instance FromJSON AcceptedContext where
-    -- No need to provide a parseJSON implementation.
+    parseJSON (String "none") = pure CtxNone
+    parseJSON (String "point") = pure CtxPoint
+    parseJSON (String "region") = pure CtxRegion
+    parseJSON (String "file") = pure CtxFile
+    parseJSON (String "cabal_target") = pure CtxCabalTarget
+    parseJSON (String "project") = pure CtxProject
+    parseJSON _ = empty
 
 -- -------------------------------------
 
 instance ToJSON RequiredParam where
-    toJSON = genericToJSON defaultOptions
+    toJSON (RP s) = toJSON s
 
 instance FromJSON RequiredParam where
-    -- No need to provide a parseJSON implementation.
+    parseJSON (String s) = pure $ RP s
+    parseJSON _ = empty
 
 -- -------------------------------------
 
 instance ToJSON CommandDescriptor where
-    toJSON = genericToJSON defaultOptions
+    toJSON cmdDescriptor = object [ "name" .= cmdName cmdDescriptor
+                                  , "ui_description" .= cmdUiDescription cmdDescriptor
+                                  , "contexts" .= cmdContexts cmdDescriptor
+                                  , "additional_params" .= cmdAdditionalParams cmdDescriptor ]
 
 instance FromJSON CommandDescriptor where
-    -- No need to provide a parseJSON implementation.
+    parseJSON (Object v) =
+      CommandDesc <$> v .: "name"
+                  <*> v .: "ui_description"
+                  <*> v .: "contexts"
+                  <*> v .: "additional_params"
+    parseJSON _ = empty
 
 -- -------------------------------------
 
 instance ToJSON IdeRequest where
-    toJSON = genericToJSON defaultOptions
+  toJSON (IdeRequest{ideCommand = command,ideContext = context,ideParams = params}) =
+    object [ "command" .= command
+           , "context" .= context
+           , "params" .= params]
 
 instance FromJSON IdeRequest where
-    -- No need to provide a parseJSON implementation.
+    parseJSON (Object v) =
+      IdeRequest <$> v .: "command"
+                 <*> v .: "context"
+                 <*> v .: "params"
+    parseJSON _ = empty
 
 -- -------------------------------------
 
 instance ToJSON IdeResponse where
-    toJSON = genericToJSON defaultOptions
+    toJSON (IdeResponseOk v) = object [ "tag" .= String "ok"
+                                      , "contents" .= toJSON v ]
+    toJSON (IdeResponseFail v) = object [ "tag" .= String "fail"
+                                        , "contents" .= toJSON v ]
+    toJSON (IdeResponseError v) = object [ "tag" .= String "error"
+                                         , "contents" .= toJSON v ]
 
 instance FromJSON IdeResponse where
-    -- No need to provide a parseJSON implementation.
+    parseJSON (Object v) = do
+      tag <- v .: "tag" :: Parser T.Text
+      case tag of
+        "ok" -> IdeResponseOk <$> v .: "contents"
+        "fail" -> IdeResponseFail <$> v .: "contents"
+        "error" -> IdeResponseError <$> v .: "contents"
+        _ -> empty
+    parseJSON _ = empty
 
 -- EOF

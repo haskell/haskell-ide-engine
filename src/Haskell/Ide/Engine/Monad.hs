@@ -24,7 +24,6 @@ import Control.Monad.Trans.Control ( control, liftBaseOp, liftBaseOp_)
 
 -- ---------------------------------------------------------------------
 
--- type IdeM a = GM.GhcModT (GM.GmOutT IO) a
 newtype IdeM a = IdeM { unIdeM :: GM.GhcModT (GM.GmOutT (StateT IdeState IO)) a}
       deriving ( Functor
                , Applicative
