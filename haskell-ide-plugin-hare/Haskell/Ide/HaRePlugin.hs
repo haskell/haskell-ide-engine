@@ -46,7 +46,7 @@ renameCmd req = do
         Right fs -> do
           fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
           return (IdeResponseOk (toJSON fs'))
-    Right _ -> error "HarePlugin.renameCmd: should never get here"
+    Right ps -> error $ "HarePlugin.renameCmd: unexpected parameters:" ++ show ps
 
 -- rename :: RefactSettings -> Options -> FilePath -> String -> SimpPos -> IO [FilePath] 
 
