@@ -22,6 +22,7 @@ hareDescriptor = PluginDescriptor
           { cmdDesc = CommandDesc
                      { cmdName = "rename"
                      , cmdUiDescription = "rename a variable or type"
+                     , cmdFileExtensions = [".hs"]
                      , cmdContexts = [CtxPoint]
                      , cmdAdditionalParams = [RP "name"]
                      }

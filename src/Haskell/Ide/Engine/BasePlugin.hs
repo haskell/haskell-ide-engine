@@ -31,6 +31,7 @@ baseDescriptor = PluginDescriptor
           { cmdDesc = CommandDesc
                         { cmdName = "version"
                         , cmdUiDescription = "return HIE version"
+                        , cmdFileExtensions = []
                         , cmdContexts = [CtxNone]
                         , cmdAdditionalParams = []
                         }
@@ -40,6 +41,7 @@ baseDescriptor = PluginDescriptor
           { cmdDesc = CommandDesc
                         { cmdName = "plugins"
                         , cmdUiDescription = "list available plugins"
+                        , cmdFileExtensions = []
                         , cmdContexts = [CtxNone]
                         , cmdAdditionalParams = []
                         }
@@ -49,6 +51,7 @@ baseDescriptor = PluginDescriptor
           { cmdDesc = CommandDesc
                         { cmdName = "commands"
                         , cmdUiDescription = "list available commands for a given plugin"
+                        , cmdFileExtensions = []
                         , cmdContexts = [CtxNone]
                         , cmdAdditionalParams = [RP "plugin"]
                         }
@@ -58,6 +61,7 @@ baseDescriptor = PluginDescriptor
           { cmdDesc = CommandDesc
                         { cmdName = "commandDetail"
                         , cmdUiDescription = "list parameters required for a given command"
+                        , cmdFileExtensions = []
                         , cmdContexts = [CtxNone]
                         , cmdAdditionalParams = [RP "plugin",RP "command"]
                         }
@@ -67,6 +71,7 @@ baseDescriptor = PluginDescriptor
           { cmdDesc = CommandDesc
                         { cmdName = "pwd"
                         , cmdUiDescription = "return the current working directory for the HIE process"
+                        , cmdFileExtensions = []
                         , cmdContexts = [CtxNone]
                         , cmdAdditionalParams = []
                         }
@@ -76,6 +81,7 @@ baseDescriptor = PluginDescriptor
           { cmdDesc = CommandDesc
                         { cmdName = "cwd"
                         , cmdUiDescription = "change the current working directory for the HIE process"
+                        , cmdFileExtensions = []
                         , cmdContexts = [CtxNone]
                         , cmdAdditionalParams = [RP "dir"]
                        }
