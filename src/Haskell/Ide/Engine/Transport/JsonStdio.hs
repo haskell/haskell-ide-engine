@@ -59,7 +59,6 @@ wireToChannel cout ri wr =
     , cinReqId = ri
     , cinReq = IdeRequest
                  { ideCommand = T.tail command
-                 , ideContext = context wr
                  , ideParams  = params wr
                  }
     , cinReplyChan = cout
@@ -80,14 +79,12 @@ channelToWire cr =
 
 data WireRequest = WireReq
   { cmd     :: T.Text -- ^combination of PluginId ":" CommandName
-  , context :: Context
   , params  :: Map.Map ParamId ParamVal
   } deriving (Show,Eq)
 
 instance A.ToJSON WireRequest where
     toJSON wr = A.object
                 [ "cmd" A..= cmd wr
-                , "context" A..= context wr
                 , "params" A..= params wr
                 ]
 
@@ -95,7 +92,6 @@ instance A.ToJSON WireRequest where
 instance A.FromJSON WireRequest where
     parseJSON (A.Object v) = WireReq <$>
                            v A..: "cmd" <*>
-                           v A..:? "context" A..!= emptyContext <*>
                            v A..:? "params" A..!= Map.empty
     -- A non-Object value is of the wrong type, so fail.
     parseJSON _          = mzero

@@ -14,11 +14,11 @@ import           System.Console.Haskeline
 -- ---------------------------------------------------------------------
 
 data ReplEnv = ReplEnv
-      { envContext :: Context
+      {
       } deriving (Show)
 
 emptyEnv :: ReplEnv
-emptyEnv = ReplEnv emptyContext
+emptyEnv = ReplEnv
 
 -- ---------------------------------------------------------------------
 
@@ -38,7 +38,7 @@ consoleListener plugins cin = do
                   [] -> Left $ "empty command"
                   (cmdStr:ps) -> case Map.lookup cmdStr (replPluginInfo plugins) of
                                   Nothing -> Left $ "unrecognised command:" <> cmdStr
-                                  Just (plugin,cmd) -> Right $ (plugin,IdeRequest (cmdName $ cmdDesc cmd) (envContext env) (convertToParams ps))
+                                  Just (plugin,cmd) -> Right $ (plugin,IdeRequest (cmdName $ cmdDesc cmd) (convertToParams ps))
               case req of
                 Left err -> outputStrLn (T.unpack err)
                 Right (plugin,reqVal) -> do
@@ -82,8 +82,8 @@ replListener plugins cin = do
 
 -- ---------------------------------------------------------------------
 
-convertToParams :: [T.Text] -> Map.Map T.Text T.Text
-convertToParams ss = Map.fromList $ map splitOnColon ss
+convertToParams :: [T.Text] -> Map.Map T.Text ParamVal
+convertToParams ss = Map.fromList $ map (\(k,v) -> (k,ParamText v)) $  map splitOnColon ss
 
 -- ---------------------------------------------------------------------
 

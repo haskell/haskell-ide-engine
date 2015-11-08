@@ -7,7 +7,7 @@ import           Control.Exception
 import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Haskell.Ide.Engine.PluginDescriptor
--- import           Haskell.Ide.Engine.PluginUtils
+import           Haskell.Ide.Engine.PluginUtils
 import qualified Data.Text as T
 -- import qualified GHC as GHC
 import qualified Language.Haskell.GhcMod as GM
@@ -40,15 +40,11 @@ ghcmodDescriptor = PluginDescriptor
 
 checkCmd :: Dispatcher
 checkCmd req = do
-  let
-    mf = do -- Maybe monad
-          fileName <- ctxFile (ideContext req)
-          return fileName
-  case mf of
-    Nothing -> return (IdeResponseFail (String (T.pack $ "wrong context, needed file and pos")))
-    Just fileName -> do
-      liftIO $ doCheck fileName
-      -- doCheck fileName
+  case getParams ["file"] req of
+    Left err -> return err
+    Right [ParamFile fileName] -> do
+      liftIO $ doCheck (T.unpack fileName)
+    Right x -> error $ "GhcModPlugin.checkCmd: got unexpected file param:" ++ show x
 
 -- --   Warnings and errors are returned.
 -- checkSyntax :: IOish m

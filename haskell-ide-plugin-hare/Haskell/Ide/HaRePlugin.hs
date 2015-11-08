@@ -37,24 +37,16 @@ hareDescriptor = PluginDescriptor
 
 renameCmd :: Dispatcher
 renameCmd req = do
-  case getParams ["name"] req of
+  case getParams ["file","start_pos","name"] req of
     Left err -> return err
-    Right [name] -> do
-      let
-        mf = do -- Maybe monad
-              fileName <- ctxFile (ideContext req)
-              pos      <- ctxStartPos (ideContext req)
-              return (fileName,pos)
-      case mf of
-        Nothing -> return (IdeResponseFail (String (T.pack $ "wrong context, needed file and pos")))
-        Just (filename,pos) -> do
-          res <- liftIO $ catchException $ rename defaultSettings GM.defaultOptions filename (T.unpack name) pos
-          case res of
-            Left err -> return (IdeResponseFail (toJSON err))
-            Right fs -> do
-              fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
-              return (IdeResponseOk (toJSON fs'))
-    Right _ -> error "HarePlugin.renameCmd: should never get here"
+    Right [ParamFile fileName,ParamPos pos,ParamText name] -> do
+      res <- liftIO $ catchException $ rename defaultSettings GM.defaultOptions (T.unpack fileName) (T.unpack name) pos
+      case res of
+        Left err -> return (IdeResponseFail (toJSON err))
+        Right fs -> do
+          fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
+          return (IdeResponseOk (toJSON fs'))
+    Right ps -> error $ "HarePlugin.renameCmd: unexpected parameters:" ++ show ps
 
 -- rename :: RefactSettings -> Options -> FilePath -> String -> SimpPos -> IO [FilePath] 
 

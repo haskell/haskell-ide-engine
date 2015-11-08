@@ -108,16 +108,17 @@ commandsCmd req = do
   -- TODO: Use Maybe Monad. What abut error reporting?
   case Map.lookup "plugin" (ideParams req) of
     Nothing -> return (IdeResponseFail (toJSON $ T.pack "need 'plugin' parameter"))
-    Just p -> case Map.lookup p plugins of
+    Just (ParamText p) -> case Map.lookup p plugins of
       Nothing -> return (IdeResponseFail (toJSON $ "Can't find plugin:'" <> p <> "'"))
       Just pl -> return (IdeResponseOk (toJSON $ map (cmdName . cmdDesc) $ pdCommands pl))
+    Just x -> return $ (IdeResponseFail (toJSON $ "invalid parameter for plugin:" ++ show x))
 
 commandDetailCmd :: Dispatcher
 commandDetailCmd req = do
   plugins <- getPlugins
   case getParams ["plugin","command"] req of
     Left err -> return err
-    Right [p,command] -> do
+    Right [ParamText p,ParamText command] -> do
       case Map.lookup p plugins of
         Nothing -> return (IdeResponseFail (toJSON $ "Can't find plugin:'" <> p <> "'"))
         Just pl -> case find (\cmd -> command == (cmdName $ cmdDesc cmd) ) (pdCommands pl) of
@@ -135,9 +136,10 @@ cwdCmd :: Dispatcher
 cwdCmd req = do
   case Map.lookup "dir" (ideParams req) of
     Nothing -> return (IdeResponseFail (String "need 'dir' parameter"))
-    Just dir -> do
+    Just (ParamFile dir) -> do
       liftIO $ setCurrentDirectory (T.unpack dir)
       return (IdeResponseOk Null)
+    Just x -> return $ (IdeResponseFail (toJSON $ "invalid parameter for plugin:" ++ show x))
 
 -- ---------------------------------------------------------------------
 

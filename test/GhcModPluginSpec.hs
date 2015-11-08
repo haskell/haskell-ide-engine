@@ -31,7 +31,7 @@ ghcmodSpec :: Spec
 ghcmodSpec = do
   describe "ghc-mod plugin commands" $ do
     it "runs the check command" $ do
-      let req = IdeRequest "check" (Context Nothing (Just "./test/testdata/FileWithWarning.hs") Nothing Nothing) Map.empty
+      let req = IdeRequest "check" (Map.fromList [("file", ParamFile "./test/testdata/FileWithWarning.hs")])
       r <- runIdeM (IdeState Map.empty) (checkCmd req)
       (show r) `shouldBe` "IdeResponseOk (String \"test/testdata/FileWithWarning.hs:4:7:Not in scope: \\8216x\\8217\\n\")"
 
