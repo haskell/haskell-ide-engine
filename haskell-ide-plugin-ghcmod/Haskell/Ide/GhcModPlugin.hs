@@ -1,7 +1,9 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.GhcModPlugin where
 
 import           Control.Exception
+-- import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -45,6 +47,7 @@ checkCmd req = do
     Nothing -> return (IdeResponseFail (String (T.pack $ "wrong context, needed file and pos")))
     Just fileName -> do
       liftIO $ doCheck fileName
+      -- doCheck fileName
 
 -- --   Warnings and errors are returned.
 -- checkSyntax :: IOish m
@@ -57,19 +60,44 @@ checkCmd req = do
 
 -- doCheck :: (MonadIO m,GHC.GhcMonad m,HasIdeState m) => FilePath -> m IdeResponse
 doCheck :: FilePath -> IO IdeResponse
-doCheck fileName = do
-  -- r <- GM.checkSyntax [fileName]
+-- doCheck :: GHC.GhcMonad m => FilePath -> m IdeResponse
+doCheck fileName = runGhcModCommand (GM.checkSyntax [fileName])
+
+-- ---------------------------------------------------------------------
+
+-- TODO: Need to thread the session through as in the commented out code below.
+runGhcModCommand :: (ToJSON a) => GM.GmT (GM.GmOutT (GM.GmOutT IO)) a -> IO IdeResponse
+runGhcModCommand cmd = do
   let opts = GM.defaultOptions
+  -- s <- GHC.getSession
   (r,_l) <- GM.runGmOutT opts $ GM.runGhcModT opts $ do
-    -- s <- GM.getSession
+  -- (r,_l) <- GM.runGhcModT opts $ do
+      -- GHC.setSession s
+      -- s <- GM.getSession
       -- GM.setSession s
       -- setTargets [fileName]
-      GM.checkSyntax [fileName]
+      cr <- cmd
+      -- s' <- GHC.getSession
+      let s' = undefined
+      return (cr,s')
   -- (Either GM.GhcModError String, GM.GhcModLog)
   case r of
     Left e -> return $ IdeResponseError (toJSON $ T.pack $ "doCheck:got " ++ show e)
-    Right checkResult -> return $ (IdeResponseOk (toJSON checkResult))
-  -- runGhcModT $ do s <- getSession; liftIO $ runGhcModT $ do setSession s; check fileName
+    Right (checkResult,_s3) -> do
+      -- GHC.setSession s3
+      return $ (IdeResponseOk (toJSON checkResult))
+
+{-
+dispatcher = runGmlT $ forever $ do
+    s <- getSession
+    (r, s') <- runGhcModT $ do
+      setSession s
+      r <- checkSyntax
+      s <- getSession
+      return (r,s)
+    setSession s'
+
+-}
 
 -- ---------------------------------------------------------------------
 
