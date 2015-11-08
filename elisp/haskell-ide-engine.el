@@ -31,6 +31,7 @@
         (save-excursion
           (goto-char (point-min))
           (let* ((end-of-current-json-object (scan-sexps (point-min) 1))
+                 (json-array-type 'list)
                  (json (json-read)))
             (delete-region (point-min) end-of-current-json-object)
             (when haskell-ide-engine-process-handle-message
