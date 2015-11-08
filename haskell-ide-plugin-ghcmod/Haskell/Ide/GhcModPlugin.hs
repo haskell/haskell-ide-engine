@@ -44,7 +44,7 @@ checkCmd req = do
     Left err -> return err
     Right [ParamFile fileName] -> do
       liftIO $ doCheck (T.unpack fileName)
-    Right _ -> error "GhcModPlugin.checkCmd: should never get here"
+    Right x -> error $ "GhcModPlugin.checkCmd: got unexpected file param:" ++ show x
 
 -- --   Warnings and errors are returned.
 -- checkSyntax :: IOish m
