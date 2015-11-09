@@ -248,9 +248,9 @@ instance FromJSON ParamType where
 -- -------------------------------------
 
 instance ToJSON ParamDecription where
-    toJSON (RP n h t) = object [ "tag" .= String "RP"
+    toJSON (RP n h t) = object [ "tag" .= String "rp"
                                , "contents" .= toJSON (n,h,t) ]
-    toJSON (OP n h t) = object [ "tag" .= String "OP"
+    toJSON (OP n h t) = object [ "tag" .= String "op"
                                , "contents" .= toJSON (n,h,t) ]
 
 instance FromJSON ParamDecription where
@@ -258,8 +258,8 @@ instance FromJSON ParamDecription where
       tag <- v .: "tag" :: Parser T.Text
       (n,h,t) <- v .: "contents"
       case tag of
-        "RP" -> return $ RP n h t
-        "OP" -> return $ OP n h t
+        "rp" -> return $ RP n h t
+        "op" -> return $ OP n h t
         _ -> empty
     parseJSON _ = empty
 

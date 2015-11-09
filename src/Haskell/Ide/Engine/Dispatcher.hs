@@ -49,20 +49,6 @@ doDispatch plugins creq = do
             Left err   -> return err
             Right ctxs -> (cmdFunc cmd) ctxs req
 
-{-
-doDispatch' :: PluginId -> PluginDescriptor -> CommandFunc
-doDispatch' pn desc _ req = do
-  plugins <- getPlugins
-  debugm $ "doDispatch:desc=" ++ show desc
-  debugm $ "doDispatch:req=" ++ show req
-  case Map.lookup (pn,ideCommand req) (pluginCache plugins) of
-    Nothing -> return (IdeResponseError (toJSON $ "No such command:" <> ideCommand req))
-    Just cmd -> do
-      case validateContexts (cmdDesc cmd) req of
-        Left err -> return err
-        Right ctxs -> (cmdFunc cmd) ctxs req
--}
-
 -- ---------------------------------------------------------------------
 
 -- TODO: perhaps use this in IdeState instead
@@ -82,10 +68,10 @@ validateContexts :: CommandDescriptor -> IdeRequest -> Either IdeResponse [Accep
 validateContexts cd req = r
   where
     (errs,oks) = partitionEithers $ map (\c -> validContext c (ideParams req)) $ cmdContexts cd
-    -- ectxs = mapEithers (\c -> validContext c (ideParams req)) $ cmdContexts cd
     r = case oks of
           [] -> case errs of
-            [] -> Left $ IdeResponseFail (toJSON $ T.pack $ "no valid context found, expecting one of:" ++ show (cmdContexts cd))
+            [] -> Left $ IdeResponseFail (toJSON $ T.pack $ "no valid context found, expecting one of:"
+                                          ++ show (cmdContexts cd))
             (e:_) -> Left e
           ctxs -> case checkParams (cmdAdditionalParams cd) (ideParams req) of
                     Right _  -> Right ctxs
@@ -103,12 +89,25 @@ checkParams :: [ParamDecription] -> ParamMap -> Either IdeResponse [()]
 checkParams pds params = mapEithers checkOne pds
   where
     checkOne :: ParamDecription -> Either IdeResponse ()
-    checkOne (OP{}) = Right ()
-    checkOne (RP pn _ph pt) = case Map.lookup pn params of
-      Nothing -> Left (IdeResponseFail (String $ T.pack $ "missing parameter '"++ show pn ++"'"))
-      Just p  -> if paramMatches pt p
-                    then Right ()
-                    else Left (IdeResponseFail (String $ T.pack $ "parameter type mismatch, expected " ++ show pt ++ " but got "++ show p))
+    checkOne (OP pn _ph pt) = checkParamOP pn pt
+    checkOne (RP pn _ph pt) = checkParamRP pn pt
+
+    checkParamOP pn pt =
+      case Map.lookup pn params of
+        Nothing -> Right ()
+        Just p  -> checkParamMatch pt p
+
+    checkParamRP pn pt =
+      case Map.lookup pn params of
+        Nothing -> Left (IdeResponseFail (String $ T.pack $ "missing parameter '"++ show pn ++"'"))
+        Just p  -> checkParamMatch pt p
+
+    checkParamMatch pt' p' =
+      if paramMatches pt' p'
+        then Right ()
+        else Left (IdeResponseFail (String $ T.pack $ "parameter type mismatch, expected "
+                                                ++ show pt' ++ " but got "++ show p'))
+
 
     paramMatches PtText (ParamText _) = True
     paramMatches PtFile (ParamFile _) = True

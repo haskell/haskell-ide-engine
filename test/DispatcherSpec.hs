@@ -159,6 +159,11 @@ dispatcherSpec = do
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
       (show r) `shouldBe` "IdeResponseFail (String \"parameter type mismatch, expected PtText but got ParamFile \\\"a\\\"\")"
 
+    -- ---------------------------------
+
+    it "reports mismatched optional param" $ do
+      pendingWith "write this test"
+
 -- ---------------------------------------------------------------------
 
 testPlugins :: Plugins
