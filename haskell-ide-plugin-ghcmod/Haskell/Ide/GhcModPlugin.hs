@@ -31,6 +31,16 @@ ghcmodDescriptor = PluginDescriptor
                      }
           , cmdFunc = checkCmd
           }
+      , Command
+          { cmdDesc = CommandDesc
+                     { cmdName = "types"
+                     , cmdUiDescription = "Get the type of the expression under (LINE,COL)"
+                     , cmdFileExtensions = [".hs",".lhs"]
+                     , cmdContexts = [CtxPoint]
+                     , cmdAdditionalParams = []
+                     }
+          , cmdFunc = typesCmd
+          }
       ]
   , pdExposedServices = []
   , pdUsedServices    = []
@@ -46,13 +56,15 @@ checkCmd req = do
       liftIO $ doCheck (T.unpack fileName)
     Right x -> error $ "GhcModPlugin.checkCmd: got unexpected file param:" ++ show x
 
--- --   Warnings and errors are returned.
--- checkSyntax :: IOish m
---             => [FilePath]  -- ^ The target files.
---             -> GhcModT m String
--- checkSyntax []    = return ""
--- checkSyntax files = either id id <$> check files
+-- ---------------------------------------------------------------------
 
+typesCmd :: Dispatcher
+typesCmd req = do
+  case getParams ["file","start_pos"] req of
+    Left err -> return err
+    Right [ParamFile fileName,ParamPos (r,c)] -> do
+      liftIO $ runGhcModCommand (GM.types (T.unpack fileName) r c)
+    Right x -> error $ "GhcModPlugin.types: got unexpected file param:" ++ show x
 -- ---------------------------------------------------------------------
 
 -- doCheck :: (MonadIO m,GHC.GhcMonad m,HasIdeState m) => FilePath -> m IdeResponse
