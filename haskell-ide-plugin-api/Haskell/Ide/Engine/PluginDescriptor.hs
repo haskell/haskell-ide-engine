@@ -45,7 +45,7 @@ data PluginDescriptor = PluginDescriptor
 -- Options.Applicative for this in some way.
 data Command = Command
   { cmdDesc :: !CommandDescriptor
-  , cmdFunc :: !Dispatcher
+  , cmdFunc :: !CommandFunc
   }
 
 instance Show Command where
@@ -66,9 +66,9 @@ type CommandName = T.Text
 -- |Define what context will be accepted from the frontend for the specific
 -- command. Matches up to corresponding values for CommandContext
 data AcceptedContext = CtxNone        -- ^ No context required, global command
+                     | CtxFile        -- ^ Works on a whole file
                      | CtxPoint       -- ^ A single (Line,Col) in a specific file
                      | CtxRegion      -- ^ A region within a specific file
-                     | CtxFile        -- ^ Works on a whole file
                      | CtxCabalTarget -- ^ Works on a specific cabal target
                      | CtxProject     -- ^ Works on a the whole project
                      deriving (Eq,Show,Generic)
@@ -112,6 +112,30 @@ type Plugins = Map.Map PluginId PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
+-- |For a given 'AcceptedContext', define the parameters that are required in
+-- the corresponding 'IdeRequest'
+contextMapping :: AcceptedContext -> [ParamDecription]
+contextMapping CtxNone        = []
+contextMapping CtxFile        = [fileParam]
+contextMapping CtxPoint       = [fileParam,startPosParam]
+contextMapping CtxRegion      = [fileParam,startPosParam,endPosParam]
+contextMapping CtxCabalTarget = [cabalParam]
+contextMapping CtxProject     = []
+
+fileParam :: ParamDecription
+fileParam = RP "file" "a file name" PtFile
+
+startPosParam :: ParamDecription
+startPosParam = RP "start_pos" "start line and col" PtPos
+
+endPosParam :: ParamDecription
+endPosParam = RP "end_pos" "end line and col" PtPos
+
+cabalParam :: ParamDecription
+cabalParam = RP "cabal" "cabal target" PtText
+
+-- ---------------------------------------------------------------------
+
 -- |A request from the IDE to HIE. When a context is specified, the following
 -- parameter names must be used.
 --
@@ -122,11 +146,14 @@ type Plugins = Map.Map PluginId PluginDescriptor
 --
 -- These will be checked by the dispatcher.
 data IdeRequest = IdeRequest
-  { ideCommand :: CommandName
-  , ideParams  :: Map.Map ParamId ParamVal
+  { ideCommand :: !CommandName
+  , ideParams  :: !ParamMap
   } deriving (Show,Generic)
 
+type ParamMap = Map.Map ParamId ParamVal
+
 type ParamId = T.Text
+
 data ParamVal = ParamText T.Text
               | ParamFile T.Text
               | ParamPos (Int,Int)
@@ -148,8 +175,13 @@ class (Monad m) => HasIdeState m where
   -- down to ghc-mod setTargets.
   setTargets :: [FilePath] -> m ()
 
-type Dispatcher = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m)
-                => IdeRequest -> m IdeResponse
+-- |The 'CommandFunc' is called once the dispatcher has checked that it
+-- satisfies at least one of the `AcceptedContext` values for the command
+-- descriptor, and has all the required parameters. Where a command has only one
+-- allowed context the supplied context list does not add much value, but allows
+-- easy case checking when multiple contexts are supported.
+type CommandFunc = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m)
+                => [AcceptedContext] -> IdeRequest -> m IdeResponse
 
 -- ---------------------------------------------------------------------
 -- JSON instances

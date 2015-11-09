@@ -2,6 +2,7 @@
 module Haskell.Ide.Engine.PluginUtils
   (
     getParams
+  , mapEithers
   ) where
 
 import           Data.Aeson

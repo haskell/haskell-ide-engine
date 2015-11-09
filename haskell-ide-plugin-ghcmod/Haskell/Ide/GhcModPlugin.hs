@@ -48,8 +48,8 @@ ghcmodDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-checkCmd :: Dispatcher
-checkCmd req = do
+checkCmd :: CommandFunc
+checkCmd _ctxs req = do
   case getParams ["file"] req of
     Left err -> return err
     Right [ParamFile fileName] -> do
@@ -58,8 +58,8 @@ checkCmd req = do
 
 -- ---------------------------------------------------------------------
 
-typesCmd :: Dispatcher
-typesCmd req = do
+typesCmd :: CommandFunc
+typesCmd _ctxs req = do
   case getParams ["file","start_pos"] req of
     Left err -> return err
     Right [ParamFile fileName,ParamPos (r,c)] -> do
