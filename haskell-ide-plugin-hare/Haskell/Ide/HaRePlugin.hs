@@ -24,7 +24,7 @@ hareDescriptor = PluginDescriptor
                      , cmdUiDescription = "rename a variable or type"
                      , cmdFileExtensions = [".hs"]
                      , cmdContexts = [CtxPoint]
-                     , cmdAdditionalParams = [RP "name"]
+                     , cmdAdditionalParams = [RP "name" "the new name" PtText]
                      }
           , cmdFunc = renameCmd
           }

@@ -53,7 +53,7 @@ baseDescriptor = PluginDescriptor
                         , cmdUiDescription = "list available commands for a given plugin"
                         , cmdFileExtensions = []
                         , cmdContexts = [CtxNone]
-                        , cmdAdditionalParams = [RP "plugin"]
+                        , cmdAdditionalParams = [RP "plugin" "the plugin name" PtText]
                         }
           , cmdFunc = commandsCmd
           }
@@ -63,7 +63,8 @@ baseDescriptor = PluginDescriptor
                         , cmdUiDescription = "list parameters required for a given command"
                         , cmdFileExtensions = []
                         , cmdContexts = [CtxNone]
-                        , cmdAdditionalParams = [RP "plugin",RP "command"]
+                        , cmdAdditionalParams = [RP "plugin"  "the plugin name"  PtText
+                                                ,RP "command" "the command name" PtText]
                         }
           , cmdFunc = commandDetailCmd
           }
@@ -83,7 +84,7 @@ baseDescriptor = PluginDescriptor
                         , cmdUiDescription = "change the current working directory for the HIE process"
                         , cmdFileExtensions = []
                         , cmdContexts = [CtxNone]
-                        , cmdAdditionalParams = [RP "dir"]
+                        , cmdAdditionalParams = [RP "dir" "the new working directory" PtFile]
                        }
           , cmdFunc = cwdCmd
           }

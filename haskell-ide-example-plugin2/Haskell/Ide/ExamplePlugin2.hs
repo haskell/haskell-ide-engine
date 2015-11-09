@@ -32,7 +32,7 @@ example2Descriptor = PluginDescriptor
                        , cmdUiDescription = "say hello to the passed in param"
                        , cmdFileExtensions = []
                        , cmdContexts = [CtxNone]
-                       , cmdAdditionalParams = [RP "name"]
+                       , cmdAdditionalParams = [RP "name" "the name to greet" PtText]
                        }
           , cmdFunc = sayHelloToCmd
           }

@@ -58,7 +58,7 @@ data CommandDescriptor = CommandDesc
   , cmdUiDescription :: !T.Text -- ^ Can be presented to the IDE user
   , cmdFileExtensions :: ![T.Text] -- ^ File extensions this command can be applied to
   , cmdContexts :: ![AcceptedContext] -- TODO: should this be a non empty list? or should empty list imply CtxNone.
-  , cmdAdditionalParams :: ![RequiredParam]
+  , cmdAdditionalParams :: ![ParamDecription]
   } deriving (Show,Generic)
 
 type CommandName = T.Text
@@ -82,8 +82,24 @@ data CabalSection = CabalSection T.Text deriving (Show,Eq,Generic)
 
 -- |Initially all params will be returned as text. This can become a much
 -- richer structure in time.
-data RequiredParam = RP T.Text -- ^ Prompt
-                   deriving (Show,Generic)
+-- These should map down to the 'ParamVal' return types
+data ParamDecription
+  = RP
+      { pName :: !ParamName
+      , pHelp :: !ParamHelp
+      , pType :: !ParamType
+      } -- ^ Required parameter
+  | OP
+      { pName :: !ParamName
+      , pHelp :: !ParamHelp
+      , pType :: !ParamType
+      } -- ^ Optional parameter
+  deriving (Show,Generic)
+
+type ParamHelp = T.Text
+type ParamName = T.Text
+data ParamType = PtText | PtFile | PtPos
+               deriving (Eq,Show)
 
 data Service = Service
   { svcName :: T.Text
@@ -186,11 +202,33 @@ instance FromJSON AcceptedContext where
 
 -- -------------------------------------
 
-instance ToJSON RequiredParam where
-    toJSON (RP s) = toJSON s
+instance ToJSON ParamType where
+  toJSON PtText = String "text"
+  toJSON PtFile = String "file"
+  toJSON PtPos  = String "pos"
 
-instance FromJSON RequiredParam where
-    parseJSON (String s) = pure $ RP s
+instance FromJSON ParamType where
+  parseJSON (String "text") = pure PtText
+  parseJSON (String "file") = pure PtFile
+  parseJSON (String "pos")  = pure PtPos
+  parseJSON _               = empty
+
+-- -------------------------------------
+
+instance ToJSON ParamDecription where
+    toJSON (RP n h t) = object [ "tag" .= String "RP"
+                               , "contents" .= toJSON (n,h,t) ]
+    toJSON (OP n h t) = object [ "tag" .= String "OP"
+                               , "contents" .= toJSON (n,h,t) ]
+
+instance FromJSON ParamDecription where
+    parseJSON (Object v) = do
+      tag <- v .: "tag" :: Parser T.Text
+      (n,h,t) <- v .: "contents"
+      case tag of
+        "RP" -> return $ RP n h t
+        "OP" -> return $ OP n h t
+        _ -> empty
     parseJSON _ = empty
 
 -- -------------------------------------
