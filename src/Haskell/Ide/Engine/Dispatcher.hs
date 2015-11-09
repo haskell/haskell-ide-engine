@@ -6,6 +6,7 @@ import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Aeson
+import           Data.Either
 import           Data.Monoid
 import qualified Data.Text as T
 import           Haskell.Ide.Engine.Monad
@@ -26,16 +27,31 @@ dispatcher cin = do
     debugm "run:top of loop"
     req <- liftIO $ readChan cin
     debugm $ "main loop:got:" ++ show req
-    r <- case Map.lookup (cinPlugin req) plugins of
-      Nothing -> return (IdeResponseError (toJSON $ "No plugin found for:" <> cinPlugin req ))
-      Just desc -> doDispatch (cinPlugin req) desc [] (cinReq req)
-    let cr = CResp (cinPlugin req) (cinReqId req) r
+    resp <- doDispatch plugins req
+    let cr = CResp (cinPlugin req) (cinReqId req) resp
     liftIO $ writeChan (cinReplyChan req) cr
 
 -- ---------------------------------------------------------------------
 
-doDispatch :: PluginId -> PluginDescriptor -> CommandFunc
-doDispatch pn desc _ req = do
+doDispatch :: Plugins -> ChannelRequest -> IdeM IdeResponse
+doDispatch plugins creq = do
+  case Map.lookup (cinPlugin creq) plugins of
+    Nothing -> return (IdeResponseError (toJSON $ "No plugin found for:" <> cinPlugin creq ))
+    Just desc -> do
+      let pn  = cinPlugin creq
+          req = cinReq creq
+      debugm $ "doDispatch:desc=" ++ show desc
+      debugm $ "doDispatch:req=" ++ show req
+      case Map.lookup (pn,ideCommand req) (pluginCache plugins) of
+        Nothing -> return (IdeResponseError (toJSON $ "No such command:" <> ideCommand req))
+        Just cmd -> do
+          case validateContexts (cmdDesc cmd) req of
+            Left err   -> return err
+            Right ctxs -> (cmdFunc cmd) ctxs req
+
+{-
+doDispatch' :: PluginId -> PluginDescriptor -> CommandFunc
+doDispatch' pn desc _ req = do
   plugins <- getPlugins
   debugm $ "doDispatch:desc=" ++ show desc
   debugm $ "doDispatch:req=" ++ show req
@@ -45,6 +61,7 @@ doDispatch pn desc _ req = do
       case validateContexts (cmdDesc cmd) req of
         Left err -> return err
         Right ctxs -> (cmdFunc cmd) ctxs req
+-}
 
 -- ---------------------------------------------------------------------
 
@@ -64,16 +81,36 @@ pluginCache plugins = Map.fromList r
 validateContexts :: CommandDescriptor -> IdeRequest -> Either IdeResponse [AcceptedContext]
 validateContexts cd req = r
   where
-    ectxs = mapEithers (\c -> validContext c (ideParams req)) $ cmdContexts cd
-    r = case ectxs of
-          Left err -> Left err
-          Right [] -> Left $ IdeResponseFail (toJSON $ T.pack $ "no valid context found, expecting one of:" ++ show (cmdContexts cd))
-          Right ctxs -> case checkParams (cmdAdditionalParams cd) (ideParams req) of
-                  Right _  -> Right (concat ctxs)
-                  Left err -> Left err
+    (errs,oks) = partitionEithers $ map (\c -> validContext c (ideParams req)) $ cmdContexts cd
+    -- ectxs = mapEithers (\c -> validContext c (ideParams req)) $ cmdContexts cd
+    r = case oks of
+          [] -> case errs of
+            [] -> Left $ IdeResponseFail (toJSON $ T.pack $ "no valid context found, expecting one of:" ++ show (cmdContexts cd))
+            (e:_) -> Left e
+          ctxs -> case checkParams (cmdAdditionalParams cd) (ideParams req) of
+                    Right _  -> Right ctxs
+                    Left err -> Left err
 
-validContext :: AcceptedContext -> ParamMap -> Either IdeResponse [AcceptedContext]
-validContext ctx params = checkParams (contextMapping ctx) params
+validContext :: AcceptedContext -> ParamMap -> Either IdeResponse AcceptedContext
+validContext ctx params =
+  case checkParams (contextMapping ctx) params of
+    Left err -> Left err
+    Right _  -> Right ctx
 
-checkParams :: [ParamDecription] -> ParamMap -> Either IdeResponse [AcceptedContext]
-checkParams = error "not implemented"
+-- |If all listed 'ParamDescripion' values are present return a Right, else
+-- return an error.
+checkParams :: [ParamDecription] -> ParamMap -> Either IdeResponse [()]
+checkParams pds params = mapEithers checkOne pds
+  where
+    checkOne :: ParamDecription -> Either IdeResponse ()
+    checkOne (OP{}) = Right ()
+    checkOne (RP pn _ph pt) = case Map.lookup pn params of
+      Nothing -> Left (IdeResponseFail (String $ T.pack $ "missing parameter '"++ show pn ++"'"))
+      Just p  -> if paramMatches pt p
+                    then Right ()
+                    else Left (IdeResponseFail (String $ T.pack $ "parameter type mismatch, expected " ++ show pt ++ " but got "++ show p))
+
+    paramMatches PtText (ParamText _) = True
+    paramMatches PtFile (ParamFile _) = True
+    paramMatches PtPos  (ParamPos _)  = True
+    paramMatches _       _            = False
