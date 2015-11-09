@@ -12,7 +12,8 @@ import           Haskell.Ide.Engine.Types
 import           Pipes
 import qualified Pipes.Aeson as P
 import qualified Pipes.ByteString as P
-import qualified Pipes.Prelude as P
+import qualified Haskell.Ide.Engine.Transport.PipesHelpers as P
+import qualified Pipes.Prelude as P hiding (take)
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Text as T
@@ -32,6 +33,8 @@ jsonStdioTransport cin = do
       case req of
         Just (Left err) -> do
           putStr $ show (HieError (A.String $ T.pack $ show err))
+          runEffect $ stream' >-> P.take 5 >-> P.print
+          threadDelay (floor $ 0.5 * 10**6)
           loop (cid + 1) stream'
         Just (Right r) -> do
           writeChan cin (wireToChannel cout cid r)
@@ -44,7 +47,7 @@ jsonStdioTransport cin = do
   loop 1 P.stdin
 
 decodeMsg :: (Monad m) => Parser B.ByteString m (Maybe (Either P.DecodingError WireRequest))
-decodeMsg = P.decode
+decodeMsg = P.decode'
 
 -- to help with type inference
 printTest :: (MonadIO m) => Consumer' [Int] m r

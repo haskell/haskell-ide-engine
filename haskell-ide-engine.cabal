@@ -23,11 +23,13 @@ library
                        Haskell.Ide.Engine.Options
                        Haskell.Ide.Engine.Transport.JsonHttp
                        Haskell.Ide.Engine.Transport.JsonStdio
+                       Haskell.Ide.Engine.Transport.PipesHelpers
                        Haskell.Ide.Engine.Types
   other-modules:       Paths_haskell_ide_engine
   build-depends:       base >= 4.7 && < 5
                      , Cabal >= 1.22
                      , aeson
+                     , attoparsec >= 0.13 && < 0.14
                      , bytestring
                      , containers
                      , directory
@@ -45,6 +47,7 @@ library
                      , optparse-simple >= 0.0.3
                      , pipes
                      , pipes-aeson
+                     , pipes-attoparsec >= 0.5 && < 0.6
                      , pipes-bytestring
                      , pipes-parse
                      , servant-server
