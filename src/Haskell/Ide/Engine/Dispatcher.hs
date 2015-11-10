@@ -33,6 +33,9 @@ dispatcher cin = do
 
 -- ---------------------------------------------------------------------
 
+-- |Manage the process of looking up the request in the known plugins,
+-- validating the parameters passed and handing off to the appropriate
+-- 'CommandFunc'
 doDispatch :: Plugins -> ChannelRequest -> IdeM IdeResponse
 doDispatch plugins creq = do
   case Map.lookup (cinPlugin creq) plugins of
@@ -83,6 +86,7 @@ validContext ctx params =
     Left err -> Left err
     Right _  -> Right ctx
 
+
 -- |If all listed 'ParamDescripion' values are present return a Right, else
 -- return an error.
 checkParams :: [ParamDecription] -> ParamMap -> Either IdeResponse [()]
@@ -95,17 +99,17 @@ checkParams pds params = mapEithers checkOne pds
     checkParamOP pn pt =
       case Map.lookup pn params of
         Nothing -> Right ()
-        Just p  -> checkParamMatch pt p
+        Just p  -> checkParamMatch pn pt p
 
     checkParamRP pn pt =
       case Map.lookup pn params of
         Nothing -> Left (IdeResponseFail (String $ T.pack $ "missing parameter '"++ show pn ++"'"))
-        Just p  -> checkParamMatch pt p
+        Just p  -> checkParamMatch pn pt p
 
-    checkParamMatch pt' p' =
+    checkParamMatch pn' pt' p' =
       if paramMatches pt' p'
         then Right ()
-        else Left (IdeResponseFail (String $ T.pack $ "parameter type mismatch, expected "
+        else Left (IdeResponseFail (String $ T.pack $ "parameter type mismatch for '" ++ T.unpack pn' ++ "', expected "
                                                 ++ show pt' ++ " but got "++ show p'))
 
 

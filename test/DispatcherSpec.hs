@@ -157,12 +157,32 @@ dispatcherSpec = do
                                                     ])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
-      (show r) `shouldBe` "IdeResponseFail (String \"parameter type mismatch, expected PtText but got ParamFile \\\"a\\\"\")"
+      (show r) `shouldBe` "IdeResponseFail (String \"parameter type mismatch for 'txt', expected PtText but got ParamFile \\\"a\\\"\")"
+
+
+    -- ---------------------------------
+
+    it "reports matched optional param" $ do
+      chan <- newChan
+      let req = IdeRequest "cmdoptional" (Map.fromList [("txt",  ParamText "a")
+                                                       ,("fileo",ParamFile "f")
+                                                       ,("poso", ParamPos (1,2))
+                                                       ])
+          cr = CReq "test" 1 req chan
+      r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
+      (show r) `shouldBe` "IdeResponseOk (String \"result:ctxs=[CtxNone]\")"
 
     -- ---------------------------------
 
     it "reports mismatched optional param" $ do
-      pendingWith "write this test"
+      chan <- newChan
+      let req = IdeRequest "cmdoptional" (Map.fromList [("txt",  ParamText "a")
+                                                       ,("fileo",ParamText "f")
+                                                       ,("poso", ParamPos (1,2))
+                                                       ])
+          cr = CReq "test" 1 req chan
+      r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
+      (show r) `shouldBe` "IdeResponseFail (String \"parameter type mismatch for 'fileo', expected PtFile but got ParamText \\\"f\\\"\")"
 
 -- ---------------------------------------------------------------------
 
@@ -187,6 +207,11 @@ testDescriptor = PluginDescriptor
                                               , RP "pos"  "help" PtPos
                                               ]
 
+      , mkCmdWithContext "cmdoptional" [CtxNone] [ RP "txt"   "help" PtText
+                                                 , OP "txto"  "help" PtText
+                                                 , OP "fileo" "help" PtFile
+                                                 , OP "poso"  "help" PtPos
+                                                 ]
       ]
   , pdExposedServices = []
   , pdUsedServices    = []
