@@ -32,6 +32,16 @@ ghcmodSpec = do
   describe "ghc-mod plugin commands" $ do
     it "runs the check command" $ do
       let req = IdeRequest "check" (Map.fromList [("file", ParamFile "./test/testdata/FileWithWarning.hs")])
-      r <- runIdeM (IdeState Map.empty) (checkCmd req)
+      r <- runIdeM (IdeState Map.empty) (checkCmd [] req)
       (show r) `shouldBe` "IdeResponseOk (String \"test/testdata/FileWithWarning.hs:4:7:Not in scope: \\8216x\\8217\\n\")"
 
+    it "runs the types command, incorrect params" $ do
+      let req = IdeRequest "types" (Map.fromList [("file", ParamFile "./test/testdata/FileWithWarning.hs")])
+      r <- runIdeM (IdeState Map.empty) (typesCmd [] req)
+      (show r) `shouldBe` "IdeResponseFail (String \"need `\\\"start_pos\\\"` parameter\")"
+
+    it "runs the types command, correct params" $ do
+      let req = IdeRequest "types" (Map.fromList [("file", ParamFile "./test/testdata/HaReRename.hs")
+                                                 ,("start_pos", ParamPos (5,9))])
+      r <- runIdeM (IdeState Map.empty) (typesCmd [] req)
+      (show r) `shouldBe` "IdeResponseOk (String \"5 9 5 10 \\\"Int\\\"\\n5 9 5 14 \\\"Int\\\"\\n5 1 5 14 \\\"Int -> Int\\\"\\n\")"

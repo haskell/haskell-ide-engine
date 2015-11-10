@@ -53,7 +53,7 @@ baseDescriptor = PluginDescriptor
                         , cmdUiDescription = "list available commands for a given plugin"
                         , cmdFileExtensions = []
                         , cmdContexts = [CtxNone]
-                        , cmdAdditionalParams = [RP "plugin"]
+                        , cmdAdditionalParams = [RP "plugin" "the plugin name" PtText]
                         }
           , cmdFunc = commandsCmd
           }
@@ -63,7 +63,8 @@ baseDescriptor = PluginDescriptor
                         , cmdUiDescription = "list parameters required for a given command"
                         , cmdFileExtensions = []
                         , cmdContexts = [CtxNone]
-                        , cmdAdditionalParams = [RP "plugin",RP "command"]
+                        , cmdAdditionalParams = [RP "plugin"  "the plugin name"  PtText
+                                                ,RP "command" "the command name" PtText]
                         }
           , cmdFunc = commandDetailCmd
           }
@@ -83,7 +84,7 @@ baseDescriptor = PluginDescriptor
                         , cmdUiDescription = "change the current working directory for the HIE process"
                         , cmdFileExtensions = []
                         , cmdContexts = [CtxNone]
-                        , cmdAdditionalParams = [RP "dir"]
+                        , cmdAdditionalParams = [RP "dir" "the new working directory" PtFile]
                        }
           , cmdFunc = cwdCmd
           }
@@ -94,16 +95,16 @@ baseDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-versionCmd :: Dispatcher
-versionCmd _ = return (IdeResponseOk (String $ T.pack version))
+versionCmd :: CommandFunc
+versionCmd _ _ = return (IdeResponseOk (String $ T.pack version))
 
-pluginsCmd :: Dispatcher
-pluginsCmd _ = do
+pluginsCmd :: CommandFunc
+pluginsCmd _ _ = do
   plugins <- getPlugins
   return (IdeResponseOk (String $ T.pack $ show $ Map.keys plugins))
 
-commandsCmd :: Dispatcher
-commandsCmd req = do
+commandsCmd :: CommandFunc
+commandsCmd _ req = do
   plugins <- getPlugins
   -- TODO: Use Maybe Monad. What abut error reporting?
   case Map.lookup "plugin" (ideParams req) of
@@ -113,8 +114,8 @@ commandsCmd req = do
       Just pl -> return (IdeResponseOk (toJSON $ map (cmdName . cmdDesc) $ pdCommands pl))
     Just x -> return $ (IdeResponseFail (toJSON $ "invalid parameter for plugin:" ++ show x))
 
-commandDetailCmd :: Dispatcher
-commandDetailCmd req = do
+commandDetailCmd :: CommandFunc
+commandDetailCmd _ req = do
   plugins <- getPlugins
   case getParams ["plugin","command"] req of
     Left err -> return err
@@ -127,13 +128,13 @@ commandDetailCmd req = do
     Right _ -> error $ "commandDetailCmd:should not be possible"
 
 
-pwdCmd :: Dispatcher
-pwdCmd _ = do
+pwdCmd :: CommandFunc
+pwdCmd _ _ = do
   dir <- liftIO $ getCurrentDirectory
   return (IdeResponseOk (String $ T.pack dir))
 
-cwdCmd :: Dispatcher
-cwdCmd req = do
+cwdCmd :: CommandFunc
+cwdCmd _ req = do
   case Map.lookup "dir" (ideParams req) of
     Nothing -> return (IdeResponseFail (String "need 'dir' parameter"))
     Just (ParamFile dir) -> do

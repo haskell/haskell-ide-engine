@@ -32,7 +32,7 @@ example2Descriptor = PluginDescriptor
                        , cmdUiDescription = "say hello to the passed in param"
                        , cmdFileExtensions = []
                        , cmdContexts = [CtxNone]
-                       , cmdAdditionalParams = [RP "name"]
+                       , cmdAdditionalParams = [RP "name" "the name to greet" PtText]
                        }
           , cmdFunc = sayHelloToCmd
           }
@@ -43,11 +43,11 @@ example2Descriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-sayHelloCmd :: Dispatcher
-sayHelloCmd _ = return (IdeResponseOk (String sayHello))
+sayHelloCmd :: CommandFunc
+sayHelloCmd _  _ = return (IdeResponseOk (String sayHello))
 
-sayHelloToCmd :: Dispatcher
-sayHelloToCmd req = do
+sayHelloToCmd :: CommandFunc
+sayHelloToCmd _ req = do
   case Map.lookup "name" (ideParams req) of
     Nothing -> return $ IdeResponseFail "expecting parameter `name`"
     Just (ParamText n) -> do
@@ -57,8 +57,8 @@ sayHelloToCmd req = do
 
 -- ---------------------------------------------------------------------
 {-
-example2Dispatcher :: Dispatcher
-example2Dispatcher (IdeRequest name ctx params) = do
+example2CommandFunc :: CommandFunc
+example2CommandFunc (IdeRequest name ctx params) = do
   case name of
     "sayHello"   -> return (IdeResponseOk (String sayHello))
     "sayHelloTo" -> do

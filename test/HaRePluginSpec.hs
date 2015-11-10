@@ -33,10 +33,10 @@ hareSpec = do
   describe "hare plugin commands" $ do
     it "renames" $ do
       let req = IdeRequest "rename" (Map.fromList [("file",ParamFile "./test/testdata/HaReRename.hs"),("start_pos",ParamPos (5,1)),("name",ParamText "foolong")])
-      r <- runIdeM (IdeState Map.empty) (renameCmd req)
+      r <- runIdeM (IdeState Map.empty) (renameCmd [] req)
       (show r) `shouldBe` "IdeResponseOk (Array [String \"test/testdata/HaReRename.hs\"])"
 
     it "returns an error for invalid rename" $ do
       let req = IdeRequest "rename" (Map.fromList [("file",ParamFile "./test/testdata/HaReRename.hs"),("start_pos",ParamPos (15,1)),("name",ParamText "foolong")])
-      r <- runIdeM (IdeState Map.empty) (renameCmd req)
+      r <- runIdeM (IdeState Map.empty) (renameCmd [] req)
       (show r) `shouldBe` "IdeResponseFail (String \"Invalid cursor position!\")"

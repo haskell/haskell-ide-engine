@@ -42,7 +42,7 @@
           (lambda (json)
             (setq response json)))
     (haskell-ide-engine-post-message
-     '(("cmd" . "base:version") ("context" . ()) ("params" . ())))
+     '(("cmd" . "base:version") ("params" . ())))
 
     (sit-for 2)
     (should response)

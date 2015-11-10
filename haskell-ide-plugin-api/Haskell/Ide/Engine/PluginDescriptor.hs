@@ -45,7 +45,7 @@ data PluginDescriptor = PluginDescriptor
 -- Options.Applicative for this in some way.
 data Command = Command
   { cmdDesc :: !CommandDescriptor
-  , cmdFunc :: !Dispatcher
+  , cmdFunc :: !CommandFunc
   }
 
 instance Show Command where
@@ -58,7 +58,7 @@ data CommandDescriptor = CommandDesc
   , cmdUiDescription :: !T.Text -- ^ Can be presented to the IDE user
   , cmdFileExtensions :: ![T.Text] -- ^ File extensions this command can be applied to
   , cmdContexts :: ![AcceptedContext] -- TODO: should this be a non empty list? or should empty list imply CtxNone.
-  , cmdAdditionalParams :: ![RequiredParam]
+  , cmdAdditionalParams :: ![ParamDecription]
   } deriving (Show,Generic)
 
 type CommandName = T.Text
@@ -66,9 +66,9 @@ type CommandName = T.Text
 -- |Define what context will be accepted from the frontend for the specific
 -- command. Matches up to corresponding values for CommandContext
 data AcceptedContext = CtxNone        -- ^ No context required, global command
+                     | CtxFile        -- ^ Works on a whole file
                      | CtxPoint       -- ^ A single (Line,Col) in a specific file
                      | CtxRegion      -- ^ A region within a specific file
-                     | CtxFile        -- ^ Works on a whole file
                      | CtxCabalTarget -- ^ Works on a specific cabal target
                      | CtxProject     -- ^ Works on a the whole project
                      deriving (Eq,Show,Generic)
@@ -82,8 +82,24 @@ data CabalSection = CabalSection T.Text deriving (Show,Eq,Generic)
 
 -- |Initially all params will be returned as text. This can become a much
 -- richer structure in time.
-data RequiredParam = RP T.Text -- ^ Prompt
-                   deriving (Show,Generic)
+-- These should map down to the 'ParamVal' return types
+data ParamDecription
+  = RP
+      { pName :: !ParamName
+      , pHelp :: !ParamHelp
+      , pType :: !ParamType
+      } -- ^ Required parameter
+  | OP
+      { pName :: !ParamName
+      , pHelp :: !ParamHelp
+      , pType :: !ParamType
+      } -- ^ Optional parameter
+  deriving (Show,Generic)
+
+type ParamHelp = T.Text
+type ParamName = T.Text
+data ParamType = PtText | PtFile | PtPos
+               deriving (Eq,Show)
 
 data Service = Service
   { svcName :: T.Text
@@ -93,6 +109,30 @@ data Service = Service
 type PluginId = T.Text
 
 type Plugins = Map.Map PluginId PluginDescriptor
+
+-- ---------------------------------------------------------------------
+
+-- |For a given 'AcceptedContext', define the parameters that are required in
+-- the corresponding 'IdeRequest'
+contextMapping :: AcceptedContext -> [ParamDecription]
+contextMapping CtxNone        = []
+contextMapping CtxFile        = [fileParam]
+contextMapping CtxPoint       = [fileParam,startPosParam]
+contextMapping CtxRegion      = [fileParam,startPosParam,endPosParam]
+contextMapping CtxCabalTarget = [cabalParam]
+contextMapping CtxProject     = []
+
+fileParam :: ParamDecription
+fileParam = RP "file" "a file name" PtFile
+
+startPosParam :: ParamDecription
+startPosParam = RP "start_pos" "start line and col" PtPos
+
+endPosParam :: ParamDecription
+endPosParam = RP "end_pos" "end line and col" PtPos
+
+cabalParam :: ParamDecription
+cabalParam = RP "cabal" "cabal target" PtText
 
 -- ---------------------------------------------------------------------
 
@@ -106,11 +146,14 @@ type Plugins = Map.Map PluginId PluginDescriptor
 --
 -- These will be checked by the dispatcher.
 data IdeRequest = IdeRequest
-  { ideCommand :: CommandName
-  , ideParams  :: Map.Map ParamId ParamVal
+  { ideCommand :: !CommandName
+  , ideParams  :: !ParamMap
   } deriving (Show,Generic)
 
+type ParamMap = Map.Map ParamId ParamVal
+
 type ParamId = T.Text
+
 data ParamVal = ParamText T.Text
               | ParamFile T.Text
               | ParamPos (Int,Int)
@@ -132,8 +175,13 @@ class (Monad m) => HasIdeState m where
   -- down to ghc-mod setTargets.
   setTargets :: [FilePath] -> m ()
 
-type Dispatcher = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m)
-                => IdeRequest -> m IdeResponse
+-- |The 'CommandFunc' is called once the dispatcher has checked that it
+-- satisfies at least one of the `AcceptedContext` values for the command
+-- descriptor, and has all the required parameters. Where a command has only one
+-- allowed context the supplied context list does not add much value, but allows
+-- easy case checking when multiple contexts are supported.
+type CommandFunc = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m)
+                => [AcceptedContext] -> IdeRequest -> m IdeResponse
 
 -- ---------------------------------------------------------------------
 -- JSON instances
@@ -186,11 +234,33 @@ instance FromJSON AcceptedContext where
 
 -- -------------------------------------
 
-instance ToJSON RequiredParam where
-    toJSON (RP s) = toJSON s
+instance ToJSON ParamType where
+  toJSON PtText = String "text"
+  toJSON PtFile = String "file"
+  toJSON PtPos  = String "pos"
 
-instance FromJSON RequiredParam where
-    parseJSON (String s) = pure $ RP s
+instance FromJSON ParamType where
+  parseJSON (String "text") = pure PtText
+  parseJSON (String "file") = pure PtFile
+  parseJSON (String "pos")  = pure PtPos
+  parseJSON _               = empty
+
+-- -------------------------------------
+
+instance ToJSON ParamDecription where
+    toJSON (RP n h t) = object [ "tag" .= String "rp"
+                               , "contents" .= toJSON (n,h,t) ]
+    toJSON (OP n h t) = object [ "tag" .= String "op"
+                               , "contents" .= toJSON (n,h,t) ]
+
+instance FromJSON ParamDecription where
+    parseJSON (Object v) = do
+      tag <- v .: "tag" :: Parser T.Text
+      (n,h,t) <- v .: "contents"
+      case tag of
+        "rp" -> return $ RP n h t
+        "op" -> return $ OP n h t
+        _ -> empty
     parseJSON _ = empty
 
 -- -------------------------------------

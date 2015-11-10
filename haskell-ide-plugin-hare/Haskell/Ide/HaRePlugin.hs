@@ -24,7 +24,7 @@ hareDescriptor = PluginDescriptor
                      , cmdUiDescription = "rename a variable or type"
                      , cmdFileExtensions = [".hs"]
                      , cmdContexts = [CtxPoint]
-                     , cmdAdditionalParams = [RP "name"]
+                     , cmdAdditionalParams = [RP "name" "the new name" PtText]
                      }
           , cmdFunc = renameCmd
           }
@@ -35,8 +35,8 @@ hareDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-renameCmd :: Dispatcher
-renameCmd req = do
+renameCmd :: CommandFunc
+renameCmd _ctxs req = do
   case getParams ["file","start_pos","name"] req of
     Left err -> return err
     Right [ParamFile fileName,ParamPos pos,ParamText name] -> do
