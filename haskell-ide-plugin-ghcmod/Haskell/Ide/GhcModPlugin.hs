@@ -35,6 +35,16 @@ ghcmodDescriptor = PluginDescriptor
           }
       , Command
           { cmdDesc = CommandDesc
+                     { cmdName = "lint"
+                     , cmdUiDescription = "Check files using `hlint'"
+                     , cmdFileExtensions = [".hs",".lhs"]
+                     , cmdContexts = [CtxFile]
+                     , cmdAdditionalParams = []
+                     }
+          , cmdFunc = lintCmd
+          }
+      , Command
+          { cmdDesc = CommandDesc
                      { cmdName = "types"
                      , cmdUiDescription = "Get the type of the expression under (LINE,COL)"
                      , cmdFileExtensions = [".hs",".lhs"]
@@ -47,6 +57,25 @@ ghcmodDescriptor = PluginDescriptor
   , pdExposedServices = []
   , pdUsedServices    = []
   }
+{-
+        "check"  -> checkSyntaxCmd [arg]
+        "lint"   -> lintCmd [arg]
+        "find"    -> do
+            db <- getDb symdbreq >>= checkDb symdbreq
+            lookupSymbol arg db
+
+        "info"   -> infoCmd [head args, concat $ tail args']
+        "type"   -> typesCmd args
+        "split"  -> splitsCmd args
+
+        "sig"    -> sigCmd args
+        "auto"   -> autoCmd args
+        "refine" -> refineCmd args
+
+        "boot"   -> bootCmd []
+        "browse" -> browseCmd args
+
+-}
 
 -- ---------------------------------------------------------------------
 
@@ -55,9 +84,18 @@ checkCmd _ctxs req = do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
-      liftIO $ doCheck (T.unpack fileName)
-    Right _ -> return $ IdeResponseError (IdeError InternalError
-      "GhcModPlugin.checkCmd: ghc’s exhaustiveness checker is broken" Nothing)
+      liftIO $ runGhcModCommand (GM.checkSyntax [T.unpack fileName])
+    Right _ -> error $ "GhcModPlugin.checkCmd: ghc’s exhaustiveness checker is broken"
+
+-- ---------------------------------------------------------------------
+
+lintCmd :: CommandFunc
+lintCmd _ctxs req = do
+  case getParams ["file"] req of
+    Left err -> return err
+    Right [ParamFile fileName] -> do
+      liftIO $ runGhcModCommand (GM.lint (T.unpack fileName))
+    Right x -> error $ "GhcModPlugin.lintCmd: got unexpected file param:" ++ show x
 
 -- ---------------------------------------------------------------------
 
@@ -69,13 +107,6 @@ typesCmd _ctxs req = do
       liftIO $ runGhcModCommand (GM.types (T.unpack fileName) r c)
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.typesCmd: ghc’s exhaustiveness checker is broken" Nothing)
-
--- ---------------------------------------------------------------------
-
--- doCheck :: (MonadIO m,GHC.GhcMonad m,HasIdeState m) => FilePath -> m IdeResponse
-doCheck :: FilePath -> IO IdeResponse
--- doCheck :: GHC.GhcMonad m => FilePath -> m IdeResponse
-doCheck fileName = runGhcModCommand (GM.checkSyntax [fileName])
 
 -- ---------------------------------------------------------------------
 
