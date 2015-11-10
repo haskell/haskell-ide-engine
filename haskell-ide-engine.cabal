@@ -28,6 +28,7 @@ library
   build-depends:       base >= 4.7 && < 5
                      , Cabal >= 1.22
                      , aeson
+                     , attoparsec
                      , bytestring
                      , containers
                      , directory
