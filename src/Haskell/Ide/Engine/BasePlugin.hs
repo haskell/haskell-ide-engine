@@ -108,11 +108,13 @@ commandsCmd _ req = do
   plugins <- getPlugins
   -- TODO: Use Maybe Monad. What abut error reporting?
   case Map.lookup "plugin" (ideParams req) of
-    Nothing -> return (IdeResponseFail (toJSON $ T.pack "need 'plugin' parameter"))
+    Nothing -> return $ missingParameter "plugin"
     Just (ParamText p) -> case Map.lookup p plugins of
-      Nothing -> return (IdeResponseFail (toJSON $ "Can't find plugin:'" <> p <> "'"))
+      Nothing -> return (IdeResponseError (IdeError
+                  UnknownPlugin ("Can't find plugin:" <> p )
+                  (Just $ toJSON $ p)))
       Just pl -> return (IdeResponseOk (toJSON $ map (cmdName . cmdDesc) $ pdCommands pl))
-    Just x -> return $ (IdeResponseFail (toJSON $ "invalid parameter for plugin:" ++ show x))
+    Just x -> return $ incorrectParameter "plugin" "ParamText" x
 
 commandDetailCmd :: CommandFunc
 commandDetailCmd _ req = do
@@ -121,11 +123,16 @@ commandDetailCmd _ req = do
     Left err -> return err
     Right [ParamText p,ParamText command] -> do
       case Map.lookup p plugins of
-        Nothing -> return (IdeResponseFail (toJSON $ "Can't find plugin:'" <> p <> "'"))
+        Nothing -> return (IdeResponseError (IdeError
+                    UnknownPlugin ("Can't find plugin:" <> p )
+                    (Just $ toJSON $ p)))
         Just pl -> case find (\cmd -> command == (cmdName $ cmdDesc cmd) ) (pdCommands pl) of
-          Nothing -> return (IdeResponseFail (toJSON $ "Can't find command:'" <> command <> "'"))
+          Nothing -> return (IdeResponseError (IdeError
+                      UnknownCommand ("Can't find command:" <> command )
+                      (Just $ toJSON $ command)))
           Just detail -> return (IdeResponseOk (toJSON (cmdDesc detail)))
-    Right _ -> error $ "commandDetailCmd:should not be possible"
+    Right _ -> return (IdeResponseError (IdeError
+                InternalError "commandDetailCmd:should not be possible" Nothing))
 
 
 pwdCmd :: CommandFunc
@@ -136,11 +143,11 @@ pwdCmd _ _ = do
 cwdCmd :: CommandFunc
 cwdCmd _ req = do
   case Map.lookup "dir" (ideParams req) of
-    Nothing -> return (IdeResponseFail (String "need 'dir' parameter"))
+    Nothing -> return $ missingParameter "dir"
     Just (ParamFile dir) -> do
       liftIO $ setCurrentDirectory (T.unpack dir)
       return (IdeResponseOk Null)
-    Just x -> return $ (IdeResponseFail (toJSON $ "invalid parameter for plugin:" ++ show x))
+    Just x -> return $ incorrectParameter "dir" "ParamFile" x
 
 -- ---------------------------------------------------------------------
 

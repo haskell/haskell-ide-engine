@@ -54,7 +54,7 @@ checkCmd _ctxs req = do
     Left err -> return err
     Right [ParamFile fileName] -> do
       liftIO $ doCheck (T.unpack fileName)
-    Right x -> error $ "GhcModPlugin.checkCmd: got unexpected file param:" ++ show x
+    Right x -> return $ incorrectParameter "file" "ParamFile" x
 
 -- ---------------------------------------------------------------------
 
@@ -64,7 +64,7 @@ typesCmd _ctxs req = do
     Left err -> return err
     Right [ParamFile fileName,ParamPos (r,c)] -> do
       liftIO $ runGhcModCommand (GM.types (T.unpack fileName) r c)
-    Right x -> error $ "GhcModPlugin.types: got unexpected file param:" ++ show x
+    Right x -> return $ incorrectParameter "file" "ParamFile" x
 -- ---------------------------------------------------------------------
 
 -- doCheck :: (MonadIO m,GHC.GhcMonad m,HasIdeState m) => FilePath -> m IdeResponse
@@ -91,7 +91,7 @@ runGhcModCommand cmd = do
       return (cr,s')
   -- (Either GM.GhcModError String, GM.GhcModLog)
   case r of
-    Left e -> return $ IdeResponseError (toJSON $ T.pack $ "doCheck:got " ++ show e)
+    Left e -> return $ IdeResponseError (IdeError PluginError (T.pack $ "doCheck:got " ++ show e) Nothing)
     Right (checkResult,_s3) -> do
       -- GHC.setSession s3
       return $ (IdeResponseOk (toJSON checkResult))
@@ -117,4 +117,3 @@ catchException f = do
   where
     handler:: SomeException -> IO (Either String t)
     handler e = return (Left (show e))
-

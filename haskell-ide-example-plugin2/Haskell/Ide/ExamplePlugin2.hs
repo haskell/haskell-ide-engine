@@ -2,6 +2,7 @@
 module Haskell.Ide.ExamplePlugin2 where
 
 import Haskell.Ide.Engine.PluginDescriptor
+import Haskell.Ide.Engine.PluginUtils
 
 import           Control.Monad.IO.Class
 import           Data.Aeson
@@ -49,11 +50,11 @@ sayHelloCmd _  _ = return (IdeResponseOk (String sayHello))
 sayHelloToCmd :: CommandFunc
 sayHelloToCmd _ req = do
   case Map.lookup "name" (ideParams req) of
-    Nothing -> return $ IdeResponseFail "expecting parameter `name`"
+    Nothing -> return $ missingParameter "name"
     Just (ParamText n) -> do
       r <- liftIO $ sayHelloTo n
       return $ IdeResponseOk (String r)
-    Just x -> return $ IdeResponseFail (toJSON $ T.pack $ "got wrong param type:" ++ show x)
+    Just x -> return $ incorrectParameter "name" "ParamText" x
 
 -- ---------------------------------------------------------------------
 {-

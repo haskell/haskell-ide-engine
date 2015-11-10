@@ -162,12 +162,39 @@ data ParamVal = ParamText T.Text
 -- TODO: should probably be able to return a plugin-specific type. Not sure how
 -- to encode it. Perhaps as an instance of a class which says it can be encoded
 -- on the wire.
-data IdeResponse = IdeResponseOk    Value -- ^ Command Succeeded
-                 | IdeResponseFail  Value -- ^ Command Failed
-                 | IdeResponseError Value -- ^ some error in haskell-ide-engine
-                                          -- driver. Equivalent to HTTP 500
-                                          -- status
+data IdeResponse = IdeResponseOk    Value    -- ^ Command Succeeded
+                 | IdeResponseFail  IdeError -- ^ Command Failed
+                 | IdeResponseError IdeError -- ^ Some error in
+                                             -- haskell-ide-engine
+                                             -- driver. Equivalent to HTTP 500
+                                             -- status
                  deriving (Show,Generic)
+
+-- | Error codes. Add as required
+data IdeErrorCode = IncorrectParameterType  -- ^ Wrong parameter type
+                  | UnexpectedParameter     -- ^ A parameter was not expected by
+                                            -- the command
+                  | MissingParameter        -- ^ A required parameter was not
+                                            --  provided
+                  | PluginError             -- ^ An error returned by a plugin
+                  | InternalError           -- ^ Code error
+                                            -- (case not handled or deemed
+                                            -- impossible)
+                  | UnknownPlugin           -- ^ Plugin is not registered
+                  | UnknownCommand          -- ^ Command is not registered
+                  | InvalidContext          -- ^ Context invalid for command
+                  | OtherError              -- ^ An error for which we didn't
+                                            -- have a better code
+                  deriving (Show,Read,Eq,Ord,Bounded,Enum,Generic)
+
+-- | A more structured error than just a string
+data IdeError = IdeError
+  { ideCode    :: IdeErrorCode -- ^ The error code
+  , ideMessage :: T.Text       -- ^ A human readable message
+  , ideInfo    :: Maybe Value  -- ^ Additional information
+  }
+  deriving (Show,Read,Eq,Generic)
+
 
 class (Monad m) => HasIdeState m where
   getPlugins :: m Plugins
@@ -292,6 +319,31 @@ instance FromJSON IdeRequest where
     parseJSON (Object v) =
       IdeRequest <$> v .: "command"
                  <*> v .: "params"
+    parseJSON _ = empty
+
+-- -------------------------------------
+
+instance ToJSON IdeErrorCode where
+    toJSON code = String $ T.pack $ show code
+
+instance FromJSON IdeErrorCode where
+    parseJSON (String s) = case reads (T.unpack s) of
+      ((c,""):_) -> pure c
+      _          -> empty
+    parseJSON _ = empty
+
+-- -------------------------------------
+
+instance ToJSON IdeError where
+    toJSON err = object [ "code" .= toJSON (ideCode err)
+                        , "msg"  .= String (ideMessage err)
+                        , "info" .= toJSON (ideInfo err)]
+
+instance FromJSON IdeError where
+    parseJSON (Object v) = IdeError
+        <$> v .: "code"
+        <*> v .: "msg"
+        <*> v .: "info"
     parseJSON _ = empty
 
 -- -------------------------------------

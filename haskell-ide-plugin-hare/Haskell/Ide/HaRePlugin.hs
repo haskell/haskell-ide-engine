@@ -42,13 +42,16 @@ renameCmd _ctxs req = do
     Right [ParamFile fileName,ParamPos pos,ParamText name] -> do
       res <- liftIO $ catchException $ rename defaultSettings GM.defaultOptions (T.unpack fileName) (T.unpack name) pos
       case res of
-        Left err -> return (IdeResponseFail (toJSON err))
+        Left err -> return $ IdeResponseFail (IdeError PluginError
+                      (T.pack $ "rename: " ++ show err) Nothing)
         Right fs -> do
           fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
           return (IdeResponseOk (toJSON fs'))
-    Right ps -> error $ "HarePlugin.renameCmd: unexpected parameters:" ++ show ps
+    Right ps -> return $ IdeResponseFail (IdeError UnexpectedParameter
+        (T.pack ("HarePlugin.renameCmd: unexpected parameters:" ++ show ps))
+        Nothing)
 
--- rename :: RefactSettings -> Options -> FilePath -> String -> SimpPos -> IO [FilePath] 
+-- rename :: RefactSettings -> Options -> FilePath -> String -> SimpPos -> IO [FilePath]
 
 -- ---------------------------------------------------------------------
 

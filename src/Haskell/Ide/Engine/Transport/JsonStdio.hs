@@ -72,8 +72,8 @@ channelToWire :: ChannelResponse -> WireResponse
 channelToWire cr =
   case coutResp cr of
     IdeResponseOk v -> Ok v
-    IdeResponseFail v -> Fail v
-    IdeResponseError v -> HieError v
+    IdeResponseFail v -> Fail $ A.toJSON v
+    IdeResponseError v -> HieError $ A.toJSON v
 
 -- ---------------------------------------------------------------------
 
