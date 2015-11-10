@@ -2,7 +2,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Haskell.Ide.Engine.Console where
 
-import           Control.Applicative
 import           Control.Concurrent
 import           Control.Monad.IO.Class
 import           Data.Attoparsec.Text
@@ -101,7 +100,7 @@ convertToParams cmd ss = Map.fromList $ map (\(k,v) -> (k,convertParam k v)) $  
           PtText -> ParamText str
           PtFile -> ParamFile str
           PtPos  -> case parseOnly parsePos str of
-            Left err -> ParamText str -- TODO: should this be an error of some kind
+            Left _err -> ParamText str -- TODO: should this be an error of some kind
             Right pos -> ParamPos pos
 
 parseInt :: Parser Int
@@ -111,11 +110,11 @@ parseInt = do
 
 parsePos :: Parser Pos
 parsePos = do
-  char '('
+  _ <- char '('
   r <- parseInt
-  char ','
+  _ <- char ','
   c <- parseInt
-  char ')'
+  _ <- char ')'
   return (r,c)
 
 -- ---------------------------------------------------------------------
