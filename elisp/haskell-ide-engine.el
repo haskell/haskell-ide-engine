@@ -14,6 +14,12 @@
   :group 'haskell
   :type 'string)
 
+;;;###autoload
+(defcustom haskell-ide-engine-command-args ()
+  "Arguments to pass to `haskell-ide-engine-command`."
+  :group 'haskell
+  :type '(repeat string))
+
 (defvar haskell-ide-engine-process nil
   "Variable holding current Haskell IDE Engine process")
 
@@ -23,6 +29,12 @@
 (defvar haskell-ide-engine-process-handle-message nil
   "A function to handle json object.")
 
+(defvar haskell-ide-engine-process-handle-invalid-input nil
+  "A function to handle invalid input.")
+
+(defvar haskell-ide-engine-post-message-hook nil
+  "Function to call with message that will be send to hie process.")
+
 (defun haskell-ide-engine-process-filter (process input)
   (with-current-buffer haskell-ide-engine-buffer
 
@@ -31,10 +43,24 @@
         (save-excursion
           (goto-char (point-min))
           (let* ((end-of-current-json-object (scan-sexps (point-min) 1))
+                 (json-array-type 'list)
                  (json (json-read)))
             (delete-region (point-min) end-of-current-json-object)
             (when haskell-ide-engine-process-handle-message
-              (funcall haskell-ide-engine-process-handle-message json)))))))
+              (funcall haskell-ide-engine-process-handle-message json))))
+      ;; if input is partial then there will not be a closing brace we
+      ;; need to wait till it comes
+      (scan-error nil)
+      ;; json-readtable-error is when there is an unexpected character in input
+      (json-readtable-error
+       (when haskell-ide-engine-process-handle-invalid-input
+         (funcall haskell-ide-engine-process-handle-invalid-input)
+         (delete-region (point-min) (point-max))))
+      ;; json-unknown-keyword when unrecognized keyword is parsed
+      (json-unknown-keyword
+       (when haskell-ide-engine-process-handle-invalid-input
+         (funcall haskell-ide-engine-process-handle-invalid-input)
+         (delete-region (point-min) (point-max)))))))
 
 (defun haskell-ide-engine-start-process ()
   "Start Haskell IDE Engine process.
@@ -47,10 +73,11 @@ running this function does nothing."
     (setq haskell-ide-engine-buffer
           (get-buffer-create "*hie*"))
     (setq haskell-ide-engine-process
-          (start-process
+          (apply #'start-process
            "Haskell IDE Engine"
            haskell-ide-engine-buffer
-           haskell-ide-engine-command))
+           haskell-ide-engine-command
+           haskell-ide-engine-command-args))
     (set-process-query-on-exit-flag haskell-ide-engine-process nil)
     (set-process-filter haskell-ide-engine-process #'haskell-ide-engine-process-filter))
   haskell-ide-engine-process)
@@ -78,10 +105,12 @@ by `haskell-ide-engine-handle-message'."
   ;; We remove values that are empty lists from assoc lists at the top
   ;; level because json serialization would use "null" for those. HIE
   ;; accepts missing fields and default to empty when possible.
-  (process-send-string haskell-ide-engine-process
-                       (haskell-ide-engine-prepare-json json))
-  ;; flush buffers
-  (process-send-string haskell-ide-engine-process "\n"))
+  (let ((prepared-json (haskell-ide-engine-prepare-json json)))
+    (run-hook-with-args 'haskell-ide-engine-post-message-hook prepared-json)
+
+    (process-send-string haskell-ide-engine-process prepared-json)
+    ;; flush buffers
+    (process-send-string haskell-ide-engine-process "\n")))
 
 (defun haskell-ide-engine-remove-alist-null-values (json)
   "Remove null values from assoc lists.
