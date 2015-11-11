@@ -53,7 +53,7 @@ checkCmd :: CommandFunc
 checkCmd _ctxs req = do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
-    Right (MyParamFile fileName :& RNil) -> do
+    Right (ParamFile fileName :& RNil) -> do
       liftIO $ doCheck (T.unpack fileName)
     Right _ -> error $ "GhcModPlugin.checkCmd: ghc’s exhaustiveness checker is broken"
 
@@ -63,7 +63,7 @@ typesCmd :: CommandFunc
 typesCmd _ctxs req = do
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
-    Right (MyParamFile fileName :& MyParamPos (r,c) :& RNil) -> do
+    Right (ParamFile fileName :& ParamPos (r,c) :& RNil) -> do
       liftIO $ runGhcModCommand (GM.types (T.unpack fileName) r c)
     Right _ -> error $ "GhcModPlugin.checkCmd: ghc’s exhaustiveness checker is broken"
 

@@ -1,5 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GADTs #-}
 module Haskell.Ide.Engine.Dispatcher where
 
 import           Control.Concurrent
@@ -96,16 +97,19 @@ checkParams pds params = mapEithers checkOne pds
     checkOne (OP pn _ph pt) = checkParamOP pn pt
     checkOne (RP pn _ph pt) = checkParamRP pn pt
 
+    checkParamOP :: ParamId -> ParamType -> Either IdeResponse ()
     checkParamOP pn pt =
       case Map.lookup pn params of
         Nothing -> Right ()
         Just p  -> checkParamMatch pn pt p
 
+    checkParamRP :: ParamId -> ParamType -> Either IdeResponse ()
     checkParamRP pn pt =
       case Map.lookup pn params of
         Nothing -> Left (IdeResponseFail (String $ T.pack $ "missing parameter '"++ show pn ++"'"))
         Just p  -> checkParamMatch pn pt p
 
+    checkParamMatch :: T.Text -> ParamType -> ParamValP -> Either IdeResponse ()
     checkParamMatch pn' pt' p' =
       if paramMatches pt' p'
         then Right ()
@@ -113,7 +117,8 @@ checkParams pds params = mapEithers checkOne pds
                                                 ++ show pt' ++ " but got "++ show p'))
 
 
-    paramMatches PtText (ParamText _) = True
-    paramMatches PtFile (ParamFile _) = True
-    paramMatches PtPos  (ParamPos _)  = True
+    paramMatches :: ParamType -> ParamValP -> Bool
+    paramMatches PtText (ParamValP (ParamText _)) = True
+    paramMatches PtFile (ParamValP (ParamFile _)) = True
+    paramMatches PtPos  (ParamValP (ParamPos _))  = True
     paramMatches _       _            = False

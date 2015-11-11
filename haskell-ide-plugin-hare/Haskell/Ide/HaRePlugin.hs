@@ -40,7 +40,7 @@ renameCmd :: CommandFunc
 renameCmd _ctxs req = do
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdText "name" :& RNil) req of
     Left err -> return err
-    Right (MyParamFile fileName :& MyParamPos pos :& MyParamText name :& RNil) -> do
+    Right (ParamFile fileName :& ParamPos pos :& ParamText name :& RNil) -> do
       res <- liftIO $ catchException $ rename defaultSettings GM.defaultOptions (T.unpack fileName) (T.unpack name) pos
       case res of
         Left err -> return (IdeResponseFail (toJSON err))

@@ -88,20 +88,21 @@ describeDescriptor d =
 
 -- ---------------------------------------------------------------------
 
-convertToParams :: CommandDescriptor -> [T.Text] -> Map.Map T.Text ParamVal
+convertToParams :: CommandDescriptor -> [T.Text] -> ParamMap
 convertToParams cmd ss = Map.fromList $ map (\(k,v) -> (k,convertParam k v)) $  map splitOnColon ss
   where
     possibleParams = cmdAdditionalParams cmd ++ (concatMap contextMapping $ cmdContexts cmd)
     possibles = Map.fromList $ map (\pd -> (pName pd,pd)) possibleParams
+    convertParam :: T.Text -> T.Text -> ParamValP
     convertParam pn str =
       case Map.lookup pn possibles of
-        Nothing -> ParamText str -- TODO: should this be an error of some kind
+        Nothing -> ParamValP $ ParamText str -- TODO: should this be an error of some kind
         Just p -> case pType p of
-          PtText -> ParamText str
-          PtFile -> ParamFile str
+          PtText -> ParamValP $ ParamText str
+          PtFile -> ParamValP $ ParamFile str
           PtPos  -> case parseOnly parsePos str of
-            Left _err -> ParamText str -- TODO: should this be an error of some kind
-            Right pos -> ParamPos pos
+            Left _err -> ParamValP $ ParamText str -- TODO: should this be an error of some kind
+            Right pos -> ParamValP $ ParamPos pos
 
 parseInt :: Parser Int
 parseInt = do

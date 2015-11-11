@@ -79,7 +79,7 @@ channelToWire cr =
 
 data WireRequest = WireReq
   { cmd     :: T.Text -- ^combination of PluginId ":" CommandName
-  , params  :: Map.Map ParamId ParamVal
+  , params  :: ParamMap
   } deriving (Show,Eq)
 
 instance A.ToJSON WireRequest where

@@ -8,6 +8,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE StandaloneDeriving #-}
 -- | Experimenting with a data structure to define a plugin.
 --
 -- The general idea is that a given plugin returns this structure during the
@@ -153,28 +154,34 @@ cabalParam = RP "cabal" "cabal target" PtText
 data IdeRequest = IdeRequest
   { ideCommand :: !CommandName
   , ideParams  :: !ParamMap
-  } deriving (Show,Generic)
+  } deriving (Show)
 
-type ParamMap = Map.Map ParamId ParamVal
+deriving instance Show (MyParamId t)
+deriving instance Show (ParamVal t)
+deriving instance Show ParamValP
+
+deriving instance Eq (ParamVal t)
+instance Eq ParamValP where
+  (ParamValP (ParamText t)) == (ParamValP (ParamText t')) = t == t'
+  (ParamValP (ParamFile f)) == (ParamValP (ParamFile f')) = f == f'
+  (ParamValP (ParamPos p)) == (ParamValP (ParamPos p')) = p == p'
+  _ == _ = False
+                                 
+type ParamMap = Map.Map ParamId ParamValP
 
 type ParamId = T.Text
 
-data ParamVal = ParamText T.Text
-              | ParamFile T.Text
-              | ParamPos (Int,Int)
-              deriving (Show,Generic,Eq)
+data MyParamId (t :: ParamType) where
+  IdText :: T.Text -> MyParamId 'PtText
+  IdFile :: T.Text -> MyParamId 'PtFile
+  IdPos :: T.Text -> MyParamId 'PtPos
 
-data MyParamId (t :: ParamTag) where
-  IdText :: T.Text -> MyParamId 'Text
-  IdFile :: T.Text -> MyParamId 'File
-  IdPos :: T.Text -> MyParamId 'Pos
+data ParamValP = forall t. ParamValP { unParamValP ::  ParamVal t }
 
-data ParamTag = Text | File | Pos
-
-data MyParamVal (t :: ParamTag) where
-  MyParamText :: T.Text -> MyParamVal 'Text
-  MyParamFile :: T.Text -> MyParamVal 'File
-  MyParamPos :: (Int,Int) -> MyParamVal 'Pos
+data ParamVal (t :: ParamType) where
+  ParamText :: T.Text -> ParamVal 'PtText
+  ParamFile :: T.Text -> ParamVal 'PtFile
+  ParamPos :: (Int,Int) -> ParamVal 'PtPos
 
 data Rec :: (k -> *) -> [k] -> * where
   RNil :: Rec f '[]
@@ -209,21 +216,21 @@ type CommandFunc = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m)
 -- ---------------------------------------------------------------------
 -- JSON instances
 
-instance ToJSON ParamVal where
-    toJSON (ParamText v) = object [ "tag" .= String "text"
+instance ToJSON ParamValP  where
+    toJSON (ParamValP (ParamText v)) = object [ "tag" .= String "text"
                                   , "contents" .= toJSON v ]
-    toJSON (ParamFile v) = object [ "tag" .= String "file"
+    toJSON (ParamValP (ParamFile v)) = object [ "tag" .= String "file"
                                   , "contents" .= toJSON v ]
-    toJSON (ParamPos  v) = object [ "tag" .= String "pos"
+    toJSON (ParamValP (ParamPos  v)) = object [ "tag" .= String "pos"
                                   , "contents" .= toJSON v ]
 
-instance FromJSON ParamVal where
+instance FromJSON ParamValP where
     parseJSON (Object v) = do
       tag <- v .: "tag" :: Parser T.Text
       case tag of
-        "text" -> ParamText <$> v .: "contents"
-        "file" -> ParamFile <$> v .: "contents"
-        "pos"  -> ParamPos <$> v .: "contents"
+        "text" -> (ParamValP . ParamText) <$> v .: "contents"
+        "file" -> (ParamValP . ParamFile) <$> v .: "contents"
+        "pos"  -> (ParamValP . ParamPos) <$> v .: "contents"
         _ -> empty
     parseJSON _ = empty
 
