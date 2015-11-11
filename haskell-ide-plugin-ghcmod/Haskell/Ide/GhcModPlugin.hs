@@ -8,13 +8,12 @@ import           Data.Vinyl
 -- import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Aeson
+import qualified Data.Text as T
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
-import qualified Data.Text as T
--- import qualified GHC as GHC
 import qualified Language.Haskell.GhcMod as GM
--- import qualified Language.Haskell.GhcMod.Types as GM
 import qualified Language.Haskell.GhcMod.Monad as GM
+-- import           System.Directory
 
 -- ---------------------------------------------------------------------
 
@@ -45,13 +44,33 @@ ghcmodDescriptor = PluginDescriptor
           }
       , Command
           { cmdDesc = CommandDesc
-                     { cmdName = "types"
+                     { cmdName = "find"
+                     , cmdUiDescription = "List all modules that define SYMBOL"
+                     , cmdFileExtensions = [".hs",".lhs"]
+                     , cmdContexts = [CtxProject]
+                     , cmdAdditionalParams = [RP "symbol" "The SYMBOL to look up" PtText]
+                     }
+          , cmdFunc = findCmd
+          }
+      , Command
+          { cmdDesc = CommandDesc
+                     { cmdName = "info"
+                     , cmdUiDescription = "Look up an identifier in the context of FILE (like ghci's `:info')"
+                     , cmdFileExtensions = [".hs",".lhs"]
+                     , cmdContexts = [CtxFile]
+                     , cmdAdditionalParams = [RP "expr" "The EXPR to provide info on" PtText]
+                     }
+          , cmdFunc = infoCmd
+          }
+      , Command
+          { cmdDesc = CommandDesc
+                     { cmdName = "type"
                      , cmdUiDescription = "Get the type of the expression under (LINE,COL)"
                      , cmdFileExtensions = [".hs",".lhs"]
                      , cmdContexts = [CtxPoint]
                      , cmdAdditionalParams = []
                      }
-          , cmdFunc = typesCmd
+          , cmdFunc = typeCmd
           }
       ]
   , pdExposedServices = []
@@ -89,18 +108,44 @@ checkCmd _ctxs req = do
 
 -- ---------------------------------------------------------------------
 
+-- TODO: Will probably have to define a directory to base the search from, once
+--       the stateless server patch comes in.
+findCmd :: CommandFunc
+findCmd _ctxs req = do
+  case getParams (IdText "symbol" :& RNil) req of
+    Left err -> return err
+    Right (ParamText _symbol :& RNil) -> do
+      -- liftIO $ runGhcModCommand (GM.findSymbol (T.unpack symbol))
+      -- dir <- liftIO getCurrentDirectory
+      -- return (IdeResponseOk (String $ T.pack dir))
+      -- return (IdeResponseOk (String $ _symbol))
+      return (IdeResponseOk (String $ "Need to debug this in ghc-mod, returns 'does not exist (No such file or directory)'"))
+    Right x -> error $ "GhcModPlugin.findCmd: got unexpected param:" ++ show x
+
+-- ---------------------------------------------------------------------
+
 lintCmd :: CommandFunc
 lintCmd _ctxs req = do
-  case getParams ["file"] req of
+  case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
-    Right [ParamFile fileName] -> do
+    Right (ParamFile fileName :& RNil) -> do
       liftIO $ runGhcModCommand (GM.lint (T.unpack fileName))
     Right x -> error $ "GhcModPlugin.lintCmd: got unexpected file param:" ++ show x
 
 -- ---------------------------------------------------------------------
 
-typesCmd :: CommandFunc
-typesCmd _ctxs req = do
+infoCmd :: CommandFunc
+infoCmd _ctxs req = do
+  case getParams (IdFile "file" :& IdText "expr" :& RNil) req of
+    Left err -> return err
+    Right (ParamFile fileName :& ParamText expr :& RNil) -> do
+      liftIO $ runGhcModCommand (GM.info (T.unpack fileName) (GM.Expression (T.unpack expr)))
+    Right x -> error $ "GhcModPlugin.infoCmd: got unexpected param:" ++ show x
+
+-- ---------------------------------------------------------------------
+
+typeCmd :: CommandFunc
+typeCmd _ctxs req = do
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos (r,c) :& RNil) -> do

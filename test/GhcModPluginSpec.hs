@@ -54,14 +54,14 @@ ghcmodSpec = do
     -- ---------------------------------
 
     it "runs the lint command" $ do
-      let req = IdeRequest "lint" (Map.fromList [("file", ParamFile "./test/testdata/FileWithWarning.hs")])
+      let req = IdeRequest "lint" (Map.fromList [("file", ParamFileP "./test/testdata/FileWithWarning.hs")])
       r <- dispatchRequest req
       (show r) `shouldBe` "IdeResponseOk (String \"./test/testdata/FileWithWarning.hs:6:9: Error: Redundant do\\NULFound:\\NUL  do return (3 + x)\\NULWhy not:\\NUL  return (3 + x)\\n\")"
 
     -- ---------------------------------
 
     it "runs the find command" $ do
-      let req = IdeRequest "find" (Map.fromList [("symbol", ParamText "map")])
+      let req = IdeRequest "find" (Map.fromList [("symbol", ParamTextP "map")])
       r <- dispatchRequest req
       (show r) `shouldBe` "IdeResponseOk (String \"Need to debug this in ghc-mod, returns 'does not exist (No such file or directory)'\")"
       pendingWith "need to debug in ghc-mod"
@@ -69,22 +69,22 @@ ghcmodSpec = do
     -- ---------------------------------
 
     it "runs the info command" $ do
-      let req = IdeRequest "info" (Map.fromList [("file", ParamFile "./test/testdata/HaReRename.hs"),("expr", ParamText "main")])
+      let req = IdeRequest "info" (Map.fromList [("file", ParamFileP "./test/testdata/HaReRename.hs"),("expr", ParamTextP "main")])
       r <- dispatchRequest req
       (show r) `shouldBe` "IdeResponseOk (String \"main :: IO () \\t-- Defined at test/testdata/HaReRename.hs:2:1\\n\")"
 
     -- ---------------------------------
 
     it "runs the type command, incorrect params" $ do
-      let req = IdeRequest "type" (Map.fromList [("file", ParamFile "./test/testdata/FileWithWarning.hs")])
+      let req = IdeRequest "type" (Map.fromList [("file", ParamFileP "./test/testdata/FileWithWarning.hs")])
       r <- dispatchRequest req
-      (show r) `shouldBe` "IdeResponseFail (String \"missing parameter '\\\"start_pos\\\"'\")"
+      (show r) `shouldBe` "IdeResponseFail (IdeError {ideCode = MissingParameter, ideMessage = \"need `start_pos` parameter\", ideInfo = Just (String \"start_pos\")})"
 
     -- ---------------------------------
 
     it "runs the types command, correct params" $ do
-      let req = IdeRequest "type" (Map.fromList [("file", ParamFile "./test/testdata/HaReRename.hs")
-                                                 ,("start_pos", ParamPos (5,9))])
+      let req = IdeRequest "type" (Map.fromList [("file", ParamFileP "./test/testdata/HaReRename.hs")
+                                                 ,("start_pos", ParamPosP (5,9))])
       r <- dispatchRequest req
       (show r) `shouldBe` "IdeResponseOk (String \"5 9 5 10 \\\"Int\\\"\\n5 9 5 14 \\\"Int\\\"\\n5 1 5 14 \\\"Int -> Int\\\"\\n\")"
 
