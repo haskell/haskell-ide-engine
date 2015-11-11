@@ -222,7 +222,7 @@ testDescriptor = PluginDescriptor
   , pdUsedServices    = []
   }
 
-mkCmdWithContext :: CommandName -> [AcceptedContext] -> [ParamDecription] -> Command
+mkCmdWithContext :: CommandName -> [AcceptedContext] -> [ParamDescription] -> Command
 mkCmdWithContext n cts pds =
         Command
           { cmdDesc = CommandDesc

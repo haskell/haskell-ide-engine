@@ -65,7 +65,7 @@ data CommandDescriptor = CommandDesc
   , cmdUiDescription :: !T.Text -- ^ Can be presented to the IDE user
   , cmdFileExtensions :: ![T.Text] -- ^ File extensions this command can be applied to
   , cmdContexts :: ![AcceptedContext] -- TODO: should this be a non empty list? or should empty list imply CtxNone.
-  , cmdAdditionalParams :: ![ParamDecription]
+  , cmdAdditionalParams :: ![ParamDescription]
   } deriving (Show,Generic)
 
 type CommandName = T.Text
@@ -90,7 +90,7 @@ data CabalSection = CabalSection T.Text deriving (Show,Eq,Generic)
 -- |Initially all params will be returned as text. This can become a much
 -- richer structure in time.
 -- These should map down to the 'ParamVal' return types
-data ParamDecription
+data ParamDescription
   = RP
       { pName :: !ParamName
       , pHelp :: !ParamHelp
@@ -121,7 +121,7 @@ type Plugins = Map.Map PluginId PluginDescriptor
 
 -- |For a given 'AcceptedContext', define the parameters that are required in
 -- the corresponding 'IdeRequest'
-contextMapping :: AcceptedContext -> [ParamDecription]
+contextMapping :: AcceptedContext -> [ParamDescription]
 contextMapping CtxNone        = []
 contextMapping CtxFile        = [fileParam]
 contextMapping CtxPoint       = [fileParam,startPosParam]
@@ -129,16 +129,16 @@ contextMapping CtxRegion      = [fileParam,startPosParam,endPosParam]
 contextMapping CtxCabalTarget = [cabalParam]
 contextMapping CtxProject     = []
 
-fileParam :: ParamDecription
+fileParam :: ParamDescription
 fileParam = RP "file" "a file name" PtFile
 
-startPosParam :: ParamDecription
+startPosParam :: ParamDescription
 startPosParam = RP "start_pos" "start line and col" PtPos
 
-endPosParam :: ParamDecription
+endPosParam :: ParamDescription
 endPosParam = RP "end_pos" "end line and col" PtPos
 
-cabalParam :: ParamDecription
+cabalParam :: ParamDescription
 cabalParam = RP "cabal" "cabal target" PtText
 
 -- ---------------------------------------------------------------------
@@ -305,13 +305,13 @@ instance FromJSON ParamType where
 
 -- -------------------------------------
 
-instance ToJSON ParamDecription where
+instance ToJSON ParamDescription where
     toJSON (RP n h t) = object [ "tag" .= String "rp"
                                , "contents" .= toJSON (n,h,t) ]
     toJSON (OP n h t) = object [ "tag" .= String "op"
                                , "contents" .= toJSON (n,h,t) ]
 
-instance FromJSON ParamDecription where
+instance FromJSON ParamDescription where
     parseJSON (Object v) = do
       tag <- v .: "tag" :: Parser T.Text
       (n,h,t) <- v .: "contents"
