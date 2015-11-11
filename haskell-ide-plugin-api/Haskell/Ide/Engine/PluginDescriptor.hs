@@ -1,8 +1,15 @@
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE PatternSynonyms #-}
 -- | Experimenting with a data structure to define a plugin.
 --
 -- The general idea is that a given plugin returns this structure during the
@@ -148,16 +155,39 @@ cabalParam = RP "cabal" "cabal target" PtText
 data IdeRequest = IdeRequest
   { ideCommand :: !CommandName
   , ideParams  :: !ParamMap
-  } deriving (Show,Generic)
+  } deriving (Show)
 
-type ParamMap = Map.Map ParamId ParamVal
+deriving instance Show (TaggedParamId t)
+deriving instance Show (ParamVal t)
+deriving instance Show ParamValP
+
+deriving instance Eq (ParamVal t)
+instance Eq ParamValP where
+  (ParamTextP t) == (ParamTextP t') = t == t'
+  (ParamFileP f) == (ParamFileP f') = f == f'
+  (ParamPosP p) == (ParamPosP p') = p == p'
+  _ == _ = False
+
+pattern ParamTextP t = ParamValP (ParamText t)
+pattern ParamFileP f = ParamValP (ParamFile f)
+pattern ParamPosP p = ParamValP (ParamPos p)
+
+type ParamMap = Map.Map ParamId ParamValP
 
 type ParamId = T.Text
 
-data ParamVal = ParamText T.Text
-              | ParamFile T.Text
-              | ParamPos (Int,Int)
-              deriving (Show,Generic,Eq)
+data TaggedParamId (t :: ParamType) where
+  IdText :: T.Text -> TaggedParamId 'PtText
+  IdFile :: T.Text -> TaggedParamId 'PtFile
+  IdPos :: T.Text -> TaggedParamId 'PtPos
+
+data ParamValP = forall t. ParamValP { unParamValP ::  ParamVal t }
+
+data ParamVal (t :: ParamType) where
+  ParamText :: T.Text -> ParamVal 'PtText
+  ParamFile :: T.Text -> ParamVal 'PtFile
+  ParamPos :: (Int,Int) -> ParamVal 'PtPos
+
 
 -- TODO: should probably be able to return a plugin-specific type. Not sure how
 -- to encode it. Perhaps as an instance of a class which says it can be encoded
@@ -213,21 +243,22 @@ type CommandFunc = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m)
 -- ---------------------------------------------------------------------
 -- JSON instances
 
-instance ToJSON ParamVal where
-    toJSON (ParamText v) = object [ "tag" .= String "text"
+instance ToJSON ParamValP  where
+    toJSON (ParamTextP v) = object [ "tag" .= String "text"
                                   , "contents" .= toJSON v ]
-    toJSON (ParamFile v) = object [ "tag" .= String "file"
+    toJSON (ParamFileP v) = object [ "tag" .= String "file"
                                   , "contents" .= toJSON v ]
-    toJSON (ParamPos  v) = object [ "tag" .= String "pos"
+    toJSON (ParamPosP  v) = object [ "tag" .= String "pos"
                                   , "contents" .= toJSON v ]
+    toJSON _ = "error"
 
-instance FromJSON ParamVal where
+instance FromJSON ParamValP where
     parseJSON (Object v) = do
       tag <- v .: "tag" :: Parser T.Text
       case tag of
-        "text" -> ParamText <$> v .: "contents"
-        "file" -> ParamFile <$> v .: "contents"
-        "pos"  -> ParamPos <$> v .: "contents"
+        "text" -> ParamTextP <$> v .: "contents"
+        "file" -> ParamFileP <$> v .: "contents"
+        "pos"  -> ParamPosP <$> v .: "contents"
         _ -> empty
     parseJSON _ = empty
 

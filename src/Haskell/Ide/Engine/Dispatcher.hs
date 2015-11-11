@@ -1,5 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GADTs #-}
 module Haskell.Ide.Engine.Dispatcher where
 
 import           Control.Concurrent
@@ -101,23 +102,27 @@ checkParams pds params = mapEithers checkOne pds
     checkOne (OP pn _ph pt) = checkParamOP pn pt
     checkOne (RP pn _ph pt) = checkParamRP pn pt
 
+    checkParamOP :: ParamId -> ParamType -> Either IdeResponse ()
     checkParamOP pn pt =
       case Map.lookup pn params of
         Nothing -> Right ()
         Just p  -> checkParamMatch pn pt p
 
+    checkParamRP :: ParamId -> ParamType -> Either IdeResponse ()
     checkParamRP pn pt =
       case Map.lookup pn params of
         Nothing -> Left $ missingParameter pn
         Just p  -> checkParamMatch pn pt p
 
+    checkParamMatch :: T.Text -> ParamType -> ParamValP -> Either IdeResponse ()
     checkParamMatch pn' pt' p' =
       if paramMatches pt' p'
         then Right ()
         else Left $ incorrectParameter pn' pt' p'
 
 
-    paramMatches PtText (ParamText _) = True
-    paramMatches PtFile (ParamFile _) = True
-    paramMatches PtPos  (ParamPos _)  = True
+    paramMatches :: ParamType -> ParamValP -> Bool
+    paramMatches PtText (ParamTextP _) = True
+    paramMatches PtFile (ParamFileP _) = True
+    paramMatches PtPos  (ParamPosP _)  = True
     paramMatches _       _            = False

@@ -1,3 +1,6 @@
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.Engine.PluginUtils
   (
@@ -8,7 +11,9 @@ module Haskell.Ide.Engine.PluginUtils
   ) where
 
 import           Data.Aeson
+
 import           Data.Monoid
+import           Data.Vinyl
 import           Haskell.Ide.Engine.PluginDescriptor
 import qualified Data.Map as Map
 import qualified Data.Text as T
@@ -20,14 +25,26 @@ import           Prelude hiding (log)
 
 -- |If all the listed params are present in the request resturn their values,
 -- else return an error message.
-getParams :: [ParamId] -> IdeRequest -> Either IdeResponse [ParamVal]
-getParams params req = mapEithers checkOne params
+getParams :: Rec TaggedParamId ts -> IdeRequest -> Either IdeResponse (Rec ParamVal ts)
+getParams params req = go params
   where
-    checkOne :: ParamId -> Either IdeResponse ParamVal
-    checkOne param = case Map.lookup param (ideParams req) of
-      Nothing -> Left (missingParameter param)
-      Just v  -> Right v
-
+    go :: Rec TaggedParamId ts -> Either IdeResponse (Rec ParamVal ts)
+    go RNil = Right RNil
+    go (x:&xs) = case go xs of
+                    Left err -> Left err
+                    Right ys -> case checkOne x of
+                                  Left err -> Left err
+                                  Right y -> Right (y:&ys)
+    checkOne :: TaggedParamId t -> Either IdeResponse (ParamVal t)
+    checkOne (IdText param) = case Map.lookup param (ideParams req) of
+      Just (ParamTextP v)  -> Right (ParamText v)
+      _ -> Left (missingParameter param)
+    checkOne (IdFile param) = case Map.lookup param (ideParams req) of
+      Just (ParamFileP v)  -> Right (ParamFile v)
+      _ -> Left (missingParameter param)
+    checkOne (IdPos param) = case Map.lookup param (ideParams req) of
+      Just (ParamPosP v)  -> Right (ParamPos v)
+      _ -> Left (missingParameter param)
 
 
 -- ---------------------------------------------------------------------

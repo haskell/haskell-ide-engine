@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GADTs #-}
 module Haskell.Ide.ExamplePlugin2 where
 
 import Haskell.Ide.Engine.PluginDescriptor
@@ -50,8 +51,8 @@ sayHelloCmd _  _ = return (IdeResponseOk (String sayHello))
 sayHelloToCmd :: CommandFunc
 sayHelloToCmd _ req = do
   case Map.lookup "name" (ideParams req) of
-    Nothing -> return $ missingParameter "name"
-    Just (ParamText n) -> do
+    Nothing -> return $  missingParameter "name"
+    Just (ParamTextP n) -> do
       r <- liftIO $ sayHelloTo n
       return $ IdeResponseOk (String r)
     Just x -> return $ incorrectParameter "name" ("ParamText"::String) x

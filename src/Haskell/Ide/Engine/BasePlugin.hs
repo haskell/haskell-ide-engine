@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GADTs #-}
 module Haskell.Ide.Engine.BasePlugin where
 
 import           Control.Monad
@@ -7,15 +8,16 @@ import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Foldable
 import           Data.List
+import qualified Data.Map as Map
 import           Data.Monoid
 import qualified Data.Text as T
+import           Data.Vinyl
 import           Development.GitRev (gitCommitCount)
 import           Distribution.System (buildArch)
 import           Distribution.Text (display)
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Options.Applicative.Simple (simpleVersion)
-import qualified Data.Map as Map
 import qualified Paths_haskell_ide_engine as Meta
 import           Prelude hiding (log)
 import           System.Directory
@@ -108,9 +110,9 @@ commandsCmd _ req = do
   plugins <- getPlugins
   -- TODO: Use Maybe Monad. What abut error reporting?
   case Map.lookup "plugin" (ideParams req) of
-    Nothing -> return $ missingParameter "plugin"
-    Just (ParamText p) -> case Map.lookup p plugins of
-      Nothing -> return (IdeResponseError (IdeError
+    Nothing -> return (missingParameter "plugin")
+    Just (ParamTextP p) -> case Map.lookup p plugins of
+      Nothing -> return (IdeResponseFail (IdeError
                   UnknownPlugin ("Can't find plugin:" <> p )
                   (Just $ toJSON $ p)))
       Just pl -> return (IdeResponseOk (toJSON $ map (cmdName . cmdDesc) $ pdCommands pl))
@@ -119,9 +121,9 @@ commandsCmd _ req = do
 commandDetailCmd :: CommandFunc
 commandDetailCmd _ req = do
   plugins <- getPlugins
-  case getParams ["plugin","command"] req of
+  case getParams (IdText "plugin" :& IdText "command" :& RNil) req of
     Left err -> return err
-    Right [ParamText p,ParamText command] -> do
+    Right (ParamText p :& ParamText command :& RNil) -> do
       case Map.lookup p plugins of
         Nothing -> return (IdeResponseError (IdeError
                     UnknownPlugin ("Can't find plugin:" <> p )
@@ -132,7 +134,7 @@ commandDetailCmd _ req = do
                       (Just $ toJSON $ command)))
           Just detail -> return (IdeResponseOk (toJSON (cmdDesc detail)))
     Right _ -> return (IdeResponseError (IdeError
-                InternalError "commandDetailCmd:should not be possible" Nothing))
+                InternalError "commandDetailCmd: ghc’s exhaustiveness checker is broken" Nothing))
 
 
 pwdCmd :: CommandFunc
@@ -144,7 +146,7 @@ cwdCmd :: CommandFunc
 cwdCmd _ req = do
   case Map.lookup "dir" (ideParams req) of
     Nothing -> return $ missingParameter "dir"
-    Just (ParamFile dir) -> do
+    Just (ParamFileP dir) -> do
       liftIO $ setCurrentDirectory (T.unpack dir)
       return (IdeResponseOk Null)
     Just x -> return $ incorrectParameter "dir" ("ParamFile"::String) x

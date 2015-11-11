@@ -1,10 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GADTs #-}
 module Haskell.Ide.HaRePlugin where
 
 import           Control.Exception
 import           Control.Monad.IO.Class
 import           Data.Aeson
 import qualified Data.Text as T
+import           Data.Vinyl
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Language.Haskell.GhcMod as GM (defaultOptions)
@@ -37,9 +39,9 @@ hareDescriptor = PluginDescriptor
 
 renameCmd :: CommandFunc
 renameCmd _ctxs req = do
-  case getParams ["file","start_pos","name"] req of
+  case getParams (IdFile "file" :& IdPos "start_pos" :& IdText "name" :& RNil) req of
     Left err -> return err
-    Right [ParamFile fileName,ParamPos pos,ParamText name] -> do
+    Right (ParamFile fileName :& ParamPos pos :& ParamText name :& RNil) -> do
       res <- liftIO $ catchException $ rename defaultSettings GM.defaultOptions (T.unpack fileName) (T.unpack name) pos
       case res of
         Left err -> return $ IdeResponseFail (IdeError PluginError
@@ -47,9 +49,8 @@ renameCmd _ctxs req = do
         Right fs -> do
           fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
           return (IdeResponseOk (toJSON fs'))
-    Right ps -> return $ IdeResponseFail (IdeError UnexpectedParameter
-        (T.pack ("HarePlugin.renameCmd: unexpected parameters:" ++ show ps))
-        Nothing)
+    Right _ -> return $ IdeResponseError (IdeError InternalError
+      "HaRePlugin.renameCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
 -- rename :: RefactSettings -> Options -> FilePath -> String -> SimpPos -> IO [FilePath]
 
