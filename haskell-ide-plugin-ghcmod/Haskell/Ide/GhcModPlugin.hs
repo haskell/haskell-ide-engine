@@ -54,7 +54,7 @@ checkCmd _ctxs req = do
     Left err -> return err
     Right [ParamFile fileName] -> do
       liftIO $ doCheck (T.unpack fileName)
-    Right x -> return $ incorrectParameter "file" "ParamFile" x
+    Right x -> return $ incorrectParameter "file" ("ParamFile"::String) x
 
 -- ---------------------------------------------------------------------
 
@@ -64,7 +64,7 @@ typesCmd _ctxs req = do
     Left err -> return err
     Right [ParamFile fileName,ParamPos (r,c)] -> do
       liftIO $ runGhcModCommand (GM.types (T.unpack fileName) r c)
-    Right x -> return $ incorrectParameter "file" "ParamFile" x
+    Right x -> return $ incorrectParameter "file" ("ParamFile"::String) x
 -- ---------------------------------------------------------------------
 
 -- doCheck :: (MonadIO m,GHC.GhcMonad m,HasIdeState m) => FilePath -> m IdeResponse

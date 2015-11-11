@@ -39,4 +39,5 @@ hareSpec = do
     it "returns an error for invalid rename" $ do
       let req = IdeRequest "rename" (Map.fromList [("file",ParamFile "./test/testdata/HaReRename.hs"),("start_pos",ParamPos (15,1)),("name",ParamText "foolong")])
       r <- runIdeM (IdeState Map.empty) (renameCmd [] req)
-      (show r) `shouldBe` "IdeResponseFail (String \"Invalid cursor position!\")"
+      (show r) `shouldBe`
+        "IdeResponseFail (IdeError {ideCode = PluginError, ideMessage = \"rename: \\\"Invalid cursor position!\\\"\", ideInfo = Nothing})"

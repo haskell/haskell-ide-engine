@@ -114,7 +114,7 @@ commandsCmd _ req = do
                   UnknownPlugin ("Can't find plugin:" <> p )
                   (Just $ toJSON $ p)))
       Just pl -> return (IdeResponseOk (toJSON $ map (cmdName . cmdDesc) $ pdCommands pl))
-    Just x -> return $ incorrectParameter "plugin" "ParamText" x
+    Just x -> return $ incorrectParameter "plugin" ("ParamText"::String) x
 
 commandDetailCmd :: CommandFunc
 commandDetailCmd _ req = do
@@ -147,7 +147,7 @@ cwdCmd _ req = do
     Just (ParamFile dir) -> do
       liftIO $ setCurrentDirectory (T.unpack dir)
       return (IdeResponseOk Null)
-    Just x -> return $ incorrectParameter "dir" "ParamFile" x
+    Just x -> return $ incorrectParameter "dir" ("ParamFile"::String) x
 
 -- ---------------------------------------------------------------------
 

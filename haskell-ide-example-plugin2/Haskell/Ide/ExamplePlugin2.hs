@@ -54,7 +54,7 @@ sayHelloToCmd _ req = do
     Just (ParamText n) -> do
       r <- liftIO $ sayHelloTo n
       return $ IdeResponseOk (String r)
-    Just x -> return $ incorrectParameter "name" "ParamText" x
+    Just x -> return $ incorrectParameter "name" ("ParamText"::String) x
 
 -- ---------------------------------------------------------------------
 {-
