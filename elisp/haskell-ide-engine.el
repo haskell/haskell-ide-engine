@@ -14,6 +14,12 @@
   :group 'haskell
   :type 'string)
 
+;;;###autoload
+(defcustom haskell-ide-engine-command-args ()
+  "Arguments to pass to `haskell-ide-engine-command`."
+  :group 'haskell
+  :type '(repeat string))
+
 (defvar haskell-ide-engine-process nil
   "Variable holding current Haskell IDE Engine process")
 
@@ -64,10 +70,11 @@ running this function does nothing."
     (setq haskell-ide-engine-buffer
           (get-buffer-create "*hie*"))
     (setq haskell-ide-engine-process
-          (start-process
+          (apply #'start-process
            "Haskell IDE Engine"
            haskell-ide-engine-buffer
-           haskell-ide-engine-command))
+           haskell-ide-engine-command
+           haskell-ide-engine-command-args))
     (set-process-query-on-exit-flag haskell-ide-engine-process nil)
     (set-process-filter haskell-ide-engine-process #'haskell-ide-engine-process-filter))
   haskell-ide-engine-process)
