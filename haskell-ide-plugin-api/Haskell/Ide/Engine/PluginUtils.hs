@@ -10,8 +10,9 @@ module Haskell.Ide.Engine.PluginUtils
 
 import           Data.Aeson
 import           Data.List
-import           Haskell.Ide.Engine.PluginDescriptor
 import qualified Data.Map as Map
+import           Data.Vinyl
+import           Haskell.Ide.Engine.PluginDescriptor
 import           Prelude hiding (log)
 
 -- ---------------------------------------------------------------------

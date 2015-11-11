@@ -8,15 +8,16 @@ import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Foldable
 import           Data.List
+import qualified Data.Map as Map
 import           Data.Monoid
 import qualified Data.Text as T
+import           Data.Vinyl
 import           Development.GitRev (gitCommitCount)
 import           Distribution.System (buildArch)
 import           Distribution.Text (display)
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Options.Applicative.Simple (simpleVersion)
-import qualified Data.Map as Map
 import qualified Paths_haskell_ide_engine as Meta
 import           Prelude hiding (log)
 import           System.Directory

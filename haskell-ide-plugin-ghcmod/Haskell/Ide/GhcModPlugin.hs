@@ -4,6 +4,7 @@
 module Haskell.Ide.GhcModPlugin where
 
 import           Control.Exception
+import           Data.Vinyl
 -- import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Aeson

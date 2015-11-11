@@ -189,13 +189,6 @@ data ParamVal (t :: ParamType) where
   ParamPos :: (Int,Int) -> ParamVal 'PtPos
 
 
--- This is the same as Rec type from vinyl
-data Rec :: (k -> *) -> [k] -> * where
-  RNil :: Rec f '[]
-  (:&) :: f t -> Rec f ts -> Rec f (t ': ts)
-
-infixr 5 :&
-
 -- TODO: should probably be able to return a plugin-specific type. Not sure how
 -- to encode it. Perhaps as an instance of a class which says it can be encoded
 -- on the wire.

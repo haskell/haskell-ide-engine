@@ -6,6 +6,7 @@ import           Control.Exception
 import           Control.Monad.IO.Class
 import           Data.Aeson
 import qualified Data.Text as T
+import           Data.Vinyl
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Language.Haskell.GhcMod as GM (defaultOptions)
