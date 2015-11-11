@@ -32,6 +32,9 @@
 (defvar haskell-ide-engine-process-handle-invalid-input nil
   "A function to handle invalid input.")
 
+(defvar haskell-ide-engine-post-message-hook nil
+  "Function to call with message that will be send to hie process.")
+
 (defun haskell-ide-engine-process-filter (process input)
   (with-current-buffer haskell-ide-engine-buffer
 
@@ -102,10 +105,12 @@ by `haskell-ide-engine-handle-message'."
   ;; We remove values that are empty lists from assoc lists at the top
   ;; level because json serialization would use "null" for those. HIE
   ;; accepts missing fields and default to empty when possible.
-  (process-send-string haskell-ide-engine-process
-                       (haskell-ide-engine-prepare-json json))
-  ;; flush buffers
-  (process-send-string haskell-ide-engine-process "\n"))
+  (let ((prepared-json (haskell-ide-engine-prepare-json json)))
+    (run-hook-with-args 'haskell-ide-engine-post-message-hook prepared-json)
+
+    (process-send-string haskell-ide-engine-process prepared-json)
+    ;; flush buffers
+    (process-send-string haskell-ide-engine-process "\n")))
 
 (defun haskell-ide-engine-remove-alist-null-values (json)
   "Remove null values from assoc lists.
