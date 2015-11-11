@@ -95,10 +95,10 @@ validContext ctx params =
 
 -- |If all listed 'ParamDescripion' values are present return a Right, else
 -- return an error.
-checkParams :: [ParamDecription] -> ParamMap -> Either IdeResponse [()]
+checkParams :: [ParamDescription] -> ParamMap -> Either IdeResponse [()]
 checkParams pds params = mapEithers checkOne pds
   where
-    checkOne :: ParamDecription -> Either IdeResponse ()
+    checkOne :: ParamDescription -> Either IdeResponse ()
     checkOne (OP pn _ph pt) = checkParamOP pn pt
     checkOne (RP pn _ph pt) = checkParamRP pn pt
 

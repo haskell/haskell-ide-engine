@@ -99,7 +99,7 @@ The mapping from accepted context to required parameters in the request is defin
 ```haskell
 -- |For a given 'AcceptedContext', define the parameters that are required in
 -- the corresponding 'IdeRequest'
-contextMapping :: AcceptedContext -> [ParamDecription]
+contextMapping :: AcceptedContext -> [ParamDescription]
 contextMapping CtxNone        = []
 contextMapping CtxFile        = [fileParam]
 contextMapping CtxPoint       = [fileParam,startPosParam]
@@ -107,16 +107,16 @@ contextMapping CtxRegion      = [fileParam,startPosParam,endPosParam]
 contextMapping CtxCabalTarget = [cabalParam]
 contextMapping CtxProject     = []
 
-fileParam :: ParamDecription
+fileParam :: ParamDescription
 fileParam = RP "file" "a file name" PtFile
 
-startPosParam :: ParamDecription
+startPosParam :: ParamDescription
 startPosParam = RP "start_pos" "start line and col" PtPos
 
-endPosParam :: ParamDecription
+endPosParam :: ParamDescription
 endPosParam = RP "end_pos" "end line and col" PtPos
 
-cabalParam :: ParamDecription
+cabalParam :: ParamDescription
 cabalParam = RP "cabal" "cabal target" PtText
 ```
 
