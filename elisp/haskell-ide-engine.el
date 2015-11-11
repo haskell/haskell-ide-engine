@@ -23,6 +23,9 @@
 (defvar haskell-ide-engine-process-handle-message nil
   "A function to handle json object.")
 
+(defvar haskell-ide-engine-process-handle-invalid-input nil
+  "A function to handle invalid input.")
+
 (defun haskell-ide-engine-process-filter (process input)
   (with-current-buffer haskell-ide-engine-buffer
 
@@ -35,7 +38,20 @@
                  (json (json-read)))
             (delete-region (point-min) end-of-current-json-object)
             (when haskell-ide-engine-process-handle-message
-              (funcall haskell-ide-engine-process-handle-message json)))))))
+              (funcall haskell-ide-engine-process-handle-message json))))
+      ;; if input is partial then there will not be a closing brace we
+      ;; need to wait till it comes
+      (scan-error nil)
+      ;; json-readtable-error is when there is an unexpected character in input
+      (json-readtable-error
+       (when haskell-ide-engine-process-handle-invalid-input
+         (funcall haskell-ide-engine-process-handle-invalid-input)
+         (delete-region (point-min) (point-max))))
+      ;; json-unknown-keyword when unrecognized keyword is parsed
+      (json-unknown-keyword
+       (when haskell-ide-engine-process-handle-invalid-input
+         (funcall haskell-ide-engine-process-handle-invalid-input)
+         (delete-region (point-min) (point-max)))))))
 
 (defun haskell-ide-engine-start-process ()
   "Start Haskell IDE Engine process.
