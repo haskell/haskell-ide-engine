@@ -110,7 +110,7 @@ commandsCmd _ req = do
   -- TODO: Use Maybe Monad. What abut error reporting?
   case Map.lookup "plugin" (ideParams req) of
     Nothing -> return (IdeResponseFail (toJSON $ T.pack "need 'plugin' parameter"))
-    Just (ParamValP (ParamText p)) -> case Map.lookup p plugins of
+    Just (ParamTextP p) -> case Map.lookup p plugins of
       Nothing -> return (IdeResponseFail (toJSON $ "Can't find plugin:'" <> p <> "'"))
       Just pl -> return (IdeResponseOk (toJSON $ map (cmdName . cmdDesc) $ pdCommands pl))
     Just x -> return $ (IdeResponseFail (toJSON $ "invalid parameter for plugin:" ++ show x))
@@ -138,7 +138,7 @@ cwdCmd :: CommandFunc
 cwdCmd _ req = do
   case Map.lookup "dir" (ideParams req) of
     Nothing -> return (IdeResponseFail (String "need 'dir' parameter"))
-    Just (ParamValP (ParamFile dir)) -> do
+    Just (ParamFileP dir) -> do
       liftIO $ setCurrentDirectory (T.unpack dir)
       return (IdeResponseOk Null)
     Just x -> return $ (IdeResponseFail (toJSON $ "invalid parameter for plugin:" ++ show x))

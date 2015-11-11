@@ -55,7 +55,7 @@ dispatcherSpec = do
 
     it "identifies CtxFile" $ do
       chan <- newChan
-      let req = IdeRequest "cmd2" (Map.fromList [("file",ParamValP $ ParamFile "foo.hs")])
+      let req = IdeRequest "cmd2" (Map.fromList [("file", ParamFileP "foo.hs")])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
       (show r) `shouldBe` "IdeResponseOk (String \"result:ctxs=[CtxFile]\")"
@@ -64,7 +64,7 @@ dispatcherSpec = do
 
     it "identifies CtxPoint" $ do
       chan <- newChan
-      let req = IdeRequest "cmd3" (Map.fromList [("file",ParamValP $ ParamFile "foo.hs"),("start_pos",ParamValP $ ParamPos (1,2))])
+      let req = IdeRequest "cmd3" (Map.fromList [("file", ParamFileP "foo.hs"),("start_pos", ParamPosP (1,2))])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
       (show r) `shouldBe` "IdeResponseOk (String \"result:ctxs=[CtxPoint]\")"
@@ -73,9 +73,9 @@ dispatcherSpec = do
 
     it "identifies CtxRegion" $ do
       chan <- newChan
-      let req = IdeRequest "cmd4" (Map.fromList [("file",ParamValP $ ParamFile "foo.hs")
-                                                ,("start_pos",ParamValP $ ParamPos (1,2))
-                                                ,("end_pos",ParamValP $ ParamPos (3,4))])
+      let req = IdeRequest "cmd4" (Map.fromList [("file", ParamFileP "foo.hs")
+                                                ,("start_pos", ParamPosP (1,2))
+                                                ,("end_pos", ParamPosP (3,4))])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
       (show r) `shouldBe` "IdeResponseOk (String \"result:ctxs=[CtxRegion]\")"
@@ -84,7 +84,7 @@ dispatcherSpec = do
 
     it "identifies CtxCabal" $ do
       chan <- newChan
-      let req = IdeRequest "cmd5" (Map.fromList [("cabal",ParamValP $ ParamText "lib")])
+      let req = IdeRequest "cmd5" (Map.fromList [("cabal", ParamTextP "lib")])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
       (show r) `shouldBe` "IdeResponseOk (String \"result:ctxs=[CtxCabalTarget]\")"
@@ -103,9 +103,9 @@ dispatcherSpec = do
 
     it "identifies all multiple" $ do
       chan <- newChan
-      let req = IdeRequest "cmdmultiple" (Map.fromList [("file",ParamValP $ ParamFile "foo.hs")
-                                                       ,("start_pos",ParamValP $ ParamPos (1,2))
-                                                       ,("end_pos",ParamValP $ ParamPos (3,4))])
+      let req = IdeRequest "cmdmultiple" (Map.fromList [("file", ParamFileP "foo.hs")
+                                                       ,("start_pos", ParamPosP (1,2))
+                                                       ,("end_pos", ParamPosP (3,4))])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
       (show r) `shouldBe` "IdeResponseOk (String \"result:ctxs=[CtxFile,CtxPoint,CtxRegion]\")"
@@ -115,8 +115,8 @@ dispatcherSpec = do
 
     it "identifies CtxFile,CtxPoint multiple" $ do
       chan <- newChan
-      let req = IdeRequest "cmdmultiple" (Map.fromList [("file",ParamValP $ ParamFile "foo.hs")
-                                                       ,("start_pos",ParamValP $ ParamPos (1,2))])
+      let req = IdeRequest "cmdmultiple" (Map.fromList [("file", ParamFileP "foo.hs")
+                                                       ,("start_pos", ParamPosP (1,2))])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
       (show r) `shouldBe` "IdeResponseOk (String \"result:ctxs=[CtxFile,CtxPoint]\")"
@@ -125,7 +125,7 @@ dispatcherSpec = do
 
     it "identifies error when no match multiple" $ do
       chan <- newChan
-      let req = IdeRequest "cmdmultiple" (Map.fromList [("cabal",ParamValP $ ParamText "lib")])
+      let req = IdeRequest "cmdmultiple" (Map.fromList [("cabal", ParamTextP "lib")])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
       (show r) `shouldBe` "IdeResponseFail (String \"missing parameter '\\\"file\\\"'\")"
@@ -137,10 +137,10 @@ dispatcherSpec = do
 
     it "identifies matching params" $ do
       chan <- newChan
-      let req = IdeRequest "cmdextra" (Map.fromList [("file",ParamValP $ ParamFile "foo.hs")
-                                                    ,("txt", ParamValP $ ParamText "a")
-                                                    ,("file",ParamValP $ ParamFile "f")
-                                                    ,("pos", ParamValP $ ParamPos (1,2))
+      let req = IdeRequest "cmdextra" (Map.fromList [("file", ParamFileP "foo.hs")
+                                                    ,("txt",  ParamTextP "a")
+                                                    ,("file", ParamFileP "f")
+                                                    ,("pos",  ParamPosP (1,2))
                                                     ])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
@@ -150,10 +150,10 @@ dispatcherSpec = do
 
     it "reports mismatched param" $ do
       chan <- newChan
-      let req = IdeRequest "cmdextra" (Map.fromList [("file",ParamValP $ ParamFile "foo.hs")
-                                                    ,("txt", ParamValP $ ParamFile "a")
-                                                    ,("file",ParamValP $ ParamFile "f")
-                                                    ,("pos", ParamValP $ ParamPos (1,2))
+      let req = IdeRequest "cmdextra" (Map.fromList [("file", ParamFileP "foo.hs")
+                                                    ,("txt",  ParamFileP "a")
+                                                    ,("file", ParamFileP "f")
+                                                    ,("pos",  ParamPosP (1,2))
                                                     ])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
@@ -164,9 +164,9 @@ dispatcherSpec = do
 
     it "reports matched optional param" $ do
       chan <- newChan
-      let req = IdeRequest "cmdoptional" (Map.fromList [("txt",  ParamValP $ ParamText "a")
-                                                       ,("fileo",ParamValP $ ParamFile "f")
-                                                       ,("poso", ParamValP $ ParamPos (1,2))
+      let req = IdeRequest "cmdoptional" (Map.fromList [("txt",   ParamTextP "a")
+                                                       ,("fileo", ParamFileP "f")
+                                                       ,("poso",  ParamPosP (1,2))
                                                        ])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
@@ -176,9 +176,9 @@ dispatcherSpec = do
 
     it "reports mismatched optional param" $ do
       chan <- newChan
-      let req = IdeRequest "cmdoptional" (Map.fromList [("txt",  ParamValP $ ParamText "a")
-                                                       ,("fileo",ParamValP $ ParamText "f")
-                                                       ,("poso", ParamValP $ ParamPos (1,2))
+      let req = IdeRequest "cmdoptional" (Map.fromList [("txt",   ParamTextP "a")
+                                                       ,("fileo", ParamTextP "f")
+                                                       ,("poso",  ParamPosP (1,2))
                                                        ])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)

@@ -118,7 +118,7 @@ checkParams pds params = mapEithers checkOne pds
 
 
     paramMatches :: ParamType -> ParamValP -> Bool
-    paramMatches PtText (ParamValP (ParamText _)) = True
-    paramMatches PtFile (ParamValP (ParamFile _)) = True
-    paramMatches PtPos  (ParamValP (ParamPos _))  = True
+    paramMatches PtText (ParamTextP _) = True
+    paramMatches PtFile (ParamFileP _) = True
+    paramMatches PtPos  (ParamPosP _)  = True
     paramMatches _       _            = False

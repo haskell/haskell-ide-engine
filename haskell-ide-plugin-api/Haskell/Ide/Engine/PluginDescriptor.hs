@@ -9,6 +9,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE PatternSynonyms #-}
 -- | Experimenting with a data structure to define a plugin.
 --
 -- The general idea is that a given plugin returns this structure during the
@@ -162,11 +163,15 @@ deriving instance Show ParamValP
 
 deriving instance Eq (ParamVal t)
 instance Eq ParamValP where
-  (ParamValP (ParamText t)) == (ParamValP (ParamText t')) = t == t'
-  (ParamValP (ParamFile f)) == (ParamValP (ParamFile f')) = f == f'
-  (ParamValP (ParamPos p)) == (ParamValP (ParamPos p')) = p == p'
+  (ParamTextP t) == (ParamTextP t') = t == t'
+  (ParamFileP f) == (ParamFileP f') = f == f'
+  (ParamPosP p) == (ParamPosP p') = p == p'
   _ == _ = False
-                                 
+
+pattern ParamTextP t = ParamValP (ParamText t)
+pattern ParamFileP f = ParamValP (ParamFile f)
+pattern ParamPosP p = ParamValP (ParamPos p)
+
 type ParamMap = Map.Map ParamId ParamValP
 
 type ParamId = T.Text
@@ -217,20 +222,21 @@ type CommandFunc = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m)
 -- JSON instances
 
 instance ToJSON ParamValP  where
-    toJSON (ParamValP (ParamText v)) = object [ "tag" .= String "text"
+    toJSON (ParamTextP v) = object [ "tag" .= String "text"
                                   , "contents" .= toJSON v ]
-    toJSON (ParamValP (ParamFile v)) = object [ "tag" .= String "file"
+    toJSON (ParamFileP v) = object [ "tag" .= String "file"
                                   , "contents" .= toJSON v ]
-    toJSON (ParamValP (ParamPos  v)) = object [ "tag" .= String "pos"
+    toJSON (ParamPosP  v) = object [ "tag" .= String "pos"
                                   , "contents" .= toJSON v ]
+    toJSON _ = "error"
 
 instance FromJSON ParamValP where
     parseJSON (Object v) = do
       tag <- v .: "tag" :: Parser T.Text
       case tag of
-        "text" -> (ParamValP . ParamText) <$> v .: "contents"
-        "file" -> (ParamValP . ParamFile) <$> v .: "contents"
-        "pos"  -> (ParamValP . ParamPos) <$> v .: "contents"
+        "text" -> ParamTextP <$> v .: "contents"
+        "file" -> ParamFileP <$> v .: "contents"
+        "pos"  -> ParamPosP <$> v .: "contents"
         _ -> empty
     parseJSON _ = empty
 

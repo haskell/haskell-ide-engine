@@ -96,13 +96,13 @@ convertToParams cmd ss = Map.fromList $ map (\(k,v) -> (k,convertParam k v)) $  
     convertParam :: T.Text -> T.Text -> ParamValP
     convertParam pn str =
       case Map.lookup pn possibles of
-        Nothing -> ParamValP $ ParamText str -- TODO: should this be an error of some kind
+        Nothing -> ParamTextP str -- TODO: should this be an error of some kind
         Just p -> case pType p of
-          PtText -> ParamValP $ ParamText str
-          PtFile -> ParamValP $ ParamFile str
+          PtText -> ParamTextP str
+          PtFile -> ParamFileP str
           PtPos  -> case parseOnly parsePos str of
-            Left _err -> ParamValP $ ParamText str -- TODO: should this be an error of some kind
-            Right pos -> ParamValP $ ParamPos pos
+            Left _err -> ParamTextP str -- TODO: should this be an error of some kind
+            Right pos -> ParamPosP pos
 
 parseInt :: Parser Int
 parseInt = do

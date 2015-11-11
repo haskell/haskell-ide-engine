@@ -32,13 +32,13 @@ getParams params req = go params
                                   Right y -> Right (y:&ys)
     checkOne :: MyParamId t -> Either IdeResponse (ParamVal t)
     checkOne (IdText param) = case Map.lookup param (ideParams req) of
-      Just (ParamValP (ParamText v))  -> Right (ParamText v)
+      Just (ParamTextP v)  -> Right (ParamText v)
       _ -> Left $ IdeResponseFail (toJSON $ "need `" ++ show param ++ "` parameter")
     checkOne (IdFile param) = case Map.lookup param (ideParams req) of
-      Just (ParamValP (ParamFile v))  -> Right (ParamFile v)
+      Just (ParamFileP v)  -> Right (ParamFile v)
       _ -> Left $ IdeResponseFail (toJSON $ "need `" ++ show param ++ "` parameter")
     checkOne (IdPos param) = case Map.lookup param (ideParams req) of
-      Just (ParamValP (ParamPos v))  -> Right (ParamPos v)
+      Just (ParamPosP v)  -> Right (ParamPos v)
       _ -> Left $ IdeResponseFail (toJSON $ "need `" ++ show param ++ "` parameter")
 
 
