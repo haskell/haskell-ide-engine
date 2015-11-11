@@ -1,3 +1,8 @@
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeSynonymInstances #-}
@@ -158,6 +163,24 @@ data ParamVal = ParamText T.Text
               | ParamFile T.Text
               | ParamPos (Int,Int)
               deriving (Show,Generic,Eq)
+
+data MyParamId (t :: ParamTag) where
+  IdText :: T.Text -> MyParamId 'Text
+  IdFile :: T.Text -> MyParamId 'File
+  IdPos :: T.Text -> MyParamId 'Pos
+
+data ParamTag = Text | File | Pos
+
+data MyParamVal (t :: ParamTag) where
+  MyParamText :: T.Text -> MyParamVal 'Text
+  MyParamFile :: T.Text -> MyParamVal 'File
+  MyParamPos :: (Int,Int) -> MyParamVal 'Pos
+
+data Rec :: (k -> *) -> [k] -> * where
+  RNil :: Rec f '[]
+  (:&) :: f t -> Rec f ts -> Rec f (t ': ts)
+
+infixr 5 :&
 
 -- TODO: should probably be able to return a plugin-specific type. Not sure how
 -- to encode it. Perhaps as an instance of a class which says it can be encoded

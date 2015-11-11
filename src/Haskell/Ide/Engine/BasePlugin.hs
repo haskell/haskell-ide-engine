@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GADTs #-}
 module Haskell.Ide.Engine.BasePlugin where
 
 import           Control.Monad
@@ -117,15 +118,15 @@ commandsCmd _ req = do
 commandDetailCmd :: CommandFunc
 commandDetailCmd _ req = do
   plugins <- getPlugins
-  case getParams ["plugin","command"] req of
+  case getParams (IdText "plugin" :& IdText "command" :& RNil) req of
     Left err -> return err
-    Right [ParamText p,ParamText command] -> do
+    Right (MyParamText p :& MyParamText command :& RNil) -> do
       case Map.lookup p plugins of
         Nothing -> return (IdeResponseFail (toJSON $ "Can't find plugin:'" <> p <> "'"))
         Just pl -> case find (\cmd -> command == (cmdName $ cmdDesc cmd) ) (pdCommands pl) of
           Nothing -> return (IdeResponseFail (toJSON $ "Can't find command:'" <> command <> "'"))
           Just detail -> return (IdeResponseOk (toJSON (cmdDesc detail)))
-    Right _ -> error $ "commandDetailCmd:should not be possible"
+    Right _ -> error $ "commandDetailCmd: ghc’s exhaustiveness checker is broken"
 
 
 pwdCmd :: CommandFunc

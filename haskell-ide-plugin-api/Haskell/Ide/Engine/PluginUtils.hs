@@ -1,3 +1,6 @@
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.Engine.PluginUtils
   (
@@ -17,13 +20,26 @@ import           Prelude hiding (log)
 
 -- |If all the listed params are present in the request resturn their values,
 -- else return an error message.
-getParams :: [ParamId] -> IdeRequest -> Either IdeResponse [ParamVal]
-getParams params req = mapEithers checkOne params
+getParams :: Rec MyParamId ts -> IdeRequest -> Either IdeResponse (Rec MyParamVal ts)
+getParams params req = go params
   where
-    checkOne :: ParamId -> Either IdeResponse ParamVal
-    checkOne param = case Map.lookup param (ideParams req) of
-      Nothing -> Left $ IdeResponseFail (toJSON $ "need `" ++ show param ++ "` parameter")
-      Just v  -> Right v
+    go :: Rec MyParamId ts -> Either IdeResponse (Rec MyParamVal ts)
+    go RNil = Right RNil
+    go (x:&xs) = case go xs of
+                    Left err -> Left err
+                    Right ys -> case checkOne x of
+                                  Left err -> Left err
+                                  Right y -> Right (y:&ys)
+    checkOne :: MyParamId t -> Either IdeResponse (MyParamVal t)
+    checkOne (IdText param) = case Map.lookup param (ideParams req) of
+      Just (ParamText v)  -> Right (MyParamText v)
+      _ -> Left $ IdeResponseFail (toJSON $ "need `" ++ show param ++ "` parameter")
+    checkOne (IdFile param) = case Map.lookup param (ideParams req) of
+      Just (ParamFile v)  -> Right (MyParamFile v)
+      _ -> Left $ IdeResponseFail (toJSON $ "need `" ++ show param ++ "` parameter")
+    checkOne (IdPos param) = case Map.lookup param (ideParams req) of
+      Just (ParamPos v)  -> Right (MyParamPos v)
+      _ -> Left $ IdeResponseFail (toJSON $ "need `" ++ show param ++ "` parameter")
 
 
 

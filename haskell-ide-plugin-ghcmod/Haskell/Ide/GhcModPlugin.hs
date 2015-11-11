@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GADTs #-}
 module Haskell.Ide.GhcModPlugin where
 
 import           Control.Exception
@@ -50,21 +51,22 @@ ghcmodDescriptor = PluginDescriptor
 
 checkCmd :: CommandFunc
 checkCmd _ctxs req = do
-  case getParams ["file"] req of
+  case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
-    Right [ParamFile fileName] -> do
+    Right (MyParamFile fileName :& RNil) -> do
       liftIO $ doCheck (T.unpack fileName)
-    Right x -> error $ "GhcModPlugin.checkCmd: got unexpected file param:" ++ show x
+    Right _ -> error $ "GhcModPlugin.checkCmd: ghc’s exhaustiveness checker is broken"
 
 -- ---------------------------------------------------------------------
 
 typesCmd :: CommandFunc
 typesCmd _ctxs req = do
-  case getParams ["file","start_pos"] req of
+  case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
-    Right [ParamFile fileName,ParamPos (r,c)] -> do
+    Right (MyParamFile fileName :& MyParamPos (r,c) :& RNil) -> do
       liftIO $ runGhcModCommand (GM.types (T.unpack fileName) r c)
-    Right x -> error $ "GhcModPlugin.types: got unexpected file param:" ++ show x
+    Right _ -> error $ "GhcModPlugin.checkCmd: ghc’s exhaustiveness checker is broken"
+
 -- ---------------------------------------------------------------------
 
 -- doCheck :: (MonadIO m,GHC.GhcMonad m,HasIdeState m) => FilePath -> m IdeResponse
