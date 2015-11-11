@@ -188,6 +188,8 @@ data ParamVal (t :: ParamType) where
   ParamFile :: T.Text -> ParamVal 'PtFile
   ParamPos :: (Int,Int) -> ParamVal 'PtPos
 
+
+-- This is the same as Rec type from vinyl
 data Rec :: (k -> *) -> [k] -> * where
   RNil :: Rec f '[]
   (:&) :: f t -> Rec f ts -> Rec f (t ': ts)
