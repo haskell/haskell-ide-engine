@@ -20,17 +20,17 @@ import           Prelude hiding (log)
 
 -- |If all the listed params are present in the request resturn their values,
 -- else return an error message.
-getParams :: Rec MyParamId ts -> IdeRequest -> Either IdeResponse (Rec ParamVal ts)
+getParams :: Rec TaggedParamId ts -> IdeRequest -> Either IdeResponse (Rec ParamVal ts)
 getParams params req = go params
   where
-    go :: Rec MyParamId ts -> Either IdeResponse (Rec ParamVal ts)
+    go :: Rec TaggedParamId ts -> Either IdeResponse (Rec ParamVal ts)
     go RNil = Right RNil
     go (x:&xs) = case go xs of
                     Left err -> Left err
                     Right ys -> case checkOne x of
                                   Left err -> Left err
                                   Right y -> Right (y:&ys)
-    checkOne :: MyParamId t -> Either IdeResponse (ParamVal t)
+    checkOne :: TaggedParamId t -> Either IdeResponse (ParamVal t)
     checkOne (IdText param) = case Map.lookup param (ideParams req) of
       Just (ParamTextP v)  -> Right (ParamText v)
       _ -> Left $ IdeResponseFail (toJSON $ "need `" ++ show param ++ "` parameter")

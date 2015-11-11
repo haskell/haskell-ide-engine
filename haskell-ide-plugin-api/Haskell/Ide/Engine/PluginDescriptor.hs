@@ -157,7 +157,7 @@ data IdeRequest = IdeRequest
   , ideParams  :: !ParamMap
   } deriving (Show)
 
-deriving instance Show (MyParamId t)
+deriving instance Show (TaggedParamId t)
 deriving instance Show (ParamVal t)
 deriving instance Show ParamValP
 
@@ -176,10 +176,10 @@ type ParamMap = Map.Map ParamId ParamValP
 
 type ParamId = T.Text
 
-data MyParamId (t :: ParamType) where
-  IdText :: T.Text -> MyParamId 'PtText
-  IdFile :: T.Text -> MyParamId 'PtFile
-  IdPos :: T.Text -> MyParamId 'PtPos
+data TaggedParamId (t :: ParamType) where
+  IdText :: T.Text -> TaggedParamId 'PtText
+  IdFile :: T.Text -> TaggedParamId 'PtFile
+  IdPos :: T.Text -> TaggedParamId 'PtPos
 
 data ParamValP = forall t. ParamValP { unParamValP ::  ParamVal t }
 
