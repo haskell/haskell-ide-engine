@@ -56,7 +56,8 @@ checkCmd _ctxs req = do
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
       liftIO $ doCheck (T.unpack fileName)
-    Right _ -> error $ "GhcModPlugin.checkCmd: ghc’s exhaustiveness checker is broken"
+    Right _ -> return $ IdeResponseError (IdeError InternalError
+      "GhcModPlugin.checkCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
 -- ---------------------------------------------------------------------
 
@@ -66,7 +67,8 @@ typesCmd _ctxs req = do
     Left err -> return err
     Right (ParamFile fileName :& ParamPos (r,c) :& RNil) -> do
       liftIO $ runGhcModCommand (GM.types (T.unpack fileName) r c)
-    Right _ -> error $ "GhcModPlugin.checkCmd: ghc’s exhaustiveness checker is broken"
+    Right _ -> return $ IdeResponseError (IdeError InternalError
+      "GhcModPlugin.typesCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
 -- ---------------------------------------------------------------------
 
@@ -94,7 +96,7 @@ runGhcModCommand cmd = do
       return (cr,s')
   -- (Either GM.GhcModError String, GM.GhcModLog)
   case r of
-    Left e -> return $ IdeResponseError (toJSON $ T.pack $ "doCheck:got " ++ show e)
+    Left e -> return $ IdeResponseError (IdeError PluginError (T.pack $ "doCheck:got " ++ show e) Nothing)
     Right (checkResult,_s3) -> do
       -- GHC.setSession s3
       return $ (IdeResponseOk (toJSON checkResult))
@@ -120,4 +122,3 @@ catchException f = do
   where
     handler:: SomeException -> IO (Either String t)
     handler e = return (Left (show e))
-

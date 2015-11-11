@@ -40,14 +40,18 @@ dispatcher cin = do
 doDispatch :: Plugins -> ChannelRequest -> IdeM IdeResponse
 doDispatch plugins creq = do
   case Map.lookup (cinPlugin creq) plugins of
-    Nothing -> return (IdeResponseError (toJSON $ "No plugin found for:" <> cinPlugin creq ))
+    Nothing -> return (IdeResponseError (IdeError
+                UnknownPlugin ("No plugin found for:" <> cinPlugin creq )
+                (Just $ toJSON $ cinPlugin creq)))
     Just desc -> do
       let pn  = cinPlugin creq
           req = cinReq creq
       debugm $ "doDispatch:desc=" ++ show desc
       debugm $ "doDispatch:req=" ++ show req
       case Map.lookup (pn,ideCommand req) (pluginCache plugins) of
-        Nothing -> return (IdeResponseError (toJSON $ "No such command:" <> ideCommand req))
+        Nothing -> return (IdeResponseError (IdeError
+                    UnknownCommand ("No such command:" <> ideCommand req )
+                    (Just $ toJSON $ ideCommand req)))
         Just cmd -> do
           case validateContexts (cmdDesc cmd) req of
             Left err   -> return err
@@ -74,8 +78,9 @@ validateContexts cd req = r
     (errs,oks) = partitionEithers $ map (\c -> validContext c (ideParams req)) $ cmdContexts cd
     r = case oks of
           [] -> case errs of
-            [] -> Left $ IdeResponseFail (toJSON $ T.pack $ "no valid context found, expecting one of:"
-                                          ++ show (cmdContexts cd))
+            [] -> Left $ IdeResponseFail (IdeError InvalidContext
+                      (T.pack $ "no valid context found, expecting one of:"
+                                          ++ show (cmdContexts cd)) Nothing)
             (e:_) -> Left e
           ctxs -> case checkParams (cmdAdditionalParams cd) (ideParams req) of
                     Right _  -> Right ctxs
@@ -106,15 +111,14 @@ checkParams pds params = mapEithers checkOne pds
     checkParamRP :: ParamId -> ParamType -> Either IdeResponse ()
     checkParamRP pn pt =
       case Map.lookup pn params of
-        Nothing -> Left (IdeResponseFail (String $ T.pack $ "missing parameter '"++ show pn ++"'"))
+        Nothing -> Left $ missingParameter pn
         Just p  -> checkParamMatch pn pt p
 
     checkParamMatch :: T.Text -> ParamType -> ParamValP -> Either IdeResponse ()
     checkParamMatch pn' pt' p' =
       if paramMatches pt' p'
         then Right ()
-        else Left (IdeResponseFail (String $ T.pack $ "parameter type mismatch for '" ++ T.unpack pn' ++ "', expected "
-                                                ++ show pt' ++ " but got "++ show p'))
+        else Left $ incorrectParameter pn' pt' p'
 
 
     paramMatches :: ParamType -> ParamValP -> Bool

@@ -49,7 +49,8 @@ dispatcherSpec = do
       let req = IdeRequest "cmd2" (Map.fromList [])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
-      (show r) `shouldBe` "IdeResponseFail (String \"missing parameter '\\\"file\\\"'\")"
+      (show r) `shouldBe`
+        "IdeResponseFail (IdeError {ideCode = MissingParameter, ideMessage = \"need `file` parameter\", ideInfo = Just (String \"file\")})"
 
     -- ---------------------------------
 
@@ -128,7 +129,8 @@ dispatcherSpec = do
       let req = IdeRequest "cmdmultiple" (Map.fromList [("cabal", ParamTextP "lib")])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
-      (show r) `shouldBe` "IdeResponseFail (String \"missing parameter '\\\"file\\\"'\")"
+      (show r) `shouldBe`
+        "IdeResponseFail (IdeError {ideCode = MissingParameter, ideMessage = \"need `file` parameter\", ideInfo = Just (String \"file\")})"
 
   -- -----------------------------------
 
@@ -157,7 +159,9 @@ dispatcherSpec = do
                                                     ])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
-      (show r) `shouldBe` "IdeResponseFail (String \"parameter type mismatch for 'txt', expected PtText but got ParamValP {unParamValP = ParamFile \\\"a\\\"}\")"
+      (show r) `shouldBe`
+        "IdeResponseFail (IdeError {ideCode = IncorrectParameterType, ideMessage = \"got wrong parameter type for `txt`, expected: PtText , got:ParamValP {unParamValP = ParamFile \\\"a\\\"}\", ideInfo = Just (Object (fromList [(\"value\",String \"ParamValP {unParamValP = ParamFile \\\"a\\\"}\"),(\"param\",String \"txt\"),(\"expected\",String \"PtText\")]))})"
+
 
 
     -- ---------------------------------
@@ -182,7 +186,8 @@ dispatcherSpec = do
                                                        ])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
-      (show r) `shouldBe` "IdeResponseFail (String \"parameter type mismatch for 'fileo', expected PtFile but got ParamValP {unParamValP = ParamText \\\"f\\\"}\")"
+      (show r) `shouldBe`
+        "IdeResponseFail (IdeError {ideCode = IncorrectParameterType, ideMessage = \"got wrong parameter type for `fileo`, expected: PtFile , got:ParamValP {unParamValP = ParamText \\\"f\\\"}\", ideInfo = Just (Object (fromList [(\"value\",String \"ParamValP {unParamValP = ParamText \\\"f\\\"}\"),(\"param\",String \"fileo\"),(\"expected\",String \"PtFile\")]))})"
 
 -- ---------------------------------------------------------------------
 

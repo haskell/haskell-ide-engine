@@ -38,7 +38,8 @@ ghcmodSpec = do
     it "runs the types command, incorrect params" $ do
       let req = IdeRequest "types" (Map.fromList [("file", ParamFileP "./test/testdata/FileWithWarning.hs")])
       r <- runIdeM (IdeState Map.empty) (typesCmd [] req)
-      (show r) `shouldBe` "IdeResponseFail (String \"need `\\\"start_pos\\\"` parameter\")"
+      (show r) `shouldBe`
+        "IdeResponseFail (IdeError {ideCode = MissingParameter, ideMessage = \"need `start_pos` parameter\", ideInfo = Just (String \"start_pos\")})"
 
     it "runs the types command, correct params" $ do
       let req = IdeRequest "types" (Map.fromList [("file", ParamFileP "./test/testdata/HaReRename.hs")

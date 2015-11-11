@@ -43,4 +43,5 @@ hareSpec = do
                                                   ,("start_pos",ParamValP $ ParamPos (15,1))
                                                   ,("name",ParamValP $ ParamText "foolong")])
       r <- runIdeM (IdeState Map.empty) (renameCmd [] req)
-      (show r) `shouldBe` "IdeResponseFail (String \"Invalid cursor position!\")"
+      (show r) `shouldBe`
+        "IdeResponseFail (IdeError {ideCode = PluginError, ideMessage = \"rename: \\\"Invalid cursor position!\\\"\", ideInfo = Nothing})"

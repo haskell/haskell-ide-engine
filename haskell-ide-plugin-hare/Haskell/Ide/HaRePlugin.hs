@@ -44,13 +44,15 @@ renameCmd _ctxs req = do
     Right (ParamFile fileName :& ParamPos pos :& ParamText name :& RNil) -> do
       res <- liftIO $ catchException $ rename defaultSettings GM.defaultOptions (T.unpack fileName) (T.unpack name) pos
       case res of
-        Left err -> return (IdeResponseFail (toJSON err))
+        Left err -> return $ IdeResponseFail (IdeError PluginError
+                      (T.pack $ "rename: " ++ show err) Nothing)
         Right fs -> do
           fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
           return (IdeResponseOk (toJSON fs'))
-    Right _ -> error $ "HarePlugin.renameCmd: ghc’s exhaustiveness checker is broken"
+    Right _ -> return $ IdeResponseError (IdeError InternalError
+      "HaRePlugin.renameCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
--- rename :: RefactSettings -> Options -> FilePath -> String -> SimpPos -> IO [FilePath] 
+-- rename :: RefactSettings -> Options -> FilePath -> String -> SimpPos -> IO [FilePath]
 
 -- ---------------------------------------------------------------------
 
