@@ -27,7 +27,7 @@ dispatcher cin = do
   forever $ do
     debugm "run:top of loop"
     req <- liftIO $ readChan cin
-    --debugm $ "main loop:got:" ++ show req
+    debugm $ "main loop:got:" ++ show req
     resp <- doDispatch plugins req
     let cr = CResp (cinPlugin req) (cinReqId req) resp
     liftIO $ writeChan (cinReplyChan req) cr

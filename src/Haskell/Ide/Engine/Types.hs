@@ -19,7 +19,7 @@ data ChannelRequest = CReq
                               -- ChannelResponse.
   , cinReq       :: IdeRequest
   , cinReplyChan :: Chan ChannelResponse
-  } -- deriving Show
+  }  deriving Show
 
 instance Show (Chan ChannelResponse) where
   show _ = "(Chan ChannelResponse)"
@@ -28,4 +28,4 @@ data ChannelResponse = CResp
   { couPlugin :: PluginId
   , coutReqId :: RequestId
   , coutResp  :: IdeResponse Object
-  } -- deriving Show
+  }  deriving Show
