@@ -108,8 +108,8 @@ checkCmd _ctxs req = do
 
 -- ---------------------------------------------------------------------
 
--- TODO: Will probably have to define a directory to base the search from, once
---       the stateless server patch comes in.
+-- TODO: Must define a directory to base the search from, to be able to resolve
+-- the project root.
 findCmd :: CommandFunc
 findCmd _ctxs req = do
   case getParams (IdText "symbol" :& RNil) req of
@@ -119,7 +119,7 @@ findCmd _ctxs req = do
       -- dir <- liftIO getCurrentDirectory
       -- return (IdeResponseOk (String $ T.pack dir))
       -- return (IdeResponseOk (String $ _symbol))
-      return (IdeResponseOk (String $ "Need to debug this in ghc-mod, returns 'does not exist (No such file or directory)'"))
+      return (IdeResponseOk (String $ "Placholder:Need to debug this in ghc-mod, returns 'does not exist (No such file or directory)'"))
     Right x -> error $ "GhcModPlugin.findCmd: got unexpected param:" ++ show x
 
 -- ---------------------------------------------------------------------
