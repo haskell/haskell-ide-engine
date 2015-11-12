@@ -198,7 +198,7 @@ data IdeResponse = IdeResponseOk    Value    -- ^ Command Succeeded
                                              -- haskell-ide-engine
                                              -- driver. Equivalent to HTTP 500
                                              -- status
-                 deriving (Show,Generic)
+                 deriving (Show,Generic,Eq)
 
 -- | Error codes. Add as required
 data IdeErrorCode = IncorrectParameterType  -- ^ Wrong parameter type
