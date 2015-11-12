@@ -4,7 +4,6 @@
 module Haskell.Ide.Engine.BasePlugin where
 
 import           Control.Monad
-import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Foldable
 import           Data.List
@@ -20,7 +19,6 @@ import           Haskell.Ide.Engine.PluginUtils
 import           Options.Applicative.Simple (simpleVersion)
 import qualified Paths_haskell_ide_engine as Meta
 import           Prelude hiding (log)
-import           System.Directory
 
 -- ---------------------------------------------------------------------
 
@@ -70,26 +68,6 @@ baseDescriptor = PluginDescriptor
                         }
           , cmdFunc = commandDetailCmd
           }
-      , Command
-          { cmdDesc = CommandDesc
-                        { cmdName = "pwd"
-                        , cmdUiDescription = "return the current working directory for the HIE process"
-                        , cmdFileExtensions = []
-                        , cmdContexts = [CtxNone]
-                        , cmdAdditionalParams = []
-                        }
-          , cmdFunc = pwdCmd
-          }
-      , Command
-          { cmdDesc = CommandDesc
-                        { cmdName = "cwd"
-                        , cmdUiDescription = "change the current working directory for the HIE process"
-                        , cmdFileExtensions = []
-                        , cmdContexts = [CtxNone]
-                        , cmdAdditionalParams = [RP "dir" "the new working directory" PtFile]
-                       }
-          , cmdFunc = cwdCmd
-          }
       ]
   , pdExposedServices = []
   , pdUsedServices    = []
@@ -135,21 +113,6 @@ commandDetailCmd _ req = do
           Just detail -> return (IdeResponseOk (cmdDesc detail))
     Right _ -> return (IdeResponseError (IdeError
                 InternalError "commandDetailCmd: ghc’s exhaustiveness checker is broken" Nothing))
-
-
-pwdCmd :: CommandFunc String
-pwdCmd _ _ = do
-  dir <- liftIO $ getCurrentDirectory
-  return (IdeResponseOk (dir))
-
-cwdCmd :: CommandFunc ()
-cwdCmd _ req = do
-  case Map.lookup "dir" (ideParams req) of
-    Nothing -> return $ missingParameter "dir"
-    Just (ParamFileP dir) -> do
-      liftIO $ setCurrentDirectory (T.unpack dir)
-      return (IdeResponseOk ())
-    Just x -> return $ incorrectParameter "dir" ("ParamFile"::String) x
 
 -- ---------------------------------------------------------------------
 

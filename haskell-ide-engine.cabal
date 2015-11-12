@@ -66,6 +66,7 @@ executable hie
                      , Cabal >= 1.22
                      , aeson
                      , containers
+                     , directory
                      , ghc
                      , ghc-mod
                      , gitrev >= 1.1
