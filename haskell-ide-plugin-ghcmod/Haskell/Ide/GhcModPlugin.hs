@@ -7,7 +7,6 @@ import           Control.Exception
 import           Data.Vinyl
 -- import           Control.Monad
 import           Control.Monad.IO.Class
-import           Data.Aeson
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Data.Text as T
@@ -50,7 +49,7 @@ ghcmodDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-checkCmd :: CommandFunc
+checkCmd :: CommandFunc String
 checkCmd _ctxs req = do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
@@ -61,7 +60,7 @@ checkCmd _ctxs req = do
 
 -- ---------------------------------------------------------------------
 
-typesCmd :: CommandFunc
+typesCmd :: CommandFunc String
 typesCmd _ctxs req = do
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
@@ -73,14 +72,14 @@ typesCmd _ctxs req = do
 -- ---------------------------------------------------------------------
 
 -- doCheck :: (MonadIO m,GHC.GhcMonad m,HasIdeState m) => FilePath -> m IdeResponse
-doCheck :: FilePath -> IO IdeResponse
+doCheck :: FilePath -> IO (IdeResponse String)
 -- doCheck :: GHC.GhcMonad m => FilePath -> m IdeResponse
 doCheck fileName = runGhcModCommand (GM.checkSyntax [fileName])
 
 -- ---------------------------------------------------------------------
 
 -- TODO: Need to thread the session through as in the commented out code below.
-runGhcModCommand :: (ToJSON a) => GM.GmT (GM.GmOutT (GM.GmOutT IO)) a -> IO IdeResponse
+runGhcModCommand :: (ValidResponse a) => GM.GmT (GM.GmOutT (GM.GmOutT IO)) a -> IO (IdeResponse a)
 runGhcModCommand cmd = do
   let opts = GM.defaultOptions
   -- s <- GHC.getSession
@@ -99,7 +98,7 @@ runGhcModCommand cmd = do
     Left e -> return $ IdeResponseError (IdeError PluginError (T.pack $ "doCheck:got " ++ show e) Nothing)
     Right (checkResult,_s3) -> do
       -- GHC.setSession s3
-      return $ (IdeResponseOk (toJSON checkResult))
+      return $ (IdeResponseOk checkResult)
 
 {-
 dispatcher = runGmlT $ forever $ do

@@ -17,7 +17,6 @@
 --
 -- It should define the following things
 --  1. What features the plugin should expose into the IDE
---  2. What resources it requires access to in order to do this
 --       (this one may not be needed initially)
 --
 --       This may include a requirement to store private data of a particular
@@ -34,6 +33,7 @@ import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Aeson.Types
 import qualified Data.Map as Map
+import qualified Data.HashMap.Strict as H
 import qualified Data.Text as T
 import qualified GHC
 import           GHC.Generics
@@ -44,21 +44,29 @@ data PluginDescriptor = PluginDescriptor
   { pdCommands        :: [Command]
   , pdExposedServices :: [Service]
   , pdUsedServices    :: [Service]
-  } deriving (Show)
+  }
 
+instance Show PluginDescriptor where
+  showsPrec p (PluginDescriptor cmds svcs used) = showParen (p > 10) $
+      showString "PluginDescriptor " .
+      showList cmds .
+      showString " " .
+      showList svcs .
+      showString " " .
+      showList used
 
--- |Ideally a Command is defined in such a way that it can be exposed via the
+-- | Ideally a Command is defined in such a way that it can be exposed via the
 -- native CLI for the tool being exposed as well. Perhaps use
 -- Options.Applicative for this in some way.
-data Command = Command
+data Command = forall a .(ValidResponse a) => Command
   { cmdDesc :: !CommandDescriptor
-  , cmdFunc :: !CommandFunc
+  , cmdFunc :: !(CommandFunc a)
   }
 
 instance Show Command where
   show (Command desc _func) = "(Command " ++ show desc ++ ")"
 
--- |Descriptor for a command. This is intended to be transferred to the IDE, so
+-- | Descriptor for a command. This is intended to be transferred to the IDE, so
 -- the IDE can integrate it into it's UI, and then send requests through to HIE.
 data CommandDescriptor = CommandDesc
   { cmdName :: !CommandName -- ^As returned in the 'IdeRequest'
@@ -66,7 +74,7 @@ data CommandDescriptor = CommandDesc
   , cmdFileExtensions :: ![T.Text] -- ^ File extensions this command can be applied to
   , cmdContexts :: ![AcceptedContext] -- TODO: should this be a non empty list? or should empty list imply CtxNone.
   , cmdAdditionalParams :: ![ParamDescription]
-  } deriving (Show,Generic)
+  } deriving (Show,Eq,Generic)
 
 type CommandName = T.Text
 
@@ -101,7 +109,7 @@ data ParamDescription
       , pHelp :: !ParamHelp
       , pType :: !ParamType
       } -- ^ Optional parameter
-  deriving (Show,Generic)
+  deriving (Show,Eq,Generic)
 
 type ParamHelp = T.Text
 type ParamName = T.Text
@@ -188,17 +196,29 @@ data ParamVal (t :: ParamType) where
   ParamFile :: T.Text -> ParamVal 'PtFile
   ParamPos :: (Int,Int) -> ParamVal 'PtPos
 
+-- | The typeclass for valid response types
+class (Eq a) => ValidResponse a where
+  jsWrite :: a -> Object -- ^ Serialize to JSON Object
+  jsRead  :: Object -> Parser a -- ^ Read from JSON Object
+
 
 -- TODO: should probably be able to return a plugin-specific type. Not sure how
 -- to encode it. Perhaps as an instance of a class which says it can be encoded
 -- on the wire.
-data IdeResponse = IdeResponseOk    Value    -- ^ Command Succeeded
-                 | IdeResponseFail  IdeError -- ^ Command Failed
-                 | IdeResponseError IdeError -- ^ Some error in
-                                             -- haskell-ide-engine
-                                             -- driver. Equivalent to HTTP 500
-                                             -- status
-                 deriving (Show,Generic)
+data (ValidResponse resp) =>
+  IdeResponse resp = IdeResponseOk resp    -- ^ Command Succeeded
+                   | IdeResponseFail  IdeError -- ^ Command Failed
+                   | IdeResponseError IdeError -- ^ Some error in
+                                               -- haskell-ide-engine
+                                               -- driver. Equivalent to HTTP 500
+                                               -- status
+                 deriving (Show,Eq)
+
+-- | Map an IdeResponse content. Of course we can only map to ValidResponse
+imap :: (ValidResponse a,ValidResponse b) => (a -> b) -> IdeResponse a -> IdeResponse b
+imap f (IdeResponseOk a) = IdeResponseOk $ f a
+imap _ (IdeResponseFail e) = IdeResponseFail e
+imap _ (IdeResponseError e) = IdeResponseError e
 
 -- | Error codes. Add as required
 data IdeErrorCode = IncorrectParameterType  -- ^ Wrong parameter type
@@ -232,13 +252,57 @@ class (Monad m) => HasIdeState m where
   -- down to ghc-mod setTargets.
   setTargets :: [FilePath] -> m ()
 
--- |The 'CommandFunc' is called once the dispatcher has checked that it
+-- | The 'CommandFunc' is called once the dispatcher has checked that it
 -- satisfies at least one of the `AcceptedContext` values for the command
 -- descriptor, and has all the required parameters. Where a command has only one
 -- allowed context the supplied context list does not add much value, but allows
 -- easy case checking when multiple contexts are supported.
-type CommandFunc = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m)
-                => [AcceptedContext] -> IdeRequest -> m IdeResponse
+type CommandFunc resp = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m)
+                => [AcceptedContext] -> IdeRequest -> m (IdeResponse resp)
+
+-- ---------------------------------------------------------------------
+-- ValidResponse instances
+
+instance ValidResponse String where
+  jsWrite s = H.fromList ["response" .= toJSON s]
+  jsRead o = o .: "response"
+
+instance ValidResponse T.Text where
+  jsWrite s = H.fromList ["response" .= toJSON s]
+  jsRead o = o .: "response"
+
+instance ValidResponse [String] where
+  jsWrite ss = H.fromList ["responses" .= toJSON ss]
+  jsRead o = o .: "responses"
+
+instance ValidResponse [T.Text] where
+  jsWrite ss = H.fromList ["responses" .= toJSON ss]
+  jsRead o = o .: "responses"
+
+instance ValidResponse () where
+  jsWrite _ = H.fromList ["response" .= String "ok"]
+  jsRead o = do
+      r <- o .: "response"
+      if r == String "ok"
+        then pure ()
+        else empty
+
+instance ValidResponse Object where
+  jsWrite = id
+  jsRead = pure
+
+instance ValidResponse CommandDescriptor where
+  jsWrite cmdDescriptor = H.fromList [ "name" .= cmdName cmdDescriptor
+                                  , "ui_description" .= cmdUiDescription cmdDescriptor
+                                  , "file_extensions" .= cmdFileExtensions cmdDescriptor
+                                  , "contexts" .= cmdContexts cmdDescriptor
+                                  , "additional_params" .= cmdAdditionalParams cmdDescriptor ]
+  jsRead v =
+        CommandDesc <$> v .: "name"
+                    <*> v .: "ui_description"
+                    <*> v .: "file_extensions"
+                    <*> v .: "contexts"
+                    <*> v .: "additional_params"
 
 -- ---------------------------------------------------------------------
 -- JSON instances
@@ -324,19 +388,10 @@ instance FromJSON ParamDescription where
 -- -------------------------------------
 
 instance ToJSON CommandDescriptor where
-    toJSON cmdDescriptor = object [ "name" .= cmdName cmdDescriptor
-                                  , "ui_description" .= cmdUiDescription cmdDescriptor
-                                  , "file_extensions" .= cmdFileExtensions cmdDescriptor
-                                  , "contexts" .= cmdContexts cmdDescriptor
-                                  , "additional_params" .= cmdAdditionalParams cmdDescriptor ]
+    toJSON  = Object . jsWrite
 
 instance FromJSON CommandDescriptor where
-    parseJSON (Object v) =
-      CommandDesc <$> v .: "name"
-                  <*> v .: "ui_description"
-                  <*> v .: "file_extensions"
-                  <*> v .: "contexts"
-                  <*> v .: "additional_params"
+    parseJSON (Object v) = jsRead v
     parseJSON _ = empty
 
 -- -------------------------------------
@@ -379,19 +434,23 @@ instance FromJSON IdeError where
 
 -- -------------------------------------
 
-instance ToJSON IdeResponse where
+instance (ValidResponse a) => ToJSON (IdeResponse a) where
     toJSON (IdeResponseOk v) = object [ "tag" .= String "ok"
-                                      , "contents" .= toJSON v ]
+                                      , "contents" .= toJSON (jsWrite v) ]
     toJSON (IdeResponseFail v) = object [ "tag" .= String "fail"
                                         , "contents" .= toJSON v ]
     toJSON (IdeResponseError v) = object [ "tag" .= String "error"
                                          , "contents" .= toJSON v ]
 
-instance FromJSON IdeResponse where
+instance (ValidResponse a) => FromJSON (IdeResponse a) where
     parseJSON (Object v) = do
       tag <- v .: "tag" :: Parser T.Text
       case tag of
-        "ok" -> IdeResponseOk <$> v .: "contents"
+        "ok" -> do
+          cnts <- v .: "contents"
+          case cnts of
+            (Object v2) -> IdeResponseOk <$> jsRead v2
+            _ -> empty
         "fail" -> IdeResponseFail <$> v .: "contents"
         "error" -> IdeResponseError <$> v .: "contents"
         _ -> empty

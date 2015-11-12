@@ -97,15 +97,15 @@ baseDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-versionCmd :: CommandFunc
-versionCmd _ _ = return (IdeResponseOk (String $ T.pack version))
+versionCmd :: CommandFunc String
+versionCmd _ _ = return (IdeResponseOk version)
 
-pluginsCmd :: CommandFunc
+pluginsCmd :: CommandFunc [PluginId]
 pluginsCmd _ _ = do
   plugins <- getPlugins
-  return (IdeResponseOk (toJSON $ Map.keys plugins))
+  return (IdeResponseOk (Map.keys plugins))
 
-commandsCmd :: CommandFunc
+commandsCmd :: CommandFunc [CommandName]
 commandsCmd _ req = do
   plugins <- getPlugins
   -- TODO: Use Maybe Monad. What abut error reporting?
@@ -115,10 +115,10 @@ commandsCmd _ req = do
       Nothing -> return (IdeResponseFail (IdeError
                   UnknownPlugin ("Can't find plugin:" <> p )
                   (Just $ toJSON $ p)))
-      Just pl -> return (IdeResponseOk (toJSON $ map (cmdName . cmdDesc) $ pdCommands pl))
+      Just pl -> return (IdeResponseOk (map (cmdName . cmdDesc) $ pdCommands pl))
     Just x -> return $ incorrectParameter "plugin" ("ParamText"::String) x
 
-commandDetailCmd :: CommandFunc
+commandDetailCmd :: CommandFunc CommandDescriptor
 commandDetailCmd _ req = do
   plugins <- getPlugins
   case getParams (IdText "plugin" :& IdText "command" :& RNil) req of
@@ -132,23 +132,23 @@ commandDetailCmd _ req = do
           Nothing -> return (IdeResponseError (IdeError
                       UnknownCommand ("Can't find command:" <> command )
                       (Just $ toJSON $ command)))
-          Just detail -> return (IdeResponseOk (toJSON (cmdDesc detail)))
+          Just detail -> return (IdeResponseOk (cmdDesc detail))
     Right _ -> return (IdeResponseError (IdeError
                 InternalError "commandDetailCmd: ghc’s exhaustiveness checker is broken" Nothing))
 
 
-pwdCmd :: CommandFunc
+pwdCmd :: CommandFunc String
 pwdCmd _ _ = do
   dir <- liftIO $ getCurrentDirectory
-  return (IdeResponseOk (String $ T.pack dir))
+  return (IdeResponseOk (dir))
 
-cwdCmd :: CommandFunc
+cwdCmd :: CommandFunc ()
 cwdCmd _ req = do
   case Map.lookup "dir" (ideParams req) of
     Nothing -> return $ missingParameter "dir"
     Just (ParamFileP dir) -> do
       liftIO $ setCurrentDirectory (T.unpack dir)
-      return (IdeResponseOk Null)
+      return (IdeResponseOk ())
     Just x -> return $ incorrectParameter "dir" ("ParamFile"::String) x
 
 -- ---------------------------------------------------------------------

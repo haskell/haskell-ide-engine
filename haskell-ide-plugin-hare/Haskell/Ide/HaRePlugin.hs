@@ -4,7 +4,6 @@ module Haskell.Ide.HaRePlugin where
 
 import           Control.Exception
 import           Control.Monad.IO.Class
-import           Data.Aeson
 import qualified Data.Text as T
 import           Data.Vinyl
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -37,7 +36,7 @@ hareDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-renameCmd :: CommandFunc
+renameCmd :: CommandFunc [FilePath]
 renameCmd _ctxs req = do
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdText "name" :& RNil) req of
     Left err -> return err
@@ -48,7 +47,7 @@ renameCmd _ctxs req = do
                       (T.pack $ "rename: " ++ show err) Nothing)
         Right fs -> do
           fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
-          return (IdeResponseOk (toJSON fs'))
+          return (IdeResponseOk fs')
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.renameCmd: ghc’s exhaustiveness checker is broken" Nothing)
 

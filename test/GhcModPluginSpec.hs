@@ -33,7 +33,7 @@ ghcmodSpec = do
     it "runs the check command" $ do
       let req = IdeRequest "check" (Map.fromList [("file", ParamFileP "./test/testdata/FileWithWarning.hs")])
       r <- runIdeM (IdeState Map.empty) (checkCmd [] req)
-      (show r) `shouldBe` "IdeResponseOk (String \"test/testdata/FileWithWarning.hs:4:7:Not in scope: \\8216x\\8217\\n\")"
+      r `shouldBe` IdeResponseOk "test/testdata/FileWithWarning.hs:4:7:Not in scope: \8216x\8217\n"
 
     it "runs the types command, incorrect params" $ do
       let req = IdeRequest "types" (Map.fromList [("file", ParamFileP "./test/testdata/FileWithWarning.hs")])
@@ -45,4 +45,4 @@ ghcmodSpec = do
       let req = IdeRequest "types" (Map.fromList [("file", ParamFileP "./test/testdata/HaReRename.hs")
                                                  ,("start_pos", ParamPosP (5,9))])
       r <- runIdeM (IdeState Map.empty) (typesCmd [] req)
-      (show r) `shouldBe` "IdeResponseOk (String \"5 9 5 10 \\\"Int\\\"\\n5 9 5 14 \\\"Int\\\"\\n5 1 5 14 \\\"Int -> Int\\\"\\n\")"
+      r `shouldBe` IdeResponseOk "5 9 5 10 \"Int\"\n5 9 5 14 \"Int\"\n5 1 5 14 \"Int -> Int\"\n"

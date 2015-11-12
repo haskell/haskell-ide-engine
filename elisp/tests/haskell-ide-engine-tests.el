@@ -165,7 +165,8 @@ This is a workaround for http://debbugs.gnu.org/cgi/bugreport.cgi?bug=15990."
 
    (should (equal '(tag . "Ok") (assq 'tag response)))
    (should (assq 'contents response))
-   (should (member "version" (assq 'contents response)))))
+   (should (assq 'responses (assq 'contents response)))
+   (should (member "version" (assq 'responses (assq 'contents response))))))
 
 (haskell-ide-engine-define-test
  haskell-ide-engine-can-list-command-details-for-base-plugins

@@ -6,7 +6,6 @@ import Haskell.Ide.Engine.PluginDescriptor
 import Haskell.Ide.Engine.PluginUtils
 
 import           Control.Monad.IO.Class
-import           Data.Aeson
 import           Data.Monoid
 import qualified Data.Map as Map
 import qualified Data.Text as T
@@ -45,16 +44,16 @@ example2Descriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-sayHelloCmd :: CommandFunc
-sayHelloCmd _  _ = return (IdeResponseOk (String sayHello))
+sayHelloCmd :: CommandFunc T.Text
+sayHelloCmd _  _ = return (IdeResponseOk sayHello)
 
-sayHelloToCmd :: CommandFunc
+sayHelloToCmd :: CommandFunc T.Text
 sayHelloToCmd _ req = do
   case Map.lookup "name" (ideParams req) of
-    Nothing -> return $  missingParameter "name"
+    Nothing -> return $ missingParameter "name"
     Just (ParamTextP n) -> do
       r <- liftIO $ sayHelloTo n
-      return $ IdeResponseOk (String r)
+      return $ IdeResponseOk r
     Just x -> return $ incorrectParameter "name" ("ParamText"::String) x
 
 -- ---------------------------------------------------------------------
