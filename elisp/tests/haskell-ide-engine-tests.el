@@ -148,7 +148,11 @@ http://debbugs.gnu.org/cgi/bugreport.cgi?bug=15990."
    (should response)
 
    (should (equal '(tag . "Ok") (assq 'tag response)))
-   (should (assq 'contents response))))
+   (should (assq 'contents response))
+   (should (assq 'base (assq 'contents response)))
+   (should (assq 'commands (assq 'base (assq 'contents response))))
+   (should (cl-find-if (lambda (item) (equal '(name . "version") (assq 'name item)))
+                       (cdr (assq 'commands (assq 'base (assq 'contents response))))))))
 
 (haskell-ide-engine-define-test
  haskell-ide-engine-can-list-commands-for-base
