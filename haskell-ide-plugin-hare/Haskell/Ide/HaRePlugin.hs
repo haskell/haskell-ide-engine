@@ -48,27 +48,27 @@ hareDescriptor = PluginDescriptor
                      , cmdContexts = [CtxRegion]
                      , cmdAdditionalParams = []
                      }
-          , cmdFunc = ifToCaseCmd
+          , cmdFunc = iftocaseCmd
           }
       , Command
           { cmdDesc = CommandDesc
-                     { cmdName = "liftOneLevel"
+                     { cmdName = "liftonelevel"
                      , cmdUiDescription = "Move a definition one level up from where it is now"
                      , cmdFileExtensions = [".hs"]
                      , cmdContexts = [CtxPoint]
                      , cmdAdditionalParams = []
                      }
-          , cmdFunc = liftOneLevelCmd
+          , cmdFunc = liftonelevelCmd
           }
       , Command
           { cmdDesc = CommandDesc
-                     { cmdName = "liftToTopLevel"
+                     { cmdName = "lifttotoplevel"
                      , cmdUiDescription = "Move a definition to the top level from where it is now"
                      , cmdFileExtensions = [".hs"]
                      , cmdContexts = [CtxPoint]
                      , cmdAdditionalParams = []
                      }
-          , cmdFunc = liftToTopLevelCmd
+          , cmdFunc = lifttotoplevelCmd
           }
       , Command
           { cmdDesc = CommandDesc
@@ -125,8 +125,8 @@ dupdefCmd _ctxs req = do
 
 -- ---------------------------------------------------------------------
 
-ifToCaseCmd :: CommandFunc
-ifToCaseCmd _ctxs req = do
+iftocaseCmd :: CommandFunc
+iftocaseCmd _ctxs req = do
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdPos "end_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos start :& ParamPos end :& RNil) -> do
@@ -144,8 +144,8 @@ ifToCaseCmd _ctxs req = do
 
 -- ---------------------------------------------------------------------
 
-liftOneLevelCmd :: CommandFunc
-liftOneLevelCmd _ctxs req = do
+liftonelevelCmd :: CommandFunc
+liftonelevelCmd _ctxs req = do
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& RNil) -> do
@@ -163,8 +163,8 @@ liftOneLevelCmd _ctxs req = do
 
 -- ---------------------------------------------------------------------
 
-liftToTopLevelCmd :: CommandFunc
-liftToTopLevelCmd _ctxs req = do
+lifttotoplevelCmd :: CommandFunc
+lifttotoplevelCmd _ctxs req = do
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& RNil) -> do

@@ -97,7 +97,7 @@ hareSpec = do
 
     it "lifts one level" $ do
 
-      let req = IdeRequest "liftOneLevel" (Map.fromList [("file",ParamValP $ ParamFile "./test/testdata/HaReMoveDef.hs")
+      let req = IdeRequest "liftonelevel" (Map.fromList [("file",ParamValP $ ParamFile "./test/testdata/HaReMoveDef.hs")
                                                     ,("start_pos",ParamValP $ ParamPos (6,5))])
       r <- dispatchRequest req
       r `shouldBe` IdeResponseOk (toJSON [String "test/testdata/HaReMoveDef.hs"])
@@ -106,7 +106,7 @@ hareSpec = do
 
     it "lifts to top level" $ do
 
-      let req = IdeRequest "liftToTopLevel" (Map.fromList [("file",ParamValP $ ParamFile "./test/testdata/HaReMoveDef.hs")
+      let req = IdeRequest "lifttotoplevel" (Map.fromList [("file",ParamValP $ ParamFile "./test/testdata/HaReMoveDef.hs")
                                                           ,("start_pos",ParamValP $ ParamPos (12,9))])
       r <- dispatchRequest req
       r `shouldBe` IdeResponseOk (toJSON [String "test/testdata/HaReMoveDef.hs"])
