@@ -46,7 +46,9 @@ dispatchRequest req = do
 hareSpec :: Spec
 hareSpec = do
   describe "hare plugin commands" $ do
+
     -- ---------------------------------
+
     it "renames" $ do
 
       let req = IdeRequest "rename" (Map.fromList [("file",ParamValP $ ParamFile "./test/testdata/HaReRename.hs")
@@ -54,6 +56,8 @@ hareSpec = do
                                                   ,("name",ParamValP $ ParamText "foolong")])
       r <- dispatchRequest req
       r `shouldBe` IdeResponseOk (H.fromList ["responses" .= ["test/testdata/HaReRename.hs"::FilePath]])
+
+    -- ---------------------------------
 
     it "returns an error for invalid rename" $ do
       let req = IdeRequest "rename" (Map.fromList [("file",ParamValP $ ParamFile "./test/testdata/HaReRename.hs")

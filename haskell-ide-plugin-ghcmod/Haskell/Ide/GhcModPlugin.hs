@@ -7,13 +7,12 @@ import           Control.Exception
 import           Data.Vinyl
 -- import           Control.Monad
 import           Control.Monad.IO.Class
+import qualified Data.Text as T
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
-import qualified Data.Text as T
--- import qualified GHC as GHC
 import qualified Language.Haskell.GhcMod as GM
--- import qualified Language.Haskell.GhcMod.Types as GM
 import qualified Language.Haskell.GhcMod.Monad as GM
+-- import           System.Directory
 
 -- ---------------------------------------------------------------------
 
@@ -34,18 +33,67 @@ ghcmodDescriptor = PluginDescriptor
           }
       , Command
           { cmdDesc = CommandDesc
-                     { cmdName = "types"
+                     { cmdName = "lint"
+                     , cmdUiDescription = "Check files using `hlint'"
+                     , cmdFileExtensions = [".hs",".lhs"]
+                     , cmdContexts = [CtxFile]
+                     , cmdAdditionalParams = []
+                     }
+          , cmdFunc = lintCmd
+          }
+      , Command
+          { cmdDesc = CommandDesc
+                     { cmdName = "find"
+                     , cmdUiDescription = "List all modules that define SYMBOL"
+                     , cmdFileExtensions = [".hs",".lhs"]
+                     , cmdContexts = [CtxProject]
+                     , cmdAdditionalParams = [RP "symbol" "The SYMBOL to look up" PtText]
+                     }
+          , cmdFunc = findCmd
+          }
+      , Command
+          { cmdDesc = CommandDesc
+                     { cmdName = "info"
+                     , cmdUiDescription = "Look up an identifier in the context of FILE (like ghci's `:info')"
+                     , cmdFileExtensions = [".hs",".lhs"]
+                     , cmdContexts = [CtxFile]
+                     , cmdAdditionalParams = [RP "expr" "The EXPR to provide info on" PtText]
+                     }
+          , cmdFunc = infoCmd
+          }
+      , Command
+          { cmdDesc = CommandDesc
+                     { cmdName = "type"
                      , cmdUiDescription = "Get the type of the expression under (LINE,COL)"
                      , cmdFileExtensions = [".hs",".lhs"]
                      , cmdContexts = [CtxPoint]
                      , cmdAdditionalParams = []
                      }
-          , cmdFunc = typesCmd
+          , cmdFunc = typeCmd
           }
       ]
   , pdExposedServices = []
   , pdUsedServices    = []
   }
+{-
+        "check"  -> checkSyntaxCmd [arg]
+        "lint"   -> lintCmd [arg]
+        "find"    -> do
+            db <- getDb symdbreq >>= checkDb symdbreq
+            lookupSymbol arg db
+
+        "info"   -> infoCmd [head args, concat $ tail args']
+        "type"   -> typesCmd args
+        "split"  -> splitsCmd args
+
+        "sig"    -> sigCmd args
+        "auto"   -> autoCmd args
+        "refine" -> refineCmd args
+
+        "boot"   -> bootCmd []
+        "browse" -> browseCmd args
+
+-}
 
 -- ---------------------------------------------------------------------
 
@@ -54,27 +102,59 @@ checkCmd _ctxs req = do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
-      liftIO $ doCheck (T.unpack fileName)
+      liftIO $ runGhcModCommand (GM.checkSyntax [T.unpack fileName])
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.checkCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
 -- ---------------------------------------------------------------------
 
-typesCmd :: CommandFunc String
-typesCmd _ctxs req = do
+-- TODO: Must define a directory to base the search from, to be able to resolve
+-- the project root.
+findCmd :: CommandFunc String
+findCmd _ctxs req = do
+  case getParams (IdText "symbol" :& RNil) req of
+    Left err -> return err
+    Right (ParamText _symbol :& RNil) -> do
+      -- liftIO $ runGhcModCommand (GM.findSymbol (T.unpack symbol))
+      -- dir <- liftIO getCurrentDirectory
+      -- return (IdeResponseOk (String $ T.pack dir))
+      -- return (IdeResponseOk (String $ _symbol))
+      return (IdeResponseOk "Placholder:Need to debug this in ghc-mod, returns 'does not exist (No such file or directory)'")
+    Right _ -> return $ IdeResponseError (IdeError InternalError
+      "GhcModPlugin.findCmd: ghc’s exhaustiveness checker is broken" Nothing)
+
+-- ---------------------------------------------------------------------
+
+lintCmd :: CommandFunc String
+lintCmd _ctxs req = do
+  case getParams (IdFile "file" :& RNil) req of
+    Left err -> return err
+    Right (ParamFile fileName :& RNil) -> do
+      liftIO $ runGhcModCommand (GM.lint (T.unpack fileName))
+    Right _ -> return $ IdeResponseError (IdeError InternalError
+      "GhcModPlugin.lintCmd: ghc’s exhaustiveness checker is broken" Nothing)
+
+-- ---------------------------------------------------------------------
+
+infoCmd :: CommandFunc String
+infoCmd _ctxs req = do
+  case getParams (IdFile "file" :& IdText "expr" :& RNil) req of
+    Left err -> return err
+    Right (ParamFile fileName :& ParamText expr :& RNil) -> do
+      liftIO $ runGhcModCommand (GM.info (T.unpack fileName) (GM.Expression (T.unpack expr)))
+    Right _ -> return $ IdeResponseError (IdeError InternalError
+      "GhcModPlugin.infoCmd: ghc’s exhaustiveness checker is broken" Nothing)
+
+-- ---------------------------------------------------------------------
+
+typeCmd :: CommandFunc String
+typeCmd _ctxs req = do
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos (r,c) :& RNil) -> do
       liftIO $ runGhcModCommand (GM.types (T.unpack fileName) r c)
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.typesCmd: ghc’s exhaustiveness checker is broken" Nothing)
-
--- ---------------------------------------------------------------------
-
--- doCheck :: (MonadIO m,GHC.GhcMonad m,HasIdeState m) => FilePath -> m IdeResponse
-doCheck :: FilePath -> IO (IdeResponse String)
--- doCheck :: GHC.GhcMonad m => FilePath -> m IdeResponse
-doCheck fileName = runGhcModCommand (GM.checkSyntax [fileName])
 
 -- ---------------------------------------------------------------------
 

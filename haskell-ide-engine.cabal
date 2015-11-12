@@ -97,6 +97,7 @@ test-suite haskell-ide-test
                      , aeson
                      , containers
                      , unordered-containers
+                     , directory
                      , haskell-ide-engine
                      , haskell-ide-plugin-api
                      , haskell-ide-plugin-hare
