@@ -202,23 +202,20 @@ class (Eq a) => ValidResponse a where
   jsRead  :: Object -> Parser a -- ^ Read from JSON Object
 
 
--- TODO: should probably be able to return a plugin-specific type. Not sure how
--- to encode it. Perhaps as an instance of a class which says it can be encoded
--- on the wire.
-data (ValidResponse resp) =>
-  IdeResponse resp = IdeResponseOk resp    -- ^ Command Succeeded
-                   | IdeResponseFail  IdeError -- ^ Command Failed
-                   | IdeResponseError IdeError -- ^ Some error in
+-- | The IDE response, with the type of response it contains
+data IdeResponse resp = IdeResponseOk resp    -- ^ Command Succeeded
+                      | IdeResponseFail  IdeError -- ^ Command Failed
+                      | IdeResponseError IdeError -- ^ Some error in
                                                -- haskell-ide-engine
                                                -- driver. Equivalent to HTTP 500
                                                -- status
-                 deriving (Show,Eq)
+                 deriving (Show,Eq,Generic)
 
--- | Map an IdeResponse content. Of course we can only map to ValidResponse
-imap :: (ValidResponse a,ValidResponse b) => (a -> b) -> IdeResponse a -> IdeResponse b
-imap f (IdeResponseOk a) = IdeResponseOk $ f a
-imap _ (IdeResponseFail e) = IdeResponseFail e
-imap _ (IdeResponseError e) = IdeResponseError e
+-- | Map an IdeResponse content.
+instance Functor IdeResponse where
+  fmap f (IdeResponseOk a) = IdeResponseOk $ f a
+  fmap _ (IdeResponseFail e) = IdeResponseFail e
+  fmap _ (IdeResponseError e) = IdeResponseError e
 
 -- | Error codes. Add as required
 data IdeErrorCode = IncorrectParameterType  -- ^ Wrong parameter type

@@ -55,7 +55,7 @@ doDispatch plugins creq = do
         Just (Command cdesc cfunc) ->
           case validateContexts cdesc req of
             Left err   -> return err
-            Right ctxs -> imap jsWrite <$> cfunc ctxs req
+            Right ctxs -> fmap jsWrite <$> cfunc ctxs req
 
 -- ---------------------------------------------------------------------
 
