@@ -12,13 +12,16 @@
 (require 'ert)
 (require 'haskell-ide-engine)
 
-(defun really-sleep-for (sec)
-  "Emacs has a bug when `sleep-for' terminates early when a subprocess ends.
+(defun really-sleep-for (sec &optional test)
+  "Sleep for SEC seconds or until TEST is not-nil.
 
-This is a workaround for http://debbugs.gnu.org/cgi/bugreport.cgi?bug=15990."
+Emacs has a bug when `sleep-for' terminates early when a
+subprocess ends.  This is a workaround for
+http://debbugs.gnu.org/cgi/bugreport.cgi?bug=15990."
 
   (let ((now (cadr (current-time))))
-    (while (> now (- (cadr (current-time)) sec))
+    (while (and (or (not test) (not (funcall test)))
+                (> now (- (cadr (current-time)) sec)))
       (sleep-for (- now (- (cadr (current-time)) sec))))))
 
 
@@ -123,7 +126,7 @@ This is a workaround for http://debbugs.gnu.org/cgi/bugreport.cgi?bug=15990."
    (haskell-ide-engine-post-message
     '(("cmd" . "base:version") ("params" . ())))
 
-   (really-sleep-for 2)
+   (really-sleep-for 2 (lambda () response))
    (should response)
    (should (equal '(tag . "Ok") (assq 'tag response)))
    (should (assq 'contents response))))
@@ -141,7 +144,7 @@ This is a workaround for http://debbugs.gnu.org/cgi/bugreport.cgi?bug=15990."
    (haskell-ide-engine-post-message
     '(("cmd" . "base:plugins")))
 
-   (really-sleep-for 2)
+   (really-sleep-for 2 (lambda () response))
    (should response)
 
    (should (equal '(tag . "Ok") (assq 'tag response)))
