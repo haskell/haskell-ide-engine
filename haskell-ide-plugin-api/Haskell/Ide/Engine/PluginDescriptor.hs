@@ -341,6 +341,32 @@ instance FromJSON CommandDescriptor where
 
 -- -------------------------------------
 
+instance ToJSON Service where
+    toJSON service = object [ "name" .= svcName service ]
+
+
+instance FromJSON Service where
+    parseJSON (Object v) =
+      Service <$> v .: "name"
+    parseJSON _ = empty
+
+-- -------------------------------------
+
+instance ToJSON PluginDescriptor where
+    toJSON pluginDescriptor = object [ "commands" .= map cmdDesc (pdCommands pluginDescriptor)
+                                     , "exposed_services" .= pdExposedServices pluginDescriptor
+                                     , "used_services" .= pdUsedServices pluginDescriptor
+                                     ]
+
+instance FromJSON PluginDescriptor where
+    parseJSON (Object v) =
+      PluginDescriptor <$> (fmap (fmap (\desc -> Command desc (error "missing"))) (v .: "commands"))
+                       <*> v .: "exposed_services"
+                       <*> v .: "used_services"
+    parseJSON _ = empty
+
+-- -------------------------------------
+
 instance ToJSON IdeRequest where
   toJSON (IdeRequest{ideCommand = command, ideParams = params}) =
     object [ "command" .= command
