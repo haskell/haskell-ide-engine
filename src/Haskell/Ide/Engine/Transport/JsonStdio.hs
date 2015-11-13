@@ -6,9 +6,11 @@
 module Haskell.Ide.Engine.Transport.JsonStdio where
 
 import           Control.Applicative
-import           Control.Concurrent
+import           Control.Concurrent.STM.TChan
 import           Control.Lens (view)
 import           Control.Logging
+import           Control.Monad.IO.Class
+import           Control.Monad.STM
 import           Control.Monad.State.Strict
 import qualified Data.Aeson as A
 import qualified Data.Attoparsec.ByteString as AB
@@ -28,9 +30,9 @@ import qualified Pipes.Prelude as P
 import           System.IO
 
 -- TODO: Can pass in a handle, then it is general
-jsonStdioTransport :: Chan ChannelRequest -> IO ()
+jsonStdioTransport :: TChan ChannelRequest -> IO ()
 jsonStdioTransport cin = do
-  cout <- newChan :: IO (Chan ChannelResponse)
+  cout <- atomically $ newTChan :: IO (TChan ChannelResponse)
   hSetBuffering stdout NoBuffering
   P.runEffect (parseFrames PB.stdin P.>-> parseToJsonPipe cin cout 1 P.>-> jsonConsumer)
 
@@ -111,7 +113,7 @@ printTest = P.print
 
 -- ---------------------------------------------------------------------
 
-wireToChannel :: Chan ChannelResponse -> RequestId -> WireRequest -> ChannelRequest
+wireToChannel :: TChan ChannelResponse -> RequestId -> WireRequest -> ChannelRequest
 wireToChannel cout ri wr =
   CReq
     { cinPlugin = plugin

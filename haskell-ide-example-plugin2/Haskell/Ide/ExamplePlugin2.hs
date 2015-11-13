@@ -45,10 +45,10 @@ example2Descriptor = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 sayHelloCmd :: CommandFunc T.Text
-sayHelloCmd _  _ = return (IdeResponseOk sayHello)
+sayHelloCmd = CmdSync $ \_ _ -> return (IdeResponseOk sayHello)
 
 sayHelloToCmd :: CommandFunc T.Text
-sayHelloToCmd _ req = do
+sayHelloToCmd = CmdSync $ \_ req -> do
   case Map.lookup "name" (ideParams req) of
     Nothing -> return $ missingParameter "name"
     Just (ParamTextP n) -> do

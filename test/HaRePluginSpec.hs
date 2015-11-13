@@ -1,7 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module HaRePluginSpec where
 
-import           Control.Concurrent
+import           Control.Concurrent.STM.TChan
+import           Control.Monad.STM
 import           Control.Logging
 import           Data.Aeson
 import qualified Data.HashMap.Strict as H
@@ -34,9 +35,9 @@ testPlugins :: Plugins
 testPlugins = Map.fromList [("hare",hareDescriptor)]
 
 -- TODO: break this out into a TestUtils file
-dispatchRequest :: IdeRequest -> IO (IdeResponse Object)
+dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Object))
 dispatchRequest req = do
-  testChan <- newChan
+  testChan <- atomically newTChan
   let cr = CReq "hare" 1 req testChan
   r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
   return r
@@ -55,7 +56,7 @@ hareSpec = do
                                                   ,("start_pos",ParamValP $ ParamPos (5,1))
                                                   ,("name",ParamValP $ ParamText "foolong")])
       r <- dispatchRequest req
-      r `shouldBe` IdeResponseOk (H.fromList ["responses" .= ["test/testdata/HaReRename.hs"::FilePath]])
+      r `shouldBe` Just (IdeResponseOk (H.fromList ["responses" .= ["test/testdata/HaReRename.hs"::FilePath]]))
 
     -- ---------------------------------
 
@@ -64,8 +65,9 @@ hareSpec = do
                                                   ,("start_pos",ParamValP $ ParamPos (15,1))
                                                   ,("name",ParamValP $ ParamText "foolong")])
       r <- dispatchRequest req
-      r `shouldBe` IdeResponseFail (IdeError { ideCode = PluginError
-                                             , ideMessage = "rename: \"Invalid cursor position!\"", ideInfo = Nothing})
+      r `shouldBe` Just (IdeResponseFail
+                      (IdeError { ideCode = PluginError
+                                , ideMessage = "rename: \"Invalid cursor position!\"", ideInfo = Nothing}))
 
     -- ---------------------------------
 
@@ -73,7 +75,7 @@ hareSpec = do
       let req = IdeRequest "demote" (Map.fromList [("file",ParamValP $ ParamFile "./test/testdata/HaReDemote.hs")
                                                   ,("start_pos",ParamValP $ ParamPos (6,1))])
       r <- dispatchRequest req
-      r `shouldBe` IdeResponseOk (H.fromList ["responses" .= ["test/testdata/HaReDemote.hs"::FilePath]])
+      r `shouldBe` Just (IdeResponseOk (H.fromList ["responses" .= ["test/testdata/HaReDemote.hs"::FilePath]]))
 
     -- ---------------------------------
 
@@ -83,7 +85,7 @@ hareSpec = do
                                                   ,("start_pos",ParamValP $ ParamPos (5,1))
                                                   ,("name",ParamValP $ ParamText "foonew")])
       r <- dispatchRequest req
-      r `shouldBe` IdeResponseOk (H.fromList ["responses" .= ["test/testdata/HaReRename.hs"::FilePath]])
+      r `shouldBe` Just (IdeResponseOk (H.fromList ["responses" .= ["test/testdata/HaReRename.hs"::FilePath]]))
 
     -- ---------------------------------
 
@@ -93,7 +95,7 @@ hareSpec = do
                                                     ,("start_pos",ParamValP $ ParamPos (5,9))
                                                     ,("end_pos",  ParamValP $ ParamPos (9,12))])
       r <- dispatchRequest req
-      r `shouldBe` IdeResponseOk (H.fromList ["responses" .= ["test/testdata/HaReCase.hs"::FilePath]])
+      r `shouldBe` Just (IdeResponseOk (H.fromList ["responses" .= ["test/testdata/HaReCase.hs"::FilePath]]))
 
     -- ---------------------------------
 
@@ -102,7 +104,7 @@ hareSpec = do
       let req = IdeRequest "liftonelevel" (Map.fromList [("file",ParamValP $ ParamFile "./test/testdata/HaReMoveDef.hs")
                                                     ,("start_pos",ParamValP $ ParamPos (6,5))])
       r <- dispatchRequest req
-      r `shouldBe` IdeResponseOk (H.fromList ["responses" .= ["test/testdata/HaReMoveDef.hs"::FilePath]])
+      r `shouldBe` Just (IdeResponseOk (H.fromList ["responses" .= ["test/testdata/HaReMoveDef.hs"::FilePath]]))
 
     -- ---------------------------------
 
@@ -111,6 +113,6 @@ hareSpec = do
       let req = IdeRequest "lifttotoplevel" (Map.fromList [("file",ParamValP $ ParamFile "./test/testdata/HaReMoveDef.hs")
                                                           ,("start_pos",ParamValP $ ParamPos (12,9))])
       r <- dispatchRequest req
-      r `shouldBe` IdeResponseOk (H.fromList ["responses" .= ["test/testdata/HaReMoveDef.hs"::FilePath]])
+      r `shouldBe`Just (IdeResponseOk (H.fromList ["responses" .= ["test/testdata/HaReMoveDef.hs"::FilePath]]))
 
     -- ---------------------------------
