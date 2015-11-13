@@ -55,13 +55,13 @@
       ;; json-readtable-error is when there is an unexpected character in input
       (json-readtable-error
        (when haskell-ide-engine-process-handle-invalid-input
-         (funcall haskell-ide-engine-process-handle-invalid-input)
-         (delete-region (point-min) (point-max))))
+         (funcall haskell-ide-engine-process-handle-invalid-input))
+       (delete-region (point-min) (point-max)))
       ;; json-unknown-keyword when unrecognized keyword is parsed
       (json-unknown-keyword
        (when haskell-ide-engine-process-handle-invalid-input
-         (funcall haskell-ide-engine-process-handle-invalid-input)
-         (delete-region (point-min) (point-max)))))))
+         (funcall haskell-ide-engine-process-handle-invalid-input))
+       (delete-region (point-min) (point-max))))))
 
 (defun haskell-ide-engine-start-process ()
   "Start Haskell IDE Engine process.
