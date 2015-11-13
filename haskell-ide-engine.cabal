@@ -25,10 +25,10 @@ library
                        Haskell.Ide.Engine.Transport.JsonStdio
                        Haskell.Ide.Engine.Types
   other-modules:       Paths_haskell_ide_engine
-  build-depends:       base >= 4.7 && < 5
-                     , Cabal >= 1.22
+  build-depends:       Cabal >= 1.22
                      , aeson
                      , attoparsec
+                     , base >= 4.7 && < 5
                      , bytestring
                      , containers
                      , directory
@@ -46,6 +46,7 @@ library
                      , optparse-simple >= 0.0.3
                      , pipes
                      , pipes-aeson
+                     , pipes-attoparsec >= 0.5
                      , pipes-bytestring
                      , pipes-parse
                      , servant-server
