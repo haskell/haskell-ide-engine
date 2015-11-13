@@ -78,10 +78,10 @@ baseDescriptor = PluginDescriptor
 versionCmd :: CommandFunc String
 versionCmd _ _ = return (IdeResponseOk version)
 
-pluginsCmd :: CommandFunc [PluginId]
+pluginsCmd :: CommandFunc Plugins
 pluginsCmd _ _ = do
   plugins <- getPlugins
-  return (IdeResponseOk (Map.keys plugins))
+  return (IdeResponseOk plugins)
 
 commandsCmd :: CommandFunc [CommandName]
 commandsCmd _ req = do

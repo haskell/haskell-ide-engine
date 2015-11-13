@@ -29,6 +29,7 @@
 module Haskell.Ide.Engine.PluginDescriptor where
 
 import           Control.Applicative
+import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Aeson.Types
@@ -197,7 +198,7 @@ data ParamVal (t :: ParamType) where
   ParamPos :: (Int,Int) -> ParamVal 'PtPos
 
 -- | The typeclass for valid response types
-class (Eq a) => ValidResponse a where
+class ValidResponse a where
   jsWrite :: a -> Object -- ^ Serialize to JSON Object
   jsRead  :: Object -> Parser a -- ^ Read from JSON Object
 
@@ -301,6 +302,13 @@ instance ValidResponse CommandDescriptor where
                     <*> v .: "contexts"
                     <*> v .: "additional_params"
 
+instance ValidResponse Plugins where
+  jsWrite = H.fromList . map (\(k,v)-> k .= toJSON v) . Map.assocs
+
+  jsRead = liftM Map.fromList . mapM (\(k,v) -> do
+            p<-parseJSON v
+            return (k,p)) . H.toList
+
 -- ---------------------------------------------------------------------
 -- JSON instances
 
@@ -389,6 +397,32 @@ instance ToJSON CommandDescriptor where
 
 instance FromJSON CommandDescriptor where
     parseJSON (Object v) = jsRead v
+    parseJSON _ = empty
+
+-- -------------------------------------
+
+instance ToJSON Service where
+    toJSON service = object [ "name" .= svcName service ]
+
+
+instance FromJSON Service where
+    parseJSON (Object v) =
+      Service <$> v .: "name"
+    parseJSON _ = empty
+
+-- -------------------------------------
+
+instance ToJSON PluginDescriptor where
+    toJSON pluginDescriptor = object [ "commands" .= map cmdDesc (pdCommands pluginDescriptor)
+                                     , "exposed_services" .= pdExposedServices pluginDescriptor
+                                     , "used_services" .= pdUsedServices pluginDescriptor
+                                     ]
+
+instance FromJSON PluginDescriptor where
+    parseJSON (Object v) =
+      PluginDescriptor <$> (fmap (fmap (\desc -> Command desc (error "missing"::CommandFunc T.Text))) (v .: "commands"))
+                       <*> v .: "exposed_services"
+                       <*> v .: "used_services"
     parseJSON _ = empty
 
 -- -------------------------------------

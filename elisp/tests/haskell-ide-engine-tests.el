@@ -12,13 +12,16 @@
 (require 'ert)
 (require 'haskell-ide-engine)
 
-(defun really-sleep-for (sec)
-  "Emacs has a bug when `sleep-for' terminates early when a subprocess ends.
+(defun really-sleep-for (sec &optional test)
+  "Sleep for SEC seconds or until TEST is not-nil.
 
-This is a workaround for http://debbugs.gnu.org/cgi/bugreport.cgi?bug=15990."
+Emacs has a bug when `sleep-for' terminates early when a
+subprocess ends.  This is a workaround for
+http://debbugs.gnu.org/cgi/bugreport.cgi?bug=15990."
 
   (let ((now (cadr (current-time))))
-    (while (> now (- (cadr (current-time)) sec))
+    (while (and (or (not test) (not (funcall test)))
+                (> now (- (cadr (current-time)) sec)))
       (sleep-for (- now (- (cadr (current-time)) sec))))))
 
 
@@ -123,7 +126,7 @@ This is a workaround for http://debbugs.gnu.org/cgi/bugreport.cgi?bug=15990."
    (haskell-ide-engine-post-message
     '(("cmd" . "base:version") ("params" . ())))
 
-   (really-sleep-for 2)
+   (really-sleep-for 2 (lambda () response))
    (should response)
    (should (equal '(tag . "Ok") (assq 'tag response)))
    (should (assq 'contents response))))
@@ -141,53 +144,16 @@ This is a workaround for http://debbugs.gnu.org/cgi/bugreport.cgi?bug=15990."
    (haskell-ide-engine-post-message
     '(("cmd" . "base:plugins")))
 
-   (really-sleep-for 2)
-   (should response)
-
-   (should (equal '(tag . "Ok") (assq 'tag response)))
-   (should (assq 'contents response))))
-
-(haskell-ide-engine-define-test
- haskell-ide-engine-can-list-commands-for-base
-
- ;; starts the process
- (should (haskell-ide-engine-start-process))
-
- (let ((response))
-   (setq haskell-ide-engine-process-handle-message
-         (lambda (json)
-           (setq response json)))
-   (haskell-ide-engine-post-message
-    '(("cmd" . "base:commands") ("params" . (("plugin" . (("contents" . "base") ("tag" . "text")))))))
-
-   (really-sleep-for 2)
+   (really-sleep-for 2 (lambda () response))
    (should response)
 
    (should (equal '(tag . "Ok") (assq 'tag response)))
    (should (assq 'contents response))
-   (should (assq 'responses (assq 'contents response)))
-   (should (member "version" (assq 'responses (assq 'contents response))))))
+   (should (assq 'base (assq 'contents response)))
+   (should (assq 'commands (assq 'base (assq 'contents response))))
+   (should (cl-find-if (lambda (item) (equal '(name . "version") (assq 'name item)))
+                       (cdr (assq 'commands (assq 'base (assq 'contents response))))))))
 
-(haskell-ide-engine-define-test
- haskell-ide-engine-can-list-command-details-for-base-plugins
-
- ;; starts the process
- (should (haskell-ide-engine-start-process))
-
- (let ((response))
-   (setq haskell-ide-engine-process-handle-message
-         (lambda (json)
-           (setq response json)))
-   (haskell-ide-engine-post-message
-    '(("cmd" . "base:commandDetail") ("params" . (("plugin" . (("tag" . "text") ("contents"  . "base"))) ("command" . (("tag" . "text") ("contents" . "plugins")))))))
-
-   (really-sleep-for 2)
-
-   (should response)
-
-   (should (equal '(tag . "Ok") (assq 'tag response)))
-   (should (assq 'contents response))
-   (should (equal '(name . "plugins") (assq 'name (assq 'contents response))))))
 
 (ert-deftest haskell-ide-engine-can-handle-invalid-input ()
 
