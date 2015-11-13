@@ -38,34 +38,34 @@
 (defun haskell-ide-engine-process-filter (process input)
   (with-current-buffer haskell-ide-engine-buffer
 
-    ;; remove any STX markers for now
-    (insert (replace-regexp-in-string "\^b" "" input))
-    (condition-case nil
-        (save-excursion
-          (goto-char (point-min))
-          (let* ((end-of-current-json-object (scan-sexps (point-min) 1))
-                 (json-array-type 'list)
-                 (json (json-read)))
-            (delete-region (point-min) end-of-current-json-object)
-            (when haskell-ide-engine-process-handle-message
-              (funcall haskell-ide-engine-process-handle-message json))))
-      ;; if input is partial then there will not be a closing brace we
-      ;; need to wait till it comes
-      (scan-error nil)
-      ;; json-readtable-error is when there is an unexpected character in input
-      (json-readtable-error
-       (when haskell-ide-engine-process-handle-invalid-input
-         (funcall haskell-ide-engine-process-handle-invalid-input))
-       (delete-region (point-min) (point-max)))
-      ;; json-unknown-keyword when unrecognized keyword is parsed
-      (json-unknown-keyword
-       (when haskell-ide-engine-process-handle-invalid-input
-         (funcall haskell-ide-engine-process-handle-invalid-input))
-       (delete-region (point-min) (point-max)))
-      (end-of-file
-       (when haskell-ide-engine-process-handle-invalid-input
-         (funcall haskell-ide-engine-process-handle-invalid-input))
-       (delete-region (point-min) (point-max))))))
+    (let ((point (point)))
+      (insert input)
+      (save-excursion
+        (goto-char point)
+        (when (re-search-forward "\^b" nil t)
+          (let* ((end-of-current-json-object (match-beginning 0))
+                 (after-stx-marker (match-end 0))
+                 (json-array-type 'list))
+            (goto-char (point-min))
+            (condition-case nil
+                (let ((json (json-read)))
+                  (when haskell-ide-engine-process-handle-message
+                    (funcall haskell-ide-engine-process-handle-message json)))
+              ;; json-readtable-error is when there is an unexpected character in input
+              (json-readtable-error
+               (when haskell-ide-engine-process-handle-invalid-input
+                 (funcall haskell-ide-engine-process-handle-invalid-input
+                          (buffer-substring-no-properties (point-min) end-of-current-json-object))))
+              ;; json-unknown-keyword when unrecognized keyword is parsed
+              (json-unknown-keyword
+               (when haskell-ide-engine-process-handle-invalid-input
+                 (funcall haskell-ide-engine-process-handle-invalid-input
+                          (buffer-substring-no-properties (point-min) end-of-current-json-object))))
+              (end-of-file
+               (when haskell-ide-engine-process-handle-invalid-input
+                 (funcall haskell-ide-engine-process-handle-invalid-input
+                          (buffer-substring-no-properties (point-min) end-of-current-json-object)))))
+            (delete-region (point-min) after-stx-marker)))))))
 
 (defun haskell-ide-engine-start-process ()
   "Start Haskell IDE Engine process.
