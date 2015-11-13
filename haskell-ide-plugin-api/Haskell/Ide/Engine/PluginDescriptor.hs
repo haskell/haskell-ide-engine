@@ -233,6 +233,7 @@ data IdeErrorCode = IncorrectParameterType  -- ^ Wrong parameter type
                   | InvalidContext          -- ^ Context invalid for command
                   | OtherError              -- ^ An error for which we didn't
                                             -- have a better code
+                  | ParseError              -- ^ Input could not be parsed
                   deriving (Show,Read,Eq,Ord,Bounded,Enum,Generic)
 
 -- | A more structured error than just a string

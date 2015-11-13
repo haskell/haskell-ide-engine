@@ -46,7 +46,7 @@ parseToJsonPipe cin cout cid =
          do let rsp =
                   CResp "" cid $
                   IdeResponseError
-                    (A.toJSON (HieError (A.String $ T.pack $ show decodeErr)))
+                    (IdeError ParseError (T.pack $ show decodeErr) Nothing)
             liftIO $ debug $
               T.pack $ "jsonStdioTransport:parse error:" ++ show decodeErr
             P.yield $ A.toJSON $ channelToWire rsp
