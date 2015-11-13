@@ -38,7 +38,8 @@
 (defun haskell-ide-engine-process-filter (process input)
   (with-current-buffer haskell-ide-engine-buffer
 
-    (insert input)
+    ;; remove any STX markers for now
+    (insert (replace-regexp-in-string "\^b" "" input))
     (condition-case nil
         (save-excursion
           (goto-char (point-min))
@@ -109,8 +110,8 @@ by `haskell-ide-engine-handle-message'."
     (run-hook-with-args 'haskell-ide-engine-post-message-hook prepared-json)
 
     (process-send-string haskell-ide-engine-process prepared-json)
-    ;; flush buffers
-    (process-send-string haskell-ide-engine-process "\n")))
+    ;; send \STX marker and flush buffers
+    (process-send-string haskell-ide-engine-process "\^b\n")))
 
 (defun haskell-ide-engine-remove-alist-null-values (json)
   "Remove null values from assoc lists.
