@@ -40,7 +40,7 @@ dispatcherSpec = do
       let req = IdeRequest "cmd1" (Map.fromList [])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
-      r `shouldBe` IdeResponseOk (H.fromList ["response" .= ("result:ctxs=[CtxNone]"::String)])
+      r `shouldBe` IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxNone]"::String)])
 
     -- ---------------------------------
 
@@ -58,7 +58,7 @@ dispatcherSpec = do
       let req = IdeRequest "cmd2" (Map.fromList [("file", ParamFileP "foo.hs")])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
-      r `shouldBe` IdeResponseOk (H.fromList ["response" .= ("result:ctxs=[CtxFile]"::String)])
+      r `shouldBe` IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxFile]"::String)])
 
     -- ---------------------------------
 
@@ -67,7 +67,7 @@ dispatcherSpec = do
       let req = IdeRequest "cmd3" (Map.fromList [("file", ParamFileP "foo.hs"),("start_pos", ParamPosP (1,2))])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
-      r `shouldBe` IdeResponseOk (H.fromList ["response" .= ("result:ctxs=[CtxPoint]"::String)])
+      r `shouldBe` IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxPoint]"::String)])
 
     -- ---------------------------------
 
@@ -78,7 +78,7 @@ dispatcherSpec = do
                                                 ,("end_pos", ParamPosP (3,4))])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
-      r `shouldBe` IdeResponseOk (H.fromList ["response" .= ("result:ctxs=[CtxRegion]"::String)])
+      r `shouldBe` IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxRegion]"::String)])
 
     -- ---------------------------------
 
@@ -87,7 +87,7 @@ dispatcherSpec = do
       let req = IdeRequest "cmd5" (Map.fromList [("cabal", ParamTextP "lib")])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
-      r `shouldBe` IdeResponseOk (H.fromList ["response" .= ("result:ctxs=[CtxCabalTarget]"::String)])
+      r `shouldBe` IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxCabalTarget]"::String)])
 
     -- ---------------------------------
 
@@ -96,7 +96,7 @@ dispatcherSpec = do
       let req = IdeRequest "cmd6" (Map.fromList [])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
-      r `shouldBe` IdeResponseOk (H.fromList ["response" .= ("result:ctxs=[CtxProject]"::String)])
+      r `shouldBe` IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxProject]"::String)])
 
     -- ---------------------------------
 
@@ -107,7 +107,7 @@ dispatcherSpec = do
                                                        ,("end_pos", ParamPosP (3,4))])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
-      r `shouldBe` IdeResponseOk (H.fromList ["response" .= ("result:ctxs=[CtxFile,CtxPoint,CtxRegion]"::String)])
+      r `shouldBe` IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxFile,CtxPoint,CtxRegion]"::String)])
 
     -- ---------------------------------
 
@@ -117,7 +117,7 @@ dispatcherSpec = do
                                                        ,("start_pos", ParamPosP (1,2))])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
-      r `shouldBe` IdeResponseOk (H.fromList ["response" .= ("result:ctxs=[CtxFile,CtxPoint]"::String)])
+      r `shouldBe` IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxFile,CtxPoint]"::String)])
     -- ---------------------------------
 
     it "identifies error when no match multiple" $ do
@@ -142,7 +142,7 @@ dispatcherSpec = do
                                                     ])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
-      r `shouldBe` IdeResponseOk (H.fromList ["response" .= ("result:ctxs=[CtxFile]"::String)])
+      r `shouldBe` IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxFile]"::String)])
     -- ---------------------------------
 
     it "reports mismatched param" $ do
@@ -169,7 +169,7 @@ dispatcherSpec = do
                                                        ])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch testPlugins cr)
-      r `shouldBe` IdeResponseOk (H.fromList ["response" .= ("result:ctxs=[CtxNone]"::String)])
+      r `shouldBe` IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxNone]"::String)])
       
     -- ---------------------------------
 

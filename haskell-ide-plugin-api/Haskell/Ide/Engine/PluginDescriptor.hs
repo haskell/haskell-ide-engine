@@ -34,11 +34,14 @@ import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Aeson.Types
 import qualified Data.Map as Map
+import           Data.Maybe
 import qualified Data.HashMap.Strict as H
 import qualified Data.Text as T
 import qualified GHC
 import           GHC.Generics
 
+
+import Debug.Trace
 -- ---------------------------------------------------------------------
 
 data PluginDescriptor = PluginDescriptor
@@ -261,27 +264,30 @@ type CommandFunc resp = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m)
 -- ---------------------------------------------------------------------
 -- ValidResponse instances
 
+ok :: T.Text
+ok = "ok"
+
 instance ValidResponse String where
-  jsWrite s = H.fromList ["response" .= toJSON s]
-  jsRead o = o .: "response"
+  jsWrite s = H.fromList [ok .= toJSON s]
+  jsRead o = o .: ok
 
 instance ValidResponse T.Text where
-  jsWrite s = H.fromList ["response" .= toJSON s]
-  jsRead o = o .: "response"
+  jsWrite s = H.fromList [ok .= toJSON s]
+  jsRead o = o .: ok
 
 instance ValidResponse [String] where
-  jsWrite ss = H.fromList ["responses" .= toJSON ss]
-  jsRead o = o .: "responses"
+  jsWrite ss = H.fromList [ok .= toJSON ss]
+  jsRead o = o .: ok
 
 instance ValidResponse [T.Text] where
-  jsWrite ss = H.fromList ["responses" .= toJSON ss]
-  jsRead o = o .: "responses"
+  jsWrite ss = H.fromList [ok .= toJSON ss]
+  jsRead o = o .: ok
 
 instance ValidResponse () where
-  jsWrite _ = H.fromList ["response" .= String "ok"]
+  jsWrite _ = H.fromList [ok .= String ok]
   jsRead o = do
-      r <- o .: "response"
-      if r == String "ok"
+      r <- o .: ok
+      if r == String ok
         then pure ()
         else empty
 
@@ -303,31 +309,32 @@ instance ValidResponse CommandDescriptor where
                     <*> v .: "additional_params"
 
 instance ValidResponse Plugins where
-  jsWrite = H.fromList . map (\(k,v)-> k .= toJSON v) . Map.assocs
+  jsWrite m = H.fromList ["plugins" .= H.fromList
+                ( map (\(k,v)-> k .= toJSON v)
+                $ Map.assocs m)]
 
-  jsRead = liftM Map.fromList . mapM (\(k,v) -> do
-            p<-parseJSON v
-            return (k,p)) . H.toList
+  jsRead v = do
+    ps <- v .: "plugins"
+    liftM Map.fromList $ mapM (\(k,vp) -> do
+            p<-parseJSON vp
+            return (k,p)) $ H.toList ps
 
 -- ---------------------------------------------------------------------
 -- JSON instances
 
 instance ToJSON ParamValP  where
-    toJSON (ParamTextP v) = object [ "tag" .= String "text"
-                                  , "contents" .= toJSON v ]
-    toJSON (ParamFileP v) = object [ "tag" .= String "file"
-                                  , "contents" .= toJSON v ]
-    toJSON (ParamPosP  v) = object [ "tag" .= String "pos"
-                                  , "contents" .= toJSON v ]
+    toJSON (ParamTextP v) = object [ "text" .= toJSON v ]
+    toJSON (ParamFileP v) = object [ "file" .= toJSON v ]
+    toJSON (ParamPosP  v) = object [ "pos" .= toJSON v ]
     toJSON _ = "error"
 
 instance FromJSON ParamValP where
     parseJSON (Object v) = do
-      tag <- v .: "tag" :: Parser T.Text
-      case tag of
-        "text" -> ParamTextP <$> v .: "contents"
-        "file" -> ParamFileP <$> v .: "contents"
-        "pos"  -> ParamPosP <$> v .: "contents"
+      mt <- fmap ParamTextP <$> v .:? "text"
+      mf <- fmap ParamFileP <$> v .:? "file"
+      mp <- fmap ParamFileP <$> v .:? "pos"
+      case mt <|> mf <|> mp of
+        Just pd -> return pd
         _ -> empty
     parseJSON _ = empty
 
@@ -375,18 +382,15 @@ instance FromJSON ParamType where
 -- -------------------------------------
 
 instance ToJSON ParamDescription where
-    toJSON (RP n h t) = object [ "tag" .= String "rp"
-                               , "contents" .= toJSON (n,h,t) ]
-    toJSON (OP n h t) = object [ "tag" .= String "op"
-                               , "contents" .= toJSON (n,h,t) ]
+    toJSON (RP n h t) = object [ "rp" .= toJSON (n,h,t) ]
+    toJSON (OP n h t) = object [ "op" .= toJSON (n,h,t) ]
 
 instance FromJSON ParamDescription where
     parseJSON (Object v) = do
-      tag <- v .: "tag" :: Parser T.Text
-      (n,h,t) <- v .: "contents"
-      case tag of
-        "rp" -> return $ RP n h t
-        "op" -> return $ OP n h t
+      mrp <- fmap (\(n,h,t) -> RP n h t) <$> v .:? "rp"
+      mop <- fmap (\(n,h,t) -> OP n h t) <$> v .:? "op"
+      case mrp <|> mop of
+        Just pd -> return pd
         _ -> empty
     parseJSON _ = empty
 
@@ -458,33 +462,24 @@ instance ToJSON IdeError where
 
 instance FromJSON IdeError where
     parseJSON (Object v) = IdeError
-        <$> v .: "code"
-        <*> v .: "msg"
-        <*> v .: "info"
+        <$> v .:  "code"
+        <*> v .:  "msg"
+        <*> v .:? "info"
     parseJSON _ = empty
 
 -- -------------------------------------
 
 instance (ValidResponse a) => ToJSON (IdeResponse a) where
-    toJSON (IdeResponseOk v) = object [ "tag" .= String "ok"
-                                      , "contents" .= toJSON (jsWrite v) ]
-    toJSON (IdeResponseFail v) = object [ "tag" .= String "fail"
-                                        , "contents" .= toJSON v ]
-    toJSON (IdeResponseError v) = object [ "tag" .= String "error"
-                                         , "contents" .= toJSON v ]
+    toJSON (IdeResponseOk v) = Object (jsWrite v)
+    toJSON (IdeResponseFail v) = object [ "fail" .= toJSON v ]
+    toJSON (IdeResponseError v) = object [ "error" .= toJSON v ]
 
 instance (ValidResponse a) => FromJSON (IdeResponse a) where
     parseJSON (Object v) = do
-      tag <- v .: "tag" :: Parser T.Text
-      case tag of
-        "ok" -> do
-          cnts <- v .: "contents"
-          case cnts of
-            (Object v2) -> IdeResponseOk <$> jsRead v2
-            _ -> empty
-        "fail" -> IdeResponseFail <$> v .: "contents"
-        "error" -> IdeResponseError <$> v .: "contents"
-        _ -> empty
+      mf <- fmap IdeResponseFail <$> v .:? "fail"
+      me <- fmap IdeResponseError <$> v .:? "error"
+      let mo = IdeResponseOk <$> parseMaybe jsRead v
+      return $ fromJust $ mf <|> me <|> mo
     parseJSON _ = empty
 
 -- EOF

@@ -31,7 +31,7 @@ jsonStdioTransport cin = do
       debug $ T.pack $ "jsonStdioTransport:got:" ++ show req
       case req of
         Just (Left err) -> do
-          putStr $ show (HieError (A.String $ T.pack $ show err))
+          putStr $ show $ "jsonStdioTransport:" ++ show err
           loop (cid + 1) stream'
         Just (Right r) -> do
           writeChan cin (wireToChannel cout cid r)
@@ -40,7 +40,7 @@ jsonStdioTransport cin = do
           loop (cid + 1) stream'
         Nothing -> do
           -- exit the loop
-          putStr $ show (HieError (A.String $ T.pack $ "Got Nothing"))
+          putStr "jsonStdioTransport: Got Nothing"
   loop 1 P.stdin
 
 decodeMsg :: (Monad m) => Parser B.ByteString m (Maybe (Either P.DecodingError WireRequest))
@@ -69,11 +69,7 @@ wireToChannel cout ri wr =
 -- ---------------------------------------------------------------------
 
 channelToWire :: ChannelResponse -> WireResponse
-channelToWire cr =
-  case coutResp cr of
-    IdeResponseOk v -> Ok $ A.toJSON v
-    IdeResponseFail v -> Fail $ A.toJSON v
-    IdeResponseError v -> HieError $ A.toJSON v
+channelToWire cr = WireResp $ A.toJSON $ coutResp cr
 
 -- ---------------------------------------------------------------------
 
@@ -98,31 +94,12 @@ instance A.FromJSON WireRequest where
 
 -- ---------------------------------------------------------------------
 
-data WireResponse = Ok A.Value | Fail A.Value | HieError A.Value
+data WireResponse = WireResp A.Value
                   deriving (Show,Eq)
 
 instance A.ToJSON WireResponse where
-    toJSON (Ok val) = A.object
-                      [ "tag" A..= ("Ok" :: T.Text)
-                      , "contents" A..= val
-                      ]
-    toJSON (Fail val) = A.object
-                      [ "tag" A..= ("Fail" :: T.Text)
-                      , "contents" A..= val
-                      ]
-    toJSON (HieError val) = A.object
-                      [ "tag" A..= ("HieError" :: T.Text)
-                      , "contents" A..= val
-                      ]
+    toJSON (WireResp val) = val
 
 
 instance A.FromJSON WireResponse where
-    parseJSON (A.Object v) = ((v A..: "tag") >>= decode) <*>
-                             v A..: "contents"
-      where
-        decode "Ok" = pure Ok
-        decode "Fail" = pure Fail
-        decode "HieError" = pure HieError
-        decode tag = fail ("Unrecognized tag '" ++ tag ++ "'")
-    -- A non-Object value is of the wrong type, so fail.
-    parseJSON _          = mzero
+    parseJSON p = return $ WireResp p

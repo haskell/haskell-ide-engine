@@ -63,7 +63,7 @@ curl -v http://localhost:8081/req/base -X POST -H Content-Type:application/json 
 This returns
 
 ```json
-{"tag":"IdeResponseOk","contents":"Version 0.1.0.0, Git revision 1db8ae98de2e197f5447c0a97f20ca4e06fdbc98 (dirty) (57 commits) x86_64"}
+{"ok":"Version 0.1.0.0, Git revision 1db8ae98de2e197f5447c0a97f20ca4e06fdbc98 (dirty) (57 commits) x86_64"}
 ```
 
 ### Plugins
