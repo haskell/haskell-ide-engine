@@ -94,9 +94,9 @@ parseFrames prod0 = do
                                            A.Success wireReq -> Right wireReq
 
            P.yield wrappedRet
-           -- prod3 is guaranteed to be empty by the use of A8.endOfInput in ap1
+           -- leftoverProd is guaranteed to be empty by the use of A8.endOfInput in ap1
            newProd <- lift $ P.runEffect (leftoverProd P.>-> P.drain)
-           -- recur into parseLines to parse the next line, drop the leading '\n'
+           -- recur into parseFrames to parse the next line, drop the leading '\n'
            parseFrames (PB.drop (1::Int) newProd)
 
 -- to help with type inference
