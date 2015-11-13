@@ -37,8 +37,8 @@ jsonStdioTransport cin = do
   P.runEffect (parseFrames PB.stdin P.>-> parseToJsonPipe cin cout 1 P.>-> jsonConsumer)
 
 parseToJsonPipe
-  :: Chan ChannelRequest
-  -> Chan ChannelResponse
+  :: TChan ChannelRequest
+  -> TChan ChannelResponse
   -> Int
   -> P.Pipe (Either PAe.DecodingError WireRequest) A.Value IO ()
 parseToJsonPipe cin cout cid =
@@ -53,8 +53,8 @@ parseToJsonPipe cin cout cid =
               T.pack $ "jsonStdioTransport:parse error:" ++ show decodeErr
             P.yield $ A.toJSON $ channelToWire rsp
        Right req ->
-         do liftIO $ writeChan cin (wireToChannel cout cid req)
-            rsp <- liftIO $ readChan cout
+         do liftIO $ atomically $ writeTChan cin (wireToChannel cout cid req)
+            rsp <- liftIO $ atomically $ readTChan cout
             P.yield $ A.toJSON $ channelToWire rsp
      parseToJsonPipe cin
                      cout

@@ -232,16 +232,14 @@ dispatcherSpec = do
       r2 <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch (testPlugins chSync) cr2)
       r1 `shouldBe` Nothing
       r2 `shouldBe` Nothing
-      yield
-      rc1 <- atomically $ tryReadTChan chan
-      yield
-      rc2 <- atomically $ tryReadTChan chan
-      rc1 `shouldBe` Just (CResp { couPlugin = "test"
-                                 , coutReqId = 2
-                                 , coutResp = IdeResponseOk (HM.fromList [("response",String "asyncCmd2 sent strobe")])})
-      rc2 `shouldBe` Just (CResp { couPlugin = "test"
-                                 , coutReqId = 1
-                                 , coutResp = IdeResponseOk (HM.fromList [("response",String "asyncCmd1 got strobe")])})
+      rc1 <- atomically $ readTChan chan
+      rc2 <- atomically $ readTChan chan
+      rc1 `shouldBe` (CResp { couPlugin = "test"
+                            , coutReqId = 2
+                            , coutResp = IdeResponseOk (HM.fromList [("response",String "asyncCmd2 sent strobe")])})
+      rc2 `shouldBe` (CResp { couPlugin = "test"
+                            , coutReqId = 1
+                            , coutResp = IdeResponseOk (HM.fromList [("response",String "asyncCmd1 got strobe")])})
 
 -- ---------------------------------------------------------------------
 
