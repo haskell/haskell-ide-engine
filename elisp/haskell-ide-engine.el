@@ -61,6 +61,10 @@
       (json-unknown-keyword
        (when haskell-ide-engine-process-handle-invalid-input
          (funcall haskell-ide-engine-process-handle-invalid-input))
+       (delete-region (point-min) (point-max)))
+      (end-of-file
+       (when haskell-ide-engine-process-handle-invalid-input
+         (funcall haskell-ide-engine-process-handle-invalid-input))
        (delete-region (point-min) (point-max))))))
 
 (defun haskell-ide-engine-start-process ()
