@@ -75,15 +75,15 @@ baseDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-versionCmd :: CommandFunc
-versionCmd _ _ = return (IdeResponseOk (String $ T.pack version))
+versionCmd :: CommandFunc String
+versionCmd _ _ = return (IdeResponseOk version)
 
-pluginsCmd :: CommandFunc
+pluginsCmd :: CommandFunc Plugins
 pluginsCmd _ _ = do
   plugins <- getPlugins
-  return (IdeResponseOk (toJSON $ plugins))
+  return (IdeResponseOk plugins)
 
-commandsCmd :: CommandFunc
+commandsCmd :: CommandFunc [CommandName]
 commandsCmd _ req = do
   plugins <- getPlugins
   -- TODO: Use Maybe Monad. What abut error reporting?
@@ -93,10 +93,10 @@ commandsCmd _ req = do
       Nothing -> return (IdeResponseFail (IdeError
                   UnknownPlugin ("Can't find plugin:" <> p )
                   (Just $ toJSON $ p)))
-      Just pl -> return (IdeResponseOk (toJSON $ map (cmdName . cmdDesc) $ pdCommands pl))
+      Just pl -> return (IdeResponseOk (map (cmdName . cmdDesc) $ pdCommands pl))
     Just x -> return $ incorrectParameter "plugin" ("ParamText"::String) x
 
-commandDetailCmd :: CommandFunc
+commandDetailCmd :: CommandFunc CommandDescriptor
 commandDetailCmd _ req = do
   plugins <- getPlugins
   case getParams (IdText "plugin" :& IdText "command" :& RNil) req of
@@ -110,7 +110,7 @@ commandDetailCmd _ req = do
           Nothing -> return (IdeResponseError (IdeError
                       UnknownCommand ("Can't find command:" <> command )
                       (Just $ toJSON $ command)))
-          Just detail -> return (IdeResponseOk (toJSON (cmdDesc detail)))
+          Just detail -> return (IdeResponseOk (cmdDesc detail))
     Right _ -> return (IdeResponseError (IdeError
                 InternalError "commandDetailCmd: ghc’s exhaustiveness checker is broken" Nothing))
 

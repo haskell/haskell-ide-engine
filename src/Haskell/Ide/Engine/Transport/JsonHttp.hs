@@ -38,7 +38,7 @@ type HieApi =
        "req" :> Capture "plugin" Text
              :> QueryParam "rid" Int -- optional request id
              :> ReqBody '[JSON] IdeRequest
-             :> Post '[JSON] IdeResponse
+             :> Post '[JSON] (IdeResponse Object)
 
   :<|> "eg" :> Get '[JSON] IdeRequest
   -- GET /eg returns

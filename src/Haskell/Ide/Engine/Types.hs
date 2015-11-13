@@ -1,7 +1,9 @@
 {-# LANGUAGE FlexibleInstances #-}
-
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE GADTs #-}
 module Haskell.Ide.Engine.Types where
 
+import           Data.Aeson
 import           Control.Concurrent
 import           Haskell.Ide.Engine.PluginDescriptor
 
@@ -17,7 +19,7 @@ data ChannelRequest = CReq
                               -- ChannelResponse.
   , cinReq       :: IdeRequest
   , cinReplyChan :: Chan ChannelResponse
-  } deriving Show
+  }  deriving Show
 
 instance Show (Chan ChannelResponse) where
   show _ = "(Chan ChannelResponse)"
@@ -25,5 +27,5 @@ instance Show (Chan ChannelResponse) where
 data ChannelResponse = CResp
   { couPlugin :: PluginId
   , coutReqId :: RequestId
-  , coutResp  :: IdeResponse
-  } deriving Show
+  , coutResp  :: IdeResponse Object
+  }  deriving Show

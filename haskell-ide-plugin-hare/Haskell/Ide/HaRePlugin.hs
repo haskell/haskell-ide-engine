@@ -4,7 +4,6 @@ module Haskell.Ide.HaRePlugin where
 
 import           Control.Exception
 import           Control.Monad.IO.Class
-import           Data.Aeson
 import qualified Data.Text as T
 import           Data.Vinyl
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -87,7 +86,7 @@ hareDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-demoteCmd :: CommandFunc
+demoteCmd :: CommandFunc [FilePath]
 demoteCmd _ctxs req = do
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
@@ -98,7 +97,7 @@ demoteCmd _ctxs req = do
                       (T.pack $ "demote: " ++ show err) Nothing)
         Right fs -> do
           fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
-          return (IdeResponseOk (toJSON fs'))
+          return (IdeResponseOk fs')
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.demoteCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
@@ -106,7 +105,7 @@ demoteCmd _ctxs req = do
 
 -- ---------------------------------------------------------------------
 
-dupdefCmd :: CommandFunc
+dupdefCmd :: CommandFunc [FilePath]
 dupdefCmd _ctxs req = do
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdText "name" :& RNil) req of
     Left err -> return err
@@ -117,7 +116,7 @@ dupdefCmd _ctxs req = do
                       (T.pack $ "dupdef: " ++ show err) Nothing)
         Right fs -> do
           fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
-          return (IdeResponseOk (toJSON fs'))
+          return (IdeResponseOk fs')
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.dupdefCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
@@ -125,7 +124,7 @@ dupdefCmd _ctxs req = do
 
 -- ---------------------------------------------------------------------
 
-iftocaseCmd :: CommandFunc
+iftocaseCmd :: CommandFunc [FilePath]
 iftocaseCmd _ctxs req = do
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdPos "end_pos" :& RNil) req of
     Left err -> return err
@@ -136,7 +135,7 @@ iftocaseCmd _ctxs req = do
                       (T.pack $ "ifToCase: " ++ show err) Nothing)
         Right fs -> do
           fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
-          return (IdeResponseOk (toJSON fs'))
+          return (IdeResponseOk fs')
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.ifToCaseCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
@@ -144,7 +143,7 @@ iftocaseCmd _ctxs req = do
 
 -- ---------------------------------------------------------------------
 
-liftonelevelCmd :: CommandFunc
+liftonelevelCmd :: CommandFunc [FilePath]
 liftonelevelCmd _ctxs req = do
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
@@ -155,7 +154,7 @@ liftonelevelCmd _ctxs req = do
                       (T.pack $ "liftOneLevel: " ++ show err) Nothing)
         Right fs -> do
           fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
-          return (IdeResponseOk (toJSON fs'))
+          return (IdeResponseOk fs')
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.liftOneLevel: ghc’s exhaustiveness checker is broken" Nothing)
 
@@ -163,7 +162,7 @@ liftonelevelCmd _ctxs req = do
 
 -- ---------------------------------------------------------------------
 
-lifttotoplevelCmd :: CommandFunc
+lifttotoplevelCmd :: CommandFunc [FilePath]
 lifttotoplevelCmd _ctxs req = do
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
@@ -174,7 +173,7 @@ lifttotoplevelCmd _ctxs req = do
                       (T.pack $ "liftToTopLevel: " ++ show err) Nothing)
         Right fs -> do
           fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
-          return (IdeResponseOk (toJSON fs'))
+          return (IdeResponseOk fs')
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.liftToTopLevel: ghc’s exhaustiveness checker is broken" Nothing)
 
@@ -182,7 +181,7 @@ lifttotoplevelCmd _ctxs req = do
 
 -- ---------------------------------------------------------------------
 
-renameCmd :: CommandFunc
+renameCmd :: CommandFunc [FilePath]
 renameCmd _ctxs req = do
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdText "name" :& RNil) req of
     Left err -> return err
@@ -193,7 +192,7 @@ renameCmd _ctxs req = do
                       (T.pack $ "rename: " ++ show err) Nothing)
         Right fs -> do
           fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
-          return (IdeResponseOk (toJSON fs'))
+          return (IdeResponseOk fs')
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.renameCmd: ghc’s exhaustiveness checker is broken" Nothing)
 

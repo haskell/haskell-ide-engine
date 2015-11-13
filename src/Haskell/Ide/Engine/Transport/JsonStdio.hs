@@ -71,7 +71,7 @@ wireToChannel cout ri wr =
 channelToWire :: ChannelResponse -> WireResponse
 channelToWire cr =
   case coutResp cr of
-    IdeResponseOk v -> Ok v
+    IdeResponseOk v -> Ok $ A.toJSON v
     IdeResponseFail v -> Fail $ A.toJSON v
     IdeResponseError v -> HieError $ A.toJSON v
 
