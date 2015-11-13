@@ -5,12 +5,14 @@
 
 module Haskell.Ide.Engine.Transport.JsonStdio where
 
+import           Control.Applicative
 import           Control.Concurrent
 import           Control.Lens (view)
 import           Control.Logging
 import           Control.Monad.State.Strict
 import qualified Data.Aeson as A
 import qualified Data.Attoparsec.ByteString as AB
+import qualified Data.Attoparsec.ByteString.Char8 as AB
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy as BL
 import           Data.Char
@@ -73,8 +75,10 @@ parseFrames prod0 = do
   (isEmpty, prod1) <- lift $ runStateT PB.isEndOfBytes prod0
   if isEmpty then return () else go prod1
   where
-    terminatedJSON :: AB.Parser A.Value
-    terminatedJSON = A.json' <* AB.endOfInput
+    -- ignore inputs consisting only of space
+    terminatedJSON :: AB.Parser (Maybe A.Value)
+    terminatedJSON = (fmap Just $ A.json' <* AB.many' AB.space <* AB.endOfInput)
+                 <|> (AB.many' AB.space *> pure Nothing)
     -- endOfInput: we want to be sure that the given
     -- parser consumes the entirety of the given input
     go :: P.Producer B.ByteString m ()
@@ -85,15 +89,17 @@ parseFrames prod0 = do
        (maybeRet, leftoverProd) <- lift $ runStateT (PA.parse terminatedJSON) splitProd
        case maybeRet of
          Nothing -> return ()
-         Just ret -> do
-           let wrappedRet :: Either PAe.DecodingError WireRequest
-               wrappedRet = case ret of
-                              Left parseErr -> Left $ PAe.AttoparsecError parseErr
-                              Right a -> case A.fromJSON a of
-                                           A.Error err -> Left $ PAe.FromJSONError err
-                                           A.Success wireReq -> Right wireReq
-
-           P.yield wrappedRet
+         Just (ret) -> do
+           let maybeWrappedRet :: Maybe (Either PAe.DecodingError WireRequest)
+               maybeWrappedRet = case ret of
+                                             Left parseErr -> pure $ Left $ PAe.AttoparsecError parseErr
+                                             Right (Just a) -> case A.fromJSON a of
+                                                                 A.Error err -> pure $ Left $ PAe.FromJSONError err
+                                                                 A.Success wireReq -> pure $ Right wireReq
+                                             Right Nothing -> Nothing
+           case maybeWrappedRet of
+             Just wrappedRet -> P.yield wrappedRet
+             Nothing -> return ()
            -- leftoverProd is guaranteed to be empty by the use of A8.endOfInput in ap1
            newProd <- lift $ P.runEffect (leftoverProd P.>-> P.drain)
            -- recur into parseFrames to parse the next line, drop the leading '\n'
