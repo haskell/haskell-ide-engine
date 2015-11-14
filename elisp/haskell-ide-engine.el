@@ -140,5 +140,58 @@ association lists and count on HIE to use default values there."
       json
     (json-encode (haskell-ide-engine-remove-alist-null-values json))))
 
+(defvar hie-mode-map
+  (easy-mmode-define-keymap
+   '()))
+
+(defun hie-handle-message (json)
+  (message "%s" (cdr (assq 'contents json))))
+
+(defun hie-run-command (plugin command)
+  (setq haskell-ide-engine-process-handle-message
+        #'hie-handle-message)
+  (haskell-ide-engine-post-message
+   (list (cons "cmd" (concat plugin ":" command)))))
+
+(defun haskell-ide-engine-handle-first-plugins-command (json)
+  "Handle first plugins call."
+
+  (let ((menu-items
+         (apply #'append
+                (mapcar
+                 (lambda (plugin)
+                   (mapcar
+                    (lambda (command)
+                      (vector (cdr (assq 'ui_description command)) (list 'hie-run-command (symbol-name (car plugin)) (cdr (assq 'name command)))))
+                    (cdr (assq 'commands (cdr plugin)))))
+                 (cdr (assq 'contents json))))))
+
+    (easy-menu-define hie-menu hie-mode-map
+      "Menu for Haskell IDE Engine"
+      (cons "HIE" menu-items))))
+
+
+(define-minor-mode hie-mode
+  "Haskell IDE Engine mode.
+
+Keymap:
+\\{hie-mode-map}"
+  :group 'haskell
+  :lighter "HIE"
+  :keymap 'hie-mode-map
+
+  (if hie-mode
+      (unless (haskell-ide-engine-process-live-p)
+        (haskell-ide-engine-start-process)
+        (setq haskell-ide-engine-process-handle-message
+              #'haskell-ide-engine-handle-first-plugins-command)
+        (haskell-ide-engine-post-message
+         '(("cmd" . "base:plugins"))))
+
+    ;; we need to kill hie if this is the last one buffer standing
+    (unless (cl-find-if (lambda (buffer)
+                          (with-current-buffer buffer
+                            (bound-and-true-p hie-mode))) (buffer-list))
+      (haskell-ide-engine-kill-process))))
 
 (provide 'haskell-ide-engine)
