@@ -1,9 +1,9 @@
-name:                haskell-ide-plugin-ghcmod
+name:                hie-plugin-api
 version:             0.1.0.0
-synopsis:            Haskell IDE ghc-mod plugin
+synopsis:            Haskell IDE API for plugin communication
 license:             BSD3
 license-file:        ../LICENSE
-author:              Alan Zimmerman (initially)
+author:              Many,TBD when we release
 maintainer:          alan.zimm@gmail.com (for now)
 copyright:           2015 TBD
 category:            Web
@@ -12,17 +12,15 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Haskell.Ide.GhcModPlugin
+  exposed-modules:     Haskell.Ide.Engine.PluginUtils
+                       Haskell.Ide.Engine.PluginDescriptor
   build-depends:       base >= 4.7 && < 5
                      , aeson
                      , containers
-                     , directory
+                     , unordered-containers
                      , ghc
-                     , ghc-mod
-                     , haskell-ide-plugin-api
                      , text
                      , transformers
                      , vinyl >= 0.5 && < 0.6
-
   ghc-options:         -Wall
   default-language:    Haskell2010
