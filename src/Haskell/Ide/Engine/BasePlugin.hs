@@ -76,15 +76,15 @@ baseDescriptor = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 versionCmd :: CommandFunc String
-versionCmd _ _ = return (IdeResponseOk version)
+versionCmd = CmdSync $ \_ _ -> return (IdeResponseOk version)
 
 pluginsCmd :: CommandFunc Plugins
-pluginsCmd _ _ = do
+pluginsCmd = CmdSync $ \_ _ -> do
   plugins <- getPlugins
   return (IdeResponseOk plugins)
 
 commandsCmd :: CommandFunc [CommandName]
-commandsCmd _ req = do
+commandsCmd = CmdSync $ \_ req -> do
   plugins <- getPlugins
   -- TODO: Use Maybe Monad. What abut error reporting?
   case Map.lookup "plugin" (ideParams req) of
@@ -97,7 +97,7 @@ commandsCmd _ req = do
     Just x -> return $ incorrectParameter "plugin" ("ParamText"::String) x
 
 commandDetailCmd :: CommandFunc CommandDescriptor
-commandDetailCmd _ req = do
+commandDetailCmd = CmdSync $ \_ req -> do
   plugins <- getPlugins
   case getParams (IdText "plugin" :& IdText "command" :& RNil) req of
     Left err -> return err

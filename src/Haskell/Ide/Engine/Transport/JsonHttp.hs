@@ -11,8 +11,9 @@ module Haskell.Ide.Engine.Transport.JsonHttp
   )
   where
 
-import           Control.Concurrent
+import           Control.Concurrent.STM.TChan
 import           Control.Monad.IO.Class
+import           Control.Monad.STM
 import           Data.Aeson
 import qualified Data.Map as Map
 import           Data.Maybe
@@ -54,15 +55,15 @@ testApi = Proxy
 -- that represents the API, are glued together using :<|>.
 --
 -- Each handler runs in the 'ExceptT ServantErr IO' monad.
-server :: Chan ChannelRequest ->  Chan ChannelResponse -> Server HieApi
+server :: TChan ChannelRequest ->  TChan ChannelResponse -> Server HieApi
 server cin cout = hieH
               :<|> egH
 
   where
         hieH plugin mrid reqVal = do
           let rid = fromMaybe 1 mrid
-          liftIO $ writeChan cin (CReq plugin rid reqVal cout)
-          rsp <- liftIO $ readChan cout
+          liftIO $ atomically $ writeTChan cin (CReq plugin rid reqVal cout)
+          rsp <- liftIO $ atomically $ readTChan cout
           return (coutResp rsp)
           -- return (IdeResponseOk (String $ pack $ show r))
 
@@ -70,17 +71,17 @@ server cin cout = hieH
 
 -- Turn the server into a WAI app. 'serve' is provided by servant,
 -- more precisely by the Servant.Server module.
-test :: Chan ChannelRequest -> Chan ChannelResponse -> Application
+test :: TChan ChannelRequest -> TChan ChannelResponse -> Application
 test cin cout = serve testApi (server cin cout)
 
 -- Run the server.
 --
 -- 'run' comes from Network.Wai.Handler.Warp
-runTestServer :: Chan ChannelRequest -> Port -> IO ()
+runTestServer :: TChan ChannelRequest -> Port -> IO ()
 runTestServer cin port = do
-  cout <- newChan :: IO (Chan ChannelResponse)
+  cout <- atomically newTChan :: IO (TChan ChannelResponse)
   run port (test cin cout)
 
 -- Put this all to work!
-jsonHttpListener :: Chan ChannelRequest -> Port -> IO ()
+jsonHttpListener :: TChan ChannelRequest -> Port -> IO ()
 jsonHttpListener cin port = runTestServer cin port
