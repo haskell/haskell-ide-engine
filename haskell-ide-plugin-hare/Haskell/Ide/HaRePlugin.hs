@@ -87,7 +87,7 @@ hareDescriptor = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 demoteCmd :: CommandFunc [FilePath]
-demoteCmd _ctxs req = do
+demoteCmd  = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& RNil) -> do
@@ -106,7 +106,7 @@ demoteCmd _ctxs req = do
 -- ---------------------------------------------------------------------
 
 dupdefCmd :: CommandFunc [FilePath]
-dupdefCmd _ctxs req = do
+dupdefCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdText "name" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& ParamText name :& RNil) -> do
@@ -125,7 +125,7 @@ dupdefCmd _ctxs req = do
 -- ---------------------------------------------------------------------
 
 iftocaseCmd :: CommandFunc [FilePath]
-iftocaseCmd _ctxs req = do
+iftocaseCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdPos "end_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos start :& ParamPos end :& RNil) -> do
@@ -144,7 +144,7 @@ iftocaseCmd _ctxs req = do
 -- ---------------------------------------------------------------------
 
 liftonelevelCmd :: CommandFunc [FilePath]
-liftonelevelCmd _ctxs req = do
+liftonelevelCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& RNil) -> do
@@ -163,7 +163,7 @@ liftonelevelCmd _ctxs req = do
 -- ---------------------------------------------------------------------
 
 lifttotoplevelCmd :: CommandFunc [FilePath]
-lifttotoplevelCmd _ctxs req = do
+lifttotoplevelCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& RNil) -> do
@@ -182,7 +182,7 @@ lifttotoplevelCmd _ctxs req = do
 -- ---------------------------------------------------------------------
 
 renameCmd :: CommandFunc [FilePath]
-renameCmd _ctxs req = do
+renameCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdText "name" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& ParamText name :& RNil) -> do

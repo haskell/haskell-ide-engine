@@ -98,7 +98,7 @@ ghcmodDescriptor = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 checkCmd :: CommandFunc String
-checkCmd _ctxs req = do
+checkCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
@@ -111,7 +111,7 @@ checkCmd _ctxs req = do
 -- TODO: Must define a directory to base the search from, to be able to resolve
 -- the project root.
 findCmd :: CommandFunc String
-findCmd _ctxs req = do
+findCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdText "symbol" :& RNil) req of
     Left err -> return err
     Right (ParamText _symbol :& RNil) -> do
@@ -126,7 +126,7 @@ findCmd _ctxs req = do
 -- ---------------------------------------------------------------------
 
 lintCmd :: CommandFunc String
-lintCmd _ctxs req = do
+lintCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
@@ -137,7 +137,7 @@ lintCmd _ctxs req = do
 -- ---------------------------------------------------------------------
 
 infoCmd :: CommandFunc String
-infoCmd _ctxs req = do
+infoCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdText "expr" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamText expr :& RNil) -> do
@@ -148,7 +148,7 @@ infoCmd _ctxs req = do
 -- ---------------------------------------------------------------------
 
 typeCmd :: CommandFunc String
-typeCmd _ctxs req = do
+typeCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos (r,c) :& RNil) -> do

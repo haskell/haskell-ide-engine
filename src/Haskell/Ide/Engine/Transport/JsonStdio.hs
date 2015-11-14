@@ -1,58 +1,120 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE LambdaCase #-}
 -- |Provide a protocol adapter/transport for JSON over stdio
 
 module Haskell.Ide.Engine.Transport.JsonStdio where
 
-import           Control.Concurrent
+import           Control.Applicative
+import           Control.Concurrent.STM.TChan
+import           Control.Lens (view)
 import           Control.Logging
+import           Control.Monad.IO.Class
+import           Control.Monad.STM
+import           Control.Monad.State.Strict
 import qualified Data.Aeson as A
-import qualified Data.Map as Map
-import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.Types
-import           Pipes
-import qualified Pipes.Aeson as P
-import qualified Pipes.ByteString as P
-import qualified Pipes.Prelude as P
+import qualified Data.Attoparsec.ByteString as AB
+import qualified Data.Attoparsec.ByteString.Char8 as AB
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy as BL
+import           Data.Char
+import qualified Data.Map as Map
 import qualified Data.Text as T
-import           Pipes.Parse
+import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.Types
+import qualified Pipes as P
+import qualified Pipes.Aeson as PAe
+import qualified Pipes.Attoparsec as PA
+import qualified Pipes.ByteString as PB
+import qualified Pipes.Prelude as P
 import           System.IO
 
 -- TODO: Can pass in a handle, then it is general
-jsonStdioTransport :: Chan ChannelRequest -> IO ()
+jsonStdioTransport :: TChan ChannelRequest -> IO ()
 jsonStdioTransport cin = do
-  cout <- newChan :: IO (Chan ChannelResponse)
+  cout <- atomically $ newTChan :: IO (TChan ChannelResponse)
   hSetBuffering stdout NoBuffering
-  let
-    loop cid stream = do
-      debug "jsonStdioTransport:calling go"
-      (req,stream') <- runStateT decodeMsg stream
-      debug $ T.pack $ "jsonStdioTransport:got:" ++ show req
-      case req of
-        Just (Left err) -> do
-          putStr $ show $ "jsonStdioTransport:" ++ show err
-          loop (cid + 1) stream'
-        Just (Right r) -> do
-          writeChan cin (wireToChannel cout cid r)
-          rsp <- readChan cout
-          BL.putStr $ A.encode (channelToWire rsp)
-          loop (cid + 1) stream'
-        Nothing -> do
-          -- exit the loop
-          putStr "jsonStdioTransport: Got Nothing"
-  loop 1 P.stdin
+  P.runEffect (parseFrames PB.stdin P.>-> parseToJsonPipe cin cout 1 P.>-> jsonConsumer)
 
-decodeMsg :: (Monad m) => Parser B.ByteString m (Maybe (Either P.DecodingError WireRequest))
-decodeMsg = P.decode
+parseToJsonPipe
+  :: TChan ChannelRequest
+  -> TChan ChannelResponse
+  -> Int
+  -> P.Pipe (Either PAe.DecodingError WireRequest) A.Value IO ()
+parseToJsonPipe cin cout cid =
+  do parseRes <- P.await
+     case parseRes of
+       Left decodeErr ->
+         do let rsp =
+                  CResp "" cid $
+                  IdeResponseError
+                    (IdeError ParseError (T.pack $ show decodeErr) Nothing)
+            liftIO $ debug $
+              T.pack $ "jsonStdioTransport:parse error:" ++ show decodeErr
+            P.yield $ A.toJSON $ channelToWire rsp
+       Right req ->
+         do liftIO $ atomically $ writeTChan cin (wireToChannel cout cid req)
+            rsp <- liftIO $ atomically $ readTChan cout
+            P.yield $ A.toJSON $ channelToWire rsp
+     parseToJsonPipe cin
+                     cout
+                     (cid + 1)
+
+jsonConsumer :: P.Consumer A.Value IO ()
+jsonConsumer =
+  do val <- P.await
+     liftIO $ BL.putStr (A.encode val)
+     liftIO $ BL.putStr (BL.singleton $ fromIntegral (ord '\STX'))
+     jsonConsumer
+
+parseFrames
+  :: forall m
+   . Monad m
+  => P.Producer B.ByteString m ()
+  -> P.Producer (Either PAe.DecodingError WireRequest) m ()
+parseFrames prod0 = do
+  -- if there are no more bytes, we just return ()
+  (isEmpty, prod1) <- lift $ runStateT PB.isEndOfBytes prod0
+  if isEmpty then return () else go prod1
+  where
+    -- ignore inputs consisting only of space
+    terminatedJSON :: AB.Parser (Maybe A.Value)
+    terminatedJSON = (fmap Just $ A.json' <* AB.many' AB.space <* AB.endOfInput)
+                 <|> (AB.many' AB.space *> pure Nothing)
+    -- endOfInput: we want to be sure that the given
+    -- parser consumes the entirety of the given input
+    go :: P.Producer B.ByteString m ()
+       -> P.Producer (Either PAe.DecodingError WireRequest) m ()
+    go prod = do
+       let splitProd :: P.Producer B.ByteString m (P.Producer B.ByteString m ())
+           splitProd = view (PB.break (== fromIntegral (ord '\STX'))) prod
+       (maybeRet, leftoverProd) <- lift $ runStateT (PA.parse terminatedJSON) splitProd
+       case maybeRet of
+         Nothing -> return ()
+         Just (ret) -> do
+           let maybeWrappedRet :: Maybe (Either PAe.DecodingError WireRequest)
+               maybeWrappedRet = case ret of
+                                             Left parseErr -> pure $ Left $ PAe.AttoparsecError parseErr
+                                             Right (Just a) -> case A.fromJSON a of
+                                                                 A.Error err -> pure $ Left $ PAe.FromJSONError err
+                                                                 A.Success wireReq -> pure $ Right wireReq
+                                             Right Nothing -> Nothing
+           case maybeWrappedRet of
+             Just wrappedRet -> P.yield wrappedRet
+             Nothing -> return ()
+           -- leftoverProd is guaranteed to be empty by the use of A8.endOfInput in ap1
+           newProd <- lift $ P.runEffect (leftoverProd P.>-> P.drain)
+           -- recur into parseFrames to parse the next line, drop the leading '\n'
+           parseFrames (PB.drop (1::Int) newProd)
+
 
 -- to help with type inference
-printTest :: (MonadIO m) => Consumer' [Int] m r
+printTest :: (MonadIO m) => P.Consumer' [Int] m r
 printTest = P.print
 
 -- ---------------------------------------------------------------------
 
-wireToChannel :: Chan ChannelResponse -> RequestId -> WireRequest -> ChannelRequest
+wireToChannel :: TChan ChannelResponse -> RequestId -> WireRequest -> ChannelRequest
 wireToChannel cout ri wr =
   CReq
     { cinPlugin = plugin

@@ -4,11 +4,13 @@
 
 module Main where
 
-import           Control.Monad
-import           Control.Monad.Trans.Maybe
 import           Control.Concurrent
+import           Control.Concurrent.STM.TChan
 import           Control.Exception
 import           Control.Logging
+import           Control.Monad
+import           Control.Monad.STM
+import           Control.Monad.Trans.Maybe
 import qualified Data.Map as Map
 import           Data.Version (showVersion)
 import           Development.GitRev (gitCommitCount)
@@ -104,7 +106,7 @@ run opts = do
     getUserHomeDirectory >>= mapM_ setCurrentDirectory
 
     logm $  "run entered for HIE " ++ version
-    cin <- newChan :: IO (Chan ChannelRequest)
+    cin <- atomically newTChan :: IO (TChan ChannelRequest)
 
     -- log $ T.pack $ "replPluginInfo:" ++ show replPluginInfo
 
@@ -138,6 +140,6 @@ getUserHomeDirectory = do
 -- pass the request through to the main event dispatcher, and listen on the
 -- reply channel for the response, which should go back to the IDE, using
 -- whatever it takes.
-listener :: Chan ChannelRequest -> IO ()
+listener :: TChan ChannelRequest -> IO ()
 listener = assert False undefined
 

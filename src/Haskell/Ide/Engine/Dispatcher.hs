@@ -3,9 +3,10 @@
 {-# LANGUAGE GADTs #-}
 module Haskell.Ide.Engine.Dispatcher where
 
-import           Control.Concurrent
+import           Control.Concurrent.STM.TChan
 import           Control.Monad
 import           Control.Monad.IO.Class
+import           Control.Monad.STM
 import           Data.Aeson
 import           Data.Either
 import           Data.Monoid
@@ -21,26 +22,35 @@ import qualified Data.Map as Map
 
 -- |Listen on a Chan for ChannelRequest from the assorted listeners, and route
 -- them through to the appropriate plugin for processing.
-dispatcher :: Chan ChannelRequest -> IdeM ()
+dispatcher :: TChan ChannelRequest -> IdeM ()
 dispatcher cin = do
   plugins <- getPlugins
   forever $ do
     debugm "run:top of loop"
-    req <- liftIO $ readChan cin
+    req <- liftIO $ atomically $ readTChan cin
     debugm $ "main loop:got:" ++ show req
-    resp <- doDispatch plugins req
-    let cr = CResp (cinPlugin req) (cinReqId req) resp
-    liftIO $ writeChan (cinReplyChan req) cr
+    mresp <- doDispatch plugins req
+    case mresp of
+      Nothing -> return ()
+      Just resp -> liftIO $ sendResponse req resp
+
+-- ---------------------------------------------------------------------
+
+-- | Send a response from the plugin to the designated reply channel
+sendResponse :: (ValidResponse a) => ChannelRequest -> IdeResponse a -> IO ()
+sendResponse req resp = do
+  let cr = CResp (cinPlugin req) (cinReqId req) (fmap jsWrite resp)
+  liftIO $ atomically $ writeTChan (cinReplyChan req) cr
 
 -- ---------------------------------------------------------------------
 
 -- | Manage the process of looking up the request in the known plugins,
 -- validating the parameters passed and handing off to the appropriate
 -- 'CommandFunc'
-doDispatch :: Plugins -> ChannelRequest -> IdeM (IdeResponse Object)
+doDispatch :: Plugins -> ChannelRequest -> IdeM (Maybe (IdeResponse Object))
 doDispatch plugins creq = do
   case Map.lookup (cinPlugin creq) plugins of
-    Nothing -> return (IdeResponseError (IdeError
+    Nothing -> return $ Just (IdeResponseError (IdeError
                 UnknownPlugin ("No plugin found for:" <> cinPlugin creq )
                 (Just $ toJSON $ cinPlugin creq)))
     Just desc -> do
@@ -49,13 +59,20 @@ doDispatch plugins creq = do
       debugm $ "doDispatch:desc=" ++ show desc
       debugm $ "doDispatch:req=" ++ show req
       case Map.lookup (pn,ideCommand req) (pluginCache plugins) of
-        Nothing -> return (IdeResponseError (IdeError
+        Nothing -> return $ Just (IdeResponseError (IdeError
                     UnknownCommand ("No such command:" <> ideCommand req )
                     (Just $ toJSON $ ideCommand req)))
-        Just (Command cdesc cfunc) ->
+        Just (Command cdesc cfunc) -> do
           case validateContexts cdesc req of
-            Left err   -> return err
-            Right ctxs -> fmap jsWrite <$> cfunc ctxs req
+            Left err   -> return (Just err)
+            Right ctxs -> case cfunc of
+              CmdSync  f -> do
+                r <- f ctxs req
+                let r2 = fmap jsWrite r
+                return (Just r2)
+              CmdAsync f -> do
+                f (sendResponse creq) ctxs req
+                return Nothing
 
 -- ---------------------------------------------------------------------
 

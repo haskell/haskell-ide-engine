@@ -236,6 +236,7 @@ data IdeErrorCode = IncorrectParameterType  -- ^ Wrong parameter type
                   | InvalidContext          -- ^ Context invalid for command
                   | OtherError              -- ^ An error for which we didn't
                                             -- have a better code
+                  | ParseError              -- ^ Input could not be parsed
                   deriving (Show,Read,Eq,Ord,Bounded,Enum,Generic)
 
 -- | A more structured error than just a string
@@ -258,8 +259,16 @@ class (Monad m) => HasIdeState m where
 -- descriptor, and has all the required parameters. Where a command has only one
 -- allowed context the supplied context list does not add much value, but allows
 -- easy case checking when multiple contexts are supported.
-type CommandFunc resp = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m)
+data CommandFunc resp = CmdSync (SyncCommandFunc resp)
+                      | CmdAsync (AsyncCommandFunc resp)
+                        -- ^ Note: does not forkIO, the command must decide when
+                        -- to do this.
+
+type SyncCommandFunc resp = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m)
                 => [AcceptedContext] -> IdeRequest -> m (IdeResponse resp)
+
+type AsyncCommandFunc resp = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m)
+                => (IdeResponse resp -> IO ()) -> [AcceptedContext] -> IdeRequest -> m ()
 
 -- ---------------------------------------------------------------------
 -- ValidResponse instances

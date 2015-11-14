@@ -2,8 +2,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Haskell.Ide.Engine.Console where
 
-import           Control.Concurrent
+import           Control.Concurrent.STM.TChan
 import           Control.Monad.IO.Class
+import           Control.Monad.STM
 import           Data.Attoparsec.Text
 import qualified Data.Map as Map
 import           Data.Monoid
@@ -24,9 +25,9 @@ emptyEnv = ReplEnv
 
 -- ---------------------------------------------------------------------
 
-consoleListener :: Plugins -> Chan ChannelRequest -> IO ()
+consoleListener :: Plugins -> TChan ChannelRequest -> IO ()
 consoleListener plugins cin = do
-  cout <- newChan :: IO (Chan ChannelResponse)
+  cout <- atomically newTChan :: IO (TChan ChannelResponse)
   let
     startLoop :: ReplEnv -> Int -> InputT IO ()
     startLoop env cid = do
@@ -51,8 +52,8 @@ consoleListener plugins cin = do
               case req of
                 Left err -> outputStrLn (T.unpack err)
                 Right (plugin,reqVal) -> do
-                  liftIO $ writeChan cin (CReq plugin cid reqVal cout)
-                  rsp <- liftIO $ readChan cout
+                  liftIO $ atomically $ writeTChan cin (CReq plugin cid reqVal cout)
+                  rsp <- liftIO $ atomically $ readTChan cout
                   outputStrLn $ show (coutResp rsp)
               loop env (cid + 1)
 

@@ -36,11 +36,11 @@ http://debbugs.gnu.org/cgi/bugreport.cgi?bug=15990."
 
 (defvar haskell-ide-engine-tests-collected-invalid-input nil)
 
-(defun haskell-ide-engine-tests-message-invalid-input ()
+(defun haskell-ide-engine-tests-message-invalid-input (input)
   (setq haskell-ide-engine-tests-collected-invalid-input
         (mapconcat 'identity
                    (list haskell-ide-engine-tests-collected-invalid-input
-                         (buffer-substring-no-properties (point-min) (point-max))) nil)))
+                         input) nil)))
 
 (setq haskell-ide-engine-process-handle-invalid-input
       #'haskell-ide-engine-tests-message-invalid-input)
@@ -158,14 +158,14 @@ http://debbugs.gnu.org/cgi/bugreport.cgi?bug=15990."
   (let* (response
          haskell-ide-engine-tests-collected-invalid-input
          (haskell-ide-engine-process-handle-invalid-input
-          (lambda ()
-            (setq response (buffer-substring-no-properties (point-min) (point-max)))))
+          (lambda (input)
+            (setq response input)))
          (haskell-ide-engine-buffer
           (get-buffer-create "*hie*")))
 
     (unwind-protect
         (progn
-          (haskell-ide-engine-process-filter nil "not a json text")
+          (haskell-ide-engine-process-filter nil "not a json text\^b")
 
           (should (equal "not a json text" response)))
       (kill-buffer haskell-ide-engine-buffer))))
@@ -182,11 +182,12 @@ http://debbugs.gnu.org/cgi/bugreport.cgi?bug=15990."
            (setq response json)))
 
         (haskell-ide-engine-process-handle-invalid-input
-         (lambda ()
-           (setq response (buffer-substring-no-properties (point-min) (point-max))))))
+         (lambda (input)
+           (setq response input))))
    (haskell-ide-engine-process-filter nil "{")
    (haskell-ide-engine-process-filter nil "\"key\":")
    (haskell-ide-engine-process-filter nil "\"val\"}")
+   (haskell-ide-engine-process-filter nil "\^b")
 
    (should (equal '((key . "val")) response))))
 
