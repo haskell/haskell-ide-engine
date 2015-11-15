@@ -87,6 +87,9 @@
   * `hasktags`: Produces ctags tags and etags TAGS files for Haskell programs -
     ([github](https://github.com/MarcWeber/hasktags),
     [hackage](https://hackage.haskell.org/package/hasktags))
+  * `fast-tags`: Produces ctags and etags for Haskell with quick addenda for changes when using vim -
+    ([github](https://github.com/elaforge/fast-tags),
+    [hackage](https://hackage.haskell.org/package/fast-tags))
   * :skull: `lushtags`: ... -
     ([github](https://github.com/bitc/lushtags))
   * :skull: `gasbag`: ... -
