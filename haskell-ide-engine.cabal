@@ -37,7 +37,7 @@ library
                      , ghc-mod >= 5.4
                      , gitrev >= 1.1
                      , haskeline
-                     , haskell-ide-plugin-api
+                     , hie-plugin-api
                      , lens
                      , logging
                      , monad-control
@@ -73,10 +73,10 @@ executable hie
                      , ghc-mod
                      , gitrev >= 1.1
                      , haskell-ide-engine
-                     , haskell-ide-example-plugin2
-                     , haskell-ide-plugin-api
-                     , haskell-ide-plugin-ghcmod
-                     , haskell-ide-plugin-hare
+                     , hie-example-plugin2
+                     , hie-plugin-api
+                     , hie-ghc-mod
+                     , hie-hare
                      , logging
                      , optparse-applicative
                      , optparse-simple
@@ -102,9 +102,9 @@ test-suite haskell-ide-test
                      , unordered-containers
                      , directory
                      , haskell-ide-engine
-                     , haskell-ide-plugin-api
-                     , haskell-ide-plugin-hare
-                     , haskell-ide-plugin-ghcmod
+                     , hie-ghc-mod
+                     , hie-hare
+                     , hie-plugin-api
                      , hspec
                      , logging
                      , stm

@@ -3,10 +3,10 @@
 resolver: nightly-2015-10-27
 packages:
 - .
-- haskell-ide-example-plugin2
-- haskell-ide-plugin-api
-- haskell-ide-plugin-ghcmod
-- haskell-ide-plugin-hare
+- hie-example-plugin2
+- hie-plugin-api
+- hie-ghc-mod
+- hie-hare
 extra-deps:
  - logging-3.0.2
  - HaRe-0.8.2.1
