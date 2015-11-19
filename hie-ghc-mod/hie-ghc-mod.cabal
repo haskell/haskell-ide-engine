@@ -1,9 +1,9 @@
-name:                haskell-ide-plugin-hare
+name:                hie-ghc-mod
 version:             0.1.0.0
-synopsis:            Haskell IDE HaRe plugin
+synopsis:            Haskell IDE ghc-mod plugin
 license:             BSD3
 license-file:        ../LICENSE
-author:              Alan Zimmerman
+author:              Alan Zimmerman (initially)
 maintainer:          alan.zimm@gmail.com (for now)
 copyright:           2015 TBD
 category:            Web
@@ -12,16 +12,17 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Haskell.Ide.HaRePlugin
+  exposed-modules:     Haskell.Ide.GhcModPlugin
   build-depends:       base >= 4.7 && < 5
-                     , HaRe
                      , aeson
                      , containers
                      , directory
+                     , ghc
                      , ghc-mod
-                     , haskell-ide-plugin-api
+                     , hie-plugin-api
                      , text
                      , transformers
                      , vinyl >= 0.5 && < 0.6
+
   ghc-options:         -Wall
   default-language:    Haskell2010
