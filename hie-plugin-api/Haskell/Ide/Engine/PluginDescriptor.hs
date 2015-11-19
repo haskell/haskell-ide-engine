@@ -270,6 +270,13 @@ type AsyncCommandFunc resp = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m)
                 => (IdeResponse resp -> IO ()) -> [AcceptedContext] -> IdeRequest -> m ()
 
 -- ---------------------------------------------------------------------
+-- Specific response type
+
+-- | Type Info
+data TypeInfo = TypeInfo { typem :: T.Text }
+  deriving (Show,Read,Eq,Ord,Generic)
+
+-- ---------------------------------------------------------------------
 -- ValidResponse instances
 
 ok :: T.Text
@@ -326,6 +333,10 @@ instance ValidResponse Plugins where
     liftM Map.fromList $ mapM (\(k,vp) -> do
             p<-parseJSON vp
             return (k,p)) $ H.toList ps
+
+instance ValidResponse TypeInfo where
+  jsWrite (TypeInfo t) = H.fromList ["type_info" .= t]
+  jsRead v = TypeInfo <$> v .: "type_info"
 
 -- ---------------------------------------------------------------------
 -- JSON instances

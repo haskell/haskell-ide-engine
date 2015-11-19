@@ -42,6 +42,7 @@ jsonSpec = do
     prop "Aeson.Object" (propertyValidRoundtrip :: Object -> Bool)
     prop "CommandDescriptor" (propertyValidRoundtrip :: CommandDescriptor -> Bool)
     prop "Plugins" (propertyValidRoundtrip :: Plugins -> Bool)
+    prop "TypeInfo" (propertyValidRoundtrip :: TypeInfo -> Bool)
   describe "General JSON instances round trip" $ do
     prop "ParamValP" (propertyJsonRoundtrip :: ParamValP -> Bool)
     prop "CabalSection" (propertyJsonRoundtrip :: CabalSection -> Bool)
@@ -131,3 +132,6 @@ instance Eq IdeRequest where
 
 instance Arbitrary IdeRequest where
   arbitrary = IdeRequest <$> arbitrary <*> arbitrary
+
+instance Arbitrary TypeInfo where
+  arbitrary = TypeInfo <$> arbitrary

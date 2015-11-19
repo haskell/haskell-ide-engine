@@ -147,12 +147,12 @@ infoCmd = CmdSync $ \_ctxs req -> do
 
 -- ---------------------------------------------------------------------
 
-typeCmd :: CommandFunc String
-typeCmd = CmdSync $ \_ctxs req -> do
+typeCmd :: CommandFunc TypeInfo
+typeCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos (r,c) :& RNil) -> do
-      liftIO $ runGhcModCommand (GM.types (T.unpack fileName) r c)
+      fmap (TypeInfo . T.pack) <$> liftIO (runGhcModCommand (GM.types (T.unpack fileName) r c))
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.typesCmd: ghc’s exhaustiveness checker is broken" Nothing)
 

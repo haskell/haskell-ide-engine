@@ -92,6 +92,6 @@ ghcmodSpec = do
       let req = IdeRequest "type" (Map.fromList [("file", ParamFileP "./test/testdata/HaReRename.hs")
                                                  ,("start_pos", ParamPosP (5,9))])
       r <- dispatchRequest req
-      r `shouldBe` Just(IdeResponseOk (H.fromList ["ok" .= ("5 9 5 10 \"Int\"\n5 9 5 14 \"Int\"\n5 1 5 14 \"Int -> Int\"\n"::String)]))
+      r `shouldBe` Just(IdeResponseOk (H.fromList ["type_info" .= ("5 9 5 10 \"Int\"\n5 9 5 14 \"Int\"\n5 1 5 14 \"Int -> Int\"\n"::String)]))
 
     -- ---------------------------------
