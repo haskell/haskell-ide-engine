@@ -41,7 +41,6 @@ import qualified GHC
 import           GHC.Generics
 
 
-import Debug.Trace
 -- ---------------------------------------------------------------------
 
 data PluginDescriptor = PluginDescriptor
@@ -82,7 +81,7 @@ data CommandDescriptor = CommandDesc
 
 type CommandName = T.Text
 
--- |Define what context will be accepted from the frontend for the specific
+-- | Define what context will be accepted from the frontend for the specific
 -- command. Matches up to corresponding values for CommandContext
 data AcceptedContext = CtxNone        -- ^ No context required, global command
                      | CtxFile        -- ^ Works on a whole file
@@ -90,7 +89,7 @@ data AcceptedContext = CtxNone        -- ^ No context required, global command
                      | CtxRegion      -- ^ A region within a specific file
                      | CtxCabalTarget -- ^ Works on a specific cabal target
                      | CtxProject     -- ^ Works on a the whole project
-                     deriving (Eq,Show,Generic)
+                     deriving (Eq,Ord,Show,Read,Bounded,Enum,Generic)
 
 type Pos = (Int,Int)
 
@@ -113,17 +112,17 @@ data ParamDescription
       , pHelp :: !ParamHelp
       , pType :: !ParamType
       } -- ^ Optional parameter
-  deriving (Show,Eq,Generic)
+  deriving (Show,Eq,Ord,Generic)
 
 type ParamHelp = T.Text
 type ParamName = T.Text
 data ParamType = PtText | PtFile | PtPos
-               deriving (Eq,Show)
+               deriving (Eq,Ord,Show,Read,Bounded,Enum)
 
 data Service = Service
   { svcName :: T.Text
   -- , svcXXX :: undefined
-  } deriving (Show)
+  } deriving (Show,Eq,Ord,Generic)
 
 type PluginId = T.Text
 
@@ -341,7 +340,7 @@ instance FromJSON ParamValP where
     parseJSON (Object v) = do
       mt <- fmap ParamTextP <$> v .:? "text"
       mf <- fmap ParamFileP <$> v .:? "file"
-      mp <- fmap ParamFileP <$> v .:? "pos"
+      mp <- fmap ParamPosP <$> v .:? "pos"
       case mt <|> mf <|> mp of
         Just pd -> return pd
         _ -> empty
@@ -433,7 +432,7 @@ instance ToJSON PluginDescriptor where
 
 instance FromJSON PluginDescriptor where
     parseJSON (Object v) =
-      PluginDescriptor <$> (fmap (fmap (\desc -> Command desc (error "missing"::CommandFunc T.Text))) (v .: "commands"))
+      PluginDescriptor <$> fmap (fmap (\desc -> Command desc (CmdAsync (\_ _ _ -> return ())::CommandFunc T.Text))) (v .: "commands")
                        <*> v .: "exposed_services"
                        <*> v .: "used_services"
     parseJSON _ = empty
