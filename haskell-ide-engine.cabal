@@ -96,6 +96,7 @@ test-suite haskell-ide-test
                        GhcModPluginSpec
                        HaRePluginSpec
                        JsonStdioSpec
+                       JsonSpec
   build-depends:       base
                      , aeson
                      , containers
@@ -111,6 +112,8 @@ test-suite haskell-ide-test
                      , text
                      , transformers
                      , unordered-containers
+                     , quickcheck-instances
+                     , QuickCheck
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
   default-language:    Haskell2010
 

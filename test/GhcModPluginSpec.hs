@@ -52,21 +52,23 @@ ghcmodSpec = do
     it "runs the check command" $ do
       let req = IdeRequest "check" (Map.fromList [("file", ParamFileP "./test/testdata/FileWithWarning.hs")])
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["response" .= ("test/testdata/FileWithWarning.hs:4:7:Not in scope: \8216x\8217\n"::String)]))
+      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("test/testdata/FileWithWarning.hs:4:7:Not in scope: \8216x\8217\n"::String)]))
+
 
     -- ---------------------------------
 
     it "runs the lint command" $ do
       let req = IdeRequest "lint" (Map.fromList [("file", ParamFileP "./test/testdata/FileWithWarning.hs")])
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["response" .= ("./test/testdata/FileWithWarning.hs:6:9: Error: Redundant do\NULFound:\NUL  do return (3 + x)\NULWhy not:\NUL  return (3 + x)\n"::String)]))
+      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("./test/testdata/FileWithWarning.hs:6:9: Error: Redundant do\NULFound:\NUL  do return (3 + x)\NULWhy not:\NUL  return (3 + x)\n"::String)]))
+
 
     -- ---------------------------------
 
     it "runs the find command" $ do
       let req = IdeRequest "find" (Map.fromList [("symbol", ParamTextP "map")])
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["response" .= ("Placholder:Need to debug this in ghc-mod, returns 'does not exist (No such file or directory)'"::String)]))
+      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("Placholder:Need to debug this in ghc-mod, returns 'does not exist (No such file or directory)'"::String)]))
       pendingWith "need to debug in ghc-mod"
 
     -- ---------------------------------
@@ -74,7 +76,8 @@ ghcmodSpec = do
     it "runs the info command" $ do
       let req = IdeRequest "info" (Map.fromList [("file", ParamFileP "./test/testdata/HaReRename.hs"),("expr", ParamTextP "main")])
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["response" .= ("main :: IO () \t-- Defined at test/testdata/HaReRename.hs:2:1\n"::String)]))
+      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("main :: IO () \t-- Defined at test/testdata/HaReRename.hs:2:1\n"::String)]))
+
 
     -- ---------------------------------
 
@@ -89,6 +92,6 @@ ghcmodSpec = do
       let req = IdeRequest "type" (Map.fromList [("file", ParamFileP "./test/testdata/HaReRename.hs")
                                                  ,("start_pos", ParamPosP (5,9))])
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["response" .= ("5 9 5 10 \"Int\"\n5 9 5 14 \"Int\"\n5 1 5 14 \"Int -> Int\"\n"::String)]))
+      r `shouldBe` Just(IdeResponseOk (H.fromList ["type_info" .= ("5 9 5 10 \"Int\"\n5 9 5 14 \"Int\"\n5 1 5 14 \"Int -> Int\"\n"::String)]))
 
     -- ---------------------------------

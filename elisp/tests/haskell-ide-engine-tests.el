@@ -128,8 +128,7 @@ http://debbugs.gnu.org/cgi/bugreport.cgi?bug=15990."
 
    (really-sleep-for 2 (lambda () response))
    (should response)
-   (should (equal '(tag . "Ok") (assq 'tag response)))
-   (should (assq 'contents response))))
+   (should (assq 'ok response))))
 
 (haskell-ide-engine-define-test
  haskell-ide-engine-can-list-plugins
@@ -147,12 +146,11 @@ http://debbugs.gnu.org/cgi/bugreport.cgi?bug=15990."
    (really-sleep-for 2 (lambda () response))
    (should response)
 
-   (should (equal '(tag . "Ok") (assq 'tag response)))
-   (should (assq 'contents response))
-   (should (assq 'base (assq 'contents response)))
-   (should (assq 'commands (assq 'base (assq 'contents response))))
+   (should (assq 'plugins response))
+   (should (assq 'base (assq 'plugins response)))
+   (should (assq 'commands (assq 'base (assq 'plugins response))))
    (should (cl-find-if (lambda (item) (equal '(name . "version") (assq 'name item)))
-                       (cdr (assq 'commands (assq 'base (assq 'contents response))))))))
+                       (cdr (assq 'commands (assq 'base (assq 'plugins response))))))))
 
 
 (ert-deftest haskell-ide-engine-can-handle-invalid-input ()

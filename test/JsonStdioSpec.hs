@@ -36,8 +36,8 @@ jsonSpec = do
 
     it "generates a WireRequest 2" $ do
       let wr = WireReq "eg2:helloTo"  (Map.fromList [("cabal",ParamValP $ ParamText "lib"),("name",ParamValP $ ParamText "foo")])
-      (encode wr) `shouldBe` "{\"params\":{\"cabal\":{\"tag\":\"text\",\"contents\":\"lib\"},\
-                                          \\"name\":{\"tag\":\"text\",\"contents\":\"foo\"}},\
+      (encode wr) `shouldBe` "{\"params\":{\"cabal\":{\"text\":\"lib\"},\
+                                          \\"name\":{\"text\":\"foo\"}},\
                               \\"cmd\":\"eg2:helloTo\"}"
 
   describe "JSON Parsing WireRequest" $ do
@@ -49,37 +49,6 @@ jsonSpec = do
 
     it "parses a WireRequest 2" $ do
       let wr = WireReq "eg2:helloTo" (Map.fromList [("name",ParamValP $ ParamText "foo")])
-      (decode "{\"params\":{\"name\":{\"tag\":\"text\",\"contents\":\"foo\"}},\
+      (decode "{\"params\":{\"name\":{\"text\":\"foo\"}},\
                \\"cmd\":\"eg2:helloTo\"}")
          `shouldBe` (Just wr)
-
-  describe "JSON Generation WireResponse" $ do
-    it "generates a WireResponse Ok" $ do
-      let wr = Ok (String "no problem")
-      (encode wr) `shouldBe` "{\"tag\":\"Ok\",\"contents\":\"no problem\"}"
-
-    it "generates a WireResponse Fail" $ do
-      let wr = Fail (String "Failed")
-      (encode wr) `shouldBe` "{\"tag\":\"Fail\",\"contents\":\"Failed\"}"
-
-    it "generates a WireResponse HieError" $ do
-      let wr = HieError (String "Funny problem")
-      (encode wr) `shouldBe` "{\"tag\":\"HieError\",\"contents\":\"Funny problem\"}"
-
-
-  describe "JSON Parsing WireResponse" $ do
-    it "parses a WireResponse Ok" $ do
-      let wr = Ok (String "no problem")
-      (decode "{\"tag\":\"Ok\",\"contents\":\"no problem\"}")
-          `shouldBe` (Just wr)
-
-    it "parsed a WireResponse Fail" $ do
-      let wr = Fail (String "Failed")
-      (decode "{\"tag\":\"Fail\",\"contents\":\"Failed\"}")
-          `shouldBe` (Just wr)
-
-    it "parsed a WireResponse HieError" $ do
-      let wr = HieError (String "Funny problem")
-      (decode "{\"tag\":\"HieError\",\"contents\":\"Funny problem\"}")
-          `shouldBe` (Just wr)
-
