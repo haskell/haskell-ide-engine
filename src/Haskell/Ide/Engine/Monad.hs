@@ -15,15 +15,10 @@ import           Control.Monad.State
 import           Data.IORef
 import           Exception
 import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.PluginUtils
 import qualified Language.Haskell.GhcMod.Monad as GM
 import qualified Language.Haskell.GhcMod.Types as GM
-import           Data.Function (on)
-import qualified Data.Map as Map
-import           Data.List
 import           System.Directory
-
-
-import           Debug.Trace
 
 -- Monad transformer stuff
 import Control.Monad.Trans.Control ( control, liftBaseOp, liftBaseOp_)
@@ -47,37 +42,6 @@ data IdeState = IdeState
   {
     idePlugins :: Plugins
   } deriving (Show)
-
--- ---------------------------------------------------------------------
-
-{-
-  transform to [(PluginId, [(Command, [ParamDescription])])]
-  filter [ParamDescription] on uniqueness
-  remove empty list items
--}
-type ParamNameCollision = (PluginId, [(CommandName, [ParamName])])
-
-validatePlugins :: Plugins -> IO ()
-validatePlugins plugins =
-  case extractParams plugins of
-     [] -> return ()
-     collisions -> error (show collisions)
-
-
-foreach :: [a] -> (a -> b) -> [b]
-foreach = flip map
-
-extractParams :: Plugins -> [ParamNameCollision]
-extractParams plugins =
-  foreach (Map.toList plugins)
-    (\(pluginId, pluginDesc) -> (pluginId, foreach (map cmdDesc (pdCommands pluginDesc))
-      (\cmd -> (cmdName cmd, collidingParams (cmdAdditionalParams cmd)))))
-
-collidingParams :: [ParamDescription] ->[ParamName]
-collidingParams params =
-  let pNames = map pName params
-      uniquePNames = nub pNames
-   in pNames \\ uniquePNames
 
 -- ---------------------------------------------------------------------
 

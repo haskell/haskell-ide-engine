@@ -17,7 +17,6 @@ import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
 
-import           Control.Exception (evaluate)
 import           Test.Hspec
 
 -- ---------------------------------------------------------------------

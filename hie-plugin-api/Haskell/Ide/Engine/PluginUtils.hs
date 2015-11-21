@@ -9,10 +9,12 @@ module Haskell.Ide.Engine.PluginUtils
   , mapEithers
   , missingParameter
   , incorrectParameter
+  , validatePlugins
   ) where
 
 import           Data.Aeson
 
+import           Data.List
 import           Data.Monoid
 import           Data.Vinyl
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -80,3 +82,30 @@ incorrectParameter name expected value = IdeResponseFail
       T.pack (show expected) <>" , got:" <> T.pack (show value))
     (Just $ object ["param" .= toJSON name,"expected".= toJSON (show expected),
       "value" .= toJSON (show value)]))
+
+
+-- ---------------------------------------------------------------------
+
+type ParamNameCollision = (PluginId, [(CommandName, [ParamName])])
+
+
+validatePlugins :: Plugins -> IO ()
+validatePlugins plugins =
+  case extractParams plugins of
+     [] -> return ()
+     collisions -> error (show collisions)
+
+foreach :: [a] -> (a -> b) -> [b]
+foreach = flip map
+
+extractParams :: Plugins -> [ParamNameCollision]
+extractParams plugins =
+  foreach (Map.toList plugins)
+    (\(pluginId, pluginDesc) -> (pluginId, foreach (map cmdDesc (pdCommands pluginDesc))
+      (\cmd -> (cmdName cmd, collidingParams (cmdAdditionalParams cmd)))))
+
+collidingParams :: [ParamDescription] ->[ParamName]
+collidingParams params =
+  let pNames = map pName params
+      uniquePNames = nub pNames
+   in pNames \\ uniquePNames
