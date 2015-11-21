@@ -63,6 +63,7 @@ mapEithers _ _ = Right []
 
 -- ---------------------------------------------------------------------
 -- Helper functions for errors
+-- ---------------------------------------------------------------------
 
 -- Missing parameter error
 missingParameter :: forall r. (ValidResponse r) => ParamId -> IdeResponse r

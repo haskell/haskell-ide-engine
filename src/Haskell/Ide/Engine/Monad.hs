@@ -17,7 +17,11 @@ import           Exception
 import           Haskell.Ide.Engine.PluginDescriptor
 import qualified Language.Haskell.GhcMod.Monad as GM
 import qualified Language.Haskell.GhcMod.Types as GM
+import qualified Data.Map as Map
+import           Data.List
 import           System.Directory
+
+import           Debug.Trace
 
 -- Monad transformer stuff
 import Control.Monad.Trans.Control ( control, liftBaseOp, liftBaseOp_)
@@ -44,8 +48,31 @@ data IdeState = IdeState
 
 -- ---------------------------------------------------------------------
 
+type ParamNameCollision = (PluginId, [AcceptedContext], [ParamName])
+
+validatePlugins :: Plugins -> IO ()
+validatePlugins plugins = do
+  let collisions = concatMap getParamNameCollisions (Map.toList plugins) :: [ParamNameCollision]
+   in case collisions of
+     [] -> return ()
+     _ -> error "The parameter names are conflicting"
+
+getParamNameCollisions :: (PluginId, PluginDescriptor) -> [ParamNameCollision]
+getParamNameCollisions (pluginId, pluginDesc) = do
+  let additionalParams = traceShowId $ extractAdditionalParams pluginDesc
+      additionalParamsCollisions = traceShowId $ additionalParams \\ (nub additionalParams)
+   in map (\paramName -> (pluginId, [], [paramName])) additionalParamsCollisions
+
+findCollisions :: [ParamName] -> [ParamName]
+findCollisions paramNames = paramNames
+
+extractAdditionalParams :: PluginDescriptor -> [ParamName]
+extractAdditionalParams pluginDesc = concatMap (map pName . cmdAdditionalParams . cmdDesc) (pdCommands pluginDesc)
+-- ---------------------------------------------------------------------
+
 runIdeM :: IdeState -> IdeM a -> IO a
 runIdeM initState f = do
+    validatePlugins (idePlugins initState)
     initializedRef <- newIORef False
     let inner' = GM.runGmOutT opts $ GM.runGhcModT opts $ do
             liftIO $ writeIORef initializedRef True

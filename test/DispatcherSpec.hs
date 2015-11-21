@@ -17,6 +17,7 @@ import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
 
+import           Control.Exception (evaluate)
 import           Test.Hspec
 
 -- ---------------------------------------------------------------------
@@ -38,6 +39,13 @@ spec = do
 
 dispatcherSpec :: Spec
 dispatcherSpec = do
+  describe "checking plugins" $ do
+
+    it "exits on parameter name collisions" $ do
+      runIdeM (IdeState testPluginWithParamNameCollison) undefined `shouldThrow` errorCall "The parameter names are conflicting"
+
+  -- -----------------------------------
+
   describe "checking contexts" $ do
 
     it "identifies CtxNone" $ do
@@ -244,6 +252,43 @@ dispatcherSpec = do
                             , coutResp = IdeResponseOk (HM.fromList [("ok",String "asyncCmd1 got strobe")])})
 
 -- ---------------------------------------------------------------------
+
+testPluginWithParamNameCollison :: Plugins
+testPluginWithParamNameCollison = Map.fromList [("plugin1", PluginDescriptor
+    {
+      pdCommands =
+        [
+          Command
+            { cmdDesc = CommandDesc
+                          { cmdName = "cmd1"
+                          , cmdUiDescription = "description"
+                          , cmdFileExtensions = []
+                          , cmdContexts = [CtxFile]
+                          , cmdAdditionalParams =
+                            [
+                              RP
+                                { pName = "nonUniqueParamName"
+                                , pHelp = ""
+                                , pType = PtText
+                                }
+                            , RP
+                                { pName = "nonUniqueParamName"
+                                , pHelp = ""
+                                , pType = PtText
+                                }
+                            , RP
+                                { pName = "file"
+                                , pHelp = ""
+                                , pType = PtText
+                                }
+                            ]
+                          }
+            , cmdFunc = CmdSync $ \_ _ -> return (IdeResponseOk ("" :: T.Text))
+            }
+        ]
+      , pdExposedServices = []
+      , pdUsedServices    = []
+    })]
 
 testPlugins :: TChan () -> Plugins
 testPlugins chSync = Map.fromList [("test",testDescriptor chSync)]
