@@ -17,9 +17,11 @@ import           Exception
 import           Haskell.Ide.Engine.PluginDescriptor
 import qualified Language.Haskell.GhcMod.Monad as GM
 import qualified Language.Haskell.GhcMod.Types as GM
+import           Data.Function (on)
 import qualified Data.Map as Map
 import           Data.List
 import           System.Directory
+
 
 import           Debug.Trace
 
@@ -48,26 +50,35 @@ data IdeState = IdeState
 
 -- ---------------------------------------------------------------------
 
-type ParamNameCollision = (PluginId, [AcceptedContext], [ParamName])
+{-
+  transform to [(PluginId, [(Command, [ParamDescription])])]
+  filter [ParamDescription] on uniqueness
+  remove empty list items
+-}
+type ParamNameCollision = (PluginId, [(CommandName, [ParamName])])
 
 validatePlugins :: Plugins -> IO ()
-validatePlugins plugins = do
-  let collisions = concatMap getParamNameCollisions (Map.toList plugins) :: [ParamNameCollision]
-   in case collisions of
+validatePlugins plugins =
+  case extractParams plugins of
      [] -> return ()
-     _ -> error "The parameter names are conflicting"
+     collisions -> error (show collisions)
 
-getParamNameCollisions :: (PluginId, PluginDescriptor) -> [ParamNameCollision]
-getParamNameCollisions (pluginId, pluginDesc) = do
-  let additionalParams = traceShowId $ extractAdditionalParams pluginDesc
-      additionalParamsCollisions = traceShowId $ additionalParams \\ (nub additionalParams)
-   in map (\paramName -> (pluginId, [], [paramName])) additionalParamsCollisions
 
-findCollisions :: [ParamName] -> [ParamName]
-findCollisions paramNames = paramNames
+foreach :: [a] -> (a -> b) -> [b]
+foreach = flip map
 
-extractAdditionalParams :: PluginDescriptor -> [ParamName]
-extractAdditionalParams pluginDesc = concatMap (map pName . cmdAdditionalParams . cmdDesc) (pdCommands pluginDesc)
+extractParams :: Plugins -> [ParamNameCollision]
+extractParams plugins =
+  foreach (Map.toList plugins)
+    (\(pluginId, pluginDesc) -> (pluginId, foreach (map cmdDesc (pdCommands pluginDesc))
+      (\cmd -> (cmdName cmd, collidingParams (cmdAdditionalParams cmd)))))
+
+collidingParams :: [ParamDescription] ->[ParamName]
+collidingParams params =
+  let pNames = map pName params
+      uniquePNames = nub pNames
+   in pNames \\ uniquePNames
+
 -- ---------------------------------------------------------------------
 
 runIdeM :: IdeState -> IdeM a -> IO a
