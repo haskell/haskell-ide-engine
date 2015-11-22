@@ -88,24 +88,24 @@ incorrectParameter name expected value = IdeResponseFail
 
 type ParamNameCollision = (PluginId, [(CommandName, [ParamName])])
 
-
+-- throw an error if the parameter names are colliding in any of the plugins
 validatePlugins :: Plugins -> IO ()
 validatePlugins plugins =
-  case extractParams plugins of
+  case findParameterNameCollisions plugins of
      [] -> return ()
      collisions -> error (show collisions)
 
 foreach :: [a] -> (a -> b) -> [b]
 foreach = flip map
 
-extractParams :: Plugins -> [ParamNameCollision]
-extractParams plugins =
+findParameterNameCollisions :: Plugins -> [ParamNameCollision]
+findParameterNameCollisions plugins =
   foreach (Map.toList plugins)
     (\(pluginId, pluginDesc) -> (pluginId, foreach (map cmdDesc (pdCommands pluginDesc))
-      (\cmd -> (cmdName cmd, collidingParams (cmdAdditionalParams cmd)))))
+      (\cmd -> (cmdName cmd, collidingParamNames (cmdAdditionalParams cmd)))))
 
-collidingParams :: [ParamDescription] ->[ParamName]
-collidingParams params =
+collidingParamNames :: [ParamDescription] ->[ParamName]
+collidingParamNames params =
   let pNames = map pName params
       uniquePNames = nub pNames
    in pNames \\ uniquePNames
