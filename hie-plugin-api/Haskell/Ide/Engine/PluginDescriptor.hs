@@ -77,9 +77,11 @@ data CommandDescriptor = CommandDesc
   , cmdFileExtensions :: ![T.Text] -- ^ File extensions this command can be applied to
   , cmdContexts :: ![AcceptedContext] -- TODO: should this be a non empty list? or should empty list imply CtxNone.
   , cmdAdditionalParams :: ![ParamDescription]
+  , cmdPluginName :: !PluginName
   } deriving (Show,Eq,Generic)
 
 type CommandName = T.Text
+type PluginName = T.Text
 
 -- | Define what context will be accepted from the frontend for the specific
 -- command. Matches up to corresponding values for CommandContext
@@ -315,13 +317,16 @@ instance ValidResponse CommandDescriptor where
                                   , "ui_description" .= cmdUiDescription cmdDescriptor
                                   , "file_extensions" .= cmdFileExtensions cmdDescriptor
                                   , "contexts" .= cmdContexts cmdDescriptor
-                                  , "additional_params" .= cmdAdditionalParams cmdDescriptor ]
+                                  , "additional_params" .= cmdAdditionalParams cmdDescriptor
+                                  , "plugin_name" .= cmdPluginName cmdDescriptor]
   jsRead v =
         CommandDesc <$> v .: "name"
                     <*> v .: "ui_description"
                     <*> v .: "file_extensions"
                     <*> v .: "contexts"
                     <*> v .: "additional_params"
+                    <*> v .: "plugin_name"
+
 
 instance ValidResponse Plugins where
   jsWrite m = H.fromList ["plugins" .= H.fromList

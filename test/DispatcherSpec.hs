@@ -253,33 +253,33 @@ testDescriptor chSync = PluginDescriptor
   {
     pdCommands =
       [
-        mkCmdWithContext "cmd1" [CtxNone] []
-      , mkCmdWithContext "cmd2" [CtxFile] []
-      , mkCmdWithContext "cmd3" [CtxPoint] []
-      , mkCmdWithContext "cmd4" [CtxRegion] []
-      , mkCmdWithContext "cmd5" [CtxCabalTarget] []
-      , mkCmdWithContext "cmd6" [CtxProject] []
-      , mkCmdWithContext "cmdmultiple" [CtxFile,CtxPoint,CtxRegion] []
+        mkCmdWithContext "cmd1" "plugin" [CtxNone] []
+      , mkCmdWithContext "cmd2" "plugin" [CtxFile] []
+      , mkCmdWithContext "cmd3" "plugin" [CtxPoint] []
+      , mkCmdWithContext "cmd4" "plugin" [CtxRegion] []
+      , mkCmdWithContext "cmd5" "plugin" [CtxCabalTarget] []
+      , mkCmdWithContext "cmd6" "plugin" [CtxProject] []
+      , mkCmdWithContext "cmdmultiple" "plugin" [CtxFile,CtxPoint,CtxRegion] []
 
-      , mkCmdWithContext "cmdextra" [CtxFile] [ RP "txt"  "help" PtText
-                                              , RP "file" "help" PtFile
-                                              , RP "pos"  "help" PtPos
-                                              ]
+      , mkCmdWithContext "cmdextra" "plugin" [CtxFile] [ RP "txt"  "help" PtText
+                                                       , RP "file" "help" PtFile
+                                                       , RP "pos"  "help" PtPos
+                                                       ]
 
-      , mkCmdWithContext "cmdoptional" [CtxNone] [ RP "txt"   "help" PtText
-                                                 , OP "txto"  "help" PtText
-                                                 , OP "fileo" "help" PtFile
-                                                 , OP "poso"  "help" PtPos
-                                                 ]
-      , mkAsyncCmdWithContext (asyncCmd1 chSync) "cmdasync1" [CtxNone] []
-      , mkAsyncCmdWithContext (asyncCmd2 chSync) "cmdasync2" [CtxNone] []
+      , mkCmdWithContext "cmdoptional" "plugin" [CtxNone] [ RP "txt"   "help" PtText
+                                                          , OP "txto"  "help" PtText
+                                                          , OP "fileo" "help" PtFile
+                                                          , OP "poso"  "help" PtPos
+                                                          ]
+      , mkAsyncCmdWithContext (asyncCmd1 chSync) "cmdasync1" "plugin" [CtxNone] []
+      , mkAsyncCmdWithContext (asyncCmd2 chSync) "cmdasync2" "plugin" [CtxNone] []
       ]
   , pdExposedServices = []
   , pdUsedServices    = []
   }
 
-mkCmdWithContext :: CommandName -> [AcceptedContext] -> [ParamDescription] -> Command
-mkCmdWithContext n cts pds =
+mkCmdWithContext :: CommandName -> PluginName -> [AcceptedContext] -> [ParamDescription] -> Command
+mkCmdWithContext n pn cts pds =
         Command
           { cmdDesc = CommandDesc
                         { cmdName = n
@@ -287,12 +287,13 @@ mkCmdWithContext n cts pds =
                         , cmdFileExtensions = []
                         , cmdContexts = cts
                         , cmdAdditionalParams = pds
+                        , cmdPluginName = pn
                         }
           , cmdFunc = CmdSync $ \ctxs _ -> return (IdeResponseOk ("result:ctxs=" ++ show ctxs))
           }
 
-mkAsyncCmdWithContext :: (ValidResponse a) => CommandFunc a -> CommandName -> [AcceptedContext] -> [ParamDescription] -> Command
-mkAsyncCmdWithContext cf n cts pds =
+mkAsyncCmdWithContext :: (ValidResponse a) => CommandFunc a -> CommandName -> PluginName -> [AcceptedContext] -> [ParamDescription] -> Command
+mkAsyncCmdWithContext cf n pn cts pds =
         Command
           { cmdDesc = CommandDesc
                         { cmdName = n
@@ -300,6 +301,7 @@ mkAsyncCmdWithContext cf n cts pds =
                         , cmdFileExtensions = []
                         , cmdContexts = cts
                         , cmdAdditionalParams = pds
+                        , cmdPluginName = pn
                         }
           , cmdFunc = cf
           }

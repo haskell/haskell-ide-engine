@@ -16,8 +16,8 @@ import qualified Language.Haskell.GhcMod.Monad as GM
 
 -- ---------------------------------------------------------------------
 
-ghcmodDescriptor :: PluginDescriptor
-ghcmodDescriptor = PluginDescriptor
+ghcmodDescriptor :: PluginName -> PluginDescriptor
+ghcmodDescriptor pluginName = PluginDescriptor
   {
     pdCommands =
       [
@@ -28,6 +28,7 @@ ghcmodDescriptor = PluginDescriptor
                      , cmdFileExtensions = [".hs",".lhs"]
                      , cmdContexts = [CtxFile]
                      , cmdAdditionalParams = []
+                     , cmdPluginName = pluginName
                      }
           , cmdFunc = checkCmd
           }
@@ -38,6 +39,7 @@ ghcmodDescriptor = PluginDescriptor
                      , cmdFileExtensions = [".hs",".lhs"]
                      , cmdContexts = [CtxFile]
                      , cmdAdditionalParams = []
+                     , cmdPluginName = pluginName
                      }
           , cmdFunc = lintCmd
           }
@@ -48,6 +50,7 @@ ghcmodDescriptor = PluginDescriptor
                      , cmdFileExtensions = [".hs",".lhs"]
                      , cmdContexts = [CtxProject]
                      , cmdAdditionalParams = [RP "symbol" "The SYMBOL to look up" PtText]
+                     , cmdPluginName = pluginName
                      }
           , cmdFunc = findCmd
           }
@@ -58,6 +61,7 @@ ghcmodDescriptor = PluginDescriptor
                      , cmdFileExtensions = [".hs",".lhs"]
                      , cmdContexts = [CtxFile]
                      , cmdAdditionalParams = [RP "expr" "The EXPR to provide info on" PtText]
+                     , cmdPluginName = pluginName
                      }
           , cmdFunc = infoCmd
           }
@@ -68,6 +72,7 @@ ghcmodDescriptor = PluginDescriptor
                      , cmdFileExtensions = [".hs",".lhs"]
                      , cmdContexts = [CtxPoint]
                      , cmdAdditionalParams = []
+                     , cmdPluginName = pluginName
                      }
           , cmdFunc = typeCmd
           }

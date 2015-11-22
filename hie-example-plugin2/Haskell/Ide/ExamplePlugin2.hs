@@ -12,8 +12,8 @@ import qualified Data.Text as T
 
 -- ---------------------------------------------------------------------
 
-example2Descriptor :: PluginDescriptor
-example2Descriptor = PluginDescriptor
+example2Descriptor :: PluginName -> PluginDescriptor
+example2Descriptor pluginName = PluginDescriptor
   {
     pdCommands =
       [
@@ -24,6 +24,7 @@ example2Descriptor = PluginDescriptor
                        , cmdFileExtensions = []
                        , cmdContexts = [CtxNone]
                        , cmdAdditionalParams = []
+                       , cmdPluginName = pluginName
                        }
           , cmdFunc = sayHelloCmd
           }
@@ -34,6 +35,7 @@ example2Descriptor = PluginDescriptor
                        , cmdFileExtensions = []
                        , cmdContexts = [CtxNone]
                        , cmdAdditionalParams = [RP "name" "the name to greet" PtText]
+                       , cmdPluginName = pluginName
                        }
           , cmdFunc = sayHelloToCmd
           }

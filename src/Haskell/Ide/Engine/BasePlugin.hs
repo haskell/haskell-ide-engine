@@ -22,8 +22,8 @@ import           Prelude hiding (log)
 
 -- ---------------------------------------------------------------------
 
-baseDescriptor :: PluginDescriptor
-baseDescriptor = PluginDescriptor
+baseDescriptor :: PluginName -> PluginDescriptor
+baseDescriptor pluginName = PluginDescriptor
   {
     pdCommands =
       [
@@ -34,6 +34,7 @@ baseDescriptor = PluginDescriptor
                         , cmdFileExtensions = []
                         , cmdContexts = [CtxNone]
                         , cmdAdditionalParams = []
+                        , cmdPluginName = pluginName
                         }
           , cmdFunc = versionCmd
           }
@@ -44,6 +45,7 @@ baseDescriptor = PluginDescriptor
                         , cmdFileExtensions = []
                         , cmdContexts = [CtxNone]
                         , cmdAdditionalParams = []
+                        , cmdPluginName = pluginName
                         }
           , cmdFunc = pluginsCmd
           }
@@ -54,6 +56,7 @@ baseDescriptor = PluginDescriptor
                         , cmdFileExtensions = []
                         , cmdContexts = [CtxNone]
                         , cmdAdditionalParams = [RP "plugin" "the plugin name" PtText]
+                        , cmdPluginName = pluginName
                         }
           , cmdFunc = commandsCmd
           }
@@ -65,6 +68,7 @@ baseDescriptor = PluginDescriptor
                         , cmdContexts = [CtxNone]
                         , cmdAdditionalParams = [RP "plugin"  "the plugin name"  PtText
                                                 ,RP "command" "the command name" PtText]
+                        , cmdPluginName = pluginName
                         }
           , cmdFunc = commandDetailCmd
           }
