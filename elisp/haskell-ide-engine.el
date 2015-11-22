@@ -36,38 +36,42 @@
   "Function to call with message that will be send to hie process.")
 (defvar haskell-ide-engine-plugins nil
   "Plugin information gained by calling the base:plugins plugin")
+(defvar haskell-ide-engine-current-cmd nil
+  "Last cmd that got called")
 
 (defun haskell-ide-engine-process-filter (process input)
-  (with-current-buffer haskell-ide-engine-buffer
+  (let ((prev-buffer (current-buffer)))
+    (with-current-buffer haskell-ide-engine-buffer
 
-    (let ((point (point)))
-      (insert input)
-      (save-excursion
-        (goto-char point)
-        (when (re-search-forward "\^b" nil t)
-          (let* ((end-of-current-json-object (match-beginning 0))
-                 (after-stx-marker (match-end 0))
-                 (json-array-type 'list))
-            (goto-char (point-min))
-            (condition-case nil
-                (let ((json (json-read)))
-                  (when haskell-ide-engine-process-handle-message
-                    (funcall haskell-ide-engine-process-handle-message json)))
-              ;; json-readtable-error is when there is an unexpected character in input
-              (json-readtable-error
-               (when haskell-ide-engine-process-handle-invalid-input
-                 (funcall haskell-ide-engine-process-handle-invalid-input
-                          (buffer-substring-no-properties (point-min) end-of-current-json-object))))
-              ;; json-unknown-keyword when unrecognized keyword is parsed
-              (json-unknown-keyword
-               (when haskell-ide-engine-process-handle-invalid-input
-                 (funcall haskell-ide-engine-process-handle-invalid-input
-                          (buffer-substring-no-properties (point-min) end-of-current-json-object))))
-              (end-of-file
-               (when haskell-ide-engine-process-handle-invalid-input
-                 (funcall haskell-ide-engine-process-handle-invalid-input
-                          (buffer-substring-no-properties (point-min) end-of-current-json-object)))))
-            (delete-region (point-min) after-stx-marker)))))))
+      (let ((point (point)))
+        (insert input)
+        (save-excursion
+          (goto-char point)
+          (when (re-search-forward "\^b" nil t)
+            (let* ((end-of-current-json-object (match-beginning 0))
+                   (after-stx-marker (match-end 0))
+                   (json-array-type 'list))
+              (goto-char (point-min))
+              (condition-case nil
+                  (let ((json (json-read)))
+                    (when haskell-ide-engine-process-handle-message
+                      (with-current-buffer prev-buffer
+                        (funcall haskell-ide-engine-process-handle-message json))))
+                ;; json-readtable-error is when there is an unexpected character in input
+                (json-readtable-error
+                 (when haskell-ide-engine-process-handle-invalid-input
+                   (funcall haskell-ide-engine-process-handle-invalid-input
+                            (buffer-substring-no-properties (point-min) end-of-current-json-object))))
+                ;; json-unknown-keyword when unrecognized keyword is parsed
+                (json-unknown-keyword
+                 (when haskell-ide-engine-process-handle-invalid-input
+                   (funcall haskell-ide-engine-process-handle-invalid-input
+                            (buffer-substring-no-properties (point-min) end-of-current-json-object))))
+                (end-of-file
+                 (when haskell-ide-engine-process-handle-invalid-input
+                   (funcall haskell-ide-engine-process-handle-invalid-input
+                            (buffer-substring-no-properties (point-min) end-of-current-json-object)))))
+              (delete-region (point-min) after-stx-marker))))))))
 
 (defun haskell-ide-engine-start-process ()
   "Start Haskell IDE Engine process.
@@ -149,12 +153,35 @@ association lists and count on HIE to use default values there."
 (defun hie-handle-message (json)
   (message (format "%s" json)))
 
+(defun hie-handle-command-detail (json)
+  (let ((context
+         (hie-get-context (cadr (assq 'contexts json)))))
+    (setq haskell-ide-engine-process-handle-message
+          #'hie-handle-message)
+    (haskell-ide-engine-post-message
+     `(("cmd" . ,(hie-format-cmd haskell-ide-engine-current-cmd))
+       ("params" . ,context)))))
+
+(defun hie-format-cmd (cmd)
+  (format "%s:%s" (car cmd) (cdr cmd)))
+
+(defun hie-get-context (context)
+  (cond
+   ((string= context "point")
+    (let ((col (current-column))
+          (row (line-number-at-pos))
+          (filename (buffer-file-name)))
+      `(("file" . (("file" . ,filename)))
+        ("start_pos" . (("pos" . ,(vector row col)))))))))
+
 (defun hie-run-command (plugin command)
   (setq haskell-ide-engine-process-handle-message
-        #'hie-handle-message)
-  (message (format "running %s:%s" plugin command))
+        #'hie-handle-command-detail)
+  (setq haskell-ide-engine-current-cmd (cons plugin command))
   (haskell-ide-engine-post-message
-   (list (cons "cmd" (concat plugin ":" command)))))
+   `(("cmd" . "base:commandDetail")
+     ("params" . (("command" . (("text" . ,command)))
+                  ("plugin" . (("text" . ,plugin))))))))
 
 (defun haskell-ide-engine-handle-first-plugins-command (json)
   "Handle first plugins call."
