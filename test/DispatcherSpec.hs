@@ -262,7 +262,7 @@ testPluginWithParamNameCollison = Map.fromList [("plugin1", PluginDescriptor
                           { cmdName = "cmd1"
                           , cmdUiDescription = "description"
                           , cmdFileExtensions = []
-                          , cmdContexts = [CtxRegion]
+                          , cmdContexts = [CtxRegion, CtxPoint] -- ["file", "start_pos", "file", "start_pos", "end_pos"]
                           , cmdAdditionalParams =
                             [
                               RP
@@ -271,18 +271,18 @@ testPluginWithParamNameCollison = Map.fromList [("plugin1", PluginDescriptor
                                 , pType = PtText
                                 }
                             , RP
-                                { pName = "nonUniqueParamName"
-                                , pHelp = ""
+                                { pName = "uniqueParamName"
+                                , pHelp = "shoud not collide"
                                 , pType = PtText
                                 }
                             , RP
-                                { pName = "file"
-                                , pHelp = ""
+                                { pName = "nonUniqueParamName"
+                                , pHelp = "should collide with the first param"
                                 , pType = PtText
                                 }
                             , OP
                                 { pName = "end_pos"
-                                , pHelp = ""
+                                , pHelp = "this should collide with CtxPoint from cmdContext"
                                 , pType = PtText
                                 }
                             ]
