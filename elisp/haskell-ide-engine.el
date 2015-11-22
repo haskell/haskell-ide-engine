@@ -34,6 +34,8 @@
 
 (defvar haskell-ide-engine-post-message-hook nil
   "Function to call with message that will be send to hie process.")
+(defvar haskell-ide-engine-plugins nil
+  "Plugin information gained by calling the base:plugins plugin")
 
 (defun haskell-ide-engine-process-filter (process input)
   (with-current-buffer haskell-ide-engine-buffer
@@ -166,7 +168,7 @@ association lists and count on HIE to use default values there."
                       (vector (cdr (assq 'ui_description command)) (list 'hie-run-command (symbol-name (car plugin)) (cdr (assq 'name command)))))
                     (cdr (assq 'commands (cdr plugin)))))
                  (cdr (assq 'plugins json))))))
-
+    (setq haskell-ide-engine-plugins (cdr (assq 'plugins json)))
     (easy-menu-define hie-menu hie-mode-map
       "Menu for Haskell IDE Engine"
       (cons "HIE" menu-items))))
