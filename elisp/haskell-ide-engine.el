@@ -145,11 +145,12 @@ association lists and count on HIE to use default values there."
    '()))
 
 (defun hie-handle-message (json)
-  (message "%s" (cdr (assq 'contents json))))
+  (message (format "%s" json)))
 
 (defun hie-run-command (plugin command)
   (setq haskell-ide-engine-process-handle-message
         #'hie-handle-message)
+  (message (format "running %s:%s" plugin command))
   (haskell-ide-engine-post-message
    (list (cons "cmd" (concat plugin ":" command)))))
 
@@ -164,7 +165,7 @@ association lists and count on HIE to use default values there."
                     (lambda (command)
                       (vector (cdr (assq 'ui_description command)) (list 'hie-run-command (symbol-name (car plugin)) (cdr (assq 'name command)))))
                     (cdr (assq 'commands (cdr plugin)))))
-                 (cdr (assq 'contents json))))))
+                 (cdr (assq 'plugins json))))))
 
     (easy-menu-define hie-menu hie-mode-map
       "Menu for Haskell IDE Engine"
