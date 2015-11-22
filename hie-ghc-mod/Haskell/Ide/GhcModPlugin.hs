@@ -209,7 +209,7 @@ dispatcher = runGmlT $ forever $ do
 
 -- ---------------------------------------------------------------------
 
--- | Returns the canonical directory and file name
+-- | Returns the directory and file name
 fileInfo :: T.Text -> (FilePath,FilePath)
 fileInfo tfileName =
   let sfileName = T.unpack tfileName
