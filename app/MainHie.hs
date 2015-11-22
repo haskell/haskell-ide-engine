@@ -46,11 +46,11 @@ plugins = Map.fromList
   [
     -- Note: statically including known plugins. In future this map could be set
     -- up via a config file of some kind.
-    ("eg2",    example2Descriptor)
-  , ("ghcmod", ghcmodDescriptor)
-  , ("hare",   hareDescriptor)
+    ("eg2",    example2Descriptor "eg2")
+  , ("ghcmod", ghcmodDescriptor "ghcmod")
+  , ("hare",   hareDescriptor "hare")
     -- The base plugin, able to answer questions about the IDE Engine environment.
-  , ("base",   baseDescriptor)
+  , ("base",   baseDescriptor "base")
   ]
 
 -- ---------------------------------------------------------------------

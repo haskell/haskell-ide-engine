@@ -32,7 +32,7 @@ spec = do
 -- ---------------------------------------------------------------------
 
 testPlugins :: Plugins
-testPlugins = Map.fromList [("hare",hareDescriptor)]
+testPlugins = Map.fromList [("hare",hareDescriptor "hare")]
 
 -- TODO: break this out into a TestUtils file
 dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Object))

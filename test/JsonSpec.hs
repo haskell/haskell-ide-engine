@@ -77,6 +77,7 @@ instance Arbitrary CommandDescriptor where
     <*> smallList arbitrary
     <*> smallList arbitraryBoundedEnum
     <*> smallList arbitrary
+    <*> arbitrary
 
 instance Arbitrary ParamDescription where
   arbitrary = do

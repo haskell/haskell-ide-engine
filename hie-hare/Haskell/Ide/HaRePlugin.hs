@@ -14,8 +14,8 @@ import           System.Directory
 
 -- ---------------------------------------------------------------------
 
-hareDescriptor :: PluginDescriptor
-hareDescriptor = PluginDescriptor
+hareDescriptor :: PluginName -> PluginDescriptor
+hareDescriptor pluginName = PluginDescriptor
   {
     pdCommands =
       [
@@ -26,6 +26,7 @@ hareDescriptor = PluginDescriptor
                      , cmdFileExtensions = [".hs"]
                      , cmdContexts = [CtxPoint]
                      , cmdAdditionalParams = []
+                     , cmdPluginName = pluginName
                      }
           , cmdFunc = demoteCmd
           }
@@ -36,6 +37,7 @@ hareDescriptor = PluginDescriptor
                      , cmdFileExtensions = [".hs"]
                      , cmdContexts = [CtxPoint]
                      , cmdAdditionalParams = [RP "name" "the new name" PtText]
+                     , cmdPluginName = pluginName
                      }
           , cmdFunc = dupdefCmd
           }
@@ -46,6 +48,7 @@ hareDescriptor = PluginDescriptor
                      , cmdFileExtensions = [".hs"]
                      , cmdContexts = [CtxRegion]
                      , cmdAdditionalParams = []
+                     , cmdPluginName = pluginName
                      }
           , cmdFunc = iftocaseCmd
           }
@@ -56,6 +59,7 @@ hareDescriptor = PluginDescriptor
                      , cmdFileExtensions = [".hs"]
                      , cmdContexts = [CtxPoint]
                      , cmdAdditionalParams = []
+                     , cmdPluginName = pluginName
                      }
           , cmdFunc = liftonelevelCmd
           }
@@ -66,6 +70,7 @@ hareDescriptor = PluginDescriptor
                      , cmdFileExtensions = [".hs"]
                      , cmdContexts = [CtxPoint]
                      , cmdAdditionalParams = []
+                     , cmdPluginName = pluginName
                      }
           , cmdFunc = lifttotoplevelCmd
           }
@@ -76,6 +81,7 @@ hareDescriptor = PluginDescriptor
                      , cmdFileExtensions = [".hs"]
                      , cmdContexts = [CtxPoint]
                      , cmdAdditionalParams = [RP "name" "the new name" PtText]
+                     , cmdPluginName = pluginName
                      }
           , cmdFunc = renameCmd
           }
