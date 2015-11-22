@@ -95,14 +95,15 @@ validatePlugins plugins =
      [] -> return ()
      collisions -> error (show collisions)
 
-foreach :: [a] -> (a -> b) -> [b]
-foreach = flip map
-
 findParameterNameCollisions :: Plugins -> [ParamNameCollision]
 findParameterNameCollisions plugins =
-  foreach (Map.toList plugins)
-    (\(pluginId, pluginDesc) -> (pluginId, foreach (map cmdDesc (pdCommands pluginDesc))
-      (\cmd -> (cmdName cmd, collidingParamNames (cmdAdditionalParams cmd ++ concatMap contextMapping (cmdContexts cmd))))))
+  let collisionsForPlugin (pluginId, pluginDesc) = (pluginId, collisionsForPluginDesc pluginDesc)
+      collisionsForPluginDesc pluginDesc = map collisionsForCmd (getCmdDesc pluginDesc)
+      collisionsForCmd cmd = (cmdName cmd, collidingParamNames (allParams cmd))
+   in map collisionsForPlugin (Map.toList plugins)
+   where getCmdDesc = map cmdDesc . pdCommands
+         allParams cmd = cmdAdditionalParams cmd ++ uniqueParamNamesFromContext cmd
+         uniqueParamNamesFromContext cmd = nub (concatMap contextMapping (cmdContexts cmd))
 
 collidingParamNames :: [ParamDescription] ->[ParamName]
 collidingParamNames params =
