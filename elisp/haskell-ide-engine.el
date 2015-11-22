@@ -155,7 +155,7 @@ association lists and count on HIE to use default values there."
 
 (defun hie-handle-command-detail (json)
   (let ((context
-         (hie-get-context (cadr (assq 'contexts json)))))
+         (hie-get-context (cdr (assq 'contexts json)))))
     (setq haskell-ide-engine-process-handle-message
           #'hie-handle-message)
     (haskell-ide-engine-post-message
@@ -166,13 +166,14 @@ association lists and count on HIE to use default values there."
   (format "%s:%s" (car cmd) (cdr cmd)))
 
 (defun hie-get-context (context)
-  (cond
-   ((string= context "point")
-    (let ((col (current-column))
-          (row (line-number-at-pos))
-          (filename (buffer-file-name)))
-      `(("file" . (("file" . ,filename)))
-        ("start_pos" . (("pos" . ,(vector row col)))))))))
+  (let ((start (save-excursion (goto-char (region-beginning))
+                               (list (line-number-at-pos) (current-column))))
+        (end (save-excursion (goto-char (region-end))
+                             (list (line-number-at-pos) (current-column))))
+        (filename (buffer-file-name)))
+    `(("file" . (("file" . ,filename)))
+      ("start_pos" . (("pos" . ,(apply 'vector start))))
+      ("end_pos" . (("pos" . ,(apply 'vector end)))))))
 
 (defun hie-run-command (plugin command)
   (setq haskell-ide-engine-process-handle-message
