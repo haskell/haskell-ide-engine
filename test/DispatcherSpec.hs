@@ -262,7 +262,7 @@ testPluginWithParamNameCollison = Map.fromList [("plugin1", PluginDescriptor
                           { cmdName = "cmd1"
                           , cmdUiDescription = "description"
                           , cmdFileExtensions = []
-                          , cmdContexts = [CtxFile]
+                          , cmdContexts = [CtxRegion]
                           , cmdAdditionalParams =
                             [
                               RP
@@ -277,6 +277,11 @@ testPluginWithParamNameCollison = Map.fromList [("plugin1", PluginDescriptor
                                 }
                             , RP
                                 { pName = "file"
+                                , pHelp = ""
+                                , pType = PtText
+                                }
+                            , OP
+                                { pName = "end_pos"
                                 , pHelp = ""
                                 , pType = PtText
                                 }

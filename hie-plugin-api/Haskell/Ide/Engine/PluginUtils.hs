@@ -102,7 +102,7 @@ findParameterNameCollisions :: Plugins -> [ParamNameCollision]
 findParameterNameCollisions plugins =
   foreach (Map.toList plugins)
     (\(pluginId, pluginDesc) -> (pluginId, foreach (map cmdDesc (pdCommands pluginDesc))
-      (\cmd -> (cmdName cmd, collidingParamNames (cmdAdditionalParams cmd)))))
+      (\cmd -> (cmdName cmd, collidingParamNames (cmdAdditionalParams cmd ++ concatMap contextMapping (cmdContexts cmd))))))
 
 collidingParamNames :: [ParamDescription] ->[ParamName]
 collidingParamNames params =
