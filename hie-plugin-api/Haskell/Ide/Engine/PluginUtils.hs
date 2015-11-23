@@ -15,6 +15,7 @@ module Haskell.Ide.Engine.PluginUtils
 import           Data.Aeson
 
 import           Data.List
+import           Data.Maybe
 import           Data.Monoid
 import           Data.Vinyl
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -93,15 +94,27 @@ validatePlugins :: Plugins -> IO ()
 validatePlugins plugins =
   case findParameterNameCollisions plugins of
      [] -> return ()
-     collisions -> error (show collisions)
+     collisions -> error (formatParamNameCollisionErrorMsg collisions)
+
+formatParamNameCollisionErrorMsg :: [ParamNameCollision] -> String
+formatParamNameCollisionErrorMsg = show -- TODO
 
 findParameterNameCollisions :: Plugins -> [ParamNameCollision]
 findParameterNameCollisions plugins =
-  let collisionsForPlugin (pluginId, pluginDesc) = (pluginId, collisionsForPluginDesc pluginDesc)
-      collisionsForPluginDesc pluginDesc = map collisionsForCmd (getCmdDesc pluginDesc)
-      collisionsForCmd cmd = (cmdName cmd, collidingParamNames (allParams cmd))
-   in map collisionsForPlugin (Map.toList plugins)
-   where getCmdDesc = map cmdDesc . pdCommands
+  let
+      collisionsForPlugin (pluginId, pluginDesc) =
+        case collisionsForPluginDesc pluginDesc of
+          [] -> Nothing
+          commands -> Just (pluginId, commands)
+      collisionsForPluginDesc pluginDesc = mapMaybe collisionsForCmd (getCmdDesc pluginDesc)
+      collisionsForCmd cmd =
+          case allCollidingParamNames cmd of
+            [] -> Nothing
+            paramNames -> Just (cmdName cmd, paramNames)
+   in mapMaybe collisionsForPlugin (Map.toList plugins)
+   where
+         allCollidingParamNames = collidingParamNames . allParams
+         getCmdDesc = map cmdDesc . pdCommands
          allParams cmd = cmdAdditionalParams cmd ++ uniqueParamNamesFromContext cmd
          uniqueParamNamesFromContext cmd = nub (concatMap contextMapping (cmdContexts cmd))
 

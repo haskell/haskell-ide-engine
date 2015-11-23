@@ -38,10 +38,15 @@ spec = do
 
 dispatcherSpec :: Spec
 dispatcherSpec = do
-  describe "checking plugins" $ do
+  describe "checking plugins on startup" $ do
 
     it "exits on parameter name collisions" $ do
       runIdeM (IdeState testPluginWithParamNameCollison) undefined `shouldThrow` errorCall "The parameter names are conflicting"
+
+    -- ---------------------------------
+
+    it "does not exit on non-colliding parameter names" $ do
+      runIdeM (IdeState testPluginWithoutParamNameCollison) undefined `shouldThrow` errorCall "The parameter names are conflicting"
 
   -- -----------------------------------
 
@@ -251,6 +256,38 @@ dispatcherSpec = do
                             , coutResp = IdeResponseOk (HM.fromList [("ok",String "asyncCmd1 got strobe")])})
 
 -- ---------------------------------------------------------------------
+
+testPluginWithoutParamNameCollison :: Plugins
+testPluginWithoutParamNameCollison = Map.fromList [("plugin1", PluginDescriptor
+    {
+      pdCommands =
+        [
+          Command
+            { cmdDesc = CommandDesc
+                          { cmdName = "cmd1"
+                          , cmdUiDescription = "description"
+                          , cmdFileExtensions = []
+                          , cmdContexts = [CtxRegion, CtxPoint] -- ["file", "start_pos", "file", "start_pos", "end_pos"]
+                          , cmdAdditionalParams =
+                            [
+                              RP
+                                { pName = "uniqueParamName1"
+                                , pHelp = "shoud not collide"
+                                , pType = PtText
+                                }
+                            , RP
+                                { pName = "uniqueParamName2"
+                                , pHelp = "shoud not collide"
+                                , pType = PtText
+                                }
+                            ]
+                          }
+            , cmdFunc = CmdSync $ \_ _ -> return (IdeResponseOk ("" :: T.Text))
+            }
+        ]
+      , pdExposedServices = []
+      , pdUsedServices    = []
+    })]
 
 testPluginWithParamNameCollison :: Plugins
 testPluginWithParamNameCollison = Map.fromList [("plugin1", PluginDescriptor
