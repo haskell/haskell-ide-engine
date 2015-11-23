@@ -29,6 +29,7 @@
 module Haskell.Ide.Engine.PluginDescriptor where
 
 import           Control.Applicative
+import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Aeson.Types
@@ -36,7 +37,6 @@ import qualified Data.Map as Map
 import           Data.Maybe
 import qualified Data.HashMap.Strict as H
 import qualified Data.Text as T
-import qualified Data.Vector as V
 import qualified GHC
 import           GHC.Generics
 
@@ -89,7 +89,7 @@ data ExtendedCommandDescriptor =
 
 -- | Subset type extracted from 'Plugins' to be sent to the IDE as
 -- a description of the available commands
-type IdePlugins = [(PluginId,[CommandDescriptor])]
+type IdePlugins = Map.Map PluginId [CommandDescriptor]
 
 
 -- | Define what context will be accepted from the frontend for the specific
@@ -352,8 +352,14 @@ instance ValidResponse CommandDescriptor where
                     <*> v .: "additional_params"
 
 instance ValidResponse IdePlugins where
-    jsWrite idePlugins = H.fromList [ "plugins" .= V.fromList idePlugins ]
-    jsRead v = (v .: "plugins")
+  jsWrite m = H.fromList ["plugins" .= H.fromList
+                ( map (\(k,v)-> k .= toJSON v)
+                $ Map.assocs m)]
+  jsRead v = do
+    ps <- v .: "plugins"
+    liftM Map.fromList $ mapM (\(k,vp) -> do
+            p<-parseJSON vp
+            return (k,p)) $ H.toList ps
 
 instance ValidResponse TypeInfo where
   jsWrite (TypeInfo t) = H.fromList ["type_info" .= t]

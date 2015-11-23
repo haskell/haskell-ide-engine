@@ -81,7 +81,7 @@ versionCmd = CmdSync $ \_ _ -> return (IdeResponseOk version)
 pluginsCmd :: CommandFunc IdePlugins
 pluginsCmd = CmdSync $ \_ _ -> do
   plugins <- getPlugins
-  let commands = map getOne $ Map.toList plugins
+  let commands = Map.fromList $ map getOne $ Map.toList plugins
       getOne (pid,pd) = (pid,map (\c -> cmdDesc c) $ pdCommands pd)
   return (IdeResponseOk commands)
 
