@@ -371,18 +371,22 @@ instance ValidResponse TypeInfo where
 instance ToJSON ParamValP  where
     toJSON (ParamTextP v) = object [ "text" .= toJSON v ]
     toJSON (ParamFileP v) = object [ "file" .= toJSON v ]
-    toJSON (ParamPosP  v) = object [ "pos" .= toJSON v ]
+    toJSON (ParamPosP  (l,c)) = object [ "line" .= toJSON l,"col" .= toJSON c ]
     toJSON _ = "error"
 
 instance FromJSON ParamValP where
     parseJSON (Object v) = do
       mt <- fmap ParamTextP <$> v .:? "text"
       mf <- fmap ParamFileP <$> v .:? "file"
-      mp <- fmap ParamPosP <$> v .:? "pos"
+      mp <- toParamPos <$> v .:? "line" <*> v .:? "col"
       case mt <|> mf <|> mp of
         Just pd -> return pd
         _ -> empty
+      where
+          toParamPos (Just l) (Just c) = Just $ ParamPosP (l,c)
+          toParamPos _ _ = Nothing
     parseJSON _ = empty
+
 
 -- -------------------------------------
 
