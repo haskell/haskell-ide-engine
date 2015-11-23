@@ -148,9 +148,8 @@ http://debbugs.gnu.org/cgi/bugreport.cgi?bug=15990."
 
    (should (assq 'plugins response))
    (should (assq 'base (assq 'plugins response)))
-   (should (assq 'commands (assq 'base (assq 'plugins response))))
    (should (cl-find-if (lambda (item) (equal '(name . "version") (assq 'name item)))
-                       (cdr (assq 'commands (assq 'base (assq 'plugins response))))))))
+                       (cdr (assq 'base (assq 'plugins response)))))))
 
 
 (ert-deftest haskell-ide-engine-can-handle-invalid-input ()
