@@ -5,10 +5,12 @@ module Haskell.Ide.GhcModPlugin where
 
 import           Control.Exception
 import           Data.Char
+import           Data.Either
 import           Data.Vinyl
 -- import           Control.Monad
 import           Control.Monad.IO.Class
 import qualified Data.Text as T
+import qualified Data.Text.Read as T
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Language.Haskell.GhcMod as GM
@@ -154,9 +156,24 @@ typeCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos (r,c) :& RNil) -> do
-      fmap (TypeInfo . T.pack) <$> liftIO (runGhcModCommand fileName (\f->GM.types f r c))
+      fmap (toTypeInfo . T.lines . T.pack) <$> liftIO (runGhcModCommand fileName (\f->GM.types f r c))
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.typesCmd: ghc’s exhaustiveness checker is broken" Nothing)
+
+
+-- | Transform output from ghc-mod type into TypeInfo
+toTypeInfo :: [T.Text] -> TypeInfo
+toTypeInfo = TypeInfo . rights . map readTypeResult
+
+-- | Parse one type result
+readTypeResult :: T.Text -> Either String TypeResult
+readTypeResult t = do
+    (sl,r0) <- T.decimal t
+    (sc,r1) <- T.decimal $ T.stripStart r0
+    (el,r2) <- T.decimal $ T.stripStart r1
+    (ec,r3) <- T.decimal $ T.stripStart r2
+    let typ = T.dropEnd 1 $ T.drop 1 $ T.stripStart r3
+    return $ TypeResult (sl,sc) (el,ec) typ
 
 -- ---------------------------------------------------------------------
 
