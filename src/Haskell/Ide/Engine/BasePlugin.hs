@@ -96,7 +96,7 @@ commandsCmd = CmdSync $ \_ req -> do
       Just pl -> return (IdeResponseOk (map (cmdName . cmdDesc) $ pdCommands pl))
     Just x -> return $ incorrectParameter "plugin" ("ParamText"::String) x
 
-commandDetailCmd :: CommandFunc CommandDescriptor
+commandDetailCmd :: CommandFunc ExtendedCommandDescriptor
 commandDetailCmd = CmdSync $ \_ req -> do
   plugins <- getPlugins
   case getParams (IdText "plugin" :& IdText "command" :& RNil) req of
@@ -110,7 +110,7 @@ commandDetailCmd = CmdSync $ \_ req -> do
           Nothing -> return (IdeResponseError (IdeError
                       UnknownCommand ("Can't find command:" <> command )
                       (Just $ toJSON $ command)))
-          Just detail -> return (IdeResponseOk (cmdDesc detail))
+          Just detail -> return (IdeResponseOk (ExtendedCommandDescriptor (cmdDesc detail) p))
     Right _ -> return (IdeResponseError (IdeError
                 InternalError "commandDetailCmd: ghc’s exhaustiveness checker is broken" Nothing))
 

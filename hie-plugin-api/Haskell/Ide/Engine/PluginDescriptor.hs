@@ -80,6 +80,12 @@ data CommandDescriptor = CommandDesc
   } deriving (Show,Eq,Generic)
 
 type CommandName = T.Text
+type PluginName = T.Text
+
+data ExtendedCommandDescriptor =
+  ExtendedCommandDescriptor CommandDescriptor
+                            PluginName
+
 
 -- | Define what context will be accepted from the frontend for the specific
 -- command. Matches up to corresponding values for CommandContext
@@ -309,6 +315,23 @@ instance ValidResponse () where
 instance ValidResponse Object where
   jsWrite = id
   jsRead = pure
+
+instance ValidResponse ExtendedCommandDescriptor where
+  jsWrite (ExtendedCommandDescriptor cmdDescriptor name) =
+    H.fromList
+      ["name" .= cmdName cmdDescriptor
+      ,"ui_description" .= cmdUiDescription cmdDescriptor
+      ,"file_extensions" .= cmdFileExtensions cmdDescriptor
+      ,"contexts" .= cmdContexts cmdDescriptor
+      ,"additional_params" .= cmdAdditionalParams cmdDescriptor
+      ,"plugin_name" .= name]
+  jsRead v =
+    ExtendedCommandDescriptor <$>
+    (CommandDesc <$> v .: "name" <*> v .: "ui_description" <*>
+     v .: "file_extensions" <*>
+     v .: "contexts" <*>
+     v .: "additional_params") <*>
+    v .: "plugin_name"
 
 instance ValidResponse CommandDescriptor where
   jsWrite cmdDescriptor = H.fromList [ "name" .= cmdName cmdDescriptor
