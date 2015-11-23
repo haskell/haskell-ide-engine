@@ -36,8 +36,6 @@
   "Function to call with message that will be send to hie process.")
 (defvar haskell-ide-engine-plugins nil
   "Plugin information gained by calling the base:plugins plugin")
-(defvar haskell-ide-engine-current-cmd nil
-  "Last cmd that got called")
 
 (defun haskell-ide-engine-process-filter (process input)
   (let ((prev-buffer (current-buffer)))
@@ -159,7 +157,7 @@ association lists and count on HIE to use default values there."
     (setq haskell-ide-engine-process-handle-message
           #'hie-handle-message)
     (haskell-ide-engine-post-message
-     `(("cmd" . ,(hie-format-cmd haskell-ide-engine-current-cmd))
+     `(("cmd" . ,(hie-format-cmd (cons (cdr (assq 'plugin_name json)) (cdr (assq 'name json)))))
        ("params" . ,context)))))
 
 (defun hie-format-cmd (cmd)
