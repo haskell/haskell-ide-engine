@@ -140,4 +140,7 @@ instance Arbitrary IdeRequest where
   arbitrary = IdeRequest <$> arbitrary <*> arbitrary
 
 instance Arbitrary TypeInfo where
-  arbitrary = TypeInfo <$> arbitrary
+  arbitrary = TypeInfo <$> smallList arbitrary
+
+instance Arbitrary TypeResult where
+  arbitrary = TypeResult <$> arbitrary <*> arbitrary <*> arbitrary

@@ -283,9 +283,17 @@ type AsyncCommandFunc resp = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m)
 -- ---------------------------------------------------------------------
 -- Specific response type
 
--- | Type Info
-data TypeInfo = TypeInfo { typem :: T.Text }
+-- | Type Information, from the most precise to the most generic
+data TypeInfo = TypeInfo { results :: [TypeResult] }
   deriving (Show,Read,Eq,Ord,Generic)
+
+-- | One type result from ghc-mod
+data TypeResult = TypeResult
+    { trStart :: (Int,Int) -- ^ start line/column
+    , trEnd   :: (Int,Int) -- ^ end line/column
+    , trText  :: T.Text -- ^ type text
+    } deriving (Show,Read,Eq,Ord,Generic)
+
 
 -- ---------------------------------------------------------------------
 -- ValidResponse instances
@@ -368,21 +376,32 @@ instance ValidResponse TypeInfo where
 -- ---------------------------------------------------------------------
 -- JSON instances
 
+posToJSON :: (Int,Int) -> Value
+posToJSON (l,c) = object [ "line" .= toJSON l,"col" .= toJSON c ]
+
+jsonToPos :: Value -> Parser (Int,Int)
+jsonToPos (Object v) = (,) <$> v .: "line" <*> v.: "col"
+jsonToPos _ = empty
+
 instance ToJSON ParamValP  where
     toJSON (ParamTextP v) = object [ "text" .= toJSON v ]
     toJSON (ParamFileP v) = object [ "file" .= toJSON v ]
-    toJSON (ParamPosP  v) = object [ "pos" .= toJSON v ]
+    toJSON (ParamPosP  p) = posToJSON p
     toJSON _ = "error"
 
 instance FromJSON ParamValP where
     parseJSON (Object v) = do
       mt <- fmap ParamTextP <$> v .:? "text"
       mf <- fmap ParamFileP <$> v .:? "file"
-      mp <- fmap ParamPosP <$> v .:? "pos"
+      mp <- toParamPos <$> v .:? "line" <*> v .:? "col"
       case mt <|> mf <|> mp of
         Just pd -> return pd
         _ -> empty
+      where
+          toParamPos (Just l) (Just c) = Just $ ParamPosP (l,c)
+          toParamPos _ _ = Nothing
     parseJSON _ = empty
+
 
 -- -------------------------------------
 
@@ -497,6 +516,20 @@ instance FromJSON IdeError where
         <*> v .:  "msg"
         <*> v .:? "info"
     parseJSON _ = empty
+
+instance ToJSON TypeResult where
+  toJSON (TypeResult s e t) =
+      object [ "start" .= posToJSON s
+             , "end" .= posToJSON e
+             , "type" .= toJSON t
+             ]
+
+instance FromJSON TypeResult where
+  parseJSON (Object v) = TypeResult
+    <$> (jsonToPos =<< (v .: "start"))
+    <*> (jsonToPos =<< (v .: "end"))
+    <*> v .: "type"
+  parseJSON _ = empty
 
 -- -------------------------------------
 
