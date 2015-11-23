@@ -78,10 +78,12 @@ baseDescriptor = PluginDescriptor
 versionCmd :: CommandFunc String
 versionCmd = CmdSync $ \_ _ -> return (IdeResponseOk version)
 
-pluginsCmd :: CommandFunc Plugins
+pluginsCmd :: CommandFunc IdePlugins
 pluginsCmd = CmdSync $ \_ _ -> do
   plugins <- getPlugins
-  return (IdeResponseOk plugins)
+  let commands = Map.fromList $ map getOne $ Map.toList plugins
+      getOne (pid,pd) = (pid,map (\c -> cmdDesc c) $ pdCommands pd)
+  return (IdeResponseOk commands)
 
 commandsCmd :: CommandFunc [CommandName]
 commandsCmd = CmdSync $ \_ req -> do
