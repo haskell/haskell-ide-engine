@@ -3,9 +3,14 @@
 resolver: nightly-2015-10-27
 packages:
 - .
-- haskell-ide-example-plugin2
-- haskell-ide-plugin-api
+- hie-example-plugin2
+- hie-plugin-api
+- hie-ghc-mod
+- hie-hare
 extra-deps:
  - logging-3.0.2
+ - HaRe-0.8.2.1
+ - rosezipper-0.2
+ - syz-0.2.0.0
 # - ghc-mod-5.4.0.0
 # - cabal-helper-0.6.1.0

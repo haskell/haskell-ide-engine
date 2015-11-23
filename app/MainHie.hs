@@ -5,44 +5,53 @@
 module Main where
 
 import           Control.Concurrent
+import           Control.Concurrent.STM.TChan
 import           Control.Exception
 import           Control.Logging
--- import           Control.Monad
--- import           Control.Monad.IO.Class
--- import           Data.Aeson
--- import           Data.Char
--- import           Data.Foldable
--- import           Data.IORef
--- import           Data.List
--- import           Data.Traversable
--- import qualified Data.Text as T
+import           Control.Monad
+import           Control.Monad.STM
+import           Control.Monad.Trans.Maybe
+import qualified Data.Map as Map
 import           Data.Version (showVersion)
 import           Development.GitRev (gitCommitCount)
 import           Distribution.System (buildArch)
 import           Distribution.Text (display)
-import           Haskell.Ide.Engine.BasePlugin
+import           Haskell.Ide.Engine.Console
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.REPL
+import           Haskell.Ide.Engine.Transport.JsonHttp
 import           Haskell.Ide.Engine.Transport.JsonStdio
 import           Haskell.Ide.Engine.Types
--- import qualified Language.Haskell.GhcMod.LightGhc as GM
--- import qualified Language.Haskell.GhcMod.Monad as GM
--- import qualified Language.Haskell.GhcMod.Types as GM
--- import           Module (mkModuleName)
 import           Options.Applicative.Simple
-import qualified Data.Map as Map
 import qualified Paths_haskell_ide_engine as Meta
--- import           Data.Time
--- import           System.IO
+import           System.Directory
+import           System.Environment
 
 -- ---------------------------------------------------------------------
 -- plugins
 
-import Haskell.Ide.ExamplePlugin2
+import           Haskell.Ide.Engine.BasePlugin
+import           Haskell.Ide.ExamplePlugin2
+import           Haskell.Ide.GhcModPlugin
+import           Haskell.Ide.HaRePlugin
+
+-- ---------------------------------------------------------------------
+
+-- | This will be read from a configuration, eventually
+plugins :: Plugins
+plugins = Map.fromList
+  [
+    -- Note: statically including known plugins. In future this map could be set
+    -- up via a config file of some kind.
+    ("eg2",    example2Descriptor)
+  , ("ghcmod", ghcmodDescriptor)
+  , ("hare",   hareDescriptor)
+    -- The base plugin, able to answer questions about the IDE Engine environment.
+  , ("base",   baseDescriptor)
+  ]
 
 -- ---------------------------------------------------------------------
 
@@ -88,22 +97,42 @@ run opts = do
       then setLogLevel LevelDebug
       else setLogLevel LevelError
 
+    -- We change the current working dirextory of HIE to user home
+    -- directory so that plugins do not depend on cwd. All paths to
+    -- all project files referenced in commands are expected to be
+    -- absolute. Cwd is state and we do not want state in what is
+    -- async system.
+
+    getUserHomeDirectory >>= mapM_ setCurrentDirectory
+
     logm $  "run entered for HIE " ++ version
-    cin <- newChan :: IO (Chan ChannelRequest)
+    cin <- atomically newTChan :: IO (TChan ChannelRequest)
 
     -- log $ T.pack $ "replPluginInfo:" ++ show replPluginInfo
 
     -- launch the dispatcher.
     _ <- forkIO (runIdeM (IdeState plugins) (dispatcher cin))
 
+    -- TODO: pass port in as a param from GlobalOpts
+    when (optHttp opts) $
+      void $ forkIO (jsonHttpListener cin (optPort opts))
+
     -- Can have multiple listeners, each using a different transport protocol, so
     -- long as they can pass through a ChannelRequest
-    if (optRepl opts)
-       then replListener plugins cin
+    if (optConsole opts)
+       -- then replListener plugins cin
+       then consoleListener plugins cin
        else jsonStdioTransport cin
 
     -- At least one needs to be launched, othewise a threadDelay with a large
     -- number should be given. Or some other waiting action.
+
+getUserHomeDirectory :: IO (Maybe String)
+getUserHomeDirectory = do
+    -- On POSIX-like $HOME points to user home directory.
+    -- On Windows %USERPROFILE% points to user home directory.
+    runMaybeT (msum [ MaybeT $ lookupEnv "HOME"
+                    , MaybeT $ lookupEnv "USERPROFILE"])
 
 -- ---------------------------------------------------------------------
 
@@ -111,18 +140,6 @@ run opts = do
 -- pass the request through to the main event dispatcher, and listen on the
 -- reply channel for the response, which should go back to the IDE, using
 -- whatever it takes.
-listener :: Chan ChannelRequest -> IO ()
+listener :: TChan ChannelRequest -> IO ()
 listener = assert False undefined
 
--- ---------------------------------------------------------------------
-
--- | This will be read from a configuration, eventually
-plugins :: Plugins
-plugins = Map.fromList
-  [
-    -- Note: statically including known plugins. In future this map could be set
-    -- up via a config file of some kind.
-    ("eg2", example2Descriptor)
-    -- The base plugin, able to answer questions about the IDE Engine environment.
-  , ("base", baseDescriptor)
-  ]

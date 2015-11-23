@@ -1,8 +1,10 @@
 {-# LANGUAGE FlexibleInstances #-}
-
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE GADTs #-}
 module Haskell.Ide.Engine.Types where
 
-import           Control.Concurrent
+import           Data.Aeson
+import           Control.Concurrent.STM.TChan
 import           Haskell.Ide.Engine.PluginDescriptor
 
 -- ---------------------------------------------------------------------
@@ -16,14 +18,14 @@ data ChannelRequest = CReq
                               -- e.g. a promise id. It is returned with the
                               -- ChannelResponse.
   , cinReq       :: IdeRequest
-  , cinReplyChan :: Chan ChannelResponse
+  , cinReplyChan :: TChan ChannelResponse
   } deriving Show
 
-instance Show (Chan ChannelResponse) where
-  show _ = "(Chan ChannelResponse)"
+instance Show (TChan ChannelResponse) where
+  show _ = "(TChan ChannelResponse)"
 
 data ChannelResponse = CResp
   { couPlugin :: PluginId
   , coutReqId :: RequestId
-  , coutResp  :: IdeResponse
-  } deriving Show
+  , coutResp  :: IdeResponse Object
+  } deriving (Show,Eq)

@@ -1,4 +1,4 @@
-name:                haskell-ide-plugin-api
+name:                hie-plugin-api
 version:             0.1.0.0
 synopsis:            Haskell IDE API for plugin communication
 license:             BSD3
@@ -12,11 +12,15 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Haskell.Ide.Engine.PluginDescriptor
+  exposed-modules:     Haskell.Ide.Engine.PluginUtils
+                       Haskell.Ide.Engine.PluginDescriptor
   build-depends:       base >= 4.7 && < 5
                      , aeson
                      , containers
+                     , unordered-containers
                      , ghc
+                     , text
                      , transformers
+                     , vinyl >= 0.5 && < 0.6
   ghc-options:         -Wall
   default-language:    Haskell2010

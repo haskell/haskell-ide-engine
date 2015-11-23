@@ -1,18 +1,23 @@
 module Haskell.Ide.Engine.Options where
 
+import Network.Wai.Handler.Warp
 import Options.Applicative.Simple
 
 data GlobalOpts = GlobalOpts
-    { optRepl :: Bool
+    { optConsole :: Bool
     , optDebugOn :: Bool
     , optLogFile :: Maybe String
+    , optPort :: Port
+    , optHttp :: Bool
     } deriving (Show)
 
 globalOptsParser :: Parser GlobalOpts
 globalOptsParser = GlobalOpts
     <$> flag False True
-         ( long "repl"
-        <> help "Run a REPL for simple testing"
+         ( long "console"
+        <> long "repl"
+        <> short 'c'
+        <> help "Run a console REPL for simple testing"
          )
     <*> switch
          ( long "debug"
@@ -25,22 +30,12 @@ globalOptsParser = GlobalOpts
         <> metavar "LOGFILE"
         <> help "File to log to, defaults to stdout"
          ))
-{-
-data GlobalOpts = GlobalOpts
-    { optPluginModules :: [String]
-    , optPluginPackages :: [String]
-    } deriving (Show)
-
-globalOptsParser :: Parser GlobalOpts
-globalOptsParser = GlobalOpts
-    <$> many (strOption
-        ( long "plugin"
-       <> metavar "MODULE"
-       <> help "Specify a plugin to load"
-        ))
-    <*>  many (strOption
-        ( long "plugin-pkg"
-       <> metavar "PACKAGE"
-       <> help "Specify a package to use for loading plugins"
-        ))
--}
+    <*> option
+         auto
+         ( long "port"
+         <> short 'p'
+         <> help "Port to use for webinterface"
+         <> value 8001)
+    <*> flag False True
+         ( long "http"
+         <> help "Enable the webinterface")

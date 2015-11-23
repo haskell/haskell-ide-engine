@@ -16,24 +16,28 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Haskell.Ide.Engine.BasePlugin
+                       Haskell.Ide.Engine.Console
                        Haskell.Ide.Engine.Dispatcher
                        Haskell.Ide.Engine.Monad
                        Haskell.Ide.Engine.MonadFunctions
                        Haskell.Ide.Engine.Options
-                       Haskell.Ide.Engine.REPL
+                       Haskell.Ide.Engine.Transport.JsonHttp
                        Haskell.Ide.Engine.Transport.JsonStdio
                        Haskell.Ide.Engine.Types
   other-modules:       Paths_haskell_ide_engine
-  build-depends:       base >= 4.7 && < 5
-                     , Cabal >= 1.22
+  build-depends:       Cabal >= 1.22
                      , aeson
+                     , attoparsec
+                     , base >= 4.7 && < 5
                      , bytestring
                      , containers
                      , directory
+                     , either
                      , ghc >= 7.10.2 && < 7.11
                      , ghc-mod >= 5.4
                      , gitrev >= 1.1
-                     , haskell-ide-plugin-api
+                     , haskeline
+                     , hie-plugin-api
                      , lens
                      , logging
                      , monad-control
@@ -42,11 +46,17 @@ library
                      , optparse-simple >= 0.0.3
                      , pipes
                      , pipes-aeson
+                     , pipes-attoparsec >= 0.5
                      , pipes-bytestring
                      , pipes-parse
+                     , stm
+                     , servant-server
                      , text
                      , time
                      , transformers
+                     , wai
+                     , warp
+                     , vinyl >= 0.5 && < 0.6
   ghc-options:         -Wall
   default-language:    Haskell2010
 
@@ -58,15 +68,19 @@ executable hie
                      , Cabal >= 1.22
                      , aeson
                      , containers
+                     , directory
                      , ghc
                      , ghc-mod
                      , gitrev >= 1.1
                      , haskell-ide-engine
-                     , haskell-ide-plugin-api
-                     , haskell-ide-example-plugin2
+                     , hie-example-plugin2
+                     , hie-plugin-api
+                     , hie-ghc-mod
+                     , hie-hare
                      , logging
                      , optparse-applicative
                      , optparse-simple
+                     , stm
                      , text
                      , time
                      , transformers
@@ -77,13 +91,29 @@ test-suite haskell-ide-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Spec.hs
-  other-modules:       JsonStdioSpec
+  other-modules:
+                       DispatcherSpec
+                       GhcModPluginSpec
+                       HaRePluginSpec
+                       JsonStdioSpec
+                       JsonSpec
   build-depends:       base
                      , aeson
                      , containers
+                     , unordered-containers
+                     , directory
                      , haskell-ide-engine
-                     , haskell-ide-plugin-api
+                     , hie-ghc-mod
+                     , hie-hare
+                     , hie-plugin-api
                      , hspec
+                     , logging
+                     , stm
+                     , text
+                     , transformers
+                     , unordered-containers
+                     , quickcheck-instances
+                     , QuickCheck
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
   default-language:    Haskell2010
 

@@ -32,3 +32,7 @@ cabal-dev/
 cabal.sandbox.config
 dist/
 tags
+/test/testdata/HaReRename.refactored.hs
+/test/testdata/HaReCase.refactored.hs
+/test/testdata/HaReDemote.refactored.hs
+/test/testdata/HaReMoveDef.refactored.hs
