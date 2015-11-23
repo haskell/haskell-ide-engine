@@ -192,7 +192,7 @@ association lists and count on HIE to use default values there."
                    (mapcar
                     (lambda (command)
                       (vector (cdr (assq 'ui_description command)) (list 'hie-run-command (symbol-name (car plugin)) (cdr (assq 'name command)))))
-                    (cdr (assq 'commands (cdr plugin)))))
+                    (cdr plugin)))
                  (cdr (assq 'plugins json))))))
     (setq haskell-ide-engine-plugins (cdr (assq 'plugins json)))
     (easy-menu-define hie-menu hie-mode-map
