@@ -29,7 +29,6 @@
 module Haskell.Ide.Engine.PluginDescriptor where
 
 import           Control.Applicative
-import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Aeson.Types
@@ -37,6 +36,7 @@ import qualified Data.Map as Map
 import           Data.Maybe
 import qualified Data.HashMap.Strict as H
 import qualified Data.Text as T
+import qualified Data.Vector as V
 import qualified GHC
 import           GHC.Generics
 
@@ -58,9 +58,9 @@ instance Show PluginDescriptor where
       showString " " .
       showList used
 
--- | Ideally a Command is defined in such a way that it can be exposed via the
--- native CLI for the tool being exposed as well. Perhaps use
--- Options.Applicative for this in some way.
+-- | Ideally a Command is defined in such a way that its CommandDescriptor
+-- can be exposed via the native CLI for the tool being exposed as well.
+-- Perhaps use Options.Applicative for this in some way.
 data Command = forall a .(ValidResponse a) => Command
   { cmdDesc :: !CommandDescriptor
   , cmdFunc :: !(CommandFunc a)
@@ -85,6 +85,11 @@ type PluginName = T.Text
 data ExtendedCommandDescriptor =
   ExtendedCommandDescriptor CommandDescriptor
                             PluginName
+         deriving (Show, Eq)
+
+-- | Subset type extracted from 'Plugins' to be sent to the IDE as
+-- a description of the available commands
+type IdePlugins = [(PluginId,[CommandDescriptor])]
 
 
 -- | Define what context will be accepted from the frontend for the specific
@@ -346,16 +351,9 @@ instance ValidResponse CommandDescriptor where
                     <*> v .: "contexts"
                     <*> v .: "additional_params"
 
-instance ValidResponse Plugins where
-  jsWrite m = H.fromList ["plugins" .= H.fromList
-                ( map (\(k,v)-> k .= toJSON v)
-                $ Map.assocs m)]
-
-  jsRead v = do
-    ps <- v .: "plugins"
-    liftM Map.fromList $ mapM (\(k,vp) -> do
-            p<-parseJSON vp
-            return (k,p)) $ H.toList ps
+instance ValidResponse IdePlugins where
+    jsWrite idePlugins = H.fromList [ "plugins" .= V.fromList idePlugins ]
+    jsRead v = (v .: "plugins")
 
 instance ValidResponse TypeInfo where
   jsWrite (TypeInfo t) = H.fromList ["type_info" .= t]
@@ -454,21 +452,6 @@ instance ToJSON Service where
 instance FromJSON Service where
     parseJSON (Object v) =
       Service <$> v .: "name"
-    parseJSON _ = empty
-
--- -------------------------------------
-
-instance ToJSON PluginDescriptor where
-    toJSON pluginDescriptor = object [ "commands" .= map cmdDesc (pdCommands pluginDescriptor)
-                                     , "exposed_services" .= pdExposedServices pluginDescriptor
-                                     , "used_services" .= pdUsedServices pluginDescriptor
-                                     ]
-
-instance FromJSON PluginDescriptor where
-    parseJSON (Object v) =
-      PluginDescriptor <$> fmap (fmap (\desc -> Command desc (CmdAsync (\_ _ _ -> return ())::CommandFunc T.Text))) (v .: "commands")
-                       <*> v .: "exposed_services"
-                       <*> v .: "used_services"
     parseJSON _ = empty
 
 -- -------------------------------------

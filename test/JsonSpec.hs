@@ -41,8 +41,10 @@ jsonSpec = do
     prop "()" (propertyValidRoundtrip :: () -> Bool)
     prop "Aeson.Object" (propertyValidRoundtrip :: Object -> Bool)
     prop "CommandDescriptor" (propertyValidRoundtrip :: CommandDescriptor -> Bool)
-    prop "Plugins" (propertyValidRoundtrip :: Plugins -> Bool)
+    prop "ExtendedCommandDescriptor" (propertyValidRoundtrip :: ExtendedCommandDescriptor -> Bool)
+    prop "IdePlugins" (propertyValidRoundtrip :: IdePlugins -> Bool)
     prop "TypeInfo" (propertyValidRoundtrip :: TypeInfo -> Bool)
+
   describe "General JSON instances round trip" $ do
     prop "ParamValP" (propertyJsonRoundtrip :: ParamValP -> Bool)
     prop "CabalSection" (propertyJsonRoundtrip :: CabalSection -> Bool)
@@ -51,7 +53,6 @@ jsonSpec = do
     prop "ParamDescription" (propertyJsonRoundtrip :: ParamDescription -> Bool)
     prop "CommandDescriptor" (propertyJsonRoundtrip :: CommandDescriptor -> Bool)
     prop "Service" (propertyJsonRoundtrip :: Service -> Bool)
-    prop "PluginDescriptor" (propertyJsonRoundtrip :: PluginDescriptor -> Bool)
     prop "IdeRequest" (propertyJsonRoundtrip :: IdeRequest -> Bool)
     prop "IdeErrorCode" (propertyJsonRoundtrip :: IdeErrorCode -> Bool)
     prop "IdeError" (propertyJsonRoundtrip :: IdeError -> Bool)
@@ -77,6 +78,11 @@ instance Arbitrary CommandDescriptor where
     <*> smallList arbitrary
     <*> smallList arbitraryBoundedEnum
     <*> smallList arbitrary
+
+instance Arbitrary ExtendedCommandDescriptor where
+  arbitrary = ExtendedCommandDescriptor
+    <$> arbitrary
+    <*> arbitrary
 
 instance Arbitrary ParamDescription where
   arbitrary = do
