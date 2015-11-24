@@ -186,14 +186,14 @@ association lists and count on HIE to use default values there."
   "Handle first plugins call."
 
   (let ((menu-items
-         (apply #'append
-                (mapcar
-                 (lambda (plugin)
-                   (mapcar
-                    (lambda (command)
-                      (vector (cdr (assq 'ui_description command)) (list 'hie-run-command (symbol-name (car plugin)) (cdr (assq 'name command)))))
-                    (cdr plugin)))
-                 (cdr (assq 'plugins json))))))
+         (mapcar
+          (lambda (plugin)
+            (cons (symbol-name (car plugin))
+                  (mapcar
+                   (lambda (command)
+                     (vector (cdr (assq 'ui_description command)) (list 'hie-run-command (symbol-name (car plugin)) (cdr (assq 'name command)))))
+                   (cdr plugin))))
+          (cdr (assq 'plugins json)))))
     (setq haskell-ide-engine-plugins (cdr (assq 'plugins json)))
     (easy-menu-define hie-menu hie-mode-map
       "Menu for Haskell IDE Engine"
