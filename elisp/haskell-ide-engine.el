@@ -165,13 +165,13 @@ association lists and count on HIE to use default values there."
 
 (defun hie-get-context (context)
   (let ((start (save-excursion (if (use-region-p) (goto-char (region-beginning)))
-                               (list (line-number-at-pos) (current-column))))
+                               `(("line" . ,(line-number-at-pos)) ("col" . ,(current-column)))))
         (end (save-excursion (if (use-region-p) (goto-char (region-end)))
-                             (list (line-number-at-pos) (current-column))))
+                             `(("line" . ,(line-number-at-pos)) ("col" . ,(current-column)))))
         (filename (buffer-file-name)))
     `(("file" . (("file" . ,filename)))
-      ("start_pos" . (("pos" . ,(apply 'vector start))))
-      ("end_pos" . (("pos" . ,(apply 'vector end)))))))
+      ("start_pos" . ,end)
+      ("end_pos" . ,start))))
 
 (defun hie-run-command (plugin command)
   (setq haskell-ide-engine-process-handle-message
