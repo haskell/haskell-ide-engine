@@ -164,9 +164,9 @@ association lists and count on HIE to use default values there."
   (format "%s:%s" (car cmd) (cdr cmd)))
 
 (defun hie-get-context (context)
-  (let ((start (save-excursion (goto-char (region-beginning))
+  (let ((start (save-excursion (if (use-region-p) (goto-char (region-beginning)))
                                (list (line-number-at-pos) (current-column))))
-        (end (save-excursion (goto-char (region-end))
+        (end (save-excursion (if (use-region-p) (goto-char (region-end)))
                              (list (line-number-at-pos) (current-column))))
         (filename (buffer-file-name)))
     `(("file" . (("file" . ,filename)))
