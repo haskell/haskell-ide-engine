@@ -34,38 +34,42 @@
 
 (defvar haskell-ide-engine-post-message-hook nil
   "Function to call with message that will be send to hie process.")
+(defvar haskell-ide-engine-plugins nil
+  "Plugin information gained by calling the base:plugins plugin")
 
 (defun haskell-ide-engine-process-filter (process input)
-  (with-current-buffer haskell-ide-engine-buffer
+  (let ((prev-buffer (current-buffer)))
+    (with-current-buffer haskell-ide-engine-buffer
 
-    (let ((point (point)))
-      (insert input)
-      (save-excursion
-        (goto-char point)
-        (when (re-search-forward "\^b" nil t)
-          (let* ((end-of-current-json-object (match-beginning 0))
-                 (after-stx-marker (match-end 0))
-                 (json-array-type 'list))
-            (goto-char (point-min))
-            (condition-case nil
-                (let ((json (json-read)))
-                  (when haskell-ide-engine-process-handle-message
-                    (funcall haskell-ide-engine-process-handle-message json)))
-              ;; json-readtable-error is when there is an unexpected character in input
-              (json-readtable-error
-               (when haskell-ide-engine-process-handle-invalid-input
-                 (funcall haskell-ide-engine-process-handle-invalid-input
-                          (buffer-substring-no-properties (point-min) end-of-current-json-object))))
-              ;; json-unknown-keyword when unrecognized keyword is parsed
-              (json-unknown-keyword
-               (when haskell-ide-engine-process-handle-invalid-input
-                 (funcall haskell-ide-engine-process-handle-invalid-input
-                          (buffer-substring-no-properties (point-min) end-of-current-json-object))))
-              (end-of-file
-               (when haskell-ide-engine-process-handle-invalid-input
-                 (funcall haskell-ide-engine-process-handle-invalid-input
-                          (buffer-substring-no-properties (point-min) end-of-current-json-object)))))
-            (delete-region (point-min) after-stx-marker)))))))
+      (let ((point (point)))
+        (insert input)
+        (save-excursion
+          (goto-char point)
+          (when (re-search-forward "\^b" nil t)
+            (let* ((end-of-current-json-object (match-beginning 0))
+                   (after-stx-marker (match-end 0))
+                   (json-array-type 'list))
+              (goto-char (point-min))
+              (condition-case nil
+                  (let ((json (json-read)))
+                    (when haskell-ide-engine-process-handle-message
+                      (with-current-buffer prev-buffer
+                        (funcall haskell-ide-engine-process-handle-message json))))
+                ;; json-readtable-error is when there is an unexpected character in input
+                (json-readtable-error
+                 (when haskell-ide-engine-process-handle-invalid-input
+                   (funcall haskell-ide-engine-process-handle-invalid-input
+                            (buffer-substring-no-properties (point-min) end-of-current-json-object))))
+                ;; json-unknown-keyword when unrecognized keyword is parsed
+                (json-unknown-keyword
+                 (when haskell-ide-engine-process-handle-invalid-input
+                   (funcall haskell-ide-engine-process-handle-invalid-input
+                            (buffer-substring-no-properties (point-min) end-of-current-json-object))))
+                (end-of-file
+                 (when haskell-ide-engine-process-handle-invalid-input
+                   (funcall haskell-ide-engine-process-handle-invalid-input
+                            (buffer-substring-no-properties (point-min) end-of-current-json-object)))))
+              (delete-region (point-min) after-stx-marker))))))))
 
 (defun haskell-ide-engine-start-process ()
   "Start Haskell IDE Engine process.
@@ -145,13 +149,38 @@ association lists and count on HIE to use default values there."
    '()))
 
 (defun hie-handle-message (json)
-  (message "%s" (cdr (assq 'contents json))))
+  (message (format "%s" json)))
+
+(defun hie-handle-command-detail (json)
+  (let ((context
+         (hie-get-context (cdr (assq 'contexts json)))))
+    (setq haskell-ide-engine-process-handle-message
+          #'hie-handle-message)
+    (haskell-ide-engine-post-message
+     `(("cmd" . ,(hie-format-cmd (cons (cdr (assq 'plugin_name json)) (cdr (assq 'name json)))))
+       ("params" . ,context)))))
+
+(defun hie-format-cmd (cmd)
+  (format "%s:%s" (car cmd) (cdr cmd)))
+
+(defun hie-get-context (context)
+  (let ((start (save-excursion (if (use-region-p) (goto-char (region-beginning)))
+                               (list (line-number-at-pos) (current-column))))
+        (end (save-excursion (if (use-region-p) (goto-char (region-end)))
+                             (list (line-number-at-pos) (current-column))))
+        (filename (buffer-file-name)))
+    `(("file" . (("file" . ,filename)))
+      ("start_pos" . (("pos" . ,(apply 'vector start))))
+      ("end_pos" . (("pos" . ,(apply 'vector end)))))))
 
 (defun hie-run-command (plugin command)
   (setq haskell-ide-engine-process-handle-message
-        #'hie-handle-message)
+        #'hie-handle-command-detail)
+  (setq haskell-ide-engine-current-cmd (cons plugin command))
   (haskell-ide-engine-post-message
-   (list (cons "cmd" (concat plugin ":" command)))))
+   `(("cmd" . "base:commandDetail")
+     ("params" . (("command" . (("text" . ,command)))
+                  ("plugin" . (("text" . ,plugin))))))))
 
 (defun haskell-ide-engine-handle-first-plugins-command (json)
   "Handle first plugins call."
@@ -163,9 +192,9 @@ association lists and count on HIE to use default values there."
                    (mapcar
                     (lambda (command)
                       (vector (cdr (assq 'ui_description command)) (list 'hie-run-command (symbol-name (car plugin)) (cdr (assq 'name command)))))
-                    (cdr (assq 'commands (cdr plugin)))))
-                 (cdr (assq 'contents json))))))
-
+                    (cdr plugin)))
+                 (cdr (assq 'plugins json))))))
+    (setq haskell-ide-engine-plugins (cdr (assq 'plugins json)))
     (easy-menu-define hie-menu hie-mode-map
       "Menu for Haskell IDE Engine"
       (cons "HIE" menu-items))))
