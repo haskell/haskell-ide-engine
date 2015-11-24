@@ -41,14 +41,9 @@ dispatcherSpec = do
   describe "checking plugins on startup" $ do
 
     it "exits on parameter name collisions" $ do
-      runIdeM (IdeState testPluginWithParamNameCollison) undefined `shouldThrow` errorCall "The parameter names are conflicting"
+      runIdeM (IdeState testPluginWithParamNameCollison) undefined `shouldThrow` anyErrorCall
 
     -- ---------------------------------
-
-    it "does not exit on non-colliding parameter names" $ do
-      runIdeM (IdeState testPluginWithoutParamNameCollison) undefined `shouldThrow` errorCall "The parameter names are conflicting"
-
-  -- -----------------------------------
 
   describe "checking contexts" $ do
 
