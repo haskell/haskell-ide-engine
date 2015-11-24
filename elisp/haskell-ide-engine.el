@@ -165,13 +165,13 @@ association lists and count on HIE to use default values there."
 
 (defun hie-get-context (context)
   (let ((start (save-excursion (if (use-region-p) (goto-char (region-beginning)))
-                               (list (line-number-at-pos) (current-column))))
+                               `(("line" . ,(line-number-at-pos)) ("col" . ,(current-column)))))
         (end (save-excursion (if (use-region-p) (goto-char (region-end)))
-                             (list (line-number-at-pos) (current-column))))
+                             `(("line" . ,(line-number-at-pos)) ("col" . ,(current-column)))))
         (filename (buffer-file-name)))
     `(("file" . (("file" . ,filename)))
-      ("start_pos" . (("pos" . ,(apply 'vector start))))
-      ("end_pos" . (("pos" . ,(apply 'vector end)))))))
+      ("start_pos" . ,end)
+      ("end_pos" . ,start))))
 
 (defun hie-run-command (plugin command)
   (setq haskell-ide-engine-process-handle-message
@@ -186,14 +186,14 @@ association lists and count on HIE to use default values there."
   "Handle first plugins call."
 
   (let ((menu-items
-         (apply #'append
-                (mapcar
-                 (lambda (plugin)
-                   (mapcar
-                    (lambda (command)
-                      (vector (cdr (assq 'ui_description command)) (list 'hie-run-command (symbol-name (car plugin)) (cdr (assq 'name command)))))
-                    (cdr plugin)))
-                 (cdr (assq 'plugins json))))))
+         (mapcar
+          (lambda (plugin)
+            (cons (symbol-name (car plugin))
+                  (mapcar
+                   (lambda (command)
+                     (vector (cdr (assq 'ui_description command)) (list 'hie-run-command (symbol-name (car plugin)) (cdr (assq 'name command)))))
+                   (cdr plugin))))
+          (cdr (assq 'plugins json)))))
     (setq haskell-ide-engine-plugins (cdr (assq 'plugins json)))
     (easy-menu-define hie-menu hie-mode-map
       "Menu for Haskell IDE Engine"
