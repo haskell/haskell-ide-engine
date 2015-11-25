@@ -184,21 +184,47 @@ association lists and count on HIE to use default values there."
 
 (defun haskell-ide-engine-handle-first-plugins-command (json)
   "Handle first plugins call."
-
   (let ((menu-items
          (mapcar
           (lambda (plugin)
             (cons (symbol-name (car plugin))
                   (mapcar
                    (lambda (command)
-                     (vector (cdr (assq 'ui_description command)) (list 'hie-run-command (symbol-name (car plugin)) (cdr (assq 'name command)))))
+                     (vector (cdr (assq 'ui_description command))
+                             (intern (concat "haskell-ide-engine-"
+                                             (symbol-name (car plugin))
+                                             (cdr (assq 'name command))))))
+                   (cdr plugin))))
+          (cdr (assq 'plugins json))))
+        (command-names
+         (mapcar
+          (lambda (plugin)
+            (cons (car plugin)
+                  (mapcar
+                   (lambda (command)
+                     (cdr (assq 'name command)))
                    (cdr plugin))))
           (cdr (assq 'plugins json)))))
     (setq haskell-ide-engine-plugins (cdr (assq 'plugins json)))
+    (haskell-ide-engine-create-all-commands command-names)
     (easy-menu-define hie-menu hie-mode-map
       "Menu for Haskell IDE Engine"
       (cons "HIE" menu-items))))
 
+(defun haskell-ide-engine-create-command (plugin command)
+  `(defun ,(intern (concat "haskell-ide-engine-" (symbol-name plugin) command)) ()
+     (interactive)
+     (hie-run-command ,(symbol-name plugin) ,command)))
+
+(defun haskell-ide-engine-create-all-commands (command-names)
+  (eval `(progn
+           ,@(apply 'append (mapcar
+                             (lambda (plugin)
+                               (mapcar
+                                (lambda (command)
+                                  (haskell-ide-engine-create-command (car plugin) command))
+                                (cdr plugin)))
+                             command-names)))))
 
 (define-minor-mode hie-mode
   "Haskell IDE Engine mode.
