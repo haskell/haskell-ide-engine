@@ -97,6 +97,7 @@ test-suite haskell-ide-test
                        HaRePluginSpec
                        JsonStdioSpec
                        JsonSpec
+                       PluginUtilsSpec
   build-depends:       base
                      , aeson
                      , containers

@@ -11,6 +11,7 @@ module Haskell.Ide.Engine.PluginUtils
   , incorrectParameter
   , validatePlugins
   , PluginDescriptionError(..)
+  , ParamNameCollision
   ) where
 
 import           Data.Aeson
@@ -93,7 +94,7 @@ data PluginDescriptionError =
   PluginDescriptionError {
     paramNameCollisions :: [ParamNameCollision]
   , paramNameCollisionErrorMsg :: String
-  } deriving Eq
+  } deriving (Eq, Show)
 
 validatePlugins :: Plugins -> Maybe PluginDescriptionError
 validatePlugins plugins =

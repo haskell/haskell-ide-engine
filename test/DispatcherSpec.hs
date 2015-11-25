@@ -40,7 +40,7 @@ dispatcherSpec :: Spec
 dispatcherSpec = do
   describe "checking plugins on startup" $ do
 
-    it "exits on parameter name collisions" $ do
+    it "exits with an error if any command has a parameter name collision" $ do
       runIdeM (IdeState testPluginWithParamNameCollison) undefined `shouldThrow` anyErrorCall
 
     -- ---------------------------------
