@@ -10,6 +10,7 @@ module Haskell.Ide.Engine.PluginUtils
   , missingParameter
   , incorrectParameter
   , validatePlugins
+  , PluginDescriptionError(..)
   ) where
 
 import           Data.Aeson
@@ -88,13 +89,20 @@ incorrectParameter name expected value = IdeResponseFail
 -- ---------------------------------------------------------------------
 
 type ParamNameCollision = (PluginId, [(CommandName, [ParamName])])
+data PluginDescriptionError =
+  PluginDescriptionError {
+    paramNameCollisions :: [ParamNameCollision]
+  , paramNameCollisionErrorMsg :: String
+  } deriving Eq
 
--- throw an error if the parameter names are colliding in any of the plugins
-validatePlugins :: Plugins -> IO ()
+validatePlugins :: Plugins -> Maybe PluginDescriptionError
 validatePlugins plugins =
   case findParameterNameCollisions plugins of
-     [] -> return ()
-     collisions -> error (formatParamNameCollisionErrorMsg collisions)
+     [] -> Nothing
+     collisions -> Just PluginDescriptionError {
+          paramNameCollisions = collisions
+        , paramNameCollisionErrorMsg = formatParamNameCollisionErrorMsg collisions
+      }
 
 formatParamNameCollisionErrorMsg :: [ParamNameCollision] -> String
 formatParamNameCollisionErrorMsg = show -- TODO

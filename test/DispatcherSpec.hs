@@ -252,38 +252,6 @@ dispatcherSpec = do
 
 -- ---------------------------------------------------------------------
 
-testPluginWithoutParamNameCollison :: Plugins
-testPluginWithoutParamNameCollison = Map.fromList [("plugin1", PluginDescriptor
-    {
-      pdCommands =
-        [
-          Command
-            { cmdDesc = CommandDesc
-                          { cmdName = "cmd1"
-                          , cmdUiDescription = "description"
-                          , cmdFileExtensions = []
-                          , cmdContexts = [CtxRegion, CtxPoint] -- ["file", "start_pos", "file", "start_pos", "end_pos"]
-                          , cmdAdditionalParams =
-                            [
-                              RP
-                                { pName = "uniqueParamName1"
-                                , pHelp = "shoud not collide"
-                                , pType = PtText
-                                }
-                            , RP
-                                { pName = "uniqueParamName2"
-                                , pHelp = "shoud not collide"
-                                , pType = PtText
-                                }
-                            ]
-                          }
-            , cmdFunc = CmdSync $ \_ _ -> return (IdeResponseOk ("" :: T.Text))
-            }
-        ]
-      , pdExposedServices = []
-      , pdUsedServices    = []
-    })]
-
 testPluginWithParamNameCollison :: Plugins
 testPluginWithParamNameCollison = Map.fromList [("plugin1", PluginDescriptor
     {
