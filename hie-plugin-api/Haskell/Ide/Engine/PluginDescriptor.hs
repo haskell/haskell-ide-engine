@@ -338,6 +338,7 @@ instance ValidResponse ExtendedCommandDescriptor where
       ,"contexts" .= cmdContexts cmdDescriptor
       ,"additional_params" .= cmdAdditionalParams cmdDescriptor
       ,"plugin_name" .= name]
+
   jsRead v =
     ExtendedCommandDescriptor <$>
     (CommandDesc <$> v .: "name" <*> v .: "ui_description" <*>
@@ -345,6 +346,7 @@ instance ValidResponse ExtendedCommandDescriptor where
      v .: "contexts" <*>
      v .: "additional_params") <*>
     v .: "plugin_name"
+
 
 instance ValidResponse CommandDescriptor where
   jsWrite cmdDescriptor = H.fromList [ "name" .= cmdName cmdDescriptor
@@ -447,16 +449,15 @@ instance FromJSON ParamType where
 -- -------------------------------------
 
 instance ToJSON ParamDescription where
-    toJSON (RP n h t) = object [ "rp" .= toJSON (n,h,t) ]
-    toJSON (OP n h t) = object [ "op" .= toJSON (n,h,t) ]
+    toJSON (RP n h t) = object [ "name" .= n ,"help" .= toJSON h, "type" .= toJSON t, "required" .= toJSON True ]
+    toJSON (OP n h t) = object [ "name" .= n ,"help" .= toJSON h, "type" .= toJSON t, "required" .= toJSON False ]
 
 instance FromJSON ParamDescription where
     parseJSON (Object v) = do
-      mrp <- fmap (\(n,h,t) -> RP n h t) <$> v .:? "rp"
-      mop <- fmap (\(n,h,t) -> OP n h t) <$> v .:? "op"
-      case mrp <|> mop of
-        Just pd -> return pd
-        _ -> empty
+      req <- v .: "required"
+      if req
+        then RP <$> v .: "name" <*> v .: "help" <*> v .: "type"
+        else OP <$> v .: "name" <*> v .: "help" <*> v .: "type"
     parseJSON _ = empty
 
 -- -------------------------------------
