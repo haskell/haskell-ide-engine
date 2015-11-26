@@ -28,14 +28,14 @@ pluginUtilsSpec = do
             [
               ("plugin1",
                   [
-                    ("cmd1", ["file"])
-                  , ("cmd2", ["end_pos"])
-                  , ("cmd3", ["a", "a", "b"])
+                    ("cmd1", [("file", [])])
+                  , ("cmd2", [("end_pos", [])])
+                  , ("cmd3", [("a", []), ("b", [])])
                   ]
               )
             , ("plugin2",
                   [
-                    ("cmd1", ["file"])
+                    ("cmd1", [("file", [])])
                   ]
               )
             ]

@@ -89,7 +89,7 @@ incorrectParameter name expected value = IdeResponseFail
 
 -- ---------------------------------------------------------------------
 
-type ParamNameCollision = (PluginId, [(CommandName, [ParamName])])
+type ParamNameCollision = (PluginId, [(CommandName, [(ParamName, [ParamDescription])])])
 data PluginDescriptionError =
   PluginDescriptionError {
     paramNameCollisions :: [ParamNameCollision]
@@ -122,10 +122,16 @@ findParameterNameCollisions plugins =
             paramNames -> Just (cmdName cmd, paramNames)
    in mapMaybe collisionsForPlugin (Map.toList plugins)
    where
-         allCollidingParamNames = collidingParamNames . allParams
+         allCollidingParamNames cmd = map (\p -> (p, collidingParamNameSources cmd p)) (collidingParamNames (allParams cmd))
          getCmdDesc = map cmdDesc . pdCommands
          allParams cmd = cmdAdditionalParams cmd ++ uniqueParamNamesFromContext cmd
          uniqueParamNamesFromContext cmd = nub (concatMap contextMapping (cmdContexts cmd))
+
+collidingParamNameSources :: CommandDescriptor -> ParamName -> [ParamDescription]
+collidingParamNameSources cmdDescriptor paramName =
+  let additionalParams = filter (\p -> pName p == paramName) (cmdAdditionalParams cmdDescriptor)
+      contextParams = filter (\p -> pName p == paramName) (concatMap contextMapping (cmdContexts cmdDescriptor))
+   in additionalParams ++ contextParams
 
 collidingParamNames :: [ParamDescription] ->[ParamName]
 collidingParamNames params =
