@@ -1,6 +1,7 @@
 ;;; hie.el --- Haskell IDE Engine process -*- lexical-binding: t -*-
 
 ;; Copyright (c) 2015 Haskell Ide Contributors
+;; Package-Requires: ((dash "2.12.1"))
 
 ;; See LICENSE for details.
 
@@ -127,11 +128,11 @@ by `hie-handle-message'."
 Items of the form '(\"key\" . ()) will be removed from assoc list
 JSON. Returns the new list."
   (if (listp json)
-      (mapcar (lambda (item)
-                (if (consp item)
-                    (cons (car item) (hie-remove-alist-null-values (cdr item)))
-                  item))
-              (cl-remove-if (lambda (item) (and (consp item) (null (cdr item)))) json))
+      (-map (lambda (item)
+              (if (consp item)
+                  (cons (car item) (hie-remove-alist-null-values (cdr item)))
+                item))
+            (cl-remove-if (lambda (item) (and (consp item) (null (cdr item)))) json))
     json))
 
 (defun hie-prepare-json (json)
@@ -152,12 +153,13 @@ association lists and count on HIE to use default values there."
   (message (format "%s" json)))
 
 (defun hie-handle-command-detail (json)
-  (let ((context
-         (hie-get-context (cdr (assq 'contexts json)))))
+  (-let* (((&alist 'contexts contexts 'name command-name 'plugin_name plugin-name) json)
+          (context
+           (hie-get-context contexts)))
     (setq hie-process-handle-message
           #'hie-handle-message)
     (hie-post-message
-     `(("cmd" . ,(hie-format-cmd (cons (cdr (assq 'plugin_name json)) (cdr (assq 'name json)))))
+     `(("cmd" . ,(hie-format-cmd (cons plugin-name command-name)))
        ("params" . ,context)))))
 
 (defun hie-format-cmd (cmd)
@@ -184,29 +186,30 @@ association lists and count on HIE to use default values there."
 
 (defun hie-handle-first-plugins-command (json)
   "Handle first plugins call."
-  (let ((menu-items
-         (mapcar
-          (lambda (plugin)
-            (cons (symbol-name (car plugin))
-                  (mapcar
-                   (lambda (command)
-                     (vector (cdr (assq 'ui_description command))
-                             (intern (concat "hie-"
-                                             (symbol-name (car plugin))
-                                             "-"
-                                             (cdr (assq 'name command))))))
-                   (cdr plugin))))
-          (cdr (assq 'plugins json))))
-        (command-names
-         (mapcar
-          (lambda (plugin)
-            (cons (car plugin)
-                  (mapcar
-                   (lambda (command)
-                     (cdr (assq 'name command)))
-                   (cdr plugin))))
-          (cdr (assq 'plugins json)))))
-    (setq hie-plugins (cdr (assq 'plugins json)))
+  (-let* (((&alist 'plugins plugins) json)
+          (menu-items
+           (-map
+            (-lambda ((plugin-name . commands))
+              (cons (symbol-name plugin-name)
+                    (-map
+                     (-lambda ((&alist 'name name 'ui_description description))
+                       (vector description
+                               (intern (concat "hie-"
+                                               (symbol-name plugin-name)
+                                               "-"
+                                               name))))
+                     commands)))
+            plugins))
+          (command-names
+           (-map
+            (-lambda ((plugin-name . commands))
+              (cons plugin-name
+                    (-map
+                     (-lambda ((&alist 'name name))
+                       name)
+                     commands)))
+            plugins)))
+    (setq hie-plugins plugins)
     (hie-create-all-commands command-names)
     (easy-menu-define hie-menu hie-mode-map
       "Menu for Haskell IDE Engine"
@@ -219,13 +222,13 @@ association lists and count on HIE to use default values there."
 
 (defun hie-create-all-commands (command-names)
   (eval `(progn
-           ,@(apply 'append (mapcar
-                             (lambda (plugin)
-                               (mapcar
-                                (lambda (command)
-                                  (hie-create-command (car plugin) command))
-                                (cdr plugin)))
-                             command-names)))))
+           ,@(-mapcat
+              (-lambda ((plugin-name . commands))
+                (-map
+                 (-lambda (command)
+                   (hie-create-command plugin-name command))
+                 commands))
+              command-names))))
 
 (define-minor-mode hie-mode
   "Haskell IDE Engine mode.
