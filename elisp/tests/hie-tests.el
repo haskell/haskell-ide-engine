@@ -8,6 +8,13 @@
 
 ;;; Code:
 
+(require 'package)
+(package-initialize)
+(add-to-list 'package-archives
+             '("melpa" . "http://melpa.org/packages/") t)
+(package-refresh-contents)
+(package-install 'dash)
+
 (require 'cl-lib)
 (require 'ert)
 (require 'hie)
