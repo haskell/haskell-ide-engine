@@ -193,6 +193,7 @@ association lists and count on HIE to use default values there."
                      (vector (cdr (assq 'ui_description command))
                              (intern (concat "hie-"
                                              (symbol-name (car plugin))
+                                             "-"
                                              (cdr (assq 'name command))))))
                    (cdr plugin))))
           (cdr (assq 'plugins json))))
@@ -212,7 +213,7 @@ association lists and count on HIE to use default values there."
       (cons "HIE" menu-items))))
 
 (defun hie-create-command (plugin command)
-  `(defun ,(intern (concat "hie-" (symbol-name plugin) command)) ()
+  `(defun ,(intern (concat "hie-" (symbol-name plugin) "-" command)) ()
      (interactive)
      (hie-run-command ,(symbol-name plugin) ,command)))
 
