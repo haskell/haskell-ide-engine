@@ -1,4 +1,4 @@
-;;; haskell-ide-engine.el --- Haskell IDE Engine process -*- lexical-binding: t -*-
+;;; hie.el --- Haskell IDE Engine process -*- lexical-binding: t -*-
 
 ;; Copyright (c) 2015 Haskell Ide Contributors
 
@@ -9,37 +9,37 @@
 (require 'json)
 
 ;;;###autoload
-(defcustom haskell-ide-engine-command "hie"
+(defcustom hie-command "hie"
   "Name of the command to use for Haskell IDE Engine executable."
   :group 'haskell
   :type 'string)
 
 ;;;###autoload
-(defcustom haskell-ide-engine-command-args ()
-  "Arguments to pass to `haskell-ide-engine-command`."
+(defcustom hie-command-args ()
+  "Arguments to pass to `hie-command`."
   :group 'haskell
   :type '(repeat string))
 
-(defvar haskell-ide-engine-process nil
+(defvar hie-process nil
   "Variable holding current Haskell IDE Engine process")
 
-(defvar haskell-ide-engine-buffer nil
+(defvar hie-buffer nil
   "Variable holding current Haskell IDE Engine buffer")
 
-(defvar haskell-ide-engine-process-handle-message nil
+(defvar hie-process-handle-message nil
   "A function to handle json object.")
 
-(defvar haskell-ide-engine-process-handle-invalid-input nil
+(defvar hie-process-handle-invalid-input nil
   "A function to handle invalid input.")
 
-(defvar haskell-ide-engine-post-message-hook nil
+(defvar hie-post-message-hook nil
   "Function to call with message that will be send to hie process.")
-(defvar haskell-ide-engine-plugins nil
+(defvar hie-plugins nil
   "Plugin information gained by calling the base:plugins plugin")
 
-(defun haskell-ide-engine-process-filter (process input)
+(defun hie-process-filter (process input)
   (let ((prev-buffer (current-buffer)))
-    (with-current-buffer haskell-ide-engine-buffer
+    (with-current-buffer hie-buffer
 
       (let ((point (point)))
         (insert input)
@@ -52,76 +52,76 @@
               (goto-char (point-min))
               (condition-case nil
                   (let ((json (json-read)))
-                    (when haskell-ide-engine-process-handle-message
+                    (when hie-process-handle-message
                       (with-current-buffer prev-buffer
-                        (funcall haskell-ide-engine-process-handle-message json))))
+                        (funcall hie-process-handle-message json))))
                 ;; json-readtable-error is when there is an unexpected character in input
                 (json-readtable-error
-                 (when haskell-ide-engine-process-handle-invalid-input
-                   (funcall haskell-ide-engine-process-handle-invalid-input
+                 (when hie-process-handle-invalid-input
+                   (funcall hie-process-handle-invalid-input
                             (buffer-substring-no-properties (point-min) end-of-current-json-object))))
                 ;; json-unknown-keyword when unrecognized keyword is parsed
                 (json-unknown-keyword
-                 (when haskell-ide-engine-process-handle-invalid-input
-                   (funcall haskell-ide-engine-process-handle-invalid-input
+                 (when hie-process-handle-invalid-input
+                   (funcall hie-process-handle-invalid-input
                             (buffer-substring-no-properties (point-min) end-of-current-json-object))))
                 (end-of-file
-                 (when haskell-ide-engine-process-handle-invalid-input
-                   (funcall haskell-ide-engine-process-handle-invalid-input
+                 (when hie-process-handle-invalid-input
+                   (funcall hie-process-handle-invalid-input
                             (buffer-substring-no-properties (point-min) end-of-current-json-object)))))
               (delete-region (point-min) after-stx-marker))))))))
 
-(defun haskell-ide-engine-start-process ()
+(defun hie-start-process ()
   "Start Haskell IDE Engine process.
 
 This function returns the process. If the process is already
 running this function does nothing."
   (interactive)
 
-  (unless (haskell-ide-engine-process-live-p)
-    (setq haskell-ide-engine-buffer
+  (unless (hie-process-live-p)
+    (setq hie-buffer
           (get-buffer-create "*hie*"))
-    (setq haskell-ide-engine-process
+    (setq hie-process
           (apply #'start-process
            "Haskell IDE Engine"
-           haskell-ide-engine-buffer
-           haskell-ide-engine-command
-           haskell-ide-engine-command-args))
-    (set-process-query-on-exit-flag haskell-ide-engine-process nil)
-    (set-process-filter haskell-ide-engine-process #'haskell-ide-engine-process-filter))
-  haskell-ide-engine-process)
+           hie-buffer
+           hie-command
+           hie-command-args))
+    (set-process-query-on-exit-flag hie-process nil)
+    (set-process-filter hie-process #'hie-process-filter))
+  hie-process)
 
-(defun haskell-ide-engine-process-live-p ()
+(defun hie-process-live-p ()
   "Whether the Haskell IDE Engine process is live."
-  (and haskell-ide-engine-process
-       (process-live-p haskell-ide-engine-process)))
+  (and hie-process
+       (process-live-p hie-process)))
 
-(defun haskell-ide-engine-kill-process ()
+(defun hie-kill-process ()
   "Kill the Haskell IDE Engine process if it is live."
   (interactive)
-  (when (haskell-ide-engine-process-live-p)
-    (kill-process haskell-ide-engine-process)
-    (setq haskell-ide-engine-process nil)
-    (kill-buffer haskell-ide-engine-buffer)
-    (setq haskell-ide-engine-buffer nil)))
+  (when (hie-process-live-p)
+    (kill-process hie-process)
+    (setq hie-process nil)
+    (kill-buffer hie-buffer)
+    (setq hie-buffer nil)))
 
-(defun haskell-ide-engine-post-message (json)
+(defun hie-post-message (json)
   "Post a message to Haskell IDE Engine.
 
 Communication is asynchronous, response (if any) will be received
-by `haskell-ide-engine-handle-message'."
+by `hie-handle-message'."
 
   ;; We remove values that are empty lists from assoc lists at the top
   ;; level because json serialization would use "null" for those. HIE
   ;; accepts missing fields and default to empty when possible.
-  (let ((prepared-json (haskell-ide-engine-prepare-json json)))
-    (run-hook-with-args 'haskell-ide-engine-post-message-hook prepared-json)
+  (let ((prepared-json (hie-prepare-json json)))
+    (run-hook-with-args 'hie-post-message-hook prepared-json)
 
-    (process-send-string haskell-ide-engine-process prepared-json)
+    (process-send-string hie-process prepared-json)
     ;; send \STX marker and flush buffers
-    (process-send-string haskell-ide-engine-process "\^b\n")))
+    (process-send-string hie-process "\^b\n")))
 
-(defun haskell-ide-engine-remove-alist-null-values (json)
+(defun hie-remove-alist-null-values (json)
   "Remove null values from assoc lists.
 
 Items of the form '(\"key\" . ()) will be removed from assoc list
@@ -129,12 +129,12 @@ JSON. Returns the new list."
   (if (listp json)
       (mapcar (lambda (item)
                 (if (consp item)
-                    (cons (car item) (haskell-ide-engine-remove-alist-null-values (cdr item)))
+                    (cons (car item) (hie-remove-alist-null-values (cdr item)))
                   item))
               (cl-remove-if (lambda (item) (and (consp item) (null (cdr item)))) json))
     json))
 
-(defun haskell-ide-engine-prepare-json (json)
+(defun hie-prepare-json (json)
   "Prepare json for sending it to HIE process.
 
 Emacs build in json package and `json-encode' function encodes
@@ -142,7 +142,7 @@ empty objects as \"null\". We remove such objects from
 association lists and count on HIE to use default values there."
   (if (stringp json)
       json
-    (json-encode (haskell-ide-engine-remove-alist-null-values json))))
+    (json-encode (hie-remove-alist-null-values json))))
 
 (defvar hie-mode-map
   (easy-mmode-define-keymap
@@ -154,9 +154,9 @@ association lists and count on HIE to use default values there."
 (defun hie-handle-command-detail (json)
   (let ((context
          (hie-get-context (cdr (assq 'contexts json)))))
-    (setq haskell-ide-engine-process-handle-message
+    (setq hie-process-handle-message
           #'hie-handle-message)
-    (haskell-ide-engine-post-message
+    (hie-post-message
      `(("cmd" . ,(hie-format-cmd (cons (cdr (assq 'plugin_name json)) (cdr (assq 'name json)))))
        ("params" . ,context)))))
 
@@ -174,15 +174,15 @@ association lists and count on HIE to use default values there."
       ("end_pos" . ,start))))
 
 (defun hie-run-command (plugin command)
-  (setq haskell-ide-engine-process-handle-message
+  (setq hie-process-handle-message
         #'hie-handle-command-detail)
-  (setq haskell-ide-engine-current-cmd (cons plugin command))
-  (haskell-ide-engine-post-message
+  (setq hie-current-cmd (cons plugin command))
+  (hie-post-message
    `(("cmd" . "base:commandDetail")
      ("params" . (("command" . (("text" . ,command)))
                   ("plugin" . (("text" . ,plugin))))))))
 
-(defun haskell-ide-engine-handle-first-plugins-command (json)
+(defun hie-handle-first-plugins-command (json)
   "Handle first plugins call."
   (let ((menu-items
          (mapcar
@@ -191,7 +191,7 @@ association lists and count on HIE to use default values there."
                   (mapcar
                    (lambda (command)
                      (vector (cdr (assq 'ui_description command))
-                             (intern (concat "haskell-ide-engine-"
+                             (intern (concat "hie-"
                                              (symbol-name (car plugin))
                                              (cdr (assq 'name command))))))
                    (cdr plugin))))
@@ -205,24 +205,24 @@ association lists and count on HIE to use default values there."
                      (cdr (assq 'name command)))
                    (cdr plugin))))
           (cdr (assq 'plugins json)))))
-    (setq haskell-ide-engine-plugins (cdr (assq 'plugins json)))
-    (haskell-ide-engine-create-all-commands command-names)
+    (setq hie-plugins (cdr (assq 'plugins json)))
+    (hie-create-all-commands command-names)
     (easy-menu-define hie-menu hie-mode-map
       "Menu for Haskell IDE Engine"
       (cons "HIE" menu-items))))
 
-(defun haskell-ide-engine-create-command (plugin command)
-  `(defun ,(intern (concat "haskell-ide-engine-" (symbol-name plugin) command)) ()
+(defun hie-create-command (plugin command)
+  `(defun ,(intern (concat "hie-" (symbol-name plugin) command)) ()
      (interactive)
      (hie-run-command ,(symbol-name plugin) ,command)))
 
-(defun haskell-ide-engine-create-all-commands (command-names)
+(defun hie-create-all-commands (command-names)
   (eval `(progn
            ,@(apply 'append (mapcar
                              (lambda (plugin)
                                (mapcar
                                 (lambda (command)
-                                  (haskell-ide-engine-create-command (car plugin) command))
+                                  (hie-create-command (car plugin) command))
                                 (cdr plugin)))
                              command-names)))))
 
@@ -236,17 +236,17 @@ Keymap:
   :keymap 'hie-mode-map
 
   (if hie-mode
-      (unless (haskell-ide-engine-process-live-p)
-        (haskell-ide-engine-start-process)
-        (setq haskell-ide-engine-process-handle-message
-              #'haskell-ide-engine-handle-first-plugins-command)
-        (haskell-ide-engine-post-message
+      (unless (hie-process-live-p)
+        (hie-start-process)
+        (setq hie-process-handle-message
+              #'hie-handle-first-plugins-command)
+        (hie-post-message
          '(("cmd" . "base:plugins"))))
 
     ;; we need to kill hie if this is the last one buffer standing
     (unless (cl-find-if (lambda (buffer)
                           (with-current-buffer buffer
                             (bound-and-true-p hie-mode))) (buffer-list))
-      (haskell-ide-engine-kill-process))))
+      (hie-kill-process))))
 
-(provide 'haskell-ide-engine)
+(provide 'hie)
