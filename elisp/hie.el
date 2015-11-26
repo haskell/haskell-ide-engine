@@ -8,6 +8,7 @@
 ;;; Code:
 
 (require 'json)
+(require 'dash)
 
 ;;;###autoload
 (defcustom hie-command "hie"
