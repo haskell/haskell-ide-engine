@@ -63,6 +63,8 @@ library
 executable hie
   hs-source-dirs:      app
   main-is:             MainHie.hs
+  other-modules:
+                       PluginList
   other-modules:       Paths_haskell_ide_engine
   build-depends:       base
                      , Cabal >= 1.22
