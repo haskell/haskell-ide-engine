@@ -65,6 +65,7 @@ executable hie
   main-is:             MainHie.hs
   other-modules:
                        PluginList
+                       Ide.SublimeText
   other-modules:       Paths_haskell_ide_engine
   build-depends:       base
                      , Cabal >= 1.22
