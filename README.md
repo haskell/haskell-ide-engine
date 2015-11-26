@@ -1,7 +1,6 @@
-# haskell-ide-engine
-[![Available on Hackage][badge-hackage]][hackage]
-[![License BSD3][badge-license]][license]
-[![Build Status][badge-travis]][travis]
+# haskell-ide-engine (HIE)
+
+[![Available on Hackage][badge-hackage]][hackage] [![License BSD3][badge-license]][license] [![Build Status][badge-travis]][travis]
 
 [badge-travis]: https://travis-ci.org/haskell/haskell-ide-engine.png?branch=master
 [travis]: https://travis-ci.org/haskell/haskell-ide-engine
@@ -11,9 +10,26 @@
 [license]: https://github.com/haskell/haskell-ide-engine/blob/master/LICENSE
 
 
-This project aims to be the __universal IDE interface__ to __all haskell tools__, proving a __full-featured and easy to query ide-backend__.
+This project aims to be the __universal IDE interface__ to __all haskell tools__, proving a __full-featured and easy to query haskell ide-backend__.
 
-Features: (planned)
+-------------
+
+### There is __3 things__ you can do to help:
+
+1. Integrate your tool to HIE  like this : [/hie-example-plugin2/Haskell/Ide/ExamplePlugin2.hs](/hie-example-plugin2/Haskell/Ide/ExamplePlugin2.hs) 
+2. Generate IDE Bindings (see [/app/Ide/SublimeText.hs](/app/Ide/SublimeText.hs))
+3. Discuss the project with us
+     - Register in our [google group mailing list](https://groups.google.com/forum/#!forum/haskell-ide)
+     - Join our IRC channel at `#haskell-ide-engine` on `freenode`.
+     - Fork this repo and hack as much as you can.
+     - Ask @alanz or @hvr to join the project.
+
+
+---------
+
+:heart: Haskell tooling dream is near, we need your help ! :heart:
+
+### Features: (planned)
 
  - [ ] cabal / stack project `Configuration` and `Compilation`
  - [ ] Errors Checking, Warnings, Linter, Dead code detection
@@ -38,21 +54,9 @@ This project doesn't start from scratch:
 2. Check the [list of existing tools / features ](/docs/Tools.md)
 3. See more [other tools / ide for inspiration](/docs/Inspirations.md)
 
-## It's time to join the project !
-
-:heart: Haskell tooling dream is near, we need your help ! :heart:
-
- - Register in our [google group mailing list](https://groups.google.com/forum/#!forum/haskell-ide)
- - Join our IRC channel at `#haskell-ide-engine` on `freenode`.
- - Fork this repo and hack as much as you can.
- - Ask @alanz or @hvr to join the project.
-
--------------
-
-
 ## Architecture
 
-1. __BIOS layer__:
+1. __BIOS layer__: Ghc Mod
 
     ghc-mod stays an AGPL project, and is used for its "awesome sauce" in terms of
     the BIOS functions that it does so well. This interface is
@@ -62,8 +66,7 @@ This project doesn't start from scratch:
 
 2. __Plugin layer__:
 
-    A layer providing a point to integrate tools and existing functions, probably
-    including ghci.
+    A layer providing a point to integrate tools and existing functions (ghci, hlint, etc.).
 
 3. __IDE interfacing layer__:
 
