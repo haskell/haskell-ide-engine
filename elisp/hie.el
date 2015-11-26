@@ -1,4 +1,4 @@
-;;; haskell-ide-engine.el --- Haskell IDE Engine process -*- lexical-binding: t -*-
+;;; hie.el --- Haskell IDE Engine process -*- lexical-binding: t -*-
 
 ;; Copyright (c) 2015 Haskell Ide Contributors
 
@@ -249,4 +249,4 @@ Keymap:
                             (bound-and-true-p hie-mode))) (buffer-list))
       (hie-kill-process))))
 
-(provide 'haskell-ide-engine)
+(provide 'hie)
