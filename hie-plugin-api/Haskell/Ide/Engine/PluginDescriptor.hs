@@ -302,19 +302,19 @@ ok :: T.Text
 ok = "ok"
 
 instance ValidResponse String where
-  jsWrite s = H.fromList [ok .= toJSON s]
+  jsWrite s = H.fromList [ok .= s]
   jsRead o = o .: ok
 
 instance ValidResponse T.Text where
-  jsWrite s = H.fromList [ok .= toJSON s]
+  jsWrite s = H.fromList [ok .= s]
   jsRead o = o .: ok
 
 instance ValidResponse [String] where
-  jsWrite ss = H.fromList [ok .= toJSON ss]
+  jsWrite ss = H.fromList [ok .= ss]
   jsRead o = o .: ok
 
 instance ValidResponse [T.Text] where
-  jsWrite ss = H.fromList [ok .= toJSON ss]
+  jsWrite ss = H.fromList [ok .= ss]
   jsRead o = o .: ok
 
 instance ValidResponse () where
@@ -363,7 +363,7 @@ instance ValidResponse CommandDescriptor where
 
 instance ValidResponse IdePlugins where
   jsWrite m = H.fromList ["plugins" .= H.fromList
-                ( map (\(k,v)-> k .= toJSON v)
+                ( map (uncurry (.=))
                 $ Map.assocs m)]
   jsRead v = do
     ps <- v .: "plugins"
@@ -379,15 +379,15 @@ instance ValidResponse TypeInfo where
 -- JSON instances
 
 posToJSON :: (Int,Int) -> Value
-posToJSON (l,c) = object [ "line" .= toJSON l,"col" .= toJSON c ]
+posToJSON (l,c) = object [ "line" .= l,"col" .= c ]
 
 jsonToPos :: Value -> Parser (Int,Int)
 jsonToPos (Object v) = (,) <$> v .: "line" <*> v.: "col"
 jsonToPos _ = empty
 
 instance ToJSON ParamValP  where
-    toJSON (ParamTextP v) = object [ "text" .= toJSON v ]
-    toJSON (ParamFileP v) = object [ "file" .= toJSON v ]
+    toJSON (ParamTextP v) = object [ "text" .= v ]
+    toJSON (ParamFileP v) = object [ "file" .= v ]
     toJSON (ParamPosP  p) = posToJSON p
     toJSON _ = "error"
 
@@ -449,8 +449,8 @@ instance FromJSON ParamType where
 -- -------------------------------------
 
 instance ToJSON ParamDescription where
-    toJSON (RP n h t) = object [ "name" .= n ,"help" .= toJSON h, "type" .= toJSON t, "required" .= toJSON True ]
-    toJSON (OP n h t) = object [ "name" .= n ,"help" .= toJSON h, "type" .= toJSON t, "required" .= toJSON False ]
+    toJSON (RP n h t) = object [ "name" .= n ,"help" .= h, "type" .= t, "required" .= True ]
+    toJSON (OP n h t) = object [ "name" .= n ,"help" .= h, "type" .= t, "required" .= False ]
 
 instance FromJSON ParamDescription where
     parseJSON (Object v) = do
@@ -507,9 +507,9 @@ instance FromJSON IdeErrorCode where
 -- -------------------------------------
 
 instance ToJSON IdeError where
-    toJSON err = object [ "code" .= toJSON (ideCode err)
-                        , "msg"  .= String (ideMessage err)
-                        , "info" .= toJSON (ideInfo err)]
+    toJSON err = object [ "code" .= ideCode err
+                        , "msg"  .= ideMessage err
+                        , "info" .= ideInfo err]
 
 instance FromJSON IdeError where
     parseJSON (Object v) = IdeError
@@ -522,7 +522,7 @@ instance ToJSON TypeResult where
   toJSON (TypeResult s e t) =
       object [ "start" .= posToJSON s
              , "end" .= posToJSON e
-             , "type" .= toJSON t
+             , "type" .= t
              ]
 
 instance FromJSON TypeResult where
@@ -536,8 +536,8 @@ instance FromJSON TypeResult where
 
 instance (ValidResponse a) => ToJSON (IdeResponse a) where
     toJSON (IdeResponseOk v) = Object (jsWrite v)
-    toJSON (IdeResponseFail v) = object [ "fail" .= toJSON v ]
-    toJSON (IdeResponseError v) = object [ "error" .= toJSON v ]
+    toJSON (IdeResponseFail v) = object [ "fail" .= v ]
+    toJSON (IdeResponseError v) = object [ "error" .= v ]
 
 instance (ValidResponse a) => FromJSON (IdeResponse a) where
     parseJSON (Object v) = do
