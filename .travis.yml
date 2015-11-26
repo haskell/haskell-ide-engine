@@ -50,7 +50,7 @@ script:
 notifications:
   irc:
     channels:
-      - "chat.freenode.net#haskell-ide"
+      - "chat.freenode.net#haskell-ide-engine"
     on_success: change # [always|never|change] default: always
     on_failure: change # default: always
     use_notice: true
