@@ -28,9 +28,22 @@ pluginUtilsSpec = do
             [
               ("plugin1",
                   [
-                    ("cmd1", [("file", [])])
-                  , ("cmd2", [("end_pos", [])])
-                  , ("cmd3", [("a", []), ("b", [])])
+                    ("cmd1", [("file", [ fileParam
+                                       , RP
+                                         { pName = "file"
+                                         , pHelp = "shoud collide"
+                                         , pType = PtText
+                                         }
+                                       ])])
+                  , ("cmd2", [("end_pos", [ endPosParam
+                                          , RP
+                                            { pName = "end_pos"
+                                            , pHelp = "shoud collide"
+                                            , pType = PtText
+                                            }
+                                          ])])
+                  , ("cmd3", [ ("a", [])
+                             , ("b", [])])
                   ]
               )
             , ("plugin2",
