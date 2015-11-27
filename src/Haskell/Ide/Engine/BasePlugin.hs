@@ -27,47 +27,19 @@ baseDescriptor = PluginDescriptor
   {
     pdCommands =
       [
-        Command
-          { cmdDesc = CommandDesc
-                        { cmdName = "version"
-                        , cmdUiDescription = "return HIE version"
-                        , cmdFileExtensions = []
-                        , cmdContexts = [CtxNone]
-                        , cmdAdditionalParams = []
-                        }
-          , cmdFunc = versionCmd
-          }
-      , Command
-          { cmdDesc = CommandDesc
-                        { cmdName = "plugins"
-                        , cmdUiDescription = "list available plugins"
-                        , cmdFileExtensions = []
-                        , cmdContexts = [CtxNone]
-                        , cmdAdditionalParams = []
-                        }
-          , cmdFunc = pluginsCmd
-          }
-      , Command
-          { cmdDesc = CommandDesc
-                        { cmdName = "commands"
-                        , cmdUiDescription = "list available commands for a given plugin"
-                        , cmdFileExtensions = []
-                        , cmdContexts = [CtxNone]
-                        , cmdAdditionalParams = [RP "plugin" "the plugin name" PtText]
-                        }
-          , cmdFunc = commandsCmd
-          }
-      , Command
-          { cmdDesc = CommandDesc
-                        { cmdName = "commandDetail"
-                        , cmdUiDescription = "list parameters required for a given command"
-                        , cmdFileExtensions = []
-                        , cmdContexts = [CtxNone]
-                        , cmdAdditionalParams = [RP "plugin"  "the plugin name"  PtText
-                                                ,RP "command" "the command name" PtText]
-                        }
-          , cmdFunc = commandDetailCmd
-          }
+        buildCommand versionCmd "version" "return HIE version"
+                        [] [CtxNone] []
+
+      , buildCommand pluginsCmd "plugins" "list available plugins"
+                         [] [CtxNone] []
+
+      , buildCommand commandsCmd "commands" "list available commands for a given plugin"
+                        [] [CtxNone] [RP "plugin" "the plugin name" PtText]
+
+      , buildCommand commandDetailCmd "commandDetail" "list parameters required for a given command"
+                        [] [CtxNone] [RP "plugin"  "the plugin name"  PtText
+                                     ,RP "command" "the command name" PtText]
+
       ]
   , pdExposedServices = []
   , pdUsedServices    = []

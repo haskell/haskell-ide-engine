@@ -10,6 +10,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | Experimenting with a data structure to define a plugin.
 --
 -- The general idea is that a given plugin returns this structure during the
@@ -69,6 +70,23 @@ data Command = forall a .(ValidResponse a) => Command
 instance Show Command where
   show (Command desc _func) = "(Command " ++ show desc ++ ")"
 
+-- | Build a command, ensuring the command response type name and the command function match
+buildCommand :: forall a .(ValidResponse a)
+  => CommandFunc a
+  -> CommandName
+  -> T.Text
+  -> [T.Text]
+  -> [AcceptedContext]
+  -> [ParamDescription]
+  -> Command
+buildCommand fun n d exts ctxs parm = Command
+  (CommandDesc n d exts ctxs parm (responseTypeName (undefined::a)))
+  fun
+
+
+-- | Return type of a function
+type ReturnType = T.Text
+
 -- | Descriptor for a command. This is intended to be transferred to the IDE, so
 -- the IDE can integrate it into it's UI, and then send requests through to HIE.
 data CommandDescriptor = CommandDesc
@@ -77,6 +95,7 @@ data CommandDescriptor = CommandDesc
   , cmdFileExtensions :: ![T.Text] -- ^ File extensions this command can be applied to
   , cmdContexts :: ![AcceptedContext] -- TODO: should this be a non empty list? or should empty list imply CtxNone.
   , cmdAdditionalParams :: ![ParamDescription]
+  , cmdReturnType :: !ReturnType
   } deriving (Show,Eq,Generic)
 
 type CommandName = T.Text
@@ -214,7 +233,8 @@ data ParamVal (t :: ParamType) where
 class ValidResponse a where
   jsWrite :: a -> Object -- ^ Serialize to JSON Object
   jsRead  :: Object -> Parser a -- ^ Read from JSON Object
-
+  responseTypeName :: a -> T.Text -- ^ Type name in command description.
+                                  -- the parameter is undefined
 
 -- | The IDE response, with the type of response it contains
 data IdeResponse resp = IdeResponseOk resp    -- ^ Command Succeeded
@@ -294,6 +314,10 @@ data TypeResult = TypeResult
     , trText  :: T.Text -- ^ type text
     } deriving (Show,Read,Eq,Ord,Generic)
 
+-- | Result of refactoring
+data RefactorResult = RefactorResult
+  { rrPaths :: [FilePath]
+  } deriving (Show,Read,Eq,Ord,Generic)
 
 -- ---------------------------------------------------------------------
 -- ValidResponse instances
@@ -304,18 +328,22 @@ ok = "ok"
 instance ValidResponse String where
   jsWrite s = H.fromList [ok .= s]
   jsRead o = o .: ok
+  responseTypeName _ = "Text"
 
 instance ValidResponse T.Text where
   jsWrite s = H.fromList [ok .= s]
   jsRead o = o .: ok
+  responseTypeName _ = "Text"
 
 instance ValidResponse [String] where
   jsWrite ss = H.fromList [ok .= ss]
   jsRead o = o .: ok
+  responseTypeName _ = "[Text]"
 
 instance ValidResponse [T.Text] where
   jsWrite ss = H.fromList [ok .= ss]
   jsRead o = o .: ok
+  responseTypeName _ = "[Text]"
 
 instance ValidResponse () where
   jsWrite _ = H.fromList [ok .= String ok]
@@ -324,10 +352,12 @@ instance ValidResponse () where
       if r == String ok
         then pure ()
         else empty
+  responseTypeName _ = "Void"
 
 instance ValidResponse Object where
   jsWrite = id
   jsRead = pure
+  responseTypeName _ = "Object"
 
 instance ValidResponse ExtendedCommandDescriptor where
   jsWrite (ExtendedCommandDescriptor cmdDescriptor name) =
@@ -337,6 +367,7 @@ instance ValidResponse ExtendedCommandDescriptor where
       ,"file_extensions" .= cmdFileExtensions cmdDescriptor
       ,"contexts" .= cmdContexts cmdDescriptor
       ,"additional_params" .= cmdAdditionalParams cmdDescriptor
+      ,"return_type" .= cmdReturnType cmdDescriptor
       ,"plugin_name" .= name]
 
   jsRead v =
@@ -344,22 +375,27 @@ instance ValidResponse ExtendedCommandDescriptor where
     (CommandDesc <$> v .: "name" <*> v .: "ui_description" <*>
      v .: "file_extensions" <*>
      v .: "contexts" <*>
-     v .: "additional_params") <*>
-    v .: "plugin_name"
+     v .: "additional_params" <*>
+     v .: "return_type") <*>
+     v .: "plugin_name"
 
+  responseTypeName _ = "ExtendedCommandDescriptor"
 
 instance ValidResponse CommandDescriptor where
   jsWrite cmdDescriptor = H.fromList [ "name" .= cmdName cmdDescriptor
                                   , "ui_description" .= cmdUiDescription cmdDescriptor
                                   , "file_extensions" .= cmdFileExtensions cmdDescriptor
                                   , "contexts" .= cmdContexts cmdDescriptor
-                                  , "additional_params" .= cmdAdditionalParams cmdDescriptor ]
+                                  , "additional_params" .= cmdAdditionalParams cmdDescriptor
+                                  , "return_type" .= cmdReturnType cmdDescriptor ]
   jsRead v =
         CommandDesc <$> v .: "name"
                     <*> v .: "ui_description"
                     <*> v .: "file_extensions"
                     <*> v .: "contexts"
                     <*> v .: "additional_params"
+                    <*> v .: "return_type"
+  responseTypeName _ = "CommandDescriptor"
 
 instance ValidResponse IdePlugins where
   jsWrite m = H.fromList ["plugins" .= H.fromList
@@ -370,10 +406,17 @@ instance ValidResponse IdePlugins where
     liftM Map.fromList $ mapM (\(k,vp) -> do
             p<-parseJSON vp
             return (k,p)) $ H.toList ps
+  responseTypeName _ = "IdePlugins"
 
 instance ValidResponse TypeInfo where
   jsWrite (TypeInfo t) = H.fromList ["type_info" .= t]
   jsRead v = TypeInfo <$> v .: "type_info"
+  responseTypeName _ = "TypeInfo"
+
+instance ValidResponse RefactorResult where
+  jsWrite (RefactorResult t) = H.fromList ["refactor" .= t]
+  jsRead v = RefactorResult <$> v .: "refactor"
+  responseTypeName _ = "RefactorResult"
 
 -- ---------------------------------------------------------------------
 -- JSON instances

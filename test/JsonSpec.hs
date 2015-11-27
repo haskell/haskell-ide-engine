@@ -78,6 +78,7 @@ instance Arbitrary CommandDescriptor where
     <*> smallList arbitrary
     <*> smallList arbitraryBoundedEnum
     <*> smallList arbitrary
+    <*> arbitrary
 
 instance Arbitrary ExtendedCommandDescriptor where
   arbitrary = ExtendedCommandDescriptor
