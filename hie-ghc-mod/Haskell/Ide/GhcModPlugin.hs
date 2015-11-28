@@ -65,12 +65,12 @@ ghcmodDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-checkCmd :: CommandFunc String
+checkCmd :: CommandFunc T.Text
 checkCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
-      liftIO $ runGhcModCommand fileName (\f->GM.checkSyntax [f])
+      fmap T.pack <$> liftIO (runGhcModCommand fileName (\f->GM.checkSyntax [f]))
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.checkCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
@@ -78,7 +78,7 @@ checkCmd = CmdSync $ \_ctxs req -> do
 
 -- TODO: Must define a directory to base the search from, to be able to resolve
 -- the project root.
-findCmd :: CommandFunc String
+findCmd :: CommandFunc T.Text
 findCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdText "symbol" :& RNil) req of
     Left err -> return err
@@ -93,23 +93,23 @@ findCmd = CmdSync $ \_ctxs req -> do
 
 -- ---------------------------------------------------------------------
 
-lintCmd :: CommandFunc String
+lintCmd :: CommandFunc T.Text
 lintCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
-      liftIO $ runGhcModCommand fileName GM.lint
+      fmap T.pack <$> liftIO (runGhcModCommand fileName GM.lint)
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.lintCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
 -- ---------------------------------------------------------------------
 
-infoCmd :: CommandFunc String
+infoCmd :: CommandFunc T.Text
 infoCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdText "expr" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamText expr :& RNil) -> do
-      liftIO $ runGhcModCommand fileName (flip GM.info (GM.Expression (T.unpack expr)))
+      fmap T.pack <$> liftIO (runGhcModCommand fileName (flip GM.info (GM.Expression (T.unpack expr))))
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.infoCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
@@ -143,8 +143,7 @@ readTypeResult t = do
 
 
 -- TODO: Need to thread the session through as in the commented out code below.
-runGhcModCommand :: (ValidResponse a)
-  => T.Text -- ^ The file name we'll operate on
+runGhcModCommand :: T.Text -- ^ The file name we'll operate on
   -> (FilePath -> GM.GmT (GM.GmOutT (GM.GmOutT IO)) a) -> IO (IdeResponse a)
 runGhcModCommand fp cmd = do
   let (dir,f) = fileInfo fp

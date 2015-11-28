@@ -34,9 +34,7 @@ spec = describe "dispatcher" jsonSpec
 jsonSpec :: Spec
 jsonSpec = do
   describe "Valid Response JSON Object round trip" $ do
-    prop "String" (propertyValidRoundtrip :: String -> Bool)
     prop "Text" (propertyValidRoundtrip :: Text -> Bool)
-    prop "[String]" (propertyValidRoundtrip :: [String] -> Bool)
     prop "[Text]" (propertyValidRoundtrip :: [Text] -> Bool)
     prop "()" (propertyValidRoundtrip :: () -> Bool)
     prop "Aeson.Object" (propertyValidRoundtrip :: Object -> Bool)
@@ -104,7 +102,7 @@ smallList :: Gen a -> Gen [a]
 smallList = resize 3 . listOf
 
 instance Arbitrary Command where
-  arbitrary = Command <$> arbitrary <*> pure (CmdAsync (\_ _ _ -> return ())::CommandFunc String)
+  arbitrary = Command <$> arbitrary <*> pure (CmdAsync (\_ _ _ -> return ())::CommandFunc Text)
 
 -- | Sufficient for tests
 instance Eq PluginDescriptor where
@@ -145,3 +143,6 @@ instance Arbitrary TypeInfo where
 
 instance Arbitrary TypeResult where
   arbitrary = TypeResult <$> arbitrary <*> arbitrary <*> arbitrary
+
+instance Arbitrary IdePlugins where
+  arbitrary = IdePlugins <$> arbitrary

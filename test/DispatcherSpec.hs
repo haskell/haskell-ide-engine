@@ -289,7 +289,7 @@ mkCmdWithContext n cts pds =
                         , cmdAdditionalParams = pds
                         , cmdReturnType = "Text"
                         }
-          , cmdFunc = CmdSync $ \ctxs _ -> return (IdeResponseOk ("result:ctxs=" ++ show ctxs))
+          , cmdFunc = CmdSync $ \ctxs _ -> return (IdeResponseOk (T.pack $ "result:ctxs=" ++ show ctxs))
           }
 
 mkAsyncCmdWithContext :: (ValidResponse a) => CommandFunc a -> CommandName -> [AcceptedContext] -> [ParamDescription] -> Command

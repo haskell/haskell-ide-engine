@@ -47,15 +47,15 @@ baseDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-versionCmd :: CommandFunc String
-versionCmd = CmdSync $ \_ _ -> return (IdeResponseOk version)
+versionCmd :: CommandFunc T.Text
+versionCmd = CmdSync $ \_ _ -> return (IdeResponseOk $ T.pack version)
 
 pluginsCmd :: CommandFunc IdePlugins
 pluginsCmd = CmdSync $ \_ _ -> do
   plugins <- getPlugins
   let commands = Map.fromList $ map getOne $ Map.toList plugins
       getOne (pid,pd) = (pid,map (\c -> cmdDesc c) $ pdCommands pd)
-  return (IdeResponseOk commands)
+  return (IdeResponseOk $ IdePlugins commands)
 
 commandsCmd :: CommandFunc [CommandName]
 commandsCmd = CmdSync $ \_ req -> do
@@ -93,7 +93,7 @@ commandDetailCmd = CmdSync $ \_ req -> do
 version :: String
 version =
     let commitCount = $gitCommitCount
-    in  concat $ concat
+    in concat $ concat
             [ [$(simpleVersion Meta.version)]
               -- Leave out number of commits for --depth=1 clone
               -- See https://github.com/commercialhaskell/stack/issues/792

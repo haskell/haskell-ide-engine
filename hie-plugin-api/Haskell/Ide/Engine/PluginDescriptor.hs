@@ -38,6 +38,7 @@ import qualified Data.Map as Map
 import           Data.Maybe
 import qualified Data.HashMap.Strict as H
 import qualified Data.Text as T
+import           Data.Typeable
 import qualified GHC
 import           GHC.Generics
 
@@ -80,7 +81,7 @@ buildCommand :: forall a .(ValidResponse a)
   -> [ParamDescription]
   -> Command
 buildCommand fun n d exts ctxs parm = Command
-  (CommandDesc n d exts ctxs parm (responseTypeName (undefined::a)))
+  (CommandDesc n d exts ctxs parm (T.pack $ show $ typeOf (undefined::a)))
   fun
 
 
@@ -108,8 +109,9 @@ data ExtendedCommandDescriptor =
 
 -- | Subset type extracted from 'Plugins' to be sent to the IDE as
 -- a description of the available commands
-type IdePlugins = Map.Map PluginId [CommandDescriptor]
-
+data IdePlugins = IdePlugins {
+  ipMap :: Map.Map PluginId [CommandDescriptor]
+  } deriving (Show,Eq,Generic)
 
 -- | Define what context will be accepted from the frontend for the specific
 -- command. Matches up to corresponding values for CommandContext
@@ -230,11 +232,10 @@ data ParamVal (t :: ParamType) where
   ParamPos :: (Int,Int) -> ParamVal 'PtPos
 
 -- | The typeclass for valid response types
-class ValidResponse a where
+class (Typeable a) => ValidResponse a where
   jsWrite :: a -> Object -- ^ Serialize to JSON Object
   jsRead  :: Object -> Parser a -- ^ Read from JSON Object
-  responseTypeName :: a -> T.Text -- ^ Type name in command description.
-                                  -- the parameter is undefined
+
 
 -- | The IDE response, with the type of response it contains
 data IdeResponse resp = IdeResponseOk resp    -- ^ Command Succeeded
@@ -325,25 +326,14 @@ data RefactorResult = RefactorResult
 ok :: T.Text
 ok = "ok"
 
-instance ValidResponse String where
-  jsWrite s = H.fromList [ok .= s]
-  jsRead o = o .: ok
-  responseTypeName _ = "Text"
-
 instance ValidResponse T.Text where
   jsWrite s = H.fromList [ok .= s]
   jsRead o = o .: ok
-  responseTypeName _ = "Text"
 
-instance ValidResponse [String] where
-  jsWrite ss = H.fromList [ok .= ss]
-  jsRead o = o .: ok
-  responseTypeName _ = "[Text]"
 
 instance ValidResponse [T.Text] where
   jsWrite ss = H.fromList [ok .= ss]
   jsRead o = o .: ok
-  responseTypeName _ = "[Text]"
 
 instance ValidResponse () where
   jsWrite _ = H.fromList [ok .= String ok]
@@ -352,12 +342,10 @@ instance ValidResponse () where
       if r == String ok
         then pure ()
         else empty
-  responseTypeName _ = "Void"
 
 instance ValidResponse Object where
   jsWrite = id
   jsRead = pure
-  responseTypeName _ = "Object"
 
 instance ValidResponse ExtendedCommandDescriptor where
   jsWrite (ExtendedCommandDescriptor cmdDescriptor name) =
@@ -379,8 +367,6 @@ instance ValidResponse ExtendedCommandDescriptor where
      v .: "return_type") <*>
      v .: "plugin_name"
 
-  responseTypeName _ = "ExtendedCommandDescriptor"
-
 instance ValidResponse CommandDescriptor where
   jsWrite cmdDescriptor = H.fromList [ "name" .= cmdName cmdDescriptor
                                   , "ui_description" .= cmdUiDescription cmdDescriptor
@@ -395,28 +381,24 @@ instance ValidResponse CommandDescriptor where
                     <*> v .: "contexts"
                     <*> v .: "additional_params"
                     <*> v .: "return_type"
-  responseTypeName _ = "CommandDescriptor"
 
 instance ValidResponse IdePlugins where
-  jsWrite m = H.fromList ["plugins" .= H.fromList
+  jsWrite (IdePlugins m) = H.fromList ["plugins" .= H.fromList
                 ( map (uncurry (.=))
                 $ Map.assocs m)]
   jsRead v = do
     ps <- v .: "plugins"
-    liftM Map.fromList $ mapM (\(k,vp) -> do
+    liftM (IdePlugins . Map.fromList) $ mapM (\(k,vp) -> do
             p<-parseJSON vp
             return (k,p)) $ H.toList ps
-  responseTypeName _ = "IdePlugins"
 
 instance ValidResponse TypeInfo where
   jsWrite (TypeInfo t) = H.fromList ["type_info" .= t]
   jsRead v = TypeInfo <$> v .: "type_info"
-  responseTypeName _ = "TypeInfo"
 
 instance ValidResponse RefactorResult where
   jsWrite (RefactorResult t) = H.fromList ["refactor" .= t]
   jsRead v = RefactorResult <$> v .: "refactor"
-  responseTypeName _ = "RefactorResult"
 
 -- ---------------------------------------------------------------------
 -- JSON instances
