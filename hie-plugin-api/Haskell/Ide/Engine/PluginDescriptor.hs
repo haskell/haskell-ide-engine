@@ -44,14 +44,18 @@ import           GHC.Generics
 -- ---------------------------------------------------------------------
 
 data PluginDescriptor = PluginDescriptor
-  { pdCommands        :: [Command]
+  { pdUIShortName     :: !T.Text
+  , pdUIOverview     :: !T.Text
+  , pdCommands        :: [Command]
   , pdExposedServices :: [Service]
   , pdUsedServices    :: [Service]
   }
 
 instance Show PluginDescriptor where
-  showsPrec p (PluginDescriptor cmds svcs used) = showParen (p > 10) $
+  showsPrec p (PluginDescriptor name oview cmds svcs used) = showParen (p > 10) $
       showString "PluginDescriptor " .
+      showString (T.unpack name) .
+      showString (T.unpack oview) .
       showList cmds .
       showString " " .
       showList svcs .

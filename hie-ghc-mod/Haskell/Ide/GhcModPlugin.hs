@@ -23,7 +23,11 @@ import           System.Directory
 ghcmodDescriptor :: PluginDescriptor
 ghcmodDescriptor = PluginDescriptor
   {
-    pdCommands =
+    pdUIShortName = "ghc-mod"
+  , pdUIOverview = "ghc-mod is a backend program to enrich Haskell programming \
+\in editors. It strives to offer most of the features one has come to expect \
+\from modern IDEs in any editor."
+  , pdCommands =
       [
         Command
           { cmdDesc = CommandDesc

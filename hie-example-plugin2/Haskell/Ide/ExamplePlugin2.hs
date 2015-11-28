@@ -15,7 +15,9 @@ import qualified Data.Text as T
 example2Descriptor :: PluginDescriptor
 example2Descriptor = PluginDescriptor
   {
-    pdCommands =
+    pdUIShortName = "Hello World"
+  , pdUIOverview = "An example of writing an HIE plugin"
+  , pdCommands =
       [
         Command
           { cmdDesc = CommandDesc
