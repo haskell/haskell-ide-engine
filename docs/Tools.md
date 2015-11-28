@@ -25,7 +25,10 @@
 * `hindent`: Extensible Haskell pretty printer -
   ([github](https://github.com/chrisdone/hindent),
   [hackage](https://hackage.haskell.org/package/hindent))
-* `apply-refact`: ...
+* `apply-refact`: Refactoring tool.  Can apply the suggestions from `hlint`.
+  ([github](https://github.com/mpickering/apply-refact),
+  [hackage](http://hackage.haskell.org/package/apply-refact),
+  [blog post](http://mpickering.github.io/posts/2015-11-22-hlint-refactor.html))
 * `pointfree`: Tool for refactoring expressions into pointfree form -
   ([hackage](http://hackage.haskell.org/package/pointfree)
   [haskell wiki](https://wiki.haskell.org/Pointfree)
@@ -36,6 +39,12 @@
 * `hfmt`: Code reformatter, using hlint, hindent, and stylish-haskell -
   ([hackage](http://hackage.haskell.org/package/hfmt),
   [github](https://github.com/danstiner/hfmt))
+* `hsimport`: extend imports list, only if the given symbol is not already imported
+  ([github](https://github.com/dan-t/hsimport),
+  [hackage](http://hackage.haskell.org/package/hsimport))
+* `haskdogs`: generate tags file for a project and its  dependencies
+    ([github](https://github.com/grwlf/haskdogs),
+    [hackage](https://hackage.haskell.org/package/haskdogs-0.4.4))
 
 #### Documentation generation / lookup
 
