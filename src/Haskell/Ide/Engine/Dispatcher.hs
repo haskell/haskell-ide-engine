@@ -83,7 +83,7 @@ pluginCache :: Plugins -> Map.Map (T.Text,T.Text) Command
 pluginCache plugins = Map.fromList r
   where
     doOne :: T.Text -> PluginDescriptor -> [((T.Text,T.Text),Command)]
-    doOne pn (PluginDescriptor cmds _ _) =
+    doOne pn (PluginDescriptor _ _ cmds _ _) =
         map (\cmd -> ((pn,cmdName (cmdDesc cmd)),cmd)) cmds
 
     r = concatMap (\(pn,pd) -> doOne pn pd) $ Map.toList plugins

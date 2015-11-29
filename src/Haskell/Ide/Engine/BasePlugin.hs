@@ -25,7 +25,9 @@ import           Prelude hiding (log)
 baseDescriptor :: PluginDescriptor
 baseDescriptor = PluginDescriptor
   {
-    pdCommands =
+    pdUIShortName = "HIE Base"
+  , pdUIOverview = "Commands for HIE itself, "
+  , pdCommands =
       [
         Command
           { cmdDesc = CommandDesc

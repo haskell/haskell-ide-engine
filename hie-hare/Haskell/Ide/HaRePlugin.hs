@@ -17,7 +17,12 @@ import           System.Directory
 hareDescriptor :: PluginDescriptor
 hareDescriptor = PluginDescriptor
   {
-    pdCommands =
+    pdUIShortName = "HaRe"
+  , pdUIOverview = "A Haskell 2010 refactoring tool. HaRe supports the full \
+\Haskell 2010 standard, through making use of the GHC API.  HaRe attempts to \
+\operate in a safe way, by first writing new files with proposed changes, and \
+\only swapping these with the originals when the change is accepted. "
+    , pdCommands =
       [
         Command
           { cmdDesc = CommandDesc
