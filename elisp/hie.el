@@ -151,7 +151,16 @@ association lists and count on HIE to use default values there."
    '()))
 
 (defun hie-handle-message (json)
-  (message (format "%s" json)))
+  (-if-let ((&alist 'type_info type-info) json)
+      (hie-handle-type-info type-info)
+    (message (format "%s" json))))
+
+(defun hie-handle-type-info (type-info)
+  (-if-let (((&alist 'type type)) type-info)
+      (message (format "%s" type))
+    (message
+     (format "Error extracting type from type-info response: %s"
+             type-info))))
 
 (defun hie-handle-command-detail (json)
   (-let* (((&alist 'contexts contexts 'name command-name 'plugin_name plugin-name) json)
@@ -167,10 +176,12 @@ association lists and count on HIE to use default values there."
   (format "%s:%s" (car cmd) (cdr cmd)))
 
 (defun hie-get-context (context)
+  ;; we need to increment the column by one, since emacs column
+  ;; numbers start at 0 while ghc column numbers start at 1
   (let ((start (save-excursion (if (use-region-p) (goto-char (region-beginning)))
-                               `(("line" . ,(line-number-at-pos)) ("col" . ,(current-column)))))
+                               `(("line" . ,(line-number-at-pos)) ("col" . ,(1+ (current-column))))))
         (end (save-excursion (if (use-region-p) (goto-char (region-end)))
-                             `(("line" . ,(line-number-at-pos)) ("col" . ,(current-column)))))
+                             `(("line" . ,(line-number-at-pos)) ("col" . ,(1+ (current-column))))))
         (filename (buffer-file-name)))
     `(("file" . (("file" . ,filename)))
       ("start_pos" . ,end)
