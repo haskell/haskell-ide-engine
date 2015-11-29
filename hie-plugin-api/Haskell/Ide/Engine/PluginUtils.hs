@@ -91,9 +91,9 @@ incorrectParameter name expected value = IdeResponseFail
 
 data ParamCollision = ParamCollision ParamLocation ParamCollisionInfo deriving (Eq, Show)
 data ParamLocation = ParamLocation PluginId CommandName ParamName deriving (Eq, Show)
-data ParamCollisionInfo = AdditionalParam ParamDescription | ContextParam AcceptedContext ParamDescription deriving (Eq, Show)
-type AdditionalParams = [ParamDescription]
-type ContextParams = [(AcceptedContext, ParamDescription)]
+data ParamCollisionInfo = AdditionalParam ParamDescription
+                        | ContextParam ParamDescription AcceptedContext
+                        deriving (Eq, Show)
 
 paramNameCollisions :: Plugins -> [ParamCollision]
 paramNameCollisions plugins =
@@ -113,12 +113,24 @@ paramNameCollisionsForCmd plId cmdDescriptor =
 
 -- find all the parameters within the CommandDescriptor that goes by the given ParamName
 paramsByName :: CommandDescriptor -> ParamName -> [ParamCollisionInfo]
-paramsByName cmdDesc paramName =
-  undefined
+paramsByName cmdDescriptor paramName =
+  let matchingParamName param = pName param == paramName
+      additionalParams = map AdditionalParam $ filter matchingParamName (cmdAdditionalParams cmdDescriptor)
+      cmdContextParams = concatMap
+                           (\accContext -> map
+                                             (\param -> (param, accContext))
+                                           (contextMapping accContext))
+                         (cmdContexts cmdDescriptor)
+      cmdContextParamsWithCollisions = map (uncurry ContextParam) $ filter (\(param, _) -> matchingParamName param) cmdContextParams
+   in additionalParams ++ cmdContextParamsWithCollisions
 
 findCollidingParamNames :: CommandDescriptor -> [ParamName]
-findCollidingParamNames = -- TODO: remember that collisions within AcceptedContext should not count
-  undefined
+findCollidingParamNames cmdDescriptor =
+  let cmdContextPNames = nub $ concatMap (map pName . contextMapping) (cmdContexts cmdDescriptor) -- collisions within AcceptedContext should not count
+      additionalPNames = map pName (cmdAdditionalParams cmdDescriptor)
+      allPNames = cmdContextPNames ++ additionalPNames
+      uniquePNames = nub allPNames
+   in nub (allPNames \\ uniquePNames)
 
 data PluginDescriptionError =
  PluginDescriptionError {

@@ -24,7 +24,7 @@ pluginUtilsSpec = do
       validatePlugins pluginsWithoutCollisions `shouldBe` Nothing
 
     it "reports collisions for plugins with parameter name collisions" $ do
-      fmap paramNameCollisions (validatePlugins pluginsWithCollisions) `shouldBe` Just
+      fmap pdeCollisions (validatePlugins pluginsWithCollisions) `shouldBe` Just
             [
               ("plugin1",
                   [
@@ -55,7 +55,7 @@ pluginUtilsSpec = do
 
 
     it "pretty prints the error message" $ do
-      fmap paramNameCollisionErrorMsg (validatePlugins pluginsWithCollisions) `shouldBe` Just (
+      fmap pdeErrorMsg (validatePlugins pluginsWithCollisions) `shouldBe` Just (
             "In plugin \"plugin1\" the command \"cmd1\" has multiple parameters named \"file\"" ++
             "\nIn plugin \"plugin1\" the command \"cmd2\" has multiple parameters named \"end_pos\"" ++
             "\nIn plugin \"plugin1\" the command \"cmd3\" has multiple parameters named \"a\", \"b\"" ++

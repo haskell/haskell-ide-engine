@@ -48,7 +48,7 @@ data IdeState = IdeState
 runIdeM :: IdeState -> IdeM a -> IO a
 runIdeM initState f = do
     case validatePlugins (idePlugins initState) of
-      Just err -> error (paramNameCollisionErrorMsg err)
+      Just err -> error (pdeErrorMsg err)
       Nothing -> return ()
     initializedRef <- newIORef False
     let inner' = GM.runGmOutT opts $ GM.runGhcModT opts $ do
