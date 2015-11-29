@@ -300,7 +300,9 @@ testPlugins chSync = Map.fromList [("test",testDescriptor chSync)]
 testDescriptor :: TChan () -> PluginDescriptor
 testDescriptor chSync = PluginDescriptor
   {
-    pdCommands =
+    pdUIShortName = "testDescriptor"
+  , pdUIOverview = "PluginDescriptor for testing Dispatcher"
+  , pdCommands =
       [
         mkCmdWithContext "cmd1" [CtxNone] []
       , mkCmdWithContext "cmd2" [CtxFile] []
@@ -336,22 +338,14 @@ mkCmdWithContext n cts pds =
                         , cmdFileExtensions = []
                         , cmdContexts = cts
                         , cmdAdditionalParams = pds
+                        , cmdReturnType = "Text"
                         }
-          , cmdFunc = CmdSync $ \ctxs _ -> return (IdeResponseOk ("result:ctxs=" ++ show ctxs))
+          , cmdFunc = CmdSync $ \ctxs _ -> return (IdeResponseOk (T.pack $ "result:ctxs=" ++ show ctxs))
           }
 
 mkAsyncCmdWithContext :: (ValidResponse a) => CommandFunc a -> CommandName -> [AcceptedContext] -> [ParamDescription] -> Command
 mkAsyncCmdWithContext cf n cts pds =
-        Command
-          { cmdDesc = CommandDesc
-                        { cmdName = n
-                        , cmdUiDescription = "description"
-                        , cmdFileExtensions = []
-                        , cmdContexts = cts
-                        , cmdAdditionalParams = pds
-                        }
-          , cmdFunc = cf
-          }
+        buildCommand cf n "description" [] cts pds
 
 -- ---------------------------------------------------------------------
 

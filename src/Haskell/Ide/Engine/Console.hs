@@ -5,7 +5,9 @@ module Haskell.Ide.Engine.Console where
 import           Control.Concurrent.STM.TChan
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
+import           Data.Aeson
 import           Data.Attoparsec.Text
+import qualified Data.ByteString.Lazy.Char8 as C8
 import qualified Data.Map as Map
 import           Data.Monoid
 import qualified Data.Text as T
@@ -54,7 +56,8 @@ consoleListener plugins cin = do
                 Right (plugin,reqVal) -> do
                   liftIO $ atomically $ writeTChan cin (CReq plugin cid reqVal cout)
                   rsp <- liftIO $ atomically $ readTChan cout
-                  outputStrLn $ show (coutResp rsp)
+                  -- outputStrLn $ show (coutResp rsp)
+                  outputStrLn $ C8.unpack $ encode (coutResp rsp)
               loop env (cid + 1)
 
   runInputT defaultSettings (startLoop emptyEnv 1)

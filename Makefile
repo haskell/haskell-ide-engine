@@ -9,7 +9,7 @@ test: test-haskell test-emacs
 
 .PHONY: test-emacs
 test-emacs:
-	stack exec $(emacs) -- -q --batch -L elisp -l elisp/tests/haskell-ide-engine-tests.el -f ert-run-tests-batch-and-exit
+	stack exec $(emacs) -- -q --batch -L elisp -l elisp/tests/hie-tests.el -f ert-run-tests-batch-and-exit
 
 .PHONY: test-haskell
 test-haskell:

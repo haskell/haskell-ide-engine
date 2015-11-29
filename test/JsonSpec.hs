@@ -34,15 +34,15 @@ spec = describe "dispatcher" jsonSpec
 jsonSpec :: Spec
 jsonSpec = do
   describe "Valid Response JSON Object round trip" $ do
-    prop "String" (propertyValidRoundtrip :: String -> Bool)
     prop "Text" (propertyValidRoundtrip :: Text -> Bool)
-    prop "[String]" (propertyValidRoundtrip :: [String] -> Bool)
     prop "[Text]" (propertyValidRoundtrip :: [Text] -> Bool)
     prop "()" (propertyValidRoundtrip :: () -> Bool)
     prop "Aeson.Object" (propertyValidRoundtrip :: Object -> Bool)
     prop "CommandDescriptor" (propertyValidRoundtrip :: CommandDescriptor -> Bool)
-    prop "Plugins" (propertyValidRoundtrip :: Plugins -> Bool)
+    prop "ExtendedCommandDescriptor" (propertyValidRoundtrip :: ExtendedCommandDescriptor -> Bool)
+    prop "IdePlugins" (propertyValidRoundtrip :: IdePlugins -> Bool)
     prop "TypeInfo" (propertyValidRoundtrip :: TypeInfo -> Bool)
+
   describe "General JSON instances round trip" $ do
     prop "ParamValP" (propertyJsonRoundtrip :: ParamValP -> Bool)
     prop "CabalSection" (propertyJsonRoundtrip :: CabalSection -> Bool)
@@ -51,7 +51,6 @@ jsonSpec = do
     prop "ParamDescription" (propertyJsonRoundtrip :: ParamDescription -> Bool)
     prop "CommandDescriptor" (propertyJsonRoundtrip :: CommandDescriptor -> Bool)
     prop "Service" (propertyJsonRoundtrip :: Service -> Bool)
-    prop "PluginDescriptor" (propertyJsonRoundtrip :: PluginDescriptor -> Bool)
     prop "IdeRequest" (propertyJsonRoundtrip :: IdeRequest -> Bool)
     prop "IdeErrorCode" (propertyJsonRoundtrip :: IdeErrorCode -> Bool)
     prop "IdeError" (propertyJsonRoundtrip :: IdeError -> Bool)
@@ -77,6 +76,12 @@ instance Arbitrary CommandDescriptor where
     <*> smallList arbitrary
     <*> smallList arbitraryBoundedEnum
     <*> smallList arbitrary
+    <*> arbitrary
+
+instance Arbitrary ExtendedCommandDescriptor where
+  arbitrary = ExtendedCommandDescriptor
+    <$> arbitrary
+    <*> arbitrary
 
 instance Arbitrary ParamDescription where
   arbitrary = do
@@ -90,14 +95,19 @@ instance Arbitrary Service where
   arbitrary = Service <$> arbitrary
 
 instance Arbitrary PluginDescriptor where
-  arbitrary = PluginDescriptor <$> smallList arbitrary <*> smallList arbitrary <*> smallList arbitrary
+  arbitrary = PluginDescriptor <$>
+              arbitrary <*>
+              arbitrary <*>
+              smallList arbitrary <*>
+              smallList arbitrary <*>
+              smallList arbitrary
 
 -- | make lists of maximum length 3 for test performance
 smallList :: Gen a -> Gen [a]
 smallList = resize 3 . listOf
 
 instance Arbitrary Command where
-  arbitrary = Command <$> arbitrary <*> pure (CmdAsync (\_ _ _ -> return ())::CommandFunc String)
+  arbitrary = Command <$> arbitrary <*> pure (CmdAsync (\_ _ _ -> return ())::CommandFunc Text)
 
 -- | Sufficient for tests
 instance Eq PluginDescriptor where
@@ -134,4 +144,10 @@ instance Arbitrary IdeRequest where
   arbitrary = IdeRequest <$> arbitrary <*> arbitrary
 
 instance Arbitrary TypeInfo where
-  arbitrary = TypeInfo <$> arbitrary
+  arbitrary = TypeInfo <$> smallList arbitrary
+
+instance Arbitrary TypeResult where
+  arbitrary = TypeResult <$> arbitrary <*> arbitrary <*> arbitrary
+
+instance Arbitrary IdePlugins where
+  arbitrary = IdePlugins <$> arbitrary

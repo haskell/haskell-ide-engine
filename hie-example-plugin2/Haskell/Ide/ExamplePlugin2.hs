@@ -15,28 +15,17 @@ import qualified Data.Text as T
 example2Descriptor :: PluginDescriptor
 example2Descriptor = PluginDescriptor
   {
-    pdCommands =
+    pdUIShortName = "Hello World"
+  , pdUIOverview = "An example of writing an HIE plugin"
+  , pdCommands =
       [
-        Command
-          { cmdDesc = CommandDesc
-                       { cmdName = "sayHello"
-                       , cmdUiDescription = "say hello"
-                       , cmdFileExtensions = []
-                       , cmdContexts = [CtxNone]
-                       , cmdAdditionalParams = []
-                       }
-          , cmdFunc = sayHelloCmd
-          }
-      , Command
-          { cmdDesc = CommandDesc
-                       { cmdName = "sayHelloTo"
-                       , cmdUiDescription = "say hello to the passed in param"
-                       , cmdFileExtensions = []
-                       , cmdContexts = [CtxNone]
-                       , cmdAdditionalParams = [RP "name" "the name to greet" PtText]
-                       }
-          , cmdFunc = sayHelloToCmd
-          }
+        buildCommand sayHelloCmd "sayHello" "say hello" [] [CtxNone] []
+      , buildCommand sayHelloToCmd "sayHelloTo"
+                       "say hello to the passed in param"
+                       []
+                       [CtxNone]
+                       [RP "name" "the name to greet" PtText]
+
       ]
   , pdExposedServices = []
   , pdUsedServices    = []
