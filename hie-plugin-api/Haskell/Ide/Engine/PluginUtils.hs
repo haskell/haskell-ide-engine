@@ -12,8 +12,7 @@ module Haskell.Ide.Engine.PluginUtils
   , validatePlugins
   , PluginDescriptionError(..)
   , ParamCollision(..)
-  , ParamLocation(..)
-  , ParamCollisionInfo(..)
+  , ParamOccurence(..)
   ) where
 
 import           Data.Aeson
@@ -91,11 +90,10 @@ incorrectParameter name expected value = IdeResponseFail
 
 -- ---------------------------------------------------------------------
 
-data ParamCollision = ParamCollision ParamLocation ParamCollisionInfo deriving (Eq, Show)
-data ParamLocation = ParamLocation PluginId CommandName ParamName deriving (Eq, Show)
-data ParamCollisionInfo = AdditionalParam ParamDescription
-                        | ContextParam ParamDescription AcceptedContext
-                        deriving (Eq, Show)
+data ParamCollision = ParamCollision PluginId CommandName ParamName [ParamOccurence] deriving (Eq, Show)
+data ParamOccurence = AdditionalParam ParamDescription
+                    | ContextParam ParamDescription AcceptedContext
+                    deriving (Eq, Show)
 
 paramNameCollisions :: Plugins -> [ParamCollision]
 paramNameCollisions plugins =
@@ -105,16 +103,11 @@ paramNameCollisions plugins =
 paramNameCollisionsForCmd :: PluginId -> CommandDescriptor -> [ParamCollision]
 paramNameCollisionsForCmd plId cmdDescriptor =
   let collidingParamNames = findCollidingParamNames cmdDescriptor
-      location = ParamLocation plId (cmdName cmdDescriptor)
-      collisionSources =
-        concatMap (\paramName ->
-          map (ParamCollision (location paramName))
-          (paramsByName cmdDescriptor paramName))
-        collidingParamNames
+      collisionSources = map (\param -> ParamCollision plId (cmdName cmdDescriptor) param (paramsByName cmdDescriptor param)) collidingParamNames
    in collisionSources
 
 -- find all the parameters within the CommandDescriptor that goes by the given ParamName
-paramsByName :: CommandDescriptor -> ParamName -> [ParamCollisionInfo]
+paramsByName :: CommandDescriptor -> ParamName -> [ParamOccurence]
 paramsByName cmdDescriptor paramName =
   let matchingParamName param = pName param == paramName
       additionalParams = map AdditionalParam $ filter matchingParamName (cmdAdditionalParams cmdDescriptor)
@@ -150,4 +143,11 @@ validatePlugins plugins =
      }
 
 formatParamNameCollisionErrorMsg :: [ParamCollision] -> String
-formatParamNameCollisionErrorMsg = show -- TODO
+formatParamNameCollisionErrorMsg paramCollisions =
+  "Error: Parameter name collision in plugin description\n" ++
+  "Parameter names must be unique for each command. The following collisions were found:\n" ++
+    concatMap (\(ParamCollision plId cmd paramName occurences) ->
+      ("In " ++ show plId ++ ":" ++ show cmd ++ " the parameter " ++ show paramName ++ " is defined in:\n" ++ unlines (map formatOccurence occurences)))
+    paramCollisions
+  where formatOccurence (AdditionalParam paramDesc)         = "    cmdAdditionalParams = " ++ show paramDesc
+        formatOccurence (ContextParam paramDesc accContext) = "    cmdContexts = [" ++ show accContext ++ "]: " ++ show paramDesc
