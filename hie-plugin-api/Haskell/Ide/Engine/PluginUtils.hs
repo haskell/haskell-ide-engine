@@ -11,7 +11,7 @@ module Haskell.Ide.Engine.PluginUtils
   , incorrectParameter
   , validatePlugins
   , PluginDescriptionError(..)
-  , ParamNameCollision
+  , ParamCollision
   ) where
 
 import           Data.Aeson
@@ -89,52 +89,51 @@ incorrectParameter name expected value = IdeResponseFail
 
 -- ---------------------------------------------------------------------
 
-type ParamNameCollision = (PluginId, [(CommandName, [(ParamName, [ParamDescription])])])
+data ParamCollision = ParamCollision ParamLocation ParamCollisionInfo deriving (Eq, Show)
+data ParamLocation = ParamLocation PluginId CommandName ParamName deriving (Eq, Show)
+data ParamCollisionInfo = AdditionalParam ParamDescription | ContextParam AcceptedContext ParamDescription deriving (Eq, Show)
+type AdditionalParams = [ParamDescription]
+type ContextParams = [(AcceptedContext, ParamDescription)]
+
+paramNameCollisions :: Plugins -> [ParamCollision]
+paramNameCollisions plugins =
+  concatMap (\(plId, plDesc) ->
+    concatMap (paramNameCollisionsForCmd plId . cmdDesc) (pdCommands plDesc)) (Map.toList plugins)
+
+paramNameCollisionsForCmd :: PluginId -> CommandDescriptor -> [ParamCollision]
+paramNameCollisionsForCmd plId cmdDescriptor =
+  let collidingParamNames = findCollidingParamNames cmdDescriptor
+      location = ParamLocation plId (cmdName cmdDescriptor)
+      collisionSources =
+        concatMap (\paramName ->
+          map (ParamCollision (location paramName))
+          (paramsByName cmdDescriptor paramName))
+        collidingParamNames
+   in collisionSources
+
+-- find all the parameters within the CommandDescriptor that goes by the given ParamName
+paramsByName :: CommandDescriptor -> ParamName -> [ParamCollisionInfo]
+paramsByName cmdDesc paramName =
+  undefined
+
+findCollidingParamNames :: CommandDescriptor -> [ParamName]
+findCollidingParamNames = -- TODO: remember that collisions within AcceptedContext should not count
+  undefined
+
 data PluginDescriptionError =
-  PluginDescriptionError {
-    paramNameCollisions :: [ParamNameCollision]
-  , paramNameCollisionErrorMsg :: String
-  } deriving (Eq, Show)
+ PluginDescriptionError {
+   pdeCollisions :: [ParamCollision]
+ , pdeErrorMsg :: String
+ } deriving (Eq, Show)
 
 validatePlugins :: Plugins -> Maybe PluginDescriptionError
 validatePlugins plugins =
-  case findParameterNameCollisions plugins of
-     [] -> Nothing
-     collisions -> Just PluginDescriptionError {
-          paramNameCollisions = collisions
-        , paramNameCollisionErrorMsg = formatParamNameCollisionErrorMsg collisions
-      }
+ case paramNameCollisions plugins of
+    [] -> Nothing
+    collisions -> Just PluginDescriptionError {
+         pdeCollisions = collisions
+       , pdeErrorMsg = formatParamNameCollisionErrorMsg collisions
+     }
 
-formatParamNameCollisionErrorMsg :: [ParamNameCollision] -> String
+formatParamNameCollisionErrorMsg :: [ParamCollision] -> String
 formatParamNameCollisionErrorMsg = show -- TODO
-
-findParameterNameCollisions :: Plugins -> [ParamNameCollision]
-findParameterNameCollisions plugins =
-  let
-      collisionsForPlugin (pluginId, pluginDesc) =
-        case collisionsForPluginDesc pluginDesc of
-          [] -> Nothing
-          commands -> Just (pluginId, commands)
-      collisionsForPluginDesc pluginDesc = mapMaybe collisionsForCmd (getCmdDesc pluginDesc)
-      collisionsForCmd cmd =
-          case allCollidingParamNames cmd of
-            [] -> Nothing
-            paramNames -> Just (cmdName cmd, paramNames)
-   in mapMaybe collisionsForPlugin (Map.toList plugins)
-   where
-         allCollidingParamNames cmd = map (\p -> (p, collidingParamNameSources cmd p)) (collidingParamNames (allParams cmd))
-         getCmdDesc = map cmdDesc . pdCommands
-         allParams cmd = cmdAdditionalParams cmd ++ uniqueParamNamesFromContext cmd
-         uniqueParamNamesFromContext cmd = nub (concatMap contextMapping (cmdContexts cmd))
-
-collidingParamNameSources :: CommandDescriptor -> ParamName -> [ParamDescription]
-collidingParamNameSources cmdDescriptor paramName =
-  let additionalParams = filter (\p -> pName p == paramName) (cmdAdditionalParams cmdDescriptor)
-      contextParams = filter (\p -> pName p == paramName) (concatMap contextMapping (cmdContexts cmdDescriptor))
-   in additionalParams ++ contextParams
-
-collidingParamNames :: [ParamDescription] ->[ParamName]
-collidingParamNames params =
-  let pNames = map pName params
-      uniquePNames = nub pNames
-   in pNames \\ uniquePNames
