@@ -251,7 +251,9 @@ testPlugins chSync = Map.fromList [("test",testDescriptor chSync)]
 testDescriptor :: TChan () -> PluginDescriptor
 testDescriptor chSync = PluginDescriptor
   {
-    pdCommands =
+    pdUIShortName = "testDescriptor"
+  , pdUIOverview = "PluginDescriptor for testing Dispatcher"
+  , pdCommands =
       [
         mkCmdWithContext "cmd1" [CtxNone] []
       , mkCmdWithContext "cmd2" [CtxFile] []

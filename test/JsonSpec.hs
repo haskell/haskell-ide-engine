@@ -95,7 +95,12 @@ instance Arbitrary Service where
   arbitrary = Service <$> arbitrary
 
 instance Arbitrary PluginDescriptor where
-  arbitrary = PluginDescriptor <$> smallList arbitrary <*> smallList arbitrary <*> smallList arbitrary
+  arbitrary = PluginDescriptor <$>
+              arbitrary <*>
+              arbitrary <*>
+              smallList arbitrary <*>
+              smallList arbitrary <*>
+              smallList arbitrary
 
 -- | make lists of maximum length 3 for test performance
 smallList :: Gen a -> Gen [a]
