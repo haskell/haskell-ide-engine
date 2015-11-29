@@ -25,7 +25,19 @@ pluginUtilsSpec = do
 
     it "reports collisions for plugins with parameter name collisions" $ do
       fmap pdeCollisions (validatePlugins pluginsWithCollisions) `shouldBe` Just
-            [
+            [ ParamCollision
+                  (ParamLocation "plugin1" "cmd1" "file")
+                  (AdditionalParam
+                    RP
+                      { pName = "file"
+                      , pHelp = "shoud collide"
+                      , pType = PtText
+                      })
+            , ParamCollision
+                  (ParamLocation "plugin1" "cmd1" "file")
+                  (ContextParam fileParam CtxRegion)
+            ]
+{-
               ("plugin1",
                   [
                     ("cmd1", [("file", [ fileParam
@@ -52,7 +64,7 @@ pluginUtilsSpec = do
                   ]
               )
             ]
-
+-}
 
     it "pretty prints the error message" $ do
       fmap pdeErrorMsg (validatePlugins pluginsWithCollisions) `shouldBe` Just (

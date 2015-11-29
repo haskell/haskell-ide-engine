@@ -11,7 +11,9 @@ module Haskell.Ide.Engine.PluginUtils
   , incorrectParameter
   , validatePlugins
   , PluginDescriptionError(..)
-  , ParamCollision
+  , ParamCollision(..)
+  , ParamLocation(..)
+  , ParamCollisionInfo(..)
   ) where
 
 import           Data.Aeson
