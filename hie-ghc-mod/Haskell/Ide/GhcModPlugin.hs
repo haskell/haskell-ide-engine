@@ -4,7 +4,6 @@
 module Haskell.Ide.GhcModPlugin where
 
 import           Control.Exception
-import           Data.Char
 import           Data.Either
 import           Data.Vinyl
 -- import           Control.Monad
@@ -29,56 +28,21 @@ ghcmodDescriptor = PluginDescriptor
 \from modern IDEs in any editor."
   , pdCommands =
       [
-        Command
-          { cmdDesc = CommandDesc
-                     { cmdName = "check"
-                     , cmdUiDescription = "check a file for GHC warnings and errors"
-                     , cmdFileExtensions = [".hs",".lhs"]
-                     , cmdContexts = [CtxFile]
-                     , cmdAdditionalParams = []
-                     }
-          , cmdFunc = checkCmd
-          }
-      , Command
-          { cmdDesc = CommandDesc
-                     { cmdName = "lint"
-                     , cmdUiDescription = "Check files using `hlint'"
-                     , cmdFileExtensions = [".hs",".lhs"]
-                     , cmdContexts = [CtxFile]
-                     , cmdAdditionalParams = []
-                     }
-          , cmdFunc = lintCmd
-          }
-      , Command
-          { cmdDesc = CommandDesc
-                     { cmdName = "find"
-                     , cmdUiDescription = "List all modules that define SYMBOL"
-                     , cmdFileExtensions = [".hs",".lhs"]
-                     , cmdContexts = [CtxProject]
-                     , cmdAdditionalParams = [RP "symbol" "The SYMBOL to look up" PtText]
-                     }
-          , cmdFunc = findCmd
-          }
-      , Command
-          { cmdDesc = CommandDesc
-                     { cmdName = "info"
-                     , cmdUiDescription = "Look up an identifier in the context of FILE (like ghci's `:info')"
-                     , cmdFileExtensions = [".hs",".lhs"]
-                     , cmdContexts = [CtxFile]
-                     , cmdAdditionalParams = [RP "expr" "The EXPR to provide info on" PtText]
-                     }
-          , cmdFunc = infoCmd
-          }
-      , Command
-          { cmdDesc = CommandDesc
-                     { cmdName = "type"
-                     , cmdUiDescription = "Get the type of the expression under (LINE,COL)"
-                     , cmdFileExtensions = [".hs",".lhs"]
-                     , cmdContexts = [CtxPoint]
-                     , cmdAdditionalParams = []
-                     }
-          , cmdFunc = typeCmd
-          }
+        buildCommand checkCmd "check" "check a file for GHC warnings and errors"
+                     [".hs",".lhs"] [CtxFile] []
+
+      , buildCommand lintCmd "lint" "Check files using `hlint'"
+                     [".hs",".lhs"] [CtxFile] []
+
+      , buildCommand findCmd "find" "List all modules that define SYMBOL"
+                     [".hs",".lhs"] [CtxProject] [RP "symbol" "The SYMBOL to look up" PtText]
+
+      , buildCommand infoCmd "info" "Look up an identifier in the context of FILE (like ghci's `:info')"
+                     [".hs",".lhs"] [CtxFile] [RP "expr" "The EXPR to provide info on" PtText]
+
+      , buildCommand typeCmd "type" "Get the type of the expression under (LINE,COL)"
+                     [".hs",".lhs"] [CtxPoint] []
+
       ]
   , pdExposedServices = []
   , pdUsedServices    = []
@@ -105,12 +69,12 @@ ghcmodDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-checkCmd :: CommandFunc String
+checkCmd :: CommandFunc T.Text
 checkCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
-      liftIO $ runGhcModCommand fileName (\f->GM.checkSyntax [f])
+      fmap T.pack <$> liftIO (runGhcModCommand fileName (\f->GM.checkSyntax [f]))
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.checkCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
@@ -118,7 +82,7 @@ checkCmd = CmdSync $ \_ctxs req -> do
 
 -- TODO: Must define a directory to base the search from, to be able to resolve
 -- the project root.
-findCmd :: CommandFunc String
+findCmd :: CommandFunc T.Text
 findCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdText "symbol" :& RNil) req of
     Left err -> return err
@@ -133,23 +97,23 @@ findCmd = CmdSync $ \_ctxs req -> do
 
 -- ---------------------------------------------------------------------
 
-lintCmd :: CommandFunc String
+lintCmd :: CommandFunc T.Text
 lintCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
-      liftIO $ runGhcModCommand fileName GM.lint
+      fmap T.pack <$> liftIO (runGhcModCommand fileName GM.lint)
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.lintCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
 -- ---------------------------------------------------------------------
 
-infoCmd :: CommandFunc String
+infoCmd :: CommandFunc T.Text
 infoCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdText "expr" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamText expr :& RNil) -> do
-      liftIO $ runGhcModCommand fileName (flip GM.info (GM.Expression (T.unpack expr)))
+      fmap T.pack <$> liftIO (runGhcModCommand fileName (flip GM.info (GM.Expression (T.unpack expr))))
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.infoCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
@@ -183,8 +147,7 @@ readTypeResult t = do
 
 
 -- TODO: Need to thread the session through as in the commented out code below.
-runGhcModCommand :: (ValidResponse a)
-  => T.Text -- ^ The file name we'll operate on
+runGhcModCommand :: T.Text -- ^ The file name we'll operate on
   -> (FilePath -> GM.GmT (GM.GmOutT (GM.GmOutT IO)) a) -> IO (IdeResponse a)
 runGhcModCommand fp cmd = do
   let (dir,f) = fileInfo fp
@@ -195,7 +158,7 @@ runGhcModCommand fp cmd = do
           (\_ -> do
             -- we need to get the root of our folder
             -- ghc-mod returns a new line at the end...
-            root <- takeWhile (not . isSpace) <$> GM.runGmOutT opts GM.rootInfo
+            root <- takeWhile (`notElem` ['\r','\n']) <$> GM.runGmOutT opts GM.rootInfo
             setCurrentDirectory root
         -- s <- GHC.getSession
             (r,_l) <- GM.runGmOutT opts $ GM.runGhcModT opts $ do

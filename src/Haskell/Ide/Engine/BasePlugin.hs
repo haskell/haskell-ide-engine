@@ -29,47 +29,19 @@ baseDescriptor = PluginDescriptor
   , pdUIOverview = "Commands for HIE itself, "
   , pdCommands =
       [
-        Command
-          { cmdDesc = CommandDesc
-                        { cmdName = "version"
-                        , cmdUiDescription = "return HIE version"
-                        , cmdFileExtensions = []
-                        , cmdContexts = [CtxNone]
-                        , cmdAdditionalParams = []
-                        }
-          , cmdFunc = versionCmd
-          }
-      , Command
-          { cmdDesc = CommandDesc
-                        { cmdName = "plugins"
-                        , cmdUiDescription = "list available plugins"
-                        , cmdFileExtensions = []
-                        , cmdContexts = [CtxNone]
-                        , cmdAdditionalParams = []
-                        }
-          , cmdFunc = pluginsCmd
-          }
-      , Command
-          { cmdDesc = CommandDesc
-                        { cmdName = "commands"
-                        , cmdUiDescription = "list available commands for a given plugin"
-                        , cmdFileExtensions = []
-                        , cmdContexts = [CtxNone]
-                        , cmdAdditionalParams = [RP "plugin" "the plugin name" PtText]
-                        }
-          , cmdFunc = commandsCmd
-          }
-      , Command
-          { cmdDesc = CommandDesc
-                        { cmdName = "commandDetail"
-                        , cmdUiDescription = "list parameters required for a given command"
-                        , cmdFileExtensions = []
-                        , cmdContexts = [CtxNone]
-                        , cmdAdditionalParams = [RP "plugin"  "the plugin name"  PtText
-                                                ,RP "command" "the command name" PtText]
-                        }
-          , cmdFunc = commandDetailCmd
-          }
+        buildCommand versionCmd "version" "return HIE version"
+                        [] [CtxNone] []
+
+      , buildCommand pluginsCmd "plugins" "list available plugins"
+                         [] [CtxNone] []
+
+      , buildCommand commandsCmd "commands" "list available commands for a given plugin"
+                        [] [CtxNone] [RP "plugin" "the plugin name" PtText]
+
+      , buildCommand commandDetailCmd "commandDetail" "list parameters required for a given command"
+                        [] [CtxNone] [RP "plugin"  "the plugin name"  PtText
+                                     ,RP "command" "the command name" PtText]
+
       ]
   , pdExposedServices = []
   , pdUsedServices    = []
@@ -77,15 +49,15 @@ baseDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-versionCmd :: CommandFunc String
-versionCmd = CmdSync $ \_ _ -> return (IdeResponseOk version)
+versionCmd :: CommandFunc T.Text
+versionCmd = CmdSync $ \_ _ -> return (IdeResponseOk $ T.pack version)
 
 pluginsCmd :: CommandFunc IdePlugins
 pluginsCmd = CmdSync $ \_ _ -> do
   plugins <- getPlugins
   let commands = Map.fromList $ map getOne $ Map.toList plugins
       getOne (pid,pd) = (pid,map (\c -> cmdDesc c) $ pdCommands pd)
-  return (IdeResponseOk commands)
+  return (IdeResponseOk $ IdePlugins commands)
 
 commandsCmd :: CommandFunc [CommandName]
 commandsCmd = CmdSync $ \_ req -> do
@@ -123,7 +95,7 @@ commandDetailCmd = CmdSync $ \_ req -> do
 version :: String
 version =
     let commitCount = $gitCommitCount
-    in  concat $ concat
+    in concat $ concat
             [ [$(simpleVersion Meta.version)]
               -- Leave out number of commits for --depth=1 clone
               -- See https://github.com/commercialhaskell/stack/issues/792

@@ -10,6 +10,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | Experimenting with a data structure to define a plugin.
 --
 -- The general idea is that a given plugin returns this structure during the
@@ -37,6 +38,7 @@ import qualified Data.Map as Map
 import           Data.Maybe
 import qualified Data.HashMap.Strict as H
 import qualified Data.Text as T
+import           Data.Typeable
 import qualified GHC
 import           GHC.Generics
 
@@ -73,6 +75,23 @@ data Command = forall a .(ValidResponse a) => Command
 instance Show Command where
   show (Command desc _func) = "(Command " ++ show desc ++ ")"
 
+-- | Build a command, ensuring the command response type name and the command function match
+buildCommand :: forall a .(ValidResponse a)
+  => CommandFunc a
+  -> CommandName
+  -> T.Text
+  -> [T.Text]
+  -> [AcceptedContext]
+  -> [ParamDescription]
+  -> Command
+buildCommand fun n d exts ctxs parm = Command
+  (CommandDesc n d exts ctxs parm (T.pack $ show $ typeOf (undefined::a)))
+  fun
+
+
+-- | Return type of a function
+type ReturnType = T.Text
+
 -- | Descriptor for a command. This is intended to be transferred to the IDE, so
 -- the IDE can integrate it into it's UI, and then send requests through to HIE.
 data CommandDescriptor = CommandDesc
@@ -81,6 +100,7 @@ data CommandDescriptor = CommandDesc
   , cmdFileExtensions :: ![T.Text] -- ^ File extensions this command can be applied to
   , cmdContexts :: ![AcceptedContext] -- TODO: should this be a non empty list? or should empty list imply CtxNone.
   , cmdAdditionalParams :: ![ParamDescription]
+  , cmdReturnType :: !ReturnType
   } deriving (Show,Eq,Generic)
 
 type CommandName = T.Text
@@ -93,8 +113,9 @@ data ExtendedCommandDescriptor =
 
 -- | Subset type extracted from 'Plugins' to be sent to the IDE as
 -- a description of the available commands
-type IdePlugins = Map.Map PluginId [CommandDescriptor]
-
+data IdePlugins = IdePlugins {
+  ipMap :: Map.Map PluginId [CommandDescriptor]
+  } deriving (Show,Eq,Generic)
 
 -- | Define what context will be accepted from the frontend for the specific
 -- command. Matches up to corresponding values for CommandContext
@@ -215,7 +236,7 @@ data ParamVal (t :: ParamType) where
   ParamPos :: (Int,Int) -> ParamVal 'PtPos
 
 -- | The typeclass for valid response types
-class ValidResponse a where
+class (Typeable a) => ValidResponse a where
   jsWrite :: a -> Object -- ^ Serialize to JSON Object
   jsRead  :: Object -> Parser a -- ^ Read from JSON Object
 
@@ -298,6 +319,10 @@ data TypeResult = TypeResult
     , trText  :: T.Text -- ^ type text
     } deriving (Show,Read,Eq,Ord,Generic)
 
+-- | Result of refactoring
+data RefactorResult = RefactorResult
+  { rrPaths :: [FilePath]
+  } deriving (Show,Read,Eq,Ord,Generic)
 
 -- ---------------------------------------------------------------------
 -- ValidResponse instances
@@ -305,20 +330,13 @@ data TypeResult = TypeResult
 ok :: T.Text
 ok = "ok"
 
-instance ValidResponse String where
-  jsWrite s = H.fromList [ok .= toJSON s]
-  jsRead o = o .: ok
-
 instance ValidResponse T.Text where
-  jsWrite s = H.fromList [ok .= toJSON s]
+  jsWrite s = H.fromList [ok .= s]
   jsRead o = o .: ok
 
-instance ValidResponse [String] where
-  jsWrite ss = H.fromList [ok .= toJSON ss]
-  jsRead o = o .: ok
 
 instance ValidResponse [T.Text] where
-  jsWrite ss = H.fromList [ok .= toJSON ss]
+  jsWrite ss = H.fromList [ok .= ss]
   jsRead o = o .: ok
 
 instance ValidResponse () where
@@ -341,35 +359,40 @@ instance ValidResponse ExtendedCommandDescriptor where
       ,"file_extensions" .= cmdFileExtensions cmdDescriptor
       ,"contexts" .= cmdContexts cmdDescriptor
       ,"additional_params" .= cmdAdditionalParams cmdDescriptor
+      ,"return_type" .= cmdReturnType cmdDescriptor
       ,"plugin_name" .= name]
+
   jsRead v =
     ExtendedCommandDescriptor <$>
     (CommandDesc <$> v .: "name" <*> v .: "ui_description" <*>
      v .: "file_extensions" <*>
      v .: "contexts" <*>
-     v .: "additional_params") <*>
-    v .: "plugin_name"
+     v .: "additional_params" <*>
+     v .: "return_type") <*>
+     v .: "plugin_name"
 
 instance ValidResponse CommandDescriptor where
   jsWrite cmdDescriptor = H.fromList [ "name" .= cmdName cmdDescriptor
                                   , "ui_description" .= cmdUiDescription cmdDescriptor
                                   , "file_extensions" .= cmdFileExtensions cmdDescriptor
                                   , "contexts" .= cmdContexts cmdDescriptor
-                                  , "additional_params" .= cmdAdditionalParams cmdDescriptor ]
+                                  , "additional_params" .= cmdAdditionalParams cmdDescriptor
+                                  , "return_type" .= cmdReturnType cmdDescriptor ]
   jsRead v =
         CommandDesc <$> v .: "name"
                     <*> v .: "ui_description"
                     <*> v .: "file_extensions"
                     <*> v .: "contexts"
                     <*> v .: "additional_params"
+                    <*> v .: "return_type"
 
 instance ValidResponse IdePlugins where
-  jsWrite m = H.fromList ["plugins" .= H.fromList
-                ( map (\(k,v)-> k .= toJSON v)
+  jsWrite (IdePlugins m) = H.fromList ["plugins" .= H.fromList
+                ( map (uncurry (.=))
                 $ Map.assocs m)]
   jsRead v = do
     ps <- v .: "plugins"
-    liftM Map.fromList $ mapM (\(k,vp) -> do
+    liftM (IdePlugins . Map.fromList) $ mapM (\(k,vp) -> do
             p<-parseJSON vp
             return (k,p)) $ H.toList ps
 
@@ -377,19 +400,23 @@ instance ValidResponse TypeInfo where
   jsWrite (TypeInfo t) = H.fromList ["type_info" .= t]
   jsRead v = TypeInfo <$> v .: "type_info"
 
+instance ValidResponse RefactorResult where
+  jsWrite (RefactorResult t) = H.fromList ["refactor" .= t]
+  jsRead v = RefactorResult <$> v .: "refactor"
+
 -- ---------------------------------------------------------------------
 -- JSON instances
 
 posToJSON :: (Int,Int) -> Value
-posToJSON (l,c) = object [ "line" .= toJSON l,"col" .= toJSON c ]
+posToJSON (l,c) = object [ "line" .= l,"col" .= c ]
 
 jsonToPos :: Value -> Parser (Int,Int)
 jsonToPos (Object v) = (,) <$> v .: "line" <*> v.: "col"
 jsonToPos _ = empty
 
 instance ToJSON ParamValP  where
-    toJSON (ParamTextP v) = object [ "text" .= toJSON v ]
-    toJSON (ParamFileP v) = object [ "file" .= toJSON v ]
+    toJSON (ParamTextP v) = object [ "text" .= v ]
+    toJSON (ParamFileP v) = object [ "file" .= v ]
     toJSON (ParamPosP  p) = posToJSON p
     toJSON _ = "error"
 
@@ -451,16 +478,15 @@ instance FromJSON ParamType where
 -- -------------------------------------
 
 instance ToJSON ParamDescription where
-    toJSON (RP n h t) = object [ "rp" .= toJSON (n,h,t) ]
-    toJSON (OP n h t) = object [ "op" .= toJSON (n,h,t) ]
+    toJSON (RP n h t) = object [ "name" .= n ,"help" .= h, "type" .= t, "required" .= True ]
+    toJSON (OP n h t) = object [ "name" .= n ,"help" .= h, "type" .= t, "required" .= False ]
 
 instance FromJSON ParamDescription where
     parseJSON (Object v) = do
-      mrp <- fmap (\(n,h,t) -> RP n h t) <$> v .:? "rp"
-      mop <- fmap (\(n,h,t) -> OP n h t) <$> v .:? "op"
-      case mrp <|> mop of
-        Just pd -> return pd
-        _ -> empty
+      req <- v .: "required"
+      if req
+        then RP <$> v .: "name" <*> v .: "help" <*> v .: "type"
+        else OP <$> v .: "name" <*> v .: "help" <*> v .: "type"
     parseJSON _ = empty
 
 -- -------------------------------------
@@ -510,9 +536,9 @@ instance FromJSON IdeErrorCode where
 -- -------------------------------------
 
 instance ToJSON IdeError where
-    toJSON err = object [ "code" .= toJSON (ideCode err)
-                        , "msg"  .= String (ideMessage err)
-                        , "info" .= toJSON (ideInfo err)]
+    toJSON err = object [ "code" .= ideCode err
+                        , "msg"  .= ideMessage err
+                        , "info" .= ideInfo err]
 
 instance FromJSON IdeError where
     parseJSON (Object v) = IdeError
@@ -525,7 +551,7 @@ instance ToJSON TypeResult where
   toJSON (TypeResult s e t) =
       object [ "start" .= posToJSON s
              , "end" .= posToJSON e
-             , "type" .= toJSON t
+             , "type" .= t
              ]
 
 instance FromJSON TypeResult where
@@ -539,8 +565,8 @@ instance FromJSON TypeResult where
 
 instance (ValidResponse a) => ToJSON (IdeResponse a) where
     toJSON (IdeResponseOk v) = Object (jsWrite v)
-    toJSON (IdeResponseFail v) = object [ "fail" .= toJSON v ]
-    toJSON (IdeResponseError v) = object [ "error" .= toJSON v ]
+    toJSON (IdeResponseFail v) = object [ "fail" .= v ]
+    toJSON (IdeResponseError v) = object [ "error" .= v ]
 
 instance (ValidResponse a) => FromJSON (IdeResponse a) where
     parseJSON (Object v) = do

@@ -24,66 +24,24 @@ hareDescriptor = PluginDescriptor
 \only swapping these with the originals when the change is accepted. "
     , pdCommands =
       [
-        Command
-          { cmdDesc = CommandDesc
-                     { cmdName = "demote"
-                     , cmdUiDescription = "Move a definition one level down"
-                     , cmdFileExtensions = [".hs"]
-                     , cmdContexts = [CtxPoint]
-                     , cmdAdditionalParams = []
-                     }
-          , cmdFunc = demoteCmd
-          }
-      , Command
-          { cmdDesc = CommandDesc
-                     { cmdName = "dupdef"
-                     , cmdUiDescription = "Duplicate a definition"
-                     , cmdFileExtensions = [".hs"]
-                     , cmdContexts = [CtxPoint]
-                     , cmdAdditionalParams = [RP "name" "the new name" PtText]
-                     }
-          , cmdFunc = dupdefCmd
-          }
-      , Command
-          { cmdDesc = CommandDesc
-                     { cmdName = "iftocase"
-                     , cmdUiDescription = "Converts an if statement to a case statement"
-                     , cmdFileExtensions = [".hs"]
-                     , cmdContexts = [CtxRegion]
-                     , cmdAdditionalParams = []
-                     }
-          , cmdFunc = iftocaseCmd
-          }
-      , Command
-          { cmdDesc = CommandDesc
-                     { cmdName = "liftonelevel"
-                     , cmdUiDescription = "Move a definition one level up from where it is now"
-                     , cmdFileExtensions = [".hs"]
-                     , cmdContexts = [CtxPoint]
-                     , cmdAdditionalParams = []
-                     }
-          , cmdFunc = liftonelevelCmd
-          }
-      , Command
-          { cmdDesc = CommandDesc
-                     { cmdName = "lifttotoplevel"
-                     , cmdUiDescription = "Move a definition to the top level from where it is now"
-                     , cmdFileExtensions = [".hs"]
-                     , cmdContexts = [CtxPoint]
-                     , cmdAdditionalParams = []
-                     }
-          , cmdFunc = lifttotoplevelCmd
-          }
-      , Command
-          { cmdDesc = CommandDesc
-                     { cmdName = "rename"
-                     , cmdUiDescription = "rename a variable or type"
-                     , cmdFileExtensions = [".hs"]
-                     , cmdContexts = [CtxPoint]
-                     , cmdAdditionalParams = [RP "name" "the new name" PtText]
-                     }
-          , cmdFunc = renameCmd
-          }
+        buildCommand demoteCmd "demote" "Move a definition one level down"
+                    [".hs"] [CtxPoint] []
+
+      , buildCommand dupdefCmd "dupdef" "Duplicate a definition"
+                     [".hs"] [CtxPoint] [RP "name" "the new name" PtText]
+
+      , buildCommand iftocaseCmd "iftocase" "Converts an if statement to a case statement"
+                     [".hs"] [CtxRegion] []
+
+      , buildCommand liftonelevelCmd "liftonelevel" "Move a definition one level up from where it is now"
+                     [".hs"] [CtxPoint] []
+
+      , buildCommand lifttotoplevelCmd "lifttotoplevel" "Move a definition to the top level from where it is now"
+                     [".hs"] [CtxPoint] []
+
+      , buildCommand renameCmd "rename" "rename a variable or type"
+                     [".hs"] [CtxPoint] [RP "name" "the new name" PtText]
+
       ]
   , pdExposedServices = []
   , pdUsedServices    = []
@@ -91,7 +49,7 @@ hareDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-demoteCmd :: CommandFunc [FilePath]
+demoteCmd :: CommandFunc RefactorResult
 demoteCmd  = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
@@ -102,7 +60,7 @@ demoteCmd  = CmdSync $ \_ctxs req -> do
                       (T.pack $ "demote: " ++ show err) Nothing)
         Right fs -> do
           fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
-          return (IdeResponseOk fs')
+          return (IdeResponseOk $ RefactorResult fs')
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.demoteCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
@@ -110,7 +68,7 @@ demoteCmd  = CmdSync $ \_ctxs req -> do
 
 -- ---------------------------------------------------------------------
 
-dupdefCmd :: CommandFunc [FilePath]
+dupdefCmd :: CommandFunc RefactorResult
 dupdefCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdText "name" :& RNil) req of
     Left err -> return err
@@ -121,7 +79,7 @@ dupdefCmd = CmdSync $ \_ctxs req -> do
                       (T.pack $ "dupdef: " ++ show err) Nothing)
         Right fs -> do
           fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
-          return (IdeResponseOk fs')
+          return (IdeResponseOk $ RefactorResult fs')
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.dupdefCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
@@ -129,7 +87,7 @@ dupdefCmd = CmdSync $ \_ctxs req -> do
 
 -- ---------------------------------------------------------------------
 
-iftocaseCmd :: CommandFunc [FilePath]
+iftocaseCmd :: CommandFunc RefactorResult
 iftocaseCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdPos "end_pos" :& RNil) req of
     Left err -> return err
@@ -140,7 +98,7 @@ iftocaseCmd = CmdSync $ \_ctxs req -> do
                       (T.pack $ "ifToCase: " ++ show err) Nothing)
         Right fs -> do
           fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
-          return (IdeResponseOk fs')
+          return (IdeResponseOk $ RefactorResult fs')
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.ifToCaseCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
@@ -148,7 +106,7 @@ iftocaseCmd = CmdSync $ \_ctxs req -> do
 
 -- ---------------------------------------------------------------------
 
-liftonelevelCmd :: CommandFunc [FilePath]
+liftonelevelCmd :: CommandFunc RefactorResult
 liftonelevelCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
@@ -159,7 +117,7 @@ liftonelevelCmd = CmdSync $ \_ctxs req -> do
                       (T.pack $ "liftOneLevel: " ++ show err) Nothing)
         Right fs -> do
           fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
-          return (IdeResponseOk fs')
+          return (IdeResponseOk $ RefactorResult fs')
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.liftOneLevel: ghc’s exhaustiveness checker is broken" Nothing)
 
@@ -167,7 +125,7 @@ liftonelevelCmd = CmdSync $ \_ctxs req -> do
 
 -- ---------------------------------------------------------------------
 
-lifttotoplevelCmd :: CommandFunc [FilePath]
+lifttotoplevelCmd :: CommandFunc RefactorResult
 lifttotoplevelCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
@@ -178,7 +136,7 @@ lifttotoplevelCmd = CmdSync $ \_ctxs req -> do
                       (T.pack $ "liftToTopLevel: " ++ show err) Nothing)
         Right fs -> do
           fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
-          return (IdeResponseOk fs')
+          return (IdeResponseOk $ RefactorResult fs')
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.liftToTopLevel: ghc’s exhaustiveness checker is broken" Nothing)
 
@@ -186,7 +144,7 @@ lifttotoplevelCmd = CmdSync $ \_ctxs req -> do
 
 -- ---------------------------------------------------------------------
 
-renameCmd :: CommandFunc [FilePath]
+renameCmd :: CommandFunc RefactorResult
 renameCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdText "name" :& RNil) req of
     Left err -> return err
@@ -197,7 +155,7 @@ renameCmd = CmdSync $ \_ctxs req -> do
                       (T.pack $ "rename: " ++ show err) Nothing)
         Right fs -> do
           fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
-          return (IdeResponseOk fs')
+          return (IdeResponseOk $ RefactorResult fs')
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.renameCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
