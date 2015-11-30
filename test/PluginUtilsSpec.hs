@@ -123,6 +123,7 @@ pluginsWithCollisions = Map.fromList [("plugin1", PluginDescriptor
                           { cmdName = "cmd1"
                           , cmdUiDescription = ""
                           , cmdFileExtensions = []
+                          , cmdReturnType = ""
                           , cmdContexts = [CtxRegion] -- ["file", "start_pos", "file", "start_pos", "end_pos"]
                           , cmdAdditionalParams =
                             [
@@ -145,6 +146,7 @@ pluginsWithCollisions = Map.fromList [("plugin1", PluginDescriptor
                           { cmdName = "cmd2"
                           , cmdUiDescription = ""
                           , cmdFileExtensions = []
+                          , cmdReturnType = ""
                           , cmdContexts = [CtxRegion]
                           , cmdAdditionalParams =
                             [
@@ -167,6 +169,7 @@ pluginsWithCollisions = Map.fromList [("plugin1", PluginDescriptor
                               { cmdName = "cmd3"
                               , cmdUiDescription = ""
                               , cmdFileExtensions = []
+                              , cmdReturnType = ""
                               , cmdContexts = [] -- ["file", "start_pos", "file", "start_pos", "end_pos"]
                               , cmdAdditionalParams =
                                 [
@@ -202,6 +205,8 @@ pluginsWithCollisions = Map.fromList [("plugin1", PluginDescriptor
         ]
       , pdExposedServices = []
       , pdUsedServices    = []
+      , pdUIShortName     = ""
+      , pdUIOverview      = ""
     })
     , ("plugin2", PluginDescriptor
         {
@@ -212,6 +217,7 @@ pluginsWithCollisions = Map.fromList [("plugin1", PluginDescriptor
                               { cmdName = "cmd1"
                               , cmdUiDescription = ""
                               , cmdFileExtensions = []
+                              , cmdReturnType = ""
                               , cmdContexts = [CtxRegion, CtxPoint] -- ["file", "start_pos", "file", "start_pos", "end_pos"]
                               , cmdAdditionalParams =
                                 [
@@ -234,6 +240,7 @@ pluginsWithCollisions = Map.fromList [("plugin1", PluginDescriptor
                             { cmdName = "cmd2"
                             , cmdUiDescription = ""
                             , cmdFileExtensions = []
+                            , cmdReturnType = ""
                             , cmdContexts = [] -- ["file", "start_pos", "file", "start_pos", "end_pos"]
                             , cmdAdditionalParams =
                               [
@@ -249,6 +256,8 @@ pluginsWithCollisions = Map.fromList [("plugin1", PluginDescriptor
             ]
           , pdExposedServices = []
           , pdUsedServices    = []
+          , pdUIShortName     = ""
+          , pdUIOverview      = ""
         })
     , ("plugin3", PluginDescriptor
         {
@@ -259,6 +268,7 @@ pluginsWithCollisions = Map.fromList [("plugin1", PluginDescriptor
                               { cmdName = "cmd1"
                               , cmdUiDescription = ""
                               , cmdFileExtensions = []
+                              , cmdReturnType = ""
                               , cmdContexts = [CtxRegion, CtxPoint] -- ["file", "start_pos", "file", "start_pos", "end_pos"]
                               , cmdAdditionalParams = []
                               }
@@ -267,6 +277,8 @@ pluginsWithCollisions = Map.fromList [("plugin1", PluginDescriptor
             ]
           , pdExposedServices = []
           , pdUsedServices    = []
+          , pdUIShortName     = ""
+          , pdUIOverview      = ""
         })
     ]
 
@@ -281,6 +293,7 @@ pluginsWithoutCollisions = Map.fromList [("plugin1", PluginDescriptor
                           { cmdName = "cmd1"
                           , cmdUiDescription = "description"
                           , cmdFileExtensions = []
+                          , cmdReturnType = ""
                           , cmdContexts = [CtxRegion, CtxPoint] -- ["file", "start_pos", "file", "start_pos", "end_pos"]
                           , cmdAdditionalParams =
                             [
@@ -301,4 +314,6 @@ pluginsWithoutCollisions = Map.fromList [("plugin1", PluginDescriptor
         ]
       , pdExposedServices = []
       , pdUsedServices    = []
+      , pdUIShortName     = ""
+      , pdUIOverview      = ""
     })]

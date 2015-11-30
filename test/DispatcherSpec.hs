@@ -256,38 +256,26 @@ testPluginWithParamNameCollison :: Plugins
 testPluginWithParamNameCollison = Map.fromList [("plugin1", PluginDescriptor
     {
       pdCommands =
-        [
-          Command
-            { cmdDesc = CommandDesc
-                          { cmdName = "cmd1"
-                          , cmdUiDescription = "description"
-                          , cmdFileExtensions = []
-                          , cmdContexts = [CtxRegion, CtxPoint] -- ["file", "start_pos", "file", "start_pos", "end_pos"]
-                          , cmdAdditionalParams =
-                            [
-                              RP
-                                { pName = "nonUniqueParamName"
-                                , pHelp = ""
-                                , pType = PtText
-                                }
-                            , RP
-                                { pName = "uniqueParamName"
-                                , pHelp = "shoud not collide"
-                                , pType = PtText
-                                }
-                            , RP
-                                { pName = "nonUniqueParamName"
-                                , pHelp = "should collide with the first param"
-                                , pType = PtText
-                                }
-                            , OP
-                                { pName = "end_pos"
-                                , pHelp = "this should collide with CtxPoint from cmdContext"
-                                , pType = PtText
-                                }
-                            ]
-                          }
-            , cmdFunc = CmdSync $ \_ _ -> return (IdeResponseOk ("" :: T.Text))
+        [ mkCmdWithContext "cmd1" [CtxRegion, CtxPoint] [
+          RP
+            { pName = "nonUniqueParamName"
+            , pHelp = ""
+            , pType = PtText
+            }
+        , RP
+            { pName = "uniqueParamName"
+            , pHelp = "shoud not collide"
+            , pType = PtText
+            }
+        , RP
+            { pName = "nonUniqueParamName"
+            , pHelp = "should collide with the first param"
+            , pType = PtText
+            }
+        , OP
+            { pName = "end_pos"
+            , pHelp = "this should collide with CtxPoint from cmdContext"
+            , pType = PtText
             }
         ]
       , pdExposedServices = []
