@@ -255,29 +255,33 @@ dispatcherSpec = do
 testPluginWithParamNameCollison :: Plugins
 testPluginWithParamNameCollison = Map.fromList [("plugin1", PluginDescriptor
     {
-      pdCommands =
-        [ mkCmdWithContext "cmd1" [CtxRegion, CtxPoint] [
-          RP
-            { pName = "nonUniqueParamName"
-            , pHelp = ""
-            , pType = PtText
-            }
-        , RP
-            { pName = "uniqueParamName"
-            , pHelp = "shoud not collide"
-            , pType = PtText
-            }
-        , RP
-            { pName = "nonUniqueParamName"
-            , pHelp = "should collide with the first param"
-            , pType = PtText
-            }
-        , OP
-            { pName = "end_pos"
-            , pHelp = "this should collide with CtxPoint from cmdContext"
-            , pType = PtText
-            }
-        ]
+      pdUIShortName = "testDescriptor"
+    , pdUIOverview = "PluginDescriptor with parameter name collisions"
+    , pdCommands =
+        [ mkCmdWithContext "cmd1" [CtxRegion, CtxPoint]
+          [
+            RP
+              { pName = "nonUniqueParamName"
+              , pHelp = ""
+              , pType = PtText
+              }
+          , RP
+              { pName = "uniqueParamName"
+              , pHelp = "shoud not collide"
+              , pType = PtText
+              }
+          , RP
+              { pName = "nonUniqueParamName"
+              , pHelp = "should collide with the first param"
+              , pType = PtText
+              }
+          , OP
+              { pName = "end_pos"
+              , pHelp = "this should collide with CtxPoint from cmdContext"
+              , pType = PtText
+              }
+          ]
+      ]
       , pdExposedServices = []
       , pdUsedServices    = []
     })]
