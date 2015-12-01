@@ -6,12 +6,12 @@ module Haskell.Ide.GhcModPlugin where
 import           Control.Exception
 import           Data.Either
 import           Data.Vinyl
--- import           Control.Monad
 import           Control.Monad.IO.Class
 import qualified Data.Text as T
 import qualified Data.Text.Read as T
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
+import           Haskell.Ide.Engine.SemanticTypes
 import qualified Language.Haskell.GhcMod as GM
 import qualified Language.Haskell.GhcMod.Monad as GM
 import           System.FilePath

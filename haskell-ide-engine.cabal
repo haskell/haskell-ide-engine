@@ -98,6 +98,7 @@ test-suite haskell-ide-test
                        JsonStdioSpec
                        JsonSpec
   build-depends:       base
+                     , Diff
                      , aeson
                      , containers
                      , unordered-containers
