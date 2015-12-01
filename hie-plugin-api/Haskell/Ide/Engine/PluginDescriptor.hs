@@ -306,25 +306,6 @@ type AsyncCommandFunc resp = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m)
                 => (IdeResponse resp -> IO ()) -> [AcceptedContext] -> IdeRequest -> m ()
 
 -- ---------------------------------------------------------------------
--- Specific response type
-
--- | Type Information, from the most precise to the most generic
-data TypeInfo = TypeInfo { results :: [TypeResult] }
-  deriving (Show,Read,Eq,Ord,Generic)
-
--- | One type result from ghc-mod
-data TypeResult = TypeResult
-    { trStart :: (Int,Int) -- ^ start line/column
-    , trEnd   :: (Int,Int) -- ^ end line/column
-    , trText  :: T.Text -- ^ type text
-    } deriving (Show,Read,Eq,Ord,Generic)
-
--- | Result of refactoring
-data RefactorResult = RefactorResult
-  { rrPaths :: [FilePath]
-  } deriving (Show,Read,Eq,Ord,Generic)
-
--- ---------------------------------------------------------------------
 -- ValidResponse instances
 
 ok :: T.Text
@@ -395,14 +376,6 @@ instance ValidResponse IdePlugins where
     liftM (IdePlugins . Map.fromList) $ mapM (\(k,vp) -> do
             p<-parseJSON vp
             return (k,p)) $ H.toList ps
-
-instance ValidResponse TypeInfo where
-  jsWrite (TypeInfo t) = H.fromList ["type_info" .= t]
-  jsRead v = TypeInfo <$> v .: "type_info"
-
-instance ValidResponse RefactorResult where
-  jsWrite (RefactorResult t) = H.fromList ["refactor" .= t]
-  jsRead v = RefactorResult <$> v .: "refactor"
 
 -- ---------------------------------------------------------------------
 -- JSON instances
@@ -546,20 +519,6 @@ instance FromJSON IdeError where
         <*> v .:  "msg"
         <*> v .:? "info"
     parseJSON _ = empty
-
-instance ToJSON TypeResult where
-  toJSON (TypeResult s e t) =
-      object [ "start" .= posToJSON s
-             , "end" .= posToJSON e
-             , "type" .= t
-             ]
-
-instance FromJSON TypeResult where
-  parseJSON (Object v) = TypeResult
-    <$> (jsonToPos =<< (v .: "start"))
-    <*> (jsonToPos =<< (v .: "end"))
-    <*> v .: "type"
-  parseJSON _ = empty
 
 -- -------------------------------------
 

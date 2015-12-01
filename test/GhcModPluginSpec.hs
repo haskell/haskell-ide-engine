@@ -9,6 +9,7 @@ import qualified Data.HashMap.Strict as H
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.GhcModPlugin
 

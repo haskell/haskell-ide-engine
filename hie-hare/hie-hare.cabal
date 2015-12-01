@@ -18,6 +18,7 @@ library
                      , aeson
                      , containers
                      , directory
+                     , filepath
                      , ghc-mod
                      , hie-plugin-api
                      , text

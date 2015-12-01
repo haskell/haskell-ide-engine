@@ -8,9 +8,11 @@ import qualified Data.Text as T
 import           Data.Vinyl
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
+import           Haskell.Ide.Engine.SemanticTypes
 import qualified Language.Haskell.GhcMod as GM (defaultOptions)
 import           Language.Haskell.Refact.HaRe
 import           System.Directory
+import           System.FilePath.Posix
 
 -- ---------------------------------------------------------------------
 
@@ -59,8 +61,8 @@ demoteCmd  = CmdSync $ \_ctxs req -> do
         Left err -> return $ IdeResponseFail (IdeError PluginError
                       (T.pack $ "demote: " ++ show err) Nothing)
         Right fs -> do
-          fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
-          return (IdeResponseOk $ RefactorResult fs')
+          r <- liftIO $ makeRefactorResult fs
+          return (IdeResponseOk r)
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.demoteCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
@@ -78,8 +80,8 @@ dupdefCmd = CmdSync $ \_ctxs req -> do
         Left err -> return $ IdeResponseFail (IdeError PluginError
                       (T.pack $ "dupdef: " ++ show err) Nothing)
         Right fs -> do
-          fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
-          return (IdeResponseOk $ RefactorResult fs')
+          r <- liftIO $ makeRefactorResult fs
+          return (IdeResponseOk r)
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.dupdefCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
@@ -97,8 +99,8 @@ iftocaseCmd = CmdSync $ \_ctxs req -> do
         Left err -> return $ IdeResponseFail (IdeError PluginError
                       (T.pack $ "ifToCase: " ++ show err) Nothing)
         Right fs -> do
-          fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
-          return (IdeResponseOk $ RefactorResult fs')
+          r <- liftIO $ makeRefactorResult fs
+          return (IdeResponseOk r)
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.ifToCaseCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
@@ -116,8 +118,8 @@ liftonelevelCmd = CmdSync $ \_ctxs req -> do
         Left err -> return $ IdeResponseFail (IdeError PluginError
                       (T.pack $ "liftOneLevel: " ++ show err) Nothing)
         Right fs -> do
-          fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
-          return (IdeResponseOk $ RefactorResult fs')
+          r <- liftIO $ makeRefactorResult fs
+          return (IdeResponseOk r)
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.liftOneLevel: ghc’s exhaustiveness checker is broken" Nothing)
 
@@ -135,8 +137,8 @@ lifttotoplevelCmd = CmdSync $ \_ctxs req -> do
         Left err -> return $ IdeResponseFail (IdeError PluginError
                       (T.pack $ "liftToTopLevel: " ++ show err) Nothing)
         Right fs -> do
-          fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
-          return (IdeResponseOk $ RefactorResult fs')
+          r <- liftIO $ makeRefactorResult fs
+          return (IdeResponseOk r)
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.liftToTopLevel: ghc’s exhaustiveness checker is broken" Nothing)
 
@@ -154,12 +156,27 @@ renameCmd = CmdSync $ \_ctxs req -> do
         Left err -> return $ IdeResponseFail (IdeError PluginError
                       (T.pack $ "rename: " ++ show err) Nothing)
         Right fs -> do
-          fs' <- liftIO $ mapM makeRelativeToCurrentDirectory fs
-          return (IdeResponseOk $ RefactorResult fs')
+          r <- liftIO $ makeRefactorResult fs
+          return (IdeResponseOk r)
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.renameCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
 -- rename :: RefactSettings -> Options -> FilePath -> String -> SimpPos -> IO [FilePath]
+
+-- ---------------------------------------------------------------------
+
+makeRefactorResult :: [FilePath] -> IO RefactorResult
+makeRefactorResult changedFiles = do
+  let
+    diffOne f1 = do
+      let (baseFileName,ext) = splitExtension f1
+          f2 = (baseFileName ++ ".refactored" ++ ext)
+      (HieDiff f s d) <- diffFiles f1 f2
+      f' <- liftIO $ makeRelativeToCurrentDirectory f
+      s' <- liftIO $ makeRelativeToCurrentDirectory s
+      return (HieDiff f' s' d)
+  diffs <- mapM diffOne changedFiles
+  return (RefactorResult diffs)
 
 -- ---------------------------------------------------------------------
 

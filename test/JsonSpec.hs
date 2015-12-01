@@ -5,6 +5,7 @@
 module JsonSpec where
 
 import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.SemanticTypes
 
 import           Data.Aeson
 import           Data.Aeson.Types

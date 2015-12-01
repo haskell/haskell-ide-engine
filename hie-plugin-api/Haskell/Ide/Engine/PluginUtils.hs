@@ -7,17 +7,21 @@ module Haskell.Ide.Engine.PluginUtils
   (
     getParams
   , mapEithers
+  , diffFiles
+  -- * Helper functions for errors
   , missingParameter
   , incorrectParameter
   ) where
 
 import           Data.Aeson
-
+import           Data.Algorithm.Diff
 import           Data.Monoid
 import           Data.Vinyl
 import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.SemanticTypes
 import qualified Data.Map as Map
 import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import           Prelude hiding (log)
 
 -- ---------------------------------------------------------------------
@@ -64,13 +68,13 @@ mapEithers _ _ = Right []
 -- ---------------------------------------------------------------------
 -- Helper functions for errors
 
--- Missing parameter error
+-- |Missing parameter error
 missingParameter :: forall r. (ValidResponse r) => ParamId -> IdeResponse r
 missingParameter param = IdeResponseFail (IdeError MissingParameter
             ("need `" <> param <> "` parameter")
             (Just $ toJSON param))
 
--- Incorrect parameter error
+-- |Incorrect parameter error
 incorrectParameter :: forall r a b. (ValidResponse r,Show a,Show b)
   => ParamId -> a -> b -> IdeResponse r
 incorrectParameter name expected value = IdeResponseFail
@@ -79,3 +83,19 @@ incorrectParameter name expected value = IdeResponseFail
       T.pack (show expected) <>" , got:" <> T.pack (show value))
     (Just $ object ["param" .= toJSON name,"expected".= toJSON (show expected),
       "value" .= toJSON (show value)]))
+
+-- ---------------------------------------------------------------------
+
+-- |Generate a 'HieDiff' value from a pair of files
+diffFiles :: FilePath -> FilePath -> IO HieDiff
+diffFiles f1 f2 = do
+  f1Text <- T.readFile f1
+  f2Text <- T.readFile f2
+  let diffb = getDiffBy (\(_,a) (_,b) -> a == b)
+                        (zip [1..] (T.lines f1Text))
+                        (zip [1..] (T.lines f2Text))
+      isDiff (Both {}) = False
+      isDiff _         = True
+
+      diff = filter isDiff diffb
+  return (HieDiff f1 f2 diff)

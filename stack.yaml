@@ -8,9 +8,7 @@ packages:
 - hie-ghc-mod
 - hie-hare
 extra-deps:
- - logging-3.0.2
  - HaRe-0.8.2.1
+ - logging-3.0.2
  - rosezipper-0.2
  - syz-0.2.0.0
-# - ghc-mod-5.4.0.0
-# - cabal-helper-0.6.1.0
