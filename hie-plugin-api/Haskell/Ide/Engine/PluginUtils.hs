@@ -13,8 +13,6 @@ module Haskell.Ide.Engine.PluginUtils
 
 import           Data.Aeson
 
-import           Data.List
-import           Data.Maybe
 import           Data.Monoid
 import           Data.Vinyl
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -65,7 +63,6 @@ mapEithers _ _ = Right []
 
 -- ---------------------------------------------------------------------
 -- Helper functions for errors
--- ---------------------------------------------------------------------
 
 -- Missing parameter error
 missingParameter :: forall r. (ValidResponse r) => ParamId -> IdeResponse r
