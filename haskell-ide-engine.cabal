@@ -24,6 +24,7 @@ library
                        Haskell.Ide.Engine.Transport.JsonHttp
                        Haskell.Ide.Engine.Transport.JsonStdio
                        Haskell.Ide.Engine.Types
+                       Haskell.Ide.Engine.Utils
   other-modules:       Paths_haskell_ide_engine
   build-depends:       Cabal >= 1.22
                      , aeson
@@ -97,7 +98,7 @@ test-suite haskell-ide-test
                        HaRePluginSpec
                        JsonStdioSpec
                        JsonSpec
-                       PluginUtilsSpec
+                       UtilsSpec
   build-depends:       base
                      , aeson
                      , containers

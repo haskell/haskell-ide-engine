@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
-module PluginUtilsSpec where
+module UtilsSpec where
 
-import           Haskell.Ide.Engine.PluginUtils
+import           Haskell.Ide.Engine.Utils
 import           Haskell.Ide.Engine.PluginDescriptor
 
 import qualified Data.Map as Map

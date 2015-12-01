@@ -38,13 +38,6 @@ spec = do
 
 dispatcherSpec :: Spec
 dispatcherSpec = do
-  describe "checking plugins on startup" $ do
-
-    it "exits with an error if any command has a parameter name collision" $ do
-      runIdeM (IdeState testPluginWithParamNameCollison) undefined `shouldThrow` anyErrorCall
-
-    -- ---------------------------------
-
   describe "checking contexts" $ do
 
     it "identifies CtxNone" $ do
@@ -251,40 +244,6 @@ dispatcherSpec = do
                             , coutResp = IdeResponseOk (HM.fromList [("ok",String "asyncCmd1 got strobe")])})
 
 -- ---------------------------------------------------------------------
-
-testPluginWithParamNameCollison :: Plugins
-testPluginWithParamNameCollison = Map.fromList [("plugin1", PluginDescriptor
-    {
-      pdUIShortName = "testDescriptor"
-    , pdUIOverview = "PluginDescriptor with parameter name collisions"
-    , pdCommands =
-        [ mkCmdWithContext "cmd1" [CtxRegion, CtxPoint]
-          [
-            RP
-              { pName = "nonUniqueParamName"
-              , pHelp = ""
-              , pType = PtText
-              }
-          , RP
-              { pName = "uniqueParamName"
-              , pHelp = "shoud not collide"
-              , pType = PtText
-              }
-          , RP
-              { pName = "nonUniqueParamName"
-              , pHelp = "should collide with the first param"
-              , pType = PtText
-              }
-          , OP
-              { pName = "end_pos"
-              , pHelp = "this should collide with CtxPoint from cmdContext"
-              , pType = PtText
-              }
-          ]
-      ]
-      , pdExposedServices = []
-      , pdUsedServices    = []
-    })]
 
 testPlugins :: TChan () -> Plugins
 testPlugins chSync = Map.fromList [("test",testDescriptor chSync)]

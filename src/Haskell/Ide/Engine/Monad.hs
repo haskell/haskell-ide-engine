@@ -15,7 +15,6 @@ import           Control.Monad.State
 import           Data.IORef
 import           Exception
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.PluginUtils
 import qualified Language.Haskell.GhcMod.Monad as GM
 import qualified Language.Haskell.GhcMod.Types as GM
 import           System.Directory
@@ -47,9 +46,6 @@ data IdeState = IdeState
 
 runIdeM :: IdeState -> IdeM a -> IO a
 runIdeM initState f = do
-    case validatePlugins (idePlugins initState) of
-      Just err -> error (pdeErrorMsg err)
-      Nothing -> return ()
     initializedRef <- newIORef False
     let inner' = GM.runGmOutT opts $ GM.runGhcModT opts $ do
             liftIO $ writeIORef initializedRef True
