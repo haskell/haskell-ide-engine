@@ -22,6 +22,7 @@ import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.Utils
 import           Haskell.Ide.Engine.Transport.JsonHttp
 import           Haskell.Ide.Engine.Transport.JsonStdio
 import           Haskell.Ide.Engine.Types
@@ -110,6 +111,10 @@ run opts = do
 
     -- log $ T.pack $ "replPluginInfo:" ++ show replPluginInfo
 
+    case validatePlugins plugins of
+      Just err -> error (pdeErrorMsg err)
+      Nothing -> return ()
+
     -- launch the dispatcher.
     _ <- forkIO (runIdeM (IdeState plugins) (dispatcher cin))
 
@@ -142,4 +147,3 @@ getUserHomeDirectory = do
 -- whatever it takes.
 listener :: TChan ChannelRequest -> IO ()
 listener = assert False undefined
-
