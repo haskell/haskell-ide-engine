@@ -1,6 +1,6 @@
 #resolver: lts-3.11
 # Nightly has ghc-mod/cabal-helper, not in lts yet
-resolver: nightly-2015-10-27
+resolver: nightly-2015-12-02
 packages:
 - .
 - hie-example-plugin2
@@ -9,6 +9,5 @@ packages:
 - hie-hare
 extra-deps:
  - HaRe-0.8.2.1
- - logging-3.0.2
  - rosezipper-0.2
  - syz-0.2.0.0

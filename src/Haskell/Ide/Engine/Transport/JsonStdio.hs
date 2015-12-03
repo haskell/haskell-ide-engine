@@ -9,7 +9,7 @@ import           Control.Applicative
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
 import           Control.Lens (view)
-import           Control.Logging
+-- import           Control.Logging
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Control.Monad.State.Strict
@@ -21,6 +21,7 @@ import qualified Data.ByteString.Lazy as BL
 import           Data.Char
 import qualified Data.Map as Map
 import qualified Data.Text as T
+import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
 import qualified Pipes as P
@@ -51,8 +52,7 @@ parseToJsonPipe cin cout cid =
                   CResp "" cid $
                   IdeResponseError
                     (IdeError ParseError (T.pack $ show decodeErr) Nothing)
-            liftIO $ debug $
-              T.pack $ "jsonStdioTransport:parse error:" ++ show decodeErr
+            liftIO $ debugm $ "jsonStdioTransport:parse error:" ++ show decodeErr
             liftIO $ atomically $ writeTChan cout rsp
        Right req ->
          do liftIO $ atomically $ writeTChan cin (wireToChannel cout cid req)

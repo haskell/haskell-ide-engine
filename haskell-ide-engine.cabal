@@ -34,14 +34,16 @@ library
                      , containers
                      , directory
                      , either
+                     , fast-logger
                      , ghc >= 7.10.2 && < 7.11
                      , ghc-mod >= 5.4
                      , gitrev >= 1.1
                      , haskeline
                      , hie-plugin-api
                      , lens
-                     , logging
+                     , lifted-base
                      , monad-control
+                     , monad-logger
                      , mtl
                      , optparse-applicative
                      , optparse-simple >= 0.0.3
@@ -70,6 +72,7 @@ executable hie
                      , aeson
                      , containers
                      , directory
+                     , fast-logger
                      , ghc
                      , ghc-mod
                      , gitrev >= 1.1
@@ -78,7 +81,7 @@ executable hie
                      , hie-plugin-api
                      , hie-ghc-mod
                      , hie-hare
-                     , logging
+                     , monad-logger
                      , optparse-applicative
                      , optparse-simple
                      , stm
@@ -105,12 +108,14 @@ test-suite haskell-ide-test
                      , containers
                      , unordered-containers
                      , directory
+                     , fast-logger
                      , haskell-ide-engine
                      , hie-ghc-mod
                      , hie-hare
                      , hie-plugin-api
                      , hspec
-                     , logging
+                     , fast-logger
+                     , monad-logger
                      , stm
                      , text
                      , transformers
