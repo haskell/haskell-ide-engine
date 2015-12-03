@@ -54,7 +54,7 @@ versionCmd = CmdSync $ \_ _ -> return $ IdeResponseOk (T.pack version)
 
 pluginsCmd :: CommandFunc IdePlugins
 pluginsCmd = CmdSync $ \_ _ ->
-  IdeResponseOk . IdePlugins . Map.map (map cmdDesc) <$> getPlugins
+  IdeResponseOk . IdePlugins . Map.map (map cmdDesc . pdCommands) <$> getPlugins
 
 commandsCmd :: CommandFunc [CommandName]
 commandsCmd = CmdSync $ \_ req -> do
