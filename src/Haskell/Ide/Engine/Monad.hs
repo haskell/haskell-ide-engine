@@ -81,8 +81,8 @@ instance GM.MonadIO (StateT IdeState IO) where
   liftIO = liftIO
 
 instance MonadState IdeState IdeM where
-    get   = IdeM (lift $ lift $ lift get)
-    put s = IdeM (lift $ lift $ lift (put s))
+  get   = IdeM (lift $ lift $ lift get)
+  put s = IdeM (lift $ lift $ lift (put s))
 
 instance GHC.GhcMonad IdeM where
   getSession     = IdeM $ GM.unGmlT GM.gmlGetSession
@@ -92,15 +92,14 @@ instance GHC.HasDynFlags IdeM where
   getDynFlags = GHC.hsc_dflags <$> GHC.getSession
 
 instance ExceptionMonad (StateT IdeState IO) where
-    gcatch act handler = control $ \run ->
-        run act `gcatch` (run . handler)
+  gcatch act handler = control $ \run ->
+    run act `gcatch` (run . handler)
 
-    gmask = liftBaseOp gmask . liftRestore
-     where liftRestore f r = f $ liftBaseOp_ r
+  gmask = liftBaseOp gmask . liftRestore
+    where liftRestore f r = f $ liftBaseOp_ r
 
 instance HasIdeState IdeM where
   getPlugins = gets idePlugins
-
   setTargets targets = IdeM $ GM.runGmlT (map Left targets) (return ())
 
 -- EOF
