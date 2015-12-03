@@ -107,7 +107,7 @@ validateContexts cd req = r
         , ideMessage = T.pack ("no valid context found, expecting one of:" ++ show (cmdContexts cd))
         , ideInfo = Nothing
         }
-      (ctxs, []) ->
+      (ctxs, _) ->
         case checkParams (cmdAdditionalParams cd) (ideParams req) of
           Left e -> Left e
           Right _ -> Right ctxs
