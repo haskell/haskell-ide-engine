@@ -55,14 +55,14 @@ data PluginDescriptor = PluginDescriptor
 
 instance Show PluginDescriptor where
   showsPrec p (PluginDescriptor name oview cmds svcs used) = showParen (p > 10) $
-      showString "PluginDescriptor " .
-      showString (T.unpack name) .
-      showString (T.unpack oview) .
-      showList cmds .
-      showString " " .
-      showList svcs .
-      showString " " .
-      showList used
+    showString "PluginDescriptor " .
+    showString (T.unpack name) .
+    showString (T.unpack oview) .
+    showList cmds .
+    showString " " .
+    showList svcs .
+    showString " " .
+    showList used
 
 -- | Ideally a Command is defined in such a way that its CommandDescriptor
 -- can be exposed via the native CLI for the tool being exposed as well.
@@ -119,13 +119,14 @@ data IdePlugins = IdePlugins {
 
 -- | Define what context will be accepted from the frontend for the specific
 -- command. Matches up to corresponding values for CommandContext
-data AcceptedContext = CtxNone        -- ^ No context required, global command
-                     | CtxFile        -- ^ Works on a whole file
-                     | CtxPoint       -- ^ A single (Line,Col) in a specific file
-                     | CtxRegion      -- ^ A region within a specific file
-                     | CtxCabalTarget -- ^ Works on a specific cabal target
-                     | CtxProject     -- ^ Works on a the whole project
-                     deriving (Eq,Ord,Show,Read,Bounded,Enum,Generic)
+data AcceptedContext
+  = CtxNone        -- ^ No context required, global command
+  | CtxFile        -- ^ Works on a whole file
+  | CtxPoint       -- ^ A single (Line,Col) in a specific file
+  | CtxRegion      -- ^ A region within a specific file
+  | CtxCabalTarget -- ^ Works on a specific cabal target
+  | CtxProject     -- ^ Works on a the whole project
+  deriving (Eq,Ord,Show,Read,Bounded,Enum,Generic)
 
 type Pos = (Int,Int)
 
@@ -242,13 +243,12 @@ class (Typeable a) => ValidResponse a where
 
 
 -- | The IDE response, with the type of response it contains
-data IdeResponse resp = IdeResponseOk resp    -- ^ Command Succeeded
-                      | IdeResponseFail  IdeError -- ^ Command Failed
-                      | IdeResponseError IdeError -- ^ Some error in
-                                               -- haskell-ide-engine
-                                               -- driver. Equivalent to HTTP 500
-                                               -- status
-                 deriving (Show,Eq,Generic)
+data IdeResponse resp
+  = IdeResponseOk resp        -- ^ Command Succeeded
+  | IdeResponseFail  IdeError -- ^ Command Failed
+  | IdeResponseError IdeError -- ^ Some error in haskell-ide-engine driver.
+                              -- Equivalent to HTTP 500 status.
+  deriving (Show,Eq,Generic)
 
 -- | Map an IdeResponse content.
 instance Functor IdeResponse where
@@ -257,22 +257,19 @@ instance Functor IdeResponse where
   fmap _ (IdeResponseError e) = IdeResponseError e
 
 -- | Error codes. Add as required
-data IdeErrorCode = IncorrectParameterType  -- ^ Wrong parameter type
-                  | UnexpectedParameter     -- ^ A parameter was not expected by
-                                            -- the command
-                  | MissingParameter        -- ^ A required parameter was not
-                                            --  provided
-                  | PluginError             -- ^ An error returned by a plugin
-                  | InternalError           -- ^ Code error
-                                            -- (case not handled or deemed
-                                            -- impossible)
-                  | UnknownPlugin           -- ^ Plugin is not registered
-                  | UnknownCommand          -- ^ Command is not registered
-                  | InvalidContext          -- ^ Context invalid for command
-                  | OtherError              -- ^ An error for which we didn't
-                                            -- have a better code
-                  | ParseError              -- ^ Input could not be parsed
-                  deriving (Show,Read,Eq,Ord,Bounded,Enum,Generic)
+data IdeErrorCode
+  = IncorrectParameterType  -- ^ Wrong parameter type
+  | UnexpectedParameter     -- ^ A parameter was not expected by the command
+  | MissingParameter        -- ^ A required parameter was not provided
+  | PluginError             -- ^ An error returned by a plugin
+  | InternalError           -- ^ Code error (case not handled or deemed
+                            --   impossible)
+  | UnknownPlugin           -- ^ Plugin is not registered
+  | UnknownCommand          -- ^ Command is not registered
+  | InvalidContext          -- ^ Context invalid for command
+  | OtherError              -- ^ An error for which there's no better code
+  | ParseError              -- ^ Input could not be parsed
+  deriving (Show,Read,Eq,Ord,Bounded,Enum,Generic)
 
 -- | A more structured error than just a string
 data IdeError = IdeError
@@ -281,7 +278,6 @@ data IdeError = IdeError
   , ideInfo    :: Maybe Value  -- ^ Additional information
   }
   deriving (Show,Read,Eq,Generic)
-
 
 class (Monad m) => HasIdeState m where
   getPlugins :: m Plugins
@@ -323,10 +319,10 @@ instance ValidResponse [T.Text] where
 instance ValidResponse () where
   jsWrite _ = H.fromList [ok .= String ok]
   jsRead o = do
-      r <- o .: ok
-      if r == String ok
-        then pure ()
-        else empty
+    r <- o .: ok
+    if r == String ok
+      then pure ()
+      else empty
 
 instance ValidResponse Object where
   jsWrite = id
@@ -335,37 +331,41 @@ instance ValidResponse Object where
 instance ValidResponse ExtendedCommandDescriptor where
   jsWrite (ExtendedCommandDescriptor cmdDescriptor name) =
     H.fromList
-      ["name" .= cmdName cmdDescriptor
-      ,"ui_description" .= cmdUiDescription cmdDescriptor
-      ,"file_extensions" .= cmdFileExtensions cmdDescriptor
-      ,"contexts" .= cmdContexts cmdDescriptor
-      ,"additional_params" .= cmdAdditionalParams cmdDescriptor
-      ,"return_type" .= cmdReturnType cmdDescriptor
-      ,"plugin_name" .= name]
-
+      [ "name" .= cmdName cmdDescriptor
+      , "ui_description" .= cmdUiDescription cmdDescriptor
+      , "file_extensions" .= cmdFileExtensions cmdDescriptor
+      , "contexts" .= cmdContexts cmdDescriptor
+      , "additional_params" .= cmdAdditionalParams cmdDescriptor
+      , "return_type" .= cmdReturnType cmdDescriptor
+      , "plugin_name" .= name ]
   jsRead v =
-    ExtendedCommandDescriptor <$>
-    (CommandDesc <$> v .: "name" <*> v .: "ui_description" <*>
-     v .: "file_extensions" <*>
-     v .: "contexts" <*>
-     v .: "additional_params" <*>
-     v .: "return_type") <*>
-     v .: "plugin_name"
+    ExtendedCommandDescriptor
+    <$> (CommandDesc
+      <$> v .: "name"
+      <*> v .: "ui_description"
+      <*> v .: "file_extensions"
+      <*> v .: "contexts"
+      <*> v .: "additional_params"
+      <*> v .: "return_type")
+    <*> v .: "plugin_name"
 
 instance ValidResponse CommandDescriptor where
-  jsWrite cmdDescriptor = H.fromList [ "name" .= cmdName cmdDescriptor
-                                  , "ui_description" .= cmdUiDescription cmdDescriptor
-                                  , "file_extensions" .= cmdFileExtensions cmdDescriptor
-                                  , "contexts" .= cmdContexts cmdDescriptor
-                                  , "additional_params" .= cmdAdditionalParams cmdDescriptor
-                                  , "return_type" .= cmdReturnType cmdDescriptor ]
+  jsWrite cmdDescriptor =
+    H.fromList
+      [ "name" .= cmdName cmdDescriptor
+      , "ui_description" .= cmdUiDescription cmdDescriptor
+      , "file_extensions" .= cmdFileExtensions cmdDescriptor
+      , "contexts" .= cmdContexts cmdDescriptor
+      , "additional_params" .= cmdAdditionalParams cmdDescriptor
+      , "return_type" .= cmdReturnType cmdDescriptor ]
   jsRead v =
-        CommandDesc <$> v .: "name"
-                    <*> v .: "ui_description"
-                    <*> v .: "file_extensions"
-                    <*> v .: "contexts"
-                    <*> v .: "additional_params"
-                    <*> v .: "return_type"
+    CommandDesc
+      <$> v .: "name"
+      <*> v .: "ui_description"
+      <*> v .: "file_extensions"
+      <*> v .: "contexts"
+      <*> v .: "additional_params"
+      <*> v .: "return_type"
 
 instance ValidResponse IdePlugins where
   jsWrite (IdePlugins m) = H.fromList ["plugins" .= H.fromList
@@ -388,52 +388,52 @@ jsonToPos (Object v) = (,) <$> v .: "line" <*> v.: "col"
 jsonToPos _ = empty
 
 instance ToJSON ParamValP  where
-    toJSON (ParamTextP v) = object [ "text" .= v ]
-    toJSON (ParamFileP v) = object [ "file" .= v ]
-    toJSON (ParamPosP  p) = posToJSON p
-    toJSON _ = "error"
+  toJSON (ParamTextP v) = object [ "text" .= v ]
+  toJSON (ParamFileP v) = object [ "file" .= v ]
+  toJSON (ParamPosP  p) = posToJSON p
+  toJSON _ = "error"
 
 instance FromJSON ParamValP where
-    parseJSON (Object v) = do
-      mt <- fmap ParamTextP <$> v .:? "text"
-      mf <- fmap ParamFileP <$> v .:? "file"
-      mp <- toParamPos <$> v .:? "line" <*> v .:? "col"
-      case mt <|> mf <|> mp of
-        Just pd -> return pd
-        _ -> empty
-      where
-          toParamPos (Just l) (Just c) = Just $ ParamPosP (l,c)
-          toParamPos _ _ = Nothing
-    parseJSON _ = empty
+  parseJSON (Object v) = do
+    mt <- fmap ParamTextP <$> v .:? "text"
+    mf <- fmap ParamFileP <$> v .:? "file"
+    mp <- toParamPos <$> v .:? "line" <*> v .:? "col"
+    case mt <|> mf <|> mp of
+      Just pd -> return pd
+      _ -> empty
+    where
+      toParamPos (Just l) (Just c) = Just $ ParamPosP (l,c)
+      toParamPos _ _ = Nothing
+  parseJSON _ = empty
 
 
 -- -------------------------------------
 
 instance ToJSON CabalSection where
-    toJSON (CabalSection s) = toJSON s
+  toJSON (CabalSection s) = toJSON s
 
 instance FromJSON CabalSection where
-    parseJSON (String s) = pure $ CabalSection s
-    parseJSON _ = empty
+  parseJSON (String s) = pure $ CabalSection s
+  parseJSON _ = empty
 
 -- -------------------------------------
 
 instance ToJSON AcceptedContext where
-    toJSON CtxNone = String "none"
-    toJSON CtxPoint = String "point"
-    toJSON CtxRegion = String "region"
-    toJSON CtxFile = String "file"
-    toJSON CtxCabalTarget = String "cabal_target"
-    toJSON CtxProject = String "project"
+  toJSON CtxNone = String "none"
+  toJSON CtxPoint = String "point"
+  toJSON CtxRegion = String "region"
+  toJSON CtxFile = String "file"
+  toJSON CtxCabalTarget = String "cabal_target"
+  toJSON CtxProject = String "project"
 
 instance FromJSON AcceptedContext where
-    parseJSON (String "none") = pure CtxNone
-    parseJSON (String "point") = pure CtxPoint
-    parseJSON (String "region") = pure CtxRegion
-    parseJSON (String "file") = pure CtxFile
-    parseJSON (String "cabal_target") = pure CtxCabalTarget
-    parseJSON (String "project") = pure CtxProject
-    parseJSON _ = empty
+  parseJSON (String "none") = pure CtxNone
+  parseJSON (String "point") = pure CtxPoint
+  parseJSON (String "region") = pure CtxRegion
+  parseJSON (String "file") = pure CtxFile
+  parseJSON (String "cabal_target") = pure CtxCabalTarget
+  parseJSON (String "project") = pure CtxProject
+  parseJSON _ = empty
 
 -- -------------------------------------
 
@@ -451,36 +451,36 @@ instance FromJSON ParamType where
 -- -------------------------------------
 
 instance ToJSON ParamDescription where
-    toJSON (RP n h t) = object [ "name" .= n ,"help" .= h, "type" .= t, "required" .= True ]
-    toJSON (OP n h t) = object [ "name" .= n ,"help" .= h, "type" .= t, "required" .= False ]
+  toJSON (RP n h t) = object [ "name" .= n ,"help" .= h, "type" .= t, "required" .= True ]
+  toJSON (OP n h t) = object [ "name" .= n ,"help" .= h, "type" .= t, "required" .= False ]
 
 instance FromJSON ParamDescription where
-    parseJSON (Object v) = do
-      req <- v .: "required"
-      if req
-        then RP <$> v .: "name" <*> v .: "help" <*> v .: "type"
-        else OP <$> v .: "name" <*> v .: "help" <*> v .: "type"
-    parseJSON _ = empty
+  parseJSON (Object v) = do
+    req <- v .: "required"
+    if req
+      then RP <$> v .: "name" <*> v .: "help" <*> v .: "type"
+      else OP <$> v .: "name" <*> v .: "help" <*> v .: "type"
+  parseJSON _ = empty
 
 -- -------------------------------------
 
 instance ToJSON CommandDescriptor where
-    toJSON  = Object . jsWrite
+  toJSON  = Object . jsWrite
 
 instance FromJSON CommandDescriptor where
-    parseJSON (Object v) = jsRead v
-    parseJSON _ = empty
+  parseJSON (Object v) = jsRead v
+  parseJSON _ = empty
 
 -- -------------------------------------
 
 instance ToJSON Service where
-    toJSON service = object [ "name" .= svcName service ]
+  toJSON service = object [ "name" .= svcName service ]
 
 
 instance FromJSON Service where
-    parseJSON (Object v) =
-      Service <$> v .: "name"
-    parseJSON _ = empty
+  parseJSON (Object v) =
+    Service <$> v .: "name"
+  parseJSON _ = empty
 
 -- -------------------------------------
 
@@ -490,49 +490,49 @@ instance ToJSON IdeRequest where
            , "params" .= params]
 
 instance FromJSON IdeRequest where
-    parseJSON (Object v) =
-      IdeRequest <$> v .: "command"
-                 <*> v .: "params"
-    parseJSON _ = empty
+  parseJSON (Object v) =
+    IdeRequest <$> v .: "command"
+               <*> v .: "params"
+  parseJSON _ = empty
 
 -- -------------------------------------
 
 instance ToJSON IdeErrorCode where
-    toJSON code = String $ T.pack $ show code
+  toJSON code = String $ T.pack $ show code
 
 instance FromJSON IdeErrorCode where
-    parseJSON (String s) = case reads (T.unpack s) of
-      ((c,""):_) -> pure c
-      _          -> empty
-    parseJSON _ = empty
+  parseJSON (String s) = case reads (T.unpack s) of
+    ((c,""):_) -> pure c
+    _          -> empty
+  parseJSON _ = empty
 
 -- -------------------------------------
 
 instance ToJSON IdeError where
-    toJSON err = object [ "code" .= ideCode err
-                        , "msg"  .= ideMessage err
-                        , "info" .= ideInfo err]
+  toJSON err = object [ "code" .= ideCode err
+                      , "msg"  .= ideMessage err
+                      , "info" .= ideInfo err]
 
 instance FromJSON IdeError where
-    parseJSON (Object v) = IdeError
-        <$> v .:  "code"
-        <*> v .:  "msg"
-        <*> v .:? "info"
-    parseJSON _ = empty
+  parseJSON (Object v) = IdeError
+    <$> v .:  "code"
+    <*> v .:  "msg"
+    <*> v .:? "info"
+  parseJSON _ = empty
 
 -- -------------------------------------
 
 instance (ValidResponse a) => ToJSON (IdeResponse a) where
-    toJSON (IdeResponseOk v) = Object (jsWrite v)
-    toJSON (IdeResponseFail v) = object [ "fail" .= v ]
-    toJSON (IdeResponseError v) = object [ "error" .= v ]
+  toJSON (IdeResponseOk v) = Object (jsWrite v)
+  toJSON (IdeResponseFail v) = object [ "fail" .= v ]
+  toJSON (IdeResponseError v) = object [ "error" .= v ]
 
 instance (ValidResponse a) => FromJSON (IdeResponse a) where
-    parseJSON (Object v) = do
-      mf <- fmap IdeResponseFail <$> v .:? "fail"
-      me <- fmap IdeResponseError <$> v .:? "error"
-      let mo = IdeResponseOk <$> parseMaybe jsRead v
-      return $ fromJust $ mf <|> me <|> mo
-    parseJSON _ = empty
+  parseJSON (Object v) = do
+    mf <- fmap IdeResponseFail <$> v .:? "fail"
+    me <- fmap IdeResponseError <$> v .:? "error"
+    let mo = IdeResponseOk <$> parseMaybe jsRead v
+    return $ fromJust $ mf <|> me <|> mo
+  parseJSON _ = empty
 
 -- EOF

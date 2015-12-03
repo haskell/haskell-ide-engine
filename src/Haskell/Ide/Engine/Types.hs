@@ -9,7 +9,6 @@ import           Haskell.Ide.Engine.PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-
 type RequestId = Int
 
 data ChannelRequest = CReq

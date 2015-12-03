@@ -50,14 +50,11 @@ baseDescriptor = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 versionCmd :: CommandFunc T.Text
-versionCmd = CmdSync $ \_ _ -> return (IdeResponseOk $ T.pack version)
+versionCmd = CmdSync $ \_ _ -> return $ IdeResponseOk (T.pack version)
 
 pluginsCmd :: CommandFunc IdePlugins
-pluginsCmd = CmdSync $ \_ _ -> do
-  plugins <- getPlugins
-  let commands = Map.fromList $ map getOne $ Map.toList plugins
-      getOne (pid,pd) = (pid,map (\c -> cmdDesc c) $ pdCommands pd)
-  return (IdeResponseOk $ IdePlugins commands)
+pluginsCmd = CmdSync $ \_ _ ->
+  IdeResponseOk . IdePlugins . Map.map (map cmdDesc . pdCommands) <$> getPlugins
 
 commandsCmd :: CommandFunc [CommandName]
 commandsCmd = CmdSync $ \_ req -> do
@@ -65,11 +62,14 @@ commandsCmd = CmdSync $ \_ req -> do
   -- TODO: Use Maybe Monad. What abut error reporting?
   case Map.lookup "plugin" (ideParams req) of
     Nothing -> return (missingParameter "plugin")
-    Just (ParamTextP p) -> case Map.lookup p plugins of
-      Nothing -> return (IdeResponseFail (IdeError
-                  UnknownPlugin ("Can't find plugin:" <> p )
-                  (Just $ toJSON $ p)))
-      Just pl -> return (IdeResponseOk (map (cmdName . cmdDesc) $ pdCommands pl))
+    Just (ParamTextP p) ->
+      case Map.lookup p plugins of
+        Nothing -> return $ IdeResponseFail $ IdeError
+          { ideCode = UnknownPlugin
+          , ideMessage = "Can't find plugin:" <> p
+          , ideInfo = Just $ toJSON p
+          }
+        Just pl -> return $ IdeResponseOk $ map (cmdName . cmdDesc) (pdCommands pl)
     Just x -> return $ incorrectParameter "plugin" ("ParamText"::String) x
 
 commandDetailCmd :: CommandFunc ExtendedCommandDescriptor
@@ -79,30 +79,36 @@ commandDetailCmd = CmdSync $ \_ req -> do
     Left err -> return err
     Right (ParamText p :& ParamText command :& RNil) -> do
       case Map.lookup p plugins of
-        Nothing -> return (IdeResponseError (IdeError
-                    UnknownPlugin ("Can't find plugin:" <> p )
-                    (Just $ toJSON $ p)))
+        Nothing -> return $ IdeResponseError $ IdeError
+          { ideCode = UnknownPlugin
+          , ideMessage = "Can't find plugin:" <> p
+          , ideInfo = Just $ toJSON p
+          }
         Just pl -> case find (\cmd -> command == (cmdName $ cmdDesc cmd) ) (pdCommands pl) of
-          Nothing -> return (IdeResponseError (IdeError
-                      UnknownCommand ("Can't find command:" <> command )
-                      (Just $ toJSON $ command)))
-          Just detail -> return (IdeResponseOk (ExtendedCommandDescriptor (cmdDesc detail) p))
-    Right _ -> return (IdeResponseError (IdeError
-                InternalError "commandDetailCmd: ghc’s exhaustiveness checker is broken" Nothing))
+          Nothing -> return $ IdeResponseError $ IdeError
+            { ideCode = UnknownCommand
+            , ideMessage = "Can't find command:" <> command
+            , ideInfo = Just $ toJSON command
+            }
+          Just detail -> return $ IdeResponseOk (ExtendedCommandDescriptor (cmdDesc detail) p)
+    Right _ -> return $ IdeResponseError $ IdeError
+      { ideCode = InternalError
+      , ideMessage = "commandDetailCmd: ghc’s exhaustiveness checker is broken"
+      , ideInfo = Nothing
+      }
 
 -- ---------------------------------------------------------------------
 
 version :: String
 version =
-    let commitCount = $gitCommitCount
-    in concat $ concat
-            [ [$(simpleVersion Meta.version)]
-              -- Leave out number of commits for --depth=1 clone
-              -- See https://github.com/commercialhaskell/stack/issues/792
-            , [" (" ++ commitCount ++ " commits)" | commitCount /= ("1"::String) &&
-                                                    commitCount /= ("UNKNOWN" :: String)]
-            , [" ", display buildArch]
-            ]
+  let commitCount = $gitCommitCount
+  in concat $ concat
+    [ [$(simpleVersion Meta.version)]
+      -- Leave out number of commits for --depth=1 clone
+      -- See https://github.com/commercialhaskell/stack/issues/792
+    , [" (" ++ commitCount ++ " commits)" | commitCount /= ("1"::String) &&
+                                            commitCount /= ("UNKNOWN" :: String)]
+    , [" ", display buildArch] ]
 
 -- ---------------------------------------------------------------------
 

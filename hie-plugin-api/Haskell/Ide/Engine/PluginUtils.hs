@@ -26,8 +26,6 @@ import           Prelude hiding (log)
 
 -- ---------------------------------------------------------------------
 
--- TODO: should this be in the haskell-ide-plugins-api
-
 -- |If all the listed params are present in the request resturn their values,
 -- else return an error message.
 getParams :: forall r ts. (ValidResponse r) =>

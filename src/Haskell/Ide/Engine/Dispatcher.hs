@@ -50,18 +50,24 @@ sendResponse req resp = do
 doDispatch :: Plugins -> ChannelRequest -> IdeM (Maybe (IdeResponse Object))
 doDispatch plugins creq = do
   case Map.lookup (cinPlugin creq) plugins of
-    Nothing -> return $ Just (IdeResponseError (IdeError
-                UnknownPlugin ("No plugin found for:" <> cinPlugin creq )
-                (Just $ toJSON $ cinPlugin creq)))
+    Nothing ->
+      return $ Just $ IdeResponseError $ IdeError
+        { ideCode = UnknownPlugin
+        , ideMessage = "No plugin found for:" <> cinPlugin creq
+        , ideInfo = Just $ toJSON $ cinPlugin creq
+        }
     Just desc -> do
       let pn  = cinPlugin creq
           req = cinReq creq
       debugm $ "doDispatch:desc=" ++ show desc
       debugm $ "doDispatch:req=" ++ show req
       case Map.lookup (pn,ideCommand req) (pluginCache plugins) of
-        Nothing -> return $ Just (IdeResponseError (IdeError
-                    UnknownCommand ("No such command:" <> ideCommand req )
-                    (Just $ toJSON $ ideCommand req)))
+        Nothing ->
+          return $ Just $ IdeResponseError $ IdeError
+            { ideCode = UnknownCommand
+            , ideMessage = "No such command:" <> ideCommand req
+            , ideInfo = Just $ toJSON $ ideCommand req
+            }
         Just (Command cdesc cfunc) -> do
           case validateContexts cdesc req of
             Left err   -> return (Just err)
@@ -80,13 +86,11 @@ data IDEResponseRef = forall a .(ValidResponse a) => IDEResponseRef (IdeResponse
 
 -- TODO: perhaps use this in IdeState instead
 pluginCache :: Plugins -> Map.Map (T.Text,T.Text) Command
-pluginCache plugins = Map.fromList r
+pluginCache = Map.fromList . concatMap go . Map.toList
   where
-    doOne :: T.Text -> PluginDescriptor -> [((T.Text,T.Text),Command)]
-    doOne pn (PluginDescriptor _ _ cmds _ _) =
-        map (\cmd -> ((pn,cmdName (cmdDesc cmd)),cmd)) cmds
-
-    r = concatMap (\(pn,pd) -> doOne pn pd) $ Map.toList plugins
+    go :: (T.Text, PluginDescriptor) -> [((T.Text, T.Text), Command)]
+    go (pn, (PluginDescriptor _ _ cmds _ _)) =
+      map (\cmd -> ((pn,cmdName (cmdDesc cmd)),cmd)) cmds
 
 -- ---------------------------------------------------------------------
 
@@ -96,15 +100,17 @@ validateContexts :: forall a .(ValidResponse a) => CommandDescriptor -> IdeReque
 validateContexts cd req = r
   where
     (errs,oks) = partitionEithers $ map (\c -> validContext c (ideParams req)) $ cmdContexts cd
-    r = case oks of
-          [] -> case errs of
-            [] -> Left $ IdeResponseFail (IdeError InvalidContext
-                      (T.pack $ "no valid context found, expecting one of:"
-                                          ++ show (cmdContexts cd)) Nothing)
-            (e:_) -> Left e
-          ctxs -> case checkParams (cmdAdditionalParams cd) (ideParams req) of
-                    Right _  -> Right ctxs
-                    Left err -> Left err
+    r = case (oks, errs) of
+      ([], (e:_)) -> Left e
+      ([], []) -> Left $ IdeResponseFail $ IdeError
+        { ideCode = InvalidContext
+        , ideMessage = T.pack ("no valid context found, expecting one of:" ++ show (cmdContexts cd))
+        , ideInfo = Nothing
+        }
+      (ctxs, _) ->
+        case checkParams (cmdAdditionalParams cd) (ideParams req) of
+          Left e -> Left e
+          Right _ -> Right ctxs
 
 validContext :: forall a .(ValidResponse a) => AcceptedContext -> ParamMap -> Either (IdeResponse a) AcceptedContext
 validContext ctx params =
