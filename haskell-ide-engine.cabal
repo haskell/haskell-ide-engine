@@ -18,8 +18,6 @@ library
   exposed-modules:     Haskell.Ide.Engine.BasePlugin
                        Haskell.Ide.Engine.Console
                        Haskell.Ide.Engine.Dispatcher
-                       Haskell.Ide.Engine.Monad
-                       Haskell.Ide.Engine.MonadFunctions
                        Haskell.Ide.Engine.Options
                        Haskell.Ide.Engine.Transport.JsonHttp
                        Haskell.Ide.Engine.Transport.JsonStdio

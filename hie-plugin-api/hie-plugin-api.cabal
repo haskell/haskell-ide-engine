@@ -12,15 +12,25 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Haskell.Ide.Engine.PluginUtils
+  exposed-modules:     Haskell.Ide.Engine.Monad
+                       Haskell.Ide.Engine.MonadFunctions
                        Haskell.Ide.Engine.PluginDescriptor
+                       Haskell.Ide.Engine.PluginUtils
                        Haskell.Ide.Engine.SemanticTypes
   build-depends:       base >= 4.7 && < 5
                      , Diff
                      , aeson
                      , containers
+                     , directory
+                     , fast-logger
                      , ghc
+                     , ghc-mod >= 5.4
+                     , lifted-base
+                     , monad-control
+                     , monad-logger
+                     , mtl
                      , text
+                     , time
                      , transformers
                      , unordered-containers
                      , vinyl >= 0.5 && < 0.6
