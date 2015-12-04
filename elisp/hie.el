@@ -39,19 +39,29 @@
 (defvar hie-plugins nil
   "Plugin information gained by calling the base:plugins plugin")
 
+(defvar hie-input-start nil
+  "Current position within *hie* buffer")
+
 (defun hie-process-filter (process input)
   (let ((prev-buffer (current-buffer)))
     (with-current-buffer hie-buffer
-
-      (let ((point (point)))
+      (save-excursion
+        (goto-char (point-max))
+        (unless hie-input-start
+          (insert "<- ")
+          (setq hie-input-start (point-max)))
         (insert input)
-        (save-excursion
-          (goto-char point)
-          (when (re-search-forward "\^b" nil t)
-            (let* ((end-of-current-json-object (match-beginning 0))
-                   (after-stx-marker (match-end 0))
-                   (json-array-type 'list))
-              (goto-char (point-min))
+        (goto-char hie-input-start)
+        (when (re-search-forward "\^b" nil t)
+          ;; Point is after ^b, remove and replace with newline.
+          (delete-backward-char 1)
+          (insert "\n")
+          (goto-char hie-input-start)
+          (let ((json-array-type 'list)
+                (json-start hie-input-start)
+                (json-end (- (point-max) 1)))
+            (progn
+              (setq hie-input-start nil)
               (condition-case nil
                   (let ((json (json-read)))
                     (when hie-process-handle-message
@@ -61,17 +71,16 @@
                 (json-readtable-error
                  (when hie-process-handle-invalid-input
                    (funcall hie-process-handle-invalid-input
-                            (buffer-substring-no-properties (point-min) end-of-current-json-object))))
+                            (buffer-substring-no-properties json-start json-end))))
                 ;; json-unknown-keyword when unrecognized keyword is parsed
                 (json-unknown-keyword
                  (when hie-process-handle-invalid-input
                    (funcall hie-process-handle-invalid-input
-                            (buffer-substring-no-properties (point-min) end-of-current-json-object))))
+                            (buffer-substring-no-properties json-start json-end))))
                 (end-of-file
                  (when hie-process-handle-invalid-input
                    (funcall hie-process-handle-invalid-input
-                            (buffer-substring-no-properties (point-min) end-of-current-json-object)))))
-              (delete-region (point-min) after-stx-marker))))))))
+                            (buffer-substring-no-properties json-start json-end))))))))))))
 
 (defun hie-start-process ()
   "Start Haskell IDE Engine process.
@@ -107,6 +116,12 @@ running this function does nothing."
     (kill-buffer hie-buffer)
     (setq hie-buffer nil)))
 
+(defun hie-log (&rest args)
+  (with-current-buffer hie-buffer
+    (goto-char (point-max))
+    (insert (apply #'format args)
+              "\n")))
+
 (defun hie-post-message (json)
   "Post a message to Haskell IDE Engine.
 
@@ -118,7 +133,7 @@ by `hie-handle-message'."
   ;; accepts missing fields and default to empty when possible.
   (let ((prepared-json (hie-prepare-json json)))
     (run-hook-with-args 'hie-post-message-hook prepared-json)
-
+    (hie-log "-> %s" prepared-json)
     (process-send-string hie-process prepared-json)
     ;; send \STX marker and flush buffers
     (process-send-string hie-process "\^b\n")))
