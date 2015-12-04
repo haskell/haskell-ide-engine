@@ -58,10 +58,11 @@ module Haskell.Ide.Engine.PluginDescriptor
   , TaggedParamId(..)
 
   -- * Commands
-  , Command(..)
-  , CommandFunc(..)
-  , CommandName
   , CommandDescriptor(..)
+  , Command(..)
+  , CommandFunc(..), SyncCommandFunc, AsyncCommandFunc
+  , CommandName
+  , PluginName
   , ExtendedCommandDescriptor(..)
   , buildCommand
   , ValidResponse(..)
