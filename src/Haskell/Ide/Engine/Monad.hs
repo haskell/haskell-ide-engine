@@ -11,6 +11,7 @@ import qualified HscTypes      as GHC
 
 import           Control.Applicative
 import           Control.Exception
+import           Control.Monad.IO.Class
 import           Control.Monad.State
 import           Data.IORef
 import           Exception

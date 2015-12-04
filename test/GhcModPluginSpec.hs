@@ -2,12 +2,12 @@
 module GhcModPluginSpec where
 
 import           Control.Concurrent.STM.TChan
-import           Control.Logging
 import           Control.Monad.STM
 import           Data.Aeson
 import qualified Data.HashMap.Strict as H
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
+import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types

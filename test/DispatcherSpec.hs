@@ -3,7 +3,6 @@ module DispatcherSpec where
 
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
-import           Control.Logging
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Data.Aeson

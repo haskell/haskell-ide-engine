@@ -7,7 +7,7 @@ module Main where
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
 import           Control.Exception
-import           Control.Logging
+import           Control.Monad.Logger
 import           Control.Monad
 import           Control.Monad.STM
 import           Control.Monad.Trans.Maybe

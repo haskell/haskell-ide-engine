@@ -3,13 +3,12 @@ module HaRePluginSpec where
 
 import           Control.Concurrent.STM.TChan
 import           Control.Monad.STM
-import           Control.Logging
 import           Data.Aeson
 import           Data.Algorithm.Diff
--- import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
+import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
@@ -132,9 +131,11 @@ hareSpec = do
                                                            , (First (9, "          x"))
                                                            , (Second (5, "foo x = case odd x of"))
                                                            , (Second (6, "  True  ->"))
-                                                           , (Second (7, "    x + 3"))
+                                                           -- , (Second (7, "    x + 3"))
+                                                           , (Second (7, "            x + 3"))
                                                            , (Second (8, "  False ->"))
-                                                           , (Second (9, "    x"))
+                                                           -- , (Second (9, "    x"))
+                                                           , (Second (9, "            x"))
                                                            ]
                                                            ]))
 
