@@ -1,47 +1,16 @@
-{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Haskell.Ide.Engine.Monad where
 
-import qualified DynFlags      as GHC
-import qualified GHC           as GHC
-import qualified HscTypes      as GHC
-
-import           Control.Applicative
 import           Control.Exception
 import           Control.Monad.IO.Class
 import           Control.Monad.State
 import           Data.IORef
-import           Exception
 import           Haskell.Ide.Engine.PluginDescriptor
 import qualified Language.Haskell.GhcMod.Monad as GM
 import qualified Language.Haskell.GhcMod.Types as GM
 import           System.Directory
-
--- Monad transformer stuff
-import Control.Monad.Trans.Control ( control, liftBaseOp, liftBaseOp_)
-
--- ---------------------------------------------------------------------
-
-newtype IdeM a = IdeM { unIdeM :: GM.GhcModT (GM.GmOutT (StateT IdeState IO)) a}
-      deriving ( Functor
-               , Applicative
-               , Alternative
-               , Monad
-               , MonadPlus
-               , MonadIO
-               , GM.GmEnv
-               , GM.GmOut
-               , GM.MonadIO
-               , ExceptionMonad
-               )
-
-data IdeState = IdeState
-  {
-    idePlugins :: Plugins
-  } deriving (Show)
 
 -- ---------------------------------------------------------------------
 
@@ -76,31 +45,6 @@ runIdeM initState f = do
 setTargets :: [Either FilePath GM.ModuleName] -> IdeM ()
 setTargets targets = IdeM $ GM.runGmlT targets (return ())
 
--- ---------------------------------------------------------------------
 
-instance GM.MonadIO (StateT IdeState IO) where
-  liftIO = liftIO
-
-instance MonadState IdeState IdeM where
-  get   = IdeM (lift $ lift $ lift get)
-  put s = IdeM (lift $ lift $ lift (put s))
-
-instance GHC.GhcMonad IdeM where
-  getSession     = IdeM $ GM.unGmlT GM.gmlGetSession
-  setSession env = IdeM $ GM.unGmlT (GM.gmlSetSession env)
-
-instance GHC.HasDynFlags IdeM where
-  getDynFlags = GHC.hsc_dflags <$> GHC.getSession
-
-instance ExceptionMonad (StateT IdeState IO) where
-  gcatch act handler = control $ \run ->
-    run act `gcatch` (run . handler)
-
-  gmask = liftBaseOp gmask . liftRestore
-    where liftRestore f r = f $ liftBaseOp_ r
-
-instance HasIdeState IdeM where
-  getPlugins = gets idePlugins
-  setTargets targets = IdeM $ GM.runGmlT (map Left targets) (return ())
 
 -- EOF

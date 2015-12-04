@@ -11,7 +11,6 @@ import           Data.Aeson
 import           Data.Either
 import           Data.Monoid
 import qualified Data.Text as T
-import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
