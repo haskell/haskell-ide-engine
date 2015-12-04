@@ -32,10 +32,14 @@ import System.Log.FastLogger
 -- ---------------------------------------------------------------------
 
 logm :: MonadIO m => String -> m ()
-logm s = liftIO $ logInfoN $ T.pack s
+logm s = do
+  liftIO (logInfoN $ T.pack s)
+  flushLog
 
 debugm :: MonadIO m => String -> m ()
-debugm s = liftIO $ logDebugN $ T.pack s
+debugm s = do
+  liftIO $ logDebugN $ T.pack s
+  flushLog
 
 -- ---------------------------------------------------------------------
 
@@ -49,36 +53,36 @@ instance MonadLogger IO where
 From https://hackage.haskell.org/package/logging-3.0.2/docs/src/Control-Logging.html
 -}
 
--- data LogLevel = LevelDebug | LevelInfo | LevelWarn | LevelError | LevelOther Text
---     deriving (Eq, Prelude.Show, Prelude.Read, Ord)
 
--- type LogSource = Text
-
+-- |Create a new global variable to hold the system-wide log level
 logLevel :: IORef LogLevel
 {-# NOINLINE logLevel #-}
 logLevel = unsafePerformIO $ newIORef LevelDebug
 
--- | Set the verbosity level.  Messages at our higher than this level are
---   displayed.  It defaults to 'LevelDebug'.
+-- | Set the global verbosity level.  Messages at our higher than this level are
+--   displayed. It defaults to 'LevelDebug'.
 setLogLevel :: LogLevel -> IO ()
 setLogLevel = atomicWriteIORef logLevel
 
+-- |Create a new global variable to hold the system-wide log output device
 logSet :: IORef LoggerSet
 {-# NOINLINE logSet #-}
 logSet = unsafePerformIO $
     newIORef (error "Must call withStdoutLogging or withStderrLogging")
 
+-- |Create a new global variable to hold the system-wide log time format
 logTimeFormat :: IORef String
 {-# NOINLINE logTimeFormat #-}
 logTimeFormat = unsafePerformIO $ newIORef "%Y %b-%d %H:%M:%S%Q"
 
--- | Set the format used for log timestamps.
+-- | Set the global format used for log timestamps.
 setLogTimeFormat :: String -> IO ()
 setLogTimeFormat = atomicWriteIORef logTimeFormat
 
--- | This function, or 'withStderrLogging', must be wrapped around whatever
---   region of your application intends to use logging.  Typically it would be
---   wrapped around the body of 'main'.
+-- | This function, or 'withStderrLogging' or 'withFileLogging', must be wrapped
+--   around whatever region of your application will be alive for the duration
+--   that logging will be used. Typically it would be wrapped around the body of
+--   'main'.
 withStdoutLogging :: (MonadBaseControl IO m, MonadIO m) => m a -> m a
 withStdoutLogging f = do
     liftIO $ do
@@ -101,8 +105,8 @@ withFileLogging path f = do
     f `finally` flushLog
 
 -- | Flush all collected logging messages.  This is automatically called by
---   'withStdoutLogging' and 'withStderrLogging' when those blocks are exited
---   by whatever means.
+--   'withStdoutLogging', 'withStderrLogging' and 'withFileLogging' when those
+--   blocks are exited by whatever means.
 flushLog :: MonadIO m => m ()
 flushLog = liftIO $ do
     set <- readIORef logSet
