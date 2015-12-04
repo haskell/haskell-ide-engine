@@ -33,8 +33,15 @@
 module Haskell.Ide.Engine.PluginDescriptor
   (
     PluginDescriptor(..)
+  , Service(..)
   , AcceptedContext(..)
+  , CabalSection(..)
   , contextMapping
+
+  , fileParam
+  , startPosParam
+  , endPosParam
+  , cabalParam
 
   -- * Parameters
   , ParamDescription(..)
@@ -43,7 +50,7 @@ module Haskell.Ide.Engine.PluginDescriptor
   , ParamType(..)
   , ParamVal(..)
   , ParamValP(..)
-  , ParamMap(..)
+  , ParamMap
   , pattern ParamTextP
   , pattern ParamFileP
   , pattern ParamPosP
@@ -65,12 +72,12 @@ module Haskell.Ide.Engine.PluginDescriptor
   , IdeError(..)
   , IdeErrorCode(..)
 
-  , Pos(..)
+  , Pos
   , posToJSON
   , jsonToPos
 
   -- * Plugins
-  , Plugins(..)
+  , Plugins
   , PluginId
   , IdePlugins(..)
 
@@ -187,7 +194,9 @@ data AcceptedContext
 type Pos = (Int,Int)
 
 -- |It will simplify things to always work with an absolute file path
-type AbsFilePath = FilePath
+
+-- AZ:TODO: reinstate this
+-- type AbsFilePath = FilePath
 
 data CabalSection = CabalSection T.Text deriving (Show,Eq,Generic)
 
