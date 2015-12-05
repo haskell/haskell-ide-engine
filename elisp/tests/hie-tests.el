@@ -166,15 +166,15 @@ http://debbugs.gnu.org/cgi/bugreport.cgi?bug=15990."
          (hie-process-handle-invalid-input
           (lambda (input)
             (setq response input)))
-         (hie-buffer
-          (get-buffer-create "*hie*")))
+         (hie-process-buffer
+          (get-buffer-create "*hie-process*")))
 
     (unwind-protect
         (progn
           (hie-process-filter nil "not a json text\^b")
 
           (should (equal "not a json text" response)))
-      (kill-buffer hie-buffer))))
+      (kill-buffer hie-process-buffer))))
 
 (hie-define-test
  hie-can-handle-input-in-chunks
