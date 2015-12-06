@@ -597,7 +597,7 @@ instance (ValidResponse a) => FromJSON (IdeResponse a) where
 
 -- ---------------------------------------------------------------------
 
-newtype IdeM a = IdeM { unIdeM :: GM.GhcModT (GM.GmOutT (StateT IdeState IO)) a}
+newtype IdeM a = IdeM { unIdeM :: GM.GhcModT (StateT IdeState IO) a}
       deriving ( Functor
                , Applicative
                , Alternative
@@ -627,8 +627,8 @@ instance GM.MonadIO (StateT IdeState IO) where
   liftIO = liftIO
 
 instance MonadState IdeState IdeM where
-  get   = IdeM (lift $ lift $ lift get)
-  put s = IdeM (lift $ lift $ lift (put s))
+  get   = IdeM (lift $ lift $ get)
+  put s = IdeM (lift $ lift $ put s)
 
 instance GHC.GhcMonad IdeM where
   getSession     = IdeM $ GM.unGmlT GM.gmlGetSession

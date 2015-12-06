@@ -17,7 +17,7 @@ import           System.Directory
 runIdeM :: IdeState -> IdeM a -> IO a
 runIdeM initState f = do
     initializedRef <- newIORef False
-    let inner' = GM.runGmOutT opts $ GM.runGhcModT opts $ do
+    let inner' = GM.runGhcModT opts $ do
             liftIO $ writeIORef initializedRef True
             (unIdeM f)
         inner = runStateT inner' initState
