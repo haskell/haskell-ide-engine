@@ -2,6 +2,8 @@
 
 Basically a list of what other projects are doing to solve similar problems, in no particular order
 
+* https://discuss.atom.io/t/whats-the-difference-between-packages-and-services/15538/3 atom service description, similar in concept to the (currently unused) `Service` layer in the plugin api.
+
 * https://github.com/nominolo/scion-tools and https://github.com/nominolo/scion - See below
 
 * https://github.com/kRITZCREEK/psc-ide - Editor Support for the PureScript programming language
