@@ -1,16 +1,19 @@
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 -- | Experimenting with a data structure to define a plugin.
 --
 -- The general idea is that a given plugin returns this structure during the
@@ -27,11 +30,69 @@
 --       shared resource management, e.g. default Calendar app, default SMS app,
 --       all making use of Contacts service.
 
-module Haskell.Ide.Engine.PluginDescriptor where
+module Haskell.Ide.Engine.PluginDescriptor
+  (
+    PluginDescriptor(..)
+  , Service(..)
+  , AcceptedContext(..)
+  , CabalSection(..)
+  , contextMapping
+
+  , fileParam
+  , startPosParam
+  , endPosParam
+  , cabalParam
+
+  -- * Parameters
+  , ParamDescription(..)
+  , ParamHelp
+  , ParamName
+  , ParamType(..)
+  , ParamVal(..)
+  , ParamValP(..)
+  , ParamMap
+  , pattern ParamTextP
+  , pattern ParamFileP
+  , pattern ParamPosP
+  , ParamId
+  , TaggedParamId(..)
+
+  -- * Commands
+  , CommandDescriptor(..)
+  , Command(..)
+  , CommandFunc(..), SyncCommandFunc, AsyncCommandFunc
+  , CommandName
+  , PluginName
+  , ExtendedCommandDescriptor(..)
+  , buildCommand
+  , ValidResponse(..)
+
+  -- * Interface types
+  , IdeRequest(..)
+  , IdeResponse(..)
+  , IdeError(..)
+  , IdeErrorCode(..)
+
+  , Pos
+  , posToJSON
+  , jsonToPos
+
+  -- * Plugins
+  , Plugins
+  , PluginId
+  , IdePlugins(..)
+
+  -- * The IDE monad
+  , IdeM(..)
+  , IdeState(..)
+  , HasIdeState(..)
+  ) where
+
+import qualified DynFlags      as GHC
+import qualified GHC           as GHC
+import qualified HscTypes      as GHC
 
 import           Control.Applicative
-import           Control.Monad
-import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Aeson.Types
 import qualified Data.Map as Map
@@ -39,9 +100,12 @@ import           Data.Maybe
 import qualified Data.HashMap.Strict as H
 import qualified Data.Text as T
 import           Data.Typeable
-import qualified GHC
+import           Control.Monad.IO.Class
+import           Control.Monad.State
+import           Control.Monad.Trans.Control ( control, liftBaseOp, liftBaseOp_)
+import           Exception
 import           GHC.Generics
-
+import qualified Language.Haskell.GhcMod.Monad as GM
 
 -- ---------------------------------------------------------------------
 
@@ -113,8 +177,8 @@ data ExtendedCommandDescriptor =
 
 -- | Subset type extracted from 'Plugins' to be sent to the IDE as
 -- a description of the available commands
-data IdePlugins = IdePlugins {
-  ipMap :: Map.Map PluginId [CommandDescriptor]
+data IdePlugins = IdePlugins
+  { ipMap :: Map.Map PluginId [CommandDescriptor]
   } deriving (Show,Eq,Generic)
 
 -- | Define what context will be accepted from the frontend for the specific
@@ -131,7 +195,9 @@ data AcceptedContext
 type Pos = (Int,Int)
 
 -- |It will simplify things to always work with an absolute file path
-type AbsFilePath = FilePath
+
+-- AZ:TODO: reinstate this
+-- type AbsFilePath = FilePath
 
 data CabalSection = CabalSection T.Text deriving (Show,Eq,Generic)
 
@@ -279,12 +345,6 @@ data IdeError = IdeError
   }
   deriving (Show,Read,Eq,Generic)
 
-class (Monad m) => HasIdeState m where
-  getPlugins :: m Plugins
-  -- | Set up an underlying GHC session for the specific targets. Should map
-  -- down to ghc-mod setTargets.
-  setTargets :: [FilePath] -> m ()
-
 -- | The 'CommandFunc' is called once the dispatcher has checked that it
 -- satisfies at least one of the `AcceptedContext` values for the command
 -- descriptor, and has all the required parameters. Where a command has only one
@@ -295,11 +355,11 @@ data CommandFunc resp = CmdSync (SyncCommandFunc resp)
                         -- ^ Note: does not forkIO, the command must decide when
                         -- to do this.
 
-type SyncCommandFunc resp = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m)
-                => [AcceptedContext] -> IdeRequest -> m (IdeResponse resp)
+type SyncCommandFunc resp
+                = [AcceptedContext] -> IdeRequest -> IdeM (IdeResponse resp)
 
-type AsyncCommandFunc resp = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m)
-                => (IdeResponse resp -> IO ()) -> [AcceptedContext] -> IdeRequest -> m ()
+type AsyncCommandFunc resp = (IdeResponse resp -> IO ())
+               -> [AcceptedContext] -> IdeRequest -> IdeM ()
 
 -- ---------------------------------------------------------------------
 -- ValidResponse instances
@@ -534,5 +594,59 @@ instance (ValidResponse a) => FromJSON (IdeResponse a) where
     let mo = IdeResponseOk <$> parseMaybe jsRead v
     return $ fromJust $ mf <|> me <|> mo
   parseJSON _ = empty
+
+-- ---------------------------------------------------------------------
+
+newtype IdeM a = IdeM { unIdeM :: GM.GhcModT (GM.GmOutT (StateT IdeState IO)) a}
+      deriving ( Functor
+               , Applicative
+               , Alternative
+               , Monad
+               , MonadPlus
+               , MonadIO
+               , GM.GmEnv
+               , GM.GmOut
+               , GM.MonadIO
+               , ExceptionMonad
+               )
+
+data IdeState = IdeState
+  {
+    idePlugins :: Plugins
+  } deriving (Show)
+
+class (Monad m) => HasIdeState m where
+  getPlugins :: m Plugins
+  -- | Set up an underlying GHC session for the specific targets. Should map
+  -- down to ghc-mod setTargets.
+  setTargets :: [FilePath] -> m ()
+
+-- ---------------------------------------------------------------------
+
+instance GM.MonadIO (StateT IdeState IO) where
+  liftIO = liftIO
+
+instance MonadState IdeState IdeM where
+  get   = IdeM (lift $ lift $ lift get)
+  put s = IdeM (lift $ lift $ lift (put s))
+
+instance GHC.GhcMonad IdeM where
+  getSession     = IdeM $ GM.unGmlT GM.gmlGetSession
+  setSession env = IdeM $ GM.unGmlT (GM.gmlSetSession env)
+
+instance GHC.HasDynFlags IdeM where
+  getDynFlags = GHC.hsc_dflags <$> GHC.getSession
+
+instance ExceptionMonad (StateT IdeState IO) where
+  gcatch act handler = control $ \run ->
+    run act `gcatch` (run . handler)
+
+  gmask = liftBaseOp gmask . liftRestore
+    where liftRestore f r = f $ liftBaseOp_ r
+
+-- AZ:TODO: These can become just MonadFunctions
+instance HasIdeState IdeM where
+  getPlugins = gets idePlugins
+  setTargets targets = IdeM $ GM.runGmlT (map Left targets) (return ())
 
 -- EOF
