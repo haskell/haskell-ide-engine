@@ -27,17 +27,15 @@ install:
   # Bring in GHC if not already present
   - ./travis_long stack +RTS -N2 -RTS setup
   # Build the dependencies only.
-  # - ./travis_long stack +RTS -N2 -RTS build --only-snapshot --pedantic
-  - ./travis_long stack build --only-snapshot --pedantic
+  # - ./travis_long stack build --only-snapshot --pedantic
+  - ./travis_long stack build --only-snapshot
 
 script:
-  # - ./travis_long stack build --pedantic
-  # - ./travis_long stack +RTS -N2 -RTS build
-  - ./travis_long stack +RTS -N1 -RTS build --pedantic
-  # - ./travis_long stack +RTS -N2 -RTS build --test --pedantic
-  - ./travis_long stack +RTS -N1 -RTS build --test --pedantic
-  # - ./travis_long stack build --test --pedantic
-  # - ./travis_long stack +RTS -N2 -RTS build --test
+  # Disabling pedantic due to warnings in current ghc-mod, which stack (erroneously) complains about
+  # - ./travis_long stack +RTS -N1 -RTS build --pedantic
+  - ./travis_long stack +RTS -N1 -RTS build 
+  # - ./travis_long stack +RTS -N1 -RTS build --test --pedantic
+  - ./travis_long stack +RTS -N1 -RTS build --test
   - ./travis_long stack exec emacs24 -- -q --batch -L elisp -l elisp/tests/hie-tests.el -f ert-run-tests-batch-and-exit
   # Re-enable the haddock tests when the warning in HaRe does not trigger a problem
   # - ./travis_long stack +RTS -N2 -RTS build --test --haddock
