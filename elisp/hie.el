@@ -25,8 +25,11 @@
 (defvar hie-process nil
   "Variable holding current Haskell IDE Engine process")
 
-(defvar hie-buffer nil
-  "Variable holding current Haskell IDE Engine buffer")
+(defvar hie-log-buffer nil
+  "Variable holding current Haskell IDE Engine log buffer")
+
+(defvar hie-process-buffer nil
+  "Variable holding current Haskell IDE Engine process buffer")
 
 (defvar hie-process-handle-message nil
   "A function to handle json object.")
@@ -41,36 +44,31 @@
 
 (defun hie-process-filter (process input)
   (let ((prev-buffer (current-buffer)))
-    (with-current-buffer hie-buffer
-
+    (with-current-buffer hie-process-buffer
       (let ((point (point)))
         (insert input)
         (save-excursion
           (goto-char point)
           (when (re-search-forward "\^b" nil t)
-            (let* ((end-of-current-json-object (match-beginning 0))
-                   (after-stx-marker (match-end 0))
+            (let* ((after-stx-marker (match-end 0))
+                   (input-text (buffer-substring-no-properties (point-min) (match-beginning 0)))
+                   (handle-error (lambda ()
+                                   (when hie-process-handle-invalid-input
+                                     (hie-log "<-parse-error %s" input-text)
+                                     (funcall hie-process-handle-invalid-input input-text))))
                    (json-array-type 'list))
               (goto-char (point-min))
               (condition-case nil
                   (let ((json (json-read)))
                     (when hie-process-handle-message
                       (with-current-buffer prev-buffer
+                        (hie-log "<- %s" input-text)
                         (funcall hie-process-handle-message json))))
                 ;; json-readtable-error is when there is an unexpected character in input
-                (json-readtable-error
-                 (when hie-process-handle-invalid-input
-                   (funcall hie-process-handle-invalid-input
-                            (buffer-substring-no-properties (point-min) end-of-current-json-object))))
+                (json-readtable-error (funcall handle-error))
                 ;; json-unknown-keyword when unrecognized keyword is parsed
-                (json-unknown-keyword
-                 (when hie-process-handle-invalid-input
-                   (funcall hie-process-handle-invalid-input
-                            (buffer-substring-no-properties (point-min) end-of-current-json-object))))
-                (end-of-file
-                 (when hie-process-handle-invalid-input
-                   (funcall hie-process-handle-invalid-input
-                            (buffer-substring-no-properties (point-min) end-of-current-json-object)))))
+                (json-unknown-keyword (funcall handle-error))
+                (end-of-file (funcall handle-error)))
               (delete-region (point-min) after-stx-marker))))))))
 
 (defun hie-start-process ()
@@ -81,12 +79,14 @@ running this function does nothing."
   (interactive)
 
   (unless (hie-process-live-p)
-    (setq hie-buffer
-          (get-buffer-create "*hie*"))
+    (setq hie-log-buffer
+          (get-buffer-create "*hie-log*"))
+    (setq hie-process-buffer
+          (get-buffer-create "*hie-process*"))
     (setq hie-process
           (apply #'start-process
            "Haskell IDE Engine"
-           hie-buffer
+           hie-process-buffer
            hie-command
            hie-command-args))
     (set-process-query-on-exit-flag hie-process nil)
@@ -104,8 +104,14 @@ running this function does nothing."
   (when (hie-process-live-p)
     (kill-process hie-process)
     (setq hie-process nil)
-    (kill-buffer hie-buffer)
-    (setq hie-buffer nil)))
+    (kill-buffer hie-process-buffer)
+    (setq hie-process-buffer nil)))
+
+(defun hie-log (&rest args)
+  (with-current-buffer hie-log-buffer
+    (goto-char (point-max))
+    (insert (apply #'format args)
+              "\n")))
 
 (defun hie-post-message (json)
   "Post a message to Haskell IDE Engine.
@@ -118,7 +124,7 @@ by `hie-handle-message'."
   ;; accepts missing fields and default to empty when possible.
   (let ((prepared-json (hie-prepare-json json)))
     (run-hook-with-args 'hie-post-message-hook prepared-json)
-
+    (hie-log "-> %s" prepared-json)
     (process-send-string hie-process prepared-json)
     ;; send \STX marker and flush buffers
     (process-send-string hie-process "\^b\n")))
