@@ -29,14 +29,14 @@ runIdeM s0 f = do
     let errorIO e = liftIO $ throwIO $ ErrorCall e
 
     -- FIXME: this is very racy do some fancy stuff with masking
-    () <- liftIO $ (\case Just tid -> errorIO $ "locked by " ++ show tid)
-        =<< tryReadMVar runLock
-    liftIO $ putMVar runLock =<< myThreadId
+    -- _ <- liftIO $ (\case Just tid -> errorIO $ "locked by " ++ show tid)
+    --     =<< tryReadMVar runLock
+    -- liftIO $ putMVar runLock =<< myThreadId
 
-    root <- either (error "could not get project root") (GM.dropWhileEnd isSpace) . fst
-              <$> GM.runGhcModT GM.defaultOptions GM.rootInfo
+    -- root <- either (error "could not get project root") (GM.dropWhileEnd isSpace) . fst
+    --           <$> GM.runGhcModT GM.defaultOptions GM.rootInfo
 
-    liftIO $ setCurrentDirectory root
+    -- liftIO $ setCurrentDirectory root
 
     ((eres, _),_s) <- flip runStateT s0 (GM.runGhcModT GM.defaultOptions f)
     case eres of
