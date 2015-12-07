@@ -1,50 +1,46 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Haskell.Ide.Engine.Monad where
 
+import           Control.Concurrent
+import           Control.Concurrent.MVar
 import           Control.Exception
 import           Control.Monad.IO.Class
-import           Control.Monad.State
-import           Data.IORef
+import           Control.Monad.State.Strict
+import           Data.Char
 import           Haskell.Ide.Engine.PluginDescriptor
 import qualified Language.Haskell.GhcMod.Monad as GM
 import qualified Language.Haskell.GhcMod.Types as GM
+import qualified Language.Haskell.GhcMod.Utils as GM
+import qualified Language.Haskell.GhcMod.Debug as GM
 import           System.Directory
-
+import           System.IO.Unsafe
 -- ---------------------------------------------------------------------
+
+runLock :: MVar ThreadId
+runLock = unsafePerformIO $ newEmptyMVar
+{-# NOINLINE runLock #-}
 
 runIdeM :: IdeState -> IdeM a -> IO a
-runIdeM initState f = do
-    initializedRef <- newIORef False
-    let inner' = GM.runGmOutT opts $ GM.runGhcModT opts $ do
-            liftIO $ writeIORef initializedRef True
-            (unIdeM f)
-        inner = runStateT inner' initState
-        opts = GM.defaultOptions
-    ((eres, _),_s) <- inner `catch` \ex -> case ex of
-        GM.GMEWrongWorkingDirectory projDir _ -> do
-            -- Only switch dirs if the exception occurs during
-            -- initialization. This way we don't mysteriously restart
-            -- execution if the exception happens later.
-            initialized <- readIORef initializedRef
-            if initialized
-                then throwIO ex
-                else do
-                    old <- getCurrentDirectory
-                    bracket (setCurrentDirectory projDir)
-                            (\_ -> setCurrentDirectory old)
-                            (\_ -> inner)
-        _ -> throwIO ex
+runIdeM s0 f = do
+    let errorIO e = liftIO $ throwIO $ ErrorCall e
+
+    -- FIXME: this is very racy do some fancy stuff with masking
+    () <- liftIO $ (\case Just tid -> errorIO $ "locked by " ++ show tid)
+        =<< tryReadMVar runLock
+    liftIO $ putMVar runLock =<< myThreadId
+
+    root <- either (error "could not get project root") (GM.dropWhileEnd isSpace) . fst
+              <$> GM.runGhcModT GM.defaultOptions GM.rootInfo
+
+    liftIO $ setCurrentDirectory root
+
+    ((eres, _),_s) <- flip runStateT s0 (GM.runGhcModT GM.defaultOptions f)
     case eres of
-        Left err -> throwIO err
+        Left err -> liftIO $ throwIO err
         Right res -> return res
-
--- ---------------------------------------------------------------------
-
-setTargets :: [Either FilePath GM.ModuleName] -> IdeM ()
-setTargets targets = IdeM $ GM.runGmlT targets (return ())
-
-
 
 -- EOF
