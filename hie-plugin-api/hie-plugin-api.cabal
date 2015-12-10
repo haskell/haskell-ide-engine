@@ -24,7 +24,8 @@ library
                      , directory
                      , fast-logger
                      , ghc
-                     , ghc-mod >= 5.4
+-- ghc-mod > 5.4.0.0 -- TODO before release
+                     , ghc-mod >= 5.4.0.0
                      , lifted-base
                      , monad-control
                      , monad-logger
