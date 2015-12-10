@@ -18,8 +18,6 @@ import qualified Language.Haskell.GhcMod.Monad as GM
 import           System.FilePath
 import           System.Directory
 import qualified Exception as G
-import           System.FilePath
-import           System.Directory
 
 -- ---------------------------------------------------------------------
 
@@ -165,7 +163,8 @@ runGhcModCommand fp cmd = do
             -- ghc-mod returns a new line at the end...
             root <- takeWhile (`notElem` ['\r','\n']) <$> GM.runGmOutT opts GM.rootInfo
             liftIO $ setCurrentDirectory root
-            (IdeResponseOk <$> cmd (T.unpack fp)) `G.gcatch` \(e :: GM.GhcModError) ->
+            let setRoot e = e{GM.gmCradle = (GM.gmCradle e){GM.cradleRootDir=root}}
+            (IdeResponseOk <$> GM.gmeLocal setRoot (cmd f)) `G.gcatch` \(e :: GM.GhcModError) ->
                return $ IdeResponseFail $ IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Nothing
           )
 

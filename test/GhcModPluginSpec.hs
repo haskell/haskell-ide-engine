@@ -3,8 +3,10 @@ module GhcModPluginSpec where
 
 import           Control.Concurrent.STM.TChan
 import           Control.Monad.STM
+import           Control.Exception
 import           Data.Aeson
 import qualified Data.HashMap.Strict as H
+import qualified Data.Text as T
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadFunctions
@@ -12,7 +14,7 @@ import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.GhcModPlugin
-
+import           System.Directory
 import qualified Data.Map as Map
 
 import           Test.Hspec
@@ -93,10 +95,25 @@ ghcmodSpec = do
       let req = IdeRequest "type" (Map.fromList [("file", ParamFileP "./test/testdata/HaReRename.hs")
                                                  ,("start_pos", ParamPosP (5,9))])
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["type_info".=toJSON 
+      r `shouldBe` Just (IdeResponseOk (H.fromList ["type_info".=toJSON
                         [TypeResult (5,9) (5,10) "Int"
                         ,TypeResult (5,9) (5,14) "Int"
                         ,TypeResult (5,1) (5,14) "Int -> Int"]
                         ]))
 
+    it "runs the type command with an absolute path from another folder, correct params" $ do
+      fp <- makeAbsolute "./test/testdata/HaReRename.hs"
+      cd <- getCurrentDirectory
+      cd2 <- getHomeDirectory
+      bracket (setCurrentDirectory cd2)
+              (\_->setCurrentDirectory cd)
+              $ \_-> do
+        let req = IdeRequest "type" (Map.fromList [("file", ParamFileP $ T.pack fp)
+                                                   ,("start_pos", ParamPosP (5,9))])
+        r <- dispatchRequest req
+        r `shouldBe` Just (IdeResponseOk (H.fromList ["type_info".=toJSON
+                          [TypeResult (5,9) (5,10) "Int"
+                          ,TypeResult (5,9) (5,14) "Int"
+                          ,TypeResult (5,1) (5,14) "Int -> Int"]
+                          ]))
     -- ---------------------------------
