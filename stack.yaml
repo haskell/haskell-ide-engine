@@ -7,6 +7,12 @@ packages:
 - hie-plugin-api
 - hie-ghc-mod
 - hie-hare
+# - ../ghci-ng
+- location:
+    git: https://github.com/kazu-yamamoto/ghc-mod.git
+    commit: b9bd4ebf77b22d2d9061d647d7799ddcc7c51228
+    # commit: bff86be69f556f80a8dcd9dd42774ab77cb00eba
+  extra-dep: true
 extra-deps:
  - HaRe-0.8.2.1
  - rosezipper-0.2

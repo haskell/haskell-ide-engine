@@ -83,14 +83,10 @@ module Haskell.Ide.Engine.PluginDescriptor
   , IdePlugins(..)
 
   -- * The IDE monad
-  , IdeM(..)
+  , IdeM
   , IdeState(..)
-  , HasIdeState(..)
+  , getPlugins
   ) where
-
-import qualified DynFlags      as GHC
-import qualified GHC           as GHC
-import qualified HscTypes      as GHC
 
 import           Control.Applicative
 import           Data.Aeson
@@ -100,10 +96,7 @@ import           Data.Maybe
 import qualified Data.HashMap.Strict as H
 import qualified Data.Text as T
 import           Data.Typeable
-import           Control.Monad.IO.Class
-import           Control.Monad.State
-import           Control.Monad.Trans.Control ( control, liftBaseOp, liftBaseOp_)
-import           Exception
+import           Control.Monad.State.Strict
 import           GHC.Generics
 import qualified Language.Haskell.GhcMod.Monad as GM
 
@@ -131,7 +124,7 @@ instance Show PluginDescriptor where
 -- | Ideally a Command is defined in such a way that its CommandDescriptor
 -- can be exposed via the native CLI for the tool being exposed as well.
 -- Perhaps use Options.Applicative for this in some way.
-data Command = forall a .(ValidResponse a) => Command
+data Command = forall a. (ValidResponse a) => Command
   { cmdDesc :: !CommandDescriptor
   , cmdFunc :: !(CommandFunc a)
   }
@@ -140,7 +133,7 @@ instance Show Command where
   show (Command desc _func) = "(Command " ++ show desc ++ ")"
 
 -- | Build a command, ensuring the command response type name and the command function match
-buildCommand :: forall a .(ValidResponse a)
+buildCommand :: forall a. (ValidResponse a)
   => CommandFunc a
   -> CommandName
   -> T.Text
@@ -597,56 +590,15 @@ instance (ValidResponse a) => FromJSON (IdeResponse a) where
 
 -- ---------------------------------------------------------------------
 
-newtype IdeM a = IdeM { unIdeM :: GM.GhcModT (GM.GmOutT (StateT IdeState IO)) a}
-      deriving ( Functor
-               , Applicative
-               , Alternative
-               , Monad
-               , MonadPlus
-               , MonadIO
-               , GM.GmEnv
-               , GM.GmOut
-               , GM.MonadIO
-               , ExceptionMonad
-               )
+type IdeM = IdeT IO
+type IdeT m = GM.GhcModT (StateT IdeState m)
 
 data IdeState = IdeState
   {
     idePlugins :: Plugins
   } deriving (Show)
 
-class (Monad m) => HasIdeState m where
-  getPlugins :: m Plugins
-  -- | Set up an underlying GHC session for the specific targets. Should map
-  -- down to ghc-mod setTargets.
-  setTargets :: [FilePath] -> m ()
-
--- ---------------------------------------------------------------------
-
-instance GM.MonadIO (StateT IdeState IO) where
-  liftIO = liftIO
-
-instance MonadState IdeState IdeM where
-  get   = IdeM (lift $ lift $ lift get)
-  put s = IdeM (lift $ lift $ lift (put s))
-
-instance GHC.GhcMonad IdeM where
-  getSession     = IdeM $ GM.unGmlT GM.gmlGetSession
-  setSession env = IdeM $ GM.unGmlT (GM.gmlSetSession env)
-
-instance GHC.HasDynFlags IdeM where
-  getDynFlags = GHC.hsc_dflags <$> GHC.getSession
-
-instance ExceptionMonad (StateT IdeState IO) where
-  gcatch act handler = control $ \run ->
-    run act `gcatch` (run . handler)
-
-  gmask = liftBaseOp gmask . liftRestore
-    where liftRestore f r = f $ liftBaseOp_ r
-
--- AZ:TODO: These can become just MonadFunctions
-instance HasIdeState IdeM where
-  getPlugins = gets idePlugins
-  setTargets targets = IdeM $ GM.runGmlT (map Left targets) (return ())
+getPlugins :: IdeM Plugins
+getPlugins = lift $ lift $ idePlugins <$> get
 
 -- EOF

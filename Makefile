@@ -13,7 +13,9 @@ test-emacs:
 
 .PHONY: test-haskell
 test-haskell:
-	stack build --test --pedantic
+	# stack build --test --pedantic
+	# stack complains about deprecations in ghc-mod as an extra dep
+	stack build --test
 
 .PHONY: ghci-test
 ghci-test:

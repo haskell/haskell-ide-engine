@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Haskell.Ide.GhcModPlugin where
 
 import           Control.Exception
@@ -14,8 +15,10 @@ import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
 import qualified Language.Haskell.GhcMod as GM
 import qualified Language.Haskell.GhcMod.Monad as GM
+import qualified Language.Haskell.GhcMod.Types as GM
 import           System.FilePath
 import           System.Directory
+import qualified Exception as G
 
 -- ---------------------------------------------------------------------
 
@@ -74,7 +77,7 @@ checkCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
-      fmap T.pack <$> liftIO (runGhcModCommand fileName (\f->GM.checkSyntax [f]))
+      fmap T.pack <$> runGhcModCommand fileName (\f->GM.checkSyntax [f])
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.checkCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
@@ -102,7 +105,7 @@ lintCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
-      fmap T.pack <$> liftIO (runGhcModCommand fileName GM.lint)
+      fmap T.pack <$> runGhcModCommand fileName (GM.lint GM.defaultLintOpts)
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.lintCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
@@ -113,7 +116,7 @@ infoCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdText "expr" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamText expr :& RNil) -> do
-      fmap T.pack <$> liftIO (runGhcModCommand fileName (flip GM.info (GM.Expression (T.unpack expr))))
+      fmap T.pack <$> runGhcModCommand fileName (flip GM.info (GM.Expression (T.unpack expr)))
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.infoCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
@@ -124,7 +127,7 @@ typeCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos (r,c) :& RNil) -> do
-      fmap (toTypeInfo . T.lines . T.pack) <$> liftIO (runGhcModCommand fileName (\f->GM.types f r c))
+      fmap (toTypeInfo . T.lines . T.pack) <$> runGhcModCommand fileName (\f->GM.types f r c)
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.typesCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
@@ -148,48 +151,23 @@ readTypeResult t = do
 
 -- TODO: Need to thread the session through as in the commented out code below.
 runGhcModCommand :: T.Text -- ^ The file name we'll operate on
-  -> (FilePath -> GM.GmT (GM.GmOutT (GM.GmOutT IO)) a) -> IO (IdeResponse a)
+                 -> (FilePath -> IdeM a)
+                 -> IdeM (IdeResponse a)
 runGhcModCommand fp cmd = do
   let (dir,f) = fileInfo fp
   let opts = GM.defaultOptions
-  old <- getCurrentDirectory
-  bracket (setCurrentDirectory dir)
-          (\_ -> setCurrentDirectory old)
+  old <- liftIO getCurrentDirectory
+  G.gbracket (liftIO $ setCurrentDirectory dir)
+          (\_ -> liftIO $ setCurrentDirectory old)
           (\_ -> do
             -- we need to get the root of our folder
             -- ghc-mod returns a new line at the end...
             root <- takeWhile (`notElem` ['\r','\n']) <$> GM.runGmOutT opts GM.rootInfo
-            setCurrentDirectory root
-        -- s <- GHC.getSession
-            (r,_l) <- GM.runGmOutT opts $ GM.runGhcModT opts $ do
-            -- (r,_l) <- GM.runGhcModT opts $ do
-                -- GHC.setSession s
-                -- s <- GM.getSession
-                -- GM.setSession s
-                -- setTargets [fileName]
-                cr <- cmd f
-                -- s' <- GHC.getSession
-                let s' = undefined
-                return (cr,s')
-            -- (Either GM.GhcModError String, GM.GhcModLog)
-            case r of
-              Left e -> return $ IdeResponseError (IdeError PluginError (T.pack $ "doCheck:got " ++ show e) Nothing)
-              Right (checkResult,_s3) -> do
-                -- GHC.setSession s3
-                return $ (IdeResponseOk checkResult)
+            liftIO $ setCurrentDirectory root
+            let setRoot e = e{GM.gmCradle = (GM.gmCradle e){GM.cradleRootDir=root}}
+            (IdeResponseOk <$> GM.gmeLocal setRoot (cmd f)) `G.gcatch` \(e :: GM.GhcModError) ->
+               return $ IdeResponseFail $ IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Nothing
           )
-
-{-
-dispatcher = runGmlT $ forever $ do
-    s <- getSession
-    (r, s') <- runGhcModT $ do
-      setSession s
-      r <- checkSyntax
-      s <- getSession
-      return (r,s)
-    setSession s'
-
--}
 
 -- ---------------------------------------------------------------------
 
