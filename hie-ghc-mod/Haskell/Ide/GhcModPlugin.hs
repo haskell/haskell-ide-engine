@@ -15,6 +15,7 @@ import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
 import qualified Language.Haskell.GhcMod as GM
 import qualified Language.Haskell.GhcMod.Monad as GM
+import qualified Language.Haskell.GhcMod.Types as GM
 import           System.FilePath
 import           System.Directory
 import qualified Exception as G
@@ -104,7 +105,7 @@ lintCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
-      fmap T.pack <$> runGhcModCommand fileName GM.lint
+      fmap T.pack <$> runGhcModCommand fileName (GM.lint GM.defaultLintOpts)
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.lintCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
