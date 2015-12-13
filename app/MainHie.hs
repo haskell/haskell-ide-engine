@@ -34,6 +34,7 @@ import           System.Environment
 -- ---------------------------------------------------------------------
 -- plugins
 
+import           Haskell.Ide.ApplyRefactPlugin
 import           Haskell.Ide.Engine.BasePlugin
 import           Haskell.Ide.ExamplePlugin2
 import           Haskell.Ide.GhcModPlugin
@@ -47,11 +48,12 @@ plugins = Map.fromList
   [
     -- Note: statically including known plugins. In future this map could be set
     -- up via a config file of some kind.
-    ("eg2",    example2Descriptor)
-  , ("ghcmod", ghcmodDescriptor)
-  , ("hare",   hareDescriptor)
+    ("applyrefact", applyRefactDescriptor)
+  , ("eg2",         example2Descriptor)
+  , ("ghcmod",      ghcmodDescriptor)
+  , ("hare",        hareDescriptor)
     -- The base plugin, able to answer questions about the IDE Engine environment.
-  , ("base",   baseDescriptor)
+  , ("base",        baseDescriptor)
   ]
 
 -- ---------------------------------------------------------------------
