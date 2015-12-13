@@ -92,7 +92,7 @@ runTestServer cin port = do
 jsonHttpListener :: TChan ChannelRequest -> Port -> IO ()
 jsonHttpListener cin port = do
   print "jsonHttpListener"
-  BL8.writeFile "/Users/tobiasgw/src/haskell/swagger.json" (encode swagDoc)
+  BL8.writeFile "swagger.json" (encode swagDoc)
   runTestServer cin port
 
 
