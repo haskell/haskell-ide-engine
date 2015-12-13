@@ -1,9 +1,10 @@
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PolyKinds         #-}
-{-# LANGUAGE TypeFamilies      #-}
-{-# LANGUAGE TypeOperators     #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE PolyKinds                  #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TypeOperators              #-}
 
 module Haskell.Ide.Engine.Transport.JsonHttp
   (
@@ -14,9 +15,9 @@ module Haskell.Ide.Engine.Transport.JsonHttp
 import           Control.Concurrent.STM.TChan
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
+import           Control.Lens
 import           Data.Aeson
 import qualified Data.Map as Map
-import           Data.Maybe
 import           Data.Proxy
 import           Data.Text
 import           GHC.Generics
@@ -25,6 +26,9 @@ import           Haskell.Ide.Engine.Types
 import           Network.Wai
 import           Network.Wai.Handler.Warp
 import           Servant
+import           Servant.Swagger
+import qualified Data.ByteString.Lazy.Char8 as BL8
+
 
 -- | A greet message data type
 newtype Greet = Greet { _msg :: Text }
@@ -36,8 +40,8 @@ instance ToJSON Greet
 -- API specification
 type HieApi =
   -- curl -v http://localhost:8081/req/base -X POST -H Content-Type:application/json --data-binary '{"ideParams":{},"ideCommand":"version","ideContext":{"ctxEndPos":null,"ctxCabal":null,"ctxStartPos":null,"ctxFile":null}}'
-       "req" :> Capture "plugin" Text
-             :> QueryParam "rid" Int -- optional request id
+       "req" :> Capture "plugin" PluginIdParam
+             :> QueryParam "rid" RequestIdParam -- optional request id
              :> ReqBody '[JSON] IdeRequest
              :> Post '[JSON] (IdeResponse Object)
 
@@ -45,6 +49,8 @@ type HieApi =
   -- GET /eg returns
   --  {"ideParams":{},"ideCommand":"version","ideContext":{"ctxEndPos":null,"ctxCabal":null,"ctxStartPos":null,"ctxFile":null}}
 
+newtype PluginIdParam = PluginIdParam PluginId deriving (FromText)
+newtype RequestIdParam = RequestIdParam {unRequestIdParam:: RequestId} deriving (FromText)
 
 testApi :: Proxy HieApi
 testApi = Proxy
@@ -60,8 +66,8 @@ server cin cout = hieH
               :<|> egH
 
   where
-        hieH plugin mrid reqVal = do
-          let rid = fromMaybe 1 mrid
+        hieH (PluginIdParam plugin) mrid reqVal = do
+          let rid = maybe 1 unRequestIdParam mrid
           liftIO $ atomically $ writeTChan cin (CReq plugin rid reqVal cout)
           rsp <- liftIO $ atomically $ readTChan cout
           return (coutResp rsp)
@@ -84,4 +90,50 @@ runTestServer cin port = do
 
 -- Put this all to work!
 jsonHttpListener :: TChan ChannelRequest -> Port -> IO ()
-jsonHttpListener cin port = runTestServer cin port
+jsonHttpListener cin port = do
+  print "jsonHttpListener"
+  BL8.writeFile "/Users/tobiasgw/src/haskell/swagger.json" (encode swagDoc)
+  runTestServer cin port
+
+
+-- Swagger Doc
+swagDoc :: SwaggerAPI
+swagDoc = swagger (Proxy :: Proxy HieApi) mempty (BasePath "/") info schemes Nothing []
+  where
+    schemes = [ Http ]
+    license' = APILicense "MIT" (Just "http://mit.com")
+    info =
+      Info
+       (APITitle "Todo API") (APIVersion "1.0")
+       (APIDescription "This is a an API that tests servant-swagger support for a Todo")
+       (Just license')
+       Nothing
+       Nothing
+
+instance ToSwaggerParamType PluginIdParam where
+  toSwaggerParamType = const StringSwagParam
+
+instance ToSwaggerDescription PluginIdParam where
+  toSwaggerDescription = const "Plugin name"
+
+instance ToSwaggerDescription RequestIdParam where
+  toSwaggerDescription = const "Request Id"
+
+instance ToSwaggerParamType RequestIdParam where
+  toSwaggerParamType = const NumberSwagParam
+
+instance ToSwaggerModel (IdeResponse resp) where
+  toSwagModel Proxy =
+    emptyModel
+      & swagModelName .~ ModelName "IdeResponse"
+      & swagProperties .~ []
+      & swagDescription ?~ Description "A response from the IDE backend"
+      & swagModelRequired .~ ["description"]
+
+instance ToSwaggerModel IdeRequest where
+ toSwagModel Proxy =
+   emptyModel
+     & swagModelName .~ ModelName "IdeRequest"
+     & swagProperties .~ []
+     & swagDescription ?~ Description "A request to the IDE backend"
+     & swagModelRequired .~ ["description"]

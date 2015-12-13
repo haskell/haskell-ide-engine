@@ -50,7 +50,9 @@ library
                      , pipes-attoparsec >= 0.5
                      , pipes-bytestring
                      , pipes-parse
+                     , servant
                      , servant-server
+                     , servant-swagger
                      , stm
                      , text
                      , time
