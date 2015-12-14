@@ -30,8 +30,8 @@ applyRefactDescriptor = PluginDescriptor
         buildCommand applyOneCmd "applyOne" "Apply a single hint"
                     [".hs"] [CtxPoint] []
 
-      -- , buildCommand applyAllCmd "applyAll" "Apply all hints to the file"
-      --               [".hs"] [CtxFile] []
+      , buildCommand applyAllCmd "applyAll" "Apply all hints to the file"
+                    [".hs"] [CtxFile] []
 
       ]
   , pdExposedServices = []
@@ -45,39 +45,55 @@ applyOneCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& RNil) -> do
-      res <- liftIO $ catchException $ applyHint (T.unpack fileName) pos
+      res <- liftIO $ applyHint (T.unpack fileName) (Just pos)
       case res of
         Left err -> return $ IdeResponseFail (IdeError PluginError
                       (T.pack $ "applyOne: " ++ show err) Nothing)
-        Right fs -> do
-          -- r <- liftIO $ makeRefactorResult [fs]
-          return (IdeResponseOk fs)
+        Right fs -> return (IdeResponseOk fs)
     Right _ -> return $ IdeResponseError (IdeError InternalError
-      "ApplyRefactPlugin.demoteCmd: ghc’s exhaustiveness checker is broken" Nothing)
+      "ApplyRefactPlugin.applyOneCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
 
 -- ---------------------------------------------------------------------
 
-applyHint :: FilePath -> Pos -> IO (Either t HieDiff)
-applyHint file pos = do
+applyAllCmd :: CommandFunc HieDiff
+applyAllCmd = CmdSync $ \_ctxs req -> do
+  case getParams (IdFile "file" :& RNil) req of
+    Left err -> return err
+    Right (ParamFile fileName :& RNil) -> do
+      res <- liftIO $ applyHint (T.unpack fileName) Nothing
+      case res of
+        Left err -> return $ IdeResponseFail (IdeError PluginError
+                      (T.pack $ "applyOne: " ++ show err) Nothing)
+        Right fs -> return (IdeResponseOk fs)
+    Right _ -> return $ IdeResponseError (IdeError InternalError
+      "ApplyRefactPlugin.applyOneCmd: ghc’s exhaustiveness checker is broken" Nothing)
+
+
+-- ---------------------------------------------------------------------
+
+applyHint :: FilePath -> Maybe Pos -> IO (Either String HieDiff)
+applyHint file mpos = do
   withTempFile $ \f -> do
-    absFile <- makeAbsolute file
+    -- absFile <- makeAbsolute file
     -- hlint /tmp/Foo.hs --refactor --refactor-options="-o /tmp/Bar.hs --pos 2,8"
 
-    -- let opts = "-o " ++ f
-    let opts = "-o /tmp/BarOne.hs"
-    -- let hlintOpts = [absFile, "--refactor", "--refactor-options=" ++ show opts ]
-    let hlintOpts = ["/tmp/Foo.hs", "--refactor", "--refactor-options=" ++ opts ]
-    -- let hlintOpts = ["/tmp/Foo.hs", "--refactor" ]
+    let
+      optsf = "-o " ++ f
+      opts = case mpos of
+        Nothing -> optsf
+        Just (r,c) -> optsf ++ " --pos " ++ show r ++ "," ++ show c
+    let hlintOpts = [file, "--refactor", "--refactor-options=" ++ opts ]
     logm $ "applyHint=" ++ show hlintOpts
     res <- catchException $ hlint hlintOpts
     logm $ "applyHint:res=" ++ show res
     case res of
-      Left ExitSuccess -> do
+      Left "ExitSuccess" -> do
         diff <- makeDiffResult file f
         logm $ "applyHint:diff=" ++ show diff
         return $ Right diff
-      _ -> return res
+      Left x  -> return $ Left (show x)
+      Right x -> return $ Left (show x)
 
 -- ---------------------------------------------------------------------
 
@@ -86,7 +102,8 @@ makeDiffResult orig new = do
   (HieDiff f s d) <- diffFiles orig new
   f' <- liftIO $ makeRelativeToCurrentDirectory f
   s' <- liftIO $ makeRelativeToCurrentDirectory s
-  return (HieDiff f' s' d)
+  -- return (HieDiff f' s' d)
+  return (HieDiff f' "changed" d)
 
 -- ---------------------------------------------------------------------
 

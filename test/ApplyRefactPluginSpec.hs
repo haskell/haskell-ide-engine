@@ -51,21 +51,37 @@ applyRefactSpec = do
 
     -- ---------------------------------
 
-    it "renames" $ do
+    it "applies one hint only" $ do
 
       let req = IdeRequest "applyOne" (Map.fromList [("file",ParamValP $ ParamFile "./test/testdata/ApplyRefact.hs")
                                                     ,("start_pos",ParamValP $ ParamPos (2,8))
                                                     ])
       r <- dispatchRequest req
       r `shouldBe`
-        Just (IdeResponseOk (jsWrite (RefactorResult [HieDiff
-                                                           "test/testdata/HaReRename.hs"
-                                                           "test/testdata/HaReRename.refactored.hs"
-                                                           [ (First (4,"foo :: Int -> Int"))
-                                                           , (First (5,"foo x = x + 3"))
-                                                           , (Second (4,"foolong :: Int -> Int"))
-                                                           , (Second (5, "foolong x = x + 3"))
-                                                           ]
-                                                           ])))
+        Just (IdeResponseOk (jsWrite (HieDiff
+                                      { dFirst = "./test/testdata/ApplyRefact.hs"
+                                      , dSecond = "changed"
+                                      , dDiff =
+                                        [First (2,"main = (putStrLn \"hello\")")
+                                        ,Second (2,"main = putStrLn \"hello\"")]}
+                                     )))
+
+    -- ---------------------------------
+
+    it "applies all hints" $ do
+
+      let req = IdeRequest "applyAll" (Map.fromList [("file",ParamValP $ ParamFile "./test/testdata/ApplyRefact.hs")
+                                                    ])
+      r <- dispatchRequest req
+      r `shouldBe`
+        Just (IdeResponseOk (jsWrite (HieDiff
+                                      { dFirst = "./test/testdata/ApplyRefact.hs"
+                                      , dSecond = "changed"
+                                      , dDiff =
+                                        [First (2,"main = (putStrLn \"hello\")")
+                                        ,Second (2,"main = putStrLn \"hello\"")
+                                        ,First (4,"foo x = (x + 1)")
+                                        ,Second (4,"foo x = x + 1")]}
+                                     )))
 
     -- ---------------------------------
