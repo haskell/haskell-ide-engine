@@ -6,12 +6,14 @@ import           Control.Exception
 import           Control.Monad.IO.Class
 import qualified Data.Text as T
 import           Data.Vinyl
+import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
 import qualified Language.Haskell.GhcMod as GM (defaultOptions)
 import           Language.Haskell.HLint
 import           System.Directory
+import           System.Exit
 import           System.FilePath.Posix
 import           System.IO
 import           System.IO.Extra
@@ -53,17 +55,29 @@ applyOneCmd = CmdSync $ \_ctxs req -> do
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "ApplyRefactPlugin.demoteCmd: ghc’s exhaustiveness checker is broken" Nothing)
 
--- demote :: RefactSettings -> GM.Options -> FilePath -> SimpPos -> IO [FilePath]
 
 -- ---------------------------------------------------------------------
 
-applyHint :: FilePath -> Pos -> IO HieDiff
+applyHint :: FilePath -> Pos -> IO (Either t HieDiff)
 applyHint file pos = do
   withTempFile $ \f -> do
-    let opts = "--output " ++ f
-    hlint ["--refactor", "-", "--refactor-options=" ++ show opts, file]
-    diff <- makeDiffResult file f
-    return diff
+    absFile <- makeAbsolute file
+    -- hlint /tmp/Foo.hs --refactor --refactor-options="-o /tmp/Bar.hs --pos 2,8"
+
+    -- let opts = "-o " ++ f
+    let opts = "-o /tmp/BarOne.hs"
+    -- let hlintOpts = [absFile, "--refactor", "--refactor-options=" ++ show opts ]
+    let hlintOpts = ["/tmp/Foo.hs", "--refactor", "--refactor-options=" ++ opts ]
+    -- let hlintOpts = ["/tmp/Foo.hs", "--refactor" ]
+    logm $ "applyHint=" ++ show hlintOpts
+    res <- catchException $ hlint hlintOpts
+    logm $ "applyHint:res=" ++ show res
+    case res of
+      Left ExitSuccess -> do
+        diff <- makeDiffResult file f
+        logm $ "applyHint:diff=" ++ show diff
+        return $ Right diff
+      _ -> return res
 
 -- ---------------------------------------------------------------------
 
