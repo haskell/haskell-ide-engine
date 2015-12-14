@@ -68,6 +68,7 @@ executable hie
   build-depends:       base
                      , Cabal >= 1.22
                      , aeson
+                     , apply-refact
                      , containers
                      , directory
                      , fast-logger

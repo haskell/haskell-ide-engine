@@ -15,6 +15,7 @@ library
   exposed-modules:     Haskell.Ide.ApplyRefactPlugin
   build-depends:       base >= 4.7 && < 5
                      , aeson
+                     , apply-refact
                      , containers
                      , directory
                      , extra
