@@ -68,6 +68,7 @@ executable hie
   build-depends:       base
                      , Cabal >= 1.22
                      , aeson
+                     , apply-refact
                      , containers
                      , directory
                      , fast-logger
@@ -75,6 +76,7 @@ executable hie
                      , ghc-mod
                      , gitrev >= 1.1
                      , haskell-ide-engine
+                     , hie-apply-refact
                      , hie-example-plugin2
                      , hie-ghc-mod
                      , hie-hare
@@ -94,6 +96,7 @@ test-suite haskell-ide-test
   hs-source-dirs:      test
   main-is:             Spec.hs
   other-modules:
+                       ApplyRefactPluginSpec
                        DispatcherSpec
                        GhcModPluginSpec
                        HaRePluginSpec
@@ -108,6 +111,7 @@ test-suite haskell-ide-test
                      , directory
                      , fast-logger
                      , haskell-ide-engine
+                     , hie-apply-refact
                      , hie-ghc-mod
                      , hie-hare
                      , hie-plugin-api
