@@ -105,7 +105,7 @@ contextMapping CtxFile        = [fileParam]
 contextMapping CtxPoint       = [fileParam,startPosParam]
 contextMapping CtxRegion      = [fileParam,startPosParam,endPosParam]
 contextMapping CtxCabalTarget = [cabalParam]
-contextMapping CtxProject     = []
+contextMapping CtxProject     = [fileParam]
 
 fileParam :: ParamDescription
 fileParam = RP "file" "a file name" PtFile
@@ -119,5 +119,3 @@ endPosParam = RP "end_pos" "end line and col" PtPos
 cabalParam :: ParamDescription
 cabalParam = RP "cabal" "cabal target" PtText
 ```
-
-

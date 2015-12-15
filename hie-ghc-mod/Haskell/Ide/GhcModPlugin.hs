@@ -8,6 +8,7 @@ import           Control.Exception
 import           Data.Either
 import           Data.Vinyl
 import           Control.Monad.IO.Class
+import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Text.Read as T
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -16,6 +17,7 @@ import           Haskell.Ide.Engine.SemanticTypes
 import qualified Language.Haskell.GhcMod as GM
 import qualified Language.Haskell.GhcMod.Monad as GM
 import qualified Language.Haskell.GhcMod.Types as GM
+import qualified Language.Haskell.GhcMod.Utils as GM
 import           System.FilePath
 import           System.Directory
 import qualified Exception as G
@@ -83,20 +85,26 @@ checkCmd = CmdSync $ \_ctxs req -> do
 
 -- ---------------------------------------------------------------------
 
--- TODO: Must define a directory to base the search from, to be able to resolve
--- the project root.
-findCmd :: CommandFunc T.Text
+findCmd :: CommandFunc ModuleList
 findCmd = CmdSync $ \_ctxs req -> do
-  case getParams (IdText "symbol" :& RNil) req of
+  case getParams (IdFile "dir" :& IdText "symbol" :& RNil) req of
     Left err -> return err
-    Right (ParamText _symbol :& RNil) -> do
-      -- liftIO $ runGhcModCommand (GM.findSymbol (T.unpack symbol))
-      -- dir <- liftIO getCurrentDirectory
-      -- return (IdeResponseOk (String $ T.pack dir))
-      -- return (IdeResponseOk (String $ _symbol))
-      return (IdeResponseOk "Placholder:Need to debug this in ghc-mod, returns 'does not exist (No such file or directory)'")
+    Right (ParamFile dirName :& ParamText symbol :& RNil) -> do
+      runGhcModCommand (T.pack (T.unpack dirName </> "dummy")) (\_->
+          do
+            tmpdir <- GM.cradleTempDir <$> GM.cradle
+            sf <- takeWhile (`notElem` ['\r','\n']) <$> GM.dumpSymbol tmpdir
+            db <- M.fromAscList . map conv . lines <$> liftIO (readFile sf)
+            let f = M.findWithDefault ([]::[GM.ModuleString]) symbol db
+            return $ ModuleList $ map (T.pack . GM.getModuleString) f
+          )
+
+      -- return (IdeResponseOk "Placholder:Need to debug this in ghc-mod, returns 'does not exist (No such file or directory)'")
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.findCmd: ghc’s exhaustiveness checker is broken" Nothing)
+  where
+    conv :: String -> (T.Text, [GM.ModuleString])
+    conv = read
 
 -- ---------------------------------------------------------------------
 
@@ -164,7 +172,8 @@ runGhcModCommand fp cmd = do
             -- ghc-mod returns a new line at the end...
             root <- takeWhile (`notElem` ['\r','\n']) <$> GM.runGmOutT opts GM.rootInfo
             liftIO $ setCurrentDirectory root
-            let setRoot e = e{GM.gmCradle = (GM.gmCradle e){GM.cradleRootDir=root}}
+            tmp <- liftIO $ GM.newTempDir root
+            let setRoot e = e{GM.gmCradle = (GM.gmCradle e){GM.cradleRootDir=root,GM.cradleTempDir=tmp}}
             (IdeResponseOk <$> GM.gmeLocal setRoot (cmd f)) `G.gcatch` \(e :: GM.GhcModError) ->
                return $ IdeResponseFail $ IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Nothing
           )
