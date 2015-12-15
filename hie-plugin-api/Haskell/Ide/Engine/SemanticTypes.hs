@@ -75,6 +75,10 @@ instance ValidResponse RefactorResult where
   jsWrite (RefactorResult t) = H.fromList ["refactor" .= t]
   jsRead v = RefactorResult <$> v .: "refactor"
 
+instance ValidResponse HieDiff where
+  jsWrite d = H.fromList ["diff" .= d]
+  jsRead v =  v .: "diff"
+
 instance ToJSON HieDiff where
   toJSON (HieDiff f s d) =
       object [ "first" .= toJSON f
