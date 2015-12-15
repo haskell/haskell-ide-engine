@@ -85,6 +85,7 @@ checkCmd = CmdSync $ \_ctxs req -> do
 
 -- ---------------------------------------------------------------------
 
+-- | Runs the find command from the given directory, for the given symbol
 findCmd :: CommandFunc ModuleList
 findCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "dir" :& IdText "symbol" :& RNil) req of
@@ -92,6 +93,7 @@ findCmd = CmdSync $ \_ctxs req -> do
     Right (ParamFile dirName :& ParamText symbol :& RNil) -> do
       runGhcModCommand (T.pack (T.unpack dirName </> "dummy")) (\_->
           do
+            -- adapted from ghc-mod find command, which launches the executable again
             tmpdir <- GM.cradleTempDir <$> GM.cradle
             sf <- takeWhile (`notElem` ['\r','\n']) <$> GM.dumpSymbol tmpdir
             db <- M.fromAscList . map conv . lines <$> liftIO (readFile sf)

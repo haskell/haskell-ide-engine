@@ -234,11 +234,12 @@ contextMapping CtxFile        = [fileParam]
 contextMapping CtxPoint       = [fileParam,startPosParam]
 contextMapping CtxRegion      = [fileParam,startPosParam,endPosParam]
 contextMapping CtxCabalTarget = [cabalParam]
-contextMapping CtxProject     = [dirParam]
+contextMapping CtxProject     = [dirParam] -- the root directory of the project
 
 fileParam :: ParamDescription
 fileParam = RP "file" "a file name" PtFile
 
+-- | A parameter for a directory
 dirParam :: ParamDescription
 dirParam = RP "dir" "a directory name" PtFile
 
