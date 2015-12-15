@@ -5,6 +5,7 @@ module Haskell.Ide.ApplyRefactPlugin where
 import           Control.Exception
 import           Control.Monad.IO.Class
 import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import           Data.Vinyl
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -12,6 +13,10 @@ import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
 import qualified Language.Haskell.GhcMod as GM (defaultOptions)
 import           Language.Haskell.HLint
+import           Language.Haskell.HLint3
+import           Refact.Apply
+import qualified Refact.Types as R
+import           Refact.Types hiding (SrcSpan)
 import           System.Directory
 import           System.Exit
 import           System.FilePath.Posix
@@ -46,6 +51,7 @@ applyOneCmd = CmdSync $ \_ctxs req -> do
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& RNil) -> do
       res <- liftIO $ applyHint (T.unpack fileName) (Just pos)
+      logm $ "applyOneCmd:res=" ++ show res
       case res of
         Left err -> return $ IdeResponseFail (IdeError PluginError
                       (T.pack $ "applyOne: " ++ show err) Nothing)
@@ -62,6 +68,7 @@ applyAllCmd = CmdSync $ \_ctxs req -> do
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
       res <- liftIO $ applyHint (T.unpack fileName) Nothing
+      logm $ "applyAllCmd:res=" ++ show res
       case res of
         Left err -> return $ IdeResponseFail (IdeError PluginError
                       (T.pack $ "applyOne: " ++ show err) Nothing)
@@ -83,25 +90,36 @@ applyHint file mpos = do
       opts = case mpos of
         Nothing -> optsf
         Just (r,c) -> optsf ++ " --pos " ++ show r ++ "," ++ show c
-    let hlintOpts = [file, "--refactor", "--refactor-options=" ++ opts ]
+    -- let hlintOpts = [file, "--quiet", "--refactor", "--refactor-options=" ++ opts ]
+    let hlintOpts = [file, "--quiet" ]
     logm $ "applyHint=" ++ show hlintOpts
     res <- catchException $ hlint hlintOpts
     logm $ "applyHint:res=" ++ show res
+    -- res <- hlint hlintOpts
     case res of
-      Left "ExitSuccess" -> do
-        diff <- makeDiffResult file f
+      Left x  -> return $ Left (show x)
+      Right x -> do
+        let commands = makeApplyRefact x
+        logm $ "applyHint:commands=" ++ show commands
+        appliedFile <- applyRefactorings mpos commands file
+        diff <- makeDiffResult file (T.pack appliedFile)
         logm $ "applyHint:diff=" ++ show diff
         return $ Right diff
-      Left x  -> return $ Left (show x)
-      Right x -> return $ Left (show x)
 
 -- ---------------------------------------------------------------------
 
-makeDiffResult :: FilePath -> FilePath -> IO HieDiff
+makeApplyRefact :: [Suggestion] -> [(String, [Refactoring R.SrcSpan])]
+makeApplyRefact suggestions =
+  map (\(Suggestion i) -> (show i, ideaRefactoring i)) suggestions
+
+-- ---------------------------------------------------------------------
+
+
+makeDiffResult :: FilePath -> T.Text -> IO HieDiff
 makeDiffResult orig new = do
-  (HieDiff f s d) <- diffFiles orig new
+  origText <- T.readFile orig
+  let (HieDiff f s d) = diffText (orig,origText) ("changed",new)
   f' <- liftIO $ makeRelativeToCurrentDirectory f
-  s' <- liftIO $ makeRelativeToCurrentDirectory s
   -- return (HieDiff f' s' d)
   return (HieDiff f' "changed" d)
 

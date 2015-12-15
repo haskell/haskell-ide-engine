@@ -23,6 +23,7 @@ library
                      , ghc-mod
                      , hie-plugin-api
                      , hlint
+                     , refact
                      , text
                      , transformers
                      , vinyl >= 0.5 && < 0.6

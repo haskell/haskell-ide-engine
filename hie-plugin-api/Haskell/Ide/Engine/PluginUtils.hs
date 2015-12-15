@@ -8,6 +8,7 @@ module Haskell.Ide.Engine.PluginUtils
     getParams
   , mapEithers
   , diffFiles
+  , diffText
   -- * Helper functions for errors
   , missingParameter
   , incorrectParameter
@@ -89,11 +90,16 @@ diffFiles :: FilePath -> FilePath -> IO HieDiff
 diffFiles f1 f2 = do
   f1Text <- T.readFile f1
   f2Text <- T.readFile f2
-  let diffb = getDiffBy (\(_,a) (_,b) -> a == b)
-                        (zip [1..] (T.lines f1Text))
-                        (zip [1..] (T.lines f2Text))
-      isDiff (Both {}) = False
-      isDiff _         = True
+  return $ diffText (f1,f1Text) (f2,f2Text)
 
-      diff = filter isDiff diffb
-  return (HieDiff f1 f2 diff)
+-- |Generate a 'HieDiff' value from a pair of source Text
+diffText :: (FilePath,T.Text) -> (FilePath,T.Text) -> HieDiff
+diffText (f1,f1Text) (f2,f2Text) = HieDiff f1 f2 diff
+  where
+    diffb = getDiffBy (\(_,a) (_,b) -> a == b)
+                      (zip [1..] (T.lines f1Text))
+                      (zip [1..] (T.lines f2Text))
+    isDiff (Both {}) = False
+    isDiff _         = True
+
+    diff = filter isDiff diffb
