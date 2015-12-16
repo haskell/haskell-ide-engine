@@ -85,6 +85,8 @@ module Haskell.Ide.Engine.PluginDescriptor
   -- * The IDE monad
   , IdeM
   , IdeState(..)
+  , StateExtension(..)
+  , ExtensionClass(..)
   , getPlugins
   ) where
 
@@ -132,7 +134,8 @@ data Command = forall a. (ValidResponse a) => Command
 instance Show Command where
   show (Command desc _func) = "(Command " ++ show desc ++ ")"
 
--- | Build a command, ensuring the command response type name and the command function match
+-- | Build a command, ensuring the command response type name and the command
+-- function match
 buildCommand :: forall a. (ValidResponse a)
   => CommandFunc a
   -> CommandName
@@ -141,9 +144,18 @@ buildCommand :: forall a. (ValidResponse a)
   -> [AcceptedContext]
   -> [ParamDescription]
   -> Command
-buildCommand fun n d exts ctxs parm = Command
-  (CommandDesc n d exts ctxs parm (T.pack $ show $ typeOf (undefined::a)))
-  fun
+buildCommand fun n d exts ctxs parm =
+  Command
+  { cmdDesc = CommandDesc
+      { cmdName = n
+      , cmdUiDescription = d
+      , cmdFileExtensions = exts
+      , cmdContexts = ctxs
+      , cmdAdditionalParams = parm
+      , cmdReturnType = T.pack $ show $ typeOf (undefined::a)
+      }
+  , cmdFunc = fun
+  }
 
 
 -- | Return type of a function
@@ -600,9 +612,42 @@ type IdeT m = GM.GhcModT (StateT IdeState m)
 data IdeState = IdeState
   {
     idePlugins :: Plugins
+  , extensibleState :: !(Map.Map String (Either String StateExtension))
+              -- ^ stores custom state information.
   } deriving (Show)
 
 getPlugins :: IdeM Plugins
 getPlugins = lift $ lift $ idePlugins <$> get
+
+-- ---------------------------------------------------------------------
+-- Extensible state, based on
+-- http://xmonad.org/xmonad-docs/xmonad/XMonad-Core.html#t:ExtensionClass
+--
+
+-- | Every module must make the data it wants to store
+-- an instance of this class.
+--
+-- Minimal complete definition: initialValue
+class Typeable a => ExtensionClass a where
+    -- | Defines an initial value for the state extension
+    initialValue :: a
+    -- | Specifies whether the state extension should be
+    -- persistent. Setting this method to 'PersistentExtension'
+    -- will make the stored data survive restarts, but
+    -- requires a to be an instance of Read and Show.
+    --
+    -- It defaults to 'StateExtension', i.e. no persistence.
+    extensionType :: a -> StateExtension
+    extensionType = StateExtension
+
+-- | Existential type to store a state extension.
+data StateExtension =
+    forall a. ExtensionClass a => StateExtension a
+    -- ^ Non-persistent state extension
+  | forall a. (Read a, Show a, ExtensionClass a) => PersistentExtension a
+    -- ^ Persistent extension
+
+instance Show StateExtension where
+  show _ = "StateExtension"
 
 -- EOF

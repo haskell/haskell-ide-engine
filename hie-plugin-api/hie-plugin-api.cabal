@@ -12,7 +12,9 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Haskell.Ide.Engine.Monad
+  exposed-modules:
+                       Haskell.Ide.Engine.ExtensibleState
+                       Haskell.Ide.Engine.Monad
                        Haskell.Ide.Engine.MonadFunctions
                        Haskell.Ide.Engine.PluginDescriptor
                        Haskell.Ide.Engine.PluginUtils

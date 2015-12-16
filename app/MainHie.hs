@@ -118,7 +118,7 @@ run opts = do
       Nothing -> return ()
 
     -- launch the dispatcher.
-    _ <- forkIO (runIdeM (IdeState plugins) (dispatcher cin))
+    _ <- forkIO (runIdeM (IdeState plugins Map.empty) (dispatcher cin))
 
     -- TODO: pass port in as a param from GlobalOpts
     when (optHttp opts) $
