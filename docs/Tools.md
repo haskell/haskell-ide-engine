@@ -45,6 +45,9 @@
 * `haskdogs`: generate tags file for a project and its  dependencies
     ([github](https://github.com/grwlf/haskdogs),
     [hackage](https://hackage.haskell.org/package/haskdogs-0.4.4))
+* `module-management` : Clean up module imports, split and merge modules
+  ([hackage](https://hackage.haskell.org/package/module-management),
+  [github](https://github.com/seereason/module-management))
 
 #### Documentation generation / lookup
 
@@ -69,6 +72,9 @@
 
 * `ghci`: ...
 * `ghci-ng`: ...
+* `ghc-vis` - Visualize live data structures in GHCi -
+  ([github](https://github.com/def-/ghc-vis),
+  [hackage](http://hackage.haskell.org/package/ghc-vis))
 
 #### Ide backends
 
