@@ -134,7 +134,8 @@ data Command = forall a. (ValidResponse a) => Command
 instance Show Command where
   show (Command desc _func) = "(Command " ++ show desc ++ ")"
 
--- | Build a command, ensuring the command response type name and the command function match
+-- | Build a command, ensuring the command response type name and the command
+-- function match
 buildCommand :: forall a. (ValidResponse a)
   => CommandFunc a
   -> CommandName
@@ -143,9 +144,18 @@ buildCommand :: forall a. (ValidResponse a)
   -> [AcceptedContext]
   -> [ParamDescription]
   -> Command
-buildCommand fun n d exts ctxs parm = Command
-  (CommandDesc n d exts ctxs parm (T.pack $ show $ typeOf (undefined::a)))
-  fun
+buildCommand fun n d exts ctxs parm =
+  Command
+  { cmdDesc = CommandDesc
+      { cmdName = n
+      , cmdUiDescription = d
+      , cmdFileExtensions = exts
+      , cmdContexts = ctxs
+      , cmdAdditionalParams = parm
+      , cmdReturnType = T.pack $ show $ typeOf (undefined::a)
+      }
+  , cmdFunc = fun
+  }
 
 
 -- | Return type of a function

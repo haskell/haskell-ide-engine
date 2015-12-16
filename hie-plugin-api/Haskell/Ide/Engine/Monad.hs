@@ -20,25 +20,9 @@ import           System.Directory
 import           System.IO.Unsafe
 -- ---------------------------------------------------------------------
 
-runLock :: MVar ThreadId
-runLock = unsafePerformIO $ newEmptyMVar
-{-# NOINLINE runLock #-}
-
 runIdeM :: IdeState -> IdeM a -> IO a
 runIdeM s0 f = do
-    let errorIO e = liftIO $ throwIO $ ErrorCall e
-
-    -- FIXME: this is very racy do some fancy stuff with masking
-    -- _ <- liftIO $ (\case Just tid -> errorIO $ "locked by " ++ show tid)
-    --     =<< tryReadMVar runLock
-    -- liftIO $ putMVar runLock =<< myThreadId
-
-    -- root <- either (error "could not get project root") (GM.dropWhileEnd isSpace) . fst
-    --           <$> GM.runGhcModT GM.defaultOptions GM.rootInfo
-
-    -- liftIO $ setCurrentDirectory root
-
-    ((eres, _),_s) <- flip runStateT s0 (GM.runGhcModT GM.defaultOptions f)
+    ((eres, _),_s) <- runStateT (GM.runGhcModT GM.defaultOptions f) s0
     case eres of
         Left err -> liftIO $ throwIO err
         Right res -> return res

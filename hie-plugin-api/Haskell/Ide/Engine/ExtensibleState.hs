@@ -28,8 +28,6 @@ import Control.Applicative
 import Data.Typeable (typeOf,Typeable,cast)
 import qualified Data.Map as M
 import Haskell.Ide.Engine.PluginDescriptor
--- import XMonad.Core
--- import qualified Control.Monad.State as State
 import qualified Control.Monad.State.Strict as State
 import Data.Maybe (fromMaybe)
 import Control.Monad

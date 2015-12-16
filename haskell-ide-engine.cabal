@@ -98,6 +98,7 @@ test-suite haskell-ide-test
   other-modules:
                        ApplyRefactPluginSpec
                        DispatcherSpec
+                       ExtensibleStateSpec
                        GhcModPluginSpec
                        HaRePluginSpec
                        JsonStdioSpec
