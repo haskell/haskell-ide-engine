@@ -371,12 +371,6 @@ type AsyncCommandFunc resp = (IdeResponse resp -> IO ())
                -> [AcceptedContext] -> IdeRequest -> IdeM ()
 
 -- ---------------------------------------------------------------------
--- Based on
--- http://xmonad.org/xmonad-docs/xmonad/XMonad-Core.html#t:ExtensionClass
-
-
-
--- ---------------------------------------------------------------------
 -- ValidResponse instances
 
 ok :: T.Text
