@@ -42,6 +42,13 @@ data HieDiff = HieDiff
   } deriving (Show,Eq,Generic)
 
 -- ---------------------------------------------------------------------
+
+-- | A list of modules
+data ModuleList = ModuleList {
+    mModules :: [T.Text]
+  } deriving (Show,Read,Eq,Ord,Generic)
+
+-- ---------------------------------------------------------------------
 -- JSON instances
 
 instance ValidResponse TypeInfo where
@@ -103,3 +110,9 @@ instance FromJSON (Diff (Int,T.Text)) where
       Just d -> return d
       _ -> empty
   parseJSON _ = empty
+
+-- ---------------------------------------------------------------------
+
+instance ValidResponse ModuleList where
+  jsWrite (ModuleList ms) = H.fromList ["modules" .= ms]
+  jsRead v = ModuleList <$> v .: "modules"

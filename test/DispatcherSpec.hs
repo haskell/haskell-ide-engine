@@ -105,7 +105,7 @@ dispatcherSpec = do
     it "identifies CtxProject" $ do
       chan <- atomically newTChan
       chSync <- atomically newTChan
-      let req = IdeRequest "cmd6" (Map.fromList [])
+      let req = IdeRequest "cmd6" (Map.fromList [("dir", ParamFileP ".")])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty) (doDispatch (testPlugins chSync) cr)
       r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxProject]"::String)]))

@@ -69,10 +69,10 @@ ghcmodSpec = do
     -- ---------------------------------
 
     it "runs the find command" $ do
-      let req = IdeRequest "find" (Map.fromList [("symbol", ParamTextP "map")])
+      let req = IdeRequest "find" (Map.fromList [("dir", ParamFileP "."),("symbol", ParamTextP "Show")])
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("Placholder:Need to debug this in ghc-mod, returns 'does not exist (No such file or directory)'"::String)]))
-      pendingWith "need to debug in ghc-mod"
+      r `shouldBe` Just (IdeResponseOk (H.fromList ["modules" .= ["GHC.Show"::String,"Prelude","Test.Hspec.Discover","Text.Show"]]))
+
 
     -- ---------------------------------
 
