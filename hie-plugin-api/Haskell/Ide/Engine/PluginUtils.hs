@@ -12,8 +12,11 @@ module Haskell.Ide.Engine.PluginUtils
   -- * Helper functions for errors
   , missingParameter
   , incorrectParameter
+  , fileInfo
+  , catchException
   ) where
 
+import           Control.Exception
 import           Data.Aeson
 import           Data.Algorithm.Diff
 import           Data.Monoid
@@ -24,6 +27,7 @@ import qualified Data.Map as Map
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Prelude hiding (log)
+import           System.FilePath
 
 -- ---------------------------------------------------------------------
 
@@ -103,3 +107,20 @@ diffText (f1,f1Text) (f2,f2Text) = HieDiff f1 f2 diff
     isDiff _         = True
 
     diff = filter isDiff diffb
+
+-- ---------------------------------------------------------------------
+
+-- | Returns the directory and file name
+fileInfo :: T.Text -> (FilePath,FilePath)
+fileInfo tfileName =
+  let sfileName = T.unpack tfileName
+      dir = takeDirectory sfileName
+  in (dir,sfileName)
+
+catchException :: (IO t) -> IO (Either String t)
+catchException f = do
+  res <- handle handler (f >>= \r -> return $ Right r)
+  return res
+  where
+    handler:: SomeException -> IO (Either String t)
+    handler e = return (Left (show e))

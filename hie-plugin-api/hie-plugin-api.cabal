@@ -25,6 +25,7 @@ library
                      , containers
                      , directory
                      , fast-logger
+                     , filepath
                      , ghc
 -- ghc-mod > 5.4.0.0 -- TODO before release
                      , ghc-mod >= 5.4.0.0

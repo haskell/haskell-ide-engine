@@ -2,7 +2,6 @@
 {-# LANGUAGE GADTs #-}
 module Haskell.Ide.ApplyRefactPlugin where
 
-import           Control.Exception
 import           Control.Monad.IO.Class
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -11,16 +10,12 @@ import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
-import qualified Language.Haskell.GhcMod as GM (defaultOptions)
 import           Language.Haskell.HLint
 import           Language.Haskell.HLint3
 import           Refact.Apply
 import qualified Refact.Types as R
 import           Refact.Types hiding (SrcSpan)
 import           System.Directory
-import           System.Exit
-import           System.FilePath.Posix
-import           System.IO
 import           System.IO.Extra
 
 -- ---------------------------------------------------------------------
@@ -122,13 +117,3 @@ makeDiffResult orig new = do
   f' <- liftIO $ makeRelativeToCurrentDirectory f
   -- return (HieDiff f' s' d)
   return (HieDiff f' "changed" d)
-
--- ---------------------------------------------------------------------
-
-catchException :: (IO t) -> IO (Either String t)
-catchException f = do
-  res <- handle handler (f >>= \r -> return $ Right r)
-  return res
-  where
-    handler:: SomeException -> IO (Either String t)
-    handler e = return (Left (show e))

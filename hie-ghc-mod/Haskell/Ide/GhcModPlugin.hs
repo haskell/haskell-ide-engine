@@ -4,6 +4,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Haskell.Ide.GhcModPlugin where
 
+import           Haskell.Ide.Engine.PluginUtils
+
 import           Control.Exception
 import           Data.Either
 import           Data.Vinyl
@@ -159,7 +161,6 @@ readTypeResult t = do
 -- ---------------------------------------------------------------------
 
 
--- TODO: Need to thread the session through as in the commented out code below.
 runGhcModCommand :: T.Text -- ^ The file name we'll operate on
                  -> (FilePath -> IdeM a)
                  -> IdeM (IdeResponse a)
@@ -179,20 +180,3 @@ runGhcModCommand fp cmd = do
             (IdeResponseOk <$> GM.gmeLocal setRoot (cmd f)) `G.gcatch` \(e :: GM.GhcModError) ->
                return $ IdeResponseFail $ IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Nothing
           )
-
--- ---------------------------------------------------------------------
-
--- | Returns the directory and file name
-fileInfo :: T.Text -> (FilePath,FilePath)
-fileInfo tfileName =
-  let sfileName = T.unpack tfileName
-      dir = takeDirectory sfileName
-  in (dir,sfileName)
-
-catchException :: (IO t) -> IO (Either String t)
-catchException f = do
-  res <- handle handler (f >>= \r -> return $ Right r)
-  return res
-  where
-    handler:: SomeException -> IO (Either String t)
-    handler e = return (Left (show e))

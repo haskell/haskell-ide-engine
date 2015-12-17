@@ -19,6 +19,7 @@ library
                      , containers
                      , directory
                      , filepath
+                     , ghc
                      , ghc-mod
                      , hie-plugin-api
                      , text
