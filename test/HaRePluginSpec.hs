@@ -61,11 +61,12 @@ hareSpec = do
         Just (IdeResponseOk (jsWrite (RefactorResult [HieDiff
                                                            "test/testdata/HaReRename.hs"
                                                            "test/testdata/HaReRename.refactored.hs"
-                                                           [ (First (4,"foo :: Int -> Int"))
-                                                           , (First (5,"foo x = x + 3"))
-                                                           , (Second (4,"foolong :: Int -> Int"))
-                                                           , (Second (5, "foolong x = x + 3"))
-                                                           ]
+                                                           ("4,5c4,5\n"++
+                                                            "< foo :: Int -> Int\n"++
+                                                            "< foo x = x + 3\n"++
+                                                            "---\n"++
+                                                            "> foolong :: Int -> Int\n"++
+                                                            "> foolong x = x + 3\n")
                                                            ])))
 
     -- ---------------------------------
@@ -89,11 +90,17 @@ hareSpec = do
       r `shouldBe` Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff
                                                            "test/testdata/HaReDemote.hs"
                                                            "test/testdata/HaReDemote.refactored.hs"
-                                                           [ (First (5,""))
-                                                           , (First (6,"y = 7"))
-                                                           , (Second (5,"  where"))
-                                                           , (Second (6,"    y = 7"))
-                                                           ]
+                                                           ("5,6c5,6\n"++
+                                                            "< \n"++
+                                                            "< y = 7\n"++
+                                                            "---\n"++
+                                                            ">   where\n"++
+                                                            ">     y = 7\n")
+                                                           -- [ (First (5,""))
+                                                           -- , (First (6,"y = 7"))
+                                                           -- , (Second (5,"  where"))
+                                                           -- , (Second (6,"    y = 7"))
+                                                           -- ]
                                                            ]))
 
     -- ---------------------------------
@@ -107,10 +114,10 @@ hareSpec = do
       r `shouldBe` Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff
                                                            "test/testdata/HaReRename.hs"
                                                            "test/testdata/HaReRename.refactored.hs"
-                                                           [ (Second (7, "foonew :: Int -> Int"))
-                                                           , (Second (8, "foonew x = x + 3"))
-                                                           , (Second (9, ""))
-                                                           ]
+                                                           ("6a7,9\n"++
+                                                            "> foonew :: Int -> Int\n"++
+                                                            "> foonew x = x + 3\n"++
+                                                            "> \n")
                                                            ]))
 
     -- ---------------------------------
@@ -124,19 +131,17 @@ hareSpec = do
       r `shouldBe` Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff
                                                            "test/testdata/HaReCase.hs"
                                                            "test/testdata/HaReCase.refactored.hs"
-                                                           [ (First (5, "foo x = if odd x"))
-                                                           , (First (6, "        then"))
-                                                           , (First (7, "          x + 3"))
-                                                           , (First (8, "        else"))
-                                                           , (First (9, "          x"))
-                                                           , (Second (5, "foo x = case odd x of"))
-                                                           , (Second (6, "  True  ->"))
-                                                           -- , (Second (7, "    x + 3"))
-                                                           , (Second (7, "            x + 3"))
-                                                           , (Second (8, "  False ->"))
-                                                           -- , (Second (9, "    x"))
-                                                           , (Second (9, "            x"))
-                                                           ]
+                                                           ("5,9c5,9\n"++
+                                                            "< foo x = if odd x\n"++
+                                                            "<         then\n"++
+                                                            "<           x + 3\n"++
+                                                            "<         else\n"++
+                                                            "<           x\n"++
+                                                            "---\n"++
+                                                            "> foo x = case odd x of\n"++
+                                                            ">   True  ->\n"++
+                                                            ">             x + 3\n"++
+                                                            ">   False ->\n>             x\n")
                                                            ]))
 
     -- ---------------------------------
@@ -149,11 +154,12 @@ hareSpec = do
       r `shouldBe` Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff
                                                            "test/testdata/HaReMoveDef.hs"
                                                            "test/testdata/HaReMoveDef.refactored.hs"
-                                                           [ (First (5, "  where"))
-                                                           , (First (6, "    y = 4"))
-                                                           , (Second (6, "y = 4"))
-                                                           , (Second (7, ""))
-                                                           ]
+                                                           ("5,6d4\n"++
+                                                            "<   where\n"++
+                                                            "<     y = 4\n"++
+                                                            "7a6,7\n"++
+                                                            "> y = 4\n"++
+                                                            "> \n")
                                                            ]))
 
     -- ---------------------------------
@@ -166,11 +172,13 @@ hareSpec = do
       r `shouldBe` Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff
                                                            "test/testdata/HaReMoveDef.hs"
                                                            "test/testdata/HaReMoveDef.refactored.hs"
-                                                           [ (First (11, "      where"))
-                                                           , (First (12, "        z = 7"))
-                                                           , (Second (12, "z = 7"))
-                                                           , (Second (14, ""))
-                                                           ]
+                                                           ("11,12d10\n"++
+                                                            "<       where\n"++
+                                                            "<         z = 7\n"++
+                                                            "13a12\n"++
+                                                            "> z = 7\n"++
+                                                            "14a14\n"++
+                                                            "> \n")
                                                            ]))
 
     -- ---------------------------------

@@ -19,8 +19,10 @@ module Haskell.Ide.Engine.PluginUtils
 import           Control.Exception
 import           Data.Aeson
 import           Data.Algorithm.Diff
+import           Data.Algorithm.DiffOutput
 import           Data.Monoid
 import           Data.Vinyl
+import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
 import qualified Data.Map as Map
@@ -94,19 +96,16 @@ diffFiles :: FilePath -> FilePath -> IO HieDiff
 diffFiles f1 f2 = do
   f1Text <- T.readFile f1
   f2Text <- T.readFile f2
+  let d = getGroupedDiff (lines $ T.unpack f1Text) (lines $ T.unpack f2Text)
+  logm $ "diffFiles:diff=[" ++ ppDiff d ++ "]"
   return $ diffText (f1,f1Text) (f2,f2Text)
 
 -- |Generate a 'HieDiff' value from a pair of source Text
 diffText :: (FilePath,T.Text) -> (FilePath,T.Text) -> HieDiff
 diffText (f1,f1Text) (f2,f2Text) = HieDiff f1 f2 diff
   where
-    diffb = getDiffBy (\(_,a) (_,b) -> a == b)
-                      (zip [1..] (T.lines f1Text))
-                      (zip [1..] (T.lines f2Text))
-    isDiff (Both {}) = False
-    isDiff _         = True
-
-    diff = filter isDiff diffb
+    d = getGroupedDiff (lines $ T.unpack f1Text) (lines $ T.unpack f2Text)
+    diff = ppDiff d
 
 -- ---------------------------------------------------------------------
 
