@@ -38,7 +38,21 @@ data RefactorResult = RefactorResult
 data HieDiff = HieDiff
   { dFirst  :: !FilePath
   , dSecond :: !FilePath
-  , dDiff   :: ![Diff (Int,T.Text)]
+  , dDiff   :: !String
+    {- ^ Diff of the form
+    5,9c5,9
+    < foo x = if odd x
+    <         then
+    <           x + 3
+    <         else
+    <           x
+    ---
+    > foo x = case odd x of
+    >   True  ->
+    >             x + 3
+    >   False ->
+    >             x
+    -}
   } deriving (Show,Eq,Generic)
 
 -- ---------------------------------------------------------------------

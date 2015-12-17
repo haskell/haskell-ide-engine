@@ -62,8 +62,11 @@ applyRefactSpec = do
                                       { dFirst = "./test/testdata/ApplyRefact.hs"
                                       , dSecond = "changed"
                                       , dDiff =
-                                        [First (2,"main = (putStrLn \"hello\")")
-                                        ,Second (2,"main = putStrLn \"hello\"")]}
+                                        ("2c2\n"++
+                                         "< main = (putStrLn \"hello\")\n"++
+                                         "---\n"++
+                                         "> main = putStrLn \"hello\"\n")
+                                      }
                                      )))
 
     -- ---------------------------------
@@ -78,10 +81,15 @@ applyRefactSpec = do
                                       { dFirst = "./test/testdata/ApplyRefact.hs"
                                       , dSecond = "changed"
                                       , dDiff =
-                                        [First (2,"main = (putStrLn \"hello\")")
-                                        ,Second (2,"main = putStrLn \"hello\"")
-                                        ,First (4,"foo x = (x + 1)")
-                                        ,Second (4,"foo x = x + 1")]}
+                                        ("2c2\n"++
+                                         "< main = (putStrLn \"hello\")\n"++
+                                         "---\n"++
+                                         "> main = putStrLn \"hello\"\n"++
+                                         "4c4\n"++
+                                         "< foo x = (x + 1)\n"++
+                                         "---\n"++
+                                         "> foo x = x + 1\n")
+                                      }
                                      )))
 
     -- ---------------------------------
