@@ -99,24 +99,3 @@ workerProc cin cout = loop 1
           loop (cnt + 1)
 
 -- ---------------------------------------------------------------------
-
-sayHelloCmd :: CommandFunc T.Text
-sayHelloCmd = CmdSync $ \_ _ -> return (IdeResponseOk sayHello)
-
-sayHelloToCmd :: CommandFunc T.Text
-sayHelloToCmd = CmdSync $ \_ req -> do
-  case Map.lookup "name" (ideParams req) of
-    Nothing -> return $ missingParameter "name"
-    Just (ParamTextP n) -> do
-      r <- liftIO $ sayHelloTo n
-      return $ IdeResponseOk r
-    Just x -> return $ incorrectParameter "name" ("ParamText"::String) x
-
--- ---------------------------------------------------------------------
-
-sayHello :: T.Text
-sayHello = "hello from ExamplePlugin2"
-
-sayHelloTo :: T.Text -> IO T.Text
-sayHelloTo n = return $ "hello " <> n <> " from ExamplePlugin2"
-
