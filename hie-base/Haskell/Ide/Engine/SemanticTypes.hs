@@ -6,11 +6,10 @@ module Haskell.Ide.Engine.SemanticTypes where
 
 import           Control.Applicative
 import           Data.Aeson
-import           Data.Algorithm.Diff
 import qualified Data.HashMap.Strict as H
 import qualified Data.Text as T
 import           GHC.Generics
-import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.PluginTypes
 
 -- ---------------------------------------------------------------------
 -- Specific response type
@@ -105,24 +104,6 @@ instance FromJSON HieDiff where
     <$> (v .: "first")
     <*> (v .: "second")
     <*> (v .: "type")
-  parseJSON _ = empty
-
-instance ToJSON (Diff (Int,T.Text)) where
-  toJSON (First v)    = object [ "f" .= toJSON v ]
-  toJSON (Second v)   = object [ "s" .= toJSON v ]
-  toJSON (Both v1 v2) = object [ "b" .= toJSON [ v1, v2 ] ]
-
-instance FromJSON (Diff (Int,T.Text)) where
-  parseJSON (Object v) = do
-    mf <- fmap First <$> v .:? "f"
-    ms <- fmap Second <$> v .:? "s"
-    mbv <- v .:? "b"
-    mb <- case mbv of
-      Just [v1,v2] -> return $ Just (Both v1 v2)
-      _            -> empty
-    case mf <|> ms <|> mb of
-      Just d -> return d
-      _ -> empty
   parseJSON _ = empty
 
 -- ---------------------------------------------------------------------

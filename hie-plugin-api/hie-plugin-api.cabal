@@ -18,7 +18,6 @@ library
                        Haskell.Ide.Engine.MonadFunctions
                        Haskell.Ide.Engine.PluginDescriptor
                        Haskell.Ide.Engine.PluginUtils
-                       Haskell.Ide.Engine.SemanticTypes
   build-depends:       base >= 4.7 && < 5
                      , Diff
                      , aeson
@@ -29,6 +28,7 @@ library
                      , ghc
 -- ghc-mod > 5.4.0.0 -- TODO before release
                      , ghc-mod >= 5.4.0.0
+                     , hie-base
                      , lifted-base
                      , monad-control
                      , monad-logger

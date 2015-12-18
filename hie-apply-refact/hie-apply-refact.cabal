@@ -21,6 +21,7 @@ library
                      , extra
                      , filepath
                      , ghc-mod
+                     , hie-base
                      , hie-plugin-api
                      , hlint
                      , refact

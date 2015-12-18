@@ -1,9 +1,9 @@
-name:                hie-ghc-mod
+name:                hie-base
 version:             0.1.0.0
-synopsis:            Haskell IDE ghc-mod plugin
+synopsis:            Haskell IDE API base types
 license:             BSD3
 license-file:        ../LICENSE
-author:              Alan Zimmerman (initially)
+author:              Many,TBD when we release
 maintainer:          alan.zimm@gmail.com (for now)
 copyright:           2015 TBD
 category:            Web
@@ -12,19 +12,13 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Haskell.Ide.GhcModPlugin
+  exposed-modules:
+                       Haskell.Ide.Engine.PluginTypes
+                       Haskell.Ide.Engine.SemanticTypes
   build-depends:       base >= 4.7 && < 5
                      , aeson
                      , containers
-                     , directory
-                     , filepath
-                     , ghc
-                     , ghc-mod
-                     , hie-base
-                     , hie-plugin-api
                      , text
-                     , transformers
-                     , vinyl >= 0.5 && < 0.6
-
+                     , unordered-containers
   ghc-options:         -Wall
   default-language:    Haskell2010
