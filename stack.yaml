@@ -5,6 +5,7 @@ packages:
 - .
 - hie-apply-refact
 - hie-example-plugin2
+- hie-eg-plugin-async
 - hie-plugin-api
 - hie-ghc-mod
 - hie-hare
