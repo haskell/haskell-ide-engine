@@ -32,6 +32,7 @@ module Haskell.Ide.Engine.PluginTypes
   , PluginName
   , ExtendedCommandDescriptor(..)
   , ValidResponse(..)
+  , ReturnType
 
   -- * Interface types
   , IdeRequest(..)
@@ -54,7 +55,6 @@ import           Control.Monad
 import           Data.Aeson
 import           Data.Aeson.Types
 import qualified Data.Map as Map
-import           Data.Maybe
 import qualified Data.HashMap.Strict as H
 import qualified Data.Text as T
 import           Data.Typeable
@@ -318,7 +318,9 @@ instance (ValidResponse a) => FromJSON (IdeResponse a) where
    mf <- fmap IdeResponseFail <$> v .:? "fail"
    me <- fmap IdeResponseError <$> v .:? "error"
    let mo = IdeResponseOk <$> parseMaybe jsRead v
-   return $ fromJust $ mf <|> me <|> mo
+   case (mf <|> me <|> mo) of
+     Just r -> return r
+     Nothing -> empty
  parseJSON _ = empty
 
 
