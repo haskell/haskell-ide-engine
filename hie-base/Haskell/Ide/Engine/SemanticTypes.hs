@@ -103,7 +103,7 @@ instance FromJSON HieDiff where
   parseJSON (Object v) = HieDiff
     <$> (v .: "first")
     <*> (v .: "second")
-    <*> (v .: "type")
+    <*> (v .: "diff")
   parseJSON _ = empty
 
 -- ---------------------------------------------------------------------
