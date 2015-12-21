@@ -195,10 +195,11 @@ association lists and count on HIE to use default values there."
       ("start_pos" . ,start)
       ("end_pos" . ,end))))
 
-(defun hie-run-command (plugin command)
+(defun hie-run-command (plugin command &rest args)
   (setq hie-process-handle-message
         #'hie-handle-command-detail)
   (setq hie-current-cmd (cons plugin command))
+  (message (format "rest: %s" args))
   (hie-post-message
    `(("cmd" . "base:commandDetail")
      ("params" . (("command" . (("text" . ,command)))
@@ -242,11 +243,20 @@ association lists and count on HIE to use default values there."
               (format "%s: %s" (upcase name) desc))
             required-params))
           (docstring
-           (format "%s\n%s" desc (mapconcat 'identity param-docstrings "\n"))))
+           (format "%s\n%s" desc (mapconcat 'identity param-docstrings "\n")))
+          (param-vals (-map
+                       (-lambda ((&alist 'name name 'type type))
+                         `(list (cons 'name ,(downcase name))
+                                (cons 'type ,type)
+                                (cons 'val ,(intern (downcase name)))))
+                       required-params))
+          )
     `(defun ,(intern (concat "hie-" (symbol-name plugin) "-" command-name)) ,param-args
        ,docstring
        (interactive)
-       (hie-run-command ,(symbol-name plugin) ,command-name))))
+
+       (hie-run-command ,(symbol-name plugin) ,command-name
+                        (list ,@param-vals)))))
 
 (defun hie-create-all-commands (command-names)
   (eval `(progn
