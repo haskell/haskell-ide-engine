@@ -159,7 +159,9 @@ association lists and count on HIE to use default values there."
 (defun hie-handle-message (json)
   (-if-let ((&alist 'type_info type-info) json)
       (hie-handle-type-info type-info)
-    (message (format "%s" json))))
+    (-if-let ((&alist 'refactor refactor) json)
+        (message "refactoring")
+      (message (format "%s" json)))))
 
 (defun hie-handle-type-info (type-info)
   (-if-let (((&alist 'type type)) type-info)
@@ -190,8 +192,8 @@ association lists and count on HIE to use default values there."
                              `(("line" . ,(line-number-at-pos)) ("col" . ,(1+ (current-column))))))
         (filename (buffer-file-name)))
     `(("file" . (("file" . ,filename)))
-      ("start_pos" . ,end)
-      ("end_pos" . ,start))))
+      ("start_pos" . ,start)
+      ("end_pos" . ,end))))
 
 (defun hie-run-command (plugin command)
   (setq hie-process-handle-message
@@ -218,15 +220,7 @@ association lists and count on HIE to use default values there."
                                                name))))
                      commands)))
             plugins))
-          (command-names
-           (-map
-            (-lambda ((plugin-name . commands))
-              (cons plugin-name
-                    (-map
-                     (-lambda ((&alist 'name name))
-                       name)
-                     commands)))
-            plugins)))
+          (command-names plugins))
     (setq hie-plugins plugins)
     (hie-create-all-commands command-names)
     (easy-menu-define hie-menu hie-mode-map
@@ -234,9 +228,25 @@ association lists and count on HIE to use default values there."
       (cons "HIE" menu-items))))
 
 (defun hie-create-command (plugin command)
-  `(defun ,(intern (concat "hie-" (symbol-name plugin) "-" command)) ()
-     (interactive)
-     (hie-run-command ,(symbol-name plugin) ,command)))
+  (-let* (((&alist 'name command-name 'additional_params params 'ui_description desc)
+           command)
+          (required-params
+           (-filter (-lambda ((&alist 'required required)) required)
+                    params))
+          (param-names (-map (-lambda ((&alist 'name name)) (downcase name))
+                             required-params))
+          (param-args (-map 'intern param-names))
+          (param-docstrings
+           (-map
+            (-lambda ((&alist 'name name 'help desc))
+              (format "%s: %s" (upcase name) desc))
+            required-params))
+          (docstring
+           (format "%s\n%s" desc (mapconcat 'identity param-docstrings "\n"))))
+    `(defun ,(intern (concat "hie-" (symbol-name plugin) "-" command-name)) ,param-args
+       ,docstring
+       (interactive)
+       (hie-run-command ,(symbol-name plugin) ,command-name))))
 
 (defun hie-create-all-commands (command-names)
   (eval `(progn
