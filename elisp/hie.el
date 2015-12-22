@@ -37,6 +37,9 @@
 (defvar hie-process-handle-invalid-input nil
   "A function to handle invalid input.")
 
+(defvar hie-refactor-buffer nil
+  "Buffer holidng the diff for refactoring")
+
 (defvar hie-post-message-hook nil
   "Function to call with message that will be send to hie process.")
 (defvar hie-plugins nil
@@ -160,8 +163,8 @@ association lists and count on HIE to use default values there."
   (-if-let ((&alist 'type_info type-info) json)
       (hie-handle-type-info type-info)
     (-if-let ((&alist 'refactor refactor) json)
-        (message "refactoring"))
-    (message (format "%s" json))))
+        (hie-handle-refactor refactor)
+      (message (format "%s" json)))))
 
 (defun hie-handle-type-info (type-info)
   (-if-let (((&alist 'type type)) type-info)
@@ -169,6 +172,39 @@ association lists and count on HIE to use default values there."
     (message
      (format "Error extracting type from type-info response: %s"
              type-info))))
+
+(defmacro hie-with-refactor-buffer (&rest body)
+  '(setq hie-refactor-buffer (get-buffer-create "*hie-refactor*"))
+  `(with-current-buffer hie-refactor-buffer ,@body))
+
+(defmacro hie-literal-save-excursion (&rest body)
+  "Like save-excursion but preserves line and column instead of point"
+  `(let ((old-col (current-column))
+         (old-row (line-number-at-pos)))
+     (save-excursion
+       ,@body)
+     (move-to-column old-col)
+     (goto-line old-row)))
+
+(defun hie-handle-refactor (refactor)
+  (-if-let (((&alist 'first first 'second second 'diff diff)) refactor)
+      (progn
+        (hie-with-refactor-buffer
+         (erase-buffer)
+         (insert diff))
+        (let ((refactored-buffer (create-file-buffer second))
+              (old-buffer (or (find-buffer-visiting first)
+                              (create-file-buffer first))))
+          (find-file-noselect-1 refactored-buffer second nil nil second nil)
+          (with-current-buffer old-buffer
+            (hie-literal-save-excursion
+             (erase-buffer)
+             (with-current-buffer refactored-buffer
+               (copy-to-buffer old-buffer (point-min) (point-max)))
+             (kill-buffer refactored-buffer)))))
+      (message
+       (format "Error extracting refactor information from refactor response: %s"
+               refactor))))
 
 (defun hie-format-cmd (cmd)
   (format "%s:%s" (car cmd) (cdr cmd)))
@@ -194,7 +230,6 @@ association lists and count on HIE to use default values there."
             (cons name (list (cons type val))))
           args))
         (context (hie-get-context)))
-    (message (format "args: %s" additional-args))
     (hie-post-message
      `(("cmd" . ,(hie-format-cmd (cons plugin command)))
        ("params" . (,@context ,@ additional-args))))))

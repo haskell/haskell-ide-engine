@@ -141,7 +141,7 @@ makeRefactorResult changedFiles = do
       (HieDiff f s d) <- diffFiles f1 f2
       f' <- liftIO $ makeRelativeToCurrentDirectory f
       s' <- liftIO $ makeRelativeToCurrentDirectory s
-      return (HieDiff f' s' d)
+      return (HieDiff f s d)
   diffs <- mapM diffOne changedFiles
   return (RefactorResult diffs)
 
