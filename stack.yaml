@@ -4,6 +4,7 @@ resolver: nightly-2015-12-11
 packages:
 - .
 - hie-apply-refact
+- hie-base
 - hie-example-plugin2
 - hie-eg-plugin-async
 - hie-plugin-api

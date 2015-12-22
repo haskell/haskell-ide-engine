@@ -21,6 +21,7 @@ library
                      , filepath
                      , ghc
                      , ghc-mod
+                     , hie-base
                      , hie-plugin-api
                      , text
                      , transformers
