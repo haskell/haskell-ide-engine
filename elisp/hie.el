@@ -160,8 +160,8 @@ association lists and count on HIE to use default values there."
   (-if-let ((&alist 'type_info type-info) json)
       (hie-handle-type-info type-info)
     (-if-let ((&alist 'refactor refactor) json)
-        (message "refactoring")
-      (message (format "%s" json)))))
+        (message "refactoring"))
+    (message (format "%s" json))))
 
 (defun hie-handle-type-info (type-info)
   (-if-let (((&alist 'type type)) type-info)
@@ -170,20 +170,10 @@ association lists and count on HIE to use default values there."
      (format "Error extracting type from type-info response: %s"
              type-info))))
 
-(defun hie-handle-command-detail (json)
-  (-let* (((&alist 'contexts contexts 'name command-name 'plugin_name plugin-name) json)
-          (context
-           (hie-get-context contexts)))
-    (setq hie-process-handle-message
-          #'hie-handle-message)
-    (hie-post-message
-     `(("cmd" . ,(hie-format-cmd (cons plugin-name command-name)))
-       ("params" . ,context)))))
-
 (defun hie-format-cmd (cmd)
   (format "%s:%s" (car cmd) (cdr cmd)))
 
-(defun hie-get-context (context)
+(defun hie-get-context ()
   ;; we need to increment the column by one, since emacs column
   ;; numbers start at 0 while ghc column numbers start at 1
   (let ((start (save-excursion (if (use-region-p) (goto-char (region-beginning)))
@@ -195,15 +185,19 @@ association lists and count on HIE to use default values there."
       ("start_pos" . ,start)
       ("end_pos" . ,end))))
 
-(defun hie-run-command (plugin command &rest args)
+(defun hie-run-command (plugin command args)
   (setq hie-process-handle-message
-        #'hie-handle-command-detail)
-  (setq hie-current-cmd (cons plugin command))
-  (message (format "rest: %s" args))
-  (hie-post-message
-   `(("cmd" . "base:commandDetail")
-     ("params" . (("command" . (("text" . ,command)))
-                  ("plugin" . (("text" . ,plugin))))))))
+        #'hie-handle-message)
+  (let ((additional-args
+         (-map
+          (-lambda ((&alist 'type type 'name name 'val val 'name))
+            (cons name (list (cons type val))))
+          args))
+        (context (hie-get-context)))
+    (message (format "args: %s" additional-args))
+    (hie-post-message
+     `(("cmd" . ,(hie-format-cmd (cons plugin command)))
+       ("params" . (,@context ,@ additional-args))))))
 
 (defun hie-handle-first-plugins-command (json)
   "Handle first plugins call."
@@ -249,8 +243,7 @@ association lists and count on HIE to use default values there."
                          `(list (cons 'name ,(downcase name))
                                 (cons 'type ,type)
                                 (cons 'val ,(intern (downcase name)))))
-                       required-params))
-          )
+                       required-params)))
     `(defun ,(intern (concat "hie-" (symbol-name plugin) "-" command-name)) ,param-args
        ,docstring
        (interactive)
