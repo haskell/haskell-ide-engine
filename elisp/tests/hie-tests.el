@@ -231,6 +231,20 @@ http://debbugs.gnu.org/cgi/bugreport.cgi?bug=15990."
                                                   (cons 'type "text")
                                                   (cons 'val param2)))))
                   test-command))))
+(hie-define-test
+ hie-can-hare-rename
+ (save-excursion
+   (find-file "test/testdata/HaReRename.hs")
+   (move-to-column 0)
+   (goto-line 4)
+   (hie-mode)
+   (really-sleep-for 2 (lambda () (fboundp 'hie-hare-rename)))
+   (hie-hare-rename "foo_renamed")
+   (really-sleep-for 2 (lambda () (buffer-modified-p)))
+   (let ((refactored-string (buffer-substring-no-properties (point-min) (point-max))))
+     (revert-buffer nil t)
+     (should (equal "\nmain = putStrLn \"hello\"\n\nfoo_renamed :: Int -> Int\nfoo_renamed x = x + 3\n\n"
+                    refactored-string)))))
 
 
 

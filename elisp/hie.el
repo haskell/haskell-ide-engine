@@ -174,8 +174,8 @@ association lists and count on HIE to use default values there."
              type-info))))
 
 (defmacro hie-with-refactor-buffer (&rest body)
-  '(setq hie-refactor-buffer (get-buffer-create "*hie-refactor*"))
-  `(with-current-buffer hie-refactor-buffer ,@body))
+  `(progn (setq hie-refactor-buffer (get-buffer-create "*hie-refactor*"))
+          (with-current-buffer hie-refactor-buffer ,@body)))
 
 (defmacro hie-literal-save-excursion (&rest body)
   "Like save-excursion but preserves line and column instead of point"
@@ -190,8 +190,8 @@ association lists and count on HIE to use default values there."
   (-if-let (((&alist 'first first 'second second 'diff diff)) refactor)
       (progn
         (hie-with-refactor-buffer
-         (erase-buffer)
-         (insert diff))
+          (erase-buffer)
+          (insert diff))
         (let ((refactored-buffer (create-file-buffer second))
               (old-buffer (or (find-buffer-visiting first)
                               (create-file-buffer first))))
@@ -310,17 +310,19 @@ Keymap:
   :keymap 'hie-mode-map
 
   (if hie-mode
-      (unless (hie-process-live-p)
-        (hie-start-process)
+      (progn
+        (unless (hie-process-live-p)
+          (hie-start-process))
         (setq hie-process-handle-message
               #'hie-handle-first-plugins-command)
         (hie-post-message
          '(("cmd" . "base:plugins"))))
 
     ;; we need to kill hie if this is the last one buffer standing
-    (unless (cl-find-if (lambda (buffer)
-                          (with-current-buffer buffer
-                            (bound-and-true-p hie-mode))) (buffer-list))
-      (hie-kill-process))))
+    (progn
+      (unless (cl-find-if (lambda (buffer)
+                           (with-current-buffer buffer
+                             (bound-and-true-p hie-mode))) (buffer-list))
+       (hie-kill-process)))))
 
 (provide 'hie)
