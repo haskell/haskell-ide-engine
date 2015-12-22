@@ -243,11 +243,15 @@ association lists and count on HIE to use default values there."
                          `(list (cons 'name ,(downcase name))
                                 (cons 'type ,type)
                                 (cons 'val ,(intern (downcase name)))))
-                       required-params)))
+                       required-params))
+          (interactive-strings
+           (-map
+            (-lambda ((&alist 'name name 'help desc))
+              (format "s%s (%s): " name desc))
+            required-params)))
     `(defun ,(intern (concat "hie-" (symbol-name plugin) "-" command-name)) ,param-args
        ,docstring
-       (interactive)
-
+       (interactive ,(mapconcat 'identity interactive-strings "\n"))
        (hie-run-command ,(symbol-name plugin) ,command-name
                         (list ,@param-vals)))))
 
