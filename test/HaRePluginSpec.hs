@@ -13,6 +13,8 @@ import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.HaRePlugin
+import           System.Directory
+import           System.FilePath
 import           Test.Hspec
 
 -- ---------------------------------------------------------------------
@@ -48,7 +50,7 @@ dispatchRequest req = do
 hareSpec :: Spec
 hareSpec = do
   describe "hare plugin commands" $ do
-
+    cwd <- runIO $ getCurrentDirectory
     -- ---------------------------------
 
     it "renames" $ do
@@ -59,8 +61,8 @@ hareSpec = do
       r <- dispatchRequest req
       r `shouldBe`
         Just (IdeResponseOk (jsWrite (RefactorResult [HieDiff
-                                                           "test/testdata/HaReRename.hs"
-                                                           "test/testdata/HaReRename.refactored.hs"
+                                                           (cwd </> "test/testdata/HaReRename.hs")
+                                                           (cwd </> "test/testdata/HaReRename.refactored.hs")
                                                            ("4,5c4,5\n"++
                                                             "< foo :: Int -> Int\n"++
                                                             "< foo x = x + 3\n"++
@@ -88,8 +90,8 @@ hareSpec = do
       r <- dispatchRequest req
       -- r `shouldBe` Just (IdeResponseOk (H.fromList ["refactor" .= ["test/testdata/HaReDemote.hs"::FilePath]]))
       r `shouldBe` Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff
-                                                           "test/testdata/HaReDemote.hs"
-                                                           "test/testdata/HaReDemote.refactored.hs"
+                                                           (cwd </> "test/testdata/HaReDemote.hs")
+                                                           (cwd </> "test/testdata/HaReDemote.refactored.hs")
                                                            ("5,6c5,6\n"++
                                                             "< \n"++
                                                             "< y = 7\n"++
@@ -112,8 +114,8 @@ hareSpec = do
                                                   ,("name",ParamValP $ ParamText "foonew")])
       r <- dispatchRequest req
       r `shouldBe` Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff
-                                                           "test/testdata/HaReRename.hs"
-                                                           "test/testdata/HaReRename.refactored.hs"
+                                                           (cwd </> "test/testdata/HaReRename.hs")
+                                                           (cwd </> "test/testdata/HaReRename.refactored.hs")
                                                            ("6a7,9\n"++
                                                             "> foonew :: Int -> Int\n"++
                                                             "> foonew x = x + 3\n"++
@@ -129,8 +131,8 @@ hareSpec = do
                                                     ,("end_pos",  ParamValP $ ParamPos (9,12))])
       r <- dispatchRequest req
       r `shouldBe` Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff
-                                                           "test/testdata/HaReCase.hs"
-                                                           "test/testdata/HaReCase.refactored.hs"
+                                                           (cwd </> "test/testdata/HaReCase.hs")
+                                                           (cwd </> "test/testdata/HaReCase.refactored.hs")
                                                            ("5,9c5,9\n"++
                                                             "< foo x = if odd x\n"++
                                                             "<         then\n"++
@@ -152,8 +154,8 @@ hareSpec = do
                                                     ,("start_pos",ParamValP $ ParamPos (6,5))])
       r <- dispatchRequest req
       r `shouldBe` Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff
-                                                           "test/testdata/HaReMoveDef.hs"
-                                                           "test/testdata/HaReMoveDef.refactored.hs"
+                                                           (cwd </> "test/testdata/HaReMoveDef.hs")
+                                                           (cwd </> "test/testdata/HaReMoveDef.refactored.hs")
                                                            ("5,6d4\n"++
                                                             "<   where\n"++
                                                             "<     y = 4\n"++
@@ -170,8 +172,8 @@ hareSpec = do
                                                           ,("start_pos",ParamValP $ ParamPos (12,9))])
       r <- dispatchRequest req
       r `shouldBe` Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff
-                                                           "test/testdata/HaReMoveDef.hs"
-                                                           "test/testdata/HaReMoveDef.refactored.hs"
+                                                           (cwd </> "test/testdata/HaReMoveDef.hs")
+                                                           (cwd </> "test/testdata/HaReMoveDef.refactored.hs")
                                                            ("11,12d10\n"++
                                                             "<       where\n"++
                                                             "<         z = 7\n"++
