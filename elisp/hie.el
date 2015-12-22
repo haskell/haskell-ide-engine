@@ -37,6 +37,9 @@
 (defvar hie-process-handle-invalid-input nil
   "A function to handle invalid input.")
 
+(defvar hie-refactor-buffer nil
+  "Buffer holidng the diff for refactoring")
+
 (defvar hie-post-message-hook nil
   "Function to call with message that will be send to hie process.")
 (defvar hie-plugins nil
@@ -159,7 +162,9 @@ association lists and count on HIE to use default values there."
 (defun hie-handle-message (json)
   (-if-let ((&alist 'type_info type-info) json)
       (hie-handle-type-info type-info)
-    (message (format "%s" json))))
+    (-if-let ((&alist 'refactor refactor) json)
+        (hie-handle-refactor refactor)
+      (message (format "%s" json)))))
 
 (defun hie-handle-type-info (type-info)
   (-if-let (((&alist 'type type)) type-info)
@@ -168,20 +173,43 @@ association lists and count on HIE to use default values there."
      (format "Error extracting type from type-info response: %s"
              type-info))))
 
-(defun hie-handle-command-detail (json)
-  (-let* (((&alist 'contexts contexts 'name command-name 'plugin_name plugin-name) json)
-          (context
-           (hie-get-context contexts)))
-    (setq hie-process-handle-message
-          #'hie-handle-message)
-    (hie-post-message
-     `(("cmd" . ,(hie-format-cmd (cons plugin-name command-name)))
-       ("params" . ,context)))))
+(defmacro hie-with-refactor-buffer (&rest body)
+  '(setq hie-refactor-buffer (get-buffer-create "*hie-refactor*"))
+  `(with-current-buffer hie-refactor-buffer ,@body))
+
+(defmacro hie-literal-save-excursion (&rest body)
+  "Like save-excursion but preserves line and column instead of point"
+  `(let ((old-col (current-column))
+         (old-row (line-number-at-pos)))
+     (save-excursion
+       ,@body)
+     (move-to-column old-col)
+     (goto-line old-row)))
+
+(defun hie-handle-refactor (refactor)
+  (-if-let (((&alist 'first first 'second second 'diff diff)) refactor)
+      (progn
+        (hie-with-refactor-buffer
+         (erase-buffer)
+         (insert diff))
+        (let ((refactored-buffer (create-file-buffer second))
+              (old-buffer (or (find-buffer-visiting first)
+                              (create-file-buffer first))))
+          (find-file-noselect-1 refactored-buffer second nil nil second nil)
+          (with-current-buffer old-buffer
+            (hie-literal-save-excursion
+             (erase-buffer)
+             (with-current-buffer refactored-buffer
+               (copy-to-buffer old-buffer (point-min) (point-max)))
+             (kill-buffer refactored-buffer)))))
+      (message
+       (format "Error extracting refactor information from refactor response: %s"
+               refactor))))
 
 (defun hie-format-cmd (cmd)
   (format "%s:%s" (car cmd) (cdr cmd)))
 
-(defun hie-get-context (context)
+(defun hie-get-context ()
   ;; we need to increment the column by one, since emacs column
   ;; numbers start at 0 while ghc column numbers start at 1
   (let ((start (save-excursion (if (use-region-p) (goto-char (region-beginning)))
@@ -190,17 +218,21 @@ association lists and count on HIE to use default values there."
                              `(("line" . ,(line-number-at-pos)) ("col" . ,(1+ (current-column))))))
         (filename (buffer-file-name)))
     `(("file" . (("file" . ,filename)))
-      ("start_pos" . ,end)
-      ("end_pos" . ,start))))
+      ("start_pos" . ,start)
+      ("end_pos" . ,end))))
 
-(defun hie-run-command (plugin command)
+(defun hie-run-command (plugin command args)
   (setq hie-process-handle-message
-        #'hie-handle-command-detail)
-  (setq hie-current-cmd (cons plugin command))
-  (hie-post-message
-   `(("cmd" . "base:commandDetail")
-     ("params" . (("command" . (("text" . ,command)))
-                  ("plugin" . (("text" . ,plugin))))))))
+        #'hie-handle-message)
+  (let ((additional-args
+         (-map
+          (-lambda ((&alist 'type type 'name name 'val val 'name))
+            (cons name (list (cons type val))))
+          args))
+        (context (hie-get-context)))
+    (hie-post-message
+     `(("cmd" . ,(hie-format-cmd (cons plugin command)))
+       ("params" . (,@context ,@ additional-args))))))
 
 (defun hie-handle-first-plugins-command (json)
   "Handle first plugins call."
@@ -218,15 +250,7 @@ association lists and count on HIE to use default values there."
                                                name))))
                      commands)))
             plugins))
-          (command-names
-           (-map
-            (-lambda ((plugin-name . commands))
-              (cons plugin-name
-                    (-map
-                     (-lambda ((&alist 'name name))
-                       name)
-                     commands)))
-            plugins)))
+          (command-names plugins))
     (setq hie-plugins plugins)
     (hie-create-all-commands command-names)
     (easy-menu-define hie-menu hie-mode-map
@@ -234,9 +258,37 @@ association lists and count on HIE to use default values there."
       (cons "HIE" menu-items))))
 
 (defun hie-create-command (plugin command)
-  `(defun ,(intern (concat "hie-" (symbol-name plugin) "-" command)) ()
-     (interactive)
-     (hie-run-command ,(symbol-name plugin) ,command)))
+  (-let* (((&alist 'name command-name 'additional_params params 'ui_description desc)
+           command)
+          (required-params
+           (-filter (-lambda ((&alist 'required required)) required)
+                    params))
+          (param-names (-map (-lambda ((&alist 'name name)) (downcase name))
+                             required-params))
+          (param-args (-map 'intern param-names))
+          (param-docstrings
+           (-map
+            (-lambda ((&alist 'name name 'help desc))
+              (format "%s: %s" (upcase name) desc))
+            required-params))
+          (docstring
+           (format "%s\n%s" desc (mapconcat 'identity param-docstrings "\n")))
+          (param-vals (-map
+                       (-lambda ((&alist 'name name 'type type))
+                         `(list (cons 'name ,(downcase name))
+                                (cons 'type ,type)
+                                (cons 'val ,(intern (downcase name)))))
+                       required-params))
+          (interactive-strings
+           (-map
+            (-lambda ((&alist 'name name 'help desc))
+              (format "s%s (%s): " name desc))
+            required-params)))
+    `(defun ,(intern (concat "hie-" (symbol-name plugin) "-" command-name)) ,param-args
+       ,docstring
+       (interactive ,(mapconcat 'identity interactive-strings "\n"))
+       (hie-run-command ,(symbol-name plugin) ,command-name
+                        (list ,@param-vals)))))
 
 (defun hie-create-all-commands (command-names)
   (eval `(progn
