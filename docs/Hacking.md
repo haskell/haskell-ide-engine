@@ -57,7 +57,7 @@ This makes use of servant, and exposes the following API
 So it can be accesed by
 
 ```
-curl -v http://localhost:8081/req/base -X POST -H Content-Type:application/json --data-binary '{"ideParams":{},"ideCommand":"version","ideContext":{"ctxEndPos":null,"ctxCabal":null,"ctxStartPos":null,"ctxFile":null}}'
+curl -v http://localhost:8081/req/base -X POST -H Content-Type:application/json -d '{"params":{},"cmd":"version"}'
 ````
 
 This returns
