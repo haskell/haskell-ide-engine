@@ -10,6 +10,7 @@ packages:
 - hie-plugin-api
 - hie-ghc-mod
 - hie-hare
+- hie-docs-generator
 # - ../ghci-ng
 - location:
     git: https://github.com/kazu-yamamoto/ghc-mod.git
