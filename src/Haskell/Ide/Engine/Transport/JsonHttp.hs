@@ -35,10 +35,10 @@ instance ToJSON Greet
 
 -- API specification
 type HieApi =
-  -- curl -v http://localhost:8081/req/base -X POST -H Content-Type:application/json --data-binary '{"ideParams":{},"ideCommand":"version","ideContext":{"ctxEndPos":null,"ctxCabal":null,"ctxStartPos":null,"ctxFile":null}}'
        "req" :> Capture "plugin" Text
+             :> Capture "command" CommandName
              :> QueryParam "rid" Int -- optional request id
-             :> ReqBody '[JSON] IdeRequest
+             :> ReqBody '[JSON] ParamMap
              :> Post '[JSON] (IdeResponse Object)
 
   :<|> "eg" :> Get '[JSON] IdeRequest
@@ -60,9 +60,9 @@ server cin cout = hieH
               :<|> egH
 
   where
-        hieH plugin mrid reqVal = do
+        hieH plugin command mrid reqVal = do
           let rid = fromMaybe 1 mrid
-          liftIO $ atomically $ writeTChan cin (CReq plugin rid reqVal cout)
+          liftIO $ atomically $ writeTChan cin (CReq plugin rid (IdeRequest command reqVal) cout)
           rsp <- liftIO $ atomically $ readTChan cout
           return (coutResp rsp)
           -- return (IdeResponseOk (String $ pack $ show r))
