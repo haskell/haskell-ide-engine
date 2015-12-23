@@ -38,6 +38,7 @@ dispatcher cin = do
 -- | Send a response from the plugin to the designated reply channel
 sendResponse :: (ValidResponse a) => ChannelRequest -> IdeResponse a -> IO ()
 sendResponse req resp = do
+  debugm $ "sendResponse (req,resp)=" ++ show (req,fmap jsWrite resp)
   let cr = CResp (cinPlugin req) (cinReqId req) (fmap jsWrite resp)
   liftIO $ atomically $ writeTChan (cinReplyChan req) cr
 
