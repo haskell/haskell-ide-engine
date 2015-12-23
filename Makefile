@@ -20,5 +20,3 @@ test-haskell:
 .PHONY: ghci-test
 ghci-test:
 	stack ghci --main-is=haskell-ide-test
-
-
