@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE QuasiQuotes #-}
 module Main where
 
 
@@ -19,6 +20,7 @@ import           Haskell.Ide.HaRePlugin
 import qualified Options as O
 import           Options.Applicative
 import           System.FilePath
+import           Text.Regex.PCRE.Heavy
 
 main :: IO ()
 main =
@@ -28,7 +30,6 @@ main =
           info (helper <*> O.config)
                (fullDesc <> progDesc "Generate documentation for hie" <>
                 header "hie-docs-generator")
-
 
 newtype DocGenM a =
   DocGenM {runDocGenM :: ReaderT O.Config IO a}
@@ -71,5 +72,8 @@ commandDoc :: PluginId -> Command -> T.Text
 commandDoc pluginId (cmdDesc -> (CommandDesc{cmdName = name,cmdUiDescription = desc})) =
   T.unlines [".. hie:command:: " <> pluginId <> ":" <> name
             ,""
-            ,"   " <> desc
+            ,"   " <> cleanupDescription desc
             ,""]
+
+cleanupDescription :: T.Text -> T.Text
+cleanupDescription = sub [re|`(.*?)'|] (\[code] -> "``" <> code <> "``" :: T.Text)
