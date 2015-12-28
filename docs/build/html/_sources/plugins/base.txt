@@ -1,23 +1,59 @@
 base
 ====
+.. hie:plugin:: base
 
-.. hie:command:: base:version
+   .. hie:command:: version
 
-   return HIE version
+      return HIE version
 
+      Example::
 
-.. hie:command:: base:plugins
+        {
+            "params": {},
+            "cmd": "base:version"
+        }
 
-   list available plugins
+   .. hie:command:: plugins
 
+      list available plugins
 
-.. hie:command:: base:commands
+      Example::
 
-   list available commands for a given plugin
+        {
+            "params": {},
+            "cmd": "base:plugins"
+        }
 
+   .. hie:command:: commands
 
-.. hie:command:: base:commandDetail
+      list available commands for a given plugin
 
-   list parameters required for a given command
+      Example::
 
+        {
+            "params": {
+                "plugin": {
+                    "text": "the plugin name"
+                }
+            },
+            "cmd": "base:commands"
+        }
+
+   .. hie:command:: commandDetail
+
+      list parameters required for a given command
+
+      Example::
+
+        {
+            "params": {
+                "command": {
+                    "text": "the command name"
+                },
+                "plugin": {
+                    "text": "the plugin name"
+                }
+            },
+            "cmd": "base:commandDetail"
+        }
 

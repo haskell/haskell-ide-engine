@@ -42,16 +42,39 @@
             
   <div class="section" id="eg2">
 <h1>eg2<a class="headerlink" href="#eg2" title="Permalink to this headline">¶</a></h1>
-<dl class="command">
-<dt id="command-eg2:sayHello">
-<code class="descname">eg2:sayHello</code><a class="headerlink" href="#command-eg2:sayHello" title="Permalink to this definition">¶</a></dt>
+<dl class="plugin">
+<dt id="plugin-eg2">
+<code class="descname">eg2</code><a class="headerlink" href="#plugin-eg2" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="command">
+<dt id="command-sayHello">
+<code class="descname">sayHello</code><a class="headerlink" href="#command-sayHello" title="Permalink to this definition">¶</a></dt>
 <dd><p>say hello</p>
+<p>Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">{</span>
+    <span class="s">&quot;params&quot;</span><span class="p">:</span> <span class="p">{},</span>
+    <span class="s">&quot;cmd&quot;</span><span class="p">:</span> <span class="s">&quot;eg2:sayHello&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="command">
-<dt id="command-eg2:sayHelloTo">
-<code class="descname">eg2:sayHelloTo</code><a class="headerlink" href="#command-eg2:sayHelloTo" title="Permalink to this definition">¶</a></dt>
+<dt id="command-sayHelloTo">
+<code class="descname">sayHelloTo</code><a class="headerlink" href="#command-sayHelloTo" title="Permalink to this definition">¶</a></dt>
 <dd><p>say hello to the passed in param</p>
+<p>Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">{</span>
+    <span class="s">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&quot;name&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;text&quot;</span><span class="p">:</span> <span class="s">&quot;the name to greet&quot;</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="s">&quot;cmd&quot;</span><span class="p">:</span> <span class="s">&quot;eg2:sayHelloTo&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</dd></dl>
+
 </dd></dl>
 
 </div>

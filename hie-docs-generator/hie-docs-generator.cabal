@@ -18,9 +18,12 @@ cabal-version:       >=1.10
 
 executable hie-docs-generator
   main-is:             Main.hs
-  other-modules:       Options
+  other-modules:       Options, Examples
   -- other-extensions:
-  build-depends:       base
+  build-depends:       aeson
+                     , aeson-pretty >= 0.7 && < 0.8
+                     , base
+                     , bytestring
                      , containers
                      , filepath
                      , haskell-ide-engine

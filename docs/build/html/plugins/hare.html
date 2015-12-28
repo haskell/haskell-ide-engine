@@ -41,40 +41,145 @@
             
   <div class="section" id="hare">
 <h1>hare<a class="headerlink" href="#hare" title="Permalink to this headline">¶</a></h1>
-<dl class="command">
-<dt id="command-hare:demote">
-<code class="descname">hare:demote</code><a class="headerlink" href="#command-hare:demote" title="Permalink to this definition">¶</a></dt>
+<dl class="plugin">
+<dt id="plugin-hare">
+<code class="descname">hare</code><a class="headerlink" href="#plugin-hare" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="command">
+<dt id="command-demote">
+<code class="descname">demote</code><a class="headerlink" href="#command-demote" title="Permalink to this definition">¶</a></dt>
 <dd><p>Move a definition one level down</p>
+<p>Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">{</span>
+    <span class="s">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&quot;start_pos&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;line&quot;</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span>
+            <span class="s">&quot;col&quot;</span><span class="p">:</span> <span class="mi">23</span>
+        <span class="p">},</span>
+        <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="s">&quot;a file name&quot;</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="s">&quot;cmd&quot;</span><span class="p">:</span> <span class="s">&quot;hare:demote&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="command">
-<dt id="command-hare:dupdef">
-<code class="descname">hare:dupdef</code><a class="headerlink" href="#command-hare:dupdef" title="Permalink to this definition">¶</a></dt>
+<dt id="command-dupdef">
+<code class="descname">dupdef</code><a class="headerlink" href="#command-dupdef" title="Permalink to this definition">¶</a></dt>
 <dd><p>Duplicate a definition</p>
+<p>Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">{</span>
+    <span class="s">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&quot;name&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;text&quot;</span><span class="p">:</span> <span class="s">&quot;the new name&quot;</span>
+        <span class="p">},</span>
+        <span class="s">&quot;start_pos&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;line&quot;</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span>
+            <span class="s">&quot;col&quot;</span><span class="p">:</span> <span class="mi">23</span>
+        <span class="p">},</span>
+        <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="s">&quot;a file name&quot;</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="s">&quot;cmd&quot;</span><span class="p">:</span> <span class="s">&quot;hare:dupdef&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="command">
-<dt id="command-hare:iftocase">
-<code class="descname">hare:iftocase</code><a class="headerlink" href="#command-hare:iftocase" title="Permalink to this definition">¶</a></dt>
+<dt id="command-iftocase">
+<code class="descname">iftocase</code><a class="headerlink" href="#command-iftocase" title="Permalink to this definition">¶</a></dt>
 <dd><p>Converts an if statement to a case statement</p>
+<p>Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">{</span>
+    <span class="s">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&quot;end_pos&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;line&quot;</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span>
+            <span class="s">&quot;col&quot;</span><span class="p">:</span> <span class="mi">23</span>
+        <span class="p">},</span>
+        <span class="s">&quot;start_pos&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;line&quot;</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span>
+            <span class="s">&quot;col&quot;</span><span class="p">:</span> <span class="mi">23</span>
+        <span class="p">},</span>
+        <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="s">&quot;a file name&quot;</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="s">&quot;cmd&quot;</span><span class="p">:</span> <span class="s">&quot;hare:iftocase&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="command">
-<dt id="command-hare:liftonelevel">
-<code class="descname">hare:liftonelevel</code><a class="headerlink" href="#command-hare:liftonelevel" title="Permalink to this definition">¶</a></dt>
+<dt id="command-liftonelevel">
+<code class="descname">liftonelevel</code><a class="headerlink" href="#command-liftonelevel" title="Permalink to this definition">¶</a></dt>
 <dd><p>Move a definition one level up from where it is now</p>
+<p>Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">{</span>
+    <span class="s">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&quot;start_pos&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;line&quot;</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span>
+            <span class="s">&quot;col&quot;</span><span class="p">:</span> <span class="mi">23</span>
+        <span class="p">},</span>
+        <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="s">&quot;a file name&quot;</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="s">&quot;cmd&quot;</span><span class="p">:</span> <span class="s">&quot;hare:liftonelevel&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="command">
-<dt id="command-hare:lifttotoplevel">
-<code class="descname">hare:lifttotoplevel</code><a class="headerlink" href="#command-hare:lifttotoplevel" title="Permalink to this definition">¶</a></dt>
+<dt id="command-lifttotoplevel">
+<code class="descname">lifttotoplevel</code><a class="headerlink" href="#command-lifttotoplevel" title="Permalink to this definition">¶</a></dt>
 <dd><p>Move a definition to the top level from where it is now</p>
+<p>Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">{</span>
+    <span class="s">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&quot;start_pos&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;line&quot;</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span>
+            <span class="s">&quot;col&quot;</span><span class="p">:</span> <span class="mi">23</span>
+        <span class="p">},</span>
+        <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="s">&quot;a file name&quot;</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="s">&quot;cmd&quot;</span><span class="p">:</span> <span class="s">&quot;hare:lifttotoplevel&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="command">
-<dt id="command-hare:rename">
-<code class="descname">hare:rename</code><a class="headerlink" href="#command-hare:rename" title="Permalink to this definition">¶</a></dt>
+<dt id="command-rename">
+<code class="descname">rename</code><a class="headerlink" href="#command-rename" title="Permalink to this definition">¶</a></dt>
 <dd><p>rename a variable or type</p>
+<p>Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">{</span>
+    <span class="s">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&quot;name&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;text&quot;</span><span class="p">:</span> <span class="s">&quot;the new name&quot;</span>
+        <span class="p">},</span>
+        <span class="s">&quot;start_pos&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;line&quot;</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span>
+            <span class="s">&quot;col&quot;</span><span class="p">:</span> <span class="mi">23</span>
+        <span class="p">},</span>
+        <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="s">&quot;a file name&quot;</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="s">&quot;cmd&quot;</span><span class="p">:</span> <span class="s">&quot;hare:rename&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</dd></dl>
+
 </dd></dl>
 
 </div>

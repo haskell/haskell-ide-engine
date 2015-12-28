@@ -1,13 +1,26 @@
 egasync
 =======
+.. hie:plugin:: egasync
 
-.. hie:command:: egasync:cmd1
+   .. hie:command:: cmd1
 
-   Long running synchronous command
+      Long running synchronous command
 
+      Example::
 
-.. hie:command:: egasync:cmd2
+        {
+            "params": {},
+            "cmd": "egasync:cmd1"
+        }
 
-   Long running synchronous command
+   .. hie:command:: cmd2
 
+      Long running synchronous command
+
+      Example::
+
+        {
+            "params": {},
+            "cmd": "egasync:cmd2"
+        }
 

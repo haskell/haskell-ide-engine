@@ -42,34 +42,104 @@
             
   <div class="section" id="ghcmod">
 <h1>ghcmod<a class="headerlink" href="#ghcmod" title="Permalink to this headline">¶</a></h1>
-<dl class="command">
-<dt id="command-ghcmod:check">
-<code class="descname">ghcmod:check</code><a class="headerlink" href="#command-ghcmod:check" title="Permalink to this definition">¶</a></dt>
+<dl class="plugin">
+<dt id="plugin-ghcmod">
+<code class="descname">ghcmod</code><a class="headerlink" href="#plugin-ghcmod" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="command">
+<dt id="command-check">
+<code class="descname">check</code><a class="headerlink" href="#command-check" title="Permalink to this definition">¶</a></dt>
 <dd><p>check a file for GHC warnings and errors</p>
+<p>Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">{</span>
+    <span class="s">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="s">&quot;a file name&quot;</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="s">&quot;cmd&quot;</span><span class="p">:</span> <span class="s">&quot;ghcmod:check&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="command">
-<dt id="command-ghcmod:lint">
-<code class="descname">ghcmod:lint</code><a class="headerlink" href="#command-ghcmod:lint" title="Permalink to this definition">¶</a></dt>
+<dt id="command-lint">
+<code class="descname">lint</code><a class="headerlink" href="#command-lint" title="Permalink to this definition">¶</a></dt>
 <dd><p>Check files using <code class="docutils literal"><span class="pre">hlint</span></code></p>
+<p>Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">{</span>
+    <span class="s">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="s">&quot;a file name&quot;</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="s">&quot;cmd&quot;</span><span class="p">:</span> <span class="s">&quot;ghcmod:lint&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="command">
-<dt id="command-ghcmod:find">
-<code class="descname">ghcmod:find</code><a class="headerlink" href="#command-ghcmod:find" title="Permalink to this definition">¶</a></dt>
+<dt id="command-find">
+<code class="descname">find</code><a class="headerlink" href="#command-find" title="Permalink to this definition">¶</a></dt>
 <dd><p>List all modules that define SYMBOL</p>
+<p>Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">{</span>
+    <span class="s">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&quot;dir&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="s">&quot;a directory name&quot;</span>
+        <span class="p">},</span>
+        <span class="s">&quot;symbol&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;text&quot;</span><span class="p">:</span> <span class="s">&quot;The SYMBOL to look up&quot;</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="s">&quot;cmd&quot;</span><span class="p">:</span> <span class="s">&quot;ghcmod:find&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="command">
-<dt id="command-ghcmod:info">
-<code class="descname">ghcmod:info</code><a class="headerlink" href="#command-ghcmod:info" title="Permalink to this definition">¶</a></dt>
+<dt id="command-info">
+<code class="descname">info</code><a class="headerlink" href="#command-info" title="Permalink to this definition">¶</a></dt>
 <dd><p>Look up an identifier in the context of FILE (like ghci&#8217;s <code class="docutils literal"><span class="pre">:info</span></code>)</p>
+<p>Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">{</span>
+    <span class="s">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&quot;expr&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;text&quot;</span><span class="p">:</span> <span class="s">&quot;The EXPR to provide info on&quot;</span>
+        <span class="p">},</span>
+        <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="s">&quot;a file name&quot;</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="s">&quot;cmd&quot;</span><span class="p">:</span> <span class="s">&quot;ghcmod:info&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="command">
-<dt id="command-ghcmod:type">
-<code class="descname">ghcmod:type</code><a class="headerlink" href="#command-ghcmod:type" title="Permalink to this definition">¶</a></dt>
+<dt id="command-type">
+<code class="descname">type</code><a class="headerlink" href="#command-type" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get the type of the expression under (LINE,COL)</p>
+<p>Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">{</span>
+    <span class="s">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&quot;start_pos&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;line&quot;</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span>
+            <span class="s">&quot;col&quot;</span><span class="p">:</span> <span class="mi">23</span>
+        <span class="p">},</span>
+        <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="s">&quot;a file name&quot;</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="s">&quot;cmd&quot;</span><span class="p">:</span> <span class="s">&quot;ghcmod:type&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</dd></dl>
+
 </dd></dl>
 
 </div>

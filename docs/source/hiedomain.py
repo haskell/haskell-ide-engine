@@ -1,3 +1,4 @@
+from docutils import nodes
 from sphinx import addnodes
 from sphinx.directives import ObjectDescription
 from sphinx.domains import Domain, ObjType
@@ -30,11 +31,28 @@ class HIEDirective(ObjectDescription):
     def get_index_text(self, objectname, name):
         if self.objtype == 'command':
             return _('%s (command)') % name
+        if self.objtype == 'plugin':
+            return _('%s (plugin)') % name
         return ''
 
 class HIECommand(HIEDirective):
     def handle_signature(self, sig, signode):
+        pluginname = self.env.ref_context.get('hie:plugin')
+        signode += addnodes.desc_name('%s:%s' % (pluginname,sig), '%s' % sig)
+        return sig
+
+class HIEPlugin(HIEDirective):
+    def handle_signature(self, sig, signode):
         signode += addnodes.desc_name('%s' % sig, '%s' % sig)
+        return sig
+    def before_content(self):
+        self.env.ref_context['hie:plugin'] = self.names[0]
+    def after_content(self):
+        self.env.ref_context.pop('hie:plugin', None)
+
+class HIEExample(HIEDirective):
+    def handle_signature(self, sig, signode):
+        signode += addnodes.desc_name('Example', 'Example')
         return sig
 
 class HIEDomain(Domain):
@@ -42,12 +60,18 @@ class HIEDomain(Domain):
     label = 'haskell-ide-engine'
     object_types = {
         'command': ObjType(l_('command'), 'cmd'),
+        'plugin': ObjType(l_('plugin'), 'plugin'),
+        'example': ObjType(l_('example'), 'example')
     }
     directives = {
-        'command': HIECommand
+        'command': HIECommand,
+        'plugin': HIEPlugin,
+        'example': HIEExample
     }
     roles = {
-        'cmd':  XRefRole(),
+        'cmd': XRefRole(),
+        'plugin': XRefRole(),
+        'example': XRefRole()
     }
     initial_data = {
         'objects': {},  # fullname -> docname, objtype

@@ -1,13 +1,30 @@
 eg2
 ===
+.. hie:plugin:: eg2
 
-.. hie:command:: eg2:sayHello
+   .. hie:command:: sayHello
 
-   say hello
+      say hello
 
+      Example::
 
-.. hie:command:: eg2:sayHelloTo
+        {
+            "params": {},
+            "cmd": "eg2:sayHello"
+        }
 
-   say hello to the passed in param
+   .. hie:command:: sayHelloTo
 
+      say hello to the passed in param
+
+      Example::
+
+        {
+            "params": {
+                "name": {
+                    "text": "the name to greet"
+                }
+            },
+            "cmd": "eg2:sayHelloTo"
+        }
 

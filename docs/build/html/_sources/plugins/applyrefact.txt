@@ -1,13 +1,38 @@
 applyrefact
 ===========
+.. hie:plugin:: applyrefact
 
-.. hie:command:: applyrefact:applyOne
+   .. hie:command:: applyOne
 
-   Apply a single hint
+      Apply a single hint
 
+      Example::
 
-.. hie:command:: applyrefact:applyAll
+        {
+            "params": {
+                "start_pos": {
+                    "line": 42,
+                    "col": 23
+                },
+                "file": {
+                    "file": "a file name"
+                }
+            },
+            "cmd": "applyrefact:applyOne"
+        }
 
-   Apply all hints to the file
+   .. hie:command:: applyAll
 
+      Apply all hints to the file
+
+      Example::
+
+        {
+            "params": {
+                "file": {
+                    "file": "a file name"
+                }
+            },
+            "cmd": "applyrefact:applyAll"
+        }
 

@@ -5,11 +5,14 @@
 {-# LANGUAGE QuasiQuotes #-}
 module Main where
 
-
+import qualified Data.ByteString.Lazy as BS
+import qualified Data.Aeson.Encode.Pretty as AP
 import           Control.Monad.Reader
 import qualified Data.Map as M
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import qualified Data.Text.IO as T
+import           Examples
 import           Haskell.Ide.ApplyRefactPlugin
 import           Haskell.Ide.Engine.BasePlugin
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -65,15 +68,32 @@ pluginDoc :: (PluginId,PluginDescriptor) -> T.Text
 pluginDoc (pluginId,PluginDescriptor{pdCommands = commands}) =
   T.unlines ([pluginId
              ,T.replicate (T.length pluginId)
-                          "=",""] ++ commandDocs)
-  where commandDocs =  map (commandDoc pluginId) commands
+                          "="
+             ,".. hie:plugin:: " <> pluginId
+             ,""] ++
+             commandDocs)
+  where commandDocs = map (commandDoc pluginId) commands
 
 commandDoc :: PluginId -> Command -> T.Text
-commandDoc pluginId (cmdDesc -> (CommandDesc{cmdName = name,cmdUiDescription = desc})) =
-  T.unlines [".. hie:command:: " <> pluginId <> ":" <> name
-            ,""
-            ,"   " <> cleanupDescription desc
-            ,""]
+commandDoc pluginId (cmdDesc -> cmddesc@(CommandDesc{cmdName = name,cmdUiDescription = desc})) =
+  T.unlines $
+  ["   .. hie:command:: " <> name
+  ,""
+  ,"      " <> cleanupDescription desc
+  ,""
+  ,"      Example::"
+  ,""] ++
+  map ("        " <>)
+      (T.lines $
+       T.decodeUtf8 $
+       BS.toStrict $ AP.encodePretty (jsonStdioExample pluginId cmddesc))
 
 cleanupDescription :: T.Text -> T.Text
-cleanupDescription = sub [re|`(.*?)'|] (\[code] -> "``" <> code <> "``" :: T.Text)
+cleanupDescription =
+  sub [re|`(.*?)'|]
+      (\[code] -> "``" <> code <> "``" :: T.Text)
+
+ghciHelper :: IO ()
+ghciHelper = flip runReaderT conf $ runDocGenM $ generateDocs
+  where conf =
+          O.Config O.pluginList "/home/moritz/code/haskell/haskell-ide-engine/docs/source"

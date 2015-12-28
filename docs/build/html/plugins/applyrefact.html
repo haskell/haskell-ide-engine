@@ -42,16 +42,47 @@
             
   <div class="section" id="applyrefact">
 <h1>applyrefact<a class="headerlink" href="#applyrefact" title="Permalink to this headline">¶</a></h1>
-<dl class="command">
-<dt id="command-applyrefact:applyOne">
-<code class="descname">applyrefact:applyOne</code><a class="headerlink" href="#command-applyrefact:applyOne" title="Permalink to this definition">¶</a></dt>
+<dl class="plugin">
+<dt id="plugin-applyrefact">
+<code class="descname">applyrefact</code><a class="headerlink" href="#plugin-applyrefact" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="command">
+<dt id="command-applyOne">
+<code class="descname">applyOne</code><a class="headerlink" href="#command-applyOne" title="Permalink to this definition">¶</a></dt>
 <dd><p>Apply a single hint</p>
+<p>Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">{</span>
+    <span class="s">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&quot;start_pos&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;line&quot;</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span>
+            <span class="s">&quot;col&quot;</span><span class="p">:</span> <span class="mi">23</span>
+        <span class="p">},</span>
+        <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="s">&quot;a file name&quot;</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="s">&quot;cmd&quot;</span><span class="p">:</span> <span class="s">&quot;applyrefact:applyOne&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="command">
-<dt id="command-applyrefact:applyAll">
-<code class="descname">applyrefact:applyAll</code><a class="headerlink" href="#command-applyrefact:applyAll" title="Permalink to this definition">¶</a></dt>
+<dt id="command-applyAll">
+<code class="descname">applyAll</code><a class="headerlink" href="#command-applyAll" title="Permalink to this definition">¶</a></dt>
 <dd><p>Apply all hints to the file</p>
+<p>Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">{</span>
+    <span class="s">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;file&quot;</span><span class="p">:</span> <span class="s">&quot;a file name&quot;</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="s">&quot;cmd&quot;</span><span class="p">:</span> <span class="s">&quot;applyrefact:applyAll&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</dd></dl>
+
 </dd></dl>
 
 </div>

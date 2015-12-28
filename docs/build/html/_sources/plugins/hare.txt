@@ -1,33 +1,128 @@
 hare
 ====
+.. hie:plugin:: hare
 
-.. hie:command:: hare:demote
+   .. hie:command:: demote
 
-   Move a definition one level down
+      Move a definition one level down
 
+      Example::
 
-.. hie:command:: hare:dupdef
+        {
+            "params": {
+                "start_pos": {
+                    "line": 42,
+                    "col": 23
+                },
+                "file": {
+                    "file": "a file name"
+                }
+            },
+            "cmd": "hare:demote"
+        }
 
-   Duplicate a definition
+   .. hie:command:: dupdef
 
+      Duplicate a definition
 
-.. hie:command:: hare:iftocase
+      Example::
 
-   Converts an if statement to a case statement
+        {
+            "params": {
+                "name": {
+                    "text": "the new name"
+                },
+                "start_pos": {
+                    "line": 42,
+                    "col": 23
+                },
+                "file": {
+                    "file": "a file name"
+                }
+            },
+            "cmd": "hare:dupdef"
+        }
 
+   .. hie:command:: iftocase
 
-.. hie:command:: hare:liftonelevel
+      Converts an if statement to a case statement
 
-   Move a definition one level up from where it is now
+      Example::
 
+        {
+            "params": {
+                "end_pos": {
+                    "line": 42,
+                    "col": 23
+                },
+                "start_pos": {
+                    "line": 42,
+                    "col": 23
+                },
+                "file": {
+                    "file": "a file name"
+                }
+            },
+            "cmd": "hare:iftocase"
+        }
 
-.. hie:command:: hare:lifttotoplevel
+   .. hie:command:: liftonelevel
 
-   Move a definition to the top level from where it is now
+      Move a definition one level up from where it is now
 
+      Example::
 
-.. hie:command:: hare:rename
+        {
+            "params": {
+                "start_pos": {
+                    "line": 42,
+                    "col": 23
+                },
+                "file": {
+                    "file": "a file name"
+                }
+            },
+            "cmd": "hare:liftonelevel"
+        }
 
-   rename a variable or type
+   .. hie:command:: lifttotoplevel
 
+      Move a definition to the top level from where it is now
+
+      Example::
+
+        {
+            "params": {
+                "start_pos": {
+                    "line": 42,
+                    "col": 23
+                },
+                "file": {
+                    "file": "a file name"
+                }
+            },
+            "cmd": "hare:lifttotoplevel"
+        }
+
+   .. hie:command:: rename
+
+      rename a variable or type
+
+      Example::
+
+        {
+            "params": {
+                "name": {
+                    "text": "the new name"
+                },
+                "start_pos": {
+                    "line": 42,
+                    "col": 23
+                },
+                "file": {
+                    "file": "a file name"
+                }
+            },
+            "cmd": "hare:rename"
+        }
 

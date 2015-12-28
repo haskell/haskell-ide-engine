@@ -42,28 +42,72 @@
             
   <div class="section" id="base">
 <h1>base<a class="headerlink" href="#base" title="Permalink to this headline">¶</a></h1>
-<dl class="command">
-<dt id="command-base:version">
-<code class="descname">base:version</code><a class="headerlink" href="#command-base:version" title="Permalink to this definition">¶</a></dt>
+<dl class="plugin">
+<dt id="plugin-base">
+<code class="descname">base</code><a class="headerlink" href="#plugin-base" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="command">
+<dt id="command-version">
+<code class="descname">version</code><a class="headerlink" href="#command-version" title="Permalink to this definition">¶</a></dt>
 <dd><p>return HIE version</p>
+<p>Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">{</span>
+    <span class="s">&quot;params&quot;</span><span class="p">:</span> <span class="p">{},</span>
+    <span class="s">&quot;cmd&quot;</span><span class="p">:</span> <span class="s">&quot;base:version&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="command">
-<dt id="command-base:plugins">
-<code class="descname">base:plugins</code><a class="headerlink" href="#command-base:plugins" title="Permalink to this definition">¶</a></dt>
+<dt id="command-plugins">
+<code class="descname">plugins</code><a class="headerlink" href="#command-plugins" title="Permalink to this definition">¶</a></dt>
 <dd><p>list available plugins</p>
+<p>Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">{</span>
+    <span class="s">&quot;params&quot;</span><span class="p">:</span> <span class="p">{},</span>
+    <span class="s">&quot;cmd&quot;</span><span class="p">:</span> <span class="s">&quot;base:plugins&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="command">
-<dt id="command-base:commands">
-<code class="descname">base:commands</code><a class="headerlink" href="#command-base:commands" title="Permalink to this definition">¶</a></dt>
+<dt id="command-commands">
+<code class="descname">commands</code><a class="headerlink" href="#command-commands" title="Permalink to this definition">¶</a></dt>
 <dd><p>list available commands for a given plugin</p>
+<p>Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">{</span>
+    <span class="s">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&quot;plugin&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;text&quot;</span><span class="p">:</span> <span class="s">&quot;the plugin name&quot;</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="s">&quot;cmd&quot;</span><span class="p">:</span> <span class="s">&quot;base:commands&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="command">
-<dt id="command-base:commandDetail">
-<code class="descname">base:commandDetail</code><a class="headerlink" href="#command-base:commandDetail" title="Permalink to this definition">¶</a></dt>
+<dt id="command-commandDetail">
+<code class="descname">commandDetail</code><a class="headerlink" href="#command-commandDetail" title="Permalink to this definition">¶</a></dt>
 <dd><p>list parameters required for a given command</p>
+<p>Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">{</span>
+    <span class="s">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&quot;command&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;text&quot;</span><span class="p">:</span> <span class="s">&quot;the command name&quot;</span>
+        <span class="p">},</span>
+        <span class="s">&quot;plugin&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&quot;text&quot;</span><span class="p">:</span> <span class="s">&quot;the plugin name&quot;</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="s">&quot;cmd&quot;</span><span class="p">:</span> <span class="s">&quot;base:commandDetail&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</dd></dl>
+
 </dd></dl>
 
 </div>
