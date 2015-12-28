@@ -17,6 +17,8 @@ make html
 
 # go to the out directory and create a *new* Git repo
 cd build/html
+
+touch .nojekyll
 git init
 
 # inside this git repo we'll pretend to be a new user
