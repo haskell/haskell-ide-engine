@@ -22,11 +22,11 @@ install:
 - "./travis_long stack +RTS -N2 -RTS setup"
 - "./travis_long stack build --only-snapshot"
 script:
+- "./travis_long ./deploy-docs.sh"
 - "./travis_long stack +RTS -N1 -RTS build"
 - "./travis_long stack +RTS -N1 -RTS build --test"
 - "./travis_long stack exec emacs24 -- -q --batch -L elisp -l elisp/tests/hie-tests.el
   -f ert-run-tests-batch-and-exit"
-- "./travis_long ./deploy-docs.sh"
 notifications:
   irc:
     channels:
