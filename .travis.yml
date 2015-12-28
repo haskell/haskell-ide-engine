@@ -39,5 +39,5 @@ notifications:
     - "%{commit}: %{message} %{build_url}"
 env:
   global:
-  - GH_REF: github.com/cocreature/haskell-ide-engine.git
+  - GH_REF: github.com/haskell/haskell-ide-engine.git
   - secure: dfjR0iqvz9jc+Rp1xmLk10RuWiWGLAIV4GUcaZYYBwdekChWHqj8cI4Opzi98zCWJTnElqT1hF3+zuPWnyo1wOREnIx7W01FFALFrnFgIgQB21HS5cq5wmRPawSi1WNodb71WsedB8Wz8RqjNL88ZiQeXh+9LkGgiNSXu0Q+K7VOtFtjsAKFMrmsgPi+cHIggecteT8v+wVCHloz9UjHdJ+LKiJPOvruzuguKQa7I39rkRHKdyUfz6PwIONMLhcBHoZOpqBQk6hdbqd0Dxroz83cnOVYVA9iK4XcIZ9hFubF8V9h1C0LNbmppnOXTCSqeLgwzqujKj4HpNBAr+2A/MJn6UKbM4U2xvOGd47BZlZz4xflZKArcNDR64KPspaPzilIjft7Un7Sza5TzWLBT9PpMkM08mxd51yC5Qmk3+ayi5W80iWgfgwGbbdHp7kaOVNu47CzGZrqYafLZInZ1EWuZfXOTxpNj9IOM1LDses5/ARVcE0p8UQbCTZFQ/goFDwwFlSxghIfwI0jDvPq+BeXi6DE8n4n3QQlLDTItt7dATQ+GdnhfbxBDXwz6dxUgJyQzagX9BdAaXjqWXTJyyiyn6FKb29oROhHbNTaMY9csF9EyoF4RttD4QLaDw87DX3XvtGjgglcEZJU4hFLMy1m7ORlxIHuuzdIp+6DmsI=
