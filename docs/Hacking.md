@@ -57,13 +57,13 @@ This makes use of servant, and exposes the following API
 So it can be accesed by
 
 ```
-curl -v http://localhost:8081/req/base -X POST -H Content-Type:application/json --data-binary '{"ideParams":{},"ideCommand":"version","ideContext":{"ctxEndPos":null,"ctxCabal":null,"ctxStartPos":null,"ctxFile":null}}'
+curl -v -H "Content-Type: application/json" -X POST -d '{"command":{"text": "version"},"plugin":{"text": "base"}}' http://localhost:8001/req/base/commandDetail
 ````
 
 This returns
 
 ```json
-{"ok":"Version 0.1.0.0, Git revision 1db8ae98de2e197f5447c0a97f20ca4e06fdbc98 (dirty) (57 commits) x86_64"}
+{"contexts":["none"],"return_type":"Text","plugin_name":"base","name":"version","additional_params":[],"ui_description":"return HIE version","file_extensions":[]}
 ```
 
 ### Plugins
