@@ -15,6 +15,20 @@ cd docs
 make clean
 make html
 
+# disable for pull requests
+if [ "$TRAVIS_PULL_REQUEST" != "false" ]
+then
+    echo "Exiting: in a pull request"
+    exit 0
+fi
+
+# disable for other branches than master
+if [ "$TRAVIS_BRANCH" != "master" ]
+then
+    echo "Exiting: not on master branch"
+    exit 0
+fi
+
 # disable for other repos as it will fail anyway because the
 # encryption is repo specific
 if [ "$TRAVIS_REPO_SLUG" != "haskell/haskell-ide-engine" ]
