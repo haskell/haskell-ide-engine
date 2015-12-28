@@ -1,4 +1,9 @@
 #!/bin/bash
+
+virtualenv env
+. env/bin/activate
+pip install -U Sphinx
+
 set -e # exit with nonzero exit code if anything fails
 
 # build docs generator and create docs

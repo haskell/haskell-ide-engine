@@ -5,6 +5,7 @@ addons:
     - hvr-ghc
     - cassou-emacs
     packages:
+    - python-virtualenv
     - libgmp-dev
     - emacs24-nox
 cache:
