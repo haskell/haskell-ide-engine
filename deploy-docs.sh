@@ -19,6 +19,7 @@ make html
 # encryption is repo specific
 if [ "$TRAVIS_REPO_SLUG" != "haskell/haskell-ide-engine" ]
 then
+    echo "Exiting: not on haskell/haskell-ide-engine repo"
     exit 0
 fi
 
