@@ -5,9 +5,9 @@
 {-# LANGUAGE QuasiQuotes #-}
 module Main where
 
-import qualified Data.ByteString.Lazy as BS
-import qualified Data.Aeson.Encode.Pretty as AP
 import           Control.Monad.Reader
+import qualified Data.Aeson.Encode.Pretty as AP
+import qualified Data.ByteString.Lazy as BS
 import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -22,6 +22,7 @@ import           Haskell.Ide.GhcModPlugin
 import           Haskell.Ide.HaRePlugin
 import qualified Options as O
 import           Options.Applicative
+import           System.Directory
 import           System.FilePath
 import           Text.Regex.PCRE.Heavy
 
@@ -42,11 +43,14 @@ generateDocs :: DocGenM ()
 generateDocs =
   do path <- pluginIndexPath
      index <- pluginIndex
+     prefix <- asks O.prefix
+     liftIO . createDirectoryIfMissing True $ prefix </> "plugins"
      liftIO $ T.writeFile path index
      plugins <- asks O.plugins
      let pluginDocs = map pluginDoc $ M.toList plugins
      pluginDocPaths <- mapM pluginDocPath $ M.keys plugins
-     mapM_ (\(path,doc) -> liftIO $ T.writeFile path doc) $ zip pluginDocPaths pluginDocs
+     mapM_ (\(path,doc) -> liftIO $ T.writeFile path doc) $
+       zip pluginDocPaths pluginDocs
 
 pluginIndexPath :: MonadReader O.Config m => m FilePath
 pluginIndexPath =

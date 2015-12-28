@@ -21,10 +21,11 @@ executable hie-docs-generator
   other-modules:       Options, Examples
   -- other-extensions:
   build-depends:       aeson
-                     , aeson-pretty >= 0.7 && < 0.8
+                     , aeson-pretty
                      , base
                      , bytestring
                      , containers
+                     , directory
                      , filepath
                      , haskell-ide-engine
                      , hie-apply-refact
