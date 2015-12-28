@@ -1,6 +1,4 @@
-# Using caching infrastructure
 sudo: false
-
 addons:
   apt:
     sources:
@@ -9,78 +7,36 @@ addons:
     packages:
     - libgmp-dev
     - emacs24-nox
-
 cache:
   directories:
-    - $HOME/.stack/
-    # - "$HOME/.stack-work/"
-
+  - "$HOME/.stack/"
 before_install:
-  # stack
-  - mkdir -p ~/.local/bin
-  - export PATH=~/.local/bin:$PATH
-  - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
-  - chmod a+x ~/.local/bin/stack
-  - stack --version
-
+- mkdir -p ~/.local/bin
+- export PATH=~/.local/bin:$PATH
+- travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards
+  --strip-components=1 -C ~/.local/bin '*/stack'
+- chmod a+x ~/.local/bin/stack
+- stack --version
 install:
-  # Bring in GHC if not already present
-  - ./travis_long stack +RTS -N2 -RTS setup
-  # Build the dependencies only.
-  # - ./travis_long stack build --only-snapshot --pedantic
-  - ./travis_long stack build --only-snapshot
-
+- "./travis_long stack +RTS -N2 -RTS setup"
+- "./travis_long stack build --only-snapshot"
 script:
-  # Disabling pedantic due to warnings in current ghc-mod, which stack (erroneously) complains about
-  # - ./travis_long stack +RTS -N1 -RTS build --pedantic
-  - ./travis_long stack +RTS -N1 -RTS build 
-  # - ./travis_long stack +RTS -N1 -RTS build --test --pedantic
-  - ./travis_long stack +RTS -N1 -RTS build --test
-  - ./travis_long stack exec emacs24 -- -q --batch -L elisp -l elisp/tests/hie-tests.el -f ert-run-tests-batch-and-exit
-  # Re-enable the haddock tests when the warning in HaRe does not trigger a problem
-  # - ./travis_long stack +RTS -N2 -RTS build --test --haddock
-
-# coveralls.io coverage reports
-# after_script:
-#   - "cabal install hpc-coveralls"
-#   - "hpc-coveralls count-von-count-tests --exclude-dir=tests --exclude-dir=src/Gyrid --display-report"
-
+- "./travis_long stack +RTS -N1 -RTS build"
+- "./travis_long stack +RTS -N1 -RTS build --test"
+- "./travis_long stack exec emacs24 -- -q --batch -L elisp -l elisp/tests/hie-tests.el
+  -f ert-run-tests-batch-and-exit"
+- "./travis_long ./deploy-docs.sh"
 notifications:
   irc:
     channels:
-      - "chat.freenode.net#haskell-ide-engine"
-    on_success: change # [always|never|change] default: always
-    on_failure: change # default: always
+    - chat.freenode.net#haskell-ide-engine
+    on_success: change
+    on_failure: change
     use_notice: true
     skip_join: true
-    # If you enable skip_join, remember to remove the NO_EXTERNAL_MSGS flag (n) on the IRC channel(s) the bot notifies.
     template:
-      - "%{commit}: %{message} %{build_url}"
-      # - "%{repository_name} (%{commit}) : %{message} %{build_url}"
-    # You can interpolate the following variables:
-    #     repository_slug: your GitHub repo identifier (like svenfuchs/minimal)
-    #     repository_name: the slug without the username
-    #     repository: same as repository_slug [Deprecated]
-    #     build_number: build number
-    #     build_id: build id
-    #     branch: branch build name
-    #     commit: shortened commit SHA
-    #     author: commit author name
-    #     commit_message: commit message of build
-    #     commit_subject: first line of the commit message
-    #     result: result of build
-    #     message: travis message to the build
-    #     duration: duration of the build
-    #     compare_url: commit change view URL
-    #     build_url: URL of the build detail
-    # The default template is:
-    #   - "%{repository}#%{build_number} (%{branch} - %{commit} : %{author}): %{message}"
-    #   - "Change view : %{compare_url}"
-    #   - "Build details : %{build_url}"
-
-  # email: # false
-  #   recipients:
-  #     - one@example.com
-  #     - other@example.com
-  #   on_success: [always|never|change] # default: change
-  #   on_failure: [always|never|change] # default: always
+    - "%{commit}: %{message} %{build_url}"
+env:
+  global:
+  - GH_REF: github.com/cocreature/haskell-ide-engine.git
+  - secure: dfjR0iqvz9jc+Rp1xmLk10RuWiWGLAIV4GUcaZYYBwdekChWHqj8cI4Opzi98zCWJTnElqT1hF3+zuPWnyo1wOREnIx7W01FFALFrnFgIgQB21HS5cq5wmRPawSi1WNodb71WsedB8Wz8RqjNL88ZiQeXh+9LkGgiNSXu0Q+K7VOtFtjsAKFMrmsgPi+cHIggecteT8v+wVCHloz9UjHdJ+LKiJPOvruzuguKQa7I39rkRHKdyUfz6PwIONMLhcBHoZOpqBQk6hdbqd0Dxroz83cnOVYVA9iK4XcIZ9hFubF8V9h1C0LNbmppnOXTCSqeLgwzqujKj4HpNBAr+2A/MJn6UKbM4U2xvOGd47BZlZz4xflZKArcNDR64KPspaPzilIjft7Un7Sza5TzWLBT9PpMkM08mxd51yC5Qmk3+ayi5W80iWgfgwGbbdHp7kaOVNu47CzGZrqYafLZInZ1EWuZfXOTxpNj9IOM1LDses5/ARVcE0p8UQbCTZFQ/goFDwwFlSxghIfwI0jDvPq+BeXi6DE8n4n3QQlLDTItt7dATQ+GdnhfbxBDXwz6dxUgJyQzagX9BdAaXjqWXTJyyiyn6FKb29oROhHbNTaMY9csF9EyoF4RttD4QLaDw87DX3XvtGjgglcEZJU4hFLMy1m7ORlxIHuuzdIp+6DmsI=
