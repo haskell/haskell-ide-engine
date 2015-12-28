@@ -15,6 +15,13 @@ cd docs
 make clean
 make html
 
+# disable for other repos as it will fail anyway because the
+# encryption is repo specific
+if [ "$TRAVIS_REPO_SLUG" != "haskell/haskell-ide-engine" ]
+then
+    exit 0
+fi
+
 # go to the out directory and create a *new* Git repo
 cd build/html
 
