@@ -36,3 +36,6 @@ tags
 /test/testdata/HaReCase.refactored.hs
 /test/testdata/HaReDemote.refactored.hs
 /test/testdata/HaReMoveDef.refactored.hs
+/docs/source/__pycache__/
+/docs/build/
+/docs/source/plugins/
