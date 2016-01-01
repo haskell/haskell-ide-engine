@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 module Haskell.Ide.ExamplePluginAsync where
 
 import           Control.Concurrent
@@ -17,15 +18,15 @@ import           Haskell.Ide.Engine.PluginUtils
 
 -- ---------------------------------------------------------------------
 
-exampleAsyncDescriptor :: TaggedPluginDescriptor '["cmd1","cmd2"]
+exampleAsyncDescriptor :: TaggedPluginDescriptor _
 exampleAsyncDescriptor = PluginDescriptor
   {
     pdUIShortName = "Async Example"
   , pdUIOverview = "An example HIE plugin using multiple/async processes"
   , pdCommands =
 
-         buildCommand (longRunningCmdSync Cmd1) Proxy "Long running synchronous command" [] [CtxNone] []
-      :& buildCommand (longRunningCmdSync Cmd2) Proxy "Long running synchronous command" [] [CtxNone] []
+         buildCommand (longRunningCmdSync Cmd1) (Proxy :: Proxy "cmd1") "Long running synchronous command" [] [CtxNone] []
+      :& buildCommand (longRunningCmdSync Cmd2) (Proxy :: Proxy "cmd2") "Long running synchronous command" [] [CtxNone] []
       :& RNil
   , pdExposedServices = []
   , pdUsedServices    = []

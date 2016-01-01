@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
 module Haskell.Ide.ExamplePlugin2 where
@@ -12,15 +13,15 @@ import qualified Data.Text as T
 
 -- ---------------------------------------------------------------------
 
-example2Descriptor :: TaggedPluginDescriptor '["sayHello","sayHelloTo"]
+example2Descriptor :: TaggedPluginDescriptor _
 example2Descriptor = PluginDescriptor
   {
     pdUIShortName = "Hello World"
   , pdUIOverview = "An example of writing an HIE plugin"
   , pdCommands =
 
-         buildCommand sayHelloCmd Proxy "say hello" [] [CtxNone] []
-      :& buildCommand sayHelloToCmd Proxy
+         buildCommand sayHelloCmd (Proxy :: Proxy "sayHello") "say hello" [] [CtxNone] []
+      :& buildCommand sayHelloToCmd (Proxy :: Proxy "sayHelloTo")
                          "say hello to the passed in param"
                          []
                          [CtxNone]

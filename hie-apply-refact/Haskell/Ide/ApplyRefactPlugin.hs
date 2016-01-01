@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
 module Haskell.Ide.ApplyRefactPlugin where
@@ -21,17 +22,17 @@ import           System.IO.Extra
 
 -- ---------------------------------------------------------------------
 
-applyRefactDescriptor :: TaggedPluginDescriptor '["applyOne","applyAll"]
+applyRefactDescriptor :: TaggedPluginDescriptor _
 applyRefactDescriptor = PluginDescriptor
   {
     pdUIShortName = "ApplyRefact"
   , pdUIOverview = "apply-refact applies refactorings specified by the refact package. It is currently integrated into hlint to enable the automatic application of suggestions."
     , pdCommands =
 
-        buildCommand applyOneCmd Proxy "Apply a single hint"
+        buildCommand applyOneCmd (Proxy :: Proxy "applyOne") "Apply a single hint"
                     [".hs"] [CtxPoint] []
 
-      :& buildCommand applyAllCmd Proxy "Apply all hints to the file"
+      :& buildCommand applyAllCmd (Proxy :: Proxy "applyAll") "Apply all hints to the file"
                      [".hs"] [CtxFile] []
 
       :& RNil

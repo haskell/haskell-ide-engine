@@ -1,3 +1,4 @@
+{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -26,7 +27,7 @@ import           System.FilePath
 
 -- ---------------------------------------------------------------------
 
-ghcmodDescriptor :: TaggedPluginDescriptor '["check","lint","find","info","type"]
+ghcmodDescriptor :: TaggedPluginDescriptor _
 ghcmodDescriptor = PluginDescriptor
   {
     pdUIShortName = "ghc-mod"
@@ -34,19 +35,19 @@ ghcmodDescriptor = PluginDescriptor
 \in editors. It strives to offer most of the features one has come to expect \
 \from modern IDEs in any editor."
   , pdCommands =
-         buildCommand checkCmd Proxy "check a file for GHC warnings and errors"
+         buildCommand checkCmd (Proxy :: Proxy "check") "check a file for GHC warnings and errors"
                       [".hs",".lhs"] [CtxFile] []
 
-      :& buildCommand lintCmd Proxy "Check files using `hlint'"
+      :& buildCommand lintCmd (Proxy :: Proxy "lint")  "Check files using `hlint'"
                      [".hs",".lhs"] [CtxFile] []
 
-      :& buildCommand findCmd Proxy "List all modules that define SYMBOL"
+      :& buildCommand findCmd (Proxy :: Proxy "find")  "List all modules that define SYMBOL"
                      [".hs",".lhs"] [CtxProject] [RP "symbol" "The SYMBOL to look up" PtText]
 
-      :& buildCommand infoCmd Proxy "Look up an identifier in the context of FILE (like ghci's `:info')"
+      :& buildCommand infoCmd (Proxy :: Proxy "info") "Look up an identifier in the context of FILE (like ghci's `:info')"
                      [".hs",".lhs"] [CtxFile] [RP "expr" "The EXPR to provide info on" PtText]
 
-      :& buildCommand typeCmd Proxy "Get the type of the expression under (LINE,COL)"
+      :& buildCommand typeCmd (Proxy :: Proxy "type") "Get the type of the expression under (LINE,COL)"
                      [".hs",".lhs"] [CtxPoint] []
 
       :& RNil

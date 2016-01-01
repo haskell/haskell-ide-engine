@@ -1,3 +1,4 @@
+{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
@@ -19,7 +20,7 @@ import           System.FilePath
 
 -- ---------------------------------------------------------------------
 
-hareDescriptor :: TaggedPluginDescriptor '["demote","dupdef","iftocase","liftonelevel","lifttotoplevel","rename"]
+hareDescriptor :: TaggedPluginDescriptor _
 hareDescriptor = PluginDescriptor
   {
     pdUIShortName = "HaRe"
@@ -28,22 +29,22 @@ hareDescriptor = PluginDescriptor
 \operate in a safe way, by first writing new files with proposed changes, and \
 \only swapping these with the originals when the change is accepted. "
     , pdCommands =
-        buildCommand demoteCmd Proxy "Move a definition one level down"
+        buildCommand demoteCmd (Proxy :: Proxy "demote") "Move a definition one level down"
                     [".hs"] [CtxPoint] []
 
-      :& buildCommand dupdefCmd Proxy "Duplicate a definition"
+      :& buildCommand dupdefCmd (Proxy :: Proxy "dupdef") "Duplicate a definition"
                      [".hs"] [CtxPoint] [RP "name" "the new name" PtText]
 
-      :& buildCommand iftocaseCmd Proxy "Converts an if statement to a case statement"
+      :& buildCommand iftocaseCmd (Proxy :: Proxy "iftocase") "Converts an if statement to a case statement"
                      [".hs"] [CtxRegion] []
 
-      :& buildCommand liftonelevelCmd Proxy "Move a definition one level up from where it is now"
+      :& buildCommand liftonelevelCmd (Proxy :: Proxy "liftonelevel") "Move a definition one level up from where it is now"
                      [".hs"] [CtxPoint] []
 
-      :& buildCommand lifttotoplevelCmd Proxy "Move a definition to the top level from where it is now"
+      :& buildCommand lifttotoplevelCmd (Proxy :: Proxy "lifttotoplevel") "Move a definition to the top level from where it is now"
                      [".hs"] [CtxPoint] []
 
-      :& buildCommand renameCmd Proxy "rename a variable or type"
+      :& buildCommand renameCmd (Proxy :: Proxy "rename") "rename a variable or type"
                      [".hs"] [CtxPoint] [RP "name" "the new name" PtText]
 
       :& RNil

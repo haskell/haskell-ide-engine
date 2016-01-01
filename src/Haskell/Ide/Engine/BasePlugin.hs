@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
@@ -22,23 +23,23 @@ import           Prelude hiding (log)
 
 -- ---------------------------------------------------------------------
 
-baseDescriptor :: TaggedPluginDescriptor '["version","plugins","commands","commandDetail"]
+baseDescriptor :: TaggedPluginDescriptor _
 baseDescriptor = PluginDescriptor
   {
     pdUIShortName = "HIE Base"
   , pdUIOverview = "Commands for HIE itself, "
   , pdCommands =
 
-        buildCommand versionCmd Proxy "return HIE version"
+        buildCommand versionCmd (Proxy :: Proxy "version") "return HIE version"
                         [] [CtxNone] []
 
-      :& buildCommand pluginsCmd Proxy "list available plugins"
+      :& buildCommand pluginsCmd (Proxy :: Proxy "plugins") "list available plugins"
                           [] [CtxNone] []
 
-      :& buildCommand commandsCmd Proxy "list available commands for a given plugin"
+      :& buildCommand commandsCmd (Proxy :: Proxy "commands") "list available commands for a given plugin"
                          [] [CtxNone] [RP "plugin" "the plugin name" PtText]
 
-      :& buildCommand commandDetailCmd Proxy "list parameters required for a given command"
+      :& buildCommand commandDetailCmd (Proxy :: Proxy "commandDetail") "list parameters required for a given command"
                          [] [CtxNone] [RP "plugin"  "the plugin name"  PtText
                                       ,RP "command" "the command name" PtText]
 
