@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
 module Haskell.Ide.ExamplePluginAsync where
@@ -6,26 +7,26 @@ import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
+import qualified Data.Map as Map
+import           Data.Monoid
+import qualified Data.Text as T
 import           Haskell.Ide.Engine.ExtensibleState
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
-import           Data.Monoid
-import qualified Data.Map as Map
-import qualified Data.Text as T
 
 -- ---------------------------------------------------------------------
 
-exampleAsyncDescriptor :: PluginDescriptor
+exampleAsyncDescriptor :: TaggedPluginDescriptor '["cmd1","cmd2"]
 exampleAsyncDescriptor = PluginDescriptor
   {
     pdUIShortName = "Async Example"
   , pdUIOverview = "An example HIE plugin using multiple/async processes"
   , pdCommands =
-      [
-        buildCommand (longRunningCmdSync Cmd1) "cmd1" "Long running synchronous command" [] [CtxNone] []
-      , buildCommand (longRunningCmdSync Cmd2) "cmd2" "Long running synchronous command" [] [CtxNone] []
-      ]
+
+         buildCommand (longRunningCmdSync Cmd1) Proxy "Long running synchronous command" [] [CtxNone] []
+      :& buildCommand (longRunningCmdSync Cmd2) Proxy "Long running synchronous command" [] [CtxNone] []
+      :& RNil
   , pdExposedServices = []
   , pdUsedServices    = []
   }

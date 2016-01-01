@@ -68,7 +68,7 @@ pluginDocPath pluginId =
   reader $
   \(O.Config _ prefix) -> prefix </> "plugins" </> T.unpack pluginId <.> "rst"
 
-pluginDoc :: (PluginId,PluginDescriptor) -> T.Text
+pluginDoc :: (PluginId,UntaggedPluginDescriptor) -> T.Text
 pluginDoc (pluginId,PluginDescriptor{pdCommands = commands}) =
   T.unlines ([pluginId
              ,T.replicate (T.length pluginId)

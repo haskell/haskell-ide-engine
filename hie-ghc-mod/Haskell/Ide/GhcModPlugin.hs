@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
@@ -7,12 +8,12 @@ module Haskell.Ide.GhcModPlugin where
 import           Haskell.Ide.Engine.PluginUtils
 
 import           Control.Exception
-import           Data.Either
-import           Data.Vinyl
 import           Control.Monad.IO.Class
+import           Data.Either
 import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Text.Read as T
+import qualified Exception as G
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
@@ -20,13 +21,12 @@ import qualified Language.Haskell.GhcMod as GM
 import qualified Language.Haskell.GhcMod.Monad as GM
 import qualified Language.Haskell.GhcMod.Types as GM
 import qualified Language.Haskell.GhcMod.Utils as GM
-import           System.FilePath
 import           System.Directory
-import qualified Exception as G
+import           System.FilePath
 
 -- ---------------------------------------------------------------------
 
-ghcmodDescriptor :: PluginDescriptor
+ghcmodDescriptor :: TaggedPluginDescriptor '["check","lint","find","info","type"]
 ghcmodDescriptor = PluginDescriptor
   {
     pdUIShortName = "ghc-mod"
@@ -34,23 +34,22 @@ ghcmodDescriptor = PluginDescriptor
 \in editors. It strives to offer most of the features one has come to expect \
 \from modern IDEs in any editor."
   , pdCommands =
-      [
-        buildCommand checkCmd "check" "check a file for GHC warnings and errors"
+         buildCommand checkCmd Proxy "check a file for GHC warnings and errors"
+                      [".hs",".lhs"] [CtxFile] []
+
+      :& buildCommand lintCmd Proxy "Check files using `hlint'"
                      [".hs",".lhs"] [CtxFile] []
 
-      , buildCommand lintCmd "lint" "Check files using `hlint'"
-                     [".hs",".lhs"] [CtxFile] []
-
-      , buildCommand findCmd "find" "List all modules that define SYMBOL"
+      :& buildCommand findCmd Proxy "List all modules that define SYMBOL"
                      [".hs",".lhs"] [CtxProject] [RP "symbol" "The SYMBOL to look up" PtText]
 
-      , buildCommand infoCmd "info" "Look up an identifier in the context of FILE (like ghci's `:info')"
+      :& buildCommand infoCmd Proxy "Look up an identifier in the context of FILE (like ghci's `:info')"
                      [".hs",".lhs"] [CtxFile] [RP "expr" "The EXPR to provide info on" PtText]
 
-      , buildCommand typeCmd "type" "Get the type of the expression under (LINE,COL)"
+      :& buildCommand typeCmd Proxy "Get the type of the expression under (LINE,COL)"
                      [".hs",".lhs"] [CtxPoint] []
 
-      ]
+      :& RNil
   , pdExposedServices = []
   , pdUsedServices    = []
   }

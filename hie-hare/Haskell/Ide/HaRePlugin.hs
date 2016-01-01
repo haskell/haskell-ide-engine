@@ -1,25 +1,25 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
 module Haskell.Ide.HaRePlugin where
 
 import           Control.Monad.IO.Class
 import qualified Data.Text as T
-import           Data.Vinyl
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
 import           Language.Haskell.Refact.HaRe
 
 
+import qualified Exception as G
 import qualified Language.Haskell.GhcMod as GM
 import qualified Language.Haskell.GhcMod.Monad as GM
-import           System.FilePath
 import           System.Directory
-import qualified Exception as G
+import           System.FilePath
 
 -- ---------------------------------------------------------------------
 
-hareDescriptor :: PluginDescriptor
+hareDescriptor :: TaggedPluginDescriptor '["demote","dupdef","iftocase","liftonelevel","lifttotoplevel","rename"]
 hareDescriptor = PluginDescriptor
   {
     pdUIShortName = "HaRe"
@@ -28,26 +28,25 @@ hareDescriptor = PluginDescriptor
 \operate in a safe way, by first writing new files with proposed changes, and \
 \only swapping these with the originals when the change is accepted. "
     , pdCommands =
-      [
-        buildCommand demoteCmd "demote" "Move a definition one level down"
+        buildCommand demoteCmd Proxy "Move a definition one level down"
                     [".hs"] [CtxPoint] []
 
-      , buildCommand dupdefCmd "dupdef" "Duplicate a definition"
+      :& buildCommand dupdefCmd Proxy "Duplicate a definition"
                      [".hs"] [CtxPoint] [RP "name" "the new name" PtText]
 
-      , buildCommand iftocaseCmd "iftocase" "Converts an if statement to a case statement"
+      :& buildCommand iftocaseCmd Proxy "Converts an if statement to a case statement"
                      [".hs"] [CtxRegion] []
 
-      , buildCommand liftonelevelCmd "liftonelevel" "Move a definition one level up from where it is now"
+      :& buildCommand liftonelevelCmd Proxy "Move a definition one level up from where it is now"
                      [".hs"] [CtxPoint] []
 
-      , buildCommand lifttotoplevelCmd "lifttotoplevel" "Move a definition to the top level from where it is now"
+      :& buildCommand lifttotoplevelCmd Proxy "Move a definition to the top level from where it is now"
                      [".hs"] [CtxPoint] []
 
-      , buildCommand renameCmd "rename" "rename a variable or type"
+      :& buildCommand renameCmd Proxy "rename a variable or type"
                      [".hs"] [CtxPoint] [RP "name" "the new name" PtText]
 
-      ]
+      :& RNil
   , pdExposedServices = []
   , pdUsedServices    = []
   }

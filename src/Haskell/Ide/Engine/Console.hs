@@ -78,7 +78,7 @@ helpStr plugins = T.unlines $
 pluginHelp :: Plugins -> [T.Text]
 pluginHelp plugins = concatMap (\(k,v) -> descriptorHelp k v) $ Map.toList plugins
 
-descriptorHelp :: PluginId -> PluginDescriptor -> [T.Text]
+descriptorHelp :: PluginId -> UntaggedPluginDescriptor -> [T.Text]
 descriptorHelp pn cd = ["Plugin '" <> pn <> "'"] ++ r
   where
     descriptors = map cmdDesc (pdCommands cd)

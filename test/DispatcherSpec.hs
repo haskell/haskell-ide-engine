@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PolyKinds #-}
 module DispatcherSpec where
 
 import           Control.Concurrent
@@ -7,9 +9,11 @@ import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Data.Aeson
 import qualified Data.HashMap.Strict as H
-import qualified Data.Text as T
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
+import qualified Data.Text as T
+import qualified Data.Vinyl.Functor as Vinyl
+import           GHC.TypeLits
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadFunctions
@@ -247,7 +251,7 @@ dispatcherSpec = do
 testPlugins :: TChan () -> Plugins
 testPlugins chSync = Map.fromList [("test",testDescriptor chSync)]
 
-testDescriptor :: TChan () -> PluginDescriptor
+testDescriptor :: TChan () -> UntaggedPluginDescriptor
 testDescriptor chSync = PluginDescriptor
   {
     pdUIShortName = "testDescriptor"
@@ -272,8 +276,8 @@ testDescriptor chSync = PluginDescriptor
                                                  , OP "fileo" "help" PtFile
                                                  , OP "poso"  "help" PtPos
                                                  ]
-      , mkAsyncCmdWithContext (asyncCmd1 chSync) "cmdasync1" [CtxNone] []
-      , mkAsyncCmdWithContext (asyncCmd2 chSync) "cmdasync2" [CtxNone] []
+      , mkAsyncCmdWithContext (asyncCmd1 chSync) (Proxy :: Proxy "cmdasync1") [CtxNone] []
+      , mkAsyncCmdWithContext (asyncCmd2 chSync) (Proxy :: Proxy "cmdasync2") [CtxNone] []
       ]
   , pdExposedServices = []
   , pdUsedServices    = []
@@ -293,9 +297,9 @@ mkCmdWithContext n cts pds =
           , cmdFunc = CmdSync $ \ctxs _ -> return (IdeResponseOk (T.pack $ "result:ctxs=" ++ show ctxs))
           }
 
-mkAsyncCmdWithContext :: (ValidResponse a) => CommandFunc a -> CommandName -> [AcceptedContext] -> [ParamDescription] -> Command
+mkAsyncCmdWithContext :: (ValidResponse a, KnownSymbol s) => CommandFunc a -> Proxy s -> [AcceptedContext] -> [ParamDescription] -> Command
 mkAsyncCmdWithContext cf n cts pds =
-        buildCommand cf n "description" [] cts pds
+        let Vinyl.Const cmd = buildCommand cf n "description" [] cts pds in cmd
 
 -- ---------------------------------------------------------------------
 

@@ -33,7 +33,7 @@ spec = do
 -- ---------------------------------------------------------------------
 
 testPlugins :: Plugins
-testPlugins = Map.fromList [("applyrefact",applyRefactDescriptor)]
+testPlugins = Map.fromList [("applyrefact",untagPluginDescriptor applyRefactDescriptor)]
 
 -- TODO: break this out into a TestUtils file
 dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Object))

@@ -2,6 +2,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE PolyKinds #-}
 
 module Main where
 
@@ -14,10 +17,14 @@ import           Control.Monad.STM
 import           Control.Monad.Trans.Maybe
 import qualified Data.Map as Map
 import           Data.Proxy
+import qualified Data.Text as T
 import           Data.Version (showVersion)
+import           Data.Vinyl
+import qualified Data.Vinyl.Functor as Vinyl
 import           Development.GitRev (gitCommitCount)
 import           Distribution.System (buildArch)
 import           Distribution.Text (display)
+import           GHC.TypeLits
 import           Haskell.Ide.Engine.Console
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
@@ -45,28 +52,45 @@ import           Haskell.Ide.HaRePlugin
 
 -- ---------------------------------------------------------------------
 
-type PluginList = '[ 'PluginType "applyrefact" '["applyOne","applyAll"]
-                   , 'PluginType "eg2" '["sayHello","sayHelloTo"]
-                   , 'PluginType "egasync" '["cmd1","cmd2"]
-                   , 'PluginType "ghcmod" '["check","lint","find","info","type"]
-                   , 'PluginType "hare" '["demote","dupdef","iftocase"
-                                         ,"liftonelevel","lifttotoplevel","rename"]
-                   , 'PluginType "base" '["version","plugins","commands","commandDetail"]]
-
 -- | This will be read from a configuration, eventually
+
+retagPluginDescriptor
+  :: forall name cmds.
+     KnownSymbol name
+  => Vinyl.Const (TaggedPluginDescriptor cmds) name
+  -> Vinyl.Const (T.Text,UntaggedPluginDescriptor) ('PluginType name cmds)
+retagPluginDescriptor (Vinyl.Const desc) =
+  Vinyl.Const $
+  (T.pack $ symbolVal (Proxy :: Proxy name),untagPluginDescriptor desc)
+
+type NamedPlugin name cmds = Vinyl.Const UntaggedPluginDescriptor ('PluginType name cmds)
+
+tag
+  :: KnownSymbol name
+  => TaggedPluginDescriptor cmds
+  -> Vinyl.Const (T.Text,UntaggedPluginDescriptor) ('PluginType name cmds)
+tag = retagPluginDescriptor . Vinyl.Const
+
+taggedPlugins :: Rec (Vinyl.Const (T.Text,UntaggedPluginDescriptor))
+            '[ 'PluginType "applyrefact" _
+             , 'PluginType "eg2" _
+             , 'PluginType "egasync" _
+             , 'PluginType "ghcmod" _
+             , 'PluginType "hare" _
+             , 'PluginType "base" _]
+taggedPlugins =
+  tag applyRefactDescriptor :& tag example2Descriptor :&
+  tag exampleAsyncDescriptor :&
+  tag ghcmodDescriptor :&
+  tag hareDescriptor :&
+  tag baseDescriptor :&
+  RNil
+
+recProxy :: Rec f t -> Proxy t
+recProxy _ = Proxy
+
 plugins :: Plugins
-plugins = Map.fromList
-  [
-    -- Note: statically including known plugins. In future this map could be set
-    -- up via a config file of some kind.
-    ("applyrefact", applyRefactDescriptor)
-  , ("eg2",         example2Descriptor)
-  , ("egasync",     exampleAsyncDescriptor)
-  , ("ghcmod",      ghcmodDescriptor)
-  , ("hare",        hareDescriptor)
-    -- The base plugin, able to answer questions about the IDE Engine environment.
-  , ("base",        baseDescriptor)
-  ]
+plugins = Map.fromList $ recordToList taggedPlugins
 
 -- ---------------------------------------------------------------------
 
@@ -134,7 +158,7 @@ run opts = do
 
     -- TODO: pass port in as a param from GlobalOpts
     when (optHttp opts) $
-      void $ forkIO (jsonHttpListener (Proxy :: Proxy PluginList) cin (optPort opts))
+      void $ forkIO (jsonHttpListener (recProxy taggedPlugins) cin (optPort opts))
 
     -- Can have multiple listeners, each using a different transport protocol, so
     -- long as they can pass through a ChannelRequest

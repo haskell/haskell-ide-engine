@@ -87,7 +87,7 @@ data IDEResponseRef = forall a .(ValidResponse a) => IDEResponseRef (IdeResponse
 pluginCache :: Plugins -> Map.Map (T.Text,T.Text) Command
 pluginCache = Map.fromList . concatMap go . Map.toList
   where
-    go :: (T.Text, PluginDescriptor) -> [((T.Text, T.Text), Command)]
+    go :: (T.Text, UntaggedPluginDescriptor) -> [((T.Text, T.Text), Command)]
     go (pn, (PluginDescriptor _ _ cmds _ _)) =
       map (\cmd -> ((pn,cmdName (cmdDesc cmd)),cmd)) cmds
 

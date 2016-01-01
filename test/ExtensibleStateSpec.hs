@@ -54,7 +54,7 @@ extensibleStateSpec = do
 testPlugins :: TChan () -> Plugins
 testPlugins chSync = Map.fromList [("test",testDescriptor chSync)]
 
-testDescriptor :: TChan () -> PluginDescriptor
+testDescriptor :: TChan () -> UntaggedPluginDescriptor
 testDescriptor chSync = PluginDescriptor
   {
     pdUIShortName = "testDescriptor"

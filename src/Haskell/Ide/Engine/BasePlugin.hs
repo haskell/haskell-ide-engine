@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
@@ -10,7 +11,6 @@ import           Data.List
 import qualified Data.Map as Map
 import           Data.Monoid
 import qualified Data.Text as T
-import           Data.Vinyl
 import           Development.GitRev (gitCommitCount)
 import           Distribution.System (buildArch)
 import           Distribution.Text (display)
@@ -22,27 +22,27 @@ import           Prelude hiding (log)
 
 -- ---------------------------------------------------------------------
 
-baseDescriptor :: PluginDescriptor
+baseDescriptor :: TaggedPluginDescriptor '["version","plugins","commands","commandDetail"]
 baseDescriptor = PluginDescriptor
   {
     pdUIShortName = "HIE Base"
   , pdUIOverview = "Commands for HIE itself, "
   , pdCommands =
-      [
-        buildCommand versionCmd "version" "return HIE version"
+
+        buildCommand versionCmd Proxy "return HIE version"
                         [] [CtxNone] []
 
-      , buildCommand pluginsCmd "plugins" "list available plugins"
-                         [] [CtxNone] []
+      :& buildCommand pluginsCmd Proxy "list available plugins"
+                          [] [CtxNone] []
 
-      , buildCommand commandsCmd "commands" "list available commands for a given plugin"
-                        [] [CtxNone] [RP "plugin" "the plugin name" PtText]
+      :& buildCommand commandsCmd Proxy "list available commands for a given plugin"
+                         [] [CtxNone] [RP "plugin" "the plugin name" PtText]
 
-      , buildCommand commandDetailCmd "commandDetail" "list parameters required for a given command"
-                        [] [CtxNone] [RP "plugin"  "the plugin name"  PtText
-                                     ,RP "command" "the command name" PtText]
+      :& buildCommand commandDetailCmd Proxy "list parameters required for a given command"
+                         [] [CtxNone] [RP "plugin"  "the plugin name"  PtText
+                                      ,RP "command" "the command name" PtText]
 
-      ]
+      :& RNil
   , pdExposedServices = []
   , pdUsedServices    = []
   }

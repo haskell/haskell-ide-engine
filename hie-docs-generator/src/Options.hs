@@ -24,9 +24,9 @@ config =
 pluginList :: Plugins
 pluginList =
   Map.fromList
-    [("applyrefact",applyRefactDescriptor)
-    ,("eg2",example2Descriptor)
-    ,("egasync",exampleAsyncDescriptor)
-    ,("ghcmod",ghcmodDescriptor)
-    ,("hare",hareDescriptor)
-    ,("base",baseDescriptor)]
+    [("applyrefact",untagPluginDescriptor applyRefactDescriptor)
+    ,("eg2",untagPluginDescriptor example2Descriptor)
+    ,("egasync",untagPluginDescriptor exampleAsyncDescriptor)
+    ,("ghcmod",untagPluginDescriptor ghcmodDescriptor)
+    ,("hare",untagPluginDescriptor hareDescriptor)
+    ,("base",untagPluginDescriptor baseDescriptor)]

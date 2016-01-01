@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -9,6 +10,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
 -- | Experimenting with a data structure to define a plugin.
 --
 -- The general idea is that a given plugin returns this structure during the
@@ -51,33 +53,58 @@ module Haskell.Ide.Engine.PluginDescriptor
   , StateExtension(..)
   , ExtensionClass(..)
   , getPlugins
-
+  , untagPluginDescriptor
+  , TaggedPluginDescriptor
+  , UntaggedPluginDescriptor
+  , Rec(..)
+  , Proxy(..)
   -- * All the good types
   , module Haskell.Ide.Engine.PluginTypes
   ) where
 
+import           GHC.TypeLits
 import           Haskell.Ide.Engine.PluginTypes
 
 import           Control.Applicative
+import           Control.Monad.State.Strict
 import           Data.Aeson
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import           Data.Typeable
-import           Control.Monad.State.Strict
+import           Data.Vinyl
+import qualified Data.Vinyl.Functor as Vinyl
 import           GHC.Generics
 import qualified Language.Haskell.GhcMod.Monad as GM
 
 -- ---------------------------------------------------------------------
 
-data PluginDescriptor = PluginDescriptor
+data PluginDescriptor cmds = PluginDescriptor
   { pdUIShortName     :: !T.Text
   , pdUIOverview     :: !T.Text
-  , pdCommands        :: [Command]
+  , pdCommands        :: cmds
   , pdExposedServices :: [Service]
   , pdUsedServices    :: [Service]
   }
 
-instance Show PluginDescriptor where
+type TaggedPluginDescriptor cmds = PluginDescriptor (Rec (Vinyl.Const Command) cmds)
+
+type UntaggedPluginDescriptor = PluginDescriptor [Command]
+
+instance Show (Rec (Vinyl.Const Command) cmds) where
+  show = undefined
+
+instance Show (PluginDescriptor (Rec (Vinyl.Const Command) cmds)) where
+  showsPrec p (PluginDescriptor name oview cmds svcs used) = showParen (p > 10) $
+    showString "PluginDescriptor " .
+    showString (T.unpack name) .
+    showString (T.unpack oview) .
+    showList (recordToList cmds) .
+    showString " " .
+    showList svcs .
+    showString " " .
+    showList used
+
+instance Show UntaggedPluginDescriptor where
   showsPrec p (PluginDescriptor name oview cmds svcs used) = showParen (p > 10) $
     showString "PluginDescriptor " .
     showString (T.unpack name) .
@@ -94,8 +121,11 @@ data Service = Service
   } deriving (Show,Eq,Ord,Generic)
 
 
+untagPluginDescriptor :: TaggedPluginDescriptor cmds -> UntaggedPluginDescriptor
+untagPluginDescriptor pluginDescriptor =
+  pluginDescriptor {pdCommands = recordToList $ pdCommands pluginDescriptor}
 
-type Plugins = Map.Map PluginId PluginDescriptor
+type Plugins = Map.Map PluginId UntaggedPluginDescriptor
 
 -- | Ideally a Command is defined in such a way that its CommandDescriptor
 -- can be exposed via the native CLI for the tool being exposed as well.
@@ -110,18 +140,18 @@ instance Show Command where
 
 -- | Build a command, ensuring the command response type name and the command
 -- function match
-buildCommand :: forall a. (ValidResponse a)
+buildCommand :: forall a s . (ValidResponse a, KnownSymbol s)
   => CommandFunc a
-  -> CommandName
+  -> Proxy s
   -> T.Text
   -> [T.Text]
   -> [AcceptedContext]
   -> [ParamDescription]
-  -> Command
+  -> Vinyl.Const Command s
 buildCommand fun n d exts ctxs parm =
-  Command
+  Vinyl.Const $ Command
   { cmdDesc = CommandDesc
-      { cmdName = n
+      { cmdName = T.pack $ symbolVal n
       , cmdUiDescription = d
       , cmdFileExtensions = exts
       , cmdContexts = ctxs

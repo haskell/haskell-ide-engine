@@ -97,7 +97,7 @@ instance Arbitrary ParamDescription where
 instance Arbitrary Service where
   arbitrary = Service <$> arbitrary
 
-instance Arbitrary PluginDescriptor where
+instance Arbitrary UntaggedPluginDescriptor where
   arbitrary = PluginDescriptor <$>
               arbitrary <*>
               arbitrary <*>
@@ -113,7 +113,7 @@ instance Arbitrary Command where
   arbitrary = Command <$> arbitrary <*> pure (CmdAsync (\_ _ _ -> return ())::CommandFunc Text)
 
 -- | Sufficient for tests
-instance Eq PluginDescriptor where
+instance Eq UntaggedPluginDescriptor where
   a == b = show a == show b
 
 instance Arbitrary ParamValP where

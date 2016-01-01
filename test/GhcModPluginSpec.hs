@@ -37,7 +37,7 @@ spec = do
 -- ---------------------------------------------------------------------
 
 testPlugins :: Plugins
-testPlugins = Map.fromList [("ghcmod",ghcmodDescriptor)]
+testPlugins = Map.fromList [("ghcmod",untagPluginDescriptor ghcmodDescriptor)]
 
 -- TODO: break this out into a TestUtils file
 dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Object))
