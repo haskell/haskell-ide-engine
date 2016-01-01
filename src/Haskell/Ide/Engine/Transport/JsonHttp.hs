@@ -1,15 +1,17 @@
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PolyKinds         #-}
-{-# LANGUAGE TypeFamilies      #-}
-{-# LANGUAGE TypeOperators     #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE PolyKinds           #-}
+{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeOperators       #-}
 
 module Haskell.Ide.Engine.Transport.JsonHttp
   (
     jsonHttpListener
+  , PluginType(..)
   )
   where
 
@@ -40,14 +42,6 @@ instance ToJSON Greet
 
 data PluginType = PluginType Symbol [Symbol]
 
-type PluginList = '[ 'PluginType "applyrefact" '["applyOne","applyAll"]
-                   , 'PluginType "eg2" '["sayHello","sayHelloTo"]
-                   , 'PluginType "egasync" '["cmd1","cmd2"]
-                   , 'PluginType "ghcmod" '["check","lint","find","info","type"]
-                   , 'PluginType "hare" '["demote","dupdef","iftocase"
-                                         ,"liftonelevel","lifttotoplevel","rename"]
-                   , 'PluginType "base" '["version","plugins","commands","commandDetail"]]
-
 type PluginRoute (s::Symbol) r = "req" :> s :> r
 
 type CommandRoute (s :: Symbol) =
@@ -61,11 +55,6 @@ type family PluginRoutes list where
      = (PluginRoute name (CommandRoutes cmds)) :<|> PluginRoutes xs
   PluginRoutes '[] = "eg" :> Get '[JSON] IdeRequest
 
-type family PluginRoutesTest list where
-  PluginRoutesTest ('PluginType name cmds ': xs)
-     = (PluginRoute name (CommandRoutes cmds)) :<|> PluginRoutesTest xs
-  PluginRoutesTest '[] = "eg" :> Get '[JSON] IdeRequest
-
 type family CommandRoutes list where
   CommandRoutes '[] = Fail
   CommandRoutes (cmd ': cmds) = CommandRoute cmd :<|> CommandRoutes cmds
@@ -78,8 +67,8 @@ instance HasServer Fail where
 
   route _ _ _ f = f (failWith NotFound)
 
-testApi :: Proxy (PluginRoutes PluginList)
-testApi = Proxy
+testApi :: Proxy plugins -> Proxy (PluginRoutes plugins)
+testApi _ = Proxy
 
 -- Server-side handlers.
 --
@@ -92,7 +81,7 @@ class HieServer (list :: [PluginType]) where
   hieServer :: Proxy list
             -> TChan ChannelRequest
             -> TChan ChannelResponse
-            -> Server (PluginRoutesTest list)
+            -> Server (PluginRoutes list)
 
 instance HieServer '[] where
   hieServer _ _ _ = return (IdeRequest ("version"::Text) Map.empty)
@@ -138,22 +127,22 @@ instance (KnownSymbol x,CommandServer xs) => CommandServer (x ': xs) where
                rsp <- liftIO $ atomically $ readTChan cout
                return (coutResp rsp)
 
-server :: TChan ChannelRequest ->  TChan ChannelResponse -> Server (PluginRoutes PluginList)
-server cin cout = hieServer (Proxy :: Proxy PluginList) cin cout
+server :: HieServer plugins => Proxy plugins -> TChan ChannelRequest ->  TChan ChannelResponse -> Server (PluginRoutes plugins)
+server proxy cin cout = hieServer proxy cin cout
 
 -- Turn the server into a WAI app. 'serve' is provided by servant,
 -- more precisely by the Servant.Server module.
-test :: TChan ChannelRequest -> TChan ChannelResponse -> Application
-test cin cout = serve testApi (server cin cout)
+test :: (HieServer plugins, HasServer (PluginRoutes plugins)) => Proxy plugins -> TChan ChannelRequest -> TChan ChannelResponse -> Application
+test proxy cin cout = serve (testApi proxy) (server proxy cin cout)
 
 -- Run the server.
 --
 -- 'run' comes from Network.Wai.Handler.Warp
-runTestServer :: TChan ChannelRequest -> Port -> IO ()
-runTestServer cin port = do
+runTestServer :: (HieServer plugins, HasServer (PluginRoutes plugins)) => Proxy plugins -> TChan ChannelRequest -> Port -> IO ()
+runTestServer proxy cin port = do
   cout <- atomically newTChan :: IO (TChan ChannelResponse)
-  run port (test cin cout)
+  run port (test proxy cin cout)
 
 -- Put this all to work!
-jsonHttpListener :: TChan ChannelRequest -> Port -> IO ()
-jsonHttpListener cin port = runTestServer cin port
+jsonHttpListener :: (HieServer plugins, HasServer (PluginRoutes plugins)) => Proxy plugins -> TChan ChannelRequest -> Port -> IO ()
+jsonHttpListener proxy cin port = runTestServer proxy cin port

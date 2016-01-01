@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
@@ -7,11 +8,12 @@ module Main where
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
 import           Control.Exception
-import           Control.Monad.Logger
 import           Control.Monad
+import           Control.Monad.Logger
 import           Control.Monad.STM
 import           Control.Monad.Trans.Maybe
 import qualified Data.Map as Map
+import           Data.Proxy
 import           Data.Version (showVersion)
 import           Development.GitRev (gitCommitCount)
 import           Distribution.System (buildArch)
@@ -22,10 +24,10 @@ import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.Utils
 import           Haskell.Ide.Engine.Transport.JsonHttp
 import           Haskell.Ide.Engine.Transport.JsonStdio
 import           Haskell.Ide.Engine.Types
+import           Haskell.Ide.Engine.Utils
 import           Options.Applicative.Simple
 import qualified Paths_haskell_ide_engine as Meta
 import           System.Directory
@@ -42,6 +44,14 @@ import           Haskell.Ide.GhcModPlugin
 import           Haskell.Ide.HaRePlugin
 
 -- ---------------------------------------------------------------------
+
+type PluginList = '[ 'PluginType "applyrefact" '["applyOne","applyAll"]
+                   , 'PluginType "eg2" '["sayHello","sayHelloTo"]
+                   , 'PluginType "egasync" '["cmd1","cmd2"]
+                   , 'PluginType "ghcmod" '["check","lint","find","info","type"]
+                   , 'PluginType "hare" '["demote","dupdef","iftocase"
+                                         ,"liftonelevel","lifttotoplevel","rename"]
+                   , 'PluginType "base" '["version","plugins","commands","commandDetail"]]
 
 -- | This will be read from a configuration, eventually
 plugins :: Plugins
@@ -124,7 +134,7 @@ run opts = do
 
     -- TODO: pass port in as a param from GlobalOpts
     when (optHttp opts) $
-      void $ forkIO (jsonHttpListener cin (optPort opts))
+      void $ forkIO (jsonHttpListener (Proxy :: Proxy PluginList) cin (optPort opts))
 
     -- Can have multiple listeners, each using a different transport protocol, so
     -- long as they can pass through a ChannelRequest
