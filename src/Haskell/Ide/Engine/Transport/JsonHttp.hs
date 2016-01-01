@@ -110,10 +110,15 @@ instance CommandServer '[] where
 
 instance (KnownSymbol x,CommandServer xs) => CommandServer (x ': xs) where
   cmdServer plugin _ cin cout =
-    pluginHandler :<|> (cmdServer plugin (Proxy :: Proxy xs) cin cout)
-    where pluginHandler
-            :: Server (CommandRoute x)
-          pluginHandler mrid reqVal =
+    cmdHandler plugin (Proxy :: Proxy x) cin cout :<|> (cmdServer plugin (Proxy :: Proxy xs) cin cout)
+
+cmdHandler :: (KnownSymbol plugin,KnownSymbol cmd)
+           => Proxy plugin
+           -> Proxy cmd
+           -> TChan ChannelRequest
+           -> TChan ChannelResponse
+           -> Server (CommandRoute x)
+cmdHandler plugin cmd cin cout mrid reqVal =
             do let rid = fromMaybe 1 mrid
                liftIO $
                  atomically $
@@ -121,7 +126,7 @@ instance (KnownSymbol x,CommandServer xs) => CommandServer (x ': xs) where
                    cin
                    (CReq (T.pack $ symbolVal plugin)
                          rid
-                         (IdeRequest (T.pack $ symbolVal (Proxy :: Proxy x))
+                         (IdeRequest (T.pack $ symbolVal cmd)
                                      reqVal)
                          cout)
                rsp <- liftIO $ atomically $ readTChan cout
