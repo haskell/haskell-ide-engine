@@ -11,7 +11,7 @@
 [license]: https://github.com/haskell/haskell-ide-engine/blob/master/LICENSE
 
 
-This project aims to be __the universal interface__ to __a growing number of Haskell tools__, proving a __full-featured and easy to query backend__ for editors and IDEs that require Haskell-specific functionality.
+This project aims to be __the universal interface__ to __a growing number of Haskell tools__, providing a __full-featured and easy to query backend__ for editors and IDEs that require Haskell-specific functionality.
 
 Planned features:
 
