@@ -83,6 +83,7 @@ executable hie
                      , hie-example-plugin2
                      , hie-ghc-mod
                      , hie-hare
+                     , hie-ide-backend
                      , hie-plugin-api
                      , monad-logger
                      , optparse-applicative

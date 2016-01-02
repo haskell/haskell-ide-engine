@@ -50,6 +50,7 @@ import           Haskell.Ide.ExamplePlugin2
 import           Haskell.Ide.ExamplePluginAsync
 import           Haskell.Ide.GhcModPlugin
 import           Haskell.Ide.HaRePlugin
+import           Haskell.Ide.IdeBackend
 
 -- ---------------------------------------------------------------------
 
@@ -62,6 +63,7 @@ taggedPlugins =
   :& Plugin (Proxy :: Proxy "ghcmod") ghcmodDescriptor
   :& Plugin (Proxy :: Proxy "hare") hareDescriptor
   :& Plugin (Proxy :: Proxy "base") baseDescriptor
+  :& Plugin (Proxy :: Proxy "ide-backend") idebackendDescriptor
   :& RNil
 
 recProxy :: Rec f t -> Proxy t
