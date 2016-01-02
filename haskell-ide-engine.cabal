@@ -51,6 +51,7 @@ library
                      , pipes-bytestring
                      , pipes-parse
                      , servant-server
+                     , singletons
                      , stm
                      , text
                      , time

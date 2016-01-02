@@ -1,4 +1,7 @@
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -7,22 +10,25 @@
 {-# LANGUAGE PolyKinds           #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Haskell.Ide.Engine.Transport.JsonHttp
-  (
-    jsonHttpListener
+  ( jsonHttpListener
   , PluginType(..)
-  )
-  where
+  , Plugin(..)
+  ) where
 
+import           Control.Applicative
 import           Control.Concurrent.STM.TChan
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Data.Aeson
+import           Data.Aeson.Types hiding (parse)
 import qualified Data.Map as Map
 import           Data.Maybe
 import           Data.Proxy
-import           Data.Text
+import           Data.Singletons.Prelude hiding ((:>))
+{-import           Data.Text-}
 import qualified Data.Text as T
 import           GHC.Generics
 import           GHC.TypeLits
@@ -34,30 +40,68 @@ import           Servant
 import           Servant.Server.Internal
 
 -- | A greet message data type
-newtype Greet = Greet { _msg :: Text }
+newtype Greet = Greet { _msg :: T.Text }
   deriving (Generic, Show)
 
 instance FromJSON Greet
 instance ToJSON Greet
 
-data PluginType = PluginType Symbol [Symbol]
+newtype TaggedMap (tags :: [ParamDescType]) = TaggedMap ParamMap deriving (Monoid)
+
+instance TaggedMapParser tags => FromJSON (TaggedMap tags) where
+  parseJSON (Object v) = fmap (TaggedMap . Map.fromList) (parseTaggedMap (Proxy :: Proxy tags) v)
+  parseJSON _ =  empty
+
+class TaggedMapParser (tags :: [ParamDescType]) where
+  parseTaggedMap :: Proxy tags -> Object -> Parser [(ParamId,ParamValP)]
+
+instance TaggedMapParser '[] where
+  parseTaggedMap _ _ = pure []
+
+instance (ParamParser x, TaggedMapParser xs) => TaggedMapParser (x ': xs) where
+  parseTaggedMap _ v = liftA2 (:) (parseParam (Proxy :: Proxy x) v) $ parseTaggedMap (Proxy :: Proxy xs) v
+
+class ParamParser (t :: ParamDescType) where
+  parseParam :: Proxy t -> Object -> Parser (ParamId,ParamValP)
+
+instance (KnownSymbol pname, FromJSON (ParamVal ptype)) => ParamParser ('ParamDescType pname phelp ptype preq) where
+  parseParam _ v =
+    do unparsedParamVal <- v .: paramId
+       paramVal <- parseJSON unparsedParamVal :: Parser (ParamVal ptype)
+       pure (paramId,ParamValP paramVal)
+    where paramId = T.pack $ symbolVal (Proxy :: Proxy pname)
+
+data Plugin (t :: PluginType) where
+  Plugin :: KnownSymbol name => Proxy name -> TaggedPluginDescriptor cmds -> Plugin ('PluginType name cmds)
+
+data PluginType = PluginType Symbol [CommandType]
 
 type PluginRoute (s::Symbol) r = "req" :> s :> r
 
-type CommandRoute (s :: Symbol) =
-     s :>
-     QueryParam "rid" Int :>
-     ReqBody '[JSON] ParamMap :>
-     Post '[JSON] (IdeResponse Object)
+type CommandRoute (name :: Symbol) (params :: [ParamDescType]) =
+   name :>
+   QueryParam "rid" Int :>
+   ReqBody '[JSON] (TaggedMap params) :>
+   Post '[JSON] (IdeResponse Object)
 
-type family PluginRoutes list where
+type family CommandParams cxts params :: [ParamDescType] where
+  CommandParams cxts params = ConcatMap ContextMappingFun cxts :++ params
+
+-- | Defunctionalization TODO: We might be able to use the singletons
+-- promotion stuff for that but I (cocreature) haven’t figured that
+-- out yet
+data ContextMappingFun :: (TyFun AcceptedContext [ParamDescType]) -> *
+
+type instance Apply ContextMappingFun a = ContextMapping a
+
+type family PluginRoutes (list :: [PluginType]) where
   PluginRoutes ('PluginType name cmds ': xs)
      = (PluginRoute name (CommandRoutes cmds)) :<|> PluginRoutes xs
   PluginRoutes '[] = "eg" :> Get '[JSON] IdeRequest
 
-type family CommandRoutes list where
+type family CommandRoutes (list :: [CommandType]) where
   CommandRoutes '[] = Fail
-  CommandRoutes (cmd ': cmds) = CommandRoute cmd :<|> CommandRoutes cmds
+  CommandRoutes ('CommandType name cxts params ': cmds) = CommandRoute name (CommandParams cxts params)  :<|> CommandRoutes cmds
 
 data Fail = Fail
 
@@ -84,7 +128,7 @@ class HieServer (list :: [PluginType]) where
             -> Server (PluginRoutes list)
 
 instance HieServer '[] where
-  hieServer _ _ _ = return (IdeRequest ("version"::Text) Map.empty)
+  hieServer _ _ _ = return (IdeRequest ("version"::T.Text) Map.empty)
 
 instance (KnownSymbol plugin,CommandServer cmds,HieServer xs) => HieServer ('PluginType plugin cmds ': xs) where
   hieServer _ cin cout =
@@ -97,7 +141,7 @@ instance (KnownSymbol plugin,CommandServer cmds,HieServer xs) => HieServer ('Plu
                       cin
                       cout
 
-class CommandServer (list :: [Symbol]) where
+class CommandServer (list :: [CommandType]) where
   cmdServer :: KnownSymbol plugin
             => Proxy plugin
             -> Proxy list
@@ -108,7 +152,7 @@ class CommandServer (list :: [Symbol]) where
 instance CommandServer '[] where
   cmdServer _ _ _ _ = Fail
 
-instance (KnownSymbol x,CommandServer xs) => CommandServer (x ': xs) where
+instance (KnownSymbol x,CommandServer xs) => CommandServer ('CommandType x cxts params ': xs) where
   cmdServer plugin _ cin cout =
     cmdHandler plugin (Proxy :: Proxy x) cin cout :<|> (cmdServer plugin (Proxy :: Proxy xs) cin cout)
 
@@ -117,8 +161,8 @@ cmdHandler :: (KnownSymbol plugin,KnownSymbol cmd)
            -> Proxy cmd
            -> TChan ChannelRequest
            -> TChan ChannelResponse
-           -> Server (CommandRoute x)
-cmdHandler plugin cmd cin cout mrid reqVal =
+           -> Server (CommandRoute x params)
+cmdHandler plugin cmd cin cout mrid (TaggedMap reqVal) =
             do let rid = fromMaybe 1 mrid
                liftIO $
                  atomically $

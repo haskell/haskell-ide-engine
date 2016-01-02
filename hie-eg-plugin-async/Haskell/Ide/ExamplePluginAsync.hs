@@ -25,8 +25,10 @@ exampleAsyncDescriptor = PluginDescriptor
   , pdUIOverview = "An example HIE plugin using multiple/async processes"
   , pdCommands =
 
-         buildCommand (longRunningCmdSync Cmd1) (Proxy :: Proxy "cmd1") "Long running synchronous command" [] [CtxNone] []
-      :& buildCommand (longRunningCmdSync Cmd2) (Proxy :: Proxy "cmd2") "Long running synchronous command" [] [CtxNone] []
+         buildCommand' (longRunningCmdSync Cmd1) (Proxy :: Proxy "cmd1")
+                       "Long running synchronous command" [] (SCtxNone :& RNil) RNil
+      :& buildCommand' (longRunningCmdSync Cmd2) (Proxy :: Proxy "cmd2")
+                       "Long running synchronous command" [] (SCtxNone :& RNil) RNil
       :& RNil
   , pdExposedServices = []
   , pdUsedServices    = []

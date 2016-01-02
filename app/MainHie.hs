@@ -1,3 +1,4 @@
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -5,6 +6,7 @@
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE PatternSynonyms #-}
 
 module Main where
 
@@ -20,7 +22,6 @@ import           Data.Proxy
 import qualified Data.Text as T
 import           Data.Version (showVersion)
 import           Data.Vinyl
-import qualified Data.Vinyl.Functor as Vinyl
 import           Development.GitRev (gitCommitCount)
 import           Distribution.System (buildArch)
 import           Distribution.Text (display)
@@ -54,43 +55,45 @@ import           Haskell.Ide.HaRePlugin
 
 -- | This will be read from a configuration, eventually
 
-retagPluginDescriptor
-  :: forall name cmds.
-     KnownSymbol name
-  => Vinyl.Const (TaggedPluginDescriptor cmds) name
-  -> Vinyl.Const (T.Text,UntaggedPluginDescriptor) ('PluginType name cmds)
-retagPluginDescriptor (Vinyl.Const desc) =
-  Vinyl.Const $
-  (T.pack $ symbolVal (Proxy :: Proxy name),untagPluginDescriptor desc)
+-- retagPluginDescriptor
+--   :: forall name cmds.
+--      KnownSymbol name
+--   => Vinyl.Const (TaggedPluginDescriptor cmds) name
+--   -> Vinyl.Const (T.Text,UntaggedPluginDescriptor) ('PluginType name cmds)
+-- retagPluginDescriptor (Vinyl.Const desc) =
+--   Vinyl.Const $
+--   (T.pack $ symbolVal (Proxy :: Proxy name),untagPluginDescriptor desc)
 
-type NamedPlugin name cmds = Vinyl.Const UntaggedPluginDescriptor ('PluginType name cmds)
+-- type NamedPlugin name cmds = Vinyl.Const UntaggedPluginDescriptor ('PluginType name cmds)
 
-tag
-  :: KnownSymbol name
-  => TaggedPluginDescriptor cmds
-  -> Vinyl.Const (T.Text,UntaggedPluginDescriptor) ('PluginType name cmds)
-tag = retagPluginDescriptor . Vinyl.Const
+-- tag
+--   :: KnownSymbol name
+--   => TaggedPluginDescriptor cmds
+--   -> Vinyl.Const (T.Text,UntaggedPluginDescriptor) ('PluginType name cmds)
+-- tag = retagPluginDescriptor . Vinyl.Const
 
-taggedPlugins :: Rec (Vinyl.Const (T.Text,UntaggedPluginDescriptor))
-            '[ 'PluginType "applyrefact" _
-             , 'PluginType "eg2" _
-             , 'PluginType "egasync" _
-             , 'PluginType "ghcmod" _
-             , 'PluginType "hare" _
-             , 'PluginType "base" _]
+-- buildPlugin :: Proxy s -> TaggedPluginDescriptor
+
+taggedPlugins :: Rec Plugin _
 taggedPlugins =
-  tag applyRefactDescriptor :& tag example2Descriptor :&
-  tag exampleAsyncDescriptor :&
-  tag ghcmodDescriptor :&
-  tag hareDescriptor :&
-  tag baseDescriptor :&
-  RNil
+     Plugin (Proxy :: Proxy "applyrefact") applyRefactDescriptor
+  :& Plugin (Proxy :: Proxy "eg2") example2Descriptor
+  :& Plugin (Proxy :: Proxy "egasync") exampleAsyncDescriptor
+  :& Plugin (Proxy :: Proxy "ghcmod") ghcmodDescriptor
+  :& Plugin (Proxy :: Proxy "hare") hareDescriptor
+  :& Plugin (Proxy :: Proxy "base") baseDescriptor
+  :& RNil
 
 recProxy :: Rec f t -> Proxy t
 recProxy _ = Proxy
 
 plugins :: Plugins
-plugins = Map.fromList $ recordToList taggedPlugins
+plugins =
+  Map.fromList $
+  recordToList'
+    (\(Plugin name desc) ->
+       (T.pack $ symbolVal name,untagPluginDescriptor desc))
+    taggedPlugins
 
 -- ---------------------------------------------------------------------
 

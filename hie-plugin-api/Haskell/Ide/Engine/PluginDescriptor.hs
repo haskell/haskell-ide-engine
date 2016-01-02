@@ -31,18 +31,12 @@ module Haskell.Ide.Engine.PluginDescriptor
   (
     PluginDescriptor(..)
   , Service(..)
-  , contextMapping
-
-  , fileParam
-  , startPosParam
-  , endPosParam
-  , cabalParam
-
 
   -- * Commands
   , Command(..)
   , CommandFunc(..), SyncCommandFunc, AsyncCommandFunc
   , buildCommand
+  , buildCommand'
 
   -- * Plugins
   , Plugins
@@ -56,8 +50,11 @@ module Haskell.Ide.Engine.PluginDescriptor
   , untagPluginDescriptor
   , TaggedPluginDescriptor
   , UntaggedPluginDescriptor
+  , CombinedCommand(..)
+  , CommandType(..)
   , Rec(..)
   , Proxy(..)
+  , recordToList'
   -- * All the good types
   , module Haskell.Ide.Engine.PluginTypes
   ) where
@@ -65,6 +62,7 @@ module Haskell.Ide.Engine.PluginDescriptor
 import           GHC.TypeLits
 import           Haskell.Ide.Engine.PluginTypes
 
+import           Data.Singletons
 import           Control.Applicative
 import           Control.Monad.State.Strict
 import           Data.Aeson
@@ -86,23 +84,9 @@ data PluginDescriptor cmds = PluginDescriptor
   , pdUsedServices    :: [Service]
   }
 
-type TaggedPluginDescriptor cmds = PluginDescriptor (Rec (Vinyl.Const Command) cmds)
+type TaggedPluginDescriptor cmds = PluginDescriptor (Rec CombinedCommand cmds)
 
 type UntaggedPluginDescriptor = PluginDescriptor [Command]
-
-instance Show (Rec (Vinyl.Const Command) cmds) where
-  show = undefined
-
-instance Show (PluginDescriptor (Rec (Vinyl.Const Command) cmds)) where
-  showsPrec p (PluginDescriptor name oview cmds svcs used) = showParen (p > 10) $
-    showString "PluginDescriptor " .
-    showString (T.unpack name) .
-    showString (T.unpack oview) .
-    showList (recordToList cmds) .
-    showString " " .
-    showList svcs .
-    showString " " .
-    showList used
 
 instance Show UntaggedPluginDescriptor where
   showsPrec p (PluginDescriptor name oview cmds svcs used) = showParen (p > 10) $
@@ -120,10 +104,14 @@ data Service = Service
   -- , svcXXX :: undefined
   } deriving (Show,Eq,Ord,Generic)
 
+recordToList' :: (forall a. f a -> b) -> Rec f as -> [b]
+recordToList' f = recordToList . rmap (Vinyl.Const . f)
 
 untagPluginDescriptor :: TaggedPluginDescriptor cmds -> UntaggedPluginDescriptor
 untagPluginDescriptor pluginDescriptor =
-  pluginDescriptor {pdCommands = recordToList $ pdCommands pluginDescriptor}
+  pluginDescriptor {pdCommands =
+                      recordToList' untagCommand
+                                    (pdCommands pluginDescriptor)}
 
 type Plugins = Map.Map PluginId UntaggedPluginDescriptor
 
@@ -135,8 +123,27 @@ data Command = forall a. (ValidResponse a) => Command
   , cmdFunc :: !(CommandFunc a)
   }
 
+untagCommand :: CombinedCommand t -> Command
+untagCommand (CombinedCommand _ (Command' desc func)) =
+  Command (desc {cmdContexts =
+                   recordToList' fromSing
+                                 (cmdContexts desc)
+                ,cmdAdditionalParams =
+                   recordToList' unwrapParamDesc
+                                 (cmdAdditionalParams desc)})
+          func
+
+data Command' cxts tags = forall a. (ValidResponse a) => Command'
+  { cmdDesc' :: !(CommandDescriptor' (Rec SAcceptedContext cxts) (Rec SParamDescription tags))
+  , cmdFunc' :: !(CommandFunc a)
+  }
 instance Show Command where
   show (Command desc _func) = "(Command " ++ show desc ++ ")"
+
+data CombinedCommand (t :: CommandType) where
+  CombinedCommand :: KnownSymbol s => Proxy s -> Command' cxts tags -> CombinedCommand ( 'CommandType s cxts tags )
+
+data CommandType = CommandType Symbol [AcceptedContext] [ParamDescType]
 
 -- | Build a command, ensuring the command response type name and the command
 -- function match
@@ -161,33 +168,27 @@ buildCommand fun n d exts ctxs parm =
   , cmdFunc = fun
   }
 
+buildCommand' :: forall a s cxts tags. (ValidResponse a, KnownSymbol s)
+  => CommandFunc a
+  -> Proxy s
+  -> T.Text
+  -> [T.Text]
+  -> Rec SAcceptedContext cxts
+  -> Rec SParamDescription tags
+  -> CombinedCommand ( 'CommandType s cxts tags )
+buildCommand' fun n d exts ctxs parm =
+  CombinedCommand n $
+  Command' {cmdDesc' =
+              CommandDesc {cmdName = T.pack $ symbolVal n
+                          ,cmdUiDescription = d
+                          ,cmdFileExtensions = exts
+                          ,cmdContexts = ctxs
+                          ,cmdAdditionalParams = parm
+                          ,cmdReturnType =
+                             T.pack $ show $ typeOf (undefined :: a)}
+           ,cmdFunc' = fun}
+
 -- ---------------------------------------------------------------------
-
--- | For a given 'AcceptedContext', define the parameters that are required in
--- the corresponding 'IdeRequest'
-contextMapping :: AcceptedContext -> [ParamDescription]
-contextMapping CtxNone        = []
-contextMapping CtxFile        = [fileParam]
-contextMapping CtxPoint       = [fileParam,startPosParam]
-contextMapping CtxRegion      = [fileParam,startPosParam,endPosParam]
-contextMapping CtxCabalTarget = [cabalParam]
-contextMapping CtxProject     = [dirParam] -- the root directory of the project
-
-fileParam :: ParamDescription
-fileParam = RP "file" "a file name" PtFile
-
--- | A parameter for a directory
-dirParam :: ParamDescription
-dirParam = RP "dir" "a directory name" PtFile
-
-startPosParam :: ParamDescription
-startPosParam = RP "start_pos" "start line and col" PtPos
-
-endPosParam :: ParamDescription
-endPosParam = RP "end_pos" "end line and col" PtPos
-
-cabalParam :: ParamDescription
-cabalParam = RP "cabal" "cabal target" PtText
 
 -- | The 'CommandFunc' is called once the dispatcher has checked that it
 -- satisfies at least one of the `AcceptedContext` values for the command

@@ -29,23 +29,27 @@ hareDescriptor = PluginDescriptor
 \operate in a safe way, by first writing new files with proposed changes, and \
 \only swapping these with the originals when the change is accepted. "
     , pdCommands =
-        buildCommand demoteCmd (Proxy :: Proxy "demote") "Move a definition one level down"
-                    [".hs"] [CtxPoint] []
+        buildCommand' demoteCmd (Proxy :: Proxy "demote") "Move a definition one level down"
+                    [".hs"] (SCtxPoint :& RNil) RNil
 
-      :& buildCommand dupdefCmd (Proxy :: Proxy "dupdef") "Duplicate a definition"
-                     [".hs"] [CtxPoint] [RP "name" "the new name" PtText]
+      :& buildCommand' dupdefCmd (Proxy :: Proxy "dupdef") "Duplicate a definition"
+                     [".hs"] (SCtxPoint :& RNil)
+                     (  SRP (Proxy :: Proxy "name") (Proxy :: Proxy "the new name") SPtText
+                     :& RNil)
 
-      :& buildCommand iftocaseCmd (Proxy :: Proxy "iftocase") "Converts an if statement to a case statement"
-                     [".hs"] [CtxRegion] []
+      :& buildCommand' iftocaseCmd (Proxy :: Proxy "iftocase") "Converts an if statement to a case statement"
+                     [".hs"] (SCtxRegion :& RNil) RNil
 
-      :& buildCommand liftonelevelCmd (Proxy :: Proxy "liftonelevel") "Move a definition one level up from where it is now"
-                     [".hs"] [CtxPoint] []
+      :& buildCommand' liftonelevelCmd (Proxy :: Proxy "liftonelevel") "Move a definition one level up from where it is now"
+                     [".hs"] (SCtxPoint :& RNil) RNil
 
-      :& buildCommand lifttotoplevelCmd (Proxy :: Proxy "lifttotoplevel") "Move a definition to the top level from where it is now"
-                     [".hs"] [CtxPoint] []
+      :& buildCommand' lifttotoplevelCmd (Proxy :: Proxy "lifttotoplevel") "Move a definition to the top level from where it is now"
+                     [".hs"] (SCtxPoint :& RNil) RNil
 
-      :& buildCommand renameCmd (Proxy :: Proxy "rename") "rename a variable or type"
-                     [".hs"] [CtxPoint] [RP "name" "the new name" PtText]
+      :& buildCommand' renameCmd (Proxy :: Proxy "rename") "rename a variable or type"
+                     [".hs"] (SCtxPoint :& RNil)
+                     (  SRP (Proxy :: Proxy "name") (Proxy :: Proxy "the new name") SPtText
+                     :& RNil)
 
       :& RNil
   , pdExposedServices = []

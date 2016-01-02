@@ -20,5 +20,7 @@ library
                      , containers
                      , text
                      , unordered-containers
+                     , singletons
+                     , vinyl
   ghc-options:         -Wall
   default-language:    Haskell2010

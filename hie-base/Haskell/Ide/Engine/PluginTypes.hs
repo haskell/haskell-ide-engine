@@ -1,3 +1,7 @@
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -7,6 +11,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE PolyKinds #-}
 module Haskell.Ide.Engine.PluginTypes
   (
     AcceptedContext(..)
@@ -27,7 +33,8 @@ module Haskell.Ide.Engine.PluginTypes
   , ParamType(..)
 
   -- * Commands
-  , CommandDescriptor(..)
+  , CommandDescriptor
+  , CommandDescriptor'(..)
   , CommandName
   , PluginName
   , ExtendedCommandDescriptor(..)
@@ -39,7 +46,13 @@ module Haskell.Ide.Engine.PluginTypes
   , IdeResponse(..)
   , IdeError(..)
   , IdeErrorCode(..)
-
+  , SParamDescription(..)
+  , SParamType
+  , SParamRequired
+  , ParamDescType(..)
+  , unwrapParamDesc
+  , SAcceptedContext
+  , Sing(..)
   , Pos
   , posToJSON
   , jsonToPos
@@ -47,34 +60,124 @@ module Haskell.Ide.Engine.PluginTypes
   -- * Plugins
   , PluginId
   , IdePlugins(..)
-
+  , contextMapping
+  , ContextMapping
+  , fileParam
+  , startPosParam
+  , endPosParam
+  , cabalParam
   )where
 
 import           Control.Applicative
 import           Control.Monad
 import           Data.Aeson
 import           Data.Aeson.Types
-import qualified Data.Map as Map
 import qualified Data.HashMap.Strict as H
+import qualified Data.Map as Map
+import           Data.Singletons
+import           Data.Singletons.Prelude
+import           Data.Singletons.TH
 import qualified Data.Text as T
 import           Data.Typeable
 import           GHC.Generics
+import           GHC.TypeLits
 
 type PluginId = T.Text
 
 -- | Return type of a function
 type ReturnType = T.Text
 
--- | Descriptor for a command. This is intended to be transferred to the IDE, so
--- the IDE can integrate it into it's UI, and then send requests through to HIE.
-data CommandDescriptor = CommandDesc
+$(singletons
+  [d| data ParamType = PtText | PtFile | PtPos
+                  deriving (Eq,Ord,Show,Read,Bounded,Enum)
+      data ParamRequired = Required | Optional deriving (Eq,Ord,Show,Read,Bounded,Enum)
+      -- | Define what context will be accepted from the frontend for the specific
+      -- command. Matches up to corresponding values for CommandContext
+      data AcceptedContext
+        = CtxNone        -- ^ No context required, global command
+        | CtxFile        -- ^ Works on a whole file
+        | CtxPoint       -- ^ A single (Line,Col) in a specific file
+        | CtxRegion      -- ^ A region within a specific file
+        | CtxCabalTarget -- ^ Works on a specific cabal target
+        | CtxProject     -- ^ Works on a the whole project
+        deriving (Eq,Ord,Show,Read,Bounded,Enum,Generic)
+  |])
+
+data ParamDescType = ParamDescType Symbol Symbol ParamType ParamRequired
+
+contextMapping :: AcceptedContext -> [ParamDescription]
+contextMapping CtxNone        = []
+contextMapping CtxFile        = [fileParam]
+contextMapping CtxPoint       = [fileParam,startPosParam]
+contextMapping CtxRegion      = [fileParam,startPosParam,endPosParam]
+contextMapping CtxCabalTarget = [cabalParam]
+contextMapping CtxProject     = [dirParam] -- the root directory of the project
+
+type family ContextMapping (cxt :: AcceptedContext) :: [ParamDescType] where
+  ContextMapping 'CtxNone = '[]
+  ContextMapping 'CtxFile = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required ]
+  ContextMapping 'CtxPoint = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required
+                              , 'ParamDescType "start pos" "start line and col" 'PtPos 'Required ]
+  ContextMapping 'CtxRegion = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required
+                               , 'ParamDescType "start pos" "start line and col" 'PtPos 'Required
+                               , 'ParamDescType "end pos" "end line and col" 'PtPos 'Required]
+  ContextMapping 'CtxCabalTarget = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required ]
+  ContextMapping 'CtxProject = '[ 'ParamDescType "dir" "a directory name" 'PtFile 'Required ]
+
+-- | For a given 'AcceptedContext', define the parameters that are required in
+-- the corresponding 'IdeRequest'
+fileParam :: ParamDescription
+fileParam = RP "file" "a file name" PtFile
+
+-- | A parameter for a directory
+dirParam :: ParamDescription
+dirParam = RP "dir" "a directory name" PtFile
+
+startPosParam :: ParamDescription
+startPosParam = RP "start_pos" "start line and col" PtPos
+
+endPosParam :: ParamDescription
+endPosParam = RP "end_pos" "end line and col" PtPos
+
+cabalParam :: ParamDescription
+cabalParam = RP "cabal" "cabal target" PtText
+data SParamDescription (t :: ParamDescType)
+      where
+       SRP ::
+        (KnownSymbol pName, KnownSymbol pHelp) =>
+        Proxy pName ->
+        Proxy pHelp ->
+        SParamType pType ->
+        SParamDescription ('ParamDescType pName pHelp pType 'Required)
+       SOP ::
+         (KnownSymbol pName, KnownSymbol pHelp) =>
+         Proxy pName ->
+         Proxy pHelp ->
+         SParamType pType ->
+         SParamDescription ('ParamDescType pName pHelp pType 'Required)
+
+unwrapParamDesc :: SParamDescription t -> ParamDescription
+unwrapParamDesc (SRP pName' pHelp' pType') =
+  RP (T.pack $ symbolVal pName')
+     (T.pack $ symbolVal pHelp')
+     (fromSing pType')
+unwrapParamDesc (SOP pName' pHelp' pType') =
+  OP (T.pack $ symbolVal pName')
+     (T.pack $ symbolVal pHelp')
+     (fromSing pType')
+
+data CommandDescriptor' cxts descs = CommandDesc
   { cmdName :: !CommandName -- ^As returned in the 'IdeRequest'
   , cmdUiDescription :: !T.Text -- ^ Can be presented to the IDE user
   , cmdFileExtensions :: ![T.Text] -- ^ File extensions this command can be applied to
-  , cmdContexts :: ![AcceptedContext] -- TODO: should this be a non empty list? or should empty list imply CtxNone.
-  , cmdAdditionalParams :: ![ParamDescription]
+  , cmdContexts :: !cxts -- TODO: should this be a non empty list? or should empty list imply CtxNone.
+  , cmdAdditionalParams :: !descs
   , cmdReturnType :: !ReturnType
   } deriving (Show,Eq,Generic)
+
+-- | Descriptor for a command. This is intended to be transferred to the IDE, so
+-- the IDE can integrate it into it's UI, and then send requests through to HIE.
+type CommandDescriptor = CommandDescriptor' [AcceptedContext] [ParamDescription]
 
 type CommandName = T.Text
 type PluginName = T.Text
@@ -89,17 +192,6 @@ data ExtendedCommandDescriptor =
 data IdePlugins = IdePlugins
   { ipMap :: Map.Map PluginId [CommandDescriptor]
   } deriving (Show,Eq,Generic)
-
--- | Define what context will be accepted from the frontend for the specific
--- command. Matches up to corresponding values for CommandContext
-data AcceptedContext
-  = CtxNone        -- ^ No context required, global command
-  | CtxFile        -- ^ Works on a whole file
-  | CtxPoint       -- ^ A single (Line,Col) in a specific file
-  | CtxRegion      -- ^ A region within a specific file
-  | CtxCabalTarget -- ^ Works on a specific cabal target
-  | CtxProject     -- ^ Works on a the whole project
-  deriving (Eq,Ord,Show,Read,Bounded,Enum,Generic)
 
 type Pos = (Int,Int)
 
@@ -128,8 +220,6 @@ data ParamDescription
 
 type ParamHelp = T.Text
 type ParamName = T.Text
-data ParamType = PtText | PtFile | PtPos
-               deriving (Eq,Ord,Show,Read,Bounded,Enum)
 
 -- ---------------------------------------------------------------------
 
@@ -330,18 +420,24 @@ instance ToJSON ParamValP  where
  toJSON (ParamPosP  p) = posToJSON p
  toJSON _ = "error"
 
+instance FromJSON (ParamVal 'PtText) where
+  parseJSON (Object v) = ParamText <$> v .: "text"
+  parseJSON _ = empty
+
+instance FromJSON (ParamVal 'PtFile) where
+  parseJSON (Object v) = ParamFile <$> v.: "file"
+  parseJSON _ = empty
+
+instance FromJSON (ParamVal 'PtPos) where
+  parseJSON (Object v) = fmap ParamPos $ liftA2 (,) (v .: "line") (v .: "col")
+  parseJSON _ = empty
+
 instance FromJSON ParamValP where
- parseJSON (Object v) = do
-   mt <- fmap ParamTextP <$> v .:? "text"
-   mf <- fmap ParamFileP <$> v .:? "file"
-   mp <- toParamPos <$> v .:? "line" <*> v .:? "col"
-   case mt <|> mf <|> mp of
-     Just pd -> return pd
-     _ -> empty
-   where
-     toParamPos (Just l) (Just c) = Just $ ParamPosP (l,c)
-     toParamPos _ _ = Nothing
- parseJSON _ = empty
+ parseJSON val = do
+   let mt = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtText))
+       mf = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtFile))
+       mp = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtPos))
+   mt <|> mf <|> mp
 
 -- -------------------------------------
 

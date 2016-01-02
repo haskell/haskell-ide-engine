@@ -30,19 +30,22 @@ baseDescriptor = PluginDescriptor
   , pdUIOverview = "Commands for HIE itself, "
   , pdCommands =
 
-        buildCommand versionCmd (Proxy :: Proxy "version") "return HIE version"
-                        [] [CtxNone] []
+        buildCommand' versionCmd (Proxy :: Proxy "version") "return HIE version"
+                         [] (SCtxNone :& RNil) RNil
 
-      :& buildCommand pluginsCmd (Proxy :: Proxy "plugins") "list available plugins"
-                          [] [CtxNone] []
+      :& buildCommand' pluginsCmd (Proxy :: Proxy "plugins") "list available plugins"
+                           [] (SCtxNone :& RNil) RNil
 
-      :& buildCommand commandsCmd (Proxy :: Proxy "commands") "list available commands for a given plugin"
-                         [] [CtxNone] [RP "plugin" "the plugin name" PtText]
+      :& buildCommand' commandsCmd (Proxy :: Proxy "commands") "list available commands for a given plugin"
+                          [] (SCtxNone :& RNil)
+                             (  SRP (Proxy :: Proxy "plugin") (Proxy :: Proxy "the plugin name") SPtText
+                             :& RNil)
 
-      :& buildCommand commandDetailCmd (Proxy :: Proxy "commandDetail") "list parameters required for a given command"
-                         [] [CtxNone] [RP "plugin"  "the plugin name"  PtText
-                                      ,RP "command" "the command name" PtText]
-
+      :& buildCommand' commandDetailCmd (Proxy :: Proxy "commandDetail") "list parameters required for a given command"
+                          [] (SCtxNone :& RNil)
+                          (  SRP (Proxy :: Proxy "plugin") (Proxy :: Proxy "the plugin name") SPtText
+                          :& SRP (Proxy :: Proxy "command") (Proxy :: Proxy "the command name") SPtText
+                          :& RNil)
       :& RNil
   , pdExposedServices = []
   , pdUsedServices    = []
