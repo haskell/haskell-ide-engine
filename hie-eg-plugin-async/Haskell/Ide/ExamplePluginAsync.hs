@@ -25,6 +25,7 @@ exampleAsyncDescriptor = PluginDescriptor
       [
         buildCommand (longRunningCmdSync Cmd1) "cmd1" "Long running synchronous command" [] [CtxNone] []
       , buildCommand (longRunningCmdSync Cmd2) "cmd2" "Long running synchronous command" [] [CtxNone] []
+      , buildCommand (streamingCmdAsync (CmdA 3 100)) "cmdA3" "Long running async/streaming command" [] [CtxNone] []
       ]
   , pdExposedServices = []
   , pdUsedServices    = []
@@ -33,6 +34,11 @@ exampleAsyncDescriptor = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 data WorkerCmd = Cmd1 | Cmd2
+               deriving Show
+
+data WorkerCmdAsync = CmdA
+                       Int -- Number of times to repeat
+                       Int -- delay between repeats
                deriving Show
 
 -- | Keep track of the communication channesl to the remote process.
@@ -97,5 +103,28 @@ workerProc cin cout = loop 1
         Cmd2 -> do
           liftIO $ atomically $ writeTChan cout (T.pack $ "wp cmd2:cnt=" ++ show cnt)
           loop (cnt + 1)
+
+-- ---------------------------------------------------------------------
+
+-- | This command manages interaction with a separate process, doing stuff.
+streamingCmdAsync :: WorkerCmdAsync -> CommandFunc T.Text
+streamingCmdAsync cmd = CmdAsync $ \replyFunc _ctx req -> do
+  tid <- liftIO $ forkIO (workerProcAsync cmd replyFunc)
+  debugm $ "streamingCmdAsync:launched worker as " ++ show tid
+  let tidStr = T.pack (show tid ++ ":")
+  liftIO $ replyFunc (IdeResponseOk $ tidStr <> "started from streamingCmdAsync")
+
+-- | This command manages interaction with a separate process, doing stuff.
+workerProcAsync :: WorkerCmdAsync -> (IdeResponse T.Text -> IO ()) -> IO ()
+workerProcAsync (CmdA num delayMs) replyFunc = do
+  tid <- myThreadId
+  let tidStr = show tid ++ ":"
+  replyFunc (IdeResponseOk $ T.pack $ tidStr <> "starting")
+  let
+    go n = do
+      replyFunc (IdeResponseOk $ T.pack $ tidStr <> "iteration " <> show n)
+      threadDelay (delayMs * 1000)
+  mapM_ go [1..num]
+  replyFunc (IdeResponseOk $ T.pack $ tidStr <> "done")
 
 -- ---------------------------------------------------------------------
