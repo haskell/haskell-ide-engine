@@ -37,7 +37,6 @@ module Haskell.Ide.Engine.PluginTypes
   , CommandDescriptor'(..)
   , CommandName
   , PluginName
-  , ExtendedCommandDescriptor(..)
   , ValidResponse(..)
   , ReturnType
 
@@ -113,6 +112,7 @@ contextMapping CtxRegion      = [fileParam,startPosParam,endPosParam]
 contextMapping CtxCabalTarget = [cabalParam]
 contextMapping CtxProject     = [dirParam] -- the root directory of the project
 
+-- The duplication is ugly, but it looks like atm singletons can’t promote functions that operate on strings or text
 type family ContextMapping (cxt :: AcceptedContext) :: [ParamDescType] where
   ContextMapping 'CtxNone = '[]
   ContextMapping 'CtxFile = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required ]
@@ -127,44 +127,35 @@ type family ContextMapping (cxt :: AcceptedContext) :: [ParamDescType] where
 -- | For a given 'AcceptedContext', define the parameters that are required in
 -- the corresponding 'IdeRequest'
 fileParam :: ParamDescription
-fileParam = RP "file" "a file name" PtFile
+fileParam = ParamDesc "file" "a file name" PtFile Required
 
 -- | A parameter for a directory
 dirParam :: ParamDescription
-dirParam = RP "dir" "a directory name" PtFile
+dirParam = ParamDesc "dir" "a directory name" PtFile Required
 
 startPosParam :: ParamDescription
-startPosParam = RP "start_pos" "start line and col" PtPos
+startPosParam = ParamDesc "start_pos" "start line and col" PtPos Required
 
 endPosParam :: ParamDescription
-endPosParam = RP "end_pos" "end line and col" PtPos
+endPosParam = ParamDesc "end_pos" "end line and col" PtPos Required
 
 cabalParam :: ParamDescription
-cabalParam = RP "cabal" "cabal target" PtText
-data SParamDescription (t :: ParamDescType)
-      where
-       SRP ::
-        (KnownSymbol pName, KnownSymbol pHelp) =>
-        Proxy pName ->
-        Proxy pHelp ->
-        SParamType pType ->
-        SParamDescription ('ParamDescType pName pHelp pType 'Required)
-       SOP ::
-         (KnownSymbol pName, KnownSymbol pHelp) =>
-         Proxy pName ->
-         Proxy pHelp ->
-         SParamType pType ->
-         SParamDescription ('ParamDescType pName pHelp pType 'Required)
+cabalParam = ParamDesc "cabal" "cabal target" PtText Required
+data SParamDescription (t :: ParamDescType) where
+        SParamDesc ::
+            (KnownSymbol pName, KnownSymbol pHelp) =>
+            Proxy pName ->
+              Proxy pHelp ->
+                SParamType pType ->
+                  SParamRequired pRequired ->
+                    SParamDescription ('ParamDescType pName pHelp pType pRequired)
 
 unwrapParamDesc :: SParamDescription t -> ParamDescription
-unwrapParamDesc (SRP pName' pHelp' pType') =
-  RP (T.pack $ symbolVal pName')
-     (T.pack $ symbolVal pHelp')
-     (fromSing pType')
-unwrapParamDesc (SOP pName' pHelp' pType') =
-  OP (T.pack $ symbolVal pName')
-     (T.pack $ symbolVal pHelp')
-     (fromSing pType')
+unwrapParamDesc (SParamDesc pName' pHelp' pType' pRequired') =
+  ParamDesc (T.pack $ symbolVal pName')
+            (T.pack $ symbolVal pHelp')
+            (fromSing pType')
+            (fromSing pRequired')
 
 data CommandDescriptor' cxts descs = CommandDesc
   { cmdName :: !CommandName -- ^As returned in the 'IdeRequest'
@@ -181,11 +172,6 @@ type CommandDescriptor = CommandDescriptor' [AcceptedContext] [ParamDescription]
 
 type CommandName = T.Text
 type PluginName = T.Text
-
-data ExtendedCommandDescriptor =
-  ExtendedCommandDescriptor CommandDescriptor
-                            PluginName
-         deriving (Show, Eq)
 
 -- | Subset type extracted from 'Plugins' to be sent to the IDE as
 -- a description of the available commands
@@ -205,17 +191,11 @@ data CabalSection = CabalSection T.Text deriving (Show,Eq,Generic)
 -- |Initially all params will be returned as text. This can become a much
 -- richer structure in time.
 -- These should map down to the 'ParamVal' return types
-data ParamDescription
-  = RP
-      { pName :: !ParamName
-      , pHelp :: !ParamHelp
-      , pType :: !ParamType
-      } -- ^ Required parameter
-  | OP
-      { pName :: !ParamName
-      , pHelp :: !ParamHelp
-      , pType :: !ParamType
-      } -- ^ Optional parameter
+data ParamDescription =
+  ParamDesc {pName :: !ParamName
+            ,pHelp :: !ParamHelp
+            ,pType :: !ParamType
+            ,pRequired :: !ParamRequired}
   deriving (Show,Eq,Ord,Generic)
 
 type ParamHelp = T.Text
@@ -338,27 +318,6 @@ instance ValidResponse () where
 instance ValidResponse Object where
   jsWrite = id
   jsRead = pure
-
-instance ValidResponse ExtendedCommandDescriptor where
-  jsWrite (ExtendedCommandDescriptor cmdDescriptor name) =
-    H.fromList
-      [ "name" .= cmdName cmdDescriptor
-      , "ui_description" .= cmdUiDescription cmdDescriptor
-      , "file_extensions" .= cmdFileExtensions cmdDescriptor
-      , "contexts" .= cmdContexts cmdDescriptor
-      , "additional_params" .= cmdAdditionalParams cmdDescriptor
-      , "return_type" .= cmdReturnType cmdDescriptor
-      , "plugin_name" .= name ]
-  jsRead v =
-    ExtendedCommandDescriptor
-    <$> (CommandDesc
-      <$> v .: "name"
-      <*> v .: "ui_description"
-      <*> v .: "file_extensions"
-      <*> v .: "contexts"
-      <*> v .: "additional_params"
-      <*> v .: "return_type")
-    <*> v .: "plugin_name"
 
 instance ValidResponse CommandDescriptor where
   jsWrite cmdDescriptor =
@@ -523,15 +482,15 @@ instance FromJSON ParamType where
 -- -------------------------------------
 
 instance ToJSON ParamDescription where
-  toJSON (RP n h t) = object [ "name" .= n ,"help" .= h, "type" .= t, "required" .= True ]
-  toJSON (OP n h t) = object [ "name" .= n ,"help" .= h, "type" .= t, "required" .= False ]
+  toJSON (ParamDesc n h t r) =
+    object ["name" .= n,"help" .= h,"type" .= t,"required" .= (r == Required)]
 
 instance FromJSON ParamDescription where
   parseJSON (Object v) = do
     req <- v .: "required"
     if req
-      then RP <$> v .: "name" <*> v .: "help" <*> v .: "type"
-      else OP <$> v .: "name" <*> v .: "help" <*> v .: "type"
+      then ParamDesc <$> v .: "name" <*> v .: "help" <*> v .: "type" <*> pure Required
+      else ParamDesc <$> v .: "name" <*> v .: "help" <*> v .: "type" <*> pure Optional
   parseJSON _ = empty
 
 -- -------------------------------------
