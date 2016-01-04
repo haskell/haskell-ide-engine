@@ -32,19 +32,20 @@ import qualified Pipes.Prelude as P
 import           System.IO
 
 -- TODO: Can pass in a handle, then it is general
-jsonStdioTransport :: TChan ChannelRequest -> IO ()
-jsonStdioTransport cin = do
+jsonStdioTransport :: Bool -> TChan ChannelRequest -> IO ()
+jsonStdioTransport oneShot cin = do
   cout <- atomically $ newTChan :: IO (TChan ChannelResponse)
   hSetBuffering stdout NoBuffering
   _ <- forkIO $ P.runEffect (tchanProducer cout P.>-> encodePipe P.>-> jsonConsumer)
-  P.runEffect (parseFrames PB.stdin P.>-> parseToJsonPipe cin cout 1)
+  P.runEffect (parseFrames PB.stdin P.>-> parseToJsonPipe oneShot cin cout 1)
 
 parseToJsonPipe
-  :: TChan ChannelRequest
+  :: Bool
+  -> TChan ChannelRequest
   -> TChan ChannelResponse
   -> Int
   -> P.Consumer (Either PAe.DecodingError WireRequest) IO ()
-parseToJsonPipe cin cout cid =
+parseToJsonPipe oneShot cin cout cid =
   do parseRes <- P.await
      case parseRes of
        Left decodeErr ->
@@ -56,9 +57,13 @@ parseToJsonPipe cin cout cid =
             liftIO $ atomically $ writeTChan cout rsp
        Right req ->
          do liftIO $ atomically $ writeTChan cin (wireToChannel cout cid req)
-     parseToJsonPipe cin
-                     cout
-                     (cid + 1)
+     if oneShot
+       then return ()
+       else
+         parseToJsonPipe False
+                         cin
+                         cout
+                         (cid + 1)
 
 jsonConsumer :: P.Consumer A.Value IO ()
 jsonConsumer =
