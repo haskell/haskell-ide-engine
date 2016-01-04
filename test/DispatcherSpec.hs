@@ -276,14 +276,14 @@ testDescriptor chSync = PluginDescriptor
                                                  , OP "fileo" "help" PtFile
                                                  , OP "poso"  "help" PtPos
                                                  ]
-      , mkAsyncCmdWithContext (asyncCmd1 chSync) (Proxy :: Proxy "cmdasync1") [CtxNone] []
-      , mkAsyncCmdWithContext (asyncCmd2 chSync) (Proxy :: Proxy "cmdasync2") [CtxNone] []
+      , mkAsyncCmdWithContext (asyncCmd1 chSync) "cmdasync1" [CtxNone] []
+      , mkAsyncCmdWithContext (asyncCmd2 chSync) "cmdasync2" [CtxNone] []
       ]
   , pdExposedServices = []
   , pdUsedServices    = []
   }
 
-mkCmdWithContext :: CommandName -> [AcceptedContext] -> [ParamDescription] -> Command
+mkCmdWithContext :: CommandName -> [AcceptedContext] -> [ParamDescription] -> UntaggedCommand
 mkCmdWithContext n cts pds =
         Command
           { cmdDesc = CommandDesc
@@ -297,9 +297,16 @@ mkCmdWithContext n cts pds =
           , cmdFunc = CmdSync $ \ctxs _ -> return (IdeResponseOk (T.pack $ "result:ctxs=" ++ show ctxs))
           }
 
-mkAsyncCmdWithContext :: (ValidResponse a, KnownSymbol s) => CommandFunc a -> Proxy s -> [AcceptedContext] -> [ParamDescription] -> Command
+mkAsyncCmdWithContext :: (ValidResponse a) => CommandFunc a -> CommandName -> [AcceptedContext] -> [ParamDescription] -> UntaggedCommand
 mkAsyncCmdWithContext cf n cts pds =
-        let Vinyl.Const cmd = buildCommand cf n "description" [] cts pds in cmd
+  Command {cmdDesc =
+             CommandDesc {cmdName = n
+                         ,cmdUiDescription = "description"
+                         ,cmdFileExtensions = []
+                         ,cmdContexts = cts
+                         ,cmdAdditionalParams = pds
+                         ,cmdReturnType = "Text"}
+          ,cmdFunc = cf}
 
 -- ---------------------------------------------------------------------
 

@@ -29,23 +29,19 @@ baseDescriptor = PluginDescriptor
     pdUIShortName = "HIE Base"
   , pdUIOverview = "Commands for HIE itself, "
   , pdCommands =
-
-        buildCommand' versionCmd (Proxy :: Proxy "version") "return HIE version"
-                         [] (SCtxNone :& RNil) RNil
-
-      :& buildCommand' pluginsCmd (Proxy :: Proxy "plugins") "list available plugins"
-                           [] (SCtxNone :& RNil) RNil
-
-      :& buildCommand' commandsCmd (Proxy :: Proxy "commands") "list available commands for a given plugin"
-                          [] (SCtxNone :& RNil)
-                             (  SRP (Proxy :: Proxy "plugin") (Proxy :: Proxy "the plugin name") SPtText
-                             :& RNil)
-
-      :& buildCommand' commandDetailCmd (Proxy :: Proxy "commandDetail") "list parameters required for a given command"
-                          [] (SCtxNone :& RNil)
-                          (  SRP (Proxy :: Proxy "plugin") (Proxy :: Proxy "the plugin name") SPtText
-                          :& SRP (Proxy :: Proxy "command") (Proxy :: Proxy "the command name") SPtText
-                          :& RNil)
+        buildCommand versionCmd (Proxy :: Proxy "version") "return HIE version"
+                        [] (SCtxNone :& RNil) RNil
+      :& buildCommand pluginsCmd (Proxy :: Proxy "plugins") "list available plugins"
+                          [] (SCtxNone :& RNil) RNil
+      :& buildCommand commandsCmd (Proxy :: Proxy "commands") "list available commands for a given plugin"
+                         [] (SCtxNone :& RNil)
+                            (  SParamDesc (Proxy :: Proxy "plugin") (Proxy :: Proxy "the plugin name") SPtText SRequired
+                            :& RNil)
+      :& buildCommand commandDetailCmd (Proxy :: Proxy "commandDetail") "list parameters required for a given command"
+                         [] (SCtxNone :& RNil)
+                         (  SParamDesc (Proxy :: Proxy "plugin") (Proxy :: Proxy "the plugin name") SPtText SRequired
+                         :& SParamDesc (Proxy :: Proxy "command") (Proxy :: Proxy "the command name") SPtText SRequired
+                         :& RNil)
       :& RNil
   , pdExposedServices = []
   , pdUsedServices    = []
@@ -116,7 +112,7 @@ version =
 
 -- ---------------------------------------------------------------------
 
-replPluginInfo :: Plugins -> Map.Map T.Text (T.Text,Command)
+replPluginInfo :: Plugins -> Map.Map T.Text (T.Text,UntaggedCommand)
 replPluginInfo plugins = Map.fromList commands
   where
     commands = concatMap extractCommands $ Map.toList plugins

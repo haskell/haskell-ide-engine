@@ -39,14 +39,14 @@ paramNameCollisions plugins =
   concatMap (\(plId, plDesc) ->
     concatMap (paramNameCollisionsForCmd plId . cmdDesc) (pdCommands plDesc)) (Map.toList plugins)
 
-paramNameCollisionsForCmd :: PluginId -> CommandDescriptor -> [ParamCollision]
+paramNameCollisionsForCmd :: PluginId -> UntaggedCommandDescriptor -> [ParamCollision]
 paramNameCollisionsForCmd plId cmdDescriptor =
   let collidingParamNames = findCollidingParamNames cmdDescriptor
       collisionSources = map (\param -> ParamCollision plId (cmdName cmdDescriptor) param (paramsByName cmdDescriptor param)) collidingParamNames
    in collisionSources
 
 -- |Find all the parameters within the CommandDescriptor that goes by the given ParamName
-paramsByName :: CommandDescriptor -> ParamName -> [ParamOccurence]
+paramsByName :: UntaggedCommandDescriptor -> ParamName -> [ParamOccurence]
 paramsByName cmdDescriptor paramName =
   let matchingParamName param = pName param == paramName
       additionalParams = map AdditionalParam $ filter matchingParamName (cmdAdditionalParams cmdDescriptor)
@@ -58,7 +58,7 @@ paramsByName cmdDescriptor paramName =
       cmdContextParamsWithCollisions = map (uncurry ContextParam) $ filter (\(param, _) -> matchingParamName param) cmdContextParams
    in additionalParams ++ cmdContextParamsWithCollisions
 
-findCollidingParamNames :: CommandDescriptor -> [ParamName]
+findCollidingParamNames :: UntaggedCommandDescriptor -> [ParamName]
 findCollidingParamNames cmdDescriptor =
   let cmdContextPNames = nub $ concatMap (map pName . contextMapping) (cmdContexts cmdDescriptor) -- collisions within AcceptedContext should not count
       additionalPNames = map pName (cmdAdditionalParams cmdDescriptor)

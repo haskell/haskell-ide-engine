@@ -35,23 +35,23 @@ ghcmodDescriptor = PluginDescriptor
 \in editors. It strives to offer most of the features one has come to expect \
 \from modern IDEs in any editor."
   , pdCommands =
-         buildCommand' checkCmd (Proxy :: Proxy "check") "check a file for GHC warnings and errors"
+         buildCommand checkCmd (Proxy :: Proxy "check") "check a file for GHC warnings and errors"
                        [".hs",".lhs"] (SCtxFile :& RNil) RNil
 
-      :& buildCommand' lintCmd (Proxy :: Proxy "lint")  "Check files using `hlint'"
+      :& buildCommand lintCmd (Proxy :: Proxy "lint")  "Check files using `hlint'"
                      [".hs",".lhs"] (SCtxFile :& RNil) RNil
 
-      :& buildCommand' findCmd (Proxy :: Proxy "find")  "List all modules that define SYMBOL"
+      :& buildCommand findCmd (Proxy :: Proxy "find")  "List all modules that define SYMBOL"
                      [".hs",".lhs"] (SCtxProject :& RNil)
-                     (  SRP (Proxy :: Proxy "symbol") (Proxy :: Proxy "The SYMBOL to look up") SPtText
+                     (  SParamDesc (Proxy :: Proxy "symbol") (Proxy :: Proxy "The SYMBOL to look up") SPtText SRequired
                      :& RNil)
 
-      :& buildCommand' infoCmd (Proxy :: Proxy "info") "Look up an identifier in the context of FILE (like ghci's `:info')"
+      :& buildCommand infoCmd (Proxy :: Proxy "info") "Look up an identifier in the context of FILE (like ghci's `:info')"
                      [".hs",".lhs"] (SCtxFile :& RNil)
-                     (  SRP (Proxy :: Proxy "expr") (Proxy :: Proxy "The EXPR to provide info on") SPtText
+                     (  SParamDesc (Proxy :: Proxy "expr") (Proxy :: Proxy "The EXPR to provide info on") SPtText SRequired
                      :& RNil)
 
-      :& buildCommand' typeCmd (Proxy :: Proxy "type") "Get the type of the expression under (LINE,COL)"
+      :& buildCommand typeCmd (Proxy :: Proxy "type") "Get the type of the expression under (LINE,COL)"
                      [".hs",".lhs"] (SCtxPoint :& RNil) RNil
 
       :& RNil

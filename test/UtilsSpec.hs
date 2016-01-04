@@ -27,62 +27,70 @@ pluginUtilsSpec = do
       fmap pdeCollisions (validatePlugins pluginsWithCollisions) `shouldBe` Just
             [ ParamCollision "plugin1" "cmd1" "file"
               [ AdditionalParam
-                  RP
+                  ParamDesc
                     { pName = "file"
                     , pHelp = "shoud collide"
                     , pType = PtText
+                    , pRequired = Required
                     }
               , ContextParam fileParam CtxRegion
               ]
             , ParamCollision "plugin1" "cmd2" "end_pos"
               [ AdditionalParam
-                  RP
+                  ParamDesc
                     { pName = "end_pos"
                     , pHelp = "shoud collide"
                     , pType = PtText
+                    , pRequired = Required
                     }
               , ContextParam endPosParam CtxRegion
               ]
             , ParamCollision "plugin1" "cmd3" "a"
               [ AdditionalParam
-                  RP
+                  ParamDesc
                     { pName = "a"
                     , pHelp = "shoud collide"
                     , pType = PtText
+                    , pRequired = Required
                     }
               , AdditionalParam
-                  OP
+                  ParamDesc
                     { pName = "a"
                     , pHelp = "shoud collide"
                     , pType = PtText
+                    , pRequired = Optional
                     }
               , AdditionalParam
-                  OP
+                  ParamDesc
                     { pName = "a"
                     , pHelp = "shoud collide"
                     , pType = PtText
+                    , pRequired = Optional
                     }
               ]
               , ParamCollision "plugin1" "cmd3" "b"
                 [ AdditionalParam
-                    RP
+                    ParamDesc
                       { pName = "b"
                       , pHelp = "shoud collide"
                       , pType = PtText
+                      , pRequired = Required
                       }
                 , AdditionalParam
-                    RP
+                    ParamDesc
                       { pName = "b"
                       , pHelp = "shoud collide"
                       , pType = PtText
+                      , pRequired = Required
                       }
                 ]
             , ParamCollision "plugin2" "cmd1" "file"
               [ AdditionalParam
-                  RP
+                  ParamDesc
                     { pName = "file"
                     , pHelp = "shoud collide"
                     , pType = PtText
+                    , pRequired = Required
                     }
               , ContextParam fileParam CtxRegion
               , ContextParam fileParam CtxPoint
@@ -94,22 +102,22 @@ pluginUtilsSpec = do
             "Error: Parameter name collision in plugin description\n"++
             "Parameter names must be unique for each command. The following collisions were found:\n" ++
             "In \"plugin1\":\"cmd1\" the parameter \"file\" is defined in:\n" ++
-            "    cmdAdditionalParams = RP {pName = \"file\", pHelp = \"shoud collide\", pType = PtText}\n"++
-            "    cmdContexts = [CtxRegion]: RP {pName = \"file\", pHelp = \"a file name\", pType = PtFile}\n"++
+            "    cmdAdditionalParams = ParamDesc {pName = \"file\", pHelp = \"shoud collide\", pType = PtText, pRequired = Required}\n"++
+            "    cmdContexts = [CtxRegion]: ParamDesc {pName = \"file\", pHelp = \"a file name\", pType = PtFile, pRequired = Required}\n"++
             "In \"plugin1\":\"cmd2\" the parameter \"end_pos\" is defined in:\n"++
-            "    cmdAdditionalParams = RP {pName = \"end_pos\", pHelp = \"shoud collide\", pType = PtText}\n"++
-            "    cmdContexts = [CtxRegion]: RP {pName = \"end_pos\", pHelp = \"end line and col\", pType = PtPos}\n"++
+            "    cmdAdditionalParams = ParamDesc {pName = \"end_pos\", pHelp = \"shoud collide\", pType = PtText, pRequired = Required}\n"++
+            "    cmdContexts = [CtxRegion]: ParamDesc {pName = \"end_pos\", pHelp = \"end line and col\", pType = PtPos, pRequired = Required}\n"++
             "In \"plugin1\":\"cmd3\" the parameter \"a\" is defined in:\n"++
-            "    cmdAdditionalParams = RP {pName = \"a\", pHelp = \"shoud collide\", pType = PtText}\n"++
-            "    cmdAdditionalParams = OP {pName = \"a\", pHelp = \"shoud collide\", pType = PtText}\n"++
-            "    cmdAdditionalParams = OP {pName = \"a\", pHelp = \"shoud collide\", pType = PtText}\n"++
+            "    cmdAdditionalParams = ParamDesc {pName = \"a\", pHelp = \"shoud collide\", pType = PtText, pRequired = Required}\n"++
+            "    cmdAdditionalParams = ParamDesc {pName = \"a\", pHelp = \"shoud collide\", pType = PtText, pRequired = Optional}\n"++
+            "    cmdAdditionalParams = ParamDesc {pName = \"a\", pHelp = \"shoud collide\", pType = PtText, pRequired = Optional}\n"++
             "In \"plugin1\":\"cmd3\" the parameter \"b\" is defined in:\n"++
-            "    cmdAdditionalParams = RP {pName = \"b\", pHelp = \"shoud collide\", pType = PtText}\n"++
-            "    cmdAdditionalParams = RP {pName = \"b\", pHelp = \"shoud collide\", pType = PtText}\n"++
+            "    cmdAdditionalParams = ParamDesc {pName = \"b\", pHelp = \"shoud collide\", pType = PtText, pRequired = Required}\n"++
+            "    cmdAdditionalParams = ParamDesc {pName = \"b\", pHelp = \"shoud collide\", pType = PtText, pRequired = Required}\n"++
             "In \"plugin2\":\"cmd1\" the parameter \"file\" is defined in:\n"++
-            "    cmdAdditionalParams = RP {pName = \"file\", pHelp = \"shoud collide\", pType = PtText}\n"++
-            "    cmdContexts = [CtxRegion]: RP {pName = \"file\", pHelp = \"a file name\", pType = PtFile}\n"++
-            "    cmdContexts = [CtxPoint]: RP {pName = \"file\", pHelp = \"a file name\", pType = PtFile}\n"
+            "    cmdAdditionalParams = ParamDesc {pName = \"file\", pHelp = \"shoud collide\", pType = PtText, pRequired = Required}\n"++
+            "    cmdContexts = [CtxRegion]: ParamDesc {pName = \"file\", pHelp = \"a file name\", pType = PtFile, pRequired = Required}\n"++
+            "    cmdContexts = [CtxPoint]: ParamDesc {pName = \"file\", pHelp = \"a file name\", pType = PtFile, pRequired = Required}\n"
           )
 
 
@@ -127,19 +135,22 @@ pluginsWithCollisions = Map.fromList [("plugin1", PluginDescriptor
                           , cmdContexts = [CtxRegion] -- ["file", "start_pos", "file", "start_pos", "end_pos"]
                           , cmdAdditionalParams =
                             [
-                              RP
+                              ParamDesc
                                 { pName = "file"
                                 , pHelp = "shoud collide"
                                 , pType = PtText
+                                , pRequired = Required
                                 }
-                            , RP
+                            , ParamDesc
                                 { pName = "uniqueParamName1"
                                 , pHelp = "shoud not collide"
                                 , pType = PtText
+                                , pRequired = Required
                                 }
                             ]
                           }
-            , cmdFunc = CmdSync $ \_ _ -> return (IdeResponseOk ("" :: T.Text))
+            , cmdFunc = CmdSync $ \_ _ ->
+                return (IdeResponseOk ("" :: T.Text) :: IdeResponse T.Text)
             }
         , Command
             { cmdDesc = CommandDesc
@@ -150,58 +161,65 @@ pluginsWithCollisions = Map.fromList [("plugin1", PluginDescriptor
                           , cmdContexts = [CtxRegion]
                           , cmdAdditionalParams =
                             [
-                              RP
+                              ParamDesc
                                 { pName = "end_pos"
                                 , pHelp = "shoud collide"
                                 , pType = PtText
+                                , pRequired = Required
                                 }
-                            , OP
+                            , ParamDesc
                                 { pName = "uniqueParamName1"
                                 , pHelp = "shoud not collide"
                                 , pType = PtText
+                                , pRequired = Optional
                                 }
                             ]
                           }
             , cmdFunc = CmdSync $ \_ _ -> return (IdeResponseOk ("" :: T.Text))
             }
-            , Command
-                { cmdDesc = CommandDesc
-                              { cmdName = "cmd3"
-                              , cmdUiDescription = ""
-                              , cmdFileExtensions = []
-                              , cmdReturnType = ""
-                              , cmdContexts = [] -- ["file", "start_pos", "file", "start_pos", "end_pos"]
-                              , cmdAdditionalParams =
-                                [
-                                  RP
-                                    { pName = "a"
-                                    , pHelp = "shoud collide"
-                                    , pType = PtText
-                                    }
-                                , OP
-                                    { pName = "a"
-                                    , pHelp = "shoud collide"
-                                    , pType = PtText
-                                    }
-                                , OP
-                                    { pName = "a"
-                                    , pHelp = "shoud collide"
-                                    , pType = PtText
-                                    }
-                                , RP
-                                  { pName = "b"
-                                  , pHelp = "shoud collide"
-                                  , pType = PtText
-                                  }
-                                , RP
-                                  { pName = "b"
-                                  , pHelp = "shoud collide"
-                                  , pType = PtText
-                                  }
-                                ]
+        , Command
+            { cmdDesc = CommandDesc
+                          { cmdName = "cmd3"
+                          , cmdUiDescription = ""
+                          , cmdFileExtensions = []
+                          , cmdReturnType = ""
+                          , cmdContexts = [] -- ["file", "start_pos", "file", "start_pos", "end_pos"]
+                          , cmdAdditionalParams =
+                            [
+                              ParamDesc
+                                { pName = "a"
+                                , pHelp = "shoud collide"
+                                , pType = PtText
+                                , pRequired = Required
+                                }
+                            , ParamDesc
+                                { pName = "a"
+                                , pHelp = "shoud collide"
+                                , pType = PtText
+                                , pRequired = Optional
+                                }
+                            , ParamDesc
+                                { pName = "a"
+                                , pHelp = "shoud collide"
+                                , pType = PtText
+                                , pRequired = Optional
+                                }
+                            , ParamDesc
+                              { pName = "b"
+                              , pHelp = "shoud collide"
+                              , pType = PtText
+                              , pRequired = Required
                               }
-                , cmdFunc = CmdSync $ \_ _ -> return (IdeResponseOk ("" :: T.Text))
-                }
+                            , ParamDesc
+                              { pName = "b"
+                              , pHelp = "shoud collide"
+                              , pType = PtText
+                              , pRequired = Required
+                              }
+                            ]
+                          }
+            , cmdFunc = CmdSync $ \_ _ -> return (IdeResponseOk ("" :: T.Text))
+            }
         ]
       , pdExposedServices = []
       , pdUsedServices    = []
@@ -221,38 +239,41 @@ pluginsWithCollisions = Map.fromList [("plugin1", PluginDescriptor
                               , cmdContexts = [CtxRegion, CtxPoint] -- ["file", "start_pos", "file", "start_pos", "end_pos"]
                               , cmdAdditionalParams =
                                 [
-                                  RP
+                                  ParamDesc
                                     { pName = "file"
                                     , pHelp = "shoud collide"
                                     , pType = PtText
+                                    , pRequired = Required
                                     }
-                                , RP
+                                , ParamDesc
                                     { pName = "uniqueParamName1"
                                     , pHelp = "shoud not collide"
                                     , pType = PtText
+                                    , pRequired = Required
                                     }
                                 ]
                               }
                 , cmdFunc = CmdSync $ \_ _ -> return (IdeResponseOk ("" :: T.Text))
                 }
             , Command
-              { cmdDesc = CommandDesc
-                            { cmdName = "cmd2"
-                            , cmdUiDescription = ""
-                            , cmdFileExtensions = []
-                            , cmdReturnType = ""
-                            , cmdContexts = [] -- ["file", "start_pos", "file", "start_pos", "end_pos"]
-                            , cmdAdditionalParams =
-                              [
-                                RP
-                                  { pName = "uniqueParamName1"
-                                  , pHelp = "shoud not collide"
-                                  , pType = PtText
-                                  }
-                              ]
-                            }
-              , cmdFunc = CmdSync $ \_ _ -> return (IdeResponseOk ("" :: T.Text))
-              }
+                { cmdDesc = CommandDesc
+                              { cmdName = "cmd2"
+                              , cmdUiDescription = ""
+                              , cmdFileExtensions = []
+                              , cmdReturnType = ""
+                              , cmdContexts = [] -- ["file", "start_pos", "file", "start_pos", "end_pos"]
+                              , cmdAdditionalParams =
+                                [
+                                  ParamDesc
+                                    { pName = "uniqueParamName1"
+                                    , pHelp = "shoud not collide"
+                                    , pType = PtText
+                                    , pRequired = Required
+                                    }
+                                ]
+                              }
+               , cmdFunc = CmdSync $ \_ _ -> return (IdeResponseOk ("" :: T.Text))
+               }
             ]
           , pdExposedServices = []
           , pdUsedServices    = []
@@ -283,37 +304,43 @@ pluginsWithCollisions = Map.fromList [("plugin1", PluginDescriptor
     ]
 
 
+
 pluginsWithoutCollisions :: Plugins
 pluginsWithoutCollisions = Map.fromList [("plugin1", PluginDescriptor
     {
       pdCommands =
         [
-          Command
-            { cmdDesc = CommandDesc
-                          { cmdName = "cmd1"
-                          , cmdUiDescription = "description"
-                          , cmdFileExtensions = []
-                          , cmdReturnType = ""
-                          , cmdContexts = [CtxRegion, CtxPoint] -- ["file", "start_pos", "file", "start_pos", "end_pos"]
-                          , cmdAdditionalParams =
-                            [
-                              RP
-                                { pName = "uniqueParamName1"
-                                , pHelp = "shoud not collide"
-                                , pType = PtText
-                                }
-                            , RP
-                                { pName = "uniqueParamName2"
-                                , pHelp = "shoud not collide"
-                                , pType = PtText
-                                }
-                            ]
-                          }
-            , cmdFunc = CmdSync $ \_ _ -> return (IdeResponseOk ("" :: T.Text))
-            }
+           testCommand
         ]
       , pdExposedServices = []
       , pdUsedServices    = []
       , pdUIShortName     = ""
       , pdUIOverview      = ""
     })]
+  where func :: CommandFunc T.Text
+        func = CmdSync $ \_ _ -> return (IdeResponseOk ("" :: T.Text))
+        testCommand = Command
+                        { cmdDesc = CommandDesc
+                                      { cmdName = "cmd1"
+                                      , cmdUiDescription = "description"
+                                      , cmdFileExtensions = []
+                                      , cmdReturnType = ""
+                                      , cmdContexts = [CtxRegion, CtxPoint] -- ["file", "start_pos", "file", "start_pos", "end_pos"]
+                                      , cmdAdditionalParams =
+                                        [
+                                          ParamDesc
+                                            { pName = "uniqueParamName1"
+                                            , pHelp = "shoud not collide"
+                                            , pType = PtText
+                                            , pRequired = Required
+                                            }
+                                        , ParamDesc
+                                            { pName = "uniqueParamName2"
+                                            , pHelp = "shoud not collide"
+                                            , pType = PtText
+                                            , pRequired = Required
+                                            }
+                                        ]
+                                      } :: UntaggedCommandDescriptor
+                        , cmdFunc = func
+                        }

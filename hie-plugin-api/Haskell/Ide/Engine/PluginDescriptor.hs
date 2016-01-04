@@ -34,9 +34,10 @@ module Haskell.Ide.Engine.PluginDescriptor
 
   -- * Commands
   , Command(..)
+  , TaggedCommand
+  , UntaggedCommand
   , CommandFunc(..), SyncCommandFunc, AsyncCommandFunc
   , buildCommand
-  , buildCommand'
 
   -- * Plugins
   , Plugins
@@ -50,7 +51,7 @@ module Haskell.Ide.Engine.PluginDescriptor
   , untagPluginDescriptor
   , TaggedPluginDescriptor
   , UntaggedPluginDescriptor
-  , CombinedCommand(..)
+  , NamedCommand(..)
   , CommandType(..)
   , Rec(..)
   , Proxy(..)
@@ -84,9 +85,9 @@ data PluginDescriptor cmds = PluginDescriptor
   , pdUsedServices    :: [Service]
   }
 
-type TaggedPluginDescriptor cmds = PluginDescriptor (Rec CombinedCommand cmds)
+type TaggedPluginDescriptor cmds = PluginDescriptor (Rec NamedCommand cmds)
 
-type UntaggedPluginDescriptor = PluginDescriptor [Command]
+type UntaggedPluginDescriptor = PluginDescriptor [UntaggedCommand]
 
 instance Show UntaggedPluginDescriptor where
   showsPrec p (PluginDescriptor name oview cmds svcs used) = showParen (p > 10) $
@@ -115,78 +116,61 @@ untagPluginDescriptor pluginDescriptor =
 
 type Plugins = Map.Map PluginId UntaggedPluginDescriptor
 
--- | Ideally a Command is defined in such a way that its CommandDescriptor
--- can be exposed via the native CLI for the tool being exposed as well.
--- Perhaps use Options.Applicative for this in some way.
-data Command = forall a. (ValidResponse a) => Command
-  { cmdDesc :: !CommandDescriptor
-  , cmdFunc :: !(CommandFunc a)
-  }
-
-untagCommand :: CombinedCommand t -> Command
-untagCommand (CombinedCommand _ (Command' desc func)) =
+untagCommand :: NamedCommand t -> UntaggedCommand
+untagCommand (NamedCommand _ (Command desc func)) =
   Command (desc {cmdContexts =
                    recordToList' fromSing
                                  (cmdContexts desc)
                 ,cmdAdditionalParams =
-                   recordToList' unwrapParamDesc
+                   recordToList' untagParamDesc
                                  (cmdAdditionalParams desc)})
           func
 
-data Command' cxts tags = forall a. (ValidResponse a) => Command'
-  { cmdDesc' :: !(CommandDescriptor' (Rec SAcceptedContext cxts) (Rec SParamDescription tags))
-  , cmdFunc' :: !(CommandFunc a)
+-- | Ideally a Command is defined in such a way that its CommandDescriptor
+-- can be exposed via the native CLI for the tool being exposed as well.
+-- Perhaps use Options.Applicative for this in some way.
+data Command desc = forall a. (ValidResponse a) => Command
+  { cmdDesc :: !desc
+  , cmdFunc :: !(CommandFunc a)
   }
-instance Show Command where
+
+type TaggedCommand cxts tags
+  = Command (CommandDescriptor (Rec SAcceptedContext cxts) (Rec SParamDescription tags))
+type UntaggedCommand = Command UntaggedCommandDescriptor
+
+instance Show desc => Show (Command desc) where
   show (Command desc _func) = "(Command " ++ show desc ++ ")"
 
-data CombinedCommand (t :: CommandType) where
-  CombinedCommand :: KnownSymbol s => Proxy s -> Command' cxts tags -> CombinedCommand ( 'CommandType s cxts tags )
+data NamedCommand (t :: CommandType) where
+        NamedCommand ::
+            KnownSymbol s =>
+            Proxy s ->
+            TaggedCommand cxts tags ->
+            NamedCommand ('CommandType s cxts tags)
 
 data CommandType = CommandType Symbol [AcceptedContext] [ParamDescType]
 
 -- | Build a command, ensuring the command response type name and the command
 -- function match
-buildCommand :: forall a s . (ValidResponse a, KnownSymbol s)
-  => CommandFunc a
-  -> Proxy s
-  -> T.Text
-  -> [T.Text]
-  -> [AcceptedContext]
-  -> [ParamDescription]
-  -> Vinyl.Const Command s
-buildCommand fun n d exts ctxs parm =
-  Vinyl.Const $ Command
-  { cmdDesc = CommandDesc
-      { cmdName = T.pack $ symbolVal n
-      , cmdUiDescription = d
-      , cmdFileExtensions = exts
-      , cmdContexts = ctxs
-      , cmdAdditionalParams = parm
-      , cmdReturnType = T.pack $ show $ typeOf (undefined::a)
-      }
-  , cmdFunc = fun
-  }
-
-buildCommand' :: forall a s cxts tags. (ValidResponse a, KnownSymbol s)
+buildCommand :: forall a s cxts tags. (ValidResponse a, KnownSymbol s)
   => CommandFunc a
   -> Proxy s
   -> T.Text
   -> [T.Text]
   -> Rec SAcceptedContext cxts
   -> Rec SParamDescription tags
-  -> CombinedCommand ( 'CommandType s cxts tags )
-buildCommand' fun n d exts ctxs parm =
-  CombinedCommand n $
-  Command' {cmdDesc' =
-              CommandDesc {cmdName = T.pack $ symbolVal n
-                          ,cmdUiDescription = d
-                          ,cmdFileExtensions = exts
-                          ,cmdContexts = ctxs
-                          ,cmdAdditionalParams = parm
-                          ,cmdReturnType =
-                             T.pack $ show $ typeOf (undefined :: a)}
-           ,cmdFunc' = fun}
+  -> NamedCommand ( 'CommandType s cxts tags )
+buildCommand fun n d exts ctxs parm =
+  NamedCommand n $
+  Command {cmdDesc =
+            CommandDesc {cmdName = T.pack $ symbolVal n
+                        ,cmdUiDescription = d
+                        ,cmdFileExtensions = exts
+                        ,cmdContexts = ctxs
+                        ,cmdAdditionalParams = parm
+                        ,cmdReturnType =
+                           T.pack $ show $ typeOf (undefined :: a)}
+          ,cmdFunc = fun}
 
 -- ---------------------------------------------------------------------
 

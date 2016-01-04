@@ -84,7 +84,7 @@ descriptorHelp pn cd = ["Plugin '" <> pn <> "'"] ++ r
     descriptors = map cmdDesc (pdCommands cd)
     r = concatMap describeDescriptor descriptors
 
-describeDescriptor :: CommandDescriptor -> [T.Text]
+describeDescriptor :: UntaggedCommandDescriptor -> [T.Text]
 describeDescriptor d =
   [ "  command '" <> (cmdName d) <> "'"
   , "    " <> cmdUiDescription d
@@ -92,7 +92,7 @@ describeDescriptor d =
 
 -- ---------------------------------------------------------------------
 
-convertToParams :: CommandDescriptor -> [T.Text] -> ParamMap
+convertToParams :: UntaggedCommandDescriptor -> [T.Text] -> ParamMap
 convertToParams cmd ss = Map.fromList $ map (\(k,v) -> (k,convertParam k v)) $  map splitOnColon ss
   where
     possibleParams = cmdAdditionalParams cmd ++ (concatMap contextMapping $ cmdContexts cmd)

@@ -29,11 +29,11 @@ applyRefactDescriptor = PluginDescriptor
   , pdUIOverview = "apply-refact applies refactorings specified by the refact package. It is currently integrated into hlint to enable the automatic application of suggestions."
     , pdCommands =
 
-        buildCommand' applyOneCmd (Proxy :: Proxy "applyOne") "Apply a single hint"
-                    [".hs"] (SCtxPoint :& RNil) RNil
+        buildCommand applyOneCmd (Proxy :: Proxy "applyOne") "Apply a single hint"
+                   [".hs"] (SCtxPoint :& RNil) RNil
 
-      :& buildCommand' applyAllCmd (Proxy :: Proxy "applyAll") "Apply all hints to the file"
-                     [".hs"] (SCtxFile :& RNil) RNil
+      :& buildCommand applyAllCmd (Proxy :: Proxy "applyAll") "Apply all hints to the file"
+                   [".hs"] (SCtxFile :& RNil) RNil
 
       :& RNil
   , pdExposedServices = []

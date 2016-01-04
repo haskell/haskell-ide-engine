@@ -28,13 +28,16 @@ module Haskell.Ide.Engine.PluginTypes
   , ParamId
   , TaggedParamId(..)
   , ParamDescription(..)
+  , pattern RP
+  , pattern OP
   , ParamHelp
   , ParamName
   , ParamType(..)
 
   -- * Commands
-  , CommandDescriptor
-  , CommandDescriptor'(..)
+  , CommandDescriptor(..)
+  , UntaggedCommandDescriptor
+  , ExtendedCommandDescriptor(..)
   , CommandName
   , PluginName
   , ValidResponse(..)
@@ -48,8 +51,9 @@ module Haskell.Ide.Engine.PluginTypes
   , SParamDescription(..)
   , SParamType
   , SParamRequired
+  , ParamRequired(..)
   , ParamDescType(..)
-  , unwrapParamDesc
+  , untagParamDesc
   , SAcceptedContext
   , Sing(..)
   , Pos
@@ -150,14 +154,18 @@ data SParamDescription (t :: ParamDescType) where
                   SParamRequired pRequired ->
                     SParamDescription ('ParamDescType pName pHelp pType pRequired)
 
-unwrapParamDesc :: SParamDescription t -> ParamDescription
-unwrapParamDesc (SParamDesc pName' pHelp' pType' pRequired') =
+untagParamDesc :: SParamDescription t -> ParamDescription
+untagParamDesc (SParamDesc pName' pHelp' pType' pRequired') =
   ParamDesc (T.pack $ symbolVal pName')
             (T.pack $ symbolVal pHelp')
             (fromSing pType')
             (fromSing pRequired')
 
-data CommandDescriptor' cxts descs = CommandDesc
+-- | Descriptor for a command. This is intended to be transferred to the IDE, so
+-- the IDE can integrate it into it's UI, and then send requests
+-- through to HIE.  cxts and descs can be instantiated to simple lists
+-- or vinyl 'Data.Vinyl.Rec' depending on what kind of type safety you need
+data CommandDescriptor cxts descs = CommandDesc
   { cmdName :: !CommandName -- ^As returned in the 'IdeRequest'
   , cmdUiDescription :: !T.Text -- ^ Can be presented to the IDE user
   , cmdFileExtensions :: ![T.Text] -- ^ File extensions this command can be applied to
@@ -166,9 +174,33 @@ data CommandDescriptor' cxts descs = CommandDesc
   , cmdReturnType :: !ReturnType
   } deriving (Show,Eq,Generic)
 
--- | Descriptor for a command. This is intended to be transferred to the IDE, so
--- the IDE can integrate it into it's UI, and then send requests through to HIE.
-type CommandDescriptor = CommandDescriptor' [AcceptedContext] [ParamDescription]
+-- | Type synonym for a 'CommandDescriptor' that uses simple lists
+type UntaggedCommandDescriptor = CommandDescriptor [AcceptedContext] [ParamDescription]
+
+data ExtendedCommandDescriptor =
+  ExtendedCommandDescriptor UntaggedCommandDescriptor
+                            PluginName deriving (Show,Eq)
+
+instance ValidResponse ExtendedCommandDescriptor where
+  jsWrite (ExtendedCommandDescriptor cmdDescriptor name) =
+    H.fromList
+      [ "name" .= cmdName cmdDescriptor
+      , "ui_description" .= cmdUiDescription cmdDescriptor
+      , "file_extensions" .= cmdFileExtensions cmdDescriptor
+      , "contexts" .= cmdContexts cmdDescriptor
+      , "additional_params" .= cmdAdditionalParams cmdDescriptor
+      , "return_type" .= cmdReturnType cmdDescriptor
+      , "plugin_name" .= name ]
+  jsRead v =
+    ExtendedCommandDescriptor
+    <$> (CommandDesc
+      <$> v .: "name"
+      <*> v .: "ui_description"
+      <*> v .: "file_extensions"
+      <*> v .: "contexts"
+      <*> v .: "additional_params"
+      <*> v .: "return_type")
+    <*> v.: "plugin_name"
 
 type CommandName = T.Text
 type PluginName = T.Text
@@ -176,7 +208,7 @@ type PluginName = T.Text
 -- | Subset type extracted from 'Plugins' to be sent to the IDE as
 -- a description of the available commands
 data IdePlugins = IdePlugins
-  { ipMap :: Map.Map PluginId [CommandDescriptor]
+  { ipMap :: Map.Map PluginId [UntaggedCommandDescriptor]
   } deriving (Show,Eq,Generic)
 
 type Pos = (Int,Int)
@@ -197,6 +229,12 @@ data ParamDescription =
             ,pType :: !ParamType
             ,pRequired :: !ParamRequired}
   deriving (Show,Eq,Ord,Generic)
+
+pattern RP name help type' <- ParamDesc name help type' Required
+  where RP name help type' = ParamDesc name help type' Required
+
+pattern OP name help type' <- ParamDesc name help type' Optional
+  where OP name help type' = ParamDesc name help type' Optional
 
 type ParamHelp = T.Text
 type ParamName = T.Text
@@ -319,7 +357,7 @@ instance ValidResponse Object where
   jsWrite = id
   jsRead = pure
 
-instance ValidResponse CommandDescriptor where
+instance ValidResponse UntaggedCommandDescriptor where
   jsWrite cmdDescriptor =
     H.fromList
       [ "name" .= cmdName cmdDescriptor
@@ -495,9 +533,9 @@ instance FromJSON ParamDescription where
 
 -- -------------------------------------
 
-instance ToJSON CommandDescriptor where
+instance ToJSON UntaggedCommandDescriptor where
   toJSON  = Object . jsWrite
 
-instance FromJSON CommandDescriptor where
+instance FromJSON UntaggedCommandDescriptor where
   parseJSON (Object v) = jsRead v
   parseJSON _ = empty
