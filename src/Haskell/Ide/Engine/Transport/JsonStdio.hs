@@ -36,8 +36,8 @@ jsonStdioTransport :: Bool -> TChan ChannelRequest -> IO ()
 jsonStdioTransport oneShot cin = do
   cout <- atomically $ newTChan :: IO (TChan ChannelResponse)
   hSetBuffering stdout NoBuffering
-  _ <- forkIO $ P.runEffect (tchanProducer cout P.>-> encodePipe P.>-> jsonConsumer)
-  P.runEffect (parseFrames PB.stdin P.>-> parseToJsonPipe oneShot cin cout 1)
+  _ <- forkIO $ P.runEffect (parseFrames PB.stdin P.>-> parseToJsonPipe oneShot cin cout 1)
+  P.runEffect (tchanProducer oneShot cout P.>-> encodePipe P.>-> jsonConsumer)
 
 parseToJsonPipe
   :: Bool
@@ -72,10 +72,13 @@ jsonConsumer =
      liftIO $ BL.putStr (BL.singleton $ fromIntegral (ord '\STX'))
      jsonConsumer
 
-tchanProducer :: MonadIO m => TChan a -> P.Producer a m ()
-tchanProducer chan = do val <- liftIO $ atomically $ readTChan chan
-                        P.yield val
-                        tchanProducer chan
+tchanProducer :: MonadIO m => Bool -> TChan a -> P.Producer a m ()
+tchanProducer oneShot chan = do
+  val <- liftIO $ atomically $ readTChan chan
+  P.yield val
+  if oneShot
+    then return ()
+    else tchanProducer False chan
 
 encodePipe :: P.Pipe ChannelResponse A.Value IO ()
 encodePipe = P.map (A.toJSON . channelToWire)
