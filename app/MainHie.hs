@@ -54,26 +54,6 @@ import           Haskell.Ide.HaRePlugin
 -- ---------------------------------------------------------------------
 
 -- | This will be read from a configuration, eventually
-
--- retagPluginDescriptor
---   :: forall name cmds.
---      KnownSymbol name
---   => Vinyl.Const (TaggedPluginDescriptor cmds) name
---   -> Vinyl.Const (T.Text,UntaggedPluginDescriptor) ('PluginType name cmds)
--- retagPluginDescriptor (Vinyl.Const desc) =
---   Vinyl.Const $
---   (T.pack $ symbolVal (Proxy :: Proxy name),untagPluginDescriptor desc)
-
--- type NamedPlugin name cmds = Vinyl.Const UntaggedPluginDescriptor ('PluginType name cmds)
-
--- tag
---   :: KnownSymbol name
---   => TaggedPluginDescriptor cmds
---   -> Vinyl.Const (T.Text,UntaggedPluginDescriptor) ('PluginType name cmds)
--- tag = retagPluginDescriptor . Vinyl.Const
-
--- buildPlugin :: Proxy s -> TaggedPluginDescriptor
-
 taggedPlugins :: Rec Plugin _
 taggedPlugins =
      Plugin (Proxy :: Proxy "applyrefact") applyRefactDescriptor
