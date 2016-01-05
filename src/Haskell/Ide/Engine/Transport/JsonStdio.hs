@@ -57,9 +57,7 @@ parseToJsonPipe oneShot cin cout cid =
             liftIO $ atomically $ writeTChan cout rsp
        Right req ->
          do liftIO $ atomically $ writeTChan cin (wireToChannel cout cid req)
-     if oneShot
-       then return ()
-       else
+     unless oneShot $
          parseToJsonPipe False
                          cin
                          cout
@@ -76,9 +74,7 @@ tchanProducer :: MonadIO m => Bool -> TChan a -> P.Producer a m ()
 tchanProducer oneShot chan = do
   val <- liftIO $ atomically $ readTChan chan
   P.yield val
-  if oneShot
-    then return ()
-    else tchanProducer False chan
+  unless oneShot $ tchanProducer False chan
 
 encodePipe :: P.Pipe ChannelResponse A.Value IO ()
 encodePipe = P.map (A.toJSON . channelToWire)
