@@ -77,7 +77,7 @@ mapEithers _ _ = Right []
 missingParameter :: forall r. (ValidResponse r) => ParamId -> IdeResponse r
 missingParameter param = IdeResponseFail (IdeError MissingParameter
             ("need `" <> param <> "` parameter")
-            (Just $ toJSON param))
+            (toJSON param))
 
 -- |Incorrect parameter error
 incorrectParameter :: forall r a b. (ValidResponse r,Show a,Show b)
@@ -86,8 +86,8 @@ incorrectParameter name expected value = IdeResponseFail
     (IdeError IncorrectParameterType
     ("got wrong parameter type for `" <> name <> "`, expected: " <>
       T.pack (show expected) <>" , got:" <> T.pack (show value))
-    (Just $ object ["param" .= toJSON name,"expected".= toJSON (show expected),
-      "value" .= toJSON (show value)]))
+    (object ["param" .= toJSON name,"expected".= toJSON (show expected),
+     "value" .= toJSON (show value)]))
 
 -- ---------------------------------------------------------------------
 

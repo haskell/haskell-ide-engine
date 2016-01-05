@@ -7,12 +7,14 @@ module Haskell.Ide.GhcModPlugin where
 import           Haskell.Ide.Engine.PluginUtils
 
 import           Control.Exception
-import           Data.Either
-import           Data.Vinyl
 import           Control.Monad.IO.Class
+import           Data.Aeson
+import           Data.Either
 import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Text.Read as T
+import           Data.Vinyl
+import qualified Exception as G
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
@@ -20,9 +22,8 @@ import qualified Language.Haskell.GhcMod as GM
 import qualified Language.Haskell.GhcMod.Monad as GM
 import qualified Language.Haskell.GhcMod.Types as GM
 import qualified Language.Haskell.GhcMod.Utils as GM
-import           System.FilePath
 import           System.Directory
-import qualified Exception as G
+import           System.FilePath
 
 -- ---------------------------------------------------------------------
 
@@ -83,7 +84,7 @@ checkCmd = CmdSync $ \_ctxs req -> do
     Right (ParamFile fileName :& RNil) -> do
       fmap T.pack <$> runGhcModCommand fileName (\f->GM.checkSyntax [f])
     Right _ -> return $ IdeResponseError (IdeError InternalError
-      "GhcModPlugin.checkCmd: ghc’s exhaustiveness checker is broken" Nothing)
+      "GhcModPlugin.checkCmd: ghc’s exhaustiveness checker is broken" Null)
 
 -- ---------------------------------------------------------------------
 
@@ -105,7 +106,7 @@ findCmd = CmdSync $ \_ctxs req -> do
 
       -- return (IdeResponseOk "Placholder:Need to debug this in ghc-mod, returns 'does not exist (No such file or directory)'")
     Right _ -> return $ IdeResponseError (IdeError InternalError
-      "GhcModPlugin.findCmd: ghc’s exhaustiveness checker is broken" Nothing)
+      "GhcModPlugin.findCmd: ghc’s exhaustiveness checker is broken" Null)
   where
     conv :: String -> (T.Text, [GM.ModuleString])
     conv = read
@@ -119,7 +120,7 @@ lintCmd = CmdSync $ \_ctxs req -> do
     Right (ParamFile fileName :& RNil) -> do
       fmap T.pack <$> runGhcModCommand fileName (GM.lint GM.defaultLintOpts)
     Right _ -> return $ IdeResponseError (IdeError InternalError
-      "GhcModPlugin.lintCmd: ghc’s exhaustiveness checker is broken" Nothing)
+      "GhcModPlugin.lintCmd: ghc’s exhaustiveness checker is broken" Null)
 
 -- ---------------------------------------------------------------------
 
@@ -130,7 +131,7 @@ infoCmd = CmdSync $ \_ctxs req -> do
     Right (ParamFile fileName :& ParamText expr :& RNil) -> do
       fmap T.pack <$> runGhcModCommand fileName (flip GM.info (GM.Expression (T.unpack expr)))
     Right _ -> return $ IdeResponseError (IdeError InternalError
-      "GhcModPlugin.infoCmd: ghc’s exhaustiveness checker is broken" Nothing)
+      "GhcModPlugin.infoCmd: ghc’s exhaustiveness checker is broken" Null)
 
 -- ---------------------------------------------------------------------
 
@@ -141,7 +142,7 @@ typeCmd = CmdSync $ \_ctxs req ->
     Right (ParamFile fileName :& ParamPos (r,c) :& RNil) -> do
       fmap (toTypeInfo . T.lines . T.pack) <$> runGhcModCommand fileName (\f->GM.types f r c)
     Right _ -> return $ IdeResponseError (IdeError InternalError
-      "GhcModPlugin.typesCmd: ghc’s exhaustiveness checker is broken" Nothing)
+      "GhcModPlugin.typesCmd: ghc’s exhaustiveness checker is broken" Null)
 
 
 -- | Transform output from ghc-mod type into TypeInfo
@@ -178,5 +179,5 @@ runGhcModCommand fp cmd = do
             tmp <- liftIO $ GM.newTempDir root
             let setRoot e = e{GM.gmCradle = (GM.gmCradle e){GM.cradleRootDir=root,GM.cradleTempDir=tmp}}
             (IdeResponseOk <$> GM.gmeLocal setRoot (cmd f)) `G.gcatch` \(e :: GM.GhcModError) ->
-               return $ IdeResponseFail $ IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Nothing
+               return $ IdeResponseFail $ IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Null
           )

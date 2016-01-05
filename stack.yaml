@@ -1,6 +1,4 @@
-#resolver: lts-3.11
-# Nightly has ghc-mod/cabal-helper, not in lts yet
-resolver: nightly-2015-12-11
+resolver: nightly-2016-01-05
 packages:
 - .
 - hie-apply-refact
@@ -11,21 +9,13 @@ packages:
 - hie-ghc-mod
 - hie-hare
 - hie-docs-generator
-# - ../ghci-ng
 - location:
     git: https://github.com/kazu-yamamoto/ghc-mod.git
     commit: b9bd4ebf77b22d2d9061d647d7799ddcc7c51228
-    # commit: bff86be69f556f80a8dcd9dd42774ab77cb00eba
   extra-dep: true
 - location:
-    git: https://github.com/alanz/hlint.git
-    commit: e32f4d3cf32d15003e54d4f42afae7bf06b50168
-  extra-dep: true
-- location:
-    git: https://github.com/alanz/apply-refact.git
-    commit: ba98a2902e5333519e60d38803f30f82c44eaffc
+    git: https://github.com/mpickering/apply-refact.git
+    commit: 402458652844c1a0f42b15123e0ceff761919415
   extra-dep: true
 extra-deps:
- - HaRe-0.8.2.1
- - rosezipper-0.2
- - syz-0.2.0.0
+- hlint-1.9.26

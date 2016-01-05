@@ -213,7 +213,7 @@ data IdeErrorCode
 data IdeError = IdeError
  { ideCode    :: IdeErrorCode -- ^ The error code
  , ideMessage :: T.Text       -- ^ A human readable message
- , ideInfo    :: Maybe Value  -- ^ Additional information
+ , ideInfo    :: Value  -- ^ Additional information
  }
  deriving (Show,Read,Eq,Generic)
 
@@ -291,7 +291,7 @@ instance ValidResponse CommandDescriptor where
 instance ValidResponse IdePlugins where
   jsWrite (IdePlugins m) = H.fromList ["plugins" .= H.fromList
                 ( map (uncurry (.=))
-                $ Map.assocs m)]
+                $ Map.assocs m :: [Pair])]
   jsRead v = do
     ps <- v .: "plugins"
     liftM (IdePlugins . Map.fromList) $ mapM (\(k,vp) -> do
@@ -378,7 +378,7 @@ instance FromJSON IdeError where
  parseJSON (Object v) = IdeError
    <$> v .:  "code"
    <*> v .:  "msg"
-   <*> v .:? "info"
+   <*> v .:  "info"
  parseJSON _ = empty
 
 
