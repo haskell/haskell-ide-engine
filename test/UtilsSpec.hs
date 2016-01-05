@@ -310,37 +310,34 @@ pluginsWithoutCollisions = Map.fromList [("plugin1", PluginDescriptor
     {
       pdCommands =
         [
-           testCommand
+           Command
+             { cmdDesc = CommandDesc
+                           { cmdName = "cmd1"
+                           , cmdUiDescription = "description"
+                           , cmdFileExtensions = []
+                           , cmdReturnType = ""
+                           , cmdContexts = [CtxRegion, CtxPoint] -- ["file", "start_pos", "file", "start_pos", "end_pos"]
+                           , cmdAdditionalParams =
+                             [
+                               ParamDesc
+                                 { pName = "uniqueParamName1"
+                                 , pHelp = "shoud not collide"
+                                 , pType = PtText
+                                 , pRequired = Required
+                                 }
+                             , ParamDesc
+                                 { pName = "uniqueParamName2"
+                                 , pHelp = "shoud not collide"
+                                 , pType = PtText
+                                 , pRequired = Required
+                                 }
+                             ]
+                           } :: UntaggedCommandDescriptor
+             , cmdFunc = CmdSync $ \_ _ -> return (IdeResponseOk ("" :: T.Text))
+             }
         ]
       , pdExposedServices = []
       , pdUsedServices    = []
       , pdUIShortName     = ""
       , pdUIOverview      = ""
     })]
-  where func :: CommandFunc T.Text
-        func = CmdSync $ \_ _ -> return (IdeResponseOk ("" :: T.Text))
-        testCommand = Command
-                        { cmdDesc = CommandDesc
-                                      { cmdName = "cmd1"
-                                      , cmdUiDescription = "description"
-                                      , cmdFileExtensions = []
-                                      , cmdReturnType = ""
-                                      , cmdContexts = [CtxRegion, CtxPoint] -- ["file", "start_pos", "file", "start_pos", "end_pos"]
-                                      , cmdAdditionalParams =
-                                        [
-                                          ParamDesc
-                                            { pName = "uniqueParamName1"
-                                            , pHelp = "shoud not collide"
-                                            , pType = PtText
-                                            , pRequired = Required
-                                            }
-                                        , ParamDesc
-                                            { pName = "uniqueParamName2"
-                                            , pHelp = "shoud not collide"
-                                            , pType = PtText
-                                            , pRequired = Required
-                                            }
-                                        ]
-                                      } :: UntaggedCommandDescriptor
-                        , cmdFunc = func
-                        }
