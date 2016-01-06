@@ -9,7 +9,7 @@ import           Control.Applicative
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
 import           Control.Lens (view)
--- import           Control.Logging
+import           Data.Aeson
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Control.Monad.State.Strict
@@ -52,7 +52,7 @@ parseToJsonPipe oneShot cin cout cid =
          do let rsp =
                   CResp "" cid $
                   IdeResponseError
-                    (IdeError ParseError (T.pack $ show decodeErr) Nothing)
+                    (IdeError ParseError (T.pack $ show decodeErr) Null)
             liftIO $ debugm $ "jsonStdioTransport:parse error:" ++ show decodeErr
             liftIO $ atomically $ writeTChan cout rsp
        Right req ->

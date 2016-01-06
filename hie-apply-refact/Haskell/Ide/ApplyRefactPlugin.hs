@@ -2,7 +2,10 @@
 {-# LANGUAGE GADTs #-}
 module Haskell.Ide.ApplyRefactPlugin where
 
+import           Control.Arrow
 import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Either
+import           Data.Aeson
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Data.Vinyl
@@ -10,8 +13,7 @@ import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
-import           Language.Haskell.HLint
-import           Language.Haskell.HLint3
+import           Language.Haskell.HLint3 as Hlint
 import           Refact.Apply
 import qualified Refact.Types as R
 import           Refact.Types hiding (SrcSpan)
@@ -49,10 +51,10 @@ applyOneCmd = CmdSync $ \_ctxs req -> do
       logm $ "applyOneCmd:res=" ++ show res
       case res of
         Left err -> return $ IdeResponseFail (IdeError PluginError
-                      (T.pack $ "applyOne: " ++ show err) Nothing)
+                      (T.pack $ "applyOne: " ++ show err) Null)
         Right fs -> return (IdeResponseOk fs)
     Right _ -> return $ IdeResponseError (IdeError InternalError
-      "ApplyRefactPlugin.applyOneCmd: ghc’s exhaustiveness checker is broken" Nothing)
+      "ApplyRefactPlugin.applyOneCmd: ghc’s exhaustiveness checker is broken" Null)
 
 
 -- ---------------------------------------------------------------------
@@ -66,10 +68,10 @@ applyAllCmd = CmdSync $ \_ctxs req -> do
       logm $ "applyAllCmd:res=" ++ show res
       case res of
         Left err -> return $ IdeResponseFail (IdeError PluginError
-                      (T.pack $ "applyOne: " ++ show err) Nothing)
+                      (T.pack $ "applyOne: " ++ show err) Null)
         Right fs -> return (IdeResponseOk fs)
     Right _ -> return $ IdeResponseError (IdeError InternalError
-      "ApplyRefactPlugin.applyOneCmd: ghc’s exhaustiveness checker is broken" Nothing)
+      "ApplyRefactPlugin.applyOneCmd: ghc’s exhaustiveness checker is broken" Null)
 
 
 -- ---------------------------------------------------------------------
@@ -77,38 +79,29 @@ applyAllCmd = CmdSync $ \_ctxs req -> do
 applyHint :: FilePath -> Maybe Pos -> IO (Either String HieDiff)
 applyHint file mpos = do
   withTempFile $ \f -> do
-    -- absFile <- makeAbsolute file
-    -- hlint /tmp/Foo.hs --refactor --refactor-options="-o /tmp/Bar.hs --pos 2,8"
+    let optsf = "-o " ++ f
+        opts = case mpos of
+                 Nothing -> optsf
+                 Just (r,c) -> optsf ++ " --pos " ++ show r ++ "," ++ show c
+        hlintOpts = [file, "--quiet", "--refactor", "--refactor-options=" ++ opts ]
+    runEitherT $ do
+      ideas <- runHlint file hlintOpts
+      liftIO $ logm $ "applyHint:ideas=" ++ show ideas
+      let commands = map (show &&& ideaRefactoring) ideas
+      appliedFile <- liftIO $ applyRefactorings mpos commands file
+      diff <- liftIO $ makeDiffResult file (T.pack appliedFile)
+      liftIO $ logm $ "applyHint:diff=" ++ show diff
+      return diff
 
-    let
-      optsf = "-o " ++ f
-      opts = case mpos of
-        Nothing -> optsf
-        Just (r,c) -> optsf ++ " --pos " ++ show r ++ "," ++ show c
-    -- let hlintOpts = [file, "--quiet", "--refactor", "--refactor-options=" ++ opts ]
-    let hlintOpts = [file, "--quiet" ]
-    logm $ "applyHint=" ++ show hlintOpts
-    res <- catchException $ hlint hlintOpts
-    logm $ "applyHint:res=" ++ show res
-    -- res <- hlint hlintOpts
-    case res of
-      Left x  -> return $ Left (show x)
-      Right x -> do
-        let commands = makeApplyRefact x
-        logm $ "applyHint:commands=" ++ show commands
-        appliedFile <- applyRefactorings mpos commands file
-        diff <- makeDiffResult file (T.pack appliedFile)
-        logm $ "applyHint:diff=" ++ show diff
-        return $ Right diff
 
--- ---------------------------------------------------------------------
+runHlint :: FilePath -> [String] -> EitherT String IO [Idea]
+runHlint file args =
+  do (flags,classify,hint) <- liftIO $ argsSettings args
+     res <- bimapEitherT showParseError id $ EitherT $ parseModuleEx flags file Nothing
+     pure $ applyHints classify hint [res]
 
-makeApplyRefact :: [Suggestion] -> [(String, [Refactoring R.SrcSpan])]
-makeApplyRefact suggestions =
-  map (\(Suggestion i) -> (show i, ideaRefactoring i)) suggestions
-
--- ---------------------------------------------------------------------
-
+showParseError :: Hlint.ParseError -> String
+showParseError (Hlint.ParseError loc message content) = unlines [show loc, message, content]
 
 makeDiffResult :: FilePath -> T.Text -> IO HieDiff
 makeDiffResult orig new = do

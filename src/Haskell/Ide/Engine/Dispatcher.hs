@@ -54,7 +54,7 @@ doDispatch plugins creq = do
       return $ Just $ IdeResponseError $ IdeError
         { ideCode = UnknownPlugin
         , ideMessage = "No plugin found for:" <> cinPlugin creq
-        , ideInfo = Just $ toJSON $ cinPlugin creq
+        , ideInfo = toJSON $ cinPlugin creq
         }
     Just desc -> do
       let pn  = cinPlugin creq
@@ -66,7 +66,7 @@ doDispatch plugins creq = do
           return $ Just $ IdeResponseError $ IdeError
             { ideCode = UnknownCommand
             , ideMessage = "No such command:" <> ideCommand req
-            , ideInfo = Just $ toJSON $ ideCommand req
+            , ideInfo = toJSON $ ideCommand req
             }
         Just (Command cdesc cfunc) -> do
           case validateContexts cdesc req of
@@ -105,7 +105,7 @@ validateContexts cd req = r
       ([], []) -> Left $ IdeResponseFail $ IdeError
         { ideCode = InvalidContext
         , ideMessage = T.pack ("no valid context found, expecting one of:" ++ show (cmdContexts cd))
-        , ideInfo = Nothing
+        , ideInfo = Null
         }
       (ctxs, _) ->
         case checkParams (cmdAdditionalParams cd) (ideParams req) of
