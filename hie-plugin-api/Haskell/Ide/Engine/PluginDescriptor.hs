@@ -135,7 +135,7 @@ data Command desc = forall a. (ValidResponse a) => Command
   }
 
 type TaggedCommand cxts tags
-  = Command (CommandDescriptor (Rec SAcceptedContext cxts) (Rec SParamDescription tags))
+  = Command (TaggedCommandDescriptor cxts tags)
 type UntaggedCommand = Command UntaggedCommandDescriptor
 
 instance Show desc => Show (Command desc) where

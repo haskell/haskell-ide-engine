@@ -37,6 +37,7 @@ module Haskell.Ide.Engine.PluginTypes
   -- * Commands
   , CommandDescriptor(..)
   , UntaggedCommandDescriptor
+  , TaggedCommandDescriptor
   , ExtendedCommandDescriptor(..)
   , CommandName
   , PluginName
@@ -82,6 +83,7 @@ import           Data.Singletons.Prelude
 import           Data.Singletons.TH
 import qualified Data.Text as T
 import           Data.Typeable
+import           Data.Vinyl
 import           GHC.Generics
 import           GHC.TypeLits
 
@@ -176,6 +178,8 @@ data CommandDescriptor cxts descs = CommandDesc
 
 -- | Type synonym for a 'CommandDescriptor' that uses simple lists
 type UntaggedCommandDescriptor = CommandDescriptor [AcceptedContext] [ParamDescription]
+
+type TaggedCommandDescriptor cxts tags = CommandDescriptor (Rec SAcceptedContext cxts) (Rec SParamDescription tags)
 
 data ExtendedCommandDescriptor =
   ExtendedCommandDescriptor UntaggedCommandDescriptor
