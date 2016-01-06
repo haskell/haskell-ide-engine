@@ -1,4 +1,4 @@
-resolver: nightly-2016-01-05
+resolver: nightly-2016-01-06
 packages:
 - .
 - hie-apply-refact
@@ -17,5 +17,4 @@ packages:
     git: https://github.com/mpickering/apply-refact.git
     commit: 402458652844c1a0f42b15123e0ceff761919415
   extra-dep: true
-extra-deps:
-- hlint-1.9.26
+extra-deps: []
