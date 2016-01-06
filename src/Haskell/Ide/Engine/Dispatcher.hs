@@ -38,6 +38,7 @@ dispatcher cin = do
 -- | Send a response from the plugin to the designated reply channel
 sendResponse :: (ValidResponse a) => ChannelRequest -> IdeResponse a -> IO ()
 sendResponse req resp = do
+  debugm $ "sendResponse (req,resp)=" ++ show (req,fmap jsWrite resp)
   let cr = CResp (cinPlugin req) (cinReqId req) (fmap jsWrite resp)
   liftIO $ atomically $ writeTChan (cinReplyChan req) cr
 
@@ -53,7 +54,7 @@ doDispatch plugins creq = do
       return $ Just $ IdeResponseError $ IdeError
         { ideCode = UnknownPlugin
         , ideMessage = "No plugin found for:" <> cinPlugin creq
-        , ideInfo = Just $ toJSON $ cinPlugin creq
+        , ideInfo = toJSON $ cinPlugin creq
         }
     Just desc -> do
       let pn  = cinPlugin creq
@@ -65,7 +66,7 @@ doDispatch plugins creq = do
           return $ Just $ IdeResponseError $ IdeError
             { ideCode = UnknownCommand
             , ideMessage = "No such command:" <> ideCommand req
-            , ideInfo = Just $ toJSON $ ideCommand req
+            , ideInfo = toJSON $ ideCommand req
             }
         Just (Command cdesc cfunc) -> do
           case validateContexts cdesc req of
@@ -104,7 +105,7 @@ validateContexts cd req = r
       ([], []) -> Left $ IdeResponseFail $ IdeError
         { ideCode = InvalidContext
         , ideMessage = T.pack ("no valid context found, expecting one of:" ++ show (cmdContexts cd))
-        , ideInfo = Nothing
+        , ideInfo = Null
         }
       (ctxs, _) ->
         case checkParams (cmdAdditionalParams cd) (ideParams req) of

@@ -18,6 +18,7 @@ library
                      , apply-refact
                      , containers
                      , directory
+                     , either
                      , extra
                      , filepath
                      , ghc-mod

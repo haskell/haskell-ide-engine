@@ -59,7 +59,7 @@ dispatcherSpec = do
       let req = IdeRequest "cmd2" (Map.fromList [])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
-      r `shouldBe` Just (IdeResponseFail (IdeError {ideCode = MissingParameter, ideMessage = "need `file` parameter", ideInfo = Just (String "file")}))
+      r `shouldBe` Just (IdeResponseFail (IdeError {ideCode = MissingParameter, ideMessage = "need `file` parameter", ideInfo = String "file"}))
 
     -- ---------------------------------
 
@@ -148,7 +148,7 @@ dispatcherSpec = do
       r `shouldBe`
         Just (IdeResponseFail (IdeError { ideCode = MissingParameter
                                         , ideMessage = "need `file` parameter"
-                                        , ideInfo = Just (String "file")}))
+                                        , ideInfo = String "file"}))
 
   -- -----------------------------------
 
@@ -184,7 +184,7 @@ dispatcherSpec = do
                (IdeError
                  { ideCode = IncorrectParameterType
                  , ideMessage = "got wrong parameter type for `txt`, expected: PtText , got:ParamValP {unParamValP = ParamFile \"a\"}"
-                 , ideInfo = Just (Object (HM.fromList [("value",String "ParamValP {unParamValP = ParamFile \"a\"}"),("param",String "txt"),("expected",String "PtText")]))}))
+                 , ideInfo = Object (HM.fromList [("value",String "ParamValP {unParamValP = ParamFile \"a\"}"),("param",String "txt"),("expected",String "PtText")])}))
 
 
 
@@ -216,11 +216,11 @@ dispatcherSpec = do
         Just (IdeResponseFail
               (IdeError { ideCode = IncorrectParameterType
                         , ideMessage = "got wrong parameter type for `fileo`, expected: PtFile , got:ParamValP {unParamValP = ParamText \"f\"}"
-                        , ideInfo = Just (Object (HM.fromList [("value"
-                                                            ,String "ParamValP {unParamValP = ParamText \"f\"}")
-                                                           ,("param"
-                                                            ,String "fileo")
-                                                            ,("expected",String "PtFile")]))}))
+                        , ideInfo = Object (HM.fromList [("value"
+                                                      ,String "ParamValP {unParamValP = ParamText \"f\"}")
+                                                     ,("param"
+                                                      ,String "fileo")
+                                                      ,("expected",String "PtFile")])}))
 
   -- -----------------------------------
 

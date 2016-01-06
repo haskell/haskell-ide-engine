@@ -5,7 +5,7 @@ description:         Please see README.md
 homepage:            http://github.com/githubuser/haskell-ide-engine#readme
 license:             BSD3
 license-file:        LICENSE
-author:              Many,TBD when we release
+author:              Many, TBD when we release
 maintainer:          alan.zimm@gmail.com (for now)
 copyright:           2015 TBD
 category:            Web

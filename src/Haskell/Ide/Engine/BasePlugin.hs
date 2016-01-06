@@ -67,7 +67,7 @@ commandsCmd = CmdSync $ \_ req -> do
         Nothing -> return $ IdeResponseFail $ IdeError
           { ideCode = UnknownPlugin
           , ideMessage = "Can't find plugin:" <> p
-          , ideInfo = Just $ toJSON p
+          , ideInfo = toJSON p
           }
         Just pl -> return $ IdeResponseOk $ map (cmdName . cmdDesc) (pdCommands pl)
     Just x -> return $ incorrectParameter "plugin" ("ParamText"::String) x
@@ -82,19 +82,19 @@ commandDetailCmd = CmdSync $ \_ req -> do
         Nothing -> return $ IdeResponseError $ IdeError
           { ideCode = UnknownPlugin
           , ideMessage = "Can't find plugin:" <> p
-          , ideInfo = Just $ toJSON p
+          , ideInfo = toJSON p
           }
         Just pl -> case find (\cmd -> command == (cmdName $ cmdDesc cmd) ) (pdCommands pl) of
           Nothing -> return $ IdeResponseError $ IdeError
             { ideCode = UnknownCommand
             , ideMessage = "Can't find command:" <> command
-            , ideInfo = Just $ toJSON command
+            , ideInfo = toJSON command
             }
           Just detail -> return $ IdeResponseOk (ExtendedCommandDescriptor (cmdDesc detail) p)
     Right _ -> return $ IdeResponseError $ IdeError
       { ideCode = InternalError
       , ideMessage = "commandDetailCmd: ghc’s exhaustiveness checker is broken"
-      , ideInfo = Nothing
+      , ideInfo = Null
       }
 
 -- ---------------------------------------------------------------------

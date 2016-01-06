@@ -9,7 +9,7 @@ import           Control.Applicative
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
 import           Control.Lens (view)
--- import           Control.Logging
+import           Data.Aeson
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Control.Monad.State.Strict
@@ -32,33 +32,36 @@ import qualified Pipes.Prelude as P
 import           System.IO
 
 -- TODO: Can pass in a handle, then it is general
-jsonStdioTransport :: TChan ChannelRequest -> IO ()
-jsonStdioTransport cin = do
+jsonStdioTransport :: Bool -> TChan ChannelRequest -> IO ()
+jsonStdioTransport oneShot cin = do
   cout <- atomically $ newTChan :: IO (TChan ChannelResponse)
   hSetBuffering stdout NoBuffering
-  _ <- forkIO $ P.runEffect (tchanProducer cout P.>-> encodePipe P.>-> jsonConsumer)
-  P.runEffect (parseFrames PB.stdin P.>-> parseToJsonPipe cin cout 1)
+  _ <- forkIO $ P.runEffect (parseFrames PB.stdin P.>-> parseToJsonPipe oneShot cin cout 1)
+  P.runEffect (tchanProducer oneShot cout P.>-> encodePipe P.>-> jsonConsumer)
 
 parseToJsonPipe
-  :: TChan ChannelRequest
+  :: Bool
+  -> TChan ChannelRequest
   -> TChan ChannelResponse
   -> Int
   -> P.Consumer (Either PAe.DecodingError WireRequest) IO ()
-parseToJsonPipe cin cout cid =
+parseToJsonPipe oneShot cin cout cid =
   do parseRes <- P.await
      case parseRes of
        Left decodeErr ->
          do let rsp =
                   CResp "" cid $
                   IdeResponseError
-                    (IdeError ParseError (T.pack $ show decodeErr) Nothing)
+                    (IdeError ParseError (T.pack $ show decodeErr) Null)
             liftIO $ debugm $ "jsonStdioTransport:parse error:" ++ show decodeErr
             liftIO $ atomically $ writeTChan cout rsp
        Right req ->
          do liftIO $ atomically $ writeTChan cin (wireToChannel cout cid req)
-     parseToJsonPipe cin
-                     cout
-                     (cid + 1)
+     unless oneShot $
+         parseToJsonPipe False
+                         cin
+                         cout
+                         (cid + 1)
 
 jsonConsumer :: P.Consumer A.Value IO ()
 jsonConsumer =
@@ -67,10 +70,11 @@ jsonConsumer =
      liftIO $ BL.putStr (BL.singleton $ fromIntegral (ord '\STX'))
      jsonConsumer
 
-tchanProducer :: MonadIO m => TChan a -> P.Producer a m ()
-tchanProducer chan = do val <- liftIO $ atomically $ readTChan chan
-                        P.yield val
-                        tchanProducer chan
+tchanProducer :: MonadIO m => Bool -> TChan a -> P.Producer a m ()
+tchanProducer oneShot chan = do
+  val <- liftIO $ atomically $ readTChan chan
+  P.yield val
+  unless oneShot $ tchanProducer False chan
 
 encodePipe :: P.Pipe ChannelResponse A.Value IO ()
 encodePipe = P.map (A.toJSON . channelToWire)

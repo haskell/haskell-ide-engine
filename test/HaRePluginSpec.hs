@@ -80,7 +80,7 @@ hareSpec = do
       r <- dispatchRequest req
       r `shouldBe` Just (IdeResponseFail
                       (IdeError { ideCode = PluginError
-                                , ideMessage = "rename: \"Invalid cursor position!\"", ideInfo = Nothing}))
+                                , ideMessage = "rename: \"Invalid cursor position!\"", ideInfo = Null}))
 
     -- ---------------------------------
 

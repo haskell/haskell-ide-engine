@@ -5,6 +5,7 @@
 module Haskell.Ide.HaRePlugin where
 
 import           Control.Monad.IO.Class
+import           Data.Aeson
 import qualified Data.Text as T
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
@@ -65,7 +66,7 @@ demoteCmd  = CmdSync $ \_ctxs req ->
     Right (ParamFile fileName :& ParamPos pos :& RNil) ->
       runHareCommand fileName "demote" (\s o f -> demote s o f pos)
     Right _ -> return $ IdeResponseError (IdeError InternalError
-      "HaRePlugin.demoteCmd: ghc’s exhaustiveness checker is broken" Nothing)
+      "HaRePlugin.demoteCmd: ghc’s exhaustiveness checker is broken" Null)
 
 -- demote :: RefactSettings -> GM.Options -> FilePath -> SimpPos -> IO [FilePath]
 
@@ -78,7 +79,7 @@ dupdefCmd = CmdSync $ \_ctxs req ->
     Right (ParamFile fileName :& ParamPos pos :& ParamText name :& RNil) ->
       runHareCommand fileName "duplicateDef" (\s o f -> duplicateDef s o f (T.unpack name) pos)
     Right _ -> return $ IdeResponseError (IdeError InternalError
-      "HaRePlugin.dupdefCmd: ghc’s exhaustiveness checker is broken" Nothing)
+      "HaRePlugin.dupdefCmd: ghc’s exhaustiveness checker is broken" Null)
 
 -- duplicateDef :: RefactSettings -> GM.Options -> FilePath -> String -> SimpPos -> IO [FilePath]
 
@@ -91,7 +92,7 @@ iftocaseCmd = CmdSync $ \_ctxs req ->
     Right (ParamFile fileName :& ParamPos start :& ParamPos end :& RNil) ->
       runHareCommand fileName "ifToCase" (\s o f -> ifToCase s o f start end)
     Right _ -> return $ IdeResponseError (IdeError InternalError
-      "HaRePlugin.ifToCaseCmd: ghc’s exhaustiveness checker is broken" Nothing)
+      "HaRePlugin.ifToCaseCmd: ghc’s exhaustiveness checker is broken" Null)
 
 -- ifToCase :: RefactSettings -> GM.Options -> FilePath -> SimpPos -> SimpPos -> IO [FilePath]
 
@@ -104,7 +105,7 @@ liftonelevelCmd = CmdSync $ \_ctxs req ->
     Right (ParamFile fileName :& ParamPos pos :& RNil) ->
       runHareCommand fileName "liftOneLevel" (\s o f -> liftOneLevel s o f pos)
     Right _ -> return $ IdeResponseError (IdeError InternalError
-      "HaRePlugin.liftOneLevel: ghc’s exhaustiveness checker is broken" Nothing)
+      "HaRePlugin.liftOneLevel: ghc’s exhaustiveness checker is broken" Null)
 
 -- liftOneLevel :: RefactSettings -> GM.Options -> FilePath -> SimpPos -> IO [FilePath]
 
@@ -117,7 +118,7 @@ lifttotoplevelCmd = CmdSync $ \_ctxs req ->
     Right (ParamFile fileName :& ParamPos pos :& RNil) ->
       runHareCommand fileName "liftToTopLevel" (\s o f -> liftToTopLevel s o f pos)
     Right _ -> return $ IdeResponseError (IdeError InternalError
-      "HaRePlugin.liftToTopLevel: ghc’s exhaustiveness checker is broken" Nothing)
+      "HaRePlugin.liftToTopLevel: ghc’s exhaustiveness checker is broken" Null)
 
 -- liftToTopLevel :: RefactSettings -> GM.Options -> FilePath -> SimpPos -> IO [FilePath]
 
@@ -130,7 +131,7 @@ renameCmd = CmdSync $ \_ctxs req ->
     Right (ParamFile fileName :& ParamPos pos :& ParamText name :& RNil) ->
       runHareCommand fileName "rename" (\s o f -> rename s o f (T.unpack name) pos)
     Right _ -> return $ IdeResponseError (IdeError InternalError
-      "HaRePlugin.renameCmd: ghc’s exhaustiveness checker is broken" Nothing)
+      "HaRePlugin.renameCmd: ghc’s exhaustiveness checker is broken" Null)
 
 -- rename :: RefactSettings -> Options -> FilePath -> String -> SimpPos -> IO [FilePath]
 
@@ -171,7 +172,7 @@ runHareCommand fp name cmd = do
                 liftIO $ setCurrentDirectory old
                 case res of
                   Left err -> return $ IdeResponseFail (IdeError PluginError
-                                (T.pack $ name ++ ": " ++ show err) Nothing)
+                                (T.pack $ name ++ ": " ++ show err) Null)
                   Right fs -> do
                     r <- liftIO $ makeRefactorResult fs
                     return (IdeResponseOk r)

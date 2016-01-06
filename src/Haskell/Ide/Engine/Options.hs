@@ -5,6 +5,10 @@ import Options.Applicative.Simple
 
 data GlobalOpts = GlobalOpts
   { optConsole :: Bool
+  , optOneShot :: Bool
+      -- ^ Run one command and then exit. No attempt to cleanly shut down any
+      -- other processes that may be running, as a result off the plugin init
+      -- process.
   , optDebugOn :: Bool
   , optLogFile :: Maybe String
   , optPort :: Port
@@ -18,6 +22,10 @@ globalOptsParser = GlobalOpts
       <> long "repl"
       <> short 'c'
       <> help "Run a console REPL for simple testing"
+       )
+  <*> switch
+       ( long "one-shot"
+      <> help "Run a single command and then exit. Applies to stdio transport only, initially."
        )
   <*> switch
        ( long "debug"

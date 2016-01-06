@@ -52,3 +52,7 @@ jsonSpec = do
       (decode "{\"params\":{\"name\":{\"text\":\"foo\"}},\
                \\"cmd\":\"eg2:helloTo\"}")
          `shouldBe` (Just wr)
+
+  describe "Processes one command only in --one-shot mode" $ do
+    it "exits after recieving one message, and sending one reply" $ do
+      pendingWith "write this test"
