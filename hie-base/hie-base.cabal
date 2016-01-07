@@ -14,6 +14,7 @@ cabal-version:       >=1.10
 library
   exposed-modules:
                        Haskell.Ide.Engine.PluginTypes
+                       Haskell.Ide.Engine.PluginTypes.Singletons
                        Haskell.Ide.Engine.SemanticTypes
   build-depends:       base >= 4.7 && < 5
                      , aeson

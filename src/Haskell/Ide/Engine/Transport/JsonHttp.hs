@@ -1,4 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE PatternSynonyms #-}
@@ -28,11 +27,11 @@ import qualified Data.Map as Map
 import           Data.Maybe
 import           Data.Proxy
 import           Data.Singletons.Prelude hiding ((:>))
-{-import           Data.Text-}
 import qualified Data.Text as T
 import           GHC.Generics
 import           GHC.TypeLits
 import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.Transport.JsonHttp.Undecidable
 import           Haskell.Ide.Engine.Types
 import           Network.Wai
 import           Network.Wai.Handler.Warp
@@ -83,16 +82,6 @@ type CommandRoute (name :: Symbol) (params :: [ParamDescType]) =
    QueryParam "rid" Int :>
    ReqBody '[JSON] (TaggedMap params) :>
    Post '[JSON] (IdeResponse Object)
-
-type family CommandParams cxts params :: [ParamDescType] where
-  CommandParams cxts params = ConcatMap ContextMappingFun cxts :++ params
-
--- | Defunctionalization TODO: We might be able to use the singletons
--- promotion stuff for that but I (cocreature) haven’t figured that
--- out yet
-data ContextMappingFun :: (TyFun AcceptedContext [ParamDescType]) -> *
-
-type instance Apply ContextMappingFun a = ContextMapping a
 
 type family PluginRoutes (list :: [PluginType]) where
   PluginRoutes ('PluginType name cmds ': xs)

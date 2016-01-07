@@ -1,22 +1,16 @@
-{-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE PolyKinds #-}
 module Haskell.Ide.Engine.PluginTypes
-  (
-    AcceptedContext(..)
-  , CabalSection(..)
+  ( CabalSection(..)
 
   -- * Parameters
   , ParamVal(..)
@@ -32,7 +26,6 @@ module Haskell.Ide.Engine.PluginTypes
   , pattern OP
   , ParamHelp
   , ParamName
-  , ParamType(..)
 
   -- * Commands
   , CommandDescriptor(..)
@@ -49,13 +42,7 @@ module Haskell.Ide.Engine.PluginTypes
   , IdeResponse(..)
   , IdeError(..)
   , IdeErrorCode(..)
-  , SParamDescription(..)
-  , SParamType
-  , SParamRequired
-  , ParamRequired(..)
-  , ParamDescType(..)
   , untagParamDesc
-  , SAcceptedContext
   , Sing(..)
   , Pos
   , posToJSON
@@ -70,6 +57,7 @@ module Haskell.Ide.Engine.PluginTypes
   , startPosParam
   , endPosParam
   , cabalParam
+  , module Haskell.Ide.Engine.PluginTypes.Singletons
   )where
 
 import           Control.Applicative
@@ -78,37 +66,18 @@ import           Data.Aeson
 import           Data.Aeson.Types
 import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
-import           Data.Singletons
 import           Data.Singletons.Prelude
-import           Data.Singletons.TH
 import qualified Data.Text as T
 import           Data.Typeable
 import           Data.Vinyl
 import           GHC.Generics
 import           GHC.TypeLits
+import           Haskell.Ide.Engine.PluginTypes.Singletons
 
 type PluginId = T.Text
 
 -- | Return type of a function
 type ReturnType = T.Text
-
-$(singletons
-  [d| data ParamType = PtText | PtFile | PtPos
-                  deriving (Eq,Ord,Show,Read,Bounded,Enum)
-      data ParamRequired = Required | Optional deriving (Eq,Ord,Show,Read,Bounded,Enum)
-      -- | Define what context will be accepted from the frontend for the specific
-      -- command. Matches up to corresponding values for CommandContext
-      data AcceptedContext
-        = CtxNone        -- ^ No context required, global command
-        | CtxFile        -- ^ Works on a whole file
-        | CtxPoint       -- ^ A single (Line,Col) in a specific file
-        | CtxRegion      -- ^ A region within a specific file
-        | CtxCabalTarget -- ^ Works on a specific cabal target
-        | CtxProject     -- ^ Works on a the whole project
-        deriving (Eq,Ord,Show,Read,Bounded,Enum,Generic)
-  |])
-
-data ParamDescType = ParamDescType Symbol Symbol ParamType ParamRequired
 
 contextMapping :: AcceptedContext -> [ParamDescription]
 contextMapping CtxNone        = []
@@ -147,14 +116,6 @@ endPosParam = ParamDesc "end_pos" "end line and col" PtPos Required
 
 cabalParam :: ParamDescription
 cabalParam = ParamDesc "cabal" "cabal target" PtText Required
-data SParamDescription (t :: ParamDescType) where
-        SParamDesc ::
-            (KnownSymbol pName, KnownSymbol pHelp) =>
-            Proxy pName ->
-              Proxy pHelp ->
-                SParamType pType ->
-                  SParamRequired pRequired ->
-                    SParamDescription ('ParamDescType pName pHelp pType pRequired)
 
 untagParamDesc :: SParamDescription t -> ParamDescription
 untagParamDesc (SParamDesc pName' pHelp' pType' pRequired') =
@@ -488,38 +449,6 @@ instance ToJSON CabalSection where
 instance FromJSON CabalSection where
   parseJSON (String s) = pure $ CabalSection s
   parseJSON _ = empty
-
--- -------------------------------------
-
-instance ToJSON AcceptedContext where
-  toJSON CtxNone = String "none"
-  toJSON CtxPoint = String "point"
-  toJSON CtxRegion = String "region"
-  toJSON CtxFile = String "file"
-  toJSON CtxCabalTarget = String "cabal_target"
-  toJSON CtxProject = String "project"
-
-instance FromJSON AcceptedContext where
-  parseJSON (String "none") = pure CtxNone
-  parseJSON (String "point") = pure CtxPoint
-  parseJSON (String "region") = pure CtxRegion
-  parseJSON (String "file") = pure CtxFile
-  parseJSON (String "cabal_target") = pure CtxCabalTarget
-  parseJSON (String "project") = pure CtxProject
-  parseJSON _ = empty
-
--- -------------------------------------
-
-instance ToJSON ParamType where
-  toJSON PtText = String "text"
-  toJSON PtFile = String "file"
-  toJSON PtPos  = String "pos"
-
-instance FromJSON ParamType where
-  parseJSON (String "text") = pure PtText
-  parseJSON (String "file") = pure PtFile
-  parseJSON (String "pos")  = pure PtPos
-  parseJSON _               = empty
 
 -- -------------------------------------
 
