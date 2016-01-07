@@ -241,7 +241,7 @@ dispatcherSpec = do
       rc2 <- atomically $ readTChan chan
       rc1 `shouldBe` (CResp { couPlugin = "test"
                             , coutReqId = 2
-                            , coutResp = IdeResponseOk (HM.fromList [("ok",String "asyncCmd2 sent strobe")])})
+                            , coutResp = IdeResponseOk (HM.fromList [("ok",String "asyncCmd2 sending strobe")])})
       rc2 `shouldBe` (CResp { couPlugin = "test"
                             , coutReqId = 1
                             , coutResp = IdeResponseOk (HM.fromList [("ok",String "asyncCmd1 got strobe")])})
@@ -321,8 +321,8 @@ asyncCmd1 ch = CmdAsync $ \f _ctxs _ -> do
 asyncCmd2 :: TChan () -> CommandFunc T.Text
 asyncCmd2 ch  = CmdAsync $ \f _ctxs _ -> do
   _ <- liftIO $ forkIO $ do
+    f (IdeResponseOk "asyncCmd2 sending strobe")
     atomically $ writeTChan ch ()
-    f (IdeResponseOk "asyncCmd2 sent strobe")
   return ()
 
 -- ---------------------------------------------------------------------
