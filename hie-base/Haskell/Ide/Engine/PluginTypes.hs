@@ -2,15 +2,15 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Haskell.Ide.Engine.PluginTypes
-  (
-    AcceptedContext(..)
-  , CabalSection(..)
+  ( CabalSection(..)
 
   -- * Parameters
   , ParamVal(..)
@@ -22,15 +22,18 @@ module Haskell.Ide.Engine.PluginTypes
   , ParamId
   , TaggedParamId(..)
   , ParamDescription(..)
+  , pattern RP
+  , pattern OP
   , ParamHelp
   , ParamName
-  , ParamType(..)
 
   -- * Commands
   , CommandDescriptor(..)
+  , UntaggedCommandDescriptor
+  , TaggedCommandDescriptor
+  , ExtendedCommandDescriptor(..)
   , CommandName
   , PluginName
-  , ExtendedCommandDescriptor(..)
   , ValidResponse(..)
   , ReturnType
 
@@ -39,7 +42,8 @@ module Haskell.Ide.Engine.PluginTypes
   , IdeResponse(..)
   , IdeError(..)
   , IdeErrorCode(..)
-
+  , untagParamDesc
+  , Sing(..)
   , Pos
   , posToJSON
   , jsonToPos
@@ -47,59 +51,130 @@ module Haskell.Ide.Engine.PluginTypes
   -- * Plugins
   , PluginId
   , IdePlugins(..)
-
+  , contextMapping
+  , ContextMapping
+  , fileParam
+  , startPosParam
+  , endPosParam
+  , cabalParam
+  , module Haskell.Ide.Engine.PluginTypes.Singletons
   )where
 
 import           Control.Applicative
 import           Control.Monad
 import           Data.Aeson
 import           Data.Aeson.Types
-import qualified Data.Map as Map
 import qualified Data.HashMap.Strict as H
+import qualified Data.Map as Map
+import           Data.Singletons.Prelude
 import qualified Data.Text as T
 import           Data.Typeable
+import           Data.Vinyl
 import           GHC.Generics
+import           GHC.TypeLits
+import           Haskell.Ide.Engine.PluginTypes.Singletons
 
 type PluginId = T.Text
 
 -- | Return type of a function
 type ReturnType = T.Text
 
+contextMapping :: AcceptedContext -> [ParamDescription]
+contextMapping CtxNone        = []
+contextMapping CtxFile        = [fileParam]
+contextMapping CtxPoint       = [fileParam,startPosParam]
+contextMapping CtxRegion      = [fileParam,startPosParam,endPosParam]
+contextMapping CtxCabalTarget = [cabalParam]
+contextMapping CtxProject     = [dirParam] -- the root directory of the project
+
+-- The duplication is ugly, but it looks like atm singletons can’t promote functions that operate on strings or text
+type family ContextMapping (cxt :: AcceptedContext) :: [ParamDescType] where
+  ContextMapping 'CtxNone = '[]
+  ContextMapping 'CtxFile = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required ]
+  ContextMapping 'CtxPoint = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required
+                              , 'ParamDescType "start pos" "start line and col" 'PtPos 'Required ]
+  ContextMapping 'CtxRegion = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required
+                               , 'ParamDescType "start pos" "start line and col" 'PtPos 'Required
+                               , 'ParamDescType "end pos" "end line and col" 'PtPos 'Required]
+  ContextMapping 'CtxCabalTarget = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required ]
+  ContextMapping 'CtxProject = '[ 'ParamDescType "dir" "a directory name" 'PtFile 'Required ]
+
+-- | For a given 'AcceptedContext', define the parameters that are required in
+-- the corresponding 'IdeRequest'
+fileParam :: ParamDescription
+fileParam = ParamDesc "file" "a file name" PtFile Required
+
+-- | A parameter for a directory
+dirParam :: ParamDescription
+dirParam = ParamDesc "dir" "a directory name" PtFile Required
+
+startPosParam :: ParamDescription
+startPosParam = ParamDesc "start_pos" "start line and col" PtPos Required
+
+endPosParam :: ParamDescription
+endPosParam = ParamDesc "end_pos" "end line and col" PtPos Required
+
+cabalParam :: ParamDescription
+cabalParam = ParamDesc "cabal" "cabal target" PtText Required
+
+untagParamDesc :: SParamDescription t -> ParamDescription
+untagParamDesc (SParamDesc pName' pHelp' pType' pRequired') =
+  ParamDesc (T.pack $ symbolVal pName')
+            (T.pack $ symbolVal pHelp')
+            (fromSing pType')
+            (fromSing pRequired')
+
 -- | Descriptor for a command. This is intended to be transferred to the IDE, so
--- the IDE can integrate it into it's UI, and then send requests through to HIE.
-data CommandDescriptor = CommandDesc
+-- the IDE can integrate it into it's UI, and then send requests
+-- through to HIE.  cxts and descs can be instantiated to simple lists
+-- or vinyl 'Data.Vinyl.Rec' depending on what kind of type safety you need
+data CommandDescriptor cxts descs = CommandDesc
   { cmdName :: !CommandName -- ^As returned in the 'IdeRequest'
   , cmdUiDescription :: !T.Text -- ^ Can be presented to the IDE user
   , cmdFileExtensions :: ![T.Text] -- ^ File extensions this command can be applied to
-  , cmdContexts :: ![AcceptedContext] -- TODO: should this be a non empty list? or should empty list imply CtxNone.
-  , cmdAdditionalParams :: ![ParamDescription]
+  , cmdContexts :: !cxts -- TODO: should this be a non empty list? or should empty list imply CtxNone.
+  , cmdAdditionalParams :: !descs
   , cmdReturnType :: !ReturnType
   } deriving (Show,Eq,Generic)
+
+-- | Type synonym for a 'CommandDescriptor' that uses simple lists
+type UntaggedCommandDescriptor = CommandDescriptor [AcceptedContext] [ParamDescription]
+
+type TaggedCommandDescriptor cxts tags = CommandDescriptor (Rec SAcceptedContext cxts) (Rec SParamDescription tags)
+
+data ExtendedCommandDescriptor =
+  ExtendedCommandDescriptor UntaggedCommandDescriptor
+                            PluginName deriving (Show,Eq)
+
+instance ValidResponse ExtendedCommandDescriptor where
+  jsWrite (ExtendedCommandDescriptor cmdDescriptor name) =
+    H.fromList
+      [ "name" .= cmdName cmdDescriptor
+      , "ui_description" .= cmdUiDescription cmdDescriptor
+      , "file_extensions" .= cmdFileExtensions cmdDescriptor
+      , "contexts" .= cmdContexts cmdDescriptor
+      , "additional_params" .= cmdAdditionalParams cmdDescriptor
+      , "return_type" .= cmdReturnType cmdDescriptor
+      , "plugin_name" .= name ]
+  jsRead v =
+    ExtendedCommandDescriptor
+    <$> (CommandDesc
+      <$> v .: "name"
+      <*> v .: "ui_description"
+      <*> v .: "file_extensions"
+      <*> v .: "contexts"
+      <*> v .: "additional_params"
+      <*> v .: "return_type")
+    <*> v.: "plugin_name"
 
 type CommandName = T.Text
 type PluginName = T.Text
 
-data ExtendedCommandDescriptor =
-  ExtendedCommandDescriptor CommandDescriptor
-                            PluginName
-         deriving (Show, Eq)
-
 -- | Subset type extracted from 'Plugins' to be sent to the IDE as
 -- a description of the available commands
 data IdePlugins = IdePlugins
-  { ipMap :: Map.Map PluginId [CommandDescriptor]
+  { ipMap :: Map.Map PluginId [UntaggedCommandDescriptor]
   } deriving (Show,Eq,Generic)
-
--- | Define what context will be accepted from the frontend for the specific
--- command. Matches up to corresponding values for CommandContext
-data AcceptedContext
-  = CtxNone        -- ^ No context required, global command
-  | CtxFile        -- ^ Works on a whole file
-  | CtxPoint       -- ^ A single (Line,Col) in a specific file
-  | CtxRegion      -- ^ A region within a specific file
-  | CtxCabalTarget -- ^ Works on a specific cabal target
-  | CtxProject     -- ^ Works on a the whole project
-  deriving (Eq,Ord,Show,Read,Bounded,Enum,Generic)
 
 type Pos = (Int,Int)
 
@@ -113,23 +188,21 @@ data CabalSection = CabalSection T.Text deriving (Show,Eq,Generic)
 -- |Initially all params will be returned as text. This can become a much
 -- richer structure in time.
 -- These should map down to the 'ParamVal' return types
-data ParamDescription
-  = RP
-      { pName :: !ParamName
-      , pHelp :: !ParamHelp
-      , pType :: !ParamType
-      } -- ^ Required parameter
-  | OP
-      { pName :: !ParamName
-      , pHelp :: !ParamHelp
-      , pType :: !ParamType
-      } -- ^ Optional parameter
+data ParamDescription =
+  ParamDesc {pName :: !ParamName
+            ,pHelp :: !ParamHelp
+            ,pType :: !ParamType
+            ,pRequired :: !ParamRequired}
   deriving (Show,Eq,Ord,Generic)
+
+pattern RP name help type' <- ParamDesc name help type' Required
+  where RP name help type' = ParamDesc name help type' Required
+
+pattern OP name help type' <- ParamDesc name help type' Optional
+  where OP name help type' = ParamDesc name help type' Optional
 
 type ParamHelp = T.Text
 type ParamName = T.Text
-data ParamType = PtText | PtFile | PtPos
-               deriving (Eq,Ord,Show,Read,Bounded,Enum)
 
 -- ---------------------------------------------------------------------
 
@@ -249,28 +322,7 @@ instance ValidResponse Object where
   jsWrite = id
   jsRead = pure
 
-instance ValidResponse ExtendedCommandDescriptor where
-  jsWrite (ExtendedCommandDescriptor cmdDescriptor name) =
-    H.fromList
-      [ "name" .= cmdName cmdDescriptor
-      , "ui_description" .= cmdUiDescription cmdDescriptor
-      , "file_extensions" .= cmdFileExtensions cmdDescriptor
-      , "contexts" .= cmdContexts cmdDescriptor
-      , "additional_params" .= cmdAdditionalParams cmdDescriptor
-      , "return_type" .= cmdReturnType cmdDescriptor
-      , "plugin_name" .= name ]
-  jsRead v =
-    ExtendedCommandDescriptor
-    <$> (CommandDesc
-      <$> v .: "name"
-      <*> v .: "ui_description"
-      <*> v .: "file_extensions"
-      <*> v .: "contexts"
-      <*> v .: "additional_params"
-      <*> v .: "return_type")
-    <*> v .: "plugin_name"
-
-instance ValidResponse CommandDescriptor where
+instance ValidResponse UntaggedCommandDescriptor where
   jsWrite cmdDescriptor =
     H.fromList
       [ "name" .= cmdName cmdDescriptor
@@ -330,18 +382,24 @@ instance ToJSON ParamValP  where
  toJSON (ParamPosP  p) = posToJSON p
  toJSON _ = "error"
 
+instance FromJSON (ParamVal 'PtText) where
+  parseJSON (Object v) = ParamText <$> v .: "text"
+  parseJSON _ = empty
+
+instance FromJSON (ParamVal 'PtFile) where
+  parseJSON (Object v) = ParamFile <$> v.: "file"
+  parseJSON _ = empty
+
+instance FromJSON (ParamVal 'PtPos) where
+  parseJSON (Object v) = fmap ParamPos $ liftA2 (,) (v .: "line") (v .: "col")
+  parseJSON _ = empty
+
 instance FromJSON ParamValP where
- parseJSON (Object v) = do
-   mt <- fmap ParamTextP <$> v .:? "text"
-   mf <- fmap ParamFileP <$> v .:? "file"
-   mp <- toParamPos <$> v .:? "line" <*> v .:? "col"
-   case mt <|> mf <|> mp of
-     Just pd -> return pd
-     _ -> empty
-   where
-     toParamPos (Just l) (Just c) = Just $ ParamPosP (l,c)
-     toParamPos _ _ = Nothing
- parseJSON _ = empty
+ parseJSON val = do
+   let mt = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtText))
+       mf = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtFile))
+       mp = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtPos))
+   mt <|> mf <|> mp
 
 -- -------------------------------------
 
@@ -394,55 +452,23 @@ instance FromJSON CabalSection where
 
 -- -------------------------------------
 
-instance ToJSON AcceptedContext where
-  toJSON CtxNone = String "none"
-  toJSON CtxPoint = String "point"
-  toJSON CtxRegion = String "region"
-  toJSON CtxFile = String "file"
-  toJSON CtxCabalTarget = String "cabal_target"
-  toJSON CtxProject = String "project"
-
-instance FromJSON AcceptedContext where
-  parseJSON (String "none") = pure CtxNone
-  parseJSON (String "point") = pure CtxPoint
-  parseJSON (String "region") = pure CtxRegion
-  parseJSON (String "file") = pure CtxFile
-  parseJSON (String "cabal_target") = pure CtxCabalTarget
-  parseJSON (String "project") = pure CtxProject
-  parseJSON _ = empty
-
--- -------------------------------------
-
-instance ToJSON ParamType where
-  toJSON PtText = String "text"
-  toJSON PtFile = String "file"
-  toJSON PtPos  = String "pos"
-
-instance FromJSON ParamType where
-  parseJSON (String "text") = pure PtText
-  parseJSON (String "file") = pure PtFile
-  parseJSON (String "pos")  = pure PtPos
-  parseJSON _               = empty
-
--- -------------------------------------
-
 instance ToJSON ParamDescription where
-  toJSON (RP n h t) = object [ "name" .= n ,"help" .= h, "type" .= t, "required" .= True ]
-  toJSON (OP n h t) = object [ "name" .= n ,"help" .= h, "type" .= t, "required" .= False ]
+  toJSON (ParamDesc n h t r) =
+    object ["name" .= n,"help" .= h,"type" .= t,"required" .= (r == Required)]
 
 instance FromJSON ParamDescription where
   parseJSON (Object v) = do
     req <- v .: "required"
     if req
-      then RP <$> v .: "name" <*> v .: "help" <*> v .: "type"
-      else OP <$> v .: "name" <*> v .: "help" <*> v .: "type"
+      then ParamDesc <$> v .: "name" <*> v .: "help" <*> v .: "type" <*> pure Required
+      else ParamDesc <$> v .: "name" <*> v .: "help" <*> v .: "type" <*> pure Optional
   parseJSON _ = empty
 
 -- -------------------------------------
 
-instance ToJSON CommandDescriptor where
+instance ToJSON UntaggedCommandDescriptor where
   toJSON  = Object . jsWrite
 
-instance FromJSON CommandDescriptor where
+instance FromJSON UntaggedCommandDescriptor where
   parseJSON (Object v) = jsRead v
   parseJSON _ = empty

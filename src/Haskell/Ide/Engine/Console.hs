@@ -78,13 +78,13 @@ helpStr plugins = T.unlines $
 pluginHelp :: Plugins -> [T.Text]
 pluginHelp plugins = concatMap (\(k,v) -> descriptorHelp k v) $ Map.toList plugins
 
-descriptorHelp :: PluginId -> PluginDescriptor -> [T.Text]
+descriptorHelp :: PluginId -> UntaggedPluginDescriptor -> [T.Text]
 descriptorHelp pn cd = ["Plugin '" <> pn <> "'"] ++ r
   where
     descriptors = map cmdDesc (pdCommands cd)
     r = concatMap describeDescriptor descriptors
 
-describeDescriptor :: CommandDescriptor -> [T.Text]
+describeDescriptor :: UntaggedCommandDescriptor -> [T.Text]
 describeDescriptor d =
   [ "  command '" <> (cmdName d) <> "'"
   , "    " <> cmdUiDescription d
@@ -92,7 +92,7 @@ describeDescriptor d =
 
 -- ---------------------------------------------------------------------
 
-convertToParams :: CommandDescriptor -> [T.Text] -> ParamMap
+convertToParams :: UntaggedCommandDescriptor -> [T.Text] -> ParamMap
 convertToParams cmd ss = Map.fromList $ map (\(k,v) -> (k,convertParam k v)) $  map splitOnColon ss
   where
     possibleParams = cmdAdditionalParams cmd ++ (concatMap contextMapping $ cmdContexts cmd)

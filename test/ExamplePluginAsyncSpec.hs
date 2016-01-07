@@ -55,4 +55,4 @@ examplePluginAsyncSpec = do
 -- ---------------------------------------------------------------------
 
 testPlugins :: Plugins
-testPlugins = Map.fromList [("test",exampleAsyncDescriptor)]
+testPlugins = Map.fromList [("test",untagPluginDescriptor exampleAsyncDescriptor)]

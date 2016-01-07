@@ -1,32 +1,35 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 module Haskell.Ide.ExamplePluginAsync where
 
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
+import qualified Data.Map as Map
+import           Data.Monoid
+import qualified Data.Text as T
 import           Haskell.Ide.Engine.ExtensibleState
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
-import           Data.Monoid
-import qualified Data.Map as Map
-import qualified Data.Text as T
 
 -- ---------------------------------------------------------------------
 
-exampleAsyncDescriptor :: PluginDescriptor
+exampleAsyncDescriptor :: TaggedPluginDescriptor _
 exampleAsyncDescriptor = PluginDescriptor
   {
     pdUIShortName = "Async Example"
   , pdUIOverview = "An example HIE plugin using multiple/async processes"
   , pdCommands =
-      [
-        buildCommand (longRunningCmdSync Cmd1) "cmd1" "Long running synchronous command" [] [CtxNone] []
-      , buildCommand (longRunningCmdSync Cmd2) "cmd2" "Long running synchronous command" [] [CtxNone] []
-      , buildCommand (streamingCmdAsync (CmdA 3 100)) "cmdA3" "Long running async/streaming command" [] [CtxNone] []
-      ]
+         buildCommand (longRunningCmdSync Cmd1) (Proxy :: Proxy "cmd1")
+                      "Long running synchronous command" [] (SCtxNone :& RNil) RNil
+      :& buildCommand (longRunningCmdSync Cmd2) (Proxy :: Proxy "cmd2")
+                      "Long running synchronous command" [] (SCtxNone :& RNil) RNil
+      :& buildCommand (streamingCmdAsync (CmdA 3 100)) (Proxy :: Proxy "cmdA3") "Long running async/streaming command" [] (SCtxNone :& RNil) RNil
+      :& RNil
   , pdExposedServices = []
   , pdUsedServices    = []
   }

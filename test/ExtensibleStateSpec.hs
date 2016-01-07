@@ -54,7 +54,7 @@ extensibleStateSpec = do
 testPlugins :: TChan () -> Plugins
 testPlugins chSync = Map.fromList [("test",testDescriptor chSync)]
 
-testDescriptor :: TChan () -> PluginDescriptor
+testDescriptor :: TChan () -> UntaggedPluginDescriptor
 testDescriptor chSync = PluginDescriptor
   {
     pdUIShortName = "testDescriptor"
@@ -88,7 +88,7 @@ instance ExtensionClass MyState1 where
 -- ---------------------------------------------------------------------
 
 mkCmdWithContext ::(ValidResponse a)
-                 => CommandFunc a -> CommandName -> [AcceptedContext] -> [ParamDescription] -> Command
+                 => CommandFunc a -> CommandName -> [AcceptedContext] -> [ParamDescription] -> UntaggedCommand
 mkCmdWithContext cmd n cts pds =
         Command
           { cmdDesc = CommandDesc

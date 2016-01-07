@@ -12,7 +12,7 @@ import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Transport.JsonStdio
 import           Options
 
-jsonStdioExample :: PluginId -> CommandDescriptor -> WireRequest
+jsonStdioExample :: PluginId -> UntaggedCommandDescriptor -> WireRequest
 jsonStdioExample pluginId (CommandDesc{cmdName = name,cmdContexts = contexts,cmdAdditionalParams = cmdParams}) =
   WireReq wireCmd (M.union contextUnion additionalParams)
   where wireCmd = pluginId <> ":" <> name

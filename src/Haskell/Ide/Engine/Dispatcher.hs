@@ -85,10 +85,10 @@ doDispatch plugins creq = do
 data IDEResponseRef = forall a .(ValidResponse a) => IDEResponseRef (IdeResponse a)
 
 -- TODO: perhaps use this in IdeState instead
-pluginCache :: Plugins -> Map.Map (T.Text,T.Text) Command
+pluginCache :: Plugins -> Map.Map (T.Text,T.Text) UntaggedCommand
 pluginCache = Map.fromList . concatMap go . Map.toList
   where
-    go :: (T.Text, PluginDescriptor) -> [((T.Text, T.Text), Command)]
+    go :: (T.Text, UntaggedPluginDescriptor) -> [((T.Text, T.Text), UntaggedCommand)]
     go (pn, (PluginDescriptor _ _ cmds _ _)) =
       map (\cmd -> ((pn,cmdName (cmdDesc cmd)),cmd)) cmds
 
@@ -96,7 +96,7 @@ pluginCache = Map.fromList . concatMap go . Map.toList
 
 -- |Return list of valid contexts for the given 'CommandDescriptor' and
 -- 'IdeRequest'
-validateContexts :: forall a .(ValidResponse a) => CommandDescriptor -> IdeRequest -> Either (IdeResponse a) [AcceptedContext]
+validateContexts :: forall a .(ValidResponse a) => UntaggedCommandDescriptor -> IdeRequest -> Either (IdeResponse a) [AcceptedContext]
 validateContexts cd req = r
   where
     (errs,oks) = partitionEithers $ map (\c -> validContext c (ideParams req)) $ cmdContexts cd
@@ -126,8 +126,8 @@ checkParams pds params = mapEithers checkOne pds
   where
     checkOne :: forall a .(ValidResponse a)
              => ParamDescription -> Either (IdeResponse a) ()
-    checkOne (OP pn _ph pt) = checkParamOP pn pt
-    checkOne (RP pn _ph pt) = checkParamRP pn pt
+    checkOne (ParamDesc pn _ph pt Optional) = checkParamOP pn pt
+    checkOne (ParamDesc pn _ph pt Required) = checkParamRP pn pt
 
     checkParamOP :: forall a .(ValidResponse a)
                  => ParamId -> ParamType -> Either (IdeResponse a) ()

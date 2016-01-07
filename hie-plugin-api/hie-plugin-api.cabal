@@ -33,6 +33,7 @@ library
                      , monad-control
                      , monad-logger
                      , mtl
+                     , singletons
                      , text
                      , time
                      , transformers

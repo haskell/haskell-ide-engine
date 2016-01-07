@@ -1,32 +1,33 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
 module Haskell.Ide.ExamplePlugin2 where
 
-import Haskell.Ide.Engine.PluginDescriptor
-import Haskell.Ide.Engine.PluginUtils
-
+import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.PluginUtils
 import           Control.Monad.IO.Class
-import           Data.Monoid
 import qualified Data.Map as Map
+import           Data.Monoid
 import qualified Data.Text as T
 
 -- ---------------------------------------------------------------------
 
-example2Descriptor :: PluginDescriptor
+example2Descriptor :: TaggedPluginDescriptor _
 example2Descriptor = PluginDescriptor
   {
     pdUIShortName = "Hello World"
   , pdUIOverview = "An example of writing an HIE plugin"
   , pdCommands =
-      [
-        buildCommand sayHelloCmd "sayHello" "say hello" [] [CtxNone] []
-      , buildCommand sayHelloToCmd "sayHelloTo"
-                       "say hello to the passed in param"
-                       []
-                       [CtxNone]
-                       [RP "name" "the name to greet" PtText]
+         buildCommand sayHelloCmd (Proxy :: Proxy "sayHello") "say hello" [] (SCtxNone :& RNil) RNil
+      :& buildCommand sayHelloToCmd (Proxy :: Proxy "sayHelloTo")
+                          "say hello to the passed in param"
+                          []
+                          (SCtxNone :& RNil)
+                          (  SParamDesc (Proxy :: Proxy "name") (Proxy :: Proxy "the name to greet") SPtText SRequired
+                          :& RNil)
 
-      ]
+      :& RNil
   , pdExposedServices = []
   , pdUsedServices    = []
   }

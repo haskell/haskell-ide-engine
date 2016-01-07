@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PolyKinds #-}
 module DispatcherSpec where
 
 import           Control.Concurrent
@@ -7,9 +9,11 @@ import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Data.Aeson
 import qualified Data.HashMap.Strict as H
-import qualified Data.Text as T
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
+import qualified Data.Text as T
+import qualified Data.Vinyl.Functor as Vinyl
+import           GHC.TypeLits
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadFunctions
@@ -237,7 +241,7 @@ dispatcherSpec = do
       rc2 <- atomically $ readTChan chan
       rc1 `shouldBe` (CResp { couPlugin = "test"
                             , coutReqId = 2
-                            , coutResp = IdeResponseOk (HM.fromList [("ok",String "asyncCmd2 sent strobe")])})
+                            , coutResp = IdeResponseOk (HM.fromList [("ok",String "asyncCmd2 sending strobe")])})
       rc2 `shouldBe` (CResp { couPlugin = "test"
                             , coutReqId = 1
                             , coutResp = IdeResponseOk (HM.fromList [("ok",String "asyncCmd1 got strobe")])})
@@ -247,7 +251,7 @@ dispatcherSpec = do
 testPlugins :: TChan () -> Plugins
 testPlugins chSync = Map.fromList [("test",testDescriptor chSync)]
 
-testDescriptor :: TChan () -> PluginDescriptor
+testDescriptor :: TChan () -> UntaggedPluginDescriptor
 testDescriptor chSync = PluginDescriptor
   {
     pdUIShortName = "testDescriptor"
@@ -279,7 +283,7 @@ testDescriptor chSync = PluginDescriptor
   , pdUsedServices    = []
   }
 
-mkCmdWithContext :: CommandName -> [AcceptedContext] -> [ParamDescription] -> Command
+mkCmdWithContext :: CommandName -> [AcceptedContext] -> [ParamDescription] -> UntaggedCommand
 mkCmdWithContext n cts pds =
         Command
           { cmdDesc = CommandDesc
@@ -293,9 +297,16 @@ mkCmdWithContext n cts pds =
           , cmdFunc = CmdSync $ \ctxs _ -> return (IdeResponseOk (T.pack $ "result:ctxs=" ++ show ctxs))
           }
 
-mkAsyncCmdWithContext :: (ValidResponse a) => CommandFunc a -> CommandName -> [AcceptedContext] -> [ParamDescription] -> Command
+mkAsyncCmdWithContext :: (ValidResponse a) => CommandFunc a -> CommandName -> [AcceptedContext] -> [ParamDescription] -> UntaggedCommand
 mkAsyncCmdWithContext cf n cts pds =
-        buildCommand cf n "description" [] cts pds
+  Command {cmdDesc =
+             CommandDesc {cmdName = n
+                         ,cmdUiDescription = "description"
+                         ,cmdFileExtensions = []
+                         ,cmdContexts = cts
+                         ,cmdAdditionalParams = pds
+                         ,cmdReturnType = "Text"}
+          ,cmdFunc = cf}
 
 -- ---------------------------------------------------------------------
 
@@ -310,8 +321,8 @@ asyncCmd1 ch = CmdAsync $ \f _ctxs _ -> do
 asyncCmd2 :: TChan () -> CommandFunc T.Text
 asyncCmd2 ch  = CmdAsync $ \f _ctxs _ -> do
   _ <- liftIO $ forkIO $ do
+    f (IdeResponseOk "asyncCmd2 sending strobe")
     atomically $ writeTChan ch ()
-    f (IdeResponseOk "asyncCmd2 sent strobe")
   return ()
 
 -- ---------------------------------------------------------------------

@@ -68,7 +68,7 @@ pluginDocPath pluginId =
   reader $
   \(O.Config _ prefix) -> prefix </> "plugins" </> T.unpack pluginId <.> "rst"
 
-pluginDoc :: (PluginId,PluginDescriptor) -> T.Text
+pluginDoc :: (PluginId,UntaggedPluginDescriptor) -> T.Text
 pluginDoc (pluginId,PluginDescriptor{pdCommands = commands}) =
   T.unlines ([pluginId
              ,T.replicate (T.length pluginId)
@@ -78,7 +78,7 @@ pluginDoc (pluginId,PluginDescriptor{pdCommands = commands}) =
              commandDocs)
   where commandDocs = map (commandDoc pluginId) commands
 
-commandDoc :: PluginId -> Command -> T.Text
+commandDoc :: PluginId -> UntaggedCommand -> T.Text
 commandDoc pluginId (cmdDesc -> cmddesc@(CommandDesc{cmdName = name,cmdUiDescription = desc})) =
   T.unlines $
   ["   .. hie:command:: " <> name

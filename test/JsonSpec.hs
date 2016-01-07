@@ -39,7 +39,7 @@ jsonSpec = do
     prop "[Text]" (propertyValidRoundtrip :: [Text] -> Bool)
     prop "()" (propertyValidRoundtrip :: () -> Bool)
     prop "Aeson.Object" (propertyValidRoundtrip :: Object -> Bool)
-    prop "CommandDescriptor" (propertyValidRoundtrip :: CommandDescriptor -> Bool)
+    prop "CommandDescriptor" (propertyValidRoundtrip :: UntaggedCommandDescriptor -> Bool)
     prop "ExtendedCommandDescriptor" (propertyValidRoundtrip :: ExtendedCommandDescriptor -> Bool)
     prop "IdePlugins" (propertyValidRoundtrip :: IdePlugins -> Bool)
     prop "TypeInfo" (propertyValidRoundtrip :: TypeInfo -> Bool)
@@ -52,7 +52,7 @@ jsonSpec = do
     prop "AcceptedContext" (propertyJsonRoundtrip :: AcceptedContext -> Bool)
     prop "ParamType" (propertyJsonRoundtrip :: ParamType -> Bool)
     prop "ParamDescription" (propertyJsonRoundtrip :: ParamDescription -> Bool)
-    prop "CommandDescriptor" (propertyJsonRoundtrip :: CommandDescriptor -> Bool)
+    prop "CommandDescriptor" (propertyJsonRoundtrip :: UntaggedCommandDescriptor -> Bool)
     prop "Service" (propertyJsonRoundtrip :: Service -> Bool)
     prop "IdeRequest" (propertyJsonRoundtrip :: IdeRequest -> Bool)
     prop "IdeErrorCode" (propertyJsonRoundtrip :: IdeErrorCode -> Bool)
@@ -72,7 +72,7 @@ instance Arbitrary Value where
     s <- arbitrary
     return $ String s
 
-instance Arbitrary CommandDescriptor where
+instance Arbitrary UntaggedCommandDescriptor where
   arbitrary = CommandDesc
     <$> arbitrary
     <*> arbitrary
@@ -97,7 +97,7 @@ instance Arbitrary ParamDescription where
 instance Arbitrary Service where
   arbitrary = Service <$> arbitrary
 
-instance Arbitrary PluginDescriptor where
+instance Arbitrary UntaggedPluginDescriptor where
   arbitrary = PluginDescriptor <$>
               arbitrary <*>
               arbitrary <*>
@@ -109,11 +109,11 @@ instance Arbitrary PluginDescriptor where
 smallList :: Gen a -> Gen [a]
 smallList = resize 3 . listOf
 
-instance Arbitrary Command where
+instance Arbitrary UntaggedCommand where
   arbitrary = Command <$> arbitrary <*> pure (CmdAsync (\_ _ _ -> return ())::CommandFunc Text)
 
 -- | Sufficient for tests
-instance Eq PluginDescriptor where
+instance Eq UntaggedPluginDescriptor where
   a == b = show a == show b
 
 instance Arbitrary ParamValP where

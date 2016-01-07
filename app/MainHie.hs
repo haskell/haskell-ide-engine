@@ -1,31 +1,41 @@
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE PatternSynonyms #-}
 
 module Main where
 
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
 import           Control.Exception
-import           Control.Monad.Logger
 import           Control.Monad
+import           Control.Monad.Logger
 import           Control.Monad.STM
 import           Control.Monad.Trans.Maybe
 import qualified Data.Map as Map
+import           Data.Proxy
+import qualified Data.Text as T
 import           Data.Version (showVersion)
+import           Data.Vinyl
 import           Development.GitRev (gitCommitCount)
 import           Distribution.System (buildArch)
 import           Distribution.Text (display)
+import           GHC.TypeLits
 import           Haskell.Ide.Engine.Console
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.Utils
 import           Haskell.Ide.Engine.Transport.JsonHttp
 import           Haskell.Ide.Engine.Transport.JsonStdio
 import           Haskell.Ide.Engine.Types
+import           Haskell.Ide.Engine.Utils
 import           Options.Applicative.Simple
 import qualified Paths_haskell_ide_engine as Meta
 import           System.Directory
@@ -44,19 +54,26 @@ import           Haskell.Ide.HaRePlugin
 -- ---------------------------------------------------------------------
 
 -- | This will be read from a configuration, eventually
+taggedPlugins :: Rec Plugin _
+taggedPlugins =
+     Plugin (Proxy :: Proxy "applyrefact") applyRefactDescriptor
+  :& Plugin (Proxy :: Proxy "eg2") example2Descriptor
+  :& Plugin (Proxy :: Proxy "egasync") exampleAsyncDescriptor
+  :& Plugin (Proxy :: Proxy "ghcmod") ghcmodDescriptor
+  :& Plugin (Proxy :: Proxy "hare") hareDescriptor
+  :& Plugin (Proxy :: Proxy "base") baseDescriptor
+  :& RNil
+
+recProxy :: Rec f t -> Proxy t
+recProxy _ = Proxy
+
 plugins :: Plugins
-plugins = Map.fromList
-  [
-    -- Note: statically including known plugins. In future this map could be set
-    -- up via a config file of some kind.
-    ("applyrefact", applyRefactDescriptor)
-  , ("eg2",         example2Descriptor)
-  , ("egasync",     exampleAsyncDescriptor)
-  , ("ghcmod",      ghcmodDescriptor)
-  , ("hare",        hareDescriptor)
-    -- The base plugin, able to answer questions about the IDE Engine environment.
-  , ("base",        baseDescriptor)
-  ]
+plugins =
+  Map.fromList $
+  recordToList'
+    (\(Plugin name desc) ->
+       (T.pack $ symbolVal name,untagPluginDescriptor desc))
+    taggedPlugins
 
 -- ---------------------------------------------------------------------
 
@@ -124,7 +141,7 @@ run opts = do
 
     -- TODO: pass port in as a param from GlobalOpts
     when (optHttp opts) $
-      void $ forkIO (jsonHttpListener cin (optPort opts))
+      void $ forkIO (jsonHttpListener (recProxy taggedPlugins) cin (optPort opts))
 
     -- Can have multiple listeners, each using a different transport protocol, so
     -- long as they can pass through a ChannelRequest
