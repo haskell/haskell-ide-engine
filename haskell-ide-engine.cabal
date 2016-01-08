@@ -20,6 +20,7 @@ library
                        Haskell.Ide.Engine.Dispatcher
                        Haskell.Ide.Engine.Options
                        Haskell.Ide.Engine.Transport.JsonHttp
+                       Haskell.Ide.Engine.Transport.JsonHttp.Undecidable
                        Haskell.Ide.Engine.Transport.JsonStdio
                        Haskell.Ide.Engine.Types
                        Haskell.Ide.Engine.Utils
