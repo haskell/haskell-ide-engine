@@ -4,7 +4,6 @@ module HaRePluginSpec where
 import           Control.Concurrent.STM.TChan
 import           Control.Monad.STM
 import           Data.Aeson
-import           Data.Algorithm.Diff
 import qualified Data.Map as Map
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad

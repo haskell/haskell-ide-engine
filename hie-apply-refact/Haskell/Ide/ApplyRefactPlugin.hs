@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
+
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -17,8 +19,6 @@ import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
 import           Language.Haskell.HLint3 as Hlint
 import           Refact.Apply
-import qualified Refact.Types as R
-import           Refact.Types hiding (SrcSpan)
 import           System.Directory
 import           System.IO.Extra
 
@@ -108,7 +108,7 @@ showParseError (Hlint.ParseError loc message content) = unlines [show loc, messa
 makeDiffResult :: FilePath -> T.Text -> IO HieDiff
 makeDiffResult orig new = do
   origText <- T.readFile orig
-  let (HieDiff f s d) = diffText (orig,origText) ("changed",new)
+  let (HieDiff f _ d) = diffText (orig,origText) ("changed",new)
   f' <- liftIO $ makeRelativeToCurrentDirectory f
   -- return (HieDiff f' s' d)
   return (HieDiff f' "changed" d)
