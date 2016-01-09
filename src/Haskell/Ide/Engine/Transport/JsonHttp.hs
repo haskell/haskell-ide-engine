@@ -43,7 +43,8 @@ newtype Greet = Greet { _msg :: T.Text }
   deriving (Generic, Show)
 
 instance FromJSON Greet
-instance ToJSON Greet
+instance ToJSON Greet where
+  toJSON = genericToJSON defaultOptions
 
 newtype TaggedMap (tags :: [ParamDescType]) = TaggedMap ParamMap deriving (Monoid)
 

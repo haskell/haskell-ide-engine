@@ -24,13 +24,11 @@ module Haskell.Ide.Engine.ExtensibleState (
                               , gets
                               ) where
 
-import Control.Applicative
-import Data.Typeable (typeOf,Typeable,cast)
+import Data.Typeable (typeOf,cast)
 import qualified Data.Map as M
 import Haskell.Ide.Engine.PluginDescriptor
 import qualified Control.Monad.State.Strict as State
 import Data.Maybe (fromMaybe)
-import Control.Monad
 import Control.Monad.Trans.Class
 
 -- ---------------------------------------------------------------------

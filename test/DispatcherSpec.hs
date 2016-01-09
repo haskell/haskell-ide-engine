@@ -12,8 +12,6 @@ import qualified Data.HashMap.Strict as H
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
 import qualified Data.Text as T
-import qualified Data.Vinyl.Functor as Vinyl
-import           GHC.TypeLits
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadFunctions

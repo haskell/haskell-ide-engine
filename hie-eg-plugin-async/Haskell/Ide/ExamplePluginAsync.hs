@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
+
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
@@ -8,13 +10,11 @@ import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
-import qualified Data.Map as Map
 import           Data.Monoid
 import qualified Data.Text as T
 import           Haskell.Ide.Engine.ExtensibleState
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.PluginUtils
 
 -- ---------------------------------------------------------------------
 
@@ -64,7 +64,7 @@ instance ExtensionClass AsyncPluginState where
 
 -- | This command manages interaction with a separate process, doing stuff.
 longRunningCmdSync :: WorkerCmd -> CommandFunc T.Text
-longRunningCmdSync cmd = CmdSync $ \_ctx req -> do
+longRunningCmdSync cmd = CmdSync $ \_ctx _req -> do
   SubProcess cin cout _tid <- ensureProcessRunning
   liftIO $ atomically $ writeTChan cin cmd
   res <- liftIO $ atomically $ readTChan cout
@@ -95,6 +95,7 @@ ensureProcessRunning = do
 workerProc :: TChan WorkerCmd -> TChan T.Text -> IO ()
 workerProc cin cout = loop 1
   where
+    loop :: Integer -> IO ()
     loop cnt = do
       debugm "workerProc:top of loop"
       req <- liftIO $ atomically $ readTChan cin
@@ -111,7 +112,7 @@ workerProc cin cout = loop 1
 
 -- | This command manages interaction with a separate process, doing stuff.
 streamingCmdAsync :: WorkerCmdAsync -> CommandFunc T.Text
-streamingCmdAsync cmd = CmdAsync $ \replyFunc _ctx req -> do
+streamingCmdAsync cmd = CmdAsync $ \replyFunc _ctx _req -> do
   tid <- liftIO $ forkIO (workerProcAsync cmd replyFunc)
   debugm $ "streamingCmdAsync:launched worker as " ++ show tid
   let tidStr = T.pack (show tid ++ ":")
