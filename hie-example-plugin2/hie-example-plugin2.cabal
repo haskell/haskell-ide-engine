@@ -19,5 +19,5 @@ library
                      , containers
                      , text
                      , transformers
-  ghc-options:         -Wall
+  ghc-options:         -Wall -Werror
   default-language:    Haskell2010
