@@ -160,11 +160,10 @@ instance A.ToJSON WireRequest where
 
 
 instance A.FromJSON WireRequest where
-    parseJSON (A.Object v) = WireReq <$>
-                           v A..: "cmd" <*>
-                           v A..:? "params" A..!= Map.empty
-    -- A non-Object value is of the wrong type, so fail.
-    parseJSON _          = mzero
+    parseJSON = withObject "WireRequest" $ \v ->
+      WireReq <$>
+      v A..: "cmd" <*>
+      v A..:? "params" A..!= Map.empty
 
 -- ---------------------------------------------------------------------
 
