@@ -133,3 +133,5 @@
 * `mote`: (Agda Style programmer's assistant for Vim) -
   ([github](https://github.com/imeckler/mote))
 * `flycheck`: ...
+* `illuminate` : source-code syntax highlighting library and a command-line highlighting tool - ([github](http://github.com/jgm/illuminate),
+  [hackage](https://hackage.haskell.org/package/illuminate))
