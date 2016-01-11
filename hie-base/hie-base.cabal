@@ -23,5 +23,5 @@ library
                      , unordered-containers
                      , singletons
                      , vinyl
-  ghc-options:         -Wall
+  ghc-options:         -Wall -Werror
   default-language:    Haskell2010
