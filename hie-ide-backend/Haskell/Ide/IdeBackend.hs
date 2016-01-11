@@ -40,12 +40,12 @@ idebackendDescriptor = PluginDescriptor
 
 typeCmd :: CommandFunc TypeInfo
 typeCmd =
-  CmdAsync $
-  \resp _ctxs req ->
+  CmdSync $
+  \_ctxs req ->
     case getParams (IdFile "file" :& IdPos "start_pos" :& IdPos "end_pos" :&
                     RNil)
                    req of
-      Left err -> liftIO $ resp err
+      Left err -> return err
       Right (ParamFile filename :& ParamPos startPos :& ParamPos endPos :& RNil) ->
         do SubProcess cin cout _tid <- ensureProcessRunning filename
            liftIO $
@@ -54,15 +54,14 @@ typeCmd =
                         (Type filename startPos endPos)
            response <- liftIO $ atomically $ readTChan cout
            case response of
-             TypeResp typeinfo -> liftIO $ resp (IdeResponseOk typeinfo)
-             ErrorResp error' -> liftIO $ resp
-               (IdeResponseError (IdeError PluginError error' Null))
+             TypeResp typeinfo -> return (IdeResponseOk typeinfo)
+             ErrorResp error' ->
+               return (IdeResponseError (IdeError PluginError error' Null))
       Right _ ->
-        liftIO . resp $
-        IdeResponseError
-          (IdeError InternalError
-                    "IdeBackendPlugin.typesCmd: ghc’s exhaustiveness checker is broken"
-                    Null)
+        return (IdeResponseError
+                  (IdeError InternalError
+                            "IdeBackendPlugin.typesCmd: ghc’s exhaustiveness checker is broken"
+                            Null))
 
 instance ExtensionClass AsyncPluginState where
   initialValue = APS Nothing
