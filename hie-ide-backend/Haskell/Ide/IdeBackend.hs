@@ -4,7 +4,9 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
-module Haskell.Ide.IdeBackend where
+module Haskell.Ide.IdeBackend
+  (idebackendDescriptor
+  ) where
 
 import           Control.Concurrent
 import           Control.Concurrent.STM
@@ -38,6 +40,7 @@ idebackendDescriptor = PluginDescriptor
   , pdUsedServices    = []
   }
 
+-- | Get the type for a region in a file
 typeCmd :: CommandFunc TypeInfo
 typeCmd =
   CmdSync $
@@ -66,39 +69,54 @@ typeCmd =
 instance ExtensionClass AsyncPluginState where
   initialValue = APS Nothing
 
+-- | Holds the worker process needed to cache the `IdeSession`
 data AsyncPluginState = APS (Maybe SubProcess)
 
+-- | Commands send to the worker process
 data WorkerCmd = Type T.Text Pos Pos deriving (Show)
 
-data IdeBackendResponse = TypeResp TypeInfo | ErrorResp T.Text
+-- | Responses from the worker process
+data WorkerResponse = TypeResp TypeInfo | ErrorResp T.Text
 
+-- | The state for a worker process, consisting of two communicating
+-- channels and the `ThreadId`
 data SubProcess = SubProcess
   { spChIn    :: TChan WorkerCmd
-  , spChOut   :: TChan IdeBackendResponse
+  , spChOut   :: TChan WorkerResponse
   , spProcess :: ThreadId
   }
 
+-- | Try to find an already running process or start a new one if it
+-- doesn’t already exist
 ensureProcessRunning :: T.Text -> IdeM SubProcess
-ensureProcessRunning filename = do
-  (APS v) <- get -- from extensible state
-  case v of
-    Nothing -> do
-      -- Get the required packagedbs from ghc-mod
-      -- This won’t be necessary once we switch to one hie instance per project
-      cradle' <- findCradle' (takeDirectory (T.unpack filename))
-      pkgdbs <- gmeLocal (\(GhcModEnv opts _) -> GhcModEnv opts cradle') getPackageDbStack
-      cin  <- liftIO $ atomically newTChan
-      cout <- liftIO $ atomically newTChan
-      tid  <- liftIO $ forkIO (workerProc pkgdbs cin cout)
-      let v' = SubProcess cin cout tid
-      put (APS (Just v')) -- into extensible state
-      return v'
-    Just v' -> return v'
+ensureProcessRunning filename =
+  do (APS v) <- get -- from extensible state
+     case v of
+       Nothing ->
+         do
+            -- Get the required packagedbs from ghc-mod
+            -- This won’t be necessary once we switch to one hie instance per project
+            cradle' <- findCradle' (takeDirectory (T.unpack filename))
+            pkgdbs <-
+              gmeLocal (\(GhcModEnv opts _) -> GhcModEnv opts cradle') getPackageDbStack
+            cin <- liftIO $ atomically newTChan
+            cout <- liftIO $ atomically newTChan
+            tid <- liftIO $ forkIO (workerProc pkgdbs cin cout)
+            let v' =
+                  SubProcess {spChIn = cin
+                             ,spChOut = cout
+                             ,spProcess = tid}
+            put (APS (Just v')) -- into extensible state
+            return v'
+       Just v' -> return v'
 
+-- | Log function to get ide-backend to use our logger
 logFunc :: LogFunc
-logFunc _loc _source level logStr = logOtherm level (T.decodeUtf8 $ fromLogStr logStr)
+logFunc _loc _source level logStr =
+  logOtherm level (T.decodeUtf8 $ fromLogStr logStr)
 
-workerProc :: [GhcPkgDb] -> TChan WorkerCmd -> TChan IdeBackendResponse -> IO ()
+-- | Long running worker process responsible for processing the commands
+workerProc :: [GhcPkgDb] -> TChan WorkerCmd -> TChan WorkerResponse -> IO ()
 workerProc pkgdbs cin cout =
   do session <-
        initSessionWithCallbacks
@@ -122,16 +140,17 @@ workerProc pkgdbs cin cout =
                      loop (cnt + 1)
      loop 1
 
+-- | Convert the package database from ghc-mod’s representation to cabal’s
+-- representation
 convPkgDb :: GhcPkgDb -> PackageDB
 convPkgDb GlobalDb = GlobalPackageDB
 convPkgDb UserDb = UserPackageDB
 convPkgDb (PackageDb db) = SpecificPackageDB db
 
-ignoreStatus :: Monad m => a -> m ()
-ignoreStatus = const (return ())
-
+-- | Find the type for a region in a file. Add the supplied file to
+-- the session targets.
 handleTypeInfo :: IdeSession
-               -> TChan IdeBackendResponse
+               -> TChan WorkerResponse
                -> T.Text
                -> Pos
                -> Pos
