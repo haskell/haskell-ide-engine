@@ -44,7 +44,6 @@ module Haskell.Ide.Engine.PluginDescriptor
   -- * The IDE monad
   , IdeM
   , IdeState(..)
-  , StateExtension(..)
   , ExtensionClass(..)
   , getPlugins
   , untagPluginDescriptor
@@ -59,19 +58,18 @@ module Haskell.Ide.Engine.PluginDescriptor
   , module Haskell.Ide.Engine.PluginTypes
   ) where
 
-import           GHC.TypeLits
-import           Haskell.Ide.Engine.PluginTypes
-
-import           Data.Singletons
 import           Control.Applicative
 import           Control.Monad.State.Strict
 import           Data.Aeson
+import           Data.Dynamic
 import qualified Data.Map as Map
+import           Data.Singletons
 import qualified Data.Text as T
-import           Data.Typeable
 import           Data.Vinyl
 import qualified Data.Vinyl.Functor as Vinyl
 import           GHC.Generics
+import           GHC.TypeLits
+import           Haskell.Ide.Engine.PluginTypes
 import qualified Language.Haskell.GhcMod.Monad as GM
 
 -- ---------------------------------------------------------------------
@@ -211,7 +209,7 @@ type IdeT m = GM.GhcModT (StateT IdeState m)
 data IdeState = IdeState
   {
     idePlugins :: Plugins
-  , extensibleState :: !(Map.Map String (Either String StateExtension))
+  , extensibleState :: !(Map.Map TypeRep Dynamic)
               -- ^ stores custom state information.
   } deriving (Show)
 
@@ -230,23 +228,3 @@ getPlugins = lift $ lift $ idePlugins <$> get
 class Typeable a => ExtensionClass a where
     -- | Defines an initial value for the state extension
     initialValue :: a
-    -- | Specifies whether the state extension should be
-    -- persistent. Setting this method to 'PersistentExtension'
-    -- will make the stored data survive restarts, but
-    -- requires a to be an instance of Read and Show.
-    --
-    -- It defaults to 'StateExtension', i.e. no persistence.
-    extensionType :: a -> StateExtension
-    extensionType = StateExtension
-
--- | Existential type to store a state extension.
-data StateExtension =
-    forall a. ExtensionClass a => StateExtension a
-    -- ^ Non-persistent state extension
-  | forall a. (Read a, Show a, ExtensionClass a) => PersistentExtension a
-    -- ^ Persistent extension
-
-instance Show StateExtension where
-  show _ = "StateExtension"
-
--- EOF
