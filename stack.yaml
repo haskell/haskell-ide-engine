@@ -1,4 +1,4 @@
-resolver: nightly-2016-01-06
+resolver: nightly-2016-01-08
 packages:
 - .
 - hie-apply-refact
@@ -9,6 +9,7 @@ packages:
 - hie-ghc-mod
 - hie-hare
 - hie-docs-generator
+- hie-ide-backend
 - location:
     git: https://github.com/kazu-yamamoto/ghc-mod.git
     commit: b9bd4ebf77b22d2d9061d647d7799ddcc7c51228

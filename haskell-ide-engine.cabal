@@ -83,6 +83,7 @@ executable hie
                      , hie-example-plugin2
                      , hie-ghc-mod
                      , hie-hare
+                     , hie-ide-backend
                      , hie-plugin-api
                      , monad-logger
                      , optparse-applicative
@@ -99,13 +100,13 @@ test-suite haskell-ide-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Spec.hs
-  other-modules:
-                       ApplyRefactPluginSpec
+  other-modules:       ApplyRefactPluginSpec
                        DispatcherSpec
                        ExamplePluginAsyncSpec
                        ExtensibleStateSpec
                        GhcModPluginSpec
                        HaRePluginSpec
+                       IdeBackendPluginSpec
                        JsonStdioSpec
                        JsonSpec
                        UtilsSpec
@@ -121,6 +122,7 @@ test-suite haskell-ide-test
                      , hie-apply-refact
                      , hie-base
                      , hie-eg-plugin-async
+                     , hie-ide-backend
                      , hie-ghc-mod
                      , hie-hare
                      , hie-plugin-api

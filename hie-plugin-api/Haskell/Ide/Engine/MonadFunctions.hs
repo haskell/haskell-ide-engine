@@ -11,6 +11,7 @@ module Haskell.Ide.Engine.MonadFunctions
   , setLogTimeFormat
   , logm
   , debugm
+  , logOtherm
   ) where
 
 import           Control.Monad.IO.Class
@@ -41,6 +42,9 @@ debugm s = do
   liftIO $ logDebugN $ T.pack s
   flushLog
 
+logOtherm :: MonadIO m => LogLevel -> T.Text -> m ()
+logOtherm level s = do liftIO $ logOtherN level s
+                       flushLog
 -- ---------------------------------------------------------------------
 
 -- instance MonadLoggerIO IO where
