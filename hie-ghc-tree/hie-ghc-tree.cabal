@@ -1,0 +1,26 @@
+name:                hie-ghc-tree
+version:             0.1.0.0
+synopsis:            Haskell IDE GHC Tree plugin
+license:             BSD3
+license-file:        ../LICENSE
+author:              JP Moresmau
+maintainer:          jp.moresmau@gmail.com (for now)
+copyright:           2015 TBD
+category:            Web
+build-type:          Simple
+-- extra-source-files:
+cabal-version:       >=1.10
+
+library
+  exposed-modules:     Haskell.Ide.GhcTreePlugin
+  build-depends:       base >= 4.7 && < 5
+                     , aeson
+                     , ghc-dump-tree
+                     , ghc-mod
+                     , hie-base
+                     , hie-ghc-mod
+                     , hie-plugin-api
+                     , text
+                     , unordered-containers
+  ghc-options:         -Wall
+  default-language:    Haskell2010

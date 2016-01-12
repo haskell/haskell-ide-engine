@@ -7,6 +7,7 @@ packages:
 - hie-eg-plugin-async
 - hie-plugin-api
 - hie-ghc-mod
+- hie-ghc-tree
 - hie-hare
 - hie-docs-generator
 - location:
@@ -17,4 +18,5 @@ packages:
     git: https://github.com/mpickering/apply-refact.git
     commit: 402458652844c1a0f42b15123e0ceff761919415
   extra-dep: true
-extra-deps: []
+extra-deps:
+  - ghc-dump-tree-0.2.0.0
