@@ -13,7 +13,6 @@ import           Data.Aeson
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Control.Monad.State.Strict
-import qualified Data.Aeson as A
 import qualified Data.Attoparsec.ByteString as AB
 import qualified Data.Attoparsec.ByteString.Char8 as AB
 import qualified Data.ByteString.Char8 as B
@@ -63,10 +62,10 @@ parseToJsonPipe oneShot cin cout cid =
                          cout
                          (cid + 1)
 
-jsonConsumer :: P.Consumer A.Value IO ()
+jsonConsumer :: P.Consumer Value IO ()
 jsonConsumer =
   do val <- P.await
-     liftIO $ BL.putStr (A.encode val)
+     liftIO $ BL.putStr (encode val)
      liftIO $ BL.putStr (BL.singleton $ fromIntegral (ord '\STX'))
      jsonConsumer
 
@@ -76,8 +75,8 @@ tchanProducer oneShot chan = do
   P.yield val
   unless oneShot $ tchanProducer False chan
 
-encodePipe :: P.Pipe ChannelResponse A.Value IO ()
-encodePipe = P.map (A.toJSON . channelToWire)
+encodePipe :: P.Pipe ChannelResponse Value IO ()
+encodePipe = P.map (toJSON . channelToWire)
 
 parseFrames
   :: forall m.
@@ -90,8 +89,8 @@ parseFrames prod0 = do
   if isEmpty then return () else go prod1
   where
     -- ignore inputs consisting only of space
-    terminatedJSON :: AB.Parser (Maybe A.Value)
-    terminatedJSON = (fmap Just $ A.json' <* AB.many' AB.space <* AB.endOfInput)
+    terminatedJSON :: AB.Parser (Maybe Value)
+    terminatedJSON = (fmap Just $ json' <* AB.many' AB.space <* AB.endOfInput)
                  <|> (AB.many' AB.space *> pure Nothing)
     -- endOfInput: we want to be sure that the given
     -- parser consumes the entirety of the given input
@@ -107,9 +106,9 @@ parseFrames prod0 = do
            let maybeWrappedRet :: Maybe (Either PAe.DecodingError WireRequest)
                maybeWrappedRet = case ret of
                                              Left parseErr -> pure $ Left $ PAe.AttoparsecError parseErr
-                                             Right (Just a) -> case A.fromJSON a of
-                                                                 A.Error err -> pure $ Left $ PAe.FromJSONError err
-                                                                 A.Success wireReq -> pure $ Right wireReq
+                                             Right (Just a) -> case fromJSON a of
+                                                                 Error err -> pure $ Left $ PAe.FromJSONError err
+                                                                 Success wireReq -> pure $ Right wireReq
                                              Right Nothing -> Nothing
            case maybeWrappedRet of
              Just wrappedRet -> P.yield wrappedRet
@@ -143,7 +142,7 @@ wireToChannel cout ri wr =
 -- ---------------------------------------------------------------------
 
 channelToWire :: ChannelResponse -> WireResponse
-channelToWire cr = WireResp $ A.toJSON $ coutResp cr
+channelToWire cr = WireResp $ toJSON $ coutResp cr
 
 -- ---------------------------------------------------------------------
 
@@ -152,28 +151,27 @@ data WireRequest = WireReq
   , params  :: ParamMap
   } deriving (Show,Eq)
 
-instance A.ToJSON WireRequest where
-    toJSON wr = A.object
-                [ "cmd" A..= cmd wr
-                , "params" A..= params wr
+instance ToJSON WireRequest where
+    toJSON wr = object
+                [ "cmd" .= cmd wr
+                , "params" .= params wr
                 ]
 
 
-instance A.FromJSON WireRequest where
-    parseJSON (A.Object v) = WireReq <$>
-                           v A..: "cmd" <*>
-                           v A..:? "params" A..!= Map.empty
-    -- A non-Object value is of the wrong type, so fail.
-    parseJSON _          = mzero
+instance FromJSON WireRequest where
+    parseJSON = withObject "WireRequest" $ \v ->
+      WireReq <$>
+      v .: "cmd" <*>
+      v .:? "params" .!= Map.empty
 
 -- ---------------------------------------------------------------------
 
-data WireResponse = WireResp A.Value
+data WireResponse = WireResp Value
                   deriving (Show,Eq)
 
-instance A.ToJSON WireResponse where
+instance ToJSON WireResponse where
     toJSON (WireResp val) = val
 
 
-instance A.FromJSON WireResponse where
+instance FromJSON WireResponse where
     parseJSON p = return $ WireResp p

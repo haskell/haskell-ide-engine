@@ -366,14 +366,13 @@ instance (ValidResponse a) => ToJSON (IdeResponse a) where
  toJSON (IdeResponseError v) = object [ "error" .= v ]
 
 instance (ValidResponse a) => FromJSON (IdeResponse a) where
- parseJSON (Object v) = do
+ parseJSON = withObject "IdeResponse" $ \v -> do
    mf <- fmap IdeResponseFail <$> v .:? "fail"
    me <- fmap IdeResponseError <$> v .:? "error"
    let mo = IdeResponseOk <$> parseMaybe jsRead v
    case (mf <|> me <|> mo) of
      Just r -> return r
      Nothing -> empty
- parseJSON _ = empty
 
 
 instance ToJSON ParamValP  where
@@ -383,23 +382,22 @@ instance ToJSON ParamValP  where
  toJSON _ = "error"
 
 instance FromJSON (ParamVal 'PtText) where
-  parseJSON (Object v) = ParamText <$> v .: "text"
-  parseJSON _ = empty
+  parseJSON = withObject "text parameter object" $ \v ->
+    ParamText <$> v .: "text"
 
 instance FromJSON (ParamVal 'PtFile) where
-  parseJSON (Object v) = ParamFile <$> v.: "file"
-  parseJSON _ = empty
+  parseJSON = withObject "file parameter object" $ \v -> ParamFile <$> v.: "file"
 
 instance FromJSON (ParamVal 'PtPos) where
-  parseJSON (Object v) = fmap ParamPos $ liftA2 (,) (v .: "line") (v .: "col")
-  parseJSON _ = empty
+  parseJSON = withObject "position parameter object" $ \v ->
+    fmap ParamPos $ liftA2 (,) (v .: "line") (v .: "col")
 
 instance FromJSON ParamValP where
  parseJSON val = do
    let mt = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtText))
        mf = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtFile))
        mp = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtPos))
-   mt <|> mf <|> mp
+   mf <|> mp <|> mt <|> typeMismatch "text, file, or position object" val
 
 -- -------------------------------------
 
@@ -409,10 +407,9 @@ instance ToJSON IdeRequest where
           , "params" .= params]
 
 instance FromJSON IdeRequest where
- parseJSON (Object v) =
+ parseJSON = withObject "IdeRequest" $ \v ->
    IdeRequest <$> v .: "cmd"
               <*> v .: "params"
- parseJSON _ = empty
 
 -- -------------------------------------
 
@@ -420,10 +417,10 @@ instance ToJSON IdeErrorCode where
  toJSON code = String $ T.pack $ show code
 
 instance FromJSON IdeErrorCode where
- parseJSON (String s) = case reads (T.unpack s) of
-   ((c,""):_) -> pure c
-   _          -> empty
- parseJSON _ = empty
+ parseJSON = withText "IdeErrorCode" $ \s ->
+   case reads (T.unpack s) of
+     ((c,""):_) -> pure c
+     _          -> empty
 
 -- -------------------------------------
 
@@ -433,11 +430,10 @@ instance ToJSON IdeError where
                      , "info" .= ideInfo err]
 
 instance FromJSON IdeError where
- parseJSON (Object v) = IdeError
+ parseJSON = withObject "IdeError" $ \v -> IdeError
    <$> v .:  "code"
    <*> v .:  "msg"
    <*> v .:  "info"
- parseJSON _ = empty
 
 
 
@@ -447,8 +443,7 @@ instance ToJSON CabalSection where
   toJSON (CabalSection s) = toJSON s
 
 instance FromJSON CabalSection where
-  parseJSON (String s) = pure $ CabalSection s
-  parseJSON _ = empty
+  parseJSON = withText "CabalSection" $ pure . CabalSection
 
 -- -------------------------------------
 
@@ -457,12 +452,11 @@ instance ToJSON ParamDescription where
     object ["name" .= n,"help" .= h,"type" .= t,"required" .= (r == Required)]
 
 instance FromJSON ParamDescription where
-  parseJSON (Object v) = do
+  parseJSON = withObject "ParamDescription" $ \v -> do
     req <- v .: "required"
     if req
       then ParamDesc <$> v .: "name" <*> v .: "help" <*> v .: "type" <*> pure Required
       else ParamDesc <$> v .: "name" <*> v .: "help" <*> v .: "type" <*> pure Optional
-  parseJSON _ = empty
 
 -- -------------------------------------
 
@@ -470,5 +464,4 @@ instance ToJSON UntaggedCommandDescriptor where
   toJSON  = Object . jsWrite
 
 instance FromJSON UntaggedCommandDescriptor where
-  parseJSON (Object v) = jsRead v
-  parseJSON _ = empty
+  parseJSON = withObject "UntaggedCommandDescriptor" jsRead

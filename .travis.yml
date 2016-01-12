@@ -21,6 +21,8 @@ before_install:
 install:
 - "./travis_long stack +RTS -N2 -RTS setup"
 - "./travis_long stack build --only-snapshot"
+- "./travis_long stack install ide-backend-server"
+- "export PATH=\"${HOME}/.local/bin\":${PATH}"
 script:
 - "./travis_long stack +RTS -N1 -RTS build"
 - "./travis_long stack +RTS -N1 -RTS build --test"
