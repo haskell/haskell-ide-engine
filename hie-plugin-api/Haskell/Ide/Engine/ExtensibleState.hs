@@ -1,4 +1,4 @@
-{-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 -- Based on the one in xmonad-contrib, original header below
 -----------------------------------------------------------------------------
 -- |
@@ -24,24 +24,21 @@ module Haskell.Ide.Engine.ExtensibleState (
                               , gets
                               ) where
 
-import Control.Applicative
-import Data.Typeable (typeOf,Typeable,cast)
-import qualified Data.Map as M
-import Haskell.Ide.Engine.PluginDescriptor
 import qualified Control.Monad.State.Strict as State
-import Data.Maybe (fromMaybe)
-import Control.Monad
-import Control.Monad.Trans.Class
+import           Control.Monad.Trans.Class
+import           Data.Dynamic
+import qualified Data.Map as M
+import           Haskell.Ide.Engine.PluginDescriptor
 
 -- ---------------------------------------------------------------------
 -- $usage
 --
--- To utilize this feature in a contrib module, create a data type
+-- To utilize this feature in a plugin, create a data type
 -- and make it an instance of ExtensionClass. You can then use
 -- the functions from this module for storing and retrieving your data:
 --
 -- > {-# LANGUAGE DeriveDataTypeable #-}
--- > import qualified XMonad.Util.ExtensibleState as XS
+-- > import qualified Haskell.Ide.Engine.ExtensibleState as XS
 -- >
 -- > data ListStorage = ListStorage [Integer] deriving Typeable
 -- > instance ExtensionClass ListStorage where
@@ -58,28 +55,19 @@ import Control.Monad.Trans.Class
 --
 -- > .. XS.get :: X ListStorage
 --
--- To make your data persistent between restarts, the data type needs to be
--- an instance of Read and Show and the instance declaration has to be changed:
---
 -- > data ListStorage = ListStorage [Integer] deriving (Typeable,Read,Show)
 -- >
 -- > instance ExtensionClass ListStorage where
 -- >   initialValue = ListStorage []
--- >   extensionType = PersistentExtension
 --
--- One should take care that the string representation of the chosen type
--- is unique among the stored values, otherwise it will be overwritten.
--- Normally these string representations contain fully qualified module names
--- when automatically deriving Typeable, so
--- name collisions should not be a problem in most cases.
 -- A module should not try to store common datatypes(e.g. a list of Integers)
 -- without a custom data type as a wrapper to avoid collisions with other modules
 -- trying to store the same data type without a wrapper.
 --
 
 -- | Modify the map of state extensions by applying the given function.
-modifyStateExts :: (M.Map String (Either String StateExtension)
-                   -> M.Map String (Either String StateExtension))
+modifyStateExts :: (M.Map TypeRep Dynamic
+                   -> M.Map TypeRep Dynamic)
                 -> IdeM ()
 modifyStateExts f = lift $ lift $ State.modify $ \st -> st { extensibleState = f (extensibleState st) }
 
@@ -92,30 +80,22 @@ modify f = put . f =<< get
 -- type will be overwritten. (More precisely: A value whose string representation of its type
 -- is equal to the new one's)
 put :: ExtensionClass a => a -> IdeM ()
-put v = modifyStateExts . M.insert (show . typeOf $ v) . Right . extensionType $ v
+put v = modifyStateExts . M.insert (typeOf $ v) . toDyn $ v
 
 -- | Try to retrieve a value of the requested type, return an initial value if there is no such value.
-get :: ExtensionClass a => IdeM a
-get = getState' undefined -- `trick' to avoid needing -XScopedTypeVariables
-  where toValue val = maybe initialValue id $ cast val
-        getState' :: ExtensionClass a => a -> IdeM a
-        getState' k = do
-          v <- lift $ lift $ State.gets $ M.lookup (show . typeOf $ k) . extensibleState
-          case v of
-            Just (Right (StateExtension val)) -> return $ toValue val
-            Just (Right (PersistentExtension val)) -> return $ toValue val
-            Just (Left str) | PersistentExtension x <- extensionType k -> do
-                let val = fromMaybe initialValue $ cast =<< safeRead str `asTypeOf` Just x
-                put (val `asTypeOf` k)
-                return val
-            _ -> return $ initialValue
-        safeRead str = case reads str of
-                         [(x,"")] -> Just x
-                         _ -> Nothing
+get :: forall a. ExtensionClass a => IdeM a
+get =
+  do v <-
+       lift $
+       lift $
+       State.gets $ M.lookup (typeRep $ (Proxy :: Proxy a)) . extensibleState
+     case v of
+       Just dyn -> return $ fromDyn dyn initialValue
+       _ -> return initialValue
 
 gets :: ExtensionClass a => (a -> b) -> IdeM b
 gets = flip fmap get
 
 -- | Remove the value from the extensible state field that has the same type as the supplied argument
-remove :: ExtensionClass a => a -> IdeM ()
-remove wit = modifyStateExts $ M.delete (show . typeOf $ wit)
+remove :: ExtensionClass a => proxy a -> IdeM ()
+remove wit = modifyStateExts $ M.delete (typeRep $ wit)
