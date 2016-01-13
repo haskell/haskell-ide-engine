@@ -1,16 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Examples where
 
-import qualified Data.Aeson as A
-import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Map as M
 import           Data.Monoid
-import qualified Data.Text as T
-import           Haskell.Ide.Engine.BasePlugin
-import           Haskell.Ide.HaRePlugin
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Transport.JsonStdio
-import           Options
 
 jsonStdioExample :: PluginId -> UntaggedCommandDescriptor -> WireRequest
 jsonStdioExample pluginId (CommandDesc{cmdName = name,cmdContexts = contexts,cmdAdditionalParams = cmdParams}) =

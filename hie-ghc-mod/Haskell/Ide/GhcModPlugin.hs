@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
+
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -8,7 +10,6 @@ module Haskell.Ide.GhcModPlugin where
 
 import           Haskell.Ide.Engine.PluginUtils
 
-import           Control.Exception
 import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Either
@@ -18,7 +19,6 @@ import qualified Data.Text.Read as T
 import           Data.Vinyl
 import qualified Exception as G
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
 import qualified Language.Haskell.GhcMod as GM
 import qualified Language.Haskell.GhcMod.Monad as GM

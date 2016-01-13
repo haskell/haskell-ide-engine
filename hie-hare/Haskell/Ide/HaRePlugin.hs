@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
+
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -143,10 +145,7 @@ makeRefactorResult changedFiles = do
     diffOne f1 = do
       let (baseFileName,ext) = splitExtension f1
           f2 = (baseFileName ++ ".refactored" ++ ext)
-      (HieDiff f s d) <- diffFiles f1 f2
-      f' <- liftIO $ makeRelativeToCurrentDirectory f
-      s' <- liftIO $ makeRelativeToCurrentDirectory s
-      return (HieDiff f s d)
+      diffFiles f1 f2
   diffs <- mapM diffOne changedFiles
   return (RefactorResult diffs)
 

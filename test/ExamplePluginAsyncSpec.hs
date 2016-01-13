@@ -1,24 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 module ExamplePluginAsyncSpec where
 
-import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
-import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Data.Aeson
 import qualified Data.HashMap.Strict as H
-import qualified Data.Text as T
-import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
-import           Data.Typeable
 import           Haskell.Ide.Engine.Dispatcher
-import           Haskell.Ide.Engine.ExtensibleState
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
-import           Haskell.Ide.Engine.Utils
-import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.ExamplePluginAsync
 
 import           Test.Hspec
@@ -35,7 +27,6 @@ examplePluginAsyncSpec = do
   describe "stores and retrieves in the state" $ do
     it "stores the first one" $ do
       chan <- atomically newTChan
-      chSync <- atomically newTChan
       let req1 = IdeRequest "cmd1" (Map.fromList [])
           cr1 = CReq "test" 1 req1 chan
       let req2 = IdeRequest "cmd2" (Map.fromList [])

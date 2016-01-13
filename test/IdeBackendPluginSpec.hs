@@ -2,7 +2,6 @@
 module IdeBackendPluginSpec where
 
 import           Control.Concurrent.STM.TChan
-import           Control.Exception
 import           Control.Monad.STM
 import           Data.Aeson
 import qualified Data.HashMap.Strict as H
