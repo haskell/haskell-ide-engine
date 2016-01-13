@@ -3,15 +3,12 @@ module GhcTreePluginSpec where
 
 import           Control.Concurrent.STM.TChan
 import           Control.Monad.STM
-import           Control.Exception
 import           Data.Aeson
-import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.GhcTreePlugin
 

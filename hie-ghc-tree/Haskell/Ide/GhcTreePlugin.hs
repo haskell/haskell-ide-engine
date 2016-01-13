@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -7,10 +8,7 @@
 module Haskell.Ide.GhcTreePlugin where
 
 import           Data.Aeson
-import qualified Data.HashMap.Strict as H
 import qualified Data.Text as T
-import           Haskell.Ide.GhcModPlugin
-import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
