@@ -51,6 +51,7 @@ import           Haskell.Ide.Engine.BasePlugin
 import           Haskell.Ide.ExamplePlugin2
 import           Haskell.Ide.ExamplePluginAsync
 import           Haskell.Ide.GhcModPlugin
+import           Haskell.Ide.GhcTreePlugin
 import           Haskell.Ide.HaRePlugin
 import           Haskell.Ide.IdeBackend
 
@@ -63,6 +64,7 @@ taggedPlugins =
   :& Plugin (Proxy :: Proxy "eg2") example2Descriptor
   :& Plugin (Proxy :: Proxy "egasync") exampleAsyncDescriptor
   :& Plugin (Proxy :: Proxy "ghcmod") ghcmodDescriptor
+  :& Plugin (Proxy :: Proxy "ghctree") ghcTreeDescriptor
   :& Plugin (Proxy :: Proxy "hare") hareDescriptor
   :& Plugin (Proxy :: Proxy "base") baseDescriptor
   :& Plugin (Proxy :: Proxy "ide-backend") idebackendDescriptor
