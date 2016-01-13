@@ -13,13 +13,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.IO as T
 import           Examples
-import           Haskell.Ide.ApplyRefactPlugin
-import           Haskell.Ide.Engine.BasePlugin
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.ExamplePlugin2
-import           Haskell.Ide.ExamplePluginAsync
-import           Haskell.Ide.GhcModPlugin
-import           Haskell.Ide.HaRePlugin
 import qualified Options as O
 import           Options.Applicative
 import           System.Directory
@@ -41,11 +35,11 @@ newtype DocGenM a =
 
 generateDocs :: DocGenM ()
 generateDocs =
-  do path <- pluginIndexPath
+  do indexPath <- pluginIndexPath
      index <- pluginIndex
      prefix <- asks O.prefix
      liftIO . createDirectoryIfMissing True $ prefix </> "plugins"
-     liftIO $ T.writeFile path index
+     liftIO $ T.writeFile indexPath index
      plugins <- asks O.plugins
      let pluginDocs = map pluginDoc $ M.toList plugins
      pluginDocPaths <- mapM pluginDocPath $ M.keys plugins

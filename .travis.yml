@@ -22,9 +22,8 @@ install:
 - "./travis_long stack +RTS -N2 -RTS setup"
 - "./travis_long stack build --only-snapshot"
 - "./travis_long stack install ide-backend-server"
-- "export PATH=\"${HOME}/.local/bin\":${PATH}"
 script:
-- "./travis_long stack +RTS -N1 -RTS build"
+- "STACK_YAML=stack_test.yaml ./travis_long stack +RTS -N1 -RTS build --test --no-run-tests"
 - "./travis_long stack +RTS -N1 -RTS build --test"
 - "./travis_long stack exec emacs24 -- -q --batch -L elisp -l elisp/tests/hie-tests.el
   -f ert-run-tests-batch-and-exit"

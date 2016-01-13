@@ -1,14 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 module ExtensibleStateSpec where
 
-import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
-import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Data.Aeson
 import qualified Data.HashMap.Strict as H
 import qualified Data.Text as T
-import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
 import           Data.Typeable
 import           Haskell.Ide.Engine.Dispatcher
@@ -17,8 +14,6 @@ import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
-import           Haskell.Ide.Engine.Utils
-import           Haskell.Ide.Engine.PluginDescriptor
 
 import           Test.Hspec
 
@@ -55,7 +50,7 @@ testPlugins :: TChan () -> Plugins
 testPlugins chSync = Map.fromList [("test",testDescriptor chSync)]
 
 testDescriptor :: TChan () -> UntaggedPluginDescriptor
-testDescriptor chSync = PluginDescriptor
+testDescriptor _chSync = PluginDescriptor
   {
     pdUIShortName = "testDescriptor"
   , pdUIOverview = "PluginDescriptor for testing Dispatcher"
