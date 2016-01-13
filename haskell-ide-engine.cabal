@@ -83,6 +83,7 @@ executable hie
                      , gitrev >= 1.1
                      , haskell-ide-engine
                      , hie-apply-refact
+                     , hie-build-plugin
                      , hie-eg-plugin-async
                      , hie-example-plugin2
                      , hie-ghc-mod

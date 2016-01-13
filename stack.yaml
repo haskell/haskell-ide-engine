@@ -3,6 +3,7 @@ packages:
 - .
 - hie-apply-refact
 - hie-base
+- hie-build-plugin
 - hie-example-plugin2
 - hie-eg-plugin-async
 - hie-plugin-api
