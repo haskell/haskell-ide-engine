@@ -56,8 +56,8 @@
             (let* ((after-stx-marker (match-end 0))
                    (input-text (buffer-substring-no-properties (point-min) (match-beginning 0)))
                    (handle-error (lambda ()
+                                   (hie-log "<-parse-error %s" input-text)
                                    (when hie-process-handle-invalid-input
-                                     (hie-log "<-parse-error %s" input-text)
                                      (funcall hie-process-handle-invalid-input input-text))))
                    (json-array-type 'list))
               (goto-char (point-min))
