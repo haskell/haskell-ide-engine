@@ -157,22 +157,11 @@ runHareCommand :: T.Text -- ^ The file name we'll operate on
                  -> (RefactSettings -> GM.Options -> FilePath -> IO [FilePath])
                  -> IdeM (IdeResponse RefactorResult)
 runHareCommand fp name cmd = do
-  let (dir,_) = fileInfo fp
-  let opts = GM.defaultOptions
-  old <- liftIO getCurrentDirectory
-  G.gbracket (liftIO $ setCurrentDirectory dir)
-             (\_ -> liftIO $ setCurrentDirectory old)
-             (\_ -> do
-                -- we need to get the root of our folder
-                -- ghc-mod returns a new line at the end...
-                root <- takeWhile (`notElem` ['\r','\n']) <$> GM.runGmOutT opts GM.rootInfo
-                liftIO $ setCurrentDirectory root
-                res <- liftIO $ catchException $ cmd defaultSettings GM.defaultOptions (T.unpack fp)
-                liftIO $ setCurrentDirectory old
-                case res of
-                  Left err -> return $ IdeResponseFail (IdeError PluginError
-                                (T.pack $ name ++ ": " ++ show err) Null)
-                  Right fs -> do
-                    r <- liftIO $ makeRefactorResult fs
-                    return (IdeResponseOk r)
-              )
+  do
+    res <- liftIO $ catchException $ cmd defaultSettings GM.defaultOptions (T.unpack fp)
+    case res of
+      Left err -> return $ IdeResponseFail (IdeError PluginError
+                    (T.pack $ name ++ ": " ++ show err) Null)
+      Right fs -> do
+        r <- liftIO $ makeRefactorResult fs
+        return (IdeResponseOk r)

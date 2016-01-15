@@ -8,22 +8,26 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Haskell.Ide.GhcModPlugin where
 
-import           Haskell.Ide.Engine.PluginUtils
-
 import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Either
+import           Data.Function
+import           Data.List
 import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Text.Read as T
 import           Data.Vinyl
 import qualified Exception as G
+import qualified GHC as G
 import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
 import qualified Language.Haskell.GhcMod as GM
+import qualified Language.Haskell.GhcMod.Gap as GM
 import qualified Language.Haskell.GhcMod.Monad as GM
 import qualified Language.Haskell.GhcMod.Types as GM
 import qualified Language.Haskell.GhcMod.Utils as GM
+import qualified Name as G
 import           System.Directory
 import           System.FilePath
 
@@ -93,6 +97,32 @@ checkCmd = CmdSync $ \_ctxs req -> do
 
 -- ---------------------------------------------------------------------
 
+-- | Extracted from ghc-mod
+getGlobalSymbolTable :: GM.LightGhc [(GM.Symbol, [GM.ModuleString])]
+getGlobalSymbolTable = do
+  df  <- G.getSessionDynFlags
+  let mods = GM.listVisibleModules df
+  moduleInfos <- mapM G.getModuleInfo mods
+  return $ collectModules
+         $ extractBindings `concatMap` (moduleInfos `zip` mods)
+
+-- | Extracted from ghc-mod
+extractBindings :: (Maybe G.ModuleInfo, G.Module)
+                -> [(GM.Symbol, GM.ModuleString)]
+extractBindings (Nothing,  _)   = []
+extractBindings (Just inf, mdl) =
+  map (\name -> (G.getOccString name, modStr)) names
+  where
+    names  = G.modInfoExports inf
+    modStr = GM.ModuleString $ GM.moduleNameString $ G.moduleName mdl
+
+-- | Extracted from ghc-mod
+collectModules :: [(GM.Symbol, GM.ModuleString)]
+               -> [(GM.Symbol, [GM.ModuleString])]
+collectModules = map tieup . groupBy ((==) `on` fst) . sort
+  where
+    tieup x = (head (map fst x), map snd x)
+
 -- | Runs the find command from the given directory, for the given symbol
 findCmd :: CommandFunc ModuleList
 findCmd = CmdSync $ \_ctxs req -> do
@@ -102,19 +132,14 @@ findCmd = CmdSync $ \_ctxs req -> do
       runGhcModCommand (T.pack (T.unpack dirName </> "dummy")) (\_->
           do
             -- adapted from ghc-mod find command, which launches the executable again
-            tmpdir <- GM.cradleTempDir <$> GM.cradle
-            sf <- takeWhile (`notElem` ['\r','\n']) <$> GM.dumpSymbol tmpdir
-            db <- M.fromAscList . map conv . lines <$> liftIO (readFile sf)
-            let f = M.findWithDefault ([]::[GM.ModuleString]) symbol db
+            symbolTable <- M.fromAscList <$> GM.runGmPkgGhc getGlobalSymbolTable
+            let f = M.findWithDefault ([]::[GM.ModuleString]) (T.unpack symbol) symbolTable
             return $ ModuleList $ map (T.pack . GM.getModuleString) f
           )
 
       -- return (IdeResponseOk "Placholder:Need to debug this in ghc-mod, returns 'does not exist (No such file or directory)'")
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.findCmd: ghc’s exhaustiveness checker is broken" Null)
-  where
-    conv :: String -> (T.Text, [GM.ModuleString])
-    conv = read
 
 -- ---------------------------------------------------------------------
 
@@ -170,19 +195,9 @@ readTypeResult t = do
 runGhcModCommand :: T.Text -- ^ The file name we'll operate on
                  -> (FilePath -> IdeM a)
                  -> IdeM (IdeResponse a)
-runGhcModCommand fp cmd = do
-  let (dir,f) = fileInfo fp
-  let opts = GM.defaultOptions
-  old <- liftIO getCurrentDirectory
-  G.gbracket (liftIO $ setCurrentDirectory dir)
-          (\_ -> liftIO $ setCurrentDirectory old)
-          (\_ -> do
-            -- we need to get the root of our folder
-            -- ghc-mod returns a new line at the end...
-            root <- takeWhile (`notElem` ['\r','\n']) <$> GM.runGmOutT opts GM.rootInfo
-            liftIO $ setCurrentDirectory root
-            tmp <- liftIO $ GM.newTempDir root
-            let setRoot e = e{GM.gmCradle = (GM.gmCradle e){GM.cradleRootDir=root,GM.cradleTempDir=tmp}}
-            (IdeResponseOk <$> GM.gmeLocal setRoot (cmd f)) `G.gcatch` \(e :: GM.GhcModError) ->
-               return $ IdeResponseFail $ IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Null
-          )
+runGhcModCommand fp cmd =
+  do (IdeResponseOk <$> (cmd (T.unpack fp))) `G.gcatch`
+       \(e :: GM.GhcModError) ->
+         return $
+         IdeResponseFail $
+         IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Null
