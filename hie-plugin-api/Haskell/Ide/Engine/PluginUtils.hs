@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
@@ -20,14 +21,15 @@ import           Control.Exception
 import           Data.Aeson
 import           Data.Algorithm.Diff
 import           Data.Algorithm.DiffOutput
+import           Data.Bifunctor
+import qualified Data.Map as Map
 import           Data.Monoid
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import           Data.Vinyl
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
-import qualified Data.Map as Map
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
 import           Prelude hiding (log)
 import           System.FilePath
 
@@ -118,8 +120,5 @@ fileInfo tfileName =
 
 catchException :: (IO t) -> IO (Either String t)
 catchException f = do
-  res <- handle handler (f >>= \r -> return $ Right r)
-  return res
-  where
-    handler:: SomeException -> IO (Either String t)
-    handler e = return (Left (show e))
+  res <- try f
+  pure (first (\(e :: SomeException) -> show e) res)
