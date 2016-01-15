@@ -250,6 +250,18 @@ http://debbugs.gnu.org/cgi/bugreport.cgi?bug=15990."
      (should (equal "\nmain = putStrLn \"hello\"\n\nfoo_renamed :: Int -> Int\nfoo_renamed x = x + 3\n\n"
                     refactored-string)))))
 
+(hie-define-test
+ hie-can-log-if-buffer-is-killed
 
+ (hie-log "Testing log buffer")
+ (kill-buffer "*hie-log*")
+ (hie-log "Testing after killing the log buffer"))
+
+(hie-define-test
+ hie-can-still-process-if-buffer-is-killed
+
+ (hie-process-filter nil "{")
+ (kill-buffer "*hie-process*")
+ (hie-process-filter nil "}"))
 
 ;;; hie-tests.el ends here

@@ -47,7 +47,7 @@
 
 (defun hie-process-filter (process input)
   (let ((prev-buffer (current-buffer)))
-    (with-current-buffer hie-process-buffer
+    (hie-with-process-buffer hie-process-buffer
       (let ((point (point)))
         (insert input)
         (save-excursion
@@ -111,7 +111,7 @@ running this function does nothing."
     (setq hie-process-buffer nil)))
 
 (defun hie-log (&rest args)
-  (with-current-buffer hie-log-buffer
+  (hie-with-log-buffer hie-log-buffer
     (goto-char (point-max))
     (insert (apply #'format args)
               "\n")))
@@ -172,6 +172,14 @@ association lists and count on HIE to use default values there."
     (message
      (format "Error extracting type from type-info response: %s"
              type-info))))
+
+(defmacro hie-with-log-buffer (&rest body)
+  `(progn (setq hie-log-buffer (get-buffer-create "*hie-log*"))
+          (with-current-buffer hie-log-buffer ,@body)))
+
+(defmacro hie-with-process-buffer (&rest body)
+  `(progn (setq hie-process-buffer (get-buffer-create "*hie-process*"))
+          (with-current-buffer hie-process-buffer ,@body)))
 
 (defmacro hie-with-refactor-buffer (&rest body)
   `(progn (setq hie-refactor-buffer (get-buffer-create "*hie-refactor*"))
