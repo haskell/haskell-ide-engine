@@ -16,8 +16,8 @@ packages:
     commit: 402458652844c1a0f42b15123e0ceff761919415
   extra-dep: true
 - location:
-    git: https://github.com/DanielG/ghc-mod.git
-    commit: 54fe4a0edbdddfbdc2acc43edde2b061ca5b399b
+    git: https://github.com/cocreature/ghc-mod.git
+    commit: 76d0ff306fc500132120eff9dfb26834f15cbf23
   extra-dep: true
 - location:
     git: https://github.com/alanz/HaRe.git

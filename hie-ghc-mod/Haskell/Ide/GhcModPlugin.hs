@@ -91,7 +91,7 @@ checkCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
-      fmap T.pack <$> runGhcModCommand fileName (\f->GM.checkSyntax [f])
+      fmap T.pack <$> runGhcModCommand (GM.checkSyntax [(T.unpack fileName)])
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.checkCmd: ghc’s exhaustiveness checker is broken" Null)
 
@@ -129,13 +129,12 @@ findCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "dir" :& IdText "symbol" :& RNil) req of
     Left err -> return err
     Right (ParamFile dirName :& ParamText symbol :& RNil) -> do
-      runGhcModCommand (T.pack (T.unpack dirName </> "dummy")) (\_->
-          do
-            -- adapted from ghc-mod find command, which launches the executable again
+      runGhcModCommand
+        (do -- adapted from ghc-mod find command, which launches the executable again
             symbolTable <- M.fromAscList <$> GM.runGmPkgGhc getGlobalSymbolTable
             let f = M.findWithDefault ([]::[GM.ModuleString]) (T.unpack symbol) symbolTable
             return $ ModuleList $ map (T.pack . GM.getModuleString) f
-          )
+        )
 
       -- return (IdeResponseOk "Placholder:Need to debug this in ghc-mod, returns 'does not exist (No such file or directory)'")
     Right _ -> return $ IdeResponseError (IdeError InternalError
@@ -148,7 +147,7 @@ lintCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
-      fmap T.pack <$> runGhcModCommand fileName (GM.lint GM.defaultLintOpts)
+      fmap T.pack <$> runGhcModCommand (GM.lint GM.defaultLintOpts (T.unpack fileName))
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.lintCmd: ghc’s exhaustiveness checker is broken" Null)
 
@@ -159,7 +158,7 @@ infoCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdText "expr" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamText expr :& RNil) -> do
-      fmap T.pack <$> runGhcModCommand fileName (flip GM.info (GM.Expression (T.unpack expr)))
+      fmap T.pack <$> runGhcModCommand (GM.info (T.unpack fileName) (GM.Expression (T.unpack expr)))
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.infoCmd: ghc’s exhaustiveness checker is broken" Null)
 
@@ -170,7 +169,7 @@ typeCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos (r,c) :& RNil) -> do
-      fmap (toTypeInfo . T.lines . T.pack) <$> runGhcModCommand fileName (\f->GM.types f r c)
+      fmap (toTypeInfo . T.lines . T.pack) <$> runGhcModCommand (GM.types (T.unpack fileName) r c)
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.typesCmd: ghc’s exhaustiveness checker is broken" Null)
 
@@ -192,11 +191,10 @@ readTypeResult t = do
 -- ---------------------------------------------------------------------
 
 
-runGhcModCommand :: T.Text -- ^ The file name we'll operate on
-                 -> (FilePath -> IdeM a)
+runGhcModCommand :: IdeM a
                  -> IdeM (IdeResponse a)
-runGhcModCommand fp cmd =
-  do (IdeResponseOk <$> (cmd (T.unpack fp))) `G.gcatch`
+runGhcModCommand cmd =
+  do (IdeResponseOk <$> cmd) `G.gcatch`
        \(e :: GM.GhcModError) ->
          return $
          IdeResponseFail $
