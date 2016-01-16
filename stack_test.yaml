@@ -1,4 +1,4 @@
-resolver: nightly-2016-01-06
+resolver: nightly-2016-01-14
 packages:
 - .
 - hie-apply-refact
@@ -21,6 +21,7 @@ packages:
   extra-dep: true
 extra-deps:
   - ghc-dump-tree-0.2.0.0
+  - ide-backend-server-0.10.0.2
 flags:
   haskell-ide-engine:
     pedantic: true
