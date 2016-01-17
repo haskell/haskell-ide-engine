@@ -14,7 +14,6 @@ module Haskell.Ide.Engine.PluginUtils
   , missingParameter
   , incorrectParameter
   , fileInfo
-  , catchException
   ) where
 
 import           Control.Exception
@@ -117,8 +116,3 @@ fileInfo tfileName =
   let sfileName = T.unpack tfileName
       dir = takeDirectory sfileName
   in (dir,sfileName)
-
-catchException :: (IO t) -> IO (Either String t)
-catchException f = do
-  res <- try f
-  pure (first (\(e :: SomeException) -> show e) res)
