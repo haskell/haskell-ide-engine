@@ -13,7 +13,7 @@ test-emacs:
 
 .PHONY: build-haskell
 build-haskell:
-	stack install ide-backend-server-0.10.0.2
+	stack install ide-backend-server
 	@STACK_YAML=stack_test.yaml stack build --test --no-run-tests
 
 .PHONY: test-haskell
