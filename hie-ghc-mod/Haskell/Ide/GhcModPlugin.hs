@@ -37,10 +37,10 @@ ghcmodDescriptor = PluginDescriptor
       :& buildCommand lintCmd (Proxy :: Proxy "lint")  "Check files using `hlint'"
                      [".hs",".lhs"] (SCtxFile :& RNil) RNil
 
-      :& buildCommand findCmd (Proxy :: Proxy "find")  "List all modules that define SYMBOL"
-                     [".hs",".lhs"] (SCtxProject :& RNil)
-                     (  SParamDesc (Proxy :: Proxy "symbol") (Proxy :: Proxy "The SYMBOL to look up") SPtText SRequired
-                     :& RNil)
+      -- :& buildCommand findCmd (Proxy :: Proxy "find")  "List all modules that define SYMBOL"
+      --                [".hs",".lhs"] (SCtxProject :& RNil)
+      --                (  SParamDesc (Proxy :: Proxy "symbol") (Proxy :: Proxy "The SYMBOL to look up") SPtText SRequired
+      --                :& RNil)
 
       :& buildCommand infoCmd (Proxy :: Proxy "info") "Look up an identifier in the context of FILE (like ghci's `:info')"
                      [".hs",".lhs"] (SCtxFile :& RNil)
@@ -87,19 +87,20 @@ checkCmd = CmdSync $ \_ctxs req -> do
 
 -- ---------------------------------------------------------------------
 
--- | Runs the find command from the given directory, for the given symbol
-findCmd :: CommandFunc ModuleList
-findCmd = CmdSync $ \_ctxs req -> do
-  case getParams (IdText "symbol" :& RNil) req of
-    Left err -> return err
-    Right (ParamText symbol :& RNil) -> do
-      runGhcModCommand $
-        (ModuleList . map (T.pack . GM.getModuleString)) <$> GM.findSymbol' (T.unpack symbol)
+-- Disabled until ghc-mod no longer needs to launch a separate executable
+-- -- | Runs the find command from the given directory, for the given symbol
+-- findCmd :: CommandFunc ModuleList
+-- findCmd = CmdSync $ \_ctxs req -> do
+--   case getParams (IdText "symbol" :& RNil) req of
+--     Left err -> return err
+--     Right (ParamText symbol :& RNil) -> do
+--       runGhcModCommand $
+--         (ModuleList . map (T.pack . GM.getModuleString)) <$> GM.findSymbol' (T.unpack symbol)
 
 
-      -- return (IdeResponseOk "Placholder:Need to debug this in ghc-mod, returns 'does not exist (No such file or directory)'")
-    Right _ -> return $ IdeResponseError (IdeError InternalError
-      "GhcModPlugin.findCmd: ghc’s exhaustiveness checker is broken" Null)
+--       -- return (IdeResponseOk "Placholder:Need to debug this in ghc-mod, returns 'does not exist (No such file or directory)'")
+--     Right _ -> return $ IdeResponseError (IdeError InternalError
+--       "GhcModPlugin.findCmd: ghc’s exhaustiveness checker is broken" Null)
 
 -- ---------------------------------------------------------------------
 
