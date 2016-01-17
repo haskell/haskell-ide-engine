@@ -1,24 +1,28 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
-
-{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE RankNTypes #-}
+
 module Haskell.Ide.HaRePlugin where
 
-import           Control.Monad.IO.Class
+import           Control.Monad.State
+import           Control.Monad.Trans.Control
 import           Data.Aeson
+import           Data.Monoid
 import qualified Data.Text as T
+import           Exception
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
-import           Language.Haskell.Refact.HaRe
-
-
-import qualified Exception as G
-import qualified Language.Haskell.GhcMod as GM
 import qualified Language.Haskell.GhcMod.Monad as GM
-import           System.Directory
+import qualified Language.Haskell.GhcMod.Error as GM
+import           Language.Haskell.Refact.HaRe
+import           Language.Haskell.Refact.Utils.Monad
+import           Language.Haskell.Refact.Utils.Types
+import           Language.Haskell.Refact.Utils.Utils
 import           System.FilePath
 
 -- ---------------------------------------------------------------------
@@ -66,11 +70,11 @@ demoteCmd  = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& RNil) ->
-      runHareCommand fileName "demote" (\s o f -> demote s o f pos)
+      runHareCommand "demote" (compDemote (T.unpack fileName) pos)
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.demoteCmd: ghc’s exhaustiveness checker is broken" Null)
 
--- demote :: RefactSettings -> GM.Options -> FilePath -> SimpPos -> IO [FilePath]
+-- compDemote :: FilePath -> SimpPos -> IO [FilePath]
 
 -- ---------------------------------------------------------------------
 
@@ -79,11 +83,11 @@ dupdefCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdText "name" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& ParamText name :& RNil) ->
-      runHareCommand fileName "duplicateDef" (\s o f -> duplicateDef s o f (T.unpack name) pos)
+      runHareCommand "dupdef" (compDuplicateDef (T.unpack fileName) (T.unpack name) pos)
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.dupdefCmd: ghc’s exhaustiveness checker is broken" Null)
 
--- duplicateDef :: RefactSettings -> GM.Options -> FilePath -> String -> SimpPos -> IO [FilePath]
+-- compDuplicateDef :: FilePath -> String -> SimpPos -> IO [FilePath]
 
 -- ---------------------------------------------------------------------
 
@@ -92,11 +96,11 @@ iftocaseCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdPos "end_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos start :& ParamPos end :& RNil) ->
-      runHareCommand fileName "ifToCase" (\s o f -> ifToCase s o f start end)
+      runHareCommand "iftocase" (compIfToCase (T.unpack fileName) start end)
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.ifToCaseCmd: ghc’s exhaustiveness checker is broken" Null)
 
--- ifToCase :: RefactSettings -> GM.Options -> FilePath -> SimpPos -> SimpPos -> IO [FilePath]
+-- compIfToCase :: FilePath -> SimpPos -> SimpPos -> IO [FilePath]
 
 -- ---------------------------------------------------------------------
 
@@ -105,11 +109,11 @@ liftonelevelCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& RNil) ->
-      runHareCommand fileName "liftOneLevel" (\s o f -> liftOneLevel s o f pos)
+      runHareCommand "liftonelevel" (compLiftOneLevel (T.unpack fileName) pos)
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.liftOneLevel: ghc’s exhaustiveness checker is broken" Null)
 
--- liftOneLevel :: RefactSettings -> GM.Options -> FilePath -> SimpPos -> IO [FilePath]
+-- compLiftOneLevel :: FilePath -> SimpPos -> IO [FilePath]
 
 -- ---------------------------------------------------------------------
 
@@ -118,11 +122,11 @@ lifttotoplevelCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& RNil) ->
-      runHareCommand fileName "liftToTopLevel" (\s o f -> liftToTopLevel s o f pos)
+      runHareCommand "lifttotoplevel" (compLiftToTopLevel (T.unpack fileName) pos)
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.liftToTopLevel: ghc’s exhaustiveness checker is broken" Null)
 
--- liftToTopLevel :: RefactSettings -> GM.Options -> FilePath -> SimpPos -> IO [FilePath]
+-- compLiftToTopLevel :: FilePath -> SimpPos -> IO [FilePath]
 
 -- ---------------------------------------------------------------------
 
@@ -131,11 +135,11 @@ renameCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdText "name" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& ParamText name :& RNil) ->
-      runHareCommand fileName "rename" (\s o f -> rename s o f (T.unpack name) pos)
+      runHareCommand "rename" (compRename (T.unpack fileName) (T.unpack name) pos)
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.renameCmd: ghc’s exhaustiveness checker is broken" Null)
 
--- rename :: RefactSettings -> Options -> FilePath -> String -> SimpPos -> IO [FilePath]
+-- compRename :: FilePath -> String -> SimpPos -> IO [FilePath]
 
 -- ---------------------------------------------------------------------
 
@@ -152,16 +156,51 @@ makeRefactorResult changedFiles = do
 -- ---------------------------------------------------------------------
 
 
-runHareCommand :: T.Text -- ^ The file name we'll operate on
-                 -> String -- ^ command name for log
-                 -> (RefactSettings -> GM.Options -> FilePath -> IO [FilePath])
+runHareCommand :: String -> RefactGhc [ApplyRefacResult]
                  -> IdeM (IdeResponse RefactorResult)
-runHareCommand fp name cmd = do
-  do
-    res <- liftIO $ catchException $ cmd defaultSettings GM.defaultOptions (T.unpack fp)
-    case res of
-      Left err -> return $ IdeResponseFail (IdeError PluginError
-                    (T.pack $ name ++ ": " ++ show err) Null)
-      Right fs -> do
-        r <- liftIO $ makeRefactorResult fs
-        return (IdeResponseOk r)
+runHareCommand name cmd =
+  do let initialState =
+           RefSt {rsSettings = defaultSettings
+                 ,rsUniqState = 1
+                 ,rsSrcSpanCol = 1
+                 ,rsFlags = RefFlags False
+                 ,rsStorage = StorageNone
+                 ,rsCurrentTarget = Nothing
+                 ,rsModule = Nothing}
+     let cmd' = unRefactGhc cmd
+         embeddedCmd =
+           GM.unGmlT $
+           hoist (liftIO . flip evalStateT initialState)
+                 (GM.GmlT cmd')
+         handlers
+           :: Applicative m
+           => [GM.GHandler m (Either String a)]
+         handlers =
+           [GM.GHandler (\(ErrorCall e) -> pure (Left e))
+           ,GM.GHandler (\(err :: GM.GhcModError) -> pure (Left (show err)))]
+     eitherRes <- fmap Right embeddedCmd `GM.gcatches` handlers
+     case eitherRes of
+       Left err ->
+         pure (IdeResponseFail
+                 (IdeError PluginError
+                           (T.pack $ name <> ": \"" <> err <> "\"")
+                           Null))
+       Right res ->
+         do liftIO $
+              writeRefactoredFiles (rsetVerboseLevel defaultSettings)
+                                   res
+            let files = modifiedFiles res
+            refactRes <- liftIO $ makeRefactorResult files
+            pure (IdeResponseOk refactRes)
+
+-- | This is like hoist from the mmorph package, but build on
+-- `MonadTransControl` since we don’t have an `MFunctor` instance.
+hoist
+  :: (MonadTransControl t,Monad (t m'),Applicative m',Monad m',Monad m)
+  => (forall b. m b -> m' b) -> t m a -> t m' a
+hoist f a =
+  liftWith (\run ->
+              let b = run a
+                  c = f b
+              in pure c) >>=
+  restoreT

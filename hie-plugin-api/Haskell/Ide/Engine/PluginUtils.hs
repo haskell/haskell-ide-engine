@@ -37,11 +37,11 @@ import           System.FilePath
 
 -- |If all the listed params are present in the request resturn their values,
 -- else return an error message.
-getParams :: forall r ts. (ValidResponse r) =>
+getParams :: (ValidResponse r) =>
   Rec TaggedParamId ts -> IdeRequest -> Either (IdeResponse r) (Rec ParamVal ts)
 getParams params req = go params
   where
-    go :: forall r ts. (ValidResponse r) =>
+    go :: (ValidResponse r) =>
       Rec TaggedParamId ts -> Either (IdeResponse r) (Rec ParamVal ts)
     go RNil = Right RNil
     go (x:&xs) = case go xs of
