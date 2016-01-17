@@ -16,12 +16,12 @@ packages:
     commit: 402458652844c1a0f42b15123e0ceff761919415
   extra-dep: true
 - location:
-    git: https://github.com/cocreature/ghc-mod.git
-    commit: 76d0ff306fc500132120eff9dfb26834f15cbf23
+    git: https://github.com/DanielG/ghc-mod.git
+    commit: 54fe4a0edbdddfbdc2acc43edde2b061ca5b399b
   extra-dep: true
 - location:
-    git: https://github.com/alanz/HaRe.git
-    commit: dd8701705c6388ae79be0ec2a00c70a708454242
+    git: https://github.com/cocreature/HaRe.git
+    commit: 318841c2c125de60a4db9de75d108841651db410
   extra-dep: true
 extra-deps:
   - ghc-dump-tree-0.2.0.0
