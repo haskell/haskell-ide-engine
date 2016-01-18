@@ -13,6 +13,7 @@ data GlobalOpts = GlobalOpts
   , optLogFile :: Maybe String
   , optPort :: Port
   , optHttp :: Bool
+  , projectRoot :: Maybe String
   } deriving (Show)
 
 globalOptsParser :: Parser GlobalOpts
@@ -47,3 +48,8 @@ globalOptsParser = GlobalOpts
   <*> flag False True
        ( long "http"
        <> help "Enable the webinterface")
+  <*> (optional $ strOption
+       ( long "project-root"
+      <> short 'r'
+      <> metavar "PROJECTROOT"
+      <> help "Root directory of project, defaults to cwd"))

@@ -18,7 +18,6 @@ import           Control.Exception
 import           Control.Monad
 import           Control.Monad.Logger
 import           Control.Monad.STM
-import           Control.Monad.Trans.Maybe
 import qualified Data.Map as Map
 import           Data.Proxy
 import qualified Data.Text as T
@@ -41,7 +40,6 @@ import           Haskell.Ide.Engine.Utils
 import           Options.Applicative.Simple
 import qualified Paths_haskell_ide_engine as Meta
 import           System.Directory
-import           System.Environment
 
 -- ---------------------------------------------------------------------
 -- plugins
@@ -125,13 +123,9 @@ run opts = do
       then setLogLevel LevelDebug
       else setLogLevel LevelError
 
-    -- We change the current working dirextory of HIE to user home
-    -- directory so that plugins do not depend on cwd. All paths to
-    -- all project files referenced in commands are expected to be
-    -- absolute. Cwd is state and we do not want state in what is
-    -- async system.
-
-    getUserHomeDirectory >>= mapM_ setCurrentDirectory
+    case projectRoot opts of
+      Nothing -> pure ()
+      Just root -> setCurrentDirectory root
 
     logm $  "run entered for HIE " ++ version
     cin <- atomically newTChan :: IO (TChan ChannelRequest)
@@ -157,15 +151,6 @@ run opts = do
 
     -- At least one needs to be launched, othewise a threadDelay with a large
     -- number should be given. Or some other waiting action.
-
-getUserHomeDirectory :: IO (Maybe String)
-getUserHomeDirectory = do
-    -- On POSIX-like $HOME points to user home directory.
-    -- On Windows %USERPROFILE% points to user home directory.
-    runMaybeT (msum [ MaybeT $ lookupEnv "HOME"
-                    , MaybeT $ lookupEnv "USERPROFILE"])
-
--- ---------------------------------------------------------------------
 
 -- |Do whatever it takes to get a request from the IDE.
 -- pass the request through to the main event dispatcher, and listen on the
