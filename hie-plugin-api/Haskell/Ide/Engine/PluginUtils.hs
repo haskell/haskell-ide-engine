@@ -16,11 +16,9 @@ module Haskell.Ide.Engine.PluginUtils
   , fileInfo
   ) where
 
-import           Control.Exception
 import           Data.Aeson
 import           Data.Algorithm.Diff
 import           Data.Algorithm.DiffOutput
-import           Data.Bifunctor
 import qualified Data.Map as Map
 import           Data.Monoid
 import qualified Data.Text as T

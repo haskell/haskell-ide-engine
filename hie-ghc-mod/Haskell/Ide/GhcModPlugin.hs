@@ -18,7 +18,6 @@ import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
 import qualified Language.Haskell.GhcMod as GM
-import qualified Language.Haskell.GhcMod.Find as GM
 import qualified Language.Haskell.GhcMod.Types as GM
 
 -- ---------------------------------------------------------------------
