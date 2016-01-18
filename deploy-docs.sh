@@ -7,7 +7,6 @@ pip install -U Sphinx
 set -e # exit with nonzero exit code if anything fails
 
 # build docs generator and create docs
-stack build
 stack exec hie-docs-generator -- --prefix docs/source/
 
 # run our compile script, discussed above
