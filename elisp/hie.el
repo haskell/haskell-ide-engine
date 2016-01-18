@@ -1,6 +1,7 @@
 ;;; hie.el --- Haskell IDE Engine process -*- lexical-binding: t -*-
 
 ;; Copyright (c) 2015 Haskell Ide Contributors
+;; Version: 0.1
 ;; Package-Requires: ((dash "2.12.1"))
 
 ;; See LICENSE for details.
@@ -74,7 +75,7 @@
                 (end-of-file (funcall handle-error)))
               (delete-region (point-min) after-stx-marker))))))))
 
-(defun hie-start-process ()
+(defun hie-start-process (&optional additional-args)
   "Start Haskell IDE Engine process.
 
 This function returns the process. If the process is already
@@ -88,10 +89,11 @@ running this function does nothing."
           (get-buffer-create "*hie-process*"))
     (setq hie-process
           (apply #'start-process
-           "Haskell IDE Engine"
-           hie-process-buffer
-           hie-command
-           hie-command-args))
+                 "Haskell IDE Engine"
+                 hie-process-buffer
+                 hie-command
+                 (append additional-args
+                         hie-command-args)))
     (set-process-query-on-exit-flag hie-process nil)
     (set-process-filter hie-process #'hie-process-filter))
   hie-process)
@@ -320,7 +322,10 @@ Keymap:
   (if hie-mode
       (progn
         (unless (hie-process-live-p)
-          (hie-start-process))
+          (let* ((file (buffer-file-name))
+                 (dir (when file (file-name-directory file)))
+                 (additional-args (when dir (list "-r" dir))))
+            (hie-start-process additional-args)))
         (setq hie-process-handle-message
               #'hie-handle-first-plugins-command)
         (hie-post-message
@@ -331,6 +336,8 @@ Keymap:
       (unless (cl-find-if (lambda (buffer)
                            (with-current-buffer buffer
                              (bound-and-true-p hie-mode))) (buffer-list))
-       (hie-kill-process)))))
+        (hie-kill-process)))))
 
 (provide 'hie)
+
+;;; hie.el ends here
