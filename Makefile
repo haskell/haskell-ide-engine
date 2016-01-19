@@ -9,7 +9,11 @@ test: test-haskell test-emacs
 
 .PHONY: test-emacs
 test-emacs:
-	stack exec $(emacs) -- -q --batch -L elisp -l elisp/tests/hie-tests.el -f ert-run-tests-batch-and-exit
+ifeq (,$(shell which cask 2> /dev/null))
+	$(error cask not found, please read Readme.md#Development)
+else
+	./emacs_tests.sh
+endif
 
 .PHONY: test-haskell
 test-haskell:

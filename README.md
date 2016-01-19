@@ -46,6 +46,14 @@ This project is not started from scratch:
  - Fork this repo and hack as much as you can.
  - Ask @alanz or @hvr to join the project.
 
+## Development
+
+Apart from stack you need [cask](https://cask.readthedocs.org/en/latest/) for the emacs tests. You can install it using
+
+```
+curl -fsSL https://raw.githubusercontent.com/cask/cask/master/go | python
+```
+
 -------------
 
 

@@ -11,6 +11,7 @@ addons:
 cache:
   directories:
   - "$HOME/.stack/"
+  - elisp/.cask/
 before_install:
 - mkdir -p ~/.local/bin
 - export PATH=~/.local/bin:$PATH
@@ -18,13 +19,14 @@ before_install:
   --strip-components=1 -C ~/.local/bin '*/stack'
 - chmod a+x ~/.local/bin/stack
 - stack --version
+- curl -fsSL https://raw.githubusercontent.com/cask/cask/master/go | python
+- export PATH="$HOME/.cask/bin:$PATH"
 install:
 - "./travis_long stack +RTS -N2 -RTS setup"
 - "./travis_long stack build --only-snapshot"
 script:
 - "./travis_long ./pedantic.sh +RTS -N1 -RTS"
-- "./travis_long stack exec emacs24 -- -q --batch -L elisp -l elisp/tests/hie-tests.el
-  -f ert-run-tests-batch-and-exit"
+- "./travis_long ./emacs_tests.sh"
 - "./travis_long ./deploy-docs.sh"
 notifications:
   irc:

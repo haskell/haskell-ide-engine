@@ -39,3 +39,4 @@ tags
 /docs/source/__pycache__/
 /docs/build/
 /docs/source/plugins/
+/elisp/.cask/
