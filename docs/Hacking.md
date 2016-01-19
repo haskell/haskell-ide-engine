@@ -7,6 +7,13 @@ $ git clone https://github.com/haskell/haskell-ide-engine.git
 $ cd haskell-ide-engine
 $ stack build
 ```
+If you intend running the emacs tests
+
+```
+$ curl -fsSL https://raw.githubusercontent.com/cask/cask/master/go | python
+$ export PATH=$HOME/.cask/bin:$PATH
+```
+
 
 ### Checking that the REPL comes up
 
