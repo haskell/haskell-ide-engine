@@ -24,10 +24,15 @@
     (with-timeout (,timeout) (while (not hie-async-returned) (sleep-for 0.1)))))
 
 (describe "haskell-ide-engine"
+          (before-all
+           (find-file "../test/testdata/HaReRename.hs")
+           (setq hie-command-args
+                                      '("-d" "-l" "/tmp/hie.log")))
           (describe "process management"
                     (before-each
                      (when (hie-process-live-p)
                        (hie-kill-process)))
+
                     (it "should start process"
                         (let ((result (hie-start-process))
                               (live (hie-process-live-p)))
@@ -46,9 +51,7 @@
                           (let ((live (hie-process-live-p)))
                             (expect live :not :to-be-truthy)))))
           (describe "command responses"
-                    (before-all (setq hie-command-args
-                                      '("-d" "-l" "/tmp/hie.log"))
-                                (when (hie-process-live-p)
+                    (before-all (when (hie-process-live-p)
                                   (hie-kill-process))
                                 (hie-start-process)
                                 (condition-case nil
@@ -88,9 +91,8 @@
                     (it "can execute HaRe rename"
                         (save-excursion
                           (hie-kill-process)
-                          (find-file "../test/testdata/HaReRename.hs")
                           (move-to-column 0)
-                          (goto-line 4)
+                          (move-to-line 4)
                           (async-with-timeout 100 (hie-mode))
                           (async-with-timeout 100
                                               (hie-hare-rename "foo_renamed"))
