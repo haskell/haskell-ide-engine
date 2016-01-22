@@ -26,6 +26,8 @@ library
                        Haskell.Ide.Engine.Transport.JsonHttp
                        Haskell.Ide.Engine.Transport.JsonHttp.Undecidable
                        Haskell.Ide.Engine.Transport.JsonStdio
+                       Haskell.Ide.Engine.Transport.JsonTcp
+                       Haskell.Ide.Engine.Transport.Pipes
                        Haskell.Ide.Engine.Types
                        Haskell.Ide.Engine.Utils
   other-modules:       Paths_haskell_ide_engine
@@ -48,12 +50,14 @@ library
                      , monad-control
                      , monad-logger
                      , mtl
+                     , network-simple
                      , optparse-applicative
                      , optparse-simple >= 0.0.3
                      , pipes
                      , pipes-aeson
                      , pipes-attoparsec >= 0.5
                      , pipes-bytestring
+                     , pipes-network
                      , pipes-parse
                      , servant-server
                      , singletons
@@ -90,6 +94,7 @@ executable hie
                      , hie-hare
                      , hie-plugin-api
                      , monad-logger
+                     , network-simple
                      , optparse-applicative
                      , optparse-simple
                      , stm

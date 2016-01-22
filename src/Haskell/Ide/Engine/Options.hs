@@ -13,6 +13,8 @@ data GlobalOpts = GlobalOpts
   , optLogFile :: Maybe String
   , optPort :: Port
   , optHttp :: Bool
+  , optTcp :: Bool
+  , optTcpPort :: Port
   , projectRoot :: Maybe String
   } deriving (Show)
 
@@ -48,6 +50,14 @@ globalOptsParser = GlobalOpts
   <*> flag False True
        ( long "http"
        <> help "Enable the webinterface")
+  <*> flag False True
+       ( long "tcp"
+       <> help "Enable the tcp transport")
+  <*> option
+       auto
+       ( long "tcp-port"
+       <> help "Port to use for tcp interface"
+       <> value 8002)
   <*> (optional $ strOption
        ( long "project-root"
       <> short 'r'

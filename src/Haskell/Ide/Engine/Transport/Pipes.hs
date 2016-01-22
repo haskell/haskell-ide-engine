@@ -6,6 +6,7 @@ module Haskell.Ide.Engine.Transport.Pipes
   ,encodePipe
   ,tchanProducer
   ,parseFrames
+  ,serializePipe
   ) where
 
 import           Control.Applicative
@@ -18,8 +19,11 @@ import           Control.Monad.State.Strict
 import           Data.Aeson
 import qualified Data.Attoparsec.ByteString as AB
 import           Data.Attoparsec.ByteString.Char8 (space)
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BL
 import           Data.Char
 import qualified Data.Map as Map
+import           Data.Monoid
 import qualified Data.Text as T
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -31,11 +35,12 @@ import qualified Pipes.ByteString as PB
 import qualified Pipes.Prelude as P
 
 parseToJsonPipe
-  :: Bool
+  :: MonadIO m
+  => Bool
   -> TChan ChannelRequest
   -> TChan ChannelResponse
   -> Int
-  -> P.Consumer (Either PAe.DecodingError WireRequest) IO ()
+  -> P.Consumer (Either PAe.DecodingError WireRequest) m ()
 parseToJsonPipe oneShot cin cout cid =
   do parseRes <- P.await
      case parseRes of
@@ -147,3 +152,10 @@ parseFrames prod0 = do
            newProd <- lift $ P.runEffect (leftoverProd P.>-> P.drain)
            -- recur into parseFrames to parse the next line, drop the leading '\n'
            parseFrames (PB.drop (1::Int) newProd)
+
+
+serializePipe :: Monad m => P.Pipe Value BS.ByteString m ()
+serializePipe =
+  P.mapFoldable
+    (\val ->
+       BL.toChunks (encode val <> BL.singleton (fromIntegral $ ord '\STX')))

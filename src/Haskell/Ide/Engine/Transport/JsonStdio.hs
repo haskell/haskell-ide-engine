@@ -9,9 +9,6 @@ import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
-import           Data.Aeson
-import qualified Data.ByteString.Lazy as BL
-import           Data.Char
 import           Haskell.Ide.Engine.Transport.Pipes
 import           Haskell.Ide.Engine.Types
 import qualified Pipes as P
@@ -25,14 +22,7 @@ jsonStdioTransport oneShot cin = do
   cout <- atomically $ newTChan :: IO (TChan ChannelResponse)
   hSetBuffering stdout NoBuffering
   _ <- forkIO $ P.runEffect (parseFrames PB.stdin P.>-> parseToJsonPipe oneShot cin cout 1)
-  P.runEffect (tchanProducer oneShot cout P.>-> encodePipe P.>-> jsonConsumer)
-
-jsonConsumer :: P.Consumer Value IO ()
-jsonConsumer =
-  do val <- P.await
-     liftIO $ BL.putStr (encode val)
-     liftIO $ BL.putStr (BL.singleton $ fromIntegral (ord '\STX'))
-     jsonConsumer
+  P.runEffect (tchanProducer oneShot cout P.>-> encodePipe P.>-> serializePipe P.>-> PB.stdout)
 
 
 -- to help with type inference
