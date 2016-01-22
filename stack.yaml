@@ -1,4 +1,4 @@
-resolver: nightly-2016-01-14
+resolver: nightly-2016-01-22
 packages:
 - .
 - hie-apply-refact
@@ -16,6 +16,4 @@ packages:
   extra-dep: true
 extra-deps:
   - ghc-dump-tree-0.2.0.0
-  - HaRe-0.8.2.3
-  - ghc-mod-5.5.0.0
   - ghc-7.10.3
