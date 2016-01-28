@@ -25,31 +25,53 @@
 
 (describe "haskell-ide-engine"
           (before-all
-           (find-file "../test/testdata/HaReRename.hs")
            (setq hie-command-args
-                                      '("-d" "-l" "/tmp/hie.log")))
+                 '("-d" "-l" "/tmp/hie.log"))
+           (setq base-dir
+                 (getenv "HIEBASE")))
           (describe "process management"
-                    (before-each
+                    (before-all
+                     (find-file (concat base-dir "/test/testdata/HaReRename.hs")))
+                    (after-each
                      (when (hie-process-live-p)
                        (hie-kill-process)))
-
                     (it "should start process"
                         (let ((result (hie-start-process))
                               (live (hie-process-live-p)))
                           (expect result)
+                          (expect (hie-process) :to-be-truthy)
+                          (expect (hie-process-tcp) :to-be-truthy)
                           (expect live :to-be-truthy)))
+                    (it "should increment tcp ports"
+                        (let ((old-port hie-tcp-port))
+                          (hie-start-process)
+                          (expect hie-tcp-port :to-equal (1+ old-port))))
                     (it "should not start a new process if there is already one"
                         (let ((result (hie-start-process))
                               (second-result (hie-start-process)))
                           (expect result)
-                          (expect second-result :to-equal result)))
+                          (expect second-result :to-be result)))
                     (it "should kill the process"
                         (hie-start-process)
                         (let ((live (hie-process-live-p)))
                           (expect live :to-be-truthy)
                           (hie-kill-process)
                           (let ((live (hie-process-live-p)))
-                            (expect live :not :to-be-truthy)))))
+                            (expect live :not :to-be-truthy)
+                            (expect (hie-process) :to-equal nil)
+                            (expect (hie-process-tcp) :to-equal nil)))))
+          (describe "session management"
+                    (it "should have separate sessions"
+                        (save-excursion
+                          (find-file (concat base-dir "/test/testdata/HaReRename.hs"))
+                          (let ((first-session (hie-session)))
+                            (find-file (concat base-dir "/src/Haskell/Ide/Engine.hs"))
+                            (let ((second-session (hie-session)))
+                              (expect first-session :not :to-equal second-session)
+                              (find-file (concat base-dir "/test/testdata/HaReRename.hs"))
+                              (expect (hie-session) :to-equal first-session)
+                              (find-file (concat base-dir "/src/Haskell/Ide/Engine.hs"))
+                              (expect (hie-session) :to-equal second-session))))))
           (describe "command responses"
                     (before-all (when (hie-process-live-p)
                                   (hie-kill-process))
@@ -69,8 +91,9 @@
                                             (lambda (&rest r)
                                               (progn
                                                 (setq hie-async-returned t)))))
-                    (before-each (setq response nil))
-                    (after-each (with-current-buffer hie-process-buffer
+                    (before-each (setq response nil)
+                                 (find-file (concat base-dir "/test/testdata/HaReRename.hs")))
+                    (after-each (with-current-buffer (hie-process-tcp-buffer)
                                   (erase-buffer)))
                     (after-all (hie-kill-process))
                     (it "can get version info"
@@ -100,13 +123,15 @@
                             (revert-buffer nil t)
                             (expect refactored-string :to-equal "\nmain = putStrLn \"hello\"\n\nfoo_renamed :: Int -> Int\nfoo_renamed x = x + 3\n\n")))))
           (describe "process input"
+                    (before-all
+                     (find-file (concat base-dir "/test/testdata/HaReRename.hs")))
                     (before-each
                      (setq hie-process-handle-invalid-input
                            (lambda (input) (setq error-response input)))
                      (setq hie-process-handle-message
                            (lambda (input) (setq response input))))
                     (after-each
-                     (kill-buffer hie-process-buffer))
+                     (kill-buffer (hie-process-tcp-buffer)))
                     (it "can handle invalid input"
                         (hie-process-filter nil "not a json text\^b")
                         (expect error-response :to-equal "not a json text"))
@@ -153,13 +178,15 @@
                                                                   (cons 'type "text")
                                                                   (cons 'val param2)))))))))
           (describe "buffer management"
+                    (before-all
+                     (find-file (concat base-dir "/test/testdata/HaReRename.hs")))
                     (it "can log if buffer is killed"
                         (hie-log "Testing log buffer")
                         (kill-buffer "*hie-log*")
                         (hie-log "Testing after killing log buffer"))
                     (it "can process if buffer is killed"
                         (hie-process-filter nil "{")
-                        (kill-buffer "*hie-process*")
+                        (kill-buffer (hie-process-tcp-buffer))
                         (hie-process-filter nil "}"))))
 
 ;;; hie-test.el ends here
