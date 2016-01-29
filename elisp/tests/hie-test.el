@@ -121,7 +121,19 @@
                                               (hie-hare-rename "foo_renamed"))
                           (let ((refactored-string (buffer-substring-no-properties (point-min) (point-max))))
                             (revert-buffer nil t)
-                            (expect refactored-string :to-equal "\nmain = putStrLn \"hello\"\n\nfoo_renamed :: Int -> Int\nfoo_renamed x = x + 3\n\n")))))
+                            (expect refactored-string :to-equal "\nmain = putStrLn \"hello\"\n\nfoo_renamed :: Int -> Int\nfoo_renamed x = x + 3\n\n"))))
+                    (it "can run ghc-mod type"
+                        (spy-on 'message)
+                        (save-excursion
+                          (find-file (concat base-dir "/src/Haskell/Ide/Engine/Utils.hs"))
+                          (hie-kill-process)
+                          (move-to-column 58)
+                          (move-to-line 40)
+                          (async-with-timeout 100 (hie-mode))
+                          (async-with-timeout 100 (hie-ghcmod-type))
+                          (expect 'message
+                                  :to-have-been-called-with
+                                  "(PluginId, PluginDescriptor [Command UntaggedCommandDescriptor]) -> [ParamCollision]"))))
           (describe "process input"
                     (before-all
                      (find-file (concat base-dir "/test/testdata/HaReRename.hs")))
