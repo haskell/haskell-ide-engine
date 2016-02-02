@@ -35,8 +35,10 @@ import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Transport.JsonHttp
 import           Haskell.Ide.Engine.Transport.JsonStdio
+import           Haskell.Ide.Engine.Transport.JsonTcp
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.Utils
+import           Network.Simple.TCP
 import           Options.Applicative.Simple
 import qualified Paths_haskell_ide_engine as Meta
 import           System.Directory
@@ -141,6 +143,8 @@ run opts = do
     when (optHttp opts) $
       void $ forkIO (jsonHttpListener (recProxy taggedPlugins) cin (optPort opts))
 
+    when (optTcp opts) $
+      void $ forkIO (jsonTcpTransport (optOneShot opts) cin HostAny (show $ optTcpPort opts))
     -- Can have multiple listeners, each using a different transport protocol, so
     -- long as they can pass through a ChannelRequest
     if (optConsole opts)

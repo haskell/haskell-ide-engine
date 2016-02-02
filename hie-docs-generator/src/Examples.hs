@@ -4,7 +4,7 @@ module Examples where
 import qualified Data.Map as M
 import           Data.Monoid
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.Transport.JsonStdio
+import           Haskell.Ide.Engine.Transport.Pipes
 
 jsonStdioExample :: PluginId -> UntaggedCommandDescriptor -> WireRequest
 jsonStdioExample pluginId (CommandDesc{cmdName = name,cmdContexts = contexts,cmdAdditionalParams = cmdParams}) =

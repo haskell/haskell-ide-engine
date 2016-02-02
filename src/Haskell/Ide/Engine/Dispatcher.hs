@@ -19,7 +19,6 @@ import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
-import           Language.Haskell.GhcMod.Error
 
 -- ---------------------------------------------------------------------
 
@@ -136,29 +135,29 @@ validContext ctx params =
 
 -- |If all listed 'ParamDescripion' values are present return a Right, else
 -- return an error.
-checkParams :: forall a .(ValidResponse a) => [ParamDescription] -> ParamMap -> Either (IdeResponse a) [()]
+checkParams :: (ValidResponse a) => [ParamDescription] -> ParamMap -> Either (IdeResponse a) [()]
 checkParams pds params = mapEithers checkOne pds
   where
-    checkOne :: forall a .(ValidResponse a)
+    checkOne :: (ValidResponse a)
              => ParamDescription -> Either (IdeResponse a) ()
     checkOne (ParamDesc pn _ph pt Optional) = checkParamOP pn pt
     checkOne (ParamDesc pn _ph pt Required) = checkParamRP pn pt
 
-    checkParamOP :: forall a .(ValidResponse a)
+    checkParamOP :: (ValidResponse a)
                  => ParamId -> ParamType -> Either (IdeResponse a) ()
     checkParamOP pn pt =
       case Map.lookup pn params of
         Nothing -> Right ()
         Just p  -> checkParamMatch pn pt p
 
-    checkParamRP :: forall a .(ValidResponse a)
+    checkParamRP :: (ValidResponse a)
                  => ParamId -> ParamType -> Either (IdeResponse a) ()
     checkParamRP pn pt =
       case Map.lookup pn params of
         Nothing -> Left $ missingParameter pn
         Just p  -> checkParamMatch pn pt p
 
-    checkParamMatch :: forall a .(ValidResponse a)
+    checkParamMatch :: (ValidResponse a)
                     => T.Text -> ParamType -> ParamValP -> Either (IdeResponse a) ()
     checkParamMatch pn' pt' p' =
       if paramMatches pt' p'
