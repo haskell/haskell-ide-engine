@@ -1,6 +1,7 @@
 #/usr/bin/env bash
 set -e
+DIR=$(pwd)
 cd elisp
 cask
-stack exec cask -- exec buttercup -L .
+HIEBASE="$DIR" stack exec cask -- exec buttercup -L .
 cd ..

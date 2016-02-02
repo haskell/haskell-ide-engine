@@ -27,8 +27,19 @@
 (defvar hie-log-buffer nil
   "Variable holding current Haskell IDE Engine log buffer")
 
+(defvar hie-initial-tcp-port 8888
+  "The initial tcp port. Other ports are allocated starting from
+  this one")
+
+(defvar hie-tcp-host "localhost")
+
+(defvar hie-tcp-port nil)
+
 (defvar hie-process-buffer nil
   "Variable holding current Haskell IDE Engine process buffer")
+
+(defvar hie-process-tcp-buffer nil
+  "Variable holding current Haskell IDE Engine tcp process buffer")
 
 (defvar hie-process-handle-message nil
   "A function to handle json object.")
@@ -126,7 +137,7 @@ If `haskell-process-load-or-reload-prompt' is nil, accept `default'."
 
 (defun hie-process-filter (process input)
   (let ((prev-buffer (current-buffer)))
-    (hie-with-process-buffer hie-process-buffer
+    (hie-with-process-buffer
       (let ((point (point)))
         (insert input)
         (save-excursion
@@ -153,6 +164,17 @@ If `haskell-process-load-or-reload-prompt' is nil, accept `default'."
                 (end-of-file (funcall handle-error)))
               (delete-region (point-min) after-stx-marker))))))))
 
+(defun really-sleep-for (sec &optional test)
+  "Sleep for SEC seconds or until TEST is not-nil.
+
+Emacs has a bug when `sleep-for' terminates early when a
+subprocess ends.  This is a workaround for
+http://debbugs.gnu.org/cgi/bugreport.cgi?bug=15990."
+
+  (let ((now (cadr (current-time))))
+    (while (and (or (not test) (not (funcall test)))
+                (> now (- (cadr (current-time)) sec))))))
+
 (defun hie-start-process (&optional additional-args)
   "Start Haskell IDE Engine process.
 
@@ -163,26 +185,58 @@ running this function does nothing."
   (unless (hie-process-live-p)
     (setq hie-log-buffer
           (get-buffer-create "*hie-log*"))
-    (setq hie-process-buffer
+    (hie-set-process-buffer
           (get-buffer-create "*hie-process*"))
+    (hie-set-process-tcp-buffer
+          (get-buffer-create "*hie-process-tcp*"))
+    (when (not hie-tcp-port)
+      (setq hie-tcp-port hie-initial-tcp-port))
     (let ((process
            (apply #'start-process
                   "Haskell IDE Engine"
-                  hie-process-buffer
+                  (hie-process-buffer)
                   hie-command
                   (append additional-args
-                          hie-command-args))))
-      (set-process-query-on-exit-flag process nil)
-      (set-process-filter process #'hie-process-filter)
-      (hie-set-process process)))
-  (hie-process))
+                          hie-command-args
+                          `("--tcp" "--tcp-port" ,(format "%s" hie-tcp-port))))))
+      (really-sleep-for 1)
+      (let ((process-tcp
+             (open-network-stream "Haskell IDE Engine"
+                                  (hie-process-tcp-buffer)
+                                  hie-tcp-host
+                                  hie-tcp-port)))
+        (setq hie-tcp-port (1+ hie-tcp-port))
+        (set-process-query-on-exit-flag process-tcp nil)
+        (set-process-query-on-exit-flag process nil)
+        (set-process-filter process-tcp #'hie-process-filter)
+        (hie-set-process-tcp process-tcp)
+        (hie-set-process process))))
+  (hie-process-tcp))
 
 (defun hie-set-process (p)
   (hie-session-set (hie-session) 'hie-process p))
 
+(defun hie-set-process-tcp (p)
+  (hie-session-set (hie-session) 'hie-process-tcp p))
+
 (defun hie-process ()
   "Get the session process."
   (hie-session-get (hie-session) 'hie-process))
+
+(defun hie-process-tcp ()
+  (hie-session-get (hie-session) 'hie-process-tcp))
+
+(defun hie-process-buffer ()
+  (hie-session-get (hie-session) 'hie-process-buffer))
+
+(defun hie-set-process-buffer (buf)
+  (hie-session-set (hie-session) 'hie-process-buffer buf))
+
+(defun hie-process-tcp-buffer ()
+  (hie-session-get (hie-session) 'hie-process-tcp-buffer))
+
+(defun hie-set-process-tcp-buffer (buf)
+  (hie-session-set (hie-session) 'hie-process-tcp-buffer buf))
 
 (defun hie-process-live-p ()
   "Whether the Haskell IDE Engine process is live."
@@ -194,11 +248,16 @@ running this function does nothing."
   "Kill the Haskell IDE Engine process if it is live."
   (interactive)
   (when (hie-process-live-p)
-    (let ((process (hie-process)))
+    (let ((process (hie-process))
+          (process-tcp (hie-process-tcp)))
+      (delete-process process-tcp)
       (kill-process process)
       (hie-set-process nil)
-      (kill-buffer hie-process-buffer)
-      (setq hie-process-buffer nil))))
+      (hie-set-process-tcp nil)
+      (kill-buffer (hie-process-tcp-buffer))
+      (kill-buffer (hie-process-buffer))
+      (hie-set-process-buffer nil)
+      (hie-set-process-tcp-buffer nil))))
 
 (defun hie-log (&rest args)
   (hie-with-log-buffer hie-log-buffer
@@ -218,9 +277,9 @@ by `hie-handle-message'."
   (let* ((prepared-json (hie-prepare-json json)))
     (run-hook-with-args 'hie-post-message-hook prepared-json)
     (hie-log "-> %s" prepared-json)
-    (process-send-string (hie-process) prepared-json)
+    (process-send-string (hie-process-tcp) prepared-json)
     ;; send \STX marker and flush buffers
-    (process-send-string (hie-process) "\^b\n")))
+    (process-send-string (hie-process-tcp) "\^b\n")))
 
 (defun hie-remove-alist-null-values (json)
   "Remove null values from assoc lists.
@@ -268,8 +327,8 @@ association lists and count on HIE to use default values there."
           (with-current-buffer hie-log-buffer ,@body)))
 
 (defmacro hie-with-process-buffer (&rest body)
-  `(progn (setq hie-process-buffer (get-buffer-create "*hie-process*"))
-          (with-current-buffer hie-process-buffer ,@body)))
+  `(progn (hie-set-process-tcp-buffer (get-buffer-create "*hie-process-tcp*"))
+          (with-current-buffer (hie-process-tcp-buffer) ,@body)))
 
 (defmacro hie-with-refactor-buffer (&rest body)
   `(progn (setq hie-refactor-buffer (get-buffer-create "*hie-refactor*"))
