@@ -1,6 +1,7 @@
 ;;; hie.el --- Haskell IDE Engine process -*- lexical-binding: t -*-
 
 ;; Copyright (c) 2015 Haskell Ide Contributors
+;; Version: 0.1
 ;; Package-Requires: ((dash "2.12.1"))
 
 ;; See LICENSE for details.
@@ -9,6 +10,7 @@
 
 (require 'json)
 (require 'dash)
+(require 'haskell)
 
 ;;;###autoload
 (defcustom hie-command "hie"
@@ -21,9 +23,6 @@
   "Arguments to pass to `hie-command`."
   :group 'haskell
   :type '(repeat string))
-
-(defvar hie-process nil
-  "Variable holding current Haskell IDE Engine process")
 
 (defvar hie-log-buffer nil
   "Variable holding current Haskell IDE Engine log buffer")
@@ -45,9 +44,89 @@
 (defvar hie-plugins nil
   "Plugin information gained by calling the base:plugins plugin")
 
+(defvar hie-sessions (list)
+  "All hie sessions in the Emacs session.")
+
+(defun hie-session-from-buffer ()
+  "Get the session based on the buffer."
+  (when (buffer-file-name)
+    (cl-reduce (lambda (acc a)
+                 (let ((dir (hie-session-get a 'cabal-dir)))
+                   (if dir
+                       (if (string-prefix-p dir
+					    (file-name-directory (buffer-file-name)))
+                           (if acc
+                               (if (and
+                                    (> (length (hie-session-get a 'cabal-dir))
+                                       (length (hie-session-get acc 'cabal-dir))))
+                                   a
+                                 acc)
+                             a)
+                         acc)
+                     acc)))
+               hie-sessions
+               :initial-value nil)))
+
+(defun hie-session-get (session key)
+  "Get the SESSION's KEY value.
+Returns nil if KEY not set."
+  (cdr (assq key session)))
+
+(defun hie-session-set (session key value)
+  "Set the SESSION's KEY to VALUE.
+Returns newly set VALUE."
+  (let ((cell (assq key session)))
+    (if cell
+        (setcdr cell value) ; modify cell in-place
+      (setcdr session (cons (cons key value) (cdr session))) ; new cell
+      value)))
+
+(defun hie-session-lookup (name)
+  "Get the session by name."
+  (cl-find-if (lambda (s)
+                (string= name (hie-session-name s)))
+              hie-sessions))
+
+(defun hie-session-name (s)
+  "Get the session name."
+  (hie-session-get s 'name))
+
+(defun hie-session-new-assume-from-cabal ()
+  "Prompt to create a new project based on a guess from the nearest Cabal file.
+If `haskell-process-load-or-reload-prompt' is nil, accept `default'."
+  (let ((name (haskell-session-default-name)))
+    (hie-session-make name)))
+
+(defun hie-session-make (name)
+  "Make a Haskell session."
+  (when (hie-session-lookup name)
+    (error "Session of name %s already exists!" name))
+  (let ((session (list (cons 'name name))))
+    (add-to-list 'hie-sessions session)
+    (hie-session-cabal-dir session)
+    session))
+
+(defun hie-session-cabal-dir (s)
+  "Get the session cabal-dir."
+  (or (hie-session-get s 'cabal-dir)
+      (let* ((cabal-file (haskell-cabal-find-file))
+             (cabal-dir (when cabal-file (file-name-directory cabal-file))))
+        (progn (hie-session-set-cabal-dir s cabal-dir)
+               cabal-dir))))
+
+(defun hie-session-set-cabal-dir (s v)
+  "Set the session cabal-dir."
+  (let ((true-path (file-truename v)))
+    (hie-session-set s 'cabal-dir true-path)))
+
+(defun hie-session ()
+  "Get the Haskell session, prompt if there isn't one or fail."
+  (or (hie-session-from-buffer)
+      (hie-session-new-assume-from-cabal)))
+
 (defun hie-process-filter (process input)
   (let ((prev-buffer (current-buffer)))
-    (with-current-buffer hie-process-buffer
+    (hie-with-process-buffer hie-process-buffer
       (let ((point (point)))
         (insert input)
         (save-excursion
@@ -56,8 +135,8 @@
             (let* ((after-stx-marker (match-end 0))
                    (input-text (buffer-substring-no-properties (point-min) (match-beginning 0)))
                    (handle-error (lambda ()
+                                   (hie-log "<-parse-error %s" input-text)
                                    (when hie-process-handle-invalid-input
-                                     (hie-log "<-parse-error %s" input-text)
                                      (funcall hie-process-handle-invalid-input input-text))))
                    (json-array-type 'list))
               (goto-char (point-min))
@@ -74,7 +153,7 @@
                 (end-of-file (funcall handle-error)))
               (delete-region (point-min) after-stx-marker))))))))
 
-(defun hie-start-process ()
+(defun hie-start-process (&optional additional-args)
   "Start Haskell IDE Engine process.
 
 This function returns the process. If the process is already
@@ -86,32 +165,43 @@ running this function does nothing."
           (get-buffer-create "*hie-log*"))
     (setq hie-process-buffer
           (get-buffer-create "*hie-process*"))
-    (setq hie-process
-          (apply #'start-process
-           "Haskell IDE Engine"
-           hie-process-buffer
-           hie-command
-           hie-command-args))
-    (set-process-query-on-exit-flag hie-process nil)
-    (set-process-filter hie-process #'hie-process-filter))
-  hie-process)
+    (let ((process
+           (apply #'start-process
+                  "Haskell IDE Engine"
+                  hie-process-buffer
+                  hie-command
+                  (append additional-args
+                          hie-command-args))))
+      (set-process-query-on-exit-flag process nil)
+      (set-process-filter process #'hie-process-filter)
+      (hie-set-process process)))
+  (hie-process))
+
+(defun hie-set-process (p)
+  (hie-session-set (hie-session) 'hie-process p))
+
+(defun hie-process ()
+  "Get the session process."
+  (hie-session-get (hie-session) 'hie-process))
 
 (defun hie-process-live-p ()
   "Whether the Haskell IDE Engine process is live."
-  (and hie-process
-       (process-live-p hie-process)))
+  (let ((process (hie-process)))
+    (and process
+         (process-live-p process))))
 
 (defun hie-kill-process ()
   "Kill the Haskell IDE Engine process if it is live."
   (interactive)
   (when (hie-process-live-p)
-    (kill-process hie-process)
-    (setq hie-process nil)
-    (kill-buffer hie-process-buffer)
-    (setq hie-process-buffer nil)))
+    (let ((process (hie-process)))
+      (kill-process process)
+      (hie-set-process nil)
+      (kill-buffer hie-process-buffer)
+      (setq hie-process-buffer nil))))
 
 (defun hie-log (&rest args)
-  (with-current-buffer hie-log-buffer
+  (hie-with-log-buffer hie-log-buffer
     (goto-char (point-max))
     (insert (apply #'format args)
               "\n")))
@@ -125,12 +215,12 @@ by `hie-handle-message'."
   ;; We remove values that are empty lists from assoc lists at the top
   ;; level because json serialization would use "null" for those. HIE
   ;; accepts missing fields and default to empty when possible.
-  (let ((prepared-json (hie-prepare-json json)))
+  (let* ((prepared-json (hie-prepare-json json)))
     (run-hook-with-args 'hie-post-message-hook prepared-json)
     (hie-log "-> %s" prepared-json)
-    (process-send-string hie-process prepared-json)
+    (process-send-string (hie-process) prepared-json)
     ;; send \STX marker and flush buffers
-    (process-send-string hie-process "\^b\n")))
+    (process-send-string (hie-process) "\^b\n")))
 
 (defun hie-remove-alist-null-values (json)
   "Remove null values from assoc lists.
@@ -173,6 +263,14 @@ association lists and count on HIE to use default values there."
      (format "Error extracting type from type-info response: %s"
              type-info))))
 
+(defmacro hie-with-log-buffer (&rest body)
+  `(progn (setq hie-log-buffer (get-buffer-create "*hie-log*"))
+          (with-current-buffer hie-log-buffer ,@body)))
+
+(defmacro hie-with-process-buffer (&rest body)
+  `(progn (setq hie-process-buffer (get-buffer-create "*hie-process*"))
+          (with-current-buffer hie-process-buffer ,@body)))
+
 (defmacro hie-with-refactor-buffer (&rest body)
   `(progn (setq hie-refactor-buffer (get-buffer-create "*hie-refactor*"))
           (with-current-buffer hie-refactor-buffer ,@body)))
@@ -184,7 +282,11 @@ association lists and count on HIE to use default values there."
      (save-excursion
        ,@body)
      (move-to-column old-col)
-     (goto-line old-row)))
+     (move-to-line old-row)))
+
+(defun move-to-line (N)
+  (goto-char (point-min))
+  (forward-line (1- N)))
 
 (defun hie-handle-refactor (refactor)
   (-if-let (((&alist 'first first 'second second 'diff diff)) refactor)
@@ -312,7 +414,10 @@ Keymap:
   (if hie-mode
       (progn
         (unless (hie-process-live-p)
-          (hie-start-process))
+          (let* ((file (buffer-file-name))
+                 (dir (when file (file-name-directory file)))
+                 (additional-args (when dir (list "-r" dir))))
+            (hie-start-process additional-args)))
         (setq hie-process-handle-message
               #'hie-handle-first-plugins-command)
         (hie-post-message
@@ -323,6 +428,8 @@ Keymap:
       (unless (cl-find-if (lambda (buffer)
                            (with-current-buffer buffer
                              (bound-and-true-p hie-mode))) (buffer-list))
-       (hie-kill-process)))))
+        (hie-kill-process)))))
 
 (provide 'hie)
+
+;;; hie.el ends here

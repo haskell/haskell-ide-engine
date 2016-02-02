@@ -8,24 +8,17 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Haskell.Ide.GhcModPlugin where
 
-import           Haskell.Ide.Engine.PluginUtils
-
-import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Either
-import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Text.Read as T
 import           Data.Vinyl
 import qualified Exception as G
 import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
 import qualified Language.Haskell.GhcMod as GM
-import qualified Language.Haskell.GhcMod.Monad as GM
 import qualified Language.Haskell.GhcMod.Types as GM
-import qualified Language.Haskell.GhcMod.Utils as GM
-import           System.Directory
-import           System.FilePath
 
 -- ---------------------------------------------------------------------
 
@@ -43,10 +36,10 @@ ghcmodDescriptor = PluginDescriptor
       :& buildCommand lintCmd (Proxy :: Proxy "lint")  "Check files using `hlint'"
                      [".hs",".lhs"] (SCtxFile :& RNil) RNil
 
-      :& buildCommand findCmd (Proxy :: Proxy "find")  "List all modules that define SYMBOL"
-                     [".hs",".lhs"] (SCtxProject :& RNil)
-                     (  SParamDesc (Proxy :: Proxy "symbol") (Proxy :: Proxy "The SYMBOL to look up") SPtText SRequired
-                     :& RNil)
+      -- :& buildCommand findCmd (Proxy :: Proxy "find")  "List all modules that define SYMBOL"
+      --                [".hs",".lhs"] (SCtxProject :& RNil)
+      --                (  SParamDesc (Proxy :: Proxy "symbol") (Proxy :: Proxy "The SYMBOL to look up") SPtText SRequired
+      --                :& RNil)
 
       :& buildCommand infoCmd (Proxy :: Proxy "info") "Look up an identifier in the context of FILE (like ghci's `:info')"
                      [".hs",".lhs"] (SCtxFile :& RNil)
@@ -87,34 +80,26 @@ checkCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
-      fmap T.pack <$> runGhcModCommand fileName (\f->GM.checkSyntax [f])
+      fmap T.pack <$> runGhcModCommand (GM.checkSyntax [(T.unpack fileName)])
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.checkCmd: ghc’s exhaustiveness checker is broken" Null)
 
 -- ---------------------------------------------------------------------
 
--- | Runs the find command from the given directory, for the given symbol
-findCmd :: CommandFunc ModuleList
-findCmd = CmdSync $ \_ctxs req -> do
-  case getParams (IdFile "dir" :& IdText "symbol" :& RNil) req of
-    Left err -> return err
-    Right (ParamFile dirName :& ParamText symbol :& RNil) -> do
-      runGhcModCommand (T.pack (T.unpack dirName </> "dummy")) (\_->
-          do
-            -- adapted from ghc-mod find command, which launches the executable again
-            tmpdir <- GM.cradleTempDir <$> GM.cradle
-            sf <- takeWhile (`notElem` ['\r','\n']) <$> GM.dumpSymbol tmpdir
-            db <- M.fromAscList . map conv . lines <$> liftIO (readFile sf)
-            let f = M.findWithDefault ([]::[GM.ModuleString]) symbol db
-            return $ ModuleList $ map (T.pack . GM.getModuleString) f
-          )
+-- Disabled until ghc-mod no longer needs to launch a separate executable
+-- -- | Runs the find command from the given directory, for the given symbol
+-- findCmd :: CommandFunc ModuleList
+-- findCmd = CmdSync $ \_ctxs req -> do
+--   case getParams (IdText "symbol" :& RNil) req of
+--     Left err -> return err
+--     Right (ParamText symbol :& RNil) -> do
+--       runGhcModCommand $
+--         (ModuleList . map (T.pack . GM.getModuleString)) <$> GM.findSymbol' (T.unpack symbol)
 
-      -- return (IdeResponseOk "Placholder:Need to debug this in ghc-mod, returns 'does not exist (No such file or directory)'")
-    Right _ -> return $ IdeResponseError (IdeError InternalError
-      "GhcModPlugin.findCmd: ghc’s exhaustiveness checker is broken" Null)
-  where
-    conv :: String -> (T.Text, [GM.ModuleString])
-    conv = read
+
+--       -- return (IdeResponseOk "Placholder:Need to debug this in ghc-mod, returns 'does not exist (No such file or directory)'")
+--     Right _ -> return $ IdeResponseError (IdeError InternalError
+--       "GhcModPlugin.findCmd: ghc’s exhaustiveness checker is broken" Null)
 
 -- ---------------------------------------------------------------------
 
@@ -123,7 +108,7 @@ lintCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
-      fmap T.pack <$> runGhcModCommand fileName (GM.lint GM.defaultLintOpts)
+      fmap T.pack <$> runGhcModCommand (GM.lint GM.defaultLintOpts (T.unpack fileName))
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.lintCmd: ghc’s exhaustiveness checker is broken" Null)
 
@@ -134,7 +119,7 @@ infoCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdText "expr" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamText expr :& RNil) -> do
-      fmap T.pack <$> runGhcModCommand fileName (flip GM.info (GM.Expression (T.unpack expr)))
+      fmap T.pack <$> runGhcModCommand (GM.info (T.unpack fileName) (GM.Expression (T.unpack expr)))
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.infoCmd: ghc’s exhaustiveness checker is broken" Null)
 
@@ -145,7 +130,7 @@ typeCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos (r,c) :& RNil) -> do
-      fmap (toTypeInfo . T.lines . T.pack) <$> runGhcModCommand fileName (\f->GM.types f r c)
+      fmap (toTypeInfo . T.lines . T.pack) <$> runGhcModCommand (GM.types (T.unpack fileName) r c)
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.typesCmd: ghc’s exhaustiveness checker is broken" Null)
 
@@ -167,22 +152,11 @@ readTypeResult t = do
 -- ---------------------------------------------------------------------
 
 
-runGhcModCommand :: T.Text -- ^ The file name we'll operate on
-                 -> (FilePath -> IdeM a)
+runGhcModCommand :: IdeM a
                  -> IdeM (IdeResponse a)
-runGhcModCommand fp cmd = do
-  let (dir,f) = fileInfo fp
-  let opts = GM.defaultOptions
-  old <- liftIO getCurrentDirectory
-  G.gbracket (liftIO $ setCurrentDirectory dir)
-          (\_ -> liftIO $ setCurrentDirectory old)
-          (\_ -> do
-            -- we need to get the root of our folder
-            -- ghc-mod returns a new line at the end...
-            root <- takeWhile (`notElem` ['\r','\n']) <$> GM.runGmOutT opts GM.rootInfo
-            liftIO $ setCurrentDirectory root
-            tmp <- liftIO $ GM.newTempDir root
-            let setRoot e = e{GM.gmCradle = (GM.gmCradle e){GM.cradleRootDir=root,GM.cradleTempDir=tmp}}
-            (IdeResponseOk <$> GM.gmeLocal setRoot (cmd f)) `G.gcatch` \(e :: GM.GhcModError) ->
-               return $ IdeResponseFail $ IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Null
-          )
+runGhcModCommand cmd =
+  do (IdeResponseOk <$> cmd) `G.gcatch`
+       \(e :: GM.GhcModError) ->
+         return $
+         IdeResponseFail $
+         IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Null

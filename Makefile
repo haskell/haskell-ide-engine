@@ -5,20 +5,22 @@ ifeq (,$(shell which $(emacs) 2> /dev/null))
 endif
 
 .PHONY: test
-test: build-haskell test-haskell test-emacs
+test: test-haskell test-emacs
 
 .PHONY: test-emacs
 test-emacs:
-	stack exec $(emacs) -- -q --batch -L elisp -l elisp/tests/hie-tests.el -f ert-run-tests-batch-and-exit
+ifeq (,$(shell which cask 2> /dev/null))
+	$(error cask not found, please read Readme.md#Development)
+else
+	./emacs_tests.sh
+endif
 
 .PHONY: test-haskell
-build-haskell:
-	@STACK_YAML=stack_test.yaml stack build --test --no-run-tests
 test-haskell:
-	# stack build --test --pedantic
-	# stack complains about deprecations in ghc-mod as an extra dep
+# stack build --test --pedantic
+# stack complains about deprecations in ghc-mod as an extra dep
 # build with -Werror enabled but run the tests without it because ide-backend picks it up
-	stack build --test
+	./pedantic.sh
 
 .PHONY: ghci-test
 ghci-test:

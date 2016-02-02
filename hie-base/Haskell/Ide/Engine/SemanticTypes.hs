@@ -62,6 +62,18 @@ data ModuleList = ModuleList {
   } deriving (Show,Read,Eq,Ord,Generic)
 
 -- ---------------------------------------------------------------------
+
+-- | GHC AST
+data AST = AST {
+    astModule :: T.Text
+  , astParsed      :: Value
+  , astRenamed     :: Value
+  , astTypechecked :: Value
+  , astExports     :: Value
+  } deriving (Eq,Show)
+
+
+-- ---------------------------------------------------------------------
 -- JSON instances
 
 instance ValidResponse TypeInfo where
@@ -111,3 +123,15 @@ instance FromJSON HieDiff where
 instance ValidResponse ModuleList where
   jsWrite (ModuleList ms) = H.fromList ["modules" .= ms]
   jsRead v = ModuleList <$> v .: "modules"
+
+-- ---------------------------------------------------------------------
+
+instance ValidResponse AST where
+  jsWrite (AST m p r t e) = H.fromList ["module" .= m, "parsed" .= p
+    , "renamed" .= r, "typechecked" .= t, "exports" .= e ]
+  jsRead v = AST
+    <$> v .: "module"
+    <*> v .: "parsed"
+    <*> v .: "renamed"
+    <*> v .: "typechecked"
+    <*> v .: "exports"

@@ -1,4 +1,4 @@
-resolver: nightly-2016-01-08
+resolver: nightly-2016-01-22
 packages:
 - .
 - hie-apply-refact
@@ -8,15 +8,13 @@ packages:
 - hie-eg-plugin-async
 - hie-plugin-api
 - hie-ghc-mod
+- hie-ghc-tree
 - hie-hare
 - hie-docs-generator
-- hie-ide-backend
-- location:
-    git: https://github.com/kazu-yamamoto/ghc-mod.git
-    commit: b9bd4ebf77b22d2d9061d647d7799ddcc7c51228
-  extra-dep: true
 - location:
     git: https://github.com/mpickering/apply-refact.git
     commit: 402458652844c1a0f42b15123e0ceff761919415
   extra-dep: true
-extra-deps: []
+extra-deps:
+  - ghc-dump-tree-0.2.0.0
+  - ghc-7.10.3

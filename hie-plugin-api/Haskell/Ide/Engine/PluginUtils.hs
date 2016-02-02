@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
@@ -13,21 +14,19 @@ module Haskell.Ide.Engine.PluginUtils
   , missingParameter
   , incorrectParameter
   , fileInfo
-  , catchException
   ) where
 
-import           Control.Exception
 import           Data.Aeson
 import           Data.Algorithm.Diff
 import           Data.Algorithm.DiffOutput
+import qualified Data.Map as Map
 import           Data.Monoid
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import           Data.Vinyl
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
-import qualified Data.Map as Map
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
 import           Prelude hiding (log)
 import           System.FilePath
 
@@ -35,11 +34,11 @@ import           System.FilePath
 
 -- |If all the listed params are present in the request resturn their values,
 -- else return an error message.
-getParams :: forall r ts. (ValidResponse r) =>
+getParams :: (ValidResponse r) =>
   Rec TaggedParamId ts -> IdeRequest -> Either (IdeResponse r) (Rec ParamVal ts)
 getParams params req = go params
   where
-    go :: forall r ts. (ValidResponse r) =>
+    go :: (ValidResponse r) =>
       Rec TaggedParamId ts -> Either (IdeResponse r) (Rec ParamVal ts)
     go RNil = Right RNil
     go (x:&xs) = case go xs of
@@ -115,11 +114,3 @@ fileInfo tfileName =
   let sfileName = T.unpack tfileName
       dir = takeDirectory sfileName
   in (dir,sfileName)
-
-catchException :: (IO t) -> IO (Either String t)
-catchException f = do
-  res <- handle handler (f >>= \r -> return $ Right r)
-  return res
-  where
-    handler:: SomeException -> IO (Either String t)
-    handler e = return (Left (show e))

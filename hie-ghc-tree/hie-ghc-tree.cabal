@@ -1,10 +1,10 @@
-name:                hie-hare
+name:                hie-ghc-tree
 version:             0.1.0.0
-synopsis:            Haskell IDE HaRe plugin
+synopsis:            Haskell IDE GHC Tree plugin
 license:             BSD3
 license-file:        ../LICENSE
-author:              Alan Zimmerman
-maintainer:          alan.zimm@gmail.com (for now)
+author:              JP Moresmau
+maintainer:          jp.moresmau@gmail.com (for now)
 copyright:           2015 TBD
 category:            Web
 build-type:          Simple
@@ -16,22 +16,16 @@ flag pedantic
   Default:     False
 
 library
-  exposed-modules:     Haskell.Ide.HaRePlugin
+  exposed-modules:     Haskell.Ide.GhcTreePlugin
   build-depends:       base >= 4.7 && < 5
-                     , HaRe
                      , aeson
-                     , containers
-                     , directory
-                     , filepath
-                     , ghc
+                     , ghc-dump-tree
                      , ghc-mod
                      , hie-base
+                     , hie-ghc-mod
                      , hie-plugin-api
-                     , monad-control >= 1.0 && < 1.1
-                     , mtl >= 2.2 && < 2.3
                      , text
-                     , transformers
-                     , vinyl >= 0.5 && < 0.6
+                     , unordered-containers
   ghc-options:         -Wall
   if flag(pedantic)
      ghc-options:      -Werror

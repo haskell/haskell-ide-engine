@@ -1,0 +1,28 @@
+name:                testdata
+version:             0.1.0.0
+cabal-version:       >=1.10
+build-type: Simple
+
+executable applyrefact
+  build-depends:       base
+  main-is:             ApplyRefact.hs
+
+executable filewithwarning
+  build-depends:       base
+  main-is:             FileWithWarning.hs
+
+executable harecase
+  build-depends:       base
+  main-is:             HaReCase.hs
+
+executable haredemote
+  build-depends:       base
+  main-is:             HaReDemote.hs
+
+executable haremovedef
+  build-depends:       base
+  main-is:             HaReMoveDef.hs
+
+executable harerename
+  build-depends:       base
+  main-is:             HaReRename.hs

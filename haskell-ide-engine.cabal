@@ -87,8 +87,8 @@ executable hie
                      , hie-eg-plugin-async
                      , hie-example-plugin2
                      , hie-ghc-mod
+                     , hie-ghc-tree
                      , hie-hare
-                     , hie-ide-backend
                      , hie-plugin-api
                      , monad-logger
                      , optparse-applicative
@@ -112,8 +112,8 @@ test-suite haskell-ide-test
                        ExamplePluginAsyncSpec
                        ExtensibleStateSpec
                        GhcModPluginSpec
+                       GhcTreePluginSpec
                        HaRePluginSpec
-                       IdeBackendPluginSpec
                        JsonStdioSpec
                        JsonSpec
                        UtilsSpec
@@ -129,8 +129,8 @@ test-suite haskell-ide-test
                      , hie-apply-refact
                      , hie-base
                      , hie-eg-plugin-async
-                     , hie-ide-backend
                      , hie-ghc-mod
+                     , hie-ghc-tree
                      , hie-hare
                      , hie-plugin-api
                      , hspec

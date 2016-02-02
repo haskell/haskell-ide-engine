@@ -1,21 +1,25 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
 module Haskell.Ide.Engine.Dispatcher where
 
 import           Control.Concurrent.STM.TChan
+import           Control.Exception
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Data.Aeson
 import           Data.Either
+import qualified Data.Map as Map
 import           Data.Monoid
 import qualified Data.Text as T
+import           Exception
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
-import qualified Data.Map as Map
+import           Language.Haskell.GhcMod.Error
 
 -- ---------------------------------------------------------------------
 
@@ -74,10 +78,21 @@ doDispatch plugins creq = do
             Right ctxs -> case cfunc of
               CmdSync  f -> do
                 r <- f ctxs req
+                       `gcatch` (\(e::SomeException) ->
+                                  pure $ IdeResponseError
+                                           (IdeError PluginError
+                                                     (T.pack (show e))
+                                                     Null))
                 let r2 = fmap jsWrite r
                 return (Just r2)
               CmdAsync f -> do
                 f (sendResponse creq) ctxs req
+                  `gcatch` (\(e::SomeException) ->
+                             liftIO $ sendResponse creq $
+                                      (IdeResponseError
+                                         (IdeError PluginError
+                                                   (T.pack (show e))
+                                                   Null) :: IdeResponse ()))
                 return Nothing
 
 -- ---------------------------------------------------------------------
