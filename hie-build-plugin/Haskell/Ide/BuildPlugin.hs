@@ -1,5 +1,8 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE RankNTypes #-}
 module Haskell.Ide.BuildPlugin where
 
 import           Control.Concurrent
@@ -21,21 +24,20 @@ import qualified Distribution.Verbosity as Verb
 
 -- ---------------------------------------------------------------------
 
-exampleAsyncDescriptor :: PluginDescriptor
+exampleAsyncDescriptor :: TaggedPluginDescriptor _
 exampleAsyncDescriptor = PluginDescriptor
   {
     pdUIShortName = "Build plugin"
   , pdUIOverview = "A HIE plugin for building cabal/stack packages"
   , pdCommands =
-      [
-        buildCommand (longRunningCmdSync Cmd1) "cmd1" "Long running synchronous command" [] [CtxNone] []
-      , buildCommand addTarget "addTarget" "Add a new target to the cabal file" [] [CtxNone]
-                               [ RP "file" "Path to the .cabal file" PtFile
-                               , RP "name" "Name of the new target" PtText
-                               , RP "type" "executable/library" PtText
-                               ]
-      , buildCommand (longRunningCmdSync Cmd2) "cmd2" "Long running synchronous command" [] [CtxNone] []
-      ]
+         buildCommand (longRunningCmdSync Cmd1) (Proxy :: Proxy "cmd1") "Long running synchronous command" [] (SCtxNone :& RNil) RNil
+      :& buildCommand addTarget (Proxy :: Proxy "addTarget") "Add a new target to the cabal file" [] (SCtxNone :& RNil)
+            (  SParamDesc (Proxy :: Proxy "file") (Proxy :: Proxy "Path to the .cabal file") SPtFile SRequired
+            :& SParamDesc (Proxy :: Proxy "name") (Proxy :: Proxy "Name of the new target") SPtText SRequired
+            :& SParamDesc (Proxy :: Proxy "type") (Proxy :: Proxy "executable/library") SPtText SRequired
+            :& RNil)
+      :& buildCommand (longRunningCmdSync Cmd2) (Proxy :: Proxy "cmd2") "Long running synchronous command" [] (SCtxNone :& RNil) RNil
+      :& RNil
   , pdExposedServices = []
   , pdUsedServices    = []
   }
