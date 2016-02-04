@@ -10,7 +10,6 @@ packages:
 - hie-ghc-mod
 - hie-ghc-tree
 - hie-hare
-- hie-docs-generator
 - location:
     git: https://github.com/mpickering/apply-refact.git
     commit: 402458652844c1a0f42b15123e0ceff761919415
