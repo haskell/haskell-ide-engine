@@ -16,10 +16,13 @@ library
   build-depends:       base >= 4.7 && < 5
                      , hie-plugin-api
                      , aeson
+                     , bytestring
                      , containers
+                     , filepath
                      , stm
                      , text
                      , transformers
+                     , yaml
                      , Cabal
   ghc-options:         -Wall
   default-language:    Haskell2010
