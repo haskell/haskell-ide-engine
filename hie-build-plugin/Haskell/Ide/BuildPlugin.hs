@@ -20,6 +20,7 @@ import           Data.Monoid
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import System.FilePath ((</>))
+import System.Process (readProcess)
 import System.IO (openFile, hClose, IOMode(..))
 import System.IO.Error
 
@@ -112,12 +113,15 @@ withBinaryFileContents name act =
   Exception.bracket (openFile name ReadMode) hClose
                     (\hnd -> B.hGetContents hnd >>= act)
 
+getStackBuildDir = readProcess "stack" ["path", "--dist-dir"] ""
+
 listTargets' type_ buildDir dir = do
   case type_ of
     "stack" -> withBinaryFileContents (dir </> "stack.yaml") $ \contents -> do
       let (Just (StackYaml stackYaml)) = decode contents
           stackPackageDirs = map stackPackageName $ filter isLocal stackYaml
-      concat <$> mapM (listTargets' "cabal" buildDir) stackPackageDirs
+      stackBuildDir <- getStackBuildDir
+      concat <$> mapM (listTargets' "cabal" stackBuildDir) stackPackageDirs
     "cabal" -> do
       cabalFile <- findPackageDesc dir
       case cabalFile of
@@ -126,7 +130,7 @@ listTargets' type_ buildDir dir = do
           case parsePackageDescription contents of
             ParseFailed _ -> return []
             ParseOk _ genPkgDescr -> do
-              maybeLBI <- tryGetPersistBuildConfig buildDir
+              maybeLBI <- tryGetPersistBuildConfig (dir </> buildDir)
               case maybeLBI of
                 Right lbi -> return $ listCabalTargets $ localPkgDescr lbi
                 Left _ -> return $ listCabalTargets $ flattenPackageDescription genPkgDescr

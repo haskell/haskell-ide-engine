@@ -19,6 +19,7 @@ library
                      , bytestring
                      , containers
                      , filepath
+                     , process
                      , stm
                      , text
                      , transformers
