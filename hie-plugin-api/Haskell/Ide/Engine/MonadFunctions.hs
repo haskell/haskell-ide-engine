@@ -17,7 +17,6 @@ module Haskell.Ide.Engine.MonadFunctions
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
 import qualified Data.Text as T
-import           Haskell.Ide.Engine.Monad()
 import           Prelude hiding (log)
 import Control.Exception.Lifted
 import Control.Monad

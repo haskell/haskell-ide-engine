@@ -1,4 +1,4 @@
-resolver: nightly-2016-01-22
+resolver: nightly-2016-02-03
 packages:
 - .
 - hie-apply-refact
@@ -10,10 +10,6 @@ packages:
 - hie-ghc-mod
 - hie-ghc-tree
 - hie-hare
-- location:
-    git: https://github.com/mpickering/apply-refact.git
-    commit: 402458652844c1a0f42b15123e0ceff761919415
-  extra-dep: true
 extra-deps:
   - ghc-dump-tree-0.2.0.0
   - ghc-7.10.3

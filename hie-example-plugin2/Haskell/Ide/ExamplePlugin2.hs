@@ -9,7 +9,6 @@ module Haskell.Ide.ExamplePlugin2 where
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Control.Monad.IO.Class
-import qualified Data.Map as Map
 import           Data.Monoid
 import qualified Data.Text as T
 
@@ -40,13 +39,13 @@ sayHelloCmd :: CommandFunc T.Text
 sayHelloCmd = CmdSync $ \_ _ -> return (IdeResponseOk sayHello)
 
 sayHelloToCmd :: CommandFunc T.Text
-sayHelloToCmd = CmdSync $ \_ req -> do
-  case Map.lookup "name" (ideParams req) of
-    Nothing -> return $ missingParameter "name"
-    Just (ParamTextP n) -> do
+sayHelloToCmd = CmdSync $ \_ req ->
+  case getParams (IdText "name" :& RNil) req of
+    Left err -> return err
+    Right (ParamText n :& RNil) -> do
       r <- liftIO $ sayHelloTo n
       return $ IdeResponseOk r
-    Just x -> return $ incorrectParameter "name" ("ParamText"::String) x
+    Right _ -> error "ghc's exhaustiveness checker is broken"
 
 -- ---------------------------------------------------------------------
 {-

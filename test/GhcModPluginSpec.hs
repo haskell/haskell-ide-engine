@@ -63,7 +63,7 @@ ghcmodSpec = do
     it "runs the lint command" $ do
       let req = IdeRequest "lint" (Map.fromList [("file", ParamFileP "./test/testdata/FileWithWarning.hs")])
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("./test/testdata/FileWithWarning.hs:6:9: Error: Redundant do\NULFound:\NUL  do return (3 + x)\NULWhy not:\NUL  return (3 + x)\n"::String)]))
+      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("./test/testdata/FileWithWarning.hs:6:9: Warning: Redundant do\NULFound:\NUL  do return (3 + x)\NULWhy not:\NUL  return (3 + x)\n"::String)]))
 
 
     -- ---------------------------------
