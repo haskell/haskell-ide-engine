@@ -45,6 +45,7 @@ import           System.Directory
 -- plugins
 
 import           Haskell.Ide.ApplyRefactPlugin
+import           Haskell.Ide.BuildPlugin
 import           Haskell.Ide.Engine.BasePlugin
 import           Haskell.Ide.ExamplePlugin2
 import           Haskell.Ide.ExamplePluginAsync
@@ -58,6 +59,7 @@ import           Haskell.Ide.HaRePlugin
 taggedPlugins :: Rec Plugin _
 taggedPlugins =
      Plugin (Proxy :: Proxy "applyrefact") applyRefactDescriptor
+  :& Plugin (Proxy :: Proxy "build") buildPluginDescriptor
   :& Plugin (Proxy :: Proxy "eg2") example2Descriptor
   :& Plugin (Proxy :: Proxy "egasync") exampleAsyncDescriptor
   :& Plugin (Proxy :: Proxy "ghcmod") ghcmodDescriptor
