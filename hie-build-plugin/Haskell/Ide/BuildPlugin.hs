@@ -24,6 +24,8 @@ import System.Process (readProcess)
 import System.IO (openFile, hClose, IOMode(..))
 import System.IO.Error
 
+import Distribution.Helper
+
 import Distribution.Simple.Setup (defaultDistPref)
 import Distribution.Simple.Configure
 import Distribution.Simple.LocalBuildInfo
@@ -113,7 +115,7 @@ withBinaryFileContents name act =
   Exception.bracket (openFile name ReadMode) hClose
                     (\hnd -> B.hGetContents hnd >>= act)
 
-getStackBuildDir = readProcess "stack" ["path", "--dist-dir"] ""
+getStackBuildDir = init <$> readProcess "stack" ["path", "--dist-dir"] ""
 
 listTargets' type_ buildDir dir = do
   case type_ of
@@ -122,33 +124,19 @@ listTargets' type_ buildDir dir = do
           stackPackageDirs = map stackPackageName $ filter isLocal stackYaml
       stackBuildDir <- getStackBuildDir
       concat <$> mapM (listTargets' "cabal" stackBuildDir) stackPackageDirs
-    "cabal" -> do
-      cabalFile <- findPackageDesc dir
-      case cabalFile of
-        Left _ -> return []
-        Right cabalFile -> withFileContents cabalFile $ \contents ->
-          case parsePackageDescription contents of
-            ParseFailed _ -> return []
-            ParseOk _ genPkgDescr -> do
-              maybeLBI <- tryGetPersistBuildConfig (dir </> buildDir)
-              case maybeLBI of
-                Right lbi -> return $ listCabalTargets $ localPkgDescr lbi
-                Left _ -> return $ listCabalTargets $ flattenPackageDescription genPkgDescr
+    "cabal" -> runQuery (defaultQueryEnv dir buildDir) entrypoints
 
-data Target = ExecutableTarget String
-            | LibraryTarget String
-            | TestTarget String
+instance ToJSON ChComponentName where
+  toJSON ChSetupHsName = object ["type" .= ("hsSetup" :: T.Text)]
+  toJSON ChLibName = object ["type" .= ("library" :: T.Text)]
+  toJSON (ChExeName n) = object ["type" .= ("executable" :: T.Text), "name" .= n]
+  toJSON (ChTestName n) = object ["type" .= ("test" :: T.Text), "name" .= n]
+  toJSON (ChBenchName n) = object ["type" .= ("benchmark" :: T.Text), "name" .= n]
 
-instance ToJSON Target where
-  toJSON (ExecutableTarget n) = object ["type" .= ("executable" :: T.Text), "name" .= n]
-  toJSON (LibraryTarget n) = object ["type" .= ("library" :: T.Text), "name" .= n]
-  toJSON (TestTarget n) = object ["type" .= ("test" :: T.Text), "name" .= n]
-
-listCabalTargets pkgDescr = execs ++ tests ++ maybeLibrary
-  where
-    execs = map (ExecutableTarget . exeName) $ executables pkgDescr
-    maybeLibrary = map (const $ LibraryTarget $ unPackageName $ pkgName $ package pkgDescr) $ maybeToList $ library pkgDescr
-    tests = map (TestTarget . testName) $ testSuites pkgDescr
+instance ToJSON ChEntrypoint where
+  toJSON ChSetupEntrypoint = object ["type" .= ("hsSetup" :: T.Text)]
+  toJSON (ChLibEntrypoint _ _) = object ["type" .= ("library" :: T.Text)]
+  toJSON (ChExeEntrypoint _ _)= object ["type" .= ("executable" :: T.Text)]
 
 addTarget = CmdSync $ \ctx req -> do
   let args = (,,) <$> Map.lookup "file" (ideParams req)

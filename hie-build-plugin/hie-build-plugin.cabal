@@ -24,6 +24,7 @@ library
                      , text
                      , transformers
                      , yaml
+                     , cabal-helper
                      , Cabal
   ghc-options:         -Wall
   default-language:    Haskell2010
