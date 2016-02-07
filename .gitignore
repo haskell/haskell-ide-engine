@@ -40,3 +40,4 @@ tags
 /docs/build/
 /docs/source/plugins/
 /elisp/.cask/
+*.kdev4
