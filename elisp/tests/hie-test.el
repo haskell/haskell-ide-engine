@@ -175,20 +175,20 @@
                                                                       (type . "text"))
                                                                      ((required . t)
                                                                       (help . "param2 help")
-                                                                      (name . "param2")
+                                                                      (name . "param2CamelCase")
                                                                       (type . "text"))))
                                                (ui_description . "description")))))
                           (expect test-command :to-equal
-                                  '(defun hie-testplugin-testcommand (param1 param2)
-                                     "description\nPARAM1: param1 help\nPARAM2: param2 help"
-                                     (interactive "sparam1 (param1 help): \nsparam2 (param2 help): ")
+                                  '(defun hie-testplugin-testcommand (param1 param2CamelCase)
+                                     "description\nPARAM1: param1 help\nPARAM2CAMELCASE: param2 help"
+                                     (interactive "sparam1 (param1 help): \nsparam2CamelCase (param2 help): ")
                                      (hie-run-command "testplugin" "testcommand"
                                                       (list (list (cons 'name "param1")
                                                                   (cons 'type "text")
                                                                   (cons 'val param1))
-                                                            (list (cons 'name "param2")
+                                                            (list (cons 'name "param2CamelCase")
                                                                   (cons 'type "text")
-                                                                  (cons 'val param2)))))))))
+                                                                  (cons 'val param2CamelCase)))))))))
           (describe "buffer management"
                     (before-all
                      (find-file (concat base-dir "/test/testdata/HaReRename.hs")))
