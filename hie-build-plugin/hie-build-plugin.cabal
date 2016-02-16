@@ -18,6 +18,7 @@ library
                      , aeson
                      , bytestring
                      , containers
+                     , directory
                      , filepath
                      , process
                      , stm

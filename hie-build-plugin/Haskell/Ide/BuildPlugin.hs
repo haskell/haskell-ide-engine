@@ -19,7 +19,8 @@ import           Data.Maybe
 import           Data.Monoid
 import qualified Data.Map as Map
 import qualified Data.Text as T
-import System.FilePath ((</>))
+import System.Directory (makeAbsolute)
+import System.FilePath ((</>), normalise)
 import System.Process (readProcess)
 import System.IO (openFile, hClose, IOMode(..))
 import System.IO.Error
@@ -30,7 +31,6 @@ import Distribution.Simple.Setup (defaultDistPref)
 import Distribution.Simple.Configure
 import Distribution.Simple.LocalBuildInfo
 import Distribution.Simple.Utils (findPackageDesc, withFileContents)
-import Distribution.Package
 import Distribution.PackageDescription
 import Distribution.PackageDescription.Configuration
 import Distribution.PackageDescription.Parse
@@ -90,11 +90,20 @@ listTargets :: CommandFunc Object
 listTargets = CmdSync $ \ctx req -> do
     case getParams (IdFile "directory" :& IdText "type" :& RNil) req of
         Left err -> return err
-        Right (ParamFile dir :& ParamText type_ :& RNil) -> do
+        Right (ParamFile dir0 :& ParamText type_ :& RNil) -> do
             let buildDir = maybe defaultDistPref (\(ParamTextP v) -> T.unpack v) $ Map.lookup "buildDir" (ideParams req)
-            targets <- liftIO $ listTargets' type_ buildDir (T.unpack dir)
-            let (Object ret) = object ["res" .= toJSON targets]
+            dir <- liftIO $ makeAbsolute $ T.unpack dir0
+            targets0 <- liftIO $ listTargets' type_ buildDir dir
+            let targets = flip map targets0 $ \(n,d,comps) ->
+                  object ["name" .= n, "directory" .= d, "targets" .= map (compToJSON n) comps]
+                (Object ret) = object ["res" .= toJSON targets]
             return $ IdeResponseOk ret
+
+compToJSON n ChSetupHsName = object ["type" .= ("hsSetup" :: T.Text)]
+compToJSON n ChLibName = object ["type" .= ("library" :: T.Text), "name" .= n]
+compToJSON _ (ChExeName n) = object ["type" .= ("executable" :: T.Text), "name" .= n]
+compToJSON _ (ChTestName n) = object ["type" .= ("test" :: T.Text), "name" .= n]
+compToJSON _ (ChBenchName n) = object ["type" .= ("benchmark" :: T.Text), "name" .= n]
 
 data StackYaml = StackYaml [StackPackage]
 data StackPackage = LocalOrHTTPPackage { stackPackageName :: String }
@@ -123,8 +132,11 @@ listTargets' type_ buildDir dir = do
       let (Just (StackYaml stackYaml)) = decode contents
           stackPackageDirs = map stackPackageName $ filter isLocal stackYaml
       stackBuildDir <- getStackBuildDir
-      concat <$> mapM (listTargets' "cabal" stackBuildDir) stackPackageDirs
-    "cabal" -> runQuery (defaultQueryEnv dir buildDir) entrypoints
+      concat <$> mapM (listTargets' "cabal" stackBuildDir) (map (dir </>) stackPackageDirs)
+    "cabal" -> runQuery (defaultQueryEnv dir buildDir) $ do
+      comps <- map fst <$> entrypoints
+      (pkgName, _) <- packageId
+      return [(pkgName, dir, comps)]
 
 instance ToJSON ChComponentName where
   toJSON ChSetupHsName = object ["type" .= ("hsSetup" :: T.Text)]
