@@ -340,8 +340,8 @@ association lists and count on HIE to use default values there."
          (old-row (line-number-at-pos)))
      (save-excursion
        ,@body)
-     (move-to-column old-col)
-     (move-to-line old-row)))
+     (move-to-line old-row)
+     (move-to-column old-col)))
 
 (defun move-to-line (N)
   (goto-char (point-min))
@@ -424,7 +424,7 @@ association lists and count on HIE to use default values there."
           (required-params
            (-filter (-lambda ((&alist 'required required)) required)
                     params))
-          (param-names (-map (-lambda ((&alist 'name name)) (downcase name))
+          (param-names (-map (-lambda ((&alist 'name name)) name)
                              required-params))
           (param-args (-map 'intern param-names))
           (param-docstrings
@@ -436,9 +436,9 @@ association lists and count on HIE to use default values there."
            (format "%s\n%s" desc (mapconcat 'identity param-docstrings "\n")))
           (param-vals (-map
                        (-lambda ((&alist 'name name 'type type))
-                         `(list (cons 'name ,(downcase name))
+                         `(list (cons 'name ,name)
                                 (cons 'type ,type)
-                                (cons 'val ,(intern (downcase name)))))
+                                (cons 'val ,(intern name))))
                        required-params))
           (interactive-strings
            (-map
