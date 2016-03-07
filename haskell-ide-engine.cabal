@@ -23,6 +23,7 @@ library
                        Haskell.Ide.Engine.Console
                        Haskell.Ide.Engine.Dispatcher
                        Haskell.Ide.Engine.Options
+                       Haskell.Ide.Engine.Swagger
                        Haskell.Ide.Engine.Transport.JsonHttp
                        Haskell.Ide.Engine.Transport.JsonHttp.Undecidable
                        Haskell.Ide.Engine.Transport.JsonStdio
@@ -62,6 +63,7 @@ library
                      , servant-server
                      , singletons
                      , stm
+                     , swagger2
                      , text
                      , time
                      , transformers
@@ -75,10 +77,11 @@ executable hie
   hs-source-dirs:      app
   main-is:             MainHie.hs
   other-modules:       Paths_haskell_ide_engine
-  build-depends:       base
-                     , Cabal >= 1.22
+  build-depends:       Cabal >= 1.22
                      , aeson
                      , apply-refact
+                     , base
+                     , bytestring
                      , containers
                      , directory
                      , fast-logger
@@ -98,6 +101,7 @@ executable hie
                      , optparse-applicative
                      , optparse-simple
                      , stm
+                     , swagger2
                      , text
                      , time
                      , transformers
@@ -121,10 +125,10 @@ test-suite haskell-ide-test
                        JsonStdioSpec
                        JsonSpec
                        UtilsSpec
-  build-depends:       base
-                     , Diff
+  build-depends:       Diff
                      , QuickCheck
                      , aeson
+                     , base
                      , containers
                      , directory
                      , fast-logger
@@ -141,6 +145,7 @@ test-suite haskell-ide-test
                      , monad-logger
                      , quickcheck-instances
                      , stm
+                     , swagger2
                      , text
                      , transformers
                      , unordered-containers
