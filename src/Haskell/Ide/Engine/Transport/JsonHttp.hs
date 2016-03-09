@@ -27,6 +27,7 @@ import qualified Data.Map as Map
 import           Data.Maybe
 import           Data.Proxy
 import           Data.Singletons.Prelude hiding ((:>))
+import           Data.Swagger (Swagger)
 import qualified Data.Text as T
 import           GHC.Generics
 import           GHC.TypeLits
@@ -78,6 +79,8 @@ data Plugin (t :: PluginType) where
 
 data PluginType = PluginType Symbol [CommandType]
 
+-- ---------------------------------------------------------------------
+
 -- | Build up a list of all plugins and their commands, as a servant API spec
 type family PluginRoutes (list :: [PluginType]) where
   PluginRoutes ('PluginType name cmds ': xs)
@@ -103,6 +106,7 @@ type CommandRoute (name :: Symbol) (params :: [ParamDescType]) =
    ReqBody '[JSON] (TaggedMap params) :>
    Post '[JSON] (IdeResponse Object)
 
+-- ---------------------------------------------------------------------
 
 data Fail = Fail
 
@@ -112,8 +116,7 @@ instance HasServer Fail where
 
   route _ _ _ f = f (failWith NotFound)
 
-hieAPI :: Proxy plugins -> Proxy (PluginRoutes plugins)
-hieAPI _ = Proxy
+-- ---------------------------------------------------------------------
 
 -- Server-side handlers.
 --
@@ -179,20 +182,33 @@ cmdHandler plugin cmd cin cout mrid (TaggedMap reqVal) =
                rsp <- liftIO $ atomically $ readTChan cout
                return (coutResp rsp)
 
+-- ---------------------------------------------------------------------
+
+-- | Servant server for the plugin commands
 hieServantServer :: HieServer plugins
        => Proxy plugins -> TChan ChannelRequest ->  TChan ChannelResponse -> Servant.Server (PluginRoutes plugins)
 hieServantServer proxy cin cout = hieServer proxy cin cout
 
 waiApp :: (HieServer plugins, HasServer (PluginRoutes plugins))
-     => Proxy plugins -> TChan ChannelRequest -> TChan ChannelResponse -> Application
-waiApp proxy cin cout = Servant.serve (hieAPI proxy) (hieServantServer proxy cin cout)
+     => Swagger -> Proxy plugins -> TChan ChannelRequest -> TChan ChannelResponse -> Application
+waiApp swagger proxy cin cout = Servant.serve api server
+  where
+    api    = apiRoutesProxy proxy
+    server = hieServantServer proxy cin cout :<|> return swagger
 
-runHttpServer :: (HieServer plugins, HasServer (PluginRoutes plugins)) => Proxy plugins -> TChan ChannelRequest -> Port -> IO ()
-runHttpServer proxy cin port = do
+type StaticRoutes = "swagger.json" :> Get '[JSON] Swagger
+
+apiRoutesProxy :: Proxy plugins -> Proxy (PluginRoutes plugins :<|> StaticRoutes)
+apiRoutesProxy _ = Proxy
+
+
+runHttpServer :: (HieServer plugins, HasServer (PluginRoutes plugins))
+              => Swagger -> Proxy plugins -> TChan ChannelRequest -> Port -> IO ()
+runHttpServer swagger proxy cin port = do
   cout <- atomically newTChan :: IO (TChan ChannelResponse)
-  Warp.run port (waiApp proxy cin cout)
+  Warp.run port (waiApp swagger proxy cin cout)
 
 -- Put this all to work!
 jsonHttpListener :: (HieServer plugins, HasServer (PluginRoutes plugins))
-                 => Proxy plugins -> TChan ChannelRequest -> Port -> IO ()
-jsonHttpListener proxy cin port = runHttpServer proxy cin port
+                 => Swagger -> Proxy plugins -> TChan ChannelRequest -> Port -> IO ()
+jsonHttpListener swagger proxy cin port = runHttpServer swagger proxy cin port

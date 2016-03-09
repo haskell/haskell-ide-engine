@@ -144,8 +144,9 @@ run opts = do
       Nothing -> return ()
 
     when (optDumpSwagger opts) $ do
-      putStrLn "dumping swagger definition"
+      -- putStrLn "dumping swagger definition"
       let swagger = hieSwagger plugins
+      -- putStrLn (show swagger)
       putStrLn (B.unpack $  encode swagger)
       exitSuccess
 
@@ -154,7 +155,7 @@ run opts = do
 
     -- TODO: pass port in as a param from GlobalOpts
     when (optHttp opts) $
-      void $ forkIO (jsonHttpListener (recProxy taggedPlugins) cin (optPort opts))
+      void $ forkIO (jsonHttpListener (hieSwagger plugins) (recProxy taggedPlugins) cin (optPort opts))
 
     when (optTcp opts) $
       void $ forkIO (jsonTcpTransport (optOneShot opts) cin HostAny (show $ optTcpPort opts))
