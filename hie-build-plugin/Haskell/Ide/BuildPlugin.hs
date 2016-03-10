@@ -52,6 +52,12 @@ buildPluginDescriptor = PluginDescriptor
             (  SParamDesc (Proxy :: Proxy "directory") (Proxy :: Proxy "Directory to search for project file") SPtFile SRequired
             :& SParamDesc (Proxy :: Proxy "type") (Proxy :: Proxy "Project type: \"stack\" or \"cabal\"") SPtText SRequired
             :& RNil)
+      :& buildCommand listFlags (Proxy :: Proxy "listFlags")
+            "Lists all flags that can be set when configuring a package"
+            [] (SCtxNone :& RNil)
+            (  SParamDesc (Proxy :: Proxy "directory") (Proxy :: Proxy "Directory to search for project file") SPtFile SRequired
+            :& SParamDesc (Proxy :: Proxy "type") (Proxy :: Proxy "Project type: \"stack\" or \"cabal\"") SPtText SRequired
+            :& RNil)
       :& buildCommand addTarget (Proxy :: Proxy "addTarget") "Add a new target to the cabal file" [] (SCtxNone :& RNil)
             (  SParamDesc (Proxy :: Proxy "file") (Proxy :: Proxy "Path to the .cabal file") SPtFile SRequired
             :& SParamDesc (Proxy :: Proxy "name") (Proxy :: Proxy "Name of the new target") SPtText SRequired
@@ -86,18 +92,41 @@ instance ExtensionClass AsyncPluginState where
 
 -- ---------------------------------------------------------------------
 
+listFlags = CmdSync $ \ctx req -> do
+  case getParams (IdFile "directory" :& IdText "type" :& RNil) req of
+    Left err -> return err
+    Right (ParamFile dir0 :& ParamText type_ :& RNil) -> do
+      let dir = T.unpack dir0
+      flags0 <- liftIO $ listFlags' type_ dir
+      let flags = flip map flags0 $ \(n, d, fs) ->
+            object ["name" .= n, "directory" .= d, "flags" .= map flagToJSON fs]
+          (Object ret) = object ["res" .= toJSON flags]
+      return $ IdeResponseOk ret
+
+flagToJSON (n,v) = object ["name" .= n, "default" .= v, "value" .= v]
+
+listFlags' type_ dir = do
+  case type_ of
+    "stack" -> do
+      stackPackageDirs <- getStackLocalPackages (dir </> "stack.yaml")
+      concat <$> mapM (listFlags' "cabal") stackPackageDirs
+    "cabal" -> runQuery (defaultQueryEnv dir "") $ do
+      (pkgName, _) <- packageId
+      fs <- flags
+      return [(pkgName, dir, fs)]
+
 listTargets :: CommandFunc Object
 listTargets = CmdSync $ \ctx req -> do
-    case getParams (IdFile "directory" :& IdText "type" :& RNil) req of
-        Left err -> return err
-        Right (ParamFile dir0 :& ParamText type_ :& RNil) -> do
-            let buildDir = maybe defaultDistPref (\(ParamTextP v) -> T.unpack v) $ Map.lookup "buildDir" (ideParams req)
-            dir <- liftIO $ makeAbsolute $ T.unpack dir0
-            targets0 <- liftIO $ listTargets' type_ buildDir dir
-            let targets = flip map targets0 $ \(n,d,comps) ->
-                  object ["name" .= n, "directory" .= d, "targets" .= map (compToJSON n) comps]
-                (Object ret) = object ["res" .= toJSON targets]
-            return $ IdeResponseOk ret
+  case getParams (IdFile "directory" :& IdText "type" :& RNil) req of
+    Left err -> return err
+    Right (ParamFile dir0 :& ParamText type_ :& RNil) -> do
+      let buildDir = maybe defaultDistPref (\(ParamTextP v) -> T.unpack v) $ Map.lookup "buildDir" (ideParams req)
+      dir <- liftIO $ makeAbsolute $ T.unpack dir0
+      targets0 <- liftIO $ listTargets' type_ buildDir dir
+      let targets = flip map targets0 $ \(n,d,comps) ->
+            object ["name" .= n, "directory" .= d, "targets" .= map (compToJSON n) comps]
+          (Object ret) = object ["res" .= toJSON targets]
+      return $ IdeResponseOk ret
 
 compToJSON n ChSetupHsName = object ["type" .= ("hsSetup" :: T.Text)]
 compToJSON n ChLibName = object ["type" .= ("library" :: T.Text), "name" .= n]
@@ -126,11 +155,15 @@ withBinaryFileContents name act =
 
 getStackBuildDir = init <$> readProcess "stack" ["path", "--dist-dir"] ""
 
+getStackLocalPackages stackYaml = withBinaryFileContents stackYaml $ \contents -> do
+  let (Just (StackYaml stackYaml)) = decode contents
+      stackLocalPackages = map stackPackageName $ filter isLocal stackYaml
+  return stackLocalPackages
+
 listTargets' type_ buildDir dir = do
   case type_ of
-    "stack" -> withBinaryFileContents (dir </> "stack.yaml") $ \contents -> do
-      let (Just (StackYaml stackYaml)) = decode contents
-          stackPackageDirs = map stackPackageName $ filter isLocal stackYaml
+    "stack" -> do
+      stackPackageDirs <- getStackLocalPackages (dir </> "stack.yaml")
       stackBuildDir <- getStackBuildDir
       concat <$> mapM (listTargets' "cabal" stackBuildDir) (map (dir </>) stackPackageDirs)
     "cabal" -> runQuery (defaultQueryEnv dir buildDir) $ do
