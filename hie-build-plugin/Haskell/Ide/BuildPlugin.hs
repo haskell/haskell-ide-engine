@@ -69,29 +69,9 @@ buildPluginDescriptor = PluginDescriptor
   , pdUsedServices    = []
   }
 
--- ---------------------------------------------------------------------
+-----------------------------------------------
 
-data WorkerCmd = Cmd1 | Cmd2
-              deriving Show
-
--- | Keep track of the communication channesl to the remote process.
-data SubProcess = SubProcess
-  { spChIn    :: TChan WorkerCmd
-  , spChOut   :: TChan T.Text
-  , spProcess :: ThreadId
-  }
-
--- | Wrap it in a Maybe for pure initialisation
-data AsyncPluginState = APS (Maybe SubProcess)
-
--- | Tag the state variable to enable it to be stored in the dispatcher state,
--- accessible to all plugins, provided they know the type, as it is accessed via
--- a @cast@
-instance ExtensionClass AsyncPluginState where
-  initialValue = APS Nothing
-
--- ---------------------------------------------------------------------
-
+listFlags :: CommandFunc Object
 listFlags = CmdSync $ \ctx req -> do
   case getParams (IdFile "directory" :& IdText "type" :& RNil) req of
     Left err -> return err
@@ -103,8 +83,6 @@ listFlags = CmdSync $ \ctx req -> do
           (Object ret) = object ["res" .= toJSON flags]
       return $ IdeResponseOk ret
 
-flagToJSON (n,v) = object ["name" .= n, "default" .= v, "value" .= v]
-
 listFlags' type_ dir = do
   case type_ of
     "stack" -> do
@@ -114,6 +92,10 @@ listFlags' type_ dir = do
       (pkgName, _) <- packageId
       fs <- flags
       return [(pkgName, dir, fs)]
+
+flagToJSON (n,v) = object ["name" .= n, "default" .= v, "value" .= v]
+
+-----------------------------------------------
 
 listTargets :: CommandFunc Object
 listTargets = CmdSync $ \ctx req -> do
@@ -128,38 +110,6 @@ listTargets = CmdSync $ \ctx req -> do
           (Object ret) = object ["res" .= toJSON targets]
       return $ IdeResponseOk ret
 
-compToJSON n ChSetupHsName = object ["type" .= ("hsSetup" :: T.Text)]
-compToJSON n ChLibName = object ["type" .= ("library" :: T.Text), "name" .= n]
-compToJSON _ (ChExeName n) = object ["type" .= ("executable" :: T.Text), "name" .= n]
-compToJSON _ (ChTestName n) = object ["type" .= ("test" :: T.Text), "name" .= n]
-compToJSON _ (ChBenchName n) = object ["type" .= ("benchmark" :: T.Text), "name" .= n]
-
-data StackYaml = StackYaml [StackPackage]
-data StackPackage = LocalOrHTTPPackage { stackPackageName :: String }
-                  | Repository
-
-isLocal (LocalOrHTTPPackage _) = True
-isLocal _ = False
-
-instance FromJSON StackYaml where
-  parseJSON (Object o) = StackYaml <$>
-    o .: "packages"
-
-instance FromJSON StackPackage where
-  parseJSON (Object o) = pure Repository
-  parseJSON (String s) = pure $ LocalOrHTTPPackage (T.unpack s)
-
-withBinaryFileContents name act =
-  Exception.bracket (openFile name ReadMode) hClose
-                    (\hnd -> B.hGetContents hnd >>= act)
-
-getStackBuildDir = init <$> readProcess "stack" ["path", "--dist-dir"] ""
-
-getStackLocalPackages stackYaml = withBinaryFileContents stackYaml $ \contents -> do
-  let (Just (StackYaml stackYaml)) = decode contents
-      stackLocalPackages = map stackPackageName $ filter isLocal stackYaml
-  return stackLocalPackages
-
 listTargets' type_ buildDir dir = do
   case type_ of
     "stack" -> do
@@ -171,17 +121,39 @@ listTargets' type_ buildDir dir = do
       (pkgName, _) <- packageId
       return [(pkgName, dir, comps)]
 
-instance ToJSON ChComponentName where
-  toJSON ChSetupHsName = object ["type" .= ("hsSetup" :: T.Text)]
-  toJSON ChLibName = object ["type" .= ("library" :: T.Text)]
-  toJSON (ChExeName n) = object ["type" .= ("executable" :: T.Text), "name" .= n]
-  toJSON (ChTestName n) = object ["type" .= ("test" :: T.Text), "name" .= n]
-  toJSON (ChBenchName n) = object ["type" .= ("benchmark" :: T.Text), "name" .= n]
+data StackYaml = StackYaml [StackPackage]
+data StackPackage = LocalOrHTTPPackage { stackPackageName :: String }
+                  | Repository
 
-instance ToJSON ChEntrypoint where
-  toJSON ChSetupEntrypoint = object ["type" .= ("hsSetup" :: T.Text)]
-  toJSON (ChLibEntrypoint _ _) = object ["type" .= ("library" :: T.Text)]
-  toJSON (ChExeEntrypoint _ _)= object ["type" .= ("executable" :: T.Text)]
+instance FromJSON StackYaml where
+  parseJSON (Object o) = StackYaml <$>
+    o .: "packages"
+
+instance FromJSON StackPackage where
+  parseJSON (Object o) = pure Repository
+  parseJSON (String s) = pure $ LocalOrHTTPPackage (T.unpack s)
+
+isLocal (LocalOrHTTPPackage _) = True
+isLocal _ = False
+
+getStackLocalPackages stackYaml = withBinaryFileContents stackYaml $ \contents -> do
+  let (Just (StackYaml stackYaml)) = decode contents
+      stackLocalPackages = map stackPackageName $ filter isLocal stackYaml
+  return stackLocalPackages
+
+compToJSON n ChSetupHsName = object ["type" .= ("hsSetup" :: T.Text)]
+compToJSON n ChLibName = object ["type" .= ("library" :: T.Text), "name" .= n]
+compToJSON _ (ChExeName n) = object ["type" .= ("executable" :: T.Text), "name" .= n]
+compToJSON _ (ChTestName n) = object ["type" .= ("test" :: T.Text), "name" .= n]
+compToJSON _ (ChBenchName n) = object ["type" .= ("benchmark" :: T.Text), "name" .= n]
+
+-----------------------------------------------
+
+withBinaryFileContents name act =
+  Exception.bracket (openFile name ReadMode) hClose
+                    (\hnd -> B.hGetContents hnd >>= act)
+
+getStackBuildDir = init <$> readProcess "stack" ["path", "--dist-dir"] ""
 
 addTarget = CmdSync $ \ctx req -> do
   let args = (,,) <$> Map.lookup "file" (ideParams req)
@@ -208,6 +180,25 @@ addTarget' file name _type = do
                         }
             --writePackageDescription file newDescr
             return True
+
+data WorkerCmd = Cmd1 | Cmd2
+              deriving Show
+
+-- | Keep track of the communication channesl to the remote process.
+data SubProcess = SubProcess
+  { spChIn    :: TChan WorkerCmd
+  , spChOut   :: TChan T.Text
+  , spProcess :: ThreadId
+  }
+
+-- | Wrap it in a Maybe for pure initialisation
+data AsyncPluginState = APS (Maybe SubProcess)
+
+-- | Tag the state variable to enable it to be stored in the dispatcher state,
+-- accessible to all plugins, provided they know the type, as it is accessed via
+-- a @cast@
+instance ExtensionClass AsyncPluginState where
+  initialValue = APS Nothing
 
 -- | This command manages interaction with a separate process, doing stuff.
 longRunningCmdSync :: WorkerCmd -> CommandFunc T.Text
