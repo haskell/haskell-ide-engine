@@ -144,7 +144,8 @@ type TaggedCommandDescriptor cxts tags = CommandDescriptor (Rec SAcceptedContext
 
 data ExtendedCommandDescriptor =
   ExtendedCommandDescriptor UntaggedCommandDescriptor
-                            PluginName deriving (Show,Eq)
+                            PluginName deriving (Show,Eq,Generic)
+
 
 instance ValidResponse ExtendedCommandDescriptor where
   jsWrite (ExtendedCommandDescriptor cmdDescriptor name) =

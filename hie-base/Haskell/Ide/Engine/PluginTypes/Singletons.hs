@@ -19,12 +19,12 @@ import GHC.TypeLits
 -- singleton version `SParamType` which requires prefixing the
 -- constructors with an /S/
 data ParamType = PtText | PtFile | PtPos
-            deriving (Eq,Ord,Show,Read,Bounded,Enum)
+            deriving (Eq,Ord,Show,Read,Bounded,Enum,Generic)
 
 -- | Indicates whether a parameter is required or optional. Plugin
 -- atuhors should use the singleton version `SParamRequired` which
 -- requires prefixing constructors with an /S/
-data ParamRequired = Required | Optional deriving (Eq,Ord,Show,Read,Bounded,Enum)
+data ParamRequired = Required | Optional deriving (Eq,Ord,Show,Read,Bounded,Enum,Generic)
 
 -- | Define what context will be accepted from the frontend for the
 -- specific command. Matches up to corresponding values for
