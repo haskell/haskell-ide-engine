@@ -67,6 +67,7 @@ import           Data.Aeson.Types
 import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import           Data.Singletons.Prelude
+import           Data.Swagger (ToSchema)
 import qualified Data.Text as T
 import           Data.Typeable
 import           Data.Vinyl
@@ -139,13 +140,14 @@ data CommandDescriptor cxts descs = CommandDesc
 
 -- | Type synonym for a 'CommandDescriptor' that uses simple lists
 type UntaggedCommandDescriptor = CommandDescriptor [AcceptedContext] [ParamDescription]
+instance ToSchema UntaggedCommandDescriptor
 
 type TaggedCommandDescriptor cxts tags = CommandDescriptor (Rec SAcceptedContext cxts) (Rec SParamDescription tags)
 
 data ExtendedCommandDescriptor =
   ExtendedCommandDescriptor UntaggedCommandDescriptor
                             PluginName deriving (Show,Eq,Generic)
-
+instance ToSchema ExtendedCommandDescriptor
 
 instance ValidResponse ExtendedCommandDescriptor where
   jsWrite (ExtendedCommandDescriptor cmdDescriptor name) =
@@ -176,6 +178,7 @@ type PluginName = T.Text
 data IdePlugins = IdePlugins
   { ipMap :: Map.Map PluginId [UntaggedCommandDescriptor]
   } deriving (Show,Eq,Generic)
+instance ToSchema IdePlugins
 
 type Pos = (Int,Int)
 
@@ -195,6 +198,7 @@ data ParamDescription =
             ,pType :: !ParamType
             ,pRequired :: !ParamRequired}
   deriving (Show,Eq,Ord,Generic)
+instance ToSchema ParamDescription
 
 pattern RP name help type' <- ParamDesc name help type' Required
   where RP name help type' = ParamDesc name help type' Required
@@ -292,7 +296,7 @@ data IdeError = IdeError
  deriving (Show,Read,Eq,Generic)
 
 -- | The typeclass for valid response types
-class (Typeable a) => ValidResponse a where
+class (Typeable a,ToSchema a) => ValidResponse a where
   jsWrite :: a -> Object -- ^ Serialize to JSON Object
   jsRead  :: Object -> Parser a -- ^ Read from JSON Object
 
@@ -322,6 +326,8 @@ instance ValidResponse () where
 instance ValidResponse Object where
   jsWrite = id
   jsRead = pure
+deriving instance Generic Value
+instance ToSchema Value
 
 instance ValidResponse UntaggedCommandDescriptor where
   jsWrite cmdDescriptor =

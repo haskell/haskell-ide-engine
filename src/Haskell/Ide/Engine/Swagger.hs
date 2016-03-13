@@ -3,6 +3,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
 module Haskell.Ide.Engine.Swagger
   (
     hieSwagger
@@ -23,6 +25,9 @@ import           Data.Text (Text)
 import qualified Data.Text as T
 import           GHC.Generics
 import           Haskell.Ide.Engine.PluginDescriptor
+-- import           Haskell.Ide.Engine.SemanticTypes
+
+import           Haskell.Ide.Engine.BasePlugin
 
 -- ---------------------------------------------------------------------
 
@@ -33,12 +38,18 @@ hieSwagger plugins = spec & definitions .~ defs
 
 -- ---------------------------------------------------------------------
 
+{-
 instance ToSchema ExtendedCommandDescriptor
 instance ToSchema (CommandDescriptor [AcceptedContext] [ParamDescription])
 instance ToSchema AcceptedContext
 instance ToSchema ParamDescription
 instance ToSchema ParamType
 instance ToSchema ParamRequired
+
+-- Naughty, doing this here and in SemanticTypes. But the same way each time.
+deriving instance Generic  Value
+instance ToSchema Value
+-}
 
 -- ---------------------------------------------------------------------
 
@@ -53,12 +64,17 @@ declareHieSwagger plugins = do
   userDetailedResponse  <- declareResponse (Proxy :: Proxy UserDetailed)
   packagesResponse      <- declareResponse (Proxy :: Proxy [Package])
 
+  objectResponse        <- declareResponse (Proxy :: Proxy Object)
   textResponse          <- declareResponse (Proxy :: Proxy T.Text)
   cmdDescriptorResponse <- declareResponse (Proxy :: Proxy ExtendedCommandDescriptor)
 
   let Just basePlugin = Map.lookup "base" plugins
   let baseCommands    = map cmdDesc $ pdCommands basePlugin :: [UntaggedCommandDescriptor]
   let versionCmd      = head baseCommands
+  -- let (Command _ versionCmdFunc)  = head $ pdCommands basePlugin
+
+  versionDecriptorResponse <- commandDetails (head $ pdCommands basePlugin)
+  cmdDetailsResponse       <- commandDetails (head $ drop 3 $ pdCommands basePlugin)
 
   let h = Just $ Host "localhost" (Just 8001)
 
@@ -97,7 +113,8 @@ declareHieSwagger plugins = do
                                          )
                                      ]
                      & consumes ?~ MimeList ["application/json"]
-                     & at 200 ?~ Inline textResponse)
+                     -- & at 200 ?~ Inline textResponse)
+                     & at 200 ?~ Inline versionDecriptorResponse)
           )
 
         , ("/req/base/commandDetail", mempty
@@ -120,9 +137,23 @@ declareHieSwagger plugins = do
                                            )
                                      ]
                      & consumes ?~ MimeList ["application/json"]
-                     & at 200 ?~ Inline cmdDescriptorResponse)
+                     -- & at 200 ?~ Inline cmdDescriptorResponse)
+                     & at 200 ?~ Inline cmdDetailsResponse)
           )
         ]
+
+-- ---------------------------------------------------------------------
+
+commandDetails :: UntaggedCommand -> Declare (Definitions Schema) Response
+commandDetails (Command x f) = do
+  declareCmdResponse f
+
+-- ---------------------------------------------------------------------
+
+-- declareResponse :: ToSchema a => proxy a -> Declare (Definitions Schema) Response
+
+declareCmdResponse :: ToSchema a => CommandFunc a -> Declare (Definitions Schema) Response
+declareCmdResponse = declareResponse
 
 -- ---------------------------------------------------------------------
 

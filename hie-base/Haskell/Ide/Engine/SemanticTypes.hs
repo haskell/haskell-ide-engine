@@ -2,11 +2,13 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE StandaloneDeriving #-}
 module Haskell.Ide.Engine.SemanticTypes where
 
 import           Control.Applicative
 import           Data.Aeson
 import qualified Data.HashMap.Strict as H
+import           Data.Swagger (ToSchema)
 import qualified Data.Text as T
 import           GHC.Generics
 import           Haskell.Ide.Engine.PluginTypes
@@ -17,6 +19,7 @@ import           Haskell.Ide.Engine.PluginTypes
 -- | Type Information, from the most precise to the most generic
 data TypeInfo = TypeInfo { results :: [TypeResult] }
   deriving (Show,Read,Eq,Ord,Generic)
+instance ToSchema TypeInfo
 
 -- | One type result from ghc-mod
 data TypeResult = TypeResult
@@ -24,11 +27,13 @@ data TypeResult = TypeResult
     , trEnd   :: (Int,Int) -- ^ end line/column
     , trText  :: T.Text -- ^ type text
     } deriving (Show,Read,Eq,Ord,Generic)
+instance ToSchema TypeResult
 
 -- | Result of refactoring
 data RefactorResult = RefactorResult
   { rrDiffs :: [HieDiff]
   } deriving (Show,Eq,Generic)
+instance ToSchema RefactorResult
 
 -- ---------------------------------------------------------------------
 
@@ -53,6 +58,7 @@ data HieDiff = HieDiff
     >             x
     -}
   } deriving (Show,Eq,Generic)
+instance ToSchema HieDiff
 
 -- ---------------------------------------------------------------------
 
@@ -60,6 +66,7 @@ data HieDiff = HieDiff
 data ModuleList = ModuleList {
     mModules :: [T.Text]
   } deriving (Show,Read,Eq,Ord,Generic)
+instance ToSchema ModuleList
 
 -- ---------------------------------------------------------------------
 
@@ -70,8 +77,8 @@ data AST = AST {
   , astRenamed     :: Value
   , astTypechecked :: Value
   , astExports     :: Value
-  } deriving (Eq,Show)
-
+  } deriving (Eq,Show,Generic)
+instance ToSchema AST
 
 -- ---------------------------------------------------------------------
 -- JSON instances
