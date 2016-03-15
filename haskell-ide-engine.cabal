@@ -45,6 +45,7 @@ library
                      , ghc-mod >= 5.4
                      , gitrev >= 1.1
                      , haskeline
+                     , hie-base
                      , hie-plugin-api
                      , lens
                      , lifted-base
@@ -61,6 +62,7 @@ library
                      , pipes-network
                      , pipes-parse
                      , servant-server
+                     , servant-swagger
                      , singletons
                      , stm
                      , swagger2

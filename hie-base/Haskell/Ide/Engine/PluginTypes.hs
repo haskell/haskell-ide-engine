@@ -6,9 +6,9 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Haskell.Ide.Engine.PluginTypes
   ( CabalSection(..)
 
@@ -67,7 +67,9 @@ import           Data.Aeson.Types
 import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import           Data.Singletons.Prelude
-import           Data.Swagger (ToSchema)
+import           Data.Swagger (ToSchema,ToParamSchema)
+import qualified Data.Swagger as S
+import           Data.Swagger.Lens
 import qualified Data.Text as T
 import           Data.Typeable
 import           Data.Vinyl
@@ -90,15 +92,15 @@ contextMapping CtxProject     = [dirParam] -- the root directory of the project
 
 -- The duplication is ugly, but it looks like atm singletons can’t promote functions that operate on strings or text
 type family ContextMapping (cxt :: AcceptedContext) :: [ParamDescType] where
-  ContextMapping 'CtxNone = '[]
-  ContextMapping 'CtxFile = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required ]
-  ContextMapping 'CtxPoint = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required
-                              , 'ParamDescType "start pos" "start line and col" 'PtPos 'Required ]
+  ContextMapping 'CtxNone   = '[]
+  ContextMapping 'CtxFile   = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required ]
+  ContextMapping 'CtxPoint  = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required
+                               , 'ParamDescType "start pos" "start line and col" 'PtPos 'Required ]
   ContextMapping 'CtxRegion = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required
                                , 'ParamDescType "start pos" "start line and col" 'PtPos 'Required
                                , 'ParamDescType "end pos" "end line and col" 'PtPos 'Required]
   ContextMapping 'CtxCabalTarget = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required ]
-  ContextMapping 'CtxProject = '[ 'ParamDescType "dir" "a directory name" 'PtFile 'Required ]
+  ContextMapping 'CtxProject     = '[ 'ParamDescType "dir" "a directory name" 'PtFile 'Required ]
 
 -- | For a given 'AcceptedContext', define the parameters that are required in
 -- the corresponding 'IdeRequest'
@@ -182,6 +184,7 @@ instance ToSchema IdePlugins
 
 type Pos = (Int,Int)
 
+
 -- |It will simplify things to always work with an absolute file path
 
 -- AZ:TODO: reinstate this
@@ -233,12 +236,12 @@ deriving instance Eq (ParamVal t)
 instance Eq ParamValP where
  (ParamTextP t) == (ParamTextP t') = t == t'
  (ParamFileP f) == (ParamFileP f') = f == f'
- (ParamPosP p) == (ParamPosP p') = p == p'
+ (ParamPosP  p) == (ParamPosP p') = p == p'
  _ == _ = False
 
 pattern ParamTextP t = ParamValP (ParamText t)
 pattern ParamFileP f = ParamValP (ParamFile f)
-pattern ParamPosP p = ParamValP (ParamPos p)
+pattern ParamPosP  p = ParamValP (ParamPos p)
 
 type ParamMap = Map.Map ParamId ParamValP
 
