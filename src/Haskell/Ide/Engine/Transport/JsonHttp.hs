@@ -15,8 +15,6 @@ module Haskell.Ide.Engine.Transport.JsonHttp
   ( jsonHttpListener
   , PluginType(..)
   , Plugin(..)
-
-  , PluginRoutes(..) -- ++AZ++ testing swagger
   ) where
 
 import           Control.Applicative

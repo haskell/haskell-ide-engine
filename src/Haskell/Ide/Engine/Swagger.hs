@@ -9,7 +9,6 @@
 module Haskell.Ide.Engine.Swagger
   (
     hieSwagger
-  , hieSwagger2
   ) where
 
 -- Based on https://github.com/GetShopTV/swagger2/blob/master/examples/hackage.hs
@@ -18,6 +17,7 @@ module Haskell.Ide.Engine.Swagger
 import           Control.Lens
 import           Data.Aeson
 import           Data.List
+import qualified Data.HashMap.Lazy as HM
 import qualified Data.Map as Map
 import           Data.Monoid
 import           Data.Proxy
@@ -61,6 +61,8 @@ instance ToSchema Value
 
 declareHieSwagger :: Plugins -> Declare (Definitions Schema) Swagger
 declareHieSwagger plugins = do
+  let cmds = concatMap (\(k,pd) -> zip (repeat k) (pdCommands pd)) $ Map.toList plugins
+  cmdPaths <- mapM (uncurry commandToPath) cmds
   -- param schemas
   -- let usernameParamSchema = toParamSchema (Proxy :: Proxy Username)
   let textParamSchema     = toParamSchema (Proxy :: Proxy T.Text)
@@ -86,80 +88,52 @@ declareHieSwagger plugins = do
 
   return $ mempty
     & host .~ h
-    & paths .~
-        [
-        --   ("/users", mempty & get ?~ (mempty
-        --     & produces ?~ MimeList ["application/json"]
-        --     & at 200 ?~ Inline userSummaryResponse))
+    -- & paths .~  cmdPaths
+    & paths .~ HM.fromList cmdPaths
+        -- [
 
-        -- , ("/user/{username}", mempty & get ?~ (mempty
-        --     & produces ?~ MimeList ["application/json"]
-        --     & parameters .~ [ Inline $ mempty
-        --         & name .~ "username"
-        --         & required ?~ True
-        --         & schema .~ ParamOther (mempty
-        --             & in_ .~ ParamPath
-        --             & paramSchema .~ usernameParamSchema) ]
-        --     & at 200 ?~ Inline userDetailedResponse))
+        -- -- starting the hie stuff
+        --   ("/req/base/version", mempty
+        --    & post ?~ (mempty
+        --              -- & produces ?~ MimeList ["application/json"]
+        --              & parameters .~ [
+        --                              Inline $ mempty
+        --                              & name .~ "blank"
+        --                              & required ?~ False
+        --                              & schema .~ ParamOther (mempty
+        --                                  & in_ .~ ParamFormData
+        --                              --     & paramSchema .~ usernameParamSchema
+        --                                  )
+        --                              ]
+        --              & consumes ?~ MimeList ["application/json"]
+        --              -- & at 200 ?~ Inline textResponse)
+        --              & at 200 ?~ Inline versionDecriptorResponse)
+        --   )
 
-        -- , ("/packages", mempty & get ?~ (mempty
-        --     & produces ?~ MimeList ["application/json"]
-        --     & at 200 ?~ Inline packagesResponse))
-
-        -- starting the hie stuff
-          ("/req/base/version", mempty
-           & post ?~ (mempty
-                     -- & produces ?~ MimeList ["application/json"]
-                     & parameters .~ [
-                                     Inline $ mempty
-                                     & name .~ "blank"
-                                     & required ?~ False
-                                     & schema .~ ParamOther (mempty
-                                         & in_ .~ ParamFormData
-                                     --     & paramSchema .~ usernameParamSchema
-                                         )
-                                     ]
-                     & consumes ?~ MimeList ["application/json"]
-                     -- & at 200 ?~ Inline textResponse)
-                     & at 200 ?~ Inline versionDecriptorResponse)
-          )
-
-        , ("/req/base/commandDetail", mempty
-           & post ?~ (mempty
-                     & produces ?~ MimeList ["application/json"]
-                     & parameters .~ [
-                                       Inline $ mempty
-                                       & name .~ "plugin"
-                                       & required ?~ True
-                                       & schema .~ ParamOther (mempty
-                                           & in_ .~ ParamFormData
-                                           & paramSchema .~ textParamSchema
-                                           )
-                                     , Inline $ mempty
-                                       & name .~ "command"
-                                       & required ?~ True
-                                       & schema .~ ParamOther (mempty
-                                           & in_ .~ ParamFormData
-                                           & paramSchema .~ textParamSchema
-                                           )
-                                     ]
-                     & consumes ?~ MimeList ["application/json"]
-                     -- & at 200 ?~ Inline cmdDescriptorResponse)
-                     & at 200 ?~ Inline cmdDetailsResponse)
-          )
-        ]
-
--- ---------------------------------------------------------------------
-
--- | Swagger spec for Todo API.
--- hieSwagger2 :: (HieServer api, HasServer (PluginRoutes api)) => Proxy api -> Swagger
-hieSwagger2 :: (HasServer (PluginRoutes api),HasSwagger api) => Proxy api -> Swagger
-hieSwagger2 api = toSwagger api
-  -- & info.title   .~ "Todo API"
-  -- & info.version .~ "1.0"
-  -- & info.description ?~ "This is an API that tests swagger integration"
-  -- & info.license ?~ ("MIT" & url ?~ URL "http://mit.com")
-
+        -- , ("/req/base/commandDetail", mempty
+        --    & post ?~ (mempty
+        --              & produces ?~ MimeList ["application/json"]
+        --              & parameters .~ [
+        --                                Inline $ mempty
+        --                                & name .~ "plugin"
+        --                                & required ?~ True
+        --                                & schema .~ ParamOther (mempty
+        --                                    & in_ .~ ParamFormData
+        --                                    & paramSchema .~ textParamSchema
+        --                                    )
+        --                              , Inline $ mempty
+        --                                & name .~ "command"
+        --                                & required ?~ True
+        --                                & schema .~ ParamOther (mempty
+        --                                    & in_ .~ ParamFormData
+        --                                    & paramSchema .~ textParamSchema
+        --                                    )
+        --                              ]
+        --              & consumes ?~ MimeList ["application/json"]
+        --              -- & at 200 ?~ Inline cmdDescriptorResponse)
+        --              & at 200 ?~ Inline cmdDetailsResponse)
+        --   )
+        -- ]
 
 -- ---------------------------------------------------------------------
 
@@ -168,28 +142,30 @@ commandToPath pName c@(Command cd f) = do
   let textParamSchema     = toParamSchema (Proxy :: Proxy T.Text)
   cmdResponse  <- commandResponse c
   let allParams = nub $ concatMap contextMapping (cmdContexts cd) ++ cmdAdditionalParams cd
+  allParamDescs <- mapM swaggerParam allParams
   let pi = mempty
            & post ?~ (mempty
                      & produces ?~ MimeList ["application/json"]
-                     & parameters .~ [
-                                       Inline $ mempty
-                                       & name .~ "plugin"
-                                       & required ?~ True
-                                       & schema .~ ParamOther (mempty
-                                           & in_ .~ ParamFormData
-                                           & paramSchema .~ textParamSchema
-                                           )
-                                     , Inline $ mempty
-                                       & name .~ "command"
-                                       & required ?~ True
-                                       & schema .~ ParamOther (mempty
-                                           & in_ .~ ParamFormData
-                                           & paramSchema .~ textParamSchema
-                                           )
-                                     ]
+                     & parameters .~ allParamDescs
+                     -- & parameters .~ [
+                     --                   Inline $ mempty
+                     --                   & name .~ "plugin"
+                     --                   & required ?~ True
+                     --                   & schema .~ ParamOther (mempty
+                     --                       & in_ .~ ParamFormData
+                     --                       & paramSchema .~ textParamSchema
+                     --                       )
+                     --                 , Inline $ mempty
+                     --                   & name .~ "command"
+                     --                   & required ?~ True
+                     --                   & schema .~ ParamOther (mempty
+                     --                       & in_ .~ ParamFormData
+                     --                       & paramSchema .~ textParamSchema
+                     --                       )
+                     --                 ]
                      & consumes ?~ MimeList ["application/json"]
                      & at 200 ?~ Inline cmdResponse)
-  let route =  "req/" ++ T.unpack pName ++ "/" ++ T.unpack (cmdName cd) 
+  let route =  "/req/" ++ T.unpack pName ++ "/" ++ T.unpack (cmdName cd) 
   return (route,pi)
 
 -- ---------------------------------------------------------------------
@@ -217,7 +193,7 @@ pSchema PtPos  = toParamSchema (Proxy :: Proxy Pos)
 
 -- instance ToParamSchema (Int,Int)
 instance ToParamSchema (Int,Int) where
-  toParamSchema _ = mempty
+  toParamSchema proxy = mempty
     & type_ .~ SwaggerArray
     -- & items ?~ SwaggerItemsArray [Inline (toSchema (Proxy :: Proxy Int)),
     --                               Inline (toSchema (Proxy :: Proxy Int))]

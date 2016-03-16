@@ -145,8 +145,8 @@ run opts = do
 
     when (optDumpSwagger opts) $ do
       -- putStrLn "dumping swagger definition"
-      -- let swagger = hieSwagger plugins
-      let swagger = hieSwagger2 (recProxy taggedPlugins)
+      let swagger = hieSwagger plugins
+      -- let swagger = hieSwagger2 (recProxy taggedPlugins)
       -- putStrLn (show swagger)
       putStrLn (B.unpack $  encode swagger)
       exitSuccess

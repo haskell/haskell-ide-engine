@@ -69,6 +69,7 @@ library
                      , text
                      , time
                      , transformers
+                     , unordered-containers
                      , vinyl >= 0.5 && < 0.6
                      , wai
                      , warp
@@ -107,6 +108,7 @@ executable hie
                      , text
                      , time
                      , transformers
+                     , unordered-containers
                      , vinyl
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
   if flag(pedantic)
