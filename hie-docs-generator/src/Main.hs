@@ -18,7 +18,7 @@ import qualified Options as O
 import           Options.Applicative
 import           System.Directory
 import           System.FilePath
-import           Text.Regex.PCRE.Heavy
+import           Text.Regex.Applicative.Text
 
 main :: IO ()
 main =
@@ -88,8 +88,8 @@ commandDoc pluginId (cmdDesc -> cmddesc@(CommandDesc{cmdName = name,cmdUiDescrip
 
 cleanupDescription :: T.Text -> T.Text
 cleanupDescription =
-  sub [re|`(.*?)'|]
-      (\[code] -> "``" <> code <> "``" :: T.Text)
+  -- Replace haddock code marks by rst code marks
+  replace ((\t -> "``" <> T.pack t <> "``") <$> (sym '`' *> few anySym <* sym '\''))
 
 ghciHelper :: IO ()
 ghciHelper = flip runReaderT conf $ runDocGenM $ generateDocs

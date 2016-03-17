@@ -40,7 +40,7 @@ executable hie-docs-generator
                      , hie-plugin-api
                      , mtl
                      , optparse-applicative
-                     , pcre-heavy
+                     , regex-applicative-text
                      , text
   hs-source-dirs:      src
   ghc-options:         -Wall
