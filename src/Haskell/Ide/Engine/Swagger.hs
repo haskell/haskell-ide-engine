@@ -170,33 +170,76 @@ commandToPath pName c@(Command cd f) = do
 
 -- ---------------------------------------------------------------------
 
+swaggerParamSchema :: ParamDescription -> Declare (Definitions Schema) (Referenced Schema)
+swaggerParamSchema pd = do
+
+  textSchema <- declareSchema (Proxy :: Proxy T.Text)
+  posSchema  <- declareSchema (Proxy :: Proxy Pos)
+
+  let
+    pSchema PtText = textSchema
+    pSchema PtFile = textSchema
+    pSchema PtPos  = posSchema
+
+  let req Required = True
+      req Optional = False
+  let p = Inline $ pSchema (pType pd)
+  return p
+
+-- ---------------------------------------------------------------------
+
 swaggerParam :: ParamDescription -> Declare (Definitions Schema) (Referenced Param)
 swaggerParam pd = do
+
+  textSchema <- declareSchema (Proxy :: Proxy T.Text)
+  posSchema  <- declareSchema (Proxy :: Proxy Pos)
+
+  let
+    pSchema PtText = textSchema
+    pSchema PtFile = textSchema
+    pSchema PtPos  = posSchema
+
   let req Required = True
       req Optional = False
   let p = Inline $ mempty
                  & name .~ pName pd
                  & required ?~ req (pRequired pd)
-                 & schema .~ ParamOther
-                      ( mempty
-                      & in_ .~ ParamFormData
-                      & paramSchema .~ pSchema (pType pd)
+                 & schema .~ ParamBody
+                      ( Inline $ pSchema (pType pd)
                       )
   return p
 
-pSchema :: ParamType -> ParamSchema t
-pSchema PtText = toParamSchema (Proxy :: Proxy T.Text)
-pSchema PtFile = toParamSchema (Proxy :: Proxy T.Text)
-pSchema PtPos  = toParamSchema (Proxy :: Proxy Pos)
+-- pSchema :: ParamType -> Schema
+-- pSchema PtText = toParamSchema (Proxy :: Proxy T.Text)
+-- pSchema PtFile = toParamSchema (Proxy :: Proxy T.Text)
+-- pSchema PtPos  = toParamSchema (Proxy :: Proxy Pos)
+
+-- ---------------------------------------------------------------------
+
+-- instance {-# OVERLAPPING #-} (ToSchema a,ToSchema b) => ToParamSchema (a,b) where
+--   toParamSchema proxy = mempty
+--     & items ?~ SwaggerItemsArray [Inline $ toSchema (Proxy :: Proxy a),
+--                                   Inline $ toSchema (Proxy :: Proxy b)]
+--     -- & items ?~ SwaggerItemsArray [Inline $ toSchema (Proxy :: Proxy a),
+--     --                               Inline $ toSchema (Proxy :: Proxy b)]
+--     & type_ .~ SwaggerArray
 
 -- ---------------------------------------------------------------------
 
 -- instance ToParamSchema (Int,Int)
-instance ToParamSchema (Int,Int) where
-  toParamSchema proxy = mempty
-    & type_ .~ SwaggerArray
-    -- & items ?~ SwaggerItemsArray [Inline (toSchema (Proxy :: Proxy Int)),
-    --                               Inline (toSchema (Proxy :: Proxy Int))]
+-- instance ToSchema (Int,Int) where
+--   toSchema proxy = (mempty
+--     & type_ .~ SwaggerArray)
+--     -- & items ?~ SwaggerItemsArray []
+--     -- & items ?~ SwaggerItemsPrimitive Nothing (toParamSchema (Proxy :: Proxy Int))
+
+--      -- { _paramSchemaItems = Just (Ref foo)
+--      -- }
+--      -- { _paramSchemaItems = Just (SwaggerItemsArray [Inline (toSchema (Proxy :: Proxy Int)),
+--      --                                                Inline (toSchema (Proxy :: Proxy Int))])
+--      -- }
+--     & items ?~ SwaggerItemsArray [Inline (toSchema (Proxy :: Proxy Int)),
+--                                   Inline (toSchema (Proxy :: Proxy Int))]
 
 {-
   "parameters": [
@@ -225,10 +268,11 @@ instance ToParamSchema (Int,Int) where
 
 
 -- ---------------------------------------------------------------------
+
 -- instance ToSchema (Int,Int) where
 --   declareNamedSchema = pure (Just "Coord", schema)
 --    where
---      schema = mempty
+--      schema = return $ mempty
 --        & type_ .~ SwaggerObject
 --        & properties .~
 --            [ ("x", toSchemaRef (Proxy :: Proxy Double))
