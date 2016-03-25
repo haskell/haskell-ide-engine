@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
@@ -45,8 +46,7 @@ module Haskell.Ide.Engine.PluginTypes
   , untagParamDesc
   , Sing(..)
   , Pos
-  , posToJSON
-  , jsonToPos
+  , Line(..),unLine,Col(..),unCol
 
   -- * Plugins
   , PluginId
@@ -152,7 +152,7 @@ data ExtendedCommandDescriptor =
 instance ToSchema ExtendedCommandDescriptor
 
 instance ValidResponse ExtendedCommandDescriptor where
-  jsWrite (ExtendedCommandDescriptor cmdDescriptor name) =
+  jsWrite (ExtendedCommandDescriptor cmdDescriptor pname) =
     H.fromList
       [ "name" .= cmdName cmdDescriptor
       , "ui_description" .= cmdUiDescription cmdDescriptor
@@ -160,7 +160,7 @@ instance ValidResponse ExtendedCommandDescriptor where
       , "contexts" .= cmdContexts cmdDescriptor
       , "additional_params" .= cmdAdditionalParams cmdDescriptor
       , "return_type" .= cmdReturnType cmdDescriptor
-      , "plugin_name" .= name ]
+      , "plugin_name" .= pname ]
   jsRead v =
     ExtendedCommandDescriptor
     <$> (CommandDesc
@@ -182,8 +182,39 @@ data IdePlugins = IdePlugins
   } deriving (Show,Eq,Generic)
 instance ToSchema IdePlugins
 
-type Pos = (Int,Int)
+-- ---------------------------------------------------------------------
 
+-- | A position in a source file
+type Pos = (Line,Col)
+
+newtype Line = Line Int deriving (Generic,Show,Eq,Read,Ord,Enum,Real)
+instance ToSchema Line
+
+newtype Col  = Col  Int deriving (Generic,Show,Eq,Read,Ord,Enum,Real)
+instance ToSchema Col;
+
+unLine :: Line -> Int
+unLine (Line l) = l
+
+unCol :: Col -> Int
+unCol (Col c) = c
+
+deriving instance Num Line
+deriving instance Num Col
+
+deriving instance Integral Line
+deriving instance Integral Col
+
+
+instance Bounded Line where
+  minBound = 0
+  maxBound = 1000000
+
+instance Bounded Col where
+  minBound = 0
+  maxBound = 100000
+
+-- ---------------------------------------------------------------------
 
 -- |It will simplify things to always work with an absolute file path
 
@@ -203,11 +234,11 @@ data ParamDescription =
   deriving (Show,Eq,Ord,Generic)
 instance ToSchema ParamDescription
 
-pattern RP name help type' <- ParamDesc name help type' Required
-  where RP name help type' = ParamDesc name help type' Required
+pattern RP pname help type' <- ParamDesc pname help type' Required
+  where RP pname help type' = ParamDesc pname help type' Required
 
-pattern OP name help type' <- ParamDesc name help type' Optional
-  where OP name help type' = ParamDesc name help type' Optional
+pattern OP pname help type' <- ParamDesc pname help type' Optional
+  where OP pname help type' = ParamDesc pname help type' Optional
 
 type ParamHelp = T.Text
 type ParamName = T.Text
@@ -250,14 +281,14 @@ type ParamId = T.Text
 data TaggedParamId (t :: ParamType) where
  IdText :: T.Text -> TaggedParamId 'PtText
  IdFile :: T.Text -> TaggedParamId 'PtFile
- IdPos :: T.Text -> TaggedParamId 'PtPos
+ IdPos :: T.Text  -> TaggedParamId 'PtPos
 
 data ParamValP = forall t. ParamValP { unParamValP ::  ParamVal t }
 
 data ParamVal (t :: ParamType) where
- ParamText :: T.Text -> ParamVal 'PtText
- ParamFile :: T.Text -> ParamVal 'PtFile
- ParamPos :: (Int,Int) -> ParamVal 'PtPos
+ ParamText :: T.Text   -> ParamVal 'PtText
+ ParamFile :: T.Text   -> ParamVal 'PtFile
+ ParamPos  :: Pos      -> ParamVal 'PtPos
 
 
 
@@ -363,12 +394,15 @@ instance ValidResponse IdePlugins where
 -- ---------------------------------------------------------------------
 -- JSON instances
 
-posToJSON :: (Int,Int) -> Value
-posToJSON (l,c) = object [ "line" .= l,"col" .= c ]
+-- posToJSON :: Pos -> Value
+-- posToJSON (Line l,Col c) = object [ "line" .= l,"col" .= c ]
 
-jsonToPos :: Value -> Parser (Int,Int)
-jsonToPos (Object v) = (,) <$> v .: "line" <*> v.: "col"
-jsonToPos _ = empty
+-- jsonToPos :: Value -> Parser Pos
+-- jsonToPos (Object v) = do
+--   l <- v .: "line"
+--   c <- v .: "col"
+--   return (Line l,Col c)
+-- jsonToPos _ = empty
 
 instance (ValidResponse a) => ToJSON (IdeResponse a) where
  toJSON (IdeResponseOk v) = Object (jsWrite v)
@@ -384,12 +418,7 @@ instance (ValidResponse a) => FromJSON (IdeResponse a) where
      Just r -> return r
      Nothing -> empty
 
-
-instance ToJSON ParamValP  where
- toJSON (ParamTextP v) = object [ "text" .= v ]
- toJSON (ParamFileP v) = object [ "file" .= v ]
- toJSON (ParamPosP  p) = posToJSON p
- toJSON _ = "error"
+-- ---------------------------------------------------------------------
 
 instance FromJSON (ParamVal 'PtText) where
   parseJSON = withObject "text parameter object" $ \v ->
@@ -399,8 +428,20 @@ instance FromJSON (ParamVal 'PtFile) where
   parseJSON = withObject "file parameter object" $ \v -> ParamFile <$> v.: "file"
 
 instance FromJSON (ParamVal 'PtPos) where
-  parseJSON = withObject "position parameter object" $ \v ->
-    fmap ParamPos $ liftA2 (,) (v .: "line") (v .: "col")
+    parseJSON v = do
+      p <- parseJSON v
+      return (ParamPos p)
+
+instance ToJSON (ParamVal 'PtPos) where
+  toJSON (ParamPos p) = toJSON p
+
+-- ---------------------------------------------------------------------
+
+instance ToJSON ParamValP  where
+ toJSON (ParamTextP v) = object [ "text" .= v ]
+ toJSON (ParamFileP v) = object [ "file" .= v ]
+ toJSON (ParamPosP  p) = toJSON p
+ toJSON _ = "error"
 
 instance FromJSON ParamValP where
  parseJSON val = do
@@ -408,6 +449,22 @@ instance FromJSON ParamValP where
        mf = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtFile))
        mp = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtPos))
    mf <|> mp <|> mt <|> typeMismatch "text, file, or position object" val
+
+-- -------------------------------------
+
+instance FromJSON Line where
+  parseJSON (Object v) = Line <$> v .: "line"
+  parseJSON _ = mempty
+
+instance ToJSON Line where
+  toJSON (Line l) = object [ "line" .= l]
+
+instance FromJSON Col where
+  parseJSON (Object v) = Col <$> v .: "col"
+  parseJSON _ = mempty
+
+instance ToJSON Col where
+  toJSON (Col c) = object [ "col" .= c]
 
 -- -------------------------------------
 

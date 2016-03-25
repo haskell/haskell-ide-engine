@@ -86,11 +86,13 @@ applyHint file mpos = do
                  Nothing -> optsf
                  Just (r,c) -> optsf ++ " --pos " ++ show r ++ "," ++ show c
         hlintOpts = [file, "--quiet", "--refactor", "--refactor-options=" ++ opts ]
+        mposTomtuple Nothing = Nothing
+        mposTomtuple (Just (Line l,Col c)) = Just (l,c)
     runEitherT $ do
       ideas <- runHlint file hlintOpts
       liftIO $ logm $ "applyHint:ideas=" ++ show ideas
       let commands = map (show &&& ideaRefactoring) ideas
-      appliedFile <- liftIO $ applyRefactorings mpos commands file
+      appliedFile <- liftIO $ applyRefactorings (mposTomtuple mpos) commands file
       diff <- liftIO $ makeDiffResult file (T.pack appliedFile)
       liftIO $ logm $ "applyHint:diff=" ++ show diff
       return diff

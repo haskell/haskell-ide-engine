@@ -23,8 +23,8 @@ instance ToSchema TypeInfo
 
 -- | One type result from ghc-mod
 data TypeResult = TypeResult
-    { trStart :: (Int,Int) -- ^ start line/column
-    , trEnd   :: (Int,Int) -- ^ end line/column
+    { trStart :: Pos -- ^ start line/column
+    , trEnd   :: Pos -- ^ end line/column
     , trText  :: T.Text -- ^ type text
     } deriving (Show,Read,Eq,Ord,Generic)
 instance ToSchema TypeResult
@@ -89,16 +89,13 @@ instance ValidResponse TypeInfo where
 
 instance ToJSON TypeResult where
   toJSON (TypeResult s e t) =
-      object [ "start" .= posToJSON s
-             , "end" .= posToJSON e
-             , "type" .= t
+      object [ "start" .= toJSON s
+             , "end"   .= toJSON e
+             , "type"  .= t
              ]
 
 instance FromJSON TypeResult where
-  parseJSON (Object v) = TypeResult
-    <$> (jsonToPos =<< (v .: "start"))
-    <*> (jsonToPos =<< (v .: "end"))
-    <*> v .: "type"
+  parseJSON (Object v) = TypeResult <$> v .: "start" <*> v .: "end" <*> v .: "type"
   parseJSON _ = empty
 
 -- ---------------------------------------------------------------------
