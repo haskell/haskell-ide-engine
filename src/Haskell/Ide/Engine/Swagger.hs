@@ -97,10 +97,15 @@ mkParamsSchema fileSchemaRef textSchemaRef allParams = s
       -- For some reason the Pos reference target does end up in the swagger
       -- definition, so does not need to be passed in
 
-    s = mempty
+    p = mempty
       & type_ .~ SwaggerObject
       & required .~ requiredParams
-      & properties .~ (HM.fromList pList)
+      & properties .~ HM.fromList pList
+
+    -- TODO: do we actually need the command and plugin here too?
+    s = mempty
+      & type_ .~ SwaggerObject
+      & properties .~ HM.fromList [("params",Inline p)]
 
 -- ---------------------------------------------------------------------
 
