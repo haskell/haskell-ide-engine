@@ -120,7 +120,7 @@ parsePos = do
   _ <- char ','
   c <- parseInt
   _ <- char ')'
-  return (Line l,Col c)
+  return (toPos (l,c))
 
 -- ---------------------------------------------------------------------
 

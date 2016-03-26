@@ -169,6 +169,9 @@ instance Arbitrary HieDiff where
 instance Arbitrary ModuleList where
   arbitrary = ModuleList <$> smallList arbitrary
 
+instance Arbitrary Pos where
+  arbitrary = Pos <$> arbitrary <*> arbitrary
+
 instance Arbitrary Line where
   arbitrary = do
     Positive l <- arbitrary

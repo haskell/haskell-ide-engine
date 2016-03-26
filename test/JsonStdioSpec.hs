@@ -3,7 +3,6 @@ module JsonStdioSpec where
 
 import           Data.Aeson
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.Transport.JsonStdio
 import           Haskell.Ide.Engine.Transport.Pipes
 
 import qualified Data.Map as Map

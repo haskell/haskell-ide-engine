@@ -23,12 +23,10 @@ import           Data.Monoid
 import           Data.Proxy
 import           Data.Swagger
 import           Data.Swagger.Declare
-import           Data.Text (Text)
 import qualified Data.Text as T
 import           GHC.Generics
 import           Haskell.Ide.Engine.Transport.JsonHttp
 import           Haskell.Ide.Engine.PluginDescriptor
--- import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.PluginTypes.Singletons
 import           Servant
 import           Servant.Swagger
@@ -44,27 +42,13 @@ hieSwagger plugins = spec & definitions .~ defs
 
 -- ---------------------------------------------------------------------
 
-{-
-instance ToSchema ExtendedCommandDescriptor
-instance ToSchema (CommandDescriptor [AcceptedContext] [ParamDescription])
-instance ToSchema AcceptedContext
-instance ToSchema ParamDescription
-instance ToSchema ParamType
-instance ToSchema ParamRequired
-
--- Naughty, doing this here and in SemanticTypes. But the same way each time.
-deriving instance Generic  Value
-instance ToSchema Value
--}
-
--- ---------------------------------------------------------------------
-
 declareHieSwagger :: Plugins -> Declare (Definitions Schema) Swagger
 declareHieSwagger plugins = do
   let cmds = concatMap (\(k,pd) -> zip (repeat k) (pdCommands pd)) $ Map.toList plugins
   cmdPaths <- mapM (uncurry commandToPath) cmds
 
   let h = Just $ Host "localhost" (Just 8001)
+  f <- declareSchema (Proxy :: Proxy File)
 
   return $ mempty
     & host .~ h
@@ -75,6 +59,8 @@ declareHieSwagger plugins = do
 commandToPath :: PluginId -> UntaggedCommand -> Declare (Definitions Schema) (FilePath,PathItem)
 commandToPath pName c@(Command cd f) = do
   cmdResponse  <- commandResponse c
+  f <- declareSchemaRef (Proxy :: Proxy File)
+  t <- declareSchemaRef (Proxy :: Proxy Text) -- NOTE: locally declared Text, not T.Text
   let allParams = nub $ concatMap contextMapping (cmdContexts cd) ++ cmdAdditionalParams cd
   let pi = mempty
            & post ?~ (mempty
@@ -84,7 +70,7 @@ commandToPath pName c@(Command cd f) = do
                                        Inline $ mempty
                                        & name .~ "params"
                                        & required ?~ True
-                                       & schema .~ ParamBody (Inline (mkParamsSchema allParams))
+                                       & schema .~ ParamBody (Inline (mkParamsSchema f t allParams))
                                      ]
 
                      & consumes ?~ MimeList ["application/json"]
@@ -95,19 +81,27 @@ commandToPath pName c@(Command cd f) = do
 -- ---------------------------------------------------------------------
 
 -- TODO: required params, use a ref for the standard types
-mkParamsSchema :: [ParamDescription] -> Schema
-mkParamsSchema allParams = s
+mkParamsSchema :: Referenced Schema -> Referenced Schema -> [ParamDescription] -> Schema
+mkParamsSchema fileSchemaRef textSchemaRef allParams = s
   where
     pList = map mkParam allParams
-    -- mkParam :: ParamDescription -> (String,Schema)
+
     mkParam pd = (pName pd,pTypeSchema (pType pd))
-    pTypeSchema PtText = toSchemaRef (Proxy :: Proxy T.Text)
-    pTypeSchema PtFile = toSchemaRef (Proxy :: Proxy T.Text)
-    -- pTypeSchema PtPos  = toSchemaRef (Proxy :: Proxy Pos)
-    pTypeSchema PtPos  = Inline $ toSchema (Proxy :: Proxy Pos)
+
+    -- pTypeSchema PtText = toSchemaRef (Proxy :: Proxy T.Text)
+    pTypeSchema PtText = textSchemaRef
+    pTypeSchema PtFile = fileSchemaRef
+    pTypeSchema PtPos  = toSchemaRef (Proxy :: Proxy Pos)
+
     s = mempty
       & type_ .~ SwaggerObject
       & properties .~ (HM.fromList pList)
+
+data File = File { file::T.Text} deriving Generic
+instance ToSchema File
+
+data Text = Text { text::T.Text} deriving Generic
+instance ToSchema Text
 
 -- ---------------------------------------------------------------------
 
@@ -230,33 +224,6 @@ swaggerParam pd = do
       }
 
 -}
-
-
--- ---------------------------------------------------------------------
-
--- instance ToSchema (Int,Int) where
---   declareNamedSchema = pure (Just "Coord", schema)
---    where
---      schema = return $ mempty
---        & type_ .~ SwaggerObject
---        & properties .~
---            [ ("x", toSchemaRef (Proxy :: Proxy Double))
---            , ("y", toSchemaRef (Proxy :: Proxy Double))
---            ]
---        & required .~ [ "x", "y" ]
-
--- data Coord = Coord { x :: Double, y :: Double }
---
--- instance ToSchema Coord where
---   declareNamedSchema = pure (Just \"Coord\", schema)
---    where
---      schema = mempty
---        & type_ .~ SwaggerObject
---        & properties .~
---            [ (\"x\", toSchemaRef (Proxy :: Proxy Double))
---            , (\"y\", toSchemaRef (Proxy :: Proxy Double))
---            ]
---        & required .~ [ \"x\", \"y\" ]
 
 
 -- ---------------------------------------------------------------------

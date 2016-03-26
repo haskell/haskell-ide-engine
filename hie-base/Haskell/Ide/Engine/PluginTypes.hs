@@ -45,7 +45,8 @@ module Haskell.Ide.Engine.PluginTypes
   , IdeErrorCode(..)
   , untagParamDesc
   , Sing(..)
-  , Pos
+  , Pos(..)
+  , toPos, unPos
   , Line(..),unLine,Col(..),unCol
 
   -- * Plugins
@@ -67,9 +68,7 @@ import           Data.Aeson.Types
 import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import           Data.Singletons.Prelude
-import           Data.Swagger (ToSchema,ToParamSchema)
-import qualified Data.Swagger as S
-import           Data.Swagger.Lens
+import           Data.Swagger (ToSchema)
 import qualified Data.Text as T
 import           Data.Typeable
 import           Data.Vinyl
@@ -185,8 +184,17 @@ instance ToSchema IdePlugins
 -- ---------------------------------------------------------------------
 
 -- | A position in a source file
-type Pos = (Line,Col)
--- instance ToSchema Pos
+-- type Pos = (Line,Col)
+data Pos = Pos { line::Line, col:: Col} deriving (Generic,Show,Read,Eq,Ord)
+-- NOTE: Pos needs to be defined in record syntac otherwise the generically
+--       derived swagger schema does not work properly
+instance ToSchema Pos
+
+unPos :: Pos -> (Int,Int)
+unPos (Pos (Line l) (Col c)) = (l,c)
+
+toPos :: (Int,Int) -> Pos
+toPos (l,c) = Pos (Line l) (Col c)
 
 newtype Line = Line Int deriving (Generic,Show,Eq,Read,Ord,Enum,Real)
 instance ToSchema Line
@@ -452,6 +460,14 @@ instance FromJSON ParamValP where
    mf <|> mp <|> mt <|> typeMismatch "text, file, or position object" val
 
 -- -------------------------------------
+
+instance FromJSON Pos where
+  parseJSON (Object v) = Pos <$> v .: "line" <*> v .: "col"
+  parseJSON _ = mempty
+
+instance ToJSON Pos where
+  toJSON (Pos l c) = object [ "line" .= l, "col" .= c]
+
 
 instance FromJSON Line where
   parseJSON (Object v) = Line <$> v .: "line"

@@ -74,7 +74,7 @@ dispatcherSpec = do
     it "identifies CtxPoint" $ do
       chan <- atomically newTChan
       chSync <- atomically newTChan
-      let req = IdeRequest "cmd3" (Map.fromList [("file", ParamFileP "foo.hs"),("start_pos", ParamPosP (1,2))])
+      let req = IdeRequest "cmd3" (Map.fromList [("file", ParamFileP "foo.hs"),("start_pos", ParamPosP (toPos (1,2)))])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
       r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxPoint]"::String)]))
@@ -85,8 +85,8 @@ dispatcherSpec = do
       chan <- atomically newTChan
       chSync <- atomically newTChan
       let req = IdeRequest "cmd4" (Map.fromList [("file", ParamFileP "foo.hs")
-                                                ,("start_pos", ParamPosP (1,2))
-                                                ,("end_pos", ParamPosP (3,4))])
+                                                ,("start_pos", ParamPosP (toPos (1,2)))
+                                                ,("end_pos", ParamPosP (toPos (3,4)))])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
       r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxRegion]"::String)]))
@@ -118,8 +118,8 @@ dispatcherSpec = do
       chan <- atomically newTChan
       chSync <- atomically newTChan
       let req = IdeRequest "cmdmultiple" (Map.fromList [("file", ParamFileP "foo.hs")
-                                                       ,("start_pos", ParamPosP (1,2))
-                                                       ,("end_pos", ParamPosP (3,4))])
+                                                       ,("start_pos", ParamPosP (toPos (1,2)))
+                                                       ,("end_pos", ParamPosP (toPos (3,4)))])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
       r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxFile,CtxPoint,CtxRegion]"::String)]))
@@ -130,7 +130,7 @@ dispatcherSpec = do
       chan <- atomically newTChan
       chSync <- atomically newTChan
       let req = IdeRequest "cmdmultiple" (Map.fromList [("file", ParamFileP "foo.hs")
-                                                       ,("start_pos", ParamPosP (1,2))])
+                                                       ,("start_pos", ParamPosP (toPos (1,2)))])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
       r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxFile,CtxPoint]"::String)]))
@@ -158,7 +158,7 @@ dispatcherSpec = do
       let req = IdeRequest "cmdextra" (Map.fromList [("file", ParamFileP "foo.hs")
                                                     ,("txt",  ParamTextP "a")
                                                     ,("file", ParamFileP "f")
-                                                    ,("pos",  ParamPosP (1,2))
+                                                    ,("pos",  ParamPosP (toPos (1,2)))
                                                     ])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
@@ -173,7 +173,7 @@ dispatcherSpec = do
       let req = IdeRequest "cmdextra" (Map.fromList [("file", ParamFileP "foo.hs")
                                                     ,("txt",  ParamFileP "a")
                                                     ,("file", ParamFileP "f")
-                                                    ,("pos",  ParamPosP (1,2))
+                                                    ,("pos",  ParamPosP (toPos (1,2)))
                                                     ])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
@@ -193,7 +193,7 @@ dispatcherSpec = do
       chSync <- atomically newTChan
       let req = IdeRequest "cmdoptional" (Map.fromList [("txt",   ParamTextP "a")
                                                        ,("fileo", ParamFileP "f")
-                                                       ,("poso",  ParamPosP (1,2))
+                                                       ,("poso",  ParamPosP (toPos (1,2)))
                                                        ])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
@@ -206,7 +206,7 @@ dispatcherSpec = do
       chSync <- atomically newTChan
       let req = IdeRequest "cmdoptional" (Map.fromList [("txt",   ParamTextP "a")
                                                        ,("fileo", ParamTextP "f")
-                                                       ,("poso",  ParamPosP (1,2))
+                                                       ,("poso",  ParamPosP (toPos (1,2)))
                                                        ])
           cr = CReq "test" 1 req chan
       r <- withStdoutLogging $ runIdeM (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
