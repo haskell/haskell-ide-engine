@@ -63,110 +63,75 @@ declareHieSwagger :: Plugins -> Declare (Definitions Schema) Swagger
 declareHieSwagger plugins = do
   let cmds = concatMap (\(k,pd) -> zip (repeat k) (pdCommands pd)) $ Map.toList plugins
   cmdPaths <- mapM (uncurry commandToPath) cmds
-  -- param schemas
-  -- let usernameParamSchema = toParamSchema (Proxy :: Proxy Username)
-  let textParamSchema     = toParamSchema (Proxy :: Proxy T.Text)
-
-  -- responses
-  -- userSummaryResponse   <- declareResponse (Proxy :: Proxy UserSummary)
-  -- userDetailedResponse  <- declareResponse (Proxy :: Proxy UserDetailed)
-  -- packagesResponse      <- declareResponse (Proxy :: Proxy [Package])
-
-  objectResponse        <- declareResponse (Proxy :: Proxy Object)
-  textResponse          <- declareResponse (Proxy :: Proxy T.Text)
-  cmdDescriptorResponse <- declareResponse (Proxy :: Proxy ExtendedCommandDescriptor)
-
-  let Just basePlugin = Map.lookup "base" plugins
-  let baseCommands    = map cmdDesc $ pdCommands basePlugin :: [UntaggedCommandDescriptor]
-  let versionCmd      = head baseCommands
-  -- let (Command _ versionCmdFunc)  = head $ pdCommands basePlugin
-
-  versionDecriptorResponse <- commandResponse (head $ pdCommands basePlugin)
-  cmdDetailsResponse       <- commandResponse (head $ drop 3 $ pdCommands basePlugin)
 
   let h = Just $ Host "localhost" (Just 8001)
 
   return $ mempty
     & host .~ h
-    -- & paths .~  cmdPaths
     & paths .~ HM.fromList cmdPaths
-        -- [
-
-        -- -- starting the hie stuff
-        --   ("/req/base/version", mempty
-        --    & post ?~ (mempty
-        --              -- & produces ?~ MimeList ["application/json"]
-        --              & parameters .~ [
-        --                              Inline $ mempty
-        --                              & name .~ "blank"
-        --                              & required ?~ False
-        --                              & schema .~ ParamOther (mempty
-        --                                  & in_ .~ ParamFormData
-        --                              --     & paramSchema .~ usernameParamSchema
-        --                                  )
-        --                              ]
-        --              & consumes ?~ MimeList ["application/json"]
-        --              -- & at 200 ?~ Inline textResponse)
-        --              & at 200 ?~ Inline versionDecriptorResponse)
-        --   )
-
-        -- , ("/req/base/commandDetail", mempty
-        --    & post ?~ (mempty
-        --              & produces ?~ MimeList ["application/json"]
-        --              & parameters .~ [
-        --                                Inline $ mempty
-        --                                & name .~ "plugin"
-        --                                & required ?~ True
-        --                                & schema .~ ParamOther (mempty
-        --                                    & in_ .~ ParamFormData
-        --                                    & paramSchema .~ textParamSchema
-        --                                    )
-        --                              , Inline $ mempty
-        --                                & name .~ "command"
-        --                                & required ?~ True
-        --                                & schema .~ ParamOther (mempty
-        --                                    & in_ .~ ParamFormData
-        --                                    & paramSchema .~ textParamSchema
-        --                                    )
-        --                              ]
-        --              & consumes ?~ MimeList ["application/json"]
-        --              -- & at 200 ?~ Inline cmdDescriptorResponse)
-        --              & at 200 ?~ Inline cmdDetailsResponse)
-        --   )
-        -- ]
 
 -- ---------------------------------------------------------------------
 
 commandToPath :: PluginId -> UntaggedCommand -> Declare (Definitions Schema) (FilePath,PathItem)
 commandToPath pName c@(Command cd f) = do
-  let textParamSchema     = toParamSchema (Proxy :: Proxy T.Text)
   cmdResponse  <- commandResponse c
   let allParams = nub $ concatMap contextMapping (cmdContexts cd) ++ cmdAdditionalParams cd
-  allParamDescs <- mapM swaggerParam allParams
   let pi = mempty
            & post ?~ (mempty
                      & produces ?~ MimeList ["application/json"]
-                     & parameters .~ allParamDescs
-                     -- & parameters .~ [
-                     --                   Inline $ mempty
-                     --                   & name .~ "plugin"
-                     --                   & required ?~ True
-                     --                   & schema .~ ParamOther (mempty
-                     --                       & in_ .~ ParamFormData
-                     --                       & paramSchema .~ textParamSchema
-                     --                       )
-                     --                 , Inline $ mempty
-                     --                   & name .~ "command"
-                     --                   & required ?~ True
-                     --                   & schema .~ ParamOther (mempty
-                     --                       & in_ .~ ParamFormData
-                     --                       & paramSchema .~ textParamSchema
-                     --                       )
-                     --                 ]
+
+                     & parameters .~ [
+                                       Inline $ mempty
+                                       & name .~ "params"
+                                       & required ?~ True
+                                       & schema .~ ParamBody (Inline (mkParamsSchema allParams))
+                                     ]
+
                      & consumes ?~ MimeList ["application/json"]
                      & at 200 ?~ Inline cmdResponse)
   let route =  "/req/" ++ T.unpack pName ++ "/" ++ T.unpack (cmdName cd) 
   return (route,pi)
+
+-- ---------------------------------------------------------------------
+
+-- TODO: required params, use a ref for the standard types
+mkParamsSchema :: [ParamDescription] -> Schema
+mkParamsSchema allParams = s
+  where
+    pList = map mkParam allParams
+    -- mkParam :: ParamDescription -> (String,Schema)
+    mkParam pd = (pName pd,pTypeSchema (pType pd))
+    pTypeSchema PtText = toSchemaRef (Proxy :: Proxy T.Text)
+    pTypeSchema PtFile = toSchemaRef (Proxy :: Proxy T.Text)
+    -- pTypeSchema PtPos  = toSchemaRef (Proxy :: Proxy Pos)
+    pTypeSchema PtPos  = Inline $ toSchema (Proxy :: Proxy Pos)
+    s = mempty
+      & type_ .~ SwaggerObject
+      & properties .~ (HM.fromList pList)
+
+-- ---------------------------------------------------------------------
+
+{-
+{
+  "type": "object",
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "address": {
+      "$ref": "#/definitions/Address"
+    },
+    "age": {
+      "type": "integer",
+      "format": "int32",
+      "minimum": 0
+    }
+  }
+}
+-}
 
 -- ---------------------------------------------------------------------
 

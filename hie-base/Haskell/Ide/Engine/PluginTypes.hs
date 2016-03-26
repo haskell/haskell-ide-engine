@@ -186,6 +186,7 @@ instance ToSchema IdePlugins
 
 -- | A position in a source file
 type Pos = (Line,Col)
+-- instance ToSchema Pos
 
 newtype Line = Line Int deriving (Generic,Show,Eq,Read,Ord,Enum,Real)
 instance ToSchema Line
