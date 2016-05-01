@@ -300,7 +300,6 @@ data ParamVal (t :: ParamType) where
  ParamPos  :: Pos      -> ParamVal 'PtPos
 
 
-
 -- | The IDE response, with the type of response it contains
 data IdeResponse resp
  = IdeResponseOk resp        -- ^ Command Succeeded
@@ -457,17 +456,19 @@ instance FromJSON ParamValP where
    let mt = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtText))
        mf = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtFile))
        mp = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtPos))
-   mf <|> mp <|> mt <|> typeMismatch "text, file, or position object" val
+   mf <|> mp <|> mt <|> typeMismatch "text, file, or position object for ParamValP" val
 
 -- -------------------------------------
 
 instance FromJSON Pos where
-  parseJSON (Object v) = Pos <$> v .: "line" <*> v .: "col"
+  parseJSON (Object v) = do
+    l <- v .: "line"
+    c <- v .: "col"
+    return $ Pos (Line l) (Col c)
   parseJSON _ = mempty
 
 instance ToJSON Pos where
-  toJSON (Pos l c) = object [ "line" .= l, "col" .= c]
-
+  toJSON (Pos (Line l) (Col c)) = object [ "line" .= l, "col" .= c]
 
 instance FromJSON Line where
   parseJSON (Object v) = Line <$> v .: "line"

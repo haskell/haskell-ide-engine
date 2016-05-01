@@ -49,7 +49,7 @@ parseToJsonPipe oneShot cin cout cid =
                   CResp "" cid $
                   IdeResponseError
                     (IdeError ParseError (T.pack $ show decodeErr) Null)
-            liftIO $ debugm $ "jsonStdioTransport:parse error:" ++ show decodeErr
+            liftIO $ debugm $ "parseToJsonPipe:parse error:" ++ show decodeErr
             liftIO $ atomically $ writeTChan cout rsp
        Right req ->
          do liftIO $ atomically $ writeTChan cin (wireToChannel cout cid req)
@@ -137,12 +137,12 @@ parseFrames prod0 = do
        (maybeRet, leftoverProd) <- lift $ runStateT (PA.parse terminatedJSON) splitProd
        case maybeRet of
          Nothing -> return ()
-         Just (ret) -> do
+         Just ret -> do
            let maybeWrappedRet :: Maybe (Either PAe.DecodingError WireRequest)
                maybeWrappedRet = case ret of
                                              Left parseErr -> pure $ Left $ PAe.AttoparsecError parseErr
                                              Right (Just a) -> case fromJSON a of
-                                                                 Error err -> pure $ Left $ PAe.FromJSONError err
+                                                                 Error err -> pure $ Left $ PAe.FromJSONError (err ++ ":" ++ show a)
                                                                  Success wireReq -> pure $ Right wireReq
                                              Right Nothing -> Nothing
            case maybeWrappedRet of
