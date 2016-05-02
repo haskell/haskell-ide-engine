@@ -29,7 +29,6 @@ import           Data.Proxy
 import           Data.Singletons.Prelude hiding ((:>))
 import           Data.Swagger (Swagger)
 import qualified Data.Text as T
-import           GHC.Generics
 import           GHC.TypeLits
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Transport.JsonHttp.Undecidable
@@ -42,18 +41,14 @@ import           Servant.Server.Internal
 
 {-# ANN module ("HLint: ignore Eta reduce" :: String) #-}
 
--- | A greet message data type
-newtype Greet = Greet { _msg :: T.Text }
-  deriving (Generic, Show)
-
-instance FromJSON Greet
-instance ToJSON Greet where
-  toJSON = genericToJSON defaultOptions
 
 newtype TaggedMap (tags :: [ParamDescType]) = TaggedMap ParamMap deriving (Monoid)
 
 instance TaggedMapParser tags => FromJSON (TaggedMap tags) where
-  parseJSON (Object v) = fmap (TaggedMap . Map.fromList) (parseTaggedMap (Proxy :: Proxy tags) v)
+  -- parseJSON (Object v) = fmap (TaggedMap . Map.fromList) (parseTaggedMap (Proxy :: Proxy tags) v)
+  parseJSON (Object v) = do
+    v2 <- v .: "params"
+    fmap (TaggedMap . Map.fromList) (parseTaggedMap (Proxy :: Proxy tags) v2)
   parseJSON _ =  empty
 
 class TaggedMapParser (tags :: [ParamDescType]) where
@@ -86,8 +81,7 @@ data PluginType = PluginType Symbol [CommandType]
 type family PluginRoutes (list :: [PluginType]) where
   PluginRoutes ('PluginType name cmds ': xs)
      = PluginRoute name (CommandRoutes cmds) :<|> PluginRoutes xs
-  -- PluginRoutes '[] = "eg" :> Get '[JSON] IdeRequest
-  PluginRoutes '[] = "eg" :> Post '[JSON] IdeRequest
+  PluginRoutes '[] = "eg" :> Get '[JSON] IdeRequest
 
 -- | All plugin commands are prefixed by "req" and the plugin name.
 type PluginRoute (s::Symbol) r = "req" :> s :> r
@@ -106,7 +100,6 @@ type CommandRoute (name :: Symbol) (params :: [ParamDescType]) =
    name :>
    QueryParam "rid" Int :>
    ReqBody '[JSON] (TaggedMap params) :>
-   -- ReqBody '[JSON] (TaggedMap params) :>
    Post '[JSON] (IdeResponse Object)
 
 -- ---------------------------------------------------------------------
