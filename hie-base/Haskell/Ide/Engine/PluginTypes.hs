@@ -94,7 +94,7 @@ type family ContextMapping (cxt :: AcceptedContext) :: [ParamDescType] where
   ContextMapping 'CtxNone   = '[]
   ContextMapping 'CtxFile   = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required ]
   ContextMapping 'CtxPoint  = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required
-                               , 'ParamDescType "start pos" "start line and col" 'PtPos 'Required ]
+                               , 'ParamDescType "start_pos" "start line and col" 'PtPos 'Required ]
   ContextMapping 'CtxRegion = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required
                                , 'ParamDescType "start_pos" "start line and col" 'PtPos 'Required
                                , 'ParamDescType "end_pos" "end line and col" 'PtPos 'Required]
@@ -401,16 +401,6 @@ instance ValidResponse IdePlugins where
 
 -- ---------------------------------------------------------------------
 -- JSON instances
-
--- posToJSON :: Pos -> Value
--- posToJSON (Line l,Col c) = object [ "line" .= l,"col" .= c ]
-
--- jsonToPos :: Value -> Parser Pos
--- jsonToPos (Object v) = do
---   l <- v .: "line"
---   c <- v .: "col"
---   return (Line l,Col c)
--- jsonToPos _ = empty
 
 instance (ValidResponse a) => ToJSON (IdeResponse a) where
  toJSON (IdeResponseOk v) = Object (jsWrite v)

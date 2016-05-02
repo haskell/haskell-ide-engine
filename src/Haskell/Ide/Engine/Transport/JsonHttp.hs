@@ -45,7 +45,6 @@ import           Servant.Server.Internal
 newtype TaggedMap (tags :: [ParamDescType]) = TaggedMap ParamMap deriving (Monoid)
 
 instance TaggedMapParser tags => FromJSON (TaggedMap tags) where
-  -- parseJSON (Object v) = fmap (TaggedMap . Map.fromList) (parseTaggedMap (Proxy :: Proxy tags) v)
   parseJSON (Object v) = do
     {-
        The initial version of the hie API expected parameters in the POST body of the form
