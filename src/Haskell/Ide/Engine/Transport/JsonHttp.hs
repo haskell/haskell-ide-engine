@@ -36,6 +36,7 @@ import           Haskell.Ide.Engine.Transport.JsonHttp.Undecidable
 import           Haskell.Ide.Engine.Types
 import           Network.Wai
 import           Network.Wai.Handler.Warp as Warp
+import qualified Paths_haskell_ide_engine as Meta
 import           Servant
 import           Servant.Server.Internal
 
@@ -85,7 +86,8 @@ data PluginType = PluginType Symbol [CommandType]
 type family PluginRoutes (list :: [PluginType]) where
   PluginRoutes ('PluginType name cmds ': xs)
      = PluginRoute name (CommandRoutes cmds) :<|> PluginRoutes xs
-  PluginRoutes '[] = "eg" :> Get '[JSON] IdeRequest
+  -- PluginRoutes '[] = "eg" :> Get '[JSON] IdeRequest
+  PluginRoutes '[] = "eg" :> Post '[JSON] IdeRequest
 
 -- | All plugin commands are prefixed by "req" and the plugin name.
 type PluginRoute (s::Symbol) r = "req" :> s :> r
@@ -191,12 +193,12 @@ hieServantServer :: HieServer plugins
 hieServantServer proxy cin cout = hieServer proxy cin cout
 
 waiApp :: (HieServer plugins, HasServer (PluginRoutes plugins))
-     => Swagger -> Proxy plugins -> TChan ChannelRequest -> TChan ChannelResponse -> Application
-waiApp swagger proxy cin cout = Servant.serve api server
+     => FilePath -> Swagger -> Proxy plugins -> TChan ChannelRequest -> TChan ChannelResponse -> Application
+waiApp dataDir swagger proxy cin cout = Servant.serve api server
   where
     api    = apiRoutesProxy proxy
     server = hieServantServer proxy cin cout :<|> return swagger
-                                             :<|> serverSwaggerUi
+                                             :<|> serverSwaggerUi dataDir
 
 type StaticRoutes = "swagger.json" :> Get '[JSON] Swagger
 
@@ -210,9 +212,9 @@ apiRoutesProxy _ = Proxy
 -- type SwaggerUi = "ui" :> Raw
 type SwaggerUi = Raw
 
-serverSwaggerUi :: Server SwaggerUi
--- serverSwaggerUi = serveDirectory "/home/alanz/mysrc/github/swagger-api/swagger-ui/dist"
-serverSwaggerUi = serveDirectory "/home/alanz/mysrc/github/alanz/haskell-ide-engine/swagger-ui"
+serverSwaggerUi :: FilePath -> Server SwaggerUi
+-- serverSwaggerUi = serveDirectory "/home/alanz/mysrc/github/alanz/haskell-ide-engine/swagger-ui"
+serverSwaggerUi path = serveDirectory (path ++ "/swagger-ui")
 
 -- ---------------------------------------------------------------------
 
@@ -220,7 +222,8 @@ runHttpServer :: (HieServer plugins, HasServer (PluginRoutes plugins))
               => Swagger -> Proxy plugins -> TChan ChannelRequest -> Port -> IO ()
 runHttpServer swagger proxy cin port = do
   cout <- atomically newTChan :: IO (TChan ChannelResponse)
-  Warp.run port (waiApp swagger proxy cin cout)
+  dataDir <- Meta.getDataDir
+  Warp.run port (waiApp dataDir swagger proxy cin cout)
 
 -- Put this all to work!
 jsonHttpListener :: (HieServer plugins, HasServer (PluginRoutes plugins))

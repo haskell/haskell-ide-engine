@@ -6,6 +6,7 @@
 *.hi
 *.hp
 *.imports
+*.liquid
 *.log
 *.o
 *.out
@@ -40,3 +41,4 @@ tags
 /docs/build/
 /docs/source/plugins/
 /elisp/.cask/
+/test/testdata/HaReAddRmParam.refactored.hs

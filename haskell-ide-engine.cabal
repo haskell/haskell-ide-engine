@@ -13,6 +13,27 @@ build-type:          Simple
 -- extra-source-files:
 cabal-version:       >=1.10
 
+data-files:            elisp/*.el
+                       swagger-ui/*.html
+                       swagger-ui/*.js
+                       swagger-ui/LICENSE
+                       swagger-ui/css/*.css
+                       swagger-ui/fonts/*.ttf
+                       swagger-ui/images/*.gif
+                       swagger-ui/images/*.ico
+                       swagger-ui/images/*.png
+                       swagger-ui/lang/*.js
+                       swagger-ui/lib/*.js
+                       swagger-ui/lib/*.0.0.js
+                       swagger-ui/lib/*.9.1.0.pack_extended.js
+                       swagger-ui/lib/*.9.1.0.pack.js
+                       swagger-ui/lib/*.8.0.min.js
+                       swagger-ui/lib/*.ba-bbq.min.js
+                       swagger-ui/lib/*.slideto.min.js
+                       swagger-ui/lib/*.wiggle.min.js
+                       swagger-ui/lib/*.min.js
+
+
 flag pedantic
   Description: Enable -Werror
   Default:     False
