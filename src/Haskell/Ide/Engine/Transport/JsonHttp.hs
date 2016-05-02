@@ -196,12 +196,25 @@ waiApp swagger proxy cin cout = Servant.serve api server
   where
     api    = apiRoutesProxy proxy
     server = hieServantServer proxy cin cout :<|> return swagger
+                                             :<|> serverSwaggerUi
 
 type StaticRoutes = "swagger.json" :> Get '[JSON] Swagger
 
-apiRoutesProxy :: Proxy plugins -> Proxy (PluginRoutes plugins :<|> StaticRoutes)
+apiRoutesProxy :: Proxy plugins -> Proxy (PluginRoutes plugins :<|> StaticRoutes :<|> SwaggerUi)
 apiRoutesProxy _ = Proxy
 
+-- ---------------------------------------------------------------------
+-- Serve the swagger docs tool.
+-- TODO: perhaps make this optional some time
+
+-- type SwaggerUi = "ui" :> Raw
+type SwaggerUi = Raw
+
+serverSwaggerUi :: Server SwaggerUi
+-- serverSwaggerUi = serveDirectory "/home/alanz/mysrc/github/swagger-api/swagger-ui/dist"
+serverSwaggerUi = serveDirectory "/home/alanz/mysrc/github/alanz/haskell-ide-engine/swagger-ui"
+
+-- ---------------------------------------------------------------------
 
 runHttpServer :: (HieServer plugins, HasServer (PluginRoutes plugins))
               => Swagger -> Proxy plugins -> TChan ChannelRequest -> Port -> IO ()
