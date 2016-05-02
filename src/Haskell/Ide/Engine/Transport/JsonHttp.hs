@@ -47,8 +47,26 @@ newtype TaggedMap (tags :: [ParamDescType]) = TaggedMap ParamMap deriving (Monoi
 instance TaggedMapParser tags => FromJSON (TaggedMap tags) where
   -- parseJSON (Object v) = fmap (TaggedMap . Map.fromList) (parseTaggedMap (Proxy :: Proxy tags) v)
   parseJSON (Object v) = do
-    v2 <- v .: "params"
-    fmap (TaggedMap . Map.fromList) (parseTaggedMap (Proxy :: Proxy tags) v2)
+    {-
+       The initial version of the hie API expected parameters in the POST body of the form
+
+         {"command":{"text": "version"},"plugin":{"text": "base"}}
+
+       The swagger version can only accept one parameter in the body, so this must be wrapped as
+
+         { "params:
+            {"command":{"text": "version"},"plugin":{"text": "base"}}
+         }
+
+       This code accepts either of these variants
+
+       Note: if a parmater is called "params" there may be a problem
+
+    -}
+    mv <- v .:? "params"
+    case mv of
+      Just v2 -> fmap (TaggedMap . Map.fromList) (parseTaggedMap (Proxy :: Proxy tags) v2)
+      Nothing -> fmap (TaggedMap . Map.fromList) (parseTaggedMap (Proxy :: Proxy tags) v)
   parseJSON _ =  empty
 
 class TaggedMapParser (tags :: [ParamDescType]) where
