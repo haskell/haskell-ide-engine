@@ -16,6 +16,7 @@ import           Control.Lens
 import           Data.List
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import           Data.Proxy
 import           Data.Swagger
 import           Data.Swagger.Declare
@@ -55,6 +56,8 @@ commandToPath pluginId c@(Command cd _f) = do
   let p = mempty
            & post ?~ (mempty
                      & produces ?~ MimeList ["application/json"]
+                     & description ?~ cmdUiDescription cd
+                     & tags .~ Set.fromList [pluginId]
 
                      & parameters .~ [
                                        Inline $ mempty

@@ -131,12 +131,12 @@ untagParamDesc (SParamDesc pName' pHelp' pType' pRequired') =
 -- through to HIE.  cxts and descs can be instantiated to simple lists
 -- or vinyl 'Data.Vinyl.Rec' depending on what kind of type safety you need
 data CommandDescriptor cxts descs = CommandDesc
-  { cmdName :: !CommandName -- ^As returned in the 'IdeRequest'
-  , cmdUiDescription :: !T.Text -- ^ Can be presented to the IDE user
-  , cmdFileExtensions :: ![T.Text] -- ^ File extensions this command can be applied to
-  , cmdContexts :: !cxts -- TODO: should this be a non empty list? or should empty list imply CtxNone.
+  { cmdName             :: !CommandName -- ^As returned in the 'IdeRequest'
+  , cmdUiDescription    :: !T.Text -- ^ Can be presented to the IDE user
+  , cmdFileExtensions   :: ![T.Text] -- ^ File extensions this command can be applied to
+  , cmdContexts         :: !cxts -- TODO: should this be a non empty list? or should empty list imply CtxNone.
   , cmdAdditionalParams :: !descs
-  , cmdReturnType :: !ReturnType
+  , cmdReturnType       :: !ReturnType
   } deriving (Show,Eq,Generic)
 
 -- | Type synonym for a 'CommandDescriptor' that uses simple lists
@@ -153,13 +153,13 @@ instance ToSchema ExtendedCommandDescriptor
 instance ValidResponse ExtendedCommandDescriptor where
   jsWrite (ExtendedCommandDescriptor cmdDescriptor pname) =
     H.fromList
-      [ "name" .= cmdName cmdDescriptor
-      , "ui_description" .= cmdUiDescription cmdDescriptor
-      , "file_extensions" .= cmdFileExtensions cmdDescriptor
-      , "contexts" .= cmdContexts cmdDescriptor
+      [ "name"              .= cmdName cmdDescriptor
+      , "ui_description"    .= cmdUiDescription cmdDescriptor
+      , "file_extensions"   .= cmdFileExtensions cmdDescriptor
+      , "contexts"          .= cmdContexts cmdDescriptor
       , "additional_params" .= cmdAdditionalParams cmdDescriptor
-      , "return_type" .= cmdReturnType cmdDescriptor
-      , "plugin_name" .= pname ]
+      , "return_type"       .= cmdReturnType cmdDescriptor
+      , "plugin_name"       .= pname ]
   jsRead v =
     ExtendedCommandDescriptor
     <$> (CommandDesc
