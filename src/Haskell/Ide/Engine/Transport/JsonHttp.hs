@@ -60,7 +60,7 @@ instance TaggedMapParser tags => FromJSON (TaggedMap tags) where
 
        This code accepts either of these variants
 
-       Note: if a parmater is called "params" there may be a problem
+       Note: if a parameter is called "params" there may be a problem
 
     -}
     mv <- v .:? "params"
