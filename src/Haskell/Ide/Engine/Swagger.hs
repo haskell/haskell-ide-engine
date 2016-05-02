@@ -6,29 +6,22 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleContexts    #-}
+{-# OPTIONS_GHC -fno-warn-unused-binds #-} -- For the File and Text declarations needed by swagger
 module Haskell.Ide.Engine.Swagger
   (
     hieSwagger
   ) where
 
 import           Control.Lens
-import           Data.Aeson
 import           Data.List
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.Map as Map
-import           Data.Monoid
 import           Data.Proxy
 import           Data.Swagger
 import           Data.Swagger.Declare
 import qualified Data.Text as T
 import           GHC.Generics
-import           Haskell.Ide.Engine.Transport.JsonHttp
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.PluginTypes.Singletons
-import           Servant
-import           Servant.Swagger
-
-import           Haskell.Ide.Engine.BasePlugin
 
 -- ---------------------------------------------------------------------
 
@@ -45,7 +38,7 @@ declareHieSwagger plugins = do
   cmdPaths <- mapM (uncurry commandToPath) cmds
 
   let h = Just $ Host "localhost" (Just 8001)
-  f <- declareSchema (Proxy :: Proxy File)
+  _f <- declareSchema (Proxy :: Proxy File)
 
   return $ mempty
     & host .~ h
@@ -54,12 +47,12 @@ declareHieSwagger plugins = do
 -- ---------------------------------------------------------------------
 
 commandToPath :: PluginId -> UntaggedCommand -> Declare (Definitions Schema) (FilePath,PathItem)
-commandToPath pName c@(Command cd f) = do
+commandToPath pluginId c@(Command cd _f) = do
   cmdResponse  <- commandResponse c
   f <- declareSchemaRef (Proxy :: Proxy File)
   t <- declareSchemaRef (Proxy :: Proxy Text) -- NOTE: locally declared Text, not T.Text
   let allParams = nub $ concatMap contextMapping (cmdContexts cd) ++ cmdAdditionalParams cd
-  let pi = mempty
+  let p = mempty
            & post ?~ (mempty
                      & produces ?~ MimeList ["application/json"]
 
@@ -72,8 +65,8 @@ commandToPath pName c@(Command cd f) = do
 
                      & consumes ?~ MimeList ["application/json"]
                      & at 200 ?~ Inline cmdResponse)
-  let route =  "/req/" ++ T.unpack pName ++ "/" ++ T.unpack (cmdName cd) 
-  return (route,pi)
+  let route =  "/req/" ++ T.unpack pluginId ++ "/" ++ T.unpack (cmdName cd)
+  return (route,p)
 
 -- ---------------------------------------------------------------------
 
@@ -123,7 +116,7 @@ instance ToSchema Text
 
 -- Keep the type checker happy while extracting the reply schema
 commandResponse :: UntaggedCommand -> Declare (Definitions Schema) Response
-commandResponse (Command x f) = declareCmdResponse f
+commandResponse (Command _x f) = declareCmdResponse f
 
 declareCmdResponse :: ToSchema a => CommandFunc a -> Declare (Definitions Schema) Response
 declareCmdResponse = declareResponse
