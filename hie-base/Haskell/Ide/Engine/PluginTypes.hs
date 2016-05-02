@@ -96,8 +96,8 @@ type family ContextMapping (cxt :: AcceptedContext) :: [ParamDescType] where
   ContextMapping 'CtxPoint  = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required
                                , 'ParamDescType "start pos" "start line and col" 'PtPos 'Required ]
   ContextMapping 'CtxRegion = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required
-                               , 'ParamDescType "start pos" "start line and col" 'PtPos 'Required
-                               , 'ParamDescType "end pos" "end line and col" 'PtPos 'Required]
+                               , 'ParamDescType "start_pos" "start line and col" 'PtPos 'Required
+                               , 'ParamDescType "end_pos" "end line and col" 'PtPos 'Required]
   ContextMapping 'CtxCabalTarget = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required ]
   ContextMapping 'CtxProject     = '[ 'ParamDescType "dir" "a directory name" 'PtFile 'Required ]
 

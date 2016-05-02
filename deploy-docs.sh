@@ -12,6 +12,12 @@ stack exec hie-docs-generator -- --prefix docs/source/
 # run our compile script, discussed above
 cd docs
 make clean
+
+# clone gh-pages remote repo before building docs with latest changes
+# remove all files but .git
+git clone --quiet --branch gh-pages --single-branch "https://${GH_TOKEN}@${GH_REF}" build/html
+cd build/html && git rm -r -f --quiet -- '*' && cd ../..
+
 make html
 
 # disable for pull requests
@@ -36,23 +42,21 @@ then
     exit 0
 fi
 
-# go to the out directory and create a *new* Git repo
+# go to the out directory where there is Git repo cloned from above and
+# output from `make html` command
 cd build/html
 
 touch .nojekyll
-git init
 
 # inside this git repo we'll pretend to be a new user
 git config user.name "Travis CI"
 git config user.email "moritz.kiefer@purelyfunctional.org"
 
-# The first and only commit to this new Git repo contains all the
+# The first and only commit to this local cloned Git repo contains all the
 # files present with the commit message "Deploy to GitHub Pages".
 git add .
 git commit -m "Deploy to GitHub Pages"
 
-# Force push from the current repo's master branch to the remote
-# repo's gh-pages branch. (All previous history on the gh-pages branch
-# will be lost, since we are overwriting it.) We redirect any output to
-# /dev/null to hide any sensitive credential data that might otherwise be exposed.
-git push --force --quiet "https://${GH_TOKEN}@${GH_REF}" master:gh-pages
+# Push from the current repo's gh-pages branch to the remote
+# repo's gh-pages branch.
+git push --quiet "https://${GH_TOKEN}@${GH_REF}" gh-pages:gh-pages
