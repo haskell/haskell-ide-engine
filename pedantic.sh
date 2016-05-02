@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 stack $@ build --test \
+      --flag haskell-ide-engine:pedantic \
       --flag hie-apply-refact:pedantic \
       --flag hie-base:pedantic \
       --flag hie-docs-generator:pedantic \
