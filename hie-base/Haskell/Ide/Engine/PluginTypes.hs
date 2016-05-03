@@ -47,7 +47,7 @@ module Haskell.Ide.Engine.PluginTypes
   , Sing(..)
   , Pos(..)
   , toPos, unPos
-  , Line(..),unLine,Col(..),unCol
+  , Line(..), Col(..)
 
   -- * Plugins
   , PluginId
@@ -184,8 +184,7 @@ instance ToSchema IdePlugins
 -- ---------------------------------------------------------------------
 
 -- | A position in a source file
--- type Pos = (Line,Col)
-data Pos = Pos { line::Line, col:: Col} deriving (Generic,Show,Read,Eq,Ord)
+data Pos = Pos { line :: !Line, col :: !Col} deriving (Generic,Show,Read,Eq,Ord)
 -- NOTE: Pos needs to be defined in record syntac otherwise the generically
 --       derived swagger schema does not work properly
 instance ToSchema Pos
@@ -196,17 +195,12 @@ unPos (Pos (Line l) (Col c)) = (l,c)
 toPos :: (Int,Int) -> Pos
 toPos (l,c) = Pos (Line l) (Col c)
 
-newtype Line = Line Int deriving (Generic,Show,Eq,Read,Ord,Enum,Real)
+-- newtype Line = Line Int deriving (Generic,Show,Eq,Read,Ord,Enum,Real)
+newtype Line = Line {unLine :: Int } deriving (Generic,Show,Eq,Read,Ord,Enum,Real)
 instance ToSchema Line
 
-newtype Col  = Col  Int deriving (Generic,Show,Eq,Read,Ord,Enum,Real)
+newtype Col  = Col { unCol :: Int } deriving (Generic,Show,Eq,Read,Ord,Enum,Real)
 instance ToSchema Col;
-
-unLine :: Line -> Int
-unLine (Line l) = l
-
-unCol :: Col -> Int
-unCol (Col c) = c
 
 deriving instance Num Line
 deriving instance Num Col
@@ -216,11 +210,11 @@ deriving instance Integral Col
 
 
 instance Bounded Line where
-  minBound = 0
+  minBound = 1
   maxBound = 1000000
 
 instance Bounded Col where
-  minBound = 0
+  minBound = 1
   maxBound = 100000
 
 -- ---------------------------------------------------------------------
@@ -426,8 +420,8 @@ instance FromJSON (ParamVal 'PtFile) where
   parseJSON = withObject "file parameter object" $ \v -> ParamFile <$> v.: "file"
 
 instance FromJSON (ParamVal 'PtPos) where
-    parseJSON v = do
-      p <- parseJSON v
+    parseJSON = withObject "pos parameter object" $ \v -> do
+      p <- parseJSON (Object v)
       return (ParamPos p)
 
 instance ToJSON (ParamVal 'PtPos) where
@@ -451,25 +445,22 @@ instance FromJSON ParamValP where
 -- -------------------------------------
 
 instance FromJSON Pos where
-  parseJSON (Object v) = do
+  parseJSON = withObject "Pos" $ \v -> do
     l <- v .: "line"
     c <- v .: "col"
     return $ Pos (Line l) (Col c)
-  parseJSON _ = mempty
 
 instance ToJSON Pos where
   toJSON (Pos (Line l) (Col c)) = object [ "line" .= l, "col" .= c]
 
 instance FromJSON Line where
-  parseJSON (Object v) = Line <$> v .: "line"
-  parseJSON _ = mempty
+  parseJSON = withObject "Line" $ \v -> Line <$> v .: "line"
 
 instance ToJSON Line where
   toJSON (Line l) = object [ "line" .= l]
 
 instance FromJSON Col where
-  parseJSON (Object v) = Col <$> v .: "col"
-  parseJSON _ = mempty
+  parseJSON = withObject "Col" $ \v -> Col <$> v .: "col"
 
 instance ToJSON Col where
   toJSON (Col c) = object [ "col" .= c]

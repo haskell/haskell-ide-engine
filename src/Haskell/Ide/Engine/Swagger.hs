@@ -81,9 +81,9 @@ mkParamsSchema fileSchemaRef textSchemaRef allParams = s
     requiredParams = concatMap isRequired allParams
 
     isRequired :: ParamDescription -> [Data.Swagger.ParamName]
-    isRequired pd = if pRequired pd == Required
-                       then [pName pd]
-                       else []
+    isRequired pd = case pRequired pd of
+                      Required ->[pName pd]
+                      _        -> []
 
     mkParam pd = (pName pd,pTypeSchema (pType pd))
 

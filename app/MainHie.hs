@@ -19,7 +19,7 @@ import           Control.Monad
 import           Control.Monad.Logger
 import           Control.Monad.STM
 import           Data.Aeson
-import qualified Data.ByteString.Lazy.Char8 as B
+import qualified Data.ByteString.Lazy       as B
 import qualified Data.Map as Map
 import           Data.Proxy
 import qualified Data.Text as T
@@ -144,11 +144,8 @@ run opts = do
       Nothing -> return ()
 
     when (optDumpSwagger opts) $ do
-      -- putStrLn "dumping swagger definition"
       let swagger = hieSwagger plugins
-      -- let swagger = hieSwagger2 (recProxy taggedPlugins)
-      -- putStrLn (show swagger)
-      putStrLn (B.unpack $  encode swagger)
+      B.putStr (encode swagger)
       exitSuccess
 
     -- launch the dispatcher.

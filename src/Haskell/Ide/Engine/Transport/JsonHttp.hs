@@ -53,7 +53,7 @@ instance TaggedMapParser tags => FromJSON (TaggedMap tags) where
 
        The swagger version can only accept one parameter in the body, so this must be wrapped as
 
-         { "params:
+         { "params":
             {"command":{"text": "version"},"plugin":{"text": "base"}}
          }
 
