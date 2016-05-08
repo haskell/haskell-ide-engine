@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>egasync &mdash; haskell-ide-engine 0.1 documentation</title>
+    <title>ghctree &mdash; haskell-ide-engine 0.1 documentation</title>
     
     <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -26,8 +26,8 @@
     <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <link rel="top" title="haskell-ide-engine 0.1 documentation" href="../index.html" />
     <link rel="up" title="Plugins" href="index.html" />
-    <link rel="next" title="ghcmod" href="ghcmod.html" />
-    <link rel="prev" title="eg2" href="eg2.html" />
+    <link rel="next" title="hare" href="hare.html" />
+    <link rel="prev" title="ghcmod" href="ghcmod.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
@@ -42,45 +42,23 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <div class="section" id="egasync">
-<h1>egasync<a class="headerlink" href="#egasync" title="Permalink to this headline">¶</a></h1>
+  <div class="section" id="ghctree">
+<h1>ghctree<a class="headerlink" href="#ghctree" title="Permalink to this headline">¶</a></h1>
 <dl class="plugin">
-<dt id="plugin-egasync">
-<code class="descname">egasync</code><a class="headerlink" href="#plugin-egasync" title="Permalink to this definition">¶</a></dt>
+<dt id="plugin-ghctree">
+<code class="descname">ghctree</code><a class="headerlink" href="#plugin-ghctree" title="Permalink to this definition">¶</a></dt>
 <dd><dl class="command">
-<dt id="command-cmd1">
-<code class="descname">cmd1</code><a class="headerlink" href="#command-cmd1" title="Permalink to this definition">¶</a></dt>
-<dd><p>Long running synchronous command</p>
+<dt id="command-trees">
+<code class="descname">trees</code><a class="headerlink" href="#command-trees" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get ASTs for the given file</p>
 <p>Example:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">{</span>
-    <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">{},</span>
-    <span class="s2">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;egasync:cmd1&quot;</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-</dd></dl>
-
-<dl class="command">
-<dt id="command-cmd2">
-<code class="descname">cmd2</code><a class="headerlink" href="#command-cmd2" title="Permalink to this definition">¶</a></dt>
-<dd><p>Long running synchronous command</p>
-<p>Example:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">{</span>
-    <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">{},</span>
-    <span class="s2">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;egasync:cmd2&quot;</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-</dd></dl>
-
-<dl class="command">
-<dt id="command-cmdA3">
-<code class="descname">cmdA3</code><a class="headerlink" href="#command-cmdA3" title="Permalink to this definition">¶</a></dt>
-<dd><p>Long running async/streaming command</p>
-<p>Example:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">{</span>
-    <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">{},</span>
-    <span class="s2">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;egasync:cmdA3&quot;</span>
+    <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;file&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;file&quot;</span><span class="p">:</span> <span class="s2">&quot;a file name&quot;</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;ghctree:trees&quot;</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -100,8 +78,8 @@
 <ul>
   <li><a href="../index.html">Documentation overview</a><ul>
   <li><a href="index.html">Plugins</a><ul>
-      <li>Previous: <a href="eg2.html" title="previous chapter">eg2</a></li>
-      <li>Next: <a href="ghcmod.html" title="next chapter">ghcmod</a></li>
+      <li>Previous: <a href="ghcmod.html" title="previous chapter">ghcmod</a></li>
+      <li>Next: <a href="hare.html" title="next chapter">hare</a></li>
   </ul></li>
   </ul></li>
 </ul>
@@ -109,7 +87,7 @@
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
-      <li><a href="../_sources/plugins/egasync.txt"
+      <li><a href="../_sources/plugins/ghctree.txt"
             rel="nofollow">Show Source</a></li>
     </ul>
    </div>
@@ -135,7 +113,7 @@
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
       
       |
-      <a href="../_sources/plugins/egasync.txt"
+      <a href="../_sources/plugins/ghctree.txt"
           rel="nofollow">Page source</a>
     </div>
 

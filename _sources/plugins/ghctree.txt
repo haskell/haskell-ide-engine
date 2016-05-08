@@ -1,0 +1,19 @@
+ghctree
+=======
+.. hie:plugin:: ghctree
+
+   .. hie:command:: trees
+
+      Get ASTs for the given file
+
+      Example::
+
+        {
+            "params": {
+                "file": {
+                    "file": "a file name"
+                }
+            },
+            "cmd": "ghctree:trees"
+        }
+

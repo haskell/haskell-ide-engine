@@ -9,4 +9,5 @@ Plugins
    eg2
    egasync
    ghcmod
+   ghctree
    hare
