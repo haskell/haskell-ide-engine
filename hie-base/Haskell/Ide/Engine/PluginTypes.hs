@@ -195,7 +195,6 @@ unPos (Pos (Line l) (Col c)) = (l,c)
 toPos :: (Int,Int) -> Pos
 toPos (l,c) = Pos (Line l) (Col c)
 
--- newtype Line = Line Int deriving (Generic,Show,Eq,Read,Ord,Enum,Real)
 newtype Line = Line {unLine :: Int } deriving (Generic,Show,Eq,Read,Ord,Enum,Real)
 instance ToSchema Line
 
