@@ -16,6 +16,7 @@ data GlobalOpts = GlobalOpts
   , optTcp :: Bool
   , optTcpPort :: Port
   , projectRoot :: Maybe String
+  , optDumpSwagger :: Bool
   } deriving (Show)
 
 globalOptsParser :: Parser GlobalOpts
@@ -63,3 +64,8 @@ globalOptsParser = GlobalOpts
       <> short 'r'
       <> metavar "PROJECTROOT"
       <> help "Root directory of project, defaults to cwd"))
+  <*> switch
+       ( long "swagger"
+      <> short 'w'
+      <> help "Generate a swagger.json file for the http API"
+       )

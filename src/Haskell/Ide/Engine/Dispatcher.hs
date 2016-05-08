@@ -110,13 +110,14 @@ pluginCache = Map.fromList . concatMap go . Map.toList
 
 -- |Return list of valid contexts for the given 'CommandDescriptor' and
 -- 'IdeRequest'
-validateContexts :: forall a .(ValidResponse a) => UntaggedCommandDescriptor -> IdeRequest -> Either (IdeResponse a) [AcceptedContext]
+validateContexts :: forall a .(ValidResponse a)
+                 => UntaggedCommandDescriptor -> IdeRequest -> Either (IdeResponse a) [AcceptedContext]
 validateContexts cd req = r
   where
     (errs,oks) = partitionEithers $ map (\c -> validContext c (ideParams req)) $ cmdContexts cd
     r = case (oks, errs) of
       ([], (e:_)) -> Left e
-      ([], []) -> Left $ IdeResponseFail $ IdeError
+      ([], []) -> Left $ IdeResponseFail IdeError
         { ideCode = InvalidContext
         , ideMessage = T.pack ("no valid context found, expecting one of:" ++ show (cmdContexts cd))
         , ideInfo = Null
@@ -126,7 +127,8 @@ validateContexts cd req = r
           Left e -> Left e
           Right _ -> Right ctxs
 
-validContext :: forall a .(ValidResponse a) => AcceptedContext -> ParamMap -> Either (IdeResponse a) AcceptedContext
+validContext :: forall a .(ValidResponse a)
+             => AcceptedContext -> ParamMap -> Either (IdeResponse a) AcceptedContext
 validContext ctx params =
   case checkParams (contextMapping ctx) params of
     Left err -> Left err

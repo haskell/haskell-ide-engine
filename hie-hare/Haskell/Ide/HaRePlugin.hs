@@ -70,7 +70,7 @@ demoteCmd  = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& RNil) ->
-      runHareCommand "demote" (compDemote (T.unpack fileName) pos)
+      runHareCommand "demote" (compDemote (T.unpack fileName) (unPos pos))
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.demoteCmd: ghc’s exhaustiveness checker is broken" Null)
 
@@ -83,7 +83,7 @@ dupdefCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdText "name" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& ParamText name :& RNil) ->
-      runHareCommand "dupdef" (compDuplicateDef (T.unpack fileName) (T.unpack name) pos)
+      runHareCommand "dupdef" (compDuplicateDef (T.unpack fileName) (T.unpack name) (unPos pos))
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.dupdefCmd: ghc’s exhaustiveness checker is broken" Null)
 
@@ -95,8 +95,8 @@ iftocaseCmd :: CommandFunc RefactorResult
 iftocaseCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdPos "end_pos" :& RNil) req of
     Left err -> return err
-    Right (ParamFile fileName :& ParamPos start :& ParamPos end :& RNil) ->
-      runHareCommand "iftocase" (compIfToCase (T.unpack fileName) start end)
+    Right (ParamFile fileName :& ParamPos startPos :& ParamPos endPos :& RNil) ->
+      runHareCommand "iftocase" (compIfToCase (T.unpack fileName) (unPos startPos) (unPos endPos))
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.ifToCaseCmd: ghc’s exhaustiveness checker is broken" Null)
 
@@ -109,7 +109,7 @@ liftonelevelCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& RNil) ->
-      runHareCommand "liftonelevel" (compLiftOneLevel (T.unpack fileName) pos)
+      runHareCommand "liftonelevel" (compLiftOneLevel (T.unpack fileName) (unPos pos))
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.liftOneLevel: ghc’s exhaustiveness checker is broken" Null)
 
@@ -122,7 +122,7 @@ lifttotoplevelCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& RNil) ->
-      runHareCommand "lifttotoplevel" (compLiftToTopLevel (T.unpack fileName) pos)
+      runHareCommand "lifttotoplevel" (compLiftToTopLevel (T.unpack fileName) (unPos pos))
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.liftToTopLevel: ghc’s exhaustiveness checker is broken" Null)
 
@@ -135,7 +135,7 @@ renameCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdText "name" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& ParamText name :& RNil) ->
-      runHareCommand "rename" (compRename (T.unpack fileName) (T.unpack name) pos)
+      runHareCommand "rename" (compRename (T.unpack fileName) (T.unpack name) (unPos pos))
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.renameCmd: ghc’s exhaustiveness checker is broken" Null)
 

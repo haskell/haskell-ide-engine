@@ -27,29 +27,45 @@ import qualified Data.Map as Map
 import           Data.Maybe
 import           Data.Proxy
 import           Data.Singletons.Prelude hiding ((:>))
+import           Data.Swagger (Swagger)
 import qualified Data.Text as T
-import           GHC.Generics
 import           GHC.TypeLits
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Transport.JsonHttp.Undecidable
 import           Haskell.Ide.Engine.Types
 import           Network.Wai
-import           Network.Wai.Handler.Warp
+import           Network.Wai.Handler.Warp as Warp
+import qualified Paths_haskell_ide_engine as Meta
 import           Servant
 import           Servant.Server.Internal
 
--- | A greet message data type
-newtype Greet = Greet { _msg :: T.Text }
-  deriving (Generic, Show)
+{-# ANN module ("HLint: ignore Eta reduce" :: String) #-}
 
-instance FromJSON Greet
-instance ToJSON Greet where
-  toJSON = genericToJSON defaultOptions
 
 newtype TaggedMap (tags :: [ParamDescType]) = TaggedMap ParamMap deriving (Monoid)
 
 instance TaggedMapParser tags => FromJSON (TaggedMap tags) where
-  parseJSON (Object v) = fmap (TaggedMap . Map.fromList) (parseTaggedMap (Proxy :: Proxy tags) v)
+  parseJSON (Object v) = do
+    {-
+       The initial version of the hie API expected parameters in the POST body of the form
+
+         {"command":{"text": "version"},"plugin":{"text": "base"}}
+
+       The swagger version can only accept one parameter in the body, so this must be wrapped as
+
+         { "params":
+            {"command":{"text": "version"},"plugin":{"text": "base"}}
+         }
+
+       This code accepts either of these variants
+
+       Note: if a parameter is called "params" there may be a problem
+
+    -}
+    mv <- v .:? "params"
+    case mv of
+      Just v2 -> fmap (TaggedMap . Map.fromList) (parseTaggedMap (Proxy :: Proxy tags) v2)
+      Nothing -> fmap (TaggedMap . Map.fromList) (parseTaggedMap (Proxy :: Proxy tags) v)
   parseJSON _ =  empty
 
 class TaggedMapParser (tags :: [ParamDescType]) where
@@ -76,22 +92,34 @@ data Plugin (t :: PluginType) where
 
 data PluginType = PluginType Symbol [CommandType]
 
+-- ---------------------------------------------------------------------
+
+-- | Build up a list of all plugins and their commands, as a servant API spec
+type family PluginRoutes (list :: [PluginType]) where
+  PluginRoutes ('PluginType name cmds ': xs)
+     = PluginRoute name (CommandRoutes cmds) :<|> PluginRoutes xs
+  PluginRoutes '[] = "eg" :> Get '[JSON] IdeRequest
+
+-- | All plugin commands are prefixed by "req" and the plugin name.
 type PluginRoute (s::Symbol) r = "req" :> s :> r
 
+
+-- | Build up a list of all commands, as a servant API spec
+type family CommandRoutes (list :: [CommandType]) where
+  CommandRoutes '[] = Fail
+  CommandRoutes ('CommandType name cxts params ': cmds)
+     = CommandRoute name (CommandParams cxts params) :<|> CommandRoutes cmds
+
+-- | Within a plugin route, the command is routed according to its name, and can
+-- take an optional request id query parameter. The rest of the parameters are
+-- passed in the body, JSON-encoded.
 type CommandRoute (name :: Symbol) (params :: [ParamDescType]) =
    name :>
    QueryParam "rid" Int :>
    ReqBody '[JSON] (TaggedMap params) :>
    Post '[JSON] (IdeResponse Object)
 
-type family PluginRoutes (list :: [PluginType]) where
-  PluginRoutes ('PluginType name cmds ': xs)
-     = (PluginRoute name (CommandRoutes cmds)) :<|> PluginRoutes xs
-  PluginRoutes '[] = "eg" :> Get '[JSON] IdeRequest
-
-type family CommandRoutes (list :: [CommandType]) where
-  CommandRoutes '[] = Fail
-  CommandRoutes ('CommandType name cxts params ': cmds) = CommandRoute name (CommandParams cxts params)  :<|> CommandRoutes cmds
+-- ---------------------------------------------------------------------
 
 data Fail = Fail
 
@@ -101,8 +129,7 @@ instance HasServer Fail where
 
   route _ _ _ f = f (failWith NotFound)
 
-testApi :: Proxy plugins -> Proxy (PluginRoutes plugins)
-testApi _ = Proxy
+-- ---------------------------------------------------------------------
 
 -- Server-side handlers.
 --
@@ -120,7 +147,8 @@ class HieServer (list :: [PluginType]) where
 instance HieServer '[] where
   hieServer _ _ _ = return (IdeRequest ("version"::T.Text) Map.empty)
 
-instance (KnownSymbol plugin,CommandServer cmds,HieServer xs) => HieServer ('PluginType plugin cmds ': xs) where
+instance (KnownSymbol plugin,CommandServer cmds,HieServer xs)
+  => HieServer ('PluginType plugin cmds ': xs) where
   hieServer _ cin cout =
     pluginHandler :<|> hieServer (Proxy :: Proxy xs) cin cout
     where pluginHandler
@@ -142,9 +170,10 @@ class CommandServer (list :: [CommandType]) where
 instance CommandServer '[] where
   cmdServer _ _ _ _ = Fail
 
-instance (KnownSymbol x,CommandServer xs) => CommandServer ('CommandType x cxts params ': xs) where
+instance (KnownSymbol x,CommandServer xs)
+  => CommandServer ('CommandType x cxts params ': xs) where
   cmdServer plugin _ cin cout =
-    cmdHandler plugin (Proxy :: Proxy x) cin cout :<|> (cmdServer plugin (Proxy :: Proxy xs) cin cout)
+    cmdHandler plugin (Proxy :: Proxy x) cin cout :<|> cmdServer plugin (Proxy :: Proxy xs) cin cout
 
 cmdHandler :: (KnownSymbol plugin,KnownSymbol cmd)
            => Proxy plugin
@@ -166,22 +195,47 @@ cmdHandler plugin cmd cin cout mrid (TaggedMap reqVal) =
                rsp <- liftIO $ atomically $ readTChan cout
                return (coutResp rsp)
 
-server :: HieServer plugins => Proxy plugins -> TChan ChannelRequest ->  TChan ChannelResponse -> Server (PluginRoutes plugins)
-server proxy cin cout = hieServer proxy cin cout
+-- ---------------------------------------------------------------------
 
--- Turn the server into a WAI app. 'serve' is provided by servant,
--- more precisely by the Servant.Server module.
-test :: (HieServer plugins, HasServer (PluginRoutes plugins)) => Proxy plugins -> TChan ChannelRequest -> TChan ChannelResponse -> Application
-test proxy cin cout = serve (testApi proxy) (server proxy cin cout)
+-- | Servant server for the plugin commands
+hieServantServer :: HieServer plugins
+       => Proxy plugins -> TChan ChannelRequest ->  TChan ChannelResponse -> Servant.Server (PluginRoutes plugins)
+hieServantServer proxy cin cout = hieServer proxy cin cout
 
--- Run the server.
---
--- 'run' comes from Network.Wai.Handler.Warp
-runTestServer :: (HieServer plugins, HasServer (PluginRoutes plugins)) => Proxy plugins -> TChan ChannelRequest -> Port -> IO ()
-runTestServer proxy cin port = do
+waiApp :: (HieServer plugins, HasServer (PluginRoutes plugins))
+     => FilePath -> Swagger -> Proxy plugins -> TChan ChannelRequest -> TChan ChannelResponse -> Application
+waiApp dataDir swagger proxy cin cout = Servant.serve api server
+  where
+    api    = apiRoutesProxy proxy
+    server = hieServantServer proxy cin cout :<|> return swagger
+                                             :<|> serverSwaggerUi dataDir
+
+type StaticRoutes = "swagger.json" :> Get '[JSON] Swagger
+
+apiRoutesProxy :: Proxy plugins -> Proxy (PluginRoutes plugins :<|> StaticRoutes :<|> SwaggerUi)
+apiRoutesProxy _ = Proxy
+
+-- ---------------------------------------------------------------------
+-- Serve the swagger docs tool.
+-- TODO: perhaps make this optional some time
+
+-- type SwaggerUi = "ui" :> Raw
+type SwaggerUi = Raw
+
+serverSwaggerUi :: FilePath -> Server SwaggerUi
+-- serverSwaggerUi = serveDirectory "/home/alanz/mysrc/github/alanz/haskell-ide-engine/swagger-ui"
+serverSwaggerUi path = serveDirectory (path ++ "/swagger-ui")
+
+-- ---------------------------------------------------------------------
+
+runHttpServer :: (HieServer plugins, HasServer (PluginRoutes plugins))
+              => Swagger -> Proxy plugins -> TChan ChannelRequest -> Port -> IO ()
+runHttpServer swagger proxy cin port = do
   cout <- atomically newTChan :: IO (TChan ChannelResponse)
-  run port (test proxy cin cout)
+  dataDir <- Meta.getDataDir
+  Warp.run port (waiApp dataDir swagger proxy cin cout)
 
 -- Put this all to work!
-jsonHttpListener :: (HieServer plugins, HasServer (PluginRoutes plugins)) => Proxy plugins -> TChan ChannelRequest -> Port -> IO ()
-jsonHttpListener proxy cin port = runTestServer proxy cin port
+jsonHttpListener :: (HieServer plugins, HasServer (PluginRoutes plugins))
+                 => Swagger -> Proxy plugins -> TChan ChannelRequest -> Port -> IO ()
+jsonHttpListener swagger proxy cin port = runHttpServer swagger proxy cin port

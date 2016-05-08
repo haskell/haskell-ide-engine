@@ -26,6 +26,7 @@ library
                      , text
                      , unordered-containers
                      , singletons
+                     , swagger2 >= 2.0.2
                      , vinyl
   ghc-options:         -Wall
   if flag(pedantic)

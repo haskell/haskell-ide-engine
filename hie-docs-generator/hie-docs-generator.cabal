@@ -36,6 +36,7 @@ executable hie-docs-generator
                      , hie-eg-plugin-async
                      , hie-example-plugin2
                      , hie-ghc-mod
+                     , hie-ghc-tree
                      , hie-hare
                      , hie-plugin-api
                      , mtl

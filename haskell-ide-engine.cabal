@@ -13,6 +13,27 @@ build-type:          Simple
 -- extra-source-files:
 cabal-version:       >=1.10
 
+data-files:            elisp/*.el
+                       swagger-ui/*.html
+                       swagger-ui/*.js
+                       swagger-ui/LICENSE
+                       swagger-ui/css/*.css
+                       swagger-ui/fonts/*.ttf
+                       swagger-ui/images/*.gif
+                       swagger-ui/images/*.ico
+                       swagger-ui/images/*.png
+                       swagger-ui/lang/*.js
+                       swagger-ui/lib/*.js
+                       swagger-ui/lib/*.0.0.js
+                       swagger-ui/lib/*.9.1.0.pack_extended.js
+                       swagger-ui/lib/*.9.1.0.pack.js
+                       swagger-ui/lib/*.8.0.min.js
+                       swagger-ui/lib/*.ba-bbq.min.js
+                       swagger-ui/lib/*.slideto.min.js
+                       swagger-ui/lib/*.wiggle.min.js
+                       swagger-ui/lib/*.min.js
+
+
 flag pedantic
   Description: Enable -Werror
   Default:     False
@@ -23,6 +44,7 @@ library
                        Haskell.Ide.Engine.Console
                        Haskell.Ide.Engine.Dispatcher
                        Haskell.Ide.Engine.Options
+                       Haskell.Ide.Engine.Swagger
                        Haskell.Ide.Engine.Transport.JsonHttp
                        Haskell.Ide.Engine.Transport.JsonHttp.Undecidable
                        Haskell.Ide.Engine.Transport.JsonStdio
@@ -44,6 +66,7 @@ library
                      , ghc-mod >= 5.4
                      , gitrev >= 1.1
                      , haskeline
+                     , hie-base
                      , hie-plugin-api
                      , lens
                      , lifted-base
@@ -60,11 +83,14 @@ library
                      , pipes-network
                      , pipes-parse
                      , servant-server
+                     , servant-swagger
                      , singletons
                      , stm
+                     , swagger2
                      , text
                      , time
                      , transformers
+                     , unordered-containers
                      , vinyl >= 0.5 && < 0.6
                      , wai
                      , warp
@@ -75,10 +101,11 @@ executable hie
   hs-source-dirs:      app
   main-is:             MainHie.hs
   other-modules:       Paths_haskell_ide_engine
-  build-depends:       base
-                     , Cabal >= 1.22
+  build-depends:       Cabal >= 1.22
                      , aeson
                      , apply-refact
+                     , base
+                     , bytestring
                      , containers
                      , directory
                      , fast-logger
@@ -98,9 +125,11 @@ executable hie
                      , optparse-applicative
                      , optparse-simple
                      , stm
+                     , swagger2
                      , text
                      , time
                      , transformers
+                     , unordered-containers
                      , vinyl
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
   if flag(pedantic)
@@ -121,10 +150,10 @@ test-suite haskell-ide-test
                        JsonStdioSpec
                        JsonSpec
                        UtilsSpec
-  build-depends:       base
-                     , Diff
+  build-depends:       Diff
                      , QuickCheck
                      , aeson
+                     , base
                      , containers
                      , directory
                      , fast-logger
@@ -141,6 +170,7 @@ test-suite haskell-ide-test
                      , monad-logger
                      , quickcheck-instances
                      , stm
+                     , swagger2
                      , text
                      , transformers
                      , unordered-containers

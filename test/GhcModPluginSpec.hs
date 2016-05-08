@@ -93,12 +93,12 @@ ghcmodSpec = do
 
     it "runs the type command, correct params" $ do
       let req = IdeRequest "type" (Map.fromList [("file", ParamFileP "./test/testdata/HaReRename.hs")
-                                                 ,("start_pos", ParamPosP (5,9))])
+                                                 ,("start_pos", ParamPosP (toPos (5,9)))])
       r <- dispatchRequest req
       r `shouldBe` Just (IdeResponseOk (H.fromList ["type_info".=toJSON
-                        [TypeResult (5,9) (5,10) "Int"
-                        ,TypeResult (5,9) (5,14) "Int"
-                        ,TypeResult (5,1) (5,14) "Int -> Int"]
+                        [TypeResult (toPos (5,9)) (toPos (5,10)) "Int"
+                        ,TypeResult (toPos (5,9)) (toPos (5,14)) "Int"
+                        ,TypeResult (toPos (5,1)) (toPos (5,14)) "Int -> Int"]
                         ]))
 
     it "runs the type command with an absolute path from another folder, correct params" $ do
@@ -109,11 +109,11 @@ ghcmodSpec = do
               (\_->setCurrentDirectory cd)
               $ \_-> do
         let req = IdeRequest "type" (Map.fromList [("file", ParamFileP $ T.pack fp)
-                                                   ,("start_pos", ParamPosP (5,9))])
+                                                   ,("start_pos", ParamPosP (toPos (5,9)))])
         r <- dispatchRequest req
         r `shouldBe` Just (IdeResponseOk (H.fromList ["type_info".=toJSON
-                          [TypeResult (5,9) (5,10) "Int"
-                          ,TypeResult (5,9) (5,14) "Int"
-                          ,TypeResult (5,1) (5,14) "Int -> Int"]
+                          [TypeResult (toPos (5,9)) (toPos (5,10)) "Int"
+                          ,TypeResult (toPos (5,9)) (toPos (5,14)) "Int"
+                          ,TypeResult (toPos (5,1)) (toPos (5,14)) "Int -> Int"]
                           ]))
     -- ---------------------------------

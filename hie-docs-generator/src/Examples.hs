@@ -22,7 +22,7 @@ paramDesc desc =
   case pType desc of
     PtText -> ParamTextP (pHelp desc)
     PtFile -> ParamFileP (pHelp desc)
-    PtPos -> ParamPosP (42,23)
+    PtPos -> ParamPosP (toPos (42,23))
 
 -- test :: BSL.ByteString
 -- test =

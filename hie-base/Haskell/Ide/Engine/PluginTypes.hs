@@ -1,14 +1,15 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Haskell.Ide.Engine.PluginTypes
   ( CabalSection(..)
 
@@ -44,9 +45,9 @@ module Haskell.Ide.Engine.PluginTypes
   , IdeErrorCode(..)
   , untagParamDesc
   , Sing(..)
-  , Pos
-  , posToJSON
-  , jsonToPos
+  , Pos(..)
+  , toPos, unPos
+  , Line(..), Col(..)
 
   -- * Plugins
   , PluginId
@@ -67,6 +68,7 @@ import           Data.Aeson.Types
 import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import           Data.Singletons.Prelude
+import           Data.Swagger (ToSchema)
 import qualified Data.Text as T
 import           Data.Typeable
 import           Data.Vinyl
@@ -89,15 +91,15 @@ contextMapping CtxProject     = [dirParam] -- the root directory of the project
 
 -- The duplication is ugly, but it looks like atm singletons can’t promote functions that operate on strings or text
 type family ContextMapping (cxt :: AcceptedContext) :: [ParamDescType] where
-  ContextMapping 'CtxNone = '[]
-  ContextMapping 'CtxFile = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required ]
-  ContextMapping 'CtxPoint = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required
-                              , 'ParamDescType "start_pos" "start line and col" 'PtPos 'Required ]
+  ContextMapping 'CtxNone   = '[]
+  ContextMapping 'CtxFile   = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required ]
+  ContextMapping 'CtxPoint  = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required
+                               , 'ParamDescType "start_pos" "start line and col" 'PtPos 'Required ]
   ContextMapping 'CtxRegion = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required
                                , 'ParamDescType "start_pos" "start line and col" 'PtPos 'Required
                                , 'ParamDescType "end_pos" "end line and col" 'PtPos 'Required]
   ContextMapping 'CtxCabalTarget = '[ 'ParamDescType "file" "a file name" 'PtFile 'Required ]
-  ContextMapping 'CtxProject = '[ 'ParamDescType "dir" "a directory name" 'PtFile 'Required ]
+  ContextMapping 'CtxProject     = '[ 'ParamDescType "dir" "a directory name" 'PtFile 'Required ]
 
 -- | For a given 'AcceptedContext', define the parameters that are required in
 -- the corresponding 'IdeRequest'
@@ -129,33 +131,35 @@ untagParamDesc (SParamDesc pName' pHelp' pType' pRequired') =
 -- through to HIE.  cxts and descs can be instantiated to simple lists
 -- or vinyl 'Data.Vinyl.Rec' depending on what kind of type safety you need
 data CommandDescriptor cxts descs = CommandDesc
-  { cmdName :: !CommandName -- ^As returned in the 'IdeRequest'
-  , cmdUiDescription :: !T.Text -- ^ Can be presented to the IDE user
-  , cmdFileExtensions :: ![T.Text] -- ^ File extensions this command can be applied to
-  , cmdContexts :: !cxts -- TODO: should this be a non empty list? or should empty list imply CtxNone.
+  { cmdName             :: !CommandName -- ^As returned in the 'IdeRequest'
+  , cmdUiDescription    :: !T.Text -- ^ Can be presented to the IDE user
+  , cmdFileExtensions   :: ![T.Text] -- ^ File extensions this command can be applied to
+  , cmdContexts         :: !cxts -- TODO: should this be a non empty list? or should empty list imply CtxNone.
   , cmdAdditionalParams :: !descs
-  , cmdReturnType :: !ReturnType
+  , cmdReturnType       :: !ReturnType
   } deriving (Show,Eq,Generic)
 
 -- | Type synonym for a 'CommandDescriptor' that uses simple lists
 type UntaggedCommandDescriptor = CommandDescriptor [AcceptedContext] [ParamDescription]
+instance ToSchema UntaggedCommandDescriptor
 
 type TaggedCommandDescriptor cxts tags = CommandDescriptor (Rec SAcceptedContext cxts) (Rec SParamDescription tags)
 
 data ExtendedCommandDescriptor =
   ExtendedCommandDescriptor UntaggedCommandDescriptor
-                            PluginName deriving (Show,Eq)
+                            PluginName deriving (Show,Eq,Generic)
+instance ToSchema ExtendedCommandDescriptor
 
 instance ValidResponse ExtendedCommandDescriptor where
-  jsWrite (ExtendedCommandDescriptor cmdDescriptor name) =
+  jsWrite (ExtendedCommandDescriptor cmdDescriptor pname) =
     H.fromList
-      [ "name" .= cmdName cmdDescriptor
-      , "ui_description" .= cmdUiDescription cmdDescriptor
-      , "file_extensions" .= cmdFileExtensions cmdDescriptor
-      , "contexts" .= cmdContexts cmdDescriptor
+      [ "name"              .= cmdName cmdDescriptor
+      , "ui_description"    .= cmdUiDescription cmdDescriptor
+      , "file_extensions"   .= cmdFileExtensions cmdDescriptor
+      , "contexts"          .= cmdContexts cmdDescriptor
       , "additional_params" .= cmdAdditionalParams cmdDescriptor
-      , "return_type" .= cmdReturnType cmdDescriptor
-      , "plugin_name" .= name ]
+      , "return_type"       .= cmdReturnType cmdDescriptor
+      , "plugin_name"       .= pname ]
   jsRead v =
     ExtendedCommandDescriptor
     <$> (CommandDesc
@@ -175,8 +179,44 @@ type PluginName = T.Text
 data IdePlugins = IdePlugins
   { ipMap :: Map.Map PluginId [UntaggedCommandDescriptor]
   } deriving (Show,Eq,Generic)
+instance ToSchema IdePlugins
 
-type Pos = (Int,Int)
+-- ---------------------------------------------------------------------
+
+-- | A position in a source file
+data Pos = Pos { line :: !Line, col :: !Col} deriving (Generic,Show,Read,Eq,Ord)
+-- NOTE: Pos needs to be defined in record syntac otherwise the generically
+--       derived swagger schema does not work properly
+instance ToSchema Pos
+
+unPos :: Pos -> (Int,Int)
+unPos (Pos (Line l) (Col c)) = (l,c)
+
+toPos :: (Int,Int) -> Pos
+toPos (l,c) = Pos (Line l) (Col c)
+
+newtype Line = Line {unLine :: Int } deriving (Generic,Show,Eq,Read,Ord,Enum,Real)
+instance ToSchema Line
+
+newtype Col  = Col { unCol :: Int } deriving (Generic,Show,Eq,Read,Ord,Enum,Real)
+instance ToSchema Col;
+
+deriving instance Num Line
+deriving instance Num Col
+
+deriving instance Integral Line
+deriving instance Integral Col
+
+
+instance Bounded Line where
+  minBound = 1
+  maxBound = 1000000
+
+instance Bounded Col where
+  minBound = 1
+  maxBound = 100000
+
+-- ---------------------------------------------------------------------
 
 -- |It will simplify things to always work with an absolute file path
 
@@ -194,12 +234,13 @@ data ParamDescription =
             ,pType :: !ParamType
             ,pRequired :: !ParamRequired}
   deriving (Show,Eq,Ord,Generic)
+instance ToSchema ParamDescription
 
-pattern RP name help type' <- ParamDesc name help type' Required
-  where RP name help type' = ParamDesc name help type' Required
+pattern RP pname help type' <- ParamDesc pname help type' Required
+  where RP pname help type' = ParamDesc pname help type' Required
 
-pattern OP name help type' <- ParamDesc name help type' Optional
-  where OP name help type' = ParamDesc name help type' Optional
+pattern OP pname help type' <- ParamDesc pname help type' Optional
+  where OP pname help type' = ParamDesc pname help type' Optional
 
 type ParamHelp = T.Text
 type ParamName = T.Text
@@ -228,12 +269,12 @@ deriving instance Eq (ParamVal t)
 instance Eq ParamValP where
  (ParamTextP t) == (ParamTextP t') = t == t'
  (ParamFileP f) == (ParamFileP f') = f == f'
- (ParamPosP p) == (ParamPosP p') = p == p'
+ (ParamPosP  p) == (ParamPosP p') = p == p'
  _ == _ = False
 
 pattern ParamTextP t = ParamValP (ParamText t)
 pattern ParamFileP f = ParamValP (ParamFile f)
-pattern ParamPosP p = ParamValP (ParamPos p)
+pattern ParamPosP  p = ParamValP (ParamPos p)
 
 type ParamMap = Map.Map ParamId ParamValP
 
@@ -242,15 +283,14 @@ type ParamId = T.Text
 data TaggedParamId (t :: ParamType) where
  IdText :: T.Text -> TaggedParamId 'PtText
  IdFile :: T.Text -> TaggedParamId 'PtFile
- IdPos :: T.Text -> TaggedParamId 'PtPos
+ IdPos :: T.Text  -> TaggedParamId 'PtPos
 
 data ParamValP = forall t. ParamValP { unParamValP ::  ParamVal t }
 
 data ParamVal (t :: ParamType) where
- ParamText :: T.Text -> ParamVal 'PtText
- ParamFile :: T.Text -> ParamVal 'PtFile
- ParamPos :: (Int,Int) -> ParamVal 'PtPos
-
+ ParamText :: T.Text   -> ParamVal 'PtText
+ ParamFile :: T.Text   -> ParamVal 'PtFile
+ ParamPos  :: Pos      -> ParamVal 'PtPos
 
 
 -- | The IDE response, with the type of response it contains
@@ -291,7 +331,7 @@ data IdeError = IdeError
  deriving (Show,Read,Eq,Generic)
 
 -- | The typeclass for valid response types
-class (Typeable a) => ValidResponse a where
+class (Typeable a,ToSchema a) => ValidResponse a where
   jsWrite :: a -> Object -- ^ Serialize to JSON Object
   jsRead  :: Object -> Parser a -- ^ Read from JSON Object
 
@@ -321,6 +361,8 @@ instance ValidResponse () where
 instance ValidResponse Object where
   jsWrite = id
   jsRead = pure
+deriving instance Generic Value
+instance ToSchema Value
 
 instance ValidResponse UntaggedCommandDescriptor where
   jsWrite cmdDescriptor =
@@ -353,13 +395,6 @@ instance ValidResponse IdePlugins where
 -- ---------------------------------------------------------------------
 -- JSON instances
 
-posToJSON :: (Int,Int) -> Value
-posToJSON (l,c) = object [ "line" .= l,"col" .= c ]
-
-jsonToPos :: Value -> Parser (Int,Int)
-jsonToPos (Object v) = (,) <$> v .: "line" <*> v.: "col"
-jsonToPos _ = empty
-
 instance (ValidResponse a) => ToJSON (IdeResponse a) where
  toJSON (IdeResponseOk v) = Object (jsWrite v)
  toJSON (IdeResponseFail v) = object [ "fail" .= v ]
@@ -374,12 +409,7 @@ instance (ValidResponse a) => FromJSON (IdeResponse a) where
      Just r -> return r
      Nothing -> empty
 
-
-instance ToJSON ParamValP  where
- toJSON (ParamTextP v) = object [ "text" .= v ]
- toJSON (ParamFileP v) = object [ "file" .= v ]
- toJSON (ParamPosP  p) = posToJSON p
- toJSON _ = "error"
+-- ---------------------------------------------------------------------
 
 instance FromJSON (ParamVal 'PtText) where
   parseJSON = withObject "text parameter object" $ \v ->
@@ -389,15 +419,50 @@ instance FromJSON (ParamVal 'PtFile) where
   parseJSON = withObject "file parameter object" $ \v -> ParamFile <$> v.: "file"
 
 instance FromJSON (ParamVal 'PtPos) where
-  parseJSON = withObject "position parameter object" $ \v ->
-    fmap ParamPos $ liftA2 (,) (v .: "line") (v .: "col")
+    parseJSON = withObject "pos parameter object" $ \v -> do
+      p <- parseJSON (Object v)
+      return (ParamPos p)
+
+instance ToJSON (ParamVal 'PtPos) where
+  toJSON (ParamPos p) = toJSON p
+
+-- ---------------------------------------------------------------------
+
+instance ToJSON ParamValP  where
+ toJSON (ParamTextP v) = object [ "text" .= v ]
+ toJSON (ParamFileP v) = object [ "file" .= v ]
+ toJSON (ParamPosP  p) = toJSON p
+ toJSON _ = "error"
 
 instance FromJSON ParamValP where
  parseJSON val = do
    let mt = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtText))
        mf = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtFile))
        mp = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtPos))
-   mf <|> mp <|> mt <|> typeMismatch "text, file, or position object" val
+   mf <|> mp <|> mt <|> typeMismatch "text, file, or position object for ParamValP" val
+
+-- -------------------------------------
+
+instance FromJSON Pos where
+  parseJSON = withObject "Pos" $ \v -> do
+    l <- v .: "line"
+    c <- v .: "col"
+    return $ Pos (Line l) (Col c)
+
+instance ToJSON Pos where
+  toJSON (Pos (Line l) (Col c)) = object [ "line" .= l, "col" .= c]
+
+instance FromJSON Line where
+  parseJSON = withObject "Line" $ \v -> Line <$> v .: "line"
+
+instance ToJSON Line where
+  toJSON (Line l) = object [ "line" .= l]
+
+instance FromJSON Col where
+  parseJSON = withObject "Col" $ \v -> Col <$> v .: "col"
+
+instance ToJSON Col where
+  toJSON (Col c) = object [ "col" .= c]
 
 -- -------------------------------------
 

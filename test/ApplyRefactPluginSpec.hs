@@ -53,7 +53,7 @@ applyRefactSpec = do
     it "applies one hint only" $ do
 
       let req = IdeRequest "applyOne" (Map.fromList [("file",ParamValP $ ParamFile "./test/testdata/ApplyRefact.hs")
-                                                    ,("start_pos",ParamValP $ ParamPos (2,8))
+                                                    ,("start_pos",ParamValP $ ParamPos (toPos (2,8)))
                                                     ])
       r <- dispatchRequest req
       r `shouldBe`
