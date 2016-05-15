@@ -58,6 +58,12 @@
 (defvar hie-sessions (list)
   "All hie sessions in the Emacs session.")
 
+(defvar hie-timeout 0.05
+  "Timeout for tcp connection retries in fractions of a second.")
+
+(defvar hie-maxtimeout 1
+  "Fraction of a second after which the connection fails.")
+
 (defun hie-session-from-buffer ()
   "Get the session based on the buffer."
   (when (buffer-file-name)
@@ -175,6 +181,20 @@ http://debbugs.gnu.org/cgi/bugreport.cgi?bug=15990."
     (while (and (or (not test) (not (funcall test)))
                 (> now (- (cadr (current-time)) sec))))))
 
+(defmacro retry-for (body maxtimeout timeout)
+  "Retry BODY for MAXTIMEOUT seconds with pauses of TIMEOUT."
+  `(progn
+     (let ((starttime (float-time))
+           (break nil)
+           (result nil))
+       (while (not break)
+         (condition-case result
+             (progn (setq result ,body) (setq break t))
+           (error (if (< (- (float-time) starttime) ,maxtimeout)
+                      (sleep-for ,timeout)
+                    (setq break t)))))
+       result)))
+
 (defun hie-start-process (&optional additional-args)
   "Start Haskell IDE Engine process.
 
@@ -186,9 +206,9 @@ running this function does nothing."
     (setq hie-log-buffer
           (get-buffer-create "*hie-log*"))
     (hie-set-process-buffer
-          (get-buffer-create "*hie-process*"))
+     (get-buffer-create "*hie-process*"))
     (hie-set-process-tcp-buffer
-          (get-buffer-create "*hie-process-tcp*"))
+     (get-buffer-create "*hie-process-tcp*"))
     (when (not hie-tcp-port)
       (setq hie-tcp-port hie-initial-tcp-port))
     (let ((process
@@ -199,12 +219,12 @@ running this function does nothing."
                   (append additional-args
                           hie-command-args
                           `("--tcp" "--tcp-port" ,(format "%s" hie-tcp-port))))))
-      (really-sleep-for 1)
       (let ((process-tcp
-             (open-network-stream "Haskell IDE Engine"
-                                  (hie-process-tcp-buffer)
-                                  hie-tcp-host
-                                  hie-tcp-port)))
+             (retry-for (open-network-stream "Haskell IDE Engine"
+                                             (hie-process-tcp-buffer)
+                                             hie-tcp-host
+                                             hie-tcp-port)
+                        hie-maxtimeout hie-timeout)))
         (setq hie-tcp-port (1+ hie-tcp-port))
         (set-process-query-on-exit-flag process-tcp nil)
         (set-process-query-on-exit-flag process nil)

@@ -28,7 +28,8 @@
            (setq hie-command-args
                  '("-d" "-l" "/tmp/hie.log"))
            (setq base-dir
-                 (getenv "HIEBASE")))
+                 (getenv "HIEBASE"))
+           (setq hie-maxtimeout 10))
           (describe "process management"
                     (before-all
                      (find-file (concat base-dir "/test/testdata/HaReRename.hs")))
