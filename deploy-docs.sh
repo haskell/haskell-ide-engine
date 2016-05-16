@@ -55,7 +55,7 @@ git config user.email "moritz.kiefer@purelyfunctional.org"
 # The first and only commit to this local cloned Git repo contains all the
 # files present with the commit message "Deploy to GitHub Pages".
 git add .
-git commit -m "Deploy to GitHub Pages"
+git commit -m "Deploy to GitHub Pages" --allow-empty
 
 # Push from the current repo's gh-pages branch to the remote
 # repo's gh-pages branch.
