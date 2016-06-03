@@ -410,7 +410,22 @@ association lists and count on HIE to use default values there."
           (-lambda ((&alist 'type type 'name name 'val val 'name))
             (cons name (list (cons type val))))
           args))
-        (context (hie-get-context)))
+        (context (hie-get-context))
+        (topdir (hie-session-cabal-dir (hie-session))))
+
+    ;; First check to see if there are any modified buffers for this project
+    (when (-any (lambda (buffer)
+                  (and (buffer-file-name buffer)
+                       (buffer-modified-p buffer)
+                       (string-prefix-p topdir (buffer-file-name buffer))))
+                (buffer-list))
+      (when
+          (y-or-n-p
+           "Project buffers have been modified. Would you like to save them?")
+        (save-some-buffers t
+                           (lambda ()
+                             (and buffer-file-name
+                                  (string-prefix-p topdir buffer-file-name))))))
     (hie-post-message
      `(("cmd" . ,(hie-format-cmd (cons plugin command)))
        ("params" . (,@context ,@ additional-args))))))
