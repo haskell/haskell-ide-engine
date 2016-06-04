@@ -32,10 +32,10 @@ applyRefactDescriptor = PluginDescriptor
     , pdCommands =
 
         buildCommand applyOneCmd (Proxy :: Proxy "applyOne") "Apply a single hint"
-                   [".hs"] (SCtxPoint :& RNil) RNil
+                   [".hs"] (SCtxPoint :& RNil) RNil ChangeCurrent
 
       :& buildCommand applyAllCmd (Proxy :: Proxy "applyAll") "Apply all hints to the file"
-                   [".hs"] (SCtxFile :& RNil) RNil
+                   [".hs"] (SCtxFile :& RNil) RNil ChangeCurrent
 
       :& RNil
   , pdExposedServices = []

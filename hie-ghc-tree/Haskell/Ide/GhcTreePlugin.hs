@@ -24,7 +24,7 @@ ghcTreeDescriptor = PluginDescriptor
   , pdCommands =
 
         buildCommand trees (Proxy :: Proxy "trees") "Get ASTs for the given file"
-                   [".hs",".lhs"] (SCtxFile :& RNil) RNil
+                   [".hs",".lhs"] (SCtxFile :& RNil) RNil ChangeCurrent
 
       :& RNil
   , pdExposedServices = []
