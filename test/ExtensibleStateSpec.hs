@@ -93,7 +93,7 @@ mkCmdWithContext cmd n cts pds =
                         , cmdContexts = cts
                         , cmdAdditionalParams = pds
                         , cmdReturnType = "Text"
-                        , cmdSafety = Safe
+                        , cmdSave = SaveNone
                         }
           , cmdFunc = cmd
           }

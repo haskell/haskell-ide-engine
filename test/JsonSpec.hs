@@ -186,5 +186,5 @@ instance Arbitrary Col where
 instance Arbitrary (ParamVal 'PtPos) where
   arbitrary = ParamPos <$> arbitrary
 
-instance Arbitrary Safety where
-  arbitrary = oneof [return Safe, return ChangeCurrent, return ChangeAll]
+instance Arbitrary Save where
+  arbitrary = oneof [return SaveNone, return SaveAll]

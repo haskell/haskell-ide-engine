@@ -37,7 +37,7 @@ module Haskell.Ide.Engine.PluginTypes
   , PluginName
   , ValidResponse(..)
   , ReturnType
-  , Safety(..)
+  , Save(..)
 
   -- * Interface types
   , IdeRequest(..)
@@ -138,11 +138,11 @@ data CommandDescriptor cxts descs = CommandDesc
   , cmdContexts         :: !cxts -- TODO: should this be a non empty list? or should empty list imply CtxNone.
   , cmdAdditionalParams :: !descs
   , cmdReturnType       :: !ReturnType
-  , cmdSafety           :: !Safety
+  , cmdSave             :: !Save
   } deriving (Show,Eq,Generic)
 
-data Safety = Safe | ChangeCurrent | ChangeAll deriving (Show, Eq, Generic)
-instance ToSchema Safety
+data Save = SaveNone | SaveAll deriving (Show, Eq, Generic)
+instance ToSchema Save
 
 -- | Type synonym for a 'CommandDescriptor' that uses simple lists
 type UntaggedCommandDescriptor = CommandDescriptor [AcceptedContext] [ParamDescription]
@@ -166,7 +166,7 @@ instance ValidResponse ExtendedCommandDescriptor where
       , "additional_params" .= cmdAdditionalParams cmdDescriptor
       , "return_type"       .= cmdReturnType cmdDescriptor
       , "plugin_name"       .= pname
-      , "safety"            .= cmdSafety cmdDescriptor ]
+      , "save"              .= cmdSave cmdDescriptor ]
   jsRead v =
     ExtendedCommandDescriptor
     <$> (CommandDesc
@@ -176,7 +176,7 @@ instance ValidResponse ExtendedCommandDescriptor where
       <*> v .: "contexts"
       <*> v .: "additional_params"
       <*> v .: "return_type"
-      <*> v .: "safety")
+      <*> v .: "save")
     <*> v.: "plugin_name"
 
 type CommandName = T.Text
@@ -381,7 +381,7 @@ instance ValidResponse UntaggedCommandDescriptor where
       , "contexts" .= cmdContexts cmdDescriptor
       , "additional_params" .= cmdAdditionalParams cmdDescriptor
       , "return_type" .= cmdReturnType cmdDescriptor
-      , "safety" .= cmdSafety cmdDescriptor ]
+      , "save" .= cmdSave cmdDescriptor ]
   jsRead v =
     CommandDesc
       <$> v .: "name"
@@ -390,7 +390,7 @@ instance ValidResponse UntaggedCommandDescriptor where
       <*> v .: "contexts"
       <*> v .: "additional_params"
       <*> v .: "return_type"
-      <*> v .: "safety"
+      <*> v .: "save"
 
 instance ValidResponse IdePlugins where
   jsWrite (IdePlugins m) = H.fromList ["plugins" .= H.fromList
@@ -543,13 +543,11 @@ instance FromJSON UntaggedCommandDescriptor where
 
 -- -------------------------------------
 
-instance ToJSON Safety where
-  toJSON Safe          = "safe"
-  toJSON ChangeCurrent = "change_current"
-  toJSON ChangeAll     = "change_all"
+instance ToJSON Save where
+  toJSON SaveNone    = "save_none"
+  toJSON SaveAll = "save_all"
 
-instance FromJSON Safety where
-  parseJSON "safe" = return Safe
-  parseJSON "change_current" = return ChangeCurrent
-  parseJSON "change_all" = return ChangeAll
-  parseJSON x            = typeMismatch "Safety" x
+instance FromJSON Save where
+  parseJSON "save_none" = return SaveNone
+  parseJSON "save_all"  = return SaveAll
+  parseJSON x           = typeMismatch "Save" x

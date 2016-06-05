@@ -37,26 +37,26 @@ hareDescriptor = PluginDescriptor
 \only swapping these with the originals when the change is accepted. "
     , pdCommands =
         buildCommand demoteCmd (Proxy :: Proxy "demote") "Move a definition one level down"
-                    [".hs"] (SCtxPoint :& RNil) RNil ChangeAll
+                    [".hs"] (SCtxPoint :& RNil) RNil SaveAll
 
       :& buildCommand dupdefCmd (Proxy :: Proxy "dupdef") "Duplicate a definition"
                      [".hs"] (SCtxPoint :& RNil)
                      (  SParamDesc (Proxy :: Proxy "name") (Proxy :: Proxy "the new name") SPtText SRequired
-                     :& RNil) ChangeAll
+                     :& RNil) SaveAll
 
       :& buildCommand iftocaseCmd (Proxy :: Proxy "iftocase") "Converts an if statement to a case statement"
-                     [".hs"] (SCtxRegion :& RNil) RNil ChangeCurrent
+                     [".hs"] (SCtxRegion :& RNil) RNil SaveAll
 
       :& buildCommand liftonelevelCmd (Proxy :: Proxy "liftonelevel") "Move a definition one level up from where it is now"
-                     [".hs"] (SCtxPoint :& RNil) RNil ChangeAll
+                     [".hs"] (SCtxPoint :& RNil) RNil SaveAll
 
       :& buildCommand lifttotoplevelCmd (Proxy :: Proxy "lifttotoplevel") "Move a definition to the top level from where it is now"
-                     [".hs"] (SCtxPoint :& RNil) RNil ChangeAll
+                     [".hs"] (SCtxPoint :& RNil) RNil SaveAll
 
       :& buildCommand renameCmd (Proxy :: Proxy "rename") "rename a variable or type"
                      [".hs"] (SCtxPoint :& RNil)
                      (  SParamDesc (Proxy :: Proxy "name") (Proxy :: Proxy "the new name") SPtText SRequired
-                     :& RNil) ChangeAll
+                     :& RNil) SaveAll
 
       :& RNil
   , pdExposedServices = []

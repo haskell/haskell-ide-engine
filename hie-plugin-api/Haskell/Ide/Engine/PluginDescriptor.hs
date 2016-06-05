@@ -157,9 +157,9 @@ buildCommand :: forall a s cxts tags. (ValidResponse a, KnownSymbol s)
   -> [T.Text]
   -> Rec SAcceptedContext cxts
   -> Rec SParamDescription tags
-  -> Safety
+  -> Save
   -> NamedCommand ( 'CommandType s cxts tags )
-buildCommand fun n d exts ctxs parm safety =
+buildCommand fun n d exts ctxs parm save =
   NamedCommand n $
   Command {cmdDesc =
             CommandDesc {cmdName = T.pack $ symbolVal n
@@ -169,7 +169,7 @@ buildCommand fun n d exts ctxs parm safety =
                         ,cmdAdditionalParams = parm
                         ,cmdReturnType =
                            T.pack $ show $ typeOf (undefined :: a)
-                        ,cmdSafety = safety}
+                        ,cmdSave = save}
           ,cmdFunc = fun}
 
 -- ---------------------------------------------------------------------

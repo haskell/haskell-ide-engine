@@ -291,7 +291,7 @@ mkCmdWithContext n cts pds =
                         , cmdContexts = cts
                         , cmdAdditionalParams = pds
                         , cmdReturnType = "Text"
-                        , cmdSafety = Safe
+                        , cmdSave = SaveNone
                         }
           , cmdFunc = CmdSync $ \ctxs _ -> return (IdeResponseOk (T.pack $ "result:ctxs=" ++ show ctxs))
           }
@@ -305,7 +305,7 @@ mkAsyncCmdWithContext cf n cts pds =
                          , cmdContexts = cts
                          , cmdAdditionalParams = pds
                          , cmdReturnType = "Text"
-                         , cmdSafety = Safe
+                         , cmdSave = SaveNone
                          }
           ,cmdFunc = cf}
 

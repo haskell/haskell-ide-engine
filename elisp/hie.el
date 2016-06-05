@@ -412,9 +412,9 @@ association lists and count on HIE to use default values there."
           args))
         (context (hie-get-context))
         (topdir (hie-session-cabal-dir (hie-session)))
-        (safety (hie-plugin-command-safety (intern plugin) command hie-plugins)))
+        (save (hie-plugin-command-save (intern plugin) command hie-plugins)))
 
-    (maybe-save-buffers topdir safety)
+    (maybe-save-buffers topdir save)
 
     ;; First check to see if there are any modified buffers for this project
     (hie-post-message
@@ -487,22 +487,18 @@ association lists and count on HIE to use default values there."
                  commands))
               command-names))))
 
-(defun* hie-plugin-command-safety (plugin name list)
+(defun* hie-plugin-command-save (plugin name list)
   (dolist (l (cdr (assoc plugin list)))
     (let ((name-cons (assoc 'name l))
-          (safety-cons (assoc 'safety l)))
+          (save-cons (assoc 'save l)))
       (when (and name-cons
                  (string-equal (cdr name-cons) name)
-                 safety-cons)
-        (return-from hie-plugin-command-safety (cdr safety-cons))))))
+                 save-cons)
+        (return-from hie-plugin-command-save (cdr save-cons))))))
 
-(defun maybe-save-buffers (topdir safety)
+(defun maybe-save-buffers (topdir save)
   (cond
-   ((and (string= "change_current" safety)
-         (buffer-modified-p))
-    (when (y-or-n-p "Buffer has been modified, would you like to save?")
-      (save-buffer)))
-   ((string= "change_all" safety)
+   ((string= "save_all" save)
     (when (-any (lambda (buffer)
                   (and (buffer-file-name buffer)
                        (buffer-modified-p buffer)

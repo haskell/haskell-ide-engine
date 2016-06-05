@@ -148,7 +148,7 @@ pluginsWithCollisions = Map.fromList [("plugin1", PluginDescriptor
                                 , pRequired = Required
                                 }
                             ]
-                          , cmdSafety = Safe
+                          , cmdSave = SaveNone
                           }
             , cmdFunc = CmdSync $ \_ _ ->
                 return (IdeResponseOk ("" :: T.Text) :: IdeResponse T.Text)
@@ -175,7 +175,7 @@ pluginsWithCollisions = Map.fromList [("plugin1", PluginDescriptor
                                 , pRequired = Optional
                                 }
                             ]
-                          , cmdSafety = Safe
+                          , cmdSave = SaveNone
                           }
             , cmdFunc = CmdSync $ \_ _ -> return (IdeResponseOk ("" :: T.Text))
             }
@@ -219,7 +219,7 @@ pluginsWithCollisions = Map.fromList [("plugin1", PluginDescriptor
                               , pRequired = Required
                               }
                             ]
-                          , cmdSafety = Safe
+                          , cmdSave = SaveNone
                           }
             , cmdFunc = CmdSync $ \_ _ -> return (IdeResponseOk ("" :: T.Text))
             }
@@ -255,7 +255,7 @@ pluginsWithCollisions = Map.fromList [("plugin1", PluginDescriptor
                                     , pRequired = Required
                                     }
                                 ]
-                              , cmdSafety = Safe
+                              , cmdSave = SaveNone
                               }
                 , cmdFunc = CmdSync $ \_ _ -> return (IdeResponseOk ("" :: T.Text))
                 }
@@ -275,7 +275,7 @@ pluginsWithCollisions = Map.fromList [("plugin1", PluginDescriptor
                                     , pRequired = Required
                                     }
                                 ]
-                              , cmdSafety = Safe
+                              , cmdSave = SaveNone
                               }
                , cmdFunc = CmdSync $ \_ _ -> return (IdeResponseOk ("" :: T.Text))
                }
@@ -297,7 +297,7 @@ pluginsWithCollisions = Map.fromList [("plugin1", PluginDescriptor
                               , cmdReturnType = ""
                               , cmdContexts = [CtxRegion, CtxPoint] -- ["file", "start_pos", "file", "start_pos", "end_pos"]
                               , cmdAdditionalParams = []
-                              , cmdSafety = Safe
+                              , cmdSave = SaveNone
                               }
                 , cmdFunc = CmdSync $ \_ _ -> return (IdeResponseOk ("" :: T.Text))
                 }
@@ -338,7 +338,7 @@ pluginsWithoutCollisions = Map.fromList [("plugin1", PluginDescriptor
                                  , pRequired = Required
                                  }
                              ]
-                           , cmdSafety = Safe
+                           , cmdSave = SaveNone
                            } :: UntaggedCommandDescriptor
              , cmdFunc = CmdSync $ \_ _ -> return (IdeResponseOk ("" :: T.Text))
              }
