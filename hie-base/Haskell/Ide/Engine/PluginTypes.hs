@@ -552,3 +552,4 @@ instance FromJSON Safety where
   parseJSON "safe" = return Safe
   parseJSON "change_current" = return ChangeCurrent
   parseJSON "change_all" = return ChangeAll
+  parseJSON x            = typeMismatch "Safety" x

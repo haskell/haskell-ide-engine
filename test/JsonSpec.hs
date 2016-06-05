@@ -85,6 +85,7 @@ instance Arbitrary UntaggedCommandDescriptor where
     <*> smallList arbitraryBoundedEnum
     <*> smallList arbitrary
     <*> arbitrary
+    <*> arbitrary
 
 instance Arbitrary ExtendedCommandDescriptor where
   arbitrary = ExtendedCommandDescriptor
@@ -184,3 +185,6 @@ instance Arbitrary Col where
 
 instance Arbitrary (ParamVal 'PtPos) where
   arbitrary = ParamPos <$> arbitrary
+
+instance Arbitrary Safety where
+  arbitrary = oneof [return Safe, return ChangeCurrent, return ChangeAll]
