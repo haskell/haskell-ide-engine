@@ -411,21 +411,12 @@ association lists and count on HIE to use default values there."
             (cons name (list (cons type val))))
           args))
         (context (hie-get-context))
-        (topdir (hie-session-cabal-dir (hie-session))))
+        (topdir (hie-session-cabal-dir (hie-session)))
+        (safety (hie-plugin-command-safety (intern plugin) command hie-plugins)))
+
+    (maybe-save-buffers topdir safety)
 
     ;; First check to see if there are any modified buffers for this project
-    (when (-any (lambda (buffer)
-                  (and (buffer-file-name buffer)
-                       (buffer-modified-p buffer)
-                       (string-prefix-p topdir (buffer-file-name buffer))))
-                (buffer-list))
-      (when
-          (y-or-n-p
-           "Project buffers have been modified. Would you like to save them?")
-        (save-some-buffers t
-                           (lambda ()
-                             (and buffer-file-name
-                                  (string-prefix-p topdir buffer-file-name))))))
     (hie-post-message
      `(("cmd" . ,(hie-format-cmd (cons plugin command)))
        ("params" . (,@context ,@ additional-args))))))
@@ -495,6 +486,35 @@ association lists and count on HIE to use default values there."
                    (hie-create-command plugin-name command))
                  commands))
               command-names))))
+
+(defun* hie-plugin-command-safety (plugin name list)
+  (dolist (l (cdr (assoc plugin list)))
+    (let ((name-cons (assoc 'name l))
+          (safety-cons (assoc 'safety l)))
+      (when (and name-cons
+                 (string-equal (cdr name-cons) name)
+                 safety-cons)
+        (return-from hie-plugin-command-safety (cdr safety-cons))))))
+
+(defun maybe-save-buffers (topdir safety)
+  (cond
+   ((and (string= "change_current" safety)
+         (buffer-modified-p))
+    (when (y-or-n-p "Buffer has been modified, would you like to save?")
+      (save-buffer)))
+   ((string= "change_all" safety)
+    (when (-any (lambda (buffer)
+                  (and (buffer-file-name buffer)
+                       (buffer-modified-p buffer)
+                       (string-prefix-p topdir (buffer-file-name buffer))))
+                (buffer-list))
+      (when
+          (y-or-n-p
+           "Project buffers have been modified. Would you like to save them?")
+        (save-some-buffers t
+                           (lambda ()
+                             (and buffer-file-name
+                                  (string-prefix-p topdir buffer-file-name)))))))))
 
 (define-minor-mode hie-mode
   "Haskell IDE Engine mode.
