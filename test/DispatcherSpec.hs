@@ -291,6 +291,7 @@ mkCmdWithContext n cts pds =
                         , cmdContexts = cts
                         , cmdAdditionalParams = pds
                         , cmdReturnType = "Text"
+                        , cmdSave = SaveNone
                         }
           , cmdFunc = CmdSync $ \ctxs _ -> return (IdeResponseOk (T.pack $ "result:ctxs=" ++ show ctxs))
           }
@@ -298,12 +299,14 @@ mkCmdWithContext n cts pds =
 mkAsyncCmdWithContext :: (ValidResponse a) => CommandFunc a -> CommandName -> [AcceptedContext] -> [ParamDescription] -> UntaggedCommand
 mkAsyncCmdWithContext cf n cts pds =
   Command {cmdDesc =
-             CommandDesc {cmdName = n
-                         ,cmdUiDescription = "description"
-                         ,cmdFileExtensions = []
-                         ,cmdContexts = cts
-                         ,cmdAdditionalParams = pds
-                         ,cmdReturnType = "Text"}
+             CommandDesc { cmdName = n
+                         , cmdUiDescription = "description"
+                         , cmdFileExtensions = []
+                         , cmdContexts = cts
+                         , cmdAdditionalParams = pds
+                         , cmdReturnType = "Text"
+                         , cmdSave = SaveNone
+                         }
           ,cmdFunc = cf}
 
 -- ---------------------------------------------------------------------

@@ -37,6 +37,7 @@ module Haskell.Ide.Engine.PluginTypes
   , PluginName
   , ValidResponse(..)
   , ReturnType
+  , Save(..)
 
   -- * Interface types
   , IdeRequest(..)
@@ -137,7 +138,11 @@ data CommandDescriptor cxts descs = CommandDesc
   , cmdContexts         :: !cxts -- TODO: should this be a non empty list? or should empty list imply CtxNone.
   , cmdAdditionalParams :: !descs
   , cmdReturnType       :: !ReturnType
+  , cmdSave             :: !Save
   } deriving (Show,Eq,Generic)
+
+data Save = SaveNone | SaveAll deriving (Show, Eq, Generic)
+instance ToSchema Save
 
 -- | Type synonym for a 'CommandDescriptor' that uses simple lists
 type UntaggedCommandDescriptor = CommandDescriptor [AcceptedContext] [ParamDescription]
@@ -150,6 +155,7 @@ data ExtendedCommandDescriptor =
                             PluginName deriving (Show,Eq,Generic)
 instance ToSchema ExtendedCommandDescriptor
 
+
 instance ValidResponse ExtendedCommandDescriptor where
   jsWrite (ExtendedCommandDescriptor cmdDescriptor pname) =
     H.fromList
@@ -159,7 +165,8 @@ instance ValidResponse ExtendedCommandDescriptor where
       , "contexts"          .= cmdContexts cmdDescriptor
       , "additional_params" .= cmdAdditionalParams cmdDescriptor
       , "return_type"       .= cmdReturnType cmdDescriptor
-      , "plugin_name"       .= pname ]
+      , "plugin_name"       .= pname
+      , "save"              .= cmdSave cmdDescriptor ]
   jsRead v =
     ExtendedCommandDescriptor
     <$> (CommandDesc
@@ -168,7 +175,8 @@ instance ValidResponse ExtendedCommandDescriptor where
       <*> v .: "file_extensions"
       <*> v .: "contexts"
       <*> v .: "additional_params"
-      <*> v .: "return_type")
+      <*> v .: "return_type"
+      <*> v .: "save")
     <*> v.: "plugin_name"
 
 type CommandName = T.Text
@@ -372,7 +380,8 @@ instance ValidResponse UntaggedCommandDescriptor where
       , "file_extensions" .= cmdFileExtensions cmdDescriptor
       , "contexts" .= cmdContexts cmdDescriptor
       , "additional_params" .= cmdAdditionalParams cmdDescriptor
-      , "return_type" .= cmdReturnType cmdDescriptor ]
+      , "return_type" .= cmdReturnType cmdDescriptor
+      , "save" .= cmdSave cmdDescriptor ]
   jsRead v =
     CommandDesc
       <$> v .: "name"
@@ -381,6 +390,7 @@ instance ValidResponse UntaggedCommandDescriptor where
       <*> v .: "contexts"
       <*> v .: "additional_params"
       <*> v .: "return_type"
+      <*> v .: "save"
 
 instance ValidResponse IdePlugins where
   jsWrite (IdePlugins m) = H.fromList ["plugins" .= H.fromList
@@ -530,3 +540,14 @@ instance ToJSON UntaggedCommandDescriptor where
 
 instance FromJSON UntaggedCommandDescriptor where
   parseJSON = withObject "UntaggedCommandDescriptor" jsRead
+
+-- -------------------------------------
+
+instance ToJSON Save where
+  toJSON SaveNone    = "save_none"
+  toJSON SaveAll = "save_all"
+
+instance FromJSON Save where
+  parseJSON "save_none" = return SaveNone
+  parseJSON "save_all"  = return SaveAll
+  parseJSON x           = typeMismatch "Save" x

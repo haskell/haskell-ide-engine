@@ -410,7 +410,13 @@ association lists and count on HIE to use default values there."
           (-lambda ((&alist 'type type 'name name 'val val 'name))
             (cons name (list (cons type val))))
           args))
-        (context (hie-get-context)))
+        (context (hie-get-context))
+        (topdir (hie-session-cabal-dir (hie-session)))
+        (save (hie-plugin-command-save (intern plugin) command hie-plugins)))
+
+    (maybe-save-buffers topdir save)
+
+    ;; First check to see if there are any modified buffers for this project
     (hie-post-message
      `(("cmd" . ,(hie-format-cmd (cons plugin command)))
        ("params" . (,@context ,@ additional-args))))))
@@ -480,6 +486,31 @@ association lists and count on HIE to use default values there."
                    (hie-create-command plugin-name command))
                  commands))
               command-names))))
+
+(defun* hie-plugin-command-save (plugin name list)
+  (dolist (l (cdr (assoc plugin list)))
+    (let ((name-cons (assoc 'name l))
+          (save-cons (assoc 'save l)))
+      (when (and name-cons
+                 (string-equal (cdr name-cons) name)
+                 save-cons)
+        (return-from hie-plugin-command-save (cdr save-cons))))))
+
+(defun maybe-save-buffers (topdir save)
+  (cond
+   ((string= "save_all" save)
+    (when (-any (lambda (buffer)
+                  (and (buffer-file-name buffer)
+                       (buffer-modified-p buffer)
+                       (string-prefix-p topdir (buffer-file-name buffer))))
+                (buffer-list))
+      (when
+          (y-or-n-p
+           "Project buffers have been modified. Would you like to save them?")
+        (save-some-buffers t
+                           (lambda ()
+                             (and buffer-file-name
+                                  (string-prefix-p topdir buffer-file-name)))))))))
 
 (define-minor-mode hie-mode
   "Haskell IDE Engine mode.

@@ -20,13 +20,13 @@ example2Descriptor = PluginDescriptor
     pdUIShortName = "Hello World"
   , pdUIOverview = "An example of writing an HIE plugin"
   , pdCommands =
-         buildCommand sayHelloCmd (Proxy :: Proxy "sayHello") "say hello" [] (SCtxNone :& RNil) RNil
+         buildCommand sayHelloCmd (Proxy :: Proxy "sayHello") "say hello" [] (SCtxNone :& RNil) RNil SaveNone
       :& buildCommand sayHelloToCmd (Proxy :: Proxy "sayHelloTo")
                           "say hello to the passed in param"
                           []
                           (SCtxNone :& RNil)
                           (  SParamDesc (Proxy :: Proxy "name") (Proxy :: Proxy "the name to greet") SPtText SRequired
-                          :& RNil)
+                            :& RNil) SaveNone
 
       :& RNil
   , pdExposedServices = []

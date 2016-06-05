@@ -31,10 +31,10 @@ ghcmodDescriptor = PluginDescriptor
 \from modern IDEs in any editor."
   , pdCommands =
          buildCommand checkCmd (Proxy :: Proxy "check") "check a file for GHC warnings and errors"
-                       [".hs",".lhs"] (SCtxFile :& RNil) RNil
+                       [".hs",".lhs"] (SCtxFile :& RNil) RNil SaveAll
 
       :& buildCommand lintCmd (Proxy :: Proxy "lint")  "Check files using `hlint'"
-                     [".hs",".lhs"] (SCtxFile :& RNil) RNil
+                     [".hs",".lhs"] (SCtxFile :& RNil) RNil SaveAll
 
       -- :& buildCommand findCmd (Proxy :: Proxy "find")  "List all modules that define SYMBOL"
       --                [".hs",".lhs"] (SCtxProject :& RNil)
@@ -44,10 +44,10 @@ ghcmodDescriptor = PluginDescriptor
       :& buildCommand infoCmd (Proxy :: Proxy "info") "Look up an identifier in the context of FILE (like ghci's `:info')"
                      [".hs",".lhs"] (SCtxFile :& RNil)
                      (  SParamDesc (Proxy :: Proxy "expr") (Proxy :: Proxy "The EXPR to provide info on") SPtText SRequired
-                     :& RNil)
+                     :& RNil) SaveNone
 
       :& buildCommand typeCmd (Proxy :: Proxy "type") "Get the type of the expression under (LINE,COL)"
-                     [".hs",".lhs"] (SCtxPoint :& RNil) RNil
+                     [".hs",".lhs"] (SCtxPoint :& RNil) RNil SaveAll
 
       :& RNil
   , pdExposedServices = []
