@@ -36,19 +36,26 @@ newtype DocGenM a =
 generateDocs :: DocGenM ()
 generateDocs =
   do indexPath <- pluginIndexPath
+     indexPath' <- liftIO $ handlePrefix indexPath
      index <- pluginIndex
      prefix <- asks O.prefix
-     liftIO . createDirectoryIfMissing True $ prefix </> "plugins"
-     liftIO $ T.writeFile indexPath index
+     prefix' <- liftIO $ handlePrefix prefix
+     liftIO . createDirectoryIfMissing True $ prefix' </> "plugins"
+     liftIO $ T.writeFile indexPath' index
      plugins <- asks O.plugins
      let pluginDocs = map pluginDoc $ M.toList plugins
-     pluginDocPaths <- mapM pluginDocPath $ M.keys plugins
+     pluginDocPaths <- mapM (pluginDocPath) $ M.keys plugins
+     pluginDocPaths' <- mapM (liftIO . handlePrefix) pluginDocPaths
      mapM_ (\(path,doc) -> liftIO $ T.writeFile path doc) $
-       zip pluginDocPaths pluginDocs
+       zip pluginDocPaths' pluginDocs
+    where
+      handlePrefix :: FilePath -> IO FilePath
+      handlePrefix [] = return []
+      handlePrefix ('~':xs) = (<> xs) <$> getHomeDirectory
+      handlePrefix xs = return xs
 
 pluginIndexPath :: MonadReader O.Config m => m FilePath
-pluginIndexPath =
-  reader $ \(O.Config _ prefix) -> prefix </> "plugins" </> "index.rst"
+pluginIndexPath = reader $ \(O.Config _ prefix) -> prefix </> "plugins" </> "index.rst"
 
 pluginIndex :: MonadReader O.Config m => m T.Text
 pluginIndex =
