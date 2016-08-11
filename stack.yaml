@@ -1,4 +1,4 @@
-resolver: nightly-2016-03-13
+resolver: nightly-2016-08-06
 packages:
 - .
 - hie-apply-refact
@@ -11,5 +11,5 @@ packages:
 - hie-hare
 - hie-docs-generator
 extra-deps:
-  - ghc-dump-tree-0.2.0.0
-  - ghc-7.10.3
+  - ghc-dump-tree-0.2.0.1
+  # - ghc-7.10.3

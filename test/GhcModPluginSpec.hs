@@ -55,8 +55,7 @@ ghcmodSpec = do
     it "runs the check command" $ do
       let req = IdeRequest "check" (Map.fromList [("file", ParamFileP "./test/testdata/FileWithWarning.hs")])
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("test/testdata/FileWithWarning.hs:4:7:Not in scope: \8216x\8217\n"::String)]))
-
+      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ( "test/testdata/FileWithWarning.hs:4:7:Variable not in scope: x\n"::String)]))
 
     -- ---------------------------------
 

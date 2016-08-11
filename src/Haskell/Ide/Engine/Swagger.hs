@@ -14,7 +14,7 @@ module Haskell.Ide.Engine.Swagger
 
 import           Control.Lens
 import           Data.List
-import qualified Data.HashMap.Lazy as HM
+import qualified Data.HashMap.Strict.InsOrd as HM
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import           Data.Proxy
