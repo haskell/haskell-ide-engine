@@ -1,10 +1,11 @@
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE CPP                   #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE TemplateHaskell       #-}
 module Haskell.Ide.Engine.BasePlugin where
 
 import           Control.Monad
@@ -93,11 +94,13 @@ commandDetailCmd = CmdSync $ \_ req -> do
             , ideInfo = toJSON command
             }
           Just detail -> return $ IdeResponseOk (ExtendedCommandDescriptor (cmdDesc detail) p)
+#if __GLASGOW_HASKELL__ <= 710
     Right _ -> return $ IdeResponseError $ IdeError
       { ideCode = InternalError
       , ideMessage = "commandDetailCmd: ghc’s exhaustiveness checker is broken"
       , ideInfo = Null
       }
+#endif
 
 -- ---------------------------------------------------------------------
 

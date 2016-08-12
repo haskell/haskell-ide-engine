@@ -1,10 +1,12 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE OverloadedStrings #-}
+
+{-# LANGUAGE CPP                   #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 module Haskell.Ide.HaRePlugin where
 
@@ -31,10 +33,10 @@ hareDescriptor :: TaggedPluginDescriptor _
 hareDescriptor = PluginDescriptor
   {
     pdUIShortName = "HaRe"
-  , pdUIOverview = "A Haskell 2010 refactoring tool. HaRe supports the full \
-\Haskell 2010 standard, through making use of the GHC API.  HaRe attempts to \
-\operate in a safe way, by first writing new files with proposed changes, and \
-\only swapping these with the originals when the change is accepted. "
+  , pdUIOverview = "A Haskell 2010 refactoring tool. HaRe supports the full "
+              <> "Haskell 2010 standard, through making use of the GHC API.  HaRe attempts to "
+              <> "operate in a safe way, by first writing new files with proposed changes, and "
+              <> "only swapping these with the originals when the change is accepted. "
     , pdCommands =
         buildCommand demoteCmd (Proxy :: Proxy "demote") "Move a definition one level down"
                     [".hs"] (SCtxPoint :& RNil) RNil SaveAll
@@ -71,8 +73,10 @@ demoteCmd  = CmdSync $ \_ctxs req ->
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& RNil) ->
       runHareCommand "demote" (compDemote (T.unpack fileName) (unPos pos))
+#if __GLASGOW_HASKELL__ <= 710
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.demoteCmd: ghc’s exhaustiveness checker is broken" Null)
+#endif
 
 -- compDemote :: FilePath -> SimpPos -> IO [FilePath]
 
@@ -84,8 +88,10 @@ dupdefCmd = CmdSync $ \_ctxs req ->
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& ParamText name :& RNil) ->
       runHareCommand "dupdef" (compDuplicateDef (T.unpack fileName) (T.unpack name) (unPos pos))
+#if __GLASGOW_HASKELL__ <= 710
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.dupdefCmd: ghc’s exhaustiveness checker is broken" Null)
+#endif
 
 -- compDuplicateDef :: FilePath -> String -> SimpPos -> IO [FilePath]
 
@@ -97,8 +103,10 @@ iftocaseCmd = CmdSync $ \_ctxs req ->
     Left err -> return err
     Right (ParamFile fileName :& ParamPos startPos :& ParamPos endPos :& RNil) ->
       runHareCommand "iftocase" (compIfToCase (T.unpack fileName) (unPos startPos) (unPos endPos))
+#if __GLASGOW_HASKELL__ <= 710
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.ifToCaseCmd: ghc’s exhaustiveness checker is broken" Null)
+#endif
 
 -- compIfToCase :: FilePath -> SimpPos -> SimpPos -> IO [FilePath]
 
@@ -110,8 +118,10 @@ liftonelevelCmd = CmdSync $ \_ctxs req ->
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& RNil) ->
       runHareCommand "liftonelevel" (compLiftOneLevel (T.unpack fileName) (unPos pos))
+#if __GLASGOW_HASKELL__ <= 710
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.liftOneLevel: ghc’s exhaustiveness checker is broken" Null)
+#endif
 
 -- compLiftOneLevel :: FilePath -> SimpPos -> IO [FilePath]
 
@@ -123,8 +133,10 @@ lifttotoplevelCmd = CmdSync $ \_ctxs req ->
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& RNil) ->
       runHareCommand "lifttotoplevel" (compLiftToTopLevel (T.unpack fileName) (unPos pos))
+#if __GLASGOW_HASKELL__ <= 710
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.liftToTopLevel: ghc’s exhaustiveness checker is broken" Null)
+#endif
 
 -- compLiftToTopLevel :: FilePath -> SimpPos -> IO [FilePath]
 
@@ -136,8 +148,10 @@ renameCmd = CmdSync $ \_ctxs req ->
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& ParamText name :& RNil) ->
       runHareCommand "rename" (compRename (T.unpack fileName) (T.unpack name) (unPos pos))
+#if __GLASGOW_HASKELL__ <= 710
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "HaRePlugin.renameCmd: ghc’s exhaustiveness checker is broken" Null)
+#endif
 
 -- compRename :: FilePath -> String -> SimpPos -> IO [FilePath]
 
@@ -196,7 +210,7 @@ runHareCommand name cmd =
 -- | This is like hoist from the mmorph package, but build on
 -- `MonadTransControl` since we don’t have an `MFunctor` instance.
 hoist
-  :: (MonadTransControl t,Monad (t m'),Applicative m',Monad m',Monad m)
+  :: (MonadTransControl t,Monad (t m'),Monad m',Monad m)
   => (forall b. m b -> m' b) -> t m a -> t m' a
 hoist f a =
   liftWith (\run ->

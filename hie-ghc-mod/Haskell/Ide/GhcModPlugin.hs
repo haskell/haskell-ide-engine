@@ -1,15 +1,17 @@
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 
+{-# LANGUAGE CPP                   #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 module Haskell.Ide.GhcModPlugin where
 
 import           Data.Aeson
 import           Data.Either
+import           Data.Monoid
 import qualified Data.Text as T
 import qualified Data.Text.Read as T
 import           Data.Vinyl
@@ -26,9 +28,9 @@ ghcmodDescriptor :: TaggedPluginDescriptor _
 ghcmodDescriptor = PluginDescriptor
   {
     pdUIShortName = "ghc-mod"
-  , pdUIOverview = "ghc-mod is a backend program to enrich Haskell programming \
-\in editors. It strives to offer most of the features one has come to expect \
-\from modern IDEs in any editor."
+  , pdUIOverview = ("ghc-mod is a backend program to enrich Haskell programming "
+           <> "in editors. It strives to offer most of the features one has come to expect "
+           <> "from modern IDEs in any editor.")
   , pdCommands =
          buildCommand checkCmd (Proxy :: Proxy "check") "check a file for GHC warnings and errors"
                        [".hs",".lhs"] (SCtxFile :& RNil) RNil SaveAll
@@ -81,8 +83,10 @@ checkCmd = CmdSync $ \_ctxs req -> do
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
       fmap T.pack <$> runGhcModCommand (GM.checkSyntax [(T.unpack fileName)])
+#if __GLASGOW_HASKELL__ <= 710
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.checkCmd: ghc’s exhaustiveness checker is broken" Null)
+#endif
 
 -- ---------------------------------------------------------------------
 
@@ -109,8 +113,10 @@ lintCmd = CmdSync $ \_ctxs req -> do
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
       fmap T.pack <$> runGhcModCommand (GM.lint GM.defaultLintOpts (T.unpack fileName))
+#if __GLASGOW_HASKELL__ <= 710
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.lintCmd: ghc’s exhaustiveness checker is broken" Null)
+#endif
 
 -- ---------------------------------------------------------------------
 
@@ -120,8 +126,10 @@ infoCmd = CmdSync $ \_ctxs req -> do
     Left err -> return err
     Right (ParamFile fileName :& ParamText expr :& RNil) -> do
       fmap T.pack <$> runGhcModCommand (GM.info (T.unpack fileName) (GM.Expression (T.unpack expr)))
+#if __GLASGOW_HASKELL__ <= 710
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.infoCmd: ghc’s exhaustiveness checker is broken" Null)
+#endif
 
 -- ---------------------------------------------------------------------
 
@@ -131,8 +139,10 @@ typeCmd = CmdSync $ \_ctxs req ->
     Left err -> return err
     Right (ParamFile fileName :& ParamPos (Pos (Line l) (Col c)) :& RNil) -> do
       fmap (toTypeInfo . T.lines . T.pack) <$> runGhcModCommand (GM.types False (T.unpack fileName) l c)
+#if __GLASGOW_HASKELL__ <= 710
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.typesCmd: ghc’s exhaustiveness checker is broken" Null)
+#endif
 
 {-
 TODO: pass the bool through as a param

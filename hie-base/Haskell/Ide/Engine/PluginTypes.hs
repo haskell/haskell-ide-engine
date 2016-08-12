@@ -244,9 +244,11 @@ data ParamDescription =
   deriving (Show,Eq,Ord,Generic)
 instance ToSchema ParamDescription
 
+pattern RP :: ParamName -> ParamHelp -> ParamType -> ParamDescription
 pattern RP pname help type' <- ParamDesc pname help type' Required
   where RP pname help type' = ParamDesc pname help type' Required
 
+pattern OP :: ParamName -> ParamHelp -> ParamType -> ParamDescription
 pattern OP pname help type' <- ParamDesc pname help type' Optional
   where OP pname help type' = ParamDesc pname help type' Optional
 
@@ -280,8 +282,15 @@ instance Eq ParamValP where
  (ParamPosP  p) == (ParamPosP p') = p == p'
  _ == _ = False
 
+-- pattern ParamTextP :: () =>
+--                         forall (t :: ParamType). t ~ 'PtText => T.Text -> ParamValP
+pattern ParamTextP :: T.Text -> ParamValP
 pattern ParamTextP t = ParamValP (ParamText t)
+
+pattern ParamFileP :: T.Text -> ParamValP
 pattern ParamFileP f = ParamValP (ParamFile f)
+
+pattern ParamPosP :: Pos -> ParamValP
 pattern ParamPosP  p = ParamValP (ParamPos p)
 
 type ParamMap = Map.Map ParamId ParamValP
