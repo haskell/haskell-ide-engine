@@ -14,6 +14,8 @@ import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.HaRePlugin
 import           System.Directory
 import           System.FilePath
+import           TestUtils
+
 import           Test.Hspec
 
 -- ---------------------------------------------------------------------
@@ -41,7 +43,7 @@ dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Object))
 dispatchRequest req = do
   testChan <- atomically newTChan
   let cr = CReq "hare" 1 req testChan
-  r <- withStdoutLogging $ runIdeM (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
+  r <- withStdoutLogging $ runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
   return r
 
 -- ---------------------------------------------------------------------

@@ -16,6 +16,7 @@ import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.GhcModPlugin
 import           System.Directory
 import qualified Data.Map as Map
+import           TestUtils
 
 import           Test.Hspec
 
@@ -44,7 +45,7 @@ dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Object))
 dispatchRequest req = do
   testChan <- atomically newTChan
   let cr = CReq "ghcmod" 1 req testChan
-  r <- withStdoutLogging $ runIdeM (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
+  r <- withStdoutLogging $ runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
   return r
 
 -- ---------------------------------------------------------------------
@@ -76,9 +77,10 @@ ghcmodSpec = do
     -- ---------------------------------
 
     it "runs the info command" $ do
-      let req = IdeRequest "info" (Map.fromList [("file", ParamFileP "./test/testdata/HaReRename.hs"),("expr", ParamTextP "main")])
-      r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("main :: IO () \t-- Defined at test/testdata/HaReRename.hs:2:1\n"::String)]))
+      let req = IdeRequest "info" (Map.fromList [("file", ParamFileP "HaReRename.hs"),("expr", ParamTextP "main")])
+      -- ghc-mod tries to load the test file in the context of the hie project if we do not cd first.
+      r <- cdAndDo "./test/testdata" (dispatchRequest req)
+      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("main :: IO () \t-- Defined at HaReRename.hs:2:1\n"::String)]))
 
 
     -- ---------------------------------
@@ -91,9 +93,10 @@ ghcmodSpec = do
     -- ---------------------------------
 
     it "runs the type command, correct params" $ do
-      let req = IdeRequest "type" (Map.fromList [("file", ParamFileP "./test/testdata/HaReRename.hs")
+      let req = IdeRequest "type" (Map.fromList [("file", ParamFileP "HaReRename.hs")
                                                  ,("start_pos", ParamPosP (toPos (5,9)))])
-      r <- dispatchRequest req
+      -- ghc-mod tries to load the test file in the context of the hie project if we do not cd first.
+      r <- cdAndDo "./test/testdata" (dispatchRequest req)
       r `shouldBe` Just (IdeResponseOk (H.fromList ["type_info".=toJSON
                         [TypeResult (toPos (5,9)) (toPos (5,10)) "Int"
                         ,TypeResult (toPos (5,9)) (toPos (5,14)) "Int"

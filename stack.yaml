@@ -1,4 +1,5 @@
-resolver: nightly-2016-08-06
+# resolver: nightly-2016-08-06
+resolver: nightly-2016-08-25
 packages:
 - .
 - hie-apply-refact
