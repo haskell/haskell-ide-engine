@@ -1,0 +1,17 @@
+resolver: lts-6.13
+
+# NOTE: HIE does not intend to support GHC 7.10.x, the tests fail here.
+packages:
+- .
+- hie-apply-refact
+- hie-base
+- hie-example-plugin2
+- hie-eg-plugin-async
+- hie-plugin-api
+- hie-ghc-mod
+- hie-ghc-tree
+- hie-hare
+- hie-docs-generator
+extra-deps:
+  - ghc-dump-tree-0.2.0.1
+  # - ghc-7.10.3

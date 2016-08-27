@@ -63,7 +63,7 @@ library
                      , either
                      , fast-logger
                      , ghc >= 7.10.2 && < 8.3
-                     , ghc-mod >= 5.6
+                     , ghc-mod
                      , gitrev >= 1.1
                      , haskeline
                      , hie-base
@@ -160,7 +160,7 @@ test-suite haskell-ide-test
                      , directory
                      , fast-logger
                      , filepath
-                     , ghc-mod >= 5.6
+                     , ghc-mod
                      , haskell-ide-engine
                      , hie-apply-refact
                      , hie-base
