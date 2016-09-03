@@ -42,3 +42,4 @@ tags
 /docs/source/plugins/
 /elisp/.cask/
 /test/testdata/HaReAddRmParam.refactored.hs
+/cabal.project.local
