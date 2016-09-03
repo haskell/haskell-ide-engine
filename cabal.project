@@ -1,4 +1,5 @@
 packages:
+         ./
          hie-apply-refact/
          hie-base/
          -- hie-docs-generator/

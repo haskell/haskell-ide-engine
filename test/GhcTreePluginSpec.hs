@@ -48,8 +48,8 @@ ghctreeSpec :: Spec
 ghctreeSpec = do
   describe "ghc-tree plugin commands" $ do
     it "runs the trees command" $ do
-      let req = IdeRequest "trees" (Map.fromList [("file", ParamFileP "./test/testdata/ApplyRefact.hs")])
-      r <- dispatchRequest req
+      let req = IdeRequest "trees" (Map.fromList [("file", ParamFileP "./ApplyRefact.hs")])
+      r <- cdAndDo "./test/testdata" (dispatchRequest req)
       case r of
         Just (IdeResponseFail f) -> fail $ show f
         Just (IdeResponseError e) -> fail $ show e
