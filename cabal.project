@@ -2,14 +2,10 @@ packages:
          ./
          hie-apply-refact/
          hie-base/
-         -- hie-docs-generator/
+         hie-docs-generator/
          hie-eg-plugin-async/
          hie-example-plugin2/
          hie-ghc-mod/
          hie-ghc-tree/
          hie-hare/
          hie-plugin-api/
--- constraints:
---   -- ghc-mod == 5.6.*
---   -- , haskell-src-exts == 1.17.*
---    hlint == 1.9.35
