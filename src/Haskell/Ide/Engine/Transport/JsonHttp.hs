@@ -209,16 +209,10 @@ waiApp :: (HieServer plugins, HasServer (PluginRoutes plugins) '[])
 waiApp swagger proxy cin cout = Servant.serve api server
   where
     api    = apiRoutesProxy proxy
-    server = hieServantServer proxy cin cout :<|> return swagger
-                                             -- :<|> serverSwaggerUi dataDir
-                                             :<|> swaggerSchemaUIServer swagger
+    server = hieServantServer proxy cin cout :<|> swaggerSchemaUIServer swagger
 
-type StaticRoutes = "swagger.json" :> Get '[JSON] Swagger
-
--- apiRoutesProxy :: Proxy plugins -> Proxy (PluginRoutes plugins :<|> StaticRoutes :<|> SwaggerUi)
-apiRoutesProxy :: Proxy plugins -> Proxy (PluginRoutes plugins :<|> StaticRoutes :<|> SwaggerSchemaUI "swagger-ui" "swagger.json")
+apiRoutesProxy :: Proxy plugins -> Proxy (PluginRoutes plugins :<|> SwaggerSchemaUI "swagger-ui" "swagger.json")
 apiRoutesProxy _ = Proxy
--- type API = 'SwaggerSchemaUI' "swagger.json" "swagger-ui"
 
 -- ---------------------------------------------------------------------
 
