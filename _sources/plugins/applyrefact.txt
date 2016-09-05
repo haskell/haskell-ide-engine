@@ -11,8 +11,8 @@ applyrefact
         {
             "params": {
                 "start_pos": {
-                    "line": 42,
-                    "col": 23
+                    "line": 42.0,
+                    "col": 23.0
                 },
                 "file": {
                     "file": "a file name"
