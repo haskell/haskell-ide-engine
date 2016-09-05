@@ -46,7 +46,7 @@ getParams params req = go params
                     Right ys -> case checkOne x of
                                   Left err -> Left err
                                   Right y -> Right (y:&ys)
-    checkOne :: forall r t. (ValidResponse r) =>
+    checkOne ::
       TaggedParamId t -> Either (IdeResponse r) (ParamVal t)
     checkOne (IdText param) = case Map.lookup param (ideParams req) of
       Just (ParamTextP v)  -> Right (ParamText v)
@@ -73,13 +73,13 @@ mapEithers _ _ = Right []
 -- Helper functions for errors
 
 -- |Missing parameter error
-missingParameter :: forall r. (ValidResponse r) => ParamId -> IdeResponse r
+missingParameter :: ParamId -> IdeResponse r
 missingParameter param = IdeResponseFail (IdeError MissingParameter
             ("need `" <> param <> "` parameter")
             (toJSON param))
 
 -- |Incorrect parameter error
-incorrectParameter :: forall r a b. (ValidResponse r,Show a,Show b)
+incorrectParameter :: forall r a b. (Show a,Show b)
   => ParamId -> a -> b -> IdeResponse r
 incorrectParameter name expected value = IdeResponseFail
     (IdeError IncorrectParameterType

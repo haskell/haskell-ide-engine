@@ -54,7 +54,7 @@ doDispatch :: Plugins -> ChannelRequest -> IdeM (Maybe (IdeResponse Object))
 doDispatch plugins creq = do
   case Map.lookup (cinPlugin creq) plugins of
     Nothing ->
-      return $ Just $ IdeResponseError $ IdeError
+      return $ Just $ IdeResponseError IdeError
         { ideCode = UnknownPlugin
         , ideMessage = "No plugin found for:" <> cinPlugin creq
         , ideInfo = toJSON $ cinPlugin creq
@@ -66,7 +66,7 @@ doDispatch plugins creq = do
       debugm $ "doDispatch:req=" ++ show req
       case Map.lookup (pn,ideCommand req) (pluginCache plugins) of
         Nothing ->
-          return $ Just $ IdeResponseError $ IdeError
+          return $ Just $ IdeResponseError IdeError
             { ideCode = UnknownCommand
             , ideMessage = "No such command:" <> ideCommand req
             , ideInfo = toJSON $ ideCommand req
@@ -87,7 +87,7 @@ doDispatch plugins creq = do
               CmdAsync f -> do
                 f (sendResponse creq) ctxs req
                   `gcatch` (\(e::SomeException) ->
-                             liftIO $ sendResponse creq $
+                             liftIO $ sendResponse creq
                                       (IdeResponseError
                                          (IdeError PluginError
                                                    (T.pack (show e))
@@ -103,20 +103,19 @@ pluginCache :: Plugins -> Map.Map (T.Text,T.Text) UntaggedCommand
 pluginCache = Map.fromList . concatMap go . Map.toList
   where
     go :: (T.Text, UntaggedPluginDescriptor) -> [((T.Text, T.Text), UntaggedCommand)]
-    go (pn, (PluginDescriptor _ _ cmds _ _)) =
+    go (pn, PluginDescriptor _ _ cmds _ _) =
       map (\cmd -> ((pn,cmdName (cmdDesc cmd)),cmd)) cmds
 
 -- ---------------------------------------------------------------------
 
 -- |Return list of valid contexts for the given 'CommandDescriptor' and
 -- 'IdeRequest'
-validateContexts :: forall a .(ValidResponse a)
-                 => UntaggedCommandDescriptor -> IdeRequest -> Either (IdeResponse a) [AcceptedContext]
+validateContexts :: UntaggedCommandDescriptor -> IdeRequest -> Either (IdeResponse a) [AcceptedContext]
 validateContexts cd req = r
   where
     (errs,oks) = partitionEithers $ map (\c -> validContext c (ideParams req)) $ cmdContexts cd
     r = case (oks, errs) of
-      ([], (e:_)) -> Left e
+      ([], e:_) -> Left e
       ([], []) -> Left $ IdeResponseFail IdeError
         { ideCode = InvalidContext
         , ideMessage = T.pack ("no valid context found, expecting one of:" ++ show (cmdContexts cd))
@@ -127,8 +126,7 @@ validateContexts cd req = r
           Left e -> Left e
           Right _ -> Right ctxs
 
-validContext :: forall a .(ValidResponse a)
-             => AcceptedContext -> ParamMap -> Either (IdeResponse a) AcceptedContext
+validContext :: AcceptedContext -> ParamMap -> Either (IdeResponse a) AcceptedContext
 validContext ctx params =
   case checkParams (contextMapping ctx) params of
     Left err -> Left err
@@ -137,30 +135,26 @@ validContext ctx params =
 
 -- |If all listed 'ParamDescripion' values are present return a Right, else
 -- return an error.
-checkParams :: (ValidResponse a) => [ParamDescription] -> ParamMap -> Either (IdeResponse a) [()]
+checkParams :: [ParamDescription] -> ParamMap -> Either (IdeResponse a) [()]
 checkParams pds params = mapEithers checkOne pds
   where
-    checkOne :: (ValidResponse a)
-             => ParamDescription -> Either (IdeResponse a) ()
+    checkOne :: ParamDescription -> Either (IdeResponse a) ()
     checkOne (ParamDesc pn _ph pt Optional) = checkParamOP pn pt
     checkOne (ParamDesc pn _ph pt Required) = checkParamRP pn pt
 
-    checkParamOP :: (ValidResponse a)
-                 => ParamId -> ParamType -> Either (IdeResponse a) ()
+    checkParamOP :: ParamId -> ParamType -> Either (IdeResponse a) ()
     checkParamOP pn pt =
       case Map.lookup pn params of
         Nothing -> Right ()
         Just p  -> checkParamMatch pn pt p
 
-    checkParamRP :: (ValidResponse a)
-                 => ParamId -> ParamType -> Either (IdeResponse a) ()
+    checkParamRP :: ParamId -> ParamType -> Either (IdeResponse a) ()
     checkParamRP pn pt =
       case Map.lookup pn params of
         Nothing -> Left $ missingParameter pn
         Just p  -> checkParamMatch pn pt p
 
-    checkParamMatch :: (ValidResponse a)
-                    => T.Text -> ParamType -> ParamValP -> Either (IdeResponse a) ()
+    checkParamMatch :: T.Text -> ParamType -> ParamValP -> Either (IdeResponse a) ()
     checkParamMatch pn' pt' p' =
       if paramMatches pt' p'
         then Right ()

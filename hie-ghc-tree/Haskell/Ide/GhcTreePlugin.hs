@@ -1,9 +1,11 @@
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE OverloadedStrings #-}
+
+{-# LANGUAGE CPP                   #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards       #-}
 -- | ghc-dump-tree library plugin
 module Haskell.Ide.GhcTreePlugin where
 
@@ -45,8 +47,10 @@ trees = CmdSync $ \_ctxs req -> do
           [tree] -> return (IdeResponseOk $ treesToAST tree)
           _ -> return $ IdeResponseError (IdeError PluginError
                  "Expected one AST structure" (toJSON $ length trs))
+#if __GLASGOW_HASKELL__ <= 710
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcTreePlugin.getTrees: ghc’s exhaustiveness checker is broken" Null)
+#endif
 
 -- | Convert from ghc-dump-tree type to our own type
 -- (avoids dependency on ghc-dump-tree from hie-base)

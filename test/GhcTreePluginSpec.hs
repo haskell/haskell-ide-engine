@@ -11,6 +11,7 @@ import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.GhcTreePlugin
+import           TestUtils
 
 import           Test.Hspec
 
@@ -38,7 +39,7 @@ dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Object))
 dispatchRequest req = do
   testChan <- atomically newTChan
   let cr = CReq "ghctree" 1 req testChan
-  withStdoutLogging $ runIdeM (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
+  withStdoutLogging $ runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
 
 -- ---------------------------------------------------------------------
 
@@ -47,8 +48,8 @@ ghctreeSpec :: Spec
 ghctreeSpec = do
   describe "ghc-tree plugin commands" $ do
     it "runs the trees command" $ do
-      let req = IdeRequest "trees" (Map.fromList [("file", ParamFileP "./test/testdata/ApplyRefact.hs")])
-      r <- dispatchRequest req
+      let req = IdeRequest "trees" (Map.fromList [("file", ParamFileP "./ApplyRefact.hs")])
+      r <- cdAndDo "./test/testdata" (dispatchRequest req)
       case r of
         Just (IdeResponseFail f) -> fail $ show f
         Just (IdeResponseError e) -> fail $ show e

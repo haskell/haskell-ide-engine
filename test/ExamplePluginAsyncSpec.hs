@@ -12,6 +12,7 @@ import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.ExamplePluginAsync
+import           TestUtils
 
 import           Test.Hspec
 
@@ -31,7 +32,7 @@ examplePluginAsyncSpec = do
           cr1 = CReq "test" 1 req1 chan
       let req2 = IdeRequest "cmd2" (Map.fromList [])
           cr2 = CReq "test" 1 req2 chan
-      (ra,rb,rc) <- withStdoutLogging $ runIdeM (IdeState Map.empty Map.empty)
+      (ra,rb,rc) <- withStdoutLogging $ runIdeM testOptions (IdeState Map.empty Map.empty)
         (do
           r1 <- doDispatch testPlugins cr1
           r2 <- doDispatch testPlugins cr2

@@ -41,6 +41,7 @@ import           Haskell.Ide.Engine.Transport.JsonStdio
 import           Haskell.Ide.Engine.Transport.JsonTcp
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.Utils
+import qualified Language.Haskell.GhcMod.Types as GM
 import           Network.Simple.TCP
 import           Options.Applicative.Simple
 import qualified Paths_haskell_ide_engine as Meta
@@ -149,7 +150,7 @@ run opts = do
       exitSuccess
 
     -- launch the dispatcher.
-    _ <- forkIO (runIdeM (IdeState plugins Map.empty) (dispatcher cin))
+    _ <- forkIO (runIdeM GM.defaultOptions (IdeState plugins Map.empty) (dispatcher cin))
 
     -- TODO: pass port in as a param from GlobalOpts
     when (optHttp opts) $

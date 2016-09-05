@@ -1,4 +1,6 @@
-resolver: nightly-2016-08-28
+resolver: lts-6.13
+
+# NOTE: HIE does not intend to support GHC 7.10.x, the tests fail here.
 packages:
 - .
 - hie-apply-refact

@@ -1,15 +1,16 @@
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE FlexibleInstances   #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE PolyKinds           #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE PatternSynonyms            #-}
+{-# LANGUAGE PolyKinds                  #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE TypeOperators              #-}
 
 module Haskell.Ide.Engine.Transport.JsonHttp
   ( jsonHttpListener
@@ -106,7 +107,7 @@ type PluginRoute (s::Symbol) r = "req" :> s :> r
 
 -- | Build up a list of all commands, as a servant API spec
 type family CommandRoutes (list :: [CommandType]) where
-  CommandRoutes '[] = Fail
+  CommandRoutes '[] = FailHie
   CommandRoutes ('CommandType name cxts params ': cmds)
      = CommandRoute name (CommandParams cxts params) :<|> CommandRoutes cmds
 
@@ -121,13 +122,14 @@ type CommandRoute (name :: Symbol) (params :: [ParamDescType]) =
 
 -- ---------------------------------------------------------------------
 
-data Fail = Fail
+data FailHie = FailHie
 
-instance HasServer Fail where
+instance HasServer FailHie '[] where
 
-  type ServerT Fail m = Fail
+  type ServerT FailHie m = FailHie
 
-  route _ _ _ f = f (failWith NotFound)
+  -- Thanks @alpounet and @jkarni on #servant for the following
+  route _ _ _ = leafRouter (\_req _ resp -> resp $ Fail err404)
 
 -- ---------------------------------------------------------------------
 
@@ -168,7 +170,7 @@ class CommandServer (list :: [CommandType]) where
             -> Server (CommandRoutes list)
 
 instance CommandServer '[] where
-  cmdServer _ _ _ _ = Fail
+  cmdServer _ _ _ _ = FailHie
 
 instance (KnownSymbol x,CommandServer xs)
   => CommandServer ('CommandType x cxts params ': xs) where
@@ -202,7 +204,7 @@ hieServantServer :: HieServer plugins
        => Proxy plugins -> TChan ChannelRequest ->  TChan ChannelResponse -> Servant.Server (PluginRoutes plugins)
 hieServantServer proxy cin cout = hieServer proxy cin cout
 
-waiApp :: (HieServer plugins, HasServer (PluginRoutes plugins))
+waiApp :: (HieServer plugins, HasServer (PluginRoutes plugins) '[])
      => FilePath -> Swagger -> Proxy plugins -> TChan ChannelRequest -> TChan ChannelResponse -> Application
 waiApp dataDir swagger proxy cin cout = Servant.serve api server
   where
@@ -228,7 +230,7 @@ serverSwaggerUi path = serveDirectory (path ++ "/swagger-ui")
 
 -- ---------------------------------------------------------------------
 
-runHttpServer :: (HieServer plugins, HasServer (PluginRoutes plugins))
+runHttpServer :: (HieServer plugins, HasServer (PluginRoutes plugins) '[])
               => Swagger -> Proxy plugins -> TChan ChannelRequest -> Port -> IO ()
 runHttpServer swagger proxy cin port = do
   cout <- atomically newTChan :: IO (TChan ChannelResponse)
@@ -236,6 +238,6 @@ runHttpServer swagger proxy cin port = do
   Warp.run port (waiApp dataDir swagger proxy cin cout)
 
 -- Put this all to work!
-jsonHttpListener :: (HieServer plugins, HasServer (PluginRoutes plugins))
+jsonHttpListener :: (HieServer plugins, HasServer (PluginRoutes plugins) '[])
                  => Swagger -> Proxy plugins -> TChan ChannelRequest -> Port -> IO ()
 jsonHttpListener swagger proxy cin port = runHttpServer swagger proxy cin port

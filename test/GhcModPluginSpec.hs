@@ -16,6 +16,7 @@ import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.GhcModPlugin
 import           System.Directory
 import qualified Data.Map as Map
+import           TestUtils
 
 import           Test.Hspec
 
@@ -44,7 +45,15 @@ dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Object))
 dispatchRequest req = do
   testChan <- atomically newTChan
   let cr = CReq "ghcmod" 1 req testChan
-  r <- withStdoutLogging $ runIdeM (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
+  r <- cdAndDo "./test/testdata" $ withStdoutLogging
+    $ runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
+  return r
+
+dispatchRequestNoCd :: IdeRequest -> IO (Maybe (IdeResponse Object))
+dispatchRequestNoCd req = do
+  testChan <- atomically newTChan
+  let cr = CReq "ghcmod" 1 req testChan
+  r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
   return r
 
 -- ---------------------------------------------------------------------
@@ -53,17 +62,16 @@ ghcmodSpec :: Spec
 ghcmodSpec = do
   describe "ghc-mod plugin commands" $ do
     it "runs the check command" $ do
-      let req = IdeRequest "check" (Map.fromList [("file", ParamFileP "./test/testdata/FileWithWarning.hs")])
+      let req = IdeRequest "check" (Map.fromList [("file", ParamFileP "./FileWithWarning.hs")])
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("test/testdata/FileWithWarning.hs:4:7:Not in scope: \8216x\8217\n"::String)]))
-
+      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ( "FileWithWarning.hs:4:7:Variable not in scope: x\n"::String)]))
 
     -- ---------------------------------
 
     it "runs the lint command" $ do
-      let req = IdeRequest "lint" (Map.fromList [("file", ParamFileP "./test/testdata/FileWithWarning.hs")])
+      let req = IdeRequest "lint" (Map.fromList [("file", ParamFileP "./FileWithWarning.hs")])
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("./test/testdata/FileWithWarning.hs:6:9: Warning: Redundant do\NULFound:\NUL  do return (3 + x)\NULWhy not:\NUL  return (3 + x)\n"::String)]))
+      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("./FileWithWarning.hs:6:9: Warning: Redundant do\NULFound:\NUL  do return (3 + x)\NULWhy not:\NUL  return (3 + x)\n"::String)]))
 
 
     -- ---------------------------------
@@ -77,22 +85,23 @@ ghcmodSpec = do
     -- ---------------------------------
 
     it "runs the info command" $ do
-      let req = IdeRequest "info" (Map.fromList [("file", ParamFileP "./test/testdata/HaReRename.hs"),("expr", ParamTextP "main")])
+      let req = IdeRequest "info" (Map.fromList [("file", ParamFileP "HaReRename.hs"),("expr", ParamTextP "main")])
+      -- ghc-mod tries to load the test file in the context of the hie project if we do not cd first.
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("main :: IO () \t-- Defined at test/testdata/HaReRename.hs:2:1\n"::String)]))
+      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("main :: IO () \t-- Defined at HaReRename.hs:2:1\n"::String)]))
 
 
     -- ---------------------------------
 
     it "runs the type command, incorrect params" $ do
-      let req = IdeRequest "type" (Map.fromList [("file", ParamFileP "./test/testdata/FileWithWarning.hs")])
+      let req = IdeRequest "type" (Map.fromList [("file", ParamFileP "./FileWithWarning.hs")])
       r <- dispatchRequest req
       r `shouldBe` Just (IdeResponseFail (IdeError {ideCode = MissingParameter, ideMessage = "need `start_pos` parameter", ideInfo = String "start_pos"}))
 
     -- ---------------------------------
 
     it "runs the type command, correct params" $ do
-      let req = IdeRequest "type" (Map.fromList [("file", ParamFileP "./test/testdata/HaReRename.hs")
+      let req = IdeRequest "type" (Map.fromList [("file", ParamFileP "HaReRename.hs")
                                                  ,("start_pos", ParamPosP (toPos (5,9)))])
       r <- dispatchRequest req
       r `shouldBe` Just (IdeResponseOk (H.fromList ["type_info".=toJSON
@@ -110,7 +119,7 @@ ghcmodSpec = do
               $ \_-> do
         let req = IdeRequest "type" (Map.fromList [("file", ParamFileP $ T.pack fp)
                                                    ,("start_pos", ParamPosP (toPos (5,9)))])
-        r <- dispatchRequest req
+        r <- dispatchRequestNoCd req
         r `shouldBe` Just (IdeResponseOk (H.fromList ["type_info".=toJSON
                           [TypeResult (toPos (5,9)) (toPos (5,10)) "Int"
                           ,TypeResult (toPos (5,9)) (toPos (5,14)) "Int"
