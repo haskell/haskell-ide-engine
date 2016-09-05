@@ -138,22 +138,22 @@ typeCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos (Pos (Line l) (Col c)) :& RNil) -> do
+      {-
+      TODO: pass the bool through as a param, in the following call to 'GM.types'
+      types :: IOish m
+            => Bool         -- ^ Include constraints into type signature
+            -> FilePath     -- ^ A target file.
+            -> Int          -- ^ Line number.
+            -> Int          -- ^ Column number.
+            -> GhcModT m String
+
+      -}
       fmap (toTypeInfo . T.lines . T.pack) <$> runGhcModCommand (GM.types False (T.unpack fileName) l c)
 #if __GLASGOW_HASKELL__ <= 710
     Right _ -> return $ IdeResponseError (IdeError InternalError
       "GhcModPlugin.typesCmd: ghc’s exhaustiveness checker is broken" Null)
 #endif
 
-{-
-TODO: pass the bool through as a param
-types :: IOish m
-      => Bool         -- ^ Include constraints into type signature
-      -> FilePath     -- ^ A target file.
-      -> Int          -- ^ Line number.
-      -> Int          -- ^ Column number.
-      -> GhcModT m String
-
--}
 
 
 

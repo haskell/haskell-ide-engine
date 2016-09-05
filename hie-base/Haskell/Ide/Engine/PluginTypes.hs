@@ -282,8 +282,6 @@ instance Eq ParamValP where
  (ParamPosP  p) == (ParamPosP p') = p == p'
  _ == _ = False
 
--- pattern ParamTextP :: () =>
---                         forall (t :: ParamType). t ~ 'PtText => T.Text -> ParamValP
 pattern ParamTextP :: T.Text -> ParamValP
 pattern ParamTextP t = ParamValP (ParamText t)
 

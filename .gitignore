@@ -32,6 +32,7 @@ TAGS
 cabal-dev/
 cabal.sandbox.config
 dist/
+dist-newstyle/
 tags
 /test/testdata/HaReRename.refactored.hs
 /test/testdata/HaReCase.refactored.hs
