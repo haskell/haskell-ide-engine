@@ -37,13 +37,13 @@ library
   build-depends:       Cabal >= 1.22
                      , aeson
                      , attoparsec
-                     , base >= 4.7 && < 5
+                     , base >= 4.9 && < 5
                      , bytestring
                      , containers
                      , directory
                      , either
                      , fast-logger
-                     , ghc >= 7.10.2 && < 8.2
+                     , ghc >= 8.0.1
                      , ghc-mod
                      , gitrev >= 1.1
                      , haskeline
@@ -74,7 +74,7 @@ library
                      , time
                      , transformers
                      , unordered-containers
-                     , vinyl >= 0.5 && < 0.6
+                     , vinyl >= 0.5
                      , wai
                      , warp
   ghc-options:         -Wall

@@ -1,6 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 
-{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -73,10 +72,6 @@ demoteCmd  = CmdSync $ \_ctxs req ->
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& RNil) ->
       runHareCommand "demote" (compDemote (T.unpack fileName) (unPos pos))
-#if __GLASGOW_HASKELL__ <= 710
-    Right _ -> return $ IdeResponseError (IdeError InternalError
-      "HaRePlugin.demoteCmd: ghc’s exhaustiveness checker is broken" Null)
-#endif
 
 -- compDemote :: FilePath -> SimpPos -> IO [FilePath]
 
@@ -88,10 +83,6 @@ dupdefCmd = CmdSync $ \_ctxs req ->
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& ParamText name :& RNil) ->
       runHareCommand "dupdef" (compDuplicateDef (T.unpack fileName) (T.unpack name) (unPos pos))
-#if __GLASGOW_HASKELL__ <= 710
-    Right _ -> return $ IdeResponseError (IdeError InternalError
-      "HaRePlugin.dupdefCmd: ghc’s exhaustiveness checker is broken" Null)
-#endif
 
 -- compDuplicateDef :: FilePath -> String -> SimpPos -> IO [FilePath]
 
@@ -103,10 +94,6 @@ iftocaseCmd = CmdSync $ \_ctxs req ->
     Left err -> return err
     Right (ParamFile fileName :& ParamPos startPos :& ParamPos endPos :& RNil) ->
       runHareCommand "iftocase" (compIfToCase (T.unpack fileName) (unPos startPos) (unPos endPos))
-#if __GLASGOW_HASKELL__ <= 710
-    Right _ -> return $ IdeResponseError (IdeError InternalError
-      "HaRePlugin.ifToCaseCmd: ghc’s exhaustiveness checker is broken" Null)
-#endif
 
 -- compIfToCase :: FilePath -> SimpPos -> SimpPos -> IO [FilePath]
 
@@ -118,10 +105,6 @@ liftonelevelCmd = CmdSync $ \_ctxs req ->
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& RNil) ->
       runHareCommand "liftonelevel" (compLiftOneLevel (T.unpack fileName) (unPos pos))
-#if __GLASGOW_HASKELL__ <= 710
-    Right _ -> return $ IdeResponseError (IdeError InternalError
-      "HaRePlugin.liftOneLevel: ghc’s exhaustiveness checker is broken" Null)
-#endif
 
 -- compLiftOneLevel :: FilePath -> SimpPos -> IO [FilePath]
 
@@ -133,10 +116,6 @@ lifttotoplevelCmd = CmdSync $ \_ctxs req ->
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& RNil) ->
       runHareCommand "lifttotoplevel" (compLiftToTopLevel (T.unpack fileName) (unPos pos))
-#if __GLASGOW_HASKELL__ <= 710
-    Right _ -> return $ IdeResponseError (IdeError InternalError
-      "HaRePlugin.liftToTopLevel: ghc’s exhaustiveness checker is broken" Null)
-#endif
 
 -- compLiftToTopLevel :: FilePath -> SimpPos -> IO [FilePath]
 
@@ -148,10 +127,6 @@ renameCmd = CmdSync $ \_ctxs req ->
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& ParamText name :& RNil) ->
       runHareCommand "rename" (compRename (T.unpack fileName) (T.unpack name) (unPos pos))
-#if __GLASGOW_HASKELL__ <= 710
-    Right _ -> return $ IdeResponseError (IdeError InternalError
-      "HaRePlugin.renameCmd: ghc’s exhaustiveness checker is broken" Null)
-#endif
 
 -- compRename :: FilePath -> String -> SimpPos -> IO [FilePath]
 

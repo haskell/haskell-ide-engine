@@ -17,7 +17,7 @@ flag pedantic
 
 library
   exposed-modules:     Haskell.Ide.GhcModPlugin
-  build-depends:       base >= 4.7 && < 5
+  build-depends:       base >= 4.9 && < 5
                      , aeson
                      , containers
                      , directory

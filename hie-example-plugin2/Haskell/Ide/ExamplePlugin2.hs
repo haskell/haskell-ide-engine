@@ -1,6 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 
-{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -46,9 +45,6 @@ sayHelloToCmd = CmdSync $ \_ req ->
     Right (ParamText n :& RNil) -> do
       r <- liftIO $ sayHelloTo n
       return $ IdeResponseOk r
-#if __GLASGOW_HASKELL__ <= 710
-    Right _ -> error "ghc's exhaustiveness checker is broken"
-#endif
 
 -- ---------------------------------------------------------------------
 {-
