@@ -127,7 +127,10 @@ If `haskell-process-load-or-reload-prompt' is nil, accept `default'."
   "Get the session cabal-dir."
   (or (hie-session-get s 'cabal-dir)
       (let* ((cabal-file (haskell-cabal-find-file))
-             (cabal-dir (when cabal-file (file-name-directory cabal-file))))
+             (cabal-dir (if cabal-file
+                            (file-name-directory cabal-file)
+                            "" ;; no cabal file, use directory only
+                          )))
         (progn (hie-session-set-cabal-dir s cabal-dir)
                cabal-dir))))
 

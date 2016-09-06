@@ -10,6 +10,10 @@ packages:
 - hie-ghc-tree
 - hie-hare
 - hie-docs-generator
+- location:
+    git: https://github.com/alanz/HaRe.git
+    commit:  07e88c52c2a36e4a7d422113389171221b140cb6
+  extra-dep: true
 extra-deps:
   - ghc-dump-tree-0.2.0.1
   # - ghc-7.10.3
