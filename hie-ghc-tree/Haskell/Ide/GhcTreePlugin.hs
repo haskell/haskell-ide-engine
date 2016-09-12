@@ -10,7 +10,6 @@ module Haskell.Ide.GhcTreePlugin where
 
 import           Data.Aeson
 import qualified Data.Text as T
--- import           Haskell.Ide.Engine.MonadFunctions (logm)
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
@@ -44,7 +43,6 @@ trees = CmdSync $ \_ctxs req -> do
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
       trs <- runGmlT' [Left $ T.unpack fileName] (return . treeDumpFlags) $ treesForTargets [T.unpack fileName]
-      -- logm $ "getTrees:res=" ++ show trs
       case trs of
           [tree] -> return (IdeResponseOk $ treesToAST tree)
           _ -> return $ IdeResponseError (IdeError PluginError
