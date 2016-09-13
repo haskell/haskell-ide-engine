@@ -20,13 +20,13 @@ library
                        Haskell.Ide.Engine.PluginTypes
                        Haskell.Ide.Engine.PluginTypes.Singletons
                        Haskell.Ide.Engine.SemanticTypes
-  build-depends:       base >= 4.7 && < 5
+  build-depends:       base >= 4.9 && < 5
                      , aeson
                      , containers
                      , text
                      , unordered-containers
                      , singletons
-                     , swagger2 >= 2.0.2
+                     , swagger2 >= 2.1
                      , vinyl
   ghc-options:         -Wall
   if flag(pedantic)

@@ -1,6 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 
-{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -56,10 +55,6 @@ applyOneCmd = CmdSync $ \_ctxs req -> do
         Left err -> return $ IdeResponseFail (IdeError PluginError
                       (T.pack $ "applyOne: " ++ show err) Null)
         Right fs -> return (IdeResponseOk fs)
-#if __GLASGOW_HASKELL__ <= 710
-    Right _ -> return $ IdeResponseError (IdeError InternalError
-      "ApplyRefactPlugin.applyOneCmd: ghc’s exhaustiveness checker is broken" Null)
-#endif
 
 
 -- ---------------------------------------------------------------------
@@ -75,10 +70,6 @@ applyAllCmd = CmdSync $ \_ctxs req -> do
         Left err -> return $ IdeResponseFail (IdeError PluginError
                       (T.pack $ "applyOne: " ++ show err) Null)
         Right fs -> return (IdeResponseOk fs)
-#if __GLASGOW_HASKELL__ <= 710
-    Right _ -> return $ IdeResponseError (IdeError InternalError
-      "ApplyRefactPlugin.applyOneCmd: ghc’s exhaustiveness checker is broken" Null)
-#endif
 
 
 -- ---------------------------------------------------------------------

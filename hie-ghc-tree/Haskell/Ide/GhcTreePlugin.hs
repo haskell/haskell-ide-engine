@@ -1,6 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 
-{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -16,6 +15,8 @@ import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
 import           Language.Haskell.GHC.DumpTree
 import           Language.Haskell.GhcMod.Monad
+
+-- ---------------------------------------------------------------------
 
 -- | Descriptor for the ghc-tree plugin
 ghcTreeDescriptor :: TaggedPluginDescriptor _
@@ -41,16 +42,11 @@ trees = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
-      trs <- runGmlT' [Left $ T.unpack fileName] (return . treeDumpFlags)$ treesForSession
-      -- logm $ "getTrees:res=" ++ show trs
+      trs <- runGmlT' [Left $ T.unpack fileName] (return . treeDumpFlags) $ treesForTargets [T.unpack fileName]
       case trs of
           [tree] -> return (IdeResponseOk $ treesToAST tree)
           _ -> return $ IdeResponseError (IdeError PluginError
                  "Expected one AST structure" (toJSON $ length trs))
-#if __GLASGOW_HASKELL__ <= 710
-    Right _ -> return $ IdeResponseError (IdeError InternalError
-      "GhcTreePlugin.getTrees: ghc’s exhaustiveness checker is broken" Null)
-#endif
 
 -- | Convert from ghc-dump-tree type to our own type
 -- (avoids dependency on ghc-dump-tree from hie-base)

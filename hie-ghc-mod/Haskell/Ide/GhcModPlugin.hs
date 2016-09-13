@@ -1,6 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 
-{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE GADTs                 #-}
@@ -83,10 +82,6 @@ checkCmd = CmdSync $ \_ctxs req -> do
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
       fmap T.pack <$> runGhcModCommand (GM.checkSyntax [(T.unpack fileName)])
-#if __GLASGOW_HASKELL__ <= 710
-    Right _ -> return $ IdeResponseError (IdeError InternalError
-      "GhcModPlugin.checkCmd: ghc’s exhaustiveness checker is broken" Null)
-#endif
 
 -- ---------------------------------------------------------------------
 
@@ -113,10 +108,6 @@ lintCmd = CmdSync $ \_ctxs req -> do
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
       fmap T.pack <$> runGhcModCommand (GM.lint GM.defaultLintOpts (T.unpack fileName))
-#if __GLASGOW_HASKELL__ <= 710
-    Right _ -> return $ IdeResponseError (IdeError InternalError
-      "GhcModPlugin.lintCmd: ghc’s exhaustiveness checker is broken" Null)
-#endif
 
 -- ---------------------------------------------------------------------
 
@@ -126,10 +117,6 @@ infoCmd = CmdSync $ \_ctxs req -> do
     Left err -> return err
     Right (ParamFile fileName :& ParamText expr :& RNil) -> do
       fmap T.pack <$> runGhcModCommand (GM.info (T.unpack fileName) (GM.Expression (T.unpack expr)))
-#if __GLASGOW_HASKELL__ <= 710
-    Right _ -> return $ IdeResponseError (IdeError InternalError
-      "GhcModPlugin.infoCmd: ghc’s exhaustiveness checker is broken" Null)
-#endif
 
 -- ---------------------------------------------------------------------
 
@@ -149,10 +136,6 @@ typeCmd = CmdSync $ \_ctxs req ->
 
       -}
       fmap (toTypeInfo . T.lines . T.pack) <$> runGhcModCommand (GM.types False (T.unpack fileName) l c)
-#if __GLASGOW_HASKELL__ <= 710
-    Right _ -> return $ IdeResponseError (IdeError InternalError
-      "GhcModPlugin.typesCmd: ghc’s exhaustiveness checker is broken" Null)
-#endif
 
 
 

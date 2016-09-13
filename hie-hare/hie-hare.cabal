@@ -17,7 +17,7 @@ flag pedantic
 
 library
   exposed-modules:     Haskell.Ide.HaRePlugin
-  build-depends:       base >= 4.7 && < 5
+  build-depends:       base >= 4.9 && < 5
                      , HaRe
                      , aeson
                      , containers
@@ -27,11 +27,11 @@ library
                      , ghc-mod
                      , hie-base
                      , hie-plugin-api
-                     , monad-control >= 1.0 && < 1.1
-                     , mtl >= 2.2 && < 2.3
+                     , monad-control
+                     , mtl
                      , text
                      , transformers
-                     , vinyl >= 0.5 && < 0.6
+                     , vinyl >= 0.5
   ghc-options:         -Wall
   if flag(pedantic)
      ghc-options:      -Werror
