@@ -10,6 +10,7 @@
 
 (require 'json)
 (require 'dash)
+(require 'buttercup)
 (require 'haskell)
 
 ;;;###autoload
