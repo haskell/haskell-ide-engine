@@ -10,7 +10,7 @@
 
 (require 'json)
 (require 'dash)
-(require 'buttercup)
+(require 'cl)
 (require 'haskell)
 
 ;;;###autoload
@@ -166,6 +166,7 @@ If `haskell-process-load-or-reload-prompt' is nil, accept `default'."
                     (when hie-process-handle-message
                       (with-current-buffer prev-buffer
                         (hie-log "<- %s" input-text)
+                        ;; (hie-log "<- %s" json)
                         (funcall hie-process-handle-message json))))
                 ;; json-readtable-error is when there is an unexpected character in input
                 (json-readtable-error (funcall handle-error))
@@ -372,8 +373,21 @@ association lists and count on HIE to use default values there."
   (forward-line (1- N)))
 
 (defun hie-handle-refactor (refactor)
+  (progn
+    ;; (hie-log "*hie-handle-refactor* %s" refactor)
+    (dolist (one refactor)
+      (progn
+        ;; (hie-log "***one: %s" one)
+        (hie-handle-one-refactor (list one))
+        )
+      )
+    )
+  )
+
+(defun hie-handle-one-refactor (refactor)
   (-if-let (((&alist 'first first 'second second 'diff diff)) refactor)
       (progn
+        ;; (hie-log "** %s" refactor)
         (hie-with-refactor-buffer
           (erase-buffer)
           (insert diff))
