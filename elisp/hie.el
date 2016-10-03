@@ -12,6 +12,7 @@
 (require 'dash)
 (require 'cl)
 (require 'haskell)
+(require 'read-char-spec)
 
 ;;;###autoload
 (defcustom hie-command "hie"
@@ -117,12 +118,13 @@ If `haskell-process-load-or-reload-prompt' is nil, accept `default'."
 
 (defun hie-session-make (name)
   "Make a Haskell session."
-  (when (hie-session-lookup name)
-    (error "Session of name %s already exists!" name))
-  (let ((session (list (cons 'name name))))
-    (add-to-list 'hie-sessions session)
-    (hie-session-cabal-dir session)
-    session))
+  (if (hie-session-lookup name)
+      (progn (hie-log "Session of name %s already exists!" name)
+             (hie-session-lookup name))
+    (let ((session (list (cons 'name name))))
+      (add-to-list 'hie-sessions session)
+      (hie-session-cabal-dir session)
+      session)))
 
 (defun hie-session-cabal-dir (s)
   "Get the session cabal-dir."
@@ -372,16 +374,28 @@ association lists and count on HIE to use default values there."
   (forward-line (1- N)))
 
 (defun hie-handle-refactor (refactor)
-  (dolist (one refactor)
-    (hie-handle-one-refactor (list one))
+  (hie-with-refactor-buffer
+   (erase-buffer))
+  (setq r3 (mapcar `cdaddr refactor))
+  (setq r4 (list 'ok r3))
+  (let ((current-file-name (buffer-file-name))
+        (start-line-no 0)
+        (start-col-no  0)
+        )
+
+    (process-result current-file-name r4 start-line-no start-col-no )
     )
+  ;; (dolist (one refactor)
+  ;;   (hie-handle-one-refactor (list one))
+  ;;   )
   )
 
+;; TODO: AZ: delete, no longer used
 (defun hie-handle-one-refactor (refactor)
   (-if-let (((&alist 'first first 'second second 'diff diff)) refactor)
       (progn
+        (hie-log "***hie-handle-one-refactor: %s" refactor)
         (hie-with-refactor-buffer
-          (erase-buffer)
           (insert diff))
         (let ((refactored-buffer (create-file-buffer second))
               (old-buffer (or (find-buffer-visiting first)
@@ -551,5 +565,337 @@ Keymap:
         (hie-kill-process)))))
 
 (provide 'hie)
+
+;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; AZ experimenting with bringing original HaRe elisp mechanism over
+;; (second copy, it came from Wrangler originally)
+
+(defvar modified-files nil)
+(defvar files-to-write nil)
+(defvar files-to-rename nil)
+(defvar refactoring-committed nil)
+(defvar unopened-files nil)
+(defvar ediff-ignore-similar-regions t)
+(defvar refactor-mode nil)
+(defvar has-warning 'false)
+(defvar refac-result nil)
+
+;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;; expecting result of the form
+;;  (ok FILE_LIST)
+;; or
+;;  (error STRING)
+(defun process-result(current-file-name result line-no column-no)
+  "process the result return by refactoring"
+  (hie-log "***process-result: %s" current-file-name)
+  (hie-log "***process-result: %s" result)
+  (let (rsn modified renamed warning name_change)
+  (cond ((equal (elt result 0) 'ok)
+         (setq modified (if (> (length result) 1)
+                            (elt result 1)
+                          nil))
+         (setq renamed (if (> (length result) 3)
+                             (elt result 2)
+                           nil))
+         (setq warning (if (> (length result) 3)
+                             (elt result 3)
+                           (if (> (length result) 2)
+                               (elt result 2)
+                             nil)))
+         (if warning
+             (setq has-warning warning)
+           nil)
+         (if (equal modified nil)
+             (message "Refactoring finished, and no file has been changed.")
+           (preview-commit-cancel current-file-name modified renamed)
+           (if (not (eq line-no 0))
+             (with-current-buffer (get-file-buffer-1 current-file-name)
+               (goto-line line-no)
+               (goto-column column-no))
+             nil)))
+        ((equal (elt result 0) 'error)
+         (setq rsn (elt result 1))
+         (message "Refactoring failed: %S" rsn))
+        ((equal (elt result 0) 'badrpc)
+         (setq rsn (elt result 1))
+         (message "Refactoring failed: %S" rsn))
+        ((equal result ['abort])
+         (message "Refactoring aborted.")))))
+
+
+;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun hare-ediff(file1 file2)
+  "run ediff on file1 and file2"
+  (setq refactor-mode t)
+  (ediff file1 file2)
+)
+
+(add-hook 'ediff-quit-hook 'my-ediff-qh)
+
+(defun my-ediff-qh()
+  "Function to be called when ediff quits."
+  (if (equal refactor-mode t)
+      (if (equal modified-files nil)
+          (commit-or-abort)
+        (if (y-or-n-p "Do you want to preview changes made to other files?")
+            (progn
+              (defvar file-to-diff)
+              (setq file-to-diff (car modified-files))
+              (setq modified-files (cdr modified-files))
+              (if (get-file-buffer-1 file-to-diff)
+                  nil
+                (setq unopened-files (cons file-to-diff unopened-files))
+                )
+              (hare-ediff file-to-diff (concat (file-name-sans-extension file-to-diff)
+                                                ".refactored"
+                                                (file-name-extension file-to-diff t) )))
+          (progn
+            (setq modified-files nil)
+            (commit-or-abort))))
+    nil))
+
+(defun preview-commit-cancel(current-file-name modified renamed)
+  "preview, commit or cancel the refactoring result"
+  (setq files-to-write modified)
+  (setq files-to-rename renamed)
+  (preview-commit-cancel-1 current-file-name modified)
+  )
+
+
+(defun preview-commit-cancel-1 (current-file-name modified)
+  "preview, commit or cancel the refactoring result"
+  (let ((answer (read-char-spec-1 "Do you want to preview(p)/commit(c)/cancel(n) the changes to be performed?(p/c/n):"
+                  '((?p p "Answer p to preview the changes")
+                    (?c c "Answer c to commit the changes without preview")
+                    (?n n "Answer n to abort the changes")))))
+    (cond ((equal answer 'p)
+           (defvar first-file)
+           (setq first-file (car modified))
+           (setq modified-files (cdr modified))
+           (hare-ediff first-file
+                           (concat (file-name-sans-extension first-file)
+                                   ".refactored"
+                                   (file-name-extension first-file t))))
+          ((equal answer 'c)
+           (commit))
+          ((equal answer 'n)
+           (abort-changes)))))
+
+(defun current-time-suffix()
+  "Generate a time stamp suffix for backed up files, including a leading '.'"
+  (format-time-string ".%Y%m%d%H%M%S")
+)
+
+(defun delete-swp-file-and-buffers (files)
+  "delete those .refactored file and buffers generated by the refactorer. NOTE:also renames the files"
+  (let ((suf (current-time-suffix)))
+	(dolist (f files)
+	  (let (old-file-name new-file-name swp-file-name)
+		(setq old-file-name (elt f 0))
+		(setq new-file-name (elt f 1))
+		(setq swp-file-name (elt f 2))
+
+		;; At this stage there are no file renaming operations, so we
+		;; simply need to replace old-file-name with swp-file-name
+		(rename-file old-file-name (concat old-file-name suf))
+		(rename-file swp-file-name old-file-name)
+
+		(let ((swp-buff (get-file-buffer-1 swp-file-name)))
+		  (if swp-buff (kill-buffer swp-buff)
+			nil))
+										;(delete-file  swp-file-name)
+		(let ((buffer (get-file-buffer-1 old-file-name)))
+		  (if buffer
+			  (if (equal old-file-name new-file-name)
+				  (with-current-buffer buffer (revert-buffer nil t t))
+				(with-current-buffer buffer
+				  (set-visited-file-name new-file-name)
+				  ;;(delete-file old-file-name)
+				  (revert-buffer nil t t)))
+			nil))))))
+
+(defun abort-changes()
+  "abort the refactoring results"
+  (dolist (uf unopened-files)
+    (kill-buffer (get-file-buffer-1 uf)))
+  (setq unopened-files nil)
+  (setq refactor-mode nil)
+  (message "Refactoring aborted.")
+
+  ;; (erl-spawn
+  ;;   (erl-send-rpc wrangler-erl-node 'wrangler_preview_server 'abort (list))
+  ;;   (erl-receive ()
+  ;;       ((['rex ['badrpc rsn]]
+  ;;         (setq refactor-mode nil)
+  ;;         (message "Aborting refactoring failed: %S" rsn))
+  ;;        (['rex ['error rsn]]
+  ;;         (setq refactor-mode nil)
+  ;;         (message "Aborting refactoring failed: %s" rsn))
+  ;;        (['rex ['ok files]]
+  ;;         (dolist (f files)
+  ;;           (progn
+  ;;             (let ((buff (get-file-buffer-1 f)))
+  ;;               (if buff (kill-buffer (get-file-buffer-1 f))
+  ;;                 nil))
+  ;;             (delete-file f)))
+  ;;         (dolist (uf unopened-files)
+  ;;           (kill-buffer (get-file-buffer-1 uf)))
+  ;;         (setq unopened-files nil)
+  ;;         (setq refactor-mode nil)
+  ;;         (message "Refactoring aborted."))))))
+)
+
+(defun commit-or-abort()
+  "commit or abort the refactoring result."
+  (if (y-or-n-p "Do you want to perform the changes?")
+      (commit)
+    (progn
+      ;; files is returned by the wrangler backend in the orig.
+      ;; Seems to be the list of modified files
+      ;; (dolist (f files)
+      ;;   (progn
+      ;;     (let ((buff (get-file-buffer-1 f)))
+      ;;       (if buff (kill-buffer (get-file-buffer-1 f))
+      ;;         nil))
+      ;;     (delete-file f)))
+      (abort-changes)
+      )))
+      ;; (dolist (uf unopened-files)
+      ;;   (kill-buffer (get-file-buffer-1 uf)))
+      ;; (setq unopened-files nil)
+      ;; (setq refactor-mode nil)
+      ;; (message "Refactoring aborted."))))
+
+(defun prepare-to-commit()
+  ";make sure the files are writeable when cleaecase is used as the repository."
+  (run-hook-with-args 'before-commit-functions files-to-write files-to-rename)
+  (setq files-to-write nil)
+  (setq files-to-rename nil)
+  )
+
+(defun commit()
+  "commit the refactoring result."
+  ;; (if (equal version-control-system 'ClearCase)
+  ;;     (prepare-to-commit)
+  ;;   nil
+  ;;   )
+  (do-commit)
+  )
+
+(defun do-commit()
+  "commit the refactoring result."
+    (let ((files (list)))
+          (message "files-to-write=%s" (prin1-to-string files-to-write))
+          (dolist (uf files-to-write)
+            (progn
+              (message "uf=%s" (prin1-to-string uf))
+              (setq files (cons
+                           (list uf uf
+                           (concat (file-name-sans-extension uf)
+                                   ".refactored"
+                                   (file-name-extension uf t) ))
+                           files))))
+          (message "files=%s" (prin1-to-string files))
+          (delete-swp-file-and-buffers files)
+          (setq refactoring-committed t)
+          (dolist (uf unopened-files)
+            (kill-buffer (get-file-buffer-1 uf)))
+          (setq unopened-files nil)
+          (setq refactor-mode nil)
+          (if (equal has-warning 'true)
+              (progn
+                (message "Refactoring succeeded, but please read the warning message in the *erl-output* buffer.")
+                (setq has-warning 'false))
+            nil
+            )
+          )
+)
+(defun revert-all-buffers()
+  "Refreshs all open buffers from their respective files"
+      (interactive)
+      (let* ((list (buffer-list))
+             (buffer (car list)))
+        (while buffer
+          (if (string-match "\\*" (buffer-name buffer))
+              (progn
+                (setq list (cdr list))
+                (setq buffer (car list)))
+            (progn
+              (set-buffer buffer)
+              (if (file-exists-p (buffer-file-name buffer))
+                  (revert-buffer t t t)
+                nil)
+              (setq list (cdr list))
+              (setq buffer (car list)))))))
+
+
+(defun current-buffer-saved(buffer)
+  (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
+    (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
+        (if (y-or-n-p "The current buffer has been changed, and HaRe needs to save it before refactoring, continue?")
+            (progn (save-buffer)
+                   t)
+          nil)
+      t)))
+
+(defun buffers-saved()
+  (let (changed)
+      (dolist (b (buffer-list) changed)
+        (let* ((n (buffer-name b)) (n1 (substring n 0 1)))
+          (if (and (buffer-file-name b) (buffer-modified-p b))
+              (setq changed (cons (buffer-name b) changed)))))
+      (if changed
+          (if (y-or-n-p (format "There are modified buffers: %s, which HaRe needs to save before refactoring, continue?" changed))
+              (progn
+                (save-some-buffers t) t)
+            nil)
+        t)))
+
+
+(defun buffers-changed-warning()
+  (let (changed)
+    (dolist (b (buffer-list) changed)
+      (let* ((n (buffer-name b)) (n1 (substring n 0 1)))
+        (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
+            (setq changed (cons (buffer-name b) changed)))))
+    (if changed
+        (if (y-or-n-p (format "Undo a refactoring could also undo the editings done after the refactoring, undo anyway?"))
+            t
+          nil)
+      t)
+    ))
+
+(defun get-file-buffer-1(f)
+  (if (featurep 'xemacs)
+      (progn
+        (setq file-buffer nil)
+        (setq buffers (buffer-list))
+        (setq f1 (replace-in-string f "/" "\\\\"))
+        (while (and (not file-buffer) (not (equal buffers nil)))
+          (let ((filename (buffer-file-name (car buffers))))
+            (if filename
+                (progn
+                  (if (equal (downcase f1) (downcase filename))
+                      (setq file-buffer (car buffers))
+                    (setq buffers (cdr buffers)))
+                  )
+              (setq buffers (cdr buffers))
+              )))
+        file-buffer)
+    (get-file-buffer f)))
+
+
+
+(defun update-buffers(files)
+  "update the buffers for files that have been changed"
+  (dolist (f files)
+    (let ((buffer (get-file-buffer-1 f)))
+      (if buffer
+          (with-current-buffer buffer (revert-buffer nil t t))
+        nil))))
+
 
 ;;; hie.el ends here
