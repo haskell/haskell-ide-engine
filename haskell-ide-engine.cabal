@@ -30,6 +30,7 @@ library
                        Haskell.Ide.Engine.Transport.JsonHttp.Undecidable
                        Haskell.Ide.Engine.Transport.JsonStdio
                        Haskell.Ide.Engine.Transport.JsonTcp
+                       Haskell.Ide.Engine.Transport.LspStdio
                        Haskell.Ide.Engine.Transport.Pipes
                        Haskell.Ide.Engine.Types
                        Haskell.Ide.Engine.Utils
@@ -40,6 +41,7 @@ library
                      , base >= 4.9 && < 5
                      , bytestring
                      , containers
+                     , data-default
                      , directory
                      , either
                      , fast-logger
@@ -47,11 +49,14 @@ library
                      , ghc-mod
                      , gitrev >= 1.1
                      , haskeline
+                     , haskell-lsp
                      , hie-base
                      , hie-plugin-api
+                     , hslogger
                      , insert-ordered-containers
                      , lens
                      , lifted-base
+                     , MissingH
                      , monad-control
                      , monad-logger
                      , mtl

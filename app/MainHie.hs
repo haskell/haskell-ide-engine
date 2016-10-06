@@ -39,6 +39,7 @@ import           Haskell.Ide.Engine.Swagger
 import           Haskell.Ide.Engine.Transport.JsonHttp
 import           Haskell.Ide.Engine.Transport.JsonStdio
 import           Haskell.Ide.Engine.Transport.JsonTcp
+import           Haskell.Ide.Engine.Transport.LspStdio
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.Utils
 import qualified Language.Haskell.GhcMod.Types as GM
@@ -162,7 +163,9 @@ run opts = do
     -- long as they can pass through a ChannelRequest
     if (optConsole opts)
        then consoleListener plugins cin
-       else jsonStdioTransport (optOneShot opts) cin
+       else if optLsp opts
+               then lspStdioTransport cin
+               else jsonStdioTransport (optOneShot opts) cin
 
     -- At least one needs to be launched, othewise a threadDelay with a large
     -- number should be given. Or some other waiting action.
