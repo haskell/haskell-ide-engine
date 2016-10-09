@@ -82,7 +82,7 @@ applyAllCmd = CmdSync $ \_ctxs req -> do
 
 -- ---------------------------------------------------------------------
 
-lintCmd :: CommandFunc [Diagnostic]
+lintCmd :: CommandFunc FileDiagnostics
 lintCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
@@ -93,7 +93,7 @@ lintCmd = CmdSync $ \_ctxs req -> do
       case res of
         Left err -> return $ IdeResponseFail (IdeError PluginError
                       (T.pack $ "lint: " ++ show err) Null)
-        Right fs -> return (IdeResponseOk (map hintToDiagnostic fs))
+        Right fs -> return (IdeResponseOk (FileDiagnostics ("file://" ++ T.unpack fileName) (map hintToDiagnostic fs)))
 
 {-
 -- | An idea suggest by a 'Hint'.

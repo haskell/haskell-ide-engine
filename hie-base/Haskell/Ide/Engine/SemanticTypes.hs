@@ -80,6 +80,15 @@ data AST = AST {
 instance ToSchema AST
 
 -- ---------------------------------------------------------------------
+
+data FileDiagnostics =
+  FileDiagnostics
+    { fdFileName    :: FilePath
+    , fdDiagnostics :: [Diagnostic]
+    } deriving (Show, Read, Eq,Generic)
+instance ToSchema FileDiagnostics
+
+-- ---------------------------------------------------------------------
 -- |A diagnostic report, such as compiler errors/warning, or from a linter
 -- Based on https://github.com/Microsoft/language-server-protocol/blob/master/protocol.md#diagnostic
 
@@ -193,6 +202,14 @@ instance ValidResponse AST where
     <*> v .: "renamed"
     <*> v .: "typechecked"
     <*> v .: "exports"
+
+-- ---------------------------------------------------------------------
+
+instance ValidResponse FileDiagnostics where
+  jsWrite (FileDiagnostics fn ds) = H.fromList
+              [ "uri"         .= fn
+              , "diagnostics" .= ds
+              ]
 
 -- ---------------------------------------------------------------------
 

@@ -54,7 +54,12 @@ run :: TChan ChannelRequest -> IO Int
 run cin = flip E.catches handlers $ do
 
   cout <- atomically newTChan :: IO (TChan ChannelResponse)
+  U.logs $ "\n\n*************************about to fork responseHandler"
   _ <- forkIO $ responseHandler cout
+  U.logs $ "\n\n*************************forked responseHandler"
+  -- Give responseHandler a chance to start
+  -- TODO: put something more reliable in place.
+  threadDelay 300000
 
   flip E.finally finalProc $ do
     CTRL.run (cin,cout) hieHandlers hieOptions
@@ -67,17 +72,23 @@ run cin = flip E.catches handlers $ do
     ioExcept   (e :: E.IOException)       = print e >> return 1
     someExcept (e :: E.SomeException)     = print e >> return 1
 
-instance Default (TChan ChannelRequest) where
-  def = error $ "code smell, default for TChan ChannelRequest does not make sense"
+-- instance Default (TChan ChannelRequest) where
+--   def = error $ "code smell, default for TChan ChannelRequest does not make sense"
 
 -- ---------------------------------------------------------------------
 
 responseHandler :: TChan ChannelResponse -> IO ()
 responseHandler cout = do
-  U.logm $ "responseHandler starting up"
+  U.logm $ "\n\n****************responseHandler starting up"
   forever $ do
-    CResp pid rid res <- liftIO $ atomically $ readTChan cout
-    CTRL.sendResponseMessage $ GUI.makeResponseMessage rid res
+    r@(CResp pid rid res) <- liftIO $ atomically $ readTChan cout
+    U.logs $ "\n\n***********responseHandler: got :" ++ show r
+    -- CTRL.sendResponseMessage $ GUI.makeResponseMessage rid res
+    let smr = J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just res)
+    U.logs $ "\n\n***********responseHandler: smr :" ++ show smr
+    CTRL.sendNotificationMessage smr
+    U.logs $ "\n\n***********responseHandler: smr sent"
+
     return ()
 
 -- ---------------------------------------------------------------------
@@ -125,7 +136,7 @@ didOpenTextDocumentNotificationHandler cin notification = do
 didSaveTextDocumentNotificationHandler :: (TChan ChannelRequest,TChan ChannelResponse)
                                        -> J.DidSaveTextDocumentNotification -> IO ()
 didSaveTextDocumentNotificationHandler (cin,cout) notification = do
-  U.logm $ "\n****** didSaveTextDocumentNotificationHandler: not processing"
+  U.logm $ "\n****** didSaveTextDocumentNotificationHandler: processing"
   let J.TextDocumentIdentifier doc = J.textDocumentDidSaveTextDocumentParams $ fromJust $ J.paramsNotificationMessage notification
       fileName = drop (length ("file://"::String)) doc
   U.logs $ "\n********* doc=" ++ show doc
