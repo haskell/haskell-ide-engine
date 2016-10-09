@@ -9,7 +9,8 @@ module Haskell.Ide.ApplyRefactPlugin where
 import           Control.Arrow
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Either
-import           Data.Aeson
+import           Data.Aeson hiding (Error)
+import           Data.Maybe
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Data.Vinyl
@@ -21,7 +22,12 @@ import           Language.Haskell.HLint3 as Hlint
 import           Refact.Apply
 import           System.Directory
 import           System.IO.Extra
+import           Language.Haskell.Exts.SrcLoc
 
+-- ---------------------------------------------------------------------
+{-# ANN module ("HLint: ignore Eta reduce"         :: String) #-}
+{-# ANN module ("HLint: ignore Redundant do"       :: String) #-}
+{-# ANN module ("HLint: ignore Reduce duplication" :: String) #-}
 -- ---------------------------------------------------------------------
 
 applyRefactDescriptor :: TaggedPluginDescriptor _
@@ -35,6 +41,9 @@ applyRefactDescriptor = PluginDescriptor
                    [".hs"] (SCtxPoint :& RNil) RNil SaveAll
 
       :& buildCommand applyAllCmd (Proxy :: Proxy "applyAll") "Apply all hints to the file"
+                   [".hs"] (SCtxFile :& RNil) RNil SaveAll
+
+      :& buildCommand lintCmd (Proxy :: Proxy "lint") "Run hlint on the file to generate hints"
                    [".hs"] (SCtxFile :& RNil) RNil SaveAll
 
       :& RNil
@@ -68,9 +77,96 @@ applyAllCmd = CmdSync $ \_ctxs req -> do
       logm $ "applyAllCmd:res=" ++ show res
       case res of
         Left err -> return $ IdeResponseFail (IdeError PluginError
-                      (T.pack $ "applyOne: " ++ show err) Null)
+                      (T.pack $ "applyAll: " ++ show err) Null)
         Right fs -> return (IdeResponseOk fs)
 
+-- ---------------------------------------------------------------------
+
+lintCmd :: CommandFunc [Diagnostic]
+lintCmd = CmdSync $ \_ctxs req -> do
+  case getParams (IdFile "file" :& RNil) req of
+    Left err -> return err
+    Right (ParamFile fileName :& RNil) -> do
+      -- res <- liftIO $ applyHint (T.unpack fileName) Nothing
+      res <- liftIO $ runEitherT $ runHlint (T.unpack fileName) []
+      logm $ "lint:res=" ++ show res
+      case res of
+        Left err -> return $ IdeResponseFail (IdeError PluginError
+                      (T.pack $ "lint: " ++ show err) Null)
+        Right fs -> return (IdeResponseOk (map hintToDiagnostic fs))
+
+{-
+-- | An idea suggest by a 'Hint'.
+data Idea = Idea
+    {ideaModule :: String -- ^ The module the idea applies to, may be @\"\"@ if the module cannot be determined or is a result of cross-module hints.
+    ,ideaDecl :: String -- ^ The declaration the idea applies to, typically the function name, but may be a type name.
+    ,ideaSeverity :: Severity -- ^ The severity of the idea, e.g. 'Warning'.
+    ,ideaHint :: String -- ^ The name of the hint that generated the idea, e.g. @\"Use reverse\"@.
+    ,ideaSpan :: SrcSpan -- ^ The source code the idea relates to.
+    ,ideaFrom :: String -- ^ The contents of the source code the idea relates to.
+    ,ideaTo :: Maybe String -- ^ The suggested replacement, or 'Nothing' for no replacement (e.g. on parse errors).
+    ,ideaNote :: [Note] -- ^ Notes about the effect of applying the replacement.
+    ,ideaRefactoring :: [Refactoring R.SrcSpan] -- ^ How to perform this idea
+    }
+    deriving (Eq,Ord)
+
+-}
+
+-- ---------------------------------------------------------------------
+
+hintToDiagnostic :: Idea -> Diagnostic
+hintToDiagnostic idea
+  = Diagnostic
+      { rangeDiagnostic    = ss2Range (ideaSpan idea)
+      , severityDiagnostic = Just (severity2DisgnosticSeverity $ ideaSeverity idea)
+      , codeDiagnostic     = Just (ideaHint idea)
+      , sourceDiagnostic   = Just "hlint"
+      , messageDiagnostic  = idea2Message idea
+      }
+
+-- ---------------------------------------------------------------------
+{-
+
+instance Show Idea where
+    show = showEx id
+
+
+showANSI :: IO (Idea -> String)
+showANSI = do
+    f <- hsColourConsole
+    return $ showEx f
+
+showEx :: (String -> String) -> Idea -> String
+showEx tt Idea{..} = unlines $
+    [showSrcLoc (getPointLoc ideaSpan) ++ ": " ++ (if ideaHint == "" then "" else show ideaSeverity ++ ": " ++ ideaHint)] ++
+    f "Found" (Just ideaFrom) ++ f "Why not" ideaTo ++
+    ["Note: " ++ n | let n = showNotes ideaNote, n /= ""]
+    where
+        f msg Nothing = []
+        f msg (Just x) | null xs = [msg ++ " remove it."]
+                       | otherwise = (msg ++ ":") : map ("  "++) xs
+            where xs = lines $ tt x
+
+-}
+
+idea2Message :: Idea -> String
+idea2Message idea = unlines $ [ideaDecl idea, ideaFrom idea] ++ maybeToList (ideaTo idea) ++ (map show $ ideaNote idea)
+
+-- ---------------------------------------------------------------------
+
+severity2DisgnosticSeverity :: Severity -> DiagnosticSeverity
+severity2DisgnosticSeverity Ignore     = DsInfo
+severity2DisgnosticSeverity Suggestion = DsHint
+severity2DisgnosticSeverity Warning    = DsWarning
+severity2DisgnosticSeverity Error      = DsError
+
+-- ---------------------------------------------------------------------
+
+ss2Range :: SrcSpan -> Range
+ss2Range ss = Range ps pe
+  where
+    ps = Position (srcSpanStartLine ss) (srcSpanStartColumn ss)
+    pe = Position (srcSpanEndLine ss)   (srcSpanEndColumn ss)
 
 -- ---------------------------------------------------------------------
 

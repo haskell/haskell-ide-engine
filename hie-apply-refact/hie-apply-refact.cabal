@@ -26,6 +26,7 @@ library
                      , extra
                      , filepath
                      , ghc-mod
+                     , haskell-src-exts
                      , hie-base
                      , hie-plugin-api
                      , hlint

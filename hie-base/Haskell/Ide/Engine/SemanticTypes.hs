@@ -5,6 +5,7 @@
 module Haskell.Ide.Engine.SemanticTypes where
 
 import           Data.Aeson
+import           Data.Aeson.Types
 import qualified Data.HashMap.Strict as H
 import           Data.Swagger (ToSchema)
 import qualified Data.Text as T
@@ -79,6 +80,63 @@ data AST = AST {
 instance ToSchema AST
 
 -- ---------------------------------------------------------------------
+-- |A diagnostic report, such as compiler errors/warning, or from a linter
+-- Based on https://github.com/Microsoft/language-server-protocol/blob/master/protocol.md#diagnostic
+
+-- Nasty: also implemeented in
+-- https://github.com/alanz/haskell-lsp/blob/master/src/Language/Haskell/LSP/TH/DataTypesJSON.hs
+-- which is a client of hie.
+
+data Diagnostic =
+  Diagnostic
+    { rangeDiagnostic    :: Range
+    , severityDiagnostic :: Maybe DiagnosticSeverity
+    , codeDiagnostic     :: Maybe String
+    , sourceDiagnostic   :: Maybe String
+    , messageDiagnostic  :: String
+    } deriving (Show, Read, Eq,Generic)
+instance ToSchema Diagnostic
+
+-- -------------------------------------
+
+data Range =
+  Range
+    { startRange :: Position
+    , endRange   :: Position
+    } deriving (Show, Read, Eq, Generic)
+instance ToSchema Range
+
+data Position =
+  Position
+    { linePosition       :: Int
+    , characterPosition  :: Int
+    } deriving (Show, Read, Eq, Generic)
+instance ToSchema Position
+
+-- -------------------------------------
+
+data DiagnosticSeverity
+  = DsError   -- ^ Error = 1,
+  | DsWarning -- ^ Warning = 2,
+  | DsInfo    -- ^ Info = 3,
+  | DsHint    -- ^ Hint = 4
+  deriving (Eq,Ord,Show,Read, Generic)
+instance ToSchema DiagnosticSeverity
+
+instance ToJSON DiagnosticSeverity where
+  toJSON DsError   = Number 1
+  toJSON DsWarning = Number 2
+  toJSON DsInfo    = Number 3
+  toJSON DsHint    = Number 4
+
+instance FromJSON DiagnosticSeverity where
+  parseJSON (Number 1) = pure DsError
+  parseJSON (Number 2) = pure DsWarning
+  parseJSON (Number 3) = pure DsInfo
+  parseJSON (Number 4) = pure DsHint
+  parseJSON _          = mempty
+
+-- ---------------------------------------------------------------------
 -- JSON instances
 
 instance ValidResponse TypeInfo where
@@ -135,3 +193,47 @@ instance ValidResponse AST where
     <*> v .: "renamed"
     <*> v .: "typechecked"
     <*> v .: "exports"
+
+-- ---------------------------------------------------------------------
+
+instance ValidResponse [Diagnostic] where
+  jsWrite ss = H.fromList ["ok" .= ss]
+  jsRead o = o .: "ok"
+
+instance ValidResponse Diagnostic where
+  jsWrite (Diagnostic r ms mc msrc m) = H.fromList $ stripNulls
+               [ "range"    .= r
+               , "severity" .= ms
+               , "code"     .= mc
+               , "source"   .= msrc
+               , "message"  .= m
+               ]
+
+
+instance ToJSON Diagnostic where
+  toJSON d = Object (jsWrite d)
+
+instance FromJSON Diagnostic where
+  parseJSON = withObject "Diagnostic" $ \v -> Diagnostic <$> v .: "range" <*> v .:? "severity" <*> v .:? "code"
+                                                         <*> v .:? "source" <*> v .: "message"
+
+stripNulls :: [Pair] -> [Pair]
+stripNulls xs = filter (\(_,v) -> v /= Null) xs
+
+instance ToJSON Range where
+  toJSON (Range s e) = object
+           [ "start" .= s
+           , "end"   .= e
+           ]
+
+instance FromJSON Range where
+  parseJSON = withObject "Range" $ \v -> Range <$> v .: "start" <*> v .: "end"
+
+instance ToJSON Position where
+  toJSON (Position l c) = object
+           [ "line"   .= l
+           , "column" .= c
+           ]
+
+instance FromJSON Position where
+  parseJSON = withObject "Position" $ \v -> Position <$> v .: "line" <*> v .: "column"

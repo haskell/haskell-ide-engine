@@ -12,7 +12,7 @@ packages:
 - hie-docs-generator
 - location:
     git: https://github.com/alanz/haskell-lsp.git
-    commit: 34cff891b4770b2b467eae2a3064454ff313d3a7
+    commit: a50571aff3472b6d6ce6216b9c8753e92a456fd1
   extra-dep: true
 - location:
     git: https://github.com/alanz/HaRe.git

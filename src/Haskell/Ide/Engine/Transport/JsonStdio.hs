@@ -19,7 +19,7 @@ import           System.IO
 -- TODO: Can pass in a handle, then it is general
 jsonStdioTransport :: Bool -> TChan ChannelRequest -> IO ()
 jsonStdioTransport oneShot cin = do
-  cout <- atomically $ newTChan :: IO (TChan ChannelResponse)
+  cout <- atomically newTChan :: IO (TChan ChannelResponse)
   hSetBuffering stdout NoBuffering
   _ <- forkIO $ P.runEffect (parseFrames PB.stdin P.>-> parseToJsonPipe oneShot cin cout 1)
   P.runEffect (tchanProducer oneShot cout P.>-> encodePipe P.>-> serializePipe P.>-> PB.stdout)

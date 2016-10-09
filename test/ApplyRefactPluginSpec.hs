@@ -94,3 +94,22 @@ applyRefactSpec = do
                                      )))
 
     -- ---------------------------------
+
+    it "returns hints as diagnostics" $ do
+
+      let req = IdeRequest "lint" (Map.fromList [("file",ParamValP $ ParamFile "./test/testdata/ApplyRefact.hs")
+                                                ])
+      r <- dispatchRequest req
+      r `shouldBe`
+        Just (IdeResponseOk (jsWrite (HieDiff
+                                      { dFirst = "./test/testdata/ApplyRefact.hs"
+                                      , dSecond = "changed"
+                                      , dDiff =
+                                        ("2c2\n"++
+                                         "< main = (putStrLn \"hello\")\n"++
+                                         "---\n"++
+                                         "> main = putStrLn \"hello\"\n")
+                                      }
+                                     )))
+
+    -- ---------------------------------
