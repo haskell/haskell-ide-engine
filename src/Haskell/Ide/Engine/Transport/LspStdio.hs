@@ -59,7 +59,7 @@ run cin = flip E.catches handlers $ do
   U.logs $ "\n\n*************************forked responseHandler"
   -- Give responseHandler a chance to start
   -- TODO: put something more reliable in place.
-  threadDelay 300000
+  threadDelay 1000000
 
   flip E.finally finalProc $ do
     CTRL.run (cin,cout) hieHandlers hieOptions
@@ -71,9 +71,6 @@ run cin = flip E.catches handlers $ do
     finalProc = L.removeAllHandlers
     ioExcept   (e :: E.IOException)       = print e >> return 1
     someExcept (e :: E.SomeException)     = print e >> return 1
-
--- instance Default (TChan ChannelRequest) where
---   def = error $ "code smell, default for TChan ChannelRequest does not make sense"
 
 -- ---------------------------------------------------------------------
 
@@ -109,33 +106,33 @@ hieHandlers
 
 -- ---------------------------------------------------------------------
 
-renameRequestHandler :: (TChan ChannelRequest,TChan ChannelResponse) -> J.RenameRequest -> IO J.RenameResponse
-renameRequestHandler cin (J.RequestMessage _ origId _ _) = do
+renameRequestHandler :: GUI.Handler (TChan ChannelRequest,TChan ChannelResponse) J.RenameRequest
+renameRequestHandler cin sf (J.RequestMessage _ origId _ _) = do
   let loc = def :: J.Location
       res  = GUI.makeResponseMessage origId loc
-  return res
+  sf (J.encode res)
 
 -- ---------------------------------------------------------------------
 
-codeLensHandler :: (TChan ChannelRequest,TChan ChannelResponse) -> J.CodeLensRequest -> IO J.CodeLensResponse
-codeLensHandler cin (J.RequestMessage _ origId _ _) = do
+codeLensHandler :: GUI.Handler (TChan ChannelRequest,TChan ChannelResponse) J.CodeLensRequest
+codeLensHandler (cin,cout) sf (J.RequestMessage _ origId _ _) = do
   let
     lens = J.CodeLens (J.Range (J.Position 1 1) (J.Position 1 10)) (Just (J.Command "codeLensCmd" "actionCmd" Nothing)) Nothing
     lenses = [lens]
     res = GUI.makeResponseMessage origId lenses
-  return res
+  sf (J.encode res)
 
 -- ---------------------------------------------------------------------
 
-didOpenTextDocumentNotificationHandler :: (TChan ChannelRequest,TChan ChannelResponse) -> J.DidOpenTextDocumentNotification -> IO ()
-didOpenTextDocumentNotificationHandler cin notification = do
+didOpenTextDocumentNotificationHandler :: GUI.Handler (TChan ChannelRequest,TChan ChannelResponse) J.DidOpenTextDocumentNotification
+didOpenTextDocumentNotificationHandler (cin,cout) sf notification = do
   U.logm "\n******** got didOpenTextDocumentNotificationHandler, ignoring"
 
 -- ---------------------------------------------------------------------
 
-didSaveTextDocumentNotificationHandler :: (TChan ChannelRequest,TChan ChannelResponse)
-                                       -> J.DidSaveTextDocumentNotification -> IO ()
-didSaveTextDocumentNotificationHandler (cin,cout) notification = do
+didSaveTextDocumentNotificationHandler :: GUI.Handler (TChan ChannelRequest,TChan ChannelResponse)
+                                                      J.DidSaveTextDocumentNotification
+didSaveTextDocumentNotificationHandler (cin,cout) sf notification = do
   U.logm $ "\n****** didSaveTextDocumentNotificationHandler: processing"
   let J.TextDocumentIdentifier doc = J.textDocumentDidSaveTextDocumentParams $ fromJust $ J.paramsNotificationMessage notification
       fileName = drop (length ("file://"::String)) doc
