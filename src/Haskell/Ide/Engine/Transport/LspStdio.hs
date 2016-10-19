@@ -101,14 +101,75 @@ instance Default ReactorState where
 
 -- ---------------------------------------------------------------------
 
+-- | The monad used in the reactor
 type R a = StateT ReactorState IO a
 
 -- ---------------------------------------------------------------------
+-- reactor monad functions
+-- ---------------------------------------------------------------------
+
+setSendFunc :: (BSL.ByteString -> IO ()) -> R ()
+setSendFunc sf = modify' (\s -> s {sender = Just sf})
+
+-- ---------------------------------------------------------------------
+
+reactorSend :: (J.ToJSON a) => a -> R ()
+reactorSend msg = do
+  s <- get
+  case sender s of
+    Nothing -> error "reactorSend: send function not initialised yet"
+    Just sf -> liftIO $ sf (J.encode msg)
+
+reactorSend' :: ((BSL.ByteString -> IO ()) -> IO ()) -> R ()
+reactorSend' f = do
+  msf <- gets sender
+  case msf of
+    Nothing -> error "reactorSend': send function not initialised yet"
+    Just sf -> liftIO $ f sf
+
+-- ---------------------------------------------------------------------
+
+nextReqId :: R RequestId
+nextReqId = do
+  s <- get
+  let r = reqId s
+  put s { reqId = r + 1}
+  return r
+
+-- ---------------------------------------------------------------------
+
+keepOriginal :: RequestId -> GUI.OutMessage -> R ()
+keepOriginal rid om = modify' (\s -> s { wip = Map.insert rid om (wip s)})
+
+-- ---------------------------------------------------------------------
+
+lookupOriginal :: RequestId -> R (Maybe GUI.OutMessage)
+lookupOriginal rid = do
+  w <- gets wip
+  return $ Map.lookup rid w
+
+-- ---------------------------------------------------------------------
+
+sendErrorResponse :: Int -> String -> R ()
+sendErrorResponse origId msg = reactorSend' (\sf -> GUI.sendErrorResponseS sf origId msg)
+
+sendErrorLog :: String -> R ()
+sendErrorLog  msg = reactorSend' (\sf -> GUI.sendErrorLogS  sf msg)
+
+sendErrorShow :: String -> R ()
+sendErrorShow msg = reactorSend' (\sf -> GUI.sendErrorShowS sf msg)
+
+-- ---------------------------------------------------------------------
+-- reactor monad functions end
+-- ---------------------------------------------------------------------
 
 
+-- | The single point that all events flow through, allowing management of state
+-- to stitch replies and requests together from the two asynchronous sides: lsp
+-- server and hie dispatcher
 reactor :: ReactorState -> TChan ChannelRequest -> TChan ChannelResponse -> TChan ReactorInput -> IO ()
 reactor st cin cout inp = do
-  (flip evalStateT) st $ forever $ do
+  flip evalStateT st $ forever $ do
     inval <- liftIO $ atomically $ readTChan inp
     case inval of
       HandlerRequest sf (GUI.RspFromClient rm) -> do
@@ -162,51 +223,27 @@ reactor st cin cout inp = do
         setSendFunc sf
         liftIO $ U.logs $ "reactor:got HandlerRequest:" ++ show om
 
+
+      -- -------------------------------
+
       DispatcherResponse rsp@(CResp pid rid res)-> do
         liftIO $ U.logs $ "reactor:got DispatcherResponse:" ++ show rsp
         morig <- lookupOriginal rid
         case morig of
           Nothing -> do
-            let smr = J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just res)
-            reactorSend smr
+            sendErrorLog $ "reactor:could not find original LSP message for: " ++ show rsp
           Just orig -> do
             liftIO $ U.logs $ "reactor: original was:" ++ show orig
+            case orig of
+              GUI.NotDidOpenTextDocument _ -> do
+                let smr = J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just res)
+                reactorSend smr
+              GUI.NotDidSaveTextDocument _ -> do
+                let smr = J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just res)
+                reactorSend smr
+              other -> do
+                sendErrorLog $ "reactor:not processing for original LSP message : " ++ show other
 
-
--- ---------------------------------------------------------------------
-
-setSendFunc :: (BSL.ByteString -> IO ()) -> R ()
-setSendFunc sf = modify' (\s -> s {sender = Just sf})
-
--- ---------------------------------------------------------------------
-
-reactorSend :: (J.ToJSON a) => a -> R ()
-reactorSend msg = do
-  s <- get
-  case sender s of
-    Nothing -> error "reactorSend: send function not initialised yet"
-    Just sf -> liftIO $ sf (J.encode msg)
-
--- ---------------------------------------------------------------------
-
-nextReqId :: R RequestId
-nextReqId = do
-  s <- get
-  let r = reqId s
-  put s { reqId = r + 1}
-  return r
-
--- ---------------------------------------------------------------------
-
-keepOriginal :: RequestId -> GUI.OutMessage -> R ()
-keepOriginal rid om = modify' (\s -> s { wip = Map.insert rid om (wip s)})
-
--- ---------------------------------------------------------------------
-
-lookupOriginal :: RequestId -> R (Maybe GUI.OutMessage)
-lookupOriginal rid = do
-  w <- gets wip
-  return $ Map.lookup rid w
 
 -- ---------------------------------------------------------------------
 
