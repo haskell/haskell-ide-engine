@@ -1,11 +1,14 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Haskell.Ide.Engine.SemanticTypes where
 
 import           Data.Aeson
 import           Data.Aeson.Types
+import           Data.Algorithm.Diff
+import           Data.Algorithm.DiffOutput
 import qualified Data.HashMap.Strict as H
 import           Data.Swagger (ToSchema)
 import qualified Data.Text as T
@@ -56,8 +59,11 @@ data HieDiff = HieDiff
     >   False ->
     >             x
     -}
+  -- , dGroupedDiff :: !([Diff [String]])
   } deriving (Show,Eq,Generic)
 instance ToSchema HieDiff
+deriving instance Generic (Diff [String])
+instance ToSchema (Diff [String])
 
 -- ---------------------------------------------------------------------
 
@@ -168,6 +174,13 @@ instance ValidResponse RefactorResult where
   jsWrite (RefactorResult t) = H.fromList ["refactor" .= t]
   jsRead v = RefactorResult <$> v .: "refactor"
 
+instance ToJSON RefactorResult where
+  toJSON x = Object (jsWrite x)
+
+instance FromJSON RefactorResult where
+  parseJSON (Object o) = jsRead o
+  parseJSON _          = mempty
+
 instance ValidResponse HieDiff where
   jsWrite d = H.fromList ["diff" .= d]
   jsRead v =  v .: "diff"
@@ -185,6 +198,20 @@ instance FromJSON HieDiff where
     <*> (v .: "second")
     <*> (v .: "diff")
 
+{-
+instance (ToJSON a) => ToJSON (Diff a) where
+  toJSON (First  x) = object [ "first" .= toJSON x]
+  toJSON (Second x) = object [ "second" .= toJSON x]
+  toJSON (Both x y) = object [ "both" .= toJSON (x,y)]
+
+instance (FromJSON a) => FromJSON (Diff a) where
+  parseJSON = withObject "Diff a" $ \v ->
+    case H.toList v of
+      [("first",_)]  -> First  <$> v .: "first"
+      [("second",_)] -> Second <$> v .: "second"
+      [("both",_)]   -> (\(x,y) -> Both x y) <$> v .: "both"
+      _              -> mempty
+-}
 -- ---------------------------------------------------------------------
 
 instance ValidResponse ModuleList where

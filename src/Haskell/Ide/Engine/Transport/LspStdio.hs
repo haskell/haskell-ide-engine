@@ -26,6 +26,7 @@ import           Data.Maybe
 import qualified Data.Text as T
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.Control  as CTRL
 import qualified Language.Haskell.LSP.Core     as GUI
@@ -212,7 +213,7 @@ reactor st cin cout inp = do
         rid <- nextReqId
         let hreq = CReq "hare" rid (IdeRequest "rename" (Map.fromList
                                                     [("file",     ParamFileP (T.pack fileName))
-                                                    ,("start_pos",ParamValP $ ParamPos (toPos (l,c)))
+                                                    ,("start_pos",ParamValP $ ParamPos (toPos (l+1,c)))
                                                     ,("name",     ParamValP $ ParamText (T.pack newName))
                                                     ])) cout
         liftIO $ atomically $ writeTChan cin hreq
@@ -241,6 +242,15 @@ reactor st cin cout inp = do
               GUI.NotDidSaveTextDocument _ -> do
                 let smr = J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just res)
                 reactorSend smr
+              GUI.ReqRename req -> do
+                case res of
+                  IdeResponseFail  err -> sendErrorResponse (J.idRequestMessage req) (show err)
+                  IdeResponseError err -> sendErrorResponse (J.idRequestMessage req) (show err)
+                  IdeResponseOk r -> do
+                    let J.Success vv = J.fromJSON (J.Object r) :: J.Result RefactorResult
+                    -- TODO: Use parsePrettyDiffs to convert the string diff to
+                    -- something that can be turned into a document edit
+                    sendErrorResponse (J.idRequestMessage req) (show vv)
               other -> do
                 sendErrorLog $ "reactor:not processing for original LSP message : " ++ show other
 
