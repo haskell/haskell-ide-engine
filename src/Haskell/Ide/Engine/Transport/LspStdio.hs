@@ -16,6 +16,7 @@ import qualified Control.Exception as E
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
+import           Control.Monad.Trans.State.Lazy
 import qualified Data.Aeson as J
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default
@@ -35,7 +36,6 @@ import qualified Pipes.Prelude as P
 import           System.Exit
 import           System.IO
 import qualified System.Log.Logger as L
-
 
 -- ---------------------------------------------------------------------
 {-# ANN module ("hlint: ignore Eta reduce" :: String) #-}
@@ -60,7 +60,7 @@ run cin = flip E.catches handlers $ do
   U.logs $ "\n\n*************************about to fork responseHandler"
   rhpid <- forkIO $ responseHandler cout rin
   U.logs $ "\n\n*********************forked responseHandler:rhpid=" ++ show rhpid
-  rpid <- forkIO $ reactor (ReactorState Nothing) cin cout rin
+  rpid <- forkIO $ reactor def cin cout rin
   U.logs $ "\n\n*************************forked reactor:rpid=" ++ show rpid
 
   flip E.finally finalProc $ do
@@ -91,45 +91,122 @@ data ReactorInput = DispatcherResponse ChannelResponse
 
 data ReactorState =
   ReactorState
-    { sender :: Maybe (BSL.ByteString -> IO ())
+    { sender :: !(Maybe (BSL.ByteString -> IO ()))
+    , reqId  :: !RequestId
+    , wip    :: Map.Map RequestId GUI.OutMessage
     }
 
-reactor :: ReactorState -> TChan ChannelRequest -> TChan ChannelResponse -> TChan ReactorInput -> IO ()
-reactor s cin cout inp = do
-  inval <- liftIO $ atomically $ readTChan inp
-  s' <- case inval of
-    HandlerRequest sf (GUI.RspFromClient rm) -> do
-      U.logs $ "reactor:got RspFromClient:" ++ show rm
-      return s {sender = Just sf}
-    HandlerRequest sf (GUI.NotDidSaveTextDocument notification) -> do
-      U.logm $ "\n****** reactor: processing NotDidSaveTextDocument"
-      let J.TextDocumentIdentifier doc = J.textDocumentDidSaveTextDocumentParams $ fromJust $ J.paramsNotificationMessage notification
-          fileName = drop (length ("file://"::String)) doc
-      U.logs $ "\n********* doc=" ++ show doc
-      let req = CReq "applyrefact" 1 (IdeRequest "lint" (Map.fromList [("file", ParamFileP (T.pack fileName))])) cout
-      atomically $ writeTChan cin req
-      yield
-      return s {sender = Just sf}
-    HandlerRequest sf om -> do
-      U.logs $ "reactor:got HandlerRequest:" ++ show om
-      return s {sender = Just sf}
-    DispatcherResponse rsp@(CResp pid rid res)-> do
-      U.logs $ "reactor:got DispatcherResponse:" ++ show rsp
-      -- CTRL.sendResponseMessage $ GUI.makeResponseMessage rid res
-      let smr = J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just res)
-      U.logs $ "\n\n***********responseHandler: smr :" ++ show smr
-      reactorSend s smr
-      U.logs $ "\n\n***********responseHandler: smr sent"
-      return s
-  reactor s' cin cout inp
+instance Default ReactorState where
+  def = ReactorState Nothing 0 Map.empty
 
 -- ---------------------------------------------------------------------
 
-reactorSend :: (J.ToJSON a) => ReactorState -> a -> IO ()
-reactorSend s msg =
+type R a = StateT ReactorState IO a
+
+-- ---------------------------------------------------------------------
+
+
+reactor :: ReactorState -> TChan ChannelRequest -> TChan ChannelResponse -> TChan ReactorInput -> IO ()
+reactor st cin cout inp = do
+  (flip evalStateT) st $ forever $ do
+    inval <- liftIO $ atomically $ readTChan inp
+    case inval of
+      HandlerRequest sf (GUI.RspFromClient rm) -> do
+        setSendFunc sf
+        liftIO $ U.logs $ "reactor:got RspFromClient:" ++ show rm
+
+
+      HandlerRequest sf n@(GUI.NotDidOpenTextDocument notification) -> do
+        setSendFunc sf
+        liftIO $ U.logm $ "\n****** reactor: processing NotDidOpenTextDocument"
+        -- TODO: learn enough lens to do the following more cleanly
+        let doc = J.uriTextDocumentItem $ J.textDocumentDidOpenTextDocumentNotificationParams
+                                        $ fromJust $ J.paramsNotificationMessage notification
+            fileName = drop (length ("file://"::String)) doc
+        liftIO $ U.logs $ "\n********* doc=" ++ show doc
+        rid <- nextReqId
+        let req = CReq "applyrefact" rid (IdeRequest "lint" (Map.fromList [("file", ParamFileP (T.pack fileName))])) cout
+        liftIO $ atomically $ writeTChan cin req
+        keepOriginal rid n
+
+      HandlerRequest sf n@(GUI.NotDidSaveTextDocument notification) -> do
+        setSendFunc sf
+        liftIO $ U.logm $ "\n****** reactor: processing NotDidSaveTextDocument"
+        let J.TextDocumentIdentifier doc = J.textDocumentDidSaveTextDocumentParams $ fromJust $ J.paramsNotificationMessage notification
+            fileName = drop (length ("file://"::String)) doc
+        liftIO $ U.logs $ "\n********* doc=" ++ show doc
+        rid <- nextReqId
+        let req = CReq "applyrefact" rid (IdeRequest "lint" (Map.fromList [("file", ParamFileP (T.pack fileName))])) cout
+        liftIO $ atomically $ writeTChan cin req
+        keepOriginal rid n
+
+      HandlerRequest sf r@(GUI.ReqRename req) -> do
+        setSendFunc sf
+        liftIO $ U.logs $ "reactor:got RenameRequest:" ++ show req
+        let params = fromJust $ J.paramsRequestMessage req
+            J.TextDocumentIdentifier doc = J.textDocumentRenameRequestParams params
+            fileName = drop (length ("file://"::String)) doc
+            J.Position l c = J.positionRenameRequestParams params
+            newName  = J.newNameRenameRequestParams params
+        rid <- nextReqId
+        let hreq = CReq "hare" rid (IdeRequest "rename" (Map.fromList
+                                                    [("file",     ParamFileP (T.pack fileName))
+                                                    ,("start_pos",ParamValP $ ParamPos (toPos (l,c)))
+                                                    ,("name",     ParamValP $ ParamText (T.pack newName))
+                                                    ])) cout
+        liftIO $ atomically $ writeTChan cin hreq
+        keepOriginal rid r
+
+
+      HandlerRequest sf om -> do
+        setSendFunc sf
+        liftIO $ U.logs $ "reactor:got HandlerRequest:" ++ show om
+
+      DispatcherResponse rsp@(CResp pid rid res)-> do
+        liftIO $ U.logs $ "reactor:got DispatcherResponse:" ++ show rsp
+        morig <- lookupOriginal rid
+        case morig of
+          Nothing -> do
+            let smr = J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just res)
+            reactorSend smr
+          Just orig -> do
+            liftIO $ U.logs $ "reactor: original was:" ++ show orig
+
+
+-- ---------------------------------------------------------------------
+
+setSendFunc :: (BSL.ByteString -> IO ()) -> R ()
+setSendFunc sf = modify' (\s -> s {sender = Just sf})
+
+-- ---------------------------------------------------------------------
+
+reactorSend :: (J.ToJSON a) => a -> R ()
+reactorSend msg = do
+  s <- get
   case sender s of
     Nothing -> error "reactorSend: send function not initialised yet"
-    Just sf -> sf (J.encode msg)
+    Just sf -> liftIO $ sf (J.encode msg)
+
+-- ---------------------------------------------------------------------
+
+nextReqId :: R RequestId
+nextReqId = do
+  s <- get
+  let r = reqId s
+  put s { reqId = r + 1}
+  return r
+
+-- ---------------------------------------------------------------------
+
+keepOriginal :: RequestId -> GUI.OutMessage -> R ()
+keepOriginal rid om = modify' (\s -> s { wip = Map.insert rid om (wip s)})
+
+-- ---------------------------------------------------------------------
+
+lookupOriginal :: RequestId -> R (Maybe GUI.OutMessage)
+lookupOriginal rid = do
+  w <- gets wip
+  return $ Map.lookup rid w
 
 -- ---------------------------------------------------------------------
 
@@ -151,10 +228,11 @@ hieHandlers
 -- ---------------------------------------------------------------------
 
 renameRequestHandler :: GUI.Handler (TChan ReactorInput) J.RenameRequest
-renameRequestHandler rin sf (J.RequestMessage _ origId _ _) = do
-  let loc = def :: J.Location
-      res  = GUI.makeResponseMessage origId loc
-  sf (J.encode res)
+renameRequestHandler rin sf req@(J.RequestMessage _ origId _ _) = do
+  atomically $ writeTChan rin  (HandlerRequest sf (GUI.ReqRename req))
+  -- let loc = def :: J.Location
+  --     res  = GUI.makeResponseMessage origId loc
+  -- sf (J.encode res)
 
 -- ---------------------------------------------------------------------
 
@@ -170,7 +248,8 @@ codeLensHandler rin sf (J.RequestMessage _ origId _ _) = do
 
 didOpenTextDocumentNotificationHandler :: GUI.Handler (TChan ReactorInput) J.DidOpenTextDocumentNotification
 didOpenTextDocumentNotificationHandler rin sf notification = do
-  U.logm "\n******** got didOpenTextDocumentNotificationHandler, ignoring"
+  U.logm "\n******** got didOpenTextDocumentNotificationHandler, processing"
+  atomically $ writeTChan rin  (HandlerRequest sf (GUI.NotDidOpenTextDocument notification))
 
 -- ---------------------------------------------------------------------
 
@@ -178,13 +257,7 @@ didSaveTextDocumentNotificationHandler :: GUI.Handler (TChan ReactorInput)
                                                       J.DidSaveTextDocumentNotification
 didSaveTextDocumentNotificationHandler rin sf notification = do
   U.logm $ "\n****** didSaveTextDocumentNotificationHandler: processing"
-  atomically $ writeTChan rin  (HandlerRequest sf (GUI.NotDidSaveTextDocument notification))
-  -- let J.TextDocumentIdentifier doc = J.textDocumentDidSaveTextDocumentParams $ fromJust $ J.paramsNotificationMessage notification
-  --     fileName = drop (length ("file://"::String)) doc
-  -- U.logs $ "\n********* doc=" ++ show doc
-  -- -- let req = CReq "ghcmod" 1 (IdeRequest "lint" (Map.fromList [("file", ParamFileP (T.pack fileName))])) cout
-  -- let req = CReq "applyrefact" 1 (IdeRequest "lint" (Map.fromList [("file", ParamFileP (T.pack fileName))])) cout
-  -- atomically $ writeTChan cin req
+  atomically $ writeTChan rin (HandlerRequest sf (GUI.NotDidSaveTextDocument notification))
 
 -- ---------------------------------------------------------------------
 
