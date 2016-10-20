@@ -101,14 +101,20 @@ applyRefactSpec = do
                                                 ])
       r <- dispatchRequest req
       r `shouldBe`
-        Just (IdeResponseOk (jsWrite (HieDiff
-                                      { dFirst = "./test/testdata/ApplyRefact.hs"
-                                      , dSecond = "changed"
-                                      , dDiff =
-                                        ("2c2\n"++
-                                         "< main = (putStrLn \"hello\")\n"++
-                                         "---\n"++
-                                         "> main = putStrLn \"hello\"\n")
+        Just (IdeResponseOk (jsWrite (FileDiagnostics
+                                      { fdFileName = "file://./test/testdata/ApplyRefact.hs"
+                                      , fdDiagnostics =
+                                        [ Diagnostic (Range (Position 2 8) (Position 2 26))
+                                                     (Just DsHint)
+                                                     (Just "Redundant bracket")
+                                                     (Just "hlint")
+                                                     "main\n(putStrLn \"hello\")\nputStrLn \"hello\"\n"
+                                        , Diagnostic (Range (Position 4 9) (Position 4 16))
+                                                     (Just DsHint)
+                                                     (Just "Redundant bracket")
+                                                     (Just "hlint")
+                                                     "foo\n(x + 1)\nx + 1\n"
+                                        ]
                                       }
                                      )))
 

@@ -8,7 +8,6 @@ module Haskell.Ide.Engine.SemanticTypes where
 import           Data.Aeson
 import           Data.Aeson.Types
 import           Data.Algorithm.Diff
-import           Data.Algorithm.DiffOutput
 import qualified Data.HashMap.Strict as H
 import           Data.Swagger (ToSchema)
 import qualified Data.Text as T
@@ -237,6 +236,9 @@ instance ValidResponse FileDiagnostics where
               [ "uri"         .= fn
               , "diagnostics" .= ds
               ]
+  jsRead v = FileDiagnostics
+    <$> v .: "uri"
+    <*> v .: "diagnostics"
 
 -- ---------------------------------------------------------------------
 
@@ -252,6 +254,12 @@ instance ValidResponse Diagnostic where
                , "source"   .= msrc
                , "message"  .= m
                ]
+  jsRead v = Diagnostic
+    <$> v .: "range"
+    <*> v .: "severity"
+    <*> v .: "code"
+    <*> v .: "source"
+    <*> v .: "message"
 
 
 instance ToJSON Diagnostic where

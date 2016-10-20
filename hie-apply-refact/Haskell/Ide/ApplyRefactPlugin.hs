@@ -57,8 +57,8 @@ applyOneCmd :: CommandFunc HieDiff
 applyOneCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
-    Right (ParamFile fileName :& ParamPos pos :& RNil) -> do
-      res <- liftIO $ applyHint (T.unpack fileName) (Just pos)
+    Right (ParamFile file :& ParamPos pos :& RNil) -> do
+      res <- liftIO $ applyHint (T.unpack file) (Just pos)
       logm $ "applyOneCmd:res=" ++ show res
       case res of
         Left err -> return $ IdeResponseFail (IdeError PluginError
@@ -72,8 +72,8 @@ applyAllCmd :: CommandFunc HieDiff
 applyAllCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
-    Right (ParamFile fileName :& RNil) -> do
-      res <- liftIO $ applyHint (T.unpack fileName) Nothing
+    Right (ParamFile file :& RNil) -> do
+      res <- liftIO $ applyHint (T.unpack file) Nothing
       logm $ "applyAllCmd:res=" ++ show res
       case res of
         Left err -> return $ IdeResponseFail (IdeError PluginError
@@ -86,14 +86,14 @@ lintCmd :: CommandFunc FileDiagnostics
 lintCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
-    Right (ParamFile fileName :& RNil) -> do
-      -- res <- liftIO $ applyHint (T.unpack fileName) Nothing
-      res <- liftIO $ runEitherT $ runHlint (T.unpack fileName) []
+    Right (ParamFile file :& RNil) -> do
+      -- res <- liftIO $ applyHint (T.unpack file) Nothing
+      res <- liftIO $ runEitherT $ runHlint (T.unpack file) []
       logm $ "lint:res=" ++ show res
       case res of
         Left err -> return $ IdeResponseFail (IdeError PluginError
                       (T.pack $ "lint: " ++ show err) Null)
-        Right fs -> return (IdeResponseOk (FileDiagnostics ("file://" ++ T.unpack fileName) (map hintToDiagnostic fs)))
+        Right fs -> return (IdeResponseOk (FileDiagnostics ("file://" ++ T.unpack file) (map hintToDiagnostic fs)))
 
 {-
 -- | An idea suggest by a 'Hint'.
@@ -195,7 +195,7 @@ runHlint file args =
      pure $ applyHints classify hint [res]
 
 showParseError :: Hlint.ParseError -> String
-showParseError (Hlint.ParseError loc message content) = unlines [show loc, message, content]
+showParseError (Hlint.ParseError location message content) = unlines [show location, message, content]
 
 makeDiffResult :: FilePath -> T.Text -> IO HieDiff
 makeDiffResult orig new = do

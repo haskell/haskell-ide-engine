@@ -93,12 +93,18 @@
                                 (advice-add 'hie-handle-first-plugins-command :after
                                             (lambda (&rest r)
                                               (progn
-                                                (setq hie-async-returned t)))))
+                                                (setq hie-async-returned t))))
+                                (copy-file (concat base-dir "/test/testdata/HaReRename.hs")
+                                           (concat base-dir "/test/testdata/HaReRename.hs.keep"))
+                                )
                     (before-each (setq response nil)
                                  (find-file (concat base-dir "/test/testdata/HaReRename.hs")))
                     (after-each (with-current-buffer (hie-process-tcp-buffer)
                                   (erase-buffer)))
-                    (after-all (hie-kill-process))
+                    (after-all (hie-kill-process)
+                               (copy-file (concat base-dir "/test/testdata/HaReRename.hs.keep")
+                                          (concat base-dir "/test/testdata/HaReRename.hs"))
+                               )
                     (it "can get version info"
                         (async-with-timeout async-timeout
                                             (hie-post-message
