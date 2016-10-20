@@ -120,8 +120,11 @@
                           (move-to-column 0)
                           (move-to-line 4)
                           (async-with-timeout async-timeout (hie-mode))
-                          (async-with-timeout async-timeout
-                                              (hie-hare-rename "foo_renamed"))
+                          ;; See https://stackoverflow.com/questions/32961823/how-can-i-test-an-interactive-function-in-emacs
+                          ;; (Thanks @cocreature)
+                          (let ((unread-command-events (listify-key-sequence (kbd "c"))))
+                            (async-with-timeout async-timeout
+                                              (hie-hare-rename "foo_renamed")))
                           (let ((refactored-string (buffer-substring-no-properties (point-min) (point-max))))
                             (revert-buffer nil t)
                             (expect refactored-string :to-equal "\nmain = putStrLn \"hello\"\n\nfoo_renamed :: Int -> Int\nfoo_renamed x = x + 3\n\n"))))

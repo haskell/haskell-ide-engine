@@ -788,17 +788,17 @@ Keymap:
 (defun do-commit()
   "commit the refactoring result."
     (let ((files (list)))
-          (message "files-to-write=%s" (prin1-to-string files-to-write))
+          ;; (message "files-to-write=%s" (prin1-to-string files-to-write))
           (dolist (uf files-to-write)
             (progn
-              (message "uf=%s" (prin1-to-string uf))
+              ;; (message "uf=%s" (prin1-to-string uf))
               (setq files (cons
                            (list uf uf
                            (concat (file-name-sans-extension uf)
                                    ".refactored"
                                    (file-name-extension uf t) ))
                            files))))
-          (message "files=%s" (prin1-to-string files))
+          ;; (message "files=%s" (prin1-to-string files))
           (delete-swp-file-and-buffers files)
           (setq refactoring-committed t)
           (dolist (uf unopened-files)
