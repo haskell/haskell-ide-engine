@@ -18,9 +18,12 @@ import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Control.Monad.Trans.State.Lazy
 import qualified Data.Aeson as J
+import           Data.Algorithm.DiffOutput
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default
+import           Data.List
 import           Data.Either.Utils
+import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import           Data.Maybe
 import qualified Data.Text as T
@@ -32,8 +35,6 @@ import qualified Language.Haskell.LSP.Control  as CTRL
 import qualified Language.Haskell.LSP.Core     as GUI
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 import qualified Language.Haskell.LSP.Utility  as U
-import qualified Pipes.ByteString as PB
-import qualified Pipes.Prelude as P
 import           System.Exit
 import           System.IO
 import qualified System.Log.Logger as L
@@ -248,9 +249,10 @@ reactor st cin cout inp = do
                   IdeResponseError err -> sendErrorResponse (J.idRequestMessage req) (show err)
                   IdeResponseOk r -> do
                     let J.Success vv = J.fromJSON (J.Object r) :: J.Result RefactorResult
-                    -- TODO: Use parsePrettyDiffs to convert the string diff to
-                    -- something that can be turned into a document edit
-                    sendErrorResponse (J.idRequestMessage req) (show vv)
+                    -- sendErrorResponse (J.idRequestMessage req) (show vv)
+                    let we = refactorResultToWorkspaceEdit vv
+                    let rspMsg = GUI.makeResponseMessage (J.idRequestMessage req) we
+                    reactorSend rspMsg
               other -> do
                 sendErrorLog $ "reactor:not processing for original LSP message : " ++ show other
 
@@ -277,9 +279,6 @@ hieHandlers
 renameRequestHandler :: GUI.Handler (TChan ReactorInput) J.RenameRequest
 renameRequestHandler rin sf req@(J.RequestMessage _ origId _ _) = do
   atomically $ writeTChan rin  (HandlerRequest sf (GUI.ReqRename req))
-  -- let loc = def :: J.Location
-  --     res  = GUI.makeResponseMessage origId loc
-  -- sf (J.encode res)
 
 -- ---------------------------------------------------------------------
 
@@ -311,4 +310,70 @@ didSaveTextDocumentNotificationHandler rin sf notification = do
 responseHandlerCb :: GUI.Handler (TChan ReactorInput) J.BareResponseMessage
 responseHandlerCb rin sf resp = do
   U.logs $ "\n******** got ResponseMessage, ignoring:" ++ show resp
+
+-- ---------------------------------------------------------------------
+
+-- TODO: perhaps move this somewhere else, for general use
+refactorResultToWorkspaceEdit :: RefactorResult -> J.WorkspaceEdit
+refactorResultToWorkspaceEdit (RefactorResult diffs) = J.WorkspaceEdit r
+  where
+    r = H.fromList $ map hieDiffToLspEdit diffs
+
+-- TODO: perhaps move this somewhere else, for general use
+hieDiffToLspEdit :: HieDiff -> (T.Text,[J.TextEdit])
+hieDiffToLspEdit (HieDiff f s d) = (T.pack ("file://" ++ f),r)
+  where
+    pd = parsePrettyDiffs d
+    r = map diffOperationToTextEdit pd
+    -- r = error $ "hieDiffToLspEdit:pd=" ++ show r'
+
+diffOperationToTextEdit :: DiffOperation LineRange -> J.TextEdit
+diffOperationToTextEdit (Change fm to) = J.TextEdit r nt
+  where
+    sl = fst $ lrNumbers fm
+    sc = 0
+    s = J.Position (sl - 1) sc -- Note: zero-based lines
+    el = snd $ lrNumbers fm
+    ec = 100000 -- TODO: unsavoury, but not sure how else to do it. Perhaps take the length of the last element of the text to be replaced.
+    e = J.Position (el - 1) ec -- Note: zero-based lines
+    r = J.Range s e
+    nt = intercalate "\r\n" $ lrContents to
+
+{-
+
+Turn
+
+[Change (LineRange {lrNumbers = (3,4), lrContents = ["foo :: Int","foo = 5"]})
+        (LineRange {lrNumbers = (3,4), lrContents = ["foo1 :: Int","foo1 = 5"]})]
+
+-- | Diff Operation  representing changes to apply
+data DiffOperation a = Deletion a LineNo
+            | Addition a LineNo
+            | Change a a
+            deriving (Show,Read,Eq,Ord)
+
+into
+
+interface TextEdit {
+    /**
+     * The range of the text document to be manipulated. To insert
+     * text into a document create a range where start === end.
+     */
+    range: Range;
+
+    /**
+     * The string to be inserted. For delete operations use an
+     * empty string.
+     */
+    newText: string;
+}
+
+
+data TextEdit =
+  TextEdit
+    { rangeTextEdit   :: Range
+    , newTextTextEdit :: String
+    } deriving (Show,Read,Eq)
+
+-}
 
