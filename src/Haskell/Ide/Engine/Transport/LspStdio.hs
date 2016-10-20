@@ -211,7 +211,7 @@ reactor st cin cout inp = do
         rid <- nextReqId
         let hreq = CReq "hare" rid (IdeRequest "rename" (Map.fromList
                                                     [("file",     ParamFileP (T.pack fileName))
-                                                    ,("start_pos",ParamValP $ ParamPos (toPos (l+1,c)))
+                                                    ,("start_pos",ParamValP $ ParamPos (toPos (l+1,c+1)))
                                                     ,("name",     ParamValP $ ParamText (T.pack newName))
                                                     ])) cout
         liftIO $ atomically $ writeTChan cin hreq
@@ -264,17 +264,25 @@ hieOptions = def
 
 hieHandlers :: GUI.Handlers (TChan ReactorInput)
 hieHandlers
-  = def { GUI.renameHandler   = Just renameRequestHandler
+  = def { GUI.renameHandler                          = Just renameRequestHandler
         -- , GUI.codeLensHandler = Just codeLensHandler
+        , GUI.hoverHandler                           = Just hoverRequestHandler
         , GUI.didOpenTextDocumentNotificationHandler = Just didOpenTextDocumentNotificationHandler
         , GUI.didSaveTextDocumentNotificationHandler = Just didSaveTextDocumentNotificationHandler
+        , GUI.cancelNotificationHandler              = Just cancelNotificationHandler
         , GUI.responseHandler                        = Just responseHandlerCb
         }
 
 -- ---------------------------------------------------------------------
 
+hoverRequestHandler :: GUI.Handler (TChan ReactorInput) J.HoverRequest
+hoverRequestHandler rin sf req@(J.RequestMessage _ _ _ _) = do
+  atomically $ writeTChan rin  (HandlerRequest sf (GUI.ReqHover req))
+
+-- ---------------------------------------------------------------------
+
 renameRequestHandler :: GUI.Handler (TChan ReactorInput) J.RenameRequest
-renameRequestHandler rin sf req@(J.RequestMessage _ origId _ _) = do
+renameRequestHandler rin sf req@(J.RequestMessage _ _ _ _) = do
   atomically $ writeTChan rin  (HandlerRequest sf (GUI.ReqRename req))
 
 -- ---------------------------------------------------------------------
@@ -301,6 +309,12 @@ didSaveTextDocumentNotificationHandler :: GUI.Handler (TChan ReactorInput)
 didSaveTextDocumentNotificationHandler rin sf notification = do
   U.logm $ "\n****** didSaveTextDocumentNotificationHandler: processing"
   atomically $ writeTChan rin (HandlerRequest sf (GUI.NotDidSaveTextDocument notification))
+
+-- ---------------------------------------------------------------------
+
+cancelNotificationHandler :: GUI.Handler (TChan ReactorInput) J.CancelNotification
+cancelNotificationHandler rin sf notification = do
+  atomically $ writeTChan rin  (HandlerRequest sf (GUI.NotCancelRequest notification))
 
 -- ---------------------------------------------------------------------
 
