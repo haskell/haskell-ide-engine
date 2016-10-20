@@ -45,28 +45,25 @@ import qualified System.Log.Logger as L
 
 -- ---------------------------------------------------------------------
 
-lspStdioTransport :: TChan ChannelRequest -> IO ()
-lspStdioTransport cin = do
-  run cin >>= \case
+lspStdioTransport :: IO () -> TChan ChannelRequest -> IO ()
+lspStdioTransport dispatcherProc cin = do
+  run dispatcherProc cin >>= \case
     0 -> exitSuccess
     c -> exitWith . ExitFailure $ c
 
 
 -- ---------------------------------------------------------------------
 
-run :: TChan ChannelRequest -> IO Int
-run cin = flip E.catches handlers $ do
+run :: IO () -> TChan ChannelRequest -> IO Int
+run dispatcherProc cin = flip E.catches handlers $ do
 
   cout <- atomically newTChan :: IO (TChan ChannelResponse)
   rin  <- atomically newTChan :: IO (TChan ReactorInput)
-  U.logs $ "\n\n*************************about to fork responseHandler"
   rhpid <- forkIO $ responseHandler cout rin
-  U.logs $ "\n\n*********************forked responseHandler:rhpid=" ++ show rhpid
-  rpid <- forkIO $ reactor def cin cout rin
-  U.logs $ "\n\n*************************forked reactor:rpid=" ++ show rpid
+  rpid  <- forkIO $ reactor def cin cout rin
 
   flip E.finally finalProc $ do
-    CTRL.run rin hieHandlers hieOptions
+    CTRL.run dispatcherProc rin hieHandlers hieOptions
 
   where
     handlers = [ E.Handler ioExcept

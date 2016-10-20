@@ -151,7 +151,9 @@ run opts = do
       exitSuccess
 
     -- launch the dispatcher.
-    _ <- forkIO (runIdeM GM.defaultOptions (IdeState plugins Map.empty) (dispatcher cin))
+    let dispatcherProc = void $ forkIO $ runIdeM GM.defaultOptions (IdeState plugins Map.empty) (dispatcher cin)
+    unless (optLsp opts) $ do void dispatcherProc
+    -- _ <- forkIO (runIdeM GM.defaultOptions (IdeState plugins Map.empty) (dispatcher cin))
 
     -- TODO: pass port in as a param from GlobalOpts
     when (optHttp opts) $
@@ -164,7 +166,7 @@ run opts = do
     if (optConsole opts)
        then consoleListener plugins cin
        else if optLsp opts
-               then lspStdioTransport cin
+               then lspStdioTransport dispatcherProc cin
                else jsonStdioTransport (optOneShot opts) cin
 
     -- At least one needs to be launched, othewise a threadDelay with a large

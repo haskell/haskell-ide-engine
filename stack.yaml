@@ -17,7 +17,7 @@ packages:
 #   extra-dep: true
 - location:
     git: https://github.com/alanz/HaRe.git
-    commit: 33adecbae86f32273bde2864902c27934848b973
+    commit: 2d168d165437c128e06d2f189215ca61c5aa1ca0
   extra-dep: true
 extra-deps:
   - ghc-dump-tree-0.2.0.1
