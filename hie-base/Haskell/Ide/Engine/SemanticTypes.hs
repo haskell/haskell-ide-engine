@@ -157,6 +157,13 @@ instance ValidResponse TypeInfo where
   jsWrite (TypeInfo t) = H.fromList ["type_info" .= t]
   jsRead v = TypeInfo <$> v .: "type_info"
 
+instance ToJSON TypeInfo where
+  toJSON x = Object (jsWrite x)
+
+instance FromJSON TypeInfo where
+  parseJSON (Object o) = jsRead o
+  parseJSON _          = mempty
+
 instance ToJSON TypeResult where
   toJSON (TypeResult s e t) =
       object [ "start" .= toJSON s

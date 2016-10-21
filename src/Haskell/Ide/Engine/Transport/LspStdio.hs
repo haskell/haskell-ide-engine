@@ -22,12 +22,10 @@ import           Data.Algorithm.DiffOutput
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default
 import           Data.List
-import           Data.Either.Utils
 import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import           Data.Maybe
 import qualified Data.Text as T
-import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
@@ -36,7 +34,6 @@ import qualified Language.Haskell.LSP.Core     as GUI
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 import qualified Language.Haskell.LSP.Utility  as U
 import           System.Exit
-import           System.IO
 import qualified System.Log.Logger as L
 
 -- ---------------------------------------------------------------------
@@ -59,8 +56,8 @@ run dispatcherProc cin = flip E.catches handlers $ do
 
   cout <- atomically newTChan :: IO (TChan ChannelResponse)
   rin  <- atomically newTChan :: IO (TChan ReactorInput)
-  rhpid <- forkIO $ responseHandler cout rin
-  rpid  <- forkIO $ reactor def cin cout rin
+  _rhpid <- forkIO $ responseHandler cout rin
+  _rpid  <- forkIO $ reactor def cin cout rin
 
   flip E.finally finalProc $ do
     CTRL.run dispatcherProc rin hieHandlers hieOptions
@@ -77,10 +74,8 @@ run dispatcherProc cin = flip E.catches handlers $ do
 
 responseHandler :: TChan ChannelResponse -> TChan ReactorInput -> IO ()
 responseHandler cout cr = do
-  -- U.logm $ "\n\n************responseHandler starting up"
   forever $ do
-    r@(CResp pid rid res) <- atomically $ readTChan cout
-    -- U.logs $ "\n\n***********responseHandler: got :" ++ show r
+    r <- atomically $ readTChan cout
     atomically $ writeTChan cr (DispatcherResponse r)
 
 -- ---------------------------------------------------------------------
@@ -175,6 +170,7 @@ reactor st cin cout inp = do
         setSendFunc sf
         liftIO $ U.logs $ "reactor:got RspFromClient:" ++ show rm
 
+      -- -------------------------------
 
       HandlerRequest sf n@(GUI.NotDidOpenTextDocument notification) -> do
         setSendFunc sf
@@ -189,9 +185,11 @@ reactor st cin cout inp = do
         liftIO $ atomically $ writeTChan cin req
         keepOriginal rid n
 
+      -- -------------------------------
+
       HandlerRequest sf n@(GUI.NotDidSaveTextDocument notification) -> do
         setSendFunc sf
-        liftIO $ U.logm $ "\n****** reactor: processing NotDidSaveTextDocument"
+        liftIO $ U.logm "\n****** reactor: processing NotDidSaveTextDocument"
         let J.TextDocumentIdentifier doc = J.textDocumentDidSaveTextDocumentParams $ fromJust $ J.paramsNotificationMessage notification
             fileName = drop (length ("file://"::String)) doc
         liftIO $ U.logs $ "\n********* doc=" ++ show doc
@@ -199,6 +197,8 @@ reactor st cin cout inp = do
         let req = CReq "applyrefact" rid (IdeRequest "lint" (Map.fromList [("file", ParamFileP (T.pack fileName))])) cout
         liftIO $ atomically $ writeTChan cin req
         keepOriginal rid n
+
+      -- -------------------------------
 
       HandlerRequest sf r@(GUI.ReqRename req) -> do
         setSendFunc sf
@@ -218,14 +218,32 @@ reactor st cin cout inp = do
         keepOriginal rid r
 
 
+      -- -------------------------------
+
+      HandlerRequest sf r@(GUI.ReqHover req) -> do
+        setSendFunc sf
+        liftIO $ U.logs $ "reactor:got HoverRequest:" ++ show req
+        let J.TextDocumentPositionParams doc pos = fromJust $ J.paramsRequestMessage req
+            fileName = drop (length ("file://"::String)) $ J.uriTextDocumentIdentifier doc
+            J.Position l c = pos
+        rid <- nextReqId
+        let hreq = CReq "ghcmod" rid (IdeRequest "type" (Map.fromList
+                                                    [("file",     ParamFileP (T.pack fileName))
+                                                    ,("start_pos",ParamValP $ ParamPos (toPos (l+1,c+1)))
+                                                    ])) cout
+        liftIO $ atomically $ writeTChan cin hreq
+        keepOriginal rid r
+
+      -- -------------------------------
+
       HandlerRequest sf om -> do
         setSendFunc sf
         liftIO $ U.logs $ "reactor:got HandlerRequest:" ++ show om
 
 
-      -- -------------------------------
+      -- ---------------------------------------------------
 
-      DispatcherResponse rsp@(CResp pid rid res)-> do
+      DispatcherResponse rsp@(CResp _pid rid res)-> do
         liftIO $ U.logs $ "reactor:got DispatcherResponse:" ++ show rsp
         morig <- lookupOriginal rid
         case morig of
@@ -246,10 +264,24 @@ reactor st cin cout inp = do
                   IdeResponseError err -> sendErrorResponse (J.idRequestMessage req) (show err)
                   IdeResponseOk r -> do
                     let J.Success vv = J.fromJSON (J.Object r) :: J.Result RefactorResult
-                    -- sendErrorResponse (J.idRequestMessage req) (show vv)
                     let we = refactorResultToWorkspaceEdit vv
                     let rspMsg = GUI.makeResponseMessage (J.idRequestMessage req) we
                     reactorSend rspMsg
+
+              GUI.ReqHover req -> do
+                case res of
+                  IdeResponseFail  err -> sendErrorResponse (J.idRequestMessage req) (show err)
+                  IdeResponseError err -> sendErrorResponse (J.idRequestMessage req) (show err)
+                  IdeResponseOk r -> do
+                    let J.Success (TypeInfo tis) = J.fromJSON (J.Object r) :: J.Result TypeInfo
+                    let
+                      -- ms = [ J.MarkedString "" "blah blah blah"
+                      --      , J.MarkedString "haskell" "foo :: Int -> Int"]
+                      ms = map (\ti -> J.MarkedString "haskell" (show ti)) tis
+                      ht = J.Hover ms Nothing
+                    let rspMsg = GUI.makeResponseMessage (J.idRequestMessage req) ht
+                    reactorSend rspMsg
+
               other -> do
                 sendErrorLog $ "reactor:not processing for original LSP message : " ++ show other
 
@@ -265,7 +297,6 @@ hieOptions = def
 hieHandlers :: GUI.Handlers (TChan ReactorInput)
 hieHandlers
   = def { GUI.renameHandler                          = Just renameRequestHandler
-        -- , GUI.codeLensHandler = Just codeLensHandler
         , GUI.hoverHandler                           = Just hoverRequestHandler
         , GUI.didOpenTextDocumentNotificationHandler = Just didOpenTextDocumentNotificationHandler
         , GUI.didSaveTextDocumentNotificationHandler = Just didSaveTextDocumentNotificationHandler
@@ -276,30 +307,19 @@ hieHandlers
 -- ---------------------------------------------------------------------
 
 hoverRequestHandler :: GUI.Handler (TChan ReactorInput) J.HoverRequest
-hoverRequestHandler rin sf req@(J.RequestMessage _ _ _ _) = do
+hoverRequestHandler rin sf req = do
   atomically $ writeTChan rin  (HandlerRequest sf (GUI.ReqHover req))
 
 -- ---------------------------------------------------------------------
 
 renameRequestHandler :: GUI.Handler (TChan ReactorInput) J.RenameRequest
-renameRequestHandler rin sf req@(J.RequestMessage _ _ _ _) = do
+renameRequestHandler rin sf req = do
   atomically $ writeTChan rin  (HandlerRequest sf (GUI.ReqRename req))
-
--- ---------------------------------------------------------------------
-
-codeLensHandler :: GUI.Handler (TChan ReactorInput) J.CodeLensRequest
-codeLensHandler rin sf (J.RequestMessage _ origId _ _) = do
-  let
-    lens = J.CodeLens (J.Range (J.Position 1 1) (J.Position 1 10)) (Just (J.Command "codeLensCmd" "actionCmd" Nothing)) Nothing
-    lenses = [lens]
-    res = GUI.makeResponseMessage origId lenses
-  sf (J.encode res)
 
 -- ---------------------------------------------------------------------
 
 didOpenTextDocumentNotificationHandler :: GUI.Handler (TChan ReactorInput) J.DidOpenTextDocumentNotification
 didOpenTextDocumentNotificationHandler rin sf notification = do
-  U.logm "\n******** got didOpenTextDocumentNotificationHandler, processing"
   atomically $ writeTChan rin  (HandlerRequest sf (GUI.NotDidOpenTextDocument notification))
 
 -- ---------------------------------------------------------------------
@@ -307,7 +327,6 @@ didOpenTextDocumentNotificationHandler rin sf notification = do
 didSaveTextDocumentNotificationHandler :: GUI.Handler (TChan ReactorInput)
                                                       J.DidSaveTextDocumentNotification
 didSaveTextDocumentNotificationHandler rin sf notification = do
-  U.logm $ "\n****** didSaveTextDocumentNotificationHandler: processing"
   atomically $ writeTChan rin (HandlerRequest sf (GUI.NotDidSaveTextDocument notification))
 
 -- ---------------------------------------------------------------------
@@ -319,7 +338,7 @@ cancelNotificationHandler rin sf notification = do
 -- ---------------------------------------------------------------------
 
 responseHandlerCb :: GUI.Handler (TChan ReactorInput) J.BareResponseMessage
-responseHandlerCb rin sf resp = do
+responseHandlerCb _rin _sf resp = do
   U.logs $ "\n******** got ResponseMessage, ignoring:" ++ show resp
 
 -- ---------------------------------------------------------------------
@@ -336,7 +355,6 @@ hieDiffToLspEdit (HieDiff f s d) = (T.pack ("file://" ++ f),r)
   where
     pd = parsePrettyDiffs d
     r = map diffOperationToTextEdit pd
-    -- r = error $ "hieDiffToLspEdit:pd=" ++ show r'
 
 diffOperationToTextEdit :: DiffOperation LineRange -> J.TextEdit
 diffOperationToTextEdit (Change fm to) = J.TextEdit r nt
@@ -350,6 +368,8 @@ diffOperationToTextEdit (Change fm to) = J.TextEdit r nt
     r = J.Range s e
     nt = intercalate "\r\n" $ lrContents to
 
+-- diffOperationToTextEdit (Deletion fm _) = J.TextEdit r ""
+--   where
 {-
 
 Turn
