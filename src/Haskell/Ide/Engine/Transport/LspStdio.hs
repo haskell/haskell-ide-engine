@@ -144,8 +144,8 @@ lookupOriginal rid = do
 
 -- ---------------------------------------------------------------------
 
-sendErrorResponse :: Int -> String -> R ()
-sendErrorResponse origId msg = reactorSend' (\sf -> GUI.sendErrorResponseS sf origId msg)
+sendErrorResponse :: Int -> J.ErrorCode -> String -> R ()
+sendErrorResponse origId err msg = reactorSend' (\sf -> GUI.sendErrorResponseS sf origId err msg)
 
 sendErrorLog :: String -> R ()
 sendErrorLog  msg = reactorSend' (\sf -> GUI.sendErrorLogS  sf msg)
@@ -255,36 +255,47 @@ reactor st cin cout inp = do
               GUI.NotDidOpenTextDocument _ -> do
                 let smr = J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just res)
                 reactorSend smr
+
               GUI.NotDidSaveTextDocument _ -> do
                 let smr = J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just res)
                 reactorSend smr
-              GUI.ReqRename req -> do
-                case res of
-                  IdeResponseFail  err -> sendErrorResponse (J.idRequestMessage req) (show err)
-                  IdeResponseError err -> sendErrorResponse (J.idRequestMessage req) (show err)
-                  IdeResponseOk r -> do
-                    let J.Success vv = J.fromJSON (J.Object r) :: J.Result RefactorResult
-                    let we = refactorResultToWorkspaceEdit vv
-                    let rspMsg = GUI.makeResponseMessage (J.idRequestMessage req) we
-                    reactorSend rspMsg
 
-              GUI.ReqHover req -> do
-                case res of
-                  IdeResponseFail  err -> sendErrorResponse (J.idRequestMessage req) (show err)
-                  IdeResponseError err -> sendErrorResponse (J.idRequestMessage req) (show err)
-                  IdeResponseOk r -> do
-                    let J.Success (TypeInfo tis) = J.fromJSON (J.Object r) :: J.Result TypeInfo
-                    let
-                      -- ms = [ J.MarkedString "" "blah blah blah"
-                      --      , J.MarkedString "haskell" "foo :: Int -> Int"]
-                      ms = map (\ti -> J.MarkedString "haskell" (show ti)) tis
-                      ht = J.Hover ms Nothing
-                    let rspMsg = GUI.makeResponseMessage (J.idRequestMessage req) ht
-                    reactorSend rspMsg
+              GUI.ReqRename req ->  hieResponseHelper req res $ \r -> do
+                let J.Success vv = J.fromJSON (J.Object r) :: J.Result RefactorResult
+                let we = refactorResultToWorkspaceEdit vv
+                let rspMsg = GUI.makeResponseMessage (J.idRequestMessage req) we
+                reactorSend rspMsg
+
+              GUI.ReqHover req -> hieResponseHelper req res $ \r -> do
+                let
+                  J.Success (TypeInfo mtis) = J.fromJSON (J.Object r) :: J.Result TypeInfo
+                  ht = case mtis of
+                    []  -> J.Hover [] Nothing
+                    tis -> J.Hover ms (Just range)
+                      where
+                        ms = map (\ti -> J.MarkedString "haskell" (T.unpack $ trText ti)) tis
+                        tr = head tis
+                        range = J.Range (posToPosition $ trStart tr) (posToPosition $ trEnd tr)
+                  rspMsg = GUI.makeResponseMessage (J.idRequestMessage req) ht
+                reactorSend rspMsg
 
               other -> do
                 sendErrorLog $ "reactor:not processing for original LSP message : " ++ show other
 
+
+-- ---------------------------------------------------------------------
+
+hieResponseHelper :: J.RequestMessage a -> IdeResponse t -> (t -> R ()) -> R ()
+hieResponseHelper req res action =
+  case res of
+    IdeResponseFail  err -> sendErrorResponse (J.idRequestMessage req) J.InternalError (show err)
+    IdeResponseError err -> sendErrorResponse (J.idRequestMessage req) J.InternalError (show err)
+    IdeResponseOk r -> action r
+
+-- ---------------------------------------------------------------------
+
+posToPosition :: Pos -> J.Position
+posToPosition (Pos (Line l) (Col c)) = J.Position (l-1) (c-1)
 
 -- ---------------------------------------------------------------------
 
