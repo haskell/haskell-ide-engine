@@ -51,19 +51,19 @@ buildPluginDescriptor = PluginDescriptor
             [] (SCtxNone :& RNil)
             (  SParamDesc (Proxy :: Proxy "directory") (Proxy :: Proxy "Directory to search for project file") SPtFile SRequired
             :& SParamDesc (Proxy :: Proxy "type") (Proxy :: Proxy "Project type: \"stack\" or \"cabal\"") SPtText SRequired
-            :& RNil)
+            :& RNil) SaveNone
       :& buildCommand listFlags (Proxy :: Proxy "listFlags")
             "Lists all flags that can be set when configuring a package"
             [] (SCtxNone :& RNil)
             (  SParamDesc (Proxy :: Proxy "directory") (Proxy :: Proxy "Directory to search for project file") SPtFile SRequired
             :& SParamDesc (Proxy :: Proxy "type") (Proxy :: Proxy "Project type: \"stack\" or \"cabal\"") SPtText SRequired
-            :& RNil)
+            :& RNil) SaveNone
       :& buildCommand addTarget (Proxy :: Proxy "addTarget") "Add a new target to the cabal file" [] (SCtxNone :& RNil)
             (  SParamDesc (Proxy :: Proxy "file") (Proxy :: Proxy "Path to the .cabal file") SPtFile SRequired
             :& SParamDesc (Proxy :: Proxy "name") (Proxy :: Proxy "Name of the new target") SPtText SRequired
             :& SParamDesc (Proxy :: Proxy "type") (Proxy :: Proxy "executable/library") SPtText SRequired
-            :& RNil)
-      :& buildCommand (longRunningCmdSync Cmd2) (Proxy :: Proxy "cmd2") "Long running synchronous command" [] (SCtxNone :& RNil) RNil
+            :& RNil) SaveNone
+      :& buildCommand (longRunningCmdSync Cmd2) (Proxy :: Proxy "cmd2") "Long running synchronous command" [] (SCtxNone :& RNil) RNil SaveNone
       :& RNil
   , pdExposedServices = []
   , pdUsedServices    = []
@@ -142,7 +142,7 @@ getStackLocalPackages stackYaml = withBinaryFileContents stackYaml $ \contents -
   return stackLocalPackages
 
 compToJSON n ChSetupHsName = object ["type" .= ("hsSetup" :: T.Text)]
-compToJSON n ChLibName = object ["type" .= ("library" :: T.Text), "name" .= n]
+compToJSON _ (ChLibName n) = object ["type" .= ("library" :: T.Text), "name" .= n]
 compToJSON _ (ChExeName n) = object ["type" .= ("executable" :: T.Text), "name" .= n]
 compToJSON _ (ChTestName n) = object ["type" .= ("test" :: T.Text), "name" .= n]
 compToJSON _ (ChBenchName n) = object ["type" .= ("benchmark" :: T.Text), "name" .= n]

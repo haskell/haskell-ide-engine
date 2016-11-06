@@ -1,4 +1,4 @@
-resolver: nightly-2016-09-04
+resolver: lts-7.7
 packages:
 - .
 - hie-apply-refact
