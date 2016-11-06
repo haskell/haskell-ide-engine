@@ -1,0 +1,41 @@
+% haskellideengineaprojectf-Ch.tex
+\begin{hcarentry}{haskell-ide-engine, a project for unifying IDE functionality}
+\label{haskell-ide-engine}
+\report{Chris Allen}%11/15
+\status{Open source, just beginning}
+\participants{Alan Zimmerman, Moritz Kiefer, Michael Sloan, Gracjan Polak, Daniel Gr\"ober,
+others welcome}
+
+\makeheader
+
+\textit{haskell-ide-engine} is a backend for driving the sort of features programmers
+expect out of IDE environments. \textit{haskell-ide-engine} is a project to unify tooling
+efforts into something different text editors, and indeed IDEs as well, could
+use to avoid duplication of effort.
+
+
+There is basic support for getting type information and refactoring,
+more features including type errors, linting and reformatting are
+planned. People who are familiar with a particular part of the chain
+can focus their efforts there, knowing that the other parts will be
+handled by other components of the backend. Integration for Emacs and
+Leksah is available and should support the current features of the
+backend. \texttt{haskell-ide-engine} also has a REST API with Swagger UI.
+Inspiration is being taken from the work the Idris community has done
+toward an interactive editing environment as well.
+
+Help is very much needed and wanted so if this is a problem that interests you,
+please pitch in! This is not a project just for a small inner circle. Anyone
+who wants to will be added to the project on github, address your request to
+@alanz.
+
+\FurtherReading
+\begin{compactitem}
+\item\url{https://github.com/haskell/haskell-ide-engine}
+\item\url{https://mail.haskell.org/pipermail/haskell-cafe/2015-October/121875.html}
+\item\url{https://www.fpcomplete.com/blog/2015/10/new-haskell-ide-repo}
+\item\url{https://www.reddit.com/r/haskell/comments/3pt560/ann_haskellide_project/}
+\item\url{https://www.reddit.com/r/haskell/comments/3qbgmo/fp_complete_the_new_haskellide_repo/}
+\end{compactitem}
+
+\end{hcarentry}

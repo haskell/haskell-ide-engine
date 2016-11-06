@@ -13,11 +13,13 @@ import qualified Language.Haskell.GhcMod.Monad as GM
 import qualified Language.Haskell.GhcMod.Types as GM
 -- ---------------------------------------------------------------------
 
-runIdeM :: IdeState -> IdeM a -> IO a
-runIdeM s0 f = do
-    ((eres, _),_s) <- runStateT (GM.runGhcModT GM.defaultOptions f) s0
+runIdeM :: GM.Options -> IdeState -> IdeM a -> IO a
+runIdeM ghcModOptions s0 f = do
+    ((eres, _),_s) <- runStateT (GM.runGhcModT ghcModOptions f) s0
     case eres of
         Left err -> liftIO $ throwIO err
         Right res -> return res
+
+
 
 -- EOF

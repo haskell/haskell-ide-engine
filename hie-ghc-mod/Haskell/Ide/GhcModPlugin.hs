@@ -1,15 +1,16 @@
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 module Haskell.Ide.GhcModPlugin where
 
 import           Data.Aeson
 import           Data.Either
+import           Data.Monoid
 import qualified Data.Text as T
 import qualified Data.Text.Read as T
 import           Data.Vinyl
@@ -26,15 +27,15 @@ ghcmodDescriptor :: TaggedPluginDescriptor _
 ghcmodDescriptor = PluginDescriptor
   {
     pdUIShortName = "ghc-mod"
-  , pdUIOverview = "ghc-mod is a backend program to enrich Haskell programming \
-\in editors. It strives to offer most of the features one has come to expect \
-\from modern IDEs in any editor."
+  , pdUIOverview = ("ghc-mod is a backend program to enrich Haskell programming "
+           <> "in editors. It strives to offer most of the features one has come to expect "
+           <> "from modern IDEs in any editor.")
   , pdCommands =
          buildCommand checkCmd (Proxy :: Proxy "check") "check a file for GHC warnings and errors"
-                       [".hs",".lhs"] (SCtxFile :& RNil) RNil
+                       [".hs",".lhs"] (SCtxFile :& RNil) RNil SaveAll
 
       :& buildCommand lintCmd (Proxy :: Proxy "lint")  "Check files using `hlint'"
-                     [".hs",".lhs"] (SCtxFile :& RNil) RNil
+                     [".hs",".lhs"] (SCtxFile :& RNil) RNil SaveAll
 
       -- :& buildCommand findCmd (Proxy :: Proxy "find")  "List all modules that define SYMBOL"
       --                [".hs",".lhs"] (SCtxProject :& RNil)
@@ -44,10 +45,10 @@ ghcmodDescriptor = PluginDescriptor
       :& buildCommand infoCmd (Proxy :: Proxy "info") "Look up an identifier in the context of FILE (like ghci's `:info')"
                      [".hs",".lhs"] (SCtxFile :& RNil)
                      (  SParamDesc (Proxy :: Proxy "expr") (Proxy :: Proxy "The EXPR to provide info on") SPtText SRequired
-                     :& RNil)
+                     :& RNil) SaveNone
 
       :& buildCommand typeCmd (Proxy :: Proxy "type") "Get the type of the expression under (LINE,COL)"
-                     [".hs",".lhs"] (SCtxPoint :& RNil) RNil
+                     [".hs",".lhs"] (SCtxPoint :& RNil) RNil SaveAll
 
       :& RNil
   , pdExposedServices = []
@@ -81,8 +82,6 @@ checkCmd = CmdSync $ \_ctxs req -> do
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
       fmap T.pack <$> runGhcModCommand (GM.checkSyntax [(T.unpack fileName)])
-    Right _ -> return $ IdeResponseError (IdeError InternalError
-      "GhcModPlugin.checkCmd: ghc’s exhaustiveness checker is broken" Null)
 
 -- ---------------------------------------------------------------------
 
@@ -109,8 +108,6 @@ lintCmd = CmdSync $ \_ctxs req -> do
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
       fmap T.pack <$> runGhcModCommand (GM.lint GM.defaultLintOpts (T.unpack fileName))
-    Right _ -> return $ IdeResponseError (IdeError InternalError
-      "GhcModPlugin.lintCmd: ghc’s exhaustiveness checker is broken" Null)
 
 -- ---------------------------------------------------------------------
 
@@ -120,8 +117,6 @@ infoCmd = CmdSync $ \_ctxs req -> do
     Left err -> return err
     Right (ParamFile fileName :& ParamText expr :& RNil) -> do
       fmap T.pack <$> runGhcModCommand (GM.info (T.unpack fileName) (GM.Expression (T.unpack expr)))
-    Right _ -> return $ IdeResponseError (IdeError InternalError
-      "GhcModPlugin.infoCmd: ghc’s exhaustiveness checker is broken" Null)
 
 -- ---------------------------------------------------------------------
 
@@ -129,10 +124,20 @@ typeCmd :: CommandFunc TypeInfo
 typeCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
-    Right (ParamFile fileName :& ParamPos (r,c) :& RNil) -> do
-      fmap (toTypeInfo . T.lines . T.pack) <$> runGhcModCommand (GM.types (T.unpack fileName) r c)
-    Right _ -> return $ IdeResponseError (IdeError InternalError
-      "GhcModPlugin.typesCmd: ghc’s exhaustiveness checker is broken" Null)
+    Right (ParamFile fileName :& ParamPos (Pos (Line l) (Col c)) :& RNil) -> do
+      {-
+      TODO: pass the bool through as a param, in the following call to 'GM.types'
+      types :: IOish m
+            => Bool         -- ^ Include constraints into type signature
+            -> FilePath     -- ^ A target file.
+            -> Int          -- ^ Line number.
+            -> Int          -- ^ Column number.
+            -> GhcModT m String
+
+      -}
+      fmap (toTypeInfo . T.lines . T.pack) <$> runGhcModCommand (GM.types False (T.unpack fileName) l c)
+
+
 
 
 -- | Transform output from ghc-mod type into TypeInfo
@@ -147,7 +152,7 @@ readTypeResult t = do
     (el,r2) <- T.decimal $ T.stripStart r1
     (ec,r3) <- T.decimal $ T.stripStart r2
     let typ = T.dropEnd 1 $ T.drop 1 $ T.stripStart r3
-    return $ TypeResult (sl,sc) (el,ec) typ
+    return $ TypeResult (toPos (sl,sc)) (toPos (el,ec)) typ
 
 -- ---------------------------------------------------------------------
 

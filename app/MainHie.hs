@@ -18,6 +18,8 @@ import           Control.Exception
 import           Control.Monad
 import           Control.Monad.Logger
 import           Control.Monad.STM
+import           Data.Aeson
+import qualified Data.ByteString.Lazy       as B
 import qualified Data.Map as Map
 import           Data.Proxy
 import qualified Data.Text as T
@@ -33,15 +35,18 @@ import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.Swagger
 import           Haskell.Ide.Engine.Transport.JsonHttp
 import           Haskell.Ide.Engine.Transport.JsonStdio
 import           Haskell.Ide.Engine.Transport.JsonTcp
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.Utils
+import qualified Language.Haskell.GhcMod.Types as GM
 import           Network.Simple.TCP
 import           Options.Applicative.Simple
 import qualified Paths_haskell_ide_engine as Meta
 import           System.Directory
+import           System.Exit
 
 -- ---------------------------------------------------------------------
 -- plugins
@@ -62,13 +67,16 @@ taggedPlugins :: Rec Plugin _
 taggedPlugins =
      Plugin (Proxy :: Proxy "applyrefact") applyRefactDescriptor
   :& Plugin (Proxy :: Proxy "build") buildPluginDescriptor
-  :& Plugin (Proxy :: Proxy "eg2") example2Descriptor
-  :& Plugin (Proxy :: Proxy "egasync") exampleAsyncDescriptor
-  :& Plugin (Proxy :: Proxy "ghcmod") ghcmodDescriptor
-  :& Plugin (Proxy :: Proxy "ghctree") ghcTreeDescriptor
-  :& Plugin (Proxy :: Proxy "hare") hareDescriptor
-  :& Plugin (Proxy :: Proxy "base") baseDescriptor
+  :& Plugin (Proxy :: Proxy "eg2")         example2Descriptor
+  :& Plugin (Proxy :: Proxy "egasync")     exampleAsyncDescriptor
+  :& Plugin (Proxy :: Proxy "ghcmod")      ghcmodDescriptor
+  :& Plugin (Proxy :: Proxy "ghctree")     ghcTreeDescriptor
+  :& Plugin (Proxy :: Proxy "hare")        hareDescriptor
+  :& Plugin (Proxy :: Proxy "base")        baseDescriptor
   :& RNil
+
+
+
 
 recProxy :: Rec f t -> Proxy t
 recProxy _ = Proxy
@@ -138,12 +146,17 @@ run opts = do
       Just err -> error (pdeErrorMsg err)
       Nothing -> return ()
 
+    when (optDumpSwagger opts) $ do
+      let swagger = hieSwagger plugins
+      B.putStr (encode swagger)
+      exitSuccess
+
     -- launch the dispatcher.
-    _ <- forkIO (runIdeM (IdeState plugins Map.empty) (dispatcher cin))
+    _ <- forkIO (runIdeM GM.defaultOptions (IdeState plugins Map.empty) (dispatcher cin))
 
     -- TODO: pass port in as a param from GlobalOpts
     when (optHttp opts) $
-      void $ forkIO (jsonHttpListener (recProxy taggedPlugins) cin (optPort opts))
+      void $ forkIO (jsonHttpListener (hieSwagger plugins) (recProxy taggedPlugins) cin (optPort opts))
 
     when (optTcp opts) $
       void $ forkIO (jsonTcpTransport (optOneShot opts) cin HostAny (show $ optTcpPort opts))

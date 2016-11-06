@@ -36,11 +36,12 @@ executable hie-docs-generator
                      , hie-eg-plugin-async
                      , hie-example-plugin2
                      , hie-ghc-mod
+                     , hie-ghc-tree
                      , hie-hare
                      , hie-plugin-api
                      , mtl
                      , optparse-applicative
-                     , pcre-heavy
+                     , regex-applicative-text
                      , text
   hs-source-dirs:      src
   ghc-options:         -Wall

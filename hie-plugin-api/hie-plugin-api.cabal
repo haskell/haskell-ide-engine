@@ -22,7 +22,7 @@ library
                        Haskell.Ide.Engine.MonadFunctions
                        Haskell.Ide.Engine.PluginDescriptor
                        Haskell.Ide.Engine.PluginUtils
-  build-depends:       base >= 4.7 && < 5
+  build-depends:       base >= 4.9 && < 5
                      , Diff
                      , aeson
                      , containers
@@ -30,19 +30,19 @@ library
                      , fast-logger
                      , filepath
                      , ghc
--- ghc-mod > 5.4.0.0 -- TODO before release
-                     , ghc-mod >= 5.4.0.0
+                     , ghc-mod >= 5.6.0.0
                      , hie-base
                      , lifted-base
                      , monad-control
                      , monad-logger
                      , mtl
                      , singletons
+                     , swagger2
                      , text
                      , time
                      , transformers
                      , unordered-containers
-                     , vinyl >= 0.5 && < 0.6
+                     , vinyl >= 0.5
   ghc-options:         -Wall
   if flag(pedantic)
      ghc-options:      -Werror

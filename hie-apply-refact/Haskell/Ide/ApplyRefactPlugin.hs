@@ -1,9 +1,9 @@
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE GADTs #-}
 module Haskell.Ide.ApplyRefactPlugin where
 
 import           Control.Arrow
@@ -32,10 +32,10 @@ applyRefactDescriptor = PluginDescriptor
     , pdCommands =
 
         buildCommand applyOneCmd (Proxy :: Proxy "applyOne") "Apply a single hint"
-                   [".hs"] (SCtxPoint :& RNil) RNil
+                   [".hs"] (SCtxPoint :& RNil) RNil SaveAll
 
       :& buildCommand applyAllCmd (Proxy :: Proxy "applyAll") "Apply all hints to the file"
-                   [".hs"] (SCtxFile :& RNil) RNil
+                   [".hs"] (SCtxFile :& RNil) RNil SaveAll
 
       :& RNil
   , pdExposedServices = []
@@ -55,8 +55,6 @@ applyOneCmd = CmdSync $ \_ctxs req -> do
         Left err -> return $ IdeResponseFail (IdeError PluginError
                       (T.pack $ "applyOne: " ++ show err) Null)
         Right fs -> return (IdeResponseOk fs)
-    Right _ -> return $ IdeResponseError (IdeError InternalError
-      "ApplyRefactPlugin.applyOneCmd: ghc’s exhaustiveness checker is broken" Null)
 
 
 -- ---------------------------------------------------------------------
@@ -72,8 +70,6 @@ applyAllCmd = CmdSync $ \_ctxs req -> do
         Left err -> return $ IdeResponseFail (IdeError PluginError
                       (T.pack $ "applyOne: " ++ show err) Null)
         Right fs -> return (IdeResponseOk fs)
-    Right _ -> return $ IdeResponseError (IdeError InternalError
-      "ApplyRefactPlugin.applyOneCmd: ghc’s exhaustiveness checker is broken" Null)
 
 
 -- ---------------------------------------------------------------------
@@ -84,13 +80,13 @@ applyHint file mpos = do
     let optsf = "-o " ++ f
         opts = case mpos of
                  Nothing -> optsf
-                 Just (r,c) -> optsf ++ " --pos " ++ show r ++ "," ++ show c
+                 Just (Pos (Line l) (Col c)) -> optsf ++ " --pos " ++ show l ++ "," ++ show c
         hlintOpts = [file, "--quiet", "--refactor", "--refactor-options=" ++ opts ]
     runEitherT $ do
       ideas <- runHlint file hlintOpts
       liftIO $ logm $ "applyHint:ideas=" ++ show ideas
       let commands = map (show &&& ideaRefactoring) ideas
-      appliedFile <- liftIO $ applyRefactorings mpos commands file
+      appliedFile <- liftIO $ applyRefactorings (fmap unPos mpos) commands file
       diff <- liftIO $ makeDiffResult file (T.pack appliedFile)
       liftIO $ logm $ "applyHint:diff=" ++ show diff
       return diff

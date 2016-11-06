@@ -1,9 +1,9 @@
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE GADTs #-}
 module Haskell.Ide.ExamplePlugin2 where
 
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -20,13 +20,13 @@ example2Descriptor = PluginDescriptor
     pdUIShortName = "Hello World"
   , pdUIOverview = "An example of writing an HIE plugin"
   , pdCommands =
-         buildCommand sayHelloCmd (Proxy :: Proxy "sayHello") "say hello" [] (SCtxNone :& RNil) RNil
+         buildCommand sayHelloCmd (Proxy :: Proxy "sayHello") "say hello" [] (SCtxNone :& RNil) RNil SaveNone
       :& buildCommand sayHelloToCmd (Proxy :: Proxy "sayHelloTo")
                           "say hello to the passed in param"
                           []
                           (SCtxNone :& RNil)
                           (  SParamDesc (Proxy :: Proxy "name") (Proxy :: Proxy "the name to greet") SPtText SRequired
-                          :& RNil)
+                            :& RNil) SaveNone
 
       :& RNil
   , pdExposedServices = []
@@ -45,7 +45,6 @@ sayHelloToCmd = CmdSync $ \_ req ->
     Right (ParamText n :& RNil) -> do
       r <- liftIO $ sayHelloTo n
       return $ IdeResponseOk r
-    Right _ -> error "ghc's exhaustiveness checker is broken"
 
 -- ---------------------------------------------------------------------
 {-

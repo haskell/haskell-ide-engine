@@ -4,9 +4,9 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Haskell.Ide.Engine.SemanticTypes where
 
-import           Control.Applicative
 import           Data.Aeson
 import qualified Data.HashMap.Strict as H
+import           Data.Swagger (ToSchema)
 import qualified Data.Text as T
 import           GHC.Generics
 import           Haskell.Ide.Engine.PluginTypes
@@ -15,20 +15,23 @@ import           Haskell.Ide.Engine.PluginTypes
 -- Specific response type
 
 -- | Type Information, from the most precise to the most generic
-data TypeInfo = TypeInfo { results :: [TypeResult] }
+data TypeInfo = TypeInfo { results :: ![TypeResult] }
   deriving (Show,Read,Eq,Ord,Generic)
+instance ToSchema TypeInfo
 
 -- | One type result from ghc-mod
 data TypeResult = TypeResult
-    { trStart :: (Int,Int) -- ^ start line/column
-    , trEnd   :: (Int,Int) -- ^ end line/column
-    , trText  :: T.Text -- ^ type text
+    { trStart :: !Pos -- ^ start line/column
+    , trEnd   :: !Pos -- ^ end line/column
+    , trText  :: !T.Text -- ^ type text
     } deriving (Show,Read,Eq,Ord,Generic)
+instance ToSchema TypeResult
 
 -- | Result of refactoring
 data RefactorResult = RefactorResult
-  { rrDiffs :: [HieDiff]
+  { rrDiffs :: ![HieDiff]
   } deriving (Show,Eq,Generic)
+instance ToSchema RefactorResult
 
 -- ---------------------------------------------------------------------
 
@@ -53,25 +56,27 @@ data HieDiff = HieDiff
     >             x
     -}
   } deriving (Show,Eq,Generic)
+instance ToSchema HieDiff
 
 -- ---------------------------------------------------------------------
 
 -- | A list of modules
 data ModuleList = ModuleList {
-    mModules :: [T.Text]
+    mModules :: ![T.Text]
   } deriving (Show,Read,Eq,Ord,Generic)
+instance ToSchema ModuleList
 
 -- ---------------------------------------------------------------------
 
 -- | GHC AST
 data AST = AST {
-    astModule :: T.Text
-  , astParsed      :: Value
-  , astRenamed     :: Value
-  , astTypechecked :: Value
-  , astExports     :: Value
-  } deriving (Eq,Show)
-
+    astModule      :: !T.Text
+  , astParsed      :: !Value
+  , astRenamed     :: !Value
+  , astTypechecked :: !Value
+  , astExports     :: !Value
+  } deriving (Eq,Show,Generic)
+instance ToSchema AST
 
 -- ---------------------------------------------------------------------
 -- JSON instances
@@ -82,17 +87,13 @@ instance ValidResponse TypeInfo where
 
 instance ToJSON TypeResult where
   toJSON (TypeResult s e t) =
-      object [ "start" .= posToJSON s
-             , "end" .= posToJSON e
-             , "type" .= t
+      object [ "start" .= toJSON s
+             , "end"   .= toJSON e
+             , "type"  .= t
              ]
 
 instance FromJSON TypeResult where
-  parseJSON (Object v) = TypeResult
-    <$> (jsonToPos =<< (v .: "start"))
-    <*> (jsonToPos =<< (v .: "end"))
-    <*> v .: "type"
-  parseJSON _ = empty
+  parseJSON = withObject "TypeResult" $ \v -> TypeResult <$> v .: "start" <*> v .: "end" <*> v .: "type"
 
 -- ---------------------------------------------------------------------
 
@@ -106,17 +107,16 @@ instance ValidResponse HieDiff where
 
 instance ToJSON HieDiff where
   toJSON (HieDiff f s d) =
-      object [ "first" .= toJSON f
+      object [ "first"  .= toJSON f
              , "second" .= toJSON s
-             , "diff" .= toJSON d
+             , "diff"   .= toJSON d
              ]
 
 instance FromJSON HieDiff where
-  parseJSON (Object v) = HieDiff
+  parseJSON = withObject "HieDiff" $ \v -> HieDiff
     <$> (v .: "first")
     <*> (v .: "second")
     <*> (v .: "diff")
-  parseJSON _ = empty
 
 -- ---------------------------------------------------------------------
 

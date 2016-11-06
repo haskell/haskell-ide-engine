@@ -1,10 +1,10 @@
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE TemplateHaskell       #-}
 module Haskell.Ide.Engine.BasePlugin where
 
 import           Control.Monad
@@ -32,18 +32,18 @@ baseDescriptor = PluginDescriptor
   , pdUIOverview = "Commands for HIE itself, "
   , pdCommands =
         buildCommand versionCmd (Proxy :: Proxy "version") "return HIE version"
-                        [] (SCtxNone :& RNil) RNil
+                        [] (SCtxNone :& RNil) RNil SaveNone
       :& buildCommand pluginsCmd (Proxy :: Proxy "plugins") "list available plugins"
-                          [] (SCtxNone :& RNil) RNil
+                          [] (SCtxNone :& RNil) RNil SaveNone
       :& buildCommand commandsCmd (Proxy :: Proxy "commands") "list available commands for a given plugin"
                          [] (SCtxNone :& RNil)
                             (  SParamDesc (Proxy :: Proxy "plugin") (Proxy :: Proxy "the plugin name") SPtText SRequired
-                            :& RNil)
+                            :& RNil) SaveNone
       :& buildCommand commandDetailCmd (Proxy :: Proxy "commandDetail") "list parameters required for a given command"
                          [] (SCtxNone :& RNil)
                          (  SParamDesc (Proxy :: Proxy "plugin") (Proxy :: Proxy "the plugin name") SPtText SRequired
                          :& SParamDesc (Proxy :: Proxy "command") (Proxy :: Proxy "the command name") SPtText SRequired
-                         :& RNil)
+                         :& RNil) SaveNone
       :& RNil
   , pdExposedServices = []
   , pdUsedServices    = []
@@ -93,11 +93,6 @@ commandDetailCmd = CmdSync $ \_ req -> do
             , ideInfo = toJSON command
             }
           Just detail -> return $ IdeResponseOk (ExtendedCommandDescriptor (cmdDesc detail) p)
-    Right _ -> return $ IdeResponseError $ IdeError
-      { ideCode = InternalError
-      , ideMessage = "commandDetailCmd: ghc’s exhaustiveness checker is broken"
-      , ideInfo = Null
-      }
 
 -- ---------------------------------------------------------------------
 

@@ -10,6 +10,7 @@
 
 (require 'json)
 (require 'dash)
+(require 'buttercup)
 (require 'haskell)
 
 ;;;###autoload
@@ -57,6 +58,12 @@
 
 (defvar hie-sessions (list)
   "All hie sessions in the Emacs session.")
+
+(defvar hie-timeout 0.05
+  "Timeout for tcp connection retries in fractions of a second.")
+
+(defvar hie-maxtimeout 1
+  "Fraction of a second after which the connection fails.")
 
 (defun hie-session-from-buffer ()
   "Get the session based on the buffer."
@@ -121,7 +128,10 @@ If `haskell-process-load-or-reload-prompt' is nil, accept `default'."
   "Get the session cabal-dir."
   (or (hie-session-get s 'cabal-dir)
       (let* ((cabal-file (haskell-cabal-find-file))
-             (cabal-dir (when cabal-file (file-name-directory cabal-file))))
+             (cabal-dir (if cabal-file
+                            (file-name-directory cabal-file)
+                            "" ;; no cabal file, use directory only
+                          )))
         (progn (hie-session-set-cabal-dir s cabal-dir)
                cabal-dir))))
 
@@ -175,6 +185,20 @@ http://debbugs.gnu.org/cgi/bugreport.cgi?bug=15990."
     (while (and (or (not test) (not (funcall test)))
                 (> now (- (cadr (current-time)) sec))))))
 
+(defmacro retry-for (body maxtimeout timeout)
+  "Retry BODY for MAXTIMEOUT seconds with pauses of TIMEOUT."
+  `(progn
+     (let ((starttime (float-time))
+           (break nil)
+           (result nil))
+       (while (not break)
+         (condition-case result
+             (progn (setq result ,body) (setq break t))
+           (error (if (< (- (float-time) starttime) ,maxtimeout)
+                      (sleep-for ,timeout)
+                    (setq break t)))))
+       result)))
+
 (defun hie-start-process (&optional additional-args)
   "Start Haskell IDE Engine process.
 
@@ -186,9 +210,9 @@ running this function does nothing."
     (setq hie-log-buffer
           (get-buffer-create "*hie-log*"))
     (hie-set-process-buffer
-          (get-buffer-create "*hie-process*"))
+     (get-buffer-create "*hie-process*"))
     (hie-set-process-tcp-buffer
-          (get-buffer-create "*hie-process-tcp*"))
+     (get-buffer-create "*hie-process-tcp*"))
     (when (not hie-tcp-port)
       (setq hie-tcp-port hie-initial-tcp-port))
     (let ((process
@@ -199,12 +223,12 @@ running this function does nothing."
                   (append additional-args
                           hie-command-args
                           `("--tcp" "--tcp-port" ,(format "%s" hie-tcp-port))))))
-      (really-sleep-for 1)
       (let ((process-tcp
-             (open-network-stream "Haskell IDE Engine"
-                                  (hie-process-tcp-buffer)
-                                  hie-tcp-host
-                                  hie-tcp-port)))
+             (retry-for (open-network-stream "Haskell IDE Engine"
+                                             (hie-process-tcp-buffer)
+                                             hie-tcp-host
+                                             hie-tcp-port)
+                        hie-maxtimeout hie-timeout)))
         (setq hie-tcp-port (1+ hie-tcp-port))
         (set-process-query-on-exit-flag process-tcp nil)
         (set-process-query-on-exit-flag process nil)
@@ -390,7 +414,13 @@ association lists and count on HIE to use default values there."
           (-lambda ((&alist 'type type 'name name 'val val 'name))
             (cons name (list (cons type val))))
           args))
-        (context (hie-get-context)))
+        (context (hie-get-context))
+        (topdir (hie-session-cabal-dir (hie-session)))
+        (save (hie-plugin-command-save (intern plugin) command hie-plugins)))
+
+    (maybe-save-buffers topdir save)
+
+    ;; First check to see if there are any modified buffers for this project
     (hie-post-message
      `(("cmd" . ,(hie-format-cmd (cons plugin command)))
        ("params" . (,@context ,@ additional-args))))))
@@ -460,6 +490,31 @@ association lists and count on HIE to use default values there."
                    (hie-create-command plugin-name command))
                  commands))
               command-names))))
+
+(defun* hie-plugin-command-save (plugin name list)
+  (dolist (l (cdr (assoc plugin list)))
+    (let ((name-cons (assoc 'name l))
+          (save-cons (assoc 'save l)))
+      (when (and name-cons
+                 (string-equal (cdr name-cons) name)
+                 save-cons)
+        (return-from hie-plugin-command-save (cdr save-cons))))))
+
+(defun maybe-save-buffers (topdir save)
+  (cond
+   ((string= "save_all" save)
+    (when (-any (lambda (buffer)
+                  (and (buffer-file-name buffer)
+                       (buffer-modified-p buffer)
+                       (string-prefix-p topdir (buffer-file-name buffer))))
+                (buffer-list))
+      (when
+          (y-or-n-p
+           "Project buffers have been modified. Would you like to save them?")
+        (save-some-buffers t
+                           (lambda ()
+                             (and buffer-file-name
+                                  (string-prefix-p topdir buffer-file-name)))))))))
 
 (define-minor-mode hie-mode
   "Haskell IDE Engine mode.

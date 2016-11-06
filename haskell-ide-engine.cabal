@@ -13,6 +13,8 @@ build-type:          Simple
 -- extra-source-files:
 cabal-version:       >=1.10
 
+data-files:            elisp/*.el
+
 flag pedantic
   Description: Enable -Werror
   Default:     False
@@ -23,6 +25,7 @@ library
                        Haskell.Ide.Engine.Console
                        Haskell.Ide.Engine.Dispatcher
                        Haskell.Ide.Engine.Options
+                       Haskell.Ide.Engine.Swagger
                        Haskell.Ide.Engine.Transport.JsonHttp
                        Haskell.Ide.Engine.Transport.JsonHttp.Undecidable
                        Haskell.Ide.Engine.Transport.JsonStdio
@@ -34,17 +37,19 @@ library
   build-depends:       Cabal >= 1.22
                      , aeson
                      , attoparsec
-                     , base >= 4.7 && < 5
+                     , base >= 4.9 && < 5
                      , bytestring
                      , containers
                      , directory
                      , either
                      , fast-logger
-                     , ghc >= 7.10.2 && < 7.11
-                     , ghc-mod >= 5.4
+                     , ghc >= 8.0.1
+                     , ghc-mod
                      , gitrev >= 1.1
                      , haskeline
+                     , hie-base
                      , hie-plugin-api
+                     , insert-ordered-containers
                      , lens
                      , lifted-base
                      , monad-control
@@ -60,12 +65,16 @@ library
                      , pipes-network
                      , pipes-parse
                      , servant-server
+                     , servant-swagger
+                     , servant-swagger-ui
                      , singletons
                      , stm
+                     , swagger2
                      , text
                      , time
                      , transformers
-                     , vinyl >= 0.5 && < 0.6
+                     , unordered-containers
+                     , vinyl >= 0.5
                      , wai
                      , warp
   ghc-options:         -Wall
@@ -75,10 +84,11 @@ executable hie
   hs-source-dirs:      app
   main-is:             MainHie.hs
   other-modules:       Paths_haskell_ide_engine
-  build-depends:       base
-                     , Cabal >= 1.22
+  build-depends:       Cabal >= 1.22
                      , aeson
                      , apply-refact
+                     , base
+                     , bytestring
                      , containers
                      , directory
                      , fast-logger
@@ -99,9 +109,11 @@ executable hie
                      , optparse-applicative
                      , optparse-simple
                      , stm
+                     , swagger2
                      , text
                      , time
                      , transformers
+                     , unordered-containers
                      , vinyl
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
   if flag(pedantic)
@@ -121,15 +133,17 @@ test-suite haskell-ide-test
                        HaRePluginSpec
                        JsonStdioSpec
                        JsonSpec
+                       TestUtils
                        UtilsSpec
-  build-depends:       base
-                     , Diff
+  build-depends:       Diff
                      , QuickCheck
                      , aeson
+                     , base
                      , containers
                      , directory
                      , fast-logger
                      , filepath
+                     , ghc-mod
                      , haskell-ide-engine
                      , hie-apply-refact
                      , hie-base
@@ -142,6 +156,7 @@ test-suite haskell-ide-test
                      , monad-logger
                      , quickcheck-instances
                      , stm
+                     , swagger2
                      , text
                      , transformers
                      , unordered-containers

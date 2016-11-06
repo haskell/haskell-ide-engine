@@ -1,5 +1,6 @@
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 -- | Test for JSON serialization
 module JsonSpec where
@@ -47,6 +48,10 @@ jsonSpec = do
     prop "ModuleList" (propertyValidRoundtrip :: ModuleList -> Bool)
 
   describe "General JSON instances round trip" $ do
+    prop "Line" (propertyJsonRoundtrip :: Line -> Bool)
+    prop "Col" (propertyJsonRoundtrip :: Col -> Bool)
+    prop "Pos" (propertyJsonRoundtrip :: Pos -> Bool)
+    prop "ParamVal 'PtPos" (propertyJsonRoundtrip :: ParamVal 'PtPos -> Bool)
     prop "ParamValP" (propertyJsonRoundtrip :: ParamValP -> Bool)
     prop "CabalSection" (propertyJsonRoundtrip :: CabalSection -> Bool)
     prop "AcceptedContext" (propertyJsonRoundtrip :: AcceptedContext -> Bool)
@@ -79,6 +84,7 @@ instance Arbitrary UntaggedCommandDescriptor where
     <*> smallList arbitrary
     <*> smallList arbitraryBoundedEnum
     <*> smallList arbitrary
+    <*> arbitrary
     <*> arbitrary
 
 instance Arbitrary ExtendedCommandDescriptor where
@@ -163,3 +169,22 @@ instance Arbitrary HieDiff where
 
 instance Arbitrary ModuleList where
   arbitrary = ModuleList <$> smallList arbitrary
+
+instance Arbitrary Pos where
+  arbitrary = Pos <$> arbitrary <*> arbitrary
+
+instance Arbitrary Line where
+  arbitrary = do
+    Positive l <- arbitrary
+    return (Line l)
+
+instance Arbitrary Col where
+  arbitrary = do
+    Positive c <- arbitrary
+    return (Col c)
+
+instance Arbitrary (ParamVal 'PtPos) where
+  arbitrary = ParamPos <$> arbitrary
+
+instance Arbitrary Save where
+  arbitrary = oneof [return SaveNone, return SaveAll]

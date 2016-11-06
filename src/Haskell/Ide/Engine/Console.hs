@@ -116,11 +116,11 @@ parseInt = do
 parsePos :: Parser Pos
 parsePos = do
   _ <- char '('
-  r <- parseInt
+  l <- parseInt
   _ <- char ','
   c <- parseInt
   _ <- char ')'
-  return (r,c)
+  return (toPos (l,c))
 
 -- ---------------------------------------------------------------------
 

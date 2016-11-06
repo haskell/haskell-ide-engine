@@ -64,6 +64,7 @@ import           Data.Aeson
 import           Data.Dynamic
 import qualified Data.Map as Map
 import           Data.Singletons
+import           Data.Swagger (ToSchema)
 import qualified Data.Text as T
 import           Data.Vinyl
 import qualified Data.Vinyl.Functor as Vinyl
@@ -126,7 +127,7 @@ untagCommand (NamedCommand _ (Command desc func)) =
 -- | Ideally a Command is defined in such a way that its CommandDescriptor
 -- can be exposed via the native CLI for the tool being exposed as well.
 -- Perhaps use Options.Applicative for this in some way.
-data Command desc = forall a. (ValidResponse a) => Command
+data Command desc = forall a. (ValidResponse a, ToSchema a) => Command
   { cmdDesc :: !desc
   , cmdFunc :: !(CommandFunc a)
   }
@@ -156,8 +157,9 @@ buildCommand :: forall a s cxts tags. (ValidResponse a, KnownSymbol s)
   -> [T.Text]
   -> Rec SAcceptedContext cxts
   -> Rec SParamDescription tags
+  -> Save
   -> NamedCommand ( 'CommandType s cxts tags )
-buildCommand fun n d exts ctxs parm =
+buildCommand fun n d exts ctxs parm save =
   NamedCommand n $
   Command {cmdDesc =
             CommandDesc {cmdName = T.pack $ symbolVal n
@@ -166,7 +168,8 @@ buildCommand fun n d exts ctxs parm =
                         ,cmdContexts = ctxs
                         ,cmdAdditionalParams = parm
                         ,cmdReturnType =
-                           T.pack $ show $ typeOf (undefined :: a)}
+                           T.pack $ show $ typeOf (undefined :: a)
+                        ,cmdSave = save}
           ,cmdFunc = fun}
 
 -- ---------------------------------------------------------------------

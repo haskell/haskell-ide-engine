@@ -23,12 +23,15 @@
     ,@body
     (with-timeout (,timeout) (while (not hie-async-returned) (sleep-for 0.1)))))
 
+(defvar async-timeout 300)
+
 (describe "haskell-ide-engine"
           (before-all
            (setq hie-command-args
                  '("-d" "-l" "/tmp/hie.log"))
            (setq base-dir
-                 (getenv "HIEBASE")))
+                 (getenv "HIEBASE"))
+           (setq hie-maxtimeout 10))
           (describe "process management"
                     (before-all
                      (find-file (concat base-dir "/test/testdata/HaReRename.hs")))
@@ -97,13 +100,13 @@
                                   (erase-buffer)))
                     (after-all (hie-kill-process))
                     (it "can get version info"
-                        (async-with-timeout 100
+                        (async-with-timeout async-timeout
                                             (hie-post-message
                                              '(("cmd" . "base:version") ("params" . ()))))
                         (expect response)
                         (expect response :to-have-key 'ok))
                     (it "can list plugins"
-                        (async-with-timeout 100
+                        (async-with-timeout async-timeout
                                             (hie-post-message '(("cmd" . "base:plugins"))))
                         (expect response :to-have-key 'plugins)
                         (expect (assq 'plugins response) :to-have-key 'base)
@@ -116,8 +119,8 @@
                           (hie-kill-process)
                           (move-to-column 0)
                           (move-to-line 4)
-                          (async-with-timeout 100 (hie-mode))
-                          (async-with-timeout 100
+                          (async-with-timeout async-timeout (hie-mode))
+                          (async-with-timeout async-timeout
                                               (hie-hare-rename "foo_renamed"))
                           (let ((refactored-string (buffer-substring-no-properties (point-min) (point-max))))
                             (revert-buffer nil t)
@@ -129,8 +132,8 @@
                           (hie-kill-process)
                           (move-to-column 58)
                           (move-to-line 40)
-                          (async-with-timeout 100 (hie-mode))
-                          (async-with-timeout 100 (hie-ghcmod-type))
+                          (async-with-timeout async-timeout (hie-mode))
+                          (async-with-timeout async-timeout (hie-ghcmod-type))
                           (expect 'message
                                   :to-have-been-called-with
                                   "(PluginId, PluginDescriptor [Command UntaggedCommandDescriptor]) -> [ParamCollision]"))))

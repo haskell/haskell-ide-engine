@@ -17,7 +17,7 @@ This will put the `hie` executable into `$HOME/.local/bin/hie`. Make sure this i
 Add the following to your `.emacs`, updating the paths to reflect the location the project was cloned to.
 
 ```emacs
-(add-to-load-path "/home/alanz/mysrc/github/haskell/haskell-ide-engine/elisp")
+(add-to-list 'load-path "/home/alanz/mysrc/github/haskell/haskell-ide-engine/elisp")
 (load-file  "/home/alanz/mysrc/github/haskell/haskell-ide-engine/elisp/hie.el")
 ```
 

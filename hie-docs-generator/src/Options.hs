@@ -8,6 +8,7 @@ import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.ExamplePlugin2
 import           Haskell.Ide.ExamplePluginAsync
 import           Haskell.Ide.GhcModPlugin
+import           Haskell.Ide.GhcTreePlugin
 import           Haskell.Ide.HaRePlugin
 import           Options.Applicative
 
@@ -25,8 +26,9 @@ pluginList :: Plugins
 pluginList =
   Map.fromList
     [("applyrefact",untagPluginDescriptor applyRefactDescriptor)
-    ,("eg2",untagPluginDescriptor example2Descriptor)
-    ,("egasync",untagPluginDescriptor exampleAsyncDescriptor)
-    ,("ghcmod",untagPluginDescriptor ghcmodDescriptor)
-    ,("hare",untagPluginDescriptor hareDescriptor)
-    ,("base",untagPluginDescriptor baseDescriptor)]
+    ,("eg2",        untagPluginDescriptor example2Descriptor)
+    ,("egasync",    untagPluginDescriptor exampleAsyncDescriptor)
+    ,("ghcmod",     untagPluginDescriptor ghcmodDescriptor)
+    ,("ghctree",    untagPluginDescriptor ghcTreeDescriptor)
+    ,("hare",       untagPluginDescriptor hareDescriptor)
+    ,("base",       untagPluginDescriptor baseDescriptor)]
