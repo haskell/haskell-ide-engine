@@ -252,15 +252,23 @@ reactor st cin cout inp = do
           Just orig -> do
             liftIO $ U.logs $ "reactor: original was:" ++ show orig
             case orig of
-              GUI.NotDidOpenTextDocument _ -> do
-                let smr = J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just res)
-                reactorSend smr
+              GUI.NotDidOpenTextDocument _ ->
+                case res of
+                  IdeResponseFail  err -> liftIO $ U.logs $ "NotDidSaveTextDocument:got err" ++ show err
+                  IdeResponseError err -> liftIO $ U.logs $ "NotDidSaveTextDocument:got err" ++ show err
+                  IdeResponseOk r -> do
+                    let smr = J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just r)
+                    reactorSend smr
 
               GUI.NotDidSaveTextDocument _ -> do
-                let smr = J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just res)
-                reactorSend smr
+                case res of
+                  IdeResponseFail  err -> liftIO $ U.logs $ "NotDidSaveTextDocument:got err" ++ show err
+                  IdeResponseError err -> liftIO $ U.logs $ "NotDidSaveTextDocument:got err" ++ show err
+                  IdeResponseOk r -> do
+                    let smr = J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just r)
+                    reactorSend smr
 
-              GUI.ReqRename req ->  hieResponseHelper req res $ \r -> do
+              GUI.ReqRename req -> hieResponseHelper req res $ \r -> do
                 let J.Success vv = J.fromJSON (J.Object r) :: J.Result RefactorResult
                 let we = refactorResultToWorkspaceEdit vv
                 let rspMsg = GUI.makeResponseMessage (J.idRequestMessage req) we

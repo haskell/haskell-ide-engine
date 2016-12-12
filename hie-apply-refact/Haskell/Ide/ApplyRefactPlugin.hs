@@ -87,13 +87,27 @@ lintCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
     Right (ParamFile file :& RNil) -> do
-      -- res <- liftIO $ applyHint (T.unpack file) Nothing
-      res <- liftIO $ runEitherT $ runHlint (T.unpack file) []
+      res <- liftIO $ runEitherT $ runLintCmd (T.unpack file) []
       logm $ "lint:res=" ++ show res
       case res of
-        Left err -> return $ IdeResponseFail (IdeError PluginError
-                      (T.pack $ "lint: " ++ show err) Null)
-        Right fs -> return (IdeResponseOk (FileDiagnostics ("file://" ++ T.unpack file) (map hintToDiagnostic fs)))
+        Left diags -> return (IdeResponseOk (FileDiagnostics ("file://" ++ T.unpack file) diags))
+        Right fs   -> return (IdeResponseOk (FileDiagnostics ("file://" ++ T.unpack file) (map hintToDiagnostic fs)))
+
+runLintCmd :: FilePath -> [String] -> EitherT [Diagnostic] IO [Idea]
+runLintCmd file args =
+  do (flags,classify,hint) <- liftIO $ argsSettings args
+     res <- bimapEitherT parseErrorToDiagnostic id $ EitherT $ parseModuleEx flags file Nothing
+     pure $ applyHints classify hint [res]
+
+parseErrorToDiagnostic :: Hlint.ParseError -> [Diagnostic]
+parseErrorToDiagnostic (Hlint.ParseError l msg contents) =
+  [Diagnostic
+      { rangeDiagnostic    = srcLoc2Range l
+      , severityDiagnostic = Just DsError
+      , codeDiagnostic     = Just "parser"
+      , sourceDiagnostic   = Just "hlint"
+      , messageDiagnostic  = unlines [msg,contents]
+      }]
 
 {-
 -- | An idea suggest by a 'Hint'.
@@ -150,7 +164,7 @@ showEx tt Idea{..} = unlines $
 -}
 
 idea2Message :: Idea -> String
-idea2Message idea = unlines $ [ideaDecl idea, ideaFrom idea] ++ maybeToList (ideaTo idea) ++ (map show $ ideaNote idea)
+idea2Message idea = unlines $ [ideaDecl idea, ideaFrom idea] ++ maybeToList (ideaTo idea) ++ map show (ideaNote idea)
 
 -- ---------------------------------------------------------------------
 
@@ -159,6 +173,14 @@ severity2DisgnosticSeverity Ignore     = DsInfo
 severity2DisgnosticSeverity Suggestion = DsHint
 severity2DisgnosticSeverity Warning    = DsWarning
 severity2DisgnosticSeverity Error      = DsError
+
+-- ---------------------------------------------------------------------
+
+srcLoc2Range :: SrcLoc -> Range
+srcLoc2Range (SrcLoc _ l c) = Range ps pe
+  where
+    ps = Position l c
+    pe = Position l 100000
 
 -- ---------------------------------------------------------------------
 
@@ -202,5 +224,4 @@ makeDiffResult orig new = do
   origText <- T.readFile orig
   let (HieDiff f _ d) = diffText (orig,origText) ("changed",new)
   f' <- liftIO $ makeRelativeToCurrentDirectory f
-  -- return (HieDiff f' s' d)
   return (HieDiff f' "changed" d)

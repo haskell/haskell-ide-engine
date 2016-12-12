@@ -13,7 +13,7 @@ packages:
 # - ../haskell-lsp
 - location:
     git: https://github.com/alanz/haskell-lsp.git
-    commit: d2afca8075f0be34c660f07305bebaa3f0257a76
+    commit: a36eb6276d81df33fad835f50982c51ec312691f
   extra-dep: true
 - location:
     git: https://github.com/alanz/HaRe.git

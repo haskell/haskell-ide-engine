@@ -9,3 +9,5 @@ packages:
          hie-ghc-tree/
          hie-hare/
          hie-plugin-api/
+         ../haskell-lsp/
+         ../HaRe/
