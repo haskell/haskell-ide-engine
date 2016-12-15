@@ -290,9 +290,9 @@ instance FromJSON Range where
 
 instance ToJSON Position where
   toJSON (Position l c) = object
-           [ "line"   .= l
-           , "column" .= c
+           [ "line"      .= l
+           , "character" .= c
            ]
 
 instance FromJSON Position where
-  parseJSON = withObject "Position" $ \v -> Position <$> v .: "line" <*> v .: "column"
+  parseJSON = withObject "Position" $ \v -> Position <$> v .: "line" <*> v .: "character"
