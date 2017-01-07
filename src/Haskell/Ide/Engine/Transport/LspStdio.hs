@@ -198,6 +198,10 @@ reactor st cin cout inp = do
         liftIO $ atomically $ writeTChan cin req
         keepOriginal rid n
 
+      HandlerRequest sf n@(GUI.NotDidChangeTextDocument notification) -> do
+        setSendFunc sf
+        liftIO $ U.logm "\n****** reactor: NOT processing NotDidChangeTextDocument"
+
       -- -------------------------------
 
       HandlerRequest sf r@(GUI.ReqRename req) -> do
@@ -315,12 +319,13 @@ hieOptions = def
 
 hieHandlers :: GUI.Handlers (TChan ReactorInput)
 hieHandlers
-  = def { GUI.renameHandler                          = Just renameRequestHandler
-        , GUI.hoverHandler                           = Just hoverRequestHandler
-        , GUI.didOpenTextDocumentNotificationHandler = Just didOpenTextDocumentNotificationHandler
-        , GUI.didSaveTextDocumentNotificationHandler = Just didSaveTextDocumentNotificationHandler
-        , GUI.cancelNotificationHandler              = Just cancelNotificationHandler
-        , GUI.responseHandler                        = Just responseHandlerCb
+  = def { GUI.renameHandler                            = Just renameRequestHandler
+        , GUI.hoverHandler                             = Just hoverRequestHandler
+        , GUI.didOpenTextDocumentNotificationHandler   = Just didOpenTextDocumentNotificationHandler
+        , GUI.didSaveTextDocumentNotificationHandler   = Just didSaveTextDocumentNotificationHandler
+        , GUI.didChangeTextDocumentNotificationHandler = Just didChangeTextDocumentNotificationHandler
+        , GUI.cancelNotificationHandler                = Just cancelNotificationHandler
+        , GUI.responseHandler                          = Just responseHandlerCb
         }
 
 -- ---------------------------------------------------------------------
@@ -347,6 +352,12 @@ didSaveTextDocumentNotificationHandler :: GUI.Handler (TChan ReactorInput)
                                                       J.DidSaveTextDocumentNotification
 didSaveTextDocumentNotificationHandler rin sf notification = do
   atomically $ writeTChan rin (HandlerRequest sf (GUI.NotDidSaveTextDocument notification))
+-- ---------------------------------------------------------------------
+
+didChangeTextDocumentNotificationHandler :: GUI.Handler (TChan ReactorInput)
+                                                      J.DidChangeTextDocumentNotification
+didChangeTextDocumentNotificationHandler rin sf notification = do
+  atomically $ writeTChan rin (HandlerRequest sf (GUI.NotDidChangeTextDocument notification))
 
 -- ---------------------------------------------------------------------
 
@@ -385,7 +396,7 @@ diffOperationToTextEdit (Change fm to) = J.TextEdit r nt
     ec = 100000 -- TODO: unsavoury, but not sure how else to do it. Perhaps take the length of the last element of the text to be replaced.
     e = J.Position (el - 1) ec -- Note: zero-based lines
     r = J.Range s e
-    nt = intercalate "\r\n" $ lrContents to
+    nt = intercalate "\n" $ lrContents to
 
 -- diffOperationToTextEdit (Deletion fm _) = J.TextEdit r ""
 --   where

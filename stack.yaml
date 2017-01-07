@@ -13,12 +13,12 @@ packages:
 # - ../haskell-lsp
 - location:
     git: https://github.com/alanz/haskell-lsp.git
-    commit: a36eb6276d81df33fad835f50982c51ec312691f
+    commit: 1efc4a2dce05f91b12c97a54827216c8f7c422db
   extra-dep: true
-- location:
-    git: https://github.com/alanz/HaRe.git
-    commit: 2d168d165437c128e06d2f189215ca61c5aa1ca0
-  extra-dep: true
+# - location:
+#     git: https://github.com/alanz/HaRe.git
+#     commit: 2d168d165437c128e06d2f189215ca61c5aa1ca0
+#   extra-dep: true
 extra-deps:
   - ghc-dump-tree-0.2.0.1
   # - ghc-7.10.3

@@ -122,8 +122,8 @@ instance ToSchema Range
 
 data Position =
   Position
-    { linePosition       :: Int
-    , characterPosition  :: Int
+    { linePosition       :: Int -- ^ zero based
+    , characterPosition  :: Int -- ^ zero based
     } deriving (Show, Read, Eq, Generic)
 instance ToSchema Position
 
