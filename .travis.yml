@@ -27,7 +27,7 @@ install:
 - "./travis_long stack build --only-snapshot --jobs 2"
 script:
 - "./travis_long ./pedantic.sh +RTS -N1 -RTS"
-- "./travis_long ./emacs_tests.sh"
+# - "./travis_long ./emacs_tests.sh"
 - "./travis_long ./deploy-docs.sh"
 notifications:
   irc:
