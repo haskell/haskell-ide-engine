@@ -1,5 +1,6 @@
 module Haskell.Ide.Engine.Options where
 
+import Data.Semigroup hiding (option)
 import Network.Wai.Handler.Warp
 import Options.Applicative.Simple
 

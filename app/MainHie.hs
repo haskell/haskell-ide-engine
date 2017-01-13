@@ -21,6 +21,7 @@ import           Control.Monad.STM
 import           Data.Aeson
 import qualified Data.ByteString.Lazy       as B
 import qualified Data.Map as Map
+import           Data.Semigroup
 import           Data.Proxy
 import qualified Data.Text as T
 import           Data.Version (showVersion)
