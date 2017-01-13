@@ -24,7 +24,7 @@ before_install:
 - export PATH="$HOME/.cask/bin:$PATH"
 install:
 - "./travis_long stack +RTS -N2 -RTS setup"
-- "./travis_long stack build --only-snapshot --jobs 1"
+- "./travis_long stack build --only-snapshot --jobs 2"
 script:
 - "./travis_long ./pedantic.sh +RTS -N1 -RTS"
 - "./travis_long ./emacs_tests.sh"
