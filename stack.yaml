@@ -1,5 +1,4 @@
-# resolver: nightly-2016-09-04
-resolver: nightly-2017-01-13
+resolver: nightly-2017-02-08
 packages:
 - .
 - hie-apply-refact
@@ -19,25 +18,11 @@ packages:
 - location:
     git: https://github.com/alanz/HaRe.git
     # git: https://github.com/RefactoringTools/HaRe.git
-    commit: 5551c66f586c1ddf38174bcd879aa324d0c9da7a
-  extra-dep: true
-- location:
-    git: https://github.com/alanz/ghc-mod.git
-    commit: 358465511840bae3ff771572586d65dd12fec3bd
-  extra-dep: true
-- location:
-    git: https://github.com/alanz/pipes-network.git
-    commit: 5647903585510a921fbff96cbfc38d8ba367610f
-  extra-dep: true
-- location:
-    git: https://github.com/alanz/pipes-attoparsec.git
-    commit: 50485db84313e7620194f0d16e5f0c1cf57f11e8
-  extra-dep: true
-- location:
-    git: https://github.com/alanz/pipes-aeson.git
-    commit: 9ff8342b8be905603ff9a3101d7b7e377e0c8d6b
+    commit: ea029eb3ecab66b848e7ac9afbf5f377464cabc6
   extra-dep: true
 extra-deps:
 - apply-refact-0.3.0.1
-- cabal-helper-0.7.2.0
 - ghc-dump-tree-0.2.0.2
+- ghc-exactprint-0.5.3.0
+- pipes-aeson-0.4.1.7
+- pipes-network-0.6.4.1
