@@ -60,7 +60,7 @@ run dispatcherProc cin = flip E.catches handlers $ do
   _rpid  <- forkIO $ reactor def cin cout rin
 
   flip E.finally finalProc $ do
-    CTRL.run dispatcherProc rin hieHandlers hieOptions
+    CTRL.run dispatcherProc (hieHandlers rin) hieOptions
 
   where
     handlers = [ E.Handler ioExcept
@@ -317,57 +317,55 @@ hieOptions = def
 --                  , GUI.codeLensProvider = Just def
 --                  }
 
-hieHandlers :: GUI.Handlers (TChan ReactorInput)
-hieHandlers
-  = def { GUI.renameHandler                            = Just renameRequestHandler
-        , GUI.hoverHandler                             = Just hoverRequestHandler
-        , GUI.didOpenTextDocumentNotificationHandler   = Just didOpenTextDocumentNotificationHandler
-        , GUI.didSaveTextDocumentNotificationHandler   = Just didSaveTextDocumentNotificationHandler
-        , GUI.didChangeTextDocumentNotificationHandler = Just didChangeTextDocumentNotificationHandler
-        , GUI.cancelNotificationHandler                = Just cancelNotificationHandler
-        , GUI.responseHandler                          = Just responseHandlerCb
+hieHandlers :: TChan ReactorInput -> GUI.Handlers 
+hieHandlers rin
+  = def { GUI.renameHandler                            = Just $ renameRequestHandler rin
+        , GUI.hoverHandler                             = Just $ hoverRequestHandler rin
+        , GUI.didOpenTextDocumentNotificationHandler   = Just $ didOpenTextDocumentNotificationHandler rin
+        , GUI.didSaveTextDocumentNotificationHandler   = Just $ didSaveTextDocumentNotificationHandler rin
+        , GUI.didChangeTextDocumentNotificationHandler = Just $ didChangeTextDocumentNotificationHandler rin
+        , GUI.cancelNotificationHandler                = Just $ cancelNotificationHandler rin
+        , GUI.responseHandler                          = Just $ responseHandlerCb rin
         }
 
 -- ---------------------------------------------------------------------
 
-hoverRequestHandler :: GUI.Handler (TChan ReactorInput) J.HoverRequest
+hoverRequestHandler :: TChan ReactorInput -> GUI.Handler J.HoverRequest
 hoverRequestHandler rin sf req = do
   atomically $ writeTChan rin  (HandlerRequest sf (GUI.ReqHover req))
 
 -- ---------------------------------------------------------------------
 
-renameRequestHandler :: GUI.Handler (TChan ReactorInput) J.RenameRequest
+renameRequestHandler :: TChan ReactorInput -> GUI.Handler J.RenameRequest
 renameRequestHandler rin sf req = do
   atomically $ writeTChan rin  (HandlerRequest sf (GUI.ReqRename req))
 
 -- ---------------------------------------------------------------------
 
-didOpenTextDocumentNotificationHandler :: GUI.Handler (TChan ReactorInput) J.DidOpenTextDocumentNotification
+didOpenTextDocumentNotificationHandler :: TChan ReactorInput -> GUI.Handler J.DidOpenTextDocumentNotification
 didOpenTextDocumentNotificationHandler rin sf notification = do
   atomically $ writeTChan rin  (HandlerRequest sf (GUI.NotDidOpenTextDocument notification))
 
 -- ---------------------------------------------------------------------
 
-didSaveTextDocumentNotificationHandler :: GUI.Handler (TChan ReactorInput)
-                                                      J.DidSaveTextDocumentNotification
+didSaveTextDocumentNotificationHandler :: TChan ReactorInput -> GUI.Handler J.DidSaveTextDocumentNotification
 didSaveTextDocumentNotificationHandler rin sf notification = do
   atomically $ writeTChan rin (HandlerRequest sf (GUI.NotDidSaveTextDocument notification))
 -- ---------------------------------------------------------------------
 
-didChangeTextDocumentNotificationHandler :: GUI.Handler (TChan ReactorInput)
-                                                      J.DidChangeTextDocumentNotification
+didChangeTextDocumentNotificationHandler :: TChan ReactorInput -> GUI.Handler J.DidChangeTextDocumentNotification
 didChangeTextDocumentNotificationHandler rin sf notification = do
   atomically $ writeTChan rin (HandlerRequest sf (GUI.NotDidChangeTextDocument notification))
 
 -- ---------------------------------------------------------------------
 
-cancelNotificationHandler :: GUI.Handler (TChan ReactorInput) J.CancelNotification
+cancelNotificationHandler :: TChan ReactorInput -> GUI.Handler J.CancelNotification
 cancelNotificationHandler rin sf notification = do
   atomically $ writeTChan rin  (HandlerRequest sf (GUI.NotCancelRequest notification))
 
 -- ---------------------------------------------------------------------
 
-responseHandlerCb :: GUI.Handler (TChan ReactorInput) J.BareResponseMessage
+responseHandlerCb :: TChan ReactorInput -> GUI.Handler J.BareResponseMessage
 responseHandlerCb _rin _sf resp = do
   U.logs $ "\n******** got ResponseMessage, ignoring:" ++ show resp
 
