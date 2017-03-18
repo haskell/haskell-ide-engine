@@ -14,5 +14,5 @@ dependencies:
 
 test:
   override:
-    - stack test :
+    - stack test haskell-ide-engine :
         timeout: 3600
