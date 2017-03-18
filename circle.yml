@@ -7,8 +7,9 @@ dependencies:
     - sudo apt-get update && sudo apt-get install stack -y
   override:
     - stack setup
-    - stack build
-    - stack build --test --only-dependencies :
+    - stack build -j 2 :
+        timeout: 3600
+    - stack build -j 2 --test --only-dependencies :
         timeout: 3600
 
 test:
