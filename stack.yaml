@@ -1,5 +1,6 @@
 # resolver: nightly-2017-02-08
-resolver: nightly-2017-03-07
+# resolver: nightly-2017-03-07
+resolver: nightly-2017-03-17
 packages:
 - .
 - hie-apply-refact
@@ -12,22 +13,18 @@ packages:
 - hie-hare
 - hie-docs-generator
 # - ../haskell-lsp
-#- location:
-#    git: https://github.com/alanz/haskell-lsp.git
-#    commit: 1efc4a2dce05f91b12c97a54827216c8f7c422db
-#  extra-dep: true
 - location:
-    git: https://github.com/adamwalker/haskell-lsp.git
-    commit: a8b5a8d27d389bd32201db1e9923028de64e4027
+    git: https://github.com/alanz/haskell-lsp.git
+    commit: 200fef72860036534fbfee8ab3f12328835432b3
   extra-dep: true
+# - location:
+#     git: https://github.com/adamwalker/haskell-lsp.git
+#     commit: a8b5a8d27d389bd32201db1e9923028de64e4027
+#   extra-dep: true
 - location:
     git: https://github.com/alanz/ghc-dump-tree.git
     commit: 9dbca928ad5507b144f46bb95123a08d24f24808
   extra-dep: true
-# - location:
-#     git: https://github.com/alanz/pipes-aeson.git
-#     commit: d1631a7afb9b9b4a64b0047843952ea36d48a33b
-#   extra-dep: true
 # - location:
 #     git: https://github.com/alanz/HaRe.git
 #     # git: https://github.com/RefactoringTools/HaRe.git
@@ -37,5 +34,4 @@ extra-deps:
 - apply-refact-0.3.0.1
 - pipes-aeson-0.4.1.8
 - pipes-network-0.6.4.1
-# - ghc-dump-tree-0.2.0.2
 
