@@ -9,7 +9,7 @@ dependencies:
     - stack setup
     - stack build
     - stack build --test --only-dependencies :
-        timeout: 1800
+        timeout: 3600
 
 test:
   override:
