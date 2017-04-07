@@ -60,6 +60,7 @@ run dispatcherProc cin = flip E.catches handlers $ do
   _rpid  <- forkIO $ reactor def cin cout rin
 
   flip E.finally finalProc $ do
+    GUI.setupLogger "/tmp/hie-vscode.log" L.DEBUG
     CTRL.run dispatcherProc (hieHandlers rin) hieOptions
 
   where
@@ -312,12 +313,15 @@ posToPosition (Pos (Line l) (Col c)) = J.Position (l-1) (c-1)
 -- ---------------------------------------------------------------------
 
 hieOptions :: GUI.Options
-hieOptions = def
+-- hieOptions = def
+hieOptions = def { GUI.textDocumentSync = Just J.TdSyncNone
+                 }
+
 -- hieOptions = def { GUI.textDocumentSync = Just J.TdSyncFull
 --                  , GUI.codeLensProvider = Just def
 --                  }
 
-hieHandlers :: TChan ReactorInput -> GUI.Handlers 
+hieHandlers :: TChan ReactorInput -> GUI.Handlers
 hieHandlers rin
   = def { GUI.renameHandler                            = Just $ renameRequestHandler rin
         , GUI.hoverHandler                             = Just $ hoverRequestHandler rin

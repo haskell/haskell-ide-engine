@@ -134,10 +134,16 @@ run opts = do
       else setLogLevel LevelError
 
     case projectRoot opts of
-      Nothing -> pure ()
+      Nothing -> do
+        h <- getHomeDirectory
+        setCurrentDirectory h
+        logm $ "Setting home directory:" ++ h
       Just root -> setCurrentDirectory root
 
     logm $  "run entered for HIE " ++ version
+    d <- getCurrentDirectory
+    logm $ "Current directory:" ++ d
+
     cin <- atomically newTChan :: IO (TChan ChannelRequest)
 
     -- log $ T.pack $ "replPluginInfo:" ++ show replPluginInfo
