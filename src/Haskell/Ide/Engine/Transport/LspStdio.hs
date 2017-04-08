@@ -1,9 +1,10 @@
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE FlexibleInstances   #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE MultiWayIf          #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiWayIf            #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 module Haskell.Ide.Engine.Transport.LspStdio
   (
@@ -177,8 +178,11 @@ reactor st cin cout inp = do
         setSendFunc sf
         liftIO $ U.logm $ "\n****** reactor: processing NotDidOpenTextDocument"
         -- TODO: learn enough lens to do the following more cleanly
-        let doc = J.uriTextDocumentItem $ J.textDocumentDidOpenTextDocumentNotificationParams
-                                        $ fromJust $ J.paramsNotificationMessage notification
+        -- let doc = J._uri $ J._textDocument $ fromJust $ J._params notification
+        let
+            params  = fromJust $ J._params (notification :: J.DidOpenTextDocumentNotification)
+            textDoc = J._textDocument (params :: J.DidOpenTextDocumentNotificationParams)
+            doc     = J._uri (textDoc :: J.TextDocumentItem)
             fileName = drop (length ("file://"::String)) doc
         liftIO $ U.logs $ "\n********* doc=" ++ show doc
         rid <- nextReqId
@@ -191,7 +195,9 @@ reactor st cin cout inp = do
       HandlerRequest sf n@(GUI.NotDidSaveTextDocument notification) -> do
         setSendFunc sf
         liftIO $ U.logm "\n****** reactor: processing NotDidSaveTextDocument"
-        let J.TextDocumentIdentifier doc = J.textDocumentDidSaveTextDocumentParams $ fromJust $ J.paramsNotificationMessage notification
+        let
+            params = fromJust $ J._params (notification :: J.NotificationMessage J.DidSaveTextDocumentParams)
+            J.TextDocumentIdentifier doc = J._textDocument (params :: J.DidSaveTextDocumentParams)
             fileName = drop (length ("file://"::String)) doc
         liftIO $ U.logs $ "\n********* doc=" ++ show doc
         rid <- nextReqId
@@ -208,11 +214,11 @@ reactor st cin cout inp = do
       HandlerRequest sf r@(GUI.ReqRename req) -> do
         setSendFunc sf
         liftIO $ U.logs $ "reactor:got RenameRequest:" ++ show req
-        let params = fromJust $ J.paramsRequestMessage req
-            J.TextDocumentIdentifier doc = J.textDocumentRenameRequestParams params
+        let params = fromJust $ J._params (req :: J.RenameRequest)
+            J.TextDocumentIdentifier doc = J._textDocument (params :: J.RenameRequestParams)
             fileName = drop (length ("file://"::String)) doc
-            J.Position l c = J.positionRenameRequestParams params
-            newName  = J.newNameRenameRequestParams params
+            J.Position l c = J._position (params :: J.RenameRequestParams)
+            newName  = J._newName params
         rid <- nextReqId
         let hreq = CReq "hare" rid (IdeRequest "rename" (Map.fromList
                                                     [("file",     ParamFileP (T.pack fileName))
@@ -228,8 +234,8 @@ reactor st cin cout inp = do
       HandlerRequest sf r@(GUI.ReqHover req) -> do
         setSendFunc sf
         liftIO $ U.logs $ "reactor:got HoverRequest:" ++ show req
-        let J.TextDocumentPositionParams doc pos = fromJust $ J.paramsRequestMessage req
-            fileName = drop (length ("file://"::String)) $ J.uriTextDocumentIdentifier doc
+        let J.TextDocumentPositionParams doc pos = fromJust $ J._params (req :: J.HoverRequest)
+            fileName = drop (length ("file://"::String)) $ J._uri (doc :: J.TextDocumentIdentifier)
             J.Position l c = pos
         rid <- nextReqId
         let hreq = CReq "ghcmod" rid (IdeRequest "type" (Map.fromList
@@ -276,7 +282,7 @@ reactor st cin cout inp = do
               GUI.ReqRename req -> hieResponseHelper req res $ \r -> do
                 let J.Success vv = J.fromJSON (J.Object r) :: J.Result RefactorResult
                 let we = refactorResultToWorkspaceEdit vv
-                let rspMsg = GUI.makeResponseMessage (J.idRequestMessage req) we
+                let rspMsg = GUI.makeResponseMessage (J._id (req :: J.RenameRequest)) we
                 reactorSend rspMsg
 
               GUI.ReqHover req -> hieResponseHelper req res $ \r -> do
@@ -289,7 +295,7 @@ reactor st cin cout inp = do
                         ms = map (\ti -> J.MarkedString "haskell" (T.unpack $ trText ti)) tis
                         tr = head tis
                         range = J.Range (posToPosition $ trStart tr) (posToPosition $ trEnd tr)
-                  rspMsg = GUI.makeResponseMessage (J.idRequestMessage req) ht
+                  rspMsg = GUI.makeResponseMessage (J._id (req :: J.HoverRequest) ) ht
                 reactorSend rspMsg
 
               other -> do
@@ -298,11 +304,11 @@ reactor st cin cout inp = do
 
 -- ---------------------------------------------------------------------
 
-hieResponseHelper :: J.RequestMessage a -> IdeResponse t -> (t -> R ()) -> R ()
+hieResponseHelper :: forall a t. J.RequestMessage a -> IdeResponse t -> (t -> R ()) -> R ()
 hieResponseHelper req res action =
   case res of
-    IdeResponseFail  err -> sendErrorResponse (J.idRequestMessage req) J.InternalError (show err)
-    IdeResponseError err -> sendErrorResponse (J.idRequestMessage req) J.InternalError (show err)
+    IdeResponseFail  err -> sendErrorResponse (J._id (req :: J.RequestMessage a)) J.InternalError (show err)
+    IdeResponseError err -> sendErrorResponse (J._id (req :: J.RequestMessage a)) J.InternalError (show err)
     IdeResponseOk r -> action r
 
 -- ---------------------------------------------------------------------
