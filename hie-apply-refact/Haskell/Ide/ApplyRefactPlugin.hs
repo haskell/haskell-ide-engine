@@ -133,7 +133,7 @@ hintToDiagnostic idea
   = Diagnostic
       { rangeDiagnostic    = ss2Range (ideaSpan idea)
       , severityDiagnostic = Just (severity2DisgnosticSeverity $ ideaSeverity idea)
-      , codeDiagnostic     = Just (ideaHint idea)
+      , codeDiagnostic     = Nothing
       , sourceDiagnostic   = Just "hlint"
       , messageDiagnostic  = idea2Message idea
       }
@@ -164,7 +164,12 @@ showEx tt Idea{..} = unlines $
 -}
 
 idea2Message :: Idea -> String
-idea2Message idea = unlines $ [ideaDecl idea, ideaFrom idea] ++ maybeToList (ideaTo idea) ++ map show (ideaNote idea)
+idea2Message idea = unlines $ [ideaHint idea, "Found:", ("  " ++ ideaFrom idea)]
+                               ++ toIdea ++ map show (ideaNote idea)
+  where
+    toIdea = case ideaTo idea of
+      Nothing -> []
+      Just i  -> ["Why not:", "  " ++ i]
 
 -- ---------------------------------------------------------------------
 

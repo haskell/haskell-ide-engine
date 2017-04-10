@@ -361,6 +361,7 @@ didOpenTextDocumentNotificationHandler rin sf notification = do
 didSaveTextDocumentNotificationHandler :: TChan ReactorInput -> GUI.Handler J.DidSaveTextDocumentNotification
 didSaveTextDocumentNotificationHandler rin sf notification = do
   atomically $ writeTChan rin (HandlerRequest sf (GUI.NotDidSaveTextDocument notification))
+
 -- ---------------------------------------------------------------------
 
 didChangeTextDocumentNotificationHandler :: TChan ReactorInput -> GUI.Handler J.DidChangeTextDocumentNotification
