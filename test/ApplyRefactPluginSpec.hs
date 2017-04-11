@@ -106,14 +106,14 @@ applyRefactSpec = do
                                       , fdDiagnostics =
                                         [ Diagnostic (Range (Position 2 8) (Position 2 26))
                                                      (Just DsHint)
-                                                     (Just "Redundant bracket")
+                                                     Nothing
                                                      (Just "hlint")
-                                                     "main\n(putStrLn \"hello\")\nputStrLn \"hello\"\n"
+                                                     "Redundant bracket\nFound:\n  (putStrLn \"hello\")\nWhy not:\n  putStrLn \"hello\"\n"
                                         , Diagnostic (Range (Position 4 9) (Position 4 16))
                                                      (Just DsHint)
-                                                     (Just "Redundant bracket")
+                                                     Nothing
                                                      (Just "hlint")
-                                                     "foo\n(x + 1)\nx + 1\n"
+                                                     "Redundant bracket\nFound:\n  (x + 1)\nWhy not:\n  x + 1\n"
                                         ]
                                       }
                                      )))
