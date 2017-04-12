@@ -17,12 +17,16 @@ packages:
 # - ../haskell-lsp
 - location:
     git: https://github.com/alanz/haskell-lsp.git
-    commit: ccdf3d1f6052a56ed59853d0d7abdaf9142cf48f
+    commit: e29a00bc41fc63b0fd587a16878b0ced7e8357f8
   extra-dep: true
 - location:
     git: https://github.com/alanz/ghc-dump-tree.git
     commit: 9dbca928ad5507b144f46bb95123a08d24f24808
   extra-dep: true
+# - location:
+#     git: https://github.com/sol/hspec-jenkins.git
+#     commit: cb012b23c4e524dde9ea129b6146dda20a5ca505
+#   extra-dep: true
 # - location:
 #     git: https://github.com/alanz/HaRe.git
 #     # git: https://github.com/RefactoringTools/HaRe.git
@@ -32,4 +36,4 @@ extra-deps:
 - apply-refact-0.3.0.1
 - pipes-aeson-0.4.1.8
 - pipes-network-0.6.4.1
-
+# - hspec-jenkins-0.1.1
