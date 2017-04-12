@@ -146,8 +146,9 @@ lookupOriginal rid = do
 
 -- ---------------------------------------------------------------------
 
-sendErrorResponse :: Int -> J.ErrorCode -> String -> R ()
-sendErrorResponse origId err msg = reactorSend' (\sf -> GUI.sendErrorResponseS sf origId err msg)
+sendErrorResponse :: J.LspId -> J.ErrorCode -> String -> R ()
+sendErrorResponse origId err msg
+  = reactorSend' (\sf -> GUI.sendErrorResponseS sf (J.responseId origId) err msg)
 
 sendErrorLog :: String -> R ()
 sendErrorLog  msg = reactorSend' (\sf -> GUI.sendErrorLogS  sf msg)
@@ -282,7 +283,7 @@ reactor st cin cout inp = do
               GUI.ReqRename req -> hieResponseHelper req res $ \r -> do
                 let J.Success vv = J.fromJSON (J.Object r) :: J.Result RefactorResult
                 let we = refactorResultToWorkspaceEdit vv
-                let rspMsg = GUI.makeResponseMessage (J._id (req :: J.RenameRequest)) we
+                let rspMsg = GUI.makeResponseMessage (J.responseId $ J._id (req :: J.RenameRequest)) we
                 reactorSend rspMsg
 
               GUI.ReqHover req -> hieResponseHelper req res $ \r -> do
@@ -295,7 +296,7 @@ reactor st cin cout inp = do
                         ms = map (\ti -> J.MarkedString "haskell" (T.unpack $ trText ti)) tis
                         tr = head tis
                         range = J.Range (posToPosition $ trStart tr) (posToPosition $ trEnd tr)
-                  rspMsg = GUI.makeResponseMessage (J._id (req :: J.HoverRequest) ) ht
+                  rspMsg = GUI.makeResponseMessage (J.responseId $ J._id (req :: J.HoverRequest) ) ht
                 reactorSend rspMsg
 
               other -> do
@@ -321,6 +322,7 @@ posToPosition (Pos (Line l) (Col c)) = J.Position (l-1) (c-1)
 hieOptions :: GUI.Options
 -- hieOptions = def
 hieOptions = def { GUI.textDocumentSync = Just J.TdSyncNone
+                 , GUI.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List ["hie-command"]))
                  }
 
 -- hieOptions = def { GUI.textDocumentSync = Just J.TdSyncFull
@@ -384,7 +386,7 @@ responseHandlerCb _rin _sf resp = do
 
 -- TODO: perhaps move this somewhere else, for general use
 refactorResultToWorkspaceEdit :: RefactorResult -> J.WorkspaceEdit
-refactorResultToWorkspaceEdit (RefactorResult diffs) = J.WorkspaceEdit r
+refactorResultToWorkspaceEdit (RefactorResult diffs) = J.WorkspaceEdit (Just r) Nothing
   where
     r = H.fromList $ map hieDiffToLspEdit diffs
 

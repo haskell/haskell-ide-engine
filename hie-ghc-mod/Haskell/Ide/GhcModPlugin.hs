@@ -81,7 +81,7 @@ checkCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
-      fmap T.pack <$> runGhcModCommand (GM.checkSyntax [(T.unpack fileName)])
+      fmap T.pack <$> runGhcModCommand (GM.checkSyntax [T.unpack fileName])
 
 -- ---------------------------------------------------------------------
 
