@@ -32,6 +32,7 @@ import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.Control  as CTRL
 import qualified Language.Haskell.LSP.Core     as GUI
+import qualified Language.Haskell.LSP.TH.ClientCapabilities as C
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 import qualified Language.Haskell.LSP.Utility  as U
 import           System.Exit
@@ -44,8 +45,8 @@ import qualified System.Log.Logger as L
 -- ---------------------------------------------------------------------
 
 lspStdioTransport :: IO () -> TChan ChannelRequest -> IO ()
-lspStdioTransport dispatcherProc cin = do
-  run dispatcherProc cin >>= \case
+lspStdioTransport hieDispatcherProc cin = do
+  run hieDispatcherProc cin >>= \case
     0 -> exitSuccess
     c -> exitWith . ExitFailure $ c
 
@@ -60,9 +61,14 @@ run dispatcherProc cin = flip E.catches handlers $ do
   _rhpid <- forkIO $ responseHandler cout rin
   _rpid  <- forkIO $ reactor def cin cout rin
 
+  let
+    dp capabilities = do
+      atomically $ writeTChan rin (ClientCapabilities capabilities)
+      dispatcherProc
+
   flip E.finally finalProc $ do
     GUI.setupLogger "/tmp/hie-vscode.log" L.DEBUG
-    CTRL.run dispatcherProc (hieHandlers rin) hieOptions
+    CTRL.run dp (hieHandlers rin) hieOptions
 
   where
     handlers = [ E.Handler ioExcept
@@ -84,16 +90,18 @@ responseHandler cout cr = do
 
 data ReactorInput = DispatcherResponse ChannelResponse
                   | HandlerRequest (BSL.ByteString -> IO ()) GUI.OutMessage
+                  | ClientCapabilities C.ClientCapabilities
 
 data ReactorState =
   ReactorState
-    { sender :: !(Maybe (BSL.ByteString -> IO ()))
-    , reqId  :: !RequestId
-    , wip    :: Map.Map RequestId GUI.OutMessage
+    { sender             :: !(Maybe (BSL.ByteString -> IO ()))
+    , reqId              :: !RequestId
+    , wip                :: !(Map.Map RequestId GUI.OutMessage)
+    , clientCapabilities :: !(Maybe C.ClientCapabilities)
     }
 
 instance Default ReactorState where
-  def = ReactorState Nothing 0 Map.empty
+  def = ReactorState Nothing 0 Map.empty Nothing
 
 -- ---------------------------------------------------------------------
 
@@ -106,6 +114,9 @@ type R a = StateT ReactorState IO a
 
 setSendFunc :: (BSL.ByteString -> IO ()) -> R ()
 setSendFunc sf = modify' (\s -> s {sender = Just sf})
+
+setClientCapabilities :: C.ClientCapabilities -> R ()
+setClientCapabilities c = modify' (\s -> s {clientCapabilities = Just c})
 
 -- ---------------------------------------------------------------------
 
@@ -169,6 +180,10 @@ reactor st cin cout inp = do
   flip evalStateT st $ forever $ do
     inval <- liftIO $ atomically $ readTChan inp
     case inval of
+      ClientCapabilities capabilities -> do
+        liftIO $ U.logs $ "reactor:got Client capabilities:" ++ show capabilities
+        setClientCapabilities capabilities
+
       HandlerRequest sf (GUI.RspFromClient rm) -> do
         setSendFunc sf
         liftIO $ U.logs $ "reactor:got RspFromClient:" ++ show rm
@@ -245,6 +260,20 @@ reactor st cin cout inp = do
                                                     ])) cout
         liftIO $ atomically $ writeTChan cin hreq
         keepOriginal rid r
+
+      -- -------------------------------
+
+      HandlerRequest sf r@(GUI.ReqCodeAction req) -> do
+        setSendFunc sf
+        liftIO $ U.logs $ "reactor:got CodeActionRequest:" ++ show req
+        let params = fromJust $ J._params (req :: J.CodeActionRequest)
+            J.TextDocumentIdentifier doc = J._textDocument (params :: J.CodeActionParams)
+            fileName = drop (length ("file://"::String)) doc
+            J.Range from to = J._range (params :: J.CodeActionParams)
+
+        let body = [J.Command "command title" "command" Nothing]
+        let rspMsg = GUI.makeResponseMessage (J.responseId $ J._id (req :: J.CodeActionRequest)) body
+        reactorSend rspMsg
 
       -- -------------------------------
 
@@ -325,9 +354,6 @@ hieOptions = def { GUI.textDocumentSync = Just J.TdSyncNone
                  , GUI.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List ["hie-command"]))
                  }
 
--- hieOptions = def { GUI.textDocumentSync = Just J.TdSyncFull
---                  , GUI.codeLensProvider = Just def
---                  }
 
 hieHandlers :: TChan ReactorInput -> GUI.Handlers
 hieHandlers rin
@@ -338,6 +364,7 @@ hieHandlers rin
         , GUI.didChangeTextDocumentNotificationHandler = Just $ didChangeTextDocumentNotificationHandler rin
         , GUI.cancelNotificationHandler                = Just $ cancelNotificationHandler rin
         , GUI.responseHandler                          = Just $ responseHandlerCb rin
+        , GUI.codeActionHandler                        = Just $ codeActionHandler rin
         }
 
 -- ---------------------------------------------------------------------
@@ -351,6 +378,12 @@ hoverRequestHandler rin sf req = do
 renameRequestHandler :: TChan ReactorInput -> GUI.Handler J.RenameRequest
 renameRequestHandler rin sf req = do
   atomically $ writeTChan rin  (HandlerRequest sf (GUI.ReqRename req))
+
+-- ---------------------------------------------------------------------
+
+codeActionHandler :: TChan ReactorInput -> GUI.Handler J.CodeActionRequest
+codeActionHandler rin sf req = do
+  atomically $ writeTChan rin  (HandlerRequest sf (GUI.ReqCodeAction req))
 
 -- ---------------------------------------------------------------------
 

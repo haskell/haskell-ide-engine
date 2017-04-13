@@ -10,7 +10,7 @@ import           Control.Arrow
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Either
 import           Data.Aeson hiding (Error)
-import           Data.Maybe
+-- import           Data.Maybe
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Data.Vinyl
