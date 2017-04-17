@@ -19,9 +19,11 @@ import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Control.Monad.Trans.State.Lazy
 import qualified Data.Aeson as J
+import qualified Data.Aeson.Types as J
 import           Data.Algorithm.DiffOutput
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default
+import           Data.Either
 import           Data.List
 import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
@@ -65,6 +67,7 @@ run dispatcherProc cin = flip E.catches handlers $ do
     dp capabilities = do
       atomically $ writeTChan rin (ClientCapabilities capabilities)
       dispatcherProc
+      return Nothing
 
   flip E.finally finalProc $ do
     GUI.setupLogger "/tmp/hie-vscode.log" L.DEBUG
@@ -270,10 +273,44 @@ reactor st cin cout inp = do
             J.TextDocumentIdentifier doc = J._textDocument (params :: J.CodeActionParams)
             fileName = drop (length ("file://"::String)) doc
             J.Range from to = J._range (params :: J.CodeActionParams)
+            J.CodeActionContext (J.List diags) = J._context (params :: J.CodeActionParams)
 
-        let body = [J.Command "command title" "command" Nothing]
+        let
+          makeCommand (J.Diagnostic _r _s _c (Just "hlint") _m  ) = [J.Command title cmd cmdparams]
+            where
+              title = "apply hint:" ++ head (lines _m)
+              cmd = "applyrefact:applyOne"
+              cmdparams = Nothing -- Need to require current point
+          makeCommand (J.Diagnostic _r _s _c _source _m  ) = []
+        let body = concatMap makeCommand diags
         let rspMsg = GUI.makeResponseMessage (J.responseId $ J._id (req :: J.CodeActionRequest)) body
         reactorSend rspMsg
+
+      -- -------------------------------
+
+      HandlerRequest sf r@(GUI.ReqExecuteCommand req) -> do
+        setSendFunc sf
+        liftIO $ U.logs $ "reactor:got ExecuteCommandRequest:" ++ show req
+        let params = fromJust $ J._params (req :: J.ExecuteCommandRequest)
+            command = J._command (params :: J.ExecuteCommandParams)
+            margs = J._arguments (params :: J.ExecuteCommandParams)
+
+        liftIO $ U.logs $ "reactor:ExecuteCommandRequest:margs=" ++ show margs
+        cmdparams <- case margs of
+              Nothing -> return []
+              Just (J.List os) -> do
+                let (lts,rts) = partitionEithers $ map convertParam os
+                -- TODO:AZ: return an error if any parse errors found.
+                when (not $ null lts) $
+                  liftIO $ U.logs $ "reactor:ExecuteCommandRequest:error converting params=" ++ show lts
+                return rts
+
+        rid <- nextReqId
+        let (plugin,cmd) = break (==':') command
+        let hreq = CReq (T.pack plugin) rid (IdeRequest (T.pack $ tail cmd) (Map.fromList
+                                                    cmdparams)) cout
+        liftIO $ atomically $ writeTChan cin hreq
+        keepOriginal rid r
 
       -- -------------------------------
 
@@ -328,12 +365,31 @@ reactor st cin cout inp = do
                   rspMsg = GUI.makeResponseMessage (J.responseId $ J._id (req :: J.HoverRequest) ) ht
                 reactorSend rspMsg
 
+              GUI.ReqExecuteCommand req -> hieResponseHelper req res $ \r -> do
+                -- let J.Success vv = J.fromJSON (J.Object r) :: J.Result RefactorResult
+                -- let we = refactorResultToWorkspaceEdit vv
+                let we = J.Object r
+                let rspMsg = GUI.makeResponseMessage (J.responseId $ J._id (req :: J.ExecuteCommandRequest)) we
+                reactorSend rspMsg
+
               other -> do
                 sendErrorLog $ "reactor:not processing for original LSP message : " ++ show other
 
 
 -- ---------------------------------------------------------------------
 
+convertParam :: J.Value -> Either String (ParamId, ParamValP)
+convertParam (J.Object hm) = case H.toList hm of
+  [(k,v)] -> case (J.fromJSON v) :: J.Result ParamValP of
+             J.Success pv -> Right (k, pv)
+             J.Error errStr -> Left $ "convertParam: could not decode parameter value for "
+                               ++ show k ++ ", err=" ++ errStr
+  _       -> Left $ "convertParam: expecting a single key/value, got:" ++ show hm
+convertParam v = Left $ "convertParam: expecting Object, got:" ++ show v
+
+-- ---------------------------------------------------------------------
+
+-- | Manage the boilerplate for passing on any errors found in the IdeResponse
 hieResponseHelper :: forall a t. J.RequestMessage a -> IdeResponse t -> (t -> R ()) -> R ()
 hieResponseHelper req res action =
   case res of
@@ -362,9 +418,11 @@ hieHandlers rin
         , GUI.didOpenTextDocumentNotificationHandler   = Just $ didOpenTextDocumentNotificationHandler rin
         , GUI.didSaveTextDocumentNotificationHandler   = Just $ didSaveTextDocumentNotificationHandler rin
         , GUI.didChangeTextDocumentNotificationHandler = Just $ didChangeTextDocumentNotificationHandler rin
+        , GUI.didCloseTextDocumentNotificationHandler  = Just $ didCloseTextDocumentNotificationHandler rin
         , GUI.cancelNotificationHandler                = Just $ cancelNotificationHandler rin
         , GUI.responseHandler                          = Just $ responseHandlerCb rin
         , GUI.codeActionHandler                        = Just $ codeActionHandler rin
+        , GUI.executeCommandHandler                    = Just $ executeCommandHandler rin
         }
 
 -- ---------------------------------------------------------------------
@@ -387,6 +445,12 @@ codeActionHandler rin sf req = do
 
 -- ---------------------------------------------------------------------
 
+executeCommandHandler :: TChan ReactorInput -> GUI.Handler J.ExecuteCommandRequest
+executeCommandHandler rin sf req = do
+  atomically $ writeTChan rin  (HandlerRequest sf (GUI.ReqExecuteCommand req))
+
+-- ---------------------------------------------------------------------
+
 didOpenTextDocumentNotificationHandler :: TChan ReactorInput -> GUI.Handler J.DidOpenTextDocumentNotification
 didOpenTextDocumentNotificationHandler rin sf notification = do
   atomically $ writeTChan rin  (HandlerRequest sf (GUI.NotDidOpenTextDocument notification))
@@ -402,6 +466,12 @@ didSaveTextDocumentNotificationHandler rin sf notification = do
 didChangeTextDocumentNotificationHandler :: TChan ReactorInput -> GUI.Handler J.DidChangeTextDocumentNotification
 didChangeTextDocumentNotificationHandler rin sf notification = do
   atomically $ writeTChan rin (HandlerRequest sf (GUI.NotDidChangeTextDocument notification))
+
+-- ---------------------------------------------------------------------
+
+didCloseTextDocumentNotificationHandler :: TChan ReactorInput -> GUI.Handler J.DidCloseTextDocumentNotification
+didCloseTextDocumentNotificationHandler rin sf notification = do
+  atomically $ writeTChan rin (HandlerRequest sf (GUI.NotDidCloseTextDocument notification))
 
 -- ---------------------------------------------------------------------
 
