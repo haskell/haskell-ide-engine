@@ -151,6 +151,23 @@ instance FromJSON DiagnosticSeverity where
   parseJSON _          = mempty
 
 -- ---------------------------------------------------------------------
+
+data TextDocumentIdentifier =
+  TextDocumentIdentifier
+    { uri :: T.Text
+    } deriving (Read, Show, Eq)
+
+
+instance ToJSON TextDocumentIdentifier where
+  toJSON (TextDocumentIdentifier u) =
+      object [ "uri" .= toJSON u
+             ]
+
+instance FromJSON TextDocumentIdentifier where
+  parseJSON = withObject "TextDocumentIdentifier" $ \v ->
+    TextDocumentIdentifier <$> v .: "uri"
+
+-- ---------------------------------------------------------------------
 -- JSON instances
 
 instance ValidResponse TypeInfo where
@@ -204,20 +221,6 @@ instance FromJSON HieDiff where
     <*> (v .: "second")
     <*> (v .: "diff")
 
-{-
-instance (ToJSON a) => ToJSON (Diff a) where
-  toJSON (First  x) = object [ "first" .= toJSON x]
-  toJSON (Second x) = object [ "second" .= toJSON x]
-  toJSON (Both x y) = object [ "both" .= toJSON (x,y)]
-
-instance (FromJSON a) => FromJSON (Diff a) where
-  parseJSON = withObject "Diff a" $ \v ->
-    case H.toList v of
-      [("first",_)]  -> First  <$> v .: "first"
-      [("second",_)] -> Second <$> v .: "second"
-      [("both",_)]   -> (\(x,y) -> Both x y) <$> v .: "both"
-      _              -> mempty
--}
 -- ---------------------------------------------------------------------
 
 instance ValidResponse ModuleList where
@@ -296,3 +299,12 @@ instance ToJSON Position where
 
 instance FromJSON Position where
   parseJSON = withObject "Position" $ \v -> Position <$> v .: "line" <*> v .: "character"
+
+-- ---------------------------------------------------------------------
+
+-- -- Sum type for easy JSON decoding of received params
+-- data LspParam
+--   = LspTextDocumentId TextDocumentIdentifier
+--   | LspPosition       Position
+--   | LspRange          Range
+--   deriving (Read, Show, Eq)

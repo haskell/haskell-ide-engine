@@ -19,7 +19,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Control.Monad.Trans.State.Lazy
 import qualified Data.Aeson as J
-import qualified Data.Aeson.Types as J
+-- import qualified Data.Aeson.Types as J
 import           Data.Algorithm.DiffOutput
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default
@@ -167,8 +167,8 @@ sendErrorResponse origId err msg
 sendErrorLog :: String -> R ()
 sendErrorLog  msg = reactorSend' (\sf -> GUI.sendErrorLogS  sf msg)
 
-sendErrorShow :: String -> R ()
-sendErrorShow msg = reactorSend' (\sf -> GUI.sendErrorShowS sf msg)
+-- sendErrorShow :: String -> R ()
+-- sendErrorShow msg = reactorSend' (\sf -> GUI.sendErrorShowS sf msg)
 
 -- ---------------------------------------------------------------------
 -- reactor monad functions end
@@ -224,7 +224,7 @@ reactor st cin cout inp = do
         liftIO $ atomically $ writeTChan cin req
         keepOriginal rid n
 
-      HandlerRequest sf n@(GUI.NotDidChangeTextDocument notification) -> do
+      HandlerRequest sf (GUI.NotDidChangeTextDocument _notification) -> do
         setSendFunc sf
         liftIO $ U.logm "\n****** reactor: NOT processing NotDidChangeTextDocument"
 
@@ -266,13 +266,13 @@ reactor st cin cout inp = do
 
       -- -------------------------------
 
-      HandlerRequest sf r@(GUI.ReqCodeAction req) -> do
+      HandlerRequest sf (GUI.ReqCodeAction req) -> do
         setSendFunc sf
         liftIO $ U.logs $ "reactor:got CodeActionRequest:" ++ show req
         let params = fromJust $ J._params (req :: J.CodeActionRequest)
-            J.TextDocumentIdentifier doc = J._textDocument (params :: J.CodeActionParams)
-            fileName = drop (length ("file://"::String)) doc
-            J.Range from to = J._range (params :: J.CodeActionParams)
+            -- J.TextDocumentIdentifier doc = J._textDocument (params :: J.CodeActionParams)
+            -- fileName = drop (length ("file://"::String)) doc
+            -- J.Range from to = J._range (params :: J.CodeActionParams)
             J.CodeActionContext (J.List diags) = J._context (params :: J.CodeActionParams)
 
         let
@@ -379,13 +379,33 @@ reactor st cin cout inp = do
 -- ---------------------------------------------------------------------
 
 convertParam :: J.Value -> Either String (ParamId, ParamValP)
-convertParam (J.Object hm) = case H.toList hm of
-  [(k,v)] -> case (J.fromJSON v) :: J.Result ParamValP of
-             J.Success pv -> Right (k, pv)
+convertParam j@(J.Object hm) = case H.toList hm of
+  [(k,v)] -> case (J.fromJSON v) :: J.Result LspParam of
+             J.Success pv -> Right (k, lspParam2ParamValP pv)
              J.Error errStr -> Left $ "convertParam: could not decode parameter value for "
                                ++ show k ++ ", err=" ++ errStr
   _       -> Left $ "convertParam: expecting a single key/value, got:" ++ show hm
 convertParam v = Left $ "convertParam: expecting Object, got:" ++ show v
+
+lspParam2ParamValP :: LspParam -> ParamValP
+lspParam2ParamValP (LspTextDocument (TextDocumentIdentifier u)) = ParamFileP (T.drop (length ("file://"::String)) u)
+lspParam2ParamValP (LspPosition     (Position l c))             = ParamPosP (Pos (Line (l+1)) (Col (c+1)))
+lspParam2ParamValP (LspRange        (Range (Position l c) _to)) = ParamPosP (Pos (Line (l+1)) (Col (c+1)))
+
+data LspParam
+  = LspTextDocument TextDocumentIdentifier
+  | LspPosition     Position
+  | LspRange        Range
+  deriving (Read,Show,Eq)
+
+instance J.FromJSON LspParam where
+  parseJSON j@(J.Object hm) =
+    case H.toList hm of
+      [("textDocument",v)] -> LspTextDocument <$> J.parseJSON v
+      [("position",v)]     -> LspPosition     <$> J.parseJSON v
+      [("range-pos",v)]   -> LspRange         <$> J.parseJSON v
+      _ -> fail $ "FromJSON.LspParam got:" ++ show hm
+  parseJSON _ = mempty
 
 -- ---------------------------------------------------------------------
 
