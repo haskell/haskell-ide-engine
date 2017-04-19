@@ -37,6 +37,7 @@ import qualified Language.Haskell.LSP.Core     as GUI
 import qualified Language.Haskell.LSP.TH.ClientCapabilities as C
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 import qualified Language.Haskell.LSP.Utility  as U
+import           System.Directory
 import           System.Exit
 import qualified System.Log.Logger as L
 
@@ -291,6 +292,8 @@ reactor st cin cout inp = do
       HandlerRequest sf r@(GUI.ReqExecuteCommand req) -> do
         setSendFunc sf
         liftIO $ U.logs $ "reactor:got ExecuteCommandRequest:" ++ show req
+        cwd <- liftIO $ getCurrentDirectory
+        liftIO $ U.logs $ "reactor:cwd:" ++ cwd
         let params = fromJust $ J._params (req :: J.ExecuteCommandRequest)
             command = J._command (params :: J.ExecuteCommandParams)
             margs = J._arguments (params :: J.ExecuteCommandParams)
@@ -302,7 +305,7 @@ reactor st cin cout inp = do
                 let (lts,rts) = partitionEithers $ map convertParam os
                 -- TODO:AZ: return an error if any parse errors found.
                 when (not $ null lts) $
-                  liftIO $ U.logs $ "reactor:ExecuteCommandRequest:error converting params=" ++ show lts
+                  liftIO $ U.logs $ "\n\n****reactor:ExecuteCommandRequest:error converting params=" ++ show lts ++ "\n\n"
                 return rts
 
         rid <- nextReqId
@@ -515,7 +518,7 @@ refactorResultToWorkspaceEdit (RefactorResult diffs) = J.WorkspaceEdit (Just r) 
 
 -- TODO: perhaps move this somewhere else, for general use
 hieDiffToLspEdit :: HieDiff -> (T.Text,[J.TextEdit])
-hieDiffToLspEdit (HieDiff f s d) = (T.pack ("file://" ++ f),r)
+hieDiffToLspEdit (HieDiff f _ d) = (T.pack ("file://" ++ f),r)
   where
     pd = parsePrettyDiffs d
     r = map diffOperationToTextEdit pd
