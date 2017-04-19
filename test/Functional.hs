@@ -57,10 +57,10 @@ import qualified Language.Haskell.GhcMod.Types as GM
 -- import           Network.Simple.TCP
 -- import           Options.Applicative.Simple
 -- import qualified Paths_haskell_ide_engine as Meta
--- import           System.Directory
+import           System.Directory
 -- import           System.Exit
--- import           System.FilePath
--- import           TestUtils
+import           System.FilePath
+import           TestUtils
 
 import           Test.Hspec
 
@@ -117,7 +117,7 @@ startServer = do
 -- ---------------------------------------------------------------------
 
 main :: IO ()
-main = withFileLogging "./test-functional.log" $ hspec spec
+main = withFileLogging "./test-functional.log" $ cdAndDo "./test/testdata"  $ hspec spec
 
 spec :: Spec
 spec = do
@@ -139,25 +139,28 @@ functionalSpec = do
   describe "consecutive plugin commands" $ do
 
     it "returns hints as diagnostics" $ do
--- "file:///home/alanz/tmp/haskell-hie-test-project/src/Foo.hs"
       (cin,cout) <- startServer
-      let req = IdeRequest "lint" (Map.fromList [("file",ParamValP $ ParamFile "./test/testdata/ApplyRefact.hs")
+      cwd <- getCurrentDirectory
+      let req1 = IdeRequest "lint" (Map.fromList [("file",ParamValP $ ParamFile "./FuncTest.hs")
                                                 ])
-      r <- dispatchRequest cin cout (CReq "applyrefact" 1 req cout)
-      r `shouldBe`
+      r1 <- dispatchRequest cin cout (CReq "applyrefact" 1 req1 cout)
+      r1 `shouldBe`
         Just (IdeResponseOk (jsWrite (FileDiagnostics
-                                      { fdFileName = "file://./test/testdata/ApplyRefact.hs"
+                                      { fdFileName = "file://./FuncTest.hs"
                                       , fdDiagnostics =
-                                        [ Diagnostic (Range (Position 2 8) (Position 2 26))
-                                                     (Just DsHint)
+                                        [ Diagnostic (Range (Position 10 7) (Position 11 19))
+                                                     (Just DsWarning)
                                                      Nothing
                                                      (Just "hlint")
-                                                     "Redundant bracket\nFound:\n  (putStrLn \"hello\")\nWhy not:\n  putStrLn \"hello\"\n"
-                                        , Diagnostic (Range (Position 4 9) (Position 4 16))
-                                                     (Just DsHint)
-                                                     Nothing
-                                                     (Just "hlint")
-                                                     "Redundant bracket\nFound:\n  (x + 1)\nWhy not:\n  x + 1\n"
+                                                     "Redundant do\nFound:\n  do putStrLn \"hello\"\nWhy not:\n  putStrLn \"hello\"\n"
                                         ]
                                       }
                                      )))
+
+      let req2 = IdeRequest "demote" (Map.fromList [("file",ParamValP $ ParamFile "./FuncTest.hs")
+                                                  ,("start_pos",ParamValP $ ParamPos (toPos (8,1)))])
+      r2 <- dispatchRequest cin cout (CReq "hare" 2 req2 cout)
+      r2 `shouldBe`
+        Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff (cwd </> "FuncTest.hs")
+                                                               (cwd </> "FuncTest.refactored.hs")
+                                                                "7,8c7,8\n< \n< bb = 5\n---\n>   where\n>     bb = 5\n"]))

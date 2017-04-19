@@ -379,7 +379,7 @@ reactor st cin cout inp = do
 -- ---------------------------------------------------------------------
 
 convertParam :: J.Value -> Either String (ParamId, ParamValP)
-convertParam j@(J.Object hm) = case H.toList hm of
+convertParam (J.Object hm) = case H.toList hm of
   [(k,v)] -> case (J.fromJSON v) :: J.Result LspParam of
              J.Success pv -> Right (k, lspParam2ParamValP pv)
              J.Error errStr -> Left $ "convertParam: could not decode parameter value for "
@@ -399,7 +399,7 @@ data LspParam
   deriving (Read,Show,Eq)
 
 instance J.FromJSON LspParam where
-  parseJSON j@(J.Object hm) =
+  parseJSON (J.Object hm) =
     case H.toList hm of
       [("textDocument",v)] -> LspTextDocument <$> J.parseJSON v
       [("position",v)]     -> LspPosition     <$> J.parseJSON v

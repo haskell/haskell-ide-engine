@@ -26,3 +26,7 @@ executable haremovedef
 executable harerename
   build-depends:       base
   main-is:             HaReRename.hs
+
+executable functests
+  build-depends:       base
+  main-is:             FuncTest.hs
