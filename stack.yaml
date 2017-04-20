@@ -14,11 +14,11 @@ packages:
 - hie-ghc-tree
 - hie-hare
 - hie-docs-generator
-# - ../haskell-lsp
-- location:
-    git: https://github.com/alanz/haskell-lsp.git
-    commit: 31692939b354a107256afba2cfd19d70b4fea7b1
-  extra-dep: true
+- ../haskell-lsp
+# - location:
+#     git: https://github.com/alanz/haskell-lsp.git
+#     commit: 31692939b354a107256afba2cfd19d70b4fea7b1
+#   extra-dep: true
 - location:
     git: https://github.com/alanz/ghc-dump-tree.git
     commit: 9dbca928ad5507b144f46bb95123a08d24f24808
@@ -27,11 +27,17 @@ packages:
 #     git: https://github.com/sol/hspec-jenkins.git
 #     commit: cb012b23c4e524dde9ea129b6146dda20a5ca505
 #   extra-dep: true
-# - location:
-#     git: https://github.com/alanz/HaRe.git
-#     # git: https://github.com/RefactoringTools/HaRe.git
-#     commit: ea029eb3ecab66b848e7ac9afbf5f377464cabc6
-#   extra-dep: true
+# - ../HaRe
+- location:
+    git: https://github.com/alanz/HaRe.git
+    # git: https://github.com/RefactoringTools/HaRe.git
+    commit: 423bc0b235dc7ede961278f6e614813b851bfd0a
+  extra-dep: true
+# - ../../DanielG/ghc-mod
+- location:
+    git: https://github.com/alanz/ghc-mod.git
+    commit: 657d6826278027c769bb43de6c340f95f4e0241d
+  extra-dep: true
 extra-deps:
 - apply-refact-0.3.0.1
 - pipes-aeson-0.4.1.8

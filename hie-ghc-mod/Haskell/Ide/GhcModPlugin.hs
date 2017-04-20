@@ -18,8 +18,9 @@ import qualified Exception as G
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
-import qualified Language.Haskell.GhcMod as GM
+-- import qualified Language.Haskell.GhcMod as GM
 import qualified Language.Haskell.GhcMod.Types as GM
+import qualified GhcMod as GM
 
 -- ---------------------------------------------------------------------
 

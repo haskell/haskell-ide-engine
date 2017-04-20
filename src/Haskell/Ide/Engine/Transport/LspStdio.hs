@@ -99,13 +99,14 @@ data ReactorInput = DispatcherResponse ChannelResponse
 data ReactorState =
   ReactorState
     { sender             :: !(Maybe (BSL.ByteString -> IO ()))
-    , reqId              :: !RequestId
+    , hieReqId           :: !RequestId
+    , lspReqId           :: !J.LspId
     , wip                :: !(Map.Map RequestId GUI.OutMessage)
     , clientCapabilities :: !(Maybe C.ClientCapabilities)
     }
 
 instance Default ReactorState where
-  def = ReactorState Nothing 0 Map.empty Nothing
+  def = ReactorState Nothing 0 (J.IdInt 0) Map.empty Nothing
 
 -- ---------------------------------------------------------------------
 
@@ -143,9 +144,18 @@ reactorSend' f = do
 nextReqId :: R RequestId
 nextReqId = do
   s <- get
-  let r = reqId s
-  put s { reqId = r + 1}
+  let r = hieReqId s
+  put s { hieReqId = r + 1}
   return r
+
+-- ---------------------------------------------------------------------
+
+nextLspReqId :: R J.LspId
+nextLspReqId = do
+  s <- get
+  let i@(J.IdInt r) = lspReqId s
+  put s { lspReqId = J.IdInt (r + 1) }
+  return i
 
 -- ---------------------------------------------------------------------
 
@@ -191,6 +201,44 @@ reactor st cin cout inp = do
       HandlerRequest sf (GUI.RspFromClient rm) -> do
         setSendFunc sf
         liftIO $ U.logs $ "reactor:got RspFromClient:" ++ show rm
+
+      -- -------------------------------
+
+      HandlerRequest sf n@(GUI.NotInitialized notification) -> do
+        setSendFunc sf
+        liftIO $ U.logm $ "\n****** reactor: processing Initialized Notification"
+        -- Server is ready, register any specific capabilities we need
+
+         {-
+         Example:
+         {
+                 "method": "client/registerCapability",
+                 "params": {
+                         "registrations": [
+                                 {
+                                         "id": "79eee87c-c409-4664-8102-e03263673f6f",
+                                         "method": "textDocument/willSaveWaitUntil",
+                                         "registerOptions": {
+                                                 "documentSelector": [
+                                                         { "language": "javascript" }
+                                                 ]
+                                         }
+                                 }
+                         ]
+                 }
+         }
+        -}
+        let
+          registration = J.Registration "lsp-demote-id" "textdocument/executeCommand" Nothing
+        let registrations = J.RegistrationParams (J.List [registration])
+        rid <- nextLspReqId
+
+        -- Current vscode implementation has the wrong name in it:
+        -- https://github.com/Microsoft/vscode-languageserver-node/issues/199
+        let smr = J.RequestMessage "2.0" rid "client/registerFeature"  (Just registrations)
+        -- let smr = J.RequestMessage "2.0" rid "client/registerCapability"  (Just registrations)
+
+        reactorSend smr
 
       -- -------------------------------
 
@@ -281,6 +329,7 @@ reactor st cin cout inp = do
             where
               title = "apply hint:" ++ head (lines _m)
               cmd = "applyrefact:applyOne"
+              -- cmd = "lsp-demote-id"
               cmdparams = Nothing -- Need to require current point
           makeCommand (J.Diagnostic _r _s _c _source _m  ) = []
         let body = concatMap makeCommand diags
@@ -338,8 +387,7 @@ reactor st cin cout inp = do
                   IdeResponseFail  err -> liftIO $ U.logs $ "NotDidSaveTextDocument:got err" ++ show err
                   IdeResponseError err -> liftIO $ U.logs $ "NotDidSaveTextDocument:got err" ++ show err
                   IdeResponseOk r -> do
-                    let smr = J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just r)
-                    reactorSend smr
+                    reactorSend $ J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just r)
 
               GUI.NotDidSaveTextDocument _ -> do
                 case res of
@@ -369,11 +417,17 @@ reactor st cin cout inp = do
                 reactorSend rspMsg
 
               GUI.ReqExecuteCommand req -> hieResponseHelper req res $ \r -> do
-                -- let J.Success vv = J.fromJSON (J.Object r) :: J.Result RefactorResult
-                -- let we = refactorResultToWorkspaceEdit vv
-                let we = J.Object r
-                let rspMsg = GUI.makeResponseMessage (J.responseId $ J._id (req :: J.ExecuteCommandRequest)) we
-                reactorSend rspMsg
+                let
+                  reply v = reactorSend $ GUI.makeResponseMessage (J.responseId $ J._id (req :: J.ExecuteCommandRequest)) v
+                -- When we get a RefactorResult, we need to send a separate WorkspaceEdit Notification
+                case J.fromJSON (J.Object r) :: J.Result RefactorResult of
+                  J.Success vv -> do
+                    reply (J.Object mempty)
+                    let we = J.ApplyWorkspaceEditParams $ refactorResultToWorkspaceEdit vv
+                    rid <- nextLspReqId
+                    reactorSend $ J.RequestMessage "2.0" rid "workspace/applyEdit" (Just we)
+                  _            ->
+                    reply (J.Object r)
 
               other -> do
                 sendErrorLog $ "reactor:not processing for original LSP message : " ++ show other
@@ -429,14 +483,20 @@ posToPosition (Pos (Line l) (Col c)) = J.Position (l-1) (c-1)
 
 hieOptions :: GUI.Options
 -- hieOptions = def
-hieOptions = def { GUI.textDocumentSync = Just J.TdSyncNone
-                 , GUI.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List ["hie-command"]))
+-- hieOptions = def { GUI.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List ["hie-command"]))
+--                  }
+-- hieOptions = def { GUI.textDocumentSync = Just J.TdSyncNone
+--                  , GUI.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List ["lsp-demote-id"]))
+--                  }
+hieOptions = def { GUI.textDocumentSync = Just J.TdSyncFull
+                 , GUI.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List ["applyrefact:applyOne"]))
                  }
 
 
 hieHandlers :: TChan ReactorInput -> GUI.Handlers
 hieHandlers rin
-  = def { GUI.renameHandler                            = Just $ renameRequestHandler rin
+  = def { GUI.initializedHandler                       = Just $ initializedHandler rin
+        , GUI.renameHandler                            = Just $ renameRequestHandler rin
         , GUI.hoverHandler                             = Just $ hoverRequestHandler rin
         , GUI.didOpenTextDocumentNotificationHandler   = Just $ didOpenTextDocumentNotificationHandler rin
         , GUI.didSaveTextDocumentNotificationHandler   = Just $ didSaveTextDocumentNotificationHandler rin
@@ -471,6 +531,12 @@ codeActionHandler rin sf req = do
 executeCommandHandler :: TChan ReactorInput -> GUI.Handler J.ExecuteCommandRequest
 executeCommandHandler rin sf req = do
   atomically $ writeTChan rin  (HandlerRequest sf (GUI.ReqExecuteCommand req))
+
+-- ---------------------------------------------------------------------
+
+initializedHandler :: TChan ReactorInput -> GUI.Handler J.InitializedNotification
+initializedHandler rin sf notification = do
+  atomically $ writeTChan rin  (HandlerRequest sf (GUI.NotInitialized notification))
 
 -- ---------------------------------------------------------------------
 
