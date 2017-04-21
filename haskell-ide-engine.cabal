@@ -80,6 +80,7 @@ library
                      , time
                      , transformers
                      , unordered-containers
+                     , vector
                      , vinyl >= 0.5
                      , wai
                      , warp

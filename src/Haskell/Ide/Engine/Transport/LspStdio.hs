@@ -19,7 +19,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Control.Monad.Trans.State.Lazy
 import qualified Data.Aeson as J
--- import qualified Data.Aeson.Types as J
+import qualified Data.Aeson.Types as J
 import           Data.Algorithm.DiffOutput
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default
@@ -29,6 +29,7 @@ import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import           Data.Maybe
 import qualified Data.Text as T
+import qualified Data.Vector as V
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
@@ -206,7 +207,7 @@ reactor st cin cout inp = do
 
       HandlerRequest sf n@(GUI.NotInitialized notification) -> do
         setSendFunc sf
-        liftIO $ U.logm $ "\n****** reactor: processing Initialized Notification"
+        liftIO $ U.logm $ "****** reactor: processing Initialized Notification"
         -- Server is ready, register any specific capabilities we need
 
          {-
@@ -229,7 +230,7 @@ reactor st cin cout inp = do
          }
         -}
         let
-          registration = J.Registration "lsp-demote-id" "textdocument/executeCommand" Nothing
+          registration = J.Registration "lsp-demote-id" "workspace/executeCommand" Nothing
         let registrations = J.RegistrationParams (J.List [registration])
         rid <- nextLspReqId
 
@@ -244,7 +245,7 @@ reactor st cin cout inp = do
 
       HandlerRequest sf n@(GUI.NotDidOpenTextDocument notification) -> do
         setSendFunc sf
-        liftIO $ U.logm $ "\n****** reactor: processing NotDidOpenTextDocument"
+        liftIO $ U.logm $ "****** reactor: processing NotDidOpenTextDocument"
         -- TODO: learn enough lens to do the following more cleanly
         -- let doc = J._uri $ J._textDocument $ fromJust $ J._params notification
         let
@@ -252,7 +253,7 @@ reactor st cin cout inp = do
             textDoc = J._textDocument (params :: J.DidOpenTextDocumentNotificationParams)
             doc     = J._uri (textDoc :: J.TextDocumentItem)
             fileName = drop (length ("file://"::String)) doc
-        liftIO $ U.logs $ "\n********* doc=" ++ show doc
+        liftIO $ U.logs $ "********* doc=" ++ show doc
         rid <- nextReqId
         let req = CReq "applyrefact" rid (IdeRequest "lint" (Map.fromList [("file", ParamFileP (T.pack fileName))])) cout
         liftIO $ atomically $ writeTChan cin req
@@ -262,12 +263,12 @@ reactor st cin cout inp = do
 
       HandlerRequest sf n@(GUI.NotDidSaveTextDocument notification) -> do
         setSendFunc sf
-        liftIO $ U.logm "\n****** reactor: processing NotDidSaveTextDocument"
+        liftIO $ U.logm "****** reactor: processing NotDidSaveTextDocument"
         let
             params = fromJust $ J._params (notification :: J.NotificationMessage J.DidSaveTextDocumentParams)
             J.TextDocumentIdentifier doc = J._textDocument (params :: J.DidSaveTextDocumentParams)
             fileName = drop (length ("file://"::String)) doc
-        liftIO $ U.logs $ "\n********* doc=" ++ show doc
+        liftIO $ U.logs $ "********* doc=" ++ show doc
         rid <- nextReqId
         let req = CReq "applyrefact" rid (IdeRequest "lint" (Map.fromList [("file", ParamFileP (T.pack fileName))])) cout
         liftIO $ atomically $ writeTChan cin req
@@ -275,7 +276,7 @@ reactor st cin cout inp = do
 
       HandlerRequest sf (GUI.NotDidChangeTextDocument _notification) -> do
         setSendFunc sf
-        liftIO $ U.logm "\n****** reactor: NOT processing NotDidChangeTextDocument"
+        liftIO $ U.logm "****** reactor: NOT processing NotDidChangeTextDocument"
 
       -- -------------------------------
 
@@ -319,18 +320,23 @@ reactor st cin cout inp = do
         setSendFunc sf
         liftIO $ U.logs $ "reactor:got CodeActionRequest:" ++ show req
         let params = fromJust $ J._params (req :: J.CodeActionRequest)
-            -- J.TextDocumentIdentifier doc = J._textDocument (params :: J.CodeActionParams)
+            doc = J._textDocument (params :: J.CodeActionParams)
             -- fileName = drop (length ("file://"::String)) doc
             -- J.Range from to = J._range (params :: J.CodeActionParams)
             J.CodeActionContext (J.List diags) = J._context (params :: J.CodeActionParams)
 
         let
-          makeCommand (J.Diagnostic _r _s _c (Just "hlint") _m  ) = [J.Command title cmd cmdparams]
+          makeCommand (J.Diagnostic (J.Range start _) _s _c (Just "hlint") _m  ) = [J.Command title cmd cmdparams]
             where
-              title = "apply hint:" ++ head (lines _m)
+              title = "Apply hint:" ++ head (lines _m)
+              -- NOTE: the cmd needs to be registered via the InitializeResponse message. See hieOptions above
               cmd = "applyrefact:applyOne"
-              -- cmd = "lsp-demote-id"
-              cmdparams = Nothing -- Need to require current point
+              -- need 'file' and 'start_pos'
+              args = J.Array$ V.fromList
+                      [ J.Object $ H.fromList [("file",     J.Object $ H.fromList [("textDocument",J.toJSON doc)])]
+                      , J.Object $ H.fromList [("start_pos",J.Object $ H.fromList [("position",    J.toJSON start)])]
+                      ]
+              cmdparams = Just args
           makeCommand (J.Diagnostic _r _s _c _source _m  ) = []
         let body = concatMap makeCommand diags
         let rspMsg = GUI.makeResponseMessage (J.responseId $ J._id (req :: J.CodeActionRequest)) body
@@ -340,14 +346,14 @@ reactor st cin cout inp = do
 
       HandlerRequest sf r@(GUI.ReqExecuteCommand req) -> do
         setSendFunc sf
-        liftIO $ U.logs $ "reactor:got ExecuteCommandRequest:" ++ show req
-        cwd <- liftIO $ getCurrentDirectory
-        liftIO $ U.logs $ "reactor:cwd:" ++ cwd
+        liftIO $ U.logs $ "reactor:got ExecuteCommandRequest:" -- ++ show req
+        cwd <- liftIO getCurrentDirectory
+        -- liftIO $ U.logs $ "reactor:cwd:" ++ cwd
         let params = fromJust $ J._params (req :: J.ExecuteCommandRequest)
             command = J._command (params :: J.ExecuteCommandParams)
             margs = J._arguments (params :: J.ExecuteCommandParams)
 
-        liftIO $ U.logs $ "reactor:ExecuteCommandRequest:margs=" ++ show margs
+        -- liftIO $ U.logs $ "reactor:ExecuteCommandRequest:margs=" ++ show margs
         cmdparams <- case margs of
               Nothing -> return []
               Just (J.List os) -> do
@@ -419,19 +425,39 @@ reactor st cin cout inp = do
               GUI.ReqExecuteCommand req -> hieResponseHelper req res $ \r -> do
                 let
                   reply v = reactorSend $ GUI.makeResponseMessage (J.responseId $ J._id (req :: J.ExecuteCommandRequest)) v
-                -- When we get a RefactorResult, we need to send a separate WorkspaceEdit Notification
-                case J.fromJSON (J.Object r) :: J.Result RefactorResult of
-                  J.Success vv -> do
+                -- When we get a RefactorResult or HieDiff, we need to send a
+                -- separate WorkspaceEdit Notification
+                liftIO $ U.logs $ "ExecuteCommand response got:r=" ++ show r
+                case toWorkspaceEdit r of
+                  Just we -> do
                     reply (J.Object mempty)
-                    let we = J.ApplyWorkspaceEditParams $ refactorResultToWorkspaceEdit vv
-                    rid <- nextLspReqId
-                    reactorSend $ J.RequestMessage "2.0" rid "workspace/applyEdit" (Just we)
-                  _            ->
+                    lid <- nextLspReqId
+                    reactorSend $ J.RequestMessage "2.0" lid "workspace/applyEdit" (Just we)
+                  Nothing ->
                     reply (J.Object r)
 
               other -> do
                 sendErrorLog $ "reactor:not processing for original LSP message : " ++ show other
 
+-- ---------------------------------------------------------------------
+
+-- TODO: this could probably be done with Aeson combinators somehow
+toWorkspaceEdit :: J.Object -> Maybe J.ApplyWorkspaceEditParams
+toWorkspaceEdit r = v
+  where
+    refactorResult =
+      case J.fromJSON (J.Object r) :: J.Result RefactorResult of
+        J.Success vv -> [J.ApplyWorkspaceEditParams $ refactorResultToWorkspaceEdit vv]
+        _            -> []
+
+    hieDiff =
+      case J.parse jsRead r :: J.Result HieDiff of
+        J.Success vv -> [J.ApplyWorkspaceEditParams $ refactorResultToWorkspaceEdit (RefactorResult [vv])]
+        _            -> []
+
+    v = case refactorResult ++ hieDiff of
+      [we] -> Just we
+      _    -> Nothing
 
 -- ---------------------------------------------------------------------
 
@@ -460,7 +486,7 @@ instance J.FromJSON LspParam where
     case H.toList hm of
       [("textDocument",v)] -> LspTextDocument <$> J.parseJSON v
       [("position",v)]     -> LspPosition     <$> J.parseJSON v
-      [("range-pos",v)]   -> LspRange         <$> J.parseJSON v
+      [("range-pos",v)]    -> LspRange        <$> J.parseJSON v
       _ -> fail $ "FromJSON.LspParam got:" ++ show hm
   parseJSON _ = mempty
 
@@ -572,7 +598,7 @@ cancelNotificationHandler rin sf notification = do
 
 responseHandlerCb :: TChan ReactorInput -> GUI.Handler J.BareResponseMessage
 responseHandlerCb _rin _sf resp = do
-  U.logs $ "\n******** got ResponseMessage, ignoring:" ++ show resp
+  U.logs $ "******** got ResponseMessage, ignoring:" ++ show resp
 
 -- ---------------------------------------------------------------------
 
