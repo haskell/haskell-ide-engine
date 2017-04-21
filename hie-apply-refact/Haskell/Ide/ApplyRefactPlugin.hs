@@ -59,6 +59,7 @@ applyOneCmd = CmdSync $ \_ctxs req -> do
     Left err -> return err
     Right (ParamFile file :& ParamPos pos :& RNil) -> do
       res <- liftIO $ applyHint (T.unpack file) (Just pos)
+      logm $ "applyOneCmd:file=" ++ show file
       logm $ "applyOneCmd:res=" ++ show res
       case res of
         Left err -> return $ IdeResponseFail (IdeError PluginError
@@ -228,5 +229,5 @@ makeDiffResult :: FilePath -> T.Text -> IO HieDiff
 makeDiffResult orig new = do
   origText <- T.readFile orig
   let (HieDiff f _ d) = diffText (orig,origText) ("changed",new)
-  f' <- liftIO $ makeRelativeToCurrentDirectory f
-  return (HieDiff f' "changed" d)
+  -- f' <- liftIO $ makeRelativeToCurrentDirectory f
+  return (HieDiff f "changed" d)

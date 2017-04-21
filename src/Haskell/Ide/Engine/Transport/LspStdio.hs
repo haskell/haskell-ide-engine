@@ -609,11 +609,17 @@ refactorResultToWorkspaceEdit (RefactorResult diffs) = J.WorkspaceEdit (Just r) 
     r = H.fromList $ map hieDiffToLspEdit diffs
 
 -- TODO: perhaps move this somewhere else, for general use
-hieDiffToLspEdit :: HieDiff -> (T.Text,[J.TextEdit])
-hieDiffToLspEdit (HieDiff f _ d) = (T.pack ("file://" ++ f),r)
+hieDiffToLspEdit :: HieDiff -> (T.Text, J.List (J.TextEdit))
+hieDiffToLspEdit (HieDiff f _ d) = (T.pack ("file://" ++ f),J.List r)
   where
     pd = parsePrettyDiffs d
+    -- r = error $ "hieDiffToLspEdit:pd=" ++ show pd
     r = map diffOperationToTextEdit pd
+{-
+hie: hieDiffToLspEdit:pd=
+ [Change (LineRange {lrNumbers = (8,8), lrContents = ["baz = do"]})
+         (LineRange {lrNumbers = (8,8), lrContents = ["baz ="]})]
+-}
 
 diffOperationToTextEdit :: DiffOperation LineRange -> J.TextEdit
 diffOperationToTextEdit (Change fm to) = J.TextEdit r nt
@@ -622,8 +628,8 @@ diffOperationToTextEdit (Change fm to) = J.TextEdit r nt
     sc = 0
     s = J.Position (sl - 1) sc -- Note: zero-based lines
     el = snd $ lrNumbers fm
-    ec = 100000 -- TODO: unsavoury, but not sure how else to do it. Perhaps take the length of the last element of the text to be replaced.
-    e = J.Position (el - 1) ec -- Note: zero-based lines
+    ec = length $ last $ lrContents fm
+    e = J.Position (el - 1) ec  -- Note: zero-based lines
     r = J.Range s e
     nt = intercalate "\n" $ lrContents to
 
