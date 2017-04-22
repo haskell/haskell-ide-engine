@@ -104,12 +104,12 @@ applyRefactSpec = do
         Just (IdeResponseOk (jsWrite (FileDiagnostics
                                       { fdFileName = "file://./test/testdata/ApplyRefact.hs"
                                       , fdDiagnostics =
-                                        [ Diagnostic (Range (Position 2 8) (Position 2 26))
+                                        [ Diagnostic (Range (Position 1 7) (Position 1 25))
                                                      (Just DsHint)
                                                      Nothing
                                                      (Just "hlint")
                                                      "Redundant bracket\nFound:\n  (putStrLn \"hello\")\nWhy not:\n  putStrLn \"hello\"\n"
-                                        , Diagnostic (Range (Position 4 9) (Position 4 16))
+                                        , Diagnostic (Range (Position 3 8) (Position 3 15))
                                                      (Just DsHint)
                                                      Nothing
                                                      (Just "hlint")

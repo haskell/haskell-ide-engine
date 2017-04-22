@@ -20,7 +20,7 @@ import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
 import           Language.Haskell.HLint3 as Hlint
 import           Refact.Apply
-import           System.Directory
+-- import           System.Directory
 import           System.IO.Extra
 import           Language.Haskell.Exts.SrcLoc
 
@@ -193,8 +193,8 @@ srcLoc2Range (SrcLoc _ l c) = Range ps pe
 ss2Range :: SrcSpan -> Range
 ss2Range ss = Range ps pe
   where
-    ps = Position (srcSpanStartLine ss) (srcSpanStartColumn ss)
-    pe = Position (srcSpanEndLine ss)   (srcSpanEndColumn ss)
+    ps = Position (srcSpanStartLine ss - 1) (srcSpanStartColumn ss - 1)
+    pe = Position (srcSpanEndLine ss - 1)   (srcSpanEndColumn ss - 1)
 
 -- ---------------------------------------------------------------------
 

@@ -22,44 +22,24 @@ module Main where
 
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
--- import           Control.Exception
 import           Control.Monad
--- import           Control.Monad.Logger
 import           Control.Monad.STM
 import           Data.Aeson
--- import qualified Data.ByteString.Lazy       as B
 import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import           Data.Proxy
--- import           Data.Semigroup
 import qualified Data.Text as T
--- import           Data.Version (showVersion)
 import           Data.Vinyl
--- import           Development.GitRev (gitCommitCount)
--- import           Distribution.System (buildArch)
--- import           Distribution.Text (display)
 import           GHC.TypeLits
--- import           Haskell.Ide.Engine.Console
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadFunctions
--- import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
--- import           Haskell.Ide.Engine.Swagger
 import           Haskell.Ide.Engine.Transport.JsonHttp
--- import           Haskell.Ide.Engine.Transport.JsonStdio
--- import           Haskell.Ide.Engine.Transport.JsonTcp
--- import           Haskell.Ide.Engine.Transport.LspStdio
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.Utils
-import           Haskell.Ide.HaRePlugin
-import qualified Language.Haskell.GhcMod.Types as GM
--- import           Network.Simple.TCP
--- import           Options.Applicative.Simple
--- import qualified Paths_haskell_ide_engine as Meta
 import           System.Directory
--- import           System.Exit
 import           System.FilePath
 import           TestUtils
 
@@ -153,7 +133,7 @@ functionalSpec = do
         Just (IdeResponseOk (jsWrite (FileDiagnostics
                                       { fdFileName = "file://./FuncTest.hs"
                                       , fdDiagnostics =
-                                        [ Diagnostic (Range (Position 10 7) (Position 11 19))
+                                        [ Diagnostic (Range (Position 9 6) (Position 10 18))
                                                      (Just DsWarning)
                                                      Nothing
                                                      (Just "hlint")
