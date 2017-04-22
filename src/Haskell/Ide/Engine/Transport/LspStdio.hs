@@ -514,7 +514,10 @@ hieOptions :: GUI.Options
 -- hieOptions = def { GUI.textDocumentSync = Just J.TdSyncNone
 --                  , GUI.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List ["lsp-demote-id"]))
 --                  }
-hieOptions = def { GUI.textDocumentSync = Just J.TdSyncFull
+-- hieOptions = def { GUI.textDocumentSync = Just J.TdSyncFull
+--                  , GUI.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List ["applyrefact:applyOne"]))
+--                  }
+hieOptions = def { GUI.textDocumentSync = Just J.TdSyncIncremental
                  , GUI.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List ["applyrefact:applyOne"]))
                  }
 
