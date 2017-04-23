@@ -66,8 +66,8 @@ run dispatcherProc cin = flip E.catches handlers $ do
   _rpid  <- forkIO $ reactor def cin cout rin
 
   let
-    dp capabilities = do
-      atomically $ writeTChan rin (ClientCapabilities capabilities)
+    dp capabilities sendFunc = do
+      atomically $ writeTChan rin (InitializeCallBack capabilities sendFunc)
       dispatcherProc
       return Nothing
 
@@ -95,7 +95,7 @@ responseHandler cout cr = do
 
 data ReactorInput = DispatcherResponse ChannelResponse
                   | HandlerRequest (BSL.ByteString -> IO ()) GUI.OutMessage
-                  | ClientCapabilities C.ClientCapabilities
+                  | InitializeCallBack C.ClientCapabilities GUI.SendFunc
 
 data ReactorState =
   ReactorState
@@ -195,8 +195,9 @@ reactor st cin cout inp = do
   flip evalStateT st $ forever $ do
     inval <- liftIO $ atomically $ readTChan inp
     case inval of
-      ClientCapabilities capabilities -> do
+      InitializeCallBack capabilities sf -> do
         liftIO $ U.logs $ "reactor:got Client capabilities:" ++ show capabilities
+        setSendFunc sf
         setClientCapabilities capabilities
 
       HandlerRequest sf (GUI.RspFromClient rm) -> do
