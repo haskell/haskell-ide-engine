@@ -94,3 +94,28 @@ applyRefactSpec = do
                                      )))
 
     -- ---------------------------------
+
+    it "returns hints as diagnostics" $ do
+
+      let req = IdeRequest "lint" (Map.fromList [("file",ParamValP $ ParamFile "./test/testdata/ApplyRefact.hs")
+                                                ])
+      r <- dispatchRequest req
+      r `shouldBe`
+        Just (IdeResponseOk (jsWrite (FileDiagnostics
+                                      { fdFileName = "file://./test/testdata/ApplyRefact.hs"
+                                      , fdDiagnostics =
+                                        [ Diagnostic (Range (Position 1 7) (Position 1 25))
+                                                     (Just DsHint)
+                                                     Nothing
+                                                     (Just "hlint")
+                                                     "Redundant bracket\nFound:\n  (putStrLn \"hello\")\nWhy not:\n  putStrLn \"hello\"\n"
+                                        , Diagnostic (Range (Position 3 8) (Position 3 15))
+                                                     (Just DsHint)
+                                                     Nothing
+                                                     (Just "hlint")
+                                                     "Redundant bracket\nFound:\n  (x + 1)\nWhy not:\n  x + 1\n"
+                                        ]
+                                      }
+                                     )))
+
+    -- ---------------------------------

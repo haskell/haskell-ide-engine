@@ -30,6 +30,7 @@ library
                        Haskell.Ide.Engine.Transport.JsonHttp.Undecidable
                        Haskell.Ide.Engine.Transport.JsonStdio
                        Haskell.Ide.Engine.Transport.JsonTcp
+                       Haskell.Ide.Engine.Transport.LspStdio
                        Haskell.Ide.Engine.Transport.Pipes
                        Haskell.Ide.Engine.Types
                        Haskell.Ide.Engine.Utils
@@ -40,6 +41,8 @@ library
                      , base >= 4.9 && < 5
                      , bytestring
                      , containers
+                     , data-default
+                     , Diff
                      , directory
                      , either
                      , fast-logger
@@ -47,11 +50,14 @@ library
                      , ghc-mod
                      , gitrev >= 1.1
                      , haskeline
+                     , haskell-lsp
                      , hie-base
                      , hie-plugin-api
+                     , hslogger
                      , insert-ordered-containers
                      , lens
                      , lifted-base
+                     , MissingH
                      , monad-control
                      , monad-logger
                      , mtl
@@ -74,6 +80,7 @@ library
                      , time
                      , transformers
                      , unordered-containers
+                     , vector
                      , vinyl >= 0.5
                      , wai
                      , warp
@@ -90,6 +97,7 @@ executable hie
                      , base
                      , bytestring
                      , containers
+                     , Diff
                      , directory
                      , fast-logger
                      , ghc
@@ -122,7 +130,7 @@ executable hie
 test-suite haskell-ide-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
-  main-is:             Spec.hs
+  main-is:             Main.hs
   other-modules:       ApplyRefactPluginSpec
                        DispatcherSpec
                        ExamplePluginAsyncSpec
@@ -132,6 +140,7 @@ test-suite haskell-ide-test
                        HaRePluginSpec
                        JsonStdioSpec
                        JsonSpec
+                       Spec
                        TestUtils
                        UtilsSpec
   build-depends:       Diff
@@ -147,11 +156,50 @@ test-suite haskell-ide-test
                      , hie-apply-refact
                      , hie-base
                      , hie-eg-plugin-async
+                     , hie-example-plugin2
                      , hie-ghc-mod
                      , hie-ghc-tree
                      , hie-hare
                      , hie-plugin-api
                      , hspec
+                     -- , hspec-jenkins
+                     , monad-logger
+                     , quickcheck-instances
+                     , stm
+                     , swagger2
+                     , text
+                     , transformers
+                     , unordered-containers
+                     , vinyl
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
+  if flag(pedantic)
+     ghc-options:      -Werror
+  default-language:    Haskell2010
+
+test-suite haskell-ide-func-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Functional.hs
+  build-depends:       Diff
+                     , QuickCheck
+                     , aeson
+                     , base
+                     , containers
+                     , directory
+                     , fast-logger
+                     , filepath
+                     , ghc-mod
+                     , haskell-ide-engine
+                     , hie-apply-refact
+                     , hie-base
+                     , hie-eg-plugin-async
+                     , hie-example-plugin2
+                     , hie-ghc-mod
+                     , hie-ghc-tree
+                     , hie-hare
+                     , hie-plugin-api
+                     , hspec
+                     -- , hspec-jenkins
                      , monad-logger
                      , quickcheck-instances
                      , stm

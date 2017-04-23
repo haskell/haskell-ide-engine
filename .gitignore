@@ -44,3 +44,5 @@ tags
 /elisp/.cask/
 /test/testdata/HaReAddRmParam.refactored.hs
 /cabal.project.local
+/test/testdata/HaReRename.hs.keep
+/test/testdata/FuncTest.refactored.hs

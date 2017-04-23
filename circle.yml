@@ -1,0 +1,19 @@
+dependencies:
+  cache_directories:
+    - "~/.stack"
+    - "~/.ghc-mod"
+  pre:
+    - wget -q -O- https://s3.amazonaws.com/download.fpcomplete.com/ubuntu/fpco.key | sudo apt-key add -
+    - echo 'deb http://download.fpcomplete.com/ubuntu/precise stable main'|sudo tee /etc/apt/sources.list.d/fpco.list
+    - sudo apt-get update && sudo apt-get install stack -y
+  override:
+    - stack setup
+    - stack build -j 2 :
+        timeout: 3600
+    - stack build -j 2 --test --only-dependencies :
+        timeout: 3600
+
+test:
+  override:
+    - stack test haskell-ide-engine :
+        timeout: 3600
