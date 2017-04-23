@@ -659,6 +659,7 @@ Keymap:
 
 (defun preview-commit-cancel(current-file-name modified renamed)
   "preview, commit or cancel the refactoring result"
+  ;; (message "modified=%s" (prin1-to-string modified))
   (setq files-to-write modified)
   (setq files-to-rename renamed)
   (preview-commit-cancel-1 current-file-name modified)
