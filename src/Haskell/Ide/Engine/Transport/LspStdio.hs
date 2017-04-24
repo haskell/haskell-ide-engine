@@ -525,78 +525,24 @@ hieOptions = def { Core.textDocumentSync = Just J.TdSyncIncremental
 
 hieHandlers :: TChan ReactorInput -> Core.Handlers
 hieHandlers rin
-  = def { Core.initializedHandler                       = Just $ initializedHandler rin
-        , Core.renameHandler                            = Just $ renameRequestHandler rin
-        , Core.hoverHandler                             = Just $ hoverRequestHandler rin
-        , Core.didOpenTextDocumentNotificationHandler   = Just $ didOpenTextDocumentNotificationHandler rin
-        , Core.didSaveTextDocumentNotificationHandler   = Just $ didSaveTextDocumentNotificationHandler rin
-        , Core.didChangeTextDocumentNotificationHandler = Just $ didChangeTextDocumentNotificationHandler rin
-        , Core.didCloseTextDocumentNotificationHandler  = Just $ didCloseTextDocumentNotificationHandler rin
-        , Core.cancelNotificationHandler                = Just $ cancelNotificationHandler rin
+  = def { Core.initializedHandler                       = Just $ passHandler rin Core.NotInitialized
+        , Core.renameHandler                            = Just $ passHandler rin Core.ReqRename
+        , Core.hoverHandler                             = Just $ passHandler rin Core.ReqHover
+        , Core.didOpenTextDocumentNotificationHandler   = Just $ passHandler rin Core.NotDidOpenTextDocument
+        , Core.didSaveTextDocumentNotificationHandler   = Just $ passHandler rin Core.NotDidSaveTextDocument
+        , Core.didChangeTextDocumentNotificationHandler = Just $ passHandler rin Core.NotDidChangeTextDocument
+        , Core.didCloseTextDocumentNotificationHandler  = Just $ passHandler rin Core.NotDidCloseTextDocument
+        , Core.cancelNotificationHandler                = Just $ passHandler rin Core.NotCancelRequest
         , Core.responseHandler                          = Just $ responseHandlerCb rin
-        , Core.codeActionHandler                        = Just $ codeActionHandler rin
-        , Core.executeCommandHandler                    = Just $ executeCommandHandler rin
+        , Core.codeActionHandler                        = Just $ passHandler rin Core.ReqCodeAction
+        , Core.executeCommandHandler                    = Just $ passHandler rin Core.ReqExecuteCommand
         }
 
 -- ---------------------------------------------------------------------
 
-hoverRequestHandler :: TChan ReactorInput -> Core.Handler J.HoverRequest
-hoverRequestHandler rin sf req = do
-  atomically $ writeTChan rin  (HandlerRequest sf (Core.ReqHover req))
-
--- ---------------------------------------------------------------------
-
-renameRequestHandler :: TChan ReactorInput -> Core.Handler J.RenameRequest
-renameRequestHandler rin sf req = do
-  atomically $ writeTChan rin  (HandlerRequest sf (Core.ReqRename req))
-
--- ---------------------------------------------------------------------
-
-codeActionHandler :: TChan ReactorInput -> Core.Handler J.CodeActionRequest
-codeActionHandler rin sf req = do
-  atomically $ writeTChan rin  (HandlerRequest sf (Core.ReqCodeAction req))
-
--- ---------------------------------------------------------------------
-
-executeCommandHandler :: TChan ReactorInput -> Core.Handler J.ExecuteCommandRequest
-executeCommandHandler rin sf req = do
-  atomically $ writeTChan rin  (HandlerRequest sf (Core.ReqExecuteCommand req))
-
--- ---------------------------------------------------------------------
-
-initializedHandler :: TChan ReactorInput -> Core.Handler J.InitializedNotification
-initializedHandler rin sf notification = do
-  atomically $ writeTChan rin  (HandlerRequest sf (Core.NotInitialized notification))
-
--- ---------------------------------------------------------------------
-
-didOpenTextDocumentNotificationHandler :: TChan ReactorInput -> Core.Handler J.DidOpenTextDocumentNotification
-didOpenTextDocumentNotificationHandler rin sf notification = do
-  atomically $ writeTChan rin  (HandlerRequest sf (Core.NotDidOpenTextDocument notification))
-
--- ---------------------------------------------------------------------
-
-didSaveTextDocumentNotificationHandler :: TChan ReactorInput -> Core.Handler J.DidSaveTextDocumentNotification
-didSaveTextDocumentNotificationHandler rin sf notification = do
-  atomically $ writeTChan rin (HandlerRequest sf (Core.NotDidSaveTextDocument notification))
-
--- ---------------------------------------------------------------------
-
-didChangeTextDocumentNotificationHandler :: TChan ReactorInput -> Core.Handler J.DidChangeTextDocumentNotification
-didChangeTextDocumentNotificationHandler rin sf notification = do
-  atomically $ writeTChan rin (HandlerRequest sf (Core.NotDidChangeTextDocument notification))
-
--- ---------------------------------------------------------------------
-
-didCloseTextDocumentNotificationHandler :: TChan ReactorInput -> Core.Handler J.DidCloseTextDocumentNotification
-didCloseTextDocumentNotificationHandler rin sf notification = do
-  atomically $ writeTChan rin (HandlerRequest sf (Core.NotDidCloseTextDocument notification))
-
--- ---------------------------------------------------------------------
-
-cancelNotificationHandler :: TChan ReactorInput -> Core.Handler J.CancelNotification
-cancelNotificationHandler rin sf notification = do
-  atomically $ writeTChan rin  (HandlerRequest sf (Core.NotCancelRequest notification))
+passHandler :: TChan ReactorInput -> (a -> Core.OutMessage) -> Core.Handler a
+passHandler rin c sf notification = do
+  atomically $ writeTChan rin (HandlerRequest sf (c notification))
 
 -- ---------------------------------------------------------------------
 
