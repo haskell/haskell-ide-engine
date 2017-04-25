@@ -24,8 +24,8 @@ import           Data.Algorithm.DiffOutput
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default
 import           Data.Either
-import           Data.List
 import qualified Data.HashMap.Strict as H
+import           Data.List
 import qualified Data.Map as Map
 import           Data.Maybe
 import qualified Data.Text as T
@@ -41,6 +41,8 @@ import qualified Language.Haskell.LSP.Utility  as U
 import           System.Directory
 import           System.Exit
 import qualified System.Log.Logger as L
+import           Text.Parsec
+import           Text.Parsec.Char
 
 -- ---------------------------------------------------------------------
 {-# ANN module ("hlint: ignore Eta reduce" :: String) #-}
@@ -254,11 +256,8 @@ reactor st cin cout inp = do
             textDoc = J._textDocument (params :: J.DidOpenTextDocumentNotificationParams)
             doc     = J._uri (textDoc :: J.TextDocumentItem)
             fileName = drop (length ("file://"::String)) doc
-        liftIO $ U.logs $ "********* doc=" ++ show doc
-        rid <- nextReqId
-        let req = CReq "applyrefact" rid (IdeRequest "lint" (Map.fromList [("file", ParamFileP (T.pack fileName))])) cout
-        liftIO $ atomically $ writeTChan cin req
-        keepOriginal rid n
+
+        requestDiagnostics cin cout fileName n
 
       -- -------------------------------
 
@@ -269,11 +268,7 @@ reactor st cin cout inp = do
             params = fromJust $ J._params (notification :: J.NotificationMessage J.DidSaveTextDocumentParams)
             J.TextDocumentIdentifier doc = J._textDocument (params :: J.DidSaveTextDocumentParams)
             fileName = drop (length ("file://"::String)) doc
-        liftIO $ U.logs $ "********* doc=" ++ show doc
-        rid <- nextReqId
-        let req = CReq "applyrefact" rid (IdeRequest "lint" (Map.fromList [("file", ParamFileP (T.pack fileName))])) cout
-        liftIO $ atomically $ writeTChan cin req
-        keepOriginal rid n
+        requestDiagnostics cin cout fileName n
 
       HandlerRequest sf (Core.NotDidChangeTextDocument _notification) -> do
         setSendFunc sf
@@ -380,7 +375,7 @@ reactor st cin cout inp = do
 
       -- ---------------------------------------------------
 
-      DispatcherResponse rsp@(CResp _pid rid res)-> do
+      DispatcherResponse rsp@(CResp pid rid res)-> do
         liftIO $ U.logs $ "reactor:got DispatcherResponse:" ++ show rsp
         morig <- lookupOriginal rid
         case morig of
@@ -391,18 +386,15 @@ reactor st cin cout inp = do
             case orig of
               Core.NotDidOpenTextDocument _ ->
                 case res of
-                  IdeResponseFail  err -> liftIO $ U.logs $ "NotDidSaveTextDocument:got err" ++ show err
-                  IdeResponseError err -> liftIO $ U.logs $ "NotDidSaveTextDocument:got err" ++ show err
-                  IdeResponseOk r -> do
-                    reactorSend $ J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just r)
+                  IdeResponseFail  err -> liftIO $ U.logs $ "NotDidOpenTextDocument:got err" ++ show err
+                  IdeResponseError err -> liftIO $ U.logs $ "NotDidOpenTextDocument:got err" ++ show err
+                  IdeResponseOk r -> publishDiagnostics pid r
 
               Core.NotDidSaveTextDocument _ -> do
                 case res of
                   IdeResponseFail  err -> liftIO $ U.logs $ "NotDidSaveTextDocument:got err" ++ show err
                   IdeResponseError err -> liftIO $ U.logs $ "NotDidSaveTextDocument:got err" ++ show err
-                  IdeResponseOk r -> do
-                    let smr = J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just r)
-                    reactorSend smr
+                  IdeResponseOk r -> publishDiagnostics pid r
 
               Core.ReqRename req -> hieResponseHelper req res $ \r -> do
                 let J.Success vv = J.fromJSON (J.Object r) :: J.Result RefactorResult
@@ -439,6 +431,46 @@ reactor st cin cout inp = do
 
               other -> do
                 sendErrorLog $ "reactor:not processing for original LSP message : " ++ show other
+
+-- ---------------------------------------------------------------------
+
+requestDiagnostics :: TChan ChannelRequest -> TChan ChannelResponse -> String -> Core.OutMessage -> R ()
+requestDiagnostics cin cout fileName req = do
+  -- get hlint diagnostics
+  ridl <- nextReqId
+  let reql = CReq "applyrefact" ridl (IdeRequest "lint" (Map.fromList [("file", ParamFileP (T.pack fileName))])) cout
+  liftIO $ atomically $ writeTChan cin reql
+  keepOriginal ridl req
+
+  -- get GHC diagnostics
+  ridg <- nextReqId
+  let reqg = CReq "ghcmod" ridg (IdeRequest "check" (Map.fromList [("file", ParamFileP (T.pack fileName))])) cout
+  liftIO $ atomically $ writeTChan cin reqg
+  keepOriginal ridg req
+
+-- ---------------------------------------------------------------------
+
+publishDiagnostics :: PluginId -> J.Object -> R ()
+publishDiagnostics pid r = do
+  let
+    sendOne r =
+      reactorSend $ J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just r)
+    mkDiag (f,ds) = do
+      af <- liftIO $ makeAbsolute f
+      return $ jsWrite $ FileDiagnostics ("file://" ++ af) ds
+  -- liftIO $ U.logs $ "publishDiagnostics:pid=" ++ T.unpack pid
+  cwd <- liftIO getCurrentDirectory
+  -- liftIO $ U.logs $ "publishDiagnostics:cwd=" ++ cwd
+  case pid of
+    "applyrefact" -> sendOne r
+    "ghcmod"      -> do
+      case J.parse jsRead r of
+        J.Success str -> do
+          let pd = parseGhcDiagnostics str
+          ds <- mapM mkDiag $ Map.toList $ Map.fromListWith (++) pd
+          mapM_ sendOne ds
+        _             -> return ()
+
 
 -- ---------------------------------------------------------------------
 
@@ -622,4 +654,36 @@ data TextEdit =
     } deriving (Show,Read,Eq)
 
 -}
+-- ---------------------------------------------------------------------
+-- parsec parser for GHC error messages
+
+type P = Parsec String ()
+
+parseGhcDiagnostics :: T.Text -> [(FilePath,[Diagnostic])]
+parseGhcDiagnostics str =
+  case parse diagnostics "inp" (T.unpack str) of
+    Left err -> error $ "parseGhcDiagnostics: got error" ++ show err
+    Right ds -> ds
+
+diagnostics :: P [(FilePath, [Diagnostic])]
+diagnostics = (sepEndBy diagnostic (char '\n')) <* eof
+
+diagnostic :: P (FilePath,[Diagnostic])
+diagnostic = do
+  fname <- many1 (noneOf ":")
+  char ':'
+  l <- number
+  char ':'
+  c <- number
+  char ':'
+  msglines <- sepBy (many1 (noneOf "\n")) (char '\x0000')
+  let pos = (Position (l-1) (c-1))
+  return (fname,[Diagnostic (Range pos pos) Nothing Nothing (Just "ghcmod") (unlines msglines)] )
+
+number :: P Int
+number = do
+  s <- many1 digit
+  return $ read s
+
+-- ---------------------------------------------------------------------
 
