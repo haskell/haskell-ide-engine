@@ -42,7 +42,7 @@ import           System.Directory
 import           System.Exit
 import qualified System.Log.Logger as L
 import           Text.Parsec
-import           Text.Parsec.Char
+-- import           Text.Parsec.Char
 
 -- ---------------------------------------------------------------------
 {-# ANN module ("hlint: ignore Eta reduce" :: String) #-}
@@ -208,7 +208,7 @@ reactor st cin cout inp = do
 
       -- -------------------------------
 
-      HandlerRequest sf n@(Core.NotInitialized notification) -> do
+      HandlerRequest sf (Core.NotInitialized _notification) -> do
         setSendFunc sf
         liftIO $ U.logm $ "****** reactor: processing Initialized Notification"
         -- Server is ready, register any specific capabilities we need
@@ -343,7 +343,7 @@ reactor st cin cout inp = do
       HandlerRequest sf r@(Core.ReqExecuteCommand req) -> do
         setSendFunc sf
         liftIO $ U.logs $ "reactor:got ExecuteCommandRequest:" -- ++ show req
-        cwd <- liftIO getCurrentDirectory
+        -- cwd <- liftIO getCurrentDirectory
         -- liftIO $ U.logs $ "reactor:cwd:" ++ cwd
         let params = fromJust $ J._params (req :: J.ExecuteCommandRequest)
             command = J._command (params :: J.ExecuteCommandParams)
@@ -371,7 +371,6 @@ reactor st cin cout inp = do
       HandlerRequest sf om -> do
         setSendFunc sf
         liftIO $ U.logs $ "reactor:got HandlerRequest:" ++ show om
-
 
       -- ---------------------------------------------------
 
@@ -453,13 +452,13 @@ requestDiagnostics cin cout fileName req = do
 publishDiagnostics :: PluginId -> J.Object -> R ()
 publishDiagnostics pid r = do
   let
-    sendOne r =
-      reactorSend $ J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just r)
+    sendOne p =
+      reactorSend $ J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just p)
     mkDiag (f,ds) = do
       af <- liftIO $ makeAbsolute f
       return $ jsWrite $ FileDiagnostics ("file://" ++ af) ds
   -- liftIO $ U.logs $ "publishDiagnostics:pid=" ++ T.unpack pid
-  cwd <- liftIO getCurrentDirectory
+  -- cwd <- liftIO getCurrentDirectory
   -- liftIO $ U.logs $ "publishDiagnostics:cwd=" ++ cwd
   case pid of
     "applyrefact" -> sendOne r
@@ -470,6 +469,9 @@ publishDiagnostics pid r = do
           ds <- mapM mkDiag $ Map.toList $ Map.fromListWith (++) pd
           mapM_ sendOne ds
         _             -> return ()
+    _ -> do
+      liftIO $ U.logs $ "\n\npublishDiagnostics:not processing plugin=" ++ (T.unpack pid) ++ "\n\n"
+      return ()
 
 
 -- ---------------------------------------------------------------------
@@ -676,7 +678,7 @@ diagnostic = do
   char ':'
   c <- number
   char ':'
-  msglines <- sepBy (many1 (noneOf "\n")) (char '\x0000')
+  msglines <- sepEndBy (many1 (noneOf "\n\0")) (char '\0')
   let pos = (Position (l-1) (c-1))
   return (fname,[Diagnostic (Range pos pos) Nothing Nothing (Just "ghcmod") (unlines msglines)] )
 
