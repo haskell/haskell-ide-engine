@@ -673,14 +673,21 @@ diagnostics = (sepEndBy diagnostic (char '\n')) <* eof
 diagnostic :: P (FilePath,[Diagnostic])
 diagnostic = do
   fname <- many1 (noneOf ":")
-  char ':'
+  _ <- char ':'
   l <- number
-  char ':'
+  _ <- char ':'
   c <- number
-  char ':'
+  _ <- char ':'
+  severity <- optionSeverity
   msglines <- sepEndBy (many1 (noneOf "\n\0")) (char '\0')
   let pos = (Position (l-1) (c-1))
-  return (fname,[Diagnostic (Range pos pos) Nothing Nothing (Just "ghcmod") (unlines msglines)] )
+  return (fname,[Diagnostic (Range pos pos) (Just severity) Nothing (Just "ghcmod") (unlines msglines)] )
+
+optionSeverity :: P DiagnosticSeverity
+optionSeverity =
+  (string "Warning:" >> return DsWarning)
+  <|> (string "Error:" >> return DsError)
+  <|> return DsError
 
 number :: P Int
 number = do
