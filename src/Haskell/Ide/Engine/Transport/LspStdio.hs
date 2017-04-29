@@ -538,11 +538,13 @@ lspParam2ParamValP :: LspParam -> ParamValP
 lspParam2ParamValP (LspTextDocument (TextDocumentIdentifier u)) = ParamFileP (T.drop (length ("file://"::String)) u)
 lspParam2ParamValP (LspPosition     (Position l c))             = ParamPosP (Pos (Line (l+1)) (Col (c+1)))
 lspParam2ParamValP (LspRange        (Range (Position l c) _to)) = ParamPosP (Pos (Line (l+1)) (Col (c+1)))
+lspParam2ParamValP (LspText         txt                       ) = ParamTextP txt
 
 data LspParam
   = LspTextDocument TextDocumentIdentifier
   | LspPosition     Position
   | LspRange        Range
+  | LspText         T.Text
   deriving (Read,Show,Eq)
 
 instance J.FromJSON LspParam where
@@ -551,6 +553,7 @@ instance J.FromJSON LspParam where
       [("textDocument",v)] -> LspTextDocument <$> J.parseJSON v
       [("position",v)]     -> LspPosition     <$> J.parseJSON v
       [("range-pos",v)]    -> LspRange        <$> J.parseJSON v
+      [("text",v)]         -> LspText         <$> J.parseJSON v
       _ -> fail $ "FromJSON.LspParam got:" ++ show hm
   parseJSON _ = mempty
 
