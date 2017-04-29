@@ -38,11 +38,12 @@ import qualified Language.Haskell.LSP.Core     as Core
 import qualified Language.Haskell.LSP.TH.ClientCapabilities as C
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 import qualified Language.Haskell.LSP.Utility  as U
+import           Language.Haskell.LSP.VFS
 import           System.Directory
 import           System.Exit
 import qualified System.Log.Logger as L
 import           Text.Parsec
--- import           Text.Parsec.Char
+import qualified Yi.Rope as Yi
 
 -- ---------------------------------------------------------------------
 {-# ANN module ("hlint: ignore Eta reduce" :: String) #-}
@@ -95,9 +96,15 @@ responseHandler cout cr = do
 
 -- ---------------------------------------------------------------------
 
-data ReactorInput = DispatcherResponse ChannelResponse
-                  | HandlerRequest (BSL.ByteString -> IO ()) Core.OutMessage
-                  | InitializeCallBack C.ClientCapabilities Core.SendFunc
+data ReactorInput
+  = DispatcherResponse ChannelResponse
+  | InitializeCallBack C.ClientCapabilities Core.SendFunc
+  | HandlerRequest
+      (J.Uri -> IO (Maybe VirtualFile))
+      (BSL.ByteString -> IO ())
+      Core.OutMessage
+      -- ^ injected into the reactor input by each of the individual callback handlers
+
 
 data ReactorState =
   ReactorState
@@ -202,13 +209,13 @@ reactor st cin cout inp = do
         setSendFunc sf
         setClientCapabilities capabilities
 
-      HandlerRequest sf (Core.RspFromClient rm) -> do
+      HandlerRequest _vf sf (Core.RspFromClient rm) -> do
         setSendFunc sf
         liftIO $ U.logs $ "reactor:got RspFromClient:" ++ show rm
 
       -- -------------------------------
 
-      HandlerRequest sf (Core.NotInitialized _notification) -> do
+      HandlerRequest _vf sf (Core.NotInitialized _notification) -> do
         setSendFunc sf
         liftIO $ U.logm $ "****** reactor: processing Initialized Notification"
         -- Server is ready, register any specific capabilities we need
@@ -247,7 +254,7 @@ reactor st cin cout inp = do
 
       -- -------------------------------
 
-      HandlerRequest sf n@(Core.NotDidOpenTextDocument notification) -> do
+      HandlerRequest _vf sf n@(Core.NotDidOpenTextDocument notification) -> do
         setSendFunc sf
         liftIO $ U.logm $ "****** reactor: processing NotDidOpenTextDocument"
         -- TODO: learn enough lens to do the following more cleanly
@@ -262,7 +269,7 @@ reactor st cin cout inp = do
 
       -- -------------------------------
 
-      HandlerRequest sf n@(Core.NotDidSaveTextDocument notification) -> do
+      HandlerRequest _vf sf n@(Core.NotDidSaveTextDocument notification) -> do
         setSendFunc sf
         liftIO $ U.logm "****** reactor: processing NotDidSaveTextDocument"
         let
@@ -271,13 +278,13 @@ reactor st cin cout inp = do
             fileName = drop (length ("file://"::String)) doc
         requestDiagnostics cin cout fileName n
 
-      HandlerRequest sf (Core.NotDidChangeTextDocument _notification) -> do
+      HandlerRequest _vf sf (Core.NotDidChangeTextDocument _notification) -> do
         setSendFunc sf
         liftIO $ U.logm "****** reactor: NOT processing NotDidChangeTextDocument"
 
       -- -------------------------------
 
-      HandlerRequest sf r@(Core.ReqRename req) -> do
+      HandlerRequest _vf sf r@(Core.ReqRename req) -> do
         setSendFunc sf
         liftIO $ U.logs $ "reactor:got RenameRequest:" ++ show req
         let params = fromJust $ J._params (req :: J.RenameRequest)
@@ -297,7 +304,7 @@ reactor st cin cout inp = do
 
       -- -------------------------------
 
-      HandlerRequest sf r@(Core.ReqHover req) -> do
+      HandlerRequest _vf sf r@(Core.ReqHover req) -> do
         setSendFunc sf
         liftIO $ U.logs $ "reactor:got HoverRequest:" ++ show req
         let J.TextDocumentPositionParams doc pos = fromJust $ J._params (req :: J.HoverRequest)
@@ -313,7 +320,7 @@ reactor st cin cout inp = do
 
       -- -------------------------------
 
-      HandlerRequest sf (Core.ReqCodeAction req) -> do
+      HandlerRequest _vf sf (Core.ReqCodeAction req) -> do
         setSendFunc sf
         liftIO $ U.logs $ "reactor:got CodeActionRequest:" ++ show req
         let params = fromJust $ J._params (req :: J.CodeActionRequest)
@@ -341,7 +348,7 @@ reactor st cin cout inp = do
 
       -- -------------------------------
 
-      HandlerRequest sf r@(Core.ReqExecuteCommand req) -> do
+      HandlerRequest _vf sf r@(Core.ReqExecuteCommand req) -> do
         setSendFunc sf
         liftIO $ U.logs $ "reactor:got ExecuteCommandRequest:" -- ++ show req
         -- cwd <- liftIO getCurrentDirectory
@@ -369,7 +376,7 @@ reactor st cin cout inp = do
 
       -- -------------------------------
 
-      HandlerRequest sf r@(Core.ReqCompletion req) -> do
+      HandlerRequest _vf sf r@(Core.ReqCompletion req) -> do
         setSendFunc sf
         liftIO $ U.logs $ "reactor:got CompletionRequest:" ++ show req
         let J.TextDocumentPositionParams doc pos = fromJust $ J._params (req :: J.CompletionRequest)
@@ -389,7 +396,7 @@ reactor st cin cout inp = do
 
       -- -------------------------------
 
-      HandlerRequest sf om -> do
+      HandlerRequest _vf sf om -> do
         setSendFunc sf
         liftIO $ U.logs $ "reactor:got HandlerRequest:" ++ show om
 
@@ -590,13 +597,13 @@ hieHandlers rin
 -- ---------------------------------------------------------------------
 
 passHandler :: TChan ReactorInput -> (a -> Core.OutMessage) -> Core.Handler a
-passHandler rin c sf notification = do
-  atomically $ writeTChan rin (HandlerRequest sf (c notification))
+passHandler rin c vf sf notification = do
+  atomically $ writeTChan rin (HandlerRequest vf sf (c notification))
 
 -- ---------------------------------------------------------------------
 
 responseHandlerCb :: TChan ReactorInput -> Core.Handler J.BareResponseMessage
-responseHandlerCb _rin _sf resp = do
+responseHandlerCb _rin _vf _sf resp = do
   U.logs $ "******** got ResponseMessage, ignoring:" ++ show resp
 
 -- ---------------------------------------------------------------------
