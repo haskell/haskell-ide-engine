@@ -64,6 +64,7 @@ library
                      , network-simple
                      , optparse-applicative
                      , optparse-simple >= 0.0.3
+                     , parsec
                      , pipes
                      , pipes-aeson
                      , pipes-attoparsec >= 0.5
@@ -115,6 +116,7 @@ executable hie
                      , network-simple
                      , optparse-applicative
                      , optparse-simple
+                     , parsec
                      , stm
                      , swagger2
                      , text
