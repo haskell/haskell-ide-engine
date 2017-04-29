@@ -25,7 +25,7 @@ import qualified Data.ByteString.Lazy as BSL
 import           Data.Default
 import           Data.Either
 import qualified Data.HashMap.Strict as H
-import           Data.List
+-- import           Data.List
 import qualified Data.Map as Map
 import           Data.Maybe
 import qualified Data.Text as T
@@ -43,7 +43,7 @@ import           System.Directory
 import           System.Exit
 import qualified System.Log.Logger as L
 import           Text.Parsec
-import qualified Yi.Rope as Yi
+-- import qualified Yi.Rope as Yi
 
 -- ---------------------------------------------------------------------
 {-# ANN module ("hlint: ignore Eta reduce" :: String) #-}
@@ -376,7 +376,7 @@ reactor st cin cout inp = do
 
       -- -------------------------------
 
-      HandlerRequest _vf sf r@(Core.ReqCompletion req) -> do
+      HandlerRequest _vf sf (Core.ReqCompletion req) -> do
         setSendFunc sf
         liftIO $ U.logs $ "reactor:got CompletionRequest:" ++ show req
         let J.TextDocumentPositionParams doc pos = fromJust $ J._params (req :: J.CompletionRequest)
@@ -389,6 +389,7 @@ reactor st cin cout inp = do
         --                                             ])) cout
         -- liftIO $ atomically $ writeTChan cin hreq
         -- keepOriginal rid r
+        liftIO $ U.logs $ "****reactor:ReqCompletion:not immplemented=" ++ show (fileName,doc,l,c)
 
         let cr = J.Completions [] -- ( [] :: [J.CompletionListType])
         let rspMsg = Core.makeResponseMessage (J.responseId $ J._id (req :: J.CompletionRequest)) cr
