@@ -15,5 +15,8 @@ dependencies:
 
 test:
   override:
-    - stack test haskell-ide-engine :
+    # - stack test haskell-ide-engine :
+    - ./pedantic.sh :
+        timeout: 3600
+    - ./emacs_tests.sh :
         timeout: 3600
