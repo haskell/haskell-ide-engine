@@ -46,3 +46,4 @@ tags
 /cabal.project.local
 /test/testdata/HaReRename.hs.keep
 /test/testdata/FuncTest.refactored.hs
+/test/testdata/HaReGA1.refactored.hs

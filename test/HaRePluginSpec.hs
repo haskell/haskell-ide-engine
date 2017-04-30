@@ -205,3 +205,23 @@ hareSpec = do
                                                            ]))
 
     -- ---------------------------------
+
+    it "generalises an applicative" $ do
+      let req = IdeRequest "genapplicative" (Map.fromList [("file",ParamValP $ ParamFile "./HaReGA1.hs")
+                                                  ,("start_pos",ParamValP $ ParamPos (toPos (4,1)))])
+      r <- dispatchRequest req
+      r `shouldBe` Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff
+                                                           (cwd </> "test/testdata/HaReGA1.hs")
+                                                           (cwd </> "test/testdata/HaReGA1.refactored.hs")
+                                                           ("5,9c5\n"++
+                                                            "< parseStr = do\n"++
+                                                            "<   char '\"'\n"++
+                                                            "<   str <- many1 (noneOf \"\\\"\")\n"++
+                                                            "<   char '\"'\n"++
+                                                            "<   return str\n"++
+                                                            "---\n"++
+                                                            "> parseStr = char '\"' *> (many1 (noneOf \"\\\"\")) <* char '\"'\n"
+                                                           )
+                                                           ]))
+
+    -- ---------------------------------
