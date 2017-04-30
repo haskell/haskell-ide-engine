@@ -2,6 +2,7 @@ dependencies:
   cache_directories:
     - "~/.stack"
     - "~/.ghc-mod"
+    - test/testdata/.stack-work/
   pre:
     - wget -q -O- https://s3.amazonaws.com/download.fpcomplete.com/ubuntu/fpco.key | sudo apt-key add -
     - echo 'deb http://download.fpcomplete.com/ubuntu/precise stable main'|sudo tee /etc/apt/sources.list.d/fpco.list
@@ -15,5 +16,8 @@ dependencies:
 
 test:
   override:
-    - stack test haskell-ide-engine :
+    # - stack test haskell-ide-engine :
+    - ./pedantic.sh :
         timeout: 3600
+    # - ./emacs_tests.sh :
+    #     timeout: 3600

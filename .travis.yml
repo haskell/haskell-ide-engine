@@ -12,6 +12,7 @@ cache:
   directories:
   - "$HOME/.stack/"
   - elisp/.cask/
+  - test/testdata/.stack-work/
 before_install:
 - export CASHER_TIME_OUT=600
 - mkdir -p ~/.local/bin
