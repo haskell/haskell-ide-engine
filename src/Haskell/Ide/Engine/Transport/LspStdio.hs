@@ -342,6 +342,7 @@ reactor st cin cout inp = do
                       ]
               cmdparams = Just args
           makeCommand (J.Diagnostic _r _s _c _source _m  ) = []
+          -- TODO: make context specific commands for all sorts of things, such as refactorings
         let body = concatMap makeCommand diags
         let rspMsg = Core.makeResponseMessage (J.responseId $ J._id (req :: J.CodeActionRequest)) body
         reactorSend rspMsg

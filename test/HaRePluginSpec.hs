@@ -19,6 +19,9 @@ import           TestUtils
 import           Test.Hspec
 
 -- ---------------------------------------------------------------------
+{-# ANN module ("hlint: ignore Eta reduce" :: String) #-}
+{-# ANN module ("hlint: ignore Redundant do" :: String) #-}
+-- ---------------------------------------------------------------------
 
 main :: IO ()
 main = hspec spec
@@ -184,6 +187,21 @@ hareSpec = do
                                                             "> z = 7\n"++
                                                             "14a14\n"++
                                                             "> \n")
+                                                           ]))
+
+    -- ---------------------------------
+
+    it "deletes a definition" $ do
+      let req = IdeRequest "deletedef" (Map.fromList [("file",ParamValP $ ParamFile "./FuncTest.hs")
+                                                  ,("start_pos",ParamValP $ ParamPos (toPos (6,1)))])
+      r <- dispatchRequest req
+      r `shouldBe` Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff
+                                                           (cwd </> "test/testdata/FuncTest.hs")
+                                                           (cwd </> "test/testdata/FuncTest.refactored.hs")
+                                                           ("5,7d4\n"++
+                                                            "< foo :: Int\n"++
+                                                            "< foo = bb\n"++
+                                                            "< \n")
                                                            ]))
 
     -- ---------------------------------
