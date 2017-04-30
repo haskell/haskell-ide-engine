@@ -164,35 +164,3 @@ functionalSpec = do
                                                                 "7,8c7,8\n< \n< bb = 5\n---\n>   where\n>     bb = 5\n"]))
 {- -}
 
-{-
-functionalSpec :: Spec
-functionalSpec = do
-  describe "consecutive plugin commands" $ do
-
-    it "returns hints as diagnostics" $ do
-      (cin,cout) <- startServer
-      cwd <- getCurrentDirectory
-      let req1 = IdeRequest "lint" (Map.fromList [("file",ParamValP $ ParamFile "./src/Foo.hs")
-                                                ])
-      r1 <- dispatchRequest cin cout (CReq "applyrefact" 1 req1 cout)
-      r1 `shouldBe`
-        Just (IdeResponseOk (jsWrite (FileDiagnostics
-                                      { fdFileName = "file://./src/Foo.hs"
-                                      , fdDiagnostics =
-                                        [ Diagnostic (Range (Position 8 7) (Position 9 19))
-                                                     (Just DsWarning)
-                                                     Nothing
-                                                     (Just "hlint")
-                                                     "Redundant do\nFound:\n  do putStrLn \"hello\"\nWhy not:\n  putStrLn \"hello\"\n"
-                                        ]
-                                      }
-                                     )))
-
-      let req2 = IdeRequest "demote" (Map.fromList [("file",ParamValP $ ParamFile "./src/Foo.hs")
-                                                  ,("start_pos",ParamValP $ ParamPos (toPos (6,1)))])
-      r2 <- dispatchRequest cin cout (CReq "hare" 2 req2 cout)
-      r2 `shouldBe`
-        Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff (cwd </> "FuncTest.hs")
-                                                               (cwd </> "FuncTest.refactored.hs")
-                                                                "5,6c5,6\n< \n< bb = 5\n---\n>   where\n>     bb = 5\n"]))
--}
