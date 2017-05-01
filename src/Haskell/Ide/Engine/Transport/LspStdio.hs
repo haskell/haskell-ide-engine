@@ -35,10 +35,10 @@ import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.Control  as CTRL
 import qualified Language.Haskell.LSP.Core     as Core
-import qualified Language.Haskell.LSP.TH.ClientCapabilities as C
+-- import qualified Language.Haskell.LSP.TH.ClientCapabilities as C
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 import qualified Language.Haskell.LSP.Utility  as U
-import           Language.Haskell.LSP.VFS
+-- import           Language.Haskell.LSP.VFS
 import           System.Directory
 import           System.Exit
 import qualified System.Log.Logger as L
@@ -69,8 +69,8 @@ run dispatcherProc cin = flip E.catches handlers $ do
   _rpid  <- forkIO $ reactor def cin cout rin
 
   let
-    dp capabilities sendFunc = do
-      atomically $ writeTChan rin (InitializeCallBack capabilities sendFunc)
+    dp lf = do
+      atomically $ writeTChan rin (InitializeCallBack lf)
       dispatcherProc
       return Nothing
 
@@ -98,25 +98,20 @@ responseHandler cout cr = do
 
 data ReactorInput
   = DispatcherResponse ChannelResponse
-  | InitializeCallBack C.ClientCapabilities Core.SendFunc
-  | HandlerRequest
-      (J.Uri -> IO (Maybe VirtualFile))
-      (BSL.ByteString -> IO ())
-      Core.OutMessage
+  | InitializeCallBack Core.LspFuncs
+  | HandlerRequest Core.LspFuncs Core.OutMessage
       -- ^ injected into the reactor input by each of the individual callback handlers
-
 
 data ReactorState =
   ReactorState
-    { sender             :: !(Maybe (BSL.ByteString -> IO ()))
+    { lspFuncs           :: !(Maybe Core.LspFuncs)
     , hieReqId           :: !RequestId
     , lspReqId           :: !J.LspId
     , wip                :: !(Map.Map RequestId Core.OutMessage)
-    , clientCapabilities :: !(Maybe C.ClientCapabilities)
     }
 
 instance Default ReactorState where
-  def = ReactorState Nothing 0 (J.IdInt 0) Map.empty Nothing
+  def = ReactorState Nothing 0 (J.IdInt 0) Map.empty
 
 -- ---------------------------------------------------------------------
 
@@ -127,27 +122,40 @@ type R a = StateT ReactorState IO a
 -- reactor monad functions
 -- ---------------------------------------------------------------------
 
-setSendFunc :: (BSL.ByteString -> IO ()) -> R ()
-setSendFunc sf = modify' (\s -> s {sender = Just sf})
-
-setClientCapabilities :: C.ClientCapabilities -> R ()
-setClientCapabilities c = modify' (\s -> s {clientCapabilities = Just c})
+setLspFuncs :: Core.LspFuncs -> R ()
+setLspFuncs lf = modify' (\s -> s {lspFuncs = Just lf})
 
 -- ---------------------------------------------------------------------
 
 reactorSend :: (J.ToJSON a) => a -> R ()
 reactorSend msg = do
   s <- get
-  case sender s of
+  case lspFuncs s of
     Nothing -> error "reactorSend: send function not initialised yet"
-    Just sf -> liftIO $ sf (J.encode msg)
+    Just lf -> liftIO $ (Core.sendFunc lf) (J.encode msg)
+
+-- ---------------------------------------------------------------------
 
 reactorSend' :: ((BSL.ByteString -> IO ()) -> IO ()) -> R ()
 reactorSend' f = do
-  msf <- gets sender
-  case msf of
-    Nothing -> error "reactorSend': send function not initialised yet"
-    Just sf -> liftIO $ f sf
+  s <- get
+  case lspFuncs s of
+    Nothing -> error "reactorSend: send function not initialised yet"
+    Just lf -> liftIO $ f (Core.sendFunc lf) 
+
+  -- msf <- gets sender
+  -- case msf of
+  --   Nothing -> error "reactorSend': send function not initialised yet"
+  --   Just sf -> liftIO $ f sf
+
+-- ---------------------------------------------------------------------
+
+publishDiagnostics :: J.Uri -> Maybe J.TextDocumentVersion -> [J.Diagnostic] -> R ()
+publishDiagnostics uri' mv diags = do
+  s <- get
+  case lspFuncs s of
+    Nothing -> error "publishDiagnostics: send function not initialised yet"
+    Just lf -> liftIO $ (Core.publishDiagnosticsFunc lf) uri' mv diags
 
 -- ---------------------------------------------------------------------
 
@@ -204,19 +212,16 @@ reactor st cin cout inp = do
   flip evalStateT st $ forever $ do
     inval <- liftIO $ atomically $ readTChan inp
     case inval of
-      InitializeCallBack capabilities sf -> do
+      InitializeCallBack lf@(Core.LspFuncs capabilities _sf _vf _dpf) -> do
         liftIO $ U.logs $ "reactor:got Client capabilities:" ++ show capabilities
-        setSendFunc sf
-        setClientCapabilities capabilities
+        setLspFuncs lf
 
-      HandlerRequest _vf sf (Core.RspFromClient rm) -> do
-        setSendFunc sf
+      HandlerRequest _lf (Core.RspFromClient rm) -> do
         liftIO $ U.logs $ "reactor:got RspFromClient:" ++ show rm
 
       -- -------------------------------
 
-      HandlerRequest _vf sf (Core.NotInitialized _notification) -> do
-        setSendFunc sf
+      HandlerRequest (Core.LspFuncs _c _sf _vf _pd) (Core.NotInitialized _notification) -> do
         liftIO $ U.logm $ "****** reactor: processing Initialized Notification"
         -- Server is ready, register any specific capabilities we need
 
@@ -254,8 +259,7 @@ reactor st cin cout inp = do
 
       -- -------------------------------
 
-      HandlerRequest _vf sf n@(Core.NotDidOpenTextDocument notification) -> do
-        setSendFunc sf
+      HandlerRequest (Core.LspFuncs _c _sf _vf _pd) n@(Core.NotDidOpenTextDocument notification) -> do
         liftIO $ U.logm $ "****** reactor: processing NotDidOpenTextDocument"
         -- TODO: learn enough lens to do the following more cleanly
         -- let doc = J._uri $ J._textDocument $ fromJust $ J._params notification
@@ -269,8 +273,7 @@ reactor st cin cout inp = do
 
       -- -------------------------------
 
-      HandlerRequest _vf sf n@(Core.NotDidSaveTextDocument notification) -> do
-        setSendFunc sf
+      HandlerRequest (Core.LspFuncs _c _sf _vf _pd) n@(Core.NotDidSaveTextDocument notification) -> do
         liftIO $ U.logm "****** reactor: processing NotDidSaveTextDocument"
         let
             params = fromJust $ J._params (notification :: J.NotificationMessage J.DidSaveTextDocumentParams)
@@ -278,14 +281,12 @@ reactor st cin cout inp = do
             fileName = drop (length ("file://"::String)) doc
         requestDiagnostics cin cout fileName n
 
-      HandlerRequest _vf sf (Core.NotDidChangeTextDocument _notification) -> do
-        setSendFunc sf
+      HandlerRequest (Core.LspFuncs _c _sf _vf _pd) (Core.NotDidChangeTextDocument _notification) -> do
         liftIO $ U.logm "****** reactor: NOT processing NotDidChangeTextDocument"
 
       -- -------------------------------
 
-      HandlerRequest _vf sf r@(Core.ReqRename req) -> do
-        setSendFunc sf
+      HandlerRequest (Core.LspFuncs _c _sf _vf _pd) r@(Core.ReqRename req) -> do
         liftIO $ U.logs $ "reactor:got RenameRequest:" ++ show req
         let params = fromJust $ J._params (req :: J.RenameRequest)
             J.TextDocumentIdentifier doc = J._textDocument (params :: J.RenameRequestParams)
@@ -304,8 +305,7 @@ reactor st cin cout inp = do
 
       -- -------------------------------
 
-      HandlerRequest _vf sf r@(Core.ReqHover req) -> do
-        setSendFunc sf
+      HandlerRequest (Core.LspFuncs _c _sf _vf _pd) r@(Core.ReqHover req) -> do
         liftIO $ U.logs $ "reactor:got HoverRequest:" ++ show req
         let J.TextDocumentPositionParams doc pos = fromJust $ J._params (req :: J.HoverRequest)
             fileName = drop (length ("file://"::String)) $ J._uri (doc :: J.TextDocumentIdentifier)
@@ -320,8 +320,7 @@ reactor st cin cout inp = do
 
       -- -------------------------------
 
-      HandlerRequest _vf sf (Core.ReqCodeAction req) -> do
-        setSendFunc sf
+      HandlerRequest (Core.LspFuncs _c _sf _vf _pd) (Core.ReqCodeAction req) -> do
         liftIO $ U.logs $ "reactor:got CodeActionRequest:" ++ show req
         let params = fromJust $ J._params (req :: J.CodeActionRequest)
             doc = J._textDocument (params :: J.CodeActionParams)
@@ -349,8 +348,7 @@ reactor st cin cout inp = do
 
       -- -------------------------------
 
-      HandlerRequest _vf sf r@(Core.ReqExecuteCommand req) -> do
-        setSendFunc sf
+      HandlerRequest (Core.LspFuncs _c _sf _vf _pd) r@(Core.ReqExecuteCommand req) -> do
         liftIO $ U.logs $ "reactor:got ExecuteCommandRequest:" -- ++ show req
         -- cwd <- liftIO getCurrentDirectory
         -- liftIO $ U.logs $ "reactor:cwd:" ++ cwd
@@ -377,8 +375,7 @@ reactor st cin cout inp = do
 
       -- -------------------------------
 
-      HandlerRequest _vf sf (Core.ReqCompletion req) -> do
-        setSendFunc sf
+      HandlerRequest (Core.LspFuncs _c _sf _vf _pd) (Core.ReqCompletion req) -> do
         liftIO $ U.logs $ "reactor:got CompletionRequest:" ++ show req
         let J.TextDocumentPositionParams doc pos = fromJust $ J._params (req :: J.CompletionRequest)
             fileName = drop (length ("file://"::String)) $ J._uri (doc :: J.TextDocumentIdentifier)
@@ -398,8 +395,7 @@ reactor st cin cout inp = do
 
       -- -------------------------------
 
-      HandlerRequest _vf sf om -> do
-        setSendFunc sf
+      HandlerRequest (Core.LspFuncs _c _sf _vf _pd) om -> do
         liftIO $ U.logs $ "reactor:got HandlerRequest:" ++ show om
 
       -- ---------------------------------------------------
@@ -417,13 +413,13 @@ reactor st cin cout inp = do
                 case res of
                   IdeResponseFail  err -> liftIO $ U.logs $ "NotDidOpenTextDocument:got err" ++ show err
                   IdeResponseError err -> liftIO $ U.logs $ "NotDidOpenTextDocument:got err" ++ show err
-                  IdeResponseOk r -> publishDiagnostics pid r
+                  IdeResponseOk r -> publishDiagnosticsToLsp pid r
 
               Core.NotDidSaveTextDocument _ -> do
                 case res of
                   IdeResponseFail  err -> liftIO $ U.logs $ "NotDidSaveTextDocument:got err" ++ show err
                   IdeResponseError err -> liftIO $ U.logs $ "NotDidSaveTextDocument:got err" ++ show err
-                  IdeResponseOk r -> publishDiagnostics pid r
+                  IdeResponseOk r -> publishDiagnosticsToLsp pid r
 
               Core.ReqRename req -> hieResponseHelper req res $ \r -> do
                 let J.Success vv = J.fromJSON (J.Object r) :: J.Result RefactorResult
@@ -479,19 +475,21 @@ requestDiagnostics cin cout fileName req = do
 
 -- ---------------------------------------------------------------------
 
-publishDiagnostics :: PluginId -> J.Object -> R ()
-publishDiagnostics pid r = do
+publishDiagnosticsToLsp :: PluginId -> J.Object -> R ()
+publishDiagnosticsToLsp pid r = do
   let
-    sendOne p =
-      reactorSend $ J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just p)
+    sendOne (uri',ds) =
+      -- reactorSend $ J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just p)
+      publishDiagnostics uri' Nothing ds
     mkDiag (f,ds) = do
       af <- liftIO $ makeAbsolute f
-      return $ jsWrite $ FileDiagnostics ("file://" ++ af) ds
-  -- liftIO $ U.logs $ "publishDiagnostics:pid=" ++ T.unpack pid
-  -- cwd <- liftIO getCurrentDirectory
-  -- liftIO $ U.logs $ "publishDiagnostics:cwd=" ++ cwd
+      -- return $ jsWrite $ FileDiagnostics ("file://" ++ af) ds
+      return ("file://" ++ af, ds)
   case pid of
-    "applyrefact" -> sendOne r
+    "applyrefact" -> do
+      case J.fromJSON (J.Object r) of
+        J.Success (J.PublishDiagnosticsParams fp (J.List ds)) -> sendOne (fp,ds)
+        _  -> return ()
     "ghcmod"      -> do
       case J.parse jsRead r of
         J.Success str -> do
@@ -602,13 +600,13 @@ hieHandlers rin
 -- ---------------------------------------------------------------------
 
 passHandler :: TChan ReactorInput -> (a -> Core.OutMessage) -> Core.Handler a
-passHandler rin c vf sf notification = do
-  atomically $ writeTChan rin (HandlerRequest vf sf (c notification))
+passHandler rin c lf notification = do
+  atomically $ writeTChan rin (HandlerRequest lf (c notification))
 
 -- ---------------------------------------------------------------------
 
 responseHandlerCb :: TChan ReactorInput -> Core.Handler J.BareResponseMessage
-responseHandlerCb _rin _vf _sf resp = do
+responseHandlerCb _rin _lf resp = do
   U.logs $ "******** got ResponseMessage, ignoring:" ++ show resp
 
 -- ---------------------------------------------------------------------
@@ -698,16 +696,16 @@ data TextEdit =
 
 type P = Parsec String ()
 
-parseGhcDiagnostics :: T.Text -> [(FilePath,[Diagnostic])]
+parseGhcDiagnostics :: T.Text -> [(FilePath,[J.Diagnostic])]
 parseGhcDiagnostics str =
   case parse diagnostics "inp" (T.unpack str) of
     Left err -> error $ "parseGhcDiagnostics: got error" ++ show err
     Right ds -> ds
 
-diagnostics :: P [(FilePath, [Diagnostic])]
+diagnostics :: P [(FilePath, [J.Diagnostic])]
 diagnostics = (sepEndBy diagnostic (char '\n')) <* eof
 
-diagnostic :: P (FilePath,[Diagnostic])
+diagnostic :: P (FilePath,[J.Diagnostic])
 diagnostic = do
   fname <- many1 (noneOf ":")
   _ <- char ':'
@@ -717,15 +715,15 @@ diagnostic = do
   _ <- char ':'
   severity <- optionSeverity
   msglines <- sepEndBy (many1 (noneOf "\n\0")) (char '\0')
-  let pos = (Position (l-1) (c-1))
+  let pos = (J.Position (l-1) (c-1))
   -- AZ:TODO: consider setting pprCols dflag value in the call, for better format on vscode
-  return (fname,[Diagnostic (Range pos pos) (Just severity) Nothing (Just "ghcmod") (unlines msglines)] )
+  return (fname,[J.Diagnostic (J.Range pos pos) (Just severity) Nothing (Just "ghcmod") (unlines msglines)] )
 
-optionSeverity :: P DiagnosticSeverity
+optionSeverity :: P J.DiagnosticSeverity
 optionSeverity =
-  (string "Warning:" >> return DsWarning)
-  <|> (string "Error:" >> return DsError)
-  <|> return DsError
+  (string "Warning:" >> return J.DsWarning)
+  <|> (string "Error:" >> return J.DsError)
+  <|> return J.DsError
 
 number :: P Int
 number = do
