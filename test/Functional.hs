@@ -155,6 +155,17 @@ functionalSpec = do
 
       -- -------------------------------
 
+      let req4 = IdeRequest "type" (Map.fromList [("file",ParamValP $ ParamFile "./FuncTest.hs")
+                                                  ,("start_pos",ParamValP $ ParamPos (toPos (8,1)))])
+      r4 <- dispatchRequest cin cout (CReq "ghcmod" 4 req4 cout)
+      r4 `shouldBe`
+        Just (IdeResponseOk (H.fromList ["type_info".=toJSON
+                        [TypeResult (toPos (8,1)) (toPos (8,7)) "Int"
+                        ]
+                        ]))
+
+      -- -------------------------------
+
       let req3 = IdeRequest "demote" (Map.fromList [("file",ParamValP $ ParamFile "./FuncTest.hs")
                                                   ,("start_pos",ParamValP $ ParamPos (toPos (8,1)))])
       r3 <- dispatchRequest cin cout (CReq "hare" 3 req3 cout)

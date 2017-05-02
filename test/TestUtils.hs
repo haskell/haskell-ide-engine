@@ -14,8 +14,8 @@ import           System.Directory
 testOptions :: GM.Options
 testOptions = GM.defaultOptions {
     GM.optOutput     = GM.OutputOpts {
-      GM.ooptLogLevel       = GM.GmError
-      -- GM.ooptLogLevel       = GM.GmVomit
+      -- GM.ooptLogLevel       = GM.GmError
+      GM.ooptLogLevel       = GM.GmVomit
     , GM.ooptStyle          = GM.PlainStyle
     , GM.ooptLineSeparator  = GM.LineSeparator "\0"
     , GM.ooptLinePrefix     = Nothing
