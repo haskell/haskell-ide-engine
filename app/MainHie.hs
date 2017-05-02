@@ -60,6 +60,7 @@ import           Haskell.Ide.ExamplePluginAsync
 import           Haskell.Ide.GhcModPlugin
 import           Haskell.Ide.GhcTreePlugin
 import           Haskell.Ide.HaRePlugin
+import           Haskell.Ide.HooglePlugin
 
 -- ---------------------------------------------------------------------
 
@@ -73,6 +74,7 @@ taggedPlugins =
   :& Plugin (Proxy :: Proxy "ghctree")     ghcTreeDescriptor
   :& Plugin (Proxy :: Proxy "hare")        hareDescriptor
   :& Plugin (Proxy :: Proxy "base")        baseDescriptor
+  :& Plugin (Proxy :: Proxy "hoogle")      hoogleDescriptor
   :& RNil
 
 

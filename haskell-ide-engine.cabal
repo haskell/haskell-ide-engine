@@ -112,6 +112,7 @@ executable hie
                      , hie-ghc-mod
                      , hie-ghc-tree
                      , hie-hare
+                     , hie-hoogle
                      , hie-plugin-api
                      , monad-logger
                      , network-simple
@@ -163,6 +164,7 @@ test-suite haskell-ide-test
                      , hie-ghc-mod
                      , hie-ghc-tree
                      , hie-hare
+                     , hie-hoogle
                      , hie-plugin-api
                      , hspec
                      -- , hspec-jenkins
@@ -200,6 +202,7 @@ test-suite haskell-ide-func-test
                      , hie-ghc-mod
                      , hie-ghc-tree
                      , hie-hare
+                     , hie-hoogle
                      , hie-plugin-api
                      , hspec
                      -- , hspec-jenkins

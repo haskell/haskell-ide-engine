@@ -10,6 +10,7 @@ packages:
 - hie-ghc-mod
 - hie-ghc-tree
 - hie-hare
+- hie-hoogle
 - hie-docs-generator
 # - ../haskell-lsp
 - location:
