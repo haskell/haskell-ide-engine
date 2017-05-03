@@ -36,6 +36,10 @@ packages:
     git: https://github.com/alanz/ghc-mod.git
     commit: 657d6826278027c769bb43de6c340f95f4e0241d
   extra-dep: true
+- location:
+    git: https://github.com/wz1000/hoogle.git
+    commit: d522d7f406ff26b8df4601182e1b7ccd1a7162ad
+  extra-dep: true
 extra-deps:
 - apply-refact-0.3.0.1
 - pipes-aeson-0.4.1.8

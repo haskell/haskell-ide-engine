@@ -114,6 +114,7 @@ executable hie
                      , hie-hare
                      , hie-hoogle
                      , hie-plugin-api
+                     , hoogle >= 5.0.11
                      , monad-logger
                      , network-simple
                      , optparse-applicative

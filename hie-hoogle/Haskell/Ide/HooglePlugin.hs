@@ -5,21 +5,20 @@
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 module Haskell.Ide.HooglePlugin where
 
 import           Data.Aeson
-import           Data.Either
 import           Data.Monoid
+import           Data.Maybe
 import qualified Data.Text as T
-import qualified Data.Text.Read as T
 import           Data.Vinyl
-import qualified Exception as G
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
-import           Haskell.Ide.Engine.SemanticTypes
 import           Control.Monad.IO.Class
-import           System.Process
+import           Hoogle
+import           System.Directory
 
 -- ---------------------------------------------------------------------
 
@@ -51,13 +50,42 @@ infoCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdText "expr" :& RNil) req of
     Left err -> return err
     Right (ParamText expr :& RNil) -> liftIO $ do
-      IdeResponseOk . T.pack <$> readProcess "hoogle" ["--info", T.unpack expr] ""
+        db <- defaultDatabaseLocation
+        dbExists <- doesFileExist db
+        if dbExists then do
+            res <- searchHoogle db expr
+            if null res then
+                return $ IdeResponseOk "No results found"
+            else do
+                let Target{..} = head res
+                    packageModule = unwords $ map fst $ catMaybes [targetPackage, targetModule]
+                return $ IdeResponseOk $ T.pack $ unlines $ [unHTML targetItem, packageModule, unHTML targetDocs]
+        else
+            return $ IdeResponseFail hoogleDbError
 
 -- ---------------------------------------------------------------------
 
-lookupCmd :: CommandFunc T.Text
+lookupCmd :: CommandFunc [T.Text]
 lookupCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdText "term" :& RNil) req of
     Left err -> return err
     Right (ParamText term :& RNil) -> liftIO $ do
-      IdeResponseOk . T.pack <$> readProcess "hoogle" ["-q", T.unpack term, "--count=10"] ""
+        db <- defaultDatabaseLocation
+        dbExists <- doesFileExist db
+        if dbExists then do
+            res <- take 10 <$> searchHoogle db term
+            if null res then
+                return $ IdeResponseOk []
+            else do
+                return $ IdeResponseOk $ map disp res
+        else
+            return $ IdeResponseFail hoogleDbError
+
+searchHoogle :: FilePath -> T.Text -> IO [Target]
+searchHoogle dbf quer = withDatabase dbf (return . flip searchDatabase (T.unpack quer))
+
+hoogleDbError :: IdeError
+hoogleDbError = IdeError PluginError "Hoogle database not found. Run hoogle generate to generate" Null
+
+disp :: Target -> T.Text
+disp Target{..} = T.pack $ unHTML . unwords $ fmap fst (maybeToList targetModule) ++ [targetItem]

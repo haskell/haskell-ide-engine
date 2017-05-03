@@ -56,6 +56,6 @@ hoogleSpec = do
     it "runs the lookup command" $ do
       let req = IdeRequest "lookup" (Map.fromList [("term", ParamTextP "[a] -> a")])
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("Prelude head :: [a] -> a\nPrelude last :: [a] -> a\nData.List head :: [a] -> a\nData.List last :: [a] -> a\nGHC.OldList head :: [a] -> a\nGHC.OldList last :: [a] -> a\nDistribution.Compat.Semigroup mconcat :: [a] -> a\nSystem.Console.CmdArgs.Quote modes# :: [a] -> a\nSystem.Console.CmdArgs.Quote enum# :: [a] -> a\nCorePrelude mconcat :: [a] -> a\n"::String)]))
+      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ["Prelude head :: [a] -> a","Prelude last :: [a] -> a","Data.List head :: [a] -> a", "Data.List last :: [a] -> a", "GHC.OldList head :: [a] -> a", "GHC.OldList last :: [a] -> a", "Distribution.Compat.Semigroup mconcat :: [a] -> a", "System.Console.CmdArgs.Quote modes# :: [a] -> a", "System.Console.CmdArgs.Quote enum# :: [a] -> a", "CorePrelude mconcat :: [a] -> a" :: String] ]  ))
 
 

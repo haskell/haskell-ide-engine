@@ -21,9 +21,11 @@ library
                      , hie-plugin-api
                      , hie-base
                      , aeson
+                     , directory
                      , vinyl
                      , process
                      , ghc
+                     , hoogle
                      , containers
                      , text
                      , transformers
