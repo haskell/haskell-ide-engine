@@ -49,35 +49,32 @@ infoCmd :: CommandFunc T.Text
 infoCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdText "expr" :& RNil) req of
     Left err -> return err
-    Right (ParamText expr :& RNil) -> liftIO $ do
-        db <- defaultDatabaseLocation
-        dbExists <- doesFileExist db
-        if dbExists then do
-            res <- searchHoogle db expr
+    Right (ParamText expr :& RNil) -> liftIO $
+        runHoogleQuery expr $ \res ->
             if null res then
-                return $ IdeResponseOk "No results found"
-            else do
+                IdeResponseOk "No results found"
+            else
                 let Target{..} = head res
                     packageModule = unwords $ map fst $ catMaybes [targetPackage, targetModule]
-                return $ IdeResponseOk $ T.pack $ unlines $ [unHTML targetItem, packageModule, unHTML targetDocs]
-        else
-            return $ IdeResponseFail hoogleDbError
+                  in IdeResponseOk $ T.pack $ unlines $ [unHTML targetItem, packageModule, unHTML targetDocs]
 
--- ---------------------------------------------------------------------
+------------------------------------------------------------------------
 
 lookupCmd :: CommandFunc [T.Text]
 lookupCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdText "term" :& RNil) req of
     Left err -> return err
-    Right (ParamText term :& RNil) -> liftIO $ do
+    Right (ParamText term :& RNil) -> liftIO $ runHoogleQuery term (IdeResponseOk . map disp . take 10)
+
+------------------------------------------------------------------------
+
+runHoogleQuery :: T.Text -> ([Target] -> IdeResponse a) -> IO (IdeResponse a)
+runHoogleQuery quer f = do
         db <- defaultDatabaseLocation
         dbExists <- doesFileExist db
         if dbExists then do
-            res <- take 10 <$> searchHoogle db term
-            if null res then
-                return $ IdeResponseOk []
-            else do
-                return $ IdeResponseOk $ map disp res
+            res <- searchHoogle db quer
+            return (f res)
         else
             return $ IdeResponseFail hoogleDbError
 
