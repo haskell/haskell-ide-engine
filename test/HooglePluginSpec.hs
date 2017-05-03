@@ -60,7 +60,8 @@ hoogleSpec = do
       let req = IdeRequest "lookup" (Map.fromList [("term", ParamTextP "[a] -> a")])
       r <- dispatchRequest req
       r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .=
-                          [ "Prelude head :: [a] -> a","Prelude last :: [a] -> a"
+                          [ "Prelude head :: [a] -> a"
+                          , "Prelude last :: [a] -> a"
                           , "Data.List head :: [a] -> a"
                           , "Data.List last :: [a] -> a"
                           , "GHC.OldList head :: [a] -> a"

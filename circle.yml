@@ -13,9 +13,9 @@ dependencies:
     # - stack install hoogle
     # - stack exec hoogle -- generate
     - stack build -j 2 :
-        timeout: 3600
+        timeout: 7200
     - stack build -j 2 --test --only-dependencies :
-        timeout: 3600
+        timeout: 7200
 
 test:
   override:
