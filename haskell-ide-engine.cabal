@@ -114,7 +114,7 @@ executable hie
                      , hie-hare
                      , hie-hoogle
                      , hie-plugin-api
-                     , hoogle >= 5.0.11
+                     , hoogle > 5.0.11
                      , monad-logger
                      , network-simple
                      , optparse-applicative
@@ -167,6 +167,7 @@ test-suite haskell-ide-test
                      , hie-hare
                      , hie-hoogle
                      , hie-plugin-api
+                     , hoogle > 5.0.11
                      , hspec
                      -- , hspec-jenkins
                      , monad-logger

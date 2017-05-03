@@ -2,6 +2,7 @@ dependencies:
   cache_directories:
     - "~/.stack"
     - "~/.ghc-mod"
+    - "~/.hoogle"
     - test/testdata/.stack-work/
   pre:
     - wget -q -O- https://s3.amazonaws.com/download.fpcomplete.com/ubuntu/fpco.key | sudo apt-key add -
@@ -9,6 +10,8 @@ dependencies:
     - sudo apt-get update && sudo apt-get install stack -y
   override:
     - stack setup
+    # - stack install hoogle
+    # - stack exec hoogle -- generate
     - stack build -j 2 :
         timeout: 3600
     - stack build -j 2 --test --only-dependencies :
