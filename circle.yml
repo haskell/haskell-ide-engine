@@ -3,6 +3,7 @@ dependencies:
     - "~/.stack"
     - "~/.ghc-mod"
     - "~/.hoogle"
+    - .stack-work/
     - test/testdata/.stack-work/
   pre:
     - wget -q -O- https://s3.amazonaws.com/download.fpcomplete.com/ubuntu/fpco.key | sudo apt-key add -
