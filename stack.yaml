@@ -46,3 +46,26 @@ extra-deps:
 - pipes-aeson-0.4.1.8
 - pipes-network-0.6.4.1
 # - hspec-jenkins-0.1.1
+flags:
+  haskell-ide-engine:
+    pedantic: true
+  hie-apply-refact:
+    pedantic: true
+  hie-base:
+    pedantic: true
+  hie-docs-generator:
+    pedantic: true
+  hie-eg-plugin-async:
+    pedantic: true
+  hie-example-plugin2:
+    pedantic: true
+  hie-ghc-mod:
+    pedantic: true
+  hie-ghc-tree:
+    pedantic: true
+  hie-hare:
+    pedantic: true
+  hie-hoogle:
+    pedantic: true
+  hie-plugin-api:
+    pedantic: true

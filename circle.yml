@@ -11,17 +11,14 @@ dependencies:
     - sudo apt-get update && sudo apt-get install stack -y
   override:
     - stack setup
-    # - stack install hoogle
-    # - stack exec hoogle -- generate
-    - stack build --pedantic -j 2 :
+    - stack build -j 2 :
         timeout: 7200
-    - stack build --pedantic -j 2 --test --only-dependencies :
+    - stack build  -j 2 --test --only-dependencies :
         timeout: 7200
 
 test:
   override:
-    - stack test -j 2 --pedantic haskell-ide-engine :
-    # - ./pedantic.sh :
+    - stack test -j 2  haskell-ide-engine :
         timeout: 7200
     # - ./emacs_tests.sh :
     #     timeout: 3600
