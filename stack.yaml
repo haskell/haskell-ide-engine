@@ -32,9 +32,10 @@ packages:
     commit: 423bc0b235dc7ede961278f6e614813b851bfd0a
   extra-dep: true
 # - ../../DanielG/ghc-mod
+# - ../ghc-mod
 - location:
     git: https://github.com/alanz/ghc-mod.git
-    commit: 657d6826278027c769bb43de6c340f95f4e0241d
+    commit: 4f6160976dbc211ee325723a42124e5f032ff16a
   extra-dep: true
 - location:
     git: https://github.com/wz1000/hoogle.git
