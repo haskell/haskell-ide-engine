@@ -21,6 +21,6 @@ test:
   override:
     # - stack test haskell-ide-engine :
     - ./pedantic.sh :
-        timeout: 3600
+        timeout: 7200
     # - ./emacs_tests.sh :
     #     timeout: 3600
