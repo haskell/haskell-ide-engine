@@ -143,6 +143,7 @@ test-suite haskell-ide-test
                        GhcModPluginSpec
                        GhcTreePluginSpec
                        HaRePluginSpec
+                       HooglePluginSpec
                        JsonStdioSpec
                        JsonSpec
                        Spec
@@ -187,6 +188,7 @@ test-suite haskell-ide-func-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Functional.hs
+  other-modules:       TestUtils
   build-depends:       Diff
                      , QuickCheck
                      , aeson

@@ -395,6 +395,26 @@ reactor st cin cout inp = do
 
       -- -------------------------------
 
+      HandlerRequest (Core.LspFuncs _c _sf _vf _pd) (Core.ReqDocumentHighlights req) -> do
+        liftIO $ U.logs $ "reactor:got CompletionRequest:" ++ show req
+        let J.TextDocumentPositionParams doc pos = fromJust $ J._params (req :: J.CompletionRequest)
+            fileName = drop (length ("file://"::String)) $ J._uri (doc :: J.TextDocumentIdentifier)
+            J.Position l c = pos
+        -- rid <- nextReqId
+        -- let hreq = CReq "ghcmod" rid (IdeRequest "type" (Map.fromList
+        --                                             [("file",     ParamFileP (T.pack fileName))
+        --                                             ,("start_pos",ParamValP $ ParamPos (toPos (l+1,c+1)))
+        --                                             ])) cout
+        -- liftIO $ atomically $ writeTChan cin hreq
+        -- keepOriginal rid r
+        liftIO $ U.logs $ "****reactor:ReqCompletion:not immplemented=" ++ show (fileName,doc,l,c)
+
+        let cr = J.List  ([] :: [J.DocumentHighlight])
+        let rspMsg = Core.makeResponseMessage (J.responseId $ J._id (req :: J.CompletionRequest)) cr
+        reactorSend rspMsg
+
+      -- -------------------------------
+
       HandlerRequest (Core.LspFuncs _c _sf _vf _pd) om -> do
         liftIO $ U.logs $ "reactor:got HandlerRequest:" ++ show om
 
@@ -595,6 +615,7 @@ hieHandlers rin
         , Core.executeCommandHandler                    = Just $ passHandler rin Core.ReqExecuteCommand
         , Core.completionHandler                        = Just $ passHandler rin Core.ReqCompletion
         , Core.completionResolveHandler                 = Just $ passHandler rin Core.ReqCompletionItemResolve
+        , Core.documentHighlightHandler                 = Just $ passHandler rin Core.ReqDocumentHighlights
         }
 
 -- ---------------------------------------------------------------------
