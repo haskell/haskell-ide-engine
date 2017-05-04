@@ -7,7 +7,6 @@ import           Data.Aeson
 import qualified Data.Map as Map
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
-import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.GhcTreePlugin
@@ -39,7 +38,7 @@ dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Object))
 dispatchRequest req = do
   testChan <- atomically newTChan
   let cr = CReq "ghctree" 1 req testChan
-  withStdoutLogging $ runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
+  runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
 
 -- ---------------------------------------------------------------------
 

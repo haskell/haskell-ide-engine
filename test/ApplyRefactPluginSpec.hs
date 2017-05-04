@@ -7,7 +7,6 @@ import           Data.Aeson
 import qualified Data.Map as Map
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
-import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
@@ -41,7 +40,7 @@ dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Object))
 dispatchRequest req = do
   testChan <- atomically newTChan
   let cr = CReq "applyrefact" 1 req testChan
-  r <- withStdoutLogging $ runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
+  r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
   return r
 
 -- ---------------------------------------------------------------------
