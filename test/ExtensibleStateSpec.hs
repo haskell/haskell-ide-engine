@@ -11,7 +11,6 @@ import           Data.Typeable
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.ExtensibleState
 import           Haskell.Ide.Engine.Monad
-import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
 import           TestUtils
@@ -35,7 +34,7 @@ extensibleStateSpec = do
           cr1 = CReq "test" 1 req1 chan
       let req2 = IdeRequest "cmd2" (Map.fromList [])
           cr2 = CReq "test" 1 req2 chan
-      r <- withStdoutLogging $ runIdeM testOptions (IdeState Map.empty Map.empty)
+      r <- runIdeM testOptions (IdeState Map.empty Map.empty)
         (do
           r1 <- doDispatch (testPlugins chSync) cr1
           r2 <- doDispatch (testPlugins chSync) cr2

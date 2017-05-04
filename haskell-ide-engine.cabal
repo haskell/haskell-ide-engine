@@ -114,7 +114,7 @@ executable hie
                      , hie-hare
                      , hie-hoogle
                      , hie-plugin-api
-                     , hoogle >= 5.0.11
+                     , hoogle > 5.0.11
                      , monad-logger
                      , network-simple
                      , optparse-applicative
@@ -143,6 +143,7 @@ test-suite haskell-ide-test
                        GhcModPluginSpec
                        GhcTreePluginSpec
                        HaRePluginSpec
+                       HooglePluginSpec
                        JsonStdioSpec
                        JsonSpec
                        Spec
@@ -167,6 +168,7 @@ test-suite haskell-ide-test
                      , hie-hare
                      , hie-hoogle
                      , hie-plugin-api
+                     , hoogle > 5.0.11
                      , hspec
                      -- , hspec-jenkins
                      , monad-logger
@@ -177,6 +179,7 @@ test-suite haskell-ide-test
                      , transformers
                      , unordered-containers
                      , vinyl
+                     , vector
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
   if flag(pedantic)
      ghc-options:      -Werror
@@ -186,6 +189,7 @@ test-suite haskell-ide-func-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Functional.hs
+  other-modules:       TestUtils
   build-depends:       Diff
                      , QuickCheck
                      , aeson

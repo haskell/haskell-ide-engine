@@ -7,7 +7,6 @@ import           Data.Aeson
 import qualified Data.Map as Map
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
-import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
@@ -18,6 +17,9 @@ import           TestUtils
 
 import           Test.Hspec
 
+-- ---------------------------------------------------------------------
+{-# ANN module ("hlint: ignore Eta reduce" :: String) #-}
+{-# ANN module ("hlint: ignore Redundant do" :: String) #-}
 -- ---------------------------------------------------------------------
 
 main :: IO ()
@@ -43,7 +45,7 @@ dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Object))
 dispatchRequest req = do
   testChan <- atomically newTChan
   let cr = CReq "hare" 1 req testChan
-  r <- cdAndDo "./test/testdata" $ withStdoutLogging
+  r <- cdAndDo "./test/testdata"
     $ runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
   return r
 
@@ -184,6 +186,41 @@ hareSpec = do
                                                             "> z = 7\n"++
                                                             "14a14\n"++
                                                             "> \n")
+                                                           ]))
+
+    -- ---------------------------------
+
+    it "deletes a definition" $ do
+      let req = IdeRequest "deletedef" (Map.fromList [("file",ParamValP $ ParamFile "./FuncTest.hs")
+                                                  ,("start_pos",ParamValP $ ParamPos (toPos (6,1)))])
+      r <- dispatchRequest req
+      r `shouldBe` Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff
+                                                           (cwd </> "test/testdata/FuncTest.hs")
+                                                           (cwd </> "test/testdata/FuncTest.refactored.hs")
+                                                           ("5,7d4\n"++
+                                                            "< foo :: Int\n"++
+                                                            "< foo = bb\n"++
+                                                            "< \n")
+                                                           ]))
+
+    -- ---------------------------------
+
+    it "generalises an applicative" $ do
+      let req = IdeRequest "genapplicative" (Map.fromList [("file",ParamValP $ ParamFile "./HaReGA1.hs")
+                                                  ,("start_pos",ParamValP $ ParamPos (toPos (4,1)))])
+      r <- dispatchRequest req
+      r `shouldBe` Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff
+                                                           (cwd </> "test/testdata/HaReGA1.hs")
+                                                           (cwd </> "test/testdata/HaReGA1.refactored.hs")
+                                                           ("5,9c5\n"++
+                                                            "< parseStr = do\n"++
+                                                            "<   char '\"'\n"++
+                                                            "<   str <- many1 (noneOf \"\\\"\")\n"++
+                                                            "<   char '\"'\n"++
+                                                            "<   return str\n"++
+                                                            "---\n"++
+                                                            "> parseStr = char '\"' *> (many1 (noneOf \"\\\"\")) <* char '\"'\n"
+                                                           )
                                                            ]))
 
     -- ---------------------------------

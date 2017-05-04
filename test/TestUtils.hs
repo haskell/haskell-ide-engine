@@ -2,12 +2,14 @@ module TestUtils
   (
     testOptions
   , cdAndDo
+  , withTestLogging
   ) where
 
+import           Haskell.Ide.Engine.MonadFunctions
+import           System.Directory
 import           Control.Exception
 import qualified Language.Haskell.GhcMod.Monad as GM
 import qualified Language.Haskell.GhcMod.Types as GM
-import           System.Directory
 
 -- ---------------------------------------------------------------------
 
@@ -29,3 +31,6 @@ cdAndDo path fn = do
   r <- bracket (setCurrentDirectory path) (\_ -> setCurrentDirectory old)
           $ \_ -> fn
   return r
+
+withTestLogging :: IO a -> IO a
+withTestLogging = withFileLogging "./test-main.log"

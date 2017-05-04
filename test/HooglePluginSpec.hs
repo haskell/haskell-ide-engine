@@ -1,23 +1,23 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module HooglePluginSpec where
 
 import           Control.Concurrent.STM.TChan
+import           Control.Monad
 import           Control.Monad.STM
-import           Control.Exception
 import           Data.Aeson
 import qualified Data.HashMap.Strict as H
+import qualified Data.Vector as V
 import qualified Data.Text as T
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
-import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.HooglePlugin
 import           System.Directory
 import qualified Data.Map as Map
 import           TestUtils
-
+import           Hoogle
 import           Test.Hspec
 
 -- ---------------------------------------------------------------------
@@ -45,6 +45,11 @@ dispatchRequest req = do
 
 hoogleSpec :: Spec
 hoogleSpec = do
+  describe "hoogle environment" $ do
+    it "Checks the default dababase location" $ do
+      db <- defaultDatabaseLocation
+      exists <- doesFileExist db
+      unless exists $ do hoogle ["generate"]
   describe "hoogle plugin commands" $ do
     it "runs the info command" $ do
       let req = IdeRequest "info" (Map.fromList [("expr", ParamTextP "head")])
@@ -55,7 +60,13 @@ hoogleSpec = do
 
     it "runs the lookup command" $ do
       let req = IdeRequest "lookup" (Map.fromList [("term", ParamTextP "[a] -> a")])
+          extractFirst (IdeResponseOk hmap) = do
+              xs <- H.lookup ("ok" :: T.Text) hmap
+              case xs of
+                   Array a -> a V.!? 0
+                   _ -> Nothing
+          extractFirst _ = Nothing
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ["Prelude head :: [a] -> a","Prelude last :: [a] -> a","Data.List head :: [a] -> a", "Data.List last :: [a] -> a", "GHC.OldList head :: [a] -> a", "GHC.OldList last :: [a] -> a", "Distribution.Compat.Semigroup mconcat :: [a] -> a", "System.Console.CmdArgs.Quote modes# :: [a] -> a", "System.Console.CmdArgs.Quote enum# :: [a] -> a", "CorePrelude mconcat :: [a] -> a" :: String] ]  ))
+      (extractFirst =<< r) `shouldBe` Just (String "Prelude head :: [a] -> a")
 
 

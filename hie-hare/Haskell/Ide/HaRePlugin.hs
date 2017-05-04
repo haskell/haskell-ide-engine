@@ -59,6 +59,12 @@ hareDescriptor = PluginDescriptor
                      (  SParamDesc (Proxy :: Proxy "name") (Proxy :: Proxy "the new name") SPtText SRequired
                      :& RNil) SaveAll
 
+      :& buildCommand deleteDefCmd (Proxy :: Proxy "deletedef") "Delete a definition"
+                    [".hs"] (SCtxPoint :& RNil) RNil SaveAll
+
+      :& buildCommand genApplicativeCommand (Proxy :: Proxy "genapplicative") "Generalise a monadic function to use applicative"
+                    [".hs"] (SCtxPoint :& RNil) RNil SaveAll
+
       :& RNil
   , pdExposedServices = []
   , pdUsedServices    = []
@@ -129,6 +135,30 @@ renameCmd = CmdSync $ \_ctxs req ->
       runHareCommand "rename" (compRename (T.unpack fileName) (T.unpack name) (unPos pos))
 
 -- compRename :: FilePath -> String -> SimpPos -> IO [FilePath]
+
+-- ---------------------------------------------------------------------
+
+deleteDefCmd :: CommandFunc RefactorResult
+deleteDefCmd  = CmdSync $ \_ctxs req ->
+  case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
+    Left err -> return err
+    Right (ParamFile fileName :& ParamPos pos :& RNil) ->
+      runHareCommand "deltetedef" (compDeleteDef (T.unpack fileName) (unPos pos))
+
+-- compDeleteDef ::FilePath -> SimpPos -> RefactGhc [ApplyRefacResult]
+
+-- ---------------------------------------------------------------------
+
+genApplicativeCommand :: CommandFunc RefactorResult
+genApplicativeCommand  = CmdSync $ \_ctxs req ->
+  case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
+    Left err -> return err
+    Right (ParamFile fileName :& ParamPos pos :& RNil) ->
+      runHareCommand "genapplicativve" (compGenApplicative (T.unpack fileName) "unused" (unPos pos))
+
+-- compGenApplicative :: FilePath -> String -> SimpPos -> RefactGhc [ApplyRefacResult]
+
+
 
 -- ---------------------------------------------------------------------
 

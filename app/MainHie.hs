@@ -159,10 +159,14 @@ run opts = do
       B.putStr (encode swagger)
       exitSuccess
 
+    -- let vomitOptions = GM.defaultOptions { GM.optOutput = oo { GM.ooptLogLevel = GM.GmVomit}}
+    --     oo = GM.optOutput GM.defaultOptions
+    -- let ghcModOptions = vomitOptions { GM.optGhcUserOptions = ["-Wall"]  }
+    let ghcModOptions = GM.defaultOptions { GM.optGhcUserOptions = ["-Wall"]  }
+
     -- launch the dispatcher.
-    let dispatcherProc = void $ forkIO $ runIdeM GM.defaultOptions (IdeState plugins Map.empty) (dispatcher cin)
+    let dispatcherProc = void $ forkIO $ runIdeM ghcModOptions (IdeState plugins Map.empty) (dispatcher cin)
     unless (optLsp opts) $ do void dispatcherProc
-    -- _ <- forkIO (runIdeM GM.defaultOptions (IdeState plugins Map.empty) (dispatcher cin))
 
     -- TODO: pass port in as a param from GlobalOpts
     when (optHttp opts) $

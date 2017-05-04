@@ -9,7 +9,6 @@ import qualified Data.HashMap.Strict as H
 import qualified Data.Text as T
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
-import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
@@ -45,7 +44,7 @@ dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Object))
 dispatchRequest req = do
   testChan <- atomically newTChan
   let cr = CReq "ghcmod" 1 req testChan
-  r <- cdAndDo "./test/testdata" $ withStdoutLogging
+  r <- cdAndDo "./test/testdata" 
     $ runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
   return r
 

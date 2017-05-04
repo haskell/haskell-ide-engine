@@ -2,6 +2,7 @@ module Main where
 
 -- import Control.Monad
 -- import TestUtils
+import           Haskell.Ide.Engine.MonadFunctions
 
 -- import Test.Hspec.Formatters.Jenkins
 import Test.Hspec.Runner
@@ -10,7 +11,7 @@ import qualified Spec
 -- ---------------------------------------------------------------------
 
 main :: IO ()
-main = hspec Spec.spec
+main = withFileLogging "./test-main.log" $ hspec Spec.spec
 
 -- main :: IO ()
 -- main = do
