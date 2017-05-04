@@ -3,6 +3,7 @@ dependencies:
     - "~/.stack"
     - "~/.ghc-mod"
     - "~/.hoogle"
+    - "~/.bin"
     - .stack-work/
     - test/testdata/.stack-work/
   pre:
@@ -11,6 +12,8 @@ dependencies:
     - sudo apt-get update && sudo apt-get install stack -y
   override:
     - stack setup
+    - stack install hoogle
+    - ~/bin/hoogle generate
     - stack build -j 2 :
         timeout: 7200
     - stack build  -j 2 --test --only-dependencies :
@@ -19,6 +22,6 @@ dependencies:
 test:
   override:
     - stack test -j 2  haskell-ide-engine :
-        timeout: 7200
+        timeout: 14400
     # - ./emacs_tests.sh :
     #     timeout: 3600
