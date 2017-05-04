@@ -179,6 +179,7 @@ test-suite haskell-ide-test
                      , transformers
                      , unordered-containers
                      , vinyl
+                     , vector
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
   if flag(pedantic)
      ghc-options:      -Werror
