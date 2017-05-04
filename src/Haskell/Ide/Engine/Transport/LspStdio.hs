@@ -396,8 +396,8 @@ reactor st cin cout inp = do
       -- -------------------------------
 
       HandlerRequest (Core.LspFuncs _c _sf _vf _pd) (Core.ReqDocumentHighlights req) -> do
-        liftIO $ U.logs $ "reactor:got CompletionRequest:" ++ show req
-        let J.TextDocumentPositionParams doc pos = fromJust $ J._params (req :: J.CompletionRequest)
+        liftIO $ U.logs $ "reactor:got DocumentHighlightsRequest:" ++ show req
+        let J.TextDocumentPositionParams doc pos = fromJust $ J._params (req :: J.DocumentHighlightsRequest)
             fileName = drop (length ("file://"::String)) $ J._uri (doc :: J.TextDocumentIdentifier)
             J.Position l c = pos
         -- rid <- nextReqId
@@ -407,10 +407,10 @@ reactor st cin cout inp = do
         --                                             ])) cout
         -- liftIO $ atomically $ writeTChan cin hreq
         -- keepOriginal rid r
-        liftIO $ U.logs $ "****reactor:ReqCompletion:not immplemented=" ++ show (fileName,doc,l,c)
+        liftIO $ U.logs $ "****reactor:ReqDocumentHighlights:not immplemented=" ++ show (fileName,doc,l,c)
 
         let cr = J.List  ([] :: [J.DocumentHighlight])
-        let rspMsg = Core.makeResponseMessage (J.responseId $ J._id (req :: J.CompletionRequest)) cr
+        let rspMsg = Core.makeResponseMessage (J.responseId $ J._id (req :: J.DocumentHighlightsRequest)) cr
         reactorSend rspMsg
 
       -- -------------------------------
