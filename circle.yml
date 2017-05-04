@@ -3,7 +3,7 @@ dependencies:
     - "~/.stack"
     - "~/.ghc-mod"
     - "~/.hoogle"
-    - "~/.bin"
+    - "~/.local/bin"
     - .stack-work/
     - test/testdata/.stack-work/
   pre:
@@ -13,7 +13,7 @@ dependencies:
   override:
     - stack setup
     - stack install hoogle
-    - ~/bin/hoogle generate
+    - ~/.local/bin/hoogle generate
     - stack build -j 2 :
         timeout: 7200
     - stack build  -j 2 --test --only-dependencies :
