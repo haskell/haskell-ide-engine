@@ -39,7 +39,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/wz1000/hoogle.git
-    commit: d522d7f406ff26b8df4601182e1b7ccd1a7162ad
+    commit: 69ca226f8bdd610a778ee012b16554ae9cddd337
   extra-dep: true
 extra-deps:
 - apply-refact-0.3.0.1

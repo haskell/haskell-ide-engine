@@ -5,13 +5,11 @@
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 module Haskell.Ide.HooglePlugin where
 
 import           Data.Aeson
 import           Data.Monoid
-import           Data.Maybe
 import qualified Data.Text as T
 import           Data.Vinyl
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -54,9 +52,7 @@ infoCmd = CmdSync $ \_ctxs req -> do
             if null res then
                 IdeResponseOk "No results found"
             else
-                let Target{..} = head res
-                    packageModule = unwords $ map fst $ catMaybes [targetPackage, targetModule]
-                  in IdeResponseOk $ T.pack $ unlines $ [unHTML targetItem, packageModule, unHTML targetDocs]
+                IdeResponseOk $ T.pack $ targetInfo $ head res
 
 ------------------------------------------------------------------------
 
@@ -64,7 +60,8 @@ lookupCmd :: CommandFunc [T.Text]
 lookupCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdText "term" :& RNil) req of
     Left err -> return err
-    Right (ParamText term :& RNil) -> liftIO $ runHoogleQuery term (IdeResponseOk . map disp . take 10)
+    Right (ParamText term :& RNil) -> liftIO $
+      runHoogleQuery term (IdeResponseOk . map (T.pack . targetResultDisplay False) . take 10)
 
 ------------------------------------------------------------------------
 
@@ -83,6 +80,3 @@ searchHoogle dbf quer = withDatabase dbf (return . flip searchDatabase (T.unpack
 
 hoogleDbError :: IdeError
 hoogleDbError = IdeError PluginError "Hoogle database not found. Run hoogle generate to generate" Null
-
-disp :: Target -> T.Text
-disp Target{..} = T.pack $ unHTML . unwords $ fmap fst (maybeToList targetModule) ++ [targetItem]
