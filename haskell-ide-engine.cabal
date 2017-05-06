@@ -46,6 +46,7 @@ library
                      , directory
                      , either
                      , fast-logger
+                     , filepath
                      , ghc >= 8.0.1
                      , ghc-mod
                      , gitrev >= 1.1

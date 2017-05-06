@@ -25,7 +25,6 @@ import qualified Data.ByteString.Lazy as BSL
 import           Data.Default
 import           Data.Either
 import qualified Data.HashMap.Strict as H
--- import           Data.List
 import qualified Data.Map as Map
 import           Data.Maybe
 import qualified Data.Text as T
@@ -35,13 +34,13 @@ import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.Control  as CTRL
 import qualified Language.Haskell.LSP.Core     as Core
--- import qualified Language.Haskell.LSP.TH.ClientCapabilities as C
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 import qualified Language.Haskell.LSP.Utility  as U
--- import           Language.Haskell.LSP.VFS
 import           System.Directory
 import           System.Exit
+import           System.FilePath
 import qualified System.Log.Logger as L
+import           System.IO
 import           Text.Parsec
 -- import qualified Yi.Rope as Yi
 
@@ -75,7 +74,13 @@ run dispatcherProc cin = flip E.catches handlers $ do
       return Nothing
 
   flip E.finally finalProc $ do
-    Core.setupLogger "/tmp/hie-vscode.log" L.DEBUG
+    tmpDir <- getTemporaryDirectory
+    let logDir = tmpDir </> "hie-logs"
+    createDirectoryIfMissing True logDir
+    (logFileName,handle) <- openTempFile logDir "hie-lsp.log"
+    hClose handle -- Logger will open the file again
+    -- Core.setupLogger "/tmp/hie-vscode.log" L.DEBUG
+    Core.setupLogger logFileName L.DEBUG
     CTRL.run dp (hieHandlers rin) hieOptions
 
   where
@@ -250,10 +255,7 @@ reactor st cin cout inp = do
         let registrations = J.RegistrationParams (J.List [registration])
         rid <- nextLspReqId
 
-        -- Current vscode implementation has the wrong name in it:
-        -- https://github.com/Microsoft/vscode-languageserver-node/issues/199
-        let smr = J.RequestMessage "2.0" rid "client/registerFeature"  (Just registrations)
-        -- let smr = J.RequestMessage "2.0" rid "client/registerCapability"  (Just registrations)
+        let smr = J.RequestMessage "2.0" rid "client/registerCapability"  (Just registrations)
 
         reactorSend smr
 
