@@ -34,6 +34,7 @@ import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.Control  as CTRL
 import qualified Language.Haskell.LSP.Core     as Core
+import           Language.Haskell.LSP.Messages
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 import qualified Language.Haskell.LSP.Utility  as U
 import           System.Directory
@@ -79,7 +80,6 @@ run dispatcherProc cin = flip E.catches handlers $ do
     createDirectoryIfMissing True logDir
     (logFileName,handle) <- openTempFile logDir "hie-lsp.log"
     hClose handle -- Logger will open the file again
-    -- Core.setupLogger "/tmp/hie-vscode.log" L.DEBUG
     Core.setupLogger logFileName L.DEBUG
     CTRL.run dp (hieHandlers rin) hieOptions
 
@@ -255,9 +255,7 @@ reactor st cin cout inp = do
         let registrations = J.RegistrationParams (J.List [registration])
         rid <- nextLspReqId
 
-        let smr = J.RequestMessage "2.0" rid "client/registerCapability"  (Just registrations)
-
-        reactorSend smr
+        reactorSend $ fmServerRegisterCapabilityRequest rid registrations
 
       -- -------------------------------
 
@@ -267,7 +265,7 @@ reactor st cin cout inp = do
         -- let doc = J._uri $ J._textDocument $ fromJust $ J._params notification
         let
             params  = fromJust $ J._params (notification :: J.DidOpenTextDocumentNotification)
-            textDoc = J._textDocument (params :: J.DidOpenTextDocumentNotificationParams)
+            textDoc = J._textDocument (params :: J.DidOpenTextDocumentParams)
             doc     = J._uri (textDoc :: J.TextDocumentItem)
             fileName = drop (length ("file://"::String)) doc
 
@@ -291,9 +289,9 @@ reactor st cin cout inp = do
       HandlerRequest (Core.LspFuncs _c _sf _vf _pd) r@(Core.ReqRename req) -> do
         liftIO $ U.logs $ "reactor:got RenameRequest:" ++ show req
         let params = fromJust $ J._params (req :: J.RenameRequest)
-            J.TextDocumentIdentifier doc = J._textDocument (params :: J.RenameRequestParams)
+            J.TextDocumentIdentifier doc = J._textDocument (params :: J.RenameParams)
             fileName = drop (length ("file://"::String)) doc
-            J.Position l c = J._position (params :: J.RenameRequestParams)
+            J.Position l c = J._position (params :: J.RenameParams)
             newName  = J._newName params
         rid <- nextReqId
         let hreq = CReq "hare" rid (IdeRequest "rename" (Map.fromList
@@ -391,7 +389,7 @@ reactor st cin cout inp = do
         -- keepOriginal rid r
         liftIO $ U.logs $ "****reactor:ReqCompletion:not immplemented=" ++ show (fileName,doc,l,c)
 
-        let cr = J.Completions [] -- ( [] :: [J.CompletionListType])
+        let cr = J.Completions (J.List []) -- ( [] :: [J.CompletionListType])
         let rspMsg = Core.makeResponseMessage (J.responseId $ J._id (req :: J.CompletionRequest)) cr
         reactorSend rspMsg
 
@@ -399,7 +397,7 @@ reactor st cin cout inp = do
 
       HandlerRequest (Core.LspFuncs _c _sf _vf _pd) (Core.ReqDocumentHighlights req) -> do
         liftIO $ U.logs $ "reactor:got DocumentHighlightsRequest:" ++ show req
-        let J.TextDocumentPositionParams doc pos = fromJust $ J._params (req :: J.DocumentHighlightsRequest)
+        let J.TextDocumentPositionParams doc pos = fromJust $ J._params (req :: J.DocumentHighlightRequest)
             fileName = drop (length ("file://"::String)) $ J._uri (doc :: J.TextDocumentIdentifier)
             J.Position l c = pos
         -- rid <- nextReqId
@@ -412,7 +410,7 @@ reactor st cin cout inp = do
         liftIO $ U.logs $ "****reactor:ReqDocumentHighlights:not immplemented=" ++ show (fileName,doc,l,c)
 
         let cr = J.List  ([] :: [J.DocumentHighlight])
-        let rspMsg = Core.makeResponseMessage (J.responseId $ J._id (req :: J.DocumentHighlightsRequest)) cr
+        let rspMsg = Core.makeResponseMessage (J.responseId $ J._id (req :: J.DocumentHighlightRequest)) cr
         reactorSend rspMsg
 
       -- -------------------------------
@@ -453,8 +451,8 @@ reactor st cin cout inp = do
                 let
                   J.Success (TypeInfo mtis) = J.fromJSON (J.Object r) :: J.Result TypeInfo
                   ht = case mtis of
-                    []  -> J.Hover [] Nothing
-                    tis -> J.Hover ms (Just range)
+                    []  -> J.Hover (J.List []) Nothing
+                    tis -> J.Hover (J.List ms) (Just range)
                       where
                         ms = map (\ti -> J.MarkedString "haskell" (T.unpack $ trText ti)) tis
                         tr = head tis
@@ -472,7 +470,7 @@ reactor st cin cout inp = do
                   Just we -> do
                     reply (J.Object mempty)
                     lid <- nextLspReqId
-                    reactorSend $ J.RequestMessage "2.0" lid "workspace/applyEdit" (Just we)
+                    reactorSend $ fmServerApplyWorkspaceEditRequest lid we
                   Nothing ->
                     reply (J.Object r)
 
@@ -501,7 +499,6 @@ publishDiagnosticsToLsp :: PluginId -> J.Object -> R ()
 publishDiagnosticsToLsp pid r = do
   let
     sendOne (uri',ds) =
-      -- reactorSend $ J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just p)
       publishDiagnostics uri' Nothing ds
     mkDiag (f,ds) = do
       af <- liftIO $ makeAbsolute f
