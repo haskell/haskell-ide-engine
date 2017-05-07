@@ -52,17 +52,17 @@ import           Text.Parsec
 
 -- ---------------------------------------------------------------------
 
-lspStdioTransport :: IO () -> TChan ChannelRequest -> IO ()
-lspStdioTransport hieDispatcherProc cin = do
-  run hieDispatcherProc cin >>= \case
+lspStdioTransport :: IO () -> TChan ChannelRequest -> FilePath -> IO ()
+lspStdioTransport hieDispatcherProc cin origDir = do
+  run hieDispatcherProc cin origDir >>= \case
     0 -> exitSuccess
     c -> exitWith . ExitFailure $ c
 
 
 -- ---------------------------------------------------------------------
 
-run :: IO () -> TChan ChannelRequest -> IO Int
-run dispatcherProc cin = flip E.catches handlers $ do
+run :: IO () -> TChan ChannelRequest -> FilePath -> IO Int
+run dispatcherProc cin origDir = flip E.catches handlers $ do
 
   cout <- atomically newTChan :: IO (TChan ChannelResponse)
   rin  <- atomically newTChan :: IO (TChan ReactorInput)
@@ -79,8 +79,10 @@ run dispatcherProc cin = flip E.catches handlers $ do
     tmpDir <- getTemporaryDirectory
     let logDir = tmpDir </> "hie-logs"
     createDirectoryIfMissing True logDir
-    (logFileName,handle) <- openTempFile logDir "hie-lsp.log"
-    hClose handle -- Logger will open the file again
+    let dirStr = map (\c -> if c == pathSeparator then '-' else c) origDir
+    -- (logFileName,handle) <- openTempFile logDir "hie-lsp.log"
+    -- hClose handle -- Logger will open the file again
+    let logFileName = logDir </> (dirStr ++ "-hie.log")
     Core.setupLogger logFileName L.DEBUG
     CTRL.run dp (hieHandlers rin) hieOptions
 
