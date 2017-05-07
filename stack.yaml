@@ -37,14 +37,11 @@ packages:
     git: https://github.com/alanz/ghc-mod.git
     commit: 4f6160976dbc211ee325723a42124e5f032ff16a
   extra-dep: true
-- location:
-    git: https://github.com/wz1000/hoogle.git
-    commit: d522d7f406ff26b8df4601182e1b7ccd1a7162ad
-  extra-dep: true
 extra-deps:
 - apply-refact-0.3.0.1
 - pipes-aeson-0.4.1.8
 - pipes-network-0.6.4.1
+- hoogle-5.0.12
 # - hspec-jenkins-0.1.1
 flags:
   haskell-ide-engine:
