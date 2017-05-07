@@ -42,7 +42,6 @@ import           System.Directory
 import           System.Exit
 import           System.FilePath
 import qualified System.Log.Logger as L
-import           System.IO
 import           Text.Parsec
 -- import qualified Yi.Rope as Yi
 
