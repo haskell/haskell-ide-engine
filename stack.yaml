@@ -1,5 +1,5 @@
-# resolver: nightly-2017-04-02
-resolver: nightly-2017-04-28
+# resolver: nightly-2017-04-28
+resolver: nightly-2017-05-07
 packages:
 - .
 - hie-apply-refact
@@ -41,7 +41,6 @@ extra-deps:
 - apply-refact-0.3.0.1
 - pipes-aeson-0.4.1.8
 - pipes-network-0.6.4.1
-- hoogle-5.0.12
 # - hspec-jenkins-0.1.1
 flags:
   haskell-ide-engine:
