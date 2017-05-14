@@ -30,6 +30,7 @@ library
                        Haskell.Ide.Engine.Transport.JsonHttp.Undecidable
                        Haskell.Ide.Engine.Transport.JsonStdio
                        Haskell.Ide.Engine.Transport.JsonTcp
+                       Haskell.Ide.Engine.Transport.LspStdio
                        Haskell.Ide.Engine.Transport.Pipes
                        Haskell.Ide.Engine.Types
                        Haskell.Ide.Engine.Utils
@@ -40,24 +41,31 @@ library
                      , base >= 4.9 && < 5
                      , bytestring
                      , containers
+                     , data-default
+                     , Diff
                      , directory
                      , either
                      , fast-logger
+                     , filepath
                      , ghc >= 8.0.1
                      , ghc-mod
                      , gitrev >= 1.1
                      , haskeline
+                     , haskell-lsp
                      , hie-base
                      , hie-plugin-api
+                     , hslogger
                      , insert-ordered-containers
                      , lens
                      , lifted-base
+                     , MissingH
                      , monad-control
                      , monad-logger
                      , mtl
                      , network-simple
                      , optparse-applicative
                      , optparse-simple >= 0.0.3
+                     , parsec
                      , pipes
                      , pipes-aeson
                      , pipes-attoparsec >= 0.5
@@ -74,9 +82,11 @@ library
                      , time
                      , transformers
                      , unordered-containers
+                     , vector
                      , vinyl >= 0.5
                      , wai
                      , warp
+                     , yi-rope
   ghc-options:         -Wall
   default-language:    Haskell2010
 
@@ -90,6 +100,7 @@ executable hie
                      , base
                      , bytestring
                      , containers
+                     , Diff
                      , directory
                      , fast-logger
                      , ghc
@@ -103,11 +114,14 @@ executable hie
                      , hie-ghc-mod
                      , hie-ghc-tree
                      , hie-hare
+                     , hie-hoogle
                      , hie-plugin-api
+                     , hoogle > 5.0.11
                      , monad-logger
                      , network-simple
                      , optparse-applicative
                      , optparse-simple
+                     , parsec
                      , stm
                      , swagger2
                      , text
@@ -123,7 +137,7 @@ executable hie
 test-suite haskell-ide-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
-  main-is:             Spec.hs
+  main-is:             Main.hs
   other-modules:       ApplyRefactPluginSpec
                        DispatcherSpec
                        ExamplePluginAsyncSpec
@@ -131,8 +145,10 @@ test-suite haskell-ide-test
                        GhcModPluginSpec
                        GhcTreePluginSpec
                        HaRePluginSpec
+                       HooglePluginSpec
                        JsonStdioSpec
                        JsonSpec
+                       Spec
                        TestUtils
                        UtilsSpec
   build-depends:       Diff
@@ -148,11 +164,55 @@ test-suite haskell-ide-test
                      , hie-apply-refact
                      , hie-base
                      , hie-eg-plugin-async
+                     , hie-example-plugin2
                      , hie-ghc-mod
                      , hie-ghc-tree
                      , hie-hare
+                     , hie-hoogle
+                     , hie-plugin-api
+                     , hoogle > 5.0.11
+                     , hspec
+                     -- , hspec-jenkins
+                     , monad-logger
+                     , quickcheck-instances
+                     , stm
+                     , swagger2
+                     , text
+                     , transformers
+                     , unordered-containers
+                     , vinyl
+                     , vector
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
+  if flag(pedantic)
+     ghc-options:      -Werror
+  default-language:    Haskell2010
+
+test-suite haskell-ide-func-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Functional.hs
+  other-modules:       TestUtils
+  build-depends:       Diff
+                     , QuickCheck
+                     , aeson
+                     , base
+                     , containers
+                     , directory
+                     , fast-logger
+                     , filepath
+                     , ghc-mod
+                     , haskell-ide-engine
+                     , hie-apply-refact
+                     , hie-base
+                     , hie-eg-plugin-async
+                     , hie-example-plugin2
+                     , hie-ghc-mod
+                     , hie-ghc-tree
+                     , hie-hare
+                     , hie-hoogle
                      , hie-plugin-api
                      , hspec
+                     -- , hspec-jenkins
                      , monad-logger
                      , quickcheck-instances
                      , stm

@@ -1,4 +1,5 @@
-resolver: lts-7.7
+# resolver: nightly-2017-04-28
+resolver: nightly-2017-05-07
 packages:
 - .
 - hie-apply-refact
@@ -10,11 +11,58 @@ packages:
 - hie-ghc-mod
 - hie-ghc-tree
 - hie-hare
+- hie-hoogle
 - hie-docs-generator
+# - ../haskell-lsp
+- location:
+    git: https://github.com/alanz/haskell-lsp.git
+    commit: 7c042e9d04825225fefde0298a73c3e45168d536
+  extra-dep: true
+- location:
+    git: https://github.com/alanz/ghc-dump-tree.git
+    commit: 9dbca928ad5507b144f46bb95123a08d24f24808
+  extra-dep: true
+# - location:
+#     git: https://github.com/sol/hspec-jenkins.git
+#     commit: cb012b23c4e524dde9ea129b6146dda20a5ca505
+#   extra-dep: true
+# - ../HaRe
 - location:
     git: https://github.com/alanz/HaRe.git
-    commit:  07e88c52c2a36e4a7d422113389171221b140cb6
+    # git: https://github.com/RefactoringTools/HaRe.git
+    commit: 423bc0b235dc7ede961278f6e614813b851bfd0a
+  extra-dep: true
+# - ../../DanielG/ghc-mod
+# - ../ghc-mod
+- location:
+    git: https://github.com/alanz/ghc-mod.git
+    commit: 4f6160976dbc211ee325723a42124e5f032ff16a
   extra-dep: true
 extra-deps:
-  - ghc-dump-tree-0.2.0.1
-  # - ghc-7.10.3
+- apply-refact-0.3.0.1
+- pipes-aeson-0.4.1.8
+- pipes-network-0.6.4.1
+# - hspec-jenkins-0.1.1
+flags:
+  haskell-ide-engine:
+    pedantic: true
+  hie-apply-refact:
+    pedantic: true
+  hie-base:
+    pedantic: true
+  hie-docs-generator:
+    pedantic: true
+  hie-eg-plugin-async:
+    pedantic: true
+  hie-example-plugin2:
+    pedantic: true
+  hie-ghc-mod:
+    pedantic: true
+  hie-ghc-tree:
+    pedantic: true
+  hie-hare:
+    pedantic: true
+  hie-hoogle:
+    pedantic: true
+  hie-plugin-api:
+    pedantic: true

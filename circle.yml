@@ -1,0 +1,27 @@
+dependencies:
+  cache_directories:
+    - "~/.stack"
+    - "~/.ghc-mod"
+    - "~/.hoogle"
+    - "~/.local/bin"
+    - .stack-work/
+    - test/testdata/.stack-work/
+  pre:
+    - wget -q -O- https://s3.amazonaws.com/download.fpcomplete.com/ubuntu/fpco.key | sudo apt-key add -
+    - echo 'deb http://download.fpcomplete.com/ubuntu/precise stable main'|sudo tee /etc/apt/sources.list.d/fpco.list
+    - sudo apt-get update && sudo apt-get install stack -y
+  override:
+    - stack setup
+    - stack install hoogle
+    - ~/.local/bin/hoogle generate
+    - stack build -j 2 :
+        timeout: 7200
+    - stack build  -j 2 --test --only-dependencies :
+        timeout: 7200
+
+test:
+  override:
+    - stack test -j 2  haskell-ide-engine :
+        timeout: 14400
+    # - ./emacs_tests.sh :
+    #     timeout: 3600

@@ -7,7 +7,6 @@ import           Data.Aeson
 import qualified Data.Map as Map
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
-import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
@@ -41,7 +40,7 @@ dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Object))
 dispatchRequest req = do
   testChan <- atomically newTChan
   let cr = CReq "applyrefact" 1 req testChan
-  r <- withStdoutLogging $ runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
+  r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
   return r
 
 -- ---------------------------------------------------------------------
@@ -90,6 +89,31 @@ applyRefactSpec = do
                                          "< foo x = (x + 1)\n"++
                                          "---\n"++
                                          "> foo x = x + 1\n")
+                                      }
+                                     )))
+
+    -- ---------------------------------
+
+    it "returns hints as diagnostics" $ do
+
+      let req = IdeRequest "lint" (Map.fromList [("file",ParamValP $ ParamFile "./test/testdata/ApplyRefact.hs")
+                                                ])
+      r <- dispatchRequest req
+      r `shouldBe`
+        Just (IdeResponseOk (jsWrite (FileDiagnostics
+                                      { fdFileName = "file://./test/testdata/ApplyRefact.hs"
+                                      , fdDiagnostics =
+                                        [ Diagnostic (Range (Position 1 7) (Position 1 25))
+                                                     (Just DsHint)
+                                                     Nothing
+                                                     (Just "hlint")
+                                                     "Redundant bracket\nFound:\n  (putStrLn \"hello\")\nWhy not:\n  putStrLn \"hello\"\n"
+                                        , Diagnostic (Range (Position 3 8) (Position 3 15))
+                                                     (Just DsHint)
+                                                     Nothing
+                                                     (Just "hlint")
+                                                     "Redundant bracket\nFound:\n  (x + 1)\nWhy not:\n  x + 1\n"
+                                        ]
                                       }
                                      )))
 

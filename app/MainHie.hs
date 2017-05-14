@@ -21,6 +21,7 @@ import           Control.Monad.STM
 import           Data.Aeson
 import qualified Data.ByteString.Lazy       as B
 import qualified Data.Map as Map
+import           Data.Semigroup
 import           Data.Proxy
 import qualified Data.Text as T
 import           Data.Version (showVersion)
@@ -39,6 +40,7 @@ import           Haskell.Ide.Engine.Swagger
 import           Haskell.Ide.Engine.Transport.JsonHttp
 import           Haskell.Ide.Engine.Transport.JsonStdio
 import           Haskell.Ide.Engine.Transport.JsonTcp
+import           Haskell.Ide.Engine.Transport.LspStdio
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.Utils
 import qualified Language.Haskell.GhcMod.Types as GM
@@ -59,6 +61,7 @@ import           Haskell.Ide.ExamplePluginAsync
 import           Haskell.Ide.GhcModPlugin
 import           Haskell.Ide.GhcTreePlugin
 import           Haskell.Ide.HaRePlugin
+import           Haskell.Ide.HooglePlugin
 
 -- ---------------------------------------------------------------------
 
@@ -73,6 +76,7 @@ taggedPlugins =
   :& Plugin (Proxy :: Proxy "ghctree")     ghcTreeDescriptor
   :& Plugin (Proxy :: Proxy "hare")        hareDescriptor
   :& Plugin (Proxy :: Proxy "base")        baseDescriptor
+  :& Plugin (Proxy :: Proxy "hoogle")      hoogleDescriptor
   :& RNil
 
 
@@ -134,10 +138,16 @@ run opts = do
       else setLogLevel LevelError
 
     case projectRoot opts of
-      Nothing -> pure ()
+      Nothing -> do
+        h <- getHomeDirectory
+        setCurrentDirectory h
+        logm $ "Setting home directory:" ++ h
       Just root -> setCurrentDirectory root
 
     logm $  "run entered for HIE " ++ version
+    d <- getCurrentDirectory
+    logm $ "Current directory:" ++ d
+
     cin <- atomically newTChan :: IO (TChan ChannelRequest)
 
     -- log $ T.pack $ "replPluginInfo:" ++ show replPluginInfo
@@ -151,8 +161,14 @@ run opts = do
       B.putStr (encode swagger)
       exitSuccess
 
+    -- let vomitOptions = GM.defaultOptions { GM.optOutput = oo { GM.ooptLogLevel = GM.GmVomit}}
+    --     oo = GM.optOutput GM.defaultOptions
+    -- let ghcModOptions = vomitOptions { GM.optGhcUserOptions = ["-Wall"]  }
+    let ghcModOptions = GM.defaultOptions { GM.optGhcUserOptions = ["-Wall"]  }
+
     -- launch the dispatcher.
-    _ <- forkIO (runIdeM GM.defaultOptions (IdeState plugins Map.empty) (dispatcher cin))
+    let dispatcherProc = void $ forkIO $ runIdeM ghcModOptions (IdeState plugins Map.empty) (dispatcher cin)
+    unless (optLsp opts) $ do void dispatcherProc
 
     -- TODO: pass port in as a param from GlobalOpts
     when (optHttp opts) $
@@ -164,7 +180,9 @@ run opts = do
     -- long as they can pass through a ChannelRequest
     if (optConsole opts)
        then consoleListener plugins cin
-       else jsonStdioTransport (optOneShot opts) cin
+       else if optLsp opts
+               then lspStdioTransport dispatcherProc cin
+               else jsonStdioTransport (optOneShot opts) cin
 
     -- At least one needs to be launched, othewise a threadDelay with a large
     -- number should be given. Or some other waiting action.

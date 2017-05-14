@@ -95,9 +95,9 @@ diffFiles :: FilePath -> FilePath -> IO HieDiff
 diffFiles f1 f2 = do
   f1Text <- T.readFile f1
   f2Text <- T.readFile f2
-  let d = getGroupedDiff (lines $ T.unpack f1Text) (lines $ T.unpack f2Text)
-  logm $ "diffFiles:diff=[" ++ ppDiff d ++ "]"
-  return $ diffText (f1,f1Text) (f2,f2Text)
+  let dt = diffText (f1,f1Text) (f2,f2Text)
+  logm $ "diffFiles:diff=[" ++ dDiff dt ++ "]"
+  return dt
 
 -- |Generate a 'HieDiff' value from a pair of source Text
 diffText :: (FilePath,T.Text) -> (FilePath,T.Text) -> HieDiff

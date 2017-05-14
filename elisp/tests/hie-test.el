@@ -93,12 +93,18 @@
                                 (advice-add 'hie-handle-first-plugins-command :after
                                             (lambda (&rest r)
                                               (progn
-                                                (setq hie-async-returned t)))))
+                                                (setq hie-async-returned t))))
+                                (copy-file (concat base-dir "/test/testdata/HaReRename.hs")
+                                           (concat base-dir "/test/testdata/HaReRename.hs.keep"))
+                                )
                     (before-each (setq response nil)
                                  (find-file (concat base-dir "/test/testdata/HaReRename.hs")))
                     (after-each (with-current-buffer (hie-process-tcp-buffer)
                                   (erase-buffer)))
-                    (after-all (hie-kill-process))
+                    (after-all (hie-kill-process)
+                               (copy-file (concat base-dir "/test/testdata/HaReRename.hs.keep")
+                                          (concat base-dir "/test/testdata/HaReRename.hs"))
+                               )
                     (it "can get version info"
                         (async-with-timeout async-timeout
                                             (hie-post-message
@@ -120,8 +126,11 @@
                           (move-to-column 0)
                           (move-to-line 4)
                           (async-with-timeout async-timeout (hie-mode))
-                          (async-with-timeout async-timeout
-                                              (hie-hare-rename "foo_renamed"))
+                          ;; See https://stackoverflow.com/questions/32961823/how-can-i-test-an-interactive-function-in-emacs
+                          ;; (Thanks @cocreature)
+                          (let ((unread-command-events (listify-key-sequence (kbd "c"))))
+                            (async-with-timeout async-timeout
+                                              (hie-hare-rename "foo_renamed")))
                           (let ((refactored-string (buffer-substring-no-properties (point-min) (point-max))))
                             (revert-buffer nil t)
                             (expect refactored-string :to-equal "\nmain = putStrLn \"hello\"\n\nfoo_renamed :: Int -> Int\nfoo_renamed x = x + 3\n\n"))))

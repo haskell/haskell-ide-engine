@@ -1,21 +1,23 @@
 module Haskell.Ide.Engine.Options where
 
+import Data.Semigroup hiding (option)
 import Network.Wai.Handler.Warp
 import Options.Applicative.Simple
 
 data GlobalOpts = GlobalOpts
-  { optConsole :: Bool
-  , optOneShot :: Bool
+  { optConsole     :: Bool
+  , optOneShot     :: Bool
       -- ^ Run one command and then exit. No attempt to cleanly shut down any
       -- other processes that may be running, as a result off the plugin init
       -- process.
-  , optDebugOn :: Bool
-  , optLogFile :: Maybe String
-  , optPort :: Port
-  , optHttp :: Bool
-  , optTcp :: Bool
-  , optTcpPort :: Port
-  , projectRoot :: Maybe String
+  , optDebugOn     :: Bool
+  , optLogFile     :: Maybe String
+  , optPort        :: Port
+  , optHttp        :: Bool
+  , optTcp         :: Bool
+  , optLsp         :: Bool
+  , optTcpPort     :: Port
+  , projectRoot    :: Maybe String
   , optDumpSwagger :: Bool
   } deriving (Show)
 
@@ -54,6 +56,9 @@ globalOptsParser = GlobalOpts
   <*> flag False True
        ( long "tcp"
        <> help "Enable the tcp transport")
+  <*> flag False True
+       ( long "lsp"
+       <> help "Enable the Language Server Protocol transport on STDIO")
   <*> option
        auto
        ( long "tcp-port"

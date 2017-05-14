@@ -18,8 +18,9 @@ import qualified Exception as G
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
-import qualified Language.Haskell.GhcMod as GM
+-- import qualified Language.Haskell.GhcMod as GM
 import qualified Language.Haskell.GhcMod.Types as GM
+import qualified GhcMod as GM
 
 -- ---------------------------------------------------------------------
 
@@ -81,7 +82,7 @@ checkCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& RNil) -> do
-      fmap T.pack <$> runGhcModCommand (GM.checkSyntax [(T.unpack fileName)])
+      fmap T.pack <$> runGhcModCommand (GM.checkSyntax [T.unpack fileName])
 
 -- ---------------------------------------------------------------------
 

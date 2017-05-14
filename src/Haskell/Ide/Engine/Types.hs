@@ -26,5 +26,7 @@ instance Show (TChan ChannelResponse) where
 data ChannelResponse = CResp
   { couPlugin :: PluginId
   , coutReqId :: RequestId
+  -- TODO: Pass the original type through, instead of Object. The other side of
+  -- the dispatcher can sort out the ToJSON, if needed.
   , coutResp  :: IdeResponse Object
   } deriving (Show,Eq)

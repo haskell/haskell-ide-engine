@@ -8,7 +8,6 @@ import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
-import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.ExamplePluginAsync
@@ -32,7 +31,7 @@ examplePluginAsyncSpec = do
           cr1 = CReq "test" 1 req1 chan
       let req2 = IdeRequest "cmd2" (Map.fromList [])
           cr2 = CReq "test" 1 req2 chan
-      (ra,rb,rc) <- withStdoutLogging $ runIdeM testOptions (IdeState Map.empty Map.empty)
+      (ra,rb,rc) <- runIdeM testOptions (IdeState Map.empty Map.empty)
         (do
           r1 <- doDispatch testPlugins cr1
           r2 <- doDispatch testPlugins cr2

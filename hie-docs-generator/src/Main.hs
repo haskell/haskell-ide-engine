@@ -9,6 +9,7 @@ import           Control.Monad.Reader
 import qualified Data.Aeson.Encode.Pretty as AP
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.Map as M
+import           Data.Semigroup
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.IO as T

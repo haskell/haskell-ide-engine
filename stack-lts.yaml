@@ -11,6 +11,7 @@ packages:
 - hie-ghc-mod
 - hie-ghc-tree
 - hie-hare
+- hie-hoogle
 - hie-docs-generator
 extra-deps:
   - ghc-dump-tree-0.2.0.1

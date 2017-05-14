@@ -12,6 +12,7 @@ cache:
   directories:
   - "$HOME/.stack/"
   - elisp/.cask/
+  - test/testdata/.stack-work/
 before_install:
 - export CASHER_TIME_OUT=600
 - mkdir -p ~/.local/bin
@@ -24,7 +25,7 @@ before_install:
 - export PATH="$HOME/.cask/bin:$PATH"
 install:
 - "./travis_long stack +RTS -N2 -RTS setup"
-- "./travis_long stack build --only-snapshot"
+- "./travis_long stack build --only-snapshot --jobs 3"
 script:
 - "./travis_long ./pedantic.sh +RTS -N1 -RTS"
 - "./travis_long ./emacs_tests.sh"

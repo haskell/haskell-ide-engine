@@ -2,6 +2,7 @@
 module Options where
 
 import qualified Data.Map as Map
+import           Data.Semigroup
 import           Haskell.Ide.ApplyRefactPlugin
 import           Haskell.Ide.Engine.BasePlugin
 import           Haskell.Ide.Engine.PluginDescriptor
