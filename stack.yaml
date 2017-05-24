@@ -15,7 +15,7 @@ packages:
 # - ../haskell-lsp
 - location:
     git: https://github.com/alanz/haskell-lsp.git
-    commit: ba619308247a7b8bfeafca0e60c62c879d85ce0e 
+    commit: 1285597cbe3ddab07316131828258b9982f56178
   extra-dep: true
 - location:
     git: https://github.com/alanz/ghc-dump-tree.git
