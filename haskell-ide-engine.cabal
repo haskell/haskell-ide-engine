@@ -56,7 +56,7 @@ library
                      , hie-plugin-api
                      , hslogger
                      , insert-ordered-containers
-                     , lens
+                     , lens >= 4.15.2
                      , lifted-base
                      , MissingH
                      , monad-control
