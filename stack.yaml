@@ -1,5 +1,5 @@
 # resolver: nightly-2017-04-28
-resolver: nightly-2017-05-07
+resolver: nightly-2017-05-23
 packages:
 - .
 - hie-apply-refact
@@ -15,7 +15,7 @@ packages:
 # - ../haskell-lsp
 - location:
     git: https://github.com/alanz/haskell-lsp.git
-    commit: 7c042e9d04825225fefde0298a73c3e45168d536
+    commit: ba619308247a7b8bfeafca0e60c62c879d85ce0e 
   extra-dep: true
 - location:
     git: https://github.com/alanz/ghc-dump-tree.git
