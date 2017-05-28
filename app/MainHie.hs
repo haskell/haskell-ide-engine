@@ -135,6 +135,8 @@ run opts = do
       then setLogLevel LevelDebug
       else setLogLevel LevelError
 
+    origDir <- getCurrentDirectory
+
     case projectRoot opts of
       Nothing -> do
         h <- getHomeDirectory
@@ -179,7 +181,7 @@ run opts = do
     if (optConsole opts)
        then consoleListener plugins cin
        else if optLsp opts
-               then lspStdioTransport dispatcherProc cin
+               then lspStdioTransport dispatcherProc cin origDir
                else jsonStdioTransport (optOneShot opts) cin
 
     -- At least one needs to be launched, othewise a threadDelay with a large
