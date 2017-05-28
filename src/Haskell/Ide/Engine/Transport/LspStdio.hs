@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
@@ -23,7 +24,6 @@ import qualified Data.Aeson as J
 import           Data.Aeson ( (.=) )
 import qualified Data.Aeson.Types as J
 import           Data.Algorithm.DiffOutput
-import qualified Data.ByteString.Lazy as BSL
 import           Data.Default
 import           Data.Either
 import qualified Data.HashMap.Strict as H
@@ -142,11 +142,11 @@ withLspFuncs f = do
 
 reactorSend :: (J.ToJSON a) => a -> R ()
 reactorSend msg = do
-    withLspFuncs $ \lf -> liftIO $ (Core.sendFunc lf) (J.encode msg)
+    withLspFuncs $ \lf -> liftIO $ Core.sendFunc lf msg
 
 -- ---------------------------------------------------------------------
 
-reactorSend' :: ((BSL.ByteString -> IO ()) -> IO ()) -> R ()
+reactorSend' :: (Core.SendFunc -> IO ()) -> R ()
 reactorSend' f = do
     withLspFuncs $ \lf -> liftIO $ f (Core.sendFunc lf) 
 
