@@ -43,7 +43,7 @@ packages:
 # - ../hlint
 - location:
     git: https://github.com/alanz/hlint.git
-    commit: cd2787fc0d75765c2b33f8ec991ebcb3017ee8ee
+    commit: 1c78d5178128a67766db3c62c22bae24138f335a
   extra-dep: true
 extra-deps:
 - apply-refact-0.3.0.1
