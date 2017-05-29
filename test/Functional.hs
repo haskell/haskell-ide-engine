@@ -133,7 +133,12 @@ functionalSpec = do
         Just (IdeResponseOk (jsWrite (FileDiagnostics
                                       { fdFileName = "file://./FuncTest.hs"
                                       , fdDiagnostics =
-                                        [ Diagnostic (Range (Position 9 6) (Position 10 18))
+                                        [ Diagnostic (Range (Position 0 0) (Position 0 17))
+                                                     (Just DsWarning)
+                                                     Nothing
+                                                     (Just "hlint")
+                                                     "Use module export list\nFound:\n  module Main where\nWhy not:\n  module Main (module Main) where\nAn explicit list is usually better\n"
+                                        , Diagnostic (Range (Position 9 6) (Position 10 18))
                                                      (Just DsWarning)
                                                      Nothing
                                                      (Just "hlint")
