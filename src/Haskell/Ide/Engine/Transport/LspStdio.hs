@@ -575,7 +575,7 @@ instance J.FromJSON LspParam where
 -- ---------------------------------------------------------------------
 
 -- | Manage the boilerplate for passing on any errors found in the IdeResponse
-hieResponseHelper :: forall a t. J.RequestMessage a -> IdeResponse t -> (t -> R ()) -> R ()
+hieResponseHelper :: forall a t. J.RequestMessage J.ClientMethod a -> IdeResponse t -> (t -> R ()) -> R ()
 hieResponseHelper req res action =
   case res of
     IdeResponseFail  err -> sendErrorResponse (req ^. J.id) J.InternalError (show err)
