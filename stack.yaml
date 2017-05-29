@@ -40,7 +40,11 @@ packages:
     git: https://github.com/alanz/ghc-mod.git
     commit: 36fbe25e07c34ba81fbba735d4046a98ae75db3a
   extra-dep: true
-- ../hlint
+# - ../hlint
+- location:
+    git: https://github.com/alanz/hlint.git
+    commit: cd2787fc0d75765c2b33f8ec991ebcb3017ee8ee
+  extra-dep: true
 extra-deps:
 - apply-refact-0.3.0.1
 # - hlint-2.0.8
