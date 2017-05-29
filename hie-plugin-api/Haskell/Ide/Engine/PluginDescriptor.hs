@@ -71,7 +71,7 @@ import qualified Data.Vinyl.Functor as Vinyl
 import           GHC.Generics
 import           GHC.TypeLits
 import           Haskell.Ide.Engine.PluginTypes
-import qualified Language.Haskell.GhcMod.Monad as GM
+import qualified GhcMod.Monad as GM
 
 -- ---------------------------------------------------------------------
 

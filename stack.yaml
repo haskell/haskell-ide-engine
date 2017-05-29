@@ -16,6 +16,7 @@ packages:
 - location:
     git: https://github.com/alanz/haskell-lsp.git
     commit: e42e1c513b5b7b77fd4e4f737ee56233cfcdf483
+    # commit: b5e0113b3f8189bf2c41ada2e662d70e5dc6346e
   extra-dep: true
 - location:
     git: https://github.com/alanz/ghc-dump-tree.git
@@ -29,16 +30,19 @@ packages:
 - location:
     git: https://github.com/alanz/HaRe.git
     # git: https://github.com/RefactoringTools/HaRe.git
-    commit: 423bc0b235dc7ede961278f6e614813b851bfd0a
+    # commit: 423bc0b235dc7ede961278f6e614813b851bfd0a
+    commit: df7c1def6156f6179a41b9053509eb5af13ef4a3
   extra-dep: true
 # - ../../DanielG/ghc-mod
 # - ../ghc-mod
 - location:
     git: https://github.com/alanz/ghc-mod.git
-    commit: 4f6160976dbc211ee325723a42124e5f032ff16a
+    commit: 36fbe25e07c34ba81fbba735d4046a98ae75db3a
   extra-dep: true
+- ../hlint
 extra-deps:
 - apply-refact-0.3.0.1
+# - hlint-2.0.8
 - pipes-aeson-0.4.1.8
 - pipes-network-0.6.4.1
 # - hspec-jenkins-0.1.1

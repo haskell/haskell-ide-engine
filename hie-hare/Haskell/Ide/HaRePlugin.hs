@@ -18,8 +18,8 @@ import           Exception
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
-import qualified Language.Haskell.GhcMod.Monad as GM
-import qualified Language.Haskell.GhcMod.Error as GM
+import qualified GhcMod.Monad as GM
+import qualified GhcMod.Error as GM
 import           Language.Haskell.Refact.HaRe
 import           Language.Haskell.Refact.Utils.Monad
 import           Language.Haskell.Refact.Utils.Types
@@ -154,7 +154,7 @@ genApplicativeCommand  = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile fileName :& ParamPos pos :& RNil) ->
-      runHareCommand "genapplicativve" (compGenApplicative (T.unpack fileName) "unused" (unPos pos))
+      runHareCommand "genapplicativve" (compGenApplicative (T.unpack fileName) (unPos pos))
 
 -- compGenApplicative :: FilePath -> String -> SimpPos -> RefactGhc [ApplyRefacResult]
 
