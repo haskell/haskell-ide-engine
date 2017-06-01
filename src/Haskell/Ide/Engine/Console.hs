@@ -113,7 +113,7 @@ parseInt = do
   str <- many1 digit
   return $ read str
 
-parsePos :: Parser Pos
+parsePos :: Parser Position
 parsePos = do
   _ <- char '('
   l <- parseInt

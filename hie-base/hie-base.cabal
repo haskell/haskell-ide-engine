@@ -24,10 +24,10 @@ library
                      , aeson
                      , Diff
                      , containers
+                     , haskell-lsp
                      , text
                      , unordered-containers
                      , singletons
-                     , swagger2 >= 2.1
                      , vinyl
   ghc-options:         -Wall
   if flag(pedantic)
