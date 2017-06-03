@@ -35,6 +35,7 @@ import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.Control  as CTRL
 import qualified Language.Haskell.LSP.Core     as Core
+import           Language.Haskell.LSP.Diagnostics
 import           Language.Haskell.LSP.Messages
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 import qualified Language.Haskell.LSP.Utility  as U
@@ -114,8 +115,11 @@ data ReactorState =
     { lspFuncs           :: !(Maybe Core.LspFuncs)
     , hieReqId           :: !RequestId
     , lspReqId           :: !J.LspId
-    , wip                :: !(Map.Map RequestId Core.OutMessage)
+    , wip                :: !(Map.Map RequestId WIP)
     }
+
+-- | work in progress.
+type WIP = (Core.OutMessage, Maybe J.Uri)
 
 instance Default ReactorState where
   def = ReactorState Nothing 0 (J.IdInt 0) Map.empty
@@ -158,7 +162,7 @@ reactorSend' f = do
 
 -- ---------------------------------------------------------------------
 
-publishDiagnostics :: J.Uri -> Maybe J.TextDocumentVersion -> [J.Diagnostic] -> R ()
+publishDiagnostics :: J.Uri -> Maybe J.TextDocumentVersion -> DiagnosticsBySource -> R ()
 publishDiagnostics uri' mv diags = do
     withLspFuncs $ \lf -> liftIO $ (Core.publishDiagnosticsFunc lf) uri' mv diags
 
@@ -182,12 +186,12 @@ nextLspReqId = do
 
 -- ---------------------------------------------------------------------
 
-keepOriginal :: RequestId -> Core.OutMessage -> R ()
+keepOriginal :: RequestId -> WIP -> R ()
 keepOriginal rid om = modify' (\s -> s { wip = Map.insert rid om (wip s)})
 
 -- ---------------------------------------------------------------------
 
-lookupOriginal :: RequestId -> R (Maybe Core.OutMessage)
+lookupOriginal :: RequestId -> R (Maybe WIP)
 lookupOriginal rid = do
   w <- gets wip
   return $ Map.lookup rid w
@@ -295,7 +299,7 @@ reactor st cin cout inp = do
                                                     ,("name",     ParamValP $ ParamText (T.pack newName))
                                                     ])) cout
         liftIO $ atomically $ writeTChan cin hreq
-        keepOriginal rid r
+        keepOriginal rid (r, Just doc)
 
 
       -- -------------------------------
@@ -311,7 +315,7 @@ reactor st cin cout inp = do
                                                     ,("start_pos",ParamValP $ ParamPos (toPos (l+1,c+1)))
                                                     ])) cout
         liftIO $ atomically $ writeTChan cin hreq
-        keepOriginal rid r
+        keepOriginal rid (r, Just (params ^. J.textDocument . J.uri))
 
       -- -------------------------------
 
@@ -366,7 +370,7 @@ reactor st cin cout inp = do
         let hreq = CReq (T.pack plugin) rid (IdeRequest (T.pack $ tail cmd) (Map.fromList
                                                     cmdparams)) cout
         liftIO $ atomically $ writeTChan cin hreq
-        keepOriginal rid r
+        keepOriginal rid (r, Nothing)
 
       -- -------------------------------
 
@@ -426,25 +430,31 @@ reactor st cin cout inp = do
           Just orig -> do
             liftIO $ U.logs $ "reactor: original was:" ++ show orig
             case orig of
-              Core.NotDidOpenTextDocument _ ->
+              (Core.NotDidOpenTextDocument _msg,mu) ->
                 case res of
                   IdeResponseFail  err -> liftIO $ U.logs $ "NotDidOpenTextDocument:got err" ++ show err
                   IdeResponseError err -> liftIO $ U.logs $ "NotDidOpenTextDocument:got err" ++ show err
-                  IdeResponseOk r -> publishDiagnosticsToLsp pid r
+                  IdeResponseOk r -> publishDiagnosticsToLsp pid mu Nothing r
+                  -- AZ:TODO: re-enable the following when we process
+                  --    incrementally, including integration to the map files in
+                  --    ghc-mod
+                  -- IdeResponseOk r -> publishDiagnosticsToLsp pid mu (Just v) r
+                  --   where
+                  --     v = msg ^. J.params ^. J.textDocument ^. J.version
 
-              Core.NotDidSaveTextDocument _ -> do
+              (Core.NotDidSaveTextDocument _,mu) -> do
                 case res of
                   IdeResponseFail  err -> liftIO $ U.logs $ "NotDidSaveTextDocument:got err" ++ show err
                   IdeResponseError err -> liftIO $ U.logs $ "NotDidSaveTextDocument:got err" ++ show err
-                  IdeResponseOk r -> publishDiagnosticsToLsp pid r
+                  IdeResponseOk r -> publishDiagnosticsToLsp pid mu Nothing r
 
-              Core.ReqRename req -> hieResponseHelper req res $ \r -> do
+              (Core.ReqRename req, _) -> hieResponseHelper req res $ \r -> do
                 let J.Success vv = J.fromJSON (J.Object r) :: J.Result RefactorResult
                 let we = refactorResultToWorkspaceEdit vv
                 let rspMsg = Core.makeResponseMessage (J.responseId $ req ^. J.id ) we
                 reactorSend rspMsg
 
-              Core.ReqHover req -> hieResponseHelper req res $ \r -> do
+              (Core.ReqHover req, _) -> hieResponseHelper req res $ \r -> do
                 let
                   J.Success (TypeInfo mtis) = J.fromJSON (J.Object r) :: J.Result TypeInfo
                   ht = case mtis of
@@ -457,7 +467,7 @@ reactor st cin cout inp = do
                   rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) ht
                 reactorSend rspMsg
 
-              Core.ReqExecuteCommand req -> hieResponseHelper req res $ \r -> do
+              (Core.ReqExecuteCommand req, _) -> hieResponseHelper req res $ \r -> do
                 let
                   reply v = reactorSend $ Core.makeResponseMessage ( J.responseId $ req ^. J.id ) v
                 -- When we get a RefactorResult or HieDiff, we need to send a
@@ -478,28 +488,32 @@ reactor st cin cout inp = do
 
 requestDiagnostics :: TChan ChannelRequest -> TChan ChannelResponse -> String -> Core.OutMessage -> R ()
 requestDiagnostics cin cout fileName req = do
+  let fileUri = "file://" ++ fileName -- AZ:TODO: the fileName should be a J.Uri
   -- get hlint diagnostics
   ridl <- nextReqId
   let reql = CReq "applyrefact" ridl (IdeRequest "lint" (Map.fromList [("file", ParamFileP (T.pack fileName))])) cout
   liftIO $ atomically $ writeTChan cin reql
-  keepOriginal ridl req
+  keepOriginal ridl (req, Just fileUri)
 
   -- get GHC diagnostics
   ridg <- nextReqId
   let reqg = CReq "ghcmod" ridg (IdeRequest "check" (Map.fromList [("file", ParamFileP (T.pack fileName))])) cout
   liftIO $ atomically $ writeTChan cin reqg
-  keepOriginal ridg req
+  keepOriginal ridg (req, Just fileUri)
 
 -- ---------------------------------------------------------------------
 
-publishDiagnosticsToLsp :: PluginId -> J.Object -> R ()
-publishDiagnosticsToLsp pid r = do
+publishDiagnosticsToLsp :: PluginId -> Maybe J.Uri -> Maybe J.TextDocumentVersion -> J.Object -> R ()
+publishDiagnosticsToLsp pid mu mv r = do
   let
+    sendEmpty =
+      case mu of
+        Just uri' -> publishDiagnostics uri' Nothing []
+        _        -> liftIO $ U.logs $ "\n\npublishDiagnostics:uri missing for ghcmod\n\n"
     sendOne (uri',ds) =
-      publishDiagnostics uri' Nothing ds
+      publishDiagnostics uri' mv ds
     mkDiag (f,ds) = do
       af <- liftIO $ makeAbsolute f
-      -- return $ jsWrite $ FileDiagnostics ("file://" ++ af) ds
       return ("file://" ++ af, ds)
   case pid of
     "applyrefact" -> do
@@ -511,8 +525,10 @@ publishDiagnosticsToLsp pid r = do
         J.Success str -> do
           let pd = parseGhcDiagnostics str
           ds <- mapM mkDiag $ Map.toList $ Map.fromListWith (++) pd
-          mapM_ sendOne ds
-        _             -> return ()
+          case ds of
+            [] -> sendEmpty
+            _  -> mapM_ sendOne ds
+        _             -> sendEmpty
     _ -> do
       liftIO $ U.logs $ "\n\npublishDiagnostics:not processing plugin=" ++ (T.unpack pid) ++ "\n\n"
       return ()
