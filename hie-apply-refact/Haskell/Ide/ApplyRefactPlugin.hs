@@ -10,7 +10,7 @@ import           Control.Arrow
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Either
 import           Data.Aeson hiding (Error)
--- import           Data.Maybe
+import           Data.Monoid ( (<>) )
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Data.Vinyl
@@ -107,7 +107,7 @@ parseErrorToDiagnostic (Hlint.ParseError l msg contents) =
       , _severity = Just DsError
       , _code     = Just "parser"
       , _source   = Just "hlint"
-      , _message  = unlines [msg,contents]
+      , _message  = T.unlines [T.pack msg,T.pack contents]
       }]
 
 {-
@@ -164,13 +164,14 @@ showEx tt Idea{..} = unlines $
 
 -}
 
-idea2Message :: Idea -> String
-idea2Message idea = unlines $ [ideaHint idea, "Found:", ("  " ++ ideaFrom idea)]
-                               ++ toIdea ++ map show (ideaNote idea)
+idea2Message :: Idea -> T.Text
+idea2Message idea = T.unlines $ [T.pack $ ideaHint idea, "Found:", ("  " <> (T.pack $ ideaFrom idea))]
+                               <> toIdea <> map (T.pack . show) (ideaNote idea)
   where
+    toIdea :: [T.Text]
     toIdea = case ideaTo idea of
       Nothing -> []
-      Just i  -> ["Why not:", "  " ++ i]
+      Just i  -> [T.pack "Why not:", T.pack $ "  " ++ i]
 
 -- ---------------------------------------------------------------------
 

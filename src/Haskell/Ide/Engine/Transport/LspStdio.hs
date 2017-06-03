@@ -198,11 +198,11 @@ lookupOriginal rid = do
 
 -- ---------------------------------------------------------------------
 
-sendErrorResponse :: J.LspId -> J.ErrorCode -> String -> R ()
+sendErrorResponse :: J.LspId -> J.ErrorCode -> T.Text -> R ()
 sendErrorResponse origId err msg
   = reactorSend' (\sf -> Core.sendErrorResponseS sf (J.responseId origId) err msg)
 
-sendErrorLog :: String -> R ()
+sendErrorLog :: T.Text -> R ()
 sendErrorLog  msg = reactorSend' (\sf -> Core.sendErrorLogS  sf msg)
 
 -- sendErrorShow :: String -> R ()
