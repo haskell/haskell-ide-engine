@@ -103,11 +103,11 @@ runLintCmd file args =
 parseErrorToDiagnostic :: Hlint.ParseError -> [Diagnostic]
 parseErrorToDiagnostic (Hlint.ParseError l msg contents) =
   [Diagnostic
-      { rangeDiagnostic    = srcLoc2Range l
-      , severityDiagnostic = Just DsError
-      , codeDiagnostic     = Just "parser"
-      , sourceDiagnostic   = Just "hlint"
-      , messageDiagnostic  = unlines [msg,contents]
+      { _range    = srcLoc2Range l
+      , _severity = Just DsError
+      , _code     = Just "parser"
+      , _source   = Just "hlint"
+      , _message  = unlines [msg,contents]
       }]
 
 {-
@@ -132,11 +132,11 @@ data Idea = Idea
 hintToDiagnostic :: Idea -> Diagnostic
 hintToDiagnostic idea
   = Diagnostic
-      { rangeDiagnostic    = ss2Range (ideaSpan idea)
-      , severityDiagnostic = Just (severity2DisgnosticSeverity $ ideaSeverity idea)
-      , codeDiagnostic     = Nothing
-      , sourceDiagnostic   = Just "hlint"
-      , messageDiagnostic  = idea2Message idea
+      { _range    = ss2Range (ideaSpan idea)
+      , _severity = Just (severity2DisgnosticSeverity $ ideaSeverity idea)
+      , _code     = Nothing
+      , _source   = Just "hlint"
+      , _message  = idea2Message idea
       }
 
 -- ---------------------------------------------------------------------
@@ -185,8 +185,8 @@ severity2DisgnosticSeverity Error      = DsError
 srcLoc2Range :: SrcLoc -> Range
 srcLoc2Range (SrcLoc _ l c) = Range ps pe
   where
-    ps = Position l c
-    pe = Position l 100000
+    ps = Position (l-1) (c-1)
+    pe = Position (l-1) 100000
 
 -- ---------------------------------------------------------------------
 
@@ -198,19 +198,19 @@ ss2Range ss = Range ps pe
 
 -- ---------------------------------------------------------------------
 
-applyHint :: FilePath -> Maybe Pos -> IO (Either String HieDiff)
+applyHint :: FilePath -> Maybe Position -> IO (Either String HieDiff)
 applyHint file mpos = do
   withTempFile $ \f -> do
     let optsf = "-o " ++ f
         opts = case mpos of
                  Nothing -> optsf
-                 Just (Pos (Line l) (Col c)) -> optsf ++ " --pos " ++ show l ++ "," ++ show c
+                 Just (Position l c) -> optsf ++ " --pos " ++ show (l+1) ++ "," ++ show (c+1)
         hlintOpts = [file, "--quiet", "--refactor", "--refactor-options=" ++ opts ]
     runEitherT $ do
       ideas <- runHlint file hlintOpts
       liftIO $ logm $ "applyHint:ideas=" ++ show ideas
       let commands = map (show &&& ideaRefactoring) ideas
-      appliedFile <- liftIO $ applyRefactorings (fmap unPos mpos) commands file
+      appliedFile <- liftIO $ applyRefactorings (unPos <$> mpos) commands file
       diff <- liftIO $ makeDiffResult file (T.pack appliedFile)
       liftIO $ logm $ "applyHint:diff=" ++ show diff
       return diff

@@ -153,7 +153,7 @@ reactorSend msg = do
 
 reactorSend' :: (Core.SendFunc -> IO ()) -> R ()
 reactorSend' f = do
-    withLspFuncs $ \lf -> liftIO $ f (Core.sendFunc lf) 
+    withLspFuncs $ \lf -> liftIO $ f (Core.sendFunc lf)
 
   -- msf <- gets sender
   -- case msf of
@@ -290,12 +290,12 @@ reactor st cin cout inp = do
         let params = req ^. J.params
             doc = params ^. J.textDocument . J.uri
             fileName = drop (length ("file://"::String)) doc
-            J.Position l c = params ^. J.position
+            pos = params ^. J.position
             newName  = params ^. J.newName
         rid <- nextReqId
         let hreq = CReq "hare" rid (IdeRequest "rename" (Map.fromList
                                                     [("file",     ParamFileP (T.pack fileName))
-                                                    ,("start_pos",ParamValP $ ParamPos (toPos (l+1,c+1)))
+                                                    ,("start_pos",ParamValP $ ParamPos pos)
                                                     ,("name",     ParamValP $ ParamText (T.pack newName))
                                                     ])) cout
         liftIO $ atomically $ writeTChan cin hreq
@@ -308,11 +308,11 @@ reactor st cin cout inp = do
         liftIO $ U.logs $ "reactor:got HoverRequest:" ++ show req
         let params = req ^. J.params 
             fileName = drop (length ("file://"::String)) $ params ^. J.textDocument . J.uri
-            J.Position l c = params ^. J.position
+            pos = params ^. J.position
         rid <- nextReqId
         let hreq = CReq "ghcmod" rid (IdeRequest "type" (Map.fromList
                                                     [("file",     ParamFileP (T.pack fileName))
-                                                    ,("start_pos",ParamValP $ ParamPos (toPos (l+1,c+1)))
+                                                    ,("start_pos",ParamValP $ ParamPos pos)
                                                     ])) cout
         liftIO $ atomically $ writeTChan cin hreq
         keepOriginal rid (r, Just (params ^. J.textDocument . J.uri))
@@ -400,7 +400,7 @@ reactor st cin cout inp = do
         let params = req ^. J.params
             doc = params ^. J.textDocument
             fileName = drop (length ("file://"::String)) $ doc ^. J.uri
-            J.Position l c = params ^. J.position
+            pos = params ^. J.position
         -- rid <- nextReqId
         -- let hreq = CReq "ghcmod" rid (IdeRequest "type" (Map.fromList
         --                                             [("file",     ParamFileP (T.pack fileName))
@@ -408,7 +408,7 @@ reactor st cin cout inp = do
         --                                             ])) cout
         -- liftIO $ atomically $ writeTChan cin hreq
         -- keepOriginal rid r
-        liftIO $ U.logs $ "****reactor:ReqDocumentHighlights:not immplemented=" ++ show (fileName,doc,l,c)
+        liftIO $ U.logs $ "****reactor:ReqDocumentHighlights:not immplemented=" ++ show (fileName,doc,pos)
 
         let cr = J.List  ([] :: [J.DocumentHighlight])
         let rspMsg = Core.makeResponseMessage (J.responseId $ req ^. J.id ) cr
@@ -463,7 +463,7 @@ reactor st cin cout inp = do
                       where
                         ms = map (\ti -> J.MarkedString "haskell" (T.unpack $ trText ti)) tis
                         tr = head tis
-                        range = J.Range (posToPosition $ trStart tr) (posToPosition $ trEnd tr)
+                        range = J.Range (trStart tr) (trEnd tr)
                   rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) ht
                 reactorSend rspMsg
 
@@ -566,9 +566,9 @@ convertParam (J.Object hm) = case H.toList hm of
 convertParam v = Left $ "convertParam: expecting Object, got:" ++ show v
 
 lspParam2ParamValP :: LspParam -> ParamValP
-lspParam2ParamValP (LspTextDocument (TextDocumentIdentifier u)) = ParamFileP (T.drop (length ("file://"::String)) u)
-lspParam2ParamValP (LspPosition     (Position l c))             = ParamPosP (Pos (Line (l+1)) (Col (c+1)))
-lspParam2ParamValP (LspRange        (Range (Position l c) _to)) = ParamPosP (Pos (Line (l+1)) (Col (c+1)))
+lspParam2ParamValP (LspTextDocument (TextDocumentIdentifier u)) = ParamFileP (T.pack $ drop (length ("file://"::String)) u)
+lspParam2ParamValP (LspPosition     p)             = ParamPosP p
+lspParam2ParamValP (LspRange        (Range from _to)) = ParamPosP from
 lspParam2ParamValP (LspText         txt                       ) = ParamTextP txt
 
 data LspParam
@@ -597,11 +597,6 @@ hieResponseHelper req res action =
     IdeResponseFail  err -> sendErrorResponse (req ^. J.id) J.InternalError (show err)
     IdeResponseError err -> sendErrorResponse (req ^. J.id) J.InternalError (show err)
     IdeResponseOk r -> action r
-
--- ---------------------------------------------------------------------
-
-posToPosition :: Pos -> J.Position
-posToPosition (Pos (Line l) (Col c)) = J.Position (l-1) (c-1)
 
 -- ---------------------------------------------------------------------
 

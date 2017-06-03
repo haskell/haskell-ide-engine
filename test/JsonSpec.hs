@@ -48,9 +48,7 @@ jsonSpec = do
     prop "ModuleList" (propertyValidRoundtrip :: ModuleList -> Bool)
 
   describe "General JSON instances round trip" $ do
-    prop "Line" (propertyJsonRoundtrip :: Line -> Bool)
-    prop "Col" (propertyJsonRoundtrip :: Col -> Bool)
-    prop "Pos" (propertyJsonRoundtrip :: Pos -> Bool)
+    prop "Pos" (propertyJsonRoundtrip :: Position -> Bool)
     prop "ParamVal 'PtPos" (propertyJsonRoundtrip :: ParamVal 'PtPos -> Bool)
     prop "ParamValP" (propertyJsonRoundtrip :: ParamValP -> Bool)
     prop "CabalSection" (propertyJsonRoundtrip :: CabalSection -> Bool)
@@ -170,18 +168,11 @@ instance Arbitrary HieDiff where
 instance Arbitrary ModuleList where
   arbitrary = ModuleList <$> smallList arbitrary
 
-instance Arbitrary Pos where
-  arbitrary = Pos <$> arbitrary <*> arbitrary
-
-instance Arbitrary Line where
+instance Arbitrary Position where
   arbitrary = do
     Positive l <- arbitrary
-    return (Line l)
-
-instance Arbitrary Col where
-  arbitrary = do
     Positive c <- arbitrary
-    return (Col c)
+    return $ Position l c
 
 instance Arbitrary (ParamVal 'PtPos) where
   arbitrary = ParamPos <$> arbitrary
