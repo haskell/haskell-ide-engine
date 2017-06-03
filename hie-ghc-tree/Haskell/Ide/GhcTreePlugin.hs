@@ -41,8 +41,8 @@ trees :: CommandFunc AST
 trees = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
-    Right (ParamFile fileName :& RNil) -> do
-      trs <- runGmlT' [Left $ T.unpack fileName] (return . treeDumpFlags) $ treesForTargets [T.unpack fileName]
+    Right (ParamFile uri :& RNil) -> pluginGetFile "trees: " uri $ \file -> do
+      trs <- runGmlT' [Left file] (return . treeDumpFlags) $ treesForTargets [file]
       case trs of
           [tree] -> return (IdeResponseOk $ treesToAST tree)
           _ -> return $ IdeResponseError (IdeError PluginError

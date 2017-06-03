@@ -46,8 +46,15 @@ module Haskell.Ide.Engine.PluginTypes
   , IdeErrorCode(..)
   , untagParamDesc
   , Sing(..)
+  , Uri(..)
+  , uriToFilePath
+  , filePathToUri
   , Position(..)
   , toPos, unPos
+  , Range(..)
+  , Location(..)
+  , TextDocumentIdentifier(..)
+  , TextDocumentPositionParams(..)
   -- * Plugins
   , PluginId
   , IdePlugins(..)
@@ -73,7 +80,8 @@ import           Data.Vinyl
 import           GHC.Generics
 import           GHC.TypeLits
 import           Haskell.Ide.Engine.PluginTypes.Singletons
-import           Language.Haskell.LSP.TH.DataTypesJSON (Position(..))
+import           Language.Haskell.LSP.TH.DataTypesJSON ( Uri(..), uriToFilePath, filePathToUri, Position(..), Range(..), Location(..), TextDocumentIdentifier(..), TextDocumentPositionParams(..))
+
 
 type PluginId = T.Text
 
@@ -253,7 +261,7 @@ instance Eq ParamValP where
 pattern ParamTextP :: T.Text -> ParamValP
 pattern ParamTextP t = ParamValP (ParamText t)
 
-pattern ParamFileP :: T.Text -> ParamValP
+pattern ParamFileP :: Uri -> ParamValP
 pattern ParamFileP f = ParamValP (ParamFile f)
 
 pattern ParamPosP :: Position -> ParamValP
@@ -265,16 +273,27 @@ type ParamId = T.Text
 
 data TaggedParamId (t :: ParamType) where
  IdText :: T.Text -> TaggedParamId 'PtText
+ IdInt  :: T.Text  -> TaggedParamId 'PtInt
+ IdBool :: T.Text -> TaggedParamId 'PtBool
  IdFile :: T.Text -> TaggedParamId 'PtFile
- IdPos :: T.Text  -> TaggedParamId 'PtPos
+ IdPos  :: T.Text -> TaggedParamId 'PtPos
+ IdRange :: T.Text -> TaggedParamId 'PtRange
+ IdLoc  :: T.Text -> TaggedParamId 'PtLoc
+ IdTextDocId :: T.Text -> TaggedParamId 'PtTextDocId
+ IdTextDocPos ::T.Text -> TaggedParamId 'PtTextDocPos
 
 data ParamValP = forall t. ParamValP { unParamValP ::  ParamVal t }
 
 data ParamVal (t :: ParamType) where
- ParamText :: T.Text   -> ParamVal 'PtText
- ParamFile :: T.Text   -> ParamVal 'PtFile
+ ParamText :: T.Text -> ParamVal 'PtText
+ ParamInt  :: Int  -> ParamVal 'PtInt
+ ParamBool :: Bool -> ParamVal 'PtBool
+ ParamFile :: Uri -> ParamVal 'PtFile
  ParamPos  :: Position -> ParamVal 'PtPos
-
+ ParamRange :: Range -> ParamVal 'PtRange
+ ParamLoc  :: Location -> ParamVal 'PtLoc
+ ParamTextDocId :: TextDocumentIdentifier -> ParamVal 'PtTextDocId
+ ParamTextDocPos ::TextDocumentPositionParams -> ParamVal 'PtTextDocPos
 
 -- | The IDE response, with the type of response it contains
 data IdeResponse resp

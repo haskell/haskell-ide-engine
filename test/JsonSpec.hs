@@ -120,6 +120,9 @@ instance Arbitrary UntaggedCommand where
 instance Eq UntaggedPluginDescriptor where
   a == b = show a == show b
 
+instance Arbitrary Uri where
+  arbitrary = filePathToUri <$> arbitrary
+
 instance Arbitrary ParamValP where
   arbitrary = do
     i <- choose (1::Int,3)

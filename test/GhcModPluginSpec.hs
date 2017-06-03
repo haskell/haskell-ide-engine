@@ -6,7 +6,6 @@ import           Control.Monad.STM
 import           Control.Exception
 import           Data.Aeson
 import qualified Data.HashMap.Strict as H
-import qualified Data.Text as T
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -61,14 +60,14 @@ ghcmodSpec :: Spec
 ghcmodSpec = do
   describe "ghc-mod plugin commands" $ do
     it "runs the check command" $ do
-      let req = IdeRequest "check" (Map.fromList [("file", ParamFileP "./FileWithWarning.hs")])
+      let req = IdeRequest "check" (Map.fromList [("file", ParamFileP $ filePathToUri "./FileWithWarning.hs")])
       r <- dispatchRequest req
       r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ( "FileWithWarning.hs:4:7:Variable not in scope: x\n"::String)]))
 
     -- ---------------------------------
 
     it "runs the lint command" $ do
-      let req = IdeRequest "lint" (Map.fromList [("file", ParamFileP "./FileWithWarning.hs")])
+      let req = IdeRequest "lint" (Map.fromList [("file", ParamFileP $ filePathToUri "./FileWithWarning.hs")])
       r <- dispatchRequest req
       r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("./FileWithWarning.hs:6:9: Warning: Redundant do\NULFound:\NUL  do return (3 + x)\NULWhy not:\NUL  return (3 + x)\n"::String)]))
 
@@ -76,7 +75,7 @@ ghcmodSpec = do
     -- ---------------------------------
 
     -- it "runs the find command" $ do
-    --   let req = IdeRequest "find" (Map.fromList [("dir", ParamFileP "."),("symbol", ParamTextP "Show")])
+    --   let req = IdeRequest "find" (Map.fromList [("dir", ParamFileP $ filePathToUri "."),("symbol", ParamTextP "Show")])
     --   r <- dispatchRequest req
     --   r `shouldBe` Just (IdeResponseOk (H.fromList ["modules" .= ["GHC.Show"::String,"Prelude","Test.Hspec.Discover","Text.Show"]]))
 
@@ -84,7 +83,7 @@ ghcmodSpec = do
     -- ---------------------------------
 
     it "runs the info command" $ do
-      let req = IdeRequest "info" (Map.fromList [("file", ParamFileP "HaReRename.hs"),("expr", ParamTextP "main")])
+      let req = IdeRequest "info" (Map.fromList [("file", ParamFileP $ filePathToUri "HaReRename.hs"),("expr", ParamTextP "main")])
       -- ghc-mod tries to load the test file in the context of the hie project if we do not cd first.
       r <- dispatchRequest req
       r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("main :: IO () \t-- Defined at HaReRename.hs:2:1\n"::String)]))
@@ -93,14 +92,15 @@ ghcmodSpec = do
     -- ---------------------------------
 
     it "runs the type command, incorrect params" $ do
-      let req = IdeRequest "type" (Map.fromList [("file", ParamFileP "./FileWithWarning.hs")])
+      let req = IdeRequest "type" (Map.fromList [("file", ParamFileP $ filePathToUri "./FileWithWarning.hs")])
       r <- dispatchRequest req
       r `shouldBe` Just (IdeResponseFail (IdeError {ideCode = MissingParameter, ideMessage = "need `start_pos` parameter", ideInfo = String "start_pos"}))
 
     -- ---------------------------------
 
     it "runs the type command, correct params" $ do
-      let req = IdeRequest "type" (Map.fromList [("file", ParamFileP "HaReRename.hs")
+      let req = IdeRequest "type" (Map.fromList [("file", ParamFileP $ filePathToUri "HaReRename.hs")
+                                                ,("include_constraints", ParamValP $ ParamBool False)
                                                  ,("start_pos", ParamPosP (toPos (5,9)))])
       r <- dispatchRequest req
       r `shouldBe` Just (IdeResponseOk (H.fromList ["type_info".=toJSON
@@ -116,8 +116,9 @@ ghcmodSpec = do
       bracket (setCurrentDirectory cd2)
               (\_->setCurrentDirectory cd)
               $ \_-> do
-        let req = IdeRequest "type" (Map.fromList [("file", ParamFileP $ T.pack fp)
-                                                   ,("start_pos", ParamPosP (toPos (5,9)))])
+        let req = IdeRequest "type" (Map.fromList [("file", ParamFileP $ filePathToUri fp)
+                                                  ,("include_constraints", ParamValP $ ParamBool False)
+                                                  ,("start_pos", ParamPosP (toPos (5,9)))])
         r <- dispatchRequestNoCd req
         r `shouldBe` Just (IdeResponseOk (H.fromList ["type_info".=toJSON
                           [TypeResult (toPos (5,9)) (toPos (5,10)) "Int"

@@ -4,6 +4,7 @@
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 module Haskell.Ide.ApplyRefactPlugin where
 
 import           Control.Arrow
@@ -53,12 +54,14 @@ applyRefactDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
+
 applyOneCmd :: CommandFunc HieDiff
 applyOneCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
-    Right (ParamFile file :& ParamPos pos :& RNil) -> do
-      res <- liftIO $ applyHint (T.unpack file) (Just pos)
+    Right (ParamFile uri :& ParamPos pos :& RNil) ->
+            pluginGetFile "applyOne: " uri $ \file -> do
+      res <- liftIO $ applyHint file (Just pos)
       logm $ "applyOneCmd:file=" ++ show file
       logm $ "applyOneCmd:res=" ++ show res
       case res of
@@ -73,8 +76,8 @@ applyAllCmd :: CommandFunc HieDiff
 applyAllCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
-    Right (ParamFile file :& RNil) -> do
-      res <- liftIO $ applyHint (T.unpack file) Nothing
+    Right (ParamFile uri :& RNil) -> pluginGetFile "applyAll: " uri $ \file -> do
+      res <- liftIO $ applyHint file Nothing
       logm $ "applyAllCmd:res=" ++ show res
       case res of
         Left err -> return $ IdeResponseFail (IdeError PluginError
@@ -87,12 +90,12 @@ lintCmd :: CommandFunc FileDiagnostics
 lintCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
-    Right (ParamFile file :& RNil) -> do
-      res <- liftIO $ runEitherT $ runLintCmd (T.unpack file) []
+    Right (ParamFile uri :& RNil) -> pluginGetFile "applyAll: " uri $ \file -> do
+      res <- liftIO $ runEitherT $ runLintCmd file []
       logm $ "lint:res=" ++ show res
       case res of
-        Left diags -> return (IdeResponseOk (FileDiagnostics ("file://" ++ T.unpack file) diags))
-        Right fs   -> return (IdeResponseOk (FileDiagnostics ("file://" ++ T.unpack file) (map hintToDiagnostic fs)))
+        Left diags -> return (IdeResponseOk (FileDiagnostics ("file://" ++ file) diags))
+        Right fs   -> return (IdeResponseOk (FileDiagnostics ("file://" ++ file) (map hintToDiagnostic fs)))
 
 runLintCmd :: FilePath -> [String] -> EitherT [Diagnostic] IO [Idea]
 runLintCmd file args =

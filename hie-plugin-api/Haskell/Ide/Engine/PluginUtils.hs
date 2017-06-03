@@ -8,6 +8,7 @@ module Haskell.Ide.Engine.PluginUtils
   (
     getParams
   , mapEithers
+  , pluginGetFile
   , diffFiles
   , diffText
   -- * Helper functions for errors
@@ -31,8 +32,18 @@ import           Prelude hiding (log)
 import           System.FilePath
 
 -- ---------------------------------------------------------------------
+pluginGetFile
+  :: Monad m
+  => T.Text -> Uri -> (FilePath -> m (IdeResponse a)) -> m (IdeResponse a)
+pluginGetFile name uri f =
+  case uriToFilePath uri of
+    Just file -> f file
+    Nothing -> return $ IdeResponseFail (IdeError PluginError
+                 (name <> "Couldn't resolve uri" <> getUri uri) Null)
 
--- |If all the listed params are present in the request resturn their values,
+----------------------------------------
+
+-- |If all the listed params are present in the request return their values,
 -- else return an error message.
 getParams :: (ValidResponse r) =>
   Rec TaggedParamId ts -> IdeRequest -> Either (IdeResponse r) (Rec ParamVal ts)
@@ -49,13 +60,31 @@ getParams params req = go params
     checkOne ::
       TaggedParamId t -> Either (IdeResponse r) (ParamVal t)
     checkOne (IdText param) = case Map.lookup param (ideParams req) of
-      Just (ParamTextP v)  -> Right (ParamText v)
+      Just (ParamValP (ParamText v)) -> Right (ParamText v)
+      _ -> Left (missingParameter param)
+    checkOne (IdInt param) = case Map.lookup param (ideParams req) of
+      Just (ParamValP (ParamInt v)) -> Right (ParamInt v)
+      _ -> Left (missingParameter param)
+    checkOne (IdBool param) = case Map.lookup param (ideParams req) of
+      Just (ParamValP (ParamBool v)) -> Right (ParamBool v)
       _ -> Left (missingParameter param)
     checkOne (IdFile param) = case Map.lookup param (ideParams req) of
-      Just (ParamFileP v)  -> Right (ParamFile v)
+      Just (ParamValP (ParamFile v)) -> Right (ParamFile v)
       _ -> Left (missingParameter param)
     checkOne (IdPos param) = case Map.lookup param (ideParams req) of
-      Just (ParamPosP v)  -> Right (ParamPos v)
+      Just (ParamValP (ParamPos v)) -> Right (ParamPos v)
+      _ -> Left (missingParameter param)
+    checkOne (IdRange param) = case Map.lookup param (ideParams req) of
+      Just (ParamValP (ParamRange v)) -> Right (ParamRange v)
+      _ -> Left (missingParameter param)
+    checkOne (IdLoc param) = case Map.lookup param (ideParams req) of
+      Just (ParamValP (ParamLoc v)) -> Right (ParamLoc v)
+      _ -> Left (missingParameter param)
+    checkOne (IdTextDocId param) = case Map.lookup param (ideParams req) of
+      Just (ParamValP (ParamTextDocId v)) -> Right (ParamTextDocId v)
+      _ -> Left (missingParameter param)
+    checkOne (IdTextDocPos param) = case Map.lookup param (ideParams req) of
+      Just (ParamValP (ParamTextDocPos v)) -> Right (ParamTextDocPos v)
       _ -> Left (missingParameter param)
 
 
