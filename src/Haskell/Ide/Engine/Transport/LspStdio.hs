@@ -309,6 +309,7 @@ reactor st cin cout inp = do
         rid <- nextReqId
         let hreq = CReq "ghcmod" rid (IdeRequest "type" (Map.fromList
                                                     [("file",     ParamFileP doc)
+                                                    ,("include_constraints", ParamValP $ ParamBool False)
                                                     ,("start_pos",ParamValP $ ParamPos pos)
                                                     ])) cout
         liftIO $ atomically $ writeTChan cin hreq
