@@ -12,11 +12,11 @@ packages:
 - hie-hare
 - hie-hoogle
 - hie-docs-generator
-- haskell-lsp
-# - location:
-#     git: https://github.com/alanz/haskell-lsp.git
-#     commit: 7478411bf0dbbd085a67a3fbc5702ce9129b85c1
-#   extra-dep: true
+  #- haskell-lsp
+- location:
+    git: https://github.com/alanz/haskell-lsp.git
+    commit: 66e46b472d2c25f9050e5d84c06d8bbc02c9caa9
+  extra-dep: true
 - location:
     git: https://github.com/alanz/ghc-dump-tree.git
     commit: 9dbca928ad5507b144f46bb95123a08d24f24808
