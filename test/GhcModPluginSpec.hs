@@ -100,7 +100,7 @@ ghcmodSpec = do
 
     it "runs the type command, correct params" $ do
       let req = IdeRequest "type" (Map.fromList [("file", ParamFileP $ filePathToUri "HaReRename.hs")
-                                                ,("include_constraints", ParamValP $ ParamBool False)
+                                                ,("include_constraints", ParamBoolP False)
                                                  ,("start_pos", ParamPosP (toPos (5,9)))])
       r <- dispatchRequest req
       r `shouldBe` Just (IdeResponseOk (H.fromList ["type_info".=toJSON
@@ -117,7 +117,7 @@ ghcmodSpec = do
               (\_->setCurrentDirectory cd)
               $ \_-> do
         let req = IdeRequest "type" (Map.fromList [("file", ParamFileP $ filePathToUri fp)
-                                                  ,("include_constraints", ParamValP $ ParamBool False)
+                                                  ,("include_constraints", ParamBoolP False)
                                                   ,("start_pos", ParamPosP (toPos (5,9)))])
         r <- dispatchRequestNoCd req
         r `shouldBe` Just (IdeResponseOk (H.fromList ["type_info".=toJSON

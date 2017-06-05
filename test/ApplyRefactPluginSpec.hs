@@ -53,8 +53,8 @@ applyRefactSpec = do
 
     it "applies one hint only" $ do
 
-      let req = IdeRequest "applyOne" (Map.fromList [("file",ParamValP $ ParamFile $ filePathToUri "./test/testdata/ApplyRefact.hs")
-                                                    ,("start_pos",ParamValP $ ParamPos (toPos (2,8)))
+      let req = IdeRequest "applyOne" (Map.fromList [("file",ParamFileP $ filePathToUri "./test/testdata/ApplyRefact.hs")
+                                                    ,("start_pos",ParamPosP (toPos (2,8)))
                                                     ])
       r <- dispatchRequest req
       r `shouldBe`
@@ -73,7 +73,7 @@ applyRefactSpec = do
 
     it "applies all hints" $ do
 
-      let req = IdeRequest "applyAll" (Map.fromList [("file",ParamValP $ ParamFile $ filePathToUri "./test/testdata/ApplyRefact.hs")
+      let req = IdeRequest "applyAll" (Map.fromList [("file",ParamFileP $ filePathToUri "./test/testdata/ApplyRefact.hs")
                                                     ])
       r <- dispatchRequest req
       r `shouldBe`
@@ -96,7 +96,7 @@ applyRefactSpec = do
 
     it "returns hints as diagnostics" $ do
 
-      let req = IdeRequest "lint" (Map.fromList [("file",ParamValP $ ParamFile $ filePathToUri "./test/testdata/ApplyRefact.hs")
+      let req = IdeRequest "lint" (Map.fromList [("file",ParamFileP $ filePathToUri "./test/testdata/ApplyRefact.hs")
                                                 ])
       r <- dispatchRequest req
       r `shouldBe`

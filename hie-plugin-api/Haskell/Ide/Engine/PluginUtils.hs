@@ -60,31 +60,31 @@ getParams params req = go params
     checkOne ::
       TaggedParamId t -> Either (IdeResponse r) (ParamVal t)
     checkOne (IdText param) = case Map.lookup param (ideParams req) of
-      Just (ParamValP (ParamText v)) -> Right (ParamText v)
+      Just (ParamTextP v) -> Right (ParamText v)
       _ -> Left (missingParameter param)
     checkOne (IdInt param) = case Map.lookup param (ideParams req) of
-      Just (ParamValP (ParamInt v)) -> Right (ParamInt v)
+      Just (ParamIntP v) -> Right (ParamInt v)
       _ -> Left (missingParameter param)
     checkOne (IdBool param) = case Map.lookup param (ideParams req) of
-      Just (ParamValP (ParamBool v)) -> Right (ParamBool v)
+      Just (ParamBoolP v) -> Right (ParamBool v)
       _ -> Left (missingParameter param)
     checkOne (IdFile param) = case Map.lookup param (ideParams req) of
-      Just (ParamValP (ParamFile v)) -> Right (ParamFile v)
+      Just (ParamFileP v) -> Right (ParamFile v)
       _ -> Left (missingParameter param)
     checkOne (IdPos param) = case Map.lookup param (ideParams req) of
-      Just (ParamValP (ParamPos v)) -> Right (ParamPos v)
+      Just (ParamPosP v) -> Right (ParamPos v)
       _ -> Left (missingParameter param)
     checkOne (IdRange param) = case Map.lookup param (ideParams req) of
-      Just (ParamValP (ParamRange v)) -> Right (ParamRange v)
+      Just (ParamRangeP v) -> Right (ParamRange v)
       _ -> Left (missingParameter param)
     checkOne (IdLoc param) = case Map.lookup param (ideParams req) of
-      Just (ParamValP (ParamLoc v)) -> Right (ParamLoc v)
+      Just (ParamLocP v) -> Right (ParamLoc v)
       _ -> Left (missingParameter param)
     checkOne (IdTextDocId param) = case Map.lookup param (ideParams req) of
-      Just (ParamValP (ParamTextDocId v)) -> Right (ParamTextDocId v)
+      Just (ParamTextDocIdP v) -> Right (ParamTextDocId v)
       _ -> Left (missingParameter param)
     checkOne (IdTextDocPos param) = case Map.lookup param (ideParams req) of
-      Just (ParamValP (ParamTextDocPos v)) -> Right (ParamTextDocPos v)
+      Just (ParamTextDocPosP v) -> Right (ParamTextDocPos v)
       _ -> Left (missingParameter param)
 
 

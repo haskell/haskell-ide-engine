@@ -292,8 +292,8 @@ reactor st cin cout inp = do
         rid <- nextReqId
         let hreq = CReq "hare" rid (IdeRequest "rename" (Map.fromList
                                                     [("file",     ParamFileP doc)
-                                                    ,("start_pos",ParamValP $ ParamPos pos)
-                                                    ,("name",     ParamValP $ ParamText newName)
+                                                    ,("start_pos",ParamPosP pos)
+                                                    ,("name",     ParamTextP newName)
                                                     ])) cout
         liftIO $ atomically $ writeTChan cin hreq
         keepOriginal rid (r, Just doc)
@@ -309,8 +309,8 @@ reactor st cin cout inp = do
         rid <- nextReqId
         let hreq = CReq "ghcmod" rid (IdeRequest "type" (Map.fromList
                                                     [("file",     ParamFileP doc)
-                                                    ,("include_constraints", ParamValP $ ParamBool False)
-                                                    ,("start_pos",ParamValP $ ParamPos pos)
+                                                    ,("include_constraints", ParamBoolP False)
+                                                    ,("start_pos",ParamPosP pos)
                                                     ])) cout
         liftIO $ atomically $ writeTChan cin hreq
         keepOriginal rid (r, Just (params ^. J.textDocument . J.uri))
@@ -379,7 +379,7 @@ reactor st cin cout inp = do
         -- rid <- nextReqId
         -- let hreq = CReq "ghcmod" rid (IdeRequest "type" (Map.fromList
         --                                             [("file",     ParamFileP (T.pack fileName))
-        --                                             ,("start_pos",ParamValP $ ParamPos (toPos (l+1,c+1)))
+        --                                             ,("start_pos",ParamPosP (toPos (l+1,c+1)))
         --                                             ])) cout
         -- liftIO $ atomically $ writeTChan cin hreq
         -- keepOriginal rid r
@@ -399,7 +399,7 @@ reactor st cin cout inp = do
         -- rid <- nextReqId
         -- let hreq = CReq "ghcmod" rid (IdeRequest "type" (Map.fromList
         --                                             [("file",     ParamFileP (T.pack fileName))
-        --                                             ,("start_pos",ParamValP $ ParamPos (toPos (l+1,c+1)))
+        --                                             ,("start_pos",ParamPosP (toPos (l+1,c+1)))
         --                                             ])) cout
         -- liftIO $ atomically $ writeTChan cin hreq
         -- keepOriginal rid r

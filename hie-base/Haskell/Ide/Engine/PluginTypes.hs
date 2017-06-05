@@ -18,8 +18,14 @@ module Haskell.Ide.Engine.PluginTypes
   , ParamValP(..)
   , ParamMap
   , pattern ParamTextP
+  , pattern ParamIntP
+  , pattern ParamBoolP
   , pattern ParamFileP
   , pattern ParamPosP
+  , pattern ParamRangeP
+  , pattern ParamLocP
+  , pattern ParamTextDocIdP
+  , pattern ParamTextDocPosP
   , ParamId
   , TaggedParamId(..)
   , ParamDescription(..)
@@ -259,13 +265,23 @@ instance Eq ParamValP where
  _ == _ = False
 
 pattern ParamTextP :: T.Text -> ParamValP
-pattern ParamTextP t = ParamValP (ParamText t)
-
+pattern ParamTextP x = ParamValP (ParamText x)
+pattern ParamIntP :: Int -> ParamValP
+pattern ParamIntP x = ParamValP (ParamInt x)
+pattern ParamBoolP :: Bool -> ParamValP
+pattern ParamBoolP x = ParamValP (ParamBool x)
 pattern ParamFileP :: Uri -> ParamValP
-pattern ParamFileP f = ParamValP (ParamFile f)
-
+pattern ParamFileP x = ParamValP (ParamFile x)
 pattern ParamPosP :: Position -> ParamValP
-pattern ParamPosP  p = ParamValP (ParamPos p)
+pattern ParamPosP x = ParamValP (ParamPos x)
+pattern ParamRangeP :: Range -> ParamValP
+pattern ParamRangeP x = ParamValP (ParamRange x)
+pattern ParamLocP :: Location -> ParamValP
+pattern ParamLocP x = ParamValP (ParamLoc x)
+pattern ParamTextDocIdP :: TextDocumentIdentifier -> ParamValP
+pattern ParamTextDocIdP x = ParamValP (ParamTextDocId x)
+pattern ParamTextDocPosP :: TextDocumentPositionParams -> ParamValP
+pattern ParamTextDocPosP x = ParamValP (ParamTextDocPos x)
 
 type ParamMap = Map.Map ParamId ParamValP
 

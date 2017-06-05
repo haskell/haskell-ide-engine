@@ -59,9 +59,9 @@ hareSpec = do
 
     it "renames" $ do
 
-      let req = IdeRequest "rename" (Map.fromList [("file",ParamValP $ ParamFile $ filePathToUri "./HaReRename.hs")
-                                                  ,("start_pos",ParamValP $ ParamPos (toPos (5,1)))
-                                                  ,("name",ParamValP $ ParamText "foolong")])
+      let req = IdeRequest "rename" (Map.fromList [("file",ParamFileP $ filePathToUri "./HaReRename.hs")
+                                                  ,("start_pos",ParamPosP (toPos (5,1)))
+                                                  ,("name",ParamTextP "foolong")])
       r <- dispatchRequest req
       r `shouldBe`
         Just (IdeResponseOk (jsWrite (RefactorResult [HieDiff
@@ -78,9 +78,9 @@ hareSpec = do
     -- ---------------------------------
 
     it "returns an error for invalid rename" $ do
-      let req = IdeRequest "rename" (Map.fromList [("file",ParamValP $ ParamFile $ filePathToUri "./HaReRename.hs")
-                                                  ,("start_pos",ParamValP $ ParamPos (toPos (15,1)))
-                                                  ,("name",ParamValP $ ParamText "foolong")])
+      let req = IdeRequest "rename" (Map.fromList [("file",ParamFileP $ filePathToUri "./HaReRename.hs")
+                                                  ,("start_pos",ParamPosP (toPos (15,1)))
+                                                  ,("name",ParamTextP "foolong")])
       r <- dispatchRequest req
       r `shouldBe` Just (IdeResponseFail
                       (IdeError { ideCode = PluginError
@@ -89,8 +89,8 @@ hareSpec = do
     -- ---------------------------------
 
     it "demotes" $ do
-      let req = IdeRequest "demote" (Map.fromList [("file",ParamValP $ ParamFile $ filePathToUri "./HaReDemote.hs")
-                                                  ,("start_pos",ParamValP $ ParamPos (toPos (6,1)))])
+      let req = IdeRequest "demote" (Map.fromList [("file",ParamFileP $ filePathToUri "./HaReDemote.hs")
+                                                  ,("start_pos",ParamPosP (toPos (6,1)))])
       r <- dispatchRequest req
       -- r `shouldBe` Just (IdeResponseOk (H.fromList ["refactor" .= ["test/testdata/HaReDemote.hs"::FilePath]]))
       r `shouldBe` Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff
@@ -113,9 +113,9 @@ hareSpec = do
 
     it "duplicates a definition" $ do
 
-      let req = IdeRequest "dupdef" (Map.fromList [("file",ParamValP $ ParamFile $ filePathToUri "./HaReRename.hs")
-                                                  ,("start_pos",ParamValP $ ParamPos (toPos (5,1)))
-                                                  ,("name",ParamValP $ ParamText "foonew")])
+      let req = IdeRequest "dupdef" (Map.fromList [("file",ParamFileP $ filePathToUri "./HaReRename.hs")
+                                                  ,("start_pos",ParamPosP (toPos (5,1)))
+                                                  ,("name",ParamTextP "foonew")])
       r <- dispatchRequest req
       r `shouldBe` Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff
                                                            (cwd </> "test/testdata/HaReRename.hs")
@@ -130,9 +130,9 @@ hareSpec = do
 
     it "converts if to case" $ do
 
-      let req = IdeRequest "iftocase" (Map.fromList [("file",ParamValP $ ParamFile $ filePathToUri "./HaReCase.hs")
-                                                    ,("start_pos",ParamValP $ ParamPos (toPos (5,9)))
-                                                    ,("end_pos",  ParamValP $ ParamPos (toPos (9,12))) ])
+      let req = IdeRequest "iftocase" (Map.fromList [("file",ParamFileP $ filePathToUri "./HaReCase.hs")
+                                                    ,("start_pos",ParamPosP (toPos (5,9)))
+                                                    ,("end_pos",  ParamPosP (toPos (9,12))) ])
       r <- dispatchRequest req
       r `shouldBe` Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff
                                                            (cwd </> "test/testdata/HaReCase.hs")
@@ -155,8 +155,8 @@ hareSpec = do
 
     it "lifts one level" $ do
 
-      let req = IdeRequest "liftonelevel" (Map.fromList [("file",ParamValP $ ParamFile $ filePathToUri "./HaReMoveDef.hs")
-                                                    ,("start_pos",ParamValP $ ParamPos (toPos (6,5)))])
+      let req = IdeRequest "liftonelevel" (Map.fromList [("file",ParamFileP $ filePathToUri "./HaReMoveDef.hs")
+                                                        ,("start_pos",ParamPosP (toPos (6,5)))])
       r <- dispatchRequest req
       r `shouldBe` Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff
                                                            (cwd </> "test/testdata/HaReMoveDef.hs")
@@ -173,8 +173,8 @@ hareSpec = do
 
     it "lifts to top level" $ do
 
-      let req = IdeRequest "lifttotoplevel" (Map.fromList [("file",ParamValP $ ParamFile $ filePathToUri "./HaReMoveDef.hs")
-                                                          ,("start_pos",ParamValP $ ParamPos (toPos (12,9)))])
+      let req = IdeRequest "lifttotoplevel" (Map.fromList [("file",ParamFileP $ filePathToUri "./HaReMoveDef.hs")
+                                                          ,("start_pos",ParamPosP (toPos (12,9)))])
       r <- dispatchRequest req
       r `shouldBe` Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff
                                                            (cwd </> "test/testdata/HaReMoveDef.hs")
@@ -191,8 +191,8 @@ hareSpec = do
     -- ---------------------------------
 
     it "deletes a definition" $ do
-      let req = IdeRequest "deletedef" (Map.fromList [("file",ParamValP $ ParamFile $ filePathToUri "./FuncTest.hs")
-                                                  ,("start_pos",ParamValP $ ParamPos (toPos (6,1)))])
+      let req = IdeRequest "deletedef" (Map.fromList [("file",ParamFileP $ filePathToUri "./FuncTest.hs")
+                                                  ,("start_pos",ParamPosP (toPos (6,1)))])
       r <- dispatchRequest req
       r `shouldBe` Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff
                                                            (cwd </> "test/testdata/FuncTest.hs")
@@ -206,8 +206,8 @@ hareSpec = do
     -- ---------------------------------
 
     it "generalises an applicative" $ do
-      let req = IdeRequest "genapplicative" (Map.fromList [("file",ParamValP $ ParamFile $ filePathToUri "./HaReGA1.hs")
-                                                  ,("start_pos",ParamValP $ ParamPos (toPos (4,1)))])
+      let req = IdeRequest "genapplicative" (Map.fromList [("file",ParamFileP $ filePathToUri "./HaReGA1.hs")
+                                                          ,("start_pos",ParamPosP (toPos (4,1)))])
       r <- dispatchRequest req
       r `shouldBe` Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff
                                                            (cwd </> "test/testdata/HaReGA1.hs")
