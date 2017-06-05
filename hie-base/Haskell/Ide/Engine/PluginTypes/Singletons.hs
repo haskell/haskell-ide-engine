@@ -69,15 +69,26 @@ data SParamDescription (t :: ParamDescType) where
 
 instance ToJSON ParamType where
   toJSON PtText = String "text"
+  toJSON PtInt = String "int"
+  toJSON PtBool = String "bool"
   toJSON PtFile = String "file"
   toJSON PtPos = String "pos"
-  toJSON _ = undefined
+  toJSON PtRange = String "range"
+  toJSON PtLoc = String "loc"
+  toJSON PtTextDocId = String "textdocid"
+  toJSON PtTextDocPos = String "textdocpos"
 
 
 instance FromJSON ParamType where
   parseJSON (String "text") = pure PtText
+  parseJSON (String "int") = pure PtInt
+  parseJSON (String "bool") = pure PtBool
   parseJSON (String "file") = pure PtFile
-  parseJSON (String "pos")  = pure PtPos
+  parseJSON (String "pos") = pure PtPos
+  parseJSON (String "range") = pure PtRange
+  parseJSON (String "loc") = pure PtLoc
+  parseJSON (String "textdocid") = pure PtTextDocId
+  parseJSON (String "textdocpos") = pure PtTextDocPos
   parseJSON _               = empty
 
 instance ToJSON AcceptedContext where
