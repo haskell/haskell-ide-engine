@@ -174,6 +174,13 @@ functionalSpec = do
                                                    ,("start_pos",ParamPosP (toPos (8,1)))])
       r3 <- dispatchRequest cin cout (CReq "hare" 3 req3 cout)
       r3 `shouldBe`
-        Just (IdeResponseOk $ jsWrite RefactorResult {rrDiffs = [WorkspaceEdit {_changes = Just (H.fromList [(filePathToUri $ cwd </> "FuncTest.hs",List [TextEdit {_range = Range {_start = Position {_line = 6, _character = 0}, _end = Position {_line = 7, _character = 6}}, _newText = "  where\n    bb = 5"}])]), _documentChanges = Nothing}]})
+        Just (IdeResponseOk
+              $ jsWrite
+              $ RefactorResult
+              [WorkspaceEdit
+                (Just $ H.singleton (filePathToUri $ cwd </> "FuncTest.hs")
+                                    $ List [TextEdit (Range (Position 6 0) (Position 7 6))
+                                                     "  where\n    bb = 5"])
+                Nothing])
 {- -}
 

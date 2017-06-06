@@ -1,6 +1,5 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE DuplicateRecordFields   #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 module HaRePluginSpec where
 
 import           Control.Concurrent.STM.TChan
@@ -67,11 +66,14 @@ hareSpec = do
                                                   ,("name",ParamTextP "foolong")])
       r <- dispatchRequest req
       r `shouldBe`
-        Just (IdeResponseOk $
-              jsWrite
+        Just (IdeResponseOk
+              $ jsWrite
               $ RefactorResult
               [WorkspaceEdit
-              {_changes = Just (H.fromList [(filePathToUri $ cwd </> "test/testdata/HaReRename.hs",List [TextEdit {_range = Range {_start = Position {_line = 3, _character = 0}, _end = Position {_line = 4, _character = 13}}, _newText = "foolong :: Int -> Int\nfoolong x = x + 3"}])]), _documentChanges = Nothing}] )
+                (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReRename.hs")
+                                    $ List [TextEdit (Range (Position 3 0) (Position 4 13))
+                                              "foolong :: Int -> Int\nfoolong x = x + 3"])
+                Nothing] )
 
     -- ---------------------------------
 
@@ -91,7 +93,15 @@ hareSpec = do
                                                   ,("start_pos",ParamPosP (toPos (6,1)))])
       r <- dispatchRequest req
       -- r `shouldBe` Just (IdeResponseOk (H.fromList ["refactor" .= ["test/testdata/HaReDemote.hs"::FilePath]]))
-      r `shouldBe` Just (IdeResponseOk $ jsWrite $ RefactorResult {rrDiffs = [WorkspaceEdit {_changes = Just (H.fromList [(filePathToUri $ cwd </> "test/testdata/HaReDemote.hs",List [TextEdit {_range = Range {_start = Position {_line = 4, _character = 0}, _end = Position {_line = 5, _character = 5}}, _newText = "  where\n    y = 7"}])]), _documentChanges = Nothing}]} )
+      r `shouldBe`
+        Just (IdeResponseOk
+              $ jsWrite
+              $ RefactorResult
+              [WorkspaceEdit
+                (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReDemote.hs")
+                                    $ List [TextEdit (Range (Position 4 0) (Position 5 5))
+                                              "  where\n    y = 7"])
+                Nothing] )
 
     -- ---------------------------------
 
@@ -101,7 +111,15 @@ hareSpec = do
                                                   ,("start_pos",ParamPosP (toPos (5,1)))
                                                   ,("name",ParamTextP "foonew")])
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk $ jsWrite $ RefactorResult {rrDiffs = [WorkspaceEdit {_changes = Just (H.fromList [(filePathToUri $ cwd </> "test/testdata/HaReRename.hs",List [TextEdit {_range = Range {_start = Position {_line = 6, _character = 0}, _end = Position {_line = 8, _character = 0}}, _newText = "foonew :: Int -> Int\nfoonew x = x + 3\n\n"}])]), _documentChanges = Nothing}]})
+      r `shouldBe`
+        Just (IdeResponseOk
+              $ jsWrite
+              $ RefactorResult
+              [WorkspaceEdit
+                (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReRename.hs")
+                                    $ List [TextEdit (Range (Position 6 0) (Position 8 0))
+                                              "foonew :: Int -> Int\nfoonew x = x + 3\n\n"])
+                Nothing])
 
     -- ---------------------------------
 
@@ -111,7 +129,16 @@ hareSpec = do
                                                     ,("start_pos",ParamPosP (toPos (5,9)))
                                                     ,("end_pos",  ParamPosP (toPos (9,12))) ])
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk $ jsWrite $ RefactorResult {rrDiffs = [WorkspaceEdit {_changes = Just (H.fromList [(filePathToUri $ cwd </> "test/testdata/HaReCase.hs",List [TextEdit {_range = Range {_start = Position {_line = 4, _character = 0}, _end = Position {_line = 8, _character = 11}}, _newText = "foo x = case odd x of\n  True  ->\n    x + 3\n  False ->\n    x"}])]), _documentChanges = Nothing}]})
+      r `shouldBe`
+        Just (IdeResponseOk
+              $ jsWrite
+              $ RefactorResult
+              [WorkspaceEdit
+                (Just
+                 $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReCase.hs")
+                               $ List [TextEdit (Range (Position 4 0) (Position 8 11))
+                                       "foo x = case odd x of\n  True  ->\n    x + 3\n  False ->\n    x"])
+                Nothing])
 
     -- ---------------------------------
 
@@ -120,7 +147,16 @@ hareSpec = do
       let req = IdeRequest "liftonelevel" (Map.fromList [("file",ParamFileP $ filePathToUri "./HaReMoveDef.hs")
                                                         ,("start_pos",ParamPosP (toPos (6,5)))])
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk $ jsWrite $ RefactorResult {rrDiffs = [WorkspaceEdit {_changes = Just (H.fromList [(filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs",List [TextEdit {_range = Range {_start = Position {_line = 4, _character = 0}, _end = Position {_line = 5, _character = 9}}, _newText = ""},TextEdit {_range = Range {_start = Position {_line = 5, _character = 0}, _end = Position {_line = 6, _character = 0}}, _newText = "y = 4\n\n"}])]), _documentChanges = Nothing}]})
+      r `shouldBe`
+        Just (IdeResponseOk
+              $ jsWrite
+              $ RefactorResult
+              [WorkspaceEdit
+                (Just $ H.singleton
+                  ( filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs" )
+                  $ List [TextEdit (Range (Position 4 0) (Position 5 9)) ""
+                         ,TextEdit (Range (Position 5 0) (Position 6 0)) "y = 4\n\n"])
+                Nothing])
 
     -- ---------------------------------
 
@@ -129,7 +165,17 @@ hareSpec = do
       let req = IdeRequest "lifttotoplevel" (Map.fromList [("file",ParamFileP $ filePathToUri "./HaReMoveDef.hs")
                                                           ,("start_pos",ParamPosP (toPos (12,9)))])
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk $ jsWrite $ RefactorResult {rrDiffs = [WorkspaceEdit {_changes = Just (H.fromList [(filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs",List [TextEdit {_range = Range {_start = Position {_line = 10, _character = 0}, _end = Position {_line = 11, _character = 13}}, _newText = ""},TextEdit {_range = Range {_start = Position {_line = 11, _character = 0}, _end = Position {_line = 11, _character = 5}}, _newText = "z = 7\n"},TextEdit {_range = Range {_start = Position {_line = 13, _character = 0}, _end = Position {_line = 13, _character = 0}}, _newText = "\n"}])]), _documentChanges = Nothing}]})
+      r `shouldBe`
+        Just (IdeResponseOk
+              $ jsWrite
+              $ RefactorResult
+              [WorkspaceEdit
+               (Just $ H.singleton
+                  ( filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs")
+                  $ List [TextEdit (Range (Position 10 0) (Position 11 13)) ""
+                         ,TextEdit (Range (Position 11 0) (Position 11 5)) "z = 7\n"
+                         ,TextEdit (Range (Position 13 0) (Position 13 0)) "\n"])
+               Nothing])
 
     -- ---------------------------------
 
@@ -137,7 +183,14 @@ hareSpec = do
       let req = IdeRequest "deletedef" (Map.fromList [("file",ParamFileP $ filePathToUri "./FuncTest.hs")
                                                   ,("start_pos",ParamPosP (toPos (6,1)))])
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk $ jsWrite $ RefactorResult {rrDiffs = [WorkspaceEdit {_changes = Just (H.fromList [(filePathToUri $ cwd </> "test/testdata/FuncTest.hs",List [TextEdit {_range = Range {_start = Position {_line = 4, _character = 0}, _end = Position {_line = 6, _character = 0}}, _newText = ""}])]), _documentChanges = Nothing}]})
+      r `shouldBe`
+        Just (IdeResponseOk
+              $ jsWrite
+              $ RefactorResult
+              [WorkspaceEdit
+               (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/FuncTest.hs")
+                                   $ List [TextEdit (Range (Position 4 0) (Position 6 0)) ""])
+               Nothing])
 
     -- ---------------------------------
 
@@ -145,6 +198,14 @@ hareSpec = do
       let req = IdeRequest "genapplicative" (Map.fromList [("file",ParamFileP $ filePathToUri "./HaReGA1.hs")
                                                           ,("start_pos",ParamPosP (toPos (4,1)))])
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk $ jsWrite $ RefactorResult {rrDiffs = [WorkspaceEdit {_changes = Just (H.fromList [(filePathToUri $ cwd </> "test/testdata/HaReGA1.hs",List [TextEdit {_range = Range {_start = Position {_line = 4, _character = 0}, _end = Position {_line = 8, _character = 12}}, _newText = "parseStr = char '\"' *> (many1 (noneOf \"\\\"\")) <* char '\"'"}])]), _documentChanges = Nothing}]})
+      r `shouldBe`
+        Just (IdeResponseOk
+             $ jsWrite
+             $ RefactorResult
+             [WorkspaceEdit
+               (Just $ H.singleton ( filePathToUri $ cwd </> "test/testdata/HaReGA1.hs" )
+                                   $ List [TextEdit (Range (Position 4 0) (Position 8 12))
+                                            "parseStr = char '\"' *> (many1 (noneOf \"\\\"\")) <* char '\"'"])
+               Nothing])
 
     -- ---------------------------------

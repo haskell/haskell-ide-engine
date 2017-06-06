@@ -61,7 +61,13 @@ applyRefactSpec = do
                                                     ])
       r <- dispatchRequest req
       r `shouldBe`
-        Just (IdeResponseOk $ jsWrite $ WorkspaceEdit {_changes = Just (H.fromList [(Uri {getUri = "file://./test/testdata/ApplyRefact.hs"},List [TextEdit {_range = Range {_start = Position {_line = 1, _character = 0}, _end = Position {_line = 1, _character = 25}}, _newText = "main = putStrLn \"hello\""}])]), _documentChanges = Nothing})
+        Just (IdeResponseOk
+              $ jsWrite
+              $ WorkspaceEdit
+                (Just $ H.singleton (filePathToUri "./test/testdata/ApplyRefact.hs")
+                                    $ List [TextEdit (Range (Position 1 0) (Position 1 25))
+                                              "main = putStrLn \"hello\""])
+                Nothing)
 
     -- ---------------------------------
 
@@ -71,7 +77,16 @@ applyRefactSpec = do
                                                     ])
       r <- dispatchRequest req
       r `shouldBe`
-        Just (IdeResponseOk $ jsWrite $ WorkspaceEdit {_changes = Just (H.fromList [(Uri {getUri = "file://./test/testdata/ApplyRefact.hs"},List [TextEdit {_range = Range {_start = Position {_line = 1, _character = 0}, _end = Position {_line = 1, _character = 25}}, _newText = "main = putStrLn \"hello\""},TextEdit {_range = Range {_start = Position {_line = 3, _character = 0}, _end = Position {_line = 3, _character = 15}}, _newText = "foo x = x + 1"}])]), _documentChanges = Nothing})
+        Just (IdeResponseOk
+              $ jsWrite
+              $ WorkspaceEdit
+                (Just
+                  $ H.singleton (filePathToUri "./test/testdata/ApplyRefact.hs")
+                              $ List [TextEdit (Range (Position 1 0) (Position 1 25))
+                                        "main = putStrLn \"hello\""
+                                     ,TextEdit (Range (Position 3 0) (Position 3 15))
+                                        "foo x = x + 1"])
+                Nothing)
 
     -- ---------------------------------
 
