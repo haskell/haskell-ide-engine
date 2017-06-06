@@ -259,9 +259,15 @@ deriving instance Show ParamValP
 
 deriving instance Eq (ParamVal t)
 instance Eq ParamValP where
- (ParamTextP t) == (ParamTextP t') = t == t'
- (ParamFileP f) == (ParamFileP f') = f == f'
- (ParamPosP  p) == (ParamPosP p') = p == p'
+ (ParamTextP x) == (ParamTextP y) = x == y
+ (ParamIntP x) == (ParamIntP y) = x == y
+ (ParamBoolP x) == (ParamBoolP y) = x == y
+ (ParamFileP x) == (ParamFileP y) = x == y
+ (ParamPosP x) == (ParamPosP y) = x == y
+ (ParamRangeP x) == (ParamRangeP y) = x == y
+ (ParamLocP x) == (ParamLocP y) = x == y
+ (ParamTextDocIdP x) == (ParamTextDocIdP y) = x == y
+ (ParamTextDocPosP x) == (ParamTextDocPosP y) = x == y
  _ == _ = False
 
 pattern ParamTextP :: T.Text -> ParamValP

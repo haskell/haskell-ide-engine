@@ -160,6 +160,12 @@ dispatcherSpec = do
                                                     ,("txt",  ParamTextP "a")
                                                     ,("file", ParamFileP $ filePathToUri "f")
                                                     ,("pos",  ParamPosP (toPos (1,2)))
+                                                    ,("int", ParamIntP 4 )
+                                                    ,("bool", ParamBoolP False )
+                                                    ,("range", ParamRangeP $ Range (toPos (1,2)) (toPos (3,4)))
+                                                    ,("loc", ParamLocP $ Location (filePathToUri "a") $ Range (toPos (1,2)) (toPos (3,4)))
+                                                    ,("textDocId", ParamTextDocIdP $ TextDocumentIdentifier $ filePathToUri "ad" )
+                                                    ,("textDocPos", ParamTextDocPosP $ TextDocumentPositionParams (TextDocumentIdentifier $ filePathToUri "asd") (toPos (1,2)) )
                                                     ])
           cr = CReq "test" 1 req chan
       r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
@@ -175,6 +181,12 @@ dispatcherSpec = do
                                                     ,("txt",  ParamFileP $ filePathToUri "a")
                                                     ,("file", ParamFileP $ filePathToUri "f")
                                                     ,("pos",  ParamPosP (toPos (1,2)))
+                                                    ,("int", ParamIntP 4 )
+                                                    ,("bool", ParamBoolP False )
+                                                    ,("range", ParamRangeP $ Range (toPos (1,2)) (toPos (3,4)))
+                                                    ,("loc", ParamLocP $ Location (filePathToUri "a") $ Range (toPos (1,2)) (toPos (3,4)))
+                                                    ,("textDocId", ParamTextDocIdP $ TextDocumentIdentifier $ filePathToUri "ad" )
+                                                    ,("textDocPos", ParamTextDocPosP $ TextDocumentPositionParams (TextDocumentIdentifier $ filePathToUri "asd") (toPos (1,2)) )
                                                     ])
           cr = CReq "test" 1 req chan
       r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
@@ -268,6 +280,12 @@ testDescriptor chSync = PluginDescriptor
       , mkCmdWithContext "cmdextra" [CtxFile] [ RP "txt"  "help" PtText
                                               , RP "file" "help" PtFile
                                               , RP "pos"  "help" PtPos
+                                              , RP "int" "help" PtInt
+                                              , RP "bool" "help" PtBool
+                                              , RP "range" "help" PtRange
+                                              , RP "loc" "help" PtLoc
+                                              , RP "textDocId" "help" PtTextDocId
+                                              , RP "textDocPos" "help" PtTextDocPos
                                               ]
 
       , mkCmdWithContext "cmdoptional" [CtxNone] [ RP "txt"   "help" PtText

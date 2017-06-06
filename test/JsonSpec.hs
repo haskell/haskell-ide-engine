@@ -124,11 +124,29 @@ instance Arbitrary Uri where
 
 instance Arbitrary ParamValP where
   arbitrary = do
-    i <- choose (1::Int,3)
+    i <- choose (1::Int,9)
     case i of
-      1 -> ParamValP . ParamText <$> arbitrary
-      2 -> ParamValP . ParamFile <$> arbitrary
-      _ -> ParamValP . ParamPos <$> arbitrary
+      1 -> ParamTextP       <$> arbitrary
+      2 -> ParamIntP        <$> arbitrary
+      3 -> ParamBoolP       <$> arbitrary
+      4 -> ParamFileP       <$> arbitrary
+      5 -> ParamPosP        <$> arbitrary
+      6 -> ParamRangeP      <$> arbitrary
+      7 -> ParamLocP        <$> arbitrary
+      8 -> ParamTextDocIdP  <$> arbitrary
+      _ -> ParamTextDocPosP <$> arbitrary
+
+instance Arbitrary Range where
+  arbitrary = Range <$> arbitrary <*> arbitrary
+
+instance Arbitrary Location where
+  arbitrary = Location <$> arbitrary <*> arbitrary
+
+instance Arbitrary TextDocumentIdentifier where
+  arbitrary = TextDocumentIdentifier <$> arbitrary
+
+instance Arbitrary TextDocumentPositionParams where
+  arbitrary = TextDocumentPositionParams <$> arbitrary <*> arbitrary
 
 instance Arbitrary CabalSection where
   arbitrary = CabalSection <$> arbitrary
