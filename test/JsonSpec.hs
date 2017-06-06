@@ -44,7 +44,6 @@ jsonSpec = do
     prop "ExtendedCommandDescriptor" (propertyValidRoundtrip :: ExtendedCommandDescriptor -> Bool)
     prop "IdePlugins" (propertyValidRoundtrip :: IdePlugins -> Bool)
     prop "TypeInfo" (propertyValidRoundtrip :: TypeInfo -> Bool)
-    prop "RefactorResult" (propertyValidRoundtrip :: RefactorResult -> Bool)
     prop "ModuleList" (propertyValidRoundtrip :: ModuleList -> Bool)
 
   describe "General JSON instances round trip" $ do
@@ -161,12 +160,6 @@ instance Arbitrary TypeResult where
 
 instance Arbitrary IdePlugins where
   arbitrary = IdePlugins <$> arbitrary
-
-instance Arbitrary RefactorResult where
-  arbitrary = RefactorResult <$> smallList arbitrary
-
-instance Arbitrary HieDiff where
-  arbitrary = HieDiff <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance Arbitrary ModuleList where
   arbitrary = ModuleList <$> smallList arbitrary

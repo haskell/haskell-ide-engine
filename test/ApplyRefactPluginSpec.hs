@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DuplicateRecordFields   #-}
 module ApplyRefactPluginSpec where
 
 import           Control.Concurrent.STM.TChan
@@ -11,6 +12,8 @@ import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.ApplyRefactPlugin
+import           Language.Haskell.LSP.TH.DataTypesJSON
+import qualified Data.HashMap.Strict as H
 import           TestUtils
 
 import           Test.Hspec
@@ -50,7 +53,7 @@ applyRefactSpec = do
   describe "apply-refact plugin commands" $ do
 
     -- ---------------------------------
-
+    
     it "applies one hint only" $ do
 
       let req = IdeRequest "applyOne" (Map.fromList [("file",ParamFileP $ filePathToUri "./test/testdata/ApplyRefact.hs")
@@ -58,16 +61,7 @@ applyRefactSpec = do
                                                     ])
       r <- dispatchRequest req
       r `shouldBe`
-        Just (IdeResponseOk (jsWrite (HieDiff
-                                      { dFirst = "./test/testdata/ApplyRefact.hs"
-                                      , dSecond = "changed"
-                                      , dDiff =
-                                        ("2c2\n"++
-                                         "< main = (putStrLn \"hello\")\n"++
-                                         "---\n"++
-                                         "> main = putStrLn \"hello\"\n")
-                                      }
-                                     )))
+        Just (IdeResponseOk $ jsWrite $ WorkspaceEdit {_changes = Just (H.fromList [(Uri {getUri = "file://./test/testdata/ApplyRefact.hs"},List [TextEdit {_range = Range {_start = Position {_line = 1, _character = 0}, _end = Position {_line = 1, _character = 25}}, _newText = "main = putStrLn \"hello\""}])]), _documentChanges = Nothing})
 
     -- ---------------------------------
 
@@ -77,20 +71,7 @@ applyRefactSpec = do
                                                     ])
       r <- dispatchRequest req
       r `shouldBe`
-        Just (IdeResponseOk (jsWrite (HieDiff
-                                      { dFirst = "./test/testdata/ApplyRefact.hs"
-                                      , dSecond = "changed"
-                                      , dDiff =
-                                        ("2c2\n"++
-                                         "< main = (putStrLn \"hello\")\n"++
-                                         "---\n"++
-                                         "> main = putStrLn \"hello\"\n"++
-                                         "4c4\n"++
-                                         "< foo x = (x + 1)\n"++
-                                         "---\n"++
-                                         "> foo x = x + 1\n")
-                                      }
-                                     )))
+        Just (IdeResponseOk $ jsWrite $ WorkspaceEdit {_changes = Just (H.fromList [(Uri {getUri = "file://./test/testdata/ApplyRefact.hs"},List [TextEdit {_range = Range {_start = Position {_line = 1, _character = 0}, _end = Position {_line = 1, _character = 25}}, _newText = "main = putStrLn \"hello\""},TextEdit {_range = Range {_start = Position {_line = 3, _character = 0}, _end = Position {_line = 3, _character = 15}}, _newText = "foo x = x + 1"}])]), _documentChanges = Nothing})
 
     -- ---------------------------------
 
@@ -101,7 +82,7 @@ applyRefactSpec = do
       r <- dispatchRequest req
       r `shouldBe`
         Just (IdeResponseOk (jsWrite (FileDiagnostics
-                                      { fdFileName = "file://./test/testdata/ApplyRefact.hs"
+                                      { fdFileName = filePathToUri "./test/testdata/ApplyRefact.hs"
                                       , fdDiagnostics =
                                         [ Diagnostic (Range (Position 1 7) (Position 1 25))
                                                      (Just DsHint)

@@ -7,7 +7,7 @@ module Haskell.Ide.Engine.SemanticTypes
   ( TypeInfo(..)
   , TypeResult(..)
   , RefactorResult(..)
-  , HieDiff(..)
+  , WorkspaceEdit(..)
   , ModuleList(..)
   , AST(..)
   , FileDiagnostics(..)
@@ -25,7 +25,7 @@ import qualified Data.HashMap.Strict as H
 import qualified Data.Text as T
 import           GHC.Generics
 import           Haskell.Ide.Engine.PluginTypes
-import           Language.Haskell.LSP.TH.DataTypesJSON (Diagnostic(..), Position(..), Range(..), DiagnosticSeverity(..), TextDocumentIdentifier(..))
+import           Language.Haskell.LSP.TH.DataTypesJSON (Diagnostic(..), Position(..), Range(..), DiagnosticSeverity(..), TextDocumentIdentifier(..), WorkspaceEdit(..))
 
 -- ---------------------------------------------------------------------
 -- Specific response type
@@ -50,26 +50,7 @@ data RefactorResult = RefactorResult
 
 -- | A diff between two files, typically the first one will be the one from the
 -- IDE, the second from the tool
-data HieDiff = HieDiff
-  { dFirst  :: !FilePath
-  , dSecond :: !FilePath
-  , dDiff   :: !String
-    {- ^ Diff of the form
-    5,9c5,9
-    < foo x = if odd x
-    <         then
-    <           x + 3
-    <         else
-    <           x
-    ---
-    > foo x = case odd x of
-    >   True  ->
-    >             x + 3
-    >   False ->
-    >             x
-    -}
-  -- , dGroupedDiff :: !([Diff [String]])
-  } deriving (Show,Eq,Generic)
+type HieDiff = WorkspaceEdit
 deriving instance Generic (Diff [String])
 
 -- ---------------------------------------------------------------------
@@ -94,7 +75,7 @@ data AST = AST {
 
 data FileDiagnostics =
   FileDiagnostics
-    { fdFileName    :: FilePath
+    { fdFileName    :: Uri
     , fdDiagnostics :: [Diagnostic]
     } deriving (Show, Read, Eq,Generic)
 
@@ -138,19 +119,6 @@ instance FromJSON RefactorResult where
 instance ValidResponse HieDiff where
   jsWrite d = H.fromList ["diff" .= d]
   jsRead v =  v .: "diff"
-
-instance ToJSON HieDiff where
-  toJSON (HieDiff f s d) =
-      object [ "first"  .= toJSON f
-             , "second" .= toJSON s
-             , "diff"   .= toJSON d
-             ]
-
-instance FromJSON HieDiff where
-  parseJSON = withObject "HieDiff" $ \v -> HieDiff
-    <$> (v .: "first")
-    <*> (v .: "second")
-    <*> (v .: "diff")
 
 -- ---------------------------------------------------------------------
 

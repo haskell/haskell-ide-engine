@@ -55,7 +55,7 @@ applyRefactDescriptor = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 
-applyOneCmd :: CommandFunc HieDiff
+applyOneCmd :: CommandFunc WorkspaceEdit
 applyOneCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
@@ -72,7 +72,7 @@ applyOneCmd = CmdSync $ \_ctxs req -> do
 
 -- ---------------------------------------------------------------------
 
-applyAllCmd :: CommandFunc HieDiff
+applyAllCmd :: CommandFunc WorkspaceEdit
 applyAllCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
@@ -94,8 +94,8 @@ lintCmd = CmdSync $ \_ctxs req -> do
       res <- liftIO $ runEitherT $ runLintCmd file []
       logm $ "lint:res=" ++ show res
       case res of
-        Left diags -> return (IdeResponseOk (FileDiagnostics ("file://" ++ file) diags))
-        Right fs   -> return (IdeResponseOk (FileDiagnostics ("file://" ++ file) (map hintToDiagnostic fs)))
+        Left diags -> return (IdeResponseOk (FileDiagnostics (filePathToUri file) diags))
+        Right fs   -> return (IdeResponseOk (FileDiagnostics (filePathToUri file) (map hintToDiagnostic fs)))
 
 runLintCmd :: FilePath -> [String] -> EitherT [Diagnostic] IO [Idea]
 runLintCmd file args =
@@ -202,7 +202,7 @@ ss2Range ss = Range ps pe
 
 -- ---------------------------------------------------------------------
 
-applyHint :: FilePath -> Maybe Position -> IO (Either String HieDiff)
+applyHint :: FilePath -> Maybe Position -> IO (Either String WorkspaceEdit)
 applyHint file mpos = do
   withTempFile $ \f -> do
     let optsf = "-o " ++ f
@@ -229,9 +229,7 @@ runHlint file args =
 showParseError :: Hlint.ParseError -> String
 showParseError (Hlint.ParseError location message content) = unlines [show location, message, content]
 
-makeDiffResult :: FilePath -> T.Text -> IO HieDiff
+makeDiffResult :: FilePath -> T.Text -> IO WorkspaceEdit
 makeDiffResult orig new = do
   origText <- T.readFile orig
-  let (HieDiff f _ d) = diffText (orig,origText) ("changed",new)
-  -- f' <- liftIO $ makeRelativeToCurrentDirectory f
-  return (HieDiff f "changed" d)
+  return $ diffText (filePathToUri orig,origText) new

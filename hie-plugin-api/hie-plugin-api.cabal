@@ -32,6 +32,7 @@ library
                      , ghc
                      , ghc-mod >= 5.6.0.0
                      , hie-base
+                     , haskell-lsp
                      , lifted-base
                      , monad-control
                      , monad-logger

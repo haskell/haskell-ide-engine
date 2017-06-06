@@ -9,6 +9,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE DuplicateRecordFields   #-}
 {-
 
 Start up an actual instance of the HIE server, and interact with it.
@@ -39,6 +40,7 @@ import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Transport.JsonHttp
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.Utils
+import           Language.Haskell.LSP.TH.DataTypesJSON hiding (error, name)
 import           System.Directory
 import           System.FilePath
 import           TestUtils
@@ -131,7 +133,7 @@ functionalSpec = do
       r1 <- dispatchRequest cin cout (CReq "applyrefact" 1 req1 cout)
       r1 `shouldBe`
         Just (IdeResponseOk (jsWrite (FileDiagnostics
-                                      { fdFileName = "file://./FuncTest.hs"
+                                      { fdFileName = filePathToUri "./FuncTest.hs"
                                       , fdDiagnostics =
                                         [ Diagnostic (Range (Position 9 6) (Position 10 18))
                                                      (Just DsWarning)
@@ -172,8 +174,6 @@ functionalSpec = do
                                                    ,("start_pos",ParamPosP (toPos (8,1)))])
       r3 <- dispatchRequest cin cout (CReq "hare" 3 req3 cout)
       r3 `shouldBe`
-        Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff (cwd </> "FuncTest.hs")
-                                                               (cwd </> "FuncTest.refactored.hs")
-                                                                "7,8c7,8\n< \n< bb = 5\n---\n>   where\n>     bb = 5\n"]))
+        Just (IdeResponseOk $ jsWrite RefactorResult {rrDiffs = [WorkspaceEdit {_changes = Just (H.fromList [(filePathToUri $ cwd </> "FuncTest.hs",List [TextEdit {_range = Range {_start = Position {_line = 6, _character = 0}, _end = Position {_line = 7, _character = 6}}, _newText = "  where\n    bb = 5"}])]), _documentChanges = Nothing}]})
 {- -}
 

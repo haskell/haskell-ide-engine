@@ -27,6 +27,7 @@ import           Data.Algorithm.DiffOutput
 import           Data.Default
 import           Data.Either
 import           Data.Monoid ( (<>) )
+import           Data.Foldable
 import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import qualified Data.Text as T
@@ -540,8 +541,8 @@ toWorkspaceEdit r = v
         _            -> []
 
     hieDiff =
-      case J.parse jsRead r :: J.Result HieDiff of
-        J.Success vv -> [J.ApplyWorkspaceEditParams $ refactorResultToWorkspaceEdit (RefactorResult [vv])]
+      case J.parse jsRead r :: J.Result WorkspaceEdit of
+        J.Success vv -> [J.ApplyWorkspaceEditParams $ vv]
         _            -> []
 
     v = case refactorResult ++ hieDiff of
@@ -635,47 +636,8 @@ responseHandlerCb _rin _lf resp = do
 
 -- TODO: perhaps move this somewhere else, for general use
 refactorResultToWorkspaceEdit :: RefactorResult -> J.WorkspaceEdit
-refactorResultToWorkspaceEdit (RefactorResult diffs) = J.WorkspaceEdit (Just r) Nothing
-  where
-    r = H.fromList $ map hieDiffToLspEdit diffs
+refactorResultToWorkspaceEdit (RefactorResult diffs) = fold diffs
 
--- TODO: perhaps move this somewhere else, for general use
-hieDiffToLspEdit :: HieDiff -> (T.Text, J.List (J.TextEdit))
-hieDiffToLspEdit (HieDiff f _ d) = (T.pack ("file://" ++ f), J.List r)
-  where
-    pd = parsePrettyDiffs d
-    r = map diffOperationToTextEdit pd
-
-    {-
-    hie: hieDiffToLspEdit:pd=
-     [Change (LineRange {lrNumbers = (8,8), lrContents = ["baz = do"]})
-             (LineRange {lrNumbers = (8,8), lrContents = ["baz ="]})]
-    -}
-
-    diffOperationToTextEdit :: DiffOperation LineRange -> J.TextEdit
-    diffOperationToTextEdit (Change fm to) = J.TextEdit range nt
-      where
-        range = calcRange fm
-        nt = T.pack $ init $ unlines $ lrContents to
-
-    diffOperationToTextEdit (Deletion fm _) = J.TextEdit range ""
-      where
-        range = calcRange fm
-
-    diffOperationToTextEdit (Addition fm _) = J.TextEdit range nt
-      where
-        range = calcRange fm
-        nt = T.pack $ unlines $ lrContents fm
-
-
-    calcRange fm = J.Range s e
-      where
-        sl = fst $ lrNumbers fm
-        sc = 0
-        s = J.Position (sl - 1) sc -- Note: zero-based lines
-        el = snd $ lrNumbers fm
-        ec = length $ last $ lrContents fm
-        e = J.Position (el - 1) ec  -- Note: zero-based lines
 {-
 
 Turn

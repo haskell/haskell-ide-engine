@@ -154,6 +154,7 @@ test-suite haskell-ide-test
                      , fast-logger
                      , filepath
                      , ghc-mod
+                     , haskell-lsp
                      , haskell-ide-engine
                      , hie-apply-refact
                      , hie-base
@@ -194,6 +195,7 @@ test-suite haskell-ide-func-test
                      , fast-logger
                      , filepath
                      , ghc-mod
+                     , haskell-lsp
                      , haskell-ide-engine
                      , hie-apply-refact
                      , hie-base

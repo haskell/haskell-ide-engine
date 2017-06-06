@@ -9,8 +9,8 @@ module Haskell.Ide.Engine.PluginUtils
     getParams
   , mapEithers
   , pluginGetFile
-  , diffFiles
   , diffText
+  , diffFiles
   -- * Helper functions for errors
   , missingParameter
   , incorrectParameter
@@ -24,10 +24,11 @@ import qualified Data.Map as Map
 import           Data.Monoid
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
+import qualified Data.HashMap.Strict as H
 import           Data.Vinyl
-import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
+import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 import           Prelude hiding (log)
 import           System.FilePath
 
@@ -119,21 +120,46 @@ incorrectParameter name expected value = IdeResponseFail
 
 -- ---------------------------------------------------------------------
 
--- |Generate a 'HieDiff' value from a pair of files
-diffFiles :: FilePath -> FilePath -> IO HieDiff
+diffFiles :: FilePath -> FilePath -> IO WorkspaceEdit
 diffFiles f1 f2 = do
-  f1Text <- T.readFile f1
-  f2Text <- T.readFile f2
-  let dt = diffText (f1,f1Text) (f2,f2Text)
-  logm $ "diffFiles:diff=[" ++ dDiff dt ++ "]"
-  return dt
+  t1 <- T.readFile f1
+  t2 <- T.readFile f2
+  return $ diffText (filePathToUri f1, t1) t2
 
--- |Generate a 'HieDiff' value from a pair of source Text
-diffText :: (FilePath,T.Text) -> (FilePath,T.Text) -> HieDiff
-diffText (f1,f1Text) (f2,f2Text) = HieDiff f1 f2 diff
+-- |Generate a 'WorkspaceEdit' value from a pair of source Text
+diffText :: (Uri,T.Text) -> T.Text -> WorkspaceEdit
+diffText (f,fText) f2Text = WorkspaceEdit (Just h) Nothing
   where
-    d = getGroupedDiff (lines $ T.unpack f1Text) (lines $ T.unpack f2Text)
-    diff = ppDiff d
+    d = getGroupedDiff (lines $ T.unpack fText) (lines $ T.unpack f2Text)
+    diffOps = diffToLineRanges d
+    r = map diffOperationToTextEdit diffOps
+    diff = J.List r
+    h = H.singleton f diff
+
+    diffOperationToTextEdit :: DiffOperation LineRange -> J.TextEdit
+    diffOperationToTextEdit (Change fm to) = J.TextEdit range nt
+      where
+        range = calcRange fm
+        nt = T.pack $ init $ unlines $ lrContents to
+
+    diffOperationToTextEdit (Deletion fm _) = J.TextEdit range ""
+      where
+        range = calcRange fm
+
+    diffOperationToTextEdit (Addition fm _) = J.TextEdit range nt
+      where
+        range = calcRange fm
+        nt = T.pack $ unlines $ lrContents fm
+
+
+    calcRange fm = J.Range s e
+      where
+        sl = fst $ lrNumbers fm
+        sc = 0
+        s = J.Position (sl - 1) sc -- Note: zero-based lines
+        el = snd $ lrNumbers fm
+        ec = length $ last $ lrContents fm
+        e = J.Position (el - 1) ec  -- Note: zero-based lines
 
 -- ---------------------------------------------------------------------
 
