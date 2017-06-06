@@ -12,7 +12,6 @@ import Control.Applicative
 import Data.Aeson
 import Data.Singletons.Prelude
 import Data.Singletons.TH
-import Data.Swagger
 import GHC.Generics
 import GHC.TypeLits
 
@@ -21,13 +20,11 @@ import GHC.TypeLits
 -- constructors with an /S/
 data ParamType = PtText | PtFile | PtPos
             deriving (Eq,Ord,Show,Read,Bounded,Enum,Generic)
-instance ToSchema ParamType
 
 -- | Indicates whether a parameter is required or optional. Plugin
 -- atuhors should use the singleton version `SParamRequired` which
 -- requires prefixing constructors with an /S/
 data ParamRequired = Required | Optional deriving (Eq,Ord,Show,Read,Bounded,Enum,Generic)
-instance ToSchema ParamRequired
 
 -- | Define what context will be accepted from the frontend for the
 -- specific command. Matches up to corresponding values for
@@ -42,7 +39,6 @@ data AcceptedContext
   | CtxCabalTarget -- ^ Works on a specific cabal target
   | CtxProject     -- ^ Works on a the whole project
   deriving (Eq,Ord,Show,Read,Bounded,Enum,Generic)
-instance ToSchema AcceptedContext
 
 $(genSingletons [''ParamType, ''ParamRequired, ''AcceptedContext])
 

@@ -26,6 +26,7 @@ import qualified Data.Aeson.Types as J
 import           Data.Algorithm.DiffOutput
 import           Data.Default
 import           Data.Either
+import           Data.Monoid ( (<>) )
 import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import qualified Data.Text as T
@@ -35,6 +36,7 @@ import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.Control  as CTRL
 import qualified Language.Haskell.LSP.Core     as Core
+import           Language.Haskell.LSP.Diagnostics
 import           Language.Haskell.LSP.Messages
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 import qualified Language.Haskell.LSP.Utility  as U
@@ -114,8 +116,11 @@ data ReactorState =
     { lspFuncs           :: !(Maybe Core.LspFuncs)
     , hieReqId           :: !RequestId
     , lspReqId           :: !J.LspId
-    , wip                :: !(Map.Map RequestId Core.OutMessage)
+    , wip                :: !(Map.Map RequestId WIP)
     }
+
+-- | work in progress.
+type WIP = (Core.OutMessage, Maybe J.Uri)
 
 instance Default ReactorState where
   def = ReactorState Nothing 0 (J.IdInt 0) Map.empty
@@ -149,7 +154,7 @@ reactorSend msg = do
 
 reactorSend' :: (Core.SendFunc -> IO ()) -> R ()
 reactorSend' f = do
-    withLspFuncs $ \lf -> liftIO $ f (Core.sendFunc lf) 
+    withLspFuncs $ \lf -> liftIO $ f (Core.sendFunc lf)
 
   -- msf <- gets sender
   -- case msf of
@@ -158,7 +163,7 @@ reactorSend' f = do
 
 -- ---------------------------------------------------------------------
 
-publishDiagnostics :: J.Uri -> Maybe J.TextDocumentVersion -> [J.Diagnostic] -> R ()
+publishDiagnostics :: J.Uri -> Maybe J.TextDocumentVersion -> DiagnosticsBySource -> R ()
 publishDiagnostics uri' mv diags = do
     withLspFuncs $ \lf -> liftIO $ (Core.publishDiagnosticsFunc lf) uri' mv diags
 
@@ -182,23 +187,23 @@ nextLspReqId = do
 
 -- ---------------------------------------------------------------------
 
-keepOriginal :: RequestId -> Core.OutMessage -> R ()
+keepOriginal :: RequestId -> WIP -> R ()
 keepOriginal rid om = modify' (\s -> s { wip = Map.insert rid om (wip s)})
 
 -- ---------------------------------------------------------------------
 
-lookupOriginal :: RequestId -> R (Maybe Core.OutMessage)
+lookupOriginal :: RequestId -> R (Maybe WIP)
 lookupOriginal rid = do
   w <- gets wip
   return $ Map.lookup rid w
 
 -- ---------------------------------------------------------------------
 
-sendErrorResponse :: J.LspId -> J.ErrorCode -> String -> R ()
+sendErrorResponse :: J.LspId -> J.ErrorCode -> T.Text -> R ()
 sendErrorResponse origId err msg
   = reactorSend' (\sf -> Core.sendErrorResponseS sf (J.responseId origId) err msg)
 
-sendErrorLog :: String -> R ()
+sendErrorLog :: T.Text -> R ()
 sendErrorLog  msg = reactorSend' (\sf -> Core.sendErrorLogS  sf msg)
 
 -- sendErrorShow :: String -> R ()
@@ -263,9 +268,9 @@ reactor st cin cout inp = do
         liftIO $ U.logm $ "****** reactor: processing NotDidOpenTextDocument"
         let
             doc = notification ^. J.params . J.textDocument . J.uri
-            fileName = drop (length ("file://"::String)) doc
+            fileName = T.drop (T.length ("file://"::T.Text)) doc
 
-        requestDiagnostics cin cout fileName n
+        requestDiagnostics cin cout (T.unpack fileName) n
 
       -- -------------------------------
 
@@ -273,8 +278,8 @@ reactor st cin cout inp = do
         liftIO $ U.logm "****** reactor: processing NotDidSaveTextDocument"
         let
             doc = notification ^. J.params . J.textDocument . J.uri
-            fileName = drop (length ("file://"::String)) doc
-        requestDiagnostics cin cout fileName n
+            fileName = T.drop (T.length ("file://"::T.Text)) doc
+        requestDiagnostics cin cout (T.unpack fileName) n
 
       HandlerRequest (Core.LspFuncs _c _sf _vf _pd) (Core.NotDidChangeTextDocument _notification) -> do
         liftIO $ U.logm "****** reactor: NOT processing NotDidChangeTextDocument"
@@ -285,33 +290,33 @@ reactor st cin cout inp = do
         liftIO $ U.logs $ "reactor:got RenameRequest:" ++ show req
         let params = req ^. J.params
             doc = params ^. J.textDocument . J.uri
-            fileName = drop (length ("file://"::String)) doc
-            J.Position l c = params ^. J.position
+            fileName = T.drop (T.length ("file://"::T.Text)) doc
+            pos = params ^. J.position
             newName  = params ^. J.newName
         rid <- nextReqId
         let hreq = CReq "hare" rid (IdeRequest "rename" (Map.fromList
-                                                    [("file",     ParamFileP (T.pack fileName))
-                                                    ,("start_pos",ParamValP $ ParamPos (toPos (l+1,c+1)))
-                                                    ,("name",     ParamValP $ ParamText (T.pack newName))
+                                                    [("file",     ParamFileP fileName)
+                                                    ,("start_pos",ParamValP $ ParamPos pos)
+                                                    ,("name",     ParamValP $ ParamText newName)
                                                     ])) cout
         liftIO $ atomically $ writeTChan cin hreq
-        keepOriginal rid r
+        keepOriginal rid (r, Just doc)
 
 
       -- -------------------------------
 
       HandlerRequest (Core.LspFuncs _c _sf _vf _pd) r@(Core.ReqHover req) -> do
         liftIO $ U.logs $ "reactor:got HoverRequest:" ++ show req
-        let params = req ^. J.params 
-            fileName = drop (length ("file://"::String)) $ params ^. J.textDocument . J.uri
-            J.Position l c = params ^. J.position
+        let params = req ^. J.params
+            fileName = T.drop (T.length ("file://"::T.Text)) $ params ^. J.textDocument . J.uri
+            pos = params ^. J.position
         rid <- nextReqId
         let hreq = CReq "ghcmod" rid (IdeRequest "type" (Map.fromList
-                                                    [("file",     ParamFileP (T.pack fileName))
-                                                    ,("start_pos",ParamValP $ ParamPos (toPos (l+1,c+1)))
+                                                    [("file",     ParamFileP fileName)
+                                                    ,("start_pos",ParamValP $ ParamPos pos)
                                                     ])) cout
         liftIO $ atomically $ writeTChan cin hreq
-        keepOriginal rid r
+        keepOriginal rid (r, Just (params ^. J.textDocument . J.uri))
 
       -- -------------------------------
 
@@ -319,14 +324,13 @@ reactor st cin cout inp = do
         liftIO $ U.logs $ "reactor:got CodeActionRequest:" ++ show req
         let params = req ^. J.params
             doc = params ^. J.textDocument
-            -- fileName = drop (length ("file://"::String)) doc
-            -- J.Range from to = J._range (params :: J.CodeActionParams)
             (J.List diags) = params ^. J.context . J.diagnostics
 
         let
-          makeCommand (J.Diagnostic (J.Range start _) _s _c (Just "hlint") _m  ) = [J.Command title cmd cmdparams]
+          makeCommand (J.Diagnostic (J.Range start _) _s _c (Just "hlint") m  ) = [J.Command title cmd cmdparams]
             where
-              title = "Apply hint:" ++ head (lines _m)
+              title :: T.Text
+              title = "Apply hint:" <> (head (T.lines m))
               -- NOTE: the cmd needs to be registered via the InitializeResponse message. See hieOptions above
               cmd = "applyrefact:applyOne"
               -- need 'file' and 'start_pos'
@@ -362,11 +366,11 @@ reactor st cin cout inp = do
                 return rts
 
         rid <- nextReqId
-        let (plugin,cmd) = break (==':') command
+        let (plugin,cmd) = break (==':') (T.unpack command)
         let hreq = CReq (T.pack plugin) rid (IdeRequest (T.pack $ tail cmd) (Map.fromList
                                                     cmdparams)) cout
         liftIO $ atomically $ writeTChan cin hreq
-        keepOriginal rid r
+        keepOriginal rid (r, Nothing)
 
       -- -------------------------------
 
@@ -374,7 +378,7 @@ reactor st cin cout inp = do
         liftIO $ U.logs $ "reactor:got CompletionRequest:" ++ show req
         let params = req ^. J.params
             doc = params ^. J.textDocument
-            fileName = drop (length ("file://"::String)) $ doc ^. J.uri
+            fileName = T.drop (T.length ("file://"::T.Text)) $ doc ^. J.uri
             J.Position l c = params ^. J.position
         -- rid <- nextReqId
         -- let hreq = CReq "ghcmod" rid (IdeRequest "type" (Map.fromList
@@ -395,8 +399,8 @@ reactor st cin cout inp = do
         liftIO $ U.logs $ "reactor:got DocumentHighlightsRequest:" ++ show req
         let params = req ^. J.params
             doc = params ^. J.textDocument
-            fileName = drop (length ("file://"::String)) $ doc ^. J.uri
-            J.Position l c = params ^. J.position
+            fileName = T.drop (T.length ("file://"::T.Text)) $ doc ^. J.uri
+            pos = params ^. J.position
         -- rid <- nextReqId
         -- let hreq = CReq "ghcmod" rid (IdeRequest "type" (Map.fromList
         --                                             [("file",     ParamFileP (T.pack fileName))
@@ -404,7 +408,7 @@ reactor st cin cout inp = do
         --                                             ])) cout
         -- liftIO $ atomically $ writeTChan cin hreq
         -- keepOriginal rid r
-        liftIO $ U.logs $ "****reactor:ReqDocumentHighlights:not immplemented=" ++ show (fileName,doc,l,c)
+        liftIO $ U.logs $ "****reactor:ReqDocumentHighlights:not immplemented=" ++ show (fileName,doc,pos)
 
         let cr = J.List  ([] :: [J.DocumentHighlight])
         let rspMsg = Core.makeResponseMessage (J.responseId $ req ^. J.id ) cr
@@ -422,42 +426,48 @@ reactor st cin cout inp = do
         morig <- lookupOriginal rid
         case morig of
           Nothing -> do
-            sendErrorLog $ "reactor:could not find original LSP message for: " ++ show rsp
+            sendErrorLog $ "reactor:could not find original LSP message for: " <> (T.pack . show) rsp
           Just orig -> do
             liftIO $ U.logs $ "reactor: original was:" ++ show orig
             case orig of
-              Core.NotDidOpenTextDocument _ ->
+              (Core.NotDidOpenTextDocument _msg,mu) ->
                 case res of
                   IdeResponseFail  err -> liftIO $ U.logs $ "NotDidOpenTextDocument:got err" ++ show err
                   IdeResponseError err -> liftIO $ U.logs $ "NotDidOpenTextDocument:got err" ++ show err
-                  IdeResponseOk r -> publishDiagnosticsToLsp pid r
+                  IdeResponseOk r -> publishDiagnosticsToLsp pid mu Nothing r
+                  -- AZ:TODO: re-enable the following when we process
+                  --    incrementally, including integration to the map files in
+                  --    ghc-mod
+                  -- IdeResponseOk r -> publishDiagnosticsToLsp pid mu (Just v) r
+                  --   where
+                  --     v = msg ^. J.params ^. J.textDocument ^. J.version
 
-              Core.NotDidSaveTextDocument _ -> do
+              (Core.NotDidSaveTextDocument _,mu) -> do
                 case res of
                   IdeResponseFail  err -> liftIO $ U.logs $ "NotDidSaveTextDocument:got err" ++ show err
                   IdeResponseError err -> liftIO $ U.logs $ "NotDidSaveTextDocument:got err" ++ show err
-                  IdeResponseOk r -> publishDiagnosticsToLsp pid r
+                  IdeResponseOk r -> publishDiagnosticsToLsp pid mu Nothing r
 
-              Core.ReqRename req -> hieResponseHelper req res $ \r -> do
+              (Core.ReqRename req, _) -> hieResponseHelper req res $ \r -> do
                 let J.Success vv = J.fromJSON (J.Object r) :: J.Result RefactorResult
                 let we = refactorResultToWorkspaceEdit vv
                 let rspMsg = Core.makeResponseMessage (J.responseId $ req ^. J.id ) we
                 reactorSend rspMsg
 
-              Core.ReqHover req -> hieResponseHelper req res $ \r -> do
+              (Core.ReqHover req, _) -> hieResponseHelper req res $ \r -> do
                 let
                   J.Success (TypeInfo mtis) = J.fromJSON (J.Object r) :: J.Result TypeInfo
                   ht = case mtis of
                     []  -> J.Hover (J.List []) Nothing
                     tis -> J.Hover (J.List ms) (Just range)
                       where
-                        ms = map (\ti -> J.MarkedString "haskell" (T.unpack $ trText ti)) tis
+                        ms = map (\ti -> J.MarkedString "haskell" (trText ti)) tis
                         tr = head tis
-                        range = J.Range (posToPosition $ trStart tr) (posToPosition $ trEnd tr)
+                        range = J.Range (trStart tr) (trEnd tr)
                   rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) ht
                 reactorSend rspMsg
 
-              Core.ReqExecuteCommand req -> hieResponseHelper req res $ \r -> do
+              (Core.ReqExecuteCommand req, _) -> hieResponseHelper req res $ \r -> do
                 let
                   reply v = reactorSend $ Core.makeResponseMessage ( J.responseId $ req ^. J.id ) v
                 -- When we get a RefactorResult or HieDiff, we need to send a
@@ -472,35 +482,39 @@ reactor st cin cout inp = do
                     reply (J.Object r)
 
               other -> do
-                sendErrorLog $ "reactor:not processing for original LSP message : " ++ show other
+                sendErrorLog $ "reactor:not processing for original LSP message : " <> (T.pack . show) other
 
 -- ---------------------------------------------------------------------
 
 requestDiagnostics :: TChan ChannelRequest -> TChan ChannelResponse -> String -> Core.OutMessage -> R ()
 requestDiagnostics cin cout fileName req = do
+  let fileUri = T.pack $ "file://" ++ fileName -- AZ:TODO: the fileName should be a J.Uri
   -- get hlint diagnostics
   ridl <- nextReqId
   let reql = CReq "applyrefact" ridl (IdeRequest "lint" (Map.fromList [("file", ParamFileP (T.pack fileName))])) cout
   liftIO $ atomically $ writeTChan cin reql
-  keepOriginal ridl req
+  keepOriginal ridl (req, Just fileUri)
 
   -- get GHC diagnostics
   ridg <- nextReqId
   let reqg = CReq "ghcmod" ridg (IdeRequest "check" (Map.fromList [("file", ParamFileP (T.pack fileName))])) cout
   liftIO $ atomically $ writeTChan cin reqg
-  keepOriginal ridg req
+  keepOriginal ridg (req, Just fileUri)
 
 -- ---------------------------------------------------------------------
 
-publishDiagnosticsToLsp :: PluginId -> J.Object -> R ()
-publishDiagnosticsToLsp pid r = do
+publishDiagnosticsToLsp :: PluginId -> Maybe J.Uri -> Maybe J.TextDocumentVersion -> J.Object -> R ()
+publishDiagnosticsToLsp pid mu mv r = do
   let
+    sendEmpty =
+      case mu of
+        Just uri' -> publishDiagnostics uri' Nothing (Map.fromList [(Just pid,[])])
+        _        -> liftIO $ U.logs $ "\n\npublishDiagnostics:uri missing for ghcmod\n\n"
     sendOne (uri',ds) =
-      publishDiagnostics uri' Nothing ds
+      publishDiagnostics uri' mv (Map.fromList [(Just pid,ds)])
     mkDiag (f,ds) = do
       af <- liftIO $ makeAbsolute f
-      -- return $ jsWrite $ FileDiagnostics ("file://" ++ af) ds
-      return ("file://" ++ af, ds)
+      return ("file://" <> T.pack af, ds)
   case pid of
     "applyrefact" -> do
       case J.fromJSON (J.Object r) of
@@ -511,8 +525,10 @@ publishDiagnosticsToLsp pid r = do
         J.Success str -> do
           let pd = parseGhcDiagnostics str
           ds <- mapM mkDiag $ Map.toList $ Map.fromListWith (++) pd
-          mapM_ sendOne ds
-        _             -> return ()
+          case ds of
+            [] -> sendEmpty
+            _  -> mapM_ sendOne ds
+        _             -> sendEmpty
     _ -> do
       liftIO $ U.logs $ "\n\npublishDiagnostics:not processing plugin=" ++ (T.unpack pid) ++ "\n\n"
       return ()
@@ -550,10 +566,10 @@ convertParam (J.Object hm) = case H.toList hm of
 convertParam v = Left $ "convertParam: expecting Object, got:" ++ show v
 
 lspParam2ParamValP :: LspParam -> ParamValP
-lspParam2ParamValP (LspTextDocument (TextDocumentIdentifier u)) = ParamFileP (T.drop (length ("file://"::String)) u)
-lspParam2ParamValP (LspPosition     (Position l c))             = ParamPosP (Pos (Line (l+1)) (Col (c+1)))
-lspParam2ParamValP (LspRange        (Range (Position l c) _to)) = ParamPosP (Pos (Line (l+1)) (Col (c+1)))
-lspParam2ParamValP (LspText         txt                       ) = ParamTextP txt
+lspParam2ParamValP (LspTextDocument (TextDocumentIdentifier u)) = ParamFileP (T.drop (T.length ("file://"::T.Text)) u)
+lspParam2ParamValP (LspPosition     p)                = ParamPosP p
+lspParam2ParamValP (LspRange        (Range from _to)) = ParamPosP from
+lspParam2ParamValP (LspText         txt             ) = ParamTextP txt
 
 data LspParam
   = LspTextDocument TextDocumentIdentifier
@@ -578,14 +594,9 @@ instance J.FromJSON LspParam where
 hieResponseHelper :: forall a t. J.RequestMessage J.ClientMethod a -> IdeResponse t -> (t -> R ()) -> R ()
 hieResponseHelper req res action =
   case res of
-    IdeResponseFail  err -> sendErrorResponse (req ^. J.id) J.InternalError (show err)
-    IdeResponseError err -> sendErrorResponse (req ^. J.id) J.InternalError (show err)
+    IdeResponseFail  err -> sendErrorResponse (req ^. J.id) J.InternalError (T.pack $ show err)
+    IdeResponseError err -> sendErrorResponse (req ^. J.id) J.InternalError (T.pack $ show err)
     IdeResponseOk r -> action r
-
--- ---------------------------------------------------------------------
-
-posToPosition :: Pos -> J.Position
-posToPosition (Pos (Line l) (Col c)) = J.Position (l-1) (c-1)
 
 -- ---------------------------------------------------------------------
 
@@ -651,7 +662,7 @@ hieDiffToLspEdit (HieDiff f _ d) = (T.pack ("file://" ++ f), J.List r)
     diffOperationToTextEdit (Change fm to) = J.TextEdit range nt
       where
         range = calcRange fm
-        nt = init $ unlines $ lrContents to
+        nt = T.pack $ init $ unlines $ lrContents to
 
     diffOperationToTextEdit (Deletion fm _) = J.TextEdit range ""
       where
@@ -660,7 +671,7 @@ hieDiffToLspEdit (HieDiff f _ d) = (T.pack ("file://" ++ f), J.List r)
     diffOperationToTextEdit (Addition fm _) = J.TextEdit range nt
       where
         range = calcRange fm
-        nt = unlines $ lrContents fm
+        nt = T.pack $ unlines $ lrContents fm
 
 
     calcRange fm = J.Range s e
@@ -734,7 +745,7 @@ diagnostic = do
   msglines <- sepEndBy (many1 (noneOf "\n\0")) (char '\0')
   let pos = (J.Position (l-1) (c-1))
   -- AZ:TODO: consider setting pprCols dflag value in the call, for better format on vscode
-  return (fname,[J.Diagnostic (J.Range pos pos) (Just severity) Nothing (Just "ghcmod") (unlines msglines)] )
+  return (fname,[J.Diagnostic (J.Range pos pos) (Just severity) Nothing (Just "ghcmod") (T.pack $ unlines msglines)] )
 
 optionSeverity :: P J.DiagnosticSeverity
 optionSeverity =

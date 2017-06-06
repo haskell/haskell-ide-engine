@@ -3,16 +3,29 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-module Haskell.Ide.Engine.SemanticTypes where
+module Haskell.Ide.Engine.SemanticTypes
+  ( TypeInfo(..)
+  , TypeResult(..)
+  , RefactorResult(..)
+  , HieDiff(..)
+  , ModuleList(..)
+  , AST(..)
+  , FileDiagnostics(..)
+  , Diagnostic(..)
+  , Position(..)
+  , Range(..)
+  , DiagnosticSeverity(..)
+  , TextDocumentIdentifier(..)
+  ) where
 
 import           Data.Aeson
 import           Data.Aeson.Types
 import           Data.Algorithm.Diff
 import qualified Data.HashMap.Strict as H
-import           Data.Swagger (ToSchema)
 import qualified Data.Text as T
 import           GHC.Generics
 import           Haskell.Ide.Engine.PluginTypes
+import           Language.Haskell.LSP.TH.DataTypesJSON (Diagnostic(..), Position(..), Range(..), DiagnosticSeverity(..), TextDocumentIdentifier(..))
 
 -- ---------------------------------------------------------------------
 -- Specific response type
@@ -20,21 +33,18 @@ import           Haskell.Ide.Engine.PluginTypes
 -- | Type Information, from the most precise to the most generic
 data TypeInfo = TypeInfo { results :: ![TypeResult] }
   deriving (Show,Read,Eq,Ord,Generic)
-instance ToSchema TypeInfo
 
 -- | One type result from ghc-mod
 data TypeResult = TypeResult
-    { trStart :: !Pos -- ^ start line/column
-    , trEnd   :: !Pos -- ^ end line/column
+    { trStart :: !Position -- ^ start line/column
+    , trEnd   :: !Position -- ^ end line/column
     , trText  :: !T.Text -- ^ type text
     } deriving (Show,Read,Eq,Ord,Generic)
-instance ToSchema TypeResult
 
 -- | Result of refactoring
 data RefactorResult = RefactorResult
   { rrDiffs :: ![HieDiff]
   } deriving (Show,Eq,Generic)
-instance ToSchema RefactorResult
 
 -- ---------------------------------------------------------------------
 
@@ -60,9 +70,7 @@ data HieDiff = HieDiff
     -}
   -- , dGroupedDiff :: !([Diff [String]])
   } deriving (Show,Eq,Generic)
-instance ToSchema HieDiff
 deriving instance Generic (Diff [String])
-instance ToSchema (Diff [String])
 
 -- ---------------------------------------------------------------------
 
@@ -70,7 +78,6 @@ instance ToSchema (Diff [String])
 data ModuleList = ModuleList {
     mModules :: ![T.Text]
   } deriving (Show,Read,Eq,Ord,Generic)
-instance ToSchema ModuleList
 
 -- ---------------------------------------------------------------------
 
@@ -82,7 +89,6 @@ data AST = AST {
   , astTypechecked :: !Value
   , astExports     :: !Value
   } deriving (Eq,Show,Generic)
-instance ToSchema AST
 
 -- ---------------------------------------------------------------------
 
@@ -91,81 +97,6 @@ data FileDiagnostics =
     { fdFileName    :: FilePath
     , fdDiagnostics :: [Diagnostic]
     } deriving (Show, Read, Eq,Generic)
-instance ToSchema FileDiagnostics
-
--- ---------------------------------------------------------------------
--- |A diagnostic report, such as compiler errors/warning, or from a linter
--- Based on https://github.com/Microsoft/language-server-protocol/blob/master/protocol.md#diagnostic
-
--- Nasty: also implemeented in
--- https://github.com/alanz/haskell-lsp/blob/master/src/Language/Haskell/LSP/TH/DataTypesJSON.hs
--- which is a client of hie.
-
-data Diagnostic =
-  Diagnostic
-    { rangeDiagnostic    :: Range
-    , severityDiagnostic :: Maybe DiagnosticSeverity
-    , codeDiagnostic     :: Maybe String
-    , sourceDiagnostic   :: Maybe String
-    , messageDiagnostic  :: String
-    } deriving (Show, Read, Eq,Generic)
-instance ToSchema Diagnostic
-
--- -------------------------------------
-
-data Range =
-  Range
-    { startRange :: Position
-    , endRange   :: Position
-    } deriving (Show, Read, Eq, Generic)
-instance ToSchema Range
-
-data Position =
-  Position
-    { linePosition       :: Int -- ^ zero based
-    , characterPosition  :: Int -- ^ zero based
-    } deriving (Show, Read, Eq, Generic)
-instance ToSchema Position
-
--- -------------------------------------
-
-data DiagnosticSeverity
-  = DsError   -- ^ Error = 1,
-  | DsWarning -- ^ Warning = 2,
-  | DsInfo    -- ^ Info = 3,
-  | DsHint    -- ^ Hint = 4
-  deriving (Eq,Ord,Show,Read, Generic)
-instance ToSchema DiagnosticSeverity
-
-instance ToJSON DiagnosticSeverity where
-  toJSON DsError   = Number 1
-  toJSON DsWarning = Number 2
-  toJSON DsInfo    = Number 3
-  toJSON DsHint    = Number 4
-
-instance FromJSON DiagnosticSeverity where
-  parseJSON (Number 1) = pure DsError
-  parseJSON (Number 2) = pure DsWarning
-  parseJSON (Number 3) = pure DsInfo
-  parseJSON (Number 4) = pure DsHint
-  parseJSON _          = mempty
-
--- ---------------------------------------------------------------------
-
-data TextDocumentIdentifier =
-  TextDocumentIdentifier
-    { uri :: T.Text
-    } deriving (Read, Show, Eq)
-
-
-instance ToJSON TextDocumentIdentifier where
-  toJSON (TextDocumentIdentifier u) =
-      object [ "uri" .= toJSON u
-             ]
-
-instance FromJSON TextDocumentIdentifier where
-  parseJSON = withObject "TextDocumentIdentifier" $ \v ->
-    TextDocumentIdentifier <$> v .: "uri"
 
 -- ---------------------------------------------------------------------
 -- JSON instances
@@ -271,34 +202,8 @@ instance ValidResponse Diagnostic where
     <*> v .: "source"
     <*> v .: "message"
 
-
-instance ToJSON Diagnostic where
-  toJSON d = Object (jsWrite d)
-
-instance FromJSON Diagnostic where
-  parseJSON = withObject "Diagnostic" $ \v -> Diagnostic <$> v .: "range" <*> v .:? "severity" <*> v .:? "code"
-                                                         <*> v .:? "source" <*> v .: "message"
-
 stripNulls :: [Pair] -> [Pair]
 stripNulls xs = filter (\(_,v) -> v /= Null) xs
-
-instance ToJSON Range where
-  toJSON (Range s e) = object
-           [ "start" .= s
-           , "end"   .= e
-           ]
-
-instance FromJSON Range where
-  parseJSON = withObject "Range" $ \v -> Range <$> v .: "start" <*> v .: "end"
-
-instance ToJSON Position where
-  toJSON (Position l c) = object
-           [ "line"      .= l
-           , "character" .= c
-           ]
-
-instance FromJSON Position where
-  parseJSON = withObject "Position" $ \v -> Position <$> v .: "line" <*> v .: "character"
 
 -- ---------------------------------------------------------------------
 

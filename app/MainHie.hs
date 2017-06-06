@@ -18,8 +18,6 @@ import           Control.Exception
 import           Control.Monad
 import           Control.Monad.Logger
 import           Control.Monad.STM
-import           Data.Aeson
-import qualified Data.ByteString.Lazy       as B
 import qualified Data.Map as Map
 import           Data.Semigroup
 import           Data.Proxy
@@ -36,7 +34,6 @@ import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.Swagger
 import           Haskell.Ide.Engine.Transport.JsonHttp
 import           Haskell.Ide.Engine.Transport.JsonStdio
 import           Haskell.Ide.Engine.Transport.JsonTcp
@@ -48,7 +45,6 @@ import           Network.Simple.TCP
 import           Options.Applicative.Simple
 import qualified Paths_haskell_ide_engine as Meta
 import           System.Directory
-import           System.Exit
 
 -- ---------------------------------------------------------------------
 -- plugins
@@ -156,11 +152,6 @@ run opts = do
       Just err -> error (pdeErrorMsg err)
       Nothing -> return ()
 
-    when (optDumpSwagger opts) $ do
-      let swagger = hieSwagger plugins
-      B.putStr (encode swagger)
-      exitSuccess
-
     -- let vomitOptions = GM.defaultOptions { GM.optOutput = oo { GM.ooptLogLevel = GM.GmVomit}}
     --     oo = GM.optOutput GM.defaultOptions
     -- let ghcModOptions = vomitOptions { GM.optGhcUserOptions = ["-Wall"]  }
@@ -172,7 +163,7 @@ run opts = do
 
     -- TODO: pass port in as a param from GlobalOpts
     when (optHttp opts) $
-      void $ forkIO (jsonHttpListener (hieSwagger plugins) (recProxy taggedPlugins) cin (optPort opts))
+      void $ forkIO (jsonHttpListener (recProxy taggedPlugins) cin (optPort opts))
 
     when (optTcp opts) $
       void $ forkIO (jsonTcpTransport (optOneShot opts) cin HostAny (show $ optTcpPort opts))

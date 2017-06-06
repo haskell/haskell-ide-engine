@@ -37,7 +37,6 @@ library
                      , monad-logger
                      , mtl
                      , singletons
-                     , swagger2
                      , text
                      , time
                      , transformers

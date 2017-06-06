@@ -25,7 +25,6 @@ library
                        Haskell.Ide.Engine.Console
                        Haskell.Ide.Engine.Dispatcher
                        Haskell.Ide.Engine.Options
-                       Haskell.Ide.Engine.Swagger
                        Haskell.Ide.Engine.Transport.JsonHttp
                        Haskell.Ide.Engine.Transport.JsonHttp.Undecidable
                        Haskell.Ide.Engine.Transport.JsonStdio
@@ -73,11 +72,8 @@ library
                      , pipes-network
                      , pipes-parse
                      , servant-server
-                     , servant-swagger
-                     , servant-swagger-ui
                      , singletons
                      , stm
-                     , swagger2
                      , text
                      , time
                      , transformers
@@ -122,7 +118,6 @@ executable hie
                      , optparse-simple
                      , parsec
                      , stm
-                     , swagger2
                      , text
                      , time
                      , transformers
@@ -175,7 +170,6 @@ test-suite haskell-ide-test
                      , monad-logger
                      , quickcheck-instances
                      , stm
-                     , swagger2
                      , text
                      , transformers
                      , unordered-containers
@@ -215,7 +209,6 @@ test-suite haskell-ide-func-test
                      , monad-logger
                      , quickcheck-instances
                      , stm
-                     , swagger2
                      , text
                      , transformers
                      , unordered-containers

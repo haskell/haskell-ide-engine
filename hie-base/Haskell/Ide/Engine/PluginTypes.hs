@@ -46,10 +46,8 @@ module Haskell.Ide.Engine.PluginTypes
   , IdeErrorCode(..)
   , untagParamDesc
   , Sing(..)
-  , Pos(..)
+  , Position(..)
   , toPos, unPos
-  , Line(..), Col(..)
-
   -- * Plugins
   , PluginId
   , IdePlugins(..)
@@ -69,13 +67,13 @@ import           Data.Aeson.Types
 import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import           Data.Singletons.Prelude
-import           Data.Swagger (ToSchema)
 import qualified Data.Text as T
 import           Data.Typeable
 import           Data.Vinyl
 import           GHC.Generics
 import           GHC.TypeLits
 import           Haskell.Ide.Engine.PluginTypes.Singletons
+import           Language.Haskell.LSP.TH.DataTypesJSON (Position(..))
 
 type PluginId = T.Text
 
@@ -142,18 +140,15 @@ data CommandDescriptor cxts descs = CommandDesc
   } deriving (Show,Eq,Generic)
 
 data Save = SaveNone | SaveAll deriving (Show, Eq, Generic)
-instance ToSchema Save
 
 -- | Type synonym for a 'CommandDescriptor' that uses simple lists
 type UntaggedCommandDescriptor = CommandDescriptor [AcceptedContext] [ParamDescription]
-instance ToSchema UntaggedCommandDescriptor
 
 type TaggedCommandDescriptor cxts tags = CommandDescriptor (Rec SAcceptedContext cxts) (Rec SParamDescription tags)
 
 data ExtendedCommandDescriptor =
   ExtendedCommandDescriptor UntaggedCommandDescriptor
                             PluginName deriving (Show,Eq,Generic)
-instance ToSchema ExtendedCommandDescriptor
 
 
 instance ValidResponse ExtendedCommandDescriptor where
@@ -187,42 +182,16 @@ type PluginName = T.Text
 data IdePlugins = IdePlugins
   { ipMap :: Map.Map PluginId [UntaggedCommandDescriptor]
   } deriving (Show,Eq,Generic)
-instance ToSchema IdePlugins
 
 -- ---------------------------------------------------------------------
 
--- | A position in a source file
-data Pos = Pos { line :: !Line, col :: !Col} deriving (Generic,Show,Read,Eq,Ord)
--- NOTE: Pos needs to be defined in record syntac otherwise the generically
---       derived swagger schema does not work properly
-instance ToSchema Pos
+-- Converts to one based tuple
+unPos :: Position -> (Int,Int)
+unPos (Position l c) = (l+1,c+1)
 
-unPos :: Pos -> (Int,Int)
-unPos (Pos (Line l) (Col c)) = (l,c)
-
-toPos :: (Int,Int) -> Pos
-toPos (l,c) = Pos (Line l) (Col c)
-
-newtype Line = Line {unLine :: Int } deriving (Generic,Show,Eq,Read,Ord,Enum,Real)
-instance ToSchema Line
-
-newtype Col  = Col { unCol :: Int } deriving (Generic,Show,Eq,Read,Ord,Enum,Real)
-instance ToSchema Col;
-
-deriving instance Num Line
-deriving instance Num Col
-
-deriving instance Integral Line
-deriving instance Integral Col
-
-
-instance Bounded Line where
-  minBound = 1
-  maxBound = 1000000
-
-instance Bounded Col where
-  minBound = 1
-  maxBound = 100000
+-- Converts from one based tuple
+toPos :: (Int,Int) -> Position
+toPos (l,c) = Position (l-1) (c-1)
 
 -- ---------------------------------------------------------------------
 
@@ -242,7 +211,6 @@ data ParamDescription =
             ,pType :: !ParamType
             ,pRequired :: !ParamRequired}
   deriving (Show,Eq,Ord,Generic)
-instance ToSchema ParamDescription
 
 pattern RP :: ParamName -> ParamHelp -> ParamType -> ParamDescription
 pattern RP pname help type' <- ParamDesc pname help type' Required
@@ -288,7 +256,7 @@ pattern ParamTextP t = ParamValP (ParamText t)
 pattern ParamFileP :: T.Text -> ParamValP
 pattern ParamFileP f = ParamValP (ParamFile f)
 
-pattern ParamPosP :: Pos -> ParamValP
+pattern ParamPosP :: Position -> ParamValP
 pattern ParamPosP  p = ParamValP (ParamPos p)
 
 type ParamMap = Map.Map ParamId ParamValP
@@ -305,7 +273,7 @@ data ParamValP = forall t. ParamValP { unParamValP ::  ParamVal t }
 data ParamVal (t :: ParamType) where
  ParamText :: T.Text   -> ParamVal 'PtText
  ParamFile :: T.Text   -> ParamVal 'PtFile
- ParamPos  :: Pos      -> ParamVal 'PtPos
+ ParamPos  :: Position -> ParamVal 'PtPos
 
 
 -- | The IDE response, with the type of response it contains
@@ -346,7 +314,7 @@ data IdeError = IdeError
  deriving (Show,Read,Eq,Generic)
 
 -- | The typeclass for valid response types
-class (Typeable a,ToSchema a) => ValidResponse a where
+class (Typeable a) => ValidResponse a where
   jsWrite :: a -> Object -- ^ Serialize to JSON Object
   jsRead  :: Object -> Parser a -- ^ Read from JSON Object
 
@@ -377,7 +345,6 @@ instance ValidResponse Object where
   jsWrite = id
   jsRead = pure
 deriving instance Generic Value
-instance ToSchema Value
 
 instance ValidResponse UntaggedCommandDescriptor where
   jsWrite cmdDescriptor =
@@ -457,29 +424,6 @@ instance FromJSON ParamValP where
        mf = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtFile))
        mp = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtPos))
    mf <|> mp <|> mt <|> typeMismatch "text, file, or position object for ParamValP" val
-
--- -------------------------------------
-
-instance FromJSON Pos where
-  parseJSON = withObject "Pos" $ \v -> do
-    l <- v .: "line"
-    c <- v .: "col"
-    return $ Pos (Line l) (Col c)
-
-instance ToJSON Pos where
-  toJSON (Pos (Line l) (Col c)) = object [ "line" .= l, "col" .= c]
-
-instance FromJSON Line where
-  parseJSON = withObject "Line" $ \v -> Line <$> v .: "line"
-
-instance ToJSON Line where
-  toJSON (Line l) = object [ "line" .= l]
-
-instance FromJSON Col where
-  parseJSON = withObject "Col" $ \v -> Col <$> v .: "col"
-
-instance ToJSON Col where
-  toJSON (Col c) = object [ "col" .= c]
 
 -- -------------------------------------
 
