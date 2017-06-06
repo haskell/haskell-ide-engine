@@ -9,6 +9,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Haskell.Ide.Engine.PluginTypes
   ( CabalSection(..)
@@ -304,7 +305,7 @@ data TaggedParamId (t :: ParamType) where
  IdTextDocId :: T.Text -> TaggedParamId 'PtTextDocId
  IdTextDocPos ::T.Text -> TaggedParamId 'PtTextDocPos
 
-data ParamValP = forall t. ParamValP { unParamValP ::  ParamVal t }
+data ParamValP = forall t. ToJSON (ParamVal t) => ParamValP { unParamValP ::  ParamVal t }
 
 data ParamVal (t :: ParamType) where
  ParamText :: T.Text -> ParamVal 'PtText
@@ -491,15 +492,7 @@ instance ToJSON (ParamVal 'PtTextDocPos) where
 
 -- ---------------------------------------------------------------------
 instance ToJSON ParamValP  where
-  toJSON (ParamValP v@(ParamText _)) = toJSON v
-  toJSON (ParamValP v@(ParamInt _)) = toJSON v
-  toJSON (ParamValP v@(ParamBool _)) = toJSON v
-  toJSON (ParamValP v@(ParamFile _)) = toJSON v
-  toJSON (ParamValP v@(ParamPos _)) = toJSON v
-  toJSON (ParamValP v@(ParamRange _)) = toJSON v
-  toJSON (ParamValP v@(ParamLoc _)) = toJSON v
-  toJSON (ParamValP v@(ParamTextDocId _)) = toJSON v
-  toJSON (ParamValP v@(ParamTextDocPos _)) = toJSON v
+  toJSON (ParamValP v) = toJSON v
 
 instance FromJSON ParamValP where
  parseJSON val = do
