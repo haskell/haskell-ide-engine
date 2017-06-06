@@ -49,7 +49,9 @@ ghcmodDescriptor = PluginDescriptor
                      :& RNil) SaveNone
 
       :& buildCommand typeCmd (Proxy :: Proxy "type") "Get the type of the expression under (LINE,COL)"
-                     [".hs",".lhs"] (SCtxPoint :& RNil) RNil SaveAll
+                     [".hs",".lhs"] (SCtxPoint :& RNil)
+                     (  SParamDesc (Proxy :: Proxy "include_constraints") (Proxy :: Proxy "Whether to include constraints in the type sig") SPtBool SRequired
+                     :& RNil) SaveAll
 
       :& RNil
   , pdExposedServices = []

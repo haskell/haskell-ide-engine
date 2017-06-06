@@ -101,7 +101,7 @@ ghcmodSpec = do
     it "runs the type command, correct params" $ do
       let req = IdeRequest "type" (Map.fromList [("file", ParamFileP $ filePathToUri "HaReRename.hs")
                                                 ,("include_constraints", ParamBoolP False)
-                                                 ,("start_pos", ParamPosP (toPos (5,9)))])
+                                                ,("start_pos", ParamPosP (toPos (5,9)))])
       r <- dispatchRequest req
       r `shouldBe` Just (IdeResponseOk (H.fromList ["type_info".=toJSON
                         [TypeResult (toPos (5,9)) (toPos (5,10)) "Int"

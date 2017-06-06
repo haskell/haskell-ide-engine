@@ -429,37 +429,88 @@ instance (ValidResponse a) => FromJSON (IdeResponse a) where
      Nothing -> empty
 
 -- ---------------------------------------------------------------------
-
 instance FromJSON (ParamVal 'PtText) where
   parseJSON = withObject "text parameter object" $ \v ->
     ParamText <$> v .: "text"
+instance ToJSON (ParamVal 'PtText) where
+  toJSON (ParamText x) = object [ "text" .= x ]
+
+instance FromJSON (ParamVal 'PtInt) where
+  parseJSON = withObject "int parameter object" $ \v ->
+    ParamInt <$> v .: "int"
+instance ToJSON (ParamVal 'PtInt) where
+  toJSON (ParamInt x) = object [ "int" .= x ]
+
+instance FromJSON (ParamVal 'PtBool) where
+  parseJSON = withObject "bool parameter object" $ \v ->
+    ParamBool <$> v .: "bool"
+instance ToJSON (ParamVal 'PtBool) where
+  toJSON (ParamBool x) = object [ "bool" .= x ]
 
 instance FromJSON (ParamVal 'PtFile) where
-  parseJSON = withObject "file parameter object" $ \v -> ParamFile <$> v.: "file"
+  parseJSON = withObject "file parameter object" $ \v ->
+    ParamFile <$> v .: "file"
+instance ToJSON (ParamVal 'PtFile) where
+  toJSON (ParamFile x) = object [ "file" .= x ]
 
 instance FromJSON (ParamVal 'PtPos) where
-    parseJSON = withObject "pos parameter object" $ \v -> do
-      p <- parseJSON (Object v)
-      return (ParamPos p)
-
+  parseJSON = withObject "pos parameter object" $ \v ->
+    ParamPos <$> v .: "pos"
 instance ToJSON (ParamVal 'PtPos) where
-  toJSON (ParamPos p) = toJSON p
+  toJSON (ParamPos x) = object [ "pos" .= x ]
+
+instance FromJSON (ParamVal 'PtRange) where
+  parseJSON = withObject "range parameter object" $ \v ->
+    ParamRange <$> v .: "range"
+instance ToJSON (ParamVal 'PtRange) where
+  toJSON (ParamRange x) = object [ "range" .= x ]
+
+instance FromJSON (ParamVal 'PtLoc) where
+  parseJSON = withObject "loc parameter object" $ \v ->
+    ParamLoc <$> v .: "loc"
+instance ToJSON (ParamVal 'PtLoc) where
+  toJSON (ParamLoc x) = object [ "loc" .= x ]
+
+instance FromJSON (ParamVal 'PtTextDocId) where
+  parseJSON = withObject "textDocId parameter object" $ \v ->
+    ParamTextDocId <$> v .: "textDocId"
+instance ToJSON (ParamVal 'PtTextDocId) where
+  toJSON (ParamTextDocId x) = object [ "textDocId" .= x ]
+
+instance FromJSON (ParamVal 'PtTextDocPos) where
+  parseJSON = withObject "textDocPos parameter object" $ \v ->
+    ParamTextDocPos <$> v .: "textDocPos"
+instance ToJSON (ParamVal 'PtTextDocPos) where
+  toJSON (ParamTextDocPos x) = object [ "textDocPos" .= x ]
 
 -- ---------------------------------------------------------------------
-
 instance ToJSON ParamValP  where
- toJSON (ParamTextP v) = object [ "text" .= v ]
- toJSON (ParamFileP v) = object [ "file" .= v ]
- toJSON (ParamPosP  p) = toJSON p
- toJSON _ = "error"
+  toJSON (ParamValP v@(ParamText _)) = toJSON v
+  toJSON (ParamValP v@(ParamInt _)) = toJSON v
+  toJSON (ParamValP v@(ParamBool _)) = toJSON v
+  toJSON (ParamValP v@(ParamFile _)) = toJSON v
+  toJSON (ParamValP v@(ParamPos _)) = toJSON v
+  toJSON (ParamValP v@(ParamRange _)) = toJSON v
+  toJSON (ParamValP v@(ParamLoc _)) = toJSON v
+  toJSON (ParamValP v@(ParamTextDocId _)) = toJSON v
+  toJSON (ParamValP v@(ParamTextDocPos _)) = toJSON v
 
 instance FromJSON ParamValP where
  parseJSON val = do
-   let mt = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtText))
-       mf = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtFile))
-       mp = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtPos))
-   mf <|> mp <|> mt <|> typeMismatch "text, file, or position object for ParamValP" val
-
+   let mText = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtText))
+       mInt = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtInt))
+       mBool = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtBool))
+       mFile = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtFile))
+       mPos = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtPos))
+       mRange = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtRange))
+       mLoc = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtLoc))
+       mTextDocId = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtTextDocId))
+       mTextDocPos = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtTextDocPos))
+   mText <|> mInt   <|> mBool
+         <|> mFile  <|> mPos
+         <|> mRange <|> mLoc
+         <|> mTextDocId <|> mTextDocPos
+         <|> typeMismatch "text, int, bool, file, pos, range, loc, textDocId, or textDocPos object for ParamValP" val
 -- -------------------------------------
 
 instance ToJSON IdeRequest where
