@@ -35,6 +35,9 @@ import qualified Data.Vector as V
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
+import qualified Haskell.Ide.HaRePlugin as HaRe
+import qualified Haskell.Ide.GhcModPlugin as GhcMod
+import qualified Haskell.Ide.ApplyRefactPlugin as ApplyRefact
 import qualified Language.Haskell.LSP.Control  as CTRL
 import qualified Language.Haskell.LSP.Core     as Core
 import           Language.Haskell.LSP.Diagnostics
@@ -54,7 +57,7 @@ import           Text.Parsec
 
 -- ---------------------------------------------------------------------
 
-lspStdioTransport :: IO () -> TChan ChannelRequest -> FilePath -> IO ()
+lspStdioTransport :: IO () -> TChan PluginRequest -> FilePath -> IO ()
 lspStdioTransport hieDispatcherProc cin origDir = do
   run hieDispatcherProc cin origDir >>= \case
     0 -> exitSuccess
@@ -63,10 +66,10 @@ lspStdioTransport hieDispatcherProc cin origDir = do
 
 -- ---------------------------------------------------------------------
 
-run :: IO () -> TChan ChannelRequest -> FilePath -> IO Int
+run :: IO () -> TChan PluginRequest -> FilePath -> IO Int
 run dispatcherProc cin origDir = flip E.catches handlers $ do
 
-  cout <- atomically newTChan :: IO (TChan ChannelResponse)
+  cout <- atomically newTChan :: IO (TChan PluginResponse)
   rin  <- atomically newTChan :: IO (TChan ReactorInput)
   _rhpid <- forkIO $ responseHandler cout rin
   _rpid  <- forkIO $ reactor def cin cout rin
@@ -98,7 +101,7 @@ run dispatcherProc cin origDir = flip E.catches handlers $ do
 
 -- ---------------------------------------------------------------------
 
-responseHandler :: TChan ChannelResponse -> TChan ReactorInput -> IO ()
+responseHandler :: TChan PluginResponse -> TChan ReactorInput -> IO ()
 responseHandler cout cr = do
   forever $ do
     r <- atomically $ readTChan cout
@@ -107,7 +110,7 @@ responseHandler cout cr = do
 -- ---------------------------------------------------------------------
 
 data ReactorInput
-  = DispatcherResponse ChannelResponse
+  = DispatcherResponse PluginResponse
   | InitializeCallBack Core.LspFuncs
   | HandlerRequest Core.LspFuncs Core.OutMessage
       -- ^ injected into the reactor input by each of the individual callback handlers
@@ -218,7 +221,7 @@ sendErrorLog  msg = reactorSend' (\sf -> Core.sendErrorLogS  sf msg)
 -- | The single point that all events flow through, allowing management of state
 -- to stitch replies and requests together from the two asynchronous sides: lsp
 -- server and hie dispatcher
-reactor :: ReactorState -> TChan ChannelRequest -> TChan ChannelResponse -> TChan ReactorInput -> IO ()
+reactor :: ReactorState -> TChan PluginRequest -> TChan PluginResponse -> TChan ReactorInput -> IO ()
 reactor st cin cout inp = do
   flip evalStateT st $ forever $ do
     inval <- liftIO $ atomically $ readTChan inp
@@ -287,17 +290,14 @@ reactor st cin cout inp = do
       HandlerRequest (Core.LspFuncs _c _sf _vf _pd) r@(Core.ReqRename req) -> do
         liftIO $ U.logs $ "reactor:got RenameRequest:" ++ show req
         let params = req ^. J.params
-            doc = params ^. J.textDocument . J.uri
+            doc = params ^. J.textDocument
+            uri = doc ^. J.uri
             pos = params ^. J.position
             newName  = params ^. J.newName
         rid <- nextReqId
-        let hreq = CReq "hare" rid (IdeRequest "rename" (Map.fromList
-                                                    [("file",     ParamFileP doc)
-                                                    ,("start_pos",ParamPosP pos)
-                                                    ,("name",     ParamTextP newName)
-                                                    ])) cout
+        let hreq = PReq "hare" rid cout $ HaRe.renameCmd' (TextDocumentPositionParams doc pos) newName
         liftIO $ atomically $ writeTChan cin hreq
-        keepOriginal rid (r, Just doc)
+        keepOriginal rid (r, Just uri)
 
 
       -- -------------------------------
@@ -308,11 +308,7 @@ reactor st cin cout inp = do
             pos = params ^. J.position
             doc = params ^. J.textDocument . J.uri
         rid <- nextReqId
-        let hreq = CReq "ghcmod" rid (IdeRequest "type" (Map.fromList
-                                                    [("file",     ParamFileP doc)
-                                                    ,("include_constraints", ParamBoolP False)
-                                                    ,("start_pos",ParamPosP pos)
-                                                    ])) cout
+        let hreq = PReq "ghcmod" rid cout $ GhcMod.typeCmd' False doc pos
         liftIO $ atomically $ writeTChan cin hreq
         keepOriginal rid (r, Just (params ^. J.textDocument . J.uri))
 
@@ -346,28 +342,28 @@ reactor st cin cout inp = do
       -- -------------------------------
 
       HandlerRequest (Core.LspFuncs _c _sf _vf _pd) r@(Core.ReqExecuteCommand req) -> do
-        liftIO $ U.logs $ "reactor:got ExecuteCommandRequest:" -- ++ show req
+        liftIO $ U.logs $ "reactor:got ExecuteCommandRequest, skipping:" -- ++ show req
         -- cwd <- liftIO getCurrentDirectory
         -- liftIO $ U.logs $ "reactor:cwd:" ++ cwd
         let params = req ^. J.params
             command = params ^. J.command
             margs = params ^. J.arguments
 
+
         -- liftIO $ U.logs $ "reactor:ExecuteCommandRequest:margs=" ++ show margs
-        cmdparams <- case margs of
-              Nothing -> return []
-              Just (J.List os) -> do
-                let (lts,rts) = partitionEithers $ map convertParam os
-                -- TODO:AZ: return an error if any parse errors found.
-                unless (null lts) $
-                  liftIO $ U.logs $ "\n\n****reactor:ExecuteCommandRequest:error converting params=" ++ show lts ++ "\n\n"
-                return rts
+        -- cmdparams <- case margs of
+        --       Nothing -> return []
+        --       Just (J.List os) -> do
+        --         let (lts,rts) = partitionEithers $ map convertParam os
+        --         -- TODO:AZ: return an error if any parse errors found.
+        --         unless (null lts) $
+        --           liftIO $ U.logs $ "\n\n****reactor:ExecuteCommandRequest:error converting params=" ++ show lts ++ "\n\n"
+        --         return rts
 
         rid <- nextReqId
         let (plugin,cmd) = break (==':') (T.unpack command)
-        let hreq = CReq (T.pack plugin) rid (IdeRequest (T.pack $ tail cmd) (Map.fromList
-                                                    cmdparams)) cout
-        liftIO $ atomically $ writeTChan cin hreq
+        --let hreq = CReq (T.pack plugin) rid (IdeRequest (T.pack $ tail cmd) (Map.fromList cmdparams)) cout
+        -- liftIO $ atomically $ writeTChan cin hreq
         keepOriginal rid (r, Nothing)
 
       -- -------------------------------
@@ -417,7 +413,7 @@ reactor st cin cout inp = do
 
       -- ---------------------------------------------------
 
-      DispatcherResponse rsp@(CResp pid rid res)-> do
+      DispatcherResponse rsp@(PResp pid rid res)-> do
         liftIO $ U.logs $ "reactor:got DispatcherResponse:" ++ show rsp
         morig <- lookupOriginal rid
         case morig of
@@ -445,14 +441,14 @@ reactor st cin cout inp = do
                   IdeResponseOk r -> publishDiagnosticsToLsp pid mu Nothing r
 
               (Core.ReqRename req, _) -> hieResponseHelper req res $ \r -> do
-                let J.Success vv = J.fromJSON (J.Object r) :: J.Result RefactorResult
+                let PRefactorResult vv = r
                 let we = refactorResultToWorkspaceEdit vv
                 let rspMsg = Core.makeResponseMessage (J.responseId $ req ^. J.id ) we
                 reactorSend rspMsg
 
               (Core.ReqHover req, _) -> hieResponseHelper req res $ \r -> do
                 let
-                  J.Success (TypeInfo mtis) = J.fromJSON (J.Object r) :: J.Result TypeInfo
+                  PTypeInfo (TypeInfo mtis) = r
                   ht = case mtis of
                     []  -> J.Hover (J.List []) Nothing
                     tis -> J.Hover (J.List ms) (Just range)
@@ -475,30 +471,31 @@ reactor st cin cout inp = do
                     lid <- nextLspReqId
                     reactorSend $ fmServerApplyWorkspaceEditRequest lid we
                   Nothing ->
-                    reply (J.Object r)
+                    -- reply (J.Object r)
+                    return ()
 
               other -> do
                 sendErrorLog $ "reactor:not processing for original LSP message : " <> (T.pack . show) other
 
 -- ---------------------------------------------------------------------
 
-requestDiagnostics :: TChan ChannelRequest -> TChan ChannelResponse -> J.Uri -> Core.OutMessage -> R ()
+requestDiagnostics :: TChan PluginRequest -> TChan PluginResponse -> J.Uri -> Core.OutMessage -> R ()
 requestDiagnostics cin cout file req = do
   -- get hlint diagnostics
   ridl <- nextReqId
-  let reql = CReq "applyrefact" ridl (IdeRequest "lint" (Map.fromList [("file", ParamFileP file)])) cout
+  let reql = PReq "applyrefact" ridl cout $ ApplyRefact.lintCmd' file
   liftIO $ atomically $ writeTChan cin reql
   keepOriginal ridl (req, Just file)
 
   -- get GHC diagnostics
   ridg <- nextReqId
-  let reqg = CReq "ghcmod" ridg (IdeRequest "check" (Map.fromList [("file", ParamFileP file)])) cout
+  let reqg = PReq "ghcmod" ridg cout $ GhcMod.checkCmd' file
   liftIO $ atomically $ writeTChan cin reqg
   keepOriginal ridg (req, Just file)
 
 -- ---------------------------------------------------------------------
 
-publishDiagnosticsToLsp :: PluginId -> Maybe J.Uri -> Maybe J.TextDocumentVersion -> J.Object -> R ()
+publishDiagnosticsToLsp :: PluginId -> Maybe J.Uri -> Maybe J.TextDocumentVersion -> PluginResponseWrapper -> R ()
 publishDiagnosticsToLsp pid mu mv r = do
   let
     sendEmpty =
@@ -512,12 +509,12 @@ publishDiagnosticsToLsp pid mu mv r = do
       return (J.filePathToUri af, ds)
   case pid of
     "applyrefact" -> do
-      case J.fromJSON (J.Object r) of
-        J.Success (J.PublishDiagnosticsParams fp (J.List ds)) -> sendOne (fp,ds)
+      case r of
+        (PFileDiagnostics (FileDiagnostics fp ds)) -> sendOne (fp,ds)
         _  -> return ()
     "ghcmod"      -> do
-      case J.parse jsRead r of
-        J.Success str -> do
+      case r of
+        PText str -> do
           let pd = parseGhcDiagnostics str
           ds <- mapM mkDiag $ Map.toList $ Map.fromListWith (++) pd
           case ds of
@@ -531,23 +528,12 @@ publishDiagnosticsToLsp pid mu mv r = do
 
 -- ---------------------------------------------------------------------
 
--- TODO: this could probably be done with Aeson combinators somehow
-toWorkspaceEdit :: J.Object -> Maybe J.ApplyWorkspaceEditParams
-toWorkspaceEdit r = v
-  where
-    refactorResult =
-      case J.fromJSON (J.Object r) :: J.Result RefactorResult of
-        J.Success vv -> [J.ApplyWorkspaceEditParams $ refactorResultToWorkspaceEdit vv]
-        _            -> []
-
-    hieDiff =
-      case J.parse jsRead r :: J.Result WorkspaceEdit of
-        J.Success vv -> [J.ApplyWorkspaceEditParams $ vv]
-        _            -> []
-
-    v = case refactorResult ++ hieDiff of
-      [we] -> Just we
-      _    -> Nothing
+toWorkspaceEdit :: PluginResponseWrapper -> Maybe J.ApplyWorkspaceEditParams
+toWorkspaceEdit (PRefactorResult r) =
+  pure $ J.ApplyWorkspaceEditParams $ refactorResultToWorkspaceEdit r
+toWorkspaceEdit (PWorkspaceEdit we) =
+  pure $ J.ApplyWorkspaceEditParams we
+toWorkspaceEdit _ = Nothing
 
 -- ---------------------------------------------------------------------
 

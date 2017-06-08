@@ -21,17 +21,19 @@ data ChannelRequest = CReq
   } deriving Show
 
 data PluginRequest = forall a. ValidResponse a => PReq
-  { pinReqId     :: RequestId -- ^An identifier for the request, can tie back to
+  { pinPlugin    :: PluginId
+  , pinReqId     :: RequestId -- ^An identifier for the request, can tie back to
                               -- e.g. a promise id. It is returned with the
                               -- ChannelResponse.
-  , pinReq       :: IdeM (IdeResponse a)
   , pinReplyChan :: TChan PluginResponse
+  , pinReq       :: IdeM (IdeResponse a)
   }
 
 data PluginResponse = PResp
-  { poutReqId :: RequestId
+  { poutPlugin :: PluginId
+  , poutReqId :: RequestId
   , poutResp  :: IdeResponse PluginResponseWrapper
-  }
+  } deriving (Show)
 
 instance Show (TChan ChannelResponse) where
   show _ = "(TChan ChannelResponse)"

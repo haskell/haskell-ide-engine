@@ -47,6 +47,7 @@ data PluginResponseWrapper =
   | PAst AST
   | PFileDiagnostics FileDiagnostics
   | PDiagnostic Diagnostic
+    deriving (Show)
 
 
 -- | The typeclass for valid response types

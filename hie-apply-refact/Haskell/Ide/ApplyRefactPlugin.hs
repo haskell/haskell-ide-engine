@@ -60,7 +60,10 @@ applyOneCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile uri :& ParamPos pos :& RNil) ->
-            pluginGetFile "applyOne: " uri $ \file -> do
+      applyOneCmd' uri pos
+
+applyOneCmd' :: Uri -> Position -> IdeM (IdeResponse WorkspaceEdit)
+applyOneCmd' uri pos = pluginGetFile "applyOne: " uri $ \file -> do
       res <- liftIO $ applyHint file (Just pos)
       logm $ "applyOneCmd:file=" ++ show file
       logm $ "applyOneCmd:res=" ++ show res
@@ -76,7 +79,11 @@ applyAllCmd :: CommandFunc WorkspaceEdit
 applyAllCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
-    Right (ParamFile uri :& RNil) -> pluginGetFile "applyAll: " uri $ \file -> do
+    Right (ParamFile uri :& RNil) ->
+      applyAllCmd' uri
+
+applyAllCmd' :: Uri -> IdeM (IdeResponse WorkspaceEdit)
+applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \file -> do
       res <- liftIO $ applyHint file Nothing
       logm $ "applyAllCmd:res=" ++ show res
       case res of
@@ -90,7 +97,10 @@ lintCmd :: CommandFunc FileDiagnostics
 lintCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
-    Right (ParamFile uri :& RNil) -> pluginGetFile "applyAll: " uri $ \file -> do
+    Right (ParamFile uri :& RNil) -> lintCmd' uri
+
+lintCmd' :: Uri -> IdeM (IdeResponse FileDiagnostics)
+lintCmd' uri = pluginGetFile "applyAll: " uri $ \file -> do
       res <- liftIO $ runEitherT $ runLintCmd file []
       logm $ "lint:res=" ++ show res
       case res of
