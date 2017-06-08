@@ -18,7 +18,18 @@ import GHC.TypeLits
 -- | Indicates the type of a parameter. Plugin authors should use the
 -- singleton version `SParamType` which requires prefixing the
 -- constructors with an /S/
-data ParamType = PtText | PtFile | PtPos
+data ParamType =
+  -- Primitives
+    PtText
+  | PtInt
+  | PtBool
+  -- Compound Types
+  | PtFile
+  | PtPos
+  | PtRange
+  | PtLoc
+  | PtTextDocId
+  | PtTextDocPos
             deriving (Eq,Ord,Show,Read,Bounded,Enum,Generic)
 
 -- | Indicates whether a parameter is required or optional. Plugin
@@ -58,13 +69,26 @@ data SParamDescription (t :: ParamDescType) where
 
 instance ToJSON ParamType where
   toJSON PtText = String "text"
+  toJSON PtInt = String "int"
+  toJSON PtBool = String "bool"
   toJSON PtFile = String "file"
-  toJSON PtPos  = String "pos"
+  toJSON PtPos = String "pos"
+  toJSON PtRange = String "range"
+  toJSON PtLoc = String "loc"
+  toJSON PtTextDocId = String "textdocid"
+  toJSON PtTextDocPos = String "textdocpos"
+
 
 instance FromJSON ParamType where
   parseJSON (String "text") = pure PtText
+  parseJSON (String "int") = pure PtInt
+  parseJSON (String "bool") = pure PtBool
   parseJSON (String "file") = pure PtFile
-  parseJSON (String "pos")  = pure PtPos
+  parseJSON (String "pos") = pure PtPos
+  parseJSON (String "range") = pure PtRange
+  parseJSON (String "loc") = pure PtLoc
+  parseJSON (String "textdocid") = pure PtTextDocId
+  parseJSON (String "textdocpos") = pure PtTextDocPos
   parseJSON _               = empty
 
 instance ToJSON AcceptedContext where

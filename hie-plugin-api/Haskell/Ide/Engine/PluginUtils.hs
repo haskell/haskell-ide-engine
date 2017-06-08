@@ -8,8 +8,9 @@ module Haskell.Ide.Engine.PluginUtils
   (
     getParams
   , mapEithers
-  , diffFiles
+  , pluginGetFile
   , diffText
+  , diffFiles
   -- * Helper functions for errors
   , missingParameter
   , incorrectParameter
@@ -23,16 +24,27 @@ import qualified Data.Map as Map
 import           Data.Monoid
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
+import qualified Data.HashMap.Strict as H
 import           Data.Vinyl
-import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
+import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 import           Prelude hiding (log)
 import           System.FilePath
 
 -- ---------------------------------------------------------------------
+pluginGetFile
+  :: Monad m
+  => T.Text -> Uri -> (FilePath -> m (IdeResponse a)) -> m (IdeResponse a)
+pluginGetFile name uri f =
+  case uriToFilePath uri of
+    Just file -> f file
+    Nothing -> return $ IdeResponseFail (IdeError PluginError
+                 (name <> "Couldn't resolve uri" <> getUri uri) Null)
 
--- |If all the listed params are present in the request resturn their values,
+----------------------------------------
+
+-- |If all the listed params are present in the request return their values,
 -- else return an error message.
 getParams :: (ValidResponse r) =>
   Rec TaggedParamId ts -> IdeRequest -> Either (IdeResponse r) (Rec ParamVal ts)
@@ -49,13 +61,31 @@ getParams params req = go params
     checkOne ::
       TaggedParamId t -> Either (IdeResponse r) (ParamVal t)
     checkOne (IdText param) = case Map.lookup param (ideParams req) of
-      Just (ParamTextP v)  -> Right (ParamText v)
+      Just (ParamTextP v) -> Right (ParamText v)
+      _ -> Left (missingParameter param)
+    checkOne (IdInt param) = case Map.lookup param (ideParams req) of
+      Just (ParamIntP v) -> Right (ParamInt v)
+      _ -> Left (missingParameter param)
+    checkOne (IdBool param) = case Map.lookup param (ideParams req) of
+      Just (ParamBoolP v) -> Right (ParamBool v)
       _ -> Left (missingParameter param)
     checkOne (IdFile param) = case Map.lookup param (ideParams req) of
-      Just (ParamFileP v)  -> Right (ParamFile v)
+      Just (ParamFileP v) -> Right (ParamFile v)
       _ -> Left (missingParameter param)
     checkOne (IdPos param) = case Map.lookup param (ideParams req) of
-      Just (ParamPosP v)  -> Right (ParamPos v)
+      Just (ParamPosP v) -> Right (ParamPos v)
+      _ -> Left (missingParameter param)
+    checkOne (IdRange param) = case Map.lookup param (ideParams req) of
+      Just (ParamRangeP v) -> Right (ParamRange v)
+      _ -> Left (missingParameter param)
+    checkOne (IdLoc param) = case Map.lookup param (ideParams req) of
+      Just (ParamLocP v) -> Right (ParamLoc v)
+      _ -> Left (missingParameter param)
+    checkOne (IdTextDocId param) = case Map.lookup param (ideParams req) of
+      Just (ParamTextDocIdP v) -> Right (ParamTextDocId v)
+      _ -> Left (missingParameter param)
+    checkOne (IdTextDocPos param) = case Map.lookup param (ideParams req) of
+      Just (ParamTextDocPosP v) -> Right (ParamTextDocPos v)
       _ -> Left (missingParameter param)
 
 
@@ -90,21 +120,46 @@ incorrectParameter name expected value = IdeResponseFail
 
 -- ---------------------------------------------------------------------
 
--- |Generate a 'HieDiff' value from a pair of files
-diffFiles :: FilePath -> FilePath -> IO HieDiff
+diffFiles :: FilePath -> FilePath -> IO WorkspaceEdit
 diffFiles f1 f2 = do
-  f1Text <- T.readFile f1
-  f2Text <- T.readFile f2
-  let dt = diffText (f1,f1Text) (f2,f2Text)
-  logm $ "diffFiles:diff=[" ++ dDiff dt ++ "]"
-  return dt
+  t1 <- T.readFile f1
+  t2 <- T.readFile f2
+  return $ diffText (filePathToUri f1, t1) t2
 
--- |Generate a 'HieDiff' value from a pair of source Text
-diffText :: (FilePath,T.Text) -> (FilePath,T.Text) -> HieDiff
-diffText (f1,f1Text) (f2,f2Text) = HieDiff f1 f2 diff
+-- |Generate a 'WorkspaceEdit' value from a pair of source Text
+diffText :: (Uri,T.Text) -> T.Text -> WorkspaceEdit
+diffText (f,fText) f2Text = WorkspaceEdit (Just h) Nothing
   where
-    d = getGroupedDiff (lines $ T.unpack f1Text) (lines $ T.unpack f2Text)
-    diff = ppDiff d
+    d = getGroupedDiff (lines $ T.unpack fText) (lines $ T.unpack f2Text)
+    diffOps = diffToLineRanges d
+    r = map diffOperationToTextEdit diffOps
+    diff = J.List r
+    h = H.singleton f diff
+
+    diffOperationToTextEdit :: DiffOperation LineRange -> J.TextEdit
+    diffOperationToTextEdit (Change fm to) = J.TextEdit range nt
+      where
+        range = calcRange fm
+        nt = T.pack $ init $ unlines $ lrContents to
+
+    diffOperationToTextEdit (Deletion fm _) = J.TextEdit range ""
+      where
+        range = calcRange fm
+
+    diffOperationToTextEdit (Addition fm _) = J.TextEdit range nt
+      where
+        range = calcRange fm
+        nt = T.pack $ unlines $ lrContents fm
+
+
+    calcRange fm = J.Range s e
+      where
+        sl = fst $ lrNumbers fm
+        sc = 0
+        s = J.Position (sl - 1) sc -- Note: zero-based lines
+        el = snd $ lrNumbers fm
+        ec = length $ last $ lrContents fm
+        e = J.Position (el - 1) ec  -- Note: zero-based lines
 
 -- ---------------------------------------------------------------------
 

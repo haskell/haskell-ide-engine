@@ -18,9 +18,11 @@
 *~
 .cabal-sandbox/
 .hpc
+.#*
 .hsenv
 .stack-work/
 .vagrant/
+haskell-lsp/
 /*.iml
 /.cabal-sandbox/
 /.idea/

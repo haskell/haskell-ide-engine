@@ -35,7 +35,7 @@ jsonSpec = do
                               \\"cmd\":\"eg1:hello\"}"
 
     it "generates a WireRequest 2" $ do
-      let wr = WireReq "eg2:helloTo"  (Map.fromList [("cabal",ParamValP $ ParamText "lib"),("name",ParamValP $ ParamText "foo")])
+      let wr = WireReq "eg2:helloTo"  (Map.fromList [("cabal",ParamTextP "lib"),("name",ParamTextP "foo")])
       (encode wr) `shouldBe` "{\"params\":{\"cabal\":{\"text\":\"lib\"},\
                                           \\"name\":{\"text\":\"foo\"}},\
                               \\"cmd\":\"eg2:helloTo\"}"
@@ -48,7 +48,7 @@ jsonSpec = do
          `shouldBe` (Just wr)
 
     it "parses a WireRequest 2" $ do
-      let wr = WireReq "eg2:helloTo" (Map.fromList [("name",ParamValP $ ParamText "foo")])
+      let wr = WireReq "eg2:helloTo" (Map.fromList [("name",ParamTextP "foo")])
       (decode "{\"params\":{\"name\":{\"text\":\"foo\"}},\
                \\"cmd\":\"eg2:helloTo\"}")
          `shouldBe` (Just wr)

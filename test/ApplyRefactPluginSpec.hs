@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DuplicateRecordFields   #-}
 module ApplyRefactPluginSpec where
 
 import           Control.Concurrent.STM.TChan
@@ -11,6 +12,8 @@ import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.ApplyRefactPlugin
+import           Language.Haskell.LSP.TH.DataTypesJSON
+import qualified Data.HashMap.Strict as H
 import           TestUtils
 
 import           Test.Hspec
@@ -50,58 +53,51 @@ applyRefactSpec = do
   describe "apply-refact plugin commands" $ do
 
     -- ---------------------------------
-
+    
     it "applies one hint only" $ do
 
-      let req = IdeRequest "applyOne" (Map.fromList [("file",ParamValP $ ParamFile "./test/testdata/ApplyRefact.hs")
-                                                    ,("start_pos",ParamValP $ ParamPos (toPos (2,8)))
+      let req = IdeRequest "applyOne" (Map.fromList [("file",ParamFileP $ filePathToUri "./test/testdata/ApplyRefact.hs")
+                                                    ,("start_pos",ParamPosP (toPos (2,8)))
                                                     ])
       r <- dispatchRequest req
       r `shouldBe`
-        Just (IdeResponseOk (jsWrite (HieDiff
-                                      { dFirst = "./test/testdata/ApplyRefact.hs"
-                                      , dSecond = "changed"
-                                      , dDiff =
-                                        ("2c2\n"++
-                                         "< main = (putStrLn \"hello\")\n"++
-                                         "---\n"++
-                                         "> main = putStrLn \"hello\"\n")
-                                      }
-                                     )))
+        Just (IdeResponseOk
+              $ jsWrite
+              $ WorkspaceEdit
+                (Just $ H.singleton (filePathToUri "./test/testdata/ApplyRefact.hs")
+                                    $ List [TextEdit (Range (Position 1 0) (Position 1 25))
+                                              "main = putStrLn \"hello\""])
+                Nothing)
 
     -- ---------------------------------
 
     it "applies all hints" $ do
 
-      let req = IdeRequest "applyAll" (Map.fromList [("file",ParamValP $ ParamFile "./test/testdata/ApplyRefact.hs")
+      let req = IdeRequest "applyAll" (Map.fromList [("file",ParamFileP $ filePathToUri "./test/testdata/ApplyRefact.hs")
                                                     ])
       r <- dispatchRequest req
       r `shouldBe`
-        Just (IdeResponseOk (jsWrite (HieDiff
-                                      { dFirst = "./test/testdata/ApplyRefact.hs"
-                                      , dSecond = "changed"
-                                      , dDiff =
-                                        ("2c2\n"++
-                                         "< main = (putStrLn \"hello\")\n"++
-                                         "---\n"++
-                                         "> main = putStrLn \"hello\"\n"++
-                                         "4c4\n"++
-                                         "< foo x = (x + 1)\n"++
-                                         "---\n"++
-                                         "> foo x = x + 1\n")
-                                      }
-                                     )))
+        Just (IdeResponseOk
+              $ jsWrite
+              $ WorkspaceEdit
+                (Just
+                  $ H.singleton (filePathToUri "./test/testdata/ApplyRefact.hs")
+                              $ List [TextEdit (Range (Position 1 0) (Position 1 25))
+                                        "main = putStrLn \"hello\""
+                                     ,TextEdit (Range (Position 3 0) (Position 3 15))
+                                        "foo x = x + 1"])
+                Nothing)
 
     -- ---------------------------------
 
     it "returns hints as diagnostics" $ do
 
-      let req = IdeRequest "lint" (Map.fromList [("file",ParamValP $ ParamFile "./test/testdata/ApplyRefact.hs")
+      let req = IdeRequest "lint" (Map.fromList [("file",ParamFileP $ filePathToUri "./test/testdata/ApplyRefact.hs")
                                                 ])
       r <- dispatchRequest req
       r `shouldBe`
         Just (IdeResponseOk (jsWrite (FileDiagnostics
-                                      { fdFileName = "file://./test/testdata/ApplyRefact.hs"
+                                      { fdFileName = filePathToUri "./test/testdata/ApplyRefact.hs"
                                       , fdDiagnostics =
                                         [ Diagnostic (Range (Position 1 7) (Position 1 25))
                                                      (Just DsHint)

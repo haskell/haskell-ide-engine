@@ -79,7 +79,7 @@ instance (ParamParser x, TaggedMapParser xs) => TaggedMapParser (x ': xs) where
 class ParamParser (t :: ParamDescType) where
   parseParam :: Proxy t -> Object -> Parser (ParamId,ParamValP)
 
-instance (KnownSymbol pname, FromJSON (ParamVal ptype)) => ParamParser ('ParamDescType pname phelp ptype preq) where
+instance (KnownSymbol pname, FromJSON (ParamVal ptype), ToJSON (ParamVal ptype)) => ParamParser ('ParamDescType pname phelp ptype preq) where
   parseParam _ v =
     do unparsedParamVal <- v .: paramId
        paramVal <- parseJSON unparsedParamVal :: Parser (ParamVal ptype)
