@@ -48,7 +48,9 @@ ghcmodDescriptor = PluginDescriptor
                      :& RNil) SaveNone
 
       :& buildCommand typeCmd (Proxy :: Proxy "type") "Get the type of the expression under (LINE,COL)"
-                     [".hs",".lhs"] (SCtxPoint :& RNil) RNil SaveAll
+                     [".hs",".lhs"] (SCtxPoint :& RNil)
+                     (  SParamDesc (Proxy :: Proxy "include_constraints") (Proxy :: Proxy "Whether to include constraints in the type sig") SPtBool SRequired
+                     :& RNil) SaveAll
 
       :& RNil
   , pdExposedServices = []
@@ -80,8 +82,8 @@ checkCmd :: CommandFunc T.Text
 checkCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
-    Right (ParamFile fileName :& RNil) -> do
-      fmap T.pack <$> runGhcModCommand (GM.checkSyntax [T.unpack fileName])
+    Right (ParamFile uri :& RNil) -> pluginGetFile "check: " uri $ \file -> do
+      fmap T.pack <$> runGhcModCommand (GM.checkSyntax [file])
 
 -- ---------------------------------------------------------------------
 
@@ -106,8 +108,8 @@ lintCmd :: CommandFunc T.Text
 lintCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
-    Right (ParamFile fileName :& RNil) -> do
-      fmap T.pack <$> runGhcModCommand (GM.lint GM.defaultLintOpts (T.unpack fileName))
+    Right (ParamFile uri :& RNil) -> pluginGetFile "lint: " uri $ \file -> do
+      fmap T.pack <$> runGhcModCommand (GM.lint GM.defaultLintOpts file)
 
 -- ---------------------------------------------------------------------
 
@@ -115,27 +117,19 @@ infoCmd :: CommandFunc T.Text
 infoCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdText "expr" :& RNil) req of
     Left err -> return err
-    Right (ParamFile fileName :& ParamText expr :& RNil) -> do
-      fmap T.pack <$> runGhcModCommand (GM.info (T.unpack fileName) (GM.Expression (T.unpack expr)))
+    Right (ParamFile uri :& ParamText expr :& RNil) ->
+      pluginGetFile "info: " uri $ \file -> do
+        fmap T.pack <$> runGhcModCommand (GM.info file (GM.Expression (T.unpack expr)))
 
 -- ---------------------------------------------------------------------
 
 typeCmd :: CommandFunc TypeInfo
 typeCmd = CmdSync $ \_ctxs req ->
-  case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
+  case getParams (IdBool "include_constraints" :& IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
-    Right (ParamFile fileName :& ParamPos (Position l c) :& RNil) -> do
-      {-
-      TODO: pass the bool through as a param, in the following call to 'GM.types'
-      types :: IOish m
-            => Bool         -- ^ Include constraints into type signature
-            -> FilePath     -- ^ A target file.
-            -> Int          -- ^ Line number.
-            -> Int          -- ^ Column number.
-            -> GhcModT m String
-
-      -}
-      fmap (toTypeInfo . T.lines . T.pack) <$> runGhcModCommand (GM.types False (T.unpack fileName) (l+1) (c+1))
+    Right (ParamBool bool :& ParamFile uri :& ParamPos (Position l c) :& RNil) -> do
+      pluginGetFile "type: " uri $ \file -> do
+        fmap (toTypeInfo . T.lines . T.pack) <$> runGhcModCommand (GM.types bool file (l+1) (c+1))
 
 
 

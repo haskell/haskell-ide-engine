@@ -103,10 +103,11 @@ convertToParams cmd ss = Map.fromList $ map (\(k,v) -> (k,convertParam k v)) $  
         Nothing -> ParamTextP str -- TODO: should this be an error of some kind
         Just p -> case pType p of
           PtText -> ParamTextP str
-          PtFile -> ParamFileP str
+          PtFile -> ParamFileP $ filePathToUri $ T.unpack str
           PtPos  -> case parseOnly parsePos str of
             Left _err -> ParamTextP str -- TODO: should this be an error of some kind
             Right pos -> ParamPosP pos
+          _ -> undefined -- TODO: Handle this
 
 parseInt :: Parser Int
 parseInt = do

@@ -5,6 +5,7 @@ import qualified Data.Map as M
 import           Data.Monoid
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Transport.Pipes
+import qualified Data.Text as T
 
 jsonStdioExample :: PluginId -> UntaggedCommandDescriptor -> WireRequest
 jsonStdioExample pluginId (CommandDesc{cmdName = name,cmdContexts = contexts,cmdAdditionalParams = cmdParams}) =
@@ -21,8 +22,9 @@ paramDesc desc =
   M.singleton (pName desc) $
   case pType desc of
     PtText -> ParamTextP (pHelp desc)
-    PtFile -> ParamFileP (pHelp desc)
+    PtFile -> ParamFileP (filePathToUri $ T.unpack $ pHelp desc)
     PtPos -> ParamPosP (toPos (42,23))
+    _ -> undefined
 
 -- test :: BSL.ByteString
 -- test =

@@ -76,8 +76,9 @@ demoteCmd :: CommandFunc RefactorResult
 demoteCmd  = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
-    Right (ParamFile fileName :& ParamPos pos :& RNil) ->
-      runHareCommand "demote" (compDemote (T.unpack fileName) (unPos pos))
+    Right (ParamFile uri :& ParamPos pos :& RNil) ->
+        pluginGetFile "demote: " uri $ \file -> do
+      runHareCommand "demote" (compDemote file (unPos pos))
 
 -- compDemote :: FilePath -> SimpPos -> IO [FilePath]
 
@@ -87,8 +88,9 @@ dupdefCmd :: CommandFunc RefactorResult
 dupdefCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdText "name" :& RNil) req of
     Left err -> return err
-    Right (ParamFile fileName :& ParamPos pos :& ParamText name :& RNil) ->
-      runHareCommand "dupdef" (compDuplicateDef (T.unpack fileName) (T.unpack name) (unPos pos))
+    Right (ParamFile uri :& ParamPos pos :& ParamText name :& RNil) ->
+        pluginGetFile "dupdef: " uri $ \file -> do
+      runHareCommand "dupdef" (compDuplicateDef file (T.unpack name) (unPos pos))
 
 -- compDuplicateDef :: FilePath -> String -> SimpPos -> IO [FilePath]
 
@@ -98,8 +100,9 @@ iftocaseCmd :: CommandFunc RefactorResult
 iftocaseCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdPos "end_pos" :& RNil) req of
     Left err -> return err
-    Right (ParamFile fileName :& ParamPos startPos :& ParamPos endPos :& RNil) ->
-      runHareCommand "iftocase" (compIfToCase (T.unpack fileName) (unPos startPos) (unPos endPos))
+    Right (ParamFile uri :& ParamPos startPos :& ParamPos endPos :& RNil) ->
+        pluginGetFile "iftocase: " uri $ \file -> do
+      runHareCommand "iftocase" (compIfToCase file (unPos startPos) (unPos endPos))
 
 -- compIfToCase :: FilePath -> SimpPos -> SimpPos -> IO [FilePath]
 
@@ -109,8 +112,9 @@ liftonelevelCmd :: CommandFunc RefactorResult
 liftonelevelCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
-    Right (ParamFile fileName :& ParamPos pos :& RNil) ->
-      runHareCommand "liftonelevel" (compLiftOneLevel (T.unpack fileName) (unPos pos))
+    Right (ParamFile uri :& ParamPos pos :& RNil) ->
+        pluginGetFile "liftonelevelCmd: " uri $ \file -> do
+      runHareCommand "liftonelevel" (compLiftOneLevel file (unPos pos))
 
 -- compLiftOneLevel :: FilePath -> SimpPos -> IO [FilePath]
 
@@ -120,8 +124,9 @@ lifttotoplevelCmd :: CommandFunc RefactorResult
 lifttotoplevelCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
-    Right (ParamFile fileName :& ParamPos pos :& RNil) ->
-      runHareCommand "lifttotoplevel" (compLiftToTopLevel (T.unpack fileName) (unPos pos))
+    Right (ParamFile uri :& ParamPos pos :& RNil) ->
+        pluginGetFile "lifttoplevelCmd: " uri $ \file -> do
+      runHareCommand "lifttotoplevel" (compLiftToTopLevel file (unPos pos))
 
 -- compLiftToTopLevel :: FilePath -> SimpPos -> IO [FilePath]
 
@@ -131,8 +136,9 @@ renameCmd :: CommandFunc RefactorResult
 renameCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdText "name" :& RNil) req of
     Left err -> return err
-    Right (ParamFile fileName :& ParamPos pos :& ParamText name :& RNil) ->
-      runHareCommand "rename" (compRename (T.unpack fileName) (T.unpack name) (unPos pos))
+    Right (ParamFile uri :& ParamPos pos :& ParamText name :& RNil) ->
+        pluginGetFile "rename: " uri $ \file -> do
+      runHareCommand "rename" (compRename file (T.unpack name) (unPos pos))
 
 -- compRename :: FilePath -> String -> SimpPos -> IO [FilePath]
 
@@ -142,8 +148,9 @@ deleteDefCmd :: CommandFunc RefactorResult
 deleteDefCmd  = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
-    Right (ParamFile fileName :& ParamPos pos :& RNil) ->
-      runHareCommand "deltetedef" (compDeleteDef (T.unpack fileName) (unPos pos))
+    Right (ParamFile uri :& ParamPos pos :& RNil) ->
+        pluginGetFile "deletedef: " uri $ \file -> do
+      runHareCommand "deltetedef" (compDeleteDef file (unPos pos))
 
 -- compDeleteDef ::FilePath -> SimpPos -> RefactGhc [ApplyRefacResult]
 
@@ -153,8 +160,9 @@ genApplicativeCommand :: CommandFunc RefactorResult
 genApplicativeCommand  = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
-    Right (ParamFile fileName :& ParamPos pos :& RNil) ->
-      runHareCommand "genapplicativve" (compGenApplicative (T.unpack fileName) (unPos pos))
+    Right (ParamFile uri :& ParamPos pos :& RNil) ->
+        pluginGetFile "genapplicative: " uri $ \file -> do
+      runHareCommand "genapplicative" (compGenApplicative file (unPos pos))
 
 -- compGenApplicative :: FilePath -> String -> SimpPos -> RefactGhc [ApplyRefacResult]
 

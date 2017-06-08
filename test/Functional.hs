@@ -9,6 +9,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE DuplicateRecordFields   #-}
 {-
 
 Start up an actual instance of the HIE server, and interact with it.
@@ -39,6 +40,7 @@ import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Transport.JsonHttp
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.Utils
+import           Language.Haskell.LSP.TH.DataTypesJSON hiding (error, name)
 import           System.Directory
 import           System.FilePath
 import           TestUtils
@@ -126,12 +128,12 @@ functionalSpec = do
 
       -- -------------------------------
 
-      let req1 = IdeRequest "lint" (Map.fromList [("file",ParamValP $ ParamFile "./FuncTest.hs")
+      let req1 = IdeRequest "lint" (Map.fromList [("file",ParamFileP $ filePathToUri "./FuncTest.hs")
                                                 ])
       r1 <- dispatchRequest cin cout (CReq "applyrefact" 1 req1 cout)
       r1 `shouldBe`
         Just (IdeResponseOk (jsWrite (FileDiagnostics
-                                      { fdFileName = "file://./FuncTest.hs"
+                                      { fdFileName = filePathToUri "./FuncTest.hs"
                                       , fdDiagnostics =
                                         [ Diagnostic (Range (Position 0 0) (Position 0 17))
                                                      (Just DsWarning)
@@ -149,8 +151,9 @@ functionalSpec = do
 
       -- -------------------------------
 
-      let req2 = IdeRequest "type" (Map.fromList [("file",ParamValP $ ParamFile "./FuncTest.hs")
-                                                  ,("start_pos",ParamValP $ ParamPos (toPos (10,2)))])
+      let req2 = IdeRequest "type" (Map.fromList [("file",ParamFileP $ filePathToUri "./FuncTest.hs")
+                                                 ,("include_constraints", ParamBoolP False)
+                                                  ,("start_pos",ParamPosP (toPos (10,2)))])
       r2 <- dispatchRequest cin cout (CReq "ghcmod" 2 req2 cout)
       r2 `shouldBe`
         Just (IdeResponseOk (H.fromList ["type_info".=toJSON
@@ -160,8 +163,9 @@ functionalSpec = do
 
       -- -------------------------------
 
-      let req4 = IdeRequest "type" (Map.fromList [("file",ParamValP $ ParamFile "./FuncTest.hs")
-                                                  ,("start_pos",ParamValP $ ParamPos (toPos (8,1)))])
+      let req4 = IdeRequest "type" (Map.fromList [("file",ParamFileP $ filePathToUri "./FuncTest.hs")
+                                                 ,("include_constraints", ParamBoolP False)
+                                                 ,("start_pos",ParamPosP (toPos (8,1)))])
       r4 <- dispatchRequest cin cout (CReq "ghcmod" 4 req4 cout)
       r4 `shouldBe`
         Just (IdeResponseOk (H.fromList ["type_info".=toJSON
@@ -171,12 +175,17 @@ functionalSpec = do
 
       -- -------------------------------
 
-      let req3 = IdeRequest "demote" (Map.fromList [("file",ParamValP $ ParamFile "./FuncTest.hs")
-                                                  ,("start_pos",ParamValP $ ParamPos (toPos (8,1)))])
+      let req3 = IdeRequest "demote" (Map.fromList [("file",ParamFileP $ filePathToUri "./FuncTest.hs")
+                                                   ,("start_pos",ParamPosP (toPos (8,1)))])
       r3 <- dispatchRequest cin cout (CReq "hare" 3 req3 cout)
       r3 `shouldBe`
-        Just (IdeResponseOk $ jsWrite (RefactorResult [HieDiff (cwd </> "FuncTest.hs")
-                                                               (cwd </> "FuncTest.refactored.hs")
-                                                                "7,8c7,8\n< \n< bb = 5\n---\n>   where\n>     bb = 5\n"]))
+        Just (IdeResponseOk
+              $ jsWrite
+              $ RefactorResult
+              [WorkspaceEdit
+                (Just $ H.singleton (filePathToUri $ cwd </> "FuncTest.hs")
+                                    $ List [TextEdit (Range (Position 6 0) (Position 7 6))
+                                                     "  where\n    bb = 5"])
+                Nothing])
 {- -}
 
