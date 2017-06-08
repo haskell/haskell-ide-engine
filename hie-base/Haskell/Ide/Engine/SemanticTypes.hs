@@ -67,9 +67,9 @@ instance ValidResponse T.Text where
   wrapResponse = PText
 
 
-instance ValidResponse a => ValidResponse [a] where
-  jsWrite ss = H.fromList [ok .= jsWrite ss]
-  jsRead o = o .: ok >>= jsRead
+instance (ToJSON a, FromJSON a, ValidResponse a) => ValidResponse [a] where
+  jsWrite ss = H.fromList [ok .= ss]
+  jsRead o = o .: ok
   wrapResponse = PList . fmap wrapResponse
 
 instance ValidResponse () where

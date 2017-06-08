@@ -24,6 +24,8 @@ import           Language.Haskell.Refact.HaRe
 import           Language.Haskell.Refact.Utils.Monad
 import           Language.Haskell.Refact.Utils.Types
 import           Language.Haskell.Refact.Utils.Utils
+import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
+import           Control.Lens ( (^.) )
 import           System.FilePath
 
 -- ---------------------------------------------------------------------
@@ -77,8 +79,12 @@ demoteCmd  = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile uri :& ParamPos pos :& RNil) ->
-        pluginGetFile "demote: " uri $ \file -> do
-      runHareCommand "demote" (compDemote file (unPos pos))
+      demoteCmd' (TextDocumentPositionParams (TextDocumentIdentifier uri) pos)
+
+demoteCmd' :: TextDocumentPositionParams -> IdeM (IdeResponse RefactorResult)
+demoteCmd' (TextDocumentPositionParams tdi pos) =
+  pluginGetFile "demote: " (tdi ^. J.uri) $ \file -> do
+    runHareCommand "demote" (compDemote file (unPos pos))
 
 -- compDemote :: FilePath -> SimpPos -> IO [FilePath]
 
@@ -89,8 +95,12 @@ dupdefCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdText "name" :& RNil) req of
     Left err -> return err
     Right (ParamFile uri :& ParamPos pos :& ParamText name :& RNil) ->
-        pluginGetFile "dupdef: " uri $ \file -> do
-      runHareCommand "dupdef" (compDuplicateDef file (T.unpack name) (unPos pos))
+      dupdefCmd' (TextDocumentPositionParams (TextDocumentIdentifier uri) pos) name
+
+dupdefCmd' :: TextDocumentPositionParams -> T.Text -> IdeM (IdeResponse RefactorResult)
+dupdefCmd' (TextDocumentPositionParams tdi pos) name =
+  pluginGetFile "dupdef: " (tdi ^. J.uri) $ \file -> do
+    runHareCommand  "dupdef" (compDuplicateDef file (T.unpack name) (unPos pos))
 
 -- compDuplicateDef :: FilePath -> String -> SimpPos -> IO [FilePath]
 
@@ -101,8 +111,12 @@ iftocaseCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdPos "end_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile uri :& ParamPos startPos :& ParamPos endPos :& RNil) ->
-        pluginGetFile "iftocase: " uri $ \file -> do
-      runHareCommand "iftocase" (compIfToCase file (unPos startPos) (unPos endPos))
+      iftocaseCmd' (Location uri (Range startPos endPos))
+
+iftocaseCmd' :: Location -> IdeM (IdeResponse RefactorResult)
+iftocaseCmd' (Location uri (Range startPos endPos)) =
+  pluginGetFile "iftocase: " uri $ \file -> do
+    runHareCommand "iftocase" (compIfToCase file (unPos startPos) (unPos endPos))
 
 -- compIfToCase :: FilePath -> SimpPos -> SimpPos -> IO [FilePath]
 
@@ -113,8 +127,12 @@ liftonelevelCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile uri :& ParamPos pos :& RNil) ->
-        pluginGetFile "liftonelevelCmd: " uri $ \file -> do
-      runHareCommand "liftonelevel" (compLiftOneLevel file (unPos pos))
+      liftonelevelCmd' (TextDocumentPositionParams (TextDocumentIdentifier uri) pos)
+
+liftonelevelCmd' :: TextDocumentPositionParams -> IdeM (IdeResponse RefactorResult)
+liftonelevelCmd' (TextDocumentPositionParams tdi pos) =
+  pluginGetFile "liftonelevelCmd: " (tdi ^. J.uri) $ \file -> do
+    runHareCommand "liftonelevel" (compLiftOneLevel file (unPos pos))
 
 -- compLiftOneLevel :: FilePath -> SimpPos -> IO [FilePath]
 
@@ -125,8 +143,12 @@ lifttotoplevelCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile uri :& ParamPos pos :& RNil) ->
-        pluginGetFile "lifttoplevelCmd: " uri $ \file -> do
-      runHareCommand "lifttotoplevel" (compLiftToTopLevel file (unPos pos))
+      lifttotoplevelCmd' (TextDocumentPositionParams (TextDocumentIdentifier uri) pos)
+
+lifttotoplevelCmd' :: TextDocumentPositionParams -> IdeM (IdeResponse RefactorResult)
+lifttotoplevelCmd' (TextDocumentPositionParams tdi pos) =
+  pluginGetFile "lifttotoplevelCmd: " (tdi ^. J.uri) $ \file -> do
+    runHareCommand "lifttotoplevel" (compLiftToTopLevel file (unPos pos))
 
 -- compLiftToTopLevel :: FilePath -> SimpPos -> IO [FilePath]
 
@@ -137,7 +159,11 @@ renameCmd = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& IdText "name" :& RNil) req of
     Left err -> return err
     Right (ParamFile uri :& ParamPos pos :& ParamText name :& RNil) ->
-        pluginGetFile "rename: " uri $ \file -> do
+      renameCmd' (TextDocumentPositionParams (TextDocumentIdentifier uri) pos) name
+
+renameCmd' :: TextDocumentPositionParams -> T.Text -> IdeM (IdeResponse RefactorResult)
+renameCmd' (TextDocumentPositionParams tdi pos) name =
+  pluginGetFile "rename: " (tdi ^. J.uri) $ \file -> do
       runHareCommand "rename" (compRename file (T.unpack name) (unPos pos))
 
 -- compRename :: FilePath -> String -> SimpPos -> IO [FilePath]
@@ -149,7 +175,11 @@ deleteDefCmd  = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
     Right (ParamFile uri :& ParamPos pos :& RNil) ->
-        pluginGetFile "deletedef: " uri $ \file -> do
+      deleteDefCmd' (TextDocumentPositionParams (TextDocumentIdentifier uri) pos)
+
+deleteDefCmd' :: TextDocumentPositionParams -> IdeM (IdeResponse RefactorResult)
+deleteDefCmd' (TextDocumentPositionParams tdi pos) =
+  pluginGetFile "deletedef: " (tdi ^. J.uri) $ \file -> do
       runHareCommand "deltetedef" (compDeleteDef file (unPos pos))
 
 -- compDeleteDef ::FilePath -> SimpPos -> RefactGhc [ApplyRefacResult]

@@ -24,7 +24,7 @@ data PluginRequest = forall a. ValidResponse a => PReq
   { pinReqId     :: RequestId -- ^An identifier for the request, can tie back to
                               -- e.g. a promise id. It is returned with the
                               -- ChannelResponse.
-  , pinReq       :: IdeM a
+  , pinReq       :: IdeM (IdeResponse a)
   , pinReplyChan :: TChan PluginResponse
   }
 
