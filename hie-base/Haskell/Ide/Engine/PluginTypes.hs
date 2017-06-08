@@ -42,7 +42,6 @@ module Haskell.Ide.Engine.PluginTypes
   , ExtendedCommandDescriptor(..)
   , CommandName
   , PluginName
-  , ValidResponse(..)
   , ReturnType
   , Save(..)
 
@@ -75,14 +74,12 @@ module Haskell.Ide.Engine.PluginTypes
   )where
 
 import           Control.Applicative
-import           Control.Monad
 import           Data.Aeson
 import           Data.Aeson.Types
 import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import           Data.Singletons.Prelude
 import qualified Data.Text as T
-import           Data.Typeable
 import           Data.Vinyl
 import           GHC.Generics
 import           GHC.TypeLits
@@ -165,29 +162,6 @@ data ExtendedCommandDescriptor =
   ExtendedCommandDescriptor UntaggedCommandDescriptor
                             PluginName deriving (Show,Eq,Generic)
 
-
-instance ValidResponse ExtendedCommandDescriptor where
-  jsWrite (ExtendedCommandDescriptor cmdDescriptor pname) =
-    H.fromList
-      [ "name"              .= cmdName cmdDescriptor
-      , "ui_description"    .= cmdUiDescription cmdDescriptor
-      , "file_extensions"   .= cmdFileExtensions cmdDescriptor
-      , "contexts"          .= cmdContexts cmdDescriptor
-      , "additional_params" .= cmdAdditionalParams cmdDescriptor
-      , "return_type"       .= cmdReturnType cmdDescriptor
-      , "plugin_name"       .= pname
-      , "save"              .= cmdSave cmdDescriptor ]
-  jsRead v =
-    ExtendedCommandDescriptor
-    <$> (CommandDesc
-      <$> v .: "name"
-      <*> v .: "ui_description"
-      <*> v .: "file_extensions"
-      <*> v .: "contexts"
-      <*> v .: "additional_params"
-      <*> v .: "return_type"
-      <*> v .: "save")
-    <*> v.: "plugin_name"
 
 type CommandName = T.Text
 type PluginName = T.Text
@@ -355,86 +329,6 @@ data IdeError = IdeError
  }
  deriving (Show,Read,Eq,Generic)
 
--- | The typeclass for valid response types
-class (Typeable a) => ValidResponse a where
-  jsWrite :: a -> Object -- ^ Serialize to JSON Object
-  jsRead  :: Object -> Parser a -- ^ Read from JSON Object
-
--- ---------------------------------------------------------------------
--- ValidResponse instances
-
-ok :: T.Text
-ok = "ok"
-
-instance ValidResponse T.Text where
-  jsWrite s = H.fromList [ok .= s]
-  jsRead o = o .: ok
-
-
-instance ValidResponse [T.Text] where
-  jsWrite ss = H.fromList [ok .= ss]
-  jsRead o = o .: ok
-
-instance ValidResponse () where
-  jsWrite _ = H.fromList [ok .= String ok]
-  jsRead o = do
-    r <- o .: ok
-    if r == String ok
-      then pure ()
-      else empty
-
-instance ValidResponse Object where
-  jsWrite = id
-  jsRead = pure
-deriving instance Generic Value
-
-instance ValidResponse UntaggedCommandDescriptor where
-  jsWrite cmdDescriptor =
-    H.fromList
-      [ "name" .= cmdName cmdDescriptor
-      , "ui_description" .= cmdUiDescription cmdDescriptor
-      , "file_extensions" .= cmdFileExtensions cmdDescriptor
-      , "contexts" .= cmdContexts cmdDescriptor
-      , "additional_params" .= cmdAdditionalParams cmdDescriptor
-      , "return_type" .= cmdReturnType cmdDescriptor
-      , "save" .= cmdSave cmdDescriptor ]
-  jsRead v =
-    CommandDesc
-      <$> v .: "name"
-      <*> v .: "ui_description"
-      <*> v .: "file_extensions"
-      <*> v .: "contexts"
-      <*> v .: "additional_params"
-      <*> v .: "return_type"
-      <*> v .: "save"
-
-instance ValidResponse IdePlugins where
-  jsWrite (IdePlugins m) = H.fromList ["plugins" .= H.fromList
-                ( map (uncurry (.=))
-                $ Map.assocs m :: [Pair])]
-  jsRead v = do
-    ps <- v .: "plugins"
-    liftM (IdePlugins . Map.fromList) $ mapM (\(k,vp) -> do
-            p<-parseJSON vp
-            return (k,p)) $ H.toList ps
-
--- ---------------------------------------------------------------------
--- JSON instances
-
-instance (ValidResponse a) => ToJSON (IdeResponse a) where
- toJSON (IdeResponseOk v) = Object (jsWrite v)
- toJSON (IdeResponseFail v) = object [ "fail" .= v ]
- toJSON (IdeResponseError v) = object [ "error" .= v ]
-
-instance (ValidResponse a) => FromJSON (IdeResponse a) where
- parseJSON = withObject "IdeResponse" $ \v -> do
-   mf <- fmap IdeResponseFail <$> v .:? "fail"
-   me <- fmap IdeResponseError <$> v .:? "error"
-   let mo = IdeResponseOk <$> parseMaybe jsRead v
-   case (mf <|> me <|> mo) of
-     Just r -> return r
-     Nothing -> empty
-
 -- ---------------------------------------------------------------------
 instance FromJSON (ParamVal 'PtText) where
   parseJSON = withObject "text parameter object" $ \v ->
@@ -572,10 +466,25 @@ instance FromJSON ParamDescription where
 -- -------------------------------------
 
 instance ToJSON UntaggedCommandDescriptor where
-  toJSON  = Object . jsWrite
+  toJSON cmdDescriptor = Object $ H.fromList
+      [ "name" .= cmdName cmdDescriptor
+      , "ui_description" .= cmdUiDescription cmdDescriptor
+      , "file_extensions" .= cmdFileExtensions cmdDescriptor
+      , "contexts" .= cmdContexts cmdDescriptor
+      , "additional_params" .= cmdAdditionalParams cmdDescriptor
+      , "return_type" .= cmdReturnType cmdDescriptor
+      , "save" .= cmdSave cmdDescriptor ]
 
 instance FromJSON UntaggedCommandDescriptor where
-  parseJSON = withObject "UntaggedCommandDescriptor" jsRead
+  parseJSON = withObject "UntaggedCommandDescriptor" $ \v ->
+    CommandDesc
+      <$> v .: "name"
+      <*> v .: "ui_description"
+      <*> v .: "file_extensions"
+      <*> v .: "contexts"
+      <*> v .: "additional_params"
+      <*> v .: "return_type"
+      <*> v .: "save"
 
 -- -------------------------------------
 

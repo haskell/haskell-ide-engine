@@ -56,6 +56,8 @@ module Haskell.Ide.Engine.PluginDescriptor
   , recordToList'
   -- * All the good types
   , module Haskell.Ide.Engine.PluginTypes
+  , ValidResponse(..)
+  , PluginResponseWrapper(..)
   ) where
 
 import           Control.Applicative
@@ -70,6 +72,7 @@ import qualified Data.Vinyl.Functor as Vinyl
 import           GHC.Generics
 import           GHC.TypeLits
 import           Haskell.Ide.Engine.PluginTypes
+import           Haskell.Ide.Engine.SemanticTypes
 import qualified Language.Haskell.GhcMod.Monad as GM
 
 -- ---------------------------------------------------------------------
