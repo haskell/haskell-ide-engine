@@ -132,9 +132,9 @@ functionalSpec = do
                                                 ])
       r1 <- dispatchRequest cin cout (CReq "applyrefact" 1 req1 cout)
       r1 `shouldBe`
-        Just (IdeResponseOk (jsWrite (FileDiagnostics
-                                      { fdFileName = filePathToUri "./FuncTest.hs"
-                                      , fdDiagnostics =
+        Just (IdeResponseOk (jsWrite (PublishDiagnosticsParams
+                                      { _uri = filePathToUri "./FuncTest.hs"
+                                      , _diagnostics = List $
                                         [ Diagnostic (Range (Position 9 6) (Position 10 18))
                                                      (Just DsWarning)
                                                      Nothing
@@ -176,11 +176,10 @@ functionalSpec = do
       r3 `shouldBe`
         Just (IdeResponseOk
               $ jsWrite
-              $ RefactorResult
-              [WorkspaceEdit
+              $ WorkspaceEdit
                 (Just $ H.singleton (filePathToUri $ cwd </> "FuncTest.hs")
                                     $ List [TextEdit (Range (Position 6 0) (Position 7 6))
                                                      "  where\n    bb = 5"])
-                Nothing])
+                Nothing)
 {- -}
 

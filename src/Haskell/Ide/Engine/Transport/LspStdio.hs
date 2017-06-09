@@ -308,7 +308,7 @@ reactor st cin cout inp = do
             pos = params ^. J.position
             doc = params ^. J.textDocument . J.uri
         rid <- nextReqId
-        let hreq = PReq "ghcmod" rid cout $ GhcMod.typeCmd' False doc pos
+        let hreq = PReq "ghcmod" rid cout $ GhcMod.typeCmd' True doc pos
         liftIO $ atomically $ writeTChan cin hreq
         keepOriginal rid (r, Just (params ^. J.textDocument . J.uri))
 
@@ -441,8 +441,7 @@ reactor st cin cout inp = do
                   IdeResponseOk r -> publishDiagnosticsToLsp pid mu Nothing r
 
               (Core.ReqRename req, _) -> hieResponseHelper req res $ \r -> do
-                let PRefactorResult vv = r
-                let we = refactorResultToWorkspaceEdit vv
+                let PWorkspaceEdit we = r
                 let rspMsg = Core.makeResponseMessage (J.responseId $ req ^. J.id ) we
                 reactorSend rspMsg
 
@@ -465,14 +464,12 @@ reactor st cin cout inp = do
                 -- When we get a RefactorResult or HieDiff, we need to send a
                 -- separate WorkspaceEdit Notification
                 liftIO $ U.logs $ "ExecuteCommand response got:r=" ++ show r
-                case toWorkspaceEdit r of
-                  Just we -> do
+                case r of
+                  PWorkspaceEdit we -> do
                     reply (J.Object mempty)
                     lid <- nextLspReqId
-                    reactorSend $ fmServerApplyWorkspaceEditRequest lid we
-                  Nothing ->
-                    -- reply (J.Object r)
-                    return ()
+                    reactorSend $ fmServerApplyWorkspaceEditRequest lid $ J.ApplyWorkspaceEditParams we
+                  _ -> reply r
 
               other -> do
                 sendErrorLog $ "reactor:not processing for original LSP message : " <> (T.pack . show) other
@@ -510,7 +507,7 @@ publishDiagnosticsToLsp pid mu mv r = do
   case pid of
     "applyrefact" -> do
       case r of
-        (PFileDiagnostics (FileDiagnostics fp ds)) -> sendOne (fp,ds)
+        (PFileDiagnostics (PublishDiagnosticsParams fp (List ds))) -> sendOne (fp,ds)
         _  -> return ()
     "ghcmod"      -> do
       case r of
@@ -524,16 +521,6 @@ publishDiagnosticsToLsp pid mu mv r = do
     _ -> do
       liftIO $ U.logs $ "\n\npublishDiagnostics:not processing plugin=" ++ (T.unpack pid) ++ "\n\n"
       return ()
-
-
--- ---------------------------------------------------------------------
-
-toWorkspaceEdit :: PluginResponseWrapper -> Maybe J.ApplyWorkspaceEditParams
-toWorkspaceEdit (PRefactorResult r) =
-  pure $ J.ApplyWorkspaceEditParams $ refactorResultToWorkspaceEdit r
-toWorkspaceEdit (PWorkspaceEdit we) =
-  pure $ J.ApplyWorkspaceEditParams we
-toWorkspaceEdit _ = Nothing
 
 -- ---------------------------------------------------------------------
 
@@ -619,10 +606,6 @@ responseHandlerCb _rin _lf resp = do
   U.logs $ "******** got ResponseMessage, ignoring:" ++ show resp
 
 -- ---------------------------------------------------------------------
-
--- TODO: perhaps move this somewhere else, for general use
-refactorResultToWorkspaceEdit :: RefactorResult -> J.WorkspaceEdit
-refactorResultToWorkspaceEdit (RefactorResult diffs) = fold diffs
 
 {-
 

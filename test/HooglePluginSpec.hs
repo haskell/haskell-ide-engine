@@ -41,6 +41,9 @@ dispatchRequest req = do
   r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
   return r
 
+dispatchRequestP :: IdeM a -> IO a
+dispatchRequestP = runIdeM testOptions (IdeState Map.empty Map.empty)
+
 -- ---------------------------------------------------------------------
 
 hoogleSpec :: Spec
@@ -50,7 +53,7 @@ hoogleSpec = do
       db <- defaultDatabaseLocation
       exists <- doesFileExist db
       unless exists $ do hoogle ["generate"]
-  describe "hoogle plugin commands" $ do
+  describe "hoogle plugin commands(old plugin api)" $ do
     it "runs the info command" $ do
       let req = IdeRequest "info" (Map.fromList [("expr", ParamTextP "head")])
       r <- dispatchRequest req
@@ -69,4 +72,17 @@ hoogleSpec = do
       r <- dispatchRequest req
       (extractFirst =<< r) `shouldBe` Just (String "Prelude head :: [a] -> a")
 
+  ---- ---------------------------------
 
+  describe "hoogle plugin commands(new plugin api)" $ do
+    it "runs the info command" $ do
+      let req = infoCmd' "head"
+      r <- dispatchRequestP req
+      r `shouldBe` (IdeResponseOk "head :: [a] -> a\nbase Prelude\nExtract the first element of a list, which must be non-empty.\n\n")
+
+    -- ---------------------------------
+
+    it "runs the lookup command" $ do
+      let req = lookupCmd' 1 "[a] -> a"
+      r <- dispatchRequestP req
+      r `shouldBe` IdeResponseOk ["Prelude head :: [a] -> a"]

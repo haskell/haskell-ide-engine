@@ -47,6 +47,11 @@ dispatchRequest req = do
     $ runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
   return r
 
+dispatchRequestP :: IdeM a -> IO a
+dispatchRequestP =
+  cdAndDo "./test/testdata" .
+    runIdeM testOptions (IdeState Map.empty Map.empty)
+
 dispatchRequestNoCd :: IdeRequest -> IO (Maybe (IdeResponse Object))
 dispatchRequestNoCd req = do
   testChan <- atomically newTChan
@@ -54,11 +59,15 @@ dispatchRequestNoCd req = do
   r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
   return r
 
+dispatchRequestPNoCd :: IdeM a -> IO a
+dispatchRequestPNoCd =
+    runIdeM testOptions (IdeState Map.empty Map.empty)
+
 -- ---------------------------------------------------------------------
 
 ghcmodSpec :: Spec
 ghcmodSpec = do
-  describe "ghc-mod plugin commands" $ do
+  describe "ghc-mod plugin commands(old plugin api)" $ do
     it "runs the check command" $ do
       let req = IdeRequest "check" (Map.fromList [("file", ParamFileP $ filePathToUri "./FileWithWarning.hs")])
       r <- dispatchRequest req
@@ -126,3 +135,60 @@ ghcmodSpec = do
                           ,TypeResult (toPos (5,1)) (toPos (5,14)) "Int -> Int"]
                           ]))
     -- ---------------------------------
+
+  describe "ghc-mod plugin commands(new plugin api)" $ do
+    it "runs the check command" $ do
+      let req = checkCmd' (filePathToUri "./FileWithWarning.hs")
+      r <- dispatchRequestP req
+      r `shouldBe` IdeResponseOk "FileWithWarning.hs:4:7:Variable not in scope: x\n"
+
+    -- ---------------------------------
+
+    it "runs the lint command" $ do
+      let req = lintCmd' (filePathToUri "./FileWithWarning.hs")
+      r <- dispatchRequestP req
+      r `shouldBe` IdeResponseOk "./FileWithWarning.hs:6:9: Warning: Redundant do\NULFound:\NUL  do return (3 + x)\NULWhy not:\NUL  return (3 + x)\n"
+
+
+    -- ---------------------------------
+
+    -- it "runs the find command" $ do
+    --   let req = IdeRequest "find" (Map.fromList [("dir", ParamFileP $ filePathToUri "."),("symbol", ParamTextP "Show")])
+    --   r <- dispatchRequest req
+    --   r `shouldBe` Just (IdeResponseOk (H.fromList ["modules" .= ["GHC.Show"::String,"Prelude","Test.Hspec.Discover","Text.Show"]]))
+
+
+    -- ---------------------------------
+
+    it "runs the info command" $ do
+      let req = infoCmd' (filePathToUri "HaReRename.hs") "main"
+      -- ghc-mod tries to load the test file in the context of the hie project if we do not cd first.
+      r <- dispatchRequestP req
+      r `shouldBe` IdeResponseOk "main :: IO () \t-- Defined at HaReRename.hs:2:1\n"
+
+
+    -- ---------------------------------
+
+    it "runs the type command, correct params" $ do
+      let req = typeCmd' False (filePathToUri "HaReRename.hs") (toPos (5,9))
+      r <- dispatchRequestP req
+      r `shouldBe` (IdeResponseOk $ TypeInfo
+                   [TypeResult (toPos (5,9)) (toPos (5,10)) "Int"
+                   ,TypeResult (toPos (5,9)) (toPos (5,14)) "Int"
+                   ,TypeResult (toPos (5,1)) (toPos (5,14)) "Int -> Int"
+                   ])
+
+    it "runs the type command with an absolute path from another folder, correct params" $ do
+      fp <- makeAbsolute "./test/testdata/HaReRename.hs"
+      cd <- getCurrentDirectory
+      cd2 <- getHomeDirectory
+      bracket (setCurrentDirectory cd2)
+              (\_->setCurrentDirectory cd)
+              $ \_-> do
+        let req = typeCmd' False (filePathToUri fp) (toPos (5,9))
+        r <- dispatchRequestPNoCd req
+        r `shouldBe` (IdeResponseOk $ TypeInfo
+                     [TypeResult (toPos (5,9)) (toPos (5,10)) "Int"
+                     ,TypeResult (toPos (5,9)) (toPos (5,14)) "Int"
+                     ,TypeResult (toPos (5,1)) (toPos (5,14)) "Int -> Int"
+                     ])

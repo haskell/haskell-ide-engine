@@ -33,7 +33,7 @@ data PluginResponse = PResp
   { poutPlugin :: PluginId
   , poutReqId :: RequestId
   , poutResp  :: IdeResponse PluginResponseWrapper
-  } deriving (Show)
+  } deriving (Show, Eq)
 
 instance Show (TChan ChannelResponse) where
   show _ = "(TChan ChannelResponse)"

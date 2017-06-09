@@ -8,16 +8,16 @@ module Haskell.Ide.Engine.SemanticTypes
   , PluginResponseWrapper(..)
   , TypeInfo(..)
   , TypeResult(..)
-  , RefactorResult(..)
   , WorkspaceEdit(..)
   , ModuleList(..)
   , AST(..)
-  , FileDiagnostics(..)
   , Diagnostic(..)
   , Position(..)
   , Range(..)
   , DiagnosticSeverity(..)
   , TextDocumentIdentifier(..)
+  , PublishDiagnosticsParams(..)
+  , List(..)
   ) where
 
 import           Data.Aeson
@@ -30,7 +30,7 @@ import qualified Data.Map as Map
 import qualified Data.Text as T
 import           GHC.Generics
 import           Haskell.Ide.Engine.PluginTypes
-import           Language.Haskell.LSP.TH.DataTypesJSON (Diagnostic(..), Position(..), Range(..), DiagnosticSeverity(..), TextDocumentIdentifier(..), WorkspaceEdit(..))
+import           Language.Haskell.LSP.TH.DataTypesJSON (Diagnostic(..), Position(..), Range(..), DiagnosticSeverity(..), TextDocumentIdentifier(..), WorkspaceEdit(..), PublishDiagnosticsParams(..), List(..))
 
 data PluginResponseWrapper =
     PText T.Text
@@ -41,13 +41,27 @@ data PluginResponseWrapper =
   | PExtCmdDesc ExtendedCommandDescriptor
   | PIdePlugins IdePlugins
   | PTypeInfo TypeInfo
-  | PRefactorResult RefactorResult
   | PWorkspaceEdit WorkspaceEdit
   | PModuleList ModuleList
   | PAst AST
-  | PFileDiagnostics FileDiagnostics
+  | PFileDiagnostics PublishDiagnosticsParams
   | PDiagnostic Diagnostic
-    deriving (Show)
+    deriving (Show,Eq)
+
+instance ToJSON PluginResponseWrapper where
+  toJSON (PText x) = toJSON x
+  toJSON (PList x) = toJSON x
+  toJSON PUnit = toJSON ()
+  toJSON (PObject x) = toJSON x
+  toJSON (PUntCmdDesc x) = toJSON x
+  toJSON (PExtCmdDesc x) = Object $ jsWrite x
+  toJSON (PIdePlugins x) = Object $ jsWrite x
+  toJSON (PTypeInfo x) = toJSON x
+  toJSON (PWorkspaceEdit x) = toJSON x
+  toJSON (PModuleList x) = Object $ jsWrite x
+  toJSON (PAst x) = Object $ jsWrite x
+  toJSON (PFileDiagnostics x) = toJSON x
+  toJSON (PDiagnostic x) = toJSON x
 
 
 -- | The typeclass for valid response types
@@ -161,16 +175,8 @@ data TypeResult = TypeResult
     , trText  :: !T.Text -- ^ type text
     } deriving (Show,Read,Eq,Ord,Generic)
 
--- | Result of refactoring
-data RefactorResult = RefactorResult
-  { rrDiffs :: ![HieDiff]
-  } deriving (Show,Eq,Generic)
-
 -- ---------------------------------------------------------------------
 
--- | A diff between two files, typically the first one will be the one from the
--- IDE, the second from the tool
-type HieDiff = WorkspaceEdit
 deriving instance Generic (Diff [String])
 
 -- ---------------------------------------------------------------------
@@ -193,13 +199,6 @@ data AST = AST {
 
 -- ---------------------------------------------------------------------
 
-data FileDiagnostics =
-  FileDiagnostics
-    { fdFileName    :: Uri
-    , fdDiagnostics :: [Diagnostic]
-    } deriving (Show, Read, Eq,Generic)
-
--- ---------------------------------------------------------------------
 -- JSON instances
 
 instance ValidResponse TypeInfo where
@@ -226,19 +225,7 @@ instance FromJSON TypeResult where
 
 -- ---------------------------------------------------------------------
 
-instance ValidResponse RefactorResult where
-  jsWrite (RefactorResult t) = H.fromList ["refactor" .= t]
-  jsRead v = RefactorResult <$> v .: "refactor"
-  wrapResponse = PRefactorResult 
-
-instance ToJSON RefactorResult where
-  toJSON x = Object (jsWrite x)
-
-instance FromJSON RefactorResult where
-  parseJSON (Object o) = jsRead o
-  parseJSON _          = mempty
-
-instance ValidResponse HieDiff where
+instance ValidResponse WorkspaceEdit where
   jsWrite d = H.fromList ["diff" .= d]
   jsRead v =  v .: "diff"
   wrapResponse = PWorkspaceEdit
@@ -265,12 +252,12 @@ instance ValidResponse AST where
 
 -- ---------------------------------------------------------------------
 
-instance ValidResponse FileDiagnostics where
-  jsWrite (FileDiagnostics fn ds) = H.fromList
+instance ValidResponse PublishDiagnosticsParams where
+  jsWrite (PublishDiagnosticsParams fn ds) = H.fromList
               [ "uri"         .= fn
               , "diagnostics" .= ds
               ]
-  jsRead v = FileDiagnostics
+  jsRead v = PublishDiagnosticsParams
     <$> v .: "uri"
     <*> v .: "diagnostics"
   wrapResponse = PFileDiagnostics

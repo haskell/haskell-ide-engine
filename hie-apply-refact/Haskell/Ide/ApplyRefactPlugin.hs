@@ -93,19 +93,19 @@ applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \file -> do
 
 -- ---------------------------------------------------------------------
 
-lintCmd :: CommandFunc FileDiagnostics
+lintCmd :: CommandFunc PublishDiagnosticsParams
 lintCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
     Right (ParamFile uri :& RNil) -> lintCmd' uri
 
-lintCmd' :: Uri -> IdeM (IdeResponse FileDiagnostics)
+lintCmd' :: Uri -> IdeM (IdeResponse PublishDiagnosticsParams)
 lintCmd' uri = pluginGetFile "applyAll: " uri $ \file -> do
       res <- liftIO $ runEitherT $ runLintCmd file []
       logm $ "lint:res=" ++ show res
       case res of
-        Left diags -> return (IdeResponseOk (FileDiagnostics (filePathToUri file) diags))
-        Right fs   -> return (IdeResponseOk (FileDiagnostics (filePathToUri file) (map hintToDiagnostic fs)))
+        Left diags -> return (IdeResponseOk (PublishDiagnosticsParams (filePathToUri file) $ List diags))
+        Right fs   -> return (IdeResponseOk (PublishDiagnosticsParams (filePathToUri file) $ List (map hintToDiagnostic fs)))
 
 runLintCmd :: FilePath -> [String] -> EitherT [Diagnostic] IO [Idea]
 runLintCmd file args =
