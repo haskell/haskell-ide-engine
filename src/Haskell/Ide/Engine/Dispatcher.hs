@@ -40,12 +40,9 @@ dispatcher cin = do
 dispatcherP :: TChan PluginRequest -> IdeM ()
 dispatcherP pin = forever $ do
   debugm "dispatcherP: top of loop"
-  (PReq plugin reqId replyChan action) <- liftIO $ atomically $ readTChan pin
-  debugm $ "main loop:got:" ++ show (plugin, reqId)
-  resp <- fmap wrapResponse <$> action
-  let reply = PResp plugin reqId resp
-  debugm $ "sending response: " ++ show reply
-  liftIO $ atomically $ writeTChan replyChan reply
+  (PReq callback action) <- liftIO $ atomically $ readTChan pin
+  resp <- action
+  liftIO $ callback resp
 
 -- ---------------------------------------------------------------------
 

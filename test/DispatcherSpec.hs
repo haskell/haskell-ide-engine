@@ -261,16 +261,16 @@ dispatcherSpec = do
     it "dispatches response correctly" $ do
       inChan <- atomically newTChan
       outChan <- atomically newTChan
-      let req1 = PReq "test" 1 outChan $ return $ IdeResponseOk $ T.pack "text1"
-          req2 = PReq "test" 2 outChan $ return $ IdeResponseOk $ T.pack "text2"
+      let req1 = PReq (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text1"
+          req2 = PReq (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text2"
       pid <- forkIO $ runIdeM testOptions (IdeState Map.empty Map.empty) (dispatcherP inChan)
       atomically $ writeTChan inChan req1
       atomically $ writeTChan inChan req2
       resp1 <- atomically $ readTChan outChan
       resp2 <- atomically $ readTChan outChan
       killThread pid
-      resp1 `shouldBe` (PResp "test" 1 $ IdeResponseOk $ PText "text1")
-      resp2 `shouldBe` (PResp "test" 2 $ IdeResponseOk $ PText "text2")
+      resp1 `shouldBe` (IdeResponseOk $ "text1")
+      resp2 `shouldBe` (IdeResponseOk $ "text2")
 
 -- ---------------------------------------------------------------------
 

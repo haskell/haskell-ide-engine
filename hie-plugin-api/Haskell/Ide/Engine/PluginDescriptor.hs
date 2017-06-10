@@ -57,7 +57,6 @@ module Haskell.Ide.Engine.PluginDescriptor
   -- * All the good types
   , module Haskell.Ide.Engine.PluginTypes
   , ValidResponse(..)
-  , PluginResponseWrapper(..)
   ) where
 
 import           Control.Applicative
