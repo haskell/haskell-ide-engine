@@ -1,4 +1,7 @@
+{-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
@@ -6,6 +9,7 @@
 {-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 
 module Haskell.Ide.Engine.Transport.LspStdio
   (
@@ -25,12 +29,17 @@ import qualified Data.Aeson as J
 import           Data.Aeson ( (.=) )
 import           Data.Default
 import           Data.Monoid ( (<>) )
+import           Data.Maybe
+import           Data.Either
 import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import qualified Data.Vector as V
+import           GHC.TypeLits
 import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.SemanticTypes
+import           Haskell.Ide.Engine.Transport.JsonHttp
 import           Haskell.Ide.Engine.Types
 import qualified Haskell.Ide.HaRePlugin as HaRe
 import qualified Haskell.Ide.GhcModPlugin as GhcMod
@@ -302,7 +311,7 @@ reactor lf st cin inp = do
       -- -------------------------------
 
       HandlerRequest (Core.ReqExecuteCommand req) -> do
-        liftIO $ U.logs $ "reactor:got ExecuteCommandRequest, skipping:" -- ++ show req
+        liftIO $ U.logs $ "reactor:got ExecuteCommandRequest:" ++ show req
         -- cwd <- liftIO getCurrentDirectory
         -- liftIO $ U.logs $ "reactor:cwd:" ++ cwd
         let params = req ^. J.params
@@ -310,22 +319,30 @@ reactor lf st cin inp = do
             margs = params ^. J.arguments
 
 
-        return ()
-        -- liftIO $ U.logs $ "reactor:ExecuteCommandRequest:margs=" ++ show margs
-        -- cmdparams <- case margs of
-        --       Nothing -> return []
-        --       Just (J.List os) -> do
-        --         let (lts,rts) = partitionEithers $ map convertParam os
-        --         -- TODO:AZ: return an error if any parse errors found.
-        --         unless (null lts) $
-        --           liftIO $ U.logs $ "\n\n****reactor:ExecuteCommandRequest:error converting params=" ++ show lts ++ "\n\n"
-        --         return rts
+        --liftIO $ U.logs $ "reactor:ExecuteCommandRequest:margs=" ++ show margs
+        cmdparams <- case margs of
+              Nothing -> return []
+              Just (J.List os) -> do
+                let (lts,rts) = partitionEithers $ map convertParam os
+                -- TODO:AZ: return an error if any parse errors found.
+                unless (null lts) $
+                  liftIO $ U.logs $ "\n\n****reactor:ExecuteCommandRequest:error converting params=" ++ show lts ++ "\n\n"
+                return rts
+        lid <- nextLspReqId
+        callback <- hieResponseHelper (req ^. J.id) $ \obj -> do
+          liftIO $ U.logs $ "ExecuteCommand response got:r=" ++ show obj
+          case J.fromJSON (J.Object obj) of
+            J.Success v -> do
 
-        --rid <- nextReqId
-        -- let (plugin,cmd) = break (==':') (T.unpack command)
-        --let hreq = CReq (T.pack plugin) rid (IdeRequest (T.pack $ tail cmd) (Map.fromList cmdparams)) cout
-        -- liftIO $ atomically $ writeTChan cin hreq
-        -- keepOriginal rid (r, Nothing)
+              reactorSend $ Core.makeResponseMessage ( J.responseId $ req ^. J.id ) (J.Object mempty)
+              let msg = fmServerApplyWorkspaceEditRequest lid $ J.ApplyWorkspaceEditParams v
+              liftIO $ U.logs $ "ExecuteCommand sending edit: " ++ show msg
+              reactorSend msg
+            _ -> reactorSend $ Core.makeResponseMessage ( J.responseId $ req ^. J.id ) obj
+        let (plugin,cmd) = break (==':') (T.unpack command)
+        let creq = CReq (T.pack plugin) 1 (IdeRequest (T.pack $ tail cmd) (Map.fromList cmdparams)) undefined
+            preq = PReq callback (fromJust <$> doDispatch plugins creq)
+        liftIO $ atomically $ writeTChan cin preq
 
       -- -------------------------------
 
@@ -405,6 +422,20 @@ requestDiagnostics cin file = do
   liftIO $ atomically $ writeTChan cin reqg
 
 -- ---------------------------------------------------------------------
+taggedPlugins :: Rec Plugin _
+taggedPlugins =
+     Plugin (Proxy :: Proxy "applyrefact") ApplyRefact.applyRefactDescriptor
+  :& Plugin (Proxy :: Proxy "ghcmod")      GhcMod.ghcmodDescriptor
+  :& Plugin (Proxy :: Proxy "hare")        HaRe.hareDescriptor
+  :& RNil
+
+plugins :: Plugins
+plugins =
+  Map.fromList $
+  recordToList'
+    (\(Plugin name desc) ->
+       (T.pack $ symbolVal name,untagPluginDescriptor desc))
+    taggedPlugins
 
 convertParam :: J.Value -> Either String (ParamId, ParamValP)
 convertParam (J.Object hm) = case H.toList hm of
