@@ -19,15 +19,12 @@ import           Control.Lens ( (^.) )
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
-import           Control.Monad.Trans.State.Lazy
+import           Control.Monad.Reader
+import           Control.Monad.State
 import qualified Data.Aeson as J
 import           Data.Aeson ( (.=) )
-import qualified Data.Aeson.Types as J
-import           Data.Algorithm.DiffOutput
 import           Data.Default
-import           Data.Either
 import           Data.Monoid ( (<>) )
-import           Data.Foldable
 import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import qualified Data.Text as T
@@ -98,7 +95,7 @@ run dispatcherProc cin origDir = flip E.catches handlers $ do
 -- ---------------------------------------------------------------------
 
 data ReactorInput
-  = HandlerRequest Core.LspFuncs Core.OutMessage
+  = HandlerRequest Core.OutMessage
       -- ^ injected into the reactor input by each of the individual callback handlers
 
 data ReactorState =
@@ -112,20 +109,26 @@ instance Default ReactorState where
 -- ---------------------------------------------------------------------
 
 -- | The monad used in the reactor
-type R a = StateT ReactorState IO a
+type R a = ReaderT Core.LspFuncs (StateT ReactorState IO) a
 
 -- ---------------------------------------------------------------------
 -- reactor monad functions
 -- ---------------------------------------------------------------------
 
 
-reactorSend :: (J.ToJSON a, MonadIO m) => Core.LspFuncs -> a -> m ()
-reactorSend lf msg = liftIO $ Core.sendFunc lf msg
+reactorSend :: (J.ToJSON a, MonadIO m, MonadReader Core.LspFuncs m)
+  => a -> m ()
+reactorSend msg = do
+  sf <- asks Core.sendFunc
+  liftIO $ sf msg
 
 -- ---------------------------------------------------------------------
 
-reactorSend' :: MonadIO m => Core.LspFuncs -> (Core.SendFunc -> IO ()) -> m ()
-reactorSend' lf f = liftIO $ f (Core.sendFunc lf)
+reactorSend' :: (MonadIO m, MonadReader Core.LspFuncs m)
+  => (Core.SendFunc -> IO ()) -> m ()
+reactorSend' f = do
+  lf <- ask
+  liftIO $ f (Core.sendFunc lf)
 
   -- msf <- gets sender
   -- case msf of
@@ -134,9 +137,11 @@ reactorSend' lf f = liftIO $ f (Core.sendFunc lf)
 
 -- ---------------------------------------------------------------------
 
-publishDiagnostics :: MonadIO m => Core.LspFuncs -> J.Uri -> Maybe J.TextDocumentVersion -> DiagnosticsBySource -> m ()
-publishDiagnostics lf uri' mv diags =
-    liftIO $ (Core.publishDiagnosticsFunc lf) uri' mv diags
+publishDiagnostics :: (MonadIO m, MonadReader Core.LspFuncs m)
+  => J.Uri -> Maybe J.TextDocumentVersion -> DiagnosticsBySource -> m ()
+publishDiagnostics uri' mv diags = do
+  lf <- ask
+  liftIO $ (Core.publishDiagnosticsFunc lf) uri' mv diags
 
 
 -- ---------------------------------------------------------------------
@@ -150,12 +155,14 @@ nextLspReqId = do
 
 -- ---------------------------------------------------------------------
 
-sendErrorResponse :: MonadIO m => Core.LspFuncs -> J.LspId -> J.ErrorCode -> T.Text -> m ()
-sendErrorResponse lf origId err msg
-  = reactorSend' lf (\sf -> Core.sendErrorResponseS sf (J.responseId origId) err msg)
+sendErrorResponse :: (MonadIO m, MonadReader Core.LspFuncs m)
+  => J.LspId -> J.ErrorCode -> T.Text -> m ()
+sendErrorResponse origId err msg
+  = reactorSend' (\sf -> Core.sendErrorResponseS sf (J.responseId origId) err msg)
 
-sendErrorLog :: MonadIO m => Core.LspFuncs -> T.Text -> m ()
-sendErrorLog lf msg = reactorSend' lf (\sf -> Core.sendErrorLogS  sf msg)
+sendErrorLog :: (MonadIO m, MonadReader Core.LspFuncs m)
+  => T.Text -> m ()
+sendErrorLog msg = reactorSend' (\sf -> Core.sendErrorLogS  sf msg)
 
 -- sendErrorShow :: String -> R ()
 -- sendErrorShow msg = reactorSend' (\sf -> Core.sendErrorShowS sf msg)
@@ -170,15 +177,15 @@ sendErrorLog lf msg = reactorSend' lf (\sf -> Core.sendErrorLogS  sf msg)
 -- server and hie dispatcher
 reactor :: Core.LspFuncs -> ReactorState -> TChan PluginRequest -> TChan ReactorInput -> IO ()
 reactor lf st cin inp = do
-  flip evalStateT st $ forever $ do
+  flip evalStateT st $ flip runReaderT lf $ forever $ do
     inval <- liftIO $ atomically $ readTChan inp
     case inval of
-      HandlerRequest _lf (Core.RspFromClient rm) -> do
+      HandlerRequest (Core.RspFromClient rm) -> do
         liftIO $ U.logs $ "reactor:got RspFromClient:" ++ show rm
 
       -- -------------------------------
 
-      HandlerRequest (Core.LspFuncs _c _sf _vf _pd) (Core.NotInitialized _notification) -> do
+      HandlerRequest (Core.NotInitialized _notification) -> do
         liftIO $ U.logm $ "****** reactor: processing Initialized Notification"
         -- Server is ready, register any specific capabilities we need
 
@@ -207,67 +214,67 @@ reactor lf st cin inp = do
         let registrations = J.RegistrationParams (J.List [registration])
         rid <- nextLspReqId
 
-        reactorSend lf $ fmServerRegisterCapabilityRequest rid registrations
+        reactorSend $ fmServerRegisterCapabilityRequest rid registrations
 
       -- -------------------------------
 
-      HandlerRequest (Core.LspFuncs _c _sf _vf _pd) n@(Core.NotDidOpenTextDocument notification) -> do
+      HandlerRequest (Core.NotDidOpenTextDocument notification) -> do
         liftIO $ U.logm $ "****** reactor: processing NotDidOpenTextDocument"
         let
             doc = notification ^. J.params . J.textDocument . J.uri
-        requestDiagnostics lf cin doc
+        requestDiagnostics cin doc
 
       -- -------------------------------
 
-      HandlerRequest (Core.LspFuncs _c _sf _vf _pd) n@(Core.NotDidSaveTextDocument notification) -> do
+      HandlerRequest (Core.NotDidSaveTextDocument notification) -> do
         liftIO $ U.logm "****** reactor: processing NotDidSaveTextDocument"
         let
             doc = notification ^. J.params . J.textDocument . J.uri
-        requestDiagnostics lf cin doc
+        requestDiagnostics cin doc
 
-      HandlerRequest (Core.LspFuncs _c _sf _vf _pd) (Core.NotDidChangeTextDocument _notification) -> do
+      HandlerRequest (Core.NotDidChangeTextDocument _notification) -> do
         liftIO $ U.logm "****** reactor: NOT processing NotDidChangeTextDocument"
 
       -- -------------------------------
 
-      HandlerRequest (Core.LspFuncs _c _sf _vf _pd) r@(Core.ReqRename req) -> do
+      HandlerRequest (Core.ReqRename req) -> do
         liftIO $ U.logs $ "reactor:got RenameRequest:" ++ show req
         let params = req ^. J.params
             doc = params ^. J.textDocument
             uri = doc ^. J.uri
             pos = params ^. J.position
             newName  = params ^. J.newName
+        callback <- hieResponseHelper (req ^. J.id) $ \we -> do
+            let rspMsg = Core.makeResponseMessage (J.responseId $ req ^. J.id ) we
+            reactorSend rspMsg
         let hreq = PReq callback $ HaRe.renameCmd' (TextDocumentPositionParams doc pos) newName
-            callback res = hieResponseHelper lf (req ^. J.id) res $ \we -> do
-                let rspMsg = Core.makeResponseMessage (J.responseId $ req ^. J.id ) we
-                reactorSend lf rspMsg
         liftIO $ atomically $ writeTChan cin hreq
 
 
       -- -------------------------------
 
-      HandlerRequest (Core.LspFuncs _c _sf _vf _pd) r@(Core.ReqHover req) -> do
+      HandlerRequest (Core.ReqHover req) -> do
         liftIO $ U.logs $ "reactor:got HoverRequest:" ++ show req
         let params = req ^. J.params
             pos = params ^. J.position
             doc = params ^. J.textDocument . J.uri
+        callback <- hieResponseHelper (req ^. J.id) $ \(TypeInfo mtis) -> do
+            let
+              ht = case mtis of
+                []  -> J.Hover (J.List []) Nothing
+                tis -> J.Hover (J.List ms) (Just range)
+                  where
+                    ms = map (\ti -> J.MarkedString "haskell" (trText ti)) tis
+                    tr = head tis
+                    range = J.Range (trStart tr) (trEnd tr)
+              rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) ht
+            reactorSend rspMsg
         let hreq = PReq callback $ GhcMod.typeCmd' True doc pos
-            callback res = hieResponseHelper lf (req ^. J.id) res $ \(TypeInfo mtis) -> do
-                let
-                  ht = case mtis of
-                    []  -> J.Hover (J.List []) Nothing
-                    tis -> J.Hover (J.List ms) (Just range)
-                      where
-                        ms = map (\ti -> J.MarkedString "haskell" (trText ti)) tis
-                        tr = head tis
-                        range = J.Range (trStart tr) (trEnd tr)
-                  rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) ht
-                reactorSend lf rspMsg
         liftIO $ atomically $ writeTChan cin hreq
 
       -- -------------------------------
 
-      HandlerRequest (Core.LspFuncs _c _sf _vf _pd) (Core.ReqCodeAction req) -> do
+      HandlerRequest (Core.ReqCodeAction req) -> do
         liftIO $ U.logs $ "reactor:got CodeActionRequest:" ++ show req
         let params = req ^. J.params
             doc = params ^. J.textDocument
@@ -290,11 +297,11 @@ reactor lf st cin inp = do
           -- TODO: make context specific commands for all sorts of things, such as refactorings
         let body = concatMap makeCommand diags
         let rspMsg = Core.makeResponseMessage (J.responseId $ req ^. J.id ) body
-        reactorSend lf rspMsg
+        reactorSend rspMsg
 
       -- -------------------------------
 
-      HandlerRequest (Core.LspFuncs _c _sf _vf _pd) r@(Core.ReqExecuteCommand req) -> do
+      HandlerRequest (Core.ReqExecuteCommand req) -> do
         liftIO $ U.logs $ "reactor:got ExecuteCommandRequest, skipping:" -- ++ show req
         -- cwd <- liftIO getCurrentDirectory
         -- liftIO $ U.logs $ "reactor:cwd:" ++ cwd
@@ -322,7 +329,7 @@ reactor lf st cin inp = do
 
       -- -------------------------------
 
-      HandlerRequest (Core.LspFuncs _c _sf _vf _pd) (Core.ReqCompletion req) -> do
+      HandlerRequest (Core.ReqCompletion req) -> do
         liftIO $ U.logs $ "reactor:got CompletionRequest:" ++ show req
         let params = req ^. J.params
             doc = params ^. J.textDocument
@@ -338,11 +345,11 @@ reactor lf st cin inp = do
 
         let cr = J.Completions (J.List []) -- ( [] :: [J.CompletionListType])
         let rspMsg = Core.makeResponseMessage (J.responseId $ req ^. J.id ) cr
-        reactorSend lf rspMsg
+        reactorSend rspMsg
 
       -- -------------------------------
 
-      HandlerRequest (Core.LspFuncs _c _sf _vf _pd) (Core.ReqDocumentHighlights req) -> do
+      HandlerRequest (Core.ReqDocumentHighlights req) -> do
         liftIO $ U.logs $ "reactor:got DocumentHighlightsRequest:" ++ show req
         let params = req ^. J.params
             doc = params ^. J.textDocument ^. J.uri
@@ -358,25 +365,26 @@ reactor lf st cin inp = do
 
         let cr = J.List  ([] :: [J.DocumentHighlight])
         let rspMsg = Core.makeResponseMessage (J.responseId $ req ^. J.id ) cr
-        reactorSend lf rspMsg
+        reactorSend rspMsg
 
       -- -------------------------------
 
-      HandlerRequest (Core.LspFuncs _c _sf _vf _pd) om -> do
+      HandlerRequest om -> do
         liftIO $ U.logs $ "reactor:got HandlerRequest:" ++ show om
 
 -- ---------------------------------------------------------------------
 
-requestDiagnostics :: Core.LspFuncs -> TChan PluginRequest -> J.Uri -> R ()
-requestDiagnostics lf cin file = do
+requestDiagnostics :: TChan PluginRequest -> J.Uri -> R ()
+requestDiagnostics cin file = do
+  lf <- ask
   let sendOne pid (uri',ds) =
-        publishDiagnostics lf uri' Nothing (Map.fromList [(Just pid,ds)])
+        publishDiagnostics uri' Nothing (Map.fromList [(Just pid,ds)])
       mkDiag (f,ds) = do
         af <- liftIO $ makeAbsolute f
         return (J.filePathToUri af, ds)
-      sendEmpty = publishDiagnostics lf file Nothing (Map.fromList [(Just "ghcmod",[])])
+      sendEmpty = publishDiagnostics file Nothing (Map.fromList [(Just "ghcmod",[])])
   -- get hlint diagnostics
-  let reql = PReq callbackl $ ApplyRefact.lintCmd' file
+  let reql = PReq (flip runReaderT lf . callbackl) $ ApplyRefact.lintCmd' file
       callbackl (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
       callbackl (IdeResponseError err) = liftIO $ U.logs $ "got err" ++ show err
       callbackl (IdeResponseOk  diags) =
@@ -385,7 +393,7 @@ requestDiagnostics lf cin file = do
   liftIO $ atomically $ writeTChan cin reql
 
   -- get GHC diagnostics
-  let reqg = PReq callbackg $ GhcMod.checkCmd' file
+  let reqg = PReq (flip runReaderT lf . callbackg) $ GhcMod.checkCmd' file
       callbackg (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
       callbackg (IdeResponseError err) = liftIO $ U.logs $ "got err" ++ show err
       callbackg (IdeResponseOk    str) = do
@@ -433,12 +441,15 @@ instance J.FromJSON LspParam where
 -- ---------------------------------------------------------------------
 
 -- | Manage the boilerplate for passing on any errors found in the IdeResponse
-hieResponseHelper :: forall m a t. (MonadIO m) => Core.LspFuncs -> J.LspId -> IdeResponse t -> (t -> m ()) -> m ()
-hieResponseHelper lf lid res action =
-  case res of
-    IdeResponseFail  err -> sendErrorResponse lf lid J.InternalError (T.pack $ show err)
-    IdeResponseError err -> sendErrorResponse lf lid J.InternalError (T.pack $ show err)
-    IdeResponseOk r -> action r
+hieResponseHelper :: (MonadReader Core.LspFuncs m, MonadIO m)
+  => J.LspId -> (t -> ReaderT Core.LspFuncs IO ()) -> m (IdeResponse t -> IO ())
+hieResponseHelper lid action = do
+  lf <- ask
+  return $ \res -> flip runReaderT lf $
+    case res of
+      IdeResponseFail  err -> sendErrorResponse lid J.InternalError (T.pack $ show err)
+      IdeResponseError err -> sendErrorResponse lid J.InternalError (T.pack $ show err)
+      IdeResponseOk r -> action r
 
 -- ---------------------------------------------------------------------
 
@@ -471,7 +482,7 @@ hieHandlers rin
 
 passHandler :: TChan ReactorInput -> (a -> Core.OutMessage) -> Core.Handler a
 passHandler rin c lf notification = do
-  atomically $ writeTChan rin (HandlerRequest lf (c notification))
+  atomically $ writeTChan rin (HandlerRequest (c notification))
 
 -- ---------------------------------------------------------------------
 
