@@ -184,8 +184,10 @@ instance FromJSON TypeResult where
 -- ---------------------------------------------------------------------
 
 instance ValidResponse WorkspaceEdit where
-  jsWrite d = H.fromList ["diff" .= d]
-  jsRead v =  v .: "diff"
+  jsWrite d = case toJSON d of
+    (Object o) -> o
+    _ -> error "impossible"
+  jsRead v = parseJSON (Object v)
 
 -- ---------------------------------------------------------------------
 
