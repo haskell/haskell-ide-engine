@@ -33,5 +33,5 @@ data ChannelResponse = CResp
   , coutReqId :: RequestId
   -- TODO: Pass the original type through, instead of Object. The other side of
   -- the dispatcher can sort out the ToJSON, if needed.
-  , coutResp  :: IdeResponse Object
+  , coutResp  :: IdeResponse Value
   } deriving (Show,Eq)

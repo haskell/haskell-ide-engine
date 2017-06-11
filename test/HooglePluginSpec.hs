@@ -6,9 +6,7 @@ import           Control.Concurrent.STM.TChan
 import           Control.Monad
 import           Control.Monad.STM
 import           Data.Aeson
-import qualified Data.HashMap.Strict as H
 import qualified Data.Vector as V
-import qualified Data.Text as T
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -34,7 +32,7 @@ spec = do
 testPlugins :: Plugins
 testPlugins = Map.fromList [("hoogle",untagPluginDescriptor hoogleDescriptor)]
 
-dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Object))
+dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Value))
 dispatchRequest req = do
   testChan <- atomically newTChan
   let cr = CReq "hoogle" 1 req testChan
@@ -57,14 +55,13 @@ hoogleSpec = do
     it "runs the info command" $ do
       let req = IdeRequest "info" (Map.fromList [("expr", ParamTextP "head")])
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("head :: [a] -> a\nbase Prelude\nExtract the first element of a list, which must be non-empty.\n\n"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "head :: [a] -> a\nbase Prelude\nExtract the first element of a list, which must be non-empty.\n\n"))
 
     -- ---------------------------------
 
     it "runs the lookup command" $ do
       let req = IdeRequest "lookup" (Map.fromList [("term", ParamTextP "[a] -> a")])
-          extractFirst (IdeResponseOk hmap) = do
-              xs <- H.lookup ("ok" :: T.Text) hmap
+          extractFirst (IdeResponseOk xs) = do
               case xs of
                    Array a -> a V.!? 0
                    _ -> Nothing

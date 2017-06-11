@@ -300,6 +300,20 @@ data IdeResponse resp
                              -- Equivalent to HTTP 500 status.
  deriving (Show,Eq,Generic)
 
+instance (ToJSON a) => ToJSON (IdeResponse a) where
+ toJSON (IdeResponseOk v) = object ["success" .= v]
+ toJSON (IdeResponseFail v) = object [ "fail" .= v ]
+ toJSON (IdeResponseError v) = object [ "error" .= v ]
+
+instance (FromJSON a) => FromJSON (IdeResponse a) where
+ parseJSON = withObject "IdeResponse" $ \v -> do
+   mf <- fmap IdeResponseFail <$> v .:? "fail"
+   me <- fmap IdeResponseError <$> v .:? "error"
+   mo <- fmap IdeResponseOk <$> v .:? "success"
+   case (mf <|> me <|> mo) of
+     Just r -> return r
+     Nothing -> empty
+
 -- | Map an IdeResponse content.
 instance Functor IdeResponse where
  fmap f (IdeResponseOk a) = IdeResponseOk $ f a

@@ -44,7 +44,7 @@ testPlugins :: Plugins
 testPlugins = Map.fromList [("hare",untagPluginDescriptor hareDescriptor)]
 
 -- TODO: break this out into a TestUtils file
-dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Object))
+dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Value))
 dispatchRequest req = do
   testChan <- atomically newTChan
   let cr = CReq "hare" 1 req testChan
@@ -72,7 +72,7 @@ hareSpec = do
       r <- dispatchRequest req
       r `shouldBe`
         Just (IdeResponseOk
-              $ jsWrite
+              $ toJSON
               $ WorkspaceEdit
                 (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReRename.hs")
                                     $ List [TextEdit (Range (Position 3 0) (Position 4 13))
@@ -99,7 +99,7 @@ hareSpec = do
       -- r `shouldBe` Just (IdeResponseOk (H.fromList ["refactor" .= ["test/testdata/HaReDemote.hs"::FilePath]]))
       r `shouldBe`
         Just (IdeResponseOk
-              $ jsWrite
+              $ toJSON
               $ WorkspaceEdit
                 (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReDemote.hs")
                                     $ List [TextEdit (Range (Position 4 0) (Position 5 5))
@@ -116,7 +116,7 @@ hareSpec = do
       r <- dispatchRequest req
       r `shouldBe`
         Just (IdeResponseOk
-              $ jsWrite
+              $ toJSON
               $ WorkspaceEdit
                 (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReRename.hs")
                                     $ List [TextEdit (Range (Position 6 0) (Position 8 0))
@@ -133,7 +133,7 @@ hareSpec = do
       r <- dispatchRequest req
       r `shouldBe`
         Just (IdeResponseOk
-              $ jsWrite
+              $ toJSON
               $ WorkspaceEdit
                 (Just
                  $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReCase.hs")
@@ -150,7 +150,7 @@ hareSpec = do
       r <- dispatchRequest req
       r `shouldBe`
         Just (IdeResponseOk
-              $ jsWrite
+              $ toJSON
               $ WorkspaceEdit
                 (Just $ H.singleton
                   ( filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs" )
@@ -167,7 +167,7 @@ hareSpec = do
       r <- dispatchRequest req
       r `shouldBe`
         Just (IdeResponseOk
-              $ jsWrite
+              $ toJSON
               $ WorkspaceEdit
                (Just $ H.singleton
                   ( filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs")
@@ -184,7 +184,7 @@ hareSpec = do
       r <- dispatchRequest req
       r `shouldBe`
         Just (IdeResponseOk
-              $ jsWrite
+              $ toJSON
               $ WorkspaceEdit
                (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/FuncTest.hs")
                                    $ List [TextEdit (Range (Position 4 0) (Position 6 0)) ""])
@@ -198,7 +198,7 @@ hareSpec = do
       r <- dispatchRequest req
       r `shouldBe`
         Just (IdeResponseOk
-             $ jsWrite
+             $ toJSON
              $ WorkspaceEdit
                (Just $ H.singleton ( filePathToUri $ cwd </> "test/testdata/HaReGA1.hs" )
                                    $ List [TextEdit (Range (Position 4 0) (Position 8 12))

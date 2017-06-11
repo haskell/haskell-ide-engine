@@ -193,7 +193,7 @@ cmdHandler plugin cmd cin cout mrid (TaggedMap reqVal) =
                                      reqVal)
                          cout)
                rsp <- liftIO $ atomically $ readTChan cout
-               return (coutResp rsp)
+               return ((\(Object o) -> o) <$> coutResp rsp)
 
 -- ---------------------------------------------------------------------
 

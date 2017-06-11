@@ -5,7 +5,6 @@ import           Control.Concurrent.STM.TChan
 import           Control.Monad.STM
 import           Control.Exception
 import           Data.Aeson
-import qualified Data.HashMap.Strict as H
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -39,7 +38,7 @@ testPlugins :: Plugins
 testPlugins = Map.fromList [("ghcmod",untagPluginDescriptor ghcmodDescriptor)]
 
 -- TODO: break this out into a TestUtils file
-dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Object))
+dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Value))
 dispatchRequest req = do
   testChan <- atomically newTChan
   let cr = CReq "ghcmod" 1 req testChan
@@ -52,7 +51,7 @@ dispatchRequestP =
   cdAndDo "./test/testdata" .
     runIdeM testOptions (IdeState Map.empty Map.empty)
 
-dispatchRequestNoCd :: IdeRequest -> IO (Maybe (IdeResponse Object))
+dispatchRequestNoCd :: IdeRequest -> IO (Maybe (IdeResponse Value))
 dispatchRequestNoCd req = do
   testChan <- atomically newTChan
   let cr = CReq "ghcmod" 1 req testChan
@@ -71,14 +70,14 @@ ghcmodSpec = do
     it "runs the check command" $ do
       let req = IdeRequest "check" (Map.fromList [("file", ParamFileP $ filePathToUri "./FileWithWarning.hs")])
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ( "FileWithWarning.hs:4:7:Variable not in scope: x\n"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "FileWithWarning.hs:4:7:Variable not in scope: x\n"))
 
     -- ---------------------------------
 
     it "runs the lint command" $ do
       let req = IdeRequest "lint" (Map.fromList [("file", ParamFileP $ filePathToUri "./FileWithWarning.hs")])
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("./FileWithWarning.hs:6:9: Warning: Redundant do\NULFound:\NUL  do return (3 + x)\NULWhy not:\NUL  return (3 + x)\n"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "./FileWithWarning.hs:6:9: Warning: Redundant do\NULFound:\NUL  do return (3 + x)\NULWhy not:\NUL  return (3 + x)\n"))
 
 
     -- ---------------------------------
@@ -95,7 +94,7 @@ ghcmodSpec = do
       let req = IdeRequest "info" (Map.fromList [("file", ParamFileP $ filePathToUri "HaReRename.hs"),("expr", ParamTextP "main")])
       -- ghc-mod tries to load the test file in the context of the hie project if we do not cd first.
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("main :: IO () \t-- Defined at HaReRename.hs:2:1\n"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "main :: IO () \t-- Defined at HaReRename.hs:2:1\n"))
 
 
     -- ---------------------------------
@@ -112,7 +111,7 @@ ghcmodSpec = do
                                                 ,("include_constraints", ParamBoolP False)
                                                 ,("start_pos", ParamPosP (toPos (5,9)))])
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["type_info".=toJSON
+      r `shouldBe` Just (IdeResponseOk (object ["type_info".=toJSON
                         [TypeResult (toPos (5,9)) (toPos (5,10)) "Int"
                         ,TypeResult (toPos (5,9)) (toPos (5,14)) "Int"
                         ,TypeResult (toPos (5,1)) (toPos (5,14)) "Int -> Int"]
@@ -129,7 +128,7 @@ ghcmodSpec = do
                                                   ,("include_constraints", ParamBoolP False)
                                                   ,("start_pos", ParamPosP (toPos (5,9)))])
         r <- dispatchRequestNoCd req
-        r `shouldBe` Just (IdeResponseOk (H.fromList ["type_info".=toJSON
+        r `shouldBe` Just (IdeResponseOk (object ["type_info".=toJSON
                           [TypeResult (toPos (5,9)) (toPos (5,10)) "Int"
                           ,TypeResult (toPos (5,9)) (toPos (5,14)) "Int"
                           ,TypeResult (toPos (5,1)) (toPos (5,14)) "Int -> Int"]

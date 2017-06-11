@@ -34,7 +34,7 @@ testPlugins :: Plugins
 testPlugins = Map.fromList [("ghctree",untagPluginDescriptor ghcTreeDescriptor)]
 
 -- TODO: break this out into a TestUtils file
-dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Object))
+dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Value))
 dispatchRequest req = do
   testChan <- atomically newTChan
   let cr = CReq "ghctree" 1 req testChan

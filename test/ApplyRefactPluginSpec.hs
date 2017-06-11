@@ -39,7 +39,7 @@ testPlugins :: Plugins
 testPlugins = Map.fromList [("applyrefact",untagPluginDescriptor applyRefactDescriptor)]
 
 -- TODO: break this out into a TestUtils file
-dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Object))
+dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Value))
 dispatchRequest req = do
   testChan <- atomically newTChan
   let cr = CReq "applyrefact" 1 req testChan
@@ -65,7 +65,7 @@ applyRefactSpec = do
       r <- dispatchRequest req
       r `shouldBe`
         Just (IdeResponseOk
-              $ jsWrite
+              $ toJSON
               $ WorkspaceEdit
                 (Just $ H.singleton (filePathToUri "./test/testdata/ApplyRefact.hs")
                                     $ List [TextEdit (Range (Position 1 0) (Position 1 25))
@@ -81,7 +81,7 @@ applyRefactSpec = do
       r <- dispatchRequest req
       r `shouldBe`
         Just (IdeResponseOk
-              $ jsWrite
+              $ toJSON
               $ WorkspaceEdit
                 (Just
                   $ H.singleton (filePathToUri "./test/testdata/ApplyRefact.hs")
@@ -99,7 +99,7 @@ applyRefactSpec = do
                                                 ])
       r <- dispatchRequest req
       r `shouldBe`
-        Just (IdeResponseOk (jsWrite (PublishDiagnosticsParams
+        Just (IdeResponseOk (toJSON (PublishDiagnosticsParams
                                       { _uri = filePathToUri "./test/testdata/ApplyRefact.hs"
                                       , _diagnostics = List $ 
                                         [ Diagnostic (Range (Position 1 7) (Position 1 25))

@@ -49,8 +49,8 @@ dispatcherP pin = forever $ do
 -- | Send a response from the plugin to the designated reply channel
 sendResponse :: (ValidResponse a) => ChannelRequest -> IdeResponse a -> IO ()
 sendResponse req resp = do
-  debugm $ "sendResponse (req,resp)=" ++ show (req,fmap jsWrite resp)
-  let cr = CResp (cinPlugin req) (cinReqId req) (fmap jsWrite resp)
+  debugm $ "sendResponse (req,resp)=" ++ show (req,fmap toJSON resp)
+  let cr = CResp (cinPlugin req) (cinReqId req) (fmap toJSON resp)
   liftIO $ atomically $ writeTChan (cinReplyChan req) cr
 
 -- ---------------------------------------------------------------------
@@ -58,7 +58,7 @@ sendResponse req resp = do
 -- | Manage the process of looking up the request in the known plugins,
 -- validating the parameters passed and handing off to the appropriate
 -- 'CommandFunc'
-doDispatch :: Plugins -> ChannelRequest -> IdeM (Maybe (IdeResponse Object))
+doDispatch :: Plugins -> ChannelRequest -> IdeM (Maybe (IdeResponse Value))
 doDispatch plugins creq = do
   case Map.lookup (cinPlugin creq) plugins of
     Nothing ->
@@ -90,7 +90,7 @@ doDispatch plugins creq = do
                                            (IdeError PluginError
                                                      (T.pack (show e))
                                                      Null))
-                let r2 = fmap jsWrite r
+                let r2 = fmap toJSON r
                 return (Just r2)
               CmdAsync f -> do
                 f (sendResponse creq) ctxs req

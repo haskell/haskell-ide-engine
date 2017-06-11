@@ -10,6 +10,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE ConstraintKinds #-}
 -- | Experimenting with a data structure to define a plugin.
 --
 -- The general idea is that a given plugin returns this structure during the
@@ -54,9 +55,9 @@ module Haskell.Ide.Engine.PluginDescriptor
   , Rec(..)
   , Proxy(..)
   , recordToList'
+  , ValidResponse
   -- * All the good types
   , module Haskell.Ide.Engine.PluginTypes
-  , ValidResponse(..)
   ) where
 
 import           Control.Applicative
@@ -71,10 +72,10 @@ import qualified Data.Vinyl.Functor as Vinyl
 import           GHC.Generics
 import           GHC.TypeLits
 import           Haskell.Ide.Engine.PluginTypes
-import           Haskell.Ide.Engine.SemanticTypes
 import qualified Language.Haskell.GhcMod.Monad as GM
 
 -- ---------------------------------------------------------------------
+type ValidResponse a = (FromJSON a, ToJSON a, Typeable a)
 
 data PluginDescriptor cmds = PluginDescriptor
   { pdUIShortName     :: !T.Text

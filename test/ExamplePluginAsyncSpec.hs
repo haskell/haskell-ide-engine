@@ -4,7 +4,6 @@ module ExamplePluginAsyncSpec where
 import           Control.Concurrent.STM.TChan
 import           Control.Monad.STM
 import           Data.Aeson
-import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
@@ -37,9 +36,9 @@ examplePluginAsyncSpec = do
           r2 <- doDispatch testPlugins cr2
           r3 <- doDispatch testPlugins cr1
           return (r1,r2,r3))
-      ra `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("res=wp cmd1:cnt=1"::String)]))
-      rb `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("res=wp cmd2:cnt=2"::String)]))
-      rc `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("res=wp cmd1:cnt=3"::String)]))
+      ra `shouldBe` Just (IdeResponseOk (String "res=wp cmd1:cnt=1"))
+      rb `shouldBe` Just (IdeResponseOk (String "res=wp cmd2:cnt=2"))
+      rc `shouldBe` Just (IdeResponseOk (String "res=wp cmd1:cnt=3"))
 
     -- ---------------------------------
 

@@ -8,7 +8,6 @@ import           Control.Concurrent.STM.TChan
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Data.Aeson
-import qualified Data.HashMap.Strict as H
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
 import qualified Data.Text as T
@@ -48,7 +47,7 @@ dispatcherSpec = do
       let req = IdeRequest "cmd1" (Map.fromList [])
           cr = CReq "test" 1 req chan
       r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxNone]"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxNone]"))
 
     -- ---------------------------------
 
@@ -68,7 +67,7 @@ dispatcherSpec = do
       let req = IdeRequest "cmd2" (Map.fromList [("file", ParamFileP $ filePathToUri "foo.hs")])
           cr = CReq "test" 1 req chan
       r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxFile]"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxFile]"))
 
     -- ---------------------------------
 
@@ -78,7 +77,7 @@ dispatcherSpec = do
       let req = IdeRequest "cmd3" (Map.fromList [("file", ParamFileP $ filePathToUri "foo.hs"),("start_pos", ParamPosP (toPos (1,2)))])
           cr = CReq "test" 1 req chan
       r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxPoint]"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxPoint]"))
 
     -- ---------------------------------
 
@@ -90,7 +89,7 @@ dispatcherSpec = do
                                                 ,("end_pos", ParamPosP (toPos (3,4)))])
           cr = CReq "test" 1 req chan
       r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxRegion]"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxRegion]"))
 
     -- ---------------------------------
 
@@ -100,7 +99,7 @@ dispatcherSpec = do
       let req = IdeRequest "cmd5" (Map.fromList [("cabal", ParamTextP "lib")])
           cr = CReq "test" 1 req chan
       r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxCabalTarget]"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxCabalTarget]"))
 
 
     -- ---------------------------------
@@ -111,7 +110,7 @@ dispatcherSpec = do
       let req = IdeRequest "cmd6" (Map.fromList [("dir", ParamFileP $ filePathToUri ".")])
           cr = CReq "test" 1 req chan
       r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxProject]"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxProject]"))
 
     -- ---------------------------------
 
@@ -123,7 +122,7 @@ dispatcherSpec = do
                                                        ,("end_pos", ParamPosP (toPos (3,4)))])
           cr = CReq "test" 1 req chan
       r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxFile,CtxPoint,CtxRegion]"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxFile,CtxPoint,CtxRegion]"))
 
     -- ---------------------------------
 
@@ -134,7 +133,7 @@ dispatcherSpec = do
                                                        ,("start_pos", ParamPosP (toPos (1,2)))])
           cr = CReq "test" 1 req chan
       r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxFile,CtxPoint]"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxFile,CtxPoint]"))
 
     -- ---------------------------------
 
@@ -169,7 +168,7 @@ dispatcherSpec = do
                                                     ])
           cr = CReq "test" 1 req chan
       r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxFile]"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxFile]"))
 
 
     -- ---------------------------------
@@ -210,7 +209,7 @@ dispatcherSpec = do
                                                        ])
           cr = CReq "test" 1 req chan
       r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxNone]"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxNone]"))
 
     -- ---------------------------------
 
@@ -252,10 +251,10 @@ dispatcherSpec = do
       rc2 <- atomically $ readTChan chan
       rc1 `shouldBe` (CResp { couPlugin = "test"
                             , coutReqId = 2
-                            , coutResp = IdeResponseOk (HM.fromList [("ok",String "asyncCmd2 sending strobe")])})
+                            , coutResp = IdeResponseOk (String "asyncCmd2 sending strobe")})
       rc2 `shouldBe` (CResp { couPlugin = "test"
                             , coutReqId = 1
-                            , coutResp = IdeResponseOk (HM.fromList [("ok",String "asyncCmd1 got strobe")])})
+                            , coutResp = IdeResponseOk (String "asyncCmd1 got strobe")})
 
   describe "New plugin dispatcher operation" $ do
     it "dispatches response correctly" $ do

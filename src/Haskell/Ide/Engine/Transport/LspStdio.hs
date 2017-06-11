@@ -331,7 +331,7 @@ reactor lf st cin inp = do
         lid <- nextLspReqId
         callback <- hieResponseHelper (req ^. J.id) $ \obj -> do
           liftIO $ U.logs $ "ExecuteCommand response got:r=" ++ show obj
-          case J.fromJSON (J.Object obj) of
+          case J.fromJSON obj of
             J.Success v -> do
 
               reactorSend $ Core.makeResponseMessage ( J.responseId $ req ^. J.id ) (J.Object mempty)
