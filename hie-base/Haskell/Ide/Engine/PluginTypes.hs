@@ -162,6 +162,29 @@ data ExtendedCommandDescriptor =
   ExtendedCommandDescriptor UntaggedCommandDescriptor
                             PluginName deriving (Show,Eq,Generic)
 
+instance ToJSON ExtendedCommandDescriptor where
+  toJSON (ExtendedCommandDescriptor cmdDescriptor pname) =
+    object
+      [ "name"              .= cmdName cmdDescriptor
+      , "ui_description"    .= cmdUiDescription cmdDescriptor
+      , "file_extensions"   .= cmdFileExtensions cmdDescriptor
+      , "contexts"          .= cmdContexts cmdDescriptor
+      , "additional_params" .= cmdAdditionalParams cmdDescriptor
+      , "return_type"       .= cmdReturnType cmdDescriptor
+      , "plugin_name"       .= pname
+      , "save"              .= cmdSave cmdDescriptor ]
+instance FromJSON ExtendedCommandDescriptor where
+  parseJSON = withObject "ExtenedCommandDescriptor" $ \v ->
+    ExtendedCommandDescriptor
+    <$> (CommandDesc
+      <$> v .: "name"
+      <*> v .: "ui_description"
+      <*> v .: "file_extensions"
+      <*> v .: "contexts"
+      <*> v .: "additional_params"
+      <*> v .: "return_type"
+      <*> v .: "save")
+      <*> v.: "plugin_name"
 
 type CommandName = T.Text
 type PluginName = T.Text
@@ -171,6 +194,19 @@ type PluginName = T.Text
 data IdePlugins = IdePlugins
   { ipMap :: Map.Map PluginId [UntaggedCommandDescriptor]
   } deriving (Show,Eq,Generic)
+
+instance ToJSON IdePlugins where
+  toJSON (IdePlugins m) = object
+                ["plugins" .= H.fromList
+                ( map (uncurry (.=))
+                $ Map.assocs m :: [Pair])]
+
+instance FromJSON IdePlugins where
+  parseJSON = withObject "IdePlugins" $ \v -> do
+    ps <- v .: "plugins"
+    fmap (IdePlugins . Map.fromList) $ mapM (\(k,vp) -> do
+            p<-parseJSON vp
+            return (k,p)) $ H.toList ps
 
 -- ---------------------------------------------------------------------
 

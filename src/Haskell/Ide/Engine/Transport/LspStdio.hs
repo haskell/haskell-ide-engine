@@ -1,6 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE FlexibleContexts      #-}
@@ -29,17 +28,14 @@ import qualified Data.Aeson as J
 import           Data.Aeson ( (.=) )
 import           Data.Default
 import           Data.Monoid ( (<>) )
-import           Data.Maybe
 import           Data.Either
 import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import qualified Data.Vector as V
-import           GHC.TypeLits
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.SemanticTypes
-import           Haskell.Ide.Engine.Transport.JsonHttp
 import           Haskell.Ide.Engine.Types
 import qualified Haskell.Ide.HaRePlugin as HaRe
 import qualified Haskell.Ide.GhcModPlugin as GhcMod
@@ -63,22 +59,22 @@ import           Text.Parsec
 
 -- ---------------------------------------------------------------------
 
-lspStdioTransport :: IO () -> TChan PluginRequest -> FilePath -> IO ()
-lspStdioTransport hieDispatcherProc cin origDir = do
-  run hieDispatcherProc cin origDir >>= \case
+lspStdioTransport :: Plugins -> IO () -> TChan PluginRequest -> FilePath -> IO ()
+lspStdioTransport plugins hieDispatcherProc cin origDir = do
+  run plugins hieDispatcherProc cin origDir >>= \case
     0 -> exitSuccess
     c -> exitWith . ExitFailure $ c
 
 
 -- ---------------------------------------------------------------------
 
-run :: IO () -> TChan PluginRequest -> FilePath -> IO Int
-run dispatcherProc cin origDir = flip E.catches handlers $ do
+run :: Plugins -> IO () -> TChan PluginRequest -> FilePath -> IO Int
+run plugins dispatcherProc cin origDir = flip E.catches handlers $ do
 
   rin  <- atomically newTChan :: IO (TChan ReactorInput)
   let
     dp lf = do
-      _rpid <- forkIO $ reactor lf def cin rin
+      _rpid <- forkIO $ reactor plugins lf def cin rin
       dispatcherProc
       return Nothing
 
@@ -184,8 +180,8 @@ sendErrorLog msg = reactorSend' (\sf -> Core.sendErrorLogS  sf msg)
 -- | The single point that all events flow through, allowing management of state
 -- to stitch replies and requests together from the two asynchronous sides: lsp
 -- server and hie dispatcher
-reactor :: Core.LspFuncs -> ReactorState -> TChan PluginRequest -> TChan ReactorInput -> IO ()
-reactor lf st cin inp = do
+reactor :: Plugins -> Core.LspFuncs -> ReactorState -> TChan PluginRequest -> TChan ReactorInput -> IO ()
+reactor plugins lf st cin inp = do
   flip evalStateT st $ flip runReaderT lf $ forever $ do
     inval <- liftIO $ atomically $ readTChan inp
     case inval of
@@ -250,7 +246,6 @@ reactor lf st cin inp = do
         liftIO $ U.logs $ "reactor:got RenameRequest:" ++ show req
         let params = req ^. J.params
             doc = params ^. J.textDocument
-            uri = doc ^. J.uri
             pos = params ^. J.position
             newName  = params ^. J.newName
         callback <- hieResponseHelper (req ^. J.id) $ \we -> do
@@ -293,7 +288,7 @@ reactor lf st cin inp = do
           makeCommand (J.Diagnostic (J.Range start _) _s _c (Just "hlint") m  ) = [J.Command title cmd cmdparams]
             where
               title :: T.Text
-              title = "Apply hint:" <> (head (T.lines m))
+              title = "Apply hint:" <> head (T.lines m)
               -- NOTE: the cmd needs to be registered via the InitializeResponse message. See hieOptions above
               cmd = "applyrefact:applyOne"
               -- need 'file' and 'start_pos'
@@ -340,8 +335,8 @@ reactor lf st cin inp = do
               reactorSend msg
             _ -> reactorSend $ Core.makeResponseMessage ( J.responseId $ req ^. J.id ) obj
         let (plugin,cmd) = break (==':') (T.unpack command)
-        let creq = CReq (T.pack plugin) 1 (IdeRequest (T.pack $ tail cmd) (Map.fromList cmdparams)) undefined
-            preq = PReq callback (fromJust <$> doDispatch plugins creq)
+        let ireq = IdeRequest (T.pack $ tail cmd) (Map.fromList cmdparams)
+            preq = PReq callback (dispatchSync plugins (T.pack plugin) ireq)
         liftIO $ atomically $ writeTChan cin preq
 
       -- -------------------------------
@@ -422,20 +417,6 @@ requestDiagnostics cin file = do
   liftIO $ atomically $ writeTChan cin reqg
 
 -- ---------------------------------------------------------------------
-taggedPlugins :: Rec Plugin _
-taggedPlugins =
-     Plugin (Proxy :: Proxy "applyrefact") ApplyRefact.applyRefactDescriptor
-  :& Plugin (Proxy :: Proxy "ghcmod")      GhcMod.ghcmodDescriptor
-  :& Plugin (Proxy :: Proxy "hare")        HaRe.hareDescriptor
-  :& RNil
-
-plugins :: Plugins
-plugins =
-  Map.fromList $
-  recordToList'
-    (\(Plugin name desc) ->
-       (T.pack $ symbolVal name,untagPluginDescriptor desc))
-    taggedPlugins
 
 convertParam :: J.Value -> Either String (ParamId, ParamValP)
 convertParam (J.Object hm) = case H.toList hm of
@@ -512,7 +493,7 @@ hieHandlers rin
 -- ---------------------------------------------------------------------
 
 passHandler :: TChan ReactorInput -> (a -> Core.OutMessage) -> Core.Handler a
-passHandler rin c lf notification = do
+passHandler rin c _ notification = do
   atomically $ writeTChan rin (HandlerRequest (c notification))
 
 -- ---------------------------------------------------------------------
