@@ -1,6 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE FlexibleContexts      #-}
@@ -29,17 +28,14 @@ import qualified Data.Aeson as J
 import           Data.Aeson ( (.=) )
 import           Data.Default
 import           Data.Monoid ( (<>) )
-import           Data.Maybe
 import           Data.Either
 import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import qualified Data.Vector as V
-import           GHC.TypeLits
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.SemanticTypes
-import           Haskell.Ide.Engine.Transport.JsonHttp
 import           Haskell.Ide.Engine.Types
 import qualified Haskell.Ide.HaRePlugin as HaRe
 import qualified Haskell.Ide.GhcModPlugin as GhcMod
@@ -339,8 +335,8 @@ reactor plugins lf st cin inp = do
               reactorSend msg
             _ -> reactorSend $ Core.makeResponseMessage ( J.responseId $ req ^. J.id ) obj
         let (plugin,cmd) = break (==':') (T.unpack command)
-        let creq = CReq (T.pack plugin) 1 (IdeRequest (T.pack $ tail cmd) (Map.fromList cmdparams)) undefined
-            preq = PReq callback (fromJust <$> doDispatch plugins creq)
+        let ireq = IdeRequest (T.pack $ tail cmd) (Map.fromList cmdparams)
+            preq = PReq callback (dispatchSync plugins (T.pack plugin) ireq)
         liftIO $ atomically $ writeTChan cin preq
 
       -- -------------------------------

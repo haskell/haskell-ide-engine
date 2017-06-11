@@ -110,7 +110,7 @@ type family CommandRoutes (list :: [CommandType]) where
      = CommandRoute name (CommandParams cxts params) :<|> CommandRoutes cmds
 
 -- | Within a plugin route, the command is routed according to its name, and can
--- take an optional request id query parameter. The res10.t of the parameters are
+-- take an optional request id query parameter. The result of the parameters are
 -- passed in the body, JSON-encoded.
 type CommandRoute (name :: Symbol) (params :: [ParamDescType]) =
    name :>
