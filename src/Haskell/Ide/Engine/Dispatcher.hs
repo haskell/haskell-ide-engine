@@ -55,6 +55,46 @@ sendResponse req resp = do
 
 -- ---------------------------------------------------------------------
 
+dispatchSync :: Plugins -> PluginId -> IdeRequest -> IdeM (IdeResponse Value)
+dispatchSync plugins plugin req =
+  case Map.lookup plugin plugins of
+    Nothing ->
+      return $ IdeResponseError IdeError
+        { ideCode = UnknownPlugin
+        , ideMessage = "No plugin found for:" <> plugin
+        , ideInfo = toJSON plugin
+        }
+    Just desc -> do
+      debugm $ "doDispatch:desc=" ++ show desc
+      debugm $ "doDispatch:req=" ++ show req
+      case Map.lookup (plugin,ideCommand req) (pluginCache plugins) of
+        Nothing ->
+          return $ IdeResponseError IdeError
+            { ideCode = UnknownCommand
+            , ideMessage = "No such command:" <> ideCommand req
+            , ideInfo = toJSON $ ideCommand req
+            }
+        Just (Command cdesc cfunc) ->
+          case validateContexts cdesc req of
+            Left err   -> return err
+            Right ctxs -> case cfunc of
+              CmdSync  f -> do
+                r <- f ctxs req
+                       `gcatch` (\(e::SomeException) ->
+                                  pure $ IdeResponseError
+                                           (IdeError PluginError
+                                                     (T.pack (show e))
+                                                     Null))
+                let r2 = fmap toJSON r
+                return r2
+              CmdAsync _ ->
+                return $ IdeResponseError IdeError
+                  { ideCode = OtherError
+                  , ideMessage = "can't handle async command:" <> plugin <> ":" <> T.pack (show req)
+                  , ideInfo = toJSON plugin
+                  }
+
+
 -- | Manage the process of looking up the request in the known plugins,
 -- validating the parameters passed and handing off to the appropriate
 -- 'CommandFunc'

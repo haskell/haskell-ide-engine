@@ -161,7 +161,7 @@ run opts = do
     -- launch the dispatcher.
     let dispatcherProc = void $ forkIO $ runIdeM ghcModOptions (IdeState plugins Map.empty) (dispatcher cin)
     let dispatcherProcP = void $ forkIO $ runIdeM ghcModOptions (IdeState plugins Map.empty) (dispatcherP pin)
-    unless (optLsp opts) $ do void dispatcherProc
+    unless (optLsp opts) $ void dispatcherProc
 
     -- TODO: pass port in as a param from GlobalOpts
     when (optHttp opts) $
@@ -174,7 +174,7 @@ run opts = do
     if (optConsole opts)
        then consoleListener plugins cin
        else if optLsp opts
-               then lspStdioTransport dispatcherProcP pin origDir
+               then lspStdioTransport plugins dispatcherProcP pin origDir
                else jsonStdioTransport (optOneShot opts) cin
 
     -- At least one needs to be launched, othewise a threadDelay with a large

@@ -20,53 +20,10 @@ module Haskell.Ide.Engine.SemanticTypes
   ) where
 
 import           Data.Aeson
-import           Data.Aeson.Types
-import           Data.Algorithm.Diff
 import qualified Data.HashMap.Strict as H
-import qualified Data.Map as Map
 import qualified Data.Text as T
 import           GHC.Generics
-import           Haskell.Ide.Engine.PluginTypes
 import           Language.Haskell.LSP.TH.DataTypesJSON (Diagnostic(..), Position(..), Range(..), DiagnosticSeverity(..), TextDocumentIdentifier(..), WorkspaceEdit(..), PublishDiagnosticsParams(..), List(..))
-
-
-instance ToJSON ExtendedCommandDescriptor where
-  toJSON (ExtendedCommandDescriptor cmdDescriptor pname) =
-    object
-      [ "name"              .= cmdName cmdDescriptor
-      , "ui_description"    .= cmdUiDescription cmdDescriptor
-      , "file_extensions"   .= cmdFileExtensions cmdDescriptor
-      , "contexts"          .= cmdContexts cmdDescriptor
-      , "additional_params" .= cmdAdditionalParams cmdDescriptor
-      , "return_type"       .= cmdReturnType cmdDescriptor
-      , "plugin_name"       .= pname
-      , "save"              .= cmdSave cmdDescriptor ]
-instance FromJSON ExtendedCommandDescriptor where
-  parseJSON = withObject "ExtenedCommandDescriptor" $ \v ->
-    ExtendedCommandDescriptor
-    <$> (CommandDesc
-      <$> v .: "name"
-      <*> v .: "ui_description"
-      <*> v .: "file_extensions"
-      <*> v .: "contexts"
-      <*> v .: "additional_params"
-      <*> v .: "return_type"
-      <*> v .: "save")
-
-    <*> v.: "plugin_name"
-
-instance ToJSON IdePlugins where
-  toJSON (IdePlugins m) = object
-                ["plugins" .= H.fromList
-                ( map (uncurry (.=))
-                $ Map.assocs m :: [Pair])]
-
-instance FromJSON IdePlugins where
-  parseJSON = withObject "IdePlugins" $ \v -> do
-    ps <- v .: "plugins"
-    fmap (IdePlugins . Map.fromList) $ mapM (\(k,vp) -> do
-            p<-parseJSON vp
-            return (k,p)) $ H.toList ps
 
 -- ---------------------------------------------------------------------
 -- Specific response type
@@ -81,8 +38,6 @@ data TypeResult = TypeResult
     , trEnd   :: !Position -- ^ end line/column
     , trText  :: !T.Text -- ^ type text
     } deriving (Show,Read,Eq,Ord,Generic)
-
-deriving instance Generic (Diff [String])
 
 -- | A list of modules
 data ModuleList = ModuleList {
@@ -101,17 +56,18 @@ data AST = AST {
   } deriving (Eq,Show,Generic)
 
 -- ---------------------------------------------------------------------
-
 -- JSON instances
+-- ---------------------------------------------------------------------
 
 instance ToJSON TypeInfo where
   toJSON x = Object (jsWrite x)
     where jsWrite (TypeInfo t) = H.fromList ["type_info" .= t]
-
 instance FromJSON TypeInfo where
   parseJSON (Object o) = jsRead o
     where jsRead v = TypeInfo <$> v .: "type_info"
   parseJSON _          = mempty
+
+-- ---------------------------------------------------------------------
 
 instance ToJSON TypeResult where
   toJSON (TypeResult s e t) =
@@ -119,16 +75,13 @@ instance ToJSON TypeResult where
              , "end"   .= toJSON e
              , "type"  .= t
              ]
-
 instance FromJSON TypeResult where
   parseJSON = withObject "TypeResult" $ \v -> TypeResult <$> v .: "start" <*> v .: "end" <*> v .: "type"
 
 -- ---------------------------------------------------------------------
 
-
 instance ToJSON ModuleList where
   toJSON (ModuleList ms) = object ["modules" .= ms]
-
 instance FromJSON ModuleList where
   parseJSON = withObject "ModuleList" $ \v -> ModuleList <$> v .: "modules"
 
