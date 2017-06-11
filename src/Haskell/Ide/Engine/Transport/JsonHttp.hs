@@ -116,7 +116,7 @@ type CommandRoute (name :: Symbol) (params :: [ParamDescType]) =
    name :>
    QueryParam "rid" Int :>
    ReqBody '[JSON] (TaggedMap params) :>
-   Post '[JSON] (IdeResponse Object)
+   Post '[JSON] (IdeResponse Value)
 
 -- ---------------------------------------------------------------------
 

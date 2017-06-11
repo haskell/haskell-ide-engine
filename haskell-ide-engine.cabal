@@ -52,6 +52,9 @@ library
                      , haskeline
                      , haskell-lsp
                      , hie-base
+                     , hie-hare
+                     , hie-ghc-mod
+                     , hie-apply-refact
                      , hie-plugin-api
                      , hslogger
                      , insert-ordered-containers

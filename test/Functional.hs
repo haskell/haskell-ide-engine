@@ -28,6 +28,7 @@ import           Control.Monad.STM
 import           Data.Aeson
 import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
+import           Data.Monoid
 import           Data.Proxy
 import qualified Data.Text as T
 import           Data.Vinyl
@@ -110,7 +111,7 @@ spec = do
 
 -- ---------------------------------------------------------------------
 
-dispatchRequest :: TChan ChannelRequest -> TChan ChannelResponse -> ChannelRequest -> IO (Maybe (IdeResponse Object))
+dispatchRequest :: TChan ChannelRequest -> TChan ChannelResponse -> ChannelRequest -> IO (Maybe (IdeResponse Value))
 dispatchRequest cin cout req = do
   atomically $ writeTChan cin req
   (CResp _ _ rsp) <- atomically $ readTChan cout
@@ -132,14 +133,15 @@ functionalSpec = do
                                                 ])
       r1 <- dispatchRequest cin cout (CReq "applyrefact" 1 req1 cout)
       r1 `shouldBe`
-        Just (IdeResponseOk (jsWrite (FileDiagnostics
-                                      { fdFileName = filePathToUri "./FuncTest.hs"
-                                      , fdDiagnostics =
+        Just (IdeResponseOk (toJSON (PublishDiagnosticsParams
+                                      { _uri = filePathToUri "./FuncTest.hs"
+                                      , _diagnostics = List $
                                         [ Diagnostic (Range (Position 0 0) (Position 0 17))
                                                      (Just DsWarning)
                                                      Nothing
                                                      (Just "hlint")
-                                                     "Use module export list\nFound:\n  module Main where\nWhy not:\n  module Main (module Main) where\nAn explicit list is usually better\n"
+                                                     ("Use module export list\nFound:\n  module Main where\nWhy not:\n"
+                                                       <> "  module Main (module Main) where\nAn explicit list is usually better\n")
                                         , Diagnostic (Range (Position 9 6) (Position 10 18))
                                                      (Just DsWarning)
                                                      Nothing
@@ -156,7 +158,7 @@ functionalSpec = do
                                                   ,("start_pos",ParamPosP (toPos (10,2)))])
       r2 <- dispatchRequest cin cout (CReq "ghcmod" 2 req2 cout)
       r2 `shouldBe`
-        Just (IdeResponseOk (H.fromList ["type_info".=toJSON
+        Just (IdeResponseOk (object ["type_info".=toJSON
                         [TypeResult (toPos (10,1)) (toPos (11,19)) "IO ()"
                         ]
                         ]))
@@ -168,7 +170,7 @@ functionalSpec = do
                                                  ,("start_pos",ParamPosP (toPos (8,1)))])
       r4 <- dispatchRequest cin cout (CReq "ghcmod" 4 req4 cout)
       r4 `shouldBe`
-        Just (IdeResponseOk (H.fromList ["type_info".=toJSON
+        Just (IdeResponseOk (object ["type_info".=toJSON
                         [TypeResult (toPos (8,1)) (toPos (8,7)) "Int"
                         ]
                         ]))
@@ -180,12 +182,11 @@ functionalSpec = do
       r3 <- dispatchRequest cin cout (CReq "hare" 3 req3 cout)
       r3 `shouldBe`
         Just (IdeResponseOk
-              $ jsWrite
-              $ RefactorResult
-              [WorkspaceEdit
+              $ toJSON
+              $ WorkspaceEdit
                 (Just $ H.singleton (filePathToUri $ cwd </> "FuncTest.hs")
                                     $ List [TextEdit (Range (Position 6 0) (Position 7 6))
                                                      "  where\n    bb = 5"])
-                Nothing])
+                Nothing)
 {- -}
 

@@ -82,8 +82,13 @@ checkCmd :: CommandFunc T.Text
 checkCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
-    Right (ParamFile uri :& RNil) -> pluginGetFile "check: " uri $ \file -> do
-      fmap T.pack <$> runGhcModCommand (GM.checkSyntax [file])
+    Right (ParamFile uri :& RNil) ->
+      checkCmd' uri
+
+checkCmd' :: Uri -> IdeM (IdeResponse T.Text)
+checkCmd' uri =
+  pluginGetFile "check: " uri $ \file -> do
+    fmap T.pack <$> runGhcModCommand (GM.checkSyntax [file])
 
 -- ---------------------------------------------------------------------
 
@@ -108,8 +113,13 @@ lintCmd :: CommandFunc T.Text
 lintCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
-    Right (ParamFile uri :& RNil) -> pluginGetFile "lint: " uri $ \file -> do
-      fmap T.pack <$> runGhcModCommand (GM.lint GM.defaultLintOpts file)
+    Right (ParamFile uri :& RNil) ->
+      lintCmd' uri
+
+lintCmd' :: Uri -> IdeM (IdeResponse T.Text)
+lintCmd' uri =
+  pluginGetFile "lint: " uri $ \file -> do
+    fmap T.pack <$> runGhcModCommand (GM.lint GM.defaultLintOpts file)
 
 -- ---------------------------------------------------------------------
 
@@ -118,8 +128,12 @@ infoCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdText "expr" :& RNil) req of
     Left err -> return err
     Right (ParamFile uri :& ParamText expr :& RNil) ->
-      pluginGetFile "info: " uri $ \file -> do
-        fmap T.pack <$> runGhcModCommand (GM.info file (GM.Expression (T.unpack expr)))
+      infoCmd' uri expr
+
+infoCmd' :: Uri -> T.Text -> IdeM (IdeResponse T.Text)
+infoCmd' uri expr =
+  pluginGetFile "info: " uri $ \file -> do
+    fmap T.pack <$> runGhcModCommand (GM.info file (GM.Expression (T.unpack expr)))
 
 -- ---------------------------------------------------------------------
 
@@ -127,9 +141,13 @@ typeCmd :: CommandFunc TypeInfo
 typeCmd = CmdSync $ \_ctxs req ->
   case getParams (IdBool "include_constraints" :& IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
-    Right (ParamBool bool :& ParamFile uri :& ParamPos (Position l c) :& RNil) -> do
-      pluginGetFile "type: " uri $ \file -> do
-        fmap (toTypeInfo . T.lines . T.pack) <$> runGhcModCommand (GM.types bool file (l+1) (c+1))
+    Right (ParamBool bool :& ParamFile uri :& ParamPos pos :& RNil) -> do
+      typeCmd' bool uri pos
+
+typeCmd' :: Bool -> Uri -> Position -> IdeM (IdeResponse TypeInfo)
+typeCmd' bool uri (Position l c) =
+  pluginGetFile "type: " uri $ \file -> do
+    fmap (toTypeInfo . T.lines . T.pack) <$> runGhcModCommand (GM.types bool file (l+1) (c+1))
 
 
 

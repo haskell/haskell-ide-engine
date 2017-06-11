@@ -145,6 +145,7 @@ run opts = do
     logm $ "Current directory:" ++ d
 
     cin <- atomically newTChan :: IO (TChan ChannelRequest)
+    pin <- atomically newTChan :: IO (TChan PluginRequest)
 
     -- log $ T.pack $ "replPluginInfo:" ++ show replPluginInfo
 
@@ -159,6 +160,7 @@ run opts = do
 
     -- launch the dispatcher.
     let dispatcherProc = void $ forkIO $ runIdeM ghcModOptions (IdeState plugins Map.empty) (dispatcher cin)
+    let dispatcherProcP = void $ forkIO $ runIdeM ghcModOptions (IdeState plugins Map.empty) (dispatcherP pin)
     unless (optLsp opts) $ do void dispatcherProc
 
     -- TODO: pass port in as a param from GlobalOpts
@@ -172,7 +174,7 @@ run opts = do
     if (optConsole opts)
        then consoleListener plugins cin
        else if optLsp opts
-               then lspStdioTransport dispatcherProc cin origDir
+               then lspStdioTransport dispatcherProcP pin origDir
                else jsonStdioTransport (optOneShot opts) cin
 
     -- At least one needs to be launched, othewise a threadDelay with a large

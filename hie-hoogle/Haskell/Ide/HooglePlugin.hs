@@ -47,12 +47,16 @@ infoCmd :: CommandFunc T.Text
 infoCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdText "expr" :& RNil) req of
     Left err -> return err
-    Right (ParamText expr :& RNil) -> liftIO $
-        runHoogleQuery expr $ \res ->
-            if null res then
-                IdeResponseOk "No results found"
-            else
-                IdeResponseOk $ T.pack $ targetInfo $ head res
+    Right (ParamText expr :& RNil) ->
+      infoCmd' expr
+
+infoCmd' :: T.Text -> IdeM (IdeResponse T.Text)
+infoCmd' expr = liftIO $
+  runHoogleQuery expr $ \res ->
+      if null res then
+          IdeResponseOk "No results found"
+      else
+          IdeResponseOk $ T.pack $ targetInfo $ head res
 
 ------------------------------------------------------------------------
 
@@ -60,8 +64,12 @@ lookupCmd :: CommandFunc [T.Text]
 lookupCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdText "term" :& RNil) req of
     Left err -> return err
-    Right (ParamText term :& RNil) -> liftIO $
-      runHoogleQuery term (IdeResponseOk . map (T.pack . targetResultDisplay False) . take 10)
+    Right (ParamText term :& RNil) ->
+      lookupCmd' 10 term
+
+lookupCmd' :: Int -> T.Text -> IdeM (IdeResponse [T.Text])
+lookupCmd' n term = liftIO $
+  runHoogleQuery term (IdeResponseOk . map (T.pack . targetResultDisplay False) . take n)
 
 ------------------------------------------------------------------------
 
