@@ -20,6 +20,11 @@ data ChannelRequest = CReq
   , cinReplyChan :: TChan ChannelResponse
   } deriving Show
 
+data PluginRequest = forall a. PReq
+  { pinCallback  :: IdeResponse a -> IO ()
+  , pinReq       :: IdeM (IdeResponse a)
+  }
+
 instance Show (TChan ChannelResponse) where
   show _ = "(TChan ChannelResponse)"
 
@@ -28,5 +33,5 @@ data ChannelResponse = CResp
   , coutReqId :: RequestId
   -- TODO: Pass the original type through, instead of Object. The other side of
   -- the dispatcher can sort out the ToJSON, if needed.
-  , coutResp  :: IdeResponse Object
+  , coutResp  :: IdeResponse Value
   } deriving (Show,Eq)

@@ -27,6 +27,8 @@ library
                      , ghc-mod
                      , hie-base
                      , hie-plugin-api
+                     , haskell-lsp
+                     , lens
                      , monad-control
                      , mtl
                      , text

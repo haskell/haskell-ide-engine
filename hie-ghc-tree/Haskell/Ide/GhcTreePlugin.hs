@@ -38,10 +38,15 @@ ghcTreeDescriptor = PluginDescriptor
 
 -- | Get the AST for the given file
 trees :: CommandFunc AST
-trees = CmdSync $ \_ctxs req -> do
+trees = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
-    Right (ParamFile uri :& RNil) -> pluginGetFile "trees: " uri $ \file -> do
+    Right (ParamFile uri :& RNil) ->
+      treesCmd uri
+
+treesCmd :: Uri -> IdeM (IdeResponse AST)
+treesCmd uri =
+  pluginGetFile "trees: " uri $ \file -> do
       trs <- runGmlT' [Left file] (return . treeDumpFlags) $ treesForTargets [file]
       case trs of
           [tree] -> return (IdeResponseOk $ treesToAST tree)

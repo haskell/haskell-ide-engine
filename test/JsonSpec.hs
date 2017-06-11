@@ -9,7 +9,6 @@ import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
 
 import           Data.Aeson
-import           Data.Aeson.Types
 import           Data.Text
 import           Test.QuickCheck hiding (Success)
 import           Test.QuickCheck.Instances ()
@@ -66,7 +65,7 @@ propertyJsonRoundtrip :: (Eq a, ToJSON a, FromJSON a) => a -> Bool
 propertyJsonRoundtrip a = Success a == fromJSON (toJSON a)
 
 propertyValidRoundtrip :: (Eq a, ValidResponse a) => a -> Bool
-propertyValidRoundtrip a = Success a == parse jsRead (jsWrite a)
+propertyValidRoundtrip a = Success a == fromJSON (toJSON a)
 
 -- enough for our needs
 instance Arbitrary Value where
