@@ -13,6 +13,7 @@ import           Data.Either
 import           Data.Monoid
 import qualified Data.Text as T
 import qualified Data.Text.Read as T
+import           Text.Parsec
 import           Data.Vinyl
 import qualified Exception as G
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -79,17 +80,19 @@ ghcmodDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-checkCmd :: CommandFunc T.Text
+type GhcModDiagnostics = [(FilePath,[Diagnostic])]
+
+checkCmd :: CommandFunc GhcModDiagnostics
 checkCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
     Right (ParamFile uri :& RNil) ->
       checkCmd' uri
 
-checkCmd' :: Uri -> IdeM (IdeResponse T.Text)
+checkCmd' :: Uri -> IdeM (IdeResponse GhcModDiagnostics)
 checkCmd' uri =
   pluginGetFile "check: " uri $ \file -> do
-    fmap T.pack <$> runGhcModCommand (GM.checkSyntax [file])
+    fmap parseGhcDiagnostics <$> runGhcModCommand (GM.checkSyntax [file])
 
 -- ---------------------------------------------------------------------
 
@@ -178,3 +181,43 @@ runGhcModCommand cmd =
          return $
          IdeResponseFail $
          IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Null
+-- ---------------------------------------------------------------------
+-- parsec parser for GHC error messages
+
+type P = Parsec String ()
+
+parseGhcDiagnostics :: String -> [(FilePath,[Diagnostic])]
+parseGhcDiagnostics str =
+  case parse diagnostics "inp" str of
+    Left err -> error $ "parseGhcDiagnostics: got error" ++ show err
+    Right ds -> ds
+
+diagnostics :: P [(FilePath, [Diagnostic])]
+diagnostics = (sepEndBy diagnostic (char '\n')) <* eof
+
+diagnostic :: P (FilePath,[Diagnostic])
+diagnostic = do
+  fname <- many1 (noneOf ":")
+  _ <- char ':'
+  l <- number
+  _ <- char ':'
+  c <- number
+  _ <- char ':'
+  severity <- optionSeverity
+  msglines <- sepEndBy (many1 (noneOf "\n\0")) (char '\0')
+  let pos = (Position (l-1) (c-1))
+  -- AZ:TODO: consider setting pprCols dflag value in the call, for better format on vscode
+  return (fname,[Diagnostic (Range pos pos) (Just severity) Nothing (Just "ghcmod") (T.pack $ unlines msglines)] )
+
+optionSeverity :: P DiagnosticSeverity
+optionSeverity =
+  (string "Warning:" >> return DsWarning)
+  <|> (string "Error:" >> return DsError)
+  <|> return DsError
+
+number :: P Int
+number = do
+  s <- many1 digit
+  return $ read s
+
+-- ---------------------------------------------------------------------

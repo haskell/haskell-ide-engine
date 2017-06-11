@@ -50,7 +50,6 @@ import           System.Directory
 import           System.Exit
 import           System.FilePath
 import qualified System.Log.Logger as L
-import           Text.Parsec
 -- import qualified Yi.Rope as Yi
 
 -- ---------------------------------------------------------------------
@@ -408,8 +407,7 @@ requestDiagnostics cin file = do
   let reqg = PReq (flip runReaderT lf . callbackg) $ GhcMod.checkCmd' file
       callbackg (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
       callbackg (IdeResponseError err) = liftIO $ U.logs $ "got err" ++ show err
-      callbackg (IdeResponseOk    str) = do
-        let pd = parseGhcDiagnostics str
+      callbackg (IdeResponseOk     pd) = do
         ds <- mapM mkDiag $ Map.toList $ Map.fromListWith (++) pd
         case ds of
           [] -> sendEmpty
@@ -503,82 +501,3 @@ responseHandlerCb _rin _lf resp = do
   U.logs $ "******** got ResponseMessage, ignoring:" ++ show resp
 
 -- ---------------------------------------------------------------------
-
-{-
-
-Turn
-
-[Change (LineRange {lrNumbers = (3,4), lrContents = ["foo :: Int","foo = 5"]})
-        (LineRange {lrNumbers = (3,4), lrContents = ["foo1 :: Int","foo1 = 5"]})]
-
--- | Diff Operation  representing changes to apply
-data DiffOperation a = Deletion a LineNo
-            | Addition a LineNo
-            | Change a a
-            deriving (Show,Read,Eq,Ord)
-
-into
-
-interface TextEdit {
-    /**
-     * The range of the text document to be manipulated. To insert
-     * text into a document create a range where start === end.
-     */
-    range: Range;
-
-    /**
-     * The string to be inserted. For delete operations use an
-     * empty string.
-     */
-    newText: string;
-}
-
-
-data TextEdit =
-  TextEdit
-    { rangeTextEdit   :: Range
-    , newTextTextEdit :: String
-    } deriving (Show,Read,Eq)
-
--}
--- ---------------------------------------------------------------------
--- parsec parser for GHC error messages
-
-type P = Parsec String ()
-
-parseGhcDiagnostics :: T.Text -> [(FilePath,[J.Diagnostic])]
-parseGhcDiagnostics str =
-  case parse diagnostics "inp" (T.unpack str) of
-    Left err -> error $ "parseGhcDiagnostics: got error" ++ show err
-    Right ds -> ds
-
-diagnostics :: P [(FilePath, [J.Diagnostic])]
-diagnostics = (sepEndBy diagnostic (char '\n')) <* eof
-
-diagnostic :: P (FilePath,[J.Diagnostic])
-diagnostic = do
-  fname <- many1 (noneOf ":")
-  _ <- char ':'
-  l <- number
-  _ <- char ':'
-  c <- number
-  _ <- char ':'
-  severity <- optionSeverity
-  msglines <- sepEndBy (many1 (noneOf "\n\0")) (char '\0')
-  let pos = (J.Position (l-1) (c-1))
-  -- AZ:TODO: consider setting pprCols dflag value in the call, for better format on vscode
-  return (fname,[J.Diagnostic (J.Range pos pos) (Just severity) Nothing (Just "ghcmod") (T.pack $ unlines msglines)] )
-
-optionSeverity :: P J.DiagnosticSeverity
-optionSeverity =
-  (string "Warning:" >> return J.DsWarning)
-  <|> (string "Error:" >> return J.DsError)
-  <|> return J.DsError
-
-number :: P Int
-number = do
-  s <- many1 digit
-  return $ read s
-
--- ---------------------------------------------------------------------
-
