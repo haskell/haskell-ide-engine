@@ -116,7 +116,7 @@ type CommandRoute (name :: Symbol) (params :: [ParamDescType]) =
    name :>
    QueryParam "rid" Int :>
    ReqBody '[JSON] (TaggedMap params) :>
-   Post '[JSON] (IdeResponse Object)
+   Post '[JSON] (IdeResponse Value)
 
 -- ---------------------------------------------------------------------
 
@@ -193,7 +193,7 @@ cmdHandler plugin cmd cin cout mrid (TaggedMap reqVal) =
                                      reqVal)
                          cout)
                rsp <- liftIO $ atomically $ readTChan cout
-               return ((\(Object o) -> o) <$> coutResp rsp)
+               return (coutResp rsp)
 
 -- ---------------------------------------------------------------------
 
