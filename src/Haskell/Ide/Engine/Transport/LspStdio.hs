@@ -214,8 +214,9 @@ reactor plugins lf st cin inp = do
         -}
         let
           options = J.object ["documentSelector" .= J.object [ "language" .= J.String "haskell"]]
-          registration = J.Registration "hare:demote" "workspace/executeCommand" (Just options)
-        let registrations = J.RegistrationParams (J.List [registration])
+          registration1 = J.Registration "hare:demote" "workspace/executeCommand" (Just options)
+          registration2 = J.Registration "hare:gotodef" "textDocument/definition" (Just options)
+        let registrations = J.RegistrationParams (J.List [registration1,registration2])
         rid <- nextLspReqId
 
         reactorSend $ fmServerRegisterCapabilityRequest rid registrations
@@ -379,6 +380,15 @@ reactor plugins lf st cin inp = do
         reactorSend rspMsg
 
       -- -------------------------------
+      HandlerRequest (Core.ReqDefinition req) -> do
+        liftIO $ U.logs $ "reactor:got DefinitionRequest:" ++ show req
+        let params = req ^. J.params
+        callback <- hieResponseHelper (req ^. J.id) $ \loc -> do
+            let rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) loc
+            reactorSend rspMsg
+        let hreq = PReq callback $ HaRe.findDefCmd params
+        liftIO $ atomically $ writeTChan cin hreq
+      -- -------------------------------
 
       HandlerRequest om -> do
         liftIO $ U.logs $ "reactor:got HandlerRequest:" ++ show om
@@ -474,6 +484,7 @@ hieHandlers :: TChan ReactorInput -> Core.Handlers
 hieHandlers rin
   = def { Core.initializedHandler                       = Just $ passHandler rin Core.NotInitialized
         , Core.renameHandler                            = Just $ passHandler rin Core.ReqRename
+        , Core.definitionHandler                        = Just $ passHandler rin Core.ReqDefinition
         , Core.hoverHandler                             = Just $ passHandler rin Core.ReqHover
         , Core.didOpenTextDocumentNotificationHandler   = Just $ passHandler rin Core.NotDidOpenTextDocument
         , Core.didSaveTextDocumentNotificationHandler   = Just $ passHandler rin Core.NotDidSaveTextDocument

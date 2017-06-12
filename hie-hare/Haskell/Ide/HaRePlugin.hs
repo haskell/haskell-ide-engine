@@ -22,12 +22,16 @@ import           Haskell.Ide.Engine.SemanticTypes
 import qualified Language.Haskell.GhcMod.Monad as GM
 import qualified Language.Haskell.GhcMod.Error as GM
 import           Language.Haskell.Refact.HaRe
+import           Language.Haskell.Refact.API
 import           Language.Haskell.Refact.Utils.Monad
-import           Language.Haskell.Refact.Utils.Types
 import           Language.Haskell.Refact.Utils.Utils
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 import           Control.Lens ( (^.) )
 import           System.FilePath
+import GHC
+import SrcLoc
+import FastString
+import System.Directory
 
 -- ---------------------------------------------------------------------
 
@@ -217,10 +221,75 @@ makeRefactorResult changedFiles = do
 
 -- ---------------------------------------------------------------------
 
+findDefCmd :: TextDocumentPositionParams -> IdeM (IdeResponse Location)
+findDefCmd (TextDocumentPositionParams tdi pos) =
+  pluginGetFile "genapplicative: " (tdi ^. J.uri) $ \file -> do
+    eitherRes <- runHareCommand' $ findDef file (unPos pos)
+    case eitherRes of
+      Right x -> return x
+      Left err ->
+         pure (IdeResponseFail
+                 (IdeError PluginError
+                           (T.pack $ "hare:findDefCmd" <> ": \"" <> err <> "\"")
+                           Null))
+
+findDef :: FilePath -> (Int,Int) -> RefactGhc (IdeResponse Location)
+findDef fileName (row, col) = do
+  parseSourceFileGhc fileName
+  parsed <- getRefactParsed
+  case locToRdrName (row, col) parsed of
+    Just pn -> do
+      n <- rdrName2Name pn
+      res <- srcLoc2Loc $ nameSrcSpan n 
+      case res of
+        Just l -> return $ IdeResponseOk l
+        Nothing ->
+          pure (IdeResponseFail
+                 (IdeError PluginError
+                           (T.pack $ "hare:findDef" <> ": \"" <> "Definition not in current project" <> "\"")
+                           Null))
+    Nothing ->
+          pure (IdeResponseFail
+                 (IdeError PluginError
+                           (T.pack $ "hare:findDef" <> ": \"" <> "Invalid cursor position" <> "\"")
+                           Null))
+
+srcLoc2Loc :: MonadIO m => SrcSpan -> m (Maybe Location)
+srcLoc2Loc (RealSrcSpan r) = do
+  file <- liftIO $ makeAbsolute $ unpackFS $ srcSpanFile r
+  return $ Just $ Location (filePathToUri file) $ Range (toPos (l1,c1)) (toPos (l2,c2))
+  where s = realSrcSpanStart r
+        l1 = srcLocLine s
+        c1 = srcLocCol s
+        e = realSrcSpanEnd r
+        l2 = srcLocLine e
+        c2 = srcLocCol e
+srcLoc2Loc _ = return $ Nothing
+
+-- ---------------------------------------------------------------------
+
 
 runHareCommand :: String -> RefactGhc [ApplyRefacResult]
                  -> IdeM (IdeResponse WorkspaceEdit)
-runHareCommand name cmd =
+runHareCommand name cmd = do
+     eitherRes <- runHareCommand' cmd
+     case eitherRes of
+       Left err ->
+         pure (IdeResponseFail
+                 (IdeError PluginError
+                           (T.pack $ name <> ": \"" <> err <> "\"")
+                           Null))
+       Right res ->
+         do liftIO $
+              writeRefactoredFiles (rsetVerboseLevel defaultSettings)
+                                   res
+            let files = modifiedFiles res
+            refactRes <- liftIO $ makeRefactorResult files
+            pure (IdeResponseOk refactRes)
+
+runHareCommand' :: RefactGhc a
+                 -> IdeM (Either String a)
+runHareCommand' cmd =
   do let initialState =
            RefSt {rsSettings = defaultSettings
                  ,rsUniqState = 1
@@ -240,21 +309,7 @@ runHareCommand name cmd =
          handlers =
            [GM.GHandler (\(ErrorCall e) -> pure (Left e))
            ,GM.GHandler (\(err :: GM.GhcModError) -> pure (Left (show err)))]
-     eitherRes <- fmap Right embeddedCmd `GM.gcatches` handlers
-     case eitherRes of
-       Left err ->
-         pure (IdeResponseFail
-                 (IdeError PluginError
-                           (T.pack $ name <> ": \"" <> err <> "\"")
-                           Null))
-       Right res ->
-         do liftIO $
-              writeRefactoredFiles (rsetVerboseLevel defaultSettings)
-                                   res
-            let files = modifiedFiles res
-            refactRes <- liftIO $ makeRefactorResult files
-            pure (IdeResponseOk refactRes)
-
+     fmap Right embeddedCmd `GM.gcatches` handlers
 -- | This is like hoist from the mmorph package, but build on
 -- `MonadTransControl` since we don’t have an `MFunctor` instance.
 hoist
