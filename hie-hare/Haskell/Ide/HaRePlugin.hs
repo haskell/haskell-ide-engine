@@ -29,9 +29,11 @@ import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 import           Control.Lens ( (^.) )
 import           System.FilePath
 import GHC
+import Name
 import SrcLoc
 import FastString
 import System.Directory
+import Data.Either
 
 -- ---------------------------------------------------------------------
 
@@ -240,31 +242,48 @@ findDef fileName (row, col) = do
   case locToRdrName (row, col) parsed of
     Just pn -> do
       n <- rdrName2Name pn
-      res <- srcLoc2Loc $ nameSrcSpan n 
+      res <- srcLoc2Loc $ nameSrcSpan n
       case res of
-        Just l -> return $ IdeResponseOk l
-        Nothing ->
-          pure (IdeResponseFail
-                 (IdeError PluginError
-                           (T.pack $ "hare:findDef" <> ": \"" <> "Definition not in current project" <> "\"")
-                           Null))
+        Right l -> return $ IdeResponseOk l
+        Left x -> do
+          let failure = pure (IdeResponseFail
+                                (IdeError PluginError
+                                          (T.pack $ "hare:findDef" <> ": \"" <> x <> "\"")
+                                          Null))
+          case nameModule_maybe n of
+            Just m -> do
+              let mName = moduleName m
+              b <- isLoaded mName
+              if b then do
+                mLoc <- ms_location <$> getModSummary mName
+                case ml_hs_file mLoc of
+                  Just fp -> do
+                    parseSourceFileGhc fp
+                    newNames <- equivalentNameInNewMod n
+                    eithers <- mapM (srcLoc2Loc . nameSrcSpan) newNames
+                    case rights eithers of
+                      (l:_) -> return $ IdeResponseOk l
+                      [] -> failure
+                  Nothing -> failure
+                else failure
+            Nothing -> failure
     Nothing ->
           pure (IdeResponseFail
                  (IdeError PluginError
                            (T.pack $ "hare:findDef" <> ": \"" <> "Invalid cursor position" <> "\"")
                            Null))
 
-srcLoc2Loc :: MonadIO m => SrcSpan -> m (Maybe Location)
+srcLoc2Loc :: MonadIO m => SrcSpan -> m (Either String Location)
 srcLoc2Loc (RealSrcSpan r) = do
   file <- liftIO $ makeAbsolute $ unpackFS $ srcSpanFile r
-  return $ Just $ Location (filePathToUri file) $ Range (toPos (l1,c1)) (toPos (l2,c2))
+  return $ Right $ Location (filePathToUri file) $ Range (toPos (l1,c1)) (toPos (l2,c2))
   where s = realSrcSpanStart r
         l1 = srcLocLine s
         c1 = srcLocCol s
         e = realSrcSpanEnd r
         l2 = srcLocLine e
         c2 = srcLocCol e
-srcLoc2Loc _ = return $ Nothing
+srcLoc2Loc (UnhelpfulSpan x) = return $ Left $ unpackFS x
 
 -- ---------------------------------------------------------------------
 
