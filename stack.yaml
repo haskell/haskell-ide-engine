@@ -1,5 +1,4 @@
-# resolver: nightly-2017-04-28
-resolver: nightly-2017-05-23
+resolver: nightly-2017-06-12
 packages:
 - .
 - hie-apply-refact
@@ -26,12 +25,12 @@ packages:
 #     commit: cb012b23c4e524dde9ea129b6146dda20a5ca505
 #   extra-dep: true
 # - ../HaRe
-- location:
-    git: https://github.com/alanz/HaRe.git
-    # git: https://github.com/RefactoringTools/HaRe.git
-    # commit: 423bc0b235dc7ede961278f6e614813b851bfd0a
-    commit: df7c1def6156f6179a41b9053509eb5af13ef4a3
-  extra-dep: true
+# - location:
+#     git: https://github.com/alanz/HaRe.git
+#     # git: https://github.com/RefactoringTools/HaRe.git
+#     # commit: 423bc0b235dc7ede961278f6e614813b851bfd0a
+#     commit: df7c1def6156f6179a41b9053509eb5af13ef4a3
+#   extra-dep: true
 # - ../../DanielG/ghc-mod
 # - ../ghc-mod
 - location:
