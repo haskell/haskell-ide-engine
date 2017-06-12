@@ -19,7 +19,7 @@ import           Data.Maybe
 import           Data.Monoid
 import qualified Data.Map as Map
 import qualified Data.Text as T
-import System.Directory (makeAbsolute)
+import System.Directory (makeAbsolute, getCurrentDirectory)
 import System.FilePath ((</>), normalise)
 import System.Process (readProcess)
 import System.IO (openFile, hClose, IOMode(..))
@@ -46,7 +46,13 @@ buildPluginDescriptor = PluginDescriptor
     pdUIShortName = "Build plugin"
   , pdUIOverview = "A HIE plugin for building cabal/stack packages"
   , pdCommands =
-        buildCommand listTargets (Proxy :: Proxy "listTargets")
+        buildCommand isHelperPrepared (Proxy :: Proxy "isPrepared")
+            "Checks whether cabal-helper is prepared to work with this project. The project must be configured first"
+            [] (SCtxNone :& RNil)
+            (  SParamDesc (Proxy :: Proxy "distDir") (Proxy :: Proxy "Directory to search for setup-config file") SPtFile SRequired
+            :& SParamDesc (Proxy :: Proxy "mode") (Proxy :: Proxy "Operation mode: \"stack\" or \"cabal\"") SPtText SRequired
+            :& RNil) SaveNone
+      :& buildCommand listTargets (Proxy :: Proxy "listTargets")
             "Given a directory with stack/cabal project lists all its targets"
             [] (SCtxNone :& RNil)
             (  SParamDesc (Proxy :: Proxy "directory") (Proxy :: Proxy "Directory to search for project file") SPtFile SRequired
@@ -68,6 +74,25 @@ buildPluginDescriptor = PluginDescriptor
   , pdExposedServices = []
   , pdUsedServices    = []
   }
+
+isHelperPrepared :: CommandFunc Object
+isHelperPrepared = CmdSync $ \ctx req -> do
+  case getParams (IdFile "distDir" :& IdText "type" :& RNil) req of
+    Left err -> return err
+    Right (ParamFile distDir0 :& ParamText mode :& RNil) -> do
+      let distDir = T.unpack distDir0
+      ret0 <- liftIO $ withDistDir mode distDir $ \d -> isPrepared (defaultQueryEnv "." d)
+      let (Object ret) = object ["res" .= toJSON ret0]
+      return $ IdeResponseOk ret
+
+withDistDir "cabal" "" f = do
+    cwd <- getCurrentDirectory
+    f $ cwd </> defaultDistPref
+withDistDir "stack" "" f = do
+    cwd <- getCurrentDirectory
+    dist <- getStackDistDir
+    f $ cwd </> dist
+withDistDir _ d f = f d
 
 -----------------------------------------------
 
@@ -114,7 +139,7 @@ listTargets' type_ buildDir dir = do
   case type_ of
     "stack" -> do
       stackPackageDirs <- getStackLocalPackages (dir </> "stack.yaml")
-      stackBuildDir <- getStackBuildDir
+      stackBuildDir <- getStackDistDir
       concat <$> mapM (listTargets' "cabal" stackBuildDir) (map (dir </>) stackPackageDirs)
     "cabal" -> runQuery (defaultQueryEnv dir buildDir) $ do
       comps <- map fst <$> entrypoints
@@ -153,7 +178,9 @@ withBinaryFileContents name act =
   Exception.bracket (openFile name ReadMode) hClose
                     (\hnd -> B.hGetContents hnd >>= act)
 
-getStackBuildDir = init <$> readProcess "stack" ["path", "--dist-dir"] ""
+-- TODO: it would be nice to cache this somehow
+getStackDistDir :: IO FilePath
+getStackDistDir = init <$> readProcess "stack" ["path", "--dist-dir"] ""
 
 addTarget = CmdSync $ \ctx req -> do
   let args = (,,) <$> Map.lookup "file" (ideParams req)
