@@ -60,7 +60,7 @@ import qualified System.Log.Logger as L
 
 -- ---------------------------------------------------------------------
 
-lspStdioTransport :: Plugins -> (MVar (S.Set J.LspId) -> IO ()) -> TChan PluginRequest -> FilePath -> IO ()
+lspStdioTransport :: Plugins -> (MVar (S.Set J.LspId) -> MVar (S.Set J.LspId) -> IO ()) -> TChan PluginRequest -> FilePath -> IO ()
 lspStdioTransport plugins hieDispatcherProc cin origDir = do
   run plugins hieDispatcherProc cin origDir >>= \case
     0 -> exitSuccess
@@ -69,15 +69,16 @@ lspStdioTransport plugins hieDispatcherProc cin origDir = do
 
 -- ---------------------------------------------------------------------
 
-run :: Plugins -> (MVar (S.Set J.LspId) -> IO ()) -> TChan PluginRequest -> FilePath -> IO Int
+run :: Plugins -> (MVar (S.Set J.LspId) -> MVar (S.Set J.LspId) -> IO ()) -> TChan PluginRequest -> FilePath -> IO Int
 run plugins dispatcherProc cin origDir = flip E.catches handlers $ do
 
   rin  <- atomically newTChan :: IO (TChan ReactorInput)
   let
     dp lf = do
-      mvar <- newMVar S.empty
-      _rpid <- forkIO $ reactor mvar plugins lf def cin rin
-      dispatcherProc mvar
+      cancelMVar <- newMVar S.empty
+      wipMVar <- newMVar S.empty
+      _rpid <- forkIO $ reactor cancelMVar wipMVar plugins lf def cin rin
+      dispatcherProc cancelMVar wipMVar
       return Nothing
 
   flip E.finally finalProc $ do
@@ -182,8 +183,13 @@ sendErrorLog msg = reactorSend' (\sf -> Core.sendErrorLogS  sf msg)
 -- | The single point that all events flow through, allowing management of state
 -- to stitch replies and requests together from the two asynchronous sides: lsp
 -- server and hie dispatcher
-reactor :: MVar (S.Set J.LspId) -> Plugins -> Core.LspFuncs -> ReactorState -> TChan PluginRequest -> TChan ReactorInput -> IO ()
-reactor cancelReqMVar plugins lf st cin inp = do
+reactor :: MVar (S.Set J.LspId) -> MVar (S.Set J.LspId) -> Plugins -> Core.LspFuncs -> ReactorState -> TChan PluginRequest -> TChan ReactorInput -> IO ()
+reactor cancelReqMVar wipMVar plugins lf st cin inp = do
+  let makeRequest req@(PReq (Just lid) _ _) = do
+        liftIO $ modifyMVar_ wipMVar (return . S.insert lid)
+        liftIO $ atomically $ writeTChan cin req
+      makeRequest req =
+        liftIO $ atomically $ writeTChan cin req
   flip evalStateT st $ flip runReaderT lf $ forever $ do
     inval <- liftIO $ atomically $ readTChan inp
     case inval of
@@ -255,7 +261,7 @@ reactor cancelReqMVar plugins lf st cin inp = do
             let rspMsg = Core.makeResponseMessage (J.responseId $ req ^. J.id ) we
             reactorSend rspMsg
         let hreq = PReq (Just $ req ^. J.id) callback $ HaRe.renameCmd' (TextDocumentPositionParams doc pos) newName
-        liftIO $ atomically $ writeTChan cin hreq
+        makeRequest hreq
 
 
       -- -------------------------------
@@ -277,7 +283,7 @@ reactor cancelReqMVar plugins lf st cin inp = do
               rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) ht
             reactorSend rspMsg
         let hreq = PReq (Just $ req ^. J.id) callback $ GhcMod.typeCmd' True doc pos
-        liftIO $ atomically $ writeTChan cin hreq
+        makeRequest hreq
 
       -- -------------------------------
 
@@ -340,7 +346,7 @@ reactor cancelReqMVar plugins lf st cin inp = do
         let (plugin,cmd) = break (==':') (T.unpack command)
         let ireq = IdeRequest (T.pack $ tail cmd) (Map.fromList cmdparams)
             preq = PReq (Just $ req ^. J.id) callback (dispatchSync plugins (T.pack plugin) ireq)
-        liftIO $ atomically $ writeTChan cin preq
+        makeRequest preq
 
       -- -------------------------------
 
@@ -390,11 +396,15 @@ reactor cancelReqMVar plugins lf st cin inp = do
             let rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) loc
             reactorSend rspMsg
         let hreq = PReq (Just $ req ^. J.id) callback $ HaRe.findDefCmd params
-        liftIO $ atomically $ writeTChan cin hreq
+        makeRequest hreq
       -- -------------------------------
       HandlerRequest (Core.NotCancelRequest not) -> do
         liftIO $ U.logs $ "reactor:got CancelRequest:" ++ show not
-        liftIO $ modifyMVar_ cancelReqMVar (return . S.insert (not ^. J.params . J.id))
+        let lid = not ^. J.params . J.id
+        wip <- liftIO $ readMVar wipMVar
+        when (S.member lid wip) $ do
+          liftIO $ U.logs $ "reactor:Processing CancelRequest:" ++ show not
+          liftIO $ modifyMVar_ cancelReqMVar (return . S.insert lid)
 
       HandlerRequest om -> do
         liftIO $ U.logs $ "reactor:got HandlerRequest:" ++ show om

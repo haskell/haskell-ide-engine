@@ -40,14 +40,15 @@ dispatcher cin = do
       Nothing -> return ()
       Just resp -> liftIO $ sendResponse req resp
 
-dispatcherP :: MVar (S.Set J.LspId) -> TChan PluginRequest -> IdeM ()
-dispatcherP cancelReqsMVar pin = forever $ do
+dispatcherP :: MVar (S.Set J.LspId) -> MVar (S.Set J.LspId) -> TChan PluginRequest -> IdeM ()
+dispatcherP cancelReqsMVar wip pin = forever $ do
   debugm "dispatcherP: top of loop"
   (PReq mid callback action) <- liftIO $ atomically $ readTChan pin
   debugm $ "got request with id: " ++ show mid
   case mid of
     Nothing -> action >>= liftIO . callback
     Just lid -> do
+      liftIO $ modifyMVar_ wip (return . S.delete lid)
       cancelReqs <- liftIO $ readMVar cancelReqsMVar
       if S.member lid cancelReqs
         then do

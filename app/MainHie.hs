@@ -160,7 +160,7 @@ run opts = do
 
     -- launch the dispatcher.
     let dispatcherProc = void $ forkIO $ runIdeM ghcModOptions (IdeState plugins Map.empty) (dispatcher cin)
-    let dispatcherProcP mvar = void $ forkIO $ runIdeM ghcModOptions (IdeState plugins Map.empty) (dispatcherP mvar pin)
+    let dispatcherProcP cancelMVar wipMVar = void $ forkIO $ runIdeM ghcModOptions (IdeState plugins Map.empty) (dispatcherP cancelMVar wipMVar pin)
     unless (optLsp opts) $ void dispatcherProc
 
     -- TODO: pass port in as a param from GlobalOpts
