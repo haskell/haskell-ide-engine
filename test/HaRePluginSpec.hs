@@ -56,6 +56,11 @@ dispatchRequestP =
   cdAndDo "./test/testdata"
     . runIdeM testOptions (IdeState Map.empty Map.empty)
 
+dispatchRequestPGoto :: IdeM a -> IO a
+dispatchRequestPGoto =
+  cdAndDo "./test/testdata/gototest"
+    . runIdeM testOptions (IdeState Map.empty Map.empty)
+
 -- ---------------------------------------------------------------------
 
 hareSpec :: Spec
@@ -332,5 +337,29 @@ hareSpec = do
                               $ List [TextEdit (Range (Position 4 0) (Position 8 12))
                                        "parseStr = char '\"' *> (many1 (noneOf \"\\\"\")) <* char '\"'"])
           Nothing)
+    it "finds definition across components" $ do
+      let req = findDefCmd (TextDocumentPositionParams (TextDocumentIdentifier $ filePathToUri "./app/Main.hs") (toPos (7,8)))
+      r <- dispatchRequestPGoto req
+      r `shouldBe` IdeResponseOk (Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
+                                           (Range (toPos (6,1)) (toPos (6,9))))
+      let req2 = findDefCmd (TextDocumentPositionParams (TextDocumentIdentifier $ filePathToUri "./app/Main.hs") (toPos (7,20)))
+      r2 <- dispatchRequestPGoto req2
+      r2 `shouldBe` IdeResponseOk (Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
+                                            (Range (toPos (5,1)) (toPos (5,2))))
+    it "finds definition in the same component" $ do
+      let req = findDefCmd (TextDocumentPositionParams (TextDocumentIdentifier $ filePathToUri "./src/Lib2.hs") (toPos (6,5)))
+      r <- dispatchRequestPGoto req
+      r `shouldBe` IdeResponseOk (Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
+                                           (Range (toPos (6,1)) (toPos (6,9))))
+    it "finds local definitions" $ do
+      let req = findDefCmd (TextDocumentPositionParams (TextDocumentIdentifier $ filePathToUri "./src/Lib2.hs") (toPos (7,11)))
+      r <- dispatchRequestPGoto req
+      r `shouldBe` IdeResponseOk (Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
+                                           (Range (toPos (10,9)) (toPos (10,10))))
+      let req2 = findDefCmd (TextDocumentPositionParams (TextDocumentIdentifier $ filePathToUri "./src/Lib2.hs") (toPos (10,13)))
+      r2 <- dispatchRequestPGoto req2
+      r2 `shouldBe` IdeResponseOk (Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
+                                            (Range (toPos (9,9)) (toPos (9,10))))
+
 
     -- ---------------------------------
