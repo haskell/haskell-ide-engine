@@ -29,7 +29,7 @@ library
                      , haskell-src-exts
                      , hie-base
                      , hie-plugin-api
-                     , hlint
+                     , hlint >= 2.0.8
                      , refact
                      , text
                      , transformers

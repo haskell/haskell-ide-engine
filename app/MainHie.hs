@@ -40,7 +40,7 @@ import           Haskell.Ide.Engine.Transport.JsonTcp
 import           Haskell.Ide.Engine.Transport.LspStdio
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.Utils
-import qualified Language.Haskell.GhcMod.Types as GM
+import qualified GhcMod.Types as GM
 import           Network.Simple.TCP
 import           Options.Applicative.Simple
 import qualified Paths_haskell_ide_engine as Meta

@@ -23,7 +23,7 @@ library
                      , directory
                      , filepath
                      , ghc
-                     , ghc-mod
+                     , ghc-mod >= 5.8.0.0
                      , hie-base
                      , hie-plugin-api
                      , text

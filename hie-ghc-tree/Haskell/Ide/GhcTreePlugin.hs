@@ -14,7 +14,7 @@ import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
 import           Language.Haskell.GHC.DumpTree
-import           Language.Haskell.GhcMod.Monad
+import           GhcMod.Monad
 
 -- ---------------------------------------------------------------------
 

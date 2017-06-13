@@ -19,8 +19,8 @@ import           Exception
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
-import qualified Language.Haskell.GhcMod.Monad as GM
-import qualified Language.Haskell.GhcMod.Error as GM
+import qualified GhcMod.Monad as GM
+import qualified GhcMod.Error as GM
 import           Language.Haskell.Refact.HaRe
 import           Language.Haskell.Refact.API
 import           Language.Haskell.Refact.Utils.Monad
@@ -203,10 +203,7 @@ genApplicativeCommand  = CmdSync $ \_ctxs req ->
 genApplicativeCommand' :: TextDocumentPositionParams -> IdeM (IdeResponse WorkspaceEdit)
 genApplicativeCommand' (TextDocumentPositionParams tdi pos) =
   pluginGetFile "genapplicative: " (tdi ^. J.uri) $ \file -> do
-      runHareCommand "genapplicative" (compGenApplicative file "unused" (unPos pos))
-
--- compGenApplicative :: FilePath -> String -> SimpPos -> RefactGhc [ApplyRefacResult]
-
+      runHareCommand "genapplicative" (compGenApplicative file (unPos pos))
 
 
 -- ---------------------------------------------------------------------
