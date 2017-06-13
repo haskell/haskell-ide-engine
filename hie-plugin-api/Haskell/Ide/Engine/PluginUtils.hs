@@ -10,7 +10,6 @@ module Haskell.Ide.Engine.PluginUtils
   , mapEithers
   , pluginGetFile
   , diffText
-  , diffFiles
   -- * Helper functions for errors
   , missingParameter
   , incorrectParameter
@@ -23,7 +22,6 @@ import           Data.Algorithm.DiffOutput
 import qualified Data.Map as Map
 import           Data.Monoid
 import qualified Data.Text as T
-import qualified Data.Text.IO as T
 import qualified Data.HashMap.Strict as H
 import           Data.Vinyl
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -119,12 +117,6 @@ incorrectParameter name expected value = IdeResponseFail
      "value" .= toJSON (show value)]))
 
 -- ---------------------------------------------------------------------
-
-diffFiles :: FilePath -> FilePath -> IO WorkspaceEdit
-diffFiles f1 f2 = do
-  t1 <- T.readFile f1
-  t2 <- T.readFile f2
-  return $ diffText (filePathToUri f1, t1) t2
 
 -- |Generate a 'WorkspaceEdit' value from a pair of source Text
 diffText :: (Uri,T.Text) -> T.Text -> WorkspaceEdit
