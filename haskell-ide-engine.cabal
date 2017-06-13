@@ -25,7 +25,6 @@ library
                        Haskell.Ide.Engine.Console
                        Haskell.Ide.Engine.Dispatcher
                        Haskell.Ide.Engine.Options
-                       Haskell.Ide.Engine.Swagger
                        Haskell.Ide.Engine.Transport.JsonHttp
                        Haskell.Ide.Engine.Transport.JsonHttp.Undecidable
                        Haskell.Ide.Engine.Transport.JsonStdio
@@ -53,10 +52,13 @@ library
                      , haskeline
                      , haskell-lsp
                      , hie-base
+                     , hie-hare
+                     , hie-ghc-mod
+                     , hie-apply-refact
                      , hie-plugin-api
                      , hslogger
                      , insert-ordered-containers
-                     , lens
+                     , lens >= 4.15.2
                      , lifted-base
                      , MissingH
                      , monad-control
@@ -73,11 +75,8 @@ library
                      , pipes-network
                      , pipes-parse
                      , servant-server
-                     , servant-swagger
-                     , servant-swagger-ui
                      , singletons
                      , stm
-                     , swagger2
                      , text
                      , time
                      , transformers
@@ -123,7 +122,6 @@ executable hie
                      , optparse-simple
                      , parsec
                      , stm
-                     , swagger2
                      , text
                      , time
                      , transformers
@@ -160,6 +158,7 @@ test-suite haskell-ide-test
                      , fast-logger
                      , filepath
                      , ghc-mod
+                     , haskell-lsp
                      , haskell-ide-engine
                      , hie-apply-refact
                      , hie-base
@@ -176,7 +175,6 @@ test-suite haskell-ide-test
                      , monad-logger
                      , quickcheck-instances
                      , stm
-                     , swagger2
                      , text
                      , transformers
                      , unordered-containers
@@ -201,6 +199,7 @@ test-suite haskell-ide-func-test
                      , fast-logger
                      , filepath
                      , ghc-mod
+                     , haskell-lsp
                      , haskell-ide-engine
                      , hie-apply-refact
                      , hie-base
@@ -216,7 +215,6 @@ test-suite haskell-ide-func-test
                      , monad-logger
                      , quickcheck-instances
                      , stm
-                     , swagger2
                      , text
                      , transformers
                      , unordered-containers

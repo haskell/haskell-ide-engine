@@ -8,7 +8,6 @@ import           Control.Concurrent.STM.TChan
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Data.Aeson
-import qualified Data.HashMap.Strict as H
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
 import qualified Data.Text as T
@@ -48,7 +47,7 @@ dispatcherSpec = do
       let req = IdeRequest "cmd1" (Map.fromList [])
           cr = CReq "test" 1 req chan
       r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxNone]"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxNone]"))
 
     -- ---------------------------------
 
@@ -65,32 +64,32 @@ dispatcherSpec = do
     it "identifies CtxFile" $ do
       chan <- atomically newTChan
       chSync <- atomically newTChan
-      let req = IdeRequest "cmd2" (Map.fromList [("file", ParamFileP "foo.hs")])
+      let req = IdeRequest "cmd2" (Map.fromList [("file", ParamFileP $ filePathToUri "foo.hs")])
           cr = CReq "test" 1 req chan
       r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxFile]"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxFile]"))
 
     -- ---------------------------------
 
     it "identifies CtxPoint" $ do
       chan <- atomically newTChan
       chSync <- atomically newTChan
-      let req = IdeRequest "cmd3" (Map.fromList [("file", ParamFileP "foo.hs"),("start_pos", ParamPosP (toPos (1,2)))])
+      let req = IdeRequest "cmd3" (Map.fromList [("file", ParamFileP $ filePathToUri "foo.hs"),("start_pos", ParamPosP (toPos (1,2)))])
           cr = CReq "test" 1 req chan
       r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxPoint]"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxPoint]"))
 
     -- ---------------------------------
 
     it "identifies CtxRegion" $ do
       chan <- atomically newTChan
       chSync <- atomically newTChan
-      let req = IdeRequest "cmd4" (Map.fromList [("file", ParamFileP "foo.hs")
+      let req = IdeRequest "cmd4" (Map.fromList [("file", ParamFileP $ filePathToUri "foo.hs")
                                                 ,("start_pos", ParamPosP (toPos (1,2)))
                                                 ,("end_pos", ParamPosP (toPos (3,4)))])
           cr = CReq "test" 1 req chan
       r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxRegion]"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxRegion]"))
 
     -- ---------------------------------
 
@@ -100,7 +99,7 @@ dispatcherSpec = do
       let req = IdeRequest "cmd5" (Map.fromList [("cabal", ParamTextP "lib")])
           cr = CReq "test" 1 req chan
       r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxCabalTarget]"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxCabalTarget]"))
 
 
     -- ---------------------------------
@@ -108,33 +107,33 @@ dispatcherSpec = do
     it "identifies CtxProject" $ do
       chan <- atomically newTChan
       chSync <- atomically newTChan
-      let req = IdeRequest "cmd6" (Map.fromList [("dir", ParamFileP ".")])
+      let req = IdeRequest "cmd6" (Map.fromList [("dir", ParamFileP $ filePathToUri ".")])
           cr = CReq "test" 1 req chan
       r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxProject]"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxProject]"))
 
     -- ---------------------------------
 
     it "identifies all multiple" $ do
       chan <- atomically newTChan
       chSync <- atomically newTChan
-      let req = IdeRequest "cmdmultiple" (Map.fromList [("file", ParamFileP "foo.hs")
+      let req = IdeRequest "cmdmultiple" (Map.fromList [("file", ParamFileP $ filePathToUri "foo.hs")
                                                        ,("start_pos", ParamPosP (toPos (1,2)))
                                                        ,("end_pos", ParamPosP (toPos (3,4)))])
           cr = CReq "test" 1 req chan
       r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxFile,CtxPoint,CtxRegion]"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxFile,CtxPoint,CtxRegion]"))
 
     -- ---------------------------------
 
     it "identifies CtxFile,CtxPoint multiple" $ do
       chan <- atomically newTChan
       chSync <- atomically newTChan
-      let req = IdeRequest "cmdmultiple" (Map.fromList [("file", ParamFileP "foo.hs")
+      let req = IdeRequest "cmdmultiple" (Map.fromList [("file", ParamFileP $ filePathToUri "foo.hs")
                                                        ,("start_pos", ParamPosP (toPos (1,2)))])
           cr = CReq "test" 1 req chan
       r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxFile,CtxPoint]"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxFile,CtxPoint]"))
 
     -- ---------------------------------
 
@@ -156,14 +155,20 @@ dispatcherSpec = do
     it "identifies matching params" $ do
       chan <- atomically newTChan
       chSync <- atomically newTChan
-      let req = IdeRequest "cmdextra" (Map.fromList [("file", ParamFileP "foo.hs")
+      let req = IdeRequest "cmdextra" (Map.fromList [("file", ParamFileP $ filePathToUri "foo.hs")
                                                     ,("txt",  ParamTextP "a")
-                                                    ,("file", ParamFileP "f")
+                                                    ,("file", ParamFileP $ filePathToUri "f")
                                                     ,("pos",  ParamPosP (toPos (1,2)))
+                                                    ,("int", ParamIntP 4 )
+                                                    ,("bool", ParamBoolP False )
+                                                    ,("range", ParamRangeP $ Range (toPos (1,2)) (toPos (3,4)))
+                                                    ,("loc", ParamLocP $ Location (filePathToUri "a") $ Range (toPos (1,2)) (toPos (3,4)))
+                                                    ,("textDocId", ParamTextDocIdP $ TextDocumentIdentifier $ filePathToUri "ad" )
+                                                    ,("textDocPos", ParamTextDocPosP $ TextDocumentPositionParams (TextDocumentIdentifier $ filePathToUri "asd") (toPos (1,2)) )
                                                     ])
           cr = CReq "test" 1 req chan
       r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxFile]"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxFile]"))
 
 
     -- ---------------------------------
@@ -171,10 +176,16 @@ dispatcherSpec = do
     it "reports mismatched param" $ do
       chan <- atomically newTChan
       chSync <- atomically newTChan
-      let req = IdeRequest "cmdextra" (Map.fromList [("file", ParamFileP "foo.hs")
-                                                    ,("txt",  ParamFileP "a")
-                                                    ,("file", ParamFileP "f")
+      let req = IdeRequest "cmdextra" (Map.fromList [("file", ParamFileP $ filePathToUri "foo.hs")
+                                                    ,("txt",  ParamFileP $ filePathToUri "a")
+                                                    ,("file", ParamFileP $ filePathToUri "f")
                                                     ,("pos",  ParamPosP (toPos (1,2)))
+                                                    ,("int", ParamIntP 4 )
+                                                    ,("bool", ParamBoolP False )
+                                                    ,("range", ParamRangeP $ Range (toPos (1,2)) (toPos (3,4)))
+                                                    ,("loc", ParamLocP $ Location (filePathToUri "a") $ Range (toPos (1,2)) (toPos (3,4)))
+                                                    ,("textDocId", ParamTextDocIdP $ TextDocumentIdentifier $ filePathToUri "ad" )
+                                                    ,("textDocPos", ParamTextDocPosP $ TextDocumentPositionParams (TextDocumentIdentifier $ filePathToUri "asd") (toPos (1,2)) )
                                                     ])
           cr = CReq "test" 1 req chan
       r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
@@ -182,8 +193,8 @@ dispatcherSpec = do
          Just (IdeResponseFail
                (IdeError
                  { ideCode = IncorrectParameterType
-                 , ideMessage = "got wrong parameter type for `txt`, expected: PtText , got:ParamValP {unParamValP = ParamFile \"a\"}"
-                 , ideInfo = Object (HM.fromList [("value",String "ParamValP {unParamValP = ParamFile \"a\"}"),("param",String "txt"),("expected",String "PtText")])}))
+                 , ideMessage = "got wrong parameter type for `txt`, expected: PtText , got:ParamValP {unParamValP = ParamFile (Uri {getUri = \"file://a\"})}"
+                 , ideInfo = Object (HM.fromList [("value",String "ParamValP {unParamValP = ParamFile (Uri {getUri = \"file://a\"})}"),("param",String "txt"),("expected",String "PtText")])}))
 
 
 
@@ -193,12 +204,12 @@ dispatcherSpec = do
       chan <- atomically newTChan
       chSync <- atomically newTChan
       let req = IdeRequest "cmdoptional" (Map.fromList [("txt",   ParamTextP "a")
-                                                       ,("fileo", ParamFileP "f")
+                                                       ,("fileo", ParamFileP $ filePathToUri "f")
                                                        ,("poso",  ParamPosP (toPos (1,2)))
                                                        ])
           cr = CReq "test" 1 req chan
       r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
-      r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:ctxs=[CtxNone]"::String)]))
+      r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxNone]"))
 
     -- ---------------------------------
 
@@ -240,10 +251,25 @@ dispatcherSpec = do
       rc2 <- atomically $ readTChan chan
       rc1 `shouldBe` (CResp { couPlugin = "test"
                             , coutReqId = 2
-                            , coutResp = IdeResponseOk (HM.fromList [("ok",String "asyncCmd2 sending strobe")])})
+                            , coutResp = IdeResponseOk (String "asyncCmd2 sending strobe")})
       rc2 `shouldBe` (CResp { couPlugin = "test"
                             , coutReqId = 1
-                            , coutResp = IdeResponseOk (HM.fromList [("ok",String "asyncCmd1 got strobe")])})
+                            , coutResp = IdeResponseOk (String "asyncCmd1 got strobe")})
+
+  describe "New plugin dispatcher operation" $ do
+    it "dispatches response correctly" $ do
+      inChan <- atomically newTChan
+      outChan <- atomically newTChan
+      let req1 = PReq (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text1"
+          req2 = PReq (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text2"
+      pid <- forkIO $ runIdeM testOptions (IdeState Map.empty Map.empty) (dispatcherP inChan)
+      atomically $ writeTChan inChan req1
+      atomically $ writeTChan inChan req2
+      resp1 <- atomically $ readTChan outChan
+      resp2 <- atomically $ readTChan outChan
+      killThread pid
+      resp1 `shouldBe` (IdeResponseOk $ "text1")
+      resp2 `shouldBe` (IdeResponseOk $ "text2")
 
 -- ---------------------------------------------------------------------
 
@@ -268,6 +294,12 @@ testDescriptor chSync = PluginDescriptor
       , mkCmdWithContext "cmdextra" [CtxFile] [ RP "txt"  "help" PtText
                                               , RP "file" "help" PtFile
                                               , RP "pos"  "help" PtPos
+                                              , RP "int" "help" PtInt
+                                              , RP "bool" "help" PtBool
+                                              , RP "range" "help" PtRange
+                                              , RP "loc" "help" PtLoc
+                                              , RP "textDocId" "help" PtTextDocId
+                                              , RP "textDocPos" "help" PtTextDocPos
                                               ]
 
       , mkCmdWithContext "cmdoptional" [CtxNone] [ RP "txt"   "help" PtText

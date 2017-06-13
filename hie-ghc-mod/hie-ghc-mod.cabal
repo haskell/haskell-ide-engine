@@ -23,11 +23,12 @@ library
                      , directory
                      , filepath
                      , ghc
-                     , ghc-mod
+                     , ghc-mod >= 5.8.0.0
                      , hie-base
                      , hie-plugin-api
                      , text
                      , transformers
+                     , parsec
                      , vinyl >= 0.5 && < 0.6
 
   ghc-options:         -Wall

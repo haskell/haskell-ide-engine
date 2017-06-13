@@ -13,13 +13,13 @@ import           Data.Either
 import           Data.Monoid
 import qualified Data.Text as T
 import qualified Data.Text.Read as T
+import           Text.Parsec
 import           Data.Vinyl
 import qualified Exception as G
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
--- import qualified Language.Haskell.GhcMod as GM
-import qualified Language.Haskell.GhcMod.Types as GM
+import qualified GhcMod.Types as GM
 import qualified GhcMod as GM
 
 -- ---------------------------------------------------------------------
@@ -49,7 +49,9 @@ ghcmodDescriptor = PluginDescriptor
                      :& RNil) SaveNone
 
       :& buildCommand typeCmd (Proxy :: Proxy "type") "Get the type of the expression under (LINE,COL)"
-                     [".hs",".lhs"] (SCtxPoint :& RNil) RNil SaveAll
+                     [".hs",".lhs"] (SCtxPoint :& RNil)
+                     (  SParamDesc (Proxy :: Proxy "include_constraints") (Proxy :: Proxy "Whether to include constraints in the type sig") SPtBool SRequired
+                     :& RNil) SaveAll
 
       :& RNil
   , pdExposedServices = []
@@ -77,12 +79,19 @@ ghcmodDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-checkCmd :: CommandFunc T.Text
+type GhcModDiagnostics = [(FilePath,[Diagnostic])]
+
+checkCmd :: CommandFunc GhcModDiagnostics
 checkCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
-    Right (ParamFile fileName :& RNil) -> do
-      fmap T.pack <$> runGhcModCommand (GM.checkSyntax [T.unpack fileName])
+    Right (ParamFile uri :& RNil) ->
+      checkCmd' uri
+
+checkCmd' :: Uri -> IdeM (IdeResponse GhcModDiagnostics)
+checkCmd' uri =
+  pluginGetFile "check: " uri $ \file -> do
+    fmap parseGhcDiagnostics <$> runGhcModCommand (GM.checkSyntax [file])
 
 -- ---------------------------------------------------------------------
 
@@ -107,8 +116,13 @@ lintCmd :: CommandFunc T.Text
 lintCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
-    Right (ParamFile fileName :& RNil) -> do
-      fmap T.pack <$> runGhcModCommand (GM.lint GM.defaultLintOpts (T.unpack fileName))
+    Right (ParamFile uri :& RNil) ->
+      lintCmd' uri
+
+lintCmd' :: Uri -> IdeM (IdeResponse T.Text)
+lintCmd' uri =
+  pluginGetFile "lint: " uri $ \file -> do
+    fmap T.pack <$> runGhcModCommand (GM.lint GM.defaultLintOpts file)
 
 -- ---------------------------------------------------------------------
 
@@ -116,27 +130,27 @@ infoCmd :: CommandFunc T.Text
 infoCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdText "expr" :& RNil) req of
     Left err -> return err
-    Right (ParamFile fileName :& ParamText expr :& RNil) -> do
-      fmap T.pack <$> runGhcModCommand (GM.info (T.unpack fileName) (GM.Expression (T.unpack expr)))
+    Right (ParamFile uri :& ParamText expr :& RNil) ->
+      infoCmd' uri expr
+
+infoCmd' :: Uri -> T.Text -> IdeM (IdeResponse T.Text)
+infoCmd' uri expr =
+  pluginGetFile "info: " uri $ \file -> do
+    fmap T.pack <$> runGhcModCommand (GM.info file (GM.Expression (T.unpack expr)))
 
 -- ---------------------------------------------------------------------
 
 typeCmd :: CommandFunc TypeInfo
 typeCmd = CmdSync $ \_ctxs req ->
-  case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
+  case getParams (IdBool "include_constraints" :& IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
-    Right (ParamFile fileName :& ParamPos (Pos (Line l) (Col c)) :& RNil) -> do
-      {-
-      TODO: pass the bool through as a param, in the following call to 'GM.types'
-      types :: IOish m
-            => Bool         -- ^ Include constraints into type signature
-            -> FilePath     -- ^ A target file.
-            -> Int          -- ^ Line number.
-            -> Int          -- ^ Column number.
-            -> GhcModT m String
+    Right (ParamBool bool :& ParamFile uri :& ParamPos pos :& RNil) -> do
+      typeCmd' bool uri pos
 
-      -}
-      fmap (toTypeInfo . T.lines . T.pack) <$> runGhcModCommand (GM.types False (T.unpack fileName) l c)
+typeCmd' :: Bool -> Uri -> Position -> IdeM (IdeResponse TypeInfo)
+typeCmd' bool uri (Position l c) =
+  pluginGetFile "type: " uri $ \file -> do
+    fmap (toTypeInfo . T.lines . T.pack) <$> runGhcModCommand (GM.types bool file (l+1) (c+1))
 
 
 
@@ -166,3 +180,43 @@ runGhcModCommand cmd =
          return $
          IdeResponseFail $
          IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Null
+-- ---------------------------------------------------------------------
+-- parsec parser for GHC error messages
+
+type P = Parsec String ()
+
+parseGhcDiagnostics :: String -> [(FilePath,[Diagnostic])]
+parseGhcDiagnostics str =
+  case parse diagnostics "inp" str of
+    Left err -> error $ "parseGhcDiagnostics: got error" ++ show err
+    Right ds -> ds
+
+diagnostics :: P [(FilePath, [Diagnostic])]
+diagnostics = (sepEndBy diagnostic (char '\n')) <* eof
+
+diagnostic :: P (FilePath,[Diagnostic])
+diagnostic = do
+  fname <- many1 (noneOf ":")
+  _ <- char ':'
+  l <- number
+  _ <- char ':'
+  c <- number
+  _ <- char ':'
+  severity <- optionSeverity
+  msglines <- sepEndBy (many1 (noneOf "\n\0")) (char '\0')
+  let pos = (Position (l-1) (c-1))
+  -- AZ:TODO: consider setting pprCols dflag value in the call, for better format on vscode
+  return (fname,[Diagnostic (Range pos pos) (Just severity) Nothing (Just "ghcmod") (T.pack $ unlines msglines)] )
+
+optionSeverity :: P DiagnosticSeverity
+optionSeverity =
+  (string "Warning:" >> return DsWarning)
+  <|> (string "Error:" >> return DsError)
+  <|> return DsError
+
+number :: P Int
+number = do
+  s <- many1 digit
+  return $ read s
+
+-- ---------------------------------------------------------------------

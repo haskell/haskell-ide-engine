@@ -10,6 +10,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE ConstraintKinds #-}
 -- | Experimenting with a data structure to define a plugin.
 --
 -- The general idea is that a given plugin returns this structure during the
@@ -54,6 +55,7 @@ module Haskell.Ide.Engine.PluginDescriptor
   , Rec(..)
   , Proxy(..)
   , recordToList'
+  , ValidResponse
   -- * All the good types
   , module Haskell.Ide.Engine.PluginTypes
   ) where
@@ -64,16 +66,16 @@ import           Data.Aeson
 import           Data.Dynamic
 import qualified Data.Map as Map
 import           Data.Singletons
-import           Data.Swagger (ToSchema)
 import qualified Data.Text as T
 import           Data.Vinyl
 import qualified Data.Vinyl.Functor as Vinyl
 import           GHC.Generics
 import           GHC.TypeLits
 import           Haskell.Ide.Engine.PluginTypes
-import qualified Language.Haskell.GhcMod.Monad as GM
+import qualified GhcMod.Monad as GM
 
 -- ---------------------------------------------------------------------
+type ValidResponse a = (FromJSON a, ToJSON a, Typeable a)
 
 data PluginDescriptor cmds = PluginDescriptor
   { pdUIShortName     :: !T.Text
@@ -127,7 +129,7 @@ untagCommand (NamedCommand _ (Command desc func)) =
 -- | Ideally a Command is defined in such a way that its CommandDescriptor
 -- can be exposed via the native CLI for the tool being exposed as well.
 -- Perhaps use Options.Applicative for this in some way.
-data Command desc = forall a. (ValidResponse a, ToSchema a) => Command
+data Command desc = forall a. (ValidResponse a) => Command
   { cmdDesc :: !desc
   , cmdFunc :: !(CommandFunc a)
   }

@@ -9,8 +9,8 @@ import           Control.Exception
 import           Control.Monad.IO.Class
 import           Control.Monad.State.Strict
 import           Haskell.Ide.Engine.PluginDescriptor
-import qualified Language.Haskell.GhcMod.Monad as GM
-import qualified Language.Haskell.GhcMod.Types as GM
+import qualified GhcMod.Monad as GM
+import qualified GhcMod.Types as GM
 -- ---------------------------------------------------------------------
 
 runIdeM :: GM.Options -> IdeState -> IdeM a -> IO a

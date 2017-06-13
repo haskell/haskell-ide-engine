@@ -14,7 +14,7 @@ import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
 import           Language.Haskell.GHC.DumpTree
-import           Language.Haskell.GhcMod.Monad
+import           GhcMod.Monad
 
 -- ---------------------------------------------------------------------
 
@@ -38,11 +38,16 @@ ghcTreeDescriptor = PluginDescriptor
 
 -- | Get the AST for the given file
 trees :: CommandFunc AST
-trees = CmdSync $ \_ctxs req -> do
+trees = CmdSync $ \_ctxs req ->
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
-    Right (ParamFile fileName :& RNil) -> do
-      trs <- runGmlT' [Left $ T.unpack fileName] (return . treeDumpFlags) $ treesForTargets [T.unpack fileName]
+    Right (ParamFile uri :& RNil) ->
+      treesCmd uri
+
+treesCmd :: Uri -> IdeM (IdeResponse AST)
+treesCmd uri =
+  pluginGetFile "trees: " uri $ \file -> do
+      trs <- runGmlT' [Left file] (return . treeDumpFlags) $ treesForTargets [file]
       case trs of
           [tree] -> return (IdeResponseOk $ treesToAST tree)
           _ -> return $ IdeResponseError (IdeError PluginError

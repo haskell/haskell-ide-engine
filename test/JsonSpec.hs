@@ -9,7 +9,6 @@ import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
 
 import           Data.Aeson
-import           Data.Aeson.Types
 import           Data.Text
 import           Test.QuickCheck hiding (Success)
 import           Test.QuickCheck.Instances ()
@@ -44,13 +43,10 @@ jsonSpec = do
     prop "ExtendedCommandDescriptor" (propertyValidRoundtrip :: ExtendedCommandDescriptor -> Bool)
     prop "IdePlugins" (propertyValidRoundtrip :: IdePlugins -> Bool)
     prop "TypeInfo" (propertyValidRoundtrip :: TypeInfo -> Bool)
-    prop "RefactorResult" (propertyValidRoundtrip :: RefactorResult -> Bool)
     prop "ModuleList" (propertyValidRoundtrip :: ModuleList -> Bool)
 
   describe "General JSON instances round trip" $ do
-    prop "Line" (propertyJsonRoundtrip :: Line -> Bool)
-    prop "Col" (propertyJsonRoundtrip :: Col -> Bool)
-    prop "Pos" (propertyJsonRoundtrip :: Pos -> Bool)
+    prop "Pos" (propertyJsonRoundtrip :: Position -> Bool)
     prop "ParamVal 'PtPos" (propertyJsonRoundtrip :: ParamVal 'PtPos -> Bool)
     prop "ParamValP" (propertyJsonRoundtrip :: ParamValP -> Bool)
     prop "CabalSection" (propertyJsonRoundtrip :: CabalSection -> Bool)
@@ -69,7 +65,7 @@ propertyJsonRoundtrip :: (Eq a, ToJSON a, FromJSON a) => a -> Bool
 propertyJsonRoundtrip a = Success a == fromJSON (toJSON a)
 
 propertyValidRoundtrip :: (Eq a, ValidResponse a) => a -> Bool
-propertyValidRoundtrip a = Success a == parse jsRead (jsWrite a)
+propertyValidRoundtrip a = Success a == fromJSON (toJSON a)
 
 -- enough for our needs
 instance Arbitrary Value where
@@ -122,13 +118,34 @@ instance Arbitrary UntaggedCommand where
 instance Eq UntaggedPluginDescriptor where
   a == b = show a == show b
 
+instance Arbitrary Uri where
+  arbitrary = filePathToUri <$> arbitrary
+
 instance Arbitrary ParamValP where
   arbitrary = do
-    i <- choose (1::Int,3)
+    i <- choose (1::Int,9)
     case i of
-      1 -> ParamValP . ParamText <$> arbitrary
-      2 -> ParamValP . ParamFile <$> arbitrary
-      _ -> ParamValP . ParamPos <$> arbitrary
+      1 -> ParamTextP       <$> arbitrary
+      2 -> ParamIntP        <$> arbitrary
+      3 -> ParamBoolP       <$> arbitrary
+      4 -> ParamFileP       <$> arbitrary
+      5 -> ParamPosP        <$> arbitrary
+      6 -> ParamRangeP      <$> arbitrary
+      7 -> ParamLocP        <$> arbitrary
+      8 -> ParamTextDocIdP  <$> arbitrary
+      _ -> ParamTextDocPosP <$> arbitrary
+
+instance Arbitrary Range where
+  arbitrary = Range <$> arbitrary <*> arbitrary
+
+instance Arbitrary Location where
+  arbitrary = Location <$> arbitrary <*> arbitrary
+
+instance Arbitrary TextDocumentIdentifier where
+  arbitrary = TextDocumentIdentifier <$> arbitrary
+
+instance Arbitrary TextDocumentPositionParams where
+  arbitrary = TextDocumentPositionParams <$> arbitrary <*> arbitrary
 
 instance Arbitrary CabalSection where
   arbitrary = CabalSection <$> arbitrary
@@ -161,27 +178,14 @@ instance Arbitrary TypeResult where
 instance Arbitrary IdePlugins where
   arbitrary = IdePlugins <$> arbitrary
 
-instance Arbitrary RefactorResult where
-  arbitrary = RefactorResult <$> smallList arbitrary
-
-instance Arbitrary HieDiff where
-  arbitrary = HieDiff <$> arbitrary <*> arbitrary <*> arbitrary
-
 instance Arbitrary ModuleList where
   arbitrary = ModuleList <$> smallList arbitrary
 
-instance Arbitrary Pos where
-  arbitrary = Pos <$> arbitrary <*> arbitrary
-
-instance Arbitrary Line where
+instance Arbitrary Position where
   arbitrary = do
     Positive l <- arbitrary
-    return (Line l)
-
-instance Arbitrary Col where
-  arbitrary = do
     Positive c <- arbitrary
-    return (Col c)
+    return $ Position l c
 
 instance Arbitrary (ParamVal 'PtPos) where
   arbitrary = ParamPos <$> arbitrary

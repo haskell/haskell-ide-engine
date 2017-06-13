@@ -8,8 +8,8 @@ module TestUtils
 import           Haskell.Ide.Engine.MonadFunctions
 import           System.Directory
 import           Control.Exception
-import qualified Language.Haskell.GhcMod.Monad as GM
-import qualified Language.Haskell.GhcMod.Types as GM
+import qualified GhcMod.Monad as GM
+import qualified GhcMod.Types as GM
 
 -- ---------------------------------------------------------------------
 

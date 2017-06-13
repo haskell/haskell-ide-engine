@@ -9,6 +9,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Haskell.Ide.Engine.PluginTypes
   ( CabalSection(..)
@@ -18,8 +19,14 @@ module Haskell.Ide.Engine.PluginTypes
   , ParamValP(..)
   , ParamMap
   , pattern ParamTextP
+  , pattern ParamIntP
+  , pattern ParamBoolP
   , pattern ParamFileP
   , pattern ParamPosP
+  , pattern ParamRangeP
+  , pattern ParamLocP
+  , pattern ParamTextDocIdP
+  , pattern ParamTextDocPosP
   , ParamId
   , TaggedParamId(..)
   , ParamDescription(..)
@@ -35,7 +42,6 @@ module Haskell.Ide.Engine.PluginTypes
   , ExtendedCommandDescriptor(..)
   , CommandName
   , PluginName
-  , ValidResponse(..)
   , ReturnType
   , Save(..)
 
@@ -46,10 +52,15 @@ module Haskell.Ide.Engine.PluginTypes
   , IdeErrorCode(..)
   , untagParamDesc
   , Sing(..)
-  , Pos(..)
+  , Uri(..)
+  , uriToFilePath
+  , filePathToUri
+  , Position(..)
   , toPos, unPos
-  , Line(..), Col(..)
-
+  , Range(..)
+  , Location(..)
+  , TextDocumentIdentifier(..)
+  , TextDocumentPositionParams(..)
   -- * Plugins
   , PluginId
   , IdePlugins(..)
@@ -63,19 +74,18 @@ module Haskell.Ide.Engine.PluginTypes
   )where
 
 import           Control.Applicative
-import           Control.Monad
 import           Data.Aeson
 import           Data.Aeson.Types
 import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import           Data.Singletons.Prelude
-import           Data.Swagger (ToSchema)
 import qualified Data.Text as T
-import           Data.Typeable
 import           Data.Vinyl
 import           GHC.Generics
 import           GHC.TypeLits
 import           Haskell.Ide.Engine.PluginTypes.Singletons
+import           Language.Haskell.LSP.TH.DataTypesJSON ( Uri(..), uriToFilePath, filePathToUri, Position(..), Range(..), Location(..), TextDocumentIdentifier(..), TextDocumentPositionParams(..))
+
 
 type PluginId = T.Text
 
@@ -142,23 +152,19 @@ data CommandDescriptor cxts descs = CommandDesc
   } deriving (Show,Eq,Generic)
 
 data Save = SaveNone | SaveAll deriving (Show, Eq, Generic)
-instance ToSchema Save
 
 -- | Type synonym for a 'CommandDescriptor' that uses simple lists
 type UntaggedCommandDescriptor = CommandDescriptor [AcceptedContext] [ParamDescription]
-instance ToSchema UntaggedCommandDescriptor
 
 type TaggedCommandDescriptor cxts tags = CommandDescriptor (Rec SAcceptedContext cxts) (Rec SParamDescription tags)
 
 data ExtendedCommandDescriptor =
   ExtendedCommandDescriptor UntaggedCommandDescriptor
                             PluginName deriving (Show,Eq,Generic)
-instance ToSchema ExtendedCommandDescriptor
 
-
-instance ValidResponse ExtendedCommandDescriptor where
-  jsWrite (ExtendedCommandDescriptor cmdDescriptor pname) =
-    H.fromList
+instance ToJSON ExtendedCommandDescriptor where
+  toJSON (ExtendedCommandDescriptor cmdDescriptor pname) =
+    object
       [ "name"              .= cmdName cmdDescriptor
       , "ui_description"    .= cmdUiDescription cmdDescriptor
       , "file_extensions"   .= cmdFileExtensions cmdDescriptor
@@ -167,7 +173,8 @@ instance ValidResponse ExtendedCommandDescriptor where
       , "return_type"       .= cmdReturnType cmdDescriptor
       , "plugin_name"       .= pname
       , "save"              .= cmdSave cmdDescriptor ]
-  jsRead v =
+instance FromJSON ExtendedCommandDescriptor where
+  parseJSON = withObject "ExtenedCommandDescriptor" $ \v ->
     ExtendedCommandDescriptor
     <$> (CommandDesc
       <$> v .: "name"
@@ -177,7 +184,7 @@ instance ValidResponse ExtendedCommandDescriptor where
       <*> v .: "additional_params"
       <*> v .: "return_type"
       <*> v .: "save")
-    <*> v.: "plugin_name"
+      <*> v.: "plugin_name"
 
 type CommandName = T.Text
 type PluginName = T.Text
@@ -187,42 +194,29 @@ type PluginName = T.Text
 data IdePlugins = IdePlugins
   { ipMap :: Map.Map PluginId [UntaggedCommandDescriptor]
   } deriving (Show,Eq,Generic)
-instance ToSchema IdePlugins
+
+instance ToJSON IdePlugins where
+  toJSON (IdePlugins m) = object
+                ["plugins" .= H.fromList
+                ( map (uncurry (.=))
+                $ Map.assocs m :: [Pair])]
+
+instance FromJSON IdePlugins where
+  parseJSON = withObject "IdePlugins" $ \v -> do
+    ps <- v .: "plugins"
+    fmap (IdePlugins . Map.fromList) $ mapM (\(k,vp) -> do
+            p<-parseJSON vp
+            return (k,p)) $ H.toList ps
 
 -- ---------------------------------------------------------------------
 
--- | A position in a source file
-data Pos = Pos { line :: !Line, col :: !Col} deriving (Generic,Show,Read,Eq,Ord)
--- NOTE: Pos needs to be defined in record syntac otherwise the generically
---       derived swagger schema does not work properly
-instance ToSchema Pos
+-- Converts to one based tuple
+unPos :: Position -> (Int,Int)
+unPos (Position l c) = (l+1,c+1)
 
-unPos :: Pos -> (Int,Int)
-unPos (Pos (Line l) (Col c)) = (l,c)
-
-toPos :: (Int,Int) -> Pos
-toPos (l,c) = Pos (Line l) (Col c)
-
-newtype Line = Line {unLine :: Int } deriving (Generic,Show,Eq,Read,Ord,Enum,Real)
-instance ToSchema Line
-
-newtype Col  = Col { unCol :: Int } deriving (Generic,Show,Eq,Read,Ord,Enum,Real)
-instance ToSchema Col;
-
-deriving instance Num Line
-deriving instance Num Col
-
-deriving instance Integral Line
-deriving instance Integral Col
-
-
-instance Bounded Line where
-  minBound = 1
-  maxBound = 1000000
-
-instance Bounded Col where
-  minBound = 1
-  maxBound = 100000
+-- Converts from one based tuple
+toPos :: (Int,Int) -> Position
+toPos (l,c) = Position (l-1) (c-1)
 
 -- ---------------------------------------------------------------------
 
@@ -242,7 +236,6 @@ data ParamDescription =
             ,pType :: !ParamType
             ,pRequired :: !ParamRequired}
   deriving (Show,Eq,Ord,Generic)
-instance ToSchema ParamDescription
 
 pattern RP :: ParamName -> ParamHelp -> ParamType -> ParamDescription
 pattern RP pname help type' <- ParamDesc pname help type' Required
@@ -277,19 +270,35 @@ deriving instance Show ParamValP
 
 deriving instance Eq (ParamVal t)
 instance Eq ParamValP where
- (ParamTextP t) == (ParamTextP t') = t == t'
- (ParamFileP f) == (ParamFileP f') = f == f'
- (ParamPosP  p) == (ParamPosP p') = p == p'
+ (ParamTextP x) == (ParamTextP y) = x == y
+ (ParamIntP x) == (ParamIntP y) = x == y
+ (ParamBoolP x) == (ParamBoolP y) = x == y
+ (ParamFileP x) == (ParamFileP y) = x == y
+ (ParamPosP x) == (ParamPosP y) = x == y
+ (ParamRangeP x) == (ParamRangeP y) = x == y
+ (ParamLocP x) == (ParamLocP y) = x == y
+ (ParamTextDocIdP x) == (ParamTextDocIdP y) = x == y
+ (ParamTextDocPosP x) == (ParamTextDocPosP y) = x == y
  _ == _ = False
 
 pattern ParamTextP :: T.Text -> ParamValP
-pattern ParamTextP t = ParamValP (ParamText t)
-
-pattern ParamFileP :: T.Text -> ParamValP
-pattern ParamFileP f = ParamValP (ParamFile f)
-
-pattern ParamPosP :: Pos -> ParamValP
-pattern ParamPosP  p = ParamValP (ParamPos p)
+pattern ParamTextP x = ParamValP (ParamText x)
+pattern ParamIntP :: Int -> ParamValP
+pattern ParamIntP x = ParamValP (ParamInt x)
+pattern ParamBoolP :: Bool -> ParamValP
+pattern ParamBoolP x = ParamValP (ParamBool x)
+pattern ParamFileP :: Uri -> ParamValP
+pattern ParamFileP x = ParamValP (ParamFile x)
+pattern ParamPosP :: Position -> ParamValP
+pattern ParamPosP x = ParamValP (ParamPos x)
+pattern ParamRangeP :: Range -> ParamValP
+pattern ParamRangeP x = ParamValP (ParamRange x)
+pattern ParamLocP :: Location -> ParamValP
+pattern ParamLocP x = ParamValP (ParamLoc x)
+pattern ParamTextDocIdP :: TextDocumentIdentifier -> ParamValP
+pattern ParamTextDocIdP x = ParamValP (ParamTextDocId x)
+pattern ParamTextDocPosP :: TextDocumentPositionParams -> ParamValP
+pattern ParamTextDocPosP x = ParamValP (ParamTextDocPos x)
 
 type ParamMap = Map.Map ParamId ParamValP
 
@@ -297,16 +306,27 @@ type ParamId = T.Text
 
 data TaggedParamId (t :: ParamType) where
  IdText :: T.Text -> TaggedParamId 'PtText
+ IdInt  :: T.Text  -> TaggedParamId 'PtInt
+ IdBool :: T.Text -> TaggedParamId 'PtBool
  IdFile :: T.Text -> TaggedParamId 'PtFile
- IdPos :: T.Text  -> TaggedParamId 'PtPos
+ IdPos  :: T.Text -> TaggedParamId 'PtPos
+ IdRange :: T.Text -> TaggedParamId 'PtRange
+ IdLoc  :: T.Text -> TaggedParamId 'PtLoc
+ IdTextDocId :: T.Text -> TaggedParamId 'PtTextDocId
+ IdTextDocPos ::T.Text -> TaggedParamId 'PtTextDocPos
 
-data ParamValP = forall t. ParamValP { unParamValP ::  ParamVal t }
+data ParamValP = forall t. ToJSON (ParamVal t) => ParamValP { unParamValP ::  ParamVal t }
 
 data ParamVal (t :: ParamType) where
- ParamText :: T.Text   -> ParamVal 'PtText
- ParamFile :: T.Text   -> ParamVal 'PtFile
- ParamPos  :: Pos      -> ParamVal 'PtPos
-
+ ParamText :: T.Text -> ParamVal 'PtText
+ ParamInt  :: Int  -> ParamVal 'PtInt
+ ParamBool :: Bool -> ParamVal 'PtBool
+ ParamFile :: Uri -> ParamVal 'PtFile
+ ParamPos  :: Position -> ParamVal 'PtPos
+ ParamRange :: Range -> ParamVal 'PtRange
+ ParamLoc  :: Location -> ParamVal 'PtLoc
+ ParamTextDocId :: TextDocumentIdentifier -> ParamVal 'PtTextDocId
+ ParamTextDocPos ::TextDocumentPositionParams -> ParamVal 'PtTextDocPos
 
 -- | The IDE response, with the type of response it contains
 data IdeResponse resp
@@ -315,6 +335,20 @@ data IdeResponse resp
  | IdeResponseError IdeError -- ^ Some error in haskell-ide-engine driver.
                              -- Equivalent to HTTP 500 status.
  deriving (Show,Eq,Generic)
+
+instance (ToJSON a) => ToJSON (IdeResponse a) where
+ toJSON (IdeResponseOk v) = object ["success" .= v]
+ toJSON (IdeResponseFail v) = object [ "fail" .= v ]
+ toJSON (IdeResponseError v) = object [ "error" .= v ]
+
+instance (FromJSON a) => FromJSON (IdeResponse a) where
+ parseJSON = withObject "IdeResponse" $ \v -> do
+   mf <- fmap IdeResponseFail <$> v .:? "fail"
+   me <- fmap IdeResponseError <$> v .:? "error"
+   mo <- fmap IdeResponseOk <$> v .:? "success"
+   case (mf <|> me <|> mo) of
+     Just r -> return r
+     Nothing -> empty
 
 -- | Map an IdeResponse content.
 instance Functor IdeResponse where
@@ -345,142 +379,81 @@ data IdeError = IdeError
  }
  deriving (Show,Read,Eq,Generic)
 
--- | The typeclass for valid response types
-class (Typeable a,ToSchema a) => ValidResponse a where
-  jsWrite :: a -> Object -- ^ Serialize to JSON Object
-  jsRead  :: Object -> Parser a -- ^ Read from JSON Object
-
 -- ---------------------------------------------------------------------
--- ValidResponse instances
-
-ok :: T.Text
-ok = "ok"
-
-instance ValidResponse T.Text where
-  jsWrite s = H.fromList [ok .= s]
-  jsRead o = o .: ok
-
-
-instance ValidResponse [T.Text] where
-  jsWrite ss = H.fromList [ok .= ss]
-  jsRead o = o .: ok
-
-instance ValidResponse () where
-  jsWrite _ = H.fromList [ok .= String ok]
-  jsRead o = do
-    r <- o .: ok
-    if r == String ok
-      then pure ()
-      else empty
-
-instance ValidResponse Object where
-  jsWrite = id
-  jsRead = pure
-deriving instance Generic Value
-instance ToSchema Value
-
-instance ValidResponse UntaggedCommandDescriptor where
-  jsWrite cmdDescriptor =
-    H.fromList
-      [ "name" .= cmdName cmdDescriptor
-      , "ui_description" .= cmdUiDescription cmdDescriptor
-      , "file_extensions" .= cmdFileExtensions cmdDescriptor
-      , "contexts" .= cmdContexts cmdDescriptor
-      , "additional_params" .= cmdAdditionalParams cmdDescriptor
-      , "return_type" .= cmdReturnType cmdDescriptor
-      , "save" .= cmdSave cmdDescriptor ]
-  jsRead v =
-    CommandDesc
-      <$> v .: "name"
-      <*> v .: "ui_description"
-      <*> v .: "file_extensions"
-      <*> v .: "contexts"
-      <*> v .: "additional_params"
-      <*> v .: "return_type"
-      <*> v .: "save"
-
-instance ValidResponse IdePlugins where
-  jsWrite (IdePlugins m) = H.fromList ["plugins" .= H.fromList
-                ( map (uncurry (.=))
-                $ Map.assocs m :: [Pair])]
-  jsRead v = do
-    ps <- v .: "plugins"
-    liftM (IdePlugins . Map.fromList) $ mapM (\(k,vp) -> do
-            p<-parseJSON vp
-            return (k,p)) $ H.toList ps
-
--- ---------------------------------------------------------------------
--- JSON instances
-
-instance (ValidResponse a) => ToJSON (IdeResponse a) where
- toJSON (IdeResponseOk v) = Object (jsWrite v)
- toJSON (IdeResponseFail v) = object [ "fail" .= v ]
- toJSON (IdeResponseError v) = object [ "error" .= v ]
-
-instance (ValidResponse a) => FromJSON (IdeResponse a) where
- parseJSON = withObject "IdeResponse" $ \v -> do
-   mf <- fmap IdeResponseFail <$> v .:? "fail"
-   me <- fmap IdeResponseError <$> v .:? "error"
-   let mo = IdeResponseOk <$> parseMaybe jsRead v
-   case (mf <|> me <|> mo) of
-     Just r -> return r
-     Nothing -> empty
-
--- ---------------------------------------------------------------------
-
 instance FromJSON (ParamVal 'PtText) where
   parseJSON = withObject "text parameter object" $ \v ->
     ParamText <$> v .: "text"
+instance ToJSON (ParamVal 'PtText) where
+  toJSON (ParamText x) = object [ "text" .= x ]
+
+instance FromJSON (ParamVal 'PtInt) where
+  parseJSON = withObject "int parameter object" $ \v ->
+    ParamInt <$> v .: "int"
+instance ToJSON (ParamVal 'PtInt) where
+  toJSON (ParamInt x) = object [ "int" .= x ]
+
+instance FromJSON (ParamVal 'PtBool) where
+  parseJSON = withObject "bool parameter object" $ \v ->
+    ParamBool <$> v .: "bool"
+instance ToJSON (ParamVal 'PtBool) where
+  toJSON (ParamBool x) = object [ "bool" .= x ]
 
 instance FromJSON (ParamVal 'PtFile) where
-  parseJSON = withObject "file parameter object" $ \v -> ParamFile <$> v.: "file"
+  parseJSON = withObject "file parameter object" $ \v ->
+    ParamFile <$> v .: "file"
+instance ToJSON (ParamVal 'PtFile) where
+  toJSON (ParamFile x) = object [ "file" .= x ]
 
 instance FromJSON (ParamVal 'PtPos) where
-    parseJSON = withObject "pos parameter object" $ \v -> do
-      p <- parseJSON (Object v)
-      return (ParamPos p)
-
+  parseJSON = withObject "pos parameter object" $ \v ->
+    ParamPos <$> v .: "pos"
 instance ToJSON (ParamVal 'PtPos) where
-  toJSON (ParamPos p) = toJSON p
+  toJSON (ParamPos x) = object [ "pos" .= x ]
+
+instance FromJSON (ParamVal 'PtRange) where
+  parseJSON = withObject "range parameter object" $ \v ->
+    ParamRange <$> v .: "range"
+instance ToJSON (ParamVal 'PtRange) where
+  toJSON (ParamRange x) = object [ "range" .= x ]
+
+instance FromJSON (ParamVal 'PtLoc) where
+  parseJSON = withObject "loc parameter object" $ \v ->
+    ParamLoc <$> v .: "loc"
+instance ToJSON (ParamVal 'PtLoc) where
+  toJSON (ParamLoc x) = object [ "loc" .= x ]
+
+instance FromJSON (ParamVal 'PtTextDocId) where
+  parseJSON = withObject "textDocId parameter object" $ \v ->
+    ParamTextDocId <$> v .: "textDocId"
+instance ToJSON (ParamVal 'PtTextDocId) where
+  toJSON (ParamTextDocId x) = object [ "textDocId" .= x ]
+
+instance FromJSON (ParamVal 'PtTextDocPos) where
+  parseJSON = withObject "textDocPos parameter object" $ \v ->
+    ParamTextDocPos <$> v .: "textDocPos"
+instance ToJSON (ParamVal 'PtTextDocPos) where
+  toJSON (ParamTextDocPos x) = object [ "textDocPos" .= x ]
 
 -- ---------------------------------------------------------------------
-
 instance ToJSON ParamValP  where
- toJSON (ParamTextP v) = object [ "text" .= v ]
- toJSON (ParamFileP v) = object [ "file" .= v ]
- toJSON (ParamPosP  p) = toJSON p
- toJSON _ = "error"
+  toJSON (ParamValP v) = toJSON v
 
 instance FromJSON ParamValP where
  parseJSON val = do
-   let mt = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtText))
-       mf = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtFile))
-       mp = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtPos))
-   mf <|> mp <|> mt <|> typeMismatch "text, file, or position object for ParamValP" val
-
--- -------------------------------------
-
-instance FromJSON Pos where
-  parseJSON = withObject "Pos" $ \v -> do
-    l <- v .: "line"
-    c <- v .: "col"
-    return $ Pos (Line l) (Col c)
-
-instance ToJSON Pos where
-  toJSON (Pos (Line l) (Col c)) = object [ "line" .= l, "col" .= c]
-
-instance FromJSON Line where
-  parseJSON = withObject "Line" $ \v -> Line <$> v .: "line"
-
-instance ToJSON Line where
-  toJSON (Line l) = object [ "line" .= l]
-
-instance FromJSON Col where
-  parseJSON = withObject "Col" $ \v -> Col <$> v .: "col"
-
-instance ToJSON Col where
-  toJSON (Col c) = object [ "col" .= c]
-
+   let mText = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtText))
+       mInt = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtInt))
+       mBool = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtBool))
+       mFile = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtFile))
+       mPos = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtPos))
+       mRange = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtRange))
+       mLoc = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtLoc))
+       mTextDocId = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtTextDocId))
+       mTextDocPos = ParamValP <$> (parseJSON val :: Parser (ParamVal 'PtTextDocPos))
+   mText <|> mInt   <|> mBool
+         <|> mFile  <|> mPos
+         <|> mRange <|> mLoc
+         <|> mTextDocId <|> mTextDocPos
+         <|> typeMismatch "text, int, bool, file, pos, range, loc, textDocId, or textDocPos object for ParamValP" val
 -- -------------------------------------
 
 instance ToJSON IdeRequest where
@@ -543,10 +516,25 @@ instance FromJSON ParamDescription where
 -- -------------------------------------
 
 instance ToJSON UntaggedCommandDescriptor where
-  toJSON  = Object . jsWrite
+  toJSON cmdDescriptor = Object $ H.fromList
+      [ "name" .= cmdName cmdDescriptor
+      , "ui_description" .= cmdUiDescription cmdDescriptor
+      , "file_extensions" .= cmdFileExtensions cmdDescriptor
+      , "contexts" .= cmdContexts cmdDescriptor
+      , "additional_params" .= cmdAdditionalParams cmdDescriptor
+      , "return_type" .= cmdReturnType cmdDescriptor
+      , "save" .= cmdSave cmdDescriptor ]
 
 instance FromJSON UntaggedCommandDescriptor where
-  parseJSON = withObject "UntaggedCommandDescriptor" jsRead
+  parseJSON = withObject "UntaggedCommandDescriptor" $ \v ->
+    CommandDesc
+      <$> v .: "name"
+      <*> v .: "ui_description"
+      <*> v .: "file_extensions"
+      <*> v .: "contexts"
+      <*> v .: "additional_params"
+      <*> v .: "return_type"
+      <*> v .: "save"
 
 -- -------------------------------------
 

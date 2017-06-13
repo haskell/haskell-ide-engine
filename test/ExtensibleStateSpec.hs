@@ -4,7 +4,6 @@ module ExtensibleStateSpec where
 import           Control.Concurrent.STM.TChan
 import           Control.Monad.STM
 import           Data.Aeson
-import qualified Data.HashMap.Strict as H
 import qualified Data.Text as T
 import qualified Data.Map as Map
 import           Data.Typeable
@@ -39,8 +38,8 @@ extensibleStateSpec = do
           r1 <- doDispatch (testPlugins chSync) cr1
           r2 <- doDispatch (testPlugins chSync) cr2
           return (r1,r2))
-      fst r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:put foo"::String)]))
-      snd r `shouldBe` Just (IdeResponseOk (H.fromList ["ok" .= ("result:got:\"foo\""::String)]))
+      fst r `shouldBe` Just (IdeResponseOk (String "result:put foo"))
+      snd r `shouldBe` Just (IdeResponseOk (String "result:got:\"foo\""))
 
     -- ---------------------------------
 

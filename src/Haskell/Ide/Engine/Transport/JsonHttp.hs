@@ -28,7 +28,6 @@ import qualified Data.Map as Map
 import           Data.Maybe
 import           Data.Proxy
 import           Data.Singletons.Prelude hiding ((:>))
-import           Data.Swagger (Swagger)
 import qualified Data.Text as T
 import           GHC.TypeLits
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -38,7 +37,6 @@ import           Network.Wai
 import           Network.Wai.Handler.Warp as Warp
 import           Servant
 import           Servant.Server.Internal
-import           Servant.Swagger.UI
 
 {-# ANN module ("HLint: ignore Eta reduce" :: String) #-}
 
@@ -81,7 +79,7 @@ instance (ParamParser x, TaggedMapParser xs) => TaggedMapParser (x ': xs) where
 class ParamParser (t :: ParamDescType) where
   parseParam :: Proxy t -> Object -> Parser (ParamId,ParamValP)
 
-instance (KnownSymbol pname, FromJSON (ParamVal ptype)) => ParamParser ('ParamDescType pname phelp ptype preq) where
+instance (KnownSymbol pname, FromJSON (ParamVal ptype), ToJSON (ParamVal ptype)) => ParamParser ('ParamDescType pname phelp ptype preq) where
   parseParam _ v =
     do unparsedParamVal <- v .: paramId
        paramVal <- parseJSON unparsedParamVal :: Parser (ParamVal ptype)
@@ -112,13 +110,13 @@ type family CommandRoutes (list :: [CommandType]) where
      = CommandRoute name (CommandParams cxts params) :<|> CommandRoutes cmds
 
 -- | Within a plugin route, the command is routed according to its name, and can
--- take an optional request id query parameter. The rest of the parameters are
+-- take an optional request id query parameter. The result of the parameters are
 -- passed in the body, JSON-encoded.
 type CommandRoute (name :: Symbol) (params :: [ParamDescType]) =
    name :>
    QueryParam "rid" Int :>
    ReqBody '[JSON] (TaggedMap params) :>
-   Post '[JSON] (IdeResponse Object)
+   Post '[JSON] (IdeResponse Value)
 
 -- ---------------------------------------------------------------------
 
@@ -205,24 +203,24 @@ hieServantServer :: HieServer plugins
 hieServantServer proxy cin cout = hieServer proxy cin cout
 
 waiApp :: (HieServer plugins, HasServer (PluginRoutes plugins) '[])
-     => Swagger -> Proxy plugins -> TChan ChannelRequest -> TChan ChannelResponse -> Application
-waiApp swagger proxy cin cout = Servant.serve api server
+     => Proxy plugins -> TChan ChannelRequest -> TChan ChannelResponse -> Application
+waiApp proxy cin cout = Servant.serve api server
   where
     api    = apiRoutesProxy proxy
-    server = hieServantServer proxy cin cout :<|> swaggerSchemaUIServer swagger
+    server = hieServantServer proxy cin cout
 
-apiRoutesProxy :: Proxy plugins -> Proxy (PluginRoutes plugins :<|> SwaggerSchemaUI "swagger-ui" "swagger.json")
+apiRoutesProxy :: Proxy plugins -> Proxy (PluginRoutes plugins)
 apiRoutesProxy _ = Proxy
 
 -- ---------------------------------------------------------------------
 
 runHttpServer :: (HieServer plugins, HasServer (PluginRoutes plugins) '[])
-              => Swagger -> Proxy plugins -> TChan ChannelRequest -> Port -> IO ()
-runHttpServer swagger proxy cin port = do
+              => Proxy plugins -> TChan ChannelRequest -> Port -> IO ()
+runHttpServer proxy cin port = do
   cout <- atomically newTChan :: IO (TChan ChannelResponse)
-  Warp.run port (waiApp swagger proxy cin cout)
+  Warp.run port (waiApp proxy cin cout)
 
 -- Put this all to work!
 jsonHttpListener :: (HieServer plugins, HasServer (PluginRoutes plugins) '[])
-                 => Swagger -> Proxy plugins -> TChan ChannelRequest -> Port -> IO ()
-jsonHttpListener swagger proxy cin port = runHttpServer swagger proxy cin port
+                 => Proxy plugins -> TChan ChannelRequest -> Port -> IO ()
+jsonHttpListener proxy cin port = runHttpServer proxy cin port

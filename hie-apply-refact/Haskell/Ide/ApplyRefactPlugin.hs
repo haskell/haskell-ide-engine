@@ -4,13 +4,14 @@
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 module Haskell.Ide.ApplyRefactPlugin where
 
 import           Control.Arrow
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Either
 import           Data.Aeson hiding (Error)
--- import           Data.Maybe
+import           Data.Monoid ( (<>) )
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Data.Vinyl
@@ -53,12 +54,17 @@ applyRefactDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-applyOneCmd :: CommandFunc HieDiff
+
+applyOneCmd :: CommandFunc WorkspaceEdit
 applyOneCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
     Left err -> return err
-    Right (ParamFile file :& ParamPos pos :& RNil) -> do
-      res <- liftIO $ applyHint (T.unpack file) (Just pos)
+    Right (ParamFile uri :& ParamPos pos :& RNil) ->
+      applyOneCmd' uri pos
+
+applyOneCmd' :: Uri -> Position -> IdeM (IdeResponse WorkspaceEdit)
+applyOneCmd' uri pos = pluginGetFile "applyOne: " uri $ \file -> do
+      res <- liftIO $ applyHint file (Just pos)
       logm $ "applyOneCmd:file=" ++ show file
       logm $ "applyOneCmd:res=" ++ show res
       case res of
@@ -69,12 +75,16 @@ applyOneCmd = CmdSync $ \_ctxs req -> do
 
 -- ---------------------------------------------------------------------
 
-applyAllCmd :: CommandFunc HieDiff
+applyAllCmd :: CommandFunc WorkspaceEdit
 applyAllCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
-    Right (ParamFile file :& RNil) -> do
-      res <- liftIO $ applyHint (T.unpack file) Nothing
+    Right (ParamFile uri :& RNil) ->
+      applyAllCmd' uri
+
+applyAllCmd' :: Uri -> IdeM (IdeResponse WorkspaceEdit)
+applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \file -> do
+      res <- liftIO $ applyHint file Nothing
       logm $ "applyAllCmd:res=" ++ show res
       case res of
         Left err -> return $ IdeResponseFail (IdeError PluginError
@@ -83,16 +93,19 @@ applyAllCmd = CmdSync $ \_ctxs req -> do
 
 -- ---------------------------------------------------------------------
 
-lintCmd :: CommandFunc FileDiagnostics
+lintCmd :: CommandFunc PublishDiagnosticsParams
 lintCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
     Left err -> return err
-    Right (ParamFile file :& RNil) -> do
-      res <- liftIO $ runEitherT $ runLintCmd (T.unpack file) []
+    Right (ParamFile uri :& RNil) -> lintCmd' uri
+
+lintCmd' :: Uri -> IdeM (IdeResponse PublishDiagnosticsParams)
+lintCmd' uri = pluginGetFile "applyAll: " uri $ \file -> do
+      res <- liftIO $ runEitherT $ runLintCmd file []
       logm $ "lint:res=" ++ show res
       case res of
-        Left diags -> return (IdeResponseOk (FileDiagnostics ("file://" ++ T.unpack file) diags))
-        Right fs   -> return (IdeResponseOk (FileDiagnostics ("file://" ++ T.unpack file) (map hintToDiagnostic fs)))
+        Left diags -> return (IdeResponseOk (PublishDiagnosticsParams (filePathToUri file) $ List diags))
+        Right fs   -> return (IdeResponseOk (PublishDiagnosticsParams (filePathToUri file) $ List (map hintToDiagnostic fs)))
 
 runLintCmd :: FilePath -> [String] -> EitherT [Diagnostic] IO [Idea]
 runLintCmd file args =
@@ -103,11 +116,11 @@ runLintCmd file args =
 parseErrorToDiagnostic :: Hlint.ParseError -> [Diagnostic]
 parseErrorToDiagnostic (Hlint.ParseError l msg contents) =
   [Diagnostic
-      { rangeDiagnostic    = srcLoc2Range l
-      , severityDiagnostic = Just DsError
-      , codeDiagnostic     = Just "parser"
-      , sourceDiagnostic   = Just "hlint"
-      , messageDiagnostic  = unlines [msg,contents]
+      { _range    = srcLoc2Range l
+      , _severity = Just DsError
+      , _code     = Just "parser"
+      , _source   = Just "hlint"
+      , _message  = T.unlines [T.pack msg,T.pack contents]
       }]
 
 {-
@@ -132,11 +145,11 @@ data Idea = Idea
 hintToDiagnostic :: Idea -> Diagnostic
 hintToDiagnostic idea
   = Diagnostic
-      { rangeDiagnostic    = ss2Range (ideaSpan idea)
-      , severityDiagnostic = Just (severity2DisgnosticSeverity $ ideaSeverity idea)
-      , codeDiagnostic     = Nothing
-      , sourceDiagnostic   = Just "hlint"
-      , messageDiagnostic  = idea2Message idea
+      { _range    = ss2Range (ideaSpan idea)
+      , _severity = Just (severity2DisgnosticSeverity $ ideaSeverity idea)
+      , _code     = Nothing
+      , _source   = Just "hlint"
+      , _message  = idea2Message idea
       }
 
 -- ---------------------------------------------------------------------
@@ -164,13 +177,14 @@ showEx tt Idea{..} = unlines $
 
 -}
 
-idea2Message :: Idea -> String
-idea2Message idea = unlines $ [ideaHint idea, "Found:", ("  " ++ ideaFrom idea)]
-                               ++ toIdea ++ map show (ideaNote idea)
+idea2Message :: Idea -> T.Text
+idea2Message idea = T.unlines $ [T.pack $ ideaHint idea, "Found:", ("  " <> (T.pack $ ideaFrom idea))]
+                               <> toIdea <> map (T.pack . show) (ideaNote idea)
   where
+    toIdea :: [T.Text]
     toIdea = case ideaTo idea of
       Nothing -> []
-      Just i  -> ["Why not:", "  " ++ i]
+      Just i  -> [T.pack "Why not:", T.pack $ "  " ++ i]
 
 -- ---------------------------------------------------------------------
 
@@ -185,8 +199,8 @@ severity2DisgnosticSeverity Error      = DsError
 srcLoc2Range :: SrcLoc -> Range
 srcLoc2Range (SrcLoc _ l c) = Range ps pe
   where
-    ps = Position l c
-    pe = Position l 100000
+    ps = Position (l-1) (c-1)
+    pe = Position (l-1) 100000
 
 -- ---------------------------------------------------------------------
 
@@ -198,19 +212,19 @@ ss2Range ss = Range ps pe
 
 -- ---------------------------------------------------------------------
 
-applyHint :: FilePath -> Maybe Pos -> IO (Either String HieDiff)
+applyHint :: FilePath -> Maybe Position -> IO (Either String WorkspaceEdit)
 applyHint file mpos = do
   withTempFile $ \f -> do
     let optsf = "-o " ++ f
         opts = case mpos of
                  Nothing -> optsf
-                 Just (Pos (Line l) (Col c)) -> optsf ++ " --pos " ++ show l ++ "," ++ show c
+                 Just (Position l c) -> optsf ++ " --pos " ++ show (l+1) ++ "," ++ show (c+1)
         hlintOpts = [file, "--quiet", "--refactor", "--refactor-options=" ++ opts ]
     runEitherT $ do
       ideas <- runHlint file hlintOpts
       liftIO $ logm $ "applyHint:ideas=" ++ show ideas
       let commands = map (show &&& ideaRefactoring) ideas
-      appliedFile <- liftIO $ applyRefactorings (fmap unPos mpos) commands file
+      appliedFile <- liftIO $ applyRefactorings (unPos <$> mpos) commands file
       diff <- liftIO $ makeDiffResult file (T.pack appliedFile)
       liftIO $ logm $ "applyHint:diff=" ++ show diff
       return diff
@@ -225,9 +239,7 @@ runHlint file args =
 showParseError :: Hlint.ParseError -> String
 showParseError (Hlint.ParseError location message content) = unlines [show location, message, content]
 
-makeDiffResult :: FilePath -> T.Text -> IO HieDiff
+makeDiffResult :: FilePath -> T.Text -> IO WorkspaceEdit
 makeDiffResult orig new = do
   origText <- T.readFile orig
-  let (HieDiff f _ d) = diffText (orig,origText) ("changed",new)
-  -- f' <- liftIO $ makeRelativeToCurrentDirectory f
-  return (HieDiff f "changed" d)
+  return $ diffText (filePathToUri orig,origText) new

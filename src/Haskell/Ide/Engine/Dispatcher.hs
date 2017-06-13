@@ -1,6 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE GADTs #-}
 module Haskell.Ide.Engine.Dispatcher where
 
@@ -36,21 +37,68 @@ dispatcher cin = do
       Nothing -> return ()
       Just resp -> liftIO $ sendResponse req resp
 
+dispatcherP :: TChan PluginRequest -> IdeM ()
+dispatcherP pin = forever $ do
+  debugm "dispatcherP: top of loop"
+  (PReq callback action) <- liftIO $ atomically $ readTChan pin
+  resp <- action
+  liftIO $ callback resp
+
 -- ---------------------------------------------------------------------
 
 -- | Send a response from the plugin to the designated reply channel
 sendResponse :: (ValidResponse a) => ChannelRequest -> IdeResponse a -> IO ()
 sendResponse req resp = do
-  debugm $ "sendResponse (req,resp)=" ++ show (req,fmap jsWrite resp)
-  let cr = CResp (cinPlugin req) (cinReqId req) (fmap jsWrite resp)
+  debugm $ "sendResponse (req,resp)=" ++ show (req,fmap toJSON resp)
+  let cr = CResp (cinPlugin req) (cinReqId req) (fmap toJSON resp)
   liftIO $ atomically $ writeTChan (cinReplyChan req) cr
 
 -- ---------------------------------------------------------------------
 
+dispatchSync :: Plugins -> PluginId -> IdeRequest -> IdeM (IdeResponse Value)
+dispatchSync plugins plugin req =
+  case Map.lookup plugin plugins of
+    Nothing ->
+      return $ IdeResponseError IdeError
+        { ideCode = UnknownPlugin
+        , ideMessage = "No plugin found for:" <> plugin
+        , ideInfo = toJSON plugin
+        }
+    Just desc -> do
+      debugm $ "doDispatch:desc=" ++ show desc
+      debugm $ "doDispatch:req=" ++ show req
+      case Map.lookup (plugin,ideCommand req) (pluginCache plugins) of
+        Nothing ->
+          return $ IdeResponseError IdeError
+            { ideCode = UnknownCommand
+            , ideMessage = "No such command:" <> ideCommand req
+            , ideInfo = toJSON $ ideCommand req
+            }
+        Just (Command cdesc cfunc) ->
+          case validateContexts cdesc req of
+            Left err   -> return err
+            Right ctxs -> case cfunc of
+              CmdSync  f -> do
+                r <- f ctxs req
+                       `gcatch` (\(e::SomeException) ->
+                                  pure $ IdeResponseError
+                                           (IdeError PluginError
+                                                     (T.pack (show e))
+                                                     Null))
+                let r2 = fmap toJSON r
+                return r2
+              CmdAsync _ ->
+                return $ IdeResponseError IdeError
+                  { ideCode = OtherError
+                  , ideMessage = "can't handle async command:" <> plugin <> ":" <> T.pack (show req)
+                  , ideInfo = toJSON plugin
+                  }
+
+
 -- | Manage the process of looking up the request in the known plugins,
 -- validating the parameters passed and handing off to the appropriate
 -- 'CommandFunc'
-doDispatch :: Plugins -> ChannelRequest -> IdeM (Maybe (IdeResponse Object))
+doDispatch :: Plugins -> ChannelRequest -> IdeM (Maybe (IdeResponse Value))
 doDispatch plugins creq = do
   case Map.lookup (cinPlugin creq) plugins of
     Nothing ->
@@ -82,7 +130,7 @@ doDispatch plugins creq = do
                                            (IdeError PluginError
                                                      (T.pack (show e))
                                                      Null))
-                let r2 = fmap jsWrite r
+                let r2 = fmap toJSON r
                 return (Just r2)
               CmdAsync f -> do
                 f (sendResponse creq) ctxs req
@@ -163,6 +211,12 @@ checkParams pds params = mapEithers checkOne pds
 
     paramMatches :: ParamType -> ParamValP -> Bool
     paramMatches PtText (ParamTextP _) = True
+    paramMatches PtInt (ParamIntP _) = True
+    paramMatches PtBool (ParamBoolP _) = True
     paramMatches PtFile (ParamFileP _) = True
-    paramMatches PtPos  (ParamPosP _)  = True
+    paramMatches PtPos (ParamPosP _) = True
+    paramMatches PtRange (ParamRangeP _) = True
+    paramMatches PtLoc (ParamLocP _) = True
+    paramMatches PtTextDocId (ParamTextDocIdP _) = True
+    paramMatches PtTextDocPos (ParamTextDocPosP _) = True
     paramMatches _       _            = False
