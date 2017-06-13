@@ -70,7 +70,15 @@ ghcmodSpec = do
     it "runs the check command" $ do
       let req = IdeRequest "check" (Map.fromList [("file", ParamFileP $ filePathToUri "./FileWithWarning.hs")])
       r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseOk (String "FileWithWarning.hs:4:7:Variable not in scope: x\n"))
+      r `shouldBe` Just (IdeResponseOk
+                         $ (toJSON :: GhcModDiagnostics -> Value)
+                         [("FileWithWarning.hs",
+                           [Diagnostic (Range (toPos (4,7))
+                                              (toPos (4,7)))
+                                       (Just DsError)
+                                       Nothing
+                                       (Just "ghcmod")
+                                       "Variable not in scope: x\n"])])
 
     -- ---------------------------------
 
@@ -139,7 +147,14 @@ ghcmodSpec = do
     it "runs the check command" $ do
       let req = checkCmd' (filePathToUri "./FileWithWarning.hs")
       r <- dispatchRequestP req
-      r `shouldBe` IdeResponseOk "FileWithWarning.hs:4:7:Variable not in scope: x\n"
+      r `shouldBe` IdeResponseOk
+                     [("FileWithWarning.hs",
+                       [Diagnostic (Range (toPos (4,7))
+                                          (toPos (4,7)))
+                                   (Just DsError)
+                                   Nothing
+                                   (Just "ghcmod")
+                                   "Variable not in scope: x\n"])]
 
     -- ---------------------------------
 
