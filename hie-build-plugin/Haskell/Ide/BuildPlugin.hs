@@ -19,8 +19,8 @@ import           Data.Maybe
 import           Data.Monoid
 import qualified Data.Map as Map
 import qualified Data.Text as T
-import System.Directory (makeAbsolute, getCurrentDirectory)
-import System.FilePath ((</>), normalise)
+import System.Directory (makeAbsolute, getCurrentDirectory, getDirectoryContents)
+import System.FilePath ((</>), normalise, takeExtension, takeFileName)
 import System.Process (readProcess)
 import System.IO (openFile, hClose, IOMode(..))
 import System.IO.Error
@@ -31,6 +31,7 @@ import Distribution.Simple.Setup (defaultDistPref)
 import Distribution.Simple.Configure
 import Distribution.Simple.LocalBuildInfo
 import Distribution.Simple.Utils (findPackageDesc, withFileContents)
+import Distribution.Package (pkgName, unPackageName)
 import Distribution.PackageDescription
 import Distribution.PackageDescription.Configuration
 import Distribution.PackageDescription.Parse
@@ -61,8 +62,7 @@ buildPluginDescriptor = PluginDescriptor
       :& buildCommand listFlags (Proxy :: Proxy "listFlags")
             "Lists all flags that can be set when configuring a package"
             [] (SCtxNone :& RNil)
-            (  SParamDesc (Proxy :: Proxy "directory") (Proxy :: Proxy "Directory to search for project file") SPtFile SRequired
-            :& SParamDesc (Proxy :: Proxy "type") (Proxy :: Proxy "Project type: \"stack\" or \"cabal\"") SPtText SRequired
+            (  SParamDesc (Proxy :: Proxy "mode") (Proxy :: Proxy "Project type: \"stack\" or \"cabal\"") SPtText SRequired
             :& RNil) SaveNone
       :& buildCommand addTarget (Proxy :: Proxy "addTarget") "Add a new target to the cabal file" [] (SCtxNone :& RNil)
             (  SParamDesc (Proxy :: Proxy "file") (Proxy :: Proxy "Path to the .cabal file") SPtFile SRequired
@@ -75,9 +75,11 @@ buildPluginDescriptor = PluginDescriptor
   , pdUsedServices    = []
   }
 
+-----------------------------------------------
+
 isHelperPrepared :: CommandFunc Object
 isHelperPrepared = CmdSync $ \ctx req -> do
-  case getParams (IdFile "distDir" :& IdText "type" :& RNil) req of
+  case getParams (IdFile "distDir" :& IdText "mode" :& RNil) req of
     Left err -> return err
     Right (ParamFile distDir0 :& ParamText mode :& RNil) -> do
       let distDir = T.unpack distDir0
@@ -85,40 +87,60 @@ isHelperPrepared = CmdSync $ \ctx req -> do
       let (Object ret) = object ["res" .= toJSON ret0]
       return $ IdeResponseOk ret
 
-withDistDir "cabal" "" f = do
-    cwd <- getCurrentDirectory
-    f $ cwd </> defaultDistPref
-withDistDir "stack" "" f = do
-    cwd <- getCurrentDirectory
-    dist <- getStackDistDir
-    f $ cwd </> dist
-withDistDir _ d f = f d
-
 -----------------------------------------------
 
 listFlags :: CommandFunc Object
 listFlags = CmdSync $ \ctx req -> do
+  case getParams (IdText "mode" :& RNil) req of
+    Left err -> return err
+    Right (ParamText mode :& RNil) -> do
+      cwd <- liftIO $ getCurrentDirectory
+      flags0 <- liftIO $ case mode of
+            "stack" -> listFlagsStack cwd
+            "cabal" -> fmap (:[]) (listFlagsCabal cwd)
+      let flags = flip map flags0 $ \(n,f) ->
+                    object ["packageName" .= n, "flags" .= map flagToJSON f]
+          (Object ret) = object ["res" .= toJSON flags]
+      return $ IdeResponseOk ret
+
+listFlagsStack d = do
+    stackPackageDirs <- getStackLocalPackages (d </> "stack.yaml")
+    mapM (listFlagsCabal . (d </>)) stackPackageDirs
+
+listFlagsCabal d = do
+    [cabalFile] <- filter isCabalFile <$> getDirectoryContents d
+    gpd <- readPackageDescription Verb.silent (d </> cabalFile)
+    let name = unPackageName $ pkgName $ package $ packageDescription gpd
+        flags = genPackageFlags gpd
+    return (name, flags)
+
+flagToJSON f = object ["name" .= ((\(FlagName s) -> s) $ flagName f), "description" .= flagDescription f, "default" .= flagDefault f]
+
+-----------------------------------------------
+
+listConfigFlags :: CommandFunc Object
+listConfigFlags = CmdSync $ \ctx req -> do
   case getParams (IdFile "directory" :& IdText "type" :& RNil) req of
     Left err -> return err
     Right (ParamFile dir0 :& ParamText type_ :& RNil) -> do
       let dir = T.unpack dir0
-      flags0 <- liftIO $ listFlags' type_ dir
+      flags0 <- liftIO $ listConfigFlags' type_ dir
       let flags = flip map flags0 $ \(n, d, fs) ->
-            object ["name" .= n, "directory" .= d, "flags" .= map flagToJSON fs]
+            object ["name" .= n, "directory" .= d, "flags" .= map configFlagToJSON fs]
           (Object ret) = object ["res" .= toJSON flags]
       return $ IdeResponseOk ret
 
-listFlags' type_ dir = do
+listConfigFlags' type_ dir = do
   case type_ of
     "stack" -> do
       stackPackageDirs <- getStackLocalPackages (dir </> "stack.yaml")
-      concat <$> mapM (listFlags' "cabal") stackPackageDirs
+      concat <$> mapM (listConfigFlags' "cabal") stackPackageDirs
     "cabal" -> runQuery (defaultQueryEnv dir "") $ do
       (pkgName, _) <- packageId
       fs <- flags
       return [(pkgName, dir, fs)]
 
-flagToJSON (n,v) = object ["name" .= n, "default" .= v, "value" .= v]
+configFlagToJSON (n,v) = object ["name" .= n, "default" .= v, "value" .= v]
 
 -----------------------------------------------
 
@@ -173,6 +195,24 @@ compToJSON _ (ChTestName n) = object ["type" .= ("test" :: T.Text), "name" .= n]
 compToJSON _ (ChBenchName n) = object ["type" .= ("benchmark" :: T.Text), "name" .= n]
 
 -----------------------------------------------
+
+withDistDir "cabal" "" f = do
+    cwd <- getCurrentDirectory
+    f $ cwd </> defaultDistPref
+withDistDir "stack" "" f = do
+    cwd <- getCurrentDirectory
+    dist <- getStackDistDir
+    f $ cwd </> dist
+withDistDir _ d f = f d
+
+isCabalFile :: FilePath -> Bool
+isCabalFile f = takeExtension' f == ".cabal"
+
+takeExtension' :: FilePath -> String
+takeExtension' p =
+    if takeFileName p == takeExtension p
+      then "" -- just ".cabal" is not a valid cabal file
+      else takeExtension p
 
 withBinaryFileContents name act =
   Exception.bracket (openFile name ReadMode) hClose
