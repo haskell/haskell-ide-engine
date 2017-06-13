@@ -16,7 +16,6 @@ module Haskell.Ide.Engine.Transport.LspStdio
   ) where
 
 import           Control.Concurrent
-import           Control.Concurrent.MVar
 import           Control.Concurrent.STM.TChan
 import qualified Control.Exception as E
 import           Control.Lens ( (^.) )
@@ -398,12 +397,12 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
         let hreq = PReq (Just $ req ^. J.id) callback $ HaRe.findDefCmd params
         makeRequest hreq
       -- -------------------------------
-      HandlerRequest (Core.NotCancelRequest not) -> do
-        liftIO $ U.logs $ "reactor:got CancelRequest:" ++ show not
-        let lid = not ^. J.params . J.id
+      HandlerRequest (Core.NotCancelRequest notif) -> do
+        liftIO $ U.logs $ "reactor:got CancelRequest:" ++ show notif
+        let lid = notif ^. J.params . J.id
         wip <- liftIO $ readMVar wipMVar
         when (S.member lid wip) $ do
-          liftIO $ U.logs $ "reactor:Processing CancelRequest:" ++ show not
+          liftIO $ U.logs $ "reactor:Processing CancelRequest:" ++ show notif
           liftIO $ modifyMVar_ cancelReqMVar (return . S.insert lid)
 
       HandlerRequest om -> do
