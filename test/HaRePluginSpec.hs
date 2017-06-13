@@ -117,7 +117,7 @@ hareSpec = do
 
       let req = IdeRequest "dupdef" (Map.fromList [("file",ParamFileP $ filePathToUri "./HaReRename.hs")
                                                   ,("start_pos",ParamPosP (toPos (5,1)))
-                                                  ,("name",ParamTexfreaks and geekstP "foonew")])
+                                                  ,("name",ParamTextP "foonew")])
       r <- dispatchRequest req
       r `shouldBe`
         Just (IdeResponseOk
@@ -242,6 +242,7 @@ hareSpec = do
     it "demotes" $ do
       let req = demoteCmd' (TextDocumentPositionParams (TextDocumentIdentifier $ filePathToUri "./HaReDemote.hs") (toPos (6,1)))
       r <- dispatchRequestP req
+      -- r `shouldBe` Just (IdeResponseOk (H.fromList ["refactor" .= ["test/testdata/HaReDemote.hs"::FilePath]]))
       r `shouldBe`
         (IdeResponseOk
          $ WorkspaceEdit
