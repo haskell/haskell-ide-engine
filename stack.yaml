@@ -1,4 +1,4 @@
-resolver: nightly-2017-06-12
+resolver: nightly-2017-06-14
 packages:
 - .
 - hie-apply-refact
@@ -38,10 +38,10 @@ packages:
     commit: 36fbe25e07c34ba81fbba735d4046a98ae75db3a
   extra-dep: true
 # - ../hlint
-- location:
-    git: https://github.com/alanz/hlint.git
-    commit: 1c78d5178128a67766db3c62c22bae24138f335a
-  extra-dep: true
+# - location:
+#     git: https://github.com/alanz/hlint.git
+#     commit: 1c78d5178128a67766db3c62c22bae24138f335a
+#   extra-dep: true
 extra-deps:
 - apply-refact-0.3.0.1
 # - hlint-2.0.8
