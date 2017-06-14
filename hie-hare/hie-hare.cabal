@@ -25,6 +25,7 @@ library
                      , filepath
                      , ghc
                      , ghc-mod
+                     , ghc-exactprint
                      , hie-base
                      , hie-plugin-api
                      , haskell-lsp
