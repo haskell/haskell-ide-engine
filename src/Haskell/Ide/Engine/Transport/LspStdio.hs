@@ -31,6 +31,7 @@ import           Data.Monoid ( (<>) )
 import           Data.Either
 import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
+import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -58,7 +59,7 @@ import qualified System.Log.Logger as L
 
 -- ---------------------------------------------------------------------
 
-lspStdioTransport :: Plugins -> IO () -> TChan PluginRequest -> FilePath -> IO ()
+lspStdioTransport :: Plugins -> (MVar (S.Set J.LspId) -> MVar (S.Set J.LspId) -> IO ()) -> TChan PluginRequest -> FilePath -> IO ()
 lspStdioTransport plugins hieDispatcherProc cin origDir = do
   run plugins hieDispatcherProc cin origDir >>= \case
     0 -> exitSuccess
@@ -67,14 +68,16 @@ lspStdioTransport plugins hieDispatcherProc cin origDir = do
 
 -- ---------------------------------------------------------------------
 
-run :: Plugins -> IO () -> TChan PluginRequest -> FilePath -> IO Int
+run :: Plugins -> (MVar (S.Set J.LspId) -> MVar (S.Set J.LspId) -> IO ()) -> TChan PluginRequest -> FilePath -> IO Int
 run plugins dispatcherProc cin origDir = flip E.catches handlers $ do
 
   rin  <- atomically newTChan :: IO (TChan ReactorInput)
   let
     dp lf = do
-      _rpid <- forkIO $ reactor plugins lf def cin rin
-      dispatcherProc
+      cancelMVar <- newMVar S.empty
+      wipMVar <- newMVar S.empty
+      _rpid <- forkIO $ reactor cancelMVar wipMVar plugins lf def cin rin
+      dispatcherProc cancelMVar wipMVar
       return Nothing
 
   flip E.finally finalProc $ do
@@ -179,8 +182,13 @@ sendErrorLog msg = reactorSend' (\sf -> Core.sendErrorLogS  sf msg)
 -- | The single point that all events flow through, allowing management of state
 -- to stitch replies and requests together from the two asynchronous sides: lsp
 -- server and hie dispatcher
-reactor :: Plugins -> Core.LspFuncs -> ReactorState -> TChan PluginRequest -> TChan ReactorInput -> IO ()
-reactor plugins lf st cin inp = do
+reactor :: MVar (S.Set J.LspId) -> MVar (S.Set J.LspId) -> Plugins -> Core.LspFuncs -> ReactorState -> TChan PluginRequest -> TChan ReactorInput -> IO ()
+reactor cancelReqMVar wipMVar plugins lf st cin inp = do
+  let makeRequest req@(PReq (Just lid) _ _) = do
+        liftIO $ modifyMVar_ wipMVar (return . S.insert lid)
+        liftIO $ atomically $ writeTChan cin req
+      makeRequest req =
+        liftIO $ atomically $ writeTChan cin req
   flip evalStateT st $ flip runReaderT lf $ forever $ do
     inval <- liftIO $ atomically $ readTChan inp
     case inval of
@@ -251,8 +259,8 @@ reactor plugins lf st cin inp = do
         callback <- hieResponseHelper (req ^. J.id) $ \we -> do
             let rspMsg = Core.makeResponseMessage (J.responseId $ req ^. J.id ) we
             reactorSend rspMsg
-        let hreq = PReq callback $ HaRe.renameCmd' (TextDocumentPositionParams doc pos) newName
-        liftIO $ atomically $ writeTChan cin hreq
+        let hreq = PReq (Just $ req ^. J.id) callback $ HaRe.renameCmd' (TextDocumentPositionParams doc pos) newName
+        makeRequest hreq
 
 
       -- -------------------------------
@@ -273,8 +281,8 @@ reactor plugins lf st cin inp = do
                     range = J.Range (trStart tr) (trEnd tr)
               rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) ht
             reactorSend rspMsg
-        let hreq = PReq callback $ GhcMod.typeCmd' True doc pos
-        liftIO $ atomically $ writeTChan cin hreq
+        let hreq = PReq (Just $ req ^. J.id) callback $ GhcMod.typeCmd' True doc pos
+        makeRequest hreq
 
       -- -------------------------------
 
@@ -336,8 +344,8 @@ reactor plugins lf st cin inp = do
             _ -> reactorSend $ Core.makeResponseMessage ( J.responseId $ req ^. J.id ) obj
         let (plugin,cmd) = break (==':') (T.unpack command)
         let ireq = IdeRequest (T.pack $ tail cmd) (Map.fromList cmdparams)
-            preq = PReq callback (dispatchSync plugins (T.pack plugin) ireq)
-        liftIO $ atomically $ writeTChan cin preq
+            preq = PReq (Just $ req ^. J.id) callback (dispatchSync plugins (T.pack plugin) ireq)
+        makeRequest preq
 
       -- -------------------------------
 
@@ -386,9 +394,16 @@ reactor plugins lf st cin inp = do
         callback <- hieResponseHelper (req ^. J.id) $ \loc -> do
             let rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) loc
             reactorSend rspMsg
-        let hreq = PReq callback $ HaRe.findDefCmd params
-        liftIO $ atomically $ writeTChan cin hreq
+        let hreq = PReq (Just $ req ^. J.id) callback $ HaRe.findDefCmd params
+        makeRequest hreq
       -- -------------------------------
+      HandlerRequest (Core.NotCancelRequest notif) -> do
+        liftIO $ U.logs $ "reactor:got CancelRequest:" ++ show notif
+        let lid = notif ^. J.params . J.id
+        wip <- liftIO $ readMVar wipMVar
+        when (S.member lid wip) $ do
+          liftIO $ U.logs $ "reactor:Processing CancelRequest:" ++ show notif
+          liftIO $ modifyMVar_ cancelReqMVar (return . S.insert lid)
 
       HandlerRequest om -> do
         liftIO $ U.logs $ "reactor:got HandlerRequest:" ++ show om
@@ -405,7 +420,7 @@ requestDiagnostics cin file = do
         return (J.filePathToUri af, ds)
       sendEmpty = publishDiagnostics file Nothing (Map.fromList [(Just "ghcmod",[])])
   -- get hlint diagnostics
-  let reql = PReq (flip runReaderT lf . callbackl) $ ApplyRefact.lintCmd' file
+  let reql = PReq Nothing (flip runReaderT lf . callbackl) $ ApplyRefact.lintCmd' file
       callbackl (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
       callbackl (IdeResponseError err) = liftIO $ U.logs $ "got err" ++ show err
       callbackl (IdeResponseOk  diags) =
@@ -414,7 +429,7 @@ requestDiagnostics cin file = do
   liftIO $ atomically $ writeTChan cin reql
 
   -- get GHC diagnostics
-  let reqg = PReq (flip runReaderT lf . callbackg) $ GhcMod.checkCmd' file
+  let reqg = PReq Nothing (flip runReaderT lf . callbackg) $ GhcMod.checkCmd' file
       callbackg (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
       callbackg (IdeResponseError err) = liftIO $ U.logs $ "got err" ++ show err
       callbackg (IdeResponseOk     pd) = do

@@ -16,6 +16,8 @@ import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
+import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
+import qualified Data.Set as S
 import           TestUtils
 
 import           Test.Hspec
@@ -260,16 +262,21 @@ dispatcherSpec = do
     it "dispatches response correctly" $ do
       inChan <- atomically newTChan
       outChan <- atomically newTChan
-      let req1 = PReq (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text1"
-          req2 = PReq (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text2"
-      pid <- forkIO $ runIdeM testOptions (IdeState Map.empty Map.empty) (dispatcherP inChan)
+      cancelMVar <- newMVar S.empty
+      wipMVar <- newMVar S.empty
+      let req1 = PReq (Just $ J.IdInt 1) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text1"
+          req2 = PReq (Just $ J.IdInt 2) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text2"
+          req3 = PReq (Just $ J.IdInt 3) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text3"
+      pid <- forkIO $ runIdeM testOptions (IdeState Map.empty Map.empty) (dispatcherP cancelMVar wipMVar inChan)
       atomically $ writeTChan inChan req1
+      modifyMVar_ cancelMVar (return . S.insert (J.IdInt 2))
       atomically $ writeTChan inChan req2
+      atomically $ writeTChan inChan req3
       resp1 <- atomically $ readTChan outChan
       resp2 <- atomically $ readTChan outChan
       killThread pid
-      resp1 `shouldBe` (IdeResponseOk $ "text1")
-      resp2 `shouldBe` (IdeResponseOk $ "text2")
+      resp1 `shouldBe` IdeResponseOk "text1"
+      resp2 `shouldBe` IdeResponseOk "text3"
 
 -- ---------------------------------------------------------------------
 

@@ -6,6 +6,7 @@
 module Haskell.Ide.Engine.Dispatcher where
 
 import           Control.Concurrent.STM.TChan
+import           Control.Concurrent.MVar
 import           Control.Exception
 import           Control.Monad
 import           Control.Monad.IO.Class
@@ -13,6 +14,7 @@ import           Control.Monad.STM
 import           Data.Aeson
 import           Data.Either
 import qualified Data.Map as Map
+import qualified Data.Set as S
 import           Data.Monoid
 import qualified Data.Text as T
 import           Exception
@@ -20,6 +22,7 @@ import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
+import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 
 -- ---------------------------------------------------------------------
 
@@ -37,12 +40,23 @@ dispatcher cin = do
       Nothing -> return ()
       Just resp -> liftIO $ sendResponse req resp
 
-dispatcherP :: TChan PluginRequest -> IdeM ()
-dispatcherP pin = forever $ do
+dispatcherP :: MVar (S.Set J.LspId) -> MVar (S.Set J.LspId) -> TChan PluginRequest -> IdeM ()
+dispatcherP cancelReqsMVar wip pin = forever $ do
   debugm "dispatcherP: top of loop"
-  (PReq callback action) <- liftIO $ atomically $ readTChan pin
-  resp <- action
-  liftIO $ callback resp
+  (PReq mid callback action) <- liftIO $ atomically $ readTChan pin
+  debugm $ "got request with id: " ++ show mid
+  case mid of
+    Nothing -> action >>= liftIO . callback
+    Just lid -> do
+      liftIO $ modifyMVar_ wip (return . S.delete lid)
+      cancelReqs <- liftIO $ readMVar cancelReqsMVar
+      if S.member lid cancelReqs
+        then do
+          debugm $ "cancelling request: " ++ show lid
+          liftIO $ modifyMVar_ cancelReqsMVar (return . S.delete lid)
+        else do
+          debugm $ "processing request: " ++ show lid
+          action >>= liftIO . callback
 
 -- ---------------------------------------------------------------------
 
