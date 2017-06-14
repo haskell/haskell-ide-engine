@@ -175,3 +175,18 @@ applyRefactSpec = do
               ]
             }
            ))
+
+    -- ---------------------------------
+
+    it "respects hlint pragmas in the source file" $ do
+
+      let req = lintCmd' (filePathToUri "./test/testdata/HlintPragma.hs")
+      r <- dispatchRequestP req
+      r `shouldBe`
+        (IdeResponseOk
+           (PublishDiagnosticsParams
+            { _uri = filePathToUri "./test/testdata/ApplyRefact.hs"
+            , _diagnostics = List $ 
+              []
+            }
+           ))
