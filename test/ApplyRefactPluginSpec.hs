@@ -185,8 +185,7 @@ applyRefactSpec = do
       r `shouldBe`
         (IdeResponseOk
            (PublishDiagnosticsParams
-            { _uri = filePathToUri "./test/testdata/ApplyRefact.hs"
-            , _diagnostics = List $ 
-              []
+            { _uri = filePathToUri "./test/testdata/HlintPragma.hs"
+            , _diagnostics = List []
             }
            ))
