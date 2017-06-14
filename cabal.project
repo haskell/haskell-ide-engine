@@ -8,6 +8,7 @@ packages:
          hie-ghc-mod/
          hie-ghc-tree/
          hie-hare/
+         hie-hoogle/
          hie-plugin-api/
          ../haskell-lsp/
-         ../HaRe/
+         -- ../ghc-mod/
