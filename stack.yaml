@@ -3,14 +3,14 @@ packages:
 - .
 - hie-apply-refact
 - hie-base
-- hie-example-plugin2
+- hie-docs-generator
 - hie-eg-plugin-async
-- hie-plugin-api
+- hie-example-plugin2
 - hie-ghc-mod
 - hie-ghc-tree
 - hie-hare
 - hie-hoogle
-- hie-docs-generator
+- hie-plugin-api
 #- haskell-lsp
 - location:
     git: https://github.com/alanz/haskell-lsp.git
@@ -44,7 +44,6 @@ packages:
 #   extra-dep: true
 extra-deps:
 - apply-refact-0.3.0.1
-# - hlint-2.0.8
 - pipes-aeson-0.4.1.8
 - pipes-network-0.6.4.1
 # - hspec-jenkins-0.1.1

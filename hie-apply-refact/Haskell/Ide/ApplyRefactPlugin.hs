@@ -105,7 +105,7 @@ lintCmd' uri = pluginGetFile "applyAll: " uri $ \file -> do
       logm $ "lint:res=" ++ show res
       case res of
         Left diags -> return (IdeResponseOk (PublishDiagnosticsParams (filePathToUri file) $ List diags))
-        Right fs   -> return (IdeResponseOk (PublishDiagnosticsParams (filePathToUri file) $ List (map hintToDiagnostic fs)))
+        Right fs   -> return (IdeResponseOk (PublishDiagnosticsParams (filePathToUri file) $ List (map hintToDiagnostic $ stripIgnores fs)))
 
 runLintCmd :: FilePath -> [String] -> EitherT [Diagnostic] IO [Idea]
 runLintCmd file args =
@@ -140,6 +140,13 @@ data Idea = Idea
 
 -}
 
+-- ---------------------------------------------------------------------
+
+stripIgnores :: [Idea] -> [Idea]
+stripIgnores ideas = filter notIgnored ideas
+  where
+    notIgnored idea = ideaSeverity idea /= Ignore
+ 
 -- ---------------------------------------------------------------------
 
 hintToDiagnostic :: Idea -> Diagnostic
