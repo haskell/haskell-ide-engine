@@ -9,31 +9,31 @@
 
 module Haskell.Ide.HaRePlugin where
 
+import           Control.Lens                          ((^.))
 import           Control.Monad.State
 import           Control.Monad.Trans.Control
 import           Data.Aeson
-import           Data.Monoid
-import qualified Data.Text as T
+import           Data.Either
 import           Data.Foldable
+import           Data.Monoid
+import qualified Data.Text                             as T
+import qualified Data.Text.IO                          as T
 import           Exception
+import           FastString
+import           GHC
+import qualified GhcMod.Error                          as GM
+import qualified GhcMod.Monad                          as GM
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
-import qualified GhcMod.Monad as GM
-import qualified GhcMod.Error as GM
-import           Language.Haskell.Refact.HaRe
-import           Language.Haskell.Refact.API
-import           Language.Haskell.Refact.Utils.Monad
-import           Language.Haskell.Refact.Utils.Utils
+import           Language.Haskell.GHC.ExactPrint.Print
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
-import           Control.Lens ( (^.) )
-import           System.FilePath
-import GHC
-import Name
-import SrcLoc
-import FastString
-import System.Directory
-import Data.Either
+import           Language.Haskell.Refact.API
+import           Language.Haskell.Refact.HaRe
+import           Language.Haskell.Refact.Utils.Monad
+import           Name
+import           SrcLoc
+import           System.Directory
 
 -- ---------------------------------------------------------------------
 
@@ -208,15 +208,19 @@ genApplicativeCommand' (TextDocumentPositionParams tdi pos) =
 
 -- ---------------------------------------------------------------------
 
-makeRefactorResult :: [FilePath] -> IO WorkspaceEdit
+getRefactorResult :: [ApplyRefacResult] -> [(FilePath,T.Text)]
+getRefactorResult = map getNewFile . filter fileModified
+  where fileModified ((_,m),_) = m == RefacModified
+        getNewFile ((file,_),(ann, parsed)) = (file, T.pack $ exactPrint parsed ann)
+
+makeRefactorResult :: [(FilePath,T.Text)] -> IO WorkspaceEdit
 makeRefactorResult changedFiles = do
   let
-    diffOne f1 = do
-      let (baseFileName,ext) = splitExtension f1
-          f2 = (baseFileName ++ ".refactored" ++ ext)
-      diffFiles f1 f2
+    diffOne (fp, newText) = do
+      origText <- T.readFile fp
+      return $ diffText (filePathToUri fp, origText) newText
   diffs <- mapM diffOne changedFiles
-  return (fold diffs)
+  return $ fold diffs
 
 -- ---------------------------------------------------------------------
 
@@ -260,7 +264,7 @@ findDef fileName (row, col) = do
                     eithers <- mapM (srcLoc2Loc . nameSrcSpan) newNames
                     case rights eithers of
                       (l:_) -> return $ IdeResponseOk l
-                      [] -> failure
+                      []    -> failure
                   Nothing -> failure
                 else failure
             Nothing -> failure
@@ -295,12 +299,9 @@ runHareCommand name cmd = do
                  (IdeError PluginError
                            (T.pack $ name <> ": \"" <> err <> "\"")
                            Null))
-       Right res ->
-         do liftIO $
-              writeRefactoredFiles (rsetVerboseLevel defaultSettings)
-                                   res
-            let files = modifiedFiles res
-            refactRes <- liftIO $ makeRefactorResult files
+       Right res -> do
+            let changes = getRefactorResult res
+            refactRes <- liftIO $ makeRefactorResult changes
             pure (IdeResponseOk refactRes)
 
 runHareCommand' :: RefactGhc a

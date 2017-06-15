@@ -137,7 +137,8 @@ functionalSpec = do
                                       { _uri = filePathToUri "./FuncTest.hs"
                                       , _diagnostics = List $
                                         [ Diagnostic (Range (Position 0 0) (Position 0 17))
-                                                     (Just DsWarning)
+                                                     (Just DsInfo
+                                                     )
                                                      Nothing
                                                      (Just "hlint")
                                                      ("Use module export list\nFound:\n  module Main where\nWhy not:\n"

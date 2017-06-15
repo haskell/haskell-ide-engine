@@ -6,6 +6,7 @@ module Haskell.Ide.Engine.Types where
 import           Data.Aeson
 import           Control.Concurrent.STM.TChan
 import           Haskell.Ide.Engine.PluginDescriptor
+import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 
 -- ---------------------------------------------------------------------
 
@@ -21,7 +22,8 @@ data ChannelRequest = CReq
   } deriving Show
 
 data PluginRequest = forall a. PReq
-  { pinCallback  :: IdeResponse a -> IO ()
+  { pinLspReqId  :: Maybe J.LspId
+  , pinCallback  :: IdeResponse a -> IO ()
   , pinReq       :: IdeM (IdeResponse a)
   }
 
