@@ -34,6 +34,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Vector as V
+import qualified GhcMod as GM
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.SemanticTypes
@@ -43,6 +44,7 @@ import qualified Haskell.Ide.GhcModPlugin as GhcMod
 import qualified Haskell.Ide.ApplyRefactPlugin as ApplyRefact
 import qualified Language.Haskell.LSP.Control  as CTRL
 import qualified Language.Haskell.LSP.Core     as Core
+import qualified Language.Haskell.LSP.VFS     as VFS
 import           Language.Haskell.LSP.Diagnostics
 import           Language.Haskell.LSP.Messages
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
@@ -51,6 +53,7 @@ import           System.Directory
 import           System.Exit
 import           System.FilePath
 import qualified System.Log.Logger as L
+import qualified Yi.Rope as Yi
 -- import qualified Yi.Rope as Yi
 
 -- ---------------------------------------------------------------------
@@ -137,10 +140,32 @@ reactorSend' f = do
   lf <- ask
   liftIO $ f (Core.sendFunc lf)
 
-  -- msf <- gets sender
-  -- case msf of
-  --   Nothing -> error "reactorSend': send function not initialised yet"
-  --   Just sf -> liftIO $ f sf
+-- ---------------------------------------------------------------------
+
+mapFileFromVfs :: (MonadIO m, MonadReader Core.LspFuncs m)
+  => TChan PluginRequest -> Uri -> m ()
+mapFileFromVfs cin uri = do
+  vfsFunc <- asks Core.getVirtualFileFunc
+  mvf <- liftIO $ vfsFunc uri
+  case (mvf, uriToFilePath uri) of
+    (Just (VFS.VirtualFile _ yitext), Just fp) -> do
+      let text = Yi.toString yitext
+      let req = PReq Nothing (const $ return ()) $ IdeResponseOk <$> GM.loadMappedFileSource fp text
+      liftIO $ atomically $ writeTChan cin req
+      return ()
+    (_, _) -> return ()
+
+unmapFileFromVfs :: (MonadIO m)
+  => TChan PluginRequest -> Uri -> m ()
+unmapFileFromVfs cin uri = do
+  case uriToFilePath uri of
+    Just fp -> do
+      let req = PReq Nothing (const $ return ()) $ IdeResponseOk <$> GM.unloadMappedFile fp
+      liftIO $ atomically $ writeTChan cin req
+      return ()
+    _ -> return ()
+
+
 
 -- ---------------------------------------------------------------------
 
@@ -243,10 +268,15 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
         liftIO $ U.logm "****** reactor: processing NotDidSaveTextDocument"
         let
             doc = notification ^. J.params . J.textDocument . J.uri
+        unmapFileFromVfs cin doc
         requestDiagnostics cin doc
 
-      HandlerRequest (Core.NotDidChangeTextDocument _notification) -> do
-        liftIO $ U.logm "****** reactor: NOT processing NotDidChangeTextDocument"
+      HandlerRequest (Core.NotDidChangeTextDocument notification) -> do
+        liftIO $ U.logm "****** reactor: processing NotDidChangeTextDocument"
+        let
+            doc = notification ^. J.params . J.textDocument . J.uri
+        mapFileFromVfs cin doc
+        requestDiagnostics cin doc
 
       -- -------------------------------
 
