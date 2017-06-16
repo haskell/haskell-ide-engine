@@ -517,13 +517,13 @@ hieHandlers rin
 -- ---------------------------------------------------------------------
 
 passHandler :: TChan ReactorInput -> (a -> Core.OutMessage) -> Core.Handler a
-passHandler rin c _ notification = do
+passHandler rin c notification = do
   atomically $ writeTChan rin (HandlerRequest (c notification))
 
 -- ---------------------------------------------------------------------
 
 responseHandlerCb :: TChan ReactorInput -> Core.Handler J.BareResponseMessage
-responseHandlerCb _rin _lf resp = do
+responseHandlerCb _rin resp = do
   U.logs $ "******** got ResponseMessage, ignoring:" ++ show resp
 
 -- ---------------------------------------------------------------------
