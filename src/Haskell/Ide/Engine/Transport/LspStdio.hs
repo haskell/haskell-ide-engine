@@ -104,8 +104,8 @@ run plugins dispatcherProc cin origDir = flip E.catches handlers $ do
 
 -- ---------------------------------------------------------------------
 
-data ReactorInput
-  = HandlerRequest Core.OutMessage
+type ReactorInput
+  = Core.OutMessage
       -- ^ injected into the reactor input by each of the individual callback handlers
 
 data ReactorState =
@@ -217,12 +217,12 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
   flip evalStateT st $ flip runReaderT lf $ forever $ do
     inval <- liftIO $ atomically $ readTChan inp
     case inval of
-      HandlerRequest (Core.RspFromClient rm) -> do
+      Core.RspFromClient rm -> do
         liftIO $ U.logs $ "reactor:got RspFromClient:" ++ show rm
 
       -- -------------------------------
 
-      HandlerRequest (Core.NotInitialized _notification) -> do
+      Core.NotInitialized _notification -> do
         liftIO $ U.logm $ "****** reactor: processing Initialized Notification"
         -- Server is ready, register any specific capabilities we need
 
@@ -256,7 +256,7 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
 
       -- -------------------------------
 
-      HandlerRequest (Core.NotDidOpenTextDocument notification) -> do
+      Core.NotDidOpenTextDocument notification -> do
         liftIO $ U.logm $ "****** reactor: processing NotDidOpenTextDocument"
         let
             doc = notification ^. J.params . J.textDocument . J.uri
@@ -264,14 +264,14 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
 
       -- -------------------------------
 
-      HandlerRequest (Core.NotDidSaveTextDocument notification) -> do
+      Core.NotDidSaveTextDocument notification -> do
         liftIO $ U.logm "****** reactor: processing NotDidSaveTextDocument"
         let
             doc = notification ^. J.params . J.textDocument . J.uri
         unmapFileFromVfs cin doc
         requestDiagnostics cin doc
 
-      HandlerRequest (Core.NotDidChangeTextDocument notification) -> do
+      Core.NotDidChangeTextDocument notification -> do
         liftIO $ U.logm "****** reactor: processing NotDidChangeTextDocument"
         let
             doc = notification ^. J.params . J.textDocument . J.uri
@@ -280,7 +280,7 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
 
       -- -------------------------------
 
-      HandlerRequest (Core.ReqRename req) -> do
+      Core.ReqRename req -> do
         liftIO $ U.logs $ "reactor:got RenameRequest:" ++ show req
         let params = req ^. J.params
             doc = params ^. J.textDocument
@@ -295,7 +295,7 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
 
       -- -------------------------------
 
-      HandlerRequest (Core.ReqHover req) -> do
+      Core.ReqHover req -> do
         liftIO $ U.logs $ "reactor:got HoverRequest:" ++ show req
         let params = req ^. J.params
             pos = params ^. J.position
@@ -316,7 +316,7 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
 
       -- -------------------------------
 
-      HandlerRequest (Core.ReqCodeAction req) -> do
+      Core.ReqCodeAction req -> do
         liftIO $ U.logs $ "reactor:got CodeActionRequest:" ++ show req
         let params = req ^. J.params
             doc = params ^. J.textDocument
@@ -343,7 +343,7 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
 
       -- -------------------------------
 
-      HandlerRequest (Core.ReqExecuteCommand req) -> do
+      Core.ReqExecuteCommand req -> do
         liftIO $ U.logs $ "reactor:got ExecuteCommandRequest:" ++ show req
         -- cwd <- liftIO getCurrentDirectory
         -- liftIO $ U.logs $ "reactor:cwd:" ++ cwd
@@ -379,7 +379,7 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
 
       -- -------------------------------
 
-      HandlerRequest (Core.ReqCompletion req) -> do
+      Core.ReqCompletion req -> do
         liftIO $ U.logs $ "reactor:got CompletionRequest:" ++ show req
         let params = req ^. J.params
             doc = params ^. J.textDocument
@@ -399,7 +399,7 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
 
       -- -------------------------------
 
-      HandlerRequest (Core.ReqDocumentHighlights req) -> do
+      Core.ReqDocumentHighlights req -> do
         liftIO $ U.logs $ "reactor:got DocumentHighlightsRequest:" ++ show req
         let params = req ^. J.params
             doc = params ^. J.textDocument ^. J.uri
@@ -418,7 +418,7 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
         reactorSend rspMsg
 
       -- -------------------------------
-      HandlerRequest (Core.ReqDefinition req) -> do
+      Core.ReqDefinition req -> do
         liftIO $ U.logs $ "reactor:got DefinitionRequest:" ++ show req
         let params = req ^. J.params
         callback <- hieResponseHelper (req ^. J.id) $ \loc -> do
@@ -427,7 +427,7 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
         let hreq = PReq (Just $ req ^. J.id) callback $ HaRe.findDefCmd params
         makeRequest hreq
       -- -------------------------------
-      HandlerRequest (Core.NotCancelRequest notif) -> do
+      Core.NotCancelRequest notif -> do
         liftIO $ U.logs $ "reactor:got CancelRequest:" ++ show notif
         let lid = notif ^. J.params . J.id
         wip <- liftIO $ readMVar wipMVar
@@ -435,7 +435,7 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
           liftIO $ U.logs $ "reactor:Processing CancelRequest:" ++ show notif
           liftIO $ modifyMVar_ cancelReqMVar (return . S.insert lid)
 
-      HandlerRequest om -> do
+      om -> do
         liftIO $ U.logs $ "reactor:got HandlerRequest:" ++ show om
 
 -- ---------------------------------------------------------------------
@@ -548,7 +548,7 @@ hieHandlers rin
 
 passHandler :: TChan ReactorInput -> (a -> Core.OutMessage) -> Core.Handler a
 passHandler rin c notification = do
-  atomically $ writeTChan rin (HandlerRequest (c notification))
+  atomically $ writeTChan rin (c notification)
 
 -- ---------------------------------------------------------------------
 
