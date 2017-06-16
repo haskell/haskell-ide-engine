@@ -15,6 +15,7 @@ import           Data.Monoid ( (<>) )
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Data.Vinyl
+import qualified GhcMod.Utils as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
@@ -64,7 +65,8 @@ applyOneCmd = CmdSync $ \_ctxs req -> do
 
 applyOneCmd' :: Uri -> Position -> IdeM (IdeResponse WorkspaceEdit)
 applyOneCmd' uri pos = pluginGetFile "applyOne: " uri $ \file -> do
-      res <- liftIO $ applyHint file (Just pos)
+      revMapp <- GM.mkRevRedirMapFunc
+      res <- GM.withMappedFile file $ \file' -> liftIO $ applyHint file' (Just pos) revMapp
       logm $ "applyOneCmd:file=" ++ show file
       logm $ "applyOneCmd:res=" ++ show res
       case res of
@@ -84,7 +86,8 @@ applyAllCmd = CmdSync $ \_ctxs req -> do
 
 applyAllCmd' :: Uri -> IdeM (IdeResponse WorkspaceEdit)
 applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \file -> do
-      res <- liftIO $ applyHint file Nothing
+      revMapp <- GM.mkRevRedirMapFunc
+      res <- GM.withMappedFile file $ \file' -> liftIO $ applyHint file' Nothing revMapp
       logm $ "applyAllCmd:res=" ++ show res
       case res of
         Left err -> return $ IdeResponseFail (IdeError PluginError
@@ -101,7 +104,7 @@ lintCmd = CmdSync $ \_ctxs req -> do
 
 lintCmd' :: Uri -> IdeM (IdeResponse PublishDiagnosticsParams)
 lintCmd' uri = pluginGetFile "applyAll: " uri $ \file -> do
-      res <- liftIO $ runEitherT $ runLintCmd file []
+      res <- GM.withMappedFile file $ \file' -> liftIO $ runEitherT $ runLintCmd file' []
       logm $ "lint:res=" ++ show res
       case res of
         Left diags -> return (IdeResponseOk (PublishDiagnosticsParams (filePathToUri file) $ List diags))
@@ -219,8 +222,8 @@ ss2Range ss = Range ps pe
 
 -- ---------------------------------------------------------------------
 
-applyHint :: FilePath -> Maybe Position -> IO (Either String WorkspaceEdit)
-applyHint file mpos = do
+applyHint :: FilePath -> Maybe Position -> (FilePath -> FilePath) -> IO (Either String WorkspaceEdit)
+applyHint file mpos fileMap = do
   withTempFile $ \f -> do
     let optsf = "-o " ++ f
         opts = case mpos of
@@ -232,7 +235,7 @@ applyHint file mpos = do
       liftIO $ logm $ "applyHint:ideas=" ++ show ideas
       let commands = map (show &&& ideaRefactoring) ideas
       appliedFile <- liftIO $ applyRefactorings (unPos <$> mpos) commands file
-      diff <- liftIO $ makeDiffResult file (T.pack appliedFile)
+      diff <- liftIO $ makeDiffResult file (T.pack appliedFile) fileMap
       liftIO $ logm $ "applyHint:diff=" ++ show diff
       return diff
 
@@ -246,7 +249,9 @@ runHlint file args =
 showParseError :: Hlint.ParseError -> String
 showParseError (Hlint.ParseError location message content) = unlines [show location, message, content]
 
-makeDiffResult :: FilePath -> T.Text -> IO WorkspaceEdit
-makeDiffResult orig new = do
+makeDiffResult :: FilePath -> T.Text -> (FilePath -> FilePath) -> IO WorkspaceEdit
+makeDiffResult orig new fileMap = do
   origText <- T.readFile orig
-  return $ diffText (filePathToUri orig,origText) new
+  let fp' = fileMap orig
+  fp <- GM.makeAbsolute' fp'
+  return $ diffText (filePathToUri fp,origText) new

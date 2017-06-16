@@ -11,10 +11,10 @@ packages:
 - hie-hare
 - hie-hoogle
 - hie-plugin-api
-#- haskell-lsp
+# - haskell-lsp
 - location:
     git: https://github.com/alanz/haskell-lsp.git
-    commit: 258d3cc92a9f61f7fab92a29404492b1fdfa83b2
+    commit: 30d58d072d39fc783f74f49987c7cb015ed5a8b6
   extra-dep: true
 - location:
     git: https://github.com/alanz/ghc-dump-tree.git

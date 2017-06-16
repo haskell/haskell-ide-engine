@@ -15,6 +15,7 @@ import           Haskell.Ide.ApplyRefactPlugin
 import           Language.Haskell.LSP.TH.DataTypesJSON
 import qualified Data.HashMap.Strict as H
 import           TestUtils
+import           System.Directory
 
 import           Test.Hspec
 
@@ -54,6 +55,7 @@ dispatchRequestP = runIdeM testOptions (IdeState Map.empty Map.empty)
 applyRefactSpec :: Spec
 applyRefactSpec = do
   describe "apply-refact plugin commands(old plugin api)" $ do
+    applyRefactPath  <- runIO $ filePathToUri <$> makeAbsolute "./test/testdata/ApplyRefact.hs"
 
     -- ---------------------------------
 
@@ -67,7 +69,7 @@ applyRefactSpec = do
         Just (IdeResponseOk
               $ toJSON
               $ WorkspaceEdit
-                (Just $ H.singleton (filePathToUri "./test/testdata/ApplyRefact.hs")
+                (Just $ H.singleton applyRefactPath
                                     $ List [TextEdit (Range (Position 1 0) (Position 1 25))
                                               "main = putStrLn \"hello\""])
                 Nothing)
@@ -84,7 +86,7 @@ applyRefactSpec = do
               $ toJSON
               $ WorkspaceEdit
                 (Just
-                  $ H.singleton (filePathToUri "./test/testdata/ApplyRefact.hs")
+                  $ H.singleton applyRefactPath 
                               $ List [TextEdit (Range (Position 1 0) (Position 1 25))
                                         "main = putStrLn \"hello\""
                                      ,TextEdit (Range (Position 3 0) (Position 3 15))
@@ -118,6 +120,7 @@ applyRefactSpec = do
 
     -- ---------------------------------
   describe "apply-refact plugin commands(new plugin api)" $ do
+    applyRefactPath  <- runIO $ filePathToUri <$> makeAbsolute "./test/testdata/ApplyRefact.hs"
 
     -- ---------------------------------
 
@@ -129,7 +132,7 @@ applyRefactSpec = do
       r `shouldBe`
         (IdeResponseOk
          $ WorkspaceEdit
-           (Just $ H.singleton (filePathToUri "./test/testdata/ApplyRefact.hs")
+           (Just $ H.singleton applyRefactPath
                                $ List [TextEdit (Range (Position 1 0) (Position 1 25))
                                          "main = putStrLn \"hello\""])
            Nothing)
@@ -144,7 +147,7 @@ applyRefactSpec = do
         (IdeResponseOk
          $ WorkspaceEdit
            (Just
-             $ H.singleton (filePathToUri "./test/testdata/ApplyRefact.hs")
+             $ H.singleton applyRefactPath
                          $ List [TextEdit (Range (Position 1 0) (Position 1 25))
                                    "main = putStrLn \"hello\""
                                 ,TextEdit (Range (Position 3 0) (Position 3 15))
