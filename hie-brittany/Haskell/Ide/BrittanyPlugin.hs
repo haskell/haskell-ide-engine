@@ -31,7 +31,16 @@ brittanyCmd :: TextDocumentIdentifier -> Maybe Range -> IdeM (IdeResponse [J.Tex
 brittanyCmd tdi range =
   pluginGetFile "genapplicative: " (tdi ^. J.uri) $ \file -> do
     case range of
-      Just r -> error "not handled yet"
+      Just r -> do
+        text <- GM.withMappedFile file $ liftIO . readFile
+        res <- liftIO $ runBrittany $ extractRange r text
+        case res of
+          Left err -> return $ IdeResponseFail (IdeError PluginError
+                      (T.pack $ "brittanyCmd: " ++ show err) Null)
+          Right newText -> do
+            let newString = TextL.unpack newText
+                textEdit = J.TextEdit r $ T.pack newString
+            return $ IdeResponseOk [textEdit]
       Nothing -> do
         text <- GM.withMappedFile file $ liftIO . readFile
         res <- liftIO $ runBrittany text
@@ -47,6 +56,14 @@ brittanyCmd tdi range =
                 textLines = lines text
                 textEdit = J.TextEdit (Range startPos endPos) $ T.pack newString
             return $ IdeResponseOk [textEdit]
+
+extractRange :: Range -> String -> String
+extractRange (Range (Position sl sc) (Position el ec)) s = newS
+  where focusLines = take (el-sl+1) $ drop sl $ lines s
+        fixFirstLine (x:xs) = drop sc x : xs
+        fixLastLine' (x:xs) = take ec x : xs
+        fixLastLine = reverse . fixLastLine' . reverse
+        newS = unlines $ fixLastLine $ fixFirstLine $ focusLines
 
 runBrittany :: String -> IO (Either String TextL.Text)
 runBrittany text = do

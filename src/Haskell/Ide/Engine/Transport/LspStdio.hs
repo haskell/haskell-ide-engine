@@ -250,7 +250,8 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
           options = J.object ["documentSelector" .= J.object [ "language" .= J.String "haskell"]]
           registrationsList = [ J.Registration "hare:demote" "workspace/executeCommand" (Just options)
                               , J.Registration "hare:gotodef" "textDocument/definition" (Just options)
-                              , J.Registration "brittany:brittanyCmd" "textDocument/formatting" (Just options)
+                              , J.Registration "brittany:formatting" "textDocument/formatting" (Just options)
+                              , J.Registration "brittany:rangeFormatting" "textDocument/rangeFormatting" (Just options)
                               ]
         let registrations = J.RegistrationParams (J.List registrationsList)
         rid <- nextLspReqId
@@ -440,6 +441,17 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
         let hreq = PReq (Just $ req ^. J.id) callback $ Brittany.brittanyCmd doc Nothing
         makeRequest hreq
       -- -------------------------------
+      Core.ReqDocumentRangeFormatting req -> do
+        liftIO $ U.logs $ "reactor:got FormatRequest:" ++ show req
+        let params = req ^. J.params
+            doc = params ^. J.textDocument
+            range = params ^. J.range
+        callback <- hieResponseHelper (req ^. J.id) $ \textEdit -> do
+            let rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) textEdit
+            reactorSend rspMsg
+        let hreq = PReq (Just $ req ^. J.id) callback $ Brittany.brittanyCmd doc (Just range)
+        makeRequest hreq
+      -- -------------------------------
       Core.NotCancelRequest notif -> do
         liftIO $ U.logs $ "reactor:got CancelRequest:" ++ show notif
         let lid = notif ^. J.params . J.id
@@ -556,6 +568,7 @@ hieHandlers rin
         , Core.completionResolveHandler                 = Just $ passHandler rin Core.ReqCompletionItemResolve
         , Core.documentHighlightHandler                 = Just $ passHandler rin Core.ReqDocumentHighlights
         , Core.documentFormattingHandler                = Just $ passHandler rin Core.ReqDocumentFormatting
+        , Core.documentRangeFormattingHandler           = Just $ passHandler rin Core.ReqDocumentRangeFormatting
         }
 
 -- ---------------------------------------------------------------------
