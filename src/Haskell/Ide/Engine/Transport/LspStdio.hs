@@ -42,6 +42,7 @@ import           Haskell.Ide.Engine.Types
 import qualified Haskell.Ide.HaRePlugin as HaRe
 import qualified Haskell.Ide.GhcModPlugin as GhcMod
 import qualified Haskell.Ide.ApplyRefactPlugin as ApplyRefact
+import qualified Haskell.Ide.BrittanyPlugin as Brittany
 import qualified Language.Haskell.LSP.Control  as CTRL
 import qualified Language.Haskell.LSP.Core     as Core
 import qualified Language.Haskell.LSP.VFS     as VFS
@@ -247,9 +248,12 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
         -}
         let
           options = J.object ["documentSelector" .= J.object [ "language" .= J.String "haskell"]]
-          registration1 = J.Registration "hare:demote" "workspace/executeCommand" (Just options)
-          registration2 = J.Registration "hare:gotodef" "textDocument/definition" (Just options)
-        let registrations = J.RegistrationParams (J.List [registration1,registration2])
+          registrationsList = [ J.Registration "hare:demote" "workspace/executeCommand" (Just options)
+                              , J.Registration "hare:gotodef" "textDocument/definition" (Just options)
+                              , J.Registration "brittany:formatting" "textDocument/formatting" (Just options)
+                              , J.Registration "brittany:rangeFormatting" "textDocument/rangeFormatting" (Just options)
+                              ]
+        let registrations = J.RegistrationParams (J.List registrationsList)
         rid <- nextLspReqId
 
         reactorSend $ fmServerRegisterCapabilityRequest rid registrations
@@ -427,6 +431,29 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
         let hreq = PReq (Just $ req ^. J.id) callback $ HaRe.findDefCmd params
         makeRequest hreq
       -- -------------------------------
+      Core.ReqDocumentFormatting req -> do
+        liftIO $ U.logs $ "reactor:got FormatRequest:" ++ show req
+        let params = req ^. J.params
+            doc = params ^. J.textDocument
+            tabSize = params ^. J.options . J.tabSize
+        callback <- hieResponseHelper (req ^. J.id) $ \textEdit -> do
+            let rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) textEdit
+            reactorSend rspMsg
+        let hreq = PReq (Just $ req ^. J.id) callback $ Brittany.brittanyCmd tabSize doc Nothing
+        makeRequest hreq
+      -- -------------------------------
+      Core.ReqDocumentRangeFormatting req -> do
+        liftIO $ U.logs $ "reactor:got FormatRequest:" ++ show req
+        let params = req ^. J.params
+            doc = params ^. J.textDocument
+            range = params ^. J.range
+            tabSize = params ^. J.options . J.tabSize
+        callback <- hieResponseHelper (req ^. J.id) $ \textEdit -> do
+            let rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) textEdit
+            reactorSend rspMsg
+        let hreq = PReq (Just $ req ^. J.id) callback $ Brittany.brittanyCmd tabSize doc (Just range)
+        makeRequest hreq
+      -- -------------------------------
       Core.NotCancelRequest notif -> do
         liftIO $ U.logs $ "reactor:got CancelRequest:" ++ show notif
         let lid = notif ^. J.params . J.id
@@ -542,6 +569,8 @@ hieHandlers rin
         , Core.completionHandler                        = Just $ passHandler rin Core.ReqCompletion
         , Core.completionResolveHandler                 = Just $ passHandler rin Core.ReqCompletionItemResolve
         , Core.documentHighlightHandler                 = Just $ passHandler rin Core.ReqDocumentHighlights
+        , Core.documentFormattingHandler                = Just $ passHandler rin Core.ReqDocumentFormatting
+        , Core.documentRangeFormattingHandler           = Just $ passHandler rin Core.ReqDocumentRangeFormatting
         }
 
 -- ---------------------------------------------------------------------
