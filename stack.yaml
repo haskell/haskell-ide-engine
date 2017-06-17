@@ -11,6 +11,7 @@ packages:
 - hie-hare
 - hie-hoogle
 - hie-plugin-api
+- hie-brittany
 # - haskell-lsp
 - location:
     git: https://github.com/alanz/haskell-lsp.git
@@ -34,18 +35,28 @@ packages:
 # - ../../DanielG/ghc-mod
 # - ../ghc-mod
 - location:
-    git: https://github.com/alanz/ghc-mod.git
-    commit: 36fbe25e07c34ba81fbba735d4046a98ae75db3a
+    git: https://github.com/wz1000/ghc-mod.git
+    commit: 21b8c150958ed65007d12b8aeec33048a17af5f4
   extra-dep: true
 # - ../hlint
 # - location:
 #     git: https://github.com/alanz/hlint.git
 #     commit: 1c78d5178128a67766db3c62c22bae24138f335a
 #   extra-dep: true
+- location:
+    git: https://github.com/lspitzner/brittany.git
+    commit: 296629b96c3e17f75a531aebd627027f585fa3e1
+  extra-dep: true
+
 extra-deps:
 - apply-refact-0.3.0.1
 - pipes-aeson-0.4.1.8
 - pipes-network-0.6.4.1
+- butcher-1.1.0.0
+- czipwith-1.0.0.0
+- data-tree-print-0.1.0.0
+- deque-0.2
+- monad-memo-0.4.1
 # - hspec-jenkins-0.1.1
 flags:
   haskell-ide-engine:

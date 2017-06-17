@@ -56,6 +56,7 @@ library
                      , hie-ghc-mod
                      , hie-apply-refact
                      , hie-plugin-api
+                     , hie-brittany
                      , hslogger
                      , insert-ordered-containers
                      , lens >= 4.15.2
