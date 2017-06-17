@@ -435,10 +435,11 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
         liftIO $ U.logs $ "reactor:got FormatRequest:" ++ show req
         let params = req ^. J.params
             doc = params ^. J.textDocument
+            tabSize = params ^. J.options . J.tabSize
         callback <- hieResponseHelper (req ^. J.id) $ \textEdit -> do
             let rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) textEdit
             reactorSend rspMsg
-        let hreq = PReq (Just $ req ^. J.id) callback $ Brittany.brittanyCmd doc Nothing
+        let hreq = PReq (Just $ req ^. J.id) callback $ Brittany.brittanyCmd tabSize doc Nothing
         makeRequest hreq
       -- -------------------------------
       Core.ReqDocumentRangeFormatting req -> do
@@ -446,10 +447,11 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
         let params = req ^. J.params
             doc = params ^. J.textDocument
             range = params ^. J.range
+            tabSize = params ^. J.options . J.tabSize
         callback <- hieResponseHelper (req ^. J.id) $ \textEdit -> do
             let rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) textEdit
             reactorSend rspMsg
-        let hreq = PReq (Just $ req ^. J.id) callback $ Brittany.brittanyCmd doc (Just range)
+        let hreq = PReq (Just $ req ^. J.id) callback $ Brittany.brittanyCmd tabSize doc (Just range)
         makeRequest hreq
       -- -------------------------------
       Core.NotCancelRequest notif -> do

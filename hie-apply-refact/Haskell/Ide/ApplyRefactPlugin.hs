@@ -103,7 +103,7 @@ lintCmd = CmdSync $ \_ctxs req -> do
     Right (ParamFile uri :& RNil) -> lintCmd' uri
 
 lintCmd' :: Uri -> IdeM (IdeResponse PublishDiagnosticsParams)
-lintCmd' uri = pluginGetFile "applyAll: " uri $ \file -> do
+lintCmd' uri = pluginGetFile "lintCmd: " uri $ \file -> do
       res <- GM.withMappedFile file $ \file' -> liftIO $ runEitherT $ runLintCmd file' []
       logm $ "lint:res=" ++ show res
       case res of

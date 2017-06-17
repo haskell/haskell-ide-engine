@@ -45,7 +45,7 @@ packages:
 #   extra-dep: true
 - location:
     git: https://github.com/lspitzner/brittany.git
-    commit: 296629b96c3e17f75a531aebd627027f585fa3e1
+    commit: 16f5aa118d707cc484cdee39351b176b6d17c3df
   extra-dep: true
 
 extra-deps:
@@ -80,4 +80,6 @@ flags:
   hie-hoogle:
     pedantic: true
   hie-plugin-api:
+    pedantic: true
+  hie-brittany:
     pedantic: true

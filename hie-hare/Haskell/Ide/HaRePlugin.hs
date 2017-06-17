@@ -226,7 +226,7 @@ makeRefactorResult changedFiles = do
 
 findDefCmd :: TextDocumentPositionParams -> IdeM (IdeResponse Location)
 findDefCmd (TextDocumentPositionParams tdi pos) =
-  pluginGetFile "genapplicative: " (tdi ^. J.uri) $ \file -> do
+  pluginGetFile "findDef: " (tdi ^. J.uri) $ \file -> do
     eitherRes <- runHareCommand' $ findDef file (unPos pos)
     case eitherRes of
       Right x -> return x
