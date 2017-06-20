@@ -12,11 +12,11 @@ packages:
 - hie-hoogle
 - hie-plugin-api
 - hie-brittany
-# - haskell-lsp
-- location:
-    git: https://github.com/alanz/haskell-lsp.git
-    commit: 30d58d072d39fc783f74f49987c7cb015ed5a8b6
-  extra-dep: true
+- ../haskell-lsp
+# - location:
+#     git: https://github.com/alanz/haskell-lsp.git
+#     commit: 30d58d072d39fc783f74f49987c7cb015ed5a8b6
+#   extra-dep: true
 - location:
     git: https://github.com/alanz/ghc-dump-tree.git
     commit: 9dbca928ad5507b144f46bb95123a08d24f24808
@@ -26,12 +26,10 @@ packages:
 #     commit: cb012b23c4e524dde9ea129b6146dda20a5ca505
 #   extra-dep: true
 # - ../HaRe
-# - location:
-#     git: https://github.com/alanz/HaRe.git
-#     # git: https://github.com/RefactoringTools/HaRe.git
-#     # commit: 423bc0b235dc7ede961278f6e614813b851bfd0a
-#     commit: df7c1def6156f6179a41b9053509eb5af13ef4a3
-#   extra-dep: true
+- location:
+    git: https://github.com/alanz/HaRe.git
+    commit: 702993447acbcc6208d313b96513aebc3efac66e
+  extra-dep: true
 # - ../../DanielG/ghc-mod
 # - ../ghc-mod
 - location:
@@ -50,13 +48,14 @@ packages:
 
 extra-deps:
 - apply-refact-0.3.0.1
-- pipes-aeson-0.4.1.8
-- pipes-network-0.6.4.1
+# - apply-refact-0.4.0.0
 - butcher-1.1.0.0
 - czipwith-1.0.0.0
 - data-tree-print-0.1.0.0
 - deque-0.2
 - monad-memo-0.4.1
+- pipes-aeson-0.4.1.8
+- pipes-network-0.6.4.1
 # - hspec-jenkins-0.1.1
 flags:
   haskell-ide-engine:
