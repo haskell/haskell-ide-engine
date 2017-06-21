@@ -15,7 +15,7 @@ packages:
 # - ../haskell-lsp
 - location:
     git: https://github.com/alanz/haskell-lsp.git
-    commit: 30d58d072d39fc783f74f49987c7cb015ed5a8b6
+    commit: bfa74634a83b3595346c785c52271edd32e84cf9
   extra-dep: true
 - location:
     git: https://github.com/alanz/ghc-dump-tree.git
@@ -28,13 +28,13 @@ packages:
 # - ../HaRe
 - location:
     git: https://github.com/alanz/HaRe.git
-    commit: 702993447acbcc6208d313b96513aebc3efac66e
+    commit: 2d253f482726270d48160ffc9a522a00effb6264
   extra-dep: true
 # - ../../DanielG/ghc-mod
 # - ../ghc-mod
 - location:
-    git: https://github.com/wz1000/ghc-mod.git
-    commit: 21b8c150958ed65007d12b8aeec33048a17af5f4
+    git: https://github.com/alanz/ghc-mod.git
+    commit: 080eb9480a87d63fe68d80b5e7ce467234439e0b
   extra-dep: true
 # - ../hlint
 # - location:

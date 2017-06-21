@@ -310,6 +310,7 @@ runHareCommand' :: RefactGhc a
                  -> IdeM (Either String a)
 runHareCommand' cmd =
   do let initialState =
+           -- TODO: Make this a command line flag
            RefSt {rsSettings = defaultSettings
            -- RefSt {rsSettings = logSettings
                  ,rsUniqState = 1
