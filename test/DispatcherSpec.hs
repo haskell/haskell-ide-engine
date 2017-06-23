@@ -5,6 +5,7 @@ module DispatcherSpec where
 
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
+import           Control.Concurrent.STM.TVar
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Data.Aeson
@@ -262,21 +263,24 @@ dispatcherSpec = do
     it "dispatches response correctly" $ do
       inChan <- atomically newTChan
       outChan <- atomically newTChan
-      cancelMVar <- newMVar S.empty
-      wipMVar <- newMVar S.empty
-      let req1 = PReq (Just $ J.IdInt 1) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text1"
-          req2 = PReq (Just $ J.IdInt 2) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text2"
-          req3 = PReq (Just $ J.IdInt 3) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text3"
-      pid <- forkIO $ runIdeM testOptions (IdeState Map.empty Map.empty) (dispatcherP cancelMVar wipMVar inChan)
+      cancelTVar <- newTVarIO S.empty
+      wipTVar <- newTVarIO S.empty
+      versionTVar <- newTVarIO $ Map.singleton (filePathToUri "test") 3
+      let req1 = PReq Nothing (Just $ J.IdInt 1) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text1"
+          req2 = PReq Nothing (Just $ J.IdInt 2) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text2"
+          req3 = PReq (Just (filePathToUri "test", 2)) Nothing (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text3"
+          req4 = PReq Nothing (Just $ J.IdInt 3) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text4"
+      pid <- forkIO $ runIdeM testOptions (IdeState Map.empty Map.empty) (dispatcherP (DispatcherEnv cancelTVar wipTVar versionTVar) inChan)
       atomically $ writeTChan inChan req1
-      modifyMVar_ cancelMVar (return . S.insert (J.IdInt 2))
+      atomically $ modifyTVar cancelTVar (S.insert (J.IdInt 2))
       atomically $ writeTChan inChan req2
       atomically $ writeTChan inChan req3
+      atomically $ writeTChan inChan req4
       resp1 <- atomically $ readTChan outChan
       resp2 <- atomically $ readTChan outChan
       killThread pid
       resp1 `shouldBe` IdeResponseOk "text1"
-      resp2 `shouldBe` IdeResponseOk "text3"
+      resp2 `shouldBe` IdeResponseOk "text4"
 
 -- ---------------------------------------------------------------------
 

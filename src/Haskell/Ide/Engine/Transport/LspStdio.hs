@@ -17,6 +17,7 @@ module Haskell.Ide.Engine.Transport.LspStdio
 
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
+import           Control.Concurrent.STM.TVar
 import qualified Control.Exception as E
 import           Control.Lens ( (^.) )
 import           Control.Monad
@@ -63,7 +64,7 @@ import qualified Yi.Rope as Yi
 
 -- ---------------------------------------------------------------------
 
-lspStdioTransport :: Plugins -> (MVar (S.Set J.LspId) -> MVar (S.Set J.LspId) -> IO ()) -> TChan PluginRequest -> FilePath -> IO ()
+lspStdioTransport :: Plugins -> (DispatcherEnv -> IO ()) -> TChan PluginRequest -> FilePath -> IO ()
 lspStdioTransport plugins hieDispatcherProc cin origDir = do
   run plugins hieDispatcherProc cin origDir >>= \case
     0 -> exitSuccess
@@ -72,16 +73,22 @@ lspStdioTransport plugins hieDispatcherProc cin origDir = do
 
 -- ---------------------------------------------------------------------
 
-run :: Plugins -> (MVar (S.Set J.LspId) -> MVar (S.Set J.LspId) -> IO ()) -> TChan PluginRequest -> FilePath -> IO Int
+run :: Plugins -> (DispatcherEnv -> IO ()) -> TChan PluginRequest -> FilePath -> IO Int
 run plugins dispatcherProc cin origDir = flip E.catches handlers $ do
 
   rin  <- atomically newTChan :: IO (TChan ReactorInput)
   let
     dp lf = do
-      cancelMVar <- newMVar S.empty
-      wipMVar <- newMVar S.empty
-      _rpid <- forkIO $ reactor cancelMVar wipMVar plugins lf def cin rin
-      dispatcherProc cancelMVar wipMVar
+      cancelTVar <- atomically $ newTVar S.empty
+      wipTVar <- atomically $ newTVar S.empty
+      versionTVar <- atomically $ newTVar Map.empty
+      let dispatcherEnv = DispatcherEnv
+            { cancelReqsTVar = cancelTVar
+            , wipReqsTVar    = wipTVar
+            , docVersionTVar = versionTVar
+            }
+      _rpid <- forkIO $ reactor dispatcherEnv plugins lf def cin rin
+      dispatcherProc dispatcherEnv
       return Nothing
 
   flip E.finally finalProc $ do
@@ -144,15 +151,19 @@ reactorSend' f = do
 -- ---------------------------------------------------------------------
 
 mapFileFromVfs :: (MonadIO m, MonadReader Core.LspFuncs m)
-  => TChan PluginRequest -> Uri -> m ()
-mapFileFromVfs cin uri = do
+  => TVar (Map.Map Uri Int) -> TChan PluginRequest -> J.VersionedTextDocumentIdentifier -> m ()
+mapFileFromVfs verTVar cin vtdi = do
+  let uri = vtdi ^. J.uri
+      ver = vtdi ^. J.version
   vfsFunc <- asks Core.getVirtualFileFunc
   mvf <- liftIO $ vfsFunc uri
   case (mvf, uriToFilePath uri) of
     (Just (VFS.VirtualFile _ yitext), Just fp) -> do
       let text = Yi.toString yitext
-      let req = PReq Nothing (const $ return ()) $ IdeResponseOk <$> GM.loadMappedFileSource fp text
-      liftIO $ atomically $ writeTChan cin req
+      let req = PReq Nothing Nothing (const $ return ()) $ IdeResponseOk <$> GM.loadMappedFileSource fp text
+      liftIO $ atomically $ do
+        modifyTVar' verTVar (Map.insert uri ver)
+        writeTChan cin req
       return ()
     (_, _) -> return ()
 
@@ -161,7 +172,7 @@ unmapFileFromVfs :: (MonadIO m)
 unmapFileFromVfs cin uri = do
   case uriToFilePath uri of
     Just fp -> do
-      let req = PReq Nothing (const $ return ()) $ IdeResponseOk <$> GM.unloadMappedFile fp
+      let req = PReq Nothing Nothing (const $ return ()) $ IdeResponseOk <$> GM.unloadMappedFile fp
       liftIO $ atomically $ writeTChan cin req
       return ()
     _ -> return ()
@@ -208,11 +219,11 @@ sendErrorLog msg = reactorSend' (\sf -> Core.sendErrorLogS  sf msg)
 -- | The single point that all events flow through, allowing management of state
 -- to stitch replies and requests together from the two asynchronous sides: lsp
 -- server and hie dispatcher
-reactor :: MVar (S.Set J.LspId) -> MVar (S.Set J.LspId) -> Plugins -> Core.LspFuncs -> ReactorState -> TChan PluginRequest -> TChan ReactorInput -> IO ()
-reactor cancelReqMVar wipMVar plugins lf st cin inp = do
-  let makeRequest req@(PReq (Just lid) _ _) = do
-        liftIO $ modifyMVar_ wipMVar (return . S.insert lid)
-        liftIO $ atomically $ writeTChan cin req
+reactor :: DispatcherEnv -> Plugins -> Core.LspFuncs -> ReactorState -> TChan PluginRequest -> TChan ReactorInput -> IO ()
+reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp = do
+  let makeRequest req@(PReq Nothing (Just lid) _ _) = liftIO $ atomically $ do
+        modifyTVar wipTVar (S.insert lid)
+        writeTChan cin req
       makeRequest req =
         liftIO $ atomically $ writeTChan cin req
   flip evalStateT st $ flip runReaderT lf $ forever $ do
@@ -263,24 +274,34 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
       Core.NotDidOpenTextDocument notification -> do
         liftIO $ U.logm $ "****** reactor: processing NotDidOpenTextDocument"
         let
-            doc = notification ^. J.params . J.textDocument . J.uri
-        requestDiagnostics cin doc
+            uri = notification ^. J.params . J.textDocument . J.uri
+            ver = (-1)
+        liftIO $ atomically $ modifyTVar' versionTVar (Map.insert uri ver)
+        requestDiagnostics cin uri ver
 
       -- -------------------------------
 
       Core.NotDidSaveTextDocument notification -> do
         liftIO $ U.logm "****** reactor: processing NotDidSaveTextDocument"
         let
-            doc = notification ^. J.params . J.textDocument . J.uri
-        unmapFileFromVfs cin doc
-        requestDiagnostics cin doc
+            uri = notification ^. J.params . J.textDocument . J.uri
+        unmapFileFromVfs cin uri
+        mver <- liftIO $ atomically $ Map.lookup uri <$> readTVar versionTVar
+        case mver of
+          Just ver -> requestDiagnostics cin uri ver
+          Nothing -> do
+            let ver = (-1)
+            liftIO $ atomically $ modifyTVar' versionTVar (Map.insert uri ver)
+            requestDiagnostics cin uri ver
 
       Core.NotDidChangeTextDocument notification -> do
         liftIO $ U.logm "****** reactor: processing NotDidChangeTextDocument"
         let
-            doc = notification ^. J.params . J.textDocument . J.uri
-        mapFileFromVfs cin doc
-        requestDiagnostics cin doc
+            vtdi = notification ^. J.params . J.textDocument
+            doc  = vtdi ^. J.uri
+            ver  = vtdi ^. J.version
+        mapFileFromVfs versionTVar cin vtdi
+        requestDiagnostics cin doc ver
 
       -- -------------------------------
 
@@ -293,7 +314,7 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
         callback <- hieResponseHelper (req ^. J.id) $ \we -> do
             let rspMsg = Core.makeResponseMessage (J.responseId $ req ^. J.id ) we
             reactorSend rspMsg
-        let hreq = PReq (Just $ req ^. J.id) callback $ HaRe.renameCmd' (TextDocumentPositionParams doc pos) newName
+        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ HaRe.renameCmd' (TextDocumentPositionParams doc pos) newName
         makeRequest hreq
 
 
@@ -315,7 +336,7 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
                     range = J.Range (trStart tr) (trEnd tr)
               rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) ht
             reactorSend rspMsg
-        let hreq = PReq (Just $ req ^. J.id) callback $ GhcMod.typeCmd' True doc pos
+        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ GhcMod.typeCmd' True doc pos
         makeRequest hreq
 
       -- -------------------------------
@@ -378,7 +399,7 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
             _ -> reactorSend $ Core.makeResponseMessage ( J.responseId $ req ^. J.id ) obj
         let (plugin,cmd) = break (==':') (T.unpack command)
         let ireq = IdeRequest (T.pack $ tail cmd) (Map.fromList cmdparams)
-            preq = PReq (Just $ req ^. J.id) callback (dispatchSync plugins (T.pack plugin) ireq)
+            preq = PReq Nothing (Just $ req ^. J.id) callback (dispatchSync plugins (T.pack plugin) ireq)
         makeRequest preq
 
       -- -------------------------------
@@ -428,7 +449,7 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
         callback <- hieResponseHelper (req ^. J.id) $ \loc -> do
             let rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) loc
             reactorSend rspMsg
-        let hreq = PReq (Just $ req ^. J.id) callback $ HaRe.findDefCmd params
+        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ HaRe.findDefCmd params
         makeRequest hreq
       -- -------------------------------
       Core.ReqDocumentFormatting req -> do
@@ -439,7 +460,7 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
         callback <- hieResponseHelper (req ^. J.id) $ \textEdit -> do
             let rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) textEdit
             reactorSend rspMsg
-        let hreq = PReq (Just $ req ^. J.id) callback $ Brittany.brittanyCmd tabSize doc Nothing
+        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ Brittany.brittanyCmd tabSize doc Nothing
         makeRequest hreq
       -- -------------------------------
       Core.ReqDocumentRangeFormatting req -> do
@@ -451,24 +472,24 @@ reactor cancelReqMVar wipMVar plugins lf st cin inp = do
         callback <- hieResponseHelper (req ^. J.id) $ \textEdit -> do
             let rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) textEdit
             reactorSend rspMsg
-        let hreq = PReq (Just $ req ^. J.id) callback $ Brittany.brittanyCmd tabSize doc (Just range)
+        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ Brittany.brittanyCmd tabSize doc (Just range)
         makeRequest hreq
       -- -------------------------------
       Core.NotCancelRequest notif -> do
         liftIO $ U.logs $ "reactor:got CancelRequest:" ++ show notif
         let lid = notif ^. J.params . J.id
-        wip <- liftIO $ readMVar wipMVar
-        when (S.member lid wip) $ do
-          liftIO $ U.logs $ "reactor:Processing CancelRequest:" ++ show notif
-          liftIO $ modifyMVar_ cancelReqMVar (return . S.insert lid)
+        liftIO $ atomically $ do
+          wip <- readTVar wipTVar
+          when (S.member lid wip) $ do
+            modifyTVar' cancelReqTVar (S.insert lid)
 
       om -> do
         liftIO $ U.logs $ "reactor:got HandlerRequest:" ++ show om
 
 -- ---------------------------------------------------------------------
 
-requestDiagnostics :: TChan PluginRequest -> J.Uri -> R ()
-requestDiagnostics cin file = do
+requestDiagnostics :: TChan PluginRequest -> J.Uri -> Int -> R ()
+requestDiagnostics cin file ver = do
   lf <- ask
   let sendOne pid (uri',ds) =
         publishDiagnostics uri' Nothing (Map.fromList [(Just pid,ds)])
@@ -477,7 +498,7 @@ requestDiagnostics cin file = do
         return (J.filePathToUri af, ds)
       sendEmpty = publishDiagnostics file Nothing (Map.fromList [(Just "ghcmod",[])])
   -- get hlint diagnostics
-  let reql = PReq Nothing (flip runReaderT lf . callbackl) $ ApplyRefact.lintCmd' file
+  let reql = PReq (Just (file,ver)) Nothing (flip runReaderT lf . callbackl) $ ApplyRefact.lintCmd' file
       callbackl (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
       callbackl (IdeResponseError err) = liftIO $ U.logs $ "got err" ++ show err
       callbackl (IdeResponseOk  diags) =
@@ -486,7 +507,7 @@ requestDiagnostics cin file = do
   liftIO $ atomically $ writeTChan cin reql
 
   -- get GHC diagnostics
-  let reqg = PReq Nothing (flip runReaderT lf . callbackg) $ GhcMod.checkCmd' file
+  let reqg = PReq (Just (file,ver)) Nothing (flip runReaderT lf . callbackg) $ GhcMod.checkCmd' file
       callbackg (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
       callbackg (IdeResponseError err) = liftIO $ U.logs $ "got err" ++ show err
       callbackg (IdeResponseOk     pd) = do
