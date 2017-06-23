@@ -180,6 +180,7 @@ runGhcModCommand cmd =
          return $
          IdeResponseFail $
          IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Null
+
 -- ---------------------------------------------------------------------
 -- parsec parser for GHC error messages
 

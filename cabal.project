@@ -2,6 +2,7 @@ packages:
          ./
          hie-apply-refact/
          hie-base/
+         hie-brittany/
          hie-docs-generator/
          hie-eg-plugin-async/
          hie-example-plugin2/
@@ -11,4 +12,5 @@ packages:
          hie-hoogle/
          hie-plugin-api/
          ../haskell-lsp/
+         ../../lspitzner/brittany
          -- ../ghc-mod/

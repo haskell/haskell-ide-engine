@@ -92,7 +92,7 @@ run plugins dispatcherProc cin origDir = flip E.catches handlers $ do
     -- (logFileName,handle) <- openTempFile logDir "hie-lsp.log"
     -- hClose handle -- Logger will open the file again
     let logFileName = logDir </> (dirStr ++ "-hie.log")
-    Core.setupLogger logFileName L.DEBUG
+    Core.setupLogger logFileName ["HaRe"] L.DEBUG
     CTRL.run dp (hieHandlers rin) hieOptions
 
   where

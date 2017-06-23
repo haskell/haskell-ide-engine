@@ -304,17 +304,22 @@ runHareCommand name cmd = do
             refactRes <- liftIO $ makeRefactorResult changes
             pure (IdeResponseOk refactRes)
 
+-- ---------------------------------------------------------------------
+
 runHareCommand' :: RefactGhc a
                  -> IdeM (Either String a)
 runHareCommand' cmd =
   do let initialState =
+           -- TODO: Make this a command line flag
            RefSt {rsSettings = defaultSettings
+           -- RefSt {rsSettings = logSettings
                  ,rsUniqState = 1
                  ,rsSrcSpanCol = 1
                  ,rsFlags = RefFlags False
                  ,rsStorage = StorageNone
                  ,rsCurrentTarget = Nothing
-                 ,rsModule = Nothing}
+                 ,rsModule = Nothing
+                 ,rsHookIORef = Nothing}
      let cmd' = unRefactGhc cmd
          embeddedCmd =
            GM.unGmlT $
@@ -327,6 +332,8 @@ runHareCommand' cmd =
            [GM.GHandler (\(ErrorCall e) -> pure (Left e))
            ,GM.GHandler (\(err :: GM.GhcModError) -> pure (Left (show err)))]
      fmap Right embeddedCmd `GM.gcatches` handlers
+
+-- ---------------------------------------------------------------------
 -- | This is like hoist from the mmorph package, but build on
 -- `MonadTransControl` since we don’t have an `MFunctor` instance.
 hoist
