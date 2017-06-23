@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ExistentialQuantification #-}
@@ -6,7 +7,7 @@
 module Haskell.Ide.Engine.Dispatcher where
 
 import           Control.Concurrent.STM.TChan
-import           Control.Concurrent.MVar
+import           Control.Concurrent.STM.TVar
 import           Control.Exception
 import           Control.Monad
 import           Control.Monad.IO.Class
@@ -40,20 +41,35 @@ dispatcher cin = do
       Nothing -> return ()
       Just resp -> liftIO $ sendResponse req resp
 
-dispatcherP :: MVar (S.Set J.LspId) -> MVar (S.Set J.LspId) -> TChan PluginRequest -> IdeM ()
-dispatcherP cancelReqsMVar wip pin = forever $ do
+data DispatcherEnv = DispatcherEnv
+  { cancelReqsTVar :: TVar (S.Set J.LspId)
+  , wipReqsTVar    :: TVar (S.Set J.LspId)
+  , docVersionTVar :: TVar (Map.Map Uri Int)
+  }
+
+dispatcherP :: DispatcherEnv -> TChan PluginRequest -> IdeM ()
+dispatcherP DispatcherEnv{..} pin = forever $ do
   debugm "dispatcherP: top of loop"
-  (PReq mid callback action) <- liftIO $ atomically $ readTChan pin
+  (PReq mver mid callback action) <- liftIO $ atomically $ readTChan pin
   debugm $ "got request with id: " ++ show mid
   case mid of
-    Nothing -> action >>= liftIO . callback
+    Nothing -> case mver of
+      Nothing -> action >>= liftIO . callback
+      Just (uri, reqver) -> do
+        curver <- liftIO $ atomically $ Map.lookup uri <$> readTVar docVersionTVar
+        if Just reqver /= curver then
+          debugm "not processing request as it is for old version"
+        else do
+          debugm "Processing request as version matches"
+          action >>= liftIO . callback
     Just lid -> do
-      liftIO $ modifyMVar_ wip (return . S.delete lid)
-      cancelReqs <- liftIO $ readMVar cancelReqsMVar
+      cancelReqs <- liftIO $ atomically $ do
+        modifyTVar' wipReqsTVar (S.delete lid)
+        readTVar cancelReqsTVar
       if S.member lid cancelReqs
         then do
           debugm $ "cancelling request: " ++ show lid
-          liftIO $ modifyMVar_ cancelReqsMVar (return . S.delete lid)
+          liftIO $ atomically $ modifyTVar' cancelReqsTVar (S.delete lid)
         else do
           debugm $ "processing request: " ++ show lid
           action >>= liftIO . callback
