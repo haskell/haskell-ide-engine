@@ -23,6 +23,7 @@ import           FastString
 import           GHC
 import qualified GhcMod.Error                          as GM
 import qualified GhcMod.Monad                          as GM
+import qualified GhcMod.Utils                          as GM
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
@@ -213,11 +214,12 @@ getRefactorResult = map getNewFile . filter fileModified
   where fileModified ((_,m),_) = m == RefacModified
         getNewFile ((file,_),(ann, parsed)) = (file, T.pack $ exactPrint parsed ann)
 
-makeRefactorResult :: [(FilePath,T.Text)] -> IO WorkspaceEdit
+makeRefactorResult :: [(FilePath,T.Text)] -> IdeM WorkspaceEdit
 makeRefactorResult changedFiles = do
   let
+    diffOne :: (FilePath, T.Text) -> IdeM WorkspaceEdit
     diffOne (fp, newText) = do
-      origText <- T.readFile fp
+      origText <- GM.withMappedFile fp $ liftIO . T.readFile
       return $ diffText (filePathToUri fp, origText) newText
   diffs <- mapM diffOne changedFiles
   return $ fold diffs
@@ -274,9 +276,10 @@ findDef fileName (row, col) = do
                            (T.pack $ "hare:findDef" <> ": \"" <> "Invalid cursor position" <> "\"")
                            Null))
 
-srcLoc2Loc :: MonadIO m => SrcSpan -> m (Either String Location)
+srcLoc2Loc :: SrcSpan -> RefactGhc (Either String Location)
 srcLoc2Loc (RealSrcSpan r) = do
-  file <- liftIO $ makeAbsolute $ unpackFS $ srcSpanFile r
+  revMapp <- RefactGhc GM.mkRevRedirMapFunc
+  file <- liftIO $ makeAbsolute $ revMapp $ unpackFS $ srcSpanFile r
   return $ Right $ Location (filePathToUri file) $ Range (toPos (l1,c1)) (toPos (l2,c2))
   where s = realSrcSpanStart r
         l1 = srcLocLine s
@@ -301,7 +304,7 @@ runHareCommand name cmd = do
                            Null))
        Right res -> do
             let changes = getRefactorResult res
-            refactRes <- liftIO $ makeRefactorResult changes
+            refactRes <- makeRefactorResult changes
             pure (IdeResponseOk refactRes)
 
 -- ---------------------------------------------------------------------
