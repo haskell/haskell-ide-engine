@@ -56,6 +56,7 @@ module Haskell.Ide.Engine.PluginDescriptor
   , Proxy(..)
   , recordToList'
   , ValidResponse
+  , CachedModule(..)
   -- * All the good types
   , module Haskell.Ide.Engine.PluginTypes
   ) where
@@ -73,6 +74,7 @@ import           GHC.Generics
 import           GHC.TypeLits
 import           Haskell.Ide.Engine.PluginTypes
 import qualified GhcMod.Monad as GM
+import           GHC(TypecheckedModule)
 
 -- ---------------------------------------------------------------------
 type ValidResponse a = (FromJSON a, ToJSON a, Typeable a)
@@ -216,7 +218,19 @@ data IdeState = IdeState
     idePlugins :: Plugins
   , extensibleState :: !(Map.Map TypeRep Dynamic)
               -- ^ stores custom state information.
+  , curModule :: Maybe CachedModule
   } deriving (Show)
+
+data CachedModule = CachedModule
+  { modUri :: Uri
+  , tcMod  :: TypecheckedModule
+  , newPosToOld :: Position -> Maybe Position
+  , oldPosToNew :: Position -> Maybe Position
+  }
+
+instance Show CachedModule where
+  show (CachedModule uri _ _ _) = "CachedModule { modUri = " ++ show uri ++ ", ... }"
+
 
 getPlugins :: IdeM Plugins
 getPlugins = lift $ lift $ idePlugins <$> get

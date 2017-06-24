@@ -177,7 +177,57 @@ unmapFileFromVfs cin uri = do
       return ()
     _ -> return ()
 
+loadFile :: (MonadIO m, MonadReader Core.LspFuncs m)
+  => TChan PluginRequest -> Uri -> Int -> m ()
+loadFile cin uri ver = do
+  case uriToFilePath uri of
+    Just fp -> undefined -- load uri into IdeState cachedModule using HaRe's parseSourceFileGhc
+    Nothing -> return ()
 
+updatePositionMap :: [J.TextDocumentContentChangeEvent] -> IdeM ()
+updatePositionMap changes = do
+  let (n2o,o2n) = foldr go (return, return) changes
+      go (J.TextDocumentContentChangeEvent (Just r) _ txt) (n2o', o2n') =
+        (newToOld r txt <=< n2o', oldToNew r txt <=< o2n')
+  mcm <- gets curModule
+  case mcm of
+    Just cm -> do
+      let cm' = cm {newPosToOld = n2o, oldPosToNew = o2n}
+      modify' (\s -> s { curModule = Just cm' })
+    Nothing -> return ()
+  where
+    oldToNew (J.Range fm to) txt p@(Position l c)
+      | p < fm = Just p
+      | p > to = Just $ Position l' c'
+      | otherwise = Nothing
+         where l' = l + dl
+               c' | l == el = c + dc
+                  | otherwise = c
+               (Position sl sc, Position el ec) = (fm, to)
+               dl = newL - oldL
+               dc = newC - oldC
+               oldL = el-sl
+               newL = length txtLines
+               txtLines = T.lines txt
+               oldC | sl == el = ec - sc
+                    | otherwise = ec
+               newC = T.length $ last txtLines
+    newToOld (J.Range fm to) txt p@(Position l c)
+      | p < fm = Just p
+      | p > to = Just $ Position l' c'
+      | otherwise = Nothing
+         where l' = l - dl
+               c' | l == el = c - dc
+                  | otherwise = c
+               (Position sl sc, Position el ec) = (fm, to)
+               dl = newL - oldL
+               dc = newC - oldC
+               oldL = el-sl
+               newL = length txtLines
+               txtLines = T.lines txt
+               oldC | sl == el = ec - sc
+                    | otherwise = ec
+               newC = T.length $ last txtLines
 
 -- ---------------------------------------------------------------------
 
@@ -277,6 +327,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
             uri = notification ^. J.params . J.textDocument . J.uri
             ver = (-1)
         liftIO $ atomically $ modifyTVar' versionTVar (Map.insert uri ver)
+        loadFile cin uri ver
         requestDiagnostics cin uri ver
 
       -- -------------------------------
@@ -301,6 +352,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
             doc  = vtdi ^. J.uri
             ver  = vtdi ^. J.version
         mapFileFromVfs versionTVar cin vtdi
+        loadFile cin uri ver
         requestDiagnostics cin doc ver
 
       -- -------------------------------
