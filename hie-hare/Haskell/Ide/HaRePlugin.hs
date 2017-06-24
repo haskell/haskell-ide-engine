@@ -321,8 +321,7 @@ runHareCommand' cmd =
                  ,rsFlags = RefFlags False
                  ,rsStorage = StorageNone
                  ,rsCurrentTarget = Nothing
-                 ,rsModule = Nothing
-                 ,rsHookIORef = Nothing}
+                 ,rsModule = Nothing}
      let cmd' = unRefactGhc cmd
          embeddedCmd =
            GM.unGmlT $
