@@ -34,7 +34,7 @@ packages:
 # - ../ghc-mod
 - location:
     git: https://github.com/alanz/ghc-mod.git
-    commit: 6d78f17e655bd545576b8ef02fd65a653dc72a98
+    commit: 86ca8bc766556df2a64ae062e4489714249bbd7c
   extra-dep: true
 - location:
     git: https://github.com/lspitzner/brittany.git
