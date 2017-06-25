@@ -12,7 +12,6 @@ module Haskell.Ide.GhcModPlugin where
 import           Data.Aeson
 import           Data.Either
 import           Data.Monoid
-import           Data.Function (on)
 import qualified Data.Text as T
 import qualified Data.Text.Read as T
 import           Text.Parsec
@@ -23,17 +22,6 @@ import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
 import qualified GhcMod.Types as GM
 import qualified GhcMod as GM
-import qualified GhcMod.SrcUtils as GM
-import qualified GhcMod.Utils as GM
-import qualified GhcMod.Doc as GM
-import           Control.Monad.Trans.State.Strict
-import           Control.Monad.Trans.Class
-import           GHC (SrcSpan(..))
-import qualified GHC as G
-import           SrcLoc
-import           Data.List (sortBy)
-import           FastString
-import           Control.Monad.IO.Class
 
 -- ---------------------------------------------------------------------
 
@@ -164,36 +152,6 @@ typeCmd' :: Bool -> Uri -> Position -> IdeM (IdeResponse TypeInfo)
 typeCmd' bool uri (Position l c) =
   pluginGetFile "type: " uri $ \file -> do
     fmap (toTypeInfo . T.lines . T.pack) <$> runGhcModCommand (GM.types bool file (l+1) (c+1))
-
-newTypeCmd :: Bool -> Uri -> Position -> IdeM (IdeResponse [(Range, String)])
-newTypeCmd bool uri (Position l c) =
-  pluginGetFile "type: " uri $ \file -> runGhcModCommand $ do
-    mcm <- lift . lift $ gets curModule
-    case mcm of
-      Nothing -> return $ []
-      Just cm -> do
-        if modUri cm == uri then do
-          let tm = tcMod cm
-          spanTypes' <- GM.collectSpansTypes bool tm ((l+1),(c+1))
-          let spanTypes = sortBy (GM.cmp `on` fst) spanTypes'
-          dflag        <- G.getSessionDynFlags
-          st           <- GM.getStyle
-          fmap rights $ mapM (\(span, t) -> fmap (, GM.pretty dflag st t) <$> srcLoc2Loc span) spanTypes
-        else do return $ []
-
-srcLoc2Loc :: SrcSpan -> IdeM (Either String Range)
-srcLoc2Loc (RealSrcSpan r) = do
-  revMapp <- GM.mkRevRedirMapFunc
-  file <- liftIO $ GM.makeAbsolute' $ revMapp $ unpackFS $ srcSpanFile r
-  return $ Right $ Range (toPos (l1,c1)) (toPos (l2,c2))
-  where s = realSrcSpanStart r
-        l1 = srcLocLine s
-        c1 = srcLocCol s
-        e = realSrcSpanEnd r
-        l2 = srcLocLine e
-        c2 = srcLocCol e
-srcLoc2Loc (UnhelpfulSpan x) = return $ Left $ unpackFS x
-
 
 -- | Transform output from ghc-mod type into TypeInfo
 toTypeInfo :: [T.Text] -> TypeInfo

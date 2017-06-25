@@ -378,18 +378,17 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         let params = req ^. J.params
             pos = params ^. J.position
             doc = params ^. J.textDocument . J.uri
-        callback <- hieResponseHelper (req ^. J.id) $ \(TypeInfo mtis) -> do
+        callback <- hieResponseHelper (req ^. J.id) $ \xs -> do
             let
-              ht = case mtis of
+              ht = case xs of
                 []  -> J.Hover (J.List []) Nothing
-                tis -> J.Hover (J.List ms) (Just range)
+                xs -> J.Hover (J.List ms) (Just tr)
                   where
-                    ms = map (\ti -> J.MarkedString "haskell" (trText ti)) tis
-                    tr = head tis
-                    range = J.Range (trStart tr) (trEnd tr)
+                    ms = map (\ti -> J.MarkedString "haskell" (snd ti)) xs
+                    tr = fst $ head xs
               rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) ht
             reactorSend rspMsg
-        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ GhcMod.typeCmd' True doc pos
+        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ HaRe.newTypeCmd True doc pos
         makeRequest hreq
 
       -- -------------------------------

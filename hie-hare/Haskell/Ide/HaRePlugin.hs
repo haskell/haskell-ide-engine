@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 
 {-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
@@ -9,12 +10,13 @@
 
 module Haskell.Ide.HaRePlugin where
 
-import           Control.Lens                          ((^.))
+import           Control.Lens                          ((^.), view)
 import           Control.Monad.State
 import           Control.Monad.Trans.Control
 import           Data.Aeson
 import           Data.Either
 import           Data.Foldable
+import           Data.Function (on)
 import           Data.Monoid
 import qualified Data.Text                             as T
 import qualified Data.Text.IO                          as T
@@ -24,6 +26,9 @@ import           GHC
 import qualified GhcMod.Error                          as GM
 import qualified GhcMod.Monad                          as GM
 import qualified GhcMod.Utils                          as GM
+import qualified GhcMod.SrcUtils as GM
+import qualified GhcMod.Doc as GM
+import           Data.List (sortBy)
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
@@ -276,6 +281,31 @@ findDef fileName (row, col) = do
                  (IdeError PluginError
                            (T.pack $ "hare:findDef" <> ": \"" <> "Invalid cursor position" <> "\"")
                            Null))
+
+newTypeCmd :: Bool -> Uri -> Position -> IdeM (IdeResponse [(Range, T.Text)])
+newTypeCmd bool uri (Position l c) = do
+    mcm <- lift . lift $ gets curModule
+    case mcm of
+      Nothing -> return $ IdeResponseOk []
+      Just cm -> do
+        if modUri cm == uri then do
+          eres <- runHareCommand' $ do
+            let tm = tcMod cm
+            spanTypes' <- GM.collectSpansTypes bool tm ((l+1),(c+1))
+            let spanTypes = sortBy (GM.cmp `on` fst) spanTypes'
+            dflag        <- getSessionDynFlags
+            st           <- GM.getStyle
+            fmap (IdeResponseOk . rights) $ mapM (\(spn, t) -> fmap (, T.pack $ GM.pretty dflag st t) <$> srcLoc2Range spn) spanTypes
+          case eres of
+            Right x -> return x
+            Left x -> pure (IdeResponseFail
+                                (IdeError PluginError
+                                          (T.pack $ "hare:findDef" <> ": \"" <> x <> "\"")
+                                          Null))
+        else do return $ IdeResponseOk []
+
+srcLoc2Range :: SrcSpan -> RefactGhc (Either String Range)
+srcLoc2Range = (fmap . fmap) (view J.range) . srcLoc2Loc
 
 srcLoc2Loc :: SrcSpan -> RefactGhc (Either String Location)
 srcLoc2Loc (RealSrcSpan r) = do
