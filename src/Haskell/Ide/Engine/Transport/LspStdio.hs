@@ -185,9 +185,10 @@ loadFile cin uri ver = do
   let req = PReq (Just (uri, ver)) Nothing (const $ return ()) $ HaRe.setTypecheckedModule uri
   liftIO $ atomically $ writeTChan cin req
 
-updatePositionMap :: [J.TextDocumentContentChangeEvent] -> IdeM (IdeResponse ())
-updatePositionMap changes = do
-  mcm <- lift . lift $ StateTrans.gets curModule
+updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeM (IdeResponse ())
+updatePositionMap uri changes = do
+  cms <- lift . lift $ StateTrans.gets cachedModules
+  let mcm = Map.lookup uri cms
   case mcm of
     Just cm -> do
       let n2oOld = newPosToOld cm
@@ -196,7 +197,7 @@ updatePositionMap changes = do
           go (J.TextDocumentContentChangeEvent (Just r) _ txt) (n2o', o2n') =
             (n2o' <=< newToOld r txt, oldToNew r txt <=< o2n')
       let cm' = cm {newPosToOld = n2o, oldPosToNew = o2n}
-      lift . lift $ StateTrans.modify' (\s -> s { curModule = Just cm' })
+      lift . lift $ StateTrans.modify' (\s -> s { cachedModules = Map.insert uri cm' cms })
       return $ IdeResponseOk ()
     Nothing ->
       return $ IdeResponseOk ()
@@ -339,14 +340,14 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         let
             params = notification ^. J.params
             vtdi = params ^. J.textDocument
-            doc  = vtdi ^. J.uri
+            uri  = vtdi ^. J.uri
             ver  = vtdi ^. J.version
             J.List changes = params ^. J.contentChanges
         mapFileFromVfs versionTVar cin vtdi
         -- Important - Call this before loadFile
-        makeRequest $ PReq Nothing Nothing (const $ return ()) $ updatePositionMap changes
-        loadFile cin doc ver
-        requestDiagnostics cin doc ver
+        makeRequest $ PReq Nothing Nothing (const $ return ()) $ updatePositionMap uri changes
+        loadFile cin uri ver
+        requestDiagnostics cin uri ver
 
       -- -------------------------------
 

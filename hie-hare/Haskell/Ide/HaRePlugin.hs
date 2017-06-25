@@ -18,6 +18,7 @@ import           Data.Either
 import           Data.Foldable
 import           Data.Function (on)
 import           Data.Monoid
+import qualified Data.Map as Map
 import qualified Data.Text                             as T
 import qualified Data.Text.IO                          as T
 import           Exception
@@ -284,38 +285,36 @@ findDef fileName (row, col) = do
 
 newTypeCmd :: Bool -> Uri -> Position -> IdeM (IdeResponse [(Range, T.Text)])
 newTypeCmd bool uri newPos = do
-    mcm <- lift . lift $ gets curModule
+    mcm <- lift . lift $ gets (Map.lookup uri . cachedModules)
     case mcm of
       Nothing -> return $ IdeResponseOk []
       Just cm -> do
-        if modUri cm == uri then do
-          let mOldPos = newPosToOld cm newPos
-          case mOldPos of
-            Nothing -> return $ IdeResponseOk []
-            Just (Position l c) ->  do
-              eres <- runHareCommand' $ do
-                let tm = tcMod cm
-                spanTypes' <- GM.collectSpansTypes bool tm (l+1,c+1)
-                let spanTypes = sortBy (GM.cmp `on` fst) spanTypes'
-                dflag        <- getSessionDynFlags
-                st           <- GM.getStyle
-                res <- forM spanTypes $ \(spn, t) -> do
-                  range' <- srcLoc2Range spn
-                  let getNewRange (Range start end) = do
-                        s' <- oldPosToNew cm start
-                        e' <- oldPosToNew cm end
-                        return $ Range s' e'
-                  case getNewRange <$> range' of
-                    (Right (Just range)) -> return $ [(range , T.pack $ GM.pretty dflag st t)]
-                    _ -> return []
-                return $ IdeResponseOk $ concat res
-              case eres of
-                Right x -> return x
-                Left x -> pure (IdeResponseFail
-                                    (IdeError PluginError
-                                              (T.pack $ "hare:findDef" <> ": \"" <> x <> "\"")
+        let mOldPos = newPosToOld cm newPos
+        case mOldPos of
+          Nothing -> return $ IdeResponseOk []
+          Just (Position l c) ->  do
+            eres <- runHareCommand' $ do
+              let tm = tcMod cm
+              spanTypes' <- GM.collectSpansTypes bool tm (l+1,c+1)
+              let spanTypes = sortBy (GM.cmp `on` fst) spanTypes'
+              dflag        <- getSessionDynFlags
+              st           <- GM.getStyle
+              res <- forM spanTypes $ \(spn, t) -> do
+                range' <- srcLoc2Range spn
+                let getNewRange (Range start end) = do
+                      s' <- oldPosToNew cm start
+                      e' <- oldPosToNew cm end
+                      return $ Range s' e'
+                case getNewRange <$> range' of
+                  (Right (Just range)) -> return $ [(range , T.pack $ GM.pretty dflag st t)]
+                  _ -> return []
+              return $ IdeResponseOk $ concat res
+            case eres of
+              Right x -> return x
+              Left x -> pure (IdeResponseFail
+                                  (IdeError PluginError
+                                            (T.pack $ "hare:findDef" <> ": \"" <> x <> "\"")
                                               Null))
-        else do return $ IdeResponseOk []
 
 srcLoc2Range :: SrcSpan -> RefactGhc (Either String Range)
 srcLoc2Range = (fmap . fmap) (view J.range) . srcLoc2Loc
@@ -344,8 +343,9 @@ setTypecheckedModule uri = do
         case mtm of
           Nothing -> return $ IdeResponseOk ()
           Just tm -> do
-            let cm = CachedModule uri tm return return
-            lift . lift $ modify' (\s -> s { curModule = Just cm })
+            let cm = CachedModule tm return return
+            cms <- lift . lift $ gets cachedModules
+            lift . lift $ modify' (\s -> s { cachedModules = Map.insert uri cm cms })
             return $ IdeResponseOk ()
       Left err ->
          pure (IdeResponseFail

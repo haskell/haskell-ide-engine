@@ -218,18 +218,17 @@ data IdeState = IdeState
     idePlugins :: Plugins
   , extensibleState :: !(Map.Map TypeRep Dynamic)
               -- ^ stores custom state information.
-  , curModule :: Maybe CachedModule
+  , cachedModules :: Map.Map Uri CachedModule
   } deriving (Show)
 
 data CachedModule = CachedModule
-  { modUri :: Uri
-  , tcMod  :: TypecheckedModule
+  { tcMod  :: TypecheckedModule
   , newPosToOld :: Position -> Maybe Position
   , oldPosToNew :: Position -> Maybe Position
   }
 
 instance Show CachedModule where
-  show (CachedModule uri _ _ _) = "CachedModule { modUri = " ++ show uri ++ ", ... }"
+  show (CachedModule _ _ _) = "CachedModule { .. }"
 
 
 getPlugins :: IdeM Plugins
