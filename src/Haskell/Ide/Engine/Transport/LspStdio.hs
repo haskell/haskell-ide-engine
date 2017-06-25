@@ -185,50 +185,38 @@ loadFile cin uri ver = do
   let req = PReq (Just (uri, ver)) Nothing (const $ return ()) $ HaRe.setTypecheckedModule uri
   liftIO $ atomically $ writeTChan cin req
 
-updatePositionMap :: [J.TextDocumentContentChangeEvent] -> IdeM ()
+updatePositionMap :: [J.TextDocumentContentChangeEvent] -> IdeM (IdeResponse ())
 updatePositionMap changes = do
-  let (n2o,o2n) = foldr go (return, return) changes
-      go (J.TextDocumentContentChangeEvent (Just r) _ txt) (n2o', o2n') =
-        (newToOld r txt <=< n2o', oldToNew r txt <=< o2n')
   mcm <- lift . lift $ StateTrans.gets curModule
   case mcm of
     Just cm -> do
+      let n2oOld = newPosToOld cm
+          o2nOld = oldPosToNew cm
+          (n2o,o2n) = foldr go (n2oOld, o2nOld) changes
+          go (J.TextDocumentContentChangeEvent (Just r) _ txt) (n2o', o2n') =
+            (n2o' <=< newToOld r txt, oldToNew r txt <=< o2n')
       let cm' = cm {newPosToOld = n2o, oldPosToNew = o2n}
       lift . lift $ StateTrans.modify' (\s -> s { curModule = Just cm' })
-    Nothing -> return ()
+      return $ IdeResponseOk ()
+    Nothing ->
+      return $ IdeResponseOk ()
   where
-    oldToNew (J.Range fm to) txt p@(Position l c)
-      | p < fm = Just p
-      | p > to = Just $ Position l' c'
+    oldToNew (J.Range (Position sl _) (Position el _)) txt p@(Position l c)
+      | l < sl = Just p
+      | l > el = Just $ Position l' c
       | otherwise = Nothing
          where l' = l + dl
-               c' | l == el = c + dc
-                  | otherwise = c
-               (Position sl sc, Position el ec) = (fm, to)
                dl = newL - oldL
-               dc = newC - oldC
                oldL = el-sl
-               newL = length txtLines
-               txtLines = T.lines txt
-               oldC | sl == el = ec - sc
-                    | otherwise = ec
-               newC = T.length $ last txtLines
-    newToOld (J.Range fm to) txt p@(Position l c)
-      | p < fm = Just p
-      | p > to = Just $ Position l' c'
+               newL = T.count "\n" txt
+    newToOld (J.Range (Position sl _) (Position el _)) txt p@(Position l c)
+      | l < sl = Just p
+      | l > el = Just $ Position l' c
       | otherwise = Nothing
          where l' = l - dl
-               c' | l == el = c - dc
-                  | otherwise = c
-               (Position sl sc, Position el ec) = (fm, to)
                dl = newL - oldL
-               dc = newC - oldC
                oldL = el-sl
-               newL = length txtLines
-               txtLines = T.lines txt
-               oldC | sl == el = ec - sc
-                    | otherwise = ec
-               newC = T.length $ last txtLines
+               newL = T.count "\n" txt
 
 -- ---------------------------------------------------------------------
 
@@ -349,10 +337,14 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
       Core.NotDidChangeTextDocument notification -> do
         liftIO $ U.logm "****** reactor: processing NotDidChangeTextDocument"
         let
-            vtdi = notification ^. J.params . J.textDocument
+            params = notification ^. J.params
+            vtdi = params ^. J.textDocument
             doc  = vtdi ^. J.uri
             ver  = vtdi ^. J.version
+            J.List changes = params ^. J.contentChanges
         mapFileFromVfs versionTVar cin vtdi
+        -- Important - Call this before loadFile
+        makeRequest $ PReq Nothing Nothing (const $ return ()) $ updatePositionMap changes
         loadFile cin doc ver
         requestDiagnostics cin doc ver
 
@@ -382,7 +374,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
             let
               ht = case xs of
                 []  -> J.Hover (J.List []) Nothing
-                xs -> J.Hover (J.List ms) (Just tr)
+                xs -> J.Hover (J.List $ take 1 ms) (Just tr)
                   where
                     ms = map (\ti -> J.MarkedString "haskell" (snd ti)) xs
                     tr = fst $ head xs
