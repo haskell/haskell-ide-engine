@@ -154,7 +154,6 @@ typeCmd' bool uri (Position l c) =
 
 
 
-
 -- | Transform output from ghc-mod type into TypeInfo
 toTypeInfo :: [T.Text] -> TypeInfo
 toTypeInfo = TypeInfo . rights . map readTypeResult

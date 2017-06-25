@@ -25,6 +25,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Control.Monad.Reader
 import           Control.Monad.State
+import qualified Control.Monad.Trans.State.Strict as StateTrans
 import qualified Data.Aeson as J
 import           Data.Aeson ( (.=) )
 import           Data.Default
@@ -56,6 +57,7 @@ import           System.Exit
 import           System.FilePath
 import qualified System.Log.Logger as L
 import qualified Yi.Rope as Yi
+import           Language.Haskell.Refact.Utils.Utils
 -- import qualified Yi.Rope as Yi
 
 -- ---------------------------------------------------------------------
@@ -180,20 +182,19 @@ unmapFileFromVfs cin uri = do
 loadFile :: (MonadIO m, MonadReader Core.LspFuncs m)
   => TChan PluginRequest -> Uri -> Int -> m ()
 loadFile cin uri ver = do
-  case uriToFilePath uri of
-    Just fp -> undefined -- load uri into IdeState cachedModule using HaRe's parseSourceFileGhc
-    Nothing -> return ()
+  let req = PReq (Just (uri, ver)) Nothing (const $ return ()) $ HaRe.setTypecheckedModule uri
+  liftIO $ atomically $ writeTChan cin req
 
 updatePositionMap :: [J.TextDocumentContentChangeEvent] -> IdeM ()
 updatePositionMap changes = do
   let (n2o,o2n) = foldr go (return, return) changes
       go (J.TextDocumentContentChangeEvent (Just r) _ txt) (n2o', o2n') =
         (newToOld r txt <=< n2o', oldToNew r txt <=< o2n')
-  mcm <- gets curModule
+  mcm <- lift . lift $ StateTrans.gets curModule
   case mcm of
     Just cm -> do
       let cm' = cm {newPosToOld = n2o, oldPosToNew = o2n}
-      modify' (\s -> s { curModule = Just cm' })
+      lift . lift $ StateTrans.modify' (\s -> s { curModule = Just cm' })
     Nothing -> return ()
   where
     oldToNew (J.Range fm to) txt p@(Position l c)
@@ -352,7 +353,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
             doc  = vtdi ^. J.uri
             ver  = vtdi ^. J.version
         mapFileFromVfs versionTVar cin vtdi
-        loadFile cin uri ver
+        loadFile cin doc ver
         requestDiagnostics cin doc ver
 
       -- -------------------------------

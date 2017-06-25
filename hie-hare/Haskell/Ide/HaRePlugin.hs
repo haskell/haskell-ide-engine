@@ -30,6 +30,7 @@ import           Haskell.Ide.Engine.SemanticTypes
 import           Language.Haskell.GHC.ExactPrint.Print
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 import           Language.Haskell.Refact.API
+import           Language.Haskell.Refact.Utils.Utils
 import           Language.Haskell.Refact.HaRe
 import           Language.Haskell.Refact.Utils.Monad
 import           Name
@@ -288,6 +289,26 @@ srcLoc2Loc (RealSrcSpan r) = do
         l2 = srcLocLine e
         c2 = srcLocCol e
 srcLoc2Loc (UnhelpfulSpan x) = return $ Left $ unpackFS x
+
+-- ---------------------------------------------------------------------
+
+setTypecheckedModule :: Uri -> IdeM (IdeResponse ())
+setTypecheckedModule uri = do
+  pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
+    emtm <- runHareCommand' $ getTypecheckedModuleGhc fp
+    case emtm of
+      Right mtm -> do
+        case mtm of
+          Nothing -> return $ IdeResponseOk ()
+          Just tm -> do
+            let cm = CachedModule uri tm return return
+            lift . lift $ modify' (\s -> s { curModule = Just cm })
+            return $ IdeResponseOk ()
+      Left err ->
+         pure (IdeResponseFail
+                 (IdeError PluginError
+                           (T.pack $ "hare:findDefCmd" <> ": \"" <> err <> "\"")
+                           Null))
 
 -- ---------------------------------------------------------------------
 
