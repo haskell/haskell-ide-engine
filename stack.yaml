@@ -28,13 +28,13 @@ packages:
 # - ../HaRe
 - location:
     git: https://github.com/alanz/HaRe.git
-    commit: 243f18c958c7019e64e013b406f98fffcc6bc855
+    commit: a691f563b2501ce132edb40613a6b4ca41e02529
   extra-dep: true
 # - ../../DanielG/ghc-mod
 # - ../ghc-mod
 - location:
     git: https://github.com/alanz/ghc-mod.git
-    commit: 86ca8bc766556df2a64ae062e4489714249bbd7c
+    commit: f84c9568d426fc3e54c6323cd356d552d4020e5d
   extra-dep: true
 - location:
     git: https://github.com/lspitzner/brittany.git
