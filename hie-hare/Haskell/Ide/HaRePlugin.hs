@@ -1,7 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 
 {-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
@@ -306,7 +305,7 @@ newTypeCmd bool uri newPos = do
                       e' <- oldPosToNew cm end
                       return $ Range s' e'
                 case getNewRange <$> range' of
-                  (Right (Just range)) -> return $ [(range , T.pack $ GM.pretty dflag st t)]
+                  (Right (Just range)) -> return [(range , T.pack $ GM.pretty dflag st t)]
                   _ -> return []
               return $ IdeResponseOk $ concat res
             case eres of

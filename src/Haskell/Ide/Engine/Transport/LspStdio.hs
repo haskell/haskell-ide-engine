@@ -57,7 +57,6 @@ import           System.Exit
 import           System.FilePath
 import qualified System.Log.Logger as L
 import qualified Yi.Rope as Yi
-import           Language.Haskell.Refact.Utils.Utils
 -- import qualified Yi.Rope as Yi
 
 -- ---------------------------------------------------------------------
@@ -196,6 +195,7 @@ updatePositionMap uri changes = do
           (n2o,o2n) = foldr go (n2oOld, o2nOld) changes
           go (J.TextDocumentContentChangeEvent (Just r) _ txt) (n2o', o2n') =
             (n2o' <=< newToOld r txt, oldToNew r txt <=< o2n')
+          go _ _ = (const Nothing, const Nothing)
       let cm' = cm {newPosToOld = n2o, oldPosToNew = o2n}
       lift . lift $ StateTrans.modify' (\s -> s { cachedModules = Map.insert uri cm' cms })
       return $ IdeResponseOk ()
@@ -246,7 +246,7 @@ sendErrorResponse origId err msg
 
 sendErrorLog :: (MonadIO m, MonadReader Core.LspFuncs m)
   => T.Text -> m ()
-sendErrorLog msg = reactorSend' (\sf -> Core.sendErrorLogS  sf msg)
+sendErrorLog msg = reactorSend' (`Core.sendErrorLogS` msg)
 
 -- sendErrorShow :: String -> R ()
 -- sendErrorShow msg = reactorSend' (\sf -> Core.sendErrorShowS sf msg)
@@ -349,6 +349,16 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         loadFile cin uri ver
         requestDiagnostics cin uri ver
 
+      Core.NotDidCloseTextDocument notification -> do
+        liftIO $ U.logm "****** reactor: processing NotDidCloseTextDocument"
+        let
+            uri = notification ^. J.params . J.textDocument . J.uri
+        unmapFileFromVfs cin uri
+        makeRequest $ PReq Nothing Nothing (const $ return ()) $ do
+          cms <- lift . lift $ StateTrans.gets cachedModules
+          lift . lift $ StateTrans.modify' (\s -> s {cachedModules = Map.delete uri cms})
+          return $ IdeResponseOk ()
+
       -- -------------------------------
 
       Core.ReqRename req -> do
@@ -371,9 +381,9 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         let params = req ^. J.params
             pos = params ^. J.position
             doc = params ^. J.textDocument . J.uri
-        callback <- hieResponseHelper (req ^. J.id) $ \xs -> do
+        callback <- hieResponseHelper (req ^. J.id) $ \info -> do
             let
-              ht = case xs of
+              ht = case info of
                 []  -> J.Hover (J.List []) Nothing
                 xs -> J.Hover (J.List $ take 1 ms) (Just tr)
                   where
