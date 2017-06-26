@@ -28,7 +28,7 @@ packages:
 # - ../HaRe
 - location:
     git: https://github.com/alanz/HaRe.git
-    commit: d42855fe2fe2b3b8ea9492853aa10fa78edaa114
+    commit: 10e802b8f074e055f7b4a91e5573e783cfc58993
   extra-dep: true
 # - ../../DanielG/ghc-mod
 # - ../ghc-mod

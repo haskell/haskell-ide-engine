@@ -35,6 +35,7 @@ import           Haskell.Ide.Engine.SemanticTypes
 import           Language.Haskell.GHC.ExactPrint.Print
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 import           Language.Haskell.Refact.API
+import           Language.Haskell.Refact.Utils.Utils
 import           Language.Haskell.Refact.HaRe
 import           Language.Haskell.Refact.Utils.Monad
 import           Name
@@ -232,9 +233,9 @@ makeRefactorResult changedFiles = do
 -- ---------------------------------------------------------------------
 
 findDefCmd :: TextDocumentPositionParams -> IdeM (IdeResponse Location)
-findDefCmd (TextDocumentPositionParams tdi pos) =
-  pluginGetFile "findDef: " (tdi ^. J.uri) $ \file -> do
-    eitherRes <- runHareCommand' $ findDef file (unPos pos)
+findDefCmd (TextDocumentPositionParams tdi pos) = do
+    cms <- lift . lift $ gets cachedModules
+    eitherRes <- runHareCommand' $ findDef cms (tdi ^. J.uri) (unPos pos)
     case eitherRes of
       Right x -> return x
       Left err ->
@@ -243,9 +244,14 @@ findDefCmd (TextDocumentPositionParams tdi pos) =
                            (T.pack $ "hare:findDefCmd" <> ": \"" <> err <> "\"")
                            Null))
 
-findDef :: FilePath -> (Int,Int) -> RefactGhc (IdeResponse Location)
-findDef fileName (row, col) = do
-  parseSourceFileGhc fileName
+findDef :: Map.Map Uri CachedModule -> Uri -> (Int,Int) -> RefactGhc (IdeResponse Location)
+findDef cms file (row, col) = do
+  let mcm = Map.lookup file cms
+  case mcm of
+    Just cm -> loadTypecheckedModule $ tcMod cm
+    Nothing -> case uriToFilePath file of
+      Just fp -> parseSourceFileGhc fp
+      Nothing -> error "Uri is not valid filepath"
   parsed <- getRefactParsed
   case locToRdrName (row, col) parsed of
     Just pn -> do
@@ -267,6 +273,10 @@ findDef fileName (row, col) = do
                 case ml_hs_file mLoc of
                   Just fp -> do
                     parseSourceFileGhc fp
+                    let mcm' = Map.lookup (filePathToUri fp) cms
+                    case mcm' of
+                      Just cm -> loadTypecheckedModule $ tcMod cm
+                      Nothing -> parseSourceFileGhc fp
                     newNames <- equivalentNameInNewMod n
                     eithers <- mapM (srcLoc2Loc . nameSrcSpan) newNames
                     case rights eithers of
