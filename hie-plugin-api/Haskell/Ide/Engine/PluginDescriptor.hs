@@ -57,6 +57,8 @@ module Haskell.Ide.Engine.PluginDescriptor
   , recordToList'
   , ValidResponse
   , CachedModule(..)
+  , getCachedModules
+  , modifyCachedModules
   -- * All the good types
   , module Haskell.Ide.Engine.PluginTypes
   ) where
@@ -212,14 +214,23 @@ instance FromJSON Service where
 
 type IdeM = IdeT IO
 type IdeT m = GM.GhcModT (StateT IdeState m)
+type CachedModules = Map.Map Uri CachedModule
 
 data IdeState = IdeState
   {
     idePlugins :: Plugins
   , extensibleState :: !(Map.Map TypeRep Dynamic)
               -- ^ stores custom state information.
-  , cachedModules :: Map.Map Uri CachedModule
+  , cachedModules :: CachedModules
   } deriving (Show)
+
+getCachedModules :: IdeM CachedModules
+getCachedModules = lift . lift $ gets cachedModules
+
+modifyCachedModules :: (CachedModules -> CachedModules) -> IdeM ()
+modifyCachedModules f = do
+  cms <- getCachedModules
+  lift . lift $ modify' (\s -> s { cachedModules = f cms })
 
 data CachedModule = CachedModule
   { tcMod  :: TypecheckedModule

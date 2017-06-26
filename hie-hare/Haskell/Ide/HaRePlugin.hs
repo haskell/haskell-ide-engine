@@ -9,39 +9,32 @@
 
 module Haskell.Ide.HaRePlugin where
 
-import           Control.Lens                          ((^.), view)
+import           Control.Lens                                 ((^.))
 import           Control.Monad.State
 import           Control.Monad.Trans.Control
 import           Data.Aeson
 import           Data.Either
 import           Data.Foldable
-import           Data.Function (on)
+import qualified Data.Map                                     as Map
 import           Data.Monoid
-import qualified Data.Map as Map
-import qualified Data.Text                             as T
-import qualified Data.Text.IO                          as T
+import qualified Data.Text                                    as T
+import qualified Data.Text.IO                                 as T
 import           Exception
-import           FastString
 import           GHC
-import qualified GhcMod.Error                          as GM
-import qualified GhcMod.Monad                          as GM
-import qualified GhcMod.Utils                          as GM
-import qualified GhcMod.SrcUtils as GM
-import qualified GhcMod.Doc as GM
-import           Data.List (sortBy)
+import qualified GhcMod.Error                                 as GM
+import qualified GhcMod.Monad                                 as GM
+import qualified GhcMod.Utils                                 as GM
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
 import           Language.Haskell.GHC.ExactPrint.Print
-import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
+import qualified Language.Haskell.LSP.TH.DataTypesJSON        as J
 import           Language.Haskell.Refact.API
-import           Language.Haskell.Refact.Utils.Utils
 import           Language.Haskell.Refact.HaRe
 import           Language.Haskell.Refact.Utils.Monad
 import           Language.Haskell.Refact.Utils.MonadFunctions
+import           Language.Haskell.Refact.Utils.Utils
 import           Name
-import           SrcLoc
-import           System.Directory
 
 -- ---------------------------------------------------------------------
 
@@ -235,7 +228,7 @@ makeRefactorResult changedFiles = do
 
 findDefCmd :: TextDocumentPositionParams -> IdeM (IdeResponse Location)
 findDefCmd (TextDocumentPositionParams tdi pos) = do
-    cms <- lift . lift $ gets cachedModules
+    cms <- getCachedModules
     eitherRes <- runHareCommand' $ findDef cms (tdi ^. J.uri) (unPos pos)
     case eitherRes of
       Right x -> return x
@@ -265,7 +258,7 @@ findDef cms file (row, col) = do
         Just pn -> do
           let nameMap = initRdrNameMap tc
           let n = rdrName2NamePure nameMap pn
-          res <- srcLoc2Loc $ nameSrcSpan n
+          res <- RefactGhc $ srcLoc2Loc $ nameSrcSpan n
           case res of
             Right l -> return $ IdeResponseOk l
             Left x -> do
@@ -283,65 +276,18 @@ findDef cms file (row, col) = do
                       Just fp -> do
                         let mcm' = Map.lookup (filePathToUri fp) cms
                         case mcm' of
-                          Just cm' -> loadTypecheckedModule $ tcMod cm'
-                          Nothing -> parseSourceFileGhc fp
+                          Just cm' -> do
+                            loadTypecheckedModule $ tcMod cm'
+                          Nothing -> do
+                            parseSourceFileGhc fp
                         newNames <- equivalentNameInNewMod n
-                        eithers <- mapM (srcLoc2Loc . nameSrcSpan) newNames
+                        eithers <- RefactGhc $ mapM (srcLoc2Loc . nameSrcSpan) newNames
                         case rights eithers of
                           (l:_) -> return $ IdeResponseOk l
                           []    -> failure
                       Nothing -> failure
                     else failure
                 Nothing -> failure
-
-newTypeCmd :: Bool -> Uri -> Position -> IdeM (IdeResponse [(Range, T.Text)])
-newTypeCmd bool uri newPos = do
-    mcm <- lift . lift $ gets (Map.lookup uri . cachedModules)
-    case mcm of
-      Nothing -> return $ IdeResponseOk []
-      Just cm -> do
-        let mOldPos = newPosToOld cm newPos
-        case mOldPos of
-          Nothing -> return $ IdeResponseOk []
-          Just (Position l c) ->  do
-            eres <- runHareCommand' $ do
-              let tm = tcMod cm
-              spanTypes' <- GM.collectSpansTypes bool tm (l+1,c+1)
-              let spanTypes = sortBy (GM.cmp `on` fst) spanTypes'
-              dflag        <- getSessionDynFlags
-              st           <- GM.getStyle
-              res <- forM spanTypes $ \(spn, t) -> do
-                range' <- srcLoc2Range spn
-                let getNewRange (Range start end) = do
-                      s' <- oldPosToNew cm start
-                      e' <- oldPosToNew cm end
-                      return $ Range s' e'
-                case getNewRange <$> range' of
-                  (Right (Just range)) -> return [(range , T.pack $ GM.pretty dflag st t)]
-                  _ -> return []
-              return $ IdeResponseOk $ concat res
-            case eres of
-              Right x -> return x
-              Left x -> pure (IdeResponseFail
-                                  (IdeError PluginError
-                                            (T.pack $ "hare:findDef" <> ": \"" <> x <> "\"")
-                                              Null))
-
-srcLoc2Range :: SrcSpan -> RefactGhc (Either String Range)
-srcLoc2Range = (fmap . fmap) (view J.range) . srcLoc2Loc
-
-srcLoc2Loc :: SrcSpan -> RefactGhc (Either String Location)
-srcLoc2Loc (RealSrcSpan r) = do
-  revMapp <- RefactGhc GM.mkRevRedirMapFunc
-  file <- liftIO $ makeAbsolute $ revMapp $ unpackFS $ srcSpanFile r
-  return $ Right $ Location (filePathToUri file) $ Range (toPos (l1,c1)) (toPos (l2,c2))
-  where s = realSrcSpanStart r
-        l1 = srcLocLine s
-        c1 = srcLocCol s
-        e = realSrcSpanEnd r
-        l2 = srcLocLine e
-        c2 = srcLocCol e
-srcLoc2Loc (UnhelpfulSpan x) = return $ Left $ unpackFS x
 
 -- ---------------------------------------------------------------------
 

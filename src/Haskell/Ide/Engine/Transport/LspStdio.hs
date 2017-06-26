@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE RankNTypes            #-}
@@ -25,7 +24,6 @@ import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Control.Monad.Reader
 import           Control.Monad.State
-import qualified Control.Monad.Trans.State.Strict as StateTrans
 import qualified Data.Aeson as J
 import           Data.Aeson ( (.=) )
 import           Data.Default
@@ -180,8 +178,7 @@ unmapFileFromVfs cin uri = do
 
 updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeM (IdeResponse ())
 updatePositionMap uri changes = do
-  cms <- lift . lift $ StateTrans.gets cachedModules
-  let mcm = Map.lookup uri cms
+  mcm <- Map.lookup uri <$> getCachedModules
   case mcm of
     Just cm -> do
       let n2oOld = newPosToOld cm
@@ -191,7 +188,7 @@ updatePositionMap uri changes = do
             (n2o' <=< newToOld r txt, oldToNew r txt <=< o2n')
           go _ _ = (const Nothing, const Nothing)
       let cm' = cm {newPosToOld = n2o, oldPosToNew = o2n}
-      lift . lift $ StateTrans.modify' (\s -> s { cachedModules = Map.insert uri cm' cms })
+      modifyCachedModules (Map.insert uri cm')
       return $ IdeResponseOk ()
     Nothing ->
       return $ IdeResponseOk ()
@@ -347,8 +344,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
             uri = notification ^. J.params . J.textDocument . J.uri
         unmapFileFromVfs cin uri
         makeRequest $ PReq Nothing Nothing (const $ return ()) $ do
-          cms <- lift . lift $ StateTrans.gets cachedModules
-          lift . lift $ StateTrans.modify' (\s -> s {cachedModules = Map.delete uri cms})
+          modifyCachedModules (Map.delete uri)
           return $ IdeResponseOk ()
 
       -- -------------------------------
@@ -383,7 +379,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
                     tr = fst $ head xs
               rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) ht
             reactorSend rspMsg
-        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ HaRe.newTypeCmd True doc pos
+        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ GhcMod.newTypeCmd True doc pos
         makeRequest hreq
 
       -- -------------------------------
