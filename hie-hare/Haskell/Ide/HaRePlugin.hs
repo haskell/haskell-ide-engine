@@ -38,6 +38,7 @@ import           Language.Haskell.Refact.API
 import           Language.Haskell.Refact.Utils.Utils
 import           Language.Haskell.Refact.HaRe
 import           Language.Haskell.Refact.Utils.Monad
+import           Language.Haskell.Refact.Utils.MonadFunctions
 import           Name
 import           SrcLoc
 import           System.Directory
@@ -248,48 +249,50 @@ findDef :: Map.Map Uri CachedModule -> Uri -> (Int,Int) -> RefactGhc (IdeRespons
 findDef cms file (row, col) = do
   let mcm = Map.lookup file cms
   case mcm of
-    Just cm -> loadTypecheckedModule $ tcMod cm
-    Nothing -> case uriToFilePath file of
-      Just fp -> parseSourceFileGhc fp
-      Nothing -> error "Uri is not valid filepath"
-  parsed <- getRefactParsed
-  case locToRdrName (row, col) parsed of
-    Just pn -> do
-      n <- rdrName2Name pn
-      res <- srcLoc2Loc $ nameSrcSpan n
-      case res of
-        Right l -> return $ IdeResponseOk l
-        Left x -> do
-          let failure = pure (IdeResponseFail
-                                (IdeError PluginError
-                                          (T.pack $ "hare:findDef" <> ": \"" <> x <> "\"")
-                                          Null))
-          case nameModule_maybe n of
-            Just m -> do
-              let mName = moduleName m
-              b <- isLoaded mName
-              if b then do
-                mLoc <- ms_location <$> getModSummary mName
-                case ml_hs_file mLoc of
-                  Just fp -> do
-                    parseSourceFileGhc fp
-                    let mcm' = Map.lookup (filePathToUri fp) cms
-                    case mcm' of
-                      Just cm -> loadTypecheckedModule $ tcMod cm
-                      Nothing -> parseSourceFileGhc fp
-                    newNames <- equivalentNameInNewMod n
-                    eithers <- mapM (srcLoc2Loc . nameSrcSpan) newNames
-                    case rights eithers of
-                      (l:_) -> return $ IdeResponseOk l
-                      []    -> failure
-                  Nothing -> failure
-                else failure
-            Nothing -> failure
-    Nothing ->
-          pure (IdeResponseFail
+    Nothing -> return $ IdeResponseFail $
                  (IdeError PluginError
-                           (T.pack $ "hare:findDef" <> ": \"" <> "Invalid cursor position" <> "\"")
-                           Null))
+                           (T.pack $ "hare:findDef" <> ": \"" <> "module not loaded" <> "\"")
+                           Null)
+    Just cm -> do
+      let tc = tcMod cm
+          parsed = pm_parsed_source $ tm_parsed_module tc
+      case locToRdrName (row, col) parsed of
+        Nothing ->
+              pure (IdeResponseFail
+                     (IdeError PluginError
+                               (T.pack $ "hare:findDef" <> ": \"" <> "Invalid cursor position" <> "\"")
+                               Null))
+        Just pn -> do
+          let nameMap = initRdrNameMap tc
+          let n = rdrName2NamePure nameMap pn
+          res <- srcLoc2Loc $ nameSrcSpan n
+          case res of
+            Right l -> return $ IdeResponseOk l
+            Left x -> do
+              let failure = pure (IdeResponseFail
+                                    (IdeError PluginError
+                                              (T.pack $ "hare:findDef" <> ": \"" <> x <> "\"")
+                                              Null))
+              case nameModule_maybe n of
+                Just m -> do
+                  let mName = moduleName m
+                  b <- isLoaded mName
+                  if b then do
+                    mLoc <- ms_location <$> getModSummary mName
+                    case ml_hs_file mLoc of
+                      Just fp -> do
+                        let mcm' = Map.lookup (filePathToUri fp) cms
+                        case mcm' of
+                          Just cm' -> loadTypecheckedModule $ tcMod cm'
+                          Nothing -> parseSourceFileGhc fp
+                        newNames <- equivalentNameInNewMod n
+                        eithers <- mapM (srcLoc2Loc . nameSrcSpan) newNames
+                        case rights eithers of
+                          (l:_) -> return $ IdeResponseOk l
+                          []    -> failure
+                      Nothing -> failure
+                    else failure
+                Nothing -> failure
 
 newTypeCmd :: Bool -> Uri -> Position -> IdeM (IdeResponse [(Range, T.Text)])
 newTypeCmd bool uri newPos = do
