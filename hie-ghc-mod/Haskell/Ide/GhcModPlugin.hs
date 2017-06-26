@@ -6,21 +6,32 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TupleSections         #-}
 module Haskell.Ide.GhcModPlugin where
 
+import           Control.Monad
 import           Data.Aeson
 import           Data.Either
+import           Data.Function
+import           Data.List
+import qualified Data.Map                            as Map
 import           Data.Monoid
-import qualified Data.Text as T
-import qualified Data.Text.Read as T
-import           Text.Parsec
+import qualified Data.Text                           as T
+import qualified Data.Text.Read                      as T
 import           Data.Vinyl
-import qualified Exception as G
+import qualified Exception                           as G
+import           GHC
+import qualified GhcMod                              as GM
+import qualified GhcMod.Doc                          as GM
+import qualified GhcMod.Gap                          as GM
+import qualified GhcMod.Monad                        as GM
+import qualified GhcMod.SrcUtils                     as GM
+import qualified GhcMod.Types                        as GM
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
-import qualified GhcMod.Types as GM
-import qualified GhcMod as GM
+import           Language.Haskell.Refact.Utils.Utils
+import           Text.Parsec
 
 -- ---------------------------------------------------------------------
 
@@ -109,6 +120,20 @@ checkCmd' uri =
 --       -- return (IdeResponseOk "Placholder:Need to debug this in ghc-mod, returns 'does not exist (No such file or directory)'")
 --     Right _ -> return $ IdeResponseError (IdeError InternalError
 --       "GhcModPlugin.findCmd: ghc’s exhaustiveness checker is broken" Null)
+-- ---------------------------------------------------------------------
+
+setTypecheckedModule :: Uri -> IdeM (IdeResponse GhcModDiagnostics)
+setTypecheckedModule uri = do
+  pluginGetFile "setTypecheckedModule: " uri $ \fp ->
+    runGhcModCommand $ do
+      (diags', mtm) <- getTypecheckedModuleGhc fp
+      let diags = parseGhcDiagnostics diags'
+      case mtm of
+        Nothing -> return diags
+        Just tm -> do
+          let cm = CachedModule tm return return
+          modifyCachedModules (Map.insert uri cm)
+          return diags
 
 -- ---------------------------------------------------------------------
 
@@ -152,7 +177,34 @@ typeCmd' bool uri (Position l c) =
   pluginGetFile "type: " uri $ \file -> do
     fmap (toTypeInfo . T.lines . T.pack) <$> runGhcModCommand (GM.types bool file (l+1) (c+1))
 
+-- ---------------------------------------------------------------------
 
+newTypeCmd :: Bool -> Uri -> Position -> IdeM (IdeResponse [(Range, T.Text)])
+newTypeCmd bool uri newPos = do
+    mcm <- Map.lookup uri <$> getCachedModules
+    case mcm of
+      Nothing -> return $ IdeResponseOk []
+      Just cm -> do
+        let mOldPos = newPosToOld cm newPos
+        case mOldPos of
+          Nothing -> return $ IdeResponseOk []
+          Just (Position l c) ->
+            GM.unGmlT $ GM.withInteractiveContext $ do
+              let tm = tcMod cm
+              spanTypes' <- GM.collectSpansTypes bool tm (l+1,c+1)
+              let spanTypes = sortBy (GM.cmp `on` fst) spanTypes'
+              dflag        <- getSessionDynFlags
+              st           <- GM.getStyle
+              res <- forM spanTypes $ \(spn, t) -> do
+                range' <- GM.GmlT $ srcLoc2Range spn
+                let getNewRange (Range start end) = do
+                      s' <- oldPosToNew cm start
+                      e' <- oldPosToNew cm end
+                      return $ Range s' e'
+                case getNewRange <$> range' of
+                  (Right (Just range)) -> return [(range , T.pack $ GM.pretty dflag st t)]
+                  _ -> return []
+              return $ IdeResponseOk $ concat res
 
 
 -- | Transform output from ghc-mod type into TypeInfo

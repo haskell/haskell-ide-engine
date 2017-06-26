@@ -1,30 +1,30 @@
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 
 {-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE DuplicateRecordFields #-}
 module Haskell.Ide.ApplyRefactPlugin where
 
 import           Control.Arrow
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Either
-import           Data.Aeson hiding (Error)
-import           Data.Monoid ( (<>) )
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
+import           Data.Aeson                          hiding (Error)
+import           Data.Monoid                         ((<>))
+import qualified Data.Text                           as T
+import qualified Data.Text.IO                        as T
 import           Data.Vinyl
-import qualified GhcMod.Utils as GM
+import qualified GhcMod.Utils                        as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.PluginUtils
+import           Haskell.Ide.Engine.PluginUtils      hiding (srcLoc2Range)
 import           Haskell.Ide.Engine.SemanticTypes
-import           Language.Haskell.HLint3 as Hlint
+import           Language.Haskell.HLint3             as Hlint
 import           Refact.Apply
 -- import           System.Directory
-import           System.IO.Extra
 import           Language.Haskell.Exts.SrcLoc
+import           System.IO.Extra
 
 -- ---------------------------------------------------------------------
 {-# ANN module ("HLint: ignore Eta reduce"         :: String) #-}
@@ -99,7 +99,7 @@ applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \file -> do
 lintCmd :: CommandFunc PublishDiagnosticsParams
 lintCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdFile "file" :& RNil) req of
-    Left err -> return err
+    Left err                      -> return err
     Right (ParamFile uri :& RNil) -> lintCmd' uri
 
 lintCmd' :: Uri -> IdeM (IdeResponse PublishDiagnosticsParams)
@@ -149,7 +149,7 @@ stripIgnores :: [Idea] -> [Idea]
 stripIgnores ideas = filter notIgnored ideas
   where
     notIgnored idea = ideaSeverity idea /= Ignore
- 
+
 -- ---------------------------------------------------------------------
 
 hintToDiagnostic :: Idea -> Diagnostic

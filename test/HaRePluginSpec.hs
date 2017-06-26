@@ -12,6 +12,7 @@ import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.HaRePlugin
+import           Haskell.Ide.GhcModPlugin
 import           Language.Haskell.LSP.TH.DataTypesJSON
 import qualified Data.HashMap.Strict as H
 import           System.Directory
@@ -49,17 +50,17 @@ dispatchRequest req = do
   testChan <- atomically newTChan
   let cr = CReq "hare" 1 req testChan
   cdAndDo "./test/testdata"
-    $ runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
+    $ runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (doDispatch testPlugins cr)
 
 dispatchRequestP :: IdeM a -> IO a
 dispatchRequestP =
   cdAndDo "./test/testdata"
-    . runIdeM testOptions (IdeState Map.empty Map.empty)
+    . runIdeM testOptions (IdeState Map.empty Map.empty Map.empty)
 
 dispatchRequestPGoto :: IdeM a -> IO a
 dispatchRequestPGoto =
   cdAndDo "./test/testdata/gototest"
-    . runIdeM testOptions (IdeState Map.empty Map.empty)
+    . runIdeM testOptions (IdeState Map.empty Map.empty Map.empty)
 
 -- ---------------------------------------------------------------------
 
@@ -338,26 +339,32 @@ hareSpec = do
                                        "parseStr = char '\"' *> (many1 (noneOf \"\\\"\")) <* char '\"'"])
           Nothing)
     it "finds definition across components" $ do
-      let req = findDefCmd (TextDocumentPositionParams (TextDocumentIdentifier $ filePathToUri "./app/Main.hs") (toPos (7,8)))
-      r <- dispatchRequestPGoto req
+      let u = filePathToUri "./app/Main.hs"
+      let lreq = setTypecheckedModule u
+      let req = findDefCmd (TextDocumentPositionParams (TextDocumentIdentifier u) (toPos (7,8)))
+      r <- dispatchRequestPGoto $ lreq >> req
       r `shouldBe` IdeResponseOk (Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
                                            (Range (toPos (6,1)) (toPos (6,9))))
-      let req2 = findDefCmd (TextDocumentPositionParams (TextDocumentIdentifier $ filePathToUri "./app/Main.hs") (toPos (7,20)))
-      r2 <- dispatchRequestPGoto req2
+      let req2 = findDefCmd (TextDocumentPositionParams (TextDocumentIdentifier u) (toPos (7,20)))
+      r2 <- dispatchRequestPGoto $ lreq >> req2
       r2 `shouldBe` IdeResponseOk (Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
                                             (Range (toPos (5,1)) (toPos (5,2))))
     it "finds definition in the same component" $ do
-      let req = findDefCmd (TextDocumentPositionParams (TextDocumentIdentifier $ filePathToUri "./src/Lib2.hs") (toPos (6,5)))
-      r <- dispatchRequestPGoto req
+      let u = filePathToUri "./src/Lib2.hs"
+      let lreq = setTypecheckedModule u
+      let req = findDefCmd (TextDocumentPositionParams (TextDocumentIdentifier u) (toPos (6,5)))
+      r <- dispatchRequestPGoto $ lreq >> req
       r `shouldBe` IdeResponseOk (Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
                                            (Range (toPos (6,1)) (toPos (6,9))))
     it "finds local definitions" $ do
-      let req = findDefCmd (TextDocumentPositionParams (TextDocumentIdentifier $ filePathToUri "./src/Lib2.hs") (toPos (7,11)))
-      r <- dispatchRequestPGoto req
+      let u = filePathToUri "./src/Lib2.hs"
+      let lreq = setTypecheckedModule u
+      let req = findDefCmd (TextDocumentPositionParams (TextDocumentIdentifier u) (toPos (7,11)))
+      r <- dispatchRequestPGoto $ lreq >> req
       r `shouldBe` IdeResponseOk (Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
                                            (Range (toPos (10,9)) (toPos (10,10))))
-      let req2 = findDefCmd (TextDocumentPositionParams (TextDocumentIdentifier $ filePathToUri "./src/Lib2.hs") (toPos (10,13)))
-      r2 <- dispatchRequestPGoto req2
+      let req2 = findDefCmd (TextDocumentPositionParams (TextDocumentIdentifier u) (toPos (10,13)))
+      r2 <- dispatchRequestPGoto $ lreq >> req2
       r2 `shouldBe` IdeResponseOk (Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
                                             (Range (toPos (9,9)) (toPos (9,10))))
 

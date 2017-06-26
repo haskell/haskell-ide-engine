@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE RankNTypes            #-}
@@ -177,7 +176,39 @@ unmapFileFromVfs cin uri = do
       return ()
     _ -> return ()
 
-
+updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeM (IdeResponse ())
+updatePositionMap uri changes = do
+  mcm <- Map.lookup uri <$> getCachedModules
+  case mcm of
+    Just cm -> do
+      let n2oOld = newPosToOld cm
+          o2nOld = oldPosToNew cm
+          (n2o,o2n) = foldr go (n2oOld, o2nOld) changes
+          go (J.TextDocumentContentChangeEvent (Just r) _ txt) (n2o', o2n') =
+            (n2o' <=< newToOld r txt, oldToNew r txt <=< o2n')
+          go _ _ = (const Nothing, const Nothing)
+      let cm' = cm {newPosToOld = n2o, oldPosToNew = o2n}
+      modifyCachedModules (Map.insert uri cm')
+      return $ IdeResponseOk ()
+    Nothing ->
+      return $ IdeResponseOk ()
+  where
+    oldToNew (J.Range (Position sl _) (Position el _)) txt p@(Position l c)
+      | l < sl = Just p
+      | l > el = Just $ Position l' c
+      | otherwise = Nothing
+         where l' = l + dl
+               dl = newL - oldL
+               oldL = el-sl
+               newL = T.count "\n" txt
+    newToOld (J.Range (Position sl _) (Position el _)) txt p@(Position l c)
+      | l < sl = Just p
+      | l > el = Just $ Position l' c
+      | otherwise = Nothing
+         where l' = l - dl
+               dl = newL - oldL
+               oldL = el-sl
+               newL = T.count "\n" txt
 
 -- ---------------------------------------------------------------------
 
@@ -206,7 +237,7 @@ sendErrorResponse origId err msg
 
 sendErrorLog :: (MonadIO m, MonadReader Core.LspFuncs m)
   => T.Text -> m ()
-sendErrorLog msg = reactorSend' (\sf -> Core.sendErrorLogS  sf msg)
+sendErrorLog msg = reactorSend' (`Core.sendErrorLogS` msg)
 
 -- sendErrorShow :: String -> R ()
 -- sendErrorShow msg = reactorSend' (\sf -> Core.sendErrorShowS sf msg)
@@ -297,11 +328,24 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
       Core.NotDidChangeTextDocument notification -> do
         liftIO $ U.logm "****** reactor: processing NotDidChangeTextDocument"
         let
-            vtdi = notification ^. J.params . J.textDocument
-            doc  = vtdi ^. J.uri
+            params = notification ^. J.params
+            vtdi = params ^. J.textDocument
+            uri  = vtdi ^. J.uri
             ver  = vtdi ^. J.version
+            J.List changes = params ^. J.contentChanges
         mapFileFromVfs versionTVar cin vtdi
-        requestDiagnostics cin doc ver
+        -- Important - Call this before requestDiagnostics
+        makeRequest $ PReq Nothing Nothing (const $ return ()) $ updatePositionMap uri changes
+        requestDiagnostics cin uri ver
+
+      Core.NotDidCloseTextDocument notification -> do
+        liftIO $ U.logm "****** reactor: processing NotDidCloseTextDocument"
+        let
+            uri = notification ^. J.params . J.textDocument . J.uri
+        unmapFileFromVfs cin uri
+        makeRequest $ PReq Nothing Nothing (const $ return ()) $ do
+          modifyCachedModules (Map.delete uri)
+          return $ IdeResponseOk ()
 
       -- -------------------------------
 
@@ -325,18 +369,17 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         let params = req ^. J.params
             pos = params ^. J.position
             doc = params ^. J.textDocument . J.uri
-        callback <- hieResponseHelper (req ^. J.id) $ \(TypeInfo mtis) -> do
+        callback <- hieResponseHelper (req ^. J.id) $ \info -> do
             let
-              ht = case mtis of
+              ht = case info of
                 []  -> J.Hover (J.List []) Nothing
-                tis -> J.Hover (J.List ms) (Just range)
+                xs -> J.Hover (J.List $ take 1 ms) (Just tr)
                   where
-                    ms = map (\ti -> J.MarkedString "haskell" (trText ti)) tis
-                    tr = head tis
-                    range = J.Range (trStart tr) (trEnd tr)
+                    ms = map (\ti -> J.MarkedString "haskell" (snd ti)) xs
+                    tr = fst $ head xs
               rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) ht
             reactorSend rspMsg
-        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ GhcMod.typeCmd' True doc pos
+        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ GhcMod.newTypeCmd True doc pos
         makeRequest hreq
 
       -- -------------------------------
@@ -488,6 +531,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
 
 -- ---------------------------------------------------------------------
 
+  -- get hlint+GHC diagnostics and loads the typechecked module into the cache
 requestDiagnostics :: TChan PluginRequest -> J.Uri -> Int -> R ()
 requestDiagnostics cin file ver = do
   lf <- ask
@@ -506,8 +550,8 @@ requestDiagnostics cin file ver = do
           (PublishDiagnosticsParams fp (List ds)) -> sendOne "applyrefact" (fp, ds)
   liftIO $ atomically $ writeTChan cin reql
 
-  -- get GHC diagnostics
-  let reqg = PReq (Just (file,ver)) Nothing (flip runReaderT lf . callbackg) $ GhcMod.checkCmd' file
+  -- get GHC diagnostics and loads the typechecked module into the cache
+  let reqg = PReq (Just (file,ver)) Nothing (flip runReaderT lf . callbackg) $ GhcMod.setTypecheckedModule file
       callbackg (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
       callbackg (IdeResponseError err) = liftIO $ U.logs $ "got err" ++ show err
       callbackg (IdeResponseOk     pd) = do
@@ -521,7 +565,7 @@ requestDiagnostics cin file ver = do
 
 convertParam :: J.Value -> Either String (ParamId, ParamValP)
 convertParam (J.Object hm) = case H.toList hm of
-  [(k,v)] -> case (J.fromJSON v) :: J.Result LspParam of
+  [(k,v)] -> case J.fromJSON v :: J.Result LspParam of
              J.Success pv -> Right (k, lspParam2ParamValP pv)
              J.Error errStr -> Left $ "convertParam: could not decode parameter value for "
                                ++ show k ++ ", err=" ++ errStr

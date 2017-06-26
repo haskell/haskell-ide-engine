@@ -9,32 +9,32 @@
 
 module Haskell.Ide.HaRePlugin where
 
-import           Control.Lens                          ((^.))
+import           Control.Lens                                 ((^.))
 import           Control.Monad.State
 import           Control.Monad.Trans.Control
 import           Data.Aeson
 import           Data.Either
 import           Data.Foldable
+import qualified Data.Map                                     as Map
 import           Data.Monoid
-import qualified Data.Text                             as T
-import qualified Data.Text.IO                          as T
+import qualified Data.Text                                    as T
+import qualified Data.Text.IO                                 as T
 import           Exception
-import           FastString
 import           GHC
-import qualified GhcMod.Error                          as GM
-import qualified GhcMod.Monad                          as GM
-import qualified GhcMod.Utils                          as GM
+import qualified GhcMod.Error                                 as GM
+import qualified GhcMod.Monad                                 as GM
+import qualified GhcMod.Utils                                 as GM
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
 import           Language.Haskell.GHC.ExactPrint.Print
-import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
+import qualified Language.Haskell.LSP.TH.DataTypesJSON        as J
 import           Language.Haskell.Refact.API
 import           Language.Haskell.Refact.HaRe
 import           Language.Haskell.Refact.Utils.Monad
+import           Language.Haskell.Refact.Utils.MonadFunctions
+import           Language.Haskell.Refact.Utils.Utils
 import           Name
-import           SrcLoc
-import           System.Directory
 
 -- ---------------------------------------------------------------------
 
@@ -227,9 +227,9 @@ makeRefactorResult changedFiles = do
 -- ---------------------------------------------------------------------
 
 findDefCmd :: TextDocumentPositionParams -> IdeM (IdeResponse Location)
-findDefCmd (TextDocumentPositionParams tdi pos) =
-  pluginGetFile "findDef: " (tdi ^. J.uri) $ \file -> do
-    eitherRes <- runHareCommand' $ findDef file (unPos pos)
+findDefCmd (TextDocumentPositionParams tdi pos) = do
+    cms <- getCachedModules
+    eitherRes <- runHareCommand' $ findDef cms (tdi ^. J.uri) (unPos pos)
     case eitherRes of
       Right x -> return x
       Left err ->
@@ -238,56 +238,56 @@ findDefCmd (TextDocumentPositionParams tdi pos) =
                            (T.pack $ "hare:findDefCmd" <> ": \"" <> err <> "\"")
                            Null))
 
-findDef :: FilePath -> (Int,Int) -> RefactGhc (IdeResponse Location)
-findDef fileName (row, col) = do
-  parseSourceFileGhc fileName
-  parsed <- getRefactParsed
-  case locToRdrName (row, col) parsed of
-    Just pn -> do
-      n <- rdrName2Name pn
-      res <- srcLoc2Loc $ nameSrcSpan n
-      case res of
-        Right l -> return $ IdeResponseOk l
-        Left x -> do
-          let failure = pure (IdeResponseFail
-                                (IdeError PluginError
-                                          (T.pack $ "hare:findDef" <> ": \"" <> x <> "\"")
-                                          Null))
-          case nameModule_maybe n of
-            Just m -> do
-              let mName = moduleName m
-              b <- isLoaded mName
-              if b then do
-                mLoc <- ms_location <$> getModSummary mName
-                case ml_hs_file mLoc of
-                  Just fp -> do
-                    parseSourceFileGhc fp
-                    newNames <- equivalentNameInNewMod n
-                    eithers <- mapM (srcLoc2Loc . nameSrcSpan) newNames
-                    case rights eithers of
-                      (l:_) -> return $ IdeResponseOk l
-                      []    -> failure
-                  Nothing -> failure
-                else failure
-            Nothing -> failure
-    Nothing ->
-          pure (IdeResponseFail
+findDef :: Map.Map Uri CachedModule -> Uri -> (Int,Int) -> RefactGhc (IdeResponse Location)
+findDef cms file (row, col) = do
+  let mcm = Map.lookup file cms
+  case mcm of
+    Nothing -> return $ IdeResponseFail $
                  (IdeError PluginError
-                           (T.pack $ "hare:findDef" <> ": \"" <> "Invalid cursor position" <> "\"")
-                           Null))
-
-srcLoc2Loc :: SrcSpan -> RefactGhc (Either String Location)
-srcLoc2Loc (RealSrcSpan r) = do
-  revMapp <- RefactGhc GM.mkRevRedirMapFunc
-  file <- liftIO $ makeAbsolute $ revMapp $ unpackFS $ srcSpanFile r
-  return $ Right $ Location (filePathToUri file) $ Range (toPos (l1,c1)) (toPos (l2,c2))
-  where s = realSrcSpanStart r
-        l1 = srcLocLine s
-        c1 = srcLocCol s
-        e = realSrcSpanEnd r
-        l2 = srcLocLine e
-        c2 = srcLocCol e
-srcLoc2Loc (UnhelpfulSpan x) = return $ Left $ unpackFS x
+                           (T.pack $ "hare:findDef" <> ": \"" <> "module not loaded" <> "\"")
+                           Null)
+    Just cm -> do
+      let tc = tcMod cm
+          parsed = pm_parsed_source $ tm_parsed_module tc
+      case locToRdrName (row, col) parsed of
+        Nothing ->
+              pure (IdeResponseFail
+                     (IdeError PluginError
+                               (T.pack $ "hare:findDef" <> ": \"" <> "Invalid cursor position" <> "\"")
+                               Null))
+        Just pn -> do
+          let nameMap = initRdrNameMap tc
+          let n = rdrName2NamePure nameMap pn
+          res <- RefactGhc $ srcLoc2Loc $ nameSrcSpan n
+          case res of
+            Right l -> return $ IdeResponseOk l
+            Left x -> do
+              let failure = pure (IdeResponseFail
+                                    (IdeError PluginError
+                                              (T.pack $ "hare:findDef" <> ": \"" <> x <> "\"")
+                                              Null))
+              case nameModule_maybe n of
+                Just m -> do
+                  let mName = moduleName m
+                  b <- isLoaded mName
+                  if b then do
+                    mLoc <- ms_location <$> getModSummary mName
+                    case ml_hs_file mLoc of
+                      Just fp -> do
+                        let mcm' = Map.lookup (filePathToUri fp) cms
+                        case mcm' of
+                          Just cm' -> do
+                            loadTypecheckedModule $ tcMod cm'
+                          Nothing -> do
+                            parseSourceFileGhc fp
+                        newNames <- equivalentNameInNewMod n
+                        eithers <- RefactGhc $ mapM (srcLoc2Loc . nameSrcSpan) newNames
+                        case rights eithers of
+                          (l:_) -> return $ IdeResponseOk l
+                          []    -> failure
+                      Nothing -> failure
+                    else failure
+                Nothing -> failure
 
 -- ---------------------------------------------------------------------
 
@@ -321,8 +321,7 @@ runHareCommand' cmd =
                  ,rsFlags = RefFlags False
                  ,rsStorage = StorageNone
                  ,rsCurrentTarget = Nothing
-                 ,rsModule = Nothing
-                 ,rsHookIORef = Nothing}
+                 ,rsModule = Nothing}
      let cmd' = unRefactGhc cmd
          embeddedCmd =
            GM.unGmlT $

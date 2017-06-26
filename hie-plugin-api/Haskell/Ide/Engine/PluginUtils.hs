@@ -1,34 +1,59 @@
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeOperators       #-}
 module Haskell.Ide.Engine.PluginUtils
   (
     getParams
   , mapEithers
   , pluginGetFile
   , diffText
+  , srcLoc2Range
+  , srcLoc2Loc
   -- * Helper functions for errors
   , missingParameter
   , incorrectParameter
   , fileInfo
   ) where
 
+import           Control.Lens                          (view)
+import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Algorithm.Diff
 import           Data.Algorithm.DiffOutput
-import qualified Data.Map as Map
+import qualified Data.HashMap.Strict                   as H
+import qualified Data.Map                              as Map
 import           Data.Monoid
-import qualified Data.Text as T
-import qualified Data.HashMap.Strict as H
+import qualified Data.Text                             as T
 import           Data.Vinyl
+import           FastString
+import qualified GhcMod.Monad                          as GM
+import qualified GhcMod.Utils                          as GM
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
-import           Prelude hiding (log)
+import           Prelude                               hiding (log)
+import           SrcLoc
+import           System.Directory
 import           System.FilePath
+
+srcLoc2Range :: (Monad m, MonadIO m) => SrcSpan -> GM.GhcModT m (Either String Range)
+srcLoc2Range = (fmap . fmap) (view J.range) . srcLoc2Loc
+
+srcLoc2Loc :: (Monad m, MonadIO m) => SrcSpan -> GM.GhcModT m (Either String Location)
+srcLoc2Loc (RealSrcSpan r) = do
+  revMapp <- GM.mkRevRedirMapFunc
+  file <- liftIO $ makeAbsolute $ revMapp $ unpackFS $ srcSpanFile r
+  return $ Right $ Location (filePathToUri file) $ Range (toPos (l1,c1)) (toPos (l2,c2))
+  where s = realSrcSpanStart r
+        l1 = srcLocLine s
+        c1 = srcLocCol s
+        e = realSrcSpanEnd r
+        l2 = srcLocLine e
+        c2 = srcLocCol e
+srcLoc2Loc (UnhelpfulSpan x) = return $ Left $ unpackFS x
 
 -- ---------------------------------------------------------------------
 pluginGetFile
@@ -55,36 +80,36 @@ getParams params req = go params
                     Left err -> Left err
                     Right ys -> case checkOne x of
                                   Left err -> Left err
-                                  Right y -> Right (y:&ys)
+                                  Right y  -> Right (y:&ys)
     checkOne ::
       TaggedParamId t -> Either (IdeResponse r) (ParamVal t)
     checkOne (IdText param) = case Map.lookup param (ideParams req) of
       Just (ParamTextP v) -> Right (ParamText v)
-      _ -> Left (missingParameter param)
+      _                   -> Left (missingParameter param)
     checkOne (IdInt param) = case Map.lookup param (ideParams req) of
       Just (ParamIntP v) -> Right (ParamInt v)
-      _ -> Left (missingParameter param)
+      _                  -> Left (missingParameter param)
     checkOne (IdBool param) = case Map.lookup param (ideParams req) of
       Just (ParamBoolP v) -> Right (ParamBool v)
-      _ -> Left (missingParameter param)
+      _                   -> Left (missingParameter param)
     checkOne (IdFile param) = case Map.lookup param (ideParams req) of
       Just (ParamFileP v) -> Right (ParamFile v)
-      _ -> Left (missingParameter param)
+      _                   -> Left (missingParameter param)
     checkOne (IdPos param) = case Map.lookup param (ideParams req) of
       Just (ParamPosP v) -> Right (ParamPos v)
-      _ -> Left (missingParameter param)
+      _                  -> Left (missingParameter param)
     checkOne (IdRange param) = case Map.lookup param (ideParams req) of
       Just (ParamRangeP v) -> Right (ParamRange v)
-      _ -> Left (missingParameter param)
+      _                    -> Left (missingParameter param)
     checkOne (IdLoc param) = case Map.lookup param (ideParams req) of
       Just (ParamLocP v) -> Right (ParamLoc v)
-      _ -> Left (missingParameter param)
+      _                  -> Left (missingParameter param)
     checkOne (IdTextDocId param) = case Map.lookup param (ideParams req) of
       Just (ParamTextDocIdP v) -> Right (ParamTextDocId v)
-      _ -> Left (missingParameter param)
+      _                        -> Left (missingParameter param)
     checkOne (IdTextDocPos param) = case Map.lookup param (ideParams req) of
       Just (ParamTextDocPosP v) -> Right (ParamTextDocPos v)
-      _ -> Left (missingParameter param)
+      _                         -> Left (missingParameter param)
 
 
 -- ---------------------------------------------------------------------
@@ -94,7 +119,7 @@ mapEithers f (x:xs) = case mapEithers f xs of
                         Left err -> Left err
                         Right ys -> case f x of
                                       Left err -> Left err
-                                      Right y -> Right (y:ys)
+                                      Right y  -> Right (y:ys)
 mapEithers _ _ = Right []
 
 -- ---------------------------------------------------------------------

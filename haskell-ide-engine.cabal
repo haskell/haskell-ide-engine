@@ -49,6 +49,7 @@ library
                      , ghc >= 8.0.1
                      , ghc-mod
                      , gitrev >= 1.1
+                     , HaRe
                      , haskeline
                      , haskell-lsp
                      , hie-base

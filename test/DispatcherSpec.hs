@@ -49,7 +49,7 @@ dispatcherSpec = do
       chSync <- atomically newTChan
       let req = IdeRequest "cmd1" (Map.fromList [])
           cr = CReq "test" 1 req chan
-      r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
+      r <- runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
       r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxNone]"))
 
     -- ---------------------------------
@@ -59,7 +59,7 @@ dispatcherSpec = do
       chSync <- atomically newTChan
       let req = IdeRequest "cmd2" (Map.fromList [])
           cr = CReq "test" 1 req chan
-      r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
+      r <- runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
       r `shouldBe` Just (IdeResponseFail (IdeError {ideCode = MissingParameter, ideMessage = "need `file` parameter", ideInfo = String "file"}))
 
     -- ---------------------------------
@@ -69,7 +69,7 @@ dispatcherSpec = do
       chSync <- atomically newTChan
       let req = IdeRequest "cmd2" (Map.fromList [("file", ParamFileP $ filePathToUri "foo.hs")])
           cr = CReq "test" 1 req chan
-      r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
+      r <- runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
       r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxFile]"))
 
     -- ---------------------------------
@@ -79,7 +79,7 @@ dispatcherSpec = do
       chSync <- atomically newTChan
       let req = IdeRequest "cmd3" (Map.fromList [("file", ParamFileP $ filePathToUri "foo.hs"),("start_pos", ParamPosP (toPos (1,2)))])
           cr = CReq "test" 1 req chan
-      r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
+      r <- runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
       r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxPoint]"))
 
     -- ---------------------------------
@@ -91,7 +91,7 @@ dispatcherSpec = do
                                                 ,("start_pos", ParamPosP (toPos (1,2)))
                                                 ,("end_pos", ParamPosP (toPos (3,4)))])
           cr = CReq "test" 1 req chan
-      r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
+      r <- runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
       r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxRegion]"))
 
     -- ---------------------------------
@@ -101,7 +101,7 @@ dispatcherSpec = do
       chSync <- atomically newTChan
       let req = IdeRequest "cmd5" (Map.fromList [("cabal", ParamTextP "lib")])
           cr = CReq "test" 1 req chan
-      r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
+      r <- runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
       r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxCabalTarget]"))
 
 
@@ -112,7 +112,7 @@ dispatcherSpec = do
       chSync <- atomically newTChan
       let req = IdeRequest "cmd6" (Map.fromList [("dir", ParamFileP $ filePathToUri ".")])
           cr = CReq "test" 1 req chan
-      r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
+      r <- runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
       r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxProject]"))
 
     -- ---------------------------------
@@ -124,7 +124,7 @@ dispatcherSpec = do
                                                        ,("start_pos", ParamPosP (toPos (1,2)))
                                                        ,("end_pos", ParamPosP (toPos (3,4)))])
           cr = CReq "test" 1 req chan
-      r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
+      r <- runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
       r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxFile,CtxPoint,CtxRegion]"))
 
     -- ---------------------------------
@@ -135,7 +135,7 @@ dispatcherSpec = do
       let req = IdeRequest "cmdmultiple" (Map.fromList [("file", ParamFileP $ filePathToUri "foo.hs")
                                                        ,("start_pos", ParamPosP (toPos (1,2)))])
           cr = CReq "test" 1 req chan
-      r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
+      r <- runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
       r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxFile,CtxPoint]"))
 
     -- ---------------------------------
@@ -145,7 +145,7 @@ dispatcherSpec = do
       chSync <- atomically newTChan
       let req = IdeRequest "cmdmultiple" (Map.fromList [("cabal", ParamTextP "lib")])
           cr = CReq "test" 1 req chan
-      r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
+      r <- runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
       r `shouldBe`
         Just (IdeResponseFail (IdeError { ideCode = MissingParameter
                                         , ideMessage = "need `file` parameter"
@@ -170,7 +170,7 @@ dispatcherSpec = do
                                                     ,("textDocPos", ParamTextDocPosP $ TextDocumentPositionParams (TextDocumentIdentifier $ filePathToUri "asd") (toPos (1,2)) )
                                                     ])
           cr = CReq "test" 1 req chan
-      r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
+      r <- runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
       r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxFile]"))
 
 
@@ -191,7 +191,7 @@ dispatcherSpec = do
                                                     ,("textDocPos", ParamTextDocPosP $ TextDocumentPositionParams (TextDocumentIdentifier $ filePathToUri "asd") (toPos (1,2)) )
                                                     ])
           cr = CReq "test" 1 req chan
-      r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
+      r <- runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
       r `shouldBe`
          Just (IdeResponseFail
                (IdeError
@@ -211,7 +211,7 @@ dispatcherSpec = do
                                                        ,("poso",  ParamPosP (toPos (1,2)))
                                                        ])
           cr = CReq "test" 1 req chan
-      r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
+      r <- runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
       r `shouldBe` Just (IdeResponseOk (String "result:ctxs=[CtxNone]"))
 
     -- ---------------------------------
@@ -224,7 +224,7 @@ dispatcherSpec = do
                                                        ,("poso",  ParamPosP (toPos (1,2)))
                                                        ])
           cr = CReq "test" 1 req chan
-      r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
+      r <- runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (doDispatch (testPlugins chSync) cr)
       r `shouldBe`
         Just (IdeResponseFail
               (IdeError { ideCode = IncorrectParameterType
@@ -246,8 +246,8 @@ dispatcherSpec = do
           req2 = IdeRequest "cmdasync2" Map.empty
           cr1 = CReq "test" 1 req1 chan
           cr2 = CReq "test" 2 req2 chan
-      r1 <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr1)
-      r2 <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch (testPlugins chSync) cr2)
+      r1 <- runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (doDispatch (testPlugins chSync) cr1)
+      r2 <- runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (doDispatch (testPlugins chSync) cr2)
       r1 `shouldBe` Nothing
       r2 `shouldBe` Nothing
       rc1 <- atomically $ readTChan chan
@@ -270,7 +270,7 @@ dispatcherSpec = do
           req2 = PReq Nothing (Just $ J.IdInt 2) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text2"
           req3 = PReq (Just (filePathToUri "test", 2)) Nothing (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text3"
           req4 = PReq Nothing (Just $ J.IdInt 3) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text4"
-      pid <- forkIO $ runIdeM testOptions (IdeState Map.empty Map.empty) (dispatcherP (DispatcherEnv cancelTVar wipTVar versionTVar) inChan)
+      pid <- forkIO $ runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (dispatcherP (DispatcherEnv cancelTVar wipTVar versionTVar) inChan)
       atomically $ writeTChan inChan req1
       atomically $ modifyTVar cancelTVar (S.insert (J.IdInt 2))
       atomically $ writeTChan inChan req2
