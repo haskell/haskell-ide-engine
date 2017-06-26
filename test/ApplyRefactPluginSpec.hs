@@ -44,11 +44,11 @@ dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Value))
 dispatchRequest req = do
   testChan <- atomically newTChan
   let cr = CReq "applyrefact" 1 req testChan
-  r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
+  r <- runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (doDispatch testPlugins cr)
   return r
 
 dispatchRequestP :: IdeM a -> IO a
-dispatchRequestP = runIdeM testOptions (IdeState Map.empty Map.empty)
+dispatchRequestP = runIdeM testOptions (IdeState Map.empty Map.empty Map.empty)
 
 -- ---------------------------------------------------------------------
 
