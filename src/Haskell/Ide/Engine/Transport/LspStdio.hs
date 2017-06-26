@@ -178,12 +178,6 @@ unmapFileFromVfs cin uri = do
       return ()
     _ -> return ()
 
-loadFile :: (MonadIO m, MonadReader Core.LspFuncs m)
-  => TChan PluginRequest -> Uri -> Int -> m ()
-loadFile cin uri ver = do
-  let req = PReq (Just (uri, ver)) Nothing (const $ return ()) $ HaRe.setTypecheckedModule uri
-  liftIO $ atomically $ writeTChan cin req
-
 updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeM (IdeResponse ())
 updatePositionMap uri changes = do
   cms <- lift . lift $ StateTrans.gets cachedModules
@@ -317,7 +311,6 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
             uri = notification ^. J.params . J.textDocument . J.uri
             ver = (-1)
         liftIO $ atomically $ modifyTVar' versionTVar (Map.insert uri ver)
-        loadFile cin uri ver
         requestDiagnostics cin uri ver
 
       -- -------------------------------
@@ -344,9 +337,8 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
             ver  = vtdi ^. J.version
             J.List changes = params ^. J.contentChanges
         mapFileFromVfs versionTVar cin vtdi
-        -- Important - Call this before loadFile
+        -- Important - Call this before requestDiagnostics
         makeRequest $ PReq Nothing Nothing (const $ return ()) $ updatePositionMap uri changes
-        loadFile cin uri ver
         requestDiagnostics cin uri ver
 
       Core.NotDidCloseTextDocument notification -> do
@@ -543,6 +535,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
 
 -- ---------------------------------------------------------------------
 
+  -- get hlint+GHC diagnostics and loads the typechecked module into the cache
 requestDiagnostics :: TChan PluginRequest -> J.Uri -> Int -> R ()
 requestDiagnostics cin file ver = do
   lf <- ask
@@ -561,8 +554,8 @@ requestDiagnostics cin file ver = do
           (PublishDiagnosticsParams fp (List ds)) -> sendOne "applyrefact" (fp, ds)
   liftIO $ atomically $ writeTChan cin reql
 
-  -- get GHC diagnostics
-  let reqg = PReq (Just (file,ver)) Nothing (flip runReaderT lf . callbackg) $ GhcMod.checkCmd' file
+  -- get GHC diagnostics and loads the typechecked module into the cache
+  let reqg = PReq (Just (file,ver)) Nothing (flip runReaderT lf . callbackg) $ GhcMod.setTypecheckedModule file
       callbackg (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
       callbackg (IdeResponseError err) = liftIO $ U.logs $ "got err" ++ show err
       callbackg (IdeResponseOk     pd) = do
@@ -576,7 +569,7 @@ requestDiagnostics cin file ver = do
 
 convertParam :: J.Value -> Either String (ParamId, ParamValP)
 convertParam (J.Object hm) = case H.toList hm of
-  [(k,v)] -> case (J.fromJSON v) :: J.Result LspParam of
+  [(k,v)] -> case J.fromJSON v :: J.Result LspParam of
              J.Success pv -> Right (k, lspParam2ParamValP pv)
              J.Error errStr -> Left $ "convertParam: could not decode parameter value for "
                                ++ show k ++ ", err=" ++ errStr

@@ -26,6 +26,7 @@ library
                      , ghc-mod >= 5.8.0.0
                      , hie-base
                      , hie-plugin-api
+                     , HaRe
                      , text
                      , transformers
                      , parsec

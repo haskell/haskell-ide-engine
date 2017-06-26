@@ -12,6 +12,9 @@ module Haskell.Ide.GhcModPlugin where
 import           Data.Aeson
 import           Data.Either
 import           Data.Monoid
+import           Control.Monad.Trans.State.Strict
+import           Control.Monad.Trans.Class
+import qualified Data.Map as Map
 import qualified Data.Text as T
 import qualified Data.Text.Read as T
 import           Text.Parsec
@@ -20,6 +23,7 @@ import qualified Exception as G
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
+import           Language.Haskell.Refact.Utils.Utils
 import qualified GhcMod.Types as GM
 import qualified GhcMod as GM
 
@@ -110,6 +114,21 @@ checkCmd' uri =
 --       -- return (IdeResponseOk "Placholder:Need to debug this in ghc-mod, returns 'does not exist (No such file or directory)'")
 --     Right _ -> return $ IdeResponseError (IdeError InternalError
 --       "GhcModPlugin.findCmd: ghc’s exhaustiveness checker is broken" Null)
+-- ---------------------------------------------------------------------
+
+setTypecheckedModule :: Uri -> IdeM (IdeResponse GhcModDiagnostics)
+setTypecheckedModule uri = do
+  pluginGetFile "setTypecheckedModule: " uri $ \fp ->
+    runGhcModCommand $ do
+      (diags', mtm) <- getTypecheckedModuleGhc fp
+      let diags = parseGhcDiagnostics diags'
+      case mtm of
+        Nothing -> return diags
+        Just tm -> do
+          let cm = CachedModule tm return return
+          cms <- lift . lift $ gets cachedModules
+          lift . lift $ modify' (\s -> s { cachedModules = Map.insert uri cm cms })
+          return diags
 
 -- ---------------------------------------------------------------------
 
