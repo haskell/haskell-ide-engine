@@ -291,7 +291,6 @@ dispatcherSpec = do
           myCallback :: Async T.Text -> IO ()
           myCallback f = f $ atomically . writeTChan outChan
           req = PReq Nothing Nothing myCallback myAsyncCmd
-          delayt = 300*1000
       inChan <- atomically newTChan
       cancelTVar <- newTVarIO S.empty
       wipTVar <- newTVarIO S.empty
