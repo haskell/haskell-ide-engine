@@ -285,8 +285,9 @@ dispatcherSpec = do
 
     it "dispatches async command correctly" $ do
       outChan <- atomically newTChan
+      cont <- newEmptyMVar
       let myAsyncCmd :: IdeM (Async T.Text)
-          myAsyncCmd = makeAsync $ threadDelay delayt >> return (IdeResponseOk "text2")
+          myAsyncCmd = makeAsync $ putMVar cont ()  >> return (IdeResponseOk "text2")
           myCallback :: Async T.Text -> IO ()
           myCallback f = f $ atomically . writeTChan outChan
           req = PReq Nothing Nothing myCallback myAsyncCmd
@@ -298,7 +299,7 @@ dispatcherSpec = do
       pid <- forkIO $ runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (dispatcherP (DispatcherEnv cancelTVar wipTVar versionTVar) inChan)
       atomically $ writeTChan inChan req
       atomically $ writeTChan outChan $ IdeResponseOk "text1"
-      threadDelay (delayt*2)
+      _ <- takeMVar cont
       atomically $ writeTChan outChan $ IdeResponseOk "text3"
       resp1 <- atomically $ readTChan outChan
       resp2 <- atomically $ readTChan outChan
