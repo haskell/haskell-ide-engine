@@ -12,6 +12,9 @@ module Haskell.Ide.Engine.PluginUtils
   , diffText
   , srcLoc2Range
   , srcLoc2Loc
+  , Callback
+  , Async
+  , makeAsync
   -- * Helper functions for errors
   , missingParameter
   , incorrectParameter
@@ -20,6 +23,7 @@ module Haskell.Ide.Engine.PluginUtils
 
 import           Control.Lens                          (view)
 import           Control.Monad.IO.Class
+import           Control.Concurrent
 import           Data.Aeson
 import           Data.Algorithm.Diff
 import           Data.Algorithm.DiffOutput
@@ -38,6 +42,14 @@ import           Prelude                               hiding (log)
 import           SrcLoc
 import           System.Directory
 import           System.FilePath
+
+-- ---------------------------------------------------------------------
+makeAsync :: IO (IdeResponse a) -> IdeM (Async a)
+makeAsync action = liftIO $ do
+  resMVar <- newEmptyMVar
+  _ <- forkIO $ action >>= putMVar resMVar
+  return $ \callback -> readMVar resMVar >>= callback
+-- ---------------------------------------------------------------------
 
 srcLoc2Range :: (Monad m, MonadIO m) => SrcSpan -> GM.GhcModT m (Either String Range)
 srcLoc2Range = (fmap . fmap) (view J.range) . srcLoc2Loc

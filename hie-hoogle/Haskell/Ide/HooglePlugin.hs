@@ -71,6 +71,12 @@ lookupCmd' :: Int -> T.Text -> IdeM (IdeResponse [T.Text])
 lookupCmd' n term = liftIO $
   runHoogleQuery term (IdeResponseOk . map (T.pack . targetResultDisplay False) . take n)
 
+lookupCmdAsync :: Int -> T.Text -> IdeM (Async [T.Text])
+lookupCmdAsync n term =
+    makeAsync $
+      runHoogleQuery term
+                     (IdeResponseOk . map (T.pack . targetResultDisplay False) . take n)
+
 ------------------------------------------------------------------------
 
 runHoogleQuery :: T.Text -> ([Target] -> IdeResponse a) -> IO (IdeResponse a)

@@ -16,6 +16,7 @@ import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 import qualified Data.Set as S
@@ -281,6 +282,31 @@ dispatcherSpec = do
       killThread pid
       resp1 `shouldBe` IdeResponseOk "text1"
       resp2 `shouldBe` IdeResponseOk "text4"
+
+    it "dispatches async command correctly" $ do
+      outChan <- atomically newTChan
+      let myAsyncCmd :: IdeM (Async T.Text)
+          myAsyncCmd = makeAsync $ threadDelay delayt >> return (IdeResponseOk "text2")
+          myCallback :: Async T.Text -> IO ()
+          myCallback f = f $ atomically . writeTChan outChan
+          req = PReq Nothing Nothing myCallback myAsyncCmd
+          delayt = 300*1000
+      inChan <- atomically newTChan
+      cancelTVar <- newTVarIO S.empty
+      wipTVar <- newTVarIO S.empty
+      versionTVar <- newTVarIO Map.empty
+      pid <- forkIO $ runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (dispatcherP (DispatcherEnv cancelTVar wipTVar versionTVar) inChan)
+      atomically $ writeTChan inChan req
+      atomically $ writeTChan outChan $ IdeResponseOk "text1"
+      threadDelay (delayt*2)
+      atomically $ writeTChan outChan $ IdeResponseOk "text3"
+      resp1 <- atomically $ readTChan outChan
+      resp2 <- atomically $ readTChan outChan
+      resp3 <- atomically $ readTChan outChan
+      killThread pid
+      resp1 `shouldBe` IdeResponseOk "text1"
+      resp2 `shouldBe` IdeResponseOk "text2"
+      resp3 `shouldBe` IdeResponseOk "text3"
 
 -- ---------------------------------------------------------------------
 
