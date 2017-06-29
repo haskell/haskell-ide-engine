@@ -200,7 +200,7 @@ getSymbols uri = do
       Just cm -> do
           let tm = tcMod cm
               hsMod = unLoc $ pm_parsed_source $ tm_parsed_module tm
-              --imports = hsmodImports hsMod
+              imports = hsmodImports hsMod
               decls = concatMap (go . unLoc) $ hsmodDecls hsMod
               nm = initRdrNameMap tm
 
@@ -225,8 +225,16 @@ getSymbols uri = do
               processCon (ConDeclGADT names _ _)   = zip (repeat J.SkConstructor) names
               processCon (ConDeclH98 name _ _ _ _) = pure (J.SkConstructor, name)
 
-              --goImports :: ImportDecl -> IdeM [Either String J.SymbolKind]
-              --goImports (ImportDecl _ (L l mn) _ _ _ qual _ 
+              goImport :: ImportDecl RdrName -> IdeM (Either String J.SymbolInformation)
+              goImport (ImportDecl _ (L l mn) _ _ _ qual _ as _)
+                | qual = do
+                    let name = getFirst $ foldMap First [as, Just mn]
+                        nameText = T.pack $ showGhc $ gfromJust "getSymbols" name
+                    eloc <- srcLoc2Loc l
+                    case eloc of
+                      Left x -> return $ Left x
+                      Right loc -> return $ Right $ J.SymbolInformation nameText J.SkModule loc Nothing
+                | otherwise = return $ Left "module not qualified"
               declsToSymbolInf :: (J.SymbolKind, Located RdrName) -> IdeM (Either String J.SymbolInformation)
               declsToSymbolInf (kind, ln) = do
                 let name = rdrName2NamePure nm ln
@@ -235,8 +243,9 @@ getSymbols uri = do
                 case eloc of
                   Left x -> return $ Left x
                   Right loc -> return $ Right $ J.SymbolInformation nameText kind loc Nothing
+          impInfs <- mapM (goImport . unLoc) imports
           symInfs <- mapM declsToSymbolInf decls
-          return $ IdeResponseOk $ rights symInfs
+          return $ IdeResponseOk $ rights $ impInfs ++ symInfs
 
 -- ---------------------------------------------------------------------
 
