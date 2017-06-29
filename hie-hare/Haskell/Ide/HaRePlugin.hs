@@ -207,18 +207,23 @@ getSymbols uri = do
               go :: HsDecl RdrName -> [(J.SymbolKind, Located RdrName)]
               go (TyClD (FamDecl (FamilyDecl _ n _ _ _))) = pure (J.SkClass, n)
               go (TyClD (SynDecl n _ _ _)) = pure (J.SkClass, n)
-              go (TyClD (DataDecl n _ _ _ _)) = pure (J.SkClass, n)
+              go (TyClD (DataDecl n _ (HsDataDefn _ _ _ _ cons _) _ _)) =
+                (J.SkClass, n) : concatMap (processCon . unLoc) cons
               go (TyClD (ClassDecl _ n _ _ sigs _ fams _ _ _)) =
-                (J.SkInterface, n) : concatMap (processSigs . unLoc) sigs
+                (J.SkInterface, n) : concatMap (processSig . unLoc) sigs
                                   ++ concatMap (go . TyClD . FamDecl . unLoc) fams
               go (ValD (FunBind ln _ _ _ _)) = pure (J.SkFunction, ln)
               go (ValD (PatBind p  _ _ _ _)) = zip (repeat J.SkFunction) $ hsNamessRdr p
               go (ForD (ForeignImport n _ _ _)) = pure (J.SkFunction, n)
               go _ = []
 
-              processSigs :: Sig RdrName -> [(J.SymbolKind, Located RdrName)]
-              processSigs (ClassOpSig False names _) = map (\n -> (J.SkMethod, n)) names
-              processSigs _ = []
+              processSig :: Sig RdrName -> [(J.SymbolKind, Located RdrName)]
+              processSig (ClassOpSig False names _) = zip (repeat J.SkMethod) names
+              processSig _ = []
+
+              processCon :: ConDecl RdrName -> [(J.SymbolKind, Located RdrName)]
+              processCon (ConDeclGADT names _ _)   = zip (repeat J.SkConstructor) names
+              processCon (ConDeclH98 name _ _ _ _) = pure (J.SkConstructor, name)
 
               --goImports :: ImportDecl -> IdeM [Either String J.SymbolKind]
               --goImports (ImportDecl _ (L l mn) _ _ _ qual _ 
