@@ -35,7 +35,7 @@ import           Language.Haskell.Refact.Utils.Monad
 import           Language.Haskell.Refact.Utils.MonadFunctions
 import           Language.Haskell.Refact.Utils.Utils
 import           Name
-
+import           Bag
 -- ---------------------------------------------------------------------
 
 hareDescriptor :: TaggedPluginDescriptor _
@@ -191,6 +191,36 @@ deleteDefCmd' (TextDocumentPositionParams tdi pos) =
       runHareCommand "deltetedef" (compDeleteDef file (unPos pos))
 
 -- compDeleteDef ::FilePath -> SimpPos -> RefactGhc [ApplyRefacResult]
+
+-- ---------------------------------------------------------------------
+getSymbols :: Uri -> IdeM (IdeResponse [J.SymbolInformation])
+getSymbols uri = do
+    mcm <- Map.lookup uri <$> getCachedModules
+    case mcm of
+      Nothing -> return $ IdeResponseOk []
+      Just cm -> do
+          let tm = tcMod cm
+              decls = concatMap (go . unLoc) $ hsmodDecls $ unLoc $ pm_parsed_source $ tm_parsed_module tm
+              nm = initRdrNameMap tm
+              go :: HsDecl RdrName -> [(J.SymbolKind, Located RdrName)]
+              go (TyClD (FamDecl (FamilyDecl _ n _ _ _))) = pure (J.SkClass, n)
+              go (TyClD (SynDecl n _ _ _)) = pure (J.SkClass, n)
+              go (TyClD (DataDecl n _ _ _ _)) = pure (J.SkClass, n)
+              go (TyClD (ClassDecl _ n _ _ _ funcs fams _ _ _)) = (J.SkInterface, n) : concatMap (go . ValD . unLoc) (bagToList funcs) ++ concatMap (go . TyClD . FamDecl . unLoc) fams
+              go (ValD (FunBind ln _ _ _ _)) = pure (J.SkFunction, ln)
+              go (ValD (PatBind p  _ _ _ _)) = zip (repeat J.SkFunction) $ hsNamessRdr p
+              go (ForD (ForeignImport n _ _ _)) = pure (J.SkFunction, n)
+              go _ = []
+              declsToSymbolInf :: (J.SymbolKind, Located RdrName) -> IdeM (Either String J.SymbolInformation)
+              declsToSymbolInf (kind, ln) = do
+                let name = rdrName2NamePure nm ln
+                    nameText = T.pack $ showGhc name
+                eloc <- srcLoc2Loc $ nameSrcSpan name
+                case eloc of
+                  Left x -> return $ Left x
+                  Right loc -> return $ Right $ J.SymbolInformation nameText kind loc Nothing
+          symInfs <- mapM declsToSymbolInf decls
+          return $ IdeResponseOk $ rights symInfs
 
 -- ---------------------------------------------------------------------
 

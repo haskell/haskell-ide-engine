@@ -294,6 +294,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
                               , J.Registration "hare:gotodef" "textDocument/definition" (Just options)
                               , J.Registration "brittany:formatting" "textDocument/formatting" (Just options)
                               , J.Registration "brittany:rangeFormatting" "textDocument/rangeFormatting" (Just options)
+                              , J.Registration "hare:getSymbols" "textDocument/documentSymbol" (Just options)
                               ]
         let registrations = J.RegistrationParams (J.List registrationsList)
         rid <- nextLspReqId
@@ -518,6 +519,15 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         let hreq = PReq Nothing (Just $ req ^. J.id) callback $ Brittany.brittanyCmd tabSize doc (Just range)
         makeRequest hreq
       -- -------------------------------
+      Core.ReqDocumentSymbols req -> do
+        liftIO $ U.logs $ "reactor:got Document symbol request:" ++ show req
+        let uri = req ^. J.params . J.textDocument . J.uri
+        callback <- hieResponseHelper (req ^. J.id) $ \docSymbols -> do
+            let rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) docSymbols
+            reactorSend rspMsg
+        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ HaRe.getSymbols uri
+        makeRequest hreq
+      -- -------------------------------
       Core.NotCancelRequest notif -> do
         liftIO $ U.logs $ "reactor:got CancelRequest:" ++ show notif
         let lid = notif ^. J.params . J.id
@@ -636,6 +646,7 @@ hieHandlers rin
         , Core.documentHighlightHandler                 = Just $ passHandler rin Core.ReqDocumentHighlights
         , Core.documentFormattingHandler                = Just $ passHandler rin Core.ReqDocumentFormatting
         , Core.documentRangeFormattingHandler           = Just $ passHandler rin Core.ReqDocumentRangeFormatting
+        , Core.documentSymbolHandler                    = Just $ passHandler rin Core.ReqDocumentSymbols
         }
 
 -- ---------------------------------------------------------------------
