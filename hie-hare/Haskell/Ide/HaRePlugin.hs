@@ -202,28 +202,48 @@ getSymbols uri = do
               hsMod = unLoc $ pm_parsed_source $ tm_parsed_module tm
               imports = hsmodImports hsMod
               decls = concatMap (go . unLoc) $ hsmodDecls hsMod
-              nm = initRdrNameMap tm
+              _nm = initRdrNameMap tm
+              s x = T.pack . showGhc <$> x
 
-              go :: HsDecl RdrName -> [(J.SymbolKind, Located RdrName)]
-              go (TyClD (FamDecl (FamilyDecl _ n _ _ _))) = pure (J.SkClass, n)
-              go (TyClD (SynDecl n _ _ _)) = pure (J.SkClass, n)
+              go :: HsDecl RdrName -> [(J.SymbolKind,Located T.Text,Maybe T.Text)]
+              go (TyClD (FamDecl (FamilyDecl _ n _ _ _))) = pure (J.SkClass,s n, Nothing)
+              go (TyClD (SynDecl n _ _ _)) = pure (J.SkClass,s n,Nothing)
               go (TyClD (DataDecl n _ (HsDataDefn _ _ _ _ cons _) _ _)) =
-                (J.SkClass, n) : concatMap (processCon . unLoc) cons
+                (J.SkClass, s n, Nothing) : concatMap (processCon (unLoc $ s n) . unLoc) cons
               go (TyClD (ClassDecl _ n _ _ sigs _ fams _ _ _)) =
-                (J.SkInterface, n) : concatMap (processSig . unLoc) sigs
-                                  ++ concatMap (go . TyClD . FamDecl . unLoc) fams
-              go (ValD (FunBind ln _ _ _ _)) = pure (J.SkFunction, ln)
-              go (ValD (PatBind p  _ _ _ _)) = zip (repeat J.SkFunction) $ hsNamessRdr p
-              go (ForD (ForeignImport n _ _ _)) = pure (J.SkFunction, n)
+                (J.SkInterface, sn, Nothing) :
+                      concatMap (processSig (unLoc sn) . unLoc) sigs
+                  ++  concatMap (map setCnt . go . TyClD . FamDecl . unLoc) fams
+                where sn = s n
+                      setCnt (k,n',_) = (k,n',Just (unLoc sn))
+              go (ValD (FunBind ln _ _ _ _)) = pure (J.SkFunction, s ln, Nothing)
+              go (ValD (PatBind p  _ _ _ _)) =
+                map (\n ->(J.SkMethod,s n, Nothing)) $ hsNamessRdr p
+              go (ForD (ForeignImport n _ _ _)) = pure (J.SkFunction, s n, Nothing)
               go _ = []
 
-              processSig :: Sig RdrName -> [(J.SymbolKind, Located RdrName)]
-              processSig (ClassOpSig False names _) = zip (repeat J.SkMethod) names
-              processSig _ = []
+              processSig :: T.Text
+                         -> Sig RdrName
+                         -> [(J.SymbolKind, Located T.Text, Maybe T.Text)]
+              processSig cnt (ClassOpSig False names _) =
+                map (\n ->(J.SkMethod,s n, Just cnt)) names
+              processSig _ _ = []
 
-              processCon :: ConDecl RdrName -> [(J.SymbolKind, Located RdrName)]
-              processCon (ConDeclGADT names _ _)   = zip (repeat J.SkConstructor) names
-              processCon (ConDeclH98 name _ _ _ _) = pure (J.SkConstructor, name)
+              processCon :: T.Text
+                         -> ConDecl RdrName
+                         -> [(J.SymbolKind, Located T.Text, Maybe T.Text)]
+              processCon cnt (ConDeclGADT names _ _) =
+                map (\n -> (J.SkConstructor, s n, Just cnt)) names
+              processCon cnt (ConDeclH98 name _ _ dets _) =
+                (J.SkConstructor, sn, Just cnt) : xs
+                where
+                  sn = s name
+                  xs = case dets of
+                    RecCon (L _ rs) -> concatMap (map (f . rdrNameFieldOcc . unLoc)
+                                                 . cd_fld_names
+                                                 . unLoc) rs
+                                         where f ln = (J.SkField, s ln, Just (unLoc sn))
+                    _ -> []
 
               goImport :: ImportDecl RdrName -> IdeM (Either String J.SymbolInformation)
               goImport (ImportDecl _ (L l mn) _ _ _ qual _ as _)
@@ -235,14 +255,13 @@ getSymbols uri = do
                       Left x -> return $ Left x
                       Right loc -> return $ Right $ J.SymbolInformation nameText J.SkModule loc Nothing
                 | otherwise = return $ Left "module not qualified"
-              declsToSymbolInf :: (J.SymbolKind, Located RdrName) -> IdeM (Either String J.SymbolInformation)
-              declsToSymbolInf (kind, ln) = do
-                let name = rdrName2NamePure nm ln
-                    nameText = T.pack $ showGhc name
-                eloc <- srcLoc2Loc $ nameSrcSpan name
+              declsToSymbolInf :: (J.SymbolKind, Located T.Text, Maybe T.Text)
+                               -> IdeM (Either String J.SymbolInformation)
+              declsToSymbolInf (kind, (L l nameText), cnt) = do
+                eloc <- srcLoc2Loc l
                 case eloc of
                   Left x -> return $ Left x
-                  Right loc -> return $ Right $ J.SymbolInformation nameText kind loc Nothing
+                  Right loc -> return $ Right $ J.SymbolInformation nameText kind loc cnt
           impInfs <- mapM (goImport . unLoc) imports
           symInfs <- mapM declsToSymbolInf decls
           return $ IdeResponseOk $ rights $ impInfs ++ symInfs
