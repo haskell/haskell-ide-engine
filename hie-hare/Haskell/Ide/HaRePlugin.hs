@@ -201,6 +201,7 @@ getSymbols uri = do
           let tm = tcMod cm
               hsMod = unLoc $ pm_parsed_source $ tm_parsed_module tm
               imports = hsmodImports hsMod
+              imps  = concatMap (goImport . unLoc) imports
               decls = concatMap (go . unLoc) $ hsmodDecls hsMod
               _nm = initRdrNameMap tm
               s x = T.pack . showGhc <$> x
@@ -245,26 +246,37 @@ getSymbols uri = do
                                          where f ln = (J.SkField, s ln, Just (unLoc sn))
                     _ -> []
 
-              goImport :: ImportDecl RdrName -> IdeM (Either String J.SymbolInformation)
-              goImport (ImportDecl _ (L l mn) _ _ _ qual _ as _)
-                | qual = do
-                    let name = getFirst $ foldMap First [as, Just mn]
-                        nameText = T.pack $ showGhc $ gfromJust "getSymbols" name
-                    eloc <- srcLoc2Loc l
-                    case eloc of
-                      Left x -> return $ Left x
-                      Right loc -> return $ Right $ J.SymbolInformation nameText J.SkModule loc Nothing
-                | otherwise = return $ Left "module not qualified"
+              goImport :: ImportDecl RdrName -> [(J.SymbolKind, Located T.Text, Maybe T.Text)]
+              goImport (ImportDecl _ lmn@(L l _) _ _ _ _ _ as meis) = a ++ xs
+                where
+                  im = (J.SkModule, lsmn, Nothing)
+                  lsmn = s lmn
+                  smn = unLoc lsmn
+                  a = case as of
+                            Just a' -> [(J.SkNamespace, s (L l a'), Just smn)]
+                            Nothing -> [im]
+                  xs = case meis of
+                         Just (False, eis) -> concatMap (f . unLoc) (unLoc eis)
+                         _ -> []
+                  f (IEVar n) = pure (J.SkFunction, s n, Just smn)
+                  f (IEThingAbs n) = pure (J.SkClass, s n, Just smn)
+                  f (IEThingAll n) = pure (J.SkClass, s n, Just smn)
+                  f (IEThingWith n _ vars fields) =
+                    let sn = s n in
+                    (J.SkClass, sn, Just smn) :
+                         map (\n' -> (J.SkFunction, s n', Just (unLoc sn))) vars
+                      ++ map (\f' -> (J.SkField   , s f', Just (unLoc sn))) fields
+                  f _ = []
+
               declsToSymbolInf :: (J.SymbolKind, Located T.Text, Maybe T.Text)
                                -> IdeM (Either String J.SymbolInformation)
-              declsToSymbolInf (kind, (L l nameText), cnt) = do
+              declsToSymbolInf (kind, L l nameText, cnt) = do
                 eloc <- srcLoc2Loc l
                 case eloc of
                   Left x -> return $ Left x
                   Right loc -> return $ Right $ J.SymbolInformation nameText kind loc cnt
-          impInfs <- mapM (goImport . unLoc) imports
-          symInfs <- mapM declsToSymbolInf decls
-          return $ IdeResponseOk $ rights $ impInfs ++ symInfs
+          symInfs <- mapM declsToSymbolInf (imps ++ decls)
+          return $ IdeResponseOk $ rights symInfs
 
 -- ---------------------------------------------------------------------
 
