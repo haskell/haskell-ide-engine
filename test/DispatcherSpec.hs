@@ -287,9 +287,9 @@ dispatcherSpec = do
       outChan <- atomically newTChan
       cont <- newEmptyMVar
       let myAsyncCmd :: IdeM (Async T.Text)
-          myAsyncCmd = makeAsync $ putMVar cont ()  >> return (IdeResponseOk "text2")
+          myAsyncCmd = makeAsync $ return (IdeResponseOk "text2")
           myCallback :: Async T.Text -> IO ()
-          myCallback f = f $ atomically . writeTChan outChan
+          myCallback f = f $ \x -> atomically (writeTChan outChan x) >> putMVar cont ()
           req = PReq Nothing Nothing myCallback myAsyncCmd
       inChan <- atomically newTChan
       cancelTVar <- newTVarIO S.empty
