@@ -35,7 +35,6 @@ import           Language.Haskell.Refact.Utils.Monad
 import           Language.Haskell.Refact.Utils.MonadFunctions
 import           Language.Haskell.Refact.Utils.Utils
 import           Name
-
 -- ---------------------------------------------------------------------
 
 hareDescriptor :: TaggedPluginDescriptor _
@@ -191,6 +190,93 @@ deleteDefCmd' (TextDocumentPositionParams tdi pos) =
       runHareCommand "deltetedef" (compDeleteDef file (unPos pos))
 
 -- compDeleteDef ::FilePath -> SimpPos -> RefactGhc [ApplyRefacResult]
+
+-- ---------------------------------------------------------------------
+getSymbols :: Uri -> IdeM (IdeResponse [J.SymbolInformation])
+getSymbols uri = do
+    mcm <- Map.lookup uri <$> getCachedModules
+    case mcm of
+      Nothing -> return $ IdeResponseOk []
+      Just cm -> do
+          let tm = tcMod cm
+              hsMod = unLoc $ pm_parsed_source $ tm_parsed_module tm
+              imports = hsmodImports hsMod
+              imps  = concatMap (goImport . unLoc) imports
+              decls = concatMap (go . unLoc) $ hsmodDecls hsMod
+              _nm = initRdrNameMap tm
+              s x = T.pack . showGhc <$> x
+
+              go :: HsDecl RdrName -> [(J.SymbolKind,Located T.Text,Maybe T.Text)]
+              go (TyClD (FamDecl (FamilyDecl _ n _ _ _))) = pure (J.SkClass,s n, Nothing)
+              go (TyClD (SynDecl n _ _ _)) = pure (J.SkClass,s n,Nothing)
+              go (TyClD (DataDecl n _ (HsDataDefn _ _ _ _ cons _) _ _)) =
+                (J.SkClass, s n, Nothing) : concatMap (processCon (unLoc $ s n) . unLoc) cons
+              go (TyClD (ClassDecl _ n _ _ sigs _ fams _ _ _)) =
+                (J.SkInterface, sn, Nothing) :
+                      concatMap (processSig (unLoc sn) . unLoc) sigs
+                  ++  concatMap (map setCnt . go . TyClD . FamDecl . unLoc) fams
+                where sn = s n
+                      setCnt (k,n',_) = (k,n',Just (unLoc sn))
+              go (ValD (FunBind ln _ _ _ _)) = pure (J.SkFunction, s ln, Nothing)
+              go (ValD (PatBind p  _ _ _ _)) =
+                map (\n ->(J.SkMethod,s n, Nothing)) $ hsNamessRdr p
+              go (ForD (ForeignImport n _ _ _)) = pure (J.SkFunction, s n, Nothing)
+              go _ = []
+
+              processSig :: T.Text
+                         -> Sig RdrName
+                         -> [(J.SymbolKind, Located T.Text, Maybe T.Text)]
+              processSig cnt (ClassOpSig False names _) =
+                map (\n ->(J.SkMethod,s n, Just cnt)) names
+              processSig _ _ = []
+
+              processCon :: T.Text
+                         -> ConDecl RdrName
+                         -> [(J.SymbolKind, Located T.Text, Maybe T.Text)]
+              processCon cnt (ConDeclGADT names _ _) =
+                map (\n -> (J.SkConstructor, s n, Just cnt)) names
+              processCon cnt (ConDeclH98 name _ _ dets _) =
+                (J.SkConstructor, sn, Just cnt) : xs
+                where
+                  sn = s name
+                  xs = case dets of
+                    RecCon (L _ rs) -> concatMap (map (f . rdrNameFieldOcc . unLoc)
+                                                 . cd_fld_names
+                                                 . unLoc) rs
+                                         where f ln = (J.SkField, s ln, Just (unLoc sn))
+                    _ -> []
+
+              goImport :: ImportDecl RdrName -> [(J.SymbolKind, Located T.Text, Maybe T.Text)]
+              goImport (ImportDecl _ lmn@(L l _) _ _ _ _ _ as meis) = a ++ xs
+                where
+                  im = (J.SkModule, lsmn, Nothing)
+                  lsmn = s lmn
+                  smn = unLoc lsmn
+                  a = case as of
+                            Just a' -> [(J.SkNamespace, s (L l a'), Just smn)]
+                            Nothing -> [im]
+                  xs = case meis of
+                         Just (False, eis) -> concatMap (f . unLoc) (unLoc eis)
+                         _ -> []
+                  f (IEVar n) = pure (J.SkFunction, s n, Just smn)
+                  f (IEThingAbs n) = pure (J.SkClass, s n, Just smn)
+                  f (IEThingAll n) = pure (J.SkClass, s n, Just smn)
+                  f (IEThingWith n _ vars fields) =
+                    let sn = s n in
+                    (J.SkClass, sn, Just smn) :
+                         map (\n' -> (J.SkFunction, s n', Just (unLoc sn))) vars
+                      ++ map (\f' -> (J.SkField   , s f', Just (unLoc sn))) fields
+                  f _ = []
+
+              declsToSymbolInf :: (J.SymbolKind, Located T.Text, Maybe T.Text)
+                               -> IdeM (Either String J.SymbolInformation)
+              declsToSymbolInf (kind, L l nameText, cnt) = do
+                eloc <- srcLoc2Loc l
+                case eloc of
+                  Left x -> return $ Left x
+                  Right loc -> return $ Right $ J.SymbolInformation nameText kind loc cnt
+          symInfs <- mapM declsToSymbolInf (imps ++ decls)
+          return $ IdeResponseOk $ rights symInfs
 
 -- ---------------------------------------------------------------------
 

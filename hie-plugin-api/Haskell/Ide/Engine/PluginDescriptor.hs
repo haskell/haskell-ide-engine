@@ -38,6 +38,8 @@ module Haskell.Ide.Engine.PluginDescriptor
   , UntaggedCommand
   , CommandFunc(..), SyncCommandFunc, AsyncCommandFunc
   , buildCommand
+  , Async
+  , Callback
 
   -- * Plugins
   , Plugins
@@ -196,6 +198,9 @@ type SyncCommandFunc resp
 type AsyncCommandFunc resp = (IdeResponse resp -> IO ())
                -> [AcceptedContext] -> IdeRequest -> IdeM ()
 
+type Callback a = IdeResponse a -> IO ()
+type Async a = Callback a -> IO ()
+
 -- -------------------------------------
 -- JSON instances
 
@@ -240,7 +245,6 @@ data CachedModule = CachedModule
 
 instance Show CachedModule where
   show (CachedModule _ _ _) = "CachedModule { .. }"
-
 
 getPlugins :: IdeM Plugins
 getPlugins = lift $ lift $ idePlugins <$> get

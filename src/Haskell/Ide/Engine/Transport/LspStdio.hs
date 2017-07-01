@@ -294,6 +294,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
                               , J.Registration "hare:gotodef" "textDocument/definition" (Just options)
                               , J.Registration "brittany:formatting" "textDocument/formatting" (Just options)
                               , J.Registration "brittany:rangeFormatting" "textDocument/rangeFormatting" (Just options)
+                              , J.Registration "hare:getSymbols" "textDocument/documentSymbol" (Just options)
                               ]
         let registrations = J.RegistrationParams (J.List registrationsList)
         rid <- nextLspReqId
@@ -356,7 +357,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
             pos = params ^. J.position
             newName  = params ^. J.newName
         callback <- hieResponseHelper (req ^. J.id) $ \we -> do
-            let rspMsg = Core.makeResponseMessage (J.responseId $ req ^. J.id ) we
+            let rspMsg = Core.makeResponseMessage req we
             reactorSend rspMsg
         let hreq = PReq Nothing (Just $ req ^. J.id) callback $ HaRe.renameCmd' (TextDocumentPositionParams doc pos) newName
         makeRequest hreq
@@ -377,7 +378,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
                   where
                     ms = map (\ti -> J.MarkedString "haskell" (snd ti)) xs
                     tr = fst $ head xs
-              rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) ht
+              rspMsg = Core.makeResponseMessage req ht
             reactorSend rspMsg
         let hreq = PReq Nothing (Just $ req ^. J.id) callback $ GhcMod.newTypeCmd True doc pos
         makeRequest hreq
@@ -405,8 +406,8 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
               cmdparams = Just args
           makeCommand (J.Diagnostic _r _s _c _source _m  ) = []
           -- TODO: make context specific commands for all sorts of things, such as refactorings
-        let body = concatMap makeCommand diags
-        let rspMsg = Core.makeResponseMessage (J.responseId $ req ^. J.id ) body
+        let body = J.List $ concatMap makeCommand diags
+        let rspMsg = Core.makeResponseMessage req body
         reactorSend rspMsg
 
       -- -------------------------------
@@ -435,11 +436,11 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
           case J.fromJSON obj of
             J.Success v -> do
 
-              reactorSend $ Core.makeResponseMessage ( J.responseId $ req ^. J.id ) (J.Object mempty)
+              reactorSend $ Core.makeResponseMessage req (J.Object mempty)
               let msg = fmServerApplyWorkspaceEditRequest lid $ J.ApplyWorkspaceEditParams v
               liftIO $ U.logs $ "ExecuteCommand sending edit: " ++ show msg
               reactorSend msg
-            _ -> reactorSend $ Core.makeResponseMessage ( J.responseId $ req ^. J.id ) obj
+            _ -> reactorSend $ Core.makeResponseMessage req obj
         let (plugin,cmd) = break (==':') (T.unpack command)
         let ireq = IdeRequest (T.pack $ tail cmd) (Map.fromList cmdparams)
             preq = PReq Nothing (Just $ req ^. J.id) callback (dispatchSync plugins (T.pack plugin) ireq)
@@ -462,7 +463,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         liftIO $ U.logs $ "****reactor:ReqCompletion:not immplemented=" ++ show (doc,l,c)
 
         let cr = J.Completions (J.List []) -- ( [] :: [J.CompletionListType])
-        let rspMsg = Core.makeResponseMessage (J.responseId $ req ^. J.id ) cr
+        let rspMsg = Core.makeResponseMessage req cr
         reactorSend rspMsg
 
       -- -------------------------------
@@ -482,7 +483,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         liftIO $ U.logs $ "****reactor:ReqDocumentHighlights:not immplemented=" ++ show (doc,pos)
 
         let cr = J.List  ([] :: [J.DocumentHighlight])
-        let rspMsg = Core.makeResponseMessage (J.responseId $ req ^. J.id ) cr
+        let rspMsg = Core.makeResponseMessage req cr
         reactorSend rspMsg
 
       -- -------------------------------
@@ -490,7 +491,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         liftIO $ U.logs $ "reactor:got DefinitionRequest:" ++ show req
         let params = req ^. J.params
         callback <- hieResponseHelper (req ^. J.id) $ \loc -> do
-            let rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) loc
+            let rspMsg = Core.makeResponseMessage req loc
             reactorSend rspMsg
         let hreq = PReq Nothing (Just $ req ^. J.id) callback $ HaRe.findDefCmd params
         makeRequest hreq
@@ -501,9 +502,9 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
             doc = params ^. J.textDocument
             tabSize = params ^. J.options . J.tabSize
         callback <- hieResponseHelper (req ^. J.id) $ \textEdit -> do
-            let rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) textEdit
+            let rspMsg = Core.makeResponseMessage req textEdit
             reactorSend rspMsg
-        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ Brittany.brittanyCmd tabSize doc Nothing
+        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ fmap J.List <$> Brittany.brittanyCmd tabSize doc Nothing
         makeRequest hreq
       -- -------------------------------
       Core.ReqDocumentRangeFormatting req -> do
@@ -513,9 +514,18 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
             range = params ^. J.range
             tabSize = params ^. J.options . J.tabSize
         callback <- hieResponseHelper (req ^. J.id) $ \textEdit -> do
-            let rspMsg = Core.makeResponseMessage ( J.responseId $ req ^. J.id ) textEdit
+            let rspMsg = Core.makeResponseMessage req textEdit
             reactorSend rspMsg
-        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ Brittany.brittanyCmd tabSize doc (Just range)
+        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ fmap J.List <$> Brittany.brittanyCmd tabSize doc (Just range)
+        makeRequest hreq
+      -- -------------------------------
+      Core.ReqDocumentSymbols req -> do
+        liftIO $ U.logs $ "reactor:got Document symbol request:" ++ show req
+        let uri = req ^. J.params . J.textDocument . J.uri
+        callback <- hieResponseHelper (req ^. J.id) $ \docSymbols -> do
+            let rspMsg = Core.makeResponseMessage req docSymbols
+            reactorSend rspMsg
+        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ fmap J.List <$> HaRe.getSymbols uri
         makeRequest hreq
       -- -------------------------------
       Core.NotCancelRequest notif -> do
@@ -636,6 +646,7 @@ hieHandlers rin
         , Core.documentHighlightHandler                 = Just $ passHandler rin Core.ReqDocumentHighlights
         , Core.documentFormattingHandler                = Just $ passHandler rin Core.ReqDocumentFormatting
         , Core.documentRangeFormattingHandler           = Just $ passHandler rin Core.ReqDocumentRangeFormatting
+        , Core.documentSymbolHandler                    = Just $ passHandler rin Core.ReqDocumentSymbols
         }
 
 -- ---------------------------------------------------------------------
