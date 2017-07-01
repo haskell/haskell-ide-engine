@@ -43,20 +43,20 @@ hoogleDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-infoCmd :: CommandFunc T.Text
+infoCmd :: CommandFunc (Maybe T.Text)
 infoCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdText "expr" :& RNil) req of
     Left err -> return err
     Right (ParamText expr :& RNil) ->
       infoCmd' expr
 
-infoCmd' :: T.Text -> IdeM (IdeResponse T.Text)
+infoCmd' :: T.Text -> IdeM (IdeResponse (Maybe T.Text))
 infoCmd' expr = liftIO $
   runHoogleQuery expr $ \res ->
       if null res then
-          IdeResponseOk "No results found"
+          IdeResponseOk Nothing
       else
-          IdeResponseOk $ T.pack $ targetInfo $ head res
+          IdeResponseOk $ Just $ T.pack $ targetInfo $ head res
 
 ------------------------------------------------------------------------
 

@@ -58,6 +58,7 @@ library
                      , hie-apply-refact
                      , hie-plugin-api
                      , hie-brittany
+                     , hie-hoogle
                      , hslogger
                      , insert-ordered-containers
                      , lens >= 4.15.2
