@@ -393,8 +393,9 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         let hreq = PReq Nothing (Just $ req ^. J.id) callback $ runEitherT $ do
               info <- EitherT $ GhcMod.newTypeCmd True doc pos
               mname <- EitherT $ HaRe.getSymbolAtPoint doc (unPos pos)
+              df <- lift $ GhcMod.getDynFlags
               let sname = HaRe.showName <$> mname
-              docs <- case HaRe.getModule =<< mname of
+              docs <- case HaRe.getModule df =<< mname of
                         Nothing -> return Nothing
                         Just (pkg, modName') -> do
                             let modName = if pkg == "containers"

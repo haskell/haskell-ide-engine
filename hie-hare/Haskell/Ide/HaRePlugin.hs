@@ -15,7 +15,6 @@ import           Control.Monad.Trans.Control
 import           Data.Aeson
 import           Data.Either
 import           Data.Foldable
-import           Data.Char (isAlphaNum)
 import qualified Data.Map                                     as Map
 import           Data.Monoid
 import qualified Data.Text                                    as T
@@ -36,7 +35,7 @@ import           Language.Haskell.Refact.Utils.Monad
 import           Language.Haskell.Refact.Utils.MonadFunctions
 import           Language.Haskell.Refact.Utils.Utils
 import           Name
-import           Module
+import           Packages
 -- ---------------------------------------------------------------------
 
 hareDescriptor :: TaggedPluginDescriptor _
@@ -352,10 +351,12 @@ showQualName = T.pack . showGhcQual
 showName :: Located Name -> T.Text
 showName = T.pack . showGhc
 
-getModule :: Located Name -> Maybe (T.Text,T.Text)
-getModule (L _ n) = do
+getModule :: DynFlags -> Located Name -> Maybe (T.Text,T.Text)
+getModule df (L _ n) = do
   m <- nameModule_maybe n
-  return (T.pack $ takeWhile isAlphaNum $ unitIdString $ moduleUnitId m, T.pack $ moduleNameString $ moduleName m)
+  let uid = moduleUnitId m
+  let pkg = showGhc $ packageName $ getPackageDetails df uid
+  return (T.pack $ pkg, T.pack $ moduleNameString $ moduleName m)
 
 findDef :: Map.Map Uri CachedModule -> Uri -> (Int,Int) -> RefactGhc (IdeResponse Location)
 findDef cms file (row, col) = do
