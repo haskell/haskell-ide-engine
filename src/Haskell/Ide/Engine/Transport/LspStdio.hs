@@ -31,6 +31,8 @@ import           Data.Default
 import           Data.Maybe
 import           Data.Monoid ( (<>) )
 import           Data.Either
+import           Data.Function
+import           Data.List
 import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import qualified Data.Set as S
@@ -373,23 +375,38 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         let params = req ^. J.params
             pos = params ^. J.position
             doc = params ^. J.textDocument . J.uri
-        callback <- hieResponseHelper (req ^. J.id) $ \(info,name,docs) -> do
+        callback <- hieResponseHelper (req ^. J.id) $ \(info,mname,docs) -> do
             let
+              docMarked = map (J.MarkedString "haskell") (maybeToList docs)
               ht = case info of
-                []  -> J.Hover (J.List []) Nothing
-                xs -> J.Hover (J.List $ take 1 ms
-                               ++ map (J.MarkedString "haskell") (maybeToList docs))
+                [] -> J.Hover (J.List docMarked) Nothing
+                xs -> J.Hover (J.List $ ms
+                                    ++ docMarked)
                               (Just tr)
                   where
-                    ms = map (\ti -> J.MarkedString "haskell" $ name <> " :: " <> (snd ti)) xs
+                    ms = map (\ti -> J.MarkedString "haskell" $ name <> " :: " <> snd ti) xs'
                     tr = fst $ head xs
+                    name = fromMaybe "_" mname
+                    xs' = take 1 $ map last $ groupBy ((==) `on` fst) xs
               rspMsg = Core.makeResponseMessage req ht
             reactorSend rspMsg
         let hreq = PReq Nothing (Just $ req ^. J.id) callback $ runEitherT $ do
               info <- EitherT $ GhcMod.newTypeCmd True doc pos
-              name <- EitherT $ HaRe.getSymbolAtPoint doc (unPos pos)
-              docs <- EitherT $ Hoogle.infoCmd' (HaRe.showQualName name <> " is:exact")
-              return (info, HaRe.showName name, docs)
+              mname <- EitherT $ HaRe.getSymbolAtPoint doc (unPos pos)
+              let sname = HaRe.showName <$> mname
+              docs <- case HaRe.getModule =<< mname of
+                        Nothing -> return Nothing
+                        Just (pkg, modName') -> do
+                            let modName = if pkg == "containers"
+                                          then fromMaybe modName' (T.stripSuffix ".Base" modName')
+                                          else modName'
+                                query = (fromJust sname)
+                                     <> " +" <> pkg
+                                     <> " +" <> modName
+                                     <> " is:exact"
+                            liftIO $ U.logs $ "hoogle query: " ++ T.unpack query
+                            EitherT $ Hoogle.infoCmd' query
+              return (info, sname, docs)
         makeRequest hreq
 
       -- -------------------------------

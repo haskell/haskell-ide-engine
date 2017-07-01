@@ -15,6 +15,7 @@ import           Control.Monad.Trans.Control
 import           Data.Aeson
 import           Data.Either
 import           Data.Foldable
+import           Data.Char (isAlphaNum)
 import qualified Data.Map                                     as Map
 import           Data.Monoid
 import qualified Data.Text                                    as T
@@ -35,6 +36,7 @@ import           Language.Haskell.Refact.Utils.Monad
 import           Language.Haskell.Refact.Utils.MonadFunctions
 import           Language.Haskell.Refact.Utils.Utils
 import           Name
+import           Module
 -- ---------------------------------------------------------------------
 
 hareDescriptor :: TaggedPluginDescriptor _
@@ -326,32 +328,34 @@ findDefCmd (TextDocumentPositionParams tdi pos) = do
 
 
 
-getSymbolAtPoint :: Uri -> (Int,Int) -> IdeM (IdeResponse (Located Name))
+getSymbolAtPoint :: Uri -> (Int,Int) -> IdeM (IdeResponse (Maybe (Located Name)))
 getSymbolAtPoint file (row,col) = do
   cms <- getCachedModules
   let mcm = Map.lookup file cms
   case mcm of
-    Nothing -> return $ IdeResponseFail
-                 (IdeError PluginError
-                           (T.pack $ "hare:getSymbolAtPoint" <> ": \"" <> "module not loaded" <> "\"")
-                           Null)
+    Nothing ->
+      return $ IdeResponseFail
+        (IdeError PluginError
+                  (T.pack $ "hare:getSymbolAtPoint" <> ": \"" <> "module not loaded" <> "\"")
+                  Null)
     Just cm -> do
       let tc = tcMod cm
           parsed = pm_parsed_source $ tm_parsed_module tc
           nameMap = initRdrNameMap tc
       case locToRdrName (row, col) parsed of
-        Nothing ->
-              pure (IdeResponseFail
-                     (IdeError PluginError
-                               (T.pack $ "hare:getSymbolAtPoint" <> ": \"" <> "Invalid cursor position" <> "\"")
-                               Null))
-        Just pn@(L l _) -> pure $ IdeResponseOk (L l $ rdrName2NamePure nameMap pn)
+        Nothing -> return $ IdeResponseOk Nothing
+        Just pn@(L l _) -> pure $ IdeResponseOk (Just $ L l $ rdrName2NamePure nameMap pn)
 
 showQualName :: Located Name -> T.Text
 showQualName = T.pack . showGhcQual
 
 showName :: Located Name -> T.Text
 showName = T.pack . showGhc
+
+getModule :: Located Name -> Maybe (T.Text,T.Text)
+getModule (L _ n) = do
+  m <- nameModule_maybe n
+  return (T.pack $ takeWhile isAlphaNum $ unitIdString $ moduleUnitId m, T.pack $ moduleNameString $ moduleName m)
 
 findDef :: Map.Map Uri CachedModule -> Uri -> (Int,Int) -> RefactGhc (IdeResponse Location)
 findDef cms file (row, col) = do
