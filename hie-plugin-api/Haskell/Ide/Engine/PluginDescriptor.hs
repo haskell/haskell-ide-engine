@@ -53,6 +53,7 @@ module Haskell.Ide.Engine.PluginDescriptor
   , NamedCommand(..)
   , CommandType(..)
   , Rec(..)
+  , (<+>)
   , Proxy(..)
   , recordToList'
   , ValidResponse

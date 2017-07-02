@@ -15,6 +15,7 @@ library
   exposed-modules:     Haskell.Ide.BuildPlugin
   build-depends:       base >= 4.7 && < 5
                      , hie-plugin-api
+                     , haskell-lsp
                      , aeson
                      , bytestring
                      , containers
