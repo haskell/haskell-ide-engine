@@ -206,6 +206,8 @@ newTypeCmd bool uri newPos = do
                   _ -> return []
               return $ IdeResponseOk $ concat res
 
+getDynFlags :: IdeM DynFlags
+getDynFlags = GM.unGmlT getSessionDynFlags
 
 -- | Transform output from ghc-mod type into TypeInfo
 toTypeInfo :: [T.Text] -> TypeInfo

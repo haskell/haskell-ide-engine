@@ -75,7 +75,7 @@ hoogleSpec = do
     it "runs the info command" $ do
       let req = infoCmd' "head"
       r <- dispatchRequestP req
-      r `shouldBe` (IdeResponseOk "head :: [a] -> a\nbase Prelude\nExtract the first element of a list, which must be non-empty.\n\n")
+      r `shouldBe` (IdeResponseOk $ Just "head :: [a] -> a\nbase Prelude\nExtract the first element of a list, which must be non-empty.\n\n")
 
     -- ---------------------------------
 
