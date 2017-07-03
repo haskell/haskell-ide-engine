@@ -351,12 +351,12 @@ showQualName = T.pack . showGhcQual
 showName :: Located Name -> T.Text
 showName = T.pack . showGhc
 
-getModule :: DynFlags -> Located Name -> Maybe (T.Text,T.Text)
+getModule :: DynFlags -> Located Name -> Maybe (Maybe T.Text,T.Text)
 getModule df (L _ n) = do
   m <- nameModule_maybe n
   let uid = moduleUnitId m
-  let pkg = showGhc $ packageName $ getPackageDetails df uid
-  return (T.pack $ pkg, T.pack $ moduleNameString $ moduleName m)
+  let pkg = showGhc . packageName <$> lookupPackage df uid
+  return (T.pack <$> pkg, T.pack $ moduleNameString $ moduleName m)
 
 findDef :: Map.Map Uri CachedModule -> Uri -> (Int,Int) -> RefactGhc (IdeResponse Location)
 findDef cms file (row, col) = do

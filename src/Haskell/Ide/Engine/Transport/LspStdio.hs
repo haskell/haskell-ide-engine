@@ -398,11 +398,11 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
               docs <- case HaRe.getModule df =<< mname of
                         Nothing -> return Nothing
                         Just (pkg, modName') -> do
-                            let modName = if pkg == "containers"
+                            let modName = if pkg == Just "containers"
                                           then fromMaybe modName' (T.stripSuffix ".Base" modName')
                                           else modName'
                                 query = (fromJust sname)
-                                     <> " +" <> pkg
+                                     <> fromMaybe "" (T.append " +" <$> pkg)
                                      <> " +" <> modName
                                      <> " is:exact"
                             liftIO $ U.logs $ "hoogle query: " ++ T.unpack query
