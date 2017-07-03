@@ -17,6 +17,10 @@ import           Haskell.Ide.Engine.PluginUtils
 import           Control.Monad.IO.Class
 import           Hoogle
 import           System.Directory
+import qualified GhcMod as GM
+import qualified GhcMod.Monad.Env as GM
+import qualified GhcMod.Types as GM
+import           System.FilePath
 
 -- ---------------------------------------------------------------------
 
@@ -51,7 +55,7 @@ infoCmd = CmdSync $ \_ctxs req -> do
       infoCmd' expr
 
 infoCmd' :: T.Text -> IdeM (IdeResponse (Maybe T.Text))
-infoCmd' expr = liftIO $
+infoCmd' expr =
   runHoogleQuery expr $ \res ->
       if null res then
           IdeResponseOk Nothing
@@ -68,23 +72,39 @@ lookupCmd = CmdSync $ \_ctxs req -> do
       lookupCmd' 10 term
 
 lookupCmd' :: Int -> T.Text -> IdeM (IdeResponse [T.Text])
-lookupCmd' n term = liftIO $
+lookupCmd' n term =
   runHoogleQuery term (IdeResponseOk . map (T.pack . targetResultDisplay False) . take n)
 
-lookupCmdAsync :: Int -> T.Text -> IdeM (Async [T.Text])
-lookupCmdAsync n term =
-    makeAsync $
-      runHoogleQuery term
-                     (IdeResponseOk . map (T.pack . targetResultDisplay False) . take n)
 
 ------------------------------------------------------------------------
 
-runHoogleQuery :: T.Text -> ([Target] -> IdeResponse a) -> IO (IdeResponse a)
+getHoogleDbLoc :: IdeM FilePath
+getHoogleDbLoc = do
+  cradle <- GM.gmCradle <$> GM.gmeAsk
+  let mfp =
+        case GM.cradleProject cradle of
+          GM.StackProject s ->
+            case reverse $ splitPath $ GM.seLocalPkgDb s of
+              "pkgdb":ghcver:resolver:arch:"install/":xs ->
+                Just $ joinPath $ reverse xs ++ ["hoogle",arch,resolver,ghcver,"database.hoo"]
+              _ -> Nothing
+          _ -> Just "hiehoogledb.hoo"
+  case mfp of
+    Nothing -> liftIO defaultDatabaseLocation
+    Just fp -> do
+      exists <- liftIO $ doesFileExist fp
+      if exists then do
+        return fp
+      else
+        liftIO defaultDatabaseLocation
+
+
+runHoogleQuery :: T.Text -> ([Target] -> IdeResponse a) -> IdeM (IdeResponse a)
 runHoogleQuery quer f = do
-        db <- defaultDatabaseLocation
-        dbExists <- doesFileExist db
+        db <- getHoogleDbLoc
+        dbExists <- liftIO $ doesFileExist db
         if dbExists then do
-            res <- searchHoogle db quer
+            res <- liftIO $ searchHoogle db quer
             return (f res)
         else
             return $ IdeResponseFail hoogleDbError
