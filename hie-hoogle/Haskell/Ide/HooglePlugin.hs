@@ -85,7 +85,7 @@ getHoogleDbLoc = do
         case GM.cradleProject cradle of
           GM.StackProject s ->
             case reverse $ splitPath $ GM.seLocalPkgDb s of
-              "pkgdb":ghcver:resolver:arch:"install/":xs ->
+              "pkgdb":ghcver:resolver:arch:_install:xs ->
                 Just $ joinPath $ reverse xs ++ ["hoogle",arch,resolver,ghcver,"database.hoo"]
               _ -> Nothing
           _ -> Just "hiehoogledb.hoo"
