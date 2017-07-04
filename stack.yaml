@@ -38,7 +38,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/lspitzner/brittany.git
-    commit: 16f5aa118d707cc484cdee39351b176b6d17c3df
+    commit: 134f31e4d18e51a7cd3d5bcaa90af92e70b926ce
   extra-dep: true
 
 extra-deps:
