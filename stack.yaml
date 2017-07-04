@@ -40,6 +40,10 @@ packages:
     git: https://github.com/lspitzner/brittany.git
     commit: 16f5aa118d707cc484cdee39351b176b6d17c3df
   extra-dep: true
+- location:
+    git: https://github.com/wz1000/hoogle.git
+    commit: 8f1f21d4a4ec9ab72d7a0d6f2b3d5c82d5363544
+  extra-dep: true
 
 extra-deps:
 - apply-refact-0.3.0.1

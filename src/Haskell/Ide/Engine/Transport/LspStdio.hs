@@ -402,8 +402,8 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
                                           then fromMaybe modName' (T.stripSuffix ".Base" modName')
                                           else modName'
                                 query = (fromJust sname)
-                                     <> fromMaybe "" (T.append " +" <$> pkg)
-                                     <> " +" <> modName
+                                     <> fromMaybe "" (T.append " package:" <$> pkg)
+                                     <> " module:" <> modName
                                      <> " is:exact"
                             liftIO $ U.logs $ "hoogle query: " ++ T.unpack query
                             EitherT $ Hoogle.infoCmd' query
