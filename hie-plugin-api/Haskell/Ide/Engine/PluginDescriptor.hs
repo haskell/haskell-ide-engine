@@ -59,8 +59,11 @@ module Haskell.Ide.Engine.PluginDescriptor
   , recordToList'
   , ValidResponse
   , CachedModule(..)
-  , getCachedModules
-  , modifyCachedModules
+  , getCachedModule
+  , cacheModule
+  , deleteCachedModule
+  , oldRangeToNew
+  , newRangeToOld
   -- * All the good types
   , module Haskell.Ide.Engine.PluginTypes
   ) where
@@ -79,6 +82,7 @@ import           GHC.TypeLits
 import           Haskell.Ide.Engine.PluginTypes
 import qualified GhcMod.Monad as GM
 import           GHC(TypecheckedModule)
+import           System.Directory
 
 -- ---------------------------------------------------------------------
 type ValidResponse a = (FromJSON a, ToJSON a, Typeable a)
@@ -226,25 +230,52 @@ data IdeState = IdeState
     idePlugins :: Plugins
   , extensibleState :: !(Map.Map TypeRep Dynamic)
               -- ^ stores custom state information.
-  , cachedModules :: CachedModules
+  , cachedModules :: !CachedModules
   } deriving (Show)
 
-getCachedModules :: IdeM CachedModules
-getCachedModules = lift . lift $ gets cachedModules
+canonicalizeUri :: Uri -> IdeM Uri
+canonicalizeUri uri =
+  case uriToFilePath uri of
+    Nothing -> return uri
+    Just fp -> do
+      fp' <- liftIO $ canonicalizePath fp
+      return $ filePathToUri fp'
 
-modifyCachedModules :: (CachedModules -> CachedModules) -> IdeM ()
-modifyCachedModules f = do
-  cms <- getCachedModules
-  lift . lift $ modify' (\s -> s { cachedModules = f cms })
+getCachedModule :: Uri -> IdeM (Maybe CachedModule)
+getCachedModule uri = do
+  uri' <- canonicalizeUri uri
+  lift . lift $ gets (Map.lookup uri' . cachedModules)
+
+cacheModule :: Uri -> CachedModule -> IdeM ()
+cacheModule uri cm = do
+  uri' <- canonicalizeUri uri
+  lift . lift $ modify' (\s -> s { cachedModules = Map.insert uri' cm (cachedModules s) })
+
+deleteCachedModule :: Uri -> IdeM ()
+deleteCachedModule uri = do
+  uri' <- canonicalizeUri uri
+  lift . lift $ modify' (\s -> s { cachedModules = Map.delete uri' (cachedModules s) })
+
+newRangeToOld :: CachedModule -> Range -> Maybe Range
+newRangeToOld cm (Range start end) = do
+  start' <- newPosToOld cm start
+  end'   <- newPosToOld cm end
+  return (Range start' end')
+
+oldRangeToNew :: CachedModule -> Range -> Maybe Range
+oldRangeToNew cm (Range start end) = do
+  start' <- oldPosToNew cm start
+  end'   <- oldPosToNew cm end
+  return (Range start' end')
 
 data CachedModule = CachedModule
-  { tcMod  :: TypecheckedModule
+  { tcMod  :: !TypecheckedModule
   , newPosToOld :: Position -> Maybe Position
   , oldPosToNew :: Position -> Maybe Position
   }
 
 instance Show CachedModule where
-  show (CachedModule _ _ _) = "CachedModule { .. }"
+  show CachedModule{} = "CachedModule { .. }"
 
 getPlugins :: IdeM Plugins
 getPlugins = lift $ lift $ idePlugins <$> get

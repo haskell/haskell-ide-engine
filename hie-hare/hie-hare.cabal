@@ -22,12 +22,14 @@ library
                      , aeson
                      , containers
                      , directory
+                     , either
                      , filepath
                      , ghc
                      , ghc-mod
                      , ghc-exactprint
                      , hie-base
                      , hie-plugin-api
+                     , hie-ghc-mod
                      , haskell-lsp
                      , lens
                      , monad-control

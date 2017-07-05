@@ -15,7 +15,7 @@ packages:
 #- ./haskell-lsp
 - location:
     git: https://github.com/alanz/haskell-lsp.git
-    commit: c2cfaf2a5ae8e796d97c51bc20cd8a6b1f3d96d5
+    commit: e68b0dec337a34037d09ad8ef2b576dcd6db6ed6
   extra-dep: true
 - location:
     git: https://github.com/alanz/ghc-dump-tree.git
@@ -39,6 +39,10 @@ packages:
 - location:
     git: https://github.com/lspitzner/brittany.git
     commit: 134f31e4d18e51a7cd3d5bcaa90af92e70b926ce
+  extra-dep: true
+- location:
+    git: https://github.com/wz1000/hoogle.git
+    commit: 8f1f21d4a4ec9ab72d7a0d6f2b3d5c82d5363544
   extra-dep: true
 
 extra-deps:

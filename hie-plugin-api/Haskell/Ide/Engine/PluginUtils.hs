@@ -10,8 +10,8 @@ module Haskell.Ide.Engine.PluginUtils
   , mapEithers
   , pluginGetFile
   , diffText
-  , srcLoc2Range
-  , srcLoc2Loc
+  , srcSpan2Range
+  , srcSpan2Loc
   , makeAsync
   -- * Helper functions for errors
   , missingParameter
@@ -19,8 +19,9 @@ module Haskell.Ide.Engine.PluginUtils
   , fileInfo
   ) where
 
-import           Control.Lens                          (view)
 import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Either
+import           Control.Monad.Trans
 import           Control.Concurrent
 import           Data.Aeson
 import           Data.Algorithm.Diff
@@ -49,21 +50,31 @@ makeAsync action = liftIO $ do
   return $ \callback -> takeMVar resMVar >>= callback
 -- ---------------------------------------------------------------------
 
-srcLoc2Range :: (Monad m, MonadIO m) => SrcSpan -> GM.GhcModT m (Either String Range)
-srcLoc2Range = (fmap . fmap) (view J.range) . srcLoc2Loc
+getRealSrcSpan :: SrcSpan -> Either T.Text RealSrcSpan
+getRealSrcSpan (RealSrcSpan r) = pure r
+getRealSrcSpan (UnhelpfulSpan x) = Left $ T.pack $ unpackFS x
 
-srcLoc2Loc :: (Monad m, MonadIO m) => SrcSpan -> GM.GhcModT m (Either String Location)
-srcLoc2Loc (RealSrcSpan r) = do
-  revMapp <- GM.mkRevRedirMapFunc
-  file <- liftIO $ makeAbsolute $ revMapp $ unpackFS $ srcSpanFile r
-  return $ Right $ Location (filePathToUri file) $ Range (toPos (l1,c1)) (toPos (l2,c2))
-  where s = realSrcSpanStart r
+realSrcSpan2Range :: RealSrcSpan -> Range
+realSrcSpan2Range rspan =
+  Range (toPos (l1,c1)) (toPos (l2,c2))
+  where s = realSrcSpanStart rspan
         l1 = srcLocLine s
         c1 = srcLocCol s
-        e = realSrcSpanEnd r
+        e = realSrcSpanEnd rspan
         l2 = srcLocLine e
         c2 = srcLocCol e
-srcLoc2Loc (UnhelpfulSpan x) = return $ Left $ unpackFS x
+
+srcSpan2Range :: SrcSpan -> (Either T.Text Range)
+srcSpan2Range spn =
+  realSrcSpan2Range <$> getRealSrcSpan spn
+
+srcSpan2Loc :: (Monad m, MonadIO m) => SrcSpan -> GM.GhcModT m (Either T.Text Location)
+srcSpan2Loc spn = runEitherT $ do
+  rspan <- hoistEither $ getRealSrcSpan spn
+  revMapp <- lift GM.mkRevRedirMapFunc
+  let fp = unpackFS $ srcSpanFile rspan
+  file <- liftIO $ makeAbsolute . revMapp =<< canonicalizePath fp
+  return $ Location (filePathToUri file) (realSrcSpan2Range rspan)
 
 -- ---------------------------------------------------------------------
 pluginGetFile

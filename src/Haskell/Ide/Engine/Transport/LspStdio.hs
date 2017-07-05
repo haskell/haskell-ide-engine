@@ -183,7 +183,7 @@ unmapFileFromVfs cin uri = do
 
 updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeM (IdeResponse ())
 updatePositionMap uri changes = do
-  mcm <- Map.lookup uri <$> getCachedModules
+  mcm <- getCachedModule uri
   case mcm of
     Just cm -> do
       let n2oOld = newPosToOld cm
@@ -193,7 +193,7 @@ updatePositionMap uri changes = do
             (n2o' <=< newToOld r txt, oldToNew r txt <=< o2n')
           go _ _ = (const Nothing, const Nothing)
       let cm' = cm {newPosToOld = n2o, oldPosToNew = o2n}
-      modifyCachedModules (Map.insert uri cm')
+      cacheModule uri cm'
       return $ IdeResponseOk ()
     Nothing ->
       return $ IdeResponseOk ()
@@ -300,6 +300,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
                               , J.Registration "brittany:formatting" "textDocument/formatting" (Just options)
                               , J.Registration "brittany:rangeFormatting" "textDocument/rangeFormatting" (Just options)
                               , J.Registration "hare:getSymbols" "textDocument/documentSymbol" (Just options)
+                              , J.Registration "hare:getReferencesInDoc" "textDocument/documentHighlight" (Just options)
                               ]
         let registrations = J.RegistrationParams (J.List registrationsList)
         rid <- nextLspReqId
@@ -350,7 +351,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
             uri = notification ^. J.params . J.textDocument . J.uri
         unmapFileFromVfs cin uri
         makeRequest $ PReq Nothing Nothing (const $ return ()) $ do
-          modifyCachedModules (Map.delete uri)
+          deleteCachedModule uri
           return $ IdeResponseOk ()
 
       -- -------------------------------
@@ -392,18 +393,18 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
             reactorSend rspMsg
         let hreq = PReq Nothing (Just $ req ^. J.id) callback $ runEitherT $ do
               info <- EitherT $ GhcMod.newTypeCmd True doc pos
-              mname <- EitherT $ HaRe.getSymbolAtPoint doc (unPos pos)
+              mname <- EitherT $ HaRe.getSymbolAtPoint doc pos
               df <- lift $ GhcMod.getDynFlags
               let sname = HaRe.showName <$> mname
               docs <- case HaRe.getModule df =<< mname of
                         Nothing -> return Nothing
                         Just (pkg, modName') -> do
-                            let modName = if pkg == "containers"
+                            let modName = if pkg == Just "containers"
                                           then fromMaybe modName' (T.stripSuffix ".Base" modName')
                                           else modName'
                                 query = (fromJust sname)
-                                     <> " +" <> pkg
-                                     <> " +" <> modName
+                                     <> fromMaybe "" (T.append " package:" <$> pkg)
+                                     <> " module:" <> modName
                                      <> " is:exact"
                             liftIO $ U.logs $ "hoogle query: " ++ T.unpack query
                             EitherT $ Hoogle.infoCmd' query
@@ -480,14 +481,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         let params = req ^. J.params
             doc = params ^. J.textDocument
             J.Position l c = params ^. J.position
-        -- rid <- nextReqId
-        -- let hreq = CReq "ghcmod" rid (IdeRequest "type" (Map.fromList
-        --                                             [("file",     ParamFileP (T.pack fileName))
-        --                                             ,("start_pos",ParamPosP (toPos (l+1,c+1)))
-        --                                             ])) cout
-        -- liftIO $ atomically $ writeTChan cin hreq
-        -- keepOriginal rid r
-        liftIO $ U.logs $ "****reactor:ReqCompletion:not immplemented=" ++ show (doc,l,c)
+        liftIO $ U.logs $ "****reactor:ReqCompletion:not implemented=" ++ show (doc,l,c)
 
         let cr = J.Completions (J.List []) -- ( [] :: [J.CompletionListType])
         let rspMsg = Core.makeResponseMessage req cr
@@ -500,27 +494,23 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         let params = req ^. J.params
             doc = params ^. J.textDocument ^. J.uri
             pos = params ^. J.position
-        -- rid <- nextReqId
-        -- let hreq = CReq "ghcmod" rid (IdeRequest "type" (Map.fromList
-        --                                             [("file",     ParamFileP (T.pack fileName))
-        --                                             ,("start_pos",ParamPosP (toPos (l+1,c+1)))
-        --                                             ])) cout
-        -- liftIO $ atomically $ writeTChan cin hreq
-        -- keepOriginal rid r
-        liftIO $ U.logs $ "****reactor:ReqDocumentHighlights:not immplemented=" ++ show (doc,pos)
-
-        let cr = J.List  ([] :: [J.DocumentHighlight])
-        let rspMsg = Core.makeResponseMessage req cr
-        reactorSend rspMsg
+        callback <- hieResponseHelper (req ^. J.id) $ \highlights -> do
+          let rspMsg = Core.makeResponseMessage req $ J.List highlights
+          reactorSend rspMsg
+        let hreq = PReq Nothing (Just $ req ^. J.id) callback
+                 $ HaRe.getReferencesInDoc doc pos
+        makeRequest hreq
 
       -- -------------------------------
       Core.ReqDefinition req -> do
         liftIO $ U.logs $ "reactor:got DefinitionRequest:" ++ show req
         let params = req ^. J.params
+            doc = params ^. J.textDocument . J.uri
+            pos = params ^. J.position
         callback <- hieResponseHelper (req ^. J.id) $ \loc -> do
             let rspMsg = Core.makeResponseMessage req loc
             reactorSend rspMsg
-        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ HaRe.findDefCmd params
+        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ HaRe.findDef doc pos
         makeRequest hreq
       -- -------------------------------
       Core.ReqDocumentFormatting req -> do
