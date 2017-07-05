@@ -12,11 +12,13 @@ module Haskell.Ide.HaRePlugin where
 import           Control.Lens                                 ((^.))
 import           Control.Monad.State
 import           Control.Monad.Trans.Control
+import           Control.Monad.Trans.Either
 import           Data.Aeson
 import           Data.Either
 import           Data.Foldable
 import qualified Data.Map                                     as Map
 import           Data.Monoid
+import           Data.Maybe
 import qualified Data.Text                                    as T
 import qualified Data.Text.IO                                 as T
 import           Exception
@@ -195,7 +197,7 @@ deleteDefCmd' (TextDocumentPositionParams tdi pos) =
 -- ---------------------------------------------------------------------
 getSymbols :: Uri -> IdeM (IdeResponse [J.SymbolInformation])
 getSymbols uri = do
-    mcm <- Map.lookup uri <$> getCachedModules
+    mcm <- getCachedModule uri
     case mcm of
       Nothing -> return $ IdeResponseOk []
       Just cm -> do
@@ -270,9 +272,9 @@ getSymbols uri = do
                   f _ = []
 
               declsToSymbolInf :: (J.SymbolKind, Located T.Text, Maybe T.Text)
-                               -> IdeM (Either String J.SymbolInformation)
+                               -> IdeM (Either T.Text J.SymbolInformation)
               declsToSymbolInf (kind, L l nameText, cnt) = do
-                eloc <- srcLoc2Loc l
+                eloc <- srcSpan2Loc l
                 case eloc of
                   Left x -> return $ Left x
                   Right loc -> return $ Right $ J.SymbolInformation nameText kind loc cnt
@@ -312,38 +314,70 @@ makeRefactorResult changedFiles = do
   return $ fold diffs
 
 -- ---------------------------------------------------------------------
+nonExistentCacheErr :: String -> IdeResponse a
+nonExistentCacheErr meth =
+  IdeResponseFail $
+    IdeError PluginError
+             (T.pack $ meth <> ": \"" <> "module not loaded" <> "\"")
+             Null
 
-findDefCmd :: TextDocumentPositionParams -> IdeM (IdeResponse Location)
-findDefCmd (TextDocumentPositionParams tdi pos) = do
-    cms <- getCachedModules
-    eitherRes <- runHareCommand' $ findDef cms (tdi ^. J.uri) (unPos pos)
-    case eitherRes of
-      Right x -> return x
-      Left err ->
-         pure (IdeResponseFail
-                 (IdeError PluginError
-                           (T.pack $ "hare:findDefCmd" <> ": \"" <> err <> "\"")
-                           Null))
+invalidCursorErr :: String -> IdeResponse a
+invalidCursorErr meth =
+  IdeResponseFail $
+    IdeError PluginError
+             (T.pack $ meth <> ": \"" <> "Invalid cursor position" <> "\"")
+             Null
+-- ---------------------------------------------------------------------
 
-
-
-getSymbolAtPoint :: Uri -> (Int,Int) -> IdeM (IdeResponse (Maybe (Located Name)))
-getSymbolAtPoint file (row,col) = do
-  cms <- getCachedModules
-  let mcm = Map.lookup file cms
+getSymbolAtPoint :: Uri -> Position -> IdeM (IdeResponse (Maybe (Located Name)))
+getSymbolAtPoint file pos = do
+  mcm <- getCachedModule file
   case mcm of
-    Nothing ->
-      return $ IdeResponseFail
-        (IdeError PluginError
-                  (T.pack $ "hare:getSymbolAtPoint" <> ": \"" <> "module not loaded" <> "\"")
-                  Null)
+    Nothing -> return $ nonExistentCacheErr "getSymbolAtPoint"
+    Just cm ->
+      return $ IdeResponseOk $ symbolFromTypecheckedModule (tcMod cm) =<< newPosToOld cm pos
+
+symbolFromTypecheckedModule :: TypecheckedModule -> Position -> Maybe (Located Name)
+symbolFromTypecheckedModule tc pos = do
+  pn@(L l _) <- locToRdrName (unPos pos) parsed
+  return $ L l $ rdrName2NamePure nameMap pn
+  where parsed = pm_parsed_source $ tm_parsed_module tc
+        nameMap = initRdrNameMap tc
+
+-- ---------------------------------------------------------------------
+
+invert :: (Ord k, Ord v) => Map.Map k v -> Map.Map v [k]
+invert m = Map.fromListWith (++) [(v,[k]) | (k,v) <- Map.toList m]
+
+getReferencesInDoc :: Uri -> Position -> IdeM (IdeResponse [J.DocumentHighlight])
+getReferencesInDoc uri pos = runEitherT $ do
+  mcm <- lift $ getCachedModule uri
+  case mcm of
+    Nothing -> hoistEither $ nonExistentCacheErr "getReferencesInDoc"
     Just cm -> do
       let tc = tcMod cm
           parsed = pm_parsed_source $ tm_parsed_module tc
           nameMap = initRdrNameMap tc
-      case locToRdrName (row, col) parsed of
-        Nothing -> return $ IdeResponseOk Nothing
-        Just pn@(L l _) -> pure $ IdeResponseOk (Just $ L l $ rdrName2NamePure nameMap pn)
+          invertedMap = invert nameMap
+          mpos = newPosToOld cm pos
+      case mpos of
+        Nothing -> return []
+        Just pos' ->
+          case locToRdrName (unPos pos') parsed of
+            Nothing -> hoistEither $ invalidCursorErr "hare:getReferencesInDoc"
+            Just pn -> do
+              let name = rdrName2NamePure nameMap pn
+                  usages = Map.lookup name invertedMap
+                  ranges = maybe [] (rights . map srcSpan2Range) usages
+                  defn = srcSpan2Range $ nameSrcSpan name
+                  makeDocHighlight r = do
+                    let kind = if Right r == defn then J.HkWrite else J.HkRead
+                    r' <- oldRangeToNew cm r
+                    return $ J.DocumentHighlight r' (Just kind)
+                  highlights = mapMaybe makeDocHighlight ranges
+              return $ highlights
+
+-- ---------------------------------------------------------------------
 
 showQualName :: Located Name -> T.Text
 showQualName = T.pack . showGhcQual
@@ -358,33 +392,38 @@ getModule df (L _ n) = do
   let pkg = showGhc . packageName <$> lookupPackage df uid
   return (T.pack <$> pkg, T.pack $ moduleNameString $ moduleName m)
 
-findDef :: Map.Map Uri CachedModule -> Uri -> (Int,Int) -> RefactGhc (IdeResponse Location)
-findDef cms file (row, col) = do
+-- ---------------------------------------------------------------------
+
+findDefCmd :: TextDocumentPositionParams -> IdeM (IdeResponse Location)
+findDefCmd (TextDocumentPositionParams tdi pos) = do
+    cms <- lift . lift $ gets cachedModules
+    eitherRes <- runHareCommand' $ findDef cms (tdi ^. J.uri) pos
+    case eitherRes of
+      Right x -> return x
+      Left err ->
+         pure (IdeResponseFail
+                 (IdeError PluginError
+                           (T.pack $ "hare:findDefCmd" <> ": \"" <> err <> "\"")
+                           Null))
+
+findDef :: Map.Map Uri CachedModule -> Uri -> Position -> RefactGhc (IdeResponse Location)
+findDef cms file pos = do
   let mcm = Map.lookup file cms
   case mcm of
-    Nothing -> return $ IdeResponseFail $
-                 (IdeError PluginError
-                           (T.pack $ "hare:findDef" <> ": \"" <> "module not loaded" <> "\"")
-                           Null)
+    Nothing -> return $ nonExistentCacheErr "hare:findDef"
     Just cm -> do
       let tc = tcMod cm
-          parsed = pm_parsed_source $ tm_parsed_module tc
-      case locToRdrName (row, col) parsed of
-        Nothing ->
-              pure (IdeResponseFail
-                     (IdeError PluginError
-                               (T.pack $ "hare:findDef" <> ": \"" <> "Invalid cursor position" <> "\"")
-                               Null))
+      case symbolFromTypecheckedModule tc =<< newPosToOld cm pos of
+        Nothing -> return $ invalidCursorErr "hare:findDef"
         Just pn -> do
-          let nameMap = initRdrNameMap tc
-          let n = rdrName2NamePure nameMap pn
-          res <- RefactGhc $ srcLoc2Loc $ nameSrcSpan n
+          let n = unLoc pn
+          res <- RefactGhc $ srcSpan2Loc $ nameSrcSpan n
           case res of
             Right l -> return $ IdeResponseOk l
             Left x -> do
               let failure = pure (IdeResponseFail
                                     (IdeError PluginError
-                                              (T.pack $ "hare:findDef" <> ": \"" <> x <> "\"")
+                                              ("hare:findDef" <> ": \"" <> x <> "\"")
                                               Null))
               case nameModule_maybe n of
                 Just m -> do
@@ -401,7 +440,7 @@ findDef cms file (row, col) = do
                           Nothing -> do
                             parseSourceFileGhc fp
                         newNames <- equivalentNameInNewMod n
-                        eithers <- RefactGhc $ mapM (srcLoc2Loc . nameSrcSpan) newNames
+                        eithers <- RefactGhc $ mapM (srcSpan2Loc . nameSrcSpan) newNames
                         case rights eithers of
                           (l:_) -> return $ IdeResponseOk l
                           []    -> failure

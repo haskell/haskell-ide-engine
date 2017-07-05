@@ -9,12 +9,10 @@
 {-# LANGUAGE TupleSections         #-}
 module Haskell.Ide.GhcModPlugin where
 
-import           Control.Monad
 import           Data.Aeson
 import           Data.Either
 import           Data.Function
 import           Data.List
-import qualified Data.Map                            as Map
 import           Data.Monoid
 import qualified Data.Text                           as T
 import qualified Data.Text.Read                      as T
@@ -132,7 +130,7 @@ setTypecheckedModule uri = do
         Nothing -> return diags
         Just tm -> do
           let cm = CachedModule tm return return
-          modifyCachedModules (Map.insert uri cm)
+          cacheModule uri cm
           return diags
 
 -- ---------------------------------------------------------------------
@@ -181,7 +179,7 @@ typeCmd' bool uri (Position l c) =
 
 newTypeCmd :: Bool -> Uri -> Position -> IdeM (IdeResponse [(Range, T.Text)])
 newTypeCmd bool uri newPos = do
-    mcm <- Map.lookup uri <$> getCachedModules
+    mcm <- getCachedModule uri
     case mcm of
       Nothing -> return $ IdeResponseOk []
       Just cm -> do
@@ -195,16 +193,12 @@ newTypeCmd bool uri newPos = do
               let spanTypes = sortBy (GM.cmp `on` fst) spanTypes'
               dflag        <- getSessionDynFlags
               st           <- GM.getStyle
-              res <- forM spanTypes $ \(spn, t) -> do
-                range' <- GM.GmlT $ srcLoc2Range spn
-                let getNewRange (Range start end) = do
-                      s' <- oldPosToNew cm start
-                      e' <- oldPosToNew cm end
-                      return $ Range s' e'
-                case getNewRange <$> range' of
-                  (Right (Just range)) -> return [(range , T.pack $ GM.pretty dflag st t)]
-                  _ -> return []
-              return $ IdeResponseOk $ concat res
+              let f (spn, t) = do
+                    let range' = srcSpan2Range spn
+                    case oldRangeToNew cm <$> range' of
+                      (Right (Just range)) -> [(range , T.pack $ GM.pretty dflag st t)]
+                      _ -> []
+              return $ IdeResponseOk $ concatMap f spanTypes
 
 getDynFlags :: IdeM DynFlags
 getDynFlags = GM.unGmlT getSessionDynFlags

@@ -18,7 +18,7 @@ import           Data.Vinyl
 import qualified GhcMod.Utils                        as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.PluginUtils      hiding (srcLoc2Range)
+import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
 import           Language.Haskell.HLint3             as Hlint
 import           Refact.Apply
