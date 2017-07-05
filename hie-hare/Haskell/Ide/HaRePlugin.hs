@@ -35,9 +35,10 @@ import           Language.Haskell.Refact.API
 import           Language.Haskell.Refact.HaRe
 import           Language.Haskell.Refact.Utils.Monad
 import           Language.Haskell.Refact.Utils.MonadFunctions
-import           Language.Haskell.Refact.Utils.Utils
 import           Name
 import           Packages
+import           Module
+import           Haskell.Ide.GhcModPlugin (setTypecheckedModule)
 -- ---------------------------------------------------------------------
 
 hareDescriptor :: TaggedPluginDescriptor _
@@ -394,21 +395,18 @@ getModule df (L _ n) = do
 
 -- ---------------------------------------------------------------------
 
-findDefCmd :: TextDocumentPositionParams -> IdeM (IdeResponse Location)
-findDefCmd (TextDocumentPositionParams tdi pos) = do
-    cms <- lift . lift $ gets cachedModules
-    eitherRes <- runHareCommand' $ findDef cms (tdi ^. J.uri) pos
-    case eitherRes of
-      Right x -> return x
-      Left err ->
-         pure (IdeResponseFail
-                 (IdeError PluginError
-                           (T.pack $ "hare:findDefCmd" <> ": \"" <> err <> "\"")
-                           Null))
+getNewNames :: GhcMonad m => Name -> m [Name]
+getNewNames old = do
+  let eqModules (Module pk1 mn1) (Module pk2 mn2) = mn1 == mn2 && pk1 == pk2
+  gnames <- GHC.getNamesInScope
+  let clientModule = GHC.nameModule old
+  let clientInscopes = filter (\n -> eqModules clientModule (GHC.nameModule n)) gnames
+  let newNames = filter (\n -> showGhcQual n == showGhcQual old) clientInscopes
+  return newNames
 
-findDef :: Map.Map Uri CachedModule -> Uri -> Position -> RefactGhc (IdeResponse Location)
-findDef cms file pos = do
-  let mcm = Map.lookup file cms
+findDef :: Uri -> Position -> IdeM (IdeResponse Location)
+findDef file pos = do
+  mcm <- getCachedModule file
   case mcm of
     Nothing -> return $ nonExistentCacheErr "hare:findDef"
     Just cm -> do
@@ -417,9 +415,12 @@ findDef cms file pos = do
         Nothing -> return $ invalidCursorErr "hare:findDef"
         Just pn -> do
           let n = unLoc pn
-          res <- RefactGhc $ srcSpan2Loc $ nameSrcSpan n
+          res <- srcSpan2Loc $ nameSrcSpan n
           case res of
-            Right l -> return $ IdeResponseOk l
+            Right l@(J.Location uri range) ->
+              case oldRangeToNew cm range of
+                Just r -> return $ IdeResponseOk (J.Location uri r)
+                Nothing -> return $ IdeResponseOk l
             Left x -> do
               let failure = pure (IdeResponseFail
                                     (IdeError PluginError
@@ -428,19 +429,23 @@ findDef cms file pos = do
               case nameModule_maybe n of
                 Just m -> do
                   let mName = moduleName m
-                  b <- isLoaded mName
+                  b <- GM.unGmlT $ isLoaded mName
                   if b then do
-                    mLoc <- ms_location <$> getModSummary mName
+                    mLoc <- GM.unGmlT $ ms_location <$> getModSummary mName
                     case ml_hs_file mLoc of
                       Just fp -> do
-                        let mcm' = Map.lookup (filePathToUri fp) cms
-                        case mcm' of
-                          Just cm' -> do
-                            loadTypecheckedModule $ tcMod cm'
+                        let uri = filePathToUri fp
+                        mcm' <- getCachedModule uri
+                        cm' <- case mcm' of
+                          Just cmdl -> return cmdl
                           Nothing -> do
-                            parseSourceFileGhc fp
-                        newNames <- equivalentNameInNewMod n
-                        eithers <- RefactGhc $ mapM (srcSpan2Loc . nameSrcSpan) newNames
+                            _ <- setTypecheckedModule uri
+                            fromJust <$> getCachedModule uri
+                        let modSum = pm_mod_summary $ tm_parsed_module $ tcMod cm'
+                        newNames <- GM.unGmlT $ do
+                          setGhcContext modSum
+                          getNewNames n
+                        eithers <- mapM (srcSpan2Loc . nameSrcSpan) newNames
                         case rights eithers of
                           (l:_) -> return $ IdeResponseOk l
                           []    -> failure

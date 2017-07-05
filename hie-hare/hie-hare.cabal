@@ -29,6 +29,7 @@ library
                      , ghc-exactprint
                      , hie-base
                      , hie-plugin-api
+                     , hie-ghc-mod
                      , haskell-lsp
                      , lens
                      , monad-control

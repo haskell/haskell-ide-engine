@@ -505,10 +505,12 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
       Core.ReqDefinition req -> do
         liftIO $ U.logs $ "reactor:got DefinitionRequest:" ++ show req
         let params = req ^. J.params
+            doc = params ^. J.textDocument . J.uri
+            pos = params ^. J.position
         callback <- hieResponseHelper (req ^. J.id) $ \loc -> do
             let rspMsg = Core.makeResponseMessage req loc
             reactorSend rspMsg
-        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ HaRe.findDefCmd params
+        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ HaRe.findDef doc pos
         makeRequest hreq
       -- -------------------------------
       Core.ReqDocumentFormatting req -> do
