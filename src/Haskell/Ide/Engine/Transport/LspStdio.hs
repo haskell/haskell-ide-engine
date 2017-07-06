@@ -295,12 +295,12 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         -}
         let
           options = J.object ["documentSelector" .= J.object [ "language" .= J.String "haskell"]]
-          registrationsList = [ J.Registration "hare:demote" "workspace/executeCommand" (Just options)
-                              , J.Registration "hare:gotodef" "textDocument/definition" (Just options)
-                              , J.Registration "brittany:formatting" "textDocument/formatting" (Just options)
-                              , J.Registration "brittany:rangeFormatting" "textDocument/rangeFormatting" (Just options)
-                              , J.Registration "hare:getSymbols" "textDocument/documentSymbol" (Just options)
-                              , J.Registration "hare:getReferencesInDoc" "textDocument/documentHighlight" (Just options)
+          registrationsList = [ J.Registration "hare:demote" J.WorkspaceExecuteCommand (Just options)
+                              , J.Registration "hare:gotodef" J.TextDocumentDefinition (Just options)
+                              , J.Registration "brittany:formatting" J.TextDocumentFormatting (Just options)
+                              , J.Registration "brittany:rangeFormatting" J.TextDocumentRangeFormatting (Just options)
+                              , J.Registration "hare:getSymbols" J.TextDocumentDocumentSymbol (Just options)
+                              , J.Registration "hare:getReferencesInDoc" J.TextDocumentDocumentHighlight (Just options)
                               ]
         let registrations = J.RegistrationParams (J.List registrationsList)
         rid <- nextLspReqId
@@ -378,14 +378,15 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
             doc = params ^. J.textDocument . J.uri
         callback <- hieResponseHelper (req ^. J.id) $ \(info,mname,docs) -> do
             let
-              docMarked = map (J.MarkedString "haskell") (maybeToList docs)
+              docMarked = map (Right . J.LanguageString "haskell") (maybeToList docs)
               ht = case info of
                 [] -> J.Hover (J.List docMarked) Nothing
                 xs -> J.Hover (J.List $ ms
                                     ++ docMarked)
                               (Just tr)
                   where
-                    ms = map (\ti -> J.MarkedString "haskell" $ name <> " :: " <> snd ti) xs'
+                    ms = map (\ti -> Right $ J.LanguageString "haskell"
+                                       $ name <> " :: " <> snd ti) xs'
                     tr = fst $ head xs
                     name = fromMaybe "_" mname
                     xs' = take 1 $ map last $ groupBy ((==) `on` fst) xs
