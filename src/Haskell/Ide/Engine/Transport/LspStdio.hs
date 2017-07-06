@@ -571,9 +571,6 @@ requestDiagnostics cin file ver = do
   lf <- ask
   let sendOne pid (uri',ds) =
         publishDiagnostics uri' Nothing (Map.fromList [(Just pid,ds)])
-      mkDiag (f,ds) = do
-        af <- liftIO $ makeAbsolute f
-        return (J.filePathToUri af, ds)
       sendEmpty = publishDiagnostics file Nothing (Map.fromList [(Just "ghcmod",[])])
   -- get hlint diagnostics
   let reql = PReq (Just (file,ver)) Nothing (flip runReaderT lf . callbackl) $ ApplyRefact.lintCmd' file
@@ -582,6 +579,7 @@ requestDiagnostics cin file ver = do
       callbackl (IdeResponseOk  diags) =
         case diags of
           (PublishDiagnosticsParams fp (List ds)) -> sendOne "applyrefact" (fp, ds)
+      callbackl _ = error "impossible"
   liftIO $ atomically $ writeTChan cin reql
 
   -- get GHC diagnostics and loads the typechecked module into the cache
@@ -589,10 +587,12 @@ requestDiagnostics cin file ver = do
       callbackg (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
       callbackg (IdeResponseError err) = liftIO $ U.logs $ "got err" ++ show err
       callbackg (IdeResponseOk     pd) = do
-        let ds = Map.toList pd
+        let ds = Map.toList $ S.toList <$> pd
         case ds of
           [] -> sendEmpty
           _ -> mapM_ (sendOne "ghcmod") ds
+      callbackg _ = error "impossible"
+
   liftIO $ atomically $ writeTChan cin reqg
 
 -- ---------------------------------------------------------------------
@@ -641,6 +641,7 @@ hieResponseHelper lid action = do
       IdeResponseFail  err -> sendErrorResponse lid J.InternalError (T.pack $ show err)
       IdeResponseError err -> sendErrorResponse lid J.InternalError (T.pack $ show err)
       IdeResponseOk r -> action r
+      _ -> error "impossible"
 
 -- ---------------------------------------------------------------------
 

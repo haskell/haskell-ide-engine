@@ -19,6 +19,7 @@ import           Data.IORef
 import qualified Data.Text                           as T
 import qualified Data.Text.Read                      as T
 import qualified Data.Map                            as Map
+import qualified Data.Set                            as Set
 import           Data.Vinyl
 import qualified Exception                           as G
 import           GHC
@@ -101,7 +102,7 @@ ghcmodDescriptor = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 type GhcModDiagnostics = [(FilePath,[Diagnostic])]
-type Diagnostics = Map.Map Uri [Diagnostic]
+type Diagnostics = Map.Map Uri (Set.Set Diagnostic)
 
 checkCmd :: CommandFunc GhcModDiagnostics
 checkCmd = CmdSync $ \_ctxs req -> do
@@ -145,8 +146,8 @@ logDiag rfm ref df _reason sev spn style msg = do
   eloc <- srcSpan2Loc rfm spn
   case eloc of
     Right (Location uri range) -> do
-      let update = Map.insertWith' (++) uri l
-            where l = [diag]
+      let update = Map.insertWith' Set.union uri l
+            where l = Set.singleton diag
           diag = Diagnostic range (Just $ lspSev sev) Nothing (Just "ghcmod") msgTxt
           msgTxt = T.pack $ renderWithStyle df msg style
       modifyIORef' ref update
@@ -167,7 +168,7 @@ srcErrToDiag df rfm se = do
       processMsgs (x:xs) = do
         (uri, diag) <- processMsg x
         m <- processMsgs xs
-        return (Map.insertWith' (++) uri [diag] m)
+        return (Map.insertWith' Set.union uri (Set.singleton diag) m)
   processMsgs errMsgs
 
 myLogger :: GM.IOish m => GM.GmlT m () -> GM.GmlT m (IdeResponse Diagnostics)
@@ -190,7 +191,7 @@ setTypecheckedModule :: Uri -> IdeM (IdeResponse Diagnostics)
 setTypecheckedModule uri = do
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
       (diags', mtm) <- getTypecheckedModuleGhc myLogger fp
-      let diags = Map.insertWith' (++) uri [] <$> diags'
+      let diags = Map.insertWith' Set.union uri Set.empty <$> diags'
       debugm $ "diags are: " ++ show diags
       case mtm of
         Nothing -> return diags
