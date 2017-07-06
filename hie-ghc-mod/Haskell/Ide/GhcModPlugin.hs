@@ -189,7 +189,8 @@ myLogger action = do
 setTypecheckedModule :: Uri -> IdeM (IdeResponse Diagnostics)
 setTypecheckedModule uri = do
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
-      (diags, mtm) <- getTypecheckedModuleGhc myLogger fp
+      (diags', mtm) <- getTypecheckedModuleGhc myLogger fp
+      let diags = Map.insertWith' (++) uri [] <$> diags'
       debugm $ "diags are: " ++ show diags
       case mtm of
         Nothing -> return diags
