@@ -63,9 +63,15 @@ normalize (Range (Position sl _) (Position el _)) =
 
 runBrittany :: Int -> Text -> IO (Either [BrittanyError] Text)
 runBrittany tabSize text = do
-    let config' = staticDefaultConfig
-        config = config' { _conf_layout = (_conf_layout config') { _lconfig_indentAmount = coerce tabSize }}
-    parsePrintModule config text
+  let
+    config' = staticDefaultConfig
+    config  = config'
+      { _conf_layout = (_conf_layout config') { _lconfig_indentAmount = coerce
+                                                tabSize
+                                              }
+      , _conf_forward = _conf_forward config' <> forwardOptionsSyntaxExtsEnabled
+      }
+  parsePrintModule config text
 
 showErr :: BrittanyError -> String
 showErr (ErrorInput s) = s
