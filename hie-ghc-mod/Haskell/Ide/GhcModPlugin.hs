@@ -186,10 +186,10 @@ newTypeCmd bool uri newPos = do
         let mOldPos = newPosToOld cm newPos
         case mOldPos of
           Nothing -> return $ IdeResponseOk []
-          Just (Position l c) ->
+          Just pos ->
             GM.unGmlT $ GM.withInteractiveContext $ do
               let tm = tcMod cm
-              spanTypes' <- GM.collectSpansTypes bool tm (l+1,c+1)
+              spanTypes' <- GM.collectSpansTypes bool tm $ unPos pos
               let spanTypes = sortBy (GM.cmp `on` fst) spanTypes'
               dflag        <- getSessionDynFlags
               st           <- GM.getStyle

@@ -6,6 +6,9 @@
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE NamedFieldPuns        #-}
+{-# LANGUAGE BangPatterns          #-}
 
 module Haskell.Ide.HaRePlugin where
 
@@ -21,6 +24,7 @@ import           Data.Monoid
 import           Data.Maybe
 import qualified Data.Text                                    as T
 import qualified Data.Text.IO                                 as T
+import           Data.Typeable
 import           Exception
 import           GHC
 import qualified GhcMod.Error                                 as GM
@@ -196,6 +200,69 @@ deleteDefCmd' (TextDocumentPositionParams tdi pos) =
 -- compDeleteDef ::FilePath -> SimpPos -> RefactGhc [ApplyRefacResult]
 
 -- ---------------------------------------------------------------------
+
+genApplicativeCommand :: CommandFunc WorkspaceEdit
+genApplicativeCommand  = CmdSync $ \_ctxs req ->
+  case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
+    Left err -> return err
+    Right (ParamFile uri :& ParamPos pos :& RNil) ->
+      genApplicativeCommand' (TextDocumentPositionParams (TextDocumentIdentifier uri) pos)
+
+genApplicativeCommand' :: TextDocumentPositionParams -> IdeM (IdeResponse WorkspaceEdit)
+genApplicativeCommand' (TextDocumentPositionParams tdi pos) =
+  pluginGetFile "genapplicative: " (tdi ^. J.uri) $ \file -> do
+      runHareCommand "genapplicative" (compGenApplicative file (unPos pos))
+
+
+-- ---------------------------------------------------------------------
+
+getRefactorResult :: [ApplyRefacResult] -> [(FilePath,T.Text)]
+getRefactorResult = map getNewFile . filter fileModified
+  where fileModified ((_,m),_) = m == RefacModified
+        getNewFile ((file,_),(ann, parsed)) = (file, T.pack $ exactPrint parsed ann)
+
+makeRefactorResult :: [(FilePath,T.Text)] -> IdeM WorkspaceEdit
+makeRefactorResult changedFiles = do
+  let
+    diffOne :: (FilePath, T.Text) -> IdeM WorkspaceEdit
+    diffOne (fp, newText) = do
+      origText <- GM.withMappedFile fp $ liftIO . T.readFile
+      return $ diffText (filePathToUri fp, origText) newText
+  diffs <- mapM diffOne changedFiles
+  return $ fold diffs
+
+-- ---------------------------------------------------------------------
+nonExistentCacheErr :: String -> IdeResponse a
+nonExistentCacheErr meth =
+  IdeResponseFail $
+    IdeError PluginError
+             (T.pack $ meth <> ": \"" <> "module not loaded" <> "\"")
+             Null
+
+invalidCursorErr :: String -> IdeResponse a
+invalidCursorErr meth =
+  IdeResponseFail $
+    IdeError PluginError
+             (T.pack $ meth <> ": \"" <> "Invalid cursor position" <> "\"")
+             Null
+
+-- ---------------------------------------------------------------------
+
+data NameMapData = NMD
+  { nameMap        :: !(Map.Map SrcSpan Name)
+  , inverseNameMap ::  Map.Map Name [SrcSpan]
+  } deriving (Typeable)
+
+invert :: (Ord k, Ord v) => Map.Map k v -> Map.Map v [k]
+invert m = Map.fromListWith (++) [(v,[k]) | (k,v) <- Map.toList m]
+
+instance ModuleCache NameMapData where
+  cacheDataProducer cm = pure $ NMD nm inm
+    where nm  = initRdrNameMap $ tcMod cm
+          inm = invert nm
+
+-- ---------------------------------------------------------------------
+
 getSymbols :: Uri -> IdeM (IdeResponse [J.SymbolInformation])
 getSymbols uri = do
     mcm <- getCachedModule uri
@@ -207,7 +274,6 @@ getSymbols uri = do
               imports = hsmodImports hsMod
               imps  = concatMap (goImport . unLoc) imports
               decls = concatMap (go . unLoc) $ hsmodDecls hsMod
-              _nm = initRdrNameMap tm
               s x = T.pack . showGhc <$> x
 
               go :: HsDecl RdrName -> [(J.SymbolKind,Located T.Text,Maybe T.Text)]
@@ -281,85 +347,35 @@ getSymbols uri = do
                   Right loc -> return $ Right $ J.SymbolInformation nameText kind loc cnt
           symInfs <- mapM declsToSymbolInf (imps ++ decls)
           return $ IdeResponseOk $ rights symInfs
-
--- ---------------------------------------------------------------------
-
-genApplicativeCommand :: CommandFunc WorkspaceEdit
-genApplicativeCommand  = CmdSync $ \_ctxs req ->
-  case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
-    Left err -> return err
-    Right (ParamFile uri :& ParamPos pos :& RNil) ->
-      genApplicativeCommand' (TextDocumentPositionParams (TextDocumentIdentifier uri) pos)
-
-genApplicativeCommand' :: TextDocumentPositionParams -> IdeM (IdeResponse WorkspaceEdit)
-genApplicativeCommand' (TextDocumentPositionParams tdi pos) =
-  pluginGetFile "genapplicative: " (tdi ^. J.uri) $ \file -> do
-      runHareCommand "genapplicative" (compGenApplicative file (unPos pos))
-
-
--- ---------------------------------------------------------------------
-
-getRefactorResult :: [ApplyRefacResult] -> [(FilePath,T.Text)]
-getRefactorResult = map getNewFile . filter fileModified
-  where fileModified ((_,m),_) = m == RefacModified
-        getNewFile ((file,_),(ann, parsed)) = (file, T.pack $ exactPrint parsed ann)
-
-makeRefactorResult :: [(FilePath,T.Text)] -> IdeM WorkspaceEdit
-makeRefactorResult changedFiles = do
-  let
-    diffOne :: (FilePath, T.Text) -> IdeM WorkspaceEdit
-    diffOne (fp, newText) = do
-      origText <- GM.withMappedFile fp $ liftIO . T.readFile
-      return $ diffText (filePathToUri fp, origText) newText
-  diffs <- mapM diffOne changedFiles
-  return $ fold diffs
-
--- ---------------------------------------------------------------------
-nonExistentCacheErr :: String -> IdeResponse a
-nonExistentCacheErr meth =
-  IdeResponseFail $
-    IdeError PluginError
-             (T.pack $ meth <> ": \"" <> "module not loaded" <> "\"")
-             Null
-
-invalidCursorErr :: String -> IdeResponse a
-invalidCursorErr meth =
-  IdeResponseFail $
-    IdeError PluginError
-             (T.pack $ meth <> ": \"" <> "Invalid cursor position" <> "\"")
-             Null
 -- ---------------------------------------------------------------------
 
 getSymbolAtPoint :: Uri -> Position -> IdeM (IdeResponse (Maybe (Located Name)))
 getSymbolAtPoint file pos = do
-  mcm <- getCachedModule file
-  case mcm of
-    Nothing -> return $ nonExistentCacheErr "getSymbolAtPoint"
-    Just cm ->
-      return $ IdeResponseOk $ symbolFromTypecheckedModule (tcMod cm) =<< newPosToOld cm pos
+  let noCache = return $ nonExistentCacheErr "getSymbolAtPoint"
+  withCachedModuleAndData file noCache $
+    \cm NMD{nameMap} ->
+      return $ IdeResponseOk
+             $ symbolFromTypecheckedModule nameMap (tcMod cm) =<< newPosToOld cm pos
 
-symbolFromTypecheckedModule :: TypecheckedModule -> Position -> Maybe (Located Name)
-symbolFromTypecheckedModule tc pos = do
+symbolFromTypecheckedModule
+  :: Map.Map SrcSpan Name
+  -> TypecheckedModule
+  -> Position
+  -> Maybe (Located Name)
+symbolFromTypecheckedModule nm tc pos = do
   pn@(L l _) <- locToRdrName (unPos pos) parsed
-  return $ L l $ rdrName2NamePure nameMap pn
+  return $ L l $ rdrName2NamePure nm pn
   where parsed = pm_parsed_source $ tm_parsed_module tc
-        nameMap = initRdrNameMap tc
 
 -- ---------------------------------------------------------------------
 
-invert :: (Ord k, Ord v) => Map.Map k v -> Map.Map v [k]
-invert m = Map.fromListWith (++) [(v,[k]) | (k,v) <- Map.toList m]
-
 getReferencesInDoc :: Uri -> Position -> IdeM (IdeResponse [J.DocumentHighlight])
-getReferencesInDoc uri pos = runEitherT $ do
-  mcm <- lift $ getCachedModule uri
-  case mcm of
-    Nothing -> hoistEither $ nonExistentCacheErr "getReferencesInDoc"
-    Just cm -> do
+getReferencesInDoc uri pos = do
+  let noCache = return $ nonExistentCacheErr "getReferencesInDoc"
+  withCachedModuleAndData uri noCache $
+    \cm NMD{nameMap, inverseNameMap} -> runEitherT $ do
       let tc = tcMod cm
           parsed = pm_parsed_source $ tm_parsed_module tc
-          nameMap = initRdrNameMap tc
-          invertedMap = invert nameMap
           mpos = newPosToOld cm pos
       case mpos of
         Nothing -> return []
@@ -368,7 +384,7 @@ getReferencesInDoc uri pos = runEitherT $ do
             Nothing -> hoistEither $ invalidCursorErr "hare:getReferencesInDoc"
             Just pn -> do
               let name = rdrName2NamePure nameMap pn
-                  usages = Map.lookup name invertedMap
+                  usages = Map.lookup name inverseNameMap
                   ranges = maybe [] (rights . map srcSpan2Range) usages
                   defn = srcSpan2Range $ nameSrcSpan name
                   makeDocHighlight r = do
@@ -376,7 +392,7 @@ getReferencesInDoc uri pos = runEitherT $ do
                     r' <- oldRangeToNew cm r
                     return $ J.DocumentHighlight r' (Just kind)
                   highlights = mapMaybe makeDocHighlight ranges
-              return $ highlights
+              return highlights
 
 -- ---------------------------------------------------------------------
 
@@ -406,12 +422,11 @@ getNewNames old = do
 
 findDef :: Uri -> Position -> IdeM (IdeResponse Location)
 findDef file pos = do
-  mcm <- getCachedModule file
-  case mcm of
-    Nothing -> return $ nonExistentCacheErr "hare:findDef"
-    Just cm -> do
+  let noCache = return $ nonExistentCacheErr "hare:findDef"
+  withCachedModuleAndData file noCache $
+    \cm NMD{nameMap} -> do
       let tc = tcMod cm
-      case symbolFromTypecheckedModule tc =<< newPosToOld cm pos of
+      case symbolFromTypecheckedModule nameMap tc =<< newPosToOld cm pos of
         Nothing -> return $ invalidCursorErr "hare:findDef"
         Just pn -> do
           let n = unLoc pn
