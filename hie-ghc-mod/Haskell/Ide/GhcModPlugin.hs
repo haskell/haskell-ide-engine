@@ -30,6 +30,8 @@ import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
 import           Language.Haskell.Refact.Utils.Utils
 import           Text.Parsec
+import Debug.Trace
+import Control.Monad.Identity
 
 -- ---------------------------------------------------------------------
 
@@ -237,7 +239,10 @@ type P = Parsec String ()
 parseGhcDiagnostics :: String -> [(FilePath,[Diagnostic])]
 parseGhcDiagnostics str =
   case parse diagnostics "inp" str of
-    Left err -> error $ "parseGhcDiagnostics: got error" ++ show err
+    Left err -> runIdentity $ do
+      traceM $ "parseGhcDiagnostics: got error" ++ show err
+      traceM $ "on diagnostics" ++ str
+      return []
     Right ds -> ds
 
 diagnostics :: P [(FilePath, [Diagnostic])]

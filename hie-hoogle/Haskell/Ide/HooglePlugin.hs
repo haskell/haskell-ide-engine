@@ -10,6 +10,8 @@ module Haskell.Ide.HooglePlugin where
 
 import           Data.Aeson
 import           Data.Monoid
+import           Data.Maybe
+--import           Data.List (intercalate)
 import qualified Data.Text as T
 import           Data.Vinyl
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -21,6 +23,9 @@ import qualified GhcMod as GM
 import qualified GhcMod.Monad.Env as GM
 import qualified GhcMod.Types as GM
 import           System.FilePath
+import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
+import Text.HTML.TagSoup
+import Text.HTML.TagSoup.Tree
 
 -- ---------------------------------------------------------------------
 
@@ -47,20 +52,35 @@ hoogleDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-infoCmd :: CommandFunc (Maybe T.Text)
+infoCmd :: CommandFunc (Maybe [J.MarkedString])
 infoCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdText "expr" :& RNil) req of
     Left err -> return err
     Right (ParamText expr :& RNil) ->
       infoCmd' expr
 
-infoCmd' :: T.Text -> IdeM (IdeResponse (Maybe T.Text))
+infoCmd' :: T.Text -> IdeM (IdeResponse (Maybe [J.MarkedString]))
 infoCmd' expr =
   runHoogleQuery expr $ \res ->
       if null res then
           IdeResponseOk Nothing
       else
-          IdeResponseOk $ Just $ T.pack $ targetInfo $ head res
+          IdeResponseOk $ Just $ renderTarget $ head res
+
+renderTarget :: Target -> [J.MarkedString]
+renderTarget t = [J.CodeString $ J.LanguageString "haskell" $ unHTML $ T.pack $ targetItem t]
+              ++ [J.PlainString $ T.pack $ unwords mdl | not $ null mdl]
+              ++ [renderDocs $ targetDocs t]
+  where mdl = map fst $ catMaybes [targetPackage t, targetModule t]
+        unHTML = T.replace "<0>" "" . innerText . parseTags
+        renderDocs = J.PlainString . T.concat . map htmlToMarkDown . parseTree . T.pack
+        htmlToMarkDown :: TagTree T.Text -> T.Text
+        htmlToMarkDown (TagLeaf x) = fromMaybe "" $ maybeTagText x
+        htmlToMarkDown (TagBranch "i" _ tree) = "*" <> T.concat (map htmlToMarkDown tree) <> "*"
+        htmlToMarkDown (TagBranch "a" _ tree) = "`" <> T.concat (map htmlToMarkDown tree) <> "`"
+        htmlToMarkDown (TagBranch "tt" _ tree) = "`" <> innerText (flattenTree tree) <> "`"
+        htmlToMarkDown (TagBranch "pre" _ tree) = "```haskell\n" <> T.concat (map htmlToMarkDown tree) <> "```"
+        htmlToMarkDown (TagBranch _ _ tree) = T.concat $ map htmlToMarkDown tree
 
 ------------------------------------------------------------------------
 

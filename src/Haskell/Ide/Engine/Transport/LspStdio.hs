@@ -378,14 +378,14 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
             doc = params ^. J.textDocument . J.uri
         callback <- hieResponseHelper (req ^. J.id) $ \(info,mname,docs) -> do
             let
-              docMarked = map (Right . J.LanguageString "haskell") (maybeToList docs)
+              docMarked = concat (maybeToList docs)
               ht = case info of
                 [] -> J.Hover (J.List docMarked) Nothing
                 xs -> J.Hover (J.List $ ms
                                     ++ docMarked)
                               (Just tr)
                   where
-                    ms = map (\ti -> Right $ J.LanguageString "haskell"
+                    ms = map (\ti -> J.CodeString $ J.LanguageString "haskell"
                                        $ name <> " :: " <> snd ti) xs'
                     tr = fst $ head xs
                     name = fromMaybe "_" mname
@@ -400,9 +400,15 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
               docs <- case HaRe.getModule df =<< mname of
                         Nothing -> return Nothing
                         Just (pkg, modName') -> do
-                            let modName = if pkg == Just "containers"
-                                          then fromMaybe modName' (T.stripSuffix ".Base" modName')
-                                          else modName'
+                            let modName
+                                  | pkg == Just "containers" = fromMaybe modName' (T.stripSuffix ".Base" modName')
+                                  | pkg == Just "base" && modName' `elem` ["GHC.Base"
+                                                                          ,"GHC.Enum"
+                                                                          ,"GHC.Num"
+                                                                          ,"GHC.Real"
+                                                                          ,"GHC.Float"
+                                                                          ,"GHC.Show"] = "Prelude"
+                                  | otherwise = modName'
                                 query = (fromJust sname)
                                      <> fromMaybe "" (T.append " package:" <$> pkg)
                                      <> " module:" <> modName
