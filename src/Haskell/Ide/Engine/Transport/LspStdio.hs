@@ -589,7 +589,7 @@ requestDiagnostics cin file ver = do
       callbackg (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
       callbackg (IdeResponseError err) = liftIO $ U.logs $ "got err" ++ show err
       callbackg (IdeResponseOk     pd) = do
-        ds <- mapM mkDiag $ Map.toList $ Map.fromListWith (++) pd
+        let ds = Map.toList pd
         case ds of
           [] -> sendEmpty
           _ -> mapM_ (sendOne "ghcmod") ds

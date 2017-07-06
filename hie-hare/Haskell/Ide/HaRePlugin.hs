@@ -266,6 +266,7 @@ instance ModuleCache NameMapData where
 getSymbols :: Uri -> IdeM (IdeResponse [J.SymbolInformation])
 getSymbols uri = do
     mcm <- getCachedModule uri
+    rfm <- GM.mkRevRedirMapFunc
     case mcm of
       Nothing -> return $ IdeResponseOk []
       Just cm -> do
@@ -341,7 +342,7 @@ getSymbols uri = do
               declsToSymbolInf :: (J.SymbolKind, Located T.Text, Maybe T.Text)
                                -> IdeM (Either T.Text J.SymbolInformation)
               declsToSymbolInf (kind, L l nameText, cnt) = do
-                eloc <- srcSpan2Loc l
+                eloc <- srcSpan2Loc rfm l
                 case eloc of
                   Left x -> return $ Left x
                   Right loc -> return $ Right $ J.SymbolInformation nameText kind loc cnt
@@ -422,6 +423,7 @@ getNewNames old = do
 
 findDef :: Uri -> Position -> IdeM (IdeResponse Location)
 findDef file pos = do
+  rfm <- GM.mkRevRedirMapFunc
   let noCache = return $ nonExistentCacheErr "hare:findDef"
   withCachedModuleAndData file noCache $
     \cm NMD{nameMap} -> do
@@ -430,7 +432,7 @@ findDef file pos = do
         Nothing -> return $ invalidCursorErr "hare:findDef"
         Just pn -> do
           let n = unLoc pn
-          res <- srcSpan2Loc $ nameSrcSpan n
+          res <- srcSpan2Loc rfm $ nameSrcSpan n
           case res of
             Right l@(J.Location uri range) ->
               case oldRangeToNew cm range of
@@ -460,7 +462,7 @@ findDef file pos = do
                         newNames <- GM.unGmlT $ do
                           setGhcContext modSum
                           getNewNames n
-                        eithers <- mapM (srcSpan2Loc . nameSrcSpan) newNames
+                        eithers <- mapM (srcSpan2Loc rfm . nameSrcSpan) newNames
                         case rights eithers of
                           (l:_) -> return $ IdeResponseOk l
                           []    -> failure

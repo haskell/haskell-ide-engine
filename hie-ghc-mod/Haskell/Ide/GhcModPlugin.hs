@@ -14,8 +14,11 @@ import           Data.Either
 import           Data.Function
 import           Data.List
 import           Data.Monoid
+import           Control.Monad.IO.Class
+import           Data.IORef
 import qualified Data.Text                           as T
 import qualified Data.Text.Read                      as T
+import qualified Data.Map                            as Map
 import           Data.Vinyl
 import qualified Exception                           as G
 import           GHC
@@ -24,14 +27,21 @@ import qualified GhcMod.Doc                          as GM
 import qualified GhcMod.Gap                          as GM
 import qualified GhcMod.Monad                        as GM
 import qualified GhcMod.SrcUtils                     as GM
+import qualified GhcMod.Utils                        as GM
+import qualified GhcMod.Error                        as GM
 import qualified GhcMod.Types                        as GM
+import qualified GhcMod.DynFlags                     as GM
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
+import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.SemanticTypes
 import           Language.Haskell.Refact.Utils.Utils
 import           Text.Parsec
-import Debug.Trace
-import Control.Monad.Identity
+import Outputable (renderWithStyle)
+import DynFlags
+import HscTypes
+import ErrUtils
+import Bag
 
 -- ---------------------------------------------------------------------
 
@@ -91,6 +101,7 @@ ghcmodDescriptor = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 type GhcModDiagnostics = [(FilePath,[Diagnostic])]
+type Diagnostics = Map.Map Uri [Diagnostic]
 
 checkCmd :: CommandFunc GhcModDiagnostics
 checkCmd = CmdSync $ \_ctxs req -> do
@@ -122,12 +133,64 @@ checkCmd' uri =
 --       "GhcModPlugin.findCmd: ghc’s exhaustiveness checker is broken" Null)
 -- ---------------------------------------------------------------------
 
-setTypecheckedModule :: Uri -> IdeM (IdeResponse GhcModDiagnostics)
+lspSev :: Severity -> DiagnosticSeverity
+lspSev SevWarning = DsWarning
+lspSev SevError = DsError
+lspSev SevFatal = DsError
+lspSev SevInfo = DsInfo
+lspSev _ = DsInfo
+
+logDiag :: (FilePath -> FilePath) -> IORef Diagnostics -> LogAction
+logDiag rfm ref df _reason sev spn style msg = do
+  eloc <- srcSpan2Loc rfm spn
+  case eloc of
+    Right (Location uri range) -> do
+      let update = Map.insertWith' (++) uri l
+            where l = [diag]
+          diag = Diagnostic range (Just $ lspSev sev) Nothing (Just "ghcmod") msgTxt
+          msgTxt = T.pack $ renderWithStyle df msg style
+      modifyIORef' ref update
+    Left _ -> return ()
+
+srcErrToDiag :: MonadIO m => DynFlags -> (FilePath -> FilePath) -> SourceError -> m Diagnostics
+srcErrToDiag df rfm se = do
+  debugm "in srcErrToDiag"
+  let errMsgs = bagToList $ srcErrorMessages se
+      processMsg err = do
+        Right (Location uri range) <- srcSpan2Loc rfm $ errMsgSpan err
+        let sev = Just DsError
+            unqual = errMsgContext err
+            st = GM.mkErrStyle' df unqual
+            msgTxt = T.pack $ renderWithStyle df (pprLocErrMsg err) st
+        return (uri, Diagnostic range sev Nothing (Just "ghcmod") msgTxt)
+      processMsgs [] = return Map.empty
+      processMsgs (x:xs) = do
+        (uri, diag) <- processMsg x
+        m <- processMsgs xs
+        return (Map.insertWith' (++) uri [diag] m)
+  processMsgs errMsgs
+
+myLogger :: GM.IOish m => GM.GmlT m () -> GM.GmlT m (IdeResponse Diagnostics)
+myLogger action = do
+  env <- getSession
+  rfm <- GM.mkRevRedirMapFunc
+  diagRef <- liftIO $ newIORef Map.empty
+  let setLogger df = df { log_action = logDiag rfm diagRef }
+      ghcErrRes msg = IdeResponseFail $ IdeError PluginError (T.pack msg) Null
+      handlers =
+        [ GM.GHandler $ \ex -> Right <$> srcErrToDiag (hsc_dflags env) rfm ex
+        , GM.GHandler $ \ex -> return $ ghcErrRes $ GM.renderGm $ GM.ghcExceptionDoc ex
+        ]
+      action' = do
+        GM.withDynFlags setLogger action
+        liftIO $ Right <$> readIORef diagRef
+  GM.gcatches action' handlers
+
+setTypecheckedModule :: Uri -> IdeM (IdeResponse Diagnostics)
 setTypecheckedModule uri = do
-  pluginGetFile "setTypecheckedModule: " uri $ \fp ->
-    runGhcModCommand $ do
-      (diags', mtm) <- getTypecheckedModuleGhc fp
-      let diags = parseGhcDiagnostics diags'
+  pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
+      (diags, mtm) <- getTypecheckedModuleGhc myLogger fp
+      debugm $ "diags are: " ++ show diags
       case mtm of
         Nothing -> return diags
         Just tm -> do
@@ -239,11 +302,8 @@ type P = Parsec String ()
 parseGhcDiagnostics :: String -> [(FilePath,[Diagnostic])]
 parseGhcDiagnostics str =
   case parse diagnostics "inp" str of
-    Left err -> runIdentity $ do
-      traceM $ "parseGhcDiagnostics: got error" ++ show err
-      traceM $ "on diagnostics" ++ str
-      return []
-    Right ds -> ds
+    Left x -> error $  "parseGhcDiagnostics error " ++ show x ++ "\n\n on " ++ str
+    Right r -> r
 
 diagnostics :: P [(FilePath, [Diagnostic])]
 diagnostics = (sepEndBy diagnostic (char '\n')) <* eof
