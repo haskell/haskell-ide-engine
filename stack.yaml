@@ -37,8 +37,10 @@ packages:
     commit: f84c9568d426fc3e54c6323cd356d552d4020e5d
   extra-dep: true
 - location:
-    git: https://github.com/lspitzner/brittany.git
-    commit: 134f31e4d18e51a7cd3d5bcaa90af92e70b926ce
+    # git: https://github.com/lspitzner/brittany.git
+    # commit: 134f31e4d18e51a7cd3d5bcaa90af92e70b926ce
+    git: https://github.com/alanz/brittany.git
+    commit: 33eed86851472707d7b9bf94a177228bc8d2df9b
   extra-dep: true
 - location:
     git: https://github.com/wz1000/hoogle.git
