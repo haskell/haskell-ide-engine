@@ -223,7 +223,6 @@ publishDiagnostics uri' mv diags = do
   lf <- ask
   liftIO $ (Core.publishDiagnosticsFunc lf) uri' mv diags
 
-
 -- ---------------------------------------------------------------------
 
 nextLspReqId :: R J.LspId
@@ -235,10 +234,14 @@ nextLspReqId = do
 
 -- ---------------------------------------------------------------------
 
-sendErrorResponse :: (MonadIO m, MonadReader Core.LspFuncs m)
-  => J.LspId -> J.ErrorCode -> T.Text -> m ()
-sendErrorResponse origId err msg
-  = reactorSend' (\sf -> Core.sendErrorResponseS sf (J.responseId origId) err msg)
+sendErrorResponse
+  :: (MonadIO m, MonadReader Core.LspFuncs m)
+  => J.LspId
+  -> J.ErrorCode
+  -> T.Text
+  -> m ()
+sendErrorResponse origId err msg =
+  reactorSend' (\sf -> Core.sendErrorResponseS sf (J.responseId origId) err msg)
 
 sendErrorLog :: (MonadIO m, MonadReader Core.LspFuncs m)
   => T.Text -> m ()

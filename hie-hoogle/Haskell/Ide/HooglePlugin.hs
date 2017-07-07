@@ -16,6 +16,7 @@ import qualified Data.Text as T
 import           Data.Vinyl
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
+import           Haskell.Ide.Engine.ExtensibleState
 import           Control.Monad.IO.Class
 import           Hoogle
 import           System.Directory
@@ -52,6 +53,42 @@ hoogleDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
+newtype HoogleDb = HoogleDb (Maybe FilePath)
+
+instance ExtensionClass HoogleDb where
+  initialValue = HoogleDb Nothing
+
+getHoogleDb :: IdeM FilePath
+getHoogleDb = do
+  HoogleDb mdb <- get
+  case mdb of
+    Nothing -> do
+      db <- getHoogleDbLoc
+      put $ HoogleDb $ Just db
+      return db
+    Just db -> return db
+
+getHoogleDbLoc :: IdeM FilePath
+getHoogleDbLoc = do
+  cradle <- GM.gmCradle <$> GM.gmeAsk
+  let mfp =
+        case GM.cradleProject cradle of
+          GM.StackProject s ->
+            case reverse $ splitPath $ GM.seLocalPkgDb s of
+              "pkgdb":ghcver:resolver:arch:_install:xs ->
+                Just $ joinPath $ reverse xs ++ ["hoogle",arch,resolver,ghcver,"database.hoo"]
+              _ -> Nothing
+          _ -> Just "hiehoogledb.hoo"
+  case mfp of
+    Nothing -> liftIO defaultDatabaseLocation
+    Just fp -> do
+      exists <- liftIO $ doesFileExist fp
+      if exists then
+        return fp
+      else
+        liftIO defaultDatabaseLocation
+
+
 infoCmd :: CommandFunc (Maybe [J.MarkedString])
 infoCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdText "expr" :& RNil) req of
@@ -60,8 +97,9 @@ infoCmd = CmdSync $ \_ctxs req -> do
       infoCmd' expr
 
 infoCmd' :: T.Text -> IdeM (IdeResponse (Maybe [J.MarkedString]))
-infoCmd' expr =
-  runHoogleQuery expr $ \res ->
+infoCmd' expr = do
+  db <- getHoogleDb
+  liftIO $ runHoogleQuery db expr $ \res ->
       if null res then
           IdeResponseOk Nothing
       else
@@ -92,39 +130,18 @@ lookupCmd = CmdSync $ \_ctxs req -> do
       lookupCmd' 10 term
 
 lookupCmd' :: Int -> T.Text -> IdeM (IdeResponse [T.Text])
-lookupCmd' n term =
-  runHoogleQuery term (IdeResponseOk . map (T.pack . targetResultDisplay False) . take n)
-
+lookupCmd' n term = do
+  db <- getHoogleDb
+  liftIO $ runHoogleQuery db term
+    (IdeResponseOk . map (T.pack . targetResultDisplay False) . take n)
 
 ------------------------------------------------------------------------
 
-getHoogleDbLoc :: IdeM FilePath
-getHoogleDbLoc = do
-  cradle <- GM.gmCradle <$> GM.gmeAsk
-  let mfp =
-        case GM.cradleProject cradle of
-          GM.StackProject s ->
-            case reverse $ splitPath $ GM.seLocalPkgDb s of
-              "pkgdb":ghcver:resolver:arch:_install:xs ->
-                Just $ joinPath $ reverse xs ++ ["hoogle",arch,resolver,ghcver,"database.hoo"]
-              _ -> Nothing
-          _ -> Just "hiehoogledb.hoo"
-  case mfp of
-    Nothing -> liftIO defaultDatabaseLocation
-    Just fp -> do
-      exists <- liftIO $ doesFileExist fp
-      if exists then do
-        return fp
-      else
-        liftIO defaultDatabaseLocation
-
-
-runHoogleQuery :: T.Text -> ([Target] -> IdeResponse a) -> IdeM (IdeResponse a)
-runHoogleQuery quer f = do
-        db <- getHoogleDbLoc
-        dbExists <- liftIO $ doesFileExist db
+runHoogleQuery :: FilePath -> T.Text -> ([Target] -> IdeResponse a) -> IO (IdeResponse a)
+runHoogleQuery db quer f = do
+        dbExists <- doesFileExist db
         if dbExists then do
-            res <- liftIO $ searchHoogle db quer
+            res <- searchHoogle db quer
             return (f res)
         else
             return $ IdeResponseFail hoogleDbError
