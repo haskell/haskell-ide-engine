@@ -109,12 +109,15 @@ renderTarget :: Target -> [J.MarkedString]
 renderTarget t = [J.CodeString $ J.LanguageString "haskell" $ unHTML $ T.pack $ targetItem t]
               ++ [J.PlainString $ T.pack $ unwords mdl | not $ null mdl]
               ++ [renderDocs $ targetDocs t]
-  where mdl = map fst $ catMaybes [targetPackage t, targetModule t]
+              ++ [J.PlainString $ T.pack $ curry annotate "More info" $ targetURL t]
+  where mdl = map annotate $ catMaybes [targetPackage t, targetModule t]
+        annotate (thing,url) = "["<>thing++"]"++"("++url++")"
         unHTML = T.replace "<0>" "" . innerText . parseTags
         renderDocs = J.PlainString . T.concat . map htmlToMarkDown . parseTree . T.pack
         htmlToMarkDown :: TagTree T.Text -> T.Text
         htmlToMarkDown (TagLeaf x) = fromMaybe "" $ maybeTagText x
         htmlToMarkDown (TagBranch "i" _ tree) = "*" <> T.concat (map htmlToMarkDown tree) <> "*"
+        htmlToMarkDown (TagBranch "b" _ tree) = "**" <> T.concat (map htmlToMarkDown tree) <> "**"
         htmlToMarkDown (TagBranch "a" _ tree) = "`" <> T.concat (map htmlToMarkDown tree) <> "`"
         htmlToMarkDown (TagBranch "tt" _ tree) = "`" <> innerText (flattenTree tree) <> "`"
         htmlToMarkDown (TagBranch "pre" _ tree) = "```haskell\n" <> T.concat (map htmlToMarkDown tree) <> "```"
