@@ -27,6 +27,7 @@ import           Control.Monad.Reader
 import           Control.Monad.State
 import qualified Data.Aeson as J
 import           Data.Aeson ( (.=) )
+import           Data.Char (isUpper)
 import           Data.Default
 import           Data.Maybe
 import           Data.Monoid ( (<>) )
@@ -60,7 +61,6 @@ import           System.Exit
 import           System.FilePath
 import qualified System.Log.Logger as L
 import qualified Yi.Rope as Yi
--- import qualified Yi.Rope as Yi
 
 -- ---------------------------------------------------------------------
 {-# ANN module ("hlint: ignore Eta reduce" :: String) #-}
@@ -153,6 +153,21 @@ reactorSend' f = do
   liftIO $ f (Core.sendFunc lf)
 
 -- ---------------------------------------------------------------------
+getWordAtPos :: (MonadIO m, MonadReader Core.LspFuncs m)
+  => Uri -> Position -> m (Maybe T.Text)
+getWordAtPos uri (Position l c) = do
+  mvf <- liftIO =<< asks Core.getVirtualFileFunc <*> pure uri
+  case mvf of
+    Just (VFS.VirtualFile _ yitext) -> do
+      let curLine = head $ Yi.lines $ snd $ Yi.splitAtLine l yitext
+          beforePos = Yi.take c curLine
+          curWord = Yi.toText $ last $ Yi.words beforePos
+          parts = reverse $ T.split (=='.') curWord
+      case parts of
+        [] -> return Nothing
+        (x:xs) -> return $ Just $ T.intercalate "." $ x : takeWhile (isUpper . T.head) xs
+    Nothing -> return Nothing
+-- ---------------------------------------------------------------------
 
 mapFileFromVfs :: (MonadIO m, MonadReader Core.LspFuncs m)
   => TVar (Map.Map Uri Int) -> TChan PluginRequest -> J.VersionedTextDocumentIdentifier -> m ()
@@ -214,6 +229,8 @@ updatePositionMap uri changes = do
                dl = newL - oldL
                oldL = el-sl
                newL = T.count "\n" txt
+
+-- ---------------------------------------------------------------------
 
 -- ---------------------------------------------------------------------
 
