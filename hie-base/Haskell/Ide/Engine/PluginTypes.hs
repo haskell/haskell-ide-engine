@@ -47,6 +47,7 @@ module Haskell.Ide.Engine.PluginTypes
 
   -- * Interface types
   , IdeRequest(..)
+  , IdeFailure(..)
   , IdeResponse
   , pattern IdeResponseOk
   , pattern IdeResponseError

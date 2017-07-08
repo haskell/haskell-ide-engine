@@ -16,6 +16,7 @@ import           Data.List
 import           Data.Monoid
 import           Control.Monad.IO.Class
 import           Data.IORef
+import           Control.Monad.Trans.Either
 import qualified Data.Text                           as T
 import qualified Data.Text.Read                      as T
 import qualified Data.Map                            as Map
@@ -144,25 +145,35 @@ lspSev _ = DsInfo
 logDiag :: (FilePath -> FilePath) -> IORef Diagnostics -> LogAction
 logDiag rfm ref df _reason sev spn style msg = do
   eloc <- srcSpan2Loc rfm spn
+  let msgTxt = T.pack $ renderWithStyle df msg style
   case eloc of
     Right (Location uri range) -> do
       let update = Map.insertWith' Set.union uri l
             where l = Set.singleton diag
           diag = Diagnostic range (Just $ lspSev sev) Nothing (Just "ghcmod") msgTxt
-          msgTxt = T.pack $ renderWithStyle df msg style
       modifyIORef' ref update
-    Left _ -> return ()
+    Left x -> do
+      debugm $ "got unhelpful srcpan " ++ T.unpack x ++ " for err " ++ T.unpack msgTxt
+      return ()
 
-srcErrToDiag :: MonadIO m => DynFlags -> (FilePath -> FilePath) -> SourceError -> m Diagnostics
-srcErrToDiag df rfm se = do
+unhelpfulSrcSpanErr :: T.Text -> IdeFailure
+unhelpfulSrcSpanErr err =
+  IdeRFail $
+    IdeError PluginError
+             ("Unhelpful SrcSpan" <> ": \"" <> err <> "\"")
+             Null
+
+srcErrToDiag :: MonadIO m => DynFlags -> (FilePath -> FilePath) -> SourceError -> m (IdeResponse Diagnostics)
+srcErrToDiag df rfm se = runEitherT $ do
   debugm "in srcErrToDiag"
   let errMsgs = bagToList $ srcErrorMessages se
       processMsg err = do
-        Right (Location uri range) <- srcSpan2Loc rfm $ errMsgSpan err
         let sev = Just DsError
             unqual = errMsgContext err
             st = GM.mkErrStyle' df unqual
             msgTxt = T.pack $ renderWithStyle df (pprLocErrMsg err) st
+        (Location uri range) <- bimapEitherT (\x -> unhelpfulSrcSpanErr $ x <> msgTxt) id
+          $ EitherT $ srcSpan2Loc rfm $ errMsgSpan err
         return (uri, Diagnostic range sev Nothing (Just "ghcmod") msgTxt)
       processMsgs [] = return Map.empty
       processMsgs (x:xs) = do
@@ -179,7 +190,7 @@ myLogger action = do
   let setLogger df = df { log_action = logDiag rfm diagRef }
       ghcErrRes msg = IdeResponseFail $ IdeError PluginError (T.pack msg) Null
       handlers =
-        [ GM.GHandler $ \ex -> Right <$> srcErrToDiag (hsc_dflags env) rfm ex
+        [ GM.GHandler $ \ex -> srcErrToDiag (hsc_dflags env) rfm ex
         , GM.GHandler $ \ex -> return $ ghcErrRes $ GM.renderGm $ GM.ghcExceptionDoc ex
         ]
       action' = do
