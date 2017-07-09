@@ -67,6 +67,7 @@ module Haskell.Ide.Engine.PluginDescriptor
   , deleteCachedModule
   , oldRangeToNew
   , newRangeToOld
+  , canonicalizeUri
   -- * All the good types
   , module Haskell.Ide.Engine.PluginTypes
   ) where
@@ -255,7 +256,7 @@ instance Show CachedModule where
 cachedModules :: IdeState -> Map.Map Uri CachedModule
 cachedModules = fmap cachedModule . uriCaches
 
-canonicalizeUri :: Uri -> IdeM Uri
+canonicalizeUri :: MonadIO m => Uri -> m Uri
 canonicalizeUri uri =
   case uriToFilePath uri of
     Nothing -> return uri
@@ -335,3 +336,6 @@ class Typeable a => ExtensionClass a where
 class Typeable a => ModuleCache a where
     -- | Defines an initial value for the state extension
     cacheDataProducer :: CachedModule -> IdeM a
+
+instance ModuleCache () where
+    cacheDataProducer = const $ return ()

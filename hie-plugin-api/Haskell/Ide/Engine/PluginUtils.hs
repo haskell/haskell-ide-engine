@@ -69,7 +69,7 @@ srcSpan2Loc :: (MonadIO m) => (FilePath -> FilePath) -> SrcSpan -> m (Either T.T
 srcSpan2Loc revMapp spn = runEitherT $ do
   rspan <- hoistEither $ getRealSrcSpan spn
   let fp = unpackFS $ srcSpanFile rspan
-  file <- liftIO $ makeAbsolute . revMapp =<< canonicalizePath fp
+  file <- liftIO $ canonicalizePath . revMapp =<< canonicalizePath fp
   return $ Location (filePathToUri file) (realSrcSpan2Range rspan)
 
 -- ---------------------------------------------------------------------

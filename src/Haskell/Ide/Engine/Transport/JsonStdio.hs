@@ -1,6 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE LambdaCase #-}
 -- |Provide a protocol adapter/transport for JSON over stdio
 
 module Haskell.Ide.Engine.Transport.JsonStdio where

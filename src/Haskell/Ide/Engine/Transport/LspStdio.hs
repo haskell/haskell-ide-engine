@@ -27,7 +27,7 @@ import           Control.Monad.Reader
 import           Control.Monad.State
 import qualified Data.Aeson as J
 import           Data.Aeson ( (.=) )
-import           Data.Char (isUpper)
+import           Data.Char (isUpper, isAlphaNum)
 import           Data.Default
 import           Data.Maybe
 import           Data.Monoid ( (<>) )
@@ -153,19 +153,27 @@ reactorSend' f = do
   liftIO $ f (Core.sendFunc lf)
 
 -- ---------------------------------------------------------------------
-getWordAtPos :: (MonadIO m, MonadReader Core.LspFuncs m)
-  => Uri -> Position -> m (Maybe T.Text)
-getWordAtPos uri (Position l c) = do
+getPrefixAtPos :: (MonadIO m, MonadReader Core.LspFuncs m)
+  => Uri -> Position -> m (Maybe (T.Text,T.Text))
+getPrefixAtPos uri (Position l c) = do
   mvf <- liftIO =<< asks Core.getVirtualFileFunc <*> pure uri
   case mvf of
-    Just (VFS.VirtualFile _ yitext) -> do
-      let curLine = head $ Yi.lines $ snd $ Yi.splitAtLine l yitext
-          beforePos = Yi.take c curLine
-          curWord = Yi.toText $ last $ Yi.words beforePos
-          parts = reverse $ T.split (=='.') curWord
-      case parts of
-        [] -> return Nothing
-        (x:xs) -> return $ Just $ T.intercalate "." $ x : takeWhile (isUpper . T.head) xs
+    Just (VFS.VirtualFile _ yitext) -> return $ do
+      let headMaybe [] = Nothing
+          headMaybe (x:_) = Just x
+          lastMaybe [] = Nothing
+          lastMaybe xs = Just $ last xs
+      curLine <- headMaybe $ Yi.lines $ snd $ Yi.splitAtLine l yitext
+      let beforePos = Yi.take c curLine
+      curWord <- Yi.toText <$> lastMaybe (Yi.words beforePos)
+      let parts = T.split (=='.') $ T.takeWhileEnd (\x -> isAlphaNum x || x `elem` ("._'"::String)) curWord
+      case reverse parts of
+        [] -> Nothing
+        (x:xs) -> do
+          let moduleParts = dropWhile (not . isUpper . T.head)
+                              $ reverse $ filter (not .T.null) xs
+              moduleName = T.intercalate "." moduleParts
+          return (moduleName,x)
     Nothing -> return Nothing
 -- ---------------------------------------------------------------------
 
@@ -315,13 +323,16 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         -}
         let
           options = J.object ["documentSelector" .= J.object [ "language" .= J.String "haskell"]]
-          registrationsList = [ J.Registration "hare:demote" J.WorkspaceExecuteCommand (Just options)
-                              , J.Registration "hare:gotodef" J.TextDocumentDefinition (Just options)
-                              , J.Registration "brittany:formatting" J.TextDocumentFormatting (Just options)
-                              , J.Registration "brittany:rangeFormatting" J.TextDocumentRangeFormatting (Just options)
-                              , J.Registration "hare:getSymbols" J.TextDocumentDocumentSymbol (Just options)
-                              , J.Registration "hare:getReferencesInDoc" J.TextDocumentDocumentHighlight (Just options)
-                              ]
+          complOptions = J.toJSON $ J.CompletionRegistrationOptions Nothing (Just $ J.List ["."]) (Just False)
+          registrationsList =
+            [ J.Registration "hare:demote" J.WorkspaceExecuteCommand (Just options)
+            , J.Registration "hare:gotodef" J.TextDocumentDefinition (Just options)
+            , J.Registration "brittany:formatting" J.TextDocumentFormatting (Just options)
+            , J.Registration "brittany:rangeFormatting" J.TextDocumentRangeFormatting (Just options)
+            , J.Registration "hare:getSymbols" J.TextDocumentDocumentSymbol (Just options)
+            , J.Registration "hare:getReferencesInDoc" J.TextDocumentDocumentHighlight (Just options)
+            , J.Registration "hare:getCompletions" J.TextDocumentCompletion (Just complOptions)
+            ]
         let registrations = J.RegistrationParams (J.List registrationsList)
         rid <- nextLspReqId
 
@@ -415,7 +426,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         let hreq = PReq Nothing (Just $ req ^. J.id) callback $ runEitherT $ do
               info <- EitherT $ GhcMod.newTypeCmd True doc pos
               mname <- EitherT $ HaRe.getSymbolAtPoint doc pos
-              df <- lift $ GhcMod.getDynFlags
+              df <- lift GhcMod.getDynFlags
               let sname = HaRe.showName <$> mname
               docs <- case HaRe.getModule df =<< mname of
                         Nothing -> return Nothing
@@ -429,7 +440,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
                                                                           ,"GHC.Float"
                                                                           ,"GHC.Show"] = "Prelude"
                                   | otherwise = modName'
-                                query = (fromJust sname)
+                                query = fromJust sname
                                      <> fromMaybe "" (T.append " package:" <$> pkg)
                                      <> " module:" <> modName
                                      <> " is:exact"
@@ -504,15 +515,22 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
       -- -------------------------------
 
       Core.ReqCompletion req -> do
-        liftIO $ U.logs $ "reactor:got CompletionRequest:" ++ show req
         let params = req ^. J.params
-            doc = params ^. J.textDocument
-            J.Position l c = params ^. J.position
-        liftIO $ U.logs $ "****reactor:ReqCompletion:not implemented=" ++ show (doc,l,c)
+            doc = params ^. J.textDocument ^. J.uri
+            pos = params ^. J.position
 
-        let cr = J.Completions (J.List []) -- ( [] :: [J.CompletionListType])
-        let rspMsg = Core.makeResponseMessage req cr
-        reactorSend rspMsg
+        mprefix <- getPrefixAtPos doc pos
+
+        callback <- hieResponseHelper (req ^. J.id) $ \compls -> do
+          let rspMsg = Core.makeResponseMessage req
+                         $ J.Completions $ J.List compls
+          reactorSend rspMsg
+        case mprefix of
+          Nothing -> liftIO $ callback $ IdeResponseOk []
+          Just prefix -> do
+            let hreq = PReq Nothing (Just $ req ^. J.id) callback
+                         $ HaRe.getCompletions doc prefix
+            makeRequest hreq
 
       -- -------------------------------
 

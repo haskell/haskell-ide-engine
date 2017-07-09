@@ -20,6 +20,7 @@ import           Data.Aeson
 import           Data.Either
 import           Data.Foldable
 import qualified Data.Map                                     as Map
+import qualified Data.Set                                     as Set
 import           Data.Monoid
 import           Data.Maybe
 import qualified Data.Text                                    as T
@@ -31,6 +32,7 @@ import qualified GhcMod.Error                                 as GM
 import qualified GhcMod.Monad                                 as GM
 import qualified GhcMod.Utils                                 as GM
 import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.SemanticTypes
 import           Language.Haskell.GHC.ExactPrint.Print
@@ -42,6 +44,11 @@ import           Language.Haskell.Refact.Utils.MonadFunctions
 import           Name
 import           Packages
 import           Module
+import           TcEnv
+import           HscTypes
+import           Var
+import           ConLike
+import           DataCon
 import           Haskell.Ide.GhcModPlugin (setTypecheckedModule)
 -- ---------------------------------------------------------------------
 
@@ -348,6 +355,119 @@ getSymbols uri = do
                   Right loc -> return $ Right $ J.SymbolInformation nameText kind loc cnt
           symInfs <- mapM declsToSymbolInf (imps ++ decls)
           return $ IdeResponseOk $ rights symInfs
+
+-- ---------------------------------------------------------------------
+
+data CompItem = CI
+  { label :: T.Text
+  , kind  :: J.CompletionItemKind
+  , importedFrom :: T.Text
+  , origName :: Name
+  , thingType :: T.Text
+  } deriving Eq
+
+instance Ord CompItem where
+  compare (CI l1 k1 s1 _ _) (CI l2 k2 s2 _ _) = compare (l1,k1,s1) (l2,k2,s2)
+
+occNameToComKind :: OccName -> J.CompletionItemKind
+occNameToComKind oc
+  | isVarOcc  oc = J.CiFunction
+  | isTcOcc   oc = J.CiClass
+  | isDataOcc oc = J.CiConstructor
+  | otherwise    = J.CiVariable
+
+mkCompl :: CompItem -> J.CompletionItem
+mkCompl CI{label,kind,importedFrom,thingType} =
+  J.CompletionItem label (Just kind) (Just $ thingType <> importedFrom)
+    Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+
+safeTyThingId :: TyThing -> Maybe Id
+safeTyThingId (AnId i) = Just i
+safeTyThingId (AConLike (RealDataCon dc)) = Just $ dataConWrapId dc
+safeTyThingId _ = Nothing
+
+getCompletions :: Uri -> (T.Text, T.Text) -> IdeM (IdeResponse [J.CompletionItem])
+getCompletions file (qualifier,ident) = do
+  debugm $ "got prefix" ++ show (qualifier,ident)
+  let noCache = return $ nonExistentCacheErr "getCompletions"
+  withCachedModuleAndData file noCache $
+    \cm () -> do
+      let tm = tcMod cm
+          --parsedMod = tm_parsed_module tm
+          Just (_,limports,_,_) = tm_renamed_source tm
+          imports = map unLoc limports
+          --typeEnv = tcg_type_env $ fst $ tm_internals_ tm
+          --curMod = moduleName $ ms_mod $ pm_mod_summary parsedMod
+          importMn = unLoc . ideclName
+
+          showMod = T.pack . moduleNameString
+          nameToCompItem mn n =
+            CI (T.pack . showGhc $ n) (occNameToComKind $ occName n) (showMod mn) n ""
+
+          getCompls = filter ((ident `T.isPrefixOf`) . label)
+
+          pickName imp = fromMaybe (importMn imp) (ideclAs imp)
+
+          unqualImports :: [ModuleName]
+          unqualImports = map pickName
+                        $ filter (not . ideclQualified) imports
+
+          relevantImports :: [(ModuleName, Maybe (Bool, [Name]))]
+          relevantImports
+            | T.null qualifier = []
+            | otherwise = mapMaybe f imports
+              where f imp = do
+                      let mn = importMn imp
+                      guard (showMod (pickName imp) == qualifier)
+                      case ideclHiding imp of
+                        Nothing -> return (mn,Nothing)
+                        Just (b,L _ liens) ->
+                          return (mn, Just (b, concatMap (ieNames . unLoc) liens))
+
+          getComplsFromModName :: GhcMonad m
+            => ModuleName -> m (Set.Set CompItem)
+          getComplsFromModName mn = do
+            mminf <- getModuleInfo =<< findModule mn Nothing
+            return $ case mminf of
+              Nothing -> Set.empty
+              Just minf ->
+                Set.fromList $ getCompls $ map (nameToCompItem mn) $ modInfoExports minf
+
+          getQualifedCompls :: GhcMonad m => m (Set.Set CompItem)
+          getQualifedCompls = do
+            xs <- forM relevantImports $
+              \(mn, mie) ->
+                case mie of
+                  (Just (False, ns)) ->
+                    return $ Set.fromList $ getCompls $ map (nameToCompItem mn) ns
+                  (Just (True , ns)) -> do
+                    exps <- getComplsFromModName mn
+                    let hid = Set.fromList $ getCompls $ map (nameToCompItem mn) ns
+                    return $ Set.difference exps hid
+                  Nothing ->
+                    getComplsFromModName mn
+            return $ Set.unions xs
+
+          setCiTypesForImported hscEnv xs =
+            liftIO $ forM xs $ \ci@CI{origName} -> do
+              mt <- (Just <$> lookupGlobal hscEnv origName)
+                      `catch` \(_ :: SourceError) -> return Nothing
+              let typ = fromMaybe "" $ do
+                    t <- mt
+                    tyid <- safeTyThingId t
+                    return $ T.pack (showGhc $ varType tyid) <> "\n"
+              return $ ci {thingType = typ}
+
+      comps <- GM.unGmlT $ do
+        hscEnv <- getSession
+        if T.null qualifier then do
+          xs <- Set.toList . Set.unions <$> mapM getComplsFromModName unqualImports
+          xs' <- setCiTypesForImported hscEnv xs
+          return xs'
+        else do
+          xs <- Set.toList <$> getQualifedCompls
+          setCiTypesForImported hscEnv xs
+      return $ IdeResponseOk $ map mkCompl comps
 -- ---------------------------------------------------------------------
 
 getSymbolAtPoint :: Uri -> Position -> IdeM (IdeResponse (Maybe (Located Name)))
