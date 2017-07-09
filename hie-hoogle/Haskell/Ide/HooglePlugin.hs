@@ -89,15 +89,24 @@ getHoogleDbLoc = do
         liftIO defaultDatabaseLocation
 
 
-infoCmd :: CommandFunc (Maybe [J.MarkedString])
+infoCmd :: CommandFunc (Maybe T.Text)
 infoCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdText "expr" :& RNil) req of
     Left err -> return err
     Right (ParamText expr :& RNil) ->
       infoCmd' expr
 
-infoCmd' :: T.Text -> IdeM (IdeResponse (Maybe [J.MarkedString]))
+infoCmd' :: T.Text -> IdeM (IdeResponse (Maybe T.Text))
 infoCmd' expr = do
+  db <- getHoogleDb
+  liftIO $ runHoogleQuery db expr $ \res ->
+      if null res then
+          IdeResponseOk Nothing
+      else
+          IdeResponseOk $ Just $ T.pack $ targetInfo $ head res
+
+infoCmdFancyRender :: T.Text -> IdeM (IdeResponse (Maybe [J.MarkedString]))
+infoCmdFancyRender expr = do
   db <- getHoogleDb
   liftIO $ runHoogleQuery db expr $ \res ->
       if null res then

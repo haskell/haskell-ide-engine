@@ -166,7 +166,8 @@ getPrefixAtPos uri (Position l c) = do
       curLine <- headMaybe $ Yi.lines $ snd $ Yi.splitAtLine l yitext
       let beforePos = Yi.take c curLine
       curWord <- Yi.toText <$> lastMaybe (Yi.words beforePos)
-      let parts = T.split (=='.') $ T.takeWhileEnd (\x -> isAlphaNum x || x `elem` ("._'"::String)) curWord
+      let parts = T.split (=='.')
+                    $ T.takeWhileEnd (\x -> isAlphaNum x || x `elem` ("._'"::String)) curWord
       case reverse parts of
         [] -> Nothing
         (x:xs) -> do
@@ -445,7 +446,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
                                      <> " module:" <> modName
                                      <> " is:exact"
                             liftIO $ U.logs $ "hoogle query: " ++ T.unpack query
-                            EitherT $ Hoogle.infoCmd' query
+                            EitherT $ Hoogle.infoCmdFancyRender query
               return (info, sname, docs)
         makeRequest hreq
 
