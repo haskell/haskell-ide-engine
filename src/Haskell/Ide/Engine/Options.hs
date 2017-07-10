@@ -19,6 +19,7 @@ data GlobalOpts = GlobalOpts
   , optTcpPort     :: Port
   , projectRoot    :: Maybe String
   , optDumpSwagger :: Bool
+  , optGhcModVomit :: Bool
   } deriving (Show)
 
 globalOptsParser :: Parser GlobalOpts
@@ -74,3 +75,6 @@ globalOptsParser = GlobalOpts
       <> short 'w'
       <> help "Generate a swagger.json file for the http API"
        )
+  <*> flag False True
+       ( long "vomit"
+       <> help "enable vomit logging for ghc-mod")
