@@ -24,7 +24,6 @@ import qualified GhcMod as GM
 import qualified GhcMod.Monad.Env as GM
 import qualified GhcMod.Types as GM
 import           System.FilePath
-import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 import Text.HTML.TagSoup
 import Text.HTML.TagSoup.Tree
 
@@ -105,7 +104,7 @@ infoCmd' expr = do
       else
           IdeResponseOk $ Just $ T.pack $ targetInfo $ head res
 
-infoCmdFancyRender :: T.Text -> IdeM (IdeResponse (Maybe [J.MarkedString]))
+infoCmdFancyRender :: T.Text -> IdeM (IdeResponse (Maybe T.Text))
 infoCmdFancyRender expr = do
   db <- getHoogleDb
   liftIO $ runHoogleQuery db expr $ \res ->
@@ -114,15 +113,16 @@ infoCmdFancyRender expr = do
       else
           IdeResponseOk $ Just $ renderTarget $ head res
 
-renderTarget :: Target -> [J.MarkedString]
-renderTarget t = [J.CodeString $ J.LanguageString "haskell" $ unHTML $ T.pack $ targetItem t]
-              ++ [J.PlainString $ T.pack $ unwords mdl | not $ null mdl]
-              ++ [renderDocs $ targetDocs t]
-              ++ [J.PlainString $ T.pack $ curry annotate "More info" $ targetURL t]
+renderTarget :: Target -> T.Text
+renderTarget t = T.intercalate "\n\n" $
+     ["```haskell\n" <> unHTML (T.pack $ targetItem t) <> "```"]
+  ++ [T.pack $ unwords mdl | not $ null mdl]
+  ++ [renderDocs $ targetDocs t]
+  ++ [T.pack $ curry annotate "More info" $ targetURL t]
   where mdl = map annotate $ catMaybes [targetPackage t, targetModule t]
         annotate (thing,url) = "["<>thing++"]"++"("++url++")"
         unHTML = T.replace "<0>" "" . innerText . parseTags
-        renderDocs = J.PlainString . T.concat . map htmlToMarkDown . parseTree . T.pack
+        renderDocs = T.concat . map htmlToMarkDown . parseTree . T.pack
         htmlToMarkDown :: TagTree T.Text -> T.Text
         htmlToMarkDown (TagLeaf x) = fromMaybe "" $ maybeTagText x
         htmlToMarkDown (TagBranch "i" _ tree) = "*" <> T.concat (map htmlToMarkDown tree) <> "*"

@@ -382,6 +382,7 @@ type HoogleQuery = T.Text
 
 mkQuery :: T.Text -> T.Text -> HoogleQuery
 mkQuery name importedFrom = name <> " module:" <> importedFrom
+                                 <> " is:exact"
 
 mkCompl :: CompItem -> J.CompletionItem
 mkCompl CI{origName,importedFrom,thingType,label} =

@@ -18,7 +18,7 @@ import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
 import           Control.Concurrent.STM.TVar
 import qualified Control.Exception as E
-import           Control.Lens ( (^.) )
+import           Control.Lens ( (^.), (.~) )
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Either
@@ -410,7 +410,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
             doc = params ^. J.textDocument . J.uri
         callback <- hieResponseHelper (req ^. J.id) $ \(info,mname,docs) -> do
             let
-              docMarked = concat (maybeToList docs)
+              docMarked = maybe [] ((:[]) . J.PlainString) docs
               ht = case info of
                 [] -> J.Hover (J.List docMarked) Nothing
                 xs -> J.Hover (J.List $ ms
@@ -516,6 +516,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
       -- -------------------------------
 
       Core.ReqCompletion req -> do
+        liftIO $ U.logs $ "reactor:got CompletionRequest:" ++ show req
         let params = req ^. J.params
             doc = params ^. J.textDocument ^. J.uri
             pos = params ^. J.position
@@ -532,6 +533,21 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
             let hreq = PReq Nothing (Just $ req ^. J.id) callback
                          $ HaRe.getCompletions doc prefix
             makeRequest hreq
+
+      Core.ReqCompletionItemResolve req -> do
+        liftIO $ U.logs $ "reactor:got CompletionItemResolveRequest:" ++ show req
+        let origCompl = req ^. J.params
+            mquery = case J.fromJSON <$> origCompl ^. J.xdata of
+                       Just (J.Success q) -> Just q
+                       _ -> Nothing
+        callback <- hieResponseHelper (req ^. J.id) $ \docs -> do
+          let rspMsg = Core.makeResponseMessage req $
+                         origCompl & J.documentation .~ docs
+          reactorSend rspMsg
+        let hreq = PReq Nothing (Just $ req ^. J.id) callback
+                 $ maybe (return $ IdeResponseOk Nothing)
+                     Hoogle.infoCmd' mquery
+        makeRequest hreq
 
       -- -------------------------------
 
