@@ -359,15 +359,17 @@ getSymbols uri = do
 -- ---------------------------------------------------------------------
 
 data CompItem = CI
-  { label :: T.Text
-  , kind  :: J.CompletionItemKind
+  { origName :: Name
   , importedFrom :: T.Text
-  , origName :: Name
-  , thingType :: T.Text
-  } deriving Eq
+  , thingType :: Maybe T.Text
+  , label :: T.Text
+  }
+
+instance Eq CompItem where
+  (CI n1 _ _ _) == (CI n2 _ _ _) = n1 == n2
 
 instance Ord CompItem where
-  compare (CI l1 k1 s1 _ _) (CI l2 k2 s2 _ _) = compare (l1,k1,s1) (l2,k2,s2)
+  compare (CI n1 _ _ _) (CI n2 _ _ _) = compare n1 n2
 
 occNameToComKind :: OccName -> J.CompletionItemKind
 occNameToComKind oc
@@ -376,10 +378,23 @@ occNameToComKind oc
   | isDataOcc oc = J.CiConstructor
   | otherwise    = J.CiVariable
 
+type HoogleQuery = T.Text
+
+mkQuery :: T.Text -> T.Text -> HoogleQuery
+mkQuery name importedFrom = name <> " module:" <> importedFrom
+
 mkCompl :: CompItem -> J.CompletionItem
-mkCompl CI{label,kind,importedFrom,thingType} =
-  J.CompletionItem label (Just kind) (Just $ thingType <> importedFrom)
-    Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+mkCompl CI{origName,importedFrom,thingType,label} =
+  J.CompletionItem label kind (Just $ maybe "" (<>"\n") thingType <> importedFrom)
+    Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing hoogleQuery
+  where kind  = Just $ occNameToComKind $ occName origName
+        hoogleQuery = Just $ toJSON $ mkQuery label importedFrom
+
+mkModCompl :: T.Text -> J.CompletionItem
+mkModCompl label =
+  J.CompletionItem label (Just J.CiModule) Nothing
+    Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing hoogleQuery
+  where hoogleQuery = Just $ toJSON $ "module:" <> label
 
 safeTyThingId :: TyThing -> Maybe Id
 safeTyThingId (AnId i) = Just i
@@ -390,23 +405,37 @@ getCompletions :: Uri -> (T.Text, T.Text) -> IdeM (IdeResponse [J.CompletionItem
 getCompletions file (qualifier,ident) = do
   debugm $ "got prefix" ++ show (qualifier,ident)
   let noCache = return $ nonExistentCacheErr "getCompletions"
+  let modQual = if T.null qualifier then "" else qualifier <> "."
+  let fullPrefix = modQual <> ident
   withCachedModuleAndData file noCache $
     \cm () -> do
       let tm = tcMod cm
-          --parsedMod = tm_parsed_module tm
+          parsedMod = tm_parsed_module tm
+          curMod = moduleName $ ms_mod $ pm_mod_summary parsedMod
           Just (_,limports,_,_) = tm_renamed_source tm
           imports = map unLoc limports
-          --typeEnv = tcg_type_env $ fst $ tm_internals_ tm
-          --curMod = moduleName $ ms_mod $ pm_mod_summary parsedMod
-          importMn = unLoc . ideclName
+          typeEnv = md_types $ snd $ tm_internals_ tm
 
+          localVars = mapMaybe safeTyThingId $ typeEnvElts typeEnv
+          localCmps = getCompls $ map varToLocalCmp localVars
+          varToLocalCmp var = CI name (showMod curMod) typ label
+            where typ = Just $ T.pack $ showGhc $ varType var
+                  name = Var.varName var
+                  label = T.pack $ showGhc name
+
+          importMn = unLoc . ideclName
           showMod = T.pack . moduleNameString
           nameToCompItem mn n =
-            CI (T.pack . showGhc $ n) (occNameToComKind $ occName n) (showMod mn) n ""
+            CI n (showMod mn) Nothing $ T.pack $ showGhc n
 
           getCompls = filter ((ident `T.isPrefixOf`) . label)
 
           pickName imp = fromMaybe (importMn imp) (ideclAs imp)
+
+          allModules = map (showMod . pickName) imports
+          modCompls = map mkModCompl
+                    $ mapMaybe (T.stripPrefix $ modQual)
+                    $ filter (fullPrefix `T.isPrefixOf`) allModules
 
           unqualImports :: [ModuleName]
           unqualImports = map pickName
@@ -452,10 +481,10 @@ getCompletions file (qualifier,ident) = do
             liftIO $ forM xs $ \ci@CI{origName} -> do
               mt <- (Just <$> lookupGlobal hscEnv origName)
                       `catch` \(_ :: SourceError) -> return Nothing
-              let typ = fromMaybe "" $ do
+              let typ = do
                     t <- mt
                     tyid <- safeTyThingId t
-                    return $ T.pack (showGhc $ varType tyid) <> "\n"
+                    return $ T.pack $ showGhc $ varType tyid
               return $ ci {thingType = typ}
 
       comps <- GM.unGmlT $ do
@@ -463,11 +492,11 @@ getCompletions file (qualifier,ident) = do
         if T.null qualifier then do
           xs <- Set.toList . Set.unions <$> mapM getComplsFromModName unqualImports
           xs' <- setCiTypesForImported hscEnv xs
-          return xs'
+          return $ localCmps ++ xs'
         else do
           xs <- Set.toList <$> getQualifedCompls
           setCiTypesForImported hscEnv xs
-      return $ IdeResponseOk $ map mkCompl comps
+      return $ IdeResponseOk $ modCompls ++ map mkCompl comps
 -- ---------------------------------------------------------------------
 
 getSymbolAtPoint :: Uri -> Position -> IdeM (IdeResponse (Maybe (Located Name)))
