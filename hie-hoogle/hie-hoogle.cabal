@@ -20,6 +20,8 @@ library
   build-depends:       base >= 4.9 && < 5
                      , hie-plugin-api
                      , hie-base
+                     , haskell-lsp
+                     , tagsoup
                      , ghc-mod
                      , filepath
                      , aeson

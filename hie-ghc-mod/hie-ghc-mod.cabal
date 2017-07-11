@@ -30,7 +30,9 @@ library
                      , text
                      , transformers
                      , parsec
+                     , mtl
                      , vinyl >= 0.5 && < 0.6
+                     , either
 
   ghc-options:         -Wall
   if flag(pedantic)

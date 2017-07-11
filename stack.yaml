@@ -12,10 +12,10 @@ packages:
 - hie-hoogle
 - hie-plugin-api
 - hie-brittany
-#- ./haskell-lsp
+# - ./haskell-lsp
 - location:
-    git: https://github.com/alanz/haskell-lsp.git
-    commit: e68b0dec337a34037d09ad8ef2b576dcd6db6ed6
+    git: https://github.com/wz1000/haskell-lsp.git
+    commit: 421a8aa9591d464ba2232c4a1a38d34583acacf9
   extra-dep: true
 - location:
     git: https://github.com/alanz/ghc-dump-tree.git
@@ -27,22 +27,24 @@ packages:
 #   extra-dep: true
 # - ../HaRe
 - location:
-    git: https://github.com/alanz/HaRe.git
-    commit: 10e802b8f074e055f7b4a91e5573e783cfc58993
+    git: https://github.com/wz1000/HaRe.git
+    commit: d9b9dadfd5e3ade840ec0bddedfa5133a743bc76
   extra-dep: true
 # - ../../DanielG/ghc-mod
 # - ../ghc-mod
 - location:
     git: https://github.com/alanz/ghc-mod.git
-    commit: f84c9568d426fc3e54c6323cd356d552d4020e5d
+    commit: e3d388061ed7f35b5c9720f636c22c10369ecc24
   extra-dep: true
 - location:
-    git: https://github.com/lspitzner/brittany.git
-    commit: 134f31e4d18e51a7cd3d5bcaa90af92e70b926ce
+    # git: https://github.com/lspitzner/brittany.git
+    # commit: 134f31e4d18e51a7cd3d5bcaa90af92e70b926ce
+    git: https://github.com/alanz/brittany.git
+    commit: 33eed86851472707d7b9bf94a177228bc8d2df9b
   extra-dep: true
 - location:
     git: https://github.com/wz1000/hoogle.git
-    commit: 8f1f21d4a4ec9ab72d7a0d6f2b3d5c82d5363544
+    commit: a1fb4ec702f61d0746f07dd10e1443800cbef66c
   extra-dep: true
 
 extra-deps:

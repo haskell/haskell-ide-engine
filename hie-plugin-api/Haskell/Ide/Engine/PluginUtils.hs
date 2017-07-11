@@ -21,7 +21,6 @@ module Haskell.Ide.Engine.PluginUtils
 
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Either
-import           Control.Monad.Trans
 import           Control.Concurrent
 import           Data.Aeson
 import           Data.Algorithm.Diff
@@ -32,8 +31,6 @@ import           Data.Monoid
 import qualified Data.Text                             as T
 import           Data.Vinyl
 import           FastString
-import qualified GhcMod.Monad                          as GM
-import qualified GhcMod.Utils                          as GM
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
@@ -68,12 +65,11 @@ srcSpan2Range :: SrcSpan -> (Either T.Text Range)
 srcSpan2Range spn =
   realSrcSpan2Range <$> getRealSrcSpan spn
 
-srcSpan2Loc :: (Monad m, MonadIO m) => SrcSpan -> GM.GhcModT m (Either T.Text Location)
-srcSpan2Loc spn = runEitherT $ do
+srcSpan2Loc :: (MonadIO m) => (FilePath -> FilePath) -> SrcSpan -> m (Either T.Text Location)
+srcSpan2Loc revMapp spn = runEitherT $ do
   rspan <- hoistEither $ getRealSrcSpan spn
-  revMapp <- lift GM.mkRevRedirMapFunc
   let fp = unpackFS $ srcSpanFile rspan
-  file <- liftIO $ makeAbsolute . revMapp =<< canonicalizePath fp
+  file <- liftIO $ canonicalizePath . revMapp =<< canonicalizePath fp
   return $ Location (filePathToUri file) (realSrcSpan2Range rspan)
 
 -- ---------------------------------------------------------------------

@@ -10,10 +10,13 @@ module Haskell.Ide.HooglePlugin where
 
 import           Data.Aeson
 import           Data.Monoid
+import           Data.Maybe
+--import           Data.List (intercalate)
 import qualified Data.Text as T
 import           Data.Vinyl
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
+import           Haskell.Ide.Engine.ExtensibleState
 import           Control.Monad.IO.Class
 import           Hoogle
 import           System.Directory
@@ -21,6 +24,8 @@ import qualified GhcMod as GM
 import qualified GhcMod.Monad.Env as GM
 import qualified GhcMod.Types as GM
 import           System.FilePath
+import Text.HTML.TagSoup
+import Text.HTML.TagSoup.Tree
 
 -- ---------------------------------------------------------------------
 
@@ -47,36 +52,20 @@ hoogleDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-infoCmd :: CommandFunc (Maybe T.Text)
-infoCmd = CmdSync $ \_ctxs req -> do
-  case getParams (IdText "expr" :& RNil) req of
-    Left err -> return err
-    Right (ParamText expr :& RNil) ->
-      infoCmd' expr
+newtype HoogleDb = HoogleDb (Maybe FilePath)
 
-infoCmd' :: T.Text -> IdeM (IdeResponse (Maybe T.Text))
-infoCmd' expr =
-  runHoogleQuery expr $ \res ->
-      if null res then
-          IdeResponseOk Nothing
-      else
-          IdeResponseOk $ Just $ T.pack $ targetInfo $ head res
+instance ExtensionClass HoogleDb where
+  initialValue = HoogleDb Nothing
 
-------------------------------------------------------------------------
-
-lookupCmd :: CommandFunc [T.Text]
-lookupCmd = CmdSync $ \_ctxs req -> do
-  case getParams (IdText "term" :& RNil) req of
-    Left err -> return err
-    Right (ParamText term :& RNil) ->
-      lookupCmd' 10 term
-
-lookupCmd' :: Int -> T.Text -> IdeM (IdeResponse [T.Text])
-lookupCmd' n term =
-  runHoogleQuery term (IdeResponseOk . map (T.pack . targetResultDisplay False) . take n)
-
-
-------------------------------------------------------------------------
+getHoogleDb :: IdeM FilePath
+getHoogleDb = do
+  HoogleDb mdb <- get
+  case mdb of
+    Nothing -> do
+      db <- getHoogleDbLoc
+      put $ HoogleDb $ Just db
+      return db
+    Just db -> return db
 
 getHoogleDbLoc :: IdeM FilePath
 getHoogleDbLoc = do
@@ -93,18 +82,79 @@ getHoogleDbLoc = do
     Nothing -> liftIO defaultDatabaseLocation
     Just fp -> do
       exists <- liftIO $ doesFileExist fp
-      if exists then do
+      if exists then
         return fp
       else
         liftIO defaultDatabaseLocation
 
 
-runHoogleQuery :: T.Text -> ([Target] -> IdeResponse a) -> IdeM (IdeResponse a)
-runHoogleQuery quer f = do
-        db <- getHoogleDbLoc
-        dbExists <- liftIO $ doesFileExist db
+infoCmd :: CommandFunc (Maybe T.Text)
+infoCmd = CmdSync $ \_ctxs req -> do
+  case getParams (IdText "expr" :& RNil) req of
+    Left err -> return err
+    Right (ParamText expr :& RNil) ->
+      infoCmd' expr
+
+infoCmd' :: T.Text -> IdeM (IdeResponse (Maybe T.Text))
+infoCmd' expr = do
+  db <- getHoogleDb
+  liftIO $ runHoogleQuery db expr $ \res ->
+      if null res then
+          IdeResponseOk Nothing
+      else
+          IdeResponseOk $ Just $ T.pack $ targetInfo $ head res
+
+infoCmdFancyRender :: T.Text -> IdeM (IdeResponse (Maybe T.Text))
+infoCmdFancyRender expr = do
+  db <- getHoogleDb
+  liftIO $ runHoogleQuery db expr $ \res ->
+      if null res then
+          IdeResponseOk Nothing
+      else
+          IdeResponseOk $ Just $ renderTarget $ head res
+
+renderTarget :: Target -> T.Text
+renderTarget t = T.intercalate "\n\n" $
+     ["```haskell\n" <> unHTML (T.pack $ targetItem t) <> "```"]
+  ++ [T.pack $ unwords mdl | not $ null mdl]
+  ++ [renderDocs $ targetDocs t]
+  ++ [T.pack $ curry annotate "More info" $ targetURL t]
+  where mdl = map annotate $ catMaybes [targetPackage t, targetModule t]
+        annotate (thing,url) = "["<>thing++"]"++"("++url++")"
+        unHTML = T.replace "<0>" "" . innerText . parseTags
+        renderDocs = T.concat . map htmlToMarkDown . parseTree . T.pack
+        htmlToMarkDown :: TagTree T.Text -> T.Text
+        htmlToMarkDown (TagLeaf x) = fromMaybe "" $ maybeTagText x
+        htmlToMarkDown (TagBranch "i" _ tree) = "*" <> T.concat (map htmlToMarkDown tree) <> "*"
+        htmlToMarkDown (TagBranch "b" _ tree) = "**" <> T.concat (map htmlToMarkDown tree) <> "**"
+        htmlToMarkDown (TagBranch "a" _ tree) = "`" <> T.concat (map htmlToMarkDown tree) <> "`"
+        htmlToMarkDown (TagBranch "li" _ tree) = "- " <> T.concat (map htmlToMarkDown tree)
+        htmlToMarkDown (TagBranch "tt" _ tree) = "`" <> innerText (flattenTree tree) <> "`"
+        htmlToMarkDown (TagBranch "pre" _ tree) = "```haskell\n" <> T.concat (map htmlToMarkDown tree) <> "```"
+        htmlToMarkDown (TagBranch _ _ tree) = T.concat $ map htmlToMarkDown tree
+
+------------------------------------------------------------------------
+
+lookupCmd :: CommandFunc [T.Text]
+lookupCmd = CmdSync $ \_ctxs req -> do
+  case getParams (IdText "term" :& RNil) req of
+    Left err -> return err
+    Right (ParamText term :& RNil) ->
+      lookupCmd' 10 term
+
+lookupCmd' :: Int -> T.Text -> IdeM (IdeResponse [T.Text])
+lookupCmd' n term = do
+  db <- getHoogleDb
+  liftIO $ runHoogleQuery db term
+    (IdeResponseOk . map (T.pack . targetResultDisplay False) . take n)
+
+------------------------------------------------------------------------
+
+runHoogleQuery :: FilePath -> T.Text -> ([Target] -> IdeResponse a) -> IO (IdeResponse a)
+runHoogleQuery db quer f = do
+        dbExists <- doesFileExist db
         if dbExists then do
-            res <- liftIO $ searchHoogle db quer
+            res <- searchHoogle db quer
             return (f res)
         else
             return $ IdeResponseFail hoogleDbError
