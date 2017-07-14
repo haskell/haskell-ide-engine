@@ -201,15 +201,19 @@ myLogger action = do
 setTypecheckedModule :: Uri -> IdeM (IdeResponse Diagnostics)
 setTypecheckedModule uri = do
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
-      (diags', mtm) <- getTypecheckedModuleGhc myLogger fp
-      let diags = Map.insertWith' Set.union uri Set.empty <$> diags'
-      debugm $ "diags are: " ++ show diags
-      case mtm of
-        Nothing -> return diags
-        Just tm -> do
-          let cm = CachedModule tm return return
-          cacheModule uri cm
-          return diags
+    cradle <- GM.gmCradle <$> GM.gmeAsk
+    debugm $ "Cradle is" ++ show cradle
+    (diags', mtm) <- getTypecheckedModuleGhc myLogger fp
+    let diags = Map.insertWith' Set.union uri Set.empty <$> diags'
+    debugm $ "diags are: " ++ show diags
+    case mtm of
+      Nothing -> do
+        debugm $ "Didn't get typechecked module for: " ++ show fp
+        return diags
+      Just tm -> do
+        let cm = CachedModule tm return return
+        cacheModule uri cm
+        return diags
 
 -- ---------------------------------------------------------------------
 

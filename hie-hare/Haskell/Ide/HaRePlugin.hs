@@ -604,8 +604,11 @@ findDef file pos = do
                         let uri = filePathToUri fp
                         mcm' <- getCachedModule uri
                         cm' <- case mcm' of
-                          Just cmdl -> return cmdl
+                          Just cmdl -> do
+                            debugm "module already in cache in findDef"
+                            return cmdl
                           Nothing -> do
+                            debugm "setting cached module in findDef"
                             _ <- setTypecheckedModule uri
                             fromJust <$> getCachedModule uri
                         let modSum = pm_mod_summary $ tm_parsed_module $ tcMod cm'
