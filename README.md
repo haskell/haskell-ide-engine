@@ -1,30 +1,47 @@
 # haskell-ide-engine
-[![Available on Hackage][badge-hackage]][hackage]
 [![License BSD3][badge-license]][license]
-[![Build Status][badge-travis]][travis]
 
-[badge-travis]: https://travis-ci.org/haskell/haskell-ide-engine.png?branch=master
-[travis]: https://travis-ci.org/haskell/haskell-ide-engine
-[badge-hackage]: https://img.shields.io/hackage/v/haskell-ide-engine.svg?dummy
-[hackage]: https://hackage.haskell.org/package/haskell-ide-engine
 [badge-license]: https://img.shields.io/badge/license-BSD3-green.svg?dummy
 [license]: https://github.com/haskell/haskell-ide-engine/blob/master/LICENSE
 
 
 This project aims to be __the universal interface__ to __a growing number of Haskell tools__, providing a __full-featured and easy to query backend__ for editors and IDEs that require Haskell-specific functionality.
 
-Planned features:
+We are currently focusing on using the Language Server Protocol to be the interface via which we talk to clients.
 
- - [ ] Cabal / Stack project configuration and compilation
- - [ ] Error checking, warnings, linter and dead code detection
- - [ ] Refactoring tools, code beautification, auto-apply suggestion
- - [ ] Code generation
- - [ ] Run testing Suite, check coverage
- - [ ] Autocompletion
- - [ ] Get type at point
- - [ ] Jump to definition, find usages, browse documentation, generate ctags
- - [ ] REPL
+## Features:
 
+ - Diagnostics via hlint and GHC warnings/errors
+ - Code actions and quick fixes via apply-refact
+ - Type information and documentation(via hoogle) on hover
+ - Go to definition
+ - Document Symbols
+ - Document Highlight
+ - Completion
+ - Formatting via brittany
+ - Renaming via HaRe
+ 
+## Installation 
+
+To install HIE
+
+```bash
+git clone https://github.com/haskell/haskell-ide-engine
+cd haskell-ide-engine
+stack install
+```
+
+### Using HIE with vscode
+
+Make sure HIE is installed (see above) and dir stack put the `hie` binary is in your path (usually `~/.local/bin` on linux)
+
+```bash
+git clone https://github.com/alanz/vscode-hie-server
+cd vscode-hie-server
+npm install .
+```
+
+Open `vscode-hie-server/` in Visual Studio Code and press `F5` to open a new window with the extension loaded.
 
 ### This is *not* yet another [`ghc-mod`](https://github.com/kazu-yamamoto/ghc-mod) or [`ide-backend`](https://github.com/fpco/ide-backend) project
 
