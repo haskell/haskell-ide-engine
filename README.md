@@ -12,15 +12,40 @@ We are currently focusing on using the Language Server Protocol as the interface
 ## Features:
 
  - Diagnostics via hlint and GHC warnings/errors
+   
+   ![Diagnostics](previews/diagnostics.gif?raw=true)
+
  - Code actions and quick fixes via apply-refact
+   
+   ![Apply Refact](previews/apply-refact.gif?raw=true)
+
  - Type information and documentation(via hoogle) on hover
-   ![Hover](previews/hover.webm?raw=true "Hover")
+
+   ![Hover](previews/hover.gif?raw=true)
+
  - Go to definition
+   
+   ![Find Def](previews/finddef.gif?raw=true)
+
  - Document Symbols
+
+   ![Doc Symbols](previews/docsymbols.gif?raw=true)
+
  - Document Highlight
+   
+   ![Doc Highlight](previews/dochighlight.gif?raw=true)
+   
  - Completion
+   
+   ![Completion](previews/completion.gif?raw=true)
+
  - Formatting via brittany
+
+   ![Formatting](previews/formatting.gif?raw=true)
+
  - Renaming via HaRe
+
+   ![Renaming](previews/rename.gif?raw=true)
  
 ## Installation 
 
@@ -43,6 +68,14 @@ npm install .
 ```
 
 Open `vscode-hie-server/` in Visual Studio Code and press `F5` to open a new window with the extension loaded.
+
+### Planned Features
+
+ - [ ] Multiproject and new-build support
+ - [ ] HaRe refactorings
+ - [ ] More code actions
+ - [ ] Cross project/dependency Find Definition
+ - [ ] Case splitting, type insertion etc.
 
 ### This is *not* yet another [`ghc-mod`](https://github.com/kazu-yamamoto/ghc-mod) or [`ide-backend`](https://github.com/fpco/ide-backend) project
 
