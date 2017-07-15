@@ -7,13 +7,14 @@
 
 This project aims to be __the universal interface__ to __a growing number of Haskell tools__, providing a __full-featured and easy to query backend__ for editors and IDEs that require Haskell-specific functionality.
 
-We are currently focusing on using the Language Server Protocol to be the interface via which we talk to clients.
+We are currently focusing on using the Language Server Protocol as the interface via which we talk to clients.
 
 ## Features:
 
  - Diagnostics via hlint and GHC warnings/errors
  - Code actions and quick fixes via apply-refact
  - Type information and documentation(via hoogle) on hover
+   ![Hover](previews/hover.webm?raw=true "Hover")
  - Go to definition
  - Document Symbols
  - Document Highlight
