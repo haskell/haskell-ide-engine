@@ -182,10 +182,9 @@ srcErrToDiag df rfm se = runEitherT $ do
         return (Map.insertWith' Set.union uri (Set.singleton diag) m)
   processMsgs errMsgs
 
-myLogger :: GM.IOish m => GM.GmlT m () -> GM.GmlT m (IdeResponse Diagnostics)
-myLogger action = do
+myLogger :: GM.IOish m => (FilePath -> FilePath) -> GM.GmlT m () -> GM.GmlT m (IdeResponse Diagnostics)
+myLogger rfm action = do
   env <- getSession
-  rfm <- GM.mkRevRedirMapFunc
   diagRef <- liftIO $ newIORef Map.empty
   let setLogger df = df { log_action = logDiag rfm diagRef }
       ghcErrRes msg = IdeResponseFail $ IdeError PluginError (T.pack msg) Null
@@ -201,15 +200,20 @@ myLogger action = do
 setTypecheckedModule :: Uri -> IdeM (IdeResponse Diagnostics)
 setTypecheckedModule uri = do
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
-      (diags', mtm) <- getTypecheckedModuleGhc myLogger fp
-      let diags = Map.insertWith' Set.union uri Set.empty <$> diags'
-      debugm $ "diags are: " ++ show diags
-      case mtm of
-        Nothing -> return diags
-        Just tm -> do
-          let cm = CachedModule tm return return
-          cacheModule uri cm
-          return diags
+    cradle <- GM.gmCradle <$> GM.gmeAsk
+    rfm <- GM.mkRevRedirMapFunc
+    debugm $ "Cradle is" ++ show cradle
+    (diags', mtm) <- getTypecheckedModuleGhc (myLogger rfm) fp
+    let diags = Map.insertWith' Set.union uri Set.empty <$> diags'
+    debugm $ "diags are: " ++ show diags
+    case mtm of
+      Nothing -> do
+        debugm $ "Didn't get typechecked module for: " ++ show fp
+        return diags
+      Just tm -> do
+        let cm = CachedModule tm rfm return return
+        cacheModule uri cm
+        return diags
 
 -- ---------------------------------------------------------------------
 

@@ -229,8 +229,6 @@ instance FromJSON Service where
 type IdeM = IdeT IO
 type IdeT m = GM.GhcModT (StateT IdeState m)
 
-type UriCaches = Map.Map Uri UriCache
-
 data IdeState = IdeState
   {
     idePlugins :: Plugins
@@ -239,6 +237,8 @@ data IdeState = IdeState
   , uriCaches  :: !UriCaches
   } deriving (Show)
 
+type UriCaches = Map.Map Uri UriCache
+
 data UriCache = UriCache
   { cachedModule :: !CachedModule
   , cachedData   :: !(Map.Map TypeRep Dynamic)
@@ -246,6 +246,7 @@ data UriCache = UriCache
 
 data CachedModule = CachedModule
   { tcMod       :: !TypecheckedModule
+  , revMap      :: FilePath -> FilePath
   , newPosToOld :: Position -> Maybe Position
   , oldPosToNew :: Position -> Maybe Position
   }

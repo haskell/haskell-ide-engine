@@ -273,11 +273,11 @@ instance ModuleCache NameMapData where
 getSymbols :: Uri -> IdeM (IdeResponse [J.SymbolInformation])
 getSymbols uri = do
     mcm <- getCachedModule uri
-    rfm <- GM.mkRevRedirMapFunc
     case mcm of
       Nothing -> return $ IdeResponseOk []
       Just cm -> do
           let tm = tcMod cm
+              rfm = revMap cm
               hsMod = unLoc $ pm_parsed_source $ tm_parsed_module tm
               imports = hsmodImports hsMod
               imps  = concatMap (goImport . unLoc) imports
@@ -573,11 +573,11 @@ getNewNames old = do
 
 findDef :: Uri -> Position -> IdeM (IdeResponse Location)
 findDef file pos = do
-  rfm <- GM.mkRevRedirMapFunc
   let noCache = return $ nonExistentCacheErr "hare:findDef"
   withCachedModuleAndData file noCache $
     \cm NMD{nameMap} -> do
       let tc = tcMod cm
+          rfm = revMap cm
       case symbolFromTypecheckedModule nameMap tc =<< newPosToOld cm pos of
         Nothing -> return $ invalidCursorErr "hare:findDef"
         Just pn -> do
@@ -604,8 +604,11 @@ findDef file pos = do
                         let uri = filePathToUri fp
                         mcm' <- getCachedModule uri
                         cm' <- case mcm' of
-                          Just cmdl -> return cmdl
+                          Just cmdl -> do
+                            debugm "module already in cache in findDef"
+                            return cmdl
                           Nothing -> do
+                            debugm "setting cached module in findDef"
                             _ <- setTypecheckedModule uri
                             fromJust <$> getCachedModule uri
                         let modSum = pm_mod_summary $ tm_parsed_module $ tcMod cm'
