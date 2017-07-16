@@ -7,7 +7,8 @@
 
 This project aims to be __the universal interface__ to __a growing number of Haskell tools__, providing a __full-featured and easy to query backend__ for editors and IDEs that require Haskell-specific functionality.
 
-We are currently focusing on using the Language Server Protocol as the interface via which we talk to clients.
+__We are currently focusing on using the [Language Server Protocol](https://github.com/Microsoft/language-server-protocol/blob/master/protocol.md) as the interface via which 
+we talk to clients.__
 
 ## Features:
 
@@ -113,9 +114,9 @@ curl -fsSL https://raw.githubusercontent.com/cask/cask/master/go | python
 Below you find a short overview of the main architectural layers of `haskell-ide-engine`.
 For more info have a look in [the docs folder](/docs) at the root of this project, especially:
 
- - The [Architecture discussion](/docs/Architecture.md)
- - The [Protocol discussion](/docs/Protocol.md)
- - The [Design discussion](/docs/Design.md)
+ - The [Architecture discussion](docs/Architecture.md)
+ - The [Protocol discussion](docs/Protocol.md)
+ - The [Design discussion](docs/Design.md)
 
 #### 1. BIOS layer
 
@@ -133,22 +134,9 @@ including ghci.
 
 #### 3. IDE interfacing layer
 
-This provides a set of logical channels that can be integrated into standard
-IDEs. The details still need to be worked out, but I would imagine something
-like a channel for querying information about a project, one for a ghci session,
-and whatever others are needed. These logical channels can then run over
-whatever transport is appropriate to the specific IDE being integrated.
+The focus is currently on [LSP](https://github.com/Microsoft/language-server-protocol/blob/master/protocol.md) as the protocol we use to interface with IDEs.
 
-According to [#2](https://github.com/haskell/haskell-ide-engine/issues/2) it seems the
-consensus is toward (re-)using the Idris protocol, as the languages are similar
-enough and it offers cross-IDE support already.
-
-The __Plugin layer__ and __IDE layer__ are very fuzzy at this point, and there has been some
-discussion on IRC around it. These layers may well live in a single repository
-(this one), as two separate layers or just be a feature of how
-`haskell-ide-engine` is built.
-
-
+Existing transports are still functional for the time being.
 
 ## Documentation
 

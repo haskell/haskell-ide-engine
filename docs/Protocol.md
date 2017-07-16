@@ -1,5 +1,13 @@
 # Protocol
 
+## Language Server Protocol
+
+https://github.com/Microsoft/language-server-protocol/blob/master/protocol.md
+
+Advantages include widespread tooling and IDE support, and standarisation.
+
+Implemented in [LspStdio.hs](../src/Haskell/Ide/Engine/Transport/LspStdio.hs)
+
 ## Just use plain old HTTP for now
 
 For a first pass, until we know where any performance problems actually are, the nicest thing is to do plain HTTP with as stateless as possible of a protocol. It's unlikely any initial perf issues would have anything to do with the protocol, more likely to be the result of munging the code.
