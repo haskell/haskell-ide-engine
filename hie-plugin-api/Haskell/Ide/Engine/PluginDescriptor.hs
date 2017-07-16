@@ -246,6 +246,7 @@ data UriCache = UriCache
 
 data CachedModule = CachedModule
   { tcMod       :: !TypecheckedModule
+  , revMap      :: FilePath -> FilePath
   , newPosToOld :: Position -> Maybe Position
   , oldPosToNew :: Position -> Maybe Position
   }
