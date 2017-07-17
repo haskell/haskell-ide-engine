@@ -11,42 +11,45 @@ __We are currently focusing on using the [Language Server Protocol](https://gith
 we talk to clients.__
 
 ## Features:
-
+ 
+ - Supports plain GHC projects, cabal projects(sandboxed and non sandboxed) and stack projects
+ - Fast due to caching of compile info
+ - Uses LSP, so should be easy to integrate with a wide selection of editors
  - Diagnostics via hlint and GHC warnings/errors
    
-   ![Diagnostics](previews/diagnostics.gif?raw=true)
+   ![Diagnostics](http://i.imgur.com/1vqm4eF.gif)
 
  - Code actions and quick fixes via apply-refact
    
-   ![Apply Refact](previews/apply-refact.gif?raw=true)
+   ![Apply Refact](http://i.imgur.com/dBrSi5F.gif)
 
  - Type information and documentation(via hoogle) on hover
 
-   ![Hover](previews/hover.gif?raw=true)
+   ![Hover](http://i.imgur.com/AcvYROv.gif)
 
- - Go to definition
+ - Jump to definition
    
-   ![Find Def](previews/finddef.gif?raw=true)
+   ![Find Def](http://i.imgur.com/kmCU2Bz.gif)
 
- - Document Symbols
+ - List all top level definitions
 
-   ![Doc Symbols](previews/docsymbols.gif?raw=true)
+   ![Doc Symbols](http://i.imgur.com/GErcYqp.gif)
 
- - Document Highlight
+ - Highlight references in document
    
-   ![Doc Highlight](previews/dochighlight.gif?raw=true)
+   ![Doc Highlight](http://i.imgur.com/YLjHs2s.gif)
    
  - Completion
    
-   ![Completion](previews/completion.gif?raw=true)
+   ![Completion](http://i.imgur.com/wR6IJ7M.gif)
 
  - Formatting via brittany
 
-   ![Formatting](previews/formatting.gif?raw=true)
+   ![Formatting](http://i.imgur.com/cqZZ8HC.gif)
 
  - Renaming via HaRe
 
-   ![Renaming](previews/rename.gif?raw=true)
+   ![Renaming](http://i.imgur.com/z03G2a5.gif)
  
 ## Installation 
 
