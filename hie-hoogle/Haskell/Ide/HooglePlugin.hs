@@ -17,6 +17,7 @@ import           Data.Vinyl
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.ExtensibleState
+import           Haskell.Ide.Engine.MonadFunctions
 import           Control.Monad.IO.Class
 import           Hoogle
 import           System.Directory
@@ -64,6 +65,7 @@ getHoogleDb = do
     Nothing -> do
       db <- getHoogleDbLoc
       put $ HoogleDb $ Just db
+      liftIO $ debugm $ "hoogle: using db: " ++ db
       return db
     Just db -> return db
 
