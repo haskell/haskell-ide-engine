@@ -78,7 +78,7 @@ Open `vscode-hie-server/` in Visual Studio Code and press `F5` to open a new win
 HIE supports fetching docs from hoogle on hover. It can use the Hoogle database for 
 your user, or a project specific database.
 
-To generate a global hoogle database for your user, run
+To generate a global hoogle database for your user from hackage, run
 
 ```bash
 $ hoogle generate
@@ -88,15 +88,32 @@ To generate a project specific database for a stack project, run
 
 ```bash
 $ stack hoogle
+$ stack build
 ```
 
-To generate a project specific database for a cabal project, run
+To generate a project specific database for a sandboxed cabal project, run
 
 ```bash
-$ cabal haddock --hoogle
+$ cabal install --enable-documentation --haddock-hoogle
 $ hoogle generate --database=hiehoogledb.hoo --local=.
 ```
 in the root dir of your cabal project
+
+If you don't have the dependencies built with haddock/documentation enabled, you need 
+to remove the sandbox and build everything again before running the commands
+given above
+
+```bash
+$ cabal sandbox delete
+$ cabal sandbox init
+```
+
+To generate a project specific database for a non-sandboxed cabal project, run
+
+```bash
+$ cabal install
+$ hoogle generate --local --database=hiehoogledb.hoo
+```
 
 If HIE detects a project specific hoogle DB, it will use it over the global db.
 
