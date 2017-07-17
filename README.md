@@ -17,7 +17,7 @@ we talk to clients.__
  - Uses LSP, so should be easy to integrate with a wide selection of editors
  - Diagnostics via hlint and GHC warnings/errors
    
-   ![Diagnostics](http://i.imgur.com/ARzqp7v.gif)
+   ![Diagnostics](http://i.imgur.com/apW3C2r.gif)
 
  - Code actions and quick fixes via apply-refact
    
@@ -25,7 +25,7 @@ we talk to clients.__
 
  - Type information and documentation(via hoogle) on hover
 
-   ![Hover](http://i.imgur.com/1rOOC9U.gif)
+   ![Hover](http://i.imgur.com/AcvYROv.gif)
 
  - Jump to definition
    
