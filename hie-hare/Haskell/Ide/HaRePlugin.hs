@@ -532,7 +532,7 @@ getReferencesInDoc uri pos = do
         Nothing -> return []
         Just pos' ->
           case locToRdrName (unPos pos') parsed of
-            Nothing -> hoistEither $ invalidCursorErr "hare:getReferencesInDoc"
+            Nothing -> return []
             Just pn -> do
               let name = rdrName2NamePure nameMap pn
                   usages = Map.lookup name inverseNameMap
