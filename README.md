@@ -73,6 +73,33 @@ npm install .
 
 Open `vscode-hie-server/` in Visual Studio Code and press `F5` to open a new window with the extension loaded.
 
+### Hoogle Docs on hover
+
+HIE supports fetching docs from hoogle on hover. It can use the Hoogle database for 
+your user, or a project specific database.
+
+To generate a global hoogle database for your user, run
+
+```bash
+$ hoogle generate
+```
+
+To generate a project specific database for a stack project, run
+
+```bash
+$ stack hoogle
+```
+
+To generate a project specific database for a cabal project, run
+
+```bash
+$ cabal haddock --hoogle
+$ hoogle generate --database=hiehoogledb.hoo --local=.
+```
+in the root dir of your cabal project
+
+If HIE detects a project specific hoogle DB, it will use it over the global db.
+
 ### Planned Features
 
  - [ ] Multiproject and new-build support
