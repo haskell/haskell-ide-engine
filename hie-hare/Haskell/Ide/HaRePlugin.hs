@@ -612,10 +612,11 @@ findDef file pos = do
                             _ <- setTypecheckedModule uri
                             fromJust <$> getCachedModule uri
                         let modSum = pm_mod_summary $ tm_parsed_module $ tcMod cm'
+                            rfm'   = revMap cm'
                         newNames <- GM.unGmlT $ do
                           setGhcContext modSum
                           getNewNames n
-                        eithers <- mapM (srcSpan2Loc rfm . nameSrcSpan) newNames
+                        eithers <- mapM (srcSpan2Loc rfm' . nameSrcSpan) newNames
                         case rights eithers of
                           (l:_) -> return $ IdeResponseOk l
                           []    -> failure
