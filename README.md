@@ -17,7 +17,7 @@ we talk to clients.__
  - Uses LSP, so should be easy to integrate with a wide selection of editors
  - Diagnostics via hlint and GHC warnings/errors
    
-   ![Diagnostics](http://i.imgur.com/apW3C2r.gif)
+   ![Diagnostics](http://i.imgur.com/1vqm4eF.gif)
 
  - Code actions and quick fixes via apply-refact
    
