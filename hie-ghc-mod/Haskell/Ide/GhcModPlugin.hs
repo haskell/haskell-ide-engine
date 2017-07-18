@@ -191,6 +191,7 @@ myLogger rfm action = do
       handlers =
         [ GM.GHandler $ \ex -> srcErrToDiag (hsc_dflags env) rfm ex
         , GM.GHandler $ \ex -> return $ ghcErrRes $ GM.renderGm $ GM.ghcExceptionDoc ex
+        , GM.GHandler $ \(ex :: GM.SomeException) -> return $ IdeResponseFail $ IdeError PluginError ("failed to load file, got error " <> T.pack (show ex)) Null
         ]
       action' = do
         GM.withDynFlags setLogger action
