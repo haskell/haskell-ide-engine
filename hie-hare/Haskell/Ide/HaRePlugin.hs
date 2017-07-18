@@ -253,6 +253,13 @@ invalidCursorErr meth =
              (T.pack $ meth <> ": \"" <> "Invalid cursor position" <> "\"")
              Null
 
+someErr :: String -> String -> IdeResponse a
+someErr meth err =
+  IdeResponseFail $
+    IdeError PluginError
+             (T.pack $ meth <> ": " <> err)
+             Null
+
 -- ---------------------------------------------------------------------
 
 data NameMapData = NMD
@@ -403,7 +410,7 @@ safeTyThingId (AConLike (RealDataCon dc)) = Just $ dataConWrapId dc
 safeTyThingId _ = Nothing
 
 getCompletions :: Uri -> (T.Text, T.Text) -> IdeM (IdeResponse [J.CompletionItem])
-getCompletions file (qualifier,ident) = do
+getCompletions file (qualifier,ident) = flip GM.gcatches [(GM.GHandler $ \(ex :: SomeException) -> return $ someErr "getCompletions" (show ex))] $ do
   debugm $ "got prefix" ++ show (qualifier,ident)
   let noCache = return $ nonExistentCacheErr "getCompletions"
   let modQual = if T.null qualifier then "" else qualifier <> "."
@@ -439,7 +446,7 @@ getCompletions file (qualifier,ident) = do
                     $ filter (fullPrefix `T.isPrefixOf`) allModules
 
           unqualImports :: [ModuleName]
-          unqualImports = map pickName
+          unqualImports = map importMn
                         $ filter (not . ideclQualified) imports
 
           relevantImports :: [(ModuleName, Maybe (Bool, [Name]))]
