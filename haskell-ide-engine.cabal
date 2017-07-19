@@ -49,6 +49,7 @@ library
                      , ghc >= 8.0.1
                      , ghc-mod
                      , gitrev >= 1.1
+                     , HaRe
                      , haskeline
                      , haskell-lsp
                      , hie-base
@@ -56,6 +57,8 @@ library
                      , hie-ghc-mod
                      , hie-apply-refact
                      , hie-plugin-api
+                     , hie-brittany
+                     , hie-hoogle
                      , hslogger
                      , insert-ordered-containers
                      , lens >= 4.15.2

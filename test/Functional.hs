@@ -28,7 +28,6 @@ import           Control.Monad.STM
 import           Data.Aeson
 import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
-import           Data.Monoid
 import           Data.Proxy
 import qualified Data.Text as T
 import           Data.Vinyl
@@ -94,7 +93,7 @@ startServer = do
     Just err -> error (pdeErrorMsg err)
     Nothing -> return ()
 
-  let dispatcherProc = void $ forkIO $ runIdeM testOptions (IdeState plugins Map.empty) (dispatcher cin)
+  let dispatcherProc = void $ forkIO $ runIdeM testOptions (IdeState plugins Map.empty Map.empty) (dispatcher cin)
   void dispatcherProc
   return (cin,cout)
 
@@ -136,14 +135,7 @@ functionalSpec = do
         Just (IdeResponseOk (toJSON (PublishDiagnosticsParams
                                       { _uri = filePathToUri "./FuncTest.hs"
                                       , _diagnostics = List $
-                                        [ Diagnostic (Range (Position 0 0) (Position 0 17))
-                                                     (Just DsInfo
-                                                     )
-                                                     Nothing
-                                                     (Just "hlint")
-                                                     ("Use module export list\nFound:\n  module Main where\nWhy not:\n"
-                                                       <> "  module Main (module Main) where\nAn explicit list is usually better\n")
-                                        , Diagnostic (Range (Position 9 6) (Position 10 18))
+                                        [ Diagnostic (Range (Position 9 6) (Position 10 18))
                                                      (Just DsWarning)
                                                      Nothing
                                                      (Just "hlint")

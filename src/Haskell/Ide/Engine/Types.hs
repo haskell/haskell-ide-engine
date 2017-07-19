@@ -22,9 +22,10 @@ data ChannelRequest = CReq
   } deriving Show
 
 data PluginRequest = forall a. PReq
-  { pinLspReqId  :: Maybe J.LspId
-  , pinCallback  :: IdeResponse a -> IO ()
-  , pinReq       :: IdeM (IdeResponse a)
+  { pinDocVer    :: Maybe (J.Uri,Int)
+  , pinLspReqId  :: Maybe J.LspId
+  , pinCallback  :: a -> IO ()
+  , pinReq       :: IdeM a
   }
 
 instance Show (TChan ChannelResponse) where

@@ -36,11 +36,11 @@ dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Value))
 dispatchRequest req = do
   testChan <- atomically newTChan
   let cr = CReq "hoogle" 1 req testChan
-  r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
+  r <- runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (doDispatch testPlugins cr)
   return r
 
 dispatchRequestP :: IdeM a -> IO a
-dispatchRequestP = runIdeM testOptions (IdeState Map.empty Map.empty)
+dispatchRequestP = runIdeM testOptions (IdeState Map.empty Map.empty Map.empty)
 
 -- ---------------------------------------------------------------------
 
@@ -75,7 +75,7 @@ hoogleSpec = do
     it "runs the info command" $ do
       let req = infoCmd' "head"
       r <- dispatchRequestP req
-      r `shouldBe` (IdeResponseOk "head :: [a] -> a\nbase Prelude\nExtract the first element of a list, which must be non-empty.\n\n")
+      r `shouldBe` (IdeResponseOk $ Just "head :: [a] -> a\nbase Prelude\nExtract the first element of a list, which must be non-empty.\n\n")
 
     -- ---------------------------------
 

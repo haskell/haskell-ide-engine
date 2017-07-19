@@ -1,4 +1,4 @@
-name:                hie-hoogle
+name:                hie-brittany
 version:             0.1.0.0
 synopsis:            Haskell IDE Hoogle plugin
 license:             BSD3
@@ -16,23 +16,22 @@ flag pedantic
   Default:     False
 
 library
-  exposed-modules:     Haskell.Ide.HooglePlugin
+  exposed-modules:     Haskell.Ide.BrittanyPlugin
   build-depends:       base >= 4.9 && < 5
                      , hie-plugin-api
                      , hie-base
-                     , haskell-lsp
-                     , tagsoup
-                     , ghc-mod
-                     , filepath
                      , aeson
                      , directory
                      , vinyl
-                     , process
                      , ghc
-                     , hoogle
                      , containers
                      , text
                      , transformers
+                     , brittany
+                     , ghc-mod
+                     , ghc-boot
+                     , haskell-lsp
+                     , lens
   ghc-options:         -Wall
   if flag(pedantic)
      ghc-options:      -Werror

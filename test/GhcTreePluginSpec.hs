@@ -38,10 +38,10 @@ dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Value))
 dispatchRequest req = do
   testChan <- atomically newTChan
   let cr = CReq "ghctree" 1 req testChan
-  runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
+  runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (doDispatch testPlugins cr)
 
 dispatchRequestP :: IdeM a -> IO a
-dispatchRequestP = runIdeM testOptions (IdeState Map.empty Map.empty)
+dispatchRequestP = runIdeM testOptions (IdeState Map.empty Map.empty Map.empty)
 
 -- ---------------------------------------------------------------------
 

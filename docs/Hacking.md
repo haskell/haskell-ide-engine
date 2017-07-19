@@ -7,13 +7,6 @@ $ git clone https://github.com/haskell/haskell-ide-engine.git
 $ cd haskell-ide-engine
 $ stack build
 ```
-If you intend running the emacs tests
-
-```
-$ curl -fsSL https://raw.githubusercontent.com/cask/cask/master/go | python
-$ export PATH=$HOME/.cask/bin:$PATH
-```
-
 
 ### Checking that the REPL comes up
 
@@ -73,7 +66,9 @@ This returns
 {"contexts":["none"],"return_type":"Text","plugin_name":"base","name":"version","additional_params":[],"ui_description":"return HIE version","file_extensions":[]}
 ```
 
-### Plugins
+### Plugins (Old architecture)
+
+__Note: this is only used for the executeCommand request in the LSP transport. The new plugin architecture used for LSP is described in [Architecture](Architecture.md)__
 
 A plugin needs to provide a `PluginDescriptor` which exposes the available commands in it.
 

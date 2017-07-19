@@ -1,34 +1,76 @@
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeOperators       #-}
 module Haskell.Ide.Engine.PluginUtils
   (
     getParams
   , mapEithers
   , pluginGetFile
   , diffText
+  , srcSpan2Range
+  , srcSpan2Loc
+  , makeAsync
   -- * Helper functions for errors
   , missingParameter
   , incorrectParameter
   , fileInfo
   ) where
 
+import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Either
+import           Control.Concurrent
 import           Data.Aeson
 import           Data.Algorithm.Diff
 import           Data.Algorithm.DiffOutput
-import qualified Data.Map as Map
+import qualified Data.HashMap.Strict                   as H
+import qualified Data.Map                              as Map
 import           Data.Monoid
-import qualified Data.Text as T
-import qualified Data.HashMap.Strict as H
+import qualified Data.Text                             as T
 import           Data.Vinyl
+import           FastString
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.SemanticTypes
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
-import           Prelude hiding (log)
+import           Prelude                               hiding (log)
+import           SrcLoc
+import           System.Directory
 import           System.FilePath
+
+-- ---------------------------------------------------------------------
+makeAsync :: IO (IdeResponse a) -> IdeM (Async a)
+makeAsync action = liftIO $ do
+  resMVar <- newEmptyMVar
+  _ <- forkIO $ action >>= putMVar resMVar
+  return $ \callback -> takeMVar resMVar >>= callback
+-- ---------------------------------------------------------------------
+
+getRealSrcSpan :: SrcSpan -> Either T.Text RealSrcSpan
+getRealSrcSpan (RealSrcSpan r) = pure r
+getRealSrcSpan (UnhelpfulSpan x) = Left $ T.pack $ unpackFS x
+
+realSrcSpan2Range :: RealSrcSpan -> Range
+realSrcSpan2Range rspan =
+  Range (toPos (l1,c1)) (toPos (l2,c2))
+  where s = realSrcSpanStart rspan
+        l1 = srcLocLine s
+        c1 = srcLocCol s
+        e = realSrcSpanEnd rspan
+        l2 = srcLocLine e
+        c2 = srcLocCol e
+
+srcSpan2Range :: SrcSpan -> (Either T.Text Range)
+srcSpan2Range spn =
+  realSrcSpan2Range <$> getRealSrcSpan spn
+
+srcSpan2Loc :: (MonadIO m) => (FilePath -> FilePath) -> SrcSpan -> m (Either T.Text Location)
+srcSpan2Loc revMapp spn = runEitherT $ do
+  rspan <- hoistEither $ getRealSrcSpan spn
+  let fp = unpackFS $ srcSpanFile rspan
+  file <- liftIO $ canonicalizePath . revMapp =<< canonicalizePath fp
+  return $ Location (filePathToUri file) (realSrcSpan2Range rspan)
 
 -- ---------------------------------------------------------------------
 pluginGetFile
@@ -55,36 +97,36 @@ getParams params req = go params
                     Left err -> Left err
                     Right ys -> case checkOne x of
                                   Left err -> Left err
-                                  Right y -> Right (y:&ys)
+                                  Right y  -> Right (y:&ys)
     checkOne ::
       TaggedParamId t -> Either (IdeResponse r) (ParamVal t)
     checkOne (IdText param) = case Map.lookup param (ideParams req) of
       Just (ParamTextP v) -> Right (ParamText v)
-      _ -> Left (missingParameter param)
+      _                   -> Left (missingParameter param)
     checkOne (IdInt param) = case Map.lookup param (ideParams req) of
       Just (ParamIntP v) -> Right (ParamInt v)
-      _ -> Left (missingParameter param)
+      _                  -> Left (missingParameter param)
     checkOne (IdBool param) = case Map.lookup param (ideParams req) of
       Just (ParamBoolP v) -> Right (ParamBool v)
-      _ -> Left (missingParameter param)
+      _                   -> Left (missingParameter param)
     checkOne (IdFile param) = case Map.lookup param (ideParams req) of
       Just (ParamFileP v) -> Right (ParamFile v)
-      _ -> Left (missingParameter param)
+      _                   -> Left (missingParameter param)
     checkOne (IdPos param) = case Map.lookup param (ideParams req) of
       Just (ParamPosP v) -> Right (ParamPos v)
-      _ -> Left (missingParameter param)
+      _                  -> Left (missingParameter param)
     checkOne (IdRange param) = case Map.lookup param (ideParams req) of
       Just (ParamRangeP v) -> Right (ParamRange v)
-      _ -> Left (missingParameter param)
+      _                    -> Left (missingParameter param)
     checkOne (IdLoc param) = case Map.lookup param (ideParams req) of
       Just (ParamLocP v) -> Right (ParamLoc v)
-      _ -> Left (missingParameter param)
+      _                  -> Left (missingParameter param)
     checkOne (IdTextDocId param) = case Map.lookup param (ideParams req) of
       Just (ParamTextDocIdP v) -> Right (ParamTextDocId v)
-      _ -> Left (missingParameter param)
+      _                        -> Left (missingParameter param)
     checkOne (IdTextDocPos param) = case Map.lookup param (ideParams req) of
       Just (ParamTextDocPosP v) -> Right (ParamTextDocPos v)
-      _ -> Left (missingParameter param)
+      _                         -> Left (missingParameter param)
 
 
 -- ---------------------------------------------------------------------
@@ -94,7 +136,7 @@ mapEithers f (x:xs) = case mapEithers f xs of
                         Left err -> Left err
                         Right ys -> case f x of
                                       Left err -> Left err
-                                      Right y -> Right (y:ys)
+                                      Right y  -> Right (y:ys)
 mapEithers _ _ = Right []
 
 -- ---------------------------------------------------------------------

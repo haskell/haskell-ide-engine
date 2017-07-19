@@ -4,18 +4,19 @@ packages:
 - hie-apply-refact
 - hie-base
 - hie-build-plugin
-- hie-example-plugin2
+- hie-docs-generator
 - hie-eg-plugin-async
-- hie-plugin-api
+- hie-example-plugin2
 - hie-ghc-mod
 - hie-ghc-tree
 - hie-hare
 - hie-hoogle
-- hie-docs-generator
-#- haskell-lsp
+- hie-plugin-api
+- hie-brittany
+# - ./haskell-lsp
 - location:
-    git: https://github.com/alanz/haskell-lsp.git
-    commit: 258d3cc92a9f61f7fab92a29404492b1fdfa83b2
+    git: https://github.com/wz1000/haskell-lsp.git
+    commit: 421a8aa9591d464ba2232c4a1a38d34583acacf9
   extra-dep: true
 - location:
     git: https://github.com/alanz/ghc-dump-tree.git
@@ -26,30 +27,39 @@ packages:
 #     commit: cb012b23c4e524dde9ea129b6146dda20a5ca505
 #   extra-dep: true
 # - ../HaRe
-# - location:
-#     git: https://github.com/alanz/HaRe.git
-#     # git: https://github.com/RefactoringTools/HaRe.git
-#     # commit: 423bc0b235dc7ede961278f6e614813b851bfd0a
-#     commit: df7c1def6156f6179a41b9053509eb5af13ef4a3
-#   extra-dep: true
+- location:
+    git: https://github.com/wz1000/HaRe.git
+    commit: d9b9dadfd5e3ade840ec0bddedfa5133a743bc76
+  extra-dep: true
 # - ../../DanielG/ghc-mod
 # - ../ghc-mod
 - location:
     git: https://github.com/alanz/ghc-mod.git
-    commit: 36fbe25e07c34ba81fbba735d4046a98ae75db3a
+    commit: e3d388061ed7f35b5c9720f636c22c10369ecc24
   extra-dep: true
-# - ../hlint
-# - location:
-#     git: https://github.com/alanz/hlint.git
-#     commit: 1c78d5178128a67766db3c62c22bae24138f335a
-#   extra-dep: true
 - location:
     git: https://github.com/arrowd/cabal-helper.git
     commit: 245fcb1f838edf9e034b0c9406e40e1a647316de
   extra-dep: true
+- location:
+    # git: https://github.com/lspitzner/brittany.git
+    # commit: 134f31e4d18e51a7cd3d5bcaa90af92e70b926ce
+    git: https://github.com/alanz/brittany.git
+    commit: 33eed86851472707d7b9bf94a177228bc8d2df9b
+  extra-dep: true
+- location:
+    git: https://github.com/wz1000/hoogle.git
+    commit: a1fb4ec702f61d0746f07dd10e1443800cbef66c
+  extra-dep: true
+
 extra-deps:
 - apply-refact-0.3.0.1
-# - hlint-2.0.8
+# - apply-refact-0.4.0.0
+- butcher-1.1.0.0
+- czipwith-1.0.0.0
+- data-tree-print-0.1.0.0
+- deque-0.2
+- monad-memo-0.4.1
 - pipes-aeson-0.4.1.8
 - pipes-network-0.6.4.1
 # - hspec-jenkins-0.1.1
@@ -75,4 +85,6 @@ flags:
   hie-hoogle:
     pedantic: true
   hie-plugin-api:
+    pedantic: true
+  hie-brittany:
     pedantic: true

@@ -27,6 +27,7 @@ library
                      , aeson
                      , containers
                      , directory
+                     , either
                      , fast-logger
                      , filepath
                      , ghc
@@ -34,6 +35,7 @@ library
                      , hie-base
                      , haskell-lsp
                      , lifted-base
+                     , lens
                      , monad-control
                      , monad-logger
                      , mtl

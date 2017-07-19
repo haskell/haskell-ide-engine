@@ -43,24 +43,24 @@ dispatchRequest req = do
   testChan <- atomically newTChan
   let cr = CReq "ghcmod" 1 req testChan
   r <- cdAndDo "./test/testdata" 
-    $ runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
+    $ runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (doDispatch testPlugins cr)
   return r
 
 dispatchRequestP :: IdeM a -> IO a
 dispatchRequestP =
   cdAndDo "./test/testdata" .
-    runIdeM testOptions (IdeState Map.empty Map.empty)
+    runIdeM testOptions (IdeState Map.empty Map.empty Map.empty)
 
 dispatchRequestNoCd :: IdeRequest -> IO (Maybe (IdeResponse Value))
 dispatchRequestNoCd req = do
   testChan <- atomically newTChan
   let cr = CReq "ghcmod" 1 req testChan
-  r <- runIdeM testOptions (IdeState Map.empty Map.empty) (doDispatch testPlugins cr)
+  r <- runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (doDispatch testPlugins cr)
   return r
 
 dispatchRequestPNoCd :: IdeM a -> IO a
 dispatchRequestPNoCd =
-    runIdeM testOptions (IdeState Map.empty Map.empty)
+    runIdeM testOptions (IdeState Map.empty Map.empty Map.empty)
 
 -- ---------------------------------------------------------------------
 

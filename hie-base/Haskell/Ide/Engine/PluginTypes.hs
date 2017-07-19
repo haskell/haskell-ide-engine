@@ -47,7 +47,11 @@ module Haskell.Ide.Engine.PluginTypes
 
   -- * Interface types
   , IdeRequest(..)
-  , IdeResponse(..)
+  , IdeFailure(..)
+  , IdeResponse
+  , pattern IdeResponseOk
+  , pattern IdeResponseError
+  , pattern IdeResponseFail
   , IdeError(..)
   , IdeErrorCode(..)
   , untagParamDesc
@@ -328,33 +332,31 @@ data ParamVal (t :: ParamType) where
  ParamTextDocId :: TextDocumentIdentifier -> ParamVal 'PtTextDocId
  ParamTextDocPos ::TextDocumentPositionParams -> ParamVal 'PtTextDocPos
 
--- | The IDE response, with the type of response it contains
-data IdeResponse resp
- = IdeResponseOk resp        -- ^ Command Succeeded
- | IdeResponseFail  IdeError -- ^ Command Failed
- | IdeResponseError IdeError -- ^ Some error in haskell-ide-engine driver.
-                             -- Equivalent to HTTP 500 status.
- deriving (Show,Eq,Generic)
+data IdeFailure = IdeRFail IdeError
+                | IdeRErr  IdeError
+                deriving(Show, Eq, Generic)
 
-instance (ToJSON a) => ToJSON (IdeResponse a) where
- toJSON (IdeResponseOk v) = object ["success" .= v]
- toJSON (IdeResponseFail v) = object [ "fail" .= v ]
- toJSON (IdeResponseError v) = object [ "error" .= v ]
+instance ToJSON IdeFailure where
+ toJSON (IdeRFail v) = object [ "fail" .= v ]
+ toJSON (IdeRErr v) = object [ "error" .= v ]
 
-instance (FromJSON a) => FromJSON (IdeResponse a) where
- parseJSON = withObject "IdeResponse" $ \v -> do
-   mf <- fmap IdeResponseFail <$> v .:? "fail"
-   me <- fmap IdeResponseError <$> v .:? "error"
-   mo <- fmap IdeResponseOk <$> v .:? "success"
-   case (mf <|> me <|> mo) of
+instance FromJSON IdeFailure where
+ parseJSON = withObject "IdeFailure" $ \v -> do
+   mf <- fmap IdeRFail <$> v .:? "fail"
+   me <- fmap IdeRErr <$> v .:? "error"
+   case mf <|> me of
      Just r -> return r
      Nothing -> empty
 
--- | Map an IdeResponse content.
-instance Functor IdeResponse where
- fmap f (IdeResponseOk a) = IdeResponseOk $ f a
- fmap _ (IdeResponseFail e) = IdeResponseFail e
- fmap _ (IdeResponseError e) = IdeResponseError e
+
+-- | The IDE response, with the type of response it contains
+type IdeResponse a = Either IdeFailure a
+pattern IdeResponseOk :: a -> IdeResponse a
+pattern IdeResponseOk a = Right a
+pattern IdeResponseFail :: IdeError -> IdeResponse a
+pattern IdeResponseFail a = Left (IdeRFail a)
+pattern IdeResponseError :: IdeError -> IdeResponse a
+pattern IdeResponseError a = Left (IdeRErr a)
 
 -- | Error codes. Add as required
 data IdeErrorCode

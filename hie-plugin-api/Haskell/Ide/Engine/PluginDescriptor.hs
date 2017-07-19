@@ -10,6 +10,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ConstraintKinds #-}
 -- | Experimenting with a data structure to define a plugin.
 --
@@ -38,6 +39,8 @@ module Haskell.Ide.Engine.PluginDescriptor
   , UntaggedCommand
   , CommandFunc(..), SyncCommandFunc, AsyncCommandFunc
   , buildCommand
+  , Async
+  , Callback
 
   -- * Plugins
   , Plugins
@@ -46,6 +49,7 @@ module Haskell.Ide.Engine.PluginDescriptor
   , IdeM
   , IdeState(..)
   , ExtensionClass(..)
+  , ModuleCache(..)
   , getPlugins
   , untagPluginDescriptor
   , TaggedPluginDescriptor
@@ -57,6 +61,14 @@ module Haskell.Ide.Engine.PluginDescriptor
   , Proxy(..)
   , recordToList'
   , ValidResponse
+  , CachedModule(..)
+  , getCachedModule
+  , withCachedModuleAndData
+  , cacheModule
+  , deleteCachedModule
+  , oldRangeToNew
+  , newRangeToOld
+  , canonicalizeUri
   -- * All the good types
   , module Haskell.Ide.Engine.PluginTypes
   ) where
@@ -73,7 +85,10 @@ import qualified Data.Vinyl.Functor as Vinyl
 import           GHC.Generics
 import           GHC.TypeLits
 import           Haskell.Ide.Engine.PluginTypes
+import           Haskell.Ide.Engine.MonadFunctions
 import qualified GhcMod.Monad as GM
+import           GHC(TypecheckedModule)
+import           System.Directory
 
 -- ---------------------------------------------------------------------
 type ValidResponse a = (FromJSON a, ToJSON a, Typeable a)
@@ -193,6 +208,9 @@ type SyncCommandFunc resp
 type AsyncCommandFunc resp = (IdeResponse resp -> IO ())
                -> [AcceptedContext] -> IdeRequest -> IdeM ()
 
+type Callback a = IdeResponse a -> IO ()
+type Async a = Callback a -> IO ()
+
 -- -------------------------------------
 -- JSON instances
 
@@ -217,7 +235,89 @@ data IdeState = IdeState
     idePlugins :: Plugins
   , extensibleState :: !(Map.Map TypeRep Dynamic)
               -- ^ stores custom state information.
+  , uriCaches  :: !UriCaches
   } deriving (Show)
+
+type UriCaches = Map.Map Uri UriCache
+
+data UriCache = UriCache
+  { cachedModule :: !CachedModule
+  , cachedData   :: !(Map.Map TypeRep Dynamic)
+  } deriving Show
+
+data CachedModule = CachedModule
+  { tcMod       :: !TypecheckedModule
+  , revMap      :: FilePath -> FilePath
+  , newPosToOld :: Position -> Maybe Position
+  , oldPosToNew :: Position -> Maybe Position
+  }
+
+instance Show CachedModule where
+  show CachedModule{} = "CachedModule { .. }"
+
+cachedModules :: IdeState -> Map.Map Uri CachedModule
+cachedModules = fmap cachedModule . uriCaches
+
+canonicalizeUri :: MonadIO m => Uri -> m Uri
+canonicalizeUri uri =
+  case uriToFilePath uri of
+    Nothing -> return uri
+    Just fp -> do
+      fp' <- liftIO $ canonicalizePath fp
+      return $ filePathToUri fp'
+
+getCachedModule :: Uri -> IdeM (Maybe CachedModule)
+getCachedModule uri = do
+  uri' <- canonicalizeUri uri
+  lift . lift $ gets (Map.lookup uri' . cachedModules)
+
+withCachedModuleAndData :: forall a b. ModuleCache a
+  => Uri -> IdeM b -> (CachedModule -> a -> IdeM b) -> IdeM b
+withCachedModuleAndData uri noCache callback = do
+  uri' <- canonicalizeUri uri
+  mc <- lift . lift $ gets (Map.lookup uri' . uriCaches)
+  case mc of
+    Nothing -> noCache
+    Just UriCache{cachedModule = cm, cachedData = dat} -> do
+      a <- case Map.lookup (typeRep $ Proxy @a) dat of
+             Nothing -> do
+               val <- cacheDataProducer cm
+               let typ = typeOf val
+               debugm $ "withCachedModuleAndData: Cache miss - " ++ show typ
+               let dat' = Map.insert (typeOf val) (toDyn val) dat
+               lift . lift $ modify' (\s -> s {uriCaches = Map.insert uri' (UriCache cm dat')
+                                                                           (uriCaches s)})
+               return val
+             Just x -> do
+               debugm $ "withCachedModuleAndData: Cache hit - " ++ show (typeRep $ Proxy @a)
+               case fromDynamic x of
+                 Just val -> return val
+                 Nothing -> error "impossible"
+      callback cm a
+
+
+cacheModule :: Uri -> CachedModule -> IdeM ()
+cacheModule uri cm = do
+  uri' <- canonicalizeUri uri
+  lift . lift $ modify' (\s -> s { uriCaches = Map.insert uri' (UriCache cm Map.empty)
+                                                               (uriCaches s) })
+
+deleteCachedModule :: Uri -> IdeM ()
+deleteCachedModule uri = do
+  uri' <- canonicalizeUri uri
+  lift . lift $ modify' (\s -> s { uriCaches = Map.delete uri' (uriCaches s) })
+
+newRangeToOld :: CachedModule -> Range -> Maybe Range
+newRangeToOld cm (Range start end) = do
+  start' <- newPosToOld cm start
+  end'   <- newPosToOld cm end
+  return (Range start' end')
+
+oldRangeToNew :: CachedModule -> Range -> Maybe Range
+oldRangeToNew cm (Range start end) = do
+  start' <- oldPosToNew cm start
+  end'   <- oldPosToNew cm end
+  return (Range start' end')
 
 getPlugins :: IdeM Plugins
 getPlugins = lift $ lift $ idePlugins <$> get
@@ -234,3 +334,10 @@ getPlugins = lift $ lift $ idePlugins <$> get
 class Typeable a => ExtensionClass a where
     -- | Defines an initial value for the state extension
     initialValue :: a
+
+class Typeable a => ModuleCache a where
+    -- | Defines an initial value for the state extension
+    cacheDataProducer :: CachedModule -> IdeM a
+
+instance ModuleCache () where
+    cacheDataProducer = const $ return ()
