@@ -206,7 +206,7 @@ setTypecheckedModule uri = do
     debugm $ "Cradle is" ++ show cradle
     (diags', mtm) <- getTypecheckedModuleGhc (myLogger rfm) fp
     let diags = Map.insertWith' Set.union uri Set.empty <$> diags'
-    debugm $ "diags are: " ++ show diags
+    -- debugm $ "diags are: " ++ show diags
     case mtm of
       Nothing -> do
         debugm $ "Didn't get typechecked module for: " ++ show fp

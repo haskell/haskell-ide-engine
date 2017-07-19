@@ -68,6 +68,7 @@ module Haskell.Ide.Engine.PluginDescriptor
   , oldRangeToNew
   , newRangeToOld
   , canonicalizeUri
+  , getCradle
   -- * All the good types
   , module Haskell.Ide.Engine.PluginTypes
   ) where
@@ -86,8 +87,11 @@ import           GHC.TypeLits
 import           Haskell.Ide.Engine.PluginTypes
 import           Haskell.Ide.Engine.MonadFunctions
 import qualified GhcMod.Monad as GM
+import qualified GhcMod.Types as GM
+import qualified GhcMod.Cradle as GM
 import           GHC(TypecheckedModule)
 import           System.Directory
+import           System.FilePath
 
 -- ---------------------------------------------------------------------
 type ValidResponse a = (FromJSON a, ToJSON a, Typeable a)
@@ -234,6 +238,7 @@ data IdeState = IdeState
     idePlugins :: Plugins
   , extensibleState :: !(Map.Map TypeRep Dynamic)
               -- ^ stores custom state information.
+  , cradleCache :: !(Map.Map Uri GM.Cradle)
   , uriCaches  :: !UriCaches
   } deriving (Show)
 
@@ -264,6 +269,26 @@ canonicalizeUri uri =
     Just fp -> do
       fp' <- liftIO $ canonicalizePath fp
       return $ filePathToUri fp'
+
+getCradle :: Uri -> IdeM GM.Cradle
+getCradle uri = do
+  uri' <- canonicalizeUri uri
+  mcradle <- lift . lift $ gets (Map.lookup uri' . cradleCache)
+  case mcradle of
+    Just crdl -> do
+      debugm $ "cradle cache hit for " ++ show uri ++ ", using cradle " ++ show crdl
+      return crdl
+    Nothing ->
+      case uriToFilePath uri of
+        Just fp -> do
+          opts <- GM.options
+          crdl <- GM.findCradle' (GM.optPrograms opts) $ takeDirectory fp
+          debugm $ "cradle cache miss for " ++ show uri ++ ", generating cradle " ++ show crdl
+          lift . lift $ modify' (\s -> s { cradleCache = Map.insert uri' crdl (cradleCache s)})
+          return crdl
+        Nothing -> do
+          debugm $ "getCradle: malformed uri: " ++ show uri
+          GM.cradle
 
 getCachedModule :: Uri -> IdeM (Maybe CachedModule)
 getCachedModule uri = do
