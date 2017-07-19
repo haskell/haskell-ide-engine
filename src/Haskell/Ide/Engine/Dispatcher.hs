@@ -24,8 +24,11 @@ import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
+import qualified GhcMod.Monad.Env as GM
+import qualified GhcMod.Monad.Types as GM
+import qualified GhcMod.Types as GM
+import System.Directory
 
--- ---------------------------------------------------------------------
 
 -- |Listen on a Chan for ChannelRequest from the assorted listeners, and route
 -- them through to the appropriate plugin for processing.
@@ -47,21 +50,35 @@ data DispatcherEnv = DispatcherEnv
   , docVersionTVar :: TVar (Map.Map Uri Int)
   }
 
+withCradle :: GM.Cradle -> IdeM a -> IdeM a
+withCradle crdl =
+  GM.gmeLocal (\env -> env {GM.gmCradle = crdl})
+
+runActionWithContext :: Maybe Uri -> IdeM a -> IdeM a
+runActionWithContext Nothing action = do
+  crdl <- GM.cradle
+  liftIO $ setCurrentDirectory $ GM.cradleRootDir crdl
+  action
+runActionWithContext (Just uri) action = do
+  crdl <- getCradle uri
+  liftIO $ setCurrentDirectory $ GM.cradleRootDir crdl
+  withCradle crdl action
+
 dispatcherP :: DispatcherEnv -> TChan PluginRequest -> IdeM ()
 dispatcherP DispatcherEnv{..} pin = forever $ do
   debugm "dispatcherP: top of loop"
-  (PReq mver mid callback action) <- liftIO $ atomically $ readTChan pin
+  (PReq context mver mid callback action) <- liftIO $ atomically $ readTChan pin
   debugm $ "got request with id: " ++ show mid
   case mid of
     Nothing -> case mver of
-      Nothing -> action >>= liftIO . callback
+      Nothing -> runActionWithContext context action >>= liftIO . callback
       Just (uri, reqver) -> do
         curver <- liftIO $ atomically $ Map.lookup uri <$> readTVar docVersionTVar
         if Just reqver /= curver then
           debugm "not processing request as it is for old version"
         else do
           debugm "Processing request as version matches"
-          action >>= liftIO . callback
+          runActionWithContext context action >>= liftIO . callback
     Just lid -> do
       cancelReqs <- liftIO $ atomically $ do
         modifyTVar' wipReqsTVar (S.delete lid)
@@ -72,7 +89,7 @@ dispatcherP DispatcherEnv{..} pin = forever $ do
           liftIO $ atomically $ modifyTVar' cancelReqsTVar (S.delete lid)
         else do
           debugm $ "processing request: " ++ show lid
-          action >>= liftIO . callback
+          runActionWithContext context action >>= liftIO . callback
 
 -- ---------------------------------------------------------------------
 

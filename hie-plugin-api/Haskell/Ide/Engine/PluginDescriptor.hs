@@ -68,6 +68,7 @@ module Haskell.Ide.Engine.PluginDescriptor
   , oldRangeToNew
   , newRangeToOld
   , canonicalizeUri
+  , getCradle
   -- * All the good types
   , module Haskell.Ide.Engine.PluginTypes
   ) where
@@ -86,8 +87,11 @@ import           GHC.TypeLits
 import           Haskell.Ide.Engine.PluginTypes
 import           Haskell.Ide.Engine.MonadFunctions
 import qualified GhcMod.Monad as GM
+import qualified GhcMod.Types as GM
+import qualified GhcMod.Cradle as GM
 import           GHC(TypecheckedModule)
 import           System.Directory
+import           System.FilePath
 
 -- ---------------------------------------------------------------------
 type ValidResponse a = (FromJSON a, ToJSON a, Typeable a)
@@ -234,6 +238,8 @@ data IdeState = IdeState
     idePlugins :: Plugins
   , extensibleState :: !(Map.Map TypeRep Dynamic)
               -- ^ stores custom state information.
+  , cradleCache :: !(Map.Map FilePath GM.Cradle)
+              -- ^ map from dirs to cradles
   , uriCaches  :: !UriCaches
   } deriving (Show)
 
@@ -264,6 +270,26 @@ canonicalizeUri uri =
     Just fp -> do
       fp' <- liftIO $ canonicalizePath fp
       return $ filePathToUri fp'
+
+getCradle :: Uri -> IdeM GM.Cradle
+getCradle uri =
+  case uriToFilePath uri of
+    Nothing -> do
+      debugm $ "getCradle: malformed uri: " ++ show uri
+      GM.cradle
+    Just fp -> do
+      dir <- liftIO $ takeDirectory <$> canonicalizePath fp
+      mcradle <- lift . lift $ gets (Map.lookup dir . cradleCache)
+      case mcradle of
+        Just crdl -> do
+          debugm $ "cradle cache hit for " ++ dir ++ ", using cradle " ++ show crdl
+          return crdl
+        Nothing -> do
+          opts <- GM.options
+          crdl <- GM.findCradle' (GM.optPrograms opts) dir
+          debugm $ "cradle cache miss for " ++ dir ++ ", generating cradle " ++ show crdl
+          lift . lift $ modify' (\s -> s { cradleCache = Map.insert dir crdl (cradleCache s)})
+          return crdl
 
 getCachedModule :: Uri -> IdeM (Maybe CachedModule)
 getCachedModule uri = do
