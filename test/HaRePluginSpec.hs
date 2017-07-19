@@ -50,17 +50,17 @@ dispatchRequest req = do
   testChan <- atomically newTChan
   let cr = CReq "hare" 1 req testChan
   cdAndDo "./test/testdata"
-    $ runIdeM testOptions (IdeState Map.empty Map.empty Map.empty) (doDispatch testPlugins cr)
+    $ runIdeM testOptions (IdeState Map.empty Map.empty Map.empty Map.empty) (doDispatch testPlugins cr)
 
 dispatchRequestP :: IdeM a -> IO a
 dispatchRequestP =
   cdAndDo "./test/testdata"
-    . runIdeM testOptions (IdeState Map.empty Map.empty Map.empty)
+    . runIdeM testOptions (IdeState Map.empty Map.empty Map.empty Map.empty)
 
 dispatchRequestPGoto :: IdeM a -> IO a
 dispatchRequestPGoto =
   cdAndDo "./test/testdata/gototest"
-    . runIdeM testOptions (IdeState Map.empty Map.empty Map.empty)
+    . runIdeM testOptions (IdeState Map.empty Map.empty Map.empty Map.empty)
 
 -- ---------------------------------------------------------------------
 

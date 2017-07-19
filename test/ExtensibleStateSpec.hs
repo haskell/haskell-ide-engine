@@ -33,7 +33,7 @@ extensibleStateSpec = do
           cr1 = CReq "test" 1 req1 chan
       let req2 = IdeRequest "cmd2" (Map.fromList [])
           cr2 = CReq "test" 1 req2 chan
-      r <- runIdeM testOptions (IdeState Map.empty Map.empty Map.empty)
+      r <- runIdeM testOptions (IdeState Map.empty Map.empty Map.empty Map.empty)
         (do
           r1 <- doDispatch (testPlugins chSync) cr1
           r2 <- doDispatch (testPlugins chSync) cr2
