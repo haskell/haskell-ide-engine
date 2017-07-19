@@ -25,7 +25,9 @@ import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 import qualified GhcMod.Monad.Env as GM
+import qualified GhcMod.Monad.Types as GM
 import qualified GhcMod.Types as GM
+import System.Directory
 
 
 -- |Listen on a Chan for ChannelRequest from the assorted listeners, and route
@@ -53,9 +55,13 @@ withCradle crdl =
   GM.gmeLocal (\env -> env {GM.gmCradle = crdl})
 
 runActionWithContext :: Maybe Uri -> IdeM a -> IdeM a
-runActionWithContext Nothing action = action
+runActionWithContext Nothing action = do
+  crdl <- GM.cradle
+  liftIO $ setCurrentDirectory $ GM.cradleRootDir crdl
+  action
 runActionWithContext (Just uri) action = do
   crdl <- getCradle uri
+  liftIO $ setCurrentDirectory $ GM.cradleRootDir crdl
   withCradle crdl action
 
 dispatcherP :: DispatcherEnv -> TChan PluginRequest -> IdeM ()
