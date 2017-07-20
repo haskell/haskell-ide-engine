@@ -431,7 +431,10 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins cin inp = do
                                      <> " module:" <> modName
                                      <> " is:exact"
                             liftIO $ U.logs $ "hoogle query: " ++ T.unpack query
-                            EitherT $ Hoogle.infoCmdFancyRender query
+                            res <- lift $ Hoogle.infoCmdFancyRender query
+                            case res of
+                              Right x -> return x
+                              Left _ -> return Nothing
               return (info, sname, docs)
         makeRequest hreq
 
