@@ -24,7 +24,6 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Either
 import           Control.Monad.STM
 import           Control.Monad.Reader
-import           Control.Monad.State
 import qualified Data.Aeson as J
 import           Data.Aeson ( (.=) )
 import           Data.Char (isUpper, isAlphaNum)
@@ -91,7 +90,7 @@ run plugins dispatcherProc cin origDir = flip E.catches handlers $ do
             , wipReqsTVar    = wipTVar
             , docVersionTVar = versionTVar
             }
-      _rpid <- forkIO $ reactor dispatcherEnv plugins lf def cin rin
+      _rpid <- forkIO $ flip runReaderT lf $ reactor dispatcherEnv plugins cin rin
       dispatcherProc dispatcherEnv
       return Nothing
 
@@ -120,23 +119,14 @@ type ReactorInput
   = Core.OutMessage
       -- ^ injected into the reactor input by each of the individual callback handlers
 
-data ReactorState =
-  ReactorState
-    { lspReqId           :: !J.LspId
-    }
-
-instance Default ReactorState where
-  def = ReactorState (J.IdInt 0)
-
 -- ---------------------------------------------------------------------
 
 -- | The monad used in the reactor
-type R a = ReaderT Core.LspFuncs (StateT ReactorState IO) a
+type R a = ReaderT Core.LspFuncs IO a
 
 -- ---------------------------------------------------------------------
 -- reactor monad functions
 -- ---------------------------------------------------------------------
-
 
 reactorSend :: (J.ToJSON a, MonadIO m, MonadReader Core.LspFuncs m)
   => a -> m ()
@@ -243,8 +233,6 @@ updatePositionMap uri changes = do
 
 -- ---------------------------------------------------------------------
 
--- ---------------------------------------------------------------------
-
 publishDiagnostics :: (MonadIO m, MonadReader Core.LspFuncs m)
   => J.Uri -> Maybe J.TextDocumentVersion -> DiagnosticsBySource -> m ()
 publishDiagnostics uri' mv diags = do
@@ -253,12 +241,11 @@ publishDiagnostics uri' mv diags = do
 
 -- ---------------------------------------------------------------------
 
-nextLspReqId :: R J.LspId
+nextLspReqId :: (MonadIO m, MonadReader Core.LspFuncs m)
+  => m J.LspId
 nextLspReqId = do
-  s <- get
-  let i@(J.IdInt r) = lspReqId s
-  put s { lspReqId = J.IdInt (r + 1) }
-  return i
+  f <- asks Core.getNextReqId
+  liftIO f
 
 -- ---------------------------------------------------------------------
 
@@ -286,14 +273,14 @@ sendErrorLog msg = reactorSend' (`Core.sendErrorLogS` msg)
 -- | The single point that all events flow through, allowing management of state
 -- to stitch replies and requests together from the two asynchronous sides: lsp
 -- server and hie dispatcher
-reactor :: DispatcherEnv -> Plugins -> Core.LspFuncs -> ReactorState -> TChan PluginRequest -> TChan ReactorInput -> IO ()
-reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp = do
+reactor :: DispatcherEnv -> Plugins -> TChan PluginRequest -> TChan ReactorInput -> R ()
+reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins cin inp = do
   let makeRequest req@(PReq _ Nothing (Just lid) _ _) = liftIO $ atomically $ do
         modifyTVar wipTVar (S.insert lid)
         writeTChan cin req
       makeRequest req =
         liftIO $ atomically $ writeTChan cin req
-  flip evalStateT st $ flip runReaderT lf $ forever $ do
+  forever $ do
     inval <- liftIO $ atomically $ readTChan inp
     case inval of
       Core.RspFromClient rm -> do
@@ -495,12 +482,11 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
                 unless (null lts) $
                   liftIO $ U.logs $ "\n\n****reactor:ExecuteCommandRequest:error converting params=" ++ show lts ++ "\n\n"
                 return rts
-        lid <- nextLspReqId
         callback <- hieResponseHelper (req ^. J.id) $ \obj -> do
           liftIO $ U.logs $ "ExecuteCommand response got:r=" ++ show obj
           case J.fromJSON obj of
             J.Success v -> do
-
+              lid <- nextLspReqId
               reactorSend $ Core.makeResponseMessage req (J.Object mempty)
               let msg = fmServerApplyWorkspaceEditRequest lid $ J.ApplyWorkspaceEditParams v
               liftIO $ U.logs $ "ExecuteCommand sending edit: " ++ show msg
@@ -705,11 +691,21 @@ hieResponseHelper lid action = do
 
 -- ---------------------------------------------------------------------
 
+syncOptions :: J.TextDocumentSyncOptions
+syncOptions = J.TextDocumentSyncOptions
+  { J._openClose         = Just True
+  , J._change            = Just J.TdSyncIncremental
+  , J._willSave          = Just False
+  , J._willSaveWaitUntil = Just False
+  , J._save              = Just $ J.SaveOptions $ Just False
+  }
+
 hieOptions :: Core.Options
-hieOptions = def { Core.textDocumentSync = Just J.TdSyncIncremental
-                 , Core.completionProvider = Just (J.CompletionOptions (Just True) (Just ["."]))
-                 , Core.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List ["applyrefact:applyOne","hare:demote"]))
-                 }
+hieOptions =
+  def { Core.textDocumentSync       = Just syncOptions
+      , Core.completionProvider     = Just (J.CompletionOptions (Just True) (Just ["."]))
+      , Core.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List ["applyrefact:applyOne","hare:demote"]))
+      }
 
 
 hieHandlers :: TChan ReactorInput -> Core.Handlers
