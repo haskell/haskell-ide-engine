@@ -326,15 +326,9 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         -}
         let
           options = J.object ["documentSelector" .= J.object [ "language" .= J.String "haskell"]]
-          complOptions = J.toJSON $ J.CompletionRegistrationOptions Nothing (Just $ J.List ["."]) (Just False)
           registrationsList =
             [ J.Registration "hare:demote" J.WorkspaceExecuteCommand (Just options)
             , J.Registration "hare:gotodef" J.TextDocumentDefinition (Just options)
-            , J.Registration "brittany:formatting" J.TextDocumentFormatting (Just options)
-            , J.Registration "brittany:rangeFormatting" J.TextDocumentRangeFormatting (Just options)
-            , J.Registration "hare:getSymbols" J.TextDocumentDocumentSymbol (Just options)
-            , J.Registration "hare:getReferencesInDoc" J.TextDocumentDocumentHighlight (Just options)
-            , J.Registration "hare:getCompletions" J.TextDocumentCompletion (Just complOptions)
             ]
         let registrations = J.RegistrationParams (J.List registrationsList)
         rid <- nextLspReqId
@@ -713,7 +707,7 @@ hieResponseHelper lid action = do
 
 hieOptions :: Core.Options
 hieOptions = def { Core.textDocumentSync = Just J.TdSyncIncremental
-                 , Core.completionProvider = Just (J.CompletionOptions (Just True) Nothing)
+                 , Core.completionProvider = Just (J.CompletionOptions (Just True) (Just ["."]))
                  , Core.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List ["applyrefact:applyOne","hare:demote"]))
                  }
 
