@@ -332,13 +332,13 @@ getSymbols uri = do
                     _ -> []
 
               goImport :: ImportDecl RdrName -> [(J.SymbolKind, Located T.Text, Maybe T.Text)]
-              goImport (ImportDecl _ lmn@(L l _) _ _ _ _ _ as meis) = a ++ xs
+              goImport (ImportDecl _ lmn _ _ _ _ _ as meis) = a ++ xs
                 where
                   im = (J.SkModule, lsmn, Nothing)
                   lsmn = s lmn
                   smn = unLoc lsmn
                   a = case as of
-                            Just a' -> [(J.SkNamespace, s (L l a'), Just smn)]
+                            Just a' -> [(J.SkNamespace, lsmn, Just $ T.pack $ showGhc a')]
                             Nothing -> [im]
                   xs = case meis of
                          Just (False, eis) -> concatMap (f . unLoc) (unLoc eis)
@@ -608,7 +608,7 @@ findDef file pos = do
                     mLoc <- GM.unGmlT $ ms_location <$> getModSummary mName
                     case ml_hs_file mLoc of
                       Just fp -> do
-                        let uri = filePathToUri fp
+                        uri <- filePathToUri <$> reverseMapFile rfm fp
                         mcm' <- getCachedModule uri
                         cm' <- case mcm' of
                           Just cmdl -> do
