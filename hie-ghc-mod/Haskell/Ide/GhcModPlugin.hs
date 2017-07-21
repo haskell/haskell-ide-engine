@@ -199,17 +199,14 @@ myLogger rfm action = do
   GM.gcatches action' handlers
 
 setTypecheckedModule :: Uri -> IdeM (IdeResponse Diagnostics)
-setTypecheckedModule uri = do
+setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
-    cradle <- GM.gmCradle <$> GM.gmeAsk
     rfm <- GM.mkRevRedirMapFunc
-    debugm $ "Cradle is" ++ show cradle
     (diags', mtm) <- getTypecheckedModuleGhc (myLogger rfm) fp
     let diags = Map.insertWith' Set.union uri Set.empty <$> diags'
-    -- debugm $ "diags are: " ++ show diags
     case mtm of
       Nothing -> do
-        debugm $ "Didn't get typechecked module for: " ++ show fp
+        debugm $ "setTypecheckedModule: Didn't get typechecked module for: " ++ show fp
         return diags
       Just tm -> do
         let cm = CachedModule tm rfm return return
