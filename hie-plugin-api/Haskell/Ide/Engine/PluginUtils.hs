@@ -12,6 +12,7 @@ module Haskell.Ide.Engine.PluginUtils
   , diffText
   , srcSpan2Range
   , srcSpan2Loc
+  , reverseMapFile
   , makeAsync
   -- * Helper functions for errors
   , missingParameter
@@ -61,15 +62,19 @@ realSrcSpan2Range rspan =
         l2 = srcLocLine e
         c2 = srcLocCol e
 
-srcSpan2Range :: SrcSpan -> (Either T.Text Range)
+srcSpan2Range :: SrcSpan -> Either T.Text Range
 srcSpan2Range spn =
   realSrcSpan2Range <$> getRealSrcSpan spn
+
+reverseMapFile :: MonadIO m => (FilePath -> FilePath) -> FilePath -> m FilePath
+reverseMapFile rfm fp =
+  liftIO $ canonicalizePath . rfm =<< canonicalizePath fp
 
 srcSpan2Loc :: (MonadIO m) => (FilePath -> FilePath) -> SrcSpan -> m (Either T.Text Location)
 srcSpan2Loc revMapp spn = runEitherT $ do
   rspan <- hoistEither $ getRealSrcSpan spn
   let fp = unpackFS $ srcSpanFile rspan
-  file <- liftIO $ canonicalizePath . revMapp =<< canonicalizePath fp
+  file <- reverseMapFile revMapp fp
   return $ Location (filePathToUri file) (realSrcSpan2Range rspan)
 
 -- ---------------------------------------------------------------------
