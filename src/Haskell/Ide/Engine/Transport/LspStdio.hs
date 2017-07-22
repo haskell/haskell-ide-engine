@@ -187,13 +187,15 @@ mapFileFromVfs verTVar cin vtdi = do
     (_, _) -> return ()
 
 unmapFileFromVfs :: (MonadIO m)
-  => TChan PluginRequest -> Uri -> m ()
-unmapFileFromVfs cin uri = do
+  => TVar (Map.Map Uri Int) -> TChan PluginRequest -> Uri -> m ()
+unmapFileFromVfs verTVar cin uri = do
   case uriToFilePath uri of
     Just fp -> do
       let req = PReq (Just uri) Nothing Nothing (const $ return ())
                  $ IdeResponseOk <$> GM.unloadMappedFile fp
-      liftIO $ atomically $ writeTChan cin req
+      liftIO $ atomically $ do
+        modifyTVar' verTVar (Map.delete uri)
+        writeTChan cin req
       return ()
     _ -> return ()
 
@@ -336,11 +338,12 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins cin inp = do
       -- -------------------------------
 
       Core.NotDidOpenTextDocument notification -> do
-        liftIO $ U.logm $ "****** reactor: processing NotDidOpenTextDocument"
+        liftIO $ U.logm "****** reactor: processing NotDidOpenTextDocument"
         let
-            uri = notification ^. J.params . J.textDocument . J.uri
-            ver = (-1)
-        liftIO $ atomically $ modifyTVar' versionTVar (Map.insert uri ver)
+            td  = notification ^. J.params . J.textDocument
+            uri = td ^. J.uri
+            ver = td ^. J.version
+        mapFileFromVfs versionTVar cin $ J.VersionedTextDocumentIdentifier uri ver
         requestDiagnostics cin uri ver
 
       -- -------------------------------
@@ -349,12 +352,11 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins cin inp = do
         liftIO $ U.logm "****** reactor: processing NotDidSaveTextDocument"
         let
             uri = notification ^. J.params . J.textDocument . J.uri
-        unmapFileFromVfs cin uri
         mver <- liftIO $ atomically $ Map.lookup uri <$> readTVar versionTVar
         case mver of
           Just ver -> requestDiagnostics cin uri ver
           Nothing -> do
-            let ver = (-1)
+            let ver = -1
             liftIO $ atomically $ modifyTVar' versionTVar (Map.insert uri ver)
             requestDiagnostics cin uri ver
 
@@ -376,7 +378,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins cin inp = do
         liftIO $ U.logm "****** reactor: processing NotDidCloseTextDocument"
         let
             uri = notification ^. J.params . J.textDocument . J.uri
-        unmapFileFromVfs cin uri
+        unmapFileFromVfs versionTVar cin uri
         makeRequest $ PReq (Just uri) Nothing Nothing (const $ return ()) $ do
           deleteCachedModule uri
           return $ IdeResponseOk ()
