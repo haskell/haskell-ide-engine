@@ -318,9 +318,20 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins cin inp = do
             , J.Registration "hare:gotodef" J.TextDocumentDefinition (Just options)
             ]
         let registrations = J.RegistrationParams (J.List registrationsList)
-        rid <- nextLspReqId
 
+        rid <- nextLspReqId
         reactorSend $ fmServerRegisterCapabilityRequest rid registrations
+
+        lf <- ask
+        let hreq = PReq Nothing Nothing Nothing callback
+                     Hoogle.initializeHoogleDb
+            callback Nothing = flip runReaderT lf $
+              reactorSend $
+                fmServerShowMessageNotification J.MtWarning "No hoogle db found. Check the README for instructions to generate one"
+            callback (Just db) = flip runReaderT lf $ do
+              reactorSend $
+                fmServerShowMessageNotification J.MtLog $ "Using hoogle db at: " <> T.pack db
+        makeRequest hreq
 
       -- -------------------------------
 
@@ -433,7 +444,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins cin inp = do
                             liftIO $ U.logs $ "hoogle query: " ++ T.unpack query
                             res <- lift $ Hoogle.infoCmdFancyRender query
                             case res of
-                              Right x -> return x
+                              Right x -> return $ Just x
                               Left _ -> return Nothing
               return (info, sname, docs)
         makeRequest hreq
@@ -532,9 +543,14 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins cin inp = do
           let rspMsg = Core.makeResponseMessage req $
                          origCompl & J.documentation .~ docs
           reactorSend rspMsg
-        let hreq = PReq Nothing Nothing (Just $ req ^. J.id) callback
-                 $ maybe (return $ IdeResponseOk Nothing)
-                     Hoogle.infoCmd' mquery
+        let hreq = PReq Nothing Nothing (Just $ req ^. J.id) callback $ runEitherT $ do
+              case mquery of
+                Nothing -> return Nothing
+                Just query -> do
+                  res <- lift $ Hoogle.infoCmd' query
+                  case res of
+                    Right x -> return $ Just x
+                    _ -> return Nothing
         makeRequest hreq
 
       -- -------------------------------

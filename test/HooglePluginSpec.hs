@@ -74,12 +74,12 @@ hoogleSpec = do
   describe "hoogle plugin commands(new plugin api)" $ do
     it "runs the info command" $ do
       let req = infoCmd' "head"
-      r <- dispatchRequestP req
-      r `shouldBe` (IdeResponseOk $ Just "head :: [a] -> a\nbase Prelude\nExtract the first element of a list, which must be non-empty.\n\n")
+      r <- dispatchRequestP $ initializeHoogleDb >> req
+      r `shouldBe` Right "head :: [a] -> a\nbase Prelude\nExtract the first element of a list, which must be non-empty.\n\n"
 
     -- ---------------------------------
 
     it "runs the lookup command" $ do
       let req = lookupCmd' 1 "[a] -> a"
-      r <- dispatchRequestP req
-      r `shouldBe` IdeResponseOk ["Prelude head :: [a] -> a"]
+      r <- dispatchRequestP $ initializeHoogleDb >> req
+      r `shouldBe` Right ["Prelude head :: [a] -> a"]
