@@ -378,7 +378,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins cin inp = do
         liftIO $ U.logm "****** reactor: processing NotDidCloseTextDocument"
         let
             uri = notification ^. J.params . J.textDocument . J.uri
-        unmapFileFromVfs versionTVar cin uri
+        -- unmapFileFromVfs versionTVar cin uri
         makeRequest $ PReq (Just uri) Nothing Nothing (const $ return ()) $ do
           deleteCachedModule uri
           return $ IdeResponseOk ()
