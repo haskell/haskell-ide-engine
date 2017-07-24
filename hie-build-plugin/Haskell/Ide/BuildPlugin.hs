@@ -5,11 +5,8 @@
 {-# LANGUAGE RankNTypes #-}
 module Haskell.Ide.BuildPlugin where
 
-import           Control.Concurrent
-import           Control.Concurrent.STM.TChan
 import qualified Control.Exception as Exception
 import           Control.Monad.IO.Class
-import           Control.Monad.STM
 import           Control.Monad.Trans.Reader
 import           Haskell.Ide.Engine.ExtensibleState
 import           Haskell.Ide.Engine.MonadFunctions
@@ -17,7 +14,6 @@ import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Data.ByteString as B
 import           Data.Maybe
-import           Data.Monoid
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import System.Directory (makeAbsolute, getCurrentDirectory, getDirectoryContents, doesFileExist)
@@ -30,7 +26,6 @@ import Distribution.Helper
 
 import Distribution.Simple.Setup (defaultDistPref)
 import Distribution.Simple.Configure (localBuildInfoFile)
-import Distribution.Simple.LocalBuildInfo
 import Distribution.Simple.Utils (findPackageDesc, withFileContents)
 import Distribution.Package (pkgName, unPackageName)
 import Distribution.PackageDescription
@@ -84,11 +79,6 @@ buildPluginDescriptor = PluginDescriptor
             "Lists all flags that can be set when configuring a package"
             [] (SCtxNone :& RNil)
             (  SParamDesc (Proxy :: Proxy "mode") (Proxy :: Proxy "Project type: \"stack\" or \"cabal\"") SPtText SRequired
-            :& RNil) SaveNone
-      :& buildCommand addTarget (Proxy :: Proxy "addTarget") "Add a new target to the cabal file" [] (SCtxNone :& RNil)
-            (  SParamDesc (Proxy :: Proxy "file") (Proxy :: Proxy "Path to the .cabal file") SPtFile SRequired
-            :& SParamDesc (Proxy :: Proxy "name") (Proxy :: Proxy "Name of the new target") SPtText SRequired
-            :& SParamDesc (Proxy :: Proxy "type") (Proxy :: Proxy "executable/library") SPtText SRequired
             :& RNil) SaveNone
       :& RNil
   , pdExposedServices = []
@@ -167,17 +157,18 @@ configure :: CommandFunc ()
 configure = CmdSync $ \ctx req -> withCommonArgs ctx req $ do
   ca <- ask
   liftIO $ case caMode ca of
-      StackMode -> configureStack' (caStack ca)
-      CabalMode -> configureCabal' (caCabal ca)
+      StackMode -> configureStack (caStack ca)
+      CabalMode -> configureCabal (caCabal ca)
   return $ IdeResponseOk ()
 
-configureStack' stackExe = do
+configureStack stackExe = do
   slp <- getStackLocalPackages "stack.yaml"
   -- stack can configur only single local package
   case slp of
     [singlePackage] -> readProcess stackExe ["build", "--only-configure"] ""
     manyPackages -> readProcess stackExe ["build"] ""
-configureCabal' cabalExe = readProcess cabalExe ["configure"] ""
+
+configureCabal cabalExe = readProcess cabalExe ["configure"] ""
 
 -----------------------------------------------
 
@@ -210,31 +201,6 @@ flagToJSON f = object ["name" .= ((\(FlagName s) -> s) $ flagName f), "descripti
 
 -----------------------------------------------
 
-listConfigFlags :: CommandFunc Object
-listConfigFlags = CmdSync $ \ctx req -> do
-  case getParams (IdFile "directory" :& IdText "type" :& RNil) req of
-    Left err -> return err
-    Right (ParamFile dir0 :& ParamText type_ :& RNil) ->
-      pluginGetFile "listConfigFlags" dir0 $ \dir -> do
-        flags0 <- liftIO $ listConfigFlags' type_ dir
-        let flags = flip map flags0 $ \(n, d, fs) ->
-                object ["name" .= n, "directory" .= d, "flags" .= map configFlagToJSON fs]
-            (Object ret) = object ["res" .= toJSON flags]
-        return $ IdeResponseOk ret
-
-listConfigFlags' type_ dir = do
-  case type_ of
-    "stack" -> do
-      stackPackageDirs <- getStackLocalPackages (dir </> "stack.yaml")
-      concat <$> mapM (listConfigFlags' "cabal") stackPackageDirs
-    "cabal" -> runQuery (defaultQueryEnv dir "") $ do
-      (pkgName, _) <- packageId
-      fs <- flags
-      return [(pkgName, dir, fs)]
-
-configFlagToJSON (n,v) = object ["name" .= n, "default" .= v, "value" .= v]
-
------------------------------------------------
 
 data Package = Package {
     tPackageName :: String
@@ -246,19 +212,19 @@ listTargets :: CommandFunc [Value]
 listTargets = CmdSync $ \ctx req -> withCommonArgs ctx req $ do
   ca <- ask
   targets <- liftIO $ case caMode ca of
-      CabalMode -> (:[]) <$> listCabalTargets' (caDistDir ca) "."
-      StackMode -> listStackTargets' (caDistDir ca)
+      CabalMode -> (:[]) <$> listCabalTargets (caDistDir ca) "."
+      StackMode -> listStackTargets (caDistDir ca)
   let ret = flip map targets $ \t -> object
         ["name" .= tPackageName t,
          "directory" .= tDirectory t,
          "targets" .= map compToJSON (tTargets t)]
   return $ IdeResponseOk ret
 
-listStackTargets' distDir = do
+listStackTargets distDir = do
   stackPackageDirs <- getStackLocalPackages "stack.yaml"
-  mapM (listCabalTargets' distDir) stackPackageDirs
+  mapM (listCabalTargets distDir) stackPackageDirs
 
-listCabalTargets' distDir dir = do
+listCabalTargets distDir dir = do
   runQuery (defaultQueryEnv dir distDir) $ do
     pkgName <- fst <$> packageId
     comps <- map (fixupLibraryEntrypoint pkgName) <$> map fst <$> entrypoints
@@ -322,30 +288,3 @@ withBinaryFileContents name act =
 -- TODO: it would be nice to cache this somehow
 getStackDistDir :: IO FilePath
 getStackDistDir = init <$> readProcess "stack" ["path", "--dist-dir"] ""
-
-addTarget = CmdSync $ \ctx req -> do
-  let args = (,,) <$> Map.lookup "file" (ideParams req)
-                  <*> Map.lookup "name" (ideParams req)
-                  <*> Map.lookup "type" (ideParams req)
-  case args of
-      Nothing -> return $ missingParameter "file, name or type"
-      Just (ParamFileP file0, ParamTextP name, ParamTextP _type) ->
-        pluginGetFile "addTarget" file0 $ \file -> do
-          res <- liftIO $ addTarget' file (T.unpack name) (T.unpack _type)
-          return $ case res of
-              False -> missingParameter "meh"
-              True -> IdeResponseOk ()
-
-addTarget' :: FilePath -> String -> String -> IO Bool
-addTarget' file name _type = do
-    parseRes <- parsePackageDescription <$> readFile file
-    case parseRes of
-        ParseFailed _ -> return False
-        ParseOk _ genPackDesc -> do
-            let newDescr = case _type of
-                    "executable" -> genPackDesc {
-                        condExecutables = condExecutables genPackDesc <>
-                            [(name, CondNode emptyExecutable [] [])]
-                        }
-            --writePackageDescription file newDescr
-            return True
