@@ -15,7 +15,6 @@ import           Haskell.Ide.Engine.ExtensibleState
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
-import Language.Haskell.LSP.TH.DataTypesJSON (uriToFilePath)
 import qualified Data.ByteString as B
 import           Data.Maybe
 import           Data.Monoid
@@ -55,16 +54,16 @@ buildPluginDescriptor = PluginDescriptor
     pdUIShortName = "Build plugin"
   , pdUIOverview = "A HIE plugin for building cabal/stack packages"
   , pdCommands =
-        buildCommand isHelperPrepared (Proxy :: Proxy "isPrepared")
-            "Checks whether cabal-helper is prepared to work with this project. The project must be configured first"
-            [] (SCtxNone :& RNil)
-            (   pluginCommonArgs
-            <+> RNil) SaveNone
-      :& buildCommand prepareHelper (Proxy :: Proxy "prepare")
+         buildCommand prepareHelper (Proxy :: Proxy "prepare")
             "Prepares helper executable. The project must be configured first"
             [] (SCtxNone :& RNil)
             (   pluginCommonArgs
             <+> RNil) SaveNone
+--       :& buildCommand isHelperPrepared (Proxy :: Proxy "isPrepared")
+--             "Checks whether cabal-helper is prepared to work with this project. The project must be configured first"
+--             [] (SCtxNone :& RNil)
+--             (   pluginCommonArgs
+--             <+> RNil) SaveNone
       :& buildCommand isConfigured (Proxy :: Proxy "isConfigured")
             "Checks if project is configured"
             [] (SCtxNone :& RNil)
@@ -109,7 +108,6 @@ data CommonArgs = CommonArgs {
         ,caStack :: String
     }
 
---withCommonArgs :: [AcceptedContext] -> IdeRequest -> ReaderT CommonArgs IdeM (IdeResponse resp) -> IdeM (IdeResponse resp)
 withCommonArgs ctx req a = do
   case getParams (IdText "mode" :& RNil) req of
     Left err -> return err
@@ -134,11 +132,11 @@ withCommonArgs ctx req a = do
 
 -----------------------------------------------
 
-isHelperPrepared :: CommandFunc Bool
-isHelperPrepared = CmdSync $ \ctx req -> withCommonArgs ctx req $ do
-  distDir <- asks caDistDir
-  ret <- liftIO $ isPrepared (defaultQueryEnv "." distDir)
-  return $ IdeResponseOk ret
+-- isHelperPrepared :: CommandFunc Bool
+-- isHelperPrepared = CmdSync $ \ctx req -> withCommonArgs ctx req $ do
+--   distDir <- asks caDistDir
+--   ret <- liftIO $ isPrepared (defaultQueryEnv "." distDir)
+--   return $ IdeResponseOk ret
 
 -----------------------------------------------
 

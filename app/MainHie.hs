@@ -65,7 +65,7 @@ import           Haskell.Ide.HooglePlugin
 taggedPlugins :: Rec Plugin _
 taggedPlugins =
      Plugin (Proxy :: Proxy "applyrefact") applyRefactDescriptor
-  :& Plugin (Proxy :: Proxy "build") buildPluginDescriptor
+  :& Plugin (Proxy :: Proxy "build")       buildPluginDescriptor
   :& Plugin (Proxy :: Proxy "eg2")         example2Descriptor
   :& Plugin (Proxy :: Proxy "egasync")     exampleAsyncDescriptor
   :& Plugin (Proxy :: Proxy "ghcmod")      ghcmodDescriptor

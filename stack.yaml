@@ -38,10 +38,6 @@ packages:
     commit: e3d388061ed7f35b5c9720f636c22c10369ecc24
   extra-dep: true
 - location:
-    git: https://github.com/arrowd/cabal-helper.git
-    commit: 245fcb1f838edf9e034b0c9406e40e1a647316de
-  extra-dep: true
-- location:
     # git: https://github.com/lspitzner/brittany.git
     # commit: 134f31e4d18e51a7cd3d5bcaa90af92e70b926ce
     git: https://github.com/alanz/brittany.git
