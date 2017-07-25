@@ -37,7 +37,6 @@ import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.SemanticTypes
-import           Language.Haskell.Refact.Utils.Utils
 import           Text.Parsec
 import Outputable (renderWithStyle)
 import DynFlags
