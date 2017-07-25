@@ -365,7 +365,7 @@ getPlugins = lift $ lift $ idePlugins <$> get
 -- Module Loading
 -- ---------------------------------------------------------------------
 
-type HookIORefData = (FilePath,Maybe TypecheckedModule,[(String, Maybe FilePath)])
+type HookIORefData = Maybe TypecheckedModule
 
 getMappedFileName :: (GM.IOish m) => FilePath -> GM.GhcModT m FilePath
 getMappedFileName fname = do
@@ -377,17 +377,9 @@ getMappedFileName fname = do
       return mFileName
 
 canonicalizeModSummary :: (MonadIO m) =>
-  GHC.ModSummary -> m (Maybe FilePath, GHC.ModSummary)
-canonicalizeModSummary modSum = do
-  let modSum'  = (\m -> (GHC.ml_hs_file $ GHC.ms_location m, m)) modSum
-      canon ((Just fp),m) = do
-        fp' <- canonicalizePath fp
-        return $ (Just fp',m)
-      canon (Nothing,m)  = return (Nothing,m)
-
-  mm' <- liftIO $ canon modSum'
-
-  return mm'
+  GHC.ModSummary -> m (Maybe FilePath)
+canonicalizeModSummary =
+  traverse (liftIO . canonicalizePath) . GHC.ml_hs_file . GHC.ms_location
 
 tweakModSummaryDynFlags :: GHC.ModSummary -> GHC.ModSummary
 tweakModSummaryDynFlags ms =
@@ -399,22 +391,21 @@ getTypecheckedModuleGhc :: GM.IOish m
 getTypecheckedModuleGhc wrapper targetFile = do
   cfileName <- liftIO $ canonicalizePath targetFile
   mFileName <- getMappedFileName cfileName
-  ref <- liftIO $ newIORef (mFileName,Nothing,[])
+  ref <- liftIO $ newIORef Nothing
   let
     setTarget fileName
       = GM.runGmlTWith' [Left fileName]
                         return
-                        (Just $ updateHooks ref)
+                        (Just $ updateHooks mFileName ref)
                         wrapper
                         (return ())
   res <- setTarget cfileName
-  (_,mtm,fs) <- liftIO $ readIORef ref
-  debugm $ "getTypecheckedModuelGhc: saw files " ++ show fs
+  mtm <- liftIO $ readIORef ref
   return (res, mtm)
 
-updateHooks :: IORef HookIORefData -> GHC.Hooks -> GHC.Hooks
-updateHooks ref hooks = hooks {
-        GHC.hscFrontendHook   = Just $ runHscFrontend ref
+updateHooks :: FilePath -> IORef HookIORefData -> GHC.Hooks -> GHC.Hooks
+updateHooks fp ref hooks = hooks {
+        GHC.hscFrontendHook   = Just $ fmap GHC.FrontendTypecheck . hscFrontend fp ref
       }
 
 newtype HareHsc a = HH { runHareHsc :: GHC.Hsc a }
@@ -436,19 +427,15 @@ instance GHC.GhcMonad HareHsc where
   getSession = HH GHC.getHscEnv
   setSession = error "Set session not defined for HareHsc"
 
-runHscFrontend :: IORef HookIORefData -> GHC.ModSummary -> GHC.Hsc GHC.FrontendResult
-runHscFrontend ref mod_summary
-    = GHC.FrontendTypecheck <$> hscFrontend ref mod_summary
-
-hscFrontend :: IORef HookIORefData -> GHC.ModSummary -> GHC.Hsc GHC.TcGblEnv
-hscFrontend ref mod_summary = do
-    (mfn,_) <- canonicalizeModSummary mod_summary
-    (fn,om,fs) <- liftIO $ readIORef ref
+hscFrontend :: FilePath -> IORef HookIORefData -> GHC.ModSummary -> GHC.Hsc GHC.TcGblEnv
+hscFrontend fn ref mod_summary = do
+    mfn <- canonicalizeModSummary mod_summary
     let
       md = GHC.moduleNameString $ GHC.moduleName $ GHC.ms_mod mod_summary
       keepInfo = case mfn of
                    Just fileName -> fn == fileName
                    Nothing -> False
+    liftIO $ debugm $ "hscFrontend: got mod,file" ++ show (md, mfn)
     if keepInfo
       then runHareHsc $ do
         let modSumWithRaw = tweakModSummaryDynFlags mod_summary
@@ -458,15 +445,12 @@ hscFrontend ref mod_summary = do
         tc <- GHC.typecheckModule p
         let tc_gbl_env = fst $ GHC.tm_internals_ tc
 
-        liftIO $ modifyIORef' ref (const (fn,Just tc,(md,mfn):fs))
+        liftIO $ modifyIORef' ref (const $ Just tc)
         return tc_gbl_env
       else do
-        liftIO $ modifyIORef' ref (const (fn,om,(md,mfn):fs))
         hpm <- GHC.hscParse' mod_summary
         hsc_env <- GHC.getHscEnv
-        tc_gbl_env <- GHC.tcRnModule' hsc_env mod_summary False hpm
-        return tc_gbl_env
-
+        GHC.tcRnModule' hsc_env mod_summary False hpm
 
 -- ---------------------------------------------------------------------
 -- Extensible state, based on
