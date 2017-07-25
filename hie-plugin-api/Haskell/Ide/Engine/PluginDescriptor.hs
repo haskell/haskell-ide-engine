@@ -365,7 +365,7 @@ getPlugins = lift $ lift $ idePlugins <$> get
 -- Module Loading
 -- ---------------------------------------------------------------------
 
-type HookIORefData = (FilePath,Maybe TypecheckedModule)
+type HookIORefData = (FilePath,Maybe TypecheckedModule,[(String, Maybe FilePath)])
 
 getMappedFileName :: (GM.IOish m) => FilePath -> GM.GhcModT m FilePath
 getMappedFileName fname = do
@@ -399,7 +399,7 @@ getTypecheckedModuleGhc :: GM.IOish m
 getTypecheckedModuleGhc wrapper targetFile = do
   cfileName <- liftIO $ canonicalizePath targetFile
   mFileName <- getMappedFileName cfileName
-  ref <- liftIO $ newIORef (mFileName,Nothing)
+  ref <- liftIO $ newIORef (mFileName,Nothing,[])
   let
     setTarget fileName
       = GM.runGmlTWith' [Left fileName]
@@ -408,7 +408,8 @@ getTypecheckedModuleGhc wrapper targetFile = do
                         wrapper
                         (return ())
   res <- setTarget cfileName
-  (_,mtm) <- liftIO $ readIORef ref
+  (_,mtm,fs) <- liftIO $ readIORef ref
+  debugm $ "getTypecheckedModuelGhc: saw files " ++ show fs
   return (res, mtm)
 
 updateHooks :: IORef HookIORefData -> GHC.Hooks -> GHC.Hooks
@@ -437,22 +438,19 @@ instance GHC.GhcMonad HareHsc where
 
 runHscFrontend :: IORef HookIORefData -> GHC.ModSummary -> GHC.Hsc GHC.FrontendResult
 runHscFrontend ref mod_summary
-    = GHC.FrontendTypecheck `fmap` hscFrontend ref mod_summary
+    = GHC.FrontendTypecheck <$> hscFrontend ref mod_summary
 
 hscFrontend :: IORef HookIORefData -> GHC.ModSummary -> GHC.Hsc GHC.TcGblEnv
 hscFrontend ref mod_summary = do
-    -- liftIO $ putStrLn $ "hscFrontend:entered:" ++ fileNameFromModSummary mod_summary
     (mfn,_) <- canonicalizeModSummary mod_summary
-    -- liftIO $ putStrLn $ "hscFrontend:mfn:" ++ show mfn
-    (fn,om) <- liftIO $ readIORef ref
-    -- liftIO $ putStrLn $ "hscFrontend:(fn,cn,fps):" ++ show (fn,cn,fps)
+    (fn,om,fs) <- liftIO $ readIORef ref
     let
+      md = GHC.moduleNameString $ GHC.moduleName $ GHC.ms_mod mod_summary
       keepInfo = case mfn of
                    Just fileName -> fn == fileName
                    Nothing -> False
     if keepInfo
       then runHareHsc $ do
-        -- liftIO $ putStrLn $ "hscFrontend:in keepInfo"
         let modSumWithRaw = tweakModSummaryDynFlags mod_summary
 
         p' <- GHC.parseModule modSumWithRaw
@@ -460,10 +458,10 @@ hscFrontend ref mod_summary = do
         tc <- GHC.typecheckModule p
         let tc_gbl_env = fst $ GHC.tm_internals_ tc
 
-        liftIO $ modifyIORef' ref (const (fn,Just tc))
+        liftIO $ modifyIORef' ref (const (fn,Just tc,(md,mfn):fs))
         return tc_gbl_env
       else do
-        liftIO $ modifyIORef' ref (const (fn,om))
+        liftIO $ modifyIORef' ref (const (fn,om,(md,mfn):fs))
         hpm <- GHC.hscParse' mod_summary
         hsc_env <- GHC.getHscEnv
         tc_gbl_env <- GHC.tcRnModule' hsc_env mod_summary False hpm
