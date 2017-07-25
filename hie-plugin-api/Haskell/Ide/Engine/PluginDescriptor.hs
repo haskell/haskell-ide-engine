@@ -80,6 +80,7 @@ import           Control.Applicative
 import           Control.Monad.State.Strict
 import           Data.Aeson
 import           Data.Dynamic
+import           Data.List
 import qualified Data.Map as Map
 import           Data.Singletons
 import qualified Data.Text as T
@@ -104,6 +105,8 @@ import qualified HscTypes      as GHC
 import qualified TcRnMonad     as GHC
 import qualified DynFlags      as GHC
 import qualified Exception     as Exception
+
+import StringBuffer
 
 import Data.IORef
 
@@ -396,16 +399,16 @@ getTypecheckedModuleGhc wrapper targetFile = do
     setTarget fileName
       = GM.runGmlTWith' [Left fileName]
                         return
-                        (Just $ updateHooks mFileName ref)
+                        (Just $ updateHooks cfileName mFileName ref)
                         wrapper
                         (return ())
   res <- setTarget cfileName
   mtm <- liftIO $ readIORef ref
   return (res, mtm)
 
-updateHooks :: FilePath -> IORef HookIORefData -> GHC.Hooks -> GHC.Hooks
-updateHooks fp ref hooks = hooks {
-        GHC.hscFrontendHook   = Just $ fmap GHC.FrontendTypecheck . hscFrontend fp ref
+updateHooks :: FilePath -> FilePath -> IORef HookIORefData -> GHC.Hooks -> GHC.Hooks
+updateHooks ofp fp ref hooks = hooks {
+        GHC.hscFrontendHook   = Just $ fmap GHC.FrontendTypecheck . hscFrontend ofp fp ref
       }
 
 newtype HareHsc a = HH { runHareHsc :: GHC.Hsc a }
@@ -427,8 +430,8 @@ instance GHC.GhcMonad HareHsc where
   getSession = HH GHC.getHscEnv
   setSession = error "Set session not defined for HareHsc"
 
-hscFrontend :: FilePath -> IORef HookIORefData -> GHC.ModSummary -> GHC.Hsc GHC.TcGblEnv
-hscFrontend fn ref mod_summary = do
+hscFrontend :: FilePath -> FilePath -> IORef HookIORefData -> GHC.ModSummary -> GHC.Hsc GHC.TcGblEnv
+hscFrontend origfp fn ref mod_summary = do
     mfn <- canonicalizeModSummary mod_summary
     let
       md = GHC.moduleNameString $ GHC.moduleName $ GHC.ms_mod mod_summary
@@ -438,7 +441,14 @@ hscFrontend fn ref mod_summary = do
     liftIO $ debugm $ "hscFrontend: got mod,file" ++ show (md, mfn)
     if keepInfo
       then runHareHsc $ do
-        let modSumWithRaw = tweakModSummaryDynFlags mod_summary
+        fbuf' <- case GHC.ms_hspp_buf mod_summary of
+          Nothing -> liftIO $ hGetStringBuffer $ GHC.ms_hspp_file mod_summary
+          Just b -> return b
+        let fbuf = lexemeToString fbuf' (len fbuf')
+        let firstLine = "{-# LINE 1 \"" ++ origfp ++ "\"#-}\n"
+            bufWithoutLines = unlines $ dropWhile ("{-# LINE" `isPrefixOf`) $ lines fbuf
+        let buf' =stringToStringBuffer $ firstLine ++ bufWithoutLines
+        let modSumWithRaw = (tweakModSummaryDynFlags mod_summary){ GHC.ms_hspp_buf = Just buf' }
 
         p' <- GHC.parseModule modSumWithRaw
         let p = p' {GHC.pm_mod_summary = mod_summary}
