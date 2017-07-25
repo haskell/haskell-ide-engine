@@ -390,7 +390,7 @@ getTypecheckedModuleGhc :: GM.IOish m
   => (GM.GmlT m () -> GM.GmlT m a) -> FilePath -> GM.GhcModT m (a, Maybe TypecheckedModule)
 getTypecheckedModuleGhc wrapper targetFile = do
   cfileName <- liftIO $ canonicalizePath targetFile
-  mFileName <- getMappedFileName cfileName
+  mFileName <- liftIO . canonicalizePath =<< getMappedFileName cfileName
   ref <- liftIO $ newIORef Nothing
   let
     setTarget fileName
