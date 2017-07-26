@@ -42,6 +42,7 @@ import DynFlags
 import HscTypes
 import ErrUtils
 import Bag
+import System.FilePath
 
 -- ---------------------------------------------------------------------
 
@@ -191,14 +192,16 @@ srcErrToDiag df rfm se = do
   processMsgs errMsgs
 
 myLogger :: GM.IOish m
-  => (FilePath -> FilePath)
+  => FilePath
+  -> (FilePath -> FilePath)
   -> GM.GmlT m ()
   -> GM.GmlT m (Diagnostics, AdditionalErrs)
-myLogger rfm action = do
+myLogger fp rfm action = do
   env <- getSession
   diagRef <- liftIO $ newIORef Map.empty
   errRef <- liftIO $ newIORef []
   let setLogger df = df { log_action = logDiag rfm errRef diagRef }
+      setIncludePath df = df { includePaths = takeDirectory fp : includePaths df }
       ghcErrRes msg = (Map.empty, [T.pack msg])
       handlers =
         [ GM.GHandler $ \ex ->
@@ -209,7 +212,7 @@ myLogger rfm action = do
             return (Map.empty ,[T.pack (show ex)])
         ]
       action' = do
-        GM.withDynFlags setLogger action
+        GM.withDynFlags (setIncludePath . setLogger) action
         diags <- liftIO $ readIORef diagRef
         errs <- liftIO $ readIORef errRef
         return (diags,errs)
@@ -219,7 +222,7 @@ setTypecheckedModule :: Uri -> IdeM (IdeResponse (Diagnostics, AdditionalErrs))
 setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     rfm <- GM.mkRevRedirMapFunc
-    ((diags', errs), mtm) <- getTypecheckedModuleGhc (myLogger rfm) fp
+    ((diags', errs), mtm) <- getTypecheckedModuleGhc (myLogger fp rfm) fp
     let diags = Map.insertWith' Set.union uri Set.empty diags'
     case mtm of
       Nothing -> do
