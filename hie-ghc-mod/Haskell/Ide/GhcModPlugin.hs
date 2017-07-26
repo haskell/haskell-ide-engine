@@ -274,8 +274,19 @@ typeCmd' bool uri (Position l c) =
 
 -- ---------------------------------------------------------------------
 
+someErr :: String -> String -> IdeResponse a
+someErr meth err =
+  IdeResponseFail $
+    IdeError PluginError
+             (T.pack $ meth <> ": " <> err)
+             Null
+
 newTypeCmd :: Bool -> Uri -> Position -> IdeM (IdeResponse [(Range, T.Text)])
-newTypeCmd bool uri newPos = do
+newTypeCmd bool uri newPos =
+  let handlers  = [GM.GHandler $ \(ex :: GM.SomeException) ->
+                     return $ someErr "newTypeCmd" (show ex)
+                  ] in
+  flip GM.gcatches handlers $ do
     mcm <- getCachedModule uri
     case mcm of
       Nothing -> return $ IdeResponseOk []
