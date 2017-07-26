@@ -555,7 +555,9 @@ getReferencesInDoc uri pos = do
                     let kind = if Right r == defn then J.HkWrite else J.HkRead
                     r' <- oldRangeToNew cm r
                     return $ J.DocumentHighlight r' (Just kind)
-                  highlights = mapMaybe makeDocHighlight ranges
+                  highlights = case defn of
+                    Right r -> mapMaybe makeDocHighlight (r:ranges)
+                    _ -> mapMaybe makeDocHighlight ranges
               return highlights
 
 -- ---------------------------------------------------------------------
