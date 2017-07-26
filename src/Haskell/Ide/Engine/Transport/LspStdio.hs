@@ -654,7 +654,11 @@ requestDiagnostics cin file ver = do
                $ GhcMod.setTypecheckedModule file
       callbackg (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
       callbackg (IdeResponseError err) = liftIO $ U.logs $ "got err" ++ show err
-      callbackg (IdeResponseOk     pd) = do
+      callbackg (IdeResponseOk    (pd, errs)) = do
+        forM_ errs $ \e -> do
+          reactorSend $
+            fmServerShowMessageNotification J.MtError
+              $ "Got error while processing diagnostics: " <> e
         let ds = Map.toList $ S.toList <$> pd
         case ds of
           [] -> sendEmpty

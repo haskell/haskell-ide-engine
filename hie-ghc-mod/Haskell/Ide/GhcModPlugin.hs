@@ -16,7 +16,6 @@ import           Data.List
 import           Data.Monoid
 import           Control.Monad.IO.Class
 import           Data.IORef
-import           Control.Monad.Trans.Either
 import qualified Data.Text                           as T
 import qualified Data.Text.Read                      as T
 import qualified Data.Map                            as Map
@@ -141,8 +140,10 @@ lspSev SevFatal = DsError
 lspSev SevInfo = DsInfo
 lspSev _ = DsInfo
 
-logDiag :: (FilePath -> FilePath) -> IORef Diagnostics -> LogAction
-logDiag rfm ref df _reason sev spn style msg = do
+type AdditionalErrs = [T.Text]
+
+logDiag :: (FilePath -> FilePath) -> IORef AdditionalErrs -> IORef Diagnostics -> LogAction
+logDiag rfm eref dref df _reason sev spn style msg = do
   eloc <- srcSpan2Loc rfm spn
   let msgTxt = T.pack $ renderWithStyle df msg style
   case eloc of
@@ -150,9 +151,9 @@ logDiag rfm ref df _reason sev spn style msg = do
       let update = Map.insertWith' Set.union uri l
             where l = Set.singleton diag
           diag = Diagnostic range (Just $ lspSev sev) Nothing (Just "ghcmod") msgTxt
-      modifyIORef' ref update
-    Left x -> do
-      debugm $ "got unhelpful srcpan " ++ T.unpack x ++ " for err " ++ T.unpack msgTxt
+      modifyIORef' dref update
+    Left _ -> do
+      modifyIORef' eref (msgTxt:)
       return ()
 
 unhelpfulSrcSpanErr :: T.Text -> IdeFailure
@@ -162,8 +163,11 @@ unhelpfulSrcSpanErr err =
              ("Unhelpful SrcSpan" <> ": \"" <> err <> "\"")
              Null
 
-srcErrToDiag :: MonadIO m => DynFlags -> (FilePath -> FilePath) -> SourceError -> m (IdeResponse Diagnostics)
-srcErrToDiag df rfm se = runEitherT $ do
+srcErrToDiag :: MonadIO m
+  => DynFlags
+  -> (FilePath -> FilePath)
+  -> SourceError -> m (Diagnostics, AdditionalErrs)
+srcErrToDiag df rfm se = do
   debugm "in srcErrToDiag"
   let errMsgs = bagToList $ srcErrorMessages se
       processMsg err = do
@@ -171,46 +175,60 @@ srcErrToDiag df rfm se = runEitherT $ do
             unqual = errMsgContext err
             st = GM.mkErrStyle' df unqual
             msgTxt = T.pack $ renderWithStyle df (pprLocErrMsg err) st
-        (Location uri range) <- bimapEitherT (\x -> unhelpfulSrcSpanErr $ x <> msgTxt) id
-          $ EitherT $ srcSpan2Loc rfm $ errMsgSpan err
-        return (uri, Diagnostic range sev Nothing (Just "ghcmod") msgTxt)
-      processMsgs [] = return Map.empty
+        eloc <- srcSpan2Loc rfm $ errMsgSpan err
+        case eloc of
+          Right (Location uri range) ->
+            return $ Right (uri, Diagnostic range sev Nothing (Just "ghcmod") msgTxt)
+          Left _ -> return $ Left msgTxt
+      processMsgs [] = return (Map.empty,[])
       processMsgs (x:xs) = do
-        (uri, diag) <- processMsg x
-        m <- processMsgs xs
-        return (Map.insertWith' Set.union uri (Set.singleton diag) m)
+        res <- processMsg x
+        (m,es) <- processMsgs xs
+        case res of
+          Right (uri, diag) ->
+            return (Map.insertWith' Set.union uri (Set.singleton diag) m, es)
+          Left e -> return (m, e:es)
   processMsgs errMsgs
 
-myLogger :: GM.IOish m => (FilePath -> FilePath) -> GM.GmlT m () -> GM.GmlT m (IdeResponse Diagnostics)
+myLogger :: GM.IOish m
+  => (FilePath -> FilePath)
+  -> GM.GmlT m ()
+  -> GM.GmlT m (Diagnostics, AdditionalErrs)
 myLogger rfm action = do
   env <- getSession
   diagRef <- liftIO $ newIORef Map.empty
-  let setLogger df = df { log_action = logDiag rfm diagRef }
-      ghcErrRes msg = IdeResponseFail $ IdeError PluginError (T.pack msg) Null
+  errRef <- liftIO $ newIORef []
+  let setLogger df = df { log_action = logDiag rfm errRef diagRef }
+      ghcErrRes msg = (Map.empty, [T.pack msg])
       handlers =
-        [ GM.GHandler $ \ex -> srcErrToDiag (hsc_dflags env) rfm ex
-        , GM.GHandler $ \ex -> return $ ghcErrRes $ GM.renderGm $ GM.ghcExceptionDoc ex
-        , GM.GHandler $ \(ex :: GM.SomeException) -> return $ IdeResponseFail $ IdeError PluginError ("failed to load file, got error " <> T.pack (show ex)) Null
+        [ GM.GHandler $ \ex ->
+            srcErrToDiag (hsc_dflags env) rfm ex
+        , GM.GHandler $ \ex ->
+            return $ ghcErrRes $ GM.renderGm $ GM.ghcExceptionDoc ex
+        , GM.GHandler $ \(ex :: GM.SomeException) ->
+            return (Map.empty ,[T.pack (show ex)])
         ]
       action' = do
         GM.withDynFlags setLogger action
-        liftIO $ Right <$> readIORef diagRef
+        diags <- liftIO $ readIORef diagRef
+        errs <- liftIO $ readIORef errRef
+        return (diags,errs)
   GM.gcatches action' handlers
 
-setTypecheckedModule :: Uri -> IdeM (IdeResponse Diagnostics)
+setTypecheckedModule :: Uri -> IdeM (IdeResponse (Diagnostics, AdditionalErrs))
 setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     rfm <- GM.mkRevRedirMapFunc
-    (diags', mtm) <- getTypecheckedModuleGhc (myLogger rfm) fp
-    let diags = Map.insertWith' Set.union uri Set.empty <$> diags'
+    ((diags', errs), mtm) <- getTypecheckedModuleGhc (myLogger rfm) fp
+    let diags = Map.insertWith' Set.union uri Set.empty diags'
     case mtm of
       Nothing -> do
         debugm $ "setTypecheckedModule: Didn't get typechecked module for: " ++ show fp
-        return diags
+        return $ IdeResponseOk (diags,errs)
       Just tm -> do
         let cm = CachedModule tm rfm return return
         cacheModule uri cm
-        return diags
+        return $ IdeResponseOk (diags,errs)
 
 -- ---------------------------------------------------------------------
 
