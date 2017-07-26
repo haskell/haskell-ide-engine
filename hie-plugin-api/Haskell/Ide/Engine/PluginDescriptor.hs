@@ -99,12 +99,12 @@ import           System.Directory
 import           System.FilePath
 
 import qualified GHC           as GHC
+import qualified GhcMonad      as GHC
 import qualified Hooks         as GHC
 import qualified HscMain       as GHC
 import qualified HscTypes      as GHC
 import qualified TcRnMonad     as GHC
 import qualified DynFlags      as GHC
-import qualified Exception     as Exception
 
 -- import StringBuffer
 
@@ -411,24 +411,12 @@ updateHooks _ofp fp ref hooks = hooks {
         GHC.hscFrontendHook   = Just $ fmap GHC.FrontendTypecheck . hscFrontend fp ref
       }
 
-newtype HareHsc a = HH { runHareHsc :: GHC.Hsc a }
-  deriving (Functor,Applicative,Monad,MonadIO,GHC.HasDynFlags)
-
-instance Exception.ExceptionMonad HareHsc where
-  gcatch (HH (GHC.Hsc ma)) f = HH $ GHC.Hsc $ \e w -> do
-    let f' err = g e w
-          where (HH (GHC.Hsc g)) = f err
-    (a, w') <- ma e w `Exception.catch` f'
-    return (a, w')
-  gmask f =
-    let unHH (HH (GHC.Hsc x)) = x in
-    HH $ GHC.Hsc $ \e w -> Exception.mask $ \io_restore ->
-      let h_restore (HH (GHC.Hsc m)) = HH $ GHC.Hsc $ \e' w' -> io_restore (m e' w')
-           in unHH (f h_restore) e w
-
-instance GHC.GhcMonad HareHsc where
-  getSession = HH GHC.getHscEnv
-  setSession = error "Set session not defined for HareHsc"
+-- discards all changes to Session
+runGhcInHsc :: GHC.Ghc a -> GHC.Hsc a
+runGhcInHsc action = do
+  env <- GHC.getHscEnv
+  session <- liftIO $ newIORef env
+  liftIO $ GHC.reflectGhc action $ GHC.Session session
 
 hscFrontend :: FilePath -> IORef HookIORefData -> GHC.ModSummary -> GHC.Hsc GHC.TcGblEnv
 hscFrontend fn ref mod_summary = do
@@ -440,15 +428,15 @@ hscFrontend fn ref mod_summary = do
                    Nothing -> False
     liftIO $ debugm $ "hscFrontend: got mod,file" ++ show (md, mfn)
     if keepInfo
-      then runHareHsc $ do
-        let modSumWithRaw = (tweakModSummaryDynFlags mod_summary)
+      then runGhcInHsc $ do
+        let modSumWithRaw = tweakModSummaryDynFlags mod_summary
 
         p' <- GHC.parseModule modSumWithRaw
         let p = p' {GHC.pm_mod_summary = mod_summary}
         tc <- GHC.typecheckModule p
         let tc_gbl_env = fst $ GHC.tm_internals_ tc
 
-        liftIO $ modifyIORef' ref (const $ Just tc)
+        liftIO $ writeIORef ref $ Just tc
         return tc_gbl_env
       else do
         hpm <- GHC.hscParse' mod_summary
