@@ -448,6 +448,7 @@ hscFrontend origfp fn ref mod_summary = do
         let firstLine = "{-# LINE 1 \"" ++ origfp ++ "\"#-}\n"
             bufWithoutLines = unlines $ dropWhile ("{-# LINE" `isPrefixOf`) $ lines fbuf
         let buf' =stringToStringBuffer $ firstLine ++ bufWithoutLines
+        debugm $ "hscFrontEnd: stringBuffer: " ++ firstLine ++ bufWithoutLines
         let modSumWithRaw = (tweakModSummaryDynFlags mod_summary){ GHC.ms_hspp_buf = Just buf' }
 
         p' <- GHC.parseModule modSumWithRaw
