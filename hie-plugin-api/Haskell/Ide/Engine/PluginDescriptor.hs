@@ -370,14 +370,11 @@ getPlugins = lift $ lift $ idePlugins <$> get
 
 type HookIORefData = Maybe TypecheckedModule
 
-getMappedFileName :: (GM.IOish m) => FilePath -> GM.GhcModT m FilePath
-getMappedFileName fname = do
-      maybeMapped <- GM.lookupMMappedFile fname
-      let
-        mFileName = case maybeMapped of
-          Just (GM.FileMapping mfname _isTemp) -> mfname
-          Nothing -> fname
-      return mFileName
+getMappedFileName :: FilePath -> GM.FileMappingMap -> FilePath
+getMappedFileName fname mfs =
+  case Map.lookup fname mfs of
+    Just fm -> GM.fmPath fm
+    Nothing -> fname
 
 canonicalizeModSummary :: (MonadIO m) =>
   GHC.ModSummary -> m (Maybe FilePath)
@@ -393,12 +390,15 @@ getTypecheckedModuleGhc :: GM.IOish m
   => (GM.GmlT m () -> GM.GmlT m a) -> FilePath -> GM.GhcModT m (a, Maybe TypecheckedModule)
 getTypecheckedModuleGhc wrapper targetFile = do
   cfileName <- liftIO $ canonicalizePath targetFile
-  mFileName <- liftIO . canonicalizePath =<< getMappedFileName cfileName
+  mfs <- GM.getMMappedFiles
+  mFileName <- liftIO . canonicalizePath $ getMappedFileName cfileName mfs
+  let ips = map takeDirectory $ Map.keys mfs
+      setIncludePaths df = df { GHC.includePaths = ips ++ GHC.includePaths df }
   ref <- liftIO $ newIORef Nothing
   let
     setTarget fileName
       = GM.runGmlTWith' [Left fileName]
-                        return
+                        (return . setIncludePaths)
                         (Just $ updateHooks cfileName mFileName ref)
                         wrapper
                         (return ())

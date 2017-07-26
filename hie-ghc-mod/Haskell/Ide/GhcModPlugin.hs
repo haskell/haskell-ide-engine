@@ -42,7 +42,6 @@ import DynFlags
 import HscTypes
 import ErrUtils
 import Bag
-import System.FilePath
 
 -- ---------------------------------------------------------------------
 
@@ -199,9 +198,7 @@ myLogger rfm action = do
   env <- getSession
   diagRef <- liftIO $ newIORef Map.empty
   errRef <- liftIO $ newIORef []
-  ips <- map takeDirectory <$> GM.getMMappedFilePaths
   let setLogger df = df { log_action = logDiag rfm errRef diagRef }
-      setIncludePath df = df { includePaths = ips ++ includePaths df }
       ghcErrRes msg = (Map.empty, [T.pack msg])
       handlers =
         [ GM.GHandler $ \ex ->
@@ -212,7 +209,7 @@ myLogger rfm action = do
             return (Map.empty ,[T.pack (show ex)])
         ]
       action' = do
-        GM.withDynFlags (setIncludePath . setLogger) action
+        GM.withDynFlags setLogger action
         diags <- liftIO $ readIORef diagRef
         errs <- liftIO $ readIORef errRef
         return (diags,errs)
