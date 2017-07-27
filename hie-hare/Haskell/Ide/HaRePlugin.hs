@@ -42,6 +42,7 @@ import           Language.Haskell.Refact.HaRe
 import           Language.Haskell.Refact.Utils.Monad
 import           Language.Haskell.Refact.Utils.MonadFunctions
 import           Name
+import           Outputable ( Outputable )
 import           Packages
 import           Module
 import           TcEnv
@@ -410,7 +411,11 @@ safeTyThingId (AConLike (RealDataCon dc)) = Just $ dataConWrapId dc
 safeTyThingId _ = Nothing
 
 getCompletions :: Uri -> (T.Text, T.Text) -> IdeM (IdeResponse [J.CompletionItem])
-getCompletions file (qualifier,ident) = flip GM.gcatches [(GM.GHandler $ \(ex :: SomeException) -> return $ someErr "getCompletions" (show ex))] $ do
+getCompletions file (qualifier,ident) =
+  let handlers  = [GM.GHandler $ \(ex :: SomeException) ->
+                     return $ someErr "getCompletions" (show ex)
+                  ] in
+  flip GM.gcatches handlers $ do
   debugm $ "got prefix" ++ show (qualifier,ident)
   let noCache = return $ nonExistentCacheErr "getCompletions"
   let modQual = if T.null qualifier then "" else qualifier <> "."
@@ -513,7 +518,8 @@ getSymbolAtPoint file pos = do
   withCachedModuleAndData file noCache $
     \cm NMD{nameMap} ->
       return $ IdeResponseOk
-             $ symbolFromTypecheckedModule nameMap (tcMod cm) =<< newPosToOld cm pos
+             $ newPosToOld cm pos
+             >>= symbolFromTypecheckedModule nameMap (tcMod cm)
 
 symbolFromTypecheckedModule
   :: Map.Map SrcSpan Name
@@ -549,19 +555,21 @@ getReferencesInDoc uri pos = do
                     let kind = if Right r == defn then J.HkWrite else J.HkRead
                     r' <- oldRangeToNew cm r
                     return $ J.DocumentHighlight r' (Just kind)
-                  highlights = mapMaybe makeDocHighlight ranges
+                  highlights = case defn of
+                    Right r -> mapMaybe makeDocHighlight (r:ranges)
+                    _ -> mapMaybe makeDocHighlight ranges
               return highlights
 
 -- ---------------------------------------------------------------------
 
-showQualName :: Located Name -> T.Text
+showQualName :: Outputable a => a -> T.Text
 showQualName = T.pack . showGhcQual
 
-showName :: Located Name -> T.Text
+showName :: Outputable a => a -> T.Text
 showName = T.pack . showGhc
 
-getModule :: DynFlags -> Located Name -> Maybe (Maybe T.Text,T.Text)
-getModule df (L _ n) = do
+getModule :: DynFlags -> Name -> Maybe (Maybe T.Text,T.Text)
+getModule df n = do
   m <- nameModule_maybe n
   let uid = moduleUnitId m
   let pkg = showGhc . packageName <$> lookupPackage df uid

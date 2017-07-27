@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
@@ -40,6 +41,7 @@ import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified GhcMod as GM
 import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
@@ -60,6 +62,9 @@ import           System.Exit
 import           System.FilePath
 import qualified System.Log.Logger as L
 import qualified Yi.Rope as Yi
+
+import SrcLoc
+import Name
 
 -- ---------------------------------------------------------------------
 {-# ANN module ("hlint: ignore Eta reduce" :: String) #-}
@@ -177,9 +182,10 @@ mapFileFromVfs verTVar cin vtdi = do
   mvf <- liftIO $ vfsFunc uri
   case (mvf, uriToFilePath uri) of
     (Just (VFS.VirtualFile _ yitext), Just fp) -> do
-      let text = Yi.toString yitext
+      let text' = Yi.toString yitext
+          -- text = "{-# LINE 1 \"" ++ fp ++ "\"#-}\n" <> text'
       let req = PReq (Just uri) Nothing Nothing (const $ return ())
-                  $ IdeResponseOk <$> GM.loadMappedFileSource fp text
+                  $ IdeResponseOk <$> GM.loadMappedFileSource fp text'
       liftIO $ atomically $ do
         modifyTVar' verTVar (Map.insert uri ver)
         writeTChan cin req
@@ -187,13 +193,15 @@ mapFileFromVfs verTVar cin vtdi = do
     (_, _) -> return ()
 
 unmapFileFromVfs :: (MonadIO m)
-  => TChan PluginRequest -> Uri -> m ()
-unmapFileFromVfs cin uri = do
+  => TVar (Map.Map Uri Int) -> TChan PluginRequest -> Uri -> m ()
+unmapFileFromVfs verTVar cin uri = do
   case uriToFilePath uri of
     Just fp -> do
       let req = PReq (Just uri) Nothing Nothing (const $ return ())
                  $ IdeResponseOk <$> GM.unloadMappedFile fp
-      liftIO $ atomically $ writeTChan cin req
+      liftIO $ atomically $ do
+        modifyTVar' verTVar (Map.delete uri)
+        writeTChan cin req
       return ()
     _ -> return ()
 
@@ -336,11 +344,12 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins cin inp = do
       -- -------------------------------
 
       Core.NotDidOpenTextDocument notification -> do
-        liftIO $ U.logm $ "****** reactor: processing NotDidOpenTextDocument"
+        liftIO $ U.logm "****** reactor: processing NotDidOpenTextDocument"
         let
-            uri = notification ^. J.params . J.textDocument . J.uri
-            ver = (-1)
-        liftIO $ atomically $ modifyTVar' versionTVar (Map.insert uri ver)
+            td  = notification ^. J.params . J.textDocument
+            uri = td ^. J.uri
+            ver = td ^. J.version
+        mapFileFromVfs versionTVar cin $ J.VersionedTextDocumentIdentifier uri ver
         requestDiagnostics cin uri ver
 
       -- -------------------------------
@@ -349,12 +358,11 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins cin inp = do
         liftIO $ U.logm "****** reactor: processing NotDidSaveTextDocument"
         let
             uri = notification ^. J.params . J.textDocument . J.uri
-        unmapFileFromVfs cin uri
         mver <- liftIO $ atomically $ Map.lookup uri <$> readTVar versionTVar
         case mver of
           Just ver -> requestDiagnostics cin uri ver
           Nothing -> do
-            let ver = (-1)
+            let ver = -1
             liftIO $ atomically $ modifyTVar' versionTVar (Map.insert uri ver)
             requestDiagnostics cin uri ver
 
@@ -376,7 +384,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins cin inp = do
         liftIO $ U.logm "****** reactor: processing NotDidCloseTextDocument"
         let
             uri = notification ^. J.params . J.textDocument . J.uri
-        unmapFileFromVfs cin uri
+        -- unmapFileFromVfs versionTVar cin uri
         makeRequest $ PReq (Just uri) Nothing Nothing (const $ return ()) $ do
           deleteCachedModule uri
           return $ IdeResponseOk ()
@@ -404,49 +412,45 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins cin inp = do
         let params = req ^. J.params
             pos = params ^. J.position
             doc = params ^. J.textDocument . J.uri
-        callback <- hieResponseHelper (req ^. J.id) $ \(info,mname,docs) -> do
+        callback <- hieResponseHelper (req ^. J.id) $ \(typ,mname,docs,mrange) -> do
             let
-              docMarked = maybe [] ((:[]) . J.PlainString) docs
-              ht = case info of
-                [] -> J.Hover (J.List docMarked) Nothing
-                xs -> J.Hover (J.List $ ms
-                                    ++ docMarked)
-                              (Just tr)
+              ht = case mrange of
+                Nothing    -> J.Hover (J.List []) Nothing
+                Just range -> J.Hover (J.List hovers)
+                              (Just range)
                   where
-                    ms = map (\ti -> J.CodeString $ J.LanguageString "haskell"
-                                       $ name <> " :: " <> snd ti) xs'
-                    tr = fst $ head xs
+                    hovers = catMaybes [mkTypeHover <$> typ, J.PlainString <$> docs]
+                    mkTypeHover ty =
+                      J.CodeString $ J.LanguageString "haskell"
+                        $ name <> " :: " <> ty
                     name = fromMaybe "_" mname
-                    xs' = take 1 $ map last $ groupBy ((==) `on` fst) xs
               rspMsg = Core.makeResponseMessage req ht
             reactorSend rspMsg
         let hreq = PReq (Just doc) Nothing (Just $ req ^. J.id) callback $ runEitherT $ do
-              info <- EitherT $ GhcMod.newTypeCmd True doc pos
+              info' <- EitherT $ GhcMod.newTypeCmd True doc pos
+              let info = case map last $ groupBy ((==) `on` fst) info' of
+                           (x:_) -> Just x
+                           [] -> Nothing
               mname <- EitherT $ HaRe.getSymbolAtPoint doc pos
-              df <- lift GhcMod.getDynFlags
-              let sname = HaRe.showName <$> mname
-              docs <- case HaRe.getModule df =<< mname of
-                        Nothing -> return Nothing
-                        Just (pkg, modName') -> do
-                            let modName
-                                  | pkg == Just "containers" = fromMaybe modName' (T.stripSuffix ".Base" modName')
-                                  | pkg == Just "base" && modName' `elem` ["GHC.Base"
-                                                                          ,"GHC.Enum"
-                                                                          ,"GHC.Num"
-                                                                          ,"GHC.Real"
-                                                                          ,"GHC.Float"
-                                                                          ,"GHC.Show"] = "Prelude"
-                                  | otherwise = modName'
-                                query = fromJust sname
-                                     <> fromMaybe "" (T.append " package:" <$> pkg)
-                                     <> " module:" <> modName
-                                     <> " is:exact"
-                            liftIO $ U.logs $ "hoogle query: " ++ T.unpack query
-                            res <- lift $ Hoogle.infoCmdFancyRender query
-                            case res of
-                              Right x -> return $ Just x
-                              Left _ -> return Nothing
-              return (info, sname, docs)
+              case mname of
+                Nothing -> case info of
+                  Nothing -> return (Nothing, Nothing, Nothing, Nothing)
+                  Just (r,typ) -> return (Just typ, Nothing, Nothing, Just r)
+                Just (L l name) -> do
+                  let sname = HaRe.showName name
+                  docs <- lift $ getDocsForName name
+                  case (srcSpan2Range l, info) of
+                    (Right r, Just (tr,ty))
+                      | r == tr ->
+                        return (Just ty, Just sname, docs, Just tr)
+                      | otherwise ->
+                        return (Just ty, Nothing   , docs, Just tr)
+                    (Right r, Nothing) ->
+                      return (Nothing, Nothing, docs, Just r)
+                    (Left _, Nothing) ->
+                      return (Nothing, Nothing, Nothing, Nothing)
+                    (Left _, Just (tr,ty)) ->
+                      return (Just ty, Nothing, Nothing, Just tr)
         makeRequest hreq
 
       -- -------------------------------
@@ -627,6 +631,34 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins cin inp = do
         liftIO $ U.logs $ "reactor:got HandlerRequest:" ++ show om
 
 -- ---------------------------------------------------------------------
+docRules :: Maybe T.Text -> T.Text -> T.Text
+docRules (Just "base") "GHC.Base"    = "Prelude"
+docRules (Just "base") "GHC.Enum"    = "Prelude"
+docRules (Just "base") "GHC.Num"     = "Prelude"
+docRules (Just "base") "GHC.Real"    = "Prelude"
+docRules (Just "base") "GHC.Float"   = "Prelude"
+docRules (Just "base") "GHC.Show"    = "Prelude"
+docRules (Just "containers") modName =
+  fromMaybe modName $ T.stripSuffix ".Base" modName
+docRules _ modName = modName
+
+getDocsForName :: Name -> IdeM (Maybe T.Text)
+getDocsForName name = do
+  df <- GhcMod.getDynFlags
+  case HaRe.getModule df name of
+    Nothing -> return Nothing
+    Just (pkg, modName') -> do
+        let modName = docRules pkg modName'
+            query = HaRe.showName name
+                 <> fromMaybe "" (T.append " package:" <$> pkg)
+                 <> " module:" <> modName
+                 <> " is:exact"
+        liftIO $ U.logs $ "hoogle query: " ++ T.unpack query
+        res <- Hoogle.infoCmdFancyRender query
+        case res of
+          Right x -> return $ Just x
+          Left _ -> return Nothing
+-- ---------------------------------------------------------------------
 
   -- get hlint+GHC diagnostics and loads the typechecked module into the cache
 requestDiagnostics :: TChan PluginRequest -> J.Uri -> Int -> R ()
@@ -651,7 +683,11 @@ requestDiagnostics cin file ver = do
                $ GhcMod.setTypecheckedModule file
       callbackg (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
       callbackg (IdeResponseError err) = liftIO $ U.logs $ "got err" ++ show err
-      callbackg (IdeResponseOk     pd) = do
+      callbackg (IdeResponseOk    (pd, errs)) = do
+        forM_ errs $ \e -> do
+          reactorSend $
+            fmServerShowMessageNotification J.MtError
+              $ "Got error while processing diagnostics: " <> e
         let ds = Map.toList $ S.toList <$> pd
         case ds of
           [] -> sendEmpty
