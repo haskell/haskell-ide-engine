@@ -556,7 +556,8 @@ getReferencesInDoc uri pos = do
                     r' <- oldRangeToNew cm r
                     return $ J.DocumentHighlight r' (Just kind)
                   highlights = case defn of
-                    Right r -> mapMaybe makeDocHighlight (r:ranges)
+                    Right r
+                      | not $ isTvOcc $ occName name -> mapMaybe makeDocHighlight (r:ranges)
                     _ -> mapMaybe makeDocHighlight ranges
               return highlights
 
