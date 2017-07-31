@@ -42,6 +42,7 @@ import           Language.Haskell.Refact.HaRe
 import           Language.Haskell.Refact.Utils.Monad
 import           Language.Haskell.Refact.Utils.MonadFunctions
 import           Name
+import           SrcLoc
 import           Outputable ( Outputable )
 import           Packages
 import           Module
@@ -50,6 +51,7 @@ import           HscTypes
 import           Var
 import           ConLike
 import           DataCon
+import           FastString
 import           Haskell.Ide.GhcModPlugin (setTypecheckedModule)
 -- ---------------------------------------------------------------------
 
@@ -539,7 +541,9 @@ getReferencesInDoc uri pos = do
   withCachedModuleAndData uri noCache $
     \cm NMD{nameMap, inverseNameMap} -> runEitherT $ do
       let tc = tcMod cm
-          parsed = pm_parsed_source $ tm_parsed_module tc
+          pm = tm_parsed_module tc
+          parsed = pm_parsed_source pm
+          cfile = ml_hs_file $ ms_location $ pm_mod_summary pm
           mpos = newPosToOld cm pos
       case mpos of
         Nothing -> return []
@@ -548,17 +552,19 @@ getReferencesInDoc uri pos = do
             Nothing -> return []
             Just pn -> do
               let name = rdrName2NamePure nameMap pn
-                  usages = Map.lookup name inverseNameMap
-                  ranges = maybe [] (rights . map srcSpan2Range) usages
-                  defn = srcSpan2Range $ nameSrcSpan name
-                  makeDocHighlight r = do
-                    let kind = if Right r == defn then J.HkWrite else J.HkRead
+                  usages = fromMaybe [] $ Map.lookup name inverseNameMap
+                  defn = nameSrcSpan name
+                  defnInSameFile =
+                    (unpackFS <$> srcSpanFileName_maybe defn) == cfile
+                  makeDocHighlight spn = do
+                    let kind = if spn == defn then J.HkWrite else J.HkRead
+                    r <- either (const Nothing) Just $ srcSpan2Range spn
                     r' <- oldRangeToNew cm r
                     return $ J.DocumentHighlight r' (Just kind)
-                  highlights = case defn of
-                    Right r
-                      | not $ isTvOcc $ occName name -> mapMaybe makeDocHighlight (r:ranges)
-                    _ -> mapMaybe makeDocHighlight ranges
+                  highlights
+                    |    isVarOcc (occName name)
+                      && defnInSameFile = mapMaybe makeDocHighlight (defn : usages)
+                    | otherwise = mapMaybe makeDocHighlight usages
               return highlights
 
 -- ---------------------------------------------------------------------
