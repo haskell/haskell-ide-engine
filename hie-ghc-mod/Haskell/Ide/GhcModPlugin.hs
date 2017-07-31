@@ -226,9 +226,15 @@ setTypecheckedModule uri =
         debugm $ "setTypecheckedModule: Didn't get typechecked module for: " ++ show fp
         return $ IdeResponseOk (diags,errs)
       Just tm -> do
-        let cm = CachedModule tm rfm return return
+        let cm = CachedModule tm (genLocMap tm) rfm return return
         cacheModule uri cm
         return $ IdeResponseOk (diags,errs)
+
+loadEntireProject :: IdeM (Diagnostics, AdditionalErrs)
+loadEntireProject = GM.runGmlT [] $ do
+  targets <- map (moduleNameString . ms_mod_name) <$> getModuleGraph
+  debugm $ "loadEntireProject: targets are " ++ show targets
+  return (Map.empty, [])
 
 -- ---------------------------------------------------------------------
 
