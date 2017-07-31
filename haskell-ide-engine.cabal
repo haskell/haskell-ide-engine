@@ -89,7 +89,7 @@ library
                      , wai
                      , warp
                      , yi-rope
-  ghc-options:         -Wall
+  ghc-options:         -Wall -Wredundant-constraints
   default-language:    Haskell2010
 
 executable hie
@@ -129,7 +129,7 @@ executable hie
                      , transformers
                      , unordered-containers
                      , vinyl
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror
   default-language:    Haskell2010
@@ -182,7 +182,7 @@ test-suite haskell-ide-test
                      , unordered-containers
                      , vinyl
                      , vector
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror
   default-language:    Haskell2010
@@ -221,7 +221,7 @@ test-suite haskell-ide-func-test
                      , transformers
                      , unordered-containers
                      , vinyl
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror
   default-language:    Haskell2010
