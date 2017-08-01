@@ -103,9 +103,9 @@ import           System.Directory
 import           System.FilePath
 
 import qualified Data.IntervalMap.FingerTree as IM
-import qualified GHC.SYB.Utils as SYB
+-- import qualified GHC.SYB.Utils as SYB
 import qualified Data.Generics as SYB
-import qualified Language.Haskell.Refact.Utils.MonadFunctions as HaRe
+-- import qualified Language.Haskell.Refact.Utils.MonadFunctions as HaRe
 
 import qualified GHC           as GHC
 import qualified Var           as Var
@@ -304,37 +304,36 @@ unpackRealSrcSpan rspan =
         c2 = GHC.srcLocCol e
 
 genLocMap :: TypecheckedModule -> LocMap
-genLocMap tm = foldr (uncurry IM.insert) IM.empty names
+genLocMap tm = names
   where
     typechecked = GHC.tm_typechecked_source tm
     renamed = fromJust $ GHC.tm_renamed_source tm
 
     rspToInt = uncurry IM.Interval . unpackRealSrcSpan
 
-    names  = names2 ++ SYB.everything (++) ([] `SYB.mkQ` hsRecFieldT) typechecked
-    names2 = names1 ++ SYB.everything (++) ([] `SYB.mkQ` fieldOcc
-                                               `SYB.extQ` hsRecFieldN) renamed
-    names1 = fromMaybe [] $
-      SYB.everythingStaged SYB.Renamer mappend mempty (HaRe.nameSybQuery checker) renamed
+    names  = IM.union names2 $ SYB.everything IM.union (IM.empty `SYB.mkQ` hsRecFieldT) typechecked
+    names2 = SYB.everything IM.union (IM.empty `SYB.mkQ`  fieldOcc
+                                               `SYB.extQ` hsRecFieldN
+                                               `SYB.extQ` checker) renamed
 
-    checker (GHC.L (GHC.RealSrcSpan r) x) = Just [(rspToInt r, x)]
-    checker _ = Nothing
+    checker (GHC.L (GHC.RealSrcSpan r) x) = IM.singleton (rspToInt r) x
+    checker _ = IM.empty
 
-    fieldOcc :: GHC.FieldOcc GHC.Name -> [(IM.Interval Position, GHC.Name)]
-    fieldOcc (GHC.FieldOcc (GHC.L (GHC.RealSrcSpan r) _) n) = [(rspToInt r, n)]
-    fieldOcc _ = []
+    fieldOcc :: GHC.FieldOcc GHC.Name -> LocMap
+    fieldOcc (GHC.FieldOcc (GHC.L (GHC.RealSrcSpan r) _) n) = IM.singleton (rspToInt r) n
+    fieldOcc _ = IM.empty
 
-    hsRecFieldN :: GHC.LHsExpr GHC.Name -> [(IM.Interval Position, GHC.Name)]
-    hsRecFieldN (GHC.L _ (GHC.HsRecFld (GHC.Unambiguous (GHC.L (GHC.RealSrcSpan r) _) n) )) = [(rspToInt r, n)]
-    hsRecFieldN _ = []
+    hsRecFieldN :: GHC.LHsExpr GHC.Name -> LocMap
+    hsRecFieldN (GHC.L _ (GHC.HsRecFld (GHC.Unambiguous (GHC.L (GHC.RealSrcSpan r) _) n) )) = IM.singleton (rspToInt r) n
+    hsRecFieldN _ = IM.empty
 
-    hsRecFieldT :: GHC.LHsExpr GHC.Id -> [(IM.Interval Position, GHC.Name)]
-    hsRecFieldT (GHC.L _ (GHC.HsRecFld (GHC.Ambiguous (GHC.L (GHC.RealSrcSpan r) _) n) )) = [(rspToInt r,Var.varName n)]
-    hsRecFieldT _ = []
+    hsRecFieldT :: GHC.LHsExpr GHC.Id -> LocMap
+    hsRecFieldT (GHC.L _ (GHC.HsRecFld (GHC.Ambiguous (GHC.L (GHC.RealSrcSpan r) _) n) )) = IM.singleton (rspToInt r) (Var.varName n)
+    hsRecFieldT _ = IM.empty
 
 getIdsAtPos ::Position -> LocMap -> [(Range, GHC.Name)]
 getIdsAtPos p im = map f $ IM.search p im
-  where f ((IM.Interval a b), x) = (Range a b, x)
+  where f (IM.Interval a b, x) = (Range a b, x)
 -- ---------------------------------------------------------------------
 
 cachedModules :: IdeState -> Map.Map Uri CachedModule
