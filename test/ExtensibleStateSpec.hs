@@ -1,17 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 module ExtensibleStateSpec where
 
-import           Control.Concurrent.STM.TChan
-import           Control.Monad.STM
+import           Control.Concurrent
+import           Control.Monad.IO.Class
 import           Data.Aeson
-import qualified Data.Text as T
-import qualified Data.Map as Map
+import qualified Data.Map                            as Map
+import qualified Data.Text                           as T
 import           Data.Typeable
-import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.ExtensibleState
 import           Haskell.Ide.Engine.Monad
+import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.Types
 import           TestUtils
 
 import           Test.Hspec
@@ -23,78 +22,60 @@ spec :: Spec
 spec = do
   describe "ExtensibleState" extensibleStateSpec
 
+dispatchRequest :: ToJSON a => PluginId -> CommandName -> a -> IdeM (IdeResponse Value)
+dispatchRequest plugin com arg = do
+  mv <- liftIO newEmptyMVar
+  runPluginCommand plugin com (toJSON arg) (putMVar mv)
+  liftIO $ takeMVar mv
+
+dispatchRequestP :: IdeM a -> IO a
+dispatchRequestP =
+    runIdeM testOptions (IdeState testPlugins Map.empty Map.empty Map.empty)
+
 extensibleStateSpec :: Spec
-extensibleStateSpec = do
-  describe "stores and retrieves in the state" $ do
+extensibleStateSpec =
+  describe "stores and retrieves in the state" $
     it "stores the first one" $ do
-      chan <- atomically newTChan
-      chSync <- atomically newTChan
-      let req1 = IdeRequest "cmd1" (Map.fromList [])
-          cr1 = CReq "test" 1 req1 chan
-      let req2 = IdeRequest "cmd2" (Map.fromList [])
-          cr2 = CReq "test" 1 req2 chan
-      r <- runIdeM testOptions (IdeState Map.empty Map.empty Map.empty Map.empty)
-        (do
-          r1 <- doDispatch (testPlugins chSync) cr1
-          r2 <- doDispatch (testPlugins chSync) cr2
-          return (r1,r2))
-      fst r `shouldBe` Just (IdeResponseOk (String "result:put foo"))
-      snd r `shouldBe` Just (IdeResponseOk (String "result:got:\"foo\""))
+      r <- dispatchRequestP $ do
+          r1 <- dispatchRequest "test" "cmd1" ()
+          r2 <- dispatchRequest "test" "cmd2" ()
+          return (r1,r2)
+      fst r `shouldBe` IdeResponseOk (String "result:put foo")
+      snd r `shouldBe` IdeResponseOk (String "result:got:\"foo\"")
 
     -- ---------------------------------
 
 -- ---------------------------------------------------------------------
 
-testPlugins :: TChan () -> Plugins
-testPlugins chSync = Map.fromList [("test",testDescriptor chSync)]
+testPlugins :: IdePlugins
+testPlugins = pluginDescToIdePlugins [("test",testDescriptor)]
 
-testDescriptor :: TChan () -> UntaggedPluginDescriptor
-testDescriptor _chSync = PluginDescriptor
+testDescriptor :: PluginDescriptor
+testDescriptor = PluginDescriptor
   {
-    pdUIShortName = "testDescriptor"
-  , pdUIOverview = "PluginDescriptor for testing Dispatcher"
-  , pdCommands =
-      [
-        mkCmdWithContext cmd1 "cmd1" [CtxNone] []
-      , mkCmdWithContext cmd2 "cmd2" [CtxNone] []
+    pluginName = "testDescriptor"
+  , pluginDesc = "PluginDescriptor for testing Dispatcher"
+  , pluginCommands = [
+        PluginCommand "cmd1" "description" cmd1
+      , PluginCommand "cmd2" "description" cmd2
       ]
-  , pdExposedServices = []
-  , pdUsedServices    = []
   }
 
 -- ---------------------------------------------------------------------
 
-cmd1 :: CommandFunc T.Text
-cmd1 = CmdSync $ \_ctxs _req -> do
+cmd1 :: CommandFunc () T.Text
+cmd1 = CmdSync $ \_ -> do
   put (MS1 "foo")
-  return (IdeResponseOk (T.pack $ "result:put foo"))
+  return (IdeResponseOk (T.pack "result:put foo"))
 
-cmd2 :: CommandFunc T.Text
-cmd2 = CmdSync $ \_ctxs _req -> do
+cmd2 :: CommandFunc () T.Text
+cmd2 = CmdSync $ \_ -> do
   (MS1 v) <- get
   return (IdeResponseOk (T.pack $ "result:got:" ++ show v))
 
-data MyState1 = MS1 T.Text deriving Typeable
+newtype MyState1 = MS1 T.Text deriving Typeable
 
 instance ExtensionClass MyState1 where
   initialValue = MS1 "initial"
-
--- ---------------------------------------------------------------------
-
-mkCmdWithContext ::(ValidResponse a)
-                 => CommandFunc a -> CommandName -> [AcceptedContext] -> [ParamDescription] -> UntaggedCommand
-mkCmdWithContext cmd n cts pds =
-        Command
-          { cmdDesc = CommandDesc
-                        { cmdName = n
-                        , cmdUiDescription = "description"
-                        , cmdFileExtensions = []
-                        , cmdContexts = cts
-                        , cmdAdditionalParams = pds
-                        , cmdReturnType = "Text"
-                        , cmdSave = SaveNone
-                        }
-          , cmdFunc = cmd
-          }
 
 -- ---------------------------------------------------------------------

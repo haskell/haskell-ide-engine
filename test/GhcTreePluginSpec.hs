@@ -1,14 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 module GhcTreePluginSpec where
 
-import           Control.Concurrent.STM.TChan
-import           Control.Monad.STM
+import           Control.Concurrent
 import           Data.Aeson
-import qualified Data.Map as Map
-import           Haskell.Ide.Engine.Dispatcher
+import qualified Data.Map                            as Map
 import           Haskell.Ide.Engine.Monad
+import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.GhcTreePlugin
 import           TestUtils
 
@@ -30,18 +28,17 @@ spec = describe "ghc-tree plugin" ghctreeSpec
 
 -- ---------------------------------------------------------------------
 
-testPlugins :: Plugins
-testPlugins = Map.fromList [("ghctree",untagPluginDescriptor ghcTreeDescriptor)]
+testPlugins :: IdePlugins
+testPlugins = pluginDescToIdePlugins [("ghctree",ghcTreeDescriptor)]
 
--- TODO: break this out into a TestUtils file
-dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Value))
-dispatchRequest req = do
-  testChan <- atomically newTChan
-  let cr = CReq "ghctree" 1 req testChan
-  runIdeM testOptions (IdeState Map.empty Map.empty Map.empty Map.empty) (doDispatch testPlugins cr)
+dispatchRequest :: ToJSON a => PluginId -> CommandName -> a -> IO (IdeResponse Value)
+dispatchRequest plugin com arg = do
+  mv <- newEmptyMVar
+  dispatchRequestP $ runPluginCommand plugin com (toJSON arg) (putMVar mv)
+  takeMVar mv
 
 dispatchRequestP :: IdeM a -> IO a
-dispatchRequestP = runIdeM testOptions (IdeState Map.empty Map.empty Map.empty Map.empty)
+dispatchRequestP = runIdeM testOptions (IdeState testPlugins Map.empty Map.empty Map.empty)
 
 -- ---------------------------------------------------------------------
 
@@ -50,17 +47,17 @@ ghctreeSpec :: Spec
 ghctreeSpec = do
   describe "ghc-tree plugin commands(old plugin api)" $ do
     it "runs the trees command" $ do
-      let req = IdeRequest "trees" (Map.fromList [("file", ParamFileP $ filePathToUri "./ApplyRefact.hs")])
-      r <- cdAndDo "./test/testdata" (dispatchRequest req)
+      let req = filePathToUri "./ApplyRefact.hs"
+      r <- cdAndDo "./test/testdata" (dispatchRequest "ghctree" "trees" req)
       case r of
-        Just (IdeResponseFail f) -> fail $ show f
-        Just (IdeResponseError e) -> fail $ show e
-        _ -> return ()
+        (IdeResponseFail f)  -> fail $ show f
+        (IdeResponseError e) -> fail $ show e
+        _                    -> return ()
   describe "ghc-tree plugin commands(new plugin api)" $ do
     it "runs the trees command" $ do
       let req = treesCmd (filePathToUri "./ApplyRefact.hs")
       r <- cdAndDo "./test/testdata" (dispatchRequestP req)
       case r of
-        IdeResponseFail f -> fail $ show f
+        IdeResponseFail f  -> fail $ show f
         IdeResponseError e -> fail $ show e
-        _ -> return ()
+        _                  -> return ()

@@ -1,32 +1,24 @@
-{-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
-
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.BrittanyPlugin where
 
-import           Data.Aeson
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
-import           Data.Text (Text)
-import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.PluginUtils
-import           Control.Monad.IO.Class
-import           Language.Haskell.Brittany
-import qualified GhcMod.Utils as GM
-import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 import           Control.Lens
+import           Control.Monad.IO.Class
+import           Data.Aeson
 import           Data.Coerce
 import           Data.Semigroup
+import           Data.Text                             (Text)
+import qualified Data.Text                             as T
+import qualified Data.Text.IO                          as T
+import qualified GhcMod.Utils                          as GM
+import           Haskell.Ide.Engine.MonadTypes
+import           Haskell.Ide.Engine.PluginUtils
+import           Language.Haskell.Brittany
+import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 
 
 brittanyCmd :: Int -> TextDocumentIdentifier -> Maybe Range -> IdeM (IdeResponse [J.TextEdit])
 brittanyCmd tabSize tdi range =
-  pluginGetFile "brittanyCmd: " (tdi ^. J.uri) $ \file -> do
+  pluginGetFile "brittanyCmd: " (tdi ^. J.uri) $ \file ->
     case range of
       Just r -> do
         text <- GM.withMappedFile file $ liftIO . T.readFile
@@ -46,7 +38,7 @@ brittanyCmd tabSize tdi range =
           Right newText -> do
             let startPos = Position 0 0
                 endPos = toPos (l,c+1)
-                l = length $ textLines
+                l = length textLines
                 c = T.length $ last textLines
                 textLines = T.lines text
                 textEdit = J.TextEdit (Range startPos endPos) newText
@@ -74,9 +66,9 @@ runBrittany tabSize text = do
   parsePrintModule config text
 
 showErr :: BrittanyError -> String
-showErr (ErrorInput s) = s
+showErr (ErrorInput s)         = s
 showErr (ErrorUnusedComment s) = s
-showErr (LayoutWarning s) = s
+showErr (LayoutWarning s)      = s
 showErr (ErrorUnknownNode s _) = s
-showErr ErrorOutputCheck = "Brittany error - invalid output"
+showErr ErrorOutputCheck       = "Brittany error - invalid output"
 

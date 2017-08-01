@@ -1,20 +1,18 @@
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE DuplicateRecordFields   #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedStrings     #-}
 module HaRePluginSpec where
 
-import           Control.Concurrent.STM.TChan
-import           Control.Monad.STM
+import           Control.Concurrent
 import           Data.Aeson
-import qualified Data.Map                            as Map
-import           Haskell.Ide.Engine.Dispatcher
+import qualified Data.HashMap.Strict                   as H
+import qualified Data.Map                              as Map
 import           Haskell.Ide.Engine.Monad
+import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.SemanticTypes
-import           Haskell.Ide.Engine.Types
-import           Haskell.Ide.HaRePlugin
+import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.GhcModPlugin
+import           Haskell.Ide.HaRePlugin
 import           Language.Haskell.LSP.TH.DataTypesJSON
-import qualified Data.HashMap.Strict as H
 import           System.Directory
 import           System.FilePath
 import           TestUtils
@@ -41,26 +39,25 @@ spec = do
 
 -- ---------------------------------------------------------------------
 
-testPlugins :: Plugins
-testPlugins = Map.fromList [("hare",untagPluginDescriptor hareDescriptor)]
+testPlugins :: IdePlugins
+testPlugins = pluginDescToIdePlugins [("hare",hareDescriptor)]
 
 -- TODO: break this out into a TestUtils file
-dispatchRequest :: IdeRequest -> IO (Maybe (IdeResponse Value))
-dispatchRequest req = do
-  testChan <- atomically newTChan
-  let cr = CReq "hare" 1 req testChan
-  cdAndDo "./test/testdata"
-    $ runIdeM testOptions (IdeState Map.empty Map.empty Map.empty Map.empty) (doDispatch testPlugins cr)
+dispatchRequest :: ToJSON a => PluginId -> CommandName -> a -> IO (IdeResponse Value)
+dispatchRequest plugin com arg = do
+  mv <- newEmptyMVar
+  dispatchRequestP $ runPluginCommand plugin com (toJSON arg) (putMVar mv)
+  takeMVar mv
 
 dispatchRequestP :: IdeM a -> IO a
 dispatchRequestP =
   cdAndDo "./test/testdata"
-    . runIdeM testOptions (IdeState Map.empty Map.empty Map.empty Map.empty)
+    . runIdeM testOptions (IdeState testPlugins Map.empty Map.empty Map.empty)
 
 dispatchRequestPGoto :: IdeM a -> IO a
 dispatchRequestPGoto =
   cdAndDo "./test/testdata/gototest"
-    . runIdeM testOptions (IdeState Map.empty Map.empty Map.empty Map.empty)
+    . runIdeM testOptions (IdeState testPlugins Map.empty Map.empty Map.empty)
 
 -- ---------------------------------------------------------------------
 
@@ -72,144 +69,130 @@ hareSpec = do
 
     it "renames" $ do
 
-      let req = IdeRequest "rename" (Map.fromList [("file",ParamFileP $ filePathToUri "./HaReRename.hs")
-                                                  ,("start_pos",ParamPosP (toPos (5,1)))
-                                                  ,("name",ParamTextP "foolong")])
-      r <- dispatchRequest req
+      let req = HPT (filePathToUri "./HaReRename.hs") (toPos (5,1)) "foolong"
+      r <- dispatchRequest "hare" "rename" req
       r `shouldBe`
-        Just (IdeResponseOk
-              $ toJSON
-              $ WorkspaceEdit
-                (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReRename.hs")
-                                    $ List [TextEdit (Range (Position 3 0) (Position 4 13))
-                                              "foolong :: Int -> Int\nfoolong x = x + 3"])
-                Nothing )
+        (IdeResponseOk
+         $ toJSON
+         $ WorkspaceEdit
+           (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReRename.hs")
+                               $ List [TextEdit (Range (Position 3 0) (Position 4 13))
+                                         "foolong :: Int -> Int\nfoolong x = x + 3"])
+           Nothing )
 
     -- ---------------------------------
 
     it "returns an error for invalid rename" $ do
-      let req = IdeRequest "rename" (Map.fromList [("file",ParamFileP $ filePathToUri "./HaReRename.hs")
-                                                  ,("start_pos",ParamPosP (toPos (15,1)))
-                                                  ,("name",ParamTextP "foolong")])
-      r <- dispatchRequest req
-      r `shouldBe` Just (IdeResponseFail
+      let req = HPT (filePathToUri "./HaReRename.hs") (toPos (15,1)) "foolong"
+      r <- dispatchRequest "hare" "rename" req
+      r `shouldBe` (IdeResponseFail
                       IdeError { ideCode = PluginError
                                 , ideMessage = "rename: \"Invalid cursor position!\"", ideInfo = Null})
 
     -- ---------------------------------
 
     it "demotes" $ do
-      let req = IdeRequest "demote" (Map.fromList [("file",ParamFileP $ filePathToUri "./HaReDemote.hs")
-                                                  ,("start_pos",ParamPosP (toPos (6,1)))])
-      r <- dispatchRequest req
-      -- r `shouldBe` Just (IdeResponseOk (H.fromList ["refactor" .= ["test/testdata/HaReDemote.hs"::FilePath]]))
+      let req = HP (filePathToUri "./HaReDemote.hs") (toPos (6,1))
+      r <- dispatchRequest "hare" "demote" req
       r `shouldBe`
-        Just (IdeResponseOk
-              $ toJSON
-              $ WorkspaceEdit
-                (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReDemote.hs")
-                                    $ List [TextEdit (Range (Position 4 0) (Position 5 5))
-                                              "  where\n    y = 7"])
-                Nothing)
+        (IdeResponseOk
+         $ toJSON
+         $ WorkspaceEdit
+           (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReDemote.hs")
+                               $ List [TextEdit (Range (Position 4 0) (Position 5 5))
+                                         "  where\n    y = 7"])
+           Nothing)
 
     -- ---------------------------------
 
     it "duplicates a definition" $ do
 
-      let req = IdeRequest "dupdef" (Map.fromList [("file",ParamFileP $ filePathToUri "./HaReRename.hs")
-                                                  ,("start_pos",ParamPosP (toPos (5,1)))
-                                                  ,("name",ParamTextP "foonew")])
-      r <- dispatchRequest req
+      let req = HPT (filePathToUri "./HaReRename.hs") (toPos (5,1)) "foonew"
+      r <- dispatchRequest "hare" "dupdef" req
       r `shouldBe`
-        Just (IdeResponseOk
-              $ toJSON
-              $ WorkspaceEdit
-                (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReRename.hs")
-                                    $ List [TextEdit (Range (Position 6 0) (Position 8 0))
-                                              "foonew :: Int -> Int\nfoonew x = x + 3\n\n"])
-                Nothing)
+        (IdeResponseOk
+         $ toJSON
+         $ WorkspaceEdit
+           (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReRename.hs")
+                               $ List [TextEdit (Range (Position 6 0) (Position 8 0))
+                                         "foonew :: Int -> Int\nfoonew x = x + 3\n\n"])
+           Nothing)
 
     -- ---------------------------------
 
     it "converts if to case" $ do
 
-      let req = IdeRequest "iftocase" (Map.fromList [("file",ParamFileP $ filePathToUri "./HaReCase.hs")
-                                                    ,("start_pos",ParamPosP (toPos (5,9)))
-                                                    ,("end_pos",  ParamPosP (toPos (9,12))) ])
-      r <- dispatchRequest req
+      let req = HR (filePathToUri "./HaReCase.hs") (toPos (5,9)) (toPos (9,12))
+      r <- dispatchRequest "hare" "iftocase" req
       r `shouldBe`
-        Just (IdeResponseOk
-              $ toJSON
-              $ WorkspaceEdit
-                (Just
-                 $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReCase.hs")
-                               $ List [TextEdit (Range (Position 4 0) (Position 8 11))
-                                       "foo x = case odd x of\n  True  ->\n    x + 3\n  False ->\n    x"])
-                Nothing)
+        (IdeResponseOk
+         $ toJSON
+         $ WorkspaceEdit
+           (Just
+            $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReCase.hs")
+                          $ List [TextEdit (Range (Position 4 0) (Position 8 11))
+                                  "foo x = case odd x of\n  True  ->\n    x + 3\n  False ->\n    x"])
+           Nothing)
 
     -- ---------------------------------
 
     it "lifts one level" $ do
 
-      let req = IdeRequest "liftonelevel" (Map.fromList [("file",ParamFileP $ filePathToUri "./HaReMoveDef.hs")
-                                                        ,("start_pos",ParamPosP (toPos (6,5)))])
-      r <- dispatchRequest req
+      let req = HP (filePathToUri "./HaReMoveDef.hs") (toPos (6,5))
+      r <- dispatchRequest "hare" "liftonelevel" req
       r `shouldBe`
-        Just (IdeResponseOk
-              $ toJSON
-              $ WorkspaceEdit
-                (Just $ H.singleton
-                  ( filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs" )
-                  $ List [TextEdit (Range (Position 4 0) (Position 5 9)) ""
-                         ,TextEdit (Range (Position 5 0) (Position 6 0)) "y = 4\n\n"])
-                Nothing)
+        (IdeResponseOk
+         $ toJSON
+         $ WorkspaceEdit
+           (Just $ H.singleton
+             ( filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs" )
+             $ List [TextEdit (Range (Position 4 0) (Position 5 9)) ""
+                    ,TextEdit (Range (Position 5 0) (Position 6 0)) "y = 4\n\n"])
+           Nothing)
 
     -- ---------------------------------
 
     it "lifts to top level" $ do
 
-      let req = IdeRequest "lifttotoplevel" (Map.fromList [("file",ParamFileP $ filePathToUri "./HaReMoveDef.hs")
-                                                          ,("start_pos",ParamPosP (toPos (12,9)))])
-      r <- dispatchRequest req
+      let req = HP (filePathToUri "./HaReMoveDef.hs") (toPos (12,9))
+      r <- dispatchRequest "hare" "lifttotoplevel" req
       r `shouldBe`
-        Just (IdeResponseOk
-              $ toJSON
-              $ WorkspaceEdit
-               (Just $ H.singleton
-                  ( filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs")
-                  $ List [TextEdit (Range (Position 10 0) (Position 11 13)) ""
-                         ,TextEdit (Range (Position 11 0) (Position 11 5)) "z = 7\n"
-                         ,TextEdit (Range (Position 13 0) (Position 13 0)) "\n"])
-               Nothing)
+        (IdeResponseOk
+         $ toJSON
+         $ WorkspaceEdit
+          (Just $ H.singleton
+             ( filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs")
+             $ List [TextEdit (Range (Position 10 0) (Position 11 13)) ""
+                    ,TextEdit (Range (Position 11 0) (Position 11 5)) "z = 7\n"
+                    ,TextEdit (Range (Position 13 0) (Position 13 0)) "\n"])
+          Nothing)
 
     -- ---------------------------------
 
     it "deletes a definition" $ do
-      let req = IdeRequest "deletedef" (Map.fromList [("file",ParamFileP $ filePathToUri "./FuncTest.hs")
-                                                  ,("start_pos",ParamPosP (toPos (6,1)))])
-      r <- dispatchRequest req
+      let req = HP (filePathToUri "./FuncTest.hs") (toPos (6,1))
+      r <- dispatchRequest "hare" "deletedef" req
       r `shouldBe`
-        Just (IdeResponseOk
-              $ toJSON
-              $ WorkspaceEdit
-               (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/FuncTest.hs")
-                                   $ List [TextEdit (Range (Position 4 0) (Position 6 0)) ""])
-               Nothing)
+        (IdeResponseOk
+         $ toJSON
+         $ WorkspaceEdit
+          (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/FuncTest.hs")
+                              $ List [TextEdit (Range (Position 4 0) (Position 6 0)) ""])
+          Nothing)
 
     -- ---------------------------------
 
     it "generalises an applicative" $ do
-      let req = IdeRequest "genapplicative" (Map.fromList [("file",ParamFileP $ filePathToUri "./HaReGA1.hs")
-                                                          ,("start_pos",ParamPosP (toPos (4,1)))])
-      r <- dispatchRequest req
+      let req = HP (filePathToUri "./HaReGA1.hs") (toPos (4,1))
+      r <- dispatchRequest "hare" "genapplicative" req
       r `shouldBe`
-        Just (IdeResponseOk
-             $ toJSON
-             $ WorkspaceEdit
-               (Just $ H.singleton ( filePathToUri $ cwd </> "test/testdata/HaReGA1.hs" )
-                                   $ List [TextEdit (Range (Position 4 0) (Position 8 12))
-                                            "parseStr = char '\"' *> (many1 (noneOf \"\\\"\")) <* char '\"'"])
-               Nothing)
+        (IdeResponseOk
+        $ toJSON
+        $ WorkspaceEdit
+          (Just $ H.singleton ( filePathToUri $ cwd </> "test/testdata/HaReGA1.hs" )
+                              $ List [TextEdit (Range (Position 4 0) (Position 8 12))
+                                       "parseStr = char '\"' *> (many1 (noneOf \"\\\"\")) <* char '\"'"])
+          Nothing)
 
     -- ---------------------------------
 

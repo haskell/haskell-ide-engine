@@ -20,20 +20,14 @@ library
   build-depends:       base >= 4.9 && < 5
                      , aeson
                      , apply-refact
-                     , containers
-                     , directory
                      , either
                      , extra
-                     , filepath
                      , ghc-mod
                      , haskell-src-exts
                      , hie-base
                      , hie-plugin-api
                      , hlint >= 2.0.8
-                     , refact
                      , text
-                     , transformers
-                     , vinyl >= 0.5
   ghc-options:         -Wall
   if flag(pedantic)
      ghc-options:      -Werror

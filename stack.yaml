@@ -4,7 +4,6 @@ packages:
 - hie-apply-refact
 - hie-base
 - hie-build-plugin
-- hie-docs-generator
 - hie-eg-plugin-async
 - hie-example-plugin2
 - hie-ghc-mod
@@ -43,10 +42,10 @@ packages:
     git: https://github.com/alanz/brittany.git
     commit: 33eed86851472707d7b9bf94a177228bc8d2df9b
   extra-dep: true
-- location:
-    git: https://github.com/wz1000/hoogle.git
-    commit: a1fb4ec702f61d0746f07dd10e1443800cbef66c
-  extra-dep: true
+# - location:
+#     git: https://github.com/wz1000/hoogle.git
+#     commit: a1fb4ec702f61d0746f07dd10e1443800cbef66c
+#   extra-dep: true
 
 extra-deps:
 - apply-refact-0.3.0.1
@@ -56,8 +55,7 @@ extra-deps:
 - data-tree-print-0.1.0.0
 - deque-0.2
 - monad-memo-0.4.1
-- pipes-aeson-0.4.1.8
-- pipes-network-0.6.4.1
+- hoogle-5.0.13
 # - hspec-jenkins-0.1.1
 flags:
   haskell-ide-engine:
@@ -65,8 +63,6 @@ flags:
   hie-apply-refact:
     pedantic: true
   hie-base:
-    pedantic: true
-  hie-docs-generator:
     pedantic: true
   hie-eg-plugin-async:
     pedantic: true

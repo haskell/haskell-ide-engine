@@ -25,7 +25,6 @@ import Data.IORef
 import Data.Monoid
 import Data.Text as T
 import Data.Time
-import Prelude hiding (log)
 import System.IO.Unsafe
 import System.Log.FastLogger
 
@@ -166,5 +165,3 @@ loggingLogger !loc !lvl !src str = do
 isDefaultLoc :: Loc -> Bool
 isDefaultLoc (Loc "<unknown>" "<unknown>" "<unknown>" (0,0) (0,0)) = True
 isDefaultLoc _ = False
-
--- EOF

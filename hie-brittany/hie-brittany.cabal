@@ -19,17 +19,10 @@ library
   exposed-modules:     Haskell.Ide.BrittanyPlugin
   build-depends:       base >= 4.9 && < 5
                      , hie-plugin-api
-                     , hie-base
                      , aeson
-                     , directory
-                     , vinyl
-                     , ghc
-                     , containers
                      , text
-                     , transformers
                      , brittany
                      , ghc-mod
-                     , ghc-boot
                      , haskell-lsp
                      , lens
   ghc-options:         -Wall

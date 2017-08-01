@@ -1,8 +1,4 @@
-{-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
-
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 module Haskell.Ide.ExamplePluginAsync where
 
@@ -11,27 +7,24 @@ import           Control.Concurrent.STM.TChan
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Data.Monoid
-import qualified Data.Text as T
+import qualified Data.Text                          as T
 import           Haskell.Ide.Engine.ExtensibleState
 import           Haskell.Ide.Engine.MonadFunctions
-import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.MonadTypes
 
 -- ---------------------------------------------------------------------
 
-exampleAsyncDescriptor :: TaggedPluginDescriptor _
+exampleAsyncDescriptor :: PluginDescriptor
 exampleAsyncDescriptor = PluginDescriptor
   {
-    pdUIShortName = "Async Example"
-  , pdUIOverview = "An example HIE plugin using multiple/async processes"
-  , pdCommands =
-         buildCommand (longRunningCmdSync Cmd1) (Proxy :: Proxy "cmd1")
-                      "Long running synchronous command" [] (SCtxNone :& RNil) RNil SaveNone
-      :& buildCommand (longRunningCmdSync Cmd2) (Proxy :: Proxy "cmd2")
-                      "Long running synchronous command" [] (SCtxNone :& RNil) RNil SaveNone
-      :& buildCommand (streamingCmdAsync (CmdA 3 100)) (Proxy :: Proxy "cmdA3") "Long running async/streaming command" [] (SCtxNone :& RNil) RNil SaveNone
-      :& RNil
-  , pdExposedServices = []
-  , pdUsedServices    = []
+    pluginName = "Async Example"
+  , pluginDesc = "An example HIE plugin using multiple/async processes"
+  , pluginCommands =
+      [ PluginCommand "cmd1" "Long running synchronous command" (longRunningCmdSync Cmd1)
+      , PluginCommand "cmd2" "Long running synchronous command" (longRunningCmdSync Cmd2)
+      , PluginCommand  "cmdA3" "Long running async/streaming command"
+          (streamingCmdAsync (CmdA 3 100))
+      ]
   }
 
 -- ---------------------------------------------------------------------
@@ -52,7 +45,7 @@ data SubProcess = SubProcess
   }
 
 -- | Wrap it in a Maybe for pure initialisation
-data AsyncPluginState = APS (Maybe SubProcess)
+newtype AsyncPluginState = APS (Maybe SubProcess)
 
 -- | Tag the state variable to enable it to be stored in the dispatcher state,
 -- accessible to all plugins, provided they know the type, as it is accessed via
@@ -63,8 +56,8 @@ instance ExtensionClass AsyncPluginState where
 -- ---------------------------------------------------------------------
 
 -- | This command manages interaction with a separate process, doing stuff.
-longRunningCmdSync :: WorkerCmd -> CommandFunc T.Text
-longRunningCmdSync cmd = CmdSync $ \_ctx _req -> do
+longRunningCmdSync :: WorkerCmd -> CommandFunc () T.Text
+longRunningCmdSync cmd = CmdSync $ \() -> do
   SubProcess cin cout _tid <- ensureProcessRunning
   liftIO $ atomically $ writeTChan cin cmd
   res <- liftIO $ atomically $ readTChan cout
@@ -78,7 +71,7 @@ longRunningCmdSync cmd = CmdSync $ \_ctx _req -> do
 ensureProcessRunning :: IdeM SubProcess
 ensureProcessRunning = do
   (APS v) <- get -- from extensible state
-  sp <- case v of
+  case v of
     Nothing -> do
       cin  <- liftIO $ atomically newTChan
       cout <- liftIO $ atomically newTChan
@@ -87,7 +80,6 @@ ensureProcessRunning = do
       put (APS (Just v')) -- into extensible state
       return v'
     Just v' -> return v'
-  return sp
 
 -- ---------------------------------------------------------------------
 
@@ -111,8 +103,8 @@ workerProc cin cout = loop 1
 -- ---------------------------------------------------------------------
 
 -- | This command manages interaction with a separate process, doing stuff.
-streamingCmdAsync :: WorkerCmdAsync -> CommandFunc T.Text
-streamingCmdAsync cmd = CmdAsync $ \replyFunc _ctx _req -> do
+streamingCmdAsync :: WorkerCmdAsync -> CommandFunc () T.Text
+streamingCmdAsync cmd = CmdAsync $ \replyFunc () -> do
   tid <- liftIO $ forkIO (workerProcAsync cmd replyFunc)
   debugm $ "streamingCmdAsync:launched worker as " ++ show tid
   let tidStr = T.pack (show tid ++ ":")

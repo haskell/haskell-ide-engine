@@ -19,11 +19,8 @@ library
   exposed-modules:     Haskell.Ide.ExamplePluginAsync
   build-depends:       base >= 4.9 && < 5
                      , hie-plugin-api
-                     , aeson
-                     , containers
                      , stm
                      , text
-                     , transformers
   ghc-options:         -Wall
   if flag(pedantic)
      ghc-options:      -Werror

@@ -1,28 +1,129 @@
-{-# LANGUAGE ScopedTypeVariables #-}
--- |Provide a protocol adapter/transport for JSON over stdio
+{-# LANGUAGE DeriveAnyClass        #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
-module Haskell.Ide.Engine.Transport.JsonStdio where
+module Haskell.Ide.Engine.Transport.JsonStdio
+  (
+    jsonStdioTransport
+  ) where
 
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
-import           Control.Monad.IO.Class
+import           Control.Concurrent.STM.TVar
+import qualified Control.Exception                     as E
+import           Control.Monad
 import           Control.Monad.STM
-import           Haskell.Ide.Engine.Transport.Pipes
+import qualified Data.Aeson                            as J
+import qualified Data.ByteString.Builder               as B
+import qualified Data.ByteString.Lazy.Char8            as B
+import qualified Data.Map                              as Map
+import           Data.Monoid
+import qualified Data.Set                              as S
+import qualified Data.Text                             as T
+import           GHC.Generics
+import           Haskell.Ide.Engine.Dispatcher
+import           Haskell.Ide.Engine.MonadTypes
+import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
-import qualified Pipes as P
-import qualified Pipes.ByteString as PB
-import qualified Pipes.Prelude as P
+import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
+import           System.Exit
 import           System.IO
+import qualified System.Log.Logger                     as L
 
--- TODO: Can pass in a handle, then it is general
-jsonStdioTransport :: Bool -> TChan ChannelRequest -> IO ()
-jsonStdioTransport oneShot cin = do
-  cout <- atomically newTChan :: IO (TChan ChannelResponse)
-  hSetBuffering stdout NoBuffering
-  _ <- forkIO $ P.runEffect (parseFrames PB.stdin P.>-> parseToJsonPipe oneShot cin cout 1)
-  P.runEffect (tchanProducer oneShot cout P.>-> encodePipe P.>-> serializePipe P.>-> PB.stdout)
+-- ---------------------------------------------------------------------
 
+{-# ANN module ("hlint: ignore Eta reduce" :: String) #-}
+{-# ANN module ("hlint: ignore Redundant do" :: String) #-}
 
--- to help with type inference
-printTest :: (MonadIO m) => P.Consumer' [Int] m r
-printTest = P.print
+-- ---------------------------------------------------------------------
+
+jsonStdioTransport :: (DispatcherEnv -> IO ()) -> TChan PluginRequest -> IO ()
+jsonStdioTransport hieDispatcherProc cin = do
+  run hieDispatcherProc cin >>= \case
+    0 -> exitSuccess
+    c -> exitWith . ExitFailure $ c
+
+-- ---------------------------------------------------------------------
+
+data ReactorInput =
+  ReactorInput
+  { reqId   :: Int
+  , plugin  :: T.Text
+  , command :: T.Text
+  , context :: Maybe J.Uri
+  , arg     :: J.Value
+  } deriving (Eq, Show, Generic, J.ToJSON, J.FromJSON)
+
+data ReactorOutput = ReactorOutput
+  { resId    :: Int
+  , response :: IdeResponse J.Value
+  } deriving (Eq, Show, Generic, J.ToJSON, J.FromJSON)
+
+run :: (DispatcherEnv -> IO ()) -> TChan PluginRequest -> IO Int
+run dispatcherProc cin = flip E.catches handlers $ do
+  flip E.finally finalProc $ do
+
+    rout <- atomically newTChan :: IO (TChan ReactorOutput)
+    cancelTVar <- atomically $ newTVar S.empty
+    wipTVar <- atomically $ newTVar S.empty
+    versionTVar <- atomically $ newTVar Map.empty
+    let dispatcherEnv = DispatcherEnv
+          { cancelReqsTVar = cancelTVar
+          , wipReqsTVar    = wipTVar
+          , docVersionTVar = versionTVar
+          }
+
+    _opid <- forkIO $ outWriter rout
+    _rpid <- forkIO $ reactor rout
+    dispatcherProc dispatcherEnv
+    return 0
+
+  where
+    handlers = [ E.Handler ioExcept
+               , E.Handler someExcept
+               ]
+    finalProc = L.removeAllHandlers
+    ioExcept   (e :: E.IOException)       = print e >> return 1
+    someExcept (e :: E.SomeException)     = print e >> return 1
+
+    outWriter rout = forever $ do
+      out <- atomically $ readTChan rout
+      B.putStr $ J.encode out
+
+    reactor rout =
+      let sendResponse rid resp = atomically $ writeTChan rout (ReactorOutput rid resp) in
+      forever $ do
+        req <- getNextReq
+        let preq = PReq (context req) Nothing (Just $ J.IdInt rid) (const $ return ())
+              $ runPluginCommand (plugin req) (command req) (arg req) callback
+            rid = reqId req
+            callback = sendResponse rid
+        atomically $ writeTChan cin preq
+
+getNextReq :: IO ReactorInput
+getNextReq = do
+  mbs <- fmap B.toLazyByteString <$> readReqByteString
+  case mbs of
+    -- EOF
+    Nothing -> exitSuccess
+    Just bs -> case J.eitherDecode bs of
+      Left err  -> do
+        hPutStrLn stderr $ "Couldn't parse" ++ B.unpack bs ++ "\n got error" ++ show err
+        getNextReq
+      Right req -> return req
+  where
+    readReqByteString = do
+      eof <- isEOF
+      if eof then
+        return Nothing
+      else do
+        char <- getChar
+        if char == '\STX' then
+          return $ Just ""
+        else do
+          rest <- readReqByteString
+          let cur = B.charUtf8 char
+          return $ Just $ maybe cur (cur <>) rest
