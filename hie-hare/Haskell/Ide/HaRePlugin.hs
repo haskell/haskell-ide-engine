@@ -42,6 +42,7 @@ import           Language.Haskell.Refact.HaRe
 import           Language.Haskell.Refact.Utils.Monad
 import           Language.Haskell.Refact.Utils.MonadFunctions
 import           Name
+import           SrcLoc
 import           Outputable ( Outputable )
 import           Packages
 import           Module
@@ -50,6 +51,7 @@ import           HscTypes
 import           Var
 import           ConLike
 import           DataCon
+import           FastString
 import           Haskell.Ide.GhcModPlugin (setTypecheckedModule)
 -- ---------------------------------------------------------------------
 
@@ -264,15 +266,14 @@ someErr meth err =
 -- ---------------------------------------------------------------------
 
 data NameMapData = NMD
-  { nameMap        :: !(Map.Map SrcSpan Name)
-  , inverseNameMap ::  Map.Map Name [SrcSpan]
+  { inverseNameMap ::  !(Map.Map Name [SrcSpan])
   } deriving (Typeable)
 
 invert :: (Ord k, Ord v) => Map.Map k v -> Map.Map v [k]
 invert m = Map.fromListWith (++) [(v,[k]) | (k,v) <- Map.toList m]
 
 instance ModuleCache NameMapData where
-  cacheDataProducer cm = pure $ NMD nm inm
+  cacheDataProducer cm = pure $ NMD inm
     where nm  = initRdrNameMap $ tcMod cm
           inm = invert nm
 
@@ -420,8 +421,8 @@ getCompletions file (qualifier,ident) =
   let noCache = return $ nonExistentCacheErr "getCompletions"
   let modQual = if T.null qualifier then "" else qualifier <> "."
   let fullPrefix = modQual <> ident
-  withCachedModuleAndData file noCache $
-    \cm () -> do
+  withCachedModule file noCache $
+    \cm -> do
       let tm = tcMod cm
           parsedMod = tm_parsed_module tm
           curMod = moduleName $ ms_mod $ pm_mod_summary parsedMod
@@ -512,24 +513,21 @@ getCompletions file (qualifier,ident) =
       return $ IdeResponseOk $ modCompls ++ map mkCompl comps
 -- ---------------------------------------------------------------------
 
-getSymbolAtPoint :: Uri -> Position -> IdeM (IdeResponse (Maybe (Located Name)))
-getSymbolAtPoint file pos = do
+getSymbolsAtPoint :: Uri -> Position -> IdeM (IdeResponse [(Range, Name)])
+getSymbolsAtPoint file pos = do
   let noCache = return $ nonExistentCacheErr "getSymbolAtPoint"
-  withCachedModuleAndData file noCache $
-    \cm NMD{nameMap} ->
+  withCachedModule file noCache $
+    \cm ->
       return $ IdeResponseOk
-             $ newPosToOld cm pos
-             >>= symbolFromTypecheckedModule nameMap (tcMod cm)
-
+             $ maybe []  (`getIdsAtPos` (locMap cm)) $ newPosToOld cm pos
 symbolFromTypecheckedModule
-  :: Map.Map SrcSpan Name
-  -> TypecheckedModule
+  :: LocMap
   -> Position
-  -> Maybe (Located Name)
-symbolFromTypecheckedModule nm tc pos = do
-  pn@(L l _) <- locToRdrName (unPos pos) parsed
-  return $ L l $ rdrName2NamePure nm pn
-  where parsed = pm_parsed_source $ tm_parsed_module tc
+  -> Maybe (Range, Name)
+symbolFromTypecheckedModule lm pos =
+  case getIdsAtPos pos lm of
+    (x:_) -> pure x
+    [] -> Nothing
 
 -- ---------------------------------------------------------------------
 
@@ -537,27 +535,28 @@ getReferencesInDoc :: Uri -> Position -> IdeM (IdeResponse [J.DocumentHighlight]
 getReferencesInDoc uri pos = do
   let noCache = return $ nonExistentCacheErr "getReferencesInDoc"
   withCachedModuleAndData uri noCache $
-    \cm NMD{nameMap, inverseNameMap} -> runEitherT $ do
-      let tc = tcMod cm
-          parsed = pm_parsed_source $ tm_parsed_module tc
+    \cm NMD{inverseNameMap} -> runEitherT $ do
+      let lm = locMap cm
+          pm = tm_parsed_module $ tcMod cm
+          cfile = ml_hs_file $ ms_location $ pm_mod_summary pm
           mpos = newPosToOld cm pos
       case mpos of
         Nothing -> return []
-        Just pos' ->
-          case locToRdrName (unPos pos') parsed of
-            Nothing -> return []
-            Just pn -> do
-              let name = rdrName2NamePure nameMap pn
-                  usages = Map.lookup name inverseNameMap
-                  ranges = maybe [] (rights . map srcSpan2Range) usages
-                  defn = srcSpan2Range $ nameSrcSpan name
-                  makeDocHighlight r = do
-                    let kind = if Right r == defn then J.HkWrite else J.HkRead
+        Just pos' -> fmap concat $
+          forM (getIdsAtPos pos' lm) $ \(_,name) -> do
+              let usages = fromMaybe [] $ Map.lookup name inverseNameMap
+                  defn = nameSrcSpan name
+                  defnInSameFile =
+                    (unpackFS <$> srcSpanFileName_maybe defn) == cfile
+                  makeDocHighlight spn = do
+                    let kind = if spn == defn then J.HkWrite else J.HkRead
+                    r <- either (const Nothing) Just $ srcSpan2Range spn
                     r' <- oldRangeToNew cm r
                     return $ J.DocumentHighlight r' (Just kind)
-                  highlights = case defn of
-                    Right r -> mapMaybe makeDocHighlight (r:ranges)
-                    _ -> mapMaybe makeDocHighlight ranges
+                  highlights
+                    |    isVarOcc (occName name)
+                      && defnInSameFile = mapMaybe makeDocHighlight (defn : usages)
+                    | otherwise = mapMaybe makeDocHighlight usages
               return highlights
 
 -- ---------------------------------------------------------------------
@@ -589,14 +588,14 @@ getNewNames old = do
 findDef :: Uri -> Position -> IdeM (IdeResponse Location)
 findDef file pos = do
   let noCache = return $ nonExistentCacheErr "hare:findDef"
-  withCachedModuleAndData file noCache $
-    \cm NMD{nameMap} -> do
-      let tc = tcMod cm
-          rfm = revMap cm
-      case symbolFromTypecheckedModule nameMap tc =<< newPosToOld cm pos of
+  withCachedModule file noCache $
+    \cm -> do
+      let rfm = revMap cm
+          lm = locMap cm
+      case symbolFromTypecheckedModule lm =<< newPosToOld cm pos of
         Nothing -> return $ invalidCursorErr "hare:findDef"
         Just pn -> do
-          let n = unLoc pn
+          let n = snd pn
           res <- srcSpan2Loc rfm $ nameSrcSpan n
           case res of
             Right l@(J.Location uri range) ->

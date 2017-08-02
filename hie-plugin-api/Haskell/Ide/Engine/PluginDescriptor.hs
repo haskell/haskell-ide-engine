@@ -64,6 +64,7 @@ module Haskell.Ide.Engine.PluginDescriptor
   , ValidResponse
   , CachedModule(..)
   , getCachedModule
+  , withCachedModule
   , withCachedModuleAndData
   , cacheModule
   , deleteCachedModule
@@ -72,6 +73,9 @@ module Haskell.Ide.Engine.PluginDescriptor
   , canonicalizeUri
   , getCradle
   , getTypecheckedModuleGhc
+  , genLocMap
+  , getIdsAtPos
+  , LocMap
   -- * All the good types
   , module Haskell.Ide.Engine.PluginTypes
   ) where
@@ -80,7 +84,7 @@ import           Control.Applicative
 import           Control.Monad.State.Strict
 import           Data.Aeson
 import           Data.Dynamic
--- import           Data.List
+import           Data.Maybe
 import qualified Data.Map as Map
 import           Data.Singletons
 import qualified Data.Text as T
@@ -98,7 +102,14 @@ import           GHC(TypecheckedModule)
 import           System.Directory
 import           System.FilePath
 
+import qualified Data.IntervalMap.FingerTree as IM
+-- import qualified GHC.SYB.Utils as SYB
+import qualified Data.Generics as SYB
+-- import qualified Language.Haskell.Refact.Utils.MonadFunctions as HaRe
+
 import qualified GHC           as GHC
+import qualified Var           as Var
+import qualified SrcLoc        as GHC
 import qualified GhcMonad      as GHC
 import qualified Hooks         as GHC
 import qualified HscMain       as GHC
@@ -267,15 +278,63 @@ data UriCache = UriCache
   , cachedData   :: !(Map.Map TypeRep Dynamic)
   } deriving Show
 
+type LocMap = IM.IntervalMap Position GHC.Name
+
 data CachedModule = CachedModule
   { tcMod       :: !TypecheckedModule
-  , revMap      :: FilePath -> FilePath
-  , newPosToOld :: Position -> Maybe Position
-  , oldPosToNew :: Position -> Maybe Position
+  , locMap      :: !LocMap
+  , revMap      :: !(FilePath -> FilePath)
+  , newPosToOld :: !(Position -> Maybe Position)
+  , oldPosToNew :: !(Position -> Maybe Position)
   }
 
 instance Show CachedModule where
   show CachedModule{} = "CachedModule { .. }"
+
+-- ---------------------------------------------------------------------
+
+unpackRealSrcSpan :: GHC.RealSrcSpan -> (Position, Position)
+unpackRealSrcSpan rspan =
+  (toPos (l1,c1),toPos (l2,c2))
+  where s  = GHC.realSrcSpanStart rspan
+        l1 = GHC.srcLocLine s
+        c1 = GHC.srcLocCol s
+        e  = GHC.realSrcSpanEnd rspan
+        l2 = GHC.srcLocLine e
+        c2 = GHC.srcLocCol e
+
+genLocMap :: TypecheckedModule -> LocMap
+genLocMap tm = names
+  where
+    typechecked = GHC.tm_typechecked_source tm
+    renamed = fromJust $ GHC.tm_renamed_source tm
+
+    rspToInt = uncurry IM.Interval . unpackRealSrcSpan
+
+    names  = IM.union names2 $ SYB.everything IM.union (IM.empty `SYB.mkQ` hsRecFieldT) typechecked
+    names2 = SYB.everything IM.union (IM.empty `SYB.mkQ`  fieldOcc
+                                               `SYB.extQ` hsRecFieldN
+                                               `SYB.extQ` checker) renamed
+
+    checker (GHC.L (GHC.RealSrcSpan r) x) = IM.singleton (rspToInt r) x
+    checker _ = IM.empty
+
+    fieldOcc :: GHC.FieldOcc GHC.Name -> LocMap
+    fieldOcc (GHC.FieldOcc (GHC.L (GHC.RealSrcSpan r) _) n) = IM.singleton (rspToInt r) n
+    fieldOcc _ = IM.empty
+
+    hsRecFieldN :: GHC.LHsExpr GHC.Name -> LocMap
+    hsRecFieldN (GHC.L _ (GHC.HsRecFld (GHC.Unambiguous (GHC.L (GHC.RealSrcSpan r) _) n) )) = IM.singleton (rspToInt r) n
+    hsRecFieldN _ = IM.empty
+
+    hsRecFieldT :: GHC.LHsExpr GHC.Id -> LocMap
+    hsRecFieldT (GHC.L _ (GHC.HsRecFld (GHC.Ambiguous (GHC.L (GHC.RealSrcSpan r) _) n) )) = IM.singleton (rspToInt r) (Var.varName n)
+    hsRecFieldT _ = IM.empty
+
+getIdsAtPos ::Position -> LocMap -> [(Range, GHC.Name)]
+getIdsAtPos p im = map f $ IM.search p im
+  where f (IM.Interval a b, x) = (Range a b, x)
+-- ---------------------------------------------------------------------
 
 cachedModules :: IdeState -> Map.Map Uri CachedModule
 cachedModules = fmap cachedModule . uriCaches
@@ -312,6 +371,13 @@ getCachedModule :: Uri -> IdeM (Maybe CachedModule)
 getCachedModule uri = do
   uri' <- canonicalizeUri uri
   lift . lift $ gets (Map.lookup uri' . cachedModules)
+
+withCachedModule :: Uri -> IdeM b -> (CachedModule -> IdeM b) -> IdeM b
+withCachedModule uri noCache callback = do
+  mcm <- getCachedModule uri
+  case mcm of
+    Nothing -> noCache
+    Just cm -> callback cm
 
 withCachedModuleAndData :: forall a b. ModuleCache a
   => Uri -> IdeM b -> (CachedModule -> a -> IdeM b) -> IdeM b

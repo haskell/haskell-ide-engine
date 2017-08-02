@@ -41,7 +41,7 @@ import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified GhcMod as GM
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.PluginUtils
+import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
@@ -63,7 +63,6 @@ import           System.FilePath
 import qualified System.Log.Logger as L
 import qualified Yi.Rope as Yi
 
-import SrcLoc
 import Name
 
 -- ---------------------------------------------------------------------
@@ -412,45 +411,54 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins cin inp = do
         let params = req ^. J.params
             pos = params ^. J.position
             doc = params ^. J.textDocument . J.uri
-        callback <- hieResponseHelper (req ^. J.id) $ \(typ,mname,docs,mrange) -> do
+        callback <- hieResponseHelper (req ^. J.id) $ \(typ,docs,mrange) -> do
             let
               ht = case mrange of
                 Nothing    -> J.Hover (J.List []) Nothing
                 Just range -> J.Hover (J.List hovers)
                               (Just range)
                   where
-                    hovers = catMaybes [mkTypeHover <$> typ, J.PlainString <$> docs]
-                    mkTypeHover ty =
-                      J.CodeString $ J.LanguageString "haskell"
-                        $ name <> " :: " <> ty
-                    name = fromMaybe "_" mname
+                    hovers = catMaybes [typ] ++ fmap J.PlainString docs
               rspMsg = Core.makeResponseMessage req ht
             reactorSend rspMsg
         let hreq = PReq (Just doc) Nothing (Just $ req ^. J.id) callback $ runEitherT $ do
               info' <- EitherT $ GhcMod.newTypeCmd True doc pos
-              let info = case map last $ groupBy ((==) `on` fst) info' of
-                           (x:_) -> Just x
-                           [] -> Nothing
-              mname <- EitherT $ HaRe.getSymbolAtPoint doc pos
-              case mname of
-                Nothing -> case info of
-                  Nothing -> return (Nothing, Nothing, Nothing, Nothing)
-                  Just (r,typ) -> return (Just typ, Nothing, Nothing, Just r)
-                Just (L l name) -> do
+              names' <- EitherT $ HaRe.getSymbolsAtPoint doc pos
+              let
+                f = (==) `on` (HaRe.showName . snd)
+                f' = compare `on` (HaRe.showName . snd)
+                names = mapMaybe pickName $ groupBy f $ sortBy f' names'
+                pickName [] = Nothing
+                pickName [x] = Just x
+                pickName xs@(x:_) = case find (isJust . nameModule_maybe . snd) xs of
+                  Nothing -> Just x
+                  Just a -> Just a
+                nnames = length names
+                (info,mrange) =
+                  case map last $ groupBy ((==) `on` fst) info' of
+                    ((r,typ):_) ->
+                      case find ((r ==) . fst) names of
+                        Nothing ->
+                          (Just $ J.CodeString $ J.LanguageString "haskell" $ "_ :: " <> typ, Just r)
+                        Just (_,name)
+                          | nnames == 1 ->
+                            (Just $ J.CodeString $ J.LanguageString "haskell" $ HaRe.showName name <> " :: " <> typ, Just r)
+                          | otherwise ->
+                            (Just $ J.CodeString $ J.LanguageString "haskell" $ "_ :: " <> typ, Just r)
+                    [] -> case names of
+                      [] -> (Nothing, Nothing)
+                      ((r,_):_) -> (Nothing, Just r)
+              docs <- forM names $ \(_,name) -> do
                   let sname = HaRe.showName name
-                  docs <- lift $ getDocsForName name
-                  case (srcSpan2Range l, info) of
-                    (Right r, Just (tr,ty))
-                      | r == tr ->
-                        return (Just ty, Just sname, docs, Just tr)
-                      | otherwise ->
-                        return (Just ty, Nothing   , docs, Just tr)
-                    (Right r, Nothing) ->
-                      return (Nothing, Nothing, docs, Just r)
-                    (Left _, Nothing) ->
-                      return (Nothing, Nothing, Nothing, Nothing)
-                    (Left _, Just (tr,ty)) ->
-                      return (Just ty, Nothing, Nothing, Just tr)
+                  df <- lift GhcMod.getDynFlags
+                  case HaRe.getModule df name of
+                    Nothing -> return $ "`" <> sname <> "` *local*"
+                    (Just (pkg,mdl)) -> do
+                      mdocu <- lift $ getDocsForName sname pkg mdl
+                      case mdocu of
+                        Nothing -> return $ "`"<> sname <> "`\n" <> maybe "" (<>" ") pkg <> mdl
+                        Just docu -> return docu
+              return (info,docs,mrange)
         makeRequest hreq
 
       -- -------------------------------
@@ -642,22 +650,18 @@ docRules (Just "containers") modName =
   fromMaybe modName $ T.stripSuffix ".Base" modName
 docRules _ modName = modName
 
-getDocsForName :: Name -> IdeM (Maybe T.Text)
-getDocsForName name = do
-  df <- GhcMod.getDynFlags
-  case HaRe.getModule df name of
-    Nothing -> return Nothing
-    Just (pkg, modName') -> do
-        let modName = docRules pkg modName'
-            query = HaRe.showName name
-                 <> fromMaybe "" (T.append " package:" <$> pkg)
-                 <> " module:" <> modName
-                 <> " is:exact"
-        liftIO $ U.logs $ "hoogle query: " ++ T.unpack query
-        res <- Hoogle.infoCmdFancyRender query
-        case res of
-          Right x -> return $ Just x
-          Left _ -> return Nothing
+getDocsForName :: T.Text -> Maybe T.Text -> T.Text -> IdeM (Maybe T.Text)
+getDocsForName name pkg modName' = do
+  let modName = docRules pkg modName'
+      query = name
+           <> fromMaybe "" (T.append " package:" <$> pkg)
+           <> " module:" <> modName
+           <> " is:exact"
+  debugm $ "hoogle query: " ++ T.unpack query
+  res <- Hoogle.infoCmdFancyRender query
+  case res of
+    Right x -> return $ Just x
+    Left _ -> return Nothing
 -- ---------------------------------------------------------------------
 
   -- get hlint+GHC diagnostics and loads the typechecked module into the cache
