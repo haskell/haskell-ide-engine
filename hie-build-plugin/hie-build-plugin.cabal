@@ -1,11 +1,11 @@
 name:                hie-build-plugin
 version:             0.1.0.0
-synopsis:            Haskell IDE build plugin, using async processes
+synopsis:            Haskell IDE build plugin
 license:             BSD3
 license-file:        ../LICENSE
-author:              Many,TBD when we release
+author:              Gleb Popov
 maintainer:          6yearold@gmail.com
-copyright:           2015 TBD
+copyright:           2016 TBD
 category:            Web
 build-type:          Simple
 -- extra-source-files:
