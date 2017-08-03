@@ -160,8 +160,16 @@ run opts = do
     let ghcModOptions = (if optGhcModVomit opts then vomitOptions else GM.defaultOptions) { GM.optGhcUserOptions = ["-Wall"]  }
 
     -- launch the dispatcher.
-    let dispatcherProc =                void $ forkIO $ runIdeM ghcModOptions (IdeState plugins Map.empty Map.empty) (dispatcher cin)
-    let dispatcherProcP dispatcherEnv = void $ forkIO $ runIdeM ghcModOptions (IdeState plugins Map.empty Map.empty) (dispatcherP dispatcherEnv pin)
+    let dispatcherProc =
+          void $ forkIO $
+            runIdeM ghcModOptions
+              (IdeState plugins Map.empty Map.empty Map.empty)
+              (dispatcher cin)
+    let dispatcherProcP dispatcherEnv =
+          void $ forkIO $
+            runIdeM ghcModOptions
+              (IdeState plugins Map.empty Map.empty Map.empty)
+              (dispatcherP dispatcherEnv pin)
     unless (optLsp opts) $ void dispatcherProc
 
     -- TODO: pass port in as a param from GlobalOpts

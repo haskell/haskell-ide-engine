@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
@@ -24,7 +25,6 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Either
 import           Control.Monad.STM
 import           Control.Monad.Reader
-import           Control.Monad.State
 import qualified Data.Aeson as J
 import           Data.Aeson ( (.=) )
 import           Data.Char (isUpper, isAlphaNum)
@@ -41,6 +41,7 @@ import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified GhcMod as GM
 import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.SemanticTypes
 import           Haskell.Ide.Engine.Types
@@ -61,6 +62,8 @@ import           System.Exit
 import           System.FilePath
 import qualified System.Log.Logger as L
 import qualified Yi.Rope as Yi
+
+import Name
 
 -- ---------------------------------------------------------------------
 {-# ANN module ("hlint: ignore Eta reduce" :: String) #-}
@@ -91,7 +94,7 @@ run plugins dispatcherProc cin origDir = flip E.catches handlers $ do
             , wipReqsTVar    = wipTVar
             , docVersionTVar = versionTVar
             }
-      _rpid <- forkIO $ reactor dispatcherEnv plugins lf def cin rin
+      _rpid <- forkIO $ flip runReaderT lf $ reactor dispatcherEnv plugins cin rin
       dispatcherProc dispatcherEnv
       return Nothing
 
@@ -120,23 +123,14 @@ type ReactorInput
   = Core.OutMessage
       -- ^ injected into the reactor input by each of the individual callback handlers
 
-data ReactorState =
-  ReactorState
-    { lspReqId           :: !J.LspId
-    }
-
-instance Default ReactorState where
-  def = ReactorState (J.IdInt 0)
-
 -- ---------------------------------------------------------------------
 
 -- | The monad used in the reactor
-type R a = ReaderT Core.LspFuncs (StateT ReactorState IO) a
+type R a = ReaderT Core.LspFuncs IO a
 
 -- ---------------------------------------------------------------------
 -- reactor monad functions
 -- ---------------------------------------------------------------------
-
 
 reactorSend :: (J.ToJSON a, MonadIO m, MonadReader Core.LspFuncs m)
   => a -> m ()
@@ -187,8 +181,10 @@ mapFileFromVfs verTVar cin vtdi = do
   mvf <- liftIO $ vfsFunc uri
   case (mvf, uriToFilePath uri) of
     (Just (VFS.VirtualFile _ yitext), Just fp) -> do
-      let text = Yi.toString yitext
-      let req = PReq Nothing Nothing (const $ return ()) $ IdeResponseOk <$> GM.loadMappedFileSource fp text
+      let text' = Yi.toString yitext
+          -- text = "{-# LINE 1 \"" ++ fp ++ "\"#-}\n" <> text'
+      let req = PReq (Just uri) Nothing Nothing (const $ return ())
+                  $ IdeResponseOk <$> GM.loadMappedFileSource fp text'
       liftIO $ atomically $ do
         modifyTVar' verTVar (Map.insert uri ver)
         writeTChan cin req
@@ -196,12 +192,15 @@ mapFileFromVfs verTVar cin vtdi = do
     (_, _) -> return ()
 
 unmapFileFromVfs :: (MonadIO m)
-  => TChan PluginRequest -> Uri -> m ()
-unmapFileFromVfs cin uri = do
+  => TVar (Map.Map Uri Int) -> TChan PluginRequest -> Uri -> m ()
+unmapFileFromVfs verTVar cin uri = do
   case uriToFilePath uri of
     Just fp -> do
-      let req = PReq Nothing Nothing (const $ return ()) $ IdeResponseOk <$> GM.unloadMappedFile fp
-      liftIO $ atomically $ writeTChan cin req
+      let req = PReq (Just uri) Nothing Nothing (const $ return ())
+                 $ IdeResponseOk <$> GM.unloadMappedFile fp
+      liftIO $ atomically $ do
+        modifyTVar' verTVar (Map.delete uri)
+        writeTChan cin req
       return ()
     _ -> return ()
 
@@ -241,8 +240,6 @@ updatePositionMap uri changes = do
 
 -- ---------------------------------------------------------------------
 
--- ---------------------------------------------------------------------
-
 publishDiagnostics :: (MonadIO m, MonadReader Core.LspFuncs m)
   => J.Uri -> Maybe J.TextDocumentVersion -> DiagnosticsBySource -> m ()
 publishDiagnostics uri' mv diags = do
@@ -251,12 +248,11 @@ publishDiagnostics uri' mv diags = do
 
 -- ---------------------------------------------------------------------
 
-nextLspReqId :: R J.LspId
+nextLspReqId :: (MonadIO m, MonadReader Core.LspFuncs m)
+  => m J.LspId
 nextLspReqId = do
-  s <- get
-  let i@(J.IdInt r) = lspReqId s
-  put s { lspReqId = J.IdInt (r + 1) }
-  return i
+  f <- asks Core.getNextReqId
+  liftIO f
 
 -- ---------------------------------------------------------------------
 
@@ -284,14 +280,14 @@ sendErrorLog msg = reactorSend' (`Core.sendErrorLogS` msg)
 -- | The single point that all events flow through, allowing management of state
 -- to stitch replies and requests together from the two asynchronous sides: lsp
 -- server and hie dispatcher
-reactor :: DispatcherEnv -> Plugins -> Core.LspFuncs -> ReactorState -> TChan PluginRequest -> TChan ReactorInput -> IO ()
-reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp = do
-  let makeRequest req@(PReq Nothing (Just lid) _ _) = liftIO $ atomically $ do
+reactor :: DispatcherEnv -> Plugins -> TChan PluginRequest -> TChan ReactorInput -> R ()
+reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins cin inp = do
+  let makeRequest req@(PReq _ Nothing (Just lid) _ _) = liftIO $ atomically $ do
         modifyTVar wipTVar (S.insert lid)
         writeTChan cin req
       makeRequest req =
         liftIO $ atomically $ writeTChan cin req
-  flip evalStateT st $ flip runReaderT lf $ forever $ do
+  forever $ do
     inval <- liftIO $ atomically $ readTChan inp
     case inval of
       Core.RspFromClient rm -> do
@@ -324,29 +320,35 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         -}
         let
           options = J.object ["documentSelector" .= J.object [ "language" .= J.String "haskell"]]
-          complOptions = J.toJSON $ J.CompletionRegistrationOptions Nothing (Just $ J.List ["."]) (Just False)
           registrationsList =
             [ J.Registration "hare:demote" J.WorkspaceExecuteCommand (Just options)
             , J.Registration "hare:gotodef" J.TextDocumentDefinition (Just options)
-            , J.Registration "brittany:formatting" J.TextDocumentFormatting (Just options)
-            , J.Registration "brittany:rangeFormatting" J.TextDocumentRangeFormatting (Just options)
-            , J.Registration "hare:getSymbols" J.TextDocumentDocumentSymbol (Just options)
-            , J.Registration "hare:getReferencesInDoc" J.TextDocumentDocumentHighlight (Just options)
-            , J.Registration "hare:getCompletions" J.TextDocumentCompletion (Just complOptions)
             ]
         let registrations = J.RegistrationParams (J.List registrationsList)
-        rid <- nextLspReqId
 
+        rid <- nextLspReqId
         reactorSend $ fmServerRegisterCapabilityRequest rid registrations
+
+        lf <- ask
+        let hreq = PReq Nothing Nothing Nothing callback
+                     Hoogle.initializeHoogleDb
+            callback Nothing = flip runReaderT lf $
+              reactorSend $
+                fmServerShowMessageNotification J.MtWarning "No hoogle db found. Check the README for instructions to generate one"
+            callback (Just db) = flip runReaderT lf $ do
+              reactorSend $
+                fmServerShowMessageNotification J.MtLog $ "Using hoogle db at: " <> T.pack db
+        makeRequest hreq
 
       -- -------------------------------
 
       Core.NotDidOpenTextDocument notification -> do
-        liftIO $ U.logm $ "****** reactor: processing NotDidOpenTextDocument"
+        liftIO $ U.logm "****** reactor: processing NotDidOpenTextDocument"
         let
-            uri = notification ^. J.params . J.textDocument . J.uri
-            ver = (-1)
-        liftIO $ atomically $ modifyTVar' versionTVar (Map.insert uri ver)
+            td  = notification ^. J.params . J.textDocument
+            uri = td ^. J.uri
+            ver = td ^. J.version
+        mapFileFromVfs versionTVar cin $ J.VersionedTextDocumentIdentifier uri ver
         requestDiagnostics cin uri ver
 
       -- -------------------------------
@@ -355,12 +357,11 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         liftIO $ U.logm "****** reactor: processing NotDidSaveTextDocument"
         let
             uri = notification ^. J.params . J.textDocument . J.uri
-        unmapFileFromVfs cin uri
         mver <- liftIO $ atomically $ Map.lookup uri <$> readTVar versionTVar
         case mver of
           Just ver -> requestDiagnostics cin uri ver
           Nothing -> do
-            let ver = (-1)
+            let ver = -1
             liftIO $ atomically $ modifyTVar' versionTVar (Map.insert uri ver)
             requestDiagnostics cin uri ver
 
@@ -374,15 +375,16 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
             J.List changes = params ^. J.contentChanges
         mapFileFromVfs versionTVar cin vtdi
         -- Important - Call this before requestDiagnostics
-        makeRequest $ PReq Nothing Nothing (const $ return ()) $ updatePositionMap uri changes
+        makeRequest $ PReq (Just uri) Nothing Nothing (const $ return ())
+                        $ updatePositionMap uri changes
         requestDiagnostics cin uri ver
 
       Core.NotDidCloseTextDocument notification -> do
         liftIO $ U.logm "****** reactor: processing NotDidCloseTextDocument"
         let
             uri = notification ^. J.params . J.textDocument . J.uri
-        unmapFileFromVfs cin uri
-        makeRequest $ PReq Nothing Nothing (const $ return ()) $ do
+        -- unmapFileFromVfs versionTVar cin uri
+        makeRequest $ PReq (Just uri) Nothing Nothing (const $ return ()) $ do
           deleteCachedModule uri
           return $ IdeResponseOk ()
 
@@ -397,7 +399,8 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         callback <- hieResponseHelper (req ^. J.id) $ \we -> do
             let rspMsg = Core.makeResponseMessage req we
             reactorSend rspMsg
-        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ HaRe.renameCmd' (TextDocumentPositionParams doc pos) newName
+        let hreq = PReq (Just $ doc ^. J.uri) Nothing (Just $ req ^. J.id) callback
+                     $ HaRe.renameCmd' (TextDocumentPositionParams doc pos) newName
         makeRequest hreq
 
 
@@ -408,46 +411,54 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         let params = req ^. J.params
             pos = params ^. J.position
             doc = params ^. J.textDocument . J.uri
-        callback <- hieResponseHelper (req ^. J.id) $ \(info,mname,docs) -> do
+        callback <- hieResponseHelper (req ^. J.id) $ \(typ,docs,mrange) -> do
             let
-              docMarked = maybe [] ((:[]) . J.PlainString) docs
-              ht = case info of
-                [] -> J.Hover (J.List docMarked) Nothing
-                xs -> J.Hover (J.List $ ms
-                                    ++ docMarked)
-                              (Just tr)
+              ht = case mrange of
+                Nothing    -> J.Hover (J.List []) Nothing
+                Just range -> J.Hover (J.List hovers)
+                              (Just range)
                   where
-                    ms = map (\ti -> J.CodeString $ J.LanguageString "haskell"
-                                       $ name <> " :: " <> snd ti) xs'
-                    tr = fst $ head xs
-                    name = fromMaybe "_" mname
-                    xs' = take 1 $ map last $ groupBy ((==) `on` fst) xs
+                    hovers = catMaybes [typ] ++ fmap J.PlainString docs
               rspMsg = Core.makeResponseMessage req ht
             reactorSend rspMsg
-        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ runEitherT $ do
-              info <- EitherT $ GhcMod.newTypeCmd True doc pos
-              mname <- EitherT $ HaRe.getSymbolAtPoint doc pos
-              df <- lift GhcMod.getDynFlags
-              let sname = HaRe.showName <$> mname
-              docs <- case HaRe.getModule df =<< mname of
-                        Nothing -> return Nothing
-                        Just (pkg, modName') -> do
-                            let modName
-                                  | pkg == Just "containers" = fromMaybe modName' (T.stripSuffix ".Base" modName')
-                                  | pkg == Just "base" && modName' `elem` ["GHC.Base"
-                                                                          ,"GHC.Enum"
-                                                                          ,"GHC.Num"
-                                                                          ,"GHC.Real"
-                                                                          ,"GHC.Float"
-                                                                          ,"GHC.Show"] = "Prelude"
-                                  | otherwise = modName'
-                                query = fromJust sname
-                                     <> fromMaybe "" (T.append " package:" <$> pkg)
-                                     <> " module:" <> modName
-                                     <> " is:exact"
-                            liftIO $ U.logs $ "hoogle query: " ++ T.unpack query
-                            EitherT $ Hoogle.infoCmdFancyRender query
-              return (info, sname, docs)
+        let hreq = PReq (Just doc) Nothing (Just $ req ^. J.id) callback $ runEitherT $ do
+              info' <- EitherT $ GhcMod.newTypeCmd True doc pos
+              names' <- EitherT $ HaRe.getSymbolsAtPoint doc pos
+              let
+                f = (==) `on` (HaRe.showName . snd)
+                f' = compare `on` (HaRe.showName . snd)
+                names = mapMaybe pickName $ groupBy f $ sortBy f' names'
+                pickName [] = Nothing
+                pickName [x] = Just x
+                pickName xs@(x:_) = case find (isJust . nameModule_maybe . snd) xs of
+                  Nothing -> Just x
+                  Just a -> Just a
+                nnames = length names
+                (info,mrange) =
+                  case map last $ groupBy ((==) `on` fst) info' of
+                    ((r,typ):_) ->
+                      case find ((r ==) . fst) names of
+                        Nothing ->
+                          (Just $ J.CodeString $ J.LanguageString "haskell" $ "_ :: " <> typ, Just r)
+                        Just (_,name)
+                          | nnames == 1 ->
+                            (Just $ J.CodeString $ J.LanguageString "haskell" $ HaRe.showName name <> " :: " <> typ, Just r)
+                          | otherwise ->
+                            (Just $ J.CodeString $ J.LanguageString "haskell" $ "_ :: " <> typ, Just r)
+                    [] -> case names of
+                      [] -> (Nothing, Nothing)
+                      ((r,_):_) -> (Nothing, Just r)
+              docs <- forM names $ \(_,name) -> do
+                  let sname = HaRe.showName name
+                  df <- lift GhcMod.getDynFlags
+                  case HaRe.getModule df name of
+                    Nothing -> return $ "`" <> sname <> "` *local*"
+                    (Just (pkg,mdl)) -> do
+                      mdocu <- lift $ getDocsForName sname pkg mdl
+                      case mdocu of
+                        Nothing -> return $ "`"<> sname <> "`\n" <> maybe "" (<>" ") pkg <> mdl
+                        Just docu -> return docu
+              return (info,docs,mrange)
         makeRequest hreq
 
       -- -------------------------------
@@ -497,12 +508,11 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
                 unless (null lts) $
                   liftIO $ U.logs $ "\n\n****reactor:ExecuteCommandRequest:error converting params=" ++ show lts ++ "\n\n"
                 return rts
-        lid <- nextLspReqId
         callback <- hieResponseHelper (req ^. J.id) $ \obj -> do
           liftIO $ U.logs $ "ExecuteCommand response got:r=" ++ show obj
           case J.fromJSON obj of
             J.Success v -> do
-
+              lid <- nextLspReqId
               reactorSend $ Core.makeResponseMessage req (J.Object mempty)
               let msg = fmServerApplyWorkspaceEditRequest lid $ J.ApplyWorkspaceEditParams v
               liftIO $ U.logs $ "ExecuteCommand sending edit: " ++ show msg
@@ -510,7 +520,8 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
             _ -> reactorSend $ Core.makeResponseMessage req obj
         let (plugin,cmd) = break (==':') (T.unpack command)
         let ireq = IdeRequest (T.pack $ tail cmd) (Map.fromList cmdparams)
-            preq = PReq Nothing (Just $ req ^. J.id) callback (dispatchSync plugins (T.pack plugin) ireq)
+            preq = PReq Nothing Nothing (Just $ req ^. J.id) callback
+                     $ dispatchSync plugins (T.pack plugin) ireq
         makeRequest preq
 
       -- -------------------------------
@@ -530,7 +541,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         case mprefix of
           Nothing -> liftIO $ callback $ IdeResponseOk []
           Just prefix -> do
-            let hreq = PReq Nothing (Just $ req ^. J.id) callback
+            let hreq = PReq (Just doc) Nothing (Just $ req ^. J.id) callback
                          $ HaRe.getCompletions doc prefix
             makeRequest hreq
 
@@ -544,9 +555,14 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
           let rspMsg = Core.makeResponseMessage req $
                          origCompl & J.documentation .~ docs
           reactorSend rspMsg
-        let hreq = PReq Nothing (Just $ req ^. J.id) callback
-                 $ maybe (return $ IdeResponseOk Nothing)
-                     Hoogle.infoCmd' mquery
+        let hreq = PReq Nothing Nothing (Just $ req ^. J.id) callback $ runEitherT $ do
+              case mquery of
+                Nothing -> return Nothing
+                Just query -> do
+                  res <- lift $ Hoogle.infoCmd' query
+                  case res of
+                    Right x -> return $ Just x
+                    _ -> return Nothing
         makeRequest hreq
 
       -- -------------------------------
@@ -559,7 +575,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         callback <- hieResponseHelper (req ^. J.id) $ \highlights -> do
           let rspMsg = Core.makeResponseMessage req $ J.List highlights
           reactorSend rspMsg
-        let hreq = PReq Nothing (Just $ req ^. J.id) callback
+        let hreq = PReq (Just doc) Nothing (Just $ req ^. J.id) callback
                  $ HaRe.getReferencesInDoc doc pos
         makeRequest hreq
 
@@ -572,7 +588,8 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         callback <- hieResponseHelper (req ^. J.id) $ \loc -> do
             let rspMsg = Core.makeResponseMessage req loc
             reactorSend rspMsg
-        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ HaRe.findDef doc pos
+        let hreq = PReq (Just doc) Nothing (Just $ req ^. J.id) callback
+                     $ HaRe.findDef doc pos
         makeRequest hreq
       -- -------------------------------
       Core.ReqDocumentFormatting req -> do
@@ -581,9 +598,10 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
             doc = params ^. J.textDocument
             tabSize = params ^. J.options . J.tabSize
         callback <- hieResponseHelper (req ^. J.id) $ \textEdit -> do
-            let rspMsg = Core.makeResponseMessage req textEdit
+            let rspMsg = Core.makeResponseMessage req $ J.List textEdit
             reactorSend rspMsg
-        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ fmap J.List <$> Brittany.brittanyCmd tabSize doc Nothing
+        let hreq = PReq (Just $ doc ^. J.uri) Nothing (Just $ req ^. J.id) callback
+                     $ Brittany.brittanyCmd tabSize doc Nothing
         makeRequest hreq
       -- -------------------------------
       Core.ReqDocumentRangeFormatting req -> do
@@ -593,18 +611,20 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
             range = params ^. J.range
             tabSize = params ^. J.options . J.tabSize
         callback <- hieResponseHelper (req ^. J.id) $ \textEdit -> do
-            let rspMsg = Core.makeResponseMessage req textEdit
+            let rspMsg = Core.makeResponseMessage req $ J.List textEdit
             reactorSend rspMsg
-        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ fmap J.List <$> Brittany.brittanyCmd tabSize doc (Just range)
+        let hreq = PReq (Just $ doc ^. J.uri) Nothing (Just $ req ^. J.id) callback
+                     $ Brittany.brittanyCmd tabSize doc (Just range)
         makeRequest hreq
       -- -------------------------------
       Core.ReqDocumentSymbols req -> do
         liftIO $ U.logs $ "reactor:got Document symbol request:" ++ show req
         let uri = req ^. J.params . J.textDocument . J.uri
         callback <- hieResponseHelper (req ^. J.id) $ \docSymbols -> do
-            let rspMsg = Core.makeResponseMessage req docSymbols
+            let rspMsg = Core.makeResponseMessage req $ J.List docSymbols
             reactorSend rspMsg
-        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ fmap J.List <$> HaRe.getSymbols uri
+        let hreq = PReq (Just uri) Nothing (Just $ req ^. J.id) callback
+                     $ HaRe.getSymbols uri
         makeRequest hreq
       -- -------------------------------
       Core.NotCancelRequest notif -> do
@@ -619,6 +639,30 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) plugins lf st cin inp 
         liftIO $ U.logs $ "reactor:got HandlerRequest:" ++ show om
 
 -- ---------------------------------------------------------------------
+docRules :: Maybe T.Text -> T.Text -> T.Text
+docRules (Just "base") "GHC.Base"    = "Prelude"
+docRules (Just "base") "GHC.Enum"    = "Prelude"
+docRules (Just "base") "GHC.Num"     = "Prelude"
+docRules (Just "base") "GHC.Real"    = "Prelude"
+docRules (Just "base") "GHC.Float"   = "Prelude"
+docRules (Just "base") "GHC.Show"    = "Prelude"
+docRules (Just "containers") modName =
+  fromMaybe modName $ T.stripSuffix ".Base" modName
+docRules _ modName = modName
+
+getDocsForName :: T.Text -> Maybe T.Text -> T.Text -> IdeM (Maybe T.Text)
+getDocsForName name pkg modName' = do
+  let modName = docRules pkg modName'
+      query = name
+           <> fromMaybe "" (T.append " package:" <$> pkg)
+           <> " module:" <> modName
+           <> " is:exact"
+  debugm $ "hoogle query: " ++ T.unpack query
+  res <- Hoogle.infoCmdFancyRender query
+  case res of
+    Right x -> return $ Just x
+    Left _ -> return Nothing
+-- ---------------------------------------------------------------------
 
   -- get hlint+GHC diagnostics and loads the typechecked module into the cache
 requestDiagnostics :: TChan PluginRequest -> J.Uri -> Int -> R ()
@@ -628,7 +672,8 @@ requestDiagnostics cin file ver = do
         publishDiagnostics uri' Nothing (Map.fromList [(Just pid,ds)])
       sendEmpty = publishDiagnostics file Nothing (Map.fromList [(Just "ghcmod",[])])
   -- get hlint diagnostics
-  let reql = PReq (Just (file,ver)) Nothing (flip runReaderT lf . callbackl) $ ApplyRefact.lintCmd' file
+  let reql = PReq (Just file) (Just (file,ver)) Nothing (flip runReaderT lf . callbackl)
+               $ ApplyRefact.lintCmd' file
       callbackl (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
       callbackl (IdeResponseError err) = liftIO $ U.logs $ "got err" ++ show err
       callbackl (IdeResponseOk  diags) =
@@ -638,10 +683,15 @@ requestDiagnostics cin file ver = do
   liftIO $ atomically $ writeTChan cin reql
 
   -- get GHC diagnostics and loads the typechecked module into the cache
-  let reqg = PReq (Just (file,ver)) Nothing (flip runReaderT lf . callbackg) $ GhcMod.setTypecheckedModule file
+  let reqg = PReq (Just file) (Just (file,ver)) Nothing (flip runReaderT lf . callbackg)
+               $ GhcMod.setTypecheckedModule file
       callbackg (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
       callbackg (IdeResponseError err) = liftIO $ U.logs $ "got err" ++ show err
-      callbackg (IdeResponseOk     pd) = do
+      callbackg (IdeResponseOk    (pd, errs)) = do
+        forM_ errs $ \e -> do
+          reactorSend $
+            fmServerShowMessageNotification J.MtError
+              $ "Got error while processing diagnostics: " <> e
         let ds = Map.toList $ S.toList <$> pd
         case ds of
           [] -> sendEmpty
@@ -700,11 +750,21 @@ hieResponseHelper lid action = do
 
 -- ---------------------------------------------------------------------
 
+syncOptions :: J.TextDocumentSyncOptions
+syncOptions = J.TextDocumentSyncOptions
+  { J._openClose         = Just True
+  , J._change            = Just J.TdSyncIncremental
+  , J._willSave          = Just False
+  , J._willSaveWaitUntil = Just False
+  , J._save              = Just $ J.SaveOptions $ Just False
+  }
+
 hieOptions :: Core.Options
-hieOptions = def { Core.textDocumentSync = Just J.TdSyncIncremental
-                 , Core.completionProvider = Just (J.CompletionOptions (Just True) Nothing)
-                 , Core.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List ["applyrefact:applyOne","hare:demote"]))
-                 }
+hieOptions =
+  def { Core.textDocumentSync       = Just syncOptions
+      , Core.completionProvider     = Just (J.CompletionOptions (Just True) (Just ["."]))
+      , Core.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List ["applyrefact:applyOne","hare:demote"]))
+      }
 
 
 hieHandlers :: TChan ReactorInput -> Core.Handlers

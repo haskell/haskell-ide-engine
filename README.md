@@ -63,7 +63,8 @@ stack install
 
 ### Using HIE with vscode
 
-Make sure HIE is installed (see above) and dir stack put the `hie` binary is in your path (usually `~/.local/bin` on linux)
+Make sure HIE is installed (see above) and directory stack put the `hie` binary in is in your path 
+(usually `~/.local/bin` on linux)
 
 ```bash
 git clone https://github.com/alanz/vscode-hie-server
@@ -119,7 +120,10 @@ If HIE detects a project specific hoogle DB, it will use it over the global db.
 
 ### Planned Features
 
- - [ ] Multiproject and new-build support
+ - [x] Multiproject support
+ - [ ] Project wide references
+ - [ ] Cross project find definition
+ - [ ] New-build support
  - [ ] HaRe refactorings
  - [ ] More code actions
  - [ ] Cross project/dependency Find Definition

@@ -93,7 +93,7 @@ startServer = do
     Just err -> error (pdeErrorMsg err)
     Nothing -> return ()
 
-  let dispatcherProc = void $ forkIO $ runIdeM testOptions (IdeState plugins Map.empty Map.empty) (dispatcher cin)
+  let dispatcherProc = void $ forkIO $ runIdeM testOptions (IdeState plugins Map.empty Map.empty Map.empty) (dispatcher cin)
   void dispatcherProc
   return (cin,cout)
 

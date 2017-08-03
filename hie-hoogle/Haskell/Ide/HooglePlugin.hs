@@ -11,13 +11,13 @@ module Haskell.Ide.HooglePlugin where
 import           Data.Aeson
 import           Data.Monoid
 import           Data.Maybe
+import           Data.Bifunctor
 --import           Data.List (intercalate)
 import qualified Data.Text as T
 import           Data.Vinyl
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.ExtensibleState
-import           Haskell.Ide.Engine.MonadFunctions
 import           Control.Monad.IO.Class
 import           Hoogle
 import           System.Directory
@@ -53,21 +53,29 @@ hoogleDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
+data HoogleError = NoDb | NoResults deriving (Eq,Ord,Show)
+
 newtype HoogleDb = HoogleDb (Maybe FilePath)
+
+hoogleErrorToIdeError :: HoogleError -> IdeFailure
+hoogleErrorToIdeError NoResults =
+  IdeRErr $ IdeError PluginError "No results found" Null
+hoogleErrorToIdeError NoDb =
+  IdeRErr $ IdeError PluginError "Hoogle database not found. Run hoogle generate to generate" Null
 
 instance ExtensionClass HoogleDb where
   initialValue = HoogleDb Nothing
 
-getHoogleDb :: IdeM FilePath
-getHoogleDb = do
-  HoogleDb mdb <- get
-  case mdb of
-    Nothing -> do
-      db <- getHoogleDbLoc
-      put $ HoogleDb $ Just db
-      liftIO $ debugm $ "hoogle: using db: " ++ db
-      return db
-    Just db -> return db
+initializeHoogleDb :: IdeM (Maybe FilePath)
+initializeHoogleDb = do
+  db' <- getHoogleDbLoc
+  db <- liftIO $ makeAbsolute db'
+  exists <- liftIO $ doesFileExist db
+  if exists then do
+    put $ HoogleDb $ Just db
+    return $ Just db
+  else
+    return Nothing
 
 getHoogleDbLoc :: IdeM FilePath
 getHoogleDbLoc = do
@@ -90,30 +98,31 @@ getHoogleDbLoc = do
         liftIO defaultDatabaseLocation
 
 
-infoCmd :: CommandFunc (Maybe T.Text)
+infoCmd :: CommandFunc T.Text
 infoCmd = CmdSync $ \_ctxs req -> do
   case getParams (IdText "expr" :& RNil) req of
     Left err -> return err
-    Right (ParamText expr :& RNil) ->
-      infoCmd' expr
+    Right (ParamText expr :& RNil) -> do
+      _ <- initializeHoogleDb
+      bimap hoogleErrorToIdeError id <$> infoCmd' expr
 
-infoCmd' :: T.Text -> IdeM (IdeResponse (Maybe T.Text))
+infoCmd' :: T.Text -> IdeM (Either HoogleError T.Text)
 infoCmd' expr = do
-  db <- getHoogleDb
-  liftIO $ runHoogleQuery db expr $ \res ->
+  HoogleDb mdb <- get
+  liftIO $ runHoogleQuery mdb expr $ \res ->
       if null res then
-          IdeResponseOk Nothing
+        Left NoResults
       else
-          IdeResponseOk $ Just $ T.pack $ targetInfo $ head res
+        return $ T.pack $ targetInfo $ head res
 
-infoCmdFancyRender :: T.Text -> IdeM (IdeResponse (Maybe T.Text))
+infoCmdFancyRender :: T.Text -> IdeM (Either HoogleError T.Text)
 infoCmdFancyRender expr = do
-  db <- getHoogleDb
-  liftIO $ runHoogleQuery db expr $ \res ->
+  HoogleDb mdb <- get
+  liftIO $ runHoogleQuery mdb expr $ \res ->
       if null res then
-          IdeResponseOk Nothing
+        Left NoResults
       else
-          IdeResponseOk $ Just $ renderTarget $ head res
+        return $ renderTarget $ head res
 
 renderTarget :: Target -> T.Text
 renderTarget t = T.intercalate "\n\n" $
@@ -138,31 +147,27 @@ renderTarget t = T.intercalate "\n\n" $
 ------------------------------------------------------------------------
 
 lookupCmd :: CommandFunc [T.Text]
-lookupCmd = CmdSync $ \_ctxs req -> do
+lookupCmd = CmdSync $ \_ctxs req ->
   case getParams (IdText "term" :& RNil) req of
     Left err -> return err
-    Right (ParamText term :& RNil) ->
-      lookupCmd' 10 term
+    Right (ParamText term :& RNil) -> do
+      _ <- initializeHoogleDb
+      bimap hoogleErrorToIdeError id <$> lookupCmd' 10 term
 
-lookupCmd' :: Int -> T.Text -> IdeM (IdeResponse [T.Text])
+lookupCmd' :: Int -> T.Text -> IdeM (Either HoogleError [T.Text])
 lookupCmd' n term = do
-  db <- getHoogleDb
-  liftIO $ runHoogleQuery db term
-    (IdeResponseOk . map (T.pack . targetResultDisplay False) . take n)
+  HoogleDb mdb <- get
+  liftIO $ runHoogleQuery mdb term
+    (Right . map (T.pack . targetResultDisplay False) . take n)
 
 ------------------------------------------------------------------------
 
-runHoogleQuery :: FilePath -> T.Text -> ([Target] -> IdeResponse a) -> IO (IdeResponse a)
-runHoogleQuery db quer f = do
-        dbExists <- doesFileExist db
-        if dbExists then do
-            res <- searchHoogle db quer
-            return (f res)
-        else
-            return $ IdeResponseFail hoogleDbError
+runHoogleQuery :: Maybe FilePath -> T.Text -> ([Target] -> Either HoogleError a) -> IO (Either HoogleError a)
+runHoogleQuery Nothing _ _ = return $ Left NoDb
+runHoogleQuery (Just db) quer f = do
+  res <- searchHoogle db quer
+  return (f res)
 
 searchHoogle :: FilePath -> T.Text -> IO [Target]
 searchHoogle dbf quer = withDatabase dbf (return . flip searchDatabase (T.unpack quer))
 
-hoogleDbError :: IdeError
-hoogleDbError = IdeError PluginError "Hoogle database not found. Run hoogle generate to generate" Null

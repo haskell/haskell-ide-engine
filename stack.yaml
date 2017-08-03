@@ -15,8 +15,8 @@ packages:
 - hie-brittany
 # - ./haskell-lsp
 - location:
-    git: https://github.com/wz1000/haskell-lsp.git
-    commit: 421a8aa9591d464ba2232c4a1a38d34583acacf9
+    git: https://github.com/alanz/haskell-lsp.git
+    commit: ef43e7dce5a58100a0dbedbac8aa316c72cd6dc2
   extra-dep: true
 - location:
     git: https://github.com/alanz/ghc-dump-tree.git
@@ -34,8 +34,8 @@ packages:
 # - ../../DanielG/ghc-mod
 # - ../ghc-mod
 - location:
-    git: https://github.com/alanz/ghc-mod.git
-    commit: e3d388061ed7f35b5c9720f636c22c10369ecc24
+    git: https://github.com/wz1000/ghc-mod.git
+    commit: 1279f611ecac636458393795eb937008e7c3d741
   extra-dep: true
 - location:
     # git: https://github.com/lspitzner/brittany.git
