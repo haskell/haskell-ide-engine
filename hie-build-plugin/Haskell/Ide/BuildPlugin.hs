@@ -17,7 +17,7 @@ import           Data.Maybe
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import System.Directory (makeAbsolute, getCurrentDirectory, getDirectoryContents, doesFileExist)
-import System.FilePath ((</>), normalise, takeExtension, takeFileName)
+import System.FilePath ((</>), normalise, takeExtension, takeFileName, makeRelative)
 import System.Process (readProcess)
 import System.IO (openFile, hClose, IOMode(..))
 import System.IO.Error
@@ -37,11 +37,13 @@ import Data.Yaml
 
 -- ---------------------------------------------------------------------
 
-pluginCommonArgs = SParamDesc (Proxy :: Proxy "mode") (Proxy :: Proxy "Operation mode: \"stack\" or \"cabal\"") SPtText SRequired
-            :& SParamDesc (Proxy :: Proxy "distDir") (Proxy :: Proxy "Directory to search for setup-config file") SPtFile SOptional
-            :& SParamDesc (Proxy :: Proxy "cabalExe") (Proxy :: Proxy "Cabal executable") SPtText SOptional
-            :& SParamDesc (Proxy :: Proxy "stackExe") (Proxy :: Proxy "Stack executable") SPtText SOptional
-            :& RNil
+buildModeArg = SParamDesc (Proxy :: Proxy "mode") (Proxy :: Proxy "Operation mode: \"stack\" or \"cabal\"") SPtText SRequired
+distDirArg = SParamDesc (Proxy :: Proxy "distDir") (Proxy :: Proxy "Directory to search for setup-config file") SPtFile SOptional
+toolArgs = SParamDesc (Proxy :: Proxy "cabalExe") (Proxy :: Proxy "Cabal executable") SPtText SOptional
+        :& SParamDesc (Proxy :: Proxy "stackExe") (Proxy :: Proxy "Stack executable") SPtText SOptional
+        :& RNil
+
+pluginCommonArgs = buildModeArg :& distDirArg :& toolArgs
 
 buildPluginDescriptor :: TaggedPluginDescriptor _
 buildPluginDescriptor = PluginDescriptor
@@ -62,8 +64,8 @@ buildPluginDescriptor = PluginDescriptor
       :& buildCommand isConfigured (Proxy :: Proxy "isConfigured")
             "Checks if project is configured"
             [] (SCtxNone :& RNil)
-            (  SParamDesc (Proxy :: Proxy "distDir") (Proxy :: Proxy "Directory to search for setup-config file") SPtFile SOptional
-            :& SParamDesc (Proxy :: Proxy "mode") (Proxy :: Proxy "Operation mode: \"stack\" or \"cabal\"") SPtText SRequired
+            (  buildModeArg
+            :& distDirArg
             :& RNil) SaveNone
       :& buildCommand configure (Proxy :: Proxy "configure")
             "Configures the project. For stack project with multiple local packages - build it"
@@ -78,8 +80,22 @@ buildPluginDescriptor = PluginDescriptor
       :& buildCommand listFlags (Proxy :: Proxy "listFlags")
             "Lists all flags that can be set when configuring a package"
             [] (SCtxNone :& RNil)
-            (  SParamDesc (Proxy :: Proxy "mode") (Proxy :: Proxy "Project type: \"stack\" or \"cabal\"") SPtText SRequired
+            (  buildModeArg
             :& RNil) SaveNone
+      :& buildCommand buildDirectory (Proxy :: Proxy "buildDirectory")
+            "Builds all targets that correspond to the specified directory"
+            [] (SCtxNone :& RNil)
+            (  pluginCommonArgs
+            <+> (SParamDesc (Proxy :: Proxy "directory") (Proxy :: Proxy "Directory to build targets from") SPtFile SOptional :& RNil)
+            <+> RNil) SaveNone
+      :& buildCommand buildTarget (Proxy :: Proxy "buildTarget")
+            "Builds specified cabal or stack component"
+            [] (SCtxNone :& RNil)
+            (  pluginCommonArgs
+            <+> (SParamDesc (Proxy :: Proxy "target") (Proxy :: Proxy "Component to build") SPtText SOptional :& RNil)
+            <+> (SParamDesc (Proxy :: Proxy "package") (Proxy :: Proxy "Package to search the component in. Only applicable for Stack mode") SPtText SOptional :& RNil)
+            <+> (SParamDesc (Proxy :: Proxy "type") (Proxy :: Proxy "Type of the component. Only applicable for Stack mode") SPtText SOptional :& RNil)
+            <+> RNil) SaveNone
       :& RNil
   , pdExposedServices = []
   , pdUsedServices    = []
@@ -105,14 +121,13 @@ withCommonArgs ctx req a = do
       case readMode mode0 of
         Nothing -> return $ incorrectParameter "mode" ["stack","cabal"] mode0
         Just mode -> do
-          let distDir0 = maybe "" id $
-                Map.lookup "distDir" (ideParams req) >>=
-                         uriToFilePath . (\(ParamFileP v) -> v)
-              cabalExe = maybe "cabal" id $
+          let cabalExe = maybe "cabal" id $
                 Map.lookup "cabalExe" (ideParams req) >>= (\(ParamTextP v) -> return $ T.unpack v)
               stackExe = maybe "stack" id $
                 Map.lookup "stackExe" (ideParams req) >>= (\(ParamTextP v) -> return $ T.unpack v)
-          distDir <- liftIO $ withDistDir mode distDir0 return
+          distDir <- maybe (liftIO $ getDistDir mode stackExe) return $
+                Map.lookup "distDir" (ideParams req) >>=
+                         uriToFilePath . (\(ParamFileP v) -> v)
           runReaderT a $ CommonArgs {
               caMode = mode,
               caDistDir = distDir,
@@ -163,7 +178,7 @@ configure = CmdSync $ \ctx req -> withCommonArgs ctx req $ do
 
 configureStack stackExe = do
   slp <- getStackLocalPackages "stack.yaml"
-  -- stack can configur only single local package
+  -- stack can configure only single local package
   case slp of
     [singlePackage] -> readProcess stackExe ["build", "--only-configure"] ""
     manyPackages -> readProcess stackExe ["build"] ""
@@ -201,6 +216,55 @@ flagToJSON f = object ["name" .= ((\(FlagName s) -> s) $ flagName f), "descripti
 
 -----------------------------------------------
 
+buildDirectory :: CommandFunc ()
+buildDirectory = CmdSync $ \ctx req -> withCommonArgs ctx req $ do
+  ca <- ask
+  liftIO $ case caMode ca of
+    CabalMode -> do
+      -- for cabal specifying directory have no sense
+      readProcess (caCabal ca) ["build"] ""
+      return $ IdeResponseOk ()
+    StackMode -> do
+      let mbDir = Map.lookup "directory" (ideParams req) >>= (\(ParamFileP v) -> return v)
+      case mbDir of
+        Nothing -> do
+          readProcess (caStack ca) ["build"] ""
+          return $ IdeResponseOk ()
+        Just dir0 -> pluginGetFile "buildDirectory" dir0 $ \dir -> do
+          cwd <- getCurrentDirectory
+          let relDir = makeRelative cwd $ normalise dir
+          readProcess (caStack ca) ["build", relDir] ""
+          return $ IdeResponseOk ()
+
+-----------------------------------------------
+
+buildTarget :: CommandFunc ()
+buildTarget = CmdSync $ \ctx req -> withCommonArgs ctx req $ do
+  ca <- ask
+  let component = Map.lookup "target" (ideParams req) >>= (\(ParamTextP v) -> return v)
+  liftIO $ case caMode ca of
+    CabalMode -> do
+      readProcess (caCabal ca) ["build", T.unpack $ maybe "" id component] ""
+      return $ IdeResponseOk ()
+    StackMode -> do
+      let package = Map.lookup "package" (ideParams req) >>= (\(ParamTextP v) -> return v)
+          compType = maybe "" (T.cons ':') $
+              Map.lookup "type" (ideParams req) >>= (\(ParamTextP v) -> return v)
+      case (package, component) of
+        (Just p, Nothing) -> do
+          readProcess (caStack ca) ["build", T.unpack $ p `T.append` compType] ""
+          return $ IdeResponseOk ()
+        (Just p, Just c) -> do
+          readProcess (caStack ca) ["build", T.unpack $ p `T.append` compType `T.append` (':' `T.cons` c)] ""
+          return $ IdeResponseOk ()
+        (Nothing, Just c) -> do
+          readProcess (caStack ca) ["build", T.unpack $ ':' `T.cons` c] ""
+          return $ IdeResponseOk ()
+        _ -> do
+          readProcess (caStack ca) ["build"] ""
+          return $ IdeResponseOk ()
+
+-----------------------------------------------
 
 data Package = Package {
     tPackageName :: String
@@ -264,13 +328,13 @@ compToJSON (ChBenchName n) = object ["type" .= ("benchmark" :: T.Text), "name" .
 
 -----------------------------------------------
 
-withDistDir CabalMode "" f = do
+getDistDir CabalMode _ = do
     cwd <- getCurrentDirectory
-    f $ cwd </> defaultDistPref
-withDistDir StackMode "" f = do
+    return $ cwd </> defaultDistPref
+getDistDir StackMode stackExe = do
     cwd <- getCurrentDirectory
-    dist <- getStackDistDir
-    f $ cwd </> dist
+    dist <- init <$> readProcess stackExe ["path", "--dist-dir"] ""
+    return $ cwd </> dist
 
 isCabalFile :: FilePath -> Bool
 isCabalFile f = takeExtension' f == ".cabal"
@@ -284,7 +348,3 @@ takeExtension' p =
 withBinaryFileContents name act =
   Exception.bracket (openFile name ReadMode) hClose
                     (\hnd -> B.hGetContents hnd >>= act)
-
--- TODO: it would be nice to cache this somehow
-getStackDistDir :: IO FilePath
-getStackDistDir = init <$> readProcess "stack" ["path", "--dist-dir"] ""
