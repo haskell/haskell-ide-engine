@@ -1,8 +1,9 @@
-resolver: nightly-2017-06-14
+resolver: nightly-2017-06-16
 packages:
 - .
 - hie-apply-refact
 - hie-base
+- hie-build-plugin
 - hie-docs-generator
 - hie-eg-plugin-async
 - hie-example-plugin2
