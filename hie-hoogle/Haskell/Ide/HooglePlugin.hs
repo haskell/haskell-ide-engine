@@ -8,9 +8,9 @@ import           Data.Maybe
 import           Data.Monoid
 import qualified Data.Text                          as T
 import qualified GhcMod                             as GM
+import qualified GhcMod.ModuleLoader                as GM
 import qualified GhcMod.Monad.Env                   as GM
 import qualified GhcMod.Types                       as GM
-import           Haskell.Ide.Engine.ExtensibleState
 import           Haskell.Ide.Engine.MonadTypes
 import           Hoogle
 import           System.Directory
@@ -46,7 +46,7 @@ hoogleErrorToIdeError NoResults =
 hoogleErrorToIdeError NoDb =
   IdeRErr $ IdeError PluginError "Hoogle database not found. Run hoogle generate to generate" Null
 
-instance ExtensionClass HoogleDb where
+instance GM.ExtensionClass HoogleDb where
   initialValue = HoogleDb Nothing
 
 initializeHoogleDb :: IdeM (Maybe FilePath)
@@ -55,7 +55,7 @@ initializeHoogleDb = do
   db <- liftIO $ makeAbsolute db'
   exists <- liftIO $ doesFileExist db
   if exists then do
-    put $ HoogleDb $ Just db
+    GM.put $ HoogleDb $ Just db
     return $ Just db
   else
     return Nothing
@@ -88,7 +88,7 @@ infoCmd = CmdSync $ \expr -> do
 
 infoCmd' :: T.Text -> IdeM (Either HoogleError T.Text)
 infoCmd' expr = do
-  HoogleDb mdb <- get
+  HoogleDb mdb <- GM.get
   liftIO $ runHoogleQuery mdb expr $ \res ->
       if null res then
         Left NoResults
@@ -97,7 +97,7 @@ infoCmd' expr = do
 
 infoCmdFancyRender :: T.Text -> IdeM (Either HoogleError T.Text)
 infoCmdFancyRender expr = do
-  HoogleDb mdb <- get
+  HoogleDb mdb <- GM.get
   liftIO $ runHoogleQuery mdb expr $ \res ->
       if null res then
         Left NoResults
@@ -133,7 +133,7 @@ lookupCmd = CmdSync $ \term -> do
 
 lookupCmd' :: Int -> T.Text -> IdeM (Either HoogleError [T.Text])
 lookupCmd' n term = do
-  HoogleDb mdb <- get
+  HoogleDb mdb <- GM.get
   liftIO $ runHoogleQuery mdb term
     (Right . map (T.pack . targetResultDisplay False) . take n)
 

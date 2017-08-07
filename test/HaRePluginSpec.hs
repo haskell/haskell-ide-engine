@@ -5,7 +5,7 @@ module HaRePluginSpec where
 import           Control.Concurrent
 import           Data.Aeson
 import qualified Data.HashMap.Strict                   as H
-import qualified Data.Map                              as Map
+import qualified GhcMod.ModuleLoader                   as GM
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -52,12 +52,12 @@ dispatchRequest plugin com arg = do
 dispatchRequestP :: IdeM a -> IO a
 dispatchRequestP =
   cdAndDo "./test/testdata"
-    . runIdeM testOptions (IdeState testPlugins Map.empty Map.empty Map.empty)
+    . runIdeM testOptions (IdeState testPlugins GM.emptyModuleCache)
 
 dispatchRequestPGoto :: IdeM a -> IO a
 dispatchRequestPGoto =
   cdAndDo "./test/testdata/gototest"
-    . runIdeM testOptions (IdeState testPlugins Map.empty Map.empty Map.empty)
+    . runIdeM testOptions (IdeState testPlugins GM.emptyModuleCache)
 
 -- ---------------------------------------------------------------------
 

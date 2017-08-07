@@ -6,6 +6,7 @@ import           Control.Exception
 import           Data.Aeson
 import qualified Data.Map                            as Map
 import qualified Data.Set                            as S
+import qualified GhcMod.ModuleLoader                 as GM
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -39,7 +40,7 @@ dispatchRequest plugin com arg = do
 dispatchRequestP :: IdeM a -> IO a
 dispatchRequestP =
   cdAndDo "./test/testdata" .
-    runIdeM testOptions (IdeState testPlugins Map.empty Map.empty Map.empty)
+    runIdeM testOptions (IdeState testPlugins GM.emptyModuleCache)
 
 dispatchRequestNoCd :: ToJSON a => PluginId -> CommandName -> a -> IO (IdeResponse Value)
 dispatchRequestNoCd plugin com arg = do
@@ -49,7 +50,7 @@ dispatchRequestNoCd plugin com arg = do
 
 dispatchRequestPNoCd :: IdeM a -> IO a
 dispatchRequestPNoCd =
-    runIdeM testOptions (IdeState testPlugins Map.empty Map.empty Map.empty)
+    runIdeM testOptions (IdeState testPlugins GM.emptyModuleCache)
 
 -- ---------------------------------------------------------------------
 

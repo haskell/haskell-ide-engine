@@ -21,6 +21,7 @@ library
                      , aeson
                      , ghc-dump-tree
                      , ghc-mod
+                     , ghc-mod-core
                      , hie-base
                      , hie-plugin-api
                      , text

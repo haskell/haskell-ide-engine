@@ -38,12 +38,13 @@ import qualified Data.Map as Map
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Vector as V
-import qualified GhcMod as GM
+import qualified GhcModCore               as GM
+import qualified GhcMod.ModuleLoader      as GM
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
-import           Haskell.Ide.Engine.IdeFunctions
 import           Haskell.Ide.Engine.Dispatcher
+import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
 import qualified Haskell.Ide.HaRePlugin as HaRe
 import qualified Haskell.Ide.GhcModPlugin as GhcMod
@@ -57,9 +58,7 @@ import           Language.Haskell.LSP.Diagnostics
 import           Language.Haskell.LSP.Messages
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 import qualified Language.Haskell.LSP.Utility  as U
-import           System.Directory
 import           System.Exit
-import           System.FilePath
 import qualified System.Log.Logger as L
 import qualified Yi.Rope as Yi
 
@@ -205,34 +204,35 @@ unmapFileFromVfs verTVar cin uri = do
       return ()
     _ -> return ()
 
+-- TODO: generalise this and move it to GhcMod.ModuleLoader
 updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeM (IdeResponse ())
 updatePositionMap uri changes = do
-  mcm <- getCachedModule uri
+  mcm <- GM.getCachedModule (uri2fileUri uri)
   case mcm of
     Just cm -> do
-      let n2oOld = newPosToOld cm
-          o2nOld = oldPosToNew cm
+      let n2oOld = GM.newPosToOldPos cm
+          o2nOld = GM.oldPosToNewPos cm
           (n2o,o2n) = foldr go (n2oOld, o2nOld) changes
           go (J.TextDocumentContentChangeEvent (Just r) _ txt) (n2o', o2n') =
             (n2o' <=< newToOld r txt, oldToNew r txt <=< o2n')
           go _ _ = (const Nothing, const Nothing)
-      let cm' = cm {newPosToOld = n2o, oldPosToNew = o2n}
-      cacheModule uri cm'
+      let cm' = cm {GM.newPosToOldPos = n2o, GM.oldPosToNewPos = o2n}
+      GM.cacheModule (uri2fileUri uri) cm'
       return $ IdeResponseOk ()
     Nothing ->
       return $ IdeResponseOk ()
   where
-    oldToNew (J.Range (Position sl _) (Position el _)) txt p@(Position l c)
+    oldToNew (J.Range (Position sl _) (Position el _)) txt p@(GM.Pos l c)
       | l < sl = Just p
-      | l > el = Just $ Position l' c
+      | l > el = Just $ GM.Pos l' c
       | otherwise = Nothing
          where l' = l + dl
                dl = newL - oldL
                oldL = el-sl
                newL = T.count "\n" txt
-    newToOld (J.Range (Position sl _) (Position el _)) txt p@(Position l c)
+    newToOld (J.Range (Position sl _) (Position el _)) txt p@(GM.Pos l c)
       | l < sl = Just p
-      | l > el = Just $ Position l' c
+      | l > el = Just $ GM.Pos l' c
       | otherwise = Nothing
          where l' = l - dl
                dl = newL - oldL
@@ -386,7 +386,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             uri = notification ^. J.params . J.textDocument . J.uri
         -- unmapFileFromVfs versionTVar cin uri
         makeRequest $ PReq (Just uri) Nothing Nothing (const $ return ()) $ do
-          deleteCachedModule uri
+          GM.deleteCachedModule (uri2fileUri uri)
           return $ IdeResponseOk ()
 
       -- -------------------------------

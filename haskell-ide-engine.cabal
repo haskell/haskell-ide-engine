@@ -35,7 +35,7 @@ library
                      , either
                      , filepath
                      , ghc >= 8.0.1
-                     , ghc-mod
+                     , ghc-mod-core
                      , gitrev >= 1.1
                      , haskell-lsp
                      , hie-base
@@ -65,7 +65,7 @@ executable hie
                      , base
                      , containers
                      , directory
-                     , ghc-mod
+                     , ghc-mod-core
                      , gitrev >= 1.1
                      , haskell-ide-engine
                      , hie-apply-refact
@@ -113,7 +113,7 @@ test-suite haskell-ide-test
                      , directory
                      , fast-logger
                      , filepath
-                     , ghc-mod
+                     , ghc-mod-core
                      , haskell-lsp
                      , haskell-ide-engine
                      , hie-apply-refact
@@ -151,7 +151,7 @@ test-suite haskell-ide-func-test
                      , directory
                      , fast-logger
                      , filepath
-                     , ghc-mod
+                     , ghc-mod-core
                      , haskell-lsp
                      , haskell-ide-engine
                      , hie-apply-refact

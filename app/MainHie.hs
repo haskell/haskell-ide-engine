@@ -7,12 +7,12 @@ import           Control.Concurrent.STM.TChan
 import           Control.Monad
 import           Control.Monad.Logger
 import           Control.Monad.STM
-import qualified Data.Map                              as Map
 import           Data.Semigroup
 import           Data.Version                          (showVersion)
 import           Development.GitRev                    (gitCommitCount)
 import           Distribution.System                   (buildArch)
 import           Distribution.Text                     (display)
+import qualified GhcMod.ModuleLoader                   as GM
 import qualified GhcMod.Types                          as GM
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
@@ -91,43 +91,43 @@ main = do
 
 run :: GlobalOpts -> IO ()
 run opts = do
-  let withLogFun = case optLogFile opts of
-        Just f  -> withFileLogging f
-        Nothing -> withStdoutLogging
+  let mLogFileName = case optLogFile opts of
+        Just f  -> Just f
+        Nothing -> Nothing
 
-  withLogFun $ do
-    if optDebugOn opts
-      then setLogLevel LevelDebug
-      else setLogLevel LevelError
+      logLevel = if optDebugOn opts
+                   then L.DEBUG
+                   else L.INFO
 
-    origDir <- getCurrentDirectory
+  Core.setupLogger mLogFileName ["hie"] logLevel
 
-    case projectRoot opts of
-      Nothing -> do
-        h <- getHomeDirectory
-        setCurrentDirectory h
-        logm $ "Setting home directory:" ++ h
-      Just root -> setCurrentDirectory root
+  origDir <- getCurrentDirectory
 
-    logm $  "run entered for HIE " ++ version
-    d <- getCurrentDirectory
-    logm $ "Current directory:" ++ d
+  case projectRoot opts of
+    Nothing -> do
+      h <- getHomeDirectory
+      setCurrentDirectory h
+      logm $ "Setting home directory:" ++ h
+    Just root -> setCurrentDirectory root
 
-    pin <- atomically newTChan :: IO (TChan PluginRequest)
+  logm $  "run entered for HIE " ++ version
+  d <- getCurrentDirectory
+  logm $ "Current directory:" ++ d
 
-    let vomitOptions = GM.defaultOptions { GM.optOutput = oo { GM.ooptLogLevel = GM.GmVomit}}
-        oo = GM.optOutput GM.defaultOptions
-    let ghcModOptions = (if optGhcModVomit opts then vomitOptions else GM.defaultOptions) { GM.optGhcUserOptions = ["-Wall"]  }
+  pin <- atomically newTChan :: IO (TChan PluginRequest)
 
-    -- launch the dispatcher.
-    let dispatcherProcP dispatcherEnv =
-          void $ forkIO $
-            runIdeM ghcModOptions
-              (IdeState plugins Map.empty Map.empty Map.empty)
-              (dispatcherP dispatcherEnv pin)
+  let vomitOptions = GM.defaultOptions { GM.optOutput = oo { GM.ooptLogLevel = GM.GmVomit}}
+      oo = GM.optOutput GM.defaultOptions
+  let ghcModOptions = (if optGhcModVomit opts then vomitOptions else GM.defaultOptions) { GM.optGhcUserOptions = ["-Wall"]  }
 
-    if optLsp opts then
-      lspStdioTransport dispatcherProcP pin origDir
-    else
-      jsonStdioTransport dispatcherProcP pin
-      -- putStrLn "HIE exiting - no transport selected (available transports: --lsp)"
+  -- launch the dispatcher.
+  let dispatcherProcP dispatcherEnv =
+        void $ forkIO $
+          runIdeM ghcModOptions
+            (IdeState plugins GM.emptyModuleCache )
+            (dispatcherP dispatcherEnv pin)
+
+  if optLsp opts then
+    lspStdioTransport dispatcherProcP pin origDir
+  else
+    jsonStdioTransport dispatcherProcP pin

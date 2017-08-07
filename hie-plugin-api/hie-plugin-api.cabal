@@ -17,13 +17,11 @@ flag pedantic
 
 library
   exposed-modules:
-                       Haskell.Ide.Engine.ExtensibleState
                        Haskell.Ide.Engine.Monad
                        Haskell.Ide.Engine.MonadFunctions
                        Haskell.Ide.Engine.PluginDescriptor
                        Haskell.Ide.Engine.PluginUtils
                        Haskell.Ide.Engine.MonadTypes
-                       Haskell.Ide.Engine.ModuleLoader
                        Haskell.Ide.Engine.LocMap
                        Haskell.Ide.Engine.IdeFunctions
   build-depends:       base >= 4.9 && < 5
@@ -37,7 +35,8 @@ library
                      , filepath
                      , ghc
                      , syb
-                     , ghc-mod >= 5.6.0.0
+                     , ghc-mod-core >= 5.9.0.0
+                     , haskell-lsp
                      , hie-base
                      , haskell-lsp
                      , lifted-base

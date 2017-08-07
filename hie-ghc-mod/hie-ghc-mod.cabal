@@ -21,7 +21,8 @@ library
                      , aeson
                      , containers
                      , ghc
-                     , ghc-mod >= 5.8.0.0
+                     , ghc-mod >= 5.9.0.0
+                     , ghc-mod-core >= 5.9.0.0
                      , hie-base
                      , hie-plugin-api
                      , text
