@@ -13,10 +13,8 @@ import qualified Control.Exception as Exception
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Reader
 import           GHC.Generics                                 (Generic)
-import           Haskell.Ide.Engine.ExtensibleState
 import           Haskell.Ide.Engine.IdeFunctions
 import           Haskell.Ide.Engine.LocMap
-import           Haskell.Ide.Engine.ModuleLoader
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor

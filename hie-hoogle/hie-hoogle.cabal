@@ -21,6 +21,7 @@ library
                      , hie-plugin-api
                      , tagsoup
                      , ghc-mod
+                     , ghc-mod-core
                      , filepath
                      , aeson
                      , directory

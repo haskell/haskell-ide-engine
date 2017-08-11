@@ -30,6 +30,7 @@ import qualified Data.HashMap.Strict                   as H
 import qualified Data.Map                              as Map
 import qualified Data.Set                              as S
 import qualified Data.Text                             as T
+import qualified GhcMod.ModuleLoader                   as GM
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadFunctions
@@ -72,7 +73,7 @@ startServer :: IO (TChan PluginRequest)
 startServer = do
   cin  <- atomically newTChan
 
-  let dispatcherProc dispatcherEnv = void $ forkIO $ runIdeM testOptions (IdeState plugins Map.empty Map.empty Map.empty) (dispatcherP dispatcherEnv cin)
+  let dispatcherProc dispatcherEnv = void $ forkIO $ runIdeM testOptions (IdeState plugins GM.emptyModuleCache) (dispatcherP dispatcherEnv cin)
   cancelTVar <- atomically $ newTVar S.empty
   wipTVar <- atomically $ newTVar S.empty
   versionTVar <- atomically $ newTVar Map.empty

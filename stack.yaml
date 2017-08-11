@@ -15,7 +15,7 @@ packages:
 # - ./haskell-lsp
 - location:
     git: https://github.com/alanz/haskell-lsp.git
-    commit: ef43e7dce5a58100a0dbedbac8aa316c72cd6dc2
+    commit: a98b2c452248b0dfe461b339d275734977151e37
   extra-dep: true
 - location:
     git: https://github.com/alanz/ghc-dump-tree.git
@@ -27,15 +27,21 @@ packages:
 #   extra-dep: true
 # - ../HaRe
 - location:
-    git: https://github.com/wz1000/HaRe.git
-    commit: d9b9dadfd5e3ade840ec0bddedfa5133a743bc76
+    git: https://github.com/alanz/HaRe.git
+    commit: f3b4fd1b65007184df9bb7743d29a4347057a422
   extra-dep: true
+
 # - ../../DanielG/ghc-mod
 # - ../ghc-mod
+# - ../ghc-mod/ghc-mod-core
 - location:
-    git: https://github.com/wz1000/ghc-mod.git
-    commit: 1279f611ecac636458393795eb937008e7c3d741
+    git: https://github.com/alanz/ghc-mod.git
+    commit: 1008d147a9e7eaa4e3f1c3ee6f454550e00f1899
   extra-dep: true
+  subdirs:
+    - .
+    - ghc-mod-core
+
 - location:
     # git: https://github.com/lspitzner/brittany.git
     # commit: 134f31e4d18e51a7cd3d5bcaa90af92e70b926ce

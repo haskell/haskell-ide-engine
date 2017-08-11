@@ -23,6 +23,7 @@ library
                      , text
                      , brittany
                      , ghc-mod
+                     , ghc-mod-core
                      , haskell-lsp
                      , lens
   ghc-options:         -Wall

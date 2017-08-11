@@ -18,6 +18,7 @@ flag pedantic
 library
   exposed-modules:     Haskell.Ide.ExamplePluginAsync
   build-depends:       base >= 4.9 && < 5
+                     , ghc-mod-core
                      , hie-plugin-api
                      , stm
                      , text

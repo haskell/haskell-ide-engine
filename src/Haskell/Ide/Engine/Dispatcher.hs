@@ -10,9 +10,10 @@ import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import qualified Data.Map                              as Map
 import qualified Data.Set                              as S
-import           Haskell.Ide.Engine.IdeFunctions
+import qualified GhcMod.ModuleLoader                   as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
+import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 
@@ -30,14 +31,14 @@ dispatcherP DispatcherEnv{..} pin = forever $ do
   debugm $ "got request with id: " ++ show mid
   case mid of
     Nothing -> case mver of
-      Nothing -> runActionWithContext context action >>= liftIO . callback
+      Nothing -> GM.runActionWithContext (fmap uri2fileUri context) action >>= liftIO . callback
       Just (uri, reqver) -> do
         curver <- liftIO $ atomically $ Map.lookup uri <$> readTVar docVersionTVar
         if Just reqver /= curver then
           debugm "not processing request as it is for old version"
         else do
           debugm "Processing request as version matches"
-          runActionWithContext context action >>= liftIO . callback
+          GM.runActionWithContext (fmap uri2fileUri context) action >>= liftIO . callback
     Just lid -> do
       cancelReqs <- liftIO $ atomically $ do
         modifyTVar' wipReqsTVar (S.delete lid)
@@ -48,5 +49,5 @@ dispatcherP DispatcherEnv{..} pin = forever $ do
           liftIO $ atomically $ modifyTVar' cancelReqsTVar (S.delete lid)
         else do
           debugm $ "processing request: " ++ show lid
-          runActionWithContext context action >>= liftIO . callback
+          GM.runActionWithContext (fmap uri2fileUri context) action >>= liftIO . callback
 

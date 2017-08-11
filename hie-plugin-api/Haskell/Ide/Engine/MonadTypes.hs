@@ -1,7 +1,10 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+
 -- | IdeM and associated types
 module Haskell.Ide.Engine.MonadTypes
   (
@@ -15,28 +18,18 @@ module Haskell.Ide.Engine.MonadTypes
   -- * The IDE monad
   , IdeM
   , IdeState(..)
-  , ExtensionClass(..)
-  , UriCache(..)
-  , ModuleCache(..)
-  , CachedModule(..)
-  , LocMap
   -- * All the good types
   , module Haskell.Ide.Engine.PluginTypes
   ) where
 
 import           Data.Aeson
 import           Control.Monad.State.Strict
-import           Data.Dynamic
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import           Haskell.Ide.Engine.PluginTypes
-import qualified GhcMod.Monad as GM
-import qualified GhcMod.Types as GM
-import           GHC(TypecheckedModule)
+import qualified GhcMod.ModuleLoader as GM
+import qualified GhcMod.Monad        as GM
 import           GHC.Generics
-
-import qualified Data.IntervalMap.FingerTree as IM
-import qualified Name as GHC
 
 type PluginId = T.Text
 type CommandName = T.Text
@@ -74,56 +67,12 @@ type IdeM = IdeT IO
 type IdeT m = GM.GhcModT (StateT IdeState m)
 
 data IdeState = IdeState
-  {
-    idePlugins :: IdePlugins
-  , extensibleState :: !(Map.Map TypeRep Dynamic)
-              -- ^ stores custom state information.
-  , cradleCache :: !(Map.Map FilePath GM.Cradle)
-              -- ^ map from dirs to cradles
-  , uriCaches  :: !UriCaches
+  { idePlugins  :: IdePlugins
+  , moduleCache :: GM.GhcModuleCache
   } deriving (Show)
 
-type UriCaches = Map.Map Uri UriCache
-
-data UriCache = UriCache
-  { cachedModule :: !CachedModule
-  , cachedData   :: !(Map.Map TypeRep Dynamic)
-  } deriving Show
-
-type LocMap = IM.IntervalMap Position GHC.Name
-
-data CachedModule = CachedModule
-  { tcMod       :: !TypecheckedModule
-  , locMap      :: !LocMap
-  , revMap      :: !(FilePath -> FilePath)
-  , newPosToOld :: !(Position -> Maybe Position)
-  , oldPosToNew :: !(Position -> Maybe Position)
-  }
-
-instance Show CachedModule where
-  show CachedModule{} = "CachedModule { .. }"
+instance (Monad m) => GM.HasGhcModuleCache (IdeT m) where
+  getModuleCache    = lift . lift $ gets moduleCache
+  setModuleCache mc = lift . lift $ modify (\s -> s { moduleCache = mc })
 
 -- ---------------------------------------------------------------------
--- Extensible state, based on
--- http://xmonad.org/xmonad-docs/xmonad/XMonad-Core.html#t:ExtensionClass
---
-
--- | Every module must make the data it wants to store
--- an instance of this class.
---
--- Minimal complete definition: initialValue
-class Typeable a => ExtensionClass a where
-    -- | Defines an initial value for the state extension
-    initialValue :: a
-
--- | A ModuleCache is valid for the lifetime of a CachedModule
--- It is generated on need and the cache is invalidated
--- when a new CachedModule is loaded.
--- Allows the caching of arbitary data linked to a particular
--- TypecheckedModule.
-class Typeable a => ModuleCache a where
-    -- | Defines an initial value for the state extension
-    cacheDataProducer :: CachedModule -> IdeM a
-
-instance ModuleCache () where
-    cacheDataProducer = const $ return ()

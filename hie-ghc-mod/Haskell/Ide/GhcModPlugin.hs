@@ -25,13 +25,11 @@ import qualified GhcMod.Doc                        as GM
 import qualified GhcMod.DynFlags                   as GM
 import qualified GhcMod.Error                      as GM
 import qualified GhcMod.Gap                        as GM
+import qualified GhcMod.ModuleLoader               as GM
 import qualified GhcMod.Monad                      as GM
 import qualified GhcMod.SrcUtils                   as GM
 import qualified GhcMod.Types                      as GM
 import qualified GhcMod.Utils                      as GM
-import           Haskell.Ide.Engine.IdeFunctions
-import           Haskell.Ide.Engine.LocMap
-import           Haskell.Ide.Engine.ModuleLoader
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
@@ -150,15 +148,15 @@ setTypecheckedModule :: Uri -> IdeM (IdeResponse (Diagnostics, AdditionalErrs))
 setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     rfm <- GM.mkRevRedirMapFunc
-    ((diags', errs), mtm) <- getTypecheckedModuleGhc (myLogger rfm) fp
+    ((diags', errs), mtm) <- GM.getTypecheckedModuleGhc (myLogger rfm) fp
     let diags = Map.insertWith' Set.union uri Set.empty diags'
     case mtm of
       Nothing -> do
         debugm $ "setTypecheckedModule: Didn't get typechecked module for: " ++ show fp
         return $ IdeResponseOk (diags,errs)
       Just tm -> do
-        let cm = CachedModule tm (genLocMap tm) rfm return return
-        cacheModule uri cm
+        let cm = GM.CachedModule tm (GM.genLocMap tm) rfm return return
+        GM.cacheModule (uri2fileUri uri) cm
         return $ IdeResponseOk (diags,errs)
 
 -- ---------------------------------------------------------------------
@@ -227,7 +225,7 @@ newTypeCmd bool uri newPos =
                      return $ someErr "newTypeCmd" (show ex)
                   ] in
   flip GM.gcatches handlers $ do
-    mcm <- getCachedModule uri
+    mcm <- GM.getCachedModule (uri2fileUri uri)
     case mcm of
       Nothing -> return $ IdeResponseOk []
       Just cm -> do
@@ -236,7 +234,7 @@ newTypeCmd bool uri newPos =
           Nothing -> return $ IdeResponseOk []
           Just pos ->
             GM.unGmlT $ GM.withInteractiveContext $ do
-              let tm = tcMod cm
+              let tm = GM.tcMod cm
               spanTypes' <- GM.collectSpansTypes bool tm $ unPos pos
               let spanTypes = sortBy (GM.cmp `on` fst) spanTypes'
               dflag        <- getSessionDynFlags

@@ -4,10 +4,9 @@ module ExtensibleStateSpec where
 import           Control.Concurrent
 import           Control.Monad.IO.Class
 import           Data.Aeson
-import qualified Data.Map                            as Map
 import qualified Data.Text                           as T
 import           Data.Typeable
-import           Haskell.Ide.Engine.ExtensibleState
+import qualified GhcMod.ModuleLoader                 as GM
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -30,7 +29,7 @@ dispatchRequest plugin com arg = do
 
 dispatchRequestP :: IdeM a -> IO a
 dispatchRequestP =
-    runIdeM testOptions (IdeState testPlugins Map.empty Map.empty Map.empty)
+    runIdeM testOptions (IdeState testPlugins GM.emptyModuleCache)
 
 extensibleStateSpec :: Spec
 extensibleStateSpec =
@@ -65,17 +64,17 @@ testDescriptor = PluginDescriptor
 
 cmd1 :: CommandFunc () T.Text
 cmd1 = CmdSync $ \_ -> do
-  put (MS1 "foo")
+  GM.put (MS1 "foo")
   return (IdeResponseOk (T.pack "result:put foo"))
 
 cmd2 :: CommandFunc () T.Text
 cmd2 = CmdSync $ \_ -> do
-  (MS1 v) <- get
+  (MS1 v) <- GM.get
   return (IdeResponseOk (T.pack $ "result:got:" ++ show v))
 
 newtype MyState1 = MS1 T.Text deriving Typeable
 
-instance ExtensionClass MyState1 where
+instance GM.ExtensionClass MyState1 where
   initialValue = MS1 "initial"
 
 -- ---------------------------------------------------------------------

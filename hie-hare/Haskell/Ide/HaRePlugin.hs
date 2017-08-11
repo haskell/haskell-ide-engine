@@ -27,9 +27,9 @@ import           FastString
 import           GHC
 import           GHC.Generics                                 (Generic)
 import qualified GhcMod.Error                                 as GM
+import qualified GhcMod.ModuleLoader                          as GM
 import qualified GhcMod.Monad                                 as GM
 import qualified GhcMod.Utils                                 as GM
-import           Haskell.Ide.Engine.IdeFunctions
 import           Haskell.Ide.Engine.LocMap
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
@@ -266,21 +266,21 @@ data NameMapData = NMD
 invert :: (Ord k, Ord v) => Map.Map k v -> Map.Map v [k]
 invert m = Map.fromListWith (++) [(v,[k]) | (k,v) <- Map.toList m]
 
-instance ModuleCache NameMapData where
+instance GM.ModuleCache NameMapData where
   cacheDataProducer cm = pure $ NMD inm
-    where nm  = initRdrNameMap $ tcMod cm
+    where nm  = initRdrNameMap $ GM.tcMod cm
           inm = invert nm
 
 -- ---------------------------------------------------------------------
 
 getSymbols :: Uri -> IdeM (IdeResponse [J.SymbolInformation])
 getSymbols uri = do
-    mcm <- getCachedModule uri
+    mcm <- GM.getCachedModule (uri2fileUri uri)
     case mcm of
       Nothing -> return $ IdeResponseOk []
       Just cm -> do
-          let tm = tcMod cm
-              rfm = revMap cm
+          let tm = GM.tcMod cm
+              rfm = GM.revMap cm
               hsMod = unLoc $ pm_parsed_source $ tm_parsed_module tm
               imports = hsmodImports hsMod
               imps  = concatMap (goImport . unLoc) imports
@@ -415,9 +415,9 @@ getCompletions file (qualifier,ident) =
   let noCache = return $ nonExistentCacheErr "getCompletions"
   let modQual = if T.null qualifier then "" else qualifier <> "."
   let fullPrefix = modQual <> ident
-  withCachedModule file noCache $
+  GM.withCachedModule (uri2fileUri file) noCache $
     \cm -> do
-      let tm = tcMod cm
+      let tm = GM.tcMod cm
           parsedMod = tm_parsed_module tm
           curMod = moduleName $ ms_mod $ pm_mod_summary parsedMod
           Just (_,limports,_,_) = tm_renamed_source tm
@@ -510,12 +510,12 @@ getCompletions file (qualifier,ident) =
 getSymbolsAtPoint :: Uri -> Position -> IdeM (IdeResponse [(Range, Name)])
 getSymbolsAtPoint file pos = do
   let noCache = return $ nonExistentCacheErr "getSymbolAtPoint"
-  withCachedModule file noCache $
+  GM.withCachedModule (uri2fileUri file) noCache $
     \cm ->
       return $ IdeResponseOk
-             $ maybe []  (`getNamesAtPos` (locMap cm)) $ newPosToOld cm pos
+             $ maybe []  (`getNamesAtPos` (GM.locMap cm)) $ newPosToOld cm pos
 symbolFromTypecheckedModule
-  :: LocMap
+  :: GM.LocMap
   -> Position
   -> Maybe (Range, Name)
 symbolFromTypecheckedModule lm pos =
@@ -528,10 +528,10 @@ symbolFromTypecheckedModule lm pos =
 getReferencesInDoc :: Uri -> Position -> IdeM (IdeResponse [J.DocumentHighlight])
 getReferencesInDoc uri pos = do
   let noCache = return $ nonExistentCacheErr "getReferencesInDoc"
-  withCachedModuleAndData uri noCache $
+  GM.withCachedModuleAndData (uri2fileUri uri) noCache $
     \cm NMD{inverseNameMap} -> runEitherT $ do
-      let lm = locMap cm
-          pm = tm_parsed_module $ tcMod cm
+      let lm = GM.locMap cm
+          pm = tm_parsed_module $ GM.tcMod cm
           cfile = ml_hs_file $ ms_location $ pm_mod_summary pm
           mpos = newPosToOld cm pos
       case mpos of
@@ -582,10 +582,10 @@ getNewNames old = do
 findDef :: Uri -> Position -> IdeM (IdeResponse Location)
 findDef file pos = do
   let noCache = return $ nonExistentCacheErr "hare:findDef"
-  withCachedModule file noCache $
+  GM.withCachedModule (uri2fileUri file) noCache $
     \cm -> do
-      let rfm = revMap cm
-          lm = locMap cm
+      let rfm = GM.revMap cm
+          lm = GM.locMap cm
       case symbolFromTypecheckedModule lm =<< newPosToOld cm pos of
         Nothing -> return $ invalidCursorErr "hare:findDef"
         Just pn -> do
@@ -610,7 +610,7 @@ findDef file pos = do
                     case ml_hs_file mLoc of
                       Just fp -> do
                         uri <- filePathToUri <$> reverseMapFile rfm fp
-                        mcm' <- getCachedModule uri
+                        mcm' <- GM.getCachedModule (uri2fileUri uri)
                         cm' <- case mcm' of
                           Just cmdl -> do
                             debugm "module already in cache in findDef"
@@ -618,9 +618,9 @@ findDef file pos = do
                           Nothing -> do
                             debugm "setting cached module in findDef"
                             _ <- setTypecheckedModule uri
-                            fromJust <$> getCachedModule uri
-                        let modSum = pm_mod_summary $ tm_parsed_module $ tcMod cm'
-                            rfm'   = revMap cm'
+                            fromJust <$> GM.getCachedModule (uri2fileUri uri)
+                        let modSum = pm_mod_summary $ tm_parsed_module $ GM.tcMod cm'
+                            rfm'   = GM.revMap cm'
                         newNames <- GM.unGmlT $ do
                           setGhcContext modSum
                           getNewNames n

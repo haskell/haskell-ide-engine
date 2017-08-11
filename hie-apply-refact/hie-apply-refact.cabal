@@ -23,6 +23,7 @@ library
                      , either
                      , extra
                      , ghc-mod
+                     , ghc-mod-core
                      , haskell-src-exts
                      , hie-base
                      , hie-plugin-api

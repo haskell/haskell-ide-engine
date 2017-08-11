@@ -5,8 +5,8 @@ module HooglePluginSpec where
 import           Control.Concurrent
 import           Control.Monad
 import           Data.Aeson
-import qualified Data.Map                            as Map
-import qualified Data.Vector                         as V
+import qualified Data.Vector                        as V
+import qualified GhcMod.ModuleLoader                as GM
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -37,7 +37,7 @@ dispatchRequest plugin com arg = do
   takeMVar mv
 
 dispatchRequestP :: IdeM a -> IO a
-dispatchRequestP = runIdeM testOptions (IdeState testPlugins Map.empty Map.empty Map.empty)
+dispatchRequestP = runIdeM testOptions (IdeState testPlugins GM.emptyModuleCache)
 
 -- ---------------------------------------------------------------------
 
