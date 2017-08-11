@@ -5,7 +5,6 @@ module Main where
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
 import           Control.Monad
-import           Control.Monad.Logger
 import           Control.Monad.STM
 import           Data.Semigroup
 import           Data.Version                          (showVersion)
@@ -23,9 +22,11 @@ import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Transport.LspStdio
 import           Haskell.Ide.Engine.Transport.JsonStdio
 import           Haskell.Ide.Engine.Types
+import qualified Language.Haskell.LSP.Core             as Core
 import           Options.Applicative.Simple
 import qualified Paths_haskell_ide_engine              as Meta
 import           System.Directory
+import qualified System.Log.Logger                     as L
 
 -- ---------------------------------------------------------------------
 -- plugins

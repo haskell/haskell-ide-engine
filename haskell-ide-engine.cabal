@@ -68,6 +68,7 @@ executable hie
                      , ghc-mod-core
                      , gitrev >= 1.1
                      , haskell-ide-engine
+                     , haskell-lsp
                      , hie-apply-refact
                      , hie-build-plugin
                      , hie-eg-plugin-async
@@ -77,7 +78,7 @@ executable hie
                      , hie-hare
                      , hie-hoogle
                      , hie-plugin-api
-                     , monad-logger
+                     , hslogger
                      , optparse-simple
                      , stm
                      , text
@@ -111,7 +112,6 @@ test-suite haskell-ide-test
                      , base
                      , containers
                      , directory
-                     , fast-logger
                      , filepath
                      , ghc-mod-core
                      , haskell-lsp
@@ -126,7 +126,6 @@ test-suite haskell-ide-test
                      , hie-plugin-api
                      , hoogle > 5.0.11
                      , hspec
-                     , monad-logger
                      , quickcheck-instances
                      , stm
                      , text
@@ -149,7 +148,6 @@ test-suite haskell-ide-func-test
                      , base
                      , containers
                      , directory
-                     , fast-logger
                      , filepath
                      , ghc-mod-core
                      , haskell-lsp
@@ -163,7 +161,6 @@ test-suite haskell-ide-func-test
                      , hie-hare
                      , hie-plugin-api
                      , hspec
-                     , monad-logger
                      , stm
                      , text
                      , transformers

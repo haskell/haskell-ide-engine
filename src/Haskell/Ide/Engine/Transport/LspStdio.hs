@@ -101,12 +101,12 @@ run dispatcherProc cin origDir = flip E.catches handlers $ do
       return Nothing
 
   flip E.finally finalProc $ do
-    tmpDir <- getTemporaryDirectory
-    let logDir = tmpDir </> "hie-logs"
-    createDirectoryIfMissing True logDir
-    let dirStr = map (\c -> if c == pathSeparator then '-' else c) origDir
-    let logFileName = logDir </> (dirStr ++ "-hie.log")
-    Core.setupLogger logFileName ["HaRe"] L.DEBUG
+    -- tmpDir <- getTemporaryDirectory
+    -- let logDir = tmpDir </> "hie-logs"
+    -- createDirectoryIfMissing True logDir
+    -- let dirStr = map (\c -> if c == pathSeparator then '-' else c) origDir
+    -- let logFileName = logDir </> (dirStr ++ "-hie.log")
+    -- Core.setupLogger logFileName ["HaRe"] L.DEBUG
     CTRL.run dp (hieHandlers rin) hieOptions
 
   where
