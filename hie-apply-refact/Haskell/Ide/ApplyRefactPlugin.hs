@@ -1,29 +1,24 @@
-{-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
-
-{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DeriveAnyClass        #-}
+{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE PartialTypeSignatures #-}
 module Haskell.Ide.ApplyRefactPlugin where
 
 import           Control.Arrow
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Either
-import           Data.Aeson                          hiding (Error)
-import           Data.Monoid                         ((<>))
-import qualified Data.Text                           as T
-import qualified Data.Text.IO                        as T
-import           Data.Vinyl
-import qualified GhcMod.Utils                        as GM
+import           Data.Aeson                        hiding (Error)
+import           Data.Monoid                       ((<>))
+import qualified Data.Text                         as T
+import qualified Data.Text.IO                      as T
+import           GHC.Generics
+import qualified GhcMod.Utils                      as GM
 import           Haskell.Ide.Engine.MonadFunctions
-import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
-import           Haskell.Ide.Engine.SemanticTypes
-import           Language.Haskell.HLint3             as Hlint
-import           Refact.Apply
--- import           System.Directory
 import           Language.Haskell.Exts.SrcLoc
+import           Language.Haskell.HLint3           as Hlint
+import           Refact.Apply
 import           System.IO.Extra
 
 -- ---------------------------------------------------------------------
@@ -32,42 +27,34 @@ import           System.IO.Extra
 {-# ANN module ("HLint: ignore Reduce duplication" :: String) #-}
 -- ---------------------------------------------------------------------
 
-applyRefactDescriptor :: TaggedPluginDescriptor _
+applyRefactDescriptor :: PluginDescriptor
 applyRefactDescriptor = PluginDescriptor
   {
-    pdUIShortName = "ApplyRefact"
-  , pdUIOverview = "apply-refact applies refactorings specified by the refact package. It is currently integrated into hlint to enable the automatic application of suggestions."
-    , pdCommands =
-
-        buildCommand applyOneCmd (Proxy :: Proxy "applyOne") "Apply a single hint"
-                   [".hs"] (SCtxPoint :& RNil) RNil SaveAll
-
-      :& buildCommand applyAllCmd (Proxy :: Proxy "applyAll") "Apply all hints to the file"
-                   [".hs"] (SCtxFile :& RNil) RNil SaveAll
-
-      :& buildCommand lintCmd (Proxy :: Proxy "lint") "Run hlint on the file to generate hints"
-                   [".hs"] (SCtxFile :& RNil) RNil SaveAll
-
-      :& RNil
-  , pdExposedServices = []
-  , pdUsedServices    = []
+    pluginName = "ApplyRefact"
+  , pluginDesc = "apply-refact applies refactorings specified by the refact package. It is currently integrated into hlint to enable the automatic application of suggestions."
+  , pluginCommands =
+      [ PluginCommand "applyOne" "Apply a single hint" applyOneCmd
+      , PluginCommand "applyAll" "Apply all hints to the file" applyAllCmd
+      , PluginCommand "lint" "Run hlint on the file to generate hints" lintCmd
+      ]
   }
 
 -- ---------------------------------------------------------------------
 
+data ApplyOneParams = AOP
+  { file      :: Uri
+  , start_pos :: Position
+  } deriving (Eq,Show,Generic,FromJSON,ToJSON)
 
-applyOneCmd :: CommandFunc WorkspaceEdit
-applyOneCmd = CmdSync $ \_ctxs req -> do
-  case getParams (IdFile "file" :& IdPos "start_pos" :& RNil) req of
-    Left err -> return err
-    Right (ParamFile uri :& ParamPos pos :& RNil) ->
-      applyOneCmd' uri pos
+applyOneCmd :: CommandFunc ApplyOneParams WorkspaceEdit
+applyOneCmd = CmdSync $ \(AOP uri pos)-> do
+  applyOneCmd' uri pos
 
 applyOneCmd' :: Uri -> Position -> IdeM (IdeResponse WorkspaceEdit)
-applyOneCmd' uri pos = pluginGetFile "applyOne: " uri $ \file -> do
+applyOneCmd' uri pos = pluginGetFile "applyOne: " uri $ \fp -> do
       revMapp <- GM.mkRevRedirMapFunc
-      res <- GM.withMappedFile file $ \file' -> liftIO $ applyHint file' (Just pos) revMapp
-      logm $ "applyOneCmd:file=" ++ show file
+      res <- GM.withMappedFile fp $ \file' -> liftIO $ applyHint file' (Just pos) revMapp
+      logm $ "applyOneCmd:file=" ++ show fp
       logm $ "applyOneCmd:res=" ++ show res
       case res of
         Left err -> return $ IdeResponseFail (IdeError PluginError
@@ -77,17 +64,14 @@ applyOneCmd' uri pos = pluginGetFile "applyOne: " uri $ \file -> do
 
 -- ---------------------------------------------------------------------
 
-applyAllCmd :: CommandFunc WorkspaceEdit
-applyAllCmd = CmdSync $ \_ctxs req -> do
-  case getParams (IdFile "file" :& RNil) req of
-    Left err -> return err
-    Right (ParamFile uri :& RNil) ->
-      applyAllCmd' uri
+applyAllCmd :: CommandFunc Uri WorkspaceEdit
+applyAllCmd = CmdSync $ \uri -> do
+  applyAllCmd' uri
 
 applyAllCmd' :: Uri -> IdeM (IdeResponse WorkspaceEdit)
-applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \file -> do
+applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \fp -> do
       revMapp <- GM.mkRevRedirMapFunc
-      res <- GM.withMappedFile file $ \file' -> liftIO $ applyHint file' Nothing revMapp
+      res <- GM.withMappedFile fp $ \file' -> liftIO $ applyHint file' Nothing revMapp
       logm $ "applyAllCmd:res=" ++ show res
       case res of
         Left err -> return $ IdeResponseFail (IdeError PluginError
@@ -96,24 +80,26 @@ applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \file -> do
 
 -- ---------------------------------------------------------------------
 
-lintCmd :: CommandFunc PublishDiagnosticsParams
-lintCmd = CmdSync $ \_ctxs req -> do
-  case getParams (IdFile "file" :& RNil) req of
-    Left err                      -> return err
-    Right (ParamFile uri :& RNil) -> lintCmd' uri
+lintCmd :: CommandFunc Uri PublishDiagnosticsParams
+lintCmd = CmdSync $ \uri -> do
+  lintCmd' uri
 
 lintCmd' :: Uri -> IdeM (IdeResponse PublishDiagnosticsParams)
-lintCmd' uri = pluginGetFile "lintCmd: " uri $ \file -> do
-      res <- GM.withMappedFile file $ \file' -> liftIO $ runEitherT $ runLintCmd file' []
+lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
+      res <- GM.withMappedFile fp $ \file' -> liftIO $ runEitherT $ runLintCmd file' []
       logm $ "lint:res=" ++ show res
       case res of
-        Left diags -> return (IdeResponseOk (PublishDiagnosticsParams (filePathToUri file) $ List diags))
-        Right fs   -> return (IdeResponseOk (PublishDiagnosticsParams (filePathToUri file) $ List (map hintToDiagnostic $ stripIgnores fs)))
+        Left diags ->
+          return (IdeResponseOk (PublishDiagnosticsParams (filePathToUri fp) $ List diags))
+        Right fs ->
+          return $ IdeResponseOk $
+            PublishDiagnosticsParams (filePathToUri fp)
+              $ List (map hintToDiagnostic $ stripIgnores fs)
 
 runLintCmd :: FilePath -> [String] -> EitherT [Diagnostic] IO [Idea]
-runLintCmd file args =
+runLintCmd fp args =
   do (flags,classify,hint) <- liftIO $ argsSettings args
-     res <- bimapEitherT parseErrorToDiagnostic id $ EitherT $ parseModuleEx flags file Nothing
+     res <- bimapEitherT parseErrorToDiagnostic id $ EitherT $ parseModuleEx flags fp Nothing
      pure $ applyHints classify hint [res]
 
 parseErrorToDiagnostic :: Hlint.ParseError -> [Diagnostic]
@@ -163,32 +149,9 @@ hintToDiagnostic idea
       }
 
 -- ---------------------------------------------------------------------
-{-
-
-instance Show Idea where
-    show = showEx id
-
-
-showANSI :: IO (Idea -> String)
-showANSI = do
-    f <- hsColourConsole
-    return $ showEx f
-
-showEx :: (String -> String) -> Idea -> String
-showEx tt Idea{..} = unlines $
-    [showSrcLoc (getPointLoc ideaSpan) ++ ": " ++ (if ideaHint == "" then "" else show ideaSeverity ++ ": " ++ ideaHint)] ++
-    f "Found" (Just ideaFrom) ++ f "Why not" ideaTo ++
-    ["Note: " ++ n | let n = showNotes ideaNote, n /= ""]
-    where
-        f msg Nothing = []
-        f msg (Just x) | null xs = [msg ++ " remove it."]
-                       | otherwise = (msg ++ ":") : map ("  "++) xs
-            where xs = lines $ tt x
-
--}
 
 idea2Message :: Idea -> T.Text
-idea2Message idea = T.unlines $ [T.pack $ ideaHint idea, "Found:", ("  " <> (T.pack $ ideaFrom idea))]
+idea2Message idea = T.unlines $ [T.pack $ ideaHint idea, "Found:", ("  " <> T.pack (ideaFrom idea))]
                                <> toIdea <> map (T.pack . show) (ideaNote idea)
   where
     toIdea :: [T.Text]
@@ -223,31 +186,32 @@ ss2Range ss = Range ps pe
 -- ---------------------------------------------------------------------
 
 applyHint :: FilePath -> Maybe Position -> (FilePath -> FilePath) -> IO (Either String WorkspaceEdit)
-applyHint file mpos fileMap = do
+applyHint fp mpos fileMap = do
   withTempFile $ \f -> do
     let optsf = "-o " ++ f
         opts = case mpos of
                  Nothing -> optsf
                  Just (Position l c) -> optsf ++ " --pos " ++ show (l+1) ++ "," ++ show (c+1)
-        hlintOpts = [file, "--quiet", "--refactor", "--refactor-options=" ++ opts ]
+        hlintOpts = [fp, "--quiet", "--refactor", "--refactor-options=" ++ opts ]
     runEitherT $ do
-      ideas <- runHlint file hlintOpts
+      ideas <- runHlint fp hlintOpts
       liftIO $ logm $ "applyHint:ideas=" ++ show ideas
       let commands = map (show &&& ideaRefactoring) ideas
-      appliedFile <- liftIO $ applyRefactorings (unPos <$> mpos) commands file
-      diff <- liftIO $ makeDiffResult file (T.pack appliedFile) fileMap
+      appliedFile <- liftIO $ applyRefactorings (unPos <$> mpos) commands fp
+      diff <- liftIO $ makeDiffResult fp (T.pack appliedFile) fileMap
       liftIO $ logm $ "applyHint:diff=" ++ show diff
       return diff
 
 
 runHlint :: FilePath -> [String] -> EitherT String IO [Idea]
-runHlint file args =
+runHlint fp args =
   do (flags,classify,hint) <- liftIO $ argsSettings args
-     res <- bimapEitherT showParseError id $ EitherT $ parseModuleEx flags file Nothing
+     res <- bimapEitherT showParseError id $ EitherT $ parseModuleEx flags fp Nothing
      pure $ applyHints classify hint [res]
 
 showParseError :: Hlint.ParseError -> String
-showParseError (Hlint.ParseError location message content) = unlines [show location, message, content]
+showParseError (Hlint.ParseError location message content) =
+  unlines [show location, message, content]
 
 makeDiffResult :: FilePath -> T.Text -> (FilePath -> FilePath) -> IO WorkspaceEdit
 makeDiffResult orig new fileMap = do

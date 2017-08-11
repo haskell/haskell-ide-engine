@@ -1,14 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 module ExamplePluginAsyncSpec where
 
-import           Control.Concurrent.STM.TChan
-import           Control.Monad.STM
+import           Control.Concurrent
+import           Control.Monad.IO.Class
 import           Data.Aeson
-import qualified Data.Map as Map
-import           Haskell.Ide.Engine.Dispatcher
+import qualified Data.Map                            as Map
 import           Haskell.Ide.Engine.Monad
+import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.ExamplePluginAsync
 import           TestUtils
 
@@ -21,28 +20,32 @@ spec :: Spec
 spec = do
   describe "ExamplePluginAsync" examplePluginAsyncSpec
 
+dispatchRequest :: ToJSON a => PluginId -> CommandName -> a -> IdeM (IdeResponse Value)
+dispatchRequest plugin com arg = do
+  mv <- liftIO newEmptyMVar
+  runPluginCommand plugin com (toJSON arg) (putMVar mv)
+  liftIO $ takeMVar mv
+
+dispatchRequestP :: IdeM a -> IO a
+dispatchRequestP =
+   runIdeM testOptions (IdeState testPlugins Map.empty Map.empty Map.empty)
+
 examplePluginAsyncSpec :: Spec
 examplePluginAsyncSpec = do
   describe "stores and retrieves in the state" $ do
     it "stores the first one" $ do
-      chan <- atomically newTChan
-      let req1 = IdeRequest "cmd1" (Map.fromList [])
-          cr1 = CReq "test" 1 req1 chan
-      let req2 = IdeRequest "cmd2" (Map.fromList [])
-          cr2 = CReq "test" 1 req2 chan
-      (ra,rb,rc) <- runIdeM testOptions (IdeState Map.empty Map.empty Map.empty Map.empty)
-        (do
-          r1 <- doDispatch testPlugins cr1
-          r2 <- doDispatch testPlugins cr2
-          r3 <- doDispatch testPlugins cr1
-          return (r1,r2,r3))
-      ra `shouldBe` Just (IdeResponseOk (String "res=wp cmd1:cnt=1"))
-      rb `shouldBe` Just (IdeResponseOk (String "res=wp cmd2:cnt=2"))
-      rc `shouldBe` Just (IdeResponseOk (String "res=wp cmd1:cnt=3"))
+      (ra,rb,rc) <- dispatchRequestP $ do
+          r1 <- dispatchRequest "test" "cmd1" ()
+          r2 <- dispatchRequest "test" "cmd2" ()
+          r3 <- dispatchRequest "test" "cmd1" ()
+          return (r1,r2,r3)
+      ra `shouldBe` IdeResponseOk (String "res=wp cmd1:cnt=1")
+      rb `shouldBe` IdeResponseOk (String "res=wp cmd2:cnt=2")
+      rc `shouldBe` IdeResponseOk (String "res=wp cmd1:cnt=3")
 
     -- ---------------------------------
 
 -- ---------------------------------------------------------------------
 
-testPlugins :: Plugins
-testPlugins = Map.fromList [("test",untagPluginDescriptor exampleAsyncDescriptor)]
+testPlugins :: IdePlugins
+testPlugins = pluginDescToIdePlugins [("test",exampleAsyncDescriptor)]

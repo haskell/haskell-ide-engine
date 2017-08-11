@@ -1,64 +1,33 @@
-{-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
-
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.ExamplePlugin2 where
 
-import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.PluginUtils
 import           Control.Monad.IO.Class
 import           Data.Monoid
-import qualified Data.Text as T
+import qualified Data.Text                     as T
+import           Haskell.Ide.Engine.MonadTypes
 
 -- ---------------------------------------------------------------------
 
-example2Descriptor :: TaggedPluginDescriptor _
+example2Descriptor :: PluginDescriptor
 example2Descriptor = PluginDescriptor
   {
-    pdUIShortName = "Hello World"
-  , pdUIOverview = "An example of writing an HIE plugin"
-  , pdCommands =
-         buildCommand sayHelloCmd (Proxy :: Proxy "sayHello") "say hello" [] (SCtxNone :& RNil) RNil SaveNone
-      :& buildCommand sayHelloToCmd (Proxy :: Proxy "sayHelloTo")
-                          "say hello to the passed in param"
-                          []
-                          (SCtxNone :& RNil)
-                          (  SParamDesc (Proxy :: Proxy "name") (Proxy :: Proxy "the name to greet") SPtText SRequired
-                            :& RNil) SaveNone
-
-      :& RNil
-  , pdExposedServices = []
-  , pdUsedServices    = []
+    pluginName = "Hello World"
+  , pluginDesc = "An example of writing an HIE plugin"
+  , pluginCommands =
+      [ PluginCommand "sayHello" "say hello" sayHelloCmd
+      , PluginCommand "sayHelloTo ""say hello to the passed in param" sayHelloToCmd
+      ]
   }
 
 -- ---------------------------------------------------------------------
 
-sayHelloCmd :: CommandFunc T.Text
-sayHelloCmd = CmdSync $ \_ _ -> return (IdeResponseOk sayHello)
+sayHelloCmd :: CommandFunc () T.Text
+sayHelloCmd = CmdSync $ \_ -> return (IdeResponseOk sayHello)
 
-sayHelloToCmd :: CommandFunc T.Text
-sayHelloToCmd = CmdSync $ \_ req ->
-  case getParams (IdText "name" :& RNil) req of
-    Left err -> return err
-    Right (ParamText n :& RNil) -> do
-      r <- liftIO $ sayHelloTo n
-      return $ IdeResponseOk r
-
--- ---------------------------------------------------------------------
-{-
-example2CommandFunc :: CommandFunc
-example2CommandFunc (IdeRequest name ctx params) = do
-  case name of
-    "sayHello"   -> return (IdeResponseOk (String sayHello))
-    "sayHelloTo" -> do
-      case Map.lookup "name" params of
-        Nothing -> return $ IdeResponseFail "expecting parameter `name`"
-        Just n -> do
-          r <- liftIO $ sayHelloTo n
-          return $ IdeResponseOk (String r)
--}
+sayHelloToCmd :: CommandFunc T.Text T.Text
+sayHelloToCmd = CmdSync $ \n -> do
+  r <- liftIO $ sayHelloTo n
+  return $ IdeResponseOk r
 
 -- ---------------------------------------------------------------------
 

@@ -18,17 +18,10 @@ flag pedantic
 library
   exposed-modules:
                        Haskell.Ide.Engine.PluginTypes
-                       Haskell.Ide.Engine.PluginTypes.Singletons
-                       Haskell.Ide.Engine.SemanticTypes
   build-depends:       base >= 4.9 && < 5
                      , aeson
-                     , Diff
-                     , containers
                      , haskell-lsp
                      , text
-                     , unordered-containers
-                     , singletons
-                     , vinyl
   ghc-options:         -Wall
   if flag(pedantic)
      ghc-options:      -Werror

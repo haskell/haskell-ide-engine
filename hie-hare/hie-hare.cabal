@@ -21,9 +21,7 @@ library
                      , HaRe
                      , aeson
                      , containers
-                     , directory
                      , either
-                     , filepath
                      , ghc
                      , ghc-mod
                      , ghc-exactprint
@@ -35,8 +33,6 @@ library
                      , monad-control
                      , mtl
                      , text
-                     , transformers
-                     , vinyl >= 0.5
   ghc-options:         -Wall
   if flag(pedantic)
      ghc-options:      -Werror

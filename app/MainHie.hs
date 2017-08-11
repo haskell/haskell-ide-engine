@@ -1,49 +1,30 @@
-{-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
-
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE PatternSynonyms #-}
-
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE TemplateHaskell     #-}
 module Main where
 
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
-import           Control.Exception
 import           Control.Monad
 import           Control.Monad.Logger
 import           Control.Monad.STM
-import qualified Data.Map as Map
+import qualified Data.Map                              as Map
 import           Data.Semigroup
-import           Data.Proxy
-import qualified Data.Text as T
-import           Data.Version (showVersion)
-import           Data.Vinyl
-import           Development.GitRev (gitCommitCount)
-import           Distribution.System (buildArch)
-import           Distribution.Text (display)
-import           GHC.TypeLits
-import           Haskell.Ide.Engine.Console
+import           Data.Version                          (showVersion)
+import           Development.GitRev                    (gitCommitCount)
+import           Distribution.System                   (buildArch)
+import           Distribution.Text                     (display)
+import qualified GhcMod.Types                          as GM
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadFunctions
+import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.Transport.JsonHttp
-import           Haskell.Ide.Engine.Transport.JsonStdio
-import           Haskell.Ide.Engine.Transport.JsonTcp
 import           Haskell.Ide.Engine.Transport.LspStdio
+import           Haskell.Ide.Engine.Transport.JsonStdio
 import           Haskell.Ide.Engine.Types
-import           Haskell.Ide.Engine.Utils
-import qualified GhcMod.Types as GM
-import           Network.Simple.TCP
 import           Options.Applicative.Simple
-import qualified Paths_haskell_ide_engine as Meta
+import qualified Paths_haskell_ide_engine              as Meta
 import           System.Directory
 
 -- ---------------------------------------------------------------------
@@ -62,32 +43,18 @@ import           Haskell.Ide.HooglePlugin
 -- ---------------------------------------------------------------------
 
 -- | This will be read from a configuration, eventually
-taggedPlugins :: Rec Plugin _
-taggedPlugins =
-     Plugin (Proxy :: Proxy "applyrefact") applyRefactDescriptor
-  :& Plugin (Proxy :: Proxy "build")       buildPluginDescriptor
-  :& Plugin (Proxy :: Proxy "eg2")         example2Descriptor
-  :& Plugin (Proxy :: Proxy "egasync")     exampleAsyncDescriptor
-  :& Plugin (Proxy :: Proxy "ghcmod")      ghcmodDescriptor
-  :& Plugin (Proxy :: Proxy "ghctree")     ghcTreeDescriptor
-  :& Plugin (Proxy :: Proxy "hare")        hareDescriptor
-  :& Plugin (Proxy :: Proxy "base")        baseDescriptor
-  :& Plugin (Proxy :: Proxy "hoogle")      hoogleDescriptor
-  :& RNil
-
-
-
-
-recProxy :: Rec f t -> Proxy t
-recProxy _ = Proxy
-
-plugins :: Plugins
-plugins =
-  Map.fromList $
-  recordToList'
-    (\(Plugin name desc) ->
-       (T.pack $ symbolVal name,untagPluginDescriptor desc))
-    taggedPlugins
+plugins :: IdePlugins
+plugins = pluginDescToIdePlugins
+  [("applyrefact", applyRefactDescriptor)
+  ,("build"      , buildPluginDescriptor)
+  ,("eg2"        , example2Descriptor)
+  ,("egasync"    , exampleAsyncDescriptor)
+  ,("ghcmod"     , ghcmodDescriptor)
+  ,("ghctree"    , ghcTreeDescriptor)
+  ,("hare"       , hareDescriptor)
+  ,("base"       , baseDescriptor)
+  ,("hoogle"     , hoogleDescriptor)
+  ]
 
 -- ---------------------------------------------------------------------
 
@@ -125,7 +92,7 @@ main = do
 run :: GlobalOpts -> IO ()
 run opts = do
   let withLogFun = case optLogFile opts of
-        Just f -> withFileLogging f
+        Just f  -> withFileLogging f
         Nothing -> withStdoutLogging
 
   withLogFun $ do
@@ -146,52 +113,21 @@ run opts = do
     d <- getCurrentDirectory
     logm $ "Current directory:" ++ d
 
-    cin <- atomically newTChan :: IO (TChan ChannelRequest)
     pin <- atomically newTChan :: IO (TChan PluginRequest)
-
-    -- log $ T.pack $ "replPluginInfo:" ++ show replPluginInfo
-
-    case validatePlugins plugins of
-      Just err -> error (pdeErrorMsg err)
-      Nothing -> return ()
 
     let vomitOptions = GM.defaultOptions { GM.optOutput = oo { GM.ooptLogLevel = GM.GmVomit}}
         oo = GM.optOutput GM.defaultOptions
     let ghcModOptions = (if optGhcModVomit opts then vomitOptions else GM.defaultOptions) { GM.optGhcUserOptions = ["-Wall"]  }
 
     -- launch the dispatcher.
-    let dispatcherProc =
-          void $ forkIO $
-            runIdeM ghcModOptions
-              (IdeState plugins Map.empty Map.empty Map.empty)
-              (dispatcher cin)
     let dispatcherProcP dispatcherEnv =
           void $ forkIO $
             runIdeM ghcModOptions
               (IdeState plugins Map.empty Map.empty Map.empty)
               (dispatcherP dispatcherEnv pin)
-    unless (optLsp opts) $ void dispatcherProc
 
-    -- TODO: pass port in as a param from GlobalOpts
-    when (optHttp opts) $
-      void $ forkIO (jsonHttpListener (recProxy taggedPlugins) cin (optPort opts))
-
-    when (optTcp opts) $
-      void $ forkIO (jsonTcpTransport (optOneShot opts) cin HostAny (show $ optTcpPort opts))
-    -- Can have multiple listeners, each using a different transport protocol, so
-    -- long as they can pass through a ChannelRequest
-    if (optConsole opts)
-       then consoleListener plugins cin
-       else if optLsp opts
-               then lspStdioTransport plugins dispatcherProcP pin origDir
-               else jsonStdioTransport (optOneShot opts) cin
-
-    -- At least one needs to be launched, othewise a threadDelay with a large
-    -- number should be given. Or some other waiting action.
-
--- |Do whatever it takes to get a request from the IDE.
--- pass the request through to the main event dispatcher, and listen on the
--- reply channel for the response, which should go back to the IDE, using
--- whatever it takes.
-listener :: TChan ChannelRequest -> IO ()
-listener = assert False undefined
+    if optLsp opts then
+      lspStdioTransport dispatcherProcP pin origDir
+    else
+      jsonStdioTransport dispatcherProcP pin
+      -- putStrLn "HIE exiting - no transport selected (available transports: --lsp)"

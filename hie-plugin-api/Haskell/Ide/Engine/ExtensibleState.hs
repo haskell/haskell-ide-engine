@@ -24,11 +24,11 @@ module Haskell.Ide.Engine.ExtensibleState (
                               , gets
                               ) where
 
-import qualified Control.Monad.State.Strict as State
+import qualified Control.Monad.State.Strict    as State
 import           Control.Monad.Trans.Class
 import           Data.Dynamic
-import qualified Data.Map as M
-import           Haskell.Ide.Engine.PluginDescriptor
+import qualified Data.Map                      as M
+import           Haskell.Ide.Engine.MonadTypes
 
 -- ---------------------------------------------------------------------
 -- $usage
@@ -91,7 +91,7 @@ get =
        State.gets $ M.lookup (typeRep $ (Proxy :: Proxy a)) . extensibleState
      case v of
        Just dyn -> return $ fromDyn dyn initialValue
-       _ -> return initialValue
+       _        -> return initialValue
 
 gets :: ExtensionClass a => (a -> b) -> IdeM b
 gets = flip fmap get

@@ -1,8 +1,7 @@
 module Haskell.Ide.Engine.Options where
 
-import Data.Semigroup hiding (option)
-import Network.Wai.Handler.Warp
-import Options.Applicative.Simple
+import           Data.Semigroup             hiding (option)
+import           Options.Applicative.Simple
 
 data GlobalOpts = GlobalOpts
   { optConsole     :: Bool
@@ -12,11 +11,9 @@ data GlobalOpts = GlobalOpts
       -- process.
   , optDebugOn     :: Bool
   , optLogFile     :: Maybe String
-  , optPort        :: Port
   , optHttp        :: Bool
   , optTcp         :: Bool
   , optLsp         :: Bool
-  , optTcpPort     :: Port
   , projectRoot    :: Maybe String
   , optDumpSwagger :: Bool
   , optGhcModVomit :: Bool
@@ -45,12 +42,6 @@ globalOptsParser = GlobalOpts
       <> metavar "LOGFILE"
       <> help "File to log to, defaults to stdout"
        ))
-  <*> option
-       auto
-       ( long "port"
-       <> short 'p'
-       <> help "Port to use for webinterface"
-       <> value 8001)
   <*> flag False True
        ( long "http"
        <> help "Enable the webinterface")
@@ -60,11 +51,6 @@ globalOptsParser = GlobalOpts
   <*> flag False True
        ( long "lsp"
        <> help "Enable the Language Server Protocol transport on STDIO")
-  <*> option
-       auto
-       ( long "tcp-port"
-       <> help "Port to use for tcp interface"
-       <> value 8002)
   <*> (optional $ strOption
        ( long "project-root"
       <> short 'r'

@@ -1,15 +1,14 @@
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE DuplicateRecordFields   #-}
+{-# LANGUAGE PatternSynonyms       #-}
+{-# LANGUAGE PolyKinds             #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 {-
 
 Start up an actual instance of the HIE server, and interact with it.
@@ -23,23 +22,21 @@ module Main where
 
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
+import           Control.Concurrent.STM.TVar
 import           Control.Monad
 import           Control.Monad.STM
 import           Data.Aeson
-import qualified Data.HashMap.Strict as H
-import qualified Data.Map as Map
-import           Data.Proxy
-import qualified Data.Text as T
-import           Data.Vinyl
-import           GHC.TypeLits
+import qualified Data.HashMap.Strict                   as H
+import qualified Data.Map                              as Map
+import qualified Data.Set                              as S
+import qualified Data.Text                             as T
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadFunctions
+import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.SemanticTypes
-import           Haskell.Ide.Engine.Transport.JsonHttp
+import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
-import           Haskell.Ide.Engine.Utils
 import           Language.Haskell.LSP.TH.DataTypesJSON hiding (error, name)
 import           System.Directory
 import           System.FilePath
@@ -60,42 +57,33 @@ import           Haskell.Ide.HaRePlugin
 
 -- ---------------------------------------------------------------------
 
--- | This will be read from a configuration, eventually
-taggedPlugins :: Rec Plugin _
-taggedPlugins =
-     Plugin (Proxy :: Proxy "applyrefact") applyRefactDescriptor
-  :& Plugin (Proxy :: Proxy "eg2")         example2Descriptor
-  :& Plugin (Proxy :: Proxy "egasync")     exampleAsyncDescriptor
-  :& Plugin (Proxy :: Proxy "ghcmod")      ghcmodDescriptor
-  :& Plugin (Proxy :: Proxy "ghctree")     ghcTreeDescriptor
-  :& Plugin (Proxy :: Proxy "hare")        hareDescriptor
-  :& Plugin (Proxy :: Proxy "base")        baseDescriptor
-  :& RNil
+plugins :: IdePlugins
+plugins = pluginDescToIdePlugins
+  [("applyrefact", applyRefactDescriptor)
+  ,("eg2"        , example2Descriptor)
+  ,("egasync"    , exampleAsyncDescriptor)
+  ,("ghcmod"     , ghcmodDescriptor)
+  ,("ghctree"    , ghcTreeDescriptor)
+  ,("hare"       , hareDescriptor)
+  ,("base"       , baseDescriptor)
+  ]
 
-
-recProxy :: Rec f t -> Proxy t
-recProxy _ = Proxy
-
-plugins :: Plugins
-plugins =
-  Map.fromList $
-  recordToList'
-    (\(Plugin name desc) ->
-       (T.pack $ symbolVal name,untagPluginDescriptor desc))
-    taggedPlugins
-
-startServer :: IO (TChan ChannelRequest, TChan ChannelResponse)
+startServer :: IO (TChan PluginRequest)
 startServer = do
-  cin  <- atomically newTChan :: IO (TChan ChannelRequest)
-  cout <- atomically newTChan :: IO (TChan ChannelResponse)
+  cin  <- atomically newTChan
 
-  case validatePlugins plugins of
-    Just err -> error (pdeErrorMsg err)
-    Nothing -> return ()
+  let dispatcherProc dispatcherEnv = void $ forkIO $ runIdeM testOptions (IdeState plugins Map.empty Map.empty Map.empty) (dispatcherP dispatcherEnv cin)
+  cancelTVar <- atomically $ newTVar S.empty
+  wipTVar <- atomically $ newTVar S.empty
+  versionTVar <- atomically $ newTVar Map.empty
+  let dispatcherEnv = DispatcherEnv
+        { cancelReqsTVar = cancelTVar
+        , wipReqsTVar    = wipTVar
+        , docVersionTVar = versionTVar
+        }
 
-  let dispatcherProc = void $ forkIO $ runIdeM testOptions (IdeState plugins Map.empty Map.empty Map.empty) (dispatcher cin)
-  void dispatcherProc
-  return (cin,cout)
+  void $ dispatcherProc dispatcherEnv
+  return cin
 
 -- ---------------------------------------------------------------------
 
@@ -110,11 +98,13 @@ spec = do
 
 -- ---------------------------------------------------------------------
 
-dispatchRequest :: TChan ChannelRequest -> TChan ChannelResponse -> ChannelRequest -> IO (Maybe (IdeResponse Value))
-dispatchRequest cin cout req = do
+dispatchRequest :: ToJSON a => TChan PluginRequest -> PluginId -> CommandName -> a -> IO (IdeResponse Value)
+dispatchRequest cin plugin com arg = do
+  mv <- newEmptyMVar
+  let req = PReq Nothing Nothing Nothing (const $ return ()) $
+        runPluginCommand plugin com (toJSON arg) (putMVar mv)
   atomically $ writeTChan cin req
-  (CResp _ _ rsp) <- atomically $ readTChan cout
-  return (Just rsp)
+  takeMVar mv
 
 -- ---------------------------------------------------------------------
 {- -}
@@ -123,18 +113,17 @@ functionalSpec = do
   describe "consecutive plugin commands" $ do
 
     it "returns hints as diagnostics" $ do
-      (cin,cout) <- startServer
+      cin <- startServer
       cwd <- getCurrentDirectory
 
       -- -------------------------------
 
-      let req1 = IdeRequest "lint" (Map.fromList [("file",ParamFileP $ filePathToUri "./FuncTest.hs")
-                                                ])
-      r1 <- dispatchRequest cin cout (CReq "applyrefact" 1 req1 cout)
-      r1 `shouldBe`
-        Just (IdeResponseOk (toJSON (PublishDiagnosticsParams
+      let req1 = filePathToUri "./FuncTest.hs"
+      r1 <- dispatchRequest cin "applyrefact" "lint" req1
+      r1 `shouldBe` IdeResponseOk
+                           (toJSON PublishDiagnosticsParams
                                       { _uri = filePathToUri "./FuncTest.hs"
-                                      , _diagnostics = List $
+                                      , _diagnostics = List
                                         [ Diagnostic (Range (Position 9 6) (Position 10 18))
                                                      (Just DsWarning)
                                                      Nothing
@@ -142,44 +131,33 @@ functionalSpec = do
                                                      "Redundant do\nFound:\n  do putStrLn \"hello\"\nWhy not:\n  putStrLn \"hello\"\n"
                                         ]
                                       }
-                                     )))
+                                     )
 
       -- -------------------------------
 
-      let req2 = IdeRequest "type" (Map.fromList [("file",ParamFileP $ filePathToUri "./FuncTest.hs")
-                                                 ,("include_constraints", ParamBoolP False)
-                                                  ,("start_pos",ParamPosP (toPos (10,2)))])
-      r2 <- dispatchRequest cin cout (CReq "ghcmod" 2 req2 cout)
+      let req2 = TP False (filePathToUri "./FuncTest.hs") (toPos (10,2))
+      r2 <- dispatchRequest cin "ghcmod" "type" req2
       r2 `shouldBe`
-        Just (IdeResponseOk (object ["type_info".=toJSON
-                        [TypeResult (toPos (10,1)) (toPos (11,19)) "IO ()"
-                        ]
-                        ]))
+        IdeResponseOk (toJSON [(Range (toPos (10,1)) (toPos (11,19)), ("IO ()" :: T.Text))])
 
       -- -------------------------------
 
-      let req4 = IdeRequest "type" (Map.fromList [("file",ParamFileP $ filePathToUri "./FuncTest.hs")
-                                                 ,("include_constraints", ParamBoolP False)
-                                                 ,("start_pos",ParamPosP (toPos (8,1)))])
-      r4 <- dispatchRequest cin cout (CReq "ghcmod" 4 req4 cout)
+      let req4 = TP False (filePathToUri "./FuncTest.hs") (toPos (8,1))
+      r4 <- dispatchRequest cin "ghcmod" "type" req4
       r4 `shouldBe`
-        Just (IdeResponseOk (object ["type_info".=toJSON
-                        [TypeResult (toPos (8,1)) (toPos (8,7)) "Int"
-                        ]
-                        ]))
+        IdeResponseOk (toJSON [(Range (toPos (8,1)) (toPos (8,7)), ("Int" :: T.Text))])
 
       -- -------------------------------
 
-      let req3 = IdeRequest "demote" (Map.fromList [("file",ParamFileP $ filePathToUri "./FuncTest.hs")
-                                                   ,("start_pos",ParamPosP (toPos (8,1)))])
-      r3 <- dispatchRequest cin cout (CReq "hare" 3 req3 cout)
+      let req3 = HP (filePathToUri "./FuncTest.hs") (toPos (8,1))
+      r3 <- dispatchRequest cin "hare" "demote" req3
       r3 `shouldBe`
-        Just (IdeResponseOk
-              $ toJSON
-              $ WorkspaceEdit
-                (Just $ H.singleton (filePathToUri $ cwd </> "FuncTest.hs")
-                                    $ List [TextEdit (Range (Position 6 0) (Position 7 6))
-                                                     "  where\n    bb = 5"])
-                Nothing)
+        (IdeResponseOk
+         $ toJSON
+         $ WorkspaceEdit
+           (Just $ H.singleton (filePathToUri $ cwd </> "FuncTest.hs")
+                               $ List [TextEdit (Range (Position 6 0) (Position 7 6))
+                                                "  where\n    bb = 5"])
+           Nothing)
 {- -}
 
