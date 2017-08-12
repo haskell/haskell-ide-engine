@@ -125,6 +125,7 @@ test-suite haskell-ide-test
                      , hie-hoogle
                      , hie-plugin-api
                      , hoogle > 5.0.11
+                     , hslogger
                      , hspec
                      , quickcheck-instances
                      , stm
@@ -160,6 +161,7 @@ test-suite haskell-ide-func-test
                      , hie-ghc-tree
                      , hie-hare
                      , hie-plugin-api
+                     , hslogger
                      , hspec
                      , stm
                      , text

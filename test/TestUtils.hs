@@ -3,13 +3,16 @@ module TestUtils
     testOptions
   , cdAndDo
   , withTestLogging
+  , withFileLogging
   ) where
 
-import           Haskell.Ide.Engine.MonadFunctions
-import           System.Directory
 import           Control.Exception
 import qualified GhcMod.Monad as GM
 import qualified GhcMod.Types as GM
+import qualified Language.Haskell.LSP.Core as Core
+import           System.Directory
+import qualified System.Log.Logger as L
+
 
 -- ---------------------------------------------------------------------
 
@@ -34,3 +37,10 @@ cdAndDo path fn = do
 
 withTestLogging :: IO a -> IO a
 withTestLogging = withFileLogging "./test-main.log"
+
+
+
+withFileLogging :: FilePath -> IO a -> IO a
+withFileLogging filePath f = do
+  Core.setupLogger (Just filePath) ["hie"] L.DEBUG
+  f
