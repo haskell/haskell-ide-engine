@@ -31,7 +31,6 @@ library
                      , directory
                      , either
                      , fingertree
-                     , fast-logger
                      , filepath
                      , ghc
                      , syb
@@ -39,9 +38,9 @@ library
                      , haskell-lsp
                      , hie-base
                      , haskell-lsp
+                     , hslogger
                      , lifted-base
                      , monad-control
-                     , monad-logger
                      , mtl
                      , text
                      , time
