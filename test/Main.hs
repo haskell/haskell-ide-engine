@@ -1,11 +1,9 @@
 module Main where
-
--- import Control.Monad
--- import TestUtils
-import           Haskell.Ide.Engine.MonadFunctions
+-- import           Haskell.Ide.Engine.MonadFunctions
 
 -- import Test.Hspec.Formatters.Jenkins
 import Test.Hspec.Runner
+import TestUtils
 import qualified Spec
 
 -- ---------------------------------------------------------------------
