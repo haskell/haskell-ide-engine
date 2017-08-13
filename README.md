@@ -85,6 +85,32 @@ npm install .
 
 Open `vscode-hie-server/` in Visual Studio Code and press `F5` to open a new window with the extension loaded.
 
+### Using HIE with neovim
+
+As above, make sure HIE is installed. Install and load the neovim plugin
+[LanguageClient](https://github.com/autozimu/LanguageClient-neovim). If you use
+[vim-plug](https://github.com/junegunn/vim-plug), then you can do this by e.g.
+including the following line in the Plug section of your `init.vim`:
+
+```
+Plug 'autozimu/LanguageClient-neovim', { 'do': ':UpdateRemotePlugins' }
+```
+
+and issuing a `:PlugInstall` command within neovim.
+
+Finally, make sure that `hie` is included as the language server source for haskell: 
+
+```
+let g:LanguageClient_serverCommands = {
+    ...
+    \ 'haskell': ['hie', '--lsp'],
+    ...
+    \ }
+```
+
+For asynchronous auto-completion, follow the setup instructions on
+[LanguageClient](https://github.com/autozimu/LanguageClient-neovim).
+
 ### Hoogle Docs on hover
 
 HIE supports fetching docs from hoogle on hover. It can use the Hoogle database for 
