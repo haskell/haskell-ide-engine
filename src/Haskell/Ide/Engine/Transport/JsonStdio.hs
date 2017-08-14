@@ -79,6 +79,7 @@ run dispatcherProc cin = flip E.catches handlers $ do
     _opid <- forkIO $ outWriter rout
     _rpid <- forkIO $ reactor rout
     dispatcherProc dispatcherEnv
+    forever $ threadDelay maxBound
     return 0
 
   where
