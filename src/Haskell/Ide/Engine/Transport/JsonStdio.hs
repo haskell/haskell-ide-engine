@@ -10,7 +10,6 @@ module Haskell.Ide.Engine.Transport.JsonStdio
     jsonStdioTransport
   ) where
 
-import           Control.Concurrent
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM.TChan
 import           Control.Concurrent.STM.TVar
@@ -93,7 +92,7 @@ run dispatcherProc cin = flip E.catches handlers $ do
     outWriter rout = forever $ do
       out <- atomically $ readTChan rout
       B.putStr $ J.encode out
-      B.putChar '\STX'
+      putChar '\STX'
 
     reactor rout =
       let sendResponse rid resp = atomically $ writeTChan rout (ReactorOutput rid resp) in
