@@ -338,7 +338,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                 fmServerShowMessageNotification J.MtWarning "No hoogle db found. Check the README for instructions to generate one"
             callback (Just db) = flip runReaderT lf $ do
               reactorSend $
-                fmServerShowMessageNotification J.MtLog $ "Using hoogle db at: " <> T.pack db
+                fmServerLogMessageNotification J.MtLog $ "Using hoogle db at: " <> T.pack db
         makeRequest hreq
 
       -- -------------------------------
