@@ -43,6 +43,7 @@ import           Prelude                               hiding (log)
 import           SrcLoc
 import           System.Directory
 import           System.FilePath
+import           Data.Char
 
 -- ---------------------------------------------------------------------
 
@@ -187,7 +188,11 @@ fileInfo tfileName =
 -- ---------------------------------------------------------------------
 
 uri2fileUri :: Uri -> GM.FileUri
-uri2fileUri (Uri f) = GM.FileUri f
+uri2fileUri (Uri f) = GM.FileUri $ T.pack . uriDecode . T.unpack $ f
+  where
+    uriDecode ('%':x:y:rest) = toEnum (16 * digitToInt x + digitToInt y) : uriDecode rest
+    uriDecode (x:xs) = x : uriDecode xs
+    uriDecode [] = []
 
 fileUri2Uri :: GM.FileUri -> Uri
 fileUri2Uri (GM.FileUri f) = Uri f
