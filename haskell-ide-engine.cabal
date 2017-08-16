@@ -49,6 +49,7 @@ library
                      , lens >= 4.15.2
                      , mtl
                      , optparse-simple >= 0.0.3
+                     , sorted-list == 0.2.0.*
                      , stm
                      , text
                      , unordered-containers
