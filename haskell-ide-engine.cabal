@@ -27,6 +27,7 @@ library
   other-modules:       Paths_haskell_ide_engine
   build-depends:       Cabal >= 1.22
                      , aeson
+                     , async
                      , base >= 4.9 && < 5
                      , bytestring
                      , containers

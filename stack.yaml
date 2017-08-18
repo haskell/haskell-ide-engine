@@ -12,8 +12,6 @@ packages:
 - hie-hoogle
 - hie-plugin-api
 - hie-brittany
-
-# - ../haskell-lsp
 - location:
     git: https://github.com/alanz/haskell-lsp.git
     commit: bdbab47f070c5b3b45d31bcb4b22ebcd9a34ff15
@@ -23,19 +21,10 @@ packages:
     git: https://github.com/alanz/ghc-dump-tree.git
     commit: 9dbca928ad5507b144f46bb95123a08d24f24808
   extra-dep: true
-# - location:
-#     git: https://github.com/sol/hspec-jenkins.git
-#     commit: cb012b23c4e524dde9ea129b6146dda20a5ca505
-#   extra-dep: true
-# - ../HaRe
 - location:
     git: https://github.com/alanz/HaRe.git
     commit: f3b4fd1b65007184df9bb7743d29a4347057a422
   extra-dep: true
-
-# - ../../DanielG/ghc-mod
-# - ../ghc-mod
-# - ../ghc-mod/ghc-mod-core
 - location:
     git: https://github.com/alanz/ghc-mod.git
     commit: 1008d147a9e7eaa4e3f1c3ee6f454550e00f1899
@@ -45,27 +34,15 @@ packages:
     - .
     - ghc-mod-core
 
-- location:
-    # git: https://github.com/lspitzner/brittany.git
-    # commit: 134f31e4d18e51a7cd3d5bcaa90af92e70b926ce
-    git: https://github.com/alanz/brittany.git
-    commit: 33eed86851472707d7b9bf94a177228bc8d2df9b
-  extra-dep: true
-# - location:
-#     git: https://github.com/wz1000/hoogle.git
-#     commit: a1fb4ec702f61d0746f07dd10e1443800cbef66c
-#   extra-dep: true
-
 extra-deps:
 - apply-refact-0.3.0.1
-# - apply-refact-0.4.0.0
-- butcher-1.1.0.0
+- butcher-1.1.0.1
 - czipwith-1.0.0.0
 - data-tree-print-0.1.0.0
 - deque-0.2
 - monad-memo-0.4.1
 - hoogle-5.0.13
-# - hspec-jenkins-0.1.1
+- brittany-0.8.0.2
 flags:
   haskell-ide-engine:
     pedantic: true

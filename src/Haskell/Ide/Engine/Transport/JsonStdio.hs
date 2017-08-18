@@ -10,7 +10,7 @@ module Haskell.Ide.Engine.Transport.JsonStdio
     jsonStdioTransport
   ) where
 
-import           Control.Concurrent
+import           Control.Concurrent.Async
 import           Control.Concurrent.STM.TChan
 import           Control.Concurrent.STM.TVar
 import qualified Control.Exception                     as E
@@ -76,9 +76,9 @@ run dispatcherProc cin = flip E.catches handlers $ do
           , docVersionTVar = versionTVar
           }
 
-    _opid <- forkIO $ outWriter rout
-    _rpid <- forkIO $ reactor rout
     dispatcherProc dispatcherEnv
+    race_ (outWriter rout) (reactor rout)
+
     return 0
 
   where
@@ -92,6 +92,7 @@ run dispatcherProc cin = flip E.catches handlers $ do
     outWriter rout = forever $ do
       out <- atomically $ readTChan rout
       B.putStr $ J.encode out
+      putChar '\STX'
 
     reactor rout =
       let sendResponse rid resp = atomically $ writeTChan rout (ReactorOutput rid resp) in
