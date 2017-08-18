@@ -36,6 +36,7 @@ import           Data.List
 import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import qualified Data.Set as S
+import qualified Data.SortedList as SL
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified GhcModCore               as GM
@@ -242,10 +243,10 @@ updatePositionMap uri changes = do
 -- ---------------------------------------------------------------------
 
 publishDiagnostics :: (MonadIO m, MonadReader Core.LspFuncs m)
-  => J.Uri -> Maybe J.TextDocumentVersion -> DiagnosticsBySource -> m ()
-publishDiagnostics uri' mv diags = do
+  => Int -> J.Uri -> Maybe J.TextDocumentVersion -> DiagnosticsBySource -> m ()
+publishDiagnostics maxToSend uri' mv diags = do
   lf <- ask
-  liftIO $ (Core.publishDiagnosticsFunc lf) uri' mv diags
+  liftIO $ (Core.publishDiagnosticsFunc lf) maxToSend uri' mv diags
 
 -- ---------------------------------------------------------------------
 
@@ -660,8 +661,9 @@ requestDiagnostics :: TChan PluginRequest -> J.Uri -> Int -> R ()
 requestDiagnostics cin file ver = do
   lf <- ask
   let sendOne pid (uri',ds) =
-        publishDiagnostics uri' Nothing (Map.fromList [(Just pid,ds)])
-      sendEmpty = publishDiagnostics file Nothing (Map.fromList [(Just "ghcmod",[])])
+        publishDiagnostics maxToSend uri' Nothing (Map.fromList [(Just pid,SL.toSortedList ds)])
+      sendEmpty = publishDiagnostics maxToSend file Nothing (Map.fromList [(Just "ghcmod",SL.toSortedList [])])
+      maxToSend = 50
   -- get hlint diagnostics
   let reql = PReq (Just file) (Just (file,ver)) Nothing (flip runReaderT lf . callbackl)
                $ ApplyRefact.lintCmd' file
