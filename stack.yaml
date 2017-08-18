@@ -13,8 +13,8 @@ packages:
 - hie-plugin-api
 - hie-brittany
 - location:
-    git: https://github.com/alanz/haskell-lsp.git
-    commit: a98b2c452248b0dfe461b339d275734977151e37
+    git: https://github.com/wz1000/haskell-lsp.git
+    commit: 0e70756f8e258d5085f7972d4ffafbe6d9b1ac9f
   extra-dep: true
 - location:
     git: https://github.com/alanz/ghc-dump-tree.git

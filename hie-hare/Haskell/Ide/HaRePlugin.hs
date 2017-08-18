@@ -579,7 +579,7 @@ getNewNames old = do
   let newNames = filter (\n -> showGhcQual n == showGhcQual old) clientInscopes
   return newNames
 
-findDef :: Uri -> Position -> IdeM (IdeResponse Location)
+findDef :: Uri -> Position -> IdeM (IdeResponse [Location])
 findDef file pos = do
   let noCache = return $ nonExistentCacheErr "hare:findDef"
   GM.withCachedModule (uri2fileUri file) noCache $
@@ -587,15 +587,15 @@ findDef file pos = do
       let rfm = GM.revMap cm
           lm = GM.locMap cm
       case symbolFromTypecheckedModule lm =<< newPosToOld cm pos of
-        Nothing -> return $ invalidCursorErr "hare:findDef"
+        Nothing -> return $ IdeResponseOk []
         Just pn -> do
           let n = snd pn
           res <- srcSpan2Loc rfm $ nameSrcSpan n
           case res of
             Right l@(J.Location uri range) ->
               case oldRangeToNew cm range of
-                Just r  -> return $ IdeResponseOk (J.Location uri r)
-                Nothing -> return $ IdeResponseOk l
+                Just r  -> return $ IdeResponseOk ([J.Location uri r])
+                Nothing -> return $ IdeResponseOk [l]
             Left x -> do
               let failure = pure (IdeResponseFail
                                     (IdeError PluginError
@@ -626,7 +626,7 @@ findDef file pos = do
                           getNewNames n
                         eithers <- mapM (srcSpan2Loc rfm' . nameSrcSpan) newNames
                         case rights eithers of
-                          (l:_) -> return $ IdeResponseOk l
+                          (l:_) -> return $ IdeResponseOk [l]
                           []    -> failure
                       Nothing -> failure
                     else failure

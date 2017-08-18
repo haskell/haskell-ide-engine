@@ -17,6 +17,8 @@ import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           Language.Haskell.Exts.SrcLoc
+import           Language.Haskell.Exts.Parser
+import           Language.Haskell.Exts.Extension
 import           Language.Haskell.HLint3           as Hlint
 import           Refact.Apply
 import           System.IO.Extra
@@ -99,7 +101,8 @@ lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
 runLintCmd :: FilePath -> [String] -> EitherT [Diagnostic] IO [Idea]
 runLintCmd fp args =
   do (flags,classify,hint) <- liftIO $ argsSettings args
-     res <- bimapEitherT parseErrorToDiagnostic id $ EitherT $ parseModuleEx flags fp Nothing
+     let myflags = flags { hseFlags = (hseFlags flags) { extensions = (EnableExtension TypeApplications:extensions (hseFlags flags))}}
+     res <- bimapEitherT parseErrorToDiagnostic id $ EitherT $ parseModuleEx myflags fp Nothing
      pure $ applyHints classify hint [res]
 
 parseErrorToDiagnostic :: Hlint.ParseError -> [Diagnostic]
@@ -206,7 +209,8 @@ applyHint fp mpos fileMap = do
 runHlint :: FilePath -> [String] -> EitherT String IO [Idea]
 runHlint fp args =
   do (flags,classify,hint) <- liftIO $ argsSettings args
-     res <- bimapEitherT showParseError id $ EitherT $ parseModuleEx flags fp Nothing
+     let myflags = flags { hseFlags = (hseFlags flags) { extensions = (EnableExtension TypeApplications:extensions (hseFlags flags))}}
+     res <- bimapEitherT showParseError id $ EitherT $ parseModuleEx myflags fp Nothing
      pure $ applyHints classify hint [res]
 
 showParseError :: Hlint.ParseError -> String
