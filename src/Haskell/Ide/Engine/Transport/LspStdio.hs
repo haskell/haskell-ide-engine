@@ -324,7 +324,6 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
           options = J.object ["documentSelector" .= J.object [ "language" .= J.String "haskell"]]
           registrationsList =
             [ J.Registration "hare:demote" J.WorkspaceExecuteCommand (Just options)
-            , J.Registration "hare:gotodef" J.TextDocumentDefinition (Just options)
             ]
         let registrations = J.RegistrationParams (J.List registrationsList)
 
@@ -582,7 +581,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             let rspMsg = Core.makeResponseMessage req loc
             reactorSend rspMsg
         let hreq = PReq (Just doc) Nothing (Just $ req ^. J.id) callback
-                     $ HaRe.findDef doc pos
+                     $ fmap J.MultiLoc <$> HaRe.findDef doc pos
         makeRequest hreq
       -- -------------------------------
       Core.ReqDocumentFormatting req -> do
