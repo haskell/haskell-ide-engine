@@ -25,8 +25,8 @@ packages:
     commit: f3b4fd1b65007184df9bb7743d29a4347057a422
   extra-dep: true
 - location:
-    git: https://github.com/alanz/ghc-mod.git
-    commit: 1008d147a9e7eaa4e3f1c3ee6f454550e00f1899
+    git: https://github.com/wz1000/ghc-mod.git
+    commit: b28d95a96550899edb5d64745ae6123bb42c4f56
   extra-dep: true
   subdirs:
     - .
