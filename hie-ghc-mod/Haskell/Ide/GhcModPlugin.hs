@@ -156,7 +156,7 @@ setTypecheckedModule uri =
         return $ IdeResponseOk (diags,errs)
       Just tm -> do
         let cm = GM.CachedModule tm (GM.genLocMap tm) rfm return return
-        GM.cacheModule (uri2fileUri uri) cm
+        GM.cacheModule fp cm
         return $ IdeResponseOk (diags,errs)
 
 -- ---------------------------------------------------------------------
@@ -221,30 +221,31 @@ someErr meth err =
 
 newTypeCmd :: Bool -> Uri -> Position -> IdeM (IdeResponse [(Range, T.Text)])
 newTypeCmd bool uri newPos =
-  let handlers  = [GM.GHandler $ \(ex :: GM.SomeException) ->
-                     return $ someErr "newTypeCmd" (show ex)
-                  ] in
-  flip GM.gcatches handlers $ do
-    mcm <- GM.getCachedModule (uri2fileUri uri)
-    case mcm of
-      Nothing -> return $ IdeResponseOk []
-      Just cm -> do
-        let mOldPos = newPosToOld cm newPos
-        case mOldPos of
-          Nothing -> return $ IdeResponseOk []
-          Just pos ->
-            GM.unGmlT $ GM.withInteractiveContext $ do
-              let tm = GM.tcMod cm
-              spanTypes' <- GM.collectSpansTypes bool tm $ unPos pos
-              let spanTypes = sortBy (GM.cmp `on` fst) spanTypes'
-              dflag        <- getSessionDynFlags
-              st           <- GM.getStyle
-              let f (spn, t) = do
-                    let range' = srcSpan2Range spn
-                    case oldRangeToNew cm <$> range' of
-                      (Right (Just range)) -> [(range , T.pack $ GM.pretty dflag st t)]
-                      _ -> []
-              return $ IdeResponseOk $ concatMap f spanTypes
+  pluginGetFile "newTypeCmd: " uri $ \fp ->
+    let handlers  = [GM.GHandler $ \(ex :: GM.SomeException) ->
+                       return $ someErr "newTypeCmd" (show ex)
+                    ] in
+    flip GM.gcatches handlers $ do
+      mcm <- GM.getCachedModule fp
+      case mcm of
+        Nothing -> return $ IdeResponseOk []
+        Just cm -> do
+          let mOldPos = newPosToOld cm newPos
+          case mOldPos of
+            Nothing -> return $ IdeResponseOk []
+            Just pos ->
+              GM.unGmlT $ GM.withInteractiveContext $ do
+                let tm = GM.tcMod cm
+                spanTypes' <- GM.collectSpansTypes bool tm $ unPos pos
+                let spanTypes = sortBy (GM.cmp `on` fst) spanTypes'
+                dflag        <- getSessionDynFlags
+                st           <- GM.getStyle
+                let f (spn, t) = do
+                      let range' = srcSpan2Range spn
+                      case oldRangeToNew cm <$> range' of
+                        (Right (Just range)) -> [(range , T.pack $ GM.pretty dflag st t)]
+                        _ -> []
+                return $ IdeResponseOk $ concatMap f spanTypes
 
 getDynFlags :: IdeM DynFlags
 getDynFlags = GM.unGmlT getSessionDynFlags

@@ -26,7 +26,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/wz1000/ghc-mod.git
-    commit: b28d95a96550899edb5d64745ae6123bb42c4f56
+    commit: bd87474f94c7b4b2e97d84cc66683e0d90a97a97
   extra-dep: true
   subdirs:
     - .
