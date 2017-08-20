@@ -288,20 +288,20 @@ getSymbols uri = do
               s x = T.pack . showGhc <$> x
 
               go :: HsDecl RdrName -> [(J.SymbolKind,Located T.Text,Maybe T.Text)]
-              go (TyClD (FamDecl (FamilyDecl _ n _ _ _))) = pure (J.SkClass,s n, Nothing)
-              go (TyClD (SynDecl n _ _ _)) = pure (J.SkClass,s n,Nothing)
-              go (TyClD (DataDecl n _ (HsDataDefn _ _ _ _ cons _) _ _)) =
+              go (TyClD FamDecl { tcdFam = FamilyDecl { fdLName = n } }) = pure (J.SkClass, s n, Nothing)
+              go (TyClD SynDecl { tcdLName = n }) = pure (J.SkClass, s n, Nothing)
+              go (TyClD DataDecl { tcdLName = n, tcdDataDefn = HsDataDefn { dd_cons = cons } }) =
                 (J.SkClass, s n, Nothing) : concatMap (processCon (unLoc $ s n) . unLoc) cons
-              go (TyClD (ClassDecl _ n _ _ sigs _ fams _ _ _)) =
+              go (TyClD ClassDecl { tcdLName = n, tcdSigs = sigs, tcdATs = fams }) =
                 (J.SkInterface, sn, Nothing) :
                       concatMap (processSig (unLoc sn) . unLoc) sigs
                   ++  concatMap (map setCnt . go . TyClD . FamDecl . unLoc) fams
                 where sn = s n
                       setCnt (k,n',_) = (k,n',Just (unLoc sn))
-              go (ValD (FunBind ln _ _ _ _)) = pure (J.SkFunction, s ln, Nothing)
-              go (ValD (PatBind p  _ _ _ _)) =
-                map (\n ->(J.SkMethod,s n, Nothing)) $ hsNamessRdr p
-              go (ForD (ForeignImport n _ _ _)) = pure (J.SkFunction, s n, Nothing)
+              go (ValD FunBind { fun_id = ln }) = pure (J.SkFunction, s ln, Nothing)
+              go (ValD PatBind { pat_lhs = p }) =
+                map (\n ->(J.SkMethod, s n, Nothing)) $ hsNamessRdr p
+              go (ForD ForeignImport { fd_name = n }) = pure (J.SkFunction, s n, Nothing)
               go _ = []
 
               processSig :: T.Text
@@ -314,9 +314,9 @@ getSymbols uri = do
               processCon :: T.Text
                          -> ConDecl RdrName
                          -> [(J.SymbolKind, Located T.Text, Maybe T.Text)]
-              processCon cnt (ConDeclGADT names _ _) =
+              processCon cnt ConDeclGADT { con_names = names } =
                 map (\n -> (J.SkConstructor, s n, Just cnt)) names
-              processCon cnt (ConDeclH98 name _ _ dets _) =
+              processCon cnt ConDeclH98 { con_name = name, con_details = dets } =
                 (J.SkConstructor, sn, Just cnt) : xs
                 where
                   sn = s name
@@ -328,7 +328,7 @@ getSymbols uri = do
                     _ -> []
 
               goImport :: ImportDecl RdrName -> [(J.SymbolKind, Located T.Text, Maybe T.Text)]
-              goImport (ImportDecl _ lmn _ _ _ _ _ as meis) = a ++ xs
+              goImport ImportDecl { ideclName = lmn, ideclAs = as, ideclHiding = meis } = a ++ xs
                 where
                   im = (J.SkModule, lsmn, Nothing)
                   lsmn = s lmn
