@@ -23,8 +23,6 @@ module Haskell.Ide.Engine.PluginUtils
   , toPos
   , position2pos
   , pos2position
-  , uri2fileUri
-  , fileUri2Uri
   ) where
 
 import           Control.Monad.IO.Class
@@ -183,13 +181,3 @@ fileInfo tfileName =
   let sfileName = T.unpack tfileName
       dir = takeDirectory sfileName
   in (dir,sfileName)
-
--- ---------------------------------------------------------------------
-
-uri2fileUri :: Uri -> GM.FileUri
-uri2fileUri (Uri f) = GM.FileUri f
-
-fileUri2Uri :: GM.FileUri -> Uri
-fileUri2Uri (GM.FileUri f) = Uri f
-
--- ---------------------------------------------------------------------

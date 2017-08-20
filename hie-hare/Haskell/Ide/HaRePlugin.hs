@@ -274,8 +274,8 @@ instance GM.ModuleCache NameMapData where
 -- ---------------------------------------------------------------------
 
 getSymbols :: Uri -> IdeM (IdeResponse [J.SymbolInformation])
-getSymbols uri = do
-    mcm <- GM.getCachedModule (uri2fileUri uri)
+getSymbols uri = pluginGetFile "getSymbols: " uri $ \file -> do
+    mcm <- GM.getCachedModule file
     case mcm of
       Nothing -> return $ IdeResponseOk []
       Just cm -> do
@@ -406,7 +406,7 @@ safeTyThingId (AConLike (RealDataCon dc)) = Just $ dataConWrapId dc
 safeTyThingId _                           = Nothing
 
 getCompletions :: Uri -> (T.Text, T.Text) -> IdeM (IdeResponse [J.CompletionItem])
-getCompletions file (qualifier,ident) =
+getCompletions uri (qualifier,ident) = pluginGetFile "getCompletions: " uri $ \file ->
   let handlers  = [GM.GHandler $ \(ex :: SomeException) ->
                      return $ someErr "getCompletions" (show ex)
                   ] in
@@ -415,7 +415,7 @@ getCompletions file (qualifier,ident) =
   let noCache = return $ nonExistentCacheErr "getCompletions"
   let modQual = if T.null qualifier then "" else qualifier <> "."
   let fullPrefix = modQual <> ident
-  GM.withCachedModule (uri2fileUri file) noCache $
+  GM.withCachedModule file noCache $
     \cm -> do
       let tm = GM.tcMod cm
           parsedMod = tm_parsed_module tm
@@ -508,12 +508,12 @@ getCompletions file (qualifier,ident) =
 -- ---------------------------------------------------------------------
 
 getSymbolsAtPoint :: Uri -> Position -> IdeM (IdeResponse [(Range, Name)])
-getSymbolsAtPoint file pos = do
+getSymbolsAtPoint uri pos = pluginGetFile "getSymbolsAtPoint: " uri $ \file -> do
   let noCache = return $ nonExistentCacheErr "getSymbolAtPoint"
-  GM.withCachedModule (uri2fileUri file) noCache $
+  GM.withCachedModule file noCache $
     \cm ->
       return $ IdeResponseOk
-             $ maybe []  (`getNamesAtPos` (GM.locMap cm)) $ newPosToOld cm pos
+             $ maybe [] (`getNamesAtPos` GM.locMap cm) $ newPosToOld cm pos
 symbolFromTypecheckedModule
   :: GM.LocMap
   -> Position
@@ -526,9 +526,9 @@ symbolFromTypecheckedModule lm pos =
 -- ---------------------------------------------------------------------
 
 getReferencesInDoc :: Uri -> Position -> IdeM (IdeResponse [J.DocumentHighlight])
-getReferencesInDoc uri pos = do
+getReferencesInDoc uri pos = pluginGetFile "getReferencesInDoc: " uri $ \file -> do
   let noCache = return $ nonExistentCacheErr "getReferencesInDoc"
-  GM.withCachedModuleAndData (uri2fileUri uri) noCache $
+  GM.withCachedModuleAndData file noCache $
     \cm NMD{inverseNameMap} -> runEitherT $ do
       let lm = GM.locMap cm
           pm = tm_parsed_module $ GM.tcMod cm
@@ -580,9 +580,9 @@ getNewNames old = do
   return newNames
 
 findDef :: Uri -> Position -> IdeM (IdeResponse [Location])
-findDef file pos = do
+findDef uri pos = pluginGetFile "findDef: " uri $ \file -> do
   let noCache = return $ nonExistentCacheErr "hare:findDef"
-  GM.withCachedModule (uri2fileUri file) noCache $
+  GM.withCachedModule file noCache $
     \cm -> do
       let rfm = GM.revMap cm
           lm = GM.locMap cm
@@ -592,9 +592,9 @@ findDef file pos = do
           let n = snd pn
           res <- srcSpan2Loc rfm $ nameSrcSpan n
           case res of
-            Right l@(J.Location uri range) ->
+            Right l@(J.Location luri range) ->
               case oldRangeToNew cm range of
-                Just r  -> return $ IdeResponseOk ([J.Location uri r])
+                Just r  -> return $ IdeResponseOk [J.Location luri r]
                 Nothing -> return $ IdeResponseOk [l]
             Left x -> do
               let failure = pure (IdeResponseFail
@@ -609,25 +609,31 @@ findDef file pos = do
                     mLoc <- GM.unGmlT $ ms_location <$> getModSummary mName
                     case ml_hs_file mLoc of
                       Just fp -> do
-                        uri <- filePathToUri <$> reverseMapFile rfm fp
-                        mcm' <- GM.getCachedModule (uri2fileUri uri)
-                        cm' <- case mcm' of
+                        cfp <- reverseMapFile rfm fp
+                        mcm' <- GM.getCachedModule cfp
+                        rcm' <- case mcm' of
                           Just cmdl -> do
                             debugm "module already in cache in findDef"
-                            return cmdl
+                            return $ Just cmdl
                           Nothing -> do
                             debugm "setting cached module in findDef"
-                            _ <- setTypecheckedModule uri
-                            fromJust <$> GM.getCachedModule (uri2fileUri uri)
-                        let modSum = pm_mod_summary $ tm_parsed_module $ GM.tcMod cm'
-                            rfm'   = GM.revMap cm'
-                        newNames <- GM.unGmlT $ do
-                          setGhcContext modSum
-                          getNewNames n
-                        eithers <- mapM (srcSpan2Loc rfm' . nameSrcSpan) newNames
-                        case rights eithers of
-                          (l:_) -> return $ IdeResponseOk [l]
-                          []    -> failure
+                            _ <- setTypecheckedModule $ filePathToUri cfp
+                            GM.getCachedModule cfp
+                        case rcm' of
+                          Nothing ->
+                            return
+                              $ IdeResponseFail
+                              $ IdeError PluginError ("hare:findDef: failed to load module for " <> T.pack cfp) Null
+                          Just cm' -> do
+                            let modSum = pm_mod_summary $ tm_parsed_module $ GM.tcMod cm'
+                                rfm'   = GM.revMap cm'
+                            newNames <- GM.unGmlT $ do
+                              setGhcContext modSum
+                              getNewNames n
+                            eithers <- mapM (srcSpan2Loc rfm' . nameSrcSpan) newNames
+                            case rights eithers of
+                              (l:_) -> return $ IdeResponseOk [l]
+                              []    -> failure
                       Nothing -> failure
                     else failure
                 Nothing -> failure

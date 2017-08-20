@@ -16,6 +16,7 @@ module Haskell.Ide.Engine.Transport.LspStdio
   ) where
 
 import           Control.Concurrent
+import           Control.Concurrent.Async
 import           Control.Concurrent.STM.TChan
 import           Control.Concurrent.STM.TVar
 import qualified Control.Exception as E
@@ -81,7 +82,7 @@ lspStdioTransport hieDispatcherProc cin origDir = do
 -- ---------------------------------------------------------------------
 
 run :: (DispatcherEnv -> IO ()) -> TChan PluginRequest -> FilePath -> IO Int
-run dispatcherProc cin origDir = flip E.catches handlers $ do
+run dispatcherProc cin _origDir = flip E.catches handlers $ do
 
   rin  <- atomically newTChan :: IO (TChan ReactorInput)
   let
@@ -94,11 +95,11 @@ run dispatcherProc cin origDir = flip E.catches handlers $ do
             , wipReqsTVar    = wipTVar
             , docVersionTVar = versionTVar
             }
-      _rpid <- forkIO $ flip runReaderT lf $ reactor dispatcherEnv cin rin
+      let reactorFunc =  flip runReaderT lf $ reactor dispatcherEnv cin rin
       -- haskell lsp sets the current directory to the project root in the InitializeRequest
       -- We launch the dispatcher after that so that the defualt cradle is
       -- recognized properly by ghc-mod
-      dispatcherProc dispatcherEnv
+      _ <- forkIO $ race_ (dispatcherProc dispatcherEnv) reactorFunc
       return Nothing
 
   flip E.finally finalProc $ do
@@ -207,8 +208,8 @@ unmapFileFromVfs verTVar cin uri = do
 
 -- TODO: generalise this and move it to GhcMod.ModuleLoader
 updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeM (IdeResponse ())
-updatePositionMap uri changes = do
-  mcm <- GM.getCachedModule (uri2fileUri uri)
+updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file -> do
+  mcm <- GM.getCachedModule file
   case mcm of
     Just cm -> do
       let n2oOld = GM.newPosToOldPos cm
@@ -218,7 +219,7 @@ updatePositionMap uri changes = do
             (n2o' <=< newToOld r txt, oldToNew r txt <=< o2n')
           go _ _ = (const Nothing, const Nothing)
       let cm' = cm {GM.newPosToOldPos = n2o, GM.oldPosToNewPos = o2n}
-      GM.cacheModule (uri2fileUri uri) cm'
+      GM.cacheModule file cm'
       return $ IdeResponseOk ()
     Nothing ->
       return $ IdeResponseOk ()
@@ -282,7 +283,7 @@ sendErrorLog msg = reactorSend' (`Core.sendErrorLogS` msg)
 -- | The single point that all events flow through, allowing management of state
 -- to stitch replies and requests together from the two asynchronous sides: lsp
 -- server and hie dispatcher
-reactor :: DispatcherEnv -> TChan PluginRequest -> TChan ReactorInput -> R ()
+reactor :: forall void. DispatcherEnv -> TChan PluginRequest -> TChan ReactorInput -> R void
 reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
   let makeRequest req@(PReq _ Nothing (Just lid) _ _) = liftIO $ atomically $ do
         modifyTVar wipTVar (S.insert lid)
@@ -386,7 +387,9 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             uri = notification ^. J.params . J.textDocument . J.uri
         -- unmapFileFromVfs versionTVar cin uri
         makeRequest $ PReq (Just uri) Nothing Nothing (const $ return ()) $ do
-          GM.deleteCachedModule (uri2fileUri uri)
+          case uriToFilePath uri of
+            Just fp -> GM.deleteCachedModule fp
+            Nothing -> return ()
           return $ IdeResponseOk ()
 
       -- -------------------------------
