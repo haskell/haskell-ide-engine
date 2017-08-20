@@ -2,7 +2,6 @@
 {-# LANGUAGE TemplateHaskell     #-}
 module Main where
 
-import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
 import           Control.Monad
 import           Control.Monad.STM
@@ -123,8 +122,7 @@ run opts = do
 
   -- launch the dispatcher.
   let dispatcherProcP dispatcherEnv =
-        void $ forkIO $
-          runIdeM ghcModOptions
+        void $ runIdeM ghcModOptions
             (IdeState plugins GM.emptyModuleCache )
             (dispatcherP dispatcherEnv pin)
 

@@ -76,8 +76,11 @@ run dispatcherProc cin = flip E.catches handlers $ do
           , docVersionTVar = versionTVar
           }
 
-    dispatcherProc dispatcherEnv
-    race_ (outWriter rout) (reactor rout)
+    let race3_ a b c = race_ a (race_ b c)
+
+    race3_ (dispatcherProc dispatcherEnv)
+           (outWriter rout)
+           (reactor rout)
 
     return 0
 

@@ -23,7 +23,7 @@ data DispatcherEnv = DispatcherEnv
   , docVersionTVar :: TVar (Map.Map Uri Int)
   }
 
-dispatcherP :: DispatcherEnv -> TChan PluginRequest -> IdeM ()
+dispatcherP :: forall void. DispatcherEnv -> TChan PluginRequest -> IdeM void
 dispatcherP DispatcherEnv{..} pin = forever $ do
   debugm "dispatcherP: top of loop"
   (PReq context mver mid callback action) <- liftIO $ atomically $ readTChan pin
