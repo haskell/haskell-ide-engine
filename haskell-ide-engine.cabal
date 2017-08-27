@@ -46,6 +46,7 @@ library
                      , hie-plugin-api
                      , hie-brittany
                      , hie-hoogle
+                     , hie-haddock
                      , hslogger
                      , lens >= 4.15.2
                      , mtl

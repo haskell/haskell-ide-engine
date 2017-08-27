@@ -49,6 +49,7 @@ import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
 import qualified Haskell.Ide.HaRePlugin as HaRe
+import qualified Haskell.Ide.HaddockPlugin as Haddock
 import qualified Haskell.Ide.GhcModPlugin as GhcMod
 import qualified Haskell.Ide.ApplyRefactPlugin as ApplyRefact
 import qualified Haskell.Ide.BrittanyPlugin as Brittany
@@ -458,7 +459,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                   case HaRe.getModule df name of
                     Nothing -> return $ "`" <> sname <> "` *local*"
                     (Just (pkg,mdl)) -> do
-                      mdocu <- lift $ getDocsForName sname pkg mdl
+                      mdocu <- lift $ Haddock.getDocsForName df name
                       case mdocu of
                         Nothing -> return $ "`"<> sname <> "`\n" <> maybe "" (<>" ") pkg <> mdl
                         Just docu -> return docu

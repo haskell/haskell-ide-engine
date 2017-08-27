@@ -1,0 +1,42 @@
+name:                hie-haddock
+version:             0.1.0.0
+synopsis:            Haskell IDE Haddock plugin
+license:             BSD3
+license-file:        ../LICENSE
+author:              Alan Zimmerman
+maintainer:          alan.zimm@gmail.com (for now)
+copyright:           2015 TBD
+category:            Web
+build-type:          Simple
+-- extra-source-files:
+cabal-version:       >=1.10
+
+flag pedantic
+  Description: Enable -Werror
+  Default:     False
+
+library
+  exposed-modules:     Haskell.Ide.HaddockPlugin
+  build-depends:       base >= 4.9 && < 5
+                     , HaRe
+                     , aeson
+                     , containers
+                     , either
+                     , ghc
+                     , ghc-mod
+                     , ghc-mod-core
+                     , ghc-exactprint
+                     , hie-base
+                     , hie-plugin-api
+                     , hie-ghc-mod
+                     , haskell-lsp
+                     , lens
+                     , monad-control
+                     , mtl
+                     , text
+                     , haddock-api
+                     , haddock-library
+  ghc-options:         -Wall
+  if flag(pedantic)
+     ghc-options:      -Werror
+  default-language:    Haskell2010

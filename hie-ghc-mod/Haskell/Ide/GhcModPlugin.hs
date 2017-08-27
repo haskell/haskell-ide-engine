@@ -233,10 +233,9 @@ newTypeCmd bool uri newPos =
           let mOldPos = newPosToOld cm newPos
           case mOldPos of
             Nothing -> return $ IdeResponseOk []
-            Just pos ->
-              GM.unGmlT $ do
+            Just pos -> do
                 let tm = GM.tcMod cm
-                spanTypes' <- GM.collectSpansTypes bool tm $ unPos pos
+                spanTypes' <- GM.unGmlT $ GM.collectSpansTypes bool tm $ unPos pos
                 let spanTypes = sortBy (GM.cmp `on` fst) spanTypes'
                     dflag = ms_hspp_opts $ pm_mod_summary $ tm_parsed_module tm
                     unqual = mkPrintUnqualified dflag $ tcg_rdr_env $ fst $ tm_internals_ tm

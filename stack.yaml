@@ -12,6 +12,7 @@ packages:
 - hie-hoogle
 - hie-plugin-api
 - hie-brittany
+- hie-haddock
 - location:
     git: https://github.com/alanz/haskell-lsp.git
     commit: 50076561c9c9e4d86536efd9458ac3f1d14a68a4
