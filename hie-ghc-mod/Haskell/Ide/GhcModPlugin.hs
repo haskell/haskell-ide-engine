@@ -234,13 +234,13 @@ newTypeCmd bool uri newPos =
           case mOldPos of
             Nothing -> return $ IdeResponseOk []
             Just pos ->
-              GM.unGmlT $ GM.withInteractiveContext $ do
+              GM.unGmlT $ do
                 let tm = GM.tcMod cm
                 spanTypes' <- GM.collectSpansTypes bool tm $ unPos pos
                 let spanTypes = sortBy (GM.cmp `on` fst) spanTypes'
-                dflag        <- getSessionDynFlags
-                st           <- GM.getStyle
-                let f (spn, t) = do
+                    dflag = ms_hspp_opts $ pm_mod_summary $ tm_parsed_module tm
+                    st = GM.styleUnqualified
+                    f (spn, t) = do
                       let range' = srcSpan2Range spn
                       case oldRangeToNew cm <$> range' of
                         (Right (Just range)) -> [(range , T.pack $ GM.pretty dflag st t)]
