@@ -21,7 +21,6 @@ import qualified Exception                         as G
 import           GHC
 import           GHC.Generics
 import qualified GhcMod                            as GM
-import qualified GhcMod.Doc                        as GM
 import qualified GhcMod.DynFlags                   as GM
 import qualified GhcMod.Error                      as GM
 import qualified GhcMod.Gap                        as GM
@@ -34,7 +33,8 @@ import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           HscTypes
-import           Outputable                        (renderWithStyle)
+import           TcRnTypes
+import           Outputable                        (renderWithStyle, mkUserStyle, Depth(..))
 
 -- ---------------------------------------------------------------------
 
@@ -239,7 +239,8 @@ newTypeCmd bool uri newPos =
                 spanTypes' <- GM.collectSpansTypes bool tm $ unPos pos
                 let spanTypes = sortBy (GM.cmp `on` fst) spanTypes'
                     dflag = ms_hspp_opts $ pm_mod_summary $ tm_parsed_module tm
-                    st = GM.styleUnqualified
+                    unqual = mkPrintUnqualified dflag $ tcg_rdr_env $ fst $ tm_internals_ tm
+                    st = mkUserStyle unqual AllTheWay
                     f (spn, t) = do
                       let range' = srcSpan2Range spn
                       case oldRangeToNew cm <$> range' of
