@@ -64,3 +64,6 @@ flags:
     pedantic: true
   hie-brittany:
     pedantic: true
+
+nix:
+  packages: [ icu libcxx zlib ]

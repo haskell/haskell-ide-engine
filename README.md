@@ -72,6 +72,13 @@ stack install text-icu \
 stack install
 ```
 
+### Installation using Nix
+
+Alternatively, given that you have Nix installed:
+
+    $ stack install --nix
+
+
 ### Using HIE with vscode
 
 Make sure HIE is installed (see above) and directory stack put the `hie` binary in is in your path 
