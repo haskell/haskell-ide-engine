@@ -12,6 +12,8 @@ import           Control.Monad.Trans.Control
 import           Control.Monad.Trans.Either
 import           Data.Aeson
 import qualified Data.Aeson.Types                             as J
+import           Data.Algorithm.Diff
+import           Data.Algorithm.DiffOutput
 import           Data.Either
 import           Data.Foldable
 import qualified Data.Map                                     as Map
@@ -37,10 +39,11 @@ import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.GhcModPlugin                     (setTypecheckedModule)
 import           HscTypes
 import           Language.Haskell.GHC.ExactPrint.Print
+import qualified Language.Haskell.LSP.Core                    as Core
 import qualified Language.Haskell.LSP.TH.DataTypesJSON        as J
-import           Language.Haskell.Refact.API
+import           Language.Haskell.Refact.API                  hiding (logm)
 import           Language.Haskell.Refact.HaRe
-import           Language.Haskell.Refact.Utils.Monad
+import           Language.Haskell.Refact.Utils.Monad          hiding (logm)
 import           Language.Haskell.Refact.Utils.MonadFunctions
 import           Module
 import           Name
@@ -231,9 +234,12 @@ makeRefactorResult changedFiles = do
     diffOne :: (FilePath, T.Text) -> IdeM WorkspaceEdit
     diffOne (fp, newText) = do
       origText <- GM.withMappedFile fp $ liftIO . T.readFile
+      -- TODO: remove this logging once we are sure we have a working solution
+      logm $ "makeRefactorResult:groupedDiff = " ++ show (getGroupedDiff (lines $ T.unpack origText) (lines $ T.unpack newText))
+      logm $ "makeRefactorResult:diffops = " ++ show (diffToLineRanges $ getGroupedDiff (lines $ T.unpack origText) (lines $ T.unpack newText))
       return $ diffText (filePathToUri fp, origText) newText
   diffs <- mapM diffOne changedFiles
-  return $ fold diffs
+  return $ Core.reverseSortEdit $ fold diffs
 
 -- ---------------------------------------------------------------------
 nonExistentCacheErr :: String -> IdeResponse a
