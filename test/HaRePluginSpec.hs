@@ -114,7 +114,7 @@ hareSpec = do
          $ toJSON
          $ WorkspaceEdit
            (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReRename.hs")
-                               $ List [TextEdit (Range (Position 5 0) (Position 7 0))
+                               $ List [TextEdit (Range (Position 6 0) (Position 8 0))
                                          "foonew :: Int -> Int\nfoonew x = x + 3\n\n"])
            Nothing)
 
@@ -247,7 +247,7 @@ hareSpec = do
         (IdeResponseOk
          $ WorkspaceEdit
            (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReRename.hs")
-                               $ List [TextEdit (Range (Position 5 0) (Position 7 0))
+                               $ List [TextEdit (Range (Position 6 0) (Position 8 0))
                                          "foonew :: Int -> Int\nfoonew x = x + 3\n\n"])
            Nothing)
 
