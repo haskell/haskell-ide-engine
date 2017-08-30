@@ -146,8 +146,9 @@ hareSpec = do
          $ WorkspaceEdit
            (Just $ H.singleton
              ( filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs" )
-             $ List [TextEdit (Range (Position 4 0) (Position 5 9)) ""
-                    ,TextEdit (Range (Position 5 0) (Position 6 0)) "y = 4\n\n"])
+             $ List [ TextEdit (Range (Position 6 0) (Position 7 0)) "y = 4\n\n"
+                    , TextEdit (Range (Position 4 0) (Position 5 9)) ""
+                    ])
            Nothing)
 
     -- ---------------------------------
@@ -162,9 +163,10 @@ hareSpec = do
          $ WorkspaceEdit
           (Just $ H.singleton
              ( filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs")
-             $ List [TextEdit (Range (Position 10 0) (Position 11 13)) ""
-                    ,TextEdit (Range (Position 11 0) (Position 11 5)) "z = 7\n"
-                    ,TextEdit (Range (Position 13 0) (Position 13 0)) "\n"])
+             $ List [ TextEdit (Range (Position 13 0) (Position 13 0)) "\n"
+                    , TextEdit (Range (Position 12 0) (Position 12 0)) "z = 7\n"
+                    , TextEdit (Range (Position 10 0) (Position 11 13)) ""
+                    ])
           Nothing)
 
     -- ---------------------------------
@@ -277,8 +279,9 @@ hareSpec = do
          $ WorkspaceEdit
            (Just $ H.singleton
              ( filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs" )
-             $ List [TextEdit (Range (Position 4 0) (Position 5 9)) ""
-                    ,TextEdit (Range (Position 5 0) (Position 6 0)) "y = 4\n\n"])
+             $ List [ TextEdit (Range (Position 6 0) (Position 7 0)) "y = 4\n\n"
+                    , TextEdit (Range (Position 4 0) (Position 5 9)) ""
+                    ])
            Nothing)
 
     -- ---------------------------------
@@ -292,9 +295,10 @@ hareSpec = do
          $ WorkspaceEdit
           (Just $ H.singleton
              ( filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs")
-             $ List [TextEdit (Range (Position 10 0) (Position 11 13)) ""
-                    ,TextEdit (Range (Position 11 0) (Position 11 5)) "z = 7\n"
-                    ,TextEdit (Range (Position 13 0) (Position 13 0)) "\n"])
+             $ List [ TextEdit (Range (Position 13 0) (Position 13 0)) "\n"
+                    , TextEdit (Range (Position 12 0) (Position 12 0)) "z = 7\n"
+                    , TextEdit (Range (Position 10 0) (Position 11 13)) ""
+                    ])
           Nothing)
 
     -- ---------------------------------

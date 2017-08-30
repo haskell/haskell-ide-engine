@@ -28,6 +28,7 @@ import           Control.Monad.STM
 import           Control.Monad.Reader
 import qualified Data.Aeson as J
 import           Data.Aeson ( (.=) )
+import qualified Data.ByteString.Lazy as BL
 import           Data.Char (isUpper, isAlphaNum)
 import           Data.Default
 import           Data.Maybe
@@ -39,6 +40,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as S
 import qualified Data.SortedList as SL
 import qualified Data.Text as T
+import           Data.Text.Encoding
 import qualified Data.Vector as V
 import qualified GhcModCore               as GM
 import qualified GhcMod.ModuleLoader      as GM
@@ -293,8 +295,11 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
   forever $ do
     inval <- liftIO $ atomically $ readTChan inp
     case inval of
-      Core.RspFromClient rm -> do
-        liftIO $ U.logs $ "reactor:got RspFromClient:" ++ show rm
+      Core.RspFromClient resp@(J.ResponseMessage _ _ _ merr) -> do
+        liftIO $ U.logs $ "reactor:got RspFromClient:" ++ show resp
+        case merr of
+          Nothing -> return ()
+          Just _ -> sendErrorLog $ "Got error response:" <> decodeUtf8 (BL.toStrict $ J.encode resp)
 
       -- -------------------------------
 
@@ -630,6 +635,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
           when (S.member lid wip) $ do
             modifyTVar' cancelReqTVar (S.insert lid)
 
+      -- -------------------------------
       om -> do
         liftIO $ U.logs $ "reactor:got HandlerRequest:" ++ show om
 
@@ -759,7 +765,7 @@ hieHandlers rin
         , Core.didChangeTextDocumentNotificationHandler = Just $ passHandler rin Core.NotDidChangeTextDocument
         , Core.didCloseTextDocumentNotificationHandler  = Just $ passHandler rin Core.NotDidCloseTextDocument
         , Core.cancelNotificationHandler                = Just $ passHandler rin Core.NotCancelRequest
-        , Core.responseHandler                          = Just $ responseHandlerCb rin
+        , Core.responseHandler                          = Just $ passHandler rin Core.RspFromClient
         , Core.codeActionHandler                        = Just $ passHandler rin Core.ReqCodeAction
         , Core.executeCommandHandler                    = Just $ passHandler rin Core.ReqExecuteCommand
         , Core.completionHandler                        = Just $ passHandler rin Core.ReqCompletion
@@ -775,11 +781,5 @@ hieHandlers rin
 passHandler :: TChan ReactorInput -> (a -> Core.OutMessage) -> Core.Handler a
 passHandler rin c notification = do
   atomically $ writeTChan rin (c notification)
-
--- ---------------------------------------------------------------------
-
-responseHandlerCb :: TChan ReactorInput -> Core.Handler J.BareResponseMessage
-responseHandlerCb _rin resp = do
-  U.logs $ "******** got ResponseMessage, ignoring:" ++ show resp
 
 -- ---------------------------------------------------------------------
