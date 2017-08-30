@@ -114,7 +114,7 @@ hareSpec = do
          $ toJSON
          $ WorkspaceEdit
            (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReRename.hs")
-                               $ List [TextEdit (Range (Position 6 0) (Position 8 0))
+                               $ List [TextEdit (Range (Position 6 0) (Position 6 0))
                                          "foonew :: Int -> Int\nfoonew x = x + 3\n\n"])
            Nothing)
 
@@ -146,7 +146,7 @@ hareSpec = do
          $ WorkspaceEdit
            (Just $ H.singleton
              ( filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs" )
-             $ List [ TextEdit (Range (Position 6 0) (Position 7 0)) "y = 4\n\n"
+             $ List [ TextEdit (Range (Position 6 0) (Position 6 0)) "y = 4\n\n"
                     , TextEdit (Range (Position 4 0) (Position 5 9)) ""
                     ])
            Nothing)
@@ -247,7 +247,7 @@ hareSpec = do
         (IdeResponseOk
          $ WorkspaceEdit
            (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReRename.hs")
-                               $ List [TextEdit (Range (Position 6 0) (Position 8 0))
+                               $ List [TextEdit (Range (Position 6 0) (Position 6 0))
                                          "foonew :: Int -> Int\nfoonew x = x + 3\n\n"])
            Nothing)
 
@@ -279,7 +279,7 @@ hareSpec = do
          $ WorkspaceEdit
            (Just $ H.singleton
              ( filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs" )
-             $ List [ TextEdit (Range (Position 6 0) (Position 7 0)) "y = 4\n\n"
+             $ List [ TextEdit (Range (Position 6 0) (Position 6 0)) "y = 4\n\n"
                     , TextEdit (Range (Position 4 0) (Position 5 9)) ""
                     ])
            Nothing)
