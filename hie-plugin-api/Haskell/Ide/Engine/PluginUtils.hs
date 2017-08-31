@@ -163,10 +163,9 @@ diffText (f,fText) f2Text = WorkspaceEdit (Just h) Nothing
     -- So the range has to be shifted to start at l
       where
         range = J.Range (J.Position (l' - 1) 0)
-                        (J.Position (l' - 1 + el - sl) 0)
+                        (J.Position (l' - 1) 0)
         l' = max l sl -- Needed to add at the end of the file
         sl = fst $ lrNumbers fm
-        el = snd $ lrNumbers fm
         nt = T.pack $ unlines $ lrContents fm
 
 
