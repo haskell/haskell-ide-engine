@@ -1,4 +1,4 @@
-resolver: nightly-2017-06-16
+resolver: nightly-2017-09-02
 packages:
 - .
 - hie-apply-refact
@@ -20,30 +20,46 @@ packages:
   extra-dep: true
 
 - location:
-    git: https://github.com/alanz/ghc-dump-tree.git
-    commit: 9dbca928ad5507b144f46bb95123a08d24f24808
+    git: https://github.com/robrix/ghc-dump-tree.git
+    commit: 2e3dc742e6a701f3b9615a3d5a7d0dbc02cd60d4
   extra-dep: true
+
+# - ../HaRe
 - location:
     git: https://github.com/alanz/HaRe.git
-    commit: f3b4fd1b65007184df9bb7743d29a4347057a422
+    commit: edceb4f6d739a3b33782fc66c616497ff37df1b6
   extra-dep: true
+
+# - ../ghc-mod
+# - ../ghc-mod/ghc-mod-core
 - location:
-    git: https://github.com/wz1000/ghc-mod.git
-    commit: bd87474f94c7b4b2e97d84cc66683e0d90a97a97
+    git: https://github.com/alanz/ghc-mod.git
+    commit: 7b989b83d8073ab75d324b020311c6e515c3d8d5
   extra-dep: true
   subdirs:
     - .
     - ghc-mod-core
 
+- location:
+    git: https://github.com/joshvera/cabal-helper.git
+    commit: 8191a72351fb3d622576597ae965bea97fc4147e
+  extra-dep: true
+
+- location:
+    git: https://github.com/alanz/brittany.git
+    # commit: baac0a6a7e74ea70cae02c4d317e4a24bce8e9b8
+    commit: 32a193f0ce02ec36a6032852454db96573ab3a60
+  extra-dep: true
+
 extra-deps:
-- apply-refact-0.3.0.1
+# - apply-refact-0.4.0.1
 - butcher-1.1.0.1
 - czipwith-1.0.0.0
 - data-tree-print-0.1.0.0
 - deque-0.2
 - monad-memo-0.4.1
 - hoogle-5.0.13
-- brittany-0.8.0.2
+- syz-0.2.0.0
 flags:
   haskell-ide-engine:
     pedantic: true
