@@ -459,10 +459,12 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                   case HaRe.getModule df name of
                     Nothing -> return $ "`" <> sname <> "` *local*"
                     (Just (pkg,mdl)) -> do
-                      mdocu <- lift $ Haddock.getDocsForName df name
+                      mdocu <- lift $ Haddock.getDocsWithType df name
+                      let mname = "`"<> sname <> "`\n\n"
+                      let minfo = maybe "" (<>" ") pkg <> mdl
                       case mdocu of
-                        Nothing -> return $ "`"<> sname <> "`\n" <> maybe "" (<>" ") pkg <> mdl
-                        Just docu -> return docu
+                        Nothing -> return $ mname <> minfo
+                        Just docu -> return $ docu <> "\n\n" <> minfo
               return (info,docs,mrange)
         makeRequest hreq
 
@@ -696,25 +698,6 @@ requestDiagnostics cin file ver = do
       callbackg _ = error "impossible"
 
   liftIO $ atomically $ writeTChan cin reqg
-
--- ---------------------------------------------------------------------
-
-data LspParam
-  = LspTextDocument TextDocumentIdentifier
-  | LspPosition     Position
-  | LspRange        Range
-  | LspText         T.Text
-  deriving (Read,Show,Eq)
-
-instance J.FromJSON LspParam where
-  parseJSON (J.Object hm) =
-    case H.toList hm of
-      [("textDocument",v)] -> LspTextDocument <$> J.parseJSON v
-      [("position",v)]     -> LspPosition     <$> J.parseJSON v
-      [("range-pos",v)]    -> LspRange        <$> J.parseJSON v
-      [("text",v)]         -> LspText         <$> J.parseJSON v
-      _ -> fail $ "FromJSON.LspParam got:" ++ show hm
-  parseJSON _ = mempty
 
 -- ---------------------------------------------------------------------
 

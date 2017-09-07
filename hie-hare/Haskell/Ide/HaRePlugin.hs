@@ -505,6 +505,14 @@ getCompletions uri (qualifier,ident) = pluginGetFile "getCompletions: " uri $ \f
           xs <- Set.toList <$> getQualifedCompls
           setCiTypesForImported hscEnv xs
       return $ IdeResponseOk $ modCompls ++ map mkCompl comps
+
+getTypeForName :: Name -> IdeM (Maybe Type)
+getTypeForName n = GM.unGmlT $ do
+  hscEnv <- getSession
+  mt <- liftIO $ (Just <$> lookupGlobal hscEnv n)
+                    `catch` \(_ :: SomeException) -> return Nothing
+  return $ fmap varType $ safeTyThingId =<< mt
+
 -- ---------------------------------------------------------------------
 
 getSymbolsAtPoint :: Uri -> Position -> IdeM (IdeResponse [(Range, Name)])

@@ -29,6 +29,7 @@ library
                      , hie-base
                      , hie-plugin-api
                      , hie-ghc-mod
+                     , hie-hare
                      , haskell-lsp
                      , lens
                      , monad-control
@@ -36,6 +37,8 @@ library
                      , text
                      , haddock-api
                      , haddock-library
+                     , directory
+                     , transformers
   ghc-options:         -Wall
   if flag(pedantic)
      ghc-options:      -Werror
