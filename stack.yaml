@@ -15,8 +15,9 @@ packages:
 - hie-haddock
 - location:
     git: https://github.com/alanz/haskell-lsp.git
-    commit: 50076561c9c9e4d86536efd9458ac3f1d14a68a4
+    commit: fe2289c6cd16620bb93aacd263aadb59a01f2ca7
   extra-dep: true
+
 - location:
     git: https://github.com/alanz/ghc-dump-tree.git
     commit: 9dbca928ad5507b144f46bb95123a08d24f24808
@@ -65,3 +66,6 @@ flags:
     pedantic: true
   hie-brittany:
     pedantic: true
+
+nix:
+  packages: [ icu libcxx zlib ]

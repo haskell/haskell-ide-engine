@@ -12,6 +12,8 @@ import           Control.Monad.Trans.Control
 import           Control.Monad.Trans.Either
 import           Data.Aeson
 import qualified Data.Aeson.Types                             as J
+import           Data.Algorithm.Diff
+import           Data.Algorithm.DiffOutput
 import           Data.Either
 import           Data.Foldable
 import qualified Data.Map                                     as Map
@@ -37,10 +39,11 @@ import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.GhcModPlugin                     (setTypecheckedModule)
 import           HscTypes
 import           Language.Haskell.GHC.ExactPrint.Print
+import qualified Language.Haskell.LSP.Core                    as Core
 import qualified Language.Haskell.LSP.TH.DataTypesJSON        as J
-import           Language.Haskell.Refact.API
+import           Language.Haskell.Refact.API                  hiding (logm)
 import           Language.Haskell.Refact.HaRe
-import           Language.Haskell.Refact.Utils.Monad
+import           Language.Haskell.Refact.Utils.Monad          hiding (logm)
 import           Language.Haskell.Refact.Utils.MonadFunctions
 import           Module
 import           Name
@@ -231,9 +234,12 @@ makeRefactorResult changedFiles = do
     diffOne :: (FilePath, T.Text) -> IdeM WorkspaceEdit
     diffOne (fp, newText) = do
       origText <- GM.withMappedFile fp $ liftIO . T.readFile
+      -- TODO: remove this logging once we are sure we have a working solution
+      logm $ "makeRefactorResult:groupedDiff = " ++ show (getGroupedDiff (lines $ T.unpack origText) (lines $ T.unpack newText))
+      logm $ "makeRefactorResult:diffops = " ++ show (diffToLineRanges $ getGroupedDiff (lines $ T.unpack origText) (lines $ T.unpack newText))
       return $ diffText (filePathToUri fp, origText) newText
   diffs <- mapM diffOne changedFiles
-  return $ fold diffs
+  return $ Core.reverseSortEdit $ fold diffs
 
 -- ---------------------------------------------------------------------
 nonExistentCacheErr :: String -> IdeResponse a
@@ -288,20 +294,20 @@ getSymbols uri = pluginGetFile "getSymbols: " uri $ \file -> do
               s x = T.pack . showGhc <$> x
 
               go :: HsDecl RdrName -> [(J.SymbolKind,Located T.Text,Maybe T.Text)]
-              go (TyClD (FamDecl (FamilyDecl _ n _ _ _))) = pure (J.SkClass,s n, Nothing)
-              go (TyClD (SynDecl n _ _ _)) = pure (J.SkClass,s n,Nothing)
-              go (TyClD (DataDecl n _ (HsDataDefn _ _ _ _ cons _) _ _)) =
+              go (TyClD FamDecl { tcdFam = FamilyDecl { fdLName = n } }) = pure (J.SkClass, s n, Nothing)
+              go (TyClD SynDecl { tcdLName = n }) = pure (J.SkClass, s n, Nothing)
+              go (TyClD DataDecl { tcdLName = n, tcdDataDefn = HsDataDefn { dd_cons = cons } }) =
                 (J.SkClass, s n, Nothing) : concatMap (processCon (unLoc $ s n) . unLoc) cons
-              go (TyClD (ClassDecl _ n _ _ sigs _ fams _ _ _)) =
+              go (TyClD ClassDecl { tcdLName = n, tcdSigs = sigs, tcdATs = fams }) =
                 (J.SkInterface, sn, Nothing) :
                       concatMap (processSig (unLoc sn) . unLoc) sigs
                   ++  concatMap (map setCnt . go . TyClD . FamDecl . unLoc) fams
                 where sn = s n
                       setCnt (k,n',_) = (k,n',Just (unLoc sn))
-              go (ValD (FunBind ln _ _ _ _)) = pure (J.SkFunction, s ln, Nothing)
-              go (ValD (PatBind p  _ _ _ _)) =
-                map (\n ->(J.SkMethod,s n, Nothing)) $ hsNamessRdr p
-              go (ForD (ForeignImport n _ _ _)) = pure (J.SkFunction, s n, Nothing)
+              go (ValD FunBind { fun_id = ln }) = pure (J.SkFunction, s ln, Nothing)
+              go (ValD PatBind { pat_lhs = p }) =
+                map (\n ->(J.SkMethod, s n, Nothing)) $ hsNamessRdr p
+              go (ForD ForeignImport { fd_name = n }) = pure (J.SkFunction, s n, Nothing)
               go _ = []
 
               processSig :: T.Text
@@ -314,9 +320,9 @@ getSymbols uri = pluginGetFile "getSymbols: " uri $ \file -> do
               processCon :: T.Text
                          -> ConDecl RdrName
                          -> [(J.SymbolKind, Located T.Text, Maybe T.Text)]
-              processCon cnt (ConDeclGADT names _ _) =
+              processCon cnt ConDeclGADT { con_names = names } =
                 map (\n -> (J.SkConstructor, s n, Just cnt)) names
-              processCon cnt (ConDeclH98 name _ _ dets _) =
+              processCon cnt ConDeclH98 { con_name = name, con_details = dets } =
                 (J.SkConstructor, sn, Just cnt) : xs
                 where
                   sn = s name
@@ -328,7 +334,7 @@ getSymbols uri = pluginGetFile "getSymbols: " uri $ \file -> do
                     _ -> []
 
               goImport :: ImportDecl RdrName -> [(J.SymbolKind, Located T.Text, Maybe T.Text)]
-              goImport (ImportDecl _ lmn _ _ _ _ _ as meis) = a ++ xs
+              goImport ImportDecl { ideclName = lmn, ideclAs = as, ideclHiding = meis } = a ++ xs
                 where
                   im = (J.SkModule, lsmn, Nothing)
                   lsmn = s lmn
