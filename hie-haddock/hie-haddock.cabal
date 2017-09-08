@@ -31,6 +31,7 @@ library
                      , hie-ghc-mod
                      , hie-hare
                      , haskell-lsp
+                     , filepath
                      , lens
                      , monad-control
                      , mtl

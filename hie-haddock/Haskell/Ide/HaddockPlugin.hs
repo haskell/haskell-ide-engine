@@ -11,6 +11,7 @@ import           Data.Monoid
 import qualified Data.Text                                    as T
 import           Data.IORef
 import           System.Directory
+import           System.FilePath
 import           GHC
 import           GhcMonad
 import qualified GhcMod.Monad                                 as GM
@@ -24,11 +25,42 @@ import           Haskell.Ide.HaRePlugin
 import Documentation.Haddock
 import Documentation.Haddock.Types
 
+
 lookupHaddock :: DynFlags -> UnitId -> Maybe [FilePath]
 lookupHaddock df ui = haddockInterfaces <$> lookupPackage df ui
 
 lookupHtmls :: DynFlags -> UnitId -> Maybe [FilePath]
 lookupHtmls df ui = haddockHTMLs <$> lookupPackage df ui
+
+lookupDocHtmlForModule :: DynFlags -> Module -> IO (Maybe FilePath)
+lookupDocHtmlForModule df m = do
+  let fp = go =<< lookupHtmls df ui
+  ex <- maybe (pure False) doesFileExist fp
+  if ex then
+    return fp
+  else
+    return Nothing
+  where
+    go [] = Nothing
+    go (x:_) = Just $ x</>mn<.>"html"
+    ui = moduleUnitId m
+    mn = map (\x -> if x == '.' then '-' else x) mns
+    mns = moduleNameString $ moduleName m
+
+lookupSrcHtmlForModule :: DynFlags -> Module -> IO (Maybe FilePath)
+lookupSrcHtmlForModule df m = do
+  let fp = go =<< lookupHtmls df ui
+  ex <- maybe (pure False) doesFileExist fp
+  if ex then
+    return fp
+  else
+    return Nothing
+  where
+    go [] = Nothing
+    go (x:_) = Just $ x</>"src"</>mn<.>"html"
+    ui = moduleUnitId m
+    mn = map (\x -> if x == '.' then '-' else x) mns
+    mns = moduleNameString $ moduleName m
 
 nameCacheFromGhcMonad :: GhcMonad m => NameCacheAccessor m
 nameCacheFromGhcMonad = ( read_from_session , write_to_session )
@@ -58,12 +90,26 @@ getDocsForName df name = do
       ehi <- GM.unGmlT $ readInterfaceFile nameCacheFromGhcMonad f
       case ehi of
         Left _ -> return Nothing
-        Right hi ->
-          return $ do -- @Maybe
-            mdl <- nameModule_maybe name
-            insiface <- find ((mdl ==) . instMod) $ ifInstalledIfaces hi
-            doc <- Map.lookup name $ instDocMap insiface
-            return $ renderDocs doc
+        Right hi -> do
+          let res = do -- @Maybe
+                mdl <- nameModule_maybe name
+                lmdl <- Map.lookup name (ifLinkEnv hi)
+                insiface <- find ((mdl ==) . instMod) $ ifInstalledIfaces hi
+                doc <- Map.lookup name $ instDocMap insiface
+                return (renderDocs doc, mdl, lmdl)
+          case res of
+            Nothing -> return Nothing
+            Just (doc, mdl, lmdl) -> do
+              mdoch <- liftIO $ lookupDocHtmlForModule df lmdl
+              msrch <- liftIO $ lookupSrcHtmlForModule df mdl
+              let selector
+                    | isValName name = "v:"
+                    | otherwise = "t:"
+              return $ Just $ T.intercalate "\n\n"
+                [ doc
+                , maybe "" (\x ->"[Documentation](file://"<>T.pack x<>"#"<>selector<>showName name<>")") mdoch
+                , maybe "" (\x ->"[Source](file://"<>T.pack x<>"#"<>showName name<>")") msrch
+                ]
 
 getDocsWithType :: DynFlags -> Name -> IdeM (Maybe T.Text)
 getDocsWithType df name = do
@@ -81,7 +127,7 @@ prettyprintType :: Name -> Type -> T.Text
 prettyprintType n t = T.unlines $
   [ "```haskell"
   , showName n <> " :: " <> showName t
-  , "```"
+  , "```\n"
   ]
 
 renderDocs :: MDoc Name -> T.Text
@@ -104,7 +150,7 @@ renderMarkDown =
          , markupOrderedList =
              T.unlines . zipWith (\i n -> T.pack (show (i :: Int)) <> ". " <> n) [1..]
          , markupDefList = T.unlines . map (\(a, b) -> a <> " :: " <> b)
-         , markupCodeBlock = \x -> "```haskell\n" <> x <> "```"
+         , markupCodeBlock = \x -> "\n```haskell\n" <> x <> "```"
          , markupHyperlink = \h ->
              T.pack $ maybe
                (hyperlinkUrl h)
@@ -115,14 +161,14 @@ renderMarkDown =
          , markupMathInline = T.pack
          , markupMathDisplay = T.pack
          , markupProperty = \s -> T.unlines
-             ["```haskell"
+             ["\n```haskell"
              ,"prop> " <> T.pack s
-             ,"```"]
+             ,"```\n"]
          , markupExample = T.unlines . map (\e -> T.pack $ unlines $
-             ["```haskell"
+             ["\n```haskell"
              ,"> " <> exampleExpression e
              ] ++ exampleResult e ++
-             ["```"])
+             ["```\n"])
          , markupHeader = \h ->
              T.replicate (headerLevel h) "#" <> " " <> headerTitle h <> "\n"
          }
