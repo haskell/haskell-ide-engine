@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -296,7 +297,21 @@ listFlagsCabal d = do
     return (name, flags')
 
 flagToJSON :: Flag -> Value
-flagToJSON f = object ["name" .= ((\(FlagName s) -> s) $ flagName f), "description" .= flagDescription f, "default" .= flagDefault f]
+flagToJSON f = object
+        -- Cabal 2.0 changelog
+	-- * Backwards incompatible change to 'FlagName' (#4062):
+	--   'FlagName' is now opaque; conversion to/from 'String' now works
+	--   via 'unFlagName' and 'mkFlagName' functions.
+
+                 [ "name"        .= (unFlagName $ flagName f)
+                 , "description" .= flagDescription f
+                 , "default"     .= flagDefault f]
+
+#if MIN_VERSION_Cabal(2,0,0)
+#else
+unFlagName :: FlagName -> String
+unFlagName (FlagName a) = s
+#endif
 
 -----------------------------------------------
 
