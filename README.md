@@ -61,17 +61,6 @@ cd haskell-ide-engine
 stack install
 ```
 
-If you are on macOS, you might need to do the following to make sure `icu4c` is located properly
-
-```bash
-brew install icu4c
-cd haskell-ide-engine
-stack install text-icu \
- --extra-lib-dirs=/usr/local/opt/icu4c/lib \
- --extra-include-dirs=/usr/local/opt/icu4c/include
-stack install
-```
-
 ### Installation using Nix
 
 Alternatively, given that you have Nix installed:
