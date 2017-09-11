@@ -211,7 +211,7 @@ unmapFileFromVfs verTVar cin uri = do
 -- TODO: generalise this and move it to GhcMod.ModuleLoader
 updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeM (IdeResponse ())
 updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file -> do
-  mcm <- GM.getCachedModule file
+  mcm <- GM.getCachedModule (GM.filePathToUri file)
   case mcm of
     Just cm -> do
       let n2oOld = GM.newPosToOldPos cm
@@ -221,7 +221,7 @@ updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file 
             (n2o' <=< newToOld r txt, oldToNew r txt <=< o2n')
           go _ _ = (const Nothing, const Nothing)
       let cm' = cm {GM.newPosToOldPos = n2o, GM.oldPosToNewPos = o2n}
-      GM.cacheModule file cm'
+      GM.cacheModule (GM.filePathToUri file) cm'
       return $ IdeResponseOk ()
     Nothing ->
       return $ IdeResponseOk ()
@@ -393,7 +393,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         -- unmapFileFromVfs versionTVar cin uri
         makeRequest $ PReq (Just uri) Nothing Nothing (const $ return ()) $ do
           case uriToFilePath uri of
-            Just fp -> GM.deleteCachedModule fp
+            Just fp -> GM.deleteCachedModule (GM.filePathToUri fp)
             Nothing -> return ()
           return $ IdeResponseOk ()
 
