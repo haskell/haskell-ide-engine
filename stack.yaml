@@ -27,14 +27,14 @@ packages:
 # - ../HaRe
 - location:
     git: https://github.com/alanz/HaRe.git
-    commit: edceb4f6d739a3b33782fc66c616497ff37df1b6
+    commit: e325975450ce89d790ed3f92de3ef675967d9538
   extra-dep: true
 
 # - ../ghc-mod
 # - ../ghc-mod/ghc-mod-core
 - location:
     git: https://github.com/alanz/ghc-mod.git
-    commit: 7b989b83d8073ab75d324b020311c6e515c3d8d5
+    commit: 9056aa81af3cf08c574524d1b19d29c93fd00016
   extra-dep: true
   subdirs:
     - .
