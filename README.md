@@ -73,13 +73,8 @@ Alternatively, given that you have Nix installed:
 Make sure HIE is installed (see above) and directory stack put the `hie` binary in is in your path 
 (usually `~/.local/bin` on linux)
 
-```bash
-git clone https://github.com/alanz/vscode-hie-server
-cd vscode-hie-server
-npm install .
-```
-
-Open `vscode-hie-server/` in Visual Studio Code and press `F5` to open a new window with the extension loaded.
+Install from
+[the VSCode marketplace](https://marketplace.visualstudio.com/items?itemName=alanz.vscode-hie-server)
 
 ### Using HIE with neovim
 
