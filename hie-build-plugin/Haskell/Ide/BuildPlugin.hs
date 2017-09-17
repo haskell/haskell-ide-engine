@@ -425,7 +425,7 @@ listCabalTargets distDir dir = do
     absDir <- liftIO $ makeAbsolute dir
     return $ Package pkgName' absDir comps
   where
-#if __GLASGOW_HASKELL__ >= 802
+#if MIN_VERSION_Cabal(2,0,0)
     fixupLibraryEntrypoint n ChLibName = ChLibName
 #else
     fixupLibraryEntrypoint n (ChLibName "") = (ChLibName n)
@@ -460,7 +460,7 @@ getStackLocalPackages stackYamlFile = withBinaryFileContents stackYamlFile $ \co
 
 compToJSON :: ChComponentName -> Value
 compToJSON ChSetupHsName = object ["type" .= ("setupHs" :: T.Text)]
-#if __GLASGOW_HASKELL__ >= 802
+#if MIN_VERSION_Cabal(2,0,0)
 compToJSON ChLibName = object ["type" .= ("library" :: T.Text)]
 #else
 compToJSON (ChLibName n) = object ["type" .= ("library" :: T.Text), "name" .= n]
