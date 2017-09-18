@@ -1,5 +1,4 @@
 module Main where
--- import           Haskell.Ide.Engine.MonadFunctions
 
 -- import Test.Hspec.Formatters.Jenkins
 import Test.Hspec.Runner
@@ -9,7 +8,9 @@ import qualified Spec
 -- ---------------------------------------------------------------------
 
 main :: IO ()
-main = withFileLogging "./test-main.log" $ hspec Spec.spec
+main = do
+  setupStackFiles
+  withFileLogging "./test-main.log" $ hspec Spec.spec
 
 -- main :: IO ()
 -- main = do
@@ -21,3 +22,6 @@ main = withFileLogging "./test-main.log" $ hspec Spec.spec
 --     hspecWith c Spec.spec
 --   unless (summaryFailures summary == 0) $
 --     exitFailure
+
+-- ---------------------------------------------------------------------
+

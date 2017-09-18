@@ -14,16 +14,21 @@ dependencies:
     - stack --version
   override:
     - stack setup
+    - stack --stack-yaml=stack-8.0.2.yaml setup
     - stack install hoogle
     - ~/.local/bin/hoogle generate
     - stack build -j 2 :
         timeout: 7200
+    - stack --stack-yaml=stack-8.0.2.yaml build -j 2 :
+        timeout: 7200
     - stack build  -j 2 --test --only-dependencies :
+        timeout: 7200
+    - stack --stack-yaml=stack-8.0.2.yaml build  -j 2 --test --only-dependencies :
         timeout: 7200
 
 test:
   override:
     - stack test -j 2  haskell-ide-engine :
         timeout: 14400
-    # - ./emacs_tests.sh :
-    #     timeout: 3600
+    - stack --stack-yaml=stack-8.0.2.yaml build test -j 2  haskell-ide-engine :
+        timeout: 14400
