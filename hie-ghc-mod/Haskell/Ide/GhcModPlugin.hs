@@ -8,9 +8,9 @@ import           Bag
 import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Aeson.Types
-import           Data.Function
 import           Data.IORef
 import           Data.List
+import           Data.Function
 import qualified Data.Map                          as Map
 import           Data.Monoid
 import qualified Data.Set                          as Set
@@ -21,7 +21,6 @@ import qualified Exception                         as G
 import           GHC
 import           GHC.Generics
 import qualified GhcMod                            as GM
-import qualified GhcMod.Doc                        as GM
 import qualified GhcMod.DynFlags                   as GM
 import qualified GhcMod.Error                      as GM
 import qualified GhcMod.Gap                        as GM
@@ -33,8 +32,10 @@ import qualified GhcMod.Utils                      as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
+import           Haskell.Ide.Engine.LocMap
 import           HscTypes
-import           Outputable                        (renderWithStyle)
+import           TcRnTypes
+import           Outputable                        (renderWithStyle, mkUserStyle, Depth(..))
 
 -- ---------------------------------------------------------------------
 
@@ -155,7 +156,8 @@ setTypecheckedModule uri =
         debugm $ "setTypecheckedModule: Didn't get typechecked module for: " ++ show fp
         return $ IdeResponseOk (diags,errs)
       Just tm -> do
-        let cm = GM.CachedModule tm (GM.genLocMap tm) rfm return return
+        typm <- GM.unGmlT $ GM.genTypeMap tm
+        let cm = GM.CachedModule tm (GM.genLocMap tm) typm rfm return return
         GM.cacheModule fp cm
         return $ IdeResponseOk (diags,errs)
 
@@ -220,7 +222,7 @@ someErr meth err =
              Null
 
 newTypeCmd :: Bool -> Uri -> Position -> IdeM (IdeResponse [(Range, T.Text)])
-newTypeCmd bool uri newPos =
+newTypeCmd _bool uri newPos =
   pluginGetFile "newTypeCmd: " uri $ \fp ->
     let handlers  = [GM.GHandler $ \(ex :: GM.SomeException) ->
                        return $ someErr "newTypeCmd" (show ex)
@@ -229,23 +231,35 @@ newTypeCmd bool uri newPos =
       mcm <- GM.getCachedModule fp
       case mcm of
         Nothing -> return $ IdeResponseOk []
-        Just cm -> do
-          let mOldPos = newPosToOld cm newPos
-          case mOldPos of
-            Nothing -> return $ IdeResponseOk []
-            Just pos ->
-              GM.unGmlT $ GM.withInteractiveContext $ do
-                let tm = GM.tcMod cm
-                spanTypes' <- GM.collectSpansTypes bool tm $ unPos pos
-                let spanTypes = sortBy (GM.cmp `on` fst) spanTypes'
-                dflag        <- getSessionDynFlags
-                st           <- GM.getStyle
-                let f (spn, t) = do
-                      let range' = srcSpan2Range spn
-                      case oldRangeToNew cm <$> range' of
-                        (Right (Just range)) -> [(range , T.pack $ GM.pretty dflag st t)]
-                        _ -> []
-                return $ IdeResponseOk $ concatMap f spanTypes
+        Just cm -> return $ IdeResponseOk $ pureTypeCmd newPos cm
+
+pureTypeCmd :: Position -> GM.CachedModule -> [(Range,T.Text)]
+pureTypeCmd newPos cm  =
+    case mOldPos of
+      Nothing -> []
+      Just pos -> concatMap f (spanTypes pos)
+  where
+    mOldPos = newPosToOld cm newPos
+    tm = GM.tcMod cm
+    typm = GM.typeMap cm
+    spanTypes' pos = getArtifactsAtPos pos typm
+    spanTypes pos = sortBy (cmp `on` fst) (spanTypes' pos)
+    dflag = ms_hspp_opts $ pm_mod_summary $ tm_parsed_module tm
+    unqual = mkPrintUnqualified dflag $ tcg_rdr_env $ fst $ tm_internals_ tm
+    st = mkUserStyle unqual AllTheWay
+    f (range', t) =
+      case oldRangeToNew cm range' of
+        (Just range) -> [(range , T.pack $ GM.pretty dflag st t)]
+        _ -> []
+
+cmp :: Range -> Range -> Ordering
+cmp a b
+  | a `isSubRangeOf` b = LT
+  | b `isSubRangeOf` a = GT
+  | otherwise = EQ
+
+isSubRangeOf :: Range -> Range -> Bool
+isSubRangeOf (Range sa ea) (Range sb eb) = sb <= sa && eb >= ea
 
 getDynFlags :: IdeM DynFlags
 getDynFlags = GM.unGmlT getSessionDynFlags

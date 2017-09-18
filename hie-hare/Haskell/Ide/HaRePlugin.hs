@@ -511,6 +511,14 @@ getCompletions uri (qualifier,ident) = pluginGetFile "getCompletions: " uri $ \f
           xs <- Set.toList <$> getQualifedCompls
           setCiTypesForImported hscEnv xs
       return $ IdeResponseOk $ modCompls ++ map mkCompl comps
+
+getTypeForName :: Name -> IdeM (Maybe Type)
+getTypeForName n = GM.unGmlT $ do
+  hscEnv <- getSession
+  mt <- liftIO $ (Just <$> lookupGlobal hscEnv n)
+                    `catch` \(_ :: SomeException) -> return Nothing
+  return $ fmap varType $ safeTyThingId =<< mt
+
 -- ---------------------------------------------------------------------
 
 getSymbolsAtPoint :: Uri -> Position -> IdeM (IdeResponse [(Range, Name)])
@@ -519,13 +527,13 @@ getSymbolsAtPoint uri pos = pluginGetFile "getSymbolsAtPoint: " uri $ \file -> d
   GM.withCachedModule file noCache $
     \cm ->
       return $ IdeResponseOk
-             $ maybe [] (`getNamesAtPos` GM.locMap cm) $ newPosToOld cm pos
+             $ maybe [] (`getArtifactsAtPos` GM.locMap cm) $ newPosToOld cm pos
 symbolFromTypecheckedModule
   :: GM.LocMap
   -> Position
   -> Maybe (Range, Name)
 symbolFromTypecheckedModule lm pos =
-  case getNamesAtPos pos lm of
+  case getArtifactsAtPos pos lm of
     (x:_) -> pure x
     []    -> Nothing
 
@@ -543,7 +551,7 @@ getReferencesInDoc uri pos = pluginGetFile "getReferencesInDoc: " uri $ \file ->
       case mpos of
         Nothing -> return []
         Just pos' -> fmap concat $
-          forM (getNamesAtPos pos' lm) $ \(_,name) -> do
+          forM (getArtifactsAtPos pos' lm) $ \(_,name) -> do
               let usages = fromMaybe [] $ Map.lookup name inverseNameMap
                   defn = nameSrcSpan name
                   defnInSameFile =

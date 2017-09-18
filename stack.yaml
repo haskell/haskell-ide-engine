@@ -12,8 +12,7 @@ packages:
 - hie-hoogle
 - hie-plugin-api
 - hie-brittany
-
-# - ../haskell-lsp
+- hie-haddock
 - location:
     git: https://github.com/alanz/haskell-lsp.git
     commit: fe2289c6cd16620bb93aacd263aadb59a01f2ca7
@@ -29,7 +28,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/wz1000/ghc-mod.git
-    commit: bd87474f94c7b4b2e97d84cc66683e0d90a97a97
+    commit: 55ac67bdb4eb3816df5569f63e96fa2087dab205
   extra-dep: true
   subdirs:
     - .
