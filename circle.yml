@@ -31,8 +31,11 @@ dependencies:
 
 test:
   override:
-    - stack --stack-yaml=stack-8.0.2.yaml build test -j 2  haskell-ide-engine :
-        timeout: 14400
+    - stack --stack-yaml=stack-8.0.2.yaml clean
     - stack clean
     - stack test -j 2  haskell-ide-engine :
+        timeout: 14400
+
+    - stack clean
+    - stack --stack-yaml=stack-8.0.2.yaml build test -j 2  haskell-ide-engine :
         timeout: 14400
