@@ -1,4 +1,4 @@
-resolver: nightly-2017-07-25
+resolver: nightly-2017-09-20
 packages:
 - .
 - hie-apply-refact
@@ -12,9 +12,7 @@ packages:
 - hie-hoogle
 - hie-plugin-api
 - hie-brittany
-- hie-haddock
-
-# - ../haskell-lsp
+# - hie-haddock
 - location:
     # git: https://github.com/alanz/haskell-lsp.git
     git: https://gitlab.com/alanz/haskell-lsp.git
@@ -35,10 +33,8 @@ packages:
   extra-dep: true
 
 - location:
-    # git: https://github.com/alanz/ghc-mod.git
-    git: https://gitlab.com/alanz/ghc-mod.git
-    commit: c9b209c08779b2166300dc2ec69d7f5bb2955eb3
-    # ../ghc-mod
+    git: https://github.com/alanz/ghc-mod.git
+    commit: 2642aebe0ec6a373b7bee37c0d18adc6efee3c1d
   extra-dep: true
   subdirs:
     - .
@@ -67,9 +63,13 @@ packages:
 #     - haddock-library
 
 extra-deps:
-- apply-refact-0.3.0.1
+# - apply-refact-0.4.0.1
+- brittany-0.8.0.2
 - butcher-1.1.0.1
-# - Cabal-2.0.0.2
+- conversion-1.2.1
+- conversion-bytestring-1.0.1
+- conversion-case-insensitive-1.0.0.0
+- conversion-text-1.0.1
 - czipwith-1.0.0.0
 - data-tree-print-0.1.0.0
 - deque-0.2
