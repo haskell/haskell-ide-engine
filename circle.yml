@@ -37,5 +37,5 @@ test:
     #     timeout: 14400
 
     # - stack clean
-    - stack --stack-yaml=stack-8.0.2.yaml build test -j 2  haskell-ide-engine :
+    - stack --stack-yaml=stack-8.0.2.yaml test -j 2  haskell-ide-engine :
         timeout: 14400
