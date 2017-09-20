@@ -310,7 +310,7 @@ flagToJSON f = object
 #if MIN_VERSION_Cabal(2,0,0)
 #else
 unFlagName :: FlagName -> String
-unFlagName (FlagName a) = s
+unFlagName (FlagName s) = s
 #endif
 
 -----------------------------------------------
@@ -425,7 +425,8 @@ listCabalTargets distDir dir = do
     absDir <- liftIO $ makeAbsolute dir
     return $ Package pkgName' absDir comps
   where
-#if MIN_VERSION_Cabal(2,0,0)
+-- # if MIN_VERSION_Cabal(2,0,0)
+#if MIN_VERSION_Cabal(1,24,0)
     fixupLibraryEntrypoint n ChLibName = ChLibName
 #else
     fixupLibraryEntrypoint n (ChLibName "") = (ChLibName n)
@@ -460,7 +461,8 @@ getStackLocalPackages stackYamlFile = withBinaryFileContents stackYamlFile $ \co
 
 compToJSON :: ChComponentName -> Value
 compToJSON ChSetupHsName = object ["type" .= ("setupHs" :: T.Text)]
-#if MIN_VERSION_Cabal(2,0,0)
+-- # if MIN_VERSION_Cabal(2,0,0)
+#if MIN_VERSION_Cabal(1,24,0)
 compToJSON ChLibName = object ["type" .= ("library" :: T.Text)]
 #else
 compToJSON (ChLibName n) = object ["type" .= ("library" :: T.Text), "name" .= n]
