@@ -43,11 +43,7 @@ packages:
 # - ../cabal-helper
 - location:
     git: https://github.com/alanz/cabal-helper.git
-    commit: e4396932e37a8251a13b243ed9e78c1930aa7f80
-    # git: https://github.com/DanielG/cabal-helper.git
-    # commit: e877c5b10c9e42f4e709b30929f55d6cb3b60524
-    # git: https://github.com/joshvera/cabal-helper.git
-    # commit: 8191a72351fb3d622576597ae965bea97fc4147e
+    commit: 8aff81d91967d4f82ba30ccc096e8dfa0d5e58fd
   extra-dep: true
 
 - location:
