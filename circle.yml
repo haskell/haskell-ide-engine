@@ -7,21 +7,36 @@ dependencies:
     - .stack-work/
     - test/testdata/.stack-work/
   pre:
-    - wget -q -O- https://s3.amazonaws.com/download.fpcomplete.com/ubuntu/fpco.key | sudo apt-key add -
-    - echo 'deb http://download.fpcomplete.com/ubuntu/precise stable main'|sudo tee /etc/apt/sources.list.d/fpco.list
-    - sudo apt-get update && sudo apt-get install stack -y
+    # - wget -q -O- https://s3.amazonaws.com/download.fpcomplete.com/ubuntu/fpco.key | sudo apt-key add -
+    # - echo 'deb http://download.fpcomplete.com/ubuntu/precise stable main'|sudo tee /etc/apt/sources.list.d/fpco.list
+    # - sudo apt-get update && sudo apt-get install stack -y
+    - stack upgrade
+    - stack --version
   override:
     - stack setup
     - stack install hoogle
     - ~/.local/bin/hoogle generate
+    # - stack clean # from the other compiler build at the end of prior build, cached. Maybe.
+    # - stack --stack-yaml=stack-8.2.1.yaml clean # from the other compiler build at the end of prior build, cached. Maybe.
     - stack build -j 2 :
         timeout: 7200
     - stack build  -j 2 --test --only-dependencies :
         timeout: 7200
 
+    - stack clean
+    - stack --stack-yaml=stack-8.2.1.yaml setup
+    - stack --stack-yaml=stack-8.2.1.yaml build  -j 2 --test --only-dependencies :
+        timeout: 7200
+    - stack --stack-yaml=stack-8.2.1.yaml build -j 2 :
+        timeout: 7200
+
 test:
   override:
+    - stack --stack-yaml=stack-8.2.1.yaml clean
+    - stack clean
     - stack test -j 2  haskell-ide-engine :
         timeout: 14400
-    # - ./emacs_tests.sh :
-    #     timeout: 3600
+
+    - stack clean
+    - stack --stack-yaml=stack-8.2.1.yaml test -j 2  haskell-ide-engine :
+        timeout: 14400

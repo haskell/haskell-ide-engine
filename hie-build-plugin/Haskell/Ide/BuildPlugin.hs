@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -296,7 +297,21 @@ listFlagsCabal d = do
     return (name, flags')
 
 flagToJSON :: Flag -> Value
-flagToJSON f = object ["name" .= ((\(FlagName s) -> s) $ flagName f), "description" .= flagDescription f, "default" .= flagDefault f]
+flagToJSON f = object
+        -- Cabal 2.0 changelog
+	-- * Backwards incompatible change to 'FlagName' (#4062):
+	--   'FlagName' is now opaque; conversion to/from 'String' now works
+	--   via 'unFlagName' and 'mkFlagName' functions.
+
+                 [ "name"        .= (unFlagName $ flagName f)
+                 , "description" .= flagDescription f
+                 , "default"     .= flagDefault f]
+
+#if MIN_VERSION_Cabal(2,0,0)
+#else
+unFlagName :: FlagName -> String
+unFlagName (FlagName a) = s
+#endif
 
 -----------------------------------------------
 
@@ -410,7 +425,11 @@ listCabalTargets distDir dir = do
     absDir <- liftIO $ makeAbsolute dir
     return $ Package pkgName' absDir comps
   where
+#if MIN_VERSION_Cabal(2,0,0)
+    fixupLibraryEntrypoint n ChLibName = ChLibName
+#else
     fixupLibraryEntrypoint n (ChLibName "") = (ChLibName n)
+#endif
     fixupLibraryEntrypoint _ e = e
 
 -----------------------------------------------
@@ -441,7 +460,11 @@ getStackLocalPackages stackYamlFile = withBinaryFileContents stackYamlFile $ \co
 
 compToJSON :: ChComponentName -> Value
 compToJSON ChSetupHsName = object ["type" .= ("setupHs" :: T.Text)]
+#if MIN_VERSION_Cabal(2,0,0)
+compToJSON ChLibName = object ["type" .= ("library" :: T.Text)]
+#else
 compToJSON (ChLibName n) = object ["type" .= ("library" :: T.Text), "name" .= n]
+#endif
 compToJSON (ChExeName n) = object ["type" .= ("executable" :: T.Text), "name" .= n]
 compToJSON (ChTestName n) = object ["type" .= ("test" :: T.Text), "name" .= n]
 compToJSON (ChBenchName n) = object ["type" .= ("benchmark" :: T.Text), "name" .= n]

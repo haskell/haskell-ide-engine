@@ -11,7 +11,7 @@ import           Data.Aeson.Types
 import           Data.Function
 import           Data.IORef
 import           Data.List
-import qualified Data.Map                          as Map
+import qualified Data.Map.Strict                   as Map
 import           Data.Monoid
 import qualified Data.Set                          as Set
 import qualified Data.Text                         as T
@@ -77,7 +77,7 @@ logDiag rfm eref dref df _reason sev spn style msg = do
   let msgTxt = T.pack $ renderWithStyle df msg style
   case eloc of
     Right (Location uri range) -> do
-      let update = Map.insertWith' Set.union uri l
+      let update = Map.insertWith Set.union uri l
             where l = Set.singleton diag
           diag = Diagnostic range (Just $ lspSev sev) Nothing (Just "ghcmod") msgTxt
       modifyIORef' dref update
@@ -115,7 +115,7 @@ srcErrToDiag df rfm se = do
         (m,es) <- processMsgs xs
         case res of
           Right (uri, diag) ->
-            return (Map.insertWith' Set.union uri (Set.singleton diag) m, es)
+            return (Map.insertWith Set.union uri (Set.singleton diag) m, es)
           Left e -> return (m, e:es)
   processMsgs errMsgs
 
@@ -148,15 +148,15 @@ setTypecheckedModule :: Uri -> IdeM (IdeResponse (Diagnostics, AdditionalErrs))
 setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     rfm <- GM.mkRevRedirMapFunc
-    ((diags', errs), mtm) <- GM.getTypecheckedModuleGhc (myLogger rfm) fp
-    let diags = Map.insertWith' Set.union uri Set.empty diags'
+    ((diags', errs), mtm) <- GM.getTypecheckedModuleGhc' (myLogger rfm) fp
+    let diags = Map.insertWith Set.union uri Set.empty diags'
     case mtm of
       Nothing -> do
         debugm $ "setTypecheckedModule: Didn't get typechecked module for: " ++ show fp
         return $ IdeResponseOk (diags,errs)
       Just tm -> do
         let cm = GM.CachedModule tm (GM.genLocMap tm) rfm return return
-        GM.cacheModule fp cm
+        GM.cacheModule (uri2fileUri uri) cm
         return $ IdeResponseOk (diags,errs)
 
 -- ---------------------------------------------------------------------
@@ -221,12 +221,12 @@ someErr meth err =
 
 newTypeCmd :: Bool -> Uri -> Position -> IdeM (IdeResponse [(Range, T.Text)])
 newTypeCmd bool uri newPos =
-  pluginGetFile "newTypeCmd: " uri $ \fp ->
+  pluginGetFile "newTypeCmd: " uri $ \_fp ->
     let handlers  = [GM.GHandler $ \(ex :: GM.SomeException) ->
                        return $ someErr "newTypeCmd" (show ex)
                     ] in
     flip GM.gcatches handlers $ do
-      mcm <- GM.getCachedModule fp
+      mcm <- GM.getCachedModule (uri2fileUri uri)
       case mcm of
         Nothing -> return $ IdeResponseOk []
         Just cm -> do

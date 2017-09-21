@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -281,7 +282,7 @@ instance GM.ModuleCache NameMapData where
 
 getSymbols :: Uri -> IdeM (IdeResponse [J.SymbolInformation])
 getSymbols uri = pluginGetFile "getSymbols: " uri $ \file -> do
-    mcm <- GM.getCachedModule file
+    mcm <- GM.getCachedModule (GM.filePathToUri file)
     case mcm of
       Nothing -> return $ IdeResponseOk []
       Just cm -> do
@@ -421,7 +422,7 @@ getCompletions uri (qualifier,ident) = pluginGetFile "getCompletions: " uri $ \f
   let noCache = return $ nonExistentCacheErr "getCompletions"
   let modQual = if T.null qualifier then "" else qualifier <> "."
   let fullPrefix = modQual <> ident
-  GM.withCachedModule file noCache $
+  GM.withCachedModule (GM.filePathToUri file) noCache $
     \cm -> do
       let tm = GM.tcMod cm
           parsedMod = tm_parsed_module tm
@@ -444,7 +445,11 @@ getCompletions uri (qualifier,ident) = pluginGetFile "getCompletions: " uri $ \f
 
           getCompls = filter ((ident `T.isPrefixOf`) . label)
 
+#if __GLASGOW_HASKELL__ >= 802
+          pickName imp = fromMaybe (importMn imp) (fmap GHC.unLoc $ ideclAs imp)
+#else
           pickName imp = fromMaybe (importMn imp) (ideclAs imp)
+#endif
 
           allModules = map (showMod . pickName) imports
           modCompls = map mkModCompl
@@ -516,7 +521,7 @@ getCompletions uri (qualifier,ident) = pluginGetFile "getCompletions: " uri $ \f
 getSymbolsAtPoint :: Uri -> Position -> IdeM (IdeResponse [(Range, Name)])
 getSymbolsAtPoint uri pos = pluginGetFile "getSymbolsAtPoint: " uri $ \file -> do
   let noCache = return $ nonExistentCacheErr "getSymbolAtPoint"
-  GM.withCachedModule file noCache $
+  GM.withCachedModule (GM.filePathToUri file) noCache $
     \cm ->
       return $ IdeResponseOk
              $ maybe [] (`getNamesAtPos` GM.locMap cm) $ newPosToOld cm pos
@@ -534,7 +539,7 @@ symbolFromTypecheckedModule lm pos =
 getReferencesInDoc :: Uri -> Position -> IdeM (IdeResponse [J.DocumentHighlight])
 getReferencesInDoc uri pos = pluginGetFile "getReferencesInDoc: " uri $ \file -> do
   let noCache = return $ nonExistentCacheErr "getReferencesInDoc"
-  GM.withCachedModuleAndData file noCache $
+  GM.withCachedModuleAndData (GM.filePathToUri file) noCache $
     \cm NMD{inverseNameMap} -> runEitherT $ do
       let lm = GM.locMap cm
           pm = tm_parsed_module $ GM.tcMod cm
@@ -588,7 +593,7 @@ getNewNames old = do
 findDef :: Uri -> Position -> IdeM (IdeResponse [Location])
 findDef uri pos = pluginGetFile "findDef: " uri $ \file -> do
   let noCache = return $ nonExistentCacheErr "hare:findDef"
-  GM.withCachedModule file noCache $
+  GM.withCachedModule (GM.filePathToUri file) noCache $
     \cm -> do
       let rfm = GM.revMap cm
           lm = GM.locMap cm
@@ -616,7 +621,7 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file -> do
                     case ml_hs_file mLoc of
                       Just fp -> do
                         cfp <- reverseMapFile rfm fp
-                        mcm' <- GM.getCachedModule cfp
+                        mcm' <- GM.getCachedModule (GM.filePathToUri cfp)
                         rcm' <- case mcm' of
                           Just cmdl -> do
                             debugm "module already in cache in findDef"
@@ -624,7 +629,7 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file -> do
                           Nothing -> do
                             debugm "setting cached module in findDef"
                             _ <- setTypecheckedModule $ filePathToUri cfp
-                            GM.getCachedModule cfp
+                            GM.getCachedModule (GM.filePathToUri cfp)
                         case rcm' of
                           Nothing ->
                             return
