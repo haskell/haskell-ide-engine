@@ -1,4 +1,4 @@
-resolver: nightly-2017-09-20
+resolver: nightly-2017-06-16
 packages:
 - .
 - hie-apply-refact
@@ -12,7 +12,7 @@ packages:
 - hie-hoogle
 - hie-plugin-api
 - hie-brittany
-# - hie-haddock
+- hie-haddock
 - location:
     git: https://github.com/alanz/haskell-lsp.git
     commit: fe2289c6cd16620bb93aacd263aadb59a01f2ca7
@@ -29,19 +29,19 @@ packages:
     commit: e325975450ce89d790ed3f92de3ef675967d9538
   extra-dep: true
 
-# - ../ghc-mod
-# - ../ghc-mod/core
 - location:
     git: https://github.com/alanz/ghc-mod.git
-    commit: e0e37cc88df3d57f84592dfa858fd6cbd591beb0
+    commit: 2642aebe0ec6a373b7bee37c0d18adc6efee3c1d
+# - ../ghc-mod
+# - ../ghc-mod/ghc-mod-core
   extra-dep: true
   subdirs:
     - .
-    - core
+    - ghc-mod-core
 
 - location:
-    git: https://github.com/joshvera/cabal-helper.git
-    commit: 8191a72351fb3d622576597ae965bea97fc4147e
+    git: https://github.com/alanz/cabal-helper.git
+    commit: 94b7ad3db19b94ff9976089172d3b82ed3592205
   extra-dep: true
 
 - location:
@@ -59,13 +59,9 @@ packages:
 #     - haddock-library
 
 extra-deps:
-# - apply-refact-0.4.0.1
-- brittany-0.8.0.2
+- apply-refact-0.3.0.1
 - butcher-1.1.0.1
-- conversion-1.2.1
-- conversion-bytestring-1.0.1
-- conversion-case-insensitive-1.0.0.0
-- conversion-text-1.0.1
+# - Cabal-2.0.0.2
 - czipwith-1.0.0.0
 - data-tree-print-0.1.0.0
 - deque-0.2
