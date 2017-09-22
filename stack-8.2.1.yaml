@@ -8,7 +8,7 @@ packages:
 - hie-example-plugin2
 - hie-ghc-mod
 - hie-ghc-tree
-- hie-haddock
+# - hie-haddock
 - hie-hare
 - hie-hoogle
 - hie-plugin-api
@@ -37,13 +37,15 @@ packages:
 - location:
     git: https://github.com/alanz/ghc-mod.git
     commit: 2642aebe0ec6a373b7bee37c0d18adc6efee3c1d
+# - ../ghc-mod
+# - ../ghc-mod/ghc-mod-core
   extra-dep: true
   subdirs:
     - .
     - core
 
+# - ../cabal-helper
 - location:
-    # ../cabal-helper
     git: https://github.com/alanz/cabal-helper.git
     commit: 94b7ad3db19b94ff9976089172d3b82ed3592205
   extra-dep: true
@@ -64,9 +66,7 @@ packages:
 #     - haddock-library
 
 extra-deps:
-# - Cabal-2.0.0.2
-- apply-refact-0.3.0.1
-- brittany-0.8.0.2
+# - apply-refact-0.4.0.1
 - butcher-1.1.0.1
 - czipwith-1.0.0.0
 - data-tree-print-0.1.0.0
