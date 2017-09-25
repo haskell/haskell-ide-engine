@@ -33,13 +33,12 @@ packages:
 
 - location:
     git: https://github.com/alanz/ghc-mod.git
-    commit: 2642aebe0ec6a373b7bee37c0d18adc6efee3c1d
-# - ../ghc-mod
-# - ../ghc-mod/ghc-mod-core
+    commit: 1dc99febff79780a577698b6874ba4c0c6370de1
+    # ../ghc-mod
   extra-dep: true
   subdirs:
     - .
-    - ghc-mod-core
+    - core
 
 # - ../cabal-helper
 - location:
