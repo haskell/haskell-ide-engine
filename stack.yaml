@@ -13,6 +13,8 @@ packages:
 - hie-plugin-api
 - hie-brittany
 - hie-haddock
+
+# - ../haskell-lsp
 - location:
     git: https://github.com/alanz/haskell-lsp.git
     commit: fe2289c6cd16620bb93aacd263aadb59a01f2ca7
@@ -31,7 +33,7 @@ packages:
 
 - location:
     git: https://github.com/alanz/ghc-mod.git
-    commit: 1dc99febff79780a577698b6874ba4c0c6370de1
+    commit:  f780d9568a3bbe5d9bdd01a19ad56951d1616640
     # ../ghc-mod
   extra-dep: true
   subdirs:
@@ -39,8 +41,11 @@ packages:
     - core
 
 - location:
-    git: https://github.com/alanz/cabal-helper.git
-    commit: 94b7ad3db19b94ff9976089172d3b82ed3592205
+    # ../cabal-helper
+    # git: https://github.com/alanz/cabal-helper.git
+    # commit: 4cbbaac564aa336ffa0cb0de1ba26a962367199f
+    git: https://github.com/DanielG/cabal-helper.git
+    commit: 4af5dddb8a881572bb6622430dc4c45ec02701df
   extra-dep: true
 
 - location:

@@ -231,7 +231,7 @@ prepareHelper = CmdSync $ \req -> withCommonArgs req $ do
 
 prepareHelper' :: MonadIO m => FilePath -> FilePath -> FilePath -> m ()
 prepareHelper' distDir cabalExe dir =
-  prepare' $ (defaultQueryEnv dir distDir) {qePrograms = defaultPrograms {cabalProgram = cabalExe}}
+  prepare $ (defaultQueryEnv dir distDir) {qePrograms = defaultPrograms {cabalProgram = cabalExe}}
 
 -----------------------------------------------
 
