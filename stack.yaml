@@ -20,8 +20,8 @@ packages:
   extra-dep: true
 
 - location:
-    git: https://github.com/robrix/ghc-dump-tree.git
-    commit: 2e3dc742e6a701f3b9615a3d5a7d0dbc02cd60d4
+    git: https://github.com/edsko/ghc-dump-tree.git
+    commit: 50f8b28fda675cca4df53909667c740120060c49
   extra-dep: true
 
 # - ../HaRe

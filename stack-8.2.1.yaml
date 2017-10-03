@@ -20,8 +20,8 @@ packages:
   extra-dep: true
 
 - location:
-    git: https://github.com/robrix/ghc-dump-tree.git
-    commit: 2e3dc742e6a701f3b9615a3d5a7d0dbc02cd60d4
+    git: https://github.com/edsko/ghc-dump-tree.git
+    commit: 50f8b28fda675cca4df53909667c740120060c49
   extra-dep: true
 
 # - ../HaRe
@@ -42,8 +42,10 @@ packages:
 
 # - ../cabal-helper
 - location:
-    git: https://github.com/alanz/cabal-helper.git
-    commit: 8aff81d91967d4f82ba30ccc096e8dfa0d5e58fd
+    git: https://github.com/joshvera/cabal-helper.git
+    commit: 8191a72351fb3d622576597ae965bea97fc4147e
+    # git: https://github.com/alanz/cabal-helper.git
+    # commit: 8aff81d91967d4f82ba30ccc096e8dfa0d5e58fd
   extra-dep: true
 
 - location:
