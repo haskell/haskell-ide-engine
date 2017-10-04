@@ -23,7 +23,7 @@ import System.FilePath ((</>), normalise, takeExtension, takeFileName, makeRelat
 import System.Process (readProcess)
 import System.IO (openFile, hClose, IOMode(..))
 
-import Distribution.Helper
+import Distribution.Helper as CH
 
 import Distribution.Simple.Setup (defaultDistPref)
 import Distribution.Simple.Configure (localBuildInfoFile)
@@ -231,7 +231,7 @@ prepareHelper = CmdSync $ \req -> withCommonArgs req $ do
 
 prepareHelper' :: MonadIO m => FilePath -> FilePath -> FilePath -> m ()
 prepareHelper' distDir cabalExe dir =
-  prepare $ (defaultQueryEnv dir distDir) {qePrograms = defaultPrograms {cabalProgram = cabalExe}}
+  prepare $ (mkQueryEnv dir distDir) {qePrograms = defaultPrograms {cabalProgram = cabalExe}}
 
 -----------------------------------------------
 
@@ -419,9 +419,10 @@ listStackTargets distDir = do
 
 listCabalTargets :: MonadIO m => FilePath -> FilePath -> m Package
 listCabalTargets distDir dir = do
-  runQuery (defaultQueryEnv dir distDir) $ do
+  runQuery (mkQueryEnv dir distDir) $ do
     pkgName' <- fst <$> packageId
-    comps <- map (fixupLibraryEntrypoint pkgName') <$> map fst <$> entrypoints
+    cc <- components $ (,) CH.<$> entrypoints
+    let comps = map (fixupLibraryEntrypoint pkgName') $ map snd cc
     absDir <- liftIO $ makeAbsolute dir
     return $ Package pkgName' absDir comps
   where
@@ -432,6 +433,13 @@ listCabalTargets distDir dir = do
     fixupLibraryEntrypoint n (ChLibName "") = (ChLibName n)
 #endif
     fixupLibraryEntrypoint _ e = e
+
+-- Example of new way to use cabal helper 'entrypoints' is a ComponentQuery,
+-- components applies it to all components in the project, the semigroupoids
+-- apply batches the result per component, and returns the component as the last
+-- item.
+getComponents :: QueryEnv -> IO [(ChEntrypoint,ChComponentName)]
+getComponents env = runQuery env $ components $ (,) CH.<$> entrypoints
 
 -----------------------------------------------
 
