@@ -224,22 +224,16 @@ updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file 
     Nothing ->
       return $ IdeResponseOk ()
   where
-    oldToNew (J.Range (Position sl _) (Position el _)) txt p@(GM.Pos l c)
+    f (+/-) (J.Range (Position sl _) (Position el _)) txt p@(GM.Pos l c)
       | l < sl = Just p
       | l > el = Just $ GM.Pos l' c
       | otherwise = Nothing
-         where l' = l + dl
+         where l' = l +/- dl
                dl = newL - oldL
                oldL = el-sl
                newL = T.count "\n" txt
-    newToOld (J.Range (Position sl _) (Position el _)) txt p@(GM.Pos l c)
-      | l < sl = Just p
-      | l > el = Just $ GM.Pos l' c
-      | otherwise = Nothing
-         where l' = l - dl
-               dl = newL - oldL
-               oldL = el-sl
-               newL = T.count "\n" txt
+    oldToNew = f (+)
+    newToOld = f (-)
 
 -- ---------------------------------------------------------------------
 
