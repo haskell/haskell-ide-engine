@@ -23,6 +23,8 @@ module Haskell.Ide.Engine.PluginUtils
   , toPos
   , position2pos
   , pos2position
+  , uri2fileUri
+  , fileUri2uri
   ) where
 
 import           Control.Monad.IO.Class
@@ -158,9 +160,14 @@ diffText (f,fText) f2Text = WorkspaceEdit (Just h) Nothing
       where
         range = calcRange fm
 
-    diffOperationToTextEdit (Addition fm _) = J.TextEdit range nt
+    diffOperationToTextEdit (Addition fm l) = J.TextEdit range nt
+    -- fm has a range wrt to the changed file, which starts in the current file at l
+    -- So the range has to be shifted to start at l
       where
-        range = calcRange fm
+        range = J.Range (J.Position (l' - 1) 0)
+                        (J.Position (l' - 1) 0)
+        l' = max l sl -- Needed to add at the end of the file
+        sl = fst $ lrNumbers fm
         nt = T.pack $ unlines $ lrContents fm
 
 
@@ -181,3 +188,11 @@ fileInfo tfileName =
   let sfileName = T.unpack tfileName
       dir = takeDirectory sfileName
   in (dir,sfileName)
+
+-- ---------------------------------------------------------------------
+
+uri2fileUri :: Uri -> GM.FileUri
+uri2fileUri (Uri u) = GM.FileUri u
+
+fileUri2uri :: GM.FileUri -> Uri
+fileUri2uri (GM.FileUri u) = Uri u

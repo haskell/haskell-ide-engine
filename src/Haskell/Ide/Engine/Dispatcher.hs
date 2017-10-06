@@ -31,7 +31,7 @@ dispatcherP DispatcherEnv{..} pin = forever $ do
   let runner = case context of
         Nothing -> GM.runActionWithContext Nothing
         Just uri -> case uriToFilePath uri of
-          Just fp -> GM.runActionWithContext (Just fp)
+          Just fp -> GM.runActionWithContext (Just $ GM.filePathToUri fp)
           Nothing -> \act -> do
             debugm "Got malformed uri, running action with default context"
             GM.runActionWithContext Nothing act

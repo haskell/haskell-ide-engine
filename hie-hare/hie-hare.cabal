@@ -21,6 +21,7 @@ library
                      , HaRe
                      , aeson
                      , containers
+                     , Diff
                      , either
                      , ghc
                      , ghc-mod

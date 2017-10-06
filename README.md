@@ -61,29 +61,20 @@ cd haskell-ide-engine
 stack install
 ```
 
-If you are on macOS, you might need to do the following to make sure `icu4c` is located properly
+### Installation using Nix
 
-```bash
-brew install icu4c
-cd haskell-ide-engine
-stack install text-icu \
- --extra-lib-dirs=/usr/local/opt/icu4c/lib \
- --extra-include-dirs=/usr/local/opt/icu4c/include
-stack install
-```
+Alternatively, given that you have Nix installed:
+
+    $ stack install --nix
+
 
 ### Using HIE with vscode
 
 Make sure HIE is installed (see above) and directory stack put the `hie` binary in is in your path 
 (usually `~/.local/bin` on linux)
 
-```bash
-git clone https://github.com/alanz/vscode-hie-server
-cd vscode-hie-server
-npm install .
-```
-
-Open `vscode-hie-server/` in Visual Studio Code and press `F5` to open a new window with the extension loaded.
+Install from
+[the VSCode marketplace](https://marketplace.visualstudio.com/items?itemName=alanz.vscode-hie-server)
 
 ### Using HIE with neovim
 

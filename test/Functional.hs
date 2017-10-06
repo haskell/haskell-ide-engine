@@ -88,7 +88,9 @@ startServer = do
 -- ---------------------------------------------------------------------
 
 main :: IO ()
-main = withFileLogging "./test-functional.log" $ cdAndDo "./test/testdata"  $ hspec spec
+main = do
+  setupStackFiles
+  withFileLogging "./test-functional.log" $ cdAndDo "./test/testdata"  $ hspec spec
 -- main = withFileLogging "./test-functional.log" $ cdAndDo "/home/alanz/tmp/haskell-hie-test-project"  $ hspec spec
 
 spec :: Spec

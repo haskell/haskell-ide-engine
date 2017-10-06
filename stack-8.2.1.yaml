@@ -1,4 +1,4 @@
-resolver: nightly-2017-06-16
+resolver: nightly-2017-09-10
 packages:
 - .
 - hie-apply-refact
@@ -34,15 +34,18 @@ packages:
 # - ../ghc-mod/ghc-mod-core
 - location:
     git: https://github.com/alanz/ghc-mod.git
-    commit: 9056aa81af3cf08c574524d1b19d29c93fd00016
+    commit: 7227a051a9e5e90c5bc4721378cf2d565449a01e
   extra-dep: true
   subdirs:
     - .
     - ghc-mod-core
 
+# - ../cabal-helper
 - location:
     git: https://github.com/joshvera/cabal-helper.git
     commit: 8191a72351fb3d622576597ae965bea97fc4147e
+    # git: https://github.com/alanz/cabal-helper.git
+    # commit: 8aff81d91967d4f82ba30ccc096e8dfa0d5e58fd
   extra-dep: true
 
 - location:
@@ -52,9 +55,8 @@ packages:
   extra-dep: true
 
 extra-deps:
-- apply-refact-0.3.0.1
+# - apply-refact-0.4.0.1
 - butcher-1.1.0.1
-- Cabal-2.0.0.2
 - czipwith-1.0.0.0
 - data-tree-print-0.1.0.0
 - deque-0.2

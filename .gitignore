@@ -10,7 +10,6 @@
 *.log
 *.o
 *.out
-*.pdf
 *.prof
 *.swp
 *.tag
