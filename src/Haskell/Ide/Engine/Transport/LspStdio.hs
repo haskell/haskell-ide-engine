@@ -94,8 +94,8 @@ run dispatcherProc cin _origDir = flip E.catches handlers $ do
   rin  <- atomically newTChan :: IO (TChan ReactorInput)
   let
     dp lf = do
-      cancelTVar <- atomically $ newTVar S.empty
-      wipTVar <- atomically $ newTVar S.empty
+      cancelTVar  <- atomically $ newTVar S.empty
+      wipTVar     <- atomically $ newTVar S.empty
       versionTVar <- atomically $ newTVar Map.empty
       let dispatcherEnv = DispatcherEnv
             { cancelReqsTVar = cancelTVar
@@ -654,6 +654,10 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             modifyTVar' cancelReqTVar (S.insert lid)
 
       -- -------------------------------
+      Core.NotDidChangeConfigurationParams notif -> do
+        liftIO $ U.logs $ "reactor:got didChangeConfiguration notification:" ++ show notif
+
+      -- -------------------------------
       om -> do
         liftIO $ U.logs $ "reactor:got HandlerRequest:" ++ show om
 
@@ -764,6 +768,7 @@ hieHandlers rin
         , Core.didChangeTextDocumentNotificationHandler = Just $ passHandler rin Core.NotDidChangeTextDocument
         , Core.didCloseTextDocumentNotificationHandler  = Just $ passHandler rin Core.NotDidCloseTextDocument
         , Core.cancelNotificationHandler                = Just $ passHandler rin Core.NotCancelRequest
+        , Core.didChangeConfigurationParamsHandler      = Just $ passHandler rin Core.NotDidChangeConfigurationParams
         , Core.responseHandler                          = Just $ passHandler rin Core.RspFromClient
         , Core.codeActionHandler                        = Just $ passHandler rin Core.ReqCodeAction
         , Core.executeCommandHandler                    = Just $ passHandler rin Core.ReqExecuteCommand
