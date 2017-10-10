@@ -18,7 +18,7 @@ packages:
     # ../haskell-lsp
     # git: https://github.com/alanz/haskell-lsp.git
     git: https://gitlab.com/alanz/haskell-lsp.git
-    commit: fedc8e11ccc969a555f7d18bd84e30c8f07be170
+    commit: beeab9fc8a98dee87ee7291e7191dee762d90b6d
   extra-dep: true
 
 - location:

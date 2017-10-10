@@ -162,6 +162,11 @@ instance J.FromJSON Config where
 --                 {_settings = Object (fromList [("languageServerHaskell",Object (fromList [("hlintOn",Bool True)
 --                                                                                          ,("maxNumberOfProblems",Number 100.0)]))])}}
 
+configVal :: c -> (Config -> c) -> R c
+configVal def field = do
+  gmc <- asks Core.config
+  mc <- liftIO gmc
+  return $ maybe def field mc
 
 -- ---------------------------------------------------------------------
 
@@ -290,10 +295,10 @@ publishDiagnostics maxToSend uri' mv diags = do
 -- ---------------------------------------------------------------------
 
 flushDiagnosticsBySource :: (MonadIO m, MonadReader (Core.LspFuncs Config) m)
-  => Int -> J.DiagnosticSource -> m ()
-flushDiagnosticsBySource maxToSend source = do
+  => Int -> Maybe J.DiagnosticSource -> m ()
+flushDiagnosticsBySource maxToSend msource = do
   lf <- ask
-  liftIO $ (Core.flushDiagnosticsBySourceFunc lf) maxToSend source
+  liftIO $ (Core.flushDiagnosticsBySourceFunc lf) maxToSend msource
 
 -- ---------------------------------------------------------------------
 
@@ -697,13 +702,14 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
       Core.NotDidChangeConfigurationParams notif -> do
         liftIO $ U.logs $ "reactor:didChangeConfiguration notification:" ++ show notif
         -- if hlint has been turned off, flush the disgnostics
-        gmc <- asks Core.config
-        mc <- liftIO gmc
-        liftIO $ U.logs $ "reactor:didChangeConfiguration mc:" ++ show mc
-        let diagsOn = maybe True hlintOn mc
-            maxDiagnosticsToSend = maybe 50 maxNumberOfProblems mc
+        diagsOn              <- configVal True hlintOn
+        maxDiagnosticsToSend <- configVal 50 maxNumberOfProblems
         liftIO $ U.logs $ "reactor:didChangeConfiguration diagsOn:" ++ show diagsOn
-        unless diagsOn $ flushDiagnosticsBySource maxDiagnosticsToSend "hlint"
+        -- If hlint is off, remove the diags. But make sure they get sent, in
+        -- case maxDiagnosticsToSend has changed.
+        if diagsOn
+          then flushDiagnosticsBySource maxDiagnosticsToSend Nothing
+          else flushDiagnosticsBySource maxDiagnosticsToSend (Just "hlint")
 
       -- -------------------------------
       om -> do
