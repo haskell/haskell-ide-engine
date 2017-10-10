@@ -1,4 +1,4 @@
-resolver: nightly-2017-06-16
+resolver: nightly-2017-07-25
 packages:
 - .
 - hie-apply-refact
@@ -22,7 +22,8 @@ packages:
   extra-dep: true
 
 - location:
-    git: https://github.com/edsko/ghc-dump-tree.git
+    # git: https://github.com/edsko/ghc-dump-tree.git
+    git: https://gitlab.com/alanz/ghc-dump-tree.git
     commit: 50f8b28fda675cca4df53909667c740120060c49
   extra-dep: true
 
@@ -34,18 +35,20 @@ packages:
   extra-dep: true
 
 - location:
-    git: https://github.com/alanz/ghc-mod.git
-    commit: 2642aebe0ec6a373b7bee37c0d18adc6efee3c1d
-# - ../ghc-mod
-# - ../ghc-mod/ghc-mod-core
+    # git: https://github.com/alanz/ghc-mod.git
+    git: https://gitlab.com/alanz/ghc-mod.git
+    commit: c9b209c08779b2166300dc2ec69d7f5bb2955eb3
+    # ../ghc-mod
   extra-dep: true
   subdirs:
     - .
-    - ghc-mod-core
+    - core
 
 - location:
-    git: https://github.com/alanz/cabal-helper.git
-    commit: 94b7ad3db19b94ff9976089172d3b82ed3592205
+    # ../cabal-helper
+    # git: https://github.com/alanz/cabal-helper.git
+    git: https://gitlab.com/alanz/cabal-helper.git
+    commit: b942cc8be07da5438d70008f79d9828bc05c1482
   extra-dep: true
 
 - location:
