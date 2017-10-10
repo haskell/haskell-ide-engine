@@ -28,7 +28,7 @@ import           Control.Monad.Trans.Either
 import           Control.Monad.STM
 import           Control.Monad.Reader
 import qualified Data.Aeson as J
-import           Data.Aeson ( (.=) )
+import           Data.Aeson ( (.=), (.:) )
 import qualified Data.ByteString.Lazy as BL
 import           Data.Char (isUpper, isAlphaNum)
 import           Data.Default
@@ -36,7 +36,6 @@ import           Data.Maybe
 import           Data.Monoid ( (<>) )
 import           Data.Function
 import           Data.List
-import qualified Data.HashMap.Strict as H
 import qualified Data.Map as Map
 import qualified Data.Set as S
 import qualified Data.SortedList as SL
@@ -85,7 +84,6 @@ lspStdioTransport hieDispatcherProc cin origDir = do
     0 -> exitSuccess
     c -> exitWith . ExitFailure $ c
 
-
 -- ---------------------------------------------------------------------
 
 run :: (DispatcherEnv -> IO ()) -> TChan PluginRequest -> FilePath -> IO Int
@@ -116,7 +114,7 @@ run dispatcherProc cin _origDir = flip E.catches handlers $ do
     -- let dirStr = map (\c -> if c == pathSeparator then '-' else c) origDir
     -- let logFileName = logDir </> (dirStr ++ "-hie.log")
     -- Core.setupLogger logFileName ["HaRe"] L.DEBUG
-    CTRL.run dp (hieHandlers rin) hieOptions
+    CTRL.run (getConfig,dp) (hieHandlers rin) hieOptions
 
   where
     handlers = [ E.Handler ioExcept
@@ -134,14 +132,47 @@ type ReactorInput
 
 -- ---------------------------------------------------------------------
 
+-- | Callback from haskell-lsp core to convert the generic message to the
+-- specific one for hie
+getConfig :: J.DidChangeConfigurationNotification -> Either T.Text Config
+getConfig (J.NotificationMessage _ _ (J.DidChangeConfigurationParams p)) =
+  case J.fromJSON p of
+    J.Success c -> Right c
+    J.Error err -> Left $ T.pack err
+
+data Config =
+  Config
+    { hlintOn             :: Bool
+    , maxNumberOfProblems :: Int
+    } deriving (Show)
+
+instance J.FromJSON Config where
+  parseJSON = J.withObject "Config" $ \v -> do
+    s <- v .: "languageServerHaskell"
+    flip (J.withObject "Config.settings") s $ \o -> Config
+      <$> (o .: "hlintOn")
+      <*> (o .: "maxNumberOfProblems")
+
+-- 2017-10-09 23:22:00.710515298 [ThreadId 11] - ---> {"jsonrpc":"2.0","method":"workspace/didChangeConfiguration","params":{"settings":{"languageServerHaskell":{"maxNumberOfProblems":100,"hlintOn":true}}}}
+-- 2017-10-09 23:22:00.710667381 [ThreadId 15] - reactor:got didChangeConfiguration notification:
+-- NotificationMessage
+--   {_jsonrpc = "2.0"
+--   , _method = WorkspaceDidChangeConfiguration
+--   , _params = DidChangeConfigurationParams
+--                 {_settings = Object (fromList [("languageServerHaskell",Object (fromList [("hlintOn",Bool True)
+--                                                                                          ,("maxNumberOfProblems",Number 100.0)]))])}}
+
+
+-- ---------------------------------------------------------------------
+
 -- | The monad used in the reactor
-type R a = ReaderT Core.LspFuncs IO a
+type R a = ReaderT (Core.LspFuncs Config) IO a
 
 -- ---------------------------------------------------------------------
 -- reactor monad functions
 -- ---------------------------------------------------------------------
 
-reactorSend :: (J.ToJSON a, MonadIO m, MonadReader Core.LspFuncs m)
+reactorSend :: (J.ToJSON a, MonadIO m, MonadReader (Core.LspFuncs Config) m)
   => a -> m ()
 reactorSend msg = do
   sf <- asks Core.sendFunc
@@ -149,14 +180,14 @@ reactorSend msg = do
 
 -- ---------------------------------------------------------------------
 
-reactorSend' :: (MonadIO m, MonadReader Core.LspFuncs m)
+reactorSend' :: (MonadIO m, MonadReader (Core.LspFuncs Config) m)
   => (Core.SendFunc -> IO ()) -> m ()
 reactorSend' f = do
   lf <- ask
   liftIO $ f (Core.sendFunc lf)
 
 -- ---------------------------------------------------------------------
-getPrefixAtPos :: (MonadIO m, MonadReader Core.LspFuncs m)
+getPrefixAtPos :: (MonadIO m, MonadReader (Core.LspFuncs Config) m)
   => Uri -> Position -> m (Maybe (T.Text,T.Text))
 getPrefixAtPos uri (Position l c) = do
   mvf <- liftIO =<< asks Core.getVirtualFileFunc <*> pure uri
@@ -181,7 +212,7 @@ getPrefixAtPos uri (Position l c) = do
     Nothing -> return Nothing
 -- ---------------------------------------------------------------------
 
-mapFileFromVfs :: (MonadIO m, MonadReader Core.LspFuncs m)
+mapFileFromVfs :: (MonadIO m, MonadReader (Core.LspFuncs Config) m)
   => TVar (Map.Map Uri Int) -> TChan PluginRequest -> J.VersionedTextDocumentIdentifier -> m ()
 mapFileFromVfs verTVar cin vtdi = do
   let uri = vtdi ^. J.uri
@@ -250,7 +281,7 @@ updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file 
 
 -- ---------------------------------------------------------------------
 
-publishDiagnostics :: (MonadIO m, MonadReader Core.LspFuncs m)
+publishDiagnostics :: (MonadIO m, MonadReader (Core.LspFuncs Config) m)
   => Int -> J.Uri -> Maybe J.TextDocumentVersion -> DiagnosticsBySource -> m ()
 publishDiagnostics maxToSend uri' mv diags = do
   lf <- ask
@@ -258,7 +289,15 @@ publishDiagnostics maxToSend uri' mv diags = do
 
 -- ---------------------------------------------------------------------
 
-nextLspReqId :: (MonadIO m, MonadReader Core.LspFuncs m)
+flushDiagnosticsBySource :: (MonadIO m, MonadReader (Core.LspFuncs Config) m)
+  => Int -> J.DiagnosticSource -> m ()
+flushDiagnosticsBySource maxToSend source = do
+  lf <- ask
+  liftIO $ (Core.flushDiagnosticsBySourceFunc lf) maxToSend source
+
+-- ---------------------------------------------------------------------
+
+nextLspReqId :: (MonadIO m, MonadReader (Core.LspFuncs Config) m)
   => m J.LspId
 nextLspReqId = do
   f <- asks Core.getNextReqId
@@ -267,7 +306,7 @@ nextLspReqId = do
 -- ---------------------------------------------------------------------
 
 sendErrorResponse
-  :: (MonadIO m, MonadReader Core.LspFuncs m)
+  :: (MonadIO m, MonadReader (Core.LspFuncs Config) m)
   => J.LspId
   -> J.ErrorCode
   -> T.Text
@@ -275,7 +314,7 @@ sendErrorResponse
 sendErrorResponse origId err msg =
   reactorSend' (\sf -> Core.sendErrorResponseS sf (J.responseId origId) err msg)
 
-sendErrorLog :: (MonadIO m, MonadReader Core.LspFuncs m)
+sendErrorLog :: (MonadIO m, MonadReader (Core.LspFuncs Config) m)
   => T.Text -> m ()
 sendErrorLog msg = reactorSend' (`Core.sendErrorLogS` msg)
 
@@ -654,14 +693,24 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             modifyTVar' cancelReqTVar (S.insert lid)
 
       -- -------------------------------
+
       Core.NotDidChangeConfigurationParams notif -> do
-        liftIO $ U.logs $ "reactor:got didChangeConfiguration notification:" ++ show notif
+        liftIO $ U.logs $ "reactor:didChangeConfiguration notification:" ++ show notif
+        -- if hlint has been turned off, flush the disgnostics
+        gmc <- asks Core.config
+        mc <- liftIO gmc
+        liftIO $ U.logs $ "reactor:didChangeConfiguration mc:" ++ show mc
+        let diagsOn = maybe True hlintOn mc
+            maxDiagnosticsToSend = maybe 50 maxNumberOfProblems mc
+        liftIO $ U.logs $ "reactor:didChangeConfiguration diagsOn:" ++ show diagsOn
+        unless diagsOn $ flushDiagnosticsBySource maxDiagnosticsToSend "hlint"
 
       -- -------------------------------
       om -> do
         liftIO $ U.logs $ "reactor:got HandlerRequest:" ++ show om
 
 -- ---------------------------------------------------------------------
+
 docRules :: Maybe T.Text -> T.Text -> T.Text
 docRules (Just "base") "GHC.Base"    = "Prelude"
 docRules (Just "base") "GHC.Enum"    = "Prelude"
@@ -691,20 +740,25 @@ getDocsForName name pkg modName' = do
 requestDiagnostics :: TChan PluginRequest -> J.Uri -> Int -> R ()
 requestDiagnostics cin file ver = do
   lf <- ask
+  mc <- liftIO $ Core.config lf
   let sendOne pid (uri',ds) =
         publishDiagnostics maxToSend uri' Nothing (Map.fromList [(Just pid,SL.toSortedList ds)])
       sendEmpty = publishDiagnostics maxToSend file Nothing (Map.fromList [(Just "ghcmod",SL.toSortedList [])])
-      maxToSend = 50
-  -- get hlint diagnostics
-  let reql = PReq (Just file) (Just (file,ver)) Nothing (flip runReaderT lf . callbackl)
-               $ ApplyRefact.lintCmd' file
-      callbackl (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
-      callbackl (IdeResponseError err) = liftIO $ U.logs $ "got err" ++ show err
-      callbackl (IdeResponseOk  diags) =
-        case diags of
-          (PublishDiagnosticsParams fp (List ds)) -> sendOne "applyrefact" (fp, ds)
-      callbackl _ = error "impossible"
-  liftIO $ atomically $ writeTChan cin reql
+      maxToSend = maybe 50 maxNumberOfProblems mc
+
+  -- mc <- asks Core.config
+  let sendHlint = maybe True hlintOn mc
+  when sendHlint $ do
+    -- get hlint diagnostics
+    let reql = PReq (Just file) (Just (file,ver)) Nothing (flip runReaderT lf . callbackl)
+                 $ ApplyRefact.lintCmd' file
+        callbackl (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
+        callbackl (IdeResponseError err) = liftIO $ U.logs $ "got err" ++ show err
+        callbackl (IdeResponseOk  diags) =
+          case diags of
+            (PublishDiagnosticsParams fp (List ds)) -> sendOne "hlint" (fp, ds)
+        callbackl _ = error "impossible"
+    liftIO $ atomically $ writeTChan cin reql
 
   -- get GHC diagnostics and loads the typechecked module into the cache
   let reqg = PReq (Just file) (Just (file,ver)) Nothing (flip runReaderT lf . callbackg)
@@ -727,8 +781,8 @@ requestDiagnostics cin file ver = do
 -- ---------------------------------------------------------------------
 
 -- | Manage the boilerplate for passing on any errors found in the IdeResponse
-hieResponseHelper :: (MonadReader Core.LspFuncs m, MonadIO m)
-  => J.LspId -> (t -> ReaderT Core.LspFuncs IO ()) -> m (IdeResponse t -> IO ())
+hieResponseHelper :: (MonadReader (Core.LspFuncs Config) m, MonadIO m)
+  => J.LspId -> (t -> ReaderT (Core.LspFuncs Config) IO ()) -> m (IdeResponse t -> IO ())
 hieResponseHelper lid action = do
   lf <- ask
   return $ \res -> flip runReaderT lf $
