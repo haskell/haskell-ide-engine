@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE TupleSections         #-}
@@ -51,6 +52,10 @@ import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
 import qualified Haskell.Ide.HaRePlugin as HaRe
+#if __GLASGOW_HASKELL__ >= 802
+#else
+import qualified Haskell.Ide.HaddockPlugin as Haddock
+#endif
 import qualified Haskell.Ide.GhcModPlugin as GhcMod
 import qualified Haskell.Ide.ApplyRefactPlugin as ApplyRefact
 import qualified Haskell.Ide.BrittanyPlugin as Brittany
@@ -463,10 +468,23 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                   case HaRe.getModule df name of
                     Nothing -> return $ "`" <> sname <> "` *local*"
                     (Just (pkg,mdl)) -> do
+#if __GLASGOW_HASKELL__ >= 802
                       mdocu <- lift $ getDocsForName sname pkg mdl
+#else
+                      mdocu <- lift $ Haddock.getDocsWithType df name
+                      let mname = "`"<> sname <> "`\n\n"
+                      let minfo = maybe "" (<>" ") pkg <> mdl
+#endif
+                      let mname = "`"<> sname <> "`\n\n"
+                      let minfo = maybe "" (<>" ") pkg <> mdl
                       case mdocu of
+#if __GLASGOW_HASKELL__ >= 802
+                        Nothing -> return $ mname <> minfo
+                        Just docu -> return $ docu <> "\n\n" <> minfo
+#else
                         Nothing -> return $ "`"<> sname <> "`\n" <> maybe "" (<>" ") pkg <> mdl
                         Just docu -> return docu
+#endif
               return (info,docs,mrange)
         makeRequest hreq
 
@@ -701,25 +719,6 @@ requestDiagnostics cin file ver = do
       callbackg _ = error "impossible"
 
   liftIO $ atomically $ writeTChan cin reqg
-
--- ---------------------------------------------------------------------
-
-data LspParam
-  = LspTextDocument TextDocumentIdentifier
-  | LspPosition     Position
-  | LspRange        Range
-  | LspText         T.Text
-  deriving (Read,Show,Eq)
-
-instance J.FromJSON LspParam where
-  parseJSON (J.Object hm) =
-    case H.toList hm of
-      [("textDocument",v)] -> LspTextDocument <$> J.parseJSON v
-      [("position",v)]     -> LspPosition     <$> J.parseJSON v
-      [("range-pos",v)]    -> LspRange        <$> J.parseJSON v
-      [("text",v)]         -> LspText         <$> J.parseJSON v
-      _ -> fail $ "FromJSON.LspParam got:" ++ show hm
-  parseJSON _ = mempty
 
 -- ---------------------------------------------------------------------
 

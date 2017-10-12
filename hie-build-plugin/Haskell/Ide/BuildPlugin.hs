@@ -23,7 +23,7 @@ import System.FilePath ((</>), normalise, takeExtension, takeFileName, makeRelat
 import System.Process (readProcess)
 import System.IO (openFile, hClose, IOMode(..))
 
-import Distribution.Helper
+import Distribution.Helper as CH
 
 import Distribution.Simple.Setup (defaultDistPref)
 import Distribution.Simple.Configure (localBuildInfoFile)
@@ -231,7 +231,7 @@ prepareHelper = CmdSync $ \req -> withCommonArgs req $ do
 
 prepareHelper' :: MonadIO m => FilePath -> FilePath -> FilePath -> m ()
 prepareHelper' distDir cabalExe dir =
-  prepare' $ (defaultQueryEnv dir distDir) {qePrograms = defaultPrograms {cabalProgram = cabalExe}}
+  prepare $ (mkQueryEnv dir distDir) {qePrograms = defaultPrograms {cabalProgram = cabalExe}}
 
 -----------------------------------------------
 
@@ -310,7 +310,7 @@ flagToJSON f = object
 #if MIN_VERSION_Cabal(2,0,0)
 #else
 unFlagName :: FlagName -> String
-unFlagName (FlagName a) = s
+unFlagName (FlagName s) = s
 #endif
 
 -----------------------------------------------
@@ -419,18 +419,27 @@ listStackTargets distDir = do
 
 listCabalTargets :: MonadIO m => FilePath -> FilePath -> m Package
 listCabalTargets distDir dir = do
-  runQuery (defaultQueryEnv dir distDir) $ do
+  runQuery (mkQueryEnv dir distDir) $ do
     pkgName' <- fst <$> packageId
-    comps <- map (fixupLibraryEntrypoint pkgName') <$> map fst <$> entrypoints
+    cc <- components $ (,) CH.<$> entrypoints
+    let comps = map (fixupLibraryEntrypoint pkgName') $ map snd cc
     absDir <- liftIO $ makeAbsolute dir
     return $ Package pkgName' absDir comps
   where
-#if MIN_VERSION_Cabal(2,0,0)
+-- # if MIN_VERSION_Cabal(2,0,0)
+#if MIN_VERSION_Cabal(1,24,0)
     fixupLibraryEntrypoint n ChLibName = ChLibName
 #else
     fixupLibraryEntrypoint n (ChLibName "") = (ChLibName n)
 #endif
     fixupLibraryEntrypoint _ e = e
+
+-- Example of new way to use cabal helper 'entrypoints' is a ComponentQuery,
+-- components applies it to all components in the project, the semigroupoids
+-- apply batches the result per component, and returns the component as the last
+-- item.
+getComponents :: QueryEnv -> IO [(ChEntrypoint,ChComponentName)]
+getComponents env = runQuery env $ components $ (,) CH.<$> entrypoints
 
 -----------------------------------------------
 
@@ -460,7 +469,8 @@ getStackLocalPackages stackYamlFile = withBinaryFileContents stackYamlFile $ \co
 
 compToJSON :: ChComponentName -> Value
 compToJSON ChSetupHsName = object ["type" .= ("setupHs" :: T.Text)]
-#if MIN_VERSION_Cabal(2,0,0)
+-- # if MIN_VERSION_Cabal(2,0,0)
+#if MIN_VERSION_Cabal(1,24,0)
 compToJSON ChLibName = object ["type" .= ("library" :: T.Text)]
 #else
 compToJSON (ChLibName n) = object ["type" .= ("library" :: T.Text), "name" .= n]

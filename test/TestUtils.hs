@@ -84,5 +84,8 @@ stackFileContents = unlines
   , "extra-deps: []"
   , "flags: {}"
   , "extra-package-dbs: []"
+  -- , "- conversion-1.2.1"
+  -- , "- conversion-case-insensitive-1.0.0.0"
+  -- , "- conversion-text-1.0.1"
   ]
 -- ---------------------------------------------------------------------

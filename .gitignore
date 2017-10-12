@@ -49,3 +49,5 @@ tags
 /test/testdata/HaReRename.hs.keep
 /test/testdata/FuncTest.refactored.hs
 /test/testdata/HaReGA1.refactored.hs
+/test/testdata/gototest/stack.yaml
+/test/testdata/stack.yaml

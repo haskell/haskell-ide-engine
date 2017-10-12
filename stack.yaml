@@ -1,4 +1,4 @@
-resolver: nightly-2017-06-16
+resolver: nightly-2017-07-25
 packages:
 - .
 - hie-apply-refact
@@ -12,57 +12,72 @@ packages:
 - hie-hoogle
 - hie-plugin-api
 - hie-brittany
+- hie-haddock
 
 # - ../haskell-lsp
 - location:
-    git: https://github.com/alanz/haskell-lsp.git
+    # git: https://github.com/alanz/haskell-lsp.git
+    git: https://gitlab.com/alanz/haskell-lsp.git
     commit: fe2289c6cd16620bb93aacd263aadb59a01f2ca7
   extra-dep: true
 
 - location:
-    git: https://github.com/edsko/ghc-dump-tree.git
+    # git: https://github.com/edsko/ghc-dump-tree.git
+    git: https://gitlab.com/alanz/ghc-dump-tree.git
     commit: 50f8b28fda675cca4df53909667c740120060c49
   extra-dep: true
 
 # - ../HaRe
 - location:
-    git: https://github.com/alanz/HaRe.git
+    # git: https://github.com/alanz/HaRe.git
+    git: https://gitlab.com/alanz/HaRe.git
     commit: e325975450ce89d790ed3f92de3ef675967d9538
   extra-dep: true
 
-# - ../ghc-mod
-# - ../ghc-mod/ghc-mod-core
 - location:
-    git: https://github.com/alanz/ghc-mod.git
-    commit: 9056aa81af3cf08c574524d1b19d29c93fd00016
+    # git: https://github.com/alanz/ghc-mod.git
+    git: https://gitlab.com/alanz/ghc-mod.git
+    commit: c9b209c08779b2166300dc2ec69d7f5bb2955eb3
+    # ../ghc-mod
   extra-dep: true
   subdirs:
     - .
-    - ghc-mod-core
+    - core
 
 - location:
-    git: https://github.com/joshvera/cabal-helper.git
-    commit: 8191a72351fb3d622576597ae965bea97fc4147e
+    # ../cabal-helper
+    # git: https://github.com/alanz/cabal-helper.git
+    git: https://gitlab.com/alanz/cabal-helper.git
+    commit: b942cc8be07da5438d70008f79d9828bc05c1482
   extra-dep: true
 
 - location:
-    git: https://github.com/alanz/brittany.git
+    # git: https://github.com/alanz/brittany.git
+    git: https://gitlab.com/alanz/brittany.git
     # commit: baac0a6a7e74ea70cae02c4d317e4a24bce8e9b8
     commit: 32a193f0ce02ec36a6032852454db96573ab3a60
   extra-dep: true
 
+# - location:
+#     git: https://github.com/haskell/haddock.git
+#     commit:  fe4c6c7d2907a79118d836e72c0442d666091524
+#   extra-dep: true
+#   subdirs:
+#     - haddock-api
+#     - haddock-library
+
 extra-deps:
 - apply-refact-0.3.0.1
 - butcher-1.1.0.1
-- Cabal-2.0.0.2
+# - Cabal-2.0.0.2
 - czipwith-1.0.0.0
 - data-tree-print-0.1.0.0
 - deque-0.2
-- monad-memo-0.4.1
 - hoogle-5.0.13
+- monad-memo-0.4.1
 - syz-0.2.0.0
-- brittany-0.8.0.2
 - yi-rope-0.10
+
 flags:
   haskell-ide-engine:
     pedantic: true
