@@ -14,11 +14,11 @@ packages:
 - hie-plugin-api
 - hie-brittany
 
-# - ../haskell-lsp
 - location:
+    # ../haskell-lsp
     # git: https://github.com/alanz/haskell-lsp.git
     git: https://gitlab.com/alanz/haskell-lsp.git
-    commit: fe2289c6cd16620bb93aacd263aadb59a01f2ca7
+    commit: beeab9fc8a98dee87ee7291e7191dee762d90b6d
   extra-dep: true
 
 - location:
