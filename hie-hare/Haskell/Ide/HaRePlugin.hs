@@ -609,53 +609,56 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file -> do
         Nothing -> return $ IdeResponseOk []
         Just pn -> do
           let n = snd pn
-          res <- srcSpan2Loc rfm $ nameSrcSpan n
-          case res of
-            Right l@(J.Location luri range) ->
-              case oldRangeToNew cm range of
-                Just r  -> return $ IdeResponseOk [J.Location luri r]
-                Nothing -> return $ IdeResponseOk [l]
-            Left x -> do
-              let failure = pure (IdeResponseFail
-                                    (IdeError PluginError
-                                              ("hare:findDef" <> ": \"" <> x <> "\"")
-                                              Null))
-              case nameModule_maybe n of
-                Just m -> do
-                  let mName = moduleName m
-                  b <- GM.unGmlT $ isLoaded mName
-                  if b then do
-                    mLoc <- GM.unGmlT $ ms_location <$> getModSummary mName
-                    case ml_hs_file mLoc of
-                      Just fp -> do
-                        cfp <- reverseMapFile rfm fp
-                        mcm' <- GM.getCachedModule (GM.filePathToUri cfp)
-                        rcm' <- case mcm' of
-                          Just cmdl -> do
-                            debugm "module already in cache in findDef"
-                            return $ Just cmdl
-                          Nothing -> do
-                            debugm "setting cached module in findDef"
-                            _ <- setTypecheckedModule $ filePathToUri cfp
-                            GM.getCachedModule (GM.filePathToUri cfp)
-                        case rcm' of
-                          Nothing ->
-                            return
-                              $ IdeResponseFail
-                              $ IdeError PluginError ("hare:findDef: failed to load module for " <> T.pack cfp) Null
-                          Just cm' -> do
-                            let modSum = pm_mod_summary $ tm_parsed_module $ GM.tcMod cm'
-                                rfm'   = GM.revMap cm'
-                            newNames <- GM.unGmlT $ do
-                              setGhcContext modSum
-                              getNewNames n
-                            eithers <- mapM (srcSpan2Loc rfm' . nameSrcSpan) newNames
-                            case rights eithers of
-                              (l:_) -> return $ IdeResponseOk [l]
-                              []    -> failure
-                      Nothing -> failure
-                    else failure
-                Nothing -> failure
+          case nameSrcSpan n of
+            UnhelpfulSpan _ -> return $ IdeResponseOk []
+            realSpan   -> do
+              res <- srcSpan2Loc rfm realSpan
+              case res of
+                Right l@(J.Location luri range) ->
+                  case oldRangeToNew cm range of
+                    Just r  -> return $ IdeResponseOk [J.Location luri r]
+                    Nothing -> return $ IdeResponseOk [l]
+                Left x -> do
+                  let failure = pure (IdeResponseFail
+                                        (IdeError PluginError
+                                                  ("hare:findDef" <> ": \"" <> x <> "\"")
+                                                  Null))
+                  case nameModule_maybe n of
+                    Just m -> do
+                      let mName = moduleName m
+                      b <- GM.unGmlT $ isLoaded mName
+                      if b then do
+                        mLoc <- GM.unGmlT $ ms_location <$> getModSummary mName
+                        case ml_hs_file mLoc of
+                          Just fp -> do
+                            cfp <- reverseMapFile rfm fp
+                            mcm' <- GM.getCachedModule (GM.filePathToUri cfp)
+                            rcm' <- case mcm' of
+                              Just cmdl -> do
+                                debugm "module already in cache in findDef"
+                                return $ Just cmdl
+                              Nothing -> do
+                                debugm "setting cached module in findDef"
+                                _ <- setTypecheckedModule $ filePathToUri cfp
+                                GM.getCachedModule (GM.filePathToUri cfp)
+                            case rcm' of
+                              Nothing ->
+                                return
+                                  $ IdeResponseFail
+                                  $ IdeError PluginError ("hare:findDef: failed to load module for " <> T.pack cfp) Null
+                              Just cm' -> do
+                                let modSum = pm_mod_summary $ tm_parsed_module $ GM.tcMod cm'
+                                    rfm'   = GM.revMap cm'
+                                newNames <- GM.unGmlT $ do
+                                  setGhcContext modSum
+                                  getNewNames n
+                                eithers <- mapM (srcSpan2Loc rfm' . nameSrcSpan) newNames
+                                case rights eithers of
+                                  (l:_) -> return $ IdeResponseOk [l]
+                                  []    -> failure
+                          Nothing -> failure
+                        else failure
+                    Nothing -> failure
 
 -- ---------------------------------------------------------------------
 
