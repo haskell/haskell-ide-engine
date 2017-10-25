@@ -28,7 +28,7 @@ import           Control.Monad.Trans.Either
 import           Control.Monad.STM
 import           Control.Monad.Reader
 import qualified Data.Aeson as J
-import           Data.Aeson ( (.=), (.:) )
+import           Data.Aeson ( (.=), (.:), (.:?), (.!=)  )
 import qualified Data.ByteString.Lazy as BL
 import           Data.Char (isUpper, isAlphaNum)
 import           Data.Default
@@ -150,8 +150,8 @@ instance J.FromJSON Config where
   parseJSON = J.withObject "Config" $ \v -> do
     s <- v .: "languageServerHaskell"
     flip (J.withObject "Config.settings") s $ \o -> Config
-      <$> (o .: "hlintOn")
-      <*> (o .: "maxNumberOfProblems")
+      <$> o .:? "hlintOn" .!= True
+      <*> o .: "maxNumberOfProblems"
 
 -- 2017-10-09 23:22:00.710515298 [ThreadId 11] - ---> {"jsonrpc":"2.0","method":"workspace/didChangeConfiguration","params":{"settings":{"languageServerHaskell":{"maxNumberOfProblems":100,"hlintOn":true}}}}
 -- 2017-10-09 23:22:00.710667381 [ThreadId 15] - reactor:got didChangeConfiguration notification:

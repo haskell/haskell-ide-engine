@@ -89,7 +89,7 @@ lintCmd = CmdSync $ \uri -> do
 lintCmd' :: Uri -> IdeM (IdeResponse PublishDiagnosticsParams)
 lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
       res <- GM.withMappedFile fp $ \file' -> liftIO $ runEitherT $ runLintCmd file' []
-      logm $ "lint:res=" ++ show res
+      -- logm $ "lint:res=" ++ show res
       case res of
         Left diags ->
           return (IdeResponseOk (PublishDiagnosticsParams (filePathToUri fp) $ List diags))
