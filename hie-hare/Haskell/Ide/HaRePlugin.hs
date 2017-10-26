@@ -243,6 +243,7 @@ makeRefactorResult changedFiles = do
   return $ Core.reverseSortEdit $ fold diffs
 
 -- ---------------------------------------------------------------------
+
 nonExistentCacheErr :: String -> IdeResponse a
 nonExistentCacheErr meth =
   IdeResponseFail $
@@ -533,6 +534,10 @@ getSymbolsAtPoint uri pos = pluginGetFile "getSymbolsAtPoint: " uri $ \file -> d
     \cm ->
       return $ IdeResponseOk
              $ maybe [] (`getArtifactsAtPos` GM.locMap cm) $ newPosToOld cm pos
+
+getSymbolsAtPointPure :: Position -> GM.CachedModule -> [(Range,Name)]
+getSymbolsAtPointPure pos cm = maybe [] (`getArtifactsAtPos` GM.locMap cm) $ newPosToOld cm pos
+
 symbolFromTypecheckedModule
   :: GM.LocMap
   -> Position

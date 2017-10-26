@@ -63,11 +63,13 @@ dispatcherSpec = do
       cancelTVar <- newTVarIO S.empty
       wipTVar <- newTVarIO S.empty
       versionTVar <- newTVarIO $ Map.singleton (filePathToUri "test") 3
+      moduleCacheTVar <- atomically $ newTVar Map.empty
       let req1 = PReq Nothing Nothing (Just $ J.IdInt 1) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text1"
           req2 = PReq Nothing Nothing (Just $ J.IdInt 2) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text2"
           req3 = PReq Nothing (Just (filePathToUri "test", 2)) Nothing (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text3"
           req4 = PReq Nothing Nothing (Just $ J.IdInt 3) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text4"
-      pid <- forkIO $ runIdeM testOptions (IdeState (pluginDescToIdePlugins []) GM.emptyModuleCache) (dispatcherP (DispatcherEnv cancelTVar wipTVar versionTVar) inChan)
+      pid <- forkIO $ runIdeM testOptions (IdeState (pluginDescToIdePlugins []) GM.emptyModuleCache)
+                              (dispatcherP (DispatcherEnv cancelTVar wipTVar versionTVar moduleCacheTVar) inChan)
       atomically $ writeTChan inChan req1
       atomically $ modifyTVar cancelTVar (S.insert (J.IdInt 2))
       atomically $ writeTChan inChan req2
