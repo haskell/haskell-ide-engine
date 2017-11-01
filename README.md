@@ -76,6 +76,31 @@ Make sure HIE is installed (see above) and directory stack put the `hie` binary 
 Install from
 [the VSCode marketplace](https://marketplace.visualstudio.com/items?itemName=alanz.vscode-hie-server)
 
+### Using HIE with Sublime Text
+
+* Make sure HIE is installed (see above) and directory stack put the `hie` binary in is in your path
+  * (usually `~/.local/bin` on unix)
+* Install [LSP](https://packagecontrol.io/packages/LSP) using [Package Control](https://packagecontrol.io/)
+* From Sublime Text, press Command+Shift+P and search for Preferences: LSP Settings
+* Paste in these settings. Make sure to change the command path to your `hie`
+
+```
+"clients": {
+  "haskell-ide-engine": {
+    "command": ["hie", "--lsp"],
+    "scopes": ["source.haskell"],
+    "syntaxes": ["Packages/Haskell/Haskell.sublime-syntax"],
+    "languageId": "haskell",
+  },
+},
+```
+
+Now open a haskell project with Sublime Text. You should have these features available to you:
+
+1. Errors are underlined in red
+2. LSP: Show Diagnostics will show a list of hints and errors
+3. LSP: Format Document will prettify the file
+
 ### Using HIE with neovim
 
 As above, make sure HIE is installed. Install and load the neovim plugin
