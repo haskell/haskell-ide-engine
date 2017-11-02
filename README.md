@@ -127,6 +127,11 @@ let g:LanguageClient_serverCommands = {
 For asynchronous auto-completion, follow the setup instructions on
 [LanguageClient](https://github.com/autozimu/LanguageClient-neovim).
 
+## Using HIE with Atom
+
+[Install Atom integration package](https://github.com/atom-haskell/hie-lsp-adapter#installation)
+and make sure `hie` executables is available in $PATH.
+
 ### Hoogle Docs on hover
 
 HIE supports fetching docs from hoogle on hover. It can use the Hoogle database for 
