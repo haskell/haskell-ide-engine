@@ -15,7 +15,7 @@ we talk to clients.__
     - [Installation](#installation)
         - Installation with [stack](#installation-with-stack) or [Nix](#installation-with-nix)
     - [Editor Integration](#editor-integration)
-        - Using HIE with [VS Code](#using-hie-with-vscode), [Sublime Text](#using-hie-with-sublime-text), [Neovim](#using-hie-with-neovim) or [Atom](#using-hie-with-atom)
+        - Using HIE with [VS Code](#using-hie-with-vs-code), [Sublime Text](#using-hie-with-sublime-text), [Neovim](#using-hie-with-neovim) or [Atom](#using-hie-with-atom)
     - [Hoogle Docs on hover](#hoogle-docs-on-hover)
     - [Contributing](#contributing)
         - [Planned Features](#planned-features)
@@ -102,7 +102,7 @@ All of the editor integrations assume that you have already installed HIE (see a
 ### Using HIE with VS Code
 
 Install from
-[the VSCode marketplace](https://marketplace.visualstudio.com/items?itemName=alanz.vscode-hie-server)
+[the VSCode marketplace](https://marketplace.visualstudio.com/items?itemName=alanz.vscode-hie-server), or manually from the repository [vscode-hie-server](https://github.com/alanz/vscode-hie-server).
 
 ### Using HIE with Sublime Text
 
