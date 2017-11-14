@@ -174,6 +174,12 @@ To generate a global hoogle database for your user from hackage, run
 $ hoogle generate
 ```
 
+To generate a global database for a stack installation, run
+
+```bash
+$ stack exec hoogle generate
+```
+
 To generate a project specific database for a stack project, run
 
 ```bash
