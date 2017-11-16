@@ -54,7 +54,7 @@ import           Haskell.Ide.Engine.Types
 import qualified Haskell.Ide.HaRePlugin as HaRe
 #if __GLASGOW_HASKELL__ >= 802
 #else
-import qualified Haskell.Ide.HaddockPlugin as Haddock
+-- import qualified Haskell.Ide.HaddockPlugin as Haddock
 #endif
 import qualified Haskell.Ide.GhcModPlugin as GhcMod
 import qualified Haskell.Ide.ApplyRefactPlugin as ApplyRefact
@@ -165,10 +165,10 @@ instance J.FromJSON Config where
 --                                                                                          ,("maxNumberOfProblems",Number 100.0)]))])}}
 
 configVal :: c -> (Config -> c) -> R c
-configVal def field = do
+configVal defVal field = do
   gmc <- asks Core.config
   mc <- liftIO gmc
-  return $ maybe def field mc
+  return $ maybe defVal field mc
 
 -- ---------------------------------------------------------------------
 
@@ -213,10 +213,10 @@ getPrefixAtPos uri (Position l c) = do
       case reverse parts of
         [] -> Nothing
         (x:xs) -> do
-          let moduleParts = dropWhile (not . isUpper . T.head)
+          let modParts = dropWhile (not . isUpper . T.head)
                               $ reverse $ filter (not .T.null) xs
-              moduleName = T.intercalate "." moduleParts
-          return (moduleName,x)
+              modName = T.intercalate "." modParts
+          return (modName,x)
     Nothing -> return Nothing
 
 -- ---------------------------------------------------------------------
@@ -240,9 +240,9 @@ mapFileFromVfs verTVar cin vtdi = do
       return ()
     (_, _) -> return ()
 
-unmapFileFromVfs :: (MonadIO m)
+_unmapFileFromVfs :: (MonadIO m)
   => TVar (Map.Map Uri Int) -> TChan PluginRequest -> Uri -> m ()
-unmapFileFromVfs verTVar cin uri = do
+_unmapFileFromVfs verTVar cin uri = do
   case uriToFilePath uri of
     Just fp -> do
       let req = PReq (Just uri) Nothing Nothing (const $ return ())
@@ -533,9 +533,9 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
                       case HaRe.getModule df name of
                         Nothing -> return $ "`" <> sname <> "` *local*"
                         (Just (pkg,mdl)) -> do
+#if __GLASGOW_HASKELL__ >= 802
                           let mname = "`"<> sname <> "`\n\n"
                           let minfo = maybe "" (<>" ") pkg <> mdl
-#if __GLASGOW_HASKELL__ >= 802
                           return $ mname <> minfo
 #else
                           return $ "`"<> sname <> "`\n" <> maybe "" (<>" ") pkg <> mdl
@@ -751,20 +751,20 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
 
 -- ---------------------------------------------------------------------
 
-docRules :: Maybe T.Text -> T.Text -> T.Text
-docRules (Just "base") "GHC.Base"    = "Prelude"
-docRules (Just "base") "GHC.Enum"    = "Prelude"
-docRules (Just "base") "GHC.Num"     = "Prelude"
-docRules (Just "base") "GHC.Real"    = "Prelude"
-docRules (Just "base") "GHC.Float"   = "Prelude"
-docRules (Just "base") "GHC.Show"    = "Prelude"
-docRules (Just "containers") modName =
+_docRules :: Maybe T.Text -> T.Text -> T.Text
+_docRules (Just "base") "GHC.Base"    = "Prelude"
+_docRules (Just "base") "GHC.Enum"    = "Prelude"
+_docRules (Just "base") "GHC.Num"     = "Prelude"
+_docRules (Just "base") "GHC.Real"    = "Prelude"
+_docRules (Just "base") "GHC.Float"   = "Prelude"
+_docRules (Just "base") "GHC.Show"    = "Prelude"
+_docRules (Just "containers") modName =
   fromMaybe modName $ T.stripSuffix ".Base" modName
-docRules _ modName = modName
+_docRules _ modName = modName
 
-getDocsForName :: T.Text -> Maybe T.Text -> T.Text -> IdeM (Maybe T.Text)
-getDocsForName name pkg modName' = do
-  let modName = docRules pkg modName'
+_getDocsForName :: T.Text -> Maybe T.Text -> T.Text -> IdeM (Maybe T.Text)
+_getDocsForName name pkg modName' = do
+  let modName = _docRules pkg modName'
       query = name
            <> fromMaybe "" (T.append " package:" <$> pkg)
            <> " module:" <> modName
@@ -774,6 +774,7 @@ getDocsForName name pkg modName' = do
   case res of
     Right x -> return $ Just x
     Left _ -> return Nothing
+
 -- ---------------------------------------------------------------------
 
   -- get hlint+GHC diagnostics and loads the typechecked module into the cache
@@ -821,7 +822,7 @@ requestDiagnostics cin file ver = do
 -- ---------------------------------------------------------------------
 
 -- | Manage the boilerplate for passing on any errors found in the IdeResponse
-hieResponseHelper :: (MonadReader (Core.LspFuncs Config) m, MonadIO m)
+hieResponseHelper :: (MonadReader (Core.LspFuncs Config) m)
   => J.LspId -> (t -> ReaderT (Core.LspFuncs Config) IO ()) -> m (IdeResponse t -> IO ())
 hieResponseHelper lid action = do
   lf <- ask

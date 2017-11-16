@@ -10,20 +10,18 @@ import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import qualified Data.Map                              as Map
 import qualified Data.Set                              as S
-import           GHC
 import qualified GhcMod.ModuleLoader                   as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
-import qualified Haskell.Ide.GhcModPlugin              as GhcMod
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 
 data DispatcherEnv = DispatcherEnv
-  { cancelReqsTVar     :: TVar (S.Set J.LspId)
-  , wipReqsTVar        :: TVar (S.Set J.LspId)
-  , docVersionTVar     :: TVar (Map.Map Uri Int)
-  , docModuleCacheTVar :: TVar (Map.Map Uri GM.CachedModule)
+  { cancelReqsTVar     :: !(TVar (S.Set J.LspId))
+  , wipReqsTVar        :: !(TVar (S.Set J.LspId))
+  , docVersionTVar     :: !(TVar (Map.Map Uri Int))
+  , docModuleCacheTVar :: !(TVar (Map.Map Uri GM.CachedModule))
   }
 
 dispatcherP :: forall void. DispatcherEnv -> TChan PluginRequest -> IdeM void

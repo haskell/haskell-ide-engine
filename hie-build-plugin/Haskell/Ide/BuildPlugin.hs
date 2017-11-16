@@ -291,7 +291,11 @@ listFlagsStack d = do
 listFlagsCabal :: FilePath -> IO (String,[Flag])
 listFlagsCabal d = do
     [cabalFile] <- filter isCabalFile <$> getDirectoryContents d
+#if MIN_VERSION_Cabal(2,0,0)
+    gpd <- readGenericPackageDescription Verb.silent (d </> cabalFile)
+#else
     gpd <- readPackageDescription Verb.silent (d </> cabalFile)
+#endif
     let name = unPackageName $ pkgName $ package $ packageDescription gpd
         flags' = genPackageFlags gpd
     return (name, flags')
@@ -299,9 +303,9 @@ listFlagsCabal d = do
 flagToJSON :: Flag -> Value
 flagToJSON f = object
         -- Cabal 2.0 changelog
-	-- * Backwards incompatible change to 'FlagName' (#4062):
-	--   'FlagName' is now opaque; conversion to/from 'String' now works
-	--   via 'unFlagName' and 'mkFlagName' functions.
+        -- * Backwards incompatible change to 'FlagName' (#4062):
+        --   'FlagName' is now opaque; conversion to/from 'String' now works
+        --   via 'unFlagName' and 'mkFlagName' functions.
 
                  [ "name"        .= (unFlagName $ flagName f)
                  , "description" .= flagDescription f
@@ -428,7 +432,7 @@ listCabalTargets distDir dir = do
   where
 -- # if MIN_VERSION_Cabal(2,0,0)
 #if MIN_VERSION_Cabal(1,24,0)
-    fixupLibraryEntrypoint n ChLibName = ChLibName
+    fixupLibraryEntrypoint _n ChLibName = ChLibName
 #else
     fixupLibraryEntrypoint n (ChLibName "") = (ChLibName n)
 #endif
@@ -469,14 +473,15 @@ getStackLocalPackages stackYamlFile = withBinaryFileContents stackYamlFile $ \co
 
 compToJSON :: ChComponentName -> Value
 compToJSON ChSetupHsName = object ["type" .= ("setupHs" :: T.Text)]
--- # if MIN_VERSION_Cabal(2,0,0)
 #if MIN_VERSION_Cabal(1,24,0)
-compToJSON ChLibName = object ["type" .= ("library" :: T.Text)]
+compToJSON ChLibName        = object ["type" .= ("library" :: T.Text)]
+compToJSON (ChSubLibName n) = object ["type" .= ("library" :: T.Text), "name" .= n]
+compToJSON (ChFLibName   n) = object ["type" .= ("library" :: T.Text), "name" .= n]
 #else
-compToJSON (ChLibName n) = object ["type" .= ("library" :: T.Text), "name" .= n]
+compToJSON (ChLibName   n) = object ["type" .= ("library" :: T.Text), "name" .= n]
 #endif
-compToJSON (ChExeName n) = object ["type" .= ("executable" :: T.Text), "name" .= n]
-compToJSON (ChTestName n) = object ["type" .= ("test" :: T.Text), "name" .= n]
+compToJSON (ChExeName   n) = object ["type" .= ("executable" :: T.Text), "name" .= n]
+compToJSON (ChTestName  n) = object ["type" .= ("test" :: T.Text), "name" .= n]
 compToJSON (ChBenchName n) = object ["type" .= ("benchmark" :: T.Text), "name" .= n]
 
 -----------------------------------------------
