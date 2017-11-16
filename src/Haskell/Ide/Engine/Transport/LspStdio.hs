@@ -564,6 +564,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
                   return (info,docs,mrange)
                   -- return docs
             -- makeRequest hreq
+        liftIO $ U.logs $ "reactor:HoverRequest done"
 
       -- -------------------------------
 
