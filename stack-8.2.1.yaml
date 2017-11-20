@@ -1,4 +1,5 @@
 resolver: nightly-2017-09-10
+# resolver: nightly-2017-11-16
 packages:
 - .
 - hie-apply-refact
@@ -48,7 +49,7 @@ packages:
     # ../cabal-helper
     # git: https://github.com/alanz/cabal-helper.git
     git: https://gitlab.com/alanz/cabal-helper.git
-    commit: b942cc8be07da5438d70008f79d9828bc05c1482
+    commit: 6851cc33793cf7cdf00a72935e91d1762c97e012
   extra-dep: true
 
 - location:
