@@ -37,7 +37,7 @@ packages:
 - location:
     # git: https://github.com/alanz/ghc-mod.git
     git: https://gitlab.com/alanz/ghc-mod.git
-    commit: 5f9d4bb74e495563a66b9d36945b00e5d8936cb4
+    commit: 8f93ef8e177d59f296c8399618410fdf7bb0e6b0
     # ../ghc-mod
   extra-dep: true
   subdirs:
