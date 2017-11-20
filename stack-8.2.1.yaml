@@ -1,5 +1,5 @@
-resolver: nightly-2017-09-10
-# resolver: nightly-2017-11-16
+# resolver: nightly-2017-09-10
+resolver: nightly-2017-11-19
 packages:
 - .
 - hie-apply-refact
@@ -38,7 +38,7 @@ packages:
 - location:
     # git: https://github.com/alanz/ghc-mod.git
     git: https://gitlab.com/alanz/ghc-mod.git
-    commit: 5f9d4bb74e495563a66b9d36945b00e5d8936cb4
+    commit: d7ac965c6c3f14deeeb5cf7485682d58f2874687
     # ../ghc-mod
   extra-dep: true
   subdirs:
