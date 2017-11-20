@@ -8,7 +8,9 @@ module Haskell.Ide.GhcModPlugin where
 import           Bag
 import           Control.Monad.IO.Class
 import           Data.Aeson
+#if __GLASGOW_HASKELL__ < 802
 import           Data.Aeson.Types
+#endif
 import           Data.Function
 import           Data.IORef
 import           Data.List
