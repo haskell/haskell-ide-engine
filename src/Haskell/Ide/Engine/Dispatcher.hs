@@ -1,6 +1,6 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE OverloadedStrings         #-}
-{-# LANGUAGE RecordWildCards           #-}
+{-# LANGUAGE NamedFieldPuns            #-}
 module Haskell.Ide.Engine.Dispatcher where
 
 import           Control.Concurrent.STM.TChan
@@ -25,7 +25,7 @@ data DispatcherEnv = DispatcherEnv
   }
 
 dispatcherP :: forall void. DispatcherEnv -> TChan PluginRequest -> IdeM void
-dispatcherP DispatcherEnv{..} pin = forever $ do
+dispatcherP DispatcherEnv{cancelReqsTVar,wipReqsTVar,docVersionTVar,docModuleCacheTVar} pin = forever $ do
   debugm "dispatcherP: top of loop"
   (PReq context mver mid callback action) <- liftIO $ atomically $ readTChan pin
   debugm $ "got request with id: " ++ show mid

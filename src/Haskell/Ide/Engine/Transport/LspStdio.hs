@@ -1,7 +1,6 @@
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
@@ -52,10 +51,6 @@ import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
 import qualified Haskell.Ide.HaRePlugin as HaRe
-#if __GLASGOW_HASKELL__ >= 802
-#else
--- import qualified Haskell.Ide.HaddockPlugin as Haddock
-#endif
 import qualified Haskell.Ide.GhcModPlugin as GhcMod
 import qualified Haskell.Ide.ApplyRefactPlugin as ApplyRefact
 import qualified Haskell.Ide.BrittanyPlugin as Brittany
