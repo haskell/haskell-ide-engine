@@ -415,6 +415,9 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
 
       -- -------------------------------
 
+      Core.NotWillSaveTextDocument _notification -> do
+        liftIO $ U.logm "****** reactor: not processing NotDidSaveTextDocument"
+
       Core.NotDidSaveTextDocument notification -> do
         liftIO $ U.logm "****** reactor: processing NotDidSaveTextDocument"
         let
@@ -854,6 +857,7 @@ hieHandlers rin
         , Core.definitionHandler                        = Just $ passHandler rin Core.ReqDefinition
         , Core.hoverHandler                             = Just $ passHandler rin Core.ReqHover
         , Core.didOpenTextDocumentNotificationHandler   = Just $ passHandler rin Core.NotDidOpenTextDocument
+        , Core.willSaveTextDocumentNotificationHandler  = Just $ passHandler rin Core.NotWillSaveTextDocument
         , Core.didSaveTextDocumentNotificationHandler   = Just $ passHandler rin Core.NotDidSaveTextDocument
         , Core.didChangeTextDocumentNotificationHandler = Just $ passHandler rin Core.NotDidChangeTextDocument
         , Core.didCloseTextDocumentNotificationHandler  = Just $ passHandler rin Core.NotDidCloseTextDocument

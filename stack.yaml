@@ -14,12 +14,12 @@ packages:
 - hie-brittany
 - hie-haddock
 
-- location:
-    # ../haskell-lsp
-    # git: https://github.com/alanz/haskell-lsp.git
-    git: https://gitlab.com/alanz/haskell-lsp.git
-    commit: beeab9fc8a98dee87ee7291e7191dee762d90b6d
-  extra-dep: true
+# - location:
+#     # ../haskell-lsp
+#     # git: https://github.com/alanz/haskell-lsp.git
+#     git: https://gitlab.com/alanz/haskell-lsp.git
+#     commit: b747454c06686620762dcb6e35564dd15361c7d4
+#   extra-dep: true
 
 - location:
     # git: https://github.com/edsko/ghc-dump-tree.git
@@ -67,6 +67,7 @@ packages:
 #     - haddock-library
 
 extra-deps:
+- haskell-lsp-0.2.0.0
 - apply-refact-0.3.0.1
 - butcher-1.1.0.1
 # - Cabal-2.0.0.2
