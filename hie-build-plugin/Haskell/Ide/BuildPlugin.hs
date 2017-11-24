@@ -8,7 +8,9 @@
 module Haskell.Ide.BuildPlugin where
 
 import qualified Data.Aeson                             as J
+#if __GLASGOW_HASKELL__ < 802
 import qualified Data.Aeson.Types                       as J
+#endif
 import           Data.Monoid
 import qualified Control.Exception as Exception
 import           Control.Monad.IO.Class

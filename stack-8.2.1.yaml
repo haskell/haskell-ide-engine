@@ -1,5 +1,4 @@
-resolver: nightly-2017-09-10
-# resolver: nightly-2017-11-16
+resolver: nightly-2017-11-24
 packages:
 - .
 - hie-apply-refact
@@ -68,8 +67,6 @@ packages:
 #     - haddock-library
 
 extra-deps:
-- haskell-lsp-0.2.0.0
-# - apply-refact-0.4.0.1
 - butcher-1.1.0.1
 # - Cabal-2.0.0.2
 - czipwith-1.0.0.0
