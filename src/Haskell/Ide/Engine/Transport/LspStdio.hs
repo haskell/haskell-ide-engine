@@ -1,7 +1,6 @@
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
@@ -52,10 +51,6 @@ import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
 import qualified Haskell.Ide.HaRePlugin as HaRe
-#if __GLASGOW_HASKELL__ >= 802
-#else
--- import qualified Haskell.Ide.HaddockPlugin as Haddock
-#endif
 import qualified Haskell.Ide.GhcModPlugin as GhcMod
 import qualified Haskell.Ide.ApplyRefactPlugin as ApplyRefact
 import qualified Haskell.Ide.BrittanyPlugin as Brittany
@@ -419,6 +414,9 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
         requestDiagnostics cin uri ver
 
       -- -------------------------------
+
+      Core.NotWillSaveTextDocument _notification -> do
+        liftIO $ U.logm "****** reactor: not processing NotDidSaveTextDocument"
 
       Core.NotDidSaveTextDocument notification -> do
         liftIO $ U.logm "****** reactor: processing NotDidSaveTextDocument"
@@ -859,6 +857,7 @@ hieHandlers rin
         , Core.definitionHandler                        = Just $ passHandler rin Core.ReqDefinition
         , Core.hoverHandler                             = Just $ passHandler rin Core.ReqHover
         , Core.didOpenTextDocumentNotificationHandler   = Just $ passHandler rin Core.NotDidOpenTextDocument
+        , Core.willSaveTextDocumentNotificationHandler  = Just $ passHandler rin Core.NotWillSaveTextDocument
         , Core.didSaveTextDocumentNotificationHandler   = Just $ passHandler rin Core.NotDidSaveTextDocument
         , Core.didChangeTextDocumentNotificationHandler = Just $ passHandler rin Core.NotDidChangeTextDocument
         , Core.didCloseTextDocumentNotificationHandler  = Just $ passHandler rin Core.NotDidCloseTextDocument
