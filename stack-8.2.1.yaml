@@ -73,7 +73,6 @@ packages:
 #     - haddock-library
 
 extra-deps:
-- haskell-src-exts-util-0.2.1.2
 - butcher-1.1.0.1
 # - Cabal-2.0.0.2
 - czipwith-1.0.0.0
