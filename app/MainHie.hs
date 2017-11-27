@@ -118,7 +118,7 @@ run opts = do
 
   let vomitOptions = GM.defaultOptions { GM.optOutput = oo { GM.ooptLogLevel = GM.GmVomit}}
       oo = GM.optOutput GM.defaultOptions
-  let ghcModOptions = (if optGhcModVomit opts then vomitOptions else GM.defaultOptions) { GM.optGhcUserOptions = ["-Wall"]  }
+  let ghcModOptions = if optGhcModVomit opts then vomitOptions else GM.defaultOptions
 
   -- launch the dispatcher.
   let dispatcherProcP dispatcherEnv =
