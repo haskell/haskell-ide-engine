@@ -8,11 +8,17 @@ packages:
 - hie-example-plugin2
 - hie-ghc-mod
 - hie-ghc-tree
-# - hie-haddock
 - hie-hare
 - hie-hoogle
 - hie-plugin-api
 - hie-brittany
+# - hie-haddock
+
+- location:
+    # ../hlint
+    git: https://github.com/alanz/hlint.git
+    commit: 4b05278e50b1d41186aba2c90a653d3e12a20b45
+  extra-dep: true
 
 # - location:
 #     # ../haskell-lsp

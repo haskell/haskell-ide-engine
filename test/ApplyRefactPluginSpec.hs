@@ -175,6 +175,26 @@ applyRefactSpec = do
         (IdeResponseOk
            (PublishDiagnosticsParams
             { _uri = filePathToUri "./test/testdata/HlintPragma.hs"
+            , _diagnostics = List
+              [ Diagnostic (Range (Position 3 11) (Position 3 20))
+                           (Just DsWarning)
+                           Nothing
+                           (Just "hlint")
+                           "Redundant bracket\nFound:\n  (\"hello\")\nWhy not:\n  \"hello\"\n"
+              ]
+            }
+           ))
+
+    -- ---------------------------------
+
+    it "respects hlint config files in project root dir" $ do
+
+      let req = lintCmd' (filePathToUri "./HlintPragma.hs")
+      r <- cdAndDo "./test/testdata" $ dispatchRequestP req
+      r `shouldBe`
+        (IdeResponseOk
+           (PublishDiagnosticsParams
+            { _uri = filePathToUri "./HlintPragma.hs"
             , _diagnostics = List []
             }
            ))
