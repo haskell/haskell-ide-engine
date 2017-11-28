@@ -177,7 +177,7 @@ applyRefactSpec = do
             { _uri = filePathToUri "./test/testdata/HlintPragma.hs"
             , _diagnostics = List
               [ Diagnostic (Range (Position 3 11) (Position 3 20))
-                           (Just DsWarning)
+                           (Just DsInfo)
                            Nothing
                            (Just "hlint")
                            "Redundant bracket\nFound:\n  (\"hello\")\nWhy not:\n  \"hello\"\n"
