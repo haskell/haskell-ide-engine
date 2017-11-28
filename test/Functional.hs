@@ -130,7 +130,7 @@ functionalSpec = do
                                       { _uri = filePathToUri "./FuncTest.hs"
                                       , _diagnostics = List
                                         [ Diagnostic (Range (Position 9 6) (Position 10 18))
-                                                     (Just DsWarning)
+                                                     (Just DsInfo)
                                                      Nothing
                                                      (Just "hlint")
                                                      "Redundant do\nFound:\n  do putStrLn \"hello\"\nWhy not:\n  putStrLn \"hello\"\n"

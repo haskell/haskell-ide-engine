@@ -145,7 +145,7 @@ hintToDiagnostic :: Idea -> Diagnostic
 hintToDiagnostic idea
   = Diagnostic
       { _range    = ss2Range (ideaSpan idea)
-      , _severity = Just (severity2DisgnosticSeverity $ ideaSeverity idea)
+      , _severity = Just (hintSeverityMap $ ideaSeverity idea)
       , _code     = Nothing
       , _source   = Just "hlint"
       , _message  = idea2Message idea
@@ -163,12 +163,15 @@ idea2Message idea = T.unlines $ [T.pack $ ideaHint idea, "Found:", ("  " <> T.pa
       Just i  -> [T.pack "Why not:", T.pack $ "  " ++ i]
 
 -- ---------------------------------------------------------------------
-
-severity2DisgnosticSeverity :: Severity -> DiagnosticSeverity
-severity2DisgnosticSeverity Ignore     = DsInfo
-severity2DisgnosticSeverity Suggestion = DsHint
-severity2DisgnosticSeverity Warning    = DsWarning
-severity2DisgnosticSeverity Error      = DsError
+-- | Maps hlint severities to LSP severities
+-- | We want to lower the severities so HLint errors and warnings
+-- | don't mix with GHC errors and warnings:
+-- | as per https://github.com/haskell/haskell-ide-engine/issues/375
+hintSeverityMap :: Severity -> DiagnosticSeverity
+hintSeverityMap Ignore     = DsInfo -- cannot really happen after stripIgnores
+hintSeverityMap Suggestion = DsHint
+hintSeverityMap Warning    = DsInfo
+hintSeverityMap Error      = DsInfo
 
 -- ---------------------------------------------------------------------
 
