@@ -9,13 +9,16 @@
 * `HaRe`: Haskell Refactoring Tool -
   ([github](https://github.com/alanz/HaRe),
   [website](http://www.cs.kent.ac.uk/projects/refactor-fp/))
-* `dead-code-detection`: Detects dead code in haskell projects -
+* :skull: `dead-code-detection`: Detects dead code in haskell projects -
   ([github](https://github.com/soenkehahn/dead-code-detection),
   [hackage](http://hackage.haskell.org/package/dead-code-detection))
-* `argon`: Monitor cyclomatic complexity in Haskell programs -
+* `weeder`: Detect dead exports or package imports -
+  ([github](https://github.com/ndmitchell/weeder),
+  [hackage](http://hackage.haskell.org/package/weeder))
+* :skull: `argon`: Monitor cyclomatic complexity in Haskell programs -
   ([github](https://github.com/rubik/argon),
   [hackage](http://hackage.haskell.org/package/argon))
-* `style-scanner`: Lexical style suggestions for source code -
+* :skull: `style-scanner`: Lexical style suggestions for source code -
   ([darcs](http://code.haskell.org/style-scanner/),
   [hackage](http://hackage.haskell.org/package/scan),
   [website](http://projects.haskell.org/style-scanner/))
@@ -29,7 +32,7 @@
   ([github](https://github.com/mpickering/apply-refact),
   [hackage](http://hackage.haskell.org/package/apply-refact),
   [blog post](http://mpickering.github.io/posts/2015-11-22-hlint-refactor.html))
-* `pointfree`: Tool for refactoring expressions into pointfree form -
+* :skull: `pointfree`: Tool for refactoring expressions into pointfree form -
   ([hackage](http://hackage.haskell.org/package/pointfree)
   [haskell wiki](https://wiki.haskell.org/Pointfree)
   [github](https://github.com/bmillwood/pointfree))
@@ -67,6 +70,8 @@
 * `doctest` - checks examples in source code comments and include them in generated documentation-
   ([github](https://github.com/sol/doctest),
   [hackage](https://hackage.haskell.org/package/doctest))
+* `haskell-indexer` - Emits code crossreference data for Haskell sources -
+   ([github](https://github.com/google/haskell-indexer))
 
 #### console / REPL
 
@@ -75,6 +80,10 @@
 * `ghc-vis` - Visualize live data structures in GHCi -
   ([github](https://github.com/def-/ghc-vis),
   [hackage](http://hackage.haskell.org/package/ghc-vis))
+* `intero` - Complete interactive development program for Haskell in Emacs built around an ghci fork -
+  ([github](https://github.com/commercialhaskell/intero),
+  [hackage](https://hackage.haskell.org/package/intero),
+  [site](http://commercialhaskell.github.io/intero/))
 
 #### Ide backends
 
