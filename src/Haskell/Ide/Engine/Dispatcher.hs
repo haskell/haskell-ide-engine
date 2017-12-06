@@ -13,6 +13,7 @@ import qualified Data.Set                              as S
 import qualified GhcMod.ModuleLoader                   as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
+import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 

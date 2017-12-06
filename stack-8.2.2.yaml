@@ -1,4 +1,4 @@
-resolver: lts-9.14
+resolver: nightly-2017-11-25
 packages:
 - .
 - hie-apply-refact
@@ -12,7 +12,7 @@ packages:
 - hie-hoogle
 - hie-plugin-api
 - hie-brittany
-- hie-haddock
+# - hie-haddock
 
 - location:
     # ../hlint
@@ -42,8 +42,8 @@ packages:
 
 - location:
     # git: https://github.com/alanz/ghc-mod.git
-    git: https://github.com/wz1000/ghc-mod.git
-    commit: e4defd04e61c0268e7e5d279193c51f12cfaf61d
+    git: https://gitlab.com/alanz/ghc-mod.git
+    commit: 8f93ef8e177d59f296c8399618410fdf7bb0e6b0
     # ../ghc-mod
   extra-dep: true
   subdirs:
@@ -54,7 +54,7 @@ packages:
     # ../cabal-helper
     # git: https://github.com/alanz/cabal-helper.git
     git: https://gitlab.com/dxld/cabal-helper.git
-    commit: 4bfc6b916fcc696a5d82e7cd35713d6eabcb0533
+    commit: c4e743c8408ada721e1039d786b69f6e122b28cd
   extra-dep: true
 
 - location:
@@ -73,9 +73,6 @@ packages:
 #     - haddock-library
 
 extra-deps:
-- haskell-src-exts-util-0.2.1.2
-- haskell-lsp-0.2.0.0
-- apply-refact-0.3.0.1
 - butcher-1.1.0.1
 # - Cabal-2.0.0.2
 - czipwith-1.0.0.0

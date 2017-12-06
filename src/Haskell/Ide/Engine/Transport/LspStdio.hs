@@ -412,6 +412,8 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
       Core.NotWillSaveTextDocument _notification -> do
         liftIO $ U.logm "****** reactor: not processing NotDidSaveTextDocument"
 
+      Core.NotDidChangeWatchedFiles _notification -> do
+        liftIO $ U.logm "****** reactor: not processing NotDidChangeWatchedFiles"
       Core.NotDidSaveTextDocument notification -> do
         liftIO $ U.logm "****** reactor: processing NotDidSaveTextDocument"
         let
@@ -679,7 +681,15 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
         let hreq = PReq (Just doc) Nothing (Just $ req ^. J.id) callback
                      $ fmap J.MultiLoc <$> HaRe.findDef doc pos
         makeRequest hreq
+
+      Core.ReqFindReferences req -> do
+        liftIO $ U.logs $ "reactor:got FindReferences:" ++ show req
+        liftIO $ U.logs $ "reactor:FindReferences:returning empty list for now"
+        -- TODO: implement project-wide references
+        reactorSend $ Core.makeResponseMessage req (List [])
+
       -- -------------------------------
+
       Core.ReqDocumentFormatting req -> do
         liftIO $ U.logs $ "reactor:got FormatRequest:" ++ show req
         let params = req ^. J.params
@@ -691,7 +701,9 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
         let hreq = PReq (Just $ doc ^. J.uri) Nothing (Just $ req ^. J.id) callback
                      $ Brittany.brittanyCmd tabSize doc Nothing
         makeRequest hreq
+
       -- -------------------------------
+
       Core.ReqDocumentRangeFormatting req -> do
         liftIO $ U.logs $ "reactor:got FormatRequest:" ++ show req
         let params = req ^. J.params
@@ -704,7 +716,9 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
         let hreq = PReq (Just $ doc ^. J.uri) Nothing (Just $ req ^. J.id) callback
                      $ Brittany.brittanyCmd tabSize doc (Just range)
         makeRequest hreq
+
       -- -------------------------------
+
       Core.ReqDocumentSymbols req -> do
         liftIO $ U.logs $ "reactor:got Document symbol request:" ++ show req
         let uri = req ^. J.params . J.textDocument . J.uri
@@ -714,7 +728,9 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
         let hreq = PReq (Just uri) Nothing (Just $ req ^. J.id) callback
                      $ HaRe.getSymbols uri
         makeRequest hreq
+
       -- -------------------------------
+
       Core.NotCancelRequest notif -> do
         liftIO $ U.logs $ "reactor:got CancelRequest:" ++ show notif
         let lid = notif ^. J.params . J.id
@@ -849,10 +865,12 @@ hieHandlers rin
   = def { Core.initializedHandler                       = Just $ passHandler rin Core.NotInitialized
         , Core.renameHandler                            = Just $ passHandler rin Core.ReqRename
         , Core.definitionHandler                        = Just $ passHandler rin Core.ReqDefinition
+        , Core.referencesHandler                        = Just $ passHandler rin Core.ReqFindReferences
         , Core.hoverHandler                             = Just $ passHandler rin Core.ReqHover
         , Core.didOpenTextDocumentNotificationHandler   = Just $ passHandler rin Core.NotDidOpenTextDocument
         , Core.willSaveTextDocumentNotificationHandler  = Just $ passHandler rin Core.NotWillSaveTextDocument
         , Core.didSaveTextDocumentNotificationHandler   = Just $ passHandler rin Core.NotDidSaveTextDocument
+        , Core.didChangeWatchedFilesNotificationHandler = Just $ passHandler rin Core.NotDidChangeWatchedFiles
         , Core.didChangeTextDocumentNotificationHandler = Just $ passHandler rin Core.NotDidChangeTextDocument
         , Core.didCloseTextDocumentNotificationHandler  = Just $ passHandler rin Core.NotDidCloseTextDocument
         , Core.cancelNotificationHandler                = Just $ passHandler rin Core.NotCancelRequest
