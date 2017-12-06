@@ -1,6 +1,6 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE OverloadedStrings         #-}
-{-# LANGUAGE RecordWildCards           #-}
+{-# LANGUAGE NamedFieldPuns            #-}
 module Haskell.Ide.Engine.Dispatcher where
 
 import           Control.Concurrent.STM.TChan
@@ -16,35 +16,58 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 
-
 data DispatcherEnv = DispatcherEnv
-  { cancelReqsTVar :: TVar (S.Set J.LspId)
-  , wipReqsTVar    :: TVar (S.Set J.LspId)
-  , docVersionTVar :: TVar (Map.Map Uri Int)
+  { cancelReqsTVar     :: !(TVar (S.Set J.LspId))
+  , wipReqsTVar        :: !(TVar (S.Set J.LspId))
+  , docVersionTVar     :: !(TVar (Map.Map Uri Int))
+  , docModuleCacheTVar :: !(TVar (Map.Map Uri GM.CachedModule))
   }
 
 dispatcherP :: forall void. DispatcherEnv -> TChan PluginRequest -> IdeM void
-dispatcherP DispatcherEnv{..} pin = forever $ do
+dispatcherP DispatcherEnv{cancelReqsTVar,wipReqsTVar,docVersionTVar,docModuleCacheTVar} pin = forever $ do
   debugm "dispatcherP: top of loop"
   (PReq context mver mid callback action) <- liftIO $ atomically $ readTChan pin
   debugm $ "got request with id: " ++ show mid
+
   let runner = case context of
         Nothing -> GM.runActionWithContext Nothing
         Just uri -> case uriToFilePath uri of
-          Just fp -> GM.runActionWithContext (Just $ GM.filePathToUri fp)
+          Just fp -> GM.runActionWithContext (Just fp)
           Nothing -> \act -> do
             debugm "Got malformed uri, running action with default context"
             GM.runActionWithContext Nothing act
+
+  let runWithCallback = do
+        r <- runner action
+
+        -- get cached module and put it in the tvar
+        case context of
+          Nothing -> return ()
+          Just uri ->
+            case uriToFilePath uri of
+              Nothing -> return ()
+              Just fp -> do
+                mm <- GM.getCachedModule fp
+                case mm of
+                  Nothing -> return ()
+                  Just cm ->
+                    liftIO $ atomically $ modifyTVar' docModuleCacheTVar $
+                      \m -> Map.insert uri cm m
+
+        liftIO $ callback r
+
+  let runIfVersionMatch = case mver of
+        Nothing -> runWithCallback
+        Just (uri, reqver) -> do
+          curver <- liftIO $ atomically $ Map.lookup uri <$> readTVar docVersionTVar
+          if Just reqver /= curver then
+            debugm "not processing request as it is for old version"
+          else do
+            debugm "Processing request as version matches"
+            runWithCallback
+
   case mid of
-    Nothing -> case mver of
-      Nothing -> runner action >>= liftIO . callback
-      Just (uri, reqver) -> do
-        curver <- liftIO $ atomically $ Map.lookup uri <$> readTVar docVersionTVar
-        if Just reqver /= curver then
-          debugm "not processing request as it is for old version"
-        else do
-          debugm "Processing request as version matches"
-          runner action >>= liftIO . callback
+    Nothing -> runIfVersionMatch
     Just lid -> do
       cancelReqs <- liftIO $ atomically $ do
         modifyTVar' wipReqsTVar (S.delete lid)
@@ -55,5 +78,5 @@ dispatcherP DispatcherEnv{..} pin = forever $ do
           liftIO $ atomically $ modifyTVar' cancelReqsTVar (S.delete lid)
         else do
           debugm $ "processing request: " ++ show lid
-          runner action >>= liftIO . callback
+          runIfVersionMatch
 

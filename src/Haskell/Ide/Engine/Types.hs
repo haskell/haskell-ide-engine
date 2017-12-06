@@ -1,5 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE DataKinds #-}
 module Haskell.Ide.Engine.Types where
 
 import           Haskell.Ide.Engine.MonadTypes

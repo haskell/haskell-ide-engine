@@ -67,8 +67,10 @@ files =
 -- not be able to load the files
 resolver :: String
 resolver =
-#if __GLASGOW_HASKELL__ >= 802
-  "resolver: nightly-2017-09-10"
+#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,2,2,0)))
+  "resolver: nightly-2017-11-25"
+#elif __GLASGOW_HASKELL__ >= 802
+  "resolver: nightly-2017-11-24"
 #else
   "resolver: nightly-2017-06-16"
 #endif
@@ -84,5 +86,8 @@ stackFileContents = unlines
   , "extra-deps: []"
   , "flags: {}"
   , "extra-package-dbs: []"
+  -- , "- conversion-1.2.1"
+  -- , "- conversion-case-insensitive-1.0.0.0"
+  -- , "- conversion-text-1.0.1"
   ]
 -- ---------------------------------------------------------------------

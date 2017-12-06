@@ -18,6 +18,8 @@ module Haskell.Ide.Engine.MonadTypes
   -- * The IDE monad
   , IdeM
   , IdeState(..)
+  , AsyncAction(..)
+  , noData
   -- * All the good types
   , module Haskell.Ide.Engine.PluginTypes
   ) where
@@ -30,6 +32,7 @@ import           Haskell.Ide.Engine.PluginTypes
 import qualified GhcMod.ModuleLoader as GM
 import qualified GhcMod.Monad        as GM
 import           GHC.Generics
+import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 
 type PluginId = T.Text
 type CommandName = T.Text
@@ -65,6 +68,12 @@ instance ToJSON IdePlugins where
 
 type IdeM = IdeT IO
 type IdeT m = GM.GhcModT (StateT IdeState m)
+
+-- Consumes a CachedModule, and either requests a new CachedModule or returns a result
+data AsyncAction a = forall cache. GM.ModuleCache cache => AA J.Uri (GM.CachedModule -> cache -> IO a)
+
+noData :: (GM.CachedModule -> IO a) -> (GM.CachedModule -> () -> IO a)
+noData f = const . f
 
 data IdeState = IdeState
   { idePlugins  :: IdePlugins

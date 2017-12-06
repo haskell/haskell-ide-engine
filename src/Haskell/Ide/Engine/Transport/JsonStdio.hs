@@ -58,8 +58,8 @@ data ReactorInput =
   } deriving (Eq, Show, Generic, J.ToJSON, J.FromJSON)
 
 data ReactorOutput = ReactorOutput
-  { resId    :: Int
-  , response :: IdeResponse J.Value
+  { _resId    :: Int
+  , _response :: IdeResponse J.Value
   } deriving (Eq, Show, Generic, J.ToJSON, J.FromJSON)
 
 run :: (DispatcherEnv -> IO ()) -> TChan PluginRequest -> IO Int
@@ -67,13 +67,15 @@ run dispatcherProc cin = flip E.catches handlers $ do
   flip E.finally finalProc $ do
 
     rout <- atomically newTChan :: IO (TChan ReactorOutput)
-    cancelTVar <- atomically $ newTVar S.empty
-    wipTVar <- atomically $ newTVar S.empty
-    versionTVar <- atomically $ newTVar Map.empty
+    cancelTVar      <- atomically $ newTVar S.empty
+    wipTVar         <- atomically $ newTVar S.empty
+    versionTVar     <- atomically $ newTVar Map.empty
+    moduleCacheTVar <- atomically $ newTVar Map.empty
     let dispatcherEnv = DispatcherEnv
-          { cancelReqsTVar = cancelTVar
-          , wipReqsTVar    = wipTVar
-          , docVersionTVar = versionTVar
+          { cancelReqsTVar     = cancelTVar
+          , wipReqsTVar        = wipTVar
+          , docVersionTVar     = versionTVar
+          , docModuleCacheTVar = moduleCacheTVar
           }
 
     let race3_ a b c = race_ a (race_ b c)

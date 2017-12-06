@@ -8,7 +8,9 @@
 module Haskell.Ide.BuildPlugin where
 
 import qualified Data.Aeson                             as J
+#if __GLASGOW_HASKELL__ < 802
 import qualified Data.Aeson.Types                       as J
+#endif
 import           Data.Monoid
 import qualified Control.Exception as Exception
 import           Control.Monad.IO.Class
@@ -23,7 +25,7 @@ import System.FilePath ((</>), normalise, takeExtension, takeFileName, makeRelat
 import System.Process (readProcess)
 import System.IO (openFile, hClose, IOMode(..))
 
-import Distribution.Helper
+import Distribution.Helper as CH
 
 import Distribution.Simple.Setup (defaultDistPref)
 import Distribution.Simple.Configure (localBuildInfoFile)
@@ -231,7 +233,7 @@ prepareHelper = CmdSync $ \req -> withCommonArgs req $ do
 
 prepareHelper' :: MonadIO m => FilePath -> FilePath -> FilePath -> m ()
 prepareHelper' distDir cabalExe dir =
-  prepare' $ (defaultQueryEnv dir distDir) {qePrograms = defaultPrograms {cabalProgram = cabalExe}}
+  prepare $ (mkQueryEnv dir distDir) {qePrograms = defaultPrograms {cabalProgram = cabalExe}}
 
 -----------------------------------------------
 
@@ -291,7 +293,11 @@ listFlagsStack d = do
 listFlagsCabal :: FilePath -> IO (String,[Flag])
 listFlagsCabal d = do
     [cabalFile] <- filter isCabalFile <$> getDirectoryContents d
+#if MIN_VERSION_Cabal(2,0,0)
+    gpd <- readGenericPackageDescription Verb.silent (d </> cabalFile)
+#else
     gpd <- readPackageDescription Verb.silent (d </> cabalFile)
+#endif
     let name = unPackageName $ pkgName $ package $ packageDescription gpd
         flags' = genPackageFlags gpd
     return (name, flags')
@@ -299,9 +305,9 @@ listFlagsCabal d = do
 flagToJSON :: Flag -> Value
 flagToJSON f = object
         -- Cabal 2.0 changelog
-	-- * Backwards incompatible change to 'FlagName' (#4062):
-	--   'FlagName' is now opaque; conversion to/from 'String' now works
-	--   via 'unFlagName' and 'mkFlagName' functions.
+        -- * Backwards incompatible change to 'FlagName' (#4062):
+        --   'FlagName' is now opaque; conversion to/from 'String' now works
+        --   via 'unFlagName' and 'mkFlagName' functions.
 
                  [ "name"        .= (unFlagName $ flagName f)
                  , "description" .= flagDescription f
@@ -310,7 +316,7 @@ flagToJSON f = object
 #if MIN_VERSION_Cabal(2,0,0)
 #else
 unFlagName :: FlagName -> String
-unFlagName (FlagName a) = s
+unFlagName (FlagName s) = s
 #endif
 
 -----------------------------------------------
@@ -419,18 +425,27 @@ listStackTargets distDir = do
 
 listCabalTargets :: MonadIO m => FilePath -> FilePath -> m Package
 listCabalTargets distDir dir = do
-  runQuery (defaultQueryEnv dir distDir) $ do
+  runQuery (mkQueryEnv dir distDir) $ do
     pkgName' <- fst <$> packageId
-    comps <- map (fixupLibraryEntrypoint pkgName') <$> map fst <$> entrypoints
+    cc <- components $ (,) CH.<$> entrypoints
+    let comps = map (fixupLibraryEntrypoint pkgName') $ map snd cc
     absDir <- liftIO $ makeAbsolute dir
     return $ Package pkgName' absDir comps
   where
-#if MIN_VERSION_Cabal(2,0,0)
-    fixupLibraryEntrypoint n ChLibName = ChLibName
+-- # if MIN_VERSION_Cabal(2,0,0)
+#if MIN_VERSION_Cabal(1,24,0)
+    fixupLibraryEntrypoint _n ChLibName = ChLibName
 #else
     fixupLibraryEntrypoint n (ChLibName "") = (ChLibName n)
 #endif
     fixupLibraryEntrypoint _ e = e
+
+-- Example of new way to use cabal helper 'entrypoints' is a ComponentQuery,
+-- components applies it to all components in the project, the semigroupoids
+-- apply batches the result per component, and returns the component as the last
+-- item.
+getComponents :: QueryEnv -> IO [(ChEntrypoint,ChComponentName)]
+getComponents env = runQuery env $ components $ (,) CH.<$> entrypoints
 
 -----------------------------------------------
 
@@ -460,13 +475,15 @@ getStackLocalPackages stackYamlFile = withBinaryFileContents stackYamlFile $ \co
 
 compToJSON :: ChComponentName -> Value
 compToJSON ChSetupHsName = object ["type" .= ("setupHs" :: T.Text)]
-#if MIN_VERSION_Cabal(2,0,0)
-compToJSON ChLibName = object ["type" .= ("library" :: T.Text)]
+#if MIN_VERSION_Cabal(1,24,0)
+compToJSON ChLibName        = object ["type" .= ("library" :: T.Text)]
+compToJSON (ChSubLibName n) = object ["type" .= ("library" :: T.Text), "name" .= n]
+compToJSON (ChFLibName   n) = object ["type" .= ("library" :: T.Text), "name" .= n]
 #else
-compToJSON (ChLibName n) = object ["type" .= ("library" :: T.Text), "name" .= n]
+compToJSON (ChLibName   n) = object ["type" .= ("library" :: T.Text), "name" .= n]
 #endif
-compToJSON (ChExeName n) = object ["type" .= ("executable" :: T.Text), "name" .= n]
-compToJSON (ChTestName n) = object ["type" .= ("test" :: T.Text), "name" .= n]
+compToJSON (ChExeName   n) = object ["type" .= ("executable" :: T.Text), "name" .= n]
+compToJSON (ChTestName  n) = object ["type" .= ("test" :: T.Text), "name" .= n]
 compToJSON (ChBenchName n) = object ["type" .= ("benchmark" :: T.Text), "name" .= n]
 
 -----------------------------------------------

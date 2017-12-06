@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -7,7 +8,9 @@ module Haskell.Ide.GhcModPlugin where
 import           Bag
 import           Control.Monad.IO.Class
 import           Data.Aeson
+#if __GLASGOW_HASKELL__ < 802
 import           Data.Aeson.Types
+#endif
 import           Data.Function
 import           Data.IORef
 import           Data.List
@@ -32,6 +35,7 @@ import qualified GhcMod.Utils                      as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
+import           Haskell.Ide.Engine.LocMap
 import           HscTypes
 import           TcRnTypes
 import           Outputable                        (renderWithStyle, mkUserStyle, Depth(..))
@@ -49,7 +53,6 @@ ghcmodDescriptor = PluginDescriptor
       [ PluginCommand "check" "check a file for GHC warnings and errors" checkCmd
       , PluginCommand "lint" "Check files using `hlint'" lintCmd
       , PluginCommand "info" "Look up an identifier in the context of FILE (like ghci's `:info')" infoCmd
-      , PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmd
       ]
   }
 
@@ -155,8 +158,9 @@ setTypecheckedModule uri =
         debugm $ "setTypecheckedModule: Didn't get typechecked module for: " ++ show fp
         return $ IdeResponseOk (diags,errs)
       Just tm -> do
-        let cm = GM.CachedModule tm (GM.genLocMap tm) rfm return return
-        GM.cacheModule (uri2fileUri uri) cm
+        typm <- GM.unGmlT $ GM.genTypeMap tm
+        let cm = GM.CachedModule tm (GM.genLocMap tm) typm rfm return return
+        GM.cacheModule fp cm
         return $ IdeResponseOk (diags,errs)
 
 -- ---------------------------------------------------------------------
@@ -196,57 +200,42 @@ infoCmd' uri expr =
 
 -- ---------------------------------------------------------------------
 
-data TypeParams =
-  TP { tpIncludeConstraints :: Bool
-     , tpFile               :: Uri
-     , tpPos                :: Position
-     } deriving (Eq,Show,Generic)
+newTypeCmd :: Position -> Uri -> AsyncAction (IdeResponse [(Range, T.Text)])
+newTypeCmd newPos uri =
+  AA uri (noData $ return . IdeResponseOk . pureTypeCmd newPos)
 
-instance FromJSON TypeParams where
-  parseJSON = genericParseJSON customOptions
-instance ToJSON TypeParams where
-  toJSON = genericToJSON customOptions
+pureTypeCmd :: Position -> GM.CachedModule -> [(Range,T.Text)]
+pureTypeCmd newPos cm  =
+    case mOldPos of
+      Nothing -> []
+      Just pos -> concatMap f (spanTypes pos)
+  where
+    mOldPos = newPosToOld cm newPos
+    tm = GM.tcMod cm
+    typm = GM.typeMap cm
+    spanTypes' pos = getArtifactsAtPos pos typm
+    spanTypes pos = sortBy (cmp `on` fst) (spanTypes' pos)
+    dflag = ms_hspp_opts $ pm_mod_summary $ tm_parsed_module tm
+    unqual = mkPrintUnqualified dflag $ tcg_rdr_env $ fst $ tm_internals_ tm
+#if __GLASGOW_HASKELL__ >= 802
+    st = mkUserStyle dflag unqual AllTheWay
+#else
+    st = mkUserStyle unqual AllTheWay
+#endif
 
-typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
-typeCmd = CmdSync $ \(TP bool uri pos) -> do
-  _ <- setTypecheckedModule uri
-  newTypeCmd bool uri pos
+    f (range', t) =
+      case oldRangeToNew cm range' of
+        (Just range) -> [(range , T.pack $ GM.pretty dflag st t)]
+        _ -> []
 
-someErr :: String -> String -> IdeResponse a
-someErr meth err =
-  IdeResponseFail $
-    IdeError PluginError
-             (T.pack $ meth <> ": " <> err)
-             Null
+cmp :: Range -> Range -> Ordering
+cmp a b
+  | a `isSubRangeOf` b = LT
+  | b `isSubRangeOf` a = GT
+  | otherwise = EQ
 
-newTypeCmd :: Bool -> Uri -> Position -> IdeM (IdeResponse [(Range, T.Text)])
-newTypeCmd bool uri newPos =
-  pluginGetFile "newTypeCmd: " uri $ \_fp ->
-    let handlers  = [GM.GHandler $ \(ex :: GM.SomeException) ->
-                       return $ someErr "newTypeCmd" (show ex)
-                    ] in
-    flip GM.gcatches handlers $ do
-      mcm <- GM.getCachedModule (uri2fileUri uri)
-      case mcm of
-        Nothing -> return $ IdeResponseOk []
-        Just cm -> do
-          let mOldPos = newPosToOld cm newPos
-          case mOldPos of
-            Nothing -> return $ IdeResponseOk []
-            Just pos ->
-              GM.unGmlT $ do
-                let tm = GM.tcMod cm
-                spanTypes' <- GM.collectSpansTypes bool tm $ unPos pos
-                let spanTypes = sortBy (GM.cmp `on` fst) spanTypes'
-                    dflag = ms_hspp_opts $ pm_mod_summary $ tm_parsed_module tm
-                    unqual = mkPrintUnqualified dflag $ tcg_rdr_env $ fst $ tm_internals_ tm
-                    st = mkUserStyle unqual AllTheWay
-                    f (spn, t) = do
-                      let range' = srcSpan2Range spn
-                      case oldRangeToNew cm <$> range' of
-                        (Right (Just range)) -> [(range , T.pack $ GM.pretty dflag st t)]
-                        _ -> []
-                return $ IdeResponseOk $ concatMap f spanTypes
+isSubRangeOf :: Range -> Range -> Bool
+isSubRangeOf (Range sa ea) (Range sb eb) = sb <= sa && eb >= ea
 
 getDynFlags :: IdeM DynFlags
 getDynFlags = GM.unGmlT getSessionDynFlags

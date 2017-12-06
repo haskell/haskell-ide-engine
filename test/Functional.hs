@@ -72,14 +72,17 @@ startServer :: IO (TChan PluginRequest)
 startServer = do
   cin  <- atomically newTChan
 
-  let dispatcherProc dispatcherEnv = void $ forkIO $ runIdeM testOptions (IdeState plugins GM.emptyModuleCache) (dispatcherP dispatcherEnv cin)
-  cancelTVar <- atomically $ newTVar S.empty
-  wipTVar <- atomically $ newTVar S.empty
-  versionTVar <- atomically $ newTVar Map.empty
+  let dispatcherProc dispatcherEnv
+        = void $ forkIO $ runIdeM testOptions (IdeState plugins GM.emptyModuleCache) (dispatcherP dispatcherEnv cin)
+  cancelTVar      <- atomically $ newTVar S.empty
+  wipTVar         <- atomically $ newTVar S.empty
+  versionTVar     <- atomically $ newTVar Map.empty
+  moduleCacheTVar <- atomically $ newTVar Map.empty
   let dispatcherEnv = DispatcherEnv
-        { cancelReqsTVar = cancelTVar
-        , wipReqsTVar    = wipTVar
-        , docVersionTVar = versionTVar
+        { cancelReqsTVar     = cancelTVar
+        , wipReqsTVar        = wipTVar
+        , docVersionTVar     = versionTVar
+        , docModuleCacheTVar = moduleCacheTVar
         }
 
   void $ dispatcherProc dispatcherEnv
@@ -109,7 +112,7 @@ dispatchRequest cin plugin com arg = do
   takeMVar mv
 
 -- ---------------------------------------------------------------------
-{- -}
+
 functionalSpec :: Spec
 functionalSpec = do
   describe "consecutive plugin commands" $ do
@@ -127,7 +130,7 @@ functionalSpec = do
                                       { _uri = filePathToUri "./FuncTest.hs"
                                       , _diagnostics = List
                                         [ Diagnostic (Range (Position 9 6) (Position 10 18))
-                                                     (Just DsWarning)
+                                                     (Just DsInfo)
                                                      Nothing
                                                      (Just "hlint")
                                                      "Redundant do\nFound:\n  do putStrLn \"hello\"\nWhy not:\n  putStrLn \"hello\"\n"
