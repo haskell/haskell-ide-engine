@@ -8,10 +8,10 @@ import           Data.Maybe
 import           Data.Monoid
 import qualified Data.Text                          as T
 import qualified GhcMod                             as GM
-import qualified GhcMod.ModuleLoader                as GM
 import qualified GhcMod.Monad.Env                   as GM
 import qualified GhcMod.Types                       as GM
 import           Haskell.Ide.Engine.MonadTypes
+import           Haskell.Ide.Engine.MonadFunctions
 import           Hoogle
 import           System.Directory
 import           System.FilePath
@@ -46,7 +46,7 @@ hoogleErrorToIdeError NoResults =
 hoogleErrorToIdeError NoDb =
   IdeRErr $ IdeError PluginError "Hoogle database not found. Run hoogle generate to generate" Null
 
-instance GM.ExtensionClass HoogleDb where
+instance ExtensionClass HoogleDb where
   initialValue = HoogleDb Nothing
 
 initializeHoogleDb :: IdeM (Maybe FilePath)
@@ -55,7 +55,7 @@ initializeHoogleDb = do
   db <- liftIO $ makeAbsolute db'
   exists <- liftIO $ doesFileExist db
   if exists then do
-    GM.put $ HoogleDb $ Just db
+    put $ HoogleDb $ Just db
     return $ Just db
   else
     return Nothing
@@ -82,22 +82,21 @@ getHoogleDbLoc = do
 
 
 infoCmd :: CommandFunc T.Text T.Text
-infoCmd = CmdSync $ \expr -> do
-  _ <- initializeHoogleDb
+infoCmd = CmdSync $ \expr -> liftAsync $
   bimap hoogleErrorToIdeError id <$> infoCmd' expr
 
-infoCmd' :: T.Text -> IdeM (Either HoogleError T.Text)
+infoCmd' :: T.Text -> AsyncM (Either HoogleError T.Text)
 infoCmd' expr = do
-  HoogleDb mdb <- GM.get
+  HoogleDb mdb <- get
   liftIO $ runHoogleQuery mdb expr $ \res ->
       if null res then
         Left NoResults
       else
         return $ T.pack $ targetInfo $ head res
 
-infoCmdFancyRender :: T.Text -> IdeM (Either HoogleError T.Text)
+infoCmdFancyRender :: T.Text -> AsyncM (Either HoogleError T.Text)
 infoCmdFancyRender expr = do
-  HoogleDb mdb <- GM.get
+  HoogleDb mdb <- get
   liftIO $ runHoogleQuery mdb expr $ \res ->
       if null res then
         Left NoResults
@@ -127,13 +126,12 @@ renderTarget t = T.intercalate "\n\n" $
 ------------------------------------------------------------------------
 
 lookupCmd :: CommandFunc T.Text [T.Text]
-lookupCmd = CmdSync $ \term -> do
-      _ <- initializeHoogleDb
+lookupCmd = CmdSync $ \term -> liftAsync $
       bimap hoogleErrorToIdeError id <$> lookupCmd' 10 term
 
-lookupCmd' :: Int -> T.Text -> IdeM (Either HoogleError [T.Text])
+lookupCmd' :: Int -> T.Text -> AsyncM (Either HoogleError [T.Text])
 lookupCmd' n term = do
-  HoogleDb mdb <- GM.get
+  HoogleDb mdb <- get
   liftIO $ runHoogleQuery mdb term
     (Right . map (T.pack . targetResultDisplay False) . take n)
 

@@ -15,3 +15,8 @@ data PluginRequest = forall a. PReq
   , pinCallback  :: a -> IO ()
   , pinReq       :: IdeM a
   }
+  | forall a. PureReq
+  { pureReqId :: J.LspId
+  , pureReqCallback :: a -> IO ()
+  , pureReq :: AsyncM a
+  }

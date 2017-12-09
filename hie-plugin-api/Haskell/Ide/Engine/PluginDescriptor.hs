@@ -32,7 +32,7 @@ pluginDescToIdePlugins = IdePlugins . foldr (uncurry Map.insert . f) Map.empty
 runPluginCommand :: PluginId -> CommandName -> Value -> (IdeResponse Value -> IO ()) -> IdeM ()
 runPluginCommand p com arg callback = do
   let ret = liftIO . callback
-  (IdePlugins m) <- getPlugins
+  (IdePlugins m) <- lift . lift $ getPlugins
   case Map.lookup p m of
     Nothing -> ret $
       IdeResponseFail $ IdeError UnknownPlugin ("Plugin " <> p <> " doesn't exist") Null

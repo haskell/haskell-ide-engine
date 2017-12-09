@@ -281,8 +281,12 @@ instance GM.ModuleCache NameMapData where
 
 -- ---------------------------------------------------------------------
 
-getSymbols :: Uri -> AsyncAction (IdeResponse [J.SymbolInformation])
-getSymbols uri = AA uri $ noData $ \cm -> do
+getSymbols :: Uri -> AsyncM (IdeResponse [J.SymbolInformation])
+getSymbols uri = pluginGetFile "getSymbols: " uri $ \file -> do
+    mcm <- GM.getCachedModule file
+    case mcm of
+      Nothing -> return $ IdeResponseOk []
+      Just cm -> do
           let tm = GM.tcMod cm
               rfm = GM.revMap cm
               hsMod = unLoc $ pm_parsed_source $ tm_parsed_module tm
@@ -354,7 +358,7 @@ getSymbols uri = AA uri $ noData $ \cm -> do
                   f _ = []
 
               declsToSymbolInf :: (J.SymbolKind, Located T.Text, Maybe T.Text)
-                               -> IO (Either T.Text J.SymbolInformation)
+                               -> AsyncM (Either T.Text J.SymbolInformation)
               declsToSymbolInf (kind, L l nameText, cnt) = do
                 eloc <- srcSpan2Loc rfm l
                 case eloc of
@@ -523,11 +527,11 @@ getTypeForName n = GM.unGmlT $ do
 
 -- ---------------------------------------------------------------------
 
-getSymbolsAtPoint :: Uri -> Position -> AsyncAction (IdeResponse [(Range, Name)])
-getSymbolsAtPoint uri pos = AA uri $ noData $
-  \cm -> return
-    $ IdeResponseOk
-    $ maybe [] (`getArtifactsAtPos` GM.locMap cm) $ newPosToOld cm pos
+getSymbolsAtPoint :: Uri -> Position -> AsyncM (IdeResponse [(Range, Name)])
+getSymbolsAtPoint uri pos = pluginGetFile "getSymbolsAtPoint: " uri $ \file -> do
+  let noCache = return $ nonExistentCacheErr "getSymbolAtPoint"
+  GM.withCachedModule file noCache $
+    return . IdeResponseOk . getSymbolsAtPointPure pos
 
 getSymbolsAtPointPure :: Position -> GM.CachedModule -> [(Range,Name)]
 getSymbolsAtPointPure pos cm = maybe [] (`getArtifactsAtPos` GM.locMap cm) $ newPosToOld cm pos
@@ -543,9 +547,11 @@ symbolFromTypecheckedModule lm pos =
 
 -- ---------------------------------------------------------------------
 
-getReferencesInDoc :: Uri -> Position -> AsyncAction (IdeResponse [J.DocumentHighlight])
-getReferencesInDoc uri pos = AA uri $
-  \cm NMD{inverseNameMap} -> runEitherT $ do
+getReferencesInDoc :: Uri -> Position -> AsyncM (IdeResponse [J.DocumentHighlight])
+getReferencesInDoc uri pos = pluginGetFile "getReferencesInDoc: " uri $ \file -> do
+  let noCache = return $ nonExistentCacheErr "getReferencesInDoc"
+  GM.withCachedModuleAndData file noCache $
+    \cm NMD{inverseNameMap} -> runEitherT $ do
       let lm = GM.locMap cm
           pm = tm_parsed_module $ GM.tcMod cm
           cfile = ml_hs_file $ ms_location $ pm_mod_summary pm

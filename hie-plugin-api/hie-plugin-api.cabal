@@ -46,6 +46,7 @@ library
                      , time
                      , transformers
                      , unordered-containers
+                     , stm
   ghc-options:         -Wall
   if flag(pedantic)
      ghc-options:      -Werror

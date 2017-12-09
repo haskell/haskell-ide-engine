@@ -55,6 +55,7 @@ import qualified Haskell.Ide.GhcModPlugin as GhcMod
 import qualified Haskell.Ide.ApplyRefactPlugin as ApplyRefact
 import qualified Haskell.Ide.BrittanyPlugin as Brittany
 import qualified Haskell.Ide.HooglePlugin as Hoogle
+-- import qualified Haskell.Ide.HaddockPlugin as Haddock
 import qualified Language.Haskell.LSP.Control  as CTRL
 import qualified Language.Haskell.LSP.Core     as Core
 import qualified Language.Haskell.LSP.VFS     as VFS
@@ -474,9 +475,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
         let params = req ^. J.params
             pos = params ^. J.position
             doc = params ^. J.textDocument . J.uri
-        -- callback <- hieResponseHelper (req ^. J.id) $ \(typ,docs,mrange) -> do
-        let
-          callback (typ,docs,mrange) = do
+        callback <- hieResponseHelper (req ^. J.id) $ \(typ,docs,mrange) -> do
               let
                 ht = case mrange of
                   Nothing    -> J.Hover (J.List []) Nothing
@@ -489,13 +488,10 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
         mm <- getCachedModule doc
         case mm of
           Nothing -> reactorSend $ Core.makeResponseMessage req $ J.Hover (J.List []) Nothing
-          Just cm -> callback =<< do
-            -- let hreq = PReq (Just doc) Nothing (Just $ req ^. J.id) callback $ runEitherT $ do
-            --       info' <- EitherT $ GhcMod.newTypeCmd True doc pos
-            --       names' <- EitherT $ HaRe.getSymbolsAtPoint doc pos
-                  let
-                    info'  = GhcMod.pureTypeCmd pos cm
-                    names' = HaRe.getSymbolsAtPointPure pos cm
+          Just cm -> do
+            let hreq = PureReq (req ^. J.id) callback $ runEitherT $ do
+                  info' <- EitherT $ GhcMod.newTypeCmd pos doc
+                  names' <- EitherT $ HaRe.getSymbolsAtPoint doc pos
                   let
                     f = (==) `on` (HaRe.showName . snd)
                     f' = compare `on` (HaRe.showName . snd)
@@ -522,18 +518,23 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
                           ((r,_):_) -> (Nothing, Just r)
                   docs <- forM names $ \(_,name) -> do
                       let sname = HaRe.showName name
-                      -- df <- lift GhcMod.getDynFlags
                       let df = getDynFlags cm
                       case HaRe.getModule df name of
                         Nothing -> return $ "`" <> sname <> "` *local*"
                         (Just (pkg,mdl)) -> do
-#if __GLASGOW_HASKELL__ >= 802
                           let mname = "`"<> sname <> "`\n\n"
                           let minfo = maybe "" (<>" ") pkg <> mdl
                           return $ mname <> minfo
-#else
-                          return $ "`"<> sname <> "`\n" <> maybe "" (<>" ") pkg <> mdl
-#endif
+-- #if __GLASGOW_HASKELL__ > 802
+                          mdocu <- lift $ getDocsForName sname pkg mdl
+-- #else
+--                           mdocu <- lift $ Haddock.getDocsWithType df name
+-- #endif
+                          case mdocu of
+                            Nothing -> return $ mname <> minfo
+                            Just docu -> return $ docu <> "\n\n" <> minfo
+                  return (info,docs,mrange)
+            makeRequest hreq
 
 {- AZ temporary
 #if __GLASGOW_HASKELL__ >= 802
@@ -555,9 +556,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
 #endif
                   return (info,docs,mrange)
 -}
-                  return (info,docs,mrange)
                   -- return docs
-            -- makeRequest hreq
         liftIO $ U.logs $ "reactor:HoverRequest done"
 
       -- -------------------------------
@@ -649,7 +648,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
               case mquery of
                 Nothing -> return Nothing
                 Just query -> do
-                  res <- lift $ Hoogle.infoCmd' query
+                  res <- lift $ liftAsync $ Hoogle.infoCmd' query
                   case res of
                     Right x -> return $ Just x
                     _ -> return Nothing
@@ -665,7 +664,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
         callback <- hieResponseHelper (req ^. J.id) $ \highlights -> do
           let rspMsg = Core.makeResponseMessage req $ J.List highlights
           reactorSend rspMsg
-        let hreq = PReq (Just doc) Nothing (Just $ req ^. J.id) callback
+        let hreq = PureReq (req ^. J.id) callback
                  $ HaRe.getReferencesInDoc doc pos
         makeRequest hreq
 
@@ -725,8 +724,8 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
         callback <- hieResponseHelper (req ^. J.id) $ \docSymbols -> do
             let rspMsg = Core.makeResponseMessage req $ J.List docSymbols
             reactorSend rspMsg
-        let hreq = PReq (Just uri) Nothing (Just $ req ^. J.id) callback
-                     $ HaRe.getSymbols uri
+        let hreq = PureReq (req ^. J.id) callback
+                 $ HaRe.getSymbols uri
         makeRequest hreq
 
       -- -------------------------------
@@ -759,20 +758,20 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
 
 -- ---------------------------------------------------------------------
 
-_docRules :: Maybe T.Text -> T.Text -> T.Text
-_docRules (Just "base") "GHC.Base"    = "Prelude"
-_docRules (Just "base") "GHC.Enum"    = "Prelude"
-_docRules (Just "base") "GHC.Num"     = "Prelude"
-_docRules (Just "base") "GHC.Real"    = "Prelude"
-_docRules (Just "base") "GHC.Float"   = "Prelude"
-_docRules (Just "base") "GHC.Show"    = "Prelude"
-_docRules (Just "containers") modName =
+docRules :: Maybe T.Text -> T.Text -> T.Text
+docRules (Just "base") "GHC.Base"    = "Prelude"
+docRules (Just "base") "GHC.Enum"    = "Prelude"
+docRules (Just "base") "GHC.Num"     = "Prelude"
+docRules (Just "base") "GHC.Real"    = "Prelude"
+docRules (Just "base") "GHC.Float"   = "Prelude"
+docRules (Just "base") "GHC.Show"    = "Prelude"
+docRules (Just "containers") modName =
   fromMaybe modName $ T.stripSuffix ".Base" modName
-_docRules _ modName = modName
+docRules _ modName = modName
 
-_getDocsForName :: T.Text -> Maybe T.Text -> T.Text -> IdeM (Maybe T.Text)
-_getDocsForName name pkg modName' = do
-  let modName = _docRules pkg modName'
+getDocsForName :: T.Text -> Maybe T.Text -> T.Text -> AsyncM (Maybe T.Text)
+getDocsForName name pkg modName' = do
+  let modName = docRules pkg modName'
       query = name
            <> fromMaybe "" (T.append " package:" <$> pkg)
            <> " module:" <> modName

@@ -200,9 +200,13 @@ infoCmd' uri expr =
 
 -- ---------------------------------------------------------------------
 
-newTypeCmd :: Position -> Uri -> AsyncAction (IdeResponse [(Range, T.Text)])
+newTypeCmd :: Position -> Uri -> AsyncM (IdeResponse [(Range, T.Text)])
 newTypeCmd newPos uri =
-  AA uri (noData $ return . IdeResponseOk . pureTypeCmd newPos)
+  pluginGetFile "newTypeCmd: " uri $ \fp -> do
+      mcm <- GM.getCachedModule fp
+      case mcm of
+        Nothing -> return $ IdeResponseOk []
+        Just cm -> return $ IdeResponseOk $ pureTypeCmd newPos cm
 
 pureTypeCmd :: Position -> GM.CachedModule -> [(Range,T.Text)]
 pureTypeCmd newPos cm  =
