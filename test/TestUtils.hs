@@ -72,7 +72,7 @@ resolver =
 #elif __GLASGOW_HASKELL__ >= 802
   "resolver: nightly-2017-11-24"
 #else
-  "resolver: nightly-2017-06-16"
+  "resolver: lts-9.14"
 #endif
 
 -- ---------------------------------------------------------------------
