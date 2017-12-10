@@ -4,9 +4,11 @@
 module Haskell.Ide.Engine.Dispatcher where
 
 import           Control.Concurrent.STM.TChan
+import           Control.Concurrent
 import           Control.Concurrent.STM.TVar
 import           Control.Monad
 import           Control.Monad.IO.Class
+import           Control.Monad.Reader
 import           Control.Monad.STM
 import qualified Data.Map                              as Map
 import qualified Data.Set                              as S
@@ -21,12 +23,40 @@ data DispatcherEnv = DispatcherEnv
   { cancelReqsTVar     :: !(TVar (S.Set J.LspId))
   , wipReqsTVar        :: !(TVar (S.Set J.LspId))
   , docVersionTVar     :: !(TVar (Map.Map Uri Int))
-  , docModuleCacheTVar :: !(TVar (Map.Map Uri GM.CachedModule))
   }
 
 dispatcherP :: forall void. DispatcherEnv -> TChan PluginRequest -> IdeM void
-dispatcherP DispatcherEnv{cancelReqsTVar,wipReqsTVar,docVersionTVar,docModuleCacheTVar} pin = forever $ do
-  debugm "dispatcherP: top of loop"
+dispatcherP env inChan = do
+  stateVar <- lift . lift $ ask
+  ichan <- liftIO $ do
+    ideChan <- newTChanIO
+    asyncChan <- newTChanIO
+    forkIO $ mainDispatcher inChan ideChan asyncChan
+    forkIO $ runReaderT (asyncDispatcher env asyncChan) stateVar
+    return ideChan
+  ideDispatcher env ichan
+
+mainDispatcher :: forall void. TChan PluginRequest -> TChan PluginRequest -> TChan PluginRequest -> IO void
+mainDispatcher inChan ideChan asyncChan = forever $ do
+  req <- atomically $ readTChan inChan
+  case req of
+    PReq{} ->
+      atomically $ writeTChan ideChan req
+    PureReq{} ->
+      atomically $ writeTChan asyncChan req
+
+asyncDispatcher :: forall void. DispatcherEnv -> TChan PluginRequest -> AsyncM void
+asyncDispatcher env pin = forever $ do
+  (PureReq lid callback action) <- liftIO $ atomically $ readTChan pin
+  debugm $ "got request with id: " ++ show lid
+  cancelled <- liftIO $ atomically $ isCancelled env lid
+  unless cancelled $ do
+    res <- action
+    liftIO $ callback res
+
+ideDispatcher :: forall void. DispatcherEnv -> TChan PluginRequest -> IdeM void
+ideDispatcher env@DispatcherEnv{docVersionTVar} pin = forever $ do
+  debugm "ideDispatcher: top of loop"
   (PReq context mver mid callback action) <- liftIO $ atomically $ readTChan pin
   debugm $ "got request with id: " ++ show mid
 
@@ -40,21 +70,6 @@ dispatcherP DispatcherEnv{cancelReqsTVar,wipReqsTVar,docVersionTVar,docModuleCac
 
   let runWithCallback = do
         r <- runner action
-
-        -- get cached module and put it in the tvar
-        case context of
-          Nothing -> return ()
-          Just uri ->
-            case uriToFilePath uri of
-              Nothing -> return ()
-              Just fp -> do
-                mm <- GM.getCachedModule fp
-                case mm of
-                  Nothing -> return ()
-                  Just cm ->
-                    liftIO $ atomically $ modifyTVar' docModuleCacheTVar $
-                      \m -> Map.insert uri cm m
-
         liftIO $ callback r
 
   let runIfVersionMatch = case mver of
@@ -70,14 +85,18 @@ dispatcherP DispatcherEnv{cancelReqsTVar,wipReqsTVar,docVersionTVar,docModuleCac
   case mid of
     Nothing -> runIfVersionMatch
     Just lid -> do
-      cancelReqs <- liftIO $ atomically $ do
-        modifyTVar' wipReqsTVar (S.delete lid)
-        readTVar cancelReqsTVar
-      if S.member lid cancelReqs
-        then do
-          debugm $ "cancelling request: " ++ show lid
-          liftIO $ atomically $ modifyTVar' cancelReqsTVar (S.delete lid)
-        else do
-          debugm $ "processing request: " ++ show lid
-          runIfVersionMatch
+      cancelled <- liftIO $ atomically $ isCancelled env lid
+      if cancelled
+      then
+        debugm $ "cancelling request: " ++ show lid
+      else do
+        debugm $ "processing request: " ++ show lid
+        runIfVersionMatch
 
+-- Deletes the request from both wipReqs and cancelReqs
+isCancelled :: DispatcherEnv -> J.LspId -> STM Bool
+isCancelled DispatcherEnv{cancelReqsTVar,wipReqsTVar} lid = do
+  modifyTVar' wipReqsTVar (S.delete lid)
+  creqs <- readTVar cancelReqsTVar
+  modifyTVar' cancelReqsTVar (S.delete lid)
+  return $ S.member lid creqs

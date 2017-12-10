@@ -70,12 +70,10 @@ run dispatcherProc cin = flip E.catches handlers $ do
     cancelTVar      <- atomically $ newTVar S.empty
     wipTVar         <- atomically $ newTVar S.empty
     versionTVar     <- atomically $ newTVar Map.empty
-    moduleCacheTVar <- atomically $ newTVar Map.empty
     let dispatcherEnv = DispatcherEnv
           { cancelReqsTVar     = cancelTVar
           , wipReqsTVar        = wipTVar
           , docVersionTVar     = versionTVar
-          , docModuleCacheTVar = moduleCacheTVar
           }
 
     let race3_ a b c = race_ a (race_ b c)

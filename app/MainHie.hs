@@ -6,6 +6,7 @@ import           Control.Concurrent.STM.TChan
 import           Control.Monad
 import           Control.Monad.STM
 import           Data.Semigroup
+import qualified Data.Map as Map
 import           Data.Version                          (showVersion)
 import           Development.GitRev                    (gitCommitCount)
 import           Distribution.System                   (buildArch)
@@ -123,7 +124,7 @@ run opts = do
   -- launch the dispatcher.
   let dispatcherProcP dispatcherEnv =
         void $ runIdeM ghcModOptions
-            (IdeState plugins GM.emptyModuleCache )
+            (IdeState GM.emptyModuleCache plugins Map.empty)
             (dispatcherP dispatcherEnv pin)
 
   if optLsp opts then

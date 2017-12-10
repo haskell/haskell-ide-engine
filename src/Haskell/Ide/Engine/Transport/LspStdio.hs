@@ -41,7 +41,6 @@ import qualified Data.SortedList as SL
 import qualified Data.Text as T
 import           Data.Text.Encoding
 import qualified Data.Vector as V
-import           GHC
 import qualified GhcModCore               as GM
 import qualified GhcMod.ModuleLoader      as GM
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -92,12 +91,10 @@ run dispatcherProc cin _origDir = flip E.catches handlers $ do
       cancelTVar      <- atomically $ newTVar S.empty
       wipTVar         <- atomically $ newTVar S.empty
       versionTVar     <- atomically $ newTVar Map.empty
-      moduleCacheTVar <- atomically $ newTVar Map.empty
       let dispatcherEnv = DispatcherEnv
             { cancelReqsTVar     = cancelTVar
             , wipReqsTVar        = wipTVar
             , docVersionTVar     = versionTVar
-            , docModuleCacheTVar = moduleCacheTVar
             }
       let reactorFunc =  flip runReaderT lf $ reactor dispatcherEnv cin rin
       -- haskell lsp sets the current directory to the project root in the InitializeRequest
@@ -125,8 +122,6 @@ type ReactorInput
 
 -- ---------------------------------------------------------------------
 
-getDynFlags :: GM.CachedModule -> DynFlags
-getDynFlags cm = ms_hspp_opts $ pm_mod_summary $ tm_parsed_module $ GM.tcMod cm
 
 -- ---------------------------------------------------------------------
 
@@ -329,18 +324,13 @@ sendErrorLog msg = reactorSend' (`Core.sendErrorLogS` msg)
 -- to stitch replies and requests together from the two asynchronous sides: lsp
 -- server and hie dispatcher
 reactor :: forall void. DispatcherEnv -> TChan PluginRequest -> TChan ReactorInput -> R void
-reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin inp = do
+reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
   let
     makeRequest req@(PReq _ Nothing (Just lid) _ _) = liftIO $ atomically $ do
       modifyTVar wipTVar (S.insert lid)
       writeTChan cin req
     makeRequest req =
       liftIO $ atomically $ writeTChan cin req
-
-    getCachedModule :: (MonadIO m) => Uri -> m (Maybe GM.CachedModule)
-    getCachedModule uri = do
-      mc <- liftIO $ atomically $ readTVar moduleCacheTVar
-      return $ Map.lookup uri mc
 
   forever $ do
     inval <- liftIO $ atomically $ readTChan inp
@@ -485,56 +475,51 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
                       hovers = catMaybes [typ] ++ fmap J.PlainString docs
                 rspMsg = Core.makeResponseMessage req ht
               reactorSend rspMsg
-        mm <- getCachedModule doc
-        case mm of
-          Nothing -> reactorSend $ Core.makeResponseMessage req $ J.Hover (J.List []) Nothing
-          Just cm -> do
-            let hreq = PureReq (req ^. J.id) callback $ runEitherT $ do
-                  info' <- EitherT $ GhcMod.newTypeCmd pos doc
-                  names' <- EitherT $ HaRe.getSymbolsAtPoint doc pos
-                  let
-                    f = (==) `on` (HaRe.showName . snd)
-                    f' = compare `on` (HaRe.showName . snd)
-                    names = mapMaybe pickName $ groupBy f $ sortBy f' names'
-                    pickName [] = Nothing
-                    pickName [x] = Just x
-                    pickName xs@(x:_) = case find (isJust . nameModule_maybe . snd) xs of
-                      Nothing -> Just x
-                      Just a -> Just a
-                    nnames = length names
-                    (info,mrange) =
-                      case map last $ groupBy ((==) `on` fst) info' of
-                        ((r,typ):_) ->
-                          case find ((r ==) . fst) names of
-                            Nothing ->
-                              (Just $ J.CodeString $ J.LanguageString "haskell" $ "_ :: " <> typ, Just r)
-                            Just (_,name)
-                              | nnames == 1 ->
-                                (Just $ J.CodeString $ J.LanguageString "haskell" $ HaRe.showName name <> " :: " <> typ, Just r)
-                              | otherwise ->
-                                (Just $ J.CodeString $ J.LanguageString "haskell" $ "_ :: " <> typ, Just r)
-                        [] -> case names of
-                          [] -> (Nothing, Nothing)
-                          ((r,_):_) -> (Nothing, Just r)
-                  docs <- forM names $ \(_,name) -> do
-                      let sname = HaRe.showName name
-                      let df = getDynFlags cm
-                      case HaRe.getModule df name of
-                        Nothing -> return $ "`" <> sname <> "` *local*"
-                        (Just (pkg,mdl)) -> do
-                          let mname = "`"<> sname <> "`\n\n"
-                          let minfo = maybe "" (<>" ") pkg <> mdl
-                          return $ mname <> minfo
+        let hreq = PureReq (req ^. J.id) callback $ runEitherT $ do
+              info' <- EitherT $ GhcMod.newTypeCmd pos doc
+              names' <- EitherT $ HaRe.getSymbolsAtPoint doc pos
+              let
+                f = (==) `on` (HaRe.showName . snd)
+                f' = compare `on` (HaRe.showName . snd)
+                names = mapMaybe pickName $ groupBy f $ sortBy f' names'
+                pickName [] = Nothing
+                pickName [x] = Just x
+                pickName xs@(x:_) = case find (isJust . nameModule_maybe . snd) xs of
+                  Nothing -> Just x
+                  Just a -> Just a
+                nnames = length names
+                (info,mrange) =
+                  case map last $ groupBy ((==) `on` fst) info' of
+                    ((r,typ):_) ->
+                      case find ((r ==) . fst) names of
+                        Nothing ->
+                          (Just $ J.CodeString $ J.LanguageString "haskell" $ "_ :: " <> typ, Just r)
+                        Just (_,name)
+                          | nnames == 1 ->
+                            (Just $ J.CodeString $ J.LanguageString "haskell" $ HaRe.showName name <> " :: " <> typ, Just r)
+                          | otherwise ->
+                            (Just $ J.CodeString $ J.LanguageString "haskell" $ "_ :: " <> typ, Just r)
+                    [] -> case names of
+                      [] -> (Nothing, Nothing)
+                      ((r,_):_) -> (Nothing, Just r)
+              df <- EitherT $ GhcMod.getDynFlags doc
+              docs <- forM names $ \(_,name) -> do
+                  let sname = HaRe.showName name
+                  case HaRe.getModule df name of
+                    Nothing -> return $ "`" <> sname <> "` *local*"
+                    (Just (pkg,mdl)) -> do
+                      let mname = "`"<> sname <> "`\n\n"
+                      let minfo = maybe "" (<>" ") pkg <> mdl
 -- #if __GLASGOW_HASKELL__ > 802
-                          mdocu <- lift $ getDocsForName sname pkg mdl
+                      mdocu <- lift $ getDocsForName sname pkg mdl
 -- #else
---                           mdocu <- lift $ Haddock.getDocsWithType df name
+--                    mdocu <- lift $ Haddock.getDocsWithType df name
 -- #endif
-                          case mdocu of
-                            Nothing -> return $ mname <> minfo
-                            Just docu -> return $ docu <> "\n\n" <> minfo
-                  return (info,docs,mrange)
-            makeRequest hreq
+                      case mdocu of
+                        Nothing -> return $ mname <> minfo
+                        Just docu -> return $ docu <> "\n\n" <> minfo
+              return (info,docs,mrange)
+        makeRequest hreq
 
 {- AZ temporary
 #if __GLASGOW_HASKELL__ >= 802
