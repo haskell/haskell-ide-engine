@@ -54,7 +54,9 @@ import qualified Haskell.Ide.GhcModPlugin as GhcMod
 import qualified Haskell.Ide.ApplyRefactPlugin as ApplyRefact
 import qualified Haskell.Ide.BrittanyPlugin as Brittany
 import qualified Haskell.Ide.HooglePlugin as Hoogle
--- import qualified Haskell.Ide.HaddockPlugin as Haddock
+#if __GLASGOW_HASKELL__ <= 802
+import qualified Haskell.Ide.HaddockPlugin as Haddock
+#endif
 import qualified Language.Haskell.LSP.Control  as CTRL
 import qualified Language.Haskell.LSP.Core     as Core
 import qualified Language.Haskell.LSP.VFS     as VFS
@@ -380,7 +382,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         reactorSend $ fmServerRegisterCapabilityRequest rid registrations
 
         lf <- ask
-        let hreq = IReq Nothing Nothing Nothing callback
+        let hreq = IReq Nothing Nothing Nothing callback $ do
                      Hoogle.initializeHoogleDb
             callback Nothing = flip runReaderT lf $
               reactorSend $
@@ -400,6 +402,12 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             ver = td ^. J.version
         mapFileFromVfs versionTVar cin $ J.VersionedTextDocumentIdentifier uri ver
         requestDiagnostics cin uri ver
+        -- initialize haddock
+#if __GLASGOW_HASKELL__ <= 802
+        let hreq = IReq Nothing Nothing Nothing (const $ return ()) $ do
+                     Haddock.initializeHaddock
+        makeRequest hreq
+#endif
 
       -- -------------------------------
 
@@ -513,38 +521,21 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                     (Just (pkg,mdl)) -> do
                       let mname = "`"<> sname <> "`\n\n"
                       let minfo = maybe "" (<>" ") pkg <> mdl
--- #if __GLASGOW_HASKELL__ > 802
+#if __GLASGOW_HASKELL__ > 802
                       mdocu <- lift $ getDocsForName sname pkg mdl
--- #else
---                    mdocu <- lift $ Haddock.getDocsWithType df name
--- #endif
+#else
+                      mdocu' <- lift $ Haddock.getDocsWithType df name
+                      mdocu <- case mdocu' of
+                        Just x -> return x
+                        -- Hoogle as fallback
+                        Nothing -> lift $ getDocsForName sname pkg mdl
+#endif
                       case mdocu of
                         Nothing -> return $ mname <> minfo
                         Just docu -> return $ docu <> "\n\n" <> minfo
               return (info,docs,mrange)
         makeRequest hreq
 
-{- AZ temporary
-#if __GLASGOW_HASKELL__ >= 802
-                          mdocu <- lift $ getDocsForName sname pkg mdl
-#else
-                          mdocu <- lift $ Haddock.getDocsWithType df name
-                          let mname = "`"<> sname <> "`\n\n"
-                          let minfo = maybe "" (<>" ") pkg <> mdl
-#endif
-                          let mname = "`"<> sname <> "`\n\n"
-                          let minfo = maybe "" (<>" ") pkg <> mdl
-                          case mdocu of
-#if __GLASGOW_HASKELL__ >= 802
-                            Nothing -> return $ mname <> minfo
-                            Just docu -> return $ docu <> "\n\n" <> minfo
-#else
-                            Nothing -> return $ "`"<> sname <> "`\n" <> maybe "" (<>" ") pkg <> mdl
-                            Just docu -> return docu
-#endif
-                  return (info,docs,mrange)
--}
-                  -- return docs
         liftIO $ U.logs $ "reactor:HoverRequest done"
 
       -- -------------------------------
