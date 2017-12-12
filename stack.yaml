@@ -14,11 +14,6 @@ packages:
 - hie-brittany
 - hie-haddock
 
-- location:
-    # ../hlint
-    git: https://github.com/alanz/hlint.git
-    commit: 4b05278e50b1d41186aba2c90a653d3e12a20b45
-  extra-dep: true
 
 # - location:
 #     # ../haskell-lsp
@@ -81,6 +76,7 @@ extra-deps:
 - czipwith-1.0.0.0
 - data-tree-print-0.1.0.0
 - deque-0.2
+- hlint-2.0.11
 - hoogle-5.0.13
 - monad-memo-0.4.1
 - syz-0.2.0.0

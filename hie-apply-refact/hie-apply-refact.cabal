@@ -27,7 +27,7 @@ library
                      , haskell-src-exts
                      , hie-base
                      , hie-plugin-api
-                     , hlint >= 2.0.8
+                     , hlint >= 2.0.11
                      , text
   ghc-options:         -Wall
   if flag(pedantic)
