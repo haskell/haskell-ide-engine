@@ -137,6 +137,7 @@ test-suite haskell-ide-test
                      , transformers
                      , unordered-containers
                      , vector
+                     , yaml
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror
@@ -172,6 +173,7 @@ test-suite haskell-ide-func-test
                      , transformers
                      , unordered-containers
                      , vinyl
+                     , yaml
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror

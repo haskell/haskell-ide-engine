@@ -14,6 +14,7 @@ we talk to clients.__
     - [Features](#features)
     - [Installation](#installation)
         - Installation with [stack](#installation-with-stack) or [Nix](#installation-with-nix)
+        - [ArchLinux](#archlinux)
     - [Editor Integration](#editor-integration)
         - Using HIE with [VS Code](#using-hie-with-vs-code), [Sublime Text](#using-hie-with-sublime-text), [Neovim](#using-hie-with-neovim) or [Atom](#using-hie-with-atom)
     - [Hoogle Docs on hover](#hoogle-docs-on-hover)
@@ -94,6 +95,15 @@ Alternatively, given that you have Nix installed:
 $ stack install --nix
 ```
 
+### ArchLinux
+
+An [haskell-ide-engine-git](https://aur.archlinux.org/packages/haskell-ide-engine-git/) package is available on the AUR.
+
+Using [Aura](https://github.com/aurapm/aura):
+
+```
+$ aura -A haskell-ide-engine-git
+```
 
 ## Editor Integration
 
