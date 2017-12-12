@@ -54,9 +54,7 @@ import qualified Haskell.Ide.GhcModPlugin as GhcMod
 import qualified Haskell.Ide.ApplyRefactPlugin as ApplyRefact
 import qualified Haskell.Ide.BrittanyPlugin as Brittany
 import qualified Haskell.Ide.HooglePlugin as Hoogle
-#if __GLASGOW_HASKELL__ <= 802
 import qualified Haskell.Ide.HaddockPlugin as Haddock
-#endif
 import qualified Language.Haskell.LSP.Control  as CTRL
 import qualified Language.Haskell.LSP.Core     as Core
 import qualified Language.Haskell.LSP.VFS     as VFS
@@ -403,11 +401,9 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         mapFileFromVfs versionTVar cin $ J.VersionedTextDocumentIdentifier uri ver
         requestDiagnostics cin uri ver
         -- initialize haddock
-#if __GLASGOW_HASKELL__ <= 802
         let hreq = IReq Nothing Nothing Nothing (const $ return ()) $ do
                      Haddock.initializeHaddock
         makeRequest hreq
-#endif
 
       -- -------------------------------
 
@@ -521,15 +517,11 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                     (Just (pkg,mdl)) -> do
                       let mname = "`"<> sname <> "`\n\n"
                       let minfo = maybe "" (<>" ") pkg <> mdl
-#if __GLASGOW_HASKELL__ > 802
-                      mdocu <- lift $ getDocsForName sname pkg mdl
-#else
                       mdocu' <- lift $ Haddock.getDocsWithType df name
                       mdocu <- case mdocu' of
                         Just _ -> return mdocu'
                         -- Hoogle as fallback
                         Nothing -> lift $ getDocsForName sname pkg mdl
-#endif
                       case mdocu of
                         Nothing -> return $ mname <> minfo
                         Just docu -> return $ docu <> "\n\n" <> minfo

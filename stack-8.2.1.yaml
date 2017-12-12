@@ -12,7 +12,7 @@ packages:
 - hie-hoogle
 - hie-plugin-api
 - hie-brittany
-# - hie-haddock
+- hie-haddock
 
 - location:
     # ../hlint
@@ -41,9 +41,8 @@ packages:
   extra-dep: true
 
 - location:
-    # git: https://github.com/alanz/ghc-mod.git
-    git: https://gitlab.com/alanz/ghc-mod.git
-    commit: 8f93ef8e177d59f296c8399618410fdf7bb0e6b0
+    git: https://github.com/wz1000/ghc-mod.git
+    commit: 03c91ea53b6389e7a1fcf4e471171aa3d6c8de41
     # ../ghc-mod
   extra-dep: true
   subdirs:
@@ -64,14 +63,6 @@ packages:
     commit: 32a193f0ce02ec36a6032852454db96573ab3a60
   extra-dep: true
 
-# - location:
-#     git: https://github.com/haskell/haddock.git
-#     commit:  fe4c6c7d2907a79118d836e72c0442d666091524
-#   extra-dep: true
-#   subdirs:
-#     - haddock-api
-#     - haddock-library
-
 extra-deps:
 - butcher-1.1.0.1
 # - Cabal-2.0.0.2
@@ -82,6 +73,8 @@ extra-deps:
 - monad-memo-0.4.1
 - syz-0.2.0.0
 - yi-rope-0.10
+- haddock-api-2.18.1
+- haddock-library-1.4.4
 
 flags:
   haskell-ide-engine:
