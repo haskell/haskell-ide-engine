@@ -4,6 +4,7 @@ module GhcTreePluginSpec where
 import           Control.Concurrent
 import           Data.Aeson
 import qualified GhcMod.ModuleLoader                as GM
+import qualified Data.Map                           as Map
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -38,7 +39,7 @@ dispatchRequest plugin com arg = do
   takeMVar mv
 
 dispatchRequestP :: IdeM a -> IO a
-dispatchRequestP = runIdeM testOptions (IdeState testPlugins GM.emptyModuleCache)
+dispatchRequestP = runIdeM testOptions (IdeState GM.emptyModuleCache testPlugins Map.empty)
 
 -- ---------------------------------------------------------------------
 

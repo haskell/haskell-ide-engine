@@ -29,7 +29,6 @@ import           Data.Aeson
 import qualified Data.HashMap.Strict                   as H
 import qualified Data.Map                              as Map
 import qualified Data.Set                              as S
-import qualified Data.Text                             as T
 import qualified GhcMod.ModuleLoader                   as GM
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
@@ -68,21 +67,19 @@ plugins = pluginDescToIdePlugins
   ,("base"       , baseDescriptor)
   ]
 
-startServer :: IO (TChan PluginRequest)
+startServer :: IO (TChan IdeRequest)
 startServer = do
   cin  <- atomically newTChan
 
   let dispatcherProc dispatcherEnv
-        = void $ forkIO $ runIdeM testOptions (IdeState plugins GM.emptyModuleCache) (dispatcherP dispatcherEnv cin)
+        = void $ forkIO $ runIdeM testOptions (IdeState GM.emptyModuleCache plugins Map.empty) (ideDispatcher dispatcherEnv cin)
   cancelTVar      <- atomically $ newTVar S.empty
   wipTVar         <- atomically $ newTVar S.empty
   versionTVar     <- atomically $ newTVar Map.empty
-  moduleCacheTVar <- atomically $ newTVar Map.empty
   let dispatcherEnv = DispatcherEnv
         { cancelReqsTVar     = cancelTVar
         , wipReqsTVar        = wipTVar
         , docVersionTVar     = versionTVar
-        , docModuleCacheTVar = moduleCacheTVar
         }
 
   void $ dispatcherProc dispatcherEnv
@@ -103,10 +100,10 @@ spec = do
 
 -- ---------------------------------------------------------------------
 
-dispatchRequest :: ToJSON a => TChan PluginRequest -> PluginId -> CommandName -> a -> IO (IdeResponse Value)
+dispatchRequest :: ToJSON a => TChan IdeRequest -> PluginId -> CommandName -> a -> IO (IdeResponse Value)
 dispatchRequest cin plugin com arg = do
   mv <- newEmptyMVar
-  let req = PReq Nothing Nothing Nothing (const $ return ()) $
+  let req = IdeRequest Nothing Nothing Nothing (const $ return ()) $
         runPluginCommand plugin com (toJSON arg) (putMVar mv)
   atomically $ writeTChan cin req
   takeMVar mv
@@ -137,23 +134,6 @@ functionalSpec = do
                                         ]
                                       }
                                      )
-
-      -- -------------------------------
-
-      let req2 = TP False (filePathToUri "./FuncTest.hs") (toPos (10,2))
-      r2 <- dispatchRequest cin "ghcmod" "type" req2
-      r2 `shouldBe`
-        IdeResponseOk (toJSON [(Range (toPos (10,1)) (toPos (11,19)), ("IO ()" :: T.Text))])
-
-      -- -------------------------------
-
-      let req4 = TP False (filePathToUri "./FuncTest.hs") (toPos (8,1))
-      r4 <- dispatchRequest cin "ghcmod" "type" req4
-      r4 `shouldBe`
-        IdeResponseOk (toJSON [(Range (toPos (8,1)) (toPos (8,7)), ("Int" :: T.Text))])
-
-      -- -------------------------------
-
       let req3 = HP (filePathToUri "./FuncTest.hs") (toPos (8,1))
       r3 <- dispatchRequest cin "hare" "demote" req3
       r3 `shouldBe`
