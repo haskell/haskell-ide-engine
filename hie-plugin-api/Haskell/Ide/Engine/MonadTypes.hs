@@ -36,7 +36,8 @@ import           Control.Monad.Reader
 import Control.Concurrent.STM
 import qualified Data.Map as Map
 import qualified Data.Text as T
-import           Data.Dynamic
+import           Data.Typeable (TypeRep)
+import           Data.Dynamic (Dynamic)
 import           Haskell.Ide.Engine.PluginTypes
 import qualified GhcMod.ModuleLoader as GM
 import qualified GhcMod.Monad        as GM

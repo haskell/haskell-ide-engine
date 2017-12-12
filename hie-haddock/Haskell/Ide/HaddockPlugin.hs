@@ -3,6 +3,7 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE CPP                 #-}
 module Haskell.Ide.HaddockPlugin where
 
 import           Control.Monad.State
@@ -21,6 +22,9 @@ import           Haskell.Ide.Engine.MonadFunctions            as MF
 import           HscTypes
 import           Name
 import           Packages
+#if __GLASGOW_HASKELL__ > 800
+import           NameCache
+#endif
 
 import           Haskell.Ide.HaRePlugin
 

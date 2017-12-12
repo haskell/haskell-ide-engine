@@ -16,6 +16,7 @@ module Haskell.Ide.Engine.MonadFunctions
 
 import Control.Monad.IO.Class
 import System.Log.Logger
+import Data.Typeable
 import Data.Dynamic
 import qualified Data.Map as Map
 
