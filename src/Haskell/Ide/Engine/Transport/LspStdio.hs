@@ -526,7 +526,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
 #else
                       mdocu' <- lift $ Haddock.getDocsWithType df name
                       mdocu <- case mdocu' of
-                        Just x -> return x
+                        Just _ -> return mdocu'
                         -- Hoogle as fallback
                         Nothing -> lift $ getDocsForName sname pkg mdl
 #endif
