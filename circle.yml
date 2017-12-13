@@ -14,6 +14,8 @@ dependencies:
     - stack upgrade
     - stack --version
   override:
+    - stack upgrade
+    - stack --version
     - stack setup
     - stack install hoogle
     - ~/.local/bin/hoogle generate
