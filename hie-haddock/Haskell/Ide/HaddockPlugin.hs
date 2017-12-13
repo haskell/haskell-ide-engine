@@ -10,6 +10,7 @@ import           Control.Monad.State
 import           Data.Foldable
 import qualified Data.Map                                     as Map
 import           Data.Monoid
+import           Data.Maybe
 import qualified Data.Text                                    as T
 import           Data.IORef
 import           System.Directory
@@ -72,6 +73,11 @@ newtype HaddockState = HS { nameCache :: Maybe (IORef NameCache)}
 instance ExtensionClass HaddockState where
   initialValue = HS Nothing
 
+initialized :: MonadMTState IdeState m => m Bool
+initialized = do
+  HS x <- MF.get
+  return (isJust x)
+
 initializeHaddock :: IdeM ()
 initializeHaddock = do
   ref <- GM.unGmlT $ withSession (return . hsc_NC)
@@ -100,11 +106,13 @@ nameCacheFromAsyncM = ( read_from_session , write_to_session )
 
 getDocsForName :: DynFlags -> Name -> AsyncM (Maybe T.Text)
 getDocsForName df name = do
+  init <- initialized
   let mfs = nameModule_maybe name >>=
               lookupHaddock df . moduleUnitId
   mf <- case mfs of
     Nothing -> pure Nothing
-    Just fs -> liftIO $ do
+    Just fs | not init -> pure Nothing
+            | otherwise -> liftIO $ do
       fs' <- filterM doesFileExist fs
       case fs' of
         [] -> pure Nothing
