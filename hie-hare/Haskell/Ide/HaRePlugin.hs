@@ -281,9 +281,9 @@ instance GM.ModuleCache NameMapData where
 
 -- ---------------------------------------------------------------------
 
-getSymbols :: Uri -> IdeM (IdeResponse [J.SymbolInformation])
+getSymbols :: Uri -> AsyncM (IdeResponse [J.SymbolInformation])
 getSymbols uri = pluginGetFile "getSymbols: " uri $ \file -> do
-    mcm <- GM.getCachedModule (GM.filePathToUri file)
+    mcm <- GM.getCachedModule file
     case mcm of
       Nothing -> return $ IdeResponseOk []
       Just cm -> do
@@ -358,7 +358,7 @@ getSymbols uri = pluginGetFile "getSymbols: " uri $ \file -> do
                   f _ = []
 
               declsToSymbolInf :: (J.SymbolKind, Located T.Text, Maybe T.Text)
-                               -> IdeM (Either T.Text J.SymbolInformation)
+                               -> AsyncM (Either T.Text J.SymbolInformation)
               declsToSymbolInf (kind, L l nameText, cnt) = do
                 eloc <- srcSpan2Loc rfm l
                 case eloc of
@@ -423,7 +423,7 @@ getCompletions uri (qualifier,ident) = pluginGetFile "getCompletions: " uri $ \f
   let noCache = return $ nonExistentCacheErr "getCompletions"
   let modQual = if T.null qualifier then "" else qualifier <> "."
   let fullPrefix = modQual <> ident
-  GM.withCachedModule (GM.filePathToUri file) noCache $
+  GM.withCachedModule file noCache $
     \cm -> do
       let tm = GM.tcMod cm
           parsedMod = tm_parsed_module tm
@@ -527,13 +527,11 @@ getTypeForName n = GM.unGmlT $ do
 
 -- ---------------------------------------------------------------------
 
-getSymbolsAtPoint :: Uri -> Position -> IdeM (IdeResponse [(Range, Name)])
+getSymbolsAtPoint :: Uri -> Position -> AsyncM (IdeResponse [(Range, Name)])
 getSymbolsAtPoint uri pos = pluginGetFile "getSymbolsAtPoint: " uri $ \file -> do
   let noCache = return $ nonExistentCacheErr "getSymbolAtPoint"
-  GM.withCachedModule (GM.filePathToUri file) noCache $
-    \cm ->
-      return $ IdeResponseOk
-             $ maybe [] (`getArtifactsAtPos` GM.locMap cm) $ newPosToOld cm pos
+  GM.withCachedModule file noCache $
+    return . IdeResponseOk . getSymbolsAtPointPure pos
 
 getSymbolsAtPointPure :: Position -> GM.CachedModule -> [(Range,Name)]
 getSymbolsAtPointPure pos cm = maybe [] (`getArtifactsAtPos` GM.locMap cm) $ newPosToOld cm pos
@@ -549,10 +547,10 @@ symbolFromTypecheckedModule lm pos =
 
 -- ---------------------------------------------------------------------
 
-getReferencesInDoc :: Uri -> Position -> IdeM (IdeResponse [J.DocumentHighlight])
+getReferencesInDoc :: Uri -> Position -> AsyncM (IdeResponse [J.DocumentHighlight])
 getReferencesInDoc uri pos = pluginGetFile "getReferencesInDoc: " uri $ \file -> do
   let noCache = return $ nonExistentCacheErr "getReferencesInDoc"
-  GM.withCachedModuleAndData (GM.filePathToUri file) noCache $
+  GM.withCachedModuleAndData file noCache $
     \cm NMD{inverseNameMap} -> runEitherT $ do
       let lm = GM.locMap cm
           pm = tm_parsed_module $ GM.tcMod cm
@@ -606,7 +604,7 @@ getNewNames old = do
 findDef :: Uri -> Position -> IdeM (IdeResponse [Location])
 findDef uri pos = pluginGetFile "findDef: " uri $ \file -> do
   let noCache = return $ nonExistentCacheErr "hare:findDef"
-  GM.withCachedModule (GM.filePathToUri file) noCache $
+  GM.withCachedModule file noCache $
     \cm -> do
       let rfm = GM.revMap cm
           lm = GM.locMap cm
@@ -637,7 +635,7 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file -> do
                         case ml_hs_file mLoc of
                           Just fp -> do
                             cfp <- reverseMapFile rfm fp
-                            mcm' <- GM.getCachedModule (GM.filePathToUri cfp)
+                            mcm' <- GM.getCachedModule cfp
                             rcm' <- case mcm' of
                               Just cmdl -> do
                                 debugm "module already in cache in findDef"
@@ -645,7 +643,7 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file -> do
                               Nothing -> do
                                 debugm "setting cached module in findDef"
                                 _ <- setTypecheckedModule $ filePathToUri cfp
-                                GM.getCachedModule (GM.filePathToUri cfp)
+                                GM.getCachedModule cfp
                             case rcm' of
                               Nothing ->
                                 return

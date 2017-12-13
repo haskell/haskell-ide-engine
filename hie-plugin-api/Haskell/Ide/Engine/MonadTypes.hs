@@ -1,5 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
@@ -18,14 +20,24 @@ module Haskell.Ide.Engine.MonadTypes
   -- * The IDE monad
   , IdeM
   , IdeState(..)
+  , AsyncM
+  , liftAsync
+  , MultiThreadState
+  , readMTState
+  , modifyMTState
+  , runMTState
+  , MonadMTState(..)
   -- * All the good types
   , module Haskell.Ide.Engine.PluginTypes
   ) where
 
 import           Data.Aeson
-import           Control.Monad.State.Strict
+import           Control.Monad.Reader
+import Control.Concurrent.STM
 import qualified Data.Map as Map
 import qualified Data.Text as T
+import           Data.Typeable (TypeRep)
+import           Data.Dynamic (Dynamic)
 import           Haskell.Ide.Engine.PluginTypes
 import qualified GhcMod.ModuleLoader as GM
 import qualified GhcMod.Monad        as GM
@@ -63,16 +75,60 @@ instance ToJSON IdePlugins where
 
 -- ---------------------------------------------------------------------
 
-type IdeM = IdeT IO
-type IdeT m = GM.GhcModT (StateT IdeState m)
+type MultiThreadState s = ReaderT (TVar s) IO
+
+readMTState :: MultiThreadState s s
+readMTState = ask >>= liftIO . readTVarIO
+
+modifyMTState :: (s -> s) -> MultiThreadState s ()
+modifyMTState f = do
+  tvar <- ask
+  liftIO $ atomically $ modifyTVar' tvar f
+
+runMTState :: MultiThreadState s a -> s -> IO a
+runMTState m s = do
+  tv <- newTVarIO s
+  runReaderT m tv
+
+class MonadIO m => MonadMTState s m | m -> s where
+  readMTS :: m s
+  modifyMTS :: (s -> s) -> m ()
+  writeMTS :: s -> m ()
+  writeMTS s = modifyMTS (const s)
+
+instance MonadMTState s (MultiThreadState s) where
+  readMTS = readMTState
+  modifyMTS = modifyMTState
+
+-- ---------------------------------------------------------------------
+type IdeM = GM.GhcModT AsyncM
+
+instance MonadMTState IdeState IdeM where
+  readMTS = lift $ lift $ readMTS
+  modifyMTS f = lift $ lift $ modifyMTS f
+
+type AsyncM = MultiThreadState IdeState
+
+liftAsync :: AsyncM a -> IdeM a
+liftAsync = lift . lift
 
 data IdeState = IdeState
-  { idePlugins  :: IdePlugins
-  , moduleCache :: GM.GhcModuleCache
+  { moduleCache :: GM.GhcModuleCache
+  , idePlugins  :: IdePlugins
+  , extensibleState :: !(Map.Map TypeRep Dynamic)
   } deriving (Show)
 
-instance (Monad m) => GM.HasGhcModuleCache (IdeT m) where
-  getModuleCache    = lift . lift $ gets moduleCache
-  setModuleCache mc = lift . lift $ modify (\s -> s { moduleCache = mc })
+instance GM.HasGhcModuleCache AsyncM where
+  getModuleCache = do
+    tvar <- ask
+    state <- liftIO $ readTVarIO tvar
+    return (moduleCache state)
+  setModuleCache mc = do
+    tvar <- ask
+    liftIO $ atomically $ modifyTVar' tvar (\st -> st { moduleCache = mc })
+
+instance GM.HasGhcModuleCache IdeM where
+  getModuleCache = lift . lift $ GM.getModuleCache
+  setModuleCache = lift . lift . GM.setModuleCache
 
 -- ---------------------------------------------------------------------

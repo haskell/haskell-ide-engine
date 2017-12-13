@@ -41,7 +41,6 @@ import qualified Data.SortedList as SL
 import qualified Data.Text as T
 import           Data.Text.Encoding
 import qualified Data.Vector as V
-import           GHC
 import qualified GhcModCore               as GM
 import qualified GhcMod.ModuleLoader      as GM
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -55,6 +54,7 @@ import qualified Haskell.Ide.GhcModPlugin as GhcMod
 import qualified Haskell.Ide.ApplyRefactPlugin as ApplyRefact
 import qualified Haskell.Ide.BrittanyPlugin as Brittany
 import qualified Haskell.Ide.HooglePlugin as Hoogle
+import qualified Haskell.Ide.HaddockPlugin as Haddock
 import qualified Language.Haskell.LSP.Control  as CTRL
 import qualified Language.Haskell.LSP.Core     as Core
 import qualified Language.Haskell.LSP.VFS     as VFS
@@ -91,12 +91,10 @@ run dispatcherProc cin _origDir = flip E.catches handlers $ do
       cancelTVar      <- atomically $ newTVar S.empty
       wipTVar         <- atomically $ newTVar S.empty
       versionTVar     <- atomically $ newTVar Map.empty
-      moduleCacheTVar <- atomically $ newTVar Map.empty
       let dispatcherEnv = DispatcherEnv
             { cancelReqsTVar     = cancelTVar
             , wipReqsTVar        = wipTVar
             , docVersionTVar     = versionTVar
-            , docModuleCacheTVar = moduleCacheTVar
             }
       let reactorFunc =  flip runReaderT lf $ reactor dispatcherEnv cin rin
       -- haskell lsp sets the current directory to the project root in the InitializeRequest
@@ -124,8 +122,6 @@ type ReactorInput
 
 -- ---------------------------------------------------------------------
 
-getDynFlags :: GM.CachedModule -> DynFlags
-getDynFlags cm = ms_hspp_opts $ pm_mod_summary $ tm_parsed_module $ GM.tcMod cm
 
 -- ---------------------------------------------------------------------
 
@@ -227,7 +223,7 @@ mapFileFromVfs verTVar cin vtdi = do
     (Just (VFS.VirtualFile _ yitext), Just fp) -> do
       let text' = Yi.toString yitext
           -- text = "{-# LINE 1 \"" ++ fp ++ "\"#-}\n" <> text'
-      let req = PReq (Just uri) Nothing Nothing (const $ return ())
+      let req = IReq (Just uri) Nothing Nothing (const $ return ())
                   $ IdeResponseOk <$> GM.loadMappedFileSource fp text'
       liftIO $ atomically $ do
         modifyTVar' verTVar (Map.insert uri ver)
@@ -240,7 +236,7 @@ _unmapFileFromVfs :: (MonadIO m)
 _unmapFileFromVfs verTVar cin uri = do
   case uriToFilePath uri of
     Just fp -> do
-      let req = PReq (Just uri) Nothing Nothing (const $ return ())
+      let req = IReq (Just uri) Nothing Nothing (const $ return ())
                  $ IdeResponseOk <$> GM.unloadMappedFile fp
       liftIO $ atomically $ do
         modifyTVar' verTVar (Map.delete uri)
@@ -251,7 +247,7 @@ _unmapFileFromVfs verTVar cin uri = do
 -- TODO: generalise this and move it to GhcMod.ModuleLoader
 updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeM (IdeResponse ())
 updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file -> do
-  mcm <- GM.getCachedModule (GM.filePathToUri file)
+  mcm <- GM.getCachedModule file
   case mcm of
     Just cm -> do
       let n2oOld = GM.newPosToOldPos cm
@@ -261,27 +257,21 @@ updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file 
             (n2o' <=< newToOld r txt, oldToNew r txt <=< o2n')
           go _ _ = (const Nothing, const Nothing)
       let cm' = cm {GM.newPosToOldPos = n2o, GM.oldPosToNewPos = o2n}
-      GM.cacheModule (GM.filePathToUri file) cm'
+      GM.cacheModule file cm'
       return $ IdeResponseOk ()
     Nothing ->
       return $ IdeResponseOk ()
   where
-    oldToNew (J.Range (Position sl _) (Position el _)) txt p@(GM.Pos l c)
+    f (+/-) (J.Range (Position sl _) (Position el _)) txt p@(GM.Pos l c)
       | l < sl = Just p
       | l > el = Just $ GM.Pos l' c
       | otherwise = Nothing
-         where l' = l + dl
+         where l' = l +/- dl
                dl = newL - oldL
                oldL = el-sl
                newL = T.count "\n" txt
-    newToOld (J.Range (Position sl _) (Position el _)) txt p@(GM.Pos l c)
-      | l < sl = Just p
-      | l > el = Just $ GM.Pos l' c
-      | otherwise = Nothing
-         where l' = l - dl
-               dl = newL - oldL
-               oldL = el-sl
-               newL = T.count "\n" txt
+    oldToNew = f (+)
+    newToOld = f (-)
 
 -- ---------------------------------------------------------------------
 
@@ -334,18 +324,16 @@ sendErrorLog msg = reactorSend' (`Core.sendErrorLogS` msg)
 -- to stitch replies and requests together from the two asynchronous sides: lsp
 -- server and hie dispatcher
 reactor :: forall void. DispatcherEnv -> TChan PluginRequest -> TChan ReactorInput -> R void
-reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin inp = do
+reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
   let
-    makeRequest req@(PReq _ Nothing (Just lid) _ _) = liftIO $ atomically $ do
+    makeRequest req@(IReq _ Nothing (Just lid) _ _) = liftIO $ atomically $ do
+      modifyTVar wipTVar (S.insert lid)
+      writeTChan cin req
+    makeRequest req@(AReq lid _ _) = liftIO $ atomically $ do
       modifyTVar wipTVar (S.insert lid)
       writeTChan cin req
     makeRequest req =
       liftIO $ atomically $ writeTChan cin req
-
-    getCachedModule :: (MonadIO m) => Uri -> m (Maybe GM.CachedModule)
-    getCachedModule uri = do
-      mc <- liftIO $ atomically $ readTVar moduleCacheTVar
-      return $ Map.lookup uri mc
 
   forever $ do
     inval <- liftIO $ atomically $ readTChan inp
@@ -392,7 +380,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
         reactorSend $ fmServerRegisterCapabilityRequest rid registrations
 
         lf <- ask
-        let hreq = PReq Nothing Nothing Nothing callback
+        let hreq = IReq Nothing Nothing Nothing callback $ do
                      Hoogle.initializeHoogleDb
             callback Nothing = flip runReaderT lf $
               reactorSend $
@@ -412,6 +400,10 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
             ver = td ^. J.version
         mapFileFromVfs versionTVar cin $ J.VersionedTextDocumentIdentifier uri ver
         requestDiagnostics cin uri ver
+        -- initialize haddock
+        let hreq = IReq Nothing Nothing Nothing (const $ return ()) $ do
+                     Haddock.initializeHaddock
+        makeRequest hreq
 
       -- -------------------------------
 
@@ -420,7 +412,6 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
 
       Core.NotDidChangeWatchedFiles _notification -> do
         liftIO $ U.logm "****** reactor: not processing NotDidChangeWatchedFiles"
-
       Core.NotDidSaveTextDocument notification -> do
         liftIO $ U.logm "****** reactor: processing NotDidSaveTextDocument"
         let
@@ -443,7 +434,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
             J.List changes = params ^. J.contentChanges
         mapFileFromVfs versionTVar cin vtdi
         -- Important - Call this before requestDiagnostics
-        makeRequest $ PReq (Just uri) Nothing Nothing (const $ return ())
+        makeRequest $ IReq (Just uri) Nothing Nothing (const $ return ())
                         $ updatePositionMap uri changes
         requestDiagnostics cin uri ver
 
@@ -452,9 +443,9 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
         let
             uri = notification ^. J.params . J.textDocument . J.uri
         -- unmapFileFromVfs versionTVar cin uri
-        makeRequest $ PReq (Just uri) Nothing Nothing (const $ return ()) $ do
+        makeRequest $ IReq (Just uri) Nothing Nothing (const $ return ()) $ do
           case uriToFilePath uri of
-            Just fp -> GM.deleteCachedModule (GM.filePathToUri fp)
+            Just fp -> GM.deleteCachedModule fp
             Nothing -> return ()
           return $ IdeResponseOk ()
 
@@ -469,7 +460,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
         callback <- hieResponseHelper (req ^. J.id) $ \we -> do
             let rspMsg = Core.makeResponseMessage req we
             reactorSend rspMsg
-        let hreq = PReq (Just $ doc ^. J.uri) Nothing (Just $ req ^. J.id) callback
+        let hreq = IReq (Just $ doc ^. J.uri) Nothing (Just $ req ^. J.id) callback
                      $ HaRe.renameCmd' (TextDocumentPositionParams doc pos) newName
         makeRequest hreq
 
@@ -481,9 +472,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
         let params = req ^. J.params
             pos = params ^. J.position
             doc = params ^. J.textDocument . J.uri
-        -- callback <- hieResponseHelper (req ^. J.id) $ \(typ,docs,mrange) -> do
-        let
-          callback (typ,docs,mrange) = do
+        callback <- hieResponseHelper (req ^. J.id) $ \(typ,docs,mrange) -> do
               let
                 ht = case mrange of
                   Nothing    -> J.Hover (J.List []) Nothing
@@ -493,78 +482,52 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
                       hovers = catMaybes [typ] ++ fmap J.PlainString docs
                 rspMsg = Core.makeResponseMessage req ht
               reactorSend rspMsg
-        mm <- getCachedModule doc
-        case mm of
-          Nothing -> reactorSend $ Core.makeResponseMessage req $ J.Hover (J.List []) Nothing
-          Just cm -> callback =<< do
-            -- let hreq = PReq (Just doc) Nothing (Just $ req ^. J.id) callback $ runEitherT $ do
-            --       info' <- EitherT $ GhcMod.newTypeCmd True doc pos
-            --       names' <- EitherT $ HaRe.getSymbolsAtPoint doc pos
-                  let
-                    info'  = GhcMod.pureTypeCmd pos cm
-                    names' = HaRe.getSymbolsAtPointPure pos cm
-                  let
-                    f = (==) `on` (HaRe.showName . snd)
-                    f' = compare `on` (HaRe.showName . snd)
-                    names = mapMaybe pickName $ groupBy f $ sortBy f' names'
-                    pickName [] = Nothing
-                    pickName [x] = Just x
-                    pickName xs@(x:_) = case find (isJust . nameModule_maybe . snd) xs of
-                      Nothing -> Just x
-                      Just a -> Just a
-                    nnames = length names
-                    (info,mrange) =
-                      case map last $ groupBy ((==) `on` fst) info' of
-                        ((r,typ):_) ->
-                          case find ((r ==) . fst) names of
-                            Nothing ->
-                              (Just $ J.CodeString $ J.LanguageString "haskell" $ "_ :: " <> typ, Just r)
-                            Just (_,name)
-                              | nnames == 1 ->
-                                (Just $ J.CodeString $ J.LanguageString "haskell" $ HaRe.showName name <> " :: " <> typ, Just r)
-                              | otherwise ->
-                                (Just $ J.CodeString $ J.LanguageString "haskell" $ "_ :: " <> typ, Just r)
-                        [] -> case names of
-                          [] -> (Nothing, Nothing)
-                          ((r,_):_) -> (Nothing, Just r)
-                  docs <- forM names $ \(_,name) -> do
-                      let sname = HaRe.showName name
-                      -- df <- lift GhcMod.getDynFlags
-                      let df = getDynFlags cm
-                      case HaRe.getModule df name of
-                        Nothing -> return $ "`" <> sname <> "` *local*"
-                        (Just (pkg,mdl)) -> do
-#if __GLASGOW_HASKELL__ >= 802
-                          let mname = "`"<> sname <> "`\n\n"
-                          let minfo = maybe "" (<>" ") pkg <> mdl
-                          return $ mname <> minfo
-#else
-                          return $ "`"<> sname <> "`\n" <> maybe "" (<>" ") pkg <> mdl
-#endif
+        let hreq = AReq (req ^. J.id) callback $ runEitherT $ do
+              info' <- EitherT $ GhcMod.newTypeCmd pos doc
+              names' <- EitherT $ HaRe.getSymbolsAtPoint doc pos
+              let
+                f = (==) `on` (HaRe.showName . snd)
+                f' = compare `on` (HaRe.showName . snd)
+                names = mapMaybe pickName $ groupBy f $ sortBy f' names'
+                pickName [] = Nothing
+                pickName [x] = Just x
+                pickName xs@(x:_) = case find (isJust . nameModule_maybe . snd) xs of
+                  Nothing -> Just x
+                  Just a -> Just a
+                nnames = length names
+                (info,mrange) =
+                  case map last $ groupBy ((==) `on` fst) info' of
+                    ((r,typ):_) ->
+                      case find ((r ==) . fst) names of
+                        Nothing ->
+                          (Just $ J.CodeString $ J.LanguageString "haskell" $ "_ :: " <> typ, Just r)
+                        Just (_,name)
+                          | nnames == 1 ->
+                            (Just $ J.CodeString $ J.LanguageString "haskell" $ HaRe.showName name <> " :: " <> typ, Just r)
+                          | otherwise ->
+                            (Just $ J.CodeString $ J.LanguageString "haskell" $ "_ :: " <> typ, Just r)
+                    [] -> case names of
+                      [] -> (Nothing, Nothing)
+                      ((r,_):_) -> (Nothing, Just r)
+              df <- EitherT $ GhcMod.getDynFlags doc
+              docs <- forM names $ \(_,name) -> do
+                  let sname = HaRe.showName name
+                  case HaRe.getModule df name of
+                    Nothing -> return $ "`" <> sname <> "` *local*"
+                    (Just (pkg,mdl)) -> do
+                      let mname = "`"<> sname <> "`\n\n"
+                      let minfo = maybe "" (<>" ") pkg <> mdl
+                      mdocu' <- lift $ Haddock.getDocsWithType df name
+                      mdocu <- case mdocu' of
+                        Just _ -> return mdocu'
+                        -- Hoogle as fallback
+                        Nothing -> lift $ getDocsForName sname pkg mdl
+                      case mdocu of
+                        Nothing -> return $ mname <> minfo
+                        Just docu -> return $ docu <> "\n\n" <> minfo
+              return (info,docs,mrange)
+        makeRequest hreq
 
-{- AZ temporary
-#if __GLASGOW_HASKELL__ >= 802
-                          mdocu <- lift $ getDocsForName sname pkg mdl
-#else
-                          mdocu <- lift $ Haddock.getDocsWithType df name
-                          let mname = "`"<> sname <> "`\n\n"
-                          let minfo = maybe "" (<>" ") pkg <> mdl
-#endif
-                          let mname = "`"<> sname <> "`\n\n"
-                          let minfo = maybe "" (<>" ") pkg <> mdl
-                          case mdocu of
-#if __GLASGOW_HASKELL__ >= 802
-                            Nothing -> return $ mname <> minfo
-                            Just docu -> return $ docu <> "\n\n" <> minfo
-#else
-                            Nothing -> return $ "`"<> sname <> "`\n" <> maybe "" (<>" ") pkg <> mdl
-                            Just docu -> return docu
-#endif
-                  return (info,docs,mrange)
--}
-                  return (info,docs,mrange)
-                  -- return docs
-            -- makeRequest hreq
         liftIO $ U.logs $ "reactor:HoverRequest done"
 
       -- -------------------------------
@@ -617,7 +580,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
               reactorSend msg
             _ -> reactorSend $ Core.makeResponseMessage req obj
         let (plugin,cmd) = T.break (==':') command
-        let preq = PReq Nothing Nothing (Just $ req ^. J.id) (const $ return ())
+        let preq = IReq Nothing Nothing (Just $ req ^. J.id) (const $ return ())
                      $ runPluginCommand plugin (T.drop 1 cmd) cmdparams callback
         makeRequest preq
 
@@ -638,7 +601,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
         case mprefix of
           Nothing -> liftIO $ callback $ IdeResponseOk []
           Just prefix -> do
-            let hreq = PReq (Just doc) Nothing (Just $ req ^. J.id) callback
+            let hreq = IReq (Just doc) Nothing (Just $ req ^. J.id) callback
                          $ HaRe.getCompletions doc prefix
             makeRequest hreq
 
@@ -652,11 +615,11 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
           let rspMsg = Core.makeResponseMessage req $
                          origCompl & J.documentation .~ docs
           reactorSend rspMsg
-        let hreq = PReq Nothing Nothing (Just $ req ^. J.id) callback $ runEitherT $ do
+        let hreq = IReq Nothing Nothing (Just $ req ^. J.id) callback $ runEitherT $ do
               case mquery of
                 Nothing -> return Nothing
                 Just query -> do
-                  res <- lift $ Hoogle.infoCmd' query
+                  res <- lift $ liftAsync $ Hoogle.infoCmd' query
                   case res of
                     Right x -> return $ Just x
                     _ -> return Nothing
@@ -672,7 +635,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
         callback <- hieResponseHelper (req ^. J.id) $ \highlights -> do
           let rspMsg = Core.makeResponseMessage req $ J.List highlights
           reactorSend rspMsg
-        let hreq = PReq (Just doc) Nothing (Just $ req ^. J.id) callback
+        let hreq = AReq (req ^. J.id) callback
                  $ HaRe.getReferencesInDoc doc pos
         makeRequest hreq
 
@@ -685,7 +648,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
         callback <- hieResponseHelper (req ^. J.id) $ \loc -> do
             let rspMsg = Core.makeResponseMessage req loc
             reactorSend rspMsg
-        let hreq = PReq (Just doc) Nothing (Just $ req ^. J.id) callback
+        let hreq = IReq (Just doc) Nothing (Just $ req ^. J.id) callback
                      $ fmap J.MultiLoc <$> HaRe.findDef doc pos
         makeRequest hreq
 
@@ -705,7 +668,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
         callback <- hieResponseHelper (req ^. J.id) $ \textEdit -> do
             let rspMsg = Core.makeResponseMessage req $ J.List textEdit
             reactorSend rspMsg
-        let hreq = PReq (Just $ doc ^. J.uri) Nothing (Just $ req ^. J.id) callback
+        let hreq = IReq (Just $ doc ^. J.uri) Nothing (Just $ req ^. J.id) callback
                      $ Brittany.brittanyCmd tabSize doc Nothing
         makeRequest hreq
 
@@ -720,7 +683,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
         callback <- hieResponseHelper (req ^. J.id) $ \textEdit -> do
             let rspMsg = Core.makeResponseMessage req $ J.List textEdit
             reactorSend rspMsg
-        let hreq = PReq (Just $ doc ^. J.uri) Nothing (Just $ req ^. J.id) callback
+        let hreq = IReq (Just $ doc ^. J.uri) Nothing (Just $ req ^. J.id) callback
                      $ Brittany.brittanyCmd tabSize doc (Just range)
         makeRequest hreq
 
@@ -732,8 +695,8 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
         callback <- hieResponseHelper (req ^. J.id) $ \docSymbols -> do
             let rspMsg = Core.makeResponseMessage req $ J.List docSymbols
             reactorSend rspMsg
-        let hreq = PReq (Just uri) Nothing (Just $ req ^. J.id) callback
-                     $ HaRe.getSymbols uri
+        let hreq = AReq (req ^. J.id) callback
+                 $ HaRe.getSymbols uri
         makeRequest hreq
 
       -- -------------------------------
@@ -766,20 +729,20 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar moduleCacheTVar) cin in
 
 -- ---------------------------------------------------------------------
 
-_docRules :: Maybe T.Text -> T.Text -> T.Text
-_docRules (Just "base") "GHC.Base"    = "Prelude"
-_docRules (Just "base") "GHC.Enum"    = "Prelude"
-_docRules (Just "base") "GHC.Num"     = "Prelude"
-_docRules (Just "base") "GHC.Real"    = "Prelude"
-_docRules (Just "base") "GHC.Float"   = "Prelude"
-_docRules (Just "base") "GHC.Show"    = "Prelude"
-_docRules (Just "containers") modName =
+docRules :: Maybe T.Text -> T.Text -> T.Text
+docRules (Just "base") "GHC.Base"    = "Prelude"
+docRules (Just "base") "GHC.Enum"    = "Prelude"
+docRules (Just "base") "GHC.Num"     = "Prelude"
+docRules (Just "base") "GHC.Real"    = "Prelude"
+docRules (Just "base") "GHC.Float"   = "Prelude"
+docRules (Just "base") "GHC.Show"    = "Prelude"
+docRules (Just "containers") modName =
   fromMaybe modName $ T.stripSuffix ".Base" modName
-_docRules _ modName = modName
+docRules _ modName = modName
 
-_getDocsForName :: T.Text -> Maybe T.Text -> T.Text -> IdeM (Maybe T.Text)
-_getDocsForName name pkg modName' = do
-  let modName = _docRules pkg modName'
+getDocsForName :: T.Text -> Maybe T.Text -> T.Text -> AsyncM (Maybe T.Text)
+getDocsForName name pkg modName' = do
+  let modName = docRules pkg modName'
       query = name
            <> fromMaybe "" (T.append " package:" <$> pkg)
            <> " module:" <> modName
@@ -806,7 +769,7 @@ requestDiagnostics cin file ver = do
   let sendHlint = maybe True hlintOn mc
   when sendHlint $ do
     -- get hlint diagnostics
-    let reql = PReq (Just file) (Just (file,ver)) Nothing (flip runReaderT lf . callbackl)
+    let reql = IReq (Just file) (Just (file,ver)) Nothing (flip runReaderT lf . callbackl)
                  $ ApplyRefact.lintCmd' file
         callbackl (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
         callbackl (IdeResponseError err) = liftIO $ U.logs $ "got err" ++ show err
@@ -817,7 +780,7 @@ requestDiagnostics cin file ver = do
     liftIO $ atomically $ writeTChan cin reql
 
   -- get GHC diagnostics and loads the typechecked module into the cache
-  let reqg = PReq (Just file) (Just (file,ver)) Nothing (flip runReaderT lf . callbackg)
+  let reqg = IReq (Just file) (Just (file,ver)) Nothing (flip runReaderT lf . callbackg)
                $ GhcMod.setTypecheckedModule file
       callbackg (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
       callbackg (IdeResponseError err) = liftIO $ U.logs $ "got err" ++ show err

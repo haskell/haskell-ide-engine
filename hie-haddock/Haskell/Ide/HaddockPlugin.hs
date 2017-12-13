@@ -2,12 +2,15 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE CPP                 #-}
 module Haskell.Ide.HaddockPlugin where
 
 import           Control.Monad.State
 import           Data.Foldable
 import qualified Data.Map                                     as Map
 import           Data.Monoid
+import           Data.Maybe
 import qualified Data.Text                                    as T
 import           Data.IORef
 import           System.Directory
@@ -16,9 +19,13 @@ import           GHC
 import           GhcMonad
 import qualified GhcMod.Monad                                 as GM
 import           Haskell.Ide.Engine.MonadTypes
+import           Haskell.Ide.Engine.MonadFunctions            as MF
 import           HscTypes
 import           Name
 import           Packages
+#if __GLASGOW_HASKELL__ > 800
+import           NameCache
+#endif
 
 import           Haskell.Ide.HaRePlugin
 
@@ -62,6 +69,20 @@ lookupSrcHtmlForModule df m = do
     mn = map (\x -> if x == '.' then '-' else x) mns
     mns = moduleNameString $ moduleName m
 
+newtype HaddockState = HS { nameCache :: Maybe (IORef NameCache)}
+instance ExtensionClass HaddockState where
+  initialValue = HS Nothing
+
+initialized :: MonadMTState IdeState m => m Bool
+initialized = do
+  HS x <- MF.get
+  return (isJust x)
+
+initializeHaddock :: IdeM ()
+initializeHaddock = do
+  ref <- GM.unGmlT $ withSession (return . hsc_NC)
+  MF.put $ HS $ Just ref
+
 nameCacheFromGhcMonad :: GhcMonad m => NameCacheAccessor m
 nameCacheFromGhcMonad = ( read_from_session , write_to_session )
   where
@@ -72,14 +93,26 @@ nameCacheFromGhcMonad = ( read_from_session , write_to_session )
        ref <- withSession (return . hsc_NC)
        liftIO $ writeIORef ref nc'
 
+nameCacheFromAsyncM :: NameCacheAccessor AsyncM
+nameCacheFromAsyncM = ( read_from_session , write_to_session )
+  where
+    read_from_session = do
+       HS (Just ref) <- MF.get
+       liftIO $ readIORef ref
+    write_to_session nc' = do
+       HS (Just ref) <- MF.get
+       liftIO $ writeIORef ref nc'
 
-getDocsForName :: DynFlags -> Name -> IdeM (Maybe T.Text)
+
+getDocsForName :: DynFlags -> Name -> AsyncM (Maybe T.Text)
 getDocsForName df name = do
+  init <- initialized
   let mfs = nameModule_maybe name >>=
               lookupHaddock df . moduleUnitId
   mf <- case mfs of
     Nothing -> pure Nothing
-    Just fs -> liftIO $ do
+    Just fs | not init -> pure Nothing
+            | otherwise -> liftIO $ do
       fs' <- filterM doesFileExist fs
       case fs' of
         [] -> pure Nothing
@@ -87,7 +120,7 @@ getDocsForName df name = do
   case mf of
     Nothing -> return Nothing
     Just f -> do
-      ehi <- GM.unGmlT $ readInterfaceFile nameCacheFromGhcMonad f
+      ehi <- readInterfaceFile nameCacheFromAsyncM f
       case ehi of
         Left _ -> return Nothing
         Right hi -> do
@@ -111,10 +144,10 @@ getDocsForName df name = do
                 , maybe "" (\x ->"[Source](file://"<>T.pack x<>"#"<>showName name<>")") msrch
                 ]
 
-getDocsWithType :: DynFlags -> Name -> IdeM (Maybe T.Text)
+getDocsWithType :: DynFlags -> Name -> AsyncM (Maybe T.Text)
 getDocsWithType df name = do
   mdocs <- getDocsForName df name
-  mtyp <- getTypeForName name
+  let mtyp = Nothing-- getTypeForName name
   return $ case (mdocs,mtyp) of
     (Nothing, Nothing) ->
       Nothing

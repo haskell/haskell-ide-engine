@@ -23,8 +23,6 @@ module Haskell.Ide.Engine.PluginUtils
   , toPos
   , position2pos
   , pos2position
-  , uri2fileUri
-  , fileUri2uri
   ) where
 
 import           Control.Monad.IO.Class
@@ -190,9 +188,3 @@ fileInfo tfileName =
   in (dir,sfileName)
 
 -- ---------------------------------------------------------------------
-
-uri2fileUri :: Uri -> GM.FileUri
-uri2fileUri (Uri u) = GM.FileUri u
-
-fileUri2uri :: GM.FileUri -> Uri
-fileUri2uri (GM.FileUri u) = Uri u

@@ -53,7 +53,6 @@ ghcmodDescriptor = PluginDescriptor
       [ PluginCommand "check" "check a file for GHC warnings and errors" checkCmd
       , PluginCommand "lint" "Check files using `hlint'" lintCmd
       , PluginCommand "info" "Look up an identifier in the context of FILE (like ghci's `:info')" infoCmd
-      , PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmd
       ]
   }
 
@@ -161,7 +160,7 @@ setTypecheckedModule uri =
       Just tm -> do
         typm <- GM.unGmlT $ GM.genTypeMap tm
         let cm = GM.CachedModule tm (GM.genLocMap tm) typm rfm return return
-        GM.cacheModule (GM.filePathToUri fp) cm
+        GM.cacheModule fp cm
         return $ IdeResponseOk (diags,errs)
 
 -- ---------------------------------------------------------------------
@@ -201,37 +200,10 @@ infoCmd' uri expr =
 
 -- ---------------------------------------------------------------------
 
-data TypeParams =
-  TP { tpIncludeConstraints :: Bool
-     , tpFile               :: Uri
-     , tpPos                :: Position
-     } deriving (Eq,Show,Generic)
-
-instance FromJSON TypeParams where
-  parseJSON = genericParseJSON customOptions
-instance ToJSON TypeParams where
-  toJSON = genericToJSON customOptions
-
-typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
-typeCmd = CmdSync $ \(TP bool uri pos) -> do
-  _ <- setTypecheckedModule uri
-  newTypeCmd bool uri pos
-
-someErr :: String -> String -> IdeResponse a
-someErr meth err =
-  IdeResponseFail $
-    IdeError PluginError
-             (T.pack $ meth <> ": " <> err)
-             Null
-
-newTypeCmd :: Bool -> Uri -> Position -> IdeM (IdeResponse [(Range, T.Text)])
-newTypeCmd _bool uri newPos =
-  pluginGetFile "newTypeCmd: " uri $ \_fp ->
-    let handlers  = [GM.GHandler $ \(ex :: GM.SomeException) ->
-                       return $ someErr "newTypeCmd" (show ex)
-                    ] in
-    flip GM.gcatches handlers $ do
-      mcm <- GM.getCachedModule (uri2fileUri uri)
+newTypeCmd :: Position -> Uri -> AsyncM (IdeResponse [(Range, T.Text)])
+newTypeCmd newPos uri =
+  pluginGetFile "newTypeCmd: " uri $ \fp -> do
+      mcm <- GM.getCachedModule fp
       case mcm of
         Nothing -> return $ IdeResponseOk []
         Just cm -> return $ IdeResponseOk $ pureTypeCmd newPos cm
@@ -269,8 +241,17 @@ cmp a b
 isSubRangeOf :: Range -> Range -> Bool
 isSubRangeOf (Range sa ea) (Range sb eb) = sb <= sa && eb >= ea
 
-getDynFlags :: IdeM DynFlags
-getDynFlags = GM.unGmlT getSessionDynFlags
+getDynFlags :: Uri -> AsyncM (IdeResponse DynFlags)
+getDynFlags uri =
+  pluginGetFile "getDynFlags: " uri $ \fp -> do
+      mcm <- GM.getCachedModule fp
+      case mcm of
+        Just cm -> return $
+          IdeResponseOk $ ms_hspp_opts $ pm_mod_summary $ tm_parsed_module $ GM.tcMod cm
+        Nothing -> return $
+          IdeResponseFail $
+            IdeError PluginError ("getDynFlags: \"" <> "module not loaded" <> "\"") Null
+
 
 -- ---------------------------------------------------------------------
 

@@ -70,12 +70,10 @@ run dispatcherProc cin = flip E.catches handlers $ do
     cancelTVar      <- atomically $ newTVar S.empty
     wipTVar         <- atomically $ newTVar S.empty
     versionTVar     <- atomically $ newTVar Map.empty
-    moduleCacheTVar <- atomically $ newTVar Map.empty
     let dispatcherEnv = DispatcherEnv
           { cancelReqsTVar     = cancelTVar
           , wipReqsTVar        = wipTVar
           , docVersionTVar     = versionTVar
-          , docModuleCacheTVar = moduleCacheTVar
           }
 
     let race3_ a b c = race_ a (race_ b c)
@@ -103,7 +101,7 @@ run dispatcherProc cin = flip E.catches handlers $ do
       let sendResponse rid resp = atomically $ writeTChan rout (ReactorOutput rid resp) in
       forever $ do
         req <- getNextReq
-        let preq = PReq (context req) Nothing (Just $ J.IdInt rid) (const $ return ())
+        let preq = IReq (context req) Nothing (Just $ J.IdInt rid) (const $ return ())
               $ runPluginCommand (plugin req) (command req) (arg req) callback
             rid = reqId req
             callback = sendResponse rid

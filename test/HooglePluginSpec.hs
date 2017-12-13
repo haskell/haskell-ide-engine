@@ -5,7 +5,8 @@ module HooglePluginSpec where
 import           Control.Concurrent
 import           Control.Monad
 import           Data.Aeson
-import qualified Data.Vector                        as V
+import           Data.Maybe
+import qualified Data.Map                           as Map
 import qualified GhcMod.ModuleLoader                as GM
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadTypes
@@ -37,7 +38,7 @@ dispatchRequest plugin com arg = do
   takeMVar mv
 
 dispatchRequestP :: IdeM a -> IO a
-dispatchRequestP = runIdeM testOptions (IdeState testPlugins GM.emptyModuleCache)
+dispatchRequestP = runIdeM testOptions (IdeState GM.emptyModuleCache testPlugins Map.empty)
 
 -- ---------------------------------------------------------------------
 
@@ -48,33 +49,22 @@ hoogleSpec = do
       db <- defaultDatabaseLocation
       exists <- doesFileExist db
       unless exists $ hoogle ["generate"]
-  describe "hoogle plugin commands(old plugin api)" $ do
-    it "runs the info command" $ do
-      r <- dispatchRequest "hoogle" "info" ("head" :: String)
-      r `shouldBe` IdeResponseOk (String "head :: [a] -> a\nbase Prelude\nExtract the first element of a list, which must be non-empty.\n\n")
-
-    -- ---------------------------------
-
-    it "runs the lookup command" $ do
-      let extractFirst (IdeResponseOk xs) =
-              case xs of
-                   Array a -> a V.!? 0
-                   _       -> Nothing
-          extractFirst _ = Nothing
-      r <- dispatchRequest "hoogle" "lookup" ("[a] -> a" :: String)
-      extractFirst r `shouldBe` Just (String "Prelude head :: [a] -> a")
+  describe "hoogle initialization" $ do
+    it "initialization succeeds" $ do
+      r <- dispatchRequestP initializeHoogleDb
+      isJust r `shouldBe` True
 
   ---- ---------------------------------
 
   describe "hoogle plugin commands(new plugin api)" $ do
     it "runs the info command" $ do
-      let req = infoCmd' "head"
+      let req = liftAsync $ infoCmd' "head"
       r <- dispatchRequestP $ initializeHoogleDb >> req
       r `shouldBe` Right "head :: [a] -> a\nbase Prelude\nExtract the first element of a list, which must be non-empty.\n\n"
 
     -- ---------------------------------
 
     it "runs the lookup command" $ do
-      let req = lookupCmd' 1 "[a] -> a"
+      let req = liftAsync $ lookupCmd' 1 "[a] -> a"
       r <- dispatchRequestP $ initializeHoogleDb >> req
       r `shouldBe` Right ["Prelude head :: [a] -> a"]

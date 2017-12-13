@@ -8,7 +8,6 @@ import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Data.Monoid
 import qualified Data.Text                         as T
-import qualified GhcMod.ModuleLoader               as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 
@@ -50,7 +49,7 @@ newtype AsyncPluginState = APS (Maybe SubProcess)
 -- | Tag the state variable to enable it to be stored in the dispatcher state,
 -- accessible to all plugins, provided they know the type, as it is accessed via
 -- a @cast@
-instance GM.ExtensionClass AsyncPluginState where
+instance ExtensionClass AsyncPluginState where
   initialValue = APS Nothing
 
 -- ---------------------------------------------------------------------
@@ -70,14 +69,14 @@ longRunningCmdSync cmd = CmdSync $ \() -> do
 -- new @SubProcess@ value in the plugin state.
 ensureProcessRunning :: IdeM SubProcess
 ensureProcessRunning = do
-  (APS v) <- GM.get -- from extensible state
+  (APS v) <- get -- from extensible state
   case v of
     Nothing -> do
       cin  <- liftIO $ atomically newTChan
       cout <- liftIO $ atomically newTChan
       tid  <- liftIO $ forkIO (workerProc cin cout)
       let v' = SubProcess cin cout tid
-      GM.put (APS (Just v')) -- into extensible state
+      put (APS (Just v')) -- into extensible state
       return v'
     Just v' -> return v'
 
