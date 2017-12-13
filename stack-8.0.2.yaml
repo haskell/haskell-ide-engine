@@ -1,4 +1,4 @@
-resolver: nightly-2017-11-25
+resolver: lts-9.14
 packages:
 - .
 - hie-apply-refact
@@ -68,6 +68,9 @@ packages:
 #     - haddock-library
 
 extra-deps:
+- haskell-src-exts-util-0.2.1.2
+- haskell-lsp-0.2.0.0
+- apply-refact-0.3.0.1
 - butcher-1.1.0.1
 # - Cabal-2.0.0.2
 - czipwith-1.0.0.0
@@ -78,8 +81,6 @@ extra-deps:
 - monad-memo-0.4.1
 - syz-0.2.0.0
 - yi-rope-0.10
-- haddock-api-2.18.1
-- haddock-library-1.4.4
 
 flags:
   haskell-ide-engine:
