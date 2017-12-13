@@ -72,11 +72,11 @@ files =
 readResolver :: IO String
 readResolver =
 #if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,2,2,0)))
-  readResolverFrom "stack-8.2.2.yaml"
+  readResolverFrom "stack.yaml"
 #elif __GLASGOW_HASKELL__ >= 802
   readResolverFrom "stack-8.2.1.yaml"
 #else
-  readResolverFrom "stack.yaml"
+  readResolverFrom "stack-8.0.2.yaml"
 #endif
 
 newtype StackResolver = StackResolver String
