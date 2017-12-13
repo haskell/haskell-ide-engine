@@ -17,6 +17,7 @@ data GlobalOpts = GlobalOpts
   , projectRoot    :: Maybe String
   , optDumpSwagger :: Bool
   , optGhcModVomit :: Bool
+  , optEkg         :: Bool
   } deriving (Show)
 
 globalOptsParser :: Parser GlobalOpts
@@ -64,3 +65,6 @@ globalOptsParser = GlobalOpts
   <*> flag False True
        ( long "vomit"
        <> help "enable vomit logging for ghc-mod")
+  <*> flag False True
+       ( long "ekg"
+       <> help "enable ekg collection and display on http://localhost:8000")

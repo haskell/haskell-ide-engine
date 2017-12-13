@@ -2,6 +2,8 @@
 {-# LANGUAGE TemplateHaskell     #-}
 module Main where
 
+
+
 import           Control.Concurrent.STM.TChan
 import           Control.Monad
 import           Control.Monad.STM
@@ -27,6 +29,7 @@ import           Options.Applicative.Simple
 import qualified Paths_haskell_ide_engine              as Meta
 import           System.Directory
 import qualified System.Log.Logger                     as L
+import qualified System.Remote.Monitoring              as EKG
 
 -- ---------------------------------------------------------------------
 -- plugins
@@ -101,6 +104,8 @@ run opts = do
                    else L.INFO
 
   Core.setupLogger mLogFileName ["hie"] logLevel
+
+  when (optEkg opts) $ EKG.forkServer "localhost" 8000 >> return ()
 
   origDir <- getCurrentDirectory
 
