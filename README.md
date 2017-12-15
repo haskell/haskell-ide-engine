@@ -83,8 +83,22 @@ $ cd haskell-ide-engine
 
 To install HIE
 
+#### For GHC 8.2.2
+
 ```bash
 stack install
+```
+
+#### For GHC 8.2.1
+
+```bash
+stack --stack-yaml=stack-8.2.1.yaml install
+```
+
+#### For GHC 8.0.2
+
+```bash
+stack --stack-yaml=stack-8.0.2.yaml install
 ```
 
 ### Installation with Nix
