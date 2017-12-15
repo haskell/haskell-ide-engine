@@ -1,6 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeApplications    #-}
 -- | Functions that act within the IdeM monad
 
 module Haskell.Ide.Engine.IdeFunctions

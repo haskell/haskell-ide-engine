@@ -35,6 +35,7 @@ library
                      , monad-control
                      , mtl
                      , text
+                     , transformers
   ghc-options:         -Wall
   if flag(pedantic)
      ghc-options:      -Werror

@@ -26,7 +26,7 @@ module Haskell.Ide.Engine.PluginUtils
   ) where
 
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Either
+import           Control.Monad.Trans.Except
 import           Data.Aeson
 import           Data.Algorithm.Diff
 import           Data.Algorithm.DiffOutput
@@ -91,7 +91,7 @@ oldRangeToNew cm (Range start end) = do
   return (Range start' end')
 
 getRealSrcSpan :: SrcSpan -> Either T.Text RealSrcSpan
-getRealSrcSpan (RealSrcSpan r)   = pure r
+getRealSrcSpan (RealSrcSpan r)   = Right r
 getRealSrcSpan (UnhelpfulSpan x) = Left $ T.pack $ unpackFS x
 
 realSrcSpan2Range :: RealSrcSpan -> Range
@@ -106,8 +106,12 @@ reverseMapFile rfm fp =
   liftIO $ canonicalizePath . rfm =<< canonicalizePath fp
 
 srcSpan2Loc :: (MonadIO m) => (FilePath -> FilePath) -> SrcSpan -> m (Either T.Text Location)
-srcSpan2Loc revMapp spn = runEitherT $ do
-  rspan <- hoistEither $ getRealSrcSpan spn
+srcSpan2Loc revMapp spn = runExceptT $ do
+  let
+    foo :: (Monad m) => Either T.Text RealSrcSpan -> ExceptT T.Text m RealSrcSpan
+    foo (Left  e) = throwE e
+    foo (Right v) = pure v
+  rspan <- foo $ getRealSrcSpan spn
   let fp = unpackFS $ srcSpanFile rspan
   file <- reverseMapFile revMapp fp
   return $ Location (filePathToUri file) (realSrcSpan2Range rspan)
