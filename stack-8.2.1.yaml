@@ -3,24 +3,17 @@ packages:
 - .
 - hie-apply-refact
 - hie-base
+- hie-brittany
 - hie-build-plugin
 - hie-eg-plugin-async
 - hie-example-plugin2
 - hie-ghc-mod
 - hie-ghc-tree
+- hie-haddock
 - hie-hare
 - hie-hoogle
 - hie-plugin-api
-- hie-brittany
-- hie-haddock
 
-
-# - location:
-#     # ../haskell-lsp
-#     # git: https://github.com/alanz/haskell-lsp.git
-#     git: https://gitlab.com/alanz/haskell-lsp.git
-#     commit: b747454c06686620762dcb6e35564dd15361c7d4
-#   extra-dep: true
 
 - location:
     # git: https://github.com/edsko/ghc-dump-tree.git
@@ -51,26 +44,11 @@ packages:
     commit: 4bfc6b916fcc696a5d82e7cd35713d6eabcb0533
   extra-dep: true
 
-- location:
-    # git: https://github.com/alanz/brittany.git
-    git: https://gitlab.com/alanz/brittany.git
-    # commit: baac0a6a7e74ea70cae02c4d317e4a24bce8e9b8
-    commit: 32a193f0ce02ec36a6032852454db96573ab3a60
-  extra-dep: true
-
 extra-deps:
-- butcher-1.1.0.1
-# - Cabal-2.0.0.2
-- czipwith-1.0.0.0
-- data-tree-print-0.1.0.0
-- deque-0.2
-- hlint-2.0.11
-- hoogle-5.0.13
-- monad-memo-0.4.1
-- syz-0.2.0.0
-- yi-rope-0.10
 - haddock-api-2.18.1
 - haddock-library-1.4.4
+- hlint-2.0.11
+- syz-0.2.0.0
 
 flags:
   haskell-ide-engine:
@@ -78,6 +56,10 @@ flags:
   hie-apply-refact:
     pedantic: true
   hie-base:
+    pedantic: true
+  hie-brittany:
+    pedantic: true
+  hie-build-plugin:
     pedantic: true
   hie-eg-plugin-async:
     pedantic: true
@@ -87,13 +69,13 @@ flags:
     pedantic: true
   hie-ghc-tree:
     pedantic: true
+  hie-haddock:
+    pedantic: true
   hie-hare:
     pedantic: true
   hie-hoogle:
     pedantic: true
   hie-plugin-api:
-    pedantic: true
-  hie-brittany:
     pedantic: true
 
 nix:
