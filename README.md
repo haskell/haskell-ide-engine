@@ -81,7 +81,7 @@ $ cd haskell-ide-engine
 
 ### Installation with stack
 
-To install HIE
+To install HIE, you need Stack version >= 1.6.1
 
 #### For GHC 8.2.2
 
