@@ -29,7 +29,7 @@ spec = do
 -- ---------------------------------------------------------------------
 
 testPlugins :: IdePlugins
-testPlugins = pluginDescToIdePlugins [("ghcmod",ghcmodDescriptor)]
+testPlugins = pluginDescToIdePlugins [("ghcmod",ghcmodDescriptor),("ghcmod-test",ghcmodTestDescriptor)]
 
 dispatchRequest :: ToJSON a => PluginId -> CommandName -> a -> IO (IdeResponse Value)
 dispatchRequest plugin com arg = do
@@ -90,6 +90,31 @@ ghcmodSpec = do
 
 
     -- ---------------------------------
+    it "runs the type command" $ do
+      let req = TP False (filePathToUri "HaReRename.hs") (toPos (5,9))
+      r <- dispatchRequest "ghcmod-test" "type" req
+      r `shouldBe` (IdeResponseOk ((toJSON :: [(Range, String)] -> Value)
+                        [(Range (toPos (5,9)) (toPos (5,10)), "Int")
+                        ,(Range (toPos (5,9)) (toPos (5,14)), "Int")
+                        ,(Range (toPos (5,1)) (toPos (5,14)), "Int -> Int")
+                        ]))
+
+    it "runs the type command with an absolute path from another folder, correct params" $ do
+      fp <- makeAbsolute "./test/testdata/HaReRename.hs"
+      cd <- getCurrentDirectory
+      cd2 <- getHomeDirectory
+      bracket (setCurrentDirectory cd2)
+              (\_->setCurrentDirectory cd)
+              $ \_-> do
+        let req = TP False (filePathToUri fp) (toPos (5,9))
+        r <- dispatchRequestNoCd "ghcmod-test" "type" req
+        r `shouldBe` (IdeResponseOk ((toJSON :: [(Range,String)] -> Value)
+                          [(Range (toPos (5,9)) (toPos (5,10)), "Int")
+                          ,(Range (toPos (5,9)) (toPos (5,14)), "Int")
+                          ,(Range (toPos (5,1)) (toPos (5,14)), "Int -> Int")
+                          ]))
+    -- ---------------------------------
+
 
   describe "ghc-mod plugin commands(new plugin api)" $ do
     it "runs the check command" $ cdAndDo "./test/testdata" $ do
