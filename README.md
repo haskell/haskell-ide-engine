@@ -161,7 +161,10 @@ As above, make sure HIE is installed. Install and load the neovim plugin
 including the following line in the Plug section of your `init.vim`:
 
 ```
-Plug 'autozimu/LanguageClient-neovim', { 'do': ':UpdateRemotePlugins' }
+Plug 'autozimu/LanguageClient-neovim', {
+    \ 'branch': 'next',
+    \ 'do': './install.sh'
+    \ }
 ```
 
 and issuing a `:PlugInstall` command within neovim.
