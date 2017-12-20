@@ -4,7 +4,9 @@ module GhcModPluginSpec where
 import           Control.Concurrent
 import           Control.Exception
 import           Data.Aeson
+import           Data.Semigroup
 import qualified Data.Map                            as Map
+import qualified Data.Text                           as T
 import qualified Data.Set                            as S
 import qualified GhcMod.ModuleLoader                 as GM
 import           Haskell.Ide.Engine.Monad
@@ -27,6 +29,26 @@ spec = do
   describe "ghc-mod plugin" ghcmodSpec
 
 -- ---------------------------------------------------------------------
+
+ghcmodTestDescriptor :: PluginDescriptor
+ghcmodTestDescriptor = PluginDescriptor
+  {
+    pluginName = "ghc-mod(test)"
+  , pluginDesc = "ghc-mod is a backend program to enrich Haskell programming "
+              <> "in editors. It strives to offer most of the features one has come to expect "
+              <> "from modern IDEs in any editor."
+  , pluginCommands =
+      [ PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmdTest
+      ]
+  }
+
+-- load module before running command
+typeCmdTest :: CommandFunc TypeParams [(Range,T.Text)]
+typeCmdTest = CmdSync $ \arg@(TP _ uri _) -> do
+  _ <- setTypecheckedModule uri
+  case typeCmd of
+    CmdSync f -> f arg
+    _ -> error "expected typeCmd to be CmdSync"
 
 testPlugins :: IdePlugins
 testPlugins = pluginDescToIdePlugins [("ghcmod",ghcmodDescriptor),("ghcmod-test",ghcmodTestDescriptor)]

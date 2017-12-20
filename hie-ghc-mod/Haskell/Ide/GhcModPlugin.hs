@@ -57,18 +57,6 @@ ghcmodDescriptor = PluginDescriptor
       ]
   }
 
-ghcmodTestDescriptor :: PluginDescriptor
-ghcmodTestDescriptor = PluginDescriptor
-  {
-    pluginName = "ghc-mod(test)"
-  , pluginDesc = "ghc-mod is a backend program to enrich Haskell programming "
-              <> "in editors. It strives to offer most of the features one has come to expect "
-              <> "from modern IDEs in any editor."
-  , pluginCommands =
-      [ PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmdTest
-      ]
-  }
-
 -- ---------------------------------------------------------------------
 
 type Diagnostics = Map.Map Uri (Set.Set Diagnostic)
@@ -225,11 +213,6 @@ instance ToJSON TypeParams where
 
 typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
 typeCmd = CmdSync $ \(TP _bool uri pos) -> do
-  liftAsync $ newTypeCmd pos uri
-
-typeCmdTest :: CommandFunc TypeParams [(Range,T.Text)]
-typeCmdTest = CmdSync $ \(TP _bool uri pos) -> do
-  _ <- setTypecheckedModule uri
   liftAsync $ newTypeCmd pos uri
 
 newTypeCmd :: Position -> Uri -> AsyncM (IdeResponse [(Range, T.Text)])
