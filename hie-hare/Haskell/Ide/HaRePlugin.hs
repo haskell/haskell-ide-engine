@@ -10,7 +10,7 @@ import           ConLike
 import           Control.Lens                                 ((^.))
 import           Control.Monad.State
 import           Control.Monad.Trans.Control
-import           Control.Monad.Trans.Either
+import           Control.Monad.Trans.Except
 import           Data.Aeson
 import qualified Data.Aeson.Types                             as J
 import           Data.Algorithm.Diff
@@ -551,7 +551,7 @@ getReferencesInDoc :: Uri -> Position -> AsyncM (IdeResponse [J.DocumentHighligh
 getReferencesInDoc uri pos = pluginGetFile "getReferencesInDoc: " uri $ \file -> do
   let noCache = return $ nonExistentCacheErr "getReferencesInDoc"
   GM.withCachedModuleAndData file noCache $
-    \cm NMD{inverseNameMap} -> runEitherT $ do
+    \cm NMD{inverseNameMap} -> runExceptT $ do
       let lm = GM.locMap cm
           pm = tm_parsed_module $ GM.tcMod cm
           cfile = ml_hs_file $ ms_location $ pm_mod_summary pm
@@ -564,9 +564,13 @@ getReferencesInDoc uri pos = pluginGetFile "getReferencesInDoc: " uri $ \file ->
                   defn = nameSrcSpan name
                   defnInSameFile =
                     (unpackFS <$> srcSpanFileName_maybe defn) == cfile
+                  makeDocHighlight :: SrcSpan -> Maybe J.DocumentHighlight
                   makeDocHighlight spn = do
                     let kind = if spn == defn then J.HkWrite else J.HkRead
-                    r <- either (const Nothing) Just $ srcSpan2Range spn
+                    let
+                      foo (Left _) = Nothing
+                      foo (Right r) = Just r
+                    r <- foo $ srcSpan2Range spn
                     r' <- oldRangeToNew cm r
                     return $ J.DocumentHighlight r' (Just kind)
                   highlights

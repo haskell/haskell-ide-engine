@@ -23,7 +23,7 @@ import qualified Control.Exception as E
 import           Control.Lens ( (^.), (.~) )
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Either
+import           Control.Monad.Trans.Except
 import           Control.Monad.STM
 import           Control.Monad.Reader
 import qualified Data.Aeson as J
@@ -482,9 +482,9 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                       hovers = catMaybes [typ] ++ fmap J.PlainString docs
                 rspMsg = Core.makeResponseMessage req ht
               reactorSend rspMsg
-        let hreq = AReq (req ^. J.id) callback $ runEitherT $ do
-              info' <- EitherT $ GhcMod.newTypeCmd pos doc
-              names' <- EitherT $ HaRe.getSymbolsAtPoint doc pos
+        let hreq = AReq (req ^. J.id) callback $ runExceptT $ do
+              info' <- ExceptT $ GhcMod.newTypeCmd pos doc
+              names' <- ExceptT $ HaRe.getSymbolsAtPoint doc pos
               let
                 f = (==) `on` (HaRe.showName . snd)
                 f' = compare `on` (HaRe.showName . snd)
@@ -509,7 +509,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                     [] -> case names of
                       [] -> (Nothing, Nothing)
                       ((r,_):_) -> (Nothing, Just r)
-              df <- EitherT $ GhcMod.getDynFlags doc
+              df <- ExceptT $ GhcMod.getDynFlags doc
               docs <- forM names $ \(_,name) -> do
                   let sname = HaRe.showName name
                   case HaRe.getModule df name of
@@ -615,7 +615,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
           let rspMsg = Core.makeResponseMessage req $
                          origCompl & J.documentation .~ docs
           reactorSend rspMsg
-        let hreq = IReq Nothing Nothing (Just $ req ^. J.id) callback $ runEitherT $ do
+        let hreq = IReq Nothing Nothing (Just $ req ^. J.id) callback $ runExceptT $ do
               case mquery of
                 Nothing -> return Nothing
                 Just query -> do

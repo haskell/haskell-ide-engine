@@ -9,8 +9,16 @@ import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 
 -- ---------------------------------------------------------------------
 
-pattern IReq a b c d e = Right (IdeRequest a b c d e)
-pattern AReq a b c = Left (AsyncRequest a b c)
+pattern IReq :: Maybe Uri
+                -> Maybe (Uri, Int)
+                -> Maybe J.LspId
+                -> (a1 -> IO ())
+                -> IdeM a1
+                -> Either a IdeRequest
+pattern AReq :: J.LspId -> (a -> IO ()) -> AsyncM a -> Either AsyncRequest b
+
+pattern IReq a b c d e = Right (IdeRequest   a b c d e)
+pattern AReq a b c     = Left  (AsyncRequest a b c)
 
 type PluginRequest = Either AsyncRequest IdeRequest
 

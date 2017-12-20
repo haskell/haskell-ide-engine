@@ -6,7 +6,7 @@ module Haskell.Ide.ApplyRefactPlugin where
 
 import           Control.Arrow
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Either
+import           Control.Monad.Trans.Except
 import           Data.Aeson                        hiding (Error)
 import           Data.Monoid                       ((<>))
 import qualified Data.Text                         as T
@@ -88,7 +88,7 @@ lintCmd = CmdSync $ \uri -> do
 
 lintCmd' :: Uri -> IdeM (IdeResponse PublishDiagnosticsParams)
 lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
-      res <- GM.withMappedFile fp $ \file' -> liftIO $ runEitherT $ runLintCmd file' []
+      res <- GM.withMappedFile fp $ \file' -> liftIO $ runExceptT $ runLintCmd file' []
       -- logm $ "lint:res=" ++ show res
       case res of
         Left diags ->
@@ -98,11 +98,11 @@ lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
             PublishDiagnosticsParams (filePathToUri fp)
               $ List (map hintToDiagnostic $ stripIgnores fs)
 
-runLintCmd :: FilePath -> [String] -> EitherT [Diagnostic] IO [Idea]
+runLintCmd :: FilePath -> [String] -> ExceptT [Diagnostic] IO [Idea]
 runLintCmd fp args =
   do (flags,classify,hint) <- liftIO $ argsSettings args
      let myflags = flags { hseFlags = (hseFlags flags) { extensions = (EnableExtension TypeApplications:extensions (hseFlags flags))}}
-     res <- bimapEitherT parseErrorToDiagnostic id $ EitherT $ parseModuleEx myflags fp Nothing
+     res <- bimapExceptT parseErrorToDiagnostic id $ ExceptT $ parseModuleEx myflags fp Nothing
      pure $ applyHints classify hint [res]
 
 parseErrorToDiagnostic :: Hlint.ParseError -> [Diagnostic]
@@ -131,6 +131,13 @@ data Idea = Idea
     deriving (Eq,Ord)
 
 -}
+
+-- | Map over both failure and success.
+bimapExceptT :: Functor m => (e -> f) -> (a -> b) -> ExceptT e m a -> ExceptT f m b
+bimapExceptT f g (ExceptT m) = ExceptT (fmap h m) where
+  h (Left e)  = Left (f e)
+  h (Right a) = Right (g a)
+{-# INLINE bimapExceptT #-}
 
 -- ---------------------------------------------------------------------
 
@@ -199,7 +206,7 @@ applyHint fp mpos fileMap = do
                  Nothing -> optsf
                  Just (Position l c) -> optsf ++ " --pos " ++ show (l+1) ++ "," ++ show (c+1)
         hlintOpts = [fp, "--quiet", "--refactor", "--refactor-options=" ++ opts ]
-    runEitherT $ do
+    runExceptT $ do
       ideas <- runHlint fp hlintOpts
       liftIO $ logm $ "applyHint:ideas=" ++ show ideas
       let commands = map (show &&& ideaRefactoring) ideas
@@ -209,11 +216,11 @@ applyHint fp mpos fileMap = do
       return diff
 
 
-runHlint :: FilePath -> [String] -> EitherT String IO [Idea]
+runHlint :: FilePath -> [String] -> ExceptT String IO [Idea]
 runHlint fp args =
   do (flags,classify,hint) <- liftIO $ argsSettings args
      let myflags = flags { hseFlags = (hseFlags flags) { extensions = (EnableExtension TypeApplications:extensions (hseFlags flags))}}
-     res <- bimapEitherT showParseError id $ EitherT $ parseModuleEx myflags fp Nothing
+     res <- bimapExceptT showParseError id $ ExceptT $ parseModuleEx myflags fp Nothing
      pure $ applyHints classify hint [res]
 
 showParseError :: Hlint.ParseError -> String

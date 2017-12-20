@@ -106,12 +106,12 @@ nameCacheFromAsyncM = ( read_from_session , write_to_session )
 
 getDocsForName :: DynFlags -> Name -> AsyncM (Maybe T.Text)
 getDocsForName df name = do
-  init <- initialized
+  init' <- initialized
   let mfs = nameModule_maybe name >>=
               lookupHaddock df . moduleUnitId
   mf <- case mfs of
     Nothing -> pure Nothing
-    Just fs | not init -> pure Nothing
+    Just fs | not init' -> pure Nothing
             | otherwise -> liftIO $ do
       fs' <- filterM doesFileExist fs
       case fs' of

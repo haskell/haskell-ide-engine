@@ -76,7 +76,7 @@ pattern IdeResponseError a = Left (IdeRErr a)
 
 -- | Error codes. Add as required
 data IdeErrorCode
- = ParameterError  -- ^ Wrong parameter type
+ = ParameterError          -- ^ Wrong parameter type
  | PluginError             -- ^ An error returned by a plugin
  | InternalError           -- ^ Code error (case not handled or deemed
                            --   impossible)
@@ -94,7 +94,7 @@ instance FromJSON IdeErrorCode
 data IdeError = IdeError
  { ideCode    :: IdeErrorCode -- ^ The error code
  , ideMessage :: T.Text       -- ^ A human readable message
- , ideInfo    :: Value  -- ^ Additional information
+ , ideInfo    :: Value        -- ^ Additional information
  }
  deriving (Show,Read,Eq,Generic)
 

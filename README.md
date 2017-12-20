@@ -81,10 +81,24 @@ $ cd haskell-ide-engine
 
 ### Installation with stack
 
-To install HIE
+To install HIE, you need Stack version >= 1.6.1
+
+#### For GHC 8.2.2
 
 ```bash
 stack install
+```
+
+#### For GHC 8.2.1
+
+```bash
+stack --stack-yaml=stack-8.2.1.yaml install
+```
+
+#### For GHC 8.0.2
+
+```bash
+stack --stack-yaml=stack-8.0.2.yaml install
 ```
 
 ### Installation with Nix
@@ -147,7 +161,10 @@ As above, make sure HIE is installed. Install and load the neovim plugin
 including the following line in the Plug section of your `init.vim`:
 
 ```
-Plug 'autozimu/LanguageClient-neovim', { 'do': ':UpdateRemotePlugins' }
+Plug 'autozimu/LanguageClient-neovim', {
+    \ 'branch': 'next',
+    \ 'do': './install.sh'
+    \ }
 ```
 
 and issuing a `:PlugInstall` command within neovim.
