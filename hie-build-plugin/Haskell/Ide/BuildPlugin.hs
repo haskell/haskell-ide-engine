@@ -305,9 +305,9 @@ listFlagsCabal d = do
 flagToJSON :: Flag -> Value
 flagToJSON f = object
         -- Cabal 2.0 changelog
-        -- * Backwards incompatible change to 'FlagName' (#4062):
-        --   'FlagName' is now opaque; conversion to/from 'String' now works
-        --   via 'unFlagName' and 'mkFlagName' functions.
+        --  * Backwards incompatible change to 'FlagName' (#4062):
+        --    'FlagName' is now opaque; conversion to/from 'String' now works
+        --    via 'unFlagName' and 'mkFlagName' functions.
 
                  [ "name"        .= (unFlagName $ flagName f)
                  , "description" .= flagDescription f
