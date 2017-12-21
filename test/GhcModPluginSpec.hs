@@ -4,7 +4,9 @@ module GhcModPluginSpec where
 import           Control.Concurrent
 import           Control.Exception
 import           Data.Aeson
+import           Data.Semigroup
 import qualified Data.Map                            as Map
+import qualified Data.Text                           as T
 import qualified Data.Set                            as S
 import qualified GhcMod.ModuleLoader                 as GM
 import           Haskell.Ide.Engine.Monad
@@ -28,8 +30,28 @@ spec = do
 
 -- ---------------------------------------------------------------------
 
+ghcmodTestDescriptor :: PluginDescriptor
+ghcmodTestDescriptor = PluginDescriptor
+  {
+    pluginName = "ghc-mod(test)"
+  , pluginDesc = "ghc-mod is a backend program to enrich Haskell programming "
+              <> "in editors. It strives to offer most of the features one has come to expect "
+              <> "from modern IDEs in any editor."
+  , pluginCommands =
+      [ PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmdTest
+      ]
+  }
+
+-- load module before running command
+typeCmdTest :: CommandFunc TypeParams [(Range,T.Text)]
+typeCmdTest = CmdSync $ \arg@(TP _ uri _) -> do
+  _ <- setTypecheckedModule uri
+  case typeCmd of
+    CmdSync f -> f arg
+    _ -> error "expected typeCmd to be CmdSync"
+
 testPlugins :: IdePlugins
-testPlugins = pluginDescToIdePlugins [("ghcmod",ghcmodDescriptor)]
+testPlugins = pluginDescToIdePlugins [("ghcmod",ghcmodDescriptor),("ghcmod-test",ghcmodTestDescriptor)]
 
 dispatchRequest :: ToJSON a => PluginId -> CommandName -> a -> IO (IdeResponse Value)
 dispatchRequest plugin com arg = do
@@ -90,6 +112,31 @@ ghcmodSpec = do
 
 
     -- ---------------------------------
+    it "runs the type command" $ do
+      let req = TP False (filePathToUri "HaReRename.hs") (toPos (5,9))
+      r <- dispatchRequest "ghcmod-test" "type" req
+      r `shouldBe` (IdeResponseOk ((toJSON :: [(Range, String)] -> Value)
+                        [(Range (toPos (5,9)) (toPos (5,10)), "Int")
+                        ,(Range (toPos (5,9)) (toPos (5,14)), "Int")
+                        ,(Range (toPos (5,1)) (toPos (5,14)), "Int -> Int")
+                        ]))
+
+    it "runs the type command with an absolute path from another folder, correct params" $ do
+      fp <- makeAbsolute "./test/testdata/HaReRename.hs"
+      cd <- getCurrentDirectory
+      cd2 <- getHomeDirectory
+      bracket (setCurrentDirectory cd2)
+              (\_->setCurrentDirectory cd)
+              $ \_-> do
+        let req = TP False (filePathToUri fp) (toPos (5,9))
+        r <- dispatchRequestNoCd "ghcmod-test" "type" req
+        r `shouldBe` (IdeResponseOk ((toJSON :: [(Range,String)] -> Value)
+                          [(Range (toPos (5,9)) (toPos (5,10)), "Int")
+                          ,(Range (toPos (5,9)) (toPos (5,14)), "Int")
+                          ,(Range (toPos (5,1)) (toPos (5,14)), "Int -> Int")
+                          ]))
+    -- ---------------------------------
+
 
   describe "ghc-mod plugin commands(new plugin api)" $ do
     it "runs the check command" $ cdAndDo "./test/testdata" $ do

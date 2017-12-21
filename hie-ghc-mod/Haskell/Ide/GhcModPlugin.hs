@@ -53,6 +53,7 @@ ghcmodDescriptor = PluginDescriptor
       [ PluginCommand "check" "check a file for GHC warnings and errors" checkCmd
       , PluginCommand "lint" "Check files using `hlint'" lintCmd
       , PluginCommand "info" "Look up an identifier in the context of FILE (like ghci's `:info')" infoCmd
+      , PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmd
       ]
   }
 
@@ -199,6 +200,20 @@ infoCmd' uri expr =
     fmap T.pack <$> runGhcModCommand (GM.info file (GM.Expression (T.unpack expr)))
 
 -- ---------------------------------------------------------------------
+data TypeParams =
+  TP { tpIncludeConstraints :: Bool
+     , tpFile               :: Uri
+     , tpPos                :: Position
+     } deriving (Eq,Show,Generic)
+
+instance FromJSON TypeParams where
+  parseJSON = genericParseJSON customOptions
+instance ToJSON TypeParams where
+  toJSON = genericToJSON customOptions
+
+typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
+typeCmd = CmdSync $ \(TP _bool uri pos) -> do
+  liftAsync $ newTypeCmd pos uri
 
 newTypeCmd :: Position -> Uri -> AsyncM (IdeResponse [(Range, T.Text)])
 newTypeCmd newPos uri =
