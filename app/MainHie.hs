@@ -128,7 +128,7 @@ run opts = do
 
   -- launch the dispatcher.
   let dispatcherProcP dispatcherEnv =
-        void $ runIdeM ghcModOptions
+        void $ runIdeGhcM ghcModOptions
             (IdeState GM.emptyModuleCache plugins Map.empty)
             (dispatcherP dispatcherEnv pin)
 

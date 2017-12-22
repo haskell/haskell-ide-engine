@@ -148,7 +148,7 @@ myLogger rfm action = do
         return (diags,errs)
   GM.gcatches action' handlers
 
-setTypecheckedModule :: Uri -> IdeM (IdeResponse (Diagnostics, AdditionalErrs))
+setTypecheckedModule :: Uri -> IdeGhcM (IdeResponse (Diagnostics, AdditionalErrs))
 setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     rfm <- GM.mkRevRedirMapFunc
@@ -170,7 +170,7 @@ lintCmd :: CommandFunc Uri T.Text
 lintCmd = CmdSync $ \uri ->
   lintCmd' uri
 
-lintCmd' :: Uri -> IdeM (IdeResponse T.Text)
+lintCmd' :: Uri -> IdeGhcM (IdeResponse T.Text)
 lintCmd' uri =
   pluginGetFile "lint: " uri $ \file ->
     fmap T.pack <$> runGhcModCommand (GM.lint GM.defaultLintOpts file)
@@ -194,7 +194,7 @@ infoCmd :: CommandFunc InfoParams T.Text
 infoCmd = CmdSync $ \(IP uri expr) ->
   infoCmd' uri expr
 
-infoCmd' :: Uri -> T.Text -> IdeM (IdeResponse T.Text)
+infoCmd' :: Uri -> T.Text -> IdeGhcM (IdeResponse T.Text)
 infoCmd' uri expr =
   pluginGetFile "info: " uri $ \file ->
     fmap T.pack <$> runGhcModCommand (GM.info file (GM.Expression (T.unpack expr)))
@@ -213,9 +213,9 @@ instance ToJSON TypeParams where
 
 typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
 typeCmd = CmdSync $ \(TP _bool uri pos) -> do
-  liftAsync $ newTypeCmd pos uri
+  liftToGhc $ newTypeCmd pos uri
 
-newTypeCmd :: Position -> Uri -> AsyncM (IdeResponse [(Range, T.Text)])
+newTypeCmd :: Position -> Uri -> IdeM (IdeResponse [(Range, T.Text)])
 newTypeCmd newPos uri =
   pluginGetFile "newTypeCmd: " uri $ \fp -> do
       mcm <- GM.getCachedModule fp
@@ -256,7 +256,7 @@ cmp a b
 isSubRangeOf :: Range -> Range -> Bool
 isSubRangeOf (Range sa ea) (Range sb eb) = sb <= sa && eb >= ea
 
-getDynFlags :: Uri -> AsyncM (IdeResponse DynFlags)
+getDynFlags :: Uri -> IdeM (IdeResponse DynFlags)
 getDynFlags uri =
   pluginGetFile "getDynFlags: " uri $ \fp -> do
       mcm <- GM.getCachedModule fp
@@ -270,8 +270,8 @@ getDynFlags uri =
 
 -- ---------------------------------------------------------------------
 
-runGhcModCommand :: IdeM a
-                 -> IdeM (IdeResponse a)
+runGhcModCommand :: IdeGhcM a
+                 -> IdeGhcM (IdeResponse a)
 runGhcModCommand cmd =
   (IdeResponseOk <$> cmd) `G.gcatch`
     \(e :: GM.GhcModError) ->

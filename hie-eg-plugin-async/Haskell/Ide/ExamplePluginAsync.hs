@@ -67,7 +67,7 @@ longRunningCmdSync cmd = CmdSync $ \() -> do
 -- | If there is already a @SubProcess@ value in the plugin state return it,
 -- else create a new set of @TChan@ and fork the worker with them, storing the
 -- new @SubProcess@ value in the plugin state.
-ensureProcessRunning :: IdeM SubProcess
+ensureProcessRunning :: IdeGhcM SubProcess
 ensureProcessRunning = do
   (APS v) <- get -- from extensible state
   case v of

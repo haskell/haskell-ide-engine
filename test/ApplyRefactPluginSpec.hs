@@ -38,8 +38,8 @@ dispatchRequest plugin com arg = do
   dispatchRequestP $ runPluginCommand plugin com (toJSON arg) (putMVar mv)
   takeMVar mv
 
-dispatchRequestP :: IdeM a -> IO a
-dispatchRequestP = runIdeM testOptions (IdeState GM.emptyModuleCache testPlugins Map.empty)
+dispatchRequestP :: IdeGhcM a -> IO a
+dispatchRequestP = runIdeGhcM testOptions (IdeState GM.emptyModuleCache testPlugins Map.empty)
 
 -- ---------------------------------------------------------------------
 

@@ -29,7 +29,7 @@ pluginDescToIdePlugins = IdePlugins . foldr (uncurry Map.insert . f) Map.empty
 --   runPluginCommand plugin command args (putMVar mv)
 --   res <- liftIO $ takeMVar mv
 -- @
-runPluginCommand :: PluginId -> CommandName -> Value -> (IdeResponse Value -> IO ()) -> IdeM ()
+runPluginCommand :: PluginId -> CommandName -> Value -> (IdeResponse Value -> IO ()) -> IdeGhcM ()
 runPluginCommand p com arg callback = do
   let ret = liftIO . callback
   (IdePlugins m) <- lift . lift $ getPlugins

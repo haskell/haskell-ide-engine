@@ -50,15 +50,15 @@ dispatchRequest plugin com arg = do
   dispatchRequestP $ runPluginCommand plugin com (toJSON arg) (putMVar mv)
   takeMVar mv
 
-dispatchRequestP :: IdeM a -> IO a
+dispatchRequestP :: IdeGhcM a -> IO a
 dispatchRequestP =
   cdAndDo "./test/testdata"
-    . runIdeM testOptions (IdeState GM.emptyModuleCache testPlugins Map.empty)
+    . runIdeGhcM testOptions (IdeState GM.emptyModuleCache testPlugins Map.empty)
 
-dispatchRequestPGoto :: IdeM a -> IO a
+dispatchRequestPGoto :: IdeGhcM a -> IO a
 dispatchRequestPGoto =
   cdAndDo "./test/testdata/gototest"
-    . runIdeM testOptions (IdeState GM.emptyModuleCache testPlugins Map.empty)
+    . runIdeGhcM testOptions (IdeState GM.emptyModuleCache testPlugins Map.empty)
 
 -- ---------------------------------------------------------------------
 

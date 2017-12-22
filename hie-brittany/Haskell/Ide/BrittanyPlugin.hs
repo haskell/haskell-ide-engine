@@ -16,7 +16,7 @@ import           Language.Haskell.Brittany
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 
 
-brittanyCmd :: Int -> TextDocumentIdentifier -> Maybe Range -> IdeM (IdeResponse [J.TextEdit])
+brittanyCmd :: Int -> TextDocumentIdentifier -> Maybe Range -> IdeGhcM (IdeResponse [J.TextEdit])
 brittanyCmd tabSize tdi range =
   pluginGetFile "brittanyCmd: " (tdi ^. J.uri) $ \file ->
     case range of

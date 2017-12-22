@@ -67,12 +67,12 @@ plugins = pluginDescToIdePlugins
   ,("base"       , baseDescriptor)
   ]
 
-startServer :: IO (TChan IdeRequest)
+startServer :: IO (TChan PluginRequest)
 startServer = do
   cin  <- atomically newTChan
 
   let dispatcherProc dispatcherEnv
-        = void $ forkIO $ runIdeM testOptions (IdeState GM.emptyModuleCache plugins Map.empty) (ideDispatcher dispatcherEnv cin)
+        = void $ forkIO $ runIdeGhcM testOptions (IdeState GM.emptyModuleCache plugins Map.empty) (dispatcherP dispatcherEnv cin)
   cancelTVar      <- atomically $ newTVar S.empty
   wipTVar         <- atomically $ newTVar S.empty
   versionTVar     <- atomically $ newTVar Map.empty
@@ -100,10 +100,10 @@ spec = do
 
 -- ---------------------------------------------------------------------
 
-dispatchRequest :: ToJSON a => TChan IdeRequest -> PluginId -> CommandName -> a -> IO (IdeResponse Value)
+dispatchRequest :: ToJSON a => TChan PluginRequest -> PluginId -> CommandName -> a -> IO (IdeResponse Value)
 dispatchRequest cin plugin com arg = do
   mv <- newEmptyMVar
-  let req = IdeRequest Nothing Nothing Nothing (const $ return ()) $
+  let req = GReq Nothing Nothing Nothing (const $ return ()) $
         runPluginCommand plugin com (toJSON arg) (putMVar mv)
   atomically $ writeTChan cin req
   takeMVar mv

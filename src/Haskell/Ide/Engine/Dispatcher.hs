@@ -24,39 +24,39 @@ data DispatcherEnv = DispatcherEnv
   , docVersionTVar     :: !(TVar (Map.Map Uri Int))
   }
 
-dispatcherP :: forall void. DispatcherEnv -> TChan PluginRequest -> IdeM void
+dispatcherP :: forall void. DispatcherEnv -> TChan PluginRequest -> IdeGhcM void
 dispatcherP env inChan = do
   stateVar <- lift . lift $ ask
-  ichan <- liftIO $ do
+  gchan <- liftIO $ do
+    ghcChan <- newTChanIO
     ideChan <- newTChanIO
-    asyncChan <- newTChanIO
-    _ <- forkIO $ mainDispatcher inChan ideChan asyncChan
-    _ <- forkIO $ runReaderT (asyncDispatcher env asyncChan) stateVar
-    return ideChan
-  ideDispatcher env ichan
+    _ <- forkIO $ mainDispatcher inChan ghcChan ideChan
+    _ <- forkIO $ runReaderT (ideDispatcher env ideChan) stateVar
+    return ghcChan
+  ghcDispatcher env gchan
 
-mainDispatcher :: forall void. TChan PluginRequest -> TChan IdeRequest -> TChan AsyncRequest -> IO void
-mainDispatcher inChan ideChan asyncChan = forever $ do
+mainDispatcher :: forall void. TChan PluginRequest -> TChan GhcRequest -> TChan IdeRequest -> IO void
+mainDispatcher inChan ghcChan ideChan = forever $ do
   req <- atomically $ readTChan inChan
   case req of
     Right r ->
-      atomically $ writeTChan ideChan r
+      atomically $ writeTChan ghcChan r
     Left r ->
-      atomically $ writeTChan asyncChan r
+      atomically $ writeTChan ideChan r
 
-asyncDispatcher :: forall void. DispatcherEnv -> TChan AsyncRequest -> AsyncM void
-asyncDispatcher env pin = forever $ do
-  (AsyncRequest lid callback action) <- liftIO $ atomically $ readTChan pin
+ideDispatcher :: forall void. DispatcherEnv -> TChan IdeRequest -> IdeM void
+ideDispatcher env pin = forever $ do
+  (IdeRequest lid callback action) <- liftIO $ atomically $ readTChan pin
   debugm $ "got request with id: " ++ show lid
   cancelled <- liftIO $ atomically $ isCancelled env lid
   unless cancelled $ do
     res <- action
     liftIO $ callback res
 
-ideDispatcher :: forall void. DispatcherEnv -> TChan IdeRequest -> IdeM void
-ideDispatcher env@DispatcherEnv{docVersionTVar} pin = forever $ do
-  debugm "ideDispatcher: top of loop"
-  (IdeRequest context mver mid callback action) <- liftIO $ atomically $ readTChan pin
+ghcDispatcher :: forall void. DispatcherEnv -> TChan GhcRequest -> IdeGhcM void
+ghcDispatcher env@DispatcherEnv{docVersionTVar} pin = forever $ do
+  debugm "ghcDispatcher: top of loop"
+  (GhcRequest context mver mid callback action) <- liftIO $ atomically $ readTChan pin
   debugm $ "got request with id: " ++ show mid
 
   let runner = case context of

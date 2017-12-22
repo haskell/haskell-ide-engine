@@ -101,7 +101,7 @@ run dispatcherProc cin = flip E.catches handlers $ do
       let sendResponse rid resp = atomically $ writeTChan rout (ReactorOutput rid resp) in
       forever $ do
         req <- getNextReq
-        let preq = IReq (context req) Nothing (Just $ J.IdInt rid) (const $ return ())
+        let preq = GReq (context req) Nothing (Just $ J.IdInt rid) (const $ return ())
               $ runPluginCommand (plugin req) (command req) (arg req) callback
             rid = reqId req
             callback = sendResponse rid

@@ -7,7 +7,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
--- | IdeM and associated types
+-- | IdeGhcM and associated types
 module Haskell.Ide.Engine.MonadTypes
   (
   -- * Plugins
@@ -18,10 +18,10 @@ module Haskell.Ide.Engine.MonadTypes
   , PluginCommand(..)
   , IdePlugins(..)
   -- * The IDE monad
-  , IdeM
+  , IdeGhcM
   , IdeState(..)
-  , AsyncM
-  , liftAsync
+  , IdeM
+  , liftToGhc
   , MultiThreadState
   , readMTState
   , modifyMTState
@@ -46,8 +46,8 @@ import           GHC.Generics
 type PluginId = T.Text
 type CommandName = T.Text
 
-data CommandFunc a b = CmdSync (a -> IdeM (IdeResponse b))
-                     | CmdAsync ((IdeResponse b -> IO ()) -> a -> IdeM ())
+data CommandFunc a b = CmdSync (a -> IdeGhcM (IdeResponse b))
+                     | CmdAsync ((IdeResponse b -> IO ()) -> a -> IdeGhcM ())
                         -- ^ Asynchronous command that accepts a callback
 
 data PluginCommand = forall a b. (FromJSON a, ToJSON b) =>
@@ -65,7 +65,7 @@ data PluginDescriptor =
 instance Show PluginCommand where
   show (PluginCommand name _ _) = "PluginCommand { name = " ++ T.unpack name ++ " }"
 
--- | a Description of the available commands stored in IdeM
+-- | a Description of the available commands stored in IdeGhcM
 newtype IdePlugins = IdePlugins
   { ipMap :: Map.Map PluginId [PluginCommand]
   } deriving (Show,Generic)
@@ -101,16 +101,16 @@ instance MonadMTState s (MultiThreadState s) where
   modifyMTS = modifyMTState
 
 -- ---------------------------------------------------------------------
-type IdeM = GM.GhcModT AsyncM
+type IdeGhcM = GM.GhcModT IdeM
 
-instance MonadMTState IdeState IdeM where
+instance MonadMTState IdeState IdeGhcM where
   readMTS = lift $ lift $ readMTS
   modifyMTS f = lift $ lift $ modifyMTS f
 
-type AsyncM = MultiThreadState IdeState
+type IdeM = MultiThreadState IdeState
 
-liftAsync :: AsyncM a -> IdeM a
-liftAsync = lift . lift
+liftToGhc :: IdeM a -> IdeGhcM a
+liftToGhc = lift . lift
 
 data IdeState = IdeState
   { moduleCache :: GM.GhcModuleCache
@@ -118,7 +118,7 @@ data IdeState = IdeState
   , extensibleState :: !(Map.Map TypeRep Dynamic)
   } deriving (Show)
 
-instance GM.HasGhcModuleCache AsyncM where
+instance GM.HasGhcModuleCache IdeM where
   getModuleCache = do
     tvar <- ask
     state <- liftIO $ readTVarIO tvar
@@ -127,7 +127,7 @@ instance GM.HasGhcModuleCache AsyncM where
     tvar <- ask
     liftIO $ atomically $ modifyTVar' tvar (\st -> st { moduleCache = mc })
 
-instance GM.HasGhcModuleCache IdeM where
+instance GM.HasGhcModuleCache IdeGhcM where
   getModuleCache = lift . lift $ GM.getModuleCache
   setModuleCache = lift . lift . GM.setModuleCache
 

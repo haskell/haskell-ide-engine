@@ -47,9 +47,9 @@ dispatcherSpec = do
       chan <- atomically newTChan
       chSync <- atomically newTChan
       let tp = testPlugins chSync
-      runIdeM testOptions (IdeState GM.emptyModuleCache tp Map.empty)
+      runIdeGhcM testOptions (IdeState GM.emptyModuleCache tp Map.empty)
         $ runPluginCommand "test" "cmdasync1" (toJSON ()) (atomically . writeTChan chan)
-      runIdeM testOptions (IdeState GM.emptyModuleCache tp Map.empty)
+      runIdeGhcM testOptions (IdeState GM.emptyModuleCache tp Map.empty)
         $ runPluginCommand "test" "cmdasync2" (toJSON ()) (atomically . writeTChan chan)
       rc1 <- atomically $ readTChan chan
       rc2 <- atomically $ readTChan chan
@@ -63,12 +63,12 @@ dispatcherSpec = do
       cancelTVar <- newTVarIO S.empty
       wipTVar <- newTVarIO S.empty
       versionTVar <- newTVarIO $ Map.singleton (filePathToUri "test") 3
-      let req1 = IdeRequest Nothing Nothing (Just $ J.IdInt 1) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text1"
-          req2 = IdeRequest Nothing Nothing (Just $ J.IdInt 2) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text2"
-          req3 = IdeRequest Nothing (Just (filePathToUri "test", 2)) Nothing (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text3"
-          req4 = IdeRequest Nothing Nothing (Just $ J.IdInt 3) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text4"
-      pid <- forkIO $ runIdeM testOptions (IdeState GM.emptyModuleCache (pluginDescToIdePlugins []) Map.empty)
-                              (ideDispatcher (DispatcherEnv cancelTVar wipTVar versionTVar) inChan)
+      let req1 = GReq Nothing Nothing (Just $ J.IdInt 1) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text1"
+          req2 = GReq Nothing Nothing (Just $ J.IdInt 2) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text2"
+          req3 = GReq Nothing (Just (filePathToUri "test", 2)) Nothing (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text3"
+          req4 = GReq Nothing Nothing (Just $ J.IdInt 3) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text4"
+      pid <- forkIO $ runIdeGhcM testOptions (IdeState GM.emptyModuleCache (pluginDescToIdePlugins []) Map.empty)
+                              (dispatcherP (DispatcherEnv cancelTVar wipTVar versionTVar) inChan)
       atomically $ writeTChan inChan req1
       atomically $ modifyTVar cancelTVar (S.insert (J.IdInt 2))
       atomically $ writeTChan inChan req2

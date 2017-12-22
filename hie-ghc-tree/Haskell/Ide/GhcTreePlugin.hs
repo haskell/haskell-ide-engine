@@ -26,7 +26,7 @@ ghcTreeDescriptor = PluginDescriptor
 trees :: CommandFunc Uri Trees
 trees = CmdSync treesCmd
 
-treesCmd :: Uri -> IdeM (IdeResponse Trees)
+treesCmd :: Uri -> IdeGhcM (IdeResponse Trees)
 treesCmd uri =
   pluginGetFile "trees: " uri $ \file -> do
       trs <- runGmlT' [Left file] (return . treeDumpFlags) $ treesForTargets [file]

@@ -37,8 +37,8 @@ dispatchRequest plugin com arg = do
   dispatchRequestP $ runPluginCommand plugin com (toJSON arg) (putMVar mv)
   takeMVar mv
 
-dispatchRequestP :: IdeM a -> IO a
-dispatchRequestP = runIdeM testOptions (IdeState GM.emptyModuleCache testPlugins Map.empty)
+dispatchRequestP :: IdeGhcM a -> IO a
+dispatchRequestP = runIdeGhcM testOptions (IdeState GM.emptyModuleCache testPlugins Map.empty)
 
 -- ---------------------------------------------------------------------
 
@@ -58,13 +58,13 @@ hoogleSpec = do
 
   describe "hoogle plugin commands(new plugin api)" $ do
     it "runs the info command" $ do
-      let req = liftAsync $ infoCmd' "head"
+      let req = liftToGhc $ infoCmd' "head"
       r <- dispatchRequestP $ initializeHoogleDb >> req
       r `shouldBe` Right "head :: [a] -> a\nbase Prelude\nExtract the first element of a list, which must be non-empty.\n\n"
 
     -- ---------------------------------
 
     it "runs the lookup command" $ do
-      let req = liftAsync $ lookupCmd' 1 "[a] -> a"
+      let req = liftToGhc $ lookupCmd' 1 "[a] -> a"
       r <- dispatchRequestP $ initializeHoogleDb >> req
       r `shouldBe` Right ["Prelude head :: [a] -> a"]

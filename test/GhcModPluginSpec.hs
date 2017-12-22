@@ -59,10 +59,10 @@ dispatchRequest plugin com arg = do
   dispatchRequestP $ runPluginCommand plugin com (toJSON arg) (putMVar mv)
   takeMVar mv
 
-dispatchRequestP :: IdeM a -> IO a
+dispatchRequestP :: IdeGhcM a -> IO a
 dispatchRequestP =
   cdAndDo "./test/testdata" .
-  runIdeM testOptions (IdeState GM.emptyModuleCache testPlugins Map.empty)
+  runIdeGhcM testOptions (IdeState GM.emptyModuleCache testPlugins Map.empty)
 
 dispatchRequestNoCd :: ToJSON a => PluginId -> CommandName -> a -> IO (IdeResponse Value)
 dispatchRequestNoCd plugin com arg = do
@@ -70,9 +70,9 @@ dispatchRequestNoCd plugin com arg = do
   dispatchRequestPNoCd $ runPluginCommand plugin com (toJSON arg) (putMVar mv)
   takeMVar mv
 
-dispatchRequestPNoCd :: IdeM a -> IO a
+dispatchRequestPNoCd :: IdeGhcM a -> IO a
 dispatchRequestPNoCd =
-  runIdeM testOptions (IdeState GM.emptyModuleCache testPlugins Map.empty)
+  runIdeGhcM testOptions (IdeState GM.emptyModuleCache testPlugins Map.empty)
 
 -- ---------------------------------------------------------------------
 
@@ -175,7 +175,7 @@ ghcmodSpec = do
 
     it "runs the type command, correct params" $ do
       let uri = filePathToUri "HaReRename.hs"
-      let req = liftAsync $ newTypeCmd (toPos (5,9)) uri
+      let req = liftToGhc $ newTypeCmd (toPos (5,9)) uri
       r <- dispatchRequestP $ setTypecheckedModule uri >> req
       r `shouldBe` (IdeResponseOk (
                         [(Range (toPos (5,9)) (toPos (5,10)), "Int")
@@ -190,7 +190,7 @@ ghcmodSpec = do
       bracket (setCurrentDirectory cd2)
               (\_->setCurrentDirectory cd)
               $ \_-> do
-        let req = liftAsync $ newTypeCmd (toPos (5,9)) (filePathToUri fp)
+        let req = liftToGhc $ newTypeCmd (toPos (5,9)) (filePathToUri fp)
         r <- dispatchRequestPNoCd $ setTypecheckedModule (filePathToUri fp) >> req
         r `shouldBe` (IdeResponseOk (
                           [(Range (toPos (5,9)) (toPos (5,10)), "Int")

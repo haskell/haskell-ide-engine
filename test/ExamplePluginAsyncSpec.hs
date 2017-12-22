@@ -21,15 +21,15 @@ spec :: Spec
 spec = do
   describe "ExamplePluginAsync" examplePluginAsyncSpec
 
-dispatchRequest :: ToJSON a => PluginId -> CommandName -> a -> IdeM (IdeResponse Value)
+dispatchRequest :: ToJSON a => PluginId -> CommandName -> a -> IdeGhcM (IdeResponse Value)
 dispatchRequest plugin com arg = do
   mv <- liftIO newEmptyMVar
   runPluginCommand plugin com (toJSON arg) (putMVar mv)
   liftIO $ takeMVar mv
 
-dispatchRequestP :: IdeM a -> IO a
+dispatchRequestP :: IdeGhcM a -> IO a
 dispatchRequestP =
-  runIdeM testOptions (IdeState GM.emptyModuleCache testPlugins Map.empty)
+  runIdeGhcM testOptions (IdeState GM.emptyModuleCache testPlugins Map.empty)
 
 examplePluginAsyncSpec :: Spec
 examplePluginAsyncSpec = do
