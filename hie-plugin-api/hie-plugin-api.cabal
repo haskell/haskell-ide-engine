@@ -28,6 +28,7 @@ library
                      , Diff
                      , aeson
                      , containers
+                     , constrained-dynamic
                      , directory
                      , either
                      , fingertree

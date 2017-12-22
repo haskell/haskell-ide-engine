@@ -558,8 +558,6 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
 
       Core.ReqExecuteCommand req -> do
         liftIO $ U.logs $ "reactor:got ExecuteCommandRequest:" ++ show req
-        -- cwd <- liftIO getCurrentDirectory
-        -- liftIO $ U.logs $ "reactor:cwd:" ++ cwd
         let params = req ^. J.params
             command = params ^. J.command
             margs = params ^. J.arguments
@@ -571,17 +569,17 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
               _ -> J.Null
         callback <- hieResponseHelper (req ^. J.id) $ \obj -> do
           liftIO $ U.logs $ "ExecuteCommand response got:r=" ++ show obj
-          case J.fromJSON obj of
-            J.Success v -> do
+          case fromDynJSON obj :: Maybe J.WorkspaceEdit of
+            Just v -> do
               lid <- nextLspReqId
               reactorSend $ Core.makeResponseMessage req (J.Object mempty)
               let msg = fmServerApplyWorkspaceEditRequest lid $ J.ApplyWorkspaceEditParams v
               liftIO $ U.logs $ "ExecuteCommand sending edit: " ++ show msg
               reactorSend msg
-            _ -> reactorSend $ Core.makeResponseMessage req obj
+            Nothing -> reactorSend $ Core.makeResponseMessage req $ dynToJSON obj
         let (plugin,cmd) = T.break (==':') command
-        let preq = GReq Nothing Nothing (Just $ req ^. J.id) (const $ return ())
-                     $ runPluginCommand plugin (T.drop 1 cmd) cmdparams callback
+        let preq = GReq Nothing Nothing (Just $ req ^. J.id) callback
+                     $ runPluginCommand plugin (T.drop 1 cmd) cmdparams
         makeRequest preq
 
       -- -------------------------------

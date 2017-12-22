@@ -38,7 +38,6 @@ import           Haskell.Ide.ApplyRefactPlugin
 import           Haskell.Ide.BuildPlugin
 import           Haskell.Ide.Engine.BasePlugin
 import           Haskell.Ide.ExamplePlugin2
-import           Haskell.Ide.ExamplePluginAsync
 import           Haskell.Ide.GhcModPlugin
 import           Haskell.Ide.GhcTreePlugin
 import           Haskell.Ide.HaRePlugin
@@ -52,7 +51,6 @@ plugins = pluginDescToIdePlugins
   [("applyrefact", applyRefactDescriptor)
   ,("build"      , buildPluginDescriptor)
   ,("eg2"        , example2Descriptor)
-  ,("egasync"    , exampleAsyncDescriptor)
   ,("ghcmod"     , ghcmodDescriptor)
   ,("ghctree"    , ghcTreeDescriptor)
   ,("hare"       , hareDescriptor)

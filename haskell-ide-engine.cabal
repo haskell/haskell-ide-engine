@@ -79,7 +79,6 @@ executable hie
                      , haskell-lsp
                      , hie-apply-refact
                      , hie-build-plugin
-                     , hie-eg-plugin-async
                      , hie-example-plugin2
                      , hie-ghc-mod
                      , hie-ghc-tree
@@ -106,7 +105,6 @@ test-suite haskell-ide-test
   main-is:             Main.hs
   other-modules:       ApplyRefactPluginSpec
                        DispatcherSpec
-                       ExamplePluginAsyncSpec
                        ExtensibleStateSpec
                        GhcModPluginSpec
                        GhcTreePluginSpec
@@ -127,7 +125,6 @@ test-suite haskell-ide-test
                      , haskell-ide-engine
                      , hie-apply-refact
                      , hie-base
-                     , hie-eg-plugin-async
                      , hie-ghc-mod
                      , hie-ghc-tree
                      , hie-hare
@@ -165,7 +162,6 @@ test-suite haskell-ide-func-test
                      , haskell-ide-engine
                      , hie-apply-refact
                      , hie-base
-                     , hie-eg-plugin-async
                      , hie-example-plugin2
                      , hie-ghc-mod
                      , hie-ghc-tree

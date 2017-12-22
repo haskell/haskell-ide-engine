@@ -36,7 +36,7 @@ import           Control.Monad.Reader
 import Control.Concurrent.STM
 import qualified Data.Map as Map
 import qualified Data.Text as T
-import           Data.Typeable (TypeRep)
+import           Data.Typeable (TypeRep, Typeable)
 import           Data.Dynamic (Dynamic)
 import           Haskell.Ide.Engine.PluginTypes
 import qualified GhcMod.ModuleLoader as GM
@@ -46,11 +46,9 @@ import           GHC.Generics
 type PluginId = T.Text
 type CommandName = T.Text
 
-data CommandFunc a b = CmdSync (a -> IdeGhcM (IdeResponse b))
-                     | CmdAsync ((IdeResponse b -> IO ()) -> a -> IdeGhcM ())
-                        -- ^ Asynchronous command that accepts a callback
+newtype CommandFunc a b = CmdSync (a -> IdeGhcM (IdeResponse b))
 
-data PluginCommand = forall a b. (FromJSON a, ToJSON b) =>
+data PluginCommand = forall a b. (FromJSON a, ToJSON b, Typeable b) =>
   PluginCommand { commandName :: CommandName
                 , commandDesc :: T.Text
                 , commandFunc :: CommandFunc a b

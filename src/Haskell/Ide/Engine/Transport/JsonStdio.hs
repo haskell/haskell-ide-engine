@@ -101,10 +101,10 @@ run dispatcherProc cin = flip E.catches handlers $ do
       let sendResponse rid resp = atomically $ writeTChan rout (ReactorOutput rid resp) in
       forever $ do
         req <- getNextReq
-        let preq = GReq (context req) Nothing (Just $ J.IdInt rid) (const $ return ())
-              $ runPluginCommand (plugin req) (command req) (arg req) callback
+        let preq = GReq (context req) Nothing (Just $ J.IdInt rid) callback
+              $ runPluginCommand (plugin req) (command req) (arg req)
             rid = reqId req
-            callback = sendResponse rid
+            callback = sendResponse rid . fmap dynToJSON
         atomically $ writeTChan cin preq
 
 getNextReq :: IO ReactorInput
