@@ -6,19 +6,30 @@ module TestUtils
   , withTestLogging
   , withFileLogging
   , setupStackFiles
+  , testCommand
+  , runSingleReq
+  , makeRequest
+  , runIGM
   ) where
 
 import           Control.Exception
 import           Control.Monad
 import           Data.Aeson.Types (typeMismatch)
 import           Data.Text (pack)
+import           Data.Typeable
 import           Data.Yaml
+import qualified Data.Map as Map
 import qualified GhcMod.Monad as GM
 import qualified GhcMod.Types as GM
+import qualified GhcMod.ModuleLoader as GM
 import qualified Language.Haskell.LSP.Core as Core
+import           Haskell.Ide.Engine.Monad
+import           Haskell.Ide.Engine.MonadTypes
+import           Haskell.Ide.Engine.PluginDescriptor
 import           System.Directory
 import qualified System.Log.Logger as L
 
+import           Test.Hspec
 
 -- ---------------------------------------------------------------------
 
@@ -40,6 +51,22 @@ cdAndDo path fn = do
   r <- bracket (setCurrentDirectory path) (\_ -> setCurrentDirectory old)
           $ \_ -> fn
   return r
+
+testCommand :: (ToJSON a, Typeable b, ToJSON b, Show b, Eq b) => IdePlugins -> IdeGhcM (IdeResponse b) -> PluginId -> CommandName -> a -> (IdeResponse b) -> IO ()
+testCommand testPlugins act plugin cmd arg res = do
+  newApiRes <- runIGM testPlugins act
+  newApiRes `shouldBe` res
+  oldApiRes <- runSingleReq testPlugins plugin cmd arg
+  fmap fromDynJSON oldApiRes `shouldBe` fmap Just res
+
+runSingleReq :: ToJSON a => IdePlugins -> PluginId -> CommandName -> a -> IO (IdeResponse DynamicJSON)
+runSingleReq testPlugins plugin com arg = runIGM testPlugins (makeRequest plugin com arg)
+
+makeRequest :: ToJSON a => PluginId -> CommandName -> a -> IdeGhcM (IdeResponse DynamicJSON)
+makeRequest plugin com arg = runPluginCommand plugin com (toJSON arg)
+
+runIGM :: IdePlugins -> IdeGhcM a -> IO a
+runIGM testPlugins = runIdeGhcM testOptions (IdeState GM.emptyModuleCache testPlugins Map.empty)
 
 withTestLogging :: IO a -> IO a
 withTestLogging = withFileLogging "./test-main.log"

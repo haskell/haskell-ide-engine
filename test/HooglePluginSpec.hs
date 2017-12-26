@@ -2,13 +2,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module HooglePluginSpec where
 
-import           Control.Concurrent
 import           Control.Monad
-import           Data.Aeson
 import           Data.Maybe
-import qualified Data.Map                           as Map
-import qualified GhcMod.ModuleLoader                as GM
-import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.HooglePlugin
@@ -31,14 +26,8 @@ spec = do
 testPlugins :: IdePlugins
 testPlugins = pluginDescToIdePlugins [("hoogle",hoogleDescriptor)]
 
-dispatchRequest :: ToJSON a => PluginId -> CommandName -> a -> IO (IdeResponse Value)
-dispatchRequest plugin com arg = do
-  mv <- newEmptyMVar
-  dispatchRequestP $ runPluginCommand plugin com (toJSON arg) (putMVar mv)
-  takeMVar mv
-
 dispatchRequestP :: IdeGhcM a -> IO a
-dispatchRequestP = runIdeGhcM testOptions (IdeState GM.emptyModuleCache testPlugins Map.empty)
+dispatchRequestP = runIGM testPlugins
 
 -- ---------------------------------------------------------------------
 

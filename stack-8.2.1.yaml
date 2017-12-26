@@ -5,7 +5,6 @@ packages:
 - hie-base
 - hie-brittany
 - hie-build-plugin
-- hie-eg-plugin-async
 - hie-example-plugin2
 - hie-ghc-mod
 - hie-ghc-tree
@@ -49,6 +48,7 @@ extra-deps:
 - haddock-library-1.4.4
 - hlint-2.0.11
 - syz-0.2.0.0
+- constrained-dynamic-0.1.0.0
 
 flags:
   haskell-ide-engine:
@@ -60,8 +60,6 @@ flags:
   hie-brittany:
     pedantic: true
   hie-build-plugin:
-    pedantic: true
-  hie-eg-plugin-async:
     pedantic: true
   hie-example-plugin2:
     pedantic: true

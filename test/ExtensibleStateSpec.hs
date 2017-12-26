@@ -1,14 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module ExtensibleStateSpec where
 
-import           Control.Concurrent
-import           Control.Monad.IO.Class
-import           Data.Aeson
 import qualified Data.Text                           as T
-import qualified Data.Map                            as Map
 import           Data.Typeable
-import qualified GhcMod.ModuleLoader                 as GM
-import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -23,28 +17,16 @@ spec :: Spec
 spec = do
   describe "ExtensibleState" extensibleStateSpec
 
-dispatchRequest :: ToJSON a => PluginId -> CommandName -> a -> IdeGhcM (IdeResponse Value)
-dispatchRequest plugin com arg = do
-  mv <- liftIO newEmptyMVar
-  runPluginCommand plugin com (toJSON arg) (putMVar mv)
-  liftIO $ takeMVar mv
-
-dispatchRequestP :: IdeGhcM a -> IO a
-dispatchRequestP =
-    runIdeGhcM testOptions (IdeState GM.emptyModuleCache testPlugins Map.empty)
-
 extensibleStateSpec :: Spec
 extensibleStateSpec =
   describe "stores and retrieves in the state" $
     it "stores the first one" $ do
-      r <- dispatchRequestP $ do
-          r1 <- dispatchRequest "test" "cmd1" ()
-          r2 <- dispatchRequest "test" "cmd2" ()
+      r <- runIGM testPlugins $ do
+          r1 <- makeRequest "test" "cmd1" ()
+          r2 <- makeRequest "test" "cmd2" ()
           return (r1,r2)
-      fst r `shouldBe` IdeResponseOk (String "result:put foo")
-      snd r `shouldBe` IdeResponseOk (String "result:got:\"foo\"")
-
-    -- ---------------------------------
+      fmap fromDynJSON (fst r) `shouldBe` IdeResponseOk (Just "result:put foo" :: Maybe T.Text)
+      fmap fromDynJSON (snd r) `shouldBe` IdeResponseOk (Just "result:got:\"foo\"" :: Maybe T.Text)
 
 -- ---------------------------------------------------------------------
 

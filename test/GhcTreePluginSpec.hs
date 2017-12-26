@@ -1,11 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module GhcTreePluginSpec where
 
-import           Control.Concurrent
-import           Data.Aeson
-import qualified GhcMod.ModuleLoader                as GM
-import qualified Data.Map                           as Map
-import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.GhcTreePlugin
@@ -21,25 +16,10 @@ main = hspec spec
 spec :: Spec
 spec = describe "ghc-tree plugin" ghctreeSpec
 
--- -- |Used when running from ghci, and it sets the current directory to ./tests
--- tt :: IO ()
--- tt = do
---   cd ".."
---   hspec spec
-
 -- ---------------------------------------------------------------------
 
 testPlugins :: IdePlugins
 testPlugins = pluginDescToIdePlugins [("ghctree",ghcTreeDescriptor)]
-
-dispatchRequest :: ToJSON a => PluginId -> CommandName -> a -> IO (IdeResponse Value)
-dispatchRequest plugin com arg = do
-  mv <- newEmptyMVar
-  dispatchRequestP $ runPluginCommand plugin com (toJSON arg) (putMVar mv)
-  takeMVar mv
-
-dispatchRequestP :: IdeGhcM a -> IO a
-dispatchRequestP = runIdeGhcM testOptions (IdeState GM.emptyModuleCache testPlugins Map.empty)
 
 -- ---------------------------------------------------------------------
 
@@ -49,7 +29,7 @@ ghctreeSpec = do
   describe "ghc-tree plugin commands(old plugin api)" $ do
     it "runs the trees command" $ do
       let req = filePathToUri "./ApplyRefact.hs"
-      r <- cdAndDo "./test/testdata" (dispatchRequest "ghctree" "trees" req)
+      r <- cdAndDo "./test/testdata" (runSingleReq testPlugins "ghctree" "trees" req)
       case r of
         (IdeResponseFail f)  -> fail $ show f
         (IdeResponseError e) -> fail $ show e
@@ -57,7 +37,7 @@ ghctreeSpec = do
   describe "ghc-tree plugin commands(new plugin api)" $ do
     it "runs the trees command" $ do
       let req = treesCmd (filePathToUri "./ApplyRefact.hs")
-      r <- cdAndDo "./test/testdata" (dispatchRequestP req)
+      r <- cdAndDo "./test/testdata" (runIGM testPlugins req)
       case r of
         IdeResponseFail f  -> fail $ show f
         IdeResponseError e -> fail $ show e

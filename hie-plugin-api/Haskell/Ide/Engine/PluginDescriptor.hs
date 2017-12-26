@@ -5,8 +5,10 @@
 module Haskell.Ide.Engine.PluginDescriptor
   ( runPluginCommand
   , pluginDescToIdePlugins
+  , DynamicJSON
   , dynToJSON
   , fromDynJSON
+  , toDynJSON
   ) where
 
 import           Control.Monad.State.Strict
@@ -32,6 +34,9 @@ dynToJSON x = CD.applyClassFn x toJSON
 fromDynJSON :: (Typeable a, ToJSON a) => DynamicJSON -> Maybe a
 fromDynJSON = CD.fromDynamic
 
+toDynJSON :: (Typeable a, ToJSON a) => a -> DynamicJSON
+toDynJSON = CD.toDyn
+
 -- | Runs a plugin command given a PluginId, CommandName and
 -- arguments in the form of a JSON object.
 runPluginCommand :: PluginId -> CommandName -> Value -> IdeGhcM (IdeResponse DynamicJSON)
@@ -48,4 +53,4 @@ runPluginCommand p com arg = do
           IdeError ParameterError ("error while parsing args for " <> com <> " in plugin " <> p <> ": " <> T.pack err) Null
         Success a -> do
             res <- f a
-            return $ fmap (CD.toDyn) res
+            return $ fmap toDynJSON res

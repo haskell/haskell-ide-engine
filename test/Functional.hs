@@ -49,7 +49,6 @@ import           Test.Hspec
 import           Haskell.Ide.ApplyRefactPlugin
 import           Haskell.Ide.Engine.BasePlugin
 import           Haskell.Ide.ExamplePlugin2
-import           Haskell.Ide.ExamplePluginAsync
 import           Haskell.Ide.GhcModPlugin
 import           Haskell.Ide.GhcTreePlugin
 import           Haskell.Ide.HaRePlugin
@@ -60,7 +59,6 @@ plugins :: IdePlugins
 plugins = pluginDescToIdePlugins
   [("applyrefact", applyRefactDescriptor)
   ,("eg2"        , example2Descriptor)
-  ,("egasync"    , exampleAsyncDescriptor)
   ,("ghcmod"     , ghcmodDescriptor)
   ,("ghctree"    , ghcTreeDescriptor)
   ,("hare"       , hareDescriptor)
@@ -100,11 +98,11 @@ spec = do
 
 -- ---------------------------------------------------------------------
 
-dispatchRequest :: ToJSON a => TChan PluginRequest -> PluginId -> CommandName -> a -> IO (IdeResponse Value)
+dispatchRequest :: ToJSON a => TChan PluginRequest -> PluginId -> CommandName -> a -> IO (IdeResponse DynamicJSON)
 dispatchRequest cin plugin com arg = do
   mv <- newEmptyMVar
-  let req = GReq Nothing Nothing Nothing (const $ return ()) $
-        runPluginCommand plugin com (toJSON arg) (putMVar mv)
+  let req = GReq Nothing Nothing Nothing (putMVar mv) $
+        runPluginCommand plugin com (toJSON arg)
   atomically $ writeTChan cin req
   takeMVar mv
 
@@ -122,27 +120,26 @@ functionalSpec = do
 
       let req1 = filePathToUri "./FuncTest.hs"
       r1 <- dispatchRequest cin "applyrefact" "lint" req1
-      r1 `shouldBe` IdeResponseOk
-                           (toJSON PublishDiagnosticsParams
-                                      { _uri = filePathToUri "./FuncTest.hs"
-                                      , _diagnostics = List
-                                        [ Diagnostic (Range (Position 9 6) (Position 10 18))
-                                                     (Just DsInfo)
-                                                     Nothing
-                                                     (Just "hlint")
-                                                     "Redundant do\nFound:\n  do putStrLn \"hello\"\nWhy not:\n  putStrLn \"hello\"\n"
-                                        ]
-                                      }
-                                     )
+      fmap fromDynJSON r1 `shouldBe` IdeResponseOk
+                           ( Just
+                           $ PublishDiagnosticsParams
+                              { _uri = filePathToUri "./FuncTest.hs"
+                              , _diagnostics = List
+                                [ Diagnostic (Range (Position 9 6) (Position 10 18))
+                                             (Just DsInfo)
+                                             Nothing
+                                             (Just "hlint")
+                                             "Redundant do\nFound:\n  do putStrLn \"hello\"\nWhy not:\n  putStrLn \"hello\"\n"
+                                ]
+                              })
       let req3 = HP (filePathToUri "./FuncTest.hs") (toPos (8,1))
       r3 <- dispatchRequest cin "hare" "demote" req3
-      r3 `shouldBe`
+      fmap fromDynJSON r3 `shouldBe`
         (IdeResponseOk
-         $ toJSON
+         $ Just
          $ WorkspaceEdit
            (Just $ H.singleton (filePathToUri $ cwd </> "FuncTest.hs")
                                $ List [TextEdit (Range (Position 6 0) (Position 7 6))
                                                 "  where\n    bb = 5"])
            Nothing)
-{- -}
 
