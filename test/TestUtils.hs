@@ -54,9 +54,11 @@ cdAndDo path fn = do
 
 testCommand :: (ToJSON a, Typeable b, ToJSON b, Show b, Eq b) => IdePlugins -> IdeGhcM (IdeResponse b) -> PluginId -> CommandName -> a -> (IdeResponse b) -> IO ()
 testCommand testPlugins act plugin cmd arg res = do
-  newApiRes <- runIGM testPlugins act
+  (newApiRes, oldApiRes) <- runIGM testPlugins $ do
+    new <- act
+    old <- makeRequest plugin cmd arg
+    return (new, old)
   newApiRes `shouldBe` res
-  oldApiRes <- runSingleReq testPlugins plugin cmd arg
   fmap fromDynJSON oldApiRes `shouldBe` fmap Just res
 
 runSingleReq :: ToJSON a => IdePlugins -> PluginId -> CommandName -> a -> IO (IdeResponse DynamicJSON)

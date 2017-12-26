@@ -2,9 +2,7 @@
 module GhcModPluginSpec where
 
 import           Control.Exception
-import           Data.Semigroup
 import qualified Data.Map                            as Map
-import qualified Data.Text                           as T
 import qualified Data.Set                            as S
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -26,27 +24,8 @@ spec = do
 
 -- ---------------------------------------------------------------------
 
-ghcmodTestDescriptor :: PluginDescriptor
-ghcmodTestDescriptor = PluginDescriptor
-  {
-    pluginName = "ghc-mod(test)"
-  , pluginDesc = "ghc-mod is a backend program to enrich Haskell programming "
-              <> "in editors. It strives to offer most of the features one has come to expect "
-              <> "from modern IDEs in any editor."
-  , pluginCommands =
-      [ PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmdTest
-      ]
-  }
-
--- load module before running command
-typeCmdTest :: CommandFunc TypeParams [(Range,T.Text)]
-typeCmdTest = CmdSync $ \arg@(TP _ uri _) -> do
-  _ <- setTypecheckedModule uri
-  case typeCmd of
-    CmdSync f -> f arg
-
 testPlugins :: IdePlugins
-testPlugins = pluginDescToIdePlugins [("ghcmod",ghcmodDescriptor),("ghcmod-test",ghcmodTestDescriptor)]
+testPlugins = pluginDescToIdePlugins [("ghcmod",ghcmodDescriptor)]
 
 -- ---------------------------------------------------------------------
 
@@ -101,7 +80,7 @@ ghcmodSpec = do
             ,(Range (toPos (5,9)) (toPos (5,14)), "Int")
             ,(Range (toPos (5,1)) (toPos (5,14)), "Int -> Int")
             ]
-      testCommand testPlugins act "ghcmod-test" "type" arg res
+      testCommand testPlugins act "ghcmod" "type" arg res
 
     it "runs the type command with an absolute path from another folder, correct params" $ do
       fp <- makeAbsolute "./test/testdata/HaReRename.hs"
@@ -120,6 +99,6 @@ ghcmodSpec = do
               ,(Range (toPos (5,9)) (toPos (5,14)), "Int")
               ,(Range (toPos (5,1)) (toPos (5,14)), "Int -> Int")
               ]
-        testCommand testPlugins act "ghcmod-test" "type" arg res
+        testCommand testPlugins act "ghcmod" "type" arg res
 
     -- ---------------------------------
