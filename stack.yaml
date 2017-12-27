@@ -7,17 +7,10 @@ packages:
 - hie-build-plugin
 - hie-example-plugin2
 - hie-ghc-mod
-- hie-ghc-tree
 - hie-haddock
 - hie-hare
 - hie-hoogle
 - hie-plugin-api
-
-- location:
-    # git: https://github.com/edsko/ghc-dump-tree.git
-    git: https://gitlab.com/alanz/ghc-dump-tree.git
-    commit: 50f8b28fda675cca4df53909667c740120060c49
-  extra-dep: true
 
 # - ../HaRe
 - location:
@@ -66,8 +59,6 @@ flags:
   hie-example-plugin2:
     pedantic: true
   hie-ghc-mod:
-    pedantic: true
-  hie-ghc-tree:
     pedantic: true
   hie-haddock:
     pedantic: true

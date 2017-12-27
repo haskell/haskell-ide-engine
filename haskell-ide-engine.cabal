@@ -81,7 +81,6 @@ executable hie
                      , hie-build-plugin
                      , hie-example-plugin2
                      , hie-ghc-mod
-                     , hie-ghc-tree
                      , hie-hare
                      , hie-hoogle
                      , hie-plugin-api
@@ -107,7 +106,6 @@ test-suite haskell-ide-test
                        DispatcherSpec
                        ExtensibleStateSpec
                        GhcModPluginSpec
-                       GhcTreePluginSpec
                        HaRePluginSpec
                        HooglePluginSpec
                        JsonSpec
@@ -126,7 +124,6 @@ test-suite haskell-ide-test
                      , hie-apply-refact
                      , hie-base
                      , hie-ghc-mod
-                     , hie-ghc-tree
                      , hie-hare
                      , hie-hoogle
                      , hie-plugin-api
@@ -164,7 +161,6 @@ test-suite haskell-ide-func-test
                      , hie-base
                      , hie-example-plugin2
                      , hie-ghc-mod
-                     , hie-ghc-tree
                      , hie-hare
                      , hie-plugin-api
                      , hslogger

@@ -39,7 +39,6 @@ import           Haskell.Ide.BuildPlugin
 import           Haskell.Ide.Engine.BasePlugin
 import           Haskell.Ide.ExamplePlugin2
 import           Haskell.Ide.GhcModPlugin
-import           Haskell.Ide.GhcTreePlugin
 import           Haskell.Ide.HaRePlugin
 import           Haskell.Ide.HooglePlugin
 
@@ -52,7 +51,6 @@ plugins = pluginDescToIdePlugins
   ,("build"      , buildPluginDescriptor)
   ,("eg2"        , example2Descriptor)
   ,("ghcmod"     , ghcmodDescriptor)
-  ,("ghctree"    , ghcTreeDescriptor)
   ,("hare"       , hareDescriptor)
   ,("base"       , baseDescriptor)
   ,("hoogle"     , hoogleDescriptor)
