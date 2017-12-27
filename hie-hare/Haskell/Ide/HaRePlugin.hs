@@ -7,7 +7,6 @@
 module Haskell.Ide.HaRePlugin where
 
 import           ConLike
-import           Control.Lens                                 ((^.))
 import           Control.Monad.State
 import           Control.Monad.Trans.Control
 import           Control.Monad.Trans.Except
@@ -123,11 +122,11 @@ instance ToJSON HareRange where
 
 demoteCmd :: CommandFunc HarePoint WorkspaceEdit
 demoteCmd  = CmdSync $ \(HP uri pos) ->
-  demoteCmd' (TextDocumentPositionParams (TextDocumentIdentifier uri) pos)
+  demoteCmd' uri pos
 
-demoteCmd' :: TextDocumentPositionParams -> IdeM (IdeResponse WorkspaceEdit)
-demoteCmd' (TextDocumentPositionParams tdi pos) =
-  pluginGetFile "demote: " (tdi ^. J.uri) $ \file -> do
+demoteCmd' :: Uri -> Position -> IdeGhcM (IdeResponse WorkspaceEdit)
+demoteCmd' uri pos =
+  pluginGetFile "demote: " uri $ \file -> do
     runHareCommand "demote" (compDemote file (unPos pos))
 
 -- compDemote :: FilePath -> SimpPos -> IO [FilePath]
@@ -136,11 +135,11 @@ demoteCmd' (TextDocumentPositionParams tdi pos) =
 
 dupdefCmd :: CommandFunc HarePointWithText WorkspaceEdit
 dupdefCmd = CmdSync $ \(HPT uri pos name) ->
-  dupdefCmd' (TextDocumentPositionParams (TextDocumentIdentifier uri) pos) name
+  dupdefCmd' uri pos name
 
-dupdefCmd' :: TextDocumentPositionParams -> T.Text -> IdeM (IdeResponse WorkspaceEdit)
-dupdefCmd' (TextDocumentPositionParams tdi pos) name =
-  pluginGetFile "dupdef: " (tdi ^. J.uri) $ \file -> do
+dupdefCmd' :: Uri -> Position -> T.Text -> IdeGhcM (IdeResponse WorkspaceEdit)
+dupdefCmd' uri pos name =
+  pluginGetFile "dupdef: " uri $ \file -> do
     runHareCommand  "dupdef" (compDuplicateDef file (T.unpack name) (unPos pos))
 
 -- compDuplicateDef :: FilePath -> String -> SimpPos -> IO [FilePath]
@@ -149,10 +148,10 @@ dupdefCmd' (TextDocumentPositionParams tdi pos) name =
 
 iftocaseCmd :: CommandFunc HareRange WorkspaceEdit
 iftocaseCmd = CmdSync $ \(HR uri startPos endPos) ->
-  iftocaseCmd' (Location uri (Range startPos endPos))
+  iftocaseCmd' uri (Range startPos endPos)
 
-iftocaseCmd' :: Location -> IdeM (IdeResponse WorkspaceEdit)
-iftocaseCmd' (Location uri (Range startPos endPos)) =
+iftocaseCmd' :: Uri -> Range -> IdeGhcM (IdeResponse WorkspaceEdit)
+iftocaseCmd' uri (Range startPos endPos) =
   pluginGetFile "iftocase: " uri $ \file -> do
     runHareCommand "iftocase" (compIfToCase file (unPos startPos) (unPos endPos))
 
@@ -162,11 +161,11 @@ iftocaseCmd' (Location uri (Range startPos endPos)) =
 
 liftonelevelCmd :: CommandFunc HarePoint WorkspaceEdit
 liftonelevelCmd = CmdSync $ \(HP uri pos) ->
-  liftonelevelCmd' (TextDocumentPositionParams (TextDocumentIdentifier uri) pos)
+  liftonelevelCmd' uri pos
 
-liftonelevelCmd' :: TextDocumentPositionParams -> IdeM (IdeResponse WorkspaceEdit)
-liftonelevelCmd' (TextDocumentPositionParams tdi pos) =
-  pluginGetFile "liftonelevelCmd: " (tdi ^. J.uri) $ \file -> do
+liftonelevelCmd' :: Uri -> Position -> IdeGhcM (IdeResponse WorkspaceEdit)
+liftonelevelCmd' uri pos =
+  pluginGetFile "liftonelevelCmd: " uri $ \file -> do
     runHareCommand "liftonelevel" (compLiftOneLevel file (unPos pos))
 
 -- compLiftOneLevel :: FilePath -> SimpPos -> IO [FilePath]
@@ -175,11 +174,11 @@ liftonelevelCmd' (TextDocumentPositionParams tdi pos) =
 
 lifttotoplevelCmd :: CommandFunc HarePoint WorkspaceEdit
 lifttotoplevelCmd = CmdSync $ \(HP uri pos) ->
-  lifttotoplevelCmd' (TextDocumentPositionParams (TextDocumentIdentifier uri) pos)
+  lifttotoplevelCmd' uri pos
 
-lifttotoplevelCmd' :: TextDocumentPositionParams -> IdeM (IdeResponse WorkspaceEdit)
-lifttotoplevelCmd' (TextDocumentPositionParams tdi pos) =
-  pluginGetFile "lifttotoplevelCmd: " (tdi ^. J.uri) $ \file -> do
+lifttotoplevelCmd' :: Uri -> Position -> IdeGhcM (IdeResponse WorkspaceEdit)
+lifttotoplevelCmd' uri pos =
+  pluginGetFile "lifttotoplevelCmd: " uri $ \file -> do
     runHareCommand "lifttotoplevel" (compLiftToTopLevel file (unPos pos))
 
 -- compLiftToTopLevel :: FilePath -> SimpPos -> IO [FilePath]
@@ -188,11 +187,11 @@ lifttotoplevelCmd' (TextDocumentPositionParams tdi pos) =
 
 renameCmd :: CommandFunc HarePointWithText WorkspaceEdit
 renameCmd = CmdSync $ \(HPT uri pos name) ->
-  renameCmd' (TextDocumentPositionParams (TextDocumentIdentifier uri) pos) name
+  renameCmd' uri pos name
 
-renameCmd' :: TextDocumentPositionParams -> T.Text -> IdeM (IdeResponse WorkspaceEdit)
-renameCmd' (TextDocumentPositionParams tdi pos) name =
-  pluginGetFile "rename: " (tdi ^. J.uri) $ \file -> do
+renameCmd' :: Uri -> Position -> T.Text -> IdeGhcM (IdeResponse WorkspaceEdit)
+renameCmd' uri pos name =
+  pluginGetFile "rename: " uri $ \file -> do
       runHareCommand "rename" (compRename file (T.unpack name) (unPos pos))
 
 -- compRename :: FilePath -> String -> SimpPos -> IO [FilePath]
@@ -201,11 +200,11 @@ renameCmd' (TextDocumentPositionParams tdi pos) name =
 
 deleteDefCmd :: CommandFunc HarePoint WorkspaceEdit
 deleteDefCmd  = CmdSync $ \(HP uri pos) ->
-  deleteDefCmd' (TextDocumentPositionParams (TextDocumentIdentifier uri) pos)
+  deleteDefCmd' uri pos
 
-deleteDefCmd' :: TextDocumentPositionParams -> IdeM (IdeResponse WorkspaceEdit)
-deleteDefCmd' (TextDocumentPositionParams tdi pos) =
-  pluginGetFile "deletedef: " (tdi ^. J.uri) $ \file -> do
+deleteDefCmd' :: Uri -> Position -> IdeGhcM (IdeResponse WorkspaceEdit)
+deleteDefCmd' uri pos =
+  pluginGetFile "deletedef: " uri $ \file -> do
       runHareCommand "deltetedef" (compDeleteDef file (unPos pos))
 
 -- compDeleteDef ::FilePath -> SimpPos -> RefactGhc [ApplyRefacResult]
@@ -214,11 +213,11 @@ deleteDefCmd' (TextDocumentPositionParams tdi pos) =
 
 genApplicativeCommand :: CommandFunc HarePoint WorkspaceEdit
 genApplicativeCommand  = CmdSync $ \(HP uri pos) ->
-  genApplicativeCommand' (TextDocumentPositionParams (TextDocumentIdentifier uri) pos)
+  genApplicativeCommand' uri pos
 
-genApplicativeCommand' :: TextDocumentPositionParams -> IdeM (IdeResponse WorkspaceEdit)
-genApplicativeCommand' (TextDocumentPositionParams tdi pos) =
-  pluginGetFile "genapplicative: " (tdi ^. J.uri) $ \file -> do
+genApplicativeCommand' :: Uri -> Position -> IdeGhcM (IdeResponse WorkspaceEdit)
+genApplicativeCommand' uri pos =
+  pluginGetFile "genapplicative: " uri $ \file -> do
       runHareCommand "genapplicative" (compGenApplicative file (unPos pos))
 
 
@@ -229,10 +228,10 @@ getRefactorResult = map getNewFile . filter fileModified
   where fileModified ((_,m),_) = m == RefacModified
         getNewFile ((file,_),(ann, parsed)) = (file, T.pack $ exactPrint parsed ann)
 
-makeRefactorResult :: [(FilePath,T.Text)] -> IdeM WorkspaceEdit
+makeRefactorResult :: [(FilePath,T.Text)] -> IdeGhcM WorkspaceEdit
 makeRefactorResult changedFiles = do
   let
-    diffOne :: (FilePath, T.Text) -> IdeM WorkspaceEdit
+    diffOne :: (FilePath, T.Text) -> IdeGhcM WorkspaceEdit
     diffOne (fp, newText) = do
       origText <- GM.withMappedFile fp $ liftIO . T.readFile
       -- TODO: remove this logging once we are sure we have a working solution
@@ -281,7 +280,7 @@ instance GM.ModuleCache NameMapData where
 
 -- ---------------------------------------------------------------------
 
-getSymbols :: Uri -> AsyncM (IdeResponse [J.SymbolInformation])
+getSymbols :: Uri -> IdeM (IdeResponse [J.SymbolInformation])
 getSymbols uri = pluginGetFile "getSymbols: " uri $ \file -> do
     mcm <- GM.getCachedModule file
     case mcm of
@@ -358,7 +357,7 @@ getSymbols uri = pluginGetFile "getSymbols: " uri $ \file -> do
                   f _ = []
 
               declsToSymbolInf :: (J.SymbolKind, Located T.Text, Maybe T.Text)
-                               -> AsyncM (Either T.Text J.SymbolInformation)
+                               -> IdeM (Either T.Text J.SymbolInformation)
               declsToSymbolInf (kind, L l nameText, cnt) = do
                 eloc <- srcSpan2Loc rfm l
                 case eloc of
@@ -413,7 +412,7 @@ safeTyThingId (AnId i)                    = Just i
 safeTyThingId (AConLike (RealDataCon dc)) = Just $ dataConWrapId dc
 safeTyThingId _                           = Nothing
 
-getCompletions :: Uri -> (T.Text, T.Text) -> IdeM (IdeResponse [J.CompletionItem])
+getCompletions :: Uri -> (T.Text, T.Text) -> IdeGhcM (IdeResponse [J.CompletionItem])
 getCompletions uri (qualifier,ident) = pluginGetFile "getCompletions: " uri $ \file ->
   let handlers  = [GM.GHandler $ \(ex :: SomeException) ->
                      return $ someErr "getCompletions" (show ex)
@@ -518,7 +517,7 @@ getCompletions uri (qualifier,ident) = pluginGetFile "getCompletions: " uri $ \f
           setCiTypesForImported hscEnv xs
       return $ IdeResponseOk $ modCompls ++ map mkCompl comps
 
-getTypeForName :: Name -> IdeM (Maybe Type)
+getTypeForName :: Name -> IdeGhcM (Maybe Type)
 getTypeForName n = GM.unGmlT $ do
   hscEnv <- getSession
   mt <- liftIO $ (Just <$> lookupGlobal hscEnv n)
@@ -527,7 +526,7 @@ getTypeForName n = GM.unGmlT $ do
 
 -- ---------------------------------------------------------------------
 
-getSymbolsAtPoint :: Uri -> Position -> AsyncM (IdeResponse [(Range, Name)])
+getSymbolsAtPoint :: Uri -> Position -> IdeM (IdeResponse [(Range, Name)])
 getSymbolsAtPoint uri pos = pluginGetFile "getSymbolsAtPoint: " uri $ \file -> do
   let noCache = return $ nonExistentCacheErr "getSymbolAtPoint"
   GM.withCachedModule file noCache $
@@ -547,7 +546,7 @@ symbolFromTypecheckedModule lm pos =
 
 -- ---------------------------------------------------------------------
 
-getReferencesInDoc :: Uri -> Position -> AsyncM (IdeResponse [J.DocumentHighlight])
+getReferencesInDoc :: Uri -> Position -> IdeM (IdeResponse [J.DocumentHighlight])
 getReferencesInDoc uri pos = pluginGetFile "getReferencesInDoc: " uri $ \file -> do
   let noCache = return $ nonExistentCacheErr "getReferencesInDoc"
   GM.withCachedModuleAndData file noCache $
@@ -605,7 +604,7 @@ getNewNames old = do
   let newNames = filter (\n -> showGhcQual n == showGhcQual old) clientInscopes
   return newNames
 
-findDef :: Uri -> Position -> IdeM (IdeResponse [Location])
+findDef :: Uri -> Position -> IdeGhcM (IdeResponse [Location])
 findDef uri pos = pluginGetFile "findDef: " uri $ \file -> do
   let noCache = return $ nonExistentCacheErr "hare:findDef"
   GM.withCachedModule file noCache $
@@ -671,7 +670,7 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file -> do
 
 
 runHareCommand :: String -> RefactGhc [ApplyRefacResult]
-                 -> IdeM (IdeResponse WorkspaceEdit)
+                 -> IdeGhcM (IdeResponse WorkspaceEdit)
 runHareCommand name cmd = do
      eitherRes <- runHareCommand' cmd
      case eitherRes of
@@ -688,7 +687,7 @@ runHareCommand name cmd = do
 -- ---------------------------------------------------------------------
 
 runHareCommand' :: RefactGhc a
-                 -> IdeM (Either String a)
+                 -> IdeGhcM (Either String a)
 runHareCommand' cmd =
   do let initialState =
            -- TODO: Make this a command line flag

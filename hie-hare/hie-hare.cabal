@@ -22,16 +22,13 @@ library
                      , aeson
                      , containers
                      , Diff
-                     , either
                      , ghc
-                     , ghc-mod
                      , ghc-mod-core
                      , ghc-exactprint
                      , hie-base
                      , hie-plugin-api
                      , hie-ghc-mod
                      , haskell-lsp
-                     , lens
                      , monad-control
                      , mtl
                      , text

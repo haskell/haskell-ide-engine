@@ -9,29 +9,29 @@ import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 
 -- ---------------------------------------------------------------------
 
-pattern IReq :: Maybe Uri
+pattern GReq :: Maybe Uri
                 -> Maybe (Uri, Int)
                 -> Maybe J.LspId
                 -> (a1 -> IO ())
-                -> IdeM a1
-                -> Either a IdeRequest
-pattern AReq :: J.LspId -> (a -> IO ()) -> AsyncM a -> Either AsyncRequest b
+                -> IdeGhcM a1
+                -> Either a GhcRequest
+pattern GReq a b c d e = Right (GhcRequest   a b c d e)
 
-pattern IReq a b c d e = Right (IdeRequest   a b c d e)
-pattern AReq a b c     = Left  (AsyncRequest a b c)
+pattern IReq :: J.LspId -> (a -> IO ()) -> IdeM a -> Either IdeRequest b
+pattern IReq a b c     = Left  (IdeRequest a b c)
 
-type PluginRequest = Either AsyncRequest IdeRequest
+type PluginRequest = Either IdeRequest GhcRequest
 
-data IdeRequest = forall a. IdeRequest
+data GhcRequest = forall a. GhcRequest
   { pinContext   :: Maybe J.Uri
   , pinDocVer    :: Maybe (J.Uri, Int)
   , pinLspReqId  :: Maybe J.LspId
   , pinCallback  :: a -> IO ()
-  , pinReq       :: IdeM a
+  , pinReq       :: IdeGhcM a
   }
 
-data AsyncRequest = forall a. AsyncRequest
+data IdeRequest = forall a. IdeRequest
   { pureReqId :: J.LspId
   , pureReqCallback :: a -> IO ()
-  , pureReq :: AsyncM a
+  , pureReq :: IdeM a
   }

@@ -32,9 +32,6 @@ library
                      , bytestring
                      , containers
                      , data-default
-                     , directory
-                     , either
-                     , filepath
                      , ghc >= 8.0.1
                      , ghc-mod-core
                      , gitrev >= 1.1
@@ -55,7 +52,6 @@ library
                      , transformers
                      , stm
                      , text
-                     , unordered-containers
                      , vector
                      , yi-rope
 
@@ -79,21 +75,14 @@ executable hie
                      , haskell-lsp
                      , hie-apply-refact
                      , hie-build-plugin
-                     , hie-eg-plugin-async
                      , hie-example-plugin2
                      , hie-ghc-mod
-                     , hie-ghc-tree
                      , hie-hare
                      , hie-hoogle
                      , hie-plugin-api
                      , hslogger
                      , optparse-simple
                      , stm
-                     , text
-                     , time
-                     , transformers
-                     , unordered-containers
-                     , vinyl
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
                        -with-rtsopts=-T
   if flag(pedantic)
@@ -106,17 +95,14 @@ test-suite haskell-ide-test
   main-is:             Main.hs
   other-modules:       ApplyRefactPluginSpec
                        DispatcherSpec
-                       ExamplePluginAsyncSpec
                        ExtensibleStateSpec
                        GhcModPluginSpec
-                       GhcTreePluginSpec
                        HaRePluginSpec
                        HooglePluginSpec
                        JsonSpec
                        Spec
                        TestUtils
-  build-depends:       Diff
-                     , QuickCheck
+  build-depends:       QuickCheck
                      , aeson
                      , base
                      , containers
@@ -127,9 +113,7 @@ test-suite haskell-ide-test
                      , haskell-ide-engine
                      , hie-apply-refact
                      , hie-base
-                     , hie-eg-plugin-async
                      , hie-ghc-mod
-                     , hie-ghc-tree
                      , hie-hare
                      , hie-hoogle
                      , hie-plugin-api
@@ -139,9 +123,7 @@ test-suite haskell-ide-test
                      , quickcheck-instances
                      , stm
                      , text
-                     , transformers
                      , unordered-containers
-                     , vector
                      , yaml
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
@@ -153,9 +135,7 @@ test-suite haskell-ide-func-test
   hs-source-dirs:      test
   main-is:             Functional.hs
   other-modules:       TestUtils
-  build-depends:       Diff
-                     , QuickCheck
-                     , aeson
+  build-depends:       aeson
                      , base
                      , containers
                      , directory
@@ -165,19 +145,15 @@ test-suite haskell-ide-func-test
                      , haskell-ide-engine
                      , hie-apply-refact
                      , hie-base
-                     , hie-eg-plugin-async
                      , hie-example-plugin2
                      , hie-ghc-mod
-                     , hie-ghc-tree
                      , hie-hare
                      , hie-plugin-api
                      , hslogger
                      , hspec
                      , stm
                      , text
-                     , transformers
                      , unordered-containers
-                     , vinyl
                      , yaml
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)

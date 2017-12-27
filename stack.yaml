@@ -5,43 +5,27 @@ packages:
 - hie-base
 - hie-brittany
 - hie-build-plugin
-- hie-eg-plugin-async
 - hie-example-plugin2
 - hie-ghc-mod
-- hie-ghc-tree
 - hie-haddock
 - hie-hare
 - hie-hoogle
 - hie-plugin-api
 
 - location:
-    # git: https://github.com/edsko/ghc-dump-tree.git
-    git: https://gitlab.com/alanz/ghc-dump-tree.git
-    commit: 50f8b28fda675cca4df53909667c740120060c49
-  extra-dep: true
-
-# - ../HaRe
-- location:
-    # git: https://github.com/alanz/HaRe.git
     git: https://gitlab.com/alanz/HaRe.git
     commit: e325975450ce89d790ed3f92de3ef675967d9538
   extra-dep: true
 
 - location:
-    # git: https://github.com/alanz/ghc-mod.git
     git: https://github.com/wz1000/ghc-mod.git
     commit: 03c91ea53b6389e7a1fcf4e471171aa3d6c8de41
-    # ../ghc-mod
   extra-dep: true
   subdirs:
     - .
     - core
 
 - location:
-    # ../cabal-helper
-    # git: https://github.com/alanz/cabal-helper.git
-    # git: https://gitlab.com/alanz/cabal-helper.git
-    # commit: 371646be24895f7373d1804e1c7592c84bb128fa
     git: https://gitlab.com/dxld/cabal-helper.git
     commit: 4bfc6b916fcc696a5d82e7cd35713d6eabcb0533
   extra-dep: true
@@ -51,6 +35,7 @@ extra-deps:
 - haddock-library-1.4.4
 - syz-0.2.0.0
 - unix-compat-0.4.3.1
+- constrained-dynamic-0.1.0.0
 
 flags:
   haskell-ide-engine:
@@ -63,13 +48,9 @@ flags:
     pedantic: true
   hie-build-plugin:
     pedantic: true
-  hie-eg-plugin-async:
-    pedantic: true
   hie-example-plugin2:
     pedantic: true
   hie-ghc-mod:
-    pedantic: true
-  hie-ghc-tree:
     pedantic: true
   hie-haddock:
     pedantic: true

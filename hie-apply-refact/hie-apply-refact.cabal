@@ -20,9 +20,7 @@ library
   build-depends:       base >= 4.9 && < 5
                      , aeson
                      , apply-refact
-                     , either
                      , extra
-                     , ghc-mod
                      , ghc-mod-core
                      , haskell-src-exts
                      , hie-base

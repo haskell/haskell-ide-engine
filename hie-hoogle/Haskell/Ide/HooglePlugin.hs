@@ -49,7 +49,7 @@ hoogleErrorToIdeError NoDb =
 instance ExtensionClass HoogleDb where
   initialValue = HoogleDb Nothing
 
-initializeHoogleDb :: IdeM (Maybe FilePath)
+initializeHoogleDb :: IdeGhcM (Maybe FilePath)
 initializeHoogleDb = do
   db' <- getHoogleDbLoc
   db <- liftIO $ makeAbsolute db'
@@ -60,7 +60,7 @@ initializeHoogleDb = do
   else
     return Nothing
 
-getHoogleDbLoc :: IdeM FilePath
+getHoogleDbLoc :: IdeGhcM FilePath
 getHoogleDbLoc = do
   cradle <- GM.gmCradle <$> GM.gmeAsk
   let mfp =
@@ -82,10 +82,10 @@ getHoogleDbLoc = do
 
 
 infoCmd :: CommandFunc T.Text T.Text
-infoCmd = CmdSync $ \expr -> liftAsync $
+infoCmd = CmdSync $ \expr -> liftToGhc $
   bimap hoogleErrorToIdeError id <$> infoCmd' expr
 
-infoCmd' :: T.Text -> AsyncM (Either HoogleError T.Text)
+infoCmd' :: T.Text -> IdeM (Either HoogleError T.Text)
 infoCmd' expr = do
   HoogleDb mdb <- get
   liftIO $ runHoogleQuery mdb expr $ \res ->
@@ -94,7 +94,7 @@ infoCmd' expr = do
       else
         return $ T.pack $ targetInfo $ head res
 
-infoCmdFancyRender :: T.Text -> AsyncM (Either HoogleError T.Text)
+infoCmdFancyRender :: T.Text -> IdeM (Either HoogleError T.Text)
 infoCmdFancyRender expr = do
   HoogleDb mdb <- get
   liftIO $ runHoogleQuery mdb expr $ \res ->
@@ -126,10 +126,10 @@ renderTarget t = T.intercalate "\n\n" $
 ------------------------------------------------------------------------
 
 lookupCmd :: CommandFunc T.Text [T.Text]
-lookupCmd = CmdSync $ \term -> liftAsync $
+lookupCmd = CmdSync $ \term -> liftToGhc $
       bimap hoogleErrorToIdeError id <$> lookupCmd' 10 term
 
-lookupCmd' :: Int -> T.Text -> AsyncM (Either HoogleError [T.Text])
+lookupCmd' :: Int -> T.Text -> IdeM (Either HoogleError [T.Text])
 lookupCmd' n term = do
   HoogleDb mdb <- get
   liftIO $ runHoogleQuery mdb term

@@ -52,7 +52,7 @@ applyOneCmd :: CommandFunc ApplyOneParams WorkspaceEdit
 applyOneCmd = CmdSync $ \(AOP uri pos)-> do
   applyOneCmd' uri pos
 
-applyOneCmd' :: Uri -> Position -> IdeM (IdeResponse WorkspaceEdit)
+applyOneCmd' :: Uri -> Position -> IdeGhcM (IdeResponse WorkspaceEdit)
 applyOneCmd' uri pos = pluginGetFile "applyOne: " uri $ \fp -> do
       revMapp <- GM.mkRevRedirMapFunc
       res <- GM.withMappedFile fp $ \file' -> liftIO $ applyHint file' (Just pos) revMapp
@@ -70,7 +70,7 @@ applyAllCmd :: CommandFunc Uri WorkspaceEdit
 applyAllCmd = CmdSync $ \uri -> do
   applyAllCmd' uri
 
-applyAllCmd' :: Uri -> IdeM (IdeResponse WorkspaceEdit)
+applyAllCmd' :: Uri -> IdeGhcM (IdeResponse WorkspaceEdit)
 applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \fp -> do
       revMapp <- GM.mkRevRedirMapFunc
       res <- GM.withMappedFile fp $ \file' -> liftIO $ applyHint file' Nothing revMapp
@@ -86,7 +86,7 @@ lintCmd :: CommandFunc Uri PublishDiagnosticsParams
 lintCmd = CmdSync $ \uri -> do
   lintCmd' uri
 
-lintCmd' :: Uri -> IdeM (IdeResponse PublishDiagnosticsParams)
+lintCmd' :: Uri -> IdeGhcM (IdeResponse PublishDiagnosticsParams)
 lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
       res <- GM.withMappedFile fp $ \file' -> liftIO $ runExceptT $ runLintCmd file' []
       -- logm $ "lint:res=" ++ show res

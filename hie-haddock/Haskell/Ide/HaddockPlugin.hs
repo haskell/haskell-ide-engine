@@ -78,7 +78,7 @@ initialized = do
   HS x <- MF.get
   return (isJust x)
 
-initializeHaddock :: IdeM ()
+initializeHaddock :: IdeGhcM ()
 initializeHaddock = do
   ref <- GM.unGmlT $ withSession (return . hsc_NC)
   MF.put $ HS $ Just ref
@@ -93,8 +93,8 @@ nameCacheFromGhcMonad = ( read_from_session , write_to_session )
        ref <- withSession (return . hsc_NC)
        liftIO $ writeIORef ref nc'
 
-nameCacheFromAsyncM :: NameCacheAccessor AsyncM
-nameCacheFromAsyncM = ( read_from_session , write_to_session )
+nameCacheFromIdeM :: NameCacheAccessor IdeM
+nameCacheFromIdeM = ( read_from_session , write_to_session )
   where
     read_from_session = do
        HS (Just ref) <- MF.get
@@ -104,7 +104,7 @@ nameCacheFromAsyncM = ( read_from_session , write_to_session )
        liftIO $ writeIORef ref nc'
 
 
-getDocsForName :: DynFlags -> Name -> AsyncM (Maybe T.Text)
+getDocsForName :: DynFlags -> Name -> IdeM (Maybe T.Text)
 getDocsForName df name = do
   init' <- initialized
   let mfs = nameModule_maybe name >>=
@@ -120,7 +120,7 @@ getDocsForName df name = do
   case mf of
     Nothing -> return Nothing
     Just f -> do
-      ehi <- readInterfaceFile nameCacheFromAsyncM f
+      ehi <- readInterfaceFile nameCacheFromIdeM f
       case ehi of
         Left _ -> return Nothing
         Right hi -> do
@@ -144,7 +144,7 @@ getDocsForName df name = do
                 , maybe "" (\x ->"[Source](file://"<>T.pack x<>"#"<>showName name<>")") msrch
                 ]
 
-getDocsWithType :: DynFlags -> Name -> AsyncM (Maybe T.Text)
+getDocsWithType :: DynFlags -> Name -> IdeM (Maybe T.Text)
 getDocsWithType df name = do
   mdocs <- getDocsForName df name
   let mtyp = Nothing-- getTypeForName name

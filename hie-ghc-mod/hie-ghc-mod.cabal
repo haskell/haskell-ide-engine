@@ -26,7 +26,6 @@ library
                      , hie-base
                      , hie-plugin-api
                      , text
-                     , transformers
 
   ghc-options:         -Wall
   if flag(pedantic)

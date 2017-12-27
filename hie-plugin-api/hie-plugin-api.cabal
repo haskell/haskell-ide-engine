@@ -28,22 +28,18 @@ library
                      , Diff
                      , aeson
                      , containers
+                     , constrained-dynamic
                      , directory
-                     , either
                      , fingertree
                      , filepath
                      , ghc
-                     , syb
                      , ghc-mod-core >= 5.9.0.0
                      , haskell-lsp
                      , hie-base
                      , haskell-lsp
                      , hslogger
-                     , lifted-base
-                     , monad-control
                      , mtl
                      , text
-                     , time
                      , transformers
                      , unordered-containers
                      , stm

@@ -16,9 +16,9 @@ import           Language.Haskell.Brittany
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 
 
-brittanyCmd :: Int -> TextDocumentIdentifier -> Maybe Range -> IdeM (IdeResponse [J.TextEdit])
-brittanyCmd tabSize tdi range =
-  pluginGetFile "brittanyCmd: " (tdi ^. J.uri) $ \file ->
+brittanyCmd :: Int -> Uri -> Maybe Range -> IdeGhcM (IdeResponse [J.TextEdit])
+brittanyCmd tabSize uri range =
+  pluginGetFile "brittanyCmd: " uri $ \file ->
     case range of
       Just r -> do
         text <- GM.withMappedFile file $ liftIO . T.readFile
