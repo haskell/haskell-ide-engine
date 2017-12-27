@@ -18,28 +18,17 @@ flag pedantic
 library
   exposed-modules:     Haskell.Ide.HaddockPlugin
   build-depends:       base >= 4.9 && < 5
-                     , HaRe
-                     , aeson
                      , containers
-                     , either
                      , ghc
-                     , ghc-mod
                      , ghc-mod-core
-                     , ghc-exactprint
-                     , hie-base
                      , hie-plugin-api
-                     , hie-ghc-mod
                      , hie-hare
-                     , haskell-lsp
                      , filepath
-                     , lens
-                     , monad-control
                      , mtl
                      , text
                      , haddock-api
                      , haddock-library
                      , directory
-                     , transformers
   ghc-options:         -Wall
   if flag(pedantic)
      ghc-options:      -Werror

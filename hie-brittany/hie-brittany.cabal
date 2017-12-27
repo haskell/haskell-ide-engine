@@ -22,7 +22,6 @@ library
                      , aeson
                      , text
                      , brittany
-                     , ghc-mod
                      , ghc-mod-core
                      , haskell-lsp
                      , lens

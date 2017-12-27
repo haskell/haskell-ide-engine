@@ -22,11 +22,9 @@ library
                      , hie-plugin-api
                      , aeson
                      , bytestring
-                     , containers
                      , directory
                      , filepath
                      , process
-                     , stm
                      , text
                      , transformers
                      , yaml

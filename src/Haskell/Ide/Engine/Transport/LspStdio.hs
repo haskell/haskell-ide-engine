@@ -454,14 +454,14 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
       Core.ReqRename req -> do
         liftIO $ U.logs $ "reactor:got RenameRequest:" ++ show req
         let params = req ^. J.params
-            doc = params ^. J.textDocument
+            doc = params ^. J.textDocument . J.uri
             pos = params ^. J.position
             newName  = params ^. J.newName
         callback <- hieResponseHelper (req ^. J.id) $ \we -> do
             let rspMsg = Core.makeResponseMessage req we
             reactorSend rspMsg
-        let hreq = GReq (Just $ doc ^. J.uri) Nothing (Just $ req ^. J.id) callback
-                     $ HaRe.renameCmd' (TextDocumentPositionParams doc pos) newName
+        let hreq = GReq (Just doc) Nothing (Just $ req ^. J.id) callback
+                     $ HaRe.renameCmd' doc pos newName
         makeRequest hreq
 
 
@@ -661,12 +661,12 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
       Core.ReqDocumentFormatting req -> do
         liftIO $ U.logs $ "reactor:got FormatRequest:" ++ show req
         let params = req ^. J.params
-            doc = params ^. J.textDocument
+            doc = params ^. J.textDocument . J.uri
             tabSize = params ^. J.options . J.tabSize
         callback <- hieResponseHelper (req ^. J.id) $ \textEdit -> do
             let rspMsg = Core.makeResponseMessage req $ J.List textEdit
             reactorSend rspMsg
-        let hreq = GReq (Just $ doc ^. J.uri) Nothing (Just $ req ^. J.id) callback
+        let hreq = GReq (Just doc) Nothing (Just $ req ^. J.id) callback
                      $ Brittany.brittanyCmd tabSize doc Nothing
         makeRequest hreq
 
@@ -675,13 +675,13 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
       Core.ReqDocumentRangeFormatting req -> do
         liftIO $ U.logs $ "reactor:got FormatRequest:" ++ show req
         let params = req ^. J.params
-            doc = params ^. J.textDocument
+            doc = params ^. J.textDocument . J.uri
             range = params ^. J.range
             tabSize = params ^. J.options . J.tabSize
         callback <- hieResponseHelper (req ^. J.id) $ \textEdit -> do
             let rspMsg = Core.makeResponseMessage req $ J.List textEdit
             reactorSend rspMsg
-        let hreq = GReq (Just $ doc ^. J.uri) Nothing (Just $ req ^. J.id) callback
+        let hreq = GReq (Just doc) Nothing (Just $ req ^. J.id) callback
                      $ Brittany.brittanyCmd tabSize doc (Just range)
         makeRequest hreq
 

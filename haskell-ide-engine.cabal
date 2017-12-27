@@ -32,9 +32,6 @@ library
                      , bytestring
                      , containers
                      , data-default
-                     , directory
-                     , either
-                     , filepath
                      , ghc >= 8.0.1
                      , ghc-mod-core
                      , gitrev >= 1.1
@@ -55,7 +52,6 @@ library
                      , transformers
                      , stm
                      , text
-                     , unordered-containers
                      , vector
                      , yi-rope
 
@@ -87,11 +83,6 @@ executable hie
                      , hslogger
                      , optparse-simple
                      , stm
-                     , text
-                     , time
-                     , transformers
-                     , unordered-containers
-                     , vinyl
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
                        -with-rtsopts=-T
   if flag(pedantic)
@@ -111,8 +102,7 @@ test-suite haskell-ide-test
                        JsonSpec
                        Spec
                        TestUtils
-  build-depends:       Diff
-                     , QuickCheck
+  build-depends:       QuickCheck
                      , aeson
                      , base
                      , containers
@@ -133,9 +123,7 @@ test-suite haskell-ide-test
                      , quickcheck-instances
                      , stm
                      , text
-                     , transformers
                      , unordered-containers
-                     , vector
                      , yaml
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
@@ -147,9 +135,7 @@ test-suite haskell-ide-func-test
   hs-source-dirs:      test
   main-is:             Functional.hs
   other-modules:       TestUtils
-  build-depends:       Diff
-                     , QuickCheck
-                     , aeson
+  build-depends:       aeson
                      , base
                      , containers
                      , directory
@@ -167,9 +153,7 @@ test-suite haskell-ide-func-test
                      , hspec
                      , stm
                      , text
-                     , transformers
                      , unordered-containers
-                     , vinyl
                      , yaml
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
