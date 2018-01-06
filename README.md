@@ -36,39 +36,39 @@ we talk to clients.__
  - Uses LSP, so should be easy to integrate with a wide selection of editors
  - Diagnostics via hlint and GHC warnings/errors
    
-   ![Diagnostics](http://i.imgur.com/1vqm4eF.gif)
+   ![Diagnostics](https://i.imgur.com/1vqm4eF.gif)
 
  - Code actions and quick fixes via apply-refact
    
-   ![Apply Refact](http://i.imgur.com/dBrSi5F.gif)
+   ![Apply Refact](https://i.imgur.com/dBrSi5F.gif)
 
  - Type information and documentation(via hoogle) on hover
 
-   ![Hover](http://i.imgur.com/AcvYROv.gif)
+   ![Hover](https://i.imgur.com/AcvYROv.gif)
 
  - Jump to definition
    
-   ![Find Def](http://i.imgur.com/kmCU2Bz.gif)
+   ![Find Def](https://i.imgur.com/kmCU2Bz.gif)
 
  - List all top level definitions
 
-   ![Doc Symbols](http://i.imgur.com/GErcYqp.gif)
+   ![Doc Symbols](https://i.imgur.com/GErcYqp.gif)
 
  - Highlight references in document
    
-   ![Doc Highlight](http://i.imgur.com/YLjHs2s.gif)
+   ![Doc Highlight](https://i.imgur.com/YLjHs2s.gif)
    
  - Completion
    
-   ![Completion](http://i.imgur.com/wR6IJ7M.gif)
+   ![Completion](https://i.imgur.com/wR6IJ7M.gif)
 
  - Formatting via brittany
 
-   ![Formatting](http://i.imgur.com/cqZZ8HC.gif)
+   ![Formatting](https://i.imgur.com/cqZZ8HC.gif)
 
  - Renaming via HaRe
 
-   ![Renaming](http://i.imgur.com/z03G2a5.gif)
+   ![Renaming](https://i.imgur.com/z03G2a5.gif)
  
 ## Installation 
 
@@ -269,7 +269,7 @@ This project is not started from scratch:
 :heart: Haskell tooling dream is near, we need your help! :heart:
 
  - Register in [our google group mailing list](https://groups.google.com/forum/#!forum/haskell-ide).
- - Join [our IRC channel](http://webchat.freenode.net/?channels=haskell-ide-engine) at `#haskell-ide-engine` on `freenode`.
+ - Join [our IRC channel](https://webchat.freenode.net/?channels=haskell-ide-engine) at `#haskell-ide-engine` on `freenode`.
  - Fork this repo and hack as much as you can.
  - Ask @alanz or @hvr to join the project.
 
