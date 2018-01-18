@@ -18,8 +18,8 @@ packages:
   extra-dep: true
 
 - location:
-    git: https://github.com/wz1000/ghc-mod.git
-    commit: 03c91ea53b6389e7a1fcf4e471171aa3d6c8de41
+    git: https://gitlab.com/alanz/ghc-mod.git
+    commit: 83a3e10b7e8a66c2c507ecaee0f17960727525c3
     # ../ghc-mod
   extra-dep: true
   subdirs:
