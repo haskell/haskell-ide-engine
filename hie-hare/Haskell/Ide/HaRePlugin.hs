@@ -29,10 +29,9 @@ import           FastString
 import           GHC
 import           GHC.Generics                                 (Generic)
 import qualified GhcMod.Error                                 as GM
-import qualified GhcMod.ModuleLoader                          as GM
 import qualified GhcMod.Monad                                 as GM
 import qualified GhcMod.Utils                                 as GM
-import           Haskell.Ide.Engine.LocMap
+import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
@@ -273,21 +272,21 @@ data NameMapData = NMD
 invert :: (Ord k, Ord v) => Map.Map k v -> Map.Map v [k]
 invert m = Map.fromListWith (++) [(v,[k]) | (k,v) <- Map.toList m]
 
-instance GM.ModuleCache NameMapData where
+instance ModuleCache NameMapData where
   cacheDataProducer cm = pure $ NMD inm
-    where nm  = initRdrNameMap $ GM.tcMod cm
+    where nm  = initRdrNameMap $ tcMod cm
           inm = invert nm
 
 -- ---------------------------------------------------------------------
 
 getSymbols :: Uri -> IdeM (IdeResponse [J.SymbolInformation])
 getSymbols uri = pluginGetFile "getSymbols: " uri $ \file -> do
-    mcm <- GM.getCachedModule file
+    mcm <- getCachedModule file
     case mcm of
       Nothing -> return $ IdeResponseOk []
       Just cm -> do
-          let tm = GM.tcMod cm
-              rfm = GM.revMap cm
+          let tm = tcMod cm
+              rfm = revMap cm
               hsMod = unLoc $ pm_parsed_source $ tm_parsed_module tm
               imports = hsmodImports hsMod
               imps  = concatMap (goImport . unLoc) imports
@@ -422,9 +421,9 @@ getCompletions uri (qualifier,ident) = pluginGetFile "getCompletions: " uri $ \f
   let noCache = return $ nonExistentCacheErr "getCompletions"
   let modQual = if T.null qualifier then "" else qualifier <> "."
   let fullPrefix = modQual <> ident
-  GM.withCachedModule file noCache $
+  withCachedModule file noCache $
     \cm -> do
-      let tm = GM.tcMod cm
+      let tm = tcMod cm
           parsedMod = tm_parsed_module tm
           curMod = moduleName $ ms_mod $ pm_mod_summary parsedMod
           Just (_,limports,_,_) = tm_renamed_source tm
@@ -498,7 +497,7 @@ getCompletions uri (qualifier,ident) = pluginGetFile "getCompletions: " uri $ \f
 
           setCiTypesForImported hscEnv xs =
             liftIO $ forM xs $ \ci@CI{origName} -> do
-              mt <- (Just <$> lookupGlobal hscEnv origName)
+              mt <- (lookupTypeHscEnv hscEnv origName)
                       `catch` \(_ :: SourceError) -> return Nothing
               let typ = do
                     t <- mt
@@ -529,14 +528,14 @@ getTypeForName n = GM.unGmlT $ do
 getSymbolsAtPoint :: Uri -> Position -> IdeM (IdeResponse [(Range, Name)])
 getSymbolsAtPoint uri pos = pluginGetFile "getSymbolsAtPoint: " uri $ \file -> do
   let noCache = return $ nonExistentCacheErr "getSymbolAtPoint"
-  GM.withCachedModule file noCache $
+  withCachedModule file noCache $
     return . IdeResponseOk . getSymbolsAtPointPure pos
 
-getSymbolsAtPointPure :: Position -> GM.CachedModule -> [(Range,Name)]
-getSymbolsAtPointPure pos cm = maybe [] (`getArtifactsAtPos` GM.locMap cm) $ newPosToOld cm pos
+getSymbolsAtPointPure :: Position -> CachedModule -> [(Range,Name)]
+getSymbolsAtPointPure pos cm = maybe [] (`getArtifactsAtPos` locMap cm) $ newPosToOld cm pos
 
 symbolFromTypecheckedModule
-  :: GM.LocMap
+  :: LocMap
   -> Position
   -> Maybe (Range, Name)
 symbolFromTypecheckedModule lm pos =
@@ -549,10 +548,10 @@ symbolFromTypecheckedModule lm pos =
 getReferencesInDoc :: Uri -> Position -> IdeM (IdeResponse [J.DocumentHighlight])
 getReferencesInDoc uri pos = pluginGetFile "getReferencesInDoc: " uri $ \file -> do
   let noCache = return $ nonExistentCacheErr "getReferencesInDoc"
-  GM.withCachedModuleAndData file noCache $
+  withCachedModuleAndData file noCache $
     \cm NMD{inverseNameMap} -> runExceptT $ do
-      let lm = GM.locMap cm
-          pm = tm_parsed_module $ GM.tcMod cm
+      let lm = locMap cm
+          pm = tm_parsed_module $ tcMod cm
           cfile = ml_hs_file $ ms_location $ pm_mod_summary pm
           mpos = newPosToOld cm pos
       case mpos of
@@ -607,10 +606,10 @@ getNewNames old = do
 findDef :: Uri -> Position -> IdeGhcM (IdeResponse [Location])
 findDef uri pos = pluginGetFile "findDef: " uri $ \file -> do
   let noCache = return $ nonExistentCacheErr "hare:findDef"
-  GM.withCachedModule file noCache $
+  withCachedModule file noCache $
     \cm -> do
-      let rfm = GM.revMap cm
-          lm = GM.locMap cm
+      let rfm = revMap cm
+          lm = locMap cm
       case symbolFromTypecheckedModule lm =<< newPosToOld cm pos of
         Nothing -> return $ IdeResponseOk []
         Just pn -> do
@@ -638,7 +637,7 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file -> do
                         case ml_hs_file mLoc of
                           Just fp -> do
                             cfp <- reverseMapFile rfm fp
-                            mcm' <- GM.getCachedModule cfp
+                            mcm' <- getCachedModule cfp
                             rcm' <- case mcm' of
                               Just cmdl -> do
                                 debugm "module already in cache in findDef"
@@ -646,15 +645,15 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file -> do
                               Nothing -> do
                                 debugm "setting cached module in findDef"
                                 _ <- setTypecheckedModule $ filePathToUri cfp
-                                GM.getCachedModule cfp
+                                getCachedModule cfp
                             case rcm' of
                               Nothing ->
                                 return
                                   $ IdeResponseFail
                                   $ IdeError PluginError ("hare:findDef: failed to load module for " <> T.pack cfp) Null
                               Just cm' -> do
-                                let modSum = pm_mod_summary $ tm_parsed_module $ GM.tcMod cm'
-                                    rfm'   = GM.revMap cm'
+                                let modSum = pm_mod_summary $ tm_parsed_module $ tcMod cm'
+                                    rfm'   = revMap cm'
                                 newNames <- GM.unGmlT $ do
                                   setGhcContext modSum
                                   getNewNames n

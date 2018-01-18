@@ -13,7 +13,6 @@ import           Data.Version                          (showVersion)
 import           Development.GitRev                    (gitCommitCount)
 import           Distribution.System                   (buildArch)
 import           Distribution.Text                     (display)
-import qualified GhcMod.ModuleLoader                   as GM
 import qualified GhcMod.Types                          as GM
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
@@ -125,7 +124,7 @@ run opts = do
   -- launch the dispatcher.
   let dispatcherProcP dispatcherEnv =
         void $ runIdeGhcM ghcModOptions
-            (IdeState GM.emptyModuleCache plugins Map.empty)
+            (IdeState emptyModuleCache plugins Map.empty)
             (dispatcherP dispatcherEnv pin)
 
   if optLsp opts then

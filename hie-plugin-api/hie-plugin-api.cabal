@@ -22,8 +22,10 @@ library
                        Haskell.Ide.Engine.PluginDescriptor
                        Haskell.Ide.Engine.PluginUtils
                        Haskell.Ide.Engine.MonadTypes
-                       Haskell.Ide.Engine.LocMap
                        Haskell.Ide.Engine.IdeFunctions
+                       Haskell.Ide.Engine.MultiThreadState
+                       Haskell.Ide.Engine.ArtifactMap
+                       Haskell.Ide.Engine.ModuleCache
   build-depends:       base >= 4.9 && < 5
                      , Diff
                      , aeson
@@ -33,6 +35,7 @@ library
                      , fingertree
                      , filepath
                      , ghc
+                     , syb
                      , ghc-mod-core >= 5.9.0.0
                      , haskell-lsp
                      , hie-base
@@ -42,6 +45,7 @@ library
                      , text
                      , transformers
                      , unordered-containers
+                     , monad-control
                      , stm
   ghc-options:         -Wall
   if flag(pedantic)
