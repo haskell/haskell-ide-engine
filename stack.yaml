@@ -20,8 +20,8 @@ packages:
 
 - location:
     # ../ghc-mod
-    git: https://gitlab.com/alanz/ghc-mod.git
-    commit: 83a3e10b7e8a66c2c507ecaee0f17960727525c3
+    git: https://github.com/wz1000/ghc-mod.git
+    commit: a2beda19b6d1975be7bed1081069ed0e42fa39e9
   extra-dep: true
   subdirs:
     - .

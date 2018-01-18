@@ -16,6 +16,7 @@ import           Data.Algorithm.Diff
 import           Data.Algorithm.DiffOutput
 import           Data.Either
 import           Data.Foldable
+import           Data.IORef
 import qualified Data.Map                                     as Map
 import           Data.Maybe
 import           Data.Monoid
@@ -31,6 +32,7 @@ import           GHC.Generics                                 (Generic)
 import qualified GhcMod.Error                                 as GM
 import qualified GhcMod.Monad                                 as GM
 import qualified GhcMod.Utils                                 as GM
+import qualified GhcMod.LightGhc                              as GM
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
@@ -411,7 +413,7 @@ safeTyThingId (AnId i)                    = Just i
 safeTyThingId (AConLike (RealDataCon dc)) = Just $ dataConWrapId dc
 safeTyThingId _                           = Nothing
 
-getCompletions :: Uri -> (T.Text, T.Text) -> IdeGhcM (IdeResponse [J.CompletionItem])
+getCompletions :: Uri -> (T.Text, T.Text) -> IdeM (IdeResponse [J.CompletionItem])
 getCompletions uri (qualifier,ident) = pluginGetFile "getCompletions: " uri $ \file ->
   let handlers  = [GM.GHandler $ \(ex :: SomeException) ->
                      return $ someErr "getCompletions" (show ex)
@@ -495,9 +497,10 @@ getCompletions uri (qualifier,ident) = pluginGetFile "getCompletions: " uri $ \f
                     getComplsFromModName mn
             return $ Set.unions xs
 
-          setCiTypesForImported hscEnv xs =
+          setCiTypesForImported Nothing xs = liftIO $ pure xs
+          setCiTypesForImported (Just hscEnv) xs =
             liftIO $ forM xs $ \ci@CI{origName} -> do
-              mt <- (lookupTypeHscEnv hscEnv origName)
+              mt <- (Just <$> lookupGlobal hscEnv origName)
                       `catch` \(_ :: SourceError) -> return Nothing
               let typ = do
                     t <- mt
@@ -505,23 +508,30 @@ getCompletions uri (qualifier,ident) = pluginGetFile "getCompletions: " uri $ \f
                     return $ T.pack $ showGhc $ varType tyid
               return $ ci {thingType = typ}
 
-      comps <- GM.unGmlT $ do
-        hscEnv <- getSession
+      comps <- do
+        hscEnvRef <- ghcSession <$> readMTS
+        hscEnv <- liftIO $ traverse readIORef hscEnvRef
         if T.null qualifier then do
-          xs <- Set.toList . Set.unions <$> mapM getComplsFromModName unqualImports
+          let getComplsGhc = maybe (const $ pure Set.empty) (\env -> GM.runLightGhc env . getComplsFromModName) hscEnv
+          xs <- Set.toList . Set.unions <$> mapM getComplsGhc unqualImports
           xs' <- setCiTypesForImported hscEnv xs
           return $ localCmps ++ xs'
         else do
-          xs <- Set.toList <$> getQualifedCompls
+          let getQualComplsGhc = maybe (pure Set.empty) (\env -> GM.runLightGhc env getQualifedCompls) hscEnv
+          xs <- Set.toList <$> getQualComplsGhc
           setCiTypesForImported hscEnv xs
       return $ IdeResponseOk $ modCompls ++ map mkCompl comps
 
-getTypeForName :: Name -> IdeGhcM (Maybe Type)
-getTypeForName n = GM.unGmlT $ do
-  hscEnv <- getSession
-  mt <- liftIO $ (Just <$> lookupGlobal hscEnv n)
-                    `catch` \(_ :: SomeException) -> return Nothing
-  return $ fmap varType $ safeTyThingId =<< mt
+getTypeForName :: Name -> IdeM (Maybe Type)
+getTypeForName n = do
+  hscEnvRef <- ghcSession <$> readMTS
+  mhscEnv <- liftIO $ traverse readIORef hscEnvRef
+  case mhscEnv of
+    Nothing -> return Nothing
+    Just hscEnv -> do
+      mt <- liftIO $ (Just <$> lookupGlobal hscEnv n)
+                        `catch` \(_ :: SomeException) -> return Nothing
+      return $ fmap varType $ safeTyThingId =<< mt
 
 -- ---------------------------------------------------------------------
 

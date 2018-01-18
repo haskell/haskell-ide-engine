@@ -8,7 +8,6 @@ import           Control.Monad.STM
 import qualified Data.Map                              as Map
 import qualified Data.Set                              as S
 import qualified Data.Text                             as T
-import qualified GhcMod.ModuleLoader                   as GM
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadTypes
@@ -44,7 +43,7 @@ dispatcherSpec = do
           req2 = GReq Nothing Nothing (Just $ J.IdInt 2) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text2"
           req3 = GReq Nothing (Just (filePathToUri "test", 2)) Nothing (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text3"
           req4 = GReq Nothing Nothing (Just $ J.IdInt 3) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text4"
-      pid <- forkIO $ runIdeGhcM testOptions (IdeState GM.emptyModuleCache (pluginDescToIdePlugins []) Map.empty)
+      pid <- forkIO $ runIdeGhcM testOptions (IdeState emptyModuleCache (pluginDescToIdePlugins []) Map.empty Nothing)
                               (dispatcherP (DispatcherEnv cancelTVar wipTVar versionTVar) inChan)
       atomically $ writeTChan inChan req1
       atomically $ modifyTVar cancelTVar (S.insert (J.IdInt 2))

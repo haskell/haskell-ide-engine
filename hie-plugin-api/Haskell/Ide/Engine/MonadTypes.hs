@@ -34,13 +34,15 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 
 import           Data.Aeson
-import qualified Data.Map as Map
 import           Data.Dynamic (Dynamic)
+import           Data.IORef
+import qualified Data.Map as Map
 import qualified Data.Text as T
 import           Data.Typeable (TypeRep, Typeable)
 
 import qualified GhcMod.Monad        as GM
 import           GHC.Generics
+import           GHC (HscEnv)
 
 import           Haskell.Ide.Engine.PluginTypes
 import           Haskell.Ide.Engine.MultiThreadState
@@ -90,7 +92,8 @@ data IdeState = IdeState
   { moduleCache :: GhcModuleCache
   , idePlugins  :: IdePlugins
   , extensibleState :: !(Map.Map TypeRep Dynamic)
-  } deriving (Show)
+  , ghcSession  :: (Maybe (IORef HscEnv))
+  }
 
 instance HasGhcModuleCache IdeM where
   getModuleCache = do

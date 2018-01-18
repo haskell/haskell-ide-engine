@@ -29,7 +29,6 @@ import           Data.Aeson
 import qualified Data.HashMap.Strict                   as H
 import qualified Data.Map                              as Map
 import qualified Data.Set                              as S
-import qualified GhcMod.ModuleLoader                   as GM
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadTypes
@@ -68,7 +67,7 @@ startServer = do
   cin  <- atomically newTChan
 
   let dispatcherProc dispatcherEnv
-        = void $ forkIO $ runIdeGhcM testOptions (IdeState GM.emptyModuleCache plugins Map.empty) (dispatcherP dispatcherEnv cin)
+        = void $ forkIO $ runIdeGhcM testOptions (IdeState emptyModuleCache plugins Map.empty Nothing) (dispatcherP dispatcherEnv cin)
   cancelTVar      <- atomically $ newTVar S.empty
   wipTVar         <- atomically $ newTVar S.empty
   versionTVar     <- atomically $ newTVar Map.empty

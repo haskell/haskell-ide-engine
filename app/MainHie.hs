@@ -124,7 +124,7 @@ run opts = do
   -- launch the dispatcher.
   let dispatcherProcP dispatcherEnv =
         void $ runIdeGhcM ghcModOptions
-            (IdeState emptyModuleCache plugins Map.empty)
+            (IdeState emptyModuleCache plugins Map.empty Nothing)
             (dispatcherP dispatcherEnv pin)
 
   if optLsp opts then

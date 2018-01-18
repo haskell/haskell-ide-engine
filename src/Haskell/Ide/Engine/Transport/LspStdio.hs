@@ -598,7 +598,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         case mprefix of
           Nothing -> liftIO $ callback $ IdeResponseOk []
           Just prefix -> do
-            let hreq = GReq (Just doc) Nothing (Just $ req ^. J.id) callback
+            let hreq = IReq (req ^. J.id) callback
                          $ HaRe.getCompletions doc prefix
             makeRequest hreq
 

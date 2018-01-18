@@ -147,7 +147,7 @@ getDocsForName df name = do
 getDocsWithType :: DynFlags -> Name -> IdeM (Maybe T.Text)
 getDocsWithType df name = do
   mdocs <- getDocsForName df name
-  let mtyp = Nothing-- getTypeForName name
+  mtyp <- getTypeForName name
   return $ case (mdocs,mtyp) of
     (Nothing, Nothing) ->
       Nothing

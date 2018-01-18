@@ -160,8 +160,10 @@ setTypecheckedModule uri =
         return $ IdeResponseOk (diags,errs)
       Just tm -> do
         typm <- GM.unGmlT $ genTypeMap tm
+        sess <- fmap GM.gmgsSession . GM.gmGhcSession <$> GM.gmsGet
         let cm = CachedModule tm (genLocMap tm) typm rfm return return
         cacheModule fp cm
+        modifyMTS (\s -> s {ghcSession = sess})
         return $ IdeResponseOk (diags,errs)
 
 -- ---------------------------------------------------------------------
