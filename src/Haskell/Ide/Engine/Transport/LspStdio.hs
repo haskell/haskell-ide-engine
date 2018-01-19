@@ -42,7 +42,6 @@ import qualified Data.Text as T
 import           Data.Text.Encoding
 import qualified Data.Vector as V
 import qualified GhcModCore               as GM
-import qualified GhcMod.ModuleLoader      as GM
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
@@ -247,24 +246,24 @@ _unmapFileFromVfs verTVar cin uri = do
 -- TODO: generalise this and move it to GhcMod.ModuleLoader
 updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeGhcM (IdeResponse ())
 updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file -> do
-  mcm <- GM.getCachedModule file
+  mcm <- getCachedModule file
   case mcm of
     Just cm -> do
-      let n2oOld = GM.newPosToOldPos cm
-          o2nOld = GM.oldPosToNewPos cm
+      let n2oOld = newPosToOld cm
+          o2nOld = oldPosToNew cm
           (n2o,o2n) = foldr go (n2oOld, o2nOld) changes
           go (J.TextDocumentContentChangeEvent (Just r) _ txt) (n2o', o2n') =
             (n2o' <=< newToOld r txt, oldToNew r txt <=< o2n')
           go _ _ = (const Nothing, const Nothing)
-      let cm' = cm {GM.newPosToOldPos = n2o, GM.oldPosToNewPos = o2n}
-      GM.cacheModule file cm'
+      let cm' = cm {newPosToOld = n2o, oldPosToNew = o2n}
+      cacheModule file cm'
       return $ IdeResponseOk ()
     Nothing ->
       return $ IdeResponseOk ()
   where
-    f (+/-) (J.Range (Position sl _) (Position el _)) txt p@(GM.Pos l c)
+    f (+/-) (J.Range (Position sl _) (Position el _)) txt p@(Position l c)
       | l < sl = Just p
-      | l > el = Just $ GM.Pos l' c
+      | l > el = Just $ Position l' c
       | otherwise = Nothing
          where l' = l +/- dl
                dl = newL - oldL
@@ -445,7 +444,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         -- unmapFileFromVfs versionTVar cin uri
         makeRequest $ GReq (Just uri) Nothing Nothing (const $ return ()) $ do
           case uriToFilePath uri of
-            Just fp -> GM.deleteCachedModule fp
+            Just fp -> deleteCachedModule fp
             Nothing -> return ()
           return $ IdeResponseOk ()
 
@@ -599,7 +598,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         case mprefix of
           Nothing -> liftIO $ callback $ IdeResponseOk []
           Just prefix -> do
-            let hreq = GReq (Just doc) Nothing (Just $ req ^. J.id) callback
+            let hreq = IReq (req ^. J.id) callback
                          $ HaRe.getCompletions doc prefix
             makeRequest hreq
 

@@ -21,8 +21,6 @@ module Haskell.Ide.Engine.PluginUtils
   , oldPosToNew
   , unPos
   , toPos
-  , position2pos
-  , pos2position
   ) where
 
 import           Control.Monad.IO.Class
@@ -34,8 +32,8 @@ import qualified Data.HashMap.Strict                   as H
 import           Data.Monoid
 import qualified Data.Text                             as T
 import           FastString
-import qualified GhcMod.ModuleLoader as GM
 import           Haskell.Ide.Engine.MonadTypes
+import           Haskell.Ide.Engine.ArtifactMap
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
 import           Prelude                               hiding (log)
 import           SrcLoc
@@ -43,32 +41,6 @@ import           System.Directory
 import           System.FilePath
 
 -- ---------------------------------------------------------------------
-
--- | Converts to one based tuple
-unPos :: Position -> (Int,Int)
-unPos (Position l c) = (l+1,c+1)
-
--- | Converts from one based tuple
-toPos :: (Int,Int) -> Position
-toPos (l,c) = Position (l-1) (c-1)
-
-newPosToOld :: GM.CachedModule -> Position -> Maybe Position
-newPosToOld cm p
-  = pos2position <$> GM.newPosToOldPos cm (position2pos p)
-
-oldPosToNew :: GM.CachedModule -> Position -> Maybe Position
-oldPosToNew cm p
-  = pos2position <$> GM.oldPosToNewPos cm (position2pos p)
-
-pos2position :: GM.Pos -> Position
-pos2position (GM.Pos l c) = Position l c
-
-position2pos :: Position -> GM.Pos
-position2pos (Position l c) = GM.Pos l c
-
-unpackRealSrcSpan' :: RealSrcSpan -> (Position, Position)
-unpackRealSrcSpan' rspan = (pos2position s,pos2position e)
-  where (s,e) = GM.unpackRealSrcSpan rspan
 
 canonicalizeUri :: MonadIO m => Uri -> m Uri
 canonicalizeUri uri =
@@ -78,13 +50,13 @@ canonicalizeUri uri =
       fp' <- liftIO $ canonicalizePath fp
       return $ filePathToUri fp'
 
-newRangeToOld :: GM.CachedModule -> Range -> Maybe Range
+newRangeToOld :: CachedModule -> Range -> Maybe Range
 newRangeToOld cm (Range start end) = do
   start' <- newPosToOld cm start
   end'   <- newPosToOld cm end
   return (Range start' end')
 
-oldRangeToNew :: GM.CachedModule -> Range -> Maybe Range
+oldRangeToNew :: CachedModule -> Range -> Maybe Range
 oldRangeToNew cm (Range start end) = do
   start' <- oldPosToNew cm start
   end'   <- oldPosToNew cm end
@@ -95,7 +67,7 @@ getRealSrcSpan (RealSrcSpan r)   = Right r
 getRealSrcSpan (UnhelpfulSpan x) = Left $ T.pack $ unpackFS x
 
 realSrcSpan2Range :: RealSrcSpan -> Range
-realSrcSpan2Range = uncurry Range . unpackRealSrcSpan'
+realSrcSpan2Range = uncurry Range . unpackRealSrcSpan
 
 srcSpan2Range :: SrcSpan -> Either T.Text Range
 srcSpan2Range spn =

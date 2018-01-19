@@ -35,7 +35,7 @@ import qualified GhcMod.Utils                      as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
-import           Haskell.Ide.Engine.LocMap
+import           Haskell.Ide.Engine.ArtifactMap
 import           HscTypes
 import           TcRnTypes
 import           Outputable                        (renderWithStyle, mkUserStyle, Depth(..))
@@ -159,9 +159,11 @@ setTypecheckedModule uri =
         debugm $ "setTypecheckedModule: Didn't get typechecked module for: " ++ show fp
         return $ IdeResponseOk (diags,errs)
       Just tm -> do
-        typm <- GM.unGmlT $ GM.genTypeMap tm
-        let cm = GM.CachedModule tm (GM.genLocMap tm) typm rfm return return
-        GM.cacheModule fp cm
+        typm <- GM.unGmlT $ genTypeMap tm
+        sess <- fmap GM.gmgsSession . GM.gmGhcSession <$> GM.gmsGet
+        let cm = CachedModule tm (genLocMap tm) typm rfm return return
+        cacheModule fp cm
+        modifyMTS (\s -> s {ghcSession = sess})
         return $ IdeResponseOk (diags,errs)
 
 -- ---------------------------------------------------------------------
@@ -218,20 +220,20 @@ typeCmd = CmdSync $ \(TP _bool uri pos) -> do
 newTypeCmd :: Position -> Uri -> IdeM (IdeResponse [(Range, T.Text)])
 newTypeCmd newPos uri =
   pluginGetFile "newTypeCmd: " uri $ \fp -> do
-      mcm <- GM.getCachedModule fp
+      mcm <- getCachedModule fp
       case mcm of
         Nothing -> return $ IdeResponseOk []
         Just cm -> return $ IdeResponseOk $ pureTypeCmd newPos cm
 
-pureTypeCmd :: Position -> GM.CachedModule -> [(Range,T.Text)]
+pureTypeCmd :: Position -> CachedModule -> [(Range,T.Text)]
 pureTypeCmd newPos cm  =
     case mOldPos of
       Nothing -> []
       Just pos -> concatMap f (spanTypes pos)
   where
     mOldPos = newPosToOld cm newPos
-    tm = GM.tcMod cm
-    typm = GM.typeMap cm
+    tm = tcMod cm
+    typm = typeMap cm
     spanTypes' pos = getArtifactsAtPos pos typm
     spanTypes pos = sortBy (cmp `on` fst) (spanTypes' pos)
     dflag = ms_hspp_opts $ pm_mod_summary $ tm_parsed_module tm
@@ -259,10 +261,10 @@ isSubRangeOf (Range sa ea) (Range sb eb) = sb <= sa && eb >= ea
 getDynFlags :: Uri -> IdeM (IdeResponse DynFlags)
 getDynFlags uri =
   pluginGetFile "getDynFlags: " uri $ \fp -> do
-      mcm <- GM.getCachedModule fp
+      mcm <- getCachedModule fp
       case mcm of
         Just cm -> return $
-          IdeResponseOk $ ms_hspp_opts $ pm_mod_summary $ tm_parsed_module $ GM.tcMod cm
+          IdeResponseOk $ ms_hspp_opts $ pm_mod_summary $ tm_parsed_module $ tcMod cm
         Nothing -> return $
           IdeResponseFail $
             IdeError PluginError ("getDynFlags: \"" <> "module not loaded" <> "\"") Null

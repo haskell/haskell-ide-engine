@@ -12,7 +12,6 @@ import           Control.Monad.Reader
 import           Control.Monad.STM
 import qualified Data.Map                              as Map
 import qualified Data.Set                              as S
-import qualified GhcMod.ModuleLoader                   as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Types
@@ -60,12 +59,12 @@ ghcDispatcher env@DispatcherEnv{docVersionTVar} pin = forever $ do
   debugm $ "got request with id: " ++ show mid
 
   let runner = case context of
-        Nothing -> GM.runActionWithContext Nothing
+        Nothing -> runActionWithContext Nothing
         Just uri -> case uriToFilePath uri of
-          Just fp -> GM.runActionWithContext (Just fp)
+          Just fp -> runActionWithContext (Just fp)
           Nothing -> \act -> do
             debugm "Got malformed uri, running action with default context"
-            GM.runActionWithContext Nothing act
+            runActionWithContext Nothing act
 
   let runWithCallback = do
         r <- runner action
