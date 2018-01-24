@@ -2,7 +2,7 @@ name:                hie-build-plugin
 version:             0.1.0.0
 synopsis:            Haskell IDE build plugin
 license:             BSD3
-license-file:        ../LICENSE
+license-file:        LICENSE
 author:              Gleb Popov
 maintainer:          6yearold@gmail.com
 copyright:           2016 TBD

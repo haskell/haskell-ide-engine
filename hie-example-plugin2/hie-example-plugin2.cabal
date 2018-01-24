@@ -2,7 +2,7 @@ name:                hie-example-plugin2
 version:             0.1.0.0
 synopsis:            Haskell IDE example plugin
 license:             BSD3
-license-file:        ../LICENSE
+license-file:        LICENSE
 author:              Many,TBD when we release
 maintainer:          alan.zimm@gmail.com (for now)
 copyright:           2015 TBD

@@ -2,7 +2,7 @@ name:                hie-haddock
 version:             0.1.0.0
 synopsis:            Haskell IDE Haddock plugin
 license:             BSD3
-license-file:        ../LICENSE
+license-file:        LICENSE
 author:              Alan Zimmerman
 maintainer:          alan.zimm@gmail.com (for now)
 copyright:           2015 TBD
