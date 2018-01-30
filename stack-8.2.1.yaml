@@ -18,17 +18,16 @@ packages:
   extra-dep: true
 
 - location:
-    git: https://github.com/wz1000/ghc-mod.git
-    commit: a2beda19b6d1975be7bed1081069ed0e42fa39e9
-    # ../ghc-mod
+    git: https://github.com/alanz/ghc-mod.git
+    commit: 47e200a728a575f407ee6f9893d9a1e77b1b5325
   extra-dep: true
   subdirs:
     - .
     - core
 
 - location:
-    git: https://gitlab.com/dxld/cabal-helper.git
-    commit: 4bfc6b916fcc696a5d82e7cd35713d6eabcb0533
+    git: https://gitlab.com/alanz/cabal-helper.git
+    commit: f53a39b7fac201d9ac2baae709b977546e448baf
   extra-dep: true
 
 extra-deps:

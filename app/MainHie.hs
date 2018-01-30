@@ -2,17 +2,12 @@
 {-# LANGUAGE TemplateHaskell     #-}
 module Main where
 
-
-
 import           Control.Concurrent.STM.TChan
 import           Control.Monad
 import           Control.Monad.STM
 import           Data.Semigroup
 import qualified Data.Map as Map
 import           Data.Version                          (showVersion)
-import           Development.GitRev                    (gitCommitCount)
-import           Distribution.System                   (buildArch)
-import           Distribution.Text                     (display)
 import qualified GhcMod.Types                          as GM
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.Monad
@@ -59,16 +54,7 @@ plugins = pluginDescToIdePlugins
 
 main :: IO ()
 main = do
-    -- Version code from stack. Maybe move this stuff into optparse-simple ?
-    let commitCount = $gitCommitCount
-        versionString' = concat $ concat
-            [ [$(simpleVersion Meta.version)]
-              -- Leave out number of commits for --depth=1 clone
-              -- See https://github.com/commercialhaskell/stack/issues/792
-            , [" (" ++ commitCount ++ " commits)" | commitCount /= ("1"::String) &&
-                                                    commitCount /= ("UNKNOWN" :: String)]
-            , [" ", display buildArch]
-            ]
+    let
         numericVersion :: Parser (a -> a)
         numericVersion =
             infoOption
@@ -78,7 +64,7 @@ main = do
     -- Parse the options and run
     (global, ()) <-
         simpleOptions
-            versionString'
+            version
             "haskell-ide-engine - Provide a common engine to power any Haskell IDE"
             ""
             (numericVersion <*> globalOptsParser)

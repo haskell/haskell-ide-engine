@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -20,6 +21,7 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Options.Applicative.Simple      (simpleVersion)
 import qualified Paths_haskell_ide_engine        as Meta
 import           Prelude                         hiding (log)
+import           System.Info
 
 -- ---------------------------------------------------------------------
 
@@ -84,6 +86,6 @@ version =
       -- See https://github.com/commercialhaskell/stack/issues/792
     , [" (" ++ commitCount ++ " commits)" | commitCount /= ("1"::String) &&
                                             commitCount /= ("UNKNOWN" :: String)]
-    , [" ", display buildArch] ]
-
--- ---------------------------------------------------------------------
+    , [" ", display buildArch]
+    , [" ", compilerName, "-", VERSION_ghc]
+    ]
