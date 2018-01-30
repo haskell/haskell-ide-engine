@@ -10,5 +10,10 @@ build:
 	&& stack --stack-yaml=stack.yaml install                     \
 		&& cp ~/.local/bin/hie ~/.local/bin/hie-8.2.2            \
 		&& cp ~/.local/bin/hie-8.2.2 ~/.local/bin/hie-8.2
-
 .PHONY: build
+
+hie-8.2.2:
+	stack --stack-yaml=stack.yaml install                     \
+		&& cp ~/.local/bin/hie ~/.local/bin/hie-8.2.2            \
+		&& cp ~/.local/bin/hie-8.2.2 ~/.local/bin/hie-8.2
+.PHONY: hie-8.2.2
