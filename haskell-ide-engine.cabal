@@ -36,7 +36,6 @@ library
                      , ghc-mod-core
                      , gitrev >= 1.1
                      , haskell-lsp >= 0.2
-                     , hie-base
                      , hie-hare
                      , hie-ghc-mod
                      , hie-apply-refact

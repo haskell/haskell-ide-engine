@@ -23,7 +23,6 @@ library
                      , ghc
                      , ghc-mod >= 5.9.0.0
                      , ghc-mod-core >= 5.9.0.0
-                     , hie-base
                      , hie-plugin-api
                      , text
 

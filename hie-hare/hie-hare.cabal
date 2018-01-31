@@ -25,7 +25,6 @@ library
                      , ghc
                      , ghc-mod-core
                      , ghc-exactprint
-                     , hie-base
                      , hie-plugin-api
                      , hie-ghc-mod
                      , haskell-lsp

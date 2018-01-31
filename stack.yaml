@@ -3,7 +3,6 @@ resolver: nightly-2018-01-15
 packages:
 - .
 - hie-apply-refact
-- hie-base
 - hie-brittany
 - hie-build-plugin
 - hie-example-plugin2
@@ -41,8 +40,6 @@ flags:
   haskell-ide-engine:
     pedantic: true
   hie-apply-refact:
-    pedantic: true
-  hie-base:
     pedantic: true
   hie-brittany:
     pedantic: true

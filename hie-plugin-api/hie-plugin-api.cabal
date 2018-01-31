@@ -17,36 +17,35 @@ flag pedantic
 
 library
   exposed-modules:
+                       Haskell.Ide.Engine.ArtifactMap
+                       Haskell.Ide.Engine.IdeFunctions
+                       Haskell.Ide.Engine.ModuleCache
                        Haskell.Ide.Engine.Monad
                        Haskell.Ide.Engine.MonadFunctions
-                       Haskell.Ide.Engine.PluginDescriptor
-                       Haskell.Ide.Engine.PluginUtils
                        Haskell.Ide.Engine.MonadTypes
-                       Haskell.Ide.Engine.IdeFunctions
                        Haskell.Ide.Engine.MultiThreadState
-                       Haskell.Ide.Engine.ArtifactMap
-                       Haskell.Ide.Engine.ModuleCache
+                       Haskell.Ide.Engine.PluginDescriptor
+                       Haskell.Ide.Engine.PluginTypes
+                       Haskell.Ide.Engine.PluginUtils
   build-depends:       base >= 4.9 && < 5
                      , Diff
                      , aeson
-                     , containers
                      , constrained-dynamic
+                     , containers
                      , directory
-                     , fingertree
                      , filepath
+                     , fingertree
                      , ghc
-                     , syb
                      , ghc-mod-core >= 5.9.0.0
                      , haskell-lsp
-                     , hie-base
-                     , haskell-lsp
                      , hslogger
+                     , monad-control
                      , mtl
+                     , stm
+                     , syb
                      , text
                      , transformers
                      , unordered-containers
-                     , monad-control
-                     , stm
   ghc-options:         -Wall
   if flag(pedantic)
      ghc-options:      -Werror

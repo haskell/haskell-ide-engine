@@ -23,7 +23,6 @@ library
                      , extra
                      , ghc-mod-core
                      , haskell-src-exts
-                     , hie-base
                      , hie-plugin-api
                      , hlint >= 2.0.11
                      , text
