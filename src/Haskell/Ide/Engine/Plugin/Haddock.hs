@@ -4,7 +4,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE CPP                 #-}
-module Haskell.Ide.HaddockPlugin where
+module Haskell.Ide.Engine.Plugin.Haddock where
 
 import           Control.Monad.State
 import           Data.Foldable
@@ -27,7 +27,7 @@ import           Packages
 import           NameCache
 #endif
 
-import           Haskell.Ide.HaRePlugin
+import           Haskell.Ide.Engine.Plugin.HaRe
 
 import Documentation.Haddock
 import Documentation.Haddock.Types

@@ -7,8 +7,8 @@ import qualified Data.HashMap.Strict                   as H
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
-import           Haskell.Ide.GhcModPlugin
-import           Haskell.Ide.HaRePlugin
+import           Haskell.Ide.Engine.Plugin.GhcMod
+import           Haskell.Ide.Engine.Plugin.HaRe
 import           Language.Haskell.LSP.TH.DataTypesJSON (Location(..), TextEdit(..))
 import           System.Directory
 import           System.FilePath

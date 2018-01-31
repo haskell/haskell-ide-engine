@@ -2,14 +2,6 @@ resolver: nightly-2018-01-15
 # resolver: nightly-2017-12-15
 packages:
 - .
-- hie-apply-refact
-- hie-brittany
-- hie-build-plugin
-- hie-example-plugin2
-- hie-ghc-mod
-- hie-haddock
-- hie-hare
-- hie-hoogle
 - hie-plugin-api
 
 - location:
@@ -38,22 +30,6 @@ extra-deps:
 
 flags:
   haskell-ide-engine:
-    pedantic: true
-  hie-apply-refact:
-    pedantic: true
-  hie-brittany:
-    pedantic: true
-  hie-build-plugin:
-    pedantic: true
-  hie-example-plugin2:
-    pedantic: true
-  hie-ghc-mod:
-    pedantic: true
-  hie-haddock:
-    pedantic: true
-  hie-hare:
-    pedantic: true
-  hie-hoogle:
     pedantic: true
   hie-plugin-api:
     pedantic: true

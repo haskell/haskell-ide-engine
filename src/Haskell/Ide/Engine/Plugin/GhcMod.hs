@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Haskell.Ide.GhcModPlugin where
+module Haskell.Ide.Engine.Plugin.GhcMod where
 
 import           Bag
 import           Control.Monad.IO.Class

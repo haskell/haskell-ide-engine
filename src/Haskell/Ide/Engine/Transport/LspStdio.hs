@@ -48,19 +48,19 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
-import qualified Haskell.Ide.HaRePlugin as HaRe
-import qualified Haskell.Ide.GhcModPlugin as GhcMod
-import qualified Haskell.Ide.ApplyRefactPlugin as ApplyRefact
-import qualified Haskell.Ide.BrittanyPlugin as Brittany
-import qualified Haskell.Ide.HooglePlugin as Hoogle
-import qualified Haskell.Ide.HaddockPlugin as Haddock
-import qualified Language.Haskell.LSP.Control  as CTRL
-import qualified Language.Haskell.LSP.Core     as Core
-import qualified Language.Haskell.LSP.VFS     as VFS
+import qualified Haskell.Ide.Engine.Plugin.HaRe        as HaRe
+import qualified Haskell.Ide.Engine.Plugin.GhcMod      as GhcMod
+import qualified Haskell.Ide.Engine.Plugin.ApplyRefact as ApplyRefact
+import qualified Haskell.Ide.Engine.Plugin.Brittany    as Brittany
+import qualified Haskell.Ide.Engine.Plugin.Hoogle      as Hoogle
+import qualified Haskell.Ide.Engine.Plugin.Haddock     as Haddock
+import qualified Language.Haskell.LSP.Control          as CTRL
+import qualified Language.Haskell.LSP.Core             as Core
+import qualified Language.Haskell.LSP.VFS              as VFS
 import           Language.Haskell.LSP.Diagnostics
 import           Language.Haskell.LSP.Messages
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
-import qualified Language.Haskell.LSP.Utility  as U
+import qualified Language.Haskell.LSP.Utility          as U
 import           System.Exit
 import qualified System.Log.Logger as L
 import qualified Yi.Rope as Yi

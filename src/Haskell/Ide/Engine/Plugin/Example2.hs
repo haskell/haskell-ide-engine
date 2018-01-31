@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Haskell.Ide.ExamplePlugin2 where
+module Haskell.Ide.Engine.Plugin.Example2 where
 
 import           Control.Monad.IO.Class
 import           Data.Monoid

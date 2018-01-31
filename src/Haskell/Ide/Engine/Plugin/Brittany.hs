@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Haskell.Ide.BrittanyPlugin where
+module Haskell.Ide.Engine.Plugin.Brittany where
 
 import           Control.Lens
 import           Control.Monad.IO.Class

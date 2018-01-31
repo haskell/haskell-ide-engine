@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Haskell.Ide.HaRePlugin where
+module Haskell.Ide.Engine.Plugin.HaRe where
 
 import           ConLike
 import           Control.Monad.State
@@ -37,7 +37,7 @@ import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
-import           Haskell.Ide.GhcModPlugin                     (setTypecheckedModule)
+import           Haskell.Ide.Engine.Plugin.GhcMod            (setTypecheckedModule)
 import           HscTypes
 import           Language.Haskell.GHC.ExactPrint.Print
 import qualified Language.Haskell.LSP.Core                    as Core
@@ -271,7 +271,7 @@ data NameMapData = NMD
   { inverseNameMap ::  !(Map.Map Name [SrcSpan])
   } deriving (Typeable)
 
-invert :: (Ord k, Ord v) => Map.Map k v -> Map.Map v [k]
+invert :: (Ord v) => Map.Map k v -> Map.Map v [k]
 invert m = Map.fromListWith (++) [(v,[k]) | (k,v) <- Map.toList m]
 
 instance ModuleCache NameMapData where

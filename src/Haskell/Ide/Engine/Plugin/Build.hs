@@ -5,7 +5,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE RankNTypes #-}
-module Haskell.Ide.BuildPlugin where
+module Haskell.Ide.Engine.Plugin.Build where
 
 import qualified Data.Aeson                             as J
 #if __GLASGOW_HASKELL__ < 802
