@@ -7,9 +7,9 @@ module JsonSpec where
 
 import           Haskell.Ide.Engine.MonadTypes
 
-import           Haskell.Ide.ApplyRefactPlugin
-import           Haskell.Ide.GhcModPlugin
-import           Haskell.Ide.HaRePlugin
+import           Haskell.Ide.Engine.Plugin.ApplyRefact
+import           Haskell.Ide.Engine.Plugin.GhcMod
+import           Haskell.Ide.Engine.Plugin.HaRe
 
 import           Data.Aeson
 import           Test.Hspec
@@ -32,14 +32,14 @@ jsonSpec :: Spec
 jsonSpec = do
   describe "General JSON instances round trip" $ do
   -- Plugin params
-    prop "ApplyOneParams" (propertyJsonRoundtrip :: ApplyOneParams -> Bool)
-    prop "InfoParams" (propertyJsonRoundtrip :: InfoParams -> Bool)
-    prop "HarePoint" (propertyJsonRoundtrip :: HarePoint -> Bool)
+    prop "ApplyOneParams"    (propertyJsonRoundtrip :: ApplyOneParams -> Bool)
+    prop "InfoParams"        (propertyJsonRoundtrip :: InfoParams -> Bool)
+    prop "HarePoint"         (propertyJsonRoundtrip :: HarePoint -> Bool)
     prop "HarePointWithText" (propertyJsonRoundtrip :: HarePointWithText -> Bool)
-    prop "HareRange" (propertyJsonRoundtrip :: HareRange -> Bool)
+    prop "HareRange"         (propertyJsonRoundtrip :: HareRange -> Bool)
   -- Plugin Api types
-    prop "IdeErrorCode" (propertyJsonRoundtrip :: IdeErrorCode -> Bool)
-    prop "IdeError" (propertyJsonRoundtrip :: IdeError -> Bool)
+    prop "IdeErrorCode"      (propertyJsonRoundtrip :: IdeErrorCode -> Bool)
+    prop "IdeError"          (propertyJsonRoundtrip :: IdeError -> Bool)
 
 -- ---------------------------------------------------------------------
 

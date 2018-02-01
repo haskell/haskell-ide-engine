@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE TemplateHaskell       #-}
-module Haskell.Ide.Engine.BasePlugin where
+module Haskell.Ide.Engine.Plugin.Base where
 
 import           Control.Monad
 import           Data.Aeson

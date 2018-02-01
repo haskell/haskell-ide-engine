@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Haskell.Ide.HooglePlugin where
+module Haskell.Ide.Engine.Plugin.Hoogle where
 
 import           Control.Monad.IO.Class
 import           Data.Aeson

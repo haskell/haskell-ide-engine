@@ -18,41 +18,61 @@ flag pedantic
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Haskell.Ide.Engine.BasePlugin
+  exposed-modules:     Haskell.Ide.Engine.Plugin.Base
                        Haskell.Ide.Engine.Dispatcher
                        Haskell.Ide.Engine.Options
-                       Haskell.Ide.Engine.Transport.LspStdio
+                       Haskell.Ide.Engine.Plugin.ApplyRefact
+                       Haskell.Ide.Engine.Plugin.Brittany
+                       Haskell.Ide.Engine.Plugin.Build
+                       Haskell.Ide.Engine.Plugin.Example2
+                       Haskell.Ide.Engine.Plugin.GhcMod
+                       Haskell.Ide.Engine.Plugin.HaRe
+                       Haskell.Ide.Engine.Plugin.Haddock
+                       Haskell.Ide.Engine.Plugin.Hoogle
                        Haskell.Ide.Engine.Transport.JsonStdio
+                       Haskell.Ide.Engine.Transport.LspStdio
                        Haskell.Ide.Engine.Types
   other-modules:       Paths_haskell_ide_engine
   build-depends:       Cabal >= 1.22
+                     , Diff
+                     , HaRe
                      , aeson
+                     , apply-refact
                      , async
                      , base >= 4.9 && < 5
+                     , brittany
                      , bytestring
+                     , cabal-helper
                      , containers
                      , data-default
+                     , directory
+                     , extra
+                     , filepath
                      , ghc >= 8.0.1
-                     , ghc-mod-core
+                     , ghc-exactprint
+                     , ghc-mod >= 5.9.0.0
+                     , ghc-mod-core >= 5.9.0.0
                      , gitrev >= 1.1
+                     , haddock-api
+                     , haddock-library
                      , haskell-lsp >= 0.2
-                     , hie-base
-                     , hie-hare
-                     , hie-ghc-mod
-                     , hie-apply-refact
+                     , haskell-src-exts
                      , hie-plugin-api
-                     , hie-brittany
-                     , hie-hoogle
-                     , hie-haddock
+                     , hlint >= 2.0.11
+                     , hoogle >= 5.0.13
                      , hslogger
                      , lens >= 4.15.2
+                     , monad-control
                      , mtl
                      , optparse-simple >= 0.0.3
+                     , process
                      , sorted-list >= 0.2.0.0
-                     , transformers
                      , stm
+                     , tagsoup
                      , text
+                     , transformers
                      , vector
+                     , yaml
                      , yi-rope
 
   ghc-options:         -Wall -Wredundant-constraints
@@ -73,12 +93,6 @@ executable hie
                      , gitrev >= 1.1
                      , haskell-ide-engine
                      , haskell-lsp
-                     , hie-apply-refact
-                     , hie-build-plugin
-                     , hie-example-plugin2
-                     , hie-ghc-mod
-                     , hie-hare
-                     , hie-hoogle
                      , hie-plugin-api
                      , hslogger
                      , optparse-simple
@@ -111,11 +125,6 @@ test-suite haskell-ide-test
                      , ghc-mod-core
                      , haskell-lsp
                      , haskell-ide-engine
-                     , hie-apply-refact
-                     , hie-base
-                     , hie-ghc-mod
-                     , hie-hare
-                     , hie-hoogle
                      , hie-plugin-api
                      , hoogle > 5.0.11
                      , hslogger
@@ -143,11 +152,6 @@ test-suite haskell-ide-func-test
                      , ghc-mod-core
                      , haskell-lsp
                      , haskell-ide-engine
-                     , hie-apply-refact
-                     , hie-base
-                     , hie-example-plugin2
-                     , hie-ghc-mod
-                     , hie-hare
                      , hie-plugin-api
                      , hslogger
                      , hspec

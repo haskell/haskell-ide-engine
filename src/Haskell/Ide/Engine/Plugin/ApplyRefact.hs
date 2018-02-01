@@ -2,7 +2,7 @@
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings     #-}
-module Haskell.Ide.ApplyRefactPlugin where
+module Haskell.Ide.Engine.Plugin.ApplyRefact where
 
 import           Control.Arrow
 import           Control.Monad.IO.Class

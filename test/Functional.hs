@@ -45,11 +45,11 @@ import           Test.Hspec
 -- ---------------------------------------------------------------------
 -- plugins
 
-import           Haskell.Ide.ApplyRefactPlugin
-import           Haskell.Ide.Engine.BasePlugin
-import           Haskell.Ide.ExamplePlugin2
-import           Haskell.Ide.GhcModPlugin
-import           Haskell.Ide.HaRePlugin
+import           Haskell.Ide.Engine.Plugin.ApplyRefact
+import           Haskell.Ide.Engine.Plugin.Base
+import           Haskell.Ide.Engine.Plugin.Example2
+import           Haskell.Ide.Engine.Plugin.GhcMod
+import           Haskell.Ide.Engine.Plugin.HaRe
 
 -- ---------------------------------------------------------------------
 

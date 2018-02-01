@@ -7,7 +7,7 @@ import qualified Data.Set                            as S
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
-import           Haskell.Ide.GhcModPlugin
+import           Haskell.Ide.Engine.Plugin.GhcMod
 import           System.Directory
 import           TestUtils
 
