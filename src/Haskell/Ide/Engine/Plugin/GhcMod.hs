@@ -169,7 +169,7 @@ setTypecheckedModule uri =
 -- ---------------------------------------------------------------------
 
 lintCmd :: CommandFunc Uri T.Text
-lintCmd = CmdSync $ \uri ->
+lintCmd = CmdSync $ \ uri ->
   lintCmd' uri
 
 lintCmd' :: Uri -> IdeGhcM (IdeResponse T.Text)
