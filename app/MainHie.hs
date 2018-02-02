@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE TemplateHaskell     #-}
 module Main where
 
 import           Control.Concurrent.STM.TChan
@@ -86,7 +85,9 @@ run opts = do
 
   Core.setupLogger mLogFileName ["hie"] logLevel
 
-  when (optEkg opts) $ EKG.forkServer "localhost" 8000 >> return ()
+  when (optEkg opts) $ do
+    logm $ "Launching EKG server on port " ++ show (optEkgPort opts)
+    void $ EKG.forkServer "localhost" (optEkgPort opts) >> return ()
 
   origDir <- getCurrentDirectory
 
