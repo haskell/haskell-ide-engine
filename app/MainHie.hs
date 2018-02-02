@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE TemplateHaskell     #-}
 module Main where
 
 import           Control.Concurrent.STM.TChan
@@ -61,13 +60,19 @@ main = do
                 (showVersion Meta.version)
                 (long "numeric-version" <>
                  help "Show only version number")
+        compiler :: Parser (a -> a)
+        compiler =
+            infoOption
+                hieCompilerVersion
+                (long "compiler" <>
+                 help "Show only compiler and version supported")
     -- Parse the options and run
     (global, ()) <-
         simpleOptions
             version
             "haskell-ide-engine - Provide a common engine to power any Haskell IDE"
             ""
-            (numericVersion <*> globalOptsParser)
+            (numericVersion <*> compiler <*> globalOptsParser)
             empty
 
     run global
@@ -86,7 +91,9 @@ run opts = do
 
   Core.setupLogger mLogFileName ["hie"] logLevel
 
-  when (optEkg opts) $ EKG.forkServer "localhost" 8000 >> return ()
+  when (optEkg opts) $ do
+    logm $ "Launching EKG server on port " ++ show (optEkgPort opts)
+    void $ EKG.forkServer "localhost" (optEkgPort opts) >> return ()
 
   origDir <- getCurrentDirectory
 

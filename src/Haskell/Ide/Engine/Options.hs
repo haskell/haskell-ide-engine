@@ -4,35 +4,18 @@ import           Data.Semigroup             hiding (option)
 import           Options.Applicative.Simple
 
 data GlobalOpts = GlobalOpts
-  { optConsole     :: Bool
-  , optOneShot     :: Bool
-      -- ^ Run one command and then exit. No attempt to cleanly shut down any
-      -- other processes that may be running, as a result off the plugin init
-      -- process.
-  , optDebugOn     :: Bool
+  { optDebugOn     :: Bool
   , optLogFile     :: Maybe String
-  , optHttp        :: Bool
-  , optTcp         :: Bool
   , optLsp         :: Bool
   , projectRoot    :: Maybe String
-  , optDumpSwagger :: Bool
   , optGhcModVomit :: Bool
   , optEkg         :: Bool
+  , optEkgPort     :: Int
   } deriving (Show)
 
 globalOptsParser :: Parser GlobalOpts
 globalOptsParser = GlobalOpts
-  <$> flag False True
-       ( long "console"
-      <> long "repl"
-      <> short 'c'
-      <> help "Run a console REPL for simple testing"
-       )
-  <*> switch
-       ( long "one-shot"
-      <> help "Run a single command and then exit. Applies to stdio transport only, initially."
-       )
-  <*> switch
+  <$> switch
        ( long "debug"
       <> short 'd'
       <> help "Generate debug output"
@@ -44,12 +27,6 @@ globalOptsParser = GlobalOpts
       <> help "File to log to, defaults to stdout"
        ))
   <*> flag False True
-       ( long "http"
-       <> help "Enable the webinterface")
-  <*> flag False True
-       ( long "tcp"
-       <> help "Enable the tcp transport")
-  <*> flag False True
        ( long "lsp"
        <> help "Enable the Language Server Protocol transport on STDIO")
   <*> (optional $ strOption
@@ -57,14 +34,16 @@ globalOptsParser = GlobalOpts
       <> short 'r'
       <> metavar "PROJECTROOT"
       <> help "Root directory of project, defaults to cwd"))
-  <*> switch
-       ( long "swagger"
-      <> short 'w'
-      <> help "Generate a swagger.json file for the http API"
-       )
   <*> flag False True
        ( long "vomit"
        <> help "enable vomit logging for ghc-mod")
   <*> flag False True
        ( long "ekg"
        <> help "enable ekg collection and display on http://localhost:8000")
+  <*> (option auto
+       ( long "port"
+      <> short 'p'
+      <> metavar "PORT"
+      <> help "TCP port to use for EKG server. Only used if --ekg is set. Default 8000"
+      <> value 8000
+       ))
