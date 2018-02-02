@@ -60,13 +60,19 @@ main = do
                 (showVersion Meta.version)
                 (long "numeric-version" <>
                  help "Show only version number")
+        compiler :: Parser (a -> a)
+        compiler =
+            infoOption
+                hieCompilerVersion
+                (long "compiler" <>
+                 help "Show only compiler and version supported")
     -- Parse the options and run
     (global, ()) <-
         simpleOptions
             version
             "haskell-ide-engine - Provide a common engine to power any Haskell IDE"
             ""
-            (numericVersion <*> globalOptsParser)
+            (numericVersion <*> compiler <*> globalOptsParser)
             empty
 
     run global

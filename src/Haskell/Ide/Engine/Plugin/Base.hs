@@ -87,5 +87,12 @@ version =
     , [" (" ++ commitCount ++ " commits)" | commitCount /= ("1"::String) &&
                                             commitCount /= ("UNKNOWN" :: String)]
     , [" ", display buildArch]
-    , [" ", compilerName, "-", VERSION_ghc]
+    , [" ", hieCompilerVersion]
     ]
+
+-- ---------------------------------------------------------------------
+
+hieCompilerVersion :: String
+hieCompilerVersion = compilerName ++ "-" ++ VERSION_ghc
+
+-- ---------------------------------------------------------------------
