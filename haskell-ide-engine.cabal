@@ -42,7 +42,7 @@ library
                      , base >= 4.9 && < 5
                      , brittany
                      , bytestring
-                     , cabal-helper
+                     , cabal-helper >= 0.8.0.2
                      , containers
                      , data-default
                      , directory
