@@ -258,18 +258,6 @@ cmp a b
 isSubRangeOf :: Range -> Range -> Bool
 isSubRangeOf (Range sa ea) (Range sb eb) = sb <= sa && eb >= ea
 
-getDynFlags :: Uri -> IdeM (IdeResponse DynFlags)
-getDynFlags uri =
-  pluginGetFile "getDynFlags: " uri $ \fp -> do
-      mcm <- getCachedModule fp
-      case mcm of
-        Just cm -> return $
-          IdeResponseOk $ ms_hspp_opts $ pm_mod_summary $ tm_parsed_module $ tcMod cm
-        Nothing -> return $
-          IdeResponseFail $
-            IdeError PluginError ("getDynFlags: \"" <> "module not loaded" <> "\"") Null
-
-
 -- ---------------------------------------------------------------------
 
 runGhcModCommand :: IdeGhcM a
