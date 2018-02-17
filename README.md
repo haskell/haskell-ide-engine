@@ -105,7 +105,7 @@ stack --stack-yaml=stack-8.0.2.yaml install
 
 In order to avoid problems with long paths you can do the following:
 
-1. Edit the group policy: set "Enable Win32 long paths" to "Enabled". Works only only for Windows 10
+1. Edit the group policy: set "Enable Win32 long paths" to "Enabled". Works only for Windows 10
 
 2. Clone the `haskell-ide-engine` to the root of your logical drive (e.g. to `E:\hie`)
 
