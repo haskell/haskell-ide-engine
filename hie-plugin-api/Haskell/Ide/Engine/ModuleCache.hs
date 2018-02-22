@@ -7,65 +7,28 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Control
 
 import qualified Data.Map as Map
-import           Data.Dynamic (Dynamic, toDyn, fromDynamic)
-import           Data.Typeable (TypeRep, Typeable)
+import           Data.Dynamic (toDyn, fromDynamic)
+import           Data.Typeable (Typeable)
 import           Data.Generics (Proxy(..), typeRep, typeOf)
 
-import           Exception (ExceptionMonad )
+import           Exception (ExceptionMonad)
 
 import qualified GhcMod.Cradle                     as GM
 import qualified GhcMod.Monad                      as GM
 import qualified GhcMod.Types                      as GM
 
-import           GHC                               (TypecheckedModule)
-
-import Haskell.Ide.Engine.ArtifactMap
-import Haskell.Ide.Engine.PluginTypes
+import Haskell.Ide.Engine.MultiThreadState 
+import Haskell.Ide.Engine.PluginsIdeMonads 
+import Haskell.Ide.Engine.GhcModuleCache
 
 import           System.Directory
 import           System.FilePath
 
-type UriCaches = Map.Map FilePath UriCache
-
-data UriCache = UriCache
-  { cachedModule :: !CachedModule
-  , cachedData   :: !(Map.Map TypeRep Dynamic)
-  } deriving Show
-
-data CachedModule = CachedModule
-  { tcMod          :: !TypecheckedModule
-  , locMap         :: !LocMap
-  , typeMap        :: !TypeMap
-  , revMap         :: !(FilePath -> FilePath)
-  , newPosToOld    :: !(Position -> Maybe Position)
-  , oldPosToNew    :: !(Position -> Maybe Position)
-  }
-
-instance Show CachedModule where
-  show CachedModule{} = "CachedModule { .. }"
-
--- ---------------------------------------------------------------------
 
 modifyCache :: (HasGhcModuleCache m) => (GhcModuleCache -> GhcModuleCache) -> m ()
 modifyCache f = do
   mc <- getModuleCache
   setModuleCache (f mc)
-
--- ---------------------------------------------------------------------
--- The following to move into ghc-mod-core
-
-class (Monad m) => HasGhcModuleCache m where
-  getModuleCache :: m GhcModuleCache
-  setModuleCache :: GhcModuleCache -> m ()
-
-emptyModuleCache :: GhcModuleCache
-emptyModuleCache = GhcModuleCache Map.empty Map.empty
-
-data GhcModuleCache = GhcModuleCache
-  { cradleCache :: !(Map.Map FilePath GM.Cradle)
-              -- ^ map from dirs to cradles
-  , uriCaches  :: !UriCaches
-  } deriving (Show)
 
 -- ---------------------------------------------------------------------
 -- | Runs an IdeM action with the given Cradle
@@ -139,7 +102,7 @@ withCachedModule uri noCache callback = do
 -- If the data doesn't exist in the cache, new data is generated
 -- using by calling the `cacheDataProducer` function
 withCachedModuleAndData :: forall a b m.
-  (ModuleCache a, Monad m, GM.MonadIO m, HasGhcModuleCache m)
+  (ModuleCache a, Monad m, GM.MonadIO m, HasGhcModuleCache m, MonadMTState IdeState m)
   => FilePath -> m b -> (CachedModule -> a -> m b) -> m b
 withCachedModuleAndData uri noCache callback = do
   uri' <- liftIO $ canonicalizePath uri
@@ -186,7 +149,7 @@ deleteCachedModule uri = do
 -- TODO: this name is confusing, given GhcModuleCache. Change it
 class Typeable a => ModuleCache a where
     -- | Defines an initial value for the state extension
-    cacheDataProducer :: (MonadIO m) => CachedModule -> m a
+    cacheDataProducer :: (MonadIO m, GM.MonadIO m, MonadMTState IdeState m) => CachedModule -> m a
 
 instance ModuleCache () where
     cacheDataProducer = const $ return ()
