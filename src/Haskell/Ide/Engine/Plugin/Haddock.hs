@@ -86,8 +86,7 @@ nameCacheFromIdeM :: NameCacheAccessor IdeM
 nameCacheFromIdeM = ( read_from_session , write_to_session )
   where
     read_from_session = runInLightGhc $ fst nameCacheFromGhcMonad
-    write_to_session _ = error "tried to write to namecache(only reads allowed)"
-
+    write_to_session = runInLightGhc . snd nameCacheFromGhcMonad
 
 getDocsForName :: DynFlags -> Name -> IdeM (Maybe T.Text)
 getDocsForName df name = do
