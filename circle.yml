@@ -18,7 +18,7 @@ dependencies:
     - stack --version
     - stack setup
     - stack install hoogle
-    - ~/.local/bin/hoogle generate
+    - ~/.local/bin/hoogle generate base
     # - stack clean # from the other compiler build at the end of prior build, cached. Maybe.
     # - stack --stack-yaml=stack-8.2.1.yaml clean # from the other compiler build at the end of prior build, cached. Maybe.
     - stack build -j 2 :
