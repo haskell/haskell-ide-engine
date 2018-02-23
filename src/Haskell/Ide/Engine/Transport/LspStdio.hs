@@ -54,6 +54,7 @@ import qualified Haskell.Ide.Engine.Plugin.ApplyRefact as ApplyRefact
 import qualified Haskell.Ide.Engine.Plugin.Brittany    as Brittany
 import qualified Haskell.Ide.Engine.Plugin.Hoogle      as Hoogle
 import qualified Haskell.Ide.Engine.Plugin.Haddock     as Haddock
+import qualified Haskell.Ide.Engine.Plugin.HieExtras   as Hie
 import qualified Language.Haskell.LSP.Control          as CTRL
 import qualified Language.Haskell.LSP.Core             as Core
 import qualified Language.Haskell.LSP.VFS              as VFS
@@ -399,10 +400,6 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             ver = td ^. J.version
         mapFileFromVfs versionTVar cin $ J.VersionedTextDocumentIdentifier uri ver
         requestDiagnostics cin uri ver
-        -- initialize haddock
-        let hreq = GReq Nothing Nothing Nothing (const $ return ()) $ do
-                     Haddock.initializeHaddock
-        makeRequest hreq
 
       -- -------------------------------
 
@@ -483,10 +480,10 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
               reactorSend rspMsg
         let hreq = IReq (req ^. J.id) callback $ runExceptT $ do
               info' <- ExceptT $ GhcMod.newTypeCmd pos doc
-              names' <- ExceptT $ HaRe.getSymbolsAtPoint doc pos
+              names' <- ExceptT $ Hie.getSymbolsAtPoint doc pos
               let
-                f = (==) `on` (HaRe.showName . snd)
-                f' = compare `on` (HaRe.showName . snd)
+                f = (==) `on` (Hie.showName . snd)
+                f' = compare `on` (Hie.showName . snd)
                 names = mapMaybe pickName $ groupBy f $ sortBy f' names'
                 pickName [] = Nothing
                 pickName [x] = Just x
@@ -502,16 +499,16 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                           (Just $ J.CodeString $ J.LanguageString "haskell" $ "_ :: " <> typ, Just r)
                         Just (_,name)
                           | nnames == 1 ->
-                            (Just $ J.CodeString $ J.LanguageString "haskell" $ HaRe.showName name <> " :: " <> typ, Just r)
+                            (Just $ J.CodeString $ J.LanguageString "haskell" $ Hie.showName name <> " :: " <> typ, Just r)
                           | otherwise ->
                             (Just $ J.CodeString $ J.LanguageString "haskell" $ "_ :: " <> typ, Just r)
                     [] -> case names of
                       [] -> (Nothing, Nothing)
                       ((r,_):_) -> (Nothing, Just r)
-              df <- ExceptT $ GhcMod.getDynFlags doc
+              df <- ExceptT $ Hie.getDynFlags doc
               docs <- forM names $ \(_,name) -> do
-                  let sname = HaRe.showName name
-                  case HaRe.getModule df name of
+                  let sname = Hie.showName name
+                  case Hie.getModule df name of
                     Nothing -> return $ "`" <> sname <> "` *local*"
                     (Just (pkg,mdl)) -> do
                       let mname = "`"<> sname <> "`\n\n"
@@ -599,7 +596,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
           Nothing -> liftIO $ callback $ IdeResponseOk []
           Just prefix -> do
             let hreq = IReq (req ^. J.id) callback
-                         $ HaRe.getCompletions doc prefix
+                         $ Hie.getCompletions doc prefix
             makeRequest hreq
 
       Core.ReqCompletionItemResolve req -> do
@@ -633,7 +630,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
           let rspMsg = Core.makeResponseMessage req $ J.List highlights
           reactorSend rspMsg
         let hreq = IReq (req ^. J.id) callback
-                 $ HaRe.getReferencesInDoc doc pos
+                 $ Hie.getReferencesInDoc doc pos
         makeRequest hreq
 
       -- -------------------------------
@@ -646,7 +643,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             let rspMsg = Core.makeResponseMessage req loc
             reactorSend rspMsg
         let hreq = GReq (Just doc) Nothing (Just $ req ^. J.id) callback
-                     $ fmap J.MultiLoc <$> HaRe.findDef doc pos
+                     $ fmap J.MultiLoc <$> Hie.findDef doc pos
         makeRequest hreq
 
       Core.ReqFindReferences req -> do
@@ -693,7 +690,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             let rspMsg = Core.makeResponseMessage req $ J.List docSymbols
             reactorSend rspMsg
         let hreq = IReq (req ^. J.id) callback
-                 $ HaRe.getSymbols uri
+                 $ Hie.getSymbols uri
         makeRequest hreq
 
       -- -------------------------------

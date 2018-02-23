@@ -28,6 +28,7 @@ library
                        Haskell.Ide.Engine.Plugin.GhcMod
                        Haskell.Ide.Engine.Plugin.HaRe
                        Haskell.Ide.Engine.Plugin.Haddock
+                       Haskell.Ide.Engine.Plugin.HieExtras
                        Haskell.Ide.Engine.Plugin.Hoogle
                        Haskell.Ide.Engine.Transport.JsonStdio
                        Haskell.Ide.Engine.Transport.LspStdio

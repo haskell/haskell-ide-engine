@@ -10,8 +10,8 @@ dependencies:
     # - wget -q -O- https://s3.amazonaws.com/download.fpcomplete.com/ubuntu/fpco.key | sudo apt-key add -
     # - echo 'deb http://download.fpcomplete.com/ubuntu/precise stable main'|sudo tee /etc/apt/sources.list.d/fpco.list
     # - sudo apt-get update && sudo apt-get install stack -y
-    - stack setup
     - stack upgrade
+    - stack setup
     - stack --version
   override:
     - stack upgrade
@@ -22,23 +22,23 @@ dependencies:
     # - stack clean # from the other compiler build at the end of prior build, cached. Maybe.
     # - stack --stack-yaml=stack-8.2.1.yaml clean # from the other compiler build at the end of prior build, cached. Maybe.
     - stack build -j 2 :
-        timeout: 7200
+        timeout: 14400
     - stack build  -j 2 --test --only-dependencies :
-        timeout: 7200
+        timeout: 14400
 
     - stack clean
     - stack --stack-yaml=stack-8.2.1.yaml setup
     - stack --stack-yaml=stack-8.2.1.yaml build  -j 2 --test --only-dependencies :
-        timeout: 7200
+        timeout: 14400
     - stack --stack-yaml=stack-8.2.1.yaml build -j 2 :
-        timeout: 7200
+        timeout: 14400
 
     - stack clean
     - stack --stack-yaml=stack-8.0.2.yaml setup
     - stack --stack-yaml=stack-8.0.2.yaml build  -j 2 --test --only-dependencies :
-        timeout: 7200
+        timeout: 14400
     - stack --stack-yaml=stack-8.0.2.yaml build -j 2 :
-        timeout: 7200
+        timeout: 14400
 
 test:
   override:

@@ -9,6 +9,7 @@ import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Plugin.GhcMod
 import           Haskell.Ide.Engine.Plugin.HaRe
+import           Haskell.Ide.Engine.Plugin.HieExtras
 import           Language.Haskell.LSP.TH.DataTypesJSON (Location(..), TextEdit(..))
 import           System.Directory
 import           System.FilePath
