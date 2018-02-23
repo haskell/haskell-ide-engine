@@ -17,41 +17,50 @@ dependencies:
     - stack upgrade
     - stack --version
     - stack setup
+
+    # Each build has a different hoogle version, which has a different db format
     - stack install hoogle
-    - ~/.local/bin/hoogle generate
+    - ~/.local/bin/hoogle generate base
+
+    - stack --stack-yaml=stack-8.2.1.yaml setup
+    - stack --stack-yaml=stack-8.2.1.yaml install hoogle
+    - ~/.local/bin/hoogle generate base
+
+    - stack --stack-yaml=stack-8.0.2.yaml setup
+    - stack --stack-yaml=stack-8.0.2.yaml install hoogle
+    - ~/.local/bin/hoogle generate base
+
     # - stack clean # from the other compiler build at the end of prior build, cached. Maybe.
-    # - stack --stack-yaml=stack-8.2.1.yaml clean # from the other compiler build at the end of prior build, cached. Maybe.
-    - stack build -j 2 :
-        timeout: 14400
+    # - stack --stack-yaml=stack-8.0.2.yaml clean # from the other compiler build at the end of prior build, cached. Maybe.
+    # - stack build -j 2 :
+    #     timeout: 14400
     - stack build  -j 2 --test --only-dependencies :
         timeout: 14400
 
-    - stack clean
-    - stack --stack-yaml=stack-8.2.1.yaml setup
+    # - stack clean
     - stack --stack-yaml=stack-8.2.1.yaml build  -j 2 --test --only-dependencies :
         timeout: 14400
-    - stack --stack-yaml=stack-8.2.1.yaml build -j 2 :
-        timeout: 14400
+    # - stack --stack-yaml=stack-8.2.1.yaml build -j 2 :
+    #     timeout: 14400
 
-    - stack clean
-    - stack --stack-yaml=stack-8.0.2.yaml setup
+    # - stack clean
     - stack --stack-yaml=stack-8.0.2.yaml build  -j 2 --test --only-dependencies :
         timeout: 14400
-    - stack --stack-yaml=stack-8.0.2.yaml build -j 2 :
-        timeout: 14400
+    # - stack --stack-yaml=stack-8.0.2.yaml build -j 2 :
+    #     timeout: 14400
 
 test:
   override:
-    - stack --stack-yaml=stack-8.2.1.yaml clean
-    - stack --stack-yaml=stack-8.0.2.yaml clean
-    - stack clean
+    # - stack --stack-yaml=stack-8.2.1.yaml clean
+    # - stack --stack-yaml=stack-8.0.2.yaml clean
+    # - stack clean
     - stack test -j 2  haskell-ide-engine :
         timeout: 14400
 
-    - stack clean
+    # - stack clean
     - stack --stack-yaml=stack-8.2.1.yaml test -j 2  haskell-ide-engine :
         timeout: 14400
 
-    - stack --stack-yaml=stack-8.0.2.yaml clean
+    # - stack --stack-yaml=stack-8.0.2.yaml clean
     - stack --stack-yaml=stack-8.0.2.yaml test -j 2  haskell-ide-engine :
         timeout: 14400
