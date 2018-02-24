@@ -25,7 +25,7 @@ build-copy-compiler-tool:
 .PHONY: build-copy-compiler-tool
 
 icu-macos-fix:
-▶   brew install icu4c                                     \
+	brew install icu4c                                     \
 	&& stack --stack-yaml=stack-8.0.2.yaml build text-icu  \
          --extra-lib-dirs=/usr/local/opt/icu4c/lib         \
          --extra-include-dirs=/usr/local/opt/icu4c/include \
