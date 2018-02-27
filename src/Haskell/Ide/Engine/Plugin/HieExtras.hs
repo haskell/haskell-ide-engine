@@ -20,6 +20,7 @@ import           Control.Monad.Trans.Except
 import           Data.Aeson
 import           Data.Either
 import           Data.IORef
+import qualified Data.List                                    as List
 import qualified Data.Map                                     as Map
 import           Data.Maybe
 import           Data.Monoid
@@ -40,7 +41,7 @@ import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Plugin.GhcMod            (setTypecheckedModule)
 import           HscTypes
 import qualified Language.Haskell.LSP.TH.DataTypesJSON        as J
-import           Language.Haskell.Refact.API                 (showGhcQual, setGhcContext, hsNamessRdr)
+import           Language.Haskell.Refact.API                 (showGhc, showGhcQual, setGhcContext, hsNamessRdr)
 import           Language.Haskell.Refact.Utils.MonadFunctions
 import           Module                                       hiding (getModule)
 import           Name
@@ -188,7 +189,7 @@ data CompItem = CI
   , importedFrom :: T.Text
   , thingType    :: Maybe T.Text
   , label        :: T.Text
-  }
+  } deriving (Show)
 
 instance Eq CompItem where
   (CI n1 _ _ _) == (CI n2 _ _ _) = n1 == n2
@@ -227,114 +228,161 @@ safeTyThingId (AnId i)                    = Just i
 safeTyThingId (AConLike (RealDataCon dc)) = Just $ dataConWrapId dc
 safeTyThingId _                           = Nothing
 
-getCompletions :: Uri -> (T.Text, T.Text) -> IdeM (IdeResponse [J.CompletionItem])
-getCompletions uri (qualifier,ident) = pluginGetFile "getCompletions: " uri $ \file ->
-  let handlers  = [GM.GHandler $ \(ex :: SomeException) ->
-                     return $ someErr "getCompletions" (show ex)
-                  ] in
-  flip GM.gcatches handlers $ do
-  debugm $ "got prefix" ++ show (qualifier,ident)
-  let noCache = return $ nonExistentCacheErr "getCompletions"
-  let modQual = if T.null qualifier then "" else qualifier <> "."
-  let fullPrefix = modQual <> ident
-  withCachedModule file noCache $
-    \cm -> do
-      let tm = tcMod cm
-          parsedMod = tm_parsed_module tm
-          curMod = moduleName $ ms_mod $ pm_mod_summary parsedMod
-          Just (_,limports,_,_) = tm_renamed_source tm
-          imports = map unLoc limports
-          typeEnv = md_types $ snd $ tm_internals_ tm
+iDeclToModName :: ImportDecl name -> ModuleName
+iDeclToModName = unLoc . ideclName
 
-          localVars = mapMaybe safeTyThingId $ typeEnvElts typeEnv
-          localCmps = getCompls $ map varToLocalCmp localVars
-          varToLocalCmp var = CI name (showMod curMod) typ label
-            where typ = Just $ showName $ varType var
-                  name = Var.varName var
-                  label = showName name
-
-          importMn = unLoc . ideclName
-          showMod = T.pack . moduleNameString
-          nameToCompItem mn n =
-            CI n (showMod mn) Nothing $ showName n
-
-          getCompls = filter ((ident `T.isPrefixOf`) . label)
+showModName :: ModuleName -> T.Text
+showModName = T.pack . moduleNameString
 
 #if __GLASGOW_HASKELL__ >= 802
-          pickName imp = fromMaybe (importMn imp) (fmap GHC.unLoc $ ideclAs imp)
+asNamespace :: ImportDecl name -> ModuleName
+asNamespace imp = fromMaybe (iDeclToModName imp) (fmap GHC.unLoc $ ideclAs imp)
 #else
-          pickName imp = fromMaybe (importMn imp) (ideclAs imp)
+asNamespace :: ImportDecl name -> ModuleName
+asNamespace imp = fromMaybe (iDeclToModName imp) (ideclAs imp)
 #endif
 
-          allModules = map (showMod . pickName) imports
-          modCompls = map mkModCompl
-                    $ mapMaybe (T.stripPrefix $ modQual)
-                    $ filter (fullPrefix `T.isPrefixOf`) allModules
+data CachedCompletions = CC
+  { allModNamesAsGiven :: [T.Text]
+  , toplevelCompls :: [CompItem]
+  , unqualCompls :: [CompItem]
+  , qualCompls :: [CompItem]
+  } deriving (Typeable)
 
-          unqualImports :: [ModuleName]
-          unqualImports = map importMn
-                        $ filter (not . ideclQualified) imports
+instance ModuleCache CachedCompletions where
+  cacheDataProducer cm = do
+    let tm = tcMod cm
+        parsedMod = tm_parsed_module tm
+        curMod = moduleName $ ms_mod $ pm_mod_summary parsedMod
+        Just (_,limports,_,_) = tm_renamed_source tm
+        -- Full canonical names of imported modules
+        importDeclerations = map unLoc limports
+        
+        -- The given namespaces for the imported modules (ie. full name, or alias if used)
+        allModNamesAsGiven = map (showModName . asNamespace) importDeclerations
 
-          relevantImports :: [(ModuleName, Maybe (Bool, [Name]))]
-          relevantImports
-            | T.null qualifier = []
-            | otherwise = mapMaybe f imports
-              where f imp = do
-                      let mn = importMn imp
-                      guard (showMod (pickName imp) == qualifier)
-                      case ideclHiding imp of
-                        Nothing -> return (mn,Nothing)
-                        Just (b,L _ liens) ->
-                          return (mn, Just (b, concatMap (ieNames . unLoc) liens))
+        typeEnv = md_types $ snd $ tm_internals_ tm
+        toplevelVars = mapMaybe safeTyThingId $ typeEnvElts typeEnv
+        varToCompl var = CI name (showModName curMod) typ label
+          where
+            typ = Just $ T.pack $ showGhc $ varType var
+            name = Var.varName var
+            label = T.pack $ showGhc name
+        
+        toplevelCompls = map varToCompl toplevelVars
 
-          getComplsFromModName :: GhcMonad m
-            => ModuleName -> m (Set.Set CompItem)
-          getComplsFromModName mn = do
-            mminf <- getModuleInfo =<< findModule mn Nothing
-            return $ case mminf of
-              Nothing -> Set.empty
-              Just minf ->
-                Set.fromList $ getCompls $ map (nameToCompItem mn) $ modInfoExports minf
+        toCompItem :: ModuleName -> Name -> CompItem
+        toCompItem mn n =
+          CI n (showModName mn) Nothing (T.pack $ showGhc n)
 
-          getQualifedCompls :: GhcMonad m => m (Set.Set CompItem)
-          getQualifedCompls = do
-            xs <- forM relevantImports $
-              \(mn, mie) ->
-                case mie of
-                  (Just (False, ns)) ->
-                    return $ Set.fromList $ getCompls $ map (nameToCompItem mn) ns
-                  (Just (True , ns)) -> do
-                    exps <- getComplsFromModName mn
-                    let hid = Set.fromList $ getCompls $ map (nameToCompItem mn) ns
-                    return $ Set.difference exps hid
-                  Nothing ->
-                    getComplsFromModName mn
-            return $ Set.unions xs
+        --                  qual               unqual
+        partitionedMods :: ([ImportDecl Name], [ImportDecl Name])
+        partitionedMods = List.partition ideclQualified importDeclerations
 
-          setCiTypesForImported Nothing xs = liftIO $ pure xs
-          setCiTypesForImported (Just hscEnv) xs =
-            liftIO $ forM xs $ \ci@CI{origName} -> do
-              mt <- (Just <$> lookupGlobal hscEnv origName)
-                      `catch` \(_ :: SourceError) -> return Nothing
-              let typ = do
-                    t <- mt
-                    tyid <- safeTyThingId t
-                    return $ showName $ varType tyid
-              return $ ci {thingType = typ}
+        unqualifiedModNames = map iDeclToModName (snd partitionedMods)
 
-      comps <- do
-        hscEnvRef <- ghcSession <$> readMTS
-        hscEnv <- liftIO $ traverse readIORef hscEnvRef
-        if T.null qualifier then do
-          let getComplsGhc = maybe (const $ pure Set.empty) (\env -> GM.runLightGhc env . getComplsFromModName) hscEnv
-          xs <- Set.toList . Set.unions <$> mapM getComplsGhc unqualImports
-          xs' <- setCiTypesForImported hscEnv xs
-          return $ localCmps ++ xs'
-        else do
-          let getQualComplsGhc = maybe (pure Set.empty) (\env -> GM.runLightGhc env getQualifedCompls) hscEnv
-          xs <- Set.toList <$> getQualComplsGhc
-          setCiTypesForImported hscEnv xs
-      return $ IdeResponseOk $ modCompls ++ map mkCompl comps
+        qualModNamesLabeled :: [(ModuleName, Maybe (Bool, [Name]))]
+        qualModNamesLabeled = mapMaybe labelHiddens (fst partitionedMods)
+          where
+            labelHiddens imp = do
+              let modName = iDeclToModName imp
+              return $ case ideclHiding imp of
+                Nothing ->
+                  (modName, Nothing)
+                Just (hasHiddens, L _ liens) ->
+                  (modName, Just (hasHiddens, concatMap (ieNames . unLoc) liens))
+
+        getQualifedCompls :: GhcMonad m => m (Set.Set CompItem)
+        getQualifedCompls = do
+          xs <- forM qualModNamesLabeled $
+            \(modName, mie) ->
+              case mie of
+                Just (False, members) ->
+                  return $ Set.fromList $ map (toCompItem modName) members
+                Just (True , members) -> do
+                  compls <- getComplsFromModName modName
+                  let hiddens = Set.fromList $ map (toCompItem modName) members
+                  return $ Set.difference compls hiddens
+                Nothing ->
+                  getComplsFromModName modName
+          return $ Set.unions xs
+
+        getComplsFromModName :: GhcMonad m
+          => ModuleName -> m (Set.Set CompItem)
+        getComplsFromModName mn = do
+          mminf <- getModuleInfo =<< findModule mn Nothing
+          return $ case mminf of
+            Nothing -> Set.empty
+            Just minf ->
+              Set.fromList $ map (toCompItem mn) $ modInfoExports minf
+
+        -- lookup and set the thingType
+        setCiTypesForImported :: (Traversable t, MonadIO m) 
+          => Maybe HscEnv -> t CompItem -> m (t CompItem)
+        setCiTypesForImported Nothing xs = liftIO $ pure xs
+        setCiTypesForImported (Just hscEnv) xs =
+          liftIO $ forM xs $ \ci@CI{origName} -> do
+            mt <- (Just <$> lookupGlobal hscEnv origName)
+                    `catch` \(_ :: SourceError) -> return Nothing
+            let typ = do
+                  t <- mt
+                  tyid <- safeTyThingId t
+                  return $ T.pack $ showGhc $ varType tyid
+            return $ ci {thingType = typ}
+
+    hscEnvRef <- ghcSession <$> readMTS
+    hscEnv <- liftIO $ traverse readIORef hscEnvRef
+
+    unqualCompls <- do
+      let getComplsGhc = maybe (const $ pure Set.empty) (\env -> GM.runLightGhc env . getComplsFromModName) hscEnv
+      withoutTypes <- Set.toList . Set.unions <$> mapM getComplsGhc unqualifiedModNames
+      unqualCompls <- setCiTypesForImported hscEnv withoutTypes
+      return unqualCompls
+   
+    qualCompls <- do
+      let getQualComplsGhc = maybe (pure Set.empty) (\env -> GM.runLightGhc env getQualifedCompls) hscEnv
+      xs <- Set.toList <$> getQualComplsGhc
+      setCiTypesForImported hscEnv xs
+    
+    debugm $ "CC ##### "
+
+    return $ CC 
+      { allModNamesAsGiven  = allModNamesAsGiven
+      , toplevelCompls = toplevelCompls
+      , qualCompls = qualCompls
+      , unqualCompls = unqualCompls
+      }
+
+
+getCompletions :: Uri -> (T.Text, T.Text) -> IdeM (IdeResponse [J.CompletionItem])
+getCompletions uri (qualifier, ident) = pluginGetFile "getCompletions: " uri $ \file ->
+  let handlers = 
+        [ GM.GHandler $ \(ex :: SomeException) ->
+            return $ someErr "getCompletions" (show ex)
+        ]
+  in flip GM.gcatches handlers $ do
+    debugm $ "got prefix" ++ show (qualifier, ident)
+    let noCache = return $ nonExistentCacheErr "getCompletions"
+        modQual = if T.null qualifier then "" else qualifier <> "."
+        fullPrefix = modQual <> ident
+        filterComplsByIdent = filter ((ident `T.isPrefixOf`) . label)
+    withCachedModuleAndData file noCache $
+      \_ CC
+        { allModNamesAsGiven
+        , toplevelCompls
+        , unqualCompls
+        , qualCompls
+        } ->
+          let
+            modNameCompls = map mkModCompl
+              $ mapMaybe (T.stripPrefix modQual)
+              $ filter (fullPrefix `T.isPrefixOf`) allModNamesAsGiven
+
+            comps = if T.null qualifier 
+              then filterComplsByIdent (toplevelCompls ++ unqualCompls)
+              else filterComplsByIdent qualCompls
+
+          in return $ IdeResponseOk $ modNameCompls ++ map mkCompl comps
 
 -- ---------------------------------------------------------------------
 
