@@ -7,19 +7,19 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Control
 
 import qualified Data.Map as Map
-import           Data.Dynamic (toDyn, fromDynamic)
-import           Data.Typeable (Typeable)
-import           Data.Generics (Proxy(..), typeRep, typeOf)
+import           Data.Dynamic                     (toDyn, fromDynamic)
+import           Data.Typeable                    (Typeable)
+import           Data.Generics                    (Proxy(..), typeRep, typeOf)
 
-import           Exception (ExceptionMonad)
+import           Exception                        (ExceptionMonad)
 
 import qualified GhcMod.Cradle                     as GM
 import qualified GhcMod.Monad                      as GM
 import qualified GhcMod.Types                      as GM
 
-import Haskell.Ide.Engine.MultiThreadState 
-import Haskell.Ide.Engine.PluginsIdeMonads 
-import Haskell.Ide.Engine.GhcModuleCache
+import           Haskell.Ide.Engine.MultiThreadState
+import           Haskell.Ide.Engine.PluginsIdeMonads
+import           Haskell.Ide.Engine.GhcModuleCache
 
 import           System.Directory
 import           System.FilePath
@@ -120,7 +120,7 @@ withCachedModuleAndData uri noCache callback = do
                modifyCache (\s -> s {uriCaches = Map.insert uri' (UriCache cm dat')
                                                                  (uriCaches s)})
                return val
-             Just x ->
+             Just x -> do
                case fromDynamic x of
                  Just val -> return val
                  Nothing  -> error "impossible"
@@ -131,8 +131,17 @@ cacheModule :: (Monad m, GM.MonadIO m, HasGhcModuleCache m)
             => FilePath -> CachedModule -> m ()
 cacheModule uri cm = do
   uri' <- liftIO $ canonicalizePath uri
-  modifyCache (\s -> s { uriCaches = Map.insert uri' (UriCache cm Map.empty)
-                                                     (uriCaches s) })
+  modifyCache (\gmc ->
+      gmc { uriCaches = Map.insertWith
+                          (updateCachedModule cm)
+                          uri'
+                          (UriCache cm Map.empty)
+                          (uriCaches gmc)
+          }
+    )
+  where
+    updateCachedModule :: CachedModule -> UriCache -> UriCache -> UriCache
+    updateCachedModule cm' _ old = old { cachedModule = cm' }
 
 -- | Deletes a module from the cache
 deleteCachedModule :: (Monad m, GM.MonadIO m, HasGhcModuleCache m) => FilePath -> m ()
@@ -149,7 +158,8 @@ deleteCachedModule uri = do
 -- TODO: this name is confusing, given GhcModuleCache. Change it
 class Typeable a => ModuleCache a where
     -- | Defines an initial value for the state extension
-    cacheDataProducer :: (MonadIO m, GM.MonadIO m, MonadMTState IdeState m) => CachedModule -> m a
+    cacheDataProducer :: (MonadIO m, GM.MonadIO m, MonadMTState IdeState m) 
+                      => CachedModule -> m a
 
 instance ModuleCache () where
     cacheDataProducer = const $ return ()
