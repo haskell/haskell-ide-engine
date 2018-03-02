@@ -229,10 +229,13 @@ safeTyThingId (AnId i)                    = Just i
 safeTyThingId (AConLike (RealDataCon dc)) = Just $ dataConWrapId dc
 safeTyThingId _                           = Nothing
 
+-- Associates a module qualifier with it's members
+type QualCompls = Map.Map T.Text [CompItem]
+
 data CachedCompletions = CC
-  { allModNamesAsGiven :: [T.Text]
+  { allModNamesAsNS :: [T.Text]
   , unqualCompls :: [CompItem]
-  , qualCompls :: [CompItem]
+  , qualCompls :: QualCompls
   } deriving (Typeable)
 
 instance ModuleCache CachedCompletions where
@@ -259,7 +262,7 @@ instance ModuleCache CachedCompletions where
         importDeclerations = map unLoc limports
         
         -- The given namespaces for the imported modules (ie. full name, or alias if used)
-        allModNamesAsGiven = map (showModName . asNamespace) importDeclerations
+        allModNamesAsNS = map (showModName . asNamespace) importDeclerations
 
         typeEnv = md_types $ snd $ tm_internals_ tm
         toplevelVars = mapMaybe safeTyThingId $ typeEnvElts typeEnv
@@ -279,40 +282,43 @@ instance ModuleCache CachedCompletions where
 
         unqualModNames = map iDeclToModName unqualImpDecls
 
-        qualModNamesLabeled :: [(ModuleName, Maybe (Bool, [Name]))]
-        qualModNamesLabeled = mapMaybe labelHiddens qualImpDecls
+        qualModNamesInfo :: [((T.Text, ModuleName), Maybe (Bool, [Name]))]
+        qualModNamesInfo = mapMaybe getQualInfo qualImpDecls
           where
-            labelHiddens imp = do
+            getQualInfo imp = do
               let modName = iDeclToModName imp
-              return $ case ideclHiding imp of
-                Nothing ->
-                  (modName, Nothing)
-                Just (hasHiddens, L _ liens) ->
-                  (modName, Just (hasHiddens, concatMap (ieNames . unLoc) liens))
+                  modQual = showModName (asNamespace imp)
+                  hasHiddsMembers = 
+                    case ideclHiding imp of
+                      Nothing -> Nothing
+                      Just (hasHiddens, L _ liens) ->
+                        Just (hasHiddens, concatMap (ieNames . unLoc) liens)
+              return $ ((modQual, modName), hasHiddsMembers)
 
-        getQualifedCompls :: GhcMonad m => m (Set.Set CompItem)
+        getQualifedCompls :: GhcMonad m => m QualCompls
         getQualifedCompls = do
-          xs <- forM qualModNamesLabeled $
-            \(modName, mie) ->
-              case mie of
+          mods <- forM qualModNamesInfo $
+            \((modQual, modName), hasHiddsMembers) ->
+              case hasHiddsMembers of
                 Just (False, members) ->
-                  return $ Set.fromList $ map (toCompItem modName) members
+                  return (modQual, map (toCompItem modName) members)
                 Just (True , members) -> do
+                  allCompls <- getComplsFromModName modName
+                  let hiddens = map (toCompItem modName) members
+                      compls = allCompls List.\\ hiddens
+                  return (modQual, compls)
+                Nothing -> do
                   compls <- getComplsFromModName modName
-                  let hiddens = Set.fromList $ map (toCompItem modName) members
-                  return $ Set.difference compls hiddens
-                Nothing ->
-                  getComplsFromModName modName
-          return $ Set.unions xs
+                  return (modQual, compls)
+          return $ Map.fromList mods
 
         getComplsFromModName :: GhcMonad m
-          => ModuleName -> m (Set.Set CompItem)
+          => ModuleName -> m [CompItem]
         getComplsFromModName mn = do
           mminf <- getModuleInfo =<< findModule mn Nothing
           return $ case mminf of
-            Nothing -> Set.empty
-            Just minf ->
-              Set.fromList $ map (toCompItem mn) $ modInfoExports minf
+            Nothing -> []
+            Just minf -> map (toCompItem mn) $ modInfoExports minf
 
         -- lookup and set the thingType
         setCiTypesForImported :: (Traversable t, MonadIO m) 
@@ -332,18 +338,19 @@ instance ModuleCache CachedCompletions where
     hscEnv <- liftIO $ traverse readIORef hscEnvRef
 
     unqualCompls <- do
-      let getComplsGhc = maybe (const $ pure Set.empty) (\env -> GM.runLightGhc env . getComplsFromModName) hscEnv
-      withoutTypes <- Set.toList . Set.unions <$> mapM getComplsGhc unqualModNames
+      let getComplsGhc env = GM.runLightGhc env . ((fmap.fmap) Set.fromList getComplsFromModName)
+          mbGetComplsGhc = maybe (const $ pure Set.empty) getComplsGhc hscEnv
+      withoutTypes <- Set.toList . Set.unions <$> mapM mbGetComplsGhc unqualModNames
       unqualCompls <- setCiTypesForImported hscEnv withoutTypes
       return unqualCompls
 
     qualCompls <- do
-      let getQualComplsGhc = maybe (pure Set.empty) (\env -> GM.runLightGhc env getQualifedCompls) hscEnv
-      xs <- Set.toList <$> getQualComplsGhc
-      setCiTypesForImported hscEnv xs
+      let getQualComplsGhc = maybe (pure Map.empty) (\env -> GM.runLightGhc env getQualifedCompls) hscEnv
+      qc <- getQualComplsGhc
+      mapM (setCiTypesForImported hscEnv) qc
 
     return $ CC 
-      { allModNamesAsGiven = allModNamesAsGiven
+      { allModNamesAsNS = allModNamesAsNS
       , unqualCompls = toplevelCompls ++ unqualCompls
       , qualCompls = qualCompls
       }
@@ -357,24 +364,24 @@ getCompletions uri (qualifier, ident) = pluginGetFile "getCompletions: " uri $ \
   in flip GM.gcatches handlers $ do
     -- debugm $ "got prefix" ++ show (qualifier, ident)
     let noCache = return $ nonExistentCacheErr "getCompletions"
-        modQual = if T.null qualifier then "" else qualifier <> "."
-        fullPrefix = modQual <> ident
+        enteredQual = if T.null qualifier then "" else qualifier <> "."        
+        fullPrefix = enteredQual <> ident
     withCachedModuleAndData file noCache $
       \_ CC
-        { allModNamesAsGiven
+        { allModNamesAsNS
         , unqualCompls
         , qualCompls
         } -> do
           let
             filtModNameCompls = map mkModCompl
-              $ mapMaybe (T.stripPrefix modQual)
-              $ Fuzzy.simpleFilter fullPrefix allModNamesAsGiven
+              $ mapMaybe (T.stripPrefix enteredQual)
+              $ Fuzzy.simpleFilter fullPrefix allModNamesAsNS
 
             filtCompls = Fuzzy.filterBy label ident compls
               where 
                 compls = if T.null qualifier
                   then unqualCompls
-                  else qualCompls
+                  else Map.findWithDefault [] qualifier qualCompls
 
           return $ IdeResponseOk $ filtModNameCompls ++ map mkCompl filtCompls
 
