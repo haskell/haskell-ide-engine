@@ -132,6 +132,21 @@ cacheModule :: (Monad m, GM.MonadIO m, HasGhcModuleCache m)
 cacheModule uri cm = do
   uri' <- liftIO $ canonicalizePath uri
   modifyCache (\gmc ->
+      gmc { uriCaches = Map.insert
+                          uri'
+                          (UriCache cm Map.empty)
+                          (uriCaches gmc)
+          }
+    )
+  where
+
+-- | Saves a module to the cache without clearing the associated cache data - use only if you are
+-- sure that the cached data associated with the module doesn't change
+cacheModuleNoClear :: (Monad m, GM.MonadIO m, HasGhcModuleCache m)
+            => FilePath -> CachedModule -> m ()
+cacheModuleNoClear uri cm = do
+  uri' <- liftIO $ canonicalizePath uri
+  modifyCache (\gmc ->
       gmc { uriCaches = Map.insertWith
                           (updateCachedModule cm)
                           uri'
