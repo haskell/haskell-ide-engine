@@ -24,7 +24,6 @@ import qualified Data.List                                    as List
 import qualified Data.Map                                     as Map
 import           Data.Maybe
 import           Data.Monoid
-import qualified Data.Set                                     as Set
 import qualified Data.Text                                    as T
 import           Data.Typeable
 import           DataCon
@@ -39,7 +38,7 @@ import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Plugin.GhcMod            (setTypecheckedModule)
-import           Haskell.Ide.Engine.Plugin.Fuzzy              as Fuzzy
+import qualified Haskell.Ide.Engine.Plugin.Fuzzy              as Fuzzy
 import           HscTypes
 import qualified Language.Haskell.LSP.TH.DataTypesJSON        as J
 import           Language.Haskell.Refact.API                 (showGhc, showGhcQual, setGhcContext, hsNamessRdr)
@@ -229,7 +228,7 @@ safeTyThingId (AnId i)                    = Just i
 safeTyThingId (AConLike (RealDataCon dc)) = Just $ dataConWrapId dc
 safeTyThingId _                           = Nothing
 
--- Associates a module qualifier with it's members
+-- Associates a module's qualifier with its members
 type QualCompls = Map.Map T.Text [CompItem]
 
 data CachedCompletions = CC
@@ -278,39 +277,52 @@ instance ModuleCache CachedCompletions where
         toCompItem mn n =
           CI n (showModName mn) Nothing (T.pack $ showGhc n)
 
-        (qualImpDecls, unqualImpDecls) = List.partition ideclQualified importDeclerations
-
-        unqualModNames = map iDeclToModName unqualImpDecls
-
-        qualModNamesInfo :: [((T.Text, ModuleName), Maybe (Bool, [Name]))]
-        qualModNamesInfo = mapMaybe getQualInfo qualImpDecls
+        allImportsInfo :: [(Bool, T.Text, ModuleName, Maybe (Bool, [Name]))]
+        allImportsInfo = map getImpInfo importDeclerations
           where
-            getQualInfo imp = do
+            getImpInfo imp =
               let modName = iDeclToModName imp
                   modQual = showModName (asNamespace imp)
+                  isQual = ideclQualified imp
                   hasHiddsMembers = 
                     case ideclHiding imp of
                       Nothing -> Nothing
                       Just (hasHiddens, L _ liens) ->
-                        Just (hasHiddens, concatMap (ieNames . unLoc) liens)
-              return $ ((modQual, modName), hasHiddsMembers)
+                        Just (hasHiddens, concatMap (ieNames . unLoc) liens)                  
+              in (isQual, modQual, modName, hasHiddsMembers)
 
-        getQualifedCompls :: GhcMonad m => m QualCompls
-        getQualifedCompls = do
-          mods <- forM qualModNamesInfo $
-            \((modQual, modName), hasHiddsMembers) ->
-              case hasHiddsMembers of
-                Just (False, members) ->
-                  return (modQual, map (toCompItem modName) members)
-                Just (True , members) -> do
-                  allCompls <- getComplsFromModName modName
-                  let hiddens = map (toCompItem modName) members
-                      compls = allCompls List.\\ hiddens
-                  return (modQual, compls)
-                Nothing -> do
-                  compls <- getComplsFromModName modName
-                  return (modQual, compls)
-          return $ Map.fromList mods
+        getModCompls :: GhcMonad m => HscEnv -> m ([CompItem], QualCompls)
+        getModCompls hscEnv = do
+          (unquals, qualKVs) <- foldM (orgUnqualQual hscEnv) ([], []) allImportsInfo
+          return (unquals, Map.fromList qualKVs)
+        
+        orgUnqualQual hscEnv (prevUnquals, prevQualKVs) (isQual, modQual, modName, hasHiddsMembers) =
+          let 
+            ifUnqual xs = if isQual then prevUnquals else (prevUnquals ++ xs)
+            setTypes = setComplsType hscEnv
+          in
+            case hasHiddsMembers of
+              Just (False, members) -> do
+                compls <- setTypes (map (toCompItem modName) members)
+                return 
+                  ( ifUnqual compls
+                  , (modQual, compls) : prevQualKVs
+                  )
+              Just (True , members) -> do
+                let hiddens = map (toCompItem modName) members
+                allCompls <- getComplsFromModName modName
+                compls <- setTypes (allCompls List.\\ hiddens)
+                return 
+                  ( ifUnqual compls
+                  , (modQual, compls) : prevQualKVs
+                  )
+              Nothing -> do
+                -- debugm $ "///////// Nothing " ++ (show modQual)
+                compls <- setTypes =<< getComplsFromModName modName
+                return 
+                  ( ifUnqual compls
+                  , (modQual, compls) : prevQualKVs
+                  )
 
         getComplsFromModName :: GhcMonad m
           => ModuleName -> m [CompItem]
@@ -320,11 +332,9 @@ instance ModuleCache CachedCompletions where
             Nothing -> []
             Just minf -> map (toCompItem mn) $ modInfoExports minf
 
-        -- lookup and set the thingType
-        setCiTypesForImported :: (Traversable t, MonadIO m) 
-          => Maybe HscEnv -> t CompItem -> m (t CompItem)
-        setCiTypesForImported Nothing xs = liftIO $ pure xs
-        setCiTypesForImported (Just hscEnv) xs =
+        setComplsType :: (Traversable t, MonadIO m) 
+          => HscEnv -> t CompItem -> m (t CompItem)
+        setComplsType hscEnv xs =
           liftIO $ forM xs $ \ci@CI{origName} -> do
             mt <- (Just <$> lookupGlobal hscEnv origName)
                     `catch` \(_ :: SourceError) -> return Nothing
@@ -336,23 +346,14 @@ instance ModuleCache CachedCompletions where
 
     hscEnvRef <- ghcSession <$> readMTS
     hscEnv <- liftIO $ traverse readIORef hscEnvRef
-
-    unqualCompls <- do
-      let getComplsGhc env = GM.runLightGhc env . ((fmap.fmap) Set.fromList getComplsFromModName)
-          mbGetComplsGhc = maybe (const $ pure Set.empty) getComplsGhc hscEnv
-      withoutTypes <- Set.toList . Set.unions <$> mapM mbGetComplsGhc unqualModNames
-      unqualCompls <- setCiTypesForImported hscEnv withoutTypes
-      return unqualCompls
-
-    qualCompls <- do
-      let getQualComplsGhc = maybe (pure Map.empty) (\env -> GM.runLightGhc env getQualifedCompls) hscEnv
-      qc <- getQualComplsGhc
-      mapM (setCiTypesForImported hscEnv) qc
-
+    (unquals, quals) <- maybe  
+                          (pure ([], Map.empty)) 
+                          (\env -> GM.runLightGhc env (getModCompls env)) 
+                          hscEnv
     return $ CC 
       { allModNamesAsNS = allModNamesAsNS
-      , unqualCompls = toplevelCompls ++ unqualCompls
-      , qualCompls = qualCompls
+      , unqualCompls = toplevelCompls ++ unquals
+      , qualCompls = quals
       }
 
 getCompletions :: Uri -> (T.Text, T.Text) -> IdeM (IdeResponse [J.CompletionItem])
