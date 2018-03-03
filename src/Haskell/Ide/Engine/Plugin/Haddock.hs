@@ -165,7 +165,7 @@ renderMarkDown =
          , markupOrderedList =
              T.unlines . zipWith (\i n -> T.pack (show (i :: Int)) <> ". " <> n) [1..]
          , markupDefList = T.unlines . map (\(a, b) -> a <> " :: " <> b)
-         , markupCodeBlock = \x -> "\n```haskell\n" <> x <> "```"
+         , markupCodeBlock = \x -> "\n```haskell\n" <> removeInner x <> "```"
          , markupHyperlink = \h ->
              T.pack $ maybe
                (hyperlinkUrl h)
@@ -177,7 +177,7 @@ renderMarkDown =
          , markupMathDisplay = T.pack
          , markupProperty = \s -> T.unlines
              ["\n```haskell"
-             ,"prop> " <> T.pack s
+             ,"prop> " <> removeInner (T.pack s)
              ,"```\n"]
          , markupExample = T.unlines . map (\e -> T.pack $ unlines $
              ["\n```haskell"
@@ -187,4 +187,5 @@ renderMarkDown =
          , markupHeader = \h ->
              T.replicate (headerLevel h) "#" <> " " <> headerTitle h <> "\n"
          }
-    where surround c x = c <> x <> c
+    where surround c x = c <> T.replace c "" x <> c
+          removeInner x = T.replace "```" "" $ T.replace "```haskell" "" x

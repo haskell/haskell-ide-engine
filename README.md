@@ -42,7 +42,7 @@ we talk to clients.__
    
    ![Apply Refact](https://i.imgur.com/dBrSi5F.gif)
 
- - Type information and documentation(via hoogle) on hover
+ - Type information and documentation(via haddock) on hover
 
    ![Hover](https://i.imgur.com/AcvYROv.gif)
 
@@ -199,55 +199,30 @@ Make sure HIE is install, then install the two Atom packages [atom-ide-ui](https
 $ apm install atom-ide-ui ide-haskell-hie
 ```
 
-## Hoogle Docs on hover
+## Docs on hover/completion
 
-HIE supports fetching docs from hoogle on hover. It can use the Hoogle database for 
-your user, or a project specific database.
+HIE supports fetching docs from haddock on hover. It will fallback on using a hoogle db(generally located in ~/.hoogle on linux)
+if no haddock documentation is found.
 
-To generate a global hoogle database for your user from hackage, run
-
-```bash
-$ hoogle generate
-```
-
-To generate a global database for a stack installation, run
+To generate haddock documentation for stack projects:
 
 ```bash
-$ stack exec hoogle generate
+$ cd your-project-directory
+$ stack haddock --keep-going
 ```
 
-To generate a project specific database for a stack project, run
+To enable documentation generation for cabal projects, add the following to your ~/.cabal/config
+
+```
+documentation: True 
+```
+
+To generate a hoogle database that hie can use
 
 ```bash
-$ stack hoogle
-$ stack build
+$ cd haskell-ide-engine
+$ stack --stack-yaml=<stack.yaml you used to build hie> exec hoogle generate
 ```
-
-To generate a project specific database for a sandboxed cabal project, run
-
-```bash
-$ cabal install --enable-documentation --haddock-hoogle
-$ hoogle generate --database=hiehoogledb.hoo --local=.
-```
-in the root dir of your cabal project
-
-If you don't have the dependencies built with haddock/documentation enabled, you need 
-to remove the sandbox and build everything again before running the commands
-given above
-
-```bash
-$ cabal sandbox delete
-$ cabal sandbox init
-```
-
-To generate a project specific database for a non-sandboxed cabal project, run
-
-```bash
-$ cabal install
-$ hoogle generate --local --database=hiehoogledb.hoo
-```
-
-If HIE detects a project specific hoogle DB, it will use it over the global db.
 
 ## Contributing
 
