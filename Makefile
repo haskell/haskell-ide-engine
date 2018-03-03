@@ -18,6 +18,12 @@ hie-8.2.2:
 		&& cp ~/.local/bin/hie-8.2.2 ~/.local/bin/hie-8.2
 .PHONY: hie-8.2.2
 
+test:
+	stack --stack-yaml=stack-8.0.2.yaml test    \
+	&& stack --stack-yaml=stack-8.2.1.yaml test \
+	&& stack --stack-yaml=stack.yaml test
+.PHONY: test
+
 build-copy-compiler-tool:
 	stack --stack-yaml=stack-8.0.2.yaml build --copy-compiler-tool    \
 	&& stack --stack-yaml=stack-8.2.1.yaml build --copy-compiler-tool \

@@ -25,6 +25,7 @@ library
                        Haskell.Ide.Engine.Plugin.Brittany
                        Haskell.Ide.Engine.Plugin.Build
                        Haskell.Ide.Engine.Plugin.Example2
+                       Haskell.Ide.Engine.Plugin.Fuzzy
                        Haskell.Ide.Engine.Plugin.GhcMod
                        Haskell.Ide.Engine.Plugin.HaRe
                        Haskell.Ide.Engine.Plugin.Haddock
@@ -64,6 +65,7 @@ library
                      , hslogger
                      , lens >= 4.15.2
                      , monad-control
+                     , monoid-subclasses > 0.4
                      , mtl
                      , optparse-simple >= 0.0.3
                      , process

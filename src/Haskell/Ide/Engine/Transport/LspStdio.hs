@@ -257,7 +257,7 @@ updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file 
             (n2o' <=< newToOld r txt, oldToNew r txt <=< o2n')
           go _ _ = (const Nothing, const Nothing)
       let cm' = cm {newPosToOld = n2o, oldPosToNew = o2n}
-      cacheModule file cm'
+      cacheModuleNoClear file cm'
       return $ IdeResponseOk ()
     Nothing ->
       return $ IdeResponseOk ()
