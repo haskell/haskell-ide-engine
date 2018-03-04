@@ -7,14 +7,10 @@ import           Data.Bifunctor
 import           Data.Maybe
 import           Data.Monoid
 import qualified Data.Text                          as T
-import qualified GhcMod                             as GM
-import qualified GhcMod.Monad.Env                   as GM
-import qualified GhcMod.Types                       as GM
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.MonadFunctions
 import           Hoogle
 import           System.Directory
-import           System.FilePath
 import           Text.HTML.TagSoup
 import           Text.HTML.TagSoup.Tree
 
@@ -51,7 +47,7 @@ instance ExtensionClass HoogleDb where
 
 initializeHoogleDb :: IdeGhcM (Maybe FilePath)
 initializeHoogleDb = do
-  db' <- getHoogleDbLoc
+  db' <- liftIO $ defaultDatabaseLocation
   db <- liftIO $ makeAbsolute db'
   exists <- liftIO $ doesFileExist db
   if exists then do
@@ -59,27 +55,6 @@ initializeHoogleDb = do
     return $ Just db
   else
     return Nothing
-
-getHoogleDbLoc :: IdeGhcM FilePath
-getHoogleDbLoc = do
-  cradle <- GM.gmCradle <$> GM.gmeAsk
-  let mfp =
-        case GM.cradleProject cradle of
-          GM.StackProject s ->
-            case reverse $ splitPath $ GM.seLocalPkgDb s of
-              "pkgdb":ghcver:resolver:arch:_install:xs ->
-                Just $ joinPath $ reverse xs ++ ["hoogle",arch,resolver,ghcver,"database.hoo"]
-              _ -> Nothing
-          _ -> Just "hiehoogledb.hoo"
-  case mfp of
-    Nothing -> liftIO defaultDatabaseLocation
-    Just fp -> do
-      exists <- liftIO $ doesFileExist fp
-      if exists then
-        return fp
-      else
-        liftIO defaultDatabaseLocation
-
 
 infoCmd :: CommandFunc T.Text T.Text
 infoCmd = CmdSync $ \expr -> liftToGhc $
