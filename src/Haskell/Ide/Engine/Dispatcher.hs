@@ -23,7 +23,7 @@ data DispatcherEnv = DispatcherEnv
   , docVersionTVar     :: !(TVar (Map.Map Uri Int))
   }
 
-dispatcherP :: forall void. DispatcherEnv -> TChan PluginRequest -> IdeGhcM void
+dispatcherP :: DispatcherEnv -> TChan PluginRequest -> IdeGhcM ()
 dispatcherP env inChan = do
   stateVar <- lift . lift $ ask
   gchan <- liftIO $ do
@@ -34,7 +34,7 @@ dispatcherP env inChan = do
     return ghcChan
   ghcDispatcher env gchan
 
-mainDispatcher :: forall void. TChan PluginRequest -> TChan GhcRequest -> TChan IdeRequest -> IO void
+mainDispatcher :: TChan PluginRequest -> TChan GhcRequest -> TChan IdeRequest -> IO ()
 mainDispatcher inChan ghcChan ideChan = forever $ do
   req <- atomically $ readTChan inChan
   case req of
@@ -43,16 +43,17 @@ mainDispatcher inChan ghcChan ideChan = forever $ do
     Left r ->
       atomically $ writeTChan ideChan r
 
-ideDispatcher :: forall void. DispatcherEnv -> TChan IdeRequest -> IdeM void
+ideDispatcher :: DispatcherEnv -> TChan IdeRequest -> IdeM ()
 ideDispatcher env pin = forever $ do
+  debugm "ideDispatcher: top of loop"
   (IdeRequest lid callback action) <- liftIO $ atomically $ readTChan pin
-  debugm $ "got request with id: " ++ show lid
+  debugm $ "ideDispatcher:got request with id: " ++ show lid
   cancelled <- liftIO $ atomically $ isCancelled env lid
   unless cancelled $ do
     res <- action
     liftIO $ callback res
 
-ghcDispatcher :: forall void. DispatcherEnv -> TChan GhcRequest -> IdeGhcM void
+ghcDispatcher :: DispatcherEnv -> TChan GhcRequest -> IdeGhcM ()
 ghcDispatcher env@DispatcherEnv{docVersionTVar} pin = forever $ do
   debugm "ghcDispatcher: top of loop"
   (GhcRequest context mver mid callback action) <- liftIO $ atomically $ readTChan pin
