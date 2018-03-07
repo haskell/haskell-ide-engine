@@ -115,7 +115,10 @@ run opts = do
   let ghcModOptions = if optGhcModVomit opts then vomitOptions else GM.defaultOptions
 
   -- launch the dispatcher.
-  let dispatcherProcP dispatcherEnv =
+  let
+    -- TODO: Why is this not together with dispatcherP?
+    dispatcherProcP :: DispatcherEnv -> IO ()
+    dispatcherProcP dispatcherEnv =
         void $ runIdeGhcM ghcModOptions
             (IdeState emptyModuleCache plugins Map.empty Nothing)
             (dispatcherP dispatcherEnv pin)

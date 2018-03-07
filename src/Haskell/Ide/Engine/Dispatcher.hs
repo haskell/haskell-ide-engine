@@ -45,8 +45,9 @@ mainDispatcher inChan ghcChan ideChan = forever $ do
 
 ideDispatcher :: forall void. DispatcherEnv -> TChan IdeRequest -> IdeM void
 ideDispatcher env pin = forever $ do
+  debugm "ideDispatcher: top of loop"
   (IdeRequest lid callback action) <- liftIO $ atomically $ readTChan pin
-  debugm $ "got request with id: " ++ show lid
+  debugm $ "ideDispatcher:got request with id: " ++ show lid
   cancelled <- liftIO $ atomically $ isCancelled env lid
   unless cancelled $ do
     res <- action

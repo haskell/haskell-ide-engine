@@ -14,7 +14,7 @@ pattern GReq :: Maybe Uri
                 -> Maybe J.LspId
                 -> (a1 -> IO ())
                 -> IdeGhcM a1
-                -> Either a GhcRequest
+                -> PluginRequest
 pattern GReq a b c d e = Right (GhcRequest   a b c d e)
 
 pattern IReq :: J.LspId -> (a -> IO ()) -> IdeM a -> Either IdeRequest b

@@ -3,27 +3,27 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Haskell.Ide.Engine.ModuleCache where
 
-import Control.Monad.IO.Class
-import Control.Monad.Trans.Control
-
+import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Control
+import           Data.Dynamic (toDyn, fromDynamic)
+import           Data.Generics (Proxy(..), typeRep, typeOf)
 import qualified Data.Map as Map
-import           Data.Dynamic                     (toDyn, fromDynamic)
-import           Data.Typeable                    (Typeable)
-import           Data.Generics                    (Proxy(..), typeRep, typeOf)
+import           Data.Maybe
+import           Data.Typeable (Typeable)
+import           Exception (ExceptionMonad)
+import           System.Directory
+import           System.FilePath
 
-import           Exception                        (ExceptionMonad)
-
-import qualified GhcMod.Cradle                     as GM
-import qualified GhcMod.Monad                      as GM
-import qualified GhcMod.Types                      as GM
+import qualified GhcMod.Cradle as GM
+import qualified GhcMod.Monad  as GM
+import qualified GhcMod.Types  as GM
 
 import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.PluginsIdeMonads
 import           Haskell.Ide.Engine.GhcModuleCache
 
-import           System.Directory
-import           System.FilePath
 
+-- ---------------------------------------------------------------------
 
 modifyCache :: (HasGhcModuleCache m) => (GhcModuleCache -> GhcModuleCache) -> m ()
 modifyCache f = do
@@ -84,6 +84,13 @@ getCachedModule uri = do
   uri' <- liftIO $ canonicalizePath uri
   mc <- getModuleCache
   return $ (Map.lookup uri' . cachedModules) mc
+
+-- | Returns true if there is a CachedModule for a given URI
+isCached :: (Monad m, GM.MonadIO m, HasGhcModuleCache m)
+         => FilePath -> m Bool
+isCached uri = do
+  mc <- getCachedModule uri
+  return (isJust mc)
 
 -- | Version of `withCachedModuleAndData` that doesn't provide
 -- any extra cached data
@@ -173,7 +180,7 @@ deleteCachedModule uri = do
 -- TODO: this name is confusing, given GhcModuleCache. Change it
 class Typeable a => ModuleCache a where
     -- | Defines an initial value for the state extension
-    cacheDataProducer :: (MonadIO m, GM.MonadIO m, MonadMTState IdeState m) 
+    cacheDataProducer :: (MonadIO m, GM.MonadIO m, MonadMTState IdeState m)
                       => CachedModule -> m a
 
 instance ModuleCache () where

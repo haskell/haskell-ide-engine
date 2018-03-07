@@ -404,7 +404,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
       -- -------------------------------
 
       Core.NotWillSaveTextDocument _notification -> do
-        liftIO $ U.logm "****** reactor: not processing NotDidSaveTextDocument"
+        liftIO $ U.logm "****** reactor: not processing NotWillSaveTextDocument"
 
       Core.NotDidChangeWatchedFiles _notification -> do
         liftIO $ U.logm "****** reactor: not processing NotDidChangeWatchedFiles"
@@ -478,7 +478,9 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                       hovers = catMaybes [typ] ++ fmap J.PlainString docs
                 rspMsg = Core.makeResponseMessage req ht
               reactorSend rspMsg
-        let hreq = IReq (req ^. J.id) callback $ runExceptT $ do
+        let
+          getHoverInfo :: IdeM (Either IdeFailure (Maybe J.MarkedString, [T.Text], Maybe Range))
+          getHoverInfo = runExceptT $ do
               info' <- ExceptT $ GhcMod.newTypeCmd pos doc
               names' <- ExceptT $ Hie.getSymbolsAtPoint doc pos
               let
@@ -522,6 +524,12 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                         Nothing -> return $ mname <> minfo
                         Just docu -> return $ docu <> "\n\n" <> minfo
               return (info,docs,mrange)
+        let hreq = IReq (req ^. J.id) callback $ do
+              pluginGetFile "ReqHover:" doc $ \fp -> do
+                cached <- isCached fp
+                if cached
+                  then getHoverInfo
+                  else return (IdeResponseOk (Nothing,[],Nothing))
         makeRequest hreq
 
         liftIO $ U.logs $ "reactor:HoverRequest done"
@@ -749,7 +757,7 @@ getDocsForName name pkg modName' = do
 
 -- ---------------------------------------------------------------------
 
-  -- get hlint+GHC diagnostics and loads the typechecked module into the cache
+-- | get hlint and GHC diagnostics and loads the typechecked module into the cache
 requestDiagnostics :: TChan PluginRequest -> J.Uri -> Int -> R ()
 requestDiagnostics cin file ver = do
   lf <- ask

@@ -259,7 +259,7 @@ instance ModuleCache CachedCompletions where
 #endif
         -- Full canonical names of imported modules
         importDeclerations = map unLoc limports
-        
+
         -- The given namespaces for the imported modules (ie. full name, or alias if used)
         allModNamesAsNS = map (showModName . asNamespace) importDeclerations
 
@@ -270,7 +270,7 @@ instance ModuleCache CachedCompletions where
             typ = Just $ T.pack $ showGhc $ varType var
             name = Var.varName var
             label = T.pack $ showGhc name
-        
+
         toplevelCompls = map varToCompl toplevelVars
 
         toCompItem :: ModuleName -> Name -> CompItem
@@ -284,27 +284,27 @@ instance ModuleCache CachedCompletions where
               let modName = iDeclToModName imp
                   modQual = showModName (asNamespace imp)
                   isQual = ideclQualified imp
-                  hasHiddsMembers = 
+                  hasHiddsMembers =
                     case ideclHiding imp of
                       Nothing -> Nothing
                       Just (hasHiddens, L _ liens) ->
-                        Just (hasHiddens, concatMap (ieNames . unLoc) liens)                  
+                        Just (hasHiddens, concatMap (ieNames . unLoc) liens)
               in (isQual, modQual, modName, hasHiddsMembers)
 
         getModCompls :: GhcMonad m => HscEnv -> m ([CompItem], QualCompls)
         getModCompls hscEnv = do
           (unquals, qualKVs) <- foldM (orgUnqualQual hscEnv) ([], []) allImportsInfo
           return (unquals, Map.fromList qualKVs)
-        
+
         orgUnqualQual hscEnv (prevUnquals, prevQualKVs) (isQual, modQual, modName, hasHiddsMembers) =
-          let 
+          let
             ifUnqual xs = if isQual then prevUnquals else (prevUnquals ++ xs)
             setTypes = setComplsType hscEnv
           in
             case hasHiddsMembers of
               Just (False, members) -> do
                 compls <- setTypes (map (toCompItem modName) members)
-                return 
+                return
                   ( ifUnqual compls
                   , (modQual, compls) : prevQualKVs
                   )
@@ -312,14 +312,14 @@ instance ModuleCache CachedCompletions where
                 let hiddens = map (toCompItem modName) members
                 allCompls <- getComplsFromModName modName
                 compls <- setTypes (allCompls List.\\ hiddens)
-                return 
+                return
                   ( ifUnqual compls
                   , (modQual, compls) : prevQualKVs
                   )
               Nothing -> do
                 -- debugm $ "///////// Nothing " ++ (show modQual)
                 compls <- setTypes =<< getComplsFromModName modName
-                return 
+                return
                   ( ifUnqual compls
                   , (modQual, compls) : prevQualKVs
                   )
@@ -332,7 +332,7 @@ instance ModuleCache CachedCompletions where
             Nothing -> []
             Just minf -> map (toCompItem mn) $ modInfoExports minf
 
-        setComplsType :: (Traversable t, MonadIO m) 
+        setComplsType :: (Traversable t, MonadIO m)
           => HscEnv -> t CompItem -> m (t CompItem)
         setComplsType hscEnv xs =
           liftIO $ forM xs $ \ci@CI{origName} -> do
@@ -346,11 +346,11 @@ instance ModuleCache CachedCompletions where
 
     hscEnvRef <- ghcSession <$> readMTS
     hscEnv <- liftIO $ traverse readIORef hscEnvRef
-    (unquals, quals) <- maybe  
-                          (pure ([], Map.empty)) 
-                          (\env -> GM.runLightGhc env (getModCompls env)) 
+    (unquals, quals) <- maybe
+                          (pure ([], Map.empty))
+                          (\env -> GM.runLightGhc env (getModCompls env))
                           hscEnv
-    return $ CC 
+    return $ CC
       { allModNamesAsNS = allModNamesAsNS
       , unqualCompls = toplevelCompls ++ unquals
       , qualCompls = quals
@@ -358,14 +358,14 @@ instance ModuleCache CachedCompletions where
 
 getCompletions :: Uri -> (T.Text, T.Text) -> IdeM (IdeResponse [J.CompletionItem])
 getCompletions uri (qualifier, ident) = pluginGetFile "getCompletions: " uri $ \file ->
-  let handlers = 
+  let handlers =
         [ GM.GHandler $ \(ex :: SomeException) ->
             return $ someErr "getCompletions" (show ex)
         ]
   in flip GM.gcatches handlers $ do
     -- debugm $ "got prefix" ++ show (qualifier, ident)
     let noCache = return $ nonExistentCacheErr "getCompletions"
-        enteredQual = if T.null qualifier then "" else qualifier <> "."        
+        enteredQual = if T.null qualifier then "" else qualifier <> "."
         fullPrefix = enteredQual <> ident
     withCachedModuleAndData file noCache $
       \_ CC
@@ -379,7 +379,7 @@ getCompletions uri (qualifier, ident) = pluginGetFile "getCompletions: " uri $ \
               $ Fuzzy.simpleFilter fullPrefix allModNamesAsNS
 
             filtCompls = Fuzzy.filterBy label ident compls
-              where 
+              where
                 compls = if T.null qualifier
                   then unqualCompls
                   else Map.findWithDefault [] qualifier qualCompls
@@ -403,7 +403,7 @@ getTypeForName n = do
 
 getSymbolsAtPoint :: Uri -> Position -> IdeM (IdeResponse [(Range, Name)])
 getSymbolsAtPoint uri pos = pluginGetFile "getSymbolsAtPoint: " uri $ \file -> do
-  let noCache = return $ nonExistentCacheErr "getSymbolAtPoint"
+  let noCache = return $ IdeResponseOk [] -- Processing hover, no symbols available, not an error
   withCachedModule file noCache $
     return . IdeResponseOk . getSymbolsAtPointPure pos
 
@@ -423,7 +423,7 @@ symbolFromTypecheckedModule lm pos =
 
 getReferencesInDoc :: Uri -> Position -> IdeM (IdeResponse [J.DocumentHighlight])
 getReferencesInDoc uri pos = pluginGetFile "getReferencesInDoc: " uri $ \file -> do
-  let noCache = return $ nonExistentCacheErr "getReferencesInDoc"
+  let noCache = return $ IdeResponseOk [] -- Processing doc highlights request, no symbols available, not an error
   withCachedModuleAndData file noCache $
     \cm NMD{inverseNameMap} -> runExceptT $ do
       let lm = locMap cm
