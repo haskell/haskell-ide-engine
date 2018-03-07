@@ -8,63 +8,21 @@ $ cd haskell-ide-engine
 $ stack build
 ```
 
-### Checking that the REPL comes up
+There are multiple stack files, one for each currently supported compiler.
+
+To build and test with all of them, use
 
 ```
-$ stack exec hie -- --repl
-HIE version : Version 0.1.0.0, Git revision 1db8ae98de2e197f5447c0a97f20ca4e06fdbc98 (dirty) (57 commits) x86_64
-HIE> base:version
-IdeResponseOk (String "Version 0.1.0.0, Git revision 1db8ae98de2e197f5447c0a97f20ca4e06fdbc98 (dirty) (57 commits) x86_64")
-HIE>
+make test
 ```
 
-### REPL commands
+To see what version/compiler you are running
 
-These are very rudimentary at the moment.
-
-A command must start with a plugin name, then a colon, then the command itself.
-If there are parameters these follow in `name:value` form.
-
-So
-
-```
-HIE> base:plugins
-IdeResponseOk (String "[\"base\",\"eg2\"]")
-HIE>
+```bash
+hie --version
+Version 0.1.0.0, Git revision 54338553f9c07b7d3427a769f7f4c2c366cefc7f (dirty) (1218 commits) x86_64 ghc-8.2.2
 ```
 
-lists the available plugins.
-
-```
-HIE> base:commands plugin:base
-IdeResponseOk (String "version,plugins,commands,pwd,cwd")
-HIE>
-```
-
-### HTTP JSON interface
-
-When `hie` is launched it starts up a HTTP listener on `localhost:8001`.
-
-This makes use of servant, and exposes the following API
-
-```haskell
-       "req" :> Capture "plugin" String
-             :> QueryParam "rid" Int -- optional request id
-             :> ReqBody '[JSON] IdeRequest
-             :> Post '[JSON] IdeResponse
-```
-
-So it can be accesed by
-
-```
-curl -v -H "Content-Type: application/json" -X POST -d '{"command":{"text": "version"},"plugin":{"text": "base"}}' http://localhost:8001/req/base/commandDetail
-````
-
-This returns
-
-```json
-{"contexts":["none"],"return_type":"Text","plugin_name":"base","name":"version","additional_params":[],"ui_description":"return HIE version","file_extensions":[]}
-```
 
 ### Plugins (Old architecture)
 
