@@ -23,6 +23,35 @@ hie --version
 Version 0.1.0.0, Git revision 54338553f9c07b7d3427a769f7f4c2c366cefc7f (dirty) (1218 commits) x86_64 ghc-8.2.2
 ```
 
+### Building with cabal new-build
+
+At the moment, `stack build` takes a *ver* long time, because it
+always rebuilds the `haddock-api` and `haddock-library` dependencies.
+
+It is quicker to develop using `cabal new-build`, and a
+`cabal.project` file has been set up for it.
+
+First clone the git repos required, mirroring what is in `stack.yaml`.
+
+```bash
+make cabal-project-deps
+```
+
+Then
+
+```bash
+cabal new-configure --enable-tests
+cabal new-build
+```
+
+Run the tests (after building if necessary) with
+
+```bash
+cabal new-test
+```
+
+This is much quicker, as it does not gratuitously rebuild anything.
+
 
 ### Plugins (Old architecture)
 

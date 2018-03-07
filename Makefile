@@ -43,3 +43,12 @@ icu-macos-fix:
          --extra-include-dirs=/usr/local/opt/icu4c/include
 .PHONY: icu-macos-fix
 
+.PHONY: cabal-project-deps
+cabal-project-deps:
+	mkdir -p ./.cabal-project-deps
+	- (cd ./.cabal-project-deps && git clone https://gitlab.com/alanz/HaRe.git)
+	(cd ./.cabal-project-deps/HaRe && git fetch)
+	(cd ./.cabal-project-deps/HaRe && git checkout e325975450ce89d790ed3f92de3ef675967d9538)
+	- (cd ./.cabal-project-deps && git clone https://github.com/alanz/ghc-mod.git)
+	(cd ./.cabal-project-deps/ghc-mod && git fetch)
+	(cd ./.cabal-project-deps/ghc-mod && git checkout 47e200a728a575f407ee6f9893d9a1e77b1b5325)

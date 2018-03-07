@@ -26,6 +26,7 @@ haskell-lsp/
 /.cabal-sandbox/
 /.idea/
 /.stack-work
+/.cabal-project-deps
 /_release/
 /docs/hcar/auto/2015.el
 /docs/hcar/prv_2015.fmt
