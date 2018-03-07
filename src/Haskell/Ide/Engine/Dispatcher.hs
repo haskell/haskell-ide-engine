@@ -53,7 +53,7 @@ ideDispatcher env pin = forever $ do
     res <- action
     liftIO $ callback res
 
-ghcDispatcher :: foall void. DispatcherEnv -> TChan GhcRequest -> IdeGhcM void
+ghcDispatcher :: forall void. DispatcherEnv -> TChan GhcRequest -> IdeGhcM void
 ghcDispatcher env@DispatcherEnv{docVersionTVar} pin = forever $ do
   debugm "ghcDispatcher: top of loop"
   (GhcRequest context mver mid callback action) <- liftIO $ atomically $ readTChan pin
