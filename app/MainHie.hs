@@ -81,44 +81,49 @@ main = do
 
 run :: GlobalOpts -> IO ()
 run opts = do
-  let mLogFileName = case optLogFile opts of
-        Just f  -> Just f
-        Nothing -> Nothing
-
-      logLevel = if optDebugOn opts
-                   then L.DEBUG
-                   else L.INFO
-
-  Core.setupLogger mLogFileName ["hie"] logLevel
-
-  when (optEkg opts) $ do
-    logm $ "Launching EKG server on port " ++ show (optEkgPort opts)
-    void $ EKG.forkServer "localhost" (optEkgPort opts) >> return ()
-
-  origDir <- getCurrentDirectory
-
   maybe (pure ()) setCurrentDirectory $ projectRoot opts
 
-  logm $  "run entered for HIE " ++ version
-  d <- getCurrentDirectory
-  logm $ "Current directory:" ++ d
+  rootDir <- getCurrentDirectory
 
-  pin <- atomically newTChan :: IO (TChan PluginRequest)
+  if optGetGhcVer opts then do
+    v <- projectGhcVersion rootDir
+    putStrLn $ showVersion v
 
-  let vomitOptions = GM.defaultOptions { GM.optOutput = oo { GM.ooptLogLevel = GM.GmVomit}}
-      oo = GM.optOutput GM.defaultOptions
-  let ghcModOptions = if optGhcModVomit opts then vomitOptions else GM.defaultOptions
+  else do
+    let mLogFileName = case optLogFile opts of
+          Just f  -> Just f
+          Nothing -> Nothing
 
-  -- launch the dispatcher.
-  let
-    -- TODO: Why is this not together with dispatcherP?
-    dispatcherProcP :: DispatcherEnv -> IO ()
-    dispatcherProcP dispatcherEnv =
-        void $ runIdeGhcM ghcModOptions
-            (IdeState emptyModuleCache plugins Map.empty Nothing)
-            (dispatcherP dispatcherEnv pin)
+        logLevel = if optDebugOn opts
+                     then L.DEBUG
+                     else L.INFO
 
-  if optLsp opts then
-    lspStdioTransport dispatcherProcP pin origDir
-  else
-    jsonStdioTransport dispatcherProcP pin
+    Core.setupLogger mLogFileName ["hie"] logLevel
+
+    when (optEkg opts) $ do
+      logm $ "Launching EKG server on port " ++ show (optEkgPort opts)
+      void $ EKG.forkServer "localhost" (optEkgPort opts) >> return ()
+
+    logm $  "run entered for HIE " ++ version
+    d <- getCurrentDirectory
+    logm $ "Current directory:" ++ d
+
+    pin <- atomically newTChan :: IO (TChan PluginRequest)
+
+    let vomitOptions = GM.defaultOptions { GM.optOutput = oo { GM.ooptLogLevel = GM.GmVomit}}
+        oo = GM.optOutput GM.defaultOptions
+    let ghcModOptions = if optGhcModVomit opts then vomitOptions else GM.defaultOptions
+
+    -- launch the dispatcher.
+    let
+      -- TODO: Why is this not together with dispatcherP?
+      dispatcherProcP :: DispatcherEnv -> IO ()
+      dispatcherProcP dispatcherEnv =
+          void $ runIdeGhcM ghcModOptions
+              (IdeState emptyModuleCache plugins Map.empty Nothing)
+              (dispatcherP dispatcherEnv pin)
+
+    if optLsp opts then
+      lspStdioTransport dispatcherProcP pin rootDir
+    else
+      jsonStdioTransport dispatcherProcP pin

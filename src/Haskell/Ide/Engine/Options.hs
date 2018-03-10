@@ -4,7 +4,8 @@ import           Data.Semigroup             hiding (option)
 import           Options.Applicative.Simple
 
 data GlobalOpts = GlobalOpts
-  { optDebugOn     :: Bool
+  { optGetGhcVer   :: Bool
+  , optDebugOn     :: Bool
   , optLogFile     :: Maybe String
   , optLsp         :: Bool
   , projectRoot    :: Maybe String
@@ -15,7 +16,10 @@ data GlobalOpts = GlobalOpts
 
 globalOptsParser :: Parser GlobalOpts
 globalOptsParser = GlobalOpts
-  <$> switch
+  <$> flag False True
+       ( long "get-ghc-version"
+       <> help "Show only GHC version in use")
+  <*> switch
        ( long "debug"
       <> short 'd'
       <> help "Generate debug output"
