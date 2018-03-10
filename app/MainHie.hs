@@ -97,12 +97,7 @@ run opts = do
 
   origDir <- getCurrentDirectory
 
-  case projectRoot opts of
-    Nothing -> do
-      h <- getHomeDirectory
-      setCurrentDirectory h
-      logm $ "Setting home directory:" ++ h
-    Just root -> setCurrentDirectory root
+  maybe (pure ()) setCurrentDirectory $ projectRoot opts
 
   logm $  "run entered for HIE " ++ version
   d <- getCurrentDirectory
