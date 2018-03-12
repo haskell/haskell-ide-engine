@@ -129,6 +129,7 @@ functionalSpec = do
                                              "Redundant do\nFound:\n  do putStrLn \"hello\"\nWhy not:\n  putStrLn \"hello\"\n"
                                 ]
                               })
+
       let req3 = HP (filePathToUri "./FuncTest.hs") (toPos (8,1))
       r3 <- dispatchRequest cin "hare" "demote" req3
       fmap fromDynJSON r3 `shouldBe`
