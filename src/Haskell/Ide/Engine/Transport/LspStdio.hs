@@ -656,9 +656,17 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
 
       Core.ReqFindReferences req -> do
         liftIO $ U.logs $ "reactor:got FindReferences:" ++ show req
-        liftIO $ U.logs $ "reactor:FindReferences:returning empty list for now"
         -- TODO: implement project-wide references
-        reactorSend $ Core.makeResponseMessage req (List [])
+        let params = req ^. J.params
+            doc = params ^. J.textDocument ^. J.uri
+            pos = params ^. J.position
+        callback <- hieResponseHelper (req ^. J.id) $ \highlights -> do
+          let rspMsg = Core.makeResponseMessage req $ J.List highlights
+          reactorSend rspMsg
+        let hreq = IReq (req ^. J.id) callback
+                 $ fmap (map (J.Location doc . (^. J.range)))
+                 <$> Hie.getReferencesInDoc doc pos
+        makeRequest hreq
 
       -- -------------------------------
 
