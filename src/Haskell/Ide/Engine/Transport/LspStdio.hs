@@ -770,10 +770,21 @@ requestDiagnostics :: TChan PluginRequest -> J.Uri -> Int -> R ()
 requestDiagnostics cin file ver = do
   lf <- ask
   mc <- liftIO $ Core.config lf
-  let sendOne pid (uri',ds) =
-        publishDiagnostics maxToSend uri' Nothing (Map.fromList [(Just pid,SL.toSortedList ds)])
-      sendEmpty = publishDiagnostics maxToSend file Nothing (Map.fromList [(Just "ghcmod",SL.toSortedList [])])
-      maxToSend = maybe 50 maxNumberOfProblems mc
+  let
+    -- | If there is a GHC error, flush the hlint diagnostics
+    sendOneGhc :: J.DiagnosticSource -> (Uri, [Diagnostic]) -> R ()
+    sendOneGhc pid (fileUri,ds) = do
+      if (any (hasSeverity J.DsError) ds)
+        then publishDiagnostics maxToSend fileUri Nothing
+               (Map.fromList [(Just "hlint",SL.toSortedList []),(Just pid,SL.toSortedList ds)])
+        else sendOne pid (fileUri,ds)
+    sendOne pid (fileUri,ds) = do
+      publishDiagnostics maxToSend fileUri Nothing (Map.fromList [(Just pid,SL.toSortedList ds)])
+    hasSeverity :: J.DiagnosticSeverity -> J.Diagnostic -> Bool
+    hasSeverity sev (J.Diagnostic _ (Just s) _ _ _) = s == sev
+    hasSeverity _ _ = False
+    sendEmpty = publishDiagnostics maxToSend file Nothing (Map.fromList [(Just "ghcmod",SL.toSortedList [])])
+    maxToSend = maybe 50 maxNumberOfProblems mc
 
   -- mc <- asks Core.config
   let sendHlint = maybe True hlintOn mc
@@ -802,7 +813,7 @@ requestDiagnostics cin file ver = do
         let ds = Map.toList $ S.toList <$> pd
         case ds of
           [] -> sendEmpty
-          _ -> mapM_ (sendOne "ghcmod") ds
+          _ -> mapM_ (sendOneGhc "ghcmod") ds
       callbackg _ = error "impossible"
 
   liftIO $ atomically $ writeTChan cin reqg

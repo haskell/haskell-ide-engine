@@ -90,6 +90,24 @@ applyRefactSpec = do
 
     -- ---------------------------------
 
+    it "returns hlint parse error as DsInfo ignored diagnostic" $ do
+
+      let act = lintCmd' arg
+          arg = filePathToUri "./test/testdata/HlintParseFail.hs"
+          res = IdeResponseOk
+            PublishDiagnosticsParams
+             { _uri = Uri {getUri = "file://./test/testdata/HlintParseFail.hs"}
+             , _diagnostics = List $
+               [Diagnostic {_range = Range { _start = Position {_line = 11, _character = 28}
+                                           , _end = Position {_line = 11, _character = 100000}}
+                           , _severity = Just DsInfo
+                           , _code = Just "parser"
+                           , _source = Just "hlint"
+                           , _message = "Parse error: :~:\n  import           Data.Type.Equality            ((:~:) (..), (:~~:) (..))\n  \n> data instance Sing (z :: (a :~: b)) where\n      SRefl :: Sing Refl\n\n"}]}
+      testCommand testPlugins act "applyrefact" "lint" arg res
+
+    -- ---------------------------------
+
     it "respects hlint pragmas in the source file" $ do
 
       let req = lintCmd' (filePathToUri "./test/testdata/HlintPragma.hs")

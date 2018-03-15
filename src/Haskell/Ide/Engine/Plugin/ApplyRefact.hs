@@ -109,7 +109,7 @@ parseErrorToDiagnostic :: Hlint.ParseError -> [Diagnostic]
 parseErrorToDiagnostic (Hlint.ParseError l msg contents) =
   [Diagnostic
       { _range    = srcLoc2Range l
-      , _severity = Just DsError
+      , _severity = Just DsInfo -- Not displayed
       , _code     = Just "parser"
       , _source   = Just "hlint"
       , _message  = T.unlines [T.pack msg,T.pack contents]
