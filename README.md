@@ -112,11 +112,8 @@ In order to avoid problems with long paths you can do the following:
 
 ### Installation with Nix
 
-Alternatively, given that you have Nix installed:
+Follow the instructions at https://github.com/domenkozar/hie-nix
 
-```bash
-$ stack install --nix
-```
 
 ### ArchLinux
 
