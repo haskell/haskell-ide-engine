@@ -83,6 +83,7 @@
   ([github](https://github.com/commercialhaskell/intero),
   [hackage](https://hackage.haskell.org/package/intero),
   [site](http://commercialhaskell.github.io/intero/))
+* `dante` - Lightweight alternative to `intero` based around similar approach ([github](https://github.com/jyp/dante))
 
 #### Ide backends
 
