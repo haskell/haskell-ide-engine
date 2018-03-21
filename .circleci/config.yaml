@@ -1,0 +1,36 @@
+version: 2
+jobs:
+  ghc-8.0.2:
+    docker:
+      - image: alanz/hare-ci
+    steps:
+      - checkout
+      - restore_cache:
+          key: stack-cache
+          paths:
+            - .stack
+            - .cache
+      - run: stack -j 2 --stack-yaml=stack-8.0.2.yaml setup
+      - run: stack --stack-yaml=stack-8.0.2.yaml install hoogle
+      - run: ~/.local/bin/hoogle generate base
+      - run: stack -j 2 --stack-yaml=stack-8.0.2.yaml test --no-run-tests
+      - save_cache:
+          key: stack-cache
+          paths:
+            - .stack
+            - .cache
+      - run: stack -j 2 --stack-yaml=stack-8.0.2.yaml test
+      - save_cache:
+          key: stack-cache
+          paths:
+            - .stack
+            - .cache
+
+workflows:
+  version: 2
+  multiple-ghcs:
+    jobs:
+      - ghc-8.0.2
+      # - ghc-8.2.2
+
+
