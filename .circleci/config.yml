@@ -1,0 +1,94 @@
+version: 2
+jobs:
+  ghc-8.0.2:
+    docker:
+      - image: alanz/hare-ci
+    steps:
+      - checkout
+      - restore_cache:
+          key: stack-cache
+          paths:
+            - .stack
+            - .cache
+      - run: stack -j 2 --stack-yaml=stack-8.0.2.yaml setup
+      - run: stack --stack-yaml=stack-8.0.2.yaml install hoogle
+      - run: ~/.local/bin/hoogle generate base
+      - run: stack -j 2 --stack-yaml=stack-8.0.2.yaml test --no-run-tests
+      - save_cache:
+          key: stack-cache
+          paths:
+            - .stack
+            - .cache
+      - run:
+          command: stack -j 2 --stack-yaml=stack-8.0.2.yaml test --dump-logs
+          no_output_timeout: 120m
+      - save_cache:
+          key: stack-cache
+          paths:
+            - .stack
+            - .cache
+
+  ghc-8.2.1:
+    docker:
+      - image: alanz/hare-ci
+    steps:
+      - checkout
+      - restore_cache:
+          key: stack-cache
+          paths:
+            - .stack
+            - .cache
+      - run: stack -j 2 --stack-yaml=stack-8.2.1.yaml setup
+      - run: stack --stack-yaml=stack-8.2.1.yaml install hoogle
+      - run: ~/.local/bin/hoogle generate base
+      - run: stack -j 2 --stack-yaml=stack-8.2.1.yaml test --no-run-tests
+      - save_cache:
+          key: stack-cache
+          paths:
+            - .stack
+            - .cache
+      - run:
+          command: stack -j 2 --stack-yaml=stack-8.2.1.yaml test --dump-logs
+          no_output_timeout: 120m
+      - save_cache:
+          key: stack-cache
+          paths:
+            - .stack
+            - .cache
+
+  ghc-8.2.2:
+    docker:
+      - image: alanz/hare-ci
+    steps:
+      - checkout
+      - restore_cache:
+          key: stack-cache
+          paths:
+            - .stack
+            - .cache
+      - run: stack -j 2 --stack-yaml=stack.yaml setup
+      - run: stack --stack-yaml=stack.yaml install hoogle
+      - run: ~/.local/bin/hoogle generate base
+      - run: stack -j 2 --stack-yaml=stack.yaml test --no-run-tests
+      - save_cache:
+          key: stack-cache
+          paths:
+            - .stack
+            - .cache
+      - run:
+          command: stack -j 2 --stack-yaml=stack.yaml test --dump-logs
+          no_output_timeout: 120m
+      - save_cache:
+          key: stack-cache
+          paths:
+            - .stack
+            - .cache
+
+workflows:
+  version: 2
+  multiple-ghcs:
+    jobs:
+      - ghc-8.0.2
+      - ghc-8.2.1
+      - ghc-8.2.2
+
