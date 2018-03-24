@@ -16,7 +16,7 @@ we talk to clients.__
         - Installation with [stack](#installation-with-stack) or [Nix](#installation-with-nix)
         - [ArchLinux](#archlinux)
     - [Editor Integration](#editor-integration)
-        - Using HIE with [VS Code](#using-hie-with-vs-code), [Sublime Text](#using-hie-with-sublime-text), [Neovim](#using-hie-with-neovim) or [Atom](#using-hie-with-atom)
+        - Using HIE with [VS Code](#using-hie-with-vs-code), [Sublime Text](#using-hie-with-sublime-text), [Neovim](#using-hie-with-neovim), [Atom](#using-hie-with-atom), or [Emacs](#using-hie-with-emacs)
     - [Hoogle Docs on hover](#hoogle-docs-on-hover)
     - [Contributing](#contributing)
         - [Planned Features](#planned-features)
@@ -146,7 +146,7 @@ Install from
 
 ### Using HIE with Sublime Text
 
-* Make sure HIE is installed (see above) and directory stack put the `hie` binary in is in your path
+* Make sure HIE is installed (see above) and that the directory stack put the `hie` binary in is in your path
   * (usually `~/.local/bin` on unix)
 * Install [LSP](https://packagecontrol.io/packages/LSP) using [Package Control](https://packagecontrol.io/)
 * From Sublime Text, press Command+Shift+P and search for Preferences: LSP Settings
@@ -200,11 +200,21 @@ For asynchronous auto-completion, follow the setup instructions on
 
 ### Using HIE with Atom
 
-Make sure HIE is install, then install the two Atom packages [atom-ide-ui](https://atom.io/packages/atom-ide-ui) and [ide-haskell-hie](https://atom.io/packages/ide-haskell-hie),
+Make sure HIE is installed, then install the two Atom packages [atom-ide-ui](https://atom.io/packages/atom-ide-ui) and [ide-haskell-hie](https://atom.io/packages/ide-haskell-hie),
 
 ```bash
 $ apm install atom-ide-ui ide-haskell-hie
 ```
+
+### Using HIE with Emacs
+
+Install HIE along with the following emacs packages:
+
+[lsp-mode](https://github.com/emacs-lsp/lsp-mode)
+[lsp-ui](https://github.com/emacs-lsp/lsp-ui)
+[lsp-haskell](https://github.com/emacs-lsp/lsp-haskell)
+
+Make sure to follow the instructions in the README of each of these packages.
 
 ## Docs on hover/completion
 
