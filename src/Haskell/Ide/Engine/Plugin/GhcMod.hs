@@ -63,7 +63,7 @@ type Diagnostics = Map.Map Uri (Set.Set Diagnostic)
 type AdditionalErrs = [T.Text]
 
 checkCmd :: CommandFunc Uri (Diagnostics, AdditionalErrs)
-checkCmd = CmdSync $ \uri ->
+checkCmd = CmdSync $ \ uri ->
   setTypecheckedModule uri
 
 -- ---------------------------------------------------------------------
