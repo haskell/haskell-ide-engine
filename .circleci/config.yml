@@ -1,97 +1,87 @@
+defaults: &defaults
+  working_directory: ~/build
+  docker:
+    - image: quay.io/haskell_works/stack-build-icu
+  steps:
+    - checkout
+    - run:
+        name: Write provided stack.yaml with predictable name
+        command: cp ${STACK_FILE} stack-build.txt
+
+    - run:
+        name: Figure out resolver for better caching
+        command: grep '^resolver:' stack-build.txt > resolver.txt
+
+    - run:
+        name: Create a composite cabal file for changes detection
+        command: find . -name "*.cabal" | grep -v "stack-work" | xargs cat > all-cabal.txt
+
+    - restore_cache:
+        keys:
+          - stack-cache-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
+          - stack-cache-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
+          - stack-cache-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
+
+    - run:
+        name: Stack setup
+        command: stack -j 2 --stack-yaml=${STACK_FILE} setup
+
+    - run:
+        name: Install Hoogle
+        command: stack --stack-yaml=${STACK_FILE} install hoogle
+
+    - run:
+        name: Generate Hoogle databalse
+        command: ~/.local/bin/hoogle generate base
+
+    - save_cache:
+        key: stack-cache-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
+        paths:
+          - ~/.stack
+          - ~/.cache
+
+    - restore_cache:
+          key: stack-work-dirs-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
+
+    - run:
+        name: Compile + Test
+        command: stack -j 2 --stack-yaml=${STACK_FILE} test --dump-logs
+        no_output_timeout: 120m
+
+    - save_cache:
+        key: stack-cache-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
+        paths:
+          - ~/.stack
+          - ~/.cache
+
+    - save_cache:
+        key: stack-cache-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
+        paths:
+          - ~/.stack
+          - ~/.cache
+
+    - save_cache:
+        key: stack-work-dirs-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
+        paths:
+          - ~/build/.stack-work
+          - ~/build/hie-plugin-api/.stack-work
+
 version: 2
 jobs:
   ghc-8.0.2:
-    docker:
-      - image: alanz/hare-ci
-    steps:
-      - checkout
-      - restore_cache:
-          key: stack-cache-8.0.2
-          paths:
-            - .stack
-            - .cache
-            - haskell-ide-engine/.stack-work
-      - run: stack -j 2 --stack-yaml=stack-8.0.2.yaml setup
-      - run: stack --stack-yaml=stack-8.0.2.yaml install hoogle
-      - run: ~/.local/bin/hoogle generate base
-      - run: stack -j 2 --stack-yaml=stack-8.0.2.yaml test --no-run-tests
-      - save_cache:
-          key: stack-cache-8.0.2
-          paths:
-            - .stack
-            - .cache
-            - haskell-ide-engine/.stack-work
-      - run:
-          command: stack -j 2 --stack-yaml=stack-8.0.2.yaml test --dump-logs
-          no_output_timeout: 120m
-      - save_cache:
-          key: stack-cache-8.0.2
-          paths:
-            - .stack
-            - .cache
-            - haskell-ide-engine/.stack-work
+    environment:
+      - STACK_FILE: "stack-8.0.2.yaml"
+    <<: *defaults
 
   ghc-8.2.1:
-    docker:
-      - image: alanz/hare-ci
-    steps:
-      - checkout
-      - restore_cache:
-          key: stack-cache-8.2.1
-          paths:
-            - .stack
-            - .cache
-            - haskell-ide-engine/.stack-work
-      - run: stack -j 2 --stack-yaml=stack-8.2.1.yaml setup
-      - run: stack --stack-yaml=stack-8.2.1.yaml install hoogle
-      - run: ~/.local/bin/hoogle generate base
-      - run: stack -j 2 --stack-yaml=stack-8.2.1.yaml test --no-run-tests
-      - save_cache:
-          key: stack-cache-8.2.1
-          paths:
-            - .stack
-            - .cache
-            - haskell-ide-engine/.stack-work
-      - run:
-          command: stack -j 2 --stack-yaml=stack-8.2.1.yaml test --dump-logs
-          no_output_timeout: 120m
-      - save_cache:
-          key: stack-cache-8.2.1
-          paths:
-            - .stack
-            - .cache
-            - haskell-ide-engine/.stack-work
+    environment:
+      - STACK_FILE: "stack-8.2.1.yaml"
+    <<: *defaults
 
   ghc-8.2.2:
-    docker:
-      - image: alanz/hare-ci
-    steps:
-      - checkout
-      - restore_cache:
-          key: stack-cache-8.2.2
-          paths:
-            - .stack
-            - .cache
-            - haskell-ide-engine/.stack-work
-      - run: stack -j 2 --stack-yaml=stack.yaml setup
-      - run: stack --stack-yaml=stack.yaml install hoogle
-      - run: ~/.local/bin/hoogle generate base
-      - run: stack -j 2 --stack-yaml=stack.yaml test --no-run-tests
-      - save_cache:
-          key: stack-cache-8.2.2
-          paths:
-            - .stack
-            - .cache
-            - haskell-ide-engine/.stack-work
-      - run:
-          command: stack -j 2 --stack-yaml=stack.yaml test --dump-logs
-          no_output_timeout: 120m
-      - save_cache:
-          key: stack-cache-8.2.2
-          paths:
-            - .stack
-            - .cache
-            - haskell-ide-engine/.stack-work
+    environment:
+      - STACK_FILE: "stack.yaml"
+    <<: *defaults
 
 workflows:
   version: 2
