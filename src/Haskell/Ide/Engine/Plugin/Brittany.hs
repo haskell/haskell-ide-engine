@@ -3,6 +3,7 @@ module Haskell.Ide.Engine.Plugin.Brittany where
 
 import           Control.Lens
 import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Maybe (MaybeT, runMaybeT)
 import           Data.Aeson
 import           Data.Coerce
 import           Data.Semigroup
@@ -14,15 +15,18 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           Language.Haskell.Brittany
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
+import           System.FilePath (FilePath, takeDirectory)
+import           Data.Maybe (maybeToList)
 
 
 brittanyCmd :: Int -> Uri -> Maybe Range -> IdeGhcM (IdeResponse [J.TextEdit])
 brittanyCmd tabSize uri range =
-  pluginGetFile "brittanyCmd: " uri $ \file ->
+  pluginGetFile "brittanyCmd: " uri $ \file -> do
+    confFile <- liftIO $ findLocalConfigPath (takeDirectory file)
+    text <- GM.withMappedFile file $ liftIO . T.readFile
     case range of
       Just r -> do
-        text <- GM.withMappedFile file $ liftIO . T.readFile
-        res <- liftIO $ runBrittany tabSize $ extractRange r text
+        res <- liftIO $ runBrittany tabSize confFile $ extractRange r text
         case res of
           Left err -> return $ IdeResponseFail (IdeError PluginError
                       (T.pack $ "brittanyCmd: " ++ unlines (map showErr err)) Null)
@@ -30,8 +34,7 @@ brittanyCmd tabSize uri range =
             let textEdit = J.TextEdit (normalize r) newText
             return $ IdeResponseOk [textEdit]
       Nothing -> do
-        text <- GM.withMappedFile file $ liftIO . T.readFile
-        res <- liftIO $ runBrittany tabSize text
+        res <- liftIO $ runBrittany tabSize confFile text
         case res of
           Left err -> return $ IdeResponseFail (IdeError PluginError
                       (T.pack $ "brittanyCmd: " ++ unlines (map showErr err)) Null)
@@ -53,17 +56,29 @@ normalize :: Range -> Range
 normalize (Range (Position sl _) (Position el _)) =
   Range (Position sl 0) (Position el 10000)
 
-runBrittany :: Int -> Text -> IO (Either [BrittanyError] Text)
-runBrittany tabSize text = do
-  let
-    config' = staticDefaultConfig
-    config  = config'
-      { _conf_layout = (_conf_layout config') { _lconfig_indentAmount = coerce
-                                                tabSize
-                                              }
-      , _conf_forward = _conf_forward config' <> forwardOptionsSyntaxExtsEnabled
-      }
+runBrittany :: Int              -- ^ tab  size
+            -> Maybe FilePath   -- ^ local config file
+            -> Text             -- ^ text to format
+            -> IO (Either [BrittanyError] Text)
+runBrittany tabSize confPath text = do
+  let cfg = mempty
+              { _conf_layout =
+                  mempty { _lconfig_indentAmount = opt (coerce tabSize)
+                         }
+              , _conf_forward =
+                  (mempty :: CForwardOptions Option)
+                    { _options_ghc = opt (runIdentity ( _options_ghc forwardOptionsSyntaxExtsEnabled))
+                    }
+              }
+
+  config <- fromMaybeT (pure staticDefaultConfig) (readConfigsWithUserConfig cfg (maybeToList confPath))
   parsePrintModule config text
+
+fromMaybeT :: Monad m => m a -> MaybeT m a -> m a
+fromMaybeT def act = runMaybeT act >>= maybe def return
+
+opt :: a -> Option a
+opt = Option . Just
 
 showErr :: BrittanyError -> String
 showErr (ErrorInput s)         = s
