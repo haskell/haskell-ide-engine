@@ -1,5 +1,4 @@
-resolver: nightly-2018-02-26
-#resolver: nightly-2018-01-15
+resolver: lts-11.2
 packages:
 - .
 - hie-plugin-api
