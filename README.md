@@ -17,7 +17,7 @@ we talk to clients.__
         - [ArchLinux](#archlinux)
     - [Editor Integration](#editor-integration)
         - Using HIE with [VS Code](#using-hie-with-vs-code), [Sublime Text](#using-hie-with-sublime-text), [Neovim](#using-hie-with-neovim), [Atom](#using-hie-with-atom), or [Emacs](#using-hie-with-emacs)
-    - [Hoogle Docs on hover](#hoogle-docs-on-hover)
+    - [Docs on hover/completion](#docs-on-hovercompletion)
     - [Contributing](#contributing)
         - [Planned Features](#planned-features)
         - [This is *not* yet another `ghc-mod` or `ide-backend` project](#this-is-not-yet-another-ghc-mod-or-ide-backend-project)
