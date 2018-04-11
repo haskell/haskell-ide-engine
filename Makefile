@@ -52,3 +52,6 @@ cabal-project-deps:
 	- (cd ./.cabal-project-deps && git clone https://github.com/alanz/ghc-mod.git)
 	(cd ./.cabal-project-deps/ghc-mod && git fetch)
 	(cd ./.cabal-project-deps/ghc-mod && git checkout 47e200a728a575f407ee6f9893d9a1e77b1b5325)
+	- (cd ./.cabal-project-deps && git clone https://github.com/DanielG/cabal-helper.git)
+	(cd ./.cabal-project-deps/cabal-helper && git fetch)
+	(cd ./.cabal-project-deps/cabal-helper && git checkout ae568d1008e2dc9980cef86e8a18c7dfaf25fc8d)
