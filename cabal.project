@@ -4,5 +4,6 @@ packages:
          ./.cabal-project-deps/HaRe
          ./.cabal-project-deps/ghc-mod/
          ./.cabal-project-deps/ghc-mod//core/
+         ./.cabal-project-deps/cabal-helper/
 
 
