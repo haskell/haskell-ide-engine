@@ -46,8 +46,10 @@ brittanyCmd tabSize uri range =
                 l = length textLines
                 c = T.length $ last textLines
                 textLines = T.lines text
-                newTextWithoutNewline = T.init newText -- get rid of extraneous \n
-                textEdit = J.TextEdit (Range startPos endPos) $ T.init newTextWithoutNewline
+                truncatedNewText = if T.last newText == '\n'
+                  then T.init newText -- get rid of extraneous \n
+                  else newText
+                textEdit = J.TextEdit (Range startPos endPos) truncatedNewText
             return $ IdeResponseOk [textEdit]
 
 extractRange :: Range -> Text -> Text
