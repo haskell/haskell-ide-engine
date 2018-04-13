@@ -26,6 +26,7 @@ brittanyCmd tabSize uri range =
     text <- GM.withMappedFile file $ liftIO . T.readFile
     case range of
       Just r -> do
+        -- format selection
         res <- liftIO $ runBrittany tabSize confFile $ extractRange r text
         case res of
           Left err -> return $ IdeResponseFail (IdeError PluginError
@@ -34,6 +35,7 @@ brittanyCmd tabSize uri range =
             let textEdit = J.TextEdit (normalize r) newText
             return $ IdeResponseOk [textEdit]
       Nothing -> do
+        -- format document
         res <- liftIO $ runBrittany tabSize confFile text
         case res of
           Left err -> return $ IdeResponseFail (IdeError PluginError
@@ -44,7 +46,8 @@ brittanyCmd tabSize uri range =
                 l = length textLines
                 c = T.length $ last textLines
                 textLines = T.lines text
-                textEdit = J.TextEdit (Range startPos endPos) newText
+                newTextWithoutNewline = T.init newText -- get rid of extraneous \n
+                textEdit = J.TextEdit (Range startPos endPos) $ T.init newTextWithoutNewline
             return $ IdeResponseOk [textEdit]
 
 extractRange :: Range -> Text -> Text
