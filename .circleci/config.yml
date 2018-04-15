@@ -5,6 +5,10 @@ defaults: &defaults
   steps:
     - checkout
     - run:
+        command: git submodule sync --recursive
+    - run:
+        command: git submodule update --recursive --init
+    - run:
         name: Write provided stack.yaml with predictable name
         command: cp ${STACK_FILE} stack-build.txt
 

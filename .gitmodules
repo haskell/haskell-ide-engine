@@ -1,0 +1,9 @@
+[submodule "submodules/cabal-helper"]
+	path = submodules/cabal-helper
+	url = https://github.com/DanielG/cabal-helper.git
+[submodule "submodules/HaRe"]
+	path = submodules/HaRe
+	url = https://gitlab.com/alanz/HaRe.git
+[submodule "submodules/ghc-mod"]
+	path = submodules/ghc-mod
+	url = https://gitlab.com/alanz/ghc-mod.git
