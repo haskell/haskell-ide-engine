@@ -42,14 +42,16 @@ brittanyCmd tabSize uri range =
                       (T.pack $ "brittanyCmd: " ++ unlines (map showErr err)) Null)
           Right newText -> do
             let startPos = Position 0 0
-                endPos = toPos (l,c+1)
-                l = length textLines
-                c = T.length $ last textLines
-                textLines = T.lines text
-                truncatedNewText = if T.last newText == '\n'
-                  then T.init newText -- get rid of extraneous \n
-                  else newText
-                textEdit = J.TextEdit (Range startPos endPos) truncatedNewText
+                endPos = toPos (lastLine,1)
+                {-
+                In order to replace everything including newline characters,
+                the end range should extend below the last line. From the specification:
+                "If you want to specify a range that contains a line including
+                the line ending character(s) then use an end position denoting
+                the start of the next line"
+                -}
+                lastLine = (length $ T.lines text) + 1
+                textEdit = J.TextEdit (Range startPos endPos) newText
             return $ IdeResponseOk [textEdit]
 
 extractRange :: Range -> Text -> Text
