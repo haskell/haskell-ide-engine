@@ -42,7 +42,7 @@ brittanyCmd tabSize uri range =
                       (T.pack $ "brittanyCmd: " ++ unlines (map showErr err)) Null)
           Right newText -> do
             let startPos = Position 0 0
-                endPos = toPos (lastLine,1)
+                endPos = Position lastLine 0
                 {-
                 In order to replace everything including newline characters,
                 the end range should extend below the last line. From the specification:
@@ -50,7 +50,7 @@ brittanyCmd tabSize uri range =
                 the line ending character(s) then use an end position denoting
                 the start of the next line"
                 -}
-                lastLine = (length $ T.lines text) + 1
+                lastLine = length $ T.lines text
                 textEdit = J.TextEdit (Range startPos endPos) newText
             return $ IdeResponseOk [textEdit]
 
