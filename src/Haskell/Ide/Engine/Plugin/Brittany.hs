@@ -26,6 +26,7 @@ brittanyCmd tabSize uri range =
     text <- GM.withMappedFile file $ liftIO . T.readFile
     case range of
       Just r -> do
+        -- format selection
         res <- liftIO $ runBrittany tabSize confFile $ extractRange r text
         case res of
           Left err -> return $ IdeResponseFail (IdeError PluginError
@@ -34,16 +35,22 @@ brittanyCmd tabSize uri range =
             let textEdit = J.TextEdit (normalize r) newText
             return $ IdeResponseOk [textEdit]
       Nothing -> do
+        -- format document
         res <- liftIO $ runBrittany tabSize confFile text
         case res of
           Left err -> return $ IdeResponseFail (IdeError PluginError
                       (T.pack $ "brittanyCmd: " ++ unlines (map showErr err)) Null)
           Right newText -> do
             let startPos = Position 0 0
-                endPos = toPos (l,c+1)
-                l = length textLines
-                c = T.length $ last textLines
-                textLines = T.lines text
+                endPos = Position lastLine 0
+                {-
+                In order to replace everything including newline characters,
+                the end range should extend below the last line. From the specification:
+                "If you want to specify a range that contains a line including
+                the line ending character(s) then use an end position denoting
+                the start of the next line"
+                -}
+                lastLine = length $ T.lines text
                 textEdit = J.TextEdit (Range startPos endPos) newText
             return $ IdeResponseOk [textEdit]
 
