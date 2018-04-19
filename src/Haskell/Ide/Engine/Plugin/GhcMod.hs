@@ -20,6 +20,7 @@ import           Data.Monoid
 #endif
 import qualified Data.Set                          as Set
 import qualified Data.Text                         as T
+import qualified Data.Text.IO                      as T
 import           DynFlags
 import           ErrUtils
 import qualified Exception                         as G
@@ -40,6 +41,7 @@ import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.ArtifactMap
 import           HscTypes
 import           TcRnTypes
+import Text.Read (readMaybe)
 import           Outputable                        (renderWithStyle, mkUserStyle, Depth(..))
 
 -- ---------------------------------------------------------------------
@@ -56,6 +58,7 @@ ghcmodDescriptor = PluginDescriptor
       , PluginCommand "lint" "Check files using `hlint'" lintCmd
       , PluginCommand "info" "Look up an identifier in the context of FILE (like ghci's `:info')" infoCmd
       , PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmd
+      , PluginCommand "casesplit" "Generate a pattern match for a binding under (LINE,COL)" splitCaseCmd
       ]
   }
 
@@ -259,6 +262,85 @@ cmp a b
 
 isSubRangeOf :: Range -> Range -> Bool
 isSubRangeOf (Range sa ea) (Range sb eb) = sb <= sa && eb >= ea
+
+
+
+data DocumentPosition =
+  DocPos {
+        docFile :: Uri
+      , docPos  :: Position
+      } deriving (Eq,Generic,Show)
+
+instance FromJSON DocumentPosition where
+  parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = camelTo2 '_' . drop 3}
+instance ToJSON DocumentPosition where
+  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = camelTo2 '_' . drop 3}
+
+splitCaseCmd ::CommandFunc DocumentPosition WorkspaceEdit
+splitCaseCmd = CmdSync $ \(DocPos uri pos) -> do
+  splitCaseCmd' uri pos
+
+splitCaseCmd' :: Uri -> Position -> IdeGhcM (IdeResponse WorkspaceEdit)
+splitCaseCmd' uri position =
+  pluginGetFile "splitCaseCmd: " uri $ \path -> do
+    origText <- GM.withMappedFile path $ liftIO . T.readFile
+    splitOutput <- runGhcModCommand $ GM.splits path line column
+    let parsedOutput = splitOutput >>= parseCaseSplitOutput
+        workspaceEdit = splitResultToWorkspaceEdit origText <$> parsedOutput
+    return workspaceEdit
+  where
+    (line, column) = unPos position
+
+    -- | Parse the output from ghc-mod 'GM.splits'.
+    -- The 'Range' indicates the text segment to replace.
+    -- The 'T.Text' contains the newly obtained pattern matches to insert.
+    --
+    -- Yields 'IdeResponseFail' when the output cannot be parsed.
+    parseCaseSplitOutput :: String -> IdeResponse (Range, T.Text)
+    parseCaseSplitOutput s = maybe failure IdeResponseOk $ case words s of
+      (sLine : sCol : eLine : eCol : _) -> do
+        startPos <- curry toPos <$> readMaybe sLine <*> readMaybe sCol
+        endPos <- curry toPos <$> readMaybe eLine <*> readMaybe eCol
+        codeOutput <- readMaybe $ dropWhile (/= '"') $ dropWhileEnd (== '"') s
+        let newStr = map nulToNewline codeOutput
+        Just (Range startPos endPos, T.pack newStr)
+      _ -> Nothing
+      where
+        nulToNewline '\NUL' = '\n'
+        nulToNewline c = c
+
+        failure = IdeResponseFail $
+                  IdeError PluginError
+                    ("hie-ghc-mod: could not parse ghc-mod output: \"" <> T.pack s <> "\"") Null
+
+    -- | Given the range and text to replace, construct a 'WorkspaceEdit'
+    -- by diffing the change against the current text.
+    splitResultToWorkspaceEdit :: T.Text -> (Range, T.Text) -> WorkspaceEdit
+    splitResultToWorkspaceEdit originalText (Range replaceFrom replaceTo, replaceWith) =
+      diffText (uri, originalText) newText
+      where
+        before = takeUntil replaceFrom originalText
+        after = dropUntil replaceTo originalText
+        newText = before <> replaceWith <> after
+
+    -- | Take the first part of text until the given position.
+    -- Returns all characters before the position.
+    takeUntil :: Position -> T.Text -> T.Text
+    takeUntil (Position l c) txt =
+      T.unlines takeLines <> takeCharacters
+      where
+        textLines = T.lines txt
+        takeLines = take l textLines
+        takeCharacters = T.take c (textLines !! c)
+
+    -- | Drop the first part of text until the given position.
+    -- Returns all characters after and including the position.
+    dropUntil :: Position -> T.Text -> T.Text
+    dropUntil (Position l c) txt = dropCharacters
+      where
+        textLines = T.lines txt
+        dropLines = drop l textLines
+        dropCharacters = T.drop c (T.unlines dropLines)
 
 -- ---------------------------------------------------------------------
 
