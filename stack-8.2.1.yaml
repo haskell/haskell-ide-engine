@@ -1,4 +1,4 @@
-resolver: nightly-2017-11-24
+resolver: nightly-2017-11-24 # Last one for GHC 8.2.1
 packages:
 - .
 - hie-plugin-api
