@@ -4,21 +4,18 @@ packages:
 - hie-plugin-api
 
 - location:
-    git: https://gitlab.com/alanz/HaRe.git
-    commit: f26309368fd488d39a66896886d232602fe4cbe1
+    ./submodules/HaRe
   extra-dep: true
 
 - location:
-    git: https://github.com/alanz/ghc-mod.git
-    commit: 875edff717798bcc4fd3aa8cedaee26d6b238b07
+    ./submodules/ghc-mod
   extra-dep: true
   subdirs:
     - .
     - core
 
 - location:
-    git: https://github.com/alanz/cabal-helper.git
-    commit: a08378f050e78f1ce2c4f47ca6d8365e79c7b16b
+    ./submodules/cabal-helper
   extra-dep: true
 
 extra-deps:
