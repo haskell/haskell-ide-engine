@@ -1,9 +1,9 @@
 packages:
          ./
          ./hie-plugin-api/
-         ./.cabal-project-deps/HaRe
-         ./.cabal-project-deps/ghc-mod/
-         ./.cabal-project-deps/ghc-mod//core/
-         ./.cabal-project-deps/cabal-helper/
+         ./submodules/HaRe
+         ./submodules/ghc-mod/
+         ./submodules/ghc-mod//core/
+         ./submodules/cabal-helper/
 
 
