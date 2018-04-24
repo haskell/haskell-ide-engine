@@ -5,5 +5,8 @@ packages:
          ./submodules/ghc-mod/
          ./submodules/ghc-mod//core/
          ./submodules/cabal-helper/
+         ./submodules/yi-rope/
+         ./submodules/sorted-list/
+         ./submodules/haskell-lsp/
 
 
