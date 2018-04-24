@@ -1,33 +1,44 @@
-resolver: lts-11.6
+resolver: nightly-2018-04-24 # GHC 8.4.2
 packages:
 - .
 - hie-plugin-api
 
 - location:
     git: https://gitlab.com/alanz/HaRe.git
-    commit: e325975450ce89d790ed3f92de3ef675967d9538
+    commit: f26309368fd488d39a66896886d232602fe4cbe1
   extra-dep: true
 
 - location:
     git: https://github.com/alanz/ghc-mod.git
-    commit: 47e200a728a575f407ee6f9893d9a1e77b1b5325
+    commit: 875edff717798bcc4fd3aa8cedaee26d6b238b07
   extra-dep: true
   subdirs:
     - .
     - core
 
 - location:
-    git: https://github.com/DanielG/cabal-helper.git
-    commit: ae568d1008e2dc9980cef86e8a18c7dfaf25fc8d
+    git: https://github.com/alanz/cabal-helper.git
+    commit: a08378f050e78f1ce2c4f47ca6d8365e79c7b16b
   extra-dep: true
 
 extra-deps:
 - brittany-0.10.0.0
-# - cabal-helper-0.8.0.2
+- Cabal-2.0.1.1
+- apply-refact-0.5.0.0
 - constrained-dynamic-0.1.0.0
-- haddock-api-2.18.1
-- haddock-library-1.4.4
+- czipwith-1.0.0.0
+- djinn-ghc-0.0.2.3
+- ghc-8.2.2
+- ghc-boot-th-8.2.2
+- ghc-syb-utils-0.2.3.3
+- haddock-api-2.19.0.1
+- haskell-lsp-0.2.0.1
+- hspec-2.4.8
+- multistate-0.7.1.2
+- optparse-applicative-0.13.2.0
+- sorted-list-0.2.0.0
 - syz-0.2.0.0
+- yi-rope-0.10
 
 flags:
   haskell-ide-engine:
