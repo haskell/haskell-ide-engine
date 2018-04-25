@@ -75,7 +75,7 @@ we talk to clients.__
 Both methods build HIE from the source code, so first,
 
 ```bash
-$ git clone https://github.com/haskell/haskell-ide-engine
+$ git clone https://github.com/haskell/haskell-ide-engine --recursive
 $ cd haskell-ide-engine
 ```
 
