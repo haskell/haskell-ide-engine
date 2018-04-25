@@ -11,8 +11,11 @@ import qualified GHC
 import           GHC                               (TypecheckedModule)
 import qualified SrcLoc                            as GHC
 import qualified Var
+import qualified GhcMod.Gap                        as GM
 
 import           Haskell.Ide.Engine.PluginTypes
+
+-- ---------------------------------------------------------------------
 
 type SourceMap a = IM.IntervalMap Position a
 type LocMap = SourceMap GHC.Name
@@ -57,22 +60,22 @@ genLocMap tm = names
     checker _                             = IM.empty
 
 #if __GLASGOW_HASKELL__ > 710
-    fieldOcc :: GHC.FieldOcc GHC.Name -> LocMap
+    fieldOcc :: GHC.FieldOcc GM.GhcRn -> LocMap
     fieldOcc (GHC.FieldOcc (GHC.L (GHC.RealSrcSpan r) _) n) = IM.singleton (rspToInt r) n
     fieldOcc _ = IM.empty
 
-    hsRecFieldN :: GHC.LHsExpr GHC.Name -> LocMap
+    hsRecFieldN :: GHC.LHsExpr GM.GhcRn -> LocMap
     hsRecFieldN (GHC.L _ (GHC.HsRecFld (GHC.Unambiguous (GHC.L (GHC.RealSrcSpan r) _) n) )) = IM.singleton (rspToInt r) n
     hsRecFieldN _ = IM.empty
 
-    hsRecFieldT :: GHC.LHsExpr GHC.Id -> LocMap
+    hsRecFieldT :: GHC.LHsExpr GM.GhcTc -> LocMap
     hsRecFieldT (GHC.L _ (GHC.HsRecFld (GHC.Ambiguous (GHC.L (GHC.RealSrcSpan r) _) n) )) = IM.singleton (rspToInt r) (Var.varName n)
     hsRecFieldT _ = IM.empty
 #endif
 
 -- -- | Seaches for all the symbols at a point in the
 -- -- given LocMap
--- getNamesAtPos :: Position -> LocMap -> [((Position,Position), GHC.Name)]
+-- getNamesAtPos :: Position -> LocMap -> [((Position,Position), GM.GhcRn)]
 -- getNamesAtPos p im = map f $ IM.search p im
 
 getArtifactsAtPos :: Position -> SourceMap a -> [(Range, a)]

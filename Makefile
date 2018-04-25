@@ -7,9 +7,12 @@ build:
 	&& stack --stack-yaml=stack-8.2.1.yaml install               \
 		&& cp ~/.local/bin/hie ~/.local/bin/hie-8.2.1            \
 		&& cp ~/.local/bin/hie-8.2.1 ~/.local/bin/hie-8.2        \
-	&& stack --stack-yaml=stack.yaml install                     \
+	&& stack --stack-yaml=stack-8.2.2.yaml install               \
 		&& cp ~/.local/bin/hie ~/.local/bin/hie-8.2.2            \
-		&& cp ~/.local/bin/hie-8.2.2 ~/.local/bin/hie-8.2
+		&& cp ~/.local/bin/hie-8.2.2 ~/.local/bin/hie-8.2        \
+	&& stack --stack-yaml=stack.yaml install                     \
+		&& cp ~/.local/bin/hie ~/.local/bin/hie-8.4.2            \
+		&& cp ~/.local/bin/hie-8.4.2 ~/.local/bin/hie-8.4
 .PHONY: build
 
 hie-8.2.2:
@@ -36,6 +39,9 @@ icu-macos-fix:
          --extra-lib-dirs=/usr/local/opt/icu4c/lib         \
          --extra-include-dirs=/usr/local/opt/icu4c/include \
 	&& stack --stack-yaml=stack-8.2.1.yaml build text-icu  \
+         --extra-lib-dirs=/usr/local/opt/icu4c/lib         \
+         --extra-include-dirs=/usr/local/opt/icu4c/include \
+	&& stack --stack-yaml=stack-8.2.2.yaml build text-icu  \
          --extra-lib-dirs=/usr/local/opt/icu4c/lib         \
          --extra-include-dirs=/usr/local/opt/icu4c/include \
 	&& stack --stack-yaml=stack.yaml build text-icu        \

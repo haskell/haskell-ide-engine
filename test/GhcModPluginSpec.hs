@@ -41,10 +41,11 @@ ghcmodSpec = do
             (Map.singleton arg (S.singleton diag), [])
           diag = Diagnostic (Range (toPos (4,7))
                                    (toPos (4,8)))
-                                   (Just DsError)
-                                   Nothing
-                                   (Just "ghcmod")
-                                   "Variable not in scope: x"
+                            (Just DsError)
+                            Nothing
+                            (Just "ghcmod")
+                            "Variable not in scope: x"
+                            (List [])
 
       testCommand testPlugins act "ghcmod" "check" arg res
 

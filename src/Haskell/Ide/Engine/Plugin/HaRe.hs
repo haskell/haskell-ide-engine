@@ -13,7 +13,9 @@ import qualified Data.Aeson.Types                             as J
 import           Data.Algorithm.Diff
 import           Data.Algorithm.DiffOutput
 import           Data.Foldable
+#if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
+#endif
 import qualified Data.Text                                    as T
 import qualified Data.Text.IO                                 as T
 import           Exception

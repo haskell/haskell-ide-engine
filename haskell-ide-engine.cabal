@@ -70,7 +70,7 @@ library
                      , mtl
                      , optparse-simple >= 0.0.3
                      , process
-                     , sorted-list >= 0.2.0.0
+                     , sorted-list >= 0.2.1.0
                      , stm
                      , tagsoup
                      , text

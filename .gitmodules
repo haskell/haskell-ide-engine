@@ -13,4 +13,5 @@
 	url = https://github.com/Daniel-Diaz/sorted-list.git
 [submodule "submodules/yi-rope"]
 	path = submodules/yi-rope
-	url = https://github.com/alanz/yi-rope.git
+	#url = https://github.com/alanz/yi-rope.git
+        url = https://github.com/yi-editor/yi-rope.git

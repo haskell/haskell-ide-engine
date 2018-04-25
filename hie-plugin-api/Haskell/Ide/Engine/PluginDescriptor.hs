@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                  #-}
 {-# LANGUAGE OverloadedStrings    #-}
 -- | A data structure to define a plugin.
 -- Allows description of a plugin and the commands it provides
@@ -15,7 +16,9 @@ import           Control.Monad.State.Strict
 import           Data.Aeson
 import           Data.List
 import qualified Data.Map                        as Map
+#if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
+#endif
 import qualified Data.Text                       as T
 import qualified Data.ConstrainedDynamic         as CD
 import           Data.Typeable

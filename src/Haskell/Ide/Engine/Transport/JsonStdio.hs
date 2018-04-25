@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -20,7 +21,9 @@ import qualified Data.Aeson                            as J
 import qualified Data.ByteString.Builder               as B
 import qualified Data.ByteString.Lazy.Char8            as B
 import qualified Data.Map                              as Map
+#if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
+#endif
 import qualified Data.Set                              as S
 import qualified Data.Text                             as T
 import           GHC.Generics

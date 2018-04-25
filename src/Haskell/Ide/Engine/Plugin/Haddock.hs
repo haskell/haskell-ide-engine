@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes          #-}
@@ -8,7 +9,9 @@ module Haskell.Ide.Engine.Plugin.Haddock where
 import           Control.Monad.State
 import           Data.Foldable
 import qualified Data.Map                                     as Map
+#if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
+#endif
 import qualified Data.Text                                    as T
 import           Data.IORef
 import           System.Directory
@@ -186,6 +189,9 @@ renderMarkDown =
              ["```\n"])
          , markupHeader = \h ->
              T.replicate (headerLevel h) "#" <> " " <> headerTitle h <> "\n"
+#if __GLASGOW_HASKELL__ >= 804
+         , markupTable = mempty
+#endif
          }
     where surround c x = c <> T.replace c "" x <> c
           removeInner x = T.replace "```" "" $ T.replace "```haskell" "" x

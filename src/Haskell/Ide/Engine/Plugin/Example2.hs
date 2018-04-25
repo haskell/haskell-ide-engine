@@ -1,8 +1,11 @@
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.Engine.Plugin.Example2 where
 
 import           Control.Monad.IO.Class
+#if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
+#endif
 import qualified Data.Text                     as T
 import           Haskell.Ide.Engine.MonadTypes
 
