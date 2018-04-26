@@ -7,7 +7,7 @@
 	url = https://gitlab.com/alanz/HaRe.git
 [submodule "submodules/ghc-mod"]
 	path = submodules/ghc-mod
-	url = https://gitlab.com/alanz/ghc-mod.git
+	url = https://github.com/alanz/ghc-mod.git
 [submodule "submodules/sorted-list"]
 	path = submodules/sorted-list
 	url = https://github.com/Daniel-Diaz/sorted-list.git
