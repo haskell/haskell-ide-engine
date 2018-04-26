@@ -1,25 +1,26 @@
+[submodule "submodules/HaRe"]
+	path = submodules/HaRe
+	url = https://gitlab.com/alanz/HaRe.git
+
+[submodule "submodules/brittany"]
+	path = submodules/brittany
+	url = https://github.com/lspitzner/brittany.git
+
 [submodule "submodules/cabal-helper"]
 	path = submodules/cabal-helper
 	url = https://github.com/alanz/cabal-helper.git
 	# url = https://github.com/DanielG/cabal-helper.git
 
-[submodule "submodules/HaRe"]
-	path = submodules/HaRe
-	url = https://gitlab.com/alanz/HaRe.git
-
 [submodule "submodules/ghc-mod"]
 	path = submodules/ghc-mod
 	url = https://github.com/alanz/ghc-mod.git
 
-[submodule "submodules/sorted-list"]
-	path = submodules/sorted-list
-	url = https://github.com/Daniel-Diaz/sorted-list.git
+[submodule "submodules/haskell-lsp"]
+	path = submodules/haskell-lsp
+	url = https://github.com/alanz/haskell-lsp.git
 
 [submodule "submodules/yi-rope"]
 	path = submodules/yi-rope
 	#url = https://github.com/alanz/yi-rope.git
         url = https://github.com/yi-editor/yi-rope.git
 
-[submodule "submodules/brittany"]
-	path = submodules/brittany
-	url = https://github.com/lspitzner/brittany.git
