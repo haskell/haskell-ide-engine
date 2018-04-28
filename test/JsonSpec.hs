@@ -20,6 +20,8 @@ import           Test.QuickCheck.Instances     ()
 -- import Debug.Trace
 -- ---------------------------------------------------------------------
 
+{-# ANN module ("HLint: ignore Redundant do"       :: String) #-}
+
 main :: IO ()
 main = hspec spec
 
@@ -48,16 +50,14 @@ propertyJsonRoundtrip a = Success a == fromJSON (toJSON a)
 
 -- enough for our needs
 instance Arbitrary Value where
-  arbitrary = do
-    s <- arbitrary
-    return $ String s
+  arbitrary = String <$> arbitrary
 
 -- | make lists of maximum length 3 for test performance
 smallList :: Gen a -> Gen [a]
 smallList = resize 3 . listOf
 
 instance Arbitrary ApplyOneParams where
-  arbitrary = AOP <$> arbitrary <*> arbitrary
+  arbitrary = AOP <$> arbitrary <*> arbitrary <*>  arbitrary
 
 instance Arbitrary InfoParams where
   arbitrary = IP <$> arbitrary <*> arbitrary
