@@ -13,6 +13,8 @@ import           TestUtils
 
 import           Test.Hspec
 
+{-# ANN module ("HLint: ignore Redundant do"       :: String) #-}
+
 -- ---------------------------------------------------------------------
 
 main :: IO ()
@@ -39,9 +41,8 @@ applyRefactSpec = do
     it "applies one hint only" $ do
 
       let furi = filePathToUri "./test/testdata/ApplyRefact.hs"
-          act = applyOneCmd' furi
-                             (toPos (2,8))
-          arg = AOP furi (toPos (2,8))
+          act = applyOneCmd' furi (OneHint (toPos (2,8)) "Redundant bracket")
+          arg = AOP furi (toPos (2,8)) "Redundant bracket"
           res = IdeResponseOk $ WorkspaceEdit
             (Just $ H.singleton applyRefactPath
                                 $ List [TextEdit (Range (Position 1 0) (Position 1 25))
@@ -77,12 +78,12 @@ applyRefactSpec = do
              , _diagnostics = List $
                [ Diagnostic (Range (Position 1 7) (Position 1 25))
                             (Just DsHint)
-                            Nothing
+                            (Just "Redundant bracket")
                             (Just "hlint")
                             "Redundant bracket\nFound:\n  (putStrLn \"hello\")\nWhy not:\n  putStrLn \"hello\"\n"
                , Diagnostic (Range (Position 3 8) (Position 3 15))
                             (Just DsHint)
-                            Nothing
+                            (Just "Redundant bracket")
                             (Just "hlint")
                             "Redundant bracket\nFound:\n  (x + 1)\nWhy not:\n  x + 1\n"
                ]}
@@ -119,7 +120,7 @@ applyRefactSpec = do
             , _diagnostics = List
               [ Diagnostic (Range (Position 3 11) (Position 3 20))
                            (Just DsInfo)
-                           Nothing
+                           (Just "Redundant bracket")
                            (Just "hlint")
                            "Redundant bracket\nFound:\n  (\"hello\")\nWhy not:\n  \"hello\"\n"
               ]

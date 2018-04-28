@@ -21,8 +21,8 @@ import           Language.Haskell.Exts.Parser
 import           Language.Haskell.Exts.Extension
 import           Language.Haskell.HLint3           as Hlint
 import           Refact.Apply
-import           System.IO.Extra
 
+type HintTitle = T.Text
 -- ---------------------------------------------------------------------
 {-# ANN module ("HLint: ignore Eta reduce"         :: String) #-}
 {-# ANN module ("HLint: ignore Redundant do"       :: String) #-}
@@ -46,16 +46,23 @@ applyRefactDescriptor = PluginDescriptor
 data ApplyOneParams = AOP
   { file      :: Uri
   , start_pos :: Position
+  -- | There can be more than one hint suggested at the same position, so HintTitle is used to distinguish between them.
+  , hintTitle :: HintTitle
   } deriving (Eq,Show,Generic,FromJSON,ToJSON)
 
-applyOneCmd :: CommandFunc ApplyOneParams WorkspaceEdit
-applyOneCmd = CmdSync $ \(AOP uri pos)-> do
-  applyOneCmd' uri pos
+data OneHint = OneHint
+  { oneHintPos :: Position
+  , oneHintTitle :: HintTitle
+  } deriving (Eq, Show)
 
-applyOneCmd' :: Uri -> Position -> IdeGhcM (IdeResponse WorkspaceEdit)
-applyOneCmd' uri pos = pluginGetFile "applyOne: " uri $ \fp -> do
+applyOneCmd :: CommandFunc ApplyOneParams WorkspaceEdit
+applyOneCmd = CmdSync $ \(AOP uri pos title) -> do
+  applyOneCmd' uri (OneHint pos title)
+
+applyOneCmd' :: Uri -> OneHint -> IdeGhcM (IdeResponse WorkspaceEdit)
+applyOneCmd' uri oneHint = pluginGetFile "applyOne: " uri $ \fp -> do
       revMapp <- GM.mkRevRedirMapFunc
-      res <- GM.withMappedFile fp $ \file' -> liftIO $ applyHint file' (Just pos) revMapp
+      res <- GM.withMappedFile fp $ \file' -> liftIO $ applyHint file' (Just oneHint) revMapp
       logm $ "applyOneCmd:file=" ++ show fp
       logm $ "applyOneCmd:res=" ++ show res
       case res of
@@ -89,7 +96,6 @@ lintCmd = CmdSync $ \uri -> do
 lintCmd' :: Uri -> IdeGhcM (IdeResponse PublishDiagnosticsParams)
 lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
       res <- GM.withMappedFile fp $ \file' -> liftIO $ runExceptT $ runLintCmd file' []
-      -- logm $ "lint:res=" ++ show res
       case res of
         Left diags ->
           return (IdeResponseOk (PublishDiagnosticsParams (filePathToUri fp) $ List diags))
@@ -153,7 +159,7 @@ hintToDiagnostic idea
   = Diagnostic
       { _range    = ss2Range (ideaSpan idea)
       , _severity = Just (hintSeverityMap $ ideaSeverity idea)
-      , _code     = Nothing
+      , _code     = Just (T.pack $ ideaHint idea)
       , _source   = Just "hlint"
       , _message  = idea2Message idea
       }
@@ -198,23 +204,54 @@ ss2Range ss = Range ps pe
 
 -- ---------------------------------------------------------------------
 
-applyHint :: FilePath -> Maybe Position -> (FilePath -> FilePath) -> IO (Either String WorkspaceEdit)
-applyHint fp mpos fileMap = do
-  withTempFile $ \f -> do
-    let optsf = "-o " ++ f
-        opts = case mpos of
-                 Nothing -> optsf
-                 Just (Position l c) -> optsf ++ " --pos " ++ show (l+1) ++ "," ++ show (c+1)
-        hlintOpts = [fp, "--quiet", "--refactor", "--refactor-options=" ++ opts ]
-    runExceptT $ do
-      ideas <- runHlint fp hlintOpts
-      liftIO $ logm $ "applyHint:ideas=" ++ show ideas
-      let commands = map (show &&& ideaRefactoring) ideas
-      appliedFile <- liftIO $ applyRefactorings (unPos <$> mpos) commands fp
-      diff <- liftIO $ makeDiffResult fp (T.pack appliedFile) fileMap
-      liftIO $ logm $ "applyHint:diff=" ++ show diff
-      return diff
+applyHint :: FilePath -> Maybe OneHint -> (FilePath -> FilePath) -> IO (Either String WorkspaceEdit)
+applyHint fp mhint fileMap = do
+  runExceptT $ do
+    ideas <- getIdeas fp mhint
+    let commands = map (show &&& ideaRefactoring) ideas
+    liftIO $ logm $ "applyHint:apply=" ++ show commands
+    -- set Nothing as "position" for "applyRefactorings" because
+    -- applyRefactorings expects the provided position to be _within_ the scope
+    -- of each refactoring it will apply.
+    -- But "Idea"s returned by HLint pont to starting position of the expressions
+    -- that contain refactorings, so they are often outside the refactorings' boundaries.
+    -- Example:
+    -- Given an expression "hlintTest = reid $ (myid ())"
+    -- Hlint returns an idea at the position (1,13)
+    -- That contains "Redundant brackets" refactoring at position (1,20):
+    --
+    -- [("src/App/Test.hs:5:13: Warning: Redundant bracket\nFound:\n  reid $ (myid ())\nWhy not:\n  reid $ myid ()\n",[Replace {rtype = Expr, pos = SrcSpan {startLine = 5, startCol = 20, endLine = 5, endCol = 29}, subts = [("x",SrcSpan {startLine = 5, startCol = 21, endLine = 5, endCol = 28})], orig = "x"}])]
+    --
+    -- If we provide "applyRefactorings" with "Just (1,13)" then
+    -- the "Redundant bracket" hint will never be executed
+    -- because SrcSpan (1,20,??,??) doesn't contain position (1,13).
+    appliedFile <- liftIO $ applyRefactorings Nothing commands fp
+    diff <- liftIO $ makeDiffResult fp (T.pack appliedFile) fileMap
+    liftIO $ logm $ "applyHint:diff=" ++ show diff
+    return diff
 
+-- | Gets HLint ideas for
+getIdeas :: FilePath -> Maybe OneHint -> ExceptT String IO [Idea]
+getIdeas lintFile mhint = do
+  let hOpts = hlintOpts lintFile (oneHintPos <$> mhint)
+  ideas <- runHlint lintFile hOpts
+  pure $ maybe ideas (`filterIdeas` ideas) mhint
+
+-- | If we are only interested in applying a particular hint then
+-- let's filter out all the irrelevant ideas
+filterIdeas :: OneHint -> [Idea] -> [Idea]
+filterIdeas (OneHint (Position l c) title) ideas =
+  let
+    title' = T.unpack title
+    ideaPos = (srcSpanStartLine &&& srcSpanStartColumn) . ideaSpan
+  in filter (\i -> ideaHint i == title' && ideaPos i == (l+1, c+1)) ideas
+
+hlintOpts :: FilePath -> Maybe Position -> [String]
+hlintOpts lintFile mpos =
+  let
+    posOpt (Position l c) = " --pos " ++ show (l+1) ++ "," ++ show (c+1)
+    opts = maybe "" posOpt mpos
+  in [lintFile, "--quiet", "--refactor", "--refactor-options=" ++ opts ]
 
 runHlint :: FilePath -> [String] -> ExceptT String IO [Idea]
 runHlint fp args =
