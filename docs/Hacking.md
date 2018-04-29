@@ -25,7 +25,7 @@ Version 0.1.0.0, Git revision 54338553f9c07b7d3427a769f7f4c2c366cefc7f (dirty) (
 
 ### Building with cabal new-build
 
-At the moment, `stack build` takes a *ver* long time, because it
+At the moment, `stack build` takes a *very* long time, because it
 always rebuilds the `haddock-api` and `haddock-library` dependencies.
 
 It is quicker to develop using `cabal new-build`, and a
