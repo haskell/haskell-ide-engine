@@ -38,6 +38,10 @@ defaults: &defaults
         name: Generate Hoogle databalse
         command: ~/.local/bin/hoogle generate base
 
+    - run:
+        name: Compile but do not run tests
+        command: stack -j 2 --stack-yaml=${STACK_FILE} test --no-run-tests
+
     - save_cache:
         key: stack-cache-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
         paths:
