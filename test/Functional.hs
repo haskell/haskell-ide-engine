@@ -51,6 +51,7 @@ import           Haskell.Ide.Engine.Plugin.Example2
 import           Haskell.Ide.Engine.Plugin.GhcMod
 import           Haskell.Ide.Engine.Plugin.HaRe
 
+{-# ANN module ("HLint: ignore Redundant do"       :: String) #-}
 -- ---------------------------------------------------------------------
 
 plugins :: IdePlugins
@@ -124,7 +125,7 @@ functionalSpec = do
                               , _diagnostics = List
                                 [ Diagnostic (Range (Position 9 6) (Position 10 18))
                                              (Just DsInfo)
-                                             Nothing
+                                             (Just "Redundant do")
                                              (Just "hlint")
                                              "Redundant do\nFound:\n  do putStrLn \"hello\"\nWhy not:\n  putStrLn \"hello\"\n"
                                              (List [])

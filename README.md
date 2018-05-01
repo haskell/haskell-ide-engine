@@ -75,7 +75,7 @@ we talk to clients.__
 Both methods build HIE from the source code, so first,
 
 ```bash
-$ git clone https://github.com/haskell/haskell-ide-engine
+$ git clone https://github.com/haskell/haskell-ide-engine --recursive
 $ cd haskell-ide-engine
 ```
 
@@ -132,7 +132,7 @@ An [haskell-ide-engine-git](https://aur.archlinux.org/packages/haskell-ide-engin
 Using [Aura](https://github.com/aurapm/aura):
 
 ```
-$ aura -A haskell-ide-engine-git
+# aura -A haskell-ide-engine-git
 ```
 
 ## Editor Integration
@@ -203,7 +203,7 @@ For asynchronous auto-completion, follow the setup instructions on
 Make sure HIE is installed, then install the two Atom packages [atom-ide-ui](https://atom.io/packages/atom-ide-ui) and [ide-haskell-hie](https://atom.io/packages/ide-haskell-hie),
 
 ```bash
-$ apm install atom-ide-ui ide-haskell-hie
+$ apm install language-haskell atom-ide-ui ide-haskell-hie
 ```
 
 ### Using HIE with Emacs
