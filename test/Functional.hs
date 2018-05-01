@@ -35,7 +35,7 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
-import           Language.Haskell.LSP.TH.DataTypesJSON hiding (error, name)
+import           Language.Haskell.LSP.Types hiding (error, name)
 import           System.Directory
 import           System.FilePath
 import           TestUtils

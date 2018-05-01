@@ -58,10 +58,11 @@ library
                      , gitrev >= 1.1
                      , haddock-api
                      , haddock-library
-                     , haskell-lsp >= 0.2
+                     , haskell-lsp >= 0.2.1
                      , haskell-src-exts
                      , hie-plugin-api
-                     , hlint >= 2.0.11
+                     -- , hlint >= 2.0.11
+                     , hlint == 2.1.3
                      , hoogle >= 5.0.13
                      , hslogger
                      , lens >= 4.15.2
@@ -145,7 +146,7 @@ test-suite haskell-ide-test
 test-suite haskell-ide-dispatcher-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
-  main-is:             Main.hs
+  main-is:             MainDispatcher.hs
   other-modules:       ApplyRefactPluginSpec
                        ExtensibleStateSpec
                        GhcModPluginSpec

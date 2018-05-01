@@ -14,9 +14,9 @@ import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
-import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
+import qualified Language.Haskell.LSP.Types as J
 import           Test.Hspec
-import           Test.Hspec.Runner
+-- import           Test.Hspec.Runner
 import           TestUtils
 
 -- ---------------------------------------------------------------------
@@ -24,7 +24,7 @@ import           TestUtils
 main :: IO ()
 main = do
   setupStackFiles
-  withFileLogging "./test-main.log" $ hspec spec
+  withFileLogging "./test-main-dispatcher.log" $ hspec spec
 
 -- main :: IO ()
 -- main = do

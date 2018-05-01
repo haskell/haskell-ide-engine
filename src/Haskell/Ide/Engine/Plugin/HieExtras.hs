@@ -44,7 +44,7 @@ import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Plugin.GhcMod            (setTypecheckedModule)
 import qualified Haskell.Ide.Engine.Plugin.Fuzzy              as Fuzzy
 import           HscTypes
-import qualified Language.Haskell.LSP.TH.DataTypesJSON        as J
+import qualified Language.Haskell.LSP.Types                   as J
 import           Language.Haskell.Refact.API                 (showGhc, showGhcQual, setGhcContext, hsNamessRdr)
 import           Language.Haskell.Refact.Utils.MonadFunctions
 import           Module                                       hiding (getModule)

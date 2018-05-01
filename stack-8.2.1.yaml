@@ -25,6 +25,8 @@ packages:
 - location:
     ./submodules/haskell-lsp
   extra-dep: true
+    - .
+    - haskell-lsp-types
 
 - location:
     ./submodules/yi-rope
