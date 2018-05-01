@@ -40,7 +40,7 @@ applyRefactSpec = do
 
     it "applies one hint only" $ do
 
-      let furi = filePathToUri "./test/testdata/ApplyRefact.hs"
+      let furi = applyRefactPath
           act = applyOneCmd' furi (OneHint (toPos (2,8)) "Redundant bracket")
           arg = AOP furi (toPos (2,8)) "Redundant bracket"
           res = IdeResponseOk $ WorkspaceEdit
@@ -55,7 +55,7 @@ applyRefactSpec = do
     it "applies all hints" $ do
 
       let act = applyAllCmd' arg
-          arg = filePathToUri "./test/testdata/ApplyRefact.hs"
+          arg = applyRefactPath
           res = IdeResponseOk $ WorkspaceEdit
             (Just
               $ H.singleton applyRefactPath
@@ -71,10 +71,10 @@ applyRefactSpec = do
     it "returns hints as diagnostics" $ do
 
       let act = lintCmd' arg
-          arg = filePathToUri "./test/testdata/ApplyRefact.hs"
+          arg = applyRefactPath
           res = IdeResponseOk
             PublishDiagnosticsParams
-             { _uri = filePathToUri "./test/testdata/ApplyRefact.hs"
+             { _uri = applyRefactPath
              , _diagnostics = List $
                [ Diagnostic (Range (Position 1 7) (Position 1 25))
                             (Just DsHint)
@@ -94,12 +94,13 @@ applyRefactSpec = do
     -- ---------------------------------
 
     it "returns hlint parse error as DsInfo ignored diagnostic" $ do
+      filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/HlintParseFail.hs"
 
       let act = lintCmd' arg
-          arg = filePathToUri "./test/testdata/HlintParseFail.hs"
+          arg = filePath
           res = IdeResponseOk
             PublishDiagnosticsParams
-             { _uri = Uri {getUri = "file://./test/testdata/HlintParseFail.hs"}
+             { _uri = filePath
              , _diagnostics = List $
                [Diagnostic {_range = Range { _start = Position {_line = 11, _character = 28}
                                            , _end = Position {_line = 11, _character = 100000}}
@@ -113,13 +114,14 @@ applyRefactSpec = do
     -- ---------------------------------
 
     it "respects hlint pragmas in the source file" $ do
+      filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/HlintPragma.hs"
 
-      let req = lintCmd' (filePathToUri "./test/testdata/HlintPragma.hs")
+      let req = lintCmd' filePath
       r <- runIGM testPlugins req
       r `shouldBe`
         (IdeResponseOk
            (PublishDiagnosticsParams
-            { _uri = filePathToUri "./test/testdata/HlintPragma.hs"
+            { _uri = filePath
             , _diagnostics = List
               [ Diagnostic (Range (Position 3 11) (Position 3 20))
                            (Just DsInfo)
@@ -134,13 +136,15 @@ applyRefactSpec = do
     -- ---------------------------------
 
     it "respects hlint config files in project root dir" $ do
+      filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/HlintPragma.hs"
 
-      let req = lintCmd' (filePathToUri "./HlintPragma.hs")
+      let req = lintCmd' filePath
       r <- cdAndDo "./test/testdata" $ runIGM testPlugins req
       r `shouldBe`
         (IdeResponseOk
            (PublishDiagnosticsParams
-            { _uri = filePathToUri "./HlintPragma.hs"
+            -- { _uri = filePathToUri "./HlintPragma.hs"
+            { _uri = filePath
             , _diagnostics = List []
             }
            ))

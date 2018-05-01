@@ -49,7 +49,7 @@ hareSpec = do
 
     it "renames" $ cdAndDo "test/testdata" $ do
 
-      let uri = filePathToUri "./HaReRename.hs"
+      let uri = filePathToUri $ cwd </> "test/testdata/HaReRename.hs"
           act = renameCmd' uri (toPos (5,1)) "foolong"
           arg = HPT uri (toPos (5,1)) "foolong"
           res = IdeResponseOk $ WorkspaceEdit
@@ -62,7 +62,7 @@ hareSpec = do
     -- ---------------------------------
 
     it "returns an error for invalid rename" $ cdAndDo "test/testdata" $ do
-      let uri = filePathToUri "./HaReRename.hs"
+      let uri = filePathToUri $ cwd </> "test/testdata/HaReRename.hs"
           act = renameCmd' uri (toPos (15,1)) "foolong"
           arg = HPT uri (toPos (15,1)) "foolong"
           res = IdeResponseFail
@@ -73,7 +73,7 @@ hareSpec = do
     -- ---------------------------------
 
     it "demotes" $ cdAndDo "test/testdata" $ do
-      let uri = filePathToUri "./HaReDemote.hs"
+      let uri = filePathToUri $ cwd </> "test/testdata/HaReDemote.hs"
           act = demoteCmd' uri (toPos (6,1))
           arg = HP uri (toPos (6,1))
           res = IdeResponseOk $ WorkspaceEdit
@@ -86,7 +86,7 @@ hareSpec = do
     -- ---------------------------------
 
     it "duplicates a definition" $ cdAndDo "test/testdata" $ do
-      let uri = filePathToUri "./HaReRename.hs"
+      let uri = filePathToUri $ cwd </> "test/testdata/HaReRename.hs"
           act = dupdefCmd' uri (toPos (5,1)) "foonew"
           arg = HPT uri (toPos (5,1)) "foonew"
           res = IdeResponseOk $ WorkspaceEdit
@@ -100,7 +100,7 @@ hareSpec = do
 
     it "converts if to case" $ cdAndDo "test/testdata" $ do
 
-      let uri = filePathToUri "./HaReCase.hs"
+      let uri = filePathToUri $ cwd </> "test/testdata/HaReCase.hs"
           act = iftocaseCmd' uri (Range (toPos (5,9))
                                         (toPos (9,12)))
           arg = HR uri (toPos (5,9)) (toPos (9,12))
@@ -116,7 +116,7 @@ hareSpec = do
 
     it "lifts one level" $ cdAndDo "test/testdata" $ do
 
-      let uri = filePathToUri "./HaReMoveDef.hs"
+      let uri = filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs"
           act = liftonelevelCmd' uri (toPos (6,5))
           arg = HP uri (toPos (6,5))
           res = IdeResponseOk $ WorkspaceEdit
@@ -132,7 +132,7 @@ hareSpec = do
 
     it "lifts to top level" $ cdAndDo "test/testdata" $ do
 
-      let uri = filePathToUri "./HaReMoveDef.hs"
+      let uri = filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs"
           act = lifttotoplevelCmd' uri (toPos (12,9))
           arg = HP uri (toPos (12,9))
           res = IdeResponseOk $ WorkspaceEdit
@@ -148,7 +148,7 @@ hareSpec = do
     -- ---------------------------------
 
     it "deletes a definition" $ cdAndDo "test/testdata" $ do
-      let uri = filePathToUri "./FuncTest.hs"
+      let uri = filePathToUri $ cwd </> "test/testdata/FuncTest.hs"
           act = deleteDefCmd' uri (toPos (6,1))
           arg = HP uri (toPos (6,1))
           res = IdeResponseOk $ WorkspaceEdit
@@ -160,7 +160,7 @@ hareSpec = do
     -- ---------------------------------
 
     it "generalises an applicative" $ cdAndDo "test/testdata" $ do
-      let uri = filePathToUri "./HaReGA1.hs"
+      let uri = filePathToUri $ cwd </> "test/testdata/HaReGA1.hs"
           act = genApplicativeCommand' uri (toPos (4,1))
           arg = HP uri (toPos (4,1))
           res = IdeResponseOk $ WorkspaceEdit
@@ -176,7 +176,7 @@ hareSpec = do
     cwd <- runIO getCurrentDirectory
 
     it "finds definition across components" $ do
-      let u = filePathToUri "./app/Main.hs"
+      let u = filePathToUri $ cwd </> "test/testdata/gototest/app/Main.hs"
           lreq = setTypecheckedModule u
           req = findDef u (toPos (7,8))
       r <- dispatchRequestPGoto $ lreq >> req
@@ -187,14 +187,14 @@ hareSpec = do
       r2 `shouldBe` IdeResponseOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
                                             (Range (toPos (5,1)) (toPos (5,2)))]
     it "finds definition in the same component" $ do
-      let u = filePathToUri "./src/Lib2.hs"
+      let u = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs"
           lreq = setTypecheckedModule u
           req = findDef u (toPos (6,5))
       r <- dispatchRequestPGoto $ lreq >> req
       r `shouldBe` IdeResponseOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
                                            (Range (toPos (6,1)) (toPos (6,9)))]
     it "finds local definitions" $ do
-      let u = filePathToUri "./src/Lib2.hs"
+      let u = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs"
           lreq = setTypecheckedModule u
           req = findDef u (toPos (7,11))
       r <- dispatchRequestPGoto $ lreq >> req

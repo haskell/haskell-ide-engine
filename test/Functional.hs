@@ -87,7 +87,6 @@ main :: IO ()
 main = do
   setupStackFiles
   withFileLogging "./test-functional.log" $ cdAndDo "./test/testdata"  $ hspec spec
--- main = withFileLogging "./test-functional.log" $ cdAndDo "/home/alanz/tmp/haskell-hie-test-project"  $ hspec spec
 
 spec :: Spec
 spec = do
@@ -116,12 +115,12 @@ functionalSpec = do
 
       -- -------------------------------
 
-      let req1 = filePathToUri "./FuncTest.hs"
+      let req1 = filePathToUri $ cwd </> "FuncTest.hs"
       r1 <- dispatchRequest cin "applyrefact" "lint" req1
       fmap fromDynJSON r1 `shouldBe` IdeResponseOk
                            ( Just
                            $ PublishDiagnosticsParams
-                              { _uri = filePathToUri "./FuncTest.hs"
+                              { _uri = filePathToUri $ cwd </> "FuncTest.hs"
                               , _diagnostics = List
                                 [ Diagnostic (Range (Position 9 6) (Position 10 18))
                                              (Just DsInfo)
@@ -132,7 +131,7 @@ functionalSpec = do
                                 ]
                               })
 
-      let req3 = HP (filePathToUri "./FuncTest.hs") (toPos (8,1))
+      let req3 = HP (filePathToUri $ cwd </> "FuncTest.hs") (toPos (8,1))
       r3 <- dispatchRequest cin "hare" "demote" req3
       fmap fromDynJSON r3 `shouldBe`
         (IdeResponseOk
