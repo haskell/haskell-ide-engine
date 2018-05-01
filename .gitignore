@@ -25,6 +25,7 @@
 /*.iml
 /.cabal-project-deps
 /.cabal-sandbox/
+/.ghc.environment*
 /.idea/
 /.stack-work
 /_release/

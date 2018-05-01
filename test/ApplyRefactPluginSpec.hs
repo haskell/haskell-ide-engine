@@ -31,7 +31,7 @@ testPlugins = pluginDescToIdePlugins [("applyrefact",applyRefactDescriptor)]
 
 applyRefactSpec :: Spec
 applyRefactSpec = do
-  describe "apply-refact plugin commands(old plugin api)" $ do
+  describe "apply-refact plugin commands" $ do
     applyRefactPath  <- runIO $ filePathToUri <$> makeAbsolute "./test/testdata/ApplyRefact.hs"
 
     -- ---------------------------------
