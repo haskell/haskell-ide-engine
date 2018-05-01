@@ -112,7 +112,6 @@ test-suite haskell-ide-test
   hs-source-dirs:      test
   main-is:             Main.hs
   other-modules:       ApplyRefactPluginSpec
-                       -- DispatcherSpec
                        ExtensibleStateSpec
                        GhcModPluginSpec
                        HaRePluginSpec
