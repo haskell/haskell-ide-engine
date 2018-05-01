@@ -100,7 +100,7 @@ workflows:
   version: 2
   multiple-ghcs:
     jobs:
-      - ghc-8.0.2
+      # - ghc-8.0.2
       - ghc-8.2.1
       - ghc-8.2.2
       - ghc-8.4.2

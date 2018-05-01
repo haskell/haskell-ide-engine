@@ -31,7 +31,7 @@ testPlugins = pluginDescToIdePlugins [("ghcmod",ghcmodDescriptor)]
 
 ghcmodSpec :: Spec
 ghcmodSpec = do
-  describe "ghc-mod plugin commands(old plugin api)" $ do
+  describe "ghc-mod plugin commands" $ do
 
     it "runs the check command" $ cdAndDo "./test/testdata" $ do
       fp <- makeAbsolute "./FileWithWarning.hs"
