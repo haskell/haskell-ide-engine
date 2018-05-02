@@ -18,6 +18,13 @@ packages:
     ./submodules/cabal-helper
   extra-dep: true
 
+- location:
+    ./submodules/haskell-lsp
+  extra-dep: true
+  subdirs:
+    - .
+    - haskell-lsp-types
+
 extra-deps:
 - apply-refact-0.3.0.1
 - brittany-0.10.0.0
@@ -27,11 +34,11 @@ extra-deps:
 - czipwith-1.0.0.0
 - data-tree-print-0.1.0.0
 - deque-0.2
-- ghc-exactprint-0.5.6.0
-- haskell-lsp-0.2.0.1
+- ghc-exactprint-0.5.6.1
 - hlint-2.0.11
 - monad-memo-0.4.1
 - syz-0.2.0.0
+- sorted-list-0.2.1.0
 
 flags:
   haskell-ide-engine:
