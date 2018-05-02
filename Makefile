@@ -12,6 +12,15 @@ build:
 		&& cp ~/.local/bin/hie-8.2.2 ~/.local/bin/hie-8.2
 .PHONY: build
 
+build-docs:
+	stack --stack-yaml=stack-8.0.2.yaml exec hoogle generate    \
+	&& stack --stack-yaml=stack-8.2.1.yaml exec hoogle generate \
+	&& stack --stack-yaml=stack.yaml exec hoogle generate
+.PHONY: build-docs
+
+build-all: | build build-docs
+.PHONY: build-all
+
 hie-8.2.2:
 	stack --stack-yaml=stack.yaml install                  \
 		&& cp ~/.local/bin/hie ~/.local/bin/hie-8.2.2      \
