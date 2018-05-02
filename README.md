@@ -72,6 +72,16 @@ we talk to clients.__
  
 ## Installation
 
+Note: The version on branch `hie-0.1.0.0` supports GHC from 8.0.2 to
+8.2.2, and projects with a `cabal-version` value in the cabal file <2.
+
+Because GHC 8.4.2 ships with Cabal 2.2, and it is now strict about
+what features are available per version, the ghc-mod hack for the
+`libexec-dir` no longer works.  So for current master having GHC
+8.4.2 support, the `cabal-version` field of the project that `hie` is
+being used on must be set to `>= 2.0`.
+
+
 ### Getting the source for GHC 8.2.1, 8.2.2, 8.4.2
 
 Both methods build HIE from the source code, so first,
