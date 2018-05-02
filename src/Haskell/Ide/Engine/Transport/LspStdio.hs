@@ -542,7 +542,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             (J.List diags) = params ^. J.context . J.diagnostics
 
         let
-          makeCommand (J.Diagnostic (J.Range start _) _s (Just code) (Just "hlint") m _r) = [J.Command title cmd cmdparams]
+          makeCommand (J.Diagnostic (J.Range start _) _s (Just code) (Just "hlint") m _) = [J.Command title cmd cmdparams]
             where
               title :: T.Text
               title = "Apply hint:" <> head (T.lines m)
@@ -551,7 +551,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
               -- need 'file', 'start_pos' and hint title (to distinguish between alternative suggestions at the same location)
               args = J.Array $ V.singleton $ J.toJSON $ ApplyRefact.AOP doc start code
               cmdparams = Just args
-          makeCommand (J.Diagnostic _r _s _c _source _m  _) = []
+          makeCommand (J.Diagnostic _r _s _c _source _m _) = []
           -- TODO: make context specific commands for all sorts of things, such as refactorings
         let body = J.List $ concatMap makeCommand diags
         let rspMsg = Core.makeResponseMessage req body

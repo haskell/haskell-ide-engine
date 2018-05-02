@@ -3,6 +3,9 @@ BASEDIR=$(CURDIR)
 build: hie-8.2.1 hie-8.2.2 hie-8.4.2
 # build: hie-8.0.2 hie-8.2.1 hie-8.2.2 hie-8.4.2
 
+build-all: | build build-docs
+.PHONY: build-all
+
 # build:
 # 	stack --stack-yaml=stack-8.0.2.yaml install                  \
 # 		&& cp ~/.local/bin/hie ~/.local/bin/hie-8.0.2            \
@@ -43,6 +46,15 @@ hie-8.4.2:
 		&& cp ~/.local/bin/hie ~/.local/bin/hie-8.4.2      \
 		&& cp ~/.local/bin/hie-8.2.2 ~/.local/bin/hie-8.4
 .PHONY: hie-8.4.2
+
+# ------------------------------------------------------
+
+build-docs:
+	stack --stack-yaml=stack-8.2.1.yaml exec hoogle generate \
+	&& stack --stack-yaml=stack-8.2.2.yaml exec hoogle generate \
+	&& stack --stack-yaml=stack.yaml exec hoogle generate
+.PHONY: build-docs
+
 
 # ------------------------------------------------------
 

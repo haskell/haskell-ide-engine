@@ -3,12 +3,9 @@ packages:
          ./hie-plugin-api/
 
          ./submodules/HaRe
-         ./submodules/brittany/
          ./submodules/cabal-helper/
          ./submodules/ghc-mod/
          ./submodules/ghc-mod//core/
-         ./submodules/haskell-lsp/
-         ./submodules/haskell-lsp/haskell-lsp-types/
          ./submodules/yi-rope/
 
 

@@ -84,10 +84,10 @@ $ cd haskell-ide-engine
 To install HIE, you need Stack version >= 1.6.1
 
 To install all supported GHC versions, and name them as expected
-by the vscode plugin, do
+by the vscode plugin, and also build a local hoogle database, do
 
 ```bash
-make
+make build-all
 ```
 
 Otherwise, do one of the following.

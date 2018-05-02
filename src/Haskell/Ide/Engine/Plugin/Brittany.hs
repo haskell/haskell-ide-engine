@@ -88,10 +88,11 @@ opt :: a -> Option a
 opt = Option . Just
 
 showErr :: BrittanyError -> String
-showErr (ErrorInput s)         = s
-showErr (ErrorUnusedComment s) = s
-showErr (LayoutWarning s)      = s
-showErr (ErrorUnknownNode s _) = s
-showErr (ErrorMacroConfig s _) = s
-showErr ErrorOutputCheck       = "Brittany error - invalid output"
+showErr (ErrorInput s)          = s
+showErr (ErrorMacroConfig  err input)
+  = "Error: parse error in inline configuration: " ++ err ++ " in the string \"" ++ input ++ "\"."
+showErr (ErrorUnusedComment s)  = s
+showErr (LayoutWarning s)       = s
+showErr (ErrorUnknownNode s _)  = s
+showErr ErrorOutputCheck        = "Brittany error - invalid output"
 
