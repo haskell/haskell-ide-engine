@@ -38,6 +38,10 @@ defaults: &defaults
         name: Generate Hoogle databalse
         command: ~/.local/bin/hoogle generate base
 
+    - run:
+        name: Compile but do not run tests
+        command: stack -j 2 --stack-yaml=${STACK_FILE} test --no-run-tests
+
     - save_cache:
         key: stack-cache-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
         paths:
@@ -84,6 +88,11 @@ jobs:
 
   ghc-8.2.2:
     environment:
+      - STACK_FILE: "stack-8.2.2.yaml"
+    <<: *defaults
+
+  ghc-8.4.2:
+    environment:
       - STACK_FILE: "stack.yaml"
     <<: *defaults
 
@@ -91,7 +100,8 @@ workflows:
   version: 2
   multiple-ghcs:
     jobs:
-      - ghc-8.0.2
+      # - ghc-8.0.2
       - ghc-8.2.1
       - ghc-8.2.2
+      - ghc-8.4.2
 

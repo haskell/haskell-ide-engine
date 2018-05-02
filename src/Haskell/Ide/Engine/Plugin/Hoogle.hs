@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.Engine.Plugin.Hoogle where
 
@@ -5,7 +6,9 @@ import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Bifunctor
 import           Data.Maybe
+#if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
+#endif
 import qualified Data.Text                          as T
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.MonadFunctions

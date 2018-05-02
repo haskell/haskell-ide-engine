@@ -1,10 +1,13 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE OverloadedStrings   #-}
 module Main where
 
 import           Control.Concurrent.STM.TChan
 import           Control.Monad
 import           Control.Monad.STM
+#if __GLASGOW_HASKELL__ < 804
 import           Data.Semigroup
+#endif
 import qualified Data.Map as Map
 import           Data.Version                          (showVersion)
 import qualified GhcMod.Types                          as GM

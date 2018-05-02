@@ -15,7 +15,9 @@ import           Data.Function
 import           Data.IORef
 import           Data.List
 import qualified Data.Map.Strict                   as Map
+#if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
+#endif
 import qualified Data.Set                          as Set
 import qualified Data.Text                         as T
 import           DynFlags
@@ -83,7 +85,7 @@ logDiag rfm eref dref df _reason sev spn style msg = do
     Right (Location uri range) -> do
       let update = Map.insertWith Set.union uri l
             where l = Set.singleton diag
-          diag = Diagnostic range (Just $ lspSev sev) Nothing (Just "ghcmod") msgTxt mempty
+          diag = Diagnostic range (Just $ lspSev sev) Nothing (Just "ghcmod") msgTxt (List [])
       modifyIORef' dref update
     Left _ -> do
       modifyIORef' eref (msgTxt:)
@@ -111,7 +113,7 @@ srcErrToDiag df rfm se = do
         eloc <- srcSpan2Loc rfm $ errMsgSpan err
         case eloc of
           Right (Location uri range) ->
-            return $ Right (uri, Diagnostic range sev Nothing (Just "ghcmod") msgTxt mempty)
+            return $ Right (uri, Diagnostic range sev Nothing (Just "ghcmod") msgTxt (List []))
           Left _ -> return $ Left msgTxt
       processMsgs [] = return (Map.empty,[])
       processMsgs (x:xs) = do

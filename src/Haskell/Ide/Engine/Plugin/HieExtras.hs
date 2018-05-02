@@ -2,6 +2,7 @@
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE TypeFamilies        #-}
 module Haskell.Ide.Engine.Plugin.HieExtras
   ( getDynFlags
   , getSymbols
@@ -23,7 +24,9 @@ import           Data.IORef
 import qualified Data.List                                    as List
 import qualified Data.Map                                     as Map
 import           Data.Maybe
+#if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
+#endif
 import qualified Data.Text                                    as T
 import           Data.Typeable
 import           DataCon
@@ -31,8 +34,9 @@ import           Exception
 import           FastString
 import           GHC
 import qualified GhcMod.Error                                 as GM
-import qualified GhcMod.Monad                                 as GM
+import qualified GhcMod.Gap                                   as GM
 import qualified GhcMod.LightGhc                              as GM
+import qualified GhcMod.Monad                                 as GM
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
@@ -110,7 +114,7 @@ getSymbols uri = pluginGetFile "getSymbols: " uri $ \file -> do
               decls = concatMap (go . unLoc) $ hsmodDecls hsMod
               s x = showName <$> x
 
-              go :: HsDecl RdrName -> [(J.SymbolKind,Located T.Text,Maybe T.Text)]
+              go :: HsDecl GM.GhcPs -> [(J.SymbolKind,Located T.Text,Maybe T.Text)]
               go (TyClD FamDecl { tcdFam = FamilyDecl { fdLName = n } }) = pure (J.SkClass, s n, Nothing)
               go (TyClD SynDecl { tcdLName = n }) = pure (J.SkClass, s n, Nothing)
               go (TyClD DataDecl { tcdLName = n, tcdDataDefn = HsDataDefn { dd_cons = cons } }) =
@@ -128,14 +132,14 @@ getSymbols uri = pluginGetFile "getSymbols: " uri $ \file -> do
               go _ = []
 
               processSig :: T.Text
-                         -> Sig RdrName
+                         -> Sig GM.GhcPs
                          -> [(J.SymbolKind, Located T.Text, Maybe T.Text)]
               processSig cnt (ClassOpSig False names _) =
                 map (\n ->(J.SkMethod,s n, Just cnt)) names
               processSig _ _ = []
 
               processCon :: T.Text
-                         -> ConDecl RdrName
+                         -> ConDecl GM.GhcPs
                          -> [(J.SymbolKind, Located T.Text, Maybe T.Text)]
               processCon cnt ConDeclGADT { con_names = names } =
                 map (\n -> (J.SkConstructor, s n, Just cnt)) names
@@ -150,7 +154,7 @@ getSymbols uri = pluginGetFile "getSymbols: " uri $ \file -> do
                                          where f ln = (J.SkField, s ln, Just (unLoc sn))
                     _ -> []
 
-              goImport :: ImportDecl RdrName -> [(J.SymbolKind, Located T.Text, Maybe T.Text)]
+              goImport :: ImportDecl GM.GhcPs -> [(J.SymbolKind, Located T.Text, Maybe T.Text)]
               goImport ImportDecl { ideclName = lmn, ideclAs = as, ideclHiding = meis } = a ++ xs
                 where
                   im = (J.SkModule, lsmn, Nothing)

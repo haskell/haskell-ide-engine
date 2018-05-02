@@ -87,7 +87,6 @@ main :: IO ()
 main = do
   setupStackFiles
   withFileLogging "./test-functional.log" $ cdAndDo "./test/testdata"  $ hspec spec
--- main = withFileLogging "./test-functional.log" $ cdAndDo "/home/alanz/tmp/haskell-hie-test-project"  $ hspec spec
 
 spec :: Spec
 spec = do
@@ -128,7 +127,7 @@ functionalSpec = do
                                              (Just "Redundant do")
                                              (Just "hlint")
                                              "Redundant do\nFound:\n  do putStrLn \"hello\"\nWhy not:\n  putStrLn \"hello\"\n"
-                                             mempty
+                                             (List [])
                                 ]
                               })
 

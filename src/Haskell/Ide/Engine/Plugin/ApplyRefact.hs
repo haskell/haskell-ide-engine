@@ -119,7 +119,7 @@ parseErrorToDiagnostic (Hlint.ParseError l msg contents) =
       , _code     = Just "parser"
       , _source   = Just "hlint"
       , _message  = T.unlines [T.pack msg,T.pack contents]
-      , _relatedInformation = mempty
+      , _relatedInformation = List []
       }]
 
 {-
@@ -163,7 +163,7 @@ hintToDiagnostic idea
       , _code     = Just (T.pack $ ideaHint idea)
       , _source   = Just "hlint"
       , _message  = idea2Message idea
-      , _relatedInformation = mempty
+      , _relatedInformation = List []
       }
 
 -- ---------------------------------------------------------------------

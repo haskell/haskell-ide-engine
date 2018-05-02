@@ -8,6 +8,14 @@ packages:
   extra-dep: true
 
 - location:
+    ./submodules/brittany
+  extra-dep: true
+
+- location:
+    ./submodules/cabal-helper
+  extra-dep: true
+
+- location:
     ./submodules/ghc-mod
   extra-dep: true
   subdirs:
@@ -15,7 +23,14 @@ packages:
     - core
 
 - location:
-    ./submodules/cabal-helper
+    ./submodules/haskell-lsp
+  extra-dep: true
+  subdirs:
+    - .
+    - haskell-lsp-types
+
+- location:
+    ./submodules/yi-rope
   extra-dep: true
 
 extra-deps:
@@ -25,7 +40,7 @@ extra-deps:
 - constrained-dynamic-0.1.0.0
 - czipwith-1.0.1.0
 - data-tree-print-0.1.0.1
-- deque-0.2
+- deque-0.2.1
 - ghc-exactprint-0.5.6.1
 - haskell-lsp-0.2.1.0
 - haskell-lsp-types-0.2.1.0

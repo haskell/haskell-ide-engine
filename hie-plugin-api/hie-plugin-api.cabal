@@ -1,5 +1,5 @@
 name:                hie-plugin-api
-version:             0.1.0.0
+version:             0.2.0.0
 synopsis:            Haskell IDE API for plugin communication
 license:             BSD3
 license-file:        LICENSE
@@ -9,7 +9,8 @@ copyright:           2015 TBD
 category:            Web
 build-type:          Simple
 -- extra-source-files:
-cabal-version:       >=1.10
+-- cabal-helper for cabal 2.2/GHC 8.4 needs a cabal version >= 2
+cabal-version:       >=2.0
 
 flag pedantic
   Description: Enable -Werror

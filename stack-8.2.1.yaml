@@ -1,10 +1,14 @@
-resolver: nightly-2017-11-24
+resolver: nightly-2017-11-24 # Last one for GHC 8.2.1
 packages:
 - .
 - hie-plugin-api
 
 - location:
     ./submodules/HaRe
+  extra-dep: true
+
+- location:
+    ./submodules/cabal-helper
   extra-dep: true
 
 - location:
@@ -15,7 +19,7 @@ packages:
     - core
 
 - location:
-    ./submodules/cabal-helper
+    ./submodules/yi-rope
   extra-dep: true
 
 extra-deps:

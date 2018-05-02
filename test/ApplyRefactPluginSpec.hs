@@ -33,7 +33,7 @@ testPlugins = pluginDescToIdePlugins [("applyrefact",applyRefactDescriptor)]
 
 applyRefactSpec :: Spec
 applyRefactSpec = do
-  describe "apply-refact plugin commands(old plugin api)" $ do
+  describe "apply-refact plugin commands" $ do
     applyRefactPath  <- runIO $ filePathToUri <$> makeAbsolute "./test/testdata/ApplyRefact.hs"
 
     -- ---------------------------------
@@ -81,13 +81,13 @@ applyRefactSpec = do
                             (Just "Redundant bracket")
                             (Just "hlint")
                             "Redundant bracket\nFound:\n  (putStrLn \"hello\")\nWhy not:\n  putStrLn \"hello\"\n"
-                            mempty
+                            (List [])
                , Diagnostic (Range (Position 3 8) (Position 3 15))
                             (Just DsHint)
                             (Just "Redundant bracket")
                             (Just "hlint")
                             "Redundant bracket\nFound:\n  (x + 1)\nWhy not:\n  x + 1\n"
-                            mempty
+                            (List [])
                ]}
       testCommand testPlugins act "applyrefact" "lint" arg res
 
@@ -108,7 +108,7 @@ applyRefactSpec = do
                            , _code = Just "parser"
                            , _source = Just "hlint"
                            , _message = "Parse error: :~:\n  import           Data.Type.Equality            ((:~:) (..), (:~~:) (..))\n  \n> data instance Sing (z :: (a :~: b)) where\n      SRefl :: Sing Refl\n\n"
-                           , _relatedInformation = mempty }]}
+                           , _relatedInformation = List [] }]}
       testCommand testPlugins act "applyrefact" "lint" arg res
 
     -- ---------------------------------
@@ -128,7 +128,7 @@ applyRefactSpec = do
                            (Just "Redundant bracket")
                            (Just "hlint")
                            "Redundant bracket\nFound:\n  (\"hello\")\nWhy not:\n  \"hello\"\n"
-                           mempty
+                           (List [])
               ]
             }
            ))

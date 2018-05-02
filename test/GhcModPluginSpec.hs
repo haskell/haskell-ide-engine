@@ -1,9 +1,12 @@
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 module GhcModPluginSpec where
 
 import           Control.Exception
 import qualified Data.Map                            as Map
+#if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
+#endif
 import qualified Data.Set                            as S
 import qualified Data.Text                           as T
 import           Haskell.Ide.Engine.MonadTypes
@@ -33,7 +36,7 @@ testPlugins = pluginDescToIdePlugins [("ghcmod",ghcmodDescriptor)]
 
 ghcmodSpec :: Spec
 ghcmodSpec = do
-  describe "ghc-mod plugin commands(old plugin api)" $ do
+  describe "ghc-mod plugin commands" $ do
 
     it "runs the check command" $ cdAndDo "./test/testdata" $ do
       fp <- makeAbsolute "./FileWithWarning.hs"
@@ -43,11 +46,11 @@ ghcmodSpec = do
             (Map.singleton arg (S.singleton diag), [])
           diag = Diagnostic (Range (toPos (4,7))
                                    (toPos (4,8)))
-                                   (Just DsError)
-                                   Nothing
-                                   (Just "ghcmod")
-                                   "Variable not in scope: x"
-                                   mempty
+                            (Just DsError)
+                            Nothing
+                            (Just "ghcmod")
+                            "Variable not in scope: x"
+                            (List [])
 
       testCommand testPlugins act "ghcmod" "check" arg res
 

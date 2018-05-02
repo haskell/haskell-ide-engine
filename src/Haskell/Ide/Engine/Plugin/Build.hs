@@ -7,11 +7,18 @@
 {-# LANGUAGE RankNTypes #-}
 module Haskell.Ide.Engine.Plugin.Build where
 
+#ifdef MIN_VERSION_Cabal
+#undef CH_MIN_VERSION_Cabal
+#define CH_MIN_VERSION_Cabal MIN_VERSION_Cabal
+#endif
+
 import qualified Data.Aeson                             as J
 #if __GLASGOW_HASKELL__ < 802
 import qualified Data.Aeson.Types                       as J
 #endif
+#if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
+#endif
 import qualified Control.Exception as Exception
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Reader
@@ -31,7 +38,13 @@ import Distribution.Simple.Setup (defaultDistPref)
 import Distribution.Simple.Configure (localBuildInfoFile)
 import Distribution.Package (pkgName, unPackageName)
 import Distribution.PackageDescription
-import Distribution.PackageDescription.Parse
+#if CH_MIN_VERSION_Cabal(2,2,0)
+import Distribution.PackageDescription.Parsec (readGenericPackageDescription)
+#elif CH_MIN_VERSION_Cabal(2,0,0)
+import Distribution.PackageDescription.Parse (readGenericPackageDescription)
+#else
+import Distribution.PackageDescription.Parse (readPackageDescription)
+#endif
 import qualified Distribution.Verbosity as Verb
 
 import Data.Yaml
