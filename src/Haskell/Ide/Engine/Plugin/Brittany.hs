@@ -90,7 +90,7 @@ opt = Option . Just
 showErr :: BrittanyError -> String
 showErr (ErrorInput s)          = s
 showErr (ErrorMacroConfig  err input)
-  = "Error: parse error in inline configuration:" ++ err ++ " in the string \"" ++ input ++ "\"."
+  = "Error: parse error in inline configuration: " ++ err ++ " in the string \"" ++ input ++ "\"."
 showErr (ErrorUnusedComment s)  = s
 showErr (LayoutWarning s)       = s
 showErr (ErrorUnknownNode s _)  = s
