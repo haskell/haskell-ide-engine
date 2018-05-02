@@ -34,7 +34,7 @@ import qualified Data.Text                             as T
 import           FastString
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.ArtifactMap
-import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
+import qualified Language.Haskell.LSP.Types            as J
 import           Prelude                               hiding (log)
 import           SrcLoc
 import           System.Directory

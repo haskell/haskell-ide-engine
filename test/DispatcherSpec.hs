@@ -13,7 +13,7 @@ import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
-import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
+import qualified Language.Haskell.LSP.Types            as J
 import           TestUtils
 
 import           Test.Hspec

@@ -5,7 +5,7 @@
 module Haskell.Ide.Engine.Types where
 
 import           Haskell.Ide.Engine.MonadTypes
-import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
+import qualified Language.Haskell.LSP.Types as J
 
 -- ---------------------------------------------------------------------
 

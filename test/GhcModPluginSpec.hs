@@ -3,7 +3,9 @@ module GhcModPluginSpec where
 
 import           Control.Exception
 import qualified Data.Map                            as Map
+import           Data.Monoid
 import qualified Data.Set                            as S
+import qualified Data.Text                           as T
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
@@ -45,22 +47,25 @@ ghcmodSpec = do
                                    Nothing
                                    (Just "ghcmod")
                                    "Variable not in scope: x"
+                                   mempty
 
       testCommand testPlugins act "ghcmod" "check" arg res
 
     -- ---------------------------------
 
     it "runs the lint command" $ cdAndDo "./test/testdata" $ do
-      let uri = filePathToUri "./FileWithWarning.hs"
+      fp <- makeAbsolute "FileWithWarning.hs"
+      let uri = filePathToUri fp
           act = lintCmd' uri
           arg = uri
-          res = IdeResponseOk "./FileWithWarning.hs:6:9: Warning: Redundant do\NULFound:\NUL  do return (3 + x)\NULWhy not:\NUL  return (3 + x)\n"
+          res = IdeResponseOk (T.pack fp <> ":6:9: Warning: Redundant do\NULFound:\NUL  do return (3 + x)\NULWhy not:\NUL  return (3 + x)\n")
       testCommand testPlugins act "ghcmod" "lint" arg res
 
     -- ---------------------------------
 
     it "runs the info command" $ cdAndDo "./test/testdata" $ do
-      let uri = filePathToUri "HaReRename.hs"
+      fp <- makeAbsolute "HaReRename.hs"
+      let uri = filePathToUri fp
           act = infoCmd' uri "main"
           arg = IP uri "main"
           res = IdeResponseOk "main :: IO () \t-- Defined at HaReRename.hs:2:1\n"
@@ -70,7 +75,8 @@ ghcmodSpec = do
     -- ---------------------------------
 
     it "runs the type command" $ cdAndDo "./test/testdata" $ do
-      let uri = filePathToUri "HaReRename.hs"
+      fp <- makeAbsolute "HaReRename.hs"
+      let uri = filePathToUri fp
           act = do
             _ <- setTypecheckedModule uri
             liftToGhc $ newTypeCmd (toPos (5,9)) uri

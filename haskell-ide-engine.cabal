@@ -57,7 +57,7 @@ library
                      , gitrev >= 1.1
                      , haddock-api
                      , haddock-library
-                     , haskell-lsp >= 0.2
+                     , haskell-lsp >= 0.2.1
                      , haskell-src-exts
                      , hie-plugin-api
                      , hlint >= 2.0.11

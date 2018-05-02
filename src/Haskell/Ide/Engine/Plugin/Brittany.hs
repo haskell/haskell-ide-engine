@@ -14,7 +14,7 @@ import qualified GhcMod.Utils                          as GM
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           Language.Haskell.Brittany
-import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
+import qualified Language.Haskell.LSP.Types            as J
 import           System.FilePath (FilePath, takeDirectory)
 import           Data.Maybe (maybeToList)
 
@@ -88,9 +88,11 @@ opt :: a -> Option a
 opt = Option . Just
 
 showErr :: BrittanyError -> String
-showErr (ErrorInput s)         = s
-showErr (ErrorUnusedComment s) = s
-showErr (LayoutWarning s)      = s
-showErr (ErrorUnknownNode s _) = s
-showErr ErrorOutputCheck       = "Brittany error - invalid output"
+showErr (ErrorInput s)          = s
+showErr (ErrorMacroConfig  err input)
+  = "Error: parse error in inline configuration: " ++ err ++ " in the string \"" ++ input ++ "\"."
+showErr (ErrorUnusedComment s)  = s
+showErr (LayoutWarning s)       = s
+showErr (ErrorUnknownNode s _)  = s
+showErr ErrorOutputCheck        = "Brittany error - invalid output"
 
