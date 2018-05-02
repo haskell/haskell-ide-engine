@@ -70,13 +70,25 @@ we talk to clients.__
 
    ![Renaming](https://i.imgur.com/z03G2a5.gif)
  
-## Installation 
+## Installation
+
+### Getting the source for GHC 8.2.1, 8.2.2, 8.4.2
 
 Both methods build HIE from the source code, so first,
 
 ```bash
 $ git clone https://github.com/haskell/haskell-ide-engine --recursive
 $ cd haskell-ide-engine
+```
+### Getting the source for GHC 8.0.2, 8.2.1, 8.2.2
+
+Both methods build HIE from the source code, so first,
+
+```bash
+$ git clone https://github.com/haskell/haskell-ide-engine
+$ cd haskell-ide-engine
+$ git checkout hie-0.1.0.0
+$ git submodule update --init
 ```
 
 ### Installation with stack
@@ -92,8 +104,23 @@ make build-all
 
 Otherwise, do one of the following.
 
+#### For GHC 8.4.2
+
+Using master
+
+```bash
+stack install
+```
 
 #### For GHC 8.2.2
+
+Using master
+
+```bash
+stack --stack-yaml=stack-8.2.2.yaml install
+```
+
+Using branch `hie-0.1.0.0`
 
 ```bash
 stack install
@@ -105,7 +132,7 @@ stack install
 stack --stack-yaml=stack-8.2.1.yaml install
 ```
 
-#### For GHC 8.0.2
+#### For GHC 8.0.2 (only via branch `hie-0.1.0.0`)
 
 ```bash
 stack --stack-yaml=stack-8.0.2.yaml install
