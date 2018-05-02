@@ -83,7 +83,7 @@ logDiag rfm eref dref df _reason sev spn style msg = do
     Right (Location uri range) -> do
       let update = Map.insertWith Set.union uri l
             where l = Set.singleton diag
-          diag = Diagnostic range (Just $ lspSev sev) Nothing (Just "ghcmod") msgTxt
+          diag = Diagnostic range (Just $ lspSev sev) Nothing (Just "ghcmod") msgTxt mempty
       modifyIORef' dref update
     Left _ -> do
       modifyIORef' eref (msgTxt:)
@@ -111,7 +111,7 @@ srcErrToDiag df rfm se = do
         eloc <- srcSpan2Loc rfm $ errMsgSpan err
         case eloc of
           Right (Location uri range) ->
-            return $ Right (uri, Diagnostic range sev Nothing (Just "ghcmod") msgTxt)
+            return $ Right (uri, Diagnostic range sev Nothing (Just "ghcmod") msgTxt mempty)
           Left _ -> return $ Left msgTxt
       processMsgs [] = return (Map.empty,[])
       processMsgs (x:xs) = do

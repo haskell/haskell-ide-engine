@@ -60,7 +60,7 @@ import qualified Language.Haskell.LSP.Core             as Core
 import qualified Language.Haskell.LSP.VFS              as VFS
 import           Language.Haskell.LSP.Diagnostics
 import           Language.Haskell.LSP.Messages
-import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
+import qualified Language.Haskell.LSP.Types            as J
 import qualified Language.Haskell.LSP.Utility          as U
 import           System.Exit
 import qualified System.Log.Logger as L
@@ -543,7 +543,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             (J.List diags) = params ^. J.context . J.diagnostics
 
         let
-          makeCommand (J.Diagnostic (J.Range start _) _s (Just code) (Just "hlint") m) = [J.Command title cmd cmdparams]
+          makeCommand (J.Diagnostic (J.Range start _) _s (Just code) (Just "hlint") m _) = [J.Command title cmd cmdparams]
             where
               title :: T.Text
               title = "Apply hint:" <> head (T.lines m)
@@ -552,7 +552,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
               -- need 'file', 'start_pos' and hint title (to distinguish between alternative suggestions at the same location)
               args = J.Array $ V.singleton $ J.toJSON $ ApplyRefact.AOP doc start code
               cmdparams = Just args
-          makeCommand (J.Diagnostic _r _s _c _source _m  ) = []
+          makeCommand (J.Diagnostic _r _s _c _source _m _) = []
           -- TODO: make context specific commands for all sorts of things, such as refactorings
         let body = J.List $ concatMap makeCommand diags
         let rspMsg = Core.makeResponseMessage req body
@@ -781,7 +781,7 @@ requestDiagnostics cin file ver = do
     sendOne pid (fileUri,ds) = do
       publishDiagnostics maxToSend fileUri Nothing (Map.fromList [(Just pid,SL.toSortedList ds)])
     hasSeverity :: J.DiagnosticSeverity -> J.Diagnostic -> Bool
-    hasSeverity sev (J.Diagnostic _ (Just s) _ _ _) = s == sev
+    hasSeverity sev (J.Diagnostic _ (Just s) _ _ _ _) = s == sev
     hasSeverity _ _ = False
     sendEmpty = publishDiagnostics maxToSend file Nothing (Map.fromList [(Just "ghcmod",SL.toSortedList [])])
     maxToSend = maybe 50 maxNumberOfProblems mc

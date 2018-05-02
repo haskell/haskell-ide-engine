@@ -1,4 +1,4 @@
-resolver: lts-11.6
+resolver: lts-11.7
 packages:
 - .
 - hie-plugin-api
@@ -18,6 +18,13 @@ packages:
     ./submodules/cabal-helper
   extra-dep: true
 
+- location:
+    ./submodules/haskell-lsp
+  extra-dep: true
+  subdirs:
+    - .
+    - haskell-lsp-types
+
 extra-deps:
 - brittany-0.10.0.0
 # - cabal-helper-0.8.0.2
@@ -25,6 +32,7 @@ extra-deps:
 - haddock-api-2.18.1
 - haddock-library-1.4.4
 - syz-0.2.0.0
+- sorted-list-0.2.1.0
 
 flags:
   haskell-ide-engine:

@@ -7,7 +7,7 @@ import           Haskell.Ide.Engine.Plugin.ApplyRefact
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
-import           Language.Haskell.LSP.TH.DataTypesJSON
+import           Language.Haskell.LSP.Types
 import           System.Directory
 import           TestUtils
 
@@ -40,7 +40,7 @@ applyRefactSpec = do
 
     it "applies one hint only" $ do
 
-      let furi = filePathToUri "./test/testdata/ApplyRefact.hs"
+      let furi = applyRefactPath
           act = applyOneCmd' furi (OneHint (toPos (2,8)) "Redundant bracket")
           arg = AOP furi (toPos (2,8)) "Redundant bracket"
           res = IdeResponseOk $ WorkspaceEdit
@@ -55,7 +55,7 @@ applyRefactSpec = do
     it "applies all hints" $ do
 
       let act = applyAllCmd' arg
-          arg = filePathToUri "./test/testdata/ApplyRefact.hs"
+          arg = applyRefactPath
           res = IdeResponseOk $ WorkspaceEdit
             (Just
               $ H.singleton applyRefactPath
@@ -71,58 +71,64 @@ applyRefactSpec = do
     it "returns hints as diagnostics" $ do
 
       let act = lintCmd' arg
-          arg = filePathToUri "./test/testdata/ApplyRefact.hs"
+          arg = applyRefactPath
           res = IdeResponseOk
             PublishDiagnosticsParams
-             { _uri = filePathToUri "./test/testdata/ApplyRefact.hs"
+             { _uri = applyRefactPath
              , _diagnostics = List $
                [ Diagnostic (Range (Position 1 7) (Position 1 25))
                             (Just DsHint)
                             (Just "Redundant bracket")
                             (Just "hlint")
                             "Redundant bracket\nFound:\n  (putStrLn \"hello\")\nWhy not:\n  putStrLn \"hello\"\n"
+                            mempty
                , Diagnostic (Range (Position 3 8) (Position 3 15))
                             (Just DsHint)
                             (Just "Redundant bracket")
                             (Just "hlint")
                             "Redundant bracket\nFound:\n  (x + 1)\nWhy not:\n  x + 1\n"
+                            mempty
                ]}
       testCommand testPlugins act "applyrefact" "lint" arg res
 
     -- ---------------------------------
 
     it "returns hlint parse error as DsInfo ignored diagnostic" $ do
+      filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/HlintParseFail.hs"
 
       let act = lintCmd' arg
-          arg = filePathToUri "./test/testdata/HlintParseFail.hs"
+          arg = filePath
           res = IdeResponseOk
             PublishDiagnosticsParams
-             { _uri = Uri {getUri = "file://./test/testdata/HlintParseFail.hs"}
+             { _uri = filePath
              , _diagnostics = List $
                [Diagnostic {_range = Range { _start = Position {_line = 11, _character = 28}
                                            , _end = Position {_line = 11, _character = 100000}}
                            , _severity = Just DsInfo
                            , _code = Just "parser"
                            , _source = Just "hlint"
-                           , _message = "Parse error: :~:\n  import           Data.Type.Equality            ((:~:) (..), (:~~:) (..))\n  \n> data instance Sing (z :: (a :~: b)) where\n      SRefl :: Sing Refl\n\n"}]}
+                           , _message = "Parse error: :~:\n  import           Data.Type.Equality            ((:~:) (..), (:~~:) (..))\n  \n> data instance Sing (z :: (a :~: b)) where\n      SRefl :: Sing Refl\n\n"
+                           , _relatedInformation = mempty }]}
       testCommand testPlugins act "applyrefact" "lint" arg res
 
     -- ---------------------------------
 
     it "respects hlint pragmas in the source file" $ do
+      filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/HlintPragma.hs"
 
-      let req = lintCmd' (filePathToUri "./test/testdata/HlintPragma.hs")
+      let req = lintCmd' filePath
       r <- runIGM testPlugins req
       r `shouldBe`
         (IdeResponseOk
            (PublishDiagnosticsParams
-            { _uri = filePathToUri "./test/testdata/HlintPragma.hs"
+            { _uri = filePath
             , _diagnostics = List
               [ Diagnostic (Range (Position 3 11) (Position 3 20))
                            (Just DsInfo)
                            (Just "Redundant bracket")
                            (Just "hlint")
                            "Redundant bracket\nFound:\n  (\"hello\")\nWhy not:\n  \"hello\"\n"
+                           mempty
               ]
             }
            ))
@@ -130,13 +136,15 @@ applyRefactSpec = do
     -- ---------------------------------
 
     it "respects hlint config files in project root dir" $ do
+      filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/HlintPragma.hs"
 
-      let req = lintCmd' (filePathToUri "./HlintPragma.hs")
+      let req = lintCmd' filePath
       r <- cdAndDo "./test/testdata" $ runIGM testPlugins req
       r `shouldBe`
         (IdeResponseOk
            (PublishDiagnosticsParams
-            { _uri = filePathToUri "./HlintPragma.hs"
+            -- { _uri = filePathToUri "./HlintPragma.hs"
+            { _uri = filePath
             , _diagnostics = List []
             }
            ))

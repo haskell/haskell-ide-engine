@@ -32,19 +32,19 @@ import           Control.Applicative
 import           Data.Aeson
 import qualified Data.Text                             as T
 import           GHC.Generics
-import           Language.Haskell.LSP.TH.DataTypesJSON (Diagnostic (..),
-                                                        DiagnosticSeverity (..),
-                                                        List (..),
-                                                        Location (..),
-                                                        Position (..),
-                                                        PublishDiagnosticsParams (..),
-                                                        Range (..),
-                                                        TextDocumentIdentifier (..),
-                                                        TextDocumentPositionParams (..),
-                                                        Uri (..),
-                                                        WorkspaceEdit (..),
-                                                        filePathToUri,
-                                                        uriToFilePath)
+import           Language.Haskell.LSP.Types (Diagnostic (..),
+                                             DiagnosticSeverity (..),
+                                             List (..),
+                                             Location (..),
+                                             Position (..),
+                                             PublishDiagnosticsParams (..),
+                                             Range (..),
+                                             TextDocumentIdentifier (..),
+                                             TextDocumentPositionParams (..),
+                                             Uri (..),
+                                             WorkspaceEdit (..),
+                                             filePathToUri,
+                                             uriToFilePath)
 
 
 -- ---------------------------------------------------------------------
