@@ -29,8 +29,8 @@ extra-deps:
 - czipwith-1.0.1.0
 - haddock-api-2.18.1
 - haddock-library-1.4.4
-- haskell-lsp-0.2.1.0
-- haskell-lsp-types-0.2.1.0
+- haskell-lsp-0.2.2.0
+- haskell-lsp-types-0.2.2.0
 - sorted-list-0.2.1.0
 - syz-0.2.0.0
 
