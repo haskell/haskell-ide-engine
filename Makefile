@@ -44,7 +44,7 @@ hie-8.2.2:
 hie-8.4.2:
 	stack --stack-yaml=stack.yaml install                  \
 		&& cp ~/.local/bin/hie ~/.local/bin/hie-8.4.2      \
-		&& cp ~/.local/bin/hie-8.2.2 ~/.local/bin/hie-8.4
+		&& cp ~/.local/bin/hie-8.4.2 ~/.local/bin/hie-8.4
 .PHONY: hie-8.4.2
 
 # ------------------------------------------------------
