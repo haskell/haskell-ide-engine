@@ -127,7 +127,7 @@ functionalSpec = do
                                              (Just "Redundant do")
                                              (Just "hlint")
                                              "Redundant do\nFound:\n  do putStrLn \"hello\"\nWhy not:\n  putStrLn \"hello\"\n"
-                                             (List [])
+                                             Nothing
                                 ]
                               })
 

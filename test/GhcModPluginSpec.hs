@@ -50,7 +50,7 @@ ghcmodSpec = do
                             Nothing
                             (Just "ghcmod")
                             "Variable not in scope: x"
-                            (List [])
+                            Nothing
 
       testCommand testPlugins act "ghcmod" "check" arg res
 
