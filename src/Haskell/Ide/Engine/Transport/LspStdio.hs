@@ -537,25 +537,41 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
 
       Core.ReqCodeAction req -> do
         liftIO $ U.logs $ "reactor:got CodeActionRequest:" ++ show req
+
         let params = req ^. J.params
             doc = params ^. J.textDocument . J.uri
-            (J.List diags) = params ^. J.context . J.diagnostics
+            (J.List allDiags) = params ^. J.context . J.diagnostics
 
-        let
-          makeCommand (J.Diagnostic (J.Range start _) _s (Just code) (Just "hlint") m _) = [J.Command title cmd cmdparams]
-            where
-              title :: T.Text
-              title = "Apply hint:" <> head (T.lines m)
-              -- NOTE: the cmd needs to be registered via the InitializeResponse message. See hieOptions above
-              cmd = "applyrefact:applyOne"
-              -- need 'file', 'start_pos' and hint title (to distinguish between alternative suggestions at the same location)
-              args = J.Array $ V.singleton $ J.toJSON $ ApplyRefact.AOP doc start code
-              cmdparams = Just args
-          makeCommand (J.Diagnostic _r _s _c _source _m _) = []
-          -- TODO: make context specific commands for all sorts of things, such as refactorings
-        let body = J.List $ concatMap makeCommand diags
-        let rspMsg = Core.makeResponseMessage req body
-        reactorSend rspMsg
+            sendCodeActions :: [Diagnostic] -> R ()
+            sendCodeActions diags = do
+                -- TODO: make context specific commands for all sorts of things, such as refactorings
+              let body = J.List $ concatMap makeCommand diags
+              let rspMsg = Core.makeResponseMessage req body
+              reactorSend rspMsg
+
+            makeCommand :: Diagnostic -> [J.Command]
+            makeCommand (J.Diagnostic (J.Range start _) _s (Just code) (Just "hlint") m _) = [J.Command title cmd cmdparams]
+              where
+                title :: T.Text
+                title = "Apply hint:" <> head (T.lines m)
+                -- NOTE: the cmd needs to be registered via the InitializeResponse message. See hieOptions above
+                cmd = "applyrefact:applyOne"
+                -- need 'file', 'start_pos' and hint title (to distinguish between alternative suggestions at the same location)
+                args = J.Array $ V.singleton $ J.toJSON $ ApplyRefact.AOP doc start code
+                cmdparams = Just args
+            makeCommand (J.Diagnostic _r _s _c _source _m _) = []
+
+            callback :: IdeResponse [Diagnostic] -> R ()
+            callback (IdeResponseOk refactorableDiags) = sendCodeActions refactorableDiags
+            callback _ = sendCodeActions allDiags
+
+        lf <- ask
+        diagsOn <- configVal True hlintOn
+        if diagsOn
+          -- if hlint is enabled then try to filter out unrefactorable diagnostics
+          then makeRequest $ GReq (Just doc) Nothing Nothing (flip runReaderT lf . callback)
+                           $ ApplyRefact.filterUnrefactorableDiagnostics doc allDiags
+          else sendCodeActions allDiags 
 
       -- -------------------------------
 
