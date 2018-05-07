@@ -14,7 +14,7 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Plugin.GhcMod
-import           Language.Haskell.LSP.TH.DataTypesJSON (TextEdit(..))
+import           Language.Haskell.LSP.Types (TextEdit(..))
 import           System.Directory
 import           TestUtils
 
@@ -37,7 +37,7 @@ testPlugins = pluginDescToIdePlugins [("ghcmod",ghcmodDescriptor)]
 -- ---------------------------------------------------------------------
 
 ghcmodSpec :: Spec
-ghcmodSpec = do
+ghcmodSpec =
   describe "ghc-mod plugin commands(old plugin api)" $ do
     it "runs the check command" $ cdAndDo "./test/testdata" $ do
       fp <- makeAbsolute "./FileWithWarning.hs"
@@ -114,7 +114,8 @@ ghcmodSpec = do
     -- ---------------------------------
 
     it "runs the casesplit command" $ cdAndDo "./test/testdata" $ do
-      let uri = filePathToUri "GhcModCaseSplit.hs"
+      fp <- makeAbsolute "GhcModCaseSplit.hs"
+      let uri = filePathToUri fp
           act = splitCaseCmd' uri (toPos (5,5))
           arg = DocPos uri (toPos (5,5))
           res = IdeResponseOk $ WorkspaceEdit

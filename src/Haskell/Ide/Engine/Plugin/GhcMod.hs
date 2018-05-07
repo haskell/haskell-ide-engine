@@ -35,13 +35,13 @@ import qualified GhcMod.Monad                      as GM
 import qualified GhcMod.SrcUtils                   as GM
 import qualified GhcMod.Types                      as GM
 import qualified GhcMod.Utils                      as GM
+import qualified GhcMod.Exe.CaseSplit              as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.ArtifactMap
 import           HscTypes
 import           TcRnTypes
-import Text.Read (readMaybe)
 import           Outputable                        (renderWithStyle, mkUserStyle, Depth(..))
 
 -- ---------------------------------------------------------------------
@@ -284,43 +284,23 @@ splitCaseCmd' :: Uri -> Position -> IdeGhcM (IdeResponse WorkspaceEdit)
 splitCaseCmd' uri position =
   pluginGetFile "splitCaseCmd: " uri $ \path -> do
     origText <- GM.withMappedFile path $ liftIO . T.readFile
-    splitOutput <- runGhcModCommand $ GM.splits path line column
-    let parsedOutput = splitOutput >>= parseCaseSplitOutput
-        workspaceEdit = splitResultToWorkspaceEdit origText <$> parsedOutput
-    return workspaceEdit
+
+    Just checkedModule <- getCachedModule path
+    runGhcModCommand $ do
+      Just splitResult <- GM.splits' path (tcMod checkedModule) line column
+      let workspaceEdit = splitResultToWorkspaceEdit origText splitResult
+      return workspaceEdit
   where
     (line, column) = unPos position
 
-    -- | Parse the output from ghc-mod 'GM.splits'.
-    -- The 'Range' indicates the text segment to replace.
-    -- The 'T.Text' contains the newly obtained pattern matches to insert.
-    --
-    -- Yields 'IdeResponseFail' when the output cannot be parsed.
-    parseCaseSplitOutput :: String -> IdeResponse (Range, T.Text)
-    parseCaseSplitOutput s = maybe failure IdeResponseOk $ case words s of
-      (sLine : sCol : eLine : eCol : _) -> do
-        startPos <- curry toPos <$> readMaybe sLine <*> readMaybe sCol
-        endPos <- curry toPos <$> readMaybe eLine <*> readMaybe eCol
-        codeOutput <- readMaybe $ dropWhile (/= '"') $ dropWhileEnd (== '"') s
-        let newStr = map nulToNewline codeOutput
-        Just (Range startPos endPos, T.pack newStr)
-      _ -> Nothing
-      where
-        nulToNewline '\NUL' = '\n'
-        nulToNewline c = c
-
-        failure = IdeResponseFail $
-                  IdeError PluginError
-                    ("hie-ghc-mod: could not parse ghc-mod output: \"" <> T.pack s <> "\"") Null
-
     -- | Given the range and text to replace, construct a 'WorkspaceEdit'
     -- by diffing the change against the current text.
-    splitResultToWorkspaceEdit :: T.Text -> (Range, T.Text) -> WorkspaceEdit
-    splitResultToWorkspaceEdit originalText (Range replaceFrom replaceTo, replaceWith) =
+    splitResultToWorkspaceEdit :: T.Text -> GM.SplitResult -> WorkspaceEdit
+    splitResultToWorkspaceEdit originalText (GM.SplitResult replaceFromLine replaceFromCol replaceToLine replaceToCol replaceWith) =
       diffText (uri, originalText) newText
       where
-        before = takeUntil replaceFrom originalText
-        after = dropUntil replaceTo originalText
+        before = takeUntil (toPos (replaceFromLine, replaceFromCol)) originalText
+        after = dropUntil (toPos (replaceToLine, replaceToCol)) originalText
         newText = before <> replaceWith <> after
 
     -- | Take the first part of text until the given position.
