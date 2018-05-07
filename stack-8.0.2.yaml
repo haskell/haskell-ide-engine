@@ -8,10 +8,6 @@ packages:
   extra-dep: true
 
 - location:
-    ./submodules/brittany
-  extra-dep: true
-
-- location:
     ./submodules/cabal-helper
   extra-dep: true
 
@@ -21,13 +17,6 @@ packages:
   subdirs:
     - .
     - core
-
-- location:
-    ./submodules/haskell-lsp
-  extra-dep: true
-  subdirs:
-    - .
-    - haskell-lsp-types
 
 - location:
     ./submodules/yi-rope
