@@ -8,10 +8,6 @@ packages:
   extra-dep: true
 
 - location:
-    ./submodules/brittany
-  extra-dep: true
-
-- location:
     ./submodules/cabal-helper
   extra-dep: true
 
