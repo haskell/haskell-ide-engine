@@ -17,7 +17,7 @@ import qualified Data.Monoid.Textual as T
 
 -- | Included in the return type of @'match'@ and @'filter'@.
 -- Contains the original value given, and the matching score.
-data (T.TextualMonoid s) => Fuzzy t s =
+data Fuzzy t s =
   Fuzzy { original :: t
         , score    :: Int
         } deriving (Show, Eq)
