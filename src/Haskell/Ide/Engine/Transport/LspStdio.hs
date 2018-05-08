@@ -439,9 +439,8 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             uri = notification ^. J.params . J.textDocument . J.uri
         -- unmapFileFromVfs versionTVar cin uri
         makeRequest $ GReq (Just uri) Nothing Nothing (const $ return ()) $ do
-          case uriToFilePath uri of
-            Just fp -> deleteCachedModule fp
-            Nothing -> return ()
+          forM_ (uriToFilePath uri)
+            deleteCachedModule
           return $ IdeResponseOk ()
 
       -- -------------------------------
@@ -571,7 +570,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
           -- if hlint is enabled then try to filter out unrefactorable diagnostics
           then makeRequest $ GReq (Just doc) Nothing Nothing (flip runReaderT lf . callback)
                            $ ApplyRefact.filterUnrefactorableDiagnostics doc allDiags
-          else sendCodeActions allDiags 
+          else sendCodeActions allDiags
 
       -- -------------------------------
 
@@ -606,7 +605,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
       Core.ReqCompletion req -> do
         liftIO $ U.logs $ "reactor:got CompletionRequest:" ++ show req
         let params = req ^. J.params
-            doc = params ^. J.textDocument ^. J.uri
+            doc = params ^. (J.textDocument . J.uri)
             pos = params ^. J.position
 
         mprefix <- getPrefixAtPos doc pos
@@ -647,7 +646,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
       Core.ReqDocumentHighlights req -> do
         liftIO $ U.logs $ "reactor:got DocumentHighlightsRequest:" ++ show req
         let params = req ^. J.params
-            doc = params ^. J.textDocument ^. J.uri
+            doc = params ^. (J.textDocument . J.uri)
             pos = params ^. J.position
         callback <- hieResponseHelper (req ^. J.id) $ \highlights -> do
           let rspMsg = Core.makeResponseMessage req $ J.List highlights
@@ -673,7 +672,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         liftIO $ U.logs $ "reactor:got FindReferences:" ++ show req
         -- TODO: implement project-wide references
         let params = req ^. J.params
-            doc = params ^. J.textDocument ^. J.uri
+            doc = params ^. (J.textDocument . J.uri)
             pos = params ^. J.position
         callback <- hieResponseHelper (req ^. J.id) $ \highlights -> do
           let rspMsg = Core.makeResponseMessage req $ J.List highlights
@@ -769,7 +768,7 @@ getDocsForName :: T.Text -> Maybe T.Text -> T.Text -> IdeM (Maybe T.Text)
 getDocsForName name pkg modName' = do
   let modName = docRules pkg modName'
       query = name
-           <> fromMaybe "" (T.append " package:" <$> pkg)
+           <> maybe "" (T.append " package:") pkg
            <> " module:" <> modName
            <> " is:exact"
   debugm $ "hoogle query: " ++ T.unpack query
