@@ -153,6 +153,8 @@ myLogger rfm action = do
 setTypecheckedModule :: Uri -> IdeGhcM (IdeResponse (Diagnostics, AdditionalErrs))
 setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
+    fileMap <- GM.getMMappedFiles
+    debugm $ "setTypecheckedModule: file mapping state is: " ++ show fileMap
     rfm <- GM.mkRevRedirMapFunc
     ((diags', errs), mtm) <- GM.getTypecheckedModuleGhc' (myLogger rfm) fp
     let diags = Map.insertWith Set.union uri Set.empty diags'
