@@ -21,6 +21,7 @@ import           GhcMonad
 import qualified GhcMod.Monad                                 as GM
 import qualified GhcMod.LightGhc                              as GM
 import           Haskell.Ide.Engine.MonadTypes
+import           Haskell.Ide.Engine.MonadFunctions
 import           HscTypes
 import           Name
 import           Packages
@@ -107,7 +108,9 @@ getDocsForName df name = do
     Just f -> do
       ehi <- readInterfaceFile nameCacheFromIdeM f
       case ehi of
-        Left _ -> return Nothing
+        Left message -> do
+          debugm $ "Haddock docs couldn't be loaded as readInterfaceFile failed with: " ++ message
+          return Nothing
         Right hi -> do
           let res = do -- @Maybe
                 mdl <- nameModule_maybe name
