@@ -42,7 +42,7 @@ withCradle crdl =
 -- then runs the action in the default cradle.
 -- Sets the current directory to the cradle root dir
 -- in either case
-runActionWithContext :: (Monad m, GM.GmEnv m, GM.MonadIO m, HasGhcModuleCache m
+runActionWithContext :: (GM.GmEnv m, GM.MonadIO m, HasGhcModuleCache m
                         , GM.GmLog m, MonadBaseControl IO m, ExceptionMonad m, GM.GmOut m)
                      => Maybe FilePath -> m a -> m a
 runActionWithContext Nothing action = do
@@ -78,7 +78,7 @@ getCradle fp = do
 
 
 -- | looks up a CachedModule for a given URI
-getCachedModule :: (Monad m, GM.MonadIO m, HasGhcModuleCache m)
+getCachedModule :: (GM.MonadIO m, HasGhcModuleCache m)
                 => FilePath -> m (Maybe CachedModule)
 getCachedModule uri = do
   uri' <- liftIO $ canonicalizePath uri
@@ -86,7 +86,7 @@ getCachedModule uri = do
   return $ (Map.lookup uri' . cachedModules) mc
 
 -- | Returns true if there is a CachedModule for a given URI
-isCached :: (Monad m, GM.MonadIO m, HasGhcModuleCache m)
+isCached :: (GM.MonadIO m, HasGhcModuleCache m)
          => FilePath -> m Bool
 isCached uri = do
   mc <- getCachedModule uri
@@ -94,7 +94,7 @@ isCached uri = do
 
 -- | Version of `withCachedModuleAndData` that doesn't provide
 -- any extra cached data
-withCachedModule :: (Monad m, GM.MonadIO m, HasGhcModuleCache m)
+withCachedModule :: (GM.MonadIO m, HasGhcModuleCache m)
                  => FilePath -> m b -> (CachedModule -> m b) -> m b
 withCachedModule uri noCache callback = do
   mcm <- getCachedModule uri
@@ -109,7 +109,7 @@ withCachedModule uri noCache callback = do
 -- If the data doesn't exist in the cache, new data is generated
 -- using by calling the `cacheDataProducer` function
 withCachedModuleAndData :: forall a b m.
-  (ModuleCache a, Monad m, GM.MonadIO m, HasGhcModuleCache m, MonadMTState IdeState m)
+  (ModuleCache a, GM.MonadIO m, HasGhcModuleCache m, MonadMTState IdeState m)
   => FilePath -> m b -> (CachedModule -> a -> m b) -> m b
 withCachedModuleAndData uri noCache callback = do
   uri' <- liftIO $ canonicalizePath uri
@@ -134,7 +134,7 @@ withCachedModuleAndData uri noCache callback = do
       callback cm a
 
 -- | Saves a module to the cache
-cacheModule :: (Monad m, GM.MonadIO m, HasGhcModuleCache m)
+cacheModule :: (GM.MonadIO m, HasGhcModuleCache m)
             => FilePath -> CachedModule -> m ()
 cacheModule uri cm = do
   uri' <- liftIO $ canonicalizePath uri
@@ -149,7 +149,7 @@ cacheModule uri cm = do
 
 -- | Saves a module to the cache without clearing the associated cache data - use only if you are
 -- sure that the cached data associated with the module doesn't change
-cacheModuleNoClear :: (Monad m, GM.MonadIO m, HasGhcModuleCache m)
+cacheModuleNoClear :: (GM.MonadIO m, HasGhcModuleCache m)
             => FilePath -> CachedModule -> m ()
 cacheModuleNoClear uri cm = do
   uri' <- liftIO $ canonicalizePath uri
@@ -166,7 +166,7 @@ cacheModuleNoClear uri cm = do
     updateCachedModule cm' _ old = old { cachedModule = cm' }
 
 -- | Deletes a module from the cache
-deleteCachedModule :: (Monad m, GM.MonadIO m, HasGhcModuleCache m) => FilePath -> m ()
+deleteCachedModule :: (GM.MonadIO m, HasGhcModuleCache m) => FilePath -> m ()
 deleteCachedModule uri = do
   uri' <- liftIO $ canonicalizePath uri
   modifyCache (\s -> s { uriCaches = Map.delete uri' (uriCaches s) })
@@ -180,7 +180,7 @@ deleteCachedModule uri = do
 -- TODO: this name is confusing, given GhcModuleCache. Change it
 class Typeable a => ModuleCache a where
     -- | Defines an initial value for the state extension
-    cacheDataProducer :: (MonadIO m, GM.MonadIO m, MonadMTState IdeState m)
+    cacheDataProducer :: (GM.MonadIO m, MonadMTState IdeState m)
                       => CachedModule -> m a
 
 instance ModuleCache () where
