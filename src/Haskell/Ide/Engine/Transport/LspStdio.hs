@@ -41,6 +41,7 @@ import qualified Data.Text as T
 import           Data.Text.Encoding
 import qualified Data.Vector as V
 import qualified GhcModCore               as GM
+import qualified GhcMod.Monad.Types       as GM
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
@@ -223,7 +224,10 @@ mapFileFromVfs verTVar cin vtdi = do
       let text' = Yi.toString yitext
           -- text = "{-# LINE 1 \"" ++ fp ++ "\"#-}\n" <> text'
       let req = GReq (Just uri) Nothing Nothing (const $ return ())
-                  $ IdeResponseOk <$> GM.loadMappedFileSource fp text'
+                  $ IdeResponseOk <$> do
+                      GM.loadMappedFileSource fp text'
+                      fileMap <- GM.getMMappedFiles
+                      debugm $ "file mapping state is: " ++ show fileMap
       liftIO $ atomically $ do
         modifyTVar' verTVar (Map.insert uri ver)
         writeTChan cin req

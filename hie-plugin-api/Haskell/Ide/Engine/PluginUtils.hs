@@ -33,6 +33,7 @@ import           Data.Monoid
 import qualified Data.Text                             as T
 import           FastString
 import           Haskell.Ide.Engine.MonadTypes
+import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.ArtifactMap
 import qualified Language.Haskell.LSP.Types            as J
 import           Prelude                               hiding (log)
@@ -85,7 +86,9 @@ srcSpan2Loc revMapp spn = runExceptT $ do
     foo (Right v) = pure v
   rspan <- foo $ getRealSrcSpan spn
   let fp = unpackFS $ srcSpanFile rspan
+  debugm $ "srcSpan2Loc: mapped file is " ++ fp
   file <- reverseMapFile revMapp fp
+  debugm $ "srcSpan2Loc: Original file is " ++ file
   return $ Location (filePathToUri file) (realSrcSpan2Range rspan)
 
 -- ---------------------------------------------------------------------
