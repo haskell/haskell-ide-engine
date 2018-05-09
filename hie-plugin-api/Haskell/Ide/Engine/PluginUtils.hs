@@ -75,8 +75,14 @@ srcSpan2Range spn =
   realSrcSpan2Range <$> getRealSrcSpan spn
 
 reverseMapFile :: MonadIO m => (FilePath -> FilePath) -> FilePath -> m FilePath
-reverseMapFile rfm fp =
-  liftIO $ canonicalizePath . rfm =<< canonicalizePath fp
+reverseMapFile rfm fp = do
+  fp' <- liftIO $ canonicalizePath fp
+  debugm $ "reverseMapFile: mapped file is " ++ fp'
+  let orig = rfm fp'
+  debugm $ "reverseMapFile: original is " ++ orig
+  orig' <- liftIO $ canonicalizePath orig
+  debugm $ "reverseMapFile: Canonicalized original is " ++ orig
+  return orig'
 
 srcSpan2Loc :: (MonadIO m) => (FilePath -> FilePath) -> SrcSpan -> m (Either T.Text Location)
 srcSpan2Loc revMapp spn = runExceptT $ do
