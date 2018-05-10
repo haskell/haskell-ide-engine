@@ -55,6 +55,7 @@ import qualified Haskell.Ide.Engine.Plugin.Brittany    as Brittany
 import qualified Haskell.Ide.Engine.Plugin.Hoogle      as Hoogle
 import qualified Haskell.Ide.Engine.Plugin.Haddock     as Haddock
 import qualified Haskell.Ide.Engine.Plugin.HieExtras   as Hie
+import           Haskell.Ide.Engine.Plugin.Base
 import qualified Language.Haskell.LSP.Control          as CTRL
 import qualified Language.Haskell.LSP.Core             as Core
 import qualified Language.Haskell.LSP.VFS              as VFS
@@ -381,6 +382,9 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
 
         rid <- nextLspReqId
         reactorSend $ fmServerRegisterCapabilityRequest rid registrations
+
+        reactorSend $
+                fmServerLogMessageNotification J.MtLog $ "Using ghc version: " <> T.pack version
 
         lf <- ask
         let hreq = GReq Nothing Nothing Nothing callback $ do
