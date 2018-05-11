@@ -61,7 +61,8 @@ extractRange (Range (Position sl _) (Position el _)) s = newS
 
 normalize :: Range -> Range
 normalize (Range (Position sl _) (Position el _)) =
-  Range (Position sl 0) (Position el 10000)
+  -- Extend to the line below to replace newline character, as above
+  Range (Position sl 0) (Position (el + 1) 0)
 
 runBrittany :: Int              -- ^ tab  size
             -> Maybe FilePath   -- ^ local config file
