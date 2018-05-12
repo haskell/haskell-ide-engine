@@ -112,6 +112,7 @@ test-suite haskell-ide-test
   hs-source-dirs:      test
   main-is:             Main.hs
   other-modules:       ApplyRefactPluginSpec
+                       BrittanySpec
                        ExtensibleStateSpec
                        GhcModPluginSpec
                        HaRePluginSpec
@@ -147,6 +148,7 @@ test-suite haskell-ide-dispatcher-test
   hs-source-dirs:      test
   main-is:             MainDispatcher.hs
   other-modules:       ApplyRefactPluginSpec
+                       BrittanySpec
                        ExtensibleStateSpec
                        GhcModPluginSpec
                        HaRePluginSpec

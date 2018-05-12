@@ -31,6 +31,7 @@ import qualified System.Remote.Monitoring              as EKG
 -- plugins
 
 import           Haskell.Ide.Engine.Plugin.ApplyRefact
+import           Haskell.Ide.Engine.Plugin.Brittany
 import           Haskell.Ide.Engine.Plugin.Build
 import           Haskell.Ide.Engine.Plugin.Base
 import           Haskell.Ide.Engine.Plugin.Example2
@@ -44,6 +45,7 @@ import           Haskell.Ide.Engine.Plugin.Hoogle
 plugins :: IdePlugins
 plugins = pluginDescToIdePlugins
   [("applyrefact", applyRefactDescriptor)
+  ,("brittany"   , brittanyDescriptor)
   ,("build"      , buildPluginDescriptor)
   ,("eg2"        , example2Descriptor)
   ,("ghcmod"     , ghcmodDescriptor)
