@@ -725,10 +725,10 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         liftIO $ U.logs $ "reactor:got Document symbol request:" ++ show req
         let uri = req ^. J.params . J.textDocument . J.uri
         callback <- hieResponseHelper (req ^. J.id) $ \docSymbols -> do
-            let rspMsg = Core.makeResponseMessage req $ J.List docSymbols
-            reactorSend rspMsg
-        let hreq = IReq (req ^. J.id) callback
-                 $ Hie.getSymbols uri
+          let rspMsg = Core.makeResponseMessage req $ J.List docSymbols
+          reactorSend rspMsg
+        let hreq = GReq (Just uri) Nothing (Just $ req ^. J.id) callback
+                   $ Hie.getSymbols uri
         makeRequest hreq
 
       -- -------------------------------
