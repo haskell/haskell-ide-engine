@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveAnyClass    #-}
+{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.Engine.Plugin.Brittany where
 
@@ -10,6 +12,7 @@ import           Data.Semigroup
 import           Data.Text                             (Text)
 import qualified Data.Text                             as T
 import qualified Data.Text.IO                          as T
+import           GHC.Generics
 import qualified GhcMod.Utils                          as GM
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
@@ -18,6 +21,22 @@ import qualified Language.Haskell.LSP.Types            as J
 import           System.FilePath (FilePath, takeDirectory)
 import           Data.Maybe (maybeToList)
 
+data FormatParams = FormatParams Int Uri (Maybe Range)
+     deriving (Eq, Show, Generic, FromJSON, ToJSON)
+
+brittanyDescriptor :: PluginDescriptor
+brittanyDescriptor = PluginDescriptor
+  { pluginName     = "Brittany"
+  , pluginDesc     = "Brittany is a tool to format source code."
+  , pluginCommands = [ PluginCommand "format"
+                                     "Format a range of text or document"
+                                     cmd
+                     ]
+  }
+ where
+  cmd :: CommandFunc FormatParams [J.TextEdit]
+  cmd =
+    CmdSync $ \(FormatParams tabSize uri range) -> brittanyCmd tabSize uri range
 
 brittanyCmd :: Int -> Uri -> Maybe Range -> IdeGhcM (IdeResponse [J.TextEdit])
 brittanyCmd tabSize uri range =
