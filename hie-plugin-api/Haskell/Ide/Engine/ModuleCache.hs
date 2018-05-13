@@ -102,6 +102,7 @@ getCachedModule :: (GM.MonadIO m, HasGhcModuleCache m, MonadMTState IdeState m)
 getCachedModule uri = do
   uri' <- liftIO $ canonicalizePath uri
   maybeUriCache <- fmap (Map.lookup uri' . uriCaches) getModuleCache
+  -- TODO: Figure out how to tell if a module failed to load
   return $ case maybeUriCache of
     Nothing -> ModuleLoading
     Just uriCache ->

@@ -101,7 +101,7 @@ instance ModuleCache NameMapData where
 -- ---------------------------------------------------------------------
 
 getSymbols :: Uri -> (IdeResponse [J.SymbolInformation] -> IdeM ()) -> IdeM ()
-getSymbols uri callback = do
+getSymbols uri callback =
   case uriToFilePath uri of 
     Nothing -> callback $ IdeResponseFail (IdeError PluginError ("getSymbols" <> "Couldn't resolve uri" <> getUri uri) Null)
     Just file -> do
