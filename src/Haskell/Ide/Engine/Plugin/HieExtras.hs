@@ -61,10 +61,8 @@ getDynFlags :: Uri -> IdeM (IdeResponse DynFlags)
 getDynFlags uri =
   pluginGetFile "getDynFlags: " uri $ \fp -> do
       mcm <- getCachedModule fp
-      let successRes cm = IdeResponseOk $ ms_hspp_opts $ pm_mod_summary $ tm_parsed_module $ tcMod cm
       return $ case mcm of
-        ModuleCached cm -> successRes cm
-        ModuleStale cm -> successRes cm
+        ModuleCached cm _ -> IdeResponseOk $ ms_hspp_opts $ pm_mod_summary $ tm_parsed_module $ tcMod cm
         _ -> IdeResponseFail $
           IdeError PluginError ("getDynFlags: \"" <> "module not loaded" <> "\"") Null
 
@@ -107,13 +105,11 @@ getSymbols uri callback =
     Just file -> do
       mcm <- getCachedModule file
       case mcm of
-        ModuleCached cm -> respond cm
-        ModuleStale cm -> respond cm
+        ModuleCached cm _ -> respond cm
         ModuleLoading -> queueActionForModule file respond
         --TODO: add ModuleFailed
         _ -> callback $ IdeResponseOk []
-  where respond :: CachedModule -> IdeM ()
-        respond cm = getSymbolsFromModule cm >>= callback
+  where respond cm = getSymbolsFromModule cm >>= callback
     
 getSymbolsFromModule :: CachedModule -> IdeM (IdeResponse [J.SymbolInformation])
 getSymbolsFromModule cm = do
@@ -534,18 +530,15 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file -> do
                             cfp <- reverseMapFile rfm fp
                             mcm' <- getCachedModule cfp
                             rcm' <- case mcm' of
-                              ModuleCached cmdl -> do
+                              ModuleCached cmdl stale -> do
                                 debugm "module already in cache in findDef"
-                                return $ ModuleCached cmdl
-                              ModuleStale cmdl -> do
-                                debugm "stale module already in cache in findDef"
-                                return $ ModuleStale cmdl
+                                return $ ModuleCached cmdl stale
                               _ -> do
                                 debugm "setting cached module in findDef"
                                 _ <- setTypecheckedModule $ filePathToUri cfp
                                 getCachedModule cfp
                             case rcm' of
-                              ModuleCached cm' -> do
+                              ModuleCached cm' _ -> do
                                 let modSum = pm_mod_summary $ tm_parsed_module $ tcMod cm'
                                     rfm'   = revMap cm'
                                 newNames <- GM.unGmlT $ do

@@ -253,20 +253,17 @@ updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeGhcM (IdeRe
 updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file -> do
   mcm <- getCachedModule file
   
-  let handleCache cm = do
-        let n2oOld = newPosToOld cm
-            o2nOld = oldPosToNew cm
-            (n2o,o2n) = foldr go (n2oOld, o2nOld) changes
-            go (J.TextDocumentContentChangeEvent (Just r) _ txt) (n2o', o2n') =
-              (n2o' <=< newToOld r txt, oldToNew r txt <=< o2n')
-            go _ _ = (const Nothing, const Nothing)
-            cm' = cm {newPosToOld = n2o, oldPosToNew = o2n}
-        cacheModuleNoClear file cm'
-        return $ IdeResponseOk ()
-
   case mcm of
-    ModuleCached cm -> handleCache cm
-    ModuleStale cm -> handleCache cm
+    ModuleCached cm _ -> do
+      let n2oOld = newPosToOld cm
+          o2nOld = oldPosToNew cm
+          (n2o,o2n) = foldr go (n2oOld, o2nOld) changes
+          go (J.TextDocumentContentChangeEvent (Just r) _ txt) (n2o', o2n') =
+            (n2o' <=< newToOld r txt, oldToNew r txt <=< o2n')
+          go _ _ = (const Nothing, const Nothing)
+          cm' = cm {newPosToOld = n2o, oldPosToNew = o2n}
+      cacheModuleNoClear file cm'
+      return $ IdeResponseOk ()
     _ -> return $ IdeResponseOk ()
   where
     f (+/-) (J.Range (Position sl _) (Position el _)) txt p@(Position l c)
@@ -442,6 +439,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         -- Important - Call this before requestDiagnostics
         makeRequest $ GReq (Just uri) Nothing Nothing (const $ return ())
                         $ updatePositionMap uri changes
+        markCacheStale 
         requestDiagnostics cin uri ver
 
       Core.NotDidCloseTextDocument notification -> do

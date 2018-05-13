@@ -89,13 +89,13 @@ getCradle fp = do
           modifyCache (\s -> s { cradleCache = Map.insert dir crdl (cradleCache s)})
           return crdl
 
--- | The possible states the cache can be in
--- along with the cache or error if present
+          -- | The possible states the cache can be in
+            -- along with the cache or error if present
 data CachedModuleResult = ModuleLoading
                         | ModuleFailed String
-                        | ModuleCached CachedModule
-                        | ModuleStale CachedModule
-
+                        | ModuleCached CachedModule IsStale
+type IsStale = Bool
+  
 -- | looks up a CachedModule for a given URI
 getCachedModule :: (GM.MonadIO m, HasGhcModuleCache m, MonadMTState IdeState m)
                 => FilePath -> m CachedModuleResult
@@ -105,11 +105,7 @@ getCachedModule uri = do
   -- TODO: Figure out how to tell if a module failed to load
   return $ case maybeUriCache of
     Nothing -> ModuleLoading
-    Just uriCache ->
-      let cm = cachedModule uriCache in
-      if isStale uriCache
-        then ModuleStale cm
-        else ModuleCached cm
+    Just uriCache -> ModuleCached (cachedModule uriCache) (isStale uriCache)
 
 -- | Returns true if there is a CachedModule for a given URI
 isCached :: (GM.MonadIO m, HasGhcModuleCache m, MonadMTState IdeState m)
@@ -117,8 +113,7 @@ isCached :: (GM.MonadIO m, HasGhcModuleCache m, MonadMTState IdeState m)
 isCached uri = do
   mc <- getCachedModule uri
   return $ case mc of
-    ModuleCached _ -> True
-    ModuleStale _ -> True
+    ModuleCached _ _ -> True
     _ -> False
 
 -- | Version of `withCachedModuleAndData` that doesn't provide
@@ -128,8 +123,7 @@ withCachedModule :: (GM.MonadIO m, HasGhcModuleCache m, MonadMTState IdeState m)
 withCachedModule uri noCache callback = do
   mcm <- getCachedModule uri
   case mcm of
-    ModuleCached cm -> callback cm
-    ModuleStale cm -> callback cm
+    ModuleCached cm _ -> callback cm
     _ -> noCache
 
 -- | Calls its argument with the CachedModule for a given URI
@@ -185,13 +179,13 @@ cacheModule uri cm = do
 
 -- | Marks the cache as stale. Use when you are going to update it
 markCacheStale :: (GM.MonadIO m, HasGhcModuleCache m) => FilePath -> m ()
-markCacheStale uri = do
-  uri' <- liftIO $ canonicalizePath uri
+markCacheStale fp = do
+  fp' <- liftIO $ canonicalizePath fp
   modifyCache
     (\gmc -> gmc
       { uriCaches = Map.update
                       (\(UriCache cm d _) -> Just (UriCache cm d True))
-                      uri'
+                      fp'
                       (uriCaches gmc)
       }
     )

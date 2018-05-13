@@ -35,8 +35,8 @@ data CachedModule = CachedModule
 
 data CachedModuleResult = ModuleLoading
                         | ModuleFailed String
-                        | ModuleCached CachedModule
-                        | ModuleStale CachedModule
+                        | ModuleCached CachedModule IsStale
+type IsStale = Bool
 
 getCachedModule :: Uri -> IdeM CachedModuleResult
 ```
