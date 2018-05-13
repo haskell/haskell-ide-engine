@@ -87,7 +87,7 @@ liftToGhc = lift . lift
 
 data IdeState = IdeState
   { moduleCache :: GhcModuleCache
-  -- | A queue of actions to be performed once the module is loaded
+  -- | A queue of actions to be performed once a module is loaded
   , actionQueue :: Map.Map FilePath [CachedModule -> IdeM ()]
   , idePlugins  :: IdePlugins
   , extensibleState :: !(Map.Map TypeRep Dynamic)
