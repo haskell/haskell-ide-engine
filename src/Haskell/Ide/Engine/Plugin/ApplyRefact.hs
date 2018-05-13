@@ -287,6 +287,9 @@ filterUnrefactorableDiagnostics uri diags = do
       Left err -> return $ Left err
       Right ideas ->
         let hasRefactoring :: Diagnostic -> Bool
-            hasRefactoring diag = let matches = filter ((== diag) . hintToDiagnostic) ideas
-                in null matches || (not . null . ideaRefactoring) $ head matches
+            hasRefactoring diag =
+              let matches = filter ((== diag) . hintToDiagnostic) ideas
+              -- by default we don't want to throw away refactorings just because we can't find a match
+              -- otherwise make sure the matched idea has a possible refactoring
+                in null matches || (not . null . ideaRefactoring) (head matches)
             in return $ IdeResponseOk $ filter hasRefactoring diags
