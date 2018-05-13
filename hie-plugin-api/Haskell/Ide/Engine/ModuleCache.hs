@@ -57,15 +57,15 @@ runActionWithContext (Just uri) action = do
 
 -- | Queues an aciton to be run after the module has been loaded
 queueActionForModule :: FilePath -> (CachedModule -> IdeM ()) -> IdeM ()
-queueActionForModule fp action =
-  modifyMTS (\s ->
-    let oldQueue = actionQueue s in 
-    s {
-      actionQueue = if Map.member fp oldQueue
-        then Map.update (Just . (action :)) fp oldQueue
-        else Map.insert fp [action] oldQueue
-      }
-  )
+queueActionForModule fp action = do
+  fp' <- liftIO $ canonicalizePath fp
+  modifyMTS $ \s ->
+    let oldQueue = actionQueue s
+    in  s
+          { actionQueue = if Map.member fp' oldQueue
+                            then Map.update (Just . (action :)) fp oldQueue
+                            else Map.insert fp [action] oldQueue
+          }
 
 -- | Returns all the cached modules in the IdeState
 cachedModules :: GhcModuleCache -> Map.Map FilePath CachedModule
@@ -163,17 +163,23 @@ withCachedModuleAndData uri noCache callback = do
                  Nothing  -> error "impossible"
       callback cm a
 
--- | Saves a module to tabs
+-- | Saves a module to the cache and executes any queued actions for it
 cacheModule :: FilePath -> CachedModule -> IdeGhcM ()
 cacheModule uri cm = do
+  uri'    <- liftIO $ canonicalizePath uri
+
   -- execute any queued actions for the module
-  actions <- fmap (fromMaybe [] . Map.lookup uri) (actionQueue <$> readMTS)
+  actions <- fmap (fromMaybe [] . Map.lookup uri') (actionQueue <$> readMTS)
   liftToGhc $ forM_ actions (\a -> a cm)
 
-  uri' <- liftIO $ canonicalizePath uri
+  -- remove queued actions
+  modifyMTS $ \s -> s { actionQueue = Map.delete uri' (actionQueue s) }
+
   modifyCache
     (\gmc -> gmc
-      { uriCaches = Map.insert uri' (UriCache cm Map.empty False) (uriCaches gmc)
+      { uriCaches = Map.insert uri'
+                               (UriCache cm Map.empty False)
+                               (uriCaches gmc)
       }
     )
 
