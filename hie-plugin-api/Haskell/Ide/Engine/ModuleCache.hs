@@ -159,19 +159,19 @@ withCachedModuleAndData uri noCache callback = do
 
 -- | Saves a module to the cache and executes any queued actions for it
 cacheModule :: FilePath -> CachedModule -> IdeGhcM ()
-cacheModule uri cm = do
-  uri'    <- liftIO $ canonicalizePath uri
+cacheModule fp cm = do
+  fp'    <- liftIO $ canonicalizePath fp
 
   -- execute any queued actions for the module
-  actions <- fmap (fromMaybe [] . Map.lookup uri') (actionQueue <$> readMTS)
+  actions <- fmap (fromMaybe [] . Map.lookup fp') (actionQueue <$> readMTS)
   liftToGhc $ forM_ actions (\a -> a cm)
 
   -- remove queued actions
-  modifyMTS $ \s -> s { actionQueue = Map.delete uri' (actionQueue s) }
+  modifyMTS $ \s -> s { actionQueue = Map.delete fp' (actionQueue s) }
 
   modifyCache
     (\gmc -> gmc
-      { uriCaches = Map.insert uri'
+      { uriCaches = Map.insert fp'
                                (UriCache cm Map.empty False)
                                (uriCaches gmc)
       }

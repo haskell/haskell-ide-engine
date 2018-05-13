@@ -154,7 +154,6 @@ myLogger rfm action = do
 setTypecheckedModule :: Uri -> IdeGhcM (IdeResponse (Diagnostics, AdditionalErrs))
 setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
-    markCacheStale fp
     fileMap <- GM.getMMappedFiles
     debugm $ "setTypecheckedModule: file mapping state is: " ++ show fileMap
     rfm <- GM.mkRevRedirMapFunc
