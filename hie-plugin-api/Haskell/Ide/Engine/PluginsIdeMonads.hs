@@ -64,6 +64,27 @@ instance Functor IdeResponse where
   fmap f (IdeResponseDeferred fp cb) = IdeResponseDeferred fp $ cb >=> (return . fmap f)
   fmap _ (IdeResponseFail err) = IdeResponseFail err
 
+instance Applicative IdeResponse where
+  pure = return
+  (IdeResponseOk f) <*> (IdeResponseOk x) = IdeResponseOk (f x)
+
+  (IdeResponseFail err) <*> _ = IdeResponseFail err
+  _ <*> (IdeResponseFail err) = IdeResponseFail err
+
+  (IdeResponseOk f) <*> (IdeResponseDeferred fp cb) = IdeResponseDeferred fp $ fmap (fmap f) . cb
+
+  (IdeResponseDeferred fp cb) <*> x = IdeResponseDeferred fp $ \cm -> do
+    f <- cb cm
+    return (f <*> x)
+
+instance Monad IdeResponse where
+  (IdeResponseOk x) >>= f = f x
+  (IdeResponseDeferred fp cb) >>= f = IdeResponseDeferred fp $ \cm -> do
+    x <- cb cm
+    return $ x >>= f
+  (IdeResponseFail err) >>= _ = IdeResponseFail err
+  return = IdeResponseOk
+
 
 instance Show (CachedModule -> IdeGhcM (IdeResponse a)) where
   show _ = "callback"
