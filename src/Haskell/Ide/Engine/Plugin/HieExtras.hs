@@ -17,7 +17,6 @@ module Haskell.Ide.Engine.Plugin.HieExtras
 
 import           ConLike
 import           Control.Monad.State
-import           Control.Monad.Trans.Except
 import           Data.Aeson
 import           Data.Either
 import           Data.IORef
@@ -102,11 +101,11 @@ getSymbols :: Uri -> IdeM (IdeResponse [J.SymbolInformation])
 getSymbols uri =
   pluginGetFile "getSymbols: " uri $ \file -> do
       mcm <- getCachedModule file
-      return $ case mcm of
+      case mcm of
         ModuleCached cm _ -> do
-          syms <- liftIdeGhcM $ getSymbolsFromModule cm
+          syms <- getSymbolsFromModule cm
           return $ IdeResponseOk syms
-        ModuleLoading -> IdeResponseDeferred file $ \cm -> do
+        ModuleLoading -> return $ IdeResponseDeferred file $ \cm -> do
           syms <- liftIdeGhcM $ getSymbolsFromModule cm
           return $ IdeResponseOk syms
         ModuleFailed _ -> return $ IdeResponseOk []
@@ -441,7 +440,7 @@ getReferencesInDoc uri pos = pluginGetFile "getReferencesInDoc: " uri $ \file ->
           mpos = newPosToOld cm pos
       case mpos of
         Nothing -> return $ IdeResponseOk []
-        Just pos' -> fmap concat $
+        Just pos' -> fmap IdeResponseOk $ fmap concat $
           forM (getArtifactsAtPos pos' lm) $ \(_,name) -> do
               let usages = fromMaybe [] $ Map.lookup name inverseNameMap
                   defn = nameSrcSpan name
@@ -493,13 +492,13 @@ getNewNames old = do
   return newNames
 
 findDef :: Uri -> Position -> IdeGhcM (IdeResponse [Location])
-findDef uri pos = pluginGetFile "findDef: " uri $ \file -> do
+findDef uri pos = pluginGetFile "findDef: " uri $ \file ->
   withCachedModule file $
     \cm -> do
       let rfm = revMap cm
           lm = locMap cm
       case symbolFromTypecheckedModule lm =<< newPosToOld cm pos of
-        Nothing -> return []
+        Nothing -> return $ IdeResponseOk []
         Just pn -> do
           let n = snd pn
           case nameSrcSpan n of

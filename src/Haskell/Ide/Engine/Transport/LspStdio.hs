@@ -330,6 +330,7 @@ sendErrorLog msg = reactorSend' (`Core.sendErrorLogS` msg)
 reactor :: forall void. DispatcherEnv -> TChan PluginRequest -> TChan ReactorInput -> R void
 reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
   let
+    makeRequest :: PluginRequest -> R ()
     makeRequest req@(GReq _ Nothing (Just lid) _ _) = liftIO $ atomically $ do
       modifyTVar wipTVar (S.insert lid)
       writeTChan cin req
@@ -489,7 +490,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                 rspMsg = Core.makeResponseMessage req ht
               reactorSend rspMsg
         let
-          getHoverInfo :: IdeM (Either IdeFailure (Maybe J.MarkedString, [T.Text], Maybe Range))
+          getHoverInfo :: IdeM (Either IdeError (Maybe J.MarkedString, [T.Text], Maybe Range))
           getHoverInfo = runExceptT $ do
               info' <- ExceptT $ GhcMod.newTypeCmd pos doc
               names' <- ExceptT $ Hie.getSymbolsAtPoint doc pos
@@ -734,8 +735,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
 
         -- there is no immediate response,but rather
         -- a callback that we pass into the request
-        let hreq = IReq (req ^. J.id) return
-                   $ Hie.getSymbols uri (liftIO . callback)
+        let hreq = IReq (req ^. J.id) callback $ Hie.getSymbols uri
         makeRequest hreq
 
       -- -------------------------------

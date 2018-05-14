@@ -17,8 +17,8 @@ pattern GReq :: Maybe Uri
                 -> PluginRequest
 pattern GReq a b c d e = Right (GhcRequest   a b c d e)
 
-pattern IReq :: J.LspId -> (a -> IO ()) -> IdeM a -> Either IdeRequest b
-pattern IReq a b c     = Left  (IdeRequest a b c)
+pattern IReq :: J.LspId -> (IdeResponse a -> IO ()) -> IdeM (IdeResponse a) -> PluginRequest
+pattern IReq a b c     = Left (IdeRequest a b c)
 
 type PluginRequest = Either IdeRequest GhcRequest
 
@@ -32,6 +32,6 @@ data GhcRequest = forall a. GhcRequest
 
 data IdeRequest = forall a. IdeRequest
   { pureReqId :: J.LspId
-  , pureReqCallback :: a -> IO ()
-  , pureReq :: IdeM a
+  , pureReqCallback :: IdeResponse a -> IO ()
+  , pureReq :: IdeM (IdeResponse a)
   }

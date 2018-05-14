@@ -4,7 +4,6 @@ module Haskell.Ide.Engine.Plugin.Hoogle where
 
 import           Control.Monad.IO.Class
 import           Data.Aeson
-import           Data.Bifunctor
 import           Data.Maybe
 #if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
@@ -39,11 +38,9 @@ data HoogleError = NoDb | NoResults deriving (Eq,Ord,Show)
 
 newtype HoogleDb = HoogleDb (Maybe FilePath)
 
-hoogleErrorToIdeError :: HoogleError -> IdeFailure
-hoogleErrorToIdeError NoResults =
-  IdeRErr $ IdeError PluginError "No results found" Null
-hoogleErrorToIdeError NoDb =
-  IdeRErr $ IdeError PluginError "Hoogle database not found. Run hoogle generate to generate" Null
+hoogleErrorToIdeError :: HoogleError -> IdeError
+hoogleErrorToIdeError NoResults = IdeError PluginError "No results found" Null
+hoogleErrorToIdeError NoDb = IdeError PluginError "Hoogle database not found. Run hoogle generate to generate" Null
 
 instance ExtensionClass HoogleDb where
   initialValue = HoogleDb Nothing
@@ -60,8 +57,11 @@ initializeHoogleDb = do
     return Nothing
 
 infoCmd :: CommandFunc T.Text T.Text
-infoCmd = CmdSync $ \expr -> liftIdeGhcM $
-  bimap hoogleErrorToIdeError id <$> infoCmd' expr
+infoCmd = CmdSync $ \expr -> liftIdeGhcM $ do
+  res <- infoCmd' expr
+  return $ case res of
+    Left hErr -> IdeResponseFail $ hoogleErrorToIdeError hErr
+    Right x -> IdeResponseOk x
 
 infoCmd' :: T.Text -> IdeM (Either HoogleError T.Text)
 infoCmd' expr = do
@@ -104,8 +104,11 @@ renderTarget t = T.intercalate "\n\n" $
 ------------------------------------------------------------------------
 
 lookupCmd :: CommandFunc T.Text [T.Text]
-lookupCmd = CmdSync $ \term -> liftIdeGhcM $
-      bimap hoogleErrorToIdeError id <$> lookupCmd' 10 term
+lookupCmd = CmdSync $ \term -> liftIdeGhcM $ do
+  res <- lookupCmd' 10 term
+  return $ case res of
+    Left hErr -> IdeResponseFail $ hoogleErrorToIdeError hErr
+    Right x -> IdeResponseOk x
 
 lookupCmd' :: Int -> T.Text -> IdeM (Either HoogleError [T.Text])
 lookupCmd' n term = do

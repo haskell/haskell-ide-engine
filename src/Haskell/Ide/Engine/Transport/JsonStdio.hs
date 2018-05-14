@@ -62,6 +62,7 @@ data ReactorInput =
 
 data ReactorOutput = ReactorOutput
   { _resId    :: Int
+  --TODO Change to something more safe than IdeResponse, since we can't use IdeResponseError
   , _response :: IdeResponse J.Value
   } deriving (Eq, Show, Generic, J.ToJSON, J.FromJSON)
 

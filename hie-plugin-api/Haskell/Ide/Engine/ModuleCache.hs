@@ -81,7 +81,7 @@ getCradle fp = do
           -- | The possible states the cache can be in
             -- along with the cache or error if present
 data CachedModuleResult = ModuleLoading
-                        | ModuleFailed String
+                        | ModuleFailed IdeError
                         | ModuleCached CachedModule IsStale
 type IsStale = Bool
   
