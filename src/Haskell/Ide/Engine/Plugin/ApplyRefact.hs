@@ -276,20 +276,18 @@ makeDiffResult orig new fileMap = do
 -- | Removes diagnostics that can't be refactored automatically by HLint
 filterUnrefactorableDiagnostics :: Uri -> [Diagnostic] -> IdeGhcM (IdeResponse [Diagnostic])
 filterUnrefactorableDiagnostics uri diags = do
-    maybeIdeas <- pluginGetFile "filterUnrefactorableDiagnostics: " uri $ \fp -> do
+    allIdeas <- pluginGetFile "filterUnrefactorableDiagnostics: " uri $ \fp -> do
       res <- GM.withMappedFile fp $ \file' -> liftIO $ runExceptT $ getIdeas file' Nothing :: IdeGhcM (Either String [Idea])
       case res of
         Left err -> return $ IdeResponseFail (IdeError PluginError
           (T.pack $ "filterUnrefactorableDiagnostics: " ++ show err) Null)
         Right ideas -> return $ IdeResponseOk ideas
 
-    case maybeIdeas of
-      Left err -> return $ Left err
-      Right ideas ->
-        let hasRefactoring :: Diagnostic -> Bool
-            hasRefactoring diag =
-              let matches = filter ((== diag) . hintToDiagnostic) ideas
-              -- by default we don't want to throw away refactorings just because we can't find a match
-              -- otherwise make sure the matched idea has a possible refactoring
-                in null matches || (not . null . ideaRefactoring) (head matches)
-            in return $ IdeResponseOk $ filter hasRefactoring diags
+    return $ flip fmap allIdeas $ \ideas ->
+      let hasRefactoring :: Diagnostic -> Bool
+          hasRefactoring diag =
+            let matches = filter ((== diag) . hintToDiagnostic) ideas
+            -- by default we don't want to throw away refactorings just because we can't find a match
+            -- otherwise make sure the matched idea has a possible refactoring
+              in null matches || (not . null . ideaRefactoring) (head matches)
+        in filter hasRefactoring diags

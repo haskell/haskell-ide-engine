@@ -82,7 +82,7 @@ ghcmodSpec = do
       let uri = filePathToUri fp
           act = do
             _ <- setTypecheckedModule uri
-            liftToGhc $ newTypeCmd (toPos (5,9)) uri
+            liftIdeGhcM $ newTypeCmd (toPos (5,9)) uri
           arg = TP False uri (toPos (5,9))
           res = IdeResponseOk
             [(Range (toPos (5,9)) (toPos (5,10)), "Int")
@@ -101,7 +101,7 @@ ghcmodSpec = do
         let uri = filePathToUri fp
         let act = do
               _ <- setTypecheckedModule uri
-              liftToGhc $ newTypeCmd (toPos (5,9)) uri
+              liftIdeGhcM $ newTypeCmd (toPos (5,9)) uri
         let arg = TP False uri (toPos (5,9))
         let res = IdeResponseOk
               [(Range (toPos (5,9)) (toPos (5,10)), "Int")

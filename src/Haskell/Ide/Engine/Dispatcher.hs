@@ -49,9 +49,28 @@ ideDispatcher env pin = forever $ do
   (IdeRequest lid callback action) <- liftIO $ atomically $ readTChan pin
   debugm $ "ideDispatcher:got request with id: " ++ show lid
   cancelled <- liftIO $ atomically $ isCancelled env lid
+  res <- action
   unless cancelled $ do
-    res <- action
-    liftIO $ callback res
+    case res of
+      IdeResponseDeferred uri cacheCb -> do
+        queueActionForModule uri \cm -> do
+          cacheRes <- cacheCb cm
+          liftIO $ callback cacheRes
+      _ -> liftIO $ callback res
+
+
+-- | Queues an aciton to be run after the module has been loaded
+queueActionForModule :: FilePath -> (CachedModule -> IdeM ()) -> IdeM ()
+queueActionForModule fp action = do
+  fp' <- liftIO $ canonicalizePath fp
+  modifyMTS $ \s ->
+    let oldQueue = actionQueue s
+    in  s
+          { actionQueue = if Map.member fp' oldQueue
+                            then Map.update (Just . (action :)) fp oldQueue
+                            else Map.insert fp [action] oldQueue
+          }
+    
 
 ghcDispatcher :: forall void. DispatcherEnv -> TChan GhcRequest -> IdeGhcM void
 ghcDispatcher env@DispatcherEnv{docVersionTVar} pin = forever $ do

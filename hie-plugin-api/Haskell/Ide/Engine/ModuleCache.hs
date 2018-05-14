@@ -1,6 +1,8 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE OverloadedStrings   #-}
 module Haskell.Ide.Engine.ModuleCache where
 
 import           Control.Monad
@@ -22,7 +24,6 @@ import qualified GhcMod.Types  as GM
 import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.PluginsIdeMonads
 import           Haskell.Ide.Engine.GhcModuleCache
-
 
 -- ---------------------------------------------------------------------
 
@@ -54,18 +55,6 @@ runActionWithContext (Just uri) action = do
   crdl <- getCradle uri
   liftIO $ setCurrentDirectory $ GM.cradleRootDir crdl
   withCradle crdl action
-
--- | Queues an aciton to be run after the module has been loaded
-queueActionForModule :: FilePath -> (CachedModule -> IdeM ()) -> IdeM ()
-queueActionForModule fp action = do
-  fp' <- liftIO $ canonicalizePath fp
-  modifyMTS $ \s ->
-    let oldQueue = actionQueue s
-    in  s
-          { actionQueue = if Map.member fp' oldQueue
-                            then Map.update (Just . (action :)) fp oldQueue
-                            else Map.insert fp [action] oldQueue
-          }
 
 -- | Returns all the cached modules in the IdeState
 cachedModules :: GhcModuleCache -> Map.Map FilePath CachedModule
@@ -118,13 +107,14 @@ isCached uri = do
 
 -- | Version of `withCachedModuleAndData` that doesn't provide
 -- any extra cached data
-withCachedModule :: (GM.MonadIO m, HasGhcModuleCache m, MonadMTState IdeState m)
-                 => FilePath -> m b -> (CachedModule -> m b) -> m b
-withCachedModule uri noCache callback = do
+withCachedModule :: (GM.MonadIO m, MonadMTState IdeState m, HasGhcModuleCache m, LiftsToIdeGhcM m)
+                 => FilePath -> (CachedModule -> m (IdeResponse a)) -> m (IdeResponse a)
+withCachedModule uri callback = do
   mcm <- getCachedModule uri
   case mcm of
     ModuleCached cm _ -> callback cm
-    _ -> noCache
+    ModuleLoading -> return $ IdeResponseDeferred uri (liftIdeGhcM . callback)
+    ModuleFailed _ -> error "Module failed to load"
 
 -- | Calls its argument with the CachedModule for a given URI
 -- along with any data that might be stored in the ModuleCache.
@@ -159,19 +149,19 @@ withCachedModuleAndData uri noCache callback = do
 
 -- | Saves a module to the cache and executes any queued actions for it
 cacheModule :: FilePath -> CachedModule -> IdeGhcM ()
-cacheModule fp cm = do
-  fp'    <- liftIO $ canonicalizePath fp
+cacheModule uri cm = do
+  uri'    <- liftIO $ canonicalizePath uri
 
   -- execute any queued actions for the module
-  actions <- fmap (fromMaybe [] . Map.lookup fp') (actionQueue <$> readMTS)
-  liftToGhc $ forM_ actions (\a -> a cm)
+  actions <- fmap (fromMaybe [] . Map.lookup uri') (actionQueue <$> readMTS)
+  liftIdeGhcM $ forM_ actions (\a -> a cm)
 
   -- remove queued actions
-  modifyMTS $ \s -> s { actionQueue = Map.delete fp' (actionQueue s) }
+  modifyMTS $ \s -> s { actionQueue = Map.delete uri' (actionQueue s) }
 
   modifyCache
     (\gmc -> gmc
-      { uriCaches = Map.insert fp'
+      { uriCaches = Map.insert uri'
                                (UriCache cm Map.empty False)
                                (uriCaches gmc)
       }
@@ -179,13 +169,13 @@ cacheModule fp cm = do
 
 -- | Marks the cache as stale. Use when you are going to update it
 markCacheStale :: (GM.MonadIO m, HasGhcModuleCache m) => FilePath -> m ()
-markCacheStale fp = do
-  fp' <- liftIO $ canonicalizePath fp
+markCacheStale uri = do
+  uri' <- liftIO $ canonicalizePath uri
   modifyCache
     (\gmc -> gmc
       { uriCaches = Map.update
                       (\(UriCache cm d _) -> Just (UriCache cm d True))
-                      fp'
+                      uri'
                       (uriCaches gmc)
       }
     )

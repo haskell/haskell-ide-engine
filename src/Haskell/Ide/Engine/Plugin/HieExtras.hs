@@ -98,20 +98,20 @@ instance ModuleCache NameMapData where
 
 -- ---------------------------------------------------------------------
 
-getSymbols :: Uri -> (IdeResponse [J.SymbolInformation] -> IdeM ()) -> IdeM ()
-getSymbols uri callback =
-  case uriToFilePath uri of 
-    Nothing -> callback $ IdeResponseFail (IdeError PluginError ("getSymbols" <> "Couldn't resolve uri" <> getUri uri) Null)
-    Just file -> do
+getSymbols :: Uri -> IdeM (IdeResponse [J.SymbolInformation])
+getSymbols uri =
+  pluginGetFile "getSymbols: " uri $ \file -> do
       mcm <- getCachedModule file
-      case mcm of
-        ModuleCached cm _ -> respond cm
-        ModuleLoading -> queueActionForModule file respond
-        --TODO: add ModuleFailed
-        _ -> callback $ IdeResponseOk []
-  where respond cm = getSymbolsFromModule cm >>= callback
+      return $ case mcm of
+        ModuleCached cm _ -> do
+          syms <- liftIdeGhcM $ getSymbolsFromModule cm
+          return $ IdeResponseOk syms
+        ModuleLoading -> IdeResponseDeferred file $ \cm -> do
+          syms <- liftIdeGhcM $ getSymbolsFromModule cm
+          return $ IdeResponseOk syms
+        ModuleFailed _ -> return $ IdeResponseOk []
     
-getSymbolsFromModule :: CachedModule -> IdeM (IdeResponse [J.SymbolInformation])
+getSymbolsFromModule :: CachedModule -> IdeM [J.SymbolInformation]
 getSymbolsFromModule cm = do
   let tm = tcMod cm
       rfm = revMap cm
@@ -191,7 +191,7 @@ getSymbolsFromModule cm = do
           Left x -> return $ Left x
           Right loc -> return $ Right $ J.SymbolInformation nameText kind loc cnt
   symInfs <- mapM declsToSymbolInf (imps ++ decls)
-  return $ IdeResponseOk $ rights symInfs
+  return $ rights symInfs
 
 -- ---------------------------------------------------------------------
 
@@ -414,9 +414,7 @@ getTypeForName n = do
 
 getSymbolsAtPoint :: Uri -> Position -> IdeM (IdeResponse [(Range, Name)])
 getSymbolsAtPoint uri pos = pluginGetFile "getSymbolsAtPoint: " uri $ \file -> do
-  let noCache = return $ IdeResponseOk [] -- Processing hover, no symbols available, not an error
-  withCachedModule file noCache $
-    return . IdeResponseOk . getSymbolsAtPointPure pos
+  withCachedModule file $ return . IdeResponseOk . getSymbolsAtPointPure pos
 
 getSymbolsAtPointPure :: Position -> CachedModule -> [(Range,Name)]
 getSymbolsAtPointPure pos cm = maybe [] (`getArtifactsAtPos` locMap cm) $ newPosToOld cm pos
@@ -436,13 +434,13 @@ getReferencesInDoc :: Uri -> Position -> IdeM (IdeResponse [J.DocumentHighlight]
 getReferencesInDoc uri pos = pluginGetFile "getReferencesInDoc: " uri $ \file -> do
   let noCache = return $ IdeResponseOk [] -- Processing doc highlights request, no symbols available, not an error
   withCachedModuleAndData file noCache $
-    \cm NMD{inverseNameMap} -> runExceptT $ do
+    \cm NMD{inverseNameMap} -> do
       let lm = locMap cm
           pm = tm_parsed_module $ tcMod cm
           cfile = ml_hs_file $ ms_location $ pm_mod_summary pm
           mpos = newPosToOld cm pos
       case mpos of
-        Nothing -> return []
+        Nothing -> return $ IdeResponseOk []
         Just pos' -> fmap concat $
           forM (getArtifactsAtPos pos' lm) $ \(_,name) -> do
               let usages = fromMaybe [] $ Map.lookup name inverseNameMap
@@ -496,13 +494,12 @@ getNewNames old = do
 
 findDef :: Uri -> Position -> IdeGhcM (IdeResponse [Location])
 findDef uri pos = pluginGetFile "findDef: " uri $ \file -> do
-  let noCache = return $ nonExistentCacheErr "hare:findDef"
-  withCachedModule file noCache $
+  withCachedModule file $
     \cm -> do
       let rfm = revMap cm
           lm = locMap cm
       case symbolFromTypecheckedModule lm =<< newPosToOld cm pos of
-        Nothing -> return $ IdeResponseOk []
+        Nothing -> return []
         Just pn -> do
           let n = snd pn
           case nameSrcSpan n of

@@ -12,6 +12,9 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   (
   -- * Plugins
     PluginId
+  , IdeResponse(..)
+  , IdeError(..)
+  , IdeErrorCode(..)
   , CommandName
   , CommandFunc(..)
   , PluginDescriptor(..)
@@ -21,10 +24,12 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , IdeGhcM
   , IdeState(..)
   , IdeM
-  , liftToGhc
+  , LiftsToIdeGhcM
+  , liftIdeGhcM
   ) where
 
 import           Control.Concurrent.STM
+import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 
@@ -39,13 +44,49 @@ import qualified GhcMod.Monad        as GM
 import           GHC.Generics
 import           GHC (HscEnv)
 
-import           Haskell.Ide.Engine.PluginTypes
 import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.GhcModuleCache
 
 
 type PluginId = T.Text
 type CommandName = T.Text
+
+-- | The IDE response, with the type of response it contains
+data IdeResponse a = IdeResponseOk a
+                   | IdeResponseDeferred FilePath (CachedModule -> IdeGhcM (IdeResponse a))
+                   | IdeResponseFail IdeError
+
+instance Functor IdeResponse where
+  fmap f (IdeResponseOk x) = IdeResponseOk (f x)
+  fmap f (IdeResponseDeferred fp cb) = IdeResponseDeferred fp $ cb >=> (return . fmap f)
+  fmap _ (IdeResponseFail err) = IdeResponseFail err
+
+-- | Error codes. Add as required
+data IdeErrorCode
+  = ParameterError          -- ^ Wrong parameter type
+  | PluginError             -- ^ An error returned by a plugin
+  | InternalError           -- ^ Code error (case not handled or deemed
+                            --   impossible)
+  | UnknownPlugin           -- ^ Plugin is not registered
+  | UnknownCommand          -- ^ Command is not registered
+  | InvalidContext          -- ^ Context invalid for command
+  | OtherError              -- ^ An error for which there's no better code
+  | ParseError              -- ^ Input could not be parsed
+  deriving (Show,Read,Eq,Ord,Bounded,Enum,Generic)
+ 
+instance ToJSON IdeErrorCode
+instance FromJSON IdeErrorCode
+ 
+-- | A more structured error than just a string
+data IdeError = IdeError
+  { ideCode    :: IdeErrorCode -- ^ The error code
+  , ideMessage :: T.Text       -- ^ A human readable message
+  , ideInfo    :: Value        -- ^ Additional information
+  }
+  deriving (Show,Read,Eq,Generic)
+
+instance ToJSON IdeError
+instance FromJSON IdeError
 
 newtype CommandFunc a b = CmdSync (a -> IdeGhcM (IdeResponse b))
 
@@ -82,8 +123,11 @@ instance MonadMTState IdeState IdeGhcM where
 
 type IdeM = MultiThreadState IdeState
 
-liftToGhc :: IdeM a -> IdeGhcM a
-liftToGhc = lift . lift
+class LiftsToIdeGhcM m where
+  liftIdeGhcM :: m a -> IdeGhcM a
+
+instance LiftsToIdeGhcM IdeM where
+  liftIdeGhcM = liftIdeGhcM
 
 data IdeState = IdeState
   { moduleCache :: GhcModuleCache

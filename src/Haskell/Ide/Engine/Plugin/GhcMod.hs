@@ -92,13 +92,6 @@ logDiag rfm eref dref df _reason sev spn style msg = do
       modifyIORef' eref (msgTxt:)
       return ()
 
-unhelpfulSrcSpanErr :: T.Text -> IdeFailure
-unhelpfulSrcSpanErr err =
-  IdeRFail $
-    IdeError PluginError
-             ("Unhelpful SrcSpan" <> ": \"" <> err <> "\"")
-             Null
-
 srcErrToDiag :: MonadIO m
   => DynFlags
   -> (FilePath -> FilePath)
@@ -219,7 +212,7 @@ instance ToJSON TypeParams where
   toJSON = genericToJSON customOptions
 
 typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
-typeCmd = CmdSync $ \(TP _bool uri pos) -> liftToGhc $ newTypeCmd pos uri
+typeCmd = CmdSync $ \(TP _bool uri pos) -> liftIdeGhcM $ newTypeCmd pos uri
 
 newTypeCmd :: Position -> Uri -> IdeM (IdeResponse [(Range, T.Text)])
 newTypeCmd newPos uri =

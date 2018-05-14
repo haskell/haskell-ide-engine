@@ -60,7 +60,7 @@ initializeHoogleDb = do
     return Nothing
 
 infoCmd :: CommandFunc T.Text T.Text
-infoCmd = CmdSync $ \expr -> liftToGhc $
+infoCmd = CmdSync $ \expr -> liftIdeGhcM $
   bimap hoogleErrorToIdeError id <$> infoCmd' expr
 
 infoCmd' :: T.Text -> IdeM (Either HoogleError T.Text)
@@ -104,7 +104,7 @@ renderTarget t = T.intercalate "\n\n" $
 ------------------------------------------------------------------------
 
 lookupCmd :: CommandFunc T.Text [T.Text]
-lookupCmd = CmdSync $ \term -> liftToGhc $
+lookupCmd = CmdSync $ \term -> liftIdeGhcM $
       bimap hoogleErrorToIdeError id <$> lookupCmd' 10 term
 
 lookupCmd' :: Int -> T.Text -> IdeM (Either HoogleError [T.Text])
