@@ -824,6 +824,7 @@ requestDiagnostics cin file ver = do
         callbackl (IdeResponseOk  diags) =
           case diags of
             (PublishDiagnosticsParams fp (List ds)) -> sendOne "hlint" (fp, ds)
+        -- TODO: handleIdeResponseDeferred
         callbackl _ = error "impossible"
     liftIO $ atomically $ writeTChan cin reql
 
@@ -840,6 +841,7 @@ requestDiagnostics cin file ver = do
         case ds of
           [] -> sendEmpty
           _ -> mapM_ (sendOneGhc "ghcmod") ds
+      -- TODO: handleIdeResponseDeferred
       callbackg _ = error "impossible"
 
   liftIO $ atomically $ writeTChan cin reqg
