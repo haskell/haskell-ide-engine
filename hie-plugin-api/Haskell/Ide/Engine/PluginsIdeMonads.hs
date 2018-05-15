@@ -13,9 +13,6 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   (
   -- * Plugins
     PluginId
-  , IdeResponse(..)
-  , IdeError(..)
-  , IdeErrorCode(..)
   , CommandName
   , CommandFunc(..)
   , PluginDescriptor(..)
@@ -25,8 +22,12 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , IdeGhcM
   , IdeState(..)
   , IdeM
-  , LiftsToIdeGhcM
-  , liftIdeGhcM
+  , LiftsToIdeGhcM(..)
+  -- * IdeResponse and friends
+  , IdeResponse(..)
+  , IdeError(..)
+  , IdeErrorCode(..)
+  , IdeResponseT(..)
   ) where
 
 import           Control.Concurrent.STM
@@ -85,6 +86,26 @@ instance Monad IdeResponse where
   (IdeResponseFail err) >>= _ = IdeResponseFail err
   return = IdeResponseOk
 
+newtype IdeResponseT m a = IdeResponseT { runIdeResponseT :: m (IdeResponse a) }
+
+instance Monad m => Monad (IdeResponseT m) where
+  return = IdeResponseT . return . IdeResponseOk
+  x >>= f = IdeResponseT $ do
+    ideVal <- runIdeResponseT x
+    case ideVal of
+      IdeResponseOk a -> runIdeResponseT $ f a
+      IdeResponseFail err -> return $ IdeResponseFail err
+      IdeResponseDeferred _ _ -> error "TODO" -- TODO
+
+instance Monad m => Applicative (IdeResponseT m) where
+  pure = return
+  (<*>) = ap
+
+instance Monad m => Functor (IdeResponseT m) where
+  fmap = liftM
+
+instance MonadTrans IdeResponseT where
+  lift = IdeResponseT . (liftM IdeResponseOk)      
 
 instance Show (CachedModule -> IdeGhcM (IdeResponse a)) where
   show _ = "callback"

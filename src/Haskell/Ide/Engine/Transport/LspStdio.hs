@@ -22,7 +22,6 @@ import qualified Control.Exception as E
 import           Control.Lens ( (^.), (.~) )
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Except
 import           Control.Monad.STM
 import           Control.Monad.Reader
 import qualified Data.Aeson as J
@@ -490,10 +489,10 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                 rspMsg = Core.makeResponseMessage req ht
               reactorSend rspMsg
         let
-          getHoverInfo :: IdeM (Either IdeError (Maybe J.MarkedString, [T.Text], Maybe Range))
-          getHoverInfo = runExceptT $ do
-              info' <- ExceptT $ GhcMod.newTypeCmd pos doc
-              names' <- ExceptT $ Hie.getSymbolsAtPoint doc pos
+          getHoverInfo :: IdeM (IdeResponse (Maybe J.MarkedString, [T.Text], Maybe Range))
+          getHoverInfo = runIdeResponseT $ do
+              info' <- IdeResponseT $ GhcMod.newTypeCmd pos doc
+              names' <- IdeResponseT $ Hie.getSymbolsAtPoint doc pos
               let
                 f = (==) `on` (Hie.showName . snd)
                 f' = compare `on` (Hie.showName . snd)
@@ -518,7 +517,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                     [] -> case names of
                       [] -> (Nothing, Nothing)
                       ((r,_):_) -> (Nothing, Just r)
-              df <- ExceptT $ Hie.getDynFlags doc
+              df <- IdeResponseT $ Hie.getDynFlags doc
               docs <- forM names $ \(_,name) -> do
                   let sname = Hie.showName name
                   case Hie.getModule df name of
@@ -644,14 +643,14 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
           let rspMsg = Core.makeResponseMessage req $
                          origCompl & J.documentation .~ docs
           reactorSend rspMsg
-        let hreq = GReq Nothing Nothing (Just $ req ^. J.id) callback $ runExceptT $ do
+        let hreq = GReq Nothing Nothing (Just $ req ^. J.id) callback $
               case mquery of
-                Nothing -> return Nothing
+                Nothing -> return $ IdeResponseOk Nothing
                 Just query -> do
-                  res <- lift $ liftIdeGhcM $ Hoogle.infoCmd' query
-                  case res of
-                    Right x -> return $ Just x
-                    _ -> return Nothing
+                  res <- liftIdeGhcM $ Hoogle.infoCmd' query
+                  return $ IdeResponseOk $ case res of
+                    Right x -> Just x
+                    _ -> Nothing
         makeRequest hreq
 
       -- -------------------------------
