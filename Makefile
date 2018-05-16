@@ -4,7 +4,7 @@ STACKLOCALBINDIR != stack path --local-bin
 build: hie-8.2.1 hie-8.2.2 hie-8.4.2
 # build: hie-8.0.2 hie-8.2.1 hie-8.2.2 hie-8.4.2
 
-build-all: | build build-docs
+build-all: build build-docs
 .PHONY: build-all
 
 # build:
@@ -43,8 +43,8 @@ hie-8.2.2:
 
 hie-8.4.2:
 	stack --stack-yaml=stack.yaml install                                      \
-		&& cp '$(STACKLOCALBINDIR)\hie' '$(STACKLOCALBINDIR)\hie-8.4.2'    \
-		&& cp '$(STACKLOCALBINDIR)\hie-8.4.2' '$(STACKLOCALBINDIR)\hie-8.4'
+		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.4.2'    \
+		&& cp '$(STACKLOCALBINDIR)/hie-8.4.2' '$(STACKLOCALBINDIR)/hie-8.4'
 .PHONY: hie-8.4.2
 
 # ------------------------------------------------------
