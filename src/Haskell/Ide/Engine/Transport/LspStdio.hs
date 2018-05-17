@@ -75,16 +75,16 @@ import Name
 
 -- ---------------------------------------------------------------------
 
-lspStdioTransport :: (DispatcherEnv -> IO ()) -> TChan PluginRequest -> FilePath -> IO ()
-lspStdioTransport hieDispatcherProc cin origDir = do
-  run hieDispatcherProc cin origDir >>= \case
+lspStdioTransport :: (DispatcherEnv -> IO ()) -> TChan PluginRequest -> FilePath -> Maybe FilePath -> IO ()
+lspStdioTransport hieDispatcherProc cin origDir recFp = do
+  run hieDispatcherProc cin origDir recFp >>= \case
     0 -> exitSuccess
     c -> exitWith . ExitFailure $ c
 
 -- ---------------------------------------------------------------------
 
-run :: (DispatcherEnv -> IO ()) -> TChan PluginRequest -> FilePath -> IO Int
-run dispatcherProc cin _origDir = flip E.catches handlers $ do
+run :: (DispatcherEnv -> IO ()) -> TChan PluginRequest -> FilePath -> Maybe FilePath -> IO Int
+run dispatcherProc cin _origDir recFp = flip E.catches handlers $ do
 
   rin  <- atomically newTChan :: IO (TChan ReactorInput)
   let
@@ -98,14 +98,14 @@ run dispatcherProc cin _origDir = flip E.catches handlers $ do
             , docVersionTVar     = versionTVar
             }
       let reactorFunc =  flip runReaderT lf $ reactor dispatcherEnv cin rin
-      -- haskell lsp sets the current directory to the project root in the InitializeRequest
+      -- haskell-lsp sets the current directory to the project root in the InitializeRequest
       -- We launch the dispatcher after that so that the defualt cradle is
       -- recognized properly by ghc-mod
       _ <- forkIO $ race_ (dispatcherProc dispatcherEnv) reactorFunc
       return Nothing
 
   flip E.finally finalProc $ do
-    CTRL.run (getConfig,dp) (hieHandlers rin) hieOptions
+    CTRL.run (getConfig,dp) (hieHandlers rin) hieOptions recFp
 
   where
     handlers = [ E.Handler ioExcept

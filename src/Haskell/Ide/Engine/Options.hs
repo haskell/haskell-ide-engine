@@ -14,6 +14,7 @@ data GlobalOpts = GlobalOpts
   , optGhcModVomit :: Bool
   , optEkg         :: Bool
   , optEkgPort     :: Int
+  , optRecordFile  :: Maybe String
   } deriving (Show)
 
 globalOptsParser :: Parser GlobalOpts
@@ -39,14 +40,18 @@ globalOptsParser = GlobalOpts
       <> help "Root directory of project, defaults to cwd"))
   <*> flag False True
        ( long "vomit"
-       <> help "enable vomit logging for ghc-mod")
+       <> help "Enable vomit logging for ghc-mod")
   <*> flag False True
        ( long "ekg"
-       <> help "enable ekg collection and display on http://localhost:8000")
+       <> help "Enable ekg collection and display on http://localhost:8000")
   <*> (option auto
        ( long "port"
       <> short 'p'
       <> metavar "PORT"
       <> help "TCP port to use for EKG server. Only used if --ekg is set. Default 8000"
-      <> value 8000
-       ))
+      <> value 8000))
+  <*> (optional $ strOption
+       ( long "record"
+      <> short 'f'
+      <> metavar "RECORDFILE"
+      <> help "File to record client interaction to, if specified."))

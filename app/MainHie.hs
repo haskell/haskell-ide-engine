@@ -124,6 +124,6 @@ run opts = do
             (dispatcherP dispatcherEnv pin)
 
   if optLsp opts then
-    lspStdioTransport dispatcherProcP pin origDir
+    lspStdioTransport dispatcherProcP pin origDir (optRecordFile opts)
   else
     jsonStdioTransport dispatcherProcP pin
