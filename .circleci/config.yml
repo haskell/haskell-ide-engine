@@ -74,26 +74,34 @@ defaults: &defaults
           - ~/build/.stack-work
           - ~/build/hie-plugin-api/.stack-work
 
+    - run:
+        name: Making sure that 'make' works
+        command: make ${HIE_VER}
+
 version: 2
 jobs:
   ghc-8.0.2:
     environment:
       - STACK_FILE: "stack-8.0.2.yaml"
+      - HIE_VER: "hie-8.0.2"
     <<: *defaults
 
   ghc-8.2.1:
     environment:
       - STACK_FILE: "stack-8.2.1.yaml"
+      - HIE_VER: "hie-8.2.1"
     <<: *defaults
 
   ghc-8.2.2:
     environment:
       - STACK_FILE: "stack-8.2.2.yaml"
+      - HIE_VER: "hie-8.2.2"
     <<: *defaults
 
   ghc-8.4.2:
     environment:
       - STACK_FILE: "stack.yaml"
+      - HIE_VER: "hie-8.4.2"
     <<: *defaults
 
 workflows:
