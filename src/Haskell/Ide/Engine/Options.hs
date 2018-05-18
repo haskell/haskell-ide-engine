@@ -7,14 +7,15 @@ import           Data.Semigroup             hiding (option)
 import           Options.Applicative.Simple
 
 data GlobalOpts = GlobalOpts
-  { optDebugOn     :: Bool
-  , optLogFile     :: Maybe String
-  , optLsp         :: Bool
-  , projectRoot    :: Maybe String
-  , optGhcModVomit :: Bool
-  , optEkg         :: Bool
-  , optEkgPort     :: Int
-  , optRecordFile  :: Maybe String
+  { optDebugOn      :: Bool
+  , optLogFile      :: Maybe String
+  , optLsp          :: Bool
+  , projectRoot     :: Maybe String
+  , optGhcModVomit  :: Bool
+  , optEkg          :: Bool
+  , optEkgPort      :: Int
+  , optRecordClient :: Maybe FilePath
+  , optRecordServer :: Maybe FilePath
   } deriving (Show)
 
 globalOptsParser :: Parser GlobalOpts
@@ -51,7 +52,12 @@ globalOptsParser = GlobalOpts
       <> help "TCP port to use for EKG server. Only used if --ekg is set. Default 8000"
       <> value 8000))
   <*> (optional $ strOption
-       ( long "record"
-      <> short 'f'
-      <> metavar "RECORDFILE"
-      <> help "File to record client interaction to, if specified."))
+       ( long "recordClient"
+      <> short 'c'
+      <> metavar "RECORDCLIENTFILE"
+      <> help "File to record the input from the client to, if specified."))
+  <*> (optional $ strOption
+       ( long "recordServer"
+      <> short 's'
+      <> metavar "RECORDSERVERFILE"
+      <> help "File to record the output from HIE to, if specified."))

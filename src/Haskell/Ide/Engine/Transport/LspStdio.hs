@@ -75,16 +75,26 @@ import Name
 
 -- ---------------------------------------------------------------------
 
-lspStdioTransport :: (DispatcherEnv -> IO ()) -> TChan PluginRequest -> FilePath -> Maybe FilePath -> IO ()
-lspStdioTransport hieDispatcherProc cin origDir recFp = do
-  run hieDispatcherProc cin origDir recFp >>= \case
+lspStdioTransport :: (DispatcherEnv -> IO ())
+                  -> TChan PluginRequest
+                  -> FilePath
+                  -> Maybe FilePath
+                  -> Maybe FilePath
+                  -> IO ()
+lspStdioTransport hieDispatcherProc cin origDir recClientFp recServerFp = do
+  run hieDispatcherProc cin origDir recClientFp recServerFp >>= \case
     0 -> exitSuccess
     c -> exitWith . ExitFailure $ c
 
 -- ---------------------------------------------------------------------
 
-run :: (DispatcherEnv -> IO ()) -> TChan PluginRequest -> FilePath -> Maybe FilePath -> IO Int
-run dispatcherProc cin _origDir recFp = flip E.catches handlers $ do
+run :: (DispatcherEnv -> IO ())
+    -> TChan PluginRequest
+    -> FilePath
+    -> Maybe FilePath
+    -> Maybe FilePath
+    -> IO Int
+run dispatcherProc cin _origDir recClientFp recServerFp = flip E.catches handlers $ do
 
   rin  <- atomically newTChan :: IO (TChan ReactorInput)
   let
@@ -105,7 +115,7 @@ run dispatcherProc cin _origDir recFp = flip E.catches handlers $ do
       return Nothing
 
   flip E.finally finalProc $ do
-    CTRL.run (getConfig,dp) (hieHandlers rin) hieOptions recFp
+    CTRL.run (getConfig,dp) (hieHandlers rin) hieOptions recClientFp recServerFp
 
   where
     handlers = [ E.Handler ioExcept
