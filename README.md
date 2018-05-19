@@ -69,30 +69,24 @@ we talk to clients.__
  - Renaming via HaRe
 
    ![Renaming](https://i.imgur.com/z03G2a5.gif)
- 
+
 ## Installation
 
-Note: The version on branch `hie-0.1.0.0` supports GHC from 8.0.2 to
-8.2.2, and projects with a `cabal-version` value in the cabal file <2.
-
-Because GHC 8.4.2 ships with Cabal 2.2, and it is now strict about
-what features are available per version, the ghc-mod hack for the
-`libexec-dir` no longer works.  So for current master having GHC
-8.4.2 support, the `cabal-version` field of the project that `hie` is
-being used on must be set to `>= 2.0`.
+Note: The version on branch `hie-0.1.0.0` supports GHC 8.0.2. This is
+not supported in master.
 
 
 ### Getting the source for GHC 8.2.1, 8.2.2, 8.4.2
 
-Both methods build HIE from the source code, so first,
+HIE builds from source code, so first,
 
 ```bash
 $ git clone https://github.com/haskell/haskell-ide-engine --recursive
 $ cd haskell-ide-engine
 ```
-### Getting the source for GHC 8.0.2, 8.2.1, 8.2.2
+### Getting the source for GHC 8.0.2
 
-Both methods build HIE from the source code, so first,
+HIE builds from source code, so first,
 
 ```bash
 $ git clone https://github.com/haskell/haskell-ide-engine
@@ -103,7 +97,7 @@ $ git submodule update --init
 
 ### Installation with stack
 
-To install HIE, you need Stack version >= 1.6.1
+To install HIE, you need Stack version >= 1.7.1
 
 To install all supported GHC versions, and name them as expected
 by the vscode plugin, and also build a local hoogle database, do
@@ -268,7 +262,7 @@ $ stack haddock --keep-going
 To enable documentation generation for cabal projects, add the following to your ~/.cabal/config
 
 ```
-documentation: True 
+documentation: True
 ```
 
 To generate a hoogle database that hie can use
