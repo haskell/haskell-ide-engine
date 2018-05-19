@@ -869,7 +869,6 @@ hieOptions :: Core.Options
 hieOptions =
   def { Core.textDocumentSync       = Just syncOptions
       , Core.completionProvider     = Just (J.CompletionOptions (Just True) (Just ["."]))
-      , Core.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List ["applyrefact:applyOne","hare:demote"]))
       }
 
 
