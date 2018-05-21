@@ -492,9 +492,15 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file -> do
               res <- srcSpan2Loc rfm realSpan
               case res of
                 Right l@(J.Location luri range) ->
-                  case oldRangeToNew cm range of
-                    Just r  -> return $ IdeResponseOk [J.Location luri r]
+                  case uriToFilePath luri of
                     Nothing -> return $ IdeResponseOk [l]
+                    Just fp -> do
+                      mcm' <- getCachedModule fp
+                      case mcm' of
+                        Nothing -> return $ IdeResponseOk [l]
+                        Just cm' ->  case oldRangeToNew cm' range of
+                          Just r  -> return $ IdeResponseOk [J.Location luri r]
+                          Nothing -> return $ IdeResponseOk [l]
                 Left x -> do
                   debugm "findDef: name srcspan not found/valid"
                   pure (IdeResponseFail
