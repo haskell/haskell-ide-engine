@@ -23,12 +23,6 @@ build-all: build build-docs
 .PHONY: build
 
 # ------------------------------------------------------
-hie-8.0.2:
-	stack --stack-yaml=stack-8.0.2.yaml install                                \
-		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.0'      \
-		&& cp '$(STACKLOCALBINDIR)/hie-8.0.2' '$(STACKLOCALBINDIR)hie-8.2'
-.PHONY: hie-8.0.2
-
 hie-8.2.1:
 	stack --stack-yaml=stack-8.2.1.yaml install                                \
 		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.2.1'    \
@@ -59,24 +53,19 @@ build-docs:
 # ------------------------------------------------------
 
 test:
-	stack    --stack-yaml=stack-8.0.2.yaml test    \
-	&& stack --stack-yaml=stack-8.2.1.yaml test \
+	stack --stack-yaml=stack-8.2.1.yaml test \
 	&& stack --stack-yaml=stack-8.2.2.yaml test \
 	&& stack --stack-yaml=stack.yaml test
 .PHONY: test
 
 build-copy-compiler-tool:
-	stack    --stack-yaml=stack-8.0.2.yaml build --copy-compiler-tool    \
-	&& stack --stack-yaml=stack-8.2.1.yaml build --copy-compiler-tool \
+	stack --stack-yaml=stack-8.2.1.yaml build --copy-compiler-tool \
 	&& stack --stack-yaml=stack-8.2.2.yaml build --copy-compiler-tool \
 	&& stack --stack-yaml=stack.yaml       build --copy-compiler-tool
 .PHONY: build-copy-compiler-tool
 
 icu-macos-fix:
 	brew install icu4c                                     \
-	&& stack --stack-yaml=stack-8.0.2.yaml build text-icu  \
-         --extra-lib-dirs=/usr/local/opt/icu4c/lib         \
-         --extra-include-dirs=/usr/local/opt/icu4c/include \
 	&& stack --stack-yaml=stack-8.2.1.yaml build text-icu  \
          --extra-lib-dirs=/usr/local/opt/icu4c/lib         \
          --extra-include-dirs=/usr/local/opt/icu4c/include \
