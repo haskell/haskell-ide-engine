@@ -36,18 +36,15 @@ import           GHC
 import qualified GhcMod.Error                                 as GM
 import qualified GhcMod.Gap                                   as GM
 import qualified GhcMod.LightGhc                              as GM
-import qualified GhcMod.Monad                                 as GM
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
-import           Haskell.Ide.Engine.Plugin.GhcMod            (setTypecheckedModule)
 import qualified Haskell.Ide.Engine.Plugin.Fuzzy              as Fuzzy
 import           HscTypes
 import qualified Language.Haskell.LSP.Types                   as J
-import           Language.Haskell.Refact.API                 (showGhc, showGhcQual, setGhcContext, hsNamessRdr)
+import           Language.Haskell.Refact.API                 (showGhc, hsNamessRdr)
 import           Language.Haskell.Refact.Utils.MonadFunctions
-import           Module                                       hiding (getModule)
 import           Name
 import           Outputable                                   (Outputable)
 import qualified Outputable                                   as GHC
@@ -478,16 +475,7 @@ getModule df n = do
 
 -- ---------------------------------------------------------------------
 
-getNewNames :: GhcMonad m => Name -> m [Name]
-getNewNames old = do
-  let eqModules (Module pk1 mn1) (Module pk2 mn2) = mn1 == mn2 && pk1 == pk2
-  gnames <- GHC.getNamesInScope
-  let clientModule = GHC.nameModule old
-  let clientInscopes = filter (\n -> eqModules clientModule (GHC.nameModule n)) gnames
-  let newNames = filter (\n -> showGhcQual n == showGhcQual old) clientInscopes
-  return newNames
-
-findDef :: Uri -> Position -> IdeGhcM (IdeResponse [Location])
+findDef :: Uri -> Position -> IdeM (IdeResponse [Location])
 findDef uri pos = pluginGetFile "findDef: " uri $ \file -> do
   let noCache = return $ nonExistentCacheErr "hare:findDef"
   withCachedModule file noCache $
@@ -508,43 +496,8 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file -> do
                     Just r  -> return $ IdeResponseOk [J.Location luri r]
                     Nothing -> return $ IdeResponseOk [l]
                 Left x -> do
-                  let failure = pure (IdeResponseFail
-                                        (IdeError PluginError
-                                                  ("hare:findDef" <> ": \"" <> x <> "\"")
-                                                  Null))
-                  case nameModule_maybe n of
-                    Just m -> do
-                      let mName = moduleName m
-                      b <- GM.unGmlT $ isLoaded mName
-                      if b then do
-                        mLoc <- GM.unGmlT $ ms_location <$> getModSummary mName
-                        case ml_hs_file mLoc of
-                          Just fp -> do
-                            cfp <- reverseMapFile rfm fp
-                            mcm' <- getCachedModule cfp
-                            rcm' <- case mcm' of
-                              Just cmdl -> do
-                                debugm "module already in cache in findDef"
-                                return $ Just cmdl
-                              Nothing -> do
-                                debugm "setting cached module in findDef"
-                                _ <- setTypecheckedModule $ filePathToUri cfp
-                                getCachedModule cfp
-                            case rcm' of
-                              Nothing ->
-                                return
-                                  $ IdeResponseFail
-                                  $ IdeError PluginError ("hare:findDef: failed to load module for " <> T.pack cfp) Null
-                              Just cm' -> do
-                                let modSum = pm_mod_summary $ tm_parsed_module $ tcMod cm'
-                                    rfm'   = revMap cm'
-                                newNames <- GM.unGmlT $ do
-                                  setGhcContext modSum
-                                  getNewNames n
-                                eithers <- mapM (srcSpan2Loc rfm' . nameSrcSpan) newNames
-                                case rights eithers of
-                                  (l:_) -> return $ IdeResponseOk [l]
-                                  []    -> failure
-                          Nothing -> failure
-                        else failure
-                    Nothing -> failure
+                  debugm "findDef: name srcspan not found/valid"
+                  pure (IdeResponseFail
+                         (IdeError PluginError
+                                   ("hare:findDef" <> ": \"" <> x <> "\"")
+                                   Null))
