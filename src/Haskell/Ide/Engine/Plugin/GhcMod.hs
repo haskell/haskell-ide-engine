@@ -15,6 +15,7 @@ import           Data.Function
 import           Data.IORef
 import           Data.List
 import qualified Data.Map.Strict                   as Map
+-- import           Data.Maybe
 #if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
 #endif
@@ -90,13 +91,6 @@ logDiag rfm eref dref df _reason sev spn style msg = do
     Left _ -> do
       modifyIORef' eref (msgTxt:)
       return ()
-
-unhelpfulSrcSpanErr :: T.Text -> IdeFailure
-unhelpfulSrcSpanErr err =
-  IdeRFail $
-    IdeError PluginError
-             ("Unhelpful SrcSpan" <> ": \"" <> err <> "\"")
-             Null
 
 srcErrToDiag :: MonadIO m
   => DynFlags
@@ -219,16 +213,15 @@ instance ToJSON TypeParams where
   toJSON = genericToJSON customOptions
 
 typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
-typeCmd = CmdSync $ \(TP _bool uri pos) -> do
-  liftToGhc $ newTypeCmd pos uri
+typeCmd = CmdSync $ \(TP _bool uri pos) -> liftIdeGhcM $ newTypeCmd pos uri
 
 newTypeCmd :: Position -> Uri -> IdeM (IdeResponse [(Range, T.Text)])
 newTypeCmd newPos uri =
   pluginGetFile "newTypeCmd: " uri $ \fp -> do
       mcm <- getCachedModule fp
-      case mcm of
-        Nothing -> return $ IdeResponseOk []
-        Just cm -> return $ IdeResponseOk $ pureTypeCmd newPos cm
+      return $ case mcm of
+        ModuleCached cm _ -> IdeResponseOk $ pureTypeCmd newPos cm
+        _ -> IdeResponseOk []
 
 pureTypeCmd :: Position -> CachedModule -> [(Range,T.Text)]
 pureTypeCmd newPos cm  =

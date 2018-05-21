@@ -22,7 +22,6 @@ import qualified Control.Exception as E
 import           Control.Lens ( (^.), (.~) )
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Except
 import           Control.Monad.STM
 import           Control.Monad.Reader
 import qualified Data.Aeson as J
@@ -252,19 +251,19 @@ _unmapFileFromVfs verTVar cin uri = do
 updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeGhcM (IdeResponse ())
 updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file -> do
   mcm <- getCachedModule file
+  
   case mcm of
-    Just cm -> do
+    ModuleCached cm _ -> do
       let n2oOld = newPosToOld cm
           o2nOld = oldPosToNew cm
           (n2o,o2n) = foldr go (n2oOld, o2nOld) changes
           go (J.TextDocumentContentChangeEvent (Just r) _ txt) (n2o', o2n') =
             (n2o' <=< newToOld r txt, oldToNew r txt <=< o2n')
           go _ _ = (const Nothing, const Nothing)
-      let cm' = cm {newPosToOld = n2o, oldPosToNew = o2n}
+          cm' = cm {newPosToOld = n2o, oldPosToNew = o2n}
       cacheModuleNoClear file cm'
       return $ IdeResponseOk ()
-    Nothing ->
-      return $ IdeResponseOk ()
+    _ -> return $ IdeResponseOk ()
   where
     f (+/-) (J.Range (Position sl _) (Position el _)) txt p@(Position l c)
       | l < sl = Just p
@@ -330,6 +329,7 @@ sendErrorLog msg = reactorSend' (`Core.sendErrorLogS` msg)
 reactor :: forall void. DispatcherEnv -> TChan PluginRequest -> TChan ReactorInput -> R void
 reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
   let
+    makeRequest :: PluginRequest -> R ()
     makeRequest req@(GReq _ Nothing (Just lid) _ _) = liftIO $ atomically $ do
       modifyTVar wipTVar (S.insert lid)
       writeTChan cin req
@@ -437,8 +437,12 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             J.List changes = params ^. J.contentChanges
         mapFileFromVfs versionTVar cin vtdi
         -- Important - Call this before requestDiagnostics
-        makeRequest $ GReq (Just uri) Nothing Nothing (const $ return ())
-                        $ updatePositionMap uri changes
+        makeRequest $ GReq (Just uri) Nothing Nothing (const $ return ()) $
+                        -- mark this module's cache as stale
+                        pluginGetFile "markCacheStale:" uri $ \fp -> do
+                          markCacheStale fp
+                          updatePositionMap uri changes
+
         requestDiagnostics cin uri ver
 
       Core.NotDidCloseTextDocument notification -> do
@@ -485,10 +489,10 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                 rspMsg = Core.makeResponseMessage req ht
               reactorSend rspMsg
         let
-          getHoverInfo :: IdeM (Either IdeFailure (Maybe J.MarkedString, [T.Text], Maybe Range))
-          getHoverInfo = runExceptT $ do
-              info' <- ExceptT $ GhcMod.newTypeCmd pos doc
-              names' <- ExceptT $ Hie.getSymbolsAtPoint doc pos
+          getHoverInfo :: IdeM (IdeResponse (Maybe J.MarkedString, [T.Text], Maybe Range))
+          getHoverInfo = runIdeResponseT $ do
+              info' <- IdeResponseT $ GhcMod.newTypeCmd pos doc
+              names' <- IdeResponseT $ Hie.getSymbolsAtPoint doc pos
               let
                 f = (==) `on` (Hie.showName . snd)
                 f' = compare `on` (Hie.showName . snd)
@@ -513,7 +517,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                     [] -> case names of
                       [] -> (Nothing, Nothing)
                       ((r,_):_) -> (Nothing, Just r)
-              df <- ExceptT $ Hie.getDynFlags doc
+              df <- IdeResponseT $ Hie.getDynFlags doc
               docs <- forM names $ \(_,name) -> do
                   let sname = Hie.showName name
                   case Hie.getModule df name of
@@ -639,14 +643,14 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
           let rspMsg = Core.makeResponseMessage req $
                          origCompl & J.documentation .~ docs
           reactorSend rspMsg
-        let hreq = GReq Nothing Nothing (Just $ req ^. J.id) callback $ runExceptT $ do
+        let hreq = GReq Nothing Nothing (Just $ req ^. J.id) callback $
               case mquery of
-                Nothing -> return Nothing
+                Nothing -> return $ IdeResponseOk Nothing
                 Just query -> do
-                  res <- lift $ liftToGhc $ Hoogle.infoCmd' query
-                  case res of
-                    Right x -> return $ Just x
-                    _ -> return Nothing
+                  res <- liftIdeGhcM $ Hoogle.infoCmd' query
+                  return $ IdeResponseOk $ case res of
+                    Right x -> Just x
+                    _ -> Nothing
         makeRequest hreq
 
       -- -------------------------------
@@ -725,10 +729,12 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         liftIO $ U.logs $ "reactor:got Document symbol request:" ++ show req
         let uri = req ^. J.params . J.textDocument . J.uri
         callback <- hieResponseHelper (req ^. J.id) $ \docSymbols -> do
-            let rspMsg = Core.makeResponseMessage req $ J.List docSymbols
-            reactorSend rspMsg
-        let hreq = IReq (req ^. J.id) callback
-                 $ Hie.getSymbols uri
+          let rspMsg = Core.makeResponseMessage req $ J.List docSymbols
+          reactorSend rspMsg
+
+        -- there is no immediate response,but rather
+        -- a callback that we pass into the request
+        let hreq = IReq (req ^. J.id) callback $ Hie.getSymbols uri
         makeRequest hreq
 
       -- -------------------------------
@@ -815,10 +821,10 @@ requestDiagnostics cin file ver = do
     let reql = GReq (Just file) (Just (file,ver)) Nothing (flip runReaderT lf . callbackl)
                  $ ApplyRefact.lintCmd' file
         callbackl (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
-        callbackl (IdeResponseError err) = liftIO $ U.logs $ "got err" ++ show err
         callbackl (IdeResponseOk  diags) =
           case diags of
             (PublishDiagnosticsParams fp (List ds)) -> sendOne "hlint" (fp, ds)
+        -- TODO: handleIdeResponseDeferred
         callbackl _ = error "impossible"
     liftIO $ atomically $ writeTChan cin reql
 
@@ -826,7 +832,6 @@ requestDiagnostics cin file ver = do
   let reqg = GReq (Just file) (Just (file,ver)) Nothing (flip runReaderT lf . callbackg)
                $ GhcMod.setTypecheckedModule file
       callbackg (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
-      callbackg (IdeResponseError err) = liftIO $ U.logs $ "got err" ++ show err
       callbackg (IdeResponseOk    (pd, errs)) = do
         forM_ errs $ \e -> do
           reactorSend $
@@ -836,6 +841,7 @@ requestDiagnostics cin file ver = do
         case ds of
           [] -> sendEmpty
           _ -> mapM_ (sendOneGhc "ghcmod") ds
+      -- TODO: handleIdeResponseDeferred
       callbackg _ = error "impossible"
 
   liftIO $ atomically $ writeTChan cin reqg
@@ -850,7 +856,6 @@ hieResponseHelper lid action = do
   return $ \res -> flip runReaderT lf $
     case res of
       IdeResponseFail  err -> sendErrorResponse lid J.InternalError (T.pack $ show err)
-      IdeResponseError err -> sendErrorResponse lid J.InternalError (T.pack $ show err)
       IdeResponseOk r -> action r
       _ -> error "impossible"
 

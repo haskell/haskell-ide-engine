@@ -62,13 +62,13 @@ commandDetailCmd :: CommandFunc (T.Text, T.Text) T.Text
 commandDetailCmd = CmdSync $ \(p,command) -> do
   IdePlugins plugins <- getPlugins
   case Map.lookup p plugins of
-    Nothing -> return $ IdeResponseError $ IdeError
+    Nothing -> return $ IdeResponseFail $ IdeError
       { ideCode = UnknownPlugin
       , ideMessage = "Can't find plugin:" <> p
       , ideInfo = toJSON p
       }
     Just pl -> case find (\cmd -> command == (commandName cmd) ) pl of
-      Nothing -> return $ IdeResponseError $ IdeError
+      Nothing -> return $ IdeResponseFail $ IdeError
         { ideCode = UnknownCommand
         , ideMessage = "Can't find command:" <> command
         , ideInfo = toJSON command

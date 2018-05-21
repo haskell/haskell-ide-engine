@@ -15,12 +15,12 @@ import           GHC                               (TypecheckedModule)
 import Haskell.Ide.Engine.ArtifactMap
 import Haskell.Ide.Engine.PluginTypes
 
-
 type UriCaches = Map.Map FilePath UriCache
 
 data UriCache = UriCache
   { cachedModule :: !CachedModule
   , cachedData   :: !(Map.Map TypeRep Dynamic)
+  , isStale    :: Bool
   } deriving Show
 
 data CachedModule = CachedModule

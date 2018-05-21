@@ -117,6 +117,7 @@ test-suite haskell-ide-test
                        GhcModPluginSpec
                        HaRePluginSpec
                        HooglePluginSpec
+                       IdeResponseSpec
                        JsonSpec
                        Spec
                        TestUtils
@@ -153,6 +154,7 @@ test-suite haskell-ide-dispatcher-test
                        GhcModPluginSpec
                        HaRePluginSpec
                        HooglePluginSpec
+                       IdeResponseSpec
                        JsonSpec
                        Spec
                        TestUtils

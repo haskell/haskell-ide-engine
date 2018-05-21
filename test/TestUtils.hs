@@ -67,7 +67,7 @@ makeRequest :: ToJSON a => PluginId -> CommandName -> a -> IdeGhcM (IdeResponse 
 makeRequest plugin com arg = runPluginCommand plugin com (toJSON arg)
 
 runIGM :: IdePlugins -> IdeGhcM a -> IO a
-runIGM testPlugins = runIdeGhcM testOptions (IdeState emptyModuleCache testPlugins Map.empty Nothing)
+runIGM testPlugins = runIdeGhcM testOptions (IdeState emptyModuleCache Map.empty testPlugins Map.empty Nothing)
 
 withTestLogging :: IO a -> IO a
 withTestLogging = withFileLogging "./test-main.log"

@@ -17,7 +17,6 @@ module Haskell.Ide.Engine.Plugin.HieExtras
 
 import           ConLike
 import           Control.Monad.State
-import           Control.Monad.Trans.Except
 import           Data.Aeson
 import           Data.Either
 import           Data.IORef
@@ -61,12 +60,10 @@ getDynFlags :: Uri -> IdeM (IdeResponse DynFlags)
 getDynFlags uri =
   pluginGetFile "getDynFlags: " uri $ \fp -> do
       mcm <- getCachedModule fp
-      case mcm of
-        Just cm -> return $
-          IdeResponseOk $ ms_hspp_opts $ pm_mod_summary $ tm_parsed_module $ tcMod cm
-        Nothing -> return $
-          IdeResponseFail $
-            IdeError PluginError ("getDynFlags: \"" <> "module not loaded" <> "\"") Null
+      return $ case mcm of
+        ModuleCached cm _ -> IdeResponseOk $ ms_hspp_opts $ pm_mod_summary $ tm_parsed_module $ tcMod cm
+        _ -> IdeResponseFail $
+          IdeError PluginError ("getDynFlags: \"" <> "module not loaded" <> "\"") Null
 
 -- ---------------------------------------------------------------------
 
@@ -101,90 +98,99 @@ instance ModuleCache NameMapData where
 -- ---------------------------------------------------------------------
 
 getSymbols :: Uri -> IdeM (IdeResponse [J.SymbolInformation])
-getSymbols uri = pluginGetFile "getSymbols: " uri $ \file -> do
-    mcm <- getCachedModule file
-    case mcm of
-      Nothing -> return $ IdeResponseOk []
-      Just cm -> do
-          let tm = tcMod cm
-              rfm = revMap cm
-              hsMod = unLoc $ pm_parsed_source $ tm_parsed_module tm
-              imports = hsmodImports hsMod
-              imps  = concatMap (goImport . unLoc) imports
-              decls = concatMap (go . unLoc) $ hsmodDecls hsMod
-              s x = showName <$> x
+getSymbols uri =
+  pluginGetFile "getSymbols: " uri $ \file -> do
+      mcm <- getCachedModule file
+      case mcm of
+        ModuleCached cm _ -> do
+          syms <- getSymbolsFromModule cm
+          return $ IdeResponseOk syms
+        ModuleLoading -> return $ IdeResponseDeferred file $ \cm -> do
+          syms <- liftIdeGhcM $ getSymbolsFromModule cm
+          return $ IdeResponseOk syms
+        ModuleFailed _ -> return $ IdeResponseOk []
+    
+getSymbolsFromModule :: CachedModule -> IdeM [J.SymbolInformation]
+getSymbolsFromModule cm = do
+  let tm = tcMod cm
+      rfm = revMap cm
+      hsMod = unLoc $ pm_parsed_source $ tm_parsed_module tm
+      imports = hsmodImports hsMod
+      imps  = concatMap (goImport . unLoc) imports
+      decls = concatMap (go . unLoc) $ hsmodDecls hsMod
+      s x = showName <$> x
 
-              go :: HsDecl GM.GhcPs -> [(J.SymbolKind,Located T.Text,Maybe T.Text)]
-              go (TyClD FamDecl { tcdFam = FamilyDecl { fdLName = n } }) = pure (J.SkClass, s n, Nothing)
-              go (TyClD SynDecl { tcdLName = n }) = pure (J.SkClass, s n, Nothing)
-              go (TyClD DataDecl { tcdLName = n, tcdDataDefn = HsDataDefn { dd_cons = cons } }) =
-                (J.SkClass, s n, Nothing) : concatMap (processCon (unLoc $ s n) . unLoc) cons
-              go (TyClD ClassDecl { tcdLName = n, tcdSigs = sigs, tcdATs = fams }) =
-                (J.SkInterface, sn, Nothing) :
-                      concatMap (processSig (unLoc sn) . unLoc) sigs
-                  ++  concatMap (map setCnt . go . TyClD . FamDecl . unLoc) fams
-                where sn = s n
-                      setCnt (k,n',_) = (k,n',Just (unLoc sn))
-              go (ValD FunBind { fun_id = ln }) = pure (J.SkFunction, s ln, Nothing)
-              go (ValD PatBind { pat_lhs = p }) =
-                map (\n ->(J.SkMethod, s n, Nothing)) $ hsNamessRdr p
-              go (ForD ForeignImport { fd_name = n }) = pure (J.SkFunction, s n, Nothing)
-              go _ = []
+      go :: HsDecl GM.GhcPs -> [(J.SymbolKind,Located T.Text,Maybe T.Text)]
+      go (TyClD FamDecl { tcdFam = FamilyDecl { fdLName = n } }) = pure (J.SkClass, s n, Nothing)
+      go (TyClD SynDecl { tcdLName = n }) = pure (J.SkClass, s n, Nothing)
+      go (TyClD DataDecl { tcdLName = n, tcdDataDefn = HsDataDefn { dd_cons = cons } }) =
+        (J.SkClass, s n, Nothing) : concatMap (processCon (unLoc $ s n) . unLoc) cons
+      go (TyClD ClassDecl { tcdLName = n, tcdSigs = sigs, tcdATs = fams }) =
+        (J.SkInterface, sn, Nothing) :
+              concatMap (processSig (unLoc sn) . unLoc) sigs
+          ++  concatMap (map setCnt . go . TyClD . FamDecl . unLoc) fams
+        where sn = s n
+              setCnt (k,n',_) = (k,n',Just (unLoc sn))
+      go (ValD FunBind { fun_id = ln }) = pure (J.SkFunction, s ln, Nothing)
+      go (ValD PatBind { pat_lhs = p }) =
+        map (\n ->(J.SkMethod, s n, Nothing)) $ hsNamessRdr p
+      go (ForD ForeignImport { fd_name = n }) = pure (J.SkFunction, s n, Nothing)
+      go _ = []
 
-              processSig :: T.Text
-                         -> Sig GM.GhcPs
-                         -> [(J.SymbolKind, Located T.Text, Maybe T.Text)]
-              processSig cnt (ClassOpSig False names _) =
-                map (\n ->(J.SkMethod,s n, Just cnt)) names
-              processSig _ _ = []
+      processSig :: T.Text
+                -> Sig GM.GhcPs
+                -> [(J.SymbolKind, Located T.Text, Maybe T.Text)]
+      processSig cnt (ClassOpSig False names _) =
+        map (\n ->(J.SkMethod,s n, Just cnt)) names
+      processSig _ _ = []
 
-              processCon :: T.Text
-                         -> ConDecl GM.GhcPs
-                         -> [(J.SymbolKind, Located T.Text, Maybe T.Text)]
-              processCon cnt ConDeclGADT { con_names = names } =
-                map (\n -> (J.SkConstructor, s n, Just cnt)) names
-              processCon cnt ConDeclH98 { con_name = name, con_details = dets } =
-                (J.SkConstructor, sn, Just cnt) : xs
-                where
-                  sn = s name
-                  xs = case dets of
-                    RecCon (L _ rs) -> concatMap (map (f . rdrNameFieldOcc . unLoc)
-                                                 . cd_fld_names
-                                                 . unLoc) rs
-                                         where f ln = (J.SkField, s ln, Just (unLoc sn))
-                    _ -> []
+      processCon :: T.Text
+                -> ConDecl GM.GhcPs
+                -> [(J.SymbolKind, Located T.Text, Maybe T.Text)]
+      processCon cnt ConDeclGADT { con_names = names } =
+        map (\n -> (J.SkConstructor, s n, Just cnt)) names
+      processCon cnt ConDeclH98 { con_name = name, con_details = dets } =
+        (J.SkConstructor, sn, Just cnt) : xs
+        where
+          sn = s name
+          xs = case dets of
+            RecCon (L _ rs) -> concatMap (map (f . rdrNameFieldOcc . unLoc)
+                                        . cd_fld_names
+                                        . unLoc) rs
+                                where f ln = (J.SkField, s ln, Just (unLoc sn))
+            _ -> []
 
-              goImport :: ImportDecl GM.GhcPs -> [(J.SymbolKind, Located T.Text, Maybe T.Text)]
-              goImport ImportDecl { ideclName = lmn, ideclAs = as, ideclHiding = meis } = a ++ xs
-                where
-                  im = (J.SkModule, lsmn, Nothing)
-                  lsmn = s lmn
-                  smn = unLoc lsmn
-                  a = case as of
-                            Just a' -> [(J.SkNamespace, lsmn, Just $ showName a')]
-                            Nothing -> [im]
-                  xs = case meis of
-                         Just (False, eis) -> concatMap (f . unLoc) (unLoc eis)
-                         _ -> []
-                  f (IEVar n) = pure (J.SkFunction, s n, Just smn)
-                  f (IEThingAbs n) = pure (J.SkClass, s n, Just smn)
-                  f (IEThingAll n) = pure (J.SkClass, s n, Just smn)
-                  f (IEThingWith n _ vars fields) =
-                    let sn = s n in
-                    (J.SkClass, sn, Just smn) :
-                         map (\n' -> (J.SkFunction, s n', Just (unLoc sn))) vars
-                      ++ map (\f' -> (J.SkField   , s f', Just (unLoc sn))) fields
-                  f _ = []
+      goImport :: ImportDecl GM.GhcPs -> [(J.SymbolKind, Located T.Text, Maybe T.Text)]
+      goImport ImportDecl { ideclName = lmn, ideclAs = as, ideclHiding = meis } = a ++ xs
+        where
+          im = (J.SkModule, lsmn, Nothing)
+          lsmn = s lmn
+          smn = unLoc lsmn
+          a = case as of
+                    Just a' -> [(J.SkNamespace, lsmn, Just $ showName a')]
+                    Nothing -> [im]
+          xs = case meis of
+                Just (False, eis) -> concatMap (f . unLoc) (unLoc eis)
+                _ -> []
+          f (IEVar n) = pure (J.SkFunction, s n, Just smn)
+          f (IEThingAbs n) = pure (J.SkClass, s n, Just smn)
+          f (IEThingAll n) = pure (J.SkClass, s n, Just smn)
+          f (IEThingWith n _ vars fields) =
+            let sn = s n in
+            (J.SkClass, sn, Just smn) :
+                map (\n' -> (J.SkFunction, s n', Just (unLoc sn))) vars
+              ++ map (\f' -> (J.SkField   , s f', Just (unLoc sn))) fields
+          f _ = []
 
-              declsToSymbolInf :: (J.SymbolKind, Located T.Text, Maybe T.Text)
-                               -> IdeM (Either T.Text J.SymbolInformation)
-              declsToSymbolInf (kind, L l nameText, cnt) = do
-                eloc <- srcSpan2Loc rfm l
-                case eloc of
-                  Left x -> return $ Left x
-                  Right loc -> return $ Right $ J.SymbolInformation nameText kind loc cnt
-          symInfs <- mapM declsToSymbolInf (imps ++ decls)
-          return $ IdeResponseOk $ rights symInfs
+      declsToSymbolInf :: (J.SymbolKind, Located T.Text, Maybe T.Text)
+                      -> IdeM (Either T.Text J.SymbolInformation)
+      declsToSymbolInf (kind, L l nameText, cnt) = do
+        eloc <- srcSpan2Loc rfm l
+        case eloc of
+          Left x -> return $ Left x
+          Right loc -> return $ Right $ J.SymbolInformation nameText kind loc cnt
+  symInfs <- mapM declsToSymbolInf (imps ++ decls)
+  return $ rights symInfs
 
 -- ---------------------------------------------------------------------
 
@@ -407,9 +413,7 @@ getTypeForName n = do
 
 getSymbolsAtPoint :: Uri -> Position -> IdeM (IdeResponse [(Range, Name)])
 getSymbolsAtPoint uri pos = pluginGetFile "getSymbolsAtPoint: " uri $ \file -> do
-  let noCache = return $ IdeResponseOk [] -- Processing hover, no symbols available, not an error
-  withCachedModule file noCache $
-    return . IdeResponseOk . getSymbolsAtPointPure pos
+  withCachedModule file $ return . IdeResponseOk . getSymbolsAtPointPure pos
 
 getSymbolsAtPointPure :: Position -> CachedModule -> [(Range,Name)]
 getSymbolsAtPointPure pos cm = maybe [] (`getArtifactsAtPos` locMap cm) $ newPosToOld cm pos
@@ -429,14 +433,14 @@ getReferencesInDoc :: Uri -> Position -> IdeM (IdeResponse [J.DocumentHighlight]
 getReferencesInDoc uri pos = pluginGetFile "getReferencesInDoc: " uri $ \file -> do
   let noCache = return $ IdeResponseOk [] -- Processing doc highlights request, no symbols available, not an error
   withCachedModuleAndData file noCache $
-    \cm NMD{inverseNameMap} -> runExceptT $ do
+    \cm NMD{inverseNameMap} -> do
       let lm = locMap cm
           pm = tm_parsed_module $ tcMod cm
           cfile = ml_hs_file $ ms_location $ pm_mod_summary pm
           mpos = newPosToOld cm pos
       case mpos of
-        Nothing -> return []
-        Just pos' -> fmap concat $
+        Nothing -> return $ IdeResponseOk []
+        Just pos' -> fmap IdeResponseOk $ fmap concat $
           forM (getArtifactsAtPos pos' lm) $ \(_,name) -> do
               let usages = fromMaybe [] $ Map.lookup name inverseNameMap
                   defn = nameSrcSpan name
@@ -488,9 +492,8 @@ getNewNames old = do
   return newNames
 
 findDef :: Uri -> Position -> IdeGhcM (IdeResponse [Location])
-findDef uri pos = pluginGetFile "findDef: " uri $ \file -> do
-  let noCache = return $ nonExistentCacheErr "hare:findDef"
-  withCachedModule file noCache $
+findDef uri pos = pluginGetFile "findDef: " uri $ \file ->
+  withCachedModule file $
     \cm -> do
       let rfm = revMap cm
           lm = locMap cm
@@ -523,19 +526,15 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file -> do
                             cfp <- reverseMapFile rfm fp
                             mcm' <- getCachedModule cfp
                             rcm' <- case mcm' of
-                              Just cmdl -> do
+                              ModuleCached cmdl stale -> do
                                 debugm "module already in cache in findDef"
-                                return $ Just cmdl
-                              Nothing -> do
+                                return $ ModuleCached cmdl stale
+                              _ -> do
                                 debugm "setting cached module in findDef"
                                 _ <- setTypecheckedModule $ filePathToUri cfp
                                 getCachedModule cfp
                             case rcm' of
-                              Nothing ->
-                                return
-                                  $ IdeResponseFail
-                                  $ IdeError PluginError ("hare:findDef: failed to load module for " <> T.pack cfp) Null
-                              Just cm' -> do
+                              ModuleCached cm' _ -> do
                                 let modSum = pm_mod_summary $ tm_parsed_module $ tcMod cm'
                                     rfm'   = revMap cm'
                                 newNames <- GM.unGmlT $ do
@@ -545,6 +544,10 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file -> do
                                 case rights eithers of
                                   (l:_) -> return $ IdeResponseOk [l]
                                   []    -> failure
+                              _ ->
+                                return
+                                  $ IdeResponseFail
+                                  $ IdeError PluginError ("hare:findDef: failed to load module for " <> T.pack cfp) Null
                           Nothing -> failure
                         else failure
                     Nothing -> failure

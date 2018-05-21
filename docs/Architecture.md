@@ -33,7 +33,12 @@ data CachedModule = CachedModule
   , oldPosToNew :: Position -> Maybe Position
   }
 
-getCachedModule :: Uri -> IdeM (Maybe CachedModule)
+data CachedModuleResult = ModuleLoading
+                        | ModuleFailed String
+                        | ModuleCached CachedModule IsStale
+type IsStale = Bool
+
+getCachedModule :: Uri -> IdeM CachedModuleResult
 ```
 
 On every file open or edit, HIE tries to load a `TypecheckedModule`(as defined in the ghc api)
