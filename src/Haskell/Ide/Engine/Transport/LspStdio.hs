@@ -384,7 +384,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         reactorSend $ fmServerRegisterCapabilityRequest rid registrations
 
         reactorSend $
-                fmServerLogMessageNotification J.MtLog $ "Using ghc version: " <> T.pack version
+                fmServerLogMessageNotification J.MtLog $ "Using hie version: " <> T.pack version
 
         lf <- ask
         let hreq = GReq Nothing Nothing Nothing callback $ do
