@@ -1,5 +1,5 @@
 BASEDIR=$(CURDIR)
-STACKLOCALBINDIR != stack path --local-bin
+STACKLOCALBINDIR:=$(shell stack path --local-bin)
 
 build: hie-8.2.1 hie-8.2.2 hie-8.4.2
 # build: hie-8.0.2 hie-8.2.1 hie-8.2.2 hie-8.4.2
