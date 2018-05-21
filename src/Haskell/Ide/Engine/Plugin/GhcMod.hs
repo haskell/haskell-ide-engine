@@ -157,7 +157,8 @@ setTypecheckedModule uri =
     debugm $ "setTypecheckedModule: file mapping state is: " ++ show fileMap
     rfm <- GM.mkRevRedirMapFunc
     ((diags', errs), mtm) <- GM.getTypecheckedModuleGhc' (myLogger rfm) fp
-    let diags = Map.insertWith Set.union uri Set.empty diags'
+    canonUri <- canonicalizeUri uri
+    let diags = Map.insertWith Set.union canonUri Set.empty diags'
     case mtm of
       Nothing -> do
         debugm $ "setTypecheckedModule: Didn't get typechecked module for: " ++ show fp
