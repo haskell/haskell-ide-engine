@@ -672,7 +672,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         callback <- hieResponseHelper (req ^. J.id) $ \loc -> do
             let rspMsg = Core.makeResponseMessage req loc
             reactorSend rspMsg
-        let hreq = GReq (Just doc) Nothing (Just $ req ^. J.id) callback
+        let hreq = IReq (req ^. J.id) callback
                      $ fmap J.MultiLoc <$> Hie.findDef doc pos
         makeRequest hreq
 
