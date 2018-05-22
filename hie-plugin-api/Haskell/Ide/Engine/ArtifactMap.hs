@@ -13,7 +13,7 @@ import qualified SrcLoc                            as GHC
 import qualified Var
 import qualified GhcMod.Gap                        as GM
 
-import           Haskell.Ide.Engine.PluginTypes
+import           Language.Haskell.LSP.Types
 
 -- ---------------------------------------------------------------------
 

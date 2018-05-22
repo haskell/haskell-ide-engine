@@ -6,6 +6,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE PatternSynonyms   #-}
 
 -- | IdeGhcM and associated types
 module Haskell.Ide.Engine.PluginsIdeMonads
@@ -22,6 +23,23 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , IdeState(..)
   , IdeM
   , liftToGhc
+  , IdeResponse(..)
+  , IdeError(..)
+  , IdeErrorCode(..)
+  -- * LSP types
+  , Uri(..)
+  , uriToFilePath
+  , filePathToUri
+  , Position(..)
+  , Range(..)
+  , Location(..)
+  , TextDocumentIdentifier(..)
+  , TextDocumentPositionParams(..)
+  , WorkspaceEdit(..)
+  , Diagnostic(..)
+  , DiagnosticSeverity(..)
+  , PublishDiagnosticsParams(..)
+  , List(..)
   ) where
 
 import           Control.Concurrent.STM
@@ -39,9 +57,22 @@ import qualified GhcMod.Monad        as GM
 import           GHC.Generics
 import           GHC (HscEnv)
 
-import           Haskell.Ide.Engine.PluginTypes
 import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.GhcModuleCache
+
+import           Language.Haskell.LSP.Types (Diagnostic (..),
+                                             DiagnosticSeverity (..),
+                                             List (..),
+                                             Location (..),
+                                             Position (..),
+                                             PublishDiagnosticsParams (..),
+                                             Range (..),
+                                             TextDocumentIdentifier (..),
+                                             TextDocumentPositionParams (..),
+                                             Uri (..),
+                                             WorkspaceEdit (..),
+                                             filePathToUri,
+                                             uriToFilePath)
 
 
 type PluginId = T.Text
@@ -104,3 +135,68 @@ instance HasGhcModuleCache IdeM where
 instance HasGhcModuleCache IdeGhcM where
   getModuleCache = lift . lift $ getModuleCache
   setModuleCache = lift . lift . setModuleCache
+
+
+
+-- ---------------------------------------------------------------------
+
+-- | The IDE response, with the type of response it contains
+
+
+data IdeResponse a = IdeResponseOk a
+                   | IdeResponseFail IdeError
+                   | IdeResponseDeferred FilePath (CachedModule -> IdeGhcM (IdeResponse a))
+
+instance Functor IdeResponse where
+  fmap f (IdeResponseOk x) = IdeResponseOk (f x)
+  fmap f (IdeResponseDeferred fp cb) = IdeResponseDeferred fp $ cb >=> (return . fmap f)
+  fmap _ (IdeResponseFail err) = IdeResponseFail err
+
+instance Applicative IdeResponse where
+  pure = return
+
+  (IdeResponseFail err) <*> _ = IdeResponseFail err
+  _ <*> (IdeResponseFail err) = IdeResponseFail err
+
+  (IdeResponseOk f) <*> (IdeResponseOk x) = IdeResponseOk (f x)
+
+  (IdeResponseOk f) <*> (IdeResponseDeferred fp cb) = IdeResponseDeferred fp $ fmap (fmap f) . cb
+
+  (IdeResponseDeferred fp cb) <*> x = IdeResponseDeferred fp $ \cm -> do
+    f <- cb cm
+    pure (f <*> x)
+
+instance Monad IdeResponse where
+  (IdeResponseOk x) >>= f = f x
+  (IdeResponseDeferred fp cb) >>= f = IdeResponseDeferred fp $ \cm -> do
+    x <- cb cm
+    return $ x >>= f
+  (IdeResponseFail err) >>= _ = IdeResponseFail err
+  return = IdeResponseOk
+
+-- | Error codes. Add as required
+data IdeErrorCode
+ = ParameterError          -- ^ Wrong parameter type
+ | PluginError             -- ^ An error returned by a plugin
+ | InternalError           -- ^ Code error (case not handled or deemed
+                           --   impossible)
+ | UnknownPlugin           -- ^ Plugin is not registered
+ | UnknownCommand          -- ^ Command is not registered
+ | InvalidContext          -- ^ Context invalid for command
+ | OtherError              -- ^ An error for which there's no better code
+ | ParseError              -- ^ Input could not be parsed
+ deriving (Show,Read,Eq,Ord,Bounded,Enum,Generic)
+
+instance ToJSON IdeErrorCode
+instance FromJSON IdeErrorCode
+
+-- | A more structured error than just a string
+data IdeError = IdeError
+ { ideCode    :: IdeErrorCode -- ^ The error code
+ , ideMessage :: T.Text       -- ^ A human readable message
+ , ideInfo    :: Value        -- ^ Additional information
+ }
+ deriving (Show,Read,Eq,Generic)
+
+instance ToJSON IdeError
+instance FromJSON IdeError

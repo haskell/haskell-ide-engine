@@ -13,8 +13,8 @@ import qualified GhcMod.Types                      as GM
 import           GHC                               (TypecheckedModule)
 
 import Haskell.Ide.Engine.ArtifactMap
-import Haskell.Ide.Engine.PluginTypes
 
+import Language.Haskell.LSP.Types
 
 type UriCaches = Map.Map FilePath UriCache
 
