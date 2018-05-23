@@ -59,16 +59,16 @@ applyOneCmd :: CommandFunc ApplyOneParams WorkspaceEdit
 applyOneCmd = CmdSync $ \(AOP uri pos title) -> do
   applyOneCmd' uri (OneHint pos title)
 
-applyOneCmd' :: Uri -> OneHint -> IdeGhcM (IdeResponse WorkspaceEdit)
+applyOneCmd' :: Uri -> OneHint -> IdeGhcM (IdeResult WorkspaceEdit)
 applyOneCmd' uri oneHint = pluginGetFile "applyOne: " uri $ \fp -> do
       revMapp <- GM.mkRevRedirMapFunc
       res <- GM.withMappedFile fp $ \file' -> liftIO $ applyHint file' (Just oneHint) revMapp
       logm $ "applyOneCmd:file=" ++ show fp
       logm $ "applyOneCmd:res=" ++ show res
       case res of
-        Left err -> return $ IdeResponseFail (IdeError PluginError
+        Left err -> return $ IdeResultFail (IdeError PluginError
                       (T.pack $ "applyOne: " ++ show err) Null)
-        Right fs -> return (IdeResponseOk fs)
+        Right fs -> return (IdeResultOk fs)
 
 
 -- ---------------------------------------------------------------------
@@ -77,15 +77,15 @@ applyAllCmd :: CommandFunc Uri WorkspaceEdit
 applyAllCmd = CmdSync $ \uri -> do
   applyAllCmd' uri
 
-applyAllCmd' :: Uri -> IdeGhcM (IdeResponse WorkspaceEdit)
+applyAllCmd' :: Uri -> IdeGhcM (IdeResult WorkspaceEdit)
 applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \fp -> do
       revMapp <- GM.mkRevRedirMapFunc
       res <- GM.withMappedFile fp $ \file' -> liftIO $ applyHint file' Nothing revMapp
       logm $ "applyAllCmd:res=" ++ show res
       case res of
-        Left err -> return $ IdeResponseFail (IdeError PluginError
+        Left err -> return $ IdeResultFail (IdeError PluginError
                       (T.pack $ "applyAll: " ++ show err) Null)
-        Right fs -> return (IdeResponseOk fs)
+        Right fs -> return (IdeResultOk fs)
 
 -- ---------------------------------------------------------------------
 
@@ -93,14 +93,14 @@ lintCmd :: CommandFunc Uri PublishDiagnosticsParams
 lintCmd = CmdSync $ \uri -> do
   lintCmd' uri
 
-lintCmd' :: Uri -> IdeGhcM (IdeResponse PublishDiagnosticsParams)
+lintCmd' :: Uri -> IdeGhcM (IdeResult PublishDiagnosticsParams)
 lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
       res <- GM.withMappedFile fp $ \file' -> liftIO $ runExceptT $ runLintCmd file' []
       case res of
         Left diags ->
-          return (IdeResponseOk (PublishDiagnosticsParams (filePathToUri fp) $ List diags))
+          return (IdeResultOk (PublishDiagnosticsParams (filePathToUri fp) $ List diags))
         Right fs ->
-          return $ IdeResponseOk $
+          return $ IdeResultOk $
             PublishDiagnosticsParams (filePathToUri fp)
               $ List (map hintToDiagnostic $ stripIgnores fs)
 
@@ -274,20 +274,23 @@ makeDiffResult orig new fileMap = do
   return $ diffText (filePathToUri fp,origText) new
 
 -- | Removes diagnostics that can't be refactored automatically by HLint
-filterUnrefactorableDiagnostics :: Uri -> [Diagnostic] -> IdeResponseT IdeGhcM [Diagnostic]
+filterUnrefactorableDiagnostics :: Uri -> [Diagnostic] -> IdeGhcM (IdeResult [Diagnostic])
 filterUnrefactorableDiagnostics uri diags = do
-  ideas <- IdeResponseT $ pluginGetFile "filterUnrefactorableDiagnostics: " uri $ \fp -> do
+  ideasResult <- pluginGetFile "filterUnrefactorableDiagnostics: " uri $ \fp -> do
     res <- GM.withMappedFile fp $ \file' -> liftIO $ runExceptT $ getIdeas file' Nothing :: IdeGhcM (Either String [Idea])
     case res of
-      Left err -> return $ IdeResponseFail (IdeError PluginError
+      Left err -> return $ IdeResultFail (IdeError PluginError
         (T.pack $ "filterUnrefactorableDiagnostics: " ++ show err) Null)
-      Right ideas -> return $ IdeResponseOk ideas
-
-  let hasRefactoring :: Diagnostic -> Bool
-      hasRefactoring diag = let matches = filter ((== diag) . hintToDiagnostic) ideas
-          in if null matches
-            -- by default we don't want to throw away refactorings just because we can't find a match
-            then True
-            -- otherwise make sure the matched idea has a possible refactoring
-            else (not . null . ideaRefactoring) $ head matches
-    in return $ filter hasRefactoring diags
+      Right ideas -> return $ IdeResultOk ideas
+  
+  case ideasResult of
+    IdeResultFail err -> return $ IdeResultFail err
+    IdeResultOk ideas ->
+      let hasRefactoring :: Diagnostic -> Bool
+          hasRefactoring diag = let matches = filter ((== diag) . hintToDiagnostic) ideas
+              in if null matches
+                -- by default we don't want to throw away refactorings just because we can't find a match
+                then True
+                -- otherwise make sure the matched idea has a possible refactoring
+                else (not . null . ideaRefactoring) $ head matches
+        in return $ IdeResultOk $ filter hasRefactoring diags

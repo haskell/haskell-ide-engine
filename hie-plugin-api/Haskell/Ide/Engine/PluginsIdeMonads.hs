@@ -24,7 +24,7 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , IdeState(..)
   , IdeM
   , liftToGhc
-  , IdeResult
+  , IdeResult(..)
   , pattern IdeResponseOk
   , pattern IdeResponseFail
   , IdeResponse(..)
@@ -83,7 +83,7 @@ import           Language.Haskell.LSP.Types (Diagnostic (..),
 type PluginId = T.Text
 type CommandName = T.Text
 
-newtype CommandFunc a b = CmdSync (a -> IdeGhcM (IdeResponse b))
+newtype CommandFunc a b = CmdSync (a -> IdeGhcM (IdeResult b))
 
 data PluginCommand = forall a b. (FromJSON a, ToJSON b, Typeable b) =>
   PluginCommand { commandName :: CommandName

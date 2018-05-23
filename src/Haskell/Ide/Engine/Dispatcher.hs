@@ -68,10 +68,8 @@ ghcDispatcher env@DispatcherEnv{docVersionTVar} pin = forever $ do
             runActionWithContext Nothing act
 
   let runWithCallback = do
-        response <- runner action
-        case response of
-          IdeResponseResult result -> liftIO $ callback result
-          IdeResponseDeferred _ _ -> error "TODO"
+        result <- runner action
+        liftIO $ callback result
 
   let runIfVersionMatch = case mver of
         Nothing -> runWithCallback

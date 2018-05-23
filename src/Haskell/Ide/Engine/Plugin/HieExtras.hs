@@ -55,7 +55,7 @@ import           Var
 
 getDynFlags :: Uri -> IdeM (IdeResponse DynFlags)
 getDynFlags uri =
-  pluginGetFile "getDynFlags: " uri $ \fp -> do
+  pluginGetFileResponse "getDynFlags: " uri $ \fp -> do
       mcm <- getCachedModule fp
       case mcm of
         Just cm -> return $
@@ -72,14 +72,7 @@ nonExistentCacheErr meth =
     IdeError PluginError
              (T.pack $ meth <> ": \"" <> "module not loaded" <> "\"")
              Null
-
-someErr :: String -> String -> IdeResponse a
-someErr meth err =
-  IdeResponseFail $
-    IdeError PluginError
-             (T.pack $ meth <> ": " <> err)
-             Null
-
+  
 -- ---------------------------------------------------------------------
 
 data NameMapData = NMD
@@ -97,7 +90,7 @@ instance ModuleCache NameMapData where
 -- ---------------------------------------------------------------------
 
 getSymbols :: Uri -> IdeM (IdeResponse [J.SymbolInformation])
-getSymbols uri = pluginGetFile "getSymbols: " uri $ \file -> do
+getSymbols uri = pluginGetFileResponse "getSymbols: " uri $ \file -> do
     mcm <- getCachedModule file
     case mcm of
       Nothing -> return $ IdeResponseOk []
@@ -357,10 +350,12 @@ instance ModuleCache CachedCompletions where
       }
 
 getCompletions :: Uri -> (T.Text, T.Text) -> IdeM (IdeResponse [J.CompletionItem])
-getCompletions uri (qualifier, ident) = pluginGetFile "getCompletions: " uri $ \file ->
+getCompletions uri (qualifier, ident) = pluginGetFileResponse "getCompletions: " uri $ \file ->
   let handlers =
         [ GM.GHandler $ \(ex :: SomeException) ->
-            return $ someErr "getCompletions" (show ex)
+            return $ IdeResponseFail $ IdeError PluginError
+                                                (T.pack $ "getCompletions" <> ": " <> (show ex))
+                                                Null
         ]
   in flip GM.gcatches handlers $ do
     -- debugm $ "got prefix" ++ show (qualifier, ident)
@@ -402,7 +397,7 @@ getTypeForName n = do
 -- ---------------------------------------------------------------------
 
 getSymbolsAtPoint :: Uri -> Position -> IdeM (IdeResponse [(Range, Name)])
-getSymbolsAtPoint uri pos = pluginGetFile "getSymbolsAtPoint: " uri $ \file -> do
+getSymbolsAtPoint uri pos = pluginGetFileResponse "getSymbolsAtPoint: " uri $ \file -> do
   let noCache = return $ IdeResponseOk [] -- Processing hover, no symbols available, not an error
   withCachedModule file noCache $
     return . IdeResponseOk . getSymbolsAtPointPure pos
@@ -422,36 +417,37 @@ symbolFromTypecheckedModule lm pos =
 -- ---------------------------------------------------------------------
 
 getReferencesInDoc :: Uri -> Position -> IdeM (IdeResponse [J.DocumentHighlight])
-getReferencesInDoc uri pos = pluginGetFile "getReferencesInDoc: " uri $ \file -> do
-  let noCache = return $ IdeResponseOk [] -- Processing doc highlights request, no symbols available, not an error
-  withCachedModuleAndData file noCache $
-    \cm NMD{inverseNameMap} -> runIdeResponseT $ do
-      let lm = locMap cm
-          pm = tm_parsed_module $ tcMod cm
-          cfile = ml_hs_file $ ms_location $ pm_mod_summary pm
-          mpos = newPosToOld cm pos
-      case mpos of
-        Nothing -> return []
-        Just pos' -> fmap concat $
-          forM (getArtifactsAtPos pos' lm) $ \(_,name) -> do
-              let usages = fromMaybe [] $ Map.lookup name inverseNameMap
-                  defn = nameSrcSpan name
-                  defnInSameFile =
-                    (unpackFS <$> srcSpanFileName_maybe defn) == cfile
-                  makeDocHighlight :: SrcSpan -> Maybe J.DocumentHighlight
-                  makeDocHighlight spn = do
-                    let kind = if spn == defn then J.HkWrite else J.HkRead
-                    let
-                      foo (Left _) = Nothing
-                      foo (Right r) = Just r
-                    r <- foo $ srcSpan2Range spn
-                    r' <- oldRangeToNew cm r
-                    return $ J.DocumentHighlight r' (Just kind)
-                  highlights
-                    |    isVarOcc (occName name)
-                      && defnInSameFile = mapMaybe makeDocHighlight (defn : usages)
-                    | otherwise = mapMaybe makeDocHighlight usages
-              return highlights
+getReferencesInDoc uri pos =
+  pluginGetFileResponse "getReferencesInDoc: " uri $ \file -> do
+    let noCache = return $ IdeResponseOk [] -- Processing doc highlights request, no symbols available, not an error
+    withCachedModuleAndData file noCache $
+      \cm NMD{inverseNameMap} -> runIdeResponseT $ do
+        let lm = locMap cm
+            pm = tm_parsed_module $ tcMod cm
+            cfile = ml_hs_file $ ms_location $ pm_mod_summary pm
+            mpos = newPosToOld cm pos
+        case mpos of
+          Nothing -> return []
+          Just pos' -> fmap concat $
+            forM (getArtifactsAtPos pos' lm) $ \(_,name) -> do
+                let usages = fromMaybe [] $ Map.lookup name inverseNameMap
+                    defn = nameSrcSpan name
+                    defnInSameFile =
+                      (unpackFS <$> srcSpanFileName_maybe defn) == cfile
+                    makeDocHighlight :: SrcSpan -> Maybe J.DocumentHighlight
+                    makeDocHighlight spn = do
+                      let kind = if spn == defn then J.HkWrite else J.HkRead
+                      let
+                        foo (Left _) = Nothing
+                        foo (Right r) = Just r
+                      r <- foo $ srcSpan2Range spn
+                      r' <- oldRangeToNew cm r
+                      return $ J.DocumentHighlight r' (Just kind)
+                    highlights
+                      |    isVarOcc (occName name)
+                        && defnInSameFile = mapMaybe makeDocHighlight (defn : usages)
+                      | otherwise = mapMaybe makeDocHighlight usages
+                return highlights
 
 -- ---------------------------------------------------------------------
 
@@ -475,34 +471,35 @@ getModule df n = do
 -- ---------------------------------------------------------------------
 
 findDef :: Uri -> Position -> IdeM (IdeResponse [Location])
-findDef uri pos = pluginGetFile "findDef: " uri $ \file -> do
-  let noCache = return $ nonExistentCacheErr "hare:findDef"
-  withCachedModule file noCache $
-    \cm -> do
-      let rfm = revMap cm
-          lm = locMap cm
-      case symbolFromTypecheckedModule lm =<< newPosToOld cm pos of
-        Nothing -> return $ IdeResponseOk []
-        Just pn -> do
-          let n = snd pn
-          case nameSrcSpan n of
-            UnhelpfulSpan _ -> return $ IdeResponseOk []
-            realSpan   -> do
-              res <- srcSpan2Loc rfm realSpan
-              case res of
-                Right l@(J.Location luri range) ->
-                  case uriToFilePath luri of
-                    Nothing -> return $ IdeResponseOk [l]
-                    Just fp -> do
-                      mcm' <- getCachedModule fp
-                      case mcm' of
-                        Nothing -> return $ IdeResponseOk [l]
-                        Just cm' ->  case oldRangeToNew cm' range of
-                          Just r  -> return $ IdeResponseOk [J.Location luri r]
+findDef uri pos = pluginGetFileResponse "findDef: " uri $ \file -> do
+    let noCache = return $ nonExistentCacheErr "hare:findDef"
+    withCachedModule file noCache $
+      (\cm -> do
+        let rfm = revMap cm
+            lm = locMap cm
+        case symbolFromTypecheckedModule lm =<< newPosToOld cm pos of
+          Nothing -> return $ IdeResponseOk []
+          Just pn -> do
+            let n = snd pn
+            case nameSrcSpan n of
+              UnhelpfulSpan _ -> return $ IdeResponseOk []
+              realSpan   -> do
+                res <- srcSpan2Loc rfm realSpan
+                case res of
+                  Right l@(J.Location luri range) ->
+                    case uriToFilePath luri of
+                      Nothing -> return $ IdeResponseOk [l]
+                      Just fp -> do
+                        mcm' <- getCachedModule fp
+                        case mcm' of
                           Nothing -> return $ IdeResponseOk [l]
-                Left x -> do
-                  debugm "findDef: name srcspan not found/valid"
-                  pure (IdeResponseFail
-                         (IdeError PluginError
-                                   ("hare:findDef" <> ": \"" <> x <> "\"")
-                                   Null))
+                          Just cm' ->  case oldRangeToNew cm' range of
+                            Just r  -> return $ IdeResponseOk [J.Location luri r]
+                            Nothing -> return $ IdeResponseOk [l]
+                  Left x -> do
+                    debugm "findDef: name srcspan not found/valid"
+                    pure (IdeResponseFail
+                          (IdeError PluginError
+                                    ("hare:findDef" <> ": \"" <> x <> "\"")
+                                    Null)))
+                                    

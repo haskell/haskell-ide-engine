@@ -814,9 +814,8 @@ requestDiagnostics cin file ver = do
     -- get hlint diagnostics
     let reql = GReq (Just file) (Just (file,ver)) Nothing (flip runReaderT lf . callbackl)
                  $ ApplyRefact.lintCmd' file
-        callbackl (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
-        callbackl (IdeResponseFail err) = liftIO $ U.logs $ "got err" ++ show err
-        callbackl (IdeResponseOk  diags) =
+        callbackl (IdeResultFail  err) = liftIO $ U.logs $ "got err" ++ show err
+        callbackl (IdeResultOk  diags) =
           case diags of
             (PublishDiagnosticsParams fp (List ds)) -> sendOne "hlint" (fp, ds)
         callbackl _ = error "impossible"
@@ -825,8 +824,8 @@ requestDiagnostics cin file ver = do
   -- get GHC diagnostics and loads the typechecked module into the cache
   let reqg = GReq (Just file) (Just (file,ver)) Nothing (flip runReaderT lf . callbackg)
                $ GhcMod.setTypecheckedModule file
-      callbackg (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
-      callbackg (IdeResponseOk    (pd, errs)) = do
+      callbackg (IdeResultFail  err) = liftIO $ U.logs $ "got err" ++ show err
+      callbackg (IdeResultOk    (pd, errs)) = do
         forM_ errs $ \e -> do
           reactorSend $
             fmServerLogMessageNotification J.MtError
@@ -841,16 +840,15 @@ requestDiagnostics cin file ver = do
 
 -- ---------------------------------------------------------------------
 
--- | Manage the boilerplate for passing on any errors found in the IdeResponse
+-- | Manage the boilerplate for passing on any errors found in the IdeResult
 hieResponseHelper :: (MonadReader (Core.LspFuncs Config) m)
-  => J.LspId -> (t -> ReaderT (Core.LspFuncs Config) IO ()) -> m (IdeResponse t -> IO ())
+  => J.LspId -> (t -> ReaderT (Core.LspFuncs Config) IO ()) -> m (IdeResult t -> IO ())
 hieResponseHelper lid action = do
   lf <- ask
   return $ \res -> flip runReaderT lf $
     case res of
-      IdeResponseFail  err -> sendErrorResponse lid J.InternalError (T.pack $ show err)
-      IdeResponseOk r -> action r
-      _ -> error "impossible"
+      IdeResultFail err -> sendErrorResponse lid J.InternalError (T.pack $ show err)
+      IdeResultOk r -> action r
 
 -- ---------------------------------------------------------------------
 

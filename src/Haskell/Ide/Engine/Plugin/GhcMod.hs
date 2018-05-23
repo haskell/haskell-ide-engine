@@ -149,7 +149,7 @@ myLogger rfm action = do
         return (diags,errs)
   GM.gcatches action' handlers
 
-setTypecheckedModule :: Uri -> IdeGhcM (IdeResponse (Diagnostics, AdditionalErrs))
+setTypecheckedModule :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
 setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     fileMap <- GM.getMMappedFiles
@@ -161,14 +161,14 @@ setTypecheckedModule uri =
     case mtm of
       Nothing -> do
         debugm $ "setTypecheckedModule: Didn't get typechecked module for: " ++ show fp
-        return $ IdeResponseOk (diags,errs)
+        return $ IdeResultOk (diags,errs)
       Just tm -> do
         typm <- GM.unGmlT $ genTypeMap tm
         sess <- fmap GM.gmgsSession . GM.gmGhcSession <$> GM.gmsGet
         let cm = CachedModule tm (genLocMap tm) typm rfm return return
         cacheModule fp cm
         modifyMTS (\s -> s {ghcSession = sess})
-        return $ IdeResponseOk (diags,errs)
+        return $ IdeResultOk (diags,errs)
 
 -- ---------------------------------------------------------------------
 
@@ -176,7 +176,7 @@ lintCmd :: CommandFunc Uri T.Text
 lintCmd = CmdSync $ \ uri ->
   lintCmd' uri
 
-lintCmd' :: Uri -> IdeGhcM (IdeResponse T.Text)
+lintCmd' :: Uri -> IdeGhcM (IdeResult T.Text)
 lintCmd' uri =
   pluginGetFile "lint: " uri $ \file ->
     fmap T.pack <$> runGhcModCommand (GM.lint GM.defaultLintOpts file)
@@ -200,7 +200,7 @@ infoCmd :: CommandFunc InfoParams T.Text
 infoCmd = CmdSync $ \(IP uri expr) ->
   infoCmd' uri expr
 
-infoCmd' :: Uri -> T.Text -> IdeGhcM (IdeResponse T.Text)
+infoCmd' :: Uri -> T.Text -> IdeGhcM (IdeResult T.Text)
 infoCmd' uri expr =
   pluginGetFile "info: " uri $ \file ->
     fmap T.pack <$> runGhcModCommand (GM.info file (GM.Expression (T.unpack expr)))
@@ -221,13 +221,13 @@ typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
 typeCmd = CmdSync $ \(TP _bool uri pos) -> do
   liftToGhc $ newTypeCmd pos uri
 
-newTypeCmd :: Position -> Uri -> IdeM (IdeResponse [(Range, T.Text)])
+newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
 newTypeCmd newPos uri =
   pluginGetFile "newTypeCmd: " uri $ \fp -> do
       mcm <- getCachedModule fp
       case mcm of
-        Nothing -> return $ IdeResponseOk []
-        Just cm -> return $ IdeResponseOk $ pureTypeCmd newPos cm
+        Nothing -> return $ IdeResultOk []
+        Just cm -> return $ IdeResultOk $ pureTypeCmd newPos cm
 
 pureTypeCmd :: Position -> CachedModule -> [(Range,T.Text)]
 pureTypeCmd newPos cm  =
@@ -265,10 +265,10 @@ isSubRangeOf (Range sa ea) (Range sb eb) = sb <= sa && eb >= ea
 -- ---------------------------------------------------------------------
 
 runGhcModCommand :: IdeGhcM a
-                 -> IdeGhcM (IdeResponse a)
+                 -> IdeGhcM (IdeResult a)
 runGhcModCommand cmd =
-  (IdeResponseOk <$> cmd) `G.gcatch`
+  (IdeResultOk <$> cmd) `G.gcatch`
     \(e :: GM.GhcModError) ->
       return $
-      IdeResponseFail $
+      IdeResultFail $
       IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Null

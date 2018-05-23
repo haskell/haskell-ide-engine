@@ -41,39 +41,39 @@ baseDescriptor = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 versionCmd :: CommandFunc () T.Text
-versionCmd = CmdSync $ \_ -> return $ IdeResponseOk (T.pack version)
+versionCmd = CmdSync $ \_ -> return $ IdeResultOk (T.pack version)
 
 pluginsCmd :: CommandFunc () IdePlugins
 pluginsCmd = CmdSync $ \_ ->
-  IdeResponseOk <$> getPlugins
+  IdeResultOk <$> getPlugins
 
 commandsCmd :: CommandFunc T.Text [CommandName]
 commandsCmd = CmdSync $ \p -> do
   IdePlugins plugins <- getPlugins
   case Map.lookup p plugins of
-    Nothing -> return $ IdeResponseFail $ IdeError
+    Nothing -> return $ IdeResultFail $ IdeError
       { ideCode = UnknownPlugin
       , ideMessage = "Can't find plugin:" <> p
       , ideInfo = toJSON p
       }
-    Just pl -> return $ IdeResponseOk $ map commandName pl
+    Just pl -> return $ IdeResultOk $ map commandName pl
 
 commandDetailCmd :: CommandFunc (T.Text, T.Text) T.Text
 commandDetailCmd = CmdSync $ \(p,command) -> do
   IdePlugins plugins <- getPlugins
   case Map.lookup p plugins of
-    Nothing -> return $ IdeResponseFail $ IdeError
+    Nothing -> return $ IdeResultFail $ IdeError
       { ideCode = UnknownPlugin
       , ideMessage = "Can't find plugin:" <> p
       , ideInfo = toJSON p
       }
     Just pl -> case find (\cmd -> command == (commandName cmd) ) pl of
-      Nothing -> return $ IdeResponseFail $ IdeError
+      Nothing -> return $ IdeResultFail $ IdeError
         { ideCode = UnknownCommand
         , ideMessage = "Can't find command:" <> command
         , ideInfo = toJSON command
         }
-      Just detail -> return $ IdeResponseOk (commandDesc detail)
+      Just detail -> return $ IdeResultOk (commandDesc detail)
 
 -- ---------------------------------------------------------------------
 
