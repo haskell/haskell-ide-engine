@@ -68,7 +68,7 @@ startServer = do
   cin  <- atomically newTChan
 
   let dispatcherProc dispatcherEnv
-        = void $ forkIO $ runIdeGhcM testOptions (IdeState emptyModuleCache plugins Map.empty Nothing) (dispatcherP dispatcherEnv cin)
+        = void $ forkIO $ runIdeGhcM testOptions (IdeState emptyModuleCache Map.empty plugins Map.empty Nothing) (dispatcherP dispatcherEnv cin)
   cancelTVar      <- atomically $ newTVar S.empty
   wipTVar         <- atomically $ newTVar S.empty
   versionTVar     <- atomically $ newTVar Map.empty

@@ -55,6 +55,7 @@ ideDispatcher env pin = forever $ do
     case response of
       IdeResponseResult result -> liftIO $ callback result
       IdeResponseDeferred fp cacheCb -> handleDeferred fp cacheCb callback
+      
   where handleDeferred :: FilePath -> (CachedModule -> IdeGhcM (IdeResponse a)) -> (IdeResult a -> IO ()) -> IdeM ()
         handleDeferred fp cacheCb actualCb = queueAction fp $ \cm -> do
           cacheResponse <- cacheCb cm
