@@ -150,6 +150,10 @@ data IdeResult a = IdeResultOk a
                  | IdeResultFail IdeError
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
+instance Functor IdeResult where
+  fmap f (IdeResultOk x) = IdeResultOk (f x)
+  fmap _ (IdeResultFail err) = IdeResultFail err
+
 -- | The IDE response, with the type of response it contains
 data IdeResponse a = IdeResponseResult (IdeResult a)
                    | IdeResponseDeferred FilePath (CachedModule -> IdeGhcM (IdeResponse a))
