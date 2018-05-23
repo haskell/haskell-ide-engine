@@ -23,7 +23,7 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , IdeGhcM
   , IdeState(..)
   , IdeM
-  , liftToGhc
+  , LiftsToGhc(..)
   -- * IdeResult and IdeResponse
   , IdeResult(..)
   , IdeResultT(..)
@@ -120,8 +120,14 @@ instance MonadMTState IdeState IdeGhcM where
 
 type IdeM = MultiThreadState IdeState
 
-liftToGhc :: IdeM a -> IdeGhcM a
-liftToGhc = lift . lift
+class (Monad m) => LiftsToGhc m where
+  liftToGhc :: m a -> IdeGhcM a
+
+instance LiftsToGhc IdeM where
+  liftToGhc = lift . lift
+
+instance LiftsToGhc IdeGhcM where
+  liftToGhc = id
 
 data IdeState = IdeState
   { moduleCache :: GhcModuleCache

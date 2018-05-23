@@ -3,11 +3,13 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Haskell.Ide.Engine.ModuleCache where
 
+import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Control
 import           Data.Dynamic (toDyn, fromDynamic)
 import           Data.Generics (Proxy(..), typeRep, typeOf)
 import qualified Data.Map as Map
+import           Data.Maybe
 import           Data.Typeable (Typeable)
 import           Exception (ExceptionMonad)
 import           System.Directory
@@ -140,10 +142,17 @@ withCachedModuleAndData uri noCache callback = do
       callback cm a
 
 -- | Saves a module to the cache
-cacheModule :: (GM.MonadIO m, HasGhcModuleCache m)
-            => FilePath -> CachedModule -> m ()
+cacheModule :: FilePath -> CachedModule -> IdeGhcM ()
 cacheModule uri cm = do
   uri' <- liftIO $ canonicalizePath uri
+
+  -- execute any queued actions for the module
+  actions <- fmap (fromMaybe [] . Map.lookup uri') (actionQueue <$> readMTS)
+  liftToGhc $ forM_ actions (\a -> a cm)
+
+  -- remove queued actions
+  modifyMTS $ \s -> s { actionQueue = Map.delete uri' (actionQueue s) }
+
   modifyCache (\gmc ->
       gmc { uriCaches = Map.insert
                           uri'
