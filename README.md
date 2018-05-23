@@ -106,6 +106,14 @@ by the vscode plugin, and also build a local hoogle database, do
 make build-all
 ```
 
+Then add
+
+```json
+"languageServerHaskell.useHieWrapper": true
+```
+
+to VSCode user settings.
+
 Otherwise, do one of the following.
 
 #### For GHC 8.4.2
