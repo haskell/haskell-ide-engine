@@ -22,7 +22,6 @@ import qualified Control.Exception as E
 import           Control.Lens ( (^.), (.~) )
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Except
 import           Control.Monad.STM
 import           Control.Monad.Reader
 import qualified Data.Aeson as J
@@ -225,7 +224,7 @@ mapFileFromVfs verTVar cin vtdi = do
       let text' = Yi.toString yitext
           -- text = "{-# LINE 1 \"" ++ fp ++ "\"#-}\n" <> text'
       let req = GReq (Just uri) Nothing Nothing (const $ return ())
-                  $ IdeResponseOk <$> do
+                  $ IdeResultOk <$> do
                       GM.loadMappedFileSource fp text'
                       fileMap <- GM.getMMappedFiles
                       debugm $ "file mapping state is: " ++ show fileMap
@@ -241,7 +240,7 @@ _unmapFileFromVfs verTVar cin uri = do
   case uriToFilePath uri of
     Just fp -> do
       let req = GReq (Just uri) Nothing Nothing (const $ return ())
-                 $ IdeResponseOk <$> GM.unloadMappedFile fp
+                 $ IdeResultOk <$> (GM.unloadMappedFile fp)
       liftIO $ atomically $ do
         modifyTVar' verTVar (Map.delete uri)
         writeTChan cin req
@@ -249,7 +248,7 @@ _unmapFileFromVfs verTVar cin uri = do
     _ -> return ()
 
 -- TODO: generalise this and move it to GhcMod.ModuleLoader
-updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeGhcM (IdeResponse ())
+updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeGhcM (IdeResult ())
 updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file -> do
   mcm <- getCachedModule file
   case mcm of
@@ -262,9 +261,9 @@ updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file 
           go _ _ = (const Nothing, const Nothing)
       let cm' = cm {newPosToOld = n2o, oldPosToNew = o2n}
       cacheModuleNoClear file cm'
-      return $ IdeResponseOk ()
+      return $ IdeResultOk ()
     Nothing ->
-      return $ IdeResponseOk ()
+      return $ IdeResultOk ()
   where
     f (+/-) (J.Range (Position sl _) (Position el _)) txt p@(Position l c)
       | l < sl = Just p
@@ -388,13 +387,14 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
 
         lf <- ask
         let hreq = GReq Nothing Nothing Nothing callback $ do
-                     Hoogle.initializeHoogleDb
-            callback Nothing = flip runReaderT lf $
+                     IdeResultOk <$> Hoogle.initializeHoogleDb
+            callback (IdeResultOk Nothing) = flip runReaderT lf $
               reactorSend $
                 fmServerShowMessageNotification J.MtWarning "No hoogle db found. Check the README for instructions to generate one"
-            callback (Just db) = flip runReaderT lf $ do
+            callback (IdeResultOk (Just db)) = flip runReaderT lf $ do
               reactorSend $
                 fmServerLogMessageNotification J.MtLog $ "Using hoogle db at: " <> T.pack db
+            callback _ = error "impossible"
         makeRequest hreq
 
       -- -------------------------------
@@ -449,7 +449,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         makeRequest $ GReq (Just uri) Nothing Nothing (const $ return ()) $ do
           forM_ (uriToFilePath uri)
             deleteCachedModule
-          return $ IdeResponseOk ()
+          return $ IdeResultOk ()
 
       -- -------------------------------
 
@@ -459,7 +459,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             doc = params ^. J.textDocument . J.uri
             pos = params ^. J.position
             newName  = params ^. J.newName
-        callback <- hieResponseHelper (req ^. J.id) $ \we -> do
+        callback <- hieResultHelper (req ^. J.id) $ \we -> do
             let rspMsg = Core.makeResponseMessage req we
             reactorSend rspMsg
         let hreq = GReq (Just doc) Nothing (Just $ req ^. J.id) callback
@@ -485,10 +485,10 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                 rspMsg = Core.makeResponseMessage req ht
               reactorSend rspMsg
         let
-          getHoverInfo :: IdeM (Either IdeError (Maybe J.MarkedString, [T.Text], Maybe Range))
-          getHoverInfo = runExceptT $ do
-              info' <- ExceptT $ GhcMod.newTypeCmd pos doc
-              names' <- ExceptT $ Hie.getSymbolsAtPoint doc pos
+          getHoverInfo :: IdeM (IdeResponse (Maybe J.MarkedString, [T.Text], Maybe Range))
+          getHoverInfo = runIdeResponseT $ do
+              info' <- IdeResponseT $ IdeResponseResult <$> (GhcMod.newTypeCmd pos doc)
+              names' <- IdeResponseT $ Hie.getSymbolsAtPoint doc pos
               let
                 f = (==) `on` (Hie.showName . snd)
                 f' = compare `on` (Hie.showName . snd)
@@ -513,7 +513,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                     [] -> case names of
                       [] -> (Nothing, Nothing)
                       ((r,_):_) -> (Nothing, Just r)
-              df <- ExceptT $ Hie.getDynFlags doc
+              df <- IdeResponseT $ Hie.getDynFlags doc
               docs <- forM names $ \(_,name) -> do
                   let sname = Hie.showName name
                   case Hie.getModule df name of
@@ -531,7 +531,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                         Just docu -> return $ docu <> "\n\n" <> minfo
               return (info,docs,mrange)
         let hreq = IReq (req ^. J.id) callback $ do
-              pluginGetFile "ReqHover:" doc $ \fp -> do
+              pluginGetFileResponse "ReqHover:" doc $ \fp -> do
                 cached <- isCached fp
                 if cached
                   then getHoverInfo
@@ -568,8 +568,8 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                 cmdparams = Just args
             makeCommand (J.Diagnostic _r _s _c _source _m _) = []
 
-            callback :: IdeResponse [Diagnostic] -> R ()
-            callback (IdeResponseOk refactorableDiags) = sendCodeActions refactorableDiags
+            callback :: IdeResult [Diagnostic] -> R ()
+            callback (IdeResultOk refactorableDiags) = sendCodeActions refactorableDiags
             callback _ = sendCodeActions allDiags
 
         lf <- ask
@@ -593,7 +593,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let cmdparams = case margs of
               Just (J.List (x:_)) -> x
               _ -> J.Null
-        callback <- hieResponseHelper (req ^. J.id) $ \obj -> do
+        callback <- hieResultHelper (req ^. J.id) $ \obj -> do
           liftIO $ U.logs $ "ExecuteCommand response got:r=" ++ show obj
           case fromDynJSON obj :: Maybe J.WorkspaceEdit of
             Just v -> do
@@ -639,12 +639,12 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
           let rspMsg = Core.makeResponseMessage req $
                          origCompl & J.documentation .~ docs
           reactorSend rspMsg
-        let hreq = GReq Nothing Nothing (Just $ req ^. J.id) callback $ runExceptT $ do
+        let hreq = IReq (req ^. J.id) callback $ runIdeResponseT $ do
               case mquery of
-                Nothing -> return Nothing
+                Nothing -> return $ Nothing
                 Just query -> do
-                  res <- lift $ liftToGhc $ Hoogle.infoCmd' query
-                  case res of
+                  result <- lift $ Hoogle.infoCmd' query
+                  case result of
                     Right x -> return $ Just x
                     _ -> return Nothing
         makeRequest hreq
@@ -697,7 +697,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let params = req ^. J.params
             doc = params ^. J.textDocument . J.uri
             tabSize = params ^. J.options . J.tabSize
-        callback <- hieResponseHelper (req ^. J.id) $ \textEdit -> do
+        callback <- hieResultHelper (req ^. J.id) $ \textEdit -> do
             let rspMsg = Core.makeResponseMessage req $ J.List textEdit
             reactorSend rspMsg
         let hreq = GReq (Just doc) Nothing (Just $ req ^. J.id) callback
@@ -712,7 +712,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             doc = params ^. J.textDocument . J.uri
             range = params ^. J.range
             tabSize = params ^. J.options . J.tabSize
-        callback <- hieResponseHelper (req ^. J.id) $ \textEdit -> do
+        callback <- hieResultHelper (req ^. J.id) $ \textEdit -> do
             let rspMsg = Core.makeResponseMessage req $ J.List textEdit
             reactorSend rspMsg
         let hreq = GReq (Just doc) Nothing (Just $ req ^. J.id) callback
@@ -818,7 +818,6 @@ requestDiagnostics cin file ver = do
         callbackl (IdeResultOk  diags) =
           case diags of
             (PublishDiagnosticsParams fp (List ds)) -> sendOne "hlint" (fp, ds)
-        callbackl _ = error "impossible"
     liftIO $ atomically $ writeTChan cin reql
 
   -- get GHC diagnostics and loads the typechecked module into the cache
@@ -834,21 +833,31 @@ requestDiagnostics cin file ver = do
         case ds of
           [] -> sendEmpty
           _ -> mapM_ (sendOneGhc "ghcmod") ds
-      callbackg _ = error "impossible"
 
   liftIO $ atomically $ writeTChan cin reqg
 
 -- ---------------------------------------------------------------------
 
 -- | Manage the boilerplate for passing on any errors found in the IdeResult
-hieResponseHelper :: (MonadReader (Core.LspFuncs Config) m)
+hieResultHelper :: (MonadReader (Core.LspFuncs Config) m)
   => J.LspId -> (t -> ReaderT (Core.LspFuncs Config) IO ()) -> m (IdeResult t -> IO ())
-hieResponseHelper lid action = do
+hieResultHelper lid action = do
   lf <- ask
   return $ \res -> flip runReaderT lf $
     case res of
       IdeResultFail err -> sendErrorResponse lid J.InternalError (T.pack $ show err)
       IdeResultOk r -> action r
+
+-- | Does the same thing as hieResultHelper but for responses
+hieResponseHelper :: (MonadReader (Core.LspFuncs Config) m)
+  => J.LspId -> (t -> ReaderT (Core.LspFuncs Config) IO ()) -> m (IdeResponse t -> IO ())
+hieResponseHelper lid action = do
+  lf <- ask
+  return $ \res -> flip runReaderT lf $
+    case res of
+      IdeResponseResult (IdeResultFail err) -> sendErrorResponse lid J.InternalError (T.pack $ show err)
+      IdeResponseResult (IdeResultOk r) -> action r
+      IdeResponseDeferred _ _ -> error "TODO"
 
 -- ---------------------------------------------------------------------
 

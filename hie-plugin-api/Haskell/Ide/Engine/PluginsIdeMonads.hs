@@ -24,7 +24,9 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , IdeState(..)
   , IdeM
   , liftToGhc
+  -- * IdeResult and IdeResponse
   , IdeResult(..)
+  , IdeResultT(..)
   , pattern IdeResponseOk
   , pattern IdeResponseFail
   , IdeResponse(..)
@@ -146,6 +148,8 @@ instance HasGhcModuleCache IdeGhcM where
 -- ---------------------------------------------------------------------
 
 
+-- | The result of a plugin action, containing the result and an error if
+-- it failed.
 data IdeResult a = IdeResultOk a
                  | IdeResultFail IdeError
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
@@ -154,7 +158,40 @@ instance Functor IdeResult where
   fmap f (IdeResultOk x) = IdeResultOk (f x)
   fmap _ (IdeResultFail err) = IdeResultFail err
 
--- | The IDE response, with the type of response it contains
+instance Applicative IdeResult where
+  pure = return
+  (IdeResultFail err) <*> _ = IdeResultFail err
+  _ <*> (IdeResultFail err) = IdeResultFail err
+  (IdeResultOk f) <*> (IdeResultOk x) = IdeResultOk (f x)
+
+instance Monad IdeResult where
+  return = IdeResultOk
+  IdeResultOk x >>= f = f x
+  IdeResultFail err >>= _ = IdeResultFail err
+
+newtype IdeResultT m a = IdeResultT { runIdeResultT :: m (IdeResult a) }
+
+instance Monad m => Functor (IdeResultT m) where
+  fmap = liftM
+
+instance Monad m => Applicative (IdeResultT m) where
+  pure = return
+  (<*>) = ap
+
+instance (Monad m) => Monad (IdeResultT m) where
+  return = IdeResultT . return . IdeResultOk
+  
+  m >>= f = IdeResultT $ do
+    v <- runIdeResultT m
+    case v of
+      IdeResultOk x -> runIdeResultT (f x)
+      IdeResultFail err -> return $ IdeResultFail err
+
+instance MonadTrans IdeResultT where
+  lift m = IdeResultT (fmap IdeResultOk m)
+
+-- | The IDE response, which wraps around an IdeResult that may be deferred.
+-- Used mostly in IdeM.
 data IdeResponse a = IdeResponseResult (IdeResult a)
                    | IdeResponseDeferred FilePath (CachedModule -> IdeGhcM (IdeResponse a))
 

@@ -218,7 +218,7 @@ instance ToJSON TypeParams where
   toJSON = genericToJSON customOptions
 
 typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
-typeCmd = CmdSync $ \(TP _bool uri pos) -> do
+typeCmd = CmdSync $ \(TP _bool uri pos) ->
   liftToGhc $ newTypeCmd pos uri
 
 newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
