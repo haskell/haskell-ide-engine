@@ -16,6 +16,7 @@ import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.Types            as J
+import           System.Directory
 
 data DispatcherEnv = DispatcherEnv
   { cancelReqsTVar     :: !(TVar (S.Set J.LspId))
@@ -50,8 +51,27 @@ ideDispatcher env pin = forever $ do
   debugm $ "ideDispatcher:got request with id: " ++ show lid
   cancelled <- liftIO $ atomically $ isCancelled env lid
   unless cancelled $ do
-    res <- action
-    liftIO $ callback res
+    response <- action
+    case response of
+      IdeResponseResult result -> liftIO $ callback result
+      IdeResponseDeferred fp cacheCb -> handleDeferred fp cacheCb callback
+  where handleDeferred :: FilePath -> (CachedModule -> IdeGhcM (IdeResponse a)) -> (IdeResult a -> IO ()) -> IdeM ()
+        handleDeferred fp cacheCb actualCb = queueAction fp $ \cm -> do
+          cacheResponse <- cacheCb cm
+          case cacheResponse of
+            IdeResponseDeferred fp2 cacheCb2 -> liftToGhc $ handleDeferred fp2 cacheCb2 actualCb
+            IdeResponseResult result -> liftIO $ actualCb result
+    
+        queueAction :: FilePath -> (CachedModule -> IdeGhcM ()) -> IdeM ()
+        queueAction fp action = do
+          fp' <- liftIO $ canonicalizePath fp
+          modifyMTS $ \s ->
+            let oldQueue = actionQueue s
+                -- add to existing queue if possible
+                newQueue = if Map.member fp' oldQueue
+                  then Map.update (Just . (action :)) fp oldQueue
+                  else Map.insert fp [action] oldQueue
+            in s { actionQueue = newQueue }
 
 ghcDispatcher :: forall void. DispatcherEnv -> TChan GhcRequest -> IdeGhcM void
 ghcDispatcher env@DispatcherEnv{docVersionTVar} pin = forever $ do

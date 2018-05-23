@@ -142,7 +142,7 @@ for handling the "definition" request
         let params = req ^. J.params
             doc = params ^. J.textDocument . J.uri
             pos = params ^. J.position
-        callback <- hieResponseHelper (req ^. J.id) $ \loc -> do
+        callback <- hieResultHelper (req ^. J.id) $ \loc -> do
             let rspMsg = Core.makeResponseMessage req loc
             reactorSend rspMsg
         let hreq = PReq Nothing (Just $ req ^. J.id) callback $ HaRe.findDef doc pos

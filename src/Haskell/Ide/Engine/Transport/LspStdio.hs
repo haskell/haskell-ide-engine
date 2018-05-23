@@ -474,7 +474,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let params = req ^. J.params
             pos = params ^. J.position
             doc = params ^. J.textDocument . J.uri
-        callback <- hieResponseHelper (req ^. J.id) $ \(typ,docs,mrange) -> do
+        callback <- hieResultHelper (req ^. J.id) $ \(typ,docs,mrange) -> do
               let
                 ht = case mrange of
                   Nothing    -> J.Hover (J.List []) Nothing
@@ -618,12 +618,12 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
 
         mprefix <- getPrefixAtPos doc pos
 
-        callback <- hieResponseHelper (req ^. J.id) $ \compls -> do
+        callback <- hieResultHelper (req ^. J.id) $ \compls -> do
           let rspMsg = Core.makeResponseMessage req
                          $ J.Completions $ J.List compls
           reactorSend rspMsg
         case mprefix of
-          Nothing -> liftIO $ callback $ IdeResponseOk []
+          Nothing -> liftIO $ callback $ IdeResultOk []
           Just prefix -> do
             let hreq = IReq (req ^. J.id) callback
                          $ Hie.getCompletions doc prefix
@@ -635,7 +635,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             mquery = case J.fromJSON <$> origCompl ^. J.xdata of
                        Just (J.Success q) -> Just q
                        _ -> Nothing
-        callback <- hieResponseHelper (req ^. J.id) $ \docs -> do
+        callback <- hieResultHelper (req ^. J.id) $ \docs -> do
           let rspMsg = Core.makeResponseMessage req $
                          origCompl & J.documentation .~ docs
           reactorSend rspMsg
@@ -656,7 +656,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let params = req ^. J.params
             doc = params ^. (J.textDocument . J.uri)
             pos = params ^. J.position
-        callback <- hieResponseHelper (req ^. J.id) $ \highlights -> do
+        callback <- hieResultHelper (req ^. J.id) $ \highlights -> do
           let rspMsg = Core.makeResponseMessage req $ J.List highlights
           reactorSend rspMsg
         let hreq = IReq (req ^. J.id) callback
@@ -669,7 +669,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let params = req ^. J.params
             doc = params ^. J.textDocument . J.uri
             pos = params ^. J.position
-        callback <- hieResponseHelper (req ^. J.id) $ \loc -> do
+        callback <- hieResultHelper (req ^. J.id) $ \loc -> do
             let rspMsg = Core.makeResponseMessage req loc
             reactorSend rspMsg
         let hreq = IReq (req ^. J.id) callback
@@ -682,7 +682,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let params = req ^. J.params
             doc = params ^. (J.textDocument . J.uri)
             pos = params ^. J.position
-        callback <- hieResponseHelper (req ^. J.id) $ \highlights -> do
+        callback <- hieResultHelper (req ^. J.id) $ \highlights -> do
           let rspMsg = Core.makeResponseMessage req $ J.List highlights
           reactorSend rspMsg
         let hreq = IReq (req ^. J.id) callback
@@ -724,7 +724,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
       Core.ReqDocumentSymbols req -> do
         liftIO $ U.logs $ "reactor:got Document symbol request:" ++ show req
         let uri = req ^. J.params . J.textDocument . J.uri
-        callback <- hieResponseHelper (req ^. J.id) $ \docSymbols -> do
+        callback <- hieResultHelper (req ^. J.id) $ \docSymbols -> do
             let rspMsg = Core.makeResponseMessage req $ J.List docSymbols
             reactorSend rspMsg
         let hreq = IReq (req ^. J.id) callback
@@ -847,17 +847,6 @@ hieResultHelper lid action = do
     case res of
       IdeResultFail err -> sendErrorResponse lid J.InternalError (T.pack $ show err)
       IdeResultOk r -> action r
-
--- | Does the same thing as hieResultHelper but for responses
-hieResponseHelper :: (MonadReader (Core.LspFuncs Config) m)
-  => J.LspId -> (t -> ReaderT (Core.LspFuncs Config) IO ()) -> m (IdeResponse t -> IO ())
-hieResponseHelper lid action = do
-  lf <- ask
-  return $ \res -> flip runReaderT lf $
-    case res of
-      IdeResponseResult (IdeResultFail err) -> sendErrorResponse lid J.InternalError (T.pack $ show err)
-      IdeResponseResult (IdeResultOk r) -> action r
-      IdeResponseDeferred _ _ -> error "TODO"
 
 -- ---------------------------------------------------------------------
 
