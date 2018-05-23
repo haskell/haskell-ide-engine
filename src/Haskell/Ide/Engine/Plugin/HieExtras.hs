@@ -17,7 +17,6 @@ module Haskell.Ide.Engine.Plugin.HieExtras
 
 import           ConLike
 import           Control.Monad.State
-import           Control.Monad.Trans.Except
 import           Data.Aeson
 import           Data.Either
 import           Data.IORef
@@ -426,7 +425,7 @@ getReferencesInDoc :: Uri -> Position -> IdeM (IdeResponse [J.DocumentHighlight]
 getReferencesInDoc uri pos = pluginGetFile "getReferencesInDoc: " uri $ \file -> do
   let noCache = return $ IdeResponseOk [] -- Processing doc highlights request, no symbols available, not an error
   withCachedModuleAndData file noCache $
-    \cm NMD{inverseNameMap} -> runExceptT $ do
+    \cm NMD{inverseNameMap} -> runIdeResponseT $ do
       let lm = locMap cm
           pm = tm_parsed_module $ tcMod cm
           cfile = ml_hs_file $ ms_location $ pm_mod_summary pm

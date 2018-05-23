@@ -815,7 +815,7 @@ requestDiagnostics cin file ver = do
     let reql = GReq (Just file) (Just (file,ver)) Nothing (flip runReaderT lf . callbackl)
                  $ ApplyRefact.lintCmd' file
         callbackl (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
-        callbackl (IdeResponseError err) = liftIO $ U.logs $ "got err" ++ show err
+        callbackl (IdeResponseFail err) = liftIO $ U.logs $ "got err" ++ show err
         callbackl (IdeResponseOk  diags) =
           case diags of
             (PublishDiagnosticsParams fp (List ds)) -> sendOne "hlint" (fp, ds)
@@ -826,7 +826,6 @@ requestDiagnostics cin file ver = do
   let reqg = GReq (Just file) (Just (file,ver)) Nothing (flip runReaderT lf . callbackg)
                $ GhcMod.setTypecheckedModule file
       callbackg (IdeResponseFail  err) = liftIO $ U.logs $ "got err" ++ show err
-      callbackg (IdeResponseError err) = liftIO $ U.logs $ "got err" ++ show err
       callbackg (IdeResponseOk    (pd, errs)) = do
         forM_ errs $ \e -> do
           reactorSend $
@@ -850,7 +849,6 @@ hieResponseHelper lid action = do
   return $ \res -> flip runReaderT lf $
     case res of
       IdeResponseFail  err -> sendErrorResponse lid J.InternalError (T.pack $ show err)
-      IdeResponseError err -> sendErrorResponse lid J.InternalError (T.pack $ show err)
       IdeResponseOk r -> action r
       _ -> error "impossible"
 

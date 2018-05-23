@@ -62,7 +62,7 @@ data ReactorInput =
 
 data ReactorOutput = ReactorOutput
   { _resId    :: Int
-  , _response :: IdeResponse J.Value
+  , _response :: IdeResult J.Value
   } deriving (Eq, Show, Generic, J.ToJSON, J.FromJSON)
 
 run :: (DispatcherEnv -> IO ()) -> TChan PluginRequest -> IO Int

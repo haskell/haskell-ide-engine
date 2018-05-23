@@ -274,23 +274,20 @@ makeDiffResult orig new fileMap = do
   return $ diffText (filePathToUri fp,origText) new
 
 -- | Removes diagnostics that can't be refactored automatically by HLint
-filterUnrefactorableDiagnostics :: Uri -> [Diagnostic] -> IdeGhcM (IdeResponse [Diagnostic])
+filterUnrefactorableDiagnostics :: Uri -> [Diagnostic] -> IdeResponseT IdeGhcM [Diagnostic]
 filterUnrefactorableDiagnostics uri diags = do
-    maybeIdeas <- pluginGetFile "filterUnrefactorableDiagnostics: " uri $ \fp -> do
-      res <- GM.withMappedFile fp $ \file' -> liftIO $ runExceptT $ getIdeas file' Nothing :: IdeGhcM (Either String [Idea])
-      case res of
-        Left err -> return $ IdeResponseFail (IdeError PluginError
-          (T.pack $ "filterUnrefactorableDiagnostics: " ++ show err) Null)
-        Right ideas -> return $ IdeResponseOk ideas
+  ideas <- IdeResponseT $ pluginGetFile "filterUnrefactorableDiagnostics: " uri $ \fp -> do
+    res <- GM.withMappedFile fp $ \file' -> liftIO $ runExceptT $ getIdeas file' Nothing :: IdeGhcM (Either String [Idea])
+    case res of
+      Left err -> return $ IdeResponseFail (IdeError PluginError
+        (T.pack $ "filterUnrefactorableDiagnostics: " ++ show err) Null)
+      Right ideas -> return $ IdeResponseOk ideas
 
-    case maybeIdeas of
-      Left err -> return $ Left err
-      Right ideas ->
-        let hasRefactoring :: Diagnostic -> Bool
-            hasRefactoring diag = let matches = filter ((== diag) . hintToDiagnostic) ideas
-                in if null matches
-                  -- by default we don't want to throw away refactorings just because we can't find a match
-                  then True
-                  -- otherwise make sure the matched idea has a possible refactoring
-                  else (not . null . ideaRefactoring) $ head matches
-            in return $ IdeResponseOk $ filter hasRefactoring diags
+  let hasRefactoring :: Diagnostic -> Bool
+      hasRefactoring diag = let matches = filter ((== diag) . hintToDiagnostic) ideas
+          in if null matches
+            -- by default we don't want to throw away refactorings just because we can't find a match
+            then True
+            -- otherwise make sure the matched idea has a possible refactoring
+            else (not . null . ideaRefactoring) $ head matches
+    in return $ filter hasRefactoring diags

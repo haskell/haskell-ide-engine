@@ -39,11 +39,11 @@ data HoogleError = NoDb | NoResults deriving (Eq,Ord,Show)
 
 newtype HoogleDb = HoogleDb (Maybe FilePath)
 
-hoogleErrorToIdeError :: HoogleError -> IdeFailure
+hoogleErrorToIdeError :: HoogleError -> IdeError
 hoogleErrorToIdeError NoResults =
-  IdeRErr $ IdeError PluginError "No results found" Null
+  IdeError PluginError "No results found" Null
 hoogleErrorToIdeError NoDb =
-  IdeRErr $ IdeError PluginError "Hoogle database not found. Run hoogle generate to generate" Null
+  IdeError PluginError "Hoogle database not found. Run hoogle generate to generate" Null
 
 instance ExtensionClass HoogleDb where
   initialValue = HoogleDb Nothing

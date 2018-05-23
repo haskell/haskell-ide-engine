@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -23,7 +24,11 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , IdeState(..)
   , IdeM
   , liftToGhc
+  , IdeResult
+  , pattern IdeResponseOk
+  , pattern IdeResponseFail
   , IdeResponse(..)
+  , IdeResponseT(..)
   , IdeError(..)
   , IdeErrorCode(..)
   -- * LSP types
@@ -140,39 +145,68 @@ instance HasGhcModuleCache IdeGhcM where
 
 -- ---------------------------------------------------------------------
 
+
+data IdeResult a = IdeResultOk a
+                 | IdeResultFail IdeError
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
 -- | The IDE response, with the type of response it contains
-
-
-data IdeResponse a = IdeResponseOk a
-                   | IdeResponseFail IdeError
+data IdeResponse a = IdeResponseResult (IdeResult a)
                    | IdeResponseDeferred FilePath (CachedModule -> IdeGhcM (IdeResponse a))
 
+pattern IdeResponseOk :: a -> IdeResponse a
+pattern IdeResponseOk a = IdeResponseResult (IdeResultOk a)
+pattern IdeResponseFail :: IdeError -> IdeResponse a
+pattern IdeResponseFail err = IdeResponseResult (IdeResultFail err)
+
 instance Functor IdeResponse where
-  fmap f (IdeResponseOk x) = IdeResponseOk (f x)
+  fmap f (IdeResponseResult (IdeResultOk x)) = IdeResponseOk (f x)
+  fmap _ (IdeResponseResult (IdeResultFail err)) = IdeResponseFail err
   fmap f (IdeResponseDeferred fp cb) = IdeResponseDeferred fp $ cb >=> (return . fmap f)
-  fmap _ (IdeResponseFail err) = IdeResponseFail err
 
 instance Applicative IdeResponse where
   pure = return
 
-  (IdeResponseFail err) <*> _ = IdeResponseFail err
-  _ <*> (IdeResponseFail err) = IdeResponseFail err
+  (IdeResponseResult (IdeResultFail err)) <*> _ = IdeResponseFail err
+  _ <*> (IdeResponseResult (IdeResultFail err)) = IdeResponseFail err
 
-  (IdeResponseOk f) <*> (IdeResponseOk x) = IdeResponseOk (f x)
+  (IdeResponseResult (IdeResultOk f)) <*> (IdeResponseResult (IdeResultOk x)) = IdeResponseOk (f x)
 
-  (IdeResponseOk f) <*> (IdeResponseDeferred fp cb) = IdeResponseDeferred fp $ fmap (fmap f) . cb
+  (IdeResponseResult (IdeResultOk f)) <*> (IdeResponseDeferred fp cb) = IdeResponseDeferred fp $ fmap (fmap f) . cb
 
   (IdeResponseDeferred fp cb) <*> x = IdeResponseDeferred fp $ \cm -> do
     f <- cb cm
     pure (f <*> x)
 
 instance Monad IdeResponse where
-  (IdeResponseOk x) >>= f = f x
+  (IdeResponseResult (IdeResultOk x)) >>= f = f x
   (IdeResponseDeferred fp cb) >>= f = IdeResponseDeferred fp $ \cm -> do
     x <- cb cm
     return $ x >>= f
-  (IdeResponseFail err) >>= _ = IdeResponseFail err
+  (IdeResponseResult (IdeResultFail err)) >>= _ = IdeResponseFail err
   return = IdeResponseOk
+
+newtype IdeResponseT m a = IdeResponseT { runIdeResponseT :: m (IdeResponse a) }
+
+instance Monad m => Functor (IdeResponseT m) where
+  fmap = liftM
+
+instance Monad m => Applicative (IdeResponseT m) where
+  pure = return
+  (<*>) = ap
+
+instance (Monad m) => Monad (IdeResponseT m) where
+  return = IdeResponseT . return . IdeResponseOk
+  
+  m >>= f = IdeResponseT $ do
+    v <- runIdeResponseT m
+    case v of
+      IdeResponseResult (IdeResultOk x) -> runIdeResponseT (f x)
+      IdeResponseResult (IdeResultFail err) -> return $ IdeResponseFail err
+      IdeResponseDeferred _ _ -> error "TODO"
+
+instance MonadTrans IdeResponseT where
+  lift m = IdeResponseT (fmap IdeResponseOk m)
 
 -- | Error codes. Add as required
 data IdeErrorCode

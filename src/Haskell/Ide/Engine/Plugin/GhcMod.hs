@@ -91,12 +91,11 @@ logDiag rfm eref dref df _reason sev spn style msg = do
       modifyIORef' eref (msgTxt:)
       return ()
 
-unhelpfulSrcSpanErr :: T.Text -> IdeFailure
+unhelpfulSrcSpanErr :: T.Text -> IdeError
 unhelpfulSrcSpanErr err =
-  IdeRFail $
-    IdeError PluginError
-             ("Unhelpful SrcSpan" <> ": \"" <> err <> "\"")
-             Null
+  IdeError PluginError
+            ("Unhelpful SrcSpan" <> ": \"" <> err <> "\"")
+            Null
 
 srcErrToDiag :: MonadIO m
   => DynFlags
