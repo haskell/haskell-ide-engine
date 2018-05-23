@@ -95,7 +95,7 @@ spec = do
 
 -- ---------------------------------------------------------------------
 
-dispatchRequest :: ToJSON a => TChan PluginRequest -> PluginId -> CommandName -> a -> IO (IdeResponse DynamicJSON)
+dispatchRequest :: ToJSON a => TChan PluginRequest -> PluginId -> CommandName -> a -> IO (IdeResult DynamicJSON)
 dispatchRequest cin plugin com arg = do
   mv <- newEmptyMVar
   let req = GReq Nothing Nothing Nothing (putMVar mv) $
@@ -117,7 +117,7 @@ functionalSpec = do
 
       let req1 = filePathToUri $ cwd </> "FuncTest.hs"
       r1 <- dispatchRequest cin "applyrefact" "lint" req1
-      fmap fromDynJSON r1 `shouldBe` IdeResponseOk
+      fmap fromDynJSON r1 `shouldBe` IdeResultOk
                            ( Just
                            $ PublishDiagnosticsParams
                               { _uri = filePathToUri $ cwd </> "FuncTest.hs"
@@ -134,7 +134,7 @@ functionalSpec = do
       let req3 = HP (filePathToUri $ cwd </> "FuncTest.hs") (toPos (8,1))
       r3 <- dispatchRequest cin "hare" "demote" req3
       fmap fromDynJSON r3 `shouldBe`
-        (IdeResponseOk
+        (IdeResultOk
          $ Just
          $ WorkspaceEdit
            (Just $ H.singleton (filePathToUri $ cwd </> "FuncTest.hs")

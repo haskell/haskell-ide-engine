@@ -57,10 +57,10 @@ dispatcherSpec = do
       cancelTVar <- newTVarIO S.empty
       wipTVar <- newTVarIO S.empty
       versionTVar <- newTVarIO $ Map.singleton (filePathToUri "test") 3
-      let req1 = GReq Nothing Nothing                          (Just $ J.IdInt 1) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text1"
-          req2 = GReq Nothing Nothing                          (Just $ J.IdInt 2) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text2"
-          req3 = GReq Nothing (Just (filePathToUri "test", 2)) Nothing            (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text3"
-          req4 = GReq Nothing Nothing                          (Just $ J.IdInt 3) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text4"
+      let req1 = GReq Nothing Nothing                          (Just $ J.IdInt 1) (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text1"
+          req2 = GReq Nothing Nothing                          (Just $ J.IdInt 2) (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text2"
+          req3 = GReq Nothing (Just (filePathToUri "test", 2)) Nothing            (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text3"
+          req4 = GReq Nothing Nothing                          (Just $ J.IdInt 3) (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text4"
       pid <- forkIO $ runIdeGhcM testOptions (IdeState emptyModuleCache (pluginDescToIdePlugins []) Map.empty Nothing)
                               (dispatcherP (DispatcherEnv cancelTVar wipTVar versionTVar) inChan)
       atomically $ writeTChan inChan req1
@@ -71,7 +71,7 @@ dispatcherSpec = do
       resp1 <- atomically $ readTChan outChan
       resp2 <- atomically $ readTChan outChan
       killThread pid
-      resp1 `shouldBe` IdeResponseOk "text1"
-      resp2 `shouldBe` IdeResponseOk "text4"
+      resp1 `shouldBe` IdeResultOk "text1"
+      resp2 `shouldBe` IdeResultOk "text4"
 
 -- ---------------------------------------------------------------------

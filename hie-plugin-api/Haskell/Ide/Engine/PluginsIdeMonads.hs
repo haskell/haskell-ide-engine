@@ -200,6 +200,14 @@ pattern IdeResponseOk a = IdeResponseResult (IdeResultOk a)
 pattern IdeResponseFail :: IdeError -> IdeResponse a
 pattern IdeResponseFail err = IdeResponseResult (IdeResultFail err)
 
+instance (Show a) => Show (IdeResponse a) where
+  show (IdeResponseResult x) = show x
+  show (IdeResponseDeferred fp _) = "Deferred response waiting on " ++ fp
+
+instance (Eq a) => Eq (IdeResponse a) where
+  (IdeResponseResult x) == (IdeResponseResult y) = x == y
+  _ == _ = False
+
 instance Functor IdeResponse where
   fmap f (IdeResponseResult (IdeResultOk x)) = IdeResponseOk (f x)
   fmap _ (IdeResponseResult (IdeResultFail err)) = IdeResponseFail err
