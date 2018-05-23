@@ -226,8 +226,8 @@ newTypeCmd newPos uri =
   pluginGetFile "newTypeCmd: " uri $ \fp -> do
       mcm <- getCachedModule fp
       case mcm of
-        Nothing -> return $ IdeResultOk []
-        Just cm -> return $ IdeResultOk $ pureTypeCmd newPos cm
+        ModuleCached cm _ -> return $ IdeResultOk $ pureTypeCmd newPos cm
+        _ -> return $ IdeResultOk []
 
 pureTypeCmd :: Position -> CachedModule -> [(Range,T.Text)]
 pureTypeCmd newPos cm  =

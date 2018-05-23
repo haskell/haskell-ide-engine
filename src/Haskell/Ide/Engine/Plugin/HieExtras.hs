@@ -58,9 +58,9 @@ getDynFlags uri =
   pluginGetFileResponse "getDynFlags: " uri $ \fp -> do
       mcm <- getCachedModule fp
       case mcm of
-        Just cm -> return $
+        ModuleCached cm _ -> return $
           IdeResponseOk $ ms_hspp_opts $ pm_mod_summary $ tm_parsed_module $ tcMod cm
-        Nothing -> return $
+        _ -> return $
           IdeResponseFail $
             IdeError PluginError ("getDynFlags: \"" <> "module not loaded" <> "\"") Null
 
@@ -93,8 +93,7 @@ getSymbols :: Uri -> IdeM (IdeResponse [J.SymbolInformation])
 getSymbols uri = pluginGetFileResponse "getSymbols: " uri $ \file -> do
     mcm <- getCachedModule file
     case mcm of
-      Nothing -> return $ IdeResponseOk []
-      Just cm -> do
+      ModuleCached cm _ -> do
           let tm = tcMod cm
               rfm = revMap cm
               hsMod = unLoc $ pm_parsed_source $ tm_parsed_module tm
@@ -174,6 +173,7 @@ getSymbols uri = pluginGetFileResponse "getSymbols: " uri $ \file -> do
                   Right loc -> return $ Right $ J.SymbolInformation nameText kind loc cnt
           symInfs <- mapM declsToSymbolInf (imps ++ decls)
           return $ IdeResponseOk $ rights symInfs
+      _ -> return $ IdeResponseOk []        
 
 -- ---------------------------------------------------------------------
 
@@ -492,10 +492,10 @@ findDef uri pos = pluginGetFileResponse "findDef: " uri $ \file -> do
                       Just fp -> do
                         mcm' <- getCachedModule fp
                         case mcm' of
-                          Nothing -> return $ IdeResponseOk [l]
-                          Just cm' ->  case oldRangeToNew cm' range of
+                          ModuleCached cm' _ ->  case oldRangeToNew cm' range of
                             Just r  -> return $ IdeResponseOk [J.Location luri r]
                             Nothing -> return $ IdeResponseOk [l]
+                          _ -> return $ IdeResponseOk [l]
                   Left x -> do
                     debugm "findDef: name srcspan not found/valid"
                     pure (IdeResponseFail

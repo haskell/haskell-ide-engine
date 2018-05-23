@@ -8,7 +8,6 @@ import           Control.Monad.Trans.Control
 import           Data.Dynamic (toDyn, fromDynamic)
 import           Data.Generics (Proxy(..), typeRep, typeOf)
 import qualified Data.Map as Map
-import           Data.Maybe
 import           Data.Typeable (Typeable)
 import           Exception (ExceptionMonad)
 import           System.Directory
@@ -54,10 +53,6 @@ runActionWithContext (Just uri) action = do
   liftIO $ setCurrentDirectory $ GM.cradleRootDir crdl
   withCradle crdl action
 
--- | Returns all the cached modules in the IdeState
-cachedModules :: GhcModuleCache -> Map.Map FilePath CachedModule
-cachedModules = fmap cachedModule . uriCaches
-
 -- | Get the Cradle that should be used for a given URI
 getCradle :: (GM.GmEnv m, GM.MonadIO m, HasGhcModuleCache m, GM.GmLog m
              , MonadBaseControl IO m, ExceptionMonad m, GM.GmOut m)
@@ -77,20 +72,31 @@ getCradle fp = do
           return crdl
 
 
+-- | The possible states the cache can be in
+-- along with the cache or error if present
+data CachedModuleResult = ModuleLoading
+                        | ModuleFailed IdeError
+                        | ModuleCached CachedModule IsStale
+type IsStale = Bool
+
 -- | looks up a CachedModule for a given URI
 getCachedModule :: (GM.MonadIO m, HasGhcModuleCache m)
-                => FilePath -> m (Maybe CachedModule)
+                => FilePath -> m CachedModuleResult
 getCachedModule uri = do
   uri' <- liftIO $ canonicalizePath uri
-  mc <- getModuleCache
-  return $ (Map.lookup uri' . cachedModules) mc
+  maybeUriCache <- fmap (Map.lookup uri' . uriCaches) getModuleCache
+  return $ case maybeUriCache of
+    Nothing -> ModuleLoading
+    Just uriCache -> ModuleCached (cachedModule uriCache) (isStale uriCache)
 
 -- | Returns true if there is a CachedModule for a given URI
 isCached :: (GM.MonadIO m, HasGhcModuleCache m)
          => FilePath -> m Bool
 isCached uri = do
   mc <- getCachedModule uri
-  return (isJust mc)
+  case mc of
+    ModuleCached _ _ -> return True
+    _ -> return False
 
 -- | Version of `withCachedModuleAndData` that doesn't provide
 -- any extra cached data
@@ -99,8 +105,8 @@ withCachedModule :: (GM.MonadIO m, HasGhcModuleCache m)
 withCachedModule uri noCache callback = do
   mcm <- getCachedModule uri
   case mcm of
-    Nothing -> noCache
-    Just cm -> callback cm
+    ModuleCached cm _ -> callback cm
+    _ -> noCache
 
 -- | Calls its argument with the CachedModule for a given URI
 -- along with any data that might be stored in the ModuleCache.
@@ -124,10 +130,10 @@ withCachedModuleAndData uri noCache callback = do
              Nothing -> do
                val <- cacheDataProducer cm
                let dat' = Map.insert (typeOf val) (toDyn val) dat
-               modifyCache (\s -> s {uriCaches = Map.insert uri' (UriCache cm dat')
+               modifyCache (\s -> s {uriCaches = Map.insert uri' (UriCache cm dat' False)
                                                                  (uriCaches s)})
                return val
-             Just x -> do
+             Just x ->
                case fromDynamic x of
                  Just val -> return val
                  Nothing  -> error "impossible"
@@ -141,11 +147,10 @@ cacheModule uri cm = do
   modifyCache (\gmc ->
       gmc { uriCaches = Map.insert
                           uri'
-                          (UriCache cm Map.empty)
+                          (UriCache cm Map.empty False)
                           (uriCaches gmc)
           }
     )
-  where
 
 -- | Saves a module to the cache without clearing the associated cache data - use only if you are
 -- sure that the cached data associated with the module doesn't change
@@ -157,7 +162,7 @@ cacheModuleNoClear uri cm = do
       gmc { uriCaches = Map.insertWith
                           (updateCachedModule cm)
                           uri'
-                          (UriCache cm Map.empty)
+                          (UriCache cm Map.empty False)
                           (uriCaches gmc)
           }
     )

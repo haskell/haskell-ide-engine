@@ -252,7 +252,7 @@ updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeGhcM (IdeRe
 updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file -> do
   mcm <- getCachedModule file
   case mcm of
-    Just cm -> do
+    ModuleCached cm _ -> do
       let n2oOld = newPosToOld cm
           o2nOld = oldPosToNew cm
           (n2o,o2n) = foldr go (n2oOld, o2nOld) changes
@@ -262,7 +262,7 @@ updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file 
       let cm' = cm {newPosToOld = n2o, oldPosToNew = o2n}
       cacheModuleNoClear file cm'
       return $ IdeResultOk ()
-    Nothing ->
+    _ ->
       return $ IdeResultOk ()
   where
     f (+/-) (J.Range (Position sl _) (Position el _)) txt p@(Position l c)
