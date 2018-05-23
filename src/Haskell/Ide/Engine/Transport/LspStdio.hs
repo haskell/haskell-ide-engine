@@ -485,7 +485,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                 rspMsg = Core.makeResponseMessage req ht
               reactorSend rspMsg
         let
-          getHoverInfo :: IdeM (Either IdeFailure (Maybe J.MarkedString, [T.Text], Maybe Range))
+          getHoverInfo :: IdeM (Either IdeError (Maybe J.MarkedString, [T.Text], Maybe Range))
           getHoverInfo = runExceptT $ do
               info' <- ExceptT $ GhcMod.newTypeCmd pos doc
               names' <- ExceptT $ Hie.getSymbolsAtPoint doc pos
