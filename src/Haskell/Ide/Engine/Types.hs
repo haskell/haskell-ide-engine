@@ -2,8 +2,10 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.Engine.Types where
 
+import           Data.Aeson
 import           Haskell.Ide.Engine.MonadTypes
 import qualified Language.Haskell.LSP.Types as J
 
@@ -12,26 +14,41 @@ import qualified Language.Haskell.LSP.Types as J
 pattern GReq :: Maybe Uri
                 -> Maybe (Uri, Int)
                 -> Maybe J.LspId
-                -> ((IdeResult a1) -> IO ())
+                -> RequestCallback m a1
                 -> IdeGhcM (IdeResult a1)
-                -> PluginRequest
+                -> PluginRequest m
 pattern GReq a b c d e = Right (GhcRequest   a b c d e)
 
-pattern IReq :: J.LspId -> (IdeResult a -> IO ()) -> IdeM (IdeResponse a) -> Either IdeRequest b
+pattern IReq :: J.LspId -> (RequestCallback m a) -> IdeM (IdeResponse a) -> Either (IdeRequest m) b
 pattern IReq a b c     = Left  (IdeRequest a b c)
 
-type PluginRequest = Either IdeRequest GhcRequest
+type PluginRequest m = Either (IdeRequest m) (GhcRequest m)
 
-data GhcRequest = forall a. GhcRequest
+data GhcRequest m = forall a. GhcRequest
   { pinContext   :: Maybe J.Uri
   , pinDocVer    :: Maybe (J.Uri, Int)
   , pinLspReqId  :: Maybe J.LspId
-  , pinCallback  :: IdeResult a -> IO ()
+  , pinCallback  :: RequestCallback m a
   , pinReq       :: IdeGhcM (IdeResult a)
   }
 
-data IdeRequest = forall a. IdeRequest
+data IdeRequest m = forall a. IdeRequest
   { pureReqId :: J.LspId
-  , pureReqCallback :: IdeResult a -> IO ()
+  , pureReqCallback :: RequestCallback m a
   , pureReq :: IdeM (IdeResponse a)
   }
+
+type RequestCallback m a = a -> m ()
+
+data Config =
+  Config
+    { hlintOn             :: Bool
+    , maxNumberOfProblems :: Int
+    } deriving (Show)
+
+instance FromJSON Config where
+  parseJSON = withObject "Config" $ \v -> do
+    s <- v .: "languageServerHaskell"
+    flip (withObject "Config.settings") s $ \o -> Config
+      <$> o .:? "hlintOn" .!= True
+      <*> o .: "maxNumberOfProblems"

@@ -1,7 +1,15 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE NamedFieldPuns            #-}
-module Haskell.Ide.Engine.Dispatcher where
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE RankNTypes                #-}
+module Haskell.Ide.Engine.Dispatcher
+  (
+    dispatcherP
+  , DispatcherEnv(..)
+  , ErrorHandler
+  , CallbackHandler
+  ) where
 
 import           Control.Concurrent.STM.TChan
 import           Control.Concurrent
@@ -12,9 +20,11 @@ import           Control.Monad.Reader
 import           Control.Monad.STM
 import qualified Data.Map                              as Map
 import qualified Data.Set                              as S
+import qualified GhcMod.Types                          as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Types
+import           Haskell.Ide.Engine.Monad
 import qualified Language.Haskell.LSP.Types            as J
 import           System.Directory
 
@@ -24,18 +34,30 @@ data DispatcherEnv = DispatcherEnv
   , docVersionTVar     :: !(TVar (Map.Map Uri Int))
   }
 
-dispatcherP :: forall void. DispatcherEnv -> TChan PluginRequest -> IdeGhcM void
-dispatcherP env inChan = do
-  stateVar <- lift . lift $ ask
-  gchan <- liftIO $ do
-    ghcChan <- newTChanIO
-    ideChan <- newTChanIO
-    _ <- forkIO $ mainDispatcher inChan ghcChan ideChan
-    _ <- forkIO $ runReaderT (ideDispatcher env ideChan) stateVar
-    return ghcChan
-  ghcDispatcher env gchan
 
-mainDispatcher :: forall void. TChan PluginRequest -> TChan GhcRequest -> TChan IdeRequest -> IO void
+
+type ErrorHandler = J.LspId -> IdeError -> IO ()
+type CallbackHandler m = forall a. RequestCallback m a -> a -> IO ()
+
+dispatcherP :: forall m. TChan (PluginRequest m)
+            -> IdePlugins
+            -> GM.Options
+            -> DispatcherEnv
+            -> ErrorHandler
+            -> CallbackHandler m
+            -> IO ()
+dispatcherP inChan plugins ghcModOptions env errorHandler callbackHandler =
+  void $ runIdeGhcM ghcModOptions (IdeState emptyModuleCache Map.empty plugins Map.empty Nothing) $ do
+    stateVar <- lift . lift $ ask
+    gchan <- liftIO $ do
+      ghcChan <- newTChanIO
+      ideChan <- newTChanIO
+      _ <- forkIO $ mainDispatcher inChan ghcChan ideChan
+      _ <- forkIO $ runReaderT (ideDispatcher env errorHandler callbackHandler ideChan) stateVar
+      return ghcChan
+    ghcDispatcher env errorHandler callbackHandler gchan
+
+mainDispatcher :: forall void m. TChan (PluginRequest m) -> TChan (GhcRequest m) -> TChan (IdeRequest m) -> IO void
 mainDispatcher inChan ghcChan ideChan = forever $ do
   req <- atomically $ readTChan inChan
   case req of
@@ -44,27 +66,24 @@ mainDispatcher inChan ghcChan ideChan = forever $ do
     Left r ->
       atomically $ writeTChan ideChan r
 
-ideDispatcher :: forall void. DispatcherEnv -> TChan IdeRequest -> IdeM void
-ideDispatcher env pin = forever $ do
+ideDispatcher :: forall void m. DispatcherEnv -> ErrorHandler -> (CallbackHandler m) -> TChan (IdeRequest m) -> IdeM void
+ideDispatcher env errorHandler callbackHandler pin = forever $ do
   debugm "ideDispatcher: top of loop"
   (IdeRequest lid callback action) <- liftIO $ atomically $ readTChan pin
   debugm $ "ideDispatcher:got request with id: " ++ show lid
   cancelled <- liftIO $ atomically $ isCancelled env lid
   unless cancelled $ do
     response <- action
-    case response of
-      IdeResponseResult result -> liftIO $ callback result
-      IdeResponseDeferred fp cacheCb -> handleDeferred lid fp cacheCb callback
+    handleResponse lid callback response
       
-  where handleDeferred :: J.LspId
-                       -> FilePath 
-                       -> (CachedModule -> IdeM (IdeResponse a))
-                       -> (IdeResult a -> IO ()) -> IdeM ()
-        handleDeferred lid fp cacheCb actualCb = queueAction lid fp $ (\cm -> do
+  where handleResponse lid callback response = case response of
+          IdeResponseResult (IdeResultOk x) -> liftIO $ callbackHandler callback x
+          IdeResponseResult (IdeResultFail err) -> liftIO $ errorHandler lid err 
+          IdeResponseDeferred fp cacheCb -> handleDeferred lid fp cacheCb callback
+    
+        handleDeferred lid fp cacheCb actualCb = queueAction lid fp $ \cm -> do
           cacheResponse <- cacheCb cm
-          case cacheResponse of
-            IdeResponseDeferred fp2 cacheCb2 -> handleDeferred lid fp2 cacheCb2 actualCb
-            IdeResponseResult result -> liftIO $ actualCb result)
+          handleResponse lid actualCb cacheResponse
     
         queueAction :: J.LspId -> FilePath -> (CachedModule -> IdeM ()) -> IdeM ()
         queueAction lid fp action = do
@@ -78,8 +97,8 @@ ideDispatcher env pin = forever $ do
                   else Map.insert fp [newReq] oldQueue
             in s { requestQueue = newQueue }
 
-ghcDispatcher :: forall void. DispatcherEnv -> TChan GhcRequest -> IdeGhcM void
-ghcDispatcher env@DispatcherEnv{docVersionTVar} pin = forever $ do
+ghcDispatcher :: forall void m. DispatcherEnv -> ErrorHandler -> CallbackHandler m -> TChan (GhcRequest m) -> IdeGhcM void
+ghcDispatcher env@DispatcherEnv{docVersionTVar} errorHandler callbackHandler pin = forever $ do
   debugm "ghcDispatcher: top of loop"
   (GhcRequest context mver mid callback action) <- liftIO $ atomically $ readTChan pin
   debugm $ "got request with id: " ++ show mid
@@ -94,7 +113,13 @@ ghcDispatcher env@DispatcherEnv{docVersionTVar} pin = forever $ do
 
   let runWithCallback = do
         result <- runner action
-        liftIO $ callback result
+
+        liftIO $ case result of
+          IdeResultOk x -> callbackHandler callback x
+          IdeResultFail err ->
+            case mid of
+              Just lid -> errorHandler lid err
+              Nothing -> debugm $ "Got error for a request: " ++ show err 
 
   let runIfVersionMatch = case mver of
         Nothing -> runWithCallback

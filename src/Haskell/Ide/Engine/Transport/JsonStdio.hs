@@ -5,6 +5,7 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE RankNTypes   #-}
 
 module Haskell.Ide.Engine.Transport.JsonStdio
   (
@@ -17,6 +18,7 @@ import           Control.Concurrent.STM.TVar
 import qualified Control.Exception                     as E
 import           Control.Monad
 import           Control.Monad.STM
+import           Control.Monad.IO.Class
 import qualified Data.Aeson                            as J
 import qualified Data.ByteString.Builder               as B
 import qualified Data.ByteString.Lazy.Char8            as B
@@ -28,7 +30,6 @@ import qualified Data.Set                              as S
 import qualified Data.Text                             as T
 import           GHC.Generics
 import           Haskell.Ide.Engine.Dispatcher
-import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.Types            as J
@@ -43,7 +44,7 @@ import qualified System.Log.Logger                     as L
 
 -- ---------------------------------------------------------------------
 
-jsonStdioTransport :: (DispatcherEnv -> IO ()) -> TChan PluginRequest -> IO ()
+jsonStdioTransport :: (DispatcherEnv -> ErrorHandler -> CallbackHandler IO -> IO ()) -> TChan (PluginRequest IO) -> IO ()
 jsonStdioTransport hieDispatcherProc cin = do
   run hieDispatcherProc cin >>= \case
     0 -> exitSuccess
@@ -62,10 +63,10 @@ data ReactorInput =
 
 data ReactorOutput = ReactorOutput
   { _resId    :: Int
-  , _response :: IdeResult J.Value
+  , _response :: J.Value
   } deriving (Eq, Show, Generic, J.ToJSON, J.FromJSON)
 
-run :: (DispatcherEnv -> IO ()) -> TChan PluginRequest -> IO Int
+run :: (DispatcherEnv -> ErrorHandler -> (CallbackHandler IO) -> IO ()) -> TChan (PluginRequest IO) -> IO Int
 run dispatcherProc cin = flip E.catches handlers $ do
   flip E.finally finalProc $ do
 
@@ -81,7 +82,10 @@ run dispatcherProc cin = flip E.catches handlers $ do
 
     let race3_ a b c = race_ a (race_ b c)
 
-    race3_ (dispatcherProc dispatcherEnv)
+    let errorHandler lid e = liftIO $ hPutStrLn stderr $ "Got an error for request " ++ (show lid) ++ ": " ++ show e
+        callbackHandler callback x = (callback x)
+
+    race3_ (dispatcherProc dispatcherEnv errorHandler callbackHandler)
            (outWriter rout)
            (reactor rout)
 
@@ -104,10 +108,10 @@ run dispatcherProc cin = flip E.catches handlers $ do
       let sendResponse rid resp = atomically $ writeTChan rout (ReactorOutput rid resp) in
       forever $ do
         req <- getNextReq
-        let preq = GReq (context req) Nothing (Just $ J.IdInt rid) callback
+        let preq = GReq (context req) Nothing (Just $ J.IdInt rid) (liftIO . callback)
               $ runPluginCommand (plugin req) (command req) (arg req)
             rid = reqId req
-            callback = sendResponse rid . fmap dynToJSON
+            callback = sendResponse rid . dynToJSON
         atomically $ writeTChan cin preq
 
 getNextReq :: IO ReactorInput

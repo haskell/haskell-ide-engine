@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RankNTypes   #-}
 module Main where
 
 import           Control.Concurrent.STM.TChan
@@ -8,18 +9,15 @@ import           Control.Monad.STM
 #if __GLASGOW_HASKELL__ < 804
 import           Data.Semigroup
 #endif
-import qualified Data.Map as Map
 import           Data.Version                          (showVersion)
 import qualified GhcMod.Types                          as GM
 import           Haskell.Ide.Engine.Dispatcher
-import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Transport.LspStdio
 import           Haskell.Ide.Engine.Transport.JsonStdio
-import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.Core             as Core
 import           Options.Applicative.Simple
 import qualified Paths_haskell_ide_engine              as Meta
@@ -108,22 +106,16 @@ run opts = do
   d <- getCurrentDirectory
   logm $ "Current directory:" ++ d
 
-  pin <- atomically newTChan :: IO (TChan PluginRequest)
-
   let vomitOptions = GM.defaultOptions { GM.optOutput = oo { GM.ooptLogLevel = GM.GmVomit}}
       oo = GM.optOutput GM.defaultOptions
   let ghcModOptions = if optGhcModVomit opts then vomitOptions else GM.defaultOptions
 
   -- launch the dispatcher.
-  let
-    -- TODO: Why is this not together with dispatcherP?
-    dispatcherProcP :: DispatcherEnv -> IO ()
-    dispatcherProcP dispatcherEnv =
-        void $ runIdeGhcM ghcModOptions
-            (IdeState emptyModuleCache Map.empty plugins Map.empty Nothing)
-            (dispatcherP dispatcherEnv pin)
 
-  if optLsp opts then
-    lspStdioTransport dispatcherProcP pin origDir
-  else
-    jsonStdioTransport dispatcherProcP pin
+  
+  if optLsp opts then do
+    pin <- atomically newTChan
+    lspStdioTransport (dispatcherP pin plugins ghcModOptions) pin origDir
+  else do
+    pin <- atomically newTChan
+    jsonStdioTransport (dispatcherP pin plugins ghcModOptions) pin
