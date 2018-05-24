@@ -452,7 +452,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             doc = params ^. J.textDocument . J.uri
             pos = params ^. J.position
             newName  = params ^. J.newName
-            callback = \we -> do
+            callback we = do
               let rspMsg = Core.makeResponseMessage req we
               reactorSend rspMsg
         let hreq = GReq (Just doc) Nothing (Just $ req ^. J.id) callback
@@ -467,7 +467,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let params = req ^. J.params
             pos = params ^. J.position
             doc = params ^. J.textDocument . J.uri
-            callback = \(typ, docs, mrange) -> do
+            callback (typ, docs, mrange) = do
               let
                 ht = case mrange of
                   Nothing    -> J.Hover (J.List []) Nothing
@@ -581,7 +581,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let cmdparams = case margs of
               Just (J.List (x:_)) -> x
               _ -> J.Null
-            callback = \obj -> do
+            callback obj = do
               liftIO $ U.logs $ "ExecuteCommand response got:r=" ++ show obj
               case fromDynJSON obj :: Maybe J.WorkspaceEdit of
                 Just v -> do
@@ -606,7 +606,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
 
         mprefix <- getPrefixAtPos doc pos
 
-        let callback = \compls -> do
+        let callback compls = do
               let rspMsg = Core.makeResponseMessage req
                             $ J.Completions $ J.List compls
               reactorSend rspMsg
@@ -623,7 +623,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             mquery = case J.fromJSON <$> origCompl ^. J.xdata of
                        Just (J.Success q) -> Just q
                        _ -> Nothing
-            callback = \docs -> do
+            callback docs = do
               let rspMsg = Core.makeResponseMessage req $
                             origCompl & J.documentation .~ docs
               reactorSend rspMsg
@@ -643,7 +643,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let params = req ^. J.params
             doc = params ^. (J.textDocument . J.uri)
             pos = params ^. J.position
-            callback = \highlights -> do
+            callback highlights = do
               let rspMsg = Core.makeResponseMessage req $ J.List highlights
               reactorSend rspMsg
         let hreq = IReq (req ^. J.id) callback
@@ -656,7 +656,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let params = req ^. J.params
             doc = params ^. J.textDocument . J.uri
             pos = params ^. J.position
-            callback = \loc -> do
+            callback loc = do
               let rspMsg = Core.makeResponseMessage req loc
               reactorSend rspMsg
         let hreq = IReq (req ^. J.id) callback
@@ -669,7 +669,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let params = req ^. J.params
             doc = params ^. (J.textDocument . J.uri)
             pos = params ^. J.position
-            callback = \highlights -> do
+            callback highlights = do
               let rspMsg = Core.makeResponseMessage req $ J.List highlights
               reactorSend rspMsg
         let hreq = IReq (req ^. J.id) callback
@@ -684,7 +684,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let params = req ^. J.params
             doc = params ^. J.textDocument . J.uri
             tabSize = params ^. J.options . J.tabSize
-            callback = \textEdit -> do
+            callback textEdit = do
               let rspMsg = Core.makeResponseMessage req $ J.List textEdit
               reactorSend rspMsg
         let hreq = GReq (Just doc) Nothing (Just $ req ^. J.id) callback
@@ -699,7 +699,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             doc = params ^. J.textDocument . J.uri
             range = params ^. J.range
             tabSize = params ^. J.options . J.tabSize
-            callback = \textEdit -> do
+            callback textEdit = do
               let rspMsg = Core.makeResponseMessage req $ J.List textEdit
               reactorSend rspMsg
         let hreq = GReq (Just doc) Nothing (Just $ req ^. J.id) callback
@@ -711,7 +711,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
       Core.ReqDocumentSymbols req -> do
         liftIO $ U.logs $ "reactor:got Document symbol request:" ++ show req
         let uri = req ^. J.params . J.textDocument . J.uri
-            callback = \docSymbols -> do
+            callback docSymbols = do
               let rspMsg = Core.makeResponseMessage req $ J.List docSymbols
               reactorSend rspMsg
         let hreq = IReq (req ^. J.id) callback

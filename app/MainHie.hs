@@ -111,7 +111,6 @@ run opts = do
   let ghcModOptions = if optGhcModVomit opts then vomitOptions else GM.defaultOptions
 
   -- launch the dispatcher.
-
   
   if optLsp opts then do
     pin <- atomically newTChan

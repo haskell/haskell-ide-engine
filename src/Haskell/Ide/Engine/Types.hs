@@ -27,7 +27,7 @@ pattern GReq a b c d e = Right (GhcRequest   a b c d e)
 pattern IReq :: J.LspId -> (RequestCallback m a) -> IdeM (IdeResponse a) -> Either (IdeRequest m) b
 pattern IReq a b c     = Left  (IdeRequest a b c)
 
-type PluginRequest m = Either IdeRequest m GhcRequest m
+type PluginRequest m = Either (IdeRequest m) (GhcRequest m)
 
 data GhcRequest m = forall a. GhcRequest
   { pinContext   :: Maybe J.Uri
