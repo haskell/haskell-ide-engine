@@ -134,10 +134,10 @@ instance LiftsToGhc IdeGhcM where
 data IdeState = IdeState
   { moduleCache :: GhcModuleCache
   -- | A queue of requests to be performed once a module is loaded
-  , actionQueue :: Map.Map FilePath [(LspId, CachedModule -> IdeM ())]
+  , requestQueue :: Map.Map FilePath [(LspId, CachedModule -> IdeM ())]
   , idePlugins  :: IdePlugins
   , extensibleState :: !(Map.Map TypeRep Dynamic)
-  , ghcSession  :: (Maybe (IORef HscEnv))
+  , ghcSession  :: Maybe (IORef HscEnv)
   }
 
 instance HasGhcModuleCache IdeM where
@@ -190,7 +190,7 @@ instance Monad m => Applicative (IdeResultT m) where
 
 instance (Monad m) => Monad (IdeResultT m) where
   return = IdeResultT . return . IdeResultOk
-  
+
   m >>= f = IdeResultT $ do
     v <- runIdeResultT m
     case v of
@@ -258,7 +258,7 @@ instance Monad m => Applicative (IdeResponseT m) where
 
 instance (Monad m) => Monad (IdeResponseT m) where
   return = IdeResponseT . return . IdeResponseOk
-  
+
   m >>= f = IdeResponseT $ do
     v <- runIdeResponseT m
     case v of

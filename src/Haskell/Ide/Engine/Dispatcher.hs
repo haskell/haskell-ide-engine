@@ -71,12 +71,12 @@ ideDispatcher env pin = forever $ do
           fp' <- liftIO $ canonicalizePath fp
           modifyMTState $ \s ->
             let newReq   = (lid, action)
-                oldQueue = actionQueue s
+                oldQueue = requestQueue s
                 -- add to existing queue if possible
                 newQueue = if Map.member fp' oldQueue
                   then Map.update (Just . (newReq :)) fp oldQueue
                   else Map.insert fp [newReq] oldQueue
-            in s { actionQueue = newQueue }
+            in s { requestQueue = newQueue }
 
 ghcDispatcher :: forall void. DispatcherEnv -> TChan GhcRequest -> IdeGhcM void
 ghcDispatcher env@DispatcherEnv{docVersionTVar} pin = forever $ do

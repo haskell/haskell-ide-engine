@@ -28,6 +28,7 @@ plugin writers, most important of which is the `CachedModule`.
 ```haskell
 data CachedModule = CachedModule
   { tcMod       :: !TypecheckedModule
+  , requestQueue :: Map.Map FilePath [(LspId, CachedModule -> IdeM ())]
   , revMap      :: FilePath -> FilePath
   , newPosToOld :: Position -> Maybe Position
   , oldPosToNew :: Position -> Maybe Position
