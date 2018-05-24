@@ -56,17 +56,17 @@ ideDispatcher env pin = forever $ do
       IdeResponseResult result -> liftIO $ callback result
       IdeResponseDeferred fp cacheCb -> handleDeferred fp cacheCb callback
       
-  where handleDeferred :: FilePath -> (CachedModule -> IdeGhcM (IdeResponse a)) -> (IdeResult a -> IO ()) -> IdeM ()
-        handleDeferred fp cacheCb actualCb = queueAction fp $ \cm -> do
+  where handleDeferred :: FilePath -> (CachedModule -> IdeM (IdeResponse a)) -> (IdeResult a -> IO ()) -> IdeM ()
+        handleDeferred fp cacheCb actualCb = queueAction fp $ (\cm -> do
           cacheResponse <- cacheCb cm
           case cacheResponse of
-            IdeResponseDeferred fp2 cacheCb2 -> liftToGhc $ handleDeferred fp2 cacheCb2 actualCb
-            IdeResponseResult result -> liftIO $ actualCb result
+            IdeResponseDeferred fp2 cacheCb2 -> handleDeferred fp2 cacheCb2 actualCb
+            IdeResponseResult result -> liftIO $ actualCb result)
     
-        queueAction :: FilePath -> (CachedModule -> IdeGhcM ()) -> IdeM ()
+        queueAction :: FilePath -> (CachedModule -> IdeM ()) -> IdeM ()
         queueAction fp action = do
           fp' <- liftIO $ canonicalizePath fp
-          modifyMTS $ \s ->
+          modifyMTState $ \s ->
             let oldQueue = actionQueue s
                 -- add to existing queue if possible
                 newQueue = if Map.member fp' oldQueue

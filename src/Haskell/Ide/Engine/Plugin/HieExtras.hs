@@ -415,14 +415,14 @@ getReferencesInDoc uri pos =
   pluginGetFileResponse "getReferencesInDoc: " uri $ \file -> do
     let noCache = return $ IdeResponseOk [] -- Processing doc highlights request, no symbols available, not an error
     withCachedModuleAndData file noCache $
-      \cm NMD{inverseNameMap} -> runIdeResponseT $ do
+      \cm NMD{inverseNameMap} -> do
         let lm = locMap cm
             pm = tm_parsed_module $ tcMod cm
             cfile = ml_hs_file $ ms_location $ pm_mod_summary pm
             mpos = newPosToOld cm pos
         case mpos of
-          Nothing -> return []
-          Just pos' -> fmap concat $
+          Nothing -> return $ IdeResponseOk []
+          Just pos' -> return $ fmap concat $
             forM (getArtifactsAtPos pos' lm) $ \(_,name) -> do
                 let usages = fromMaybe [] $ Map.lookup name inverseNameMap
                     defn = nameSrcSpan name

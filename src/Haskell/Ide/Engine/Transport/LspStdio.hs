@@ -492,7 +492,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let
           getHoverInfo :: IdeM (IdeResponse (Maybe J.MarkedString, [T.Text], Maybe Range))
           getHoverInfo = runIdeResponseT $ do
-              info' <- IdeResponseT $ IdeResponseResult <$> (GhcMod.newTypeCmd pos doc)
+              info' <- IdeResponseT $ IdeResponseResult <$> GhcMod.newTypeCmd pos doc
               names' <- IdeResponseT $ Hie.getSymbolsAtPoint doc pos
               let
                 f = (==) `on` (Hie.showName . snd)

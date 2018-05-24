@@ -29,7 +29,8 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , IdeResultT(..)
   , pattern IdeResponseOk
   , pattern IdeResponseFail
-  , IdeResponse(..)
+  , IdeResponse
+  , IdeResponse'(..)
   , IdeResponseT(..)
   , IdeError(..)
   , IdeErrorCode(..)
@@ -132,7 +133,7 @@ instance LiftsToGhc IdeGhcM where
 data IdeState = IdeState
   { moduleCache :: GhcModuleCache
   -- | A queue of actions to be performed once a module is loaded
-  , actionQueue :: Map.Map FilePath [CachedModule -> IdeGhcM ()]
+  , actionQueue :: Map.Map FilePath [CachedModule -> IdeM ()]
   , idePlugins  :: IdePlugins
   , extensibleState :: !(Map.Map TypeRep Dynamic)
   , ghcSession  :: (Maybe (IORef HscEnv))
@@ -200,28 +201,30 @@ instance MonadTrans IdeResultT where
 
 -- | The IDE response, which wraps around an IdeResult that may be deferred.
 -- Used mostly in IdeM.
-data IdeResponse a = IdeResponseResult (IdeResult a)
-                   | IdeResponseDeferred FilePath (CachedModule -> IdeGhcM (IdeResponse a))
+data IdeResponse' m a = IdeResponseDeferred FilePath (CachedModule -> m (IdeResponse' m a))
+                      | IdeResponseResult (IdeResult a)
 
-pattern IdeResponseOk :: a -> IdeResponse a
+type IdeResponse a = IdeResponse' (IdeM) a
+
+pattern IdeResponseOk :: a -> IdeResponse' m a
 pattern IdeResponseOk a = IdeResponseResult (IdeResultOk a)
-pattern IdeResponseFail :: IdeError -> IdeResponse a
+pattern IdeResponseFail :: IdeError -> IdeResponse' m a
 pattern IdeResponseFail err = IdeResponseResult (IdeResultFail err)
 
-instance (Show a) => Show (IdeResponse a) where
+instance (Show a) => Show (IdeResponse' m a) where
   show (IdeResponseResult x) = show x
   show (IdeResponseDeferred fp _) = "Deferred response waiting on " ++ fp
 
-instance (Eq a) => Eq (IdeResponse a) where
+instance (Eq a) => Eq (IdeResponse' m a) where
   (IdeResponseResult x) == (IdeResponseResult y) = x == y
   _ == _ = False
 
-instance Functor IdeResponse where
+instance Monad m => Functor (IdeResponse' m) where
   fmap f (IdeResponseResult (IdeResultOk x)) = IdeResponseOk (f x)
   fmap _ (IdeResponseResult (IdeResultFail err)) = IdeResponseFail err
   fmap f (IdeResponseDeferred fp cb) = IdeResponseDeferred fp $ cb >=> (return . fmap f)
 
-instance Applicative IdeResponse where
+instance Monad m => Applicative (IdeResponse' m) where
   pure = return
 
   (IdeResponseResult (IdeResultFail err)) <*> _ = IdeResponseFail err
@@ -235,7 +238,7 @@ instance Applicative IdeResponse where
     f <- cb cm
     pure (f <*> x)
 
-instance Monad IdeResponse where
+instance Monad m => Monad (IdeResponse' m) where
   (IdeResponseResult (IdeResultOk x)) >>= f = f x
   (IdeResponseDeferred fp cb) >>= f = IdeResponseDeferred fp $ \cm -> do
     x <- cb cm
@@ -243,7 +246,7 @@ instance Monad IdeResponse where
   (IdeResponseResult (IdeResultFail err)) >>= _ = IdeResponseFail err
   return = IdeResponseOk
 
-newtype IdeResponseT m a = IdeResponseT { runIdeResponseT :: m (IdeResponse a) }
+newtype IdeResponseT m a = IdeResponseT { runIdeResponseT :: m (IdeResponse' m a) }
 
 instance Monad m => Functor (IdeResponseT m) where
   fmap = liftM
@@ -260,7 +263,8 @@ instance (Monad m) => Monad (IdeResponseT m) where
     case v of
       IdeResponseResult (IdeResultOk x) -> runIdeResponseT (f x)
       IdeResponseResult (IdeResultFail err) -> return $ IdeResponseFail err
-      IdeResponseDeferred _ _ -> error "TODO"
+      IdeResponseDeferred fp cb -> return $ IdeResponseDeferred fp $ \cm ->
+        runIdeResponseT $ IdeResponseT (cb cm) >>= f
 
 instance MonadTrans IdeResponseT where
   lift m = IdeResponseT (fmap IdeResponseOk m)
