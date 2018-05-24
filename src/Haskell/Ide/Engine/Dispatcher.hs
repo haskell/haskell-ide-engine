@@ -34,9 +34,9 @@ data DispatcherEnv = DispatcherEnv
   , docVersionTVar     :: !(TVar (Map.Map Uri Int))
   }
 
-
-
+-- | A handler for any errors that the dispatcher may encounter.
 type ErrorHandler = J.LspId -> IdeError -> IO ()
+-- | A handler to run the requests' callback in your monad of choosing.
 type CallbackHandler m = forall a. RequestCallback m a -> a -> IO ()
 
 dispatcherP :: forall m. TChan (PluginRequest m)
