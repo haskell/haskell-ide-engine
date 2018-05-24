@@ -71,6 +71,7 @@ import           Haskell.Ide.Engine.GhcModuleCache
 import           Language.Haskell.LSP.Types (Diagnostic (..),
                                              DiagnosticSeverity (..),
                                              List (..),
+                                             LspId (..),
                                              Location (..),
                                              Position (..),
                                              PublishDiagnosticsParams (..),
@@ -132,8 +133,8 @@ instance LiftsToGhc IdeGhcM where
 
 data IdeState = IdeState
   { moduleCache :: GhcModuleCache
-  -- | A queue of actions to be performed once a module is loaded
-  , actionQueue :: Map.Map FilePath [CachedModule -> IdeM ()]
+  -- | A queue of requests to be performed once a module is loaded
+  , actionQueue :: Map.Map FilePath [(LspId, CachedModule -> IdeM ())]
   , idePlugins  :: IdePlugins
   , extensibleState :: !(Map.Map TypeRep Dynamic)
   , ghcSession  :: (Maybe (IORef HscEnv))

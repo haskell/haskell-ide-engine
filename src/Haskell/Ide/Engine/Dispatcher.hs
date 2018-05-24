@@ -54,24 +54,28 @@ ideDispatcher env pin = forever $ do
     response <- action
     case response of
       IdeResponseResult result -> liftIO $ callback result
-      IdeResponseDeferred fp cacheCb -> handleDeferred fp cacheCb callback
+      IdeResponseDeferred fp cacheCb -> handleDeferred lid fp cacheCb callback
       
-  where handleDeferred :: FilePath -> (CachedModule -> IdeM (IdeResponse a)) -> (IdeResult a -> IO ()) -> IdeM ()
-        handleDeferred fp cacheCb actualCb = queueAction fp $ (\cm -> do
+  where handleDeferred :: J.LspId
+                       -> FilePath 
+                       -> (CachedModule -> IdeM (IdeResponse a))
+                       -> (IdeResult a -> IO ()) -> IdeM ()
+        handleDeferred lid fp cacheCb actualCb = queueAction lid fp $ (\cm -> do
           cacheResponse <- cacheCb cm
           case cacheResponse of
-            IdeResponseDeferred fp2 cacheCb2 -> handleDeferred fp2 cacheCb2 actualCb
+            IdeResponseDeferred fp2 cacheCb2 -> handleDeferred lid fp2 cacheCb2 actualCb
             IdeResponseResult result -> liftIO $ actualCb result)
     
-        queueAction :: FilePath -> (CachedModule -> IdeM ()) -> IdeM ()
-        queueAction fp action = do
+        queueAction :: J.LspId -> FilePath -> (CachedModule -> IdeM ()) -> IdeM ()
+        queueAction lid fp action = do
           fp' <- liftIO $ canonicalizePath fp
           modifyMTState $ \s ->
-            let oldQueue = actionQueue s
+            let newReq   = (lid, action)
+                oldQueue = actionQueue s
                 -- add to existing queue if possible
                 newQueue = if Map.member fp' oldQueue
-                  then Map.update (Just . (action :)) fp oldQueue
-                  else Map.insert fp [action] oldQueue
+                  then Map.update (Just . (newReq :)) fp oldQueue
+                  else Map.insert fp [newReq] oldQueue
             in s { actionQueue = newQueue }
 
 ghcDispatcher :: forall void. DispatcherEnv -> TChan GhcRequest -> IdeGhcM void
