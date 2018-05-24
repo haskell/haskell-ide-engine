@@ -186,6 +186,15 @@ deleteCachedModule uri = do
   uri' <- liftIO $ canonicalizePath uri
   modifyCache (\s -> s { uriCaches = Map.delete uri' (uriCaches s) })
 
+markCacheStale :: (GM.MonadIO m, HasGhcModuleCache m) => FilePath -> m ()
+markCacheStale uri = do
+  uri' <- liftIO $ canonicalizePath uri
+  modifyCache $ \gmc ->
+    let newUriCaches = Map.update (\(UriCache cm d _) -> Just (UriCache cm d True))
+                                  uri'
+                                  (uriCaches gmc)
+      in gmc { uriCaches = newUriCaches }
+
 -- ---------------------------------------------------------------------
 -- | A ModuleCache is valid for the lifetime of a CachedModule
 -- It is generated on need and the cache is invalidated

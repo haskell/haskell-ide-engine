@@ -157,7 +157,7 @@ instance HasGhcModuleCache IdeGhcM where
 
 
 -- | The result of a plugin action, containing the result and an error if
--- it failed.
+-- it failed. IdeGhcM usually skips IdeResponse and jumps straight to this.
 data IdeResult a = IdeResultOk a
                  | IdeResultFail IdeError
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
