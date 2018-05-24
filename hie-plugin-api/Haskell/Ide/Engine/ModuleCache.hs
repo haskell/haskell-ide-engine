@@ -102,13 +102,14 @@ isCached uri = do
 
 -- | Version of `withCachedModuleAndData` that doesn't provide
 -- any extra cached data
-withCachedModule :: (GM.MonadIO m, HasGhcModuleCache m)
-                 => FilePath -> m b -> (CachedModule -> m b) -> m b
-withCachedModule uri noCache callback = do
+withCachedModule :: (GM.MonadIO m, HasGhcModuleCache m, LiftsToGhc m)
+                 => FilePath -> (CachedModule -> m (IdeResponse b)) -> m (IdeResponse b)
+withCachedModule uri callback = do
   mcm <- getCachedModule uri
   case mcm of
     ModuleCached cm _ -> callback cm
-    _ -> noCache
+    ModuleLoading -> return $ IdeResponseDeferred uri (liftToGhc . callback)
+    ModuleFailed err -> return $ IdeResponseFail err
 
 -- | Calls its argument with the CachedModule for a given URI
 -- along with any data that might be stored in the ModuleCache.
