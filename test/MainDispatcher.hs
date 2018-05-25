@@ -10,7 +10,6 @@ import qualified Data.Map as Map
 import qualified Data.Set as S
 import qualified Data.Text as T
 import           Haskell.Ide.Engine.Dispatcher
-import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
@@ -42,15 +41,13 @@ main = do
 
 
 spec :: Spec
-spec = do
-  describe "dispatcher" dispatcherSpec
+spec = describe "dispatcher" dispatcherSpec
 
 -- ---------------------------------------------------------------------
 
 dispatcherSpec :: Spec
-dispatcherSpec = do
-
-  describe "New plugin dispatcher operation" $ do
+dispatcherSpec =
+  describe "New plugin dispatcher operation" $
     it "dispatches response correctly" $ do
       inChan <- atomically newTChan
       outChan <- atomically newTChan
@@ -61,8 +58,13 @@ dispatcherSpec = do
           req2 = GReq Nothing Nothing                          (Just $ J.IdInt 2) (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text2"
           req3 = GReq Nothing (Just (filePathToUri "test", 2)) Nothing            (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text3"
           req4 = GReq Nothing Nothing                          (Just $ J.IdInt 3) (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text4"
-      pid <- forkIO $ runIdeGhcM testOptions (IdeState emptyModuleCache Map.empty (pluginDescToIdePlugins []) Map.empty Nothing)
-                              (dispatcherP (DispatcherEnv cancelTVar wipTVar versionTVar) inChan)
+
+      pid <- forkIO $ dispatcherP inChan
+                              (pluginDescToIdePlugins [])
+                              testOptions
+                              (DispatcherEnv cancelTVar wipTVar versionTVar)
+                              (\_ _ -> return ())
+                              (\f x -> f x)
       atomically $ writeTChan inChan req1
       atomically $ modifyTVar cancelTVar (S.insert (J.IdInt 2))
       atomically $ writeTChan inChan req2
@@ -71,7 +73,7 @@ dispatcherSpec = do
       resp1 <- atomically $ readTChan outChan
       resp2 <- atomically $ readTChan outChan
       killThread pid
-      resp1 `shouldBe` IdeResultOk "text1"
-      resp2 `shouldBe` IdeResultOk "text4"
+      resp1 `shouldBe` "text1"
+      resp2 `shouldBe` "text4"
 
 -- ---------------------------------------------------------------------

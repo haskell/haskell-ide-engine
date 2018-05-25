@@ -30,7 +30,6 @@ import qualified Data.HashMap.Strict                   as H
 import qualified Data.Map                              as Map
 import qualified Data.Set                              as S
 import           Haskell.Ide.Engine.Dispatcher
-import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
@@ -63,12 +62,10 @@ plugins = pluginDescToIdePlugins
   ,("base"       , baseDescriptor)
   ]
 
-startServer :: IO (TChan PluginRequest)
+startServer :: IO (TChan (PluginRequest IO))
 startServer = do
   cin  <- atomically newTChan
 
-  let dispatcherProc dispatcherEnv
-        = void $ forkIO $ runIdeGhcM testOptions (IdeState emptyModuleCache Map.empty plugins Map.empty Nothing) (dispatcherP dispatcherEnv cin)
   cancelTVar      <- atomically $ newTVar S.empty
   wipTVar         <- atomically $ newTVar S.empty
   versionTVar     <- atomically $ newTVar Map.empty
@@ -78,7 +75,7 @@ startServer = do
         , docVersionTVar     = versionTVar
         }
 
-  void $ dispatcherProc dispatcherEnv
+  void $ dispatcherP cin plugins testOptions dispatcherEnv (\_ _ -> return ()) (\f x -> f x)
   return cin
 
 -- ---------------------------------------------------------------------
@@ -95,7 +92,7 @@ spec = do
 
 -- ---------------------------------------------------------------------
 
-dispatchRequest :: ToJSON a => TChan PluginRequest -> PluginId -> CommandName -> a -> IO (IdeResult DynamicJSON)
+dispatchRequest :: ToJSON a => TChan (PluginRequest IO) -> PluginId -> CommandName -> a -> IO DynamicJSON
 dispatchRequest cin plugin com arg = do
   mv <- newEmptyMVar
   let req = GReq Nothing Nothing Nothing (putMVar mv) $
@@ -117,8 +114,7 @@ functionalSpec = do
 
       let req1 = filePathToUri $ cwd </> "FuncTest.hs"
       r1 <- dispatchRequest cin "applyrefact" "lint" req1
-      fmap fromDynJSON r1 `shouldBe` IdeResultOk
-                           ( Just
+      fromDynJSON r1 `shouldBe` (Just
                            $ PublishDiagnosticsParams
                               { _uri = filePathToUri $ cwd </> "FuncTest.hs"
                               , _diagnostics = List
@@ -133,12 +129,10 @@ functionalSpec = do
 
       let req3 = HP (filePathToUri $ cwd </> "FuncTest.hs") (toPos (8,1))
       r3 <- dispatchRequest cin "hare" "demote" req3
-      fmap fromDynJSON r3 `shouldBe`
-        (IdeResultOk
-         $ Just
-         $ WorkspaceEdit
-           (Just $ H.singleton (filePathToUri $ cwd </> "FuncTest.hs")
-                               $ List [TextEdit (Range (Position 6 0) (Position 7 6))
-                                                "  where\n    bb = 5"])
-           Nothing)
+      fromDynJSON r3 `shouldBe` Just
+          (WorkspaceEdit
+            (Just $ H.singleton (filePathToUri $ cwd </> "FuncTest.hs")
+                                $ List [TextEdit (Range (Position 6 0) (Position 7 6))
+                                                  "  where\n    bb = 5"])
+            Nothing)
 
