@@ -78,8 +78,12 @@ ideDispatcher env errorHandler callbackHandler pin = forever $ do
           -- Need to check cancellation twice since cancellation
           -- request might have come in during the action
           checkCancelled env lid errorHandler $ case response of
-            IdeResponseResult (IdeResultOk x) -> liftIO $ callbackHandler callback x
-            IdeResponseResult (IdeResultFail err) -> liftIO $ errorHandler lid J.InternalError (show err)
+            IdeResponseResult (IdeResultOk x) -> liftIO $ do
+              completedReq env lid
+              callbackHandler callback x
+            IdeResponseResult (IdeResultFail err) -> liftIO $ do
+              completedReq env lid
+              errorHandler lid J.InternalError (show err)
             IdeResponseDeferred fp cacheCb -> handleDeferred lid fp cacheCb callback
     
         handleDeferred lid fp cacheCb actualCb = queueAction lid fp $ \cm -> do
@@ -113,7 +117,6 @@ ghcDispatcher env@DispatcherEnv{docVersionTVar} errorHandler callbackHandler pin
 
   let runWithCallback = do
         result <- runner action
-
         liftIO $ case result of
           IdeResultOk x -> callbackHandler callback x
           IdeResultFail err ->
@@ -133,19 +136,21 @@ ghcDispatcher env@DispatcherEnv{docVersionTVar} errorHandler callbackHandler pin
 
   case mid of
     Nothing -> runIfVersionMatch
-    Just lid -> checkCancelled env lid errorHandler runIfVersionMatch
+    Just lid -> checkCancelled env lid errorHandler $ do
+      liftIO $ completedReq env lid
+      runIfVersionMatch
 
 checkCancelled :: MonadIO m => DispatcherEnv -> J.LspId -> ErrorHandler -> m () -> m ()
 checkCancelled env lid errorHandler callback = do
-  cancelled <- liftIO $ atomically $ isCancelled env lid
+  cancelled <- liftIO $ atomically isCancelled
   if cancelled
-    then liftIO $ errorHandler lid J.RequestCancelled ""
+    then liftIO $ do
+      -- remove from cancelled and wip list
+      atomically $ modifyTVar' (cancelReqsTVar env) (S.delete lid)
+      completedReq env lid
+      errorHandler lid J.RequestCancelled ""
     else callback
+  where isCancelled = S.member lid <$> readTVar (cancelReqsTVar env)
 
--- Deletes the request from both wipReqs and cancelReqs
-isCancelled :: DispatcherEnv -> J.LspId -> STM Bool
-isCancelled DispatcherEnv{cancelReqsTVar,wipReqsTVar} lid = do
-  modifyTVar' wipReqsTVar (S.delete lid)
-  creqs <- readTVar cancelReqsTVar
-  modifyTVar' cancelReqsTVar (S.delete lid)
-  return $ S.member lid creqs
+completedReq :: DispatcherEnv -> J.LspId -> IO ()
+completedReq env lid = atomically $ modifyTVar' (wipReqsTVar env) (S.delete lid)
