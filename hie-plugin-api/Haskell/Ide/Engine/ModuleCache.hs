@@ -116,15 +116,14 @@ withCachedModule uri callback = do
 -- invalidated when a new CachedModule is loaded.
 -- If the data doesn't exist in the cache, new data is generated
 -- using by calling the `cacheDataProducer` function
-withCachedModuleAndData :: forall a b m.
-  (ModuleCache a, GM.MonadIO m, HasGhcModuleCache m, MonadMTState IdeState m)
-  => FilePath -> m b -> (CachedModule -> a -> m b) -> m b
-withCachedModuleAndData uri noCache callback = do
+withCachedModuleAndData :: forall a b. ModuleCache a
+                        => FilePath -> (CachedModule -> a -> IdeM (IdeResponse b)) -> IdeM (IdeResponse b)
+withCachedModuleAndData uri callback = do
   uri' <- liftIO $ canonicalizePath uri
   mcache <- getModuleCache
   let mc = (Map.lookup uri' . uriCaches) mcache
   case mc of
-    Nothing -> noCache
+    Nothing -> return $ IdeResponseDeferred uri' $ \_ -> withCachedModuleAndData uri callback
     Just UriCache{cachedModule = cm, cachedData = dat} -> do
       let proxy :: Proxy a
           proxy = Proxy

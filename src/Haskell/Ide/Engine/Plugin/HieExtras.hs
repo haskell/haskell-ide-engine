@@ -66,15 +66,6 @@ getDynFlags uri =
 
 -- ---------------------------------------------------------------------
 
-nonExistentCacheErr :: String -> IdeResponse a
-nonExistentCacheErr meth =
-  IdeResponseFail $
-    IdeError PluginError
-             (T.pack $ meth <> ": \"" <> "module not loaded" <> "\"")
-             Null
-  
--- ---------------------------------------------------------------------
-
 data NameMapData = NMD
   { inverseNameMap ::  !(Map.Map Name [SrcSpan])
   } deriving (Typeable)
@@ -355,27 +346,21 @@ getCompletions uri (qualifier, ident) = pluginGetFileResponse "getCompletions: "
         ]
   in flip GM.gcatches handlers $ do
     -- debugm $ "got prefix" ++ show (qualifier, ident)
-    let noCache = return $ nonExistentCacheErr "getCompletions"
-        enteredQual = if T.null qualifier then "" else qualifier <> "."
+    let enteredQual = if T.null qualifier then "" else qualifier <> "."
         fullPrefix = enteredQual <> ident
-    withCachedModuleAndData file noCache $
-      \_ CC
-        { allModNamesAsNS
-        , unqualCompls
-        , qualCompls
-        } -> do
-          let
-            filtModNameCompls = map mkModCompl
-              $ mapMaybe (T.stripPrefix enteredQual)
-              $ Fuzzy.simpleFilter fullPrefix allModNamesAsNS
+    withCachedModuleAndData file $ \_ CC { allModNamesAsNS, unqualCompls, qualCompls } ->
+      let
+        filtModNameCompls = map mkModCompl
+          $ mapMaybe (T.stripPrefix enteredQual)
+          $ Fuzzy.simpleFilter fullPrefix allModNamesAsNS
 
-            filtCompls = Fuzzy.filterBy label ident compls
-              where
-                compls = if T.null qualifier
-                  then unqualCompls
-                  else Map.findWithDefault [] qualifier qualCompls
+        filtCompls = Fuzzy.filterBy label ident compls
+          where
+            compls = if T.null qualifier
+              then unqualCompls
+              else Map.findWithDefault [] qualifier qualCompls
 
-          return $ IdeResponseOk $ filtModNameCompls ++ map mkCompl filtCompls
+        in return $ IdeResponseOk $ filtModNameCompls ++ map mkCompl filtCompls
 
 -- ---------------------------------------------------------------------
 
@@ -412,9 +397,8 @@ symbolFromTypecheckedModule lm pos =
 
 getReferencesInDoc :: Uri -> Position -> IdeM (IdeResponse [J.DocumentHighlight])
 getReferencesInDoc uri pos =
-  pluginGetFileResponse "getReferencesInDoc: " uri $ \file -> do
-    let noCache = return $ IdeResponseOk [] -- Processing doc highlights request, no symbols available, not an error
-    withCachedModuleAndData file noCache $
+  pluginGetFileResponse "getReferencesInDoc: " uri $ \file ->
+    withCachedModuleAndData file $
       \cm NMD{inverseNameMap} -> do
         let lm = locMap cm
             pm = tm_parsed_module $ tcMod cm
