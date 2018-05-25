@@ -105,9 +105,10 @@ isCached uri = do
 withCachedModule :: FilePath -> (CachedModule -> IdeM (IdeResponse b)) -> IdeM (IdeResponse b)
 withCachedModule uri callback = do
   mcm <- getCachedModule uri
+  uri' <- liftIO $ canonicalizePath uri
   case mcm of
     ModuleCached cm _ -> callback cm
-    ModuleLoading -> return $ IdeResponseDeferred uri callback
+    ModuleLoading -> return $ IdeResponseDeferred uri' callback
     ModuleFailed err -> return $ IdeResponseFail err
 
 -- | Calls its argument with the CachedModule for a given URI

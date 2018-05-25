@@ -22,6 +22,13 @@ packages:
     ./submodules/yi-rope
   extra-dep: true
 
+- location:
+    ./submodules/haskell-lsp
+  extra-dep: true
+  subdirs:
+    - . 
+    - haskell-lsp-types
+
 extra-deps:
 - apply-refact-0.5.0.0
 - brittany-0.11.0.0
@@ -30,11 +37,6 @@ extra-deps:
 - haddock-library-1.6.0
 # - haskell-lsp-0.2.2.0
 # - haskell-lsp-types-0.2.2.0
-- github: alanz/haskell-lsp
-  commit: 82a5128e66ea8e4a82fa96826eca2d94f729d8c5
-  subdirs:
-  - .
-  - haskell-lsp-types
 - syz-0.2.0.0
 - temporary-1.2.1.1
 

@@ -26,7 +26,6 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.Monad
 import qualified Language.Haskell.LSP.Types            as J
-import           System.Directory
 
 data DispatcherEnv = DispatcherEnv
   { cancelReqsTVar     :: !(TVar (S.Set J.LspId))
@@ -75,7 +74,7 @@ ideDispatcher env errorHandler callbackHandler pin = forever $ do
     response <- action
     handleResponse lid callback response
       
-  where handleResponse lid callback response = do
+  where handleResponse lid callback response =
           -- Need to check cancellation twice since cancellation
           -- request might have come in during the action
           checkCancelled env lid errorHandler $ case response of
@@ -88,15 +87,14 @@ ideDispatcher env errorHandler callbackHandler pin = forever $ do
           handleResponse lid actualCb cacheResponse
     
         queueAction :: J.LspId -> FilePath -> (CachedModule -> IdeM ()) -> IdeM ()
-        queueAction lid fp action = do
-          fp' <- liftIO $ canonicalizePath fp
+        queueAction lid fp action =
           modifyMTState $ \s ->
             let newReq   = (lid, action)
                 oldQueue = requestQueue s
                 -- add to existing queue if possible
-                newQueue = if Map.member fp' oldQueue
-                  then Map.update (Just . (newReq :)) fp oldQueue
-                  else Map.insert fp [newReq] oldQueue
+                update Nothing = [newReq]
+                update (Just x) = newReq : x
+                newQueue = Map.alter (Just . update) fp oldQueue
             in s { requestQueue = newQueue }
 
 ghcDispatcher :: forall void m. DispatcherEnv -> ErrorHandler -> CallbackHandler m -> TChan (GhcRequest m) -> IdeGhcM void
