@@ -424,13 +424,11 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             ver  = vtdi ^. J.version
             J.List changes = params ^. J.contentChanges
         mapFileFromVfs versionTVar cin vtdi
-        -- Important - Call this before requestDiagnostics
-        makeRequest $ GReq (Just uri) Nothing Nothing (const $ return ())
-                        $ updatePositionMap uri changes
         makeRequest $ GReq (Just uri) Nothing Nothing (const $ return ()) $
           -- mark this module's cache as stale
           pluginGetFile "markCacheStale:" uri $ \fp -> do
             markCacheStale fp
+            -- Important - Call this before requestDiagnostics
             updatePositionMap uri changes
         requestDiagnostics cin uri ver
 
