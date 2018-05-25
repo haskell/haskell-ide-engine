@@ -75,7 +75,7 @@ startServer = do
         , docVersionTVar     = versionTVar
         }
 
-  void $ forkIO $ dispatcherP cin plugins testOptions dispatcherEnv (\_ _ -> return ()) (\f x -> f x)
+  void $ forkIO $ dispatcherP cin plugins testOptions dispatcherEnv (\_ _ _ -> return ()) (\f x -> f x)
   return cin
 
 -- ---------------------------------------------------------------------

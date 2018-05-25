@@ -63,7 +63,7 @@ dispatcherSpec =
                               (pluginDescToIdePlugins [])
                               testOptions
                               (DispatcherEnv cancelTVar wipTVar versionTVar)
-                              (\_ _ -> return ())
+                              (\_ _ _ -> return ())
                               (\f x -> f x)
       atomically $ writeTChan inChan req1
       atomically $ modifyTVar cancelTVar (S.insert (J.IdInt 2))

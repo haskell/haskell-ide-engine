@@ -71,18 +71,14 @@ ideDispatcher env errorHandler callbackHandler pin = forever $ do
   debugm "ideDispatcher: top of loop"
   (IdeRequest lid callback action) <- liftIO $ atomically $ readTChan pin
   debugm $ "ideDispatcher:got request with id: " ++ show lid
-  cancelled <- liftIO $ atomically $ isCancelled env lid
-  if cancelled
-    then liftIO $ errorHandler lid J.RequestCancelled ""
-    else do
-      response <- action
-      handleResponse lid callback response
+  checkCancelled env lid errorHandler $ do
+    response <- action
+    handleResponse lid callback response
       
   where handleResponse lid callback response = do
-          cancelled <- liftIO $ atomically $ isCancelled env lid
-          if cancelled
-            then liftIO $ errorHandler lid J.RequestCancelled ""
-          else case response of
+          -- Need to check cancellation twice since cancellation
+          -- request might have come in during the action
+          checkCancelled env lid errorHandler $ case response of
             IdeResponseResult (IdeResultOk x) -> liftIO $ callbackHandler callback x
             IdeResponseResult (IdeResultFail err) -> liftIO $ errorHandler lid J.InternalError (show err)
             IdeResponseDeferred fp cacheCb -> handleDeferred lid fp cacheCb callback
@@ -139,15 +135,14 @@ ghcDispatcher env@DispatcherEnv{docVersionTVar} errorHandler callbackHandler pin
 
   case mid of
     Nothing -> runIfVersionMatch
-    Just lid -> do
-      cancelled <- liftIO $ atomically $ isCancelled env lid
-      if cancelled
-      then do
-        debugm $ "cancelling request: " ++ show lid
-        liftIO $ errorHandler lid J.RequestCancelled ""
-      else do
-        debugm $ "processing request: " ++ show lid
-        runIfVersionMatch
+    Just lid -> checkCancelled env lid errorHandler runIfVersionMatch
+
+checkCancelled :: MonadIO m => DispatcherEnv -> J.LspId -> ErrorHandler -> m () -> m ()
+checkCancelled env lid errorHandler callback = do
+  cancelled <- liftIO $ atomically $ isCancelled env lid
+  if cancelled
+    then liftIO $ errorHandler lid J.RequestCancelled ""
+    else callback
 
 -- Deletes the request from both wipReqs and cancelReqs
 isCancelled :: DispatcherEnv -> J.LspId -> STM Bool
