@@ -13,7 +13,9 @@ import           Data.List
 import qualified Data.Map                        as Map
 import           Data.Monoid
 import qualified Data.Text                       as T
+import           Data.Version
 import           Development.GitRev              (gitCommitCount)
+import qualified Distribution.Helper             as CH
 import           Distribution.System             (buildArch)
 import           Distribution.Text               (display)
 import           Haskell.Ide.Engine.IdeFunctions
@@ -22,6 +24,7 @@ import           Options.Applicative.Simple      (simpleVersion)
 import qualified Paths_haskell_ide_engine        as Meta
 import           Prelude                         hiding (log)
 import           System.Info
+import           System.FilePath                 ((</>))
 
 -- ---------------------------------------------------------------------
 
@@ -94,5 +97,12 @@ version =
 
 hieCompilerVersion :: String
 hieCompilerVersion = compilerName ++ "-" ++ VERSION_ghc
+
+-- ---------------------------------------------------------------------
+
+projectGhcVersion :: FilePath -> IO Version
+projectGhcVersion root = do
+  let qe = CH.mkQueryEnv root (root </> "dist")
+  snd <$> CH.runQuery qe CH.compilerVersion
 
 -- ---------------------------------------------------------------------
