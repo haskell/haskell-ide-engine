@@ -99,11 +99,8 @@ run dispatcherProc cin _origDir = flip E.catches handlers $ do
       let reactorFunc =  flip runReaderT lf $ reactor dispatcherEnv cin rin
 
       let errorHandler :: ErrorHandler
-          errorHandler lid err =
-            Core.sendErrorResponseS (Core.sendFunc lf)
-                                    (J.responseId lid)
-                                    J.InternalError
-                                    (T.pack $ show err)
+          errorHandler lid code e =
+            Core.sendErrorResponseS (Core.sendFunc lf) (J.responseId lid) code (T.pack e)
           callbackHandler :: CallbackHandler R
           callbackHandler f x = flip runReaderT lf $ f x
 
@@ -114,7 +111,8 @@ run dispatcherProc cin _origDir = flip E.catches handlers $ do
       return Nothing
 
   flip E.finally finalProc $ do
-    CTRL.run (getConfig,dp) (hieHandlers rin) hieOptions
+    -- TODO: Merge this with branch for recording client output
+    CTRL.run (getConfig,dp) (hieHandlers rin) hieOptions Nothing Nothing
 
   where
     handlers = [ E.Handler ioExcept

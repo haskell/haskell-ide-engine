@@ -35,7 +35,7 @@ data DispatcherEnv = DispatcherEnv
   }
 
 -- | A handler for any errors that the dispatcher may encounter.
-type ErrorHandler = J.LspId -> IdeError -> IO ()
+type ErrorHandler = J.LspId -> J.ErrorCode -> String -> IO ()
 -- | A handler to run the requests' callback in your monad of choosing.
 type CallbackHandler m = forall a. RequestCallback m a -> a -> IO ()
 
@@ -72,14 +72,20 @@ ideDispatcher env errorHandler callbackHandler pin = forever $ do
   (IdeRequest lid callback action) <- liftIO $ atomically $ readTChan pin
   debugm $ "ideDispatcher:got request with id: " ++ show lid
   cancelled <- liftIO $ atomically $ isCancelled env lid
-  unless cancelled $ do
-    response <- action
-    handleResponse lid callback response
+  if cancelled
+    then liftIO $ errorHandler lid J.RequestCancelled ""
+    else do
+      response <- action
+      handleResponse lid callback response
       
-  where handleResponse lid callback response = case response of
-          IdeResponseResult (IdeResultOk x) -> liftIO $ callbackHandler callback x
-          IdeResponseResult (IdeResultFail err) -> liftIO $ errorHandler lid err 
-          IdeResponseDeferred fp cacheCb -> handleDeferred lid fp cacheCb callback
+  where handleResponse lid callback response = do
+          cancelled <- liftIO $ atomically $ isCancelled env lid
+          if cancelled
+            then liftIO $ errorHandler lid J.RequestCancelled ""
+          else case response of
+            IdeResponseResult (IdeResultOk x) -> liftIO $ callbackHandler callback x
+            IdeResponseResult (IdeResultFail err) -> liftIO $ errorHandler lid J.InternalError (show err)
+            IdeResponseDeferred fp cacheCb -> handleDeferred lid fp cacheCb callback
     
         handleDeferred lid fp cacheCb actualCb = queueAction lid fp $ \cm -> do
           cacheResponse <- cacheCb cm
@@ -118,7 +124,7 @@ ghcDispatcher env@DispatcherEnv{docVersionTVar} errorHandler callbackHandler pin
           IdeResultOk x -> callbackHandler callback x
           IdeResultFail err ->
             case mid of
-              Just lid -> errorHandler lid err
+              Just lid -> errorHandler lid J.InternalError (show err)
               Nothing -> debugm $ "Got error for a request: " ++ show err 
 
   let runIfVersionMatch = case mver of
@@ -136,8 +142,9 @@ ghcDispatcher env@DispatcherEnv{docVersionTVar} errorHandler callbackHandler pin
     Just lid -> do
       cancelled <- liftIO $ atomically $ isCancelled env lid
       if cancelled
-      then
+      then do
         debugm $ "cancelling request: " ++ show lid
+        liftIO $ errorHandler lid J.RequestCancelled ""
       else do
         debugm $ "processing request: " ++ show lid
         runIfVersionMatch
