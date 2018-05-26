@@ -34,7 +34,7 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
-import           Language.Haskell.LSP.Types hiding (error, name)
+import           Language.Haskell.LSP.Types hiding (error)
 import           System.Directory
 import           System.FilePath
 import           TestUtils
@@ -49,6 +49,7 @@ import           Haskell.Ide.Engine.Plugin.Base
 import           Haskell.Ide.Engine.Plugin.Example2
 import           Haskell.Ide.Engine.Plugin.GhcMod
 import           Haskell.Ide.Engine.Plugin.HaRe
+import           Haskell.Ide.Engine.Plugin.HieExtras
 
 {-# ANN module ("HLint: ignore Redundant do"       :: String) #-}
 -- ---------------------------------------------------------------------
@@ -60,6 +61,7 @@ plugins = pluginDescToIdePlugins
   ,("ghcmod"     , ghcmodDescriptor)
   ,("hare"       , hareDescriptor)
   ,("base"       , baseDescriptor)
+  ,("hieextras"       , baseDescriptor)
   ]
 
 startServer :: IO (TChan (PluginRequest IO))
@@ -75,7 +77,7 @@ startServer = do
         , docVersionTVar     = versionTVar
         }
 
-  void $ forkIO $ dispatcherP cin plugins testOptions dispatcherEnv (\_ _ _ -> return ()) (\f x -> f x)
+  void $ forkIO $ dispatcherP cin plugins testOptions dispatcherEnv (\_ _ _ -> error "received an error") (\g x -> g x)
   return cin
 
 -- ---------------------------------------------------------------------
@@ -92,11 +94,18 @@ spec = do
 
 -- ---------------------------------------------------------------------
 
-dispatchRequest :: ToJSON a => TChan (PluginRequest IO) -> PluginId -> CommandName -> a -> IO DynamicJSON
-dispatchRequest cin plugin com arg = do
+dispatchGhcRequest :: ToJSON a => TChan (PluginRequest IO) -> PluginId -> CommandName -> a -> IO DynamicJSON
+dispatchGhcRequest cin plugin com arg = do
   mv <- newEmptyMVar
   let req = GReq Nothing Nothing Nothing (putMVar mv) $
         runPluginCommand plugin com (toJSON arg)
+  atomically $ writeTChan cin req
+  takeMVar mv
+
+dispatchIdeRequest :: TChan (PluginRequest IO) -> LspId -> IdeM (IdeResponse a) -> IO a
+dispatchIdeRequest cin lid f = do
+  mv <- newEmptyMVar
+  let req = IReq lid (putMVar mv) f
   atomically $ writeTChan cin req
   takeMVar mv
 
@@ -104,35 +113,166 @@ dispatchRequest cin plugin com arg = do
 
 functionalSpec :: Spec
 functionalSpec = do
+
+  cin <- runIO startServer
+  cwd <- runIO getCurrentDirectory
+  let testUri = filePathToUri $ cwd </> "FuncTest.hs"
+
   describe "consecutive plugin commands" $ do
+    it "defers responses until module is loaded" $ do
+
+
+      reqVar <- newEmptyMVar
+      let req = IReq (IdInt 0) (putMVar reqVar) $ getSymbols testUri
+      atomically $ writeTChan cin req
+
+      -- need to typecheck the module to trigger deferred response
+      _   <- dispatchGhcRequest cin "ghcmod" "check" (toJSON testUri)
+
+      res <- takeMVar reqVar
+
+      res
+        `shouldBe` [ SymbolInformation
+                     { _name          = "main"
+                     , _kind          = SkFunction
+                     , _location      = Location
+                       { _uri   = testUri
+                       , _range = Range
+                         { _start = Position {_line = 2, _character = 0}
+                         , _end   = Position {_line = 2, _character = 4}
+                         }
+                       }
+                     , _containerName = Nothing
+                     }
+                   , SymbolInformation
+                     { _name          = "foo"
+                     , _kind          = SkFunction
+                     , _location      = Location
+                       { _uri   = testUri
+                       , _range = Range
+                         { _start = Position {_line = 5, _character = 0}
+                         , _end   = Position {_line = 5, _character = 3}
+                         }
+                       }
+                     , _containerName = Nothing
+                     }
+                   , SymbolInformation
+                     { _name          = "bb"
+                     , _kind          = SkFunction
+                     , _location      = Location
+                       { _uri   = testUri
+                       , _range = Range
+                         { _start = Position {_line = 7, _character = 0}
+                         , _end   = Position {_line = 7, _character = 2}
+                         }
+                       }
+                     , _containerName = Nothing
+                     }
+                   , SymbolInformation
+                     { _name          = "baz"
+                     , _kind          = SkFunction
+                     , _location      = Location
+                       { _uri   = testUri
+                       , _range = Range
+                         { _start = Position {_line = 9, _character = 0}
+                         , _end   = Position {_line = 9, _character = 3}
+                         }
+                       }
+                     , _containerName = Nothing
+                     }
+                   , SymbolInformation
+                     { _name          = "f"
+                     , _kind          = SkFunction
+                     , _location      = Location
+                       { _uri   = testUri
+                       , _range = Range
+                         { _start = Position {_line = 12, _character = 0}
+                         , _end   = Position {_line = 12, _character = 1}
+                         }
+                       }
+                     , _containerName = Nothing
+                     }
+                   ]
+
+    it "instantly responds to deferred requests if cache is available" $ do
+      -- deferred responses should return something now immediately
+      -- as long as the above test ran before
+      references <- dispatchIdeRequest cin (IdInt 1)
+        $ getReferencesInDoc testUri (Position 7 0)
+      references
+        `shouldBe` [ DocumentHighlight
+                     { _range = Range
+                       { _start = Position {_line = 7, _character = 0}
+                       , _end   = Position {_line = 7, _character = 2}
+                       }
+                     , _kind  = Just HkWrite
+                     }
+                   , DocumentHighlight
+                     { _range = Range
+                       { _start = Position {_line = 7, _character = 0}
+                       , _end   = Position {_line = 7, _character = 2}
+                       }
+                     , _kind  = Just HkWrite
+                     }
+                   , DocumentHighlight
+                     { _range = Range
+                       { _start = Position {_line = 5, _character = 6}
+                       , _end   = Position {_line = 5, _character = 8}
+                       }
+                     , _kind  = Just HkRead
+                     }
+                   , DocumentHighlight
+                     { _range = Range
+                       { _start = Position {_line = 7, _character = 0}
+                       , _end   = Position {_line = 7, _character = 2}
+                       }
+                     , _kind  = Just HkWrite
+                     }
+                   , DocumentHighlight
+                     { _range = Range
+                       { _start = Position {_line = 7, _character = 0}
+                       , _end   = Position {_line = 7, _character = 2}
+                       }
+                     , _kind  = Just HkWrite
+                     }
+                   , DocumentHighlight
+                     { _range = Range
+                       { _start = Position {_line = 5, _character = 6}
+                       , _end   = Position {_line = 5, _character = 8}
+                       }
+                     , _kind  = Just HkRead
+                     }
+                   ]
 
     it "returns hints as diagnostics" $ do
-      cin <- startServer
-      cwd <- getCurrentDirectory
 
-      -- -------------------------------
+      r1 <- dispatchGhcRequest cin "applyrefact" "lint" testUri
+      fromDynJSON r1
+        `shouldBe` (Just $ PublishDiagnosticsParams
+                     { _uri         = filePathToUri $ cwd </> "FuncTest.hs"
+                     , _diagnostics = List
+                       [ Diagnostic
+                           (Range (Position 9 6) (Position 10 18))
+                           (Just DsInfo)
+                           (Just "Redundant do")
+                           (Just "hlint")
+                           "Redundant do\nFound:\n  do putStrLn \"hello\"\nWhy not:\n  putStrLn \"hello\"\n"
+                           Nothing
+                       ]
+                     }
+                   )
 
-      let req1 = filePathToUri $ cwd </> "FuncTest.hs"
-      r1 <- dispatchRequest cin "applyrefact" "lint" req1
-      fromDynJSON r1 `shouldBe` (Just
-                           $ PublishDiagnosticsParams
-                              { _uri = filePathToUri $ cwd </> "FuncTest.hs"
-                              , _diagnostics = List
-                                [ Diagnostic (Range (Position 9 6) (Position 10 18))
-                                             (Just DsInfo)
-                                             (Just "Redundant do")
-                                             (Just "hlint")
-                                             "Redundant do\nFound:\n  do putStrLn \"hello\"\nWhy not:\n  putStrLn \"hello\"\n"
-                                             Nothing
-                                ]
-                              })
-
-      let req3 = HP (filePathToUri $ cwd </> "FuncTest.hs") (toPos (8,1))
-      r3 <- dispatchRequest cin "hare" "demote" req3
+      let req3 = HP testUri (toPos (8, 1))
+      r3 <- dispatchGhcRequest cin "hare" "demote" req3
       fromDynJSON r3 `shouldBe` Just
-          (WorkspaceEdit
-            (Just $ H.singleton (filePathToUri $ cwd </> "FuncTest.hs")
-                                $ List [TextEdit (Range (Position 6 0) (Position 7 6))
-                                                  "  where\n    bb = 5"])
-            Nothing)
+        (WorkspaceEdit
+          ( Just
+          $ H.singleton (filePathToUri $ cwd </> "FuncTest.hs")
+          $ List
+              [ TextEdit (Range (Position 6 0) (Position 7 6))
+                         "  where\n    bb = 5"
+              ]
+          )
+          Nothing
+        )
 
