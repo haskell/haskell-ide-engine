@@ -31,7 +31,6 @@ import           Data.Aeson
 import qualified Data.HashMap.Strict                   as H
 import qualified Data.Map                              as Map
 import qualified Data.Set                              as S
-import qualified Data.Text                             as T
 import           Data.Typeable
 import           GHC.Generics
 import           Haskell.Ide.Engine.Dispatcher
