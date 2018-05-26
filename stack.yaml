@@ -26,7 +26,7 @@ packages:
     ./submodules/haskell-lsp
   extra-dep: true
   subdirs:
-    - . 
+    - .
     - haskell-lsp-types
 
 extra-deps:

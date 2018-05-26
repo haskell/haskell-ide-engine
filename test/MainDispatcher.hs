@@ -2,6 +2,8 @@
 module Main where
 
 -- import Test.Hspec.Formatters.Jenkins
+import           Control.Monad
+import           System.Directory
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
 import           Control.Concurrent.STM.TVar
@@ -24,7 +26,10 @@ import           Test.Hspec
 main :: IO ()
 main = do
   setupStackFiles
-  withFileLogging "./test-main-dispatcher.log" $ hspec spec
+  let logfile = "./test-main-dispatcher.log"
+  exists <- doesFileExist logfile
+  when exists $ removeFile logfile
+  withFileLogging logfile $ hspec spec
 
 -- main :: IO ()
 -- main = do

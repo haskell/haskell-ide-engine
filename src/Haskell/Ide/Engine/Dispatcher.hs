@@ -105,14 +105,14 @@ ghcDispatcher :: forall void m. DispatcherEnv -> ErrorHandler -> CallbackHandler
 ghcDispatcher env@DispatcherEnv{docVersionTVar} errorHandler callbackHandler pin = forever $ do
   debugm "ghcDispatcher: top of loop"
   (GhcRequest context mver mid callback action) <- liftIO $ atomically $ readTChan pin
-  debugm $ "got request with id: " ++ show mid
+  debugm $ "ghcDispatcher:got request with id: " ++ show mid
 
   let runner = case context of
         Nothing -> runActionWithContext Nothing
         Just uri -> case uriToFilePath uri of
           Just fp -> runActionWithContext (Just fp)
           Nothing -> \act -> do
-            debugm "Got malformed uri, running action with default context"
+            debugm "ghcDispatcher:Got malformed uri, running action with default context"
             runActionWithContext Nothing act
 
   let runWithCallback = do
@@ -122,16 +122,16 @@ ghcDispatcher env@DispatcherEnv{docVersionTVar} errorHandler callbackHandler pin
           IdeResultFail err ->
             case mid of
               Just lid -> errorHandler lid J.InternalError (show err)
-              Nothing -> debugm $ "Got error for a request: " ++ show err 
+              Nothing -> debugm $ "ghcDispatcher:Got error for a request: " ++ show err 
 
   let runIfVersionMatch = case mver of
         Nothing -> runWithCallback
         Just (uri, reqver) -> do
           curver <- liftIO $ atomically $ Map.lookup uri <$> readTVar docVersionTVar
           if Just reqver /= curver then
-            debugm "not processing request as it is for old version"
+            debugm "ghcDispatcher:not processing request as it is for old version"
           else do
-            debugm "Processing request as version matches"
+            debugm "ghcDispatcher:Processing request as version matches"
             runWithCallback
 
   case mid of

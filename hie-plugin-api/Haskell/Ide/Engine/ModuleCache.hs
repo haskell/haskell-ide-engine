@@ -98,7 +98,7 @@ isCached uri = do
   mc <- getCachedModule uri
   case mc of
     ModuleCached _ _ -> return True
-    _ -> return False
+    _                -> return False
 
 -- | Version of `withCachedModuleAndData` that doesn't provide
 -- any extra cached data
