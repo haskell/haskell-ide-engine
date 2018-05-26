@@ -134,7 +134,6 @@ spec :: Spec
 spec = do
   describe "functional spec" functionalSpec
 
-
 -- ---------------------------------------------------------------------
 
 data Cached = Cached | NotCached deriving (Show,Eq,Generic)
@@ -142,6 +141,8 @@ data Cached = Cached | NotCached deriving (Show,Eq,Generic)
 -- Don't care instances via GHC.Generic
 instance FromJSON Cached where
 instance ToJSON   Cached where
+
+-- ---------------------------------------------------------------------
 
 functionalSpec :: Spec
 functionalSpec = do
@@ -151,11 +152,8 @@ functionalSpec = do
   let testUri = filePathToUri $ cwd </> "FuncTest.hs"
 
   let
-    logger :: (Typeable a, ToJSON a) => String -> RequestCallback IO a
-    logger ctx x = logToChan logChan (ctx, Right (toDynJSON x))
-
     -- Model a hover request
-    hreq idVal doc = IReq idVal (logger ("IReq " ++ (show idVal))) $ do
+    hoverReq idVal doc = dispatchIdeRequest ("IReq " ++ show idVal) cin logChan idVal $ do
       pluginGetFileResponse ("Req:" <> (T.pack $ show idVal)) doc $ \fp -> do
         cached <- isCached fp
         if cached
@@ -170,13 +168,12 @@ functionalSpec = do
     it "defers responses until module is loaded" $ do
 
       -- Returns immediately, no cached value
-      atomically $ writeTChan cin $ hreq (IdInt 0) testUri
+      hoverReq (IdInt 0) testUri
       hr0 <- atomically $ readTChan logChan
       unpackRes hr0 `shouldBe` ("IReq IdInt 0",Just NotCached)
 
       -- This request should be deferred, only return when the module is loaded
-      let req = IReq (IdInt 1) (logger "req1") $ getSymbols testUri
-      atomically $ writeTChan cin req
+      dispatchIdeRequest "req1" cin logChan (IdInt 1) $ getSymbols testUri
 
       rrr <- atomically $ tryReadTChan logChan
       (show rrr) `shouldBe` "Nothing"
@@ -210,7 +207,7 @@ functionalSpec = do
       (show rr3) `shouldBe` "Nothing"
 
       -- Returns immediately, there is a cached value
-      atomically $ writeTChan cin $ hreq (IdInt 3) testUri
+      hoverReq (IdInt 3) testUri
       hr3 <- atomically $ readTChan logChan
       unpackRes hr3 `shouldBe` ("IReq IdInt 3",Just Cached)
 
