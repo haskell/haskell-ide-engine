@@ -146,13 +146,6 @@ cacheModule :: FilePath -> CachedModule -> IdeGhcM ()
 cacheModule uri cm = do
   uri' <- liftIO $ canonicalizePath uri
 
-  -- execute any queued actions for the module
-  actions <- fmap (fromMaybe [] . Map.lookup uri') (requestQueue <$> readMTS)
-  liftToGhc $ forM_ actions (\(_, a) -> a cm)
-
-  -- remove queued actions
-  modifyMTS $ \s -> s { requestQueue = Map.delete uri' (requestQueue s) }
-
   modifyCache (\gmc ->
       gmc { uriCaches = Map.insert
                           uri'
@@ -160,6 +153,13 @@ cacheModule uri cm = do
                           (uriCaches gmc)
           }
     )
+
+  -- execute any queued actions for the module
+  actions <- fmap (fromMaybe [] . Map.lookup uri') (requestQueue <$> readMTS)
+  liftToGhc $ forM_ actions (\(_, a) -> a cm)
+
+  -- remove queued actions
+  modifyMTS $ \s -> s { requestQueue = Map.delete uri' (requestQueue s) }
 
 -- | Saves a module to the cache without clearing the associated cache data - use only if you are
 -- sure that the cached data associated with the module doesn't change
