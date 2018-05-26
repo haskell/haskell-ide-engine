@@ -5,7 +5,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.Engine.Types where
 
-import           Data.Aeson
 import           Haskell.Ide.Engine.MonadTypes
 import qualified Language.Haskell.LSP.Types as J
 
@@ -42,16 +41,3 @@ data IdeRequest m = forall a. IdeRequest
   , pureReqCallback :: RequestCallback m a
   , pureReq :: IdeM (IdeResponse a)
   }
-
-data Config =
-  Config
-    { hlintOn             :: Bool
-    , maxNumberOfProblems :: Int
-    } deriving (Show)
-
-instance FromJSON Config where
-  parseJSON = withObject "Config" $ \v -> do
-    s <- v .: "languageServerHaskell"
-    flip (withObject "Config.settings") s $ \o -> Config
-      <$> o .:? "hlintOn" .!= True
-      <*> o .: "maxNumberOfProblems"

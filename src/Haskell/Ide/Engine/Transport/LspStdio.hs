@@ -25,7 +25,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Control.Monad.Reader
 import qualified Data.Aeson as J
-import           Data.Aeson ( (.=) )
+import           Data.Aeson ( (.=), (.:), (.:?), (.!=) )
 import qualified Data.ByteString.Lazy as BL
 import           Data.Char (isUpper, isAlphaNum)
 import           Data.Default
@@ -140,6 +140,19 @@ getConfig (J.NotificationMessage _ _ (J.DidChangeConfigurationParams p)) =
   case J.fromJSON p of
     J.Success c -> Right c
     J.Error err -> Left $ T.pack err
+
+data Config =
+  Config
+    { hlintOn             :: Bool
+    , maxNumberOfProblems :: Int
+    } deriving (Show)
+
+instance J.FromJSON Config where
+  parseJSON = J.withObject "Config" $ \v -> do
+    s <- v .: "languageServerHaskell"
+    flip (J.withObject "Config.settings") s $ \o -> Config
+      <$> o .:? "hlintOn" .!= True
+      <*> o .: "maxNumberOfProblems"
 
 -- 2017-10-09 23:22:00.710515298 [ThreadId 11] - ---> {"jsonrpc":"2.0","method":"workspace/didChangeConfiguration","params":{"settings":{"languageServerHaskell":{"maxNumberOfProblems":100,"hlintOn":true}}}}
 -- 2017-10-09 23:22:00.710667381 [ThreadId 15] - reactor:got didChangeConfiguration notification:
@@ -522,6 +535,8 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let hreq = IReq (req ^. J.id) callback $ do
               pluginGetFileResponse "ReqHover:" doc $ \fp -> do
                 cached <- isCached fp
+                -- Hover requests need to be instant so don't wait
+                -- for cached module to be loaded
                 if cached
                   then getHoverInfo
                   else return (IdeResponseOk (Nothing,[],Nothing))
