@@ -114,14 +114,30 @@ fresh data is generated when first requested.
 ## Dispatcher and messaging
 
 ```haskell
-dispatcherP :: DispatcherEnv -> TChan PluginRequest -> IdeM ()
+dispatcherP :: forall m. TChan (PluginRequest m)
+            -> IdePlugins
+            -> GM.Options
+            -> DispatcherEnv
+            -> ErrorHandler
+            -> CallbackHandler m
+            -> IO ()
 
-data PluginRequest = forall a. PReq
-  { pinDocVer    :: Maybe (J.Uri,Int)
+type PluginRequest m = Either (IdeRequest m) (GhcRequest m)
+
+data GhcRequest m = forall a. GhcRequest
+  { pinContext   :: Maybe J.Uri
+  , pinDocVer    :: Maybe (J.Uri, Int)
   , pinLspReqId  :: Maybe J.LspId
-  , pinCallback  :: a -> IO ()
-  , pinReq       :: IdeM a
+  , pinCallback  :: RequestCallback m a
+  , pinReq       :: IdeGhcM (IdeResult a)
   }
+
+data IdeRequest m = forall a. IdeRequest
+  { pureReqId :: J.LspId
+  , pureReqCallback :: RequestCallback m a
+  , pureReq :: IdeM (IdeResponse a)
+  }
+
 ```
 
 `dispatcherP`(thread #3) listens for `PluginRequest`s on the `TChan` and executes the 
@@ -143,10 +159,9 @@ for handling the "definition" request
         let params = req ^. J.params
             doc = params ^. J.textDocument . J.uri
             pos = params ^. J.position
-        callback <- hieResultHelper (req ^. J.id) $ \loc -> do
-            let rspMsg = Core.makeResponseMessage req loc
-            reactorSend rspMsg
-        let hreq = PReq Nothing (Just $ req ^. J.id) callback $ HaRe.findDef doc pos
+            callback = reactorSend . Core.makeResponseMessage req
+        let hreq = IReq (req ^. J.id) callback
+                     $ fmap J.MultiLoc <$> Hie.findDef doc pos
         makeRequest hreq
       ...
 
@@ -159,3 +174,67 @@ of the definition of the symbol at the given position. The callback makes a LSP
 response message out of the location, and forwards it to thread #4 which sends
 it to the IDE via stdout
 
+## Responses and results
+
+While working in the `IdeGhcM` thread, you return results back to the dispatcher with
+`IdeResult`:
+
+```haskell
+runHareCommand :: String -> RefactGhc [ApplyRefacResult]
+                 -> IdeGhcM (IdeResult WorkspaceEdit)
+runHareCommand name cmd = do
+     eitherRes <- runHareCommand' cmd
+     case eitherRes of
+       Left err ->
+         pure (IdeResultFail
+                 (IdeError PluginError
+                           (T.pack $ name <> ": \"" <> err <> "\"")
+                           Null))
+       Right res -> do
+            let changes = getRefactorResult res
+            refactRes <- makeRefactorResult changes
+            pure (IdeResultOk refactRes)
+```
+
+On `IdeM`, you must wrap any `IdeResult` in an `IdeResponse`:
+
+```haskell
+getDynFlags :: Uri -> IdeM (IdeResponse DynFlags)
+getDynFlags uri =
+  pluginGetFileResponse "getDynFlags: " uri $ \fp -> do
+      mcm <- getCachedModule fp
+      case mcm of
+        ModuleCached cm _ -> return $
+          IdeResponseOk $ ms_hspp_opts $ pm_mod_summary $ tm_parsed_module $ tcMod cm
+        _ -> return $
+          IdeResponseFail $
+            IdeError PluginError ("getDynFlags: \"" <> "module not loaded" <> "\"") Null
+```
+
+Sometimes a request may need access to the typechecked module from ghc-mod, but
+it is desirable to keep it on the `IdeM` thread. For this a deferred response can
+be made:
+
+```haskell
+getDynFlags :: Uri -> IdeM (IdeResponse DynFlags)
+getDynFlags uri =
+  pluginGetFileResponse "getDynFlags: " uri $ \fp -> do
+    mcm <- getCachedModule fp
+    return $ case mcm of
+      ModuleCached cm _ -> IdeResponseOk $ getFlags cm
+      _ -> IdeResponseDeferred fp getFlags
+  where getFlags = ms_hspp_opts $ pm_mod_summary $ tm_parsed_module $ tcMod cm
+```
+
+A deferred response takes a file path to a module, and a callback which will be executed
+as with the cached module passed as an argument as soon as the module is loaded.
+
+This is wrapped with the helper function `withCachedModule` which will immediately return
+the cached module if it is already available to use, and only defer it otherwise.
+
+```haskell
+getDynFlags :: Uri -> IdeM (IdeResponse DynFlags)
+getDynFlags uri =
+  pluginGetFileResponse "getDynFlags: " uri $ \fp ->
+    withCachedModule fp (return . IdeResponseOk . ms_hspp_opts . pm_mod_summary . tm_parsed_module . tcMod)
+```

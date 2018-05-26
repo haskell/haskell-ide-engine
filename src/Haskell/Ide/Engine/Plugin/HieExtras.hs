@@ -55,15 +55,9 @@ import           Var
 
 getDynFlags :: Uri -> IdeM (IdeResponse DynFlags)
 getDynFlags uri =
-  pluginGetFileResponse "getDynFlags: " uri $ \fp -> do
-      mcm <- getCachedModule fp
-      case mcm of
-        ModuleCached cm _ -> return $
-          IdeResponseOk $ ms_hspp_opts $ pm_mod_summary $ tm_parsed_module $ tcMod cm
-        _ -> return $
-          IdeResponseFail $
-            IdeError PluginError ("getDynFlags: \"" <> "module not loaded" <> "\"") Null
-
+  pluginGetFileResponse "getDynFlags: " uri $ \fp ->
+    withCachedModule fp (return . IdeResponseOk . ms_hspp_opts . pm_mod_summary . tm_parsed_module . tcMod)
+    
 -- ---------------------------------------------------------------------
 
 data NameMapData = NMD
