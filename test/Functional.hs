@@ -154,7 +154,7 @@ functionalSpec = do
   let
     -- Model a hover request
     hoverReq idVal doc = dispatchIdeRequest ("IReq " ++ show idVal) cin logChan idVal $ do
-      pluginGetFileResponse ("Req:" <> (T.pack $ show idVal)) doc $ \fp -> do
+      pluginGetFileResponse ("hoverReq") doc $ \fp -> do
         cached <- isCached fp
         if cached
           then return (IdeResponseOk Cached)
