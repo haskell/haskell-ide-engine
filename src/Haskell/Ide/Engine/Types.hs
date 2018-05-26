@@ -16,14 +16,14 @@ type RequestCallback m a = a -> m ()
 -- | Requests are parametric in the monad m
 -- that their callback expects to be in.
 pattern GReq :: Maybe Uri
-                -> Maybe (Uri, Int)
-                -> Maybe J.LspId
-                -> RequestCallback m a1
-                -> IdeGhcM (IdeResult a1)
-                -> PluginRequest m
+             -> Maybe (Uri, Int)
+             -> Maybe J.LspId
+             -> RequestCallback m a1
+             -> IdeGhcM (IdeResult a1)
+             -> PluginRequest m
 pattern GReq a b c d e = Right (GhcRequest   a b c d e)
 
-pattern IReq :: J.LspId -> (RequestCallback m a) -> IdeM (IdeResponse a) -> Either (IdeRequest m) b
+pattern IReq :: J.LspId -> RequestCallback m a -> IdeM (IdeResponse a) -> Either (IdeRequest m) b
 pattern IReq a b c     = Left  (IdeRequest a b c)
 
 type PluginRequest m = Either (IdeRequest m) (GhcRequest m)

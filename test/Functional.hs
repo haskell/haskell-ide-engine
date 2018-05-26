@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 
 {-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -9,6 +10,7 @@
 {-# LANGUAGE PolyKinds             #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+
 {-
 
 Start up an actual instance of the HIE server, and interact with it.
@@ -29,6 +31,8 @@ import           Data.Aeson
 import qualified Data.HashMap.Strict                   as H
 import qualified Data.Map                              as Map
 import qualified Data.Set                              as S
+import           Data.Typeable
+import           GHC.Generics
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -61,12 +65,12 @@ plugins = pluginDescToIdePlugins
   ,("ghcmod"     , ghcmodDescriptor)
   ,("hare"       , hareDescriptor)
   ,("base"       , baseDescriptor)
-  ,("hieextras"       , baseDescriptor)
   ]
 
-startServer :: IO (TChan (PluginRequest IO))
+startServer :: IO (TChan (PluginRequest IO),TChan LogVal)
 startServer = do
-  cin  <- atomically newTChan
+  cin      <- atomically newTChan
+  logChan  <- atomically newTChan
 
   cancelTVar      <- atomically $ newTVar S.empty
   wipTVar         <- atomically $ newTVar S.empty
@@ -77,62 +81,110 @@ startServer = do
         , docVersionTVar     = versionTVar
         }
 
-  void $ forkIO $ dispatcherP cin plugins testOptions dispatcherEnv (\_ _ _ -> error "received an error") (\g x -> g x)
-  return cin
+  void $ forkIO $ dispatcherP cin plugins testOptions dispatcherEnv
+                    (\_ _ _ -> logToChan logChan ("received an error",Left ""))
+                    (\g x -> g x)
+  return (cin,logChan)
+
+-- ---------------------------------------------------------------------
+
+type LogVal = (String,Either String DynamicJSON)
+
+logToChan :: TChan LogVal -> LogVal -> IO ()
+logToChan c t = atomically $ writeTChan c t
+
+-- ---------------------------------------------------------------------
+
+dispatchGhcRequest :: ToJSON a
+                   => String -> Int
+                   -> TChan (PluginRequest IO) -> TChan LogVal
+                   -> PluginId -> CommandName -> a -> IO ()
+dispatchGhcRequest ctx n cin lc plugin com arg = do
+  let
+    logger :: RequestCallback IO DynamicJSON
+    logger x = logToChan lc (ctx, Right x)
+
+  let req = GReq Nothing Nothing (Just (IdInt n)) logger $
+        runPluginCommand plugin com (toJSON arg)
+  atomically $ writeTChan cin req
+
+dispatchIdeRequest :: (Typeable a, ToJSON a)
+                   => String -> TChan (PluginRequest IO)
+                   -> TChan LogVal -> LspId -> IdeM (IdeResponse a) -> IO () 
+dispatchIdeRequest ctx cin lc lid f = do
+  let
+    logger :: (Typeable a, ToJSON a) => RequestCallback IO a
+    logger x = logToChan lc (ctx, Right (toDynJSON x))
+
+  let req = IReq lid logger f
+  atomically $ writeTChan cin req
 
 -- ---------------------------------------------------------------------
 
 main :: IO ()
 main = do
   setupStackFiles
-  withFileLogging "./test-functional.log" $ cdAndDo "./test/testdata"  $ hspec spec
+  let logfile = "./test-functional.log"
+  exists <- doesFileExist logfile
+  when exists $ removeFile logfile
+  withFileLogging logfile $ cdAndDo "./test/testdata"  $ hspec spec
 
 spec :: Spec
 spec = do
   describe "functional spec" functionalSpec
 
-
 -- ---------------------------------------------------------------------
 
-dispatchGhcRequest :: ToJSON a => TChan (PluginRequest IO) -> PluginId -> CommandName -> a -> IO DynamicJSON
-dispatchGhcRequest cin plugin com arg = do
-  mv <- newEmptyMVar
-  let req = GReq Nothing Nothing Nothing (putMVar mv) $
-        runPluginCommand plugin com (toJSON arg)
-  atomically $ writeTChan cin req
-  takeMVar mv
+data Cached = Cached | NotCached deriving (Show,Eq,Generic)
 
-dispatchIdeRequest :: TChan (PluginRequest IO) -> LspId -> IdeM (IdeResponse a) -> IO a
-dispatchIdeRequest cin lid f = do
-  mv <- newEmptyMVar
-  let req = IReq lid (putMVar mv) f
-  atomically $ writeTChan cin req
-  takeMVar mv
+-- Don't care instances via GHC.Generic
+instance FromJSON Cached where
+instance ToJSON   Cached where
 
 -- ---------------------------------------------------------------------
 
 functionalSpec :: Spec
 functionalSpec = do
 
-  cin <- runIO startServer
+  (cin,logChan) <- runIO startServer
   cwd <- runIO getCurrentDirectory
   let testUri = filePathToUri $ cwd </> "FuncTest.hs"
 
+  let
+    -- Model a hover request
+    hoverReq idVal doc = dispatchIdeRequest ("IReq " ++ show idVal) cin logChan idVal $ do
+      pluginGetFileResponse ("hoverReq") doc $ \fp -> do
+        cached <- isCached fp
+        if cached
+          then return (IdeResponseOk Cached)
+          else return (IdeResponseOk NotCached)
+
+    unpackRes (r,Right md) = (r, fromDynJSON md)
+    unpackRes r            = error $ "unpackRes:" ++ show r
+    
+  
   describe "consecutive plugin commands" $ do
     it "defers responses until module is loaded" $ do
 
+      -- Returns immediately, no cached value
+      hoverReq (IdInt 0) testUri
+      hr0 <- atomically $ readTChan logChan
+      unpackRes hr0 `shouldBe` ("IReq IdInt 0",Just NotCached)
 
-      reqVar <- newEmptyMVar
-      let req = IReq (IdInt 0) (putMVar reqVar) $ getSymbols testUri
-      atomically $ writeTChan cin req
+      -- This request should be deferred, only return when the module is loaded
+      dispatchIdeRequest "req1" cin logChan (IdInt 1) $ getSymbols testUri
+
+      rrr <- atomically $ tryReadTChan logChan
+      (show rrr) `shouldBe` "Nothing"
 
       -- need to typecheck the module to trigger deferred response
-      _   <- dispatchGhcRequest cin "ghcmod" "check" (toJSON testUri)
+      dispatchGhcRequest "req2" 2 cin logChan "ghcmod" "check" (toJSON testUri)
 
-      res <- takeMVar reqVar
-
-      res
-        `shouldBe` [ SymbolInformation
+      -- And now we get the deferred response (once the module is loaded)
+      ("req1",Right res) <- atomically $ readTChan logChan
+      let Just ss = fromDynJSON res :: Maybe [SymbolInformation]
+      head ss `shouldBe`
+                  SymbolInformation
                      { _name          = "main"
                      , _kind          = SkFunction
                      , _location      = Location
@@ -144,63 +196,30 @@ functionalSpec = do
                        }
                      , _containerName = Nothing
                      }
-                   , SymbolInformation
-                     { _name          = "foo"
-                     , _kind          = SkFunction
-                     , _location      = Location
-                       { _uri   = testUri
-                       , _range = Range
-                         { _start = Position {_line = 5, _character = 0}
-                         , _end   = Position {_line = 5, _character = 3}
-                         }
-                       }
-                     , _containerName = Nothing
-                     }
-                   , SymbolInformation
-                     { _name          = "bb"
-                     , _kind          = SkFunction
-                     , _location      = Location
-                       { _uri   = testUri
-                       , _range = Range
-                         { _start = Position {_line = 7, _character = 0}
-                         , _end   = Position {_line = 7, _character = 2}
-                         }
-                       }
-                     , _containerName = Nothing
-                     }
-                   , SymbolInformation
-                     { _name          = "baz"
-                     , _kind          = SkFunction
-                     , _location      = Location
-                       { _uri   = testUri
-                       , _range = Range
-                         { _start = Position {_line = 9, _character = 0}
-                         , _end   = Position {_line = 9, _character = 3}
-                         }
-                       }
-                     , _containerName = Nothing
-                     }
-                   , SymbolInformation
-                     { _name          = "f"
-                     , _kind          = SkFunction
-                     , _location      = Location
-                       { _uri   = testUri
-                       , _range = Range
-                         { _start = Position {_line = 12, _character = 0}
-                         , _end   = Position {_line = 12, _character = 1}
-                         }
-                       }
-                     , _containerName = Nothing
-                     }
-                   ]
+
+      -- followed by the diagnostics ...
+      ("req2",Right res2) <- atomically $ readTChan logChan
+      show res2 `shouldBe` "((Map Uri (Set Diagnostic)),[Text])"
+
+      -- No more pending results
+      rr3 <- atomically $ tryReadTChan logChan
+      (show rr3) `shouldBe` "Nothing"
+
+      -- Returns immediately, there is a cached value
+      hoverReq (IdInt 3) testUri
+      hr3 <- atomically $ readTChan logChan
+      unpackRes hr3 `shouldBe` ("IReq IdInt 3",Just Cached)
 
     it "instantly responds to deferred requests if cache is available" $ do
       -- deferred responses should return something now immediately
       -- as long as the above test ran before
-      references <- dispatchIdeRequest cin (IdInt 1)
+      dispatchIdeRequest "references" cin logChan (IdInt 4)
         $ getReferencesInDoc testUri (Position 7 0)
-      references
-        `shouldBe` [ DocumentHighlight
+
+      hr4 <- atomically $ readTChan logChan
+      -- show hr4 `shouldBe` "hr4"
+      unpackRes hr4 `shouldBe` ("references",Just
+                   [ DocumentHighlight
                      { _range = Range
                        { _start = Position {_line = 7, _character = 0}
                        , _end   = Position {_line = 7, _character = 2}
@@ -242,13 +261,15 @@ functionalSpec = do
                        }
                      , _kind  = Just HkRead
                      }
-                   ]
+                   ])
 
     it "returns hints as diagnostics" $ do
 
-      r1 <- dispatchGhcRequest cin "applyrefact" "lint" testUri
-      fromDynJSON r1
-        `shouldBe` (Just $ PublishDiagnosticsParams
+      dispatchGhcRequest "r5" 5 cin logChan "applyrefact" "lint" testUri
+
+      hr5 <- atomically $ readTChan logChan
+      unpackRes hr5 `shouldBe` ("r5",
+             Just $ PublishDiagnosticsParams
                      { _uri         = filePathToUri $ cwd </> "FuncTest.hs"
                      , _diagnostics = List
                        [ Diagnostic
@@ -262,9 +283,12 @@ functionalSpec = do
                      }
                    )
 
-      let req3 = HP testUri (toPos (8, 1))
-      r3 <- dispatchGhcRequest cin "hare" "demote" req3
-      fromDynJSON r3 `shouldBe` Just
+      let req6 = HP testUri (toPos (8, 1))
+      dispatchGhcRequest "r6" 6 cin logChan "hare" "demote" req6
+
+      hr6 <- atomically $ readTChan logChan
+      -- show hr6 `shouldBe` "hr6"
+      unpackRes hr6 `shouldBe` ("r6",Just
         (WorkspaceEdit
           ( Just
           $ H.singleton (filePathToUri $ cwd </> "FuncTest.hs")
@@ -274,5 +298,5 @@ functionalSpec = do
               ]
           )
           Nothing
-        )
+        ))
 

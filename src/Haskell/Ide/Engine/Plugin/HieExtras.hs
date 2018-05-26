@@ -473,4 +473,3 @@ findDef uri pos = pluginGetFileResponse "findDef: " uri $ \file ->
                           (IdeError PluginError
                                     ("hare:findDef" <> ": \"" <> x <> "\"")
                                     Null)))
-                                    
