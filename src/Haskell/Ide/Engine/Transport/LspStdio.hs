@@ -461,9 +461,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             doc = params ^. J.textDocument . J.uri
             pos = params ^. J.position
             newName  = params ^. J.newName
-            callback we = do
-              let rspMsg = Core.makeResponseMessage req we
-              reactorSend rspMsg
+            callback = reactorSend . Core.makeResponseMessage req
         let hreq = GReq (Just doc) Nothing (Just $ req ^. J.id) callback
                      $ HaRe.renameCmd' doc pos newName
         makeRequest hreq
@@ -654,9 +652,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let params = req ^. J.params
             doc = params ^. (J.textDocument . J.uri)
             pos = params ^. J.position
-            callback highlights = do
-              let rspMsg = Core.makeResponseMessage req $ J.List highlights
-              reactorSend rspMsg
+            callback = reactorSend . Core.makeResponseMessage req . J.List
         let hreq = IReq (req ^. J.id) callback
                  $ Hie.getReferencesInDoc doc pos
         makeRequest hreq
@@ -667,9 +663,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let params = req ^. J.params
             doc = params ^. J.textDocument . J.uri
             pos = params ^. J.position
-            callback loc = do
-              let rspMsg = Core.makeResponseMessage req loc
-              reactorSend rspMsg
+            callback = reactorSend . Core.makeResponseMessage req
         let hreq = IReq (req ^. J.id) callback
                      $ fmap J.MultiLoc <$> Hie.findDef doc pos
         makeRequest hreq
@@ -680,9 +674,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let params = req ^. J.params
             doc = params ^. (J.textDocument . J.uri)
             pos = params ^. J.position
-            callback highlights = do
-              let rspMsg = Core.makeResponseMessage req $ J.List highlights
-              reactorSend rspMsg
+            callback = reactorSend . Core.makeResponseMessage req . J.List
         let hreq = IReq (req ^. J.id) callback
                  $ fmap (map (J.Location doc . (^. J.range)))
                  <$> Hie.getReferencesInDoc doc pos
@@ -695,9 +687,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let params = req ^. J.params
             doc = params ^. J.textDocument . J.uri
             tabSize = params ^. J.options . J.tabSize
-            callback textEdit = do
-              let rspMsg = Core.makeResponseMessage req $ J.List textEdit
-              reactorSend rspMsg
+            callback = reactorSend . Core.makeResponseMessage req . J.List
         let hreq = GReq (Just doc) Nothing (Just $ req ^. J.id) callback
                      $ Brittany.brittanyCmd tabSize doc Nothing
         makeRequest hreq
@@ -710,9 +700,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             doc = params ^. J.textDocument . J.uri
             range = params ^. J.range
             tabSize = params ^. J.options . J.tabSize
-            callback textEdit = do
-              let rspMsg = Core.makeResponseMessage req $ J.List textEdit
-              reactorSend rspMsg
+            callback = reactorSend . Core.makeResponseMessage req . J.List
         let hreq = GReq (Just doc) Nothing (Just $ req ^. J.id) callback
                      $ Brittany.brittanyCmd tabSize doc (Just range)
         makeRequest hreq
@@ -722,9 +710,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
       Core.ReqDocumentSymbols req -> do
         liftIO $ U.logs $ "reactor:got Document symbol request:" ++ show req
         let uri = req ^. J.params . J.textDocument . J.uri
-            callback docSymbols = do
-              let rspMsg = Core.makeResponseMessage req $ J.List docSymbols
-              reactorSend rspMsg
+            callback = reactorSend . Core.makeResponseMessage req . J.List
         let hreq = IReq (req ^. J.id) callback
                  $ Hie.getSymbols uri
         makeRequest hreq
