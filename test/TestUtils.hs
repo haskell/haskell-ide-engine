@@ -51,7 +51,7 @@ cdAndDo path fn = do
           $ \_ -> fn
   return r
 
-testCommand :: (ToJSON a, Typeable b, ToJSON b, Show b, Eq b) => IdePlugins -> IdeGhcM (IdeResponse b) -> PluginId -> CommandName -> a -> (IdeResponse b) -> IO ()
+testCommand :: (ToJSON a, Typeable b, ToJSON b, Show b, Eq b) => IdePlugins -> IdeGhcM (IdeResult b) -> PluginId -> CommandName -> a -> (IdeResult b) -> IO ()
 testCommand testPlugins act plugin cmd arg res = do
   (newApiRes, oldApiRes) <- runIGM testPlugins $ do
     new <- act
@@ -60,14 +60,14 @@ testCommand testPlugins act plugin cmd arg res = do
   newApiRes `shouldBe` res
   fmap fromDynJSON oldApiRes `shouldBe` fmap Just res
 
-runSingleReq :: ToJSON a => IdePlugins -> PluginId -> CommandName -> a -> IO (IdeResponse DynamicJSON)
+runSingleReq :: ToJSON a => IdePlugins -> PluginId -> CommandName -> a -> IO (IdeResult DynamicJSON)
 runSingleReq testPlugins plugin com arg = runIGM testPlugins (makeRequest plugin com arg)
 
-makeRequest :: ToJSON a => PluginId -> CommandName -> a -> IdeGhcM (IdeResponse DynamicJSON)
+makeRequest :: ToJSON a => PluginId -> CommandName -> a -> IdeGhcM (IdeResult DynamicJSON)
 makeRequest plugin com arg = runPluginCommand plugin com (toJSON arg)
 
 runIGM :: IdePlugins -> IdeGhcM a -> IO a
-runIGM testPlugins = runIdeGhcM testOptions (IdeState emptyModuleCache testPlugins Map.empty Nothing)
+runIGM testPlugins = runIdeGhcM testOptions (IdeState emptyModuleCache Map.empty testPlugins Map.empty Nothing)
 
 withTestLogging :: IO a -> IO a
 withTestLogging = withFileLogging "./test-main.log"

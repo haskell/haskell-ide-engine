@@ -142,6 +142,7 @@ test-suite haskell-ide-test
   if flag(pedantic)
      ghc-options:      -Werror
   default-language:    Haskell2010
+  build-tool-depends:  hspec-discover:hspec-discover
 
 test-suite haskell-ide-dispatcher-test
   type:                exitcode-stdio-1.0
@@ -178,6 +179,7 @@ test-suite haskell-ide-dispatcher-test
   if flag(pedantic)
      ghc-options:      -Werror
   default-language:    Haskell2010
+  build-tool-depends:  hspec-discover:hspec-discover
 
 
 test-suite haskell-ide-func-test
@@ -204,6 +206,7 @@ test-suite haskell-ide-func-test
   if flag(pedantic)
      ghc-options:      -Werror
   default-language:    Haskell2010
+  build-tool-depends:  hspec-discover:hspec-discover
 
 source-repository head
   type:     git

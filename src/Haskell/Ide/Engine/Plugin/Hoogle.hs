@@ -39,11 +39,11 @@ data HoogleError = NoDb | NoResults deriving (Eq,Ord,Show)
 
 newtype HoogleDb = HoogleDb (Maybe FilePath)
 
-hoogleErrorToIdeError :: HoogleError -> IdeFailure
+hoogleErrorToIdeError :: HoogleError -> IdeError
 hoogleErrorToIdeError NoResults =
-  IdeRErr $ IdeError PluginError "No results found" Null
+  IdeError PluginError "No results found" Null
 hoogleErrorToIdeError NoDb =
-  IdeRErr $ IdeError PluginError "Hoogle database not found. Run hoogle generate to generate" Null
+  IdeError PluginError "Hoogle database not found. Run hoogle generate to generate" Null
 
 instance ExtensionClass HoogleDb where
   initialValue = HoogleDb Nothing
@@ -60,8 +60,11 @@ initializeHoogleDb = do
     return Nothing
 
 infoCmd :: CommandFunc T.Text T.Text
-infoCmd = CmdSync $ \expr -> liftToGhc $
-  bimap hoogleErrorToIdeError id <$> infoCmd' expr
+infoCmd = CmdSync $ \expr -> do
+  res <- liftToGhc $ bimap hoogleErrorToIdeError id <$> infoCmd' expr
+  return $ case res of
+    Left err -> IdeResultFail err
+    Right x -> IdeResultOk x
 
 infoCmd' :: T.Text -> IdeM (Either HoogleError T.Text)
 infoCmd' expr = do
@@ -104,8 +107,11 @@ renderTarget t = T.intercalate "\n\n" $
 ------------------------------------------------------------------------
 
 lookupCmd :: CommandFunc T.Text [T.Text]
-lookupCmd = CmdSync $ \term -> liftToGhc $
-      bimap hoogleErrorToIdeError id <$> lookupCmd' 10 term
+lookupCmd = CmdSync $ \term -> do
+  res <- liftToGhc $ bimap hoogleErrorToIdeError id <$> lookupCmd' 10 term
+  return $ case res of
+    Left err -> IdeResultFail err
+    Right x -> IdeResultOk x
 
 lookupCmd' :: Int -> T.Text -> IdeM (Either HoogleError [T.Text])
 lookupCmd' n term = do
