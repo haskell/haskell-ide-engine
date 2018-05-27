@@ -42,7 +42,7 @@ ghcmodSpec = do
       fp <- makeAbsolute "./FileWithWarning.hs"
       let act = setTypecheckedModule arg
           arg = filePathToUri fp
-          res = IdeResponseOk $
+          res = IdeResultOk $
             (Map.singleton arg (S.singleton diag), [])
           diag = Diagnostic (Range (toPos (4,7))
                                    (toPos (4,8)))
@@ -61,7 +61,7 @@ ghcmodSpec = do
       let uri = filePathToUri fp
           act = lintCmd' uri
           arg = uri
-          res = IdeResponseOk (T.pack fp <> ":6:9: Warning: Redundant do\NULFound:\NUL  do return (3 + x)\NULWhy not:\NUL  return (3 + x)\n")
+          res = IdeResultOk (T.pack fp <> ":6:9: Warning: Redundant do\NULFound:\NUL  do return (3 + x)\NULWhy not:\NUL  return (3 + x)\n")
       testCommand testPlugins act "ghcmod" "lint" arg res
 
     -- ---------------------------------
@@ -71,7 +71,7 @@ ghcmodSpec = do
       let uri = filePathToUri fp
           act = infoCmd' uri "main"
           arg = IP uri "main"
-          res = IdeResponseOk "main :: IO () \t-- Defined at HaReRename.hs:2:1\n"
+          res = IdeResultOk "main :: IO () \t-- Defined at HaReRename.hs:2:1\n"
       -- ghc-mod tries to load the test file in the context of the hie project if we do not cd first.
       testCommand testPlugins act "ghcmod" "info" arg res
 
@@ -84,7 +84,7 @@ ghcmodSpec = do
             _ <- setTypecheckedModule uri
             liftToGhc $ newTypeCmd (toPos (5,9)) uri
           arg = TP False uri (toPos (5,9))
-          res = IdeResponseOk
+          res = IdeResultOk
             [(Range (toPos (5,9)) (toPos (5,10)), "Int")
             ,(Range (toPos (5,9)) (toPos (5,14)), "Int")
             ,(Range (toPos (5,1)) (toPos (5,14)), "Int -> Int")
@@ -103,7 +103,7 @@ ghcmodSpec = do
               _ <- setTypecheckedModule uri
               liftToGhc $ newTypeCmd (toPos (5,9)) uri
         let arg = TP False uri (toPos (5,9))
-        let res = IdeResponseOk
+        let res = IdeResultOk
               [(Range (toPos (5,9)) (toPos (5,10)), "Int")
               ,(Range (toPos (5,9)) (toPos (5,14)), "Int")
               ,(Range (toPos (5,1)) (toPos (5,14)), "Int -> Int")

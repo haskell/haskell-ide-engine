@@ -75,6 +75,12 @@ we talk to clients.__
 Note: The version on branch `hie-0.1.0.0` supports GHC 8.0.2. This is
 not supported in master.
 
+On linux derivatives you will need to do the equivalent of before building
+
+```bash
+sudo apt install libicu-dev libtinfo-dev
+```
+
 
 ### Getting the source for GHC 8.2.1, 8.2.2, 8.4.2
 

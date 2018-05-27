@@ -105,7 +105,7 @@ demoteCmd :: CommandFunc HarePoint WorkspaceEdit
 demoteCmd  = CmdSync $ \(HP uri pos) ->
   demoteCmd' uri pos
 
-demoteCmd' :: Uri -> Position -> IdeGhcM (IdeResponse WorkspaceEdit)
+demoteCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 demoteCmd' uri pos =
   pluginGetFile "demote: " uri $ \file -> do
     runHareCommand "demote" (compDemote file (unPos pos))
@@ -118,7 +118,7 @@ dupdefCmd :: CommandFunc HarePointWithText WorkspaceEdit
 dupdefCmd = CmdSync $ \(HPT uri pos name) ->
   dupdefCmd' uri pos name
 
-dupdefCmd' :: Uri -> Position -> T.Text -> IdeGhcM (IdeResponse WorkspaceEdit)
+dupdefCmd' :: Uri -> Position -> T.Text -> IdeGhcM (IdeResult WorkspaceEdit)
 dupdefCmd' uri pos name =
   pluginGetFile "dupdef: " uri $ \file -> do
     runHareCommand  "dupdef" (compDuplicateDef file (T.unpack name) (unPos pos))
@@ -131,7 +131,7 @@ iftocaseCmd :: CommandFunc HareRange WorkspaceEdit
 iftocaseCmd = CmdSync $ \(HR uri startPos endPos) ->
   iftocaseCmd' uri (Range startPos endPos)
 
-iftocaseCmd' :: Uri -> Range -> IdeGhcM (IdeResponse WorkspaceEdit)
+iftocaseCmd' :: Uri -> Range -> IdeGhcM (IdeResult WorkspaceEdit)
 iftocaseCmd' uri (Range startPos endPos) =
   pluginGetFile "iftocase: " uri $ \file -> do
     runHareCommand "iftocase" (compIfToCase file (unPos startPos) (unPos endPos))
@@ -144,7 +144,7 @@ liftonelevelCmd :: CommandFunc HarePoint WorkspaceEdit
 liftonelevelCmd = CmdSync $ \(HP uri pos) ->
   liftonelevelCmd' uri pos
 
-liftonelevelCmd' :: Uri -> Position -> IdeGhcM (IdeResponse WorkspaceEdit)
+liftonelevelCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 liftonelevelCmd' uri pos =
   pluginGetFile "liftonelevelCmd: " uri $ \file -> do
     runHareCommand "liftonelevel" (compLiftOneLevel file (unPos pos))
@@ -157,7 +157,7 @@ lifttotoplevelCmd :: CommandFunc HarePoint WorkspaceEdit
 lifttotoplevelCmd = CmdSync $ \(HP uri pos) ->
   lifttotoplevelCmd' uri pos
 
-lifttotoplevelCmd' :: Uri -> Position -> IdeGhcM (IdeResponse WorkspaceEdit)
+lifttotoplevelCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 lifttotoplevelCmd' uri pos =
   pluginGetFile "lifttotoplevelCmd: " uri $ \file -> do
     runHareCommand "lifttotoplevel" (compLiftToTopLevel file (unPos pos))
@@ -170,7 +170,7 @@ renameCmd :: CommandFunc HarePointWithText WorkspaceEdit
 renameCmd = CmdSync $ \(HPT uri pos name) ->
   renameCmd' uri pos name
 
-renameCmd' :: Uri -> Position -> T.Text -> IdeGhcM (IdeResponse WorkspaceEdit)
+renameCmd' :: Uri -> Position -> T.Text -> IdeGhcM (IdeResult WorkspaceEdit)
 renameCmd' uri pos name =
   pluginGetFile "rename: " uri $ \file -> do
       runHareCommand "rename" (compRename file (T.unpack name) (unPos pos))
@@ -183,7 +183,7 @@ deleteDefCmd :: CommandFunc HarePoint WorkspaceEdit
 deleteDefCmd  = CmdSync $ \(HP uri pos) ->
   deleteDefCmd' uri pos
 
-deleteDefCmd' :: Uri -> Position -> IdeGhcM (IdeResponse WorkspaceEdit)
+deleteDefCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 deleteDefCmd' uri pos =
   pluginGetFile "deletedef: " uri $ \file -> do
       runHareCommand "deltetedef" (compDeleteDef file (unPos pos))
@@ -196,7 +196,7 @@ genApplicativeCommand :: CommandFunc HarePoint WorkspaceEdit
 genApplicativeCommand  = CmdSync $ \(HP uri pos) ->
   genApplicativeCommand' uri pos
 
-genApplicativeCommand' :: Uri -> Position -> IdeGhcM (IdeResponse WorkspaceEdit)
+genApplicativeCommand' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 genApplicativeCommand' uri pos =
   pluginGetFile "genapplicative: " uri $ \file -> do
       runHareCommand "genapplicative" (compGenApplicative file (unPos pos))
@@ -225,19 +225,19 @@ makeRefactorResult changedFiles = do
 -- ---------------------------------------------------------------------
 
 runHareCommand :: String -> RefactGhc [ApplyRefacResult]
-                 -> IdeGhcM (IdeResponse WorkspaceEdit)
+                 -> IdeGhcM (IdeResult WorkspaceEdit)
 runHareCommand name cmd = do
      eitherRes <- runHareCommand' cmd
      case eitherRes of
        Left err ->
-         pure (IdeResponseFail
+         pure (IdeResultFail
                  (IdeError PluginError
                            (T.pack $ name <> ": \"" <> err <> "\"")
                            Null))
        Right res -> do
             let changes = getRefactorResult res
             refactRes <- makeRefactorResult changes
-            pure (IdeResponseOk refactRes)
+            pure (IdeResultOk refactRes)
 
 -- ---------------------------------------------------------------------
 

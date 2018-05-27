@@ -230,7 +230,7 @@ withCommonArgs req a = do
 -- isHelperPrepared = CmdSync $ \ctx req -> withCommonArgs ctx req $ do
 --   distDir <- asks caDistDir
 --   ret <- liftIO $ isPrepared (defaultQueryEnv "." distDir)
---   return $ IdeResponseOk ret
+--   return $ IdeResultOk ret
 
 -----------------------------------------------
 
@@ -242,7 +242,7 @@ prepareHelper = CmdSync $ \req -> withCommonArgs req $ do
         slp <- getStackLocalPackages "stack.yaml"
         mapM_ (prepareHelper' (caDistDir ca) (caCabal ca))  slp
       CabalMode -> prepareHelper' (caDistDir ca) (caCabal ca) "."
-  return $ IdeResponseOk ()
+  return $ IdeResultOk ()
 
 prepareHelper' :: MonadIO m => FilePath -> FilePath -> FilePath -> m ()
 prepareHelper' distDir cabalExe dir =
@@ -254,7 +254,7 @@ isConfigured :: CommandFunc CommonParams Bool
 isConfigured = CmdSync $ \req -> withCommonArgs req $ do
   distDir <- asks caDistDir
   ret <- liftIO $ doesFileExist $ localBuildInfoFile distDir
-  return $ IdeResponseOk ret
+  return $ IdeResultOk ret
 
 -----------------------------------------------
 
@@ -264,7 +264,7 @@ configure = CmdSync $ \req -> withCommonArgs req $ do
   _ <- liftIO $ case caMode ca of
       StackMode -> configureStack (caStack ca)
       CabalMode -> configureCabal (caCabal ca)
-  return $ IdeResponseOk ()
+  return $ IdeResultOk ()
 
 configureStack :: FilePath -> IO String
 configureStack stackExe = do
@@ -296,7 +296,7 @@ listFlags = CmdSync $ \(LF mode) -> do
       let flags' = flip map flags0 $ \(n,f) ->
                     object ["packageName" .= n, "flags" .= map flagToJSON f]
           (Object ret) = object ["res" .= toJSON flags']
-      return $ IdeResponseOk ret
+      return $ IdeResultOk ret
 
 listFlagsStack :: FilePath -> IO [(String,[Flag])]
 listFlagsStack d = do
@@ -357,17 +357,17 @@ buildDirectory = CmdSync $ \(BP m dd c s f mbDir) -> withCommonArgs (CommonParam
     CabalMode -> do
       -- for cabal specifying directory have no sense
       _ <- readProcess (caCabal ca) ["build"] ""
-      return $ IdeResponseOk ()
+      return $ IdeResultOk ()
     StackMode -> do
       case mbDir of
         Nothing -> do
           _ <- readProcess (caStack ca) ["build"] ""
-          return $ IdeResponseOk ()
+          return $ IdeResultOk ()
         Just dir0 -> pluginGetFile "buildDirectory" dir0 $ \dir -> do
           cwd <- getCurrentDirectory
           let relDir = makeRelative cwd $ normalise dir
           _ <- readProcess (caStack ca) ["build", relDir] ""
-          return $ IdeResponseOk ()
+          return $ IdeResultOk ()
 
 -----------------------------------------------
 
@@ -395,21 +395,21 @@ buildTarget = CmdSync $ \(BT m dd c s f component package' compType) -> withComm
   liftIO $ case caMode ca of
     CabalMode -> do
       _ <- readProcess (caCabal ca) ["build", T.unpack $ maybe "" id component] ""
-      return $ IdeResponseOk ()
+      return $ IdeResultOk ()
     StackMode -> do
       case (package', component) of
         (Just p, Nothing) -> do
           _ <- readProcess (caStack ca) ["build", T.unpack $ p `T.append` compType] ""
-          return $ IdeResponseOk ()
+          return $ IdeResultOk ()
         (Just p, Just c') -> do
           _ <- readProcess (caStack ca) ["build", T.unpack $ p `T.append` compType `T.append` (':' `T.cons` c')] ""
-          return $ IdeResponseOk ()
+          return $ IdeResultOk ()
         (Nothing, Just c') -> do
           _ <- readProcess (caStack ca) ["build", T.unpack $ ':' `T.cons` c'] ""
-          return $ IdeResponseOk ()
+          return $ IdeResultOk ()
         _ -> do
           _ <- readProcess (caStack ca) ["build"] ""
-          return $ IdeResponseOk ()
+          return $ IdeResultOk ()
 
 -----------------------------------------------
 
@@ -429,7 +429,7 @@ listTargets = CmdSync $ \req -> withCommonArgs req $ do
         ["name" .= tPackageName t,
          "directory" .= tDirectory t,
          "targets" .= map compToJSON (tTargets t)]
-  return $ IdeResponseOk ret
+  return $ IdeResultOk ret
 
 listStackTargets :: FilePath -> IO [Package]
 listStackTargets distDir = do
