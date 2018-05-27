@@ -101,7 +101,7 @@ isCached uri = do
     _                -> return False
 
 -- | Version of `withCachedModuleAndData` that doesn't provide
--- any extra cached data
+-- any extra cached data.
 withCachedModule :: FilePath -> (CachedModule -> IdeM (IdeResponse b)) -> IdeM (IdeResponse b)
 withCachedModule uri callback = do
   mcm <- getCachedModule uri
@@ -113,10 +113,12 @@ withCachedModule uri callback = do
 
 -- | Calls its argument with the CachedModule for a given URI
 -- along with any data that might be stored in the ModuleCache.
+-- If the module is not already cached, then the callback will be
+-- called as soon as it is available.
 -- The data is associated with the CachedModule and its cache is
 -- invalidated when a new CachedModule is loaded.
 -- If the data doesn't exist in the cache, new data is generated
--- using by calling the `cacheDataProducer` function
+-- using by calling the `cacheDataProducer` function.
 withCachedModuleAndData :: forall a b. ModuleCache a
                         => FilePath -> (CachedModule -> a -> IdeM (IdeResponse b)) -> IdeM (IdeResponse b)
 withCachedModuleAndData uri callback = do
@@ -141,7 +143,8 @@ withCachedModuleAndData uri callback = do
                  Nothing  -> error "impossible"
       callback cm a
 
--- | Saves a module to the cache
+-- | Saves a module to the cache and executes any deferred
+-- responses waiting on that module.
 cacheModule :: FilePath -> CachedModule -> IdeGhcM ()
 cacheModule uri cm = do
   uri' <- liftIO $ canonicalizePath uri
