@@ -380,8 +380,11 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             ]
         let registrations = J.RegistrationParams (J.List registrationsList)
 
-        rid <- nextLspReqId
-        reactorSend $ fmServerRegisterCapabilityRequest rid registrations
+        -- Do not actually register a command, but keep the code in
+        -- place so we know how to do it when we actually need it.
+        when False $ do
+          rid <- nextLspReqId
+          reactorSend $ fmServerRegisterCapabilityRequest rid registrations
 
         reactorSend $
                 fmServerLogMessageNotification J.MtLog $ "Using hie version: " <> T.pack version
