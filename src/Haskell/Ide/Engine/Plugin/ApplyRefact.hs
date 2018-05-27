@@ -22,12 +22,13 @@ import           Language.Haskell.Exts.Extension
 import           Language.Haskell.HLint3           as Hlint
 import           Refact.Apply
 
-type HintTitle = T.Text
 -- ---------------------------------------------------------------------
 {-# ANN module ("HLint: ignore Eta reduce"         :: String) #-}
 {-# ANN module ("HLint: ignore Redundant do"       :: String) #-}
 {-# ANN module ("HLint: ignore Reduce duplication" :: String) #-}
 -- ---------------------------------------------------------------------
+
+type HintTitle = T.Text
 
 applyRefactDescriptor :: PluginDescriptor
 applyRefactDescriptor = PluginDescriptor
@@ -272,25 +273,3 @@ makeDiffResult orig new fileMap = do
   let fp' = fileMap orig
   fp <- GM.makeAbsolute' fp'
   return $ diffText (filePathToUri fp,origText) new
-
--- | Removes diagnostics that can't be refactored automatically by HLint
-filterUnrefactorableDiagnostics :: Uri -> [Diagnostic] -> IdeGhcM (IdeResult [Diagnostic])
-filterUnrefactorableDiagnostics uri diags = do
-  ideasResult <- pluginGetFile "filterUnrefactorableDiagnostics: " uri $ \fp -> do
-    res <- GM.withMappedFile fp $ \file' -> liftIO $ runExceptT $ getIdeas file' Nothing :: IdeGhcM (Either String [Idea])
-    case res of
-      Left err -> return $ IdeResultFail (IdeError PluginError
-        (T.pack $ "filterUnrefactorableDiagnostics: " ++ show err) Null)
-      Right ideas -> return $ IdeResultOk ideas
-  
-  case ideasResult of
-    IdeResultFail err -> return $ IdeResultFail err
-    IdeResultOk ideas ->
-      let hasRefactoring :: Diagnostic -> Bool
-          hasRefactoring diag = let matches = filter ((== diag) . hintToDiagnostic) ideas
-              in if null matches
-                -- by default we don't want to throw away refactorings just because we can't find a match
-                then True
-                -- otherwise make sure the matched idea has a possible refactoring
-                else (not . null . ideaRefactoring) $ head matches
-        in return $ IdeResultOk $ filter hasRefactoring diags
