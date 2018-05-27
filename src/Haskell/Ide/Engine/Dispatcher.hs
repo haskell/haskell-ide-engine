@@ -65,7 +65,7 @@ mainDispatcher inChan ghcChan ideChan = forever $ do
     Left r ->
       atomically $ writeTChan ideChan r
 
-ideDispatcher :: forall void m. DispatcherEnv -> ErrorHandler -> (CallbackHandler m) -> TChan (IdeRequest m) -> IdeM void
+ideDispatcher :: forall void m. DispatcherEnv -> ErrorHandler -> CallbackHandler m -> TChan (IdeRequest m) -> IdeM void
 ideDispatcher env errorHandler callbackHandler pin = forever $ do
   debugm "ideDispatcher: top of loop"
   (IdeRequest lid callback action) <- liftIO $ atomically $ readTChan pin
@@ -73,7 +73,7 @@ ideDispatcher env errorHandler callbackHandler pin = forever $ do
   checkCancelled env lid errorHandler $ do
     response <- action
     handleResponse lid callback response
-      
+
   where handleResponse lid callback response =
           -- Need to check cancellation twice since cancellation
           -- request might have come in during the action
@@ -85,19 +85,18 @@ ideDispatcher env errorHandler callbackHandler pin = forever $ do
               completedReq env lid
               errorHandler lid J.InternalError (show err)
             IdeResponseDeferred fp cacheCb -> handleDeferred lid fp cacheCb callback
-    
-        handleDeferred lid fp cacheCb actualCb = queueAction lid fp $ \cm -> do
+
+        handleDeferred lid fp cacheCb actualCb = queueAction fp $ \cm -> do
           cacheResponse <- cacheCb cm
           handleResponse lid actualCb cacheResponse
-    
-        queueAction :: J.LspId -> FilePath -> (CachedModule -> IdeM ()) -> IdeM ()
-        queueAction lid fp action =
+
+        queueAction :: FilePath -> (CachedModule -> IdeM ()) -> IdeM ()
+        queueAction fp action =
           modifyMTState $ \s ->
-            let newReq   = (lid, action)
-                oldQueue = requestQueue s
+            let oldQueue = requestQueue s
                 -- add to existing queue if possible
-                update Nothing = [newReq]
-                update (Just x) = newReq : x
+                update Nothing = [action]
+                update (Just x) = action : x
                 newQueue = Map.alter (Just . update) fp oldQueue
             in s { requestQueue = newQueue }
 
@@ -122,7 +121,7 @@ ghcDispatcher env@DispatcherEnv{docVersionTVar} errorHandler callbackHandler pin
           IdeResultFail err ->
             case mid of
               Just lid -> errorHandler lid J.InternalError (show err)
-              Nothing -> debugm $ "ghcDispatcher:Got error for a request: " ++ show err 
+              Nothing -> debugm $ "ghcDispatcher:Got error for a request: " ++ show err
 
   let runIfVersionMatch = case mver of
         Nothing -> runWithCallback

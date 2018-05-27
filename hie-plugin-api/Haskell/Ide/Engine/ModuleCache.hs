@@ -156,7 +156,7 @@ cacheModule uri cm = do
 
   -- execute any queued actions for the module
   actions <- fmap (fromMaybe [] . Map.lookup uri') (requestQueue <$> readMTS)
-  liftToGhc $ forM_ actions (\(_, a) -> a cm)
+  liftToGhc $ forM_ actions (\a -> a cm)
 
   -- remove queued actions
   modifyMTS $ \s -> s { requestQueue = Map.delete uri' (requestQueue s) }
