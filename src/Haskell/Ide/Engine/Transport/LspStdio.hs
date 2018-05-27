@@ -380,8 +380,11 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             ]
         let registrations = J.RegistrationParams (J.List registrationsList)
 
-        rid <- nextLspReqId
-        reactorSend $ fmServerRegisterCapabilityRequest rid registrations
+        -- Do not actually register a command, but keep the code in
+        -- place so we know how to do it when we actually need it.
+        when False $ do
+          rid <- nextLspReqId
+          reactorSend $ fmServerRegisterCapabilityRequest rid registrations
 
         reactorSend $
                 fmServerLogMessageNotification J.MtLog $ "Using hie version: " <> T.pack version
@@ -833,6 +836,13 @@ hieOptions :: Core.Options
 hieOptions =
   def { Core.textDocumentSync       = Just syncOptions
       , Core.completionProvider     = Just (J.CompletionOptions (Just True) (Just ["."]))
+      -- As of 2018-05-24, vscode needs the commands to be registered
+      -- otherwise they will not be available as codeActions (will be
+      -- silently ignored, despite UI showing to the contrary).
+      --
+      -- Hopefully the end May 2018 vscode release will stabilise
+      -- this, it is a major rework of the machinery anyway.
+      , Core.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List ["applyrefact:applyOne","hare:demote"]))
       }
 
 
