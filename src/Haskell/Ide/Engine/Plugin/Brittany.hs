@@ -38,7 +38,7 @@ brittanyDescriptor = PluginDescriptor
   cmd =
     CmdSync $ \(FormatParams tabSize uri range) -> brittanyCmd tabSize uri range
 
-brittanyCmd :: Int -> Uri -> Maybe Range -> IdeGhcM (IdeResponse [J.TextEdit])
+brittanyCmd :: Int -> Uri -> Maybe Range -> IdeGhcM (IdeResult [J.TextEdit])
 brittanyCmd tabSize uri range =
   pluginGetFile "brittanyCmd: " uri $ \file -> do
     confFile <- liftIO $ findLocalConfigPath (takeDirectory file)
@@ -48,16 +48,16 @@ brittanyCmd tabSize uri range =
         -- format selection
         res <- liftIO $ runBrittany tabSize confFile $ extractRange r text
         case res of
-          Left err -> return $ IdeResponseFail (IdeError PluginError
+          Left err -> return $ IdeResultFail (IdeError PluginError
                       (T.pack $ "brittanyCmd: " ++ unlines (map showErr err)) Null)
           Right newText -> do
             let textEdit = J.TextEdit (normalize r) newText
-            return $ IdeResponseOk [textEdit]
+            return $ IdeResultOk [textEdit]
       Nothing -> do
         -- format document
         res <- liftIO $ runBrittany tabSize confFile text
         case res of
-          Left err -> return $ IdeResponseFail (IdeError PluginError
+          Left err -> return $ IdeResultFail (IdeError PluginError
                       (T.pack $ "brittanyCmd: " ++ unlines (map showErr err)) Null)
           Right newText -> do
             let startPos = Position 0 0
@@ -71,7 +71,7 @@ brittanyCmd tabSize uri range =
                 -}
                 lastLine = length $ T.lines text
                 textEdit = J.TextEdit (Range startPos endPos) newText
-            return $ IdeResponseOk [textEdit]
+            return $ IdeResultOk [textEdit]
 
 extractRange :: Range -> Text -> Text
 extractRange (Range (Position sl _) (Position el _)) s = newS

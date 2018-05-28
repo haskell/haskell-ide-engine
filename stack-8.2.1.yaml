@@ -25,6 +25,9 @@ packages:
 - location:
     ./submodules/haskell-lsp
   extra-dep: true
+  subdirs:
+    - . 
+    - haskell-lsp-types
 
 extra-deps:
 - brittany-0.11.0.0
@@ -36,7 +39,7 @@ extra-deps:
 - haddock-api-2.18.1
 - haddock-library-1.4.4
 # - haskell-lsp-0.2.2.0
-- haskell-lsp-types-0.2.2.0
+# - haskell-lsp-types-0.2.2.0
 - hlint-2.0.11
 - sorted-list-0.2.1.0
 - syz-0.2.0.0

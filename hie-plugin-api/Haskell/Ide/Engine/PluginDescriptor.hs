@@ -42,17 +42,17 @@ toDynJSON = CD.toDyn
 
 -- | Runs a plugin command given a PluginId, CommandName and
 -- arguments in the form of a JSON object.
-runPluginCommand :: PluginId -> CommandName -> Value -> IdeGhcM (IdeResponse DynamicJSON)
+runPluginCommand :: PluginId -> CommandName -> Value -> IdeGhcM (IdeResult DynamicJSON)
 runPluginCommand p com arg = do
   (IdePlugins m) <- lift . lift $ getPlugins
   case Map.lookup p m of
     Nothing -> return $
-      IdeResponseFail $ IdeError UnknownPlugin ("Plugin " <> p <> " doesn't exist") Null
+      IdeResultFail $ IdeError UnknownPlugin ("Plugin " <> p <> " doesn't exist") Null
     Just xs -> case find ((com ==) . commandName) xs of
-      Nothing -> return $ IdeResponseFail $
+      Nothing -> return $ IdeResultFail $
         IdeError UnknownCommand ("Command " <> com <> " isn't defined for plugin " <> p <> ". Legal commands are: " <> T.pack(show $ map commandName xs)) Null
       Just (PluginCommand _ _ (CmdSync f)) -> case fromJSON arg of
-        Error err -> return $ IdeResponseFail $
+        Error err -> return $ IdeResultFail $
           IdeError ParameterError ("error while parsing args for " <> com <> " in plugin " <> p <> ": " <> T.pack err) Null
         Success a -> do
             res <- f a

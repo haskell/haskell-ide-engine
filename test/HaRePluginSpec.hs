@@ -52,7 +52,7 @@ hareSpec = do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReRename.hs"
           act = renameCmd' uri (toPos (5,1)) "foolong"
           arg = HPT uri (toPos (5,1)) "foolong"
-          res = IdeResponseOk $ WorkspaceEdit
+          res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReRename.hs")
                                 $ List [TextEdit (Range (Position 3 0) (Position 4 13))
                                           "foolong :: Int -> Int\nfoolong x = x + 3"])
@@ -65,7 +65,7 @@ hareSpec = do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReRename.hs"
           act = renameCmd' uri (toPos (15,1)) "foolong"
           arg = HPT uri (toPos (15,1)) "foolong"
-          res = IdeResponseFail
+          res = IdeResultFail
                   IdeError { ideCode = PluginError
                            , ideMessage = "rename: \"Invalid cursor position!\"", ideInfo = Null}
       testCommand testPlugins act "hare" "rename" arg res
@@ -76,7 +76,7 @@ hareSpec = do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReDemote.hs"
           act = demoteCmd' uri (toPos (6,1))
           arg = HP uri (toPos (6,1))
-          res = IdeResponseOk $ WorkspaceEdit
+          res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReDemote.hs")
                                 $ List [TextEdit (Range (Position 4 0) (Position 5 5))
                                           "  where\n    y = 7"])
@@ -89,7 +89,7 @@ hareSpec = do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReRename.hs"
           act = dupdefCmd' uri (toPos (5,1)) "foonew"
           arg = HPT uri (toPos (5,1)) "foonew"
-          res = IdeResponseOk $ WorkspaceEdit
+          res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReRename.hs")
                                 $ List [TextEdit (Range (Position 6 0) (Position 6 0))
                                           "foonew :: Int -> Int\nfoonew x = x + 3\n\n"])
@@ -104,7 +104,7 @@ hareSpec = do
           act = iftocaseCmd' uri (Range (toPos (5,9))
                                         (toPos (9,12)))
           arg = HR uri (toPos (5,9)) (toPos (9,12))
-          res = IdeResponseOk $ WorkspaceEdit
+          res = IdeResultOk $ WorkspaceEdit
             (Just
              $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReCase.hs")
                            $ List [TextEdit (Range (Position 4 0) (Position 8 11))
@@ -119,7 +119,7 @@ hareSpec = do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs"
           act = liftonelevelCmd' uri (toPos (6,5))
           arg = HP uri (toPos (6,5))
-          res = IdeResponseOk $ WorkspaceEdit
+          res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton
               ( filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs" )
               $ List [ TextEdit (Range (Position 6 0) (Position 6 0)) "y = 4\n\n"
@@ -135,7 +135,7 @@ hareSpec = do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs"
           act = lifttotoplevelCmd' uri (toPos (12,9))
           arg = HP uri (toPos (12,9))
-          res = IdeResponseOk $ WorkspaceEdit
+          res = IdeResultOk $ WorkspaceEdit
            (Just $ H.singleton
               ( filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs")
               $ List [ TextEdit (Range (Position 13 0) (Position 13 0)) "\n"
@@ -151,7 +151,7 @@ hareSpec = do
       let uri = filePathToUri $ cwd </> "test/testdata/FuncTest.hs"
           act = deleteDefCmd' uri (toPos (6,1))
           arg = HP uri (toPos (6,1))
-          res = IdeResponseOk $ WorkspaceEdit
+          res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/FuncTest.hs")
                                 $ List [TextEdit (Range (Position 4 0) (Position 6 0)) ""])
             Nothing
@@ -163,7 +163,7 @@ hareSpec = do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReGA1.hs"
           act = genApplicativeCommand' uri (toPos (4,1))
           arg = HP uri (toPos (4,1))
-          res = IdeResponseOk $ WorkspaceEdit
+          res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton ( filePathToUri $ cwd </> "test/testdata/HaReGA1.hs" )
                                 $ List [TextEdit (Range (Position 4 0) (Position 8 12))
                                          "parseStr = char '\"' *> (many1 (noneOf \"\\\"\")) <* char '\"'"])
@@ -178,29 +178,29 @@ hareSpec = do
     it "finds definition across components" $ do
       let u = filePathToUri $ cwd </> "test/testdata/gototest/app/Main.hs"
           lreq = setTypecheckedModule u
-          req = findDef u (toPos (7,8))
+          req = liftToGhc $ findDef u (toPos (7,8))
       r <- dispatchRequestPGoto $ lreq >> req
       r `shouldBe` IdeResponseOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
                                            (Range (toPos (6,1)) (toPos (6,9)))]
-      let req2 = findDef u (toPos (7,20))
+      let req2 = liftToGhc $ findDef u (toPos (7,20))
       r2 <- dispatchRequestPGoto $ lreq >> req2
       r2 `shouldBe` IdeResponseOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
                                             (Range (toPos (5,1)) (toPos (5,2)))]
     it "finds definition in the same component" $ do
       let u = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs"
           lreq = setTypecheckedModule u
-          req = findDef u (toPos (6,5))
+          req = liftToGhc $ findDef u (toPos (6,5))
       r <- dispatchRequestPGoto $ lreq >> req
       r `shouldBe` IdeResponseOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
                                            (Range (toPos (6,1)) (toPos (6,9)))]
     it "finds local definitions" $ do
       let u = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs"
           lreq = setTypecheckedModule u
-          req = findDef u (toPos (7,11))
+          req = liftToGhc $ findDef u (toPos (7,11))
       r <- dispatchRequestPGoto $ lreq >> req
       r `shouldBe` IdeResponseOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
                                            (Range (toPos (10,9)) (toPos (10,10)))]
-      let req2 = findDef u (toPos (10,13))
+      let req2 = liftToGhc $ findDef u (toPos (10,13))
       r2 <- dispatchRequestPGoto $ lreq >> req2
       r2 `shouldBe` IdeResponseOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
                                             (Range (toPos (9,9)) (toPos (9,10)))]

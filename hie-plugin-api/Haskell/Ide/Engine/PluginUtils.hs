@@ -8,6 +8,7 @@ module Haskell.Ide.Engine.PluginUtils
   (
     mapEithers
   , pluginGetFile
+  , pluginGetFileResponse
   , diffText
   , srcSpan2Range
   , srcSpan2Loc
@@ -101,15 +102,25 @@ srcSpan2Loc revMapp spn = runExceptT $ do
 
 -- | Helper function that extracts a filepath from a Uri if the Uri
 -- is well formed (i.e. begins with a file:// )
--- fails with an IdeResponseFail otherwise
+-- fails with an IdeResultFail otherwise
 pluginGetFile
   :: Monad m
-  => T.Text -> Uri -> (FilePath -> m (IdeResponse a)) -> m (IdeResponse a)
+  => T.Text -> Uri -> (FilePath -> m (IdeResult a)) -> m (IdeResult a)
 pluginGetFile name uri f =
   case uriToFilePath uri of
     Just file -> f file
-    Nothing -> return $ IdeResponseFail (IdeError PluginError
+    Nothing -> return $ IdeResultFail (IdeError PluginError
                  (name <> "Couldn't resolve uri" <> getUri uri) Null)
+
+-- | @pluginGetFile but for IdeResponse - use with IdeM
+pluginGetFileResponse
+  :: Monad m
+  => T.Text -> Uri -> (FilePath -> m (IdeResponse a)) -> m (IdeResponse a)
+pluginGetFileResponse name uri f =
+  case uriToFilePath uri of
+    Just file -> f file
+    Nothing -> return $ IdeResponseFail (IdeError PluginError
+                (name <> "Couldn't resolve uri" <> getUri uri) Null)
 
 -- ---------------------------------------------------------------------
 -- courtesy of http://stackoverflow.com/questions/19891061/mapeithers-function-in-haskell
