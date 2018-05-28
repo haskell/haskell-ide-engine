@@ -77,6 +77,7 @@ lspSev SevFatal   = DsError
 lspSev SevInfo    = DsInfo
 lspSev _          = DsInfo
 
+-- type LogAction = DynFlags -> WarnReason -> Severity -> SrcSpan -> PprStyle -> MsgDoc -> IO ()
 logDiag :: (FilePath -> FilePath) -> IORef AdditionalErrs -> IORef Diagnostics -> LogAction
 logDiag rfm eref dref df _reason sev spn style msg = do
   eloc <- srcSpan2Loc rfm spn
@@ -155,7 +156,10 @@ setTypecheckedModule uri =
     fileMap <- GM.getMMappedFiles
     debugm $ "setTypecheckedModule: file mapping state is: " ++ show fileMap
     rfm <- GM.mkRevRedirMapFunc
-    ((diags', errs), mtm) <- GM.getTypecheckedModuleGhc' (myLogger rfm) fp
+    ((diags', errs), mtm) <- GM.gcatches
+                              (GM.getTypecheckedModuleGhc' (myLogger rfm) fp)
+                              [ GM.GHandler $ \(ex :: GM.SomeException) ->
+                                  return ((Map.empty ,[T.pack (show ex)]),Nothing) ]
     canonUri <- canonicalizeUri uri
     let diags = Map.insertWith Set.union canonUri Set.empty diags'
     case mtm of

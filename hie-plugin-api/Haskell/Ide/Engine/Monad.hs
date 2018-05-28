@@ -5,6 +5,7 @@ import           Control.Monad.IO.Class
 import qualified GhcMod.Monad                  as GM
 import qualified GhcMod.Types                  as GM
 import           Haskell.Ide.Engine.MonadTypes
+
 -- ---------------------------------------------------------------------
 
 -- | runIdeGhcM with Cradle found from the current directory
