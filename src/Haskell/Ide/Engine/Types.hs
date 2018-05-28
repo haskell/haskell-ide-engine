@@ -41,3 +41,5 @@ data IdeRequest m = forall a. IdeRequest
   , pureReqCallback :: RequestCallback m a
   , pureReq :: IdeM (IdeResponse a)
   }
+
+-- ---------------------------------------------------------------------

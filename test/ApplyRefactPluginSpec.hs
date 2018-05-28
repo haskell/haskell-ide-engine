@@ -149,23 +149,3 @@ applyRefactSpec = do
             }
            ))
 
-    -- ---------------------------------
-    
-    it "filters code actions for hlint ideas with no refactorings" $ do
-      filePath <- filePathToUri <$> makeAbsolute "./test/testdata/HlintNoRefactorings.hs"
-
-      let diagsReq = lintCmd' filePath
-      (IdeResultOk (PublishDiagnosticsParams _ (List diags))) <- runIGM testPlugins diagsReq
-
-      let req = filterUnrefactorableDiagnostics filePath diags
-      res <- runIGM testPlugins req
-      res `shouldBe`
-        (IdeResultOk
-          [ Diagnostic (Range (Position 3 8) (Position 3 13))
-                      (Just DsInfo)
-                      (Just "Evaluate")
-                      (Just "hlint")
-                      "Evaluate\nFound:\n  id 42\nWhy not:\n  42\n"
-                      Nothing
-          ]
-        )
