@@ -180,8 +180,7 @@ type R = ReaderT (Core.LspFuncs Config) IO
 -- reactor monad functions
 -- ---------------------------------------------------------------------
 
-reactorSend :: (J.ToJSON a, MonadIO m, MonadReader (Core.LspFuncs Config) m)
-  => a -> m ()
+reactorSend :: (MonadIO m, MonadReader (Core.LspFuncs Config) m) => Core.OutMessage -> m ()
 reactorSend msg = do
   sf <- asks Core.sendFunc
   liftIO $ sf msg
@@ -250,7 +249,7 @@ _unmapFileFromVfs verTVar cin uri = do
   case uriToFilePath uri of
     Just fp -> do
       let req = GReq (Just uri) Nothing Nothing (const $ return ())
-                 $ IdeResultOk <$> (GM.unloadMappedFile fp)
+                 $ IdeResultOk <$> GM.unloadMappedFile fp
       liftIO $ atomically $ do
         modifyTVar' verTVar (Map.delete uri)
         writeTChan cin req
@@ -351,7 +350,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
       -- -------------------------------
 
       Core.NotInitialized _notification -> do
-        liftIO $ U.logm $ "****** reactor: processing Initialized Notification"
+        liftIO $ U.logm "****** reactor: processing Initialized Notification"
         -- Server is ready, register any specific capabilities we need
 
          {-
@@ -384,18 +383,18 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         -- place so we know how to do it when we actually need it.
         when False $ do
           rid <- nextLspReqId
-          reactorSend $ fmServerRegisterCapabilityRequest rid registrations
+          reactorSend $ Core.ReqRegisterCapability $ fmServerRegisterCapabilityRequest rid registrations
 
-        reactorSend $
+        reactorSend $ Core.NotLogMessage $
                 fmServerLogMessageNotification J.MtLog $ "Using hie version: " <> T.pack version
 
         lf <- ask
         let hreq = GReq Nothing Nothing Nothing callback $ IdeResultOk <$> Hoogle.initializeHoogleDb
             callback Nothing = flip runReaderT lf $
-              reactorSend $
+              reactorSend $ Core.NotShowMessage $
                 fmServerShowMessageNotification J.MtWarning "No hoogle db found. Check the README for instructions to generate one"
             callback (Just db) = flip runReaderT lf $ do
-              reactorSend $
+              reactorSend $ Core.NotLogMessage $
                 fmServerLogMessageNotification J.MtLog $ "Using hoogle db at: " <> T.pack db
         makeRequest hreq
 
@@ -464,7 +463,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             doc = params ^. J.textDocument . J.uri
             pos = params ^. J.position
             newName  = params ^. J.newName
-            callback = reactorSend . Core.makeResponseMessage req
+            callback = reactorSend . Core.RspRename . Core.makeResponseMessage req
         let hreq = GReq (Just doc) Nothing (Just $ req ^. J.id) callback
                      $ HaRe.renameCmd' doc pos newName
         makeRequest hreq
@@ -486,7 +485,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                     where
                       hovers = catMaybes [typ] ++ fmap J.PlainString docs
                 rspMsg = Core.makeResponseMessage req ht
-              reactorSend rspMsg
+              reactorSend $ Core.RspHover rspMsg
         let
           getHoverInfo :: IdeM (IdeResponse (Maybe J.MarkedString, [T.Text], Maybe Range))
           getHoverInfo = runIdeResponseT $ do
@@ -543,7 +542,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                   else return (IdeResponseOk (Nothing,[],Nothing))
         makeRequest hreq
 
-        liftIO $ U.logs $ "reactor:HoverRequest done"
+        liftIO $ U.logs "reactor:HoverRequest done"
 
       -- -------------------------------
 
@@ -575,7 +574,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
            -- TODO: make context specific commands for all sorts of things, such as refactorings
         let body = J.List $ concatMap makeCommand $ filter validCommand diags
         let rspMsg = Core.makeResponseMessage req body
-        reactorSend rspMsg
+        reactorSend $ Core.RspCodeAction rspMsg
 
 
       -- -------------------------------
@@ -596,11 +595,11 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
               case fromDynJSON obj :: Maybe J.WorkspaceEdit of
                 Just v -> do
                   lid <- nextLspReqId
-                  reactorSend $ Core.makeResponseMessage req (J.Object mempty)
+                  reactorSend $ Core.RspExecuteCommand $ Core.makeResponseMessage req (J.Object mempty)
                   let msg = fmServerApplyWorkspaceEditRequest lid $ J.ApplyWorkspaceEditParams v
                   liftIO $ U.logs $ "ExecuteCommand sending edit: " ++ show msg
-                  reactorSend msg
-                Nothing -> reactorSend $ Core.makeResponseMessage req $ dynToJSON obj
+                  reactorSend $ Core.ReqApplyWorkspaceEdit msg
+                Nothing -> reactorSend $ Core.RspExecuteCommand $ Core.makeResponseMessage req $ dynToJSON obj
         let (plugin,cmd) = T.break (==':') command
         let preq = GReq Nothing Nothing (Just $ req ^. J.id) callback
                      $ runPluginCommand plugin (T.drop 1 cmd) cmdparams
@@ -619,7 +618,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let callback compls = do
               let rspMsg = Core.makeResponseMessage req
                             $ J.Completions $ J.List compls
-              reactorSend rspMsg
+              reactorSend $ Core.RspCompletion rspMsg
         case mprefix of
           Nothing -> callback []
           Just prefix -> do
@@ -636,9 +635,9 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             callback docs = do
               let rspMsg = Core.makeResponseMessage req $
                             origCompl & J.documentation .~ docs
-              reactorSend rspMsg
+              reactorSend $ Core.RspCompletionItemResolve rspMsg
             hreq = IReq (req ^. J.id) callback $ runIdeResponseT $ case mquery of
-                      Nothing -> return $ Nothing
+                      Nothing -> return Nothing
                       Just query -> do
                         result <- lift $ Hoogle.infoCmd' query
                         case result of
@@ -653,7 +652,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let params = req ^. J.params
             doc = params ^. (J.textDocument . J.uri)
             pos = params ^. J.position
-            callback = reactorSend . Core.makeResponseMessage req . J.List
+            callback = reactorSend . Core.RspDocumentHighlights . Core.makeResponseMessage req . J.List
         let hreq = IReq (req ^. J.id) callback
                  $ Hie.getReferencesInDoc doc pos
         makeRequest hreq
@@ -664,7 +663,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let params = req ^. J.params
             doc = params ^. J.textDocument . J.uri
             pos = params ^. J.position
-            callback = reactorSend . Core.makeResponseMessage req
+            callback = reactorSend . Core.RspDefinition . Core.makeResponseMessage req
         let hreq = IReq (req ^. J.id) callback
                      $ fmap J.MultiLoc <$> Hie.findDef doc pos
         makeRequest hreq
@@ -675,7 +674,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let params = req ^. J.params
             doc = params ^. (J.textDocument . J.uri)
             pos = params ^. J.position
-            callback = reactorSend . Core.makeResponseMessage req . J.List
+            callback = reactorSend . Core.RspFindReferences . Core.makeResponseMessage req . J.List
         let hreq = IReq (req ^. J.id) callback
                  $ fmap (map (J.Location doc . (^. J.range)))
                  <$> Hie.getReferencesInDoc doc pos
@@ -688,7 +687,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let params = req ^. J.params
             doc = params ^. J.textDocument . J.uri
             tabSize = params ^. J.options . J.tabSize
-            callback = reactorSend . Core.makeResponseMessage req . J.List
+            callback = reactorSend . Core.RspDocumentFormatting . Core.makeResponseMessage req . J.List
         let hreq = GReq (Just doc) Nothing (Just $ req ^. J.id) callback
                      $ Brittany.brittanyCmd tabSize doc Nothing
         makeRequest hreq
@@ -701,7 +700,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             doc = params ^. J.textDocument . J.uri
             range = params ^. J.range
             tabSize = params ^. J.options . J.tabSize
-            callback = reactorSend . Core.makeResponseMessage req . J.List
+            callback = reactorSend . Core.RspDocumentRangeFormatting . Core.makeResponseMessage req . J.List
         let hreq = GReq (Just doc) Nothing (Just $ req ^. J.id) callback
                      $ Brittany.brittanyCmd tabSize doc (Just range)
         makeRequest hreq
@@ -711,7 +710,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
       Core.ReqDocumentSymbols req -> do
         liftIO $ U.logs $ "reactor:got Document symbol request:" ++ show req
         let uri = req ^. J.params . J.textDocument . J.uri
-            callback = reactorSend . Core.makeResponseMessage req . J.List
+            callback = reactorSend . Core.RspDocumentSymbols . Core.makeResponseMessage req . J.List
         let hreq = IReq (req ^. J.id) callback
                  $ Hie.getSymbols uri
         makeRequest hreq
@@ -781,7 +780,7 @@ requestDiagnostics cin file ver = do
     -- | If there is a GHC error, flush the hlint diagnostics
     sendOneGhc :: J.DiagnosticSource -> (Uri, [Diagnostic]) -> R ()
     sendOneGhc pid (fileUri,ds) = do
-      if (any (hasSeverity J.DsError) ds)
+      if any (hasSeverity J.DsError) ds
         then publishDiagnostics maxToSend fileUri Nothing
                (Map.fromList [(Just "hlint",SL.toSortedList []),(Just pid,SL.toSortedList ds)])
         else sendOne pid (fileUri,ds)
@@ -808,7 +807,7 @@ requestDiagnostics cin file ver = do
                $ GhcMod.setTypecheckedModule file
       callbackg (pd, errs) = do
         forM_ errs $ \e -> do
-          reactorSend $
+          reactorSend $ Core.NotShowMessage $
             fmServerShowMessageNotification J.MtError
               $ "Got error while processing diagnostics: " <> e
         let ds = Map.toList $ S.toList <$> pd
