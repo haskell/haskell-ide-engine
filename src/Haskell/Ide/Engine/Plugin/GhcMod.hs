@@ -136,20 +136,7 @@ myLogger rfm action = do
   errRef <- liftIO $ newIORef []
   let setLogger df = df { log_action = logDiag rfm errRef diagRef }
       ghcErrRes msg = (Map.empty, [T.pack msg])
-      handlers =
-        [ GM.GHandler $ \(ex :: GM.GhcModError) ->
-            return (Map.empty ,[T.pack (show ex)])
-        , GM.GHandler $ \(ex :: IOEnvFailure) ->
-            return (Map.empty ,[T.pack (show ex)])
-        , GM.GHandler $ \(ex :: GhcApiError) ->
-            return (Map.empty ,[T.pack (show ex)])
-        , GM.GHandler $ \(ex :: SourceError) ->
-            srcErrToDiag (hsc_dflags env) rfm ex
-        , GM.GHandler $ \(ex :: GhcException) ->
-            return $ ghcErrRes $ GM.renderGm $ GM.ghcExceptionDoc ex
-        -- , GM.GHandler $ \(ex :: GM.SomeException) ->
-        --     return (Map.empty ,[T.pack (show ex)])
-        ]
+      handlers = errorHandlers ghcErrRes (srcErrToDiag (hsc_dflags env) rfm )
       action' = do
         GM.withDynFlags setLogger action
         diags <- liftIO $ readIORef diagRef
@@ -157,25 +144,37 @@ myLogger rfm action = do
         return (diags,errs)
   GM.gcatches action' handlers
 
+errorHandlers :: (Monad m) => (String -> a) -> (SourceError -> m a) -> [GM.GHandler m a]
+errorHandlers ghcErrRes renderSourceError = handlers
+  where
+      -- ghc throws GhcException, SourceError, GhcApiError and
+      -- IOEnvFailure. ghc-mod-core throws GhcModError.
+      handlers =
+        [ GM.GHandler $ \(ex :: GM.GhcModError) ->
+            return $ ghcErrRes (show ex)
+        , GM.GHandler $ \(ex :: IOEnvFailure) ->
+            return $ ghcErrRes (show ex)
+        , GM.GHandler $ \(ex :: GhcApiError) ->
+            return $ ghcErrRes (show ex)
+        , GM.GHandler $ \(ex :: SourceError) ->
+            renderSourceError ex
+        , GM.GHandler $ \(ex :: GhcException) ->
+            return $ ghcErrRes $ GM.renderGm $ GM.ghcExceptionDoc ex
+        -- , GM.GHandler $ \(ex :: GM.SomeException) ->
+        --     return (Map.empty ,[T.pack (show ex)])
+        ]
+
 setTypecheckedModule :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
 setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     fileMap <- GM.getMMappedFiles
     debugm $ "setTypecheckedModule: file mapping state is: " ++ show fileMap
     rfm <- GM.mkRevRedirMapFunc
+    let
+      ghcErrRes msg = ((Map.empty, [T.pack msg]),Nothing)
     ((diags', errs), mtm) <- GM.gcatches
                               (GM.getTypecheckedModuleGhc' (myLogger rfm) fp)
-                              [ GM.GHandler $ \(ex :: GM.GhcModError) ->
-                                  return ((Map.empty ,[T.pack (show ex)]),Nothing)
-                              , GM.GHandler $ \(ex :: IOEnvFailure) ->
-                                  return ((Map.empty ,[T.pack (show ex)]),Nothing)
-                              , GM.GHandler $ \(ex :: GhcApiError) ->
-                                  return ((Map.empty ,[T.pack (show ex)]),Nothing)
-                              , GM.GHandler $ \(ex :: SourceError) ->
-                                  return ((Map.empty ,[T.pack (show ex)]),Nothing)
-                              , GM.GHandler $ \(ex :: GhcException) ->
-                                  return ((Map.empty ,[T.pack (GM.renderGm $ GM.ghcExceptionDoc ex)]),Nothing) ]
--- ghc throws SourceError, GhcApiError and IOEnvFailure. ghc-mod-core throws GhcModError.
+                              (errorHandlers ghcErrRes (return . ghcErrRes . show))
     canonUri <- canonicalizeUri uri
     let diags = Map.insertWith Set.union canonUri Set.empty diags'
     case mtm of
