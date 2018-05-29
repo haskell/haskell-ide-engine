@@ -809,7 +809,7 @@ requestDiagnostics cin file ver = do
       callbackg (pd, errs) = do
         forM_ errs $ \e -> do
           reactorSend $
-            fmServerLogMessageNotification J.MtError
+            fmServerShowMessageNotification J.MtError
               $ "Got error while processing diagnostics: " <> e
         let ds = Map.toList $ S.toList <$> pd
         case ds of

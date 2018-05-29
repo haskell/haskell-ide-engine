@@ -24,6 +24,7 @@ import           DynFlags
 import           ErrUtils
 import qualified Exception                         as G
 import           GHC
+import           IOEnv                             as G
 import           GHC.Generics
 import qualified GhcMod                            as GM
 import qualified GhcMod.DynFlags                   as GM
@@ -77,6 +78,7 @@ lspSev SevFatal   = DsError
 lspSev SevInfo    = DsInfo
 lspSev _          = DsInfo
 
+-- type LogAction = DynFlags -> WarnReason -> Severity -> SrcSpan -> PprStyle -> MsgDoc -> IO ()
 logDiag :: (FilePath -> FilePath) -> IORef AdditionalErrs -> IORef Diagnostics -> LogAction
 logDiag rfm eref dref df _reason sev spn style msg = do
   eloc <- srcSpan2Loc rfm spn
@@ -134,14 +136,7 @@ myLogger rfm action = do
   errRef <- liftIO $ newIORef []
   let setLogger df = df { log_action = logDiag rfm errRef diagRef }
       ghcErrRes msg = (Map.empty, [T.pack msg])
-      handlers =
-        [ GM.GHandler $ \ex ->
-            srcErrToDiag (hsc_dflags env) rfm ex
-        , GM.GHandler $ \ex ->
-            return $ ghcErrRes $ GM.renderGm $ GM.ghcExceptionDoc ex
-        , GM.GHandler $ \(ex :: GM.SomeException) ->
-            return (Map.empty ,[T.pack (show ex)])
-        ]
+      handlers = errorHandlers ghcErrRes (srcErrToDiag (hsc_dflags env) rfm )
       action' = do
         GM.withDynFlags setLogger action
         diags <- liftIO $ readIORef diagRef
@@ -149,13 +144,37 @@ myLogger rfm action = do
         return (diags,errs)
   GM.gcatches action' handlers
 
+errorHandlers :: (Monad m) => (String -> a) -> (SourceError -> m a) -> [GM.GHandler m a]
+errorHandlers ghcErrRes renderSourceError = handlers
+  where
+      -- ghc throws GhcException, SourceError, GhcApiError and
+      -- IOEnvFailure. ghc-mod-core throws GhcModError.
+      handlers =
+        [ GM.GHandler $ \(ex :: GM.GhcModError) ->
+            return $ ghcErrRes (show ex)
+        , GM.GHandler $ \(ex :: IOEnvFailure) ->
+            return $ ghcErrRes (show ex)
+        , GM.GHandler $ \(ex :: GhcApiError) ->
+            return $ ghcErrRes (show ex)
+        , GM.GHandler $ \(ex :: SourceError) ->
+            renderSourceError ex
+        , GM.GHandler $ \(ex :: GhcException) ->
+            return $ ghcErrRes $ GM.renderGm $ GM.ghcExceptionDoc ex
+        -- , GM.GHandler $ \(ex :: GM.SomeException) ->
+        --     return (Map.empty ,[T.pack (show ex)])
+        ]
+
 setTypecheckedModule :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
 setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     fileMap <- GM.getMMappedFiles
     debugm $ "setTypecheckedModule: file mapping state is: " ++ show fileMap
     rfm <- GM.mkRevRedirMapFunc
-    ((diags', errs), mtm) <- GM.getTypecheckedModuleGhc' (myLogger rfm) fp
+    let
+      ghcErrRes msg = ((Map.empty, [T.pack msg]),Nothing)
+    ((diags', errs), mtm) <- GM.gcatches
+                              (GM.getTypecheckedModuleGhc' (myLogger rfm) fp)
+                              (errorHandlers ghcErrRes (return . ghcErrRes . show))
     canonUri <- canonicalizeUri uri
     let diags = Map.insertWith Set.union canonUri Set.empty diags'
     case mtm of
