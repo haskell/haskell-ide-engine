@@ -24,6 +24,7 @@ import           DynFlags
 import           ErrUtils
 import qualified Exception                         as G
 import           GHC
+import           IOEnv                             as G
 import           GHC.Generics
 import qualified GhcMod                            as GM
 import qualified GhcMod.DynFlags                   as GM
@@ -136,12 +137,18 @@ myLogger rfm action = do
   let setLogger df = df { log_action = logDiag rfm errRef diagRef }
       ghcErrRes msg = (Map.empty, [T.pack msg])
       handlers =
-        [ GM.GHandler $ \ex ->
-            srcErrToDiag (hsc_dflags env) rfm ex
-        , GM.GHandler $ \ex ->
-            return $ ghcErrRes $ GM.renderGm $ GM.ghcExceptionDoc ex
-        , GM.GHandler $ \(ex :: GM.SomeException) ->
+        [ GM.GHandler $ \(ex :: GM.GhcModError) ->
             return (Map.empty ,[T.pack (show ex)])
+        , GM.GHandler $ \(ex :: IOEnvFailure) ->
+            return (Map.empty ,[T.pack (show ex)])
+        , GM.GHandler $ \(ex :: GhcApiError) ->
+            return (Map.empty ,[T.pack (show ex)])
+        , GM.GHandler $ \(ex :: SourceError) ->
+            srcErrToDiag (hsc_dflags env) rfm ex
+        , GM.GHandler $ \(ex :: GhcException) ->
+            return $ ghcErrRes $ GM.renderGm $ GM.ghcExceptionDoc ex
+        -- , GM.GHandler $ \(ex :: GM.SomeException) ->
+        --     return (Map.empty ,[T.pack (show ex)])
         ]
       action' = do
         GM.withDynFlags setLogger action
@@ -158,8 +165,17 @@ setTypecheckedModule uri =
     rfm <- GM.mkRevRedirMapFunc
     ((diags', errs), mtm) <- GM.gcatches
                               (GM.getTypecheckedModuleGhc' (myLogger rfm) fp)
-                              [ GM.GHandler $ \(ex :: GM.SomeException) ->
-                                  return ((Map.empty ,[T.pack (show ex)]),Nothing) ]
+                              [ GM.GHandler $ \(ex :: GM.GhcModError) ->
+                                  return ((Map.empty ,[T.pack (show ex)]),Nothing)
+                              , GM.GHandler $ \(ex :: IOEnvFailure) ->
+                                  return ((Map.empty ,[T.pack (show ex)]),Nothing)
+                              , GM.GHandler $ \(ex :: GhcApiError) ->
+                                  return ((Map.empty ,[T.pack (show ex)]),Nothing)
+                              , GM.GHandler $ \(ex :: SourceError) ->
+                                  return ((Map.empty ,[T.pack (show ex)]),Nothing)
+                              , GM.GHandler $ \(ex :: GhcException) ->
+                                  return ((Map.empty ,[T.pack (GM.renderGm $ GM.ghcExceptionDoc ex)]),Nothing) ]
+-- ghc throws SourceError, GhcApiError and IOEnvFailure. ghc-mod-core throws GhcModError.
     canonUri <- canonicalizeUri uri
     let diags = Map.insertWith Set.union canonUri Set.empty diags'
     case mtm of
