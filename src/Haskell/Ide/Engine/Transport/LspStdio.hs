@@ -112,7 +112,7 @@ run dispatcherProc cin _origDir = flip E.catches handlers $ do
 
   flip E.finally finalProc $ do
     -- TODO: Merge this with branch for recording client output
-    CTRL.run (getConfig,dp) (hieHandlers rin) hieOptions Nothing Nothing
+    CTRL.run (getConfig,dp) (hieHandlers rin) hieOptions Nothing
 
   where
     handlers = [ E.Handler ioExcept
@@ -125,7 +125,7 @@ run dispatcherProc cin _origDir = flip E.catches handlers $ do
 -- ---------------------------------------------------------------------
 
 type ReactorInput
-  = Core.OutMessage
+  = FromClientMessage
       -- ^ injected into the reactor input by each of the individual callback handlers
 
 -- ---------------------------------------------------------------------
@@ -180,7 +180,7 @@ type R = ReaderT (Core.LspFuncs Config) IO
 -- reactor monad functions
 -- ---------------------------------------------------------------------
 
-reactorSend :: (MonadIO m, MonadReader (Core.LspFuncs Config) m) => Core.OutMessage -> m ()
+reactorSend :: (MonadIO m, MonadReader (Core.LspFuncs Config) m) => FromServerMessage -> m ()
 reactorSend msg = do
   sf <- asks Core.sendFunc
   liftIO $ sf msg
@@ -341,7 +341,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
   forever $ do
     inval <- liftIO $ atomically $ readTChan inp
     case inval of
-      Core.RspFromClient resp@(J.ResponseMessage _ _ _ merr) -> do
+      RspFromClient resp@(J.ResponseMessage _ _ _ merr) -> do
         liftIO $ U.logs $ "reactor:got RspFromClient:" ++ show resp
         case merr of
           Nothing -> return ()
@@ -349,7 +349,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
 
       -- -------------------------------
 
-      Core.NotInitialized _notification -> do
+      NotInitialized _notification -> do
         liftIO $ U.logm "****** reactor: processing Initialized Notification"
         -- Server is ready, register any specific capabilities we need
 
@@ -383,24 +383,24 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         -- place so we know how to do it when we actually need it.
         when False $ do
           rid <- nextLspReqId
-          reactorSend $ Core.ReqRegisterCapability $ fmServerRegisterCapabilityRequest rid registrations
+          reactorSend $ ReqRegisterCapability $ fmServerRegisterCapabilityRequest rid registrations
 
-        reactorSend $ Core.NotLogMessage $
+        reactorSend $ NotLogMessage $
                 fmServerLogMessageNotification J.MtLog $ "Using hie version: " <> T.pack version
 
         lf <- ask
         let hreq = GReq Nothing Nothing Nothing callback $ IdeResultOk <$> Hoogle.initializeHoogleDb
             callback Nothing = flip runReaderT lf $
-              reactorSend $ Core.NotShowMessage $
+              reactorSend $ NotShowMessage $
                 fmServerShowMessageNotification J.MtWarning "No hoogle db found. Check the README for instructions to generate one"
             callback (Just db) = flip runReaderT lf $ do
-              reactorSend $ Core.NotLogMessage $
+              reactorSend $ NotLogMessage $
                 fmServerLogMessageNotification J.MtLog $ "Using hoogle db at: " <> T.pack db
         makeRequest hreq
 
       -- -------------------------------
 
-      Core.NotDidOpenTextDocument notification -> do
+      NotDidOpenTextDocument notification -> do
         liftIO $ U.logm "****** reactor: processing NotDidOpenTextDocument"
         let
             td  = notification ^. J.params . J.textDocument
@@ -411,12 +411,12 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
 
       -- -------------------------------
 
-      Core.NotWillSaveTextDocument _notification -> do
+      NotWillSaveTextDocument _notification -> do
         liftIO $ U.logm "****** reactor: not processing NotWillSaveTextDocument"
 
-      Core.NotDidChangeWatchedFiles _notification -> do
+      NotDidChangeWatchedFiles _notification -> do
         liftIO $ U.logm "****** reactor: not processing NotDidChangeWatchedFiles"
-      Core.NotDidSaveTextDocument notification -> do
+      NotDidSaveTextDocument notification -> do
         liftIO $ U.logm "****** reactor: processing NotDidSaveTextDocument"
         let
             uri = notification ^. J.params . J.textDocument . J.uri
@@ -428,7 +428,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             liftIO $ atomically $ modifyTVar' versionTVar (Map.insert uri ver)
             requestDiagnostics cin uri ver
 
-      Core.NotDidChangeTextDocument notification -> do
+      NotDidChangeTextDocument notification -> do
         liftIO $ U.logm "****** reactor: processing NotDidChangeTextDocument"
         let
             params = notification ^. J.params
@@ -445,7 +445,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             updatePositionMap uri changes
         requestDiagnostics cin uri ver
 
-      Core.NotDidCloseTextDocument notification -> do
+      NotDidCloseTextDocument notification -> do
         liftIO $ U.logm "****** reactor: processing NotDidCloseTextDocument"
         let
             uri = notification ^. J.params . J.textDocument . J.uri
@@ -457,13 +457,13 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
 
       -- -------------------------------
 
-      Core.ReqRename req -> do
+      ReqRename req -> do
         liftIO $ U.logs $ "reactor:got RenameRequest:" ++ show req
         let params = req ^. J.params
             doc = params ^. J.textDocument . J.uri
             pos = params ^. J.position
             newName  = params ^. J.newName
-            callback = reactorSend . Core.RspRename . Core.makeResponseMessage req
+            callback = reactorSend . RspRename . Core.makeResponseMessage req
         let hreq = GReq (Just doc) Nothing (Just $ req ^. J.id) callback
                      $ HaRe.renameCmd' doc pos newName
         makeRequest hreq
@@ -471,7 +471,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
 
       -- -------------------------------
 
-      Core.ReqHover req -> do
+      ReqHover req -> do
         liftIO $ U.logs $ "reactor:got HoverRequest:" ++ show req
         let params = req ^. J.params
             pos = params ^. J.position
@@ -485,7 +485,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                     where
                       hovers = catMaybes [typ] ++ fmap J.PlainString docs
                 rspMsg = Core.makeResponseMessage req ht
-              reactorSend $ Core.RspHover rspMsg
+              reactorSend $ RspHover rspMsg
         let
           getHoverInfo :: IdeM (IdeResponse (Maybe J.MarkedString, [T.Text], Maybe Range))
           getHoverInfo = runIdeResponseT $ do
@@ -546,7 +546,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
 
       -- -------------------------------
 
-      Core.ReqCodeAction req -> do
+      ReqCodeAction req -> do
         liftIO $ U.logs $ "reactor:got CodeActionRequest:" ++ show req
 
         let params = req ^. J.params
@@ -574,12 +574,12 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
            -- TODO: make context specific commands for all sorts of things, such as refactorings
         let body = J.List $ concatMap makeCommand $ filter validCommand diags
         let rspMsg = Core.makeResponseMessage req body
-        reactorSend $ Core.RspCodeAction rspMsg
+        reactorSend $ RspCodeAction rspMsg
 
 
       -- -------------------------------
 
-      Core.ReqExecuteCommand req -> do
+      ReqExecuteCommand req -> do
         liftIO $ U.logs $ "reactor:got ExecuteCommandRequest:" ++ show req
         let params = req ^. J.params
             command = params ^. J.command
@@ -595,11 +595,11 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
               case fromDynJSON obj :: Maybe J.WorkspaceEdit of
                 Just v -> do
                   lid <- nextLspReqId
-                  reactorSend $ Core.RspExecuteCommand $ Core.makeResponseMessage req (J.Object mempty)
+                  reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req (J.Object mempty)
                   let msg = fmServerApplyWorkspaceEditRequest lid $ J.ApplyWorkspaceEditParams v
                   liftIO $ U.logs $ "ExecuteCommand sending edit: " ++ show msg
-                  reactorSend $ Core.ReqApplyWorkspaceEdit msg
-                Nothing -> reactorSend $ Core.RspExecuteCommand $ Core.makeResponseMessage req $ dynToJSON obj
+                  reactorSend $ ReqApplyWorkspaceEdit msg
+                Nothing -> reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req $ dynToJSON obj
         let (plugin,cmd) = T.break (==':') command
         let preq = GReq Nothing Nothing (Just $ req ^. J.id) callback
                      $ runPluginCommand plugin (T.drop 1 cmd) cmdparams
@@ -607,7 +607,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
 
       -- -------------------------------
 
-      Core.ReqCompletion req -> do
+      ReqCompletion req -> do
         liftIO $ U.logs $ "reactor:got CompletionRequest:" ++ show req
         let params = req ^. J.params
             doc = params ^. (J.textDocument . J.uri)
@@ -618,7 +618,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         let callback compls = do
               let rspMsg = Core.makeResponseMessage req
                             $ J.Completions $ J.List compls
-              reactorSend $ Core.RspCompletion rspMsg
+              reactorSend $ RspCompletion rspMsg
         case mprefix of
           Nothing -> callback []
           Just prefix -> do
@@ -626,7 +626,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                          $ Hie.getCompletions doc prefix
             makeRequest hreq
 
-      Core.ReqCompletionItemResolve req -> do
+      ReqCompletionItemResolve req -> do
         liftIO $ U.logs $ "reactor:got CompletionItemResolveRequest:" ++ show req
         let origCompl = req ^. J.params
             mquery = case J.fromJSON <$> origCompl ^. J.xdata of
@@ -635,7 +635,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
             callback docs = do
               let rspMsg = Core.makeResponseMessage req $
                             origCompl & J.documentation .~ docs
-              reactorSend $ Core.RspCompletionItemResolve rspMsg
+              reactorSend $ RspCompletionItemResolve rspMsg
             hreq = IReq (req ^. J.id) callback $ runIdeResponseT $ case mquery of
                       Nothing -> return Nothing
                       Just query -> do
@@ -647,34 +647,34 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
 
       -- -------------------------------
 
-      Core.ReqDocumentHighlights req -> do
+      ReqDocumentHighlights req -> do
         liftIO $ U.logs $ "reactor:got DocumentHighlightsRequest:" ++ show req
         let params = req ^. J.params
             doc = params ^. (J.textDocument . J.uri)
             pos = params ^. J.position
-            callback = reactorSend . Core.RspDocumentHighlights . Core.makeResponseMessage req . J.List
+            callback = reactorSend . RspDocumentHighlights . Core.makeResponseMessage req . J.List
         let hreq = IReq (req ^. J.id) callback
                  $ Hie.getReferencesInDoc doc pos
         makeRequest hreq
 
       -- -------------------------------
-      Core.ReqDefinition req -> do
+      ReqDefinition req -> do
         liftIO $ U.logs $ "reactor:got DefinitionRequest:" ++ show req
         let params = req ^. J.params
             doc = params ^. J.textDocument . J.uri
             pos = params ^. J.position
-            callback = reactorSend . Core.RspDefinition . Core.makeResponseMessage req
+            callback = reactorSend . RspDefinition . Core.makeResponseMessage req
         let hreq = IReq (req ^. J.id) callback
                      $ fmap J.MultiLoc <$> Hie.findDef doc pos
         makeRequest hreq
 
-      Core.ReqFindReferences req -> do
+      ReqFindReferences req -> do
         liftIO $ U.logs $ "reactor:got FindReferences:" ++ show req
         -- TODO: implement project-wide references
         let params = req ^. J.params
             doc = params ^. (J.textDocument . J.uri)
             pos = params ^. J.position
-            callback = reactorSend . Core.RspFindReferences . Core.makeResponseMessage req . J.List
+            callback = reactorSend . RspFindReferences . Core.makeResponseMessage req . J.List
         let hreq = IReq (req ^. J.id) callback
                  $ fmap (map (J.Location doc . (^. J.range)))
                  <$> Hie.getReferencesInDoc doc pos
@@ -682,42 +682,42 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
 
       -- -------------------------------
 
-      Core.ReqDocumentFormatting req -> do
+      ReqDocumentFormatting req -> do
         liftIO $ U.logs $ "reactor:got FormatRequest:" ++ show req
         let params = req ^. J.params
             doc = params ^. J.textDocument . J.uri
             tabSize = params ^. J.options . J.tabSize
-            callback = reactorSend . Core.RspDocumentFormatting . Core.makeResponseMessage req . J.List
+            callback = reactorSend . RspDocumentFormatting . Core.makeResponseMessage req . J.List
         let hreq = GReq (Just doc) Nothing (Just $ req ^. J.id) callback
                      $ Brittany.brittanyCmd tabSize doc Nothing
         makeRequest hreq
 
       -- -------------------------------
 
-      Core.ReqDocumentRangeFormatting req -> do
+      ReqDocumentRangeFormatting req -> do
         liftIO $ U.logs $ "reactor:got FormatRequest:" ++ show req
         let params = req ^. J.params
             doc = params ^. J.textDocument . J.uri
             range = params ^. J.range
             tabSize = params ^. J.options . J.tabSize
-            callback = reactorSend . Core.RspDocumentRangeFormatting . Core.makeResponseMessage req . J.List
+            callback = reactorSend . RspDocumentRangeFormatting . Core.makeResponseMessage req . J.List
         let hreq = GReq (Just doc) Nothing (Just $ req ^. J.id) callback
                      $ Brittany.brittanyCmd tabSize doc (Just range)
         makeRequest hreq
 
       -- -------------------------------
 
-      Core.ReqDocumentSymbols req -> do
+      ReqDocumentSymbols req -> do
         liftIO $ U.logs $ "reactor:got Document symbol request:" ++ show req
         let uri = req ^. J.params . J.textDocument . J.uri
-            callback = reactorSend . Core.RspDocumentSymbols . Core.makeResponseMessage req . J.List
+            callback = reactorSend . RspDocumentSymbols . Core.makeResponseMessage req . J.List
         let hreq = IReq (req ^. J.id) callback
                  $ Hie.getSymbols uri
         makeRequest hreq
 
       -- -------------------------------
 
-      Core.NotCancelRequest notif -> do
+      NotCancelRequestFromClient notif -> do
         liftIO $ U.logs $ "reactor:got CancelRequest:" ++ show notif
         let lid = notif ^. J.params . J.id
         liftIO $ atomically $ do
@@ -727,7 +727,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
 
       -- -------------------------------
 
-      Core.NotDidChangeConfigurationParams notif -> do
+      NotDidChangeConfiguration notif -> do
         liftIO $ U.logs $ "reactor:didChangeConfiguration notification:" ++ show notif
         -- if hlint has been turned off, flush the disgnostics
         diagsOn              <- configVal True hlintOn
@@ -807,7 +807,7 @@ requestDiagnostics cin file ver = do
                $ GhcMod.setTypecheckedModule file
       callbackg (pd, errs) = do
         forM_ errs $ \e -> do
-          reactorSend $ Core.NotShowMessage $
+          reactorSend $ NotShowMessage $
             fmServerShowMessageNotification J.MtError
               $ "Got error while processing diagnostics: " <> e
         let ds = Map.toList $ S.toList <$> pd
@@ -844,33 +844,33 @@ hieOptions =
 
 hieHandlers :: TChan ReactorInput -> Core.Handlers
 hieHandlers rin
-  = def { Core.initializedHandler                       = Just $ passHandler rin Core.NotInitialized
-        , Core.renameHandler                            = Just $ passHandler rin Core.ReqRename
-        , Core.definitionHandler                        = Just $ passHandler rin Core.ReqDefinition
-        , Core.referencesHandler                        = Just $ passHandler rin Core.ReqFindReferences
-        , Core.hoverHandler                             = Just $ passHandler rin Core.ReqHover
-        , Core.didOpenTextDocumentNotificationHandler   = Just $ passHandler rin Core.NotDidOpenTextDocument
-        , Core.willSaveTextDocumentNotificationHandler  = Just $ passHandler rin Core.NotWillSaveTextDocument
-        , Core.didSaveTextDocumentNotificationHandler   = Just $ passHandler rin Core.NotDidSaveTextDocument
-        , Core.didChangeWatchedFilesNotificationHandler = Just $ passHandler rin Core.NotDidChangeWatchedFiles
-        , Core.didChangeTextDocumentNotificationHandler = Just $ passHandler rin Core.NotDidChangeTextDocument
-        , Core.didCloseTextDocumentNotificationHandler  = Just $ passHandler rin Core.NotDidCloseTextDocument
-        , Core.cancelNotificationHandler                = Just $ passHandler rin Core.NotCancelRequest
-        , Core.didChangeConfigurationParamsHandler      = Just $ passHandler rin Core.NotDidChangeConfigurationParams
-        , Core.responseHandler                          = Just $ passHandler rin Core.RspFromClient
-        , Core.codeActionHandler                        = Just $ passHandler rin Core.ReqCodeAction
-        , Core.executeCommandHandler                    = Just $ passHandler rin Core.ReqExecuteCommand
-        , Core.completionHandler                        = Just $ passHandler rin Core.ReqCompletion
-        , Core.completionResolveHandler                 = Just $ passHandler rin Core.ReqCompletionItemResolve
-        , Core.documentHighlightHandler                 = Just $ passHandler rin Core.ReqDocumentHighlights
-        , Core.documentFormattingHandler                = Just $ passHandler rin Core.ReqDocumentFormatting
-        , Core.documentRangeFormattingHandler           = Just $ passHandler rin Core.ReqDocumentRangeFormatting
-        , Core.documentSymbolHandler                    = Just $ passHandler rin Core.ReqDocumentSymbols
+  = def { Core.initializedHandler                       = Just $ passHandler rin NotInitialized
+        , Core.renameHandler                            = Just $ passHandler rin ReqRename
+        , Core.definitionHandler                        = Just $ passHandler rin ReqDefinition
+        , Core.referencesHandler                        = Just $ passHandler rin ReqFindReferences
+        , Core.hoverHandler                             = Just $ passHandler rin ReqHover
+        , Core.didOpenTextDocumentNotificationHandler   = Just $ passHandler rin NotDidOpenTextDocument
+        , Core.willSaveTextDocumentNotificationHandler  = Just $ passHandler rin NotWillSaveTextDocument
+        , Core.didSaveTextDocumentNotificationHandler   = Just $ passHandler rin NotDidSaveTextDocument
+        , Core.didChangeWatchedFilesNotificationHandler = Just $ passHandler rin NotDidChangeWatchedFiles
+        , Core.didChangeTextDocumentNotificationHandler = Just $ passHandler rin NotDidChangeTextDocument
+        , Core.didCloseTextDocumentNotificationHandler  = Just $ passHandler rin NotDidCloseTextDocument
+        , Core.cancelNotificationHandler                = Just $ passHandler rin NotCancelRequestFromClient
+        , Core.didChangeConfigurationParamsHandler      = Just $ passHandler rin NotDidChangeConfiguration
+        , Core.responseHandler                          = Just $ passHandler rin RspFromClient
+        , Core.codeActionHandler                        = Just $ passHandler rin ReqCodeAction
+        , Core.executeCommandHandler                    = Just $ passHandler rin ReqExecuteCommand
+        , Core.completionHandler                        = Just $ passHandler rin ReqCompletion
+        , Core.completionResolveHandler                 = Just $ passHandler rin ReqCompletionItemResolve
+        , Core.documentHighlightHandler                 = Just $ passHandler rin ReqDocumentHighlights
+        , Core.documentFormattingHandler                = Just $ passHandler rin ReqDocumentFormatting
+        , Core.documentRangeFormattingHandler           = Just $ passHandler rin ReqDocumentRangeFormatting
+        , Core.documentSymbolHandler                    = Just $ passHandler rin ReqDocumentSymbols
         }
 
 -- ---------------------------------------------------------------------
 
-passHandler :: TChan ReactorInput -> (a -> Core.OutMessage) -> Core.Handler a
+passHandler :: TChan ReactorInput -> (a -> FromClientMessage) -> Core.Handler a
 passHandler rin c notification = do
   atomically $ writeTChan rin (c notification)
 
