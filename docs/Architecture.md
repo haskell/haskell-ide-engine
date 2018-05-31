@@ -28,13 +28,23 @@ plugin writers, most important of which is the `CachedModule`.
 ```haskell
 data CachedModule = CachedModule
   { tcMod       :: !TypecheckedModule
-  , requestQueue :: Map.Map FilePath [(LspId, CachedModule -> IdeM ())]
+  , requestQueue :: Map.Map FilePath [Either T.Text CachedModule -> IdeM ()]
   , revMap      :: FilePath -> FilePath
   , newPosToOld :: Position -> Maybe Position
   , oldPosToNew :: Position -> Maybe Position
   }
 
-getCachedModule :: Uri -> IdeM (Maybe CachedModule)
+getCachedModule :: Uri -> IdeM (CachedModuleResult)
+
+-- | The possible states the cache can be in
+-- along with the cache or error if present
+data CachedModuleResult = ModuleLoading
+                        -- ^ The module has no cache yet and has not failed
+                        | ModuleFailed T.Text
+                        -- ^ The module has no cache but somthing went wrong
+                        | ModuleCached CachedModule IsStale
+                        -- ^ A cache exists for the module
+type IsStale = Bool
 ```
 
 On every file open or edit, HIE tries to load a `TypecheckedModule`(as defined in the ghc api)

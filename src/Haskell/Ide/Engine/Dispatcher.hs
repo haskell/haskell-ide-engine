@@ -3,6 +3,7 @@
 {-# LANGUAGE NamedFieldPuns            #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE RankNTypes                #-}
+{-# LANGUAGE LambdaCase                #-}
 module Haskell.Ide.Engine.Dispatcher
   (
     dispatcherP
@@ -18,6 +19,8 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.STM
+import qualified Data.Aeson                            as J
+import qualified Data.Text                             as T
 import qualified Data.Map                              as Map
 import qualified Data.Set                              as S
 import qualified GhcMod.Types                          as GM
@@ -34,7 +37,7 @@ data DispatcherEnv = DispatcherEnv
   }
 
 -- | A handler for any errors that the dispatcher may encounter.
-type ErrorHandler = J.LspId -> J.ErrorCode -> String -> IO ()
+type ErrorHandler = J.LspId -> J.ErrorCode -> T.Text -> IO ()
 -- | A handler to run the requests' callback in your monad of choosing.
 type CallbackHandler m = forall a. RequestCallback m a -> a -> IO ()
 
@@ -81,16 +84,21 @@ ideDispatcher env errorHandler callbackHandler pin = forever $ do
             IdeResponseResult (IdeResultOk x) -> liftIO $ do
               completedReq env lid
               callbackHandler callback x
-            IdeResponseResult (IdeResultFail err) -> liftIO $ do
+            IdeResponseResult (IdeResultFail (IdeError code msg _)) -> liftIO $ do
               completedReq env lid
-              errorHandler lid J.InternalError (show err)
+              case code of
+                NoModuleAvailable -> errorHandler lid J.ParseError msg
+                _ -> errorHandler lid J.InternalError msg
             IdeResponseDeferred fp cacheCb -> handleDeferred lid fp cacheCb callback
 
-        handleDeferred lid fp cacheCb actualCb = queueAction fp $ \cm -> do
-          cacheResponse <- cacheCb cm
-          handleResponse lid actualCb cacheResponse
+        handleDeferred lid fp cacheCb actualCb = queueAction fp $ \case
+          Right cm -> do
+            cacheResponse <- cacheCb cm
+            handleResponse lid actualCb cacheResponse
+          Left err ->
+            handleResponse lid actualCb (IdeResponseFail (IdeError NoModuleAvailable err J.Null))
 
-        queueAction :: FilePath -> (CachedModule -> IdeM ()) -> IdeM ()
+        queueAction :: FilePath -> (Either T.Text CachedModule -> IdeM ()) -> IdeM ()
         queueAction fp action =
           modifyMTState $ \s ->
             let oldQueue = requestQueue s
@@ -118,9 +126,11 @@ ghcDispatcher env@DispatcherEnv{docVersionTVar} errorHandler callbackHandler pin
         result <- runner action
         liftIO $ case result of
           IdeResultOk x -> callbackHandler callback x
-          IdeResultFail err ->
+          IdeResultFail err@(IdeError code msg _) ->
             case mid of
-              Just lid -> errorHandler lid J.InternalError (show err)
+              Just lid -> case code of
+                NoModuleAvailable -> errorHandler lid J.ParseError msg
+                _ -> errorHandler lid J.InternalError msg
               Nothing -> debugm $ "ghcDispatcher:Got error for a request: " ++ show err
 
   let runIfVersionMatch = case mver of

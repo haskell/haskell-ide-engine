@@ -31,6 +31,7 @@ import           Data.Aeson
 import qualified Data.HashMap.Strict                   as H
 import qualified Data.Map                              as Map
 import qualified Data.Set                              as S
+import qualified Data.Text                             as T
 import           Data.Typeable
 import           GHC.Generics
 import           Haskell.Ide.Engine.Dispatcher
@@ -82,13 +83,13 @@ startServer = do
         }
 
   void $ forkIO $ dispatcherP cin plugins testOptions dispatcherEnv
-                    (\_ _ _ -> logToChan logChan ("received an error",Left ""))
+                    (\lid errCode e -> logToChan logChan ("received an error", Left (lid, errCode, e)))
                     (\g x -> g x)
   return (cin,logChan)
 
 -- ---------------------------------------------------------------------
 
-type LogVal = (String,Either String DynamicJSON)
+type LogVal = (String, Either (LspId, ErrorCode, T.Text) DynamicJSON)
 
 logToChan :: TChan LogVal -> LogVal -> IO ()
 logToChan c t = atomically $ writeTChan c t
@@ -299,4 +300,18 @@ functionalSpec = do
           )
           Nothing
         ))
+    
+    it "instantly responds to failed modules with no cache" $ do
+
+      let failUri = filePathToUri $ cwd </> "FuncTestFail.hs"
+
+      dispatchIdeRequest "req7" cin logChan (IdInt 7) $ getSymbols failUri
+
+      dispatchGhcRequest "req8" 8 cin logChan "ghcmod" "check" (toJSON failUri)
+
+      (_, Left symbolError) <- atomically $ readTChan logChan
+      symbolError `shouldBe` (IdInt 7, ParseError, "")
+
+      ("req8", Right diags) <- atomically $ readTChan logChan
+      show diags `shouldBe` "((Map Uri (Set Diagnostic)),[Text])"
 
