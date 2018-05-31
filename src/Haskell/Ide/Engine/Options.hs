@@ -7,13 +7,15 @@ import           Data.Semigroup             hiding (option)
 import           Options.Applicative.Simple
 
 data GlobalOpts = GlobalOpts
-  { optDebugOn     :: Bool
-  , optLogFile     :: Maybe String
-  , optLsp         :: Bool
-  , projectRoot    :: Maybe String
-  , optGhcModVomit :: Bool
-  , optEkg         :: Bool
-  , optEkgPort     :: Int
+  { optDebugOn      :: Bool
+  , optLogFile      :: Maybe String
+  , optLsp          :: Bool
+  , projectRoot     :: Maybe String
+  , optGhcModVomit  :: Bool
+  , optEkg          :: Bool
+  , optEkgPort      :: Int
+  , optRecordClient :: Maybe FilePath
+  , optRecordServer :: Maybe FilePath
   } deriving (Show)
 
 globalOptsParser :: Parser GlobalOpts
@@ -39,14 +41,23 @@ globalOptsParser = GlobalOpts
       <> help "Root directory of project, defaults to cwd"))
   <*> flag False True
        ( long "vomit"
-       <> help "enable vomit logging for ghc-mod")
+       <> help "Enable vomit logging for ghc-mod")
   <*> flag False True
        ( long "ekg"
-       <> help "enable ekg collection and display on http://localhost:8000")
+       <> help "Enable ekg collection and display on http://localhost:8000")
   <*> (option auto
        ( long "port"
       <> short 'p'
       <> metavar "PORT"
       <> help "TCP port to use for EKG server. Only used if --ekg is set. Default 8000"
-      <> value 8000
-       ))
+      <> value 8000))
+  <*> (optional $ strOption
+       ( long "recordClient"
+      <> short 'c'
+      <> metavar "RECORDCLIENTFILE"
+      <> help "File to record the input from the client to, if specified."))
+  <*> (optional $ strOption
+       ( long "recordServer"
+      <> short 's'
+      <> metavar "RECORDSERVERFILE"
+      <> help "File to record the output from HIE to, if specified."))

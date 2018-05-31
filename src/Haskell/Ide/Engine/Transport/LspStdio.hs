@@ -74,16 +74,26 @@ import Name
 
 -- ---------------------------------------------------------------------
 
-lspStdioTransport :: (DispatcherEnv -> ErrorHandler -> CallbackHandler R -> IO ()) -> TChan (PluginRequest R) -> FilePath -> IO ()
-lspStdioTransport hieDispatcherProc cin origDir = do
-  run hieDispatcherProc cin origDir >>= \case
+lspStdioTransport :: (DispatcherEnv -> ErrorHandler -> CallbackHandler R -> IO ())
+                  -> TChan (PluginRequest R)
+                  -> FilePath
+                  -> Maybe FilePath
+                  -> Maybe FilePath
+                  -> IO ()
+lspStdioTransport hieDispatcherProc cin origDir recClientFp recServerFp = do
+  run hieDispatcherProc cin origDir recClientFp recServerFp >>= \case
     0 -> exitSuccess
     c -> exitWith . ExitFailure $ c
 
 -- ---------------------------------------------------------------------
 
-run :: (DispatcherEnv -> ErrorHandler -> CallbackHandler R -> IO ()) -> TChan (PluginRequest R) -> FilePath -> IO Int
-run dispatcherProc cin _origDir = flip E.catches handlers $ do
+run :: (DispatcherEnv -> ErrorHandler -> CallbackHandler R -> IO ())
+    -> TChan (PluginRequest R)
+    -> FilePath
+    -> Maybe FilePath
+    -> Maybe FilePath
+    -> IO Int
+run dispatcherProc cin _origDir recClientFp recServerFp = flip E.catches handlers $ do
 
   rin  <- atomically newTChan :: IO (TChan ReactorInput)
   let
@@ -111,8 +121,7 @@ run dispatcherProc cin _origDir = flip E.catches handlers $ do
       return Nothing
 
   flip E.finally finalProc $ do
-    -- TODO: Merge this with branch for recording client output
-    CTRL.run (getConfig,dp) (hieHandlers rin) hieOptions Nothing Nothing
+    CTRL.run (getConfig,dp) (hieHandlers rin) hieOptions recClientFp recServerFp
 
   where
     handlers = [ E.Handler ioExcept
