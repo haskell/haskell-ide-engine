@@ -224,7 +224,9 @@ markCacheStale :: (GM.MonadIO m, HasGhcModuleCache m) => FilePath -> m ()
 markCacheStale uri = do
   uri' <- liftIO $ canonicalizePath uri
   modifyCache $ \gmc ->
-    let newUriCaches = Map.update (\(UriCache cm d _) -> Just (UriCache cm d True))
+    let newUriCaches = Map.update (\c -> case c of
+                                    (UriCache cm d _) -> Just (UriCache cm d True)
+                                    x -> Just x)
                                   uri'
                                   (uriCaches gmc)
       in gmc { uriCaches = newUriCaches }
