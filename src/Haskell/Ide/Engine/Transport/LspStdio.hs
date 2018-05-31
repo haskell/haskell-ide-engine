@@ -265,8 +265,8 @@ updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file 
     ModuleCached cm _ -> do
       let n2oOld = newPosToOld cm
           o2nOld = oldPosToNew cm
-          (n2o,o2n) = foldr go (n2oOld, o2nOld) changes
-          go (J.TextDocumentContentChangeEvent (Just r) _ txt) (n2o', o2n') =
+          (n2o,o2n) = foldl' go (n2oOld, o2nOld) changes
+          go (n2o', o2n') (J.TextDocumentContentChangeEvent (Just r) _ txt) =
             (n2o' <=< newToOld r txt, oldToNew r txt <=< o2n')
           go _ _ = (const Nothing, const Nothing)
       let cm' = cm {newPosToOld = n2o, oldPosToNew = o2n}
