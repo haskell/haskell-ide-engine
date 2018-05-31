@@ -74,53 +74,63 @@ import Name
 
 -- ---------------------------------------------------------------------
 
-lspStdioTransport :: (DispatcherEnv -> ErrorHandler -> CallbackHandler R -> IO ()) -> TChan (PluginRequest R) -> FilePath -> IO ()
-lspStdioTransport hieDispatcherProc cin origDir = do
-  run hieDispatcherProc cin origDir >>= \case
+lspStdioTransport
+  :: (DispatcherEnv -> ErrorHandler -> CallbackHandler R -> IO ())
+  -> TChan (PluginRequest R)
+  -> FilePath
+  -> Maybe FilePath
+  -> IO ()
+lspStdioTransport hieDispatcherProc cin origDir captureFp = do
+  run hieDispatcherProc cin origDir captureFp >>= \case
     0 -> exitSuccess
     c -> exitWith . ExitFailure $ c
 
 -- ---------------------------------------------------------------------
 
-run :: (DispatcherEnv -> ErrorHandler -> CallbackHandler R -> IO ()) -> TChan (PluginRequest R) -> FilePath -> IO Int
-run dispatcherProc cin _origDir = flip E.catches handlers $ do
+run
+  :: (DispatcherEnv -> ErrorHandler -> CallbackHandler R -> IO ())
+  -> TChan (PluginRequest R)
+  -> FilePath
+  -> Maybe FilePath
+  -> IO Int
+run dispatcherProc cin _origDir captureFp = flip E.catches handlers $ do
 
-  rin  <- atomically newTChan :: IO (TChan ReactorInput)
-  let
-    dp lf = do
-      cancelTVar      <- atomically $ newTVar S.empty
-      wipTVar         <- atomically $ newTVar S.empty
-      versionTVar     <- atomically $ newTVar Map.empty
-      let dispatcherEnv = DispatcherEnv
-            { cancelReqsTVar     = cancelTVar
-            , wipReqsTVar        = wipTVar
-            , docVersionTVar     = versionTVar
-            }
-      let reactorFunc =  flip runReaderT lf $ reactor dispatcherEnv cin rin
+  rin <- atomically newTChan :: IO (TChan ReactorInput)
+  let dp lf = do
+        cancelTVar  <- atomically $ newTVar S.empty
+        wipTVar     <- atomically $ newTVar S.empty
+        versionTVar <- atomically $ newTVar Map.empty
+        let dispatcherEnv = DispatcherEnv
+              { cancelReqsTVar = cancelTVar
+              , wipReqsTVar    = wipTVar
+              , docVersionTVar = versionTVar
+              }
+        let reactorFunc = flip runReaderT lf $ reactor dispatcherEnv cin rin
 
-      let errorHandler :: ErrorHandler
-          errorHandler lid code e =
-            Core.sendErrorResponseS (Core.sendFunc lf) (J.responseId lid) code (T.pack e)
-          callbackHandler :: CallbackHandler R
-          callbackHandler f x = flip runReaderT lf $ f x
+        let errorHandler :: ErrorHandler
+            errorHandler lid code e = Core.sendErrorResponseS
+              (Core.sendFunc lf)
+              (J.responseId lid)
+              code
+              (T.pack e)
+            callbackHandler :: CallbackHandler R
+            callbackHandler f x = flip runReaderT lf $ f x
 
-      -- haskell lsp sets the current directory to the project root in the InitializeRequest
-      -- We launch the dispatcher after that so that the defualt cradle is
-      -- recognized properly by ghc-mod
-      _ <- forkIO $ race_ (dispatcherProc dispatcherEnv errorHandler callbackHandler) reactorFunc
-      return Nothing
+        -- haskell lsp sets the current directory to the project root in the InitializeRequest
+        -- We launch the dispatcher after that so that the defualt cradle is
+        -- recognized properly by ghc-mod
+        _ <- forkIO $ race_
+          (dispatcherProc dispatcherEnv errorHandler callbackHandler)
+          reactorFunc
+        return Nothing
 
   flip E.finally finalProc $ do
-    -- TODO: Merge this with branch for recording client output
-    CTRL.run (getConfig,dp) (hieHandlers rin) hieOptions Nothing
-
-  where
-    handlers = [ E.Handler ioExcept
-               , E.Handler someExcept
-               ]
-    finalProc = L.removeAllHandlers
-    ioExcept   (e :: E.IOException)       = print e >> return 1
-    someExcept (e :: E.SomeException)     = print e >> return 1
+    CTRL.run (getConfig, dp) (hieHandlers rin) hieOptions captureFp
+ where
+  handlers  = [E.Handler ioExcept, E.Handler someExcept]
+  finalProc = L.removeAllHandlers
+  ioExcept (e :: E.IOException) = print e >> return 1
+  someExcept (e :: E.SomeException) = print e >> return 1
 
 -- ---------------------------------------------------------------------
 

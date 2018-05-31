@@ -114,7 +114,7 @@ run opts = do
   
   if optLsp opts then do
     pin <- atomically newTChan
-    lspStdioTransport (dispatcherP pin plugins ghcModOptions) pin origDir
+    lspStdioTransport (dispatcherP pin plugins ghcModOptions) pin origDir (optCaptureFile opts)
   else do
     pin <- atomically newTChan
     jsonStdioTransport (dispatcherP pin plugins ghcModOptions) pin
