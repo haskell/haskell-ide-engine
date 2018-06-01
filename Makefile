@@ -1,7 +1,7 @@
 BASEDIR=$(CURDIR)
 STACKLOCALBINDIR:=$(shell stack path --local-bin)
 
-build: hie-8.2.1 hie-8.2.2 hie-8.4.2
+build: hie-8.2.1 hie-8.2.2 hie-8.4.3
 .PHONY: build
 
 build-all: build build-docs
@@ -24,11 +24,11 @@ hie-8.2.2: submodules
 		&& cp '$(STACKLOCALBINDIR)/hie-8.2.2' '$(STACKLOCALBINDIR)/hie-8.2'
 .PHONY: hie-8.2.2
 
-hie-8.4.2: submodules
+hie-8.4.3: submodules
 	stack --stack-yaml=stack.yaml install                                      \
-		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.4.2'    \
-		&& cp '$(STACKLOCALBINDIR)/hie-8.4.2' '$(STACKLOCALBINDIR)/hie-8.4'
-.PHONY: hie-8.4.2
+		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.4.3'    \
+		&& cp '$(STACKLOCALBINDIR)/hie-8.4.3' '$(STACKLOCALBINDIR)/hie-8.4'
+.PHONY: hie-8.4.3
 
 # ------------------------------------------------------
 
