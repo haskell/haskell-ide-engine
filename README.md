@@ -82,7 +82,7 @@ sudo apt install libicu-dev libtinfo-dev
 ```
 
 
-### Getting the source for GHC 8.2.1, 8.2.2, 8.4.2
+### Getting the source for GHC 8.2.1, 8.2.2, 8.4.3
 
 HIE builds from source code, so first,
 
@@ -122,7 +122,7 @@ to VSCode user settings.
 
 Otherwise, do one of the following.
 
-#### For GHC 8.4.2
+#### For GHC 8.4.3
 
 Using master
 
