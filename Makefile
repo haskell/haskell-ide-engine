@@ -1,6 +1,6 @@
 BASEDIR=$(CURDIR)
 
-build:
+build: submodules
 	stack --stack-yaml=stack-8.0.2.yaml install                  \
 		&& cp ~/.local/bin/hie ~/.local/bin/hie-8.0.2            \
 		&& cp ~/.local/bin/hie ~/.local/bin/hie-8.0              \
@@ -12,7 +12,11 @@ build:
 		&& cp ~/.local/bin/hie-8.2.2 ~/.local/bin/hie-8.2
 .PHONY: build
 
-build-docs:
+submodules:
+	git submodule update --init
+.PHONY: submodules
+
+build-docs: submodules
 	stack --stack-yaml=stack-8.0.2.yaml exec hoogle generate    \
 	&& stack --stack-yaml=stack-8.2.1.yaml exec hoogle generate \
 	&& stack --stack-yaml=stack.yaml exec hoogle generate
@@ -21,25 +25,25 @@ build-docs:
 build-all: | build build-docs
 .PHONY: build-all
 
-hie-8.2.2:
+hie-8.2.2: submodules
 	stack --stack-yaml=stack.yaml install                  \
 		&& cp ~/.local/bin/hie ~/.local/bin/hie-8.2.2      \
 		&& cp ~/.local/bin/hie-8.2.2 ~/.local/bin/hie-8.2
 .PHONY: hie-8.2.2
 
-test:
+test: submodules
 	stack --stack-yaml=stack-8.0.2.yaml test    \
 	&& stack --stack-yaml=stack-8.2.1.yaml test \
 	&& stack --stack-yaml=stack.yaml test
 .PHONY: test
 
-build-copy-compiler-tool:
+build-copy-compiler-tool: submodules
 	stack --stack-yaml=stack-8.0.2.yaml build --copy-compiler-tool    \
 	&& stack --stack-yaml=stack-8.2.1.yaml build --copy-compiler-tool \
 	&& stack --stack-yaml=stack.yaml build --copy-compiler-tool
 .PHONY: build-copy-compiler-tool
 
-icu-macos-fix:
+icu-macos-fix: submodules
 	brew install icu4c                                     \
 	&& stack --stack-yaml=stack-8.0.2.yaml build text-icu  \
          --extra-lib-dirs=/usr/local/opt/icu4c/lib         \
