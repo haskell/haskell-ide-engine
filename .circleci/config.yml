@@ -53,7 +53,7 @@ defaults: &defaults
 
     - run:
         name: Compile + Test
-        command: stack -j 2 --stack-yaml=${STACK_FILE} test --dump-logs
+        command: stack -j 1 --stack-yaml=${STACK_FILE} test --dump-logs
         no_output_timeout: 120m
 
     - save_cache:
