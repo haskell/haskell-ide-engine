@@ -7,7 +7,7 @@
 
 This project aims to be __the universal interface__ to __a growing number of Haskell tools__, providing a __full-featured and easy to query backend__ for editors and IDEs that require Haskell-specific functionality.
 
-__We are currently focusing on using the [Language Server Protocol](https://github.com/Microsoft/language-server-protocol/blob/master/protocol.md) as the interface via which 
+__We are currently focusing on using the [Language Server Protocol](https://github.com/Microsoft/language-server-protocol/blob/master/protocol.md) as the interface via which
 we talk to clients.__
 
 - [Haskell IDE Engine](#haskell-ide-engine)
@@ -30,16 +30,16 @@ we talk to clients.__
     - [Documentation](#documentation)
 
 ## Features
- 
+
  - Supports plain GHC projects, cabal projects(sandboxed and non sandboxed) and stack projects
  - Fast due to caching of compile info
  - Uses LSP, so should be easy to integrate with a wide selection of editors
  - Diagnostics via hlint and GHC warnings/errors
-   
+
    ![Diagnostics](https://i.imgur.com/1vqm4eF.gif)
 
  - Code actions and quick fixes via apply-refact
-   
+
    ![Apply Refact](https://i.imgur.com/dBrSi5F.gif)
 
  - Type information and documentation(via haddock) on hover
@@ -47,7 +47,7 @@ we talk to clients.__
    ![Hover](https://i.imgur.com/AcvYROv.gif)
 
  - Jump to definition
-   
+
    ![Find Def](https://i.imgur.com/kmCU2Bz.gif)
 
  - List all top level definitions
@@ -55,11 +55,11 @@ we talk to clients.__
    ![Doc Symbols](https://i.imgur.com/GErcYqp.gif)
 
  - Highlight references in document
-   
+
    ![Doc Highlight](https://i.imgur.com/YLjHs2s.gif)
-   
+
  - Completion
-   
+
    ![Completion](https://i.imgur.com/wR6IJ7M.gif)
 
  - Formatting via brittany
@@ -82,7 +82,7 @@ sudo apt install libicu-dev libtinfo-dev
 ```
 
 
-### Getting the source for GHC 8.2.1, 8.2.2, 8.4.2
+### Getting the source for GHC 8.2.1, 8.2.2, 8.4.2, 8.4.3
 
 HIE builds from source code, so first,
 
@@ -122,12 +122,19 @@ to VSCode user settings.
 
 Otherwise, do one of the following.
 
-#### For GHC 8.4.2
+#### For GHC 8.4.3
 
 Using master
 
 ```bash
 stack install
+```
+#### For GHC 8.4.2
+
+Using master
+
+```bash
+stack --stack-yaml=stack-8.4.2.yaml install
 ```
 
 #### For GHC 8.2.2
@@ -230,7 +237,7 @@ Plug 'autozimu/LanguageClient-neovim', {
 
 and issuing a `:PlugInstall` command within neovim.
 
-Finally, make sure that `hie` is included as the language server source for haskell: 
+Finally, make sure that `hie` is included as the language server source for haskell:
 
 ```
 let g:LanguageClient_serverCommands = {
