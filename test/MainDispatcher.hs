@@ -59,10 +59,10 @@ dispatcherSpec =
       cancelTVar <- newTVarIO S.empty
       wipTVar <- newTVarIO S.empty
       versionTVar <- newTVarIO $ Map.singleton (filePathToUri "test") 3
-      let req1 = GReq Nothing Nothing                          (Just $ J.IdInt 1) (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text1"
-          req2 = GReq Nothing Nothing                          (Just $ J.IdInt 2) (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text2"
-          req3 = GReq Nothing (Just (filePathToUri "test", 2)) Nothing            (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text3"
-          req4 = GReq Nothing Nothing                          (Just $ J.IdInt 3) (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text4"
+      let req1 = GReq 1 Nothing Nothing                          (Just $ J.IdInt 1) (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text1"
+          req2 = GReq 2 Nothing Nothing                          (Just $ J.IdInt 2) (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text2"
+          req3 = GReq 3 Nothing (Just (filePathToUri "test", 2)) Nothing            (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text3"
+          req4 = GReq 4 Nothing Nothing                          (Just $ J.IdInt 3) (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text4"
 
       pid <- forkIO $ dispatcherP inChan
                               (pluginDescToIdePlugins [])

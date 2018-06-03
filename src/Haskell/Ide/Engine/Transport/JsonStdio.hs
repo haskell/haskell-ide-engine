@@ -108,7 +108,7 @@ run dispatcherProc cin = flip E.catches handlers $ do
       let sendResponse rid resp = atomically $ writeTChan rout (ReactorOutput rid resp) in
       forever $ do
         req <- getNextReq
-        let preq = GReq (context req) Nothing (Just $ J.IdInt rid) (liftIO . callback)
+        let preq = GReq 0 (context req) Nothing (Just $ J.IdInt rid) (liftIO . callback)
               $ runPluginCommand (plugin req) (command req) (arg req)
             rid = reqId req
             callback = sendResponse rid . dynToJSON
