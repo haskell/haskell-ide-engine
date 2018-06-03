@@ -37,6 +37,9 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.ArtifactMap
 import           HscTypes
+#if __GLASGOW_HASKELL__ >= 802
+import           IOEnv
+#endif
 import           TcRnTypes
 import           Outputable                        (renderWithStyle, mkUserStyle, Depth(..))
 
@@ -133,14 +136,7 @@ myLogger rfm action = do
   errRef <- liftIO $ newIORef []
   let setLogger df = df { log_action = logDiag rfm errRef diagRef }
       ghcErrRes msg = (Map.empty, [T.pack msg])
-      handlers =
-        [ GM.GHandler $ \ex ->
-            srcErrToDiag (hsc_dflags env) rfm ex
-        , GM.GHandler $ \ex ->
-            return $ ghcErrRes $ GM.renderGm $ GM.ghcExceptionDoc ex
-        , GM.GHandler $ \(ex :: GM.SomeException) ->
-            return (Map.empty ,[T.pack (show ex)])
-        ]
+      handlers = errorHandlers ghcErrRes (srcErrToDiag (hsc_dflags env) rfm )
       action' = do
         GM.withDynFlags setLogger action
         diags <- liftIO $ readIORef diagRef
@@ -148,11 +144,41 @@ myLogger rfm action = do
         return (diags,errs)
   GM.gcatches action' handlers
 
+errorHandlers :: (Monad m) => (String -> a) -> (SourceError -> m a) -> [GM.GHandler m a]
+errorHandlers ghcErrRes renderSourceError = handlers
+  where
+      -- ghc throws GhcException, SourceError, GhcApiError and
+      -- IOEnvFailure. ghc-mod-core throws GhcModError.
+      handlers =
+        [ GM.GHandler $ \(ex :: GM.GhcModError) ->
+            return $ ghcErrRes (show ex)
+#if __GLASGOW_HASKELL__ >= 802
+        , GM.GHandler $ \(ex :: IOEnvFailure) ->
+            return $ ghcErrRes (show ex)
+#endif
+        , GM.GHandler $ \(ex :: GhcApiError) ->
+            return $ ghcErrRes (show ex)
+        , GM.GHandler $ \(ex :: SourceError) ->
+            renderSourceError ex
+        , GM.GHandler $ \(ex :: GhcException) ->
+            return $ ghcErrRes $ GM.renderGm $ GM.ghcExceptionDoc ex
+        , GM.GHandler $ \(ex :: IOError) ->
+            return $ ghcErrRes (show ex)
+        -- , GM.GHandler $ \(ex :: GM.SomeException) ->
+        --     return $ ghcErrRes (show ex)
+        ]
+
 setTypecheckedModule :: Uri -> IdeGhcM (IdeResponse (Diagnostics, AdditionalErrs))
 setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     rfm <- GM.mkRevRedirMapFunc
-    ((diags', errs), mtm) <- GM.getTypecheckedModuleGhc' (myLogger rfm) fp
+    let
+      ghcErrRes msg = ((Map.empty, [T.pack msg]),Nothing)
+    debugm $ "setTypecheckedModule: before ghc-mod"
+    ((diags', errs), mtm) <- GM.gcatches
+                              (GM.getTypecheckedModuleGhc' (myLogger rfm) fp)
+                              (errorHandlers ghcErrRes (return . ghcErrRes . show))
+    debugm $ "setTypecheckedModule: after ghc-mod"
     let diags = Map.insertWith Set.union uri Set.empty diags'
     case mtm of
       Nothing -> do
