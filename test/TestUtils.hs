@@ -99,8 +99,10 @@ files =
 -- not be able to load the files
 readResolver :: IO String
 readResolver =
-#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,2,0)))
+#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,3,0)))
   readResolverFrom "stack.yaml"
+#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,2,0)))
+  readResolverFrom "stack-8.4.2.yaml"
 #elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,2,2,0)))
   readResolverFrom "stack-8.2.2.yaml"
 #elif __GLASGOW_HASKELL__ >= 802
