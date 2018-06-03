@@ -68,8 +68,8 @@ mainDispatcher inChan ghcChan ideChan = forever $ do
 ideDispatcher :: forall void m. DispatcherEnv -> ErrorHandler -> CallbackHandler m -> TChan (IdeRequest m) -> IdeM void
 ideDispatcher env errorHandler callbackHandler pin = forever $ do
   debugm "ideDispatcher: top of loop"
-  (IdeRequest lid callback action) <- liftIO $ atomically $ readTChan pin
-  debugm $ "ideDispatcher:got request with id: " ++ show lid
+  (IdeRequest tn lid callback action) <- liftIO $ atomically $ readTChan pin
+  debugm $ "ideDispatcher:got request " ++ show tn ++ " with id: " ++ show lid
   checkCancelled env lid errorHandler $ do
     response <- action
     handleResponse lid callback response
@@ -103,8 +103,8 @@ ideDispatcher env errorHandler callbackHandler pin = forever $ do
 ghcDispatcher :: forall void m. DispatcherEnv -> ErrorHandler -> CallbackHandler m -> TChan (GhcRequest m) -> IdeGhcM void
 ghcDispatcher env@DispatcherEnv{docVersionTVar} errorHandler callbackHandler pin = forever $ do
   debugm "ghcDispatcher: top of loop"
-  (GhcRequest context mver mid callback action) <- liftIO $ atomically $ readTChan pin
-  debugm $ "ghcDispatcher:got request with id: " ++ show mid
+  (GhcRequest tn context mver mid callback action) <- liftIO $ atomically $ readTChan pin
+  debugm $ "ghcDispatcher:got request " ++ show tn ++ " with id: " ++ show mid
 
   let runner = case context of
         Nothing -> runActionWithContext Nothing
