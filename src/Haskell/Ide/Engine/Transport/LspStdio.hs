@@ -419,22 +419,17 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
 
         -- -------------------------------
 
+        Core.NotDidChangeWatchedFiles _notification -> do
+          liftIO $ U.logm "****** reactor: not processing NotDidChangeWatchedFiles"
+
+        -- -------------------------------
+
         Core.NotWillSaveTextDocument _notification -> do
           liftIO $ U.logm "****** reactor: not processing NotWillSaveTextDocument"
 
-        Core.NotDidChangeWatchedFiles _notification -> do
-          liftIO $ U.logm "****** reactor: not processing NotDidChangeWatchedFiles"
-        Core.NotDidSaveTextDocument notification -> do
-          liftIO $ U.logm "****** reactor: processing NotDidSaveTextDocument"
-          let
-              uri = notification ^. J.params . J.textDocument . J.uri
-          mver <- liftIO $ atomically $ Map.lookup uri <$> readTVar versionTVar
-          case mver of
-            Just ver -> requestDiagnostics tn cin uri ver
-            Nothing -> do
-              let ver = -1
-              liftIO $ atomically $ modifyTVar' versionTVar (Map.insert uri ver)
-              requestDiagnostics tn cin uri ver
+        Core.NotDidSaveTextDocument _notification -> do
+          -- This notification is redundant, as we get the NotDidChangeTextDocument
+          liftIO $ U.logm "****** reactor: not processing NotDidSaveTextDocument"
 
         Core.NotDidChangeTextDocument notification -> do
           liftIO $ U.logm "****** reactor: processing NotDidChangeTextDocument"
