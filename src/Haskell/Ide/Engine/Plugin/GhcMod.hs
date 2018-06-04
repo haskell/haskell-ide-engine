@@ -174,11 +174,11 @@ setTypecheckedModule uri =
     rfm <- GM.mkRevRedirMapFunc
     let
       ghcErrRes msg = ((Map.empty, [T.pack msg]),Nothing)
-    debugm $ "setTypecheckedModule: before ghc-mod"
+    debugm "setTypecheckedModule: before ghc-mod"
     ((diags', errs), mtm) <- GM.gcatches
                               (GM.getTypecheckedModuleGhc' (myLogger rfm) fp)
                               (errorHandlers ghcErrRes (return . ghcErrRes . show))
-    debugm $ "setTypecheckedModule: after ghc-mod"
+    debugm "setTypecheckedModule: after ghc-mod"
     canonUri <- canonicalizeUri uri
     let diags = Map.insertWith Set.union canonUri Set.empty diags'
     case mtm of
@@ -195,7 +195,7 @@ setTypecheckedModule uri =
         let cm = CachedModule tm (genLocMap tm) typm rfm return return
         cacheModule fp cm
         modifyMTS (\s -> s {ghcSession = sess})
-        debugm $ "setTypecheckedModule: done"
+        debugm "setTypecheckedModule: done"
         return $ IdeResultOk (diags,errs)
 
 -- ---------------------------------------------------------------------

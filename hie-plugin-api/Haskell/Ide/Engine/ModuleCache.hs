@@ -81,7 +81,7 @@ getCradle fp = do
 data CachedModuleResult = ModuleLoading
                         -- ^ The module has no cache yet and has not failed
                         | ModuleFailed T.Text
-                        -- ^ The module has no cache but somthing went wrong
+                        -- ^ The module has no cache because something went wrong
                         | ModuleCached CachedModule IsStale
                         -- ^ A cache exists for the module
 type IsStale = Bool
@@ -94,7 +94,7 @@ getCachedModule uri = do
   maybeUriCache <- fmap (Map.lookup uri' . uriCaches) getModuleCache
   return $ case maybeUriCache of
     Nothing -> ModuleLoading
-    Just uriCache@(UriCache _ _ _) -> ModuleCached (cachedModule uriCache) (isStale uriCache)
+    Just uriCache@(UriCache {}) -> ModuleCached (cachedModule uriCache) (isStale uriCache)
     Just (UriCacheFailed err) -> ModuleFailed err
 
 -- | Returns true if there is a CachedModule for a given URI
@@ -165,11 +165,7 @@ cacheModule uri cm = do
     )
 
   -- execute any queued actions for the module
-  actions <- fmap (fromMaybe [] . Map.lookup uri') (requestQueue <$> readMTS)
-  liftToGhc $ forM_ actions (\a -> a (Right cm))
-
-  -- remove queued actions
-  modifyMTS $ \s -> s { requestQueue = Map.delete uri' (requestQueue s) }
+  runDeferredActions uri' (Right cm)
 
 -- | Marks a module that it failed to load and triggers
 -- any deferred responses waiting on it
@@ -190,11 +186,16 @@ failModule fp err = do
         )
       
       -- Fail the queued actions
-      actions <- fmap (fromMaybe [] . Map.lookup fp') (requestQueue <$> readMTS)
-      liftToGhc $ forM_ actions (\a -> a (Left err))
+      runDeferredActions fp' (Left err)
+
+
+runDeferredActions :: FilePath -> Either T.Text CachedModule -> IdeGhcM ()
+runDeferredActions uri cached = do
+      actions <- fmap (fromMaybe [] . Map.lookup uri) (requestQueue <$> readMTS)
+      liftToGhc $ forM_ actions (\a -> a cached)
 
       -- remove queued actions
-      modifyMTS $ \s -> s { requestQueue = Map.delete fp' (requestQueue s) }
+      modifyMTS $ \s -> s { requestQueue = Map.delete uri (requestQueue s) }
 
 -- | Saves a module to the cache without clearing the associated cache data - use only if you are
 -- sure that the cached data associated with the module doesn't change

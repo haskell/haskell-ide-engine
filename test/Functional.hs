@@ -305,9 +305,9 @@ functionalSpec = do
 
       let failUri = filePathToUri $ cwd </> "FuncTestFail.hs"
 
-      dispatchIdeRequest "req7" cin logChan (IdInt 7) $ getSymbols failUri
+      dispatchIdeRequest 7 "req7" cin logChan (IdInt 7) $ getSymbols failUri
 
-      dispatchGhcRequest "req8" 8 cin logChan "ghcmod" "check" (toJSON failUri)
+      dispatchGhcRequest 8 "req8" 8 cin logChan "ghcmod" "check" (toJSON failUri)
 
       (_, Left symbolError) <- atomically $ readTChan logChan
       symbolError `shouldBe` (IdInt 7, ParseError, "")
