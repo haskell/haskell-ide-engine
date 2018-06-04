@@ -661,6 +661,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
           makeRequest hreq
 
         -- -------------------------------
+
         Core.ReqDefinition req -> do
           liftIO $ U.logs $ "reactor:got DefinitionRequest:" ++ show req
           let params = req ^. J.params

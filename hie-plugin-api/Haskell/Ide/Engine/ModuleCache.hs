@@ -109,13 +109,21 @@ isCached uri = do
 -- | Version of `withCachedModuleAndData` that doesn't provide
 -- any extra cached data.
 withCachedModule :: FilePath -> (CachedModule -> IdeM (IdeResponse b)) -> IdeM (IdeResponse b)
-withCachedModule uri callback = do
+withCachedModule uri callback = withCachedModuleDefault uri Nothing callback
+
+-- | Version of `withCachedModuleAndData` that doesn't provide
+-- any extra cached data.
+withCachedModuleDefault :: FilePath -> Maybe (IdeResponse b)
+                        -> (CachedModule -> IdeM (IdeResponse b)) -> IdeM (IdeResponse b)
+withCachedModuleDefault uri mdef callback = do
   mcm <- getCachedModule uri
   uri' <- liftIO $ canonicalizePath uri
   case mcm of
     ModuleCached cm _ -> callback cm
     ModuleLoading -> return $ IdeResponseDeferred uri' callback
-    ModuleFailed err -> return $ IdeResponseFail (IdeError NoModuleAvailable err J.Null)
+    ModuleFailed err -> case mdef of
+      Nothing -> return $ IdeResponseFail (IdeError NoModuleAvailable err J.Null)
+      Just def -> return def
 
 -- | Calls its argument with the CachedModule for a given URI
 -- along with any data that might be stored in the ModuleCache.
@@ -127,13 +135,20 @@ withCachedModule uri callback = do
 -- using by calling the `cacheDataProducer` function.
 withCachedModuleAndData :: forall a b. ModuleCache a
                         => FilePath -> (CachedModule -> a -> IdeM (IdeResponse b)) -> IdeM (IdeResponse b)
-withCachedModuleAndData uri callback = do
+withCachedModuleAndData uri callback = withCachedModuleAndDataDefault uri Nothing callback
+
+withCachedModuleAndDataDefault :: forall a b. ModuleCache a
+                        => FilePath -> Maybe (IdeResponse b)
+                        -> (CachedModule -> a -> IdeM (IdeResponse b)) -> IdeM (IdeResponse b)
+withCachedModuleAndDataDefault uri mdef callback = do
   uri' <- liftIO $ canonicalizePath uri
   mcache <- getModuleCache
   let mc = (Map.lookup uri' . uriCaches) mcache
   case mc of
     Nothing -> return $ IdeResponseDeferred uri' $ \_ -> withCachedModuleAndData uri callback
-    Just (UriCacheFailed err) -> return $ IdeResponseFail (IdeError NoModuleAvailable err J.Null)
+    Just (UriCacheFailed err) -> case mdef of
+      Nothing -> return $ IdeResponseFail (IdeError NoModuleAvailable err J.Null)
+      Just def -> return def
     Just UriCache{cachedModule = cm, cachedData = dat} -> do
       let proxy :: Proxy a
           proxy = Proxy
