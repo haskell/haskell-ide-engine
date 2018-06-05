@@ -16,7 +16,7 @@ we talk to clients.__
         - Installation with [stack](#installation-with-stack) or [Nix](#installation-with-nix)
         - [ArchLinux](#archlinux)
     - [Editor Integration](#editor-integration)
-        - Using HIE with [VS Code](#using-hie-with-vs-code), [Sublime Text](#using-hie-with-sublime-text), [Neovim](#using-hie-with-neovim), [Atom](#using-hie-with-atom), or [Emacs](#using-hie-with-emacs)
+        - Using HIE with [VS Code](#using-hie-with-vs-code), [Sublime Text](#using-hie-with-sublime-text), [Neovim](#using-hie-with-neovim), [Atom](#using-hie-with-atom), [Oni](#using-hie-with-oni), [Emacs](#using-hie-with-emacs) or [Spacemacs](#using-hie-with-spacemacs)
     - [Docs on hover/completion](#docs-on-hovercompletion)
     - [Contributing](#contributing)
         - [Planned Features](#planned-features)
@@ -267,6 +267,54 @@ Install HIE along with the following emacs packages:
 [lsp-haskell](https://github.com/emacs-lsp/lsp-haskell)
 
 Make sure to follow the instructions in the README of each of these packages.
+
+### Using HIE with Spacemacs
+
+Install HIE along, and then add the following to your `.spacemacs` config,
+
+```lisp
+(defun dotspacemacs/layers ()
+  "..."
+  (setq-default
+   ;; ...
+   dotspacemacs-configuration-layers
+   '(
+     lsp
+     (haskell :variables ;; Or optionally just haskell without the variables.
+              haskell-completion-backend 'ghci
+              haskell-process-type 'stack-ghci)
+     )
+   dotspacemacs-additional-packages '(
+      (lsp-haskell :location (recipe :fetcher github :repo "emacs-lsp/lsp-haskell"))
+      )
+    ;; ...
+    ))
+```
+
+and then activate [`lsp-haskell`](https://github.com/emacs-lsp/lsp-haskell) in your `user-config` section,
+
+```lisp
+(defun dotspacemacs/user-config ()
+  "..."
+  (require 'lsp-haskell)
+  (add-hook 'haskell-mode-hook #'lsp-haskell-enable)
+  )
+```
+
+Now you should be able to use HIE in Spacemacs. I recommend still checking out [lsp-ui](https://github.com/emacs-lsp/lsp-ui) and [lsp-mode](https://github.com/emacs-lsp/lsp-mode).
+
+### Using HIE with Oni
+
+[Oni](https://www.onivim.io/) (a Neovim GUI) added built-in support for HIE, using stack, in [#1918](https://github.com/onivim/oni/pull/1918/files). If you need to change the configuration for HIE, you can overwrite the following settings in your `~/.config/oni/config.tsx` file (accessible via the command palette and `Configuration: Edit User Config`),
+
+```js
+export const configuration = {
+  "language.haskell.languageServer.command": "stack",
+  "language.haskell.languageServer.arguments": ["exec", "--", "hie", "--lsp"],
+  "language.haskell.languageServer.rootFiles": [".git"],
+  "language.haskell.languageServer.configuration": {},
+}
+```
 
 ## Docs on hover/completion
 
