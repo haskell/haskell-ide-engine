@@ -270,7 +270,7 @@ Make sure to follow the instructions in the README of each of these packages.
 
 ### Using HIE with Spacemacs
 
-Install HIE along, and then add the following to your `.spacemacs` config,
+Install HIE, and then add the following to your `.spacemacs` config,
 
 ```lisp
 (defun dotspacemacs/layers ()
