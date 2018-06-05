@@ -82,7 +82,7 @@ run dispatcherProc cin = flip E.catches handlers $ do
 
     let race3_ a b c = race_ a (race_ b c)
 
-    let errorHandler lid _ e = liftIO $ hPutStrLn stderr $ "Got an error for request " ++ show lid ++ ": " ++ e
+    let errorHandler lid _ e = liftIO $ hPutStrLn stderr $ "Got an error for request " ++ show lid ++ ": " ++ T.unpack e
         callbackHandler callback x = (callback x)
 
     race3_ (dispatcherProc dispatcherEnv errorHandler callbackHandler)

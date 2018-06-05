@@ -389,10 +389,12 @@ symbolFromTypecheckedModule lm pos =
 
 -- ---------------------------------------------------------------------
 
+-- | Find the references in the given doc, provided it has been
+-- loaded.  If not, return the empty list.
 getReferencesInDoc :: Uri -> Position -> IdeM (IdeResponse [J.DocumentHighlight])
 getReferencesInDoc uri pos =
   pluginGetFileResponse "getReferencesInDoc: " uri $ \file ->
-    withCachedModuleAndData file $
+    withCachedModuleAndDataDefault file (Just (IdeResponseOk [])) $
       \cm NMD{inverseNameMap} -> do
         let lm = locMap cm
             pm = tm_parsed_module $ tcMod cm
@@ -442,9 +444,10 @@ getModule df n = do
 
 -- ---------------------------------------------------------------------
 
+-- | Return the definition
 findDef :: Uri -> Position -> IdeM (IdeResponse [Location])
 findDef uri pos = pluginGetFileResponse "findDef: " uri $ \file ->
-    withCachedModule file
+    withCachedModuleDefault file (Just (IdeResponseOk []))
       (\cm -> do
         let rfm = revMap cm
             lm = locMap cm
