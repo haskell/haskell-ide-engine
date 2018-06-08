@@ -31,6 +31,7 @@ import           Data.Aeson
 import qualified Data.HashMap.Strict                   as H
 import qualified Data.Map                              as Map
 import qualified Data.Set                              as S
+import qualified Data.Text                             as T
 import           Data.Typeable
 import           GHC.Generics
 import           Haskell.Ide.Engine.Dispatcher
@@ -82,13 +83,13 @@ startServer = do
         }
 
   void $ forkIO $ dispatcherP cin plugins testOptions dispatcherEnv
-                    (\_ _ _ -> logToChan logChan ("received an error",Left ""))
+                    (\lid errCode e -> logToChan logChan ("received an error", Left (lid, errCode, e)))
                     (\g x -> g x)
   return (cin,logChan)
 
 -- ---------------------------------------------------------------------
 
-type LogVal = (String,Either String DynamicJSON)
+type LogVal = (String, Either (LspId, ErrorCode, T.Text) DynamicJSON)
 
 logToChan :: TChan LogVal -> LogVal -> IO ()
 logToChan c t = atomically $ writeTChan c t
@@ -96,27 +97,27 @@ logToChan c t = atomically $ writeTChan c t
 -- ---------------------------------------------------------------------
 
 dispatchGhcRequest :: ToJSON a
-                   => String -> Int
+                   => TrackingNumber -> String -> Int
                    -> TChan (PluginRequest IO) -> TChan LogVal
                    -> PluginId -> CommandName -> a -> IO ()
-dispatchGhcRequest ctx n cin lc plugin com arg = do
+dispatchGhcRequest tn ctx n cin lc plugin com arg = do
   let
     logger :: RequestCallback IO DynamicJSON
     logger x = logToChan lc (ctx, Right x)
 
-  let req = GReq Nothing Nothing (Just (IdInt n)) logger $
+  let req = GReq tn Nothing Nothing (Just (IdInt n)) logger $
         runPluginCommand plugin com (toJSON arg)
   atomically $ writeTChan cin req
 
 dispatchIdeRequest :: (Typeable a, ToJSON a)
-                   => String -> TChan (PluginRequest IO)
+                   => TrackingNumber -> String -> TChan (PluginRequest IO)
                    -> TChan LogVal -> LspId -> IdeM (IdeResponse a) -> IO () 
-dispatchIdeRequest ctx cin lc lid f = do
+dispatchIdeRequest tn ctx cin lc lid f = do
   let
     logger :: (Typeable a, ToJSON a) => RequestCallback IO a
     logger x = logToChan lc (ctx, Right (toDynJSON x))
 
-  let req = IReq lid logger f
+  let req = IReq tn lid logger f
   atomically $ writeTChan cin req
 
 -- ---------------------------------------------------------------------
@@ -152,7 +153,7 @@ functionalSpec = do
 
   let
     -- Model a hover request
-    hoverReq idVal doc = dispatchIdeRequest ("IReq " ++ show idVal) cin logChan idVal $ do
+    hoverReq tn idVal doc = dispatchIdeRequest tn ("IReq " ++ show idVal) cin logChan idVal $ do
       pluginGetFileResponse ("hoverReq") doc $ \fp -> do
         cached <- isCached fp
         if cached
@@ -167,18 +168,18 @@ functionalSpec = do
     it "defers responses until module is loaded" $ do
 
       -- Returns immediately, no cached value
-      hoverReq (IdInt 0) testUri
+      hoverReq 0 (IdInt 0) testUri
       hr0 <- atomically $ readTChan logChan
       unpackRes hr0 `shouldBe` ("IReq IdInt 0",Just NotCached)
 
       -- This request should be deferred, only return when the module is loaded
-      dispatchIdeRequest "req1" cin logChan (IdInt 1) $ getSymbols testUri
+      dispatchIdeRequest 1 "req1" cin logChan (IdInt 1) $ getSymbols testUri
 
       rrr <- atomically $ tryReadTChan logChan
       (show rrr) `shouldBe` "Nothing"
 
       -- need to typecheck the module to trigger deferred response
-      dispatchGhcRequest "req2" 2 cin logChan "ghcmod" "check" (toJSON testUri)
+      dispatchGhcRequest 2 "req2" 2 cin logChan "ghcmod" "check" (toJSON testUri)
 
       -- And now we get the deferred response (once the module is loaded)
       ("req1",Right res) <- atomically $ readTChan logChan
@@ -206,14 +207,14 @@ functionalSpec = do
       (show rr3) `shouldBe` "Nothing"
 
       -- Returns immediately, there is a cached value
-      hoverReq (IdInt 3) testUri
+      hoverReq 3 (IdInt 3) testUri
       hr3 <- atomically $ readTChan logChan
       unpackRes hr3 `shouldBe` ("IReq IdInt 3",Just Cached)
 
     it "instantly responds to deferred requests if cache is available" $ do
       -- deferred responses should return something now immediately
       -- as long as the above test ran before
-      dispatchIdeRequest "references" cin logChan (IdInt 4)
+      dispatchIdeRequest 0 "references" cin logChan (IdInt 4)
         $ getReferencesInDoc testUri (Position 7 0)
 
       hr4 <- atomically $ readTChan logChan
@@ -265,7 +266,7 @@ functionalSpec = do
 
     it "returns hints as diagnostics" $ do
 
-      dispatchGhcRequest "r5" 5 cin logChan "applyrefact" "lint" testUri
+      dispatchGhcRequest 5 "r5" 5 cin logChan "applyrefact" "lint" testUri
 
       hr5 <- atomically $ readTChan logChan
       unpackRes hr5 `shouldBe` ("r5",
@@ -284,7 +285,7 @@ functionalSpec = do
                    )
 
       let req6 = HP testUri (toPos (8, 1))
-      dispatchGhcRequest "r6" 6 cin logChan "hare" "demote" req6
+      dispatchGhcRequest 6 "r6" 6 cin logChan "hare" "demote" req6
 
       hr6 <- atomically $ readTChan logChan
       -- show hr6 `shouldBe` "hr6"
@@ -299,4 +300,18 @@ functionalSpec = do
           )
           Nothing
         ))
+    
+    it "instantly responds to failed modules with no cache" $ do
+
+      let failUri = filePathToUri $ cwd </> "FuncTestFail.hs"
+
+      dispatchIdeRequest 7 "req7" cin logChan (IdInt 7) $ getSymbols failUri
+
+      dispatchGhcRequest 8 "req8" 8 cin logChan "ghcmod" "check" (toJSON failUri)
+
+      (_, Left symbolError) <- atomically $ readTChan logChan
+      symbolError `shouldBe` (IdInt 7, ParseError, "")
+
+      ("req8", Right diags) <- atomically $ readTChan logChan
+      show diags `shouldBe` "((Map Uri (Set Diagnostic)),[Text])"
 

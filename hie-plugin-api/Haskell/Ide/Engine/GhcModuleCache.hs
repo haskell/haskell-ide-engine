@@ -4,6 +4,7 @@
 
 module Haskell.Ide.Engine.GhcModuleCache where
 
+import qualified Data.Text as T
 import qualified Data.Map as Map
 import           Data.Dynamic (Dynamic)
 import           Data.Typeable (TypeRep)
@@ -22,7 +23,7 @@ data UriCache = UriCache
   { cachedModule :: !CachedModule
   , cachedData   :: !(Map.Map TypeRep Dynamic)
   , isStale      :: !Bool
-  } deriving Show
+  } | UriCacheFailed T.Text deriving Show
 
 data CachedModule = CachedModule
   { tcMod          :: !TypecheckedModule

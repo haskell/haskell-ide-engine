@@ -82,7 +82,7 @@ run dispatcherProc cin = flip E.catches handlers $ do
 
     let race3_ a b c = race_ a (race_ b c)
 
-    let errorHandler lid _ e = liftIO $ hPutStrLn stderr $ "Got an error for request " ++ show lid ++ ": " ++ e
+    let errorHandler lid _ e = liftIO $ hPutStrLn stderr $ "Got an error for request " ++ show lid ++ ": " ++ T.unpack e
         callbackHandler callback x = (callback x)
 
     race3_ (dispatcherProc dispatcherEnv errorHandler callbackHandler)
@@ -108,7 +108,7 @@ run dispatcherProc cin = flip E.catches handlers $ do
       let sendResponse rid resp = atomically $ writeTChan rout (ReactorOutput rid resp) in
       forever $ do
         req <- getNextReq
-        let preq = GReq (context req) Nothing (Just $ J.IdInt rid) (liftIO . callback)
+        let preq = GReq 0 (context req) Nothing (Just $ J.IdInt rid) (liftIO . callback)
               $ runPluginCommand (plugin req) (command req) (arg req)
             rid = reqId req
             callback = sendResponse rid . dynToJSON

@@ -160,8 +160,10 @@ errorHandlers ghcErrRes renderSourceError = handlers
             renderSourceError ex
         , GM.GHandler $ \(ex :: GhcException) ->
             return $ ghcErrRes $ GM.renderGm $ GM.ghcExceptionDoc ex
+        , GM.GHandler $ \(ex :: IOError) ->
+            return $ ghcErrRes (show ex)
         -- , GM.GHandler $ \(ex :: GM.SomeException) ->
-        --     return (Map.empty ,[T.pack (show ex)])
+        --     return $ ghcErrRes (show ex)
         ]
 
 setTypecheckedModule :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
@@ -172,21 +174,28 @@ setTypecheckedModule uri =
     rfm <- GM.mkRevRedirMapFunc
     let
       ghcErrRes msg = ((Map.empty, [T.pack msg]),Nothing)
+    debugm "setTypecheckedModule: before ghc-mod"
     ((diags', errs), mtm) <- GM.gcatches
                               (GM.getTypecheckedModuleGhc' (myLogger rfm) fp)
                               (errorHandlers ghcErrRes (return . ghcErrRes . show))
+    debugm "setTypecheckedModule: after ghc-mod"
     canonUri <- canonicalizeUri uri
     let diags = Map.insertWith Set.union canonUri Set.empty diags'
     case mtm of
       Nothing -> do
         debugm $ "setTypecheckedModule: Didn't get typechecked module for: " ++ show fp
+        
+        failModule fp (T.unlines errs)
+
         return $ IdeResultOk (diags,errs)
       Just tm -> do
+        debugm $ "setTypecheckedModule: Did get typechecked module for: " ++ show fp
         typm <- GM.unGmlT $ genTypeMap tm
         sess <- fmap GM.gmgsSession . GM.gmGhcSession <$> GM.gmsGet
         let cm = CachedModule tm (genLocMap tm) typm rfm return return
         cacheModule fp cm
         modifyMTS (\s -> s {ghcSession = sess})
+        debugm "setTypecheckedModule: done"
         return $ IdeResultOk (diags,errs)
 
 -- ---------------------------------------------------------------------

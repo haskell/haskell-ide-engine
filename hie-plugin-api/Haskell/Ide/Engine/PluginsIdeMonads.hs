@@ -133,7 +133,7 @@ instance LiftsToGhc IdeGhcM where
 data IdeState = IdeState
   { moduleCache :: GhcModuleCache
   -- | A queue of requests to be performed once a module is loaded
-  , requestQueue :: Map.Map FilePath [CachedModule -> IdeM ()]
+  , requestQueue :: Map.Map FilePath [Either T.Text CachedModule -> IdeM ()]
   , idePlugins  :: IdePlugins
   , extensibleState :: !(Map.Map TypeRep Dynamic)
   , ghcSession  :: Maybe (IORef HscEnv)
@@ -275,11 +275,11 @@ data IdeErrorCode
  | PluginError             -- ^ An error returned by a plugin
  | InternalError           -- ^ Code error (case not handled or deemed
                            --   impossible)
+ | NoModuleAvailable       -- ^ No typechecked module available to use
  | UnknownPlugin           -- ^ Plugin is not registered
  | UnknownCommand          -- ^ Command is not registered
  | InvalidContext          -- ^ Context invalid for command
  | OtherError              -- ^ An error for which there's no better code
- | ParseError              -- ^ Input could not be parsed
  deriving (Show,Read,Eq,Ord,Bounded,Enum,Generic)
 
 instance ToJSON IdeErrorCode

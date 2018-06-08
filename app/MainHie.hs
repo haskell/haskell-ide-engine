@@ -22,6 +22,7 @@ import qualified Language.Haskell.LSP.Core             as Core
 import           Options.Applicative.Simple
 import qualified Paths_haskell_ide_engine              as Meta
 import           System.Directory
+import           System.Environment
 import qualified System.Log.Logger                     as L
 import qualified System.Remote.Monitoring              as EKG
 
@@ -102,7 +103,8 @@ run opts = do
 
   maybe (pure ()) setCurrentDirectory $ projectRoot opts
 
-  logm $  "run entered for HIE " ++ version
+  progName <- getProgName
+  logm $  "run entered for HIE(" ++ progName ++ ") " ++ version
   d <- getCurrentDirectory
   logm $ "Current directory:" ++ d
 
@@ -110,8 +112,10 @@ run opts = do
       oo = GM.optOutput GM.defaultOptions
   let ghcModOptions = if optGhcModVomit opts then vomitOptions else GM.defaultOptions
 
-  -- launch the dispatcher.
+  when (optGhcModVomit opts) $ do
+    logm "Enabling --vomit for ghc-mod. Output will be on stderr"
   
+  -- launch the dispatcher.
   if optLsp opts then do
     pin <- atomically newTChan
     lspStdioTransport (dispatcherP pin plugins ghcModOptions) pin origDir (optCaptureFile opts)
