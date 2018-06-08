@@ -112,9 +112,9 @@ run opts = do
       oo = GM.optOutput GM.defaultOptions
   let ghcModOptions = if optGhcModVomit opts then vomitOptions else GM.defaultOptions
 
-  when (optGhcModVomit opts) $ do
+  when (optGhcModVomit opts) $
     logm "Enabling --vomit for ghc-mod. Output will be on stderr"
-  
+
   -- launch the dispatcher.
   if optLsp opts then do
     pin <- atomically newTChan
@@ -122,3 +122,4 @@ run opts = do
   else do
     pin <- atomically newTChan
     jsonStdioTransport (dispatcherP pin plugins ghcModOptions) pin
+

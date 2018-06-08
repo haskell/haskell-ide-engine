@@ -118,7 +118,7 @@ run dispatcherProc cin _origDir captureFp = flip E.catches handlers $ do
         -- recognized properly by ghc-mod
         _ <- forkIO $ race_ (dispatcherProc dispatcherEnv errorHandler callbackHandler) reactorFunc
         return Nothing
-        
+
   flip E.finally finalProc $ do
     CTRL.run (getConfig, dp) (hieHandlers rin) hieOptions captureFp
  where
@@ -348,7 +348,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
   -- forever $ do
   let
     loop :: TrackingNumber -> R void
-    loop tn = do 
+    loop tn = do
       inval <- liftIO $ atomically $ readTChan inp
       liftIO $ U.logs $ "****** reactor: got message number:" ++ show tn
 
@@ -362,7 +362,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         -- -------------------------------
 
         NotInitialized _notification -> do
-          liftIO $ U.logm $ "****** reactor: processing Initialized Notification"
+          liftIO $ U.logm "****** reactor: processing Initialized Notification"
           -- Server is ready, register any specific capabilities we need
 
            {-
@@ -644,7 +644,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                               origCompl & J.documentation .~ docs
                 reactorSend $ RspCompletionItemResolve rspMsg
               hreq = IReq tn (req ^. J.id) callback $ runIdeResponseT $ case mquery of
-                        Nothing -> return $ Nothing
+                        Nothing -> return Nothing
                         Just query -> do
                           result <- lift $ Hoogle.infoCmd' query
                           case result of
