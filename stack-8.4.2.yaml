@@ -19,10 +19,6 @@ packages:
     - core
 
 - location:
-    ./submodules/yi-rope
-  extra-dep: true
-
-- location:
     ./submodules/haskell-lsp
   extra-dep: true
   subdirs:
@@ -39,6 +35,7 @@ extra-deps:
 # - haskell-lsp-types-0.2.2.0
 - syz-0.2.0.0
 - temporary-1.2.1.1
+- yi-rope-0.11
 
 flags:
   haskell-ide-engine:
