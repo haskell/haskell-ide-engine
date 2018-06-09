@@ -43,6 +43,7 @@ extra-deps:
 - github: Bubba/haskell-lsp-test
   commit: ac2553b38ed2228839cb72747f8c48b7c2fab488
 - conduit-parse-0.2.1.0
+- conduit-1.3.0.2
 
 flags:
   haskell-ide-engine:
