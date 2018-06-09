@@ -97,7 +97,7 @@ run opts = do
 
   when (optEkg opts) $ do
     logm $ "Launching EKG server on port " ++ show (optEkgPort opts)
-    void $ EKG.forkServer "localhost" (optEkgPort opts) >> return ()
+    void $ void $ EKG.forkServer "localhost" (optEkgPort opts)
 
   origDir <- getCurrentDirectory
 
