@@ -40,7 +40,7 @@ extra-deps:
 - syz-0.2.0.0
 - temporary-1.2.1.1
 - github: Bubba/haskell-lsp-test
-  commit: 88c70a40654c7152fb50b2a4e171fbdc00324f51
+  commit: ac2553b38ed2228839cb72747f8c48b7c2fab488
 
 flags:
   haskell-ide-engine:

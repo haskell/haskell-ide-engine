@@ -39,6 +39,8 @@ extra-deps:
 # - haskell-lsp-types-0.2.2.0
 - syz-0.2.0.0
 - temporary-1.2.1.1
+- github: Bubba/haskell-lsp-test
+  commit: ac2553b38ed2228839cb72747f8c48b7c2fab488
 
 flags:
   haskell-ide-engine:
