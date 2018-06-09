@@ -19,14 +19,10 @@ packages:
     - core
 
 - location:
-    ./submodules/yi-rope
-  extra-dep: true
-
-- location:
     ./submodules/haskell-lsp
   extra-dep: true
   subdirs:
-    - . 
+    - .
     - haskell-lsp-types
 
 extra-deps:
@@ -43,6 +39,7 @@ extra-deps:
 - hlint-2.0.11
 - sorted-list-0.2.1.0
 - syz-0.2.0.0
+- yi-rope-0.11
 - github: Bubba/haskell-lsp-test
   commit: ac2553b38ed2228839cb72747f8c48b7c2fab488
 - conduit-parse-0.2.1.0
