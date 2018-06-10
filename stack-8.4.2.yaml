@@ -37,7 +37,7 @@ extra-deps:
 - temporary-1.2.1.1
 - yi-rope-0.11
 - github: Bubba/haskell-lsp-test
-  commit: ac2553b38ed2228839cb72747f8c48b7c2fab488
+  commit: a65254a5b7a5312bc616d601737f8595b14279ef
 
 flags:
   haskell-ide-engine:
