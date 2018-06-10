@@ -4,32 +4,20 @@
 -- https://github.com/alanz/vscode-hie-server
 module Main where
 
-import           Control.Monad
-import           Control.Monad.IO.Class
 #if __GLASGOW_HASKELL__ < 804
 import           Data.Semigroup
 #endif
 import           Data.List
 import           Data.Maybe
 import           Data.Version                          (showVersion)
-import           Development.GitRev              (gitCommitCount)
-import           Distribution.Parsec.Class
-import           Distribution.System             (buildArch)
-import           Distribution.Text               (display)
 import           Haskell.Ide.Engine.MonadFunctions
-import           Haskell.Ide.Engine.MonadTypes
+import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.Plugin.Base
-import           Haskell.Ide.Engine.PluginDescriptor
+import qualified Language.Haskell.LSP.Core             as Core
 import           Options.Applicative.Simple
 import qualified Paths_haskell_ide_engine              as Meta
 import           System.Directory
 import           System.Environment
-import           System.Exit
-import           System.IO
-import qualified System.Log.Formatter as L
-import qualified System.Log.Handler as LH
-import qualified System.Log.Handler.Simple as LHS
-import           System.Log.Logger
 import qualified System.Log.Logger as L
 import           System.Process
 
@@ -54,59 +42,12 @@ main = do
     (global, ()) <-
         simpleOptions
             version
-            "haskell-ide-engine - Provide a common engine to power any Haskell IDE"
+            "hie-wrapper - Launch the appropriate haskell-ide-engine for a given project"
             ""
             (numericVersion <*> compiler <*> globalOptsParser)
             empty
 
     run global
-
--- ---------------------------------------------------------------------
-
-data GlobalOpts = GlobalOpts
-  { optDebugOn     :: Bool
-  , optLogFile     :: Maybe String
-  , optLsp         :: Bool
-  , projectRoot    :: Maybe String
-  , optGhcModVomit :: Bool
-  , optEkg         :: Bool
-  , optEkgPort     :: Int
-  } deriving (Show)
-
-globalOptsParser :: Parser GlobalOpts
-globalOptsParser = GlobalOpts
-  <$> switch
-       ( long "debug"
-      <> short 'd'
-      <> help "Generate debug output"
-       )
-  <*> (optional $ strOption
-       ( long "logfile"
-      <> short 'l'
-      <> metavar "LOGFILE"
-      <> help "File to log to, defaults to stdout"
-       ))
-  <*> flag False True
-       ( long "lsp"
-       <> help "Enable the Language Server Protocol transport on STDIO")
-  <*> (optional $ strOption
-       ( long "project-root"
-      <> short 'r'
-      <> metavar "PROJECTROOT"
-      <> help "Root directory of project, defaults to cwd"))
-  <*> flag False True
-       ( long "vomit"
-       <> help "enable vomit logging for ghc-mod")
-  <*> flag False True
-       ( long "ekg"
-       <> help "enable ekg collection and display on http://localhost:8000")
-  <*> (option auto
-       ( long "port"
-      <> short 'p'
-      <> metavar "PORT"
-      <> help "TCP port to use for EKG server. Only used if --ekg is set. Default 8000"
-      <> value 8000
-       ))
 
 -- ---------------------------------------------------------------------
 
@@ -120,9 +61,7 @@ run opts = do
                    then L.DEBUG
                    else L.INFO
 
-  setupLogger mLogFileName ["hie-wrapper"] logLevel
-
-  origDir <- getCurrentDirectory
+  Core.setupLogger mLogFileName ["hie"] logLevel
 
   maybe (pure ()) setCurrentDirectory $ projectRoot opts
 
@@ -136,9 +75,6 @@ run opts = do
     ghcVersion = crackGhcVersion ghcVersionString
   logm $ "Project GHC version:" ++ ghcVersion
 
-  putStrLn $ "Project GHC version:" ++ ghcVersionString ++ ":"
-  putStrLn $ "Project GHC version:" ++ ghcVersion ++ ":"
-
   let
     hieBin = "hie-" ++ ghcVersion
     backupHieBin = "hie-" ++ (reverse $ tail $ dropWhile (/='.') $ reverse ghcVersion)
@@ -150,33 +86,19 @@ run opts = do
   mfe <- findExecutable "hie"
 
   case catMaybes [me,mbe,mfe] of
-    [] -> do
-      logm $ "cannot find any hie exe, looked for:" ++ (intercalate ", " [hieBin, backupHieBin, "hie"])
+    [] -> logm $ "cannot find any hie exe, looked for:" ++ intercalate ", " [hieBin, backupHieBin, "hie"]
     (e:_) -> do
       logm $ "found hie exe at:" ++ e
-      putStrLn $ "found hie exe at:" ++ e
+      -- putStrLn $ "found hie exe at:" ++ e
       args <- getArgs
       putStrLn $ "args:" ++ show args
+      logm "launching ....\n\n\n"
       callProcess e args
   
-
 -- ---------------------------------------------------------------------
 
 getProjectGhcVersion :: IO String
 getProjectGhcVersion = do
- {-
-
-GHCBIN='ghc'
-# If a .stack-work exists, assume we are using stack.
-if [ -d ".stack-work" ]; then
-  debug "Using stack GHC version"
-  GHCBIN='stack ghc --'
-else
-  debug "Using plain GHC version"
-fi
-versionNumber=`$GHCBIN --version`
-debug $versionNumber
- -}
   isStack <- doesDirectoryExist ".stack-work"
   cmd <- if isStack
     then do
@@ -191,47 +113,9 @@ debug $versionNumber
 -- "The Glorious Glasgow Haskell Compilation System, version 8.4.3\n"
 -- "The Glorious Glasgow Haskell Compilation System, version 8.4.2\n"
 crackGhcVersion :: String -> String
-crackGhcVersion str = r
-  where
-    r = reverse $ takeWhile (/=' ') $ tail $ reverse str
+crackGhcVersion st = reverse $ takeWhile (/=' ') $ tail $ reverse st
 
 -- ---------------------------------------------------------------------
-
--- copied from LSP Core
-setupLogger :: Maybe FilePath -> [String] -> Priority -> IO ()
-setupLogger mLogFile extraLogNames level = do
-
-  logStream <- case mLogFile of
-    Just logFile -> openFile logFile AppendMode
-    Nothing      -> return stderr
-  hSetEncoding logStream utf8
-
-  logH <- LHS.streamHandler logStream level
-
-  let logHandle  = logH {LHS.closeFunc = hClose}
-      logFormat  = L.tfLogFormatter logFormatDateStr logFormatStr
-      logHandler = LH.setFormatter logHandle logFormat
-
-  L.updateGlobalLogger L.rootLoggerName $ L.setHandlers ([] :: [LHS.GenericHandler Handle])
-  L.updateGlobalLogger logNameStr $ L.setHandlers [logHandler]
-  L.updateGlobalLogger logNameStr $ L.setLevel level
-
-  -- Also route the additional log names to the same log
-  forM_ extraLogNames $ \logName -> do
-    L.updateGlobalLogger logName $ L.setHandlers [logHandler]
-    L.updateGlobalLogger logName $ L.setLevel level
-
-logNameStr :: String
-logNameStr = "hie-wrapper"
-
-logFormatStr :: String
-logFormatStr = "$time [$tid] - $msg"
-
-logFormatDateStr :: String
-logFormatDateStr = "%Y-%m-%d %H:%M:%S%Q"
-
--- ---------------------------------------------------------------------
-
 
 {-
 #!/usr/bin/env bash

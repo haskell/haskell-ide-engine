@@ -49,7 +49,6 @@ library
                      , containers
                      , data-default
                      , directory
-                     , extra
                      , filepath
                      , ghc >= 8.0.1
                      , ghc-exactprint
@@ -88,13 +87,10 @@ executable hie
   hs-source-dirs:      app
   main-is:             MainHie.hs
   other-modules:       Paths_haskell_ide_engine
-  build-depends:       Cabal >= 1.22
-                     , base
-                     , containers
+  build-depends:       base
                      , directory
                      , ekg
                      , ghc-mod-core
-                     , gitrev >= 1.1
                      , haskell-ide-engine
                      , haskell-lsp
                      , hie-plugin-api
@@ -112,13 +108,10 @@ executable hie-wrapper
   hs-source-dirs:      app
   main-is:             HieWrapper.hs
   other-modules:       Paths_haskell_ide_engine
-  build-depends:       Cabal >= 1.22
-                     , base
-                     , containers
+  build-depends:       base
                      , directory
-                     , ekg
-                     , gitrev >= 1.1
                      , haskell-ide-engine
+                     , haskell-lsp
                      , hie-plugin-api
                      , hslogger
                      , optparse-simple
