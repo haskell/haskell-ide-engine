@@ -107,6 +107,29 @@ executable hie
      ghc-options:      -Werror
   default-language:    Haskell2010
 
+
+executable hie-wrapper
+  hs-source-dirs:      app
+  main-is:             HieWrapper.hs
+  other-modules:       Paths_haskell_ide_engine
+  build-depends:       Cabal >= 1.22
+                     , base
+                     , containers
+                     , directory
+                     , ekg
+                     , gitrev >= 1.1
+                     , haskell-ide-engine
+                     , hie-plugin-api
+                     , hslogger
+                     , optparse-simple
+                     , process
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
+                       -with-rtsopts=-T
+  if flag(pedantic)
+     ghc-options:      -Werror
+  default-language:    Haskell2010
+
+
 test-suite haskell-ide-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test

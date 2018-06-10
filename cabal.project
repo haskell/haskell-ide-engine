@@ -5,8 +5,7 @@ packages:
          ./submodules/HaRe
          ./submodules/cabal-helper/
          ./submodules/ghc-mod/
-         ./submodules/ghc-mod//core/
-         ./submodules/yi-rope/
+         ./submodules/ghc-mod/core/
          ./submodules/haskell-lsp/
          ./submodules/haskell-lsp/haskell-lsp-types
 
