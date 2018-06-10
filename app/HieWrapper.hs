@@ -79,7 +79,7 @@ run opts = do
     hieBin = "hie-" ++ ghcVersion
     backupHieBin = "hie-" ++ (reverse $ tail $ dropWhile (/='.') $ reverse ghcVersion)
 
-  putStrLn $ "hie exe candidates :" ++ show (hieBin,backupHieBin)
+  logm $ "hie exe candidates :" ++ show (hieBin,backupHieBin)
 
   me <- findExecutable hieBin
   mbe <- findExecutable backupHieBin
@@ -91,9 +91,10 @@ run opts = do
       logm $ "found hie exe at:" ++ e
       -- putStrLn $ "found hie exe at:" ++ e
       args <- getArgs
-      putStrLn $ "args:" ++ show args
+      logm $ "args:" ++ show args
       logm "launching ....\n\n\n"
       callProcess e args
+      logm "done"
   
 -- ---------------------------------------------------------------------
 
