@@ -105,8 +105,8 @@ getProjectGhcVersion = do
       logm "Using stack GHC version"
       return "stack ghc -- --version"
     else do
-      logm "Using plain GHC --version"
-      return "ghc version"
+      logm "Using plain GHC version"
+      return "ghc --version"
   readCreateProcess (shell cmd) ""
 
 
