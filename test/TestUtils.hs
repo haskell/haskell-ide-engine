@@ -9,6 +9,7 @@ module TestUtils
   , runSingleReq
   , makeRequest
   , runIGM
+  , hieCommand
   ) where
 
 import           Control.Exception
@@ -101,21 +102,28 @@ files =
    , "./test/testdata/gototest/"
   ]
 
+stackYaml :: String
+stackYaml = 
+#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,3,0)))
+  "stack.yaml"
+#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,2,0)))
+  "stack-8.4.2.yaml"
+#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,2,2,0)))
+  "stack-8.2.2.yaml"
+#elif __GLASGOW_HASKELL__ >= 802
+  "stack-8.2.1.yaml"
+#else
+  "stack-8.0.2.yaml"
+#endif
+
+-- | The command to execute the version of hie for the current compiler.
+hieCommand :: String
+hieCommand = "stack exec --stack-yaml=" ++ stackYaml ++ " hie -- --lsp"
+
 -- |Choose a resolver based on the current compiler, otherwise HaRe/ghc-mod will
 -- not be able to load the files
 readResolver :: IO String
-readResolver =
-#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,3,0)))
-  readResolverFrom "stack.yaml"
-#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,2,0)))
-  readResolverFrom "stack-8.4.2.yaml"
-#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,2,2,0)))
-  readResolverFrom "stack-8.2.2.yaml"
-#elif __GLASGOW_HASKELL__ >= 802
-  readResolverFrom "stack-8.2.1.yaml"
-#else
-  readResolverFrom "stack-8.0.2.yaml"
-#endif
+readResolver = readResolverFrom stackYaml
 
 newtype StackResolver = StackResolver String
 

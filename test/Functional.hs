@@ -25,7 +25,7 @@ main = do
 spec :: Spec
 spec =
   describe "deferred responses" $ do
-    it "do not affect hover requests" $ runSession "test/testdata" $ do
+    it "do not affect hover requests" $ runSession hieCommand "test/testdata" $ do
       doc <- openDoc "FuncTest.hs" "haskell"
 
       id1 <- sendRequest TextDocumentHover (TextDocumentPositionParams doc (Position 4 2))
@@ -97,7 +97,7 @@ spec =
                      }
                    ]
 
-    it "instantly respond to failed modules with no cache" $ runSession "test/testdata" $ do
+    it "instantly respond to failed modules with no cache" $ runSession hieCommand "test/testdata" $ do
       doc <- openDoc "FuncTestFail.hs" "haskell"
 
       _ <- sendRequest TextDocumentDocumentSymbol (DocumentSymbolParams doc)
@@ -105,7 +105,7 @@ spec =
       symbols <- response :: Session DocumentSymbolsResponse
       liftIO $ symbols ^. LSP.error `shouldNotBe` Nothing
 
-    it "returns hints as diagnostics" $ runSession "test/testdata" $ do
+    it "returns hints as diagnostics" $ runSession hieCommand "test/testdata" $ do
       _ <- openDoc "FuncTest.hs" "haskell"
       
       cwd <- liftIO getCurrentDirectory

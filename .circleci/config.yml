@@ -55,6 +55,8 @@ defaults: &defaults
         name: Compile + Test
         command: stack -j 1 --stack-yaml=${STACK_FILE} test --dump-logs
         no_output_timeout: 120m
+
+    - store_artifacts:
         path: test-logs
 
     - save_cache:
