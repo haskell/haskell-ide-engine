@@ -52,3 +52,4 @@ cabal.sandbox.config
 dist-newstyle/
 dist/
 tags
+test-logs/

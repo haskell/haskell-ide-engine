@@ -3,7 +3,6 @@ module TestUtils
   (
     testOptions
   , cdAndDo
-  , withTestLogging
   , withFileLogging
   , setupStackFiles
   , testCommand
@@ -26,6 +25,7 @@ import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
 import           System.Directory
+import           System.FilePath
 import qualified System.Log.Logger as L
 
 import           Test.Hspec
@@ -69,13 +69,19 @@ makeRequest plugin com arg = runPluginCommand plugin com (toJSON arg)
 runIGM :: IdePlugins -> IdeGhcM a -> IO a
 runIGM testPlugins = runIdeGhcM testOptions (IdeState emptyModuleCache Map.empty testPlugins Map.empty Nothing)
 
-withTestLogging :: IO a -> IO a
-withTestLogging = withFileLogging "./test-main.log"
-
-
 withFileLogging :: FilePath -> IO a -> IO a
-withFileLogging filePath f = do
-  Core.setupLogger (Just filePath) ["hie"] L.DEBUG
+withFileLogging logFile f = do
+  let logDir = "./test-logs"
+      logPath = logDir </> logFile
+
+  dirExists <- doesDirectoryExist logDir
+  unless dirExists $ createDirectory logDir
+
+  exists <- doesFileExist logPath
+  when exists $ removeFile logPath
+
+  Core.setupLogger (Just logPath) ["hie"] L.DEBUG
+  
   f
 
 -- ---------------------------------------------------------------------

@@ -122,17 +122,6 @@ dispatchIdeRequest tn ctx cin lc lid f = do
 
 -- ---------------------------------------------------------------------
 
-dispatchSpec :: IO ()
-dispatchSpec = do
-  setupStackFiles
-  let logfile = "./test-functional.log"
-  exists <- doesFileExist logfile
-  when exists $ removeFile logfile
-  withFileLogging logfile $ cdAndDo "./test/testdata"  $ hspec spec
-
-spec :: Spec
-spec = do
-  describe "functional spec" functionalSpec
 
 -- ---------------------------------------------------------------------
 
@@ -144,9 +133,8 @@ instance ToJSON   Cached where
 
 -- ---------------------------------------------------------------------
 
-functionalSpec :: Spec
-functionalSpec = do
-
+dispatchSpec :: Spec
+dispatchSpec = do
   (cin,logChan) <- runIO startServer
   cwd <- runIO getCurrentDirectory
   let testUri = filePathToUri $ cwd </> "FuncTest.hs"
@@ -164,7 +152,7 @@ functionalSpec = do
     unpackRes r            = error $ "unpackRes:" ++ show r
     
   
-  describe "consecutive plugin commands" $ do
+  describe "dispatch" $ do
     it "defers responses until module is loaded" $ do
 
       -- Returns immediately, no cached value

@@ -35,7 +35,7 @@ defaults: &defaults
         command: stack --stack-yaml=${STACK_FILE} install hoogle
 
     - run:
-        name: Generate Hoogle databalse
+        name: Generate Hoogle database
         command: ~/.local/bin/hoogle generate base
 
     - run:
@@ -55,6 +55,7 @@ defaults: &defaults
         name: Compile + Test
         command: stack -j 1 --stack-yaml=${STACK_FILE} test --dump-logs
         no_output_timeout: 120m
+        path: test-logs
 
     - save_cache:
         key: stack-cache-01-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}

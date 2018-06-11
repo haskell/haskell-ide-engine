@@ -13,11 +13,14 @@ import Test.Hspec
 import System.Directory
 import System.FilePath
 import FunctionalDispatch
+import TestUtils
 
 main :: IO ()
 main = do
-  hspec spec
-  dispatchSpec
+  setupStackFiles
+  withFileLogging "functional.log" $ do
+    hspec spec
+    cdAndDo "./test/testdata" $ hspec dispatchSpec
 
 spec :: Spec
 spec =
