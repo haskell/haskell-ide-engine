@@ -189,6 +189,8 @@ Using [Aura](https://github.com/aurapm/aura):
 
 ## Editor Integration
 
+Note to editor integrators: there is now a `hie-wrapper` executable, which is installed alongside the `hie` executable.  When this is invoked in the project root directory, it attempts to work out the GHC version used in the project, and then launch the matching `hie` executable.
+
 All of the editor integrations assume that you have already installed HIE (see above) and that `stack` put the `hie` binary in your path (usually `~/.local/bin` on linux and macOS).
 
 ### Using HIE with VS Code
