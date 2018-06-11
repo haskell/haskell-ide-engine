@@ -244,9 +244,20 @@ Finally, make sure that `hie` is included as the language server source for hask
 ```
 let g:LanguageClient_serverCommands = {
     ...
-    \ 'haskell': ['hie', '--lsp'],
+    \ 'haskell': ['hie-wrapper', '--lsp'],
     ...
     \ }
+```
+
+It may be helpful to also specify the project root for hie-wrapper, writing instead:
+
+```
+let g:LanguageClient_serverCommands = {
+    ...
+    \ 'haskell': ['hie-wrapper', '--lsp', '-r', '$YOURROOTHERE'],
+    ...
+    \ }
+
 ```
 
 For asynchronous auto-completion, follow the setup instructions on
