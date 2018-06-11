@@ -1,9 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
--- import Test.Hspec.Formatters.Jenkins
-import           Control.Monad
-import           System.Directory
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
 import           Control.Concurrent.STM.TVar
@@ -19,17 +16,13 @@ import qualified Language.Haskell.LSP.Types            as J
 import           TestUtils
 
 import           Test.Hspec
--- import           Test.Hspec.Runner
 
 -- ---------------------------------------------------------------------
 
 main :: IO ()
 main = do
   setupStackFiles
-  let logfile = "./test-main-dispatcher.log"
-  exists <- doesFileExist logfile
-  when exists $ removeFile logfile
-  withFileLogging logfile $ hspec spec
+  withFileLogging "main-dispatcher.log" $ hspec spec
 
 -- main :: IO ()
 -- main = do

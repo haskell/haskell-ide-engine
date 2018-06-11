@@ -19,3 +19,6 @@
 [submodule "submodules/haskell-lsp"]
 	path = submodules/haskell-lsp
 	url = https://github.com/alanz/haskell-lsp.git
+[submodule "submodules/haskell-lsp-test"]
+	path = submodules/haskell-lsp-test
+	url = https://github.com/Bubba/haskell-lsp-test.git

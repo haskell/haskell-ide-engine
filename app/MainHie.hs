@@ -97,7 +97,7 @@ run opts = do
 
   when (optEkg opts) $ do
     logm $ "Launching EKG server on port " ++ show (optEkgPort opts)
-    void $ EKG.forkServer "localhost" (optEkgPort opts) >> return ()
+    void $ void $ EKG.forkServer "localhost" (optEkgPort opts)
 
   origDir <- getCurrentDirectory
 
@@ -112,13 +112,14 @@ run opts = do
       oo = GM.optOutput GM.defaultOptions
   let ghcModOptions = if optGhcModVomit opts then vomitOptions else GM.defaultOptions
 
-  when (optGhcModVomit opts) $ do
+  when (optGhcModVomit opts) $
     logm "Enabling --vomit for ghc-mod. Output will be on stderr"
-  
+
   -- launch the dispatcher.
   if optLsp opts then do
     pin <- atomically newTChan
-    lspStdioTransport (dispatcherP pin plugins ghcModOptions) pin origDir
+    lspStdioTransport (dispatcherP pin plugins ghcModOptions) pin origDir (optCaptureFile opts)
   else do
     pin <- atomically newTChan
     jsonStdioTransport (dispatcherP pin plugins ghcModOptions) pin
+
