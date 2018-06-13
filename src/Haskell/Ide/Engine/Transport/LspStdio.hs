@@ -134,10 +134,10 @@ run dispatcherProc cin _origDir captureFp = flip E.catches handlers $ do
   ioExcept (e :: E.IOException) = print e >> return 1
   someExcept (e :: E.SomeException) = print e >> return 1
   getCommandUUIDs = do
-    gen <- getStdGen
-    let commands = ["hare:demote", "applyrefact:applyOne"]
-        uuids :: [UUID]
-        uuids = randoms gen
+    uuid <- toText <$> randomIO
+    let commands :: [T.Text]
+        commands = ["hare:demote", "applyrefact:applyOne"]
+        uuids = map (T.append uuid . T.append ":") commands
     return $ BM.fromList (zip commands uuids)
 
 -- ---------------------------------------------------------------------
@@ -147,7 +147,6 @@ type ReactorInput
       -- ^ injected into the reactor input by each of the individual callback handlers
 
 -- ---------------------------------------------------------------------
-
 
 -- ---------------------------------------------------------------------
 
@@ -346,7 +345,7 @@ sendErrorLog msg = reactorSend' (`Core.sendErrorLogS` msg)
 -- | The single point that all events flow through, allowing management of state
 -- to stitch replies and requests together from the two asynchronous sides: lsp
 -- server and hie dispatcher
-reactor :: forall void. DispatcherEnv -> TChan (PluginRequest R) -> TChan ReactorInput -> BM.Bimap T.Text UUID -> R void
+reactor :: forall void. DispatcherEnv -> TChan (PluginRequest R) -> TChan ReactorInput -> BM.Bimap T.Text T.Text -> R void
 reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandUUIDs = do
   let
     makeRequest req@(GReq _ _ Nothing (Just lid) _ _) = liftIO $ atomically $ do
@@ -400,7 +399,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandUUIDs =
           let
             options = J.object ["documentSelector" .= J.object [ "language" .= J.String "haskell"]]
             registrationsList =
-              [ J.Registration (toText $ commandUUIDs BM.! "hare:demote") J.WorkspaceExecuteCommand (Just options)
+              [ J.Registration (commandUUIDs BM.! "hare:demote") J.WorkspaceExecuteCommand (Just options)
               ]
           let registrations = J.RegistrationParams (J.List registrationsList)
 
@@ -586,7 +585,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandUUIDs =
                  title :: T.Text
                  title = "Apply hint:" <> head (T.lines m)
                  -- NOTE: the cmd needs to be registered via the InitializeResponse message. See hieOptions above
-                 cmd = toText $ commandUUIDs BM.! "applyrefact:applyOne"
+                 cmd = commandUUIDs BM.! "applyrefact:applyOne"
                  -- need 'file', 'start_pos' and hint title (to distinguish between alternative suggestions at the same location)
                  args = J.Array $ V.singleton $ J.toJSON $ ApplyRefact.AOP doc start code
                  cmdparams = Just args
@@ -604,9 +603,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandUUIDs =
           let params = req ^. J.params
               command' = params ^. J.command
               -- if this is a UUID then use the mapping for it
-              command = fromMaybe command' $ do
-                uuid <- fromText command'
-                BM.lookupR uuid commandUUIDs
+              command = fromMaybe command' (BM.lookupR command' commandUUIDs)
               margs = params ^. J.arguments
 
           liftIO $ U.logs $ "ExecuteCommand mapped command " ++ show command' ++ " to " ++ show command
@@ -857,7 +854,7 @@ syncOptions = J.TextDocumentSyncOptions
   , J._save              = Just $ J.SaveOptions $ Just False
   }
 
-hieOptions :: [UUID] -> Core.Options
+hieOptions :: [T.Text] -> Core.Options
 hieOptions commandUUIDs =
   def { Core.textDocumentSync       = Just syncOptions
       , Core.completionProvider     = Just (J.CompletionOptions (Just True) (Just ["."]))
@@ -867,7 +864,7 @@ hieOptions commandUUIDs =
       --
       -- Hopefully the end May 2018 vscode release will stabilise
       -- this, it is a major rework of the machinery anyway.
-      , Core.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List (map toText commandUUIDs)))
+      , Core.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List commandUUIDs))
       }
 
 
