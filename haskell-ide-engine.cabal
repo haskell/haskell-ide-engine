@@ -61,7 +61,7 @@ library
                      , haskell-lsp >= 0.3.0
                      , haskell-src-exts
                      , hie-plugin-api
-                     , hlint >= 2.0.11
+                     , hlint >= 2.1.5
                      , hoogle >= 5.0.13
                      , hslogger
                      , lens >= 4.15.2

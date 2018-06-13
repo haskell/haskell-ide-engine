@@ -822,7 +822,6 @@ requestDiagnostics tn cin file ver = do
     sendEmpty = publishDiagnostics maxToSend file Nothing (Map.fromList [(Just "ghcmod",SL.toSortedList [])])
     maxToSend = maybe 50 maxNumberOfProblems mc
 
-  -- mc <- asks Core.config
   let sendHlint = maybe True hlintOn mc
   when sendHlint $ do
     -- get hlint diagnostics

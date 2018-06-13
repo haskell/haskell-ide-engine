@@ -118,7 +118,7 @@ stackYaml =
 
 -- | The command to execute the version of hie for the current compiler.
 hieCommand :: String
-hieCommand = "stack exec --stack-yaml=" ++ stackYaml ++ " hie -- --lsp"
+hieCommand = "stack exec --stack-yaml=" ++ stackYaml ++ " hie -- --lsp -d -l test-logs/functional-hie.log"
 
 -- |Choose a resolver based on the current compiler, otherwise HaRe/ghc-mod will
 -- not be able to load the files
