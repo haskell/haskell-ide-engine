@@ -99,11 +99,7 @@ run
 run dispatcherProc cin _origDir captureFp = flip E.catches handlers $ do
 
   -- TODO: Figure out how to test with random seeds
-  gen <- getStdGen
-  let commands = ["hare:demote", "applyrefact:applyOne"]
-      uuids :: [UUID]
-      uuids = randoms gen
-      commandUUIDs = BM.fromList (zip commands uuids)
+  commandUUIDs <- getCommandUUIDs
 
   rin <- atomically newTChan :: IO (TChan ReactorInput)
 
@@ -137,6 +133,12 @@ run dispatcherProc cin _origDir captureFp = flip E.catches handlers $ do
   finalProc = L.removeAllHandlers
   ioExcept (e :: E.IOException) = print e >> return 1
   someExcept (e :: E.SomeException) = print e >> return 1
+  getCommandUUIDs = do
+    gen <- getStdGen
+    let commands = ["hare:demote", "applyrefact:applyOne"]
+        uuids :: [UUID]
+        uuids = randoms gen
+    return $ BM.fromList (zip commands uuids)
 
 -- ---------------------------------------------------------------------
 
@@ -601,7 +603,10 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandUUIDs =
           liftIO $ U.logs $ "reactor:got ExecuteCommandRequest:" ++ show req
           let params = req ^. J.params
               command' = params ^. J.command
-              command = fromMaybe command' $ BM.lookupR (fromJust $ fromText command') commandUUIDs
+              -- if this is a UUID then use the mapping for it
+              command = fromMaybe command' $ do
+                uuid <- fromText command'
+                BM.lookupR uuid commandUUIDs
               margs = params ^. J.arguments
 
           liftIO $ U.logs $ "ExecuteCommand mapped command " ++ show command' ++ " to " ++ show command

@@ -4,8 +4,10 @@ module Main where
 
 import Control.Monad.IO.Class
 import Control.Lens hiding (List)
+import Control.Monad
 import Data.Aeson
 import qualified Data.HashMap.Strict as H
+import Data.Maybe
 import Language.Haskell.LSP.Test
 import Language.Haskell.LSP.Types
 import qualified Language.Haskell.LSP.Types as LSP (error, id)
@@ -23,7 +25,7 @@ main = do
     cdAndDo "./test/testdata" $ hspec dispatchSpec
 
 spec :: Spec
-spec =
+spec = do
   describe "deferred responses" $ do
     it "do not affect hover requests" $ runSession hieCommand "test/testdata" $ do
       doc <- openDoc "FuncTest.hs" "haskell"
@@ -107,7 +109,7 @@ spec =
 
     it "returns hints as diagnostics" $ runSession hieCommand "test/testdata" $ do
       _ <- openDoc "FuncTest.hs" "haskell"
-      
+
       cwd <- liftIO getCurrentDirectory
       let testUri = filePathToUri $ cwd </> "test/testdata/FuncTest.hs"
 
@@ -143,3 +145,52 @@ spec =
                 ]
             )
             Nothing
+    it "returns hints as diagnostics" $ runSession hieCommand "test/testdata" $ do
+      _ <- openDoc "FuncTest.hs" "haskell"
+
+      cwd <- liftIO getCurrentDirectory
+      let testUri = filePathToUri $ cwd </> "test/testdata/FuncTest.hs"
+
+      diags <- skipManyTill loggingNotification publishDiagnosticsNotification
+      liftIO $ diags ^? params `shouldBe` (Just $ PublishDiagnosticsParams
+                { _uri         = testUri
+                , _diagnostics = List
+                  [ Diagnostic
+                      (Range (Position 9 6) (Position 10 18))
+                      (Just DsInfo)
+                      (Just "Redundant do")
+                      (Just "hlint")
+                      "Redundant do\nFound:\n  do putStrLn \"hello\"\nWhy not:\n  putStrLn \"hello\"\n"
+                      Nothing
+                  ]
+                }
+              )
+
+      let args' = H.fromList [("pos", toJSON (Position 7 0)), ("file", toJSON testUri)]
+          args = List [Object args']
+      _ <- sendRequest WorkspaceExecuteCommand (ExecuteCommandParams "hare:demote" (Just args))
+
+      executeRsp <- skipManyTill anyNotification response :: Session ExecuteCommandResponse
+      liftIO $ executeRsp ^. result `shouldBe` Just (Object H.empty)
+
+      editReq <- request :: Session ApplyWorkspaceEditRequest
+      liftIO $ editReq ^. params . edit `shouldBe` WorkspaceEdit
+            ( Just
+            $ H.singleton testUri
+            $ List
+                [ TextEdit (Range (Position 6 0) (Position 7 6))
+                            "  where\n    bb = 5"
+                ]
+            )
+            Nothing
+
+  describe "multi-server setup" $
+      it "doesn't have clashing commands on two servers" $ do
+        List uuids1 <- getCommands
+        List uuids2 <- getCommands
+        liftIO $ mapM_ print [uuids1, uuids2]
+        liftIO $ forM_ (zip uuids1 uuids2) (uncurry shouldNotBe)
+      where getCommands = runSession hieCommand "test/testdata" $ do
+              rsp <- getInitializeResponse
+              let uuids = rsp ^? result . _Just . capabilities . executeCommandProvider . _Just . commands
+              return $ fromJust uuids
