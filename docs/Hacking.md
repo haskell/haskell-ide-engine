@@ -5,6 +5,7 @@
 ```
 $ git clone https://github.com/haskell/haskell-ide-engine.git
 $ cd haskell-ide-engine
+$ git submodule update --init
 $ stack build
 ```
 
