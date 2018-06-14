@@ -82,7 +82,7 @@ library
                      , yaml
                      , yi-rope
   if os(windows)
-    build-depends:     win32
+    build-depends:     Win32
   else
     build-depends:     unix
   ghc-options:         -Wall -Wredundant-constraints
