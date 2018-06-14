@@ -49,6 +49,7 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
+import           Haskell.Ide.Engine.Compat
 import qualified Haskell.Ide.Engine.Plugin.HaRe        as HaRe
 import qualified Haskell.Ide.Engine.Plugin.GhcMod      as GhcMod
 import qualified Haskell.Ide.Engine.Plugin.ApplyRefact as ApplyRefact
@@ -134,9 +135,8 @@ run dispatcherProc cin _origDir captureFp = flip E.catches handlers $ do
   ioExcept (e :: E.IOException) = print e >> return 1
   someExcept (e :: E.SomeException) = print e >> return 1
   getCommandUUIDs = do
-    uuid <- toText <$> randomIO
-    let commands :: [T.Text]
-        commands = ["hare:demote", "applyrefact:applyOne"]
+    uuid <- toText . fst . random . mkStdGen <$> getProcessID
+    let commands = ["hare:demote", "applyrefact:applyOne"]
         uuids = map (T.append uuid . T.append ":") commands
     return $ BM.fromList (zip commands uuids)
 

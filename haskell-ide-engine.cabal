@@ -35,6 +35,7 @@ library
                        Haskell.Ide.Engine.Transport.JsonStdio
                        Haskell.Ide.Engine.Transport.LspStdio
                        Haskell.Ide.Engine.Types
+                       Haskell.Ide.Engine.Compat
   other-modules:       Paths_haskell_ide_engine
   build-depends:       Cabal >= 1.22
                      , Diff
@@ -80,7 +81,10 @@ library
                      , vector
                      , yaml
                      , yi-rope
-
+  if os(windows)
+    build-depends:     win32
+  else
+    build-depends:     unix
   ghc-options:         -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror
