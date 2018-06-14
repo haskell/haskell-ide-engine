@@ -35,6 +35,7 @@ library
                        Haskell.Ide.Engine.Transport.JsonStdio
                        Haskell.Ide.Engine.Transport.LspStdio
                        Haskell.Ide.Engine.Types
+                       Haskell.Ide.Engine.Compat
   other-modules:       Paths_haskell_ide_engine
   build-depends:       Cabal >= 1.22
                      , Diff
@@ -43,6 +44,7 @@ library
                      , apply-refact
                      , async
                      , base >= 4.9 && < 5
+                     , bimap
                      , brittany
                      , bytestring
                      , cabal-helper >= 0.8.0.2
@@ -69,15 +71,20 @@ library
                      , mtl
                      , optparse-simple >= 0.0.3
                      , process
+                     , random
                      , sorted-list >= 0.2.1.0
                      , stm
                      , tagsoup
                      , text
                      , transformers
+                     , uuid
                      , vector
                      , yaml
                      , yi-rope
-
+  if os(windows)
+    build-depends:     win32
+  else
+    build-depends:     unix
   ghc-options:         -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror

@@ -26,6 +26,7 @@ import           Control.Monad.STM
 import           Control.Monad.Reader
 import qualified Data.Aeson as J
 import           Data.Aeson ( (.=), (.:), (.:?), (.!=) )
+import qualified Data.Bimap as BM
 import qualified Data.ByteString.Lazy as BL
 import           Data.Char (isUpper, isAlphaNum)
 import           Data.Default
@@ -38,6 +39,7 @@ import qualified Data.Set as S
 import qualified Data.SortedList as SL
 import qualified Data.Text as T
 import           Data.Text.Encoding
+import           Data.UUID
 import qualified Data.Vector as V
 import qualified GhcModCore               as GM
 import qualified GhcMod.Monad.Types       as GM
@@ -47,6 +49,7 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
+import           Haskell.Ide.Engine.Compat
 import qualified Haskell.Ide.Engine.Plugin.HaRe        as HaRe
 import qualified Haskell.Ide.Engine.Plugin.GhcMod      as GhcMod
 import qualified Haskell.Ide.Engine.Plugin.ApplyRefact as ApplyRefact
@@ -64,6 +67,7 @@ import qualified Language.Haskell.LSP.Types            as J
 import qualified Language.Haskell.LSP.Utility          as U
 import           System.Exit
 import qualified System.Log.Logger as L
+import           System.Random
 import qualified Yi.Rope as Yi
 
 import Name
@@ -95,7 +99,11 @@ run
   -> IO Int
 run dispatcherProc cin _origDir captureFp = flip E.catches handlers $ do
 
+  -- TODO: Figure out how to test with random seeds
+  commandUUIDs <- getCommandUUIDs
+
   rin <- atomically newTChan :: IO (TChan ReactorInput)
+
   let dp lf = do
         cancelTVar  <- atomically $ newTVar S.empty
         wipTVar     <- atomically $ newTVar S.empty
@@ -105,7 +113,7 @@ run dispatcherProc cin _origDir captureFp = flip E.catches handlers $ do
               , wipReqsTVar    = wipTVar
               , docVersionTVar = versionTVar
               }
-        let reactorFunc = flip runReaderT lf $ reactor dispatcherEnv cin rin
+        let reactorFunc = flip runReaderT lf $ reactor dispatcherEnv cin rin commandUUIDs
 
         let errorHandler :: ErrorHandler
             errorHandler lid code e =
@@ -120,12 +128,17 @@ run dispatcherProc cin _origDir captureFp = flip E.catches handlers $ do
         return Nothing
 
   flip E.finally finalProc $ do
-    CTRL.run (getConfig, dp) (hieHandlers rin) hieOptions captureFp
+    CTRL.run (getConfig, dp) (hieHandlers rin) (hieOptions (BM.elems commandUUIDs)) captureFp
  where
   handlers  = [E.Handler ioExcept, E.Handler someExcept]
   finalProc = L.removeAllHandlers
   ioExcept (e :: E.IOException) = print e >> return 1
   someExcept (e :: E.SomeException) = print e >> return 1
+  getCommandUUIDs = do
+    uuid <- toText . fst . random . mkStdGen <$> getProcessID
+    let commands = ["hare:demote", "applyrefact:applyOne"]
+        uuids = map (T.append uuid . T.append ":") commands
+    return $ BM.fromList (zip commands uuids)
 
 -- ---------------------------------------------------------------------
 
@@ -134,7 +147,6 @@ type ReactorInput
       -- ^ injected into the reactor input by each of the individual callback handlers
 
 -- ---------------------------------------------------------------------
-
 
 -- ---------------------------------------------------------------------
 
@@ -333,8 +345,8 @@ sendErrorLog msg = reactorSend' (`Core.sendErrorLogS` msg)
 -- | The single point that all events flow through, allowing management of state
 -- to stitch replies and requests together from the two asynchronous sides: lsp
 -- server and hie dispatcher
-reactor :: forall void. DispatcherEnv -> TChan (PluginRequest R) -> TChan ReactorInput -> R void
-reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
+reactor :: forall void. DispatcherEnv -> TChan (PluginRequest R) -> TChan ReactorInput -> BM.Bimap T.Text T.Text -> R void
+reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandUUIDs = do
   let
     makeRequest req@(GReq _ _ Nothing (Just lid) _ _) = liftIO $ atomically $ do
       modifyTVar wipTVar (S.insert lid)
@@ -387,7 +399,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
           let
             options = J.object ["documentSelector" .= J.object [ "language" .= J.String "haskell"]]
             registrationsList =
-              [ J.Registration "hare:demote" J.WorkspaceExecuteCommand (Just options)
+              [ J.Registration (commandUUIDs BM.! "hare:demote") J.WorkspaceExecuteCommand (Just options)
               ]
           let registrations = J.RegistrationParams (J.List registrationsList)
 
@@ -573,7 +585,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
                  title :: T.Text
                  title = "Apply hint:" <> head (T.lines m)
                  -- NOTE: the cmd needs to be registered via the InitializeResponse message. See hieOptions above
-                 cmd = "applyrefact:applyOne"
+                 cmd = commandUUIDs BM.! "applyrefact:applyOne"
                  -- need 'file', 'start_pos' and hint title (to distinguish between alternative suggestions at the same location)
                  args = J.Array $ V.singleton $ J.toJSON $ ApplyRefact.AOP doc start code
                  cmdparams = Just args
@@ -589,9 +601,12 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp = do
         ReqExecuteCommand req -> do
           liftIO $ U.logs $ "reactor:got ExecuteCommandRequest:" ++ show req
           let params = req ^. J.params
-              command = params ^. J.command
+              command' = params ^. J.command
+              -- if this is a UUID then use the mapping for it
+              command = fromMaybe command' (BM.lookupR command' commandUUIDs)
               margs = params ^. J.arguments
 
+          liftIO $ U.logs $ "ExecuteCommand mapped command " ++ show command' ++ " to " ++ show command
 
           --liftIO $ U.logs $ "reactor:ExecuteCommandRequest:margs=" ++ show margs
           let cmdparams = case margs of
@@ -804,7 +819,6 @@ requestDiagnostics tn cin file ver = do
     sendEmpty = publishDiagnostics maxToSend file Nothing (Map.fromList [(Just "ghcmod",SL.toSortedList [])])
     maxToSend = maybe 50 maxNumberOfProblems mc
 
-  -- mc <- asks Core.config
   let sendHlint = maybe True hlintOn mc
   when sendHlint $ do
     -- get hlint diagnostics
@@ -840,8 +854,8 @@ syncOptions = J.TextDocumentSyncOptions
   , J._save              = Just $ J.SaveOptions $ Just False
   }
 
-hieOptions :: Core.Options
-hieOptions =
+hieOptions :: [T.Text] -> Core.Options
+hieOptions commandUUIDs =
   def { Core.textDocumentSync       = Just syncOptions
       , Core.completionProvider     = Just (J.CompletionOptions (Just True) (Just ["."]))
       -- As of 2018-05-24, vscode needs the commands to be registered
@@ -850,7 +864,7 @@ hieOptions =
       --
       -- Hopefully the end May 2018 vscode release will stabilise
       -- this, it is a major rework of the machinery anyway.
-      , Core.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List ["applyrefact:applyOne","hare:demote"]))
+      , Core.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List commandUUIDs))
       }
 
 

@@ -106,11 +106,11 @@ lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
               $ List (map hintToDiagnostic $ stripIgnores fs)
 
 runLintCmd :: FilePath -> [String] -> ExceptT [Diagnostic] IO [Idea]
-runLintCmd fp args =
-  do (flags,classify,hint) <- liftIO $ argsSettings args
-     let myflags = flags { hseFlags = (hseFlags flags) { extensions = (EnableExtension TypeApplications:extensions (hseFlags flags))}}
-     res <- bimapExceptT parseErrorToDiagnostic id $ ExceptT $ parseModuleEx myflags fp Nothing
-     pure $ applyHints classify hint [res]
+runLintCmd fp args = do
+  (flags,classify,hint) <- liftIO $ argsSettings args
+  let myflags = flags { hseFlags = (hseFlags flags) { extensions = EnableExtension TypeApplications:extensions (hseFlags flags)}}
+  res <- bimapExceptT parseErrorToDiagnostic id $ ExceptT $ parseModuleEx myflags fp Nothing
+  pure $ applyHints classify hint [res]
 
 parseErrorToDiagnostic :: Hlint.ParseError -> [Diagnostic]
 parseErrorToDiagnostic (Hlint.ParseError l msg contents) =

@@ -41,6 +41,7 @@ extra-deps:
 - syz-0.2.0.0
 - yi-rope-0.11
 - conduit-parse-0.2.1.0
+- process-1.6.3.0
 
 flags:
   haskell-ide-engine:
