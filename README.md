@@ -249,7 +249,7 @@ let g:LanguageClient_serverCommands = {
     \ }
 ```
 
-It may be helpful to also specify the project root for hie-wrapper, writing instead:
+Since LanguageClient-neovim doesn't start language servers in the project root, it may also be helpful to also specify the project root for hie-wrapper, writing instead:
 
 ```
 let g:LanguageClient_serverCommands = {
