@@ -71,13 +71,11 @@ library
                      , mtl
                      , optparse-simple >= 0.0.3
                      , process
-                     , random
                      , sorted-list >= 0.2.1.0
                      , stm
                      , tagsoup
                      , text
                      , transformers
-                     , uuid
                      , vector
                      , yaml
                      , yi-rope

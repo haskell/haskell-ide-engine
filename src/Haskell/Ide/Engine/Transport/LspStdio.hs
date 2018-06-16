@@ -39,7 +39,6 @@ import qualified Data.Set as S
 import qualified Data.SortedList as SL
 import qualified Data.Text as T
 import           Data.Text.Encoding
-import           Data.UUID
 import qualified Data.Vector as V
 import qualified GhcModCore               as GM
 import qualified GhcMod.Monad.Types       as GM
@@ -67,7 +66,6 @@ import qualified Language.Haskell.LSP.Types            as J
 import qualified Language.Haskell.LSP.Utility          as U
 import           System.Exit
 import qualified System.Log.Logger as L
-import           System.Random
 import qualified Yi.Rope as Yi
 
 import Name
@@ -99,8 +97,7 @@ run
   -> IO Int
 run dispatcherProc cin _origDir captureFp = flip E.catches handlers $ do
 
-  -- TODO: Figure out how to test with random seeds
-  commandUUIDs <- getCommandUUIDs
+  commandMap <- getCommandMap
 
   rin <- atomically newTChan :: IO (TChan ReactorInput)
 
@@ -113,7 +110,7 @@ run dispatcherProc cin _origDir captureFp = flip E.catches handlers $ do
               , wipReqsTVar    = wipTVar
               , docVersionTVar = versionTVar
               }
-        let reactorFunc = flip runReaderT lf $ reactor dispatcherEnv cin rin commandUUIDs
+        let reactorFunc = flip runReaderT lf $ reactor dispatcherEnv cin rin commandMap
 
         let errorHandler :: ErrorHandler
             errorHandler lid code e =
@@ -128,17 +125,17 @@ run dispatcherProc cin _origDir captureFp = flip E.catches handlers $ do
         return Nothing
 
   flip E.finally finalProc $ do
-    CTRL.run (getConfig, dp) (hieHandlers rin) (hieOptions (BM.elems commandUUIDs)) captureFp
+    CTRL.run (getConfig, dp) (hieHandlers rin) (hieOptions (BM.elems commandMap)) captureFp
  where
   handlers  = [E.Handler ioExcept, E.Handler someExcept]
   finalProc = L.removeAllHandlers
   ioExcept (e :: E.IOException) = print e >> return 1
   someExcept (e :: E.SomeException) = print e >> return 1
-  getCommandUUIDs = do
-    uuid <- toText . fst . random . mkStdGen <$> getProcessID
-    let commands = ["hare:demote", "applyrefact:applyOne"]
-        uuids = map (T.append uuid . T.append ":") commands
-    return $ BM.fromList (zip commands uuids)
+  getCommandMap = do
+    pid <- T.pack . show <$> getProcessID
+    let cmds = ["hare:demote", "applyrefact:applyOne"]
+        newCmds = map (T.append pid . T.append ":") cmds
+    return $ BM.fromList (zip cmds newCmds)
 
 -- ---------------------------------------------------------------------
 
@@ -346,7 +343,7 @@ sendErrorLog msg = reactorSend' (`Core.sendErrorLogS` msg)
 -- to stitch replies and requests together from the two asynchronous sides: lsp
 -- server and hie dispatcher
 reactor :: forall void. DispatcherEnv -> TChan (PluginRequest R) -> TChan ReactorInput -> BM.Bimap T.Text T.Text -> R void
-reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandUUIDs = do
+reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandMap = do
   let
     makeRequest req@(GReq _ _ Nothing (Just lid) _ _) = liftIO $ atomically $ do
       modifyTVar wipTVar (S.insert lid)
@@ -399,7 +396,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandUUIDs =
           let
             options = J.object ["documentSelector" .= J.object [ "language" .= J.String "haskell"]]
             registrationsList =
-              [ J.Registration (commandUUIDs BM.! "hare:demote") J.WorkspaceExecuteCommand (Just options)
+              [ J.Registration (commandMap BM.! "hare:demote") J.WorkspaceExecuteCommand (Just options)
               ]
           let registrations = J.RegistrationParams (J.List registrationsList)
 
@@ -585,7 +582,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandUUIDs =
                  title :: T.Text
                  title = "Apply hint:" <> head (T.lines m)
                  -- NOTE: the cmd needs to be registered via the InitializeResponse message. See hieOptions above
-                 cmd = commandUUIDs BM.! "applyrefact:applyOne"
+                 cmd = commandMap BM.! "applyrefact:applyOne"
                  -- need 'file', 'start_pos' and hint title (to distinguish between alternative suggestions at the same location)
                  args = J.Array $ V.singleton $ J.toJSON $ ApplyRefact.AOP doc start code
                  cmdparams = Just args
@@ -603,7 +600,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandUUIDs =
           let params = req ^. J.params
               command' = params ^. J.command
               -- if this is a UUID then use the mapping for it
-              command = fromMaybe command' (BM.lookupR command' commandUUIDs)
+              command = fromMaybe command' (BM.lookupR command' commandMap)
               margs = params ^. J.arguments
 
           liftIO $ U.logs $ "ExecuteCommand mapped command " ++ show command' ++ " to " ++ show command
