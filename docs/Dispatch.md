@@ -1,44 +1,44 @@
 # Dispatch architecture
 ```
-                          Message from
-                          client
- +                             +                                +
- |                             |                                |
- |                       +-----v-----+                          |
- |                       |           |                          |
- <-------+IdeRequest<----+  Reactor  +------->GhcRequest+------->
- |                       |           |                          |
- |                       +-----------+                          |
- |                                                              |
- |                                                              |
-IdeM                                                         IdeGhcM      +--------+
- |             +----->IdeResponseDeferred                       |         |        |
- |             |                   +                            +--------->        |
- |             |                   |                            |         |  ghc   |
- |             +                   |                            |         |  mod   |
- +------->IdeResponse              |    Triggers<----+          <---------+        |
- |            +    ^               |       |         |          |         |        |
- |            |    |           +---v-------v--+      |          |         |        |
- |            |    |           |              |      +          |         +--------+
- |            |    +-----------+ RequestQueue |  cacheModule<---+
- |            |                |              |                 |
- |            |                +--------------+                 |
- |            |                                                 |
- |            |  +----------------------------------------------+
- |            v  v                                              |
- |         IdeResult                                            |
- |          +    +                                              |
- |          v    |                                              |
- | IdeResultFail |                                              |
- |               v                                              |
- |          IdeResultOk                                         |
- |               +                                              |
- |               v                                              |
- |          RequestCallback                                     |
- v               +                                              v
-                 v
-          Possibly respond to
-          client if needed
+                                    Message from
+                                    client
+            +                             +                                +
+            |                             |                                |
+            |                       +-----v-----+                          |
+            |                       |           |                          |
+            <-------+IdeRequest<----+  Reactor  +------->GhcRequest+------->
+            |                       |           |                          |
+            |                       +-----------+                          |
+            |                                                              |
+            |                                                              |
+           IdeM                                                         IdeGhcM      +--------+
+            |             +----->IdeResponseDeferred                       |         |        |
+ plugins <--+             |                   +                            +--------->        |
+    |       |             |                   |                            |         |  ghc   |
+    +------->             +                   |                            |         |  mod   |
+            +------->IdeResponse              |    Triggers<----+          <---------+        |
+            |            +    ^               |       |         |          |         |        |
+            |            |    |           +---v-------v--+      |          |         |        |
+            |            |    |           |              |      +          |         +--------+
+            |            |    +-----------+ RequestQueue |  cacheModule<---+
+            |            |                |              |                 |
+            |            |                +--------------+                 |
+            |            |                                                 |
+            |            |  +----------------------------------------------+
+            |            v  v                                              |
+            |         IdeResult                                            |
+            |          +    +                                              |
+            |          v    |                                              |
+            | IdeResultFail |                                              |
+            |               v                                              |
+            |          IdeResultOk                                         |
+            |               +                                              |
+            |               v                                              |
+            |          RequestCallback                                     |
+            v               +                                              v
+                            v
+                    Possibly respond to
+                    client if needed
 ```
 
 ## Reactor
@@ -54,6 +54,10 @@ The 2 threads are represented by 2 monads: `IdeM` and `IdeGhcM`.
 `IdeM` should be used for anything that does not require immediate access
 to ghc-mod, since `IdeGhcM` is used mainly for typechecking modules and is
 the most constrained resource.
+
+## Requests
+To get onto the threads, send an `IReq` or `GReq` to the dispatcher with
+`makeRequest` inside `LspStdio.hs:reactor`.
 
 ## Responses
 If you are on `IdeM` and need access to a cached module, consider using an
