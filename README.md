@@ -70,6 +70,10 @@ we talk to clients.__
 
    ![Renaming](https://i.imgur.com/z03G2a5.gif)
 
+ - Adding chosen import and the package dependencies
+ 
+   ![Adding import & deps](https://user-images.githubusercontent.com/1387653/40287051-b6f987fe-5c5f-11e8-980f-ed7bfa1b2aec.gif)
+
 ## Installation
 
 Note: The version on branch `hie-0.1.0.0` supports GHC 8.0.2. This is
