@@ -31,6 +31,10 @@ defaults: &defaults
         command: stack -j 2 --stack-yaml=${STACK_FILE} setup
 
     - run:
+        name: Install happy
+        command: stack --stack-yaml=${STACK_FILE} install happy
+
+    - run:
         name: Install Hoogle
         command: stack --stack-yaml=${STACK_FILE} install hoogle
 
