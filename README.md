@@ -15,6 +15,7 @@ we talk to clients.__
     - [Installation](#installation)
         - Installation with [stack](#installation-with-stack) or [Nix](#installation-with-nix)
         - [ArchLinux](#archlinux)
+    - [Configuration](#configuration)
     - [Editor Integration](#editor-integration)
         - Using HIE with [VS Code](#using-hie-with-vs-code), [Sublime Text](#using-hie-with-sublime-text), [Neovim](#using-hie-with-neovim), [Atom](#using-hie-with-atom), [Oni](#using-hie-with-oni), [Emacs](#using-hie-with-emacs) or [Spacemacs](#using-hie-with-spacemacs)
     - [Docs on hover/completion](#docs-on-hovercompletion)
@@ -186,6 +187,21 @@ Using [Aura](https://github.com/aurapm/aura):
 ```
 # aura -A haskell-ide-engine-git
 ```
+
+## Configuration
+There are some settings that can be configured via a `settings.json` file:
+
+```json
+{
+    "languageServerHaskell": {
+        "hlintOn": Boolean,
+        "maxNumberOfProblems": Number
+    }
+}
+```
+
+- VS Code: These settings will show up in the settings window
+- LanguageClient-neovim: Create this file in `$projectdir/.vim/settings.json` or set `g:LanguageClient_settingsPath`
 
 ## Editor Integration
 
