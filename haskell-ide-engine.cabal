@@ -47,7 +47,7 @@ library
                      , bimap
                      , brittany
                      , bytestring
-                     , cabal-helper >= 0.8.0.2
+                     , cabal-helper >= 0.8.0.4
                      , containers
                      , data-default
                      , directory
