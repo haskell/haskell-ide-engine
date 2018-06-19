@@ -319,7 +319,7 @@ publishDiagnostics :: (MonadIO m, MonadReader (Core.LspFuncs Config) m)
   => Int -> J.Uri -> Maybe J.TextDocumentVersion -> DiagnosticsBySource -> m ()
 publishDiagnostics maxToSend uri' mv diags = do
   lf <- ask
-  liftIO $ (Core.publishDiagnosticsFunc lf) maxToSend uri' mv diags
+  liftIO $ Core.publishDiagnosticsFunc lf maxToSend uri' mv diags
 
 -- ---------------------------------------------------------------------
 
@@ -327,7 +327,7 @@ flushDiagnosticsBySource :: (MonadIO m, MonadReader (Core.LspFuncs Config) m)
   => Int -> Maybe J.DiagnosticSource -> m ()
 flushDiagnosticsBySource maxToSend msource = do
   lf <- ask
-  liftIO $ (Core.flushDiagnosticsBySourceFunc lf) maxToSend msource
+  liftIO $ Core.flushDiagnosticsBySourceFunc lf maxToSend msource
 
 -- ---------------------------------------------------------------------
 
@@ -570,7 +570,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandMap = d
                     else return (IdeResponseOk (Nothing,[],Nothing))
           makeRequest hreq
 
-          liftIO $ U.logs $ "reactor:HoverRequest done"
+          liftIO $ U.logs "reactor:HoverRequest done"
 
         -- -------------------------------
 
