@@ -25,7 +25,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Control.Monad.Reader
 import qualified Data.Aeson as J
-import           Data.Aeson ( (.=), (.:), (.:?), (.!=) )
+import           Data.Aeson ( (.=), (.:?), (.!=) )
 import qualified Data.Bimap as BM
 import qualified Data.ByteString.Lazy as BL
 import           Data.Char (isUpper, isAlphaNum)
@@ -153,7 +153,7 @@ getConfig :: J.DidChangeConfigurationNotification -> Either T.Text Config
 getConfig (J.NotificationMessage _ _ (J.DidChangeConfigurationParams p)) =
   case J.fromJSON p of
     J.Success c -> Right c
-    J.Error err -> Left $ T.pack err
+    J.Error err -> Left (T.pack err)
 
 data Config =
   Config
@@ -161,12 +161,24 @@ data Config =
     , maxNumberOfProblems :: Int
     } deriving (Show)
 
+instance Default Config where
+  def = Config
+    { hlintOn = True
+    , maxNumberOfProblems = 50
+    }
+
 instance J.FromJSON Config where
   parseJSON = J.withObject "Config" $ \v -> do
-    s <- v .: "languageServerHaskell"
+    let defConfig :: Config
+        defConfig = def
+    s <- v .:? "languageServerHaskell" .!= J.toJSON defConfig
     flip (J.withObject "Config.settings") s $ \o -> Config
-      <$> o .:? "hlintOn" .!= True
-      <*> o .: "maxNumberOfProblems"
+      <$> o .:? "hlintOn" .!= hlintOn defConfig
+      <*> o .:? "maxNumberOfProblems" .!= maxNumberOfProblems defConfig
+
+instance J.ToJSON Config where
+  toJSON c = J.object ["hlintOn" .= hlintOn c,
+                       "maxNumberOfProblems" .= maxNumberOfProblems c]
 
 -- 2017-10-09 23:22:00.710515298 [ThreadId 11] - ---> {"jsonrpc":"2.0","method":"workspace/didChangeConfiguration","params":{"settings":{"languageServerHaskell":{"maxNumberOfProblems":100,"hlintOn":true}}}}
 -- 2017-10-09 23:22:00.710667381 [ThreadId 15] - reactor:got didChangeConfiguration notification:
