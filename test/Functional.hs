@@ -8,6 +8,7 @@ import Control.Monad
 import Data.Aeson
 import qualified Data.HashMap.Strict as H
 import Data.Maybe
+import qualified Data.Text as T
 import Language.Haskell.LSP.Test
 import Language.Haskell.LSP.Types
 import qualified Language.Haskell.LSP.Types as LSP (error, id)
@@ -173,11 +174,17 @@ spec = do
       let r = Range (Position 0 0) (Position 99 99)
           c = CodeActionContext (diagsRsp ^. params . diagnostics)
       _ <- sendRequest TextDocumentCodeAction (CodeActionParams doc r c)
-      
+
       rsp <- response :: Session CodeActionResponse
       let (List cmds) = fromJust $ rsp ^. result
           evaluateCmd = head cmds
       liftIO $ do
         length cmds `shouldBe` 1
         evaluateCmd ^. title `shouldBe` "Apply hint:Evaluate"
-      
+
+  describe "config" $
+    it "falls back to default when not specified" $ runSession hieCommand "test/testdata" $ do
+      let ps = DidChangeConfigurationParams (object [])
+      sendNotification WorkspaceDidChangeConfiguration ps
+      nots <- count 2 notification :: Session [LogMessageNotification]
+      liftIO $ map (^. params . message) nots `shouldSatisfy` all (null . T.breakOnAll "error")
