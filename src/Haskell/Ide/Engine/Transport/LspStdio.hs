@@ -409,6 +409,15 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandMap = d
           reactorSend $ NotLogMessage $
                   fmServerLogMessageNotification J.MtLog $ "Using hie version: " <> T.pack version
 
+          -- Check for mismatching GHC versions
+          projGhcVersion <- liftIO getProjectGhcVersion
+          when (projGhcVersion /= hieGhcVersion) $ do
+            let msg = T.pack $ "Mismatching GHC versions: Project is " ++ projGhcVersion ++ ", HIE is " ++ hieGhcVersion
+                      ++ "\nYou may want to use hie-wrapper. Check the README for more information"
+            reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
+            reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg
+                  
+
           lf <- ask
           let hreq = GReq tn Nothing Nothing Nothing callback $ IdeResultOk <$> Hoogle.initializeHoogleDb
               callback Nothing = flip runReaderT lf $

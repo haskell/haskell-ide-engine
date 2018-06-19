@@ -97,7 +97,7 @@ run opts = do
   
   projGhcVersion <- getProjectGhcVersion
   when (projGhcVersion /= hieGhcVersion) $
-    warningm $ "Mismatched GHC versions: Project is " ++ projGhcVersion
+    warningm $ "Mismatching GHC versions: Project is " ++ projGhcVersion
              ++ ", HIE is " ++ hieGhcVersion
 
   when (optEkg opts) $ do
