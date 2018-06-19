@@ -1,5 +1,4 @@
 {-# LANGUAGE CPP             #-}
-{-# LANGUAGE TemplateHaskell #-}
 -- | This module is based on the hie-wrapper.sh script in
 -- https://github.com/alanz/vscode-hie-server
 module Main where
@@ -35,7 +34,7 @@ main = do
         compiler :: Parser (a -> a)
         compiler =
             infoOption
-                hieCompilerVersion
+                hieGhcDisplayVersion
                 (long "compiler" <>
                  help "Show only compiler and version supported")
     -- Parse the options and run
@@ -70,9 +69,7 @@ run opts = do
   d <- getCurrentDirectory
   logm $ "Current directory:" ++ d
 
-  ghcVersionString <- getProjectGhcVersion
-  let
-    ghcVersion = crackGhcVersion ghcVersionString
+  ghcVersion <- getProjectGhcVersion
   logm $ "Project GHC version:" ++ ghcVersion
 
   let
@@ -96,26 +93,6 @@ run opts = do
       callProcess e args
       logm "done"
   
--- ---------------------------------------------------------------------
-
-getProjectGhcVersion :: IO String
-getProjectGhcVersion = do
-  isStack <- doesDirectoryExist ".stack-work"
-  cmd <- if isStack
-    then do
-      logm "Using stack GHC version"
-      return "stack ghc -- --version"
-    else do
-      logm "Using plain GHC version"
-      return "ghc --version"
-  readCreateProcess (shell cmd) ""
-
-
--- "The Glorious Glasgow Haskell Compilation System, version 8.4.3\n"
--- "The Glorious Glasgow Haskell Compilation System, version 8.4.2\n"
-crackGhcVersion :: String -> String
-crackGhcVersion st = reverse $ takeWhile (/=' ') $ tail $ reverse st
-
 -- ---------------------------------------------------------------------
 
 {-

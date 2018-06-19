@@ -67,7 +67,7 @@ main = do
         compiler :: Parser (a -> a)
         compiler =
             infoOption
-                hieCompilerVersion
+                hieGhcDisplayVersion
                 (long "compiler" <>
                  help "Show only compiler and version supported")
     -- Parse the options and run
@@ -94,6 +94,11 @@ run opts = do
                    else L.INFO
 
   Core.setupLogger mLogFileName ["hie"] logLevel
+  
+  projGhcVersion <- getProjectGhcVersion
+  when (projGhcVersion /= hieGhcVersion) $
+    warningm $ "Mismatched GHC versions: Project is " ++ projGhcVersion
+             ++ ", HIE is " ++ hieGhcVersion
 
   when (optEkg opts) $ do
     logm $ "Launching EKG server on port " ++ show (optEkgPort opts)
@@ -104,7 +109,7 @@ run opts = do
   maybe (pure ()) setCurrentDirectory $ projectRoot opts
 
   progName <- getProgName
-  logm $  "run entered for HIE(" ++ progName ++ ") " ++ version
+  logm $  "Run entered for HIE(" ++ progName ++ ") " ++ version
   d <- getCurrentDirectory
   logm $ "Current directory:" ++ d
 

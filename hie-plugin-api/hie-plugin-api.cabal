@@ -43,6 +43,7 @@ library
                      , hslogger
                      , monad-control
                      , mtl
+                     , process
                      , stm
                      , syb
                      , text
