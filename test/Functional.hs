@@ -146,6 +146,8 @@ spec = do
             )
             Nothing
 
+  -- -----------------------------------
+
   describe "multi-server setup" $
     it "doesn't have clashing commands on two servers" $ do
       let getCommands = runSession hieCommand "test/testdata" $ do
@@ -155,6 +157,8 @@ spec = do
       List uuids1 <- getCommands
       List uuids2 <- getCommands
       liftIO $ forM_ (zip uuids1 uuids2) (uncurry shouldNotBe)
+
+  -- -----------------------------------
 
   describe "code actions" $
     it "provide hlint suggestions" $ runSession hieCommand "test/testdata" $ do
@@ -180,4 +184,24 @@ spec = do
       liftIO $ do
         length cmds `shouldBe` 1
         evaluateCmd ^. title `shouldBe` "Apply hint:Evaluate"
-      
+
+  -- -----------------------------------
+
+  describe "multiple main modules" $
+    it "Can load one file at a time, when more than one Main module exists"
+                                  -- $ runSession hieCommand "test/testdata" $ do
+                                  $ runSession hieCommandVomit "test/testdata" $ do
+      _doc <- openDoc "ApplyRefact2.hs" "haskell"
+      _diagsRspHlint <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
+      diagsRspGhc   <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
+      let (List diags) = diagsRspGhc ^. params . diagnostics
+
+      liftIO $ length diags `shouldBe` 2
+
+      _doc2 <- openDoc "HaReRename.hs" "haskell"
+      _diagsRspHlint2 <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
+      -- errMsg <- skipManyTill anyNotification notification :: Session ShowMessageNotification
+      diagsRsp2 <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
+      let (List diags2) = diagsRsp2 ^. params . diagnostics
+
+      liftIO $ show diags2 `shouldBe` "[]"
