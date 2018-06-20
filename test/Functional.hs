@@ -189,7 +189,8 @@ spec = do
 
   describe "multiple main modules" $
     it "Can load one file at a time, when more than one Main module exists"
-                                  $ runSession hieCommand "test/testdata" $ do
+                                  -- $ runSession hieCommand "test/testdata" $ do
+                                  $ runSession hieCommandVomit "test/testdata" $ do
       _doc <- openDoc "ApplyRefact2.hs" "haskell"
       _diagsRspHlint <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
       diagsRspGhc   <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
@@ -199,8 +200,8 @@ spec = do
 
       _doc2 <- openDoc "HaReRename.hs" "haskell"
       _diagsRspHlint2 <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
-      errMsg <- skipManyTill anyNotification notification :: Session ShowMessageNotification
-      -- diagsRsp2 <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
-      -- let (List diags2) = diagsRsp2 ^. params . diagnostics
+      -- errMsg <- skipManyTill anyNotification notification :: Session ShowMessageNotification
+      diagsRsp2 <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
+      let (List diags2) = diagsRsp2 ^. params . diagnostics
 
-      liftIO $ show errMsg `shouldBe` ""
+      liftIO $ show diags2 `shouldBe` "[]"
