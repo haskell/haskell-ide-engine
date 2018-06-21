@@ -98,11 +98,11 @@ run opts = do
   projGhcVersion <- getProjectGhcVersion
   when (projGhcVersion /= hieGhcVersion) $
     warningm $ "Mismatching GHC versions: Project is " ++ projGhcVersion
-             ++ ", HIE is " ++ hieGhcVersion
+            ++ ", HIE is " ++ hieGhcVersion
 
   when (optEkg opts) $ do
     logm $ "Launching EKG server on port " ++ show (optEkgPort opts)
-    void $ void $ EKG.forkServer "localhost" (optEkgPort opts)
+    void $ EKG.forkServer "localhost" (optEkgPort opts)
 
   origDir <- getCurrentDirectory
 

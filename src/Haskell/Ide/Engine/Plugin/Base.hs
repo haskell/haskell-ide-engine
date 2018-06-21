@@ -6,6 +6,7 @@
 {-# LANGUAGE TemplateHaskell       #-}
 module Haskell.Ide.Engine.Plugin.Base where
 
+import           Control.Exception
 import           Data.Aeson
 import           Data.Foldable
 import qualified Data.Map                        as Map
@@ -101,15 +102,20 @@ hieGhcDisplayVersion = compilerName ++ "-" ++ VERSION_ghc
 getProjectGhcVersion :: IO String
 getProjectGhcVersion = do
   isStack <- doesDirectoryExist ".stack-work"
-  cmd <- if isStack
+  if isStack
     then do
       L.infoM "hie" "Using stack GHC version"
-      return "stack ghc -- --version"
+      catch (tryCommand "stack ghc --version") $ \e -> do
+        L.errorM "hie" $ show (e :: SomeException)
+        L.infoM "hie" "Couldn't find stack version, falling back to plain GHC"
+        tryCommand "ghc --version"
     else do
       L.infoM "hie" "Using plain GHC version"
-      return "ghc --version"
-  crackGhcVersion <$> readCreateProcess (shell cmd) ""
+      tryCommand "ghc --version"
+          
   where
+    tryCommand cmd =
+      crackGhcVersion <$> readCreateProcess (shell cmd) ""
     -- "The Glorious Glasgow Haskell Compilation System, version 8.4.3\n"
     -- "The Glorious Glasgow Haskell Compilation System, version 8.4.2\n"
     crackGhcVersion :: String -> String
