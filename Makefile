@@ -14,12 +14,14 @@ submodules:
 # ------------------------------------------------------
 
 hie-8.2.1: submodules
+	stack --stack-yaml=stack-8.2.1.yaml install happy
 	stack --stack-yaml=stack-8.2.1.yaml install                                \
 		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.2.1'    \
 		&& cp '$(STACKLOCALBINDIR)/hie-8.2.1' '$(STACKLOCALBINDIR)/hie-8.2'
 .PHONY: hie-8.2.1
 
 hie-8.2.2: submodules
+	stack --stack-yaml=stack-8.2.2.yaml install happy
 	stack --stack-yaml=stack-8.2.2.yaml install                                \
 		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.2.2'    \
 		&& cp '$(STACKLOCALBINDIR)/hie-8.2.2' '$(STACKLOCALBINDIR)/hie-8.2'
