@@ -6,12 +6,12 @@
 {-# LANGUAGE TemplateHaskell       #-}
 module Haskell.Ide.Engine.Plugin.Base where
 
-import           Control.Monad
 import           Data.Aeson
 import           Data.Foldable
-import           Data.List
 import qualified Data.Map                        as Map
-import           Data.Monoid
+#if __GLASGOW_HASKELL__ < 804
+import           Data.Semigroup
+#endif
 import qualified Data.Text                       as T
 import           Development.GitRev              (gitCommitCount)
 import           Distribution.System             (buildArch)
@@ -20,8 +20,11 @@ import           Haskell.Ide.Engine.IdeFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Options.Applicative.Simple      (simpleVersion)
 import qualified Paths_haskell_ide_engine        as Meta
-import           Prelude                         hiding (log)
+
+import           System.Directory
 import           System.Info
+import           System.Process
+import qualified System.Log.Logger as L
 
 -- ---------------------------------------------------------------------
 
@@ -87,12 +90,32 @@ version =
     , [" (" ++ commitCount ++ " commits)" | commitCount /= ("1"::String) &&
                                             commitCount /= ("UNKNOWN" :: String)]
     , [" ", display buildArch]
-    , [" ", hieCompilerVersion]
+    , [" ", hieGhcDisplayVersion]
     ]
 
 -- ---------------------------------------------------------------------
 
-hieCompilerVersion :: String
-hieCompilerVersion = compilerName ++ "-" ++ VERSION_ghc
+hieGhcDisplayVersion :: String
+hieGhcDisplayVersion = compilerName ++ "-" ++ VERSION_ghc
+
+getProjectGhcVersion :: IO String
+getProjectGhcVersion = do
+  isStack <- doesDirectoryExist ".stack-work"
+  cmd <- if isStack
+    then do
+      L.infoM "hie" "Using stack GHC version"
+      return "stack ghc -- --version"
+    else do
+      L.infoM "hie" "Using plain GHC version"
+      return "ghc --version"
+  crackGhcVersion <$> readCreateProcess (shell cmd) ""
+  where
+    -- "The Glorious Glasgow Haskell Compilation System, version 8.4.3\n"
+    -- "The Glorious Glasgow Haskell Compilation System, version 8.4.2\n"
+    crackGhcVersion :: String -> String
+    crackGhcVersion st = reverse $ takeWhile (/=' ') $ tail $ reverse st
+
+hieGhcVersion :: String
+hieGhcVersion = VERSION_ghc
 
 -- ---------------------------------------------------------------------
