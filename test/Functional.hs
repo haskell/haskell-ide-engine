@@ -8,7 +8,7 @@ import Control.Monad
 import Data.Aeson
 import qualified Data.HashMap.Strict as H
 import Data.Maybe
-import Language.Haskell.LSP.Test
+import Language.Haskell.LSP.Test hiding (capabilities)
 import Language.Haskell.LSP.Types
 import qualified Language.Haskell.LSP.Types as LSP (error, id)
 import Test.Hspec

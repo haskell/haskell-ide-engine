@@ -40,7 +40,6 @@ extra-deps:
 - sorted-list-0.2.1.0
 - syz-0.2.0.0
 - conduit-parse-0.2.1.0
-- process-1.6.3.0
 
 flags:
   haskell-ide-engine:
