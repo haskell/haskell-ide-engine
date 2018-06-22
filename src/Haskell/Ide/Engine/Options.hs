@@ -14,6 +14,7 @@ data GlobalOpts = GlobalOpts
   , optGhcModVomit :: Bool
   , optEkg         :: Bool
   , optEkgPort     :: Int
+  , optCaptureFile :: Maybe FilePath
   } deriving (Show)
 
 globalOptsParser :: Parser GlobalOpts
@@ -23,7 +24,7 @@ globalOptsParser = GlobalOpts
       <> short 'd'
       <> help "Generate debug output"
        )
-  <*> (optional $ strOption
+  <*> optional (strOption
        ( long "logfile"
       <> short 'l'
       <> metavar "LOGFILE"
@@ -32,7 +33,7 @@ globalOptsParser = GlobalOpts
   <*> flag False True
        ( long "lsp"
        <> help "Enable the Language Server Protocol transport on STDIO")
-  <*> (optional $ strOption
+  <*> optional (strOption
        ( long "project-root"
       <> short 'r'
       <> metavar "PROJECTROOT"
@@ -43,10 +44,16 @@ globalOptsParser = GlobalOpts
   <*> flag False True
        ( long "ekg"
        <> help "enable ekg collection and display on http://localhost:8000")
-  <*> (option auto
+  <*> option auto
        ( long "port"
       <> short 'p'
       <> metavar "PORT"
       <> help "TCP port to use for EKG server. Only used if --ekg is set. Default 8000"
       <> value 8000
+       )
+  <*> optional (strOption
+       ( long "capture"
+      <> short 'c'
+      <> metavar "CAPTUREFILE"
+      <> help "File to capture the session to"
        ))

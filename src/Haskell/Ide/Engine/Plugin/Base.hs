@@ -6,12 +6,13 @@
 {-# LANGUAGE TemplateHaskell       #-}
 module Haskell.Ide.Engine.Plugin.Base where
 
-import           Control.Monad
+import           Control.Exception
 import           Data.Aeson
 import           Data.Foldable
-import           Data.List
 import qualified Data.Map                        as Map
-import           Data.Monoid
+#if __GLASGOW_HASKELL__ < 804
+import           Data.Semigroup
+#endif
 import qualified Data.Text                       as T
 import           Development.GitRev              (gitCommitCount)
 import           Distribution.System             (buildArch)
@@ -20,8 +21,11 @@ import           Haskell.Ide.Engine.IdeFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Options.Applicative.Simple      (simpleVersion)
 import qualified Paths_haskell_ide_engine        as Meta
-import           Prelude                         hiding (log)
+
+import           System.Directory
 import           System.Info
+import           System.Process
+import qualified System.Log.Logger as L
 
 -- ---------------------------------------------------------------------
 
@@ -41,39 +45,39 @@ baseDescriptor = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 versionCmd :: CommandFunc () T.Text
-versionCmd = CmdSync $ \_ -> return $ IdeResponseOk (T.pack version)
+versionCmd = CmdSync $ \_ -> return $ IdeResultOk (T.pack version)
 
 pluginsCmd :: CommandFunc () IdePlugins
 pluginsCmd = CmdSync $ \_ ->
-  IdeResponseOk <$> getPlugins
+  IdeResultOk <$> getPlugins
 
 commandsCmd :: CommandFunc T.Text [CommandName]
 commandsCmd = CmdSync $ \p -> do
   IdePlugins plugins <- getPlugins
   case Map.lookup p plugins of
-    Nothing -> return $ IdeResponseFail $ IdeError
+    Nothing -> return $ IdeResultFail $ IdeError
       { ideCode = UnknownPlugin
       , ideMessage = "Can't find plugin:" <> p
       , ideInfo = toJSON p
       }
-    Just pl -> return $ IdeResponseOk $ map commandName pl
+    Just pl -> return $ IdeResultOk $ map commandName pl
 
 commandDetailCmd :: CommandFunc (T.Text, T.Text) T.Text
 commandDetailCmd = CmdSync $ \(p,command) -> do
   IdePlugins plugins <- getPlugins
   case Map.lookup p plugins of
-    Nothing -> return $ IdeResponseError $ IdeError
+    Nothing -> return $ IdeResultFail $ IdeError
       { ideCode = UnknownPlugin
       , ideMessage = "Can't find plugin:" <> p
       , ideInfo = toJSON p
       }
     Just pl -> case find (\cmd -> command == (commandName cmd) ) pl of
-      Nothing -> return $ IdeResponseError $ IdeError
+      Nothing -> return $ IdeResultFail $ IdeError
         { ideCode = UnknownCommand
         , ideMessage = "Can't find command:" <> command
         , ideInfo = toJSON command
         }
-      Just detail -> return $ IdeResponseOk (commandDesc detail)
+      Just detail -> return $ IdeResultOk (commandDesc detail)
 
 -- ---------------------------------------------------------------------
 
@@ -87,12 +91,37 @@ version =
     , [" (" ++ commitCount ++ " commits)" | commitCount /= ("1"::String) &&
                                             commitCount /= ("UNKNOWN" :: String)]
     , [" ", display buildArch]
-    , [" ", hieCompilerVersion]
+    , [" ", hieGhcDisplayVersion]
     ]
 
 -- ---------------------------------------------------------------------
 
-hieCompilerVersion :: String
-hieCompilerVersion = compilerName ++ "-" ++ VERSION_ghc
+hieGhcDisplayVersion :: String
+hieGhcDisplayVersion = compilerName ++ "-" ++ VERSION_ghc
+
+getProjectGhcVersion :: IO String
+getProjectGhcVersion = do
+  isStack <- doesDirectoryExist ".stack-work"
+  if isStack
+    then do
+      L.infoM "hie" "Using stack GHC version"
+      catch (tryCommand "stack ghc --version") $ \e -> do
+        L.errorM "hie" $ show (e :: SomeException)
+        L.infoM "hie" "Couldn't find stack version, falling back to plain GHC"
+        tryCommand "ghc --version"
+    else do
+      L.infoM "hie" "Using plain GHC version"
+      tryCommand "ghc --version"
+          
+  where
+    tryCommand cmd =
+      crackGhcVersion <$> readCreateProcess (shell cmd) ""
+    -- "The Glorious Glasgow Haskell Compilation System, version 8.4.3\n"
+    -- "The Glorious Glasgow Haskell Compilation System, version 8.4.2\n"
+    crackGhcVersion :: String -> String
+    crackGhcVersion st = reverse $ takeWhile (/=' ') $ tail $ reverse st
+
+hieGhcVersion :: String
+hieGhcVersion = VERSION_ghc
 
 -- ---------------------------------------------------------------------

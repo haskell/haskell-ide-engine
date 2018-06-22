@@ -25,6 +25,7 @@ import           DynFlags
 import           ErrUtils
 import qualified Exception                         as G
 import           GHC
+import           IOEnv                             as G
 import           GHC.Generics
 import qualified GhcMod                            as GM
 import qualified GhcMod.DynFlags                   as GM
@@ -80,6 +81,7 @@ lspSev SevFatal   = DsError
 lspSev SevInfo    = DsInfo
 lspSev _          = DsInfo
 
+-- type LogAction = DynFlags -> WarnReason -> Severity -> SrcSpan -> PprStyle -> MsgDoc -> IO ()
 logDiag :: (FilePath -> FilePath) -> IORef AdditionalErrs -> IORef Diagnostics -> LogAction
 logDiag rfm eref dref df _reason sev spn style msg = do
   eloc <- srcSpan2Loc rfm spn
@@ -94,12 +96,11 @@ logDiag rfm eref dref df _reason sev spn style msg = do
       modifyIORef' eref (msgTxt:)
       return ()
 
-unhelpfulSrcSpanErr :: T.Text -> IdeFailure
+unhelpfulSrcSpanErr :: T.Text -> IdeError
 unhelpfulSrcSpanErr err =
-  IdeRFail $
-    IdeError PluginError
-             ("Unhelpful SrcSpan" <> ": \"" <> err <> "\"")
-             Null
+  IdeError PluginError
+            ("Unhelpful SrcSpan" <> ": \"" <> err <> "\"")
+            Null
 
 srcErrToDiag :: MonadIO m
   => DynFlags
@@ -138,14 +139,7 @@ myLogger rfm action = do
   errRef <- liftIO $ newIORef []
   let setLogger df = df { log_action = logDiag rfm errRef diagRef }
       ghcErrRes msg = (Map.empty, [T.pack msg])
-      handlers =
-        [ GM.GHandler $ \ex ->
-            srcErrToDiag (hsc_dflags env) rfm ex
-        , GM.GHandler $ \ex ->
-            return $ ghcErrRes $ GM.renderGm $ GM.ghcExceptionDoc ex
-        , GM.GHandler $ \(ex :: GM.SomeException) ->
-            return (Map.empty ,[T.pack (show ex)])
-        ]
+      handlers = errorHandlers ghcErrRes (srcErrToDiag (hsc_dflags env) rfm )
       action' = do
         GM.withDynFlags setLogger action
         diags <- liftIO $ readIORef diagRef
@@ -153,23 +147,59 @@ myLogger rfm action = do
         return (diags,errs)
   GM.gcatches action' handlers
 
-setTypecheckedModule :: Uri -> IdeGhcM (IdeResponse (Diagnostics, AdditionalErrs))
+errorHandlers :: (Monad m) => (String -> a) -> (SourceError -> m a) -> [GM.GHandler m a]
+errorHandlers ghcErrRes renderSourceError = handlers
+  where
+      -- ghc throws GhcException, SourceError, GhcApiError and
+      -- IOEnvFailure. ghc-mod-core throws GhcModError.
+      handlers =
+        [ GM.GHandler $ \(ex :: GM.GhcModError) ->
+            return $ ghcErrRes (show ex)
+        , GM.GHandler $ \(ex :: IOEnvFailure) ->
+            return $ ghcErrRes (show ex)
+        , GM.GHandler $ \(ex :: GhcApiError) ->
+            return $ ghcErrRes (show ex)
+        , GM.GHandler $ \(ex :: SourceError) ->
+            renderSourceError ex
+        , GM.GHandler $ \(ex :: GhcException) ->
+            return $ ghcErrRes $ GM.renderGm $ GM.ghcExceptionDoc ex
+        , GM.GHandler $ \(ex :: IOError) ->
+            return $ ghcErrRes (show ex)
+        -- , GM.GHandler $ \(ex :: GM.SomeException) ->
+        --     return $ ghcErrRes (show ex)
+        ]
+
+setTypecheckedModule :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
 setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
+    fileMap <- GM.getMMappedFiles
+    debugm $ "setTypecheckedModule: file mapping state is: " ++ show fileMap
     rfm <- GM.mkRevRedirMapFunc
-    ((diags', errs), mtm) <- GM.getTypecheckedModuleGhc' (myLogger rfm) fp
-    let diags = Map.insertWith Set.union uri Set.empty diags'
+    let
+      ghcErrRes msg = ((Map.empty, [T.pack msg]),Nothing)
+    debugm "setTypecheckedModule: before ghc-mod"
+    ((diags', errs), mtm) <- GM.gcatches
+                              (GM.getTypecheckedModuleGhc' (myLogger rfm) fp)
+                              (errorHandlers ghcErrRes (return . ghcErrRes . show))
+    debugm "setTypecheckedModule: after ghc-mod"
+    canonUri <- canonicalizeUri uri
+    let diags = Map.insertWith Set.union canonUri Set.empty diags'
     case mtm of
       Nothing -> do
         debugm $ "setTypecheckedModule: Didn't get typechecked module for: " ++ show fp
-        return $ IdeResponseOk (diags,errs)
+
+        failModule fp (T.unlines errs)
+
+        return $ IdeResultOk (diags,errs)
       Just tm -> do
+        debugm $ "setTypecheckedModule: Did get typechecked module for: " ++ show fp
         typm <- GM.unGmlT $ genTypeMap tm
         sess <- fmap GM.gmgsSession . GM.gmGhcSession <$> GM.gmsGet
         let cm = CachedModule tm (genLocMap tm) typm rfm return return
         cacheModule fp cm
         modifyMTS (\s -> s {ghcSession = sess})
-        return $ IdeResponseOk (diags,errs)
+        debugm "setTypecheckedModule: done"
+        return $ IdeResultOk (diags,errs)
 
 -- ---------------------------------------------------------------------
 
@@ -177,7 +207,7 @@ lintCmd :: CommandFunc Uri T.Text
 lintCmd = CmdSync $ \ uri ->
   lintCmd' uri
 
-lintCmd' :: Uri -> IdeGhcM (IdeResponse T.Text)
+lintCmd' :: Uri -> IdeGhcM (IdeResult T.Text)
 lintCmd' uri =
   pluginGetFile "lint: " uri $ \file ->
     fmap T.pack <$> runGhcModCommand (GM.lint GM.defaultLintOpts file)
@@ -201,7 +231,7 @@ infoCmd :: CommandFunc InfoParams T.Text
 infoCmd = CmdSync $ \(IP uri expr) ->
   infoCmd' uri expr
 
-infoCmd' :: Uri -> T.Text -> IdeGhcM (IdeResponse T.Text)
+infoCmd' :: Uri -> T.Text -> IdeGhcM (IdeResult T.Text)
 infoCmd' uri expr =
   pluginGetFile "info: " uri $ \file ->
     fmap T.pack <$> runGhcModCommand (GM.info file (GM.Expression (T.unpack expr)))
@@ -219,16 +249,16 @@ instance ToJSON TypeParams where
   toJSON = genericToJSON customOptions
 
 typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
-typeCmd = CmdSync $ \(TP _bool uri pos) -> do
+typeCmd = CmdSync $ \(TP _bool uri pos) ->
   liftToGhc $ newTypeCmd pos uri
 
-newTypeCmd :: Position -> Uri -> IdeM (IdeResponse [(Range, T.Text)])
+newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
 newTypeCmd newPos uri =
   pluginGetFile "newTypeCmd: " uri $ \fp -> do
       mcm <- getCachedModule fp
       case mcm of
-        Nothing -> return $ IdeResponseOk []
-        Just cm -> return $ IdeResponseOk $ pureTypeCmd newPos cm
+        ModuleCached cm _ -> return $ IdeResultOk $ pureTypeCmd newPos cm
+        _ -> return $ IdeResultOk []
 
 pureTypeCmd :: Position -> CachedModule -> [(Range,T.Text)]
 pureTypeCmd newPos cm  =
@@ -280,16 +310,17 @@ splitCaseCmd ::CommandFunc DocumentPosition WorkspaceEdit
 splitCaseCmd = CmdSync $ \(DocPos uri pos) -> do
   splitCaseCmd' uri pos
 
-splitCaseCmd' :: Uri -> Position -> IdeGhcM (IdeResponse WorkspaceEdit)
+splitCaseCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 splitCaseCmd' uri position =
   pluginGetFile "splitCaseCmd: " uri $ \path -> do
     origText <- GM.withMappedFile path $ liftIO . T.readFile
-
-    Just checkedModule <- getCachedModule path
-    runGhcModCommand $ do
-      Just splitResult <- GM.splits' path (tcMod checkedModule) line column
-      let workspaceEdit = splitResultToWorkspaceEdit origText splitResult
-      return workspaceEdit
+    cachedMod <- getCachedModule path
+    case cachedMod of
+      ModuleCached checkedModule _ -> runGhcModCommand $ do
+        Just splitResult <- GM.splits' path (tcMod checkedModule) line column
+        return $ splitResultToWorkspaceEdit origText splitResult
+      ModuleFailed errText -> return $ IdeResultFail $ IdeError PluginError (T.append "hie-ghc-mod: " errText) Null
+      ModuleLoading -> return $ IdeResultOk mempty
   where
     (line, column) = unPos position
 
@@ -325,10 +356,10 @@ splitCaseCmd' uri position =
 -- ---------------------------------------------------------------------
 
 runGhcModCommand :: IdeGhcM a
-                 -> IdeGhcM (IdeResponse a)
+                 -> IdeGhcM (IdeResult a)
 runGhcModCommand cmd =
-  (IdeResponseOk <$> cmd) `G.gcatch`
+  (IdeResultOk <$> cmd) `G.gcatch`
     \(e :: GM.GhcModError) ->
       return $
-      IdeResponseFail $
+      IdeResultFail $
       IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Null

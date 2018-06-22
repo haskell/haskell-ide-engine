@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveAnyClass    #-}
+{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.Engine.Plugin.Brittany where
 
@@ -10,6 +12,7 @@ import           Data.Semigroup
 import           Data.Text                             (Text)
 import qualified Data.Text                             as T
 import qualified Data.Text.IO                          as T
+import           GHC.Generics
 import qualified GhcMod.Utils                          as GM
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
@@ -18,8 +21,24 @@ import qualified Language.Haskell.LSP.Types            as J
 import           System.FilePath (FilePath, takeDirectory)
 import           Data.Maybe (maybeToList)
 
+data FormatParams = FormatParams Int Uri (Maybe Range)
+     deriving (Eq, Show, Generic, FromJSON, ToJSON)
 
-brittanyCmd :: Int -> Uri -> Maybe Range -> IdeGhcM (IdeResponse [J.TextEdit])
+brittanyDescriptor :: PluginDescriptor
+brittanyDescriptor = PluginDescriptor
+  { pluginName     = "Brittany"
+  , pluginDesc     = "Brittany is a tool to format source code."
+  , pluginCommands = [ PluginCommand "format"
+                                     "Format a range of text or document"
+                                     cmd
+                     ]
+  }
+ where
+  cmd :: CommandFunc FormatParams [J.TextEdit]
+  cmd =
+    CmdSync $ \(FormatParams tabSize uri range) -> brittanyCmd tabSize uri range
+
+brittanyCmd :: Int -> Uri -> Maybe Range -> IdeGhcM (IdeResult [J.TextEdit])
 brittanyCmd tabSize uri range =
   pluginGetFile "brittanyCmd: " uri $ \file -> do
     confFile <- liftIO $ findLocalConfigPath (takeDirectory file)
@@ -29,16 +48,16 @@ brittanyCmd tabSize uri range =
         -- format selection
         res <- liftIO $ runBrittany tabSize confFile $ extractRange r text
         case res of
-          Left err -> return $ IdeResponseFail (IdeError PluginError
+          Left err -> return $ IdeResultFail (IdeError PluginError
                       (T.pack $ "brittanyCmd: " ++ unlines (map showErr err)) Null)
           Right newText -> do
             let textEdit = J.TextEdit (normalize r) newText
-            return $ IdeResponseOk [textEdit]
+            return $ IdeResultOk [textEdit]
       Nothing -> do
         -- format document
         res <- liftIO $ runBrittany tabSize confFile text
         case res of
-          Left err -> return $ IdeResponseFail (IdeError PluginError
+          Left err -> return $ IdeResultFail (IdeError PluginError
                       (T.pack $ "brittanyCmd: " ++ unlines (map showErr err)) Null)
           Right newText -> do
             let startPos = Position 0 0
@@ -52,7 +71,7 @@ brittanyCmd tabSize uri range =
                 -}
                 lastLine = length $ T.lines text
                 textEdit = J.TextEdit (Range startPos endPos) newText
-            return $ IdeResponseOk [textEdit]
+            return $ IdeResultOk [textEdit]
 
 extractRange :: Range -> Text -> Text
 extractRange (Range (Position sl _) (Position el _)) s = newS
@@ -61,7 +80,8 @@ extractRange (Range (Position sl _) (Position el _)) s = newS
 
 normalize :: Range -> Range
 normalize (Range (Position sl _) (Position el _)) =
-  Range (Position sl 0) (Position el 10000)
+  -- Extend to the line below to replace newline character, as above
+  Range (Position sl 0) (Position (el + 1) 0)
 
 runBrittany :: Int              -- ^ tab  size
             -> Maybe FilePath   -- ^ local config file

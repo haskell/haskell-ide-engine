@@ -22,20 +22,24 @@ defaults: &defaults
 
     - restore_cache:
         keys:
-          - stack-cache-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
-          - stack-cache-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
-          - stack-cache-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
+          - stack-cache-02-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
+          - stack-cache-02-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
+          - stack-cache-02-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
 
     - run:
         name: Stack setup
         command: stack -j 2 --stack-yaml=${STACK_FILE} setup
 
     - run:
+        name: Install happy
+        command: stack --stack-yaml=${STACK_FILE} install happy
+
+    - run:
         name: Install Hoogle
         command: stack --stack-yaml=${STACK_FILE} install hoogle
 
     - run:
-        name: Generate Hoogle databalse
+        name: Generate Hoogle database
         command: ~/.local/bin/hoogle generate base
 
     - run:
@@ -43,33 +47,36 @@ defaults: &defaults
         command: stack -j 2 --stack-yaml=${STACK_FILE} test --no-run-tests
 
     - save_cache:
-        key: stack-cache-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
+        key: stack-cache-02-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
         paths:
           - ~/.stack
           - ~/.cache
 
     - restore_cache:
-          key: stack-work-dirs-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
+          key: stack-work-dirs-02-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
 
     - run:
         name: Compile + Test
-        command: stack -j 2 --stack-yaml=${STACK_FILE} test --dump-logs
+        command: stack -j 1 --stack-yaml=${STACK_FILE} test --dump-logs
         no_output_timeout: 120m
 
+    - store_artifacts:
+        path: test-logs
+
     - save_cache:
-        key: stack-cache-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
+        key: stack-cache-02-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
         paths:
           - ~/.stack
           - ~/.cache
 
     - save_cache:
-        key: stack-cache-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
+        key: stack-cache-02-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
         paths:
           - ~/.stack
           - ~/.cache
 
     - save_cache:
-        key: stack-work-dirs-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
+        key: stack-work-dirs-02-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
         paths:
           - ~/build/.stack-work
           - ~/build/hie-plugin-api/.stack-work
@@ -93,6 +100,11 @@ jobs:
 
   ghc-8.4.2:
     environment:
+      - STACK_FILE: "stack-8.4.2.yaml"
+    <<: *defaults
+
+  ghc-8.4.3:
+    environment:
       - STACK_FILE: "stack.yaml"
     <<: *defaults
 
@@ -100,8 +112,8 @@ workflows:
   version: 2
   multiple-ghcs:
     jobs:
-      # - ghc-8.0.2
       - ghc-8.2.1
       - ghc-8.2.2
       - ghc-8.4.2
+      - ghc-8.4.3
 

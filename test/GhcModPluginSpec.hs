@@ -43,7 +43,7 @@ ghcmodSpec =
       fp <- makeAbsolute "./FileWithWarning.hs"
       let act = setTypecheckedModule arg
           arg = filePathToUri fp
-          res = IdeResponseOk $
+          res = IdeResultOk $
             (Map.singleton arg (S.singleton diag), [])
           diag = Diagnostic (Range (toPos (4,7))
                                    (toPos (4,8)))
@@ -62,7 +62,7 @@ ghcmodSpec =
       let uri = filePathToUri fp
           act = lintCmd' uri
           arg = uri
-          res = IdeResponseOk (T.pack fp <> ":6:9: Warning: Redundant do\NULFound:\NUL  do return (3 + x)\NULWhy not:\NUL  return (3 + x)\n")
+          res = IdeResultOk (T.pack fp <> ":6:9: Warning: Redundant do\NULFound:\NUL  do return (3 + x)\NULWhy not:\NUL  return (3 + x)\n")
       testCommand testPlugins act "ghcmod" "lint" arg res
 
     -- ---------------------------------
@@ -72,7 +72,7 @@ ghcmodSpec =
       let uri = filePathToUri fp
           act = infoCmd' uri "main"
           arg = IP uri "main"
-          res = IdeResponseOk "main :: IO () \t-- Defined at HaReRename.hs:2:1\n"
+          res = IdeResultOk "main :: IO () \t-- Defined at HaReRename.hs:2:1\n"
       -- ghc-mod tries to load the test file in the context of the hie project if we do not cd first.
       testCommand testPlugins act "ghcmod" "info" arg res
 
@@ -85,7 +85,7 @@ ghcmodSpec =
             _ <- setTypecheckedModule uri
             liftToGhc $ newTypeCmd (toPos (5,9)) uri
           arg = TP False uri (toPos (5,9))
-          res = IdeResponseOk
+          res = IdeResultOk
             [(Range (toPos (5,9)) (toPos (5,10)), "Int")
             ,(Range (toPos (5,9)) (toPos (5,14)), "Int")
             ,(Range (toPos (5,1)) (toPos (5,14)), "Int -> Int")
@@ -104,7 +104,7 @@ ghcmodSpec =
               _ <- setTypecheckedModule uri
               liftToGhc $ newTypeCmd (toPos (5,9)) uri
         let arg = TP False uri (toPos (5,9))
-        let res = IdeResponseOk
+        let res = IdeResultOk
               [(Range (toPos (5,9)) (toPos (5,10)), "Int")
               ,(Range (toPos (5,9)) (toPos (5,14)), "Int")
               ,(Range (toPos (5,1)) (toPos (5,14)), "Int -> Int")
@@ -116,9 +116,11 @@ ghcmodSpec =
     it "runs the casesplit command" $ cdAndDo "./test/testdata" $ do
       fp <- makeAbsolute "GhcModCaseSplit.hs"
       let uri = filePathToUri fp
-          act = splitCaseCmd' uri (toPos (5,5))
+          act = do
+            _ <- setTypecheckedModule uri
+            splitCaseCmd' uri (toPos (5,5))
           arg = DocPos uri (toPos (5,5))
-          res = IdeResponseOk $ WorkspaceEdit
+          res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton uri
                                 $ List [TextEdit (Range (Position 4 0) (Position 4 10))
                                           "foo Nothing = ()\nfoo (Just x) = ()"])
@@ -137,7 +139,7 @@ ghcmodSpec =
               _ <- setTypecheckedModule uri
               splitCaseCmd' uri (toPos (5,5))
             arg = DocPos uri (toPos (5,5))
-            res = IdeResponseOk $ WorkspaceEdit
+            res = IdeResultOk $ WorkspaceEdit
               (Just $ H.singleton uri
                                   $ List [TextEdit (Range (Position 4 0) (Position 4 10))
                                             "foo Nothing = ()\nfoo (Just x) = ()"])

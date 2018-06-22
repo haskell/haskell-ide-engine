@@ -1,7 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
--- import Test.Hspec.Formatters.Jenkins
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
 import           Control.Concurrent.STM.TVar
@@ -10,7 +9,6 @@ import qualified Data.Map as Map
 import qualified Data.Set as S
 import qualified Data.Text as T
 import           Haskell.Ide.Engine.Dispatcher
-import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
@@ -18,14 +16,13 @@ import qualified Language.Haskell.LSP.Types            as J
 import           TestUtils
 
 import           Test.Hspec
--- import           Test.Hspec.Runner
 
 -- ---------------------------------------------------------------------
 
 main :: IO ()
 main = do
   setupStackFiles
-  withFileLogging "./test-main-dispatcher.log" $ hspec spec
+  withFileLogging "main-dispatcher.log" $ hspec spec
 
 -- main :: IO ()
 -- main = do
@@ -42,27 +39,30 @@ main = do
 
 
 spec :: Spec
-spec = do
-  describe "dispatcher" dispatcherSpec
+spec = describe "dispatcher" dispatcherSpec
 
 -- ---------------------------------------------------------------------
 
 dispatcherSpec :: Spec
-dispatcherSpec = do
-
-  describe "New plugin dispatcher operation" $ do
+dispatcherSpec =
+  describe "New plugin dispatcher operation" $
     it "dispatches response correctly" $ do
       inChan <- atomically newTChan
       outChan <- atomically newTChan
       cancelTVar <- newTVarIO S.empty
       wipTVar <- newTVarIO S.empty
       versionTVar <- newTVarIO $ Map.singleton (filePathToUri "test") 3
-      let req1 = GReq Nothing Nothing                          (Just $ J.IdInt 1) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text1"
-          req2 = GReq Nothing Nothing                          (Just $ J.IdInt 2) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text2"
-          req3 = GReq Nothing (Just (filePathToUri "test", 2)) Nothing            (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text3"
-          req4 = GReq Nothing Nothing                          (Just $ J.IdInt 3) (atomically . writeTChan outChan) $ return $ IdeResponseOk $ T.pack "text4"
-      pid <- forkIO $ runIdeGhcM testOptions (IdeState emptyModuleCache (pluginDescToIdePlugins []) Map.empty Nothing)
-                              (dispatcherP (DispatcherEnv cancelTVar wipTVar versionTVar) inChan)
+      let req1 = GReq 1 Nothing Nothing                          (Just $ J.IdInt 1) (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text1"
+          req2 = GReq 2 Nothing Nothing                          (Just $ J.IdInt 2) (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text2"
+          req3 = GReq 3 Nothing (Just (filePathToUri "test", 2)) Nothing            (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text3"
+          req4 = GReq 4 Nothing Nothing                          (Just $ J.IdInt 3) (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text4"
+
+      pid <- forkIO $ dispatcherP inChan
+                              (pluginDescToIdePlugins [])
+                              testOptions
+                              (DispatcherEnv cancelTVar wipTVar versionTVar)
+                              (\_ _ _ -> return ())
+                              (\f x -> f x)
       atomically $ writeTChan inChan req1
       atomically $ modifyTVar cancelTVar (S.insert (J.IdInt 2))
       atomically $ writeTChan inChan req2
@@ -71,7 +71,7 @@ dispatcherSpec = do
       resp1 <- atomically $ readTChan outChan
       resp2 <- atomically $ readTChan outChan
       killThread pid
-      resp1 `shouldBe` IdeResponseOk "text1"
-      resp2 `shouldBe` IdeResponseOk "text4"
+      resp1 `shouldBe` "text1"
+      resp2 `shouldBe` "text4"
 
 -- ---------------------------------------------------------------------

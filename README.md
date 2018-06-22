@@ -7,7 +7,7 @@
 
 This project aims to be __the universal interface__ to __a growing number of Haskell tools__, providing a __full-featured and easy to query backend__ for editors and IDEs that require Haskell-specific functionality.
 
-__We are currently focusing on using the [Language Server Protocol](https://github.com/Microsoft/language-server-protocol/blob/master/protocol.md) as the interface via which 
+__We are currently focusing on using the [Language Server Protocol](https://github.com/Microsoft/language-server-protocol/blob/master/protocol.md) as the interface via which
 we talk to clients.__
 
 - [Haskell IDE Engine](#haskell-ide-engine)
@@ -15,8 +15,9 @@ we talk to clients.__
     - [Installation](#installation)
         - Installation with [stack](#installation-with-stack) or [Nix](#installation-with-nix)
         - [ArchLinux](#archlinux)
+    - [Configuration](#configuration)
     - [Editor Integration](#editor-integration)
-        - Using HIE with [VS Code](#using-hie-with-vs-code), [Sublime Text](#using-hie-with-sublime-text), [Neovim](#using-hie-with-neovim), [Atom](#using-hie-with-atom), or [Emacs](#using-hie-with-emacs)
+        - Using HIE with [VS Code](#using-hie-with-vs-code), [Sublime Text](#using-hie-with-sublime-text), [Neovim](#using-hie-with-neovim), [Atom](#using-hie-with-atom), [Oni](#using-hie-with-oni), [Emacs](#using-hie-with-emacs) or [Spacemacs](#using-hie-with-spacemacs)
     - [Docs on hover/completion](#docs-on-hovercompletion)
     - [Contributing](#contributing)
         - [Planned Features](#planned-features)
@@ -30,16 +31,16 @@ we talk to clients.__
     - [Documentation](#documentation)
 
 ## Features
- 
+
  - Supports plain GHC projects, cabal projects(sandboxed and non sandboxed) and stack projects
  - Fast due to caching of compile info
  - Uses LSP, so should be easy to integrate with a wide selection of editors
  - Diagnostics via hlint and GHC warnings/errors
-   
+
    ![Diagnostics](https://i.imgur.com/1vqm4eF.gif)
 
  - Code actions and quick fixes via apply-refact
-   
+
    ![Apply Refact](https://i.imgur.com/dBrSi5F.gif)
 
  - Type information and documentation(via haddock) on hover
@@ -47,7 +48,7 @@ we talk to clients.__
    ![Hover](https://i.imgur.com/AcvYROv.gif)
 
  - Jump to definition
-   
+
    ![Find Def](https://i.imgur.com/kmCU2Bz.gif)
 
  - List all top level definitions
@@ -55,11 +56,11 @@ we talk to clients.__
    ![Doc Symbols](https://i.imgur.com/GErcYqp.gif)
 
  - Highlight references in document
-   
+
    ![Doc Highlight](https://i.imgur.com/YLjHs2s.gif)
-   
+
  - Completion
-   
+
    ![Completion](https://i.imgur.com/wR6IJ7M.gif)
 
  - Formatting via brittany
@@ -69,30 +70,30 @@ we talk to clients.__
  - Renaming via HaRe
 
    ![Renaming](https://i.imgur.com/z03G2a5.gif)
- 
+
 ## Installation
 
-Note: The version on branch `hie-0.1.0.0` supports GHC from 8.0.2 to
-8.2.2, and projects with a `cabal-version` value in the cabal file <2.
+Note: The version on branch `hie-0.1.0.0` supports GHC 8.0.2. This is
+not supported in master.
 
-Because GHC 8.4.2 ships with Cabal 2.2, and it is now strict about
-what features are available per version, the ghc-mod hack for the
-`libexec-dir` no longer works.  So for current master having GHC
-8.4.2 support, the `cabal-version` field of the project that `hie` is
-being used on must be set to `>= 2.0`.
+On linux derivatives you will need to do the equivalent of before building
+
+```bash
+sudo apt install libicu-dev libtinfo-dev
+```
 
 
-### Getting the source for GHC 8.2.1, 8.2.2, 8.4.2
+### Getting the source for GHC 8.2.1, 8.2.2, 8.4.2, 8.4.3
 
-Both methods build HIE from the source code, so first,
+HIE builds from source code, so first,
 
 ```bash
 $ git clone https://github.com/haskell/haskell-ide-engine --recursive
 $ cd haskell-ide-engine
 ```
-### Getting the source for GHC 8.0.2, 8.2.1, 8.2.2
+### Getting the source for GHC 8.0.2
 
-Both methods build HIE from the source code, so first,
+HIE builds from source code, so first,
 
 ```bash
 $ git clone https://github.com/haskell/haskell-ide-engine
@@ -103,7 +104,7 @@ $ git submodule update --init
 
 ### Installation with stack
 
-To install HIE, you need Stack version >= 1.6.1
+To install HIE, you need Stack version >= 1.7.1
 
 To install all supported GHC versions, and name them as expected
 by the vscode plugin, and also build a local hoogle database, do
@@ -112,14 +113,29 @@ by the vscode plugin, and also build a local hoogle database, do
 make build-all
 ```
 
+Then add
+
+```json
+"languageServerHaskell.useHieWrapper": true
+```
+
+to VSCode user settings.
+
 Otherwise, do one of the following.
 
-#### For GHC 8.4.2
+#### For GHC 8.4.3
 
 Using master
 
 ```bash
 stack install
+```
+#### For GHC 8.4.2
+
+Using master
+
+```bash
+stack --stack-yaml=stack-8.4.2.yaml install
 ```
 
 #### For GHC 8.2.2
@@ -172,7 +188,24 @@ Using [Aura](https://github.com/aurapm/aura):
 # aura -A haskell-ide-engine-git
 ```
 
+## Configuration
+There are some settings that can be configured via a `settings.json` file:
+
+```json
+{
+    "languageServerHaskell": {
+        "hlintOn": Boolean,
+        "maxNumberOfProblems": Number
+    }
+}
+```
+
+- VS Code: These settings will show up in the settings window
+- LanguageClient-neovim: Create this file in `$projectdir/.vim/settings.json` or set `g:LanguageClient_settingsPath`
+
 ## Editor Integration
+
+Note to editor integrators: there is now a `hie-wrapper` executable, which is installed alongside the `hie` executable.  When this is invoked in the project root directory, it attempts to work out the GHC version used in the project, and then launch the matching `hie` executable.
 
 All of the editor integrations assume that you have already installed HIE (see above) and that `stack` put the `hie` binary in your path (usually `~/.local/bin` on linux and macOS).
 
@@ -222,14 +255,25 @@ Plug 'autozimu/LanguageClient-neovim', {
 
 and issuing a `:PlugInstall` command within neovim.
 
-Finally, make sure that `hie` is included as the language server source for haskell: 
+Finally, make sure that `hie` is included as the language server source for haskell:
 
 ```
 let g:LanguageClient_serverCommands = {
     ...
-    \ 'haskell': ['hie', '--lsp'],
+    \ 'haskell': ['hie-wrapper', '--lsp'],
     ...
     \ }
+```
+
+Since LanguageClient-neovim doesn't start language servers in the project root, it may also be helpful to also specify the project root for hie-wrapper, writing instead:
+
+```
+let g:LanguageClient_serverCommands = {
+    ...
+    \ 'haskell': ['hie-wrapper', '--lsp', '-r', '$YOURROOTHERE'],
+    ...
+    \ }
+
 ```
 
 For asynchronous auto-completion, follow the setup instructions on
@@ -253,6 +297,54 @@ Install HIE along with the following emacs packages:
 
 Make sure to follow the instructions in the README of each of these packages.
 
+### Using HIE with Spacemacs
+
+Install HIE, and then add the following to your `.spacemacs` config,
+
+```lisp
+(defun dotspacemacs/layers ()
+  "..."
+  (setq-default
+   ;; ...
+   dotspacemacs-configuration-layers
+   '(
+     lsp
+     (haskell :variables ;; Or optionally just haskell without the variables.
+              haskell-completion-backend 'ghci
+              haskell-process-type 'stack-ghci)
+     )
+   dotspacemacs-additional-packages '(
+      (lsp-haskell :location (recipe :fetcher github :repo "emacs-lsp/lsp-haskell"))
+      )
+    ;; ...
+    ))
+```
+
+and then activate [`lsp-haskell`](https://github.com/emacs-lsp/lsp-haskell) in your `user-config` section,
+
+```lisp
+(defun dotspacemacs/user-config ()
+  "..."
+  (require 'lsp-haskell)
+  (add-hook 'haskell-mode-hook #'lsp-haskell-enable)
+  )
+```
+
+Now you should be able to use HIE in Spacemacs. I recommend still checking out [lsp-ui](https://github.com/emacs-lsp/lsp-ui) and [lsp-mode](https://github.com/emacs-lsp/lsp-mode).
+
+### Using HIE with Oni
+
+[Oni](https://www.onivim.io/) (a Neovim GUI) added built-in support for HIE, using stack, in [#1918](https://github.com/onivim/oni/pull/1918/files). If you need to change the configuration for HIE, you can overwrite the following settings in your `~/.config/oni/config.tsx` file (accessible via the command palette and `Configuration: Edit User Config`),
+
+```js
+export const configuration = {
+  "language.haskell.languageServer.command": "stack",
+  "language.haskell.languageServer.arguments": ["exec", "--", "hie", "--lsp"],
+  "language.haskell.languageServer.rootFiles": [".git"],
+  "language.haskell.languageServer.configuration": {},
+}
+```
+
 ## Docs on hover/completion
 
 HIE supports fetching docs from haddock on hover. It will fallback on using a hoogle db(generally located in ~/.hoogle on linux)
@@ -268,7 +360,7 @@ $ stack haddock --keep-going
 To enable documentation generation for cabal projects, add the following to your ~/.cabal/config
 
 ```
-documentation: True 
+documentation: True
 ```
 
 To generate a hoogle database that hie can use

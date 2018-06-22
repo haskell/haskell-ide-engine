@@ -1,144 +1,207 @@
-{-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
-
-{-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE PatternSynonyms       #-}
-{-# LANGUAGE PolyKinds             #-}
-{-# LANGUAGE RankNTypes            #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-
-
-Start up an actual instance of the HIE server, and interact with it.
-
-The startup code is based on that in MainHie.hs
-
-TODO: extract the commonality
-
--}
+{-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import           Control.Concurrent
-import           Control.Concurrent.STM.TChan
-import           Control.Concurrent.STM.TVar
-import           Control.Monad
-import           Control.Monad.STM
-import           Data.Aeson
-import qualified Data.HashMap.Strict                   as H
-import qualified Data.Map                              as Map
-import qualified Data.Set                              as S
-import           Haskell.Ide.Engine.Dispatcher
-import           Haskell.Ide.Engine.Monad
-import           Haskell.Ide.Engine.MonadTypes
-import           Haskell.Ide.Engine.PluginDescriptor
-import           Haskell.Ide.Engine.PluginUtils
-import           Haskell.Ide.Engine.Types
-import           Language.Haskell.LSP.Types hiding (error, name)
-import           System.Directory
-import           System.FilePath
-import           TestUtils
-
-import           Test.Hspec
-
--- ---------------------------------------------------------------------
--- plugins
-
-import           Haskell.Ide.Engine.Plugin.ApplyRefact
-import           Haskell.Ide.Engine.Plugin.Base
-import           Haskell.Ide.Engine.Plugin.Example2
-import           Haskell.Ide.Engine.Plugin.GhcMod
-import           Haskell.Ide.Engine.Plugin.HaRe
-
-{-# ANN module ("HLint: ignore Redundant do"       :: String) #-}
--- ---------------------------------------------------------------------
-
-plugins :: IdePlugins
-plugins = pluginDescToIdePlugins
-  [("applyrefact", applyRefactDescriptor)
-  ,("eg2"        , example2Descriptor)
-  ,("ghcmod"     , ghcmodDescriptor)
-  ,("hare"       , hareDescriptor)
-  ,("base"       , baseDescriptor)
-  ]
-
-startServer :: IO (TChan PluginRequest)
-startServer = do
-  cin  <- atomically newTChan
-
-  let dispatcherProc dispatcherEnv
-        = void $ forkIO $ runIdeGhcM testOptions (IdeState emptyModuleCache plugins Map.empty Nothing) (dispatcherP dispatcherEnv cin)
-  cancelTVar      <- atomically $ newTVar S.empty
-  wipTVar         <- atomically $ newTVar S.empty
-  versionTVar     <- atomically $ newTVar Map.empty
-  let dispatcherEnv = DispatcherEnv
-        { cancelReqsTVar     = cancelTVar
-        , wipReqsTVar        = wipTVar
-        , docVersionTVar     = versionTVar
-        }
-
-  void $ dispatcherProc dispatcherEnv
-  return cin
-
--- ---------------------------------------------------------------------
+import Control.Monad.IO.Class
+import Control.Lens hiding (List)
+import Control.Monad
+import Data.Aeson
+import qualified Data.HashMap.Strict as H
+import Data.Maybe
+import Language.Haskell.LSP.Test
+import Language.Haskell.LSP.Types
+import qualified Language.Haskell.LSP.Types as LSP (error, id)
+import Test.Hspec
+import System.Directory
+import System.FilePath
+import FunctionalDispatch
+import TestUtils
 
 main :: IO ()
 main = do
   setupStackFiles
-  withFileLogging "./test-functional.log" $ cdAndDo "./test/testdata"  $ hspec spec
+  withFileLogging "functional.log" $ do
+    hspec spec
+    cdAndDo "./test/testdata" $ hspec dispatchSpec
 
 spec :: Spec
 spec = do
-  describe "functional spec" functionalSpec
+  describe "deferred responses" $ do
+    it "do not affect hover requests" $ runSession hieCommand "test/testdata" $ do
+      doc <- openDoc "FuncTest.hs" "haskell"
 
+      id1 <- sendRequest TextDocumentHover (TextDocumentPositionParams doc (Position 4 2))
 
--- ---------------------------------------------------------------------
+      skipMany anyNotification
+      hoverRsp <- response :: Session HoverResponse
+      let (Just (List contents1)) = hoverRsp ^? result . _Just . contents
+      liftIO $ contents1 `shouldBe` []
+      liftIO $ hoverRsp ^. LSP.id `shouldBe` responseId id1
 
-dispatchRequest :: ToJSON a => TChan PluginRequest -> PluginId -> CommandName -> a -> IO (IdeResponse DynamicJSON)
-dispatchRequest cin plugin com arg = do
-  mv <- newEmptyMVar
-  let req = GReq Nothing Nothing Nothing (putMVar mv) $
-        runPluginCommand plugin com (toJSON arg)
-  atomically $ writeTChan cin req
-  takeMVar mv
+      id2 <- sendRequest TextDocumentDocumentSymbol (DocumentSymbolParams doc)
+      symbolsRsp <- skipManyTill anyNotification response :: Session DocumentSymbolsResponse
+      liftIO $ symbolsRsp ^. LSP.id `shouldBe` responseId id2
 
--- ---------------------------------------------------------------------
+      id3 <- sendRequest TextDocumentHover (TextDocumentPositionParams doc (Position 4 2))
+      hoverRsp2 <- skipManyTill anyNotification response :: Session HoverResponse
+      liftIO $ hoverRsp2 ^. LSP.id `shouldBe` responseId id3
 
-functionalSpec :: Spec
-functionalSpec = do
-  describe "consecutive plugin commands" $ do
+      let (Just (List contents2)) = hoverRsp2 ^? result . _Just . contents
+      liftIO $ contents2 `shouldNotSatisfy` null
 
-    it "returns hints as diagnostics" $ do
-      cin <- startServer
-      cwd <- getCurrentDirectory
+      -- Now that we have cache the following request should be instant
+      let highlightParams = TextDocumentPositionParams doc (Position 7 0)
+      _ <- sendRequest TextDocumentDocumentHighlight highlightParams
 
-      -- -------------------------------
+      highlightRsp <- response :: Session DocumentHighlightsResponse
+      let (Just (List locations)) = highlightRsp ^. result
+      liftIO $ locations `shouldBe` [ DocumentHighlight
+                     { _range = Range
+                       { _start = Position {_line = 7, _character = 0}
+                       , _end   = Position {_line = 7, _character = 2}
+                       }
+                     , _kind  = Just HkWrite
+                     }
+                   , DocumentHighlight
+                     { _range = Range
+                       { _start = Position {_line = 7, _character = 0}
+                       , _end   = Position {_line = 7, _character = 2}
+                       }
+                     , _kind  = Just HkWrite
+                     }
+                   , DocumentHighlight
+                     { _range = Range
+                       { _start = Position {_line = 5, _character = 6}
+                       , _end   = Position {_line = 5, _character = 8}
+                       }
+                     , _kind  = Just HkRead
+                     }
+                   , DocumentHighlight
+                     { _range = Range
+                       { _start = Position {_line = 7, _character = 0}
+                       , _end   = Position {_line = 7, _character = 2}
+                       }
+                     , _kind  = Just HkWrite
+                     }
+                   , DocumentHighlight
+                     { _range = Range
+                       { _start = Position {_line = 7, _character = 0}
+                       , _end   = Position {_line = 7, _character = 2}
+                       }
+                     , _kind  = Just HkWrite
+                     }
+                   , DocumentHighlight
+                     { _range = Range
+                       { _start = Position {_line = 5, _character = 6}
+                       , _end   = Position {_line = 5, _character = 8}
+                       }
+                     , _kind  = Just HkRead
+                     }
+                   ]
 
-      let req1 = filePathToUri $ cwd </> "FuncTest.hs"
-      r1 <- dispatchRequest cin "applyrefact" "lint" req1
-      fmap fromDynJSON r1 `shouldBe` IdeResponseOk
-                           ( Just
-                           $ PublishDiagnosticsParams
-                              { _uri = filePathToUri $ cwd </> "FuncTest.hs"
-                              , _diagnostics = List
-                                [ Diagnostic (Range (Position 9 6) (Position 10 18))
-                                             (Just DsInfo)
-                                             (Just "Redundant do")
-                                             (Just "hlint")
-                                             "Redundant do\nFound:\n  do putStrLn \"hello\"\nWhy not:\n  putStrLn \"hello\"\n"
-                                             Nothing
-                                ]
-                              })
+    it "instantly respond to failed modules with no cache" $ runSession hieCommand "test/testdata" $ do
+      doc <- openDoc "FuncTestFail.hs" "haskell"
 
-      let req3 = HP (filePathToUri $ cwd </> "FuncTest.hs") (toPos (8,1))
-      r3 <- dispatchRequest cin "hare" "demote" req3
-      fmap fromDynJSON r3 `shouldBe`
-        (IdeResponseOk
-         $ Just
-         $ WorkspaceEdit
-           (Just $ H.singleton (filePathToUri $ cwd </> "FuncTest.hs")
-                               $ List [TextEdit (Range (Position 6 0) (Position 7 6))
-                                                "  where\n    bb = 5"])
-           Nothing)
+      _ <- sendRequest TextDocumentDocumentSymbol (DocumentSymbolParams doc)
+      skipMany anyNotification
+      symbols <- response :: Session DocumentSymbolsResponse
+      liftIO $ symbols ^. LSP.error `shouldNotBe` Nothing
 
+    it "returns hints as diagnostics" $ runSession hieCommand "test/testdata" $ do
+      _ <- openDoc "FuncTest.hs" "haskell"
+
+      cwd <- liftIO getCurrentDirectory
+      let testUri = filePathToUri $ cwd </> "test/testdata/FuncTest.hs"
+
+      diags <- skipManyTill loggingNotification publishDiagnosticsNotification
+      liftIO $ diags ^? params `shouldBe` (Just $ PublishDiagnosticsParams
+                { _uri         = testUri
+                , _diagnostics = List
+                  [ Diagnostic
+                      (Range (Position 9 6) (Position 10 18))
+                      (Just DsInfo)
+                      (Just "Redundant do")
+                      (Just "hlint")
+                      "Redundant do\nFound:\n  do putStrLn \"hello\"\nWhy not:\n  putStrLn \"hello\"\n"
+                      Nothing
+                  ]
+                }
+              )
+
+      let args' = H.fromList [("pos", toJSON (Position 7 0)), ("file", toJSON testUri)]
+          args = List [Object args']
+      _ <- sendRequest WorkspaceExecuteCommand (ExecuteCommandParams "hare:demote" (Just args))
+
+      executeRsp <- skipManyTill anyNotification response :: Session ExecuteCommandResponse
+      liftIO $ executeRsp ^. result `shouldBe` Just (Object H.empty)
+
+      editReq <- request :: Session ApplyWorkspaceEditRequest
+      liftIO $ editReq ^. params . edit `shouldBe` WorkspaceEdit
+            ( Just
+            $ H.singleton testUri
+            $ List
+                [ TextEdit (Range (Position 6 0) (Position 7 6))
+                            "  where\n    bb = 5"
+                ]
+            )
+            Nothing
+
+  -- -----------------------------------
+
+  describe "multi-server setup" $
+    it "doesn't have clashing commands on two servers" $ do
+      let getCommands = runSession hieCommand "test/testdata" $ do
+              rsp <- getInitializeResponse
+              let uuids = rsp ^? result . _Just . capabilities . executeCommandProvider . _Just . commands
+              return $ fromJust uuids
+      List uuids1 <- getCommands
+      List uuids2 <- getCommands
+      liftIO $ forM_ (zip uuids1 uuids2) (uncurry shouldNotBe)
+
+  -- -----------------------------------
+
+  describe "code actions" $
+    it "provide hlint suggestions" $ runSession hieCommand "test/testdata" $ do
+      doc <- openDoc "ApplyRefact2.hs" "haskell"
+      diagsRsp <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
+      let (List diags) = diagsRsp ^. params . diagnostics
+          reduceDiag = head diags
+
+      liftIO $ do
+        length diags `shouldBe` 2
+        reduceDiag ^. range `shouldBe` Range (Position 1 0) (Position 1 12)
+        reduceDiag ^. severity `shouldBe` Just DsInfo
+        reduceDiag ^. code `shouldBe` Just "Eta reduce"
+        reduceDiag ^. source `shouldBe` Just "hlint"
+
+      let r = Range (Position 0 0) (Position 99 99)
+          c = CodeActionContext (diagsRsp ^. params . diagnostics)
+      _ <- sendRequest TextDocumentCodeAction (CodeActionParams doc r c)
+      
+      rsp <- response :: Session CodeActionResponse
+      let (List cmds) = fromJust $ rsp ^. result
+          evaluateCmd = head cmds
+      liftIO $ do
+        length cmds `shouldBe` 1
+        evaluateCmd ^. title `shouldBe` "Apply hint:Evaluate"
+
+  -- -----------------------------------
+
+  describe "multiple main modules" $
+    it "Can load one file at a time, when more than one Main module exists"
+                                  -- $ runSession hieCommand "test/testdata" $ do
+                                  $ runSession hieCommandVomit "test/testdata" $ do
+      _doc <- openDoc "ApplyRefact2.hs" "haskell"
+      _diagsRspHlint <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
+      diagsRspGhc   <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
+      let (List diags) = diagsRspGhc ^. params . diagnostics
+
+      liftIO $ length diags `shouldBe` 2
+
+      _doc2 <- openDoc "HaReRename.hs" "haskell"
+      _diagsRspHlint2 <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
+      -- errMsg <- skipManyTill anyNotification notification :: Session ShowMessageNotification
+      diagsRsp2 <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
+      let (List diags2) = diagsRsp2 ^. params . diagnostics
+
+      liftIO $ show diags2 `shouldBe` "[]"

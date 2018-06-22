@@ -35,6 +35,7 @@ library
                        Haskell.Ide.Engine.Transport.JsonStdio
                        Haskell.Ide.Engine.Transport.LspStdio
                        Haskell.Ide.Engine.Types
+                       Haskell.Ide.Engine.Compat
   other-modules:       Paths_haskell_ide_engine
   build-depends:       Cabal >= 1.22
                      , Diff
@@ -43,13 +44,13 @@ library
                      , apply-refact
                      , async
                      , base >= 4.9 && < 5
+                     , bimap
                      , brittany
                      , bytestring
-                     , cabal-helper >= 0.8.0.2
+                     , cabal-helper >= 0.8.0.4
                      , containers
                      , data-default
                      , directory
-                     , extra
                      , filepath
                      , ghc >= 8.0.1
                      , ghc-exactprint
@@ -58,7 +59,7 @@ library
                      , gitrev >= 1.1
                      , haddock-api
                      , haddock-library
-                     , haskell-lsp >= 0.2.2
+                     , haskell-lsp >= 0.3.0
                      , haskell-src-exts
                      , hie-plugin-api
                      , hlint >= 2.0.11
@@ -78,7 +79,10 @@ library
                      , vector
                      , yaml
                      , yi-rope
-
+  if os(windows)
+    build-depends:     Win32
+  else
+    build-depends:     unix
   ghc-options:         -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror
@@ -88,18 +92,16 @@ executable hie
   hs-source-dirs:      app
   main-is:             MainHie.hs
   other-modules:       Paths_haskell_ide_engine
-  build-depends:       Cabal >= 1.22
-                     , base
-                     , containers
+  build-depends:       base
                      , directory
                      , ekg
                      , ghc-mod-core
-                     , gitrev >= 1.1
                      , haskell-ide-engine
                      , haskell-lsp
                      , hie-plugin-api
                      , hslogger
                      , optparse-simple
+                     , process
                      , stm
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
                        -with-rtsopts=-T
@@ -107,11 +109,32 @@ executable hie
      ghc-options:      -Werror
   default-language:    Haskell2010
 
+
+executable hie-wrapper
+  hs-source-dirs:      app
+  main-is:             HieWrapper.hs
+  other-modules:       Paths_haskell_ide_engine
+  build-depends:       base
+                     , directory
+                     , haskell-ide-engine
+                     , haskell-lsp
+                     , hie-plugin-api
+                     , hslogger
+                     , optparse-simple
+                     , process
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
+                       -with-rtsopts=-T
+  if flag(pedantic)
+     ghc-options:      -Werror
+  default-language:    Haskell2010
+
+
 test-suite haskell-ide-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Main.hs
   other-modules:       ApplyRefactPluginSpec
+                       BrittanySpec
                        ExtensibleStateSpec
                        GhcModPluginSpec
                        HaRePluginSpec
@@ -141,12 +164,14 @@ test-suite haskell-ide-test
   if flag(pedantic)
      ghc-options:      -Werror
   default-language:    Haskell2010
+  build-tool-depends:  hspec-discover:hspec-discover
 
 test-suite haskell-ide-dispatcher-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             MainDispatcher.hs
   other-modules:       ApplyRefactPluginSpec
+                       BrittanySpec
                        ExtensibleStateSpec
                        GhcModPluginSpec
                        HaRePluginSpec
@@ -176,6 +201,7 @@ test-suite haskell-ide-dispatcher-test
   if flag(pedantic)
      ghc-options:      -Werror
   default-language:    Haskell2010
+  build-tool-depends:  hspec-discover:hspec-discover
 
 
 test-suite haskell-ide-func-test
@@ -183,6 +209,7 @@ test-suite haskell-ide-func-test
   hs-source-dirs:      test
   main-is:             Functional.hs
   other-modules:       TestUtils
+                       FunctionalDispatch
   build-depends:       aeson
                      , base
                      , containers
@@ -190,10 +217,12 @@ test-suite haskell-ide-func-test
                      , filepath
                      , ghc-mod-core
                      , haskell-lsp
+                     , haskell-lsp-test
                      , haskell-ide-engine
                      , hie-plugin-api
                      , hslogger
                      , hspec
+                     , lens
                      , stm
                      , text
                      , unordered-containers
@@ -202,6 +231,8 @@ test-suite haskell-ide-func-test
   if flag(pedantic)
      ghc-options:      -Werror
   default-language:    Haskell2010
+  build-tool-depends:  hspec-discover:hspec-discover
+
 
 source-repository head
   type:     git

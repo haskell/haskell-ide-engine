@@ -1,6 +1,5 @@
 module Main where
 
--- import Test.Hspec.Formatters.Jenkins
 import Test.Hspec.Runner
 import TestUtils
 import qualified Spec
@@ -10,7 +9,7 @@ import qualified Spec
 main :: IO ()
 main = do
   setupStackFiles
-  withFileLogging "./test-main.log" $ hspec Spec.spec
+  withFileLogging "main.log" $ hspec Spec.spec
 
 -- main :: IO ()
 -- main = do

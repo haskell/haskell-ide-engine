@@ -52,3 +52,5 @@ cabal.sandbox.config
 dist-newstyle/
 dist/
 tags
+test-logs/
+.DS_Store

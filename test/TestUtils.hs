@@ -3,13 +3,14 @@ module TestUtils
   (
     testOptions
   , cdAndDo
-  , withTestLogging
   , withFileLogging
   , setupStackFiles
   , testCommand
   , runSingleReq
   , makeRequest
   , runIGM
+  , hieCommand
+  , hieCommandVomit
   ) where
 
 import           Control.Exception
@@ -26,6 +27,7 @@ import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
 import           System.Directory
+import           System.FilePath
 import qualified System.Log.Logger as L
 
 import           Test.Hspec
@@ -47,11 +49,11 @@ testOptions = GM.defaultOptions {
 cdAndDo :: FilePath -> IO a -> IO a
 cdAndDo path fn = do
   old <- getCurrentDirectory
-  r <- bracket (setCurrentDirectory path) (\_ -> setCurrentDirectory old)
-          $ \_ -> fn
-  return r
+  bracket (setCurrentDirectory path) (\_ -> setCurrentDirectory old)
+          $ const fn
 
-testCommand :: (ToJSON a, Typeable b, ToJSON b, Show b, Eq b) => IdePlugins -> IdeGhcM (IdeResponse b) -> PluginId -> CommandName -> a -> (IdeResponse b) -> IO ()
+
+testCommand :: (ToJSON a, Typeable b, ToJSON b, Show b, Eq b) => IdePlugins -> IdeGhcM (IdeResult b) -> PluginId -> CommandName -> a -> (IdeResult b) -> IO ()
 testCommand testPlugins act plugin cmd arg res = do
   (newApiRes, oldApiRes) <- runIGM testPlugins $ do
     new <- act
@@ -60,22 +62,28 @@ testCommand testPlugins act plugin cmd arg res = do
   newApiRes `shouldBe` res
   fmap fromDynJSON oldApiRes `shouldBe` fmap Just res
 
-runSingleReq :: ToJSON a => IdePlugins -> PluginId -> CommandName -> a -> IO (IdeResponse DynamicJSON)
+runSingleReq :: ToJSON a => IdePlugins -> PluginId -> CommandName -> a -> IO (IdeResult DynamicJSON)
 runSingleReq testPlugins plugin com arg = runIGM testPlugins (makeRequest plugin com arg)
 
-makeRequest :: ToJSON a => PluginId -> CommandName -> a -> IdeGhcM (IdeResponse DynamicJSON)
+makeRequest :: ToJSON a => PluginId -> CommandName -> a -> IdeGhcM (IdeResult DynamicJSON)
 makeRequest plugin com arg = runPluginCommand plugin com (toJSON arg)
 
 runIGM :: IdePlugins -> IdeGhcM a -> IO a
-runIGM testPlugins = runIdeGhcM testOptions (IdeState emptyModuleCache testPlugins Map.empty Nothing)
-
-withTestLogging :: IO a -> IO a
-withTestLogging = withFileLogging "./test-main.log"
-
+runIGM testPlugins = runIdeGhcM testOptions (IdeState emptyModuleCache Map.empty testPlugins Map.empty Nothing)
 
 withFileLogging :: FilePath -> IO a -> IO a
-withFileLogging filePath f = do
-  Core.setupLogger (Just filePath) ["hie"] L.DEBUG
+withFileLogging logFile f = do
+  let logDir = "./test-logs"
+      logPath = logDir </> logFile
+
+  dirExists <- doesDirectoryExist logDir
+  unless dirExists $ createDirectory logDir
+
+  exists <- doesFileExist logPath
+  when exists $ removeFile logPath
+
+  Core.setupLogger (Just logPath) ["hie"] L.DEBUG
+
   f
 
 -- ---------------------------------------------------------------------
@@ -95,19 +103,31 @@ files =
    , "./test/testdata/gototest/"
   ]
 
+stackYaml :: String
+stackYaml =
+#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,3,0)))
+  "stack.yaml"
+#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,2,0)))
+  "stack-8.4.2.yaml"
+#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,2,2,0)))
+  "stack-8.2.2.yaml"
+#elif __GLASGOW_HASKELL__ >= 802
+  "stack-8.2.1.yaml"
+#else
+  "stack-8.0.2.yaml"
+#endif
+
+-- | The command to execute the version of hie for the current compiler.
+hieCommand :: String
+hieCommand = "stack exec --stack-yaml=" ++ stackYaml ++ " hie -- --lsp -d -l test-logs/functional-hie.log"
+
+hieCommandVomit :: String
+hieCommandVomit = hieCommand ++ " --vomit"
+
 -- |Choose a resolver based on the current compiler, otherwise HaRe/ghc-mod will
 -- not be able to load the files
 readResolver :: IO String
-readResolver =
-#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,2,0)))
-  readResolverFrom "stack.yaml"
-#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,2,2,0)))
-  readResolverFrom "stack-8.2.2.yaml"
-#elif __GLASGOW_HASKELL__ >= 802
-  readResolverFrom "stack-8.2.1.yaml"
-#else
-  readResolverFrom "stack-8.0.2.yaml"
-#endif
+readResolver = readResolverFrom stackYaml
 
 newtype StackResolver = StackResolver String
 
