@@ -74,7 +74,7 @@ run opts = do
 
   let
     hieBin = "hie-" ++ ghcVersion
-    backupHieBin = "hie-" ++ (reverse $ tail $ dropWhile (/='.') $ reverse ghcVersion)
+    backupHieBin = "hie-" ++ reverse (tail $ dropWhile (/='.') $ reverse ghcVersion)
 
   logm $ "hie exe candidates :" ++ show (hieBin,backupHieBin)
 
