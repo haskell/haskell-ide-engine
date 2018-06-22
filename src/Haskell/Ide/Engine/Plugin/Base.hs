@@ -105,7 +105,7 @@ getProjectGhcVersion = do
   if isStack
     then do
       L.infoM "hie" "Using stack GHC version"
-      catch (tryCommand "stack ghc --version") $ \e -> do
+      catch (tryCommand "stack ghc -- --version") $ \e -> do
         L.errorM "hie" $ show (e :: SomeException)
         L.infoM "hie" "Couldn't find stack version, falling back to plain GHC"
         tryCommand "ghc --version"
