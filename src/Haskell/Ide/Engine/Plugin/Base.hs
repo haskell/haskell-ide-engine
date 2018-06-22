@@ -6,7 +6,6 @@
 {-# LANGUAGE TemplateHaskell       #-}
 module Haskell.Ide.Engine.Plugin.Base where
 
-import           Control.Exception
 import           Data.Aeson
 import           Data.Foldable
 import qualified Data.Map                        as Map
@@ -21,6 +20,11 @@ import           Haskell.Ide.Engine.IdeFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Options.Applicative.Simple      (simpleVersion)
 import qualified Paths_haskell_ide_engine        as Meta
+
+import           Stack.Options.GlobalParser
+import           Stack.Runners
+import           Stack.Types.Compiler
+import           Stack.Types.Version
 
 import           System.Directory
 import           System.Info
@@ -101,21 +105,16 @@ hieGhcDisplayVersion = compilerName ++ "-" ++ VERSION_ghc
 
 getProjectGhcVersion :: IO String
 getProjectGhcVersion = do
-  isStack <- doesDirectoryExist ".stack-work"
+  isStack <- doesFileExist "stack.yaml"
   if isStack
     then do
       L.infoM "hie" "Using stack GHC version"
-      catch (tryCommand "stack ghc --version") $ \e -> do
-        L.errorM "hie" $ show (e :: SomeException)
-        L.infoM "hie" "Couldn't find stack version, falling back to plain GHC"
-        tryCommand "ghc --version"
+      getStackGhcVersion
     else do
       L.infoM "hie" "Using plain GHC version"
-      tryCommand "ghc --version"
+      crackGhcVersion <$> readCreateProcess (shell "ghc --version") ""
           
   where
-    tryCommand cmd =
-      crackGhcVersion <$> readCreateProcess (shell cmd) ""
     -- "The Glorious Glasgow Haskell Compilation System, version 8.4.3\n"
     -- "The Glorious Glasgow Haskell Compilation System, version 8.4.2\n"
     crackGhcVersion :: String -> String
@@ -124,4 +123,12 @@ getProjectGhcVersion = do
 hieGhcVersion :: String
 hieGhcVersion = VERSION_ghc
 
+getStackGhcVersion :: IO String
+getStackGhcVersion = do
+  compilerVer <- loadConfigWithOpts globalOpts (loadCompilerVersion globalOpts)
+  let ghcVer = case compilerVer of
+                  GhcVersion v -> v
+                  GhcjsVersion _ v -> v
+  return $ versionString ghcVer
+  where globalOpts = globalOptsFromMonoid False mempty
 -- ---------------------------------------------------------------------
