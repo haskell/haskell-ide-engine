@@ -70,7 +70,7 @@ we talk to clients.__
 
    ![Renaming](https://i.imgur.com/z03G2a5.gif)
 
- - Adding chosen import and the package dependencies
+ - Adding chosen import and the package dependencies (vscode only)
  
    ![Adding import & deps](https://user-images.githubusercontent.com/1387653/40287051-b6f987fe-5c5f-11e8-980f-ed7bfa1b2aec.gif)
 
