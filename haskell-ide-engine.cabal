@@ -236,7 +236,7 @@ test-suite haskell-ide-func-test
 test-suite hie-wrapper-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
-  main-is:             HieWrapperSpec.hs
+  main-is:             HieWrapper.hs
   build-depends:       base
                      , hspec
                      , directory
