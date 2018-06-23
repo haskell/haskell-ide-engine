@@ -72,7 +72,6 @@ library
                      , optparse-simple >= 0.0.3
                      , process
                      , sorted-list >= 0.2.1.0
-                     , stack
                      , stm
                      , tagsoup
                      , text
