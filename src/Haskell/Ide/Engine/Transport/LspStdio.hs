@@ -32,6 +32,7 @@ import           Data.Char (isUpper, isAlphaNum)
 import           Data.Default
 import           Data.Maybe
 import           Data.Monoid ( (<>) )
+import           Data.Foldable
 import           Data.Function
 import           Data.List
 import qualified Data.Map as Map
@@ -56,6 +57,7 @@ import qualified Haskell.Ide.Engine.Plugin.Brittany    as Brittany
 import qualified Haskell.Ide.Engine.Plugin.Hoogle      as Hoogle
 import qualified Haskell.Ide.Engine.Plugin.Haddock     as Haddock
 import qualified Haskell.Ide.Engine.Plugin.HieExtras   as Hie
+import qualified Haskell.Ide.Engine.Plugin.HsImport    as HsImport
 import           Haskell.Ide.Engine.Plugin.Base
 import qualified Language.Haskell.LSP.Control          as CTRL
 import qualified Language.Haskell.LSP.Core             as Core
@@ -133,7 +135,7 @@ run dispatcherProc cin _origDir captureFp = flip E.catches handlers $ do
   someExcept (e :: E.SomeException) = print e >> return 1
   getCommandMap = do
     pid <- T.pack . show <$> getProcessID
-    let cmds = ["hare:demote", "applyrefact:applyOne"]
+    let cmds = ["hare:demote", "applyrefact:applyOne", "hsimport:import"]
         newCmds = map (T.append pid . T.append ":") cmds
     return $ BM.fromList (zip cmds newCmds)
 
@@ -416,7 +418,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandMap = d
                       ++ "\nYou may want to use hie-wrapper. Check the README for more information"
             reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
             reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg
-                  
+
 
           lf <- ask
           let hreq = GReq tn Nothing Nothing Nothing callback $ IdeResultOk <$> Hoogle.initializeHoogleDb
@@ -579,28 +581,64 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandMap = d
               (J.List diags) = params ^. J.context . J.diagnostics
 
           let
-             -- |Some hints do not have an associated refactoring
-             validCommand (J.Diagnostic _ _ (Just code) (Just "hlint") _ _) =
-               case code of
-                 "Eta reduce" -> False
-                 _            -> True
-             validCommand _ = False
+            mkHlintCmd (J.Diagnostic (J.Range start _) _s (Just code) (Just "hlint") m _) = [J.Command title cmd cmdparams]
+              where
+                title :: T.Text
+                title = "Apply hint:" <> head (T.lines m)
+                -- NOTE: the cmd needs to be registered via the InitializeResponse message. See hieOptions above
+                cmd = commandMap BM.! "applyrefact:applyOne"
+                -- need 'file', 'start_pos' and hint title (to distinguish between alternative suggestions at the same location)
+                args = J.Array $ V.singleton $ J.toJSON $ ApplyRefact.AOP doc start code
+                cmdparams = Just args
+                
+            mkHlintCmd (J.Diagnostic _r _s _c _source _m _) = []
 
-             makeCommand (J.Diagnostic (J.Range start _) _s (Just code) (Just "hlint") m _) = [J.Command title cmd cmdparams]
-               where
-                 title :: T.Text
-                 title = "Apply hint:" <> head (T.lines m)
-                 -- NOTE: the cmd needs to be registered via the InitializeResponse message. See hieOptions above
-                 cmd = commandMap BM.! "applyrefact:applyOne"
-                 -- need 'file', 'start_pos' and hint title (to distinguish between alternative suggestions at the same location)
-                 args = J.Array $ V.singleton $ J.toJSON $ ApplyRefact.AOP doc start code
-                 cmdparams = Just args
-             makeCommand (J.Diagnostic _r _s _c _source _m _) = []
-             -- TODO: make context specific commands for all sorts of things, such as refactorings
-          let body = J.List $ concatMap makeCommand $ filter validCommand diags
-          let rspMsg = Core.makeResponseMessage req body
-          reactorSend $ RspCodeAction rspMsg
+            hlintActions = concatMap mkHlintCmd $ filter validCommand diags
+              where
+                    -- |Some hints do not have an associated refactoring
+                validCommand (J.Diagnostic _ _ (Just code) (Just "hlint") _ _) =
+                  case code of
+                    "Eta reduce" -> False
+                    _            -> True
+                validCommand _ = False
 
+            missingVars = mapMaybe isMissingDiag diags
+              where
+                isMissingDiag :: J.Diagnostic -> Maybe T.Text
+                isMissingDiag (J.Diagnostic _ _ _ (Just "ghcmod") msg _) = asum
+                  [T.stripPrefix "Variable not in scope: " msg,
+                   fmap T.init (T.stripPrefix "Not in scope: type constructor or class ‘" msg)]
+                isMissingDiag _ = Nothing
+
+            mkImportCmd modName = J.Command title cmd (Just cmdParams)
+              where
+                title = "Import module " <> modName
+                cmd = commandMap BM.! "hsimport:import"
+                cmdParams = J.toJSON [HsImport.ImportParams doc modName]
+
+            searchModules term callback = do
+              let searchReq = IReq tn (req ^. J.id)
+                                      (callback . take 5)
+                                      (Hoogle.searchModules term)
+              makeRequest searchReq
+
+            send codeActions =
+              reactorSend $ RspCodeAction $ Core.makeResponseMessage req (J.List codeActions)
+            in
+              -- If we have some possible import code actions
+              if not (null missingVars) then do
+                let -- Will look like myFunc :: Int -> String
+                    variable = head missingVars
+                    makeCmds = map mkImportCmd
+                searchModules variable $ \case
+                  -- Try with just the name and no type
+                  -- e.g. myFunc
+                  [] -> searchModules (head (T.words variable)) (send . (++ hlintActions) . makeCmds)
+                  -- We got some module sos use these
+                  xs -> send $ makeCmds xs ++ hlintActions
+              else
+                send hlintActions
+          -- TODO: make context specific commands for all sorts of things, such as refactorings          
 
         -- -------------------------------
 

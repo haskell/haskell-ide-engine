@@ -106,6 +106,18 @@ renderTarget t = T.intercalate "\n\n" $
 
 ------------------------------------------------------------------------
 
+searchModules :: T.Text -> IdeM (IdeResponse [T.Text])
+searchModules modul = do
+  HoogleDb mdb <- get
+  case mdb of
+    Nothing -> return $ IdeResponseOk []
+    Just db -> do
+      targets <- liftIO (searchHoogle db modul)
+      let modules = mapMaybe targetModule targets
+      return $ IdeResponseOk $ map (T.pack . fst) modules
+
+------------------------------------------------------------------------
+
 lookupCmd :: CommandFunc T.Text [T.Text]
 lookupCmd = CmdSync $ \term -> do
   res <- liftToGhc $ bimap hoogleErrorToIdeError id <$> lookupCmd' 10 term
@@ -129,4 +141,5 @@ runHoogleQuery (Just db) quer f = do
 
 searchHoogle :: FilePath -> T.Text -> IO [Target]
 searchHoogle dbf quer = withDatabase dbf (return . flip searchDatabase (T.unpack quer))
+
 

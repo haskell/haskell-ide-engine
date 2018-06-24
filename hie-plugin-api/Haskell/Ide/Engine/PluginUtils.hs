@@ -9,6 +9,7 @@ module Haskell.Ide.Engine.PluginUtils
     mapEithers
   , pluginGetFile
   , pluginGetFileResponse
+  , makeDiffResult
   , diffText
   , srcSpan2Range
   , srcSpan2Loc
@@ -32,6 +33,8 @@ import           Data.Algorithm.DiffOutput
 import qualified Data.HashMap.Strict                   as H
 import           Data.Monoid
 import qualified Data.Text                             as T
+import qualified Data.Text.IO                          as T
+import qualified GhcMod.Utils                          as GM
 import           FastString
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.MonadFunctions
@@ -133,6 +136,14 @@ mapEithers f (x:xs) = case mapEithers f xs of
 mapEithers _ _ = Right []
 
 -- ---------------------------------------------------------------------
+
+-- | Generate a 'WorkspaceEdit' value from an original file and text to replace it.
+makeDiffResult :: FilePath -> T.Text -> (FilePath -> FilePath) -> IO WorkspaceEdit
+makeDiffResult orig new fileMap = do
+  origText <- T.readFile orig
+  let fp' = fileMap orig
+  fp <- GM.makeAbsolute' fp'
+  return $ diffText (filePathToUri fp,origText) new
 
 -- |Generate a 'WorkspaceEdit' value from a pair of source Text
 diffText :: (Uri,T.Text) -> T.Text -> WorkspaceEdit

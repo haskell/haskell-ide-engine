@@ -37,6 +37,7 @@ import           Haskell.Ide.Engine.Plugin.Example2
 import           Haskell.Ide.Engine.Plugin.GhcMod
 import           Haskell.Ide.Engine.Plugin.HaRe
 import           Haskell.Ide.Engine.Plugin.Hoogle
+import           Haskell.Ide.Engine.Plugin.HsImport
 
 -- ---------------------------------------------------------------------
 
@@ -51,6 +52,7 @@ plugins = pluginDescToIdePlugins
   ,("hare"       , hareDescriptor)
   ,("base"       , baseDescriptor)
   ,("hoogle"     , hoogleDescriptor)
+  ,("hsimport"   , hsimportDescriptor)
   ]
 
 -- ---------------------------------------------------------------------

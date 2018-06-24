@@ -10,7 +10,6 @@ import           Control.Monad.Trans.Except
 import           Data.Aeson                        hiding (Error)
 import           Data.Monoid                       ((<>))
 import qualified Data.Text                         as T
-import qualified Data.Text.IO                      as T
 import           GHC.Generics
 import qualified GhcMod.Utils                      as GM
 import           Haskell.Ide.Engine.MonadFunctions
@@ -266,10 +265,3 @@ runHlint fp args =
 showParseError :: Hlint.ParseError -> String
 showParseError (Hlint.ParseError location message content) =
   unlines [show location, message, content]
-
-makeDiffResult :: FilePath -> T.Text -> (FilePath -> FilePath) -> IO WorkspaceEdit
-makeDiffResult orig new fileMap = do
-  origText <- T.readFile orig
-  let fp' = fileMap orig
-  fp <- GM.makeAbsolute' fp'
-  return $ diffText (filePathToUri fp,origText) new

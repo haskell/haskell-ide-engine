@@ -204,7 +204,7 @@ instance MonadTrans IdeResultT where
 data IdeResponse' m a = IdeResponseDeferred FilePath (CachedModule -> m (IdeResponse' m a))
                       | IdeResponseResult (IdeResult a)
 
-type IdeResponse a = IdeResponse' (IdeM) a
+type IdeResponse a = IdeResponse' IdeM a
 
 pattern IdeResponseOk :: a -> IdeResponse' m a
 pattern IdeResponseOk a = IdeResponseResult (IdeResultOk a)

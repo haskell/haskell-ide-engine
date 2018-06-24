@@ -198,7 +198,7 @@ genApplicativeCommand  = CmdSync $ \(HP uri pos) ->
 
 genApplicativeCommand' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 genApplicativeCommand' uri pos =
-  pluginGetFile "genapplicative: " uri $ \file -> do
+  pluginGetFile "genapplicative: " uri $ \file ->
       runHareCommand "genapplicative" (compGenApplicative file (unPos pos))
 
 
