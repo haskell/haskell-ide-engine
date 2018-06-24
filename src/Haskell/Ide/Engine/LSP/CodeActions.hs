@@ -7,8 +7,6 @@ import Control.Lens
 import qualified Data.Aeson as J
 import qualified Data.Bimap as BM
 import qualified Data.Text as T
---TODO: Can we get rid of this?
-import qualified Data.Vector as V
 import Data.Maybe
 import Data.Foldable
 import Haskell.Ide.Engine.LSP.Reactor
@@ -35,7 +33,7 @@ handleCodeActionReq tn commandMap makeRequest req = do
         -- NOTE: the cmd needs to be registered via the InitializeResponse message. See hieOptions above
         cmd = commandMap BM.! "applyrefact:applyOne"
         -- need 'file', 'start_pos' and hint title (to distinguish between alternative suggestions at the same location)
-        args = J.Array $ V.singleton $ J.toJSON $ ApplyRefact.AOP doc start code
+        args = J.toJSON [ApplyRefact.AOP doc start code]
         cmdparams = Just args
 
     mkHlintCmd (J.Diagnostic _r _s _c _source _m _) = []

@@ -81,7 +81,6 @@ library
                      , tagsoup
                      , text
                      , transformers
-                     , vector
                      , yaml
                      , yi-rope
   if os(windows)
