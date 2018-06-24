@@ -175,15 +175,16 @@ spec = do
         reduceDiag ^. source `shouldBe` Just "hlint"
 
       let r = Range (Position 0 0) (Position 99 99)
-          c = CodeActionContext (diagsRsp ^. params . diagnostics)
+          c = CodeActionContext (diagsRsp ^. params . diagnostics) Nothing
       _ <- sendRequest TextDocumentCodeAction (CodeActionParams doc r c)
       
       rsp <- response :: Session CodeActionResponse
-      let (List cmds) = fromJust $ rsp ^. result
+      let (Just (List cmds)) = fromJust $ rsp ^. result
           evaluateCmd = head cmds
       liftIO $ do
         length cmds `shouldBe` 1
-        evaluateCmd ^. title `shouldBe` "Apply hint:Evaluate"
+        let (CommandOrCodeActionCommand cmd) = evaluateCmd
+        cmd ^. title `shouldBe` "Apply hint:Evaluate"
 
   -- -----------------------------------
 

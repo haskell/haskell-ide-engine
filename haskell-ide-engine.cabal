@@ -81,6 +81,7 @@ library
                      , tagsoup
                      , text
                      , transformers
+                     , unordered-containers
                      , yaml
                      , yi-rope
   if os(windows)
@@ -139,6 +140,7 @@ test-suite haskell-ide-test
   main-is:             Main.hs
   other-modules:       ApplyRefactPluginSpec
                        BrittanySpec
+                       CodeActionsSpec
                        ExtensibleStateSpec
                        GhcModPluginSpec
                        HaRePluginSpec
@@ -176,6 +178,7 @@ test-suite haskell-ide-dispatcher-test
   main-is:             MainDispatcher.hs
   other-modules:       ApplyRefactPluginSpec
                        BrittanySpec
+                       CodeActionsSpec
                        ExtensibleStateSpec
                        GhcModPluginSpec
                        HaRePluginSpec

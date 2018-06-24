@@ -136,7 +136,7 @@ run dispatcherProc cin _origDir captureFp = flip E.catches handlers $ do
   someExcept (e :: E.SomeException) = print e >> return 1
   getCommandMap = do
     pid <- T.pack . show <$> getProcessID
-    let cmds = ["hare:demote", "applyrefact:applyOne", "hsimport:import"]
+    let cmds = ["hare:demote", "applyrefact:applyOne", "hsimport:import", "hie:applyWorkspaceEdit"]
         newCmds = map (T.append pid . T.append ":") cmds
     return $ BM.fromList (zip cmds newCmds)
 
@@ -549,10 +549,21 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandMap = d
                     liftIO $ U.logs $ "ExecuteCommand sending edit: " ++ show msg
                     reactorSend $ ReqApplyWorkspaceEdit msg
                   Nothing -> reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req $ dynToJSON obj
-          let (plugin,cmd) = T.break (==':') command
-          let preq = GReq tn Nothing Nothing (Just $ req ^. J.id) callback
-                       $ runPluginCommand plugin (T.drop 1 cmd) cmdparams
-          makeRequest preq
+
+          -- shortcut for immediately applying a applyWorkspaceEdit as a fallback for v3.8 code actions
+          if command == "hie:applyWorkspaceEdit"
+            then do
+              lid <- nextLspReqId
+              case J.fromJSON cmdparams of
+                J.Success editParams ->
+                  reactorSend $
+                    ReqApplyWorkspaceEdit (fmServerApplyWorkspaceEditRequest lid editParams)
+                J.Error _ -> return ()
+            else do
+              let (plugin,cmd) = T.break (==':') command
+              let preq = GReq tn Nothing Nothing (Just $ req ^. J.id) callback
+                          $ runPluginCommand plugin (T.drop 1 cmd) cmdparams
+              makeRequest preq
 
         -- -------------------------------
 
