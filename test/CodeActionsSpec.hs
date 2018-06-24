@@ -24,8 +24,9 @@ spec = do
       
     it "picks up variable not in scope with multiple suggestions" $
       let msg = "• Variable not in scope: uri\n• Perhaps you meant one of these:\n‘J.uri’ (imported from Language.Haskell.LSP.Types),\ndata constructor ‘J.Uri’ (imported from Language.Haskell.LSP.Types)"
-        in extractRenamableTerms msg `shouldBe` ["J.uri", "J.uri"]
+        in extractRenamableTerms msg `shouldBe` ["J.uri", "J.Uri"]
 
+        -- TODO: write a test for this:
         -- "Variable not in scope:
         -- asks
         --   :: (Core.LspFuncs c0 -> J.Uri -> IO (Maybe VirtualFile))

@@ -152,6 +152,8 @@ extractRenamableTerms msg = mapMaybe extractReplacement replacementLines
 
   where noBullets = T.lines $ T.replace "• " "" msg
         replacementLines = tail noBullets
-        extractReplacement line = do
-          startOfTerm <- T.stripPrefix "Perhaps you meant ‘" line
-          return $ T.takeWhile (/= '’') startOfTerm
+        extractReplacement line =
+          let startOfTerm = T.dropWhile (/= '‘') line
+          in if startOfTerm == ""
+            then Nothing
+            else Just $ T.takeWhile (/= '’') (T.tail startOfTerm)
