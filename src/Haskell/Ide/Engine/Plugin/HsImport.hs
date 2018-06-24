@@ -19,7 +19,7 @@ import           System.IO
 hsimportDescriptor :: PluginDescriptor
 hsimportDescriptor = PluginDescriptor
   { pluginName = "hsimport"
-  , pluginDesc = "hsimport a tool for extending the import list of a Haskell source file."
+  , pluginDesc = "A tool for extending the import list of a Haskell source file."
   , pluginCommands = [PluginCommand "import" "Import a module" importCmd]
   }
 

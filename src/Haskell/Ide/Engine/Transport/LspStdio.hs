@@ -25,7 +25,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Control.Monad.Reader
 import qualified Data.Aeson as J
-import           Data.Aeson ( (.=), (.:), (.:?), (.!=) )
+import           Data.Aeson ( (.=) )
 import qualified Data.Bimap as BM
 import qualified Data.ByteString.Lazy as BL
 import           Data.Char (isUpper, isAlphaNum)
@@ -40,7 +40,6 @@ import qualified Data.Set as S
 import qualified Data.SortedList as SL
 import qualified Data.Text as T
 import           Data.Text.Encoding
-import qualified Data.Vector as V
 import qualified GhcModCore               as GM
 import qualified GhcMod.Monad.Types       as GM
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -50,6 +49,9 @@ import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.Compat
+import           Haskell.Ide.Engine.LSP.CodeActions
+import           Haskell.Ide.Engine.LSP.Config
+import           Haskell.Ide.Engine.LSP.Reactor
 import qualified Haskell.Ide.Engine.Plugin.HaRe        as HaRe
 import qualified Haskell.Ide.Engine.Plugin.GhcMod      as GhcMod
 import qualified Haskell.Ide.Engine.Plugin.ApplyRefact as ApplyRefact
@@ -57,7 +59,6 @@ import qualified Haskell.Ide.Engine.Plugin.Brittany    as Brittany
 import qualified Haskell.Ide.Engine.Plugin.Hoogle      as Hoogle
 import qualified Haskell.Ide.Engine.Plugin.Haddock     as Haddock
 import qualified Haskell.Ide.Engine.Plugin.HieExtras   as Hie
-import qualified Haskell.Ide.Engine.Plugin.HsImport    as HsImport
 import           Haskell.Ide.Engine.Plugin.Base
 import qualified Language.Haskell.LSP.Control          as CTRL
 import qualified Language.Haskell.LSP.Core             as Core
@@ -147,67 +148,11 @@ type ReactorInput
 
 -- ---------------------------------------------------------------------
 
--- ---------------------------------------------------------------------
-
--- | Callback from haskell-lsp core to convert the generic message to the
--- specific one for hie
-getConfig :: J.DidChangeConfigurationNotification -> Either T.Text Config
-getConfig (J.NotificationMessage _ _ (J.DidChangeConfigurationParams p)) =
-  case J.fromJSON p of
-    J.Success c -> Right c
-    J.Error err -> Left $ T.pack err
-
-data Config =
-  Config
-    { hlintOn             :: Bool
-    , maxNumberOfProblems :: Int
-    } deriving (Show)
-
-instance J.FromJSON Config where
-  parseJSON = J.withObject "Config" $ \v -> do
-    s <- v .: "languageServerHaskell"
-    flip (J.withObject "Config.settings") s $ \o -> Config
-      <$> o .:? "hlintOn" .!= True
-      <*> o .: "maxNumberOfProblems"
-
--- 2017-10-09 23:22:00.710515298 [ThreadId 11] - ---> {"jsonrpc":"2.0","method":"workspace/didChangeConfiguration","params":{"settings":{"languageServerHaskell":{"maxNumberOfProblems":100,"hlintOn":true}}}}
--- 2017-10-09 23:22:00.710667381 [ThreadId 15] - reactor:got didChangeConfiguration notification:
--- NotificationMessage
---   {_jsonrpc = "2.0"
---   , _method = WorkspaceDidChangeConfiguration
---   , _params = DidChangeConfigurationParams
---                 {_settings = Object (fromList [("languageServerHaskell",Object (fromList [("hlintOn",Bool True)
---                                                                                          ,("maxNumberOfProblems",Number 100.0)]))])}}
-
 configVal :: c -> (Config -> c) -> R c
 configVal defVal field = do
   gmc <- asks Core.config
   mc <- liftIO gmc
   return $ maybe defVal field mc
-
--- ---------------------------------------------------------------------
-
--- | The monad used in the reactor
-
-type R = ReaderT (Core.LspFuncs Config) IO
--- type R a = ReaderT (Core.LspFuncs Config) IO a
-
--- ---------------------------------------------------------------------
--- reactor monad functions
--- ---------------------------------------------------------------------
-
-reactorSend :: (MonadIO m, MonadReader (Core.LspFuncs Config) m) => FromServerMessage -> m ()
-reactorSend msg = do
-  sf <- asks Core.sendFunc
-  liftIO $ sf msg
-
--- ---------------------------------------------------------------------
-
-reactorSend' :: (MonadIO m, MonadReader (Core.LspFuncs Config) m)
-  => (Core.SendFunc -> IO ()) -> m ()
-reactorSend' f = do
-  lf <- ask
-  liftIO $ f (Core.sendFunc lf)
 
 -- ---------------------------------------------------------------------
 
@@ -575,69 +520,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandMap = d
 
         ReqCodeAction req -> do
           liftIO $ U.logs $ "reactor:got CodeActionRequest:" ++ show req
-
-          let params = req ^. J.params
-              doc = params ^. J.textDocument . J.uri
-              (J.List diags) = params ^. J.context . J.diagnostics
-
-          let
-            mkHlintCmd (J.Diagnostic (J.Range start _) _s (Just code) (Just "hlint") m _) = [J.Command title cmd cmdparams]
-              where
-                title :: T.Text
-                title = "Apply hint:" <> head (T.lines m)
-                -- NOTE: the cmd needs to be registered via the InitializeResponse message. See hieOptions above
-                cmd = commandMap BM.! "applyrefact:applyOne"
-                -- need 'file', 'start_pos' and hint title (to distinguish between alternative suggestions at the same location)
-                args = J.Array $ V.singleton $ J.toJSON $ ApplyRefact.AOP doc start code
-                cmdparams = Just args
-                
-            mkHlintCmd (J.Diagnostic _r _s _c _source _m _) = []
-
-            hlintActions = concatMap mkHlintCmd $ filter validCommand diags
-              where
-                    -- |Some hints do not have an associated refactoring
-                validCommand (J.Diagnostic _ _ (Just code) (Just "hlint") _ _) =
-                  case code of
-                    "Eta reduce" -> False
-                    _            -> True
-                validCommand _ = False
-
-            missingVars = mapMaybe isMissingDiag diags
-              where
-                isMissingDiag :: J.Diagnostic -> Maybe T.Text
-                isMissingDiag (J.Diagnostic _ _ _ (Just "ghcmod") msg _) = asum
-                  [T.stripPrefix "Variable not in scope: " msg,
-                   fmap T.init (T.stripPrefix "Not in scope: type constructor or class ‘" msg)]
-                isMissingDiag _ = Nothing
-
-            mkImportCmd modName = J.Command title cmd (Just cmdParams)
-              where
-                title = "Import module " <> modName
-                cmd = commandMap BM.! "hsimport:import"
-                cmdParams = J.toJSON [HsImport.ImportParams doc modName]
-
-            searchModules term callback = do
-              let searchReq = IReq tn (req ^. J.id)
-                                      (callback . take 5)
-                                      (Hoogle.searchModules term)
-              makeRequest searchReq
-
-            send codeActions =
-              reactorSend $ RspCodeAction $ Core.makeResponseMessage req (J.List codeActions)
-            in
-              -- If we have some possible import code actions
-              if not (null missingVars) then do
-                let -- Will look like myFunc :: Int -> String
-                    variable = head missingVars
-                    makeCmds = map mkImportCmd
-                searchModules variable $ \case
-                  -- Try with just the name and no type
-                  -- e.g. myFunc
-                  [] -> searchModules (head (T.words variable)) (send . (++ hlintActions) . makeCmds)
-                  -- We got some module sos use these
-                  xs -> send $ makeCmds xs ++ hlintActions
-              else
-                send hlintActions
+          handleCodeActionReq tn commandMap makeRequest req
           -- TODO: make context specific commands for all sorts of things, such as refactorings          
 
         -- -------------------------------
