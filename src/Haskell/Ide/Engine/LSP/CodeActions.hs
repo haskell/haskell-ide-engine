@@ -61,11 +61,10 @@ handleCodeActionReq tn commandMap makeRequest req = do
             _            -> True
         validCommand _ = False
 
-    missingVars = mapMaybe isImportableDiag diags
 
-    mkImportAction modName = codeAction
+    mkImportAction diag modName = codeAction
       where
-        codeAction = J.CodeAction title (Just J.CodeActionQuickFix) Nothing Nothing (Just cmd)
+        codeAction = J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [diag])) Nothing (Just cmd)
         cmd = J.Command title cmdName (Just cmdParams)
         title = "Import module " <> modName
         cmdName = commandMap BM.! "hsimport:import"
@@ -80,7 +79,7 @@ handleCodeActionReq tn commandMap makeRequest req = do
 
     renamableActions = map (uncurry mkRenamableAction) $ concatMap isRenamableDiag diags
 
-    mkRenamableAction r replacement = codeAction
+    mkRenamableAction diag replacement = codeAction
       where
         title = "Replace with " <> replacement
 
@@ -89,34 +88,35 @@ handleCodeActionReq tn commandMap makeRequest req = do
         docChanges = J.List [textDocEdit]
         textDocEdit = J.TextDocumentEdit docId (J.List [textEdit])
         docId = J.VersionedTextDocumentIdentifier doc docVersion
-        textEdit = J.TextEdit r replacement
+        textEdit = J.TextEdit (diag ^. J.range) replacement
 
         cmd = J.Command title cmdName (Just cmdParams)
         cmdName = commandMap BM.! "hie:applyWorkspaceEdit"
         --TODO: Support the name parameter in J.Applyworkspaceeditparams
         cmdParams = J.toJSON [J.ApplyWorkspaceEditParams workspaceEdit]
 
-        codeAction = J.CodeAction title (Just J.CodeActionQuickFix) Nothing (Just workspaceEdit) (Just cmd)
+        codeAction = J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [diag])) (Just workspaceEdit) (Just cmd)
 
     send :: [J.CodeAction] -> R ()
     send codeActions = do
-      logm $ show codeActions
       body <- Just . J.List . catMaybes <$> mapM wrapCodeActionIfNeeded codeActions
       reactorSend $ RspCodeAction $ Core.makeResponseMessage req body
 
     plainActions = renamableActions ++ hlintActions
 
+    importableDiags = mapMaybe isImportableDiag diags
+
     in
       -- If we have possible import code actions
       -- we need to make a request to Hoogle
-      if not (null missingVars) then do
+      if not (null importableDiags) then do
         let -- Will look like myFunc :: Int -> String
-            variable = head missingVars
-            makeActions = map mkImportAction
-        searchModules variable $ \case
+            (diag, term) = head importableDiags
+            makeActions = map (mkImportAction diag)
+        searchModules term $ \case
           -- Try with just the name and no type
           -- e.g. myFunc
-          [] -> searchModules (head (T.words variable)) (send . (++ plainActions) . makeActions)
+          [] -> searchModules (head (T.words term)) (send . (++ plainActions) . makeActions)
           -- We got some module sos use these
           xs -> send $ makeActions xs ++ plainActions
       else
@@ -132,8 +132,8 @@ handleCodeActionReq tn commandMap makeRequest req = do
 
 -- TODO: make context specific commands for all sorts of things, such as refactorings          
 
-isImportableDiag :: J.Diagnostic -> Maybe T.Text
-isImportableDiag (J.Diagnostic _ _ _ (Just "ghcmod") msg _) = extractImportableTerm msg
+isImportableDiag :: J.Diagnostic -> Maybe (J.Diagnostic, T.Text)
+isImportableDiag diag@(J.Diagnostic _ _ _ (Just "ghcmod") msg _) = fmap (diag,) $ extractImportableTerm msg
 isImportableDiag _ = Nothing
 
 extractImportableTerm :: T.Text -> Maybe T.Text
@@ -142,9 +142,8 @@ extractImportableTerm dirtyMsg = asum
   T.init <$> T.stripPrefix "Not in scope: type constructor or class ‘" msg]
   where msg = head $ T.lines $ T.replace "• " "" dirtyMsg
 
-isRenamableDiag :: J.Diagnostic -> [(J.Range, T.Text)]
-isRenamableDiag (J.Diagnostic r _ _ (Just "ghcmod") msg _) =
-  map (r,) $ extractRenamableTerms msg
+isRenamableDiag :: J.Diagnostic -> [(J.Diagnostic, T.Text)]
+isRenamableDiag diag@(J.Diagnostic _ _ _ (Just "ghcmod") msg _) = map (diag,) $ extractRenamableTerms msg
 isRenamableDiag _ = []
 
 extractRenamableTerms :: T.Text -> [T.Text]
