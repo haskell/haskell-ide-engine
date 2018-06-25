@@ -10,6 +10,7 @@ import           Control.Exception
 import           Data.Aeson
 import           Data.Foldable
 import qualified Data.Map                        as Map
+import           Data.Maybe
 #if __GLASGOW_HASKELL__ < 804
 import           Data.Semigroup
 #endif
@@ -101,11 +102,12 @@ hieGhcDisplayVersion = compilerName ++ "-" ++ VERSION_ghc
 
 getProjectGhcVersion :: IO String
 getProjectGhcVersion = do
-  isStack <- doesDirectoryExist ".stack-work"
-  if isStack
+  isStackProject <- doesFileExist "stack.yaml"
+  isStackInstalled <- isJust <$> findExecutable "stack"
+  if isStackProject && isStackInstalled
     then do
       L.infoM "hie" "Using stack GHC version"
-      catch (tryCommand "stack ghc --version") $ \e -> do
+      catch (tryCommand "stack ghc -- --version") $ \e -> do
         L.errorM "hie" $ show (e :: SomeException)
         L.infoM "hie" "Couldn't find stack version, falling back to plain GHC"
         tryCommand "ghc --version"
