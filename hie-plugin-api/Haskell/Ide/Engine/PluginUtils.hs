@@ -10,6 +10,7 @@ module Haskell.Ide.Engine.PluginUtils
   , pluginGetFile
   , pluginGetFileResponse
   , makeDiffResult
+  , makeAdditiveDiffResult
   , diffText
   , srcSpan2Range
   , srcSpan2Loc
@@ -143,14 +144,27 @@ makeDiffResult orig new fileMap = do
   origText <- T.readFile orig
   let fp' = fileMap orig
   fp <- GM.makeAbsolute' fp'
-  return $ diffText (filePathToUri fp,origText) new
+  return $ diffText (filePathToUri fp,origText) new False
+
+-- | A version of 'makeDiffResult' that has does not insert any deletions
+makeAdditiveDiffResult :: FilePath -> T.Text -> (FilePath -> FilePath) -> IO WorkspaceEdit
+makeAdditiveDiffResult orig new fileMap = do
+  origText <- T.readFile orig
+  let fp' = fileMap orig
+  fp <- GM.makeAbsolute' fp'
+  return $ diffText (filePathToUri fp,origText) new True
 
 -- |Generate a 'WorkspaceEdit' value from a pair of source Text
-diffText :: (Uri,T.Text) -> T.Text -> WorkspaceEdit
-diffText (f,fText) f2Text = WorkspaceEdit (Just h) Nothing
+diffText :: (Uri,T.Text) -> T.Text -> Bool -> WorkspaceEdit
+diffText (f,fText) f2Text skipDeletions = WorkspaceEdit (Just h) Nothing
   where
     d = getGroupedDiff (lines $ T.unpack fText) (lines $ T.unpack f2Text)
-    diffOps = diffToLineRanges d
+
+    diffOps = filter (\x -> not skipDeletions || not (isDeletion x)) (diffToLineRanges d)
+
+    isDeletion (Deletion _ _) = True
+    isDeletion _ = False
+    
     r = map diffOperationToTextEdit diffOps
     diff = J.List r
     h = H.singleton f diff

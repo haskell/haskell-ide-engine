@@ -218,7 +218,7 @@ makeRefactorResult changedFiles = do
       -- TODO: remove this logging once we are sure we have a working solution
       logm $ "makeRefactorResult:groupedDiff = " ++ show (getGroupedDiff (lines $ T.unpack origText) (lines $ T.unpack newText))
       logm $ "makeRefactorResult:diffops = " ++ show (diffToLineRanges $ getGroupedDiff (lines $ T.unpack origText) (lines $ T.unpack newText))
-      return $ diffText (filePathToUri fp, origText) newText
+      return $ diffText (filePathToUri fp, origText) newText False
   diffs <- mapM diffOne changedFiles
   return $ Core.reverseSortEdit $ fold diffs
 

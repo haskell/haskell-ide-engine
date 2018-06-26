@@ -7,6 +7,7 @@ module Haskell.Ide.Engine.MonadFunctions
     logm
   , debugm
   , warningm
+  , errorm
   , ExtensionClass(..)
   , put
   , modify
@@ -34,6 +35,9 @@ debugm s = liftIO $ debugM "hie" s
 
 warningm :: MonadIO m => String -> m ()
 warningm s = liftIO $ warningM "hie" s
+
+errorm :: MonadIO m => String -> m ()
+errorm s = liftIO $ warningM "hie" s
 
 -- ---------------------------------------------------------------------
 -- Extensible state, based on

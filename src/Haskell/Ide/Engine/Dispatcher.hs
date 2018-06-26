@@ -29,6 +29,7 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.Monad
 import qualified Language.Haskell.LSP.Types            as J
+import           Control.Exception
 
 data DispatcherEnv = DispatcherEnv
   { cancelReqsTVar     :: !(TVar (S.Set J.LspId))
@@ -54,8 +55,17 @@ dispatcherP inChan plugins ghcModOptions env errorHandler callbackHandler =
     gchan <- liftIO $ do
       ghcChan <- newTChanIO
       ideChan <- newTChanIO
+
       _ <- forkIO $ mainDispatcher inChan ghcChan ideChan
-      _ <- forkIO $ runReaderT (ideDispatcher env errorHandler callbackHandler ideChan) stateVar
+
+      mainThread <- myThreadId
+      let exceptionHandler e = do
+            --TODO: Use async's link
+            errorm $ show (e :: SomeException)
+            throwTo mainThread e
+          ideLoop = handle exceptionHandler
+                           (runReaderT (ideDispatcher env errorHandler callbackHandler ideChan) stateVar)
+      _ <- forkIO ideLoop
       return ghcChan
     ghcDispatcher env errorHandler callbackHandler gchan
 

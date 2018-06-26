@@ -36,6 +36,7 @@ library
                        Haskell.Ide.Engine.Plugin.HieExtras
                        Haskell.Ide.Engine.Plugin.Hoogle
                        Haskell.Ide.Engine.Plugin.HsImport
+                       Haskell.Ide.Engine.Plugin.Package
                        Haskell.Ide.Engine.Transport.JsonStdio
                        Haskell.Ide.Engine.Transport.LspStdio
                        Haskell.Ide.Engine.Types
@@ -51,6 +52,7 @@ library
                      , bimap
                      , brittany
                      , bytestring
+                     , Cabal
                      , cabal-helper >= 0.8.0.4
                      , containers
                      , data-default

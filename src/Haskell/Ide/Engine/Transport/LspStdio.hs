@@ -136,7 +136,7 @@ run dispatcherProc cin _origDir captureFp = flip E.catches handlers $ do
   someExcept (e :: E.SomeException) = print e >> return 1
   getCommandMap = do
     pid <- T.pack . show <$> getProcessID
-    let cmds = ["hare:demote", "applyrefact:applyOne", "hsimport:import", "hie:applyWorkspaceEdit"]
+    let cmds = ["hare:demote", "applyrefact:applyOne", "hsimport:import", "package:add", "hie:applyWorkspaceEdit"]
         newCmds = map (T.append pid . T.append ":") cmds
     return $ BM.fromList (zip cmds newCmds)
 
@@ -743,6 +743,7 @@ requestDiagnostics tn cin file ver = do
   mc <- liftIO $ Core.config lf
   let
     -- | If there is a GHC error, flush the hlint diagnostics
+    -- TODO: Just flush the parse error diagnostics
     sendOneGhc :: J.DiagnosticSource -> (Uri, [Diagnostic]) -> R ()
     sendOneGhc pid (fileUri,ds) = do
       if any (hasSeverity J.DsError) ds
