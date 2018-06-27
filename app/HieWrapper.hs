@@ -50,13 +50,6 @@ main = do
 
 -- ---------------------------------------------------------------------
 
-appendExtension :: String -> String
-#ifdef mingw32_HOST_OS
-appendExtension file = file ++ ".exe"
-#else
-appendExtension file = file
-#endif
-
 run :: GlobalOpts -> IO ()
 run opts = do
   let mLogFileName = case optLogFile opts of
@@ -85,9 +78,9 @@ run opts = do
 
   logm $ "hie exe candidates :" ++ show (hieBin,backupHieBin)
 
-  me <- findExecutable (appendExtension hieBin)
-  mbe <- findExecutable (appendExtension backupHieBin)
-  mfe <- findExecutable (appendExtension "hie")
+  me <- findExecutable (hieBin ++ exeExtension)
+  mbe <- findExecutable (backupHieBin ++ exeExtension)
+  mfe <- findExecutable ("hie" ++ exeExtension)
 
   case catMaybes [me,mbe,mfe] of
     [] -> logm $ "cannot find any hie exe, looked for:" ++ intercalate ", " [hieBin, backupHieBin, "hie"]
