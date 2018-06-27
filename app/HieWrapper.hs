@@ -97,7 +97,7 @@ run opts = do
       args <- getArgs
       logm $ "args:" ++ show args
       logm "launching ....\n\n\n"
-      callProcess e args
+      callProcess e ("--lsp" : args)
       logm "done"
 
 -- ---------------------------------------------------------------------
