@@ -554,6 +554,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandMap = d
           if command == "hie:applyWorkspaceEdit"
             then do
               lid <- nextLspReqId
+              reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req (J.Object mempty)
               case J.fromJSON cmdparams of
                 J.Success editParams ->
                   reactorSend $

@@ -19,6 +19,9 @@ spec = do
     it "pick up multi-line variable not in scope" $
       let msg = "Variable not in scope:\nliftIO\n:: IO [FilePath]\n-> GhcMod.Monad.Newtypes.GmT\n                (GhcMod.Monad.Newtypes.GmOutT IdeM) [[t0]]"
         in extractImportableTerm msg `shouldBe` Just "liftIO :: IO [FilePath] -> GhcMod.Monad.Newtypes.GmT (GhcMod.Monad.Newtypes.GmOutT IdeM) [[t0]]"
+    it "pick up when" $
+      let msg = "Variable not in scope: when :: Bool -> IO () -> t"
+        in extractImportableTerm msg `shouldBe` Just "when :: Bool -> IO () -> t"
 
   describe "rename code actions" $ do
     it "pick up variable not in scope perhaps you meant" $
@@ -42,3 +45,29 @@ spec = do
     it "don't pick up irrelevant messages" $ 
       let msg = "Could not find modulez ‘Foo.Bar’\n      Use -v to see a list of the files searched for."
         in extractModuleName msg `shouldBe` Nothing
+
+
+  {-
+
+  TODO: Test these
+  
+  Variable not in scope:
+  liftIO
+    :: IO b0
+       -> conduit-parse-0.2.1.0:Data.Conduit.Parser.Internal.ConduitParser
+            Language.Haskell.LSP.Messages.FromServerMessage
+            (Control.Monad.Trans.State.Lazy.StateT
+               haskell-lsp-test-0.1.0.0:Language.Haskell.LSP.Test.Session.SessionState
+               (Control.Monad.Trans.Reader.ReaderT
+                  haskell-lsp-test-0.1.0.0:Language.Haskell.LSP.Test.Session.SessionContext
+                  IO))
+            a0
+
+Variable not in scope:
+  fromJust
+    :: Maybe (Maybe (List CommandOrCodeAction)) -> Maybe (List a)
+
+    • Variable not in scope:
+    forM_ :: [CodeAction] -> (s0 -> Expectation) -> IO a0
+• Perhaps you meant ‘iforM_’ (imported from Control.Lens)
+  -}

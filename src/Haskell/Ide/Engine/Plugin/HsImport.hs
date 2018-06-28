@@ -10,7 +10,6 @@ import qualified Data.Text.IO                  as T
 import qualified GHC.Generics                  as Generics
 import qualified GhcMod.Utils                  as GM
 import           HsImport
-import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import qualified Language.Haskell.LSP.Types    as J
 import           Haskell.Ide.Engine.PluginUtils
@@ -33,7 +32,6 @@ importCmd = CmdSync $ \(ImportParams uri modName) -> importModule uri modName
 importModule :: Uri -> T.Text -> IdeGhcM (IdeResult J.WorkspaceEdit)
 importModule uri modName =
   pluginGetFile "hsimport cmd: " uri $ \origInput -> do
-    logm "inside import"
     fileMap <- GM.mkRevRedirMapFunc
     GM.withMappedFile origInput $ \input -> liftIO $ do
 
@@ -46,7 +44,6 @@ importModule uri modName =
                              , outputSrcFile = output
                              }
       maybeErr <- liftIO $ hsimportWithArgs defaultConfig args
-      logm $ show maybeErr
       case maybeErr of
         Just err -> do
           removeFile output
@@ -54,9 +51,6 @@ importModule uri modName =
           return $ IdeResultFail (IdeError PluginError msg Null)
         Nothing -> do
           newText <- T.readFile output
-          logm "did this part"
           removeFile output
-          logm "removed file"
           workspaceEdit <- makeDiffResult input newText fileMap
-          logm "made diff result"
           return $ IdeResultOk workspaceEdit

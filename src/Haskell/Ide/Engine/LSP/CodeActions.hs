@@ -24,6 +24,8 @@ import Language.Haskell.LSP.Messages
 import Haskell.Ide.Engine.Plugin.Package
 import Haskell.Ide.Engine.MonadTypes
 
+import Haskell.Ide.Engine.MonadFunctions
+
 handleCodeActionReq :: TrackingNumber -> BM.Bimap T.Text T.Text -> (PluginRequest R -> R ()) -> J.CodeActionRequest -> R ()
 handleCodeActionReq tn commandMap makeRequest req = do
 
@@ -50,6 +52,7 @@ handleCodeActionReq tn commandMap makeRequest req = do
       -- For these diagnostics need to search hoogle before we can make code actions
       addPackageDiags = mapMaybe isPackageAddableDiag diags
       importableDiags = mapMaybe isImportableDiag diags
+  
 
   makeSearches Hoogle.searchPackages (mkAddPackageAction maybeRootDir) addPackageDiags $ \addPackageActions ->
     makeSearches Hoogle.searchModules mkImportAction importableDiags $ \importActions ->
@@ -60,8 +63,9 @@ handleCodeActionReq tn commandMap makeRequest req = do
           -- will go to:
           -- myFunc
           let relaxed = map (bimap id (head . T.words)) importableDiags
-          in makeSearches Hoogle.searchModules mkImportAction relaxed (send . ((plainActions ++ addPackageActions) ++))
-        else send (plainActions ++ addPackageActions)
+              allActions = ((plainActions ++ addPackageActions) ++) 
+          in makeSearches Hoogle.searchModules mkImportAction relaxed (send . allActions)
+        else send (plainActions ++ addPackageActions ++ importActions)
 
   where
   params = req ^. J.params
@@ -69,16 +73,19 @@ handleCodeActionReq tn commandMap makeRequest req = do
   (J.List diags) = params ^. J.context . J.diagnostics
 
   wrapCodeAction :: J.CodeAction -> R (Maybe J.CommandOrCodeAction)
-  wrapCodeAction action@(J.CodeAction _ _ _ _ cmd) = do
+  wrapCodeAction action = do
     (C.ClientCapabilities _ textDocCaps _) <- asks Core.clientCapabilities
     let literalSupport = textDocCaps >>= C._codeAction >>= C._codeActionLiteralSupport
+    logm "WRAP CODE ACTION"
+    logm $ show (textDocCaps >>= C._codeAction)
     case literalSupport of
-      Nothing -> return $ fmap J.CommandOrCodeActionCommand cmd
+      Nothing -> return $ fmap J.CommandOrCodeActionCommand (action ^. J.command)
       Just _ -> return $ Just (J.CommandOrCodeActionCodeAction action)
 
   send :: [J.CodeAction] -> R ()
   send codeActions = do
     body <- Just . J.List . catMaybes <$> mapM wrapCodeAction codeActions
+    logm "inside send"
     reactorSend $ RspCodeAction $ Core.makeResponseMessage req body
 
   mkHlintAction :: J.Diagnostic -> Maybe J.CodeAction
@@ -158,14 +165,20 @@ handleCodeActionReq tn commandMap makeRequest req = do
 -- TODO: make context specific commands for all sorts of things, such as refactorings          
 
 isImportableDiag :: J.Diagnostic -> Maybe (J.Diagnostic, T.Text)
-isImportableDiag diag@(J.Diagnostic _ _ _ (Just "ghcmod") msg _) = fmap (diag,) $ extractImportableTerm msg
+isImportableDiag diag@(J.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractImportableTerm msg
 isImportableDiag _ = Nothing
 
 extractImportableTerm :: T.Text -> Maybe T.Text
-extractImportableTerm dirtyMsg = asum
+extractImportableTerm dirtyMsg = T.strip <$> asum
   [T.stripPrefix "Variable not in scope: " msg,
   T.init <$> T.stripPrefix "Not in scope: type constructor or class ‘" msg]
-  where msg = head $ T.lines $ T.replace "• " "" dirtyMsg
+  where msg = head
+              -- Get rid of the rename suggestion parts
+              $ T.splitOn "Perhaps you meant "
+              $ T.replace "\n" " "
+              -- Get rid of trailing/leading whitespace on each individual line
+              $ T.unlines $ map T.strip $ T.lines
+              $ T.replace "• " "" dirtyMsg
 
 isRenamableDiag :: J.Diagnostic -> [(J.Diagnostic, T.Text)]
 isRenamableDiag diag@(J.Diagnostic _ _ _ (Just "ghcmod") msg _) = map (diag,) $ extractRenamableTerms msg
@@ -194,3 +207,11 @@ extractModuleName msg
   | otherwise = Nothing
   where line = T.replace "\n" "" msg
         nameAndQuotes = T.dropWhileEnd (/= '’') $ T.dropWhile (/= '‘') line
+
+-- TODO: Make code actions for this warning
+extractRedundantImport :: T.Text -> Maybe T.Text
+extractRedundantImport msg =
+  if "The import of " `T.isPrefixOf` firstLine && " is redundant" `T.isSuffixOf` firstLine
+    then Just $ T.dropWhileEnd (/= '’') $ T.dropWhile (/= '‘') firstLine
+    else Nothing
+  where firstLine = head (T.lines msg)

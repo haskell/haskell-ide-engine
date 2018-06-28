@@ -5,7 +5,6 @@
 module Haskell.Ide.Engine.Plugin.Package where
 
 import           Haskell.Ide.Engine.MonadTypes
-import           Haskell.Ide.Engine.MonadFunctions (logm)
 import           Haskell.Ide.Engine.PluginUtils
 import           GHC.Generics
 import           Data.Aeson
@@ -47,7 +46,6 @@ addCmd :: CommandFunc AddParams J.WorkspaceEdit
 addCmd = CmdSync $ \(AddParams rootDir modulePath pkg) -> do
   --TODO: Package.yaml
 
-  logm $ "Got args: " ++ show rootDir ++ show pkg
   fileMap <- GM.mkRevRedirMapFunc
 
   files <- liftIO $ getDirectoryContents rootDir
@@ -57,6 +55,9 @@ addCmd = CmdSync $ \(AddParams rootDir modulePath pkg) -> do
       absCabal <- canonicalizePath cabal
       newPackage <- editPackage absCabal modulePath (T.unpack pkg)
       edit <- makeAdditiveDiffResult absCabal (T.pack newPackage) fileMap
+
+      writeFile "/tmp/packageoutput.txt" $ show edit
+
       return $ IdeResultOk edit
     _           -> error "No .cabal"
 
@@ -91,10 +92,12 @@ editPackage file modulePath pkgName = do
 
 mapIfHasModule :: L.HasBuildInfo a => FilePath -> (a -> a) -> CondTree v c a -> CondTree v c a
 mapIfHasModule modFp f = mapTreeData g
-  where g x = if hasThisModule x
-                then f x
-                else x
-        hasThisModule x = any (`isPrefixOf` modFp) (x ^. L.buildInfo . L.hsSourceDirs)
+  where g x
+          | null (sourceDirs x) = f x
+          | hasThisModule x = f x
+          | otherwise = x
+        hasThisModule = any (`isPrefixOf` modFp) . sourceDirs
+        sourceDirs x = x ^. L.buildInfo . L.hsSourceDirs
 
 addDep :: L.HasBuildInfo a => String -> a -> a
 addDep dep x = L.buildInfo . L.targetBuildDepends .~ newDeps $ x

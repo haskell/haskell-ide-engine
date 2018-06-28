@@ -219,9 +219,11 @@ test-suite haskell-ide-func-test
   main-is:             Functional.hs
   other-modules:       TestUtils
                        FunctionalDispatch
+                       FunctionalCodeActions
   build-depends:       aeson
                      , base
                      , containers
+                     , data-default
                      , directory
                      , filepath
                      , ghc-mod-core
