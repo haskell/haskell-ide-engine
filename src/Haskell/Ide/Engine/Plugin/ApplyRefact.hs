@@ -98,8 +98,8 @@ lintCmd' :: Uri -> IdeGhcM (IdeResult PublishDiagnosticsParams)
 lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
       res <- GM.withMappedFile fp $ \file' -> liftIO $ runExceptT $ runLintCmd file' []
       case res of
-        Left diags ->
-          return (IdeResultOk (PublishDiagnosticsParams (filePathToUri fp) $ List diags))
+        -- https://github.com/haskell/haskell-ide-engine/issues/490
+        Left _ -> return $ IdeResultOk (PublishDiagnosticsParams (filePathToUri fp) $ List [])
         Right fs ->
           return $ IdeResultOk $
             PublishDiagnosticsParams (filePathToUri fp)
@@ -247,7 +247,10 @@ filterIdeas (OneHint (Position l c) title) ideas =
   let
     title' = T.unpack title
     ideaPos = (srcSpanStartLine &&& srcSpanStartColumn) . ideaSpan
-  in filter (\i -> ideaHint i == title' && ideaPos i == (l+1, c+1)) ideas
+    satisfiesAll preds i = foldl (\acc p -> acc && p i) False preds
+    predicates = [ \i -> ideaHint i == title'
+                 , \i -> ideaPos i == (l+1, c+1)]
+  in filter (satisfiesAll predicates) ideas
 
 hlintOpts :: FilePath -> Maybe Position -> [String]
 hlintOpts lintFile mpos =
