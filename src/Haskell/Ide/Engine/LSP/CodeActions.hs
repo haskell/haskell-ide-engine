@@ -24,8 +24,6 @@ import Language.Haskell.LSP.Messages
 import Haskell.Ide.Engine.Plugin.Package
 import Haskell.Ide.Engine.MonadTypes
 
-import Haskell.Ide.Engine.MonadFunctions
-
 handleCodeActionReq :: TrackingNumber -> BM.Bimap T.Text T.Text -> (PluginRequest R -> R ()) -> J.CodeActionRequest -> R ()
 handleCodeActionReq tn commandMap makeRequest req = do
 
@@ -76,8 +74,6 @@ handleCodeActionReq tn commandMap makeRequest req = do
   wrapCodeAction action = do
     (C.ClientCapabilities _ textDocCaps _) <- asks Core.clientCapabilities
     let literalSupport = textDocCaps >>= C._codeAction >>= C._codeActionLiteralSupport
-    logm "WRAP CODE ACTION"
-    logm $ show (textDocCaps >>= C._codeAction)
     case literalSupport of
       Nothing -> return $ fmap J.CommandOrCodeActionCommand (action ^. J.command)
       Just _ -> return $ Just (J.CommandOrCodeActionCodeAction action)
@@ -85,7 +81,6 @@ handleCodeActionReq tn commandMap makeRequest req = do
   send :: [J.CodeAction] -> R ()
   send codeActions = do
     body <- Just . J.List . catMaybes <$> mapM wrapCodeAction codeActions
-    logm "inside send"
     reactorSend $ RspCodeAction $ Core.makeResponseMessage req body
 
   mkHlintAction :: J.Diagnostic -> Maybe J.CodeAction
