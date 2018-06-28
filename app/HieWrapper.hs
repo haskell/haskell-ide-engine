@@ -7,7 +7,7 @@ module Main where
 import           Data.Semigroup
 #endif
 import           Data.List
-import           Data.Maybe
+import           Data.Foldable
 import           Data.Version                          (showVersion)
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.Options
@@ -78,13 +78,14 @@ run opts = do
 
   logm $ "hie exe candidates :" ++ show (hieBin,backupHieBin)
 
-  me <- findExecutable (hieBin ++ exeExtension)
-  mbe <- findExecutable (backupHieBin ++ exeExtension)
-  mfe <- findExecutable ("hie" ++ exeExtension)
+  let candidates' = [hieBin, backupHieBin, "hie"]
+      candidates = map (++ exeExtension) candidates'
 
-  case catMaybes [me,mbe,mfe] of
-    [] -> logm $ "cannot find any hie exe, looked for:" ++ intercalate ", " [hieBin, backupHieBin, "hie"]
-    (e:_) -> do
+  mexes <- traverse findExecutable candidates
+
+  case asum mexes of
+    Nothing -> logm $ "cannot find any hie exe, looked for:" ++ intercalate ", " candidates
+    Just e -> do
       logm $ "found hie exe at:" ++ e
       -- putStrLn $ "found hie exe at:" ++ e
       args <- getArgs
