@@ -51,7 +51,7 @@ codeActionSpec = do
 
     noDiagnostics
 
-  it "provides rename suggestions" $ runSession hieCommand "test/testData" $ do
+  it "provides rename suggestions" $ runSession hieCommand "test/testdata" $ do
     doc <- openDoc "CodeActionRename.hs" "haskell"
 
     -- ignore the first empty hlint diagnostic publish
@@ -80,7 +80,7 @@ codeActionSpec = do
         literalSupport = C.CodeActionLiteralSupport def
       codeActionSupportConfig = def { Test.capabilities = codeActionSupportCaps }
   it "provides import suggestions and 3.8 code action kinds" $
-    runSessionWithConfig codeActionSupportConfig hieCommand "test/testData" $ do
+    runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata" $ do
       doc <- openDoc "CodeActionImport.hs" "haskell"
 
       -- ignore the first empty hlint diagnostic publish
