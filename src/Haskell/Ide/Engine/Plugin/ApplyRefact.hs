@@ -247,10 +247,7 @@ filterIdeas (OneHint (Position l c) title) ideas =
   let
     title' = T.unpack title
     ideaPos = (srcSpanStartLine &&& srcSpanStartColumn) . ideaSpan
-    satisfiesAll preds i = foldl (\acc p -> acc && p i) False preds
-    predicates = [ \i -> ideaHint i == title'
-                 , \i -> ideaPos i == (l+1, c+1)]
-  in filter (satisfiesAll predicates) ideas
+  in filter (\i -> ideaHint i == title' && ideaPos i == (l+1, c+1)) ideas
 
 hlintOpts :: FilePath -> Maybe Position -> [String]
 hlintOpts lintFile mpos =
