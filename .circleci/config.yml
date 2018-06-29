@@ -39,12 +39,12 @@ defaults: &defaults
         command: stack --stack-yaml=${STACK_FILE} install hoogle
 
     - run:
-        name: Generate Hoogle database
-        command: ~/.local/bin/hoogle generate base
-
-    - run:
         name: Compile but do not run tests
         command: stack -j 2 --stack-yaml=${STACK_FILE} test --no-run-tests
+
+    - run:
+        name: Generate Hoogle database
+        command: stack --stack-yaml=${STACK_FILE} exec hoogle generate
 
     - save_cache:
         key: stack-cache-02-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
