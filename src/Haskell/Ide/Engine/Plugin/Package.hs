@@ -7,10 +7,15 @@ module Haskell.Ide.Engine.Plugin.Package where
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           GHC.Generics
+import GHC.Exts
 import           Data.Aeson
 import           Control.Lens
+import qualified Data.ByteString as B
+import           Data.Foldable
 import           Data.List
+import qualified Data.HashMap.Strict           as HM
 import qualified Data.Text                     as T
+import qualified Data.Text.Encoding            as T
 import           Data.Maybe
 import           Distribution.PackageDescription.Parsec
 import           Distribution.Types.Dependency
@@ -27,6 +32,7 @@ import           Distribution.Types.GenericPackageDescription
 import           Distribution.Types.CondTree
 import qualified Distribution.PackageDescription.PrettyPrint as PP
 import qualified Distribution.Types.BuildInfo.Lens as L
+import qualified Data.Yaml as Y
 
 packageDescriptor :: PluginDescriptor
 packageDescriptor = PluginDescriptor
@@ -44,29 +50,119 @@ data AddParams = AddParams FilePath -- ^ The root directory.
 
 addCmd :: CommandFunc AddParams J.WorkspaceEdit
 addCmd = CmdSync $ \(AddParams rootDir modulePath pkg) -> do
-  --TODO: Package.yaml
 
+  packageType <- liftIO $ findPackageType rootDir
   fileMap <- GM.mkRevRedirMapFunc
 
-  files <- liftIO $ getDirectoryContents rootDir
-  let maybeCabal = listToMaybe $ filter (isExtensionOf "cabal") files
-  case maybeCabal of
-    Just cabal -> liftIO $ do
-      absCabal <- canonicalizePath cabal
-      newPackage <- editPackage absCabal modulePath (T.unpack pkg)
-      edit <- makeAdditiveDiffResult absCabal (T.pack newPackage) fileMap
+  case packageType of
+    CabalPackage relFp -> liftIO $ do
 
-      writeFile "/tmp/packageoutput.txt" $ show edit
+      absFp <- canonicalizePath relFp
+      let relModulePath = makeRelative (takeDirectory absFp) modulePath
+      
+      editCabalPackage absFp relModulePath (T.unpack pkg) fileMap
+    HpackPackage relFp -> liftIO $ do
+      absFp <- canonicalizePath relFp
+      let relModulePath = makeRelative (takeDirectory absFp) modulePath
+      editHpackPackage absFp relModulePath pkg
+    NoPackage -> return $ IdeResultFail (IdeError PluginError "No package.yaml or .cabal found" Null)
 
-      return $ IdeResultOk edit
-    _           -> error "No .cabal"
+data PackageType = CabalPackage FilePath
+                 | HpackPackage FilePath
+                 | NoPackage
+
+findPackageType :: FilePath -> IO PackageType
+findPackageType rootDir = do
+  files <- getDirectoryContents rootDir
+  let mCabal = listToMaybe $ filter (isExtensionOf "cabal") files
+
+  mHpack <- findFile [rootDir] "package.yaml"
+
+  return $ fromMaybe NoPackage $ asum [HpackPackage <$> mHpack, CabalPackage <$> mCabal]
+
+-- Currently does not preserve format.
+-- Keep an eye out on this other GSOC project!
+-- https://github.com/wisn/format-preserving-yaml
+editHpackPackage :: FilePath -> FilePath -> T.Text -> IO (IdeResult WorkspaceEdit)
+editHpackPackage fp modulePath pkgName = do
+  contents <- B.readFile fp
+
+  case Y.decode contents :: Maybe Object of
+    Just obj -> do
+        let compsMapped = mapComponentTypes (ensureObject $ mapComponents (ensureObject $ mapCompDependencies addDep)) obj
+
+        let addDepToMainLib = fromMaybe True $ do
+              Object lib <- HM.lookup "library" compsMapped
+              sourceDirs <- HM.lookup "source-dirs" lib
+              return $ isInSourceDir sourceDirs
+
+        let newPkg = if addDepToMainLib
+            then mapMainDependencies addDep compsMapped
+            else compsMapped
+
+            newPkgText = T.decodeUtf8 $ Y.encode newPkg
+
+        let numOldLines = length $ T.lines $ T.decodeUtf8 contents
+            range = J.Range (J.Position 0 0) (J.Position numOldLines 0)
+            textEdit = J.TextEdit range newPkgText
+            docId = J.VersionedTextDocumentIdentifier (filePathToUri fp) 0
+            textDocEdit = J.TextDocumentEdit docId (J.List [textEdit])
+            wsEdit = J.WorkspaceEdit Nothing (Just (J.List [textDocEdit]))
+
+        return $ IdeResultOk wsEdit
+    Nothing -> return $ IdeResultFail (IdeError PluginError "Couldn't parse package.yaml" Null)
+
+  where
+
+    mapMainDependencies :: (Value -> Value) -> Object -> Object
+    mapMainDependencies f o =
+      let g "dependencies" = f
+          g _              = id
+      in HM.mapWithKey g o
+
+    mapComponentTypes :: (Value -> Value) -> Object -> Object
+    mapComponentTypes f o =
+      let g "executables" = f
+          g "executable"  = f
+          g "benchmarks"  = f
+          g "tests"       = f
+          g _             = id
+      in HM.mapWithKey g o
+
+    mapComponents :: (Value -> Value) -> Object -> Object
+    mapComponents = HM.map
+
+    mapCompDependencies :: (Value -> Value) -> Object -> Object
+    mapCompDependencies f o =
+      let g "dependencies" = f
+          g _              = id
+          shouldMap = ("source-dirs" `notElem` HM.keys o) || hasModule
+          hasModule = maybe False isInSourceDir $ HM.lookup "source-dirs" o
+      in if shouldMap
+          then HM.mapWithKey g o
+          else o
+
+    isInSourceDir :: Value -> Bool
+    isInSourceDir (Array sourceDirs) = any containsPrefix sourceDirs
+    isInSourceDir x = containsPrefix x
+
+    containsPrefix (String s) = s `T.isPrefixOf` T.pack modulePath
+    containsPrefix _ = False
+
+    ensureObject :: (Object -> Object) -> (Value -> Value)
+    ensureObject f v = case v of
+      Object o -> Object (f o)
+      _ -> error "Not an object!"
+
+    addDep (Array deps) = Array $ fromList (String pkgName:GHC.Exts.toList deps)
+    addDep _            = error "Not an array in addDep"
 
 
 -- | Takes a cabal file and a path to a module in the dependency you want to edit.
-editPackage :: FilePath -> FilePath ->  String -> IO String
-editPackage file modulePath pkgName = do
+editCabalPackage :: FilePath -> FilePath ->  String -> (FilePath -> FilePath) -> IO (IdeResult J.WorkspaceEdit)
+editCabalPackage file modulePath pkgName fileMap = do
 
-  package <- liftIO $ readGenericPackageDescription normal file
+  package <- readGenericPackageDescription normal file
 
   let newMainLib = fmap updateTree $ package ^. L.condLibrary
       swappedMainLib = L.condLibrary .~ newMainLib $ package
@@ -75,32 +171,35 @@ editPackage file modulePath pkgName = do
                     $ applyLens L.condExecutables
                     $ applyLens L.condBenchmarks swappedMainLib
 
-  return $ PP.showGenericPackageDescription newPackage
+  let newContents = T.pack $ PP.showGenericPackageDescription newPackage
 
-  where relModulePath = makeRelative (takeDirectory file) modulePath
-
-        applyLens :: L.HasBuildInfo a => Lens' GenericPackageDescription [(b, CondTree v c a)]
-                  -> GenericPackageDescription -> GenericPackageDescription
-        applyLens l pkg =
-          let old = pkg ^. l
-              new = map (\(name, tree) -> (name, updateTree tree)) old
-          in l .~ new $ pkg
-
-        updateTree :: L.HasBuildInfo a => CondTree v c a -> CondTree v c a
-        updateTree = mapIfHasModule relModulePath (addDep pkgName)
+  IdeResultOk <$> makeAdditiveDiffResult file newContents fileMap
 
 
-mapIfHasModule :: L.HasBuildInfo a => FilePath -> (a -> a) -> CondTree v c a -> CondTree v c a
-mapIfHasModule modFp f = mapTreeData g
-  where g x
-          | null (sourceDirs x) = f x
-          | hasThisModule x = f x
-          | otherwise = x
-        hasThisModule = any (`isPrefixOf` modFp) . sourceDirs
-        sourceDirs x = x ^. L.buildInfo . L.hsSourceDirs
+  where
 
-addDep :: L.HasBuildInfo a => String -> a -> a
-addDep dep x = L.buildInfo . L.targetBuildDepends .~ newDeps $ x
-  where oldDeps = x ^. L.buildInfo . L.targetBuildDepends
-        -- Add it to the bottom of the dependencies list
-        newDeps = oldDeps ++ [Dependency (mkPackageName dep) anyVersion]
+    applyLens :: L.HasBuildInfo a => Lens' GenericPackageDescription [(b, CondTree v c a)]
+              -> GenericPackageDescription -> GenericPackageDescription
+    applyLens l pkg =
+      let old = pkg ^. l
+          new = map (\(name, tree) -> (name, updateTree tree)) old
+      in l .~ new $ pkg
+
+    updateTree :: L.HasBuildInfo a => CondTree v c a -> CondTree v c a
+    updateTree = mapIfHasModule modulePath (addDep pkgName)
+
+
+    mapIfHasModule :: L.HasBuildInfo a => FilePath -> (a -> a) -> CondTree v c a -> CondTree v c a
+    mapIfHasModule modFp f = mapTreeData g
+      where g x
+              | null (sourceDirs x) = f x
+              | hasThisModule x = f x
+              | otherwise = x
+            hasThisModule = any (`isPrefixOf` modFp) . sourceDirs
+            sourceDirs x = x ^. L.buildInfo . L.hsSourceDirs
+
+    addDep :: L.HasBuildInfo a => String -> a -> a
+    addDep dep x = L.buildInfo . L.targetBuildDepends .~ newDeps $ x
+      where oldDeps = x ^. L.buildInfo . L.targetBuildDepends
+            -- Add it to the bottom of the dependencies list
+            newDeps = oldDeps ++ [Dependency (mkPackageName dep) anyVersion]

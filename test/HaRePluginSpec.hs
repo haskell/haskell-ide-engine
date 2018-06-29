@@ -3,14 +3,18 @@
 module HaRePluginSpec where
 
 import           Data.Aeson
-import qualified Data.HashMap.Strict                   as H
+import qualified Data.HashMap.Strict           as H
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Plugin.GhcMod
 import           Haskell.Ide.Engine.Plugin.HaRe
 import           Haskell.Ide.Engine.Plugin.HieExtras
-import           Language.Haskell.LSP.Types (Location(..), TextEdit(..))
+import           Language.Haskell.LSP.Types     ( Location(..)
+                                                , TextEdit(..)
+                                                , VersionedTextDocumentIdentifier(..)
+                                                , TextDocumentEdit(..)
+                                                )
 import           System.Directory
 import           System.FilePath
 import           TestUtils
@@ -52,11 +56,11 @@ hareSpec = do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReRename.hs"
           act = renameCmd' uri (toPos (5,1)) "foolong"
           arg = HPT uri (toPos (5,1)) "foolong"
+          vid = VersionedTextDocumentIdentifier uri 0
+          textEdits = List [TextEdit (Range (Position 3 0) (Position 4 13)) "foolong :: Int -> Int\nfoolong x = x + 3"]
           res = IdeResultOk $ WorkspaceEdit
-            (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReRename.hs")
-                                $ List [TextEdit (Range (Position 3 0) (Position 4 13))
-                                          "foolong :: Int -> Int\nfoolong x = x + 3"])
-            Nothing
+            (Just $ H.singleton uri textEdits)
+            (Just (List [TextDocumentEdit vid textEdits]))
       testCommand testPlugins act "hare" "rename" arg res
 
     -- ---------------------------------
@@ -76,11 +80,11 @@ hareSpec = do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReDemote.hs"
           act = demoteCmd' uri (toPos (6,1))
           arg = HP uri (toPos (6,1))
+          vid = VersionedTextDocumentIdentifier uri 0
+          textEdits = List [TextEdit (Range (Position 4 0) (Position 5 5)) "  where\n    y = 7"]
           res = IdeResultOk $ WorkspaceEdit
-            (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReDemote.hs")
-                                $ List [TextEdit (Range (Position 4 0) (Position 5 5))
-                                          "  where\n    y = 7"])
-            Nothing
+            (Just $ H.singleton uri textEdits)
+            (Just (List [TextDocumentEdit vid textEdits]))
       testCommand testPlugins act "hare" "demote" arg res
 
     -- ---------------------------------
@@ -89,11 +93,11 @@ hareSpec = do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReRename.hs"
           act = dupdefCmd' uri (toPos (5,1)) "foonew"
           arg = HPT uri (toPos (5,1)) "foonew"
+          vid = VersionedTextDocumentIdentifier uri 0
+          textEdits = List [TextEdit (Range (Position 6 0) (Position 6 0)) "foonew :: Int -> Int\nfoonew x = x + 3\n\n"]
           res = IdeResultOk $ WorkspaceEdit
-            (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReRename.hs")
-                                $ List [TextEdit (Range (Position 6 0) (Position 6 0))
-                                          "foonew :: Int -> Int\nfoonew x = x + 3\n\n"])
-            Nothing
+            (Just $ H.singleton uri textEdits)
+            (Just (List [TextDocumentEdit vid textEdits]))
       testCommand testPlugins act "hare" "dupdef" arg res
 
     -- ---------------------------------
@@ -104,12 +108,12 @@ hareSpec = do
           act = iftocaseCmd' uri (Range (toPos (5,9))
                                         (toPos (9,12)))
           arg = HR uri (toPos (5,9)) (toPos (9,12))
+          vid = VersionedTextDocumentIdentifier uri 0
+          textEdits = List [TextEdit (Range (Position 4 0) (Position 8 11))
+                      "foo x = case odd x of\n  True  ->\n    x + 3\n  False ->\n    x"]
           res = IdeResultOk $ WorkspaceEdit
-            (Just
-             $ H.singleton (filePathToUri $ cwd </> "test/testdata/HaReCase.hs")
-                           $ List [TextEdit (Range (Position 4 0) (Position 8 11))
-                                   "foo x = case odd x of\n  True  ->\n    x + 3\n  False ->\n    x"])
-            Nothing
+            (Just $ H.singleton uri textEdits)
+            (Just (List [TextDocumentEdit vid textEdits]))
       testCommand testPlugins act "hare" "iftocase" arg res
 
     -- ---------------------------------
@@ -119,13 +123,12 @@ hareSpec = do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs"
           act = liftonelevelCmd' uri (toPos (6,5))
           arg = HP uri (toPos (6,5))
+          vid = VersionedTextDocumentIdentifier uri 0
+          textEdits = List [ TextEdit (Range (Position 6 0) (Position 6 0)) "y = 4\n\n"
+                          , TextEdit (Range (Position 4 0) (Position 6 0)) ""]
           res = IdeResultOk $ WorkspaceEdit
-            (Just $ H.singleton
-              ( filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs" )
-              $ List [ TextEdit (Range (Position 6 0) (Position 6 0)) "y = 4\n\n"
-                     , TextEdit (Range (Position 4 0) (Position 5 9)) ""
-                     ])
-            Nothing
+            (Just $ H.singleton uri textEdits)
+            (Just (List [TextDocumentEdit vid textEdits]))
       testCommand testPlugins act "hare" "liftonelevel" arg res
 
     -- ---------------------------------
@@ -135,14 +138,14 @@ hareSpec = do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs"
           act = lifttotoplevelCmd' uri (toPos (12,9))
           arg = HP uri (toPos (12,9))
+          vid = VersionedTextDocumentIdentifier uri 0
+          textEdits = List [ TextEdit (Range (Position 13 0) (Position 13 0)) "\n"
+                           , TextEdit (Range (Position 12 0) (Position 12 0)) "z = 7\n"
+                           , TextEdit (Range (Position 10 0) (Position 12 0)) ""
+                           ]
           res = IdeResultOk $ WorkspaceEdit
-           (Just $ H.singleton
-              ( filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs")
-              $ List [ TextEdit (Range (Position 13 0) (Position 13 0)) "\n"
-                     , TextEdit (Range (Position 12 0) (Position 12 0)) "z = 7\n"
-                     , TextEdit (Range (Position 10 0) (Position 11 13)) ""
-                     ])
-           Nothing
+            (Just $ H.singleton uri textEdits)
+            (Just (List [TextDocumentEdit vid textEdits]))
       testCommand testPlugins act "hare" "lifttotoplevel" arg res
 
     -- ---------------------------------
@@ -151,10 +154,11 @@ hareSpec = do
       let uri = filePathToUri $ cwd </> "test/testdata/FuncTest.hs"
           act = deleteDefCmd' uri (toPos (6,1))
           arg = HP uri (toPos (6,1))
+          vid = VersionedTextDocumentIdentifier uri 0
+          textEdits = List [TextEdit (Range (Position 4 0) (Position 7 0)) ""]
           res = IdeResultOk $ WorkspaceEdit
-            (Just $ H.singleton (filePathToUri $ cwd </> "test/testdata/FuncTest.hs")
-                                $ List [TextEdit (Range (Position 4 0) (Position 6 0)) ""])
-            Nothing
+            (Just $ H.singleton uri textEdits)
+            (Just (List [TextDocumentEdit vid textEdits]))
       testCommand testPlugins act "hare" "deletedef" arg res
 
     -- ---------------------------------
@@ -163,11 +167,12 @@ hareSpec = do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReGA1.hs"
           act = genApplicativeCommand' uri (toPos (4,1))
           arg = HP uri (toPos (4,1))
+          vid = VersionedTextDocumentIdentifier uri 0
+          textEdits = List [TextEdit (Range (Position 4 0) (Position 8 12))
+                      "parseStr = char '\"' *> (many1 (noneOf \"\\\"\")) <* char '\"'"]
           res = IdeResultOk $ WorkspaceEdit
-            (Just $ H.singleton ( filePathToUri $ cwd </> "test/testdata/HaReGA1.hs" )
-                                $ List [TextEdit (Range (Position 4 0) (Position 8 12))
-                                         "parseStr = char '\"' *> (many1 (noneOf \"\\\"\")) <* char '\"'"])
-            Nothing
+            (Just $ H.singleton uri textEdits)
+            (Just (List [TextDocumentEdit vid textEdits]))
       testCommand testPlugins act "hare" "genapplicative" arg res
 
     -- ---------------------------------

@@ -143,6 +143,7 @@ test-suite haskell-ide-test
   other-modules:       ApplyRefactPluginSpec
                        BrittanySpec
                        CodeActionsSpec
+                       DiffSpec
                        ExtensibleStateSpec
                        GhcModPluginSpec
                        HaRePluginSpec
@@ -181,6 +182,7 @@ test-suite haskell-ide-dispatcher-test
   other-modules:       ApplyRefactPluginSpec
                        BrittanySpec
                        CodeActionsSpec
+                       DiffSpec
                        ExtensibleStateSpec
                        GhcModPluginSpec
                        HaRePluginSpec

@@ -43,11 +43,11 @@ applyRefactSpec = do
       let furi = applyRefactPath
           act = applyOneCmd' furi (OneHint (toPos (2,8)) "Redundant bracket")
           arg = AOP furi (toPos (2,8)) "Redundant bracket"
+          vid = VersionedTextDocumentIdentifier furi 0
+          textEdits = List [TextEdit (Range (Position 1 0) (Position 1 25)) "main = putStrLn \"hello\""]
           res = IdeResultOk $ WorkspaceEdit
-            (Just $ H.singleton applyRefactPath
-                                $ List [TextEdit (Range (Position 1 0) (Position 1 25))
-                                          "main = putStrLn \"hello\""])
-            Nothing
+            (Just $ H.singleton applyRefactPath textEdits)
+            (Just (List [TextDocumentEdit vid textEdits]))
       testCommand testPlugins act "applyrefact" "applyOne" arg res
 
     -- ---------------------------------
@@ -56,14 +56,12 @@ applyRefactSpec = do
 
       let act = applyAllCmd' arg
           arg = applyRefactPath
+          vid = VersionedTextDocumentIdentifier applyRefactPath 0
+          textEdits = List [ TextEdit (Range (Position 1 0) (Position 1 25)) "main = putStrLn \"hello\""
+                           , TextEdit (Range (Position 3 0) (Position 3 15)) "foo x = x + 1" ]
           res = IdeResultOk $ WorkspaceEdit
-            (Just
-              $ H.singleton applyRefactPath
-                          $ List [TextEdit (Range (Position 1 0) (Position 1 25))
-                                    "main = putStrLn \"hello\""
-                                 ,TextEdit (Range (Position 3 0) (Position 3 15))
-                                    "foo x = x + 1"])
-            Nothing
+            (Just $ H.singleton applyRefactPath textEdits)
+            (Just (List [TextDocumentEdit vid textEdits]))            
       testCommand testPlugins act "applyrefact" "applyAll" arg res
 
     -- ---------------------------------

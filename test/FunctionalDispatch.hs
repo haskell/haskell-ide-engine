@@ -277,16 +277,12 @@ dispatchSpec = do
 
       hr6 <- atomically $ readTChan logChan
       -- show hr6 `shouldBe` "hr6"
+      let textEdits = List [TextEdit (Range (Position 6 0) (Position 7 6)) "  where\n    bb = 5"]
+          r6uri = filePathToUri $ cwd </> "FuncTest.hs"
       unpackRes hr6 `shouldBe` ("r6",Just
         (WorkspaceEdit
-          ( Just
-          $ H.singleton (filePathToUri $ cwd </> "FuncTest.hs")
-          $ List
-              [ TextEdit (Range (Position 6 0) (Position 7 6))
-                         "  where\n    bb = 5"
-              ]
-          )
-          Nothing
+          (Just $ H.singleton r6uri textEdits)
+          (Just (List [TextDocumentEdit (VersionedTextDocumentIdentifier r6uri 0) textEdits]))
         ))
     
     it "instantly responds to failed modules with no cache" $ do

@@ -94,9 +94,7 @@ codeActionSpec = do
 
       rsp <- response :: Session CodeActionResponse
       let (Just (List actionsOrCommands)) = fromJust $ rsp ^. result
-          extractAction (CommandOrCodeActionCodeAction action) = action
-          extractAction _ = error "Not a code action"
-          actns = map extractAction actionsOrCommands
+          actns = map fromAction actionsOrCommands
 
       liftIO $ do
         head actns ^. title `shouldBe` "Import module Control.Monad"
@@ -119,37 +117,75 @@ codeActionSpec = do
       liftIO $ contents `shouldBe` "import Control.Monad\nmain :: IO ()\nmain = when True $ putStrLn \"hello\""
 
 
-  it "provides add package suggestions" $ withUnsetEnv "STACK_EXE" $
-    runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata/addPackageTest/cabal" $ do
-      doc <- openDoc "AddPackage.hs" "haskell"
+  describe "add package suggestions" $ do
+    it "adds to .cabal files" $ withUnsetEnv "STACK_EXE" $
+      runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata/addPackageTest/cabal" $ do
+        doc <- openDoc "AddPackage.hs" "haskell"
 
-      -- ignore the first empty hlint diagnostic publish
-      [_,diagsRsp] <- skipManyTill loggingNotification (count 2 notification) :: Session [PublishDiagnosticsNotification]
-      let (List (diag:_)) = diagsRsp ^. params . diagnostics
-          c = CodeActionContext (diagsRsp ^. params . diagnostics) Nothing
+        -- ignore the first empty hlint diagnostic publish
+        [_,diagsRsp] <- skipManyTill loggingNotification (count 2 notification) :: Session [PublishDiagnosticsNotification]
+        let (List (diag:_)) = diagsRsp ^. params . diagnostics
+            c = CodeActionContext (diagsRsp ^. params . diagnostics) Nothing
 
-      liftIO $ diag ^. message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Data.Text’"
+        liftIO $ diag ^. message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Data.Text’"
 
-      _ <- sendRequest TextDocumentCodeAction (CodeActionParams doc (diag ^. range) c)
+        _ <- sendRequest TextDocumentCodeAction (CodeActionParams doc (diag ^. range) c)
 
-      rsp <- response :: Session CodeActionResponse
-      let (Just (List [CommandOrCodeActionCodeAction action])) = fromJust $ rsp ^. result
+        rsp <- response :: Session CodeActionResponse
+        let (Just (List [CommandOrCodeActionCodeAction action])) = fromJust $ rsp ^. result
 
-      liftIO $ do
-        action ^. title `shouldBe` "Add text as a dependency"
-        action ^. kind `shouldBe` Just CodeActionQuickFix
-        action ^. command . _Just . command `shouldSatisfy` T.isSuffixOf "package:add"
+        liftIO $ do
+          action ^. title `shouldBe` "Add text as a dependency"
+          action ^. kind `shouldBe` Just CodeActionQuickFix
+          action ^. command . _Just . command `shouldSatisfy` T.isSuffixOf "package:add"
 
-      let (Just cmd) = action ^. command
-          args = decode $ encode $ fromJust $ cmd ^. arguments
-          execParams = ExecuteCommandParams (cmd ^. command) args
+        let (Just cmd) = action ^. command
+            args = decode $ encode $ fromJust $ cmd ^. arguments
+            execParams = ExecuteCommandParams (cmd ^. command) args
 
-      _ <- sendRequest WorkspaceExecuteCommand execParams
-      _ <- response :: Session ExecuteCommandResponse
+        _ <- sendRequest WorkspaceExecuteCommand execParams
+        _ <- response :: Session ExecuteCommandResponse
 
-      contents <- getDocumentEdit . TextDocumentIdentifier =<< getDocUri "add-package-test.cabal"
-      liftIO $ T.lines contents !! 16 `shouldSatisfy`
-                T.isSuffixOf "text -any"
+        contents <- getDocumentEdit . TextDocumentIdentifier =<< getDocUri "add-package-test.cabal"
+        liftIO $ T.lines contents !! 16 `shouldSatisfy`
+                  T.isSuffixOf "text -any"
+    it "adds to hpack package.yaml files" $ withUnsetEnv "STACK_EXE" $
+      runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata/addPackageTest/hpack" $ do
+        doc <- openDoc "app/Asdf.hs" "haskell"
+
+        liftIO $ print doc
+
+        -- ignore the first empty hlint diagnostic publish
+        [_,diagsRsp] <- skipManyTill loggingNotification (count 2 notification) :: Session [PublishDiagnosticsNotification]
+        let (List (diag:_)) = diagsRsp ^. params . diagnostics
+            c = CodeActionContext (diagsRsp ^. params . diagnostics) Nothing
+
+        liftIO $ diag ^. message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Codec.Compression.GZip’"
+
+        _ <- sendRequest TextDocumentCodeAction (CodeActionParams doc (diag ^. range) c)
+
+        rsp <- response :: Session CodeActionResponse
+        let (Just (List mActions)) = fromJust $ rsp ^. result
+            allActions = map fromAction mActions
+            action = head allActions
+
+        liftIO $ do
+          action ^. title `shouldBe` "Add zlib as a dependency"
+          forM_ allActions $ \a -> a ^. kind `shouldBe` Just CodeActionQuickFix
+          forM_ allActions $ \a -> a ^. command . _Just . command `shouldSatisfy` T.isSuffixOf "package:add"
+
+        let (Just cmd) = action ^. command
+            args = decode $ encode $ fromJust $ cmd ^. arguments
+            execParams = ExecuteCommandParams (cmd ^. command) args
+
+        _ <- sendRequest WorkspaceExecuteCommand execParams
+        _ <- response :: Session ExecuteCommandResponse
+
+        contents <- getDocumentEdit . TextDocumentIdentifier =<< getDocUri "package.yaml"
+        liftIO $ do
+          T.lines contents !! 33 `shouldSatisfy` T.isSuffixOf "zlib"
+          T.lines contents !! 12 `shouldNotSatisfy` T.isSuffixOf "zlib"
+          T.lines contents !! 13 `shouldNotSatisfy` T.isSuffixOf "zlib"
 
 withUnsetEnv :: String -> IO a -> IO a
 withUnsetEnv e f = do
@@ -158,3 +194,7 @@ withUnsetEnv e f = do
   res <- f
   forM_ oldStackExe $ setEnv e
   return res
+
+fromAction :: CommandOrCodeAction -> CodeAction
+fromAction (CommandOrCodeActionCodeAction action) = action
+fromAction _ = error "Not a code action"

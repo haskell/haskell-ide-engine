@@ -137,15 +137,10 @@ spec = do
       liftIO $ executeRsp ^. result `shouldBe` Just (Object H.empty)
 
       editReq <- request :: Session ApplyWorkspaceEditRequest
+      let expectedTextEdits = List [TextEdit (Range (Position 6 0) (Position 7 6)) "  where\n    bb = 5"]
       liftIO $ editReq ^. params . edit `shouldBe` WorkspaceEdit
-            ( Just
-            $ H.singleton testUri
-            $ List
-                [ TextEdit (Range (Position 6 0) (Position 7 6))
-                            "  where\n    bb = 5"
-                ]
-            )
-            Nothing
+            (Just $ H.singleton testUri expectedTextEdits)
+            (Just (List [TextDocumentEdit (VersionedTextDocumentIdentifier testUri 0) expectedTextEdits]))
 
   -- -----------------------------------
 
