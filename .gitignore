@@ -50,7 +50,10 @@ TAGS
 cabal-dev/
 cabal.sandbox.config
 dist-newstyle/
-dist/
+dist
 tags
 test-logs/
 .DS_Store
+# needed so ghc-mod can pick up the cabal cradle
+# instead of the stack.yaml in the parent directory
+!test/testdata/addPackageTest/*/dist/setup-config

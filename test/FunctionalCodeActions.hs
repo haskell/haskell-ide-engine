@@ -153,8 +153,6 @@ codeActionSpec = do
       runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata/addPackageTest/hpack" $ do
         doc <- openDoc "app/Asdf.hs" "haskell"
 
-        liftIO $ print doc
-
         -- ignore the first empty hlint diagnostic publish
         [_,diagsRsp] <- skipManyTill loggingNotification (count 2 notification) :: Session [PublishDiagnosticsNotification]
         let (List (diag:_)) = diagsRsp ^. params . diagnostics
