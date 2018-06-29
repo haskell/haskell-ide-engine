@@ -24,17 +24,17 @@ import Language.Haskell.LSP.Messages
 import Haskell.Ide.Engine.Plugin.Package
 import Haskell.Ide.Engine.MonadTypes
 
-handleCodeActionReq :: TrackingNumber -> BM.Bimap T.Text T.Text -> (PluginRequest R -> R ()) -> J.CodeActionRequest -> R ()
-handleCodeActionReq tn commandMap makeRequest req = do
+handleCodeActionReq :: TrackingNumber -> BM.Bimap T.Text T.Text -> J.CodeActionRequest -> R ()
+handleCodeActionReq tn commandMap req = do
 
-  vfsFunc <- asks Core.getVirtualFileFunc
+  vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
   maybeVf <- liftIO $ vfsFunc doc
   let docVersion = case maybeVf of
         Just vf -> _version vf
         Nothing -> 0
       docId = J.VersionedTextDocumentIdentifier doc docVersion
 
-  maybeRootDir <- asks Core.rootPath
+  maybeRootDir <- asksLspFuncs Core.rootPath
 
   let hlintActions = mapMaybe mkHlintAction $ filter validCommand diags
       -- |Some hints do not have an associated refactoring
@@ -72,7 +72,7 @@ handleCodeActionReq tn commandMap makeRequest req = do
 
   wrapCodeAction :: J.CodeAction -> R (Maybe J.CommandOrCodeAction)
   wrapCodeAction action = do
-    (C.ClientCapabilities _ textDocCaps _) <- asks Core.clientCapabilities
+    (C.ClientCapabilities _ textDocCaps _) <- asksLspFuncs Core.clientCapabilities
     let literalSupport = textDocCaps >>= C._codeAction >>= C._codeActionLiteralSupport
     case literalSupport of
       Nothing -> return $ fmap J.CommandOrCodeActionCommand (action ^. J.command)

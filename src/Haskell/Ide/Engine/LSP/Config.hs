@@ -7,8 +7,8 @@ import Language.Haskell.LSP.Types
 
 -- | Callback from haskell-lsp core to convert the generic message to the
 -- specific one for hie
-getConfig :: DidChangeConfigurationNotification -> Either T.Text Config
-getConfig (NotificationMessage _ _ (DidChangeConfigurationParams p)) =
+getConfigFromNotification :: DidChangeConfigurationNotification -> Either T.Text Config
+getConfigFromNotification (NotificationMessage _ _ (DidChangeConfigurationParams p)) =
   case fromJSON p of
     Success c -> Right c
     Error err -> Left $ T.pack err

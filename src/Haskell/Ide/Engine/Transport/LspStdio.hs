@@ -108,27 +108,27 @@ run dispatcherProc cin _origDir captureFp = flip E.catches handlers $ do
         cancelTVar  <- atomically $ newTVar S.empty
         wipTVar     <- atomically $ newTVar S.empty
         versionTVar <- atomically $ newTVar Map.empty
-        let dispatcherEnv = DispatcherEnv
+        let dEnv = DispatcherEnv
               { cancelReqsTVar = cancelTVar
               , wipReqsTVar    = wipTVar
               , docVersionTVar = versionTVar
               }
-        let reactorFunc = flip runReaderT lf $ reactor dispatcherEnv cin rin commandMap
+        let reactorFunc = runReactor lf dEnv cin $ reactor rin commandMap
 
         let errorHandler :: ErrorHandler
             errorHandler lid code e =
               Core.sendErrorResponseS (Core.sendFunc lf) (J.responseId lid) code e
             callbackHandler :: CallbackHandler R
-            callbackHandler f x = flip runReaderT lf $ f x
+            callbackHandler f x = runReactor lf dEnv cin $ f x
 
         -- haskell lsp sets the current directory to the project root in the InitializeRequest
         -- We launch the dispatcher after that so that the defualt cradle is
         -- recognized properly by ghc-mod
-        _ <- forkIO $ race_ (dispatcherProc dispatcherEnv errorHandler callbackHandler) reactorFunc
+        _ <- forkIO $ race_ (dispatcherProc dEnv errorHandler callbackHandler) reactorFunc
         return Nothing
 
   flip E.finally finalProc $ do
-    CTRL.run (getConfig, dp) (hieHandlers rin) (hieOptions (BM.elems commandMap)) captureFp
+    CTRL.run (getConfigFromNotification, dp) (hieHandlers rin) (hieOptions (BM.elems commandMap)) captureFp
  where
   handlers  = [E.Handler ioExcept, E.Handler someExcept]
   finalProc = L.removeAllHandlers
@@ -150,16 +150,16 @@ type ReactorInput
 
 configVal :: c -> (Config -> c) -> R c
 configVal defVal field = do
-  gmc <- asks Core.config
+  gmc <- asksLspFuncs Core.config
   mc <- liftIO gmc
   return $ maybe defVal field mc
 
 -- ---------------------------------------------------------------------
 
-getPrefixAtPos :: (MonadIO m, MonadReader (Core.LspFuncs Config) m)
+getPrefixAtPos :: (MonadIO m, MonadReader REnv m)
   => Uri -> Position -> m (Maybe (T.Text,T.Text))
 getPrefixAtPos uri (Position l c) = do
-  mvf <- liftIO =<< asks Core.getVirtualFileFunc <*> pure uri
+  mvf <- liftIO =<< asksLspFuncs Core.getVirtualFileFunc <*> pure uri
   case mvf of
     Just (VFS.VirtualFile _ yitext) -> return $ do
       let headMaybe [] = Nothing
@@ -182,14 +182,16 @@ getPrefixAtPos uri (Position l c) = do
 
 -- ---------------------------------------------------------------------
 
-mapFileFromVfs :: (MonadIO m, MonadReader (Core.LspFuncs Config) m)
-  => TrackingNumber
-  -> TVar (Map.Map Uri Int) -> TChan (PluginRequest R)
-  -> J.VersionedTextDocumentIdentifier -> m ()
-mapFileFromVfs tn verTVar cin vtdi = do
+
+mapFileFromVfs :: (MonadIO m, MonadReader REnv m)
+               => TrackingNumber
+               -> J.VersionedTextDocumentIdentifier -> m ()
+mapFileFromVfs tn vtdi = do
+  verTVar <- asks (docVersionTVar . dispatcherEnv)
+  cin <- asks reqChanIn
   let uri = vtdi ^. J.uri
       ver = vtdi ^. J.version
-  vfsFunc <- asks Core.getVirtualFileFunc
+  vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
   mvf <- liftIO $ vfsFunc uri
   case (mvf, uriToFilePath uri) of
     (Just (VFS.VirtualFile _ yitext), Just fp) -> do
@@ -206,13 +208,14 @@ mapFileFromVfs tn verTVar cin vtdi = do
       return ()
     (_, _) -> return ()
 
-_unmapFileFromVfs :: (MonadIO m)
-  => TrackingNumber -> TVar (Map.Map Uri Int) -> TChan (PluginRequest R) -> Uri -> m ()
-_unmapFileFromVfs tn verTVar cin uri = do
-  case uriToFilePath uri of
+_unmapFileFromVfs :: (MonadIO m, MonadReader REnv m) => TrackingNumber -> J.Uri -> m ()
+_unmapFileFromVfs tn uri = do
+  verTVar <- asks (docVersionTVar . dispatcherEnv)
+  cin <- asks reqChanIn
+  case J.uriToFilePath uri of
     Just fp -> do
       let req = GReq tn (Just uri) Nothing Nothing (const $ return ())
-                 $ IdeResultOk <$> GM.unloadMappedFile fp
+                $ IdeResultOk <$> GM.unloadMappedFile fp
       liftIO $ atomically $ do
         modifyTVar' verTVar (Map.delete uri)
         writeTChan cin req
@@ -250,31 +253,31 @@ updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file 
 
 -- ---------------------------------------------------------------------
 
-publishDiagnostics :: (MonadIO m, MonadReader (Core.LspFuncs Config) m)
+publishDiagnostics :: (MonadIO m, MonadReader REnv m)
   => Int -> J.Uri -> Maybe J.TextDocumentVersion -> DiagnosticsBySource -> m ()
 publishDiagnostics maxToSend uri' mv diags = do
-  lf <- ask
+  lf <- asks lspFuncs
   liftIO $ (Core.publishDiagnosticsFunc lf) maxToSend uri' mv diags
 
 -- ---------------------------------------------------------------------
 
-flushDiagnosticsBySource :: (MonadIO m, MonadReader (Core.LspFuncs Config) m)
+flushDiagnosticsBySource :: (MonadIO m, MonadReader REnv m)
   => Int -> Maybe J.DiagnosticSource -> m ()
 flushDiagnosticsBySource maxToSend msource = do
-  lf <- ask
+  lf <- asks lspFuncs
   liftIO $ (Core.flushDiagnosticsBySourceFunc lf) maxToSend msource
 
 -- ---------------------------------------------------------------------
 
-nextLspReqId :: (MonadIO m, MonadReader (Core.LspFuncs Config) m)
+nextLspReqId :: (MonadIO m, MonadReader REnv m)
   => m J.LspId
 nextLspReqId = do
-  f <- asks Core.getNextReqId
+  f <- asksLspFuncs Core.getNextReqId
   liftIO f
 
 -- ---------------------------------------------------------------------
 
-sendErrorLog :: (MonadIO m, MonadReader (Core.LspFuncs Config) m)
+sendErrorLog :: (MonadIO m, MonadReader REnv m)
   => T.Text -> m ()
 sendErrorLog msg = reactorSend' (`Core.sendErrorLogS` msg)
 
@@ -289,18 +292,8 @@ sendErrorLog msg = reactorSend' (`Core.sendErrorLogS` msg)
 -- | The single point that all events flow through, allowing management of state
 -- to stitch replies and requests together from the two asynchronous sides: lsp
 -- server and hie dispatcher
-reactor :: forall void. DispatcherEnv -> TChan (PluginRequest R) -> TChan ReactorInput -> BM.Bimap T.Text T.Text -> R void
-reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandMap = do
-  let
-    makeRequest req@(GReq _ _ Nothing (Just lid) _ _) = liftIO $ atomically $ do
-      modifyTVar wipTVar (S.insert lid)
-      writeTChan cin req
-    makeRequest req@(IReq _ lid _ _) = liftIO $ atomically $ do
-      modifyTVar wipTVar (S.insert lid)
-      writeTChan cin req
-    makeRequest req =
-      liftIO $ atomically $ writeTChan cin req
-
+reactor :: forall void. TChan ReactorInput -> BM.Bimap T.Text T.Text -> R void
+reactor inp commandMap = do
   -- forever $ do
   let
     loop :: TrackingNumber -> R void
@@ -383,8 +376,8 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandMap = d
               td  = notification ^. J.params . J.textDocument
               uri = td ^. J.uri
               ver = td ^. J.version
-          mapFileFromVfs tn versionTVar cin $ J.VersionedTextDocumentIdentifier uri ver
-          requestDiagnostics tn cin uri ver
+          mapFileFromVfs tn $ J.VersionedTextDocumentIdentifier uri ver
+          requestDiagnostics tn uri ver
 
         -- -------------------------------
 
@@ -408,14 +401,14 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandMap = d
               uri  = vtdi ^. J.uri
               ver  = vtdi ^. J.version
               J.List changes = params ^. J.contentChanges
-          mapFileFromVfs tn versionTVar cin vtdi
+          mapFileFromVfs tn vtdi
           makeRequest $ GReq tn (Just uri) Nothing Nothing (const $ return ()) $
             -- mark this module's cache as stale
             pluginGetFile "markCacheStale:" uri $ \fp -> do
               markCacheStale fp
               -- Important - Call this before requestDiagnostics
               updatePositionMap uri changes
-          requestDiagnostics tn cin uri ver
+          requestDiagnostics tn uri ver
 
         NotDidCloseTextDocument notification -> do
           liftIO $ U.logm "****** reactor: processing NotDidCloseTextDocument"
@@ -520,7 +513,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandMap = d
 
         ReqCodeAction req -> do
           liftIO $ U.logs $ "reactor:got CodeActionRequest:" ++ show req
-          handleCodeActionReq tn commandMap makeRequest req
+          handleCodeActionReq tn commandMap req
           -- TODO: make context specific commands for all sorts of things, such as refactorings          
 
         -- -------------------------------
@@ -682,6 +675,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandMap = d
         NotCancelRequestFromClient notif -> do
           liftIO $ U.logs $ "reactor:got CancelRequest:" ++ show notif
           let lid = notif ^. J.params . J.id
+          DispatcherEnv cancelReqTVar wipTVar _ <- asks dispatcherEnv
           liftIO $ atomically $ do
             wip <- readTVar wipTVar
             when (S.member lid wip) $ do
@@ -738,9 +732,10 @@ getDocsForName name pkg modName' = do
 -- ---------------------------------------------------------------------
 
 -- | get hlint and GHC diagnostics and loads the typechecked module into the cache
-requestDiagnostics :: TrackingNumber -> TChan (PluginRequest R) -> J.Uri -> Int -> R ()
-requestDiagnostics tn cin file ver = do
-  lf <- ask
+requestDiagnostics :: TrackingNumber -> J.Uri -> Int -> R ()
+requestDiagnostics tn file ver = do
+  lf <- asks lspFuncs
+  cin <- asks reqChanIn
   mc <- liftIO $ Core.config lf
   let
     -- | If there is a GHC error, flush the hlint diagnostics
