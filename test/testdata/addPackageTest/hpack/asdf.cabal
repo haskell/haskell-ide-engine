@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ed6b4e47ea5fc3ef78fd939d8d6c69ea1ad9c68efb9c27dc6532aac00cc5566a
+-- hash: 541db4c935618eaf2d146bd12153ed2e8773363ae17f48f7f72666e27887349a
 
 name:           asdf
 version:        0.1.0.0
@@ -35,6 +35,7 @@ library
 executable asdf-exe
   main-is: Main.hs
   other-modules:
+      Asdf
       Paths_asdf
   hs-source-dirs:
       app

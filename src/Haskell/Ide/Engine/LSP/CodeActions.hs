@@ -10,6 +10,7 @@ import qualified Data.Bimap as BM
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import Data.Maybe
+import Data.Monoid ((<>))
 import Data.Foldable
 import Haskell.Ide.Engine.LSP.Reactor
 import qualified Haskell.Ide.Engine.Plugin.ApplyRefact as ApplyRefact
@@ -44,8 +45,12 @@ handleCodeActionReq tn commandMap req = do
           _            -> True
       validCommand _ = False
 
-      renamableActions = map (uncurry (mkRenamableAction docId)) $ concatMap isRenamableDiag diags
-      plainActions = renamableActions ++ hlintActions
+      renamableActions = map (uncurry (mkRenamableAction docId)) $
+        concatMap isRenamableDiag diags
+      redundantImportActions = concatMap (uncurry (mkRedundantImportActions docId)) $
+        mapMaybe isRedundantImportDiag diags
+      
+      plainActions = renamableActions ++ hlintActions ++ redundantImportActions
 
       -- For these diagnostics need to search hoogle before we can make code actions
       addPackageDiags = mapMaybe isPackageAddableDiag diags
@@ -114,6 +119,40 @@ handleCodeActionReq tn commandMap req = do
       cmdParams = J.toJSON [J.ApplyWorkspaceEditParams workspaceEdit]
 
       codeAction = J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [diag])) (Just workspaceEdit) (Just cmd)
+  
+  mkRedundantImportActions :: J.VersionedTextDocumentIdentifier -> J.Diagnostic -> T.Text -> [J.CodeAction]
+  mkRedundantImportActions docId diag moduleName = [removeAction, importAction]
+    where
+      removeAction = J.CodeAction "Remove redundant import"
+                                  (Just J.CodeActionQuickFix)
+                                  (Just (J.List [diag]))
+                                  (Just removeEdit)
+                                  (Just (cmd "Remove redundant import" removeEdit))
+        where
+          range = J.Range (diag ^. J.range . J.start)
+                                (J.Position ((diag ^. J.range . J.start . J.line) + 1) 0)
+          removeEdit = workspaceEdit (J.TextEdit range "")
+
+      importAction = J.CodeAction "Import instances"
+                                  (Just J.CodeActionQuickFix)
+                                  (Just (J.List [diag]))
+                                  (Just importEdit)
+                                  (Just (cmd "Import instances" importEdit))
+        where
+          --TODO: Use hsimport to preserve formatting/whitespace
+          importEdit = workspaceEdit tEdit
+          tEdit = J.TextEdit (diag ^. J.range) ("import " <> moduleName <> "()")
+      
+      workspaceEdit textEdit = J.WorkspaceEdit (Just changes) (Just docChanges)
+        where
+          changes = HM.singleton doc (J.List [textEdit])
+          docChanges = J.List [textDocEdit]
+          textDocEdit = J.TextDocumentEdit docId (J.List [textEdit])
+          
+
+      cmd title wEdit = J.Command title cmdName (Just (cmdParams wEdit))
+      cmdName = commandMap BM.! "hie:applyWorkspaceEdit"
+      cmdParams wEdit = J.toJSON [J.ApplyWorkspaceEditParams wEdit]
 
   --TODO: Check if package is already installed
   mkImportAction :: J.Diagnostic -> T.Text -> Maybe J.CodeAction
@@ -203,10 +242,15 @@ extractModuleName msg
   where line = T.replace "\n" "" msg
         nameAndQuotes = T.dropWhileEnd (/= '’') $ T.dropWhile (/= '‘') line
 
+isRedundantImportDiag :: J.Diagnostic -> Maybe (J.Diagnostic, T.Text)
+isRedundantImportDiag diag@(J.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractRedundantImport msg
+isRedundantImportDiag _ = Nothing
+
 -- TODO: Make code actions for this warning
 extractRedundantImport :: T.Text -> Maybe T.Text
 extractRedundantImport msg =
-  if "The import of " `T.isPrefixOf` firstLine && " is redundant" `T.isSuffixOf` firstLine
-    then Just $ T.dropWhileEnd (/= '’') $ T.dropWhile (/= '‘') firstLine
+  if ("The import of " `T.isPrefixOf` firstLine || "The qualified import of " `T.isPrefixOf` firstLine)
+      && " is redundant" `T.isSuffixOf` firstLine
+    then Just $ T.init $ T.tail $ T.dropWhileEnd (/= '’') $ T.dropWhile (/= '‘') firstLine
     else Nothing
   where firstLine = head (T.lines msg)

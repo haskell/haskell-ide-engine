@@ -9,6 +9,6 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     AddPackage
-  build-depends:       base >=4.11 && <4.12
+  build-depends:       base >=4.7 && <5
   -- hs-source-dirs:
   default-language:    Haskell2010

@@ -12,7 +12,6 @@ import qualified Data.Text as T
 import Language.Haskell.LSP.Test as Test
 import Language.Haskell.LSP.Types as LSP hiding (contents, error)
 import qualified Language.Haskell.LSP.Types.Capabilities as C
-import System.Environment
 import Test.Hspec
 import TestUtils
 
@@ -118,8 +117,7 @@ codeActionSpec = do
 
 
   describe "add package suggestions" $ do
-    it "adds to .cabal files" $ withUnsetEnv "STACK_EXE" $
-      runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata/addPackageTest/cabal" $ do
+    it "adds to .cabal files" $ runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata/addPackageTest/cabal" $ do
         doc <- openDoc "AddPackage.hs" "haskell"
 
         -- ignore the first empty hlint diagnostic publish
@@ -147,10 +145,8 @@ codeActionSpec = do
         _ <- response :: Session ExecuteCommandResponse
 
         contents <- getDocumentEdit . TextDocumentIdentifier =<< getDocUri "add-package-test.cabal"
-        liftIO $ T.lines contents !! 16 `shouldSatisfy`
-                  T.isSuffixOf "text -any"
-    it "adds to hpack package.yaml files" $ withUnsetEnv "STACK_EXE" $
-      runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata/addPackageTest/hpack" $ do
+        liftIO $ T.lines contents `shouldSatisfy` \x -> any (\l -> "text -any" `T.isSuffixOf` (x !! l)) [15, 16]
+    it "adds to hpack package.yaml files" $ runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata/addPackageTest/hpack" $ do
         doc <- openDoc "app/Asdf.hs" "haskell"
 
         -- ignore the first empty hlint diagnostic publish
@@ -184,14 +180,38 @@ codeActionSpec = do
           T.lines contents !! 33 `shouldSatisfy` T.isSuffixOf "zlib"
           T.lines contents !! 12 `shouldNotSatisfy` T.isSuffixOf "zlib"
           T.lines contents !! 13 `shouldNotSatisfy` T.isSuffixOf "zlib"
+  it "provides redundant import code actions" $
+    runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata/redundantImportTest/" $ do
+      doc <- openDoc "src/CodeActionRedundant.hs" "haskell"
 
-withUnsetEnv :: String -> IO a -> IO a
-withUnsetEnv e f = do
-  oldStackExe <- lookupEnv e
-  unsetEnv e
-  res <- f
-  forM_ oldStackExe $ setEnv e
-  return res
+      -- ignore the first empty hlint diagnostic publish
+      [_,diagsRsp] <- skipManyTill loggingNotification (count 2 notification) :: Session [PublishDiagnosticsNotification]
+      let (List [diag]) = diagsRsp ^. params . diagnostics
+          c = CodeActionContext (diagsRsp ^. params . diagnostics) Nothing
+
+      liftIO $ diag ^. message `shouldSatisfy` T.isPrefixOf "The import of ‘Data.List’ is redundant"
+
+      _ <- sendRequest TextDocumentCodeAction (CodeActionParams doc (diag ^. range) c)
+
+      rsp <- response :: Session CodeActionResponse
+      let (Just (List mActions)) = fromJust $ rsp ^. result
+          allActions@[removeAction, changeAction] = map fromAction mActions
+
+      liftIO $ do
+        removeAction ^. title `shouldBe` "Remove redundant import"
+        changeAction ^. title `shouldBe` "Import instances"
+        forM_ allActions $ \a -> a ^. kind `shouldBe` Just CodeActionQuickFix
+        forM_ allActions $ \a -> a ^. command . _Just . command `shouldSatisfy` T.isSuffixOf "hie:applyWorkspaceEdit"
+
+      let (Just cmd) = removeAction ^. command
+          args = decode $ encode $ fromJust $ cmd ^. arguments
+          execParams = ExecuteCommandParams (cmd ^. command) args
+
+      _ <- sendRequest WorkspaceExecuteCommand execParams
+      _ <- response :: Session ExecuteCommandResponse
+
+      contents <- getDocumentEdit doc
+      liftIO $ contents `shouldBe` "main :: IO ()\nmain = putStrLn \"hello\""
 
 fromAction :: CommandOrCodeAction -> CodeAction
 fromAction (CommandOrCodeActionCodeAction action) = action

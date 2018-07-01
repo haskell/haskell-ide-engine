@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
@@ -7,7 +8,7 @@ module Haskell.Ide.Engine.Plugin.Package where
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           GHC.Generics
-import GHC.Exts
+import           GHC.Exts
 import           Data.Aeson
 import           Control.Lens
 import qualified Data.ByteString as B
@@ -17,21 +18,31 @@ import qualified Data.HashMap.Strict           as HM
 import qualified Data.Text                     as T
 import qualified Data.Text.Encoding            as T
 import           Data.Maybe
+#if MIN_VERSION_Cabal(2,2,0)
 import           Distribution.PackageDescription.Parsec
+import           Distribution.Types.VersionRange
+import qualified Distribution.Types.GenericPackageDescription.Lens as L
+import qualified Distribution.Types.BuildInfo.Lens as L
+#else
+import           Distribution.PackageDescription.Parse
+import           Distribution.Version
+import qualified Haskell.Ide.Engine.Compat as L
+#endif
 import           Distribution.Types.Dependency
 import           Distribution.Types.PackageName
-import           Distribution.Types.VersionRange
 import qualified Language.Haskell.LSP.Types    as J
 import           Distribution.Verbosity
 import           System.FilePath
+#if MIN_VERSION_filepath(1,4,2)
+#else
+import            Haskell.Ide.Engine.Compat (isExtensionOf)
+#endif
 import           Control.Monad.IO.Class
 import           System.Directory
 import qualified GhcMod.Utils                  as GM
-import qualified Distribution.Types.GenericPackageDescription.Lens as L
 import           Distribution.Types.GenericPackageDescription
 import           Distribution.Types.CondTree
 import qualified Distribution.PackageDescription.PrettyPrint as PP
-import qualified Distribution.Types.BuildInfo.Lens as L
 import qualified Data.Yaml as Y
 
 packageDescriptor :: PluginDescriptor
