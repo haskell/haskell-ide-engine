@@ -75,21 +75,24 @@ handleCodeActionReq tn commandMap req = do
   doc = params ^. J.textDocument . J.uri
   (J.List diags) = params ^. J.context . J.diagnostics
 
-  wrapCodeAction :: J.CodeAction -> R (Maybe J.CommandOrCodeAction)
-  wrapCodeAction action = do
+  wrapCodeAction :: (J.CodeAction, J.Command) -> R (Maybe J.CommandOrCodeAction)
+  wrapCodeAction (action, cmd) = do
     (C.ClientCapabilities _ textDocCaps _) <- asksLspFuncs Core.clientCapabilities
     let literalSupport = textDocCaps >>= C._codeAction >>= C._codeActionLiteralSupport
     case literalSupport of
-      Nothing -> return $ fmap J.CommandOrCodeActionCommand (action ^. J.command)
+      Nothing -> return $ Just (J.CommandOrCodeActionCommand cmd)
+      -- We only need the workspace edit, command gets applied as well if we provide it
       Just _ -> return $ Just (J.CommandOrCodeActionCodeAction action)
 
-  send :: [J.CodeAction] -> R ()
+  send :: [(J.CodeAction, J.Command)] -> R ()
   send codeActions = do
-    body <- Just . J.List . catMaybes <$> mapM wrapCodeAction codeActions
+    body <- J.List . catMaybes <$> mapM wrapCodeAction codeActions
     reactorSend $ RspCodeAction $ Core.makeResponseMessage req body
 
-  mkHlintAction :: J.Diagnostic -> Maybe J.CodeAction
-  mkHlintAction diag@(J.Diagnostic (J.Range start _) _s (Just code) (Just "hlint") m _) = Just codeAction
+  -- mkXActions need to return both a code action and a command for fallbacks to older clients
+  -- that don't support code action kinds
+  mkHlintAction :: J.Diagnostic -> Maybe (J.CodeAction, J.Command)
+  mkHlintAction diag@(J.Diagnostic (J.Range start _) _s (Just code) (Just "hlint") m _) = Just (codeAction, cmd)
     where
       codeAction = J.CodeAction title (Just J.CodeActionRefactor) (Just (J.List [diag])) Nothing (Just cmd)
       title :: T.Text
@@ -102,8 +105,8 @@ handleCodeActionReq tn commandMap req = do
       cmdparams = Just args
   mkHlintAction (J.Diagnostic _r _s _c _source _m _) = Nothing
 
-  mkRenamableAction :: J.VersionedTextDocumentIdentifier -> J.Diagnostic -> T.Text -> J.CodeAction
-  mkRenamableAction docId diag replacement = codeAction
+  mkRenamableAction :: J.VersionedTextDocumentIdentifier -> J.Diagnostic -> T.Text -> (J.CodeAction, J.Command)
+  mkRenamableAction docId diag replacement = (codeAction, cmd)
     where
       title = "Replace with " <> replacement
 
@@ -118,29 +121,33 @@ handleCodeActionReq tn commandMap req = do
       --TODO: Support the name parameter in J.Applyworkspaceeditparams
       cmdParams = J.toJSON [J.ApplyWorkspaceEditParams workspaceEdit]
 
-      codeAction = J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [diag])) (Just workspaceEdit) (Just cmd)
+      codeAction = J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [diag])) (Just workspaceEdit) Nothing
   
-  mkRedundantImportActions :: J.VersionedTextDocumentIdentifier -> J.Diagnostic -> T.Text -> [J.CodeAction]
-  mkRedundantImportActions docId diag moduleName = [removeAction, importAction]
+  mkRedundantImportActions :: J.VersionedTextDocumentIdentifier -> J.Diagnostic -> T.Text -> [(J.CodeAction, J.Command)]
+  mkRedundantImportActions docId diag moduleName = [(removeAction, removeCmd), (importAction, importCmd)]
     where
       removeAction = J.CodeAction "Remove redundant import"
                                   (Just J.CodeActionQuickFix)
                                   (Just (J.List [diag]))
                                   (Just removeEdit)
-                                  (Just (cmd "Remove redundant import" removeEdit))
+                                  Nothing
+
+      removeCmd = cmd "Remove redundant import" removeEdit
+
+      removeEdit = workspaceEdit (J.TextEdit range "")
         where
           range = J.Range (diag ^. J.range . J.start)
-                                (J.Position ((diag ^. J.range . J.start . J.line) + 1) 0)
-          removeEdit = workspaceEdit (J.TextEdit range "")
+                          (J.Position ((diag ^. J.range . J.start . J.line) + 1) 0)
 
       importAction = J.CodeAction "Import instances"
                                   (Just J.CodeActionQuickFix)
                                   (Just (J.List [diag]))
                                   (Just importEdit)
-                                  (Just (cmd "Import instances" importEdit))
-        where
+                                  Nothing
+      importCmd = cmd "Import instances" importEdit
           --TODO: Use hsimport to preserve formatting/whitespace
-          importEdit = workspaceEdit tEdit
+      importEdit = workspaceEdit tEdit
+        where
           tEdit = J.TextEdit (diag ^. J.range) ("import " <> moduleName <> "()")
       
       workspaceEdit textEdit = J.WorkspaceEdit (Just changes) (Just docChanges)
@@ -155,8 +162,8 @@ handleCodeActionReq tn commandMap req = do
       cmdParams wEdit = J.toJSON [J.ApplyWorkspaceEditParams wEdit]
 
   --TODO: Check if package is already installed
-  mkImportAction :: J.Diagnostic -> T.Text -> Maybe J.CodeAction
-  mkImportAction diag modName = Just codeAction
+  mkImportAction :: J.Diagnostic -> T.Text -> Maybe (J.CodeAction, J.Command)
+  mkImportAction diag modName = Just (codeAction, cmd)
     where
       codeAction = J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [diag])) Nothing (Just cmd)
       cmd = J.Command title cmdName (Just cmdParams)
@@ -164,13 +171,13 @@ handleCodeActionReq tn commandMap req = do
       cmdName = commandMap BM.! "hsimport:import"
       cmdParams = J.toJSON [HsImport.ImportParams doc modName]
 
-  mkAddPackageAction :: Maybe FilePath -> J.Diagnostic -> T.Text -> Maybe J.CodeAction
+  mkAddPackageAction :: Maybe FilePath -> J.Diagnostic -> T.Text -> Maybe (J.CodeAction, J.Command)
   mkAddPackageAction (Just rootDir) diag packageName = case J.uriToFilePath doc of
     Just docFp ->
       let title = "Add " <> packageName <> " as a dependency"
           cmd = J.Command title (commandMap BM.! "package:add") (Just cmdParams)
           cmdParams = J.toJSON [AddParams rootDir docFp packageName]
-      in Just $ J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [diag])) Nothing (Just cmd)
+      in Just $ (J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [diag])) Nothing (Just cmd), cmd)
     _ -> Nothing
   mkAddPackageAction _ _ _ = Nothing
 
@@ -187,10 +194,10 @@ handleCodeActionReq tn commandMap req = do
         in makeRequest $ IReq tn (req ^. J.id) reqCallback (ideReq x)
 
   -- | Make multiple hoogle searches at once to construct code actions
-  makeSearches :: (T.Text -> IdeM (IdeResponse [T.Text]))         -- ^ The search function
-             -> (J.Diagnostic -> T.Text -> Maybe J.CodeAction)  -- ^ A function to construct actions
-             -> [(J.Diagnostic, T.Text)]                        -- ^ Input diagnostics and search terms
-             -> ([J.CodeAction] -> R ())                        -- ^ Callback
+  makeSearches :: (T.Text -> IdeM (IdeResponse [T.Text]))                    -- ^ The search function
+             -> (J.Diagnostic -> T.Text -> Maybe (J.CodeAction, J.Command))  -- ^ A function to construct actions
+             -> [(J.Diagnostic, T.Text)]                                     -- ^ Input diagnostics and search terms
+             -> ([(J.CodeAction, J.Command)] -> R ())                        -- ^ Callback
              -> R ()
   makeSearches search maker xs callback = collectRequests (search . snd) xs $ \allResults -> do
     let actions = concatMap (\((diag, _), results) -> mapMaybe (maker diag) results) allResults

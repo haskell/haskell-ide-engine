@@ -31,7 +31,7 @@ spec = do
     it "do not affect hover requests" $ runSession hieCommand "test/testdata" $ do
       doc <- openDoc "FuncTest.hs" "haskell"
 
-      id1 <- sendRequest TextDocumentHover (TextDocumentPositionParams doc (Position 4 2))
+      id1 <- sendRequest' TextDocumentHover (TextDocumentPositionParams doc (Position 4 2))
 
       skipMany anyNotification
       hoverRsp <- response :: Session HoverResponse
@@ -39,11 +39,11 @@ spec = do
       liftIO $ contents1 `shouldBe` []
       liftIO $ hoverRsp ^. LSP.id `shouldBe` responseId id1
 
-      id2 <- sendRequest TextDocumentDocumentSymbol (DocumentSymbolParams doc)
+      id2 <- sendRequest' TextDocumentDocumentSymbol (DocumentSymbolParams doc)
       symbolsRsp <- skipManyTill anyNotification response :: Session DocumentSymbolsResponse
       liftIO $ symbolsRsp ^. LSP.id `shouldBe` responseId id2
 
-      id3 <- sendRequest TextDocumentHover (TextDocumentPositionParams doc (Position 4 2))
+      id3 <- sendRequest' TextDocumentHover (TextDocumentPositionParams doc (Position 4 2))
       hoverRsp2 <- skipManyTill anyNotification response :: Session HoverResponse
       liftIO $ hoverRsp2 ^. LSP.id `shouldBe` responseId id3
 
@@ -52,9 +52,7 @@ spec = do
 
       -- Now that we have cache the following request should be instant
       let highlightParams = TextDocumentPositionParams doc (Position 7 0)
-      _ <- sendRequest TextDocumentDocumentHighlight highlightParams
-
-      highlightRsp <- response :: Session DocumentHighlightsResponse
+      highlightRsp <- sendRequest TextDocumentDocumentHighlight highlightParams :: Session DocumentHighlightsResponse
       let (Just (List locations)) = highlightRsp ^. result
       liftIO $ locations `shouldBe` [ DocumentHighlight
                      { _range = Range
@@ -103,9 +101,7 @@ spec = do
     it "instantly respond to failed modules with no cache" $ runSession hieCommand "test/testdata" $ do
       doc <- openDoc "FuncTestFail.hs" "haskell"
 
-      _ <- sendRequest TextDocumentDocumentSymbol (DocumentSymbolParams doc)
-      skipMany anyNotification
-      symbols <- response :: Session DocumentSymbolsResponse
+      symbols <- sendRequest TextDocumentDocumentSymbol (DocumentSymbolParams doc) :: Session DocumentSymbolsResponse
       liftIO $ symbols ^. LSP.error `shouldNotBe` Nothing
 
     it "returns hints as diagnostics" $ runSession hieCommand "test/testdata" $ do
@@ -131,9 +127,8 @@ spec = do
 
       let args' = H.fromList [("pos", toJSON (Position 7 0)), ("file", toJSON testUri)]
           args = List [Object args']
-      _ <- sendRequest WorkspaceExecuteCommand (ExecuteCommandParams "hare:demote" (Just args))
 
-      executeRsp <- skipManyTill anyNotification response :: Session ExecuteCommandResponse
+      executeRsp <- sendRequest WorkspaceExecuteCommand (ExecuteCommandParams "hare:demote" (Just args))
       liftIO $ executeRsp ^. result `shouldBe` Just (Object H.empty)
 
       editReq <- request :: Session ApplyWorkspaceEditRequest

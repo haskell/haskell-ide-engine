@@ -5,7 +5,6 @@ module FunctionalCodeActions where
 import Control.Lens hiding (List)
 import Control.Monad
 import Control.Monad.IO.Class
-import Data.Aeson
 import Data.Default
 import Data.Maybe
 import qualified Data.Text as T
@@ -19,9 +18,8 @@ codeActionSpec :: Spec
 codeActionSpec = do
   it "provides hlint suggestions" $ runSession hieCommand "test/testdata" $ do
     doc <- openDoc "ApplyRefact2.hs" "haskell"
-    diagsRsp <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
-    let (List diags) = diagsRsp ^. params . diagnostics
-        reduceDiag = head diags
+
+    diags@(reduceDiag:_) <- waitForDiagnostics
 
     liftIO $ do
       length diags `shouldBe` 2
@@ -30,20 +28,10 @@ codeActionSpec = do
       reduceDiag ^. code `shouldBe` Just "Eta reduce"
       reduceDiag ^. source `shouldBe` Just "hlint"
 
-    let r = Range (Position 0 0) (Position 99 99)
-        c = CodeActionContext (diagsRsp ^. params . diagnostics) Nothing
-    _ <- sendRequest TextDocumentCodeAction (CodeActionParams doc r c)
-
-    rsp <- response :: Session CodeActionResponse
-    let (Just (List [(CommandOrCodeActionCommand cmd)])) = fromJust $ rsp ^. result
+    (CommandOrCodeActionCommand cmd:_) <- getAllCodeActions doc
     liftIO $ cmd ^. title `shouldBe` "Apply hint:Evaluate"
 
-
-
-    let args = decode $ encode $ fromJust $ cmd ^. arguments
-        execParams = ExecuteCommandParams (cmd ^. command) args
-    _ <- sendRequest WorkspaceExecuteCommand execParams
-    _ <- skipManyTill anyNotification response :: Session ExecuteCommandResponse
+    executeCommand cmd
 
     contents <- getDocumentEdit doc
     liftIO $ contents `shouldBe` "main = undefined\nfoo x = x\n"
@@ -54,20 +42,10 @@ codeActionSpec = do
     doc <- openDoc "CodeActionRename.hs" "haskell"
 
     -- ignore the first empty hlint diagnostic publish
-    [_, diagsRsp] <- skipManyTill loggingNotification (count 2 notification) :: Session [PublishDiagnosticsNotification]
-    let (List diags) = diagsRsp ^. params . diagnostics
-        diag = head diags
-        c = CodeActionContext (diagsRsp ^. params . diagnostics) Nothing
+    _ <- count 2 waitForDiagnostics
 
-    _ <- sendRequest TextDocumentCodeAction (CodeActionParams doc (diag ^. range) c)
-
-    rsp <- response :: Session CodeActionResponse
-    let (Just (List [CommandOrCodeActionCommand cmd])) = fromJust $ rsp ^. result
-        args = decode $ encode $ fromJust $ cmd ^. arguments
-        execParams = ExecuteCommandParams (cmd ^. command) args
-
-    _ <- sendRequest WorkspaceExecuteCommand execParams
-    _ <- response :: Session ExecuteCommandResponse
+    [CommandOrCodeActionCommand cmd] <- getAllCodeActions doc
+    executeCommand cmd
 
     contents <- getDocumentEdit doc
     liftIO $ contents `shouldBe` "main = putStrLn \"hello\""
@@ -83,34 +61,24 @@ codeActionSpec = do
       doc <- openDoc "CodeActionImport.hs" "haskell"
 
       -- ignore the first empty hlint diagnostic publish
-      [_, diagsRsp] <- skipManyTill loggingNotification (count 2 notification) :: Session [PublishDiagnosticsNotification]
-      let (List (diag:_)) = diagsRsp ^. params . diagnostics
-          c = CodeActionContext (diagsRsp ^. params . diagnostics) Nothing
-
+      [_,(diag:_)] <- count 2 waitForDiagnostics
       liftIO $ diag ^. message `shouldBe` "Variable not in scope: when :: Bool -> IO () -> IO ()"
 
-      _ <- sendRequest TextDocumentCodeAction (CodeActionParams doc (diag ^. range) c)
-
-      rsp <- response :: Session CodeActionResponse
-      let (Just (List actionsOrCommands)) = fromJust $ rsp ^. result
-          actns = map fromAction actionsOrCommands
+      actionsOrCommands <- getAllCodeActions doc
+      let actns = map fromAction actionsOrCommands
 
       liftIO $ do
         head actns ^. title `shouldBe` "Import module Control.Monad"
         forM_ actns $ \a -> do
           a ^. kind `shouldBe` Just CodeActionQuickFix
           a ^. command `shouldSatisfy` isJust
+          a ^. edit `shouldBe` Nothing
           let hasOneDiag (Just (List [_])) = True
               hasOneDiag _ = False
           a ^. diagnostics `shouldSatisfy` hasOneDiag
         length actns `shouldBe` 5
 
-      let (Just cmd) = head actns ^. command
-          args = decode $ encode $ fromJust $ cmd ^. arguments
-          execParams = ExecuteCommandParams (cmd ^. command) args
-
-      _ <- sendRequest WorkspaceExecuteCommand execParams
-      _ <- response :: Session ExecuteCommandResponse
+      executeCodeAction (head actns)
 
       contents <- getDocumentEdit doc
       liftIO $ contents `shouldBe` "import Control.Monad\nmain :: IO ()\nmain = when True $ putStrLn \"hello\""
@@ -121,28 +89,18 @@ codeActionSpec = do
         doc <- openDoc "AddPackage.hs" "haskell"
 
         -- ignore the first empty hlint diagnostic publish
-        [_,diagsRsp] <- skipManyTill loggingNotification (count 2 notification) :: Session [PublishDiagnosticsNotification]
-        let (List (diag:_)) = diagsRsp ^. params . diagnostics
-            c = CodeActionContext (diagsRsp ^. params . diagnostics) Nothing
+        [_,(diag:_)] <- count 2 waitForDiagnostics
 
         liftIO $ diag ^. message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Data.Text’"
 
-        _ <- sendRequest TextDocumentCodeAction (CodeActionParams doc (diag ^. range) c)
-
-        rsp <- response :: Session CodeActionResponse
-        let (Just (List [CommandOrCodeActionCodeAction action])) = fromJust $ rsp ^. result
+        (CommandOrCodeActionCodeAction action:_) <- getAllCodeActions doc
 
         liftIO $ do
           action ^. title `shouldBe` "Add text as a dependency"
           action ^. kind `shouldBe` Just CodeActionQuickFix
           action ^. command . _Just . command `shouldSatisfy` T.isSuffixOf "package:add"
 
-        let (Just cmd) = action ^. command
-            args = decode $ encode $ fromJust $ cmd ^. arguments
-            execParams = ExecuteCommandParams (cmd ^. command) args
-
-        _ <- sendRequest WorkspaceExecuteCommand execParams
-        _ <- response :: Session ExecuteCommandResponse
+        executeCodeAction action
 
         contents <- getDocumentEdit . TextDocumentIdentifier =<< getDocUri "add-package-test.cabal"
         liftIO $ T.lines contents `shouldSatisfy` \x -> any (\l -> "text -any" `T.isSuffixOf` (x !! l)) [15, 16]
@@ -150,17 +108,12 @@ codeActionSpec = do
         doc <- openDoc "app/Asdf.hs" "haskell"
 
         -- ignore the first empty hlint diagnostic publish
-        [_,diagsRsp] <- skipManyTill loggingNotification (count 2 notification) :: Session [PublishDiagnosticsNotification]
-        let (List (diag:_)) = diagsRsp ^. params . diagnostics
-            c = CodeActionContext (diagsRsp ^. params . diagnostics) Nothing
+        [_,(diag:_)] <- count 2 waitForDiagnostics
 
         liftIO $ diag ^. message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Codec.Compression.GZip’"
 
-        _ <- sendRequest TextDocumentCodeAction (CodeActionParams doc (diag ^. range) c)
-
-        rsp <- response :: Session CodeActionResponse
-        let (Just (List mActions)) = fromJust $ rsp ^. result
-            allActions = map fromAction mActions
+        mActions <- getAllCodeActions doc
+        let allActions = map fromAction mActions
             action = head allActions
 
         liftIO $ do
@@ -168,12 +121,7 @@ codeActionSpec = do
           forM_ allActions $ \a -> a ^. kind `shouldBe` Just CodeActionQuickFix
           forM_ allActions $ \a -> a ^. command . _Just . command `shouldSatisfy` T.isSuffixOf "package:add"
 
-        let (Just cmd) = action ^. command
-            args = decode $ encode $ fromJust $ cmd ^. arguments
-            execParams = ExecuteCommandParams (cmd ^. command) args
-
-        _ <- sendRequest WorkspaceExecuteCommand execParams
-        _ <- response :: Session ExecuteCommandResponse
+        executeCodeAction action        
 
         contents <- getDocumentEdit . TextDocumentIdentifier =<< getDocUri "package.yaml"
         liftIO $ do
@@ -185,32 +133,27 @@ codeActionSpec = do
       doc <- openDoc "src/CodeActionRedundant.hs" "haskell"
 
       -- ignore the first empty hlint diagnostic publish
-      [_,diagsRsp] <- skipManyTill loggingNotification (count 2 notification) :: Session [PublishDiagnosticsNotification]
-      let (List [diag]) = diagsRsp ^. params . diagnostics
-          c = CodeActionContext (diagsRsp ^. params . diagnostics) Nothing
+      [_,(diag:_)] <- count 2 waitForDiagnostics
 
       liftIO $ diag ^. message `shouldSatisfy` T.isPrefixOf "The import of ‘Data.List’ is redundant"
 
-      _ <- sendRequest TextDocumentCodeAction (CodeActionParams doc (diag ^. range) c)
+      mActions <- getAllCodeActions doc
 
-      rsp <- response :: Session CodeActionResponse
-      let (Just (List mActions)) = fromJust $ rsp ^. result
-          allActions@[removeAction, changeAction] = map fromAction mActions
+      let allActions@[removeAction, changeAction] = map fromAction mActions
 
       liftIO $ do
         removeAction ^. title `shouldBe` "Remove redundant import"
         changeAction ^. title `shouldBe` "Import instances"
         forM_ allActions $ \a -> a ^. kind `shouldBe` Just CodeActionQuickFix
-        forM_ allActions $ \a -> a ^. command . _Just . command `shouldSatisfy` T.isSuffixOf "hie:applyWorkspaceEdit"
+        forM_ allActions $ \a -> a ^. command `shouldBe` Nothing
+        forM_ allActions $ \a -> a ^. edit `shouldSatisfy` isJust
 
-      let (Just cmd) = removeAction ^. command
-          args = decode $ encode $ fromJust $ cmd ^. arguments
-          execParams = ExecuteCommandParams (cmd ^. command) args
+      executeCodeAction removeAction
 
-      _ <- sendRequest WorkspaceExecuteCommand execParams
-      _ <- response :: Session ExecuteCommandResponse
-
-      contents <- getDocumentEdit doc
+      -- No command/applyworkspaceedit should be here, since action
+      -- provides workspace edit property which skips round trip to
+      -- the server
+      contents <- documentContents doc
       liftIO $ contents `shouldBe` "main :: IO ()\nmain = putStrLn \"hello\""
 
 fromAction :: CommandOrCodeAction -> CodeAction
