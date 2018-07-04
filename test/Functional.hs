@@ -25,7 +25,7 @@ main = do
     cdAndDo "./test/testdata" $ hspec dispatchSpec
 
 spec :: Spec
-spec = parallel $ do
+spec = do
   describe "deferred responses" $ do
     it "do not affect hover requests" $ runSession hieCommand "test/testdata" $ do
       doc <- openDoc "FuncTest.hs" "haskell"
