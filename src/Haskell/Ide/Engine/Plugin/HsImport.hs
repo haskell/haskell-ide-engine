@@ -33,11 +33,11 @@ importModule :: Uri -> T.Text -> IdeGhcM (IdeResult J.WorkspaceEdit)
 importModule uri modName =
   pluginGetFile "hsimport cmd: " uri $ \origInput -> do
     fileMap <- GM.mkRevRedirMapFunc
-    GM.withMappedFile origInput $ \input -> liftIO $ do
+    GM.withMappedFile origInput $ \input -> do
 
-      tmpDir            <- getTemporaryDirectory
-      (output, outputH) <- openTempFile tmpDir "hsimportOutput"
-      hClose outputH
+      tmpDir            <- liftIO getTemporaryDirectory
+      (output, outputH) <- liftIO $ openTempFile tmpDir "hsimportOutput"
+      liftIO $ hClose outputH
 
       let args = defaultArgs { moduleName    = T.unpack modName
                              , inputSrcFile  = input
@@ -46,11 +46,11 @@ importModule uri modName =
       maybeErr <- liftIO $ hsimportWithArgs defaultConfig args
       case maybeErr of
         Just err -> do
-          removeFile output
+          liftIO $ removeFile output
           let msg = T.pack $ show err
           return $ IdeResultFail (IdeError PluginError msg Null)
         Nothing -> do
-          newText <- T.readFile output
-          removeFile output
-          workspaceEdit <- makeDiffResult input newText fileMap
+          newText <- liftIO $ T.readFile output
+          liftIO $ removeFile output
+          workspaceEdit <- liftToGhc $ makeDiffResult input newText fileMap
           return $ IdeResultOk workspaceEdit

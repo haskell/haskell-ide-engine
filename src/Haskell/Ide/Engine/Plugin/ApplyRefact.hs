@@ -62,7 +62,7 @@ applyOneCmd = CmdSync $ \(AOP uri pos title) -> do
 applyOneCmd' :: Uri -> OneHint -> IdeGhcM (IdeResult WorkspaceEdit)
 applyOneCmd' uri oneHint = pluginGetFile "applyOne: " uri $ \fp -> do
       revMapp <- GM.mkRevRedirMapFunc
-      res <- GM.withMappedFile fp $ \file' -> liftIO $ applyHint file' (Just oneHint) revMapp
+      res <- GM.withMappedFile fp $ \file' -> liftToGhc $ applyHint file' (Just oneHint) revMapp
       logm $ "applyOneCmd:file=" ++ show fp
       logm $ "applyOneCmd:res=" ++ show res
       case res of
@@ -80,7 +80,7 @@ applyAllCmd = CmdSync $ \uri -> do
 applyAllCmd' :: Uri -> IdeGhcM (IdeResult WorkspaceEdit)
 applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \fp -> do
       revMapp <- GM.mkRevRedirMapFunc
-      res <- GM.withMappedFile fp $ \file' -> liftIO $ applyHint file' Nothing revMapp
+      res <- GM.withMappedFile fp $ \file' -> liftToGhc $ applyHint file' Nothing revMapp
       logm $ "applyAllCmd:res=" ++ show res
       case res of
         Left err -> return $ IdeResultFail (IdeError PluginError
@@ -206,7 +206,7 @@ ss2Range ss = Range ps pe
 
 -- ---------------------------------------------------------------------
 
-applyHint :: FilePath -> Maybe OneHint -> (FilePath -> FilePath) -> IO (Either String WorkspaceEdit)
+applyHint :: FilePath -> Maybe OneHint -> (FilePath -> FilePath) -> IdeM (Either String WorkspaceEdit)
 applyHint fp mhint fileMap = do
   runExceptT $ do
     ideas <- getIdeas fp mhint
@@ -228,12 +228,12 @@ applyHint fp mhint fileMap = do
     -- the "Redundant bracket" hint will never be executed
     -- because SrcSpan (1,20,??,??) doesn't contain position (1,13).
     appliedFile <- liftIO $ applyRefactorings Nothing commands fp
-    diff <- liftIO $ makeDiffResult fp (T.pack appliedFile) fileMap
+    diff <- ExceptT $ Right <$> makeDiffResult fp (T.pack appliedFile) fileMap
     liftIO $ logm $ "applyHint:diff=" ++ show diff
     return diff
 
 -- | Gets HLint ideas for
-getIdeas :: FilePath -> Maybe OneHint -> ExceptT String IO [Idea]
+getIdeas :: FilePath -> Maybe OneHint -> ExceptT String IdeM [Idea]
 getIdeas lintFile mhint = do
   let hOpts = hlintOpts lintFile (oneHintPos <$> mhint)
   ideas <- runHlint lintFile hOpts
@@ -255,11 +255,11 @@ hlintOpts lintFile mpos =
     opts = maybe "" posOpt mpos
   in [lintFile, "--quiet", "--refactor", "--refactor-options=" ++ opts ]
 
-runHlint :: FilePath -> [String] -> ExceptT String IO [Idea]
+runHlint :: FilePath -> [String] -> ExceptT String IdeM [Idea]
 runHlint fp args =
   do (flags,classify,hint) <- liftIO $ argsSettings args
      let myflags = flags { hseFlags = (hseFlags flags) { extensions = (EnableExtension TypeApplications:extensions (hseFlags flags))}}
-     res <- bimapExceptT showParseError id $ ExceptT $ parseModuleEx myflags fp Nothing
+     res <- bimapExceptT showParseError id $ ExceptT $ liftIO $ parseModuleEx myflags fp Nothing
      pure $ applyHints classify hint [res]
 
 showParseError :: Hlint.ParseError -> String

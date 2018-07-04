@@ -25,9 +25,11 @@ module Haskell.Ide.Engine.PluginUtils
   , oldPosToNew
   , unPos
   , toPos
+  , clientSupportsDocumentChanges
   ) where
 
 import           Control.Monad.IO.Class
+import           Control.Monad.Reader
 import           Control.Monad.Trans.Except
 import           Data.Aeson
 import           Data.Algorithm.Diff
@@ -36,11 +38,13 @@ import qualified Data.HashMap.Strict                   as H
 import           Data.Monoid
 import qualified Data.Text                             as T
 import qualified Data.Text.IO                          as T
+import           Data.Maybe
 import qualified GhcMod.Utils                          as GM
 import           FastString
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.ArtifactMap
+import           Language.Haskell.LSP.Types.Capabilities
 import qualified Language.Haskell.LSP.Types            as J
 import           Prelude                               hiding (log)
 import           SrcLoc
@@ -143,25 +147,29 @@ data WithDeletions = IncludeDeletions | SkipDeletions
   deriving Eq
 
 -- | Generate a 'WorkspaceEdit' value from an original file and text to replace it.
-makeDiffResult :: FilePath -> T.Text -> (FilePath -> FilePath) -> IO WorkspaceEdit
+makeDiffResult :: FilePath -> T.Text -> (FilePath -> FilePath) -> IdeM WorkspaceEdit
 makeDiffResult orig new fileMap = do
-  origText <- T.readFile orig
+  origText <- liftIO $ T.readFile orig
   let fp' = fileMap orig
-  fp <- GM.makeAbsolute' fp'
-  return $ diffText (filePathToUri fp,origText) new IncludeDeletions
+  fp <- liftIO $ GM.makeAbsolute' fp'
+  diffText (filePathToUri fp,origText) new IncludeDeletions
 
 -- | A version of 'makeDiffResult' that has does not insert any deletions
-makeAdditiveDiffResult :: FilePath -> T.Text -> (FilePath -> FilePath) -> IO WorkspaceEdit
+makeAdditiveDiffResult :: FilePath -> T.Text -> (FilePath -> FilePath) -> IdeM WorkspaceEdit
 makeAdditiveDiffResult orig new fileMap = do
-  origText <- T.readFile orig
+  origText <- liftIO $ T.readFile orig
   let fp' = fileMap orig
-  fp <- GM.makeAbsolute' fp'
-  return $ diffText (filePathToUri fp,origText) new SkipDeletions
+  fp <- liftIO $ GM.makeAbsolute' fp'
+  diffText (filePathToUri fp,origText) new SkipDeletions
 
 -- |Generate a 'WorkspaceEdit' value from a pair of source Text
 -- TODO: Doesn't seem to work with 'editHpackPackage'?
-diffText :: (Uri,T.Text) -> T.Text -> WithDeletions -> WorkspaceEdit
-diffText (f,fText) f2Text withDeletions = WorkspaceEdit (Just h) (Just docChanges)
+diffText :: (Uri,T.Text) -> T.Text -> WithDeletions -> IdeM WorkspaceEdit
+diffText (f,fText) f2Text withDeletions = do
+    supports <- clientSupportsDocumentChanges
+    if supports
+      then return $ WorkspaceEdit Nothing (Just docChanges)
+      else return $ WorkspaceEdit (Just h) Nothing
   where
     d = getGroupedDiff (lines $ T.unpack fText) (lines $ T.unpack f2Text)
 
@@ -225,3 +233,12 @@ fileInfo tfileName =
   in (dir,sfileName)
 
 -- ---------------------------------------------------------------------
+
+clientSupportsDocumentChanges :: IdeM Bool
+clientSupportsDocumentChanges = do
+  ClientCapabilities mwCaps _ _ <- ask
+  let supports = do
+        wCaps <- mwCaps
+        WorkspaceEditClientCapabilities mDc <- _workspaceEdit wCaps
+        mDc
+  return $ fromMaybe False supports

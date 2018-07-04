@@ -52,21 +52,22 @@ import           Haskell.Ide.Engine.Compat
 import           Haskell.Ide.Engine.LSP.CodeActions
 import           Haskell.Ide.Engine.LSP.Config
 import           Haskell.Ide.Engine.LSP.Reactor
-import qualified Haskell.Ide.Engine.Plugin.HaRe        as HaRe
-import qualified Haskell.Ide.Engine.Plugin.GhcMod      as GhcMod
-import qualified Haskell.Ide.Engine.Plugin.ApplyRefact as ApplyRefact
-import qualified Haskell.Ide.Engine.Plugin.Brittany    as Brittany
-import qualified Haskell.Ide.Engine.Plugin.Hoogle      as Hoogle
-import qualified Haskell.Ide.Engine.Plugin.Haddock     as Haddock
-import qualified Haskell.Ide.Engine.Plugin.HieExtras   as Hie
+import qualified Haskell.Ide.Engine.Plugin.HaRe          as HaRe
+import qualified Haskell.Ide.Engine.Plugin.GhcMod        as GhcMod
+import qualified Haskell.Ide.Engine.Plugin.ApplyRefact   as ApplyRefact
+import qualified Haskell.Ide.Engine.Plugin.Brittany      as Brittany
+import qualified Haskell.Ide.Engine.Plugin.Hoogle        as Hoogle
+import qualified Haskell.Ide.Engine.Plugin.Haddock       as Haddock
+import qualified Haskell.Ide.Engine.Plugin.HieExtras     as Hie
 import           Haskell.Ide.Engine.Plugin.Base
-import qualified Language.Haskell.LSP.Control          as CTRL
-import qualified Language.Haskell.LSP.Core             as Core
-import qualified Language.Haskell.LSP.VFS              as VFS
+import qualified Language.Haskell.LSP.Control            as CTRL
+import qualified Language.Haskell.LSP.Core               as Core
+import qualified Language.Haskell.LSP.VFS                as VFS
 import           Language.Haskell.LSP.Diagnostics
 import           Language.Haskell.LSP.Messages
-import qualified Language.Haskell.LSP.Types            as J
-import qualified Language.Haskell.LSP.Utility          as U
+import qualified Language.Haskell.LSP.Types              as J
+import           Language.Haskell.LSP.Types.Capabilities as C
+import qualified Language.Haskell.LSP.Utility            as U
 import           System.Exit
 import qualified System.Log.Logger as L
 import qualified Yi.Rope as Yi
@@ -80,7 +81,7 @@ import Name
 -- ---------------------------------------------------------------------
 
 lspStdioTransport
-  :: (DispatcherEnv -> ErrorHandler -> CallbackHandler R -> IO ())
+  :: (DispatcherEnv -> ErrorHandler -> CallbackHandler R -> ClientCapabilities -> IO ())
   -> TChan (PluginRequest R)
   -> FilePath
   -> Maybe FilePath
@@ -93,7 +94,7 @@ lspStdioTransport hieDispatcherProc cin origDir captureFp = do
 -- ---------------------------------------------------------------------
 
 run
-  :: (DispatcherEnv -> ErrorHandler -> CallbackHandler R -> IO ())
+  :: (DispatcherEnv -> ErrorHandler -> CallbackHandler R -> ClientCapabilities -> IO ())
   -> TChan (PluginRequest R)
   -> FilePath
   -> Maybe FilePath
@@ -114,17 +115,19 @@ run dispatcherProc cin _origDir captureFp = flip E.catches handlers $ do
               , docVersionTVar = versionTVar
               }
         let reactorFunc = runReactor lf dEnv cin $ reactor rin commandMap
+            caps = Core.clientCapabilities lf
 
         let errorHandler :: ErrorHandler
             errorHandler lid code e =
               Core.sendErrorResponseS (Core.sendFunc lf) (J.responseId lid) code e
             callbackHandler :: CallbackHandler R
             callbackHandler f x = runReactor lf dEnv cin $ f x
+        
 
         -- haskell lsp sets the current directory to the project root in the InitializeRequest
         -- We launch the dispatcher after that so that the defualt cradle is
         -- recognized properly by ghc-mod
-        _ <- forkIO $ race_ (dispatcherProc dEnv errorHandler callbackHandler) reactorFunc
+        _ <- forkIO $ race_ (dispatcherProc dEnv errorHandler callbackHandler caps) reactorFunc
         return Nothing
 
   flip E.finally finalProc $ do

@@ -19,16 +19,17 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.STM
-import qualified Data.Aeson                            as J
-import qualified Data.Text                             as T
-import qualified Data.Map                              as Map
-import qualified Data.Set                              as S
-import qualified GhcMod.Types                          as GM
+import qualified Data.Aeson                              as J
+import qualified Data.Text                               as T
+import qualified Data.Map                                as Map
+import qualified Data.Set                                as S
+import qualified GhcMod.Types                            as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.Monad
-import qualified Language.Haskell.LSP.Types            as J
+import qualified Language.Haskell.LSP.Types              as J
+import qualified Language.Haskell.LSP.Types.Capabilities as J
 
 data DispatcherEnv = DispatcherEnv
   { cancelReqsTVar     :: !(TVar (S.Set J.LspId))
@@ -47,16 +48,19 @@ dispatcherP :: forall m. TChan (PluginRequest m)
             -> DispatcherEnv
             -> ErrorHandler
             -> CallbackHandler m
+            -> J.ClientCapabilities
             -> IO ()
-dispatcherP inChan plugins ghcModOptions env errorHandler callbackHandler =
-  void $ runIdeGhcM ghcModOptions (IdeState emptyModuleCache Map.empty plugins Map.empty Nothing) $ do
-      stateVar <- lift . lift $ ask
+dispatcherP inChan plugins ghcModOptions env errorHandler callbackHandler caps =
+  void $ runIdeGhcM ghcModOptions caps (IdeState emptyModuleCache Map.empty plugins Map.empty Nothing) $ do
+      stateVar <- lift $ lift $ lift ask
       gchan <- liftIO $ do
         ghcChan <- newTChanIO
         ideChan <- newTChanIO
 
         _ <- forkIO $ mainDispatcher inChan ghcChan ideChan
-        _ <- forkIO $ runReaderT (ideDispatcher env errorHandler callbackHandler ideChan) stateVar
+        _ <- forkIO $ flip runReaderT stateVar $
+                        flip runReaderT caps $ 
+                          ideDispatcher env errorHandler callbackHandler ideChan
 
         -- TODO: Causes STM deadlock?
         -- mainThread <- myThreadId
@@ -111,7 +115,7 @@ ideDispatcher env errorHandler callbackHandler pin = forever $ do
 
         queueAction :: FilePath -> (Either T.Text CachedModule -> IdeM ()) -> IdeM ()
         queueAction fp action =
-          modifyMTState $ \s ->
+          lift $ modifyMTState $ \s ->
             let oldQueue = requestQueue s
                 -- add to existing queue if possible
                 update Nothing = [action]

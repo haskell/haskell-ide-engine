@@ -68,6 +68,7 @@ import           GHC (HscEnv)
 import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.GhcModuleCache
 
+import           Language.Haskell.LSP.Types.Capabilities
 import           Language.Haskell.LSP.Types (Diagnostic (..),
                                              DiagnosticSeverity (..),
                                              List (..),
@@ -116,10 +117,14 @@ instance ToJSON IdePlugins where
 type IdeGhcM = GM.GhcModT IdeM
 
 instance MonadMTState IdeState IdeGhcM where
-  readMTS = lift $ lift $ readMTS
-  modifyMTS f = lift $ lift $ modifyMTS f
+  readMTS = lift $ lift $ lift readMTS
+  modifyMTS f = lift $ lift $ lift $ modifyMTS f
 
-type IdeM = MultiThreadState IdeState
+type IdeM = ReaderT ClientCapabilities (MultiThreadState IdeState)
+
+instance MonadMTState IdeState IdeM where
+  readMTS = lift readMTS
+  modifyMTS = lift . modifyMTS
 
 class (Monad m) => LiftsToGhc m where
   liftToGhc :: m a -> IdeGhcM a
@@ -141,11 +146,11 @@ data IdeState = IdeState
 
 instance HasGhcModuleCache IdeM where
   getModuleCache = do
-    tvar <- ask
+    tvar <- lift ask
     state <- liftIO $ readTVarIO tvar
     return (moduleCache state)
   setModuleCache mc = do
-    tvar <- ask
+    tvar <- lift ask
     liftIO $ atomically $ modifyTVar' tvar (\st -> st { moduleCache = mc })
 
 instance HasGhcModuleCache IdeGhcM where
