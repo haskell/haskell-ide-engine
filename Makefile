@@ -65,21 +65,12 @@ build-copy-compiler-tool: submodules
 	&& stack --stack-yaml=stack.yaml       build --copy-compiler-tool
 .PHONY: build-copy-compiler-tool
 
-icu-macos-fix:
-	brew install icu4c                                     \
-	&& stack --stack-yaml=stack-8.2.1.yaml build text-icu  \
-         --extra-lib-dirs=/usr/local/opt/icu4c/lib         \
-         --extra-include-dirs=/usr/local/opt/icu4c/include \
-	&& stack --stack-yaml=stack-8.2.2.yaml build text-icu  \
-         --extra-lib-dirs=/usr/local/opt/icu4c/lib         \
-         --extra-include-dirs=/usr/local/opt/icu4c/include \
-	&& stack --stack-yaml=stack-8.4.2.yaml build text-icu  \
-         --extra-lib-dirs=/usr/local/opt/icu4c/lib         \
-         --extra-include-dirs=/usr/local/opt/icu4c/include \
-	&& stack --stack-yaml=stack.yaml build text-icu        \
-         --extra-lib-dirs=/usr/local/opt/icu4c/lib         \
-         --extra-include-dirs=/usr/local/opt/icu4c/include
+icu-macos-fix: icu-macos-fix-install icu-macos-fix-no-brew
 .PHONY: icu-macos-fix
+
+icu-macos-fix-install:
+	brew install icu4c
+.PHONY: icu-macos-fix-install
 
 icu-macos-fix-no-brew:
 	stack --stack-yaml=stack-8.2.1.yaml build text-icu     \
