@@ -158,6 +158,7 @@ getConfig (J.NotificationMessage _ _ (J.DidChangeConfigurationParams p)) =
 data Config =
   Config
     { hlintOn             :: Bool
+    , hlintHideOnError    :: Bool
     , maxNumberOfProblems :: Int
     } deriving (Show)
 
@@ -166,6 +167,7 @@ instance J.FromJSON Config where
     s <- v .: "languageServerHaskell"
     flip (J.withObject "Config.settings") s $ \o -> Config
       <$> o .:? "hlintOn" .!= True
+      <*> o .:? "hlintHideOnError" .!= True
       <*> o .: "maxNumberOfProblems"
 
 -- 2017-10-09 23:22:00.710515298 [ThreadId 11] - ---> {"jsonrpc":"2.0","method":"workspace/didChangeConfiguration","params":{"settings":{"languageServerHaskell":{"maxNumberOfProblems":100,"hlintOn":true}}}}
@@ -810,12 +812,14 @@ requestDiagnostics tn cin file ver = do
   lf <- ask
   mc <- liftIO $ Core.config lf
   let
-    sendOne pid (fileUri,ds) = do
-      publishDiagnostics maxToSend fileUri Nothing (Map.fromList [(Just pid,SL.toSortedList ds)])
-    sendEmpty = publishDiagnostics maxToSend file Nothing (Map.fromList [(Just "ghcmod",SL.toSortedList [])])
+    sendHlint = maybe True hlintOn mc
+    flushHlintOnError = maybe True hlintHideOnError mc
     maxToSend = maybe 50 maxNumberOfProblems mc
 
-  let sendHlint = maybe True hlintOn mc
+    sendOne pid (fileUri,ds) = do
+      publishDiagnostics maxToSend fileUri Nothing (Map.fromList [(Just pid,SL.toSortedList ds)])
+    sendEmpty pid = publishDiagnostics maxToSend file Nothing (Map.fromList [(Just pid,SL.toSortedList [])])
+
   when sendHlint $ do
     -- get hlint diagnostics
     let reql = GReq tn (Just file) (Just (file,ver)) Nothing callbackl
@@ -834,8 +838,10 @@ requestDiagnostics tn cin file ver = do
               $ "Got error while processing diagnostics: " <> e
         let ds = Map.toList $ S.toList <$> pd
         case ds of
-          [] -> sendEmpty
-          _ -> mapM_ (sendOne "ghcmod") ds
+          [] -> sendEmpty "hie"
+          _ -> forM_ ds $ \d -> do
+                when flushHlintOnError $ sendEmpty "hlint"
+                sendOne "ghcmod" d
 
   liftIO $ atomically $ writeTChan cin reqg
 
