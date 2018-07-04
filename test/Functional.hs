@@ -192,16 +192,22 @@ spec = do
                                   -- $ runSession hieCommand "test/testdata" $ do
                                   $ runSession hieCommandVomit "test/testdata" $ do
       _doc <- openDoc "ApplyRefact2.hs" "haskell"
-      _diagsRspHlint <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
+      diagsRspHlint <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
       diagsRspGhc   <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
-      let (List diags) = diagsRspGhc ^. params . diagnostics
+      let (List diagsHlint) = diagsRspHlint ^. params . diagnostics
+          (List diagsGhc) = diagsRspGhc ^. params . diagnostics
 
-      liftIO $ length diags `shouldBe` 2
+      liftIO $ do
+        length diagsHlint `shouldBe` 2
+        length diagsGhc `shouldBe` 0
 
       _doc2 <- openDoc "HaReRename.hs" "haskell"
-      _diagsRspHlint2 <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
+      diagsRspHlint2 <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
       -- errMsg <- skipManyTill anyNotification notification :: Session ShowMessageNotification
-      diagsRsp2 <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
-      let (List diags2) = diagsRsp2 ^. params . diagnostics
+      diagsRspGhc2 <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
+      let (List diagsHlint2) = diagsRspHlint2 ^. params . diagnostics
+          (List diagsGhc2) = diagsRspGhc2 ^. params . diagnostics
 
-      liftIO $ show diags2 `shouldBe` "[]"
+      liftIO $ do
+        diagsHlint2 `shouldBe` []
+        diagsGhc2 `shouldBe` []
