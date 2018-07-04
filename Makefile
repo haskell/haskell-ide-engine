@@ -81,3 +81,18 @@ icu-macos-fix:
          --extra-include-dirs=/usr/local/opt/icu4c/include
 .PHONY: icu-macos-fix
 
+icu-macos-fix-no-brew:
+	stack --stack-yaml=stack-8.2.1.yaml build text-icu     \
+	  --extra-lib-dirs=/usr/local/opt/icu4c/lib            \
+	  --extra-include-dirs=/usr/local/opt/icu4c/include    \
+	&& stack --stack-yaml=stack-8.2.2.yaml build text-icu  \
+         --extra-lib-dirs=/usr/local/opt/icu4c/lib         \
+         --extra-include-dirs=/usr/local/opt/icu4c/include \
+	&& stack --stack-yaml=stack-8.4.2.yaml build text-icu  \
+         --extra-lib-dirs=/usr/local/opt/icu4c/lib         \
+         --extra-include-dirs=/usr/local/opt/icu4c/include \
+	&& stack --stack-yaml=stack.yaml build text-icu        \
+         --extra-lib-dirs=/usr/local/opt/icu4c/lib         \
+         --extra-include-dirs=/usr/local/opt/icu4c/include
+.PHONY: icu-macos-fix-no-brew
+
