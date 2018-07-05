@@ -33,6 +33,7 @@ import qualified Data.Map                              as Map
 import qualified Data.Set                              as S
 import qualified Data.Text                             as T
 import           Data.Typeable
+import           Data.Default
 import           GHC.Generics
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.MonadTypes
@@ -85,6 +86,7 @@ startServer = do
   void $ forkIO $ dispatcherP cin plugins testOptions dispatcherEnv
                     (\lid errCode e -> logToChan logChan ("received an error", Left (lid, errCode, e)))
                     (\g x -> g x)
+                    def
   return (cin,logChan)
 
 -- ---------------------------------------------------------------------

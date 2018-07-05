@@ -155,6 +155,7 @@ test-suite haskell-ide-test
                      , aeson
                      , base
                      , containers
+                     , data-default
                      , directory
                      , filepath
                      , ghc-mod-core
@@ -194,6 +195,7 @@ test-suite haskell-ide-dispatcher-test
                      , aeson
                      , base
                      , containers
+                     , data-default
                      , directory
                      , filepath
                      , ghc-mod-core

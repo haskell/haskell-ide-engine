@@ -13,6 +13,7 @@ module Haskell.Ide.Engine.PluginUtils
   , WithDeletions(..)
   , makeAdditiveDiffResult
   , diffText
+  , diffText'
   , srcSpan2Range
   , srcSpan2Loc
   , reverseMapFile
@@ -162,14 +163,19 @@ makeAdditiveDiffResult orig new fileMap = do
   fp <- liftIO $ GM.makeAbsolute' fp'
   diffText (filePathToUri fp,origText) new SkipDeletions
 
--- |Generate a 'WorkspaceEdit' value from a pair of source Text
+-- | Generate a 'WorkspaceEdit' value from a pair of source Text
 -- TODO: Doesn't seem to work with 'editHpackPackage'?
 diffText :: (Uri,T.Text) -> T.Text -> WithDeletions -> IdeM WorkspaceEdit
-diffText (f,fText) f2Text withDeletions = do
-    supports <- clientSupportsDocumentChanges
-    if supports
-      then return $ WorkspaceEdit Nothing (Just docChanges)
-      else return $ WorkspaceEdit (Just h) Nothing
+diffText old new withDeletions = do
+  supports <- clientSupportsDocumentChanges
+  return $ diffText' supports old new withDeletions
+
+-- | A pure version of 'diffText' for testing
+diffText' :: Bool -> (Uri,T.Text) -> T.Text -> WithDeletions -> WorkspaceEdit
+diffText' supports (f,fText) f2Text withDeletions  =
+  if supports
+    then WorkspaceEdit Nothing (Just docChanges)
+    else WorkspaceEdit (Just h) Nothing
   where
     d = getGroupedDiff (lines $ T.unpack fText) (lines $ T.unpack f2Text)
 

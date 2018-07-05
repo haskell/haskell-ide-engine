@@ -16,6 +16,7 @@ module TestUtils
 import           Control.Exception
 import           Control.Monad
 import           Data.Aeson.Types (typeMismatch)
+import           Data.Default
 import           Data.Text (pack)
 import           Data.Typeable
 import           Data.Yaml
@@ -69,7 +70,7 @@ makeRequest :: ToJSON a => PluginId -> CommandName -> a -> IdeGhcM (IdeResult Dy
 makeRequest plugin com arg = runPluginCommand plugin com (toJSON arg)
 
 runIGM :: IdePlugins -> IdeGhcM a -> IO a
-runIGM testPlugins = runIdeGhcM testOptions (IdeState emptyModuleCache Map.empty testPlugins Map.empty Nothing)
+runIGM testPlugins = runIdeGhcM testOptions def (IdeState emptyModuleCache Map.empty testPlugins Map.empty Nothing)
 
 withFileLogging :: FilePath -> IO a -> IO a
 withFileLogging logFile f = do
