@@ -284,7 +284,7 @@ dispatchSpec = do
       unpackRes hr6 `shouldBe` ("r6",Just
         (WorkspaceEdit
           (Just $ H.singleton r6uri textEdits)
-          (Just (List [TextDocumentEdit (VersionedTextDocumentIdentifier r6uri 0) textEdits]))
+          Nothing
         ))
     
     it "instantly responds to failed modules with no cache" $ do

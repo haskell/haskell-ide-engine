@@ -135,7 +135,8 @@ spec = do
       let expectedTextEdits = List [TextEdit (Range (Position 6 0) (Position 7 6)) "  where\n    bb = 5"]
       liftIO $ editReq ^. params . edit `shouldBe` WorkspaceEdit
             (Just $ H.singleton testUri expectedTextEdits)
-            (Just (List [TextDocumentEdit (VersionedTextDocumentIdentifier testUri 0) expectedTextEdits]))
+            Nothing
+            
 
   -- -----------------------------------
 
