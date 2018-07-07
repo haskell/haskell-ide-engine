@@ -72,7 +72,7 @@ we talk to clients.__
    ![Renaming](https://i.imgur.com/z03G2a5.gif)
 
  - Adding chosen import and the package dependencies (vscode only)
- 
+
    ![Adding import & deps](https://user-images.githubusercontent.com/1387653/40287051-b6f987fe-5c5f-11e8-980f-ed7bfa1b2aec.gif)
 
 ## Installation
@@ -169,6 +169,9 @@ stack --stack-yaml=stack-8.0.2.yaml install
 ```
 
 #### Installation on Windows
+
+The Windows batch file `make-build-all.bat` can substitute for `make build-all` on
+systems without the `make` command.
 
 In order to avoid problems with long paths you can do the following:
 
