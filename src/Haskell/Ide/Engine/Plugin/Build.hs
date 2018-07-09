@@ -482,7 +482,7 @@ isLocal _ = False
 
 getStackLocalPackages :: FilePath -> IO [String]
 getStackLocalPackages stackYamlFile = withBinaryFileContents stackYamlFile $ \contents -> do
-  let (Just (StackYaml stackYaml)) = decode contents
+  let (Right (StackYaml stackYaml)) = decodeEither' contents
       stackLocalPackages = map stackPackageName $ filter isLocal stackYaml
   return stackLocalPackages
 
