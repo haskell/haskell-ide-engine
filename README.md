@@ -77,7 +77,7 @@ we talk to clients.__
    ![Renaming](https://i.imgur.com/z03G2a5.gif)
 
  - Adding chosen import and the package dependencies (vscode only)
- 
+
    ![Adding import & deps](https://user-images.githubusercontent.com/1387653/40287051-b6f987fe-5c5f-11e8-980f-ed7bfa1b2aec.gif)
 
 ## Installation
@@ -115,8 +115,9 @@ $ git submodule update --init
 
 To install HIE, you need Stack version >= 1.7.1
 
-To install all supported GHC versions, and name them as expected
-by the vscode plugin, and also build a local hoogle database, do
+To install all supported GHC versions, name them as expected by the VS Code
+plugin, and also build a local hoogle database, you need the `make` tool (on
+Windows, see the further advice below). Use the command:
 
 ```bash
 make build-all
@@ -128,7 +129,7 @@ Then add
 "languageServerHaskell.useHieWrapper": true
 ```
 
-to VSCode user settings.
+to VS Code user settings.
 
 Otherwise, do one of the following.
 
@@ -173,13 +174,40 @@ stack --stack-yaml=stack-8.2.1.yaml install
 stack --stack-yaml=stack-8.0.2.yaml install
 ```
 
-#### Installation on Windows
+### Installation on Windows
 
-In order to avoid problems with long paths you can do the following:
+#### The `make` tool
 
-1. Edit the group policy: set "Enable Win32 long paths" to "Enabled". Works only for Windows 10
+If the `make` tool is not already available on your path (in Command Prompt, try
+commands `where make` or `stack exec where -- make` to investigate; in
+PowerShell, try `where.exe make` or `stack exec where -- make`), it can be added
+to the `stack` environment with the command:
 
-2. Clone the `haskell-ide-engine` to the root of your logical drive (e.g. to `E:\hie`)
+```batch
+stack exec pacman -- -S make
+```
+
+The `make build-all` command is then accessible using the command:
+
+```batch
+stack exec make -- build-all
+```
+
+For users of [Cygwin](http://www.cygwin.com/), the Cygwin installer also
+provides the `make` tool as an option.
+
+Alternatively, the Windows batch file `make-build-all.bat` can substitute for
+`make build-all` on systems without the `make` command.
+
+#### Long paths
+
+In order to avoid problems with long paths on Windows you can do the following:
+
+1. Edit the group policy: set "Enable Win32 long paths" to "Enabled". Works
+   only for Windows 10
+
+2. Clone the `haskell-ide-engine` to the root of your logical drive (e.g. to
+   `E:\hie`)
 
 
 ### Installation with Nix
