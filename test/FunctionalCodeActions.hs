@@ -9,7 +9,8 @@ import Data.Default
 import Data.Maybe
 import qualified Data.Text as T
 import Language.Haskell.LSP.Test as Test
-import Language.Haskell.LSP.Types as LSP hiding (contents, error)
+import Language.Haskell.LSP.Types as LSP hiding (contents, error, message)
+import qualified Language.Haskell.LSP.Types as LSP
 import qualified Language.Haskell.LSP.Types.Capabilities as C
 import Test.Hspec
 import TestUtils
@@ -61,8 +62,8 @@ codeActionSpec = do
       doc <- openDoc "CodeActionImport.hs" "haskell"
 
       -- ignore the first empty hlint diagnostic publish
-      [_,(diag:_)] <- count 2 waitForDiagnostics
-      liftIO $ diag ^. message `shouldBe` "Variable not in scope: when :: Bool -> IO () -> IO ()"
+      [_,diag:_] <- count 2 waitForDiagnostics
+      liftIO $ diag ^. LSP.message `shouldBe` "Variable not in scope: when :: Bool -> IO () -> IO ()"
 
       actionsOrCommands <- getAllCodeActions doc
       let actns = map fromAction actionsOrCommands
@@ -89,9 +90,9 @@ codeActionSpec = do
         doc <- openDoc "AddPackage.hs" "haskell"
 
         -- ignore the first empty hlint diagnostic publish
-        [_,(diag:_)] <- count 2 waitForDiagnostics
+        [_,diag:_] <- count 2 waitForDiagnostics
 
-        liftIO $ diag ^. message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Data.Text’"
+        liftIO $ diag ^. LSP.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Data.Text’"
 
         (CommandOrCodeActionCodeAction action:_) <- getAllCodeActions doc
 
@@ -108,9 +109,9 @@ codeActionSpec = do
         doc <- openDoc "app/Asdf.hs" "haskell"
 
         -- ignore the first empty hlint diagnostic publish
-        [_,(diag:_)] <- count 2 waitForDiagnostics
+        [_,diag:_] <- count 2 waitForDiagnostics
 
-        liftIO $ diag ^. message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Codec.Compression.GZip’"
+        liftIO $ diag ^. LSP.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Codec.Compression.GZip’"
 
         mActions <- getAllCodeActions doc
         let allActions = map fromAction mActions
@@ -121,7 +122,7 @@ codeActionSpec = do
           forM_ allActions $ \a -> a ^. kind `shouldBe` Just CodeActionQuickFix
           forM_ allActions $ \a -> a ^. command . _Just . command `shouldSatisfy` T.isSuffixOf "package:add"
 
-        executeCodeAction action        
+        executeCodeAction action
 
         contents <- getDocumentEdit . TextDocumentIdentifier =<< getDocUri "package.yaml"
         liftIO $ do
@@ -133,9 +134,9 @@ codeActionSpec = do
       doc <- openDoc "src/CodeActionRedundant.hs" "haskell"
 
       -- ignore the first empty hlint diagnostic publish
-      [_,(diag:_)] <- count 2 waitForDiagnostics
+      [_,diag:_] <- count 2 waitForDiagnostics
 
-      liftIO $ diag ^. message `shouldSatisfy` T.isPrefixOf "The import of ‘Data.List’ is redundant"
+      liftIO $ diag ^. LSP.message `shouldSatisfy` T.isPrefixOf "The import of ‘Data.List’ is redundant"
 
       mActions <- getAllCodeActions doc
 
