@@ -138,7 +138,7 @@ executable hie-wrapper
 
 test-suite haskell-ide-test
   type:                exitcode-stdio-1.0
-  hs-source-dirs:      test
+  hs-source-dirs:      test/unit
   main-is:             Main.hs
   other-modules:       ApplyRefactPluginSpec
                        BrittanySpec
@@ -150,7 +150,6 @@ test-suite haskell-ide-test
                        HooglePluginSpec
                        JsonSpec
                        Spec
-                       TestUtils
   build-depends:       QuickCheck
                      , aeson
                      , base
@@ -161,6 +160,7 @@ test-suite haskell-ide-test
                      , ghc-mod-core
                      , haskell-lsp
                      , haskell-ide-engine
+                     , hie-test-utils
                      , hie-plugin-api
                      , hoogle > 5.0.11
                      , hslogger
@@ -178,19 +178,8 @@ test-suite haskell-ide-test
 
 test-suite haskell-ide-dispatcher-test
   type:                exitcode-stdio-1.0
-  hs-source-dirs:      test
-  main-is:             MainDispatcher.hs
-  other-modules:       ApplyRefactPluginSpec
-                       BrittanySpec
-                       CodeActionsSpec
-                       DiffSpec
-                       ExtensibleStateSpec
-                       GhcModPluginSpec
-                       HaRePluginSpec
-                       HooglePluginSpec
-                       JsonSpec
-                       Spec
-                       TestUtils
+  hs-source-dirs:      test/dispatcher
+  main-is:             Main.hs
   build-depends:       QuickCheck
                      , aeson
                      , base
@@ -201,6 +190,7 @@ test-suite haskell-ide-dispatcher-test
                      , ghc-mod-core
                      , haskell-lsp
                      , haskell-ide-engine
+                     , hie-test-utils
                      , hie-plugin-api
                      , hoogle > 5.0.11
                      , hslogger
@@ -216,15 +206,39 @@ test-suite haskell-ide-dispatcher-test
   default-language:    Haskell2010
   build-tool-depends:  hspec-discover:hspec-discover
 
+library hie-test-utils
+  hs-source-dirs:      test/utils
+  exposed-modules:     TestUtils
+  build-depends:       base
+                     , haskell-ide-engine
+                     , haskell-lsp
+                     , hie-plugin-api
+                     , aeson
+                     , containers
+                     , data-default
+                     , directory
+                     , filepath
+                     , ghc-mod-core
+                     , hslogger
+                     , hspec
+                     , text
+                     , unordered-containers
+                     , yaml
+  ghc-options:         -Wall -Wredundant-constraints
+  if flag(pedantic)
+     ghc-options:      -Werror
+  default-language:    Haskell2010
 
 test-suite haskell-ide-func-test
   type:                exitcode-stdio-1.0
-  hs-source-dirs:      test
-  main-is:             Functional.hs
-  other-modules:       TestUtils
-                       FunctionalDispatch
-                       FunctionalCodeActions
-  build-depends:       aeson
+  hs-source-dirs:      test/functional
+  main-is:             Main.hs
+  other-modules:       CodeActionsSpec
+                     , DispatchSpec
+                     , DeferredSpec
+                     , Spec
+  build-depends:       hie-test-utils
+                     , aeson
                      , base
                      , containers
                      , data-default
@@ -241,7 +255,6 @@ test-suite haskell-ide-func-test
                      , stm
                      , text
                      , unordered-containers
-                     , yaml
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror
@@ -250,7 +263,7 @@ test-suite haskell-ide-func-test
 
 test-suite hie-wrapper-test
   type:                exitcode-stdio-1.0
-  hs-source-dirs:      test
+  hs-source-dirs:      test/wrapper
   main-is:             HieWrapper.hs
   build-depends:       base
                      , hspec

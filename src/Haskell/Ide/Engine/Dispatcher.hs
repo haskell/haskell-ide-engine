@@ -102,7 +102,8 @@ ideDispatcher env errorHandler callbackHandler pin = forever $ do
             IdeResponseResult (IdeResultFail (IdeError code msg _)) -> liftIO $ do
               completedReq env lid
               case code of
-                NoModuleAvailable -> errorHandler lid J.ParseError msg
+                -- TODO: This isn't actually an internal error
+                NoModuleAvailable -> errorHandler lid J.InternalError msg
                 _ -> errorHandler lid J.InternalError msg
             IdeResponseDeferred fp cacheCb -> handleDeferred lid fp cacheCb callback
 

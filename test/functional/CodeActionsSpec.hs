@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module FunctionalCodeActions where
+module CodeActionsSpec where
 
 import Control.Lens hiding (List)
 import Control.Monad
@@ -15,8 +15,8 @@ import qualified Language.Haskell.LSP.Types.Capabilities as C
 import Test.Hspec
 import TestUtils
 
-codeActionSpec :: Spec
-codeActionSpec = do
+spec :: Spec
+spec = do
   it "provides hlint suggestions" $ runSession hieCommand "test/testdata" $ do
     doc <- openDoc "ApplyRefact2.hs" "haskell"
 

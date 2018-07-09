@@ -20,13 +20,14 @@ The startup code is based on that in MainHie.hs
 TODO: extract the commonality
 
 -}
-module FunctionalDispatch (dispatchSpec) where
+module DispatchSpec (spec) where
 
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
 import           Control.Concurrent.STM.TVar
 import           Control.Monad
 import           Control.Monad.STM
+import           Control.Monad.IO.Class
 import           Data.Aeson
 import qualified Data.HashMap.Strict                   as H
 import qualified Data.Map                              as Map
@@ -69,25 +70,31 @@ plugins = pluginDescToIdePlugins
   ,("base"       , baseDescriptor)
   ]
 
-startServer :: IO (TChan (PluginRequest IO),TChan LogVal)
-startServer = do
-  cin      <- atomically newTChan
-  logChan  <- atomically newTChan
+startServer :: TVar Bool
+            -> TChan (PluginRequest IO) 
+            -> TChan LogVal
+            -> IO () -- (TChan (PluginRequest IO),TChan LogVal)
+startServer serverStartedVar cin logChan = do
+  serverStarted <- atomically $ do
+    res <- readTVar serverStartedVar
+    writeTVar serverStartedVar True
+    return res
+  unless serverStarted $ do
+    
+    cancelTVar      <- newTVarIO S.empty
+    wipTVar         <- newTVarIO S.empty
+    versionTVar     <- newTVarIO Map.empty
+    let dispatcherEnv = DispatcherEnv
+          { cancelReqsTVar     = cancelTVar
+          , wipReqsTVar        = wipTVar
+          , docVersionTVar     = versionTVar
+          }
 
-  cancelTVar      <- atomically $ newTVar S.empty
-  wipTVar         <- atomically $ newTVar S.empty
-  versionTVar     <- atomically $ newTVar Map.empty
-  let dispatcherEnv = DispatcherEnv
-        { cancelReqsTVar     = cancelTVar
-        , wipReqsTVar        = wipTVar
-        , docVersionTVar     = versionTVar
-        }
-
-  void $ forkIO $ dispatcherP cin plugins testOptions dispatcherEnv
-                    (\lid errCode e -> logToChan logChan ("received an error", Left (lid, errCode, e)))
-                    (\g x -> g x)
-                    def
-  return (cin,logChan)
+    void $ liftIO $ forkIO $ cdAndDo "test/testdata" $
+      dispatcherP cin plugins testOptions dispatcherEnv
+      (\lid errCode e -> logToChan logChan ("received an error", Left (lid, errCode, e)))
+      (\g x -> g x)
+      def
 
 -- ---------------------------------------------------------------------
 
@@ -113,7 +120,7 @@ dispatchGhcRequest tn ctx n cin lc plugin com arg = do
 
 dispatchIdeRequest :: (Typeable a, ToJSON a)
                    => TrackingNumber -> String -> TChan (PluginRequest IO)
-                   -> TChan LogVal -> LspId -> IdeM (IdeResponse a) -> IO () 
+                   -> TChan LogVal -> LspId -> IdeM (IdeResponse a) -> IO ()
 dispatchIdeRequest tn ctx cin lc lid f = do
   let
     logger :: (Typeable a, ToJSON a) => RequestCallback IO a
@@ -121,9 +128,6 @@ dispatchIdeRequest tn ctx cin lc lid f = do
 
   let req = IReq tn lid logger f
   atomically $ writeTChan cin req
-
--- ---------------------------------------------------------------------
-
 
 -- ---------------------------------------------------------------------
 
@@ -135,26 +139,33 @@ instance ToJSON   Cached where
 
 -- ---------------------------------------------------------------------
 
-dispatchSpec :: Spec
-dispatchSpec = do
-  (cin,logChan) <- runIO startServer
-  cwd <- runIO getCurrentDirectory
-  let testUri = filePathToUri $ cwd </> "FuncTest.hs"
+spec :: Spec
+spec = do
+  cin      <- runIO newTChanIO
+  logChan  <- runIO newTChanIO
+  serverStarted <- runIO $ newTVarIO False
 
-  let
-    -- Model a hover request
-    hoverReq tn idVal doc = dispatchIdeRequest tn ("IReq " ++ show idVal) cin logChan idVal $ do
-      pluginGetFileResponse ("hoverReq") doc $ \fp -> do
-        cached <- isCached fp
-        if cached
-          then return (IdeResponseOk Cached)
-          else return (IdeResponseOk NotCached)
+  -- WARNING: Do not run startServer inside the describe/spec part!
+  -- It will get run at the start of the hspec session and change the
+  -- working directory for all tests, even the ones outside of this module
+  describe "dispatch" $ before_ (startServer serverStarted cin logChan) $ do
+    cwd <- (</> "test/testdata") <$> runIO getCurrentDirectory
+    let testUri = filePathToUri $ cwd </> "FuncTest.hs"
+        testFailUri = filePathToUri $ cwd </> "FuncTestFail.hs"
 
-    unpackRes (r,Right md) = (r, fromDynJSON md)
-    unpackRes r            = error $ "unpackRes:" ++ show r
-    
-  
-  describe "dispatch" $ do
+    let
+      -- Model a hover request
+      hoverReq tn idVal doc = dispatchIdeRequest tn ("IReq " ++ show idVal) cin logChan idVal $ do
+        pluginGetFileResponse "hoverReq" doc $ \fp -> do
+          cached <- isCached fp
+          if cached
+            then return (IdeResponseOk Cached)
+            else return (IdeResponseOk NotCached)
+
+      unpackRes (r,Right md) = (r, fromDynJSON md)
+      unpackRes r            = error $ "unpackRes:" ++ show r
+
+
     it "defers responses until module is loaded" $ do
 
       -- Returns immediately, no cached value
@@ -166,7 +177,7 @@ dispatchSpec = do
       dispatchIdeRequest 1 "req1" cin logChan (IdInt 1) $ getSymbols testUri
 
       rrr <- atomically $ tryReadTChan logChan
-      (show rrr) `shouldBe` "Nothing"
+      show rrr `shouldBe` "Nothing"
 
       -- need to typecheck the module to trigger deferred response
       dispatchGhcRequest 2 "req2" 2 cin logChan "ghcmod" "check" (toJSON testUri)
@@ -194,7 +205,7 @@ dispatchSpec = do
 
       -- No more pending results
       rr3 <- atomically $ tryReadTChan logChan
-      (show rr3) `shouldBe` "Nothing"
+      show rr3 `shouldBe` "Nothing"
 
       -- Returns immediately, there is a cached value
       hoverReq 3 (IdInt 3) testUri
@@ -261,7 +272,7 @@ dispatchSpec = do
       hr5 <- atomically $ readTChan logChan
       unpackRes hr5 `shouldBe` ("r5",
              Just $ PublishDiagnosticsParams
-                     { _uri         = filePathToUri $ cwd </> "FuncTest.hs"
+                     { _uri         = testUri
                      , _diagnostics = List
                        [ Diagnostic
                            (Range (Position 9 6) (Position 10 18))
@@ -280,24 +291,21 @@ dispatchSpec = do
       hr6 <- atomically $ readTChan logChan
       -- show hr6 `shouldBe` "hr6"
       let textEdits = List [TextEdit (Range (Position 6 0) (Position 7 6)) "  where\n    bb = 5"]
-          r6uri = filePathToUri $ cwd </> "FuncTest.hs"
+          r6uri = testUri
       unpackRes hr6 `shouldBe` ("r6",Just
         (WorkspaceEdit
           (Just $ H.singleton r6uri textEdits)
           Nothing
         ))
-    
+
     it "instantly responds to failed modules with no cache" $ do
 
-      let failUri = filePathToUri $ cwd </> "FuncTestFail.hs"
+      dispatchIdeRequest 7 "req7" cin logChan (IdInt 7) $ getSymbols testFailUri
 
-      dispatchIdeRequest 7 "req7" cin logChan (IdInt 7) $ getSymbols failUri
-
-      dispatchGhcRequest 8 "req8" 8 cin logChan "ghcmod" "check" (toJSON failUri)
+      dispatchGhcRequest 8 "req8" 8 cin logChan "ghcmod" "check" (toJSON testFailUri)
 
       (_, Left symbolError) <- atomically $ readTChan logChan
-      symbolError `shouldBe` (IdInt 7, ParseError, "")
+      symbolError `shouldBe` (IdInt 7, Language.Haskell.LSP.Types.InternalError, "")
 
       ("req8", Right diags) <- atomically $ readTChan logChan
       show diags `shouldBe` "((Map Uri (Set Diagnostic)),[Text])"
-
