@@ -39,8 +39,10 @@ extra-deps:
 - haddock-api-2.18.1
 - haddock-library-1.4.4
 - hlint-2.0.11
+# - hlint-2.1.8
 - sorted-list-0.2.1.0
 - syz-0.2.0.0
+- yaml-0.8.32
 
 flags:
   haskell-ide-engine:

@@ -34,7 +34,7 @@ hie-8.4.2: submodules
 .PHONY: hie-8.2.2
 
 hie-8.4.3: submodules
-	stack --stack-yaml=stack.yaml install                                      \
+	stack --stack-yaml=stack-8.4.3.yaml install                                      \
 		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.4.3'    \
 		&& cp '$(STACKLOCALBINDIR)/hie-8.4.3' '$(STACKLOCALBINDIR)/hie-8.4'
 .PHONY: hie-8.4.3
@@ -45,7 +45,7 @@ build-docs:
 	stack --stack-yaml=stack-8.2.1.yaml exec hoogle generate \
 	&& stack --stack-yaml=stack-8.2.2.yaml exec hoogle generate \
 	&& stack --stack-yaml=stack-8.4.2.yaml exec hoogle generate \
-	&& stack --stack-yaml=stack.yaml exec hoogle generate
+	&& stack --stack-yaml=stack-8.4.3.yaml exec hoogle generate
 .PHONY: build-docs
 
 
@@ -55,14 +55,14 @@ test: submodules
 	stack --stack-yaml=stack-8.2.1.yaml test \
 	&& stack --stack-yaml=stack-8.2.2.yaml test \
 	&& stack --stack-yaml=stack-8.4.2.yaml test \
-	&& stack --stack-yaml=stack.yaml test
+	&& stack --stack-yaml=stack-8.4.3.yaml test
 .PHONY: test
 
 build-copy-compiler-tool: submodules
 	stack --stack-yaml=stack-8.2.1.yaml build --copy-compiler-tool \
 	&& stack --stack-yaml=stack-8.2.2.yaml build --copy-compiler-tool \
 	&& stack --stack-yaml=stack-8.4.2.yaml build --copy-compiler-tool \
-	&& stack --stack-yaml=stack.yaml       build --copy-compiler-tool
+	&& stack --stack-yaml=stack-8.4.3.yaml build --copy-compiler-tool
 .PHONY: build-copy-compiler-tool
 
 icu-macos-fix: icu-macos-fix-install icu-macos-fix-build
@@ -77,13 +77,13 @@ icu-macos-fix-build:
 	  --extra-lib-dirs=/usr/local/opt/icu4c/lib            \
 	  --extra-include-dirs=/usr/local/opt/icu4c/include    \
 	&& stack --stack-yaml=stack-8.2.2.yaml build text-icu  \
-         --extra-lib-dirs=/usr/local/opt/icu4c/lib         \
-         --extra-include-dirs=/usr/local/opt/icu4c/include \
+	  --extra-lib-dirs=/usr/local/opt/icu4c/lib            \
+	  --extra-include-dirs=/usr/local/opt/icu4c/include    \
 	&& stack --stack-yaml=stack-8.4.2.yaml build text-icu  \
-         --extra-lib-dirs=/usr/local/opt/icu4c/lib         \
-         --extra-include-dirs=/usr/local/opt/icu4c/include \
-	&& stack --stack-yaml=stack.yaml build text-icu        \
-         --extra-lib-dirs=/usr/local/opt/icu4c/lib         \
-         --extra-include-dirs=/usr/local/opt/icu4c/include
+	  --extra-lib-dirs=/usr/local/opt/icu4c/lib            \
+	  --extra-include-dirs=/usr/local/opt/icu4c/include    \
+	&& stack --stack-yaml=stack-8.4.3.yaml build text-icu  \
+	  --extra-lib-dirs=/usr/local/opt/icu4c/lib            \
+	  --extra-include-dirs=/usr/local/opt/icu4c/include
 .PHONY: icu-macos-fix-build
 
