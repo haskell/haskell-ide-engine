@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
@@ -177,13 +178,17 @@ spec = do
       let r = Range (Position 0 0) (Position 99 99)
           c = CodeActionContext (diagsRsp ^. params . diagnostics)
       _ <- sendRequest TextDocumentCodeAction (CodeActionParams doc r c)
-      
+
       rsp <- response :: Session CodeActionResponse
       let (List cmds) = fromJust $ rsp ^. result
           evaluateCmd = head cmds
       liftIO $ do
         length cmds `shouldBe` 1
+#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,2,2,0)))
+        evaluateCmd ^. title `shouldBe` "Apply hint:Redundant id"
+#else
         evaluateCmd ^. title `shouldBe` "Apply hint:Evaluate"
+#endif
 
   -- -----------------------------------
 
