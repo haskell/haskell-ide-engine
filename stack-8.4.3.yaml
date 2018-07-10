@@ -38,6 +38,7 @@ extra-deps:
 - haddock-library-1.6.0
 - syz-0.2.0.0
 - temporary-1.2.1.1
+- hsimport-0.8.6
 
 flags:
   haskell-ide-engine:
