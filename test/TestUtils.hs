@@ -128,7 +128,7 @@ stackYaml =
 -- run with `stack test`
 hieCommand :: String
 hieCommand = "stack exec --no-stack-exe --no-ghc-package-path --stack-yaml=" ++ stackYaml ++
-             " hie -- --lsp -d -l test-logs/functional-hie.log"
+             " hie -- --lsp -d -l test-logs/functional-hie-" ++ stackYaml ++ ".log"
 
 hieCommandVomit :: String
 hieCommandVomit = hieCommand ++ " --vomit"

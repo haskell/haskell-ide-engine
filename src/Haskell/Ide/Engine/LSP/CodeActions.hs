@@ -55,6 +55,7 @@ handleCodeActionReq tn commandMap req = do
       -- For these diagnostics need to search hoogle before we can make code actions
       addPackageDiags = mapMaybe isPackageAddableDiag diags
       importableDiags = mapMaybe isImportableDiag diags
+
   
 
   makeSearches Hoogle.searchPackages (mkAddPackageAction maybeRootDir) addPackageDiags $ \addPackageActions ->

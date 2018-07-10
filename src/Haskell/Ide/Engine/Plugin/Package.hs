@@ -99,7 +99,7 @@ editHpackPackage fp modulePath pkgName = do
 
   supportsDocChanges <- clientSupportsDocumentChanges
 
-  case Y.decode contents :: Maybe Object of
+  case Y.decodeThrow contents :: Maybe Object of
     Just obj -> do
         let compsMapped = mapComponentTypes (ensureObject $ mapComponents (ensureObject $ mapCompDependencies addDep)) obj
 
