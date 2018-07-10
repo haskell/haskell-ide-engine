@@ -61,7 +61,11 @@ ghcmodSpec = do
       let uri = filePathToUri fp
           act = lintCmd' uri
           arg = uri
+#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,2,2,0)))
+          res = IdeResultOk (T.pack fp <> ":6:9: Warning: Redundant do\NULFound:\NUL  do return (3 + x)\NULPerhaps:\NUL  return (3 + x)\n")
+#else
           res = IdeResultOk (T.pack fp <> ":6:9: Warning: Redundant do\NULFound:\NUL  do return (3 + x)\NULWhy not:\NUL  return (3 + x)\n")
+#endif
       testCommand testPlugins act "ghcmod" "lint" arg res
 
     -- ---------------------------------

@@ -63,14 +63,14 @@ dispatcherP inChan plugins ghcModOptions env errorHandler callbackHandler caps =
                           ideDispatcher env errorHandler callbackHandler ideChan
 
         -- TODO: Causes STM deadlock?
-        -- mainThread <- myThreadId
-        -- let exceptionHandler e = do
-        --       --TODO: Use async's link
-        --       errorm $ show (e :: SomeException)
-        --       throwTo mainThread e
-        --     ideLoop = handle exceptionHandler
-        --                      (runReaderT (ideDispatcher env errorHandler callbackHandler ideChan) stateVar)
-        -- _ <- forkIO ideLoop
+        --mainThread <- myThreadId
+        --let exceptionHandler e = do
+        --      --TODO: Use async's link
+        --      errorm $ show (e :: SomeException)
+        --      throwTo mainThread e
+        --    ideLoop = handle exceptionHandler
+        --                     (runReaderT (runReaderT  (ideDispatcher env errorHandler callbackHandler ideChan) caps) stateVar)
+        --_ <- forkIO ideLoop
         return ghcChan
       ghcDispatcher env errorHandler callbackHandler gchan
 
@@ -87,7 +87,7 @@ ideDispatcher :: forall void m. DispatcherEnv -> ErrorHandler -> CallbackHandler
 ideDispatcher env errorHandler callbackHandler pin = forever $ do
   debugm "ideDispatcher: top of loop"
   (IdeRequest tn lid callback action) <- liftIO $ atomically $ readTChan pin
-  debugm $ "ideDispatcher:got request " ++ show tn ++ " with id: " ++ show lid
+  debugm $ "ideDispatcher: got request " ++ show tn ++ " with id: " ++ show lid
   checkCancelled env lid errorHandler $ do
     response <- action
     handleResponse lid callback response

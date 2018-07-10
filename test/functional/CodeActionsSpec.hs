@@ -30,7 +30,9 @@ spec = do
       reduceDiag ^. source `shouldBe` Just "hlint"
 
     (CommandOrCodeActionCommand cmd:_) <- getAllCodeActions doc
-    liftIO $ cmd ^. title `shouldBe` "Apply hint:Evaluate"
+    
+    -- Evaluate became redundant id in later hlint versions
+    liftIO $ ["Apply hint:Redundant id", "Apply hint:Evaluate"] `shouldContain` [cmd ^. title ]
 
     executeCommand cmd
 

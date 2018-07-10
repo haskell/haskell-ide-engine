@@ -1,4 +1,4 @@
-resolver: lts-11.14
+resolver: lts-11.17 # last one for GHC 8.2.2
 packages:
 - .
 - hie-plugin-api
