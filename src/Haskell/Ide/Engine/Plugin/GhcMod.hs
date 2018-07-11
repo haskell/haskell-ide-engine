@@ -8,6 +8,8 @@ module Haskell.Ide.Engine.Plugin.GhcMod where
 import           Bag
 import           Control.Monad.IO.Class
 import           Control.Lens.Getter ((^.))
+import           Control.Lens.Setter ((%~))
+import           Control.Lens.Traversal (traverseOf)
 import           Data.Aeson
 #if __GLASGOW_HASKELL__ < 802
 import           Data.Aeson.Types
@@ -296,26 +298,38 @@ isSubRangeOf :: Range -> Range -> Bool
 isSubRangeOf (Range sa ea) (Range sb eb) = sb <= sa && eb >= ea
 
 
-
 splitCaseCmd :: CommandFunc LSP.TextDocumentPositionParams WorkspaceEdit
 splitCaseCmd = CmdSync $ \posParams -> do
     splitCaseCmd' (posParams ^. LSP.textDocument . LSP.uri) (posParams ^. LSP.position)
 
 splitCaseCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
-splitCaseCmd' uri position =
+splitCaseCmd' uri newPos =
   pluginGetFile "splitCaseCmd: " uri $ \path -> do
     origText <- GM.withMappedFile path $ liftIO . T.readFile
     cachedMod <- getCachedModule path
     case cachedMod of
-      ModuleCached checkedModule _ -> runGhcModCommand $ do
-        splitResult' <- GM.splits' path (tcMod checkedModule) line column
-        case splitResult' of
-          Just splitResult -> return $ splitResultToWorkspaceEdit origText splitResult
+      ModuleCached checkedModule _ ->
+        runGhcModCommand $
+        case newPosToOld checkedModule newPos of
+          Just oldPos -> do
+            let (line, column) = unPos oldPos
+            splitResult' <- GM.splits' path (tcMod checkedModule) line column
+            case splitResult' of
+              Just splitResult -> return
+                $ oldToNewPositions checkedModule
+                $ splitResultToWorkspaceEdit origText splitResult
+              Nothing -> return mempty
           Nothing -> return mempty
       ModuleFailed errText -> return $ IdeResultFail $ IdeError PluginError (T.append "hie-ghc-mod: " errText) Null
       ModuleLoading -> return $ IdeResultOk mempty
   where
-    (line, column) = unPos position
+
+    -- | Transform all ranges in a WorkspaceEdit from old to new positions.
+    oldToNewPositions :: CachedModule -> WorkspaceEdit -> WorkspaceEdit
+    oldToNewPositions cMod wsEdit =
+      wsEdit
+        & LSP.documentChanges %~ (>>= traverseOf (traverse . LSP.edits . traverse . LSP.range) (oldRangeToNew cMod))
+        & LSP.changes %~ (>>= traverseOf (traverse . traverse . LSP.range) (oldRangeToNew cMod))
 
     -- | Given the range and text to replace, construct a 'WorkspaceEdit'
     -- by diffing the change against the current text.
