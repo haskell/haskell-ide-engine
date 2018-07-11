@@ -308,8 +308,10 @@ splitCaseCmd' uri position =
     cachedMod <- getCachedModule path
     case cachedMod of
       ModuleCached checkedModule _ -> runGhcModCommand $ do
-        Just splitResult <- GM.splits' path (tcMod checkedModule) line column
-        return $ splitResultToWorkspaceEdit origText splitResult
+        splitResult' <- GM.splits' path (tcMod checkedModule) line column
+        case splitResult' of
+          Just splitResult -> return $ splitResultToWorkspaceEdit origText splitResult
+          Nothing -> return mempty
       ModuleFailed errText -> return $ IdeResultFail $ IdeError PluginError (T.append "hie-ghc-mod: " errText) Null
       ModuleLoading -> return $ IdeResultOk mempty
   where
