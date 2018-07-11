@@ -52,11 +52,13 @@ packageDescriptor = PluginDescriptor
   , pluginCommands = [PluginCommand "add" "Add a packge" addCmd]
   }
 
-data AddParams = AddParams FilePath -- ^ The root directory.
-                           FilePath -- ^ A path to a module inside the
-                                    -- library/executable/test-suite you want to
-                                    -- add the package to.
-                           T.Text -- ^ The name of the package to add.
+data AddParams = AddParams
+  { rootDirParam   :: FilePath -- ^ The root directory.
+  , fileParam      :: FilePath -- ^ A path to a module inside the
+                               -- library/executable/test-suite you want to
+                               -- add the package to.
+  , packageParam   :: T.Text   -- ^ The name of the package to add.
+  }
   deriving (Eq, Show, Read, Generic, ToJSON, FromJSON)
 
 addCmd :: CommandFunc AddParams J.WorkspaceEdit
