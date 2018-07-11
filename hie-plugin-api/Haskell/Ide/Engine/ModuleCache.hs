@@ -197,9 +197,9 @@ failModule fp err = do
       modifyCache (\gmc ->
           gmc {
             uriCaches = Map.insert fp' (UriCacheFailed err) (uriCaches gmc)
-          }  
+          }
         )
-      
+
       -- Fail the queued actions
       runDeferredActions fp' (Left err)
 
