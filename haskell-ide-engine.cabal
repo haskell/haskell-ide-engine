@@ -84,7 +84,8 @@ library
                      , text
                      , transformers
                      , unordered-containers
-                     , yaml
+                     , vector
+                     , yaml >= 0.8.31
                      , yi-rope
   if os(windows)
     build-depends:     Win32
