@@ -2,6 +2,7 @@
 
 module CodeActionsSpec where
 
+import Control.Applicative.Combinators
 import Control.Lens hiding (List)
 import Control.Monad
 import Control.Monad.IO.Class
@@ -107,6 +108,7 @@ spec = do
 
         contents <- getDocumentEdit . TextDocumentIdentifier =<< getDocUri "add-package-test.cabal"
         liftIO $ T.lines contents `shouldSatisfy` \x -> any (\l -> "text -any" `T.isSuffixOf` (x !! l)) [15, 16]
+
     it "adds to hpack package.yaml files" $ runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata/addPackageTest/hpack" $ do
         doc <- openDoc "app/Asdf.hs" "haskell"
 

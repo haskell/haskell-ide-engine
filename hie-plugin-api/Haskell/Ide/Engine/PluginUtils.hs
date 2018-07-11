@@ -189,7 +189,7 @@ diffText' supports (f,fText) f2Text withDeletions  =
     diff = J.List r
     h = H.singleton f diff
     docChanges = J.List [docEdit]
-    docEdit = J.TextDocumentEdit (J.VersionedTextDocumentIdentifier f 0) diff
+    docEdit = J.TextDocumentEdit (J.VersionedTextDocumentIdentifier f (Just 0)) diff
 
     diffOperationToTextEdit :: DiffOperation LineRange -> J.TextEdit
     diffOperationToTextEdit (Change fm to) = J.TextEdit range nt

@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module DeferredSpec where
 
+import Control.Applicative.Combinators
 import Control.Monad.IO.Class
 import Control.Lens hiding (List)
 import Control.Monad

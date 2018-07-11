@@ -118,7 +118,7 @@ editHpackPackage fp modulePath pkgName = do
             range = J.Range (J.Position 0 0) (J.Position numOldLines 0)
             textEdit = J.TextEdit range newPkgText
             docUri = filePathToUri fp
-            docId = J.VersionedTextDocumentIdentifier docUri 0
+            docId = J.VersionedTextDocumentIdentifier docUri (Just 0)
             textDocEdit = J.TextDocumentEdit docId (J.List [textEdit])
             wsEdit =
               if supportsDocChanges
