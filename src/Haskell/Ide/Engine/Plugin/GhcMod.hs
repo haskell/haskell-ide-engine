@@ -7,6 +7,7 @@ module Haskell.Ide.Engine.Plugin.GhcMod where
 
 import           Bag
 import           Control.Monad.IO.Class
+import           Control.Lens.Getter ((^.))
 import           Data.Aeson
 #if __GLASGOW_HASKELL__ < 802
 import           Data.Aeson.Types
@@ -42,6 +43,7 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.ArtifactMap
 import           HscTypes
+import qualified Language.Haskell.LSP.Types        as LSP
 import           TcRnTypes
 import           Outputable                        (renderWithStyle, mkUserStyle, Depth(..))
 
@@ -295,20 +297,9 @@ isSubRangeOf (Range sa ea) (Range sb eb) = sb <= sa && eb >= ea
 
 
 
-data DocumentPosition =
-  DocPos {
-        docFile :: Uri
-      , docPos  :: Position
-      } deriving (Eq,Generic,Show)
-
-instance FromJSON DocumentPosition where
-  parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = camelTo2 '_' . drop 3}
-instance ToJSON DocumentPosition where
-  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = camelTo2 '_' . drop 3}
-
-splitCaseCmd ::CommandFunc DocumentPosition WorkspaceEdit
-splitCaseCmd = CmdSync $ \(DocPos uri pos) -> do
-  splitCaseCmd' uri pos
+splitCaseCmd :: CommandFunc LSP.TextDocumentPositionParams WorkspaceEdit
+splitCaseCmd = CmdSync $ \posParams -> do
+    splitCaseCmd' (posParams ^. LSP.textDocument . LSP.uri) (posParams ^. LSP.position)
 
 splitCaseCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 splitCaseCmd' uri position =
