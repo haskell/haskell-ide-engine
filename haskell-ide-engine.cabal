@@ -234,7 +234,8 @@ test-suite haskell-ide-func-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test/functional
   main-is:             Main.hs
-  other-modules:       CodeActionsSpec
+  other-modules:       CompletionSpec
+                     , CodeActionsSpec
                      , DispatchSpec
                      , DeferredSpec
                      , Spec

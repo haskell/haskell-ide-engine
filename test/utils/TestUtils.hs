@@ -105,6 +105,7 @@ files =
    , "./test/testdata/addPackageTest/cabal/"
    , "./test/testdata/addPackageTest/hpack/"
    , "./test/testdata/redundantImportTest/"
+   , "./test/testdata/completion/"
   ]
 
 stackYaml :: FilePath
