@@ -7,7 +7,6 @@ module Haskell.Ide.Engine.Plugin.GhcMod where
 
 import           Bag
 import           Control.Monad.IO.Class
-import           Control.Lens.Getter ((^.))
 import           Control.Lens.Setter ((%~))
 import           Control.Lens.Traversal (traverseOf)
 import           Data.Aeson
@@ -43,6 +42,7 @@ import qualified GhcMod.Exe.CaseSplit              as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
+import           Haskell.Ide.Engine.Plugin.HaRe (HarePoint(..))
 import           Haskell.Ide.Engine.ArtifactMap
 import           HscTypes
 import qualified Language.Haskell.LSP.Types        as LSP
@@ -298,9 +298,9 @@ isSubRangeOf :: Range -> Range -> Bool
 isSubRangeOf (Range sa ea) (Range sb eb) = sb <= sa && eb >= ea
 
 
-splitCaseCmd :: CommandFunc LSP.TextDocumentPositionParams WorkspaceEdit
-splitCaseCmd = CmdSync $ \posParams -> do
-    splitCaseCmd' (posParams ^. LSP.textDocument . LSP.uri) (posParams ^. LSP.position)
+splitCaseCmd :: CommandFunc HarePoint WorkspaceEdit
+splitCaseCmd = CmdSync $ \(HP uri pos) -> do
+    splitCaseCmd' uri pos
 
 splitCaseCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 splitCaseCmd' uri newPos =
