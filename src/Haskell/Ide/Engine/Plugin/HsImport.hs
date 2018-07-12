@@ -23,7 +23,10 @@ hsimportDescriptor = PluginDescriptor
   , pluginCommands = [PluginCommand "import" "Import a module" importCmd]
   }
 
-data ImportParams = ImportParams Uri T.Text
+data ImportParams = ImportParams
+  { file           :: Uri
+  , moduleToImport :: T.Text
+  }
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
 importCmd :: CommandFunc ImportParams J.WorkspaceEdit
