@@ -416,7 +416,7 @@ reactor (DispatcherEnv cancelReqTVar wipTVar versionTVar) cin inp commandMap = d
                       ++ "\nYou may want to use hie-wrapper. Check the README for more information"
             reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
             reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg
-                  
+
 
           lf <- ask
           let hreq = GReq tn Nothing Nothing Nothing callback $ IdeResultOk <$> Hoogle.initializeHoogleDb
