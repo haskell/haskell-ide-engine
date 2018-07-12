@@ -223,6 +223,7 @@ test-suite haskell-ide-func-test
                      , DispatchSpec
                      , DeferredSpec
                      , ReferencesSpec
+                     , RenameSpec
                      , Spec
   build-depends:       hie-test-utils
                      , aeson
