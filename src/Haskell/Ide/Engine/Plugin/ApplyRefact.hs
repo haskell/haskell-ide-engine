@@ -98,8 +98,8 @@ lintCmd' :: Uri -> IdeGhcM (IdeResult PublishDiagnosticsParams)
 lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
       res <- GM.withMappedFile fp $ \file' -> liftIO $ runExceptT $ runLintCmd file' []
       case res of
-        Left diags ->
-          return (IdeResultOk (PublishDiagnosticsParams (filePathToUri fp) $ List diags))
+        -- https://github.com/haskell/haskell-ide-engine/issues/490
+        Left _ -> return $ IdeResultOk (PublishDiagnosticsParams (filePathToUri fp) $ List [])
         Right fs ->
           return $ IdeResultOk $
             PublishDiagnosticsParams (filePathToUri fp)
