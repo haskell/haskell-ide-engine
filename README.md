@@ -476,3 +476,10 @@ Existing transports are still functional for the time being.
 ## Documentation
 
 All the documentation is in [the docs folder](/docs) at the root of this project.
+
+## Troubleshooting
+
+### macOS: Got error while processing diagnostics: unable to load package `integer-gmp-1.0.2.0`
+
+[Rename the file](https://github.com/alanz/vscode-hie-server/issues/89#issuecomment-398212122) at `~/.stack/programs/x86_64-osx/ghc-8.4.3/lib/ghc-8.4.3/integer-gmp-1.0.2.0/HSinteger-gmp-1.0.2.0.o` to a temporary name.
+[Should be fixed in GHC 8.8.1.](https://ghc.haskell.org/trac/ghc/ticket/15105)
