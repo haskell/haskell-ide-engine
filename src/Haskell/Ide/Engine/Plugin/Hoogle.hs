@@ -10,6 +10,7 @@ import           Data.Maybe
 import           Data.Monoid
 #endif
 import qualified Data.Text                          as T
+import Data.List
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.MonadFunctions
 import           Hoogle
@@ -106,6 +107,22 @@ renderTarget t = T.intercalate "\n\n" $
 
 ------------------------------------------------------------------------
 
+searchModules :: T.Text -> IdeM (IdeResponse [T.Text])
+searchModules = fmap (fmap (nub . take 5)) . searchTargets (fmap (T.pack . fst) . targetModule)
+
+searchPackages :: T.Text -> IdeM (IdeResponse [T.Text])
+searchPackages = fmap (fmap (nub . take 5)) . searchTargets (fmap (T.pack . fst) . targetPackage)
+
+searchTargets :: (Target -> Maybe a) -> T.Text -> IdeM (IdeResponse [a])
+searchTargets f term = do
+  HoogleDb mdb <- get
+  res <- liftIO $ runHoogleQuery mdb term (Right . mapMaybe f . take 10)
+  case bimap hoogleErrorToIdeError id res of
+    Left err -> return $ IdeResponseFail err
+    Right xs -> return $ IdeResponseOk xs
+
+------------------------------------------------------------------------
+
 lookupCmd :: CommandFunc T.Text [T.Text]
 lookupCmd = CmdSync $ \term -> do
   res <- liftToGhc $ bimap hoogleErrorToIdeError id <$> lookupCmd' 10 term
@@ -129,4 +146,7 @@ runHoogleQuery (Just db) quer f = do
 
 searchHoogle :: FilePath -> T.Text -> IO [Target]
 searchHoogle dbf quer = withDatabase dbf (return . flip searchDatabase (T.unpack quer))
+
+
+
 

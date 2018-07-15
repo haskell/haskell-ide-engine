@@ -46,11 +46,13 @@
 /test/testdata/HaReRename.refactored.hs
 /test/testdata/gototest/stack.yaml
 /test/testdata/stack.yaml
+/test/testdata/addPackageTest/**/stack.yaml
+/test/testdata/redundantImportTest/stack.yaml
 TAGS
 cabal-dev/
 cabal.sandbox.config
 dist-newstyle/
-dist/
+dist
 tags
 test-logs/
 .DS_Store

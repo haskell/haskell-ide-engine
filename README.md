@@ -1,8 +1,13 @@
 # Haskell IDE Engine
+<img src="https://github.com/haskell/haskell-ide-engine/raw/master/logos/HIE_logo_512.png" width="256" style="margin:25px;" align="right"/>
+
 [![License BSD3][badge-license]][license]
+[![CircleCI][badge-circleci]][circleci]
 
 [badge-license]: https://img.shields.io/badge/license-BSD3-green.svg?dummy
 [license]: https://github.com/haskell/haskell-ide-engine/blob/master/LICENSE
+[badge-circleci]: https://img.shields.io/circleci/project/github/haskell/haskell-ide-engine.svg
+[circleci]: https://circleci.com/gh/haskell/haskell-ide-engine/
 
 
 This project aims to be __the universal interface__ to __a growing number of Haskell tools__, providing a __full-featured and easy to query backend__ for editors and IDEs that require Haskell-specific functionality.

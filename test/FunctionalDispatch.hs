@@ -33,6 +33,7 @@ import qualified Data.Map                              as Map
 import qualified Data.Set                              as S
 import qualified Data.Text                             as T
 import           Data.Typeable
+import           Data.Default
 import           GHC.Generics
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.MonadTypes
@@ -85,6 +86,7 @@ startServer = do
   void $ forkIO $ dispatcherP cin plugins testOptions dispatcherEnv
                     (\lid errCode e -> logToChan logChan ("received an error", Left (lid, errCode, e)))
                     (\g x -> g x)
+                    def
   return (cin,logChan)
 
 -- ---------------------------------------------------------------------
@@ -277,15 +279,11 @@ dispatchSpec = do
 
       hr6 <- atomically $ readTChan logChan
       -- show hr6 `shouldBe` "hr6"
+      let textEdits = List [TextEdit (Range (Position 6 0) (Position 7 6)) "  where\n    bb = 5"]
+          r6uri = filePathToUri $ cwd </> "FuncTest.hs"
       unpackRes hr6 `shouldBe` ("r6",Just
         (WorkspaceEdit
-          ( Just
-          $ H.singleton (filePathToUri $ cwd </> "FuncTest.hs")
-          $ List
-              [ TextEdit (Range (Position 6 0) (Position 7 6))
-                         "  where\n    bb = 5"
-              ]
-          )
+          (Just $ H.singleton r6uri textEdits)
           Nothing
         ))
     

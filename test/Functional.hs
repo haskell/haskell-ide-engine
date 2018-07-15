@@ -10,12 +10,13 @@ import Data.Aeson
 import qualified Data.HashMap.Strict as H
 import Data.Maybe
 import Language.Haskell.LSP.Test hiding (capabilities)
-import Language.Haskell.LSP.Types
+import Language.Haskell.LSP.Types hiding (message)
 import qualified Language.Haskell.LSP.Types as LSP (error, id)
 import Test.Hspec
 import System.Directory
 import System.FilePath
 import FunctionalDispatch
+import FunctionalCodeActions
 import TestUtils
 
 main :: IO ()
@@ -31,20 +32,20 @@ spec = do
     it "do not affect hover requests" $ runSession hieCommand "test/testdata" $ do
       doc <- openDoc "FuncTest.hs" "haskell"
 
-      id1 <- sendRequest TextDocumentHover (TextDocumentPositionParams doc (Position 4 2))
+      id1 <- sendRequest' TextDocumentHover (TextDocumentPositionParams doc (Position 4 2))
 
       skipMany anyNotification
-      hoverRsp <- response :: Session HoverResponse
+      hoverRsp <- message :: Session HoverResponse
       let (Just (List contents1)) = hoverRsp ^? result . _Just . contents
       liftIO $ contents1 `shouldBe` []
       liftIO $ hoverRsp ^. LSP.id `shouldBe` responseId id1
 
-      id2 <- sendRequest TextDocumentDocumentSymbol (DocumentSymbolParams doc)
-      symbolsRsp <- skipManyTill anyNotification response :: Session DocumentSymbolsResponse
+      id2 <- sendRequest' TextDocumentDocumentSymbol (DocumentSymbolParams doc)
+      symbolsRsp <- skipManyTill anyNotification message :: Session DocumentSymbolsResponse
       liftIO $ symbolsRsp ^. LSP.id `shouldBe` responseId id2
 
-      id3 <- sendRequest TextDocumentHover (TextDocumentPositionParams doc (Position 4 2))
-      hoverRsp2 <- skipManyTill anyNotification response :: Session HoverResponse
+      id3 <- sendRequest' TextDocumentHover (TextDocumentPositionParams doc (Position 4 2))
+      hoverRsp2 <- skipManyTill anyNotification message :: Session HoverResponse
       liftIO $ hoverRsp2 ^. LSP.id `shouldBe` responseId id3
 
       let (Just (List contents2)) = hoverRsp2 ^? result . _Just . contents
@@ -52,9 +53,7 @@ spec = do
 
       -- Now that we have cache the following request should be instant
       let highlightParams = TextDocumentPositionParams doc (Position 7 0)
-      _ <- sendRequest TextDocumentDocumentHighlight highlightParams
-
-      highlightRsp <- response :: Session DocumentHighlightsResponse
+      highlightRsp <- sendRequest TextDocumentDocumentHighlight highlightParams :: Session DocumentHighlightsResponse
       let (Just (List locations)) = highlightRsp ^. result
       liftIO $ locations `shouldBe` [ DocumentHighlight
                      { _range = Range
@@ -103,9 +102,7 @@ spec = do
     it "instantly respond to failed modules with no cache" $ runSession hieCommand "test/testdata" $ do
       doc <- openDoc "FuncTestFail.hs" "haskell"
 
-      _ <- sendRequest TextDocumentDocumentSymbol (DocumentSymbolParams doc)
-      skipMany anyNotification
-      symbols <- response :: Session DocumentSymbolsResponse
+      symbols <- sendRequest TextDocumentDocumentSymbol (DocumentSymbolParams doc) :: Session DocumentSymbolsResponse
       liftIO $ symbols ^. LSP.error `shouldNotBe` Nothing
 
     it "returns hints as diagnostics" $ runSession hieCommand "test/testdata" $ do
@@ -131,28 +128,23 @@ spec = do
 
       let args' = H.fromList [("pos", toJSON (Position 7 0)), ("file", toJSON testUri)]
           args = List [Object args']
-      _ <- sendRequest WorkspaceExecuteCommand (ExecuteCommandParams "hare:demote" (Just args))
 
-      executeRsp <- skipManyTill anyNotification response :: Session ExecuteCommandResponse
+      executeRsp <- sendRequest WorkspaceExecuteCommand (ExecuteCommandParams "hare:demote" (Just args))
       liftIO $ executeRsp ^. result `shouldBe` Just (Object H.empty)
 
-      editReq <- request :: Session ApplyWorkspaceEditRequest
+      editReq <- message :: Session ApplyWorkspaceEditRequest
+      let expectedTextEdits = List [TextEdit (Range (Position 6 0) (Position 7 6)) "  where\n    bb = 5"]
       liftIO $ editReq ^. params . edit `shouldBe` WorkspaceEdit
-            ( Just
-            $ H.singleton testUri
-            $ List
-                [ TextEdit (Range (Position 6 0) (Position 7 6))
-                            "  where\n    bb = 5"
-                ]
-            )
+            (Just $ H.singleton testUri expectedTextEdits)
             Nothing
+            
 
   -- -----------------------------------
 
   describe "multi-server setup" $
     it "doesn't have clashing commands on two servers" $ do
       let getCommands = runSession hieCommand "test/testdata" $ do
-              rsp <- getInitializeResponse
+              rsp <- initializeResponse
               let uuids = rsp ^? result . _Just . capabilities . executeCommandProvider . _Just . commands
               return $ fromJust uuids
       List uuids1 <- getCommands
@@ -161,34 +153,7 @@ spec = do
 
   -- -----------------------------------
 
-  describe "code actions" $
-    it "provide hlint suggestions" $ runSession hieCommand "test/testdata" $ do
-      doc <- openDoc "ApplyRefact2.hs" "haskell"
-      diagsRsp <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
-      let (List diags) = diagsRsp ^. params . diagnostics
-          reduceDiag = head diags
-
-      liftIO $ do
-        length diags `shouldBe` 2
-        reduceDiag ^. range `shouldBe` Range (Position 1 0) (Position 1 12)
-        reduceDiag ^. severity `shouldBe` Just DsInfo
-        reduceDiag ^. code `shouldBe` Just "Eta reduce"
-        reduceDiag ^. source `shouldBe` Just "hlint"
-
-      let r = Range (Position 0 0) (Position 99 99)
-          c = CodeActionContext (diagsRsp ^. params . diagnostics)
-      _ <- sendRequest TextDocumentCodeAction (CodeActionParams doc r c)
-
-      rsp <- response :: Session CodeActionResponse
-      let (List cmds) = fromJust $ rsp ^. result
-          evaluateCmd = head cmds
-      liftIO $ do
-        length cmds `shouldBe` 1
-#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,2,2,0)))
-        evaluateCmd ^. title `shouldBe` "Apply hint:Redundant id"
-#else
-        evaluateCmd ^. title `shouldBe` "Apply hint:Evaluate"
-#endif
+  describe "code action support" codeActionSpec
 
   -- -----------------------------------
 
@@ -197,16 +162,16 @@ spec = do
                                   -- $ runSession hieCommand "test/testdata" $ do
                                   $ runSession hieCommandVomit "test/testdata" $ do
       _doc <- openDoc "ApplyRefact2.hs" "haskell"
-      _diagsRspHlint <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
-      diagsRspGhc   <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
+      _diagsRspHlint <- skipManyTill anyNotification message :: Session PublishDiagnosticsNotification
+      diagsRspGhc   <- skipManyTill anyNotification message :: Session PublishDiagnosticsNotification
       let (List diags) = diagsRspGhc ^. params . diagnostics
 
       liftIO $ length diags `shouldBe` 2
 
       _doc2 <- openDoc "HaReRename.hs" "haskell"
-      _diagsRspHlint2 <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
+      _diagsRspHlint2 <- skipManyTill anyNotification message :: Session PublishDiagnosticsNotification
       -- errMsg <- skipManyTill anyNotification notification :: Session ShowMessageNotification
-      diagsRsp2 <- skipManyTill anyNotification notification :: Session PublishDiagnosticsNotification
+      diagsRsp2 <- skipManyTill anyNotification message :: Session PublishDiagnosticsNotification
       let (List diags2) = diagsRsp2 ^. params . diagnostics
 
       liftIO $ show diags2 `shouldBe` "[]"

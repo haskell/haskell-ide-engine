@@ -41,6 +41,7 @@ extra-deps:
 - temporary-1.2.1.1
 - yaml-0.8.32
 - yi-rope-0.11
+- hsimport-0.8.6
 
 flags:
   haskell-ide-engine:

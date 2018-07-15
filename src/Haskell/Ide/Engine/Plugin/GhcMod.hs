@@ -315,9 +315,9 @@ splitCaseCmd' uri newPos =
             let (line, column) = unPos oldPos
             splitResult' <- GM.splits' path (tcMod checkedModule) line column
             case splitResult' of
-              Just splitResult -> return
-                $ oldToNewPositions checkedModule
-                $ splitResultToWorkspaceEdit origText splitResult
+              Just splitResult -> do
+                wEdit <- liftToGhc $ splitResultToWorkspaceEdit origText splitResult
+                return $ oldToNewPositions checkedModule wEdit
               Nothing -> return mempty
           Nothing -> return mempty
       ModuleFailed errText -> return $ IdeResultFail $ IdeError PluginError (T.append "hie-ghc-mod: " errText) Null
@@ -333,9 +333,9 @@ splitCaseCmd' uri newPos =
 
     -- | Given the range and text to replace, construct a 'WorkspaceEdit'
     -- by diffing the change against the current text.
-    splitResultToWorkspaceEdit :: T.Text -> GM.SplitResult -> WorkspaceEdit
+    splitResultToWorkspaceEdit :: T.Text -> GM.SplitResult -> IdeM WorkspaceEdit
     splitResultToWorkspaceEdit originalText (GM.SplitResult replaceFromLine replaceFromCol replaceToLine replaceToCol replaceWith) =
-      diffText (uri, originalText) newText
+      diffText (uri, originalText) newText IncludeDeletions
       where
         before = takeUntil (toPos (replaceFromLine, replaceFromCol)) originalText
         after = dropUntil (toPos (replaceToLine, replaceToCol)) originalText

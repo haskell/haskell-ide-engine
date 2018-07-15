@@ -8,6 +8,7 @@ import           Control.Monad.STM
 import qualified Data.Map as Map
 import qualified Data.Set as S
 import qualified Data.Text as T
+import           Data.Default
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
@@ -63,6 +64,7 @@ dispatcherSpec =
                               (DispatcherEnv cancelTVar wipTVar versionTVar)
                               (\_ _ _ -> return ())
                               (\f x -> f x)
+                              def
       atomically $ writeTChan inChan req1
       atomically $ modifyTVar cancelTVar (S.insert (J.IdInt 2))
       atomically $ writeTChan inChan req2

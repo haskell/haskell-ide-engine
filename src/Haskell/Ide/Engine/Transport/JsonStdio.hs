@@ -22,6 +22,7 @@ import           Control.Monad.IO.Class
 import qualified Data.Aeson                            as J
 import qualified Data.ByteString.Builder               as B
 import qualified Data.ByteString.Lazy.Char8            as B
+import           Data.Default
 import qualified Data.Map                              as Map
 #if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
@@ -33,6 +34,7 @@ import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.Types            as J
+import           Language.Haskell.LSP.Types.Capabilities
 import           System.Exit
 import           System.IO
 import qualified System.Log.Logger                     as L
@@ -44,7 +46,7 @@ import qualified System.Log.Logger                     as L
 
 -- ---------------------------------------------------------------------
 
-jsonStdioTransport :: (DispatcherEnv -> ErrorHandler -> CallbackHandler IO -> IO ()) -> TChan (PluginRequest IO) -> IO ()
+jsonStdioTransport :: (DispatcherEnv -> ErrorHandler -> CallbackHandler IO -> ClientCapabilities -> IO ()) -> TChan (PluginRequest IO) -> IO ()
 jsonStdioTransport hieDispatcherProc cin = do
   run hieDispatcherProc cin >>= \case
     0 -> exitSuccess
@@ -66,7 +68,7 @@ data ReactorOutput = ReactorOutput
   , _response :: J.Value
   } deriving (Eq, Show, Generic, J.ToJSON, J.FromJSON)
 
-run :: (DispatcherEnv -> ErrorHandler -> CallbackHandler IO -> IO ()) -> TChan (PluginRequest IO) -> IO Int
+run :: (DispatcherEnv -> ErrorHandler -> CallbackHandler IO -> ClientCapabilities -> IO ()) -> TChan (PluginRequest IO) -> IO Int
 run dispatcherProc cin = flip E.catches handlers $ do
   flip E.finally finalProc $ do
 
@@ -85,7 +87,7 @@ run dispatcherProc cin = flip E.catches handlers $ do
     let errorHandler lid _ e = liftIO $ hPutStrLn stderr $ "Got an error for request " ++ show lid ++ ": " ++ T.unpack e
         callbackHandler callback x = callback x
 
-    race3_ (dispatcherProc dispatcherEnv errorHandler callbackHandler)
+    race3_ (dispatcherProc dispatcherEnv errorHandler callbackHandler def)
            (outWriter rout)
            (reactor rout)
 

@@ -9,7 +9,11 @@ module Haskell.Ide.Engine.PluginUtils
     mapEithers
   , pluginGetFile
   , pluginGetFileResponse
+  , makeDiffResult
+  , WithDeletions(..)
+  , makeAdditiveDiffResult
   , diffText
+  , diffText'
   , srcSpan2Range
   , srcSpan2Loc
   , reverseMapFile
@@ -22,9 +26,11 @@ module Haskell.Ide.Engine.PluginUtils
   , oldPosToNew
   , unPos
   , toPos
+  , clientSupportsDocumentChanges
   ) where
 
 import           Control.Monad.IO.Class
+import           Control.Monad.Reader
 import           Control.Monad.Trans.Except
 import           Data.Aeson
 import           Data.Algorithm.Diff
@@ -32,10 +38,14 @@ import           Data.Algorithm.DiffOutput
 import qualified Data.HashMap.Strict                   as H
 import           Data.Monoid
 import qualified Data.Text                             as T
+import qualified Data.Text.IO                          as T
+import           Data.Maybe
+import qualified GhcMod.Utils                          as GM
 import           FastString
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.ArtifactMap
+import           Language.Haskell.LSP.Types.Capabilities
 import qualified Language.Haskell.LSP.Types            as J
 import           Prelude                               hiding (log)
 import           SrcLoc
@@ -134,15 +144,52 @@ mapEithers _ _ = Right []
 
 -- ---------------------------------------------------------------------
 
--- |Generate a 'WorkspaceEdit' value from a pair of source Text
-diffText :: (Uri,T.Text) -> T.Text -> WorkspaceEdit
-diffText (f,fText) f2Text = WorkspaceEdit (Just h) Nothing
+data WithDeletions = IncludeDeletions | SkipDeletions
+  deriving Eq
+
+-- | Generate a 'WorkspaceEdit' value from an original file and text to replace it.
+makeDiffResult :: FilePath -> T.Text -> (FilePath -> FilePath) -> IdeM WorkspaceEdit
+makeDiffResult orig new fileMap = do
+  origText <- liftIO $ T.readFile orig
+  let fp' = fileMap orig
+  fp <- liftIO $ GM.makeAbsolute' fp'
+  diffText (filePathToUri fp,origText) new IncludeDeletions
+
+-- | A version of 'makeDiffResult' that has does not insert any deletions
+makeAdditiveDiffResult :: FilePath -> T.Text -> (FilePath -> FilePath) -> IdeM WorkspaceEdit
+makeAdditiveDiffResult orig new fileMap = do
+  origText <- liftIO $ T.readFile orig
+  let fp' = fileMap orig
+  fp <- liftIO $ GM.makeAbsolute' fp'
+  diffText (filePathToUri fp,origText) new SkipDeletions
+
+-- | Generate a 'WorkspaceEdit' value from a pair of source Text
+-- TODO: Doesn't seem to work with 'editHpackPackage'?
+diffText :: (Uri,T.Text) -> T.Text -> WithDeletions -> IdeM WorkspaceEdit
+diffText old new withDeletions = do
+  supports <- clientSupportsDocumentChanges
+  return $ diffText' supports old new withDeletions
+
+-- | A pure version of 'diffText' for testing
+diffText' :: Bool -> (Uri,T.Text) -> T.Text -> WithDeletions -> WorkspaceEdit
+diffText' supports (f,fText) f2Text withDeletions  =
+  if supports
+    then WorkspaceEdit Nothing (Just docChanges)
+    else WorkspaceEdit (Just h) Nothing
   where
     d = getGroupedDiff (lines $ T.unpack fText) (lines $ T.unpack f2Text)
-    diffOps = diffToLineRanges d
+
+    diffOps = filter (\x -> (withDeletions == IncludeDeletions) || not (isDeletion x))
+                     (diffToLineRanges d)
+
+    isDeletion (Deletion _ _) = True
+    isDeletion _ = False
+    
     r = map diffOperationToTextEdit diffOps
     diff = J.List r
     h = H.singleton f diff
+    docChanges = J.List [docEdit]
+    docEdit = J.TextDocumentEdit (J.VersionedTextDocumentIdentifier f 0) diff
 
     diffOperationToTextEdit :: DiffOperation LineRange -> J.TextEdit
     diffOperationToTextEdit (Change fm to) = J.TextEdit range nt
@@ -150,9 +197,17 @@ diffText (f,fText) f2Text = WorkspaceEdit (Just h) Nothing
         range = calcRange fm
         nt = T.pack $ init $ unlines $ lrContents to
 
-    diffOperationToTextEdit (Deletion fm _) = J.TextEdit range ""
+    {-
+      In order to replace everything including newline characters,
+      the end range should extend below the last line. From the specification:
+      "If you want to specify a range that contains a line including
+      the line ending character(s) then use an end position denoting
+      the start of the next line"
+    -}
+    diffOperationToTextEdit (Deletion (LineRange (sl, el) _) _) = J.TextEdit range ""
       where
-        range = calcRange fm
+        range = J.Range (J.Position (sl - 1) 0)
+                        (J.Position el 0)
 
     diffOperationToTextEdit (Addition fm l) = J.TextEdit range nt
     -- fm has a range wrt to the changed file, which starts in the current file at l
@@ -184,3 +239,12 @@ fileInfo tfileName =
   in (dir,sfileName)
 
 -- ---------------------------------------------------------------------
+
+clientSupportsDocumentChanges :: IdeM Bool
+clientSupportsDocumentChanges = do
+  ClientCapabilities mwCaps _ _ <- ask
+  let supports = do
+        wCaps <- mwCaps
+        WorkspaceEditClientCapabilities mDc <- _workspaceEdit wCaps
+        mDc
+  return $ fromMaybe False supports
