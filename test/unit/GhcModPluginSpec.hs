@@ -14,7 +14,8 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Plugin.GhcMod
-import           Language.Haskell.LSP.Types (TextEdit(..), TextDocumentPositionParams(..), TextDocumentIdentifier(..))
+import           Haskell.Ide.Engine.Plugin.HaRe ( HarePoint(..) )
+import           Language.Haskell.LSP.Types     ( TextEdit(..) )
 import           System.Directory
 import           TestUtils
 
@@ -123,7 +124,7 @@ ghcmodSpec =
           act = do
             _ <- setTypecheckedModule uri
             splitCaseCmd' uri (toPos (5,5))
-          arg = TextDocumentPositionParams (TextDocumentIdentifier uri) (toPos (5,5))
+          arg = HP uri (toPos (5,5))
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton uri
                                 $ List [TextEdit (Range (Position 4 0) (Position 4 10))
@@ -142,7 +143,7 @@ ghcmodSpec =
             act = do
               _ <- setTypecheckedModule uri
               splitCaseCmd' uri (toPos (5,5))
-            arg = TextDocumentPositionParams (TextDocumentIdentifier uri) (toPos (5,5))
+            arg = HP uri (toPos (5,5))
             res = IdeResultOk $ WorkspaceEdit
               (Just $ H.singleton uri
                                   $ List [TextEdit (Range (Position 4 0) (Position 4 10))
