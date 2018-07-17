@@ -25,7 +25,6 @@ module DispatchSpec (spec) where
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
 import           Control.Concurrent.STM.TVar
-import           Control.Monad
 import           Control.Monad.STM
 import           Control.Monad.IO.Class
 import           Data.Aeson
@@ -70,7 +69,7 @@ plugins = pluginDescToIdePlugins
   ,("base"       , baseDescriptor)
   ]
 
-startServer :: IO (TChan (PluginRequest IO), TChan LogVal)
+startServer :: IO (TChan (PluginRequest IO), TChan LogVal, ThreadId)
 startServer = do
 
   cin      <- newTChanIO
@@ -85,13 +84,13 @@ startServer = do
         , docVersionTVar     = versionTVar
         }
 
-  void $ liftIO $ forkIO $
+  threadId <- liftIO $ forkIO $
     dispatcherP cin plugins testOptions dispatcherEnv
     (\lid errCode e -> logToChan logChan ("received an error", Left (lid, errCode, e)))
     (\g x -> g x)
     def
 
-  return (cin, logChan)
+  return (cin, logChan, threadId)
 
 -- ---------------------------------------------------------------------
 
@@ -141,9 +140,9 @@ spec = do
   -- WARNING: Do not run startServer inside the describe/spec part!
   -- It will get run at the start of the hspec session and change the
   -- working directory for all tests, even the ones outside of this module
-  describe "dispatch" $ it "defers responses properly" $ cdAndDo "test/testdata" $ do
+  describe "dispatch" $ it "defers responses properly" $ withCurrentDirectory "test/testdata" $ do
 
-    (cin, logChan) <- liftIO startServer
+    (cin, logChan, threadId) <- liftIO startServer
 
     cwd <- liftIO getCurrentDirectory
     let testUri = filePathToUri $ cwd </> "FuncTest.hs"
@@ -305,3 +304,5 @@ spec = do
 
     ("req8", Right diags) <- atomically $ readTChan logChan
     show diags `shouldBe` "((Map Uri (Set Diagnostic)),[Text])"
+
+    killThread threadId
