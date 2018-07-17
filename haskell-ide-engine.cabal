@@ -223,6 +223,7 @@ test-suite haskell-ide-func-test
                      , DispatchSpec
                      , DeferredSpec
                      , DefinitionSpec
+                     , HoverSpec
                      , ReferencesSpec
                      , RenameSpec
                      , Spec
