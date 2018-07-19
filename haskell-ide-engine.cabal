@@ -136,7 +136,7 @@ executable hie-wrapper
   default-language:    Haskell2010
 
 
-test-suite haskell-ide-test
+test-suite unit-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test/unit
   main-is:             Main.hs
@@ -171,7 +171,7 @@ test-suite haskell-ide-test
   default-language:    Haskell2010
   build-tool-depends:  hspec-discover:hspec-discover
 
-test-suite haskell-ide-dispatcher-test
+test-suite dispatcher-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test/dispatcher
   main-is:             Main.hs
@@ -214,7 +214,7 @@ library hie-test-utils
      ghc-options:      -Werror
   default-language:    Haskell2010
 
-test-suite haskell-ide-func-test
+test-suite func-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test/functional
   main-is:             Main.hs
@@ -227,6 +227,7 @@ test-suite haskell-ide-func-test
                      , Spec
   build-depends:       hie-test-utils
                      , aeson
+                     , async
                      , base
                      , containers
                      , data-default
@@ -246,7 +247,7 @@ test-suite haskell-ide-func-test
   default-language:    Haskell2010
   build-tool-depends:  hspec-discover:hspec-discover
 
-test-suite hie-wrapper-test
+test-suite wrapper-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test/wrapper
   main-is:             HieWrapper.hs

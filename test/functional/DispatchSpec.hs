@@ -22,7 +22,7 @@ TODO: extract the commonality
 -}
 module DispatchSpec (spec) where
 
-import           Control.Concurrent
+import           Control.Concurrent.Async
 import           Control.Concurrent.STM.TChan
 import           Control.Concurrent.STM.TVar
 import           Control.Monad.STM
@@ -69,7 +69,7 @@ plugins = pluginDescToIdePlugins
   ,("base"       , baseDescriptor)
   ]
 
-startServer :: IO (TChan (PluginRequest IO), TChan LogVal, ThreadId)
+startServer :: IO (TChan (PluginRequest IO), TChan LogVal, Async ())
 startServer = do
 
   cin      <- newTChanIO
@@ -84,13 +84,13 @@ startServer = do
         , docVersionTVar     = versionTVar
         }
 
-  threadId <- liftIO $ forkIO $
+  dispatcher <- async $
     dispatcherP cin plugins testOptions dispatcherEnv
     (\lid errCode e -> logToChan logChan ("received an error", Left (lid, errCode, e)))
     (\g x -> g x)
     def
 
-  return (cin, logChan, threadId)
+  return (cin, logChan, dispatcher)
 
 -- ---------------------------------------------------------------------
 
@@ -140,169 +140,171 @@ spec = do
   -- WARNING: Do not run startServer inside the describe/spec part!
   -- It will get run at the start of the hspec session and change the
   -- working directory for all tests, even the ones outside of this module
-  describe "dispatch" $ it "defers responses properly" $ withCurrentDirectory "test/testdata" $ do
+  describe "dispatch" $ it "defers responses properly" $ do
+    withCurrentDirectory "test/testdata" $ do
 
-    (cin, logChan, threadId) <- liftIO startServer
+      (cin, logChan, dispatcher) <- liftIO startServer
 
-    cwd <- liftIO getCurrentDirectory
-    let testUri = filePathToUri $ cwd </> "FuncTest.hs"
-        testFailUri = filePathToUri $ cwd </> "FuncTestFail.hs"
+      cwd <- liftIO getCurrentDirectory
+      let testUri = filePathToUri $ cwd </> "FuncTest.hs"
+          testFailUri = filePathToUri $ cwd </> "FuncTestFail.hs"
 
-    let
-      -- Model a hover request
-      hoverReq tn idVal doc = dispatchIdeRequest tn ("IReq " ++ show idVal) cin logChan idVal $ do
-        pluginGetFileResponse "hoverReq" doc $ \fp -> do
-          cached <- isCached fp
-          if cached
-            then return (IdeResponseOk Cached)
-            else return (IdeResponseOk NotCached)
+      let
+        -- Model a hover request
+        hoverReq tn idVal doc = dispatchIdeRequest tn ("IReq " ++ show idVal) cin logChan idVal $ do
+          pluginGetFileResponse "hoverReq" doc $ \fp -> do
+            cached <- isCached fp
+            if cached
+              then return (IdeResponseOk Cached)
+              else return (IdeResponseOk NotCached)
 
-      unpackRes (r,Right md) = (r, fromDynJSON md)
-      unpackRes r            = error $ "unpackRes:" ++ show r
+        unpackRes (r,Right md) = (r, fromDynJSON md)
+        unpackRes r            = error $ "unpackRes:" ++ show r
 
 
-    --it "defers responses until module is loaded" $ do
+      --it "defers responses until module is loaded" $ do
 
-      -- Returns immediately, no cached value
-    hoverReq 0 (IdInt 0) testUri
-    hr0 <- atomically $ readTChan logChan
-    unpackRes hr0 `shouldBe` ("IReq IdInt 0",Just NotCached)
+        -- Returns immediately, no cached value
+      hoverReq 0 (IdInt 0) testUri
 
-    -- This request should be deferred, only return when the module is loaded
-    dispatchIdeRequest 1 "req1" cin logChan (IdInt 1) $ getSymbols testUri
+      hr0 <- atomically $ readTChan logChan
+      unpackRes hr0 `shouldBe` ("IReq IdInt 0",Just NotCached)
 
-    rrr <- atomically $ tryReadTChan logChan
-    show rrr `shouldBe` "Nothing"
+      -- This request should be deferred, only return when the module is loaded
+      dispatchIdeRequest 1 "req1" cin logChan (IdInt 1) $ getSymbols testUri
 
-    -- need to typecheck the module to trigger deferred response
-    dispatchGhcRequest 2 "req2" 2 cin logChan "ghcmod" "check" (toJSON testUri)
+      rrr <- atomically $ tryReadTChan logChan
+      show rrr `shouldBe` "Nothing"
 
-    -- And now we get the deferred response (once the module is loaded)
-    ("req1",Right res) <- atomically $ readTChan logChan
-    let Just ss = fromDynJSON res :: Maybe [SymbolInformation]
-    head ss `shouldBe`
-                SymbolInformation
-                    { _name          = "main"
-                    , _kind          = SkFunction
-                    , _location      = Location
-                      { _uri   = testUri
-                      , _range = Range
-                        { _start = Position {_line = 2, _character = 0}
-                        , _end   = Position {_line = 2, _character = 4}
+      -- need to typecheck the module to trigger deferred response
+      dispatchGhcRequest 2 "req2" 2 cin logChan "ghcmod" "check" (toJSON testUri)
+
+      -- And now we get the deferred response (once the module is loaded)
+      ("req1",Right res) <- atomically $ readTChan logChan
+      let Just ss = fromDynJSON res :: Maybe [SymbolInformation]
+      head ss `shouldBe`
+                  SymbolInformation
+                      { _name          = "main"
+                      , _kind          = SkFunction
+                      , _location      = Location
+                        { _uri   = testUri
+                        , _range = Range
+                          { _start = Position {_line = 2, _character = 0}
+                          , _end   = Position {_line = 2, _character = 4}
+                          }
                         }
+                      , _containerName = Nothing
                       }
-                    , _containerName = Nothing
-                    }
 
-    -- followed by the diagnostics ...
-    ("req2",Right res2) <- atomically $ readTChan logChan
-    show res2 `shouldBe` "((Map Uri (Set Diagnostic)),[Text])"
+      -- followed by the diagnostics ...
+      ("req2",Right res2) <- atomically $ readTChan logChan
+      show res2 `shouldBe` "((Map Uri (Set Diagnostic)),[Text])"
 
-    -- No more pending results
-    rr3 <- atomically $ tryReadTChan logChan
-    show rr3 `shouldBe` "Nothing"
+      -- No more pending results
+      rr3 <- atomically $ tryReadTChan logChan
+      show rr3 `shouldBe` "Nothing"
 
-    -- Returns immediately, there is a cached value
-    hoverReq 3 (IdInt 3) testUri
-    hr3 <- atomically $ readTChan logChan
-    unpackRes hr3 `shouldBe` ("IReq IdInt 3",Just Cached)
+      -- Returns immediately, there is a cached value
+      hoverReq 3 (IdInt 3) testUri
+      hr3 <- atomically $ readTChan logChan
+      unpackRes hr3 `shouldBe` ("IReq IdInt 3",Just Cached)
 
-  -- it "instantly responds to deferred requests if cache is available" $ do
-    -- deferred responses should return something now immediately
-    -- as long as the above test ran before
-    dispatchIdeRequest 0 "references" cin logChan (IdInt 4)
-      $ getReferencesInDoc testUri (Position 7 0)
+    -- it "instantly responds to deferred requests if cache is available" $ do
+      -- deferred responses should return something now immediately
+      -- as long as the above test ran before
+      dispatchIdeRequest 0 "references" cin logChan (IdInt 4)
+        $ getReferencesInDoc testUri (Position 7 0)
 
-    hr4 <- atomically $ readTChan logChan
-    -- show hr4 `shouldBe` "hr4"
-    unpackRes hr4 `shouldBe` ("references",Just
-                  [ DocumentHighlight
-                    { _range = Range
-                      { _start = Position {_line = 7, _character = 0}
-                      , _end   = Position {_line = 7, _character = 2}
+      hr4 <- atomically $ readTChan logChan
+      -- show hr4 `shouldBe` "hr4"
+      unpackRes hr4 `shouldBe` ("references",Just
+                    [ DocumentHighlight
+                      { _range = Range
+                        { _start = Position {_line = 7, _character = 0}
+                        , _end   = Position {_line = 7, _character = 2}
+                        }
+                      , _kind  = Just HkWrite
                       }
-                    , _kind  = Just HkWrite
-                    }
-                  , DocumentHighlight
-                    { _range = Range
-                      { _start = Position {_line = 7, _character = 0}
-                      , _end   = Position {_line = 7, _character = 2}
+                    , DocumentHighlight
+                      { _range = Range
+                        { _start = Position {_line = 7, _character = 0}
+                        , _end   = Position {_line = 7, _character = 2}
+                        }
+                      , _kind  = Just HkWrite
                       }
-                    , _kind  = Just HkWrite
-                    }
-                  , DocumentHighlight
-                    { _range = Range
-                      { _start = Position {_line = 5, _character = 6}
-                      , _end   = Position {_line = 5, _character = 8}
+                    , DocumentHighlight
+                      { _range = Range
+                        { _start = Position {_line = 5, _character = 6}
+                        , _end   = Position {_line = 5, _character = 8}
+                        }
+                      , _kind  = Just HkRead
                       }
-                    , _kind  = Just HkRead
-                    }
-                  , DocumentHighlight
-                    { _range = Range
-                      { _start = Position {_line = 7, _character = 0}
-                      , _end   = Position {_line = 7, _character = 2}
+                    , DocumentHighlight
+                      { _range = Range
+                        { _start = Position {_line = 7, _character = 0}
+                        , _end   = Position {_line = 7, _character = 2}
+                        }
+                      , _kind  = Just HkWrite
                       }
-                    , _kind  = Just HkWrite
-                    }
-                  , DocumentHighlight
-                    { _range = Range
-                      { _start = Position {_line = 7, _character = 0}
-                      , _end   = Position {_line = 7, _character = 2}
+                    , DocumentHighlight
+                      { _range = Range
+                        { _start = Position {_line = 7, _character = 0}
+                        , _end   = Position {_line = 7, _character = 2}
+                        }
+                      , _kind  = Just HkWrite
                       }
-                    , _kind  = Just HkWrite
-                    }
-                  , DocumentHighlight
-                    { _range = Range
-                      { _start = Position {_line = 5, _character = 6}
-                      , _end   = Position {_line = 5, _character = 8}
+                    , DocumentHighlight
+                      { _range = Range
+                        { _start = Position {_line = 5, _character = 6}
+                        , _end   = Position {_line = 5, _character = 8}
+                        }
+                      , _kind  = Just HkRead
                       }
-                    , _kind  = Just HkRead
-                    }
-                  ])
+                    ])
 
-  -- it "returns hints as diagnostics" $ do
+    -- it "returns hints as diagnostics" $ do
 
-    dispatchGhcRequest 5 "r5" 5 cin logChan "applyrefact" "lint" testUri
+      dispatchGhcRequest 5 "r5" 5 cin logChan "applyrefact" "lint" testUri
 
-    hr5 <- atomically $ readTChan logChan
-    unpackRes hr5 `shouldBe` ("r5",
-            Just $ PublishDiagnosticsParams
-                    { _uri         = testUri
-                    , _diagnostics = List
-                      [ Diagnostic
-                          (Range (Position 9 6) (Position 10 18))
-                          (Just DsInfo)
-                          (Just "Redundant do")
-                          (Just "hlint")
-                          "Redundant do\nFound:\n  do putStrLn \"hello\"\nWhy not:\n  putStrLn \"hello\"\n"
-                          Nothing
-                      ]
-                    }
-                  )
+      hr5 <- atomically $ readTChan logChan
+      unpackRes hr5 `shouldBe` ("r5",
+              Just $ PublishDiagnosticsParams
+                      { _uri         = testUri
+                      , _diagnostics = List
+                        [ Diagnostic
+                            (Range (Position 9 6) (Position 10 18))
+                            (Just DsInfo)
+                            (Just "Redundant do")
+                            (Just "hlint")
+                            "Redundant do\nFound:\n  do putStrLn \"hello\"\nWhy not:\n  putStrLn \"hello\"\n"
+                            Nothing
+                        ]
+                      }
+                    )
 
-    let req6 = HP testUri (toPos (8, 1))
-    dispatchGhcRequest 6 "r6" 6 cin logChan "hare" "demote" req6
+      let req6 = HP testUri (toPos (8, 1))
+      dispatchGhcRequest 6 "r6" 6 cin logChan "hare" "demote" req6
 
-    hr6 <- atomically $ readTChan logChan
-    -- show hr6 `shouldBe` "hr6"
-    let textEdits = List [TextEdit (Range (Position 6 0) (Position 7 6)) "  where\n    bb = 5"]
-        r6uri = testUri
-    unpackRes hr6 `shouldBe` ("r6",Just
-      (WorkspaceEdit
-        (Just $ H.singleton r6uri textEdits)
-        Nothing
-      ))
+      hr6 <- atomically $ readTChan logChan
+      -- show hr6 `shouldBe` "hr6"
+      let textEdits = List [TextEdit (Range (Position 6 0) (Position 7 6)) "  where\n    bb = 5"]
+          r6uri = testUri
+      unpackRes hr6 `shouldBe` ("r6",Just
+        (WorkspaceEdit
+          (Just $ H.singleton r6uri textEdits)
+          Nothing
+        ))
 
-  -- it "instantly responds to failed modules with no cache" $ do
+    -- it "instantly responds to failed modules with no cache" $ do
 
-    dispatchIdeRequest 7 "req7" cin logChan (IdInt 7) $ getSymbols testFailUri
+      dispatchIdeRequest 7 "req7" cin logChan (IdInt 7) $ getSymbols testFailUri
 
-    dispatchGhcRequest 8 "req8" 8 cin logChan "ghcmod" "check" (toJSON testFailUri)
+      dispatchGhcRequest 8 "req8" 8 cin logChan "ghcmod" "check" (toJSON testFailUri)
 
-    (_, Left symbolError) <- atomically $ readTChan logChan
-    symbolError `shouldBe` (IdInt 7, Language.Haskell.LSP.Types.InternalError, "")
+      (_, Left symbolError) <- atomically $ readTChan logChan
+      symbolError `shouldBe` (IdInt 7, Language.Haskell.LSP.Types.InternalError, "")
 
-    ("req8", Right diags) <- atomically $ readTChan logChan
-    show diags `shouldBe` "((Map Uri (Set Diagnostic)),[Text])"
+      ("req8", Right diags) <- atomically $ readTChan logChan
+      show diags `shouldBe` "((Map Uri (Set Diagnostic)),[Text])"
 
-    killThread threadId
+      cancel dispatcher

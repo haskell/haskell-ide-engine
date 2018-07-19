@@ -14,6 +14,7 @@ module Haskell.Ide.Engine.Dispatcher
 
 import           Control.Concurrent.STM.TChan
 import           Control.Concurrent
+import           Control.Concurrent.Async
 import           Control.Concurrent.STM.TVar
 import           Control.Monad
 import           Control.Monad.IO.Class
@@ -50,29 +51,27 @@ dispatcherP :: forall m. TChan (PluginRequest m)
             -> CallbackHandler m
             -> J.ClientCapabilities
             -> IO ()
-dispatcherP inChan plugins ghcModOptions env errorHandler callbackHandler caps =
-  void $ runIdeGhcM ghcModOptions caps (IdeState emptyModuleCache Map.empty plugins Map.empty Nothing) $ do
-      stateVar <- lift $ lift $ lift ask
-      gchan <- liftIO $ do
-        ghcChan <- newTChanIO
-        ideChan <- newTChanIO
+dispatcherP inChan plugins ghcModOptions env errorHandler callbackHandler caps = do
+  stateVarVar <- newEmptyMVar
+  ideChan <- newTChanIO
+  ghcChan <- newTChanIO
+  let startState = IdeState emptyModuleCache Map.empty plugins Map.empty Nothing
+      runGhcM = runIdeGhcM ghcModOptions caps startState ghcDisp
+      ghcDisp = do
+        stateVar <- lift $ lift $ lift ask
 
-        _ <- forkIO $ mainDispatcher inChan ghcChan ideChan
-        _ <- forkIO $ flip runReaderT stateVar $
-                        flip runReaderT caps $ 
-                          ideDispatcher env errorHandler callbackHandler ideChan
-
-        -- TODO: Causes STM deadlock?
-        --mainThread <- myThreadId
-        --let exceptionHandler e = do
-        --      --TODO: Use async's link
-        --      errorm $ show (e :: SomeException)
-        --      throwTo mainThread e
-        --    ideLoop = handle exceptionHandler
-        --                     (runReaderT (runReaderT  (ideDispatcher env errorHandler callbackHandler ideChan) caps) stateVar)
-        --_ <- forkIO ideLoop
-        return ghcChan
-      ghcDispatcher env errorHandler callbackHandler gchan
+        liftIO $ putMVar stateVarVar stateVar
+        ghcDispatcher env errorHandler callbackHandler ghcChan
+        
+  withAsync runGhcM $ \a3 -> do
+    stateVar <- readMVar stateVarVar
+    let runIdeM = 
+          flip runReaderT stateVar $
+            flip runReaderT caps $ 
+              ideDispatcher env errorHandler callbackHandler ideChan
+    withAsync runIdeM $ \a2 -> do
+      a1 <- async (mainDispatcher inChan ghcChan ideChan)
+      void $ waitAny [a1, a2, a3]
 
 mainDispatcher :: forall void m. TChan (PluginRequest m) -> TChan (GhcRequest m) -> TChan (IdeRequest m) -> IO void
 mainDispatcher inChan ghcChan ideChan = forever $ do
