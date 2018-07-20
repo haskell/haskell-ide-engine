@@ -22,7 +22,7 @@ TODO: extract the commonality
 -}
 module DispatchSpec (spec) where
 
-import           Control.Concurrent.Async
+import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
 import           Control.Concurrent.STM.TVar
 import           Control.Monad.STM
@@ -69,7 +69,7 @@ plugins = pluginDescToIdePlugins
   ,("base"       , baseDescriptor)
   ]
 
-startServer :: IO (TChan (PluginRequest IO), TChan LogVal, Async ())
+startServer :: IO (TChan (PluginRequest IO), TChan LogVal, ThreadId)
 startServer = do
 
   cin      <- newTChanIO
@@ -84,7 +84,7 @@ startServer = do
         , docVersionTVar     = versionTVar
         }
 
-  dispatcher <- async $
+  dispatcher <- forkIO $
     dispatcherP cin plugins testOptions dispatcherEnv
     (\lid errCode e -> logToChan logChan ("received an error", Left (lid, errCode, e)))
     (\g x -> g x)
@@ -307,4 +307,6 @@ spec = do
       ("req8", Right diags) <- atomically $ readTChan logChan
       show diags `shouldBe` "((Map Uri (Set Diagnostic)),[Text])"
 
-      cancel dispatcher
+      getCurrentDirectory >>= putStrLn
+      killThread dispatcher
+      getCurrentDirectory >>= putStrLn

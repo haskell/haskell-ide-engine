@@ -56,22 +56,17 @@ dispatcherP inChan plugins ghcModOptions env errorHandler callbackHandler caps =
   ideChan <- newTChanIO
   ghcChan <- newTChanIO
   let startState = IdeState emptyModuleCache Map.empty plugins Map.empty Nothing
-      runGhcM = runIdeGhcM ghcModOptions caps startState ghcDisp
-      ghcDisp = do
+      runGhcDisp = runIdeGhcM ghcModOptions caps startState $ do
         stateVar <- lift $ lift $ lift ask
-
         liftIO $ putMVar stateVarVar stateVar
         ghcDispatcher env errorHandler callbackHandler ghcChan
-        
-  withAsync runGhcM $ \a3 -> do
-    stateVar <- readMVar stateVarVar
-    let runIdeM = 
-          flip runReaderT stateVar $
-            flip runReaderT caps $ 
-              ideDispatcher env errorHandler callbackHandler ideChan
-    withAsync runIdeM $ \a2 -> do
-      a1 <- async (mainDispatcher inChan ghcChan ideChan)
-      void $ waitAny [a1, a2, a3]
+      runIdeDisp = do
+        stateVar <- readMVar stateVarVar
+        flip runReaderT stateVar $ flip runReaderT caps $
+          ideDispatcher env errorHandler callbackHandler ideChan
+      runMainDisp = mainDispatcher inChan ghcChan ideChan
+
+  runGhcDisp `concurrently_` runIdeDisp `concurrently_` runMainDisp
 
 mainDispatcher :: forall void m. TChan (PluginRequest m) -> TChan (GhcRequest m) -> TChan (IdeRequest m) -> IO void
 mainDispatcher inChan ghcChan ideChan = forever $ do
