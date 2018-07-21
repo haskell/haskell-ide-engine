@@ -115,17 +115,19 @@ jobs:
 
   cabal:
     docker: 
-      - image: haskell/8.4.3
+      - image: haskell:8.4.3
     steps:
       - checkout
       - run: git submodule update --recursive --init
-      - restore-cache: cabal
+      - restore-cache:
+          keys: 
+            - cabal
       - run:
-          - name: Configure
-          - command: cabal new-configure
+          name: Configure
+          command: cabal new-configure
       - run:
-          - name: Build
-          - command: cabal new-build
+          name: Build
+          command: cabal new-build
       - save_cache:
           key: cabal
           paths:
