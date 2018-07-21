@@ -29,11 +29,8 @@ handleCodeActionReq :: TrackingNumber -> BM.Bimap T.Text T.Text -> J.CodeActionR
 handleCodeActionReq tn commandMap req = do
 
   vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
-  maybeVf <- liftIO $ vfsFunc doc
-  let docVersion = case maybeVf of
-        Just vf -> _version vf
-        Nothing -> 0
-      docId = J.VersionedTextDocumentIdentifier doc docVersion
+  docVersion <- fmap _version <$> liftIO (vfsFunc doc)
+  let docId = J.VersionedTextDocumentIdentifier doc docVersion
 
   maybeRootDir <- asksLspFuncs Core.rootPath
 
@@ -49,14 +46,14 @@ handleCodeActionReq tn commandMap req = do
         concatMap isRenamableDiag diags
       redundantImportActions = concatMap (uncurry (mkRedundantImportActions docId)) $
         mapMaybe isRedundantImportDiag diags
-      
+
       plainActions = renamableActions ++ hlintActions ++ redundantImportActions
 
       -- For these diagnostics need to search hoogle before we can make code actions
       addPackageDiags = mapMaybe isPackageAddableDiag diags
       importableDiags = mapMaybe isImportableDiag diags
 
-  
+
 
   makeSearches Hoogle.searchPackages (mkAddPackageAction maybeRootDir) addPackageDiags $ \addPackageActions ->
     makeSearches Hoogle.searchModules mkImportAction importableDiags $ \importActions ->
@@ -67,7 +64,7 @@ handleCodeActionReq tn commandMap req = do
           -- will go to:
           -- myFunc
           let relaxed = map (bimap id (head . T.words)) importableDiags
-              allActions = ((plainActions ++ addPackageActions) ++) 
+              allActions = ((plainActions ++ addPackageActions) ++)
           in makeSearches Hoogle.searchModules mkImportAction relaxed (send . allActions)
         else send (plainActions ++ addPackageActions ++ importActions)
 
@@ -123,7 +120,7 @@ handleCodeActionReq tn commandMap req = do
       cmdParams = J.toJSON [J.ApplyWorkspaceEditParams workspaceEdit]
 
       codeAction = J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [diag])) (Just workspaceEdit) Nothing
-  
+
   mkRedundantImportActions :: J.VersionedTextDocumentIdentifier -> J.Diagnostic -> T.Text -> [(J.CodeAction, J.Command)]
   mkRedundantImportActions docId diag moduleName = [(removeAction, removeCmd), (importAction, importCmd)]
     where
@@ -150,13 +147,13 @@ handleCodeActionReq tn commandMap req = do
       importEdit = workspaceEdit tEdit
         where
           tEdit = J.TextEdit (diag ^. J.range) ("import " <> moduleName <> "()")
-      
+
       workspaceEdit textEdit = J.WorkspaceEdit (Just changes) (Just docChanges)
         where
           changes = HM.singleton doc (J.List [textEdit])
           docChanges = J.List [textDocEdit]
           textDocEdit = J.TextDocumentEdit docId (J.List [textEdit])
-          
+
 
       cmd title wEdit = J.Command title cmdName (Just (cmdParams wEdit))
       cmdName = commandMap BM.! "hie:applyWorkspaceEdit"

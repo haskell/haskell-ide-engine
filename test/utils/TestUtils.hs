@@ -54,7 +54,7 @@ cdAndDo path fn = do
           $ const fn
 
 
-testCommand :: (ToJSON a, Typeable b, ToJSON b, Show b, Eq b) => IdePlugins -> IdeGhcM (IdeResult b) -> PluginId -> CommandName -> a -> (IdeResult b) -> IO ()
+testCommand :: (ToJSON a, Typeable b, ToJSON b, Show b, Eq b) => IdePlugins -> IdeGhcM (IdeResult b) -> PluginId -> CommandName -> a -> IdeResult b -> IO ()
 testCommand testPlugins act plugin cmd arg res = do
   (newApiRes, oldApiRes) <- runIGM testPlugins $ do
     new <- act
@@ -105,6 +105,7 @@ files =
    , "./test/testdata/addPackageTest/cabal/"
    , "./test/testdata/addPackageTest/hpack/"
    , "./test/testdata/redundantImportTest/"
+   , "./test/testdata/completion/"
   ]
 
 stackYaml :: FilePath

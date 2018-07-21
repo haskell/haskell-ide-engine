@@ -193,7 +193,7 @@ mapFileFromVfs tn vtdi = do
   verTVar <- asks (docVersionTVar . dispatcherEnv)
   cin <- asks reqChanIn
   let uri = vtdi ^. J.uri
-      ver = vtdi ^. J.version
+      ver = fromMaybe 0 (vtdi ^. J.version)
   vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
   mvf <- liftIO $ vfsFunc uri
   case (mvf, uriToFilePath uri) of
@@ -257,7 +257,7 @@ updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file 
 -- ---------------------------------------------------------------------
 
 publishDiagnostics :: (MonadIO m, MonadReader REnv m)
-  => Int -> J.Uri -> Maybe J.TextDocumentVersion -> DiagnosticsBySource -> m ()
+  => Int -> J.Uri -> J.TextDocumentVersion -> DiagnosticsBySource -> m ()
 publishDiagnostics maxToSend uri' mv diags = do
   lf <- asks lspFuncs
   liftIO $ (Core.publishDiagnosticsFunc lf) maxToSend uri' mv diags
@@ -378,7 +378,7 @@ reactor inp commandMap = do
           let
               td  = notification ^. J.params . J.textDocument
               uri = td ^. J.uri
-              ver = td ^. J.version
+              ver = Just $ td ^. J.version
           mapFileFromVfs tn $ J.VersionedTextDocumentIdentifier uri ver
           requestDiagnostics tn uri ver
 
@@ -735,12 +735,14 @@ getDocsForName name pkg modName' = do
 -- ---------------------------------------------------------------------
 
 -- | get hlint and GHC diagnostics and loads the typechecked module into the cache
-requestDiagnostics :: TrackingNumber -> J.Uri -> Int -> R ()
-requestDiagnostics tn file ver = do
+requestDiagnostics :: TrackingNumber -> J.Uri -> J.TextDocumentVersion -> R ()
+requestDiagnostics tn file mVer = do
   lf <- asks lspFuncs
   cin <- asks reqChanIn
   mc <- liftIO $ Core.config lf
   let
+    ver = fromMaybe 0 mVer
+
     -- | If there is a GHC error, flush the hlint diagnostics
     -- TODO: Just flush the parse error diagnostics
     sendOneGhc :: J.DiagnosticSource -> (Uri, [Diagnostic]) -> R ()

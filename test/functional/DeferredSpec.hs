@@ -1,8 +1,9 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Main where
+module DeferredSpec where
 
+import Control.Applicative.Combinators
 import Control.Monad.IO.Class
 import Control.Lens hiding (List)
 import Control.Monad
@@ -15,16 +16,7 @@ import qualified Language.Haskell.LSP.Types as LSP (error, id)
 import Test.Hspec
 import System.Directory
 import System.FilePath
-import FunctionalDispatch
-import FunctionalCodeActions
 import TestUtils
-
-main :: IO ()
-main = do
-  setupStackFiles
-  withFileLogging "functional.log" $ do
-    hspec spec
-    cdAndDo "./test/testdata" $ hspec dispatchSpec
 
 spec :: Spec
 spec = do
@@ -150,10 +142,6 @@ spec = do
       List uuids1 <- getCommands
       List uuids2 <- getCommands
       liftIO $ forM_ (zip uuids1 uuids2) (uncurry shouldNotBe)
-
-  -- -----------------------------------
-
-  describe "code action support" codeActionSpec
 
   -- -----------------------------------
 

@@ -1,7 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module FunctionalCodeActions where
+module CodeActionsSpec where
 
+import Control.Applicative.Combinators
 import Control.Lens hiding (List)
 import Control.Monad
 import Control.Monad.IO.Class
@@ -15,8 +16,8 @@ import qualified Language.Haskell.LSP.Types.Capabilities as C
 import Test.Hspec
 import TestUtils
 
-codeActionSpec :: Spec
-codeActionSpec = do
+spec :: Spec
+spec = do
   it "provides hlint suggestions" $ runSession hieCommand "test/testdata" $ do
     doc <- openDoc "ApplyRefact2.hs" "haskell"
 
@@ -107,6 +108,7 @@ codeActionSpec = do
 
         contents <- getDocumentEdit . TextDocumentIdentifier =<< getDocUri "add-package-test.cabal"
         liftIO $ T.lines contents `shouldSatisfy` \x -> any (\l -> "text -any" `T.isSuffixOf` (x !! l)) [15, 16]
+
     it "adds to hpack package.yaml files" $ runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata/addPackageTest/hpack" $ do
         doc <- openDoc "app/Asdf.hs" "haskell"
 

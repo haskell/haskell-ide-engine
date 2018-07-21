@@ -14,6 +14,7 @@ module Haskell.Ide.Engine.Dispatcher
 
 import           Control.Concurrent.STM.TChan
 import           Control.Concurrent
+import           Control.Concurrent.Async
 import           Control.Concurrent.STM.TVar
 import           Control.Monad
 import           Control.Monad.IO.Class
@@ -50,29 +51,22 @@ dispatcherP :: forall m. TChan (PluginRequest m)
             -> CallbackHandler m
             -> J.ClientCapabilities
             -> IO ()
-dispatcherP inChan plugins ghcModOptions env errorHandler callbackHandler caps =
-  void $ runIdeGhcM ghcModOptions caps (IdeState emptyModuleCache Map.empty plugins Map.empty Nothing) $ do
-      stateVar <- lift $ lift $ lift ask
-      gchan <- liftIO $ do
-        ghcChan <- newTChanIO
-        ideChan <- newTChanIO
+dispatcherP inChan plugins ghcModOptions env errorHandler callbackHandler caps = do
+  stateVarVar <- newEmptyMVar
+  ideChan <- newTChanIO
+  ghcChan <- newTChanIO
+  let startState = IdeState emptyModuleCache Map.empty plugins Map.empty Nothing
+      runGhcDisp = runIdeGhcM ghcModOptions caps startState $ do
+        stateVar <- lift $ lift $ lift ask
+        liftIO $ putMVar stateVarVar stateVar
+        ghcDispatcher env errorHandler callbackHandler ghcChan
+      runIdeDisp = do
+        stateVar <- readMVar stateVarVar
+        flip runReaderT stateVar $ flip runReaderT caps $
+          ideDispatcher env errorHandler callbackHandler ideChan
+      runMainDisp = mainDispatcher inChan ghcChan ideChan
 
-        _ <- forkIO $ mainDispatcher inChan ghcChan ideChan
-        _ <- forkIO $ flip runReaderT stateVar $
-                        flip runReaderT caps $ 
-                          ideDispatcher env errorHandler callbackHandler ideChan
-
-        -- TODO: Causes STM deadlock?
-        --mainThread <- myThreadId
-        --let exceptionHandler e = do
-        --      --TODO: Use async's link
-        --      errorm $ show (e :: SomeException)
-        --      throwTo mainThread e
-        --    ideLoop = handle exceptionHandler
-        --                     (runReaderT (runReaderT  (ideDispatcher env errorHandler callbackHandler ideChan) caps) stateVar)
-        --_ <- forkIO ideLoop
-        return ghcChan
-      ghcDispatcher env errorHandler callbackHandler gchan
+  runGhcDisp `race_` runIdeDisp `race_` runMainDisp
 
 mainDispatcher :: forall void m. TChan (PluginRequest m) -> TChan (GhcRequest m) -> TChan (IdeRequest m) -> IO void
 mainDispatcher inChan ghcChan ideChan = forever $ do
@@ -102,7 +96,8 @@ ideDispatcher env errorHandler callbackHandler pin = forever $ do
             IdeResponseResult (IdeResultFail (IdeError code msg _)) -> liftIO $ do
               completedReq env lid
               case code of
-                NoModuleAvailable -> errorHandler lid J.ParseError msg
+                -- TODO: This isn't actually an internal error
+                NoModuleAvailable -> errorHandler lid J.InternalError msg
                 _ -> errorHandler lid J.InternalError msg
             IdeResponseDeferred fp cacheCb -> handleDeferred lid fp cacheCb callback
 

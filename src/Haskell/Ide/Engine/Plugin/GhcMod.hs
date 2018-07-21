@@ -174,7 +174,7 @@ errorHandlers ghcErrRes renderSourceError = handlers
         ]
 
 setTypecheckedModule :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
-setTypecheckedModule uri =
+setTypecheckedModule uri = 
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     fileMap <- GM.getMMappedFiles
     debugm $ "setTypecheckedModule: file mapping state is: " ++ show fileMap

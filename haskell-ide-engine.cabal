@@ -109,7 +109,6 @@ executable hie
                      , hie-plugin-api
                      , hslogger
                      , optparse-simple
-                     , process
                      , stm
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
                        -with-rtsopts=-T
@@ -137,9 +136,9 @@ executable hie-wrapper
   default-language:    Haskell2010
 
 
-test-suite haskell-ide-test
+test-suite unit-test
   type:                exitcode-stdio-1.0
-  hs-source-dirs:      test
+  hs-source-dirs:      test/unit
   main-is:             Main.hs
   other-modules:       ApplyRefactPluginSpec
                        BrittanySpec
@@ -151,107 +150,108 @@ test-suite haskell-ide-test
                        HooglePluginSpec
                        JsonSpec
                        Spec
-                       TestUtils
   build-depends:       QuickCheck
                      , aeson
                      , base
                      , containers
-                     , data-default
                      , directory
                      , filepath
-                     , ghc-mod-core
                      , haskell-lsp
                      , haskell-ide-engine
+                     , hie-test-utils
                      , hie-plugin-api
                      , hoogle > 5.0.11
-                     , hslogger
                      , hspec
                      , quickcheck-instances
-                     , stm
                      , text
                      , unordered-containers
-                     , yaml
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror
   default-language:    Haskell2010
   build-tool-depends:  hspec-discover:hspec-discover
 
-test-suite haskell-ide-dispatcher-test
+test-suite dispatcher-test
   type:                exitcode-stdio-1.0
-  hs-source-dirs:      test
-  main-is:             MainDispatcher.hs
-  other-modules:       ApplyRefactPluginSpec
-                       BrittanySpec
-                       CodeActionsSpec
-                       DiffSpec
-                       ExtensibleStateSpec
-                       GhcModPluginSpec
-                       HaRePluginSpec
-                       HooglePluginSpec
-                       JsonSpec
-                       Spec
-                       TestUtils
-  build-depends:       QuickCheck
+  hs-source-dirs:      test/dispatcher
+  main-is:             Main.hs
+  build-depends:       base
                      , aeson
-                     , base
                      , containers
                      , data-default
                      , directory
                      , filepath
-                     , ghc-mod-core
                      , haskell-lsp
                      , haskell-ide-engine
+                     , hie-test-utils
                      , hie-plugin-api
-                     , hoogle > 5.0.11
-                     , hslogger
                      , hspec
-                     , quickcheck-instances
                      , stm
                      , text
                      , unordered-containers
-                     , yaml
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror
   default-language:    Haskell2010
   build-tool-depends:  hspec-discover:hspec-discover
 
-
-test-suite haskell-ide-func-test
-  type:                exitcode-stdio-1.0
-  hs-source-dirs:      test
-  main-is:             Functional.hs
-  other-modules:       TestUtils
-                       FunctionalDispatch
-                       FunctionalCodeActions
-  build-depends:       aeson
-                     , base
+library hie-test-utils
+  hs-source-dirs:      test/utils
+  exposed-modules:     TestUtils
+  build-depends:       base
+                     , haskell-ide-engine
+                     , haskell-lsp
+                     , hie-plugin-api
+                     , aeson
                      , containers
                      , data-default
                      , directory
                      , filepath
                      , ghc-mod-core
-                     , haskell-lsp
+                     , hslogger
+                     , hspec
+                     , text
+                     , unordered-containers
+                     , yaml
+  ghc-options:         -Wall -Wredundant-constraints
+  if flag(pedantic)
+     ghc-options:      -Werror
+  default-language:    Haskell2010
+
+test-suite func-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test/functional
+  main-is:             Main.hs
+  other-modules:       CompletionSpec
+                     , CodeActionsSpec
+                     , DeferredSpec
+                     , ReferencesSpec
+                     , RenameSpec
+                     , Spec
+  build-depends:       hie-test-utils
+                     , aeson
+                     , base
+                     , containers
+                     , data-default
+                     , directory
+                     , filepath
                      , haskell-lsp-test
                      , haskell-ide-engine
                      , hie-plugin-api
-                     , hslogger
                      , hspec
                      , lens
                      , stm
                      , text
                      , unordered-containers
-                     , yaml
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror
   default-language:    Haskell2010
   build-tool-depends:  hspec-discover:hspec-discover
 
-test-suite hie-wrapper-test
+test-suite wrapper-test
   type:                exitcode-stdio-1.0
-  hs-source-dirs:      test
+  hs-source-dirs:      test/wrapper
   main-is:             HieWrapper.hs
   build-depends:       base
                      , hspec
