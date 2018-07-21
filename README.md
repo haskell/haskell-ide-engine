@@ -367,7 +367,7 @@ and then activate [`lsp-haskell`](https://github.com/emacs-lsp/lsp-haskell) in y
   )
 ```
 
-Now you should be able to use HIE in Spacemacs. I recommend still checking out [lsp-ui](https://github.com/emacs-lsp/lsp-ui) and [lsp-mode](https://github.com/emacs-lsp/lsp-mode).
+Now you should be able to use HIE in Spacemacs. I still recommend checking out [lsp-ui](https://github.com/emacs-lsp/lsp-ui) and [lsp-mode](https://github.com/emacs-lsp/lsp-mode).
 
 ### Using HIE with Oni
 
