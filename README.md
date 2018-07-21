@@ -76,9 +76,19 @@ we talk to clients.__
 
    ![Renaming](https://i.imgur.com/z03G2a5.gif)
 
- - Adding chosen import and the package dependencies (vscode only)
-
+ - Add packages to cabal and hpack package files
+	
+   ![Adding package to hpack](https://user-images.githubusercontent.com/2488460/43036067-20ae5964-8cf2-11e8-9951-4fd849b3f735.gif)
    ![Adding import & deps](https://user-images.githubusercontent.com/1387653/40287051-b6f987fe-5c5f-11e8-980f-ed7bfa1b2aec.gif)
+
+ - Typo quick fixes
+
+   ![Quick fixes](https://user-images.githubusercontent.com/2488460/43036093-746ae176-8cf2-11e8-8b2d-59799b21c283.gif)
+
+ - Add missing imports (via hsimport)
+
+   ![Missing imports](https://user-images.githubusercontent.com/2488460/43036113-9bb5d5b0-8cf2-11e8-8e32-20952378cf2b.gif)
+
 
 ## Installation
 
