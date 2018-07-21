@@ -39,8 +39,8 @@ defaults: &defaults
         command: stack --stack-yaml=${STACK_FILE} install hoogle
 
     - run:
-        name: Compile but do not run tests
-        command: stack -j 2 --stack-yaml=${STACK_FILE} test --no-run-tests
+        name: Build
+        command: stack -j 2 --stack-yaml=${STACK_FILE} build
 
     - run:
         name: Generate Hoogle database
@@ -56,7 +56,7 @@ defaults: &defaults
           key: stack-work-dirs-04-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
 
     - run:
-        name: Compile + Test
+        name: Test
         command: stack -j 1 --stack-yaml=${STACK_FILE} test --dump-logs
         no_output_timeout: 120m
 
