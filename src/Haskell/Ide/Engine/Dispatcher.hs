@@ -66,7 +66,7 @@ dispatcherP inChan plugins ghcModOptions env errorHandler callbackHandler caps =
           ideDispatcher env errorHandler callbackHandler ideChan
       runMainDisp = mainDispatcher inChan ghcChan ideChan
 
-  runGhcDisp `concurrently_` runIdeDisp `concurrently_` runMainDisp
+  runGhcDisp `race_` runIdeDisp `race_` runMainDisp
 
 mainDispatcher :: forall void m. TChan (PluginRequest m) -> TChan (GhcRequest m) -> TChan (IdeRequest m) -> IO void
 mainDispatcher inChan ghcChan ideChan = forever $ do
