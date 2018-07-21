@@ -43,7 +43,9 @@ import           Haskell.Ide.Engine.Plugin.HieExtras
 main :: IO ()
 main = do
   setupStackFiles
-  withFileLogging "main-dispatcher.log" $ hspec spec
+  withFileLogging "main-dispatcher.log" $ do
+    hspec newPluginSpec
+    hspec funcSpec
 
 -- main :: IO ()
 -- main = do
@@ -55,11 +57,6 @@ main = do
 --     hspecWith c Spec.spec
 --   unless (summaryFailures summary == 0) $
 --     exitFailure
-
--- ---------------------------------------------------------------------
-
-spec :: Spec
-spec = describe "dispatcher" dispatcherSpec
 
 -- ---------------------------------------------------------------------
 
@@ -138,8 +135,8 @@ instance ToJSON   Cached where
 
 -- ---------------------------------------------------------------------
 
-dispatcherSpec :: Spec
-dispatcherSpec = do
+newPluginSpec :: Spec
+newPluginSpec = do
   describe "New plugin dispatcher operation" $
     it "dispatches response correctly" $ do
       inChan <- atomically newTChan
@@ -170,11 +167,13 @@ dispatcherSpec = do
       resp1 `shouldBe` "text1"
       resp2 `shouldBe` "text4"
 
-  describe "dispatch" $ do
+funcSpec :: Spec
+funcSpec = describe "functional dispatch" $ do
     runIO $ setCurrentDirectory "test/testdata"
     (cin, logChan, dispatcher) <- runIO startServer
 
     cwd <- runIO getCurrentDirectory
+    
     let testUri = filePathToUri $ cwd </> "FuncTest.hs"
         testFailUri = filePathToUri $ cwd </> "FuncTestFail.hs"
 
@@ -190,9 +189,10 @@ dispatcherSpec = do
       unpackRes (r,Right md) = (r, fromDynJSON md)
       unpackRes r            = error $ "unpackRes:" ++ show r
 
+
     it "defers responses until module is loaded" $ do
 
-        -- Returns immediately, no cached value
+      -- Returns immediately, no cached value
       hoverReq 0 (IdInt 0) testUri
 
       hr0 <- atomically $ readTChan logChan
