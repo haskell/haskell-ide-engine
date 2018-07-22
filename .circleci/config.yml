@@ -57,7 +57,7 @@ defaults: &defaults
 
     - run:
         name: Test
-        command: stack -j 1 --stack-yaml=${STACK_FILE} test --dump-logs
+        command: stack -j 2 --stack-yaml=${STACK_FILE} test --dump-logs
         no_output_timeout: 120m
 
     - store_artifacts:
