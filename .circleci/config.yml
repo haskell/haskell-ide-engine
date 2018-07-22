@@ -123,6 +123,9 @@ jobs:
           keys: 
             - cabal
       - run:
+          name: Update
+          command: cabal new-update
+      - run:
           name: Configure
           command: cabal new-configure
       - run:
