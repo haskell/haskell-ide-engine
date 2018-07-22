@@ -28,9 +28,11 @@ import           Data.Monoid
 #endif
 import qualified Data.Text                                    as T
 import           Data.Typeable
+import           System.Directory
 import           DataCon
 import           Exception
 import           FastString
+import           Finder
 import           GHC
 import qualified GhcMod.Error                                 as GM
 import qualified GhcMod.Gap                                   as GM
@@ -451,28 +453,49 @@ findDef uri pos = pluginGetFileResponse "findDef: " uri $ \file ->
       (\cm -> do
         let rfm = revMap cm
             lm = locMap cm
-        case symbolFromTypecheckedModule lm =<< newPosToOld cm pos of
-          Nothing -> return $ IdeResponseOk []
-          Just pn -> do
-            let n = snd pn
-            case nameSrcSpan n of
-              UnhelpfulSpan _ -> return $ IdeResponseOk []
-              realSpan   -> do
-                res <- srcSpan2Loc rfm realSpan
-                case res of
-                  Right l@(J.Location luri range) ->
-                    case uriToFilePath luri of
-                      Nothing -> return $ IdeResponseOk [l]
-                      Just fp -> do
-                        mcm' <- getCachedModule fp
-                        case mcm' of
-                          ModuleCached cm' _ ->  case oldRangeToNew cm' range of
-                            Just r  -> return $ IdeResponseOk [J.Location luri r]
-                            Nothing -> return $ IdeResponseOk [l]
-                          _ -> return $ IdeResponseOk [l]
-                  Left x -> do
-                    debugm "findDef: name srcspan not found/valid"
-                    pure (IdeResponseFail
-                          (IdeError PluginError
-                                    ("hare:findDef" <> ": \"" <> x <> "\"")
-                                    Null)))
+            im = importMap cm
+            oldPos = newPosToOld cm pos
+        
+        case (\x -> Just $ getArtifactsAtPos x im) =<< oldPos of
+          Just ((_,mn):_) -> findImport mn
+          _ -> case symbolFromTypecheckedModule lm =<< oldPos of
+            Nothing -> return $ IdeResponseOk []
+            Just (_, n) -> do
+              case nameSrcSpan n of
+                UnhelpfulSpan _ -> return $ IdeResponseOk []
+                realSpan   -> do
+                  res <- srcSpan2Loc rfm realSpan
+                  case res of
+                    Right l@(J.Location luri range) ->
+                      case uriToFilePath luri of
+                        Nothing -> return $ IdeResponseOk [l]
+                        Just fp -> do
+                          mcm' <- getCachedModule fp
+                          case mcm' of
+                            ModuleCached cm' _ ->  case oldRangeToNew cm' range of
+                              Just r  -> return $ IdeResponseOk [J.Location luri r]
+                              Nothing -> return $ IdeResponseOk [l]
+                            _ -> return $ IdeResponseOk [l]
+                    Left x -> do
+                      debugm "findDef: name srcspan not found/valid"
+                      pure (IdeResponseFail
+                            (IdeError PluginError
+                                      ("hare:findDef" <> ": \"" <> x <> "\"")
+                                      Null)))
+  where
+    findImport :: ModuleName -> IdeM (IdeResponse [Location])
+    findImport mn = do
+      hscEnvRef <- ghcSession <$> readMTS
+      mHscEnv <- liftIO $ traverse readIORef hscEnvRef
+      case mHscEnv of
+        Just env -> do
+          fr <- liftIO $ findImportedModule env mn Nothing
+          case fr of
+            Found (ModLocation (Just src) _ _) _ -> do
+              fp <- liftIO $ canonicalizePath src
+              let r = Range (Position 0 0) (Position 0 0)
+                  loc = Location (filePathToUri fp) r
+              return (IdeResponseOk [loc])
+            _ -> return (IdeResponseOk [])
+        Nothing -> return $ IdeResponseFail
+          (IdeError PluginError "Couldn't get hscEnv when finding import" Null)

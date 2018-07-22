@@ -20,6 +20,7 @@ import           Language.Haskell.LSP.Types
 type SourceMap a = IM.IntervalMap Position a
 type LocMap = SourceMap GHC.Name
 type TypeMap = SourceMap GHC.Type
+type ImportMap = SourceMap GHC.ModuleName
 
 
 genTypeMap :: GHC.GhcMonad m => TypecheckedModule -> m TypeMap
@@ -28,7 +29,7 @@ genTypeMap tm = do
     return $ foldr go IM.empty ts
   where
     go (GHC.RealSrcSpan spn, typ) im =
-      IM.insert (uncurry IM.Interval $ unpackRealSrcSpan spn) typ im
+      IM.insert (rspToInt spn) typ im
     go _ im = im
 
 -- | Generates a LocMap from a TypecheckedModule,
@@ -40,7 +41,6 @@ genLocMap tm = names
     typechecked = GHC.tm_typechecked_source tm
     renamed = fromJust $ GHC.tm_renamed_source tm
 
-    rspToInt = uncurry IM.Interval . unpackRealSrcSpan
 
 #if __GLASGOW_HASKELL__ > 710
     names  = IM.union names2 $ SYB.everything IM.union (IM.empty `SYB.mkQ` hsRecFieldT) typechecked
@@ -72,6 +72,22 @@ genLocMap tm = names
     hsRecFieldT (GHC.L _ (GHC.HsRecFld (GHC.Ambiguous (GHC.L (GHC.RealSrcSpan r) _) n) )) = IM.singleton (rspToInt r) (Var.varName n)
     hsRecFieldT _ = IM.empty
 #endif
+
+-- | Generates an ImportMap of imported modules names,
+-- and the locations that they were imported at.
+genImportMap :: TypecheckedModule -> ImportMap
+genImportMap tm = importMap
+  where
+    (_, locImports, _, _) = fromJust $ GHC.tm_renamed_source tm
+    importMap :: ImportMap
+    importMap = foldl go IM.empty locImports
+    go :: ImportMap -> GHC.LImportDecl GHC.GhcRn -> ImportMap
+    go acc (GHC.L (GHC.RealSrcSpan r) i) = IM.insert (rspToInt r) (GHC.unLoc $ GHC.ideclName i) acc
+    go acc _ = acc
+
+-- | Converts a RealSrcSpan to an interval for an IntervalMap.
+rspToInt :: GHC.RealSrcSpan -> IM.Interval Position
+rspToInt = uncurry IM.Interval . unpackRealSrcSpan
 
 -- -- | Seaches for all the symbols at a point in the
 -- -- given LocMap
