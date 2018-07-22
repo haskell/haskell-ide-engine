@@ -20,7 +20,7 @@ import           Language.Haskell.LSP.Types
 type SourceMap a = IM.IntervalMap Position a
 type LocMap = SourceMap GHC.Name
 type TypeMap = SourceMap GHC.Type
-type ImportMap = SourceMap GHC.ModuleName
+type ModuleMap = SourceMap GHC.ModuleName
 
 
 genTypeMap :: GHC.GhcMonad m => TypecheckedModule -> m TypeMap
@@ -73,17 +73,26 @@ genLocMap tm = names
     hsRecFieldT _ = IM.empty
 #endif
 
--- | Generates an ImportMap of imported modules names,
--- and the locations that they were imported at.
-genImportMap :: TypecheckedModule -> ImportMap
-genImportMap tm = importMap
+-- | Generates a ModuleMap of imported and exported modules names,
+-- and the locations that they were imported/exported at.
+genImportMap :: TypecheckedModule -> ModuleMap
+genImportMap tm = moduleMap
   where
-    (_, locImports, _, _) = fromJust $ GHC.tm_renamed_source tm
-    importMap :: ImportMap
-    importMap = foldl go IM.empty locImports
-    go :: ImportMap -> GHC.LImportDecl a -> ImportMap
-    go acc (GHC.L (GHC.RealSrcSpan r) i) = IM.insert (rspToInt r) (GHC.unLoc $ GHC.ideclName i) acc
-    go acc _ = acc
+    (_, lImports, mlies, _) = fromJust $ GHC.tm_renamed_source tm
+
+    lies = map fst $ fromMaybe [] mlies
+
+    moduleMap :: ModuleMap
+    moduleMap = foldl goImp IM.empty lImports `IM.union` foldl goExp IM.empty lies
+
+    goImp :: ModuleMap -> GHC.LImportDecl a -> ModuleMap
+    goImp acc (GHC.L (GHC.RealSrcSpan r) i) = IM.insert (rspToInt r) (GHC.unLoc $ GHC.ideclName i) acc
+    goImp acc _ = acc
+
+    goExp :: ModuleMap -> GHC.LIE name -> ModuleMap
+    goExp acc (GHC.L (GHC.RealSrcSpan r) (GHC.IEModuleContents lmn)) =
+      IM.insert (rspToInt r) (GHC.unLoc lmn) acc
+    goExp acc _ = acc
 
 -- | Converts a RealSrcSpan to an interval for an IntervalMap.
 rspToInt :: GHC.RealSrcSpan -> IM.Interval Position

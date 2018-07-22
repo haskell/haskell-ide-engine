@@ -59,7 +59,7 @@ getDynFlags :: Uri -> IdeM (IdeResponse DynFlags)
 getDynFlags uri =
   pluginGetFileResponse "getDynFlags: " uri $ \fp ->
     withCachedModule fp (return . IdeResponseOk . ms_hspp_opts . pm_mod_summary . tm_parsed_module . tcMod)
-    
+
 -- ---------------------------------------------------------------------
 
 data NameMapData = NMD
@@ -156,7 +156,7 @@ getSymbols uri = pluginGetFileResponse "getSymbols: " uri $ \file -> withCachedM
           Left x -> return $ Left x
           Right loc -> return $ Right $ J.SymbolInformation nameText kind loc cnt
   symInfs <- mapM declsToSymbolInf (imps ++ decls)
-  return $ IdeResponseOk $ rights symInfs   
+  return $ IdeResponseOk $ rights symInfs
 
 -- ---------------------------------------------------------------------
 
@@ -453,11 +453,11 @@ findDef uri pos = pluginGetFileResponse "findDef: " uri $ \file ->
       (\cm -> do
         let rfm = revMap cm
             lm = locMap cm
-            im = importMap cm
+            mm = moduleMap cm
             oldPos = newPosToOld cm pos
-        
-        case (\x -> Just $ getArtifactsAtPos x im) =<< oldPos of
-          Just ((_,mn):_) -> findImport mn
+
+        case (\x -> Just $ getArtifactsAtPos x mm) =<< oldPos of
+          Just ((_,mn):_) -> gotoModule mn
           _ -> case symbolFromTypecheckedModule lm =<< oldPos of
             Nothing -> return $ IdeResponseOk []
             Just (_, n) ->
@@ -483,8 +483,8 @@ findDef uri pos = pluginGetFileResponse "findDef: " uri $ \file ->
                                       ("hare:findDef" <> ": \"" <> x <> "\"")
                                       Null)))
   where
-    findImport :: ModuleName -> IdeM (IdeResponse [Location])
-    findImport mn = do
+    gotoModule :: ModuleName -> IdeM (IdeResponse [Location])
+    gotoModule mn = do
       hscEnvRef <- ghcSession <$> readMTS
       mHscEnv <- liftIO $ traverse readIORef hscEnvRef
       case mHscEnv of
