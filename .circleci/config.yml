@@ -130,7 +130,7 @@ jobs:
           command: cabal new-configure
       - run:
           name: Build
-          command: cabal new-build
+          command: cabal new-build -j1
       - save_cache:
           key: cabal
           paths:
