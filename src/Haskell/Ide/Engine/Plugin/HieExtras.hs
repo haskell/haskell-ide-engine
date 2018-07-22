@@ -460,7 +460,7 @@ findDef uri pos = pluginGetFileResponse "findDef: " uri $ \file ->
           Just ((_,mn):_) -> findImport mn
           _ -> case symbolFromTypecheckedModule lm =<< oldPos of
             Nothing -> return $ IdeResponseOk []
-            Just (_, n) -> do
+            Just (_, n) ->
               case nameSrcSpan n of
                 UnhelpfulSpan _ -> return $ IdeResponseOk []
                 realSpan   -> do

@@ -81,7 +81,7 @@ genImportMap tm = importMap
     (_, locImports, _, _) = fromJust $ GHC.tm_renamed_source tm
     importMap :: ImportMap
     importMap = foldl go IM.empty locImports
-    go :: ImportMap -> GHC.LImportDecl GHC.GhcRn -> ImportMap
+    go :: ImportMap -> GHC.LImportDecl a -> ImportMap
     go acc (GHC.L (GHC.RealSrcSpan r) i) = IM.insert (rspToInt r) (GHC.unLoc $ GHC.ideclName i) acc
     go acc _ = acc
 
