@@ -57,7 +57,7 @@ defaults: &defaults
 
     - run:
         name: Test
-        command: stack -j 1 --stack-yaml=${STACK_FILE} test --dump-logs
+        command: stack -j 2 --stack-yaml=${STACK_FILE} test --dump-logs
         no_output_timeout: 120m
 
     - store_artifacts:
@@ -113,6 +113,32 @@ jobs:
       - STACK_FILE: "stack.yaml"
     <<: *defaults
 
+  cabal:
+    docker: 
+      - image: haskell:8.4.3
+    steps:
+      - checkout
+      - run: git submodule update --recursive --init
+      - restore-cache:
+          keys: 
+            - cabal
+      - run:
+          name: Update
+          command: cabal new-update
+      - run:
+          name: Configure
+          command: cabal new-configure
+      - run:
+          name: Build
+          command: cabal new-build -j2
+      - save_cache:
+          key: cabal
+          paths:
+            - dist
+            - new-dist
+            - ~/.cabal
+
+
 workflows:
   version: 2
   multiple-ghcs:
@@ -122,4 +148,4 @@ workflows:
       - ghc-8.4.2
       - ghc-8.4.3
       - ghc-nightly
-
+      - cabal
