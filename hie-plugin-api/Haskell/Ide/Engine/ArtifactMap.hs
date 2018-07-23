@@ -80,7 +80,11 @@ genImportMap tm = moduleMap
   where
     (_, lImports, mlies, _) = fromJust $ GHC.tm_renamed_source tm
 
+    #if __GLASGOW_HASKELL__ > 802
     lies = map fst $ fromMaybe [] mlies
+    #else
+    lies = fromMaybe [] mlies
+    #endif
 
     moduleMap :: ModuleMap
     moduleMap = foldl goImp IM.empty lImports `IM.union` foldl goExp IM.empty lies
