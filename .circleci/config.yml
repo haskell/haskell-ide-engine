@@ -136,6 +136,7 @@ jobs:
           paths:
             - dist
             - new-dist
+            - ~/.cabal
 
 
 workflows:
