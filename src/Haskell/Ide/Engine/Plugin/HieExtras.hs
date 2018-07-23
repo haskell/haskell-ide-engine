@@ -28,7 +28,6 @@ import           Data.Monoid
 #endif
 import qualified Data.Text                                    as T
 import           Data.Typeable
-import           System.Directory
 import           DataCon
 import           Exception
 import           FastString
@@ -70,6 +69,7 @@ invert :: (Ord v) => Map.Map k v -> Map.Map v [k]
 invert m = Map.fromListWith (++) [(v,[k]) | (k,v) <- Map.toList m]
 
 instance ModuleCache NameMapData where
+  -- cacheDataProducer _ = pure $ NMD Map.empty
   cacheDataProducer cm = pure $ NMD inm
     where nm  = initRdrNameMap $ tcMod cm
           inm = invert nm
@@ -457,7 +457,7 @@ findDef uri pos = pluginGetFileResponse "findDef: " uri $ \file ->
             oldPos = newPosToOld cm pos
 
         case (\x -> Just $ getArtifactsAtPos x mm) =<< oldPos of
-          Just ((_,mn):_) -> gotoModule mn
+          Just ((_,mn):_) -> gotoModule rfm mn
           _ -> case symbolFromTypecheckedModule lm =<< oldPos of
             Nothing -> return $ IdeResponseOk []
             Just (_, n) ->
@@ -483,19 +483,26 @@ findDef uri pos = pluginGetFileResponse "findDef: " uri $ \file ->
                                       ("hare:findDef" <> ": \"" <> x <> "\"")
                                       Null)))
   where
-    gotoModule :: ModuleName -> IdeM (IdeResponse [Location])
-    gotoModule mn = do
+    gotoModule :: (FilePath -> FilePath) -> ModuleName -> IdeM (IdeResponse [Location])
+    gotoModule rfm mn = do
+      
       hscEnvRef <- ghcSession <$> readMTS
       mHscEnv <- liftIO $ traverse readIORef hscEnvRef
+
       case mHscEnv of
         Just env -> do
-          fr <- liftIO $ findImportedModule env mn Nothing
+          fr <- liftIO $ do
+            -- Flush cache or else we get temporary files
+            flushFinderCaches env
+            findImportedModule env mn Nothing
           case fr of
             Found (ModLocation (Just src) _ _) _ -> do
-              fp <- liftIO $ canonicalizePath src
+              fp <- reverseMapFile rfm src
+
               let r = Range (Position 0 0) (Position 0 0)
                   loc = Location (filePathToUri fp) r
               return (IdeResponseOk [loc])
             _ -> return (IdeResponseOk [])
         Nothing -> return $ IdeResponseFail
           (IdeError PluginError "Couldn't get hscEnv when finding import" Null)
+
