@@ -37,6 +37,16 @@ spec = describe "definitions" $ do
     liftIO $ do
       fp <- canonicalizePath "test/testdata/definition/Bar.hs"
       defs `shouldBe` [Location (filePathToUri fp) zeroRange]
+  
+  it "goto's imported modules that are loaded, and then closed" $
+    runSession hieCommand "test/testdata/definition" $ do
+      doc <- openDoc "Foo.hs" "haskell" 
+      otherDoc <- openDoc "Bar.hs" "haskell"
+      closeDoc otherDoc
+      defs <- getDefinitions doc (Position 2 8)
+      liftIO $ do
+        fp <- canonicalizePath "test/testdata/definition/Bar.hs"
+        defs `shouldBe` [Location (filePathToUri fp) zeroRange]
 
 zeroRange :: Range
 zeroRange = Range (Position 0 0) (Position 0 0)
