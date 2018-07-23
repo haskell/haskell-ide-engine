@@ -449,39 +449,38 @@ getModule df n = do
 -- | Return the definition
 findDef :: Uri -> Position -> IdeM (IdeResponse [Location])
 findDef uri pos = pluginGetFileResponse "findDef: " uri $ \file ->
-    withCachedModuleDefault file (Just (IdeResponseOk []))
-      (\cm -> do
-        let rfm = revMap cm
-            lm = locMap cm
-            mm = moduleMap cm
-            oldPos = newPosToOld cm pos
+    withCachedModuleDefault file (Just (IdeResponseOk [])) (\cm -> do
+      let rfm = revMap cm
+          lm = locMap cm
+          mm = moduleMap cm
+          oldPos = newPosToOld cm pos
 
-        case (\x -> Just $ getArtifactsAtPos x mm) =<< oldPos of
-          Just ((_,mn):_) -> gotoModule rfm mn
-          _ -> case symbolFromTypecheckedModule lm =<< oldPos of
-            Nothing -> return $ IdeResponseOk []
-            Just (_, n) ->
-              case nameSrcSpan n of
-                UnhelpfulSpan _ -> return $ IdeResponseOk []
-                realSpan   -> do
-                  res <- srcSpan2Loc rfm realSpan
-                  case res of
-                    Right l@(J.Location luri range) ->
-                      case uriToFilePath luri of
-                        Nothing -> return $ IdeResponseOk [l]
-                        Just fp -> do
-                          mcm' <- getCachedModule fp
-                          case mcm' of
-                            ModuleCached cm' _ ->  case oldRangeToNew cm' range of
-                              Just r  -> return $ IdeResponseOk [J.Location luri r]
-                              Nothing -> return $ IdeResponseOk [l]
-                            _ -> return $ IdeResponseOk [l]
-                    Left x -> do
-                      debugm "findDef: name srcspan not found/valid"
-                      pure (IdeResponseFail
-                            (IdeError PluginError
-                                      ("hare:findDef" <> ": \"" <> x <> "\"")
-                                      Null)))
+      case (\x -> Just $ getArtifactsAtPos x mm) =<< oldPos of
+        Just ((_,mn):_) -> gotoModule rfm mn
+        _ -> case symbolFromTypecheckedModule lm =<< oldPos of
+          Nothing -> return $ IdeResponseOk []
+          Just (_, n) ->
+            case nameSrcSpan n of
+              UnhelpfulSpan _ -> return $ IdeResponseOk []
+              realSpan   -> do
+                res <- srcSpan2Loc rfm realSpan
+                case res of
+                  Right l@(J.Location luri range) ->
+                    case uriToFilePath luri of
+                      Nothing -> return $ IdeResponseOk [l]
+                      Just fp -> do
+                        mcm' <- getCachedModule fp
+                        case mcm' of
+                          ModuleCached cm' _ ->  case oldRangeToNew cm' range of
+                            Just r  -> return $ IdeResponseOk [J.Location luri r]
+                            Nothing -> return $ IdeResponseOk [l]
+                          _ -> return $ IdeResponseOk [l]
+                  Left x -> do
+                    debugm "findDef: name srcspan not found/valid"
+                    pure (IdeResponseFail
+                          (IdeError PluginError
+                                    ("hare:findDef" <> ": \"" <> x <> "\"")
+                                    Null)))
   where
     gotoModule :: (FilePath -> FilePath) -> ModuleName -> IdeM (IdeResponse [Location])
     gotoModule rfm mn = do
