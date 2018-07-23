@@ -69,7 +69,6 @@ invert :: (Ord v) => Map.Map k v -> Map.Map v [k]
 invert m = Map.fromListWith (++) [(v,[k]) | (k,v) <- Map.toList m]
 
 instance ModuleCache NameMapData where
-  -- cacheDataProducer _ = pure $ NMD Map.empty
   cacheDataProducer cm = pure $ NMD inm
     where nm  = initRdrNameMap $ tcMod cm
           inm = invert nm
