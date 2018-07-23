@@ -246,6 +246,10 @@ test-suite func-test
   other-modules:       CompletionSpec
                      , CodeActionsSpec
                      , DeferredSpec
+                     , DefinitionSpec
+                     , FormatSpec
+                     , HighlightSpec
+                     , HoverSpec
                      , ReferencesSpec
                      , RenameSpec
                      , Spec
