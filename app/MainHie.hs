@@ -125,10 +125,10 @@ run opts = do
     logm "Enabling --vomit for ghc-mod. Output will be on stderr"
 
   -- launch the dispatcher.
-  if optLsp opts then do
-    pin <- atomically newTChan
-    lspStdioTransport (dispatcherP pin plugins ghcModOptions) pin origDir (optCaptureFile opts)
-  else do
+  if optJson opts then do
     pin <- atomically newTChan
     jsonStdioTransport (dispatcherP pin plugins ghcModOptions) pin
+  else do
+    pin <- atomically newTChan
+    lspStdioTransport (dispatcherP pin plugins ghcModOptions) pin origDir (optCaptureFile opts)
 

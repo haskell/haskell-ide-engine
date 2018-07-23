@@ -10,6 +10,7 @@ data GlobalOpts = GlobalOpts
   { optDebugOn     :: Bool
   , optLogFile     :: Maybe String
   , optLsp         :: Bool
+  , optJson        :: Bool
   , projectRoot    :: Maybe String
   , optGhcModVomit :: Bool
   , optEkg         :: Bool
@@ -30,18 +31,21 @@ globalOptsParser = GlobalOpts
       <> metavar "LOGFILE"
       <> help "File to log to, defaults to stdout"
        ))
-  <*> flag False True
+  <*> flag True True
        ( long "lsp"
-       <> help "Enable the Language Server Protocol transport on STDIO")
+       <> help "Enable the Language Server Protocol transport on STDIO (default)")
+  <*> switch
+       ( long "json"
+       <> help "Enable JSON transport on STDIO")
   <*> optional (strOption
        ( long "project-root"
       <> short 'r'
       <> metavar "PROJECTROOT"
       <> help "Root directory of project, defaults to cwd"))
-  <*> flag False True
+  <*> switch
        ( long "vomit"
        <> help "enable vomit logging for ghc-mod")
-  <*> flag False True
+  <*> switch
        ( long "ekg"
        <> help "enable ekg collection and display on http://localhost:8000")
   <*> option auto
