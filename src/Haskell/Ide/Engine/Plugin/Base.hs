@@ -127,3 +127,8 @@ hieGhcVersion :: String
 hieGhcVersion = VERSION_ghc
 
 -- ---------------------------------------------------------------------
+
+checkCabalInstall :: IO Bool
+checkCabalInstall = isJust <$> findExecutable "cabal"
+
+-- ---------------------------------------------------------------------
