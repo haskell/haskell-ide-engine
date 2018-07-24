@@ -108,19 +108,19 @@ renderTarget t = T.intercalate "\n\n" $
 
 ------------------------------------------------------------------------
 
-searchModules :: T.Text -> IdeM (IdeResponse [T.Text])
-searchModules = fmap (fmap (nub . take 5)) . searchTargets (fmap (T.pack . fst) . targetModule)
+searchModules :: T.Text -> IdeM [T.Text]
+searchModules = fmap (nub . take 5) . searchTargets (fmap (T.pack . fst) . targetModule)
 
-searchPackages :: T.Text -> IdeM (IdeResponse [T.Text])
-searchPackages = fmap (fmap (nub . take 5)) . searchTargets (fmap (T.pack . fst) . targetPackage)
+searchPackages :: T.Text -> IdeM [T.Text]
+searchPackages = fmap (nub . take 5) . searchTargets (fmap (T.pack . fst) . targetPackage)
 
-searchTargets :: (Target -> Maybe a) -> T.Text -> IdeM (IdeResponse [a])
+searchTargets :: (Target -> Maybe a) -> T.Text -> IdeM [a]
 searchTargets f term = do
   HoogleDb mdb <- get
   res <- liftIO $ runHoogleQuery mdb term (Right . mapMaybe f . take 10)
   case bimap hoogleErrorToIdeError id res of
-    Left err -> return $ IdeResponseFail err
-    Right xs -> return $ IdeResponseOk xs
+    Left _ -> return []
+    Right xs -> return xs
 
 ------------------------------------------------------------------------
 

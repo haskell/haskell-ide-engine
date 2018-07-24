@@ -139,22 +139,6 @@ handleCodeActionReq tn commandMap req = do
 
 -- TODO: make context specific commands for all sorts of things, such as refactorings          
 
-isImportableDiag :: J.Diagnostic -> Maybe (J.Diagnostic, T.Text)
-isImportableDiag diag@(J.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractImportableTerm msg
-isImportableDiag _ = Nothing
-
-extractImportableTerm :: T.Text -> Maybe T.Text
-extractImportableTerm dirtyMsg = T.strip <$> asum
-  [T.stripPrefix "Variable not in scope: " msg,
-  T.init <$> T.stripPrefix "Not in scope: type constructor or class ‘" msg]
-  where msg = head
-              -- Get rid of the rename suggestion parts
-              $ T.splitOn "Perhaps you meant "
-              $ T.replace "\n" " "
-              -- Get rid of trailing/leading whitespace on each individual line
-              $ T.unlines $ map T.strip $ T.lines
-              $ T.replace "• " "" dirtyMsg
-
 isPackageAddableDiag :: J.Diagnostic -> Maybe (J.Diagnostic, T.Text)
 isPackageAddableDiag diag@(J.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractModuleName msg
 isPackageAddableDiag _ = Nothing
