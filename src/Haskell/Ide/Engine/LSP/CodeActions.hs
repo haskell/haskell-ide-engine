@@ -23,10 +23,21 @@ import qualified Language.Haskell.LSP.Types.Capabilities as C
 import Language.Haskell.LSP.VFS
 import Language.Haskell.LSP.Messages
 import Haskell.Ide.Engine.Plugin.Package
+import Haskell.Ide.Engine.IdeFunctions
+import Haskell.Ide.Engine.MonadFunctions
 import Haskell.Ide.Engine.MonadTypes
 
 handleCodeActionReq :: TrackingNumber -> BM.Bimap T.Text T.Text -> J.CodeActionRequest -> R ()
 handleCodeActionReq tn commandMap req = do
+
+  let getProviders :: IdeM (IdeResponse [J.CodeActionParams -> IdeM (IdeResponse [J.CodeAction])])
+      getProviders = do
+        IdePlugins m <- lift getPlugins
+        debugm "asdf"
+        return $ IdeResponseOk $ map snd $ toList m
+      providersCb _ = return ()
+  makeRequest (IReq tn (req ^. J.id) providersCb getProviders)
+
 
   vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
   docVersion <- fmap _version <$> liftIO (vfsFunc doc)

@@ -20,7 +20,7 @@ example2Descriptor = PluginDescriptor
       [ PluginCommand "sayHello" "say hello" sayHelloCmd
       , PluginCommand "sayHelloTo ""say hello to the passed in param" sayHelloToCmd
       ]
-  , pluginCodeActions = \_ -> return []
+  , pluginCodeActions = noCodeActions
   }
 
 -- ---------------------------------------------------------------------

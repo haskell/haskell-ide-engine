@@ -27,7 +27,7 @@ import           Haskell.Ide.Engine.MonadTypes
 
 pluginDescToIdePlugins :: [(PluginId,PluginDescriptor)] -> IdePlugins
 pluginDescToIdePlugins = IdePlugins . foldr (uncurry Map.insert . f) Map.empty
-  where f = fmap pluginCommands
+  where f = fmap (\x -> (pluginCommands x, pluginCodeActions x))
 
 type DynamicJSON = CD.ConstrainedDynamic ToJSON
 
@@ -48,7 +48,7 @@ runPluginCommand p com arg = do
   case Map.lookup p m of
     Nothing -> return $
       IdeResultFail $ IdeError UnknownPlugin ("Plugin " <> p <> " doesn't exist") Null
-    Just xs -> case find ((com ==) . commandName) xs of
+    Just (xs, _) -> case find ((com ==) . commandName) xs of
       Nothing -> return $ IdeResultFail $
         IdeError UnknownCommand ("Command " <> com <> " isn't defined for plugin " <> p <> ". Legal commands are: " <> T.pack(show $ map commandName xs)) Null
       Just (PluginCommand _ _ (CmdSync f)) -> case fromJSON arg of

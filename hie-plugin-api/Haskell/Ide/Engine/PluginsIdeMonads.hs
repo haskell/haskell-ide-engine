@@ -18,6 +18,7 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , CommandFunc(..)
   , PluginDescriptor(..)
   , PluginCommand(..)
+  , noCodeActions
   , IdePlugins(..)
   -- * The IDE monad
   , IdeGhcM
@@ -101,19 +102,22 @@ data PluginDescriptor =
   PluginDescriptor { pluginName :: T.Text
                    , pluginDesc :: T.Text
                    , pluginCommands :: [PluginCommand]
-                   , pluginCodeActions :: CodeActionParams -> IdeM [CodeAction]
+                   , pluginCodeActions :: CodeActionParams -> IdeM (IdeResponse [CodeAction])
                    } deriving (Generic)
 
 instance Show PluginCommand where
   show (PluginCommand name _ _) = "PluginCommand { name = " ++ T.unpack name ++ " }"
 
--- | a Description of the available commands stored in IdeGhcM
+noCodeActions :: CodeActionParams -> IdeM (IdeResponse [CodeAction])
+noCodeActions _ = return $ IdeResponseOk []
+
+-- | a Description of the available commands and code action providers stored in IdeGhcM
 newtype IdePlugins = IdePlugins
-  { ipMap :: Map.Map PluginId [PluginCommand]
-  } deriving (Show,Generic)
+  { ipMap :: Map.Map PluginId ([PluginCommand], CodeActionParams -> IdeM (IdeResponse [CodeAction]))
+  } deriving (Generic)
 
 instance ToJSON IdePlugins where
-  toJSON (IdePlugins m) = toJSON $ (fmap . fmap) (\x -> (commandName x, commandDesc x)) m
+  toJSON (IdePlugins m) = toJSON $ fmap (\x -> (commandName x, commandDesc x)) <$> fmap fst m
 
 -- ---------------------------------------------------------------------
 

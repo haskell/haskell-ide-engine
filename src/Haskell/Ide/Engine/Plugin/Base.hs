@@ -41,7 +41,7 @@ baseDescriptor = PluginDescriptor
       , PluginCommand "commands" "list available commands for a given plugin" commandsCmd
       , PluginCommand "commandDetail" "list parameters required for a given command" commandDetailCmd
       ]
-  , pluginCodeActions = \_ -> return []
+  , pluginCodeActions = noCodeActions
   }
 
 -- ---------------------------------------------------------------------
@@ -62,7 +62,7 @@ commandsCmd = CmdSync $ \p -> do
       , ideMessage = "Can't find plugin:" <> p
       , ideInfo = toJSON p
       }
-    Just pl -> return $ IdeResultOk $ map commandName pl
+    Just pl -> return $ IdeResultOk $ map commandName $ fst pl
 
 commandDetailCmd :: CommandFunc (T.Text, T.Text) T.Text
 commandDetailCmd = CmdSync $ \(p,command) -> do
@@ -73,7 +73,7 @@ commandDetailCmd = CmdSync $ \(p,command) -> do
       , ideMessage = "Can't find plugin:" <> p
       , ideInfo = toJSON p
       }
-    Just pl -> case find (\cmd -> command == (commandName cmd) ) pl of
+    Just pl -> case find (\cmd -> command == commandName cmd) (fst pl) of
       Nothing -> return $ IdeResultFail $ IdeError
         { ideCode = UnknownCommand
         , ideMessage = "Can't find command:" <> command
@@ -115,7 +115,7 @@ getProjectGhcVersion = do
     else do
       L.infoM "hie" "Using plain GHC version"
       tryCommand "ghc --version"
-          
+
   where
     tryCommand cmd =
       crackGhcVersion <$> readCreateProcess (shell cmd) ""

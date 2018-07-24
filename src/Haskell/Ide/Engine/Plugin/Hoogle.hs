@@ -32,7 +32,7 @@ hoogleDescriptor = PluginDescriptor
       [ PluginCommand "info" "Look up the documentation for an identifier in the hoogle database" infoCmd
       , PluginCommand "lookup" "Search the hoogle database with a string" lookupCmd
       ]
-  , pluginCodeActions = \_ -> return []
+  , pluginCodeActions = noCodeActions
   }
 
 -- ---------------------------------------------------------------------
