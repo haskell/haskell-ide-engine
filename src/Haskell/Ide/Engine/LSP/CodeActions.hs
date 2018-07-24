@@ -53,8 +53,9 @@ handleCodeActionReq tn commandMap req = do
     wrapCodeAction action@J.CodeAction{..} = asksLspFuncs Core.clientCapabilities <&> \(C.ClientCapabilities _ textDocCaps _) ->
       case (textDocCaps >>= C._codeAction >>= C._codeActionLiteralSupport, _edit, _command) of
         (Just _,_,_) -> J.CommandOrCodeActionCodeAction action
-        (_,Just e,_) -> J.Command _title (commandMap BM.! "hie:applyWorkspaceEdit") $ Just $ J.toJSON [J.ApplyWorkspaceEditParams e]
-        (_,_,Just c) -> J.command %~ (commandMap BM.!) $ c
+        (_,Just e,_) -> J.CommandOrCodeActionCommand
+          $ J.Command _title (commandMap BM.! "hie:applyWorkspaceEdit") $ Just $ J.toJSON [J.ApplyWorkspaceEditParams e]
+        (_,_,Just c) -> J.CommandOrCodeActionCommand $ J.command %~ (commandMap BM.!) $ c
         _ -> error "A code action needs either a workspace edit or a command"
 
     send :: [J.CodeAction] -> R ()
