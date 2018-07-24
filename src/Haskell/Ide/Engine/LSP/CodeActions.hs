@@ -54,12 +54,10 @@ handleCodeActionReq tn commandMap req = do
       $ J.CommandOrCodeActionCodeAction action <$ (textDocCaps >>= C._codeAction >>= C._codeActionLiteralSupport)
       <|> J.CommandOrCodeActionCommand <$>
         ((\e -> J.Command _title (commandMap BM.! "hie:applyWorkspaceEdit") (Just $ J.toJSON [J.ApplyWorkspaceEditParams e])) <$> _edit
-        <|> (command %~ (commandMap BM.!)) <$> _command)
+        <|> (J.command %~ (commandMap BM.!)) <$> _command)
 
     send :: [J.CodeAction] -> R ()
-    send codeActions = do
-      body <- J.List <$> mapM wrapCodeAction codeActions
-      reactorSend $ RspCodeAction $ Core.makeResponseMessage req body
+    send = reactorSend . RspCodeAction . Core.makeResponseMessage req . J.List <=< traverse wrapCodeAction
 
     -- | Execute multiple ide requests sequentially
     collectRequests :: [IdeM (IdeResponse a)] -- ^ The requests to make
