@@ -28,7 +28,6 @@ we talk to clients.__
         - [Planned Features](#planned-features)
         - [This is *not* yet another `ghc-mod` or `ide-backend` project](#this-is-not-yet-another-ghc-mod-or-ide-backend-project)
         - [It's time to join the project!](#its-time-to-join-the-project)
-        - [Development](#development)
     - [Architecture](#architecture)
         - [1. BIOS layer](#1-bios-layer)
         - [2. Plugin layer](#2-plugin-layer)
@@ -458,15 +457,6 @@ This project is not started from scratch:
  - Join [our IRC channel](https://webchat.freenode.net/?channels=haskell-ide-engine) at `#haskell-ide-engine` on `freenode`.
  - Fork this repo and hack as much as you can.
  - Ask @alanz or @hvr to join the project.
-
-### Development
-
-Apart from stack you need [cask](https://cask.readthedocs.org/en/latest/) for the emacs tests. You can install it using
-
-```
-curl -fsSL https://raw.githubusercontent.com/cask/cask/master/go | python
-```
-
 
 ## Architecture
 
