@@ -2,7 +2,9 @@
 module CodeActionsSpec where
 
 import Test.Hspec
-import Haskell.Ide.Engine.LSP.CodeActions
+import Haskell.Ide.Engine.Plugin.HsImport
+import Haskell.Ide.Engine.Plugin.GhcMod
+import Haskell.Ide.Engine.Plugin.Package
 
 main :: IO ()
 main = hspec spec

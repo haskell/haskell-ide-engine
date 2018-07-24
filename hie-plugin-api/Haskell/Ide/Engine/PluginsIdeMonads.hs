@@ -18,6 +18,8 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , CommandFunc(..)
   , PluginDescriptor(..)
   , PluginCommand(..)
+  , CodeActionProvider
+  , noCodeActions
   , IdePlugins(..)
   -- * The IDE monad
   , IdeGhcM
@@ -69,7 +71,9 @@ import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.GhcModuleCache
 
 import           Language.Haskell.LSP.Types.Capabilities
-import           Language.Haskell.LSP.Types (Diagnostic (..),
+import           Language.Haskell.LSP.Types (CodeAction(..),
+                                             CodeActionContext(..),
+                                             Diagnostic (..),
                                              DiagnosticSeverity (..),
                                              List (..),
                                              Location (..),
@@ -79,6 +83,7 @@ import           Language.Haskell.LSP.Types (Diagnostic (..),
                                              TextDocumentIdentifier (..),
                                              TextDocumentPositionParams (..),
                                              Uri (..),
+                                             VersionedTextDocumentIdentifier(..),
                                              WorkspaceEdit (..),
                                              filePathToUri,
                                              uriToFilePath)
@@ -95,22 +100,32 @@ data PluginCommand = forall a b. (FromJSON a, ToJSON b, Typeable b) =>
                 , commandFunc :: CommandFunc a b
                 }
 
+type CodeActionProvider =  VersionedTextDocumentIdentifier
+                        -> Maybe FilePath -- ^ Project root directory
+                        -> Range
+                        -> CodeActionContext
+                        -> IdeM (IdeResponse [CodeAction])
+
 data PluginDescriptor =
   PluginDescriptor { pluginName :: T.Text
                    , pluginDesc :: T.Text
                    , pluginCommands :: [PluginCommand]
-                   } deriving (Show,Generic)
+                   , pluginCodeActionProvider :: CodeActionProvider
+                   } deriving (Generic)
 
 instance Show PluginCommand where
   show (PluginCommand name _ _) = "PluginCommand { name = " ++ T.unpack name ++ " }"
 
--- | a Description of the available commands stored in IdeGhcM
+noCodeActions :: CodeActionProvider
+noCodeActions _ _ _ _ = return $ IdeResponseOk []
+
+-- | a Description of the available commands and code action providers stored in IdeGhcM
 newtype IdePlugins = IdePlugins
-  { ipMap :: Map.Map PluginId [PluginCommand]
-  } deriving (Show,Generic)
+  { ipMap :: Map.Map PluginId ([PluginCommand], CodeActionProvider)
+  } deriving (Generic)
 
 instance ToJSON IdePlugins where
-  toJSON (IdePlugins m) = toJSON $ (fmap . fmap) (\x -> (commandName x, commandDesc x)) m
+  toJSON (IdePlugins m) = toJSON $ fmap (\x -> (commandName x, commandDesc x)) <$> fmap fst m
 
 -- ---------------------------------------------------------------------
 

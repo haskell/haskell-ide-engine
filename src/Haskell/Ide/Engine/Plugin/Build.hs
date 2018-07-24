@@ -150,6 +150,7 @@ buildPluginDescriptor = PluginDescriptor
                       "Builds specified cabal or stack component"
                       buildTarget
       ]
+  , pluginCodeActionProvider = noCodeActions
   }
 
 data OperationMode = StackMode | CabalMode
