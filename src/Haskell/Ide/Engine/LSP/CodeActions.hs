@@ -19,7 +19,6 @@ import Language.Haskell.LSP.Messages
 import Haskell.Ide.Engine.IdeFunctions
 import Haskell.Ide.Engine.PluginsIdeMonads
 import Control.Applicative
-import Safe
 import Control.Monad
 import Data.Traversable
 
