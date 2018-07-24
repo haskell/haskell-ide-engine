@@ -18,6 +18,8 @@ import Language.Haskell.LSP.VFS
 import Language.Haskell.LSP.Messages
 import Haskell.Ide.Engine.IdeFunctions
 import Haskell.Ide.Engine.PluginsIdeMonads
+import Control.Applicative
+import Safe
 
 handleCodeActionReq :: TrackingNumber -> BM.Bimap T.Text T.Text -> J.CodeActionRequest -> R ()
 handleCodeActionReq tn commandMap req = do
@@ -47,16 +49,12 @@ handleCodeActionReq tn commandMap req = do
     context = params ^. J.context
 
     wrapCodeAction :: J.CodeAction -> R J.CommandOrCodeAction
-    wrapCodeAction action = asksLspFuncs Core.clientCapabilities <&> \(C.ClientCapabilities _ textDocCaps _) ->
+    wrapCodeAction action@J.CodeAction{..} = asksLspFuncs Core.clientCapabilities <&> \(C.ClientCapabilities _ textDocCaps _) ->
       fromJustNote "A code action needs either a workspace edit or a command"
       $ J.CommandOrCodeActionCodeAction action <$ (textDocCaps >>= C._codeAction >>= C._codeActionLiteralSupport)
       <|> J.CommandOrCodeActionCommand <$>
-        ((\e -> J.Command title (commandMap BM.! "hie:applyWorkspaceEdit") (Just $ J.toJSON [J.ApplyWorkspaceEditParams e])) <$> edit
-        <|> (cmdName %~ (commandMap BM.!)) <$> command)
-    
-    title = action ^. J.title
-    edit = action ^. J.edit
-    command = action ^. J.command
+        ((\e -> J.Command _title (commandMap BM.! "hie:applyWorkspaceEdit") (Just $ J.toJSON [J.ApplyWorkspaceEditParams e])) <$> _edit
+        <|> (command %~ (commandMap BM.!)) <$> _command)
 
     send :: [J.CodeAction] -> R ()
     send codeActions = do
@@ -67,12 +65,8 @@ handleCodeActionReq tn commandMap req = do
     collectRequests :: [IdeM (IdeResponse a)] -- ^ The requests to make
                     -> ([a] -> R ())     -- ^ Callback with the request inputs and results
                     -> R ()
-    collectRequests = go []
-      where
-        go acc [] callback = callback acc
-        go acc (x:xs) callback =
-          let reqCallback result = go (acc ++ [result]) xs callback
-          in makeRequest $ IReq tn (req ^. J.id) reqCallback x
+    collectRequests = foldr go ($[]) where
+      go x goxs callback = makeRequest $ IReq tn (req ^. J.id) (goxs . (callback .) . (:)) x
 
   -- TODO: make context specific commands for all sorts of things, such as refactorings          
 
