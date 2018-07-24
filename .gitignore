@@ -49,6 +49,7 @@
 /test/testdata/addPackageTest/**/stack.yaml
 /test/testdata/redundantImportTest/stack.yaml
 /test/testdata/completion/stack.yaml
+/test/testdata/definition/stack.yaml
 TAGS
 cabal-dev/
 cabal.sandbox.config

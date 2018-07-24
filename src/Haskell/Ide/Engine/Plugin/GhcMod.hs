@@ -199,9 +199,12 @@ setTypecheckedModule uri =
         debugm $ "setTypecheckedModule: Did get typechecked module for: " ++ show fp
         typm <- GM.unGmlT $ genTypeMap tm
         sess <- fmap GM.gmgsSession . GM.gmGhcSession <$> GM.gmsGet
-        let cm = CachedModule tm (genLocMap tm) typm rfm return return
-        cacheModule fp cm
+        let cm = CachedModule tm (genLocMap tm) typm (genImportMap tm) rfm return return
+
+        -- set the session before we cache the module, so that deferred
+        -- responses triggered by cacheModule can access it
         modifyMTS (\s -> s {ghcSession = sess})
+        cacheModule fp cm
         debugm "setTypecheckedModule: done"
         return $ IdeResultOk (diags,errs)
 
