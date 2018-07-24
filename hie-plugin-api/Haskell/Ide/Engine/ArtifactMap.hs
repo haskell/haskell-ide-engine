@@ -82,7 +82,7 @@ genImportMap tm = moduleMap
 
 #if __GLASGOW_HASKELL__ > 802
     lies = map fst $ fromMaybe [] mlies
-    #else
+#else
     lies = fromMaybe [] mlies
 #endif
 
