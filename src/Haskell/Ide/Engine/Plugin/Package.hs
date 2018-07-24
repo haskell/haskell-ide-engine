@@ -21,6 +21,7 @@ import qualified Data.HashMap.Strict           as HM
 import qualified Data.Text                     as T
 import qualified Data.Text.Encoding            as T
 import           Data.Maybe
+import           Data.Monoid ((<>))
 #if MIN_VERSION_Cabal(2,2,0)
 import           Distribution.PackageDescription.Parsec
 import           Distribution.Types.VersionRange

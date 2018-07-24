@@ -10,6 +10,7 @@ import           Data.Aeson
 import           Data.Bitraversable
 import           Data.Foldable
 import           Data.Maybe
+import           Data.Monoid ((<>))
 import qualified Data.Text                     as T
 import qualified Data.Text.IO                  as T
 import qualified GHC.Generics                  as Generics
