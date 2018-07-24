@@ -1,3 +1,7 @@
+# 0.2.3.0
+
+Add ability to jump to the definition of imported or exported modules
+
 # 0.2.2.0
 
 Add more code actions for various diagnostics:
