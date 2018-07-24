@@ -3,14 +3,17 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TupleSections #-}
 module Haskell.Ide.Engine.Plugin.Package where
 
 import           Haskell.Ide.Engine.MonadTypes
+import qualified Haskell.Ide.Engine.Plugin.Hoogle as Hoogle
 import           Haskell.Ide.Engine.PluginUtils
 import           GHC.Generics
 import           GHC.Exts
-import           Data.Aeson
 import           Control.Lens
+import           Data.Aeson
+import           Data.Bitraversable
 import qualified Data.ByteString as B
 import           Data.Foldable
 import           Data.List
@@ -35,7 +38,7 @@ import           Distribution.Verbosity
 import           System.FilePath
 #if MIN_VERSION_filepath(1,4,2)
 #else
-import            Haskell.Ide.Engine.Compat (isExtensionOf)
+import           Haskell.Ide.Engine.Compat (isExtensionOf)
 #endif
 import           Control.Monad.IO.Class
 import           System.Directory
@@ -50,7 +53,7 @@ packageDescriptor = PluginDescriptor
   { pluginName     = "package"
   , pluginDesc     = "Tools for editing .cabal and package.yaml files."
   , pluginCommands = [PluginCommand "add" "Add a packge" addCmd]
-  , pluginCodeActionProvider = noCodeActions
+  , pluginCodeActionProvider = codeActionProvider
   }
 
 data AddParams = AddParams
@@ -222,3 +225,37 @@ editCabalPackage file modulePath pkgName fileMap = do
       where oldDeps = x ^. L.buildInfo . L.targetBuildDepends
             -- Add it to the bottom of the dependencies list
             newDeps = oldDeps ++ [Dependency (mkPackageName dep) anyVersion]
+
+codeActionProvider :: CodeActionProvider
+codeActionProvider docId mRootDir _ context = do
+  let J.List diags = context ^. J.diagnostics
+      pkgs = mapMaybe getAddablePackages diags
+
+  res <- mapM (bimapM return Hoogle.searchPackages) pkgs
+  let actions = mapMaybe (uncurry mkAddPackageAction) (concatPkgs res)  
+
+  return $ IdeResponseOk actions
+
+  where
+    concatPkgs = concatMap (\(d, ts) -> map (d,) ts)
+
+    mkAddPackageAction :: J.Diagnostic -> T.Text -> Maybe J.CodeAction
+    mkAddPackageAction diag pkgName = case (mRootDir, J.uriToFilePath (docId ^. J.uri)) of
+     (Just rootDir, Just docFp) ->
+       let title = "Add " <> pkgName <> " as a dependency"
+           cmd = J.Command title "package:add" (Just cmdParams)
+           cmdParams = toJSON [AddParams rootDir docFp pkgName]
+       in Just (J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [diag])) Nothing (Just cmd))
+     _ -> Nothing
+    
+    getAddablePackages :: J.Diagnostic -> Maybe (J.Diagnostic, T.Text)
+    getAddablePackages diag@(J.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractModuleName msg
+    getAddablePackages _ = Nothing
+
+extractModuleName :: T.Text -> Maybe T.Text
+extractModuleName msg
+  | T.isPrefixOf "Could not find module " msg = Just $ T.tail $ T.init nameAndQuotes
+  | otherwise = Nothing
+  where line = T.replace "\n" "" msg
+        nameAndQuotes = T.dropWhileEnd (/= '’') $ T.dropWhile (/= '‘') line
+
