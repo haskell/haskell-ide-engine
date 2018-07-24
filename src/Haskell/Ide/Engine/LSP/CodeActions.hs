@@ -53,16 +53,6 @@ handleCodeActionReq tn commandMap req = do
   makeRequest (IReq tn (req ^. J.id) providersCb getProviders)
 
 
---   let hlintActions = mapMaybe mkHlintAction $ filter validCommand diags
---       -- |Some hints do not have an associated refactoring
---       validCommand (J.Diagnostic _ _ (Just code) (Just "hlint") _ _) =
---         case code of
---           "Eta reduce" -> False
---           _            -> True
---       validCommand _ = False
-
---       plainActions = renamableActions ++ hlintActions ++ redundantImportActions
-
 --       -- For these diagnostics need to search hoogle before we can make code actions
 --       addPackageDiags = mapMaybe isPackageAddableDiag diags
 --       importableDiags = mapMaybe isImportableDiag diags
@@ -97,7 +87,9 @@ handleCodeActionReq tn commandMap req = do
                 cmdName = commandMap BM.! "hie:applyWorkspaceEdit"
                 cmdParams = J.toJSON [J.ApplyWorkspaceEditParams e]
             in return $ Just (J.CommandOrCodeActionCommand cmd)
-          (_, Just cmd) -> return $ Just (J.CommandOrCodeActionCommand cmd)
+          (_, Just (J.Command title cmdName args)) -> do
+            let cmd = J.Command title (commandMap BM.! cmdName) args
+            return $ Just (J.CommandOrCodeActionCommand cmd)
           _ -> error "A code action needs either a workspace edit or a command"
       Just _ -> return $ Just (J.CommandOrCodeActionCodeAction action)
 
@@ -106,21 +98,6 @@ handleCodeActionReq tn commandMap req = do
     body <- J.List . catMaybes <$> mapM wrapCodeAction codeActions
     reactorSend $ RspCodeAction $ Core.makeResponseMessage req body
 
---  -- mkXActions need to return both a code action and a command for fallbacks to older clients
---  -- that don't support code action kinds
---  mkHlintAction :: J.Diagnostic -> Maybe (J.CodeAction, J.Command)
---  mkHlintAction diag@(J.Diagnostic (J.Range start _) _s (Just code) (Just "hlint") m _) = Just (codeAction, cmd)
---    where
---      codeAction = J.CodeAction title (Just J.CodeActionRefactor) (Just (J.List [diag])) Nothing (Just cmd)
---      title :: T.Text
---      title = "Apply hint:" <> head (T.lines m)
---      -- NOTE: the cmd needs to be registered via the InitializeResponse message. See hieOptions above
---      cmd = J.Command title cmdName cmdparams
---      cmdName = commandMap BM.! "applyrefact:applyOne"
---      -- need 'file', 'start_pos' and hint title (to distinguish between alternative suggestions at the same location)
---      args = J.toJSON [ApplyRefact.AOP doc start code]
---      cmdparams = Just args
---  mkHlintAction (J.Diagnostic _r _s _c _source _m _) = Nothing
 
 --  --TODO: Check if package is already installed
 --  mkImportAction :: J.Diagnostic -> T.Text -> Maybe (J.CodeAction, J.Command)
