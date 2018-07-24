@@ -281,7 +281,7 @@ Install from
 ```
 "clients": {
   "haskell-ide-engine": {
-    "command": ["hie", "--lsp"],
+    "command": ["hie"],
     "scopes": ["source.haskell"],
     "syntaxes": ["Packages/Haskell/Haskell.sublime-syntax"],
     "languageId": "haskell",
@@ -316,7 +316,7 @@ Finally, make sure that `hie` is included as the language server source for hask
 ```
 let g:LanguageClient_serverCommands = {
     ...
-    \ 'haskell': ['hie-wrapper', '--lsp'],
+    \ 'haskell': ['hie-wrapper'],
     ...
     \ }
 ```
@@ -326,7 +326,7 @@ Since LanguageClient-neovim doesn't start language servers in the project root, 
 ```
 let g:LanguageClient_serverCommands = {
     ...
-    \ 'haskell': ['hie-wrapper', '--lsp', '-r', '$YOURROOTHERE'],
+    \ 'haskell': ['hie-wrapper', '-r', '$YOURROOTHERE'],
     ...
     \ }
 
@@ -395,7 +395,7 @@ Now you should be able to use HIE in Spacemacs. I still recommend checking out [
 ```js
 export const configuration = {
   "language.haskell.languageServer.command": "stack",
-  "language.haskell.languageServer.arguments": ["exec", "--", "hie", "--lsp"],
+  "language.haskell.languageServer.arguments": ["exec", "--", "hie"],
   "language.haskell.languageServer.rootFiles": [".git"],
   "language.haskell.languageServer.configuration": {},
 }
