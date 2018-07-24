@@ -46,27 +46,21 @@ handleCodeActionReq tn commandMap req = do
     range = params ^. J.range
     context = params ^. J.context
 
-    wrapCodeAction :: J.CodeAction -> R (Maybe J.CommandOrCodeAction)
-    wrapCodeAction action = do
-      (C.ClientCapabilities _ textDocCaps _) <- asksLspFuncs Core.clientCapabilities
-      let literalSupport = textDocCaps >>= C._codeAction >>= C._codeActionLiteralSupport
-      case literalSupport of
-        Nothing ->
-          case (action ^. J.edit, action ^. J.command) of
-            (Just e, _) -> 
-              let cmd = J.Command (action ^. J.title) cmdName (Just cmdParams)
-                  cmdName = commandMap BM.! "hie:applyWorkspaceEdit"
-                  cmdParams = J.toJSON [J.ApplyWorkspaceEditParams e]
-              in return $ Just (J.CommandOrCodeActionCommand cmd)
-            (_, Just (J.Command title cmdName args)) -> do
-              let cmd = J.Command title (commandMap BM.! cmdName) args
-              return $ Just (J.CommandOrCodeActionCommand cmd)
-            _ -> error "A code action needs either a workspace edit or a command"
-        Just _ -> return $ Just (J.CommandOrCodeActionCodeAction action)
+    wrapCodeAction :: J.CodeAction -> R J.CommandOrCodeAction
+    wrapCodeAction action = asksLspFuncs Core.clientCapabilities <&> \(C.ClientCapabilities _ textDocCaps _) ->
+      fromJustNote "A code action needs either a workspace edit or a command"
+      $ J.CommandOrCodeActionCodeAction action <$ (textDocCaps >>= C._codeAction >>= C._codeActionLiteralSupport)
+      <|> J.CommandOrCodeActionCommand <$>
+        ((\e -> J.Command title (commandMap BM.! "hie:applyWorkspaceEdit") (Just $ J.toJSON [J.ApplyWorkspaceEditParams e])) <$> edit
+        <|> (cmdName %~ (commandMap BM.!)) <$> command)
+    
+    title = action ^. J.title
+    edit = action ^. J.edit
+    command = action ^. J.command
 
     send :: [J.CodeAction] -> R ()
     send codeActions = do
-      body <- J.List . catMaybes <$> mapM wrapCodeAction codeActions
+      body <- J.List <$> mapM wrapCodeAction codeActions
       reactorSend $ RspCodeAction $ Core.makeResponseMessage req body
 
     -- | Execute multiple ide requests sequentially
