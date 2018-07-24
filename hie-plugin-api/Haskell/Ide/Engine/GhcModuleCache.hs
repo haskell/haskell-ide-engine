@@ -29,6 +29,7 @@ data CachedModule = CachedModule
   { tcMod          :: !TypecheckedModule
   , locMap         :: !LocMap
   , typeMap        :: !TypeMap
+  , moduleMap      :: !ModuleMap
   , revMap         :: !(FilePath -> FilePath)
   , newPosToOld    :: !(Position -> Maybe Position)
   , oldPosToNew    :: !(Position -> Maybe Position)

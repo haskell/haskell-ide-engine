@@ -359,6 +359,13 @@ reactor inp commandMap = do
                       ++ "\nYou may want to use hie-wrapper. Check the README for more information"
             reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
             reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg
+          
+          -- Check cabal is installed
+          hasCabal <- liftIO checkCabalInstall
+          unless hasCabal $ do
+            let msg = T.pack "cabal-install is not installed. Check the README for more information"
+            reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
+            reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg
 
 
           lf <- ask

@@ -31,6 +31,7 @@ import           Data.Typeable
 import           DataCon
 import           Exception
 import           FastString
+import           Finder
 import           GHC
 import qualified GhcMod.Error                                 as GM
 import qualified GhcMod.Gap                                   as GM
@@ -57,7 +58,7 @@ getDynFlags :: Uri -> IdeM (IdeResponse DynFlags)
 getDynFlags uri =
   pluginGetFileResponse "getDynFlags: " uri $ \fp ->
     withCachedModule fp (return . IdeResponseOk . ms_hspp_opts . pm_mod_summary . tm_parsed_module . tcMod)
-    
+
 -- ---------------------------------------------------------------------
 
 data NameMapData = NMD
@@ -154,7 +155,7 @@ getSymbols uri = pluginGetFileResponse "getSymbols: " uri $ \file -> withCachedM
           Left x -> return $ Left x
           Right loc -> return $ Right $ J.SymbolInformation nameText kind loc cnt
   symInfs <- mapM declsToSymbolInf (imps ++ decls)
-  return $ IdeResponseOk $ rights symInfs   
+  return $ IdeResponseOk $ rights symInfs
 
 -- ---------------------------------------------------------------------
 
@@ -447,14 +448,17 @@ getModule df n = do
 -- | Return the definition
 findDef :: Uri -> Position -> IdeM (IdeResponse [Location])
 findDef uri pos = pluginGetFileResponse "findDef: " uri $ \file ->
-    withCachedModuleDefault file (Just (IdeResponseOk []))
-      (\cm -> do
-        let rfm = revMap cm
-            lm = locMap cm
-        case symbolFromTypecheckedModule lm =<< newPosToOld cm pos of
+    withCachedModuleDefault file (Just (IdeResponseOk [])) (\cm -> do
+      let rfm = revMap cm
+          lm = locMap cm
+          mm = moduleMap cm
+          oldPos = newPosToOld cm pos
+
+      case (\x -> Just $ getArtifactsAtPos x mm) =<< oldPos of
+        Just ((_,mn):_) -> gotoModule rfm mn
+        _ -> case symbolFromTypecheckedModule lm =<< oldPos of
           Nothing -> return $ IdeResponseOk []
-          Just pn -> do
-            let n = snd pn
+          Just (_, n) ->
             case nameSrcSpan n of
               UnhelpfulSpan _ -> return $ IdeResponseOk []
               realSpan   -> do
@@ -476,3 +480,27 @@ findDef uri pos = pluginGetFileResponse "findDef: " uri $ \file ->
                           (IdeError PluginError
                                     ("hare:findDef" <> ": \"" <> x <> "\"")
                                     Null)))
+  where
+    gotoModule :: (FilePath -> FilePath) -> ModuleName -> IdeM (IdeResponse [Location])
+    gotoModule rfm mn = do
+      
+      hscEnvRef <- ghcSession <$> readMTS
+      mHscEnv <- liftIO $ traverse readIORef hscEnvRef
+
+      case mHscEnv of
+        Just env -> do
+          fr <- liftIO $ do
+            -- Flush cache or else we get temporary files
+            flushFinderCaches env
+            findImportedModule env mn Nothing
+          case fr of
+            Found (ModLocation (Just src) _ _) _ -> do
+              fp <- reverseMapFile rfm src
+
+              let r = Range (Position 0 0) (Position 0 0)
+                  loc = Location (filePathToUri fp) r
+              return (IdeResponseOk [loc])
+            _ -> return (IdeResponseOk [])
+        Nothing -> return $ IdeResponseFail
+          (IdeError PluginError "Couldn't get hscEnv when finding import" Null)
+

@@ -20,6 +20,7 @@ import           Language.Haskell.LSP.Types
 type SourceMap a = IM.IntervalMap Position a
 type LocMap = SourceMap GHC.Name
 type TypeMap = SourceMap GHC.Type
+type ModuleMap = SourceMap GHC.ModuleName
 
 
 genTypeMap :: GHC.GhcMonad m => TypecheckedModule -> m TypeMap
@@ -28,7 +29,7 @@ genTypeMap tm = do
     return $ foldr go IM.empty ts
   where
     go (GHC.RealSrcSpan spn, typ) im =
-      IM.insert (uncurry IM.Interval $ unpackRealSrcSpan spn) typ im
+      IM.insert (rspToInt spn) typ im
     go _ im = im
 
 -- | Generates a LocMap from a TypecheckedModule,
@@ -40,7 +41,6 @@ genLocMap tm = names
     typechecked = GHC.tm_typechecked_source tm
     renamed = fromJust $ GHC.tm_renamed_source tm
 
-    rspToInt = uncurry IM.Interval . unpackRealSrcSpan
 
 #if __GLASGOW_HASKELL__ > 710
     names  = IM.union names2 $ SYB.everything IM.union (IM.empty `SYB.mkQ` hsRecFieldT) typechecked
@@ -72,6 +72,35 @@ genLocMap tm = names
     hsRecFieldT (GHC.L _ (GHC.HsRecFld (GHC.Ambiguous (GHC.L (GHC.RealSrcSpan r) _) n) )) = IM.singleton (rspToInt r) (Var.varName n)
     hsRecFieldT _ = IM.empty
 #endif
+
+-- | Generates a ModuleMap of imported and exported modules names,
+-- and the locations that they were imported/exported at.
+genImportMap :: TypecheckedModule -> ModuleMap
+genImportMap tm = moduleMap
+  where
+    (_, lImports, mlies, _) = fromJust $ GHC.tm_renamed_source tm
+
+#if __GLASGOW_HASKELL__ > 802
+    lies = map fst $ fromMaybe [] mlies
+#else
+    lies = fromMaybe [] mlies
+#endif
+
+    moduleMap :: ModuleMap
+    moduleMap = foldl goImp IM.empty lImports `IM.union` foldl goExp IM.empty lies
+
+    goImp :: ModuleMap -> GHC.LImportDecl a -> ModuleMap
+    goImp acc (GHC.L (GHC.RealSrcSpan r) i) = IM.insert (rspToInt r) (GHC.unLoc $ GHC.ideclName i) acc
+    goImp acc _ = acc
+
+    goExp :: ModuleMap -> GHC.LIE name -> ModuleMap
+    goExp acc (GHC.L (GHC.RealSrcSpan r) (GHC.IEModuleContents lmn)) =
+      IM.insert (rspToInt r) (GHC.unLoc lmn) acc
+    goExp acc _ = acc
+
+-- | Converts a RealSrcSpan to an interval for an IntervalMap.
+rspToInt :: GHC.RealSrcSpan -> IM.Interval Position
+rspToInt = uncurry IM.Interval . unpackRealSrcSpan
 
 -- -- | Seaches for all the symbols at a point in the
 -- -- given LocMap
