@@ -77,7 +77,7 @@ we talk to clients.__
    ![Renaming](https://i.imgur.com/z03G2a5.gif)
 
  - Add packages to cabal and hpack package files
-	
+
    ![Adding package to hpack](https://user-images.githubusercontent.com/2488460/43036067-20ae5964-8cf2-11e8-9951-4fd849b3f735.gif)
    ![Adding import & deps](https://user-images.githubusercontent.com/1387653/40287051-b6f987fe-5c5f-11e8-980f-ed7bfa1b2aec.gif)
 
@@ -124,6 +124,15 @@ $ git submodule update --init
 ### Installation with stack
 
 To install HIE, you need Stack version >= 1.7.1
+
+In order to support both stack and cabal, `hie` requires `cabal-install`
+as well.
+
+If it is not already installed, install it, one of the ways is
+
+```bash
+stack install cabal-install
+```
 
 To install all supported GHC versions, name them as expected by the VS Code
 plugin, and also build a local hoogle database, you need the `make` tool (on
