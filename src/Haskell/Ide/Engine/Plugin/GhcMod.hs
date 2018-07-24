@@ -3,10 +3,12 @@
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
 module Haskell.Ide.Engine.Plugin.GhcMod where
 
 import           Bag
 import           Control.Monad.IO.Class
+import           Control.Lens
 import           Control.Lens.Setter ((%~))
 import           Control.Lens.Traversal (traverseOf)
 import           Data.Aeson
@@ -14,9 +16,11 @@ import           Data.Aeson
 import           Data.Aeson.Types
 #endif
 import           Data.Function
+import qualified Data.HashMap.Strict               as HM
 import           Data.IORef
 import           Data.List
 import qualified Data.Map.Strict                   as Map
+import           Data.Maybe
 #if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
 #endif
@@ -65,7 +69,7 @@ ghcmodDescriptor = PluginDescriptor
       , PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmd
       , PluginCommand "casesplit" "Generate a pattern match for a binding under (LINE,COL)" splitCaseCmd
       ]
-  , pluginCodeActions = noCodeActions
+  , pluginCodeActionProvider = codeActionProvider
   }
 
 -- ---------------------------------------------------------------------
@@ -374,3 +378,85 @@ runGhcModCommand cmd =
       return $
       IdeResultFail $
       IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Null
+
+-- ---------------------------------------------------------------------
+
+codeActionProvider :: CodeActionProvider
+codeActionProvider docId _ _ context =
+  let LSP.List diags = context ^. LSP.diagnostics
+      terms = concatMap getRenamables diags
+      renameActions = map (uncurry mkRenamableAction) terms
+      redundantTerms = mapMaybe getRedundantImports diags
+      redundantActions = concatMap (uncurry mkRedundantImportActions) redundantTerms
+  in return $ IdeResponseOk (renameActions ++ redundantActions)
+
+  where
+    docUri = docId ^. LSP.uri
+
+    mkWorkspaceEdit :: [LSP.TextEdit] -> LSP.WorkspaceEdit
+    mkWorkspaceEdit es = 
+       let changes = HM.singleton docUri (LSP.List es)
+           docChanges = LSP.List [textDocEdit]
+           textDocEdit = LSP.TextDocumentEdit docId (LSP.List es)
+       in LSP.WorkspaceEdit (Just changes) (Just docChanges)
+
+    mkRenamableAction :: LSP.Diagnostic -> T.Text -> LSP.CodeAction
+    mkRenamableAction diag replacement = codeAction
+     where
+       title = "Replace with " <> replacement
+       workspaceEdit = mkWorkspaceEdit [textEdit]
+       textEdit = LSP.TextEdit (diag ^. LSP.range) replacement
+       codeAction = LSP.CodeAction title (Just LSP.CodeActionQuickFix) (Just (LSP.List [diag])) (Just workspaceEdit) Nothing
+
+    getRenamables :: LSP.Diagnostic -> [(LSP.Diagnostic, T.Text)]
+    getRenamables diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) = map (diag,) $ extractRenamableTerms msg
+    getRenamables _ = []
+
+
+    mkRedundantImportActions :: LSP.Diagnostic -> T.Text -> [LSP.CodeAction]
+    mkRedundantImportActions diag modName = [removeAction, importAction]
+      where
+        removeAction = LSP.CodeAction "Remove redundant import"
+                                    (Just LSP.CodeActionQuickFix)
+                                    (Just (LSP.List [diag]))
+                                    (Just removeEdit)
+                                    Nothing
+
+        removeEdit = mkWorkspaceEdit [LSP.TextEdit range ""]
+        range = LSP.Range (diag ^. LSP.range . LSP.start)
+                          (LSP.Position ((diag ^. LSP.range . LSP.start . LSP.line) + 1) 0)
+
+        importAction = LSP.CodeAction "Import instances"
+                                    (Just LSP.CodeActionQuickFix)
+                                    (Just (LSP.List [diag]))
+                                    (Just importEdit)
+                                    Nothing
+        --TODO: Use hsimport to preserve formatting/whitespace
+        importEdit = mkWorkspaceEdit [tEdit]
+        tEdit = LSP.TextEdit (diag ^. LSP.range) ("import " <> modName <> "()")
+      
+    getRedundantImports :: LSP.Diagnostic -> Maybe (LSP.Diagnostic, T.Text)
+    getRedundantImports diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractRedundantImport msg
+    getRedundantImports _ = Nothing
+
+extractRenamableTerms :: T.Text -> [T.Text]
+extractRenamableTerms msg
+  | "Variable not in scope: " `T.isPrefixOf` head noBullets = mapMaybe extractReplacement replacementLines
+  | otherwise = []
+
+  where noBullets = T.lines $ T.replace "• " "" msg
+        replacementLines = tail noBullets
+        extractReplacement line =
+          let startOfTerm = T.dropWhile (/= '‘') line
+          in if startOfTerm == ""
+            then Nothing
+            else Just $ T.takeWhile (/= '’') (T.tail startOfTerm)
+
+
+extractRedundantImport :: T.Text -> Maybe T.Text
+extractRedundantImport msg =
+  if ("The import of " `T.isPrefixOf` firstLine || "The qualified import of " `T.isPrefixOf` firstLine)
+      && " is redundant" `T.isSuffixOf` firstLine
+    then Just $ T.init $ T.tail $ T.dropWhileEnd (/= '’') $ T.dropWhile (/= '‘') firstLine
+    else Nothing
+  where firstLine = head (T.lines msg)

@@ -27,7 +27,7 @@ import           Haskell.Ide.Engine.MonadTypes
 
 pluginDescToIdePlugins :: [(PluginId,PluginDescriptor)] -> IdePlugins
 pluginDescToIdePlugins = IdePlugins . foldr (uncurry Map.insert . f) Map.empty
-  where f = fmap (\x -> (pluginCommands x, pluginCodeActions x))
+  where f = fmap (\x -> (pluginCommands x, pluginCodeActionProvider x))
 
 type DynamicJSON = CD.ConstrainedDynamic ToJSON
 
