@@ -60,6 +60,7 @@ hareDescriptor = PluginDescriptor
       , PluginCommand "genapplicative" "Generalise a monadic function to use applicative"
           genApplicativeCommand
       ]
+  , pluginCodeActions = \_ -> return []
   }
 
 -- ---------------------------------------------------------------------

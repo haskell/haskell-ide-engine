@@ -39,6 +39,7 @@ applyRefactDescriptor = PluginDescriptor
       , PluginCommand "applyAll" "Apply all hints to the file" applyAllCmd
       , PluginCommand "lint" "Run hlint on the file to generate hints" lintCmd
       ]
+  , pluginCodeActions = \_ -> return []
   }
 
 -- ---------------------------------------------------------------------

@@ -69,7 +69,9 @@ import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.GhcModuleCache
 
 import           Language.Haskell.LSP.Types.Capabilities
-import           Language.Haskell.LSP.Types (Diagnostic (..),
+import           Language.Haskell.LSP.Types (CodeAction(..),
+                                             CodeActionParams(..),
+                                             Diagnostic (..),
                                              DiagnosticSeverity (..),
                                              List (..),
                                              Location (..),
@@ -99,7 +101,8 @@ data PluginDescriptor =
   PluginDescriptor { pluginName :: T.Text
                    , pluginDesc :: T.Text
                    , pluginCommands :: [PluginCommand]
-                   } deriving (Show,Generic)
+                   , pluginCodeActions :: CodeActionParams -> IdeM [CodeAction]
+                   } deriving (Generic)
 
 instance Show PluginCommand where
   show (PluginCommand name _ _) = "PluginCommand { name = " ++ T.unpack name ++ " }"

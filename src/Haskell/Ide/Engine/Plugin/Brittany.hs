@@ -32,6 +32,7 @@ brittanyDescriptor = PluginDescriptor
                                      "Format a range of text or document"
                                      cmd
                      ]
+  , pluginCodeActions = \_ -> return []
   }
  where
   cmd :: CommandFunc FormatParams [J.TextEdit]
