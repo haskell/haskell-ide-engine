@@ -16,5 +16,8 @@ cache:
 - '%LOCALAPPDATA%\Programs\stack\'
 - c:\sr
 build_script:
-- cmd: stack --stack-yaml=stack-%GHCVER%.yaml build
+- cmd: stack --stack-yaml=stack-%GHCVER%.yaml install
 test: off
+artifacts:
+- path: .stack-work\install\**\bin\hie.exe
+- path: .stack-work\install\**\bin\hie-wrapper.exe
