@@ -139,7 +139,7 @@ run dispatcherProc cin _origDir captureFp = flip E.catches handlers $ do
   someExcept (e :: E.SomeException) = print e >> return 1
   getCommandMap = do
     pid <- T.pack . show <$> getProcessID
-    let cmds = ["hare:demote", "applyrefact:applyOne", "hsimport:import", "package:add", "hie:applyWorkspaceEdit"]
+    let cmds = ["hare:demote", "applyrefact:applyOne", "hsimport:import", "package:add", "hie:fallbackCodeAction"]
         newCmds = map (T.append pid . T.append ":") cmds
     return $ BM.fromList (zip cmds newCmds)
 
@@ -553,16 +553,33 @@ reactor inp commandMap = do
                     reactorSend $ ReqApplyWorkspaceEdit msg
                   Nothing -> reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req $ dynToJSON obj
 
+          let execCmd name args =
+                let (plugin, cmd) = T.break (== ':') name
+                    preq = GReq tn Nothing Nothing (Just $ req ^. J.id) callback
+                            $ runPluginCommand plugin (T.drop 1 cmd) args
+                  in makeRequest preq
+
           -- shortcut for immediately applying a applyWorkspaceEdit as a fallback for v3.8 code actions
-          if command == "hie:applyWorkspaceEdit"
+          if command == "hie:fallbackCodeAction"
             then do
               lid <- nextLspReqId
-              reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req (J.Object mempty)
               case J.fromJSON cmdparams of
-                J.Success editParams ->
-                  reactorSend $
-                    ReqApplyWorkspaceEdit (fmServerApplyWorkspaceEditRequest lid editParams)
-                J.Error _ -> return ()
+                J.Success (FallbackCodeActionParams mEdit mCmd) -> do
+                  forM_ mEdit $
+                    reactorSend . ReqApplyWorkspaceEdit
+                                . fmServerApplyWorkspaceEditRequest lid
+                                . J.ApplyWorkspaceEditParams
+                  case mCmd of
+                    -- If we have a command, execCmd will send the response
+                    Just (J.Command _ name mArgs) ->
+                      case mArgs of
+                        Just (J.List (x:_)) -> execCmd name x
+                        _ -> execCmd name J.Null
+
+                    -- Otherwise we need to send back a response oureslves
+                    Nothing ->
+                      reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req (J.Object mempty)
+                _ -> return ()
             else do
               let (plugin,cmd) = T.break (==':') command
               let preq = GReq tn Nothing Nothing (Just $ req ^. J.id) callback

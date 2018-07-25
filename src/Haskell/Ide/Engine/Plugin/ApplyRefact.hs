@@ -294,6 +294,6 @@ codeActionProvider docId _ _ context = return $ IdeResponseOk hlintActions
        cmd = LSP.Command title cmdName cmdparams
        cmdName = "applyrefact:applyOne"
        -- need 'file', 'start_pos' and hint title (to distinguish between alternative suggestions at the same location)
-       args = toJSON [AOP (docId ^. LSP.uri) start code]
+       args = LSP.List [toJSON (AOP (docId ^. LSP.uri) start code)]
        cmdparams = Just args
     mkHlintAction (LSP.Diagnostic _r _s _c _source _m _) = Nothing

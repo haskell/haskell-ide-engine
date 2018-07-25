@@ -1,5 +1,7 @@
+{-# LANGUAGE DeriveAnyClass    #-}
+{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts  #-}
 module Haskell.Ide.Engine.LSP.CodeActions where
 
 import Control.Lens
@@ -9,6 +11,7 @@ import qualified Data.Bimap as BM
 import qualified Data.Text as T
 import Data.Maybe
 import Data.Foldable
+import qualified GHC.Generics as G
 import Haskell.Ide.Engine.LSP.Reactor
 import Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.Core as Core
@@ -18,6 +21,13 @@ import Language.Haskell.LSP.VFS
 import Language.Haskell.LSP.Messages
 import Haskell.Ide.Engine.IdeFunctions
 import Haskell.Ide.Engine.PluginsIdeMonads
+
+data FallbackCodeActionParams =
+  FallbackCodeActionParams
+    { fallbackWorkspaceEdit :: Maybe J.WorkspaceEdit
+    , fallbackCommand       :: Maybe J.Command
+    }
+  deriving (G.Generic, J.ToJSON, J.FromJSON)
 
 handleCodeActionReq :: TrackingNumber -> BM.Bimap T.Text T.Text -> J.CodeActionRequest -> R ()
 handleCodeActionReq tn commandMap req = do
@@ -52,16 +62,10 @@ handleCodeActionReq tn commandMap req = do
       let literalSupport = textDocCaps >>= C._codeAction >>= C._codeActionLiteralSupport
       case literalSupport of
         Nothing ->
-          case (action ^. J.edit, action ^. J.command) of
-            (Just e, _) -> 
-              let cmd = J.Command (action ^. J.title) cmdName (Just cmdParams)
-                  cmdName = commandMap BM.! "hie:applyWorkspaceEdit"
-                  cmdParams = J.toJSON [J.ApplyWorkspaceEditParams e]
+            let cmd = J.Command (action ^. J.title) cmdName (Just cmdParams)
+                cmdName = commandMap BM.! "hie:fallbackCodeAction"
+                cmdParams = J.List [J.toJSON (FallbackCodeActionParams (action ^. J.edit) (action ^. J.command))]
               in return $ Just (J.CommandOrCodeActionCommand cmd)
-            (_, Just (J.Command title cmdName args)) -> do
-              let cmd = J.Command title (commandMap BM.! cmdName) args
-              return $ Just (J.CommandOrCodeActionCommand cmd)
-            _ -> error "A code action needs either a workspace edit or a command"
         Just _ -> return $ Just (J.CommandOrCodeActionCodeAction action)
 
     send :: [J.CodeAction] -> R ()
@@ -81,4 +85,3 @@ handleCodeActionReq tn commandMap req = do
           in makeRequest $ IReq tn (req ^. J.id) reqCallback x
 
   -- TODO: make context specific commands for all sorts of things, such as refactorings          
-
