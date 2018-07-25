@@ -1,7 +1,8 @@
-{-# LANGUAGE DeriveAnyClass    #-}
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE DeriveAnyClass        #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE FlexibleContexts      #-}
 module Haskell.Ide.Engine.LSP.CodeActions where
 
 import Control.Lens
@@ -49,7 +50,7 @@ handleCodeActionReq tn commandMap req = do
         in collectRequests reqs (send . concat)
 
   makeRequest (IReq tn (req ^. J.id) providersCb getProviders)
-  
+
   where
     params = req ^. J.params
     docUri = params ^. J.textDocument . J.uri
@@ -57,9 +58,11 @@ handleCodeActionReq tn commandMap req = do
     context = params ^. J.context
 
     wrapCodeAction :: J.CodeAction -> R (Maybe J.CommandOrCodeAction)
-    wrapCodeAction action = do
+    wrapCodeAction action' = do
       (C.ClientCapabilities _ textDocCaps _) <- asksLspFuncs Core.clientCapabilities
       let literalSupport = textDocCaps >>= C._codeAction >>= C._codeActionLiteralSupport
+          action = mapActionCommand action'
+
       case literalSupport of
         Nothing ->
             let cmd = J.Command (action ^. J.title) cmdName (Just cmdParams)
@@ -67,6 +70,13 @@ handleCodeActionReq tn commandMap req = do
                 cmdParams = J.List [J.toJSON (FallbackCodeActionParams (action ^. J.edit) (action ^. J.command))]
               in return $ Just (J.CommandOrCodeActionCommand cmd)
         Just _ -> return $ Just (J.CommandOrCodeActionCodeAction action)
+
+    mapActionCommand :: J.CodeAction -> J.CodeAction
+    mapActionCommand ca@J.CodeAction { J._command = (Just cmd) } =
+      let newCmdCommand = commandMap BM.! J._command (cmd :: J.Command)
+          newCmd = cmd { J._command = newCmdCommand } :: J.Command
+      in ca { J._command = Just newCmd }
+    mapActionCommand x = x
 
     send :: [J.CodeAction] -> R ()
     send codeActions = do
