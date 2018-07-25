@@ -8,7 +8,6 @@ import Control.Monad.Reader
 import qualified Data.Aeson as J
 import qualified Data.Bimap as BM
 import qualified Data.Text as T
-import Data.Maybe
 import Data.Foldable
 import Haskell.Ide.Engine.LSP.Reactor
 import Haskell.Ide.Engine.Types
@@ -19,9 +18,6 @@ import Language.Haskell.LSP.VFS
 import Language.Haskell.LSP.Messages
 import Haskell.Ide.Engine.IdeFunctions
 import Haskell.Ide.Engine.PluginsIdeMonads
-import Control.Applicative
-import Control.Monad
-import Data.Traversable
 
 handleCodeActionReq :: TrackingNumber -> BM.Bimap T.Text T.Text -> J.CodeActionRequest -> R ()
 handleCodeActionReq tn commandMap req = do
