@@ -18,29 +18,47 @@ import TestUtils
 
 spec :: Spec
 spec = describe "code actions" $ do
-  it "provides hlint suggestions" $ runSession hieCommand "test/testdata" $ do
-    doc <- openDoc "ApplyRefact2.hs" "haskell"
+  describe "hlint suggestions" $ do
+    it "provides 3.8 code actions" $ runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata" $ do
+      doc <- openDoc "ApplyRefact2.hs" "haskell"
 
-    diags@(reduceDiag:_) <- waitForDiagnostics
+      diags@(reduceDiag:_) <- waitForDiagnostics
 
-    liftIO $ do
-      length diags `shouldBe` 2
-      reduceDiag ^. range `shouldBe` Range (Position 1 0) (Position 1 12)
-      reduceDiag ^. severity `shouldBe` Just DsInfo
-      reduceDiag ^. code `shouldBe` Just "Eta reduce"
-      reduceDiag ^. source `shouldBe` Just "hlint"
+      liftIO $ do
+        length diags `shouldBe` 2
+        reduceDiag ^. range `shouldBe` Range (Position 1 0) (Position 1 12)
+        reduceDiag ^. severity `shouldBe` Just DsInfo
+        reduceDiag ^. code `shouldBe` Just "Eta reduce"
+        reduceDiag ^. source `shouldBe` Just "hlint"
 
-    (CommandOrCodeActionCommand cmd:_) <- getAllCodeActions doc
+      (CommandOrCodeActionCodeAction ca:_) <- getAllCodeActions doc
 
-    -- Evaluate became redundant id in later hlint versions
-    liftIO $ ["Apply hint:Redundant id", "Apply hint:Evaluate"] `shouldContain` [cmd ^. title ]
+      -- Evaluate became redundant id in later hlint versions
+      liftIO $ ["Apply hint:Redundant id", "Apply hint:Evaluate"] `shouldContain` [ca ^. title]
 
-    executeCommand cmd
+      executeCodeAction ca
 
-    contents <- skipManyTill publishDiagnosticsNotification $ getDocumentEdit doc
-    liftIO $ contents `shouldBe` "main = undefined\nfoo x = x\n"
+      contents <- getDocumentEdit doc
+      liftIO $ contents `shouldBe` "main = undefined\nfoo x = x\n"
 
-    noDiagnostics
+      noDiagnostics
+
+    it "falls back to pre 3.8 code actions" $ runSession hieCommand "test/testdata" $ do
+      doc <- openDoc "ApplyRefact2.hs" "haskell"
+
+      _ <- waitForDiagnostics
+
+      (CommandOrCodeActionCommand cmd:_) <- getAllCodeActions doc
+
+      -- Evaluate became redundant id in later hlint versions
+      liftIO $ ["Apply hint:Redundant id", "Apply hint:Evaluate"] `shouldContain` [cmd ^. title ]
+
+      executeCommand cmd
+
+      contents <- skipManyTill publishDiagnosticsNotification $ getDocumentEdit doc
+      liftIO $ contents `shouldBe` "main = undefined\nfoo x = x\n"
+
+      noDiagnostics
 
   it "provides rename suggestions" $ runSession hieCommand "test/testdata" $ do
     doc <- openDoc "CodeActionRename.hs" "haskell"
@@ -54,12 +72,6 @@ spec = describe "code actions" $ do
     contents <- documentContents doc
     liftIO $ contents `shouldBe` "main = putStrLn \"hello\""
 
-  let codeActionSupportCaps = def { C._textDocument = Just textDocumentCaps }
-        where
-        textDocumentCaps = def { C._codeAction = Just codeActionCaps }
-        codeActionCaps = C.CodeActionClientCapabilities (Just True) (Just literalSupport)
-        literalSupport = C.CodeActionLiteralSupport def
-      codeActionSupportConfig = def { Test.capabilities = codeActionSupportCaps }
   it "provides import suggestions and 3.8 code action kinds" $
     runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata" $ do
       doc <- openDoc "CodeActionImport.hs" "haskell"
@@ -183,3 +195,13 @@ spec = describe "code actions" $ do
 fromAction :: CommandOrCodeAction -> CodeAction
 fromAction (CommandOrCodeActionCodeAction action) = action
 fromAction _ = error "Not a code action"
+
+codeActionSupportCaps :: C.ClientCapabilities
+codeActionSupportCaps = def { C._textDocument = Just textDocumentCaps }
+  where
+    textDocumentCaps = def { C._codeAction = Just codeActionCaps }
+    codeActionCaps = C.CodeActionClientCapabilities (Just True) (Just literalSupport)
+    literalSupport = C.CodeActionLiteralSupport def
+
+codeActionSupportConfig :: SessionConfig
+codeActionSupportConfig = def { Test.capabilities = codeActionSupportCaps }
