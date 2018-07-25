@@ -13,6 +13,7 @@ where
 import           Control.Concurrent.STM
 import           Control.Monad.Reader
 import qualified Data.Set                      as S
+import qualified Data.Text                     as T
 import qualified Language.Haskell.LSP.Core     as Core
 import qualified Language.Haskell.LSP.Messages as J
 import qualified Language.Haskell.LSP.Types    as J
@@ -22,9 +23,10 @@ import           Haskell.Ide.Engine.Types
 
 
 data REnv = REnv
-  { dispatcherEnv :: DispatcherEnv
-  , reqChanIn     :: TChan (PluginRequest R)
-  , lspFuncs      :: Core.LspFuncs Config
+  { dispatcherEnv   :: DispatcherEnv
+  , reqChanIn       :: TChan (PluginRequest R)
+  , lspFuncs        :: Core.LspFuncs Config
+  , commandPrefixer :: T.Text -> T.Text
   }
 
 -- | The monad used in the reactor
@@ -36,9 +38,11 @@ runReactor
   :: Core.LspFuncs Config
   -> DispatcherEnv
   -> TChan (PluginRequest R)
+  -> (T.Text -> T.Text)
   -> R a
   -> IO a
-runReactor lf de cin = flip runReaderT (REnv de cin lf)
+runReactor lf de cin prefixer =
+  flip runReaderT (REnv de cin lf prefixer)
 
 -- ---------------------------------------------------------------------
 

@@ -8,7 +8,6 @@ module Haskell.Ide.Engine.LSP.CodeActions where
 import Control.Lens
 import Control.Monad.Reader
 import qualified Data.Aeson as J
-import qualified Data.Bimap as BM
 import qualified Data.Text as T
 import Data.Maybe
 import Data.Foldable
@@ -30,8 +29,8 @@ data FallbackCodeActionParams =
     }
   deriving (G.Generic, J.ToJSON, J.FromJSON)
 
-handleCodeActionReq :: TrackingNumber -> BM.Bimap T.Text T.Text -> J.CodeActionRequest -> R ()
-handleCodeActionReq tn commandMap req = do
+handleCodeActionReq :: TrackingNumber -> J.CodeActionRequest -> R ()
+handleCodeActionReq tn req = do
 
   maybeRootDir <- asksLspFuncs Core.rootPath
 
@@ -59,24 +58,20 @@ handleCodeActionReq tn commandMap req = do
 
     wrapCodeAction :: J.CodeAction -> R (Maybe J.CommandOrCodeAction)
     wrapCodeAction action' = do
+      prefix <- asks commandPrefixer :: R (T.Text -> T.Text)
+
       (C.ClientCapabilities _ textDocCaps _) <- asksLspFuncs Core.clientCapabilities
       let literalSupport = textDocCaps >>= C._codeAction >>= C._codeActionLiteralSupport
-          action = mapActionCommand action'
+          action :: J.CodeAction
+          action = (J.command . _Just . J.command %~ prefix) action'
 
       case literalSupport of
         Nothing ->
             let cmd = J.Command (action ^. J.title) cmdName (Just cmdParams)
-                cmdName = commandMap BM.! "hie:fallbackCodeAction"
+                cmdName = prefix "hie:fallbackCodeAction"
                 cmdParams = J.List [J.toJSON (FallbackCodeActionParams (action ^. J.edit) (action ^. J.command))]
               in return $ Just (J.CommandOrCodeActionCommand cmd)
         Just _ -> return $ Just (J.CommandOrCodeActionCodeAction action)
-
-    mapActionCommand :: J.CodeAction -> J.CodeAction
-    mapActionCommand ca@J.CodeAction { J._command = (Just cmd) } =
-      let newCmdCommand = commandMap BM.! J._command (cmd :: J.Command)
-          newCmd = cmd { J._command = newCmdCommand } :: J.Command
-      in ca { J._command = Just newCmd }
-    mapActionCommand x = x
 
     send :: [J.CodeAction] -> R ()
     send codeActions = do

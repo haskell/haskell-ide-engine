@@ -49,7 +49,6 @@ library
                      , apply-refact
                      , async
                      , base >= 4.9 && < 5
-                     , bimap
                      , brittany
                      , bytestring
                      , Cabal
