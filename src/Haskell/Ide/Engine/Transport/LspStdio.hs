@@ -539,23 +539,16 @@ reactor inp = do
 
         ReqExecuteCommand req -> do
           liftIO $ U.logs $ "reactor:got ExecuteCommandRequest:" ++ show req
+          lf <- asks lspFuncs
+
           let params = req ^. J.params
-              command = stripCmdPrefix (params ^. J.command)
 
-              -- | strips the PID prefix from the command id if it has one
-              stripCmdPrefix :: T.Text -> T.Text
-              stripCmdPrefix x
-                | T.count ":" x >= 2 = T.tail $ T.dropWhile (/= ':') x
-                | otherwise = x
+              parseCmdId :: T.Text -> Maybe (T.Text, T.Text)
+              parseCmdId x = case T.splitOn ":" x of
+                [plugin, command] -> Just (plugin, command)
+                [_, plugin, command] -> Just (plugin, command)
+                _ -> Nothing
 
-              margs = params ^. J.arguments
-
-          liftIO $ U.logs $ "ExecuteCommand mapped command " ++ show (params ^. J.command) ++ " to " ++ show command
-
-          --liftIO $ U.logs $ "reactor:ExecuteCommandRequest:margs=" ++ show margs
-          let cmdparams = case margs of
-                Just (J.List (x:_)) -> x
-                _ -> J.Null
               callback obj = do
                 liftIO $ U.logs $ "ExecuteCommand response got:r=" ++ show obj
                 case fromDynJSON obj :: Maybe J.WorkspaceEdit of
@@ -567,39 +560,53 @@ reactor inp = do
                     reactorSend $ ReqApplyWorkspaceEdit msg
                   Nothing -> reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req $ dynToJSON obj
 
-          let execCmd name args =
-                let (plugin, cmd) = T.break (== ':') name
-                    preq = GReq tn Nothing Nothing (Just $ req ^. J.id) callback
-                            $ runPluginCommand plugin (T.drop 1 cmd) args
-                  in makeRequest preq
+              execCmd cmdId args = do
+                -- The parameters to the HIE command are always the first element
+                let cmdParams = case args of
+                     Just (J.List (x:_)) -> x
+                     _ -> J.Null
 
-          -- shortcut for immediately applying a applyWorkspaceEdit as a fallback for v3.8 code actions
-          if command == "hie:fallbackCodeAction"
-            then do
-              lid <- nextLspReqId
-              case J.fromJSON cmdparams of
-                J.Success (FallbackCodeActionParams mEdit mCmd) -> do
-                  forM_ mEdit $
-                    reactorSend . ReqApplyWorkspaceEdit
-                                . fmServerApplyWorkspaceEditRequest lid
-                                . J.ApplyWorkspaceEditParams
-                  case mCmd of
-                    -- If we have a command, execCmd will send the response
-                    Just (J.Command _ innerCmd mArgs) ->
-                      let innerCmd' = stripCmdPrefix innerCmd
-                      in case mArgs of
-                        Just (J.List (x:_)) -> execCmd innerCmd' x
-                        _ -> execCmd innerCmd' J.Null
+                case parseCmdId cmdId of
+                  -- Shortcut for immediately applying a applyWorkspaceEdit as a fallback for v3.8 code actions
+                  Just ("hie", "fallbackCodeAction") -> do
+                    case J.fromJSON cmdParams of
+                      J.Success (FallbackCodeActionParams mEdit mCmd) -> do
 
-                    -- Otherwise we need to send back a response oureslves
-                    Nothing ->
-                      reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req (J.Object mempty)
-                _ -> return ()
-            else do
-              let (plugin,cmd) = T.break (==':') command
-              let preq = GReq tn Nothing Nothing (Just $ req ^. J.id) callback
-                          $ runPluginCommand plugin (T.drop 1 cmd) cmdparams
-              makeRequest preq
+                        -- Send off the workspace request if it has one
+                        forM_ mEdit $ \edit -> do
+                          lid <- nextLspReqId
+                          let eParams = J.ApplyWorkspaceEditParams edit
+                              eReq = fmServerApplyWorkspaceEditRequest lid eParams
+                          reactorSend $ ReqApplyWorkspaceEdit eReq
+
+                        case mCmd of
+                          -- If we have a command, continue to execute it
+                          Just (J.Command _ innerCmdId innerArgs) -> execCmd innerCmdId innerArgs
+
+                          -- Otherwise we need to send back a response oureslves
+                          Nothing -> reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req (J.Object mempty)
+
+                      -- Couldn't parse the fallback command params
+                      _ -> liftIO $
+                        Core.sendErrorResponseS (Core.sendFunc lf)
+                                                (J.responseId (req ^. J.id))
+                                                J.InvalidParams
+                                                "Invalid fallbackCodeAction params"
+                  -- Just an ordinary HIE command
+                  Just (plugin, cmd) ->
+                    let preq = GReq tn Nothing Nothing (Just $ req ^. J.id) callback
+                               $ runPluginCommand plugin cmd cmdParams
+                    in makeRequest preq
+
+                  -- Couldn't parse the command identifier
+                  _ -> liftIO $
+                    Core.sendErrorResponseS (Core.sendFunc lf)
+                                            (J.responseId (req ^. J.id))
+                                            J.InvalidParams
+                                            "Invalid command identifier"
+
+          execCmd (params ^. J.command) (params ^. J.arguments)
+
 
         -- -------------------------------
 
