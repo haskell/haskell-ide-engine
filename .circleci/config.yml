@@ -114,28 +114,31 @@ jobs:
     <<: *defaults
 
   cabal:
-    docker: 
-      - image: haskell:8.4.3
+    working_directory: ~/build
+    docker:
+      - image: quay.io/haskell_works/ghc-8.4.3
     steps:
       - checkout
-      - run: git submodule update --recursive --init
+      - run:
+          command: git submodule sync --recursive
+      - run:
+          command: git submodule update --recursive --init
+
       - restore-cache:
-          keys: 
-            - cabal-{{ checksum "submodules" }}
+          keys:
+            - cabal-01
       - run:
           name: Update
           command: cabal new-update
       - run:
           name: Configure
-          command: cabal new-configure
+          command: cabal new-configure --enable-tests
       - run:
           name: Build
           command: cabal new-build -j2
       - save_cache:
-          key: cabal-{{ checksum "submodules" }}
+          key: cabal-01
           paths:
-            - dist
-            - new-dist
             - ~/.cabal
 
 
