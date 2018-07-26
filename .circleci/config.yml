@@ -120,10 +120,14 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Install zlib
+          command: apt-get update && apt-get install -y zlib1g-dev
+      - run:
+          name: Sync submodules
           command: git submodule sync --recursive
       - run:
+          name: Update submodules
           command: git submodule update --recursive --init
-
       - restore-cache:
           keys:
             - cabal-01
