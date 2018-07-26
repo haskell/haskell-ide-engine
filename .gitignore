@@ -58,3 +58,5 @@ dist
 tags
 test-logs/
 .DS_Store
+
+.hspec-failures
