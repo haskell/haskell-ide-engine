@@ -121,7 +121,7 @@ jobs:
       - run: git submodule update --recursive --init
       - restore-cache:
           keys: 
-            - cabal
+            - cabal-{{ checksum "submodules" }}
       - run:
           name: Update
           command: cabal new-update
@@ -132,7 +132,7 @@ jobs:
           name: Build
           command: cabal new-build -j2
       - save_cache:
-          key: cabal
+          key: cabal-{{ checksum "submodules" }}
           paths:
             - dist
             - new-dist
