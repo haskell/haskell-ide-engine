@@ -39,7 +39,7 @@ library
                      , fingertree
                      , ghc
                      , ghc-mod-core >= 5.9.0.0
-                     , haskell-lsp >= 0.4.0.0
+                     , haskell-lsp >= 0.5
                      , hslogger
                      , monad-control
                      , mtl

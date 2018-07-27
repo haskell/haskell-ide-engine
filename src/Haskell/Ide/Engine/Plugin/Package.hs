@@ -245,7 +245,7 @@ codeActionProvider docId mRootDir _ context = do
      (Just rootDir, Just docFp) ->
        let title = "Add " <> pkgName <> " as a dependency"
            cmd = J.Command title "package:add" (Just cmdParams)
-           cmdParams = toJSON [AddParams rootDir docFp pkgName]
+           cmdParams = J.List [toJSON (AddParams rootDir docFp pkgName)]
        in Just (J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [diag])) Nothing (Just cmd))
      _ -> Nothing
     
