@@ -52,7 +52,7 @@ library
                      , brittany
                      , bytestring
                      , Cabal
-                     , cabal-helper >= 0.8.0.4
+                     , cabal-helper >= 0.8.1.0
                      , containers
                      , data-default
                      , directory

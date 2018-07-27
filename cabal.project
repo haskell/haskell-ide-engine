@@ -3,7 +3,6 @@ packages:
          ./hie-plugin-api/
 
          ./submodules/HaRe
-         ./submodules/cabal-helper/
          ./submodules/ghc-mod/
          ./submodules/ghc-mod/core/
          ./submodules/haskell-lsp/

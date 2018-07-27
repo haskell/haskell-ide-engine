@@ -120,9 +120,6 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Install zlib
-          command: apt-get update && apt-get install -y zlib1g-dev
-      - run:
           name: Sync submodules
           command: git submodule sync --recursive
       - run:
@@ -130,7 +127,7 @@ jobs:
           command: git submodule update --recursive --init
       - restore-cache:
           keys:
-            - cabal-01
+            - cabal-02
       - run:
           name: Update
           command: cabal new-update
@@ -141,7 +138,7 @@ jobs:
           name: Build
           command: cabal new-build -j2
       - save_cache:
-          key: cabal-01
+          key: cabal-02
           paths:
             - ~/.cabal
 
