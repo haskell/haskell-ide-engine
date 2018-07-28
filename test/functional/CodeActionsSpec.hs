@@ -17,30 +17,48 @@ import Test.Hspec
 import TestUtils
 
 spec :: Spec
-spec = do
-  it "provides hlint suggestions" $ runSession hieCommand "test/testdata" $ do
-    doc <- openDoc "ApplyRefact2.hs" "haskell"
+spec = describe "code actions" $ do
+  describe "hlint suggestions" $ do
+    it "provides 3.8 code actions" $ runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata" $ do
+      doc <- openDoc "ApplyRefact2.hs" "haskell"
 
-    diags@(reduceDiag:_) <- waitForDiagnostics
+      diags@(reduceDiag:_) <- waitForDiagnostics
 
-    liftIO $ do
-      length diags `shouldBe` 2
-      reduceDiag ^. range `shouldBe` Range (Position 1 0) (Position 1 12)
-      reduceDiag ^. severity `shouldBe` Just DsInfo
-      reduceDiag ^. code `shouldBe` Just "Eta reduce"
-      reduceDiag ^. source `shouldBe` Just "hlint"
+      liftIO $ do
+        length diags `shouldBe` 2
+        reduceDiag ^. range `shouldBe` Range (Position 1 0) (Position 1 12)
+        reduceDiag ^. severity `shouldBe` Just DsInfo
+        reduceDiag ^. code `shouldBe` Just "Eta reduce"
+        reduceDiag ^. source `shouldBe` Just "hlint"
 
-    (CommandOrCodeActionCommand cmd:_) <- getAllCodeActions doc
-    
-    -- Evaluate became redundant id in later hlint versions
-    liftIO $ ["Apply hint:Redundant id", "Apply hint:Evaluate"] `shouldContain` [cmd ^. title ]
+      (CommandOrCodeActionCodeAction ca:_) <- getAllCodeActions doc
 
-    executeCommand cmd
+      -- Evaluate became redundant id in later hlint versions
+      liftIO $ ["Apply hint:Redundant id", "Apply hint:Evaluate"] `shouldContain` [ca ^. title]
 
-    contents <- getDocumentEdit doc
-    liftIO $ contents `shouldBe` "main = undefined\nfoo x = x\n"
+      executeCodeAction ca
 
-    noDiagnostics
+      contents <- getDocumentEdit doc
+      liftIO $ contents `shouldBe` "main = undefined\nfoo x = x\n"
+
+      noDiagnostics
+
+    it "falls back to pre 3.8 code actions" $ runSession hieCommand "test/testdata" $ do
+      doc <- openDoc "ApplyRefact2.hs" "haskell"
+
+      _ <- waitForDiagnostics
+
+      (CommandOrCodeActionCommand cmd:_) <- getAllCodeActions doc
+
+      -- Evaluate became redundant id in later hlint versions
+      liftIO $ ["Apply hint:Redundant id", "Apply hint:Evaluate"] `shouldContain` [cmd ^. title ]
+
+      executeCommand cmd
+
+      contents <- skipManyTill publishDiagnosticsNotification $ getDocumentEdit doc
+      liftIO $ contents `shouldBe` "main = undefined\nfoo x = x\n"
+
+      noDiagnostics
 
   it "provides rename suggestions" $ runSession hieCommand "test/testdata" $ do
     doc <- openDoc "CodeActionRename.hs" "haskell"
@@ -51,15 +69,9 @@ spec = do
     [CommandOrCodeActionCommand cmd] <- getAllCodeActions doc
     executeCommand cmd
 
-    contents <- getDocumentEdit doc
+    contents <- documentContents doc
     liftIO $ contents `shouldBe` "main = putStrLn \"hello\""
 
-  let codeActionSupportCaps = def { C._textDocument = Just textDocumentCaps }
-        where
-        textDocumentCaps = def { C._codeAction = Just codeActionCaps }
-        codeActionCaps = C.CodeActionClientCapabilities (Just True) (Just literalSupport)
-        literalSupport = C.CodeActionLiteralSupport def
-      codeActionSupportConfig = def { Test.capabilities = codeActionSupportCaps }
   it "provides import suggestions and 3.8 code action kinds" $
     runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata" $ do
       doc <- openDoc "CodeActionImport.hs" "haskell"
@@ -90,26 +102,27 @@ spec = do
 
   describe "add package suggestions" $ do
     it "adds to .cabal files" $ runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata/addPackageTest/cabal" $ do
-        doc <- openDoc "AddPackage.hs" "haskell"
+      doc <- openDoc "AddPackage.hs" "haskell"
 
-        -- ignore the first empty hlint diagnostic publish
-        [_,diag:_] <- count 2 waitForDiagnostics
+      -- ignore the first empty hlint diagnostic publish
+      [_,diag:_] <- count 2 waitForDiagnostics
 
-        liftIO $ diag ^. LSP.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Data.Text’"
+      liftIO $ diag ^. LSP.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Data.Text’"
 
-        (CommandOrCodeActionCodeAction action:_) <- getAllCodeActions doc
+      (CommandOrCodeActionCodeAction action:_) <- getAllCodeActions doc
 
-        liftIO $ do
-          action ^. title `shouldBe` "Add text as a dependency"
-          action ^. kind `shouldBe` Just CodeActionQuickFix
-          action ^. command . _Just . command `shouldSatisfy` T.isSuffixOf "package:add"
+      liftIO $ do
+        action ^. title `shouldBe` "Add text as a dependency"
+        action ^. kind `shouldBe` Just CodeActionQuickFix
+        action ^. command . _Just . command `shouldSatisfy` T.isSuffixOf "package:add"
 
-        executeCodeAction action
+      executeCodeAction action
 
-        contents <- getDocumentEdit . TextDocumentIdentifier =<< getDocUri "add-package-test.cabal"
-        liftIO $ T.lines contents `shouldSatisfy` \x -> any (\l -> "text -any" `T.isSuffixOf` (x !! l)) [15, 16]
+      contents <- getDocumentEdit . TextDocumentIdentifier =<< getDocUri "add-package-test.cabal"
+      liftIO $ T.lines contents `shouldSatisfy` \x -> any (\l -> "text -any" `T.isSuffixOf` (x !! l)) [15, 16]
 
-    it "adds to hpack package.yaml files" $ runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata/addPackageTest/hpack" $ do
+    it "adds to hpack package.yaml files" $
+      runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata/addPackageTest/hpack" $ do
         doc <- openDoc "app/Asdf.hs" "haskell"
 
         -- ignore the first empty hlint diagnostic publish
@@ -133,34 +146,62 @@ spec = do
           T.lines contents !! 33 `shouldSatisfy` T.isSuffixOf "zlib"
           T.lines contents !! 12 `shouldNotSatisfy` T.isSuffixOf "zlib"
           T.lines contents !! 13 `shouldNotSatisfy` T.isSuffixOf "zlib"
-  it "provides redundant import code actions" $
-    runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata/redundantImportTest/" $ do
-      doc <- openDoc "src/CodeActionRedundant.hs" "haskell"
 
-      -- ignore the first empty hlint diagnostic publish
-      [_,diag:_] <- count 2 waitForDiagnostics
+  describe "redundant import code actions" $ do
+    it "remove solitary redundant imports" $
+      runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata/redundantImportTest/" $ do
+        doc <- openDoc "src/CodeActionRedundant.hs" "haskell"
 
-      liftIO $ diag ^. LSP.message `shouldSatisfy` T.isPrefixOf "The import of ‘Data.List’ is redundant"
+        -- ignore the first empty hlint diagnostic publish
+        [_,diag:_] <- count 2 waitForDiagnostics
 
-      mActions <- getAllCodeActions doc
+        liftIO $ diag ^. LSP.message `shouldSatisfy` T.isPrefixOf "The import of ‘Data.List’ is redundant"
 
-      let allActions@[removeAction, changeAction] = map fromAction mActions
+        mActions <- getAllCodeActions doc
 
-      liftIO $ do
-        removeAction ^. title `shouldBe` "Remove redundant import"
-        changeAction ^. title `shouldBe` "Import instances"
-        forM_ allActions $ \a -> a ^. kind `shouldBe` Just CodeActionQuickFix
-        forM_ allActions $ \a -> a ^. command `shouldBe` Nothing
-        forM_ allActions $ \a -> a ^. edit `shouldSatisfy` isJust
+        let allActions@[removeAction, changeAction] = map fromAction mActions
 
-      executeCodeAction removeAction
+        liftIO $ do
+          removeAction ^. title `shouldBe` "Remove redundant import"
+          changeAction ^. title `shouldBe` "Import instances"
+          forM_ allActions $ \a -> a ^. kind `shouldBe` Just CodeActionQuickFix
+          forM_ allActions $ \a -> a ^. command `shouldBe` Nothing
+          forM_ allActions $ \a -> a ^. edit `shouldSatisfy` isJust
 
-      -- No command/applyworkspaceedit should be here, since action
-      -- provides workspace edit property which skips round trip to
-      -- the server
+        executeCodeAction removeAction
+
+        -- No command/applyworkspaceedit should be here, since action
+        -- provides workspace edit property which skips round trip to
+        -- the server
+        contents <- documentContents doc
+        liftIO $ contents `shouldBe` "main :: IO ()\nmain = putStrLn \"hello\""
+    it "doesn't touch other imports" $ runSession hieCommand "test/testdata/redundantImportTest/" $ do
+      doc <- openDoc "src/MultipleImports.hs" "haskell"
+
+      _ <- count 2 waitForDiagnostics
+
+      [LSP.CommandOrCodeActionCommand cmd, _] <- getAllCodeActions doc
+
+      executeCommand cmd
+
       contents <- documentContents doc
-      liftIO $ contents `shouldBe` "main :: IO ()\nmain = putStrLn \"hello\""
+
+      liftIO $ contents `shouldBe`
+        "module MultipleImports where\n\
+        \import Data.Maybe\n\
+        \foo :: Int\n\
+        \foo = fromJust (Just 3)\n"
 
 fromAction :: CommandOrCodeAction -> CodeAction
 fromAction (CommandOrCodeActionCodeAction action) = action
 fromAction _ = error "Not a code action"
+
+codeActionSupportCaps :: C.ClientCapabilities
+codeActionSupportCaps = def { C._textDocument = Just textDocumentCaps }
+  where
+    textDocumentCaps = def { C._codeAction = Just codeActionCaps }
+    codeActionCaps = C.CodeActionClientCapabilities (Just True) (Just literalSupport)
+    literalSupport = C.CodeActionLiteralSupport def
+
+codeActionSupportConfig :: SessionConfig
+codeActionSupportConfig = def { Test.capabilities = codeActionSupportCaps }

@@ -26,7 +26,6 @@ import           Control.Monad.STM
 import           Control.Monad.Reader
 import qualified Data.Aeson as J
 import           Data.Aeson ( (.=) )
-import qualified Data.Bimap as BM
 import qualified Data.ByteString.Lazy as BL
 import           Data.Char (isUpper, isAlphaNum)
 import           Data.Default
@@ -84,10 +83,11 @@ lspStdioTransport
   :: (DispatcherEnv -> ErrorHandler -> CallbackHandler R -> ClientCapabilities -> IO ())
   -> TChan (PluginRequest R)
   -> FilePath
+  -> IdePlugins
   -> Maybe FilePath
   -> IO ()
-lspStdioTransport hieDispatcherProc cin origDir captureFp = do
-  run hieDispatcherProc cin origDir captureFp >>= \case
+lspStdioTransport hieDispatcherProc cin origDir plugins captureFp = do
+  run hieDispatcherProc cin origDir plugins captureFp >>= \case
     0 -> exitSuccess
     c -> exitWith . ExitFailure $ c
 
@@ -97,13 +97,14 @@ run
   :: (DispatcherEnv -> ErrorHandler -> CallbackHandler R -> ClientCapabilities -> IO ())
   -> TChan (PluginRequest R)
   -> FilePath
+  -> IdePlugins
   -> Maybe FilePath
   -> IO Int
-run dispatcherProc cin _origDir captureFp = flip E.catches handlers $ do
-
-  commandMap <- getCommandMap
+run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
 
   rin <- atomically newTChan :: IO (TChan ReactorInput)
+
+  prefix <- cmdPrefixer
 
   let dp lf = do
         cancelTVar  <- atomically $ newTVar S.empty
@@ -114,15 +115,15 @@ run dispatcherProc cin _origDir captureFp = flip E.catches handlers $ do
               , wipReqsTVar    = wipTVar
               , docVersionTVar = versionTVar
               }
-        let reactorFunc = runReactor lf dEnv cin $ reactor rin commandMap
+        let reactorFunc = runReactor lf dEnv cin prefix $ reactor rin
             caps = Core.clientCapabilities lf
 
         let errorHandler :: ErrorHandler
             errorHandler lid code e =
               Core.sendErrorResponseS (Core.sendFunc lf) (J.responseId lid) code e
             callbackHandler :: CallbackHandler R
-            callbackHandler f x = runReactor lf dEnv cin $ f x
-        
+            callbackHandler f x = runReactor lf dEnv cin prefix $ f x
+
 
         -- haskell lsp sets the current directory to the project root in the InitializeRequest
         -- We launch the dispatcher after that so that the defualt cradle is
@@ -130,18 +131,21 @@ run dispatcherProc cin _origDir captureFp = flip E.catches handlers $ do
         _ <- forkIO $ race_ (dispatcherProc dEnv errorHandler callbackHandler caps) reactorFunc
         return Nothing
 
+      commandIds = Map.foldlWithKey cmdFolder [] (fst <$> ipMap plugins)
+      cmdFolder :: [T.Text] -> T.Text -> [PluginCommand] -> [T.Text]
+      cmdFolder acc plugin cmds = acc ++ map prefix cmdIds
+        where cmdIds = map (\cmd -> plugin <> ":" <> commandName cmd) cmds
+
   flip E.finally finalProc $ do
-    CTRL.run (getConfigFromNotification, dp) (hieHandlers rin) (hieOptions (BM.elems commandMap)) captureFp
+    CTRL.run (getConfigFromNotification, dp) (hieHandlers rin) (hieOptions commandIds) captureFp
  where
   handlers  = [E.Handler ioExcept, E.Handler someExcept]
   finalProc = L.removeAllHandlers
   ioExcept (e :: E.IOException) = print e >> return 1
   someExcept (e :: E.SomeException) = print e >> return 1
-  getCommandMap = do
+  cmdPrefixer = do
     pid <- T.pack . show <$> getProcessID
-    let cmds = ["hare:demote", "applyrefact:applyOne", "hsimport:import", "package:add", "hie:applyWorkspaceEdit"]
-        newCmds = map (T.append pid . T.append ":") cmds
-    return $ BM.fromList (zip cmds newCmds)
+    return ((pid <> ":") <>)
 
 -- ---------------------------------------------------------------------
 
@@ -295,8 +299,8 @@ sendErrorLog msg = reactorSend' (`Core.sendErrorLogS` msg)
 -- | The single point that all events flow through, allowing management of state
 -- to stitch replies and requests together from the two asynchronous sides: lsp
 -- server and hie dispatcher
-reactor :: forall void. TChan ReactorInput -> BM.Bimap T.Text T.Text -> R void
-reactor inp commandMap = do
+reactor :: forall void. TChan ReactorInput -> R void
+reactor inp = do
   -- forever $ do
   let
     loop :: TrackingNumber -> R void
@@ -336,10 +340,15 @@ reactor inp commandMap = do
                    }
            }
           -}
+
+          -- TODO: Get all commands
+          prefix <- asks commandPrefixer
+          -- let pluginIds = map prefix (Map.keys (ipMap plugins))
+
           let
             options = J.object ["documentSelector" .= J.object [ "language" .= J.String "haskell"]]
             registrationsList =
-              [ J.Registration (commandMap BM.! "hare:demote") J.WorkspaceExecuteCommand (Just options)
+              [ J.Registration (prefix "hare:demote") J.WorkspaceExecuteCommand (Just options)
               ]
           let registrations = J.RegistrationParams (J.List registrationsList)
 
@@ -359,7 +368,7 @@ reactor inp commandMap = do
                       ++ "\nYou may want to use hie-wrapper. Check the README for more information"
             reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
             reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg
-          
+
           -- Check cabal is installed
           hasCabal <- liftIO checkCabalInstall
           unless hasCabal $ do
@@ -523,25 +532,23 @@ reactor inp commandMap = do
 
         ReqCodeAction req -> do
           liftIO $ U.logs $ "reactor:got CodeActionRequest:" ++ show req
-          handleCodeActionReq tn commandMap req
+          handleCodeActionReq tn req
           -- TODO: make context specific commands for all sorts of things, such as refactorings          
 
         -- -------------------------------
 
         ReqExecuteCommand req -> do
           liftIO $ U.logs $ "reactor:got ExecuteCommandRequest:" ++ show req
+          lf <- asks lspFuncs
+
           let params = req ^. J.params
-              command' = params ^. J.command
-              -- if this is a UUID then use the mapping for it
-              command = fromMaybe command' (BM.lookupR command' commandMap)
-              margs = params ^. J.arguments
 
-          liftIO $ U.logs $ "ExecuteCommand mapped command " ++ show command' ++ " to " ++ show command
+              parseCmdId :: T.Text -> Maybe (T.Text, T.Text)
+              parseCmdId x = case T.splitOn ":" x of
+                [plugin, command] -> Just (plugin, command)
+                [_, plugin, command] -> Just (plugin, command)
+                _ -> Nothing
 
-          --liftIO $ U.logs $ "reactor:ExecuteCommandRequest:margs=" ++ show margs
-          let cmdparams = case margs of
-                Just (J.List (x:_)) -> x
-                _ -> J.Null
               callback obj = do
                 liftIO $ U.logs $ "ExecuteCommand response got:r=" ++ show obj
                 case fromDynJSON obj :: Maybe J.WorkspaceEdit of
@@ -553,21 +560,53 @@ reactor inp commandMap = do
                     reactorSend $ ReqApplyWorkspaceEdit msg
                   Nothing -> reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req $ dynToJSON obj
 
-          -- shortcut for immediately applying a applyWorkspaceEdit as a fallback for v3.8 code actions
-          if command == "hie:applyWorkspaceEdit"
-            then do
-              lid <- nextLspReqId
-              reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req (J.Object mempty)
-              case J.fromJSON cmdparams of
-                J.Success editParams ->
-                  reactorSend $
-                    ReqApplyWorkspaceEdit (fmServerApplyWorkspaceEditRequest lid editParams)
-                J.Error _ -> return ()
-            else do
-              let (plugin,cmd) = T.break (==':') command
-              let preq = GReq tn Nothing Nothing (Just $ req ^. J.id) callback
-                          $ runPluginCommand plugin (T.drop 1 cmd) cmdparams
-              makeRequest preq
+              execCmd cmdId args = do
+                -- The parameters to the HIE command are always the first element
+                let cmdParams = case args of
+                     Just (J.List (x:_)) -> x
+                     _ -> J.Null
+
+                case parseCmdId cmdId of
+                  -- Shortcut for immediately applying a applyWorkspaceEdit as a fallback for v3.8 code actions
+                  Just ("hie", "fallbackCodeAction") -> do
+                    case J.fromJSON cmdParams of
+                      J.Success (FallbackCodeActionParams mEdit mCmd) -> do
+
+                        -- Send off the workspace request if it has one
+                        forM_ mEdit $ \edit -> do
+                          lid <- nextLspReqId
+                          let eParams = J.ApplyWorkspaceEditParams edit
+                              eReq = fmServerApplyWorkspaceEditRequest lid eParams
+                          reactorSend $ ReqApplyWorkspaceEdit eReq
+
+                        case mCmd of
+                          -- If we have a command, continue to execute it
+                          Just (J.Command _ innerCmdId innerArgs) -> execCmd innerCmdId innerArgs
+
+                          -- Otherwise we need to send back a response oureslves
+                          Nothing -> reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req (J.Object mempty)
+
+                      -- Couldn't parse the fallback command params
+                      _ -> liftIO $
+                        Core.sendErrorResponseS (Core.sendFunc lf)
+                                                (J.responseId (req ^. J.id))
+                                                J.InvalidParams
+                                                "Invalid fallbackCodeAction params"
+                  -- Just an ordinary HIE command
+                  Just (plugin, cmd) ->
+                    let preq = GReq tn Nothing Nothing (Just $ req ^. J.id) callback
+                               $ runPluginCommand plugin cmd cmdParams
+                    in makeRequest preq
+
+                  -- Couldn't parse the command identifier
+                  _ -> liftIO $
+                    Core.sendErrorResponseS (Core.sendFunc lf)
+                                            (J.responseId (req ^. J.id))
+                                            J.InvalidParams
+                                            "Invalid command identifier"
+
+          execCmd (params ^. J.command) (params ^. J.arguments)
+
 
         -- -------------------------------
 
@@ -802,7 +841,7 @@ syncOptions = J.TextDocumentSyncOptions
   }
 
 hieOptions :: [T.Text] -> Core.Options
-hieOptions commandUUIDs =
+hieOptions commandIds =
   def { Core.textDocumentSync       = Just syncOptions
       , Core.completionProvider     = Just (J.CompletionOptions (Just True) (Just ["."]))
       -- As of 2018-05-24, vscode needs the commands to be registered
@@ -811,7 +850,7 @@ hieOptions commandUUIDs =
       --
       -- Hopefully the end May 2018 vscode release will stabilise
       -- this, it is a major rework of the machinery anyway.
-      , Core.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List commandUUIDs))
+      , Core.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List commandIds))
       }
 
 

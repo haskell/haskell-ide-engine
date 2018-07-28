@@ -49,11 +49,10 @@ library
                      , apply-refact
                      , async
                      , base >= 4.9 && < 5
-                     , bimap
                      , brittany
                      , bytestring
                      , Cabal
-                     , cabal-helper >= 0.8.0.4
+                     , cabal-helper >= 0.8.1.0
                      , containers
                      , data-default
                      , directory
@@ -65,7 +64,7 @@ library
                      , gitrev >= 1.1
                      , haddock-api
                      , haddock-library
-                     , haskell-lsp >= 0.3.0
+                     , haskell-lsp >= 0.5
                      , haskell-src-exts
                      , hie-plugin-api
                      , hlint >= 2.0.11
@@ -244,6 +243,7 @@ test-suite func-test
                      , test/utils
   main-is:             Main.hs
   other-modules:       CompletionSpec
+                     , CommandSpec
                      , CodeActionsSpec
                      , DeferredSpec
                      , DefinitionSpec

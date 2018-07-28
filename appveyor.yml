@@ -1,0 +1,23 @@
+version: 1.0.{build}
+environment:
+  matrix:
+  - GHCVER: 8.4.3
+  - GHCVER: 8.4.2
+  - GHCVER: 8.2.2
+  - GHCVER: 8.2.1
+install:
+- cmd: >-
+    git submodule update --init --recursive
+
+    choco install -y haskell-stack
+
+    refreshenv
+cache:
+- '%LOCALAPPDATA%\Programs\stack\'
+- c:\sr
+build_script:
+- cmd: stack --stack-yaml=stack-%GHCVER%.yaml install
+test: off
+artifacts:
+- path: .stack-work\install\**\bin\hie.exe
+- path: .stack-work\install\**\bin\hie-wrapper.exe

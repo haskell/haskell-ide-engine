@@ -93,7 +93,7 @@ codeActionProvider docId _ _ context = do
        cmd = J.Command title cmdName (Just cmdParams)
        title = "Import module " <> modName
        cmdName = "hsimport:import"
-       cmdParams = toJSON [ImportParams (docId ^. J.uri) modName]
+       cmdParams = J.List [toJSON (ImportParams (docId ^. J.uri) modName)]
 
     getImportables :: J.Diagnostic -> Maybe (J.Diagnostic, T.Text)
     getImportables diag@(J.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractImportableTerm msg
