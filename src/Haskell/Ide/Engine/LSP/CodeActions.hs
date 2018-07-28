@@ -1,14 +1,16 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE DeriveAnyClass        #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE FlexibleContexts      #-}
 module Haskell.Ide.Engine.LSP.CodeActions where
 
 import Control.Lens
 import Control.Monad.Reader
 import qualified Data.Aeson as J
-import qualified Data.Bimap as BM
 import qualified Data.Text as T
 import Data.Foldable
+import qualified GHC.Generics as G
 import Haskell.Ide.Engine.LSP.Reactor
 import Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.Core as Core
@@ -18,9 +20,17 @@ import Language.Haskell.LSP.VFS
 import Language.Haskell.LSP.Messages
 import Haskell.Ide.Engine.IdeFunctions
 import Haskell.Ide.Engine.PluginsIdeMonads
+import Control.Monad.Trans.Cont
 
-handleCodeActionReq :: TrackingNumber -> BM.Bimap T.Text T.Text -> J.CodeActionRequest -> R ()
-handleCodeActionReq tn commandMap req = do
+data FallbackCodeActionParams =
+  FallbackCodeActionParams
+    { fallbackWorkspaceEdit :: Maybe J.WorkspaceEdit
+    , fallbackCommand       :: Maybe J.Command
+    }
+  deriving (G.Generic, J.ToJSON, J.FromJSON)
+
+handleCodeActionReq :: TrackingNumber -> J.CodeActionRequest -> R ()
+handleCodeActionReq tn req = do
 
   maybeRootDir <- asksLspFuncs Core.rootPath
 
@@ -38,8 +48,8 @@ handleCodeActionReq tn commandMap req = do
         let reqs = map (\f -> f docId maybeRootDir range context) providers
         in collectRequests reqs (send . concat)
 
-  makeRequest (IReq tn (req ^. J.id) providersCb getProviders)
-  
+  collectRequest getProviders providersCb
+
   where
     params = req ^. J.params
     docUri = params ^. J.textDocument . J.uri
@@ -47,23 +57,33 @@ handleCodeActionReq tn commandMap req = do
     context = params ^. J.context
 
     wrapCodeAction :: J.CodeAction -> R J.CommandOrCodeAction
-    wrapCodeAction action@J.CodeAction{..} = asksLspFuncs Core.clientCapabilities <&> \(C.ClientCapabilities _ textDocCaps _) ->
-      case (textDocCaps >>= C._codeAction >>= C._codeActionLiteralSupport, _edit, _command) of
-        (Just _,_,_) -> J.CommandOrCodeActionCodeAction action
-        (_,Just e,_) -> J.CommandOrCodeActionCommand
-          $ J.Command _title (commandMap BM.! "hie:applyWorkspaceEdit") $ Just $ J.toJSON [J.ApplyWorkspaceEditParams e]
-        (_,_,Just c) -> J.CommandOrCodeActionCommand $ J.command %~ (commandMap BM.!) $ c
-        _ -> error "A code action needs either a workspace edit or a command"
+    wrapCodeAction action' = do
+      prefix <- asks commandPrefixer :: R (T.Text -> T.Text)
+ 
+      let action :: J.CodeAction
+          action = (J.command . _Just . J.command %~ prefix) action'
+      supported <- asksLspFuncs $ has
+        $ to Core.clientCapabilities . to C._textDocument . _Just . to C._codeAction . _Just . to C._codeActionLiteralSupport . _Just
+        . maybe united (\k -> to C._codeActionKind . to C._valueSet . traverse . only k) (action ^. J.kind)
+
+      return $ if supported
+        then J.CommandOrCodeActionCodeAction action
+        else
+          let cmd = J.Command (action ^. J.title) cmdName (Just cmdParams)
+              cmdName = prefix "hie:fallbackCodeAction"
+              cmdParams = J.List [J.toJSON (FallbackCodeActionParams (action ^. J.edit) (action ^. J.command))]
+            in J.CommandOrCodeActionCommand cmd
 
     send :: [J.CodeAction] -> R ()
-    send = reactorSend . RspCodeAction . Core.makeResponseMessage req . J.List <=< traverse wrapCodeAction
+    send = reactorSend . RspCodeAction . Core.makeResponseMessage req . J.List <=< mapM wrapCodeAction
 
     -- | Execute multiple ide requests sequentially
     collectRequests :: [IdeM (IdeResponse a)] -- ^ The requests to make
                     -> ([a] -> R ())     -- ^ Callback with the request inputs and results
                     -> R ()
-    collectRequests = foldr go ($[]) where
-      go x goxs callback = makeRequest $ IReq tn (req ^. J.id) (goxs . (callback .) . (:)) x
-
+    collectRequests = alaf ContT traverse collectRequest
+    
+    collectRequest :: IdeM (IdeResponse a) -> (a -> R ()) -> R ()
+    collectRequest x c = makeRequest $ IReq tn (req ^. J.id) c x
+        
   -- TODO: make context specific commands for all sorts of things, such as refactorings          
-
