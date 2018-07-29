@@ -318,7 +318,7 @@ Finally, make sure that `hie` is included as the language server source for hask
 ```
 let g:LanguageClient_serverCommands = {
     ...
-    \ 'haskell': ['hie-wrapper'],
+    \ 'haskell': ['hie-wrapper', '--lsp'],
     ...
     \ }
 ```
@@ -328,7 +328,7 @@ Since LanguageClient-neovim doesn't start language servers in the project root, 
 ```
 let g:LanguageClient_serverCommands = {
     ...
-    \ 'haskell': ['hie-wrapper', '-r', '$YOURROOTHERE'],
+    \ 'haskell': ['hie-wrapper', '--lsp', '-r', '$YOURROOTHERE'],
     ...
     \ }
 
