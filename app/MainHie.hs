@@ -98,7 +98,7 @@ run opts = do
                    else L.INFO
 
   Core.setupLogger mLogFileName ["hie"] logLevel
-  
+
   projGhcVersion <- getProjectGhcVersion
   when (projGhcVersion /= hieGhcVersion) $
     warningm $ "Mismatching GHC versions: Project is " ++ projGhcVersion
@@ -131,4 +131,3 @@ run opts = do
   else do
     pin <- atomically newTChan
     lspStdioTransport (dispatcherP pin plugins ghcModOptions) pin origDir plugins (optCaptureFile opts)
-
