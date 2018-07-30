@@ -46,14 +46,14 @@ sayHelloTo n = return $ "hello " <> n <> " from ExamplePlugin2"
 
 -- ---------------------------------------------------------------------
 
-diagnosticProvider :: Uri -> IdeGhcM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
-diagnosticProvider uri = do
+diagnosticProvider :: DiagnosticTrigger -> Uri -> IdeGhcM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
+diagnosticProvider trigger uri = do
   let diag = Diagnostic
               { _range = Range (Position 0 0) (Position 1 0)
               , _severity = Nothing
               , _code = Nothing
               , _source = Just "eg2"
-              , _message = "Example plugin diagnostic"
+              , _message = "Example plugin diagnostic, triggered by" <> T.pack (show trigger)
               , _relatedInformation = Nothing
               }
   return $ IdeResultOk $ Map.fromList [(uri,S.singleton diag)]

@@ -825,7 +825,7 @@ requestDiagnostics trigger tn file mVer = do
             Nothing -> Nothing
             Just v -> Just (file,v)
         let reql = GReq tn (Just file) fv Nothing callbackl
-                     $ ds file
+                     $ ds trigger file
             callbackl pd = do
               let diags = Map.toList $ S.toList <$> pd
               case diags of

@@ -110,8 +110,9 @@ type CodeActionProvider =  VersionedTextDocumentIdentifier
                         -> CodeActionContext
                         -> IdeM (IdeResponse [CodeAction])
 
--- type DiagnosticProviderFunc = Uri -> IdeM (IdeResponse (Map.Map Uri (S.Set Diagnostic)))
-type DiagnosticProviderFunc = Uri -> IdeGhcM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
+-- type DiagnosticProviderFunc = DiagnosticTrigger -> Uri -> IdeM (IdeResponse (Map.Map Uri (S.Set Diagnostic)))
+type DiagnosticProviderFunc
+  = DiagnosticTrigger -> Uri -> IdeGhcM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
 
 data DiagnosticProvider = DiagnosticProvider
      { dpTrigger :: S.Set DiagnosticTrigger -- AZ:should this be a NonEmptyList?

@@ -249,6 +249,7 @@ test-suite func-test
                      , CodeActionsSpec
                      , DeferredSpec
                      , DefinitionSpec
+                     , DiagnosticsSpec
                      , FormatSpec
                      , HighlightSpec
                      , HoverSpec
