@@ -8,7 +8,6 @@ module Haskell.Ide.Engine.LSP.CodeActions where
 import Control.Lens
 import Control.Monad.Reader
 import qualified Data.Aeson as J
-import qualified Data.Text as T
 import Data.Maybe
 import Data.Foldable
 import qualified GHC.Generics as G
@@ -29,6 +28,18 @@ data FallbackCodeActionParams =
     }
   deriving (G.Generic, J.ToJSON, J.FromJSON)
 
+fallbackCodeActionCommandId :: CommandId
+fallbackCodeActionCommandId = CommandId "hie" "fallbackCodeAction"
+
+fallbackCodeActionCommand :: PluginCommand
+fallbackCodeActionCommand =
+  PluginCommand fallbackCodeActionCommandId
+                "A shim for providing 3.8 style code actions in older clients"
+                -- Param is ignored by mkLSPCommand
+                (CmdSync $ \(FallbackCodeActionParams _ _) -> return $ IdeResultOk ())
+
+                
+
 handleCodeActionReq :: TrackingNumber -> J.CodeActionRequest -> R ()
 handleCodeActionReq tn req = do
 
@@ -41,7 +52,7 @@ handleCodeActionReq tn req = do
   let getProviders :: IdeM (IdeResponse [CodeActionProvider])
       getProviders = do
         IdePlugins m <- lift getPlugins
-        return $ IdeResponseOk $ map snd $ toList m
+        return $ IdeResponseOk $ map pluginCodeActionProvider $ toList m
 
       providersCb :: [CodeActionProvider] -> R ()
       providersCb providers =
@@ -56,27 +67,25 @@ handleCodeActionReq tn req = do
     range = params ^. J.range
     context = params ^. J.context
 
-    wrapCodeAction :: J.CodeAction -> R (Maybe J.CommandOrCodeAction)
-    wrapCodeAction action' = do
-      prefix <- asks commandPrefixer :: R (T.Text -> T.Text)
+    wrapCodeAction :: Bool -> J.CodeAction -> IdeM (IdeResponse J.CommandOrCodeAction)
 
-      (C.ClientCapabilities _ textDocCaps _) <- asksLspFuncs Core.clientCapabilities
-      let literalSupport = textDocCaps >>= C._codeAction >>= C._codeActionLiteralSupport
-          action :: J.CodeAction
-          action = (J.command . _Just . J.command %~ prefix) action'
+    -- Code action literal support
+    wrapCodeAction True action = return $ IdeResponseOk (J.CommandOrCodeActionCodeAction action)
 
-      case literalSupport of
-        Nothing ->
-            let cmd = J.Command (action ^. J.title) cmdName (Just cmdParams)
-                cmdName = prefix "hie:fallbackCodeAction"
-                cmdParams = J.List [J.toJSON (FallbackCodeActionParams (action ^. J.edit) (action ^. J.command))]
-              in return $ Just (J.CommandOrCodeActionCommand cmd)
-        Just _ -> return $ Just (J.CommandOrCodeActionCodeAction action)
+    -- No code action literal support
+    wrapCodeAction False action = do
+      let cmdParams = FallbackCodeActionParams (action ^. J.edit) (action ^. J.command)
+      cmd <- mkLSPCommand fallbackCodeActionCommand (action ^. J.title) cmdParams 
+      return $ IdeResponseOk (J.CommandOrCodeActionCommand cmd)
 
     send :: [J.CodeAction] -> R ()
     send codeActions = do
-      body <- J.List . catMaybes <$> mapM wrapCodeAction codeActions
-      reactorSend $ RspCodeAction $ Core.makeResponseMessage req body
+      (C.ClientCapabilities _ textDocCaps _) <- asksLspFuncs Core.clientCapabilities
+      let literalSupport = isJust $ textDocCaps >>= C._codeAction >>= C._codeActionLiteralSupport
+          wrapReqs = map (wrapCodeAction literalSupport) codeActions
+
+      collectRequests wrapReqs $ \wrappedCodeActions ->
+        reactorSend $ RspCodeAction $ Core.makeResponseMessage req (J.List wrappedCodeActions)
 
     -- | Execute multiple ide requests sequentially
     collectRequests :: [IdeM (IdeResponse a)] -- ^ The requests to make

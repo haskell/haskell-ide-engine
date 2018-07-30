@@ -30,16 +30,19 @@ import qualified System.Log.Logger as L
 
 -- ---------------------------------------------------------------------
 
+hieBaseId :: PluginId
+hieBaseId = "hie-base"
+
 baseDescriptor :: PluginDescriptor
 baseDescriptor = PluginDescriptor
   {
-    pluginName = "HIE Base"
+    pluginId = hieBaseId
   , pluginDesc = "Commands for HIE itself"
   , pluginCommands =
-      [ PluginCommand "version" "return HIE version" versionCmd
-      , PluginCommand "plugins" "list available plugins" pluginsCmd
-      , PluginCommand "commands" "list available commands for a given plugin" commandsCmd
-      , PluginCommand "commandDetail" "list parameters required for a given command" commandDetailCmd
+      [ PluginCommand (CommandId hieBaseId "version") "return HIE version" versionCmd
+      , PluginCommand (CommandId hieBaseId "plugins") "list available plugins" pluginsCmd
+      , PluginCommand (CommandId hieBaseId "commands") "list available commands for a given plugin" commandsCmd
+      , PluginCommand (CommandId hieBaseId "commandDetail") "list parameters required for a given command" commandDetailCmd
       ]
   , pluginCodeActionProvider = noCodeActions
   }
@@ -53,7 +56,7 @@ pluginsCmd :: CommandFunc () IdePlugins
 pluginsCmd = CmdSync $ \_ ->
   IdeResultOk <$> getPlugins
 
-commandsCmd :: CommandFunc T.Text [CommandName]
+commandsCmd :: CommandFunc T.Text [CommandId]
 commandsCmd = CmdSync $ \p -> do
   IdePlugins plugins <- getPlugins
   case Map.lookup p plugins of
@@ -62,7 +65,7 @@ commandsCmd = CmdSync $ \p -> do
       , ideMessage = "Can't find plugin:" <> p
       , ideInfo = toJSON p
       }
-    Just pl -> return $ IdeResultOk $ map commandName $ fst pl
+    Just pl -> return $ IdeResultOk $ map commandId $ pluginCommands pl
 
 commandDetailCmd :: CommandFunc (T.Text, T.Text) T.Text
 commandDetailCmd = CmdSync $ \(p,command) -> do
@@ -73,7 +76,7 @@ commandDetailCmd = CmdSync $ \(p,command) -> do
       , ideMessage = "Can't find plugin:" <> p
       , ideInfo = toJSON p
       }
-    Just pl -> case find (\cmd -> command == commandName cmd) (fst pl) of
+    Just pl -> case find (\cmd -> (CommandId p command) == commandId cmd) (pluginCommands pl) of
       Nothing -> return $ IdeResultFail $ IdeError
         { ideCode = UnknownCommand
         , ideMessage = "Can't find command:" <> command

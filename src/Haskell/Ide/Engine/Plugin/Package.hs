@@ -49,11 +49,19 @@ import           Distribution.Types.CondTree
 import qualified Distribution.PackageDescription.PrettyPrint as PP
 import qualified Data.Yaml as Y
 
+packageId :: PluginId
+packageId = "package"
+
+addCmd :: PluginCommand
+addCmd = PluginCommand (CommandId packageId "add")
+                       "Adds a pacakge as a dependency to a .cabal or package.yaml"
+                       (CmdSync addPackage)
+
 packageDescriptor :: PluginDescriptor
 packageDescriptor = PluginDescriptor
-  { pluginName     = "package"
+  { pluginId       = packageId
   , pluginDesc     = "Tools for editing .cabal and package.yaml files."
-  , pluginCommands = [PluginCommand "add" "Add a packge" addCmd]
+  , pluginCommands = [addCmd]
   , pluginCodeActionProvider = codeActionProvider
   }
 
@@ -66,9 +74,8 @@ data AddParams = AddParams
   }
   deriving (Eq, Show, Read, Generic, ToJSON, FromJSON)
 
-addCmd :: CommandFunc AddParams J.WorkspaceEdit
-addCmd = CmdSync $ \(AddParams rootDir modulePath pkg) -> do
-
+addPackage :: AddParams -> IdeGhcM (IdeResult J.WorkspaceEdit)
+addPackage (AddParams rootDir modulePath pkg) = do
   packageType <- liftIO $ findPackageType rootDir
   fileMap <- GM.mkRevRedirMapFunc
 
@@ -233,21 +240,20 @@ codeActionProvider docId mRootDir _ context = do
       pkgs = mapMaybe getAddablePackages diags
 
   res <- mapM (bimapM return Hoogle.searchPackages) pkgs
-  let actions = mapMaybe (uncurry mkAddPackageAction) (concatPkgs res)  
+  actions <- catMaybes <$> mapM (uncurry mkAddPackageAction) (concatPkgs res)  
 
   return $ IdeResponseOk actions
 
   where
     concatPkgs = concatMap (\(d, ts) -> map (d,) ts)
 
-    mkAddPackageAction :: J.Diagnostic -> T.Text -> Maybe J.CodeAction
+    mkAddPackageAction :: J.Diagnostic -> T.Text -> IdeM (Maybe J.CodeAction)
     mkAddPackageAction diag pkgName = case (mRootDir, J.uriToFilePath (docId ^. J.uri)) of
-     (Just rootDir, Just docFp) ->
-       let title = "Add " <> pkgName <> " as a dependency"
-           cmd = J.Command title "package:add" (Just cmdParams)
-           cmdParams = J.List [toJSON (AddParams rootDir docFp pkgName)]
-       in Just (J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [diag])) Nothing (Just cmd))
-     _ -> Nothing
+     (Just rootDir, Just docFp) -> do
+       let title  = "Add " <> pkgName <> " as a dependency"
+       cmd <- mkLSPCommand addCmd title (AddParams rootDir docFp pkgName)
+       return $ Just (J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [diag])) Nothing (Just cmd))
+     _ -> return Nothing
     
     getAddablePackages :: J.Diagnostic -> Maybe (J.Diagnostic, T.Text)
     getAddablePackages diag@(J.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractModuleName msg

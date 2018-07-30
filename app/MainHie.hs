@@ -44,17 +44,17 @@ import           Haskell.Ide.Engine.Plugin.Package
 
 -- | This will be read from a configuration, eventually
 plugins :: IdePlugins
-plugins = pluginDescToIdePlugins
-  [("applyrefact", applyRefactDescriptor)
-  ,("brittany"   , brittanyDescriptor)
-  ,("build"      , buildPluginDescriptor)
-  ,("eg2"        , example2Descriptor)
-  ,("ghcmod"     , ghcmodDescriptor)
-  ,("hare"       , hareDescriptor)
-  ,("base"       , baseDescriptor)
-  ,("hoogle"     , hoogleDescriptor)
-  ,("hsimport"   , hsimportDescriptor)
-  ,("package"    , packageDescriptor)
+plugins = mkIdePlugins
+  [ applyRefactDescriptor
+  , brittanyDescriptor
+  , buildPluginDescriptor
+  , example2Descriptor
+  , ghcmodDescriptor
+  , hareDescriptor
+  , baseDescriptor
+  , hoogleDescriptor
+  , hsimportDescriptor
+  , packageDescriptor
   ]
 
 -- ---------------------------------------------------------------------

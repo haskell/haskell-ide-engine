@@ -32,6 +32,7 @@ import qualified Data.Text                             as T
 import           GHC.Generics
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.Types            as J
 import           Language.Haskell.LSP.Types.Capabilities
@@ -111,7 +112,7 @@ run dispatcherProc cin = flip E.catches handlers $ do
       forever $ do
         req <- getNextReq
         let preq = GReq 0 (context req) Nothing (Just $ J.IdInt rid) (liftIO . callback)
-              $ runPluginCommand (plugin req) (command req) (arg req)
+              $ runPluginCommand (CommandId (plugin req) (command req)) (arg req)
             rid = reqId req
             callback = sendResponse rid . dynToJSON
         atomically $ writeTChan cin preq

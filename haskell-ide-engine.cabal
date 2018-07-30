@@ -86,10 +86,6 @@ library
                      , vector
                      , yaml >= 0.8.31
                      , yi-rope
-  if os(windows)
-    build-depends:     Win32
-  else
-    build-depends:     unix
   ghc-options:         -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror

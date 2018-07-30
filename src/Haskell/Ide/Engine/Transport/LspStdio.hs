@@ -47,7 +47,7 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
-import           Haskell.Ide.Engine.Compat
+import           Haskell.Ide.Engine.Process
 import           Haskell.Ide.Engine.LSP.CodeActions
 import           Haskell.Ide.Engine.LSP.Config
 import           Haskell.Ide.Engine.LSP.Reactor
@@ -104,7 +104,7 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
 
   rin <- atomically newTChan :: IO (TChan ReactorInput)
 
-  prefix <- cmdPrefixer
+  pid <- T.pack . show <$> getProcessID
 
   let dp lf = do
         cancelTVar  <- atomically $ newTVar S.empty
@@ -115,14 +115,14 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
               , wipReqsTVar    = wipTVar
               , docVersionTVar = versionTVar
               }
-        let reactorFunc = runReactor lf dEnv cin prefix $ reactor rin
+        let reactorFunc = runReactor lf dEnv cin $ reactor rin
             caps = Core.clientCapabilities lf
 
         let errorHandler :: ErrorHandler
             errorHandler lid code e =
               Core.sendErrorResponseS (Core.sendFunc lf) (J.responseId lid) code e
             callbackHandler :: CallbackHandler R
-            callbackHandler f x = runReactor lf dEnv cin prefix $ f x
+            callbackHandler f x = runReactor lf dEnv cin $ f x
 
 
         -- haskell lsp sets the current directory to the project root in the InitializeRequest
@@ -131,10 +131,11 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
         _ <- forkIO $ race_ (dispatcherProc dEnv errorHandler callbackHandler caps) reactorFunc
         return Nothing
 
-      commandIds = Map.foldlWithKey cmdFolder [] (fst <$> ipMap plugins)
-      cmdFolder :: [T.Text] -> T.Text -> [PluginCommand] -> [T.Text]
-      cmdFolder acc plugin cmds = acc ++ map prefix cmdIds
-        where cmdIds = map (\cmd -> plugin <> ":" <> commandName cmd) cmds
+      commandIds = Map.foldl cmdFolder [] (pluginCommands <$> ipMap plugins)
+      cmdFolder :: [T.Text] -> [PluginCommand] -> [T.Text]
+      cmdFolder acc cmds = acc ++ prefixed
+        where cmdIds = map commandId cmds
+              prefixed = map (\(CommandId p c) -> pid <> ":" <> p <> ":" <> c) cmdIds
 
   flip E.finally finalProc $ do
     CTRL.run (getConfigFromNotification, dp) (hieHandlers rin) (hieOptions commandIds) captureFp
@@ -143,9 +144,6 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
   finalProc = L.removeAllHandlers
   ioExcept (e :: E.IOException) = print e >> return 1
   someExcept (e :: E.SomeException) = print e >> return 1
-  cmdPrefixer = do
-    pid <- T.pack . show <$> getProcessID
-    return ((pid <> ":") <>)
 
 -- ---------------------------------------------------------------------
 
@@ -341,14 +339,13 @@ reactor inp = do
            }
           -}
 
-          -- TODO: Get all commands
-          prefix <- asks commandPrefixer
-          -- let pluginIds = map prefix (Map.keys (ipMap plugins))
+          -- TODO: Do we need to register all commands here?
+          pid <- T.pack . show <$> liftIO getProcessID
 
           let
             options = J.object ["documentSelector" .= J.object [ "language" .= J.String "haskell"]]
             registrationsList =
-              [ J.Registration (prefix "hare:demote") J.WorkspaceExecuteCommand (Just options)
+              [ J.Registration (pid <> ":hare:demote") J.WorkspaceExecuteCommand (Just options)
               ]
           let registrations = J.RegistrationParams (J.List registrationsList)
 
@@ -543,10 +540,10 @@ reactor inp = do
 
           let params = req ^. J.params
 
-              parseCmdId :: T.Text -> Maybe (T.Text, T.Text)
+              parseCmdId :: T.Text -> Maybe CommandId
               parseCmdId x = case T.splitOn ":" x of
-                [plugin, command] -> Just (plugin, command)
-                [_, plugin, command] -> Just (plugin, command)
+                [plugin, command] -> Just (CommandId plugin command)
+                [_, plugin, command] -> Just (CommandId plugin command)
                 _ -> Nothing
 
               callback obj = do
@@ -560,15 +557,15 @@ reactor inp = do
                     reactorSend $ ReqApplyWorkspaceEdit msg
                   Nothing -> reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req $ dynToJSON obj
 
-              execCmd cmdId args = do
+              execCmd mCmdId args = do
                 -- The parameters to the HIE command are always the first element
                 let cmdParams = case args of
                      Just (J.List (x:_)) -> x
                      _ -> J.Null
 
-                case parseCmdId cmdId of
+                case parseCmdId mCmdId of
                   -- Shortcut for immediately applying a applyWorkspaceEdit as a fallback for v3.8 code actions
-                  Just ("hie", "fallbackCodeAction") -> do
+                  Just cmdId | cmdId == fallbackCodeActionCommandId -> do
                     case J.fromJSON cmdParams of
                       J.Success (FallbackCodeActionParams mEdit mCmd) -> do
 
@@ -593,9 +590,9 @@ reactor inp = do
                                                 J.InvalidParams
                                                 "Invalid fallbackCodeAction params"
                   -- Just an ordinary HIE command
-                  Just (plugin, cmd) ->
+                  Just cmdId ->
                     let preq = GReq tn Nothing Nothing (Just $ req ^. J.id) callback
-                               $ runPluginCommand plugin cmd cmdParams
+                               $ runPluginCommand cmdId cmdParams
                     in makeRequest preq
 
                   -- Couldn't parse the command identifier

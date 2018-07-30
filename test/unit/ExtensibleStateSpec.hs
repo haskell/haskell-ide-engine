@@ -22,8 +22,8 @@ extensibleStateSpec =
   describe "stores and retrieves in the state" $
     it "stores the first one" $ do
       r <- runIGM testPlugins $ do
-          r1 <- makeRequest "test" "cmd1" ()
-          r2 <- makeRequest "test" "cmd2" ()
+          r1 <- makeRequest (CommandId "test" "cmd1") ()
+          r2 <- makeRequest (CommandId "test" "cmd2") ()
           return (r1,r2)
       fmap fromDynJSON (fst r) `shouldBe` IdeResultOk (Just "result:put foo" :: Maybe T.Text)
       fmap fromDynJSON (snd r) `shouldBe` IdeResultOk (Just "result:got:\"foo\"" :: Maybe T.Text)
@@ -31,16 +31,16 @@ extensibleStateSpec =
 -- ---------------------------------------------------------------------
 
 testPlugins :: IdePlugins
-testPlugins = pluginDescToIdePlugins [("test",testDescriptor)]
+testPlugins = mkIdePlugins [testDescriptor]
 
 testDescriptor :: PluginDescriptor
 testDescriptor = PluginDescriptor
   {
-    pluginName = "testDescriptor"
+    pluginId = "test"
   , pluginDesc = "PluginDescriptor for testing Dispatcher"
   , pluginCommands = [
-        PluginCommand "cmd1" "description" cmd1
-      , PluginCommand "cmd2" "description" cmd2
+        PluginCommand (CommandId "test" "cmd1") "description" cmd1
+      , PluginCommand (CommandId "test" "cmd2") "description" cmd2
       ]
   , pluginCodeActionProvider = noCodeActions
   }

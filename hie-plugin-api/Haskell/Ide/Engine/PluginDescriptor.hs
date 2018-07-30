@@ -5,7 +5,7 @@
 
 module Haskell.Ide.Engine.PluginDescriptor
   ( runPluginCommand
-  , pluginDescToIdePlugins
+  , mkIdePlugins
   , DynamicJSON
   , dynToJSON
   , fromDynJSON
@@ -25,9 +25,9 @@ import           Data.Typeable
 import           Haskell.Ide.Engine.IdeFunctions
 import           Haskell.Ide.Engine.MonadTypes
 
-pluginDescToIdePlugins :: [(PluginId,PluginDescriptor)] -> IdePlugins
-pluginDescToIdePlugins = IdePlugins . foldr (uncurry Map.insert . f) Map.empty
-  where f = fmap (\x -> (pluginCommands x, pluginCodeActionProvider x))
+mkIdePlugins :: [PluginDescriptor] -> IdePlugins
+mkIdePlugins = IdePlugins . foldr (uncurry Map.insert . f) Map.empty
+  where f p = (pluginId p, p) --(pluginCommands p, pluginCodeActionProvider fmap (\x -> (pluginCommands x, pluginCodeActionProvider x))
 
 type DynamicJSON = CD.ConstrainedDynamic ToJSON
 
@@ -42,18 +42,18 @@ toDynJSON = CD.toDyn
 
 -- | Runs a plugin command given a PluginId, CommandName and
 -- arguments in the form of a JSON object.
-runPluginCommand :: PluginId -> CommandName -> Value -> IdeGhcM (IdeResult DynamicJSON)
-runPluginCommand p com arg = do
-  (IdePlugins m) <- lift . lift $ getPlugins
-  case Map.lookup p m of
+runPluginCommand :: CommandId -> Value -> IdeGhcM (IdeResult DynamicJSON)
+runPluginCommand cmdId@(CommandId pId com) arg = do
+  IdePlugins plugins <- lift . lift $ getPlugins
+  case Map.lookup pId plugins of
     Nothing -> return $
-      IdeResultFail $ IdeError UnknownPlugin ("Plugin " <> p <> " doesn't exist") Null
-    Just (xs, _) -> case find ((com ==) . commandName) xs of
+      IdeResultFail $ IdeError UnknownPlugin ("Plugin " <> pId <> " doesn't exist") Null
+    Just PluginDescriptor { pluginCommands = cmds } -> case find ((cmdId ==) . commandId) cmds of
       Nothing -> return $ IdeResultFail $
-        IdeError UnknownCommand ("Command " <> com <> " isn't defined for plugin " <> p <> ". Legal commands are: " <> T.pack(show $ map commandName xs)) Null
+        IdeError UnknownCommand ("Command " <> com <> " isn't defined for plugin " <> pId <> ". Legal commands are: " <> T.pack(show $ map commandId cmds)) Null
       Just (PluginCommand _ _ (CmdSync f)) -> case fromJSON arg of
         Error err -> return $ IdeResultFail $
-          IdeError ParameterError ("error while parsing args for " <> com <> " in plugin " <> p <> ": " <> T.pack err) Null
+          IdeError ParameterError ("error while parsing args for " <> com <> " in plugin " <> pId <> ": " <> T.pack err) Null
         Success a -> do
             res <- f a
             return $ fmap toDynJSON res

@@ -120,33 +120,33 @@ buildPluginDescriptor = PluginDescriptor
 buildPluginDescriptor :: PluginDescriptor
 buildPluginDescriptor = PluginDescriptor
   {
-    pluginName = "Build plugin"
+    pluginId = "build"
   , pluginDesc = "A HIE plugin for building cabal/stack packages"
   , pluginCommands =
-      [ PluginCommand "prepare"
+      [ PluginCommand (CommandId "build" "prepare")
                       "Prepares helper executable. The project must be configured first"
                       prepareHelper
       -- , PluginCommand "isPrepared"
       --                    ("Checks whether cabal-helper is prepared to work with this project. "
       --                  <> "The project must be configured first")
       --                  isHelperPrepared
-      , PluginCommand "isConfigured"
+      , PluginCommand (CommandId "build" "isConfigured")
                        "Checks if project is configured"
                        isConfigured
-      , PluginCommand "configure"
+      , PluginCommand (CommandId "build" "configure")
                          ("Configures the project. "
                        <> "For stack project with multiple local packages - build it")
                        configure
-      , PluginCommand "listTargets"
+      , PluginCommand (CommandId "build" "listTargets")
                       "Given a directory with stack/cabal project lists all its targets"
                       listTargets
-      , PluginCommand "listFlags"
+      , PluginCommand (CommandId "build" "listFlags")
                       "Lists all flags that can be set when configuring a package"
                       listFlags
-      , PluginCommand "buildDirectory"
+      , PluginCommand (CommandId "build" "buildDirectory")
                       "Builds all targets that correspond to the specified directory"
                       buildDirectory
-      , PluginCommand "buildTarget"
+      , PluginCommand (CommandId "build" "buildTarget")
                       "Builds specified cabal or stack component"
                       buildTarget
       ]

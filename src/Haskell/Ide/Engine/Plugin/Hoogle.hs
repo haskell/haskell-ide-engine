@@ -20,17 +20,20 @@ import           Text.HTML.TagSoup.Tree
 
 -- ---------------------------------------------------------------------
 
+hoogleId :: PluginId
+hoogleId = "hoogle"
+
 hoogleDescriptor :: PluginDescriptor
 hoogleDescriptor = PluginDescriptor
   {
-    pluginName = "hoogle"
+    pluginId = hoogleId
   , pluginDesc =
          "Hoogle is a Haskell API search engine, which allows you to search "
       <> "many standard Haskell libraries by either function name, or by approximate "
       <> "type signature. "
   , pluginCommands =
-      [ PluginCommand "info" "Look up the documentation for an identifier in the hoogle database" infoCmd
-      , PluginCommand "lookup" "Search the hoogle database with a string" lookupCmd
+      [ PluginCommand (CommandId hoogleId "info") "Look up the documentation for an identifier in the hoogle database" infoCmd
+      , PluginCommand (CommandId hoogleId "lookup") "Search the hoogle database with a string" lookupCmd
       ]
   , pluginCodeActionProvider = noCodeActions
   }
