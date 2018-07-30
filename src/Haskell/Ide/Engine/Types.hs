@@ -9,7 +9,7 @@ import qualified Language.Haskell.LSP.Types as J
 
 -- ---------------------------------------------------------------------
 
--- | A callback from a request. 
+-- | A callback from a request.
 type RequestCallback m a = a -> m ()
 
 -- | Used to track a request through the system, for logging

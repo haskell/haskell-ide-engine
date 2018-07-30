@@ -20,6 +20,9 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , PluginCommand(..)
   , CodeActionProvider
   , noCodeActions
+  , DiagnosticProvider(..)
+  , DiagnosticProviderFunc
+  , DiagnosticTrigger(..)
   , IdePlugins(..)
   -- * The IDE monad
   , IdeGhcM
@@ -107,8 +110,18 @@ type CodeActionProvider =  VersionedTextDocumentIdentifier
                         -> CodeActionContext
                         -> IdeM (IdeResponse [CodeAction])
 
-type DiagnosticProvider = VersionedTextDocumentIdentifier
-                        -> IdeM (IdeResponse (Map.Map Uri (S.Set Diagnostic)))
+-- type DiagnosticProviderFunc = Uri -> IdeM (IdeResponse (Map.Map Uri (S.Set Diagnostic)))
+type DiagnosticProviderFunc = Uri -> IdeGhcM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
+
+data DiagnosticProvider = DiagnosticProvider
+     { dpTrigger :: S.Set DiagnosticTrigger -- AZ:should this be a NonEmptyList?
+     , dpFunc    :: DiagnosticProviderFunc
+     }
+
+data DiagnosticTrigger = DiagnosticOnOpen
+                       | DiagnosticOnChange
+                       | DiagnosticOnSave
+                       deriving (Show,Ord,Eq)
 
 data PluginDescriptor =
   PluginDescriptor { pluginName     :: T.Text

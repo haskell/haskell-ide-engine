@@ -115,14 +115,14 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
               , wipReqsTVar    = wipTVar
               , docVersionTVar = versionTVar
               }
-        let reactorFunc = runReactor lf dEnv cin prefix $ reactor rin
+        let reactorFunc = runReactor lf dEnv cin diagnosticProviders prefix $ reactor rin
             caps = Core.clientCapabilities lf
 
         let errorHandler :: ErrorHandler
             errorHandler lid code e =
               Core.sendErrorResponseS (Core.sendFunc lf) (J.responseId lid) code e
             callbackHandler :: CallbackHandler R
-            callbackHandler f x = runReactor lf dEnv cin prefix $ f x
+            callbackHandler f x = runReactor lf dEnv cin diagnosticProviders prefix $ f x
 
 
         -- haskell lsp sets the current directory to the project root in the InitializeRequest
@@ -132,6 +132,20 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
         return Nothing
 
       commandIds = Map.foldlWithKey cmdFolder [] (pluginCommands <$> ipMap plugins)
+
+      diagnosticProviders :: Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
+      diagnosticProviders = Map.fromListWith (++) $ concatMap explode providers
+        where
+          explode :: (PluginId,DiagnosticProvider) -> [(DiagnosticTrigger,[(PluginId,DiagnosticProviderFunc)])]
+          explode (pid,DiagnosticProvider tr f) = map (\t -> (t,[(pid,f)])) $ S.elems tr
+
+          providers :: [(PluginId,DiagnosticProvider)]
+          providers = concatMap pp $ Map.toList (ipMap plugins)
+
+          pp (p,pd) = case pluginDiagnosticProvider pd of
+            Nothing -> []
+            Just dpf -> [(p,dpf)]
+
       cmdFolder :: [T.Text] -> T.Text -> [PluginCommand] -> [T.Text]
       cmdFolder acc plugin cmds = acc ++ map prefix cmdIds
         where cmdIds = map (\cmd -> plugin <> ":" <> commandName cmd) cmds
@@ -143,6 +157,7 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
   finalProc = L.removeAllHandlers
   ioExcept (e :: E.IOException) = print e >> return 1
   someExcept (e :: E.SomeException) = print e >> return 1
+  -- TODO:AZ:This type should be something like :: IO (UnprefixedCommandId -> PrefixedCommandId)
   cmdPrefixer = do
     pid <- T.pack . show <$> getProcessID
     return ((pid <> ":") <>)
@@ -396,7 +411,7 @@ reactor inp = do
               uri = td ^. J.uri
               ver = Just $ td ^. J.version
           mapFileFromVfs tn $ J.VersionedTextDocumentIdentifier uri ver
-          requestDiagnostics tn uri ver
+          requestDiagnostics DiagnosticOnOpen tn uri ver
 
         -- -------------------------------
 
@@ -408,9 +423,16 @@ reactor inp = do
         NotWillSaveTextDocument _notification -> do
           liftIO $ U.logm "****** reactor: not processing NotWillSaveTextDocument"
 
-        NotDidSaveTextDocument _notification -> do
+        NotDidSaveTextDocument notification -> do
           -- This notification is redundant, as we get the NotDidChangeTextDocument
-          liftIO $ U.logm "****** reactor: not processing NotDidSaveTextDocument"
+          liftIO $ U.logm "****** reactor: processing NotDidSaveTextDocument"
+          let
+              td  = notification ^. J.params . J.textDocument
+              uri = td ^. J.uri
+              -- ver = Just $ td ^. J.version
+              ver = Nothing
+          mapFileFromVfs tn $ J.VersionedTextDocumentIdentifier uri ver
+          requestDiagnostics DiagnosticOnSave tn uri ver
 
         NotDidChangeTextDocument notification -> do
           liftIO $ U.logm "****** reactor: processing NotDidChangeTextDocument"
@@ -427,7 +449,7 @@ reactor inp = do
               markCacheStale fp
               -- Important - Call this before requestDiagnostics
               updatePositionMap uri changes
-          requestDiagnostics tn uri ver
+          requestDiagnostics DiagnosticOnChange tn uri ver
 
         NotDidCloseTextDocument notification -> do
           liftIO $ U.logm "****** reactor: processing NotDidCloseTextDocument"
@@ -780,9 +802,40 @@ getDocsForName name pkg modName' = do
 
 -- ---------------------------------------------------------------------
 
+requestDiagnostics :: DiagnosticTrigger -> TrackingNumber -> J.Uri -> J.TextDocumentVersion -> R ()
+requestDiagnostics trigger tn file mVer = do
+  when (S.member trigger (S.fromList [DiagnosticOnChange,DiagnosticOnOpen])) $
+    requestDiagnosticsNormal tn file mVer
+
+  diagFuncs <- asks diagnosticSources
+  lf <- asks lspFuncs
+  cin <- asks reqChanIn
+  mc <- liftIO $ Core.config lf
+  case Map.lookup trigger diagFuncs of
+    Nothing -> return ()
+    Just dss -> do
+      forM_ dss $ \(pid,ds) -> do
+        let
+          maxToSend = maybe 50 maxNumberOfProblems mc
+          sendOne (fileUri,ds') = do
+            publishDiagnostics maxToSend fileUri Nothing (Map.fromList [(Just pid,SL.toSortedList ds')])
+
+          sendEmpty = publishDiagnostics maxToSend file Nothing (Map.fromList [(Just pid,SL.toSortedList [])])
+          fv = case mVer of
+            Nothing -> Nothing
+            Just v -> Just (file,v)
+        let reql = GReq tn (Just file) fv Nothing callbackl
+                     $ ds file
+            callbackl pd = do
+              let diags = Map.toList $ S.toList <$> pd
+              case diags of
+                [] -> sendEmpty
+                _ -> mapM_ sendOne diags
+        liftIO $ atomically $ writeTChan cin reql
+
 -- | get hlint and GHC diagnostics and loads the typechecked module into the cache
-requestDiagnostics :: TrackingNumber -> J.Uri -> J.TextDocumentVersion -> R ()
-requestDiagnostics tn file mVer = do
+requestDiagnosticsNormal :: TrackingNumber -> J.Uri -> J.TextDocumentVersion -> R ()
+requestDiagnosticsNormal tn file mVer = do
   lf <- asks lspFuncs
   cin <- asks reqChanIn
   mc <- liftIO $ Core.config lf

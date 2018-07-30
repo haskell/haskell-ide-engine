@@ -98,6 +98,7 @@ lintCmd :: CommandFunc Uri PublishDiagnosticsParams
 lintCmd = CmdSync $ \uri -> do
   lintCmd' uri
 
+-- AZ:TODO: Why is this in IdeGhcM?
 lintCmd' :: Uri -> IdeGhcM (IdeResult PublishDiagnosticsParams)
 lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
       res <- GM.withMappedFile fp $ \file' -> liftIO $ runExceptT $ runLintCmd file' []
