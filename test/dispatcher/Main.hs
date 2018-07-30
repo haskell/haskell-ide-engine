@@ -61,12 +61,12 @@ main = do
 -- ---------------------------------------------------------------------
 
 plugins :: IdePlugins
-plugins = pluginDescToIdePlugins
-  [("applyrefact", applyRefactDescriptor)
-  ,("eg2"        , example2Descriptor)
-  ,("ghcmod"     , ghcmodDescriptor)
-  ,("hare"       , hareDescriptor)
-  ,("base"       , baseDescriptor)
+plugins = mkIdePlugins
+  [ applyRefactDescriptor
+  , example2Descriptor
+  , ghcmodDescriptor
+  , hareDescriptor
+  , baseDescriptor
   ]
 
 startServer :: IO (TChan (PluginRequest IO), TChan LogVal, ThreadId)
@@ -104,14 +104,14 @@ logToChan c t = atomically $ writeTChan c t
 dispatchGhcRequest :: ToJSON a
                    => TrackingNumber -> String -> Int
                    -> TChan (PluginRequest IO) -> TChan LogVal
-                   -> PluginId -> CommandName -> a -> IO ()
-dispatchGhcRequest tn ctx n cin lc plugin com arg = do
+                   -> CommandId -> a -> IO ()
+dispatchGhcRequest tn ctx n cin lc cmdId arg = do
   let
     logger :: RequestCallback IO DynamicJSON
     logger x = logToChan lc (ctx, Right x)
 
   let req = GReq tn Nothing Nothing (Just (IdInt n)) logger $
-        runPluginCommand plugin com (toJSON arg)
+        runPluginCommand cmdId (toJSON arg)
   atomically $ writeTChan cin req
 
 dispatchIdeRequest :: (Typeable a, ToJSON a)
@@ -150,7 +150,7 @@ newPluginSpec = do
           req4 = GReq 4 Nothing Nothing                          (Just $ IdInt 3) (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text4"
 
       pid <- forkIO $ dispatcherP inChan
-                              (pluginDescToIdePlugins [])
+                              (mkIdePlugins [])
                               testOptions
                               (DispatcherEnv cancelTVar wipTVar versionTVar)
                               (\_ _ _ -> return ())
@@ -205,7 +205,7 @@ funcSpec = describe "functional dispatch" $ do
       show rrr `shouldBe` "Nothing"
 
       -- need to typecheck the module to trigger deferred response
-      dispatchGhcRequest 2 "req2" 2 cin logChan "ghcmod" "check" (toJSON testUri)
+      dispatchGhcRequest 2 "req2" 2 cin logChan (CommandId "ghcmod" "check") (toJSON testUri)
 
       -- And now we get the deferred response (once the module is loaded)
       ("req1",Right res) <- atomically $ readTChan logChan
@@ -292,7 +292,7 @@ funcSpec = describe "functional dispatch" $ do
 
     it "returns hints as diagnostics" $ do
 
-      dispatchGhcRequest 5 "r5" 5 cin logChan "applyrefact" "lint" testUri
+      dispatchGhcRequest 5 "r5" 5 cin logChan (CommandId "applyrefact" "lint") testUri
 
       hr5 <- atomically $ readTChan logChan
       unpackRes hr5 `shouldBe` ("r5",
@@ -311,7 +311,7 @@ funcSpec = describe "functional dispatch" $ do
                     )
 
       let req6 = HP testUri (toPos (8, 1))
-      dispatchGhcRequest 6 "r6" 6 cin logChan "hare" "demote" req6
+      dispatchGhcRequest 6 "r6" 6 cin logChan (CommandId "hare" "demote") req6
 
       hr6 <- atomically $ readTChan logChan
       -- show hr6 `shouldBe` "hr6"
@@ -327,7 +327,7 @@ funcSpec = describe "functional dispatch" $ do
 
       dispatchIdeRequest 7 "req7" cin logChan (IdInt 7) $ getSymbols testFailUri
 
-      dispatchGhcRequest 8 "req8" 8 cin logChan "ghcmod" "check" (toJSON testFailUri)
+      dispatchGhcRequest 8 "req8" 8 cin logChan (CommandId "ghcmod" "check") (toJSON testFailUri)
 
       (_, Left symbolError) <- atomically $ readTChan logChan
       symbolError `shouldBe` (IdInt 7, Language.Haskell.LSP.Types.InternalError, "")

@@ -55,7 +55,7 @@ dispatcherP inChan plugins ghcModOptions env errorHandler callbackHandler caps =
   stateVarVar <- newEmptyMVar
   ideChan <- newTChanIO
   ghcChan <- newTChanIO
-  let startState = IdeState emptyModuleCache Map.empty plugins Map.empty Nothing
+  let startState = IdeState emptyModuleCache Map.empty plugins Map.empty Nothing Nothing
       runGhcDisp = runIdeGhcM ghcModOptions caps startState $ do
         stateVar <- lift $ lift $ lift ask
         liftIO $ putMVar stateVarVar stateVar

@@ -7,14 +7,16 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 -- | IdeGhcM and associated types
 module Haskell.Ide.Engine.PluginsIdeMonads
   (
   -- * Plugins
     PluginId
-  , CommandName
+  , CommandId(..)
+  , mkLSPCommand
   , CommandFunc(..)
   , PluginDescriptor(..)
   , PluginCommand(..)
@@ -69,10 +71,12 @@ import           GHC (HscEnv)
 
 import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.GhcModuleCache
+import           Haskell.Ide.Engine.Process
 
 import           Language.Haskell.LSP.Types.Capabilities
 import           Language.Haskell.LSP.Types (CodeAction(..),
                                              CodeActionContext(..),
+                                             Command(..),
                                              Diagnostic (..),
                                              DiagnosticSeverity (..),
                                              List (..),
@@ -90,14 +94,43 @@ import           Language.Haskell.LSP.Types (CodeAction(..),
 
 
 type PluginId = T.Text
-type CommandName = T.Text
+data CommandId = CommandId PluginId T.Text
+  deriving Eq
+
+instance Show CommandId where
+  show (CommandId p c) = T.unpack $ p <> ":" <> c
+
+instance ToJSON CommandId where
+  toJSON = String . T.pack . show
+
+mkLSPCommand :: ToJSON a => PluginCommand -> T.Text -> a -> IdeM Command
+mkLSPCommand cmd title args = do
+  cmdId <- getCmdId
+  return $ Command title cmdId (Just (List [toJSON args]))
+
+  where
+    getCmdId = do
+      let CommandId p c = commandId cmd
+      pid <- T.pack . show <$> getPid
+      return $ pid <> ":" <> p <> ":" <> c
+
+    getPid = do
+      cache <- pidCache <$> readMTS
+      case cache of
+        Just x -> return x
+        Nothing -> do
+          pid <- liftIO getProcessID
+          modifyMTS $ \s -> s { pidCache = Just pid }
+          return pid
 
 newtype CommandFunc a b = CmdSync (a -> IdeGhcM (IdeResult b))
 
-data PluginCommand = forall a b. (FromJSON a, ToJSON b, Typeable b) =>
-  PluginCommand { commandName :: CommandName
-                , commandDesc :: T.Text
-                , commandFunc :: CommandFunc a b
+data PluginCommand = forall a b. (ToJSON a, FromJSON a, ToJSON b, Typeable b) =>
+  PluginCommand { -- | A unique identifier for the command, e.g. "import"
+                  commandId    :: CommandId 
+                  -- ^ A short description of what the command does, e.g. "Adds a module to the file's import list"
+                , commandDesc  :: T.Text
+                , commandFunc  :: CommandFunc a b
                 }
 
 type CodeActionProvider =  VersionedTextDocumentIdentifier
@@ -107,25 +140,25 @@ type CodeActionProvider =  VersionedTextDocumentIdentifier
                         -> IdeM (IdeResponse [CodeAction])
 
 data PluginDescriptor =
-  PluginDescriptor { pluginName :: T.Text
+  PluginDescriptor { pluginId :: T.Text
                    , pluginDesc :: T.Text
                    , pluginCommands :: [PluginCommand]
                    , pluginCodeActionProvider :: CodeActionProvider
-                   } deriving (Generic)
+                   }
 
 instance Show PluginCommand where
-  show (PluginCommand name _ _) = "PluginCommand { name = " ++ T.unpack name ++ " }"
+  show (PluginCommand (CommandId _ name) _ _) = "PluginCommand { name = " ++ T.unpack name ++ " }"
 
 noCodeActions :: CodeActionProvider
 noCodeActions _ _ _ _ = return $ IdeResponseOk []
 
 -- | a Description of the available commands and code action providers stored in IdeGhcM
 newtype IdePlugins = IdePlugins
-  { ipMap :: Map.Map PluginId ([PluginCommand], CodeActionProvider)
+  { ipMap :: Map.Map PluginId PluginDescriptor
   } deriving (Generic)
 
 instance ToJSON IdePlugins where
-  toJSON (IdePlugins m) = toJSON $ fmap (\x -> (commandName x, commandDesc x)) <$> fmap fst m
+  toJSON (IdePlugins m) = toJSON $ fmap (\x -> (commandId x, commandDesc x)) <$> fmap pluginCommands m
 
 -- ---------------------------------------------------------------------
 
@@ -157,6 +190,7 @@ data IdeState = IdeState
   , idePlugins  :: IdePlugins
   , extensibleState :: !(Map.Map TypeRep Dynamic)
   , ghcSession  :: Maybe (IORef HscEnv)
+  , pidCache    :: Maybe Int
   }
 
 instance HasGhcModuleCache IdeM where

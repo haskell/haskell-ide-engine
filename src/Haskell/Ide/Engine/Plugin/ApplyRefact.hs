@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -30,17 +31,35 @@ import           Refact.Apply
 {-# ANN module ("HLint: ignore Reduce duplication" :: String) #-}
 -- ---------------------------------------------------------------------
 
+applyRefactId :: PluginId
+applyRefactId = "applyrefact"
+
+applyOneCmd :: PluginCommand
+applyOneCmd = PluginCommand (CommandId applyRefactId "applyOne")
+                            "Apply a single hint"
+                            (CmdSync $ \(AOP uri pos title) -> applyOneCmd' uri (OneHint pos title))
+
+applyAllCmd :: PluginCommand
+applyAllCmd = PluginCommand (CommandId applyRefactId "applyAll")
+                            "Apply all hints to the file"
+                            (CmdSync applyAllCmd')
+                      
+lintCmd :: PluginCommand
+lintCmd = PluginCommand (CommandId applyRefactId "lint")
+                        "Run hlint on the file to generate hints" 
+                        (CmdSync lintCmd')
+
 type HintTitle = T.Text
 
 applyRefactDescriptor :: PluginDescriptor
 applyRefactDescriptor = PluginDescriptor
   {
-    pluginName = "ApplyRefact"
+    pluginId = applyRefactId
   , pluginDesc = "apply-refact applies refactorings specified by the refact package. It is currently integrated into hlint to enable the automatic application of suggestions."
   , pluginCommands =
-      [ PluginCommand "applyOne" "Apply a single hint" applyOneCmd
-      , PluginCommand "applyAll" "Apply all hints to the file" applyAllCmd
-      , PluginCommand "lint" "Run hlint on the file to generate hints" lintCmd
+      [ applyOneCmd
+      , applyAllCmd
+      , lintCmd
       ]
   , pluginCodeActionProvider = codeActionProvider
   }
@@ -59,10 +78,6 @@ data OneHint = OneHint
   , oneHintTitle :: HintTitle
   } deriving (Eq, Show)
 
-applyOneCmd :: CommandFunc ApplyOneParams WorkspaceEdit
-applyOneCmd = CmdSync $ \(AOP uri pos title) -> do
-  applyOneCmd' uri (OneHint pos title)
-
 applyOneCmd' :: Uri -> OneHint -> IdeGhcM (IdeResult WorkspaceEdit)
 applyOneCmd' uri oneHint = pluginGetFile "applyOne: " uri $ \fp -> do
       revMapp <- GM.mkRevRedirMapFunc
@@ -77,10 +92,6 @@ applyOneCmd' uri oneHint = pluginGetFile "applyOne: " uri $ \fp -> do
 
 -- ---------------------------------------------------------------------
 
-applyAllCmd :: CommandFunc Uri WorkspaceEdit
-applyAllCmd = CmdSync $ \uri -> do
-  applyAllCmd' uri
-
 applyAllCmd' :: Uri -> IdeGhcM (IdeResult WorkspaceEdit)
 applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \fp -> do
       revMapp <- GM.mkRevRedirMapFunc
@@ -92,10 +103,6 @@ applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \fp -> do
         Right fs -> return (IdeResultOk fs)
 
 -- ---------------------------------------------------------------------
-
-lintCmd :: CommandFunc Uri PublishDiagnosticsParams
-lintCmd = CmdSync $ \uri -> do
-  lintCmd' uri
 
 lintCmd' :: Uri -> IdeGhcM (IdeResult PublishDiagnosticsParams)
 lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
@@ -273,10 +280,11 @@ showParseError (Hlint.ParseError location message content) =
 -- ---------------------------------------------------------------------
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider docId _ _ context = return $ IdeResponseOk hlintActions
+codeActionProvider docId _ _ context = IdeResponseOk <$> hlintActions
   where
 
-    hlintActions = mapMaybe mkHlintAction $ filter validCommand diags
+    hlintActions :: IdeM [LSP.CodeAction]
+    hlintActions = catMaybes <$> mapM mkHlintAction (filter validCommand diags)
     -- |Some hints do not have an associated refactoring
     validCommand (LSP.Diagnostic _ _ (Just code) (Just "hlint") _ _) =
       case code of
@@ -285,15 +293,13 @@ codeActionProvider docId _ _ context = return $ IdeResponseOk hlintActions
     validCommand _ = False
 
     LSP.List diags = context ^. LSP.diagnostics
-    mkHlintAction :: LSP.Diagnostic -> Maybe LSP.CodeAction
-    mkHlintAction diag@(LSP.Diagnostic (LSP.Range start _) _s (Just code) (Just "hlint") m _) = Just codeAction
+    
+    mkHlintAction :: LSP.Diagnostic -> IdeM (Maybe LSP.CodeAction)
+    mkHlintAction diag@(LSP.Diagnostic (LSP.Range start _) _s (Just code) (Just "hlint") m _) = do
+      -- need 'file', 'start_pos' and hint title (to distinguish between alternative suggestions at the same location)
+      cmd <- mkLSPCommand applyOneCmd title (AOP (docId ^. LSP.uri) start code)
+      return $ Just (codeAction cmd)
      where
-       codeAction = LSP.CodeAction title (Just LSP.CodeActionRefactor) (Just (LSP.List [diag])) Nothing (Just cmd)
-       title :: T.Text
+       codeAction cmd = LSP.CodeAction title (Just LSP.CodeActionRefactor) (Just (LSP.List [diag])) Nothing (Just cmd)
        title = "Apply hint:" <> head (T.lines m)
-       cmd = LSP.Command title cmdName cmdparams
-       cmdName = "applyrefact:applyOne"
-       -- need 'file', 'start_pos' and hint title (to distinguish between alternative suggestions at the same location)
-       args = LSP.List [toJSON (AOP (docId ^. LSP.uri) start code)]
-       cmdparams = Just args
-    mkHlintAction (LSP.Diagnostic _r _s _c _source _m _) = Nothing
+    mkHlintAction (LSP.Diagnostic _r _s _c _source _m _) = return Nothing

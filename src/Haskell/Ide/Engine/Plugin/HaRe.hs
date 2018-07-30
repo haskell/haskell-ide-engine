@@ -35,29 +35,32 @@ import           Language.Haskell.Refact.Utils.Monad          hiding (logm)
 
 -- ---------------------------------------------------------------------
 
+harePluginId :: PluginId
+harePluginId = "hare"
+
 hareDescriptor :: PluginDescriptor
 hareDescriptor = PluginDescriptor
-  { pluginName = "HaRe"
+  { pluginId = harePluginId
   , pluginDesc = "A Haskell 2010 refactoring tool. HaRe supports the full "
               <> "Haskell 2010 standard, through making use of the GHC API.  HaRe attempts to "
               <> "operate in a safe way, by first writing new files with proposed changes, and "
               <> "only swapping these with the originals when the change is accepted. "
   , pluginCommands =
-      [ PluginCommand "demote" "Move a definition one level down"
+      [ PluginCommand (CommandId harePluginId "demote") "Move a definition one level down"
           demoteCmd
-      , PluginCommand "dupdef" "Duplicate a definition"
+      , PluginCommand (CommandId harePluginId "dupdef") "Duplicate a definition"
           dupdefCmd
-      , PluginCommand "iftocase" "Converts an if statement to a case statement"
+      , PluginCommand (CommandId harePluginId "iftocase") "Converts an if statement to a case statement"
           iftocaseCmd
-      , PluginCommand "liftonelevel" "Move a definition one level up from where it is now"
+      , PluginCommand (CommandId harePluginId "liftonelevel") "Move a definition one level up from where it is now"
           liftonelevelCmd
-      , PluginCommand "lifttotoplevel" "Move a definition to the top level from where it is now"
+      , PluginCommand (CommandId harePluginId "lifttotoplevel") "Move a definition to the top level from where it is now"
           lifttotoplevelCmd
-      , PluginCommand "rename" "rename a variable or type"
+      , PluginCommand (CommandId harePluginId "rename") "rename a variable or type"
           renameCmd
-      , PluginCommand "deletedef" "Delete a definition"
+      , PluginCommand (CommandId harePluginId "deletedef") "Delete a definition"
           deleteDefCmd
-      , PluginCommand "genapplicative" "Generalise a monadic function to use applicative"
+      , PluginCommand (CommandId harePluginId "genapplicative") "Generalise a monadic function to use applicative"
           genApplicativeCommand
       ]
   , pluginCodeActionProvider = noCodeActions

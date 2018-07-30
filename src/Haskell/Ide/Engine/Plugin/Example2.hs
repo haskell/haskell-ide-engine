@@ -14,11 +14,11 @@ import           Haskell.Ide.Engine.MonadTypes
 example2Descriptor :: PluginDescriptor
 example2Descriptor = PluginDescriptor
   {
-    pluginName = "Hello World"
+    pluginId = "helloWorld"
   , pluginDesc = "An example of writing an HIE plugin"
   , pluginCommands =
-      [ PluginCommand "sayHello" "say hello" sayHelloCmd
-      , PluginCommand "sayHelloTo ""say hello to the passed in param" sayHelloToCmd
+      [ PluginCommand (CommandId "helloWorld" "sayHello") "say hello" sayHelloCmd
+      , PluginCommand (CommandId "helloWorld" "sayHelloTo") "say hello to the passed in param" sayHelloToCmd
       ]
   , pluginCodeActionProvider = noCodeActions
   }

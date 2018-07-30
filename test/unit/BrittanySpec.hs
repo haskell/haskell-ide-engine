@@ -17,7 +17,7 @@ spec :: Spec
 spec = describe "brittany plugin" brittanySpec
 
 testPlugins :: IdePlugins
-testPlugins = pluginDescToIdePlugins [("brittany", brittanyDescriptor)]
+testPlugins = mkIdePlugins [brittanyDescriptor]
 
 brittanySpec :: Spec
 brittanySpec = describe "brittany plugin commands" $ do
@@ -25,6 +25,8 @@ brittanySpec = describe "brittany plugin commands" $ do
     "./test/testdata/BrittanyLF.hs"
   crlfFile <- runIO $ filePathToUri <$> makeAbsolute
     "./test/testdata/BrittanyCRLF.hs"
+
+  let formatCmdId = commandId formatCmd
 
   it "formats a document with LF endings" $ do
     let
@@ -39,7 +41,7 @@ brittanySpec = describe "brittany plugin commands" $ do
             , _newText = "foo :: Int -> String -> IO ()\nfoo x y = do\n    print x\n    return 42\n"
             }
         ]
-    testCommand testPlugins act "brittany" "format" arg res
+    testCommand testPlugins act formatCmdId arg res
 
   it "formats a document with CRLF endings" $ do
     let
@@ -54,7 +56,7 @@ brittanySpec = describe "brittany plugin commands" $ do
             , _newText = "foo :: Int -> String -> IO ()\nfoo x y = do\n    print x\n    return 42\n"
             }
         ]
-    testCommand testPlugins act "brittany" "format" arg res
+    testCommand testPlugins act formatCmdId arg res
 
   it "formats a range with LF endings" $ do
     let r   = Range (Position 1 0) (Position 2 22)
@@ -69,7 +71,7 @@ brittanySpec = describe "brittany plugin commands" $ do
               , _newText = "foo x y = do\n    print x\n    return 42\n"
               }
           ]
-    testCommand testPlugins act "brittany" "format" arg res
+    testCommand testPlugins act formatCmdId arg res
 
   it "formats a range with CRLF endings" $ do
     let r   = Range (Position 1 0) (Position 2 22)
@@ -84,4 +86,4 @@ brittanySpec = describe "brittany plugin commands" $ do
               , _newText = "foo x y = do\n    print x\n    return 42\n"
               }
           ]
-    testCommand testPlugins act "brittany" "format" arg res
+    testCommand testPlugins act formatCmdId arg res

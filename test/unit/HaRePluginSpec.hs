@@ -34,7 +34,7 @@ spec = do
 -- ---------------------------------------------------------------------
 
 testPlugins :: IdePlugins
-testPlugins = pluginDescToIdePlugins [("hare",hareDescriptor)]
+testPlugins = mkIdePlugins [hareDescriptor]
 
 dispatchRequestPGoto :: IdeGhcM a -> IO a
 dispatchRequestPGoto =
@@ -58,7 +58,7 @@ hareSpec = do
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton uri textEdits)
             Nothing
-      testCommand testPlugins act "hare" "rename" arg res
+      testCommand testPlugins act (CommandId "hare" "rename") arg res
 
     -- ---------------------------------
 
@@ -69,7 +69,7 @@ hareSpec = do
           res = IdeResultFail
                   IdeError { ideCode = PluginError
                            , ideMessage = "rename: \"Invalid cursor position!\"", ideInfo = Null}
-      testCommand testPlugins act "hare" "rename" arg res
+      testCommand testPlugins act (CommandId "hare" "rename") arg res
 
     -- ---------------------------------
 
@@ -81,7 +81,7 @@ hareSpec = do
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton uri textEdits)
             Nothing
-      testCommand testPlugins act "hare" "demote" arg res
+      testCommand testPlugins act (CommandId "hare" "demote") arg res
 
     -- ---------------------------------
 
@@ -93,7 +93,7 @@ hareSpec = do
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton uri textEdits)
             Nothing
-      testCommand testPlugins act "hare" "dupdef" arg res
+      testCommand testPlugins act (CommandId "hare" "dupdef") arg res
 
     -- ---------------------------------
 
@@ -108,7 +108,7 @@ hareSpec = do
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton uri textEdits)
             Nothing
-      testCommand testPlugins act "hare" "iftocase" arg res
+      testCommand testPlugins act (CommandId "hare" "iftocase") arg res
 
     -- ---------------------------------
 
@@ -122,7 +122,7 @@ hareSpec = do
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton uri textEdits)
             Nothing
-      testCommand testPlugins act "hare" "liftonelevel" arg res
+      testCommand testPlugins act (CommandId "hare" "liftonelevel") arg res
 
     -- ---------------------------------
 
@@ -138,7 +138,7 @@ hareSpec = do
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton uri textEdits)
             Nothing
-      testCommand testPlugins act "hare" "lifttotoplevel" arg res
+      testCommand testPlugins act (CommandId "hare" "lifttotoplevel") arg res
 
     -- ---------------------------------
 
@@ -150,7 +150,7 @@ hareSpec = do
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton uri textEdits)
             Nothing
-      testCommand testPlugins act "hare" "deletedef" arg res
+      testCommand testPlugins act (CommandId "hare" "deletedef") arg res
 
     -- ---------------------------------
 
@@ -163,7 +163,7 @@ hareSpec = do
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton uri textEdits)
             Nothing
-      testCommand testPlugins act "hare" "genapplicative" arg res
+      testCommand testPlugins act (CommandId "hare" "genapplicative") arg res
 
     -- ---------------------------------
 

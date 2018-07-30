@@ -23,13 +23,8 @@ import qualified Haskell.Ide.Engine.Plugin.Hoogle as Hoogle
 import           System.Directory
 import           System.IO
 
-hsimportDescriptor :: PluginDescriptor
-hsimportDescriptor = PluginDescriptor
-  { pluginName = "hsimport"
-  , pluginDesc = "A tool for extending the import list of a Haskell source file."
-  , pluginCommands = [PluginCommand "import" "Import a module" importCmd]
-  , pluginCodeActionProvider = codeActionProvider
-  }
+hsimportId :: PluginId
+hsimportId = "hsimport"
 
 data ImportParams = ImportParams
   { file           :: Uri
@@ -37,8 +32,19 @@ data ImportParams = ImportParams
   }
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
-importCmd :: CommandFunc ImportParams J.WorkspaceEdit
-importCmd = CmdSync $ \(ImportParams uri modName) -> importModule uri modName
+importCmd :: PluginCommand
+importCmd =
+  PluginCommand (CommandId hsimportId "import")
+                "Import a module"
+                (CmdSync $ \(ImportParams uri modName) -> importModule uri modName)
+
+hsimportDescriptor :: PluginDescriptor
+hsimportDescriptor = PluginDescriptor
+  { pluginId = hsimportId
+  , pluginDesc = "A tool for extending the import list of a Haskell source file."
+  , pluginCommands = [importCmd]
+  , pluginCodeActionProvider = codeActionProvider
+  }
 
 importModule :: Uri -> T.Text -> IdeGhcM (IdeResult J.WorkspaceEdit)
 importModule uri modName =
@@ -72,13 +78,13 @@ codeActionProvider docId _ _ context = do
       terms = mapMaybe getImportables diags
 
   res <- mapM (bimapM return Hoogle.searchModules) terms
-  let actions = mapMaybe (uncurry mkImportAction) (concatTerms res)
+  actions <- mapM (uncurry mkImportAction) (concatTerms res)
 
   if null actions
      then do
        let relaxedTerms = map (bimap id (head . T.words)) terms
        relaxedRes <- mapM (bimapM return Hoogle.searchModules) relaxedTerms
-       let relaxedActions = mapMaybe (uncurry mkImportAction) (concatTerms relaxedRes)
+       relaxedActions <- mapM (uncurry mkImportAction) (concatTerms relaxedRes)
        return $ IdeResponseOk relaxedActions
      else return $ IdeResponseOk actions
 
@@ -86,14 +92,13 @@ codeActionProvider docId _ _ context = do
     concatTerms = concatMap (\(d, ts) -> map (d,) ts)
 
     --TODO: Check if package is already installed
-    mkImportAction :: J.Diagnostic -> T.Text -> Maybe J.CodeAction
-    mkImportAction diag modName = Just codeAction
+    mkImportAction :: J.Diagnostic -> T.Text -> IdeM J.CodeAction
+    mkImportAction diag modName = do
+      cmd <- mkLSPCommand importCmd title (ImportParams (docId ^. J.uri) modName)
+      return $ codeAction cmd
      where
-       codeAction = J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [diag])) Nothing (Just cmd)
-       cmd = J.Command title cmdName (Just cmdParams)
+       codeAction cmd = J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [diag])) Nothing (Just cmd)
        title = "Import module " <> modName
-       cmdName = "hsimport:import"
-       cmdParams = J.List [toJSON (ImportParams (docId ^. J.uri) modName)]
 
     getImportables :: J.Diagnostic -> Maybe (J.Diagnostic, T.Text)
     getImportables diag@(J.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractImportableTerm msg

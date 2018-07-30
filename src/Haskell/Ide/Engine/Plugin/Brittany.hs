@@ -24,20 +24,25 @@ import           Data.Maybe (maybeToList)
 data FormatParams = FormatParams Int Uri (Maybe Range)
      deriving (Eq, Show, Generic, FromJSON, ToJSON)
 
-brittanyDescriptor :: PluginDescriptor
-brittanyDescriptor = PluginDescriptor
-  { pluginName     = "Brittany"
-  , pluginDesc     = "Brittany is a tool to format source code."
-  , pluginCommands = [ PluginCommand "format"
-                                     "Format a range of text or document"
-                                     cmd
-                     ]
-  , pluginCodeActionProvider = noCodeActions
-  }
+brittanyId :: PluginId
+brittanyId = "brittany"
+
+formatCmd :: PluginCommand
+formatCmd = PluginCommand (CommandId brittanyId "format")
+                          "Format a range of text or a document"
+                          cmd
  where
   cmd :: CommandFunc FormatParams [J.TextEdit]
   cmd =
     CmdSync $ \(FormatParams tabSize uri range) -> brittanyCmd tabSize uri range
+
+brittanyDescriptor :: PluginDescriptor
+brittanyDescriptor = PluginDescriptor
+  { pluginId       = brittanyId
+  , pluginDesc     = "Brittany is a tool to format source code."
+  , pluginCommands = [formatCmd]
+  , pluginCodeActionProvider = noCodeActions
+  }
 
 brittanyCmd :: Int -> Uri -> Maybe Range -> IdeGhcM (IdeResult [J.TextEdit])
 brittanyCmd tabSize uri range =

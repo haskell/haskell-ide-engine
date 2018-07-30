@@ -29,6 +29,7 @@ library
                        Haskell.Ide.Engine.PluginDescriptor
                        Haskell.Ide.Engine.PluginsIdeMonads
                        Haskell.Ide.Engine.PluginUtils
+                       Haskell.Ide.Engine.Process
   build-depends:       base >= 4.9 && < 5
                      , Diff
                      , aeson
@@ -48,6 +49,10 @@ library
                      , text
                      , transformers
                      , unordered-containers
+  if os(windows)
+    build-depends:     Win32
+  else
+    build-depends:     unix
   ghc-options:         -Wall
   if flag(pedantic)
      ghc-options:      -Werror

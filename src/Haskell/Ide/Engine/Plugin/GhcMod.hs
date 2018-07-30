@@ -55,19 +55,22 @@ import           Outputable                        (renderWithStyle, mkUserStyle
 
 -- ---------------------------------------------------------------------
 
+ghcModId :: PluginId
+ghcModId = "ghcmod"
+
 ghcmodDescriptor :: PluginDescriptor
 ghcmodDescriptor = PluginDescriptor
   {
-    pluginName = "ghc-mod"
+    pluginId = ghcModId
   , pluginDesc = "ghc-mod is a backend program to enrich Haskell programming "
               <> "in editors. It strives to offer most of the features one has come to expect "
               <> "from modern IDEs in any editor."
   , pluginCommands =
-      [ PluginCommand "check" "check a file for GHC warnings and errors" checkCmd
-      , PluginCommand "lint" "Check files using `hlint'" lintCmd
-      , PluginCommand "info" "Look up an identifier in the context of FILE (like ghci's `:info')" infoCmd
-      , PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmd
-      , PluginCommand "casesplit" "Generate a pattern match for a binding under (LINE,COL)" splitCaseCmd
+      [ PluginCommand (CommandId ghcModId "check") "check a file for GHC warnings and errors" checkCmd
+      , PluginCommand (CommandId ghcModId "lint") "Check files using `hlint'" lintCmd
+      , PluginCommand (CommandId ghcModId "info") "Look up an identifier in the context of FILE (like ghci's `:info')" infoCmd
+      , PluginCommand (CommandId ghcModId "type") "Get the type of the expression under (LINE,COL)" typeCmd
+      , PluginCommand (CommandId ghcModId "casesplit") "Generate a pattern match for a binding under (LINE,COL)" splitCaseCmd
       ]
   , pluginCodeActionProvider = codeActionProvider
   }

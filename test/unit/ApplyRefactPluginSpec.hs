@@ -27,7 +27,7 @@ spec = do
 -- ---------------------------------------------------------------------
 
 testPlugins :: IdePlugins
-testPlugins = pluginDescToIdePlugins [("applyrefact",applyRefactDescriptor)]
+testPlugins = mkIdePlugins [applyRefactDescriptor]
 
 -- ---------------------------------------------------------------------
 
@@ -47,7 +47,7 @@ applyRefactSpec = do
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton applyRefactPath textEdits)
             Nothing
-      testCommand testPlugins act "applyrefact" "applyOne" arg res
+      testCommand testPlugins act (commandId applyOneCmd) arg res
 
     -- ---------------------------------
 
@@ -60,9 +60,11 @@ applyRefactSpec = do
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton applyRefactPath textEdits)
             Nothing            
-      testCommand testPlugins act "applyrefact" "applyAll" arg res
+      testCommand testPlugins act (commandId applyAllCmd) arg res
 
     -- ---------------------------------
+
+    let lintCmdId = commandId lintCmd
 
     it "returns hints as diagnostics" $ do
 
@@ -85,7 +87,7 @@ applyRefactSpec = do
                             "Redundant bracket\nFound:\n  (x + 1)\nWhy not:\n  x + 1\n"
                             Nothing
                ]}
-      testCommand testPlugins act "applyrefact" "lint" arg res
+      testCommand testPlugins act lintCmdId arg res
 
     -- ---------------------------------
 
@@ -105,7 +107,7 @@ applyRefactSpec = do
                            , _source = Just "hlint"
                            , _message = "Parse error: :~:\n  import           Data.Type.Equality            ((:~:) (..), (:~~:) (..))\n  \n> data instance Sing (z :: (a :~: b)) where\n      SRefl :: Sing Refl\n\n"
                            , _relatedInformation = Nothing }]}
-      testCommand testPlugins act "applyrefact" "lint" arg res
+      testCommand testPlugins act lintCmdId arg res
 
     -- ---------------------------------
 
