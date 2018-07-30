@@ -15,6 +15,7 @@ submodules:
 
 hie-8.2.1: submodules
 	stack --stack-yaml=stack-8.2.1.yaml install happy
+	stack --stack-yaml=stack-8.2.1.yaml build
 	stack --stack-yaml=stack-8.2.1.yaml install                                \
 		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.2.1'    \
 		&& cp '$(STACKLOCALBINDIR)/hie-8.2.1' '$(STACKLOCALBINDIR)/hie-8.2'
@@ -22,18 +23,21 @@ hie-8.2.1: submodules
 
 hie-8.2.2: submodules
 	stack --stack-yaml=stack-8.2.2.yaml install happy
+	stack --stack-yaml=stack-8.2.2.yaml build
 	stack --stack-yaml=stack-8.2.2.yaml install                                \
 		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.2.2'    \
 		&& cp '$(STACKLOCALBINDIR)/hie-8.2.2' '$(STACKLOCALBINDIR)/hie-8.2'
 .PHONY: hie-8.2.2
 
 hie-8.4.2: submodules
+	stack --stack-yaml=stack-8.4.2.yaml build
 	stack --stack-yaml=stack-8.4.2.yaml install                                \
 		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.4.2'    \
 		&& cp '$(STACKLOCALBINDIR)/hie-8.4.2' '$(STACKLOCALBINDIR)/hie-8.4'
 .PHONY: hie-8.2.2
 
 hie-8.4.3: submodules
+	stack --stack-yaml=stack-8.4.3.yaml build
 	stack --stack-yaml=stack-8.4.3.yaml install                                      \
 		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.4.3'    \
 		&& cp '$(STACKLOCALBINDIR)/hie-8.4.3' '$(STACKLOCALBINDIR)/hie-8.4'
@@ -86,4 +90,3 @@ icu-macos-fix-build:
 	  --extra-lib-dirs=/usr/local/opt/icu4c/lib            \
 	  --extra-include-dirs=/usr/local/opt/icu4c/include
 .PHONY: icu-macos-fix-build
-
