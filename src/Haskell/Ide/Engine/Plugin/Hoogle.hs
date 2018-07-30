@@ -33,6 +33,7 @@ hoogleDescriptor = PluginDescriptor
       , PluginCommand "lookup" "Search the hoogle database with a string" lookupCmd
       ]
   , pluginCodeActionProvider = noCodeActions
+  , pluginDiagnosticProvider = Nothing
   }
 
 -- ---------------------------------------------------------------------

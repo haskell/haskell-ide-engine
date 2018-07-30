@@ -42,6 +42,7 @@ baseDescriptor = PluginDescriptor
       , PluginCommand "commandDetail" "list parameters required for a given command" commandDetailCmd
       ]
   , pluginCodeActionProvider = noCodeActions
+  , pluginDiagnosticProvider = Nothing
   }
 
 -- ---------------------------------------------------------------------
@@ -62,7 +63,7 @@ commandsCmd = CmdSync $ \p -> do
       , ideMessage = "Can't find plugin:" <> p
       , ideInfo = toJSON p
       }
-    Just pl -> return $ IdeResultOk $ map commandName $ fst pl
+    Just pl -> return $ IdeResultOk $ map commandName $ pluginCommands pl
 
 commandDetailCmd :: CommandFunc (T.Text, T.Text) T.Text
 commandDetailCmd = CmdSync $ \(p,command) -> do
@@ -73,7 +74,7 @@ commandDetailCmd = CmdSync $ \(p,command) -> do
       , ideMessage = "Can't find plugin:" <> p
       , ideInfo = toJSON p
       }
-    Just pl -> case find (\cmd -> command == commandName cmd) (fst pl) of
+    Just pl -> case find (\cmd -> command == commandName cmd) (pluginCommands pl) of
       Nothing -> return $ IdeResultFail $ IdeError
         { ideCode = UnknownCommand
         , ideMessage = "Can't find command:" <> command

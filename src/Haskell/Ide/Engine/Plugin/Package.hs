@@ -55,6 +55,7 @@ packageDescriptor = PluginDescriptor
   , pluginDesc     = "Tools for editing .cabal and package.yaml files."
   , pluginCommands = [PluginCommand "add" "Add a packge" addCmd]
   , pluginCodeActionProvider = codeActionProvider
+  , pluginDiagnosticProvider = Nothing
   }
 
 data AddParams = AddParams
@@ -76,7 +77,7 @@ addCmd = CmdSync $ \(AddParams rootDir modulePath pkg) -> do
     CabalPackage relFp -> do
       absFp <- liftIO $ canonicalizePath relFp
       let relModulePath = makeRelative (takeDirectory absFp) modulePath
-      
+
       liftToGhc $ editCabalPackage absFp relModulePath (T.unpack pkg) fileMap
     HpackPackage relFp -> do
       absFp <- liftIO $ canonicalizePath relFp
@@ -233,7 +234,7 @@ codeActionProvider docId mRootDir _ context = do
       pkgs = mapMaybe getAddablePackages diags
 
   res <- mapM (bimapM return Hoogle.searchPackages) pkgs
-  let actions = mapMaybe (uncurry mkAddPackageAction) (concatPkgs res)  
+  let actions = mapMaybe (uncurry mkAddPackageAction) (concatPkgs res)
 
   return $ IdeResponseOk actions
 
@@ -248,7 +249,7 @@ codeActionProvider docId mRootDir _ context = do
            cmdParams = J.List [toJSON (AddParams rootDir docFp pkgName)]
        in Just (J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [diag])) Nothing (Just cmd))
      _ -> Nothing
-    
+
     getAddablePackages :: J.Diagnostic -> Maybe (J.Diagnostic, T.Text)
     getAddablePackages diag@(J.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractModuleName msg
     getAddablePackages _ = Nothing
@@ -259,4 +260,3 @@ extractModuleName msg
   | otherwise = Nothing
   where line = T.replace "\n" "" msg
         nameAndQuotes = T.dropWhileEnd (/= '’') $ T.dropWhile (/= '‘') line
-

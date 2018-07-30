@@ -43,6 +43,7 @@ applyRefactDescriptor = PluginDescriptor
       , PluginCommand "lint" "Run hlint on the file to generate hints" lintCmd
       ]
   , pluginCodeActionProvider = codeActionProvider
+  , pluginDiagnosticProvider = Nothing
   }
 
 -- ---------------------------------------------------------------------

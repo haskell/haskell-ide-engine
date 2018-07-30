@@ -38,6 +38,7 @@ import           Haskell.Ide.Engine.Plugin.GhcMod
 import           Haskell.Ide.Engine.Plugin.HaRe
 import           Haskell.Ide.Engine.Plugin.Hoogle
 import           Haskell.Ide.Engine.Plugin.HsImport
+import           Haskell.Ide.Engine.Plugin.Liquid
 import           Haskell.Ide.Engine.Plugin.Package
 
 -- ---------------------------------------------------------------------
@@ -46,14 +47,15 @@ import           Haskell.Ide.Engine.Plugin.Package
 plugins :: IdePlugins
 plugins = pluginDescToIdePlugins
   [("applyrefact", applyRefactDescriptor)
+  ,("base"       , baseDescriptor)
   ,("brittany"   , brittanyDescriptor)
   ,("build"      , buildPluginDescriptor)
   ,("eg2"        , example2Descriptor)
   ,("ghcmod"     , ghcmodDescriptor)
   ,("hare"       , hareDescriptor)
-  ,("base"       , baseDescriptor)
   ,("hoogle"     , hoogleDescriptor)
   ,("hsimport"   , hsimportDescriptor)
+  ,("liquid"     , liquidDescriptor)
   ,("package"    , packageDescriptor)
   ]
 

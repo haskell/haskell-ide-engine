@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Haskell.Ide.Engine.Plugin.Example2 where
+module Haskell.Ide.Engine.Plugin.Liquid where
 
 import           Control.Monad.IO.Class
 #if __GLASGOW_HASKELL__ < 804
@@ -11,11 +11,11 @@ import           Haskell.Ide.Engine.MonadTypes
 
 -- ---------------------------------------------------------------------
 
-example2Descriptor :: PluginDescriptor
-example2Descriptor = PluginDescriptor
+liquidDescriptor :: PluginDescriptor
+liquidDescriptor = PluginDescriptor
   {
-    pluginName = "Hello World"
-  , pluginDesc = "An example of writing an HIE plugin"
+    pluginName = "Liquid Haskell"
+  , pluginDesc = "Integration with Liquid Haskell"
   , pluginCommands =
       [ PluginCommand "sayHello" "say hello" sayHelloCmd
       , PluginCommand "sayHelloTo ""say hello to the passed in param" sayHelloToCmd

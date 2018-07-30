@@ -131,7 +131,7 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
         _ <- forkIO $ race_ (dispatcherProc dEnv errorHandler callbackHandler caps) reactorFunc
         return Nothing
 
-      commandIds = Map.foldlWithKey cmdFolder [] (fst <$> ipMap plugins)
+      commandIds = Map.foldlWithKey cmdFolder [] (pluginCommands <$> ipMap plugins)
       cmdFolder :: [T.Text] -> T.Text -> [PluginCommand] -> [T.Text]
       cmdFolder acc plugin cmds = acc ++ map prefix cmdIds
         where cmdIds = map (\cmd -> plugin <> ":" <> commandName cmd) cmds

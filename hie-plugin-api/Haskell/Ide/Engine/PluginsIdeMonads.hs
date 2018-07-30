@@ -60,6 +60,7 @@ import           Data.Aeson
 import           Data.Dynamic (Dynamic)
 import           Data.IORef
 import qualified Data.Map as Map
+import qualified Data.Set as S
 import qualified Data.Text as T
 import           Data.Typeable (TypeRep, Typeable)
 
@@ -106,11 +107,15 @@ type CodeActionProvider =  VersionedTextDocumentIdentifier
                         -> CodeActionContext
                         -> IdeM (IdeResponse [CodeAction])
 
+type DiagnosticProvider = VersionedTextDocumentIdentifier
+                        -> IdeM (IdeResponse (Map.Map Uri (S.Set Diagnostic)))
+
 data PluginDescriptor =
-  PluginDescriptor { pluginName :: T.Text
-                   , pluginDesc :: T.Text
+  PluginDescriptor { pluginName     :: T.Text
+                   , pluginDesc     :: T.Text
                    , pluginCommands :: [PluginCommand]
                    , pluginCodeActionProvider :: CodeActionProvider
+                   , pluginDiagnosticProvider :: Maybe DiagnosticProvider
                    } deriving (Generic)
 
 instance Show PluginCommand where
@@ -119,13 +124,15 @@ instance Show PluginCommand where
 noCodeActions :: CodeActionProvider
 noCodeActions _ _ _ _ = return $ IdeResponseOk []
 
--- | a Description of the available commands and code action providers stored in IdeGhcM
+-- | a Description of the available commands stored in IdeGhcM
 newtype IdePlugins = IdePlugins
-  { ipMap :: Map.Map PluginId ([PluginCommand], CodeActionProvider)
+  { ipMap :: Map.Map PluginId PluginDescriptor
   } deriving (Generic)
 
+-- TODO:AZ this is a defective instance, do we actually need it?
+-- Perhaps rather make a separate type explicitly for this purpose.
 instance ToJSON IdePlugins where
-  toJSON (IdePlugins m) = toJSON $ fmap (\x -> (commandName x, commandDesc x)) <$> fmap fst m
+  toJSON (IdePlugins m) = toJSON $ fmap (\x -> (commandName x, commandDesc x)) <$> fmap pluginCommands m
 
 -- ---------------------------------------------------------------------
 

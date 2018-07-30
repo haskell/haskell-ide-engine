@@ -70,6 +70,7 @@ ghcmodDescriptor = PluginDescriptor
       , PluginCommand "casesplit" "Generate a pattern match for a binding under (LINE,COL)" splitCaseCmd
       ]
   , pluginCodeActionProvider = codeActionProvider
+  , pluginDiagnosticProvider = Nothing
   }
 
 -- ---------------------------------------------------------------------
