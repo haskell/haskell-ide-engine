@@ -62,6 +62,7 @@ import           Data.Aeson
 import           Data.Dynamic (Dynamic)
 import           Data.IORef
 import qualified Data.Map as Map
+import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import           Data.Typeable (TypeRep, Typeable)
 
@@ -155,7 +156,7 @@ noCodeActions _ _ _ _ = return $ IdeResponseOk []
 -- | a Description of the available commands and code action providers stored in IdeGhcM
 newtype IdePlugins = IdePlugins
   { ipMap :: Map.Map PluginId PluginDescriptor
-  } deriving (Generic)
+  }
 
 instance ToJSON IdePlugins where
   toJSON (IdePlugins m) = toJSON $ fmap (\x -> (commandId x, commandDesc x)) <$> fmap pluginCommands m
