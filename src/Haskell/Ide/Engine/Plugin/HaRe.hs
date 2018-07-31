@@ -61,6 +61,7 @@ hareDescriptor = PluginDescriptor
           genApplicativeCommand
       ]
   , pluginCodeActionProvider = noCodeActions
+  , pluginDiagnosticProvider = Nothing
   }
 
 -- ---------------------------------------------------------------------

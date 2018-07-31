@@ -43,6 +43,7 @@ testDescriptor = PluginDescriptor
       , PluginCommand "cmd2" "description" cmd2
       ]
   , pluginCodeActionProvider = noCodeActions
+  , pluginDiagnosticProvider = Nothing
   }
 
 -- ---------------------------------------------------------------------

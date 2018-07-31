@@ -7,15 +7,16 @@ import           Data.Semigroup             hiding (option)
 import           Options.Applicative.Simple
 
 data GlobalOpts = GlobalOpts
-  { optDebugOn     :: Bool
-  , optLogFile     :: Maybe String
-  , optLsp         :: Bool
-  , optJson        :: Bool
-  , projectRoot    :: Maybe String
-  , optGhcModVomit :: Bool
-  , optEkg         :: Bool
-  , optEkgPort     :: Int
-  , optCaptureFile :: Maybe FilePath
+  { optDebugOn       :: Bool
+  , optLogFile       :: Maybe String
+  , optLsp           :: Bool
+  , optJson          :: Bool
+  , projectRoot      :: Maybe String
+  , optGhcModVomit   :: Bool
+  , optEkg           :: Bool
+  , optEkgPort       :: Int
+  , optCaptureFile   :: Maybe FilePath
+  , optExamplePlugin :: Bool
   } deriving (Show)
 
 globalOptsParser :: Parser GlobalOpts
@@ -61,3 +62,6 @@ globalOptsParser = GlobalOpts
       <> metavar "CAPTUREFILE"
       <> help "File to capture the session to"
        ))
+  <*> switch
+       ( long "example"
+       <> help "Enable Example2 plugin. Useful for developers only")
