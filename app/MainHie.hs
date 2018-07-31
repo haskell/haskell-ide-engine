@@ -40,6 +40,7 @@ import           Haskell.Ide.Engine.Plugin.Hoogle
 import           Haskell.Ide.Engine.Plugin.HsImport
 import           Haskell.Ide.Engine.Plugin.Liquid
 import           Haskell.Ide.Engine.Plugin.Package
+import           Haskell.Ide.Engine.Plugin.Haddock
 
 -- ---------------------------------------------------------------------
 
@@ -61,6 +62,7 @@ plugins includeExamples = pluginDescToIdePlugins allPlugins
       ,("hsimport"   , hsimportDescriptor)
       ,("liquid"     , liquidDescriptor)
       ,("package"    , packageDescriptor)
+      ,("haddock"    , haddockDescriptor)
       ]
     examplePlugins =
       [("eg2"        , example2Descriptor)
