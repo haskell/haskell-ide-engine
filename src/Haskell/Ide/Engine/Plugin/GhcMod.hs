@@ -388,7 +388,7 @@ codeActionProvider docId _ _ context =
       renameActions = map (uncurry mkRenamableAction) terms
       redundantTerms = mapMaybe getRedundantImports diags
       redundantActions = concatMap (uncurry mkRedundantImportActions) redundantTerms
-  in return $ IdeResponseOk (renameActions ++ redundantActions)
+  in return $ IdeResponseOk (renameActions ++ redundantActions ++ mapMaybe topLevelUnsigned diags)
 
   where
     docUri = docId ^. LSP.uri
@@ -438,6 +438,16 @@ codeActionProvider docId _ _ context =
     getRedundantImports :: LSP.Diagnostic -> Maybe (LSP.Diagnostic, T.Text)
     getRedundantImports diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractRedundantImport msg
     getRedundantImports _ = Nothing
+
+    topLevelUnsigned :: LSP.Diagnostic -> Maybe LSP.CodeAction
+    topLevelUnsigned diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _)
+      = T.stripPrefix "Top-level binding with no type signature:\n  " msg
+      <&> \line -> LSP.CodeAction "Add type signature to top-level binding"
+        (Just LSP.CodeActionQuickFix)
+        (Just (LSP.List [diag]))
+        (Just $ mkWorkspaceEdit [LSP.TextEdit (views (LSP.range . LSP.start) (\s -> LSP.Range s s) diag) (line <> "\n")]) -- range might be off
+        Nothing
+    topLevelUnsigned _ = Nothing
 
 extractRenamableTerms :: T.Text -> [T.Text]
 extractRenamableTerms msg
