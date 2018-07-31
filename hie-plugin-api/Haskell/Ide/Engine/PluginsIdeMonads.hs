@@ -19,7 +19,6 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , PluginDescriptor(..)
   , PluginCommand(..)
   , CodeActionProvider
-  , noCodeActions
   , DiagnosticProvider(..)
   , DiagnosticProviderFunc
   , DiagnosticTrigger(..)
@@ -128,15 +127,12 @@ data PluginDescriptor =
   PluginDescriptor { pluginName     :: T.Text
                    , pluginDesc     :: T.Text
                    , pluginCommands :: [PluginCommand]
-                   , pluginCodeActionProvider :: CodeActionProvider
+                   , pluginCodeActionProvider :: Maybe CodeActionProvider
                    , pluginDiagnosticProvider :: Maybe DiagnosticProvider
                    } deriving (Generic)
 
 instance Show PluginCommand where
   show (PluginCommand name _ _) = "PluginCommand { name = " ++ T.unpack name ++ " }"
-
-noCodeActions :: CodeActionProvider
-noCodeActions _ _ _ _ = return $ IdeResponseOk []
 
 -- | a Description of the available commands stored in IdeGhcM
 newtype IdePlugins = IdePlugins

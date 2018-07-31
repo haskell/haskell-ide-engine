@@ -32,7 +32,7 @@ brittanyDescriptor = PluginDescriptor
                                      "Format a range of text or document"
                                      cmd
                      ]
-  , pluginCodeActionProvider = noCodeActions
+  , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Nothing
   }
  where

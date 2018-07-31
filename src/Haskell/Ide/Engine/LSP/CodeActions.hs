@@ -41,7 +41,7 @@ handleCodeActionReq tn req = do
   let getProviders :: IdeM (IdeResponse [CodeActionProvider])
       getProviders = do
         IdePlugins m <- lift getPlugins
-        return $ IdeResponseOk $ map pluginCodeActionProvider $ toList m
+        return $ IdeResponseOk $ mapMaybe pluginCodeActionProvider $ toList m
 
       providersCb :: [CodeActionProvider] -> R ()
       providersCb providers =
