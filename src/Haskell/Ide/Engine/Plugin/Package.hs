@@ -54,7 +54,7 @@ packageDescriptor = PluginDescriptor
   { pluginName     = "package"
   , pluginDesc     = "Tools for editing .cabal and package.yaml files."
   , pluginCommands = [PluginCommand "add" "Add a packge" addCmd]
-  , pluginCodeActionProvider = codeActionProvider
+  , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   }
 

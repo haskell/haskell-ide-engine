@@ -41,7 +41,7 @@ baseDescriptor = PluginDescriptor
       , PluginCommand "commands" "list available commands for a given plugin" commandsCmd
       , PluginCommand "commandDetail" "list parameters required for a given command" commandDetailCmd
       ]
-  , pluginCodeActionProvider = noCodeActions
+  , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Nothing
   }
 
