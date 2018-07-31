@@ -180,7 +180,7 @@ errorHandlers ghcErrRes renderSourceError = handlers
         ]
 
 setTypecheckedModule :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
-setTypecheckedModule uri = 
+setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     fileMap <- GM.getMMappedFiles
     debugm $ "setTypecheckedModule: file mapping state is: " ++ show fileMap
@@ -395,7 +395,7 @@ codeActionProvider docId _ _ context =
     docUri = docId ^. LSP.uri
 
     mkWorkspaceEdit :: [LSP.TextEdit] -> LSP.WorkspaceEdit
-    mkWorkspaceEdit es = 
+    mkWorkspaceEdit es =
        let changes = HM.singleton docUri (LSP.List es)
            docChanges = LSP.List [textDocEdit]
            textDocEdit = LSP.TextDocumentEdit docId (LSP.List es)
@@ -435,7 +435,7 @@ codeActionProvider docId _ _ context =
         --TODO: Use hsimport to preserve formatting/whitespace
         importEdit = mkWorkspaceEdit [tEdit]
         tEdit = LSP.TextEdit (diag ^. LSP.range) ("import " <> modName <> "()")
-      
+
     getRedundantImports :: LSP.Diagnostic -> Maybe (LSP.Diagnostic, T.Text)
     getRedundantImports diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractRedundantImport msg
     getRedundantImports _ = Nothing

@@ -7,14 +7,14 @@ import           Control.Monad.IO.Class
 #if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
 #endif
+import           Data.Aeson
+import qualified Data.ByteString.Lazy as BS
 import qualified Data.Map                      as Map
 import qualified Data.Set                      as S
 import qualified Data.Text                     as T
-import           Haskell.Ide.Engine.MonadTypes hiding (_range)
--- import           System.Directory
-import           System.FilePath
 import           GHC.Generics
-import           Data.Aeson
+import           Haskell.Ide.Engine.MonadTypes hiding (_range)
+import           System.FilePath
 
 
 -- ---------------------------------------------------------------------
@@ -84,15 +84,46 @@ instance ToJSON   LiquidError
 
 diagnosticProvider :: DiagnosticTrigger -> Uri -> IdeGhcM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
 diagnosticProvider _trigger uri = do
-  let diag = Diagnostic
-              { _range = Range (Position 5 0) (Position 7 0)
-              , _severity = Nothing
-              , _code = Nothing
-              , _source = Just "eg2"
-              , _message = "Liquid plugin diagnostic, vim annot in " <> T.pack (vimAnnotFile uri)
-              , _relatedInformation = Nothing
-              }
-  return $ IdeResultOk $ Map.fromList [(uri,S.singleton diag)]
+  me <- liftIO $ readJsonAnnot uri
+  case me of
+    Nothing -> return $ IdeResultOk Map.empty
+    Just es -> return $ IdeResultOk m
+      where
+        m = Map.fromList [(uri,S.fromList (map liquidErrorToDiagnostic es))]
+  -- let diag = Diagnostic
+  --             { _range = Range (Position 5 0) (Position 7 0)
+  --             , _severity = Nothing
+  --             , _code = Nothing
+  --             , _source = Just "eg2"
+  --             , _message = "Liquid plugin diagnostic, vim annot in " <> T.pack (vimAnnotFile uri)
+  --             , _relatedInformation = Nothing
+  --             }
+  -- return $ IdeResultOk $ Map.fromList [(uri,S.singleton diag)]
+
+-- ---------------------------------------------------------------------
+
+liquidErrorToDiagnostic :: LiquidError -> Diagnostic
+liquidErrorToDiagnostic (LE f t msg) =
+  Diagnostic
+    { _range = Range (lpToPos f) (lpToPos t)
+    , _severity = Just DsError
+    , _code = Nothing
+    , _source = Just "liquid"
+    , _message = msg
+    , _relatedInformation = Nothing
+    }
+  where
+    lpToPos (LP r c) = Position (r - 1) (c - 1)
+
+-- ---------------------------------------------------------------------
+
+-- | Pull the errors out of the JSON annotation file, if it exists
+readJsonAnnot :: Uri -> IO (Maybe [LiquidError])
+readJsonAnnot uri = do
+  jf <- BS.readFile (jsonAnnotFile uri)
+  case decode jf :: Maybe LiquidJson of
+    Nothing -> return Nothing
+    Just j -> return (Just (errors j))
 
 -- ---------------------------------------------------------------------
 
