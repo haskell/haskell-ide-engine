@@ -1,4 +1,4 @@
-module HaReGA1 where
+module Main where
 import Text.ParserCombinators.Parsec
 
 parseStr :: CharParser () String
@@ -7,3 +7,5 @@ parseStr = do
   str <- many1 (noneOf "\"")
   char '"'
   return str
+
+main = putStrLn "hello"
