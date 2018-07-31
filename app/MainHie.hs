@@ -44,20 +44,27 @@ import           Haskell.Ide.Engine.Plugin.Package
 -- ---------------------------------------------------------------------
 
 -- | This will be read from a configuration, eventually
-plugins :: IdePlugins
-plugins = pluginDescToIdePlugins
-  [("applyrefact", applyRefactDescriptor)
-  ,("base"       , baseDescriptor)
-  ,("brittany"   , brittanyDescriptor)
-  ,("build"      , buildPluginDescriptor)
-  ,("eg2"        , example2Descriptor)
-  ,("ghcmod"     , ghcmodDescriptor)
-  ,("hare"       , hareDescriptor)
-  ,("hoogle"     , hoogleDescriptor)
-  ,("hsimport"   , hsimportDescriptor)
-  ,("liquid"     , liquidDescriptor)
-  ,("package"    , packageDescriptor)
-  ]
+plugins :: Bool -> IdePlugins
+plugins includeExamples = pluginDescToIdePlugins allPlugins
+  where
+    allPlugins = if includeExamples
+                   then basePlugins ++ examplePlugins
+                   else basePlugins
+    basePlugins =
+      [("applyrefact", applyRefactDescriptor)
+      ,("base"       , baseDescriptor)
+      ,("brittany"   , brittanyDescriptor)
+      ,("build"      , buildPluginDescriptor)
+      ,("ghcmod"     , ghcmodDescriptor)
+      ,("hare"       , hareDescriptor)
+      ,("hoogle"     , hoogleDescriptor)
+      ,("hsimport"   , hsimportDescriptor)
+      ,("liquid"     , liquidDescriptor)
+      ,("package"    , packageDescriptor)
+      ]
+    examplePlugins =
+      [("eg2"        , example2Descriptor)
+      ]
 
 -- ---------------------------------------------------------------------
 
@@ -126,10 +133,11 @@ run opts = do
   when (optGhcModVomit opts) $
     logm "Enabling --vomit for ghc-mod. Output will be on stderr"
 
+  let plugins' = plugins (optExamplePlugin opts)
   -- launch the dispatcher.
   if optJson opts then do
     pin <- atomically newTChan
-    jsonStdioTransport (dispatcherP pin plugins ghcModOptions) pin
+    jsonStdioTransport (dispatcherP pin plugins' ghcModOptions) pin
   else do
     pin <- atomically newTChan
-    lspStdioTransport (dispatcherP pin plugins ghcModOptions) pin origDir plugins (optCaptureFile opts)
+    lspStdioTransport (dispatcherP pin plugins' ghcModOptions) pin origDir plugins' (optCaptureFile opts)

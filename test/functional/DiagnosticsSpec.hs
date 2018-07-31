@@ -2,17 +2,13 @@
 
 module DiagnosticsSpec where
 
--- import Control.Applicative.Combinators
 import Control.Lens hiding (List)
--- import Control.Monad
 import Control.Monad.IO.Class
 import Data.Default
--- import Data.Maybe
 import qualified Data.Text as T
 import qualified Language.Haskell.LSP.Test as Test
 import Language.Haskell.LSP.Test hiding (message)
 import Language.Haskell.LSP.Types as LSP hiding (contents, error )
--- import qualified Language.Haskell.LSP.Types as LSP
 import qualified Language.Haskell.LSP.Types.Capabilities as C
 import Test.Hspec
 import TestUtils
@@ -23,7 +19,7 @@ spec :: Spec
 spec = describe "diagnostics providers" $ do
   describe "diagnostics triggers" $ do
     it "runs diagnostics on save" $
-      runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata" $ do
+      runSessionWithConfig codeActionSupportConfig hieCommandExamplePlugin "test/testdata" $ do
         doc <- openDoc "ApplyRefact2.hs" "haskell"
 
         diags@(reduceDiag:_) <- waitForDiagnostics

@@ -23,8 +23,8 @@ instance FromJSON Config where
   parseJSON = withObject "Config" $ \v -> do
     s <- v .: "languageServerHaskell"
     flip (withObject "Config.settings") s $ \o -> Config
-      <$> o .:? "hlintOn" .!= True
-      <*> o .: "maxNumberOfProblems"
+      <$> o .:? "hlintOn"             .!= True
+      <*> o .:? "maxNumberOfProblems" .!= 100
 
 -- 2017-10-09 23:22:00.710515298 [ThreadId 11] - ---> {"jsonrpc":"2.0","method":"workspace/didChangeConfiguration","params":{"settings":{"languageServerHaskell":{"maxNumberOfProblems":100,"hlintOn":true}}}}
 -- 2017-10-09 23:22:00.710667381 [ThreadId 15] - reactor:got didChangeConfiguration notification:
