@@ -30,6 +30,7 @@ hsimportDescriptor = PluginDescriptor
   , pluginCommands = [PluginCommand "import" "Import a module" importCmd]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
+  , pluginHoverProvider = Nothing
   }
 
 data ImportParams = ImportParams

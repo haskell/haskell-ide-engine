@@ -56,6 +56,7 @@ packageDescriptor = PluginDescriptor
   , pluginCommands = [PluginCommand "add" "Add a packge" addCmd]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
+  , pluginHoverProvider = Nothing
   }
 
 data AddParams = AddParams

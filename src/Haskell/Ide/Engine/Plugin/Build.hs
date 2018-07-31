@@ -152,6 +152,7 @@ buildPluginDescriptor = PluginDescriptor
       ]
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Nothing
+  , pluginHoverProvider = Nothing
   }
 
 data OperationMode = StackMode | CabalMode

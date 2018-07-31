@@ -22,6 +22,7 @@ liquidDescriptor = PluginDescriptor
       ]
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Nothing
+  , pluginHoverProvider = Nothing
   }
 
 -- ---------------------------------------------------------------------

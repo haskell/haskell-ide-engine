@@ -46,7 +46,7 @@ handleCodeActionReq tn req = do
       providersCb :: [CodeActionProvider] -> R ()
       providersCb providers =
         let reqs = map (\f -> f docId maybeRootDir range context) providers
-        in collectRequests reqs (send . concat)
+        in makeRequests reqs tn (req ^. J.id) (send . concat)
 
   makeRequest (IReq tn (req ^. J.id) providersCb getProviders)
 
@@ -77,16 +77,5 @@ handleCodeActionReq tn req = do
     send codeActions = do
       body <- J.List . catMaybes <$> mapM wrapCodeAction codeActions
       reactorSend $ RspCodeAction $ Core.makeResponseMessage req body
-
-    -- | Execute multiple ide requests sequentially
-    collectRequests :: [IdeM (IdeResponse a)] -- ^ The requests to make
-                    -> ([a] -> R ())     -- ^ Callback with the request inputs and results
-                    -> R ()
-    collectRequests = go []
-      where
-        go acc [] callback = callback acc
-        go acc (x:xs) callback =
-          let reqCallback result = go (acc ++ [result]) xs callback
-          in makeRequest $ IReq tn (req ^. J.id) reqCallback x
 
   -- TODO: make context specific commands for all sorts of things, such as refactorings          
