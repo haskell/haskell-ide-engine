@@ -487,10 +487,10 @@ reactor inp = do
 
           let callback :: [J.Hover] -> R ()
               callback hs =
-                -- TODO: We should support ServerCapabilities and declare that 
+                -- TODO: We should support ServerCapabilities and declare that
                 -- we don't support hover requests during initialization if we
                 -- don't have any hover providers
-                -- TODO: maybe only have provider give MarkedString and 
+                -- TODO: maybe only have provider give MarkedString and
                 -- work out range here?
                 let h = J.Hover (fold (map (^. J.contents) hs)) r
                     r = listToMaybe $ mapMaybe (^. J.range) hs

@@ -1,21 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 module LiquidSpec where
 
--- import Haskell.Ide.Engine.Plugin.GhcMod
--- import Haskell.Ide.Engine.Plugin.HsImport
-import Haskell.Ide.Engine.Plugin.Liquid
--- import Haskell.Ide.Engine.Plugin.Package
+import           Data.Aeson
+import qualified Data.ByteString.Lazy as BS
+import           Data.Monoid ((<>))
+import           Haskell.Ide.Engine.MonadTypes
+import           Haskell.Ide.Engine.Plugin.Liquid
 import           System.Directory
 import           System.FilePath
-import Test.Hspec
-import           Haskell.Ide.Engine.MonadTypes
--- import           Haskell.Ide.Engine.PluginDescriptor
--- import           Haskell.Ide.Engine.PluginUtils
--- import           Haskell.Ide.Engine.Plugin.GhcMod
--- import           Haskell.Ide.Engine.Plugin.HaRe
--- import           Haskell.Ide.Engine.Plugin.HieExtras
-import qualified Data.ByteString.Lazy as BS
-import Data.Aeson
+import           Test.Hspec
 
 main :: IO ()
 main = hspec spec

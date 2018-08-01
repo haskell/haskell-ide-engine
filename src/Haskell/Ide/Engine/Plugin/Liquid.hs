@@ -14,6 +14,7 @@ import qualified Data.Set                      as S
 import qualified Data.Text                     as T
 import           GHC.Generics
 import           Haskell.Ide.Engine.MonadTypes hiding (_range)
+import qualified Language.Haskell.LSP.Types as J
 import           System.Directory
 import           System.FilePath
 
@@ -31,7 +32,7 @@ liquidDescriptor = PluginDescriptor
       ]
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Just (DiagnosticProvider (S.singleton DiagnosticOnSave) diagnosticProvider)
-  , pluginHoverProvider      = Nothing
+  , pluginHoverProvider      = Just hoverProvider
   }
 
 -- ---------------------------------------------------------------------
@@ -158,5 +159,14 @@ liquidFileFor uri ext =
         d = takeDirectory fp
         f = takeFileName fp
         r = d </> ".liquid" </> f <.> ext
+
+-- ---------------------------------------------------------------------
+
+-- type HoverProvider = Uri -> Position -> IdeM (IdeResponse Hover)
+hoverProvider :: HoverProvider
+hoverProvider _uri _pos = do
+  let docs = ["Liquid hover thing"] -- :: [T.Text]
+  let hover = J.Hover (J.List $ fmap J.PlainString docs) Nothing
+  return $ IdeResponseResult (IdeResultOk hover)
 
 -- ---------------------------------------------------------------------
