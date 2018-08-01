@@ -18,6 +18,7 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , CommandName
   , mkLspCommand
   , allLspCmdIds
+  , mkLspCmdId
   , CommandFunc(..)
   , PluginDescriptor(..)
   , PluginCommand(..)
@@ -121,7 +122,7 @@ allLspCmdIds (IdePlugins m) = concat <$> mapM go (Map.toList (pluginCommands <$>
   where
     go (plid, cmds) = mapM (mkLspCmdId plid . commandName) cmds
 
-
+-- TODO: Cache this somehow
 mkLspCmdId :: MonadIO m => PluginId -> CommandName -> m T.Text
 mkLspCmdId plid cn = do
   pid <- liftIO (T.pack . show <$> getProcessID) 

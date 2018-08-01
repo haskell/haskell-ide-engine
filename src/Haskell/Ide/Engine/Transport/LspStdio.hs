@@ -46,7 +46,6 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
-import           Haskell.Ide.Engine.Compat
 import           Haskell.Ide.Engine.LSP.CodeActions
 import           Haskell.Ide.Engine.LSP.Config
 import           Haskell.Ide.Engine.LSP.Reactor
@@ -118,7 +117,7 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
             errorHandler lid code e =
               Core.sendErrorResponseS (Core.sendFunc lf) (J.responseId lid) code e
             callbackHandler :: CallbackHandler R
-            callbackHandler f x = runReactor lf dEnv cin prefix diagnosticProviders hps $ f x
+            callbackHandler f x = runReactor lf dEnv cin diagnosticProviders hps $ f x
 
 
         -- haskell lsp sets the current directory to the project root in the InitializeRequest
@@ -346,10 +345,11 @@ reactor inp = do
           -}
 
           -- TODO: Register all commands?
+          hareId <- mkLspCmdId "hare" "demote"
           let
             options = J.object ["documentSelector" .= J.object [ "language" .= J.String "haskell"]]
             registrationsList =
-              [ J.Registration (prefix "hare:demote") J.WorkspaceExecuteCommand (Just options)
+              [ J.Registration hareId J.WorkspaceExecuteCommand (Just options)
               ]
           let registrations = J.RegistrationParams (J.List registrationsList)
 
