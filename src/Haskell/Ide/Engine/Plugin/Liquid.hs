@@ -12,11 +12,15 @@ import qualified Data.ByteString.Lazy as BS
 import qualified Data.Map                      as Map
 import qualified Data.Set                      as S
 import qualified Data.Text                     as T
+import qualified Data.Text.IO                  as T
 import           GHC.Generics
 import           Haskell.Ide.Engine.MonadTypes hiding (_range)
 import qualified Language.Haskell.LSP.Types as J
 import           System.Directory
 import           System.FilePath
+import           Text.Parsec
+-- import           Text.Parsec.Char
+import           Text.Parsec.Text
 
 
 -- ---------------------------------------------------------------------
@@ -115,8 +119,9 @@ liquidErrorToDiagnostic (LE f t msg) =
     , _message = msg
     , _relatedInformation = Nothing
     }
-  where
-    lpToPos (LP r c) = Position (r - 1) (c - 1)
+
+lpToPos :: LiquidPos -> Position
+lpToPos (LP r c) = Position (r - 1) (c - 1)
 
 -- ---------------------------------------------------------------------
 
@@ -131,6 +136,17 @@ readJsonAnnot uri = do
       case decode jf :: Maybe LiquidJson of
         Nothing -> return Nothing
         Just j -> return (Just (errors j))
+    else return Nothing
+
+-- | Pull the errors out of the JSON annotation file, if it exists
+readVimAnnot :: Uri -> IO (Maybe [LiquidError])
+readVimAnnot uri = do
+  let fileName = vimAnnotFile uri
+  exists <- doesFileExist fileName
+  if exists
+    then do
+      vf <- T.readFile fileName
+      return $ Just (parseType vf)
     else return Nothing
 
 -- ---------------------------------------------------------------------
@@ -168,5 +184,41 @@ hoverProvider _uri _pos = do
   let docs = ["Liquid hover thing"] -- :: [T.Text]
   let hover = J.Hover (J.List $ fmap J.PlainString docs) Nothing
   return $ IdeResponseResult (IdeResultOk hover)
+
+-- ---------------------------------------------------------------------
+
+parseType :: T.Text -> [LiquidError]
+parseType str =
+  case parse parseTypes "" str of
+            -- Left _    -> []
+            Left err -> error $ show err
+            Right les  -> les
+
+-- ---------------------------------------------------------------------
+
+parseTypes :: Parser [LiquidError]
+parseTypes = parseTypeFromVim `sepBy` (string "\n")
+
+-- | Parse a line of the form
+-- 6:1-6:10::Main.weAreEven :: "[{v : GHC.Types.Int | v mod 2 == 0}]"
+parseTypeFromVim :: Parser LiquidError
+parseTypeFromVim = do
+  sr <- number
+  _ <- char ':'
+  sc <- number
+  _ <- char '-'
+  er <- number
+  _ <- char ':'
+  ec <- number
+  _ <- string "::"
+  _ <- manyTill anyChar (try (string "::"))
+  _ <- string " \""
+  msg <- manyTill anyChar (try (string "\""))
+  return $ LE (LP sr sc) (LP er ec) (T.pack msg)
+
+number :: Parser Int
+number = do
+  s <- many1 digit
+  return (read s)
 
 -- ---------------------------------------------------------------------

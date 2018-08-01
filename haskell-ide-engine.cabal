@@ -77,6 +77,7 @@ library
                      , monoid-subclasses > 0.4
                      , mtl
                      , optparse-simple >= 0.0.3
+                     , parsec
                      , process
                      , sorted-list >= 0.2.1.0
                      , stm
