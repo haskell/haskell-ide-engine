@@ -8,7 +8,6 @@ module Haskell.Ide.Engine.LSP.CodeActions where
 import Control.Lens
 import Control.Monad.Reader
 import qualified Data.Aeson as J
-import qualified Data.Text as T
 import Data.Maybe
 import Data.Foldable
 import qualified GHC.Generics as G
@@ -57,20 +56,16 @@ handleCodeActionReq tn req = do
     context = params ^. J.context
 
     wrapCodeAction :: J.CodeAction -> R (Maybe J.CommandOrCodeAction)
-    wrapCodeAction action' = do
-      prefix <- asks commandPrefixer :: R (T.Text -> T.Text)
+    wrapCodeAction action = do
 
       (C.ClientCapabilities _ textDocCaps _) <- asksLspFuncs Core.clientCapabilities
       let literalSupport = textDocCaps >>= C._codeAction >>= C._codeActionLiteralSupport
-          action :: J.CodeAction
-          action = (J.command . _Just . J.command %~ prefix) action'
 
       case literalSupport of
-        Nothing ->
-            let cmd = J.Command (action ^. J.title) cmdName (Just cmdParams)
-                cmdName = prefix "hie:fallbackCodeAction"
-                cmdParams = J.List [J.toJSON (FallbackCodeActionParams (action ^. J.edit) (action ^. J.command))]
-              in return $ Just (J.CommandOrCodeActionCommand cmd)
+        Nothing -> do
+            let cmdParams = [J.toJSON (FallbackCodeActionParams (action ^. J.edit) (action ^. J.command))]
+            cmd <- mkLspCommand "hie" "fallbackCodeAction" (action ^. J.title) (Just cmdParams)
+            return $ Just (J.CommandOrCodeActionCommand cmd)
         Just _ -> return $ Just (J.CommandOrCodeActionCodeAction action)
 
     send :: [J.CodeAction] -> R ()

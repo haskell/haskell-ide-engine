@@ -99,8 +99,7 @@ run
 run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
 
   rin <- atomically newTChan :: IO (TChan ReactorInput)
-
-  prefix <- cmdPrefixer
+  commandIds <- allLspCmdIds plugins
 
   let dp lf = do
         cancelTVar  <- atomically $ newTVar S.empty
@@ -111,7 +110,7 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
               , wipReqsTVar    = wipTVar
               , docVersionTVar = versionTVar
               }
-        let reactorFunc = runReactor lf dEnv cin prefix diagnosticProviders hps
+        let reactorFunc = runReactor lf dEnv cin diagnosticProviders hps
               $ reactor rin
             caps = Core.clientCapabilities lf
 
@@ -127,8 +126,6 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
         -- recognized properly by ghc-mod
         _ <- forkIO $ race_ (dispatcherProc dEnv errorHandler callbackHandler caps) reactorFunc
         return Nothing
-
-      commandIds = Map.foldlWithKey cmdFolder [] (pluginCommands <$> ipMap plugins)
 
       diagnosticProviders :: Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
       diagnosticProviders = Map.fromListWith (++) $ concatMap explode providers
@@ -146,10 +143,6 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
       hps :: [HoverProvider]
       hps = mapMaybe pluginHoverProvider $ Map.elems $ ipMap plugins
 
-      cmdFolder :: [T.Text] -> T.Text -> [PluginCommand] -> [T.Text]
-      cmdFolder acc plugin cmds = acc ++ map prefix cmdIds
-        where cmdIds = map (\cmd -> plugin <> ":" <> commandName cmd) cmds
-
   flip E.finally finalProc $ do
     CTRL.run (getConfigFromNotification, dp) (hieHandlers rin) (hieOptions commandIds) captureFp
  where
@@ -157,10 +150,6 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
   finalProc = L.removeAllHandlers
   ioExcept (e :: E.IOException) = print e >> return 1
   someExcept (e :: E.SomeException) = print e >> return 1
-  -- TODO:AZ:This type should be something like :: IO (UnprefixedCommandId -> PrefixedCommandId)
-  cmdPrefixer = do
-    pid <- T.pack . show <$> getProcessID
-    return ((pid <> ":") <>)
 
 -- ---------------------------------------------------------------------
 
@@ -356,10 +345,7 @@ reactor inp = do
            }
           -}
 
-          -- TODO: Get all commands
-          prefix <- asks commandPrefixer
-          -- let pluginIds = map prefix (Map.keys (ipMap plugins))
-
+          -- TODO: Register all commands?
           let
             options = J.object ["documentSelector" .= J.object [ "language" .= J.String "haskell"]]
             registrationsList =

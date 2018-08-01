@@ -15,7 +15,6 @@ import           Control.Concurrent.STM
 import           Control.Monad.Reader
 import qualified Data.Map                      as Map
 import qualified Data.Set                      as S
-import qualified Data.Text                     as T
 import qualified Language.Haskell.LSP.Core     as Core
 import qualified Language.Haskell.LSP.Messages as J
 import qualified Language.Haskell.LSP.Types    as J
@@ -28,7 +27,6 @@ data REnv = REnv
   { dispatcherEnv     :: DispatcherEnv
   , reqChanIn         :: TChan (PluginRequest R)
   , lspFuncs          :: Core.LspFuncs Config
-  , commandPrefixer   :: T.Text -> T.Text
   , diagnosticSources :: Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
   , hoverProviders    :: [HoverProvider]
   -- TODO: Add code action providers here
@@ -43,13 +41,12 @@ runReactor
   :: Core.LspFuncs Config
   -> DispatcherEnv
   -> TChan (PluginRequest R)
-  -> (T.Text -> T.Text)
   -> Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
   -> [HoverProvider]
   -> R a
   -> IO a
-runReactor lf de cin prefixer dps hps =
-  flip runReaderT (REnv de cin lf prefixer dps hps)
+runReactor lf de cin dps hps =
+  flip runReaderT (REnv de cin lf dps hps)
 
 -- ---------------------------------------------------------------------
 
@@ -102,3 +99,4 @@ makeRequests = go []
       in makeRequest $ IReq tn reqId reqCallback x
 
 -- ---------------------------------------------------------------------
+

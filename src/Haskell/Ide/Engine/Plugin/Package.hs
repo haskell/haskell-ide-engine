@@ -30,7 +30,8 @@ import qualified Distribution.Types.BuildInfo.Lens as L
 #else
 import           Distribution.PackageDescription.Parse
 import           Distribution.Version
-import qualified Haskell.Ide.Engine.Compat as L
+import           Haskell.Ide.Engine.Compat (isExtensionOf)
+import qualified Haskell.Ide.Engine.Plugin.Package.Compat as L
 #endif
 import           Distribution.Types.Dependency
 import           Distribution.Types.PackageName
@@ -39,7 +40,6 @@ import           Distribution.Verbosity
 import           System.FilePath
 #if MIN_VERSION_filepath(1,4,2)
 #else
-import           Haskell.Ide.Engine.Compat (isExtensionOf)
 #endif
 import           Control.Monad.IO.Class
 import           System.Directory
@@ -235,21 +235,21 @@ codeActionProvider docId mRootDir _ context = do
       pkgs = mapMaybe getAddablePackages diags
 
   res <- mapM (bimapM return Hoogle.searchPackages) pkgs
-  let actions = mapMaybe (uncurry mkAddPackageAction) (concatPkgs res)
+  actions <- catMaybes <$> mapM (uncurry mkAddPackageAction) (concatPkgs res)
 
   return $ IdeResponseOk actions
 
   where
     concatPkgs = concatMap (\(d, ts) -> map (d,) ts)
 
-    mkAddPackageAction :: J.Diagnostic -> T.Text -> Maybe J.CodeAction
+    mkAddPackageAction :: J.Diagnostic -> T.Text -> IdeM (Maybe J.CodeAction)
     mkAddPackageAction diag pkgName = case (mRootDir, J.uriToFilePath (docId ^. J.uri)) of
-     (Just rootDir, Just docFp) ->
+     (Just rootDir, Just docFp) -> do
        let title = "Add " <> pkgName <> " as a dependency"
-           cmd = J.Command title "package:add" (Just cmdParams)
-           cmdParams = J.List [toJSON (AddParams rootDir docFp pkgName)]
-       in Just (J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [diag])) Nothing (Just cmd))
-     _ -> Nothing
+           cmdParams = [toJSON (AddParams rootDir docFp pkgName)]
+       cmd <- mkLspCommand "package" "add" title (Just cmdParams)
+       return $ Just (J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [diag])) Nothing (Just cmd))
+     _ -> return Nothing
 
     getAddablePackages :: J.Diagnostic -> Maybe (J.Diagnostic, T.Text)
     getAddablePackages diag@(J.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractModuleName msg

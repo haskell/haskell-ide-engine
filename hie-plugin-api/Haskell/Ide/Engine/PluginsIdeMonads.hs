@@ -7,7 +7,8 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 -- | IdeGhcM and associated types
 module Haskell.Ide.Engine.PluginsIdeMonads
@@ -15,6 +16,8 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   -- * Plugins
     PluginId
   , CommandName
+  , mkLspCommand
+  , allLspCmdIds
   , CommandFunc(..)
   , PluginDescriptor(..)
   , PluginCommand(..)
@@ -71,11 +74,13 @@ import qualified GhcMod.Monad        as GM
 import           GHC.Generics
 import           GHC (HscEnv)
 
+import           Haskell.Ide.Engine.Compat
 import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.GhcModuleCache
 
 import           Language.Haskell.LSP.Types.Capabilities
-import           Language.Haskell.LSP.Types (CodeAction (..),
+import           Language.Haskell.LSP.Types (Command (..),
+                                             CodeAction (..),
                                              CodeActionContext (..),
                                              Diagnostic (..),
                                              DiagnosticSeverity (..),
@@ -104,6 +109,23 @@ data PluginCommand = forall a b. (FromJSON a, ToJSON b, Typeable b) =>
                 , commandDesc :: T.Text
                 , commandFunc :: CommandFunc a b
                 }
+
+mkLspCommand :: MonadIO m => PluginId -> CommandName -> T.Text -> Maybe [Value] -> m Command
+mkLspCommand plid cn title args' = do
+  cmdId <- mkLspCmdId plid cn
+  let args = List <$> args'
+  return $ Command title cmdId args
+
+allLspCmdIds :: MonadIO m => IdePlugins -> m [T.Text]
+allLspCmdIds (IdePlugins m) = concat <$> mapM go (Map.toList (pluginCommands <$> m))
+  where
+    go (plid, cmds) = mapM (mkLspCmdId plid . commandName) cmds
+
+
+mkLspCmdId :: MonadIO m => PluginId -> CommandName -> m T.Text
+mkLspCmdId plid cn = do
+  pid <- liftIO (T.pack . show <$> getProcessID) 
+  return $ pid <> ":" <> plid <> ":" <> cn
 
 type CodeActionProvider =  VersionedTextDocumentIdentifier
                         -> Maybe FilePath -- ^ Project root directory

@@ -19,6 +19,7 @@ flag pedantic
 library
   exposed-modules:
                        Haskell.Ide.Engine.ArtifactMap
+                       Haskell.Ide.Engine.Compat
                        Haskell.Ide.Engine.GhcModuleCache
                        Haskell.Ide.Engine.IdeFunctions
                        Haskell.Ide.Engine.ModuleCache
@@ -48,6 +49,10 @@ library
                      , text
                      , transformers
                      , unordered-containers
+  if os(windows)
+    build-depends:     Win32
+  else
+    build-depends:     unix
   ghc-options:         -Wall
   if flag(pedantic)
      ghc-options:      -Werror
