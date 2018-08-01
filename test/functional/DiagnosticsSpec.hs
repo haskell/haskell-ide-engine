@@ -35,8 +35,10 @@ spec = describe "diagnostics providers" $ do
 
         -- docItem <- getDocItem file languageId
         sendNotification TextDocumentDidSave (DidSaveTextDocumentParams doc)
-        diags2 <- waitForDiagnostics
-        liftIO $ length diags2 `shouldBe` 2
+        diags2hlint <- waitForDiagnostics
+        liftIO $ length diags2hlint `shouldBe` 2
+        diags2liquid <- waitForDiagnostics
+        liftIO $ length diags2liquid `shouldBe` 2
         -- liftIO $ show diags2 `shouldBe` ""
         diags3@(d:_) <- waitForDiagnostics
         -- liftIO $ show diags3 `shouldBe` ""

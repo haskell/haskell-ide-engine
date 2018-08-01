@@ -135,7 +135,11 @@ run opts = do
   when (optGhcModVomit opts) $
     logm "Enabling --vomit for ghc-mod. Output will be on stderr"
 
+  when (optExamplePlugin opts) $
+    logm "Enabling Example2 plugin, will insert constant diagnostics etc."
+
   let plugins' = plugins (optExamplePlugin opts)
+
   -- launch the dispatcher.
   if optJson opts then do
     pin <- atomically newTChan

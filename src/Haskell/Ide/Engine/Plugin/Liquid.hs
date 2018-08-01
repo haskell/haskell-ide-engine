@@ -14,6 +14,7 @@ import qualified Data.Set                      as S
 import qualified Data.Text                     as T
 import           GHC.Generics
 import           Haskell.Ide.Engine.MonadTypes hiding (_range)
+import           System.Directory
 import           System.FilePath
 
 
@@ -121,10 +122,15 @@ liquidErrorToDiagnostic (LE f t msg) =
 -- | Pull the errors out of the JSON annotation file, if it exists
 readJsonAnnot :: Uri -> IO (Maybe [LiquidError])
 readJsonAnnot uri = do
-  jf <- BS.readFile (jsonAnnotFile uri)
-  case decode jf :: Maybe LiquidJson of
-    Nothing -> return Nothing
-    Just j -> return (Just (errors j))
+  let fileName = jsonAnnotFile uri
+  exists <- doesFileExist fileName
+  if exists
+    then do
+      jf <- BS.readFile fileName
+      case decode jf :: Maybe LiquidJson of
+        Nothing -> return Nothing
+        Just j -> return (Just (errors j))
+    else return Nothing
 
 -- ---------------------------------------------------------------------
 

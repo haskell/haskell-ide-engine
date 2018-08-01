@@ -743,9 +743,13 @@ requestDiagnostics trigger tn file mVer = do
   cin <- asks reqChanIn
   mc <- liftIO $ Core.config lf
   case Map.lookup trigger diagFuncs of
-    Nothing -> return ()
+    Nothing -> do
+      logm $ "requestDiagnostics: no diagFunc for:" ++ show trigger
+      return ()
     Just dss -> do
+      logm $ "requestDiagnostics: got diagFunc for:" ++ show trigger
       forM_ dss $ \(pid,ds) -> do
+        logm $ "requestDiagnostics: calling diagFunc for plugin:" ++ show pid
         let
           maxToSend = maybe 50 maxNumberOfProblems mc
           sendOne (fileUri,ds') = do
