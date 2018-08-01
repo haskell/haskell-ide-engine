@@ -30,6 +30,7 @@ liquidDescriptor = PluginDescriptor
       ]
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Just (DiagnosticProvider (S.singleton DiagnosticOnSave) diagnosticProvider)
+  , pluginHoverProvider      = Nothing
   }
 
 -- ---------------------------------------------------------------------

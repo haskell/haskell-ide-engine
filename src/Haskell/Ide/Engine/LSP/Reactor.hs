@@ -5,6 +5,7 @@ module Haskell.Ide.Engine.LSP.Reactor
   , reactorSend
   , reactorSend'
   , makeRequest
+  , makeRequests
   , asksLspFuncs
   , REnv(..)
   )
@@ -27,8 +28,10 @@ data REnv = REnv
   { dispatcherEnv     :: DispatcherEnv
   , reqChanIn         :: TChan (PluginRequest R)
   , lspFuncs          :: Core.LspFuncs Config
-  , diagnosticSources :: Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
   , commandPrefixer   :: T.Text -> T.Text
+  , diagnosticSources :: Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
+  , hoverProviders    :: [HoverProvider]
+  -- TODO: Add code action providers here
   }
 
 -- | The monad used in the reactor
@@ -40,12 +43,13 @@ runReactor
   :: Core.LspFuncs Config
   -> DispatcherEnv
   -> TChan (PluginRequest R)
-  -> Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
   -> (T.Text -> T.Text)
+  -> Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
+  -> [HoverProvider]
   -> R a
   -> IO a
-runReactor lf de cin dps prefixer =
-  flip runReaderT (REnv de cin lf dps prefixer)
+runReactor lf de cin prefixer dps hps =
+  flip runReaderT (REnv de cin lf prefixer dps hps)
 
 -- ---------------------------------------------------------------------
 
@@ -83,3 +87,18 @@ writePluginReq req lid = do
   liftIO $ atomically $ do
     modifyTVar wipTVar (S.insert lid)
     writeTChan cin req
+
+-- | Execute multiple ide requests sequentially
+makeRequests :: [IdeM (IdeResponse a)] -- ^ The requests to make
+             -> TrackingNumber
+             -> J.LspId
+             -> ([a] -> R ())          -- ^ Callback with the request inputs and results
+             -> R ()
+makeRequests = go []
+  where
+    go acc [] _ _ callback = callback acc
+    go acc (x:xs) tn reqId callback =
+      let reqCallback result = go (acc ++ [result]) xs tn reqId callback
+      in makeRequest $ IReq tn reqId reqCallback x
+
+-- ---------------------------------------------------------------------

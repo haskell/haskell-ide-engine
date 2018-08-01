@@ -34,6 +34,7 @@ hoogleDescriptor = PluginDescriptor
       ]
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Nothing
+  , pluginHoverProvider = Nothing
   }
 
 -- ---------------------------------------------------------------------
@@ -149,6 +150,28 @@ runHoogleQuery (Just db) quer f = do
 searchHoogle :: FilePath -> T.Text -> IO [Target]
 searchHoogle dbf quer = withDatabase dbf (return . flip searchDatabase (T.unpack quer))
 
+------------------------------------------------------------------------
 
+docRules :: Maybe T.Text -> T.Text -> T.Text
+docRules (Just "base") "GHC.Base"    = "Prelude"
+docRules (Just "base") "GHC.Enum"    = "Prelude"
+docRules (Just "base") "GHC.Num"     = "Prelude"
+docRules (Just "base") "GHC.Real"    = "Prelude"
+docRules (Just "base") "GHC.Float"   = "Prelude"
+docRules (Just "base") "GHC.Show"    = "Prelude"
+docRules (Just "containers") modName =
+  fromMaybe modName $ T.stripSuffix ".Base" modName
+docRules _ modName = modName
 
-
+getDocsForName :: T.Text -> Maybe T.Text -> T.Text -> IdeM (Maybe T.Text)
+getDocsForName name pkg modName' = do
+  let modName = docRules pkg modName'
+      query = name
+           <> maybe "" (T.append " package:") pkg
+           <> " module:" <> modName
+           <> " is:exact"
+  debugm $ "hoogle query: " ++ T.unpack query
+  res <- infoCmdFancyRender query
+  case res of
+    Right x -> return $ Just x
+    Left _ -> return Nothing

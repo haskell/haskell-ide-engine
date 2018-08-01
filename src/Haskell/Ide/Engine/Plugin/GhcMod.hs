@@ -32,6 +32,7 @@ import           ErrUtils
 import qualified Exception                         as G
 import           GHC
 import           IOEnv                             as G
+import           Name
 import           GHC.Generics
 import qualified GhcMod                            as GM
 import qualified GhcMod.DynFlags                   as GM
@@ -47,6 +48,7 @@ import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Plugin.HaRe (HarePoint(..))
+import qualified Haskell.Ide.Engine.Plugin.HieExtras as Hie
 import           Haskell.Ide.Engine.ArtifactMap
 import           HscTypes
 import qualified Language.Haskell.LSP.Types        as LSP
@@ -71,6 +73,7 @@ ghcmodDescriptor = PluginDescriptor
       ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
+  , pluginHoverProvider = Just hoverProvider
   }
 
 -- ---------------------------------------------------------------------
@@ -461,3 +464,37 @@ extractRedundantImport msg =
     then Just $ T.init $ T.tail $ T.dropWhileEnd (/= '’') $ T.dropWhile (/= '‘') firstLine
     else Nothing
   where firstLine = head (T.lines msg)
+
+-- ---------------------------------------------------------------------
+
+hoverProvider :: HoverProvider
+hoverProvider doc pos = runIdeResponseT $ do
+  info' <- IdeResponseT $ IdeResponseResult <$> newTypeCmd pos doc
+  names' <- IdeResponseT $ Hie.getSymbolsAtPoint doc pos
+  let
+    f = (==) `on` (Hie.showName . snd)
+    f' = compare `on` (Hie.showName . snd)
+    names = mapMaybe pickName $ groupBy f $ sortBy f' names'
+    pickName [] = Nothing
+    pickName [x] = Just x
+    pickName xs@(x:_) = case find (isJust . nameModule_maybe . snd) xs of
+      Nothing -> Just x
+      Just a -> Just a
+    nnames = length names
+    (info,mrange) =
+      case map last $ groupBy ((==) `on` fst) info' of
+        ((r,typ):_) ->
+          case find ((r ==) . fst) names of
+            Nothing ->
+              (Just $ LSP.CodeString $ LSP.LanguageString "haskell" $ "_ :: " <> typ, Just r)
+            Just (_,name)
+              | nnames == 1 ->
+                (Just $ LSP.CodeString $ LSP.LanguageString "haskell" $ Hie.showName name <> " :: " <> typ, Just r)
+              | otherwise ->
+                (Just $ LSP.CodeString $ LSP.LanguageString "haskell" $ "_ :: " <> typ, Just r)
+        [] -> case names of
+          [] -> (Nothing, Nothing)
+          ((r,_):_) -> (Nothing, Just r)
+  return $ case mrange of
+    Just r -> LSP.Hover (LSP.List $ catMaybes [info]) (Just r)
+    Nothing -> LSP.Hover (LSP.List []) Nothing 

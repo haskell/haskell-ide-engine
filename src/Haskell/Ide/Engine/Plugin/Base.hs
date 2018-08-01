@@ -43,6 +43,7 @@ baseDescriptor = PluginDescriptor
       ]
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Nothing
+  , pluginHoverProvider = Nothing
   }
 
 -- ---------------------------------------------------------------------

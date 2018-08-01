@@ -33,7 +33,6 @@ import           Data.Maybe
 import           Data.Monoid ( (<>) )
 import           Data.Foldable
 import           Data.Function
-import           Data.List
 import qualified Data.Map as Map
 import qualified Data.Set as S
 import qualified Data.SortedList as SL
@@ -56,7 +55,6 @@ import qualified Haskell.Ide.Engine.Plugin.GhcMod        as GhcMod
 import qualified Haskell.Ide.Engine.Plugin.ApplyRefact   as ApplyRefact
 import qualified Haskell.Ide.Engine.Plugin.Brittany      as Brittany
 import qualified Haskell.Ide.Engine.Plugin.Hoogle        as Hoogle
-import qualified Haskell.Ide.Engine.Plugin.Haddock       as Haddock
 import qualified Haskell.Ide.Engine.Plugin.HieExtras     as Hie
 import           Haskell.Ide.Engine.Plugin.Base
 import qualified Language.Haskell.LSP.Control            as CTRL
@@ -70,8 +68,6 @@ import qualified Language.Haskell.LSP.Utility            as U
 import           System.Exit
 import qualified System.Log.Logger as L
 import qualified Yi.Rope as Yi
-
-import Name
 
 -- ---------------------------------------------------------------------
 {-# ANN module ("hlint: ignore Eta reduce" :: String) #-}
@@ -115,14 +111,15 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
               , wipReqsTVar    = wipTVar
               , docVersionTVar = versionTVar
               }
-        let reactorFunc = runReactor lf dEnv cin diagnosticProviders prefix $ reactor rin
+        let reactorFunc = runReactor lf dEnv cin prefix diagnosticProviders hps
+              $ reactor rin
             caps = Core.clientCapabilities lf
 
         let errorHandler :: ErrorHandler
             errorHandler lid code e =
               Core.sendErrorResponseS (Core.sendFunc lf) (J.responseId lid) code e
             callbackHandler :: CallbackHandler R
-            callbackHandler f x = runReactor lf dEnv cin diagnosticProviders prefix $ f x
+            callbackHandler f x = runReactor lf dEnv cin prefix diagnosticProviders hps $ f x
 
 
         -- haskell lsp sets the current directory to the project root in the InitializeRequest
@@ -145,6 +142,9 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
           pp (p,pd) = case pluginDiagnosticProvider pd of
             Nothing -> []
             Just dpf -> [(p,dpf)]
+
+      hps :: [HoverProvider]
+      hps = mapMaybe pluginHoverProvider $ Map.elems $ ipMap plugins
 
       cmdFolder :: [T.Text] -> T.Text -> [PluginCommand] -> [T.Text]
       cmdFolder acc plugin cmds = acc ++ map prefix cmdIds
@@ -482,80 +482,37 @@ reactor inp = do
           let params = req ^. J.params
               pos = params ^. J.position
               doc = params ^. J.textDocument . J.uri
-              callback (typ, docs, mrange) = do
-                let
-                  ht = case mrange of
-                    Nothing    -> J.Hover (J.List []) Nothing
-                    Just range -> J.Hover (J.List hovers)
-                                          (Just range)
-                      where
-                        hovers = catMaybes [typ] ++ fmap J.PlainString docs
-                  rspMsg = Core.makeResponseMessage req ht
-                reactorSend $ RspHover rspMsg
-          let
-            getHoverInfo :: IdeM (IdeResponse (Maybe J.MarkedString, [T.Text], Maybe Range))
-            getHoverInfo = runIdeResponseT $ do
-                info' <- IdeResponseT $ IdeResponseResult <$> GhcMod.newTypeCmd pos doc
-                names' <- IdeResponseT $ Hie.getSymbolsAtPoint doc pos
-                let
-                  f = (==) `on` (Hie.showName . snd)
-                  f' = compare `on` (Hie.showName . snd)
-                  names = mapMaybe pickName $ groupBy f $ sortBy f' names'
-                  pickName [] = Nothing
-                  pickName [x] = Just x
-                  pickName xs@(x:_) = case find (isJust . nameModule_maybe . snd) xs of
-                    Nothing -> Just x
-                    Just a -> Just a
-                  nnames = length names
-                  (info,mrange) =
-                    case map last $ groupBy ((==) `on` fst) info' of
-                      ((r,typ):_) ->
-                        case find ((r ==) . fst) names of
-                          Nothing ->
-                            (Just $ J.CodeString $ J.LanguageString "haskell" $ "_ :: " <> typ, Just r)
-                          Just (_,name)
-                            | nnames == 1 ->
-                              (Just $ J.CodeString $ J.LanguageString "haskell" $ Hie.showName name <> " :: " <> typ, Just r)
-                            | otherwise ->
-                              (Just $ J.CodeString $ J.LanguageString "haskell" $ "_ :: " <> typ, Just r)
-                      [] -> case names of
-                        [] -> (Nothing, Nothing)
-                        ((r,_):_) -> (Nothing, Just r)
-                df <- IdeResponseT $ Hie.getDynFlags doc
-                docs <- forM names $ \(_,name) -> do
-                    let sname = Hie.showName name
-                    case Hie.getModule df name of
-                      Nothing -> return $ "`" <> sname <> "` *local*"
-                      (Just (pkg,mdl)) -> do
-                        let mname = "`"<> sname <> "`\n\n"
-                        let minfo = maybe "" (<>" ") pkg <> mdl
-                        mdocu' <- lift $ Haddock.getDocsWithType df name
-                        mdocu <- case mdocu' of
-                          Just _ -> return mdocu'
-                          -- Hoogle as fallback
-                          Nothing -> lift $ getDocsForName sname pkg mdl
-                        case mdocu of
-                          Nothing -> return $ mname <> minfo
-                          Just docu -> return $ docu <> "\n\n" <> minfo
-                return (info,docs,mrange)
-          let hreq = IReq tn (req ^. J.id) callback $ do
+
+          hps <- asks hoverProviders
+
+          let callback :: [J.Hover] -> R ()
+              callback hs =
+                -- TODO: We should support ServerCapabilities and declare that 
+                -- we don't support hover requests during initialization if we
+                -- don't have any hover providers
+                -- TODO: maybe only have provider give MarkedString and 
+                -- work out range here?
+                let h = J.Hover (fold (map (^. J.contents) hs)) r
+                    r = listToMaybe $ mapMaybe (^. J.range) hs
+                in reactorSend $ RspHover $ Core.makeResponseMessage req h
+
+              hreq :: PluginRequest R
+              hreq = IReq tn (req ^. J.id) callback $
                 pluginGetFileResponse "ReqHover:" doc $ \fp -> do
                   cached <- isCached fp
                   -- Hover requests need to be instant so don't wait
                   -- for cached module to be loaded
                   if cached
-                    then getHoverInfo
-                    else return (IdeResponseOk (Nothing,[],Nothing))
+                    then sequence <$> mapM (\hp -> hp doc pos) hps
+                    else return (IdeResponseOk [])
           makeRequest hreq
-
-          liftIO $ U.logs $ "reactor:HoverRequest done"
+          liftIO $ U.logs "reactor:HoverRequest done"
 
         -- -------------------------------
 
         ReqCodeAction req -> do
           liftIO $ U.logs $ "reactor:got CodeActionRequest:" ++ show req
           handleCodeActionReq tn req
-          -- TODO: make context specific commands for all sorts of things, such as refactorings          
 
         -- -------------------------------
 
@@ -773,32 +730,6 @@ reactor inp = do
 
   -- Actually run the thing
   loop 0
-
--- ---------------------------------------------------------------------
-
-docRules :: Maybe T.Text -> T.Text -> T.Text
-docRules (Just "base") "GHC.Base"    = "Prelude"
-docRules (Just "base") "GHC.Enum"    = "Prelude"
-docRules (Just "base") "GHC.Num"     = "Prelude"
-docRules (Just "base") "GHC.Real"    = "Prelude"
-docRules (Just "base") "GHC.Float"   = "Prelude"
-docRules (Just "base") "GHC.Show"    = "Prelude"
-docRules (Just "containers") modName =
-  fromMaybe modName $ T.stripSuffix ".Base" modName
-docRules _ modName = modName
-
-getDocsForName :: T.Text -> Maybe T.Text -> T.Text -> IdeM (Maybe T.Text)
-getDocsForName name pkg modName' = do
-  let modName = docRules pkg modName'
-      query = name
-           <> maybe "" (T.append " package:") pkg
-           <> " module:" <> modName
-           <> " is:exact"
-  debugm $ "hoogle query: " ++ T.unpack query
-  res <- Hoogle.infoCmdFancyRender query
-  case res of
-    Right x -> return $ Just x
-    Left _ -> return Nothing
 
 -- ---------------------------------------------------------------------
 

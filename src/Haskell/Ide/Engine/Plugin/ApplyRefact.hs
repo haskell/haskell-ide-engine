@@ -44,6 +44,7 @@ applyRefactDescriptor = PluginDescriptor
       ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
+  , pluginHoverProvider = Nothing
   }
 
 -- ---------------------------------------------------------------------
