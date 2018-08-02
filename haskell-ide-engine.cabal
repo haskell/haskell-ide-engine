@@ -58,6 +58,7 @@ library
                      , data-default
                      , directory
                      , filepath
+                     , fingertree
                      , ghc >= 8.0.1
                      , ghc-exactprint
                      , ghc-mod >= 5.9.0.0

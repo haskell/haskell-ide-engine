@@ -1,27 +1,30 @@
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NamedFieldPuns      #-}
 module Haskell.Ide.Engine.Plugin.Liquid where
 
+import           Control.Monad
 import           Control.Monad.IO.Class
 #if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
 #endif
 import           Data.Aeson
 import qualified Data.ByteString.Lazy as BS
+import qualified Data.IntervalMap.FingerTree   as IM
 import qualified Data.Map                      as Map
 import qualified Data.Set                      as S
 import qualified Data.Text                     as T
 import qualified Data.Text.IO                  as T
 import           GHC.Generics
+import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.MonadTypes hiding (_range)
+import           Haskell.Ide.Engine.PluginUtils
 import qualified Language.Haskell.LSP.Types as J
 import           System.Directory
 import           System.FilePath
 import           Text.Parsec
--- import           Text.Parsec.Char
 import           Text.Parsec.Text
-
 
 -- ---------------------------------------------------------------------
 
@@ -180,10 +183,24 @@ liquidFileFor uri ext =
 
 -- type HoverProvider = Uri -> Position -> IdeM (IdeResponse Hover)
 hoverProvider :: HoverProvider
-hoverProvider _uri _pos = do
-  let docs = ["Liquid hover thing"] -- :: [T.Text]
-  let hover = J.Hover (J.List $ fmap J.PlainString docs) Nothing
-  return $ IdeResponseResult (IdeResultOk hover)
+hoverProvider uri pos =
+  pluginGetFileResponse "Liquid.hoverProvider: " uri $ \file ->
+    withCachedModuleAndDataDefault file (Just (IdeResponseOk [])) $
+      \cm () -> do
+        let mpos = newPosToOld cm pos
+        case mpos of
+          Nothing -> return $ IdeResponseOk []
+          Just pos' -> do
+            merrs <- liftIO $ readVimAnnot uri
+            case merrs of
+              Nothing -> return $ IdeResponseResult (IdeResultOk [])
+              Just lerrs -> do
+                let lm = genLiquidTypeMap lerrs
+                hs <- forM (getArtifactsAtPos pos' lm) $ \(r,LE _s _e msg) -> do
+                  let msgs = T.splitOn "\\n" msg
+                      msg' = J.CodeString (J.LanguageString "liquid" (T.unlines msgs))
+                  return $ J.Hover (J.List [msg']) (Just r)
+                return $ IdeResponseResult (IdeResultOk hs)
 
 -- ---------------------------------------------------------------------
 
@@ -220,5 +237,16 @@ number :: Parser Int
 number = do
   s <- many1 digit
   return (read s)
+
+-- ---------------------------------------------------------------------
+
+genLiquidTypeMap :: [LiquidError] -> SourceMap LiquidError
+genLiquidTypeMap ts = foldr go IM.empty ts
+  where
+    go le@(LE s e _msg) im =
+      IM.insert (lpsToInterval s e) le im
+
+    lpsToInterval :: LiquidPos -> LiquidPos -> IM.Interval Position
+    lpsToInterval s e = IM.Interval (lpToPos s) (lpToPos e)
 
 -- ---------------------------------------------------------------------
