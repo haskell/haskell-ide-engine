@@ -11,13 +11,11 @@ import           Data.Monoid
 #endif
 import           Data.Aeson
 import qualified Data.ByteString.Lazy as BS
-import qualified Data.IntervalMap.FingerTree   as IM
 import qualified Data.Map                      as Map
 import qualified Data.Set                      as S
 import qualified Data.Text                     as T
 import qualified Data.Text.IO                  as T
 import           GHC.Generics
-import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.MonadTypes hiding (_range)
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Language.Haskell.LSP.Types as J
