@@ -8,7 +8,7 @@ module Haskell.Ide.Engine.Plugin.GhcMod where
 
 import           Bag
 import           Control.Monad.IO.Class
-import           Control.Lens
+import           Control.Lens hiding (cons, children)
 import           Control.Lens.Setter ((%~))
 import           Control.Lens.Traversal (traverseOf)
 import           Data.Aeson
@@ -52,6 +52,7 @@ import qualified Haskell.Ide.Engine.Plugin.HieExtras as Hie
 import           Haskell.Ide.Engine.ArtifactMap
 import           HscTypes
 import qualified Language.Haskell.LSP.Types        as LSP
+import           Language.Haskell.Refact.API       (hsNamessRdr)
 import           TcRnTypes
 import           Outputable                        (renderWithStyle, mkUserStyle, Depth(..))
 
@@ -74,6 +75,7 @@ ghcmodDescriptor = PluginDescriptor
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Just hoverProvider
+  , pluginSymbolProvider = Just symbolProvider
   }
 
 -- ---------------------------------------------------------------------
@@ -183,7 +185,7 @@ errorHandlers ghcErrRes renderSourceError = handlers
         ]
 
 setTypecheckedModule :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
-setTypecheckedModule uri = 
+setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     fileMap <- GM.getMMappedFiles
     debugm $ "setTypecheckedModule: file mapping state is: " ++ show fileMap
@@ -311,8 +313,7 @@ isSubRangeOf (Range sa ea) (Range sb eb) = sb <= sa && eb >= ea
 
 
 splitCaseCmd :: CommandFunc HarePoint WorkspaceEdit
-splitCaseCmd = CmdSync $ \(HP uri pos) -> do
-    splitCaseCmd' uri pos
+splitCaseCmd = CmdSync $ \(HP uri pos) -> splitCaseCmd' uri pos
 
 splitCaseCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 splitCaseCmd' uri newPos =
@@ -398,7 +399,7 @@ codeActionProvider docId _ _ context =
     docUri = docId ^. LSP.uri
 
     mkWorkspaceEdit :: [LSP.TextEdit] -> LSP.WorkspaceEdit
-    mkWorkspaceEdit es = 
+    mkWorkspaceEdit es =
        let changes = HM.singleton docUri (LSP.List es)
            docChanges = LSP.List [textDocEdit]
            textDocEdit = LSP.TextDocumentEdit docId (LSP.List es)
@@ -438,7 +439,7 @@ codeActionProvider docId _ _ context =
         --TODO: Use hsimport to preserve formatting/whitespace
         importEdit = mkWorkspaceEdit [tEdit]
         tEdit = LSP.TextEdit (diag ^. LSP.range) ("import " <> modName <> "()")
-      
+
     getRedundantImports :: LSP.Diagnostic -> Maybe (LSP.Diagnostic, T.Text)
     getRedundantImports diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractRedundantImport msg
     getRedundantImports _ = Nothing
@@ -497,4 +498,90 @@ hoverProvider doc pos = runIdeResponseT $ do
           ((r,_):_) -> (Nothing, Just r)
   return $ case mrange of
     Just r -> LSP.Hover (LSP.List $ catMaybes [info]) (Just r)
-    Nothing -> LSP.Hover (LSP.List []) Nothing 
+    Nothing -> LSP.Hover (LSP.List []) Nothing
+
+-- ---------------------------------------------------------------------
+
+data Decl = Decl LSP.SymbolKind (Located T.Text) [Decl]
+
+symbolProvider :: Uri -> IdeM (IdeResponse [LSP.DocumentSymbol])
+symbolProvider uri = pluginGetFileResponse "ghc-mod symbolProvider: " uri $ \file -> withCachedModule file $ \cm -> do
+  let tm = tcMod cm
+      hsMod = unLoc $ pm_parsed_source $ tm_parsed_module tm
+      imports = hsmodImports hsMod
+      imps  = concatMap (goImport . unLoc) imports
+      decls = concatMap (go . unLoc) $ hsmodDecls hsMod
+      s x = Hie.showName <$> x
+
+      go :: HsDecl GM.GhcPs -> [Decl]
+      go (TyClD FamDecl { tcdFam = FamilyDecl { fdLName = n } }) = pure (Decl LSP.SkClass (s n) [])
+      go (TyClD SynDecl { tcdLName = n }) = pure (Decl LSP.SkClass (s n) [])
+      go (TyClD DataDecl { tcdLName = n, tcdDataDefn = HsDataDefn { dd_cons = cons } }) =
+        pure (Decl LSP.SkClass (s n) (concatMap (processCon . unLoc) cons))
+      go (TyClD ClassDecl { tcdLName = n, tcdSigs = sigs, tcdATs = fams }) =
+        pure (Decl LSP.SkInterface (s n) children)
+        where children = famDecls ++ sigDecls
+              famDecls = concatMap (go . TyClD . FamDecl . unLoc) fams
+              sigDecls = concatMap (processSig . unLoc) sigs
+      go (ValD FunBind { fun_id = ln, fun_matches = MG { mg_alts = llms } }) = 
+        pure (Decl LSP.SkFunction (s ln) wheres)
+        where
+          wheres = concatMap (gomatch . unLoc) (unLoc llms)
+          -- gomatch :: Match a b -> [Decl]
+          gomatch (Match { m_grhss = GRHSs { grhssLocalBinds = lbs } }) = golbs (unLoc lbs)
+          -- golbs :: HsLocalBindsLR a b -> [Decl]
+          golbs (HsValBinds (ValBindsIn lhsbs _ )) = concatMap (go . ValD . unLoc) lhsbs
+          golbs _ = []
+      go (ValD PatBind { pat_lhs = p }) =
+        map (\n -> Decl LSP.SkMethod (s n) []) $ hsNamessRdr p
+      go (ForD ForeignImport { fd_name = n }) = pure (Decl LSP.SkFunction (s n) [])
+      go _ = []
+
+      processSig :: Sig GM.GhcPs -> [Decl]
+      processSig (ClassOpSig False names _) =
+        map (\n -> Decl LSP.SkMethod (s n) []) names
+      processSig _ = []
+
+      processCon :: ConDecl GM.GhcPs -> [Decl]
+      processCon ConDeclGADT { con_names = names } =
+        map (\n -> Decl LSP.SkConstructor (s n) []) names
+      processCon ConDeclH98 { con_name = name, con_details = dets } =
+        pure (Decl LSP.SkConstructor (s name) xs)
+        where
+          f ln = Decl LSP.SkField (s ln) []
+          xs = case dets of
+            RecCon (L _ rs) -> concatMap (map (f . rdrNameFieldOcc . unLoc)
+                                          . cd_fld_names
+                                          . unLoc) rs
+            _ -> []
+
+      goImport :: ImportDecl GM.GhcPs -> [Decl]
+      goImport ImportDecl { ideclName = lmn, ideclAs = as, ideclHiding = meis } = pure im
+        where
+          im = Decl imKind lsmn xs
+          imKind
+            | isJust as = LSP.SkNamespace
+            | otherwise = LSP.SkModule
+          lsmn = s lmn
+          xs = case meis of
+                  Just (False, eis) -> concatMap (f . unLoc) (unLoc eis)
+                  _ -> []
+          f (IEVar n) = pure (Decl LSP.SkFunction (s n) [])
+          f (IEThingAbs n) = pure (Decl LSP.SkClass (s n) [])
+          f (IEThingAll n) = pure (Decl LSP.SkClass (s n) [])
+          f (IEThingWith n _ vars fields) =
+            let funcDecls = map (\n' -> Decl LSP.SkFunction (s n') []) vars
+                fieldDecls = map (\f' -> Decl LSP.SkField (s f') []) fields
+                children = funcDecls ++ fieldDecls
+              in pure (Decl LSP.SkClass (s n) children)
+          f _ = []
+
+      declsToSymbolInf :: Decl -> IdeM [LSP.DocumentSymbol]
+      declsToSymbolInf (Decl kind (L l nameText) children) = do
+        childrenSymbols <- concat <$> mapM declsToSymbolInf children
+        case srcSpan2Range l of
+          Left _ -> return childrenSymbols
+          Right r -> return $ pure $
+            LSP.DocumentSymbol nameText (Just "asdf") kind Nothing r r (Just $ LSP.List childrenSymbols)
+  symInfs <- concat <$> mapM declsToSymbolInf (imps ++ decls)
+  return $ IdeResponseOk symInfs
