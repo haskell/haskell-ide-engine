@@ -182,25 +182,23 @@ liquidFileFor uri ext =
 -- ---------------------------------------------------------------------
 
 -- type HoverProvider = Uri -> Position -> IdeM (IdeResponse Hover)
+
 hoverProvider :: HoverProvider
 hoverProvider uri pos =
   pluginGetFileResponse "Liquid.hoverProvider: " uri $ \file ->
     withCachedModuleAndDataDefault file (Just (IdeResponseOk [])) $
       \cm () -> do
-        let mpos = newPosToOld cm pos
-        case mpos of
-          Nothing -> return $ IdeResponseOk []
-          Just pos' -> do
-            merrs <- liftIO $ readVimAnnot uri
-            case merrs of
-              Nothing -> return $ IdeResponseResult (IdeResultOk [])
-              Just lerrs -> do
-                let lm = genLiquidTypeMap lerrs
-                hs <- forM (getArtifactsAtPos pos' lm) $ \(r,LE _s _e msg) -> do
-                  let msgs = T.splitOn "\\n" msg
-                      msg' = J.CodeString (J.LanguageString "liquid" (T.unlines msgs))
-                  return $ J.Hover (J.List [msg']) (Just r)
-                return $ IdeResponseResult (IdeResultOk hs)
+        merrs <- liftIO $ readVimAnnot uri
+        case merrs of
+          Nothing -> return $ IdeResponseResult (IdeResultOk [])
+          Just lerrs -> do
+            let perrs = map (\le@(LE s e _) -> (lpToPos s,lpToPos e,le)) lerrs
+                ls    = getThingsAtPos cm pos perrs
+            hs <- forM ls $ \(r,LE _s _e msg) -> do
+              let msgs = T.splitOn "\\n" msg
+                  msg' = J.CodeString (J.LanguageString "haskell" (T.unlines msgs))
+              return $ J.Hover (J.List [msg']) (Just r)
+            return $ IdeResponseResult (IdeResultOk hs)
 
 -- ---------------------------------------------------------------------
 
@@ -237,16 +235,5 @@ number :: Parser Int
 number = do
   s <- many1 digit
   return (read s)
-
--- ---------------------------------------------------------------------
-
-genLiquidTypeMap :: [LiquidError] -> SourceMap LiquidError
-genLiquidTypeMap ts = foldr go IM.empty ts
-  where
-    go le@(LE s e _msg) im =
-      IM.insert (lpsToInterval s e) le im
-
-    lpsToInterval :: LiquidPos -> LiquidPos -> IM.Interval Position
-    lpsToInterval s e = IM.Interval (lpToPos s) (lpToPos e)
 
 -- ---------------------------------------------------------------------
