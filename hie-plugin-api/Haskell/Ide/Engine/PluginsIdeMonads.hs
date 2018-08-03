@@ -67,6 +67,7 @@ import           Data.Aeson
 import           Data.Dynamic (Dynamic)
 import           Data.IORef
 import qualified Data.Map as Map
+import           Data.Monoid ((<>))
 import qualified Data.Set as S
 import qualified Data.Text as T
 import           Data.Typeable (TypeRep, Typeable)
