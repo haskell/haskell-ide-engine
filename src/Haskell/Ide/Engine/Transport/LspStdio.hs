@@ -485,14 +485,15 @@ reactor inp = do
 
           hps <- asks hoverProviders
 
-          let callback :: [J.Hover] -> R ()
-              callback hs =
-                -- TODO: We should support ServerCapabilities and declare that 
+          let callback :: [[J.Hover]] -> R ()
+              callback hhs =
+                -- TODO: We should support ServerCapabilities and declare that
                 -- we don't support hover requests during initialization if we
                 -- don't have any hover providers
-                -- TODO: maybe only have provider give MarkedString and 
+                -- TODO: maybe only have provider give MarkedString and
                 -- work out range here?
-                let h = J.Hover (fold (map (^. J.contents) hs)) r
+                let hs = concat hhs
+                    h = J.Hover (fold (map (^. J.contents) hs)) r
                     r = listToMaybe $ mapMaybe (^. J.range) hs
                 in reactorSend $ RspHover $ Core.makeResponseMessage req h
 
@@ -743,9 +744,13 @@ requestDiagnostics trigger tn file mVer = do
   cin <- asks reqChanIn
   mc <- liftIO $ Core.config lf
   case Map.lookup trigger diagFuncs of
-    Nothing -> return ()
+    Nothing -> do
+      logm $ "requestDiagnostics: no diagFunc for:" ++ show trigger
+      return ()
     Just dss -> do
+      logm $ "requestDiagnostics: got diagFunc for:" ++ show trigger
       forM_ dss $ \(pid,ds) -> do
+        logm $ "requestDiagnostics: calling diagFunc for plugin:" ++ show pid
         let
           maxToSend = maybe 50 maxNumberOfProblems mc
           sendOne (fileUri,ds') = do

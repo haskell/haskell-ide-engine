@@ -77,6 +77,7 @@ library
                      , monoid-subclasses > 0.4
                      , mtl
                      , optparse-simple >= 0.0.3
+                     , parsec
                      , process
                      , sorted-list >= 0.2.1.0
                      , stm
@@ -148,6 +149,7 @@ test-suite unit-test
                        DiffSpec
                        ExtensibleStateSpec
                        GhcModPluginSpec
+                       LiquidSpec
                        HaRePluginSpec
                        HooglePluginSpec
                        JsonSpec
@@ -157,6 +159,7 @@ test-suite unit-test
   build-depends:       QuickCheck
                      , aeson
                      , base
+                     , bytestring
                      , containers
                      , directory
                      , filepath
