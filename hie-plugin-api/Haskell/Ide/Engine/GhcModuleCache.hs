@@ -39,6 +39,17 @@ instance Show CachedModule where
   show CachedModule{} = "CachedModule { .. }"
 
 -- ---------------------------------------------------------------------
+
+-- | Given a list of things with their start and end position in the
+-- file, return the set of them that cross include the given position,
+-- after it is updated based on edits since the last compile.
+getThingsAtPos :: CachedModule -> Position -> [(Position,Position,a)] -> [(Range,a)]
+getThingsAtPos cm pos ts =
+  case newPosToOld cm pos of
+    Nothing   -> []
+    Just pos' -> getArtifactsAtPos pos' (genIntervalMap ts)
+
+-- ---------------------------------------------------------------------
 -- The following to move into ghc-mod-core
 
 class (Monad m) => HasGhcModuleCache m where
