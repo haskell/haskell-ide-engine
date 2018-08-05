@@ -24,7 +24,7 @@ spec = do
 -- ---------------------------------------------------------------------
 
 testPlugins :: IdePlugins
-testPlugins = pluginDescToIdePlugins [("hoogle",hoogleDescriptor)]
+testPlugins = pluginDescToIdePlugins [hoogleDescriptor "hoogle"]
 
 dispatchRequestP :: IdeGhcM a -> IO a
 dispatchRequestP = runIGM testPlugins

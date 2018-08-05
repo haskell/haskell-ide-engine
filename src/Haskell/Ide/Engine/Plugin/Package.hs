@@ -49,9 +49,10 @@ import           Distribution.Types.CondTree
 import qualified Distribution.PackageDescription.PrettyPrint as PP
 import qualified Data.Yaml as Y
 
-packageDescriptor :: PluginDescriptor
-packageDescriptor = PluginDescriptor
-  { pluginName     = "package"
+packageDescriptor :: T.Text -> PluginDescriptor
+packageDescriptor plId = PluginDescriptor
+  { pluginId       = plId
+  , pluginName     = "package"
   , pluginDesc     = "Tools for editing .cabal and package.yaml files."
   , pluginCommands = [PluginCommand "add" "Add a packge" addCmd]
   , pluginCodeActionProvider = Just codeActionProvider
@@ -230,7 +231,7 @@ editCabalPackage file modulePath pkgName fileMap = do
             newDeps = oldDeps ++ [Dependency (mkPackageName dep) anyVersion]
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider docId mRootDir _ context = do
+codeActionProvider plId docId mRootDir _ context = do
   let J.List diags = context ^. J.diagnostics
       pkgs = mapMaybe getAddablePackages diags
 
@@ -247,7 +248,7 @@ codeActionProvider docId mRootDir _ context = do
      (Just rootDir, Just docFp) -> do
        let title = "Add " <> pkgName <> " as a dependency"
            cmdParams = [toJSON (AddParams rootDir docFp pkgName)]
-       cmd <- mkLspCommand "package" "add" title (Just cmdParams)
+       cmd <- mkLspCommand plId "add" title (Just cmdParams)
        return $ Just (J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [diag])) Nothing (Just cmd))
      _ -> return Nothing
 

@@ -37,12 +37,11 @@ handleCodeActionReq tn req = do
   docVersion <- fmap _version <$> liftIO (vfsFunc docUri)
   let docId = J.VersionedTextDocumentIdentifier docUri docVersion
 
-  let getProviders :: IdeM (IdeResponse [CodeActionProvider])
+  let getProvider p = pluginCodeActionProvider p <*> return (pluginId p)
       getProviders = do
         IdePlugins m <- lift getPlugins
-        return $ IdeResponseOk $ mapMaybe pluginCodeActionProvider $ toList m
+        return $ IdeResponseOk $ mapMaybe getProvider $ toList m
 
-      providersCb :: [CodeActionProvider] -> R ()
       providersCb providers =
         let reqs = map (\f -> f docId maybeRootDir range context) providers
         in makeRequests reqs tn (req ^. J.id) (send . concat)

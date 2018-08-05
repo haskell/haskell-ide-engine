@@ -30,10 +30,10 @@ import qualified System.Log.Logger as L
 
 -- ---------------------------------------------------------------------
 
-baseDescriptor :: PluginDescriptor
-baseDescriptor = PluginDescriptor
-  {
-    pluginName = "HIE Base"
+baseDescriptor :: PluginId -> PluginDescriptor
+baseDescriptor plId = PluginDescriptor
+  { pluginId = plId
+  , pluginName = "HIE Base"
   , pluginDesc = "Commands for HIE itself"
   , pluginCommands =
       [ PluginCommand "version" "return HIE version" versionCmd

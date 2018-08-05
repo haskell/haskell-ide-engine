@@ -20,10 +20,10 @@ import           Text.HTML.TagSoup.Tree
 
 -- ---------------------------------------------------------------------
 
-hoogleDescriptor :: PluginDescriptor
-hoogleDescriptor = PluginDescriptor
-  {
-    pluginName = "hoogle"
+hoogleDescriptor :: PluginId -> PluginDescriptor
+hoogleDescriptor plId = PluginDescriptor
+  { pluginId = plId
+  , pluginName = "hoogle"
   , pluginDesc =
          "Hoogle is a Haskell API search engine, which allows you to search "
       <> "many standard Haskell libraries by either function name, or by approximate "

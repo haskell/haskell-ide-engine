@@ -129,7 +129,8 @@ mkLspCmdId plid cn = do
   pid <- liftIO (T.pack . show <$> getProcessID) 
   return $ pid <> ":" <> plid <> ":" <> cn
 
-type CodeActionProvider =  VersionedTextDocumentIdentifier
+type CodeActionProvider =  PluginId
+                        -> VersionedTextDocumentIdentifier
                         -> Maybe FilePath -- ^ Project root directory
                         -> Range
                         -> CodeActionContext
@@ -152,7 +153,8 @@ data DiagnosticTrigger = DiagnosticOnOpen
 type HoverProvider = Uri -> Position -> IdeM (IdeResponse [Hover])
 
 data PluginDescriptor =
-  PluginDescriptor { pluginName               :: T.Text
+  PluginDescriptor { pluginId                 :: PluginId
+                   , pluginName               :: T.Text
                    , pluginDesc               :: T.Text
                    , pluginCommands           :: [PluginCommand]
                    , pluginCodeActionProvider :: Maybe CodeActionProvider

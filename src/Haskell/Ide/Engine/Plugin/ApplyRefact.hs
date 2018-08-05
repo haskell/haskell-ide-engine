@@ -32,10 +32,10 @@ import           Refact.Apply
 
 type HintTitle = T.Text
 
-applyRefactDescriptor :: PluginDescriptor
-applyRefactDescriptor = PluginDescriptor
-  {
-    pluginName = "ApplyRefact"
+applyRefactDescriptor :: PluginId -> PluginDescriptor
+applyRefactDescriptor plId = PluginDescriptor
+  { pluginId = plId
+  , pluginName = "ApplyRefact"
   , pluginDesc = "apply-refact applies refactorings specified by the refact package. It is currently integrated into hlint to enable the automatic application of suggestions."
   , pluginCommands =
       [ PluginCommand "applyOne" "Apply a single hint" applyOneCmd
@@ -276,7 +276,7 @@ showParseError (Hlint.ParseError location message content) =
 -- ---------------------------------------------------------------------
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider docId _ _ context = IdeResponseOk <$> hlintActions
+codeActionProvider plId docId _ _ context = IdeResponseOk <$> hlintActions
   where
 
     hlintActions :: IdeM [LSP.CodeAction]
@@ -293,7 +293,7 @@ codeActionProvider docId _ _ context = IdeResponseOk <$> hlintActions
 
     mkHlintAction :: LSP.Diagnostic -> IdeM (Maybe LSP.CodeAction)
     mkHlintAction diag@(LSP.Diagnostic (LSP.Range start _) _s (Just code) (Just "hlint") m _) =
-      Just . codeAction <$> mkLspCommand "applyrefact" "applyOne" title (Just args)
+      Just . codeAction <$> mkLspCommand plId "applyOne" title (Just args)
      where
        codeAction cmd = LSP.CodeAction title (Just LSP.CodeActionRefactor) (Just (LSP.List [diag])) Nothing (Just cmd)
        title = "Apply hint:" <> head (T.lines m)

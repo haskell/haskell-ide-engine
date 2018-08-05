@@ -34,7 +34,7 @@ spec = do
 -- ---------------------------------------------------------------------
 
 testPlugins :: IdePlugins
-testPlugins = pluginDescToIdePlugins [("hare",hareDescriptor)]
+testPlugins = pluginDescToIdePlugins [hareDescriptor "hare"]
 
 dispatchRequestPGoto :: IdeGhcM a -> IO a
 dispatchRequestPGoto =

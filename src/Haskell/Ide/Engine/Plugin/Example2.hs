@@ -14,10 +14,10 @@ import           Haskell.Ide.Engine.MonadTypes hiding (_range)
 
 -- ---------------------------------------------------------------------
 
-example2Descriptor :: PluginDescriptor
-example2Descriptor = PluginDescriptor
-  {
-    pluginName = "Hello World"
+example2Descriptor :: PluginId -> PluginDescriptor
+example2Descriptor plId = PluginDescriptor
+  { pluginId = plId
+  , pluginName = "Hello World"
   , pluginDesc = "An example of writing an HIE plugin"
   , pluginCommands =
       [ PluginCommand "sayHello" "say hello" sayHelloCmd

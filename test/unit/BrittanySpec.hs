@@ -17,7 +17,7 @@ spec :: Spec
 spec = describe "brittany plugin" brittanySpec
 
 testPlugins :: IdePlugins
-testPlugins = pluginDescToIdePlugins [("brittany", brittanyDescriptor)]
+testPlugins = pluginDescToIdePlugins [brittanyDescriptor "brittany"]
 
 brittanySpec :: Spec
 brittanySpec = describe "brittany plugin commands" $ do

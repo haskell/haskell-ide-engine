@@ -23,9 +23,10 @@ import qualified Haskell.Ide.Engine.Plugin.Hoogle as Hoogle
 import           System.Directory
 import           System.IO
 
-hsimportDescriptor :: PluginDescriptor
-hsimportDescriptor = PluginDescriptor
-  { pluginName = "hsimport"
+hsimportDescriptor :: PluginId -> PluginDescriptor
+hsimportDescriptor plId = PluginDescriptor
+  { pluginId = plId
+  , pluginName = "HsImport"
   , pluginDesc = "A tool for extending the import list of a Haskell source file."
   , pluginCommands = [PluginCommand "import" "Import a module" importCmd]
   , pluginCodeActionProvider = Just codeActionProvider
@@ -69,18 +70,18 @@ importModule uri modName =
           return $ IdeResultOk workspaceEdit
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider docId _ _ context = do
+codeActionProvider plId docId _ _ context = do
   let J.List diags = context ^. J.diagnostics
       terms = mapMaybe getImportables diags
 
   res <- mapM (bimapM return Hoogle.searchModules) terms
-  let actions = mapMaybe (uncurry mkImportAction) (concatTerms res)
+  actions <- catMaybes <$> mapM (uncurry mkImportAction) (concatTerms res)
 
   if null actions
      then do
        let relaxedTerms = map (bimap id (head . T.words)) terms
        relaxedRes <- mapM (bimapM return Hoogle.searchModules) relaxedTerms
-       let relaxedActions = mapMaybe (uncurry mkImportAction) (concatTerms relaxedRes)
+       relaxedActions <- catMaybes <$> mapM (uncurry mkImportAction) (concatTerms relaxedRes)
        return $ IdeResponseOk relaxedActions
      else return $ IdeResponseOk actions
 
@@ -88,14 +89,14 @@ codeActionProvider docId _ _ context = do
     concatTerms = concatMap (\(d, ts) -> map (d,) ts)
 
     --TODO: Check if package is already installed
-    mkImportAction :: J.Diagnostic -> T.Text -> Maybe J.CodeAction
-    mkImportAction diag modName = Just codeAction
+    mkImportAction :: J.Diagnostic -> T.Text -> IdeM (Maybe J.CodeAction)
+    mkImportAction diag modName = do
+      cmd <- mkLspCommand plId "import" title  (Just cmdParams)
+      return (Just (codeAction cmd))
      where
-       codeAction = J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [diag])) Nothing (Just cmd)
-       cmd = J.Command title cmdName (Just cmdParams)
+       codeAction cmd = J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [diag])) Nothing (Just cmd)
        title = "Import module " <> modName
-       cmdName = "hsimport:import"
-       cmdParams = J.List [toJSON (ImportParams (docId ^. J.uri) modName)]
+       cmdParams = [toJSON (ImportParams (docId ^. J.uri) modName)]
 
     getImportables :: J.Diagnostic -> Maybe (J.Diagnostic, T.Text)
     getImportables diag@(J.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractImportableTerm msg
