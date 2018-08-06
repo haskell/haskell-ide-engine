@@ -703,12 +703,14 @@ reactor inp = do
               convertSymbols :: [J.DocumentSymbol] -> J.DSResult
               convertSymbols symbs
                 | supportsHierarchy = J.DSDocumentSymbols $ J.List symbs
-                | otherwise = J.DSSymbolInformation (J.List $ concatMap go symbs)
+                | otherwise = J.DSSymbolInformation (J.List $ concatMap (go Nothing) symbs)
                 where
-                    go :: J.DocumentSymbol -> [J.SymbolInformation]
-                    go ds = let children = concatMap go (fromMaybe mempty (ds ^. J.children))
-                                loc = Location uri (ds ^. J.range)
-                                si = J.SymbolInformation (ds ^. J.name) (ds ^. J.kind) (ds ^. J.deprecated) loc Nothing
+                    go :: Maybe T.Text -> J.DocumentSymbol -> [J.SymbolInformation]
+                    go parent ds =
+                      let children = concatMap (go (Just name)) (fromMaybe mempty (ds ^. J.children))
+                          loc = Location uri (ds ^. J.range)
+                          name = ds ^. J.name
+                          si = J.SymbolInformation name (ds ^. J.kind) (ds ^. J.deprecated) loc parent
                       in [si] <> children
                         
               callback = reactorSend . RspDocumentSymbols . Core.makeResponseMessage req . convertSymbols . concat
