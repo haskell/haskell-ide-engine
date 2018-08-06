@@ -9,6 +9,7 @@ import           Data.Monoid
 import qualified Data.Map                      as Map
 import qualified Data.Set                      as S
 import qualified Data.Text                     as T
+import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes hiding (_range)
 
 -- ---------------------------------------------------------------------
@@ -50,6 +51,7 @@ sayHelloTo n = return $ "hello " <> n <> " from ExamplePlugin2"
 
 diagnosticProvider :: DiagnosticTrigger -> Uri -> IdeGhcM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
 diagnosticProvider trigger uri = do
+  liftIO $ logm "Example2.diagnosticProvider called"
   let diag = Diagnostic
               { _range = Range (Position 0 0) (Position 1 0)
               , _severity = Nothing

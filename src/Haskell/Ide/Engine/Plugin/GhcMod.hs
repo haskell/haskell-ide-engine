@@ -500,8 +500,8 @@ hoverProvider doc pos = runIdeResponseT $ do
           [] -> (Nothing, Nothing)
           ((r,_):_) -> (Nothing, Just r)
   return $ case mrange of
-    Just r -> LSP.Hover (LSP.List $ catMaybes [info]) (Just r)
-    Nothing -> LSP.Hover (LSP.List []) Nothing
+    Just r -> [LSP.Hover (LSP.List $ catMaybes [info]) (Just r)]
+    Nothing -> []
 
 -- ---------------------------------------------------------------------
 

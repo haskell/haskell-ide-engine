@@ -216,7 +216,7 @@ renderMarkDown =
           removeInner x = T.replace "```" "" $ T.replace "```haskell" "" x
 
 hoverProvider :: HoverProvider
-hoverProvider doc pos = runIdeResponseT $ do 
+hoverProvider doc pos = runIdeResponseT $ do
   df <- IdeResponseT $ getDynFlags doc
   names' <- IdeResponseT $ getSymbolsAtPoint doc pos
   let names = mapMaybe pickName $ groupBy f $ sortBy f' names'
@@ -235,7 +235,7 @@ hoverProvider doc pos = runIdeResponseT $ do
         case mdocu of
           Nothing -> return $ mname <> minfo
           Just docu -> return $ docu <> "\n\n" <> minfo
-  return $ J.Hover (J.List $ fmap J.PlainString docs) Nothing
+  return [J.Hover (J.List $ fmap J.PlainString docs) Nothing]
   where
     pickName [] = Nothing
     pickName [x] = Just x

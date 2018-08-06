@@ -127,7 +127,7 @@ data DiagnosticTrigger = DiagnosticOnOpen
                        | DiagnosticOnSave
                        deriving (Show,Ord,Eq)
 
-type HoverProvider = Uri -> Position -> IdeM (IdeResponse Hover)
+type HoverProvider = Uri -> Position -> IdeM (IdeResponse [Hover])
 
 type SymbolProvider = Uri -> IdeM (IdeResponse [DocumentSymbol])
 
