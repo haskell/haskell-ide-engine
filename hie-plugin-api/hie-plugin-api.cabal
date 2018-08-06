@@ -20,7 +20,6 @@ library
   exposed-modules:
                        Haskell.Ide.Engine.ArtifactMap
                        Haskell.Ide.Engine.GhcModuleCache
-                       Haskell.Ide.Engine.IdeFunctions
                        Haskell.Ide.Engine.ModuleCache
                        Haskell.Ide.Engine.Monad
                        Haskell.Ide.Engine.MonadFunctions
@@ -37,11 +36,15 @@ library
                      , directory
                      , filepath
                      , fingertree
+                     , free
                      , ghc
                      , ghc-mod-core >= 5.9.0.0
                      , haskell-lsp >= 0.5
                      , hslogger
+                     , mmorph
                      , monad-control
+                     , transformers-base
+                     , lens
                      , mtl
                      , stm
                      , syb

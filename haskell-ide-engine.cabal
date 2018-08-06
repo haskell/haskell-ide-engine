@@ -57,6 +57,7 @@ library
                      , data-default
                      , directory
                      , filepath
+                     , free
                      , ghc >= 8.0.1
                      , ghc-exactprint
                      , ghc-mod >= 5.9.0.0
@@ -72,6 +73,7 @@ library
                      , hsimport
                      , hslogger
                      , lens >= 4.15.2
+                     , mmorph
                      , monad-control
                      , monoid-subclasses > 0.4
                      , mtl
@@ -159,12 +161,14 @@ test-suite unit-test
                      , containers
                      , directory
                      , filepath
+                     , free
                      , haskell-lsp
                      , haskell-ide-engine
                      -- , hie-test-utils
                      , hie-plugin-api
                      , hoogle > 5.0.11
                      , hspec
+                     , mtl
                      , quickcheck-instances
                      , text
                      , unordered-containers
@@ -174,6 +178,7 @@ test-suite unit-test
                      , hie-plugin-api
                      , ghc-mod-core
                      , hslogger
+                     , mmorph
                      , yaml
 
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
@@ -207,6 +212,7 @@ test-suite dispatcher-test
                      , hie-plugin-api
                      , ghc-mod-core
                      , hslogger
+                     , mmorph
                      , unordered-containers
                      , yaml
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
@@ -276,6 +282,7 @@ test-suite func-test
                      , hie-plugin-api
                      , ghc-mod-core
                      , hslogger
+                     , mmorph
                      , unordered-containers
                      , yaml
                      , haskell-lsp

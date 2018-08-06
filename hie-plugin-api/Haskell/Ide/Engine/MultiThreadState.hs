@@ -2,40 +2,41 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TypeFamilies #-}
 module Haskell.Ide.Engine.MultiThreadState
-  ( MultiThreadState
-  , readMTState
-  , modifyMTState
+  ( MultiThreadState(..)
   , runMTState
-  , MonadMTState(..)
   ) where
 
 import Control.Concurrent.STM
 import Control.Monad.Reader
+import Control.Monad.State
+import qualified GhcMod.Monad as GM
+import Control.Monad.Trans.Control
+import Control.Monad.Base
+import Exception
 
 -- ---------------------------------------------------------------------
 
-type MultiThreadState s = ReaderT (TVar s) IO
+newtype MultiThreadState s a = MTState { getMTState :: ReaderT (TVar s) IO a }
+  deriving (Functor, Applicative, Monad, GM.MonadIO, MonadIO, MonadReader (TVar s), MonadBase IO, ExceptionMonad)
 
-readMTState :: MultiThreadState s s
-readMTState = ask >>= liftIO . readTVarIO
-
-modifyMTState :: (s -> s) -> MultiThreadState s ()
-modifyMTState f = do
-  tvar <- ask
-  liftIO $ atomically $ modifyTVar' tvar f
+instance MonadBaseControl IO (MultiThreadState s) where
+  type StM (MultiThreadState s) a = a 
+  liftBaseWith f = MTState $ liftBaseWith $ \q -> f (q . getMTState)
+  restoreM = MTState . restoreM 
 
 runMTState :: MultiThreadState s a -> s -> IO a
 runMTState m s = do
   tv <- newTVarIO s
-  runReaderT m tv
+  runReaderT (getMTState m) tv
 
-class MonadIO m => MonadMTState s m | m -> s where
-  readMTS :: m s
-  modifyMTS :: (s -> s) -> m ()
-  writeMTS :: s -> m ()
-  writeMTS s = modifyMTS (const s)
-
-instance MonadMTState s (MultiThreadState s) where
-  readMTS = readMTState
-  modifyMTS = modifyMTState
+instance MonadState s (MultiThreadState s) where
+  state f = do
+    tvar <- ask
+    liftIO $ atomically $ do
+      s <- readTVar tvar
+      let (a, s') = f s
+      writeTVar tvar s'
+      return a

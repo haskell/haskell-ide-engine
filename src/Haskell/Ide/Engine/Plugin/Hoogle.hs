@@ -4,19 +4,19 @@ module Haskell.Ide.Engine.Plugin.Hoogle where
 
 import           Control.Monad.IO.Class
 import           Data.Aeson
-import           Data.Bifunctor
 import           Data.Maybe
 #if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
 #endif
-import qualified Data.Text                          as T
-import Data.List
+import qualified Data.Text as T
+import           Data.List
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.MonadFunctions
 import           Hoogle
 import           System.Directory
 import           Text.HTML.TagSoup
 import           Text.HTML.TagSoup.Tree
+import           Control.Monad.Trans
 
 -- ---------------------------------------------------------------------
 
@@ -41,11 +41,11 @@ data HoogleError = NoDb | NoResults deriving (Eq,Ord,Show)
 
 newtype HoogleDb = HoogleDb (Maybe FilePath)
 
-hoogleErrorToIdeError :: HoogleError -> IdeError
+hoogleErrorToIdeError :: HoogleError -> IDErring IdeGhcM a
 hoogleErrorToIdeError NoResults =
-  IdeError PluginError "No results found" Null
+  ideError PluginError "No results found" Null
 hoogleErrorToIdeError NoDb =
-  IdeError PluginError "Hoogle database not found. Run hoogle generate to generate" Null
+  ideError PluginError "Hoogle database not found. Run hoogle generate to generate" Null
 
 instance ExtensionClass HoogleDb where
   initialValue = HoogleDb Nothing
@@ -55,18 +55,15 @@ initializeHoogleDb = do
   db' <- liftIO $ defaultDatabaseLocation
   db <- liftIO $ makeAbsolute db'
   exists <- liftIO $ doesFileExist db
-  if exists then do
+  if exists then lift $ lift $ do
     put $ HoogleDb $ Just db
     return $ Just db
   else
     return Nothing
 
 infoCmd :: CommandFunc T.Text T.Text
-infoCmd = CmdSync $ \expr -> do
-  res <- liftToGhc $ bimap hoogleErrorToIdeError id <$> infoCmd' expr
-  return $ case res of
-    Left err -> IdeResultFail err
-    Right x -> IdeResultOk x
+infoCmd = CmdSync $ \expr ->
+  either hoogleErrorToIdeError pure =<< liftIde (infoCmd' expr)
 
 infoCmd' :: T.Text -> IdeM (Either HoogleError T.Text)
 infoCmd' expr = do
@@ -108,28 +105,23 @@ renderTarget t = T.intercalate "\n\n" $
 
 ------------------------------------------------------------------------
 
-searchModules :: T.Text -> IdeM [T.Text]
+searchModules :: T.Text -> IDErring IdeM [T.Text]
 searchModules = fmap (nub . take 5) . searchTargets (fmap (T.pack . fst) . targetModule)
 
-searchPackages :: T.Text -> IdeM [T.Text]
+searchPackages :: T.Text -> IDErring IdeM [T.Text]
 searchPackages = fmap (nub . take 5) . searchTargets (fmap (T.pack . fst) . targetPackage)
 
-searchTargets :: (Target -> Maybe a) -> T.Text -> IdeM [a]
+searchTargets :: (Target -> Maybe a) -> T.Text -> IDErring IdeM [a]
 searchTargets f term = do
   HoogleDb mdb <- get
   res <- liftIO $ runHoogleQuery mdb term (Right . mapMaybe f . take 10)
-  case bimap hoogleErrorToIdeError id res of
-    Left _ -> return []
-    Right xs -> return xs
+  return $ either (const []) id res -- Discards hoogle errors!
 
 ------------------------------------------------------------------------
 
 lookupCmd :: CommandFunc T.Text [T.Text]
 lookupCmd = CmdSync $ \term -> do
-  res <- liftToGhc $ bimap hoogleErrorToIdeError id <$> lookupCmd' 10 term
-  return $ case res of
-    Left err -> IdeResultFail err
-    Right x -> IdeResultOk x
+  either hoogleErrorToIdeError pure =<< liftIde (lookupCmd' 10 term)
 
 lookupCmd' :: Int -> T.Text -> IdeM (Either HoogleError [T.Text])
 lookupCmd' n term = do

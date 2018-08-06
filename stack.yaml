@@ -41,6 +41,7 @@ extra-deps:
 - syz-0.2.0.0
 - temporary-1.2.1.1
 - yaml-0.8.32
+- windns-0.1.0.0@sha256:c76bd0ad129ea694e1e20c5397a9e58232de656dfafc336ecbe9bf5accb2c1a6
 
 flags:
   haskell-ide-engine:

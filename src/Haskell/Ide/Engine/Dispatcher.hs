@@ -20,6 +20,7 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.STM
+import           Control.Monad.Trans.Free
 import qualified Data.Aeson                              as J
 import qualified Data.Text                               as T
 import qualified Data.Map                                as Map
@@ -31,6 +32,8 @@ import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.Monad
 import qualified Language.Haskell.LSP.Types              as J
 import qualified Language.Haskell.LSP.Types.Capabilities as J
+import           Control.Lens
+import qualified GhcMod.Monad as GM
 
 data DispatcherEnv = DispatcherEnv
   { cancelReqsTVar     :: !(TVar (S.Set J.LspId))
@@ -62,7 +65,7 @@ dispatcherP inChan plugins ghcModOptions env errorHandler callbackHandler caps =
         ghcDispatcher env errorHandler callbackHandler ghcChan
       runIdeDisp = do
         stateVar <- readMVar stateVarVar
-        flip runReaderT stateVar $ flip runReaderT caps $
+        flip runReaderT stateVar $ getMTState $ flip runReaderT caps $
           ideDispatcher env errorHandler callbackHandler ideChan
       runMainDisp = mainDispatcher inChan ghcChan ideChan
 
@@ -71,72 +74,55 @@ dispatcherP inChan plugins ghcModOptions env errorHandler callbackHandler caps =
 mainDispatcher :: forall void m. TChan (PluginRequest m) -> TChan (GhcRequest m) -> TChan (IdeRequest m) -> IO void
 mainDispatcher inChan ghcChan ideChan = forever $ do
   req <- atomically $ readTChan inChan
-  case req of
+  atomically $ case req of
     Right r ->
-      atomically $ writeTChan ghcChan r
+      writeTChan ghcChan r
     Left r ->
-      atomically $ writeTChan ideChan r
+      writeTChan ideChan r
 
 ideDispatcher :: forall void m. DispatcherEnv -> ErrorHandler -> CallbackHandler m -> TChan (IdeRequest m) -> IdeM void
 ideDispatcher env errorHandler callbackHandler pin = forever $ do
   debugm "ideDispatcher: top of loop"
-  (IdeRequest tn lid callback action) <- liftIO $ atomically $ readTChan pin
+  IdeRequest tn lid callback action <- liftIO $ atomically $ readTChan pin
   debugm $ "ideDispatcher: got request " ++ show tn ++ " with id: " ++ show lid
-  checkCancelled env lid errorHandler $ do
-    response <- action
-    handleResponse lid callback response
-
-  where handleResponse lid callback response =
-          -- Need to check cancellation twice since cancellation
-          -- request might have come in during the action
+  handleAction lid $ runIDErring $ fmap (callbackHandler callback) action
+  where handleAction :: J.LspId -> ResponseT IdeM (Either IdeError (IO ())) -> IdeM ()
+        handleAction lid action = checkCancelled env lid errorHandler $ do
+          response <- runFreeT action
           checkCancelled env lid errorHandler $ case response of
-            IdeResponseResult (IdeResultOk x) -> liftIO $ do
-              completedReq env lid
-              callbackHandler callback x
-            IdeResponseResult (IdeResultFail (IdeError code msg _)) -> liftIO $ do
-              completedReq env lid
-              case code of
-                -- TODO: This isn't actually an internal error
-                NoModuleAvailable -> errorHandler lid J.InternalError msg
-                _ -> errorHandler lid J.InternalError msg
-            IdeResponseDeferred fp cacheCb -> handleDeferred lid fp cacheCb callback
-
-        handleDeferred lid fp cacheCb actualCb = queueAction fp $ \case
-          Right cm -> do
-            cacheResponse <- cacheCb cm
-            handleResponse lid actualCb cacheResponse
-          Left err ->
-            handleResponse lid actualCb (IdeResponseFail (IdeError NoModuleAvailable err J.Null))
+            Pure result -> handleResult lid result
+            Free (IdeDefer fp cacheCb) -> queueAction fp $
+              handleAction lid . either (\err -> pure $ Left $ IdeError NoModuleAvailable err J.Null) cacheCb
 
         queueAction :: FilePath -> (Either T.Text CachedModule -> IdeM ()) -> IdeM ()
-        queueAction fp action =
-          lift $ modifyMTState $ \s ->
-            let oldQueue = requestQueue s
-                -- add to existing queue if possible
-                update Nothing = [action]
-                update (Just x) = action : x
-                newQueue = Map.alter (Just . update) fp oldQueue
-            in s { requestQueue = newQueue }
+        queueAction fp action = requestQueue . at fp . non' _Empty %= (action:)
 
-ghcDispatcher :: forall void m. DispatcherEnv -> ErrorHandler -> CallbackHandler m -> TChan (GhcRequest m) -> IdeGhcM void
+        handleResult :: J.LspId -> Either IdeError (IO ()) -> IdeM ()
+        handleResult lid = \case
+          Left (IdeError code msg _) -> liftIO $ do
+            completedReq env lid
+            case code of
+              -- TODO: This isn't actually an internal error
+              NoModuleAvailable -> errorHandler lid J.InternalError msg
+              _ -> errorHandler lid J.InternalError msg
+          Right x -> liftIO x
+
+ghcDispatcher :: forall void m. DispatcherEnv -> ErrorHandler -> CallbackHandler m -> TChan (GhcRequest m) -> GM.GhcModT IdeM void
 ghcDispatcher env@DispatcherEnv{docVersionTVar} errorHandler callbackHandler pin = forever $ do
   debugm "ghcDispatcher: top of loop"
-  (GhcRequest tn context mver mid callback action) <- liftIO $ atomically $ readTChan pin
+  GhcRequest tn context mver mid callback action <- liftIO $ atomically $ readTChan pin
   debugm $ "ghcDispatcher:got request " ++ show tn ++ " with id: " ++ show mid
 
-  let runner = case context of
-        Nothing -> runActionWithContext Nothing
-        Just uri -> case uriToFilePath uri of
-          Just fp -> runActionWithContext (Just fp)
-          Nothing -> \act -> do
-            debugm "ghcDispatcher:Got malformed uri, running action with default context"
-            runActionWithContext Nothing act
+  let runner act = do
+        let c = uriToFilePath <$> context
+        when (c == Just Nothing) $ debugm "ghcDispatcher:Got malformed uri, running action with default context"
+        runActionWithContext (join c) act
 
   let runWithCallback = do
-        result <- runner action
+        result <- runIDErring $ runner action
         liftIO $ case result of
-          IdeResultOk x -> callbackHandler callback x
-          IdeResultFail err@(IdeError code msg _) ->
+          Right x -> callbackHandler callback x
+          Left err@(IdeError code msg _) ->
             case mid of
               Just lid -> case code of
                 NoModuleAvailable -> errorHandler lid J.ParseError msg

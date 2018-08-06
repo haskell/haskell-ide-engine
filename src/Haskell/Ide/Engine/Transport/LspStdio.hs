@@ -24,6 +24,8 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Control.Monad.Reader
+import           Control.Monad.Morph
+import           Control.Applicative
 import qualified Data.Aeson as J
 import           Data.Aeson ( (.=) )
 import qualified Data.ByteString.Lazy as BL
@@ -200,38 +202,33 @@ mapFileFromVfs tn vtdi = do
       ver = fromMaybe 0 (vtdi ^. J.version)
   vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
   mvf <- liftIO $ vfsFunc uri
-  case (mvf, uriToFilePath uri) of
-    (Just (VFS.VirtualFile _ yitext), Just fp) -> do
+  for_ mvf $ \(VFS.VirtualFile _ yitext) ->
+    for_ (uriToFilePath uri) $ \fp -> do
       let text' = Yi.toString yitext
           -- text = "{-# LINE 1 \"" ++ fp ++ "\"#-}\n" <> text'
-      let req = GReq tn (Just uri) Nothing Nothing (const $ return ())
-                  $ IdeResultOk <$> do
-                      GM.loadMappedFileSource fp text'
+      let req = GReq tn (Just uri) Nothing Nothing (const $ return ()) $ do
+                      lift $ GM.loadMappedFileSource fp text'
                       fileMap <- GM.getMMappedFiles
                       debugm $ "file mapping state is: " ++ show fileMap
       liftIO $ atomically $ do
         modifyTVar' verTVar (Map.insert uri ver)
         writeTChan cin req
-      return ()
-    (_, _) -> return ()
 
 _unmapFileFromVfs :: (MonadIO m, MonadReader REnv m) => TrackingNumber -> J.Uri -> m ()
 _unmapFileFromVfs tn uri = do
   verTVar <- asks (docVersionTVar . dispatcherEnv)
   cin <- asks reqChanIn
-  case J.uriToFilePath uri of
-    Just fp -> do
-      let req = GReq tn (Just uri) Nothing Nothing (const $ return ())
-                $ IdeResultOk <$> GM.unloadMappedFile fp
-      liftIO $ atomically $ do
-        modifyTVar' verTVar (Map.delete uri)
-        writeTChan cin req
-      return ()
-    _ -> return ()
+  for_ (J.uriToFilePath uri) $ \fp -> do
+    let req = GReq tn (Just uri) Nothing Nothing (const $ return ())
+              $ lift $ GM.unloadMappedFile fp
+    liftIO $ atomically $ do
+      modifyTVar' verTVar (Map.delete uri)
+      writeTChan cin req
 
 -- TODO: generalise this and move it to GhcMod.ModuleLoader
-updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeGhcM (IdeResult ())
-updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file -> do
+updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IDErring IdeGhcM ()
+updatePositionMap uri changes = do
+  file <- pluginGetFile "updatePositionMap: " uri
   mcm <- getCachedModule file
   case mcm of
     ModuleCached cm _ -> do
@@ -243,9 +240,7 @@ updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file 
           go _ _ = (const Nothing, const Nothing)
       let cm' = cm {newPosToOld = n2o, oldPosToNew = o2n}
       cacheModuleNoClear file cm'
-      return $ IdeResultOk ()
-    _ ->
-      return $ IdeResultOk ()
+    _ -> return ()
   where
     f (+/-) (J.Range (Position sl _) (Position el _)) txt p@(Position l c)
       | l < sl = Just p
@@ -378,7 +373,7 @@ reactor inp = do
 
 
           lf <- ask
-          let hreq = GReq tn Nothing Nothing Nothing callback $ IdeResultOk <$> Hoogle.initializeHoogleDb
+          let hreq = GReq tn Nothing Nothing Nothing callback $ lift Hoogle.initializeHoogleDb
               callback Nothing = flip runReaderT lf $
                 reactorSend $ NotShowMessage $
                   fmServerShowMessageNotification J.MtWarning "No hoogle db found. Check the README for instructions to generate one"
@@ -421,12 +416,12 @@ reactor inp = do
               ver  = vtdi ^. J.version
               J.List changes = params ^. J.contentChanges
           mapFileFromVfs tn vtdi
-          makeRequest $ GReq tn (Just uri) Nothing Nothing (const $ return ()) $
+          makeRequest $ GReq tn (Just uri) Nothing Nothing (const $ return ()) $ do
             -- mark this module's cache as stale
-            pluginGetFile "markCacheStale:" uri $ \fp -> do
-              markCacheStale fp
-              -- Important - Call this before requestDiagnostics
-              updatePositionMap uri changes
+            fp <- pluginGetFile "markCacheStale:" uri
+            markCacheStale fp
+            -- Important - Call this before requestDiagnostics
+            updatePositionMap uri changes
           requestDiagnostics tn uri ver
 
         NotDidCloseTextDocument notification -> do
@@ -434,10 +429,8 @@ reactor inp = do
           let
               uri = notification ^. J.params . J.textDocument . J.uri
           -- unmapFileFromVfs versionTVar cin uri
-          makeRequest $ GReq tn (Just uri) Nothing Nothing (const $ return ()) $ do
-            forM_ (uriToFilePath uri)
-              deleteCachedModule
-            return $ IdeResultOk ()
+          makeRequest $ GReq tn (Just uri) Nothing Nothing (const $ return ()) $
+            forM_ (uriToFilePath uri) deleteCachedModule
 
         -- -------------------------------
 
@@ -459,31 +452,20 @@ reactor inp = do
           liftIO $ U.logs $ "reactor:got HoverRequest:" ++ show req
           let params = req ^. J.params
               pos = params ^. J.position
-              doc = params ^. J.textDocument . J.uri
-              callback (typ, docs, mrange) = do
-                let
-                  ht = case mrange of
-                    Nothing    -> J.Hover (J.List []) Nothing
-                    Just range -> J.Hover (J.List hovers)
-                                          (Just range)
-                      where
-                        hovers = catMaybes [typ] ++ fmap J.PlainString docs
-                  rspMsg = Core.makeResponseMessage req ht
-                reactorSend $ RspHover rspMsg
+              doc = params ^. J.textDocument . J.uri :: Uri
+              callback (typ, docs, mrange) = 
+                reactorSend $ RspHover $ Core.makeResponseMessage req $ flip J.Hover mrange $ J.List $
+                  if isNothing mrange then [] else catMaybes [typ] ++ fmap J.PlainString docs
           let
-            getHoverInfo :: IdeM (IdeResponse (Maybe J.MarkedString, [T.Text], Maybe Range))
-            getHoverInfo = runIdeResponseT $ do
-                info' <- IdeResponseT $ IdeResponseResult <$> GhcMod.newTypeCmd pos doc
-                names' <- IdeResponseT $ Hie.getSymbolsAtPoint doc pos
+            getHoverInfo :: IdeResponseT (Maybe J.MarkedString, [T.Text], Maybe Range)
+            getHoverInfo = do
+                info' <- hoist lift $ GhcMod.newTypeCmd pos doc
+                names' <- Hie.getSymbolsAtPoint doc pos
                 let
                   f = (==) `on` (Hie.showName . snd)
                   f' = compare `on` (Hie.showName . snd)
                   names = mapMaybe pickName $ groupBy f $ sortBy f' names'
-                  pickName [] = Nothing
-                  pickName [x] = Just x
-                  pickName xs@(x:_) = case find (isJust . nameModule_maybe . snd) xs of
-                    Nothing -> Just x
-                    Just a -> Just a
+                  pickName xs = find (isJust . nameModule_maybe . snd) xs <|> listToMaybe xs
                   nnames = length names
                   (info,mrange) =
                     case map last $ groupBy ((==) `on` fst) info' of
@@ -499,31 +481,31 @@ reactor inp = do
                       [] -> case names of
                         [] -> (Nothing, Nothing)
                         ((r,_):_) -> (Nothing, Just r)
-                df <- IdeResponseT $ Hie.getDynFlags doc
-                docs <- forM names $ \(_,name) -> do
+                df <- Hie.getDynFlags doc
+                docs <- liftIde $ forM names $ \(_,name) -> do
                     let sname = Hie.showName name
                     case Hie.getModule df name of
                       Nothing -> return $ "`" <> sname <> "` *local*"
                       (Just (pkg,mdl)) -> do
                         let mname = "`"<> sname <> "`\n\n"
                         let minfo = maybe "" (<>" ") pkg <> mdl
-                        mdocu' <- lift $ Haddock.getDocsWithType df name
+                        mdocu' <- Haddock.getDocsWithType df name
                         mdocu <- case mdocu' of
                           Just _ -> return mdocu'
                           -- Hoogle as fallback
-                          Nothing -> lift $ getDocsForName sname pkg mdl
-                        case mdocu of
-                          Nothing -> return $ mname <> minfo
-                          Just docu -> return $ docu <> "\n\n" <> minfo
+                          Nothing -> getDocsForName sname pkg mdl
+                        return $ case mdocu of
+                          Nothing -> mname <> minfo
+                          Just docu -> docu <> "\n\n" <> minfo
                 return (info,docs,mrange)
           let hreq = IReq tn (req ^. J.id) callback $ do
-                pluginGetFileResponse "ReqHover:" doc $ \fp -> do
-                  cached <- isCached fp
-                  -- Hover requests need to be instant so don't wait
-                  -- for cached module to be loaded
-                  if cached
-                    then getHoverInfo
-                    else return (IdeResponseOk (Nothing,[],Nothing))
+                fp <- pluginGetFile "ReqHover:" doc
+                cached <- isCached fp
+                -- Hover requests need to be instant so don't wait
+                -- for cached module to be loaded
+                if cached
+                  then getHoverInfo
+                  else return (Nothing,[],Nothing)
           makeRequest hreq
 
           liftIO $ U.logs $ "reactor:HoverRequest done"
@@ -639,10 +621,10 @@ reactor inp = do
                 let rspMsg = Core.makeResponseMessage req $
                               origCompl & J.documentation .~ docs
                 reactorSend $ RspCompletionItemResolve rspMsg
-              hreq = IReq tn (req ^. J.id) callback $ runIdeResponseT $ case mquery of
+              hreq = IReq tn (req ^. J.id) callback $ case mquery of
                         Nothing -> return Nothing
                         Just query -> do
-                          result <- lift $ Hoogle.infoCmd' query
+                          result <- liftIde $ Hoogle.infoCmd' query
                           case result of
                             Right x -> return $ Just x
                             _ -> return Nothing
@@ -669,18 +651,18 @@ reactor inp = do
               pos = params ^. J.position
               callback = reactorSend . RspDefinition . Core.makeResponseMessage req
           let hreq = IReq tn (req ^. J.id) callback
-                       $ fmap J.MultiLoc <$> Hie.findDef doc pos
+                       $ J.MultiLoc <$> Hie.findDef doc pos
           makeRequest hreq
 
         ReqFindReferences req -> do
           liftIO $ U.logs $ "reactor:got FindReferences:" ++ show req
           -- TODO: implement project-wide references
           let params = req ^. J.params
-              doc = params ^. (J.textDocument . J.uri)
+              doc = params ^. J.textDocument . J.uri
               pos = params ^. J.position
               callback = reactorSend . RspFindReferences.  Core.makeResponseMessage req . J.List
           let hreq = IReq tn (req ^. J.id) callback
-                   $ fmap (map (J.Location doc . (^. J.range)))
+                   $ map (J.Location doc . (^. J.range))
                    <$> Hie.getReferencesInDoc doc pos
           makeRequest hreq
 

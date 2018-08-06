@@ -116,7 +116,7 @@ dispatchGhcRequest tn ctx n cin lc plugin com arg = do
 
 dispatchIdeRequest :: (Typeable a, ToJSON a)
                    => TrackingNumber -> String -> TChan (PluginRequest IO)
-                   -> TChan LogVal -> LspId -> IdeM (IdeResponse a) -> IO ()
+                   -> TChan LogVal -> LspId -> IdeResponseT a -> IO ()
 dispatchIdeRequest tn ctx cin lc lid f = do
   let
     logger :: (Typeable a, ToJSON a) => RequestCallback IO a
@@ -144,10 +144,10 @@ newPluginSpec = do
       cancelTVar <- newTVarIO S.empty
       wipTVar <- newTVarIO S.empty
       versionTVar <- newTVarIO $ Map.singleton (filePathToUri "test") 3
-      let req1 = GReq 1 Nothing Nothing                          (Just $ IdInt 1) (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text1"
-          req2 = GReq 2 Nothing Nothing                          (Just $ IdInt 2) (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text2"
-          req3 = GReq 3 Nothing (Just (filePathToUri "test", 2)) Nothing            (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text3"
-          req4 = GReq 4 Nothing Nothing                          (Just $ IdInt 3) (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text4"
+      let req1 = GReq 1 Nothing Nothing                          (Just $ IdInt 1) (atomically . writeTChan outChan) $ return $ T.pack "text1"
+          req2 = GReq 2 Nothing Nothing                          (Just $ IdInt 2) (atomically . writeTChan outChan) $ return $ T.pack "text2"
+          req3 = GReq 3 Nothing (Just (filePathToUri "test", 2)) Nothing          (atomically . writeTChan outChan) $ return $ T.pack "text3"
+          req4 = GReq 4 Nothing Nothing                          (Just $ IdInt 3) (atomically . writeTChan outChan) $ return $ T.pack "text4"
 
       pid <- forkIO $ dispatcherP inChan
                               (pluginDescToIdePlugins [])
@@ -180,11 +180,11 @@ funcSpec = describe "functional dispatch" $ do
     let
       -- Model a hover request
       hoverReq tn idVal doc = dispatchIdeRequest tn ("IReq " ++ show idVal) cin logChan idVal $ do
-        pluginGetFileResponse "hoverReq" doc $ \fp -> do
-          cached <- isCached fp
-          if cached
-            then return (IdeResponseOk Cached)
-            else return (IdeResponseOk NotCached)
+        fp <- pluginGetFile "hoverReq" doc
+        cached <- isCached fp
+        if cached
+          then return Cached
+          else return NotCached
 
       unpackRes (r,Right md) = (r, fromDynJSON md)
       unpackRes r            = error $ "unpackRes:" ++ show r

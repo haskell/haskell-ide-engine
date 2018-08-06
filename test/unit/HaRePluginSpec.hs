@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE LambdaCase            #-}
 module HaRePluginSpec where
 
 import           Data.Aeson
@@ -8,7 +9,7 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Plugin.GhcMod
-import           Haskell.Ide.Engine.Plugin.HaRe
+import           Haskell.Ide.Engine.Plugin.HaRe hiding (hoist)
 import           Haskell.Ide.Engine.Plugin.HieExtras
 import           Language.Haskell.LSP.Types     ( Location(..)
                                                 , TextEdit(..)
@@ -16,6 +17,9 @@ import           Language.Haskell.LSP.Types     ( Location(..)
 import           System.Directory
 import           System.FilePath
 import           TestUtils
+import           Control.Monad.Trans.Free
+import           Control.Monad.Trans
+import           Control.Monad.Morph
 
 import           Test.Hspec
 
@@ -36,10 +40,12 @@ spec = do
 testPlugins :: IdePlugins
 testPlugins = pluginDescToIdePlugins [("hare",hareDescriptor)]
 
-dispatchRequestPGoto :: IdeGhcM a -> IO a
-dispatchRequestPGoto =
-  cdAndDo "./test/testdata/gototest"
-    . runIGM testPlugins
+shouldRespond :: IDErring (FreeT IdeDefer IdeGhcM) [Location] -> Either IdeError [Location] -> IO ()
+shouldRespond have should = do
+  r <- cdAndDo "./test/testdata/gototest" $ runIGM testPlugins $ runFreeT $ runIDErring have
+  r `shouldSatisfy` \case
+    Pure x -> x == should
+    Free _ -> False
 
 -- ---------------------------------------------------------------------
 
@@ -55,9 +61,7 @@ hareSpec = do
           act = renameCmd' uri (toPos (5,1)) "foolong"
           arg = HPT uri (toPos (5,1)) "foolong"
           textEdits = List [TextEdit (Range (Position 3 0) (Position 4 13)) "foolong :: Int -> Int\nfoolong x = x + 3"]
-          res = IdeResultOk $ WorkspaceEdit
-            (Just $ H.singleton uri textEdits)
-            Nothing
+          res = return $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
       testCommand testPlugins act "hare" "rename" arg res
 
     -- ---------------------------------
@@ -66,9 +70,7 @@ hareSpec = do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReRename.hs"
           act = renameCmd' uri (toPos (15,1)) "foolong"
           arg = HPT uri (toPos (15,1)) "foolong"
-          res = IdeResultFail
-                  IdeError { ideCode = PluginError
-                           , ideMessage = "rename: \"Invalid cursor position!\"", ideInfo = Null}
+          res = ideError PluginError "rename: \"Invalid cursor position!\"" Null
       testCommand testPlugins act "hare" "rename" arg res
 
     -- ---------------------------------
@@ -78,9 +80,7 @@ hareSpec = do
           act = demoteCmd' uri (toPos (6,1))
           arg = HP uri (toPos (6,1))
           textEdits = List [TextEdit (Range (Position 4 0) (Position 5 5)) "  where\n    y = 7"]
-          res = IdeResultOk $ WorkspaceEdit
-            (Just $ H.singleton uri textEdits)
-            Nothing
+          res = return $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
       testCommand testPlugins act "hare" "demote" arg res
 
     -- ---------------------------------
@@ -90,9 +90,7 @@ hareSpec = do
           act = dupdefCmd' uri (toPos (5,1)) "foonew"
           arg = HPT uri (toPos (5,1)) "foonew"
           textEdits = List [TextEdit (Range (Position 6 0) (Position 6 0)) "foonew :: Int -> Int\nfoonew x = x + 3\n\n"]
-          res = IdeResultOk $ WorkspaceEdit
-            (Just $ H.singleton uri textEdits)
-            Nothing
+          res = return $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
       testCommand testPlugins act "hare" "dupdef" arg res
 
     -- ---------------------------------
@@ -105,9 +103,7 @@ hareSpec = do
           arg = HR uri (toPos (5,9)) (toPos (9,12))
           textEdits = List [TextEdit (Range (Position 4 0) (Position 8 11))
                       "foo x = case odd x of\n  True  ->\n    x + 3\n  False ->\n    x"]
-          res = IdeResultOk $ WorkspaceEdit
-            (Just $ H.singleton uri textEdits)
-            Nothing
+          res = return $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
       testCommand testPlugins act "hare" "iftocase" arg res
 
     -- ---------------------------------
@@ -119,9 +115,7 @@ hareSpec = do
           arg = HP uri (toPos (6,5))
           textEdits = List [ TextEdit (Range (Position 6 0) (Position 6 0)) "y = 4\n\n"
                           , TextEdit (Range (Position 4 0) (Position 6 0)) ""]
-          res = IdeResultOk $ WorkspaceEdit
-            (Just $ H.singleton uri textEdits)
-            Nothing
+          res = return $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
       testCommand testPlugins act "hare" "liftonelevel" arg res
 
     -- ---------------------------------
@@ -135,9 +129,7 @@ hareSpec = do
                            , TextEdit (Range (Position 12 0) (Position 12 0)) "z = 7\n"
                            , TextEdit (Range (Position 10 0) (Position 12 0)) ""
                            ]
-          res = IdeResultOk $ WorkspaceEdit
-            (Just $ H.singleton uri textEdits)
-            Nothing
+          res = return $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
       testCommand testPlugins act "hare" "lifttotoplevel" arg res
 
     -- ---------------------------------
@@ -147,9 +139,7 @@ hareSpec = do
           act = deleteDefCmd' uri (toPos (6,1))
           arg = HP uri (toPos (6,1))
           textEdits = List [TextEdit (Range (Position 4 0) (Position 7 0)) ""]
-          res = IdeResultOk $ WorkspaceEdit
-            (Just $ H.singleton uri textEdits)
-            Nothing
+          res = return $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
       testCommand testPlugins act "hare" "deletedef" arg res
 
     -- ---------------------------------
@@ -160,9 +150,7 @@ hareSpec = do
           arg = HP uri (toPos (4,1))
           textEdits = List [TextEdit (Range (Position 4 0) (Position 8 12))
                       "parseStr = char '\"' *> (many1 (noneOf \"\\\"\")) <* char '\"'"]
-          res = IdeResultOk $ WorkspaceEdit
-            (Just $ H.singleton uri textEdits)
-            Nothing
+          res = return $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
       testCommand testPlugins act "hare" "genapplicative" arg res
 
     -- ---------------------------------
@@ -172,33 +160,25 @@ hareSpec = do
 
     it "finds definition across components" $ do
       let u = filePathToUri $ cwd </> "test/testdata/gototest/app/Main.hs"
-          lreq = setTypecheckedModule u
-          req = liftToGhc $ findDef u (toPos (7,8))
-      r <- dispatchRequestPGoto $ lreq >> req
-      r `shouldBe` IdeResponseOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
-                                           (Range (toPos (6,1)) (toPos (6,9)))]
-      let req2 = liftToGhc $ findDef u (toPos (7,20))
-      r2 <- dispatchRequestPGoto $ lreq >> req2
-      r2 `shouldBe` IdeResponseOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
-                                            (Range (toPos (5,1)) (toPos (5,2)))]
+          lreq = hoist lift $ setTypecheckedModule u
+          req = hoist (hoistFreeT liftIde) $ findDef u (toPos (7,8))
+      (lreq >> req) `shouldRespond` Right [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
+                             (Range (toPos (6,1)) (toPos (6,9)))]
+      let req2 = hoist (hoistFreeT liftIde) $ findDef u (toPos (7,20))
+      (lreq >> req2) `shouldRespond` Right [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
+                              (Range (toPos (5,1)) (toPos (5,2)))]
     it "finds definition in the same component" $ do
       let u = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs"
-          lreq = setTypecheckedModule u
-          req = liftToGhc $ findDef u (toPos (6,5))
-      r <- dispatchRequestPGoto $ lreq >> req
-      r `shouldBe` IdeResponseOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
-                                           (Range (toPos (6,1)) (toPos (6,9)))]
+          lreq = hoist lift $ setTypecheckedModule u
+          req = hoist (hoistFreeT liftIde) $ findDef u (toPos (6,5))
+      (lreq >> req) `shouldRespond` Right [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
+                             (Range (toPos (6,1)) (toPos (6,9)))]
     it "finds local definitions" $ do
       let u = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs"
-          lreq = setTypecheckedModule u
-          req = liftToGhc $ findDef u (toPos (7,11))
-      r <- dispatchRequestPGoto $ lreq >> req
-      r `shouldBe` IdeResponseOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
-                                           (Range (toPos (10,9)) (toPos (10,10)))]
-      let req2 = liftToGhc $ findDef u (toPos (10,13))
-      r2 <- dispatchRequestPGoto $ lreq >> req2
-      r2 `shouldBe` IdeResponseOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
-                                            (Range (toPos (9,9)) (toPos (9,10)))]
-
-
-    -- ---------------------------------
+          lreq = hoist lift $ setTypecheckedModule u
+          req = hoist (hoistFreeT liftIde) $ findDef u (toPos (7,11))
+      (lreq >> req) `shouldRespond` Right [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
+                             (Range (toPos (10,9)) (toPos (10,10)))]
+      let req2 = hoist (hoistFreeT liftIde) $ findDef u (toPos (10,13))
+      (lreq >> req2) `shouldRespond` Right [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
+                              (Range (toPos (9,9)) (toPos (9,10)))]

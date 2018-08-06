@@ -18,7 +18,7 @@ import qualified Data.Text                       as T
 import           Development.GitRev              (gitCommitCount)
 import           Distribution.System             (buildArch)
 import           Distribution.Text               (display)
-import           Haskell.Ide.Engine.IdeFunctions
+import           Control.Lens
 import           Haskell.Ide.Engine.MonadTypes
 import           Options.Applicative.Simple      (simpleVersion)
 import qualified Paths_haskell_ide_engine        as Meta
@@ -47,39 +47,23 @@ baseDescriptor = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 versionCmd :: CommandFunc () T.Text
-versionCmd = CmdSync $ \_ -> return $ IdeResultOk (T.pack version)
+versionCmd = CmdSync $ \_ -> return $ T.pack version
 
 pluginsCmd :: CommandFunc () IdePlugins
-pluginsCmd = CmdSync $ \_ ->
-  IdeResultOk <$> getPlugins
+pluginsCmd = CmdSync $ \_ -> liftIde $ use idePlugins
 
 commandsCmd :: CommandFunc T.Text [CommandName]
 commandsCmd = CmdSync $ \p -> do
-  IdePlugins plugins <- getPlugins
-  case Map.lookup p plugins of
-    Nothing -> return $ IdeResultFail $ IdeError
-      { ideCode = UnknownPlugin
-      , ideMessage = "Can't find plugin:" <> p
-      , ideInfo = toJSON p
-      }
-    Just pl -> return $ IdeResultOk $ map commandName $ fst pl
+  IdePlugins plugins <- liftIde $ use idePlugins
+  (cs, _) <- maybe (ideError UnknownPlugin  ("Can't find plugin:"  <> p      ) (toJSON p      )) pure $ Map.lookup p plugins
+  return $ map commandName cs
 
 commandDetailCmd :: CommandFunc (T.Text, T.Text) T.Text
 commandDetailCmd = CmdSync $ \(p,command) -> do
-  IdePlugins plugins <- getPlugins
-  case Map.lookup p plugins of
-    Nothing -> return $ IdeResultFail $ IdeError
-      { ideCode = UnknownPlugin
-      , ideMessage = "Can't find plugin:" <> p
-      , ideInfo = toJSON p
-      }
-    Just pl -> case find (\cmd -> command == commandName cmd) (fst pl) of
-      Nothing -> return $ IdeResultFail $ IdeError
-        { ideCode = UnknownCommand
-        , ideMessage = "Can't find command:" <> command
-        , ideInfo = toJSON command
-        }
-      Just detail -> return $ IdeResultOk (commandDesc detail)
+  IdePlugins plugins <- liftIde $ use idePlugins
+  (cs, _) <- maybe (ideError UnknownPlugin  ("Can't find plugin:"  <> p      ) (toJSON p      )) pure $ Map.lookup p plugins
+  detail  <- maybe (ideError UnknownCommand ("Can't find command:" <> command) (toJSON command)) pure $ find (\cmd -> command == commandName cmd) cs
+  pure $ commandDesc detail
 
 -- ---------------------------------------------------------------------
 

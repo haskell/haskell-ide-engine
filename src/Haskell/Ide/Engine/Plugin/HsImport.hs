@@ -22,6 +22,8 @@ import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Plugin.Hoogle as Hoogle
 import           System.Directory
 import           System.IO
+import           Control.Monad.Trans
+import           Control.Monad.Morph
 
 hsimportDescriptor :: PluginDescriptor
 hsimportDescriptor = PluginDescriptor
@@ -40,47 +42,46 @@ data ImportParams = ImportParams
 importCmd :: CommandFunc ImportParams J.WorkspaceEdit
 importCmd = CmdSync $ \(ImportParams uri modName) -> importModule uri modName
 
-importModule :: Uri -> T.Text -> IdeGhcM (IdeResult J.WorkspaceEdit)
-importModule uri modName =
-  pluginGetFile "hsimport cmd: " uri $ \origInput -> do
-    fileMap <- GM.mkRevRedirMapFunc
-    GM.withMappedFile origInput $ \input -> do
+importModule :: Uri -> T.Text -> IDErring IdeGhcM J.WorkspaceEdit
+importModule uri modName = do
+  origInput <- pluginGetFile "hsimport cmd: " uri
+  fileMap <- lift $ GM.mkRevRedirMapFunc
+  GM.withMappedFile origInput $ \input -> do
 
-      tmpDir            <- liftIO getTemporaryDirectory
-      (output, outputH) <- liftIO $ openTempFile tmpDir "hsimportOutput"
-      liftIO $ hClose outputH
+    tmpDir            <- liftIO getTemporaryDirectory
+    (output, outputH) <- liftIO $ openTempFile tmpDir "hsimportOutput"
+    liftIO $ hClose outputH
 
-      let args = defaultArgs { moduleName    = T.unpack modName
-                             , inputSrcFile  = input
-                             , outputSrcFile = output
-                             }
-      maybeErr <- liftIO $ hsimportWithArgs defaultConfig args
-      case maybeErr of
-        Just err -> do
-          liftIO $ removeFile output
-          let msg = T.pack $ show err
-          return $ IdeResultFail (IdeError PluginError msg Null)
-        Nothing -> do
-          newText <- liftIO $ T.readFile output
-          liftIO $ removeFile output
-          workspaceEdit <- liftToGhc $ makeDiffResult input newText fileMap
-          return $ IdeResultOk workspaceEdit
+    let args = defaultArgs { moduleName    = T.unpack modName
+                            , inputSrcFile  = input
+                            , outputSrcFile = output
+                            }
+    maybeErr <- liftIO $ hsimportWithArgs defaultConfig args
+    case maybeErr of
+      Just err -> do
+        liftIO $ removeFile output
+        ideError PluginError (T.pack $ show err) Null
+      Nothing -> do
+        newText <- liftIO $ T.readFile output
+        liftIO $ removeFile output
+        workspaceEdit <- liftIde $ makeDiffResult input newText fileMap
+        return workspaceEdit
 
 codeActionProvider :: CodeActionProvider
 codeActionProvider docId _ _ context = do
   let J.List diags = context ^. J.diagnostics
       terms = mapMaybe getImportables diags
 
-  res <- mapM (bimapM return Hoogle.searchModules) terms
+  res <- hoist lift $ mapM (bimapM return Hoogle.searchModules) terms
   let actions = mapMaybe (uncurry mkImportAction) (concatTerms res)
 
   if null actions
      then do
        let relaxedTerms = map (bimap id (head . T.words)) terms
-       relaxedRes <- mapM (bimapM return Hoogle.searchModules) relaxedTerms
+       relaxedRes <- hoist lift $ mapM (bimapM return Hoogle.searchModules) relaxedTerms
        let relaxedActions = mapMaybe (uncurry mkImportAction) (concatTerms relaxedRes)
-       return $ IdeResponseOk relaxedActions
-     else return $ IdeResponseOk actions
+       return relaxedActions
+     else return actions
 
   where
     concatTerms = concatMap (\(d, ts) -> map (d,) ts)

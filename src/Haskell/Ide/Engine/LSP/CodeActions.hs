@@ -19,7 +19,6 @@ import qualified Language.Haskell.LSP.Types as J
 import qualified Language.Haskell.LSP.Types.Capabilities as C
 import Language.Haskell.LSP.VFS
 import Language.Haskell.LSP.Messages
-import Haskell.Ide.Engine.IdeFunctions
 import Haskell.Ide.Engine.PluginsIdeMonads
 
 data FallbackCodeActionParams =
@@ -38,10 +37,10 @@ handleCodeActionReq tn req = do
   docVersion <- fmap _version <$> liftIO (vfsFunc docUri)
   let docId = J.VersionedTextDocumentIdentifier docUri docVersion
 
-  let getProviders :: IdeM (IdeResponse [CodeActionProvider])
+  let getProviders :: IdeResponseT [CodeActionProvider]
       getProviders = do
-        IdePlugins m <- lift getPlugins
-        return $ IdeResponseOk $ map snd $ toList m
+        IdePlugins m <- use idePlugins
+        return $ map snd $ toList m
 
       providersCb :: [CodeActionProvider] -> R ()
       providersCb providers =
@@ -79,7 +78,7 @@ handleCodeActionReq tn req = do
       reactorSend $ RspCodeAction $ Core.makeResponseMessage req body
 
     -- | Execute multiple ide requests sequentially
-    collectRequests :: [IdeM (IdeResponse a)] -- ^ The requests to make
+    collectRequests :: [IdeResponseT a] -- ^ The requests to make
                     -> ([a] -> R ())     -- ^ Callback with the request inputs and results
                     -> R ()
     collectRequests = go []

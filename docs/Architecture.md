@@ -139,7 +139,7 @@ data GhcRequest m = forall a. GhcRequest
   , pinDocVer    :: Maybe (J.Uri, Int)
   , pinLspReqId  :: Maybe J.LspId
   , pinCallback  :: RequestCallback m a
-  , pinReq       :: IdeGhcM (IdeResult a)
+  , pinReq       :: IDErring IdeGhcM a
   }
 
 data IdeRequest m = forall a. IdeRequest

@@ -22,11 +22,11 @@ pattern GReq :: TrackingNumber
              -> Maybe (Uri, Int)
              -> Maybe J.LspId
              -> RequestCallback m a1
-             -> IdeGhcM (IdeResult a1)
+             -> IDErring IdeGhcM a1
              -> PluginRequest m
 pattern GReq a b c d e f = Right (GhcRequest   a b c d e f)
 
-pattern IReq :: TrackingNumber -> J.LspId -> RequestCallback m a -> IdeM (IdeResponse a) -> Either (IdeRequest m) b
+pattern IReq :: TrackingNumber -> J.LspId -> RequestCallback m a -> IdeResponseT a -> Either (IdeRequest m) b
 pattern IReq a b c d   = Left  (IdeRequest a b c d)
 
 type PluginRequest m = Either (IdeRequest m) (GhcRequest m)
@@ -37,14 +37,14 @@ data GhcRequest m = forall a. GhcRequest
   , pinDocVer    :: Maybe (J.Uri, Int)
   , pinLspReqId  :: Maybe J.LspId
   , pinCallback  :: RequestCallback m a
-  , pinReq       :: IdeGhcM (IdeResult a)
+  , pinReq       :: IDErring IdeGhcM a
   }
 
 data IdeRequest m = forall a. IdeRequest
   { pureMsgNum      :: TrackingNumber -- ^ Exists to facilitate logging/tracing
   , pureReqId       :: J.LspId
   , pureReqCallback :: RequestCallback m a
-  , pureReq         :: IdeM (IdeResponse a)
+  , pureReq         :: IdeResponseT a
   }
 
 -- ---------------------------------------------------------------------

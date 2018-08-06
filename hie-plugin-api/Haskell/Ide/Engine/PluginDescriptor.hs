@@ -12,7 +12,6 @@ module Haskell.Ide.Engine.PluginDescriptor
   , toDynJSON
   ) where
 
-import           Control.Monad.State.Strict
 import           Data.Aeson
 import           Data.List
 import qualified Data.Map                        as Map
@@ -22,8 +21,8 @@ import           Data.Monoid
 import qualified Data.Text                       as T
 import qualified Data.ConstrainedDynamic         as CD
 import           Data.Typeable
-import           Haskell.Ide.Engine.IdeFunctions
 import           Haskell.Ide.Engine.MonadTypes
+import           Control.Lens
 
 pluginDescToIdePlugins :: [(PluginId,PluginDescriptor)] -> IdePlugins
 pluginDescToIdePlugins = IdePlugins . foldr (uncurry Map.insert . f) Map.empty
@@ -42,18 +41,16 @@ toDynJSON = CD.toDyn
 
 -- | Runs a plugin command given a PluginId, CommandName and
 -- arguments in the form of a JSON object.
-runPluginCommand :: PluginId -> CommandName -> Value -> IdeGhcM (IdeResult DynamicJSON)
+runPluginCommand :: PluginId -> CommandName -> Value -> IDErring IdeGhcM DynamicJSON
 runPluginCommand p com arg = do
-  (IdePlugins m) <- lift . lift $ getPlugins
-  case Map.lookup p m of
-    Nothing -> return $
-      IdeResultFail $ IdeError UnknownPlugin ("Plugin " <> p <> " doesn't exist") Null
-    Just (xs, _) -> case find ((com ==) . commandName) xs of
-      Nothing -> return $ IdeResultFail $
-        IdeError UnknownCommand ("Command " <> com <> " isn't defined for plugin " <> p <> ". Legal commands are: " <> T.pack(show $ map commandName xs)) Null
-      Just (PluginCommand _ _ (CmdSync f)) -> case fromJSON arg of
-        Error err -> return $ IdeResultFail $
-          IdeError ParameterError ("error while parsing args for " <> com <> " in plugin " <> p <> ": " <> T.pack err) Null
-        Success a -> do
-            res <- f a
-            return $ fmap toDynJSON res
+  IdePlugins m <- liftIde $ use idePlugins
+  (xs, _) <- case Map.lookup p m of
+    Nothing -> ideError UnknownPlugin ("Plugin " <> p <> " doesn't exist") Null
+    Just x -> return x
+  PluginCommand _ _ (CmdSync f) <- case find ((com ==) . commandName) xs of
+    Nothing -> ideError UnknownCommand ("Command " <> com <> " isn't defined for plugin " <> p <> ". Legal commands are: " <> T.pack(show $ map commandName xs)) Null
+    Just x -> return x
+  a <- case fromJSON arg of
+    Error err -> ideError ParameterError ("error while parsing args for " <> com <> " in plugin " <> p <> ": " <> T.pack err) Null
+    Success x -> return x
+  toDynJSON <$> f a

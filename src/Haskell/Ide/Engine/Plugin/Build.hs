@@ -22,6 +22,8 @@ import           Data.Monoid
 import qualified Control.Exception as Exception
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Reader
+import           Control.Monad.Trans
+import           Control.Monad
 import           GHC.Generics                                 (Generic)
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
@@ -231,7 +233,7 @@ withCommonArgs req a = do
 -- isHelperPrepared = CmdSync $ \ctx req -> withCommonArgs ctx req $ do
 --   distDir <- asks caDistDir
 --   ret <- liftIO $ isPrepared (defaultQueryEnv "." distDir)
---   return $ IdeResultOk ret
+--   return ret
 
 -----------------------------------------------
 
@@ -243,7 +245,6 @@ prepareHelper = CmdSync $ \req -> withCommonArgs req $ do
         slp <- getStackLocalPackages "stack.yaml"
         mapM_ (prepareHelper' (caDistDir ca) (caCabal ca))  slp
       CabalMode -> prepareHelper' (caDistDir ca) (caCabal ca) "."
-  return $ IdeResultOk ()
 
 prepareHelper' :: MonadIO m => FilePath -> FilePath -> FilePath -> m ()
 prepareHelper' distDir cabalExe dir =
@@ -254,18 +255,16 @@ prepareHelper' distDir cabalExe dir =
 isConfigured :: CommandFunc CommonParams Bool
 isConfigured = CmdSync $ \req -> withCommonArgs req $ do
   distDir <- asks caDistDir
-  ret <- liftIO $ doesFileExist $ localBuildInfoFile distDir
-  return $ IdeResultOk ret
+  liftIO $ doesFileExist $ localBuildInfoFile distDir
 
 -----------------------------------------------
 
 configure :: CommandFunc CommonParams ()
 configure = CmdSync $ \req -> withCommonArgs req $ do
   ca <- ask
-  _ <- liftIO $ case caMode ca of
+  void $ liftIO $ case caMode ca of
       StackMode -> configureStack (caStack ca)
       CabalMode -> configureCabal (caCabal ca)
-  return $ IdeResultOk ()
 
 configureStack :: FilePath -> IO String
 configureStack stackExe = do
@@ -296,8 +295,8 @@ listFlags = CmdSync $ \(LF mode) -> do
             _oops -> return []
       let flags' = flip map flags0 $ \(n,f) ->
                     object ["packageName" .= n, "flags" .= map flagToJSON f]
-          (Object ret) = object ["res" .= toJSON flags']
-      return $ IdeResultOk ret
+          Object ret = object ["res" .= toJSON flags']
+      return ret
 
 listFlagsStack :: FilePath -> IO [(String,[Flag])]
 listFlagsStack d = do
@@ -354,21 +353,15 @@ instance ToJSON BuildParams where
 buildDirectory :: CommandFunc BuildParams ()
 buildDirectory = CmdSync $ \(BP m dd c s f mbDir) -> withCommonArgs (CommonParams m dd c s f) $ do
   ca <- ask
-  liftIO $ case caMode ca of
-    CabalMode -> do
-      -- for cabal specifying directory have no sense
-      _ <- readProcess (caCabal ca) ["build"] ""
-      return $ IdeResultOk ()
-    StackMode -> do
-      case mbDir of
-        Nothing -> do
-          _ <- readProcess (caStack ca) ["build"] ""
-          return $ IdeResultOk ()
-        Just dir0 -> pluginGetFile "buildDirectory" dir0 $ \dir -> do
-          cwd <- getCurrentDirectory
-          let relDir = makeRelative cwd $ normalise dir
-          _ <- readProcess (caStack ca) ["build", relDir] ""
-          return $ IdeResultOk ()
+  args <- case caMode ca of
+    CabalMode -> return [] -- for cabal specifying directory have no sense
+    StackMode -> case mbDir of
+      Nothing -> return []
+      Just dir0 -> do
+        dir <- lift $ pluginGetFile "buildDirectory" dir0
+        cwd <- liftIO $ getCurrentDirectory
+        return [makeRelative cwd $ normalise dir]
+  liftIO $ void $ readProcess (caStack ca) ("build":args) ""
 
 -----------------------------------------------
 
@@ -395,22 +388,17 @@ buildTarget = CmdSync $ \(BT m dd c s f component package' compType) -> withComm
   ca <- ask
   liftIO $ case caMode ca of
     CabalMode -> do
-      _ <- readProcess (caCabal ca) ["build", T.unpack $ maybe "" id component] ""
-      return $ IdeResultOk ()
+      void $ readProcess (caCabal ca) ["build", T.unpack $ maybe "" id component] ""
     StackMode -> do
       case (package', component) of
         (Just p, Nothing) -> do
-          _ <- readProcess (caStack ca) ["build", T.unpack $ p `T.append` compType] ""
-          return $ IdeResultOk ()
+          void $ readProcess (caStack ca) ["build", T.unpack $ p `T.append` compType] ""
         (Just p, Just c') -> do
-          _ <- readProcess (caStack ca) ["build", T.unpack $ p `T.append` compType `T.append` (':' `T.cons` c')] ""
-          return $ IdeResultOk ()
+          void $ readProcess (caStack ca) ["build", T.unpack $ p `T.append` compType `T.append` (':' `T.cons` c')] ""
         (Nothing, Just c') -> do
-          _ <- readProcess (caStack ca) ["build", T.unpack $ ':' `T.cons` c'] ""
-          return $ IdeResultOk ()
+          void $ readProcess (caStack ca) ["build", T.unpack $ ':' `T.cons` c'] ""
         _ -> do
-          _ <- readProcess (caStack ca) ["build"] ""
-          return $ IdeResultOk ()
+          void $ readProcess (caStack ca) ["build"] ""
 
 -----------------------------------------------
 
@@ -426,11 +414,10 @@ listTargets = CmdSync $ \req -> withCommonArgs req $ do
   targets <- liftIO $ case caMode ca of
       CabalMode -> (:[]) <$> listCabalTargets (caDistDir ca) "."
       StackMode -> listStackTargets (caDistDir ca)
-  let ret = flip map targets $ \t -> object
+  return $ flip map targets $ \t -> object
         ["name" .= tPackageName t,
          "directory" .= tDirectory t,
          "targets" .= map compToJSON (tTargets t)]
-  return $ IdeResultOk ret
 
 listStackTargets :: FilePath -> IO [Package]
 listStackTargets distDir = do

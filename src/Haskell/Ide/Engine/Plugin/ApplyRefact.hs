@@ -63,16 +63,16 @@ applyOneCmd :: CommandFunc ApplyOneParams WorkspaceEdit
 applyOneCmd = CmdSync $ \(AOP uri pos title) -> do
   applyOneCmd' uri (OneHint pos title)
 
-applyOneCmd' :: Uri -> OneHint -> IdeGhcM (IdeResult WorkspaceEdit)
-applyOneCmd' uri oneHint = pluginGetFile "applyOne: " uri $ \fp -> do
-      revMapp <- GM.mkRevRedirMapFunc
-      res <- GM.withMappedFile fp $ \file' -> liftToGhc $ applyHint file' (Just oneHint) revMapp
-      logm $ "applyOneCmd:file=" ++ show fp
-      logm $ "applyOneCmd:res=" ++ show res
-      case res of
-        Left err -> return $ IdeResultFail (IdeError PluginError
-                      (T.pack $ "applyOne: " ++ show err) Null)
-        Right fs -> return (IdeResultOk fs)
+applyOneCmd' :: Uri -> OneHint -> IDErring IdeGhcM WorkspaceEdit
+applyOneCmd' uri oneHint = do
+  fp <- pluginGetFile "applyOne: " uri
+  revMapp <- GM.mkRevRedirMapFunc
+  res <- GM.withMappedFile fp $ \file' -> liftIde $ applyHint file' (Just oneHint) revMapp
+  logm $ "applyOneCmd:file=" ++ show fp
+  logm $ "applyOneCmd:res=" ++ show res
+  case res of
+    Left err -> ideError PluginError (T.pack $ "applyOne: " ++ show err) Null
+    Right fs -> return fs
 
 
 -- ---------------------------------------------------------------------
@@ -81,15 +81,15 @@ applyAllCmd :: CommandFunc Uri WorkspaceEdit
 applyAllCmd = CmdSync $ \uri -> do
   applyAllCmd' uri
 
-applyAllCmd' :: Uri -> IdeGhcM (IdeResult WorkspaceEdit)
-applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \fp -> do
-      revMapp <- GM.mkRevRedirMapFunc
-      res <- GM.withMappedFile fp $ \file' -> liftToGhc $ applyHint file' Nothing revMapp
-      logm $ "applyAllCmd:res=" ++ show res
-      case res of
-        Left err -> return $ IdeResultFail (IdeError PluginError
-                      (T.pack $ "applyAll: " ++ show err) Null)
-        Right fs -> return (IdeResultOk fs)
+applyAllCmd' :: Uri -> IDErring IdeGhcM WorkspaceEdit
+applyAllCmd' uri = do
+  fp <- pluginGetFile "applyAll: " uri
+  revMapp <- GM.mkRevRedirMapFunc
+  res <- GM.withMappedFile fp $ \file' -> liftIde $ applyHint file' Nothing revMapp
+  logm $ "applyAllCmd:res=" ++ show res
+  case res of
+    Left err -> ideError PluginError (T.pack $ "applyAll: " ++ show err) Null
+    Right fs -> return fs
 
 -- ---------------------------------------------------------------------
 
@@ -97,16 +97,13 @@ lintCmd :: CommandFunc Uri PublishDiagnosticsParams
 lintCmd = CmdSync $ \uri -> do
   lintCmd' uri
 
-lintCmd' :: Uri -> IdeGhcM (IdeResult PublishDiagnosticsParams)
-lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
-      res <- GM.withMappedFile fp $ \file' -> liftIO $ runExceptT $ runLintCmd file' []
-      case res of
-        Left diags ->
-          return (IdeResultOk (PublishDiagnosticsParams (filePathToUri fp) $ List diags))
-        Right fs ->
-          return $ IdeResultOk $
-            PublishDiagnosticsParams (filePathToUri fp)
-              $ List (map hintToDiagnostic $ stripIgnores fs)
+lintCmd' :: Uri -> IDErring IdeGhcM PublishDiagnosticsParams
+lintCmd' uri = do
+  fp <- pluginGetFile "lintCmd: " uri
+  res <- GM.withMappedFile fp $ \file' -> liftIO $ runExceptT $ runLintCmd file' []
+  return $ PublishDiagnosticsParams (filePathToUri fp) $ List $ case res of
+    Left diags -> diags
+    Right fs -> map hintToDiagnostic $ stripIgnores fs
 
 runLintCmd :: FilePath -> [String] -> ExceptT [Diagnostic] IO [Idea]
 runLintCmd fp args = do
@@ -273,9 +270,7 @@ showParseError (Hlint.ParseError location message content) =
 -- ---------------------------------------------------------------------
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider docId _ _ context = return $ IdeResponseOk hlintActions
-  where
-
+codeActionProvider docId _ _ context = return hlintActions where
     hlintActions = mapMaybe mkHlintAction $ filter validCommand diags
     -- |Some hints do not have an associated refactoring
     validCommand (LSP.Diagnostic _ _ (Just code) (Just "hlint") _ _) =

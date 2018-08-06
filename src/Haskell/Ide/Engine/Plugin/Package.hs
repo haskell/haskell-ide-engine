@@ -42,6 +42,8 @@ import           System.FilePath
 import           Haskell.Ide.Engine.Compat (isExtensionOf)
 #endif
 import           Control.Monad.IO.Class
+import           Control.Monad.Trans
+import           Control.Monad.Morph
 import           System.Directory
 import qualified GhcMod.Utils                  as GM
 import           Distribution.Types.GenericPackageDescription
@@ -77,12 +79,12 @@ addCmd = CmdSync $ \(AddParams rootDir modulePath pkg) -> do
       absFp <- liftIO $ canonicalizePath relFp
       let relModulePath = makeRelative (takeDirectory absFp) modulePath
       
-      liftToGhc $ editCabalPackage absFp relModulePath (T.unpack pkg) fileMap
+      liftIde $ editCabalPackage absFp relModulePath (T.unpack pkg) fileMap
     HpackPackage relFp -> do
       absFp <- liftIO $ canonicalizePath relFp
       let relModulePath = makeRelative (takeDirectory absFp) modulePath
-      liftToGhc $ editHpackPackage absFp relModulePath pkg
-    NoPackage -> return $ IdeResultFail (IdeError PluginError "No package.yaml or .cabal found" Null)
+      editHpackPackage absFp relModulePath pkg
+    NoPackage -> ideError PluginError "No package.yaml or .cabal found" Null
 
 data PackageType = CabalPackage FilePath
                  | HpackPackage FilePath
@@ -100,11 +102,11 @@ findPackageType rootDir = do
 -- Currently does not preserve format.
 -- Keep an eye out on this other GSOC project!
 -- https://github.com/wisn/format-preserving-yaml
-editHpackPackage :: FilePath -> FilePath -> T.Text -> IdeM (IdeResult WorkspaceEdit)
+editHpackPackage :: FilePath -> FilePath -> T.Text -> IDErring IdeGhcM WorkspaceEdit
 editHpackPackage fp modulePath pkgName = do
   contents <- liftIO $ B.readFile fp
 
-  supportsDocChanges <- clientSupportsDocumentChanges
+  supportsDocChanges <- liftIde clientSupportsDocumentChanges
 
   case Y.decodeThrow contents :: Maybe Object of
     Just obj -> do
@@ -132,8 +134,8 @@ editHpackPackage fp modulePath pkgName = do
                 then J.WorkspaceEdit Nothing (Just (J.List [textDocEdit]))
                 else J.WorkspaceEdit (Just (HM.singleton docUri (J.List [textEdit]))) Nothing
 
-        return $ IdeResultOk wsEdit
-    Nothing -> return $ IdeResultFail (IdeError PluginError "Couldn't parse package.yaml" Null)
+        return wsEdit
+    Nothing -> ideError PluginError "Couldn't parse package.yaml" Null
 
   where
 
@@ -182,7 +184,7 @@ editHpackPackage fp modulePath pkgName = do
 
 
 -- | Takes a cabal file and a path to a module in the dependency you want to edit.
-editCabalPackage :: FilePath -> FilePath ->  String -> (FilePath -> FilePath) -> IdeM (IdeResult J.WorkspaceEdit)
+editCabalPackage :: FilePath -> FilePath ->  String -> (FilePath -> FilePath) -> IdeM J.WorkspaceEdit
 editCabalPackage file modulePath pkgName fileMap = do
 
   package <- liftIO $ readGenericPackageDescription normal file
@@ -196,7 +198,7 @@ editCabalPackage file modulePath pkgName fileMap = do
 
   let newContents = T.pack $ PP.showGenericPackageDescription newPackage
 
-  IdeResultOk <$> makeAdditiveDiffResult file newContents fileMap
+  makeAdditiveDiffResult file newContents fileMap
 
 
   where
@@ -232,10 +234,10 @@ codeActionProvider docId mRootDir _ context = do
   let J.List diags = context ^. J.diagnostics
       pkgs = mapMaybe getAddablePackages diags
 
-  res <- mapM (bimapM return Hoogle.searchPackages) pkgs
+  res <- hoist lift $ mapM (bimapM return Hoogle.searchPackages) pkgs
   let actions = mapMaybe (uncurry mkAddPackageAction) (concatPkgs res)  
 
-  return $ IdeResponseOk actions
+  return actions
 
   where
     concatPkgs = concatMap (\(d, ts) -> map (d,) ts)

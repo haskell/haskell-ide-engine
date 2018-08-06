@@ -15,11 +15,13 @@ module TestUtils
 
 import           Control.Exception
 import           Control.Monad
+import           Control.Monad.Morph
 import           Data.Aeson.Types (typeMismatch)
 import           Data.Default
 import           Data.Text (pack)
 import           Data.Typeable
 import           Data.Yaml
+import           Data.Functor.Identity
 import qualified Data.Map as Map
 import qualified GhcMod.Monad as GM
 import qualified GhcMod.Types as GM
@@ -54,19 +56,19 @@ cdAndDo path fn = do
           $ const fn
 
 
-testCommand :: (ToJSON a, Typeable b, ToJSON b, Show b, Eq b) => IdePlugins -> IdeGhcM (IdeResult b) -> PluginId -> CommandName -> a -> IdeResult b -> IO ()
+testCommand :: (ToJSON a, Typeable b, ToJSON b, Show b, Eq b) => IdePlugins -> IDErring IdeGhcM b -> PluginId -> CommandName -> a -> IDErring Identity b -> IO ()
 testCommand testPlugins act plugin cmd arg res = do
   (newApiRes, oldApiRes) <- runIGM testPlugins $ do
-    new <- act
-    old <- makeRequest plugin cmd arg
+    new <- runIDErring act
+    old <- runIDErring $ makeRequest plugin cmd arg
     return (new, old)
-  newApiRes `shouldBe` res
-  fmap fromDynJSON oldApiRes `shouldBe` fmap Just res
+  newApiRes `shouldBe` runIdentity (runIDErring res)
+  fmap fromDynJSON oldApiRes `shouldBe` fmap Just (runIdentity (runIDErring res))
 
-runSingleReq :: ToJSON a => IdePlugins -> PluginId -> CommandName -> a -> IO (IdeResult DynamicJSON)
-runSingleReq testPlugins plugin com arg = runIGM testPlugins (makeRequest plugin com arg)
+runSingleReq :: ToJSON a => IdePlugins -> PluginId -> CommandName -> a -> IDErring IO DynamicJSON
+runSingleReq testPlugins plugin com arg = hoist (runIGM testPlugins) $ makeRequest plugin com arg
 
-makeRequest :: ToJSON a => PluginId -> CommandName -> a -> IdeGhcM (IdeResult DynamicJSON)
+makeRequest :: ToJSON a => PluginId -> CommandName -> a -> IDErring IdeGhcM DynamicJSON
 makeRequest plugin com arg = runPluginCommand plugin com (toJSON arg)
 
 runIGM :: IdePlugins -> IdeGhcM a -> IO a

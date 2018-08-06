@@ -21,8 +21,9 @@ import System.Log.Logger
 import Data.Typeable
 import Data.Dynamic
 import qualified Data.Map as Map
+import qualified Control.Monad.State as MS
+import Control.Lens
 
-import Haskell.Ide.Engine.MultiThreadState
 import Haskell.Ide.Engine.PluginsIdeMonads
 
 -- ---------------------------------------------------------------------
@@ -104,34 +105,33 @@ class Typeable a => ExtensionClass a where
 --
 
 -- | Modify the map of state extensions by applying the given function.
-modifyStateExts :: MonadMTState IdeState m => (Map.Map TypeRep Dynamic -> Map.Map TypeRep Dynamic) -> m ()
-modifyStateExts f = modifyMTS $ \st -> st { extensibleState = f (extensibleState st) }
+modifyStateExts :: MS.MonadState IdeState m => (Map.Map TypeRep Dynamic -> Map.Map TypeRep Dynamic) -> m ()
+modifyStateExts f = extensibleState %= f
 
 -- | Apply a function to a stored value of the matching type or the initial value if there
 -- is none.
-modify :: (MonadMTState IdeState m, ExtensionClass a) => (a -> a) -> m ()
+modify :: (MS.MonadState IdeState m, ExtensionClass a) => (a -> a) -> m ()
 modify f = put . f =<< get
 
 -- | Add a value to the extensible state field. A previously stored value with the same
 -- type will be overwritten. (More precisely: A value whose string representation of its type
 -- is equal to the new one's)
-put :: (MonadMTState IdeState m, ExtensionClass a) => a -> m ()
+put :: (MS.MonadState IdeState m, ExtensionClass a) => a -> m ()
 put v = modifyStateExts . Map.insert (typeOf v) . toDyn $ v
 
 -- | Try to retrieve a value of the requested type, return an initial value if there is no such value.
-get :: forall a m. (MonadMTState IdeState m, ExtensionClass a) => m a
+get :: forall a m. (MS.MonadState IdeState m, ExtensionClass a) => m a
 get = do
-  mc <- readMTS
-  let v = (Map.lookup (typeRep (Proxy :: Proxy a)) . extensibleState) mc
+  v <- use $ extensibleState . at (typeRep (Proxy :: Proxy a))
   case v of
     Just dyn -> return $ fromDyn dyn initialValue
     _        -> return initialValue
 
-gets :: (MonadMTState IdeState m, ExtensionClass a) => (a -> b) -> m b
+gets :: (MS.MonadState IdeState m, ExtensionClass a) => (a -> b) -> m b
 gets = flip fmap get
 
 -- | Remove the value from the extensible state field that has the same type as the supplied argument
-remove :: (MonadMTState IdeState m, ExtensionClass a) => proxy a -> m ()
+remove :: (MS.MonadState IdeState m, ExtensionClass a) => proxy a -> m ()
 remove wit = modifyStateExts $ Map.delete (typeRep $ wit)
 
 -- ---------------------------------------------------------------------

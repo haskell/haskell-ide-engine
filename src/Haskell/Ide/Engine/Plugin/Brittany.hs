@@ -39,40 +39,38 @@ brittanyDescriptor = PluginDescriptor
   cmd =
     CmdSync $ \(FormatParams tabSize uri range) -> brittanyCmd tabSize uri range
 
-brittanyCmd :: Int -> Uri -> Maybe Range -> IdeGhcM (IdeResult [J.TextEdit])
-brittanyCmd tabSize uri range =
-  pluginGetFile "brittanyCmd: " uri $ \file -> do
-    confFile <- liftIO $ findLocalConfigPath (takeDirectory file)
-    text <- GM.withMappedFile file $ liftIO . T.readFile
-    case range of
-      Just r -> do
-        -- format selection
-        res <- liftIO $ runBrittany tabSize confFile $ extractRange r text
-        case res of
-          Left err -> return $ IdeResultFail (IdeError PluginError
-                      (T.pack $ "brittanyCmd: " ++ unlines (map showErr err)) Null)
-          Right newText -> do
-            let textEdit = J.TextEdit (normalize r) newText
-            return $ IdeResultOk [textEdit]
-      Nothing -> do
-        -- format document
-        res <- liftIO $ runBrittany tabSize confFile text
-        case res of
-          Left err -> return $ IdeResultFail (IdeError PluginError
-                      (T.pack $ "brittanyCmd: " ++ unlines (map showErr err)) Null)
-          Right newText -> do
-            let startPos = Position 0 0
-                endPos = Position lastLine 0
-                {-
-                In order to replace everything including newline characters,
-                the end range should extend below the last line. From the specification:
-                "If you want to specify a range that contains a line including
-                the line ending character(s) then use an end position denoting
-                the start of the next line"
-                -}
-                lastLine = length $ T.lines text
-                textEdit = J.TextEdit (Range startPos endPos) newText
-            return $ IdeResultOk [textEdit]
+brittanyCmd :: Int -> Uri -> Maybe Range -> IDErring IdeGhcM [J.TextEdit]
+brittanyCmd tabSize uri range = do
+  file <- pluginGetFile "brittanyCmd: " uri
+  confFile <- liftIO $ findLocalConfigPath (takeDirectory file)
+  text <- GM.withMappedFile file $ liftIO . T.readFile
+  case range of
+    Just r -> do
+      -- format selection
+      res <- liftIO $ runBrittany tabSize confFile $ extractRange r text
+      case res of
+        Left err -> ideError PluginError (T.pack $ "brittanyCmd: " ++ unlines (map showErr err)) Null
+        Right newText -> do
+          let textEdit = J.TextEdit (normalize r) newText
+          return [textEdit]
+    Nothing -> do
+      -- format document
+      res <- liftIO $ runBrittany tabSize confFile text
+      case res of
+        Left err -> ideError PluginError (T.pack $ "brittanyCmd: " ++ unlines (map showErr err)) Null
+        Right newText -> do
+          let startPos = Position 0 0
+              endPos = Position lastLine 0
+              {-
+              In order to replace everything including newline characters,
+              the end range should extend below the last line. From the specification:
+              "If you want to specify a range that contains a line including
+              the line ending character(s) then use an end position denoting
+              the start of the next line"
+              -}
+              lastLine = length $ T.lines text
+              textEdit = J.TextEdit (Range startPos endPos) newText
+          return [textEdit]
 
 extractRange :: Range -> Text -> Text
 extractRange (Range (Position sl _) (Position el _)) s = newS

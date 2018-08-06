@@ -4,14 +4,13 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE TypeApplications    #-}
 module Haskell.Ide.Engine.Plugin.GhcMod where
 
 import           Bag
 import           Control.Monad.IO.Class
 import           Control.Lens
-import           Control.Lens.Setter ((%~))
-import           Control.Lens.Traversal (traverseOf)
-import           Data.Aeson
+import           Data.Aeson hiding ((.=))
 #if __GLASGOW_HASKELL__ < 802
 import           Data.Aeson.Types
 #endif
@@ -52,6 +51,8 @@ import           HscTypes
 import qualified Language.Haskell.LSP.Types        as LSP
 import           TcRnTypes
 import           Outputable                        (renderWithStyle, mkUserStyle, Depth(..))
+import           Control.Monad.Trans
+import           Control.Monad.Morph
 
 -- ---------------------------------------------------------------------
 
@@ -178,40 +179,40 @@ errorHandlers ghcErrRes renderSourceError = handlers
         --     return $ ghcErrRes (show ex)
         ]
 
-setTypecheckedModule :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
-setTypecheckedModule uri = 
-  pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
-    fileMap <- GM.getMMappedFiles
-    debugm $ "setTypecheckedModule: file mapping state is: " ++ show fileMap
-    rfm <- GM.mkRevRedirMapFunc
-    let
-      ghcErrRes msg = ((Map.empty, [T.pack msg]),Nothing)
-    debugm "setTypecheckedModule: before ghc-mod"
-    ((diags', errs), mtm) <- GM.gcatches
-                              (GM.getTypecheckedModuleGhc' (myLogger rfm) fp)
-                              (errorHandlers ghcErrRes (return . ghcErrRes . show))
-    debugm "setTypecheckedModule: after ghc-mod"
-    canonUri <- canonicalizeUri uri
-    let diags = Map.insertWith Set.union canonUri Set.empty diags'
-    case mtm of
-      Nothing -> do
-        debugm $ "setTypecheckedModule: Didn't get typechecked module for: " ++ show fp
+setTypecheckedModule :: Uri -> IDErring IdeGhcM (Diagnostics, AdditionalErrs)
+setTypecheckedModule uri = do
+  fp <- pluginGetFile "setTypecheckedModule: " uri
+  fileMap <- GM.getMMappedFiles
+  debugm $ "setTypecheckedModule: file mapping state is: " ++ show fileMap
+  rfm <- GM.mkRevRedirMapFunc
+  let
+    ghcErrRes msg = ((Map.empty, [T.pack msg]),Nothing)
+  debugm "setTypecheckedModule: before ghc-mod"
+  ((diags', errs), mtm) <- lift @IDErring $ GM.gcatches
+                            (GM.getTypecheckedModuleGhc' (myLogger rfm) fp)
+                            (errorHandlers ghcErrRes (return . ghcErrRes . show))
+  debugm "setTypecheckedModule: after ghc-mod"
+  canonUri <- canonicalizeUri uri
+  let diags = Map.insertWith Set.union canonUri Set.empty diags'
+  lift @IDErring $ case mtm of
+    Nothing -> do
+      debugm $ "setTypecheckedModule: Didn't get typechecked module for: " ++ show fp
 
-        failModule fp (T.unlines errs)
+      failModule fp (T.unlines errs)
 
-        return $ IdeResultOk (diags,errs)
-      Just tm -> do
-        debugm $ "setTypecheckedModule: Did get typechecked module for: " ++ show fp
-        typm <- GM.unGmlT $ genTypeMap tm
-        sess <- fmap GM.gmgsSession . GM.gmGhcSession <$> GM.gmsGet
-        let cm = CachedModule tm (genLocMap tm) typm (genImportMap tm) rfm return return
+      return (diags,errs)
+    Just tm -> do
+      debugm $ "setTypecheckedModule: Did get typechecked module for: " ++ show fp
+      typm <- GM.unGmlT $ genTypeMap tm
+      sess <- fmap GM.gmgsSession . GM.gmGhcSession <$> GM.gmsGet
+      let cm = CachedModule tm (genLocMap tm) typm (genImportMap tm) rfm return return
 
-        -- set the session before we cache the module, so that deferred
-        -- responses triggered by cacheModule can access it
-        modifyMTS (\s -> s {ghcSession = sess})
-        cacheModule fp cm
-        debugm "setTypecheckedModule: done"
-        return $ IdeResultOk (diags,errs)
+      -- set the session before we cache the module, so that deferred
+      -- responses triggered by cacheModule can access it
+      liftIde $ ghcSession .= sess
+      cacheModule fp cm
+      debugm "setTypecheckedModule: done"
+      return (diags,errs)
 
 -- ---------------------------------------------------------------------
 
@@ -219,10 +220,10 @@ lintCmd :: CommandFunc Uri T.Text
 lintCmd = CmdSync $ \ uri ->
   lintCmd' uri
 
-lintCmd' :: Uri -> IdeGhcM (IdeResult T.Text)
-lintCmd' uri =
-  pluginGetFile "lint: " uri $ \file ->
-    fmap T.pack <$> runGhcModCommand (GM.lint GM.defaultLintOpts file)
+lintCmd' :: Uri -> IDErring IdeGhcM T.Text
+lintCmd' uri = do
+  file <- pluginGetFile "lint: " uri
+  T.pack <$> runGhcModCommand (GM.lint GM.defaultLintOpts (file :: FilePath))
 
 -- ---------------------------------------------------------------------
 
@@ -243,10 +244,10 @@ infoCmd :: CommandFunc InfoParams T.Text
 infoCmd = CmdSync $ \(IP uri expr) ->
   infoCmd' uri expr
 
-infoCmd' :: Uri -> T.Text -> IdeGhcM (IdeResult T.Text)
-infoCmd' uri expr =
-  pluginGetFile "info: " uri $ \file ->
-    fmap T.pack <$> runGhcModCommand (GM.info file (GM.Expression (T.unpack expr)))
+infoCmd' :: Uri -> T.Text -> IDErring IdeGhcM T.Text
+infoCmd' uri expr = do
+  file <- pluginGetFile "info: " uri
+  T.pack <$> runGhcModCommand (GM.info file (GM.Expression (T.unpack expr)))
 
 -- ---------------------------------------------------------------------
 data TypeParams =
@@ -261,16 +262,16 @@ instance ToJSON TypeParams where
   toJSON = genericToJSON customOptions
 
 typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
-typeCmd = CmdSync $ \(TP _bool uri pos) ->
-  liftToGhc $ newTypeCmd pos uri
+typeCmd = CmdSync $ \(TP _bool uri pos) -> do
+  hoist liftIde $ newTypeCmd pos uri
 
-newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
-newTypeCmd newPos uri =
-  pluginGetFile "newTypeCmd: " uri $ \fp -> do
-      mcm <- getCachedModule fp
-      case mcm of
-        ModuleCached cm _ -> return $ IdeResultOk $ pureTypeCmd newPos cm
-        _ -> return $ IdeResultOk []
+newTypeCmd :: Position -> Uri -> IDErring IdeM [(Range, T.Text)]
+newTypeCmd newPos uri = do
+  fp <- pluginGetFile "newTypeCmd: " uri
+  mcm <- getCachedModule fp
+  return $ case mcm of
+    ModuleCached cm _ -> pureTypeCmd newPos cm
+    _ -> []
 
 pureTypeCmd :: Position -> CachedModule -> [(Range,T.Text)]
 pureTypeCmd newPos cm  =
@@ -310,26 +311,26 @@ splitCaseCmd :: CommandFunc HarePoint WorkspaceEdit
 splitCaseCmd = CmdSync $ \(HP uri pos) -> do
     splitCaseCmd' uri pos
 
-splitCaseCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
-splitCaseCmd' uri newPos =
-  pluginGetFile "splitCaseCmd: " uri $ \path -> do
-    origText <- GM.withMappedFile path $ liftIO . T.readFile
-    cachedMod <- getCachedModule path
-    case cachedMod of
-      ModuleCached checkedModule _ ->
-        runGhcModCommand $
-        case newPosToOld checkedModule newPos of
-          Just oldPos -> do
-            let (line, column) = unPos oldPos
-            splitResult' <- GM.splits' path (tcMod checkedModule) line column
-            case splitResult' of
-              Just splitResult -> do
-                wEdit <- liftToGhc $ splitResultToWorkspaceEdit origText splitResult
-                return $ oldToNewPositions checkedModule wEdit
-              Nothing -> return mempty
-          Nothing -> return mempty
-      ModuleFailed errText -> return $ IdeResultFail $ IdeError PluginError (T.append "hie-ghc-mod: " errText) Null
-      ModuleLoading -> return $ IdeResultOk mempty
+splitCaseCmd' :: Uri -> Position -> IDErring IdeGhcM WorkspaceEdit
+splitCaseCmd' uri newPos = do
+  path <- pluginGetFile "splitCaseCmd: " uri
+  origText <- GM.withMappedFile path $ liftIO . T.readFile
+  cachedMod <- getCachedModule path
+  case cachedMod of
+    ModuleCached checkedModule _ ->
+      runGhcModCommand $
+      case newPosToOld checkedModule newPos of
+        Just oldPos -> do
+          let (line, column) = unPos oldPos
+          splitResult' <- GM.splits' path (tcMod checkedModule) line column
+          liftIde $ case splitResult' of
+            Just splitResult -> do
+              wEdit <- splitResultToWorkspaceEdit origText splitResult
+              return $ oldToNewPositions checkedModule wEdit
+            Nothing -> return mempty
+        Nothing -> return mempty
+    ModuleFailed errText -> ideError PluginError (T.append "hie-ghc-mod: " errText) Null
+    ModuleLoading -> return mempty
   where
 
     -- | Transform all ranges in a WorkspaceEdit from old to new positions.
@@ -371,13 +372,11 @@ splitCaseCmd' uri newPos =
 -- ---------------------------------------------------------------------
 
 runGhcModCommand :: IdeGhcM a
-                 -> IdeGhcM (IdeResult a)
+                 -> IDErring IdeGhcM a
 runGhcModCommand cmd =
-  (IdeResultOk <$> cmd) `G.gcatch`
+  lift cmd `G.gcatch`
     \(e :: GM.GhcModError) ->
-      return $
-      IdeResultFail $
-      IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Null
+      ideError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Null
 
 -- ---------------------------------------------------------------------
 
@@ -388,7 +387,7 @@ codeActionProvider docId _ _ context =
       renameActions = map (uncurry mkRenamableAction) terms
       redundantTerms = mapMaybe getRedundantImports diags
       redundantActions = concatMap (uncurry mkRedundantImportActions) redundantTerms
-  in return $ IdeResponseOk (renameActions ++ redundantActions ++ mapMaybe topLevelUnsigned diags)
+  in return $ renameActions ++ redundantActions ++ mapMaybe topLevelUnsigned diags
 
   where
     docUri = docId ^. LSP.uri

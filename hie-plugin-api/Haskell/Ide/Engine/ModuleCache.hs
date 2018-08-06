@@ -1,11 +1,12 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TupleSections #-}
 module Haskell.Ide.Engine.ModuleCache where
 
-import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Control
+import           Control.Monad.State
 import qualified Data.Aeson as J
 import           Data.Dynamic (toDyn, fromDynamic)
 import           Data.Generics (Proxy(..), typeRep, typeOf)
@@ -16,12 +17,13 @@ import           Data.Typeable (Typeable)
 import           Exception (ExceptionMonad)
 import           System.Directory
 import           System.FilePath
+import           Control.Lens
+import           Data.Foldable
 
 import qualified GhcMod.Cradle as GM
 import qualified GhcMod.Monad  as GM
 import qualified GhcMod.Types  as GM
 
-import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.PluginsIdeMonads
 import           Haskell.Ide.Engine.GhcModuleCache
 
@@ -87,7 +89,7 @@ data CachedModuleResult = ModuleLoading
 type IsStale = Bool
 
 -- | looks up a CachedModule for a given URI
-getCachedModule :: (GM.MonadIO m, HasGhcModuleCache m)
+getCachedModule :: (MonadIO m, HasGhcModuleCache m)
                 => FilePath -> m CachedModuleResult
 getCachedModule uri = do
   uri' <- liftIO $ canonicalizePath uri
@@ -108,22 +110,20 @@ isCached uri = do
 
 -- | Version of `withCachedModuleAndData` that doesn't provide
 -- any extra cached data.
-withCachedModule :: FilePath -> (CachedModule -> IdeM (IdeResponse b)) -> IdeM (IdeResponse b)
+withCachedModule :: FilePath -> (CachedModule -> IdeResponseT b) -> IdeResponseT b
 withCachedModule uri callback = withCachedModuleDefault uri Nothing callback
 
 -- | Version of `withCachedModuleAndData` that doesn't provide
 -- any extra cached data.
-withCachedModuleDefault :: FilePath -> Maybe (IdeResponse b)
-                        -> (CachedModule -> IdeM (IdeResponse b)) -> IdeM (IdeResponse b)
+withCachedModuleDefault :: FilePath -> Maybe (IdeResponseT b)
+                        -> (CachedModule -> IdeResponseT b) -> IdeResponseT b
 withCachedModuleDefault uri mdef callback = do
   mcm <- getCachedModule uri
   uri' <- liftIO $ canonicalizePath uri
   case mcm of
     ModuleCached cm _ -> callback cm
-    ModuleLoading -> return $ IdeResponseDeferred uri' callback
-    ModuleFailed err -> case mdef of
-      Nothing -> return $ IdeResponseFail (IdeError NoModuleAvailable err J.Null)
-      Just def -> return def
+    ModuleLoading -> defer uri' callback
+    ModuleFailed err -> flip fromMaybe mdef $ ideError NoModuleAvailable err J.Null
 
 -- | Calls its argument with the CachedModule for a given URI
 -- along with any data that might be stored in the ModuleCache.
@@ -134,21 +134,21 @@ withCachedModuleDefault uri mdef callback = do
 -- If the data doesn't exist in the cache, new data is generated
 -- using by calling the `cacheDataProducer` function.
 withCachedModuleAndData :: forall a b. ModuleCache a
-                        => FilePath -> (CachedModule -> a -> IdeM (IdeResponse b)) -> IdeM (IdeResponse b)
+                        => FilePath -> (CachedModule -> a -> IdeResponseT b) -> IdeResponseT b
 withCachedModuleAndData uri callback = withCachedModuleAndDataDefault uri Nothing callback
 
 withCachedModuleAndDataDefault :: forall a b. ModuleCache a
-                        => FilePath -> Maybe (IdeResponse b)
-                        -> (CachedModule -> a -> IdeM (IdeResponse b)) -> IdeM (IdeResponse b)
+                        => FilePath -> Maybe (IdeResponseT b)
+                        -> (CachedModule -> a -> IdeResponseT b) -> IdeResponseT b
 withCachedModuleAndDataDefault uri mdef callback = do
   uri' <- liftIO $ canonicalizePath uri
   mcache <- getModuleCache
   let mc = (Map.lookup uri' . uriCaches) mcache
   case mc of
-    Nothing -> return $ IdeResponseDeferred uri' $ \_ -> withCachedModuleAndData uri callback
+    Nothing -> defer uri' $ \_ -> withCachedModuleAndData uri callback
     Just (UriCacheFailed err) -> case mdef of
-      Nothing -> return $ IdeResponseFail (IdeError NoModuleAvailable err J.Null)
-      Just def -> return def
+      Nothing -> ideError NoModuleAvailable err J.Null
+      Just def -> def
     Just UriCache{cachedModule = cm, cachedData = dat} -> do
       let proxy :: Proxy a
           proxy = Proxy
@@ -205,12 +205,9 @@ failModule fp err = do
 
 
 runDeferredActions :: FilePath -> Either T.Text CachedModule -> IdeGhcM ()
-runDeferredActions uri cached = do
-      actions <- fmap (fromMaybe [] . Map.lookup uri) (requestQueue <$> readMTS)
-      liftToGhc $ forM_ actions (\a -> a cached)
-
-      -- remove queued actions
-      modifyMTS $ \s -> s { requestQueue = Map.delete uri (requestQueue s) }
+runDeferredActions uri cached = liftIde $ do
+  actions <- requestQueue . at uri . non' _Empty %%= \x -> (x, [])
+  traverse_ (\a -> a cached) actions
 
 -- | Saves a module to the cache without clearing the associated cache data - use only if you are
 -- sure that the cached data associated with the module doesn't change
@@ -256,7 +253,7 @@ markCacheStale uri = do
 -- TODO: this name is confusing, given GhcModuleCache. Change it
 class Typeable a => ModuleCache a where
     -- | Defines an initial value for the state extension
-    cacheDataProducer :: (GM.MonadIO m, MonadMTState IdeState m)
+    cacheDataProducer :: (GM.MonadIO m, MonadState IdeState m)
                       => CachedModule -> m a
 
 instance ModuleCache () where

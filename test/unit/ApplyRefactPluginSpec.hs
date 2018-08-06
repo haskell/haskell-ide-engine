@@ -44,9 +44,7 @@ applyRefactSpec = do
           act = applyOneCmd' furi (OneHint (toPos (2,8)) "Redundant bracket")
           arg = AOP furi (toPos (2,8)) "Redundant bracket"
           textEdits = List [TextEdit (Range (Position 1 0) (Position 1 25)) "main = putStrLn \"hello\""]
-          res = IdeResultOk $ WorkspaceEdit
-            (Just $ H.singleton applyRefactPath textEdits)
-            Nothing
+          res = return $ WorkspaceEdit (Just $ H.singleton applyRefactPath textEdits) Nothing
       testCommand testPlugins act "applyrefact" "applyOne" arg res
 
     -- ---------------------------------
@@ -57,7 +55,7 @@ applyRefactSpec = do
           arg = applyRefactPath
           textEdits = List [ TextEdit (Range (Position 1 0) (Position 1 25)) "main = putStrLn \"hello\""
                            , TextEdit (Range (Position 3 0) (Position 3 15)) "foo x = x + 1" ]
-          res = IdeResultOk $ WorkspaceEdit
+          res = return $ WorkspaceEdit
             (Just $ H.singleton applyRefactPath textEdits)
             Nothing            
       testCommand testPlugins act "applyrefact" "applyAll" arg res
@@ -68,8 +66,7 @@ applyRefactSpec = do
 
       let act = lintCmd' arg
           arg = applyRefactPath
-          res = IdeResultOk
-            PublishDiagnosticsParams
+          res = return $ PublishDiagnosticsParams
              { _uri = applyRefactPath
              , _diagnostics = List $
                [ Diagnostic (Range (Position 1 7) (Position 1 25))
@@ -94,8 +91,7 @@ applyRefactSpec = do
 
       let act = lintCmd' arg
           arg = filePath
-          res = IdeResultOk
-            PublishDiagnosticsParams
+          res = return $ PublishDiagnosticsParams
              { _uri = filePath
              , _diagnostics = List $
                [Diagnostic {_range = Range { _start = Position {_line = 11, _character = 28}
@@ -113,9 +109,8 @@ applyRefactSpec = do
       filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/HlintPragma.hs"
 
       let req = lintCmd' filePath
-      r <- runIGM testPlugins req
-      r `shouldBe`
-        (IdeResultOk
+      r <- runIGM testPlugins $ runIDErring req
+      r `shouldBe` Right
            (PublishDiagnosticsParams
             { _uri = filePath
             , _diagnostics = List
@@ -127,7 +122,7 @@ applyRefactSpec = do
                            Nothing
               ]
             }
-           ))
+           )
 
     -- ---------------------------------
 
@@ -135,13 +130,12 @@ applyRefactSpec = do
       filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/HlintPragma.hs"
 
       let req = lintCmd' filePath
-      r <- cdAndDo "./test/testdata" $ runIGM testPlugins req
-      r `shouldBe`
-        (IdeResultOk
+      r <- cdAndDo "./test/testdata" $ runIGM testPlugins $ runIDErring req
+      r `shouldBe` Right
            (PublishDiagnosticsParams
             -- { _uri = filePathToUri "./HlintPragma.hs"
             { _uri = filePath
             , _diagnostics = List []
             }
-           ))
+           )
 

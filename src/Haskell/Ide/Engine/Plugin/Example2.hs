@@ -26,12 +26,12 @@ example2Descriptor = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 sayHelloCmd :: CommandFunc () T.Text
-sayHelloCmd = CmdSync $ \_ -> return (IdeResultOk sayHello)
+sayHelloCmd = CmdSync $ \_ -> return sayHello
 
 sayHelloToCmd :: CommandFunc T.Text T.Text
 sayHelloToCmd = CmdSync $ \n -> do
   r <- liftIO $ sayHelloTo n
-  return $ IdeResultOk r
+  return r
 
 -- ---------------------------------------------------------------------
 

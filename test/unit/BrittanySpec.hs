@@ -30,7 +30,7 @@ brittanySpec = describe "brittany plugin commands" $ do
     let
       act = brittanyCmd 4 lfFile Nothing
       arg = FormatParams 4 lfFile Nothing
-      res = IdeResultOk
+      res = return
         [ TextEdit
             { _range = Range
               { _start = Position {_line = 0, _character = 0}
@@ -45,7 +45,7 @@ brittanySpec = describe "brittany plugin commands" $ do
     let
       act = brittanyCmd 4 crlfFile Nothing
       arg = FormatParams 4 crlfFile Nothing
-      res = IdeResultOk
+      res = return
         [ TextEdit
             { _range = Range
               { _start = Position {_line = 0, _character = 0}
@@ -60,7 +60,7 @@ brittanySpec = describe "brittany plugin commands" $ do
     let r   = Range (Position 1 0) (Position 2 22)
         act = brittanyCmd 4 lfFile (Just r)
         arg = FormatParams 4 lfFile (Just r)
-        res = IdeResultOk
+        res = return
           [ TextEdit
               { _range   = Range
                 { _start = Position {_line = 1, _character = 0}
@@ -75,7 +75,7 @@ brittanySpec = describe "brittany plugin commands" $ do
     let r   = Range (Position 1 0) (Position 2 22)
         act = brittanyCmd 4 crlfFile (Just r)
         arg = FormatParams 4 crlfFile (Just r)
-        res = IdeResultOk
+        res = return
           [ TextEdit
               { _range   = Range
                 { _start = Position {_line = 1, _character = 0}

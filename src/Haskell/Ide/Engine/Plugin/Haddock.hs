@@ -7,6 +7,7 @@
 module Haskell.Ide.Engine.Plugin.Haddock where
 
 import           Control.Monad.State
+import           Control.Lens hiding ((<.>))
 import           Data.Foldable
 import qualified Data.Map                                     as Map
 #if __GLASGOW_HASKELL__ < 804
@@ -80,7 +81,7 @@ nameCacheFromGhcMonad = ( read_from_session , write_to_session )
 
 runInLightGhc :: GM.LightGhc a -> IdeM a
 runInLightGhc a = do
-  hscEnvRef <- ghcSession <$> readMTS
+  hscEnvRef <- use ghcSession
   mhscEnv <- liftIO $ traverse readIORef hscEnvRef
   case mhscEnv of
     Nothing -> error "Ghc Session not initialized"

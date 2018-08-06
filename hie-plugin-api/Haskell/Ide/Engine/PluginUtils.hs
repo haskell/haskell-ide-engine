@@ -4,11 +4,10 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE FlexibleContexts    #-}
 module Haskell.Ide.Engine.PluginUtils
   (
-    mapEithers
-  , pluginGetFile
-  , pluginGetFileResponse
+    pluginGetFile
   , makeDiffResult
   , WithDeletions(..)
   , makeAdditiveDiffResult
@@ -31,7 +30,7 @@ module Haskell.Ide.Engine.PluginUtils
 
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
-import           Control.Monad.Trans.Except
+import           Control.Monad.Except
 import           Data.Aeson
 import           Data.Algorithm.Diff
 import           Data.Algorithm.DiffOutput
@@ -95,13 +94,9 @@ reverseMapFile rfm fp = do
   debugm $ "reverseMapFile: Canonicalized original is " ++ orig
   return orig'
 
-srcSpan2Loc :: (MonadIO m) => (FilePath -> FilePath) -> SrcSpan -> m (Either T.Text Location)
+srcSpan2Loc :: MonadIO m => (FilePath -> FilePath) -> SrcSpan -> m (Either T.Text Location)
 srcSpan2Loc revMapp spn = runExceptT $ do
-  let
-    foo :: (Monad m) => Either T.Text RealSrcSpan -> ExceptT T.Text m RealSrcSpan
-    foo (Left  e) = throwE e
-    foo (Right v) = pure v
-  rspan <- foo $ getRealSrcSpan spn
+  rspan <- either throwError pure $ getRealSrcSpan spn
   let fp = unpackFS $ srcSpanFile rspan
   debugm $ "srcSpan2Loc: mapped file is " ++ fp
   file <- reverseMapFile revMapp fp
@@ -112,35 +107,12 @@ srcSpan2Loc revMapp spn = runExceptT $ do
 
 -- | Helper function that extracts a filepath from a Uri if the Uri
 -- is well formed (i.e. begins with a file:// )
--- fails with an IdeResultFail otherwise
-pluginGetFile
-  :: Monad m
-  => T.Text -> Uri -> (FilePath -> m (IdeResult a)) -> m (IdeResult a)
-pluginGetFile name uri f =
-  case uriToFilePath uri of
-    Just file -> f file
-    Nothing -> return $ IdeResultFail (IdeError PluginError
-                 (name <> "Couldn't resolve uri" <> getUri uri) Null)
-
--- | @pluginGetFile but for IdeResponse - use with IdeM
-pluginGetFileResponse
-  :: Monad m
-  => T.Text -> Uri -> (FilePath -> m (IdeResponse a)) -> m (IdeResponse a)
-pluginGetFileResponse name uri f =
-  case uriToFilePath uri of
-    Just file -> f file
-    Nothing -> return $ IdeResponseFail (IdeError PluginError
-                (name <> "Couldn't resolve uri" <> getUri uri) Null)
-
--- ---------------------------------------------------------------------
--- courtesy of http://stackoverflow.com/questions/19891061/mapeithers-function-in-haskell
-mapEithers :: (a -> Either b c) -> [a] -> Either b [c]
-mapEithers f (x:xs) = case mapEithers f xs of
-                        Left err -> Left err
-                        Right ys -> case f x of
-                                      Left err -> Left err
-                                      Right y  -> Right (y:ys)
-mapEithers _ _ = Right []
+-- fails with an IdeError otherwise
+pluginGetFile :: Monad m => T.Text -> Uri -> IDErring m FilePath
+pluginGetFile name uri = case uriToFilePath uri of
+  Just file -> return file
+  Nothing -> ideError
+    PluginError (name <> "Couldn't resolve uri" <> getUri uri) Null
 
 -- ---------------------------------------------------------------------
 

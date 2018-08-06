@@ -22,11 +22,11 @@ extensibleStateSpec =
   describe "stores and retrieves in the state" $
     it "stores the first one" $ do
       r <- runIGM testPlugins $ do
-          r1 <- makeRequest "test" "cmd1" ()
-          r2 <- makeRequest "test" "cmd2" ()
+          r1 <- runIDErring $ makeRequest "test" "cmd1" ()
+          r2 <- runIDErring $ makeRequest "test" "cmd2" ()
           return (r1,r2)
-      fmap fromDynJSON (fst r) `shouldBe` IdeResultOk (Just "result:put foo" :: Maybe T.Text)
-      fmap fromDynJSON (snd r) `shouldBe` IdeResultOk (Just "result:got:\"foo\"" :: Maybe T.Text)
+      fmap fromDynJSON (fst r) `shouldBe` Right (Just "result:put foo" :: Maybe T.Text)
+      fmap fromDynJSON (snd r) `shouldBe` Right (Just "result:got:\"foo\"" :: Maybe T.Text)
 
 -- ---------------------------------------------------------------------
 
@@ -49,13 +49,13 @@ testDescriptor = PluginDescriptor
 
 cmd1 :: CommandFunc () T.Text
 cmd1 = CmdSync $ \_ -> do
-  put (MS1 "foo")
-  return (IdeResultOk (T.pack "result:put foo"))
+  liftIde $ put $ MS1 "foo"
+  return $ T.pack "result:put foo"
 
 cmd2 :: CommandFunc () T.Text
 cmd2 = CmdSync $ \_ -> do
-  (MS1 v) <- get
-  return (IdeResultOk (T.pack $ "result:got:" ++ show v))
+  MS1 v <- liftIde get
+  return $ T.pack $ "result:got:" ++ show v
 
 newtype MyState1 = MS1 T.Text deriving Typeable
 
