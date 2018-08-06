@@ -12,7 +12,7 @@ import TestUtils
 
 spec :: Spec
 spec = describe "hover" $
-  it "works" $ runSession hieCommand "test/testdata" $ do
+  it "works" $ runSession hieCommand fullCaps "test/testdata" $ do
     doc <- openDoc "Hover.hs" "haskell"
     _ <- skipManyTill loggingNotification $ count 2 noDiagnostics
     Just hover <- getHover doc (Position 1 19)

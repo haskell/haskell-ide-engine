@@ -9,7 +9,7 @@ import Control.Lens
 
 spec :: Spec
 spec = describe "references" $
-  it "works with definitions" $ runSession hieCommand "test/testdata" $ do
+  it "works with definitions" $ runSession hieCommand fullCaps "test/testdata" $ do
     doc <- openDoc "References.hs" "haskell"
     let pos = Position 2 7 -- foo = bar <--
     refs <- getReferences doc pos True
@@ -22,7 +22,7 @@ spec = describe "references" $
       , mkRange 2 6 2 9
       ]
   -- TODO: Respect withDeclaration parameter
-  -- it "works without definitions" $ runSession hieCommand "test/testdata" $ do
+  -- it "works without definitions" $ runSession hieCommand fullCaps "test/testdata" $ do
   --   doc <- openDoc "References.hs" "haskell"
   --   let pos = Position 2 7 -- foo = bar <--
   --   refs <- getReferences doc pos False

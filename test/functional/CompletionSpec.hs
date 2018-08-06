@@ -12,7 +12,7 @@ import TestUtils
 
 spec :: Spec
 spec = describe "completions" $
-  it "works" $ runSession hieCommand "test/testdata/completion" $ do
+  it "works" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
     doc <- openDoc "Completion.hs" "haskell"
     _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
 

@@ -526,17 +526,17 @@ symbolProvider uri = pluginGetFileResponse "ghc-mod symbolProvider: " uri $ \fil
         where children = famDecls ++ sigDecls
               famDecls = concatMap (go . TyClD . FamDecl . unLoc) fams
               sigDecls = concatMap (processSig . unLoc) sigs
-              
-      go (ValD FunBind { fun_id = ln, fun_matches = MG { mg_alts = llms } }) = 
+
+      go (ValD FunBind { fun_id = ln, fun_matches = MG { mg_alts = llms } }) =
         pure (Decl LSP.SkFunction ln wheres)
         where
           wheres = concatMap (gomatch . unLoc) (unLoc llms)
-          gomatch (Match { m_grhss = GRHSs { grhssLocalBinds = lbs } }) = golbs (unLoc lbs)
+          gomatch Match { m_grhss = GRHSs { grhssLocalBinds = lbs } } = golbs (unLoc lbs)
           golbs (HsValBinds (ValBindsIn lhsbs _ )) = concatMap (go . ValD . unLoc) lhsbs
           golbs _ = []
 
       go (ValD PatBind { pat_lhs = p }) =
-        map (\n -> Decl LSP.SkMethod n []) $ hsNamessRdr p
+        map (\n -> Decl LSP.SkVariable n []) $ hsNamessRdr p
       go (ForD ForeignImport { fd_name = n }) = pure (Decl LSP.SkFunction n [])
       go _ = []
 
@@ -589,11 +589,12 @@ symbolProvider uri = pluginGetFileResponse "ghc-mod symbolProvider: " uri $ \fil
         childrenSymbols <- concat <$> mapM declsToSymbolInf children
         case srcSpan2Range ss of
           Left _ -> return childrenSymbols
-          Right r -> 
+          Right r ->
             let chList = Just (LSP.List childrenSymbols)
             in return $ pure $
               LSP.DocumentSymbol name (Just "") kind Nothing r r chList
-        
+
 
   symInfs <- concat <$> mapM declsToSymbolInf (imps ++ decls)
   return $ IdeResponseOk symInfs
+
