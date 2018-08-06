@@ -697,8 +697,21 @@ reactor inp = do
         ReqDocumentSymbols req -> do
           liftIO $ U.logs $ "reactor:got Document symbol request:" ++ show req
           sps <- asks symbolProviders
+          C.ClientCapabilities _ tdc _ <- asksLspFuncs Core.clientCapabilities
           let uri = req ^. J.params . J.textDocument . J.uri
-              callback = reactorSend . RspDocumentSymbols . Core.makeResponseMessage req . J.DSDocumentSymbols . J.List . concat
+              supportsHierarchy = fromMaybe False $ tdc >>= C._documentSymbol >>= C._hierarchicalDocumentSymbolSupport
+              convertSymbols :: [J.DocumentSymbol] -> J.DSResult
+              convertSymbols symbs
+                | supportsHierarchy = J.DSDocumentSymbols $ J.List symbs
+                | otherwise = J.DSSymbolInformation (J.List $ concatMap go symbs)
+                where
+                    go :: J.DocumentSymbol -> [J.SymbolInformation]
+                    go ds = let children = concatMap go (fromMaybe mempty (ds ^. J.children))
+                                loc = Location uri (ds ^. J.range)
+                                si = J.SymbolInformation (ds ^. J.name) (ds ^. J.kind) (ds ^. J.deprecated) loc Nothing
+                      in [si] <> children
+                        
+              callback = reactorSend . RspDocumentSymbols . Core.makeResponseMessage req . convertSymbols . concat
           let hreq = IReq tn (req ^. J.id) callback (sequence <$> mapM (\f -> f uri) sps)
           makeRequest hreq
 
