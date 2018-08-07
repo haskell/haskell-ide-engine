@@ -73,14 +73,10 @@ run dispatcherProc cin = flip E.catches handlers $ do
   flip E.finally finalProc $ do
 
     rout <- atomically newTChan :: IO (TChan ReactorOutput)
-    cancelTVar      <- atomically $ newTVar S.empty
-    wipTVar         <- atomically $ newTVar S.empty
-    versionTVar     <- atomically $ newTVar Map.empty
-    let dispatcherEnv = DispatcherEnv
-          { cancelReqsTVar     = cancelTVar
-          , wipReqsTVar        = wipTVar
-          , docVersionTVar     = versionTVar
-          }
+    dispatcherEnv <- atomically $ DispatcherEnv
+          <$> newTVar S.empty
+          <*> newTVar S.empty
+          <*> newTVar Map.empty
 
     let race3_ a b c = race_ a (race_ b c)
 

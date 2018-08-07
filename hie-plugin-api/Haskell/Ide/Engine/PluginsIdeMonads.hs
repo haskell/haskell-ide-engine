@@ -209,6 +209,8 @@ data IdeErrorCode
  | UnknownPlugin           -- ^ Plugin is not registered
  | UnknownCommand          -- ^ Command is not registered
  | InvalidContext          -- ^ Context invalid for command
+ | RequestCancelled        -- ^ A cancel request fired targeting this one
+ | VersionMismatch         -- ^ The request expected another hie version
  | OtherError              -- ^ An error for which there's no better code
  deriving (Show,Read,Eq,Ord,Bounded,Enum,Generic)
 

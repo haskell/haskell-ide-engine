@@ -21,6 +21,8 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.STM
 import           Control.Monad.Trans.Free
+import           Control.Monad.Except
+import           Data.Foldable
 import qualified Data.Aeson                              as J
 import qualified Data.Text                               as T
 import qualified Data.Map                                as Map
@@ -85,77 +87,65 @@ ideDispatcher env errorHandler callbackHandler pin = forever $ do
   debugm "ideDispatcher: top of loop"
   IdeRequest tn lid callback action <- liftIO $ atomically $ readTChan pin
   debugm $ "ideDispatcher: got request " ++ show tn ++ " with id: " ++ show lid
-  handleAction lid $ runIDErring $ fmap (callbackHandler callback) action
-  where handleAction :: J.LspId -> ResponseT IdeM (Either IdeError (IO ())) -> IdeM ()
-        handleAction lid action = checkCancelled env lid errorHandler $ do
-          response <- runFreeT action
-          checkCancelled env lid errorHandler $ case response of
-            Pure result -> handleResult lid result
-            Free (IdeDefer fp cacheCb) -> queueAction fp $
-              handleAction lid . either (\err -> pure $ Left $ IdeError NoModuleAvailable err J.Null) cacheCb
+  handleAction lid $ fmap (callbackHandler callback) action
+  where handleAction :: J.LspId -> IdeResponseT (IO ()) -> IdeM ()
+        handleAction lid action = do
+          response <- runIDErring $ do
+            checkCancelled env lid
+            r <- lift $ runFreeT $ runIDErring action
+            checkCancelled env lid
+            return r
+          -- TODO: Refactor the double handleError away.
+          case response of
+            Left dispatchererr -> liftIO $ handleError (errorHandler lid) dispatchererr
+            Right actualresponse -> case actualresponse of
+              Pure result -> do
+                completedReq env lid
+                liftIO $ either (handleError (errorHandler lid)) liftIO result
+              Free (IdeDefer fp cacheCb) -> queueAction fp $
+                handleAction lid . either (\err -> ideError NoModuleAvailable err J.Null) (IDErring . ExceptT . cacheCb)
 
         queueAction :: FilePath -> (Either T.Text CachedModule -> IdeM ()) -> IdeM ()
         queueAction fp action = requestQueue . at fp . non' _Empty %= (action:)
-
-        handleResult :: J.LspId -> Either IdeError (IO ()) -> IdeM ()
-        handleResult lid = \case
-          Left (IdeError code msg _) -> liftIO $ do
-            completedReq env lid
-            case code of
-              -- TODO: This isn't actually an internal error
-              NoModuleAvailable -> errorHandler lid J.InternalError msg
-              _ -> errorHandler lid J.InternalError msg
-          Right x -> liftIO x
 
 ghcDispatcher :: forall void m. DispatcherEnv -> ErrorHandler -> CallbackHandler m -> TChan (GhcRequest m) -> GM.GhcModT IdeM void
 ghcDispatcher env@DispatcherEnv{docVersionTVar} errorHandler callbackHandler pin = forever $ do
   debugm "ghcDispatcher: top of loop"
   GhcRequest tn context mver mid callback action <- liftIO $ atomically $ readTChan pin
   debugm $ "ghcDispatcher:got request " ++ show tn ++ " with id: " ++ show mid
-
-  let runner act = do
-        let c = uriToFilePath <$> context
-        when (c == Just Nothing) $ debugm "ghcDispatcher:Got malformed uri, running action with default context"
-        runActionWithContext (join c) act
-
-  let runWithCallback = do
-        result <- runIDErring $ runner action
-        liftIO $ case result of
-          Right x -> callbackHandler callback x
-          Left err@(IdeError code msg _) ->
-            case mid of
-              Just lid -> case code of
-                NoModuleAvailable -> errorHandler lid J.ParseError msg
-                _ -> errorHandler lid J.InternalError msg
-              Nothing -> debugm $ "ghcDispatcher:Got error for a request: " ++ show err
-
-  let runIfVersionMatch = case mver of
-        Nothing -> runWithCallback
-        Just (uri, reqver) -> do
-          curver <- liftIO $ atomically $ Map.lookup uri <$> readTVar docVersionTVar
-          if Just reqver /= curver then
-            debugm "ghcDispatcher:not processing request as it is for old version"
-          else do
-            debugm "ghcDispatcher:Processing request as version matches"
-            runWithCallback
-
-  case mid of
-    Nothing -> runIfVersionMatch
-    Just lid -> checkCancelled env lid errorHandler $ do
-      liftIO $ completedReq env lid
-      runIfVersionMatch
-
-checkCancelled :: MonadIO m => DispatcherEnv -> J.LspId -> ErrorHandler -> m () -> m ()
-checkCancelled env lid errorHandler callback = do
-  cancelled <- liftIO $ atomically isCancelled
-  if cancelled
-    then liftIO $ do
-      -- remove from cancelled and wip list
-      atomically $ modifyTVar' (cancelReqsTVar env) (S.delete lid)
+  result <- runIDErring $ do
+    for_ mid $ \lid -> do
       completedReq env lid
-      errorHandler lid J.RequestCancelled ""
-    else callback
-  where isCancelled = S.member lid <$> readTVar (cancelReqsTVar env)
+      checkCancelled env lid
+    for_ mver $ \(uri, reqver) -> do
+      curver <- liftIO $ atomically $ Map.lookup uri <$> readTVar docVersionTVar
+      when (Just reqver /= curver) $
+        ideError VersionMismatch "The request expects another version" J.Null
+    let c = uriToFilePath <$> context
+    when (c == Just Nothing) $ debugm "ghcDispatcher:Got malformed uri, running action with default context"
+    runActionWithContext (join c) action
+  liftIO $ case result of
+    Right x -> callbackHandler callback x
+    Left err -> case mid of
+      Just lid -> handleError (errorHandler lid) err
+      Nothing -> debugm $ "ghcDispatcher:Got error for a request: " ++ show err
 
-completedReq :: DispatcherEnv -> J.LspId -> IO ()
-completedReq env lid = atomically $ modifyTVar' (wipReqsTVar env) (S.delete lid)
+handleError :: (J.ErrorCode -> T.Text -> a) -> IdeError -> a
+handleError handler (IdeError code msg _) = handler (translate code) msg where
+  translate RequestCancelled = J.RequestCancelled
+  translate NoModuleAvailable = J.ParseError
+  -- TODO: Supply an error code.
+  translate VersionMismatch = J.UnknownErrorCode
+  translate _ = J.InternalError
+
+checkCancelled :: MonadIO m => DispatcherEnv -> J.LspId -> IDErring m ()
+checkCancelled env lid = do
+  -- attempt to pop a corresponding cancel request
+  cancelled <- liftIO $ atomically $ do
+    c <- S.member lid <$> readTVar (cancelReqsTVar env)
+    when c $ modifyTVar' (cancelReqsTVar env) (S.delete lid)
+    return c
+  when cancelled $ ideError RequestCancelled "" J.Null
+
+completedReq :: MonadIO m => DispatcherEnv -> J.LspId -> m ()
+completedReq env lid = liftIO $ atomically $ modifyTVar' (wipReqsTVar env) (S.delete lid)

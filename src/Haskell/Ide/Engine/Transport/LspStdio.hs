@@ -109,14 +109,10 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
   prefix <- cmdPrefixer
 
   let dp lf = do
-        cancelTVar  <- atomically $ newTVar S.empty
-        wipTVar     <- atomically $ newTVar S.empty
-        versionTVar <- atomically $ newTVar Map.empty
-        let dEnv = DispatcherEnv
-              { cancelReqsTVar = cancelTVar
-              , wipReqsTVar    = wipTVar
-              , docVersionTVar = versionTVar
-              }
+        dEnv <- atomically $ DispatcherEnv
+          <$> newTVar S.empty
+          <*> newTVar S.empty
+          <*> newTVar Map.empty
         let reactorFunc = runReactor lf dEnv cin prefix $ reactor rin
             caps = Core.clientCapabilities lf
 

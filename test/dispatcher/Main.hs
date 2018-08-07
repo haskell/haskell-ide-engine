@@ -75,14 +75,10 @@ startServer = do
   cin      <- newTChanIO
   logChan  <- newTChanIO
     
-  cancelTVar      <- newTVarIO S.empty
-  wipTVar         <- newTVarIO S.empty
-  versionTVar     <- newTVarIO Map.empty
-  let dispatcherEnv = DispatcherEnv
-        { cancelReqsTVar     = cancelTVar
-        , wipReqsTVar        = wipTVar
-        , docVersionTVar     = versionTVar
-        }
+  dEnv <- atomically $ DispatcherEnv
+          <$> newTVar S.empty
+          <*> newTVar S.empty
+          <*> newTVar Map.empty
 
   dispatcher <- forkIO $
     dispatcherP cin plugins testOptions dispatcherEnv
