@@ -31,6 +31,7 @@ data REnv = REnv
   , commandPrefixer   :: T.Text -> T.Text
   , diagnosticSources :: Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
   , hoverProviders    :: [HoverProvider]
+  , symbolProviders   :: [SymbolProvider]
   -- TODO: Add code action providers here
   }
 
@@ -46,10 +47,11 @@ runReactor
   -> (T.Text -> T.Text)
   -> Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
   -> [HoverProvider]
+  -> [SymbolProvider]
   -> R a
   -> IO a
-runReactor lf de cin prefixer dps hps =
-  flip runReaderT (REnv de cin lf prefixer dps hps)
+runReactor lf de cin prefixer dps hps sps =
+  flip runReaderT (REnv de cin lf prefixer dps hps sps)
 
 -- ---------------------------------------------------------------------
 

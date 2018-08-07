@@ -111,7 +111,7 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
               , wipReqsTVar    = wipTVar
               , docVersionTVar = versionTVar
               }
-        let reactorFunc = runReactor lf dEnv cin prefix diagnosticProviders hps
+        let reactorFunc = runReactor lf dEnv cin prefix diagnosticProviders hps sps
               $ reactor rin
             caps = Core.clientCapabilities lf
 
@@ -119,7 +119,7 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
             errorHandler lid code e =
               Core.sendErrorResponseS (Core.sendFunc lf) (J.responseId lid) code e
             callbackHandler :: CallbackHandler R
-            callbackHandler f x = runReactor lf dEnv cin prefix diagnosticProviders hps $ f x
+            callbackHandler f x = runReactor lf dEnv cin prefix diagnosticProviders hps sps $ f x
 
 
         -- haskell lsp sets the current directory to the project root in the InitializeRequest
@@ -145,6 +145,9 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
 
       hps :: [HoverProvider]
       hps = mapMaybe pluginHoverProvider $ Map.elems $ ipMap plugins
+
+      sps :: [SymbolProvider]
+      sps = mapMaybe pluginSymbolProvider $ Map.elems $ ipMap plugins
 
       cmdFolder :: [T.Text] -> T.Text -> [PluginCommand] -> [T.Text]
       cmdFolder acc plugin cmds = acc ++ map prefix cmdIds
@@ -693,10 +696,25 @@ reactor inp = do
 
         ReqDocumentSymbols req -> do
           liftIO $ U.logs $ "reactor:got Document symbol request:" ++ show req
+          sps <- asks symbolProviders
+          C.ClientCapabilities _ tdc _ <- asksLspFuncs Core.clientCapabilities
           let uri = req ^. J.params . J.textDocument . J.uri
-              callback = reactorSend . RspDocumentSymbols . Core.makeResponseMessage req . J.List
-          let hreq = IReq tn (req ^. J.id) callback
-                   $ Hie.getSymbols uri
+              supportsHierarchy = fromMaybe False $ tdc >>= C._documentSymbol >>= C._hierarchicalDocumentSymbolSupport
+              convertSymbols :: [J.DocumentSymbol] -> J.DSResult
+              convertSymbols symbs
+                | supportsHierarchy = J.DSDocumentSymbols $ J.List symbs
+                | otherwise = J.DSSymbolInformation (J.List $ concatMap (go Nothing) symbs)
+                where
+                    go :: Maybe T.Text -> J.DocumentSymbol -> [J.SymbolInformation]
+                    go parent ds =
+                      let children = concatMap (go (Just name)) (fromMaybe mempty (ds ^. J.children))
+                          loc = Location uri (ds ^. J.range)
+                          name = ds ^. J.name
+                          si = J.SymbolInformation name (ds ^. J.kind) (ds ^. J.deprecated) loc parent
+                      in [si] <> children
+                        
+              callback = reactorSend . RspDocumentSymbols . Core.makeResponseMessage req . convertSymbols . concat
+          let hreq = IReq tn (req ^. J.id) callback (sequence <$> mapM (\f -> f uri) sps)
           makeRequest hreq
 
         -- -------------------------------

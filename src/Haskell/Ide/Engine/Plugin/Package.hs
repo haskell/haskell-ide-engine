@@ -57,6 +57,7 @@ packageDescriptor = PluginDescriptor
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Nothing
+  , pluginSymbolProvider = Nothing
   }
 
 data AddParams = AddParams

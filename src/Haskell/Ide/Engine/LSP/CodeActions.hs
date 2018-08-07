@@ -56,7 +56,7 @@ handleCodeActionReq tn req = do
     range = params ^. J.range
     context = params ^. J.context
 
-    wrapCodeAction :: J.CodeAction -> R (Maybe J.CommandOrCodeAction)
+    wrapCodeAction :: J.CodeAction -> R (Maybe J.CAResult)
     wrapCodeAction action' = do
       prefix <- asks commandPrefixer :: R (T.Text -> T.Text)
 
@@ -70,8 +70,8 @@ handleCodeActionReq tn req = do
             let cmd = J.Command (action ^. J.title) cmdName (Just cmdParams)
                 cmdName = prefix "hie:fallbackCodeAction"
                 cmdParams = J.List [J.toJSON (FallbackCodeActionParams (action ^. J.edit) (action ^. J.command))]
-              in return $ Just (J.CommandOrCodeActionCommand cmd)
-        Just _ -> return $ Just (J.CommandOrCodeActionCodeAction action)
+              in return $ Just (J.CACommand cmd)
+        Just _ -> return $ Just (J.CACodeAction action)
 
     send :: [J.CodeAction] -> R ()
     send codeActions = do
