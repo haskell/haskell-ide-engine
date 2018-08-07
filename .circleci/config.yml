@@ -63,6 +63,10 @@ defaults: &defaults
     - store_artifacts:
         path: test-logs
 
+    - store_artifacts:
+        path: ~/.stack/bin
+        destination: bin
+
     - save_cache:
         key: stack-cache-05-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
         paths:
