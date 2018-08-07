@@ -258,6 +258,7 @@ test-suite func-test
                      , HoverSpec
                      , ReferencesSpec
                      , RenameSpec
+                     , SymbolsSpec
                      , Spec
 
                      , TestUtils
@@ -267,7 +268,7 @@ test-suite func-test
                      , data-default
                      , directory
                      , filepath
-                     , haskell-lsp-test
+                     , lsp-test >= 0.2
                      , haskell-ide-engine
                      -- , hie-test-utils
                      , hie-plugin-api

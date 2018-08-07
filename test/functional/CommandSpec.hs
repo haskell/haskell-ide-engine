@@ -12,7 +12,7 @@ import TestUtils
 
 spec :: Spec
 spec = describe "commands" $ do
-  it "are prefixed" $ runSession hieCommand "test/testdata/" $ do
+  it "are prefixed" $ runSession hieCommand fullCaps "test/testdata/" $ do
     ResponseMessage _ _ (Just res) Nothing <- initializeResponse
     let List cmds = res ^. LSP.capabilities . executeCommandProvider . _Just . commands
         f x = (T.length (T.takeWhile isNumber x) >= 1) && (T.count ":" x >= 2)
@@ -20,8 +20,8 @@ spec = describe "commands" $ do
       cmds `shouldSatisfy` all f
       cmds `shouldNotSatisfy` null
 
-  it "get de-prefixed" $ runSession hieCommand "test/testdata/" $ do
-    ResponseMessage _ _ _ (Just err) <- sendRequest
+  it "get de-prefixed" $ runSession hieCommand fullCaps "test/testdata/" $ do
+    ResponseMessage _ _ _ (Just err) <- request
             WorkspaceExecuteCommand
             (ExecuteCommandParams "1234:package:add" (Just (List []))) :: Session ExecuteCommandResponse
     let ResponseError _ msg _ = err

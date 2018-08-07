@@ -31,6 +31,7 @@ hsimportDescriptor = PluginDescriptor
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Nothing
+  , pluginSymbolProvider = Nothing
   }
 
 data ImportParams = ImportParams
