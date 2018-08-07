@@ -154,13 +154,13 @@ instance ToJSON IdePlugins where
 type IdeGhcM = GM.GhcModT IdeM
 
 instance MonadMTState IdeState IdeGhcM where
-  readMTS = lift $ lift $ lift readMTS
+  readMTS     = lift $ lift $ lift readMTS
   modifyMTS f = lift $ lift $ lift $ modifyMTS f
 
 type IdeM = ReaderT ClientCapabilities (MultiThreadState IdeState)
 
 instance MonadMTState IdeState IdeM where
-  readMTS = lift readMTS
+  readMTS   = lift readMTS
   modifyMTS = lift . modifyMTS
 
 class (Monad m) => LiftsToGhc m where

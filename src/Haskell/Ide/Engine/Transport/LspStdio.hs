@@ -503,6 +503,7 @@ reactor inp = do
                   cached <- isCached fp
                   -- Hover requests need to be instant so don't wait
                   -- for cached module to be loaded
+                  -- TODO:AZ: what if a plugin hoverprovider does not need the cached module?
                   if cached
                     then sequence <$> mapM (\hp -> hp doc pos) hps
                     else return (IdeResponseOk [])

@@ -98,15 +98,6 @@ diagnosticProvider _trigger uri = do
     Just es -> return $ IdeResultOk m
       where
         m = Map.fromList [(uri,S.fromList (map liquidErrorToDiagnostic es))]
-  -- let diag = Diagnostic
-  --             { _range = Range (Position 5 0) (Position 7 0)
-  --             , _severity = Nothing
-  --             , _code = Nothing
-  --             , _source = Just "eg2"
-  --             , _message = "Liquid plugin diagnostic, vim annot in " <> T.pack (vimAnnotFile uri)
-  --             , _relatedInformation = Nothing
-  --             }
-  -- return $ IdeResultOk $ Map.fromList [(uri,S.singleton diag)]
 
 -- ---------------------------------------------------------------------
 
