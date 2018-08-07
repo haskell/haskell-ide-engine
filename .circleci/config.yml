@@ -40,10 +40,10 @@ defaults: &defaults
 
     - run:
         name: Build
-        command: stack -j 2 --stack-yaml=${STACK_FILE} build
+        command: stack -j 2 --stack-yaml=${STACK_FILE} install
 
     - store_artifacts:
-        path: ~/.stack/bin
+        path: ~/.local/bin
         destination: bin
 
     - run:
