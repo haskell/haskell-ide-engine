@@ -3,7 +3,6 @@
 {-# LANGUAGE NamedFieldPuns            #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE RankNTypes                #-}
-{-# LANGUAGE LambdaCase                #-}
 module Haskell.Ide.Engine.Dispatcher
   (
     dispatcherP
@@ -87,23 +86,17 @@ ideDispatcher env errorHandler callbackHandler pin = forever $ do
   debugm "ideDispatcher: top of loop"
   IdeRequest tn lid callback action <- liftIO $ atomically $ readTChan pin
   debugm $ "ideDispatcher: got request " ++ show tn ++ " with id: " ++ show lid
-  handleAction lid $ fmap (callbackHandler callback) action
-  where handleAction :: J.LspId -> IdeResponseT (IO ()) -> IdeM ()
+  handleAction lid $ fmap (liftIO . callbackHandler callback) action
+  where handleAction :: J.LspId -> IdeResponseT (IdeM ()) -> IdeM ()
         handleAction lid action = do
-          response <- runIDErring $ do
-            checkCancelled env lid
-            r <- lift $ runFreeT $ runIDErring action
-            checkCancelled env lid
-            return r
-          -- TODO: Refactor the double handleError away.
+          response <- runFreeT $ runIDErring $
+            checkCancelled env lid *> action <* checkCancelled env lid
           case response of
-            Left dispatchererr -> liftIO $ handleError (errorHandler lid) dispatchererr
-            Right actualresponse -> case actualresponse of
-              Pure result -> do
-                completedReq env lid
-                liftIO $ either (handleError (errorHandler lid)) liftIO result
-              Free (IdeDefer fp cacheCb) -> queueAction fp $
-                handleAction lid . either (\err -> ideError NoModuleAvailable err J.Null) (IDErring . ExceptT . cacheCb)
+            Pure result -> do
+              completedReq env lid
+              either (liftIO . handleError (errorHandler lid)) id result
+            Free (IdeDefer fp cacheCb) -> queueAction fp $
+              handleAction lid . either (\err -> ideError NoModuleAvailable err J.Null) (IDErring . ExceptT . cacheCb)
 
         queueAction :: FilePath -> (Either T.Text CachedModule -> IdeM ()) -> IdeM ()
         queueAction fp action = requestQueue . at fp . non' _Empty %= (action:)
@@ -133,8 +126,8 @@ ghcDispatcher env@DispatcherEnv{docVersionTVar} errorHandler callbackHandler pin
 handleError :: (J.ErrorCode -> T.Text -> a) -> IdeError -> a
 handleError handler (IdeError code msg _) = handler (translate code) msg where
   translate RequestCancelled = J.RequestCancelled
-  translate NoModuleAvailable = J.ParseError
-  -- TODO: Supply an error code.
+  -- TODO: Ununknow error codes.
+  translate NoModuleAvailable = J.UnknownErrorCode
   translate VersionMismatch = J.UnknownErrorCode
   translate _ = J.InternalError
 

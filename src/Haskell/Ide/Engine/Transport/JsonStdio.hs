@@ -74,9 +74,9 @@ run dispatcherProc cin = flip E.catches handlers $ do
 
     rout <- atomically newTChan :: IO (TChan ReactorOutput)
     dispatcherEnv <- atomically $ DispatcherEnv
-          <$> newTVar S.empty
-          <*> newTVar S.empty
-          <*> newTVar Map.empty
+      <$> newTVar S.empty
+      <*> newTVar S.empty
+      <*> newTVar Map.empty
 
     let race3_ a b c = race_ a (race_ b c)
 

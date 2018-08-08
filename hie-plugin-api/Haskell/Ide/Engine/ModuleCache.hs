@@ -1,7 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TupleSections #-}
 module Haskell.Ide.Engine.ModuleCache where
 
 import           Control.Monad.IO.Class
@@ -96,7 +95,7 @@ getCachedModule uri = do
   maybeUriCache <- fmap (Map.lookup uri' . uriCaches) getModuleCache
   return $ case maybeUriCache of
     Nothing -> ModuleLoading
-    Just uriCache@(UriCache {}) -> ModuleCached (cachedModule uriCache) (isStale uriCache)
+    Just uriCache@UriCache {} -> ModuleCached (cachedModule uriCache) (isStale uriCache)
     Just (UriCacheFailed err) -> ModuleFailed err
 
 -- | Returns true if there is a CachedModule for a given URI
@@ -111,7 +110,7 @@ isCached uri = do
 -- | Version of `withCachedModuleAndData` that doesn't provide
 -- any extra cached data.
 withCachedModule :: FilePath -> (CachedModule -> IdeResponseT b) -> IdeResponseT b
-withCachedModule uri callback = withCachedModuleDefault uri Nothing callback
+withCachedModule uri = withCachedModuleDefault uri Nothing
 
 -- | Version of `withCachedModuleAndData` that doesn't provide
 -- any extra cached data.
@@ -135,7 +134,7 @@ withCachedModuleDefault uri mdef callback = do
 -- using by calling the `cacheDataProducer` function.
 withCachedModuleAndData :: forall a b. ModuleCache a
                         => FilePath -> (CachedModule -> a -> IdeResponseT b) -> IdeResponseT b
-withCachedModuleAndData uri callback = withCachedModuleAndDataDefault uri Nothing callback
+withCachedModuleAndData uri = withCachedModuleAndDataDefault uri Nothing
 
 withCachedModuleAndDataDefault :: forall a b. ModuleCache a
                         => FilePath -> Maybe (IdeResponseT b)
@@ -206,7 +205,7 @@ failModule fp err = do
 
 runDeferredActions :: FilePath -> Either T.Text CachedModule -> IdeGhcM ()
 runDeferredActions uri cached = liftIde $ do
-  actions <- requestQueue . at uri . non' _Empty %%= \x -> (x, [])
+  actions <- requestQueue . at uri . non' _Empty <<.= []
   traverse_ (\a -> a cached) actions
 
 -- | Saves a module to the cache without clearing the associated cache data - use only if you are

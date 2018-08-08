@@ -75,10 +75,10 @@ startServer = do
   cin      <- newTChanIO
   logChan  <- newTChanIO
     
-  dEnv <- atomically $ DispatcherEnv
-          <$> newTVar S.empty
-          <*> newTVar S.empty
-          <*> newTVar Map.empty
+  dispatcherEnv <- atomically $ DispatcherEnv
+    <$> newTVar S.empty
+    <*> newTVar S.empty
+    <*> newTVar Map.empty
 
   dispatcher <- forkIO $
     dispatcherP cin plugins testOptions dispatcherEnv
@@ -137,9 +137,10 @@ newPluginSpec = do
     it "dispatches response correctly" $ do
       inChan <- atomically newTChan
       outChan <- atomically newTChan
-      cancelTVar <- newTVarIO S.empty
-      wipTVar <- newTVarIO S.empty
-      versionTVar <- newTVarIO $ Map.singleton (filePathToUri "test") 3
+      dispatcherEnv <- atomically $ DispatcherEnv
+        <$> newTVar S.empty
+        <*> newTVar S.empty
+        <*> newTVar (Map.singleton (filePathToUri "test") 3)
       let req1 = GReq 1 Nothing Nothing                          (Just $ IdInt 1) (atomically . writeTChan outChan) $ return $ T.pack "text1"
           req2 = GReq 2 Nothing Nothing                          (Just $ IdInt 2) (atomically . writeTChan outChan) $ return $ T.pack "text2"
           req3 = GReq 3 Nothing (Just (filePathToUri "test", 2)) Nothing          (atomically . writeTChan outChan) $ return $ T.pack "text3"
@@ -148,7 +149,7 @@ newPluginSpec = do
       pid <- forkIO $ dispatcherP inChan
                               (pluginDescToIdePlugins [])
                               testOptions
-                              (DispatcherEnv cancelTVar wipTVar versionTVar)
+                              dispatcherEnv
                               (\_ _ _ -> return ())
                               (\f x -> f x)
                               def
