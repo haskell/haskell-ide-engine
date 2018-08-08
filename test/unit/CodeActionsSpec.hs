@@ -72,4 +72,9 @@ Variable not in scope:
     • Variable not in scope:
     forM_ :: [CodeAction] -> (s0 -> Expectation) -> IO a0
 • Perhaps you meant ‘iforM_’ (imported from Control.Lens)
+
+• Data constructor not in scope:
+    MarkupContent :: J.MarkupKind -> Maybe T.Text -> t0
+• Perhaps you meant ‘J.MarkupContent’ (imported from Language.Haskell.LSP.Types)
+
   -}

@@ -102,14 +102,16 @@ mkQuery name importedFrom = name <> " module:" <> importedFrom
 mkCompl :: CompItem -> J.CompletionItem
 mkCompl CI{origName,importedFrom,thingType,label} =
   J.CompletionItem label kind (Just $ maybe "" (<>"\n") thingType <> importedFrom)
-    Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing hoogleQuery
+    Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+    Nothing Nothing Nothing Nothing hoogleQuery
   where kind  = Just $ occNameToComKind $ occName origName
         hoogleQuery = Just $ toJSON $ mkQuery label importedFrom
 
 mkModCompl :: T.Text -> J.CompletionItem
 mkModCompl label =
   J.CompletionItem label (Just J.CiModule) Nothing
-    Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing hoogleQuery
+    Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+    Nothing Nothing Nothing Nothing hoogleQuery
   where hoogleQuery = Just $ toJSON $ "module:" <> label
 
 safeTyThingId :: TyThing -> Maybe Id
