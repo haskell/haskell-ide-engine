@@ -148,14 +148,26 @@ instance ToJSON IdePlugins where
 
 type IdeGhcM = GM.GhcModT IdeM
 
-newtype IDErring m a = IDErring { getIDErring :: ExceptT IdeError m a } deriving
-  (Functor, Applicative, Monad, MonadReader r, MonadState s, MonadIO, MonadTrans, MonadBase b, MFunctor)
-instance GM.MonadIO m => GM.MonadIO (IDErring m) where liftIO = lift . GM.liftIO
-instance GM.GmEnv m => GM.GmEnv (IDErring m) where gmeAsk = lift GM.gmeAsk; gmeLocal f x = liftWith (\run -> GM.gmeLocal f $ run x) >>= restoreT . return
-instance GM.GmLog m => GM.GmLog (IDErring m) where gmlJournal = lift . GM.gmlJournal; gmlHistory = lift GM.gmlHistory; gmlClear = lift GM.gmlClear
-instance GM.GmOut m => GM.GmOut (IDErring m) where gmoAsk = lift GM.gmoAsk
-instance GM.GmState m => GM.GmState (IDErring m) where gmsGet = lift GM.gmsGet; gmsPut = lift . GM.gmsPut; gmsState = lift . GM.gmsState
-instance (Functor f, MonadFree f m) => MonadFree f (IDErring m) where wrap x = liftWith (\run -> wrap $ fmap run x) >>= restoreT . return
+newtype IDErring m a = IDErring { getIDErring :: ExceptT IdeError m a }
+deriving (Functor, Applicative, Monad, MonadReader r, MonadState s
+         , MonadIO, MonadTrans, MonadBase b, MFunctor)
+instance GM.MonadIO m => GM.MonadIO (IDErring m) where
+  liftIO = lift . GM.liftIO
+instance GM.GmEnv m => GM.GmEnv (IDErring m) where
+  gmeAsk = lift GM.gmeAsk
+  gmeLocal f x = liftWith (\run -> GM.gmeLocal f $ run x) >>= restoreT . return
+instance GM.GmLog m => GM.GmLog (IDErring m) where
+  gmlJournal = lift . GM.gmlJournal
+  gmlHistory = lift GM.gmlHistory
+  gmlClear = lift GM.gmlClear
+instance GM.GmOut m => GM.GmOut (IDErring m) where
+  gmoAsk = lift GM.gmoAsk
+instance GM.GmState m => GM.GmState (IDErring m) where
+  gmsGet = lift GM.gmsGet
+  gmsPut = lift . GM.gmsPut
+  gmsState = lift . GM.gmsState
+instance (Functor f, MonadFree f m) => MonadFree f (IDErring m) where
+  wrap x = liftWith (\run -> wrap $ fmap run x) >>= restoreT . return
 
 runIDErring :: IDErring m a -> m (Either IdeError a)
 runIDErring = runExceptT . getIDErring
