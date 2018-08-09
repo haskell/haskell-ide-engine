@@ -149,8 +149,8 @@ instance ToJSON IdePlugins where
 type IdeGhcM = GM.GhcModT IdeM
 
 newtype IDErring m a = IDErring { getIDErring :: ExceptT IdeError m a }
-deriving (Functor, Applicative, Monad, MonadReader r, MonadState s
-         , MonadIO, MonadTrans, MonadBase b, MFunctor)
+  deriving (Functor, Applicative, Monad, MonadReader r, MonadState s
+           , MonadIO, MonadTrans, MonadBase b, MFunctor)
 instance GM.MonadIO m => GM.MonadIO (IDErring m) where
   liftIO = lift . GM.liftIO
 instance GM.GmEnv m => GM.GmEnv (IDErring m) where
