@@ -11,6 +11,7 @@ module TestUtils
   , runIGM
   , hieCommand
   , hieCommandVomit
+  , hieCommandExamplePlugin
   ) where
 
 import           Control.Exception
@@ -134,6 +135,9 @@ hieCommand = "stack exec --no-stack-exe --no-ghc-package-path --stack-yaml=" ++ 
 
 hieCommandVomit :: String
 hieCommandVomit = hieCommand ++ " --vomit"
+
+hieCommandExamplePlugin :: String
+hieCommandExamplePlugin = hieCommand ++ " --example"
 
 -- |Choose a resolver based on the current compiler, otherwise HaRe/ghc-mod will
 -- not be able to load the files

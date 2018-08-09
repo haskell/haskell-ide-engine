@@ -38,8 +38,8 @@ match :: (T.TextualMonoid s)
       -> t        -- ^ The value containing the text to search in.
       -> Maybe (Fuzzy t s) -- ^ The original value, rendered string and score.
 match extract caseSensitive pattern t =
-    if null pat 
-        then Just (Fuzzy t totalScore) 
+    if null pat
+        then Just (Fuzzy t totalScore)
         else Nothing
   where
     null :: (T.TextualMonoid s) => s -> Bool
@@ -75,7 +75,7 @@ filterBy :: (T.TextualMonoid s)
        -> [t]      -- ^ The list of values containing the text to search in.
        -> [t]      -- ^ The list of results, sorted, highest score first.
 filterBy extract pattern ts =
-  map original $ 
+  map original $
     sortOn (Down . score)
       (mapMaybe (match extract False pattern) ts)
 

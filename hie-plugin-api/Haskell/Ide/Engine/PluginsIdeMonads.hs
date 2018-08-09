@@ -19,7 +19,11 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , PluginDescriptor(..)
   , PluginCommand(..)
   , CodeActionProvider
-  , noCodeActions
+  , DiagnosticProvider(..)
+  , DiagnosticProviderFunc
+  , DiagnosticTrigger(..)
+  , HoverProvider
+  , SymbolProvider
   , IdePlugins(..)
   -- * The IDE monad
   , IdeGhcM
@@ -60,6 +64,7 @@ import           Data.Aeson
 import           Data.Dynamic (Dynamic)
 import           Data.IORef
 import qualified Data.Map as Map
+import qualified Data.Set as S
 import qualified Data.Text as T
 import           Data.Typeable (TypeRep, Typeable)
 
@@ -71,11 +76,13 @@ import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.GhcModuleCache
 
 import           Language.Haskell.LSP.Types.Capabilities
-import           Language.Haskell.LSP.Types (CodeAction(..),
-                                             CodeActionContext(..),
+import           Language.Haskell.LSP.Types (CodeAction (..),
+                                             CodeActionContext (..),
                                              Diagnostic (..),
                                              DiagnosticSeverity (..),
+                                             DocumentSymbol (..),
                                              List (..),
+                                             Hover (..),
                                              Location (..),
                                              Position (..),
                                              PublishDiagnosticsParams (..),
@@ -106,26 +113,46 @@ type CodeActionProvider =  VersionedTextDocumentIdentifier
                         -> CodeActionContext
                         -> IdeM (IdeResponse [CodeAction])
 
+-- type DiagnosticProviderFunc = DiagnosticTrigger -> Uri -> IdeM (IdeResponse (Map.Map Uri (S.Set Diagnostic)))
+type DiagnosticProviderFunc
+  = DiagnosticTrigger -> Uri -> IdeGhcM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
+
+data DiagnosticProvider = DiagnosticProvider
+     { dpTrigger :: S.Set DiagnosticTrigger -- AZ:should this be a NonEmptyList?
+     , dpFunc    :: DiagnosticProviderFunc
+     }
+
+data DiagnosticTrigger = DiagnosticOnOpen
+                       | DiagnosticOnChange
+                       | DiagnosticOnSave
+                       deriving (Show,Ord,Eq)
+
+type HoverProvider = Uri -> Position -> IdeM (IdeResponse [Hover])
+
+type SymbolProvider = Uri -> IdeM (IdeResponse [DocumentSymbol])
+
 data PluginDescriptor =
-  PluginDescriptor { pluginName :: T.Text
-                   , pluginDesc :: T.Text
-                   , pluginCommands :: [PluginCommand]
-                   , pluginCodeActionProvider :: CodeActionProvider
+  PluginDescriptor { pluginName               :: T.Text
+                   , pluginDesc               :: T.Text
+                   , pluginCommands           :: [PluginCommand]
+                   , pluginCodeActionProvider :: Maybe CodeActionProvider
+                   , pluginDiagnosticProvider :: Maybe DiagnosticProvider
+                   , pluginHoverProvider      :: Maybe HoverProvider
+                   , pluginSymbolProvider     :: Maybe SymbolProvider
                    } deriving (Generic)
 
 instance Show PluginCommand where
   show (PluginCommand name _ _) = "PluginCommand { name = " ++ T.unpack name ++ " }"
 
-noCodeActions :: CodeActionProvider
-noCodeActions _ _ _ _ = return $ IdeResponseOk []
-
--- | a Description of the available commands and code action providers stored in IdeGhcM
+-- | a Description of the available commands stored in IdeGhcM
 newtype IdePlugins = IdePlugins
-  { ipMap :: Map.Map PluginId ([PluginCommand], CodeActionProvider)
+  { ipMap :: Map.Map PluginId PluginDescriptor
   } deriving (Generic)
 
+-- TODO:AZ this is a defective instance, do we actually need it?
+-- Perhaps rather make a separate type explicitly for this purpose.
 instance ToJSON IdePlugins where
-  toJSON (IdePlugins m) = toJSON $ fmap (\x -> (commandName x, commandDesc x)) <$> fmap fst m
+  toJSON (IdePlugins m) = toJSON $ fmap (\x -> (commandName x, commandDesc x)) <$> fmap pluginCommands m
 
 -- ---------------------------------------------------------------------
 

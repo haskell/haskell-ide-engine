@@ -42,7 +42,10 @@ applyRefactDescriptor = PluginDescriptor
       , PluginCommand "applyAll" "Apply all hints to the file" applyAllCmd
       , PluginCommand "lint" "Run hlint on the file to generate hints" lintCmd
       ]
-  , pluginCodeActionProvider = codeActionProvider
+  , pluginCodeActionProvider = Just codeActionProvider
+  , pluginDiagnosticProvider = Nothing
+  , pluginHoverProvider = Nothing
+  , pluginSymbolProvider = Nothing
   }
 
 -- ---------------------------------------------------------------------
@@ -97,6 +100,7 @@ lintCmd :: CommandFunc Uri PublishDiagnosticsParams
 lintCmd = CmdSync $ \uri -> do
   lintCmd' uri
 
+-- AZ:TODO: Why is this in IdeGhcM?
 lintCmd' :: Uri -> IdeGhcM (IdeResult PublishDiagnosticsParams)
 lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
       res <- GM.withMappedFile fp $ \file' -> liftIO $ runExceptT $ runLintCmd file' []

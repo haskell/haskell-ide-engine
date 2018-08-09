@@ -41,12 +41,12 @@ handleCodeActionReq tn req = do
   let getProviders :: IdeM (IdeResponse [CodeActionProvider])
       getProviders = do
         IdePlugins m <- lift getPlugins
-        return $ IdeResponseOk $ map snd $ toList m
+        return $ IdeResponseOk $ mapMaybe pluginCodeActionProvider $ toList m
 
       providersCb :: [CodeActionProvider] -> R ()
       providersCb providers =
         let reqs = map (\f -> f docId maybeRootDir range context) providers
-        in collectRequests reqs (send . concat)
+        in makeRequests reqs tn (req ^. J.id) (send . concat)
 
   collectRequest getProviders providersCb
 
@@ -61,29 +61,19 @@ handleCodeActionReq tn req = do
       prefix <- asks commandPrefixer :: R (T.Text -> T.Text)
  
       let action :: J.CodeAction
-          action = (J.command . _Just . J.command %~ prefix) action'
+          action = action' & J.command . _Just . J.command %~ prefix
       supported <- asksLspFuncs $ has
         $ to Core.clientCapabilities . to C._textDocument . _Just . to C._codeAction . _Just . to C._codeActionLiteralSupport . _Just
         . maybe united (\k -> to C._codeActionKind . to C._valueSet . traverse . only k) (action ^. J.kind)
 
       return $ if supported
-        then J.CommandOrCodeActionCodeAction action
-        else
-          let cmd = J.Command (action ^. J.title) cmdName (Just cmdParams)
-              cmdName = prefix "hie:fallbackCodeAction"
+        then J.CACodeAction action
+        else 
+          let cmdName = prefix "hie:fallbackCodeAction"
               cmdParams = J.List [J.toJSON (FallbackCodeActionParams (action ^. J.edit) (action ^. J.command))]
-            in J.CommandOrCodeActionCommand cmd
+            in J.CACommand $ J.Command (action ^. J.title) cmdName (Just cmdParams)
 
     send :: [J.CodeAction] -> R ()
     send = reactorSend . RspCodeAction . Core.makeResponseMessage req . J.List <=< mapM wrapCodeAction
 
-    -- | Execute multiple ide requests sequentially
-    collectRequests :: [IdeM (IdeResponse a)] -- ^ The requests to make
-                    -> ([a] -> R ())     -- ^ Callback with the request inputs and results
-                    -> R ()
-    collectRequests = alaf ContT traverse collectRequest
-    
-    collectRequest :: IdeM (IdeResponse a) -> (a -> R ()) -> R ()
-    collectRequest x c = makeRequest $ IReq tn (req ^. J.id) c x
-        
   -- TODO: make context specific commands for all sorts of things, such as refactorings          

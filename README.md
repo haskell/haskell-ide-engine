@@ -272,6 +272,35 @@ All of the editor integrations assume that you have already installed HIE (see a
 Install from
 [the VSCode marketplace](https://marketplace.visualstudio.com/items?itemName=alanz.vscode-hie-server), or manually from the repository [vscode-hie-server](https://github.com/alanz/vscode-hie-server).
 
+#### Using VS Code with Nix
+
+`.config/nixpkgs/config.nix` sample:
+
+``` nix
+with import <nixpkgs> {};
+
+let
+  hie = (import (fetchFromGitHub {
+                   owner="domenkozar";
+                   repo="hie-nix";
+                   rev="e3113da";
+                   sha256="05rkzjvzywsg66iafm84xgjlkf27yfbagrdcb8sc9fd59hrzyiqk";
+                 }) {}).hie84;
+in
+{
+  allowUnfree = true;
+  packageOverrides = pkgs: rec {
+
+    vscode = pkgs.vscode.overrideDerivation (old: {
+      postFixup = old.postFixup + ''
+        wrapProgram $out/bin/code --prefix PATH : ${lib.makeBinPath [hie]}
+      '';
+    });
+
+  };
+}
+```
+
 ### Using HIE with Sublime Text
 
 * Make sure HIE is installed (see above) and that the directory stack put the `hie` binary in is in your path

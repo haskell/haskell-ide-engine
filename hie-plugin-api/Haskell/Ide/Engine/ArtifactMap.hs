@@ -18,10 +18,18 @@ import           Language.Haskell.LSP.Types
 -- ---------------------------------------------------------------------
 
 type SourceMap a = IM.IntervalMap Position a
-type LocMap = SourceMap GHC.Name
-type TypeMap = SourceMap GHC.Type
-type ModuleMap = SourceMap GHC.ModuleName
+type LocMap      = SourceMap GHC.Name
+type TypeMap     = SourceMap GHC.Type
+type ModuleMap   = SourceMap GHC.ModuleName
 
+-- ---------------------------------------------------------------------
+
+genIntervalMap :: [(Position,Position,a)] -> SourceMap a
+genIntervalMap ts = foldr go IM.empty ts
+  where
+    go (l,h,x) im = IM.insert (IM.Interval l h) x im
+
+-- ---------------------------------------------------------------------
 
 genTypeMap :: GHC.GhcMonad m => TypecheckedModule -> m TypeMap
 genTypeMap tm = do

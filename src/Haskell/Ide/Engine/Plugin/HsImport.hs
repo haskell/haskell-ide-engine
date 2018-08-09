@@ -28,7 +28,10 @@ hsimportDescriptor = PluginDescriptor
   { pluginName = "hsimport"
   , pluginDesc = "A tool for extending the import list of a Haskell source file."
   , pluginCommands = [PluginCommand "import" "Import a module" importCmd]
-  , pluginCodeActionProvider = codeActionProvider
+  , pluginCodeActionProvider = Just codeActionProvider
+  , pluginDiagnosticProvider = Nothing
+  , pluginHoverProvider = Nothing
+  , pluginSymbolProvider = Nothing
   }
 
 data ImportParams = ImportParams

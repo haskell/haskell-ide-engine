@@ -5,6 +5,7 @@ module Haskell.Ide.Engine.LSP.Reactor
   , reactorSend
   , reactorSend'
   , makeRequest
+  , makeRequests
   , asksLspFuncs
   , REnv(..)
   )
@@ -12,6 +13,7 @@ where
 
 import           Control.Concurrent.STM
 import           Control.Monad.Reader
+import qualified Data.Map                      as Map
 import qualified Data.Set                      as S
 import qualified Data.Text                     as T
 import qualified Language.Haskell.LSP.Core     as Core
@@ -19,14 +21,18 @@ import qualified Language.Haskell.LSP.Messages as J
 import qualified Language.Haskell.LSP.Types    as J
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.LSP.Config
+import           Haskell.Ide.Engine.PluginsIdeMonads
 import           Haskell.Ide.Engine.Types
 
-
 data REnv = REnv
-  { dispatcherEnv   :: DispatcherEnv
-  , reqChanIn       :: TChan (PluginRequest R)
-  , lspFuncs        :: Core.LspFuncs Config
-  , commandPrefixer :: T.Text -> T.Text
+  { dispatcherEnv     :: DispatcherEnv
+  , reqChanIn         :: TChan (PluginRequest R)
+  , lspFuncs          :: Core.LspFuncs Config
+  , commandPrefixer   :: T.Text -> T.Text
+  , diagnosticSources :: Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
+  , hoverProviders    :: [HoverProvider]
+  , symbolProviders   :: [SymbolProvider]
+  -- TODO: Add code action providers here
   }
 
 -- | The monad used in the reactor
@@ -39,10 +45,13 @@ runReactor
   -> DispatcherEnv
   -> TChan (PluginRequest R)
   -> (T.Text -> T.Text)
+  -> Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
+  -> [HoverProvider]
+  -> [SymbolProvider]
   -> R a
   -> IO a
-runReactor lf de cin prefixer =
-  flip runReaderT (REnv de cin lf prefixer)
+runReactor lf de cin prefixer dps hps sps =
+  flip runReaderT (REnv de cin lf prefixer dps hps sps)
 
 -- ---------------------------------------------------------------------
 
@@ -80,3 +89,18 @@ writePluginReq req lid = do
   liftIO $ atomically $ do
     modifyTVar wipTVar (S.insert lid)
     writeTChan cin req
+
+-- | Execute multiple ide requests sequentially
+makeRequests :: [IdeM (IdeResponse a)] -- ^ The requests to make
+             -> TrackingNumber
+             -> J.LspId
+             -> ([a] -> R ())          -- ^ Callback with the request inputs and results
+             -> R ()
+makeRequests = go []
+  where
+    go acc [] _ _ callback = callback acc
+    go acc (x:xs) tn reqId callback =
+      let reqCallback result = go (acc ++ [result]) xs tn reqId callback
+      in makeRequest $ IReq tn reqId reqCallback x
+
+-- ---------------------------------------------------------------------
