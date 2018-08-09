@@ -25,8 +25,7 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Control.Lens
 
 pluginDescToIdePlugins :: [(PluginId,PluginDescriptor)] -> IdePlugins
-pluginDescToIdePlugins = IdePlugins . foldr (uncurry Map.insert . f) Map.empty
-  where f = fmap (\x -> (pluginCommands x, pluginCodeActionProvider x))
+pluginDescToIdePlugins plugins = IdePlugins $ Map.fromList plugins
 
 type DynamicJSON = CD.ConstrainedDynamic ToJSON
 
@@ -44,7 +43,7 @@ toDynJSON = CD.toDyn
 runPluginCommand :: PluginId -> CommandName -> Value -> IDErring IdeGhcM DynamicJSON
 runPluginCommand p com arg = do
   IdePlugins m <- liftIde $ use idePlugins
-  (xs, _) <- case Map.lookup p m of
+  PluginDescriptor { pluginCommands = xs } <- case Map.lookup p m of
     Nothing -> ideError UnknownPlugin ("Plugin " <> p <> " doesn't exist") Null
     Just x -> return x
   PluginCommand _ _ (CmdSync f) <- case find ((com ==) . commandName) xs of

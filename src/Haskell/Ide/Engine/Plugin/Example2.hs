@@ -6,8 +6,11 @@ import           Control.Monad.IO.Class
 #if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
 #endif
+import qualified Data.Map                      as Map
+import qualified Data.Set                      as S
 import qualified Data.Text                     as T
-import           Haskell.Ide.Engine.MonadTypes
+import           Haskell.Ide.Engine.MonadFunctions
+import           Haskell.Ide.Engine.MonadTypes hiding (_range)
 
 -- ---------------------------------------------------------------------
 
@@ -20,7 +23,10 @@ example2Descriptor = PluginDescriptor
       [ PluginCommand "sayHello" "say hello" sayHelloCmd
       , PluginCommand "sayHelloTo ""say hello to the passed in param" sayHelloToCmd
       ]
-  , pluginCodeActionProvider = noCodeActions
+  , pluginCodeActionProvider = Nothing
+  , pluginDiagnosticProvider = Just (DiagnosticProvider (S.singleton DiagnosticOnSave) diagnosticProvider)
+  , pluginHoverProvider = Nothing
+  , pluginSymbolProvider = Nothing
   }
 
 -- ---------------------------------------------------------------------
@@ -40,3 +46,18 @@ sayHello = "hello from ExamplePlugin2"
 
 sayHelloTo :: T.Text -> IO T.Text
 sayHelloTo n = return $ "hello " <> n <> " from ExamplePlugin2"
+
+-- ---------------------------------------------------------------------
+
+diagnosticProvider :: DiagnosticTrigger -> Uri -> IdeGhcM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
+diagnosticProvider trigger uri = do
+  liftIO $ logm "Example2.diagnosticProvider called"
+  let diag = Diagnostic
+              { _range = Range (Position 0 0) (Position 1 0)
+              , _severity = Nothing
+              , _code = Nothing
+              , _source = Just "eg2"
+              , _message = "Example plugin diagnostic, triggered by" <> T.pack (show trigger)
+              , _relatedInformation = Nothing
+              }
+  return $ IdeResultOk $ Map.fromList [(uri,S.singleton diag)]

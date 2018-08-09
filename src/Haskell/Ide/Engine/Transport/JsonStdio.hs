@@ -71,7 +71,6 @@ data ReactorOutput = ReactorOutput
 run :: (DispatcherEnv -> ErrorHandler -> CallbackHandler IO -> ClientCapabilities -> IO ()) -> TChan (PluginRequest IO) -> IO Int
 run dispatcherProc cin = flip E.catches handlers $ do
   flip E.finally finalProc $ do
-
     rout <- atomically newTChan :: IO (TChan ReactorOutput)
     dispatcherEnv <- atomically $ DispatcherEnv
       <$> newTVar S.empty
@@ -105,24 +104,27 @@ run dispatcherProc cin = flip E.catches handlers $ do
     reactor rout =
       let sendResponse rid resp = atomically $ writeTChan rout (ReactorOutput rid resp) in
       forever $ do
-        req <- getNextReq
-        let preq = GReq 0 (context req) Nothing (Just $ J.IdInt rid) (liftIO . callback)
-              $ runPluginCommand (plugin req) (command req) (arg req)
-            rid = reqId req
-            callback = sendResponse rid . dynToJSON
-        atomically $ writeTChan cin preq
+        mreq <- getNextReq
+        case mreq of
+          Nothing -> return()
+          Just req -> do
+            let preq = GReq 0 (context req) Nothing (Just $ J.IdInt rid) (liftIO . callback)
+                  $ runPluginCommand (plugin req) (command req) (arg req)
+                rid = reqId req
+                callback = sendResponse rid . dynToJSON
+            atomically $ writeTChan cin preq
 
-getNextReq :: IO ReactorInput
+getNextReq :: IO (Maybe ReactorInput)
 getNextReq = do
   mbs <- fmap B.toLazyByteString <$> readReqByteString
   case mbs of
     -- EOF
-    Nothing -> exitSuccess
+    Nothing -> return Nothing
     Just bs -> case J.eitherDecode bs of
       Left err  -> do
         hPutStrLn stderr $ "Couldn't parse" ++ B.unpack bs ++ "\n got error" ++ show err
         getNextReq
-      Right req -> return req
+      Right req -> return $ Just req
   where
     readReqByteString = do
       eof <- isEOF

@@ -40,12 +40,12 @@ handleCodeActionReq tn req = do
   let getProviders :: IdeResponseT [CodeActionProvider]
       getProviders = do
         IdePlugins m <- use idePlugins
-        return $ map snd $ toList m
+        return $ map pluginCodeActionProvider $ toList m
 
       providersCb :: [CodeActionProvider] -> R ()
       providersCb providers =
         let reqs = map (\f -> f docId maybeRootDir range context) providers
-        in collectRequests reqs (send . concat)
+        in makeRequests reqs tn (req ^. J.id) (send . concat)
 
   makeRequest (IReq tn (req ^. J.id) providersCb getProviders)
 
@@ -55,7 +55,7 @@ handleCodeActionReq tn req = do
     range = params ^. J.range
     context = params ^. J.context
 
-    wrapCodeAction :: J.CodeAction -> R (Maybe J.CommandOrCodeAction)
+    wrapCodeAction :: J.CodeAction -> R (Maybe J.CAResult)
     wrapCodeAction action' = do
       prefix <- asks commandPrefixer :: R (T.Text -> T.Text)
 
@@ -69,23 +69,12 @@ handleCodeActionReq tn req = do
             let cmd = J.Command (action ^. J.title) cmdName (Just cmdParams)
                 cmdName = prefix "hie:fallbackCodeAction"
                 cmdParams = J.List [J.toJSON (FallbackCodeActionParams (action ^. J.edit) (action ^. J.command))]
-              in return $ Just (J.CommandOrCodeActionCommand cmd)
-        Just _ -> return $ Just (J.CommandOrCodeActionCodeAction action)
+              in return $ Just (J.CACommand cmd)
+        Just _ -> return $ Just (J.CACodeAction action)
 
     send :: [J.CodeAction] -> R ()
     send codeActions = do
       body <- J.List . catMaybes <$> mapM wrapCodeAction codeActions
       reactorSend $ RspCodeAction $ Core.makeResponseMessage req body
-
-    -- | Execute multiple ide requests sequentially
-    collectRequests :: [IdeResponseT a] -- ^ The requests to make
-                    -> ([a] -> R ())     -- ^ Callback with the request inputs and results
-                    -> R ()
-    collectRequests = go []
-      where
-        go acc [] callback = callback acc
-        go acc (x:xs) callback =
-          let reqCallback result = go (acc ++ [result]) xs callback
-          in makeRequest $ IReq tn (req ^. J.id) reqCallback x
 
   -- TODO: make context specific commands for all sorts of things, such as refactorings          

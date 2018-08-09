@@ -36,6 +36,7 @@ library
                        Haskell.Ide.Engine.Plugin.HieExtras
                        Haskell.Ide.Engine.Plugin.Hoogle
                        Haskell.Ide.Engine.Plugin.HsImport
+                       Haskell.Ide.Engine.Plugin.Liquid
                        Haskell.Ide.Engine.Plugin.Package
                        Haskell.Ide.Engine.Transport.JsonStdio
                        Haskell.Ide.Engine.Transport.LspStdio
@@ -78,6 +79,7 @@ library
                      , monoid-subclasses > 0.4
                      , mtl
                      , optparse-simple >= 0.0.3
+                     , parsec
                      , process
                      , sorted-list >= 0.2.1.0
                      , stm
@@ -149,6 +151,7 @@ test-suite unit-test
                        DiffSpec
                        ExtensibleStateSpec
                        GhcModPluginSpec
+                       LiquidSpec
                        HaRePluginSpec
                        HooglePluginSpec
                        JsonSpec
@@ -158,6 +161,7 @@ test-suite unit-test
   build-depends:       QuickCheck
                      , aeson
                      , base
+                     , bytestring
                      , containers
                      , directory
                      , filepath
@@ -254,11 +258,13 @@ test-suite func-test
                      , CodeActionsSpec
                      , DeferredSpec
                      , DefinitionSpec
+                     , DiagnosticsSpec
                      , FormatSpec
                      , HighlightSpec
                      , HoverSpec
                      , ReferencesSpec
                      , RenameSpec
+                     , SymbolsSpec
                      , Spec
 
                      , TestUtils
@@ -268,7 +274,7 @@ test-suite func-test
                      , data-default
                      , directory
                      , filepath
-                     , haskell-lsp-test
+                     , lsp-test >= 0.2
                      , haskell-ide-engine
                      -- , hie-test-utils
                      , hie-plugin-api

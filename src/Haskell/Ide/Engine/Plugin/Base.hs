@@ -41,7 +41,10 @@ baseDescriptor = PluginDescriptor
       , PluginCommand "commands" "list available commands for a given plugin" commandsCmd
       , PluginCommand "commandDetail" "list parameters required for a given command" commandDetailCmd
       ]
-  , pluginCodeActionProvider = noCodeActions
+  , pluginCodeActionProvider = Nothing
+  , pluginDiagnosticProvider = Nothing
+  , pluginHoverProvider = Nothing
+  , pluginSymbolProvider = Nothing
   }
 
 -- ---------------------------------------------------------------------
@@ -55,14 +58,17 @@ pluginsCmd = CmdSync $ \_ -> liftIde $ use idePlugins
 commandsCmd :: CommandFunc T.Text [CommandName]
 commandsCmd = CmdSync $ \p -> do
   IdePlugins plugins <- liftIde $ use idePlugins
-  (cs, _) <- maybe (ideError UnknownPlugin  ("Can't find plugin:"  <> p      ) (toJSON p      )) pure $ Map.lookup p plugins
-  return $ map commandName cs
+  plugin <- maybe (ideError UnknownPlugin  ("Can't find plugin:"  <> p      ) (toJSON p      )) pure $
+    Map.lookup p plugins
+  return $ map commandName $ pluginCommands plugin
 
 commandDetailCmd :: CommandFunc (T.Text, T.Text) T.Text
 commandDetailCmd = CmdSync $ \(p,command) -> do
   IdePlugins plugins <- liftIde $ use idePlugins
-  (cs, _) <- maybe (ideError UnknownPlugin  ("Can't find plugin:"  <> p      ) (toJSON p      )) pure $ Map.lookup p plugins
-  detail  <- maybe (ideError UnknownCommand ("Can't find command:" <> command) (toJSON command)) pure $ find (\cmd -> command == commandName cmd) cs
+  plugin <- maybe (ideError UnknownPlugin  ("Can't find plugin:"  <> p      ) (toJSON p      )) pure $
+    Map.lookup p plugins
+  detail <- maybe (ideError UnknownCommand ("Can't find command:" <> command) (toJSON command)) pure $
+    find (\cmd -> command == commandName cmd) (pluginCommands plugin)
   pure $ commandDesc detail
 
 -- ---------------------------------------------------------------------

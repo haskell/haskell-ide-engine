@@ -196,7 +196,7 @@ funcSpec = describe "functional dispatch" $ do
       unpackRes hr0 `shouldBe` ("IReq IdInt 0",Just NotCached)
 
       -- This request should be deferred, only return when the module is loaded
-      dispatchIdeRequest 1 "req1" cin logChan (IdInt 1) $ getSymbols testUri
+      dispatchIdeRequest 1 "req1" cin logChan (IdInt 1) $ symbolProvider testUri
 
       rrr <- atomically $ tryReadTChan logChan
       show rrr `shouldBe` "Nothing"
@@ -206,20 +206,11 @@ funcSpec = describe "functional dispatch" $ do
 
       -- And now we get the deferred response (once the module is loaded)
       ("req1",Right res) <- atomically $ readTChan logChan
-      let Just ss = fromDynJSON res :: Maybe [SymbolInformation]
-      head ss `shouldBe`
-                  SymbolInformation
-                      { _name          = "main"
-                      , _kind          = SkFunction
-                      , _location      = Location
-                        { _uri   = testUri
-                        , _range = Range
-                          { _start = Position {_line = 2, _character = 0}
-                          , _end   = Position {_line = 2, _character = 4}
-                          }
-                        }
-                      , _containerName = Nothing
-                      }
+      let Just ds = fromDynJSON res :: Maybe [DocumentSymbol]
+          DocumentSymbol mainName _ mainKind _ mainRange _ _ = head ds 
+      mainName `shouldBe` "main"
+      mainKind `shouldBe` SkFunction
+      mainRange `shouldBe` Range (Position 2 0) (Position 2 4)
 
       -- followed by the diagnostics ...
       ("req2",Right res2) <- atomically $ readTChan logChan
@@ -322,7 +313,7 @@ funcSpec = describe "functional dispatch" $ do
 
     it "instantly responds to failed modules with no cache" $ do
 
-      dispatchIdeRequest 7 "req7" cin logChan (IdInt 7) $ getSymbols testFailUri
+      dispatchIdeRequest 7 "req7" cin logChan (IdInt 7) $ symbolProvider testFailUri
 
       dispatchGhcRequest 8 "req8" 8 cin logChan "ghcmod" "check" (toJSON testFailUri)
 

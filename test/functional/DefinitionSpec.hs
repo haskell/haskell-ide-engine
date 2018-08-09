@@ -10,27 +10,27 @@ import TestUtils
 
 spec :: Spec
 spec = describe "definitions" $ do
-  it "goto's symbols" $ runSession hieCommand "test/testdata" $ do
+  it "goto's symbols" $ runSession hieCommand fullCaps "test/testdata" $ do
     doc <- openDoc "References.hs" "haskell"
     defs <- getDefinitions doc (Position 7 8)
     let expRange = Range (Position 4 0) (Position 4 3)
     liftIO $ defs `shouldBe` [Location (doc ^. uri) expRange]
 
-  it "goto's imported modules" $ runSession hieCommand "test/testdata/definition" $ do
+  it "goto's imported modules" $ runSession hieCommand fullCaps "test/testdata/definition" $ do
     doc <- openDoc "Foo.hs" "haskell"
     defs <- getDefinitions doc (Position 2 8)
     liftIO $ do
       fp <- canonicalizePath "test/testdata/definition/Bar.hs"
       defs `shouldBe` [Location (filePathToUri fp) zeroRange]
 
-  it "goto's exported modules" $ runSession hieCommand "test/testdata/definition" $ do
+  it "goto's exported modules" $ runSession hieCommand fullCaps "test/testdata/definition" $ do
     doc <- openDoc "Foo.hs" "haskell"
     defs <- getDefinitions doc (Position 0 15)
     liftIO $ do
       fp <- canonicalizePath "test/testdata/definition/Bar.hs"
       defs `shouldBe` [Location (filePathToUri fp) zeroRange]
 
-  it "goto's imported modules that are loaded" $ runSession hieCommand "test/testdata/definition" $ do
+  it "goto's imported modules that are loaded" $ runSession hieCommand fullCaps "test/testdata/definition" $ do
     doc <- openDoc "Foo.hs" "haskell"
     _ <- openDoc "Bar.hs" "haskell"
     defs <- getDefinitions doc (Position 2 8)
@@ -39,7 +39,7 @@ spec = describe "definitions" $ do
       defs `shouldBe` [Location (filePathToUri fp) zeroRange]
   
   it "goto's imported modules that are loaded, and then closed" $
-    runSession hieCommand "test/testdata/definition" $ do
+    runSession hieCommand fullCaps "test/testdata/definition" $ do
       doc <- openDoc "Foo.hs" "haskell" 
       otherDoc <- openDoc "Bar.hs" "haskell"
       closeDoc otherDoc
