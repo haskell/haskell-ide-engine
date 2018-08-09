@@ -130,9 +130,9 @@ type CodeActionProvider =  VersionedTextDocumentIdentifier
                         -> CodeActionContext
                         -> IdeResponseT [CodeAction]
 
--- type DiagnosticProviderFunc = DiagnosticTrigger -> Uri -> IdeM (IdeResponse (Map.Map Uri (S.Set Diagnostic)))
+-- type DiagnosticProviderFunc = DiagnosticTrigger -> Uri -> IdeResponseT (Map.Map Uri (S.Set Diagnostic)))
 type DiagnosticProviderFunc
-  = DiagnosticTrigger -> Uri -> IdeGhcM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
+  = DiagnosticTrigger -> Uri -> IDErring IdeGhcM (Map.Map Uri (S.Set Diagnostic))
 
 data DiagnosticProvider = DiagnosticProvider
      { dpTrigger :: S.Set DiagnosticTrigger -- AZ:should this be a NonEmptyList?
@@ -144,9 +144,9 @@ data DiagnosticTrigger = DiagnosticOnOpen
                        | DiagnosticOnSave
                        deriving (Show,Ord,Eq)
 
-type HoverProvider = Uri -> Position -> IdeM (IdeResponse [Hover])
+type HoverProvider = Uri -> Position -> IdeResponseT [Hover]
 
-type SymbolProvider = Uri -> IdeM (IdeResponse [DocumentSymbol])
+type SymbolProvider = Uri -> IdeResponseT [DocumentSymbol]
 
 data PluginDescriptor =
   PluginDescriptor { pluginName               :: T.Text

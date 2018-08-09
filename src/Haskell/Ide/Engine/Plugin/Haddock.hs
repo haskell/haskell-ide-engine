@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleContexts    #-}
 module Haskell.Ide.Engine.Plugin.Haddock where
 
+import           Control.Monad.Morph
 import           Control.Monad.State
 import           Control.Lens hiding ((<.>))
 import           Data.Foldable
@@ -217,15 +218,15 @@ renderMarkDown =
           removeInner x = T.replace "```" "" $ T.replace "```haskell" "" x
 
 hoverProvider :: HoverProvider
-hoverProvider doc pos = runIdeResponseT $ do
-  df <- IdeResponseT $ getDynFlags doc
-  names' <- IdeResponseT $ getSymbolsAtPoint doc pos
+hoverProvider doc pos = do
+  df <- getDynFlags doc
+  names' <- getSymbolsAtPoint doc pos
   let names = mapMaybe pickName $ groupBy f $ sortBy f' names'
-  docs <- forM names $ \(_,name) -> do
+  docs <- hoist lift $ forM names $ \(_,name) -> do
     let sname = showName name
     case getModule df name of
       Nothing -> return $ "`" <> sname <> "` *local*"
-      (Just (pkg,mdl)) -> do
+      Just (pkg,mdl) -> do
         let mname = "`"<> sname <> "`\n\n"
         let minfo = maybe "" (<>" ") pkg <> mdl
         mdocu' <- lift $ getDocsWithType df name

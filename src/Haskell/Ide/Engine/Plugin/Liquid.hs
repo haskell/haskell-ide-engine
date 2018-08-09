@@ -44,12 +44,11 @@ liquidDescriptor = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 sayHelloCmd :: CommandFunc () T.Text
-sayHelloCmd = CmdSync $ \_ -> return (IdeResultOk sayHello)
+sayHelloCmd = CmdSync $ \_ -> return sayHello
 
 sayHelloToCmd :: CommandFunc T.Text T.Text
-sayHelloToCmd = CmdSync $ \n -> do
-  r <- liftIO $ sayHelloTo n
-  return $ IdeResultOk r
+sayHelloToCmd = CmdSync $ \n ->
+  liftIO $ sayHelloTo n
 
 -- ---------------------------------------------------------------------
 
@@ -91,14 +90,10 @@ instance ToJSON   LiquidError
 
 -- ---------------------------------------------------------------------
 
-diagnosticProvider :: DiagnosticTrigger -> Uri -> IdeGhcM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
+diagnosticProvider :: DiagnosticTrigger -> Uri -> IDErring IdeGhcM (Map.Map Uri (S.Set Diagnostic))
 diagnosticProvider _trigger uri = do
   me <- liftIO $ readJsonAnnot uri
-  case me of
-    Nothing -> return $ IdeResultOk Map.empty
-    Just es -> return $ IdeResultOk m
-      where
-        m = Map.fromList [(uri,S.fromList (map liquidErrorToDiagnostic es))]
+  return $ Map.fromList [(uri,S.fromList (map liquidErrorToDiagnostic es)) | Just es <- [me]]
   -- let diag = Diagnostic
   --             { _range = Range (Position 5 0) (Position 7 0)
   --             , _severity = Nothing
@@ -107,7 +102,7 @@ diagnosticProvider _trigger uri = do
   --             , _message = "Liquid plugin diagnostic, vim annot in " <> T.pack (vimAnnotFile uri)
   --             , _relatedInformation = Nothing
   --             }
-  -- return $ IdeResultOk $ Map.fromList [(uri,S.singleton diag)]
+  -- return $ Map.fromList [(uri,S.singleton diag)]
 
 -- ---------------------------------------------------------------------
 
@@ -180,24 +175,23 @@ liquidFileFor uri ext =
 
 -- ---------------------------------------------------------------------
 
--- type HoverProvider = Uri -> Position -> IdeM (IdeResponse Hover)
+-- type HoverProvider = Uri -> Position -> IdeResponseT Hover
 
 hoverProvider :: HoverProvider
-hoverProvider uri pos =
-  pluginGetFileResponse "Liquid.hoverProvider: " uri $ \file ->
-    withCachedModuleAndDataDefault file (Just (IdeResponseOk [])) $
-      \cm () -> do
-        merrs <- liftIO $ readVimAnnot uri
-        case merrs of
-          Nothing -> return $ IdeResponseResult (IdeResultOk [])
-          Just lerrs -> do
-            let perrs = map (\le@(LE s e _) -> (lpToPos s,lpToPos e,le)) lerrs
-                ls    = getThingsAtPos cm pos perrs
-            hs <- forM ls $ \(r,LE _s _e msg) -> do
-              let msgs = T.splitOn "\\n" msg
-                  msg' = J.CodeString (J.LanguageString "haskell" (T.unlines msgs))
-              return $ J.Hover (J.List [msg']) (Just r)
-            return $ IdeResponseResult (IdeResultOk hs)
+hoverProvider uri pos = do
+  file <- pluginGetFile "Liquid.hoverProvider: " uri
+  withCachedModuleAndDataDefault file (Just (return [])) $
+    \cm () -> do
+      merrs <- liftIO $ readVimAnnot uri
+      case merrs of
+        Nothing -> return []
+        Just lerrs -> do
+          let perrs = map (\le@(LE s e _) -> (lpToPos s,lpToPos e,le)) lerrs
+              ls    = getThingsAtPos cm pos perrs
+          forM ls $ \(r,LE _s _e msg) -> do
+            let msgs = T.splitOn "\\n" msg
+                msg' = J.CodeString (J.LanguageString "haskell" (T.unlines msgs))
+            return $ J.Hover (J.List [msg']) (Just r)
 
 -- ---------------------------------------------------------------------
 

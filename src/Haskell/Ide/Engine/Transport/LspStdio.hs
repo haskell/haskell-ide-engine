@@ -24,8 +24,6 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Control.Monad.Reader
-import           Control.Monad.Morph
-import           Control.Applicative
 import qualified Data.Aeson as J
 import           Data.Aeson ( (.=) )
 import qualified Data.ByteString.Lazy as BL
@@ -476,7 +474,7 @@ reactor inp = do
               doc = params ^. J.textDocument . J.uri :: Uri
 
           hps <- asks hoverProviders
-
+          
           let callback :: [[J.Hover]] -> R ()
               callback hhs =
                 -- TODO: We should support ServerCapabilities and declare that
@@ -488,16 +486,17 @@ reactor inp = do
                     h = J.Hover (fold (map (^. J.contents) hs)) r
                     r = listToMaybe $ mapMaybe (^. J.range) hs
                 in reactorSend $ RspHover $ Core.makeResponseMessage req h
-
+              
               hreq :: PluginRequest R
-              hreq = IReq tn (req ^. J.id) callback $
-                fp <- pluginGetFileResponse "ReqHover:" doc
+              hreq = IReq tn (req ^. J.id) callback $ do
+                fp <- pluginGetFile "ReqHover:" doc
                 cached <- isCached fp
                 -- Hover requests need to be instant so don't wait
                 -- for cached module to be loaded
                 if cached
                   then sequence <$> mapM (\hp -> hp doc pos) hps
                   else return []
+          
           makeRequest hreq
           liftIO $ U.logs "reactor:HoverRequest done"
 
@@ -727,9 +726,9 @@ reactor inp = do
           liftIO $ U.logs $ "reactor:didChangeConfiguration diagsOn:" ++ show diagsOn
           -- If hlint is off, remove the diags. But make sure they get sent, in
           -- case maxDiagnosticsToSend has changed.
-          if diagsOn
-            then flushDiagnosticsBySource maxDiagnosticsToSend Nothing
-            else flushDiagnosticsBySource maxDiagnosticsToSend (Just "hlint")
+          flushDiagnosticsBySource maxDiagnosticsToSend $ if diagsOn
+            then Nothing
+            else Just "hlint"
 
         -- -------------------------------
         om -> do

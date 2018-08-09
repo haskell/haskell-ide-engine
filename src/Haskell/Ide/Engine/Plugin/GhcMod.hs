@@ -481,9 +481,9 @@ extractRedundantImport msg =
 -- ---------------------------------------------------------------------
 
 hoverProvider :: HoverProvider
-hoverProvider doc pos = runIdeResponseT $ do
-  info' <- IdeResponseT $ IdeResponseResult <$> newTypeCmd pos doc
-  names' <- IdeResponseT $ Hie.getSymbolsAtPoint doc pos
+hoverProvider doc pos = do
+  info' <- hoist lift $ newTypeCmd pos doc
+  names' <- Hie.getSymbolsAtPoint doc pos
   let
     f = (==) `on` (Hie.showName . snd)
     f' = compare `on` (Hie.showName . snd)
@@ -517,8 +517,8 @@ hoverProvider doc pos = runIdeResponseT $ do
 data Decl = Decl LSP.SymbolKind (Located RdrName) [Decl]
           | Import LSP.SymbolKind (Located ModuleName) [Decl]
 
-symbolProvider :: Uri -> IdeM (IdeResponse [LSP.DocumentSymbol])
-symbolProvider uri = pluginGetFileResponse "ghc-mod symbolProvider: " uri $ \file -> withCachedModule file $ \cm -> do
+symbolProvider :: Uri -> IdeResponseT [LSP.DocumentSymbol]
+symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri >>= \file -> withCachedModule file $ \cm -> do
   let tm = tcMod cm
       hsMod = unLoc $ pm_parsed_source $ tm_parsed_module tm
       imports = hsmodImports hsMod
@@ -604,6 +604,6 @@ symbolProvider uri = pluginGetFileResponse "ghc-mod symbolProvider: " uri $ \fil
               LSP.DocumentSymbol name (Just "") kind Nothing r r chList
 
 
-  symInfs <- concat <$> mapM declsToSymbolInf (imps ++ decls)
-  return $ IdeResponseOk symInfs
+  symInfs <- concat <$> mapM (liftIde . declsToSymbolInf) (imps ++ decls)
+  return symInfs
 

@@ -137,10 +137,9 @@ newPluginSpec = do
     it "dispatches response correctly" $ do
       inChan <- atomically newTChan
       outChan <- atomically newTChan
-      dispatcherEnv <- atomically $ DispatcherEnv
-        <$> newTVar S.empty
-        <*> newTVar S.empty
-        <*> newTVar (Map.singleton (filePathToUri "test") 3)
+      cancelTVar <- newTVarIO S.empty
+      wipTVar <- newTVarIO S.empty
+      versionTVar <- newTVarIO $ Map.singleton (filePathToUri "test") 3
       let req1 = GReq 1 Nothing Nothing                          (Just $ IdInt 1) (atomically . writeTChan outChan) $ return $ T.pack "text1"
           req2 = GReq 2 Nothing Nothing                          (Just $ IdInt 2) (atomically . writeTChan outChan) $ return $ T.pack "text2"
           req3 = GReq 3 Nothing (Just (filePathToUri "test", 2)) Nothing          (atomically . writeTChan outChan) $ return $ T.pack "text3"
@@ -149,7 +148,7 @@ newPluginSpec = do
       pid <- forkIO $ dispatcherP inChan
                               (pluginDescToIdePlugins [])
                               testOptions
-                              dispatcherEnv
+                              (DispatcherEnv cancelTVar wipTVar versionTVar)
                               (\_ _ _ -> return ())
                               (\f x -> f x)
                               def
