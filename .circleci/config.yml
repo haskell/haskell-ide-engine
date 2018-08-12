@@ -25,6 +25,7 @@ defaults: &defaults
           - stack-cache-05-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
           - stack-cache-05-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
           - stack-cache-05-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
+          - stack-work-dirs-05-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
 
     - run:
         name: Stack setup
@@ -51,9 +52,6 @@ defaults: &defaults
         paths:
           - ~/.stack
           - ~/.cache
-
-    - restore_cache:
-          key: stack-work-dirs-05-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
 
     - run:
         name: Test
