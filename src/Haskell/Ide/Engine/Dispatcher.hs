@@ -20,7 +20,6 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.STM
 import           Control.Monad.Trans.Free
-import           Control.Monad.Except
 import           Data.Foldable
 import qualified Data.Aeson                              as J
 import qualified Data.Text                               as T
@@ -86,20 +85,23 @@ ideDispatcher env errorHandler callbackHandler pin = forever $ do
   debugm "ideDispatcher: top of loop"
   IdeRequest tn lid callback action <- liftIO $ atomically $ readTChan pin
   debugm $ "ideDispatcher: got request " ++ show tn ++ " with id: " ++ show lid
-  handleAction lid $ fmap (liftIO . callbackHandler callback) action
-  where handleAction :: J.LspId -> IdeResponseT (IdeM ()) -> IdeM ()
-        handleAction lid action = do
-          response <- runFreeT $ runIDErring $
-            checkCancelled env lid *> action <* checkCancelled env lid
-          case response of
-            Pure result -> do
-              completedReq env lid
-              either (liftIO . handleError (errorHandler lid)) id result
-            Free (IdeDefer fp cacheCb) -> queueAction fp $
-              handleAction lid . either (\err -> ideError NoModuleAvailable err J.Null) (IDErring . ExceptT . cacheCb)
+  iterT (\(IdeDefer fp cacheCb) -> requestQueue . at fp . non' _Empty %= (:) cacheCb)
+    $ hoistFreeT' (\layer -> do
+      result <- runIDErring layer
+      liftIO $ case result of 
+        Right noerr -> return noerr
+        Left err -> do
+          completedReq env lid
+          Pure <$> handleError (errorHandler lid) err
+    ) $ do
+      checkCancelled env lid
+      success <- action
+      checkCancelled env lid
+      completedReq env lid
+      liftIO $ callbackHandler callback success
 
-        queueAction :: FilePath -> (Either T.Text CachedModule -> IdeM ()) -> IdeM ()
-        queueAction fp action = requestQueue . at fp . non' _Empty %= (action:)
+hoistFreeT' :: (forall f a. IDErring IdeM (FreeF f () a) -> IdeM (FreeF f () a)) -> IdeResponseT () -> ResponseT IdeM ()
+hoistFreeT' mh = FreeT . mh . fmap (fmap (hoistFreeT' mh)) . runFreeT
 
 ghcDispatcher :: forall void m. DispatcherEnv -> ErrorHandler -> CallbackHandler m -> TChan (GhcRequest m) -> GM.GhcModT IdeM void
 ghcDispatcher env@DispatcherEnv{docVersionTVar} errorHandler callbackHandler pin = forever $ do
@@ -131,7 +133,7 @@ handleError handler (IdeError code msg _) = handler (translate code) msg where
   translate VersionMismatch = J.UnknownErrorCode
   translate _ = J.InternalError
 
-checkCancelled :: MonadIO m => DispatcherEnv -> J.LspId -> IDErring m ()
+checkCancelled :: (IDErrs m, MonadIO m) => DispatcherEnv -> J.LspId -> m ()
 checkCancelled env lid = do
   -- attempt to pop a corresponding cancel request
   cancelled <- liftIO $ atomically $ do

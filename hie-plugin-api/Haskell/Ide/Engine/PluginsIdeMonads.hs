@@ -15,6 +15,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE DefaultSignatures #-}
 
 -- | IdeGhcM and associated types
 module Haskell.Ide.Engine.PluginsIdeMonads
@@ -59,7 +60,7 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , DiagnosticSeverity(..)
   , PublishDiagnosticsParams(..)
   , List(..)
-  , ideError
+  , IDErrs(..)
   , defer
   , moduleCache, requestQueue, idePlugins, extensibleState, ghcSession
   ) where
@@ -213,7 +214,8 @@ type IdeM = ReaderT ClientCapabilities (MultiThreadState IdeState)
 class Monad m => MonadIde m where liftIde :: IdeM a -> m a
 instance MonadIde IdeGhcM where liftIde = lift . lift
 instance MonadIde m => MonadIde (IDErring m) where liftIde = lift . liftIde
-instance MonadIde (ResponseT IdeM) where liftIde = lift
+instance MonadIde m => MonadIde (ResponseT m) where liftIde = lift . liftIde
+instance MonadIde IdeM where liftIde = id
 
 data IdeState = IdeState
   { _moduleCache :: GhcModuleCache
@@ -226,14 +228,14 @@ data IdeState = IdeState
 
 -- | The IDE response, which wraps around an (Either IdeError a) that may be deferred.
 -- Used mostly in IdeM.
-data IdeDefer a = IdeDefer FilePath (CachedModule -> a) deriving Functor
+data IdeDefer a = IdeDefer FilePath (Either T.Text CachedModule -> a) deriving Functor
 type ResponseT = FreeT IdeDefer
-type IdeResponseT = IDErring (ResponseT IdeM) -- Lightens error messages
+type IdeResponseT = ResponseT (IDErring IdeM) -- Lightens error messages
 
 instance GM.MonadIO m => GM.MonadIO (ResponseT m) where liftIO = lift . GM.liftIO
 
-defer :: MonadFree IdeDefer m => FilePath -> (CachedModule -> m a) -> m a
-defer fp f = wrap $ IdeDefer fp f
+defer :: (IDErrs m, MonadFree IdeDefer m) => FilePath -> (CachedModule -> m a) -> m a
+defer fp f = wrap $ IdeDefer fp $ either (\err -> ideError NoModuleAvailable err Null) f
 
 instance Show1 IdeDefer where liftShowsPrec _ _ _ (IdeDefer fp _) = (++) $ "Deferred response waiting on " ++ fp
 instance Show (IdeDefer a) where show (IdeDefer fp _) = "Deferred response waiting on " ++ fp
@@ -267,8 +269,15 @@ data IdeError = IdeError
 instance ToJSON IdeError
 instance FromJSON IdeError
 
-ideError :: Monad m => IdeErrorCode -> T.Text -> Value -> IDErring m a
-ideError c m i = IDErring $ throwError $ IdeError c m i
+class Monad m => IDErrs m where
+  ideError :: IdeErrorCode -> T.Text -> Value -> m a
+  default ideError :: (IDErrs n, MonadTrans t, m ~ t n) => IdeErrorCode -> T.Text -> Value -> m a
+  ideError c m i = lift $ ideError c m i
+
+instance Monad m => IDErrs (IDErring m) where
+  ideError c m i = IDErring $ throwError $ IdeError c m i
+
+instance IDErrs m => IDErrs (ResponseT m)
 
 makeLenses ''IdeState
 
@@ -292,7 +301,12 @@ instance HasGhcModuleCache m => HasGhcModuleCache (ResponseT m) where
   getModuleCache = lift getModuleCache
   setModuleCache = lift . setModuleCache
 
-deriving instance (GM.MonadIO m, ExceptionMonad m) => ExceptionMonad (IDErring m)
+instance (MonadIO m, MonadBaseControl IO m) => ExceptionMonad (IDErring m) where
+  gcatch act handler = control $ \run ->
+      run act `gcatch` (run . handler)
+
+  gmask = liftBaseOp gmask . liftRestore
+    where liftRestore f r = f $ liftBaseOp_ r
 
 instance ExceptionMonad m => ExceptionMonad (ResponseT m) where
   gcatch act handler = let levelonecatch act' handler' = FreeT $ runFreeT act' `gcatch` (runFreeT . handler') in

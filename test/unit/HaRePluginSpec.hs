@@ -40,12 +40,13 @@ spec = do
 testPlugins :: IdePlugins
 testPlugins = pluginDescToIdePlugins [("hare",hareDescriptor)]
 
-shouldRespond :: IDErring (FreeT IdeDefer IdeGhcM) [Location] -> Either IdeError [Location] -> IO ()
+shouldRespond :: FreeT IdeDefer (IDErring IdeGhcM) [Location] -> Either IdeError [Location] -> IO ()
 shouldRespond have should = do
-  r <- cdAndDo "./test/testdata/gototest" $ runIGM testPlugins $ runFreeT $ runIDErring have
+  r <- cdAndDo "./test/testdata/gototest" $ runIGM testPlugins $ runIDErring $ runFreeT $ have
   r `shouldSatisfy` \case
-    Pure x -> x == should
-    Free _ -> False
+    Left x -> Left x == should
+    Right (Pure x) -> Right x == should
+    Right (Free _) -> False
 
 -- ---------------------------------------------------------------------
 
@@ -160,25 +161,25 @@ hareSpec = do
 
     it "finds definition across components" $ do
       let u = filePathToUri $ cwd </> "test/testdata/gototest/app/Main.hs"
-          lreq = hoist lift $ setTypecheckedModule u
-          req = hoist (hoistFreeT liftIde) $ findDef u (toPos (7,8))
+          lreq = lift $ setTypecheckedModule u
+          req = hoistFreeT (hoist liftIde) $ findDef u (toPos (7,8))
       (lreq >> req) `shouldRespond` Right [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
                              (Range (toPos (6,1)) (toPos (6,9)))]
-      let req2 = hoist (hoistFreeT liftIde) $ findDef u (toPos (7,20))
+      let req2 = hoistFreeT (hoist liftIde) $ findDef u (toPos (7,20))
       (lreq >> req2) `shouldRespond` Right [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
                               (Range (toPos (5,1)) (toPos (5,2)))]
     it "finds definition in the same component" $ do
       let u = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs"
-          lreq = hoist lift $ setTypecheckedModule u
-          req = hoist (hoistFreeT liftIde) $ findDef u (toPos (6,5))
+          lreq = lift $ setTypecheckedModule u
+          req = hoistFreeT (hoist liftIde) $ findDef u (toPos (6,5))
       (lreq >> req) `shouldRespond` Right [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
                              (Range (toPos (6,1)) (toPos (6,9)))]
     it "finds local definitions" $ do
       let u = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs"
-          lreq = hoist lift $ setTypecheckedModule u
-          req = hoist (hoistFreeT liftIde) $ findDef u (toPos (7,11))
+          lreq = lift $ setTypecheckedModule u
+          req = hoistFreeT (hoist liftIde) $ findDef u (toPos (7,11))
       (lreq >> req) `shouldRespond` Right [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
                              (Range (toPos (10,9)) (toPos (10,10)))]
-      let req2 = hoist (hoistFreeT liftIde) $ findDef u (toPos (10,13))
+      let req2 = hoistFreeT (hoist liftIde) $ findDef u (toPos (10,13))
       (lreq >> req2) `shouldRespond` Right [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
                               (Range (toPos (9,9)) (toPos (9,10)))]

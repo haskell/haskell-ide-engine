@@ -222,7 +222,7 @@ hoverProvider doc pos = do
   df <- getDynFlags doc
   names' <- getSymbolsAtPoint doc pos
   let names = mapMaybe pickName $ groupBy f $ sortBy f' names'
-  docs <- hoist lift $ forM names $ \(_,name) -> do
+  docs <- lift $ forM names $ \(_,name) -> do
     let sname = showName name
     case getModule df name of
       Nothing -> return $ "`" <> sname <> "` *local*"

@@ -58,7 +58,6 @@ import           DataCon
 import           TcRnTypes
 import           Outputable                        (renderWithStyle, mkUserStyle, Depth(..))
 import           Control.Monad.Trans
-import           Control.Monad.Morph
 
 -- ---------------------------------------------------------------------
 
@@ -271,10 +270,10 @@ instance ToJSON TypeParams where
   toJSON = genericToJSON customOptions
 
 typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
-typeCmd = CmdSync $ \(TP _bool uri pos) -> do
-  hoist liftIde $ newTypeCmd pos uri
+typeCmd = CmdSync $ \(TP _bool uri pos) -> newTypeCmd pos uri
 
-newTypeCmd :: Position -> Uri -> IDErring IdeM [(Range, T.Text)]
+newTypeCmd :: (MonadIO m, HasGhcModuleCache m, IDErrs m)
+  => Position -> Uri -> m [(Range, T.Text)]
 newTypeCmd newPos uri = do
   fp <- pluginGetFile "newTypeCmd: " uri
   mcm <- getCachedModule fp
@@ -482,7 +481,7 @@ extractRedundantImport msg =
 
 hoverProvider :: HoverProvider
 hoverProvider doc pos = do
-  info' <- hoist lift $ newTypeCmd pos doc
+  info' <- newTypeCmd pos doc
   names' <- Hie.getSymbolsAtPoint doc pos
   let
     f = (==) `on` (Hie.showName . snd)
@@ -604,6 +603,5 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri >>= \file -> w
               LSP.DocumentSymbol name (Just "") kind Nothing r r chList
 
 
-  symInfs <- concat <$> mapM (liftIde . declsToSymbolInf) (imps ++ decls)
-  return symInfs
+  concat <$> mapM (liftIde . declsToSymbolInf) (imps ++ decls)
 

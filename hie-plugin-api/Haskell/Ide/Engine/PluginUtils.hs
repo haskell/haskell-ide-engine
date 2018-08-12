@@ -108,7 +108,7 @@ srcSpan2Loc revMapp spn = runExceptT $ do
 -- | Helper function that extracts a filepath from a Uri if the Uri
 -- is well formed (i.e. begins with a file:// )
 -- fails with an IdeError otherwise
-pluginGetFile :: Monad m => T.Text -> Uri -> IDErring m FilePath
+pluginGetFile :: IDErrs m => T.Text -> Uri -> m FilePath
 pluginGetFile name uri = case uriToFilePath uri of
   Just file -> return file
   Nothing -> ideError

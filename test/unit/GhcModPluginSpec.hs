@@ -18,7 +18,6 @@ import           Haskell.Ide.Engine.Plugin.HaRe ( HarePoint(..) )
 import           Language.Haskell.LSP.Types     ( TextEdit(..) )
 import           System.Directory
 import           TestUtils
-import           Control.Monad.Morph (hoist)
 
 import           Test.Hspec
 
@@ -88,7 +87,7 @@ ghcmodSpec =
       let uri = filePathToUri fp
           act = do
             _ <- setTypecheckedModule uri
-            hoist liftIde $ newTypeCmd (toPos (5,9)) uri
+            newTypeCmd (toPos (5,9)) uri
           arg = TP False uri (toPos (5,9))
           res = return
             [(Range (toPos (5,9)) (toPos (5,10)), "Int")
@@ -107,7 +106,7 @@ ghcmodSpec =
         let uri = filePathToUri fp
         let act = do
               _ <- setTypecheckedModule uri
-              hoist liftIde $ newTypeCmd (toPos (5,9)) uri
+              newTypeCmd (toPos (5,9)) uri
         let arg = TP False uri (toPos (5,9))
         let res = return
               [(Range (toPos (5,9)) (toPos (5,10)), "Int")

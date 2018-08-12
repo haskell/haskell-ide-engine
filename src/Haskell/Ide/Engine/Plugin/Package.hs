@@ -43,7 +43,6 @@ import           Haskell.Ide.Engine.Compat (isExtensionOf)
 #endif
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans
-import           Control.Monad.Morph
 import           System.Directory
 import qualified GhcMod.Utils                  as GM
 import           Distribution.Types.GenericPackageDescription
@@ -236,7 +235,7 @@ codeActionProvider docId mRootDir _ context = do
   let J.List diags = context ^. J.diagnostics
       pkgs = mapMaybe getAddablePackages diags
 
-  res <- hoist lift $ mapM (bimapM return Hoogle.searchPackages) pkgs
+  res <- lift $ mapM (bimapM return Hoogle.searchPackages) pkgs
   let actions = mapMaybe (uncurry mkAddPackageAction) (concatPkgs res)
 
   return actions
