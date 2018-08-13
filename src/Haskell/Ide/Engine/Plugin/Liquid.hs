@@ -26,10 +26,10 @@ import           Text.Parsec.Text
 
 -- ---------------------------------------------------------------------
 
-liquidDescriptor :: PluginDescriptor
-liquidDescriptor = PluginDescriptor
-  {
-    pluginName = "Liquid Haskell"
+liquidDescriptor :: PluginId -> PluginDescriptor
+liquidDescriptor plId = PluginDescriptor
+  { pluginId = plId
+  , pluginName = "Liquid Haskell"
   , pluginDesc = "Integration with Liquid Haskell"
   , pluginCommands =
       [ PluginCommand "sayHello" "say hello" sayHelloCmd

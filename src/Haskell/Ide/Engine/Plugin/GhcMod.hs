@@ -61,10 +61,10 @@ import           Outputable                        (renderWithStyle, mkUserStyle
 
 -- ---------------------------------------------------------------------
 
-ghcmodDescriptor :: PluginDescriptor
-ghcmodDescriptor = PluginDescriptor
-  {
-    pluginName = "ghc-mod"
+ghcmodDescriptor :: PluginId -> PluginDescriptor
+ghcmodDescriptor plId = PluginDescriptor
+  { pluginId = plId
+  , pluginName = "ghc-mod"
   , pluginDesc = "ghc-mod is a backend program to enrich Haskell programming "
               <> "in editors. It strives to offer most of the features one has come to expect "
               <> "from modern IDEs in any editor."
@@ -390,7 +390,7 @@ runGhcModCommand cmd =
 -- ---------------------------------------------------------------------
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider docId _ _ context =
+codeActionProvider _ docId _ _ context =
   let LSP.List diags = context ^. LSP.diagnostics
       terms = concatMap getRenamables diags
       renameActions = map (uncurry mkRenamableAction) terms

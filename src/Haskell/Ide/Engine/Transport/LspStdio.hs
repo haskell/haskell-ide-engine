@@ -46,7 +46,6 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
-import           Haskell.Ide.Engine.Compat
 import           Haskell.Ide.Engine.LSP.CodeActions
 import           Haskell.Ide.Engine.LSP.Config
 import           Haskell.Ide.Engine.LSP.Reactor
@@ -99,8 +98,7 @@ run
 run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
 
   rin <- atomically newTChan :: IO (TChan ReactorInput)
-
-  prefix <- cmdPrefixer
+  commandIds <- allLspCmdIds plugins
 
   let dp lf = do
         cancelTVar  <- atomically $ newTVar S.empty
@@ -111,7 +109,7 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
               , wipReqsTVar    = wipTVar
               , docVersionTVar = versionTVar
               }
-        let reactorFunc = runReactor lf dEnv cin prefix diagnosticProviders hps sps
+        let reactorFunc = runReactor lf dEnv cin diagnosticProviders hps sps
               $ reactor rin
             caps = Core.clientCapabilities lf
 
@@ -119,7 +117,7 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
             errorHandler lid code e =
               Core.sendErrorResponseS (Core.sendFunc lf) (J.responseId lid) code e
             callbackHandler :: CallbackHandler R
-            callbackHandler f x = runReactor lf dEnv cin prefix diagnosticProviders hps sps $ f x
+            callbackHandler f x = runReactor lf dEnv cin diagnosticProviders hps sps $ f x
 
 
         -- haskell lsp sets the current directory to the project root in the InitializeRequest
@@ -127,8 +125,6 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
         -- recognized properly by ghc-mod
         _ <- forkIO $ race_ (dispatcherProc dEnv errorHandler callbackHandler caps) reactorFunc
         return Nothing
-
-      commandIds = Map.foldlWithKey cmdFolder [] (pluginCommands <$> ipMap plugins)
 
       diagnosticProviders :: Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
       diagnosticProviders = Map.fromListWith (++) $ concatMap explode providers
@@ -149,10 +145,6 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
       sps :: [SymbolProvider]
       sps = mapMaybe pluginSymbolProvider $ Map.elems $ ipMap plugins
 
-      cmdFolder :: [T.Text] -> T.Text -> [PluginCommand] -> [T.Text]
-      cmdFolder acc plugin cmds = acc ++ map prefix cmdIds
-        where cmdIds = map (\cmd -> plugin <> ":" <> commandName cmd) cmds
-
   flip E.finally finalProc $ do
     CTRL.run (getConfigFromNotification, dp) (hieHandlers rin) (hieOptions commandIds) captureFp
  where
@@ -160,10 +152,6 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
   finalProc = L.removeAllHandlers
   ioExcept (e :: E.IOException) = print e >> return 1
   someExcept (e :: E.SomeException) = print e >> return 1
-  -- TODO:AZ:This type should be something like :: IO (UnprefixedCommandId -> PrefixedCommandId)
-  cmdPrefixer = do
-    pid <- T.pack . show <$> getProcessID
-    return ((pid <> ":") <>)
 
 -- ---------------------------------------------------------------------
 
@@ -359,14 +347,12 @@ reactor inp = do
            }
           -}
 
-          -- TODO: Get all commands
-          prefix <- asks commandPrefixer
-          -- let pluginIds = map prefix (Map.keys (ipMap plugins))
-
+          -- TODO: Register all commands?
+          hareId <- mkLspCmdId "hare" "demote"
           let
             options = J.object ["documentSelector" .= J.object [ "language" .= J.String "haskell"]]
             registrationsList =
-              [ J.Registration (prefix "hare:demote") J.WorkspaceExecuteCommand (Just options)
+              [ J.Registration hareId J.WorkspaceExecuteCommand (Just options)
               ]
           let registrations = J.RegistrationParams (J.List registrationsList)
 

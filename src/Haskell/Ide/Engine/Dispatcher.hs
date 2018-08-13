@@ -25,6 +25,7 @@ import qualified Data.Text                               as T
 import qualified Data.Map                                as Map
 import qualified Data.Set                                as S
 import qualified GhcMod.Types                            as GM
+import           Haskell.Ide.Engine.Compat
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Types
@@ -55,7 +56,10 @@ dispatcherP inChan plugins ghcModOptions env errorHandler callbackHandler caps =
   stateVarVar <- newEmptyMVar
   ideChan <- newTChanIO
   ghcChan <- newTChanIO
-  let startState = IdeState emptyModuleCache Map.empty plugins Map.empty Nothing
+
+  pid <- getProcessID
+
+  let startState = IdeState emptyModuleCache Map.empty plugins Map.empty Nothing pid
       runGhcDisp = runIdeGhcM ghcModOptions caps startState $ do
         stateVar <- lift $ lift $ lift ask
         liftIO $ putMVar stateVarVar stateVar

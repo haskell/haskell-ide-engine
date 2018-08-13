@@ -62,11 +62,11 @@ main = do
 
 plugins :: IdePlugins
 plugins = pluginDescToIdePlugins
-  [("applyrefact", applyRefactDescriptor)
-  ,("eg2"        , example2Descriptor)
-  ,("ghcmod"     , ghcmodDescriptor)
-  ,("hare"       , hareDescriptor)
-  ,("base"       , baseDescriptor)
+  [applyRefactDescriptor "applyrefact"
+  ,example2Descriptor "eg2"
+  ,ghcmodDescriptor "ghcmod"
+  ,hareDescriptor "hare"
+  ,baseDescriptor "base"
   ]
 
 startServer :: IO (TChan (PluginRequest IO), TChan LogVal, ThreadId)

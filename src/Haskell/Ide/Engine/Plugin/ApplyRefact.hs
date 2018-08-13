@@ -32,10 +32,10 @@ import           Refact.Apply
 
 type HintTitle = T.Text
 
-applyRefactDescriptor :: PluginDescriptor
-applyRefactDescriptor = PluginDescriptor
-  {
-    pluginName = "ApplyRefact"
+applyRefactDescriptor :: PluginId -> PluginDescriptor
+applyRefactDescriptor plId = PluginDescriptor
+  { pluginId = plId
+  , pluginName = "ApplyRefact"
   , pluginDesc = "apply-refact applies refactorings specified by the refact package. It is currently integrated into hlint to enable the automatic application of suggestions."
   , pluginCommands =
       [ PluginCommand "applyOne" "Apply a single hint" applyOneCmd
@@ -277,10 +277,12 @@ showParseError (Hlint.ParseError location message content) =
 -- ---------------------------------------------------------------------
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider docId _ _ context = return $ IdeResponseOk hlintActions
+codeActionProvider plId docId _ _ context = IdeResponseOk <$> hlintActions
   where
 
-    hlintActions = mapMaybe mkHlintAction $ filter validCommand diags
+    hlintActions :: IdeM [LSP.CodeAction]
+    hlintActions = catMaybes <$> (mapM mkHlintAction $ filter validCommand diags)
+
     -- |Some hints do not have an associated refactoring
     validCommand (LSP.Diagnostic _ _ (Just code) (Just "hlint") _ _) =
       case code of
@@ -289,15 +291,13 @@ codeActionProvider docId _ _ context = return $ IdeResponseOk hlintActions
     validCommand _ = False
 
     LSP.List diags = context ^. LSP.diagnostics
-    mkHlintAction :: LSP.Diagnostic -> Maybe LSP.CodeAction
-    mkHlintAction diag@(LSP.Diagnostic (LSP.Range start _) _s (Just code) (Just "hlint") m _) = Just codeAction
+
+    mkHlintAction :: LSP.Diagnostic -> IdeM (Maybe LSP.CodeAction)
+    mkHlintAction diag@(LSP.Diagnostic (LSP.Range start _) _s (Just code) (Just "hlint") m _) =
+      Just . codeAction <$> mkLspCommand plId "applyOne" title (Just args)
      where
-       codeAction = LSP.CodeAction title (Just LSP.CodeActionRefactor) (Just (LSP.List [diag])) Nothing (Just cmd)
-       title :: T.Text
+       codeAction cmd = LSP.CodeAction title (Just LSP.CodeActionRefactor) (Just (LSP.List [diag])) Nothing (Just cmd)
        title = "Apply hint:" <> head (T.lines m)
-       cmd = LSP.Command title cmdName cmdparams
-       cmdName = "applyrefact:applyOne"
        -- need 'file', 'start_pos' and hint title (to distinguish between alternative suggestions at the same location)
-       args = LSP.List [toJSON (AOP (docId ^. LSP.uri) start code)]
-       cmdparams = Just args
-    mkHlintAction (LSP.Diagnostic _r _s _c _source _m _) = Nothing
+       args = [toJSON (AOP (docId ^. LSP.uri) start code)]
+    mkHlintAction (LSP.Diagnostic _r _s _c _source _m _) = return Nothing

@@ -35,9 +35,10 @@ import           Language.Haskell.Refact.Utils.Monad          hiding (logm)
 
 -- ---------------------------------------------------------------------
 
-hareDescriptor :: PluginDescriptor
-hareDescriptor = PluginDescriptor
-  { pluginName = "HaRe"
+hareDescriptor :: PluginId -> PluginDescriptor
+hareDescriptor plId = PluginDescriptor
+  { pluginId = plId
+  , pluginName = "HaRe"
   , pluginDesc = "A Haskell 2010 refactoring tool. HaRe supports the full "
               <> "Haskell 2010 standard, through making use of the GHC API.  HaRe attempts to "
               <> "operate in a safe way, by first writing new files with proposed changes, and "

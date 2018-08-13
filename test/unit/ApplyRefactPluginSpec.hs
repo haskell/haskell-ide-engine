@@ -27,7 +27,7 @@ spec = do
 -- ---------------------------------------------------------------------
 
 testPlugins :: IdePlugins
-testPlugins = pluginDescToIdePlugins [("applyrefact",applyRefactDescriptor)]
+testPlugins = pluginDescToIdePlugins [applyRefactDescriptor "applyrefact"]
 
 -- ---------------------------------------------------------------------
 

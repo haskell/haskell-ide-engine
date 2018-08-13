@@ -31,12 +31,12 @@ extensibleStateSpec =
 -- ---------------------------------------------------------------------
 
 testPlugins :: IdePlugins
-testPlugins = pluginDescToIdePlugins [("test",testDescriptor)]
+testPlugins = pluginDescToIdePlugins [testDescriptor "test"]
 
-testDescriptor :: PluginDescriptor
-testDescriptor = PluginDescriptor
-  {
-    pluginName = "testDescriptor"
+testDescriptor :: PluginId -> PluginDescriptor
+testDescriptor plId = PluginDescriptor
+  { pluginId = plId
+  , pluginName = "testDescriptor"
   , pluginDesc = "PluginDescriptor for testing Dispatcher"
   , pluginCommands = [
         PluginCommand "cmd1" "description" cmd1

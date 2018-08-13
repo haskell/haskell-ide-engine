@@ -1,4 +1,5 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleInstances    #-}
 module Haskell.Ide.Engine.LSP.Reactor
   ( R
   , runReactor
@@ -15,10 +16,10 @@ import           Control.Concurrent.STM
 import           Control.Monad.Reader
 import qualified Data.Map                      as Map
 import qualified Data.Set                      as S
-import qualified Data.Text                     as T
 import qualified Language.Haskell.LSP.Core     as Core
 import qualified Language.Haskell.LSP.Messages as J
 import qualified Language.Haskell.LSP.Types    as J
+import           Haskell.Ide.Engine.Compat
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.LSP.Config
 import           Haskell.Ide.Engine.PluginsIdeMonads
@@ -28,7 +29,7 @@ data REnv = REnv
   { dispatcherEnv     :: DispatcherEnv
   , reqChanIn         :: TChan (PluginRequest R)
   , lspFuncs          :: Core.LspFuncs Config
-  , commandPrefixer   :: T.Text -> T.Text
+  , reactorPidCache   :: Int
   , diagnosticSources :: Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
   , hoverProviders    :: [HoverProvider]
   , symbolProviders   :: [SymbolProvider]
@@ -38,20 +39,23 @@ data REnv = REnv
 -- | The monad used in the reactor
 type R = ReaderT REnv IO
 
+instance HasPidCache R where
+  getPidCache = asks reactorPidCache
+
 -- ---------------------------------------------------------------------
 
 runReactor
   :: Core.LspFuncs Config
   -> DispatcherEnv
   -> TChan (PluginRequest R)
-  -> (T.Text -> T.Text)
   -> Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
   -> [HoverProvider]
   -> [SymbolProvider]
   -> R a
   -> IO a
-runReactor lf de cin prefixer dps hps sps =
-  flip runReaderT (REnv de cin lf prefixer dps hps sps)
+runReactor lf de cin dps hps sps f = do
+  pid <- getProcessID
+  runReaderT f (REnv de cin lf pid dps hps sps)
 
 -- ---------------------------------------------------------------------
 
@@ -104,3 +108,4 @@ makeRequests = go []
       in makeRequest $ IReq tn reqId reqCallback x
 
 -- ---------------------------------------------------------------------
+

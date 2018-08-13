@@ -33,7 +33,7 @@ spec = do
 -- ---------------------------------------------------------------------
 
 testPlugins :: IdePlugins
-testPlugins = pluginDescToIdePlugins [("ghcmod",ghcmodDescriptor)]
+testPlugins = pluginDescToIdePlugins [ghcmodDescriptor "ghcmod"]
 
 -- ---------------------------------------------------------------------
 

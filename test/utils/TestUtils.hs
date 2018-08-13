@@ -71,7 +71,7 @@ makeRequest :: ToJSON a => PluginId -> CommandName -> a -> IdeGhcM (IdeResult Dy
 makeRequest plugin com arg = runPluginCommand plugin com (toJSON arg)
 
 runIGM :: IdePlugins -> IdeGhcM a -> IO a
-runIGM testPlugins = runIdeGhcM testOptions def (IdeState emptyModuleCache Map.empty testPlugins Map.empty Nothing)
+runIGM testPlugins = runIdeGhcM testOptions def (IdeState emptyModuleCache Map.empty testPlugins Map.empty Nothing 0)
 
 withFileLogging :: FilePath -> IO a -> IO a
 withFileLogging logFile f = do
