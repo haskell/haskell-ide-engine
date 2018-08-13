@@ -39,6 +39,17 @@ spec = do
     it "picks up variable not in scope with multiple suggestions" $
       let msg = "• Variable not in scope: uri\n• Perhaps you meant one of these:\n‘J.uri’ (imported from Language.Haskell.LSP.Types),\ndata constructor ‘J.Uri’ (imported from Language.Haskell.LSP.Types)"
         in extractRenamableTerms msg `shouldBe` ["J.uri", "J.Uri"]
+    
+    it "picks up data constructors" $
+      let msg = "• Data constructor not in scope:\n    MarkupContent :: J.MarkupKind -> Maybe T.Text -> t0\n• Perhaps you meant ‘J.MarkupContent’ (imported from Language.Haskell.LSP.Types)"
+        in extractRenamableTerms msg `shouldBe` ["J.MarkupContent"]
+
+    it "returns nothing when there's no suggetsions" $
+      let msg = "Variable not in scope:\n  fromJust\n    :: Maybe (Maybe (List CommandOrCodeAction)) -> Maybe (List a)"
+        in extractRenamableTerms msg `shouldBe` []
+    it "picks up variables not in scope on new line" $
+      let msg = "• Variable not in scope:\n    forM_ :: [CodeAction] -> (s0 -> Expectation) -> IO a0\n• Perhaps you meant ‘iforM_’ (imported from Control.Lens)"
+        in extractRenamableTerms msg `shouldBe` ["iforM_"]
 
   describe "missing package code actions" $ do
     it "pick up relevant messages" $ 
@@ -47,29 +58,3 @@ spec = do
     it "don't pick up irrelevant messages" $ 
       let msg = "Could not find modulez ‘Foo.Bar’\n      Use -v to see a list of the files searched for."
         in extractModuleName msg `shouldBe` Nothing
-
-
-  {-
-
-  TODO: Test these
-  
-  Variable not in scope:
-  liftIO
-    :: IO b0
-       -> conduit-parse-0.2.1.0:Data.Conduit.Parser.Internal.ConduitParser
-            Language.Haskell.LSP.Messages.FromServerMessage
-            (Control.Monad.Trans.State.Lazy.StateT
-               haskell-lsp-test-0.1.0.0:Language.Haskell.LSP.Test.Session.SessionState
-               (Control.Monad.Trans.Reader.ReaderT
-                  haskell-lsp-test-0.1.0.0:Language.Haskell.LSP.Test.Session.SessionContext
-                  IO))
-            a0
-
-Variable not in scope:
-  fromJust
-    :: Maybe (Maybe (List CommandOrCodeAction)) -> Maybe (List a)
-
-    • Variable not in scope:
-    forM_ :: [CodeAction] -> (s0 -> Expectation) -> IO a0
-• Perhaps you meant ‘iforM_’ (imported from Control.Lens)
-  -}

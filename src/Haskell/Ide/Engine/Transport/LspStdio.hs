@@ -618,8 +618,10 @@ reactor inp = do
               mquery = case J.fromJSON <$> origCompl ^. J.xdata of
                          Just (J.Success q) -> Just q
                          _ -> Nothing
-              callback docs = do
-                let rspMsg = Core.makeResponseMessage req $
+              callback docText = do
+                let markup = J.MarkupContent J.MkMarkdown <$> docText
+                    docs = J.CompletionDocMarkup <$> markup
+                    rspMsg = Core.makeResponseMessage req $
                               origCompl & J.documentation .~ docs
                 reactorSend $ RspCompletionItemResolve rspMsg
               hreq = IReq tn (req ^. J.id) callback $ runIdeResponseT $ case mquery of

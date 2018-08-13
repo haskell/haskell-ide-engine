@@ -449,17 +449,18 @@ codeActionProvider docId _ _ context =
 
 extractRenamableTerms :: T.Text -> [T.Text]
 extractRenamableTerms msg
-  | "Variable not in scope: " `T.isPrefixOf` head noBullets = mapMaybe extractReplacement replacementLines
+  | "not in scope:" `T.isInfixOf` head noBullets = go msg
   | otherwise = []
 
   where noBullets = T.lines $ T.replace "• " "" msg
-        replacementLines = tail noBullets
-        extractReplacement line =
-          let startOfTerm = T.dropWhile (/= '‘') line
-          in if startOfTerm == ""
-            then Nothing
-            else Just $ T.takeWhile (/= '’') (T.tail startOfTerm)
-
+        -- Extract everything in between ‘ ’
+        go t
+          | t == "" = []
+          | "‘" `T.isPrefixOf` t = 
+            let rest = T.tail t
+                x = T.takeWhile (/= '’') rest
+              in x:go rest
+          | otherwise = go (T.dropWhile (/= '‘') t)
 
 extractRedundantImport :: T.Text -> Maybe T.Text
 extractRedundantImport msg =
