@@ -32,8 +32,8 @@ liquidDescriptor = PluginDescriptor
     pluginName = "Liquid Haskell"
   , pluginDesc = "Integration with Liquid Haskell"
   , pluginCommands =
-      [ PluginCommand "sayHello" "say hello" sayHelloCmd
-      , PluginCommand "sayHelloTo ""say hello to the passed in param" sayHelloToCmd
+      [ PluginCommand "sayHello"   "say hello"                        sayHelloCmd
+      , PluginCommand "sayHelloTo" "say hello to the passed in param" sayHelloToCmd
       ]
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Just (DiagnosticProvider (S.singleton DiagnosticOnSave) diagnosticProvider)
@@ -92,13 +92,23 @@ instance ToJSON   LiquidError
 -- ---------------------------------------------------------------------
 
 diagnosticProvider :: DiagnosticTrigger -> Uri -> IdeGhcM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
-diagnosticProvider _trigger uri = do
+diagnosticProvider trigger uri = do
   me <- liftIO $ readJsonAnnot uri
   case me of
     Nothing -> return $ IdeResultOk Map.empty
-    Just es -> return $ IdeResultOk m
+    Just es -> do
+      case trigger of
+        DiagnosticOnSave -> do
+          return ()
+        _ -> return ()
+      return $ IdeResultOk m
       where
         m = Map.fromList [(uri,S.fromList (map liquidErrorToDiagnostic es))]
+
+-- ---------------------------------------------------------------------
+
+runLiquidHaskell = do
+  return []
 
 -- ---------------------------------------------------------------------
 
