@@ -10,7 +10,7 @@ import Control.Monad
 import Data.Aeson
 import qualified Data.HashMap.Strict as H
 import Data.Maybe
-import Language.Haskell.LSP.Test hiding (capabilities)
+import Language.Haskell.LSP.Test
 import Language.Haskell.LSP.Types hiding (message)
 import qualified Language.Haskell.LSP.Types as LSP (error, id)
 import Test.Hspec
@@ -21,10 +21,10 @@ import TestUtils
 spec :: Spec
 spec = do
   describe "deferred responses" $ do
-    it "do not affect hover requests" $ runSession hieCommand "test/testdata" $ do
+    it "do not affect hover requests" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "FuncTest.hs" "haskell"
 
-      id1 <- sendRequest' TextDocumentHover (TextDocumentPositionParams doc (Position 4 2))
+      id1 <- sendRequest TextDocumentHover (TextDocumentPositionParams doc (Position 4 2))
 
       skipMany anyNotification
       hoverRsp <- message :: Session HoverResponse
@@ -32,11 +32,11 @@ spec = do
       liftIO $ contents1 `shouldBe` []
       liftIO $ hoverRsp ^. LSP.id `shouldBe` responseId id1
 
-      id2 <- sendRequest' TextDocumentDocumentSymbol (DocumentSymbolParams doc)
+      id2 <- sendRequest TextDocumentDocumentSymbol (DocumentSymbolParams doc)
       symbolsRsp <- skipManyTill anyNotification message :: Session DocumentSymbolsResponse
       liftIO $ symbolsRsp ^. LSP.id `shouldBe` responseId id2
 
-      id3 <- sendRequest' TextDocumentHover (TextDocumentPositionParams doc (Position 4 2))
+      id3 <- sendRequest TextDocumentHover (TextDocumentPositionParams doc (Position 4 2))
       hoverRsp2 <- skipManyTill anyNotification message :: Session HoverResponse
       liftIO $ hoverRsp2 ^. LSP.id `shouldBe` responseId id3
 
@@ -45,7 +45,7 @@ spec = do
 
       -- Now that we have cache the following request should be instant
       let highlightParams = TextDocumentPositionParams doc (Position 7 0)
-      highlightRsp <- sendRequest TextDocumentDocumentHighlight highlightParams :: Session DocumentHighlightsResponse
+      highlightRsp <- request TextDocumentDocumentHighlight highlightParams :: Session DocumentHighlightsResponse
       let (Just (List locations)) = highlightRsp ^. result
       liftIO $ locations `shouldBe` [ DocumentHighlight
                      { _range = Range
@@ -91,13 +91,13 @@ spec = do
                      }
                    ]
 
-    it "instantly respond to failed modules with no cache" $ runSession hieCommand "test/testdata" $ do
+    it "instantly respond to failed modules with no cache" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "FuncTestFail.hs" "haskell"
 
-      symbols <- sendRequest TextDocumentDocumentSymbol (DocumentSymbolParams doc) :: Session DocumentSymbolsResponse
+      symbols <- request TextDocumentDocumentSymbol (DocumentSymbolParams doc) :: Session DocumentSymbolsResponse
       liftIO $ symbols ^. LSP.error `shouldNotBe` Nothing
 
-    it "returns hints as diagnostics" $ runSession hieCommand "test/testdata" $ do
+    it "returns hints as diagnostics" $ runSession hieCommand fullCaps "test/testdata" $ do
       _ <- openDoc "FuncTest.hs" "haskell"
 
       cwd <- liftIO getCurrentDirectory
@@ -121,21 +121,21 @@ spec = do
       let args' = H.fromList [("pos", toJSON (Position 7 0)), ("file", toJSON testUri)]
           args = List [Object args']
 
-      executeRsp <- sendRequest WorkspaceExecuteCommand (ExecuteCommandParams "hare:demote" (Just args))
+      executeRsp <- request WorkspaceExecuteCommand (ExecuteCommandParams "hare:demote" (Just args))
       liftIO $ executeRsp ^. result `shouldBe` Just (Object H.empty)
 
       editReq <- message :: Session ApplyWorkspaceEditRequest
       let expectedTextEdits = List [TextEdit (Range (Position 6 0) (Position 7 6)) "  where\n    bb = 5"]
+          expectedTextDocEdits = List [TextDocumentEdit (VersionedTextDocumentIdentifier testUri (Just 0)) expectedTextEdits]
       liftIO $ editReq ^. params . edit `shouldBe` WorkspaceEdit
-            (Just $ H.singleton testUri expectedTextEdits)
             Nothing
-            
+            (Just expectedTextDocEdits)
 
   -- -----------------------------------
 
   describe "multi-server setup" $
     it "doesn't have clashing commands on two servers" $ do
-      let getCommands = runSession hieCommand "test/testdata" $ do
+      let getCommands = runSession hieCommand fullCaps "test/testdata" $ do
               rsp <- initializeResponse
               let uuids = rsp ^? result . _Just . capabilities . executeCommandProvider . _Just . commands
               return $ fromJust uuids
@@ -147,8 +147,8 @@ spec = do
 
   describe "multiple main modules" $
     it "Can load one file at a time, when more than one Main module exists"
-                                  -- $ runSession hieCommand "test/testdata" $ do
-                                  $ runSession hieCommandVomit "test/testdata" $ do
+                                  -- $ runSession hieCommand fullCaps "test/testdata" $ do
+                                  $ runSession hieCommandVomit fullCaps "test/testdata" $ do
       _doc <- openDoc "ApplyRefact2.hs" "haskell"
       _diagsRspHlint <- skipManyTill anyNotification message :: Session PublishDiagnosticsNotification
       diagsRspGhc   <- skipManyTill anyNotification message :: Session PublishDiagnosticsNotification

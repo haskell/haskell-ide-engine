@@ -54,7 +54,7 @@ handleCodeActionReq tn req = do
     range = params ^. J.range
     context = params ^. J.context
 
-    wrapCodeAction :: J.CodeAction -> R (Maybe J.CommandOrCodeAction)
+    wrapCodeAction :: J.CodeAction -> R (Maybe J.CAResult)
     wrapCodeAction action = do
 
       (C.ClientCapabilities _ textDocCaps _) <- asksLspFuncs Core.clientCapabilities
@@ -64,8 +64,8 @@ handleCodeActionReq tn req = do
         Nothing -> do
             let cmdParams = [J.toJSON (FallbackCodeActionParams (action ^. J.edit) (action ^. J.command))]
             cmd <- mkLspCommand "hie" "fallbackCodeAction" (action ^. J.title) (Just cmdParams)
-            return $ Just (J.CommandOrCodeActionCommand cmd)
-        Just _ -> return $ Just (J.CommandOrCodeActionCodeAction action)
+            return $ Just (J.CACommand cmd)
+        Just _ -> return $ Just (J.CACodeAction action)
 
     send :: [J.CodeAction] -> R ()
     send codeActions = do

@@ -21,10 +21,6 @@ packages:
     - .
     - haskell-lsp-types
 
-- location:
-    ./submodules/haskell-lsp-test
-  extra-dep: true
-
 extra-deps:
 - brittany-0.11.0.0
 - butcher-1.3.1.1
@@ -35,6 +31,7 @@ extra-deps:
 - ghc-exactprint-0.5.6.1
 - haddock-api-2.18.1
 - haddock-library-1.4.4
+- lsp-test-0.2.0.0
 - hlint-2.0.11
 # - hlint-2.1.8
 - hsimport-0.8.6

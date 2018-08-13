@@ -19,7 +19,7 @@ import TestUtils
 spec :: Spec
 spec = describe "code actions" $ do
   describe "hlint suggestions" $ do
-    it "provides 3.8 code actions" $ runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata" $ do
+    it "provides 3.8 code actions" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "ApplyRefact2.hs" "haskell"
 
       diags@(reduceDiag:_) <- waitForDiagnostics
@@ -31,7 +31,7 @@ spec = describe "code actions" $ do
         reduceDiag ^. code `shouldBe` Just "Eta reduce"
         reduceDiag ^. source `shouldBe` Just "hlint"
 
-      (CommandOrCodeActionCodeAction ca:_) <- getAllCodeActions doc
+      (CACodeAction ca:_) <- getAllCodeActions doc
 
       -- Evaluate became redundant id in later hlint versions
       liftIO $ ["Apply hint:Redundant id", "Apply hint:Evaluate"] `shouldContain` [ca ^. title]
@@ -43,12 +43,12 @@ spec = describe "code actions" $ do
 
       noDiagnostics
 
-    it "falls back to pre 3.8 code actions" $ runSession hieCommand "test/testdata" $ do
+    it "falls back to pre 3.8 code actions" $ runSession hieCommand noLiteralCaps "test/testdata" $ do
       doc <- openDoc "ApplyRefact2.hs" "haskell"
 
       _ <- waitForDiagnostics
 
-      (CommandOrCodeActionCommand cmd:_) <- getAllCodeActions doc
+      (CACommand cmd:_) <- getAllCodeActions doc
 
       -- Evaluate became redundant id in later hlint versions
       liftIO $ ["Apply hint:Redundant id", "Apply hint:Evaluate"] `shouldContain` [cmd ^. title ]
@@ -60,20 +60,20 @@ spec = describe "code actions" $ do
 
       noDiagnostics
 
-  it "provides rename suggestions" $ runSession hieCommand "test/testdata" $ do
+  it "provides rename suggestions" $ runSession hieCommand noLiteralCaps "test/testdata" $ do
     doc <- openDoc "CodeActionRename.hs" "haskell"
 
     -- ignore the first empty hlint diagnostic publish
     _ <- count 2 waitForDiagnostics
 
-    [CommandOrCodeActionCommand cmd] <- getAllCodeActions doc
+    [CACommand cmd] <- getAllCodeActions doc
     executeCommand cmd
 
     contents <- documentContents doc
     liftIO $ contents `shouldBe` "main = putStrLn \"hello\""
 
   it "provides import suggestions and 3.8 code action kinds" $
-    runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata" $ do
+    runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImport.hs" "haskell"
 
       -- ignore the first empty hlint diagnostic publish
@@ -101,7 +101,7 @@ spec = describe "code actions" $ do
 
 
   describe "add package suggestions" $ do
-    it "adds to .cabal files" $ runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata/addPackageTest/cabal" $ do
+    it "adds to .cabal files" $ runSession hieCommand fullCaps "test/testdata/addPackageTest/cabal" $ do
       doc <- openDoc "AddPackage.hs" "haskell"
 
       -- ignore the first empty hlint diagnostic publish
@@ -109,7 +109,7 @@ spec = describe "code actions" $ do
 
       liftIO $ diag ^. LSP.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Data.Text’"
 
-      (CommandOrCodeActionCodeAction action:_) <- getAllCodeActions doc
+      (CACodeAction action:_) <- getAllCodeActions doc
 
       liftIO $ do
         action ^. title `shouldBe` "Add text as a dependency"
@@ -122,7 +122,7 @@ spec = describe "code actions" $ do
       liftIO $ T.lines contents `shouldSatisfy` \x -> any (\l -> "text -any" `T.isSuffixOf` (x !! l)) [15, 16]
 
     it "adds to hpack package.yaml files" $
-      runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata/addPackageTest/hpack" $ do
+      runSession hieCommand fullCaps "test/testdata/addPackageTest/hpack" $ do
         doc <- openDoc "app/Asdf.hs" "haskell"
 
         -- ignore the first empty hlint diagnostic publish
@@ -149,7 +149,7 @@ spec = describe "code actions" $ do
 
   describe "redundant import code actions" $ do
     it "remove solitary redundant imports" $
-      runSessionWithConfig codeActionSupportConfig hieCommand "test/testdata/redundantImportTest/" $ do
+      runSession hieCommand fullCaps "test/testdata/redundantImportTest/" $ do
         doc <- openDoc "src/CodeActionRedundant.hs" "haskell"
 
         -- ignore the first empty hlint diagnostic publish
@@ -175,12 +175,12 @@ spec = describe "code actions" $ do
         -- the server
         contents <- documentContents doc
         liftIO $ contents `shouldBe` "main :: IO ()\nmain = putStrLn \"hello\""
-    it "doesn't touch other imports" $ runSession hieCommand "test/testdata/redundantImportTest/" $ do
+    it "doesn't touch other imports" $ runSession hieCommand noLiteralCaps "test/testdata/redundantImportTest/" $ do
       doc <- openDoc "src/MultipleImports.hs" "haskell"
 
       _ <- count 2 waitForDiagnostics
 
-      [LSP.CommandOrCodeActionCommand cmd, _] <- getAllCodeActions doc
+      [CACommand cmd, _] <- getAllCodeActions doc
 
       executeCommand cmd
 
@@ -192,16 +192,12 @@ spec = describe "code actions" $ do
         \foo :: Int\n\
         \foo = fromJust (Just 3)\n"
 
-fromAction :: CommandOrCodeAction -> CodeAction
-fromAction (CommandOrCodeActionCodeAction action) = action
+fromAction :: CAResult -> CodeAction
+fromAction (CACodeAction action) = action
 fromAction _ = error "Not a code action"
 
-codeActionSupportCaps :: C.ClientCapabilities
-codeActionSupportCaps = def { C._textDocument = Just textDocumentCaps }
+noLiteralCaps :: C.ClientCapabilities
+noLiteralCaps = def { C._textDocument = Just textDocumentCaps }
   where
     textDocumentCaps = def { C._codeAction = Just codeActionCaps }
-    codeActionCaps = C.CodeActionClientCapabilities (Just True) (Just literalSupport)
-    literalSupport = C.CodeActionLiteralSupport def
-
-codeActionSupportConfig :: SessionConfig
-codeActionSupportConfig = def { Test.capabilities = codeActionSupportCaps }
+    codeActionCaps = C.CodeActionClientCapabilities (Just True) Nothing

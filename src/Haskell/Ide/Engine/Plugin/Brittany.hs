@@ -36,6 +36,7 @@ brittanyDescriptor plId = PluginDescriptor
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Nothing
+  , pluginSymbolProvider = Nothing
   }
  where
   cmd :: CommandFunc FormatParams [J.TextEdit]

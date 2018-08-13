@@ -4,11 +4,12 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE TypeFamilies        #-}
 module Haskell.Ide.Engine.Plugin.GhcMod where
 
 import           Bag
 import           Control.Monad.IO.Class
-import           Control.Lens
+import           Control.Lens hiding (cons, children)
 import           Control.Lens.Setter ((%~))
 import           Control.Lens.Traversal (traverseOf)
 import           Data.Aeson
@@ -27,11 +28,8 @@ import           Data.Monoid
 import qualified Data.Set                          as Set
 import qualified Data.Text                         as T
 import qualified Data.Text.IO                      as T
-import           DynFlags
 import           ErrUtils
 import qualified Exception                         as G
-import           GHC
-import           IOEnv                             as G
 import           Name
 import           GHC.Generics
 import qualified GhcMod                            as GM
@@ -50,8 +48,14 @@ import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Plugin.HaRe (HarePoint(..))
 import qualified Haskell.Ide.Engine.Plugin.HieExtras as Hie
 import           Haskell.Ide.Engine.ArtifactMap
-import           HscTypes
 import qualified Language.Haskell.LSP.Types        as LSP
+import           Language.Haskell.Refact.API       (hsNamessRdr)
+
+import           DynFlags
+import           GHC
+import           IOEnv                             as G
+import           HscTypes
+import           DataCon
 import           TcRnTypes
 import           Outputable                        (renderWithStyle, mkUserStyle, Depth(..))
 
@@ -74,6 +78,7 @@ ghcmodDescriptor plId = PluginDescriptor
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Just hoverProvider
+  , pluginSymbolProvider = Just symbolProvider
   }
 
 -- ---------------------------------------------------------------------
@@ -311,8 +316,7 @@ isSubRangeOf (Range sa ea) (Range sb eb) = sb <= sa && eb >= ea
 
 
 splitCaseCmd :: CommandFunc HarePoint WorkspaceEdit
-splitCaseCmd = CmdSync $ \(HP uri pos) -> do
-    splitCaseCmd' uri pos
+splitCaseCmd = CmdSync $ \(HP uri pos) -> splitCaseCmd' uri pos
 
 splitCaseCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 splitCaseCmd' uri newPos =
@@ -445,17 +449,18 @@ codeActionProvider _ docId _ _ context =
 
 extractRenamableTerms :: T.Text -> [T.Text]
 extractRenamableTerms msg
-  | "Variable not in scope: " `T.isPrefixOf` head noBullets = mapMaybe extractReplacement replacementLines
+  | "not in scope:" `T.isInfixOf` head noBullets = go msg
   | otherwise = []
 
   where noBullets = T.lines $ T.replace "• " "" msg
-        replacementLines = tail noBullets
-        extractReplacement line =
-          let startOfTerm = T.dropWhile (/= '‘') line
-          in if startOfTerm == ""
-            then Nothing
-            else Just $ T.takeWhile (/= '’') (T.tail startOfTerm)
-
+        -- Extract everything in between ‘ ’
+        go t
+          | t == "" = []
+          | "‘" `T.isPrefixOf` t = 
+            let rest = T.tail t
+                x = T.takeWhile (/= '’') rest
+              in x:go rest
+          | otherwise = go (T.dropWhile (/= '‘') t)
 
 extractRedundantImport :: T.Text -> Maybe T.Text
 extractRedundantImport msg =
@@ -498,3 +503,99 @@ hoverProvider doc pos = runIdeResponseT $ do
   return $ case mrange of
     Just r -> [LSP.Hover (LSP.List $ catMaybes [info]) (Just r)]
     Nothing -> []
+
+-- ---------------------------------------------------------------------
+
+data Decl = Decl LSP.SymbolKind (Located RdrName) [Decl]
+          | Import LSP.SymbolKind (Located ModuleName) [Decl]
+
+symbolProvider :: Uri -> IdeM (IdeResponse [LSP.DocumentSymbol])
+symbolProvider uri = pluginGetFileResponse "ghc-mod symbolProvider: " uri $ \file -> withCachedModule file $ \cm -> do
+  let tm = tcMod cm
+      hsMod = unLoc $ pm_parsed_source $ tm_parsed_module tm
+      imports = hsmodImports hsMod
+      imps  = concatMap (goImport . unLoc) imports
+      decls = concatMap (go . unLoc) $ hsmodDecls hsMod
+
+      go :: HsDecl GM.GhcPs -> [Decl]
+      go (TyClD FamDecl { tcdFam = FamilyDecl { fdLName = n } }) = pure (Decl LSP.SkClass n [])
+      go (TyClD SynDecl { tcdLName = n }) = pure (Decl LSP.SkClass n [])
+      go (TyClD DataDecl { tcdLName = n, tcdDataDefn = HsDataDefn { dd_cons = cons } }) =
+        pure (Decl LSP.SkClass n (concatMap (processCon . unLoc) cons))
+      go (TyClD ClassDecl { tcdLName = n, tcdSigs = sigs, tcdATs = fams }) =
+        pure (Decl LSP.SkInterface n children)
+        where children = famDecls ++ sigDecls
+              famDecls = concatMap (go . TyClD . FamDecl . unLoc) fams
+              sigDecls = concatMap (processSig . unLoc) sigs
+
+      go (ValD FunBind { fun_id = ln, fun_matches = MG { mg_alts = llms } }) =
+        pure (Decl LSP.SkFunction ln wheres)
+        where
+          wheres = concatMap (gomatch . unLoc) (unLoc llms)
+          gomatch Match { m_grhss = GRHSs { grhssLocalBinds = lbs } } = golbs (unLoc lbs)
+          golbs (HsValBinds (ValBindsIn lhsbs _ )) = concatMap (go . ValD . unLoc) lhsbs
+          golbs _ = []
+
+      go (ValD PatBind { pat_lhs = p }) =
+        map (\n -> Decl LSP.SkVariable n []) $ hsNamessRdr p
+      go (ForD ForeignImport { fd_name = n }) = pure (Decl LSP.SkFunction n [])
+      go _ = []
+
+      processSig :: Sig GM.GhcPs -> [Decl]
+      processSig (ClassOpSig False names _) =
+        map (\n -> Decl LSP.SkMethod n []) names
+      processSig _ = []
+
+      processCon :: ConDecl GM.GhcPs -> [Decl]
+      processCon ConDeclGADT { con_names = names } =
+        map (\n -> Decl LSP.SkConstructor n []) names
+      processCon ConDeclH98 { con_name = name, con_details = dets } =
+        pure (Decl LSP.SkConstructor name xs)
+        where
+          f ln = Decl LSP.SkField ln []
+          xs = case dets of
+            RecCon (L _ rs) -> concatMap (map (f . rdrNameFieldOcc . unLoc)
+                                          . cd_fld_names
+                                          . unLoc) rs
+            _ -> []
+
+      goImport :: ImportDecl GM.GhcPs -> [Decl]
+      goImport ImportDecl { ideclName = lmn, ideclAs = as, ideclHiding = meis } = pure im
+        where
+          im = Import imKind lmn xs
+          imKind
+            | isJust as = LSP.SkNamespace
+            | otherwise = LSP.SkModule
+          xs = case meis of
+                  Just (False, eis) -> concatMap (f . unLoc) (unLoc eis)
+                  _ -> []
+          f (IEVar n) = pure (Decl LSP.SkFunction (ieLWrappedName n) [])
+          f (IEThingAbs n) = pure (Decl LSP.SkClass (ieLWrappedName n) [])
+          f (IEThingAll n) = pure (Decl LSP.SkClass (ieLWrappedName n) [])
+          f (IEThingWith n _ vars fields) =
+            let funcDecls = map (\n' -> Decl LSP.SkFunction (ieLWrappedName n') []) vars
+                fieldDecls = map (\f' -> Decl LSP.SkField (flSelector <$> f') []) fields
+                children = funcDecls ++ fieldDecls
+              in pure (Decl LSP.SkClass (ieLWrappedName n) children)
+          f _ = []
+
+      declsToSymbolInf :: Decl -> IdeM [LSP.DocumentSymbol]
+      declsToSymbolInf (Decl kind (L l rdrName) children) =
+        declToSymbolInf' kind l (Hie.showName rdrName) children
+      declsToSymbolInf (Import kind (L l modName) children) =
+        declToSymbolInf' kind l (Hie.showName modName) children
+
+      declToSymbolInf' :: LSP.SymbolKind -> SrcSpan -> T.Text -> [Decl] -> IdeM [LSP.DocumentSymbol]
+      declToSymbolInf' kind ss name children = do
+        childrenSymbols <- concat <$> mapM declsToSymbolInf children
+        case srcSpan2Range ss of
+          Left _ -> return childrenSymbols
+          Right r ->
+            let chList = Just (LSP.List childrenSymbols)
+            in return $ pure $
+              LSP.DocumentSymbol name (Just "") kind Nothing r r chList
+
+
+  symInfs <- concat <$> mapM declsToSymbolInf (imps ++ decls)
+  return $ IdeResponseOk symInfs
+

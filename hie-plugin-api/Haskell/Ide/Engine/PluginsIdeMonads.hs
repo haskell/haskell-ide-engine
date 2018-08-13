@@ -27,6 +27,7 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , DiagnosticProviderFunc
   , DiagnosticTrigger(..)
   , HoverProvider
+  , SymbolProvider
   , IdePlugins(..)
   -- * The IDE monad
   , IdeGhcM
@@ -86,6 +87,7 @@ import           Language.Haskell.LSP.Types (Command (..),
                                              CodeActionContext (..),
                                              Diagnostic (..),
                                              DiagnosticSeverity (..),
+                                             DocumentSymbol (..),
                                              List (..),
                                              Hover (..),
                                              Location (..),
@@ -152,6 +154,8 @@ data DiagnosticTrigger = DiagnosticOnOpen
 
 type HoverProvider = Uri -> Position -> IdeM (IdeResponse [Hover])
 
+type SymbolProvider = Uri -> IdeM (IdeResponse [DocumentSymbol])
+
 data PluginDescriptor =
   PluginDescriptor { pluginId                 :: PluginId
                    , pluginName               :: T.Text
@@ -160,6 +164,7 @@ data PluginDescriptor =
                    , pluginCodeActionProvider :: Maybe CodeActionProvider
                    , pluginDiagnosticProvider :: Maybe DiagnosticProvider
                    , pluginHoverProvider      :: Maybe HoverProvider
+                   , pluginSymbolProvider     :: Maybe SymbolProvider
                    } deriving (Generic)
 
 instance Show PluginCommand where

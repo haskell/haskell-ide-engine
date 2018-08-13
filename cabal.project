@@ -7,5 +7,4 @@ packages:
          ./submodules/ghc-mod/core/
          ./submodules/haskell-lsp/
          ./submodules/haskell-lsp/haskell-lsp-types
-         ./submodules/haskell-lsp-test
 

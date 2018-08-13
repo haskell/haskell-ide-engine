@@ -21,10 +21,6 @@ packages:
     - .
     - haskell-lsp-types
 
-- location:
-    ./submodules/haskell-lsp-test
-  extra-dep: true
-
 extra-deps:
 - base-compat-0.9.3
 - cabal-helper-0.8.1.0
@@ -33,6 +29,7 @@ extra-deps:
 - haddock-api-2.20.0
 - haddock-library-1.6.0
 - hsimport-0.8.6
+- lsp-test-0.2.0.0
 - syz-0.2.0.0
 - temporary-1.2.1.1
 

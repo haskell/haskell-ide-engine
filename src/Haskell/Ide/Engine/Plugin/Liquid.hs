@@ -38,6 +38,7 @@ liquidDescriptor plId = PluginDescriptor
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Just (DiagnosticProvider (S.singleton DiagnosticOnSave) diagnosticProvider)
   , pluginHoverProvider      = Just hoverProvider
+  , pluginSymbolProvider = Nothing
   }
 
 -- ---------------------------------------------------------------------

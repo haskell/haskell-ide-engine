@@ -25,6 +25,7 @@ defaults: &defaults
           - stack-cache-05-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
           - stack-cache-05-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
           - stack-cache-05-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
+          - stack-work-dirs-05-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
 
     - run:
         name: Stack setup
@@ -40,7 +41,11 @@ defaults: &defaults
 
     - run:
         name: Build
-        command: stack -j 2 --stack-yaml=${STACK_FILE} build
+        command: stack -j 2 --stack-yaml=${STACK_FILE} install
+
+    - store_artifacts:
+        path: ~/.local/bin
+        destination: bin
 
     - run:
         name: Generate Hoogle database
@@ -51,9 +56,6 @@ defaults: &defaults
         paths:
           - ~/.stack
           - ~/.cache
-
-    - restore_cache:
-          key: stack-work-dirs-05-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
 
     - run:
         name: Test

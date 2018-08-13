@@ -29,6 +29,7 @@ data REnv = REnv
   , lspFuncs          :: Core.LspFuncs Config
   , diagnosticSources :: Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
   , hoverProviders    :: [HoverProvider]
+  , symbolProviders   :: [SymbolProvider]
   -- TODO: Add code action providers here
   }
 
@@ -43,10 +44,11 @@ runReactor
   -> TChan (PluginRequest R)
   -> Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
   -> [HoverProvider]
+  -> [SymbolProvider]
   -> R a
   -> IO a
-runReactor lf de cin dps hps =
-  flip runReaderT (REnv de cin lf dps hps)
+runReactor lf de cin dps hps sps =
+  flip runReaderT (REnv de cin lf dps hps sps)
 
 -- ---------------------------------------------------------------------
 
