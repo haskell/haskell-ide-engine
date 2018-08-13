@@ -1,4 +1,5 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleInstances    #-}
 module Haskell.Ide.Engine.LSP.Reactor
   ( R
   , runReactor
@@ -18,6 +19,7 @@ import qualified Data.Set                      as S
 import qualified Language.Haskell.LSP.Core     as Core
 import qualified Language.Haskell.LSP.Messages as J
 import qualified Language.Haskell.LSP.Types    as J
+import           Haskell.Ide.Engine.Compat
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.LSP.Config
 import           Haskell.Ide.Engine.PluginsIdeMonads
@@ -27,6 +29,7 @@ data REnv = REnv
   { dispatcherEnv     :: DispatcherEnv
   , reqChanIn         :: TChan (PluginRequest R)
   , lspFuncs          :: Core.LspFuncs Config
+  , reactorPidCache   :: Int
   , diagnosticSources :: Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
   , hoverProviders    :: [HoverProvider]
   , symbolProviders   :: [SymbolProvider]
@@ -35,6 +38,9 @@ data REnv = REnv
 
 -- | The monad used in the reactor
 type R = ReaderT REnv IO
+
+instance HasPidCache R where
+  getPidCache = asks reactorPidCache
 
 -- ---------------------------------------------------------------------
 
@@ -47,8 +53,9 @@ runReactor
   -> [SymbolProvider]
   -> R a
   -> IO a
-runReactor lf de cin dps hps sps =
-  flip runReaderT (REnv de cin lf dps hps sps)
+runReactor lf de cin dps hps sps f = do
+  pid <- getProcessID
+  runReaderT f (REnv de cin lf pid dps hps sps)
 
 -- ---------------------------------------------------------------------
 

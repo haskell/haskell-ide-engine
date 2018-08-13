@@ -16,6 +16,7 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   -- * Plugins
     PluginId
   , CommandName
+  , HasPidCache(..)
   , mkLspCommand
   , allLspCmdIds
   , mkLspCmdId
@@ -114,22 +115,34 @@ data PluginCommand = forall a b. (FromJSON a, ToJSON b, Typeable b) =>
                 , commandFunc :: CommandFunc a b
                 }
 
-mkLspCommand :: MonadIO m => PluginId -> CommandName -> T.Text -> Maybe [Value] -> m Command
+-- ---------------------------------------------------------------------
+ 
+class Monad m => HasPidCache m where
+  getPidCache :: m Int
+
+instance HasPidCache IdeM where
+  getPidCache = idePidCache <$> readMTS
+
+instance HasPidCache IO where
+  getPidCache = getProcessID
+
+mkLspCommand :: HasPidCache m => PluginId -> CommandName -> T.Text -> Maybe [Value] -> m Command
 mkLspCommand plid cn title args' = do
   cmdId <- mkLspCmdId plid cn
   let args = List <$> args'
   return $ Command title cmdId args
 
-allLspCmdIds :: MonadIO m => IdePlugins -> m [T.Text]
+allLspCmdIds :: HasPidCache m => IdePlugins -> m [T.Text]
 allLspCmdIds (IdePlugins m) = concat <$> mapM go (Map.toList (pluginCommands <$> m))
   where
     go (plid, cmds) = mapM (mkLspCmdId plid . commandName) cmds
 
--- TODO: Cache this somehow
-mkLspCmdId :: MonadIO m => PluginId -> CommandName -> m T.Text
+mkLspCmdId :: HasPidCache m => PluginId -> CommandName -> m T.Text
 mkLspCmdId plid cn = do
-  pid <- liftIO (T.pack . show <$> getProcessID) 
+  pid <- T.pack . show <$> getPidCache
   return $ pid <> ":" <> plid <> ":" <> cn
+
+-- ---------------------------------------------------------------------
 
 type CodeActionProvider =  PluginId
                         -> VersionedTextDocumentIdentifier
@@ -210,6 +223,8 @@ data IdeState = IdeState
   , idePlugins  :: IdePlugins
   , extensibleState :: !(Map.Map TypeRep Dynamic)
   , ghcSession  :: Maybe (IORef HscEnv)
+  -- The pid of this instance of hie
+  , idePidCache    :: Int
   }
 
 instance HasGhcModuleCache IdeM where
