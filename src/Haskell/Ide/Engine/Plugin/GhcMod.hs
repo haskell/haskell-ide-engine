@@ -390,7 +390,12 @@ runGhcModCommand cmd =
 -- ---------------------------------------------------------------------
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider _ docId _ _ context =
+codeActionProvider pid docId mfp r ctx = do
+  support <- clientSupportsDocumentChanges 
+  codeActionProvider' support pid docId mfp r ctx
+
+codeActionProvider' :: Bool -> CodeActionProvider
+codeActionProvider' supportsDocChanges _ docId _ _ context =
   let LSP.List diags = context ^. LSP.diagnostics
       terms = concatMap getRenamables diags
       renameActions = map (uncurry mkRenamableAction) terms
@@ -399,22 +404,27 @@ codeActionProvider _ docId _ _ context =
   in return $ IdeResponseOk (renameActions ++ redundantActions)
 
   where
+
     docUri = docId ^. LSP.uri
 
     mkWorkspaceEdit :: [LSP.TextEdit] -> LSP.WorkspaceEdit
-    mkWorkspaceEdit es =
-       let changes = HM.singleton docUri (LSP.List es)
-           docChanges = LSP.List [textDocEdit]
-           textDocEdit = LSP.TextDocumentEdit docId (LSP.List es)
-       in LSP.WorkspaceEdit (Just changes) (Just docChanges)
+    mkWorkspaceEdit es = do
+      let changes = HM.singleton docUri (LSP.List es)
+          docChanges = LSP.List [textDocEdit]
+          textDocEdit = LSP.TextDocumentEdit docId (LSP.List es)
+      if supportsDocChanges
+        then LSP.WorkspaceEdit Nothing (Just docChanges)
+        else LSP.WorkspaceEdit (Just changes) Nothing
 
     mkRenamableAction :: LSP.Diagnostic -> T.Text -> LSP.CodeAction
     mkRenamableAction diag replacement = codeAction
      where
        title = "Replace with " <> replacement
-       workspaceEdit = mkWorkspaceEdit [textEdit]
+       kind = LSP.CodeActionQuickFix
+       diags = LSP.List [diag]
+       we = mkWorkspaceEdit [textEdit]
        textEdit = LSP.TextEdit (diag ^. LSP.range) replacement
-       codeAction = LSP.CodeAction title (Just LSP.CodeActionQuickFix) (Just (LSP.List [diag])) (Just workspaceEdit) Nothing
+       codeAction = LSP.CodeAction title (Just kind) (Just diags) (Just we) Nothing
 
     getRenamables :: LSP.Diagnostic -> [(LSP.Diagnostic, T.Text)]
     getRenamables diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) = map (diag,) $ extractRenamableTerms msg
@@ -598,4 +608,3 @@ symbolProvider uri = pluginGetFileResponse "ghc-mod symbolProvider: " uri $ \fil
 
   symInfs <- concat <$> mapM declsToSymbolInf (imps ++ decls)
   return $ IdeResponseOk symInfs
-
