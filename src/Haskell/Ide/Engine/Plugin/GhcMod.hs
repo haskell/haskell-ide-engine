@@ -396,7 +396,8 @@ codeActionProvider _ docId _ _ context =
       renameActions = map (uncurry mkRenamableAction) terms
       redundantTerms = mapMaybe getRedundantImports diags
       redundantActions = concatMap (uncurry mkRedundantImportActions) redundantTerms
-  in return $ IdeResponseOk (renameActions ++ redundantActions)
+      typedHoleActions = map (uncurry mkTypedHoleAction) (concatMap getTypedHoles diags)
+  in return $ IdeResponseOk (renameActions ++ redundantActions ++ typedHoleActions)
 
   where
     docUri = docId ^. LSP.uri
@@ -419,7 +420,6 @@ codeActionProvider _ docId _ _ context =
     getRenamables :: LSP.Diagnostic -> [(LSP.Diagnostic, T.Text)]
     getRenamables diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) = map (diag,) $ extractRenamableTerms msg
     getRenamables _ = []
-
 
     mkRedundantImportActions :: LSP.Diagnostic -> T.Text -> [LSP.CodeAction]
     mkRedundantImportActions diag modName = [removeAction, importAction]
@@ -447,6 +447,19 @@ codeActionProvider _ docId _ _ context =
     getRedundantImports diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractRedundantImport msg
     getRedundantImports _ = Nothing
 
+    mkTypedHoleAction :: LSP.Diagnostic -> T.Text -> LSP.CodeAction
+    mkTypedHoleAction diag sub = codeAction
+      where title = "Substitute with " <> sub
+            diags = LSP.List [diag]
+            edit = mkWorkspaceEdit [LSP.TextEdit (diag ^. LSP.range) sub]
+            kind = LSP.CodeActionQuickFix
+            codeAction = LSP.CodeAction title (Just kind) (Just diags) (Just edit) Nothing
+
+
+    getTypedHoles :: LSP.Diagnostic -> [(LSP.Diagnostic, T.Text)]
+    getTypedHoles diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) = map (diag,) $ extractHoleSubstitutions msg
+    getTypedHoles _ = []
+
 extractRenamableTerms :: T.Text -> [T.Text]
 extractRenamableTerms msg
   | "not in scope:" `T.isInfixOf` head noBullets = go msg
@@ -469,6 +482,13 @@ extractRedundantImport msg =
     then Just $ T.init $ T.tail $ T.dropWhileEnd (/= '’') $ T.dropWhile (/= '‘') firstLine
     else Nothing
   where firstLine = head (T.lines msg)
+
+extractHoleSubstitutions :: T.Text -> [T.Text]
+extractHoleSubstitutions diag
+  | "Found hole:" `T.isInfixOf` diag =
+      let ls = T.lines $ snd $ T.breakOnEnd "Valid substitutions include" diag
+        in map (T.strip . fst . T.breakOn " ::") $ filter (T.isInfixOf "::") ls
+  | otherwise = mempty
 
 -- ---------------------------------------------------------------------
 
@@ -598,4 +618,3 @@ symbolProvider uri = pluginGetFileResponse "ghc-mod symbolProvider: " uri $ \fil
 
   symInfs <- concat <$> mapM declsToSymbolInf (imps ++ decls)
   return $ IdeResponseOk symInfs
-
