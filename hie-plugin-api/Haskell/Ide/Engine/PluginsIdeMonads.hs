@@ -125,6 +125,9 @@ instance HasPidCache IdeM where
 
 instance HasPidCache IO where
   getPidCache = getProcessID
+  
+instance HasPidCache m => HasPidCache (IdeResponseT m) where
+  getPidCache = lift getPidCache
 
 mkLspCommand :: HasPidCache m => PluginId -> CommandName -> T.Text -> Maybe [Value] -> m Command
 mkLspCommand plid cn title args' = do
