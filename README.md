@@ -357,12 +357,14 @@ let g:LanguageClient_serverCommands = { 'haskell': ['hie-wrapper'] }
 You'll probably want to add some mappings for common commands:
 
 ```vim
-nnoremap go :call LanguageClient#textDocument_documentSymbol()<CR>
-nnoremap ga :call LanguageClient#textDocument_codeAction()<CR>
-nnoremap gd :call LanguageClient#textDocument_definition()<CR>
-nnoremap gr :call LanguageClient#textDocument_rename()<CR>
-nnoremap gfd :call LanguageClient#textDocument_formatting()<CR>
-nnoremap K :call LanguageClient_textDocument_hover()<CR>
+nnoremap <F5> :call LanguageClient_contextMenu()<CR>
+map <Leader>lk :call LanguageClient#textDocument_hover()<CR>
+map <Leader>lg :call LanguageClient#textDocument_definition()<CR>
+map <Leader>lr :call LanguageClient#textDocument_rename()<CR>
+map <Leader>lf :call LanguageClient#textDocument_formatting()<CR>
+map <Leader>lb :call LanguageClient#textDocument_references()<CR>
+map <Leader>la :call LanguageClient#textDocument_codeAction()<CR>
+map <Leader>ls :call LanguageClient#textDocument_documentSymbol()<CR>
 ```
 
 Use <kbd>Ctrl+x</kbd><kbd>Ctrl+o</kbd> (`<C-x><C-o>`) to open up the auto-complete menu,
