@@ -55,7 +55,9 @@ import           Var
 getDynFlags :: Uri -> IdeM (IdeResponse DynFlags)
 getDynFlags uri =
   pluginGetFileResponse "getDynFlags: " uri $ \fp ->
-    withCachedModule fp (return . IdeResponseOk . ms_hspp_opts . pm_mod_summary . tm_parsed_module . tcMod)
+    withCachedModule fp (IdeResponseFail err)
+      (return . IdeResponseOk . ms_hspp_opts . pm_mod_summary . tm_parsed_module . tcMod)
+  where err = IdeError InternalError "Unable to get DynFlags" Null
 
 -- ---------------------------------------------------------------------
 
@@ -290,7 +292,7 @@ getTypeForName n = do
 
 getSymbolsAtPoint :: Uri -> Position -> IdeM (IdeResponse [(Range, Name)])
 getSymbolsAtPoint uri pos = pluginGetFileResponse "getSymbolsAtPoint: " uri $ \file ->
-  withCachedModule file $ return . IdeResponseOk . getSymbolsAtPointPure pos
+  withCachedModule file (IdeResponseOk mempty) $ return . IdeResponseOk . getSymbolsAtPointPure pos
 
 getSymbolsAtPointPure :: Position -> CachedModule -> [(Range,Name)]
 getSymbolsAtPointPure pos cm = maybe [] (`getArtifactsAtPos` locMap cm) $ newPosToOld cm pos
@@ -364,7 +366,7 @@ getModule df n = do
 -- | Return the definition
 findDef :: Uri -> Position -> IdeM (IdeResponse [Location])
 findDef uri pos = pluginGetFileResponse "findDef: " uri $ \file ->
-    withCachedModuleDefault file (Just (IdeResponseOk [])) (\cm -> do
+    withCachedModule file (IdeResponseOk []) (\cm -> do
       let rfm = revMap cm
           lm = locMap cm
           mm = moduleMap cm
@@ -399,7 +401,7 @@ findDef uri pos = pluginGetFileResponse "findDef: " uri $ \file ->
   where
     gotoModule :: (FilePath -> FilePath) -> ModuleName -> IdeM (IdeResponse [Location])
     gotoModule rfm mn = do
-      
+
       hscEnvRef <- ghcSession <$> readMTS
       mHscEnv <- liftIO $ traverse readIORef hscEnvRef
 

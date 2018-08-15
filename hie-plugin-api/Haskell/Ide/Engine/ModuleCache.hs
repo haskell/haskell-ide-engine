@@ -108,22 +108,15 @@ isCached uri = do
 
 -- | Version of `withCachedModuleAndData` that doesn't provide
 -- any extra cached data.
-withCachedModule :: FilePath -> (CachedModule -> IdeM (IdeResponse b)) -> IdeM (IdeResponse b)
-withCachedModule uri callback = withCachedModuleDefault uri Nothing callback
-
--- | Version of `withCachedModuleAndData` that doesn't provide
--- any extra cached data.
-withCachedModuleDefault :: FilePath -> Maybe (IdeResponse b)
-                        -> (CachedModule -> IdeM (IdeResponse b)) -> IdeM (IdeResponse b)
-withCachedModuleDefault uri mdef callback = do
+withCachedModule :: FilePath -> IdeResponse b
+                 -> (CachedModule -> IdeM (IdeResponse b)) -> IdeM (IdeResponse b)
+withCachedModule uri def callback = do
   mcm <- getCachedModule uri
   uri' <- liftIO $ canonicalizePath uri
   case mcm of
     ModuleCached cm _ -> callback cm
     ModuleLoading -> return $ IdeResponseDeferred uri' callback
-    ModuleFailed err -> case mdef of
-      Nothing -> return $ IdeResponseFail (IdeError NoModuleAvailable err J.Null)
-      Just def -> return def
+    ModuleFailed _ -> return def
 
 -- | Calls its argument with the CachedModule for a given URI
 -- along with any data that might be stored in the ModuleCache.
