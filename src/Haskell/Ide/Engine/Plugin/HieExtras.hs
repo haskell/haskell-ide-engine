@@ -185,7 +185,7 @@ instance ModuleCache CachedCompletions where
         getModCompls :: GhcMonad m => HscEnv -> m ([CompItem], QualCompls)
         getModCompls hscEnv = do
           (unquals, qualKVs) <- foldM (orgUnqualQual hscEnv) ([], []) allImportsInfo
-          return (unquals, Map.fromList qualKVs)
+          return (unquals, Map.fromListWith (++) qualKVs)
 
         orgUnqualQual hscEnv (prevUnquals, prevQualKVs) (isQual, modQual, modName, hasHiddsMembers) =
           let
