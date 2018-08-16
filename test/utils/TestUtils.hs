@@ -9,6 +9,7 @@ module TestUtils
   , runSingleReq
   , makeRequest
   , runIGM
+  , ghc84
   , hieCommand
   , hieCommandVomit
   , hieCommandExamplePlugin
@@ -109,6 +110,13 @@ files =
    , "./test/testdata/completion/"
    , "./test/testdata/definition/"
   ]
+
+ghc84 :: Bool
+#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)))
+ghc84 = True
+#else
+ghc84 = False
+#endif
 
 stackYaml :: FilePath
 stackYaml =
