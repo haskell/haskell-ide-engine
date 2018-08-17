@@ -2,6 +2,7 @@
 module CodeActionsSpec where
 
 import Test.Hspec
+import qualified Data.Text.IO as T
 import Haskell.Ide.Engine.Plugin.HsImport
 import Haskell.Ide.Engine.Plugin.GhcMod
 import Haskell.Ide.Engine.Plugin.Package
@@ -50,6 +51,11 @@ spec = do
     it "picks up variables not in scope on new line" $
       let msg = "• Variable not in scope:\n    forM_ :: [CodeAction] -> (s0 -> Expectation) -> IO a0\n• Perhaps you meant ‘iforM_’ (imported from Control.Lens)"
         in extractRenamableTerms msg `shouldBe` ["iforM_"]
+  
+  describe "typed holes" $
+    it "picks them up" $ do
+      msg <- T.readFile "test/testdata/typedHoleDiag.txt"
+      extractHoleSubstitutions msg `shouldBe` ["Nothing", "mempty", "undefined", "GM.mzero"]
 
   describe "missing package code actions" $ do
     it "pick up relevant messages" $ 

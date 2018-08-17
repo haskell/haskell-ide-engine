@@ -210,6 +210,28 @@ spec = describe "code actions" $ do
         \import Data.Maybe\n\
         \foo :: Int\n\
         \foo = fromJust (Just 3)\n"
+  
+  describe "typed hole code actions" $ 
+      it "works" $ when ghc84 $
+        runSession hieCommand fullCaps "test/testdata" $ do
+          doc <- openDoc "TypedHoles.hs" "haskell"
+          _ <- waitForDiagnosticsSource "ghcmod"
+          cas <- map (\(CACodeAction x)-> x) <$> getAllCodeActions doc
+
+          liftIO $ map (^. title) cas `shouldMatchList`
+            [ "Substitute with undefined"
+            , "Substitute with maxBound"
+            , "Substitute with minBound"
+            ]
+
+          executeCodeAction $ head cas
+
+          contents <- documentContents doc
+
+          liftIO $ contents `shouldBe`
+            "module TypedHoles where\n\
+            \foo :: [Int] -> Int\n\
+            \foo x = maxBound"
 
 fromAction :: CAResult -> CodeAction
 fromAction (CACodeAction action) = action
