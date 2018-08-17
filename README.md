@@ -25,7 +25,7 @@ we talk to clients.__
         - [ArchLinux](#archlinux)
     - [Configuration](#configuration)
     - [Editor Integration](#editor-integration)
-        - Using HIE with [VS Code](#using-hie-with-vs-code), [Sublime Text](#using-hie-with-sublime-text), [Neovim](#using-hie-with-neovim), [Atom](#using-hie-with-atom), [Oni](#using-hie-with-oni), [Emacs](#using-hie-with-emacs) or [Spacemacs](#using-hie-with-spacemacs)
+        - Using HIE with [VS Code](#using-hie-with-vs-code), [Sublime Text](#using-hie-with-sublime-text), [Vim/Neovim](#using-hie-with-vim-or-neovim), [Atom](#using-hie-with-atom), [Oni](#using-hie-with-oni), [Emacs](#using-hie-with-emacs) or [Spacemacs](#using-hie-with-spacemacs)
     - [Docs on hover/completion](#docs-on-hovercompletion)
     - [Contributing](#contributing)
         - [Planned Features](#planned-features)
@@ -326,11 +326,12 @@ Now open a haskell project with Sublime Text. You should have these features ava
 2. LSP: Show Diagnostics will show a list of hints and errors
 3. LSP: Format Document will prettify the file
 
-### Using HIE with Neovim
+### Using HIE with Vim or Neovim
 
-As above, make sure HIE is installed. Install and load the neovim plugin
-[LanguageClient](https://github.com/autozimu/LanguageClient-neovim). If you use
-[vim-plug](https://github.com/junegunn/vim-plug), then you can do this by e.g.
+As above, make sure HIE is installed. These instructions are for using the [LanguageClient-neovim](https://github.com/autozimu/LanguageClient-neovim) client.
+
+#### vim-plug
+If you use [vim-plug](https://github.com/junegunn/vim-plug), then you can do this by e.g.
 including the following line in the Plug section of your `init.vim`:
 
 ```
@@ -342,29 +343,50 @@ Plug 'autozimu/LanguageClient-neovim', {
 
 and issuing a `:PlugInstall` command within neovim.
 
-Finally, make sure that `hie` is included as the language server source for haskell:
+#### Vim 8.0
+Clone [LanguageClient-neovim](https://github.com/autozimu/LanguageClient-neovim)
+into `~/.vim/pack/XXX/start/`, where `XXX` is just a name for your "plugin suite".
 
-```
-let g:LanguageClient_serverCommands = {
-    ...
-    \ 'haskell': ['hie-wrapper'],
-    ...
-    \ }
-```
+#### Sample `~/.vimrc`
 
-Since LanguageClient-neovim doesn't start language servers in the project root, it may also be helpful to also specify the project root for hie-wrapper, writing instead:
-
-```
-let g:LanguageClient_serverCommands = {
-    ...
-    \ 'haskell': ['hie-wrapper', '-r', '$YOURROOTHERE'],
-    ...
-    \ }
-
+```vim
+set rtp+=~/.vim/pack/XXX/start/LanguageClient-neovim
+let g:LanguageClient_serverCommands = { 'haskell': ['hie-wrapper'] }
 ```
 
-For asynchronous auto-completion, follow the setup instructions on
+You'll probably want to add some mappings for common commands:
+
+```vim
+nnoremap <F5> :call LanguageClient_contextMenu()<CR>
+map <Leader>lk :call LanguageClient#textDocument_hover()<CR>
+map <Leader>lg :call LanguageClient#textDocument_definition()<CR>
+map <Leader>lr :call LanguageClient#textDocument_rename()<CR>
+map <Leader>lf :call LanguageClient#textDocument_formatting()<CR>
+map <Leader>lb :call LanguageClient#textDocument_references()<CR>
+map <Leader>la :call LanguageClient#textDocument_codeAction()<CR>
+map <Leader>ls :call LanguageClient#textDocument_documentSymbol()<CR>
+```
+
+Use <kbd>Ctrl+x</kbd><kbd>Ctrl+o</kbd> (`<C-x><C-o>`) to open up the auto-complete menu,
+or for asynchronous auto-completion, follow the setup instructions on
 [LanguageClient](https://github.com/autozimu/LanguageClient-neovim).
+
+If you'd like diagnostics to be highlighted, add a highlight group for `ALEError`/`ALEWarning`/`ALEInfo`,
+or customize ` g:LanguageClient_diagnosticsDisplay`:
+
+```vim
+hi link ALEError Error
+hi Warning term=underline cterm=underline ctermfg=Yellow gui=undercurl guisp=Gold
+hi link ALEWarning Warning
+hi link ALEInfo SpellCap
+```
+
+If you're finding that the server isn't starting at the correct project root,
+it may also be helpful to also specify root markers: 
+
+```vim
+let g:LanguageClient_rootMarkers = ['*.cabal', 'stack.yaml']
+```
 
 ### Using HIE with Atom
 
