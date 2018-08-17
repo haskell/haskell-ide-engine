@@ -29,7 +29,7 @@ extra-deps:
 - haddock-api-2.20.0
 - haddock-library-1.6.0
 - hsimport-0.8.6
-- lsp-test-0.2.0.0
+- lsp-test-0.2.1.0
 - syz-0.2.0.0
 - temporary-1.2.1.1
 

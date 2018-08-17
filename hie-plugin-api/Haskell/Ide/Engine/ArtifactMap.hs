@@ -114,7 +114,7 @@ genImportMap tm = moduleMap
 genDefMap :: TypecheckedModule -> DefMap
 genDefMap tm = mconcat $ map (go . GHC.unLoc) decls
   where
-    go :: GHC.HsDecl GHC.GhcPs -> DefMap
+    -- go :: GHC.HsDecl GHC.GhcPs -> DefMap
     -- Type signatures
     go (GHC.SigD (GHC.TypeSig lns _)) =
       foldl IM.union mempty $ fmap go' lns
@@ -130,7 +130,7 @@ genDefMap tm = mconcat $ map (go . GHC.unLoc) decls
             golbs (GHC.unLoc lbs)
 
         golbs (GHC.HsValBinds (GHC.ValBindsIn lhsbs lsigs)) =
-          foldl IM.union mempty (fmap (go . GHC.ValD . GHC.unLoc) lhsbs)
+          foldl (\acc x -> IM.union acc (go $ GHC.ValD $ GHC.unLoc x)) mempty lhsbs
             `mappend` foldl IM.union mempty (fmap (go . GHC.SigD . GHC.unLoc) lsigs)
         golbs _ = mempty
     go _ = mempty
