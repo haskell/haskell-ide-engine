@@ -24,9 +24,10 @@ import           Data.Maybe (maybeToList)
 data FormatParams = FormatParams Int Uri (Maybe Range)
      deriving (Eq, Show, Generic, FromJSON, ToJSON)
 
-brittanyDescriptor :: PluginDescriptor
-brittanyDescriptor = PluginDescriptor
-  { pluginName     = "Brittany"
+brittanyDescriptor :: PluginId -> PluginDescriptor
+brittanyDescriptor plId = PluginDescriptor
+  { pluginId       = plId
+  , pluginName     = "Brittany"
   , pluginDesc     = "Brittany is a tool to format source code."
   , pluginCommands = [ PluginCommand "format"
                                      "Format a range of text or document"

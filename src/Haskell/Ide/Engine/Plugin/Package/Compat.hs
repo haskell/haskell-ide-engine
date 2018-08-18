@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP #-}
-module Haskell.Ide.Engine.Compat where
+module Haskell.Ide.Engine.Plugin.Package.Compat where
 
 #if MIN_VERSION_Cabal(2,2,0)
 #else
@@ -13,26 +13,6 @@ import Distribution.Types.Library (Library, libBuildInfo)
 import Distribution.Types.TestSuite (TestSuite, testBuildInfo)
 import qualified Distribution.Types.Executable as E (Executable, buildInfo)
 import qualified Distribution.Types.BuildInfo as BI (BuildInfo(..))
-#endif
-
-#if MIN_VERSION_filepath(1,4,2)
-#else
-import Data.List
-import System.FilePath
-#endif
-
-#ifdef mingw32_HOST_OS
-
-import qualified System.Win32.Process as P (getCurrentProcessId)
-getProcessID :: IO Int
-getProcessID = fromIntegral <$> P.getCurrentProcessId
-
-#else
-
-import qualified System.Posix.Process as P (getProcessID)
-getProcessID :: IO Int
-getProcessID = fromIntegral <$> P.getProcessID
-
 #endif
 
 #if MIN_VERSION_Cabal(2,2,0)
@@ -89,11 +69,4 @@ instance HasBuildInfo TestSuite where
 instance HasBuildInfo Library where
   buildInfo f l = (\x -> l { libBuildInfo = x }) <$> f (libBuildInfo l)
 
-#endif
-
-#if MIN_VERSION_filepath(1,4,2)
-#else
-isExtensionOf :: String -> FilePath -> Bool
-isExtensionOf ext@('.':_) = isSuffixOf ext . takeExtensions
-isExtensionOf ext         = isSuffixOf ('.':ext) . takeExtensions
 #endif

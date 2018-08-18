@@ -7,7 +7,8 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 -- | IdeGhcM and associated types
 module Haskell.Ide.Engine.PluginsIdeMonads
@@ -15,6 +16,10 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   -- * Plugins
     PluginId
   , CommandName
+  , HasPidCache(..)
+  , mkLspCommand
+  , allLspCmdIds
+  , mkLspCmdId
   , CommandFunc(..)
   , PluginDescriptor(..)
   , PluginCommand(..)
@@ -64,6 +69,7 @@ import           Data.Aeson
 import           Data.Dynamic (Dynamic)
 import           Data.IORef
 import qualified Data.Map as Map
+import           Data.Monoid ((<>))
 import qualified Data.Set as S
 import qualified Data.Text as T
 import           Data.Typeable (TypeRep, Typeable)
@@ -72,11 +78,13 @@ import qualified GhcMod.Monad        as GM
 import           GHC.Generics
 import           GHC (HscEnv)
 
+import           Haskell.Ide.Engine.Compat
 import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.GhcModuleCache
 
 import           Language.Haskell.LSP.Types.Capabilities
-import           Language.Haskell.LSP.Types (CodeAction (..),
+import           Language.Haskell.LSP.Types (Command (..),
+                                             CodeAction (..),
                                              CodeActionContext (..),
                                              Diagnostic (..),
                                              DiagnosticSeverity (..),
@@ -107,7 +115,40 @@ data PluginCommand = forall a b. (FromJSON a, ToJSON b, Typeable b) =>
                 , commandFunc :: CommandFunc a b
                 }
 
-type CodeActionProvider =  VersionedTextDocumentIdentifier
+-- ---------------------------------------------------------------------
+ 
+class Monad m => HasPidCache m where
+  getPidCache :: m Int
+
+instance HasPidCache IdeM where
+  getPidCache = idePidCache <$> readMTS
+
+instance HasPidCache IO where
+  getPidCache = getProcessID
+  
+instance HasPidCache m => HasPidCache (IdeResponseT m) where
+  getPidCache = lift getPidCache
+
+mkLspCommand :: HasPidCache m => PluginId -> CommandName -> T.Text -> Maybe [Value] -> m Command
+mkLspCommand plid cn title args' = do
+  cmdId <- mkLspCmdId plid cn
+  let args = List <$> args'
+  return $ Command title cmdId args
+
+allLspCmdIds :: HasPidCache m => IdePlugins -> m [T.Text]
+allLspCmdIds (IdePlugins m) = concat <$> mapM go (Map.toList (pluginCommands <$> m))
+  where
+    go (plid, cmds) = mapM (mkLspCmdId plid . commandName) cmds
+
+mkLspCmdId :: HasPidCache m => PluginId -> CommandName -> m T.Text
+mkLspCmdId plid cn = do
+  pid <- T.pack . show <$> getPidCache
+  return $ pid <> ":" <> plid <> ":" <> cn
+
+-- ---------------------------------------------------------------------
+
+type CodeActionProvider =  PluginId
+                        -> VersionedTextDocumentIdentifier
                         -> Maybe FilePath -- ^ Project root directory
                         -> Range
                         -> CodeActionContext
@@ -132,7 +173,8 @@ type HoverProvider = Uri -> Position -> IdeM (IdeResponse [Hover])
 type SymbolProvider = Uri -> IdeM (IdeResponse [DocumentSymbol])
 
 data PluginDescriptor =
-  PluginDescriptor { pluginName               :: T.Text
+  PluginDescriptor { pluginId                 :: PluginId
+                   , pluginName               :: T.Text
                    , pluginDesc               :: T.Text
                    , pluginCommands           :: [PluginCommand]
                    , pluginCodeActionProvider :: Maybe CodeActionProvider
@@ -184,6 +226,8 @@ data IdeState = IdeState
   , idePlugins  :: IdePlugins
   , extensibleState :: !(Map.Map TypeRep Dynamic)
   , ghcSession  :: Maybe (IORef HscEnv)
+  -- The pid of this instance of hie
+  , idePidCache    :: Int
   }
 
 instance HasGhcModuleCache IdeM where

@@ -7,8 +7,10 @@ import Control.Lens hiding (List)
 import Control.Monad
 import Control.Monad.IO.Class
 import Data.Default
+import qualified Data.HashMap.Strict as HM
 import Data.Maybe
 import qualified Data.Text as T
+import Data.Aeson
 import Language.Haskell.LSP.Test as Test
 import Language.Haskell.LSP.Types as LSP hiding (contents, error, message)
 import qualified Language.Haskell.LSP.Types as LSP
@@ -60,17 +62,34 @@ spec = describe "code actions" $ do
 
       noDiagnostics
 
-  it "provides rename suggestions" $ runSession hieCommand noLiteralCaps "test/testdata" $ do
-    doc <- openDoc "CodeActionRename.hs" "haskell"
+  describe "rename suggestions" $ do
+    it "works" $ runSession hieCommand noLiteralCaps "test/testdata" $ do
+      doc <- openDoc "CodeActionRename.hs" "haskell"
 
-    -- ignore the first empty hlint diagnostic publish
-    _ <- count 2 waitForDiagnostics
+      _ <- waitForDiagnosticsSource "ghcmod"
 
-    [CACommand cmd] <- getAllCodeActions doc
-    executeCommand cmd
+      CACommand cmd:_ <- getAllCodeActions doc
+      executeCommand cmd
 
-    contents <- documentContents doc
-    liftIO $ contents `shouldBe` "main = putStrLn \"hello\""
+      x:_ <- T.lines <$> documentContents doc
+      liftIO $ x `shouldBe` "main = putStrLn \"hello\""
+    it "doesn't give both documentChanges and changes" $
+      runSession hieCommand noLiteralCaps "test/testdata" $ do
+        doc <- openDoc "CodeActionRename.hs" "haskell"
+
+        _ <- waitForDiagnosticsSource "ghcmod"
+        
+        CACommand cmd <- (!! 2) <$> getAllCodeActions doc
+        let Just (List [Object args]) = cmd ^. arguments
+            Object editParams = args HM.! "fallbackWorkspaceEdit"
+        liftIO $ do
+          editParams `shouldSatisfy` HM.member "changes"
+          editParams `shouldNotSatisfy` HM.member "documentChanges"
+
+        executeCommand cmd
+
+        _:x:_ <- T.lines <$> documentContents doc
+        liftIO $ x `shouldBe` "foo = putStrLn \"world\""
 
   it "provides import suggestions and 3.8 code action kinds" $
     runSession hieCommand fullCaps "test/testdata" $ do
@@ -191,6 +210,28 @@ spec = describe "code actions" $ do
         \import Data.Maybe\n\
         \foo :: Int\n\
         \foo = fromJust (Just 3)\n"
+  
+  describe "typed hole code actions" $ 
+      it "works" $ when ghc84 $
+        runSession hieCommand fullCaps "test/testdata" $ do
+          doc <- openDoc "TypedHoles.hs" "haskell"
+          _ <- waitForDiagnosticsSource "ghcmod"
+          cas <- map (\(CACodeAction x)-> x) <$> getAllCodeActions doc
+
+          liftIO $ map (^. title) cas `shouldMatchList`
+            [ "Substitute with undefined"
+            , "Substitute with maxBound"
+            , "Substitute with minBound"
+            ]
+
+          executeCodeAction $ head cas
+
+          contents <- documentContents doc
+
+          liftIO $ contents `shouldBe`
+            "module TypedHoles where\n\
+            \foo :: [Int] -> Int\n\
+            \foo x = maxBound"
 
 fromAction :: CAResult -> CodeAction
 fromAction (CACodeAction action) = action

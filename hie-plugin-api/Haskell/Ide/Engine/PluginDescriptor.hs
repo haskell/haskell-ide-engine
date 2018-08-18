@@ -25,8 +25,8 @@ import           Data.Typeable
 import           Haskell.Ide.Engine.IdeFunctions
 import           Haskell.Ide.Engine.MonadTypes
 
-pluginDescToIdePlugins :: [(PluginId,PluginDescriptor)] -> IdePlugins
-pluginDescToIdePlugins plugins = IdePlugins $ Map.fromList plugins
+pluginDescToIdePlugins :: [PluginDescriptor] -> IdePlugins
+pluginDescToIdePlugins plugins = IdePlugins $ Map.fromList $ map (\p -> (pluginId p, p)) plugins
 
 type DynamicJSON = CD.ConstrainedDynamic ToJSON
 

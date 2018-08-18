@@ -21,6 +21,9 @@ type SourceMap a = IM.IntervalMap Position a
 type LocMap      = SourceMap GHC.Name
 type TypeMap     = SourceMap GHC.Type
 type ModuleMap   = SourceMap GHC.ModuleName
+type DefMap      = SourceMap GHC.RdrName
+
+-- TODO: Maybe look at using ranges instead of positions
 
 -- ---------------------------------------------------------------------
 
@@ -106,6 +109,33 @@ genImportMap tm = moduleMap
       IM.insert (rspToInt r) (GHC.unLoc lmn) acc
     goExp acc _ = acc
 
+-- | Generates a map of function definitions and types
+-- i.e. top-level bindings and their `where` clauses
+genDefMap :: TypecheckedModule -> DefMap
+genDefMap tm = mconcat $ map (go . GHC.unLoc) decls
+  where
+    -- go :: GHC.HsDecl GHC.GhcPs -> DefMap
+    -- Type signatures
+    go (GHC.SigD (GHC.TypeSig lns _)) =
+      foldl IM.union mempty $ fmap go' lns
+      where go' (GHC.L (GHC.RealSrcSpan r) n) = IM.singleton (rspToInt r) n 
+            go' _ = mempty
+    -- Definitions
+    go (GHC.ValD (GHC.FunBind (GHC.L (GHC.RealSrcSpan r) n) GHC.MG { GHC.mg_alts = llms } _ _ _)) =
+      IM.insert (rspToInt r) n wheres
+      where
+        wheres = mconcat $ fmap (gomatch . GHC.unLoc) (GHC.unLoc llms)
+
+        gomatch GHC.Match { GHC.m_grhss = GHC.GRHSs { GHC.grhssLocalBinds = lbs } } =
+            golbs (GHC.unLoc lbs)
+
+        golbs (GHC.HsValBinds (GHC.ValBindsIn lhsbs lsigs)) =
+          foldl (\acc x -> IM.union acc (go $ GHC.ValD $ GHC.unLoc x)) mempty lhsbs
+            `mappend` foldl IM.union mempty (fmap (go . GHC.SigD . GHC.unLoc) lsigs)
+        golbs _ = mempty
+    go _ = mempty
+    decls = GHC.hsmodDecls $ GHC.unLoc $ GHC.pm_parsed_source $ GHC.tm_parsed_module tm
+
 -- | Converts a RealSrcSpan to an interval for an IntervalMap.
 rspToInt :: GHC.RealSrcSpan -> IM.Interval Position
 rspToInt = uncurry IM.Interval . unpackRealSrcSpan
@@ -139,3 +169,6 @@ toPos (l,c) = Position (l-1) (c-1)
 
 -- ---------------------------------------------------------------------
 -- ---------------------------------------------------------------------
+
+
+

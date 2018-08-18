@@ -117,10 +117,10 @@ buildPluginDescriptor = PluginDescriptor
   }
 -}
 
-buildPluginDescriptor :: PluginDescriptor
-buildPluginDescriptor = PluginDescriptor
-  {
-    pluginName = "Build plugin"
+buildPluginDescriptor :: PluginId -> PluginDescriptor
+buildPluginDescriptor plId = PluginDescriptor
+  { pluginId = plId
+  , pluginName = "Build plugin"
   , pluginDesc = "A HIE plugin for building cabal/stack packages"
   , pluginCommands =
       [ PluginCommand "prepare"

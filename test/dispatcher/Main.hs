@@ -62,11 +62,11 @@ main = do
 
 plugins :: IdePlugins
 plugins = pluginDescToIdePlugins
-  [("applyrefact", applyRefactDescriptor)
-  ,("eg2"        , example2Descriptor)
-  ,("ghcmod"     , ghcmodDescriptor)
-  ,("hare"       , hareDescriptor)
-  ,("base"       , baseDescriptor)
+  [applyRefactDescriptor "applyrefact"
+  ,example2Descriptor "eg2"
+  ,ghcmodDescriptor "ghcmod"
+  ,hareDescriptor "hare"
+  ,baseDescriptor "base"
   ]
 
 startServer :: IO (TChan (PluginRequest IO), TChan LogVal, ThreadId)
@@ -213,7 +213,7 @@ funcSpec = describe "functional dispatch" $ do
           DocumentSymbol mainName _ mainKind _ mainRange _ _ = head ds 
       mainName `shouldBe` "main"
       mainKind `shouldBe` SkFunction
-      mainRange `shouldBe` Range (Position 2 0) (Position 2 4)
+      mainRange `shouldBe` Range (Position 2 0) (Position 2 23)
 
       -- followed by the diagnostics ...
       ("req2",Right res2) <- atomically $ readTChan logChan

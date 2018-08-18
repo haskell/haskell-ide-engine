@@ -30,6 +30,7 @@ data CachedModule = CachedModule
   , locMap         :: !LocMap
   , typeMap        :: !TypeMap
   , moduleMap      :: !ModuleMap
+  , defMap         :: !DefMap
   , revMap         :: !(FilePath -> FilePath)
   , newPosToOld    :: !(Position -> Maybe Position)
   , oldPosToNew    :: !(Position -> Maybe Position)
