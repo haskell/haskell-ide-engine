@@ -573,7 +573,12 @@ extractHoleSubstitutions diag
     nameAndSig t = FunctionSig extractName extractSig
       where
         extractName = T.strip . fst . T.breakOn "::" $ t
-        extractSig = TypeDef . T.strip . keepAfter "::" $ t
+        extractSig = TypeDef
+                   . T.strip
+                   . fst
+                   . T.breakOn "(bound at"
+                   . keepAfter "::"
+                   $ t
 
 -- ---------------------------------------------------------------------
 

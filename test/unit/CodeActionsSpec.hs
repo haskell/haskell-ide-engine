@@ -52,7 +52,7 @@ spec = do
       let msg = "• Variable not in scope:\n    forM_ :: [CodeAction] -> (s0 -> Expectation) -> IO a0\n• Perhaps you meant ‘iforM_’ (imported from Control.Lens)"
         in extractRenamableTerms msg `shouldBe` ["iforM_"]
   
-  describe "typed holes" $
+  describe "typed holes" $ do
     it "picks them up" $ do
       msg <- T.readFile "test/testdata/typedHoleDiag.txt"
       let substitutions = ValidSubstitutions [ FunctionSig "Nothing" (TypeDef "forall a. Maybe a")
@@ -67,6 +67,18 @@ spec = do
                               ]
 
           expected = Just (TypeDef "Maybe T.Text", substitutions, bindings)
+      extractHoleSubstitutions msg `shouldBe` expected
+
+    it "removes bound at" $ do
+      msg <- T.readFile "test/testdata/typedHoleDiag2.txt"
+      let substitutions = ValidSubstitutions [FunctionSig "undefined" (TypeDef "forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a")]
+
+          bindings = Bindings [ FunctionSig "stuff" (TypeDef "A -> A")
+                              , FunctionSig "x" (TypeDef "[A]")
+                              , FunctionSig "foo2" (TypeDef "[A] -> A")
+                              ]
+
+          expected = Just (TypeDef "A", substitutions, bindings)
       extractHoleSubstitutions msg `shouldBe` expected
 
   describe "missing package code actions" $ do
