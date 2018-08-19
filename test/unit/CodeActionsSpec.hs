@@ -55,7 +55,19 @@ spec = do
   describe "typed holes" $
     it "picks them up" $ do
       msg <- T.readFile "test/testdata/typedHoleDiag.txt"
-      extractHoleSubstitutions msg `shouldBe` ["Nothing", "mempty", "undefined", "GM.mzero"]
+      let substitutions = ValidSubstitutions [ FunctionSig "Nothing" (TypeDef "forall a. Maybe a")
+                                             , FunctionSig "mempty" (TypeDef "forall a. Monoid a => a")
+                                             , FunctionSig "undefined" (TypeDef "forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a")
+                                             , FunctionSig "GM.mzero" (TypeDef "forall (m :: * -> *). GM.MonadPlus m => forall a. m a")
+                                             ]
+
+
+          bindings = Bindings [ FunctionSig "diag" (TypeDef "T.Text")
+                              , FunctionSig "extractHoles" (TypeDef "T.Text -> Maybe T.Text")
+                              ]
+
+          expected = Just (TypeDef "Maybe T.Text", substitutions, bindings)
+      extractHoleSubstitutions msg `shouldBe` expected
 
   describe "missing package code actions" $ do
     it "pick up relevant messages" $ 

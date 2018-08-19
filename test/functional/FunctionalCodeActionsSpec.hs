@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module CodeActionsSpec where
+module FunctionalCodeActionsSpec where
 
 import Control.Applicative.Combinators
 import Control.Lens hiding (List)
@@ -210,8 +210,8 @@ spec = describe "code actions" $ do
         \import Data.Maybe\n\
         \foo :: Int\n\
         \foo = fromJust (Just 3)\n"
-  
-  describe "typed hole code actions" $ 
+
+  describe "typed hole code actions" $ do
       it "works" $ when ghc84 $
         runSession hieCommand fullCaps "test/testdata" $ do
           doc <- openDoc "TypedHoles.hs" "haskell"
@@ -219,9 +219,9 @@ spec = describe "code actions" $ do
           cas <- map (\(CACodeAction x)-> x) <$> getAllCodeActions doc
 
           liftIO $ map (^. title) cas `shouldMatchList`
-            [ "Substitute with undefined"
-            , "Substitute with maxBound"
-            , "Substitute with minBound"
+            [ "Substitute hole (Int) with undefined (forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a)"
+            , "Substitute hole (Int) with maxBound (forall a. Bounded a => a)"
+            , "Substitute hole (Int) with minBound (forall a. Bounded a => a)"
             ]
 
           executeCodeAction $ head cas
@@ -232,6 +232,31 @@ spec = describe "code actions" $ do
             "module TypedHoles where\n\
             \foo :: [Int] -> Int\n\
             \foo x = maxBound"
+
+      it "shows more suggestions" $ when ghc84 $
+        runSession hieCommand fullCaps "test/testdata" $ do
+          doc <- openDoc "TypedHoles2.hs" "haskell"
+          _ <- waitForDiagnosticsSource "ghcmod"
+          cas <- map (\(CACodeAction x)-> x) <$> getAllCodeActions doc
+
+          liftIO $ map (^. title) cas `shouldMatchList`
+            [ "Substitute hole (A) with undefined (forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a)"
+            , "Substitute hole (A) with stuff (A -> A)"
+            , "Substitute hole (A) with x ([A])"
+            , "Substitute hole (A) with foo2 ([A] -> A)"
+            ]
+
+          executeCodeAction $ head cas
+
+          contents <- documentContents doc
+
+          liftIO $ contents `shouldBe`
+            "module TypedHoles2 (foo2) where\n\
+            \newtype A = A Int\n\
+            \foo2 :: [A] -> A\n\
+            \foo2 x = undefined\n\
+            \  where\n\
+            \    stuff (A a) = A (a + 1)\n"
 
 fromAction :: CAResult -> CodeAction
 fromAction (CACodeAction action) = action
