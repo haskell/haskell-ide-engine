@@ -81,6 +81,25 @@ spec = do
           expected = Just (TypeDef "A", substitutions, bindings)
       extractHoleSubstitutions msg `shouldBe` expected
 
+    it "tolerates long signatures" $ do
+      msg <- T.readFile "test/testdata/typedHoleDiag3.txt"
+      let substitutions = ValidSubstitutions [ FunctionSig "mempty" (TypeDef "forall a. Monoid a => a")
+                                             , FunctionSig "undefined" (TypeDef "forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a")
+                                             , FunctionSig "idm" (TypeDef "forall m. Monoid m => m")
+                                             ]
+          longSig = "Either Language.Docker.Parser.Error Dockerfile -> Either Language.Docker.Parser.Error [Rules.RuleCheck]"
+          longSig2 = "[IgnoreRule] -> t -> IO (Either Language.Docker.Parser.Error [Rules.RuleCheck])"
+          bindings = Bindings [ FunctionSig "processedFile" (TypeDef longSig)
+                              , FunctionSig "processRules" (TypeDef "Dockerfile -> [Rules.RuleCheck]")
+                              , FunctionSig "ignoredRules" (TypeDef "Rules.RuleCheck -> Bool")
+                              , FunctionSig "dockerFile" (TypeDef "t")
+                              , FunctionSig "ignoreRules" (TypeDef "[IgnoreRule]")
+                              , FunctionSig "lintDockerfile" (TypeDef longSig2)
+                              ]
+
+          expected = Just (TypeDef "t -> FilePath", substitutions, bindings)
+      extractHoleSubstitutions msg `shouldBe` expected
+
   describe "missing package code actions" $ do
     it "pick up relevant messages" $ 
       let msg = "Could not find module ‘Foo.Bar’\n      Use -v to see a list of the files searched for."

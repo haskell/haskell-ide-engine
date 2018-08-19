@@ -530,7 +530,8 @@ extractHoleSubstitutions diag
           (foundHole, expr) = T.breakOn "In the expression:" header
           expectedType = TypeDef
                        . T.strip
-                       . T.takeWhile (/= '•')
+                       . fst
+                       . T.breakOn "\n"
                        . keepAfter "::"
                        $ foundHole
           bindingsBlock = T.dropWhile (== '\n')
@@ -561,8 +562,8 @@ extractHoleSubstitutions diag
     countSpaces = T.length . T.takeWhile (== ' ')
 
     groupSignatures indentSize acc line
-      | countSpaces line == indentSize && acc /= T.empty = (T.strip line, Just acc)
       | "(" `T.isPrefixOf` T.strip line = (acc, Nothing)
+      | countSpaces line == indentSize && acc /= T.empty = (T.strip line, Just acc)
       | otherwise = (acc <> " " <> T.strip line, Nothing)
 
     gatherLastGroup :: (T.Text, [Maybe T.Text]) -> [Maybe T.Text]
