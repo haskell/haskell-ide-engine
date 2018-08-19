@@ -1,7 +1,7 @@
 defaults: &defaults
   working_directory: ~/build
   docker:
-    - image: quay.io/haskell_works/stack-build-icu
+    - image: alanz/haskell-hie-ci
   steps:
     - checkout
     - run:
