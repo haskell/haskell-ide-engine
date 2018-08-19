@@ -16,11 +16,13 @@ import qualified Data.Set                      as S
 import qualified Data.Text                     as T
 import qualified Data.Text.IO                  as T
 import           GHC.Generics
+import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes hiding (_range)
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Language.Haskell.LSP.Types as J
 import           System.Directory
 import           System.FilePath
+import           System.Process
 import           Text.Parsec
 import           Text.Parsec.Text
 
@@ -107,8 +109,22 @@ diagnosticProvider trigger uri = do
 
 -- ---------------------------------------------------------------------
 
-runLiquidHaskell = do
-  return []
+runLiquidHaskell :: FilePath -> IO [String]
+runLiquidHaskell fp = do
+  mexe <- findExecutable "liquid"
+  case mexe of
+    Nothing -> return []
+    Just lh -> do
+      -- TODO:The unset command is unlikely to work on anything but linux
+      --      But putting quotes around the fp to help windows users with
+      --      spaces in paths
+      let cmd = "unset GHC_PACKAGE_PATH;" ++ lh ++ " --json \"" ++ fp ++ "\""
+          dir = takeDirectory fp
+          cp = (shell cmd) { cwd = Just dir }
+      logm $ "runLiquidHaskell:cmd=[" ++ cmd ++ "]"
+      (ec,o,e) <- readCreateProcessWithExitCode cp ""
+      logm $ "runLiquidHaskell:v=" ++ show (ec,o,e)
+      return [cmd,show ec,o,e]
 
 -- ---------------------------------------------------------------------
 
