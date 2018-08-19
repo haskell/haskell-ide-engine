@@ -113,7 +113,7 @@ spec = do
         -- uri = filePathToUri fp
       r <- runLiquidHaskell fp
       r `shouldBe`
-         ["unset GHC_PACKAGE_PATH;/home/alanz/.cabal/bin/liquid --json \"/home/alanz/mysrc/github/alanz/haskell-ide-engine/test/testdata/liquid/Evens.hs\""
+         ["/home/alanz/.cabal/bin/liquid --json \"/home/alanz/mysrc/github/alanz/haskell-ide-engine/test/testdata/liquid/Evens.hs\""
          ,"ExitFailure 1"
          ,"RESULT\n[{\"start\":{\"line\":9,\"column\":1},\"stop\":{\"line\":9,\"column\":8},\"message\":\"Error: Liquid Type Mismatch\\n  Inferred type\\n    VV : {v : Int | v == (7 : int)}\\n \\n  not a subtype of Required type\\n    VV : {VV : Int | VV mod 2 == 0}\\n \\n  In Context\"}]\n"
          ,""]

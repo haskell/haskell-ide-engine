@@ -6,6 +6,7 @@ module Haskell.Ide.Engine.Plugin.Liquid where
 
 import           Control.Monad
 import           Control.Monad.IO.Class
+import           Control.Exception (bracket)
 #if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
 #endif
@@ -23,6 +24,7 @@ import qualified Language.Haskell.LSP.Types as J
 import           System.Directory
 import           System.FilePath
 import           System.Process
+import           System.Environment
 import           Text.Parsec
 import           Text.Parsec.Text
 
@@ -115,14 +117,17 @@ runLiquidHaskell fp = do
   case mexe of
     Nothing -> return []
     Just lh -> do
-      -- TODO:The unset command is unlikely to work on anything but linux
-      --      But putting quotes around the fp to help windows users with
-      --      spaces in paths
-      let cmd = "unset GHC_PACKAGE_PATH;" ++ lh ++ " --json \"" ++ fp ++ "\""
+      -- Putting quotes around the fp to help windows users with
+      -- spaces in paths
+      let cmd = lh ++ " --json \"" ++ fp ++ "\""
           dir = takeDirectory fp
           cp = (shell cmd) { cwd = Just dir }
       logm $ "runLiquidHaskell:cmd=[" ++ cmd ++ "]"
-      (ec,o,e) <- readCreateProcessWithExitCode cp ""
+      mpp <- lookupEnv "GHC_PACKAGE_PATH"
+      (ec,o,e) <- bracket
+        (unsetEnv "GHC_PACKAGE_PATH")
+        (\_ -> mapM_ (setEnv "GHC_PACKAGE_PATH") mpp)
+        (\_ -> readCreateProcessWithExitCode cp "")
       logm $ "runLiquidHaskell:v=" ++ show (ec,o,e)
       return [cmd,show ec,o,e]
 
