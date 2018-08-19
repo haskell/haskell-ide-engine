@@ -1,3 +1,5 @@
+# This file is outdated. Newer doc is [here](https://github.com/haskell/haskell-ide-engine/blob/master/docs/Architecture.md)
+
 ## This file is intended to capture the design as it evolves
 
 At this point it is nothing but a sketch, to try and capture the things the may have been agreed so far.
