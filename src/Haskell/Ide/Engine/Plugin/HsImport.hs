@@ -105,8 +105,9 @@ codeActionProvider plId docId _ _ context = do
 
 extractImportableTerm :: T.Text -> Maybe T.Text
 extractImportableTerm dirtyMsg = T.strip <$> asum
-  [T.stripPrefix "Variable not in scope: " msg,
-  T.init <$> T.stripPrefix "Not in scope: type constructor or class ‘" msg]
+  [ T.stripPrefix "Variable not in scope: " msg
+  , T.init <$> T.stripPrefix "Not in scope: type constructor or class ‘" msg
+  , T.stripPrefix "Data constructor not in scope: " msg]
   where msg = head
               -- Get rid of the rename suggestion parts
               $ T.splitOn "Perhaps you meant "

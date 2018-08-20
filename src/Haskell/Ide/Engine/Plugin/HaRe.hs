@@ -6,6 +6,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Haskell.Ide.Engine.Plugin.HaRe where
 
+import           Control.Lens.Operators
 import           Control.Monad.State
 import           Control.Monad.Trans.Control
 import           Data.Aeson
@@ -27,8 +28,10 @@ import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
+import qualified Haskell.Ide.Engine.Plugin.HieExtras          as Hie
 import           Language.Haskell.GHC.ExactPrint.Print
 import qualified Language.Haskell.LSP.Core                    as Core
+import qualified Language.Haskell.LSP.Types                   as J
 import           Language.Haskell.Refact.API                  hiding (logm)
 import           Language.Haskell.Refact.HaRe
 import           Language.Haskell.Refact.Utils.Monad          hiding (logm)
@@ -61,7 +64,7 @@ hareDescriptor plId = PluginDescriptor
       , PluginCommand "genapplicative" "Generalise a monadic function to use applicative"
           genApplicativeCommand
       ]
-  , pluginCodeActionProvider = Nothing
+  , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Nothing
   , pluginSymbolProvider = Nothing
@@ -285,3 +288,53 @@ hoist f a =
               in pure c) >>=
   restoreT
 
+-- ---------------------------------------------------------------------
+
+codeActionProvider :: CodeActionProvider
+codeActionProvider pId docId _ (J.Range pos _) _ =
+  pluginGetFile "HaRe codeActionProvider: " (docId ^. J.uri) $ \file ->
+    withCachedModule file (IdeResultOk mempty) $ \cm -> do
+      let symbols = getArtifactsAtPos pos (defMap cm)
+      debugm $ show $ map (Hie.showName . snd) symbols
+      if not (null symbols)
+        then
+          let name = Hie.showName $ snd $ head symbols
+            in IdeResultOk <$> sequence [
+              mkLiftOneAction name
+            , mkLiftTopAction name
+            , mkDemoteAction name
+            , mkDeleteAction name
+            , mkDuplicateAction name
+            ]
+        else return (IdeResultOk [])
+
+  where
+    mkLiftOneAction name = do
+      let args = [J.toJSON $ HP (docId ^. J.uri) pos]
+          title = "Lift " <> name <> " one level"
+      liftCmd <- mkLspCommand pId "liftonelevel" title (Just args)
+      return $ J.CodeAction title (Just J.CodeActionRefactorExtract) mempty Nothing (Just liftCmd)
+
+    mkLiftTopAction name = do
+      let args = [J.toJSON $ HP (docId ^. J.uri) pos]
+          title = "Lift " <> name <> " to top level"
+      liftCmd <- mkLspCommand pId "lifttotoplevel" title (Just args)
+      return $ J.CodeAction title (Just J.CodeActionRefactorExtract) mempty Nothing (Just liftCmd)
+
+    mkDemoteAction name = do
+      let args = [J.toJSON $ HP (docId ^. J.uri) pos]
+          title = "Demote " <> name <> " one level"
+      demCmd <- mkLspCommand pId "demote" title (Just args)
+      return $ J.CodeAction title (Just J.CodeActionRefactorInline) mempty Nothing (Just demCmd)
+
+    mkDeleteAction name = do
+      let args = [J.toJSON $ HP (docId ^. J.uri) pos]
+          title = "Delete definition of " <> name
+      delCmd <- mkLspCommand pId "deletedef" title (Just args)
+      return $ J.CodeAction title (Just J.CodeActionRefactor) mempty Nothing (Just delCmd)
+
+    mkDuplicateAction name = do
+      let args = [J.toJSON $ HPT (docId ^. J.uri) pos (name <> "'")]
+          title = "Duplicate definition of " <> name
+      dupCmd <- mkLspCommand pId "dupdef" title (Just args)
+      return $ J.CodeAction title (Just J.CodeActionRefactor) mempty Nothing (Just dupCmd)
