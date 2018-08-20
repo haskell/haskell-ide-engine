@@ -17,6 +17,7 @@ import qualified Language.Haskell.LSP.Types as LSP
 import qualified Language.Haskell.LSP.Types.Capabilities as C
 import Test.Hspec
 import TestUtils
+import Data.Semigroup
 
 spec :: Spec
 spec = describe "code actions" $ do
@@ -212,17 +213,26 @@ spec = describe "code actions" $ do
         \foo = fromJust (Just 3)\n"
 
   describe "typed hole code actions" $ do
-      it "works" $ when ghc84 $
+      it "works" $
         runSession hieCommand fullCaps "test/testdata" $ do
           doc <- openDoc "TypedHoles.hs" "haskell"
           _ <- waitForDiagnosticsSource "ghcmod"
           cas <- map (\(CACodeAction x)-> x) <$> getAllCodeActions doc
 
-          liftIO $ map (^. title) cas `shouldMatchList`
-            [ "Substitute hole (Int) with undefined (forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a)"
-            , "Substitute hole (Int) with maxBound (forall a. Bounded a => a)"
-            , "Substitute hole (Int) with minBound (forall a. Bounded a => a)"
-            ]
+          suggestion <-
+            if ghc84 then do
+              liftIO $ map (^. title) cas `shouldMatchList`
+                [ "Substitute hole (Int) with maxBound (forall a. Bounded a => a)"
+                , "Substitute hole (Int) with minBound (forall a. Bounded a => a)"
+                , "Substitute hole (Int) with undefined (forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a)"
+                ]
+              return "maxBound"
+            else do
+              liftIO $ map (^. title) cas `shouldMatchList`
+                [ "Substitute hole (Int) with x ([Int])"
+                , "Substitute hole (Int) with foo ([Int] -> Int)"
+                ]
+              return "x"
 
           executeCodeAction $ head cas
 
@@ -231,20 +241,30 @@ spec = describe "code actions" $ do
           liftIO $ contents `shouldBe`
             "module TypedHoles where\n\
             \foo :: [Int] -> Int\n\
-            \foo x = maxBound"
+            \foo x = " <> suggestion
 
-      it "shows more suggestions" $ when ghc84 $
+      it "shows more suggestions" $
         runSession hieCommand fullCaps "test/testdata" $ do
           doc <- openDoc "TypedHoles2.hs" "haskell"
           _ <- waitForDiagnosticsSource "ghcmod"
           cas <- map (\(CACodeAction x)-> x) <$> getAllCodeActions doc
 
-          liftIO $ map (^. title) cas `shouldMatchList`
-            [ "Substitute hole (A) with undefined (forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a)"
-            , "Substitute hole (A) with stuff (A -> A)"
-            , "Substitute hole (A) with x ([A])"
-            , "Substitute hole (A) with foo2 ([A] -> A)"
-            ]
+          suggestion <-
+            if ghc84 then do
+              liftIO $ map (^. title) cas `shouldMatchList`
+                [ "Substitute hole (A) with undefined (forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a)"
+                , "Substitute hole (A) with stuff (A -> A)"
+                , "Substitute hole (A) with x ([A])"
+                , "Substitute hole (A) with foo2 ([A] -> A)"
+                ]
+              return "undefined"
+          else do
+              liftIO $ map (^. title) cas `shouldMatchList`
+                [ "Substitute hole (A) with stuff (A -> A)"
+                , "Substitute hole (A) with x ([A])"
+                , "Substitute hole (A) with foo2 ([A] -> A)"
+                ]
+              return "stuff"
 
           executeCodeAction $ head cas
 
@@ -254,7 +274,7 @@ spec = describe "code actions" $ do
             "module TypedHoles2 (foo2) where\n\
             \newtype A = A Int\n\
             \foo2 :: [A] -> A\n\
-            \foo2 x = undefined\n\
+            \foo2 x = " <> suggestion <> "\n\
             \  where\n\
             \    stuff (A a) = A (a + 1)\n"
 
