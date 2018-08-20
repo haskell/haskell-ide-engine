@@ -389,9 +389,27 @@ runGhcModCommand cmd =
 
 -- ---------------------------------------------------------------------
 
+newtype TypeDef = TypeDef T.Text deriving (Eq, Show)
+
+data FunctionSig =
+  FunctionSig { fsName :: !T.Text
+              , fsType :: !TypeDef
+              } deriving (Eq, Show)
+
+newtype ValidSubstitutions = ValidSubstitutions [FunctionSig] deriving (Eq, Show)
+
+newtype Bindings = Bindings [FunctionSig] deriving (Eq, Show)
+
+data TypedHoles =
+  TypedHoles { thDiag :: LSP.Diagnostic
+             , thWant :: TypeDef
+             , thSubstitutions :: ValidSubstitutions
+             , thBIndings :: Bindings
+             } deriving (Eq, Show)
+
 codeActionProvider :: CodeActionProvider
 codeActionProvider pid docId mfp r ctx = do
-  support <- clientSupportsDocumentChanges 
+  support <- clientSupportsDocumentChanges
   codeActionProvider' support pid docId mfp r ctx
 
 codeActionProvider' :: Bool -> CodeActionProvider
@@ -401,7 +419,7 @@ codeActionProvider' supportsDocChanges _ docId _ _ context =
       renameActions = map (uncurry mkRenamableAction) terms
       redundantTerms = mapMaybe getRedundantImports diags
       redundantActions = concatMap (uncurry mkRedundantImportActions) redundantTerms
-      typedHoleActions = map (uncurry mkTypedHoleAction) (concatMap getTypedHoles diags)
+      typedHoleActions = concatMap mkTypedHoleActions (mapMaybe getTypedHoles diags)
   in return $ IdeResponseOk (renameActions ++ redundantActions ++ typedHoleActions)
 
   where
@@ -457,18 +475,30 @@ codeActionProvider' supportsDocChanges _ docId _ _ context =
     getRedundantImports diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractRedundantImport msg
     getRedundantImports _ = Nothing
 
-    mkTypedHoleAction :: LSP.Diagnostic -> T.Text -> LSP.CodeAction
-    mkTypedHoleAction diag sub = codeAction
-      where title = "Substitute with " <> sub
-            diags = LSP.List [diag]
-            edit = mkWorkspaceEdit [LSP.TextEdit (diag ^. LSP.range) sub]
-            kind = LSP.CodeActionQuickFix
-            codeAction = LSP.CodeAction title (Just kind) (Just diags) (Just edit) Nothing
+    mkTypedHoleActions :: TypedHoles -> [LSP.CodeAction]
+    mkTypedHoleActions (TypedHoles diag (TypeDef want) (ValidSubstitutions subs) (Bindings bindings))
+      | onlyErrorFuncs = substitutions <> suggestions
+      | otherwise = substitutions
+      where
+        onlyErrorFuncs = null
+                       $ (map fsName subs) \\ ["undefined", "error", "errorWithoutStackTrace"]
+        substitutions = map mkHoleAction subs
+        suggestions = map mkHoleAction bindings
+        mkHoleAction (FunctionSig name (TypeDef sig)) = codeAction
+          where title :: T.Text
+                title = "Substitute hole (" <> want <> ") with " <> name <> " (" <> sig <> ")"
+                diags = LSP.List [diag]
+                edit = mkWorkspaceEdit [LSP.TextEdit (diag ^. LSP.range) name]
+                kind = LSP.CodeActionQuickFix
+                codeAction = LSP.CodeAction title (Just kind) (Just diags) (Just edit) Nothing
 
 
-    getTypedHoles :: LSP.Diagnostic -> [(LSP.Diagnostic, T.Text)]
-    getTypedHoles diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) = map (diag,) $ extractHoleSubstitutions msg
-    getTypedHoles _ = []
+    getTypedHoles :: LSP.Diagnostic -> Maybe TypedHoles
+    getTypedHoles diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) =
+      case extractHoleSubstitutions msg of
+        Nothing -> Nothing
+        Just (want, subs, bindings) -> Just $ TypedHoles diag want subs bindings
+    getTypedHoles _ = Nothing
 
 extractRenamableTerms :: T.Text -> [T.Text]
 extractRenamableTerms msg
@@ -479,7 +509,7 @@ extractRenamableTerms msg
         -- Extract everything in between ‘ ’
         go t
           | t == "" = []
-          | "‘" `T.isPrefixOf` t = 
+          | "‘" `T.isPrefixOf` t =
             let rest = T.tail t
                 x = T.takeWhile (/= '’') rest
               in x:go rest
@@ -493,12 +523,63 @@ extractRedundantImport msg =
     else Nothing
   where firstLine = head (T.lines msg)
 
-extractHoleSubstitutions :: T.Text -> [T.Text]
+extractHoleSubstitutions :: T.Text -> Maybe (TypeDef, ValidSubstitutions, Bindings)
 extractHoleSubstitutions diag
   | "Found hole:" `T.isInfixOf` diag =
-      let ls = T.lines $ snd $ T.breakOnEnd "Valid substitutions include" diag
-        in map (T.strip . fst . T.breakOn " ::") $ filter (T.isInfixOf "::") ls
-  | otherwise = mempty
+      let (header, subsBlock) = T.breakOn "Valid substitutions include" diag
+          (foundHole, expr) = T.breakOn "In the expression:" header
+          expectedType = TypeDef
+                       . T.strip
+                       . fst
+                       . T.breakOn "\n"
+                       . keepAfter "::"
+                       $ foundHole
+          bindingsBlock = T.dropWhile (== '\n')
+                        . keepAfter "Relevant bindings include"
+                        $ expr
+          substitutions = extractSignatures
+                        . T.dropWhile (== '\n')
+                        . fromMaybe ""
+                        . T.stripPrefix "Valid substitutions include"
+                        $ subsBlock
+          bindings = extractSignatures bindingsBlock
+      in Just (expectedType, ValidSubstitutions substitutions, Bindings bindings)
+  | otherwise = Nothing
+  where
+    keepAfter prefix = fromMaybe ""
+                     . T.stripPrefix prefix
+                     . snd
+                     . T.breakOn prefix
+
+    extractSignatures :: T.Text -> [FunctionSig]
+    extractSignatures tBlock = map nameAndSig
+                              . catMaybes
+                              . gatherLastGroup
+                              . mapAccumL (groupSignatures (countSpaces tBlock)) T.empty
+                              . T.lines
+                              $ tBlock
+
+    countSpaces = T.length . T.takeWhile (== ' ')
+
+    groupSignatures indentSize acc line
+      | "(" `T.isPrefixOf` T.strip line = (acc, Nothing)
+      | countSpaces line == indentSize && acc /= T.empty = (T.strip line, Just acc)
+      | otherwise = (acc <> " " <> T.strip line, Nothing)
+
+    gatherLastGroup :: (T.Text, [Maybe T.Text]) -> [Maybe T.Text]
+    gatherLastGroup ("", groupped) = groupped
+    gatherLastGroup (lastGroup, groupped) = groupped ++ [Just lastGroup]
+
+    nameAndSig :: T.Text -> FunctionSig
+    nameAndSig t = FunctionSig extractName extractSig
+      where
+        extractName = T.strip . fst . T.breakOn "::" $ t
+        extractSig = TypeDef
+                   . T.strip
+                   . fst
+                   . T.breakOn "(bound at"
+                   . keepAfter "::"
+                   $ t
 
 -- ---------------------------------------------------------------------
 
