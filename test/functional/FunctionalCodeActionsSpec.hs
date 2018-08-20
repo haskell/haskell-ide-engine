@@ -17,7 +17,7 @@ import qualified Language.Haskell.LSP.Types as LSP
 import qualified Language.Haskell.LSP.Types.Capabilities as C
 import Test.Hspec
 import TestUtils
-import Data.Semigroup
+import Data.Monoid ((<>))
 
 spec :: Spec
 spec = describe "code actions" $ do
