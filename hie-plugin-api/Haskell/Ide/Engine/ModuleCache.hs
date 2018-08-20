@@ -109,8 +109,7 @@ isCached uri = do
 
 -- | Version of `withCachedModuleAndData` that doesn't provide
 -- any extra cached data.
-withCachedModule :: FilePath -> IdeResult b
-                 -> (CachedModule -> IdeM (IdeResult b)) -> IdeM (IdeResult b)
+withCachedModule :: FilePath -> a -> (CachedModule -> IdeM a) -> IdeM a
 withCachedModule fp def callback = FreeT (return (Free (IdeDefer fp go)))
   where go UriCache{cachedModule = cm} = callback cm
         go _ = return def
@@ -123,9 +122,9 @@ withCachedModule fp def callback = FreeT (return (Free (IdeDefer fp go)))
 -- invalidated when a new CachedModule is loaded.
 -- If the data doesn't exist in the cache, new data is generated
 -- using by calling the `cacheDataProducer` function.
-withCachedModuleAndData :: forall a b. ModuleCache a
-                        => FilePath -> IdeResult b
-                        -> (CachedModule -> a -> IdeM (IdeResult b)) -> IdeM (IdeResult b)
+withCachedModuleAndData :: forall a. ModuleCache a
+                        => FilePath -> a
+                        -> (CachedModule -> a -> IdeM a) -> IdeM a
 withCachedModuleAndData fp def callback =
   FreeT (return (Free (IdeDefer fp go)))
   where go (UriCacheFailed _) = return def
