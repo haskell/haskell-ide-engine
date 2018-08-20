@@ -1,7 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE NamedFieldPuns #-}
 module Haskell.Ide.Engine.ModuleCache where
 
 import           Control.Monad
@@ -95,7 +94,7 @@ getCachedModule uri = do
   maybeUriCache <- fmap (Map.lookup uri' . uriCaches) getModuleCache
   return $ case maybeUriCache of
     Nothing -> ModuleLoading
-    Just UriCache {cachedModule, isStale} -> ModuleCached cachedModule isStale
+    Just uriCache@UriCache {} -> ModuleCached (cachedModule uriCache) (isStale uriCache)
     Just (UriCacheFailed err) -> ModuleFailed err
 
 -- | Returns true if there is a CachedModule for a given URI
