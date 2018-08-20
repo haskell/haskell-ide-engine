@@ -1,10 +1,10 @@
 module Main where
 
 import Test.Hspec
-import qualified Spec
+import qualified FunctionalSpec
 import TestUtils
 
 main :: IO ()
 main = do
   setupStackFiles
-  withFileLogging "functional.log" $ hspec Spec.spec
+  withFileLogging "functional.log" $ hspec FunctionalSpec.spec

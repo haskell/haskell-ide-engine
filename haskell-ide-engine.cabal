@@ -245,18 +245,18 @@ test-suite func-test
   main-is:             Main.hs
   other-modules:       CompletionSpec
                      , CommandSpec
-                     , CodeActionsSpec
                      , DeferredSpec
                      , DefinitionSpec
                      , DiagnosticsSpec
                      , FormatSpec
+                     , FunctionalCodeActionsSpec
+                     , FunctionalSpec
                      , HaReSpec
                      , HighlightSpec
                      , HoverSpec
                      , ReferencesSpec
                      , RenameSpec
                      , SymbolsSpec
-                     , Spec
 
                      , TestUtils
   build-depends:       aeson

@@ -25,6 +25,9 @@ spec = do
     it "pick up when" $
       let msg = "Variable not in scope: when :: Bool -> IO () -> t"
         in extractImportableTerm msg `shouldBe` Just "when :: Bool -> IO () -> t"
+    it "pick up data constructors" $
+      let msg = "Data constructor not in scope: ExitFailure :: Integer -> t"
+        in extractImportableTerm msg `shouldBe` Just "ExitFailure :: Integer -> t"
 
   describe "rename code actions" $ do
     it "pick up variable not in scope perhaps you meant" $
@@ -52,10 +55,53 @@ spec = do
       let msg = "• Variable not in scope:\n    forM_ :: [CodeAction] -> (s0 -> Expectation) -> IO a0\n• Perhaps you meant ‘iforM_’ (imported from Control.Lens)"
         in extractRenamableTerms msg `shouldBe` ["iforM_"]
   
-  describe "typed holes" $
+  describe "typed holes" $ do
     it "picks them up" $ do
       msg <- T.readFile "test/testdata/typedHoleDiag.txt"
-      extractHoleSubstitutions msg `shouldBe` ["Nothing", "mempty", "undefined", "GM.mzero"]
+      let substitutions = ValidSubstitutions [ FunctionSig "Nothing" (TypeDef "forall a. Maybe a")
+                                             , FunctionSig "mempty" (TypeDef "forall a. Monoid a => a")
+                                             , FunctionSig "undefined" (TypeDef "forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a")
+                                             , FunctionSig "GM.mzero" (TypeDef "forall (m :: * -> *). GM.MonadPlus m => forall a. m a")
+                                             ]
+
+
+          bindings = Bindings [ FunctionSig "diag" (TypeDef "T.Text")
+                              , FunctionSig "extractHoles" (TypeDef "T.Text -> Maybe T.Text")
+                              ]
+
+          expected = Just (TypeDef "Maybe T.Text", substitutions, bindings)
+      extractHoleSubstitutions msg `shouldBe` expected
+
+    it "removes bound at" $ do
+      msg <- T.readFile "test/testdata/typedHoleDiag2.txt"
+      let substitutions = ValidSubstitutions [FunctionSig "undefined" (TypeDef "forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a")]
+
+          bindings = Bindings [ FunctionSig "stuff" (TypeDef "A -> A")
+                              , FunctionSig "x" (TypeDef "[A]")
+                              , FunctionSig "foo2" (TypeDef "[A] -> A")
+                              ]
+
+          expected = Just (TypeDef "A", substitutions, bindings)
+      extractHoleSubstitutions msg `shouldBe` expected
+
+    it "tolerates long signatures" $ do
+      msg <- T.readFile "test/testdata/typedHoleDiag3.txt"
+      let substitutions = ValidSubstitutions [ FunctionSig "mempty" (TypeDef "forall a. Monoid a => a")
+                                             , FunctionSig "undefined" (TypeDef "forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a")
+                                             , FunctionSig "idm" (TypeDef "forall m. Monoid m => m")
+                                             ]
+          longSig = "Either Language.Docker.Parser.Error Dockerfile -> Either Language.Docker.Parser.Error [Rules.RuleCheck]"
+          longSig2 = "[IgnoreRule] -> t -> IO (Either Language.Docker.Parser.Error [Rules.RuleCheck])"
+          bindings = Bindings [ FunctionSig "processedFile" (TypeDef longSig)
+                              , FunctionSig "processRules" (TypeDef "Dockerfile -> [Rules.RuleCheck]")
+                              , FunctionSig "ignoredRules" (TypeDef "Rules.RuleCheck -> Bool")
+                              , FunctionSig "dockerFile" (TypeDef "t")
+                              , FunctionSig "ignoreRules" (TypeDef "[IgnoreRule]")
+                              , FunctionSig "lintDockerfile" (TypeDef longSig2)
+                              ]
+
+          expected = Just (TypeDef "t -> FilePath", substitutions, bindings)
+      extractHoleSubstitutions msg `shouldBe` expected
 
   describe "missing package code actions" $ do
     it "pick up relevant messages" $ 

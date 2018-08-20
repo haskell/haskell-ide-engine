@@ -36,6 +36,7 @@ we talk to clients.__
         - [2. Plugin layer](#2-plugin-layer)
         - [3. IDE interfacing layer](#3-ide-interfacing-layer)
     - [Documentation](#documentation)
+    - [Troubleshooting](#troubleshooting)
 
 ## Features
 
