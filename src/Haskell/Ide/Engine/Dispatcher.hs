@@ -80,20 +80,23 @@ mainDispatcher inChan ghcChan ideChan = forever $ do
     Left r ->
       atomically $ writeTChan ideChan r
 
-ideDispatcher :: forall void m. TVar IdeState -> J.ClientCapabilities -> DispatcherEnv -> ErrorHandler -> CallbackHandler m -> TChan (IdeRequest m) -> IO void
-ideDispatcher stateVar caps env errorHandler callbackHandler pin = flip runReaderT stateVar $ flip runReaderT caps $ forever $ do
-  debugm "ideDispatcher: top of loop"
-  (IdeRequest tn lid callback action) <- liftIO $ atomically $ readTChan pin
-  debugm $ "ideDispatcher: got request " ++ show tn ++ " with id: " ++ show lid
+ideDispatcher :: forall void m. TVar IdeState -> J.ClientCapabilities
+              -> DispatcherEnv -> ErrorHandler -> CallbackHandler m
+              -> TChan (IdeRequest m) -> IO void
+ideDispatcher stateVar caps env errorHandler callbackHandler pin = 
+  flip runReaderT stateVar $ flip runReaderT caps $ forever $ do
+    debugm "ideDispatcher: top of loop"
+    (IdeRequest tn lid callback action) <- liftIO $ atomically $ readTChan pin
+    debugm $ "ideDispatcher: got request " ++ show tn ++ " with id: " ++ show lid
 
-  iterT queueDeferred $
-    checkCancelled env lid errorHandler $ do
-      result <- action
-      checkCancelled env lid errorHandler $ liftIO $ do
-        completedReq env lid
-        case result of
-          IdeResultOk x -> callbackHandler callback x
-          IdeResultFail (IdeError _ msg _) -> errorHandler lid J.InternalError msg
+    iterT queueDeferred $
+      checkCancelled env lid errorHandler $ do
+        result <- action
+        checkCancelled env lid errorHandler $ liftIO $ do
+          completedReq env lid
+          case result of
+            IdeResultOk x -> callbackHandler callback x
+            IdeResultFail (IdeError _ msg _) -> errorHandler lid J.InternalError msg
 
   where queueDeferred (IdeDefer fp cacheCb) = do
           uri' <- liftIO $ canonicalizePath fp
