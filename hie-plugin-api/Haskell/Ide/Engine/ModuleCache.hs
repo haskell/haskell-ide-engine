@@ -109,7 +109,7 @@ isCached uri = do
 -- | Version of `withCachedModuleAndData` that doesn't provide
 -- any extra cached data.
 withCachedModule :: FilePath -> a -> (CachedModule -> IdeM a) -> IdeM a
-withCachedModule fp def callback = FreeT (return (Free (IdeDefer fp go)))
+withCachedModule fp def callback = wrap (IdeDefer fp go)
   where go UriCache{cachedModule = cm} = callback cm
         go _ = return def
 
@@ -124,8 +124,7 @@ withCachedModule fp def callback = FreeT (return (Free (IdeDefer fp go)))
 withCachedModuleAndData :: forall a b. ModuleCache a
                         => FilePath -> b
                         -> (CachedModule -> a -> IdeM b) -> IdeM b
-withCachedModuleAndData fp def callback =
-  FreeT (return (Free (IdeDefer fp go)))
+withCachedModuleAndData fp def callback = wrap (IdeDefer fp go)
   where go (UriCacheFailed _) = return def
         go UriCache{cachedModule = cm, cachedData = dat} = do
           fp' <- liftIO $ canonicalizePath fp
