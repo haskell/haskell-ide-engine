@@ -129,7 +129,7 @@ runLiquidHaskell fp = do
         (\_ -> mapM_ (setEnv "GHC_PACKAGE_PATH") mpp)
         (\_ -> readCreateProcessWithExitCode cp "")
       logm $ "runLiquidHaskell:v=" ++ show (ec,o,e)
-      return [cmd,show ec,o,e]
+      return [show ec,o,e]
 
 -- ---------------------------------------------------------------------
 
