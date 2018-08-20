@@ -83,8 +83,8 @@ codeActionProvider plId docId _ _ context = do
        let relaxedTerms = map (bimap id (head . T.words)) terms
        relaxedRes <- mapM (bimapM return Hoogle.searchModules) relaxedTerms
        relaxedActions <- catMaybes <$> mapM (uncurry mkImportAction) (concatTerms relaxedRes)
-       return $ IdeResponseOk relaxedActions
-     else return $ IdeResponseOk actions
+       return $ IdeResultOk relaxedActions
+     else return $ IdeResultOk actions
 
   where
     concatTerms = concatMap (\(d, ts) -> map (d,) ts)

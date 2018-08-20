@@ -401,7 +401,7 @@ codeActionProvider' supportsDocChanges _ docId _ _ context =
       renameActions = map (uncurry mkRenamableAction) terms
       redundantTerms = mapMaybe getRedundantImports diags
       redundantActions = concatMap (uncurry mkRedundantImportActions) redundantTerms
-  in return $ IdeResponseOk (renameActions ++ redundantActions)
+  in return $ IdeResultOk (renameActions ++ redundantActions)
 
   where
 
@@ -483,9 +483,9 @@ extractRedundantImport msg =
 -- ---------------------------------------------------------------------
 
 hoverProvider :: HoverProvider
-hoverProvider doc pos = runIdeResponseT $ do
-  info' <- IdeResponseT $ IdeResponseResult <$> newTypeCmd pos doc
-  names' <- IdeResponseT $ Hie.getSymbolsAtPoint doc pos
+hoverProvider doc pos = runIdeResultT $ do
+  info' <- IdeResultT $ newTypeCmd pos doc
+  names' <- IdeResultT $ Hie.getSymbolsAtPoint doc pos
   let
     f = (==) `on` (Hie.showName . snd)
     f' = compare `on` (Hie.showName . snd)
@@ -519,9 +519,9 @@ hoverProvider doc pos = runIdeResponseT $ do
 data Decl = Decl LSP.SymbolKind (Located RdrName) [Decl] SrcSpan
           | Import LSP.SymbolKind (Located ModuleName) [Decl] SrcSpan
 
-symbolProvider :: Uri -> IdeM (IdeResponse [LSP.DocumentSymbol])
-symbolProvider uri = pluginGetFileResponse "ghc-mod symbolProvider: " uri $
-  \file -> withCachedModule file fallback $ \cm -> do
+symbolProvider :: Uri -> IdeM (IdeResult [LSP.DocumentSymbol])
+symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
+  \file -> withCachedModule file (IdeResultOk []) $ \cm -> do
     let tm = tcMod cm
         hsMod = unLoc $ pm_parsed_source $ tm_parsed_module tm
         imports = hsmodImports hsMod
@@ -607,5 +607,4 @@ symbolProvider uri = pluginGetFileResponse "ghc-mod symbolProvider: " uri $
             _ -> return childrenSymbols
 
     symInfs <- concat <$> mapM declsToSymbolInf (imps ++ decls)
-    return $ IdeResponseOk symInfs
-  where fallback = IdeResponseOk []
+    return $ IdeResultOk symInfs

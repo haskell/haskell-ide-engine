@@ -1,12 +1,13 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NamedFieldPuns #-}
 module Haskell.Ide.Engine.ModuleCache where
 
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Control
-import qualified Data.Aeson as J
+import           Control.Monad.Trans.Free
 import           Data.Dynamic (toDyn, fromDynamic)
 import           Data.Generics (Proxy(..), typeRep, typeOf)
 import qualified Data.Map as Map
@@ -87,14 +88,14 @@ data CachedModuleResult = ModuleLoading
 type IsStale = Bool
 
 -- | looks up a CachedModule for a given URI
-getCachedModule :: (GM.MonadIO m, HasGhcModuleCache m)
+getCachedModule :: (MonadIO m, HasGhcModuleCache m)
                 => FilePath -> m CachedModuleResult
 getCachedModule uri = do
   uri' <- liftIO $ canonicalizePath uri
   maybeUriCache <- fmap (Map.lookup uri' . uriCaches) getModuleCache
   return $ case maybeUriCache of
     Nothing -> ModuleLoading
-    Just uriCache@(UriCache {}) -> ModuleCached (cachedModule uriCache) (isStale uriCache)
+    Just UriCache {cachedModule, isStale} -> ModuleCached cachedModule isStale
     Just (UriCacheFailed err) -> ModuleFailed err
 
 -- | Returns true if there is a CachedModule for a given URI
@@ -108,15 +109,11 @@ isCached uri = do
 
 -- | Version of `withCachedModuleAndData` that doesn't provide
 -- any extra cached data.
-withCachedModule :: FilePath -> IdeResponse b
-                 -> (CachedModule -> IdeM (IdeResponse b)) -> IdeM (IdeResponse b)
-withCachedModule uri def callback = do
-  mcm <- getCachedModule uri
-  uri' <- liftIO $ canonicalizePath uri
-  case mcm of
-    ModuleCached cm _ -> callback cm
-    ModuleLoading -> return $ IdeResponseDeferred uri' callback
-    ModuleFailed _ -> return def
+withCachedModule :: FilePath -> IdeResult b
+                 -> (CachedModule -> IdeM (IdeResult b)) -> IdeM (IdeResult b)
+withCachedModule fp def callback = FreeT (return (Free (IdeDefer fp go)))
+  where go UriCache{cachedModule = cm} = callback cm
+        go _ = return def
 
 -- | Calls its argument with the CachedModule for a given URI
 -- along with any data that might be stored in the ModuleCache.
@@ -127,36 +124,27 @@ withCachedModule uri def callback = do
 -- If the data doesn't exist in the cache, new data is generated
 -- using by calling the `cacheDataProducer` function.
 withCachedModuleAndData :: forall a b. ModuleCache a
-                        => FilePath -> (CachedModule -> a -> IdeM (IdeResponse b)) -> IdeM (IdeResponse b)
-withCachedModuleAndData uri callback = withCachedModuleAndDataDefault uri Nothing callback
-
-withCachedModuleAndDataDefault :: forall a b. ModuleCache a
-                        => FilePath -> Maybe (IdeResponse b)
-                        -> (CachedModule -> a -> IdeM (IdeResponse b)) -> IdeM (IdeResponse b)
-withCachedModuleAndDataDefault uri mdef callback = do
-  uri' <- liftIO $ canonicalizePath uri
-  mcache <- getModuleCache
-  let mc = (Map.lookup uri' . uriCaches) mcache
-  case mc of
-    Nothing -> return $ IdeResponseDeferred uri' $ \_ -> withCachedModuleAndData uri callback
-    Just (UriCacheFailed err) -> case mdef of
-      Nothing -> return $ IdeResponseFail (IdeError NoModuleAvailable err J.Null)
-      Just def -> return def
-    Just UriCache{cachedModule = cm, cachedData = dat} -> do
-      let proxy :: Proxy a
-          proxy = Proxy
-      a <- case Map.lookup (typeRep proxy) dat of
-             Nothing -> do
-               val <- cacheDataProducer cm
-               let dat' = Map.insert (typeOf val) (toDyn val) dat
-               modifyCache (\s -> s {uriCaches = Map.insert uri' (UriCache cm dat' False)
-                                                                 (uriCaches s)})
-               return val
-             Just x ->
-               case fromDynamic x of
-                 Just val -> return val
-                 Nothing  -> error "impossible"
-      callback cm a
+                        => FilePath -> IdeResult b
+                        -> (CachedModule -> a -> IdeM (IdeResult b)) -> IdeM (IdeResult b)
+withCachedModuleAndData fp def callback =
+  FreeT (return (Free (IdeDefer fp go)))
+  where go (UriCacheFailed _) = return def
+        go UriCache{cachedModule = cm, cachedData = dat} = do
+          fp' <- liftIO $ canonicalizePath fp
+          let proxy :: Proxy a
+              proxy = Proxy
+          a <- case Map.lookup (typeRep proxy) dat of
+                Nothing -> do
+                  val <- cacheDataProducer cm
+                  let dat' = Map.insert (typeOf val) (toDyn val) dat
+                  modifyCache (\s -> s {uriCaches = Map.insert fp' (UriCache cm dat' False)
+                                                              (uriCaches s)})
+                  return val
+                Just x ->
+                  case fromDynamic x of
+                    Just val -> return val
+                    Nothing  -> error "impossible"
+          callback cm a
 
 -- | Saves a module to the cache and executes any deferred
 -- responses waiting on that module.
@@ -164,16 +152,13 @@ cacheModule :: FilePath -> CachedModule -> IdeGhcM ()
 cacheModule uri cm = do
   uri' <- liftIO $ canonicalizePath uri
 
-  modifyCache (\gmc ->
-      gmc { uriCaches = Map.insert
-                          uri'
-                          (UriCache cm Map.empty False)
-                          (uriCaches gmc)
-          }
-    )
+  let uc = UriCache cm Map.empty False
+
+  modifyCache $ \gmc ->
+      gmc { uriCaches = Map.insert uri' uc (uriCaches gmc) }
 
   -- execute any queued actions for the module
-  runDeferredActions uri' (Right cm)
+  runDeferredActions uri' uc
 
 -- | Marks a module that it failed to load and triggers
 -- any deferred responses waiting on it
@@ -183,21 +168,23 @@ failModule fp err = do
 
   maybeUriCache <- fmap (Map.lookup fp' . uriCaches) getModuleCache
 
+  let uc = UriCacheFailed err
+
   case maybeUriCache of
     Just _ -> return ()
-    Nothing -> do
+    Nothing ->
       -- If there's no cache for the module mark it as failed
       modifyCache (\gmc ->
           gmc {
-            uriCaches = Map.insert fp' (UriCacheFailed err) (uriCaches gmc)
+            uriCaches = Map.insert fp' uc (uriCaches gmc)
           }
         )
 
       -- Fail the queued actions
-      runDeferredActions fp' (Left err)
+  runDeferredActions fp' uc
 
 
-runDeferredActions :: FilePath -> Either T.Text CachedModule -> IdeGhcM ()
+runDeferredActions :: FilePath -> UriCache -> IdeGhcM ()
 runDeferredActions uri cached = do
       actions <- fmap (fromMaybe [] . Map.lookup uri) (requestQueue <$> readMTS)
       liftToGhc $ forM_ actions (\a -> a cached)

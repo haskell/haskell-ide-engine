@@ -241,7 +241,7 @@ applyHint fp mhint fileMap = do
     return diff
 
 -- | Gets HLint ideas for
-getIdeas :: FilePath -> Maybe OneHint -> ExceptT String IdeM [Idea]
+getIdeas :: MonadIO m => FilePath -> Maybe OneHint -> ExceptT String m [Idea]
 getIdeas lintFile mhint = do
   let hOpts = hlintOpts lintFile (oneHintPos <$> mhint)
   ideas <- runHlint lintFile hOpts
@@ -263,7 +263,7 @@ hlintOpts lintFile mpos =
     opts = maybe "" posOpt mpos
   in [lintFile, "--quiet", "--refactor", "--refactor-options=" ++ opts ]
 
-runHlint :: FilePath -> [String] -> ExceptT String IdeM [Idea]
+runHlint :: MonadIO m => FilePath -> [String] -> ExceptT String m [Idea]
 runHlint fp args =
   do (flags,classify,hint) <- liftIO $ argsSettings args
      let myflags = flags { hseFlags = (hseFlags flags) { extensions = (EnableExtension TypeApplications:extensions (hseFlags flags))}}
@@ -277,7 +277,7 @@ showParseError (Hlint.ParseError location message content) =
 -- ---------------------------------------------------------------------
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider plId docId _ _ context = IdeResponseOk <$> hlintActions
+codeActionProvider plId docId _ _ context = IdeResultOk <$> hlintActions
   where
 
     hlintActions :: IdeM [LSP.CodeAction]

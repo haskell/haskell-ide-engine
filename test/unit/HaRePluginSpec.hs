@@ -175,29 +175,29 @@ hareSpec = do
           lreq = setTypecheckedModule u
           req = liftToGhc $ findDef u (toPos (7,8))
       r <- dispatchRequestPGoto $ lreq >> req
-      r `shouldBe` IdeResponseOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
+      r `shouldBe` IdeResultOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
                                            (Range (toPos (6,1)) (toPos (6,9)))]
       let req2 = liftToGhc $ findDef u (toPos (7,20))
       r2 <- dispatchRequestPGoto $ lreq >> req2
-      r2 `shouldBe` IdeResponseOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
+      r2 `shouldBe` IdeResultOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
                                             (Range (toPos (5,1)) (toPos (5,2)))]
     it "finds definition in the same component" $ do
       let u = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs"
           lreq = setTypecheckedModule u
           req = liftToGhc $ findDef u (toPos (6,5))
       r <- dispatchRequestPGoto $ lreq >> req
-      r `shouldBe` IdeResponseOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
+      r `shouldBe` IdeResultOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
                                            (Range (toPos (6,1)) (toPos (6,9)))]
     it "finds local definitions" $ do
       let u = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs"
           lreq = setTypecheckedModule u
           req = liftToGhc $ findDef u (toPos (7,11))
       r <- dispatchRequestPGoto $ lreq >> req
-      r `shouldBe` IdeResponseOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
+      r `shouldBe` IdeResultOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
                                            (Range (toPos (10,9)) (toPos (10,10)))]
       let req2 = liftToGhc $ findDef u (toPos (10,13))
       r2 <- dispatchRequestPGoto $ lreq >> req2
-      r2 `shouldBe` IdeResponseOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
+      r2 `shouldBe` IdeResultOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
                                             (Range (toPos (9,9)) (toPos (9,10)))]
 
 

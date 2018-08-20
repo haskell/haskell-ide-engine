@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -9,6 +10,8 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | IdeGhcM and associated types
 module Haskell.Ide.Engine.PluginsIdeMonads
@@ -31,18 +34,15 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , SymbolProvider
   , IdePlugins(..)
   -- * The IDE monad
-  , IdeGhcM
   , IdeState(..)
+  , IdeGhcM
   , IdeM
+  , iterT
   , LiftsToGhc(..)
-  -- * IdeResult and IdeResponse
+  -- * IdeResult
   , IdeResult(..)
   , IdeResultT(..)
-  , pattern IdeResponseOk
-  , pattern IdeResponseFail
-  , IdeResponse
-  , IdeResponse'(..)
-  , IdeResponseT(..)
+  , IdeDefer(..)
   , IdeError(..)
   , IdeErrorCode(..)
   -- * LSP types
@@ -64,6 +64,7 @@ module Haskell.Ide.Engine.PluginsIdeMonads
 import           Control.Concurrent.STM
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
+import           Control.Monad.Trans.Free
 
 import           Data.Aeson
 import           Data.Dynamic (Dynamic)
@@ -77,6 +78,7 @@ import           Data.Typeable (TypeRep, Typeable)
 import qualified GhcMod.Monad        as GM
 import           GHC.Generics
 import           GHC (HscEnv)
+import           Exception
 
 import           Haskell.Ide.Engine.Compat
 import           Haskell.Ide.Engine.MultiThreadState
@@ -116,7 +118,7 @@ data PluginCommand = forall a b. (FromJSON a, ToJSON b, Typeable b) =>
                 }
 
 -- ---------------------------------------------------------------------
- 
+
 class Monad m => HasPidCache m where
   getPidCache :: m Int
 
@@ -149,7 +151,7 @@ type CodeActionProvider =  PluginId
                         -> Maybe FilePath -- ^ Project root directory
                         -> Range
                         -> CodeActionContext
-                        -> IdeM (IdeResponse [CodeAction])
+                        -> IdeM (IdeResult [CodeAction])
 
 -- type DiagnosticProviderFunc = DiagnosticTrigger -> Uri -> IdeM (IdeResponse (Map.Map Uri (S.Set Diagnostic)))
 type DiagnosticProviderFunc
@@ -165,9 +167,9 @@ data DiagnosticTrigger = DiagnosticOnOpen
                        | DiagnosticOnSave
                        deriving (Show,Ord,Eq)
 
-type HoverProvider = Uri -> Position -> IdeM (IdeResponse [Hover])
+type HoverProvider = Uri -> Position -> IdeM (IdeResult [Hover])
 
-type SymbolProvider = Uri -> IdeM (IdeResponse [DocumentSymbol])
+type SymbolProvider = Uri -> IdeM (IdeResult [DocumentSymbol])
 
 data PluginDescriptor =
   PluginDescriptor { pluginId                 :: PluginId
@@ -195,22 +197,40 @@ instance ToJSON IdePlugins where
 
 -- ---------------------------------------------------------------------
 
-type IdeGhcM = GM.GhcModT IdeM
+type IdeGhcM = GM.GhcModT IdeBase
 
 instance MonadMTState IdeState IdeGhcM where
   readMTS = lift $ lift $ lift readMTS
-  modifyMTS f = lift $ lift $ lift $ modifyMTS f
+  modifyMTS = lift . lift . lift . modifyMTS
 
-type IdeM = ReaderT ClientCapabilities (MultiThreadState IdeState)
+data IdeDefer a = IdeDefer FilePath (UriCache -> a) deriving Functor
+type IdeM = FreeT IdeDefer IdeBase
+
+type IdeBase = ReaderT ClientCapabilities (MultiThreadState IdeState)
+
+instance GM.MonadIO IdeM where
+  liftIO = liftIO
+
+instance ExceptionMonad IdeM where
+  FreeT m `gcatch` f = FreeT $ fmap (fmap (`gcatch` f)) m `gcatch` (runFreeT . f)
+  -- TODO: Figure this out
+  gmask = error "ResponseT hasn't defined gmask!"
 
 instance MonadMTState IdeState IdeM where
-  readMTS = lift readMTS
-  modifyMTS = lift . modifyMTS
+  readMTS = lift $ lift readMTS
+  modifyMTS = lift . lift . modifyMTS
 
 class (Monad m) => LiftsToGhc m where
   liftToGhc :: m a -> IdeGhcM a
 
 instance LiftsToGhc IdeM where
+  liftToGhc (FreeT f) = do
+    x <- liftToGhc f
+    case x of
+      Pure a -> return a
+      Free (IdeDefer _fp _mod) -> undefined -- TODO
+
+instance LiftsToGhc IdeBase where
   liftToGhc = lift . lift
 
 instance LiftsToGhc IdeGhcM where
@@ -219,7 +239,7 @@ instance LiftsToGhc IdeGhcM where
 data IdeState = IdeState
   { moduleCache :: GhcModuleCache
   -- | A queue of requests to be performed once a module is loaded
-  , requestQueue :: Map.Map FilePath [Either T.Text CachedModule -> IdeM ()]
+  , requestQueue :: Map.Map FilePath [UriCache -> IdeBase ()]
   , idePlugins  :: IdePlugins
   , extensibleState :: !(Map.Map TypeRep Dynamic)
   , ghcSession  :: Maybe (IORef HscEnv)
@@ -227,7 +247,7 @@ data IdeState = IdeState
   , idePidCache    :: Int
   }
 
-instance HasGhcModuleCache IdeM where
+instance HasGhcModuleCache IdeBase where
   getModuleCache = do
     tvar <- lift ask
     state <- liftIO $ readTVarIO tvar
@@ -237,10 +257,12 @@ instance HasGhcModuleCache IdeM where
     liftIO $ atomically $ modifyTVar' tvar (\st -> st { moduleCache = mc })
 
 instance HasGhcModuleCache IdeGhcM where
-  getModuleCache = lift . lift $ getModuleCache
+  getModuleCache = lift $ lift getModuleCache
   setModuleCache = lift . lift . setModuleCache
 
-
+instance HasGhcModuleCache IdeM where
+  getModuleCache = lift getModuleCache
+  setModuleCache = lift . setModuleCache
 
 -- ---------------------------------------------------------------------
 
@@ -287,83 +309,12 @@ instance (Monad m) => Monad (IdeResultT m) where
 instance MonadTrans IdeResultT where
   lift m = IdeResultT (fmap IdeResultOk m)
 
--- | The IDE response, which wraps around an IdeResult that may be deferred.
--- Used mostly in IdeM.
-data IdeResponse' m a = IdeResponseDeferred FilePath (CachedModule -> m (IdeResponse' m a))
-                      | IdeResponseResult (IdeResult a)
-
-type IdeResponse a = IdeResponse' IdeM a
-
-pattern IdeResponseOk :: a -> IdeResponse' m a
-pattern IdeResponseOk a = IdeResponseResult (IdeResultOk a)
-pattern IdeResponseFail :: IdeError -> IdeResponse' m a
-pattern IdeResponseFail err = IdeResponseResult (IdeResultFail err)
-
-instance (Show a) => Show (IdeResponse' m a) where
-  show (IdeResponseResult x) = show x
-  show (IdeResponseDeferred fp _) = "Deferred response waiting on " ++ fp
-
-instance (Eq a) => Eq (IdeResponse' m a) where
-  (IdeResponseResult x) == (IdeResponseResult y) = x == y
-  _ == _ = False
-
-instance Monad m => Functor (IdeResponse' m) where
-  fmap f (IdeResponseResult (IdeResultOk x)) = IdeResponseOk (f x)
-  fmap _ (IdeResponseResult (IdeResultFail err)) = IdeResponseFail err
-  fmap f (IdeResponseDeferred fp cb) = IdeResponseDeferred fp $ cb >=> (return . fmap f)
-
-instance Monad m => Applicative (IdeResponse' m) where
-  pure = return
-
-  (IdeResponseResult (IdeResultFail err)) <*> _ = IdeResponseFail err
-  _ <*> (IdeResponseResult (IdeResultFail err)) = IdeResponseFail err
-
-  (IdeResponseResult (IdeResultOk f)) <*> (IdeResponseResult (IdeResultOk x)) = IdeResponseOk (f x)
-
-  (IdeResponseResult (IdeResultOk f)) <*> (IdeResponseDeferred fp cb) = IdeResponseDeferred fp $ fmap (fmap f) . cb
-
-  (IdeResponseDeferred fp cb) <*> x = IdeResponseDeferred fp $ \cm -> do
-    f <- cb cm
-    pure (f <*> x)
-
-instance Monad m => Monad (IdeResponse' m) where
-  (IdeResponseResult (IdeResultOk x)) >>= f = f x
-  (IdeResponseDeferred fp cb) >>= f = IdeResponseDeferred fp $ \cm -> do
-    x <- cb cm
-    return $ x >>= f
-  (IdeResponseResult (IdeResultFail err)) >>= _ = IdeResponseFail err
-  return = IdeResponseOk
-
-newtype IdeResponseT m a = IdeResponseT { runIdeResponseT :: m (IdeResponse' m a) }
-
-instance Monad m => Functor (IdeResponseT m) where
-  fmap = liftM
-
-instance Monad m => Applicative (IdeResponseT m) where
-  pure = return
-  (<*>) = ap
-
-instance (Monad m) => Monad (IdeResponseT m) where
-  return = IdeResponseT . return . IdeResponseOk
-
-  m >>= f = IdeResponseT $ do
-    v <- runIdeResponseT m
-    case v of
-      IdeResponseResult (IdeResultOk x) -> runIdeResponseT (f x)
-      IdeResponseResult (IdeResultFail err) -> return $ IdeResponseFail err
-      IdeResponseDeferred fp cb -> return $ IdeResponseDeferred fp $ \cm ->
-        runIdeResponseT $ IdeResponseT (cb cm) >>= f
-
-instance MonadTrans IdeResponseT where
-  lift m = IdeResponseT (fmap IdeResponseOk m)
-
 -- | Error codes. Add as required
 data IdeErrorCode
  = ParameterError          -- ^ Wrong parameter type
  | PluginError             -- ^ An error returned by a plugin
  | InternalError           -- ^ Code error (case not handled or deemed
                            --   impossible)
- | NoModuleAvailable       -- ^ No typechecked module available to use
  | UnknownPlugin           -- ^ Plugin is not registered
  | UnknownCommand          -- ^ Command is not registered
  | InvalidContext          -- ^ Context invalid for command
