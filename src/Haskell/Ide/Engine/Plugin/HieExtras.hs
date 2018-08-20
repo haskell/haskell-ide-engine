@@ -32,7 +32,6 @@ import           Exception
 import           FastString
 import           Finder
 import           GHC
-import qualified GhcMod.Error                                 as GM
 import qualified GhcMod.LightGhc                              as GM
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.MonadFunctions
@@ -251,29 +250,21 @@ instance ModuleCache CachedCompletions where
 
 getCompletions :: Uri -> (T.Text, T.Text) -> IdeM (IdeResult [J.CompletionItem])
 getCompletions uri (qualifier, ident) = pluginGetFile "getCompletions: " uri $ \file ->
-  let handlers =
-        [ GM.GHandler $ \(ex :: SomeException) ->
-            return $ IdeResultFail $ IdeError PluginError
-                                                (T.pack $ "getCompletions" <> ": " <> (show ex))
-                                                Null
-        ]
-  in flip GM.gcatches handlers $ do
-    -- debugm $ "got prefix" ++ show (qualifier, ident)
-    let enteredQual = if T.null qualifier then "" else qualifier <> "."
-        fullPrefix = enteredQual <> ident
-    withCachedModuleAndData file (IdeResultOk []) $ \_ CC { allModNamesAsNS, unqualCompls, qualCompls } ->
-      let
-        filtModNameCompls = map mkModCompl
-          $ mapMaybe (T.stripPrefix enteredQual)
-          $ Fuzzy.simpleFilter fullPrefix allModNamesAsNS
+  let enteredQual = if T.null qualifier then "" else qualifier <> "."
+      fullPrefix = enteredQual <> ident
+  in withCachedModuleAndData file (IdeResultOk []) $ \_ CC { allModNamesAsNS, unqualCompls, qualCompls } ->
+    let
+      filtModNameCompls = map mkModCompl
+        $ mapMaybe (T.stripPrefix enteredQual)
+        $ Fuzzy.simpleFilter fullPrefix allModNamesAsNS
 
-        filtCompls = Fuzzy.filterBy label ident compls
-          where
-            compls = if T.null qualifier
-              then unqualCompls
-              else Map.findWithDefault [] qualifier qualCompls
+      filtCompls = Fuzzy.filterBy label ident compls
+        where
+          compls = if T.null qualifier
+            then unqualCompls
+            else Map.findWithDefault [] qualifier qualCompls
 
-        in return $ IdeResultOk $ filtModNameCompls ++ map mkCompl filtCompls
+      in return $ IdeResultOk $ filtModNameCompls ++ map mkCompl filtCompls
 
 -- ---------------------------------------------------------------------
 

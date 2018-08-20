@@ -76,7 +76,6 @@ import           Data.Typeable (TypeRep, Typeable)
 import qualified GhcMod.Monad        as GM
 import           GHC.Generics
 import           GHC (HscEnv)
-import           Exception
 
 import           Haskell.Ide.Engine.Compat
 import           Haskell.Ide.Engine.MultiThreadState
@@ -214,10 +213,6 @@ type IdeBase = ReaderT ClientCapabilities (MultiThreadState IdeState)
 
 instance GM.MonadIO IdeM where
   liftIO = liftIO
-
-instance ExceptionMonad IdeM where
-  FreeT m `gcatch` f = FreeT $ fmap (fmap (`gcatch` f)) m `gcatch` (runFreeT . f)
-  gmask f = FreeT (runFreeT $ gmask f)
 
 instance MonadMTState IdeState IdeM where
   readMTS = lift $ lift readMTS
