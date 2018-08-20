@@ -25,6 +25,9 @@ spec = do
     it "pick up when" $
       let msg = "Variable not in scope: when :: Bool -> IO () -> t"
         in extractImportableTerm msg `shouldBe` Just "when :: Bool -> IO () -> t"
+    it "pick up data constructors" $
+      let msg = "Data constructor not in scope: ExitFailure :: Integer -> t"
+        in extractImportableTerm msg `shouldBe` Just "ExitFailure :: Integer -> t"
 
   describe "rename code actions" $ do
     it "pick up variable not in scope perhaps you meant" $
