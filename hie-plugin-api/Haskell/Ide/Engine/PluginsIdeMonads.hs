@@ -10,8 +10,6 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | IdeGhcM and associated types
 module Haskell.Ide.Engine.PluginsIdeMonads
@@ -104,6 +102,7 @@ import           Language.Haskell.LSP.Types (Command (..),
                                              WorkspaceEdit (..),
                                              filePathToUri,
                                              uriToFilePath)
+import           System.Directory
 
 
 type PluginId = T.Text
@@ -203,6 +202,8 @@ instance MonadMTState IdeState IdeGhcM where
   readMTS = lift $ lift $ lift readMTS
   modifyMTS = lift . lift . lift . modifyMTS
 
+-- | A computation that is deferred until the module is cached.
+-- Note that the module may not typecheck, in which case 'UriCacheFailed' is passed
 data IdeDefer a = IdeDefer FilePath (UriCache -> a) deriving Functor
 type IdeM = FreeT IdeDefer IdeBase
 
@@ -213,8 +214,7 @@ instance GM.MonadIO IdeM where
 
 instance ExceptionMonad IdeM where
   FreeT m `gcatch` f = FreeT $ fmap (fmap (`gcatch` f)) m `gcatch` (runFreeT . f)
-  -- TODO: Figure this out
-  gmask = error "ResponseT hasn't defined gmask!"
+  gmask f = FreeT (runFreeT $ gmask f)
 
 instance MonadMTState IdeState IdeM where
   readMTS = lift $ lift readMTS
@@ -228,7 +228,12 @@ instance LiftsToGhc IdeM where
     x <- liftToGhc f
     case x of
       Pure a -> return a
-      Free (IdeDefer _fp _mod) -> undefined -- TODO
+      Free (IdeDefer fp cb) -> do
+        fp' <- liftIO $ canonicalizePath fp
+        muc <- fmap (Map.lookup fp' . uriCaches) getModuleCache
+        liftToGhc $ case muc of
+          Just uc -> cb uc
+          Nothing -> cb (UriCacheFailed "Module hasn't been loaded yet")
 
 instance LiftsToGhc IdeBase where
   liftToGhc = lift . lift

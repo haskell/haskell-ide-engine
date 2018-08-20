@@ -122,9 +122,9 @@ withCachedModule fp def callback = FreeT (return (Free (IdeDefer fp go)))
 -- invalidated when a new CachedModule is loaded.
 -- If the data doesn't exist in the cache, new data is generated
 -- using by calling the `cacheDataProducer` function.
-withCachedModuleAndData :: forall a. ModuleCache a
-                        => FilePath -> a
-                        -> (CachedModule -> a -> IdeM a) -> IdeM a
+withCachedModuleAndData :: forall a b. ModuleCache a
+                        => FilePath -> b
+                        -> (CachedModule -> a -> IdeM b) -> IdeM b
 withCachedModuleAndData fp def callback =
   FreeT (return (Free (IdeDefer fp go)))
   where go (UriCacheFailed _) = return def
