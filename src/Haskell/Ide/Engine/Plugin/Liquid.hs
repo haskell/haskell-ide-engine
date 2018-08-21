@@ -20,11 +20,11 @@ import           GHC.Generics
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes hiding (_range)
 import           Haskell.Ide.Engine.PluginUtils
-import qualified Language.Haskell.LSP.Types as J
+import qualified Language.Haskell.LSP.Types    as J
 import           System.Directory
+import           System.Environment
 import           System.FilePath
 import           System.Process
-import           System.Environment
 import           Text.Parsec
 import           Text.Parsec.Text
 
@@ -40,7 +40,9 @@ liquidDescriptor plId = PluginDescriptor
       , PluginCommand "sayHelloTo" "say hello to the passed in param" sayHelloToCmd
       ]
   , pluginCodeActionProvider = Nothing
-  , pluginDiagnosticProvider = Just (DiagnosticProvider (S.singleton DiagnosticOnSave) diagnosticProvider)
+  , pluginDiagnosticProvider= Just (DiagnosticProvider
+                                    (S.singleton DiagnosticOnSave)
+                                    diagnosticProvider)
   , pluginHoverProvider      = Just hoverProvider
   , pluginSymbolProvider = Nothing
   }

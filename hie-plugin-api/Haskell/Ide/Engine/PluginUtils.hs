@@ -184,7 +184,7 @@ diffText' supports (f,fText) f2Text withDeletions  =
 
     isDeletion (Deletion _ _) = True
     isDeletion _ = False
-    
+
     r = map diffOperationToTextEdit diffOps
     diff = J.List r
     h = H.singleton f diff
