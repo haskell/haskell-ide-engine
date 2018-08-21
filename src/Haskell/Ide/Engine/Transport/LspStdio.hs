@@ -488,14 +488,14 @@ reactor inp = do
 
               hreq :: PluginRequest R
               hreq = IReq tn (req ^. J.id) callback $
-                pluginGetFileResponse "ReqHover:" doc $ \fp -> do
+                pluginGetFile "ReqHover:" doc $ \fp -> do
                   cached <- isCached fp
                   -- Hover requests need to be instant so don't wait
                   -- for cached module to be loaded
                   -- TODO:AZ: what if a plugin hoverprovider does not need the cached module?
                   if cached
                     then sequence <$> mapM (\hp -> hp doc pos) hps
-                    else return (IdeResponseOk [])
+                    else return (IdeResultOk [])
           makeRequest hreq
           liftIO $ U.logs "reactor:HoverRequest done"
 
@@ -611,7 +611,7 @@ reactor inp = do
                     rspMsg = Core.makeResponseMessage req $
                               origCompl & J.documentation .~ docs
                 reactorSend $ RspCompletionItemResolve rspMsg
-              hreq = IReq tn (req ^. J.id) callback $ runIdeResponseT $ case mquery of
+              hreq = IReq tn (req ^. J.id) callback $ runIdeResultT $ case mquery of
                         Nothing -> return Nothing
                         Just query -> do
                           result <- lift $ Hoogle.infoCmd' query

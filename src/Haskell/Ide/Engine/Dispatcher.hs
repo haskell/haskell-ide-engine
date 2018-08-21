@@ -3,7 +3,7 @@
 {-# LANGUAGE NamedFieldPuns            #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE RankNTypes                #-}
-{-# LANGUAGE LambdaCase                #-}
+{-# LANGUAGE ScopedTypeVariables       #-}
 module Haskell.Ide.Engine.Dispatcher
   (
     dispatcherP
@@ -20,7 +20,6 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.STM
-import qualified Data.Aeson                              as J
 import qualified Data.Text                               as T
 import qualified Data.Map                                as Map
 import qualified Data.Set                                as S
@@ -32,6 +31,7 @@ import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.Monad
 import qualified Language.Haskell.LSP.Types              as J
 import qualified Language.Haskell.LSP.Types.Capabilities as J
+import System.Directory
 
 data DispatcherEnv = DispatcherEnv
   { cancelReqsTVar     :: !(TVar (S.Set J.LspId))
@@ -66,8 +66,7 @@ dispatcherP inChan plugins ghcModOptions env errorHandler callbackHandler caps =
         ghcDispatcher env errorHandler callbackHandler ghcChan
       runIdeDisp = do
         stateVar <- readMVar stateVarVar
-        flip runReaderT stateVar $ flip runReaderT caps $
-          ideDispatcher env errorHandler callbackHandler ideChan
+        ideDispatcher stateVar caps env errorHandler callbackHandler ideChan
       runMainDisp = mainDispatcher inChan ghcChan ideChan
 
   runGhcDisp `race_` runIdeDisp `race_` runMainDisp
@@ -81,46 +80,36 @@ mainDispatcher inChan ghcChan ideChan = forever $ do
     Left r ->
       atomically $ writeTChan ideChan r
 
-ideDispatcher :: forall void m. DispatcherEnv -> ErrorHandler -> CallbackHandler m -> TChan (IdeRequest m) -> IdeM void
-ideDispatcher env errorHandler callbackHandler pin = forever $ do
-  debugm "ideDispatcher: top of loop"
-  (IdeRequest tn lid callback action) <- liftIO $ atomically $ readTChan pin
-  debugm $ "ideDispatcher: got request " ++ show tn ++ " with id: " ++ show lid
-  checkCancelled env lid errorHandler $ do
-    response <- action
-    handleResponse lid callback response
+ideDispatcher :: forall void m. TVar IdeState -> J.ClientCapabilities
+              -> DispatcherEnv -> ErrorHandler -> CallbackHandler m
+              -> TChan (IdeRequest m) -> IO void
+ideDispatcher stateVar caps env errorHandler callbackHandler pin = 
+  flip runReaderT stateVar $ flip runReaderT caps $ forever $ do
+    debugm "ideDispatcher: top of loop"
+    (IdeRequest tn lid callback action) <- liftIO $ atomically $ readTChan pin
+    debugm $ "ideDispatcher: got request " ++ show tn ++ " with id: " ++ show lid
 
-  where handleResponse lid callback response =
-          -- Need to check cancellation twice since cancellation
-          -- request might have come in during the action
-          checkCancelled env lid errorHandler $ case response of
-            IdeResponseResult (IdeResultOk x) -> liftIO $ do
-              completedReq env lid
-              callbackHandler callback x
-            IdeResponseResult (IdeResultFail (IdeError code msg _)) -> liftIO $ do
-              completedReq env lid
-              case code of
-                -- TODO: This isn't actually an internal error
-                NoModuleAvailable -> errorHandler lid J.InternalError msg
-                _ -> errorHandler lid J.InternalError msg
-            IdeResponseDeferred fp cacheCb -> handleDeferred lid fp cacheCb callback
+    iterT queueDeferred $
+      checkCancelled env lid errorHandler $ do
+        result <- action
+        checkCancelled env lid errorHandler $ liftIO $ do
+          completedReq env lid
+          case result of
+            IdeResultOk x -> callbackHandler callback x
+            IdeResultFail (IdeError _ msg _) -> errorHandler lid J.InternalError msg
 
-        handleDeferred lid fp cacheCb actualCb = queueAction fp $ \case
-          Right cm -> do
-            cacheResponse <- cacheCb cm
-            handleResponse lid actualCb cacheResponse
-          Left err ->
-            handleResponse lid actualCb (IdeResponseFail (IdeError NoModuleAvailable err J.Null))
-
-        queueAction :: FilePath -> (Either T.Text CachedModule -> IdeM ()) -> IdeM ()
-        queueAction fp action =
-          lift $ modifyMTState $ \s ->
-            let oldQueue = requestQueue s
-                -- add to existing queue if possible
-                update Nothing = [action]
-                update (Just x) = action : x
-                newQueue = Map.alter (Just . update) fp oldQueue
-            in s { requestQueue = newQueue }
+  where queueDeferred (IdeDefer fp cacheCb) = do
+          uri' <- liftIO $ canonicalizePath fp
+          muc <- fmap (Map.lookup uri' . uriCaches) getModuleCache
+          case muc of
+            Just uc -> cacheCb uc
+            Nothing -> lift $ modifyMTState $ \s ->
+              let oldQueue = requestQueue s 
+                  -- add to existing queue if possible
+                  update Nothing = [cacheCb]
+                  update (Just x) = cacheCb : x
+                  newQueue = Map.alter (Just . update) fp oldQueue
+              in s { requestQueue = newQueue }
 
 ghcDispatcher :: forall void m. DispatcherEnv -> ErrorHandler -> CallbackHandler m -> TChan (GhcRequest m) -> IdeGhcM void
 ghcDispatcher env@DispatcherEnv{docVersionTVar} errorHandler callbackHandler pin = forever $ do
@@ -140,11 +129,9 @@ ghcDispatcher env@DispatcherEnv{docVersionTVar} errorHandler callbackHandler pin
         result <- runner action
         liftIO $ case result of
           IdeResultOk x -> callbackHandler callback x
-          IdeResultFail err@(IdeError code msg _) ->
+          IdeResultFail err@(IdeError _ msg _) ->
             case mid of
-              Just lid -> case code of
-                NoModuleAvailable -> errorHandler lid J.ParseError msg
-                _ -> errorHandler lid J.InternalError msg
+              Just lid -> errorHandler lid J.InternalError msg
               Nothing -> debugm $ "ghcDispatcher:Got error for a request: " ++ show err
 
   let runIfVersionMatch = case mver of

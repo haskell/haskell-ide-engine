@@ -32,7 +32,6 @@ import           Exception
 import           FastString
 import           Finder
 import           GHC
-import qualified GhcMod.Error                                 as GM
 import qualified GhcMod.LightGhc                              as GM
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.MonadFunctions
@@ -52,10 +51,12 @@ import           SrcLoc
 import           TcEnv
 import           Var
 
-getDynFlags :: Uri -> IdeM (IdeResponse DynFlags)
+getDynFlags :: Uri -> IdeM (IdeResult DynFlags)
 getDynFlags uri =
-  pluginGetFileResponse "getDynFlags: " uri $ \fp ->
-    withCachedModule fp (return . IdeResponseOk . ms_hspp_opts . pm_mod_summary . tm_parsed_module . tcMod)
+  pluginGetFile "getDynFlags: " uri $ \fp ->
+    withCachedModule fp (IdeResultFail err)
+      (return . IdeResultOk . ms_hspp_opts . pm_mod_summary . tm_parsed_module . tcMod)
+  where err = IdeError InternalError "Unable to get DynFlags" Null
 
 -- ---------------------------------------------------------------------
 
@@ -247,31 +248,23 @@ instance ModuleCache CachedCompletions where
       , qualCompls = quals
       }
 
-getCompletions :: Uri -> (T.Text, T.Text) -> IdeM (IdeResponse [J.CompletionItem])
-getCompletions uri (qualifier, ident) = pluginGetFileResponse "getCompletions: " uri $ \file ->
-  let handlers =
-        [ GM.GHandler $ \(ex :: SomeException) ->
-            return $ IdeResponseFail $ IdeError PluginError
-                                                (T.pack $ "getCompletions" <> ": " <> (show ex))
-                                                Null
-        ]
-  in flip GM.gcatches handlers $ do
-    -- debugm $ "got prefix" ++ show (qualifier, ident)
-    let enteredQual = if T.null qualifier then "" else qualifier <> "."
-        fullPrefix = enteredQual <> ident
-    withCachedModuleAndData file $ \_ CC { allModNamesAsNS, unqualCompls, qualCompls } ->
-      let
-        filtModNameCompls = map mkModCompl
-          $ mapMaybe (T.stripPrefix enteredQual)
-          $ Fuzzy.simpleFilter fullPrefix allModNamesAsNS
+getCompletions :: Uri -> (T.Text, T.Text) -> IdeM (IdeResult [J.CompletionItem])
+getCompletions uri (qualifier, ident) = pluginGetFile "getCompletions: " uri $ \file ->
+  let enteredQual = if T.null qualifier then "" else qualifier <> "."
+      fullPrefix = enteredQual <> ident
+  in withCachedModuleAndData file (IdeResultOk []) $ \_ CC { allModNamesAsNS, unqualCompls, qualCompls } ->
+    let
+      filtModNameCompls = map mkModCompl
+        $ mapMaybe (T.stripPrefix enteredQual)
+        $ Fuzzy.simpleFilter fullPrefix allModNamesAsNS
 
-        filtCompls = Fuzzy.filterBy label ident compls
-          where
-            compls = if T.null qualifier
-              then unqualCompls
-              else Map.findWithDefault [] qualifier qualCompls
+      filtCompls = Fuzzy.filterBy label ident compls
+        where
+          compls = if T.null qualifier
+            then unqualCompls
+            else Map.findWithDefault [] qualifier qualCompls
 
-        in return $ IdeResponseOk $ filtModNameCompls ++ map mkCompl filtCompls
+      in return $ IdeResultOk $ filtModNameCompls ++ map mkCompl filtCompls
 
 -- ---------------------------------------------------------------------
 
@@ -288,9 +281,9 @@ getTypeForName n = do
 
 -- ---------------------------------------------------------------------
 
-getSymbolsAtPoint :: Uri -> Position -> IdeM (IdeResponse [(Range, Name)])
-getSymbolsAtPoint uri pos = pluginGetFileResponse "getSymbolsAtPoint: " uri $ \file ->
-  withCachedModule file $ return . IdeResponseOk . getSymbolsAtPointPure pos
+getSymbolsAtPoint :: Uri -> Position -> IdeM (IdeResult [(Range, Name)])
+getSymbolsAtPoint uri pos = pluginGetFile "getSymbolsAtPoint: " uri $ \file ->
+  withCachedModule file (IdeResultOk mempty) $ return . IdeResultOk . getSymbolsAtPointPure pos
 
 getSymbolsAtPointPure :: Position -> CachedModule -> [(Range,Name)]
 getSymbolsAtPointPure pos cm = maybe [] (`getArtifactsAtPos` locMap cm) $ newPosToOld cm pos
@@ -308,17 +301,17 @@ symbolFromTypecheckedModule lm pos =
 
 -- | Find the references in the given doc, provided it has been
 -- loaded.  If not, return the empty list.
-getReferencesInDoc :: Uri -> Position -> IdeM (IdeResponse [J.DocumentHighlight])
+getReferencesInDoc :: Uri -> Position -> IdeM (IdeResult [J.DocumentHighlight])
 getReferencesInDoc uri pos =
-  pluginGetFileResponse "getReferencesInDoc: " uri $ \file ->
-    withCachedModuleAndDataDefault file (Just (IdeResponseOk [])) $
+  pluginGetFile "getReferencesInDoc: " uri $ \file ->
+    withCachedModuleAndData file (IdeResultOk []) $
       \cm NMD{inverseNameMap} -> do
         let lm = locMap cm
             pm = tm_parsed_module $ tcMod cm
             cfile = ml_hs_file $ ms_location $ pm_mod_summary pm
             mpos = newPosToOld cm pos
         case mpos of
-          Nothing -> return $ IdeResponseOk []
+          Nothing -> return $ IdeResultOk []
           Just pos' -> return $ fmap concat $
             forM (getArtifactsAtPos pos' lm) $ \(_,name) -> do
                 let usages = fromMaybe [] $ Map.lookup name inverseNameMap
@@ -362,9 +355,9 @@ getModule df n = do
 -- ---------------------------------------------------------------------
 
 -- | Return the definition
-findDef :: Uri -> Position -> IdeM (IdeResponse [Location])
-findDef uri pos = pluginGetFileResponse "findDef: " uri $ \file ->
-    withCachedModuleDefault file (Just (IdeResponseOk [])) (\cm -> do
+findDef :: Uri -> Position -> IdeM (IdeResult [Location])
+findDef uri pos = pluginGetFile "findDef: " uri $ \file ->
+    withCachedModule file (IdeResultOk []) (\cm -> do
       let rfm = revMap cm
           lm = locMap cm
           mm = moduleMap cm
@@ -373,33 +366,33 @@ findDef uri pos = pluginGetFileResponse "findDef: " uri $ \file ->
       case (\x -> Just $ getArtifactsAtPos x mm) =<< oldPos of
         Just ((_,mn):_) -> gotoModule rfm mn
         _ -> case symbolFromTypecheckedModule lm =<< oldPos of
-          Nothing -> return $ IdeResponseOk []
+          Nothing -> return $ IdeResultOk []
           Just (_, n) ->
             case nameSrcSpan n of
-              UnhelpfulSpan _ -> return $ IdeResponseOk []
+              UnhelpfulSpan _ -> return $ IdeResultOk []
               realSpan   -> do
                 res <- srcSpan2Loc rfm realSpan
                 case res of
                   Right l@(J.Location luri range) ->
                     case uriToFilePath luri of
-                      Nothing -> return $ IdeResponseOk [l]
+                      Nothing -> return $ IdeResultOk [l]
                       Just fp -> do
                         mcm' <- getCachedModule fp
                         case mcm' of
                           ModuleCached cm' _ ->  case oldRangeToNew cm' range of
-                            Just r  -> return $ IdeResponseOk [J.Location luri r]
-                            Nothing -> return $ IdeResponseOk [l]
-                          _ -> return $ IdeResponseOk [l]
+                            Just r  -> return $ IdeResultOk [J.Location luri r]
+                            Nothing -> return $ IdeResultOk [l]
+                          _ -> return $ IdeResultOk [l]
                   Left x -> do
                     debugm "findDef: name srcspan not found/valid"
-                    pure (IdeResponseFail
+                    pure (IdeResultFail
                           (IdeError PluginError
                                     ("hare:findDef" <> ": \"" <> x <> "\"")
                                     Null)))
   where
-    gotoModule :: (FilePath -> FilePath) -> ModuleName -> IdeM (IdeResponse [Location])
+    gotoModule :: (FilePath -> FilePath) -> ModuleName -> IdeM (IdeResult [Location])
     gotoModule rfm mn = do
-      
+
       hscEnvRef <- ghcSession <$> readMTS
       mHscEnv <- liftIO $ traverse readIORef hscEnvRef
 
@@ -415,8 +408,8 @@ findDef uri pos = pluginGetFileResponse "findDef: " uri $ \file ->
 
               let r = Range (Position 0 0) (Position 0 0)
                   loc = Location (filePathToUri fp) r
-              return (IdeResponseOk [loc])
-            _ -> return (IdeResponseOk [])
-        Nothing -> return $ IdeResponseFail
+              return (IdeResultOk [loc])
+            _ -> return (IdeResultOk [])
+        Nothing -> return $ IdeResultFail
           (IdeError PluginError "Couldn't get hscEnv when finding import" Null)
 
