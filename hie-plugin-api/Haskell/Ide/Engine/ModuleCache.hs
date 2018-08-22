@@ -11,7 +11,6 @@ import           Data.Dynamic (toDyn, fromDynamic)
 import           Data.Generics (Proxy(..), typeRep, typeOf)
 import qualified Data.Map as Map
 import           Data.Maybe
-import qualified Data.Text as T
 import           Data.Typeable (Typeable)
 import           Exception (ExceptionMonad)
 import           System.Directory
@@ -80,7 +79,7 @@ getCradle fp = do
 -- along with the cache or error if present
 data CachedModuleResult = ModuleLoading
                         -- ^ The module has no cache yet and has not failed
-                        | ModuleFailed T.Text
+                        | ModuleFailed
                         -- ^ The module has no cache because something went wrong
                         | ModuleCached CachedModule IsStale
                         -- ^ A cache exists for the module
@@ -95,7 +94,7 @@ getCachedModule uri = do
   return $ case maybeUriCache of
     Nothing -> ModuleLoading
     Just uriCache@UriCache {} -> ModuleCached (cachedModule uriCache) (isStale uriCache)
-    Just (UriCacheFailed err) -> ModuleFailed err
+    Just UriCacheFailed -> ModuleFailed
 
 -- | Returns true if there is a CachedModule for a given URI
 isCached :: (GM.MonadIO m, HasGhcModuleCache m)
@@ -125,7 +124,7 @@ withCachedModuleAndData :: forall a b. ModuleCache a
                         => FilePath -> b
                         -> (CachedModule -> a -> IdeM b) -> IdeM b
 withCachedModuleAndData fp def callback = wrap (IdeDefer fp go)
-  where go (UriCacheFailed _) = return def
+  where go UriCacheFailed = return def
         go UriCache{cachedModule = cm, cachedData = dat} = do
           fp' <- liftIO $ canonicalizePath fp
           let proxy :: Proxy a
@@ -159,13 +158,13 @@ cacheModule uri cm = do
 
 -- | Marks a module that it failed to load and triggers
 -- any deferred responses waiting on it
-failModule :: FilePath -> T.Text -> IdeGhcM ()
-failModule fp err = do
+failModule :: FilePath -> IdeGhcM ()
+failModule fp = do
   fp' <- liftIO $ canonicalizePath fp
 
   maybeUriCache <- fmap (Map.lookup fp' . uriCaches) getModuleCache
 
-  let uc = UriCacheFailed err
+  let uc = UriCacheFailed
 
   case maybeUriCache of
     Just _ -> return ()

@@ -242,7 +242,7 @@ instance LiftsToGhc IdeM where
         muc <- fmap (Map.lookup fp' . uriCaches) getModuleCache
         liftToGhc $ case muc of
           Just uc -> cb uc
-          Nothing -> cb (UriCacheFailed "Module hasn't been loaded yet")
+          Nothing -> cb UriCacheFailed
 
 instance LiftsToGhc IdeBase where
   liftToGhc = lift . lift
