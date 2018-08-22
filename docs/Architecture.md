@@ -54,6 +54,15 @@ If the module fails to load for any reason(parse error, type error etc.), the pr
 `CachedModule` for the file would still be available. __This allows HIE to respond to queries 
 even when the current version of the file doesn't compile.__
 
+It's recommended that you use `withCachedModule` when in `IdeM` to access the typechecked
+module, which will automatically defer your result if no cache is available, or return a
+default if it then fails to typecheck:
+
+```haskell
+withCachedModule file (IdeResultOk []) $ \cm -> do
+  -- poke about with cm here
+```
+
 In this scenario, the `newPosToOld` and `oldPosToNew` functions help to associate 
 positions in the current version of the document (which doesn't compile) to the most recent
 version of the document that did compile. `newPosToOld` will take a `Position` in the current
@@ -80,7 +89,8 @@ class Typeable a => ModuleCache a where
     cacheDataProducer :: CachedModule -> IdeM a
 
 withCachedModuleAndData :: forall a b. ModuleCache a
-  => Uri -> IdeM b -> (CachedModule -> a -> IdeM b) -> IdeM b
+                        => FilePath -> b
+                        -> (CachedModule -> a -> IdeM b) -> IdeM b
 withCachedModuleAndData uri noCache callback = ...
 ```
 
@@ -106,7 +116,7 @@ This data is used to find all references to a symbol, and to find the name corre
 a particular position in the source.
 
 ```haskell
-getReferencesInDoc :: Uri -> Position -> IdeM (IdeResponse [J.DocumentHighlight])
+getReferencesInDoc :: Uri -> Position -> IdeM (IdeResult [J.DocumentHighlight])
 getReferencesInDoc uri pos = do
   let noCache = return $ nonExistentCacheErr "getReferencesInDoc"
   withCachedModuleAndData uri noCache $
@@ -145,7 +155,7 @@ data GhcRequest m = forall a. GhcRequest
 data IdeRequest m = forall a. IdeRequest
   { pureReqId :: J.LspId
   , pureReqCallback :: RequestCallback m a
-  , pureReq :: IdeM (IdeResponse a)
+  , pureReq :: IdeM (IdeResult a)
   }
 
 ```
@@ -176,75 +186,10 @@ for handling the "definition" request
       ...
 
 -- HaRePlugin.hs
-findDef :: Uri -> Position -> IdeM (IdeResponse Location)
+findDef :: Uri -> Position -> IdeM (IdeResult Location)
 ```
 
 The request uses the `findDef` function in the `HaRe` plugin to get the `Location` 
 of the definition of the symbol at the given position. The callback makes a LSP 
 response message out of the location, and forwards it to thread #4 which sends
 it to the IDE via stdout
-
-## Responses and results
-
-While working in the `IdeGhcM` thread, you return results back to the dispatcher with
-`IdeResult`:
-
-```haskell
-runHareCommand :: String -> RefactGhc [ApplyRefacResult]
-                 -> IdeGhcM (IdeResult WorkspaceEdit)
-runHareCommand name cmd = do
-     eitherRes <- runHareCommand' cmd
-     case eitherRes of
-       Left err ->
-         pure (IdeResultFail
-                 (IdeError PluginError
-                           (T.pack $ name <> ": \"" <> err <> "\"")
-                           Null))
-       Right res -> do
-            let changes = getRefactorResult res
-            refactRes <- makeRefactorResult changes
-            pure (IdeResultOk refactRes)
-```
-
-On `IdeM`, you must wrap any `IdeResult` in an `IdeResponse`:
-
-```haskell
-getDynFlags :: Uri -> IdeM (IdeResponse DynFlags)
-getDynFlags uri =
-  pluginGetFileResponse "getDynFlags: " uri $ \fp -> do
-      mcm <- getCachedModule fp
-      case mcm of
-        ModuleCached cm _ -> return $
-          IdeResponseOk $ ms_hspp_opts $ pm_mod_summary $ tm_parsed_module $ tcMod cm
-        _ -> return $
-          IdeResponseFail $
-            IdeError PluginError ("getDynFlags: \"" <> "module not loaded" <> "\"") Null
-```
-
-Sometimes a request may need access to the typechecked module from ghc-mod, but
-it is desirable to keep it on the `IdeM` thread. For this a deferred response can
-be made:
-
-```haskell
-getDynFlags :: Uri -> IdeM (IdeResponse DynFlags)
-getDynFlags uri =
-  pluginGetFileResponse "getDynFlags: " uri $ \fp -> do
-    mcm <- getCachedModule fp
-    return $ case mcm of
-      ModuleCached cm _ -> IdeResponseOk $ getFlags cm
-      _ -> IdeResponseDeferred fp getFlags
-  where getFlags = ms_hspp_opts $ pm_mod_summary $ tm_parsed_module $ tcMod cm
-```
-
-A deferred response takes a file path to a module, and a callback which will be executed
-as with the cached module passed as an argument as soon as the module is loaded.
-
-This is wrapped with the helper function `withCachedModule` which will immediately return
-the cached module if it is already available to use, and only defer it otherwise.
-
-```haskell
-getDynFlags :: Uri -> IdeM (IdeResponse DynFlags)
-getDynFlags uri =
-  pluginGetFileResponse "getDynFlags: " uri $ \fp ->
-    withCachedModule fp (return . IdeResponseOk . ms_hspp_opts . pm_mod_summary . tm_parsed_module . tcMod)
-```
