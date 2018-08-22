@@ -200,10 +200,6 @@ instance ToJSON IdePlugins where
 
 type IdeGhcM = GM.GhcModT IdeBase
 
-instance MonadMTState IdeState IdeGhcM where
-  readMTS = lift $ lift $ lift readMTS
-  modifyMTS = lift . lift . lift . modifyMTS
-
 -- | A computation that is deferred until the module is cached.
 -- Note that the module may not typecheck, in which case 'UriCacheFailed' is passed
 data IdeDefer a = IdeDefer FilePath (UriCache -> a) deriving Functor
@@ -211,15 +207,30 @@ type IdeM = FreeT IdeDefer IdeBase
 
 type IdeBase = ReaderT ClientCapabilities (MultiThreadState IdeState)
 
-instance GM.MonadIO IdeM where
-  liftIO = liftIO
+data IdeState = IdeState
+  { moduleCache :: GhcModuleCache
+  -- | A queue of requests to be performed once a module is loaded
+  , requestQueue :: Map.Map FilePath [UriCache -> IdeBase ()]
+  , idePlugins  :: IdePlugins
+  , extensibleState :: !(Map.Map TypeRep Dynamic)
+  , ghcSession  :: Maybe (IORef HscEnv)
+  -- The pid of this instance of hie
+  , idePidCache    :: Int
+  }
 
+instance MonadMTState IdeState IdeGhcM where
+  readMTS = lift $ lift $ lift readMTS
+  modifyMTS = lift . lift . lift . modifyMTS
+  
 instance MonadMTState IdeState IdeM where
   readMTS = lift $ lift readMTS
   modifyMTS = lift . lift . modifyMTS
 
 class (Monad m) => LiftsToGhc m where
   liftToGhc :: m a -> IdeGhcM a
+
+instance GM.MonadIO IdeM where
+  liftIO = liftIO
 
 instance LiftsToGhc IdeM where
   liftToGhc (FreeT f) = do
@@ -239,16 +250,13 @@ instance LiftsToGhc IdeBase where
 instance LiftsToGhc IdeGhcM where
   liftToGhc = id
 
-data IdeState = IdeState
-  { moduleCache :: GhcModuleCache
-  -- | A queue of requests to be performed once a module is loaded
-  , requestQueue :: Map.Map FilePath [UriCache -> IdeBase ()]
-  , idePlugins  :: IdePlugins
-  , extensibleState :: !(Map.Map TypeRep Dynamic)
-  , ghcSession  :: Maybe (IORef HscEnv)
-  -- The pid of this instance of hie
-  , idePidCache    :: Int
-  }
+instance HasGhcModuleCache IdeGhcM where
+  getModuleCache = lift $ lift getModuleCache
+  setModuleCache = lift . lift . setModuleCache
+
+instance HasGhcModuleCache IdeM where
+  getModuleCache = lift getModuleCache
+  setModuleCache = lift . setModuleCache
 
 instance HasGhcModuleCache IdeBase where
   getModuleCache = do
@@ -258,14 +266,6 @@ instance HasGhcModuleCache IdeBase where
   setModuleCache mc = do
     tvar <- lift ask
     liftIO $ atomically $ modifyTVar' tvar (\st -> st { moduleCache = mc })
-
-instance HasGhcModuleCache IdeGhcM where
-  getModuleCache = lift $ lift getModuleCache
-  setModuleCache = lift . lift . setModuleCache
-
-instance HasGhcModuleCache IdeM where
-  getModuleCache = lift getModuleCache
-  setModuleCache = lift . setModuleCache
 
 -- ---------------------------------------------------------------------
 
