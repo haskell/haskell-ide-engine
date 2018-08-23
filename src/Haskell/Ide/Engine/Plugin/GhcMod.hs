@@ -206,7 +206,7 @@ setTypecheckedModule uri =
       Nothing -> do
         debugm $ "setTypecheckedModule: Didn't get typechecked module for: " ++ show fp
 
-        failModule fp (T.unlines errs)
+        failModule fp
 
         return $ IdeResultOk (diags,errs)
       Just tm -> do
@@ -336,8 +336,7 @@ splitCaseCmd' uri newPos =
                 return $ oldToNewPositions checkedModule wEdit
               Nothing -> return mempty
           Nothing -> return mempty
-      ModuleFailed errText -> return $ IdeResultFail $ IdeError PluginError (T.append "hie-ghc-mod: " errText) Null
-      ModuleLoading -> return $ IdeResultOk mempty
+      _ -> return $ IdeResultOk mempty
   where
 
     -- | Transform all ranges in a WorkspaceEdit from old to new positions.
