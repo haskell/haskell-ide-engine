@@ -43,7 +43,7 @@ toDynJSON = CD.toDyn
 -- arguments in the form of a JSON object.
 runPluginCommand :: PluginId -> CommandName -> Value -> IdeGhcM (IdeResult DynamicJSON)
 runPluginCommand p com arg = do
-  (IdePlugins m) <- lift . lift $ getPlugins
+  (IdePlugins m) <- lift $ lift $ lift getPlugins
   case Map.lookup p m of
     Nothing -> return $
       IdeResultFail $ IdeError UnknownPlugin ("Plugin " <> p <> " doesn't exist") Null
