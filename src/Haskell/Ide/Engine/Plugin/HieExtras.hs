@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -22,9 +21,7 @@ import           Data.IORef
 import qualified Data.List                                    as List
 import qualified Data.Map                                     as Map
 import           Data.Maybe
-#if __GLASGOW_HASKELL__ < 804
-import           Data.Monoid
-#endif
+import           Data.Monoid  ((<>))
 import qualified Data.Text                                    as T
 import           Data.Typeable
 import           DataCon
@@ -141,13 +138,9 @@ instance ModuleCache CachedCompletions where
         showModName :: ModuleName -> T.Text
         showModName = T.pack . moduleNameString
 
-#if __GLASGOW_HASKELL__ >= 802
         asNamespace :: ImportDecl name -> ModuleName
         asNamespace imp = fromMaybe (iDeclToModName imp) (fmap GHC.unLoc $ ideclAs imp)
-#else
-        asNamespace :: ImportDecl name -> ModuleName
-        asNamespace imp = fromMaybe (iDeclToModName imp) (ideclAs imp)
-#endif
+
         -- Full canonical names of imported modules
         importDeclerations = map unLoc limports
 
@@ -346,11 +339,7 @@ showName :: Outputable a => a -> T.Text
 showName = T.pack . prettyprint
   where
     prettyprint x = GHC.renderWithStyle GHC.unsafeGlobalDynFlags (GHC.ppr x) style
-#if __GLASGOW_HASKELL__ >= 802
     style = (GHC.mkUserStyle GHC.unsafeGlobalDynFlags GHC.neverQualify GHC.AllTheWay)
-#else
-    style = (GHC.mkUserStyle GHC.neverQualify GHC.AllTheWay)
-#endif
 
 getModule :: DynFlags -> Name -> Maybe (Maybe T.Text,T.Text)
 getModule df n = do
@@ -399,7 +388,7 @@ findDef uri pos = pluginGetFileResponse "findDef: " uri $ \file ->
   where
     gotoModule :: (FilePath -> FilePath) -> ModuleName -> IdeM (IdeResponse [Location])
     gotoModule rfm mn = do
-      
+
       hscEnvRef <- ghcSession <$> readMTS
       mHscEnv <- liftIO $ traverse readIORef hscEnvRef
 
