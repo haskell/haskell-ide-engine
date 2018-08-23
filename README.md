@@ -131,10 +131,11 @@ To install HIE, you need Stack version >= 1.7.1
 In order to support both stack and cabal, `hie` requires `cabal-install`
 as well.
 
-If it is not already installed, install it, one of the ways is
+If it is not already installed, install it and update its package list. One of the ways is:
 
 ```bash
 stack install cabal-install
+cabal update
 ```
 
 To install all supported GHC versions, name them as expected by the VS Code
@@ -383,7 +384,7 @@ hi link ALEInfo SpellCap
 ```
 
 If you're finding that the server isn't starting at the correct project root,
-it may also be helpful to also specify root markers: 
+it may also be helpful to also specify root markers:
 
 ```vim
 let g:LanguageClient_rootMarkers = ['*.cabal', 'stack.yaml']
