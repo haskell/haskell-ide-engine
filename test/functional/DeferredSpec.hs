@@ -12,7 +12,7 @@ import qualified Data.HashMap.Strict as H
 import Data.Maybe
 import Language.Haskell.LSP.Test
 import Language.Haskell.LSP.Types hiding (message)
-import qualified Language.Haskell.LSP.Types as LSP (id)
+import qualified Language.Haskell.LSP.Types as LSP (error, id)
 import Test.Hspec
 import System.Directory
 import System.FilePath
@@ -95,7 +95,7 @@ spec = do
       doc <- openDoc "FuncTestFail.hs" "haskell"
 
       symbols <- request TextDocumentDocumentSymbol (DocumentSymbolParams doc) :: Session DocumentSymbolsResponse
-      liftIO $ symbols ^. result `shouldBe` Just (DSDocumentSymbols mempty)
+      liftIO $ symbols ^. LSP.error `shouldNotBe` Nothing
 
     it "returns hints as diagnostics" $ runSession hieCommand fullCaps "test/testdata" $ do
       _ <- openDoc "FuncTest.hs" "haskell"
@@ -161,6 +161,5 @@ spec = do
       -- errMsg <- skipManyTill anyNotification notification :: Session ShowMessageNotification
       diagsRsp2 <- skipManyTill anyNotification message :: Session PublishDiagnosticsNotification
       let (List diags2) = diagsRsp2 ^. params . diagnostics
-
 
       liftIO $ show diags2 `shouldBe` "[]"

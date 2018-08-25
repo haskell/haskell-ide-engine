@@ -292,21 +292,21 @@ hoist f a =
 
 codeActionProvider :: CodeActionProvider
 codeActionProvider pId docId _ (J.Range pos _) _ =
-  pluginGetFile "HaRe codeActionProvider: " (docId ^. J.uri) $ \file ->
-    withCachedModule file (IdeResultOk mempty) $ \cm -> do
+  pluginGetFileResponse "HaRe codeActionProvider: " (docId ^. J.uri) $ \file ->
+    withCachedModuleDefault file (Just (IdeResponseOk mempty)) $ \cm -> do
       let symbols = getArtifactsAtPos pos (defMap cm)
       debugm $ show $ map (Hie.showName . snd) symbols
       if not (null symbols)
         then
           let name = Hie.showName $ snd $ head symbols
-            in IdeResultOk <$> sequence [
+            in IdeResponseOk <$> sequence [
               mkLiftOneAction name
             , mkLiftTopAction name
             , mkDemoteAction name
             , mkDeleteAction name
             , mkDuplicateAction name
             ]
-        else return (IdeResultOk [])
+        else return (IdeResponseOk [])
 
   where
     mkLiftOneAction name = do
