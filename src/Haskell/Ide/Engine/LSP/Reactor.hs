@@ -95,7 +95,7 @@ writePluginReq req lid = do
     writeTChan cin req
 
 -- | Execute multiple ide requests sequentially
-makeRequests :: [IdeM (IdeResult a)] -- ^ The requests to make
+makeRequests :: [IdeM (IdeResponse a)] -- ^ The requests to make
              -> TrackingNumber
              -> J.LspId
              -> ([a] -> R ())          -- ^ Callback with the request inputs and results

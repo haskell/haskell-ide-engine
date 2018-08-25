@@ -239,7 +239,7 @@ codeActionProvider plId docId mRootDir _ context = do
   res <- mapM (bimapM return Hoogle.searchPackages) pkgs
   actions <- catMaybes <$> mapM (uncurry mkAddPackageAction) (concatPkgs res)
 
-  return (IdeResultOk actions)
+  return $ IdeResponseOk actions
 
   where
     concatPkgs = concatMap (\(d, ts) -> map (d,) ts)

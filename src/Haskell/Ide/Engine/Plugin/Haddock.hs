@@ -217,9 +217,9 @@ renderMarkDown =
           removeInner x = T.replace "```" "" $ T.replace "```haskell" "" x
 
 hoverProvider :: HoverProvider
-hoverProvider doc pos = runIdeResultT $ do
-  df <- IdeResultT $ getDynFlags doc
-  names' <- IdeResultT $ getSymbolsAtPoint doc pos
+hoverProvider doc pos = runIdeResponseT $ do
+  df <- IdeResponseT $ getDynFlags doc
+  names' <- IdeResponseT $ getSymbolsAtPoint doc pos
   let names = mapMaybe pickName $ groupBy f $ sortBy f' names'
   docs <- forM names $ \(_,name) -> do
     let sname = showName name

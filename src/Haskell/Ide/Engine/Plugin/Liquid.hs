@@ -184,12 +184,12 @@ liquidFileFor uri ext =
 
 hoverProvider :: HoverProvider
 hoverProvider uri pos =
-  pluginGetFile "Liquid.hoverProvider: " uri $ \file ->
-    withCachedModuleAndData file (IdeResultOk []) $
+  pluginGetFileResponse "Liquid.hoverProvider: " uri $ \file ->
+    withCachedModuleAndDataDefault file (Just (IdeResponseOk [])) $
       \cm () -> do
         merrs <- liftIO $ readVimAnnot uri
         case merrs of
-          Nothing -> return (IdeResultOk [])
+          Nothing -> return $ IdeResponseResult (IdeResultOk [])
           Just lerrs -> do
             let perrs = map (\le@(LE s e _) -> (lpToPos s,lpToPos e,le)) lerrs
                 ls    = getThingsAtPos cm pos perrs
@@ -197,7 +197,7 @@ hoverProvider uri pos =
               let msgs = T.splitOn "\\n" msg
                   msg' = J.CodeString (J.LanguageString "haskell" (T.unlines msgs))
               return $ J.Hover (J.List [msg']) (Just r)
-            return (IdeResultOk hs)
+            return $ IdeResponseResult (IdeResultOk hs)
 
 -- ---------------------------------------------------------------------
 
