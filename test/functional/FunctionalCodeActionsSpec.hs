@@ -92,8 +92,8 @@ spec = describe "code actions" $ do
         _:x:_ <- T.lines <$> documentContents doc
         liftIO $ x `shouldBe` "foo = putStrLn \"world\""
 
-  it "provides import suggestions and 3.8 code action kinds" $
-    runSession hieCommand fullCaps "test/testdata" $ do
+  describe "import suggetsions" $ do
+    it "works with 3.8 code action kinds" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImport.hs" "haskell"
 
       -- ignore the first empty hlint diagnostic publish
@@ -118,7 +118,19 @@ spec = describe "code actions" $ do
 
       contents <- getDocumentEdit doc
       liftIO $ contents `shouldBe` "import Control.Monad\nmain :: IO ()\nmain = when True $ putStrLn \"hello\""
+    it "formats with brittany if needed" $ runSession hieCommand fullCaps "test/testdata" $ do
+      doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
+      _ <- waitForDiagnosticsSource "ghcmod"
 
+      actionsOrCommands <- getAllCodeActions doc
+      let action:_ = map fromAction actionsOrCommands
+      executeCodeAction action
+
+      contents <- getDocumentEdit doc
+      liftIO $ do
+        let l1:l2:_ = T.lines contents
+        l1 `shouldBe` "import qualified Data.Maybe"
+        l2 `shouldBe` "import           Control.Monad"
 
   describe "add package suggestions" $ do
     it "adds to .cabal files" $ runSession hieCommand fullCaps "test/testdata/addPackageTest/cabal" $ do

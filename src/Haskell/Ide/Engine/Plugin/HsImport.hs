@@ -4,22 +4,30 @@
 {-# LANGUAGE TupleSections #-}
 module Haskell.Ide.Engine.Plugin.HsImport where
 
-import           Control.Lens
+import           Control.Lens.Operators
 import           Control.Monad.IO.Class
+import           Control.Monad
 import           Data.Aeson
 import           Data.Bitraversable
+import           Data.Bifunctor
+import           Data.Either
 import           Data.Foldable
+import qualified Data.HashMap.Strict           as HM
 import           Data.Maybe
-import           Data.Monoid ((<>))
+import           Data.Monoid                    ( (<>) )
 import qualified Data.Text                     as T
 import qualified Data.Text.IO                  as T
 import qualified GHC.Generics                  as Generics
 import qualified GhcMod.Utils                  as GM
 import           HsImport
 import           Haskell.Ide.Engine.MonadTypes
+import           Haskell.Ide.Engine.MonadFunctions
 import qualified Language.Haskell.LSP.Types    as J
 import           Haskell.Ide.Engine.PluginUtils
-import qualified Haskell.Ide.Engine.Plugin.Hoogle as Hoogle
+import qualified Haskell.Ide.Engine.Plugin.Brittany
+                                               as Brittany
+import qualified Haskell.Ide.Engine.Plugin.Hoogle
+                                               as Hoogle
 import           System.Directory
 import           System.IO
 
@@ -67,8 +75,49 @@ importModule uri modName =
         Nothing -> do
           newText <- liftIO $ T.readFile output
           liftIO $ removeFile output
-          workspaceEdit <- liftToGhc $ makeDiffResult input newText fileMap
-          return $ IdeResultOk workspaceEdit
+          J.WorkspaceEdit mChanges mDocChanges <- liftToGhc $ makeDiffResult input newText fileMap
+
+          shouldFormat <- hasFormattedImports input
+          if shouldFormat
+            then do
+              confFile <- liftIO $ Brittany.getConfFile origInput
+              -- Format the import with Brittany
+              newChanges <- forM mChanges $ mapM $ mapM (formatTextEdit confFile)
+              newDocChanges <- forM mDocChanges $ mapM $ \(J.TextDocumentEdit vDocId tes) -> do
+                ftes <- forM tes (formatTextEdit confFile)
+                return (J.TextDocumentEdit vDocId ftes)
+    
+              return $ IdeResultOk (J.WorkspaceEdit newChanges newDocChanges)
+            else
+              return $ IdeResultOk (J.WorkspaceEdit mChanges mDocChanges)
+
+  where hasFormattedImports fp = do
+          ls <- T.lines <$> liftIO (T.readFile fp)
+          debugm (show ls)
+          return (any isFormattedLine ls)
+        -- Only use Brittany formatting if it's already formatted
+        isFormattedLine x
+          | "import qualified " `T.isPrefixOf` x = True
+          | "import           " `T.isPrefixOf` x = True
+          | otherwise = False
+        formatTextEdit confFile (J.TextEdit r t) = do
+          ft <- fromRight t <$> liftIO (Brittany.runBrittany 2 confFile t)
+          return (J.TextEdit r ft)
+
+changedRange :: WorkspaceEdit -> Maybe Range
+changedRange (WorkspaceEdit _ (Just (List ((J.TextDocumentEdit _ (List tes)):_))))
+  = changedRange' tes
+changedRange (WorkspaceEdit (Just changes) _) =
+  case HM.elems changes of
+    List tes:_ -> changedRange' tes
+    _ -> Nothing
+changedRange _ = Nothing
+
+changedRange' :: [J.TextEdit] -> Maybe Range
+changedRange' = foldl go Nothing
+  where go Nothing (J.TextEdit r _)  = Just r
+        go (Just acc) (J.TextEdit r _) = Just (concatRange r acc)
+        concatRange (Range s1 e1) (Range s2 e2) = Range (min s1 s2) (max e1 e2)
 
 codeActionProvider :: CodeActionProvider
 codeActionProvider plId docId _ _ context = do

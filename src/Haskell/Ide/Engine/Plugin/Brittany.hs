@@ -46,7 +46,7 @@ brittanyDescriptor plId = PluginDescriptor
 brittanyCmd :: Int -> Uri -> Maybe Range -> IdeGhcM (IdeResult [J.TextEdit])
 brittanyCmd tabSize uri range =
   pluginGetFile "brittanyCmd: " uri $ \file -> do
-    confFile <- liftIO $ findLocalConfigPath (takeDirectory file)
+    confFile <- liftIO $ getConfFile file
     text <- GM.withMappedFile file $ liftIO . T.readFile
     case range of
       Just r -> do
@@ -87,6 +87,9 @@ normalize :: Range -> Range
 normalize (Range (Position sl _) (Position el _)) =
   -- Extend to the line below to replace newline character, as above
   Range (Position sl 0) (Position (el + 1) 0)
+
+getConfFile :: FilePath -> IO (Maybe FilePath)
+getConfFile = findLocalConfigPath . takeDirectory
 
 runBrittany :: Int              -- ^ tab  size
             -> Maybe FilePath   -- ^ local config file
