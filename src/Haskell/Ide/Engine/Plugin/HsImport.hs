@@ -12,7 +12,6 @@ import           Data.Bitraversable
 import           Data.Bifunctor
 import           Data.Either
 import           Data.Foldable
-import qualified Data.HashMap.Strict           as HM
 import           Data.Maybe
 import           Data.Monoid                    ( (<>) )
 import qualified Data.Text                     as T
@@ -103,21 +102,6 @@ importModule uri modName =
         formatTextEdit confFile (J.TextEdit r t) = do
           ft <- fromRight t <$> liftIO (Brittany.runBrittany 2 confFile t)
           return (J.TextEdit r ft)
-
-changedRange :: WorkspaceEdit -> Maybe Range
-changedRange (WorkspaceEdit _ (Just (List ((J.TextDocumentEdit _ (List tes)):_))))
-  = changedRange' tes
-changedRange (WorkspaceEdit (Just changes) _) =
-  case HM.elems changes of
-    List tes:_ -> changedRange' tes
-    _ -> Nothing
-changedRange _ = Nothing
-
-changedRange' :: [J.TextEdit] -> Maybe Range
-changedRange' = foldl go Nothing
-  where go Nothing (J.TextEdit r _)  = Just r
-        go (Just acc) (J.TextEdit r _) = Just (concatRange r acc)
-        concatRange (Range s1 e1) (Range s2 e2) = Range (min s1 s2) (max e1 e2)
 
 codeActionProvider :: CodeActionProvider
 codeActionProvider plId docId _ _ context = do
