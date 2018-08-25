@@ -54,15 +54,6 @@ If the module fails to load for any reason(parse error, type error etc.), the pr
 `CachedModule` for the file would still be available. __This allows HIE to respond to queries 
 even when the current version of the file doesn't compile.__
 
-It's recommended that you use `withCachedModule` when in `IdeM` to access the typechecked
-module, which will automatically defer your result if no cache is available, or return a
-default if it then fails to typecheck:
-
-```haskell
-withCachedModule file (IdeResultOk []) $ \cm -> do
-  -- poke about with cm here
-```
-
 In this scenario, the `newPosToOld` and `oldPosToNew` functions help to associate 
 positions in the current version of the document (which doesn't compile) to the most recent
 version of the document that did compile. `newPosToOld` will take a `Position` in the current
@@ -192,4 +183,20 @@ findDef :: Uri -> Position -> IdeM (IdeResult Location)
 The request uses the `findDef` function in the `HaRe` plugin to get the `Location` 
 of the definition of the symbol at the given position. The callback makes a LSP 
 response message out of the location, and forwards it to thread #4 which sends
-it to the IDE via stdout
+it to the IDE via stdout.
+
+## Deferred requests
+
+Should you find yourself wanting to access a typechecked module from within `IdeM`, 
+use `withCachedModule` to get access to a cached version of that module.
+If there is no cached module available, then it will automatically defer your result,
+or return a default if that then fails to typecheck:
+
+```haskell
+withCachedModule file (IdeResultOk []) $ \cm -> do
+  -- poke about with cm here
+```
+
+Internally, a deferred response is represented by `IdeDefer`, which takes a file path
+to a module, and a callback which will be executed with a `UriCache` passed as an
+argument as soon as the module is loaded, or a `UriCacheFailed` if it failed.
