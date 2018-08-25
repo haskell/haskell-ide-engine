@@ -97,19 +97,20 @@ instance ToJSON   LiquidError
 
 -- ---------------------------------------------------------------------
 
-diagnosticProvider :: DiagnosticTrigger -> Uri -> IdeGhcM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
-diagnosticProvider trigger uri = do
-  me <- liftIO $ readJsonAnnot uri
-  case me of
-    Nothing -> return $ IdeResultOk Map.empty
-    Just es -> do
-      case trigger of
-        DiagnosticOnSave -> do
-          return ()
-        _ -> return ()
-      return $ IdeResultOk m
-      where
-        m = Map.fromList [(uri,S.fromList (map liquidErrorToDiagnostic es))]
+diagnosticProvider :: DiagnosticTrigger -> Uri -> IdeM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
+diagnosticProvider trigger uri = pluginGetFile "Liquid.diagnosticProvider:" uri $ \file ->
+  withCachedModuleAndData file (IdeResultOk Map.empty) $ \_cm () -> do
+    me <- liftIO $ readJsonAnnot uri
+    case me of
+      Nothing -> return $ IdeResultOk Map.empty
+      Just es -> do
+        case trigger of
+          DiagnosticOnSave -> do
+            return ()
+          _ -> return ()
+        return $ IdeResultOk m
+        where
+          m = Map.fromList [(uri,S.fromList (map liquidErrorToDiagnostic es))]
 
 -- ---------------------------------------------------------------------
 

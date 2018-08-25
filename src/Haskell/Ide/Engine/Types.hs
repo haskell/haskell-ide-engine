@@ -26,7 +26,8 @@ pattern GReq :: TrackingNumber
              -> PluginRequest m
 pattern GReq a b c d e f = Right (GhcRequest   a b c d e f)
 
-pattern IReq :: TrackingNumber -> J.LspId -> RequestCallback m a -> IdeM (IdeResult a) -> Either (IdeRequest m) b
+pattern IReq :: TrackingNumber -> J.LspId
+             -> RequestCallback m a -> IdeM (IdeResult a) -> PluginRequest m
 pattern IReq a b c d   = Left  (IdeRequest a b c d)
 
 type PluginRequest m = Either (IdeRequest m) (GhcRequest m)
