@@ -2,7 +2,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE FlexibleContexts    #-}
 module Haskell.Ide.Engine.Plugin.HieExtras
   ( getDynFlags
   , getCompletions
@@ -56,7 +55,10 @@ import           Var
 getDynFlags :: Uri -> IdeM (IdeResponse DynFlags)
 getDynFlags uri =
   pluginGetFileResponse "getDynFlags: " uri $ \fp ->
-    withCachedModule fp (return . IdeResponseOk . ms_hspp_opts . pm_mod_summary . tm_parsed_module . tcMod)
+    withCachedModule fp (return . IdeResponseOk . getDynFlagsPure)
+
+getDynFlagsPure :: CachedModule -> DynFlags
+getDynFlagsPure = ms_hspp_opts . pm_mod_summary . tm_parsed_module . tcMod
 
 -- ---------------------------------------------------------------------
 
@@ -166,7 +168,7 @@ instance ModuleCache CachedCompletions where
         importDeclerations = map unLoc limports
 
         -- The list of all importable Modules from all packages
-        moduleNames = map showModName (GM.listVisibleModuleNames GHC.unsafeGlobalDynFlags)
+        moduleNames = map showModName (GM.listVisibleModuleNames (getDynFlagsPure cm))
 
         -- The given namespaces for the imported modules (ie. full name, or alias if used)
         allModNamesAsNS = map (showModName . asNamespace) importDeclerations
@@ -290,9 +292,7 @@ getCompletions uri prefixInfo = pluginGetFileResponse "getCompletions: " uri $ \
               then unqualCompls
               else Map.findWithDefault [] prefixModule qualCompls
 
-        insertWithoutPrefix orig = J.detail ?~ orig
-
-        mkImportCompl label = insertWithoutPrefix label
+        mkImportCompl label = (J.detail ?~ label)
                             . mkModCompl
                             $ fromMaybe "" (T.stripPrefix enteredQual label)
 
