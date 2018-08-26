@@ -170,7 +170,7 @@ configVal defVal field = do
 -- ---------------------------------------------------------------------
 
 getPrefixAtPos :: (MonadIO m, MonadReader REnv m)
-  => Uri -> Position -> m (Maybe (T.Text,T.Text))
+  => Uri -> Position -> m (Maybe Hie.PosPrefixInfo)
 getPrefixAtPos uri (Position l c) = do
   mvf <- liftIO =<< asksLspFuncs Core.getVirtualFileFunc <*> pure uri
   case mvf of
@@ -190,7 +190,7 @@ getPrefixAtPos uri (Position l c) = do
           let modParts = dropWhile (not . isUpper . T.head)
                               $ reverse $ filter (not .T.null) xs
               modName = T.intercalate "." modParts
-          return (modName,x)
+          return $ Hie.PosPrefixInfo (Yi.toText curLine) modName x
     Nothing -> return Nothing
 
 -- ---------------------------------------------------------------------

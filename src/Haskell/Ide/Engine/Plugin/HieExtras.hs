@@ -2,6 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE FlexibleContexts    #-}
 module Haskell.Ide.Engine.Plugin.HieExtras
   ( getDynFlags
   , getCompletions
@@ -12,16 +13,18 @@ module Haskell.Ide.Engine.Plugin.HieExtras
   , findDef
   , showName
   , safeTyThingId
+  , PosPrefixInfo(..)
   ) where
 
 import           ConLike
+import           Control.Lens.Setter                          ( (?~) )
 import           Control.Monad.State
 import           Data.Aeson
 import           Data.IORef
 import qualified Data.List                                    as List
 import qualified Data.Map                                     as Map
 import           Data.Maybe
-import           Data.Monoid  ((<>))
+import           Data.Monoid                                  ( (<>) )
 import qualified Data.Text                                    as T
 import           Data.Typeable
 import           DataCon
@@ -31,6 +34,7 @@ import           Finder
 import           GHC
 import qualified GhcMod.Error                                 as GM
 import qualified GhcMod.LightGhc                              as GM
+import qualified GhcMod.Gap                                   as GM
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
@@ -119,10 +123,27 @@ safeTyThingId _                           = Nothing
 -- Associates a module's qualifier with its members
 type QualCompls = Map.Map T.Text [CompItem]
 
+-- | Describes the line at the current cursor position
+data PosPrefixInfo = PosPrefixInfo
+  { fullLine :: T.Text
+    -- ^ The full contents of the line the cursor is at
+
+  , prefixModule :: T.Text
+    -- ^ If any, the module name that was typed right before the cursor position.
+    --  For example, if the user has typed "Data.Maybe.from", then this property
+    --  will be "Data.Maybe"
+
+  , prefixText :: T.Text
+    -- ^ The word right before the cursor position, after removing the module part.
+    -- For example if the user has typed "Data.Maybe.from",
+    -- then this property will be "from"
+  }
+
 data CachedCompletions = CC
   { allModNamesAsNS :: [T.Text]
   , unqualCompls :: [CompItem]
   , qualCompls :: QualCompls
+  , importableModules :: [T.Text]
   } deriving (Typeable)
 
 instance ModuleCache CachedCompletions where
@@ -143,6 +164,9 @@ instance ModuleCache CachedCompletions where
 
         -- Full canonical names of imported modules
         importDeclerations = map unLoc limports
+
+        -- The list of all importable Modules from all packages
+        moduleNames = map showModName (GM.listVisibleModuleNames GHC.unsafeGlobalDynFlags)
 
         -- The given namespaces for the imported modules (ie. full name, or alias if used)
         allModNamesAsNS = map (showModName . asNamespace) importDeclerations
@@ -238,33 +262,48 @@ instance ModuleCache CachedCompletions where
       { allModNamesAsNS = allModNamesAsNS
       , unqualCompls = toplevelCompls ++ unquals
       , qualCompls = quals
+      , importableModules = moduleNames
       }
 
-getCompletions :: Uri -> (T.Text, T.Text) -> IdeM (IdeResponse [J.CompletionItem])
-getCompletions uri (qualifier, ident) = pluginGetFileResponse "getCompletions: " uri $ \file ->
+getCompletions :: Uri -> PosPrefixInfo -> IdeM (IdeResponse [J.CompletionItem])
+getCompletions uri prefixInfo = pluginGetFileResponse "getCompletions: " uri $ \file ->
   let handlers =
         [ GM.GHandler $ \(ex :: SomeException) ->
             return $ IdeResponseFail $ IdeError PluginError
-                                                (T.pack $ "getCompletions" <> ": " <> (show ex))
+                                                (T.pack $ "getCompletions" <> ": " <> show ex)
                                                 Null
         ]
+      PosPrefixInfo {fullLine, prefixModule, prefixText} = prefixInfo
   in flip GM.gcatches handlers $ do
-    -- debugm $ "got prefix" ++ show (qualifier, ident)
-    let enteredQual = if T.null qualifier then "" else qualifier <> "."
-        fullPrefix = enteredQual <> ident
-    withCachedModuleAndData file $ \_ CC { allModNamesAsNS, unqualCompls, qualCompls } ->
+    debugm $ "got prefix" ++ show (prefixModule, prefixText)
+    let enteredQual = if T.null prefixModule then "" else prefixModule <> "."
+        fullPrefix = enteredQual <> prefixText
+    withCachedModuleAndData file $ \_ CC { allModNamesAsNS, unqualCompls, qualCompls, importableModules } ->
       let
         filtModNameCompls = map mkModCompl
           $ mapMaybe (T.stripPrefix enteredQual)
           $ Fuzzy.simpleFilter fullPrefix allModNamesAsNS
 
-        filtCompls = Fuzzy.filterBy label ident compls
+        filtCompls = Fuzzy.filterBy label prefixText compls
           where
-            compls = if T.null qualifier
+           compls = if T.null prefixModule
               then unqualCompls
-              else Map.findWithDefault [] qualifier qualCompls
+              else Map.findWithDefault [] prefixModule qualCompls
 
-        in return $ IdeResponseOk $ filtModNameCompls ++ map mkCompl filtCompls
+        insertWithoutPrefix orig = J.detail ?~ orig
+
+        mkImportCompl label = insertWithoutPrefix label
+                            . mkModCompl
+                            $ fromMaybe "" (T.stripPrefix enteredQual label)
+
+        filtImportCompls = [ mkImportCompl label
+                           | label <- Fuzzy.simpleFilter fullPrefix importableModules
+                           , enteredQual `T.isPrefixOf` label
+                           ]
+      in return $ IdeResponseOk $
+        if "import " `T.isPrefixOf` fullLine
+        then filtImportCompls
+        else filtModNameCompls ++ map mkCompl filtCompls
 
 -- ---------------------------------------------------------------------
 
