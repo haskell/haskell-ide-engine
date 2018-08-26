@@ -8,6 +8,10 @@ packages:
   extra-dep: true
 
 - location:
+    ./submodules/cabal-helper
+  extra-dep: true
+
+- location:
     ./submodules/ghc-mod
   extra-dep: true
   subdirs:
@@ -24,7 +28,6 @@ packages:
 extra-deps:
 - brittany-0.11.0.0
 - butcher-1.3.1.1
-- cabal-helper-0.8.1.0
 - cabal-plan-0.3.0.0
 - constrained-dynamic-0.1.0.0
 - czipwith-1.0.1.0
@@ -34,10 +37,10 @@ extra-deps:
 - lsp-test-0.2.1.0
 - hlint-2.0.11
 # - hlint-2.1.8
-- hsimport-0.8.6
 - sorted-list-0.2.1.0
 - syz-0.2.0.0
 - yaml-0.8.32
+- hsimport-0.8.6
 
 flags:
   haskell-ide-engine:
