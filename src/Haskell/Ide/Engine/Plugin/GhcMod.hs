@@ -52,7 +52,7 @@ import qualified Language.Haskell.LSP.Types        as LSP
 import           Language.Haskell.Refact.API       (hsNamessRdr)
 
 import           DynFlags
-import           EnumSet
+import qualified EnumSet
 import           GHC
 import           IOEnv                             as G
 import           HscTypes
