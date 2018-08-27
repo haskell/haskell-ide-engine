@@ -1,0 +1,66 @@
+# Build starts faster without `sudo`
+sudo: false
+
+language: c
+compiler: gcc
+
+cache:
+  directories:
+  - $HOME/.stack
+  timeout: 300
+
+matrix:
+  include:
+    - env: GHC_VER="8.2.1" ARGS="--stack-yaml=stack-8.2.1.yaml"
+      os: osx
+      addons:
+        artifacts: {paths: [./releases]}
+    - env: GHC_VER="8.2.2" ARGS="--stack-yaml=stack-8.2.2.yaml"
+      os: osx
+      addons:
+        artifacts: {paths: [./releases]}
+    - env: GHC_VER="8.4.2" ARGS="--stack-yaml=stack-8.4.2.yaml"
+      os: osx
+      addons:
+        artifacts: {paths: [./releases]}
+    - env: GHC_VER="8.4.3" ARGS="--stack-yaml=stack-8.4.3.yaml"
+      os: osx
+      addons:
+        artifacts: {paths: [./releases]}
+
+before_install:
+  # Download and unpack the stack executable
+  - mkdir -p ~/.local/bin
+  - |
+    if [[ "${TRAVIS_OS_NAME}" = "osx" ]]
+    then
+      travis_retry curl -sSL https://www.stackage.org/stack/${TRAVIS_OS_NAME}-x86_64 \
+        | tar xz --strip-components=1 -C ~/.local/bin --include   '*/stack'
+    else
+      travis_retry curl -sSL https://www.stackage.org/stack/${TRAVIS_OS_NAME}-x86_64 \
+        | tar xz --strip-components=1 -C ~/.local/bin --wildcards '*/stack'
+    fi
+
+install:
+  - git submodule update --init
+  - travis_retry stack --no-terminal --install-ghc $ARGS build --only-dependencies
+
+script:
+  - stack --no-terminal $ARGS install
+
+after_success:
+- mkdir -p ./releases/
+- cp "$(which hie)" "./releases/"
+- cp "$(which hie-wrapper)" "./releases/"
+
+before_deploy:
+- mv ./releases/hie "./releases/hie-${GHC_VER}-macos"
+
+deploy:
+  provider: releases
+  api_key:
+    secure: jhNwLD87iJZBA4yCd3bXUz4bcAxzPVTR7PjW9okQxXu5LBOYfTbUFsYCqnpEaItk1ot8WKwAxOt6tXkU/KkmDwhYCkii1Mt1r9mEKzDkjp68WhRlRm/3iCjlUcophXavUwcKZDtZHpii2bn+hne2Y8Eo8zbMIb1l5kd+mDH6WqP9AAMcgKSaHa7ZIkoc2S2TJ04nU8OeEW7Ts6lfOc6NAuxC9V28sewDUdWoAl8DIydsXvZWEAJ245Ir06zvg7KmdDuGmqHnO+cR2XjaRCs5sSDypexhECH+u8pgMe8Bziiy8aI1FHvRB8nEh/LvS+urGj1eoDH6DQiH+MerUFqFknn1wTw5fW9m3IsMpufVdlIMgQb1cqrr0osHyH9ckL/O7gtu7Fr67LXXPVq5TiUkIcLE6ut+DbCMs9LjePrHKW1JiEkqBBYB+MKkkKrPh3cUOjzuOkgnrpFgvFaBASSabqvVQvoDhCb+CxZQrSH1N1Qqj9zMuy6WFsmDmN/Pb940H3J9/isF/zkrPwrYbm02ZVV3882IEWuNGlr3NUW1Ik9lXPlPlen9BtJebaxhVa/RkRdyWIjk5Wlv9iGwuT/dtxqfJvD1EXodnxKAfc6QJISRwqpRBMIVIvRHRWOdY42AqHy/0NWG4J0gsTcBuBB4z5iwi9/zG7n60zcYU4N+9pg=
+  file: "./releases/*"
+  skip_cleanup: true
+  on:
+    tags: true
