@@ -52,7 +52,6 @@ import qualified Language.Haskell.LSP.Types        as LSP
 import           Language.Haskell.Refact.API       (hsNamessRdr)
 
 import           DynFlags
-import qualified EnumSet
 import           GHC
 import           IOEnv                             as G
 import           HscTypes
@@ -157,7 +156,7 @@ myWrapper rfm action = do
   diagRef <- liftIO $ newIORef Map.empty
   errRef <- liftIO $ newIORef []
   let setLogger df = df { log_action = logDiag rfm errRef diagRef }
-      setDeferTypedHoles df = df { generalFlags = EnumSet.insert Opt_DeferTypedHoles (generalFlags df) }
+      setDeferTypedHoles = setGeneralFlag' Opt_DeferTypedHoles
       ghcErrRes msg = (Map.empty, [T.pack msg])
       handlers = errorHandlers ghcErrRes (srcErrToDiag (hsc_dflags env) rfm )
       action' = do
