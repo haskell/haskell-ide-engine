@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -13,18 +12,18 @@ module Haskell.Ide.Engine.Plugin.HieExtras
   , findDef
   , showName
   , safeTyThingId
+  , PosPrefixInfo(..)
   ) where
 
 import           ConLike
+import           Control.Lens.Setter                          ( (?~) )
 import           Control.Monad.State
 import           Data.Aeson
 import           Data.IORef
 import qualified Data.List                                    as List
 import qualified Data.Map                                     as Map
 import           Data.Maybe
-#if __GLASGOW_HASKELL__ < 804
-import           Data.Monoid
-#endif
+import           Data.Monoid                                  ( (<>) )
 import qualified Data.Text                                    as T
 import           Data.Typeable
 import           DataCon
@@ -34,6 +33,7 @@ import           Finder
 import           GHC
 import qualified GhcMod.Error                                 as GM
 import qualified GhcMod.LightGhc                              as GM
+import qualified GhcMod.Gap                                   as GM
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
@@ -55,7 +55,10 @@ import           Var
 getDynFlags :: Uri -> IdeM (IdeResponse DynFlags)
 getDynFlags uri =
   pluginGetFileResponse "getDynFlags: " uri $ \fp ->
-    withCachedModule fp (return . IdeResponseOk . ms_hspp_opts . pm_mod_summary . tm_parsed_module . tcMod)
+    withCachedModule fp (return . IdeResponseOk . getDynFlagsPure)
+
+getDynFlagsPure :: CachedModule -> DynFlags
+getDynFlagsPure = ms_hspp_opts . pm_mod_summary . tm_parsed_module . tcMod
 
 -- ---------------------------------------------------------------------
 
@@ -122,10 +125,27 @@ safeTyThingId _                           = Nothing
 -- Associates a module's qualifier with its members
 type QualCompls = Map.Map T.Text [CompItem]
 
+-- | Describes the line at the current cursor position
+data PosPrefixInfo = PosPrefixInfo
+  { fullLine :: T.Text
+    -- ^ The full contents of the line the cursor is at
+
+  , prefixModule :: T.Text
+    -- ^ If any, the module name that was typed right before the cursor position.
+    --  For example, if the user has typed "Data.Maybe.from", then this property
+    --  will be "Data.Maybe"
+
+  , prefixText :: T.Text
+    -- ^ The word right before the cursor position, after removing the module part.
+    -- For example if the user has typed "Data.Maybe.from",
+    -- then this property will be "from"
+  }
+
 data CachedCompletions = CC
   { allModNamesAsNS :: [T.Text]
   , unqualCompls :: [CompItem]
   , qualCompls :: QualCompls
+  , importableModules :: [T.Text]
   } deriving (Typeable)
 
 instance ModuleCache CachedCompletions where
@@ -141,15 +161,14 @@ instance ModuleCache CachedCompletions where
         showModName :: ModuleName -> T.Text
         showModName = T.pack . moduleNameString
 
-#if __GLASGOW_HASKELL__ >= 802
         asNamespace :: ImportDecl name -> ModuleName
         asNamespace imp = fromMaybe (iDeclToModName imp) (fmap GHC.unLoc $ ideclAs imp)
-#else
-        asNamespace :: ImportDecl name -> ModuleName
-        asNamespace imp = fromMaybe (iDeclToModName imp) (ideclAs imp)
-#endif
+
         -- Full canonical names of imported modules
         importDeclerations = map unLoc limports
+
+        -- The list of all importable Modules from all packages
+        moduleNames = map showModName (GM.listVisibleModuleNames (getDynFlagsPure cm))
 
         -- The given namespaces for the imported modules (ie. full name, or alias if used)
         allModNamesAsNS = map (showModName . asNamespace) importDeclerations
@@ -245,33 +264,46 @@ instance ModuleCache CachedCompletions where
       { allModNamesAsNS = allModNamesAsNS
       , unqualCompls = toplevelCompls ++ unquals
       , qualCompls = quals
+      , importableModules = moduleNames
       }
 
-getCompletions :: Uri -> (T.Text, T.Text) -> IdeM (IdeResponse [J.CompletionItem])
-getCompletions uri (qualifier, ident) = pluginGetFileResponse "getCompletions: " uri $ \file ->
+getCompletions :: Uri -> PosPrefixInfo -> IdeM (IdeResponse [J.CompletionItem])
+getCompletions uri prefixInfo = pluginGetFileResponse "getCompletions: " uri $ \file ->
   let handlers =
         [ GM.GHandler $ \(ex :: SomeException) ->
             return $ IdeResponseFail $ IdeError PluginError
-                                                (T.pack $ "getCompletions" <> ": " <> (show ex))
+                                                (T.pack $ "getCompletions" <> ": " <> show ex)
                                                 Null
         ]
+      PosPrefixInfo {fullLine, prefixModule, prefixText} = prefixInfo
   in flip GM.gcatches handlers $ do
-    -- debugm $ "got prefix" ++ show (qualifier, ident)
-    let enteredQual = if T.null qualifier then "" else qualifier <> "."
-        fullPrefix = enteredQual <> ident
-    withCachedModuleAndData file $ \_ CC { allModNamesAsNS, unqualCompls, qualCompls } ->
+    debugm $ "got prefix" ++ show (prefixModule, prefixText)
+    let enteredQual = if T.null prefixModule then "" else prefixModule <> "."
+        fullPrefix = enteredQual <> prefixText
+    withCachedModuleAndData file $ \_ CC { allModNamesAsNS, unqualCompls, qualCompls, importableModules } ->
       let
         filtModNameCompls = map mkModCompl
           $ mapMaybe (T.stripPrefix enteredQual)
           $ Fuzzy.simpleFilter fullPrefix allModNamesAsNS
 
-        filtCompls = Fuzzy.filterBy label ident compls
+        filtCompls = Fuzzy.filterBy label prefixText compls
           where
-            compls = if T.null qualifier
+           compls = if T.null prefixModule
               then unqualCompls
-              else Map.findWithDefault [] qualifier qualCompls
+              else Map.findWithDefault [] prefixModule qualCompls
 
-        in return $ IdeResponseOk $ filtModNameCompls ++ map mkCompl filtCompls
+        mkImportCompl label = (J.detail ?~ label)
+                            . mkModCompl
+                            $ fromMaybe "" (T.stripPrefix enteredQual label)
+
+        filtImportCompls = [ mkImportCompl label
+                           | label <- Fuzzy.simpleFilter fullPrefix importableModules
+                           , enteredQual `T.isPrefixOf` label
+                           ]
+      in return $ IdeResponseOk $
+        if "import " `T.isPrefixOf` fullLine
+        then filtImportCompls
+        else filtModNameCompls ++ map mkCompl filtCompls
 
 -- ---------------------------------------------------------------------
 
@@ -346,11 +378,7 @@ showName :: Outputable a => a -> T.Text
 showName = T.pack . prettyprint
   where
     prettyprint x = GHC.renderWithStyle GHC.unsafeGlobalDynFlags (GHC.ppr x) style
-#if __GLASGOW_HASKELL__ >= 802
     style = (GHC.mkUserStyle GHC.unsafeGlobalDynFlags GHC.neverQualify GHC.AllTheWay)
-#else
-    style = (GHC.mkUserStyle GHC.neverQualify GHC.AllTheWay)
-#endif
 
 getModule :: DynFlags -> Name -> Maybe (Maybe T.Text,T.Text)
 getModule df n = do
@@ -399,7 +427,7 @@ findDef uri pos = pluginGetFileResponse "findDef: " uri $ \file ->
   where
     gotoModule :: (FilePath -> FilePath) -> ModuleName -> IdeM (IdeResponse [Location])
     gotoModule rfm mn = do
-      
+
       hscEnvRef <- ghcSession <$> readMTS
       mHscEnv <- liftIO $ traverse readIORef hscEnvRef
 
