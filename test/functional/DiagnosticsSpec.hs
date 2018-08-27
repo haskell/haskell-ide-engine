@@ -49,6 +49,12 @@ spec = describe "diagnostics providers" $ do
           d ^. code `shouldBe` Nothing
           d ^. source `shouldBe` Just "eg2"
           d ^. message `shouldBe` (T.pack "Example plugin diagnostic, triggered byDiagnosticOnSave")
+  describe "typed hole errors" $
+    it "is deferred" $
+      runSession hieCommand fullCaps "test/testdata" $ do
+        _ <- openDoc "TypedHoles.hs" "haskell"
+        [diag] <- waitForDiagnosticsSource "ghcmod"
+        liftIO $ diag ^. severity `shouldBe` Just DsWarning
 
 
 -- ---------------------------------------------------------------------
