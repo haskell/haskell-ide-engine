@@ -8,6 +8,10 @@ packages:
   extra-dep: true
 
 - location:
+    ./submodules/cabal-helper
+  extra-dep: true
+
+- location:
     ./submodules/ghc-mod
   extra-dep: true
   subdirs:
@@ -26,13 +30,13 @@ extra-deps:
 - apply-refact-0.5.0.0
 - base-compat-0.9.3
 - brittany-0.11.0.0
-- cabal-helper-0.8.1.0
 - cabal-plan-0.3.0.0
 - constrained-dynamic-0.1.0.0
 - ekg-0.4.0.15
 - ekg-json-0.1.0.6
 - ghc-exactprint-0.5.6.1
 - haddock-api-2.20.0
+- haddock-library-1.6.0
 - hsimport-0.8.6
 - lsp-test-0.2.1.0
 - syz-0.2.0.0
