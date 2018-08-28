@@ -149,7 +149,8 @@ make build-all
 Then add
 
 ```json
-"languageServerHaskell.useHieWrapper": true
+"languageServerHaskell.useCustomHieWrapper": true,
+"languageServerHaskell.useCustomHieWrapperPath": "hie-wrapper",
 ```
 
 to VS Code user settings.
