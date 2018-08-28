@@ -116,7 +116,7 @@ dispatchGhcRequest tn ctx n cin lc plugin com arg = do
 
 dispatchIdeRequest :: (Typeable a, ToJSON a)
                    => TrackingNumber -> String -> TChan (PluginRequest IO)
-                   -> TChan LogVal -> LspId -> IdeM (IdeResponse a) -> IO ()
+                   -> TChan LogVal -> LspId -> IdeDeferM (IdeResult a) -> IO ()
 dispatchIdeRequest tn ctx cin lc lid f = do
   let
     logger :: (Typeable a, ToJSON a) => RequestCallback IO a
@@ -180,11 +180,8 @@ funcSpec = describe "functional dispatch" $ do
     let
       -- Model a hover request
       hoverReq tn idVal doc = dispatchIdeRequest tn ("IReq " ++ show idVal) cin logChan idVal $ do
-        pluginGetFileResponse "hoverReq" doc $ \fp -> do
-          cached <- isCached fp
-          if cached
-            then return (IdeResponseOk Cached)
-            else return (IdeResponseOk NotCached)
+        pluginGetFile "hoverReq" doc $ \fp ->
+          ifCachedModule fp (IdeResultOk NotCached) $ const (return $ IdeResultOk Cached)
 
       unpackRes (r,Right md) = (r, fromDynJSON md)
       unpackRes r            = error $ "unpackRes:" ++ show r
@@ -314,14 +311,14 @@ funcSpec = describe "functional dispatch" $ do
           Nothing
         ))
 
-    it "instantly responds to failed modules with no cache" $ do
+    it "instantly responds to failed modules with no cache with the default" $ do
 
       dispatchIdeRequest 7 "req7" cin logChan (IdInt 7) $ symbolProvider testFailUri
 
       dispatchGhcRequest 8 "req8" 8 cin logChan "ghcmod" "check" (toJSON testFailUri)
 
-      (_, Left symbolError) <- atomically $ readTChan logChan
-      symbolError `shouldBe` (IdInt 7, Language.Haskell.LSP.Types.InternalError, "")
+      hr7 <- atomically $ readTChan logChan
+      unpackRes hr7 `shouldBe` ("req7", Just ([] :: [DocumentSymbol]))
 
       ("req8", Right diags) <- atomically $ readTChan logChan
       show diags `shouldBe` "((Map Uri (Set Diagnostic)),[Text])"

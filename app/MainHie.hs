@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes   #-}
 module Main where
@@ -6,9 +5,7 @@ module Main where
 import           Control.Concurrent.STM.TChan
 import           Control.Monad
 import           Control.Monad.STM
-#if __GLASGOW_HASKELL__ < 804
-import           Data.Semigroup
-#endif
+import           Data.Monoid                           ((<>))
 import           Data.Version                          (showVersion)
 import qualified GhcMod.Types                          as GM
 import           Haskell.Ide.Engine.Dispatcher

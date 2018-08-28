@@ -39,11 +39,11 @@ handleCodeActionReq tn req = do
 
   let getProvider p = pluginCodeActionProvider p <*> return (pluginId p)
       getProviders = do
-        IdePlugins m <- lift getPlugins
-        return $ IdeResponseOk $ mapMaybe getProvider $ toList m
+        IdePlugins m <- getPlugins
+        return $ IdeResultOk $ mapMaybe getProvider $ toList m
 
       providersCb providers =
-        let reqs = map (\f -> f docId maybeRootDir range context) providers
+        let reqs = map (\f -> lift (f docId maybeRootDir range context)) providers
         in makeRequests reqs tn (req ^. J.id) (send . concat)
 
   makeRequest (IReq tn (req ^. J.id) providersCb getProviders)
