@@ -141,7 +141,7 @@ lookupCachedData fp cm dat = do
     Nothing -> do
       val <- cacheDataProducer cm
       let dat' = Map.insert (typeOf val) (toDyn val) dat
-      modifyCache (\s -> s {uriCaches = Map.insert fp' (UriCache cm dat' False)
+      modifyCache (\s -> s {uriCaches = Map.insert fp' (UriCache cm dat')
                                                   (uriCaches s)})
       return val
     Just x ->
@@ -155,7 +155,7 @@ cacheModule :: FilePath -> CachedModule -> IdeGhcM ()
 cacheModule uri cm = do
   uri' <- liftIO $ canonicalizePath uri
 
-  let uc = UriCache cm Map.empty False
+  let uc = UriCache cm Map.empty
 
   modifyCache $ \gmc ->
       gmc { uriCaches = Map.insert uri' uc (uriCaches gmc) }
@@ -205,7 +205,7 @@ cacheModuleNoClear uri cm = do
       gmc { uriCaches = Map.insertWith
                           (updateCachedModule cm)
                           uri'
-                          (UriCache cm Map.empty False)
+                          (UriCache cm Map.empty)
                           (uriCaches gmc)
           }
     )
@@ -218,17 +218,6 @@ deleteCachedModule :: (GM.MonadIO m, HasGhcModuleCache m) => FilePath -> m ()
 deleteCachedModule uri = do
   uri' <- liftIO $ canonicalizePath uri
   modifyCache (\s -> s { uriCaches = Map.delete uri' (uriCaches s) })
-
-markCacheStale :: (GM.MonadIO m, HasGhcModuleCache m) => FilePath -> m ()
-markCacheStale uri = do
-  uri' <- liftIO $ canonicalizePath uri
-  modifyCache $ \gmc ->
-    let newUriCaches = Map.update (\c -> case c of
-                                    (UriCache cm d _) -> Just (UriCache cm d True)
-                                    x -> Just x)
-                                  uri'
-                                  (uriCaches gmc)
-      in gmc { uriCaches = newUriCaches }
 
 -- ---------------------------------------------------------------------
 -- | A ModuleCache is valid for the lifetime of a CachedModule

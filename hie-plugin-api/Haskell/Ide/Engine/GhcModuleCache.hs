@@ -21,7 +21,6 @@ type UriCaches = Map.Map FilePath UriCache
 data UriCache = UriCache
   { cachedModule :: !CachedModule
   , cachedData   :: !(Map.Map TypeRep Dynamic)
-  , isStale      :: !Bool
   } | UriCacheFailed deriving Show
 
 data CachedModule = CachedModule
