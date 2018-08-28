@@ -4,7 +4,6 @@
 {-# LANGUAGE TypeFamilies        #-}
 module Haskell.Ide.Engine.Plugin.HieExtras
   ( getDynFlags
-  , getDynFlags
   , getCompletions
   , getTypeForName
   , getSymbolsAtPoint
@@ -395,7 +394,7 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file ->
                 Right l@(J.Location luri range) ->
                   case uriToFilePath luri of
                     Nothing -> return $ IdeResultOk [l]
-                    Just fp -> withCachedModule fp (IdeResultOk [l]) $ \cm' ->
+                    Just fp -> ifCachedModule fp (IdeResultOk [l]) $ \cm' ->
                       case oldRangeToNew cm' range of
                         Just r  -> return $ IdeResultOk [J.Location luri r]
                         Nothing -> return $ IdeResultOk [l]

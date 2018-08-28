@@ -159,6 +159,7 @@ test-suite unit-test
                      , containers
                      , directory
                      , filepath
+                     , free
                      , haskell-lsp
                      , haskell-ide-engine
                      -- , hie-test-utils
