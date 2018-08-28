@@ -9,7 +9,8 @@
 
 [submodule "submodules/ghc-mod"]
 	path = submodules/ghc-mod
-	url = https://github.com/alanz/ghc-mod.git
+	url = https://github.com/Bubba/ghc-mod.git
+	# url = https://github.com/alanz/ghc-mod.git
 
 
 [submodule "submodules/yi-rope"]
