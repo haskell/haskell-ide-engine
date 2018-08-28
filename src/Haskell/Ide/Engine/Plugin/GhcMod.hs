@@ -195,33 +195,40 @@ setTypecheckedModule uri =
     debugm $ "setTypecheckedModule: file mapping state is: " ++ show fileMap
     rfm <- GM.mkRevRedirMapFunc
     let
-      ghcErrRes msg = ((Map.empty, [T.pack msg]),Nothing)
+      ghcErrRes msg = ((Map.empty, [T.pack msg]),Nothing,Nothing)
     debugm "setTypecheckedModule: before ghc-mod"
-    ((diags', errs), mtm) <- GM.gcatches
+    ((diags', errs), mtm, mpm) <- GM.gcatches
                               (GM.getTypecheckedModuleGhc' (myWrapper rfm) fp)
                               (errorHandlers ghcErrRes (return . ghcErrRes . show))
     debugm "setTypecheckedModule: after ghc-mod"
+
     canonUri <- canonicalizeUri uri
     let diags = Map.insertWith Set.union canonUri Set.empty diags'
-    case mtm of
-      Nothing -> do
-        debugm $ "setTypecheckedModule: Didn't get typechecked module for: " ++ show fp
+    case (mpm,mtm) of
+      (Just pm, Nothing) -> do
+        debugm $ "setTypecheckedModule: Did get parsed module for: " ++ show fp
+        let cm = CachedParsedModule pm rfm return return
+        cacheModule fp cm
+        debugm "setTypecheckedModule: done"
 
-        failModule fp (T.unlines errs)
-
-        return $ IdeResultOk (diags,errs)
-      Just tm -> do
+      (Just pm, Just tm) -> do
         debugm $ "setTypecheckedModule: Did get typechecked module for: " ++ show fp
         typm <- GM.unGmlT $ genTypeMap tm
         sess <- fmap GM.gmgsSession . GM.gmGhcSession <$> GM.gmsGet
-        let cm = CachedModule tm (genLocMap tm) typm (genImportMap tm) (genDefMap tm) rfm return return
+        
+        let cm = CachedModule tm pm (genLocMap tm) typm (genImportMap tm) (genDefMap tm) rfm return return
 
         -- set the session before we cache the module, so that deferred
         -- responses triggered by cacheModule can access it
         modifyMTS (\s -> s {ghcSession = sess})
         cacheModule fp cm
         debugm "setTypecheckedModule: done"
-        return $ IdeResultOk (diags,errs)
+      _ -> do
+        debugm $ "setTypecheckedModule: Didn't get typechecked or parsed module for: " ++ show fp
+
+        failModule fp (T.unlines errs)
+
+    return $ IdeResultOk (diags,errs)
 
 -- ---------------------------------------------------------------------
 

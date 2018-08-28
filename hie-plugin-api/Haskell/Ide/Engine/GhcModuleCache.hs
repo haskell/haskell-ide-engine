@@ -11,7 +11,7 @@ import           Data.Typeable (TypeRep)
 
 import qualified GhcMod.Types                      as GM
 
-import           GHC                               (TypecheckedModule)
+import           GHC                               (TypecheckedModule, ParsedModule)
 
 import Haskell.Ide.Engine.ArtifactMap
 
@@ -27,6 +27,7 @@ data UriCache = UriCache
 
 data CachedModule = CachedModule
   { tcMod          :: !TypecheckedModule
+  , psMod          :: !ParsedModule
   , locMap         :: !LocMap
   , typeMap        :: !TypeMap
   , moduleMap      :: !ModuleMap
@@ -34,10 +35,15 @@ data CachedModule = CachedModule
   , revMap         :: !(FilePath -> FilePath)
   , newPosToOld    :: !(Position -> Maybe Position)
   , oldPosToNew    :: !(Position -> Maybe Position)
+  } | CachedParsedModule
+  { psMod          :: !ParsedModule
+  , revMap         :: !(FilePath -> FilePath)
+  , newPosToOld    :: !(Position -> Maybe Position)
+  , oldPosToNew    :: !(Position -> Maybe Position)
   }
 
 instance Show CachedModule where
-  show CachedModule{} = "CachedModule { .. }"
+  show _ = "CachedModule { .. }"
 
 -- ---------------------------------------------------------------------
 
