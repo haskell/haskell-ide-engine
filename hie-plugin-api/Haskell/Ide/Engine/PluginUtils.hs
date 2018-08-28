@@ -8,6 +8,7 @@ module Haskell.Ide.Engine.PluginUtils
   (
     mapEithers
   , pluginGetFile
+  , pluginGetFileResponse
   , makeDiffResult
   , WithDeletions(..)
   , makeAdditiveDiffResult
@@ -120,6 +121,16 @@ pluginGetFile name uri f =
     Just file -> f file
     Nothing -> return $ IdeResultFail (IdeError PluginError
                  (name <> "Couldn't resolve uri" <> getUri uri) Null)
+
+-- | @pluginGetFile but for IdeResponse - use with IdeM
+pluginGetFileResponse
+  :: Monad m
+  => T.Text -> Uri -> (FilePath -> m (IdeResponse a)) -> m (IdeResponse a)
+pluginGetFileResponse name uri f =
+  case uriToFilePath uri of
+    Just file -> f file
+    Nothing -> return $ IdeResponseFail (IdeError PluginError
+                (name <> "Couldn't resolve uri" <> getUri uri) Null)
 
 -- ---------------------------------------------------------------------
 -- courtesy of http://stackoverflow.com/questions/19891061/mapeithers-function-in-haskell

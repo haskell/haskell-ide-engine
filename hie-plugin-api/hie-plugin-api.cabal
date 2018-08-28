@@ -38,7 +38,6 @@ library
                      , directory
                      , filepath
                      , fingertree
-                     , free
                      , ghc
                      , ghc-mod-core >= 5.9.0.0
                      , haskell-lsp >= 0.5

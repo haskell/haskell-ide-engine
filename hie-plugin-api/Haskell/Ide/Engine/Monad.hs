@@ -2,7 +2,7 @@ module Haskell.Ide.Engine.Monad where
 
 import           Control.Exception
 import           Control.Monad.IO.Class
-import           Control.Monad.Reader
+import Control.Monad.Reader
 import qualified GhcMod.Monad                  as GM
 import qualified GhcMod.Types                  as GM
 import           Haskell.Ide.Engine.MonadTypes
