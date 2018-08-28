@@ -246,7 +246,7 @@ updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file 
           (n2o' <=< newToOld r txt, oldToNew r txt <=< o2n')
         go _ _ = (const Nothing, const Nothing)
     let cm' = cm {newPosToOld = n2o, oldPosToNew = o2n}
-    cacheModuleNoClear file cm'
+    cacheModuleNoClear file (Left cm')
     return $ IdeResultOk ()
   where
     f (+/-) (J.Range (Position sl _) (Position el _)) txt p@(Position l c)

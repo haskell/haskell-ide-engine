@@ -19,13 +19,12 @@ import Language.Haskell.LSP.Types
 type UriCaches = Map.Map FilePath UriCache
 
 data UriCache = UriCache
-  { cachedModule :: !CachedModule
+  { cachedModule :: !(Either CachedModule CachedParsedModule)
   , cachedData   :: !(Map.Map TypeRep Dynamic)
   } | UriCacheFailed deriving Show
 
 data CachedModule = CachedModule
   { tcMod          :: !TypecheckedModule
-  , psMod          :: !ParsedModule
   , locMap         :: !LocMap
   , typeMap        :: !TypeMap
   , moduleMap      :: !ModuleMap
@@ -33,15 +32,17 @@ data CachedModule = CachedModule
   , revMap         :: !(FilePath -> FilePath)
   , newPosToOld    :: !(Position -> Maybe Position)
   , oldPosToNew    :: !(Position -> Maybe Position)
-  } | CachedParsedModule
-  { psMod          :: !ParsedModule
-  , revMap         :: !(FilePath -> FilePath)
-  , newPosToOld    :: !(Position -> Maybe Position)
-  , oldPosToNew    :: !(Position -> Maybe Position)
   }
 
 instance Show CachedModule where
   show _ = "CachedModule { .. }"
+
+data CachedParsedModule = CachedParsedModule
+  { psMod          :: !ParsedModule
+  }
+
+instance Show CachedParsedModule where
+  show _ = "CachedParsedModule { .. }"
 
 -- ---------------------------------------------------------------------
 

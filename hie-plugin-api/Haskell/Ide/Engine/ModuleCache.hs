@@ -19,6 +19,7 @@ import           System.FilePath
 import qualified GhcMod.Cradle as GM
 import qualified GhcMod.Monad  as GM
 import qualified GhcMod.Types  as GM
+import qualified GHC           as GHC
 
 import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.PluginsIdeMonads
@@ -74,6 +75,15 @@ getCradle fp = do
           modifyCache (\s -> s { cradleCache = Map.insert dir crdl (cradleCache s)})
           return crdl
 
+withParsedModule :: (HasGhcModuleCache m, GM.MonadIO m) => FilePath -> a -> (GHC.ParsedModule -> m a) -> m a
+withParsedModule fp def callback = do
+  fp' <- liftIO $ canonicalizePath fp
+  muc <- fmap (Map.lookup fp' . uriCaches) getModuleCache
+  case muc of
+    Just (UriCache (Right (CachedParsedModule pm)) _) -> callback pm
+    Just (UriCache (Left cm) _) -> callback (GHC.tm_parsed_module (tcMod cm))
+    _ -> return def
+
 -- | Calls the callback with the cached module for the provided path.
 -- Otherwise returns the default immediately if there is no cached module
 -- available.
@@ -85,7 +95,7 @@ ifCachedModule fp def callback = do
   fp' <- liftIO $ canonicalizePath fp
   muc <- fmap (Map.lookup fp' . uriCaches) getModuleCache
   case muc of
-    Just UriCache{cachedModule = cm} -> callback cm
+    Just (UriCache (Left cm) _) -> callback cm
     _ -> return def
 
 -- | Calls the callback with the cached module and data for the provided path.
@@ -99,7 +109,7 @@ ifCachedModuleAndData fp def callback = do
   fp' <- liftIO $ canonicalizePath fp
   maybeUriCache <- fmap (Map.lookup fp' . uriCaches) getModuleCache
   case maybeUriCache of
-    Just UriCache{cachedModule = cm, cachedData = dat} ->
+    Just (UriCache (Left cm) dat) ->
       lookupCachedData fp cm dat >>= callback cm
     _ -> return def
 
@@ -112,7 +122,7 @@ ifCachedModuleAndData fp def callback = do
 -- see also 'ifCachedModule'.
 withCachedModule :: FilePath -> a -> (CachedModule -> IdeDeferM a) -> IdeDeferM a
 withCachedModule fp def callback = wrap (Defer fp go)
-  where go UriCache{cachedModule = cm} = callback cm
+  where go (UriCache (Left cm) _) = callback cm
         go _ = return def
 
 -- | Calls its argument with the CachedModule for a given URI
@@ -127,9 +137,9 @@ withCachedModuleAndData :: forall a b. ModuleCache a
                         => FilePath -> b
                         -> (CachedModule -> a -> IdeDeferM b) -> IdeDeferM b
 withCachedModuleAndData fp def callback = wrap (Defer fp go)
-  where go UriCacheFailed = return def
-        go UriCache{cachedModule = cm, cachedData = dat} =
+  where go (UriCache (Left cm) dat) =
           lookupCachedData fp cm dat >>= callback cm
+        go _ = return def
 
 lookupCachedData :: forall a m. (HasGhcModuleCache m, MonadMTState IdeState m, GM.MonadIO m, ModuleCache a)
                  => FilePath -> CachedModule -> Map.Map TypeRep Dynamic -> m a
@@ -141,7 +151,7 @@ lookupCachedData fp cm dat = do
     Nothing -> do
       val <- cacheDataProducer cm
       let dat' = Map.insert (typeOf val) (toDyn val) dat
-      modifyCache (\s -> s {uriCaches = Map.insert fp' (UriCache cm dat')
+      modifyCache (\s -> s {uriCaches = Map.insert fp' (UriCache (Left cm) dat')
                                                   (uriCaches s)})
       return val
     Just x ->
@@ -151,7 +161,7 @@ lookupCachedData fp cm dat = do
 
 -- | Saves a module to the cache and executes any deferred
 -- responses waiting on that module.
-cacheModule :: FilePath -> CachedModule -> IdeGhcM ()
+cacheModule :: FilePath -> Either CachedModule CachedParsedModule -> IdeGhcM ()
 cacheModule uri cm = do
   uri' <- liftIO $ canonicalizePath uri
 
@@ -198,7 +208,7 @@ runDeferredActions uri cached = do
 -- | Saves a module to the cache without clearing the associated cache data - use only if you are
 -- sure that the cached data associated with the module doesn't change
 cacheModuleNoClear :: (GM.MonadIO m, HasGhcModuleCache m)
-            => FilePath -> CachedModule -> m ()
+            => FilePath -> Either CachedModule CachedParsedModule -> m ()
 cacheModuleNoClear uri cm = do
   uri' <- liftIO $ canonicalizePath uri
   modifyCache (\gmc ->
@@ -210,7 +220,7 @@ cacheModuleNoClear uri cm = do
           }
     )
   where
-    updateCachedModule :: CachedModule -> UriCache -> UriCache -> UriCache
+    updateCachedModule :: Either CachedModule CachedParsedModule -> UriCache -> UriCache -> UriCache
     updateCachedModule cm' _ old = old { cachedModule = cm' }
 
 -- | Deletes a module from the cache

@@ -207,21 +207,21 @@ setTypecheckedModule uri =
     case (mpm,mtm) of
       (Just pm, Nothing) -> do
         debugm $ "setTypecheckedModule: Did get parsed module for: " ++ show fp
-        let cm = CachedParsedModule pm rfm return return
-        cacheModule fp cm
+        let cm = CachedParsedModule pm
+        cacheModule fp (Right cm)
         debugm "setTypecheckedModule: done"
 
-      (Just pm, Just tm) -> do
+      (_, Just tm) -> do
         debugm $ "setTypecheckedModule: Did get typechecked module for: " ++ show fp
         typm <- GM.unGmlT $ genTypeMap tm
         sess <- fmap GM.gmgsSession . GM.gmGhcSession <$> GM.gmsGet
         
-        let cm = CachedModule tm pm (genLocMap tm) typm (genImportMap tm) (genDefMap tm) rfm return return
+        let cm = CachedModule tm (genLocMap tm) typm (genImportMap tm) (genDefMap tm) rfm return return
 
         -- set the session before we cache the module, so that deferred
         -- responses triggered by cacheModule can access it
         modifyMTS (\s -> s {ghcSession = sess})
-        cacheModule fp cm
+        cacheModule fp (Left cm)
         debugm "setTypecheckedModule: done"
         
       _ -> do
@@ -623,11 +623,10 @@ hoverProvider doc pos = runIdeResultT $ do
 data Decl = Decl LSP.SymbolKind (Located RdrName) [Decl] SrcSpan
           | Import LSP.SymbolKind (Located ModuleName) [Decl] SrcSpan
 
-symbolProvider :: Uri -> IdeDeferM (IdeResult [LSP.DocumentSymbol])
+symbolProvider :: Int -> IdeDeferM (IdeResult [LSP.DocumentSymbol])
 symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
-  \file -> withCachedModule file (IdeResultOk []) $ \cm -> do
-    let tm = tcMod cm
-        hsMod = unLoc $ pm_parsed_source $ tm_parsed_module tm
+  \file -> withParsedModule file (IdeResultOk []) $ \pm -> do
+    let hsMod = unLoc $ pm_parsed_source $ pm
         imports = hsmodImports hsMod
         imps  = concatMap goImport imports
         decls = concatMap go $ hsmodDecls hsMod
