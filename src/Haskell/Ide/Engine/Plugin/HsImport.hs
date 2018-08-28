@@ -76,30 +76,17 @@ importModule uri modName =
           liftIO $ removeFile output
           J.WorkspaceEdit mChanges mDocChanges <- liftToGhc $ makeDiffResult input newText fileMap
 
-          shouldFormat <- hasFormattedImports input
-          if shouldFormat
-            then do
-              confFile <- liftIO $ Brittany.getConfFile origInput
-              -- Format the import with Brittany
-              newChanges <- forM mChanges $ mapM $ mapM (formatTextEdit confFile)
-              newDocChanges <- forM mDocChanges $ mapM $ \(J.TextDocumentEdit vDocId tes) -> do
-                ftes <- forM tes (formatTextEdit confFile)
-                return (J.TextDocumentEdit vDocId ftes)
-    
-              return $ IdeResultOk (J.WorkspaceEdit newChanges newDocChanges)
-            else
-              return $ IdeResultOk (J.WorkspaceEdit mChanges mDocChanges)
+          confFile <- liftIO $ Brittany.getConfFile origInput
+          -- Format the import with Brittany
+          newChanges <- forM mChanges $ mapM $ mapM (formatTextEdit confFile)
+          newDocChanges <- forM mDocChanges $ mapM $ \(J.TextDocumentEdit vDocId tes) -> do
+            ftes <- forM tes (formatTextEdit confFile)
+            return (J.TextDocumentEdit vDocId ftes)
 
-  where hasFormattedImports fp = do
-          ls <- T.lines <$> liftIO (T.readFile fp)
-          debugm (show ls)
-          return (any isFormattedLine ls)
-        -- Only use Brittany formatting if it's already formatted
-        isFormattedLine x
-          | "import qualified " `T.isPrefixOf` x = True
-          | "import           " `T.isPrefixOf` x = True
-          | otherwise = False
-        formatTextEdit confFile (J.TextEdit r t) = do
+          return $ IdeResultOk (J.WorkspaceEdit newChanges newDocChanges)
+
+  where formatTextEdit confFile (J.TextEdit r t) = do
+          -- TODO: This tab size of 2 spaces should probably be taken from a config
           ft <- fromRight t <$> liftIO (Brittany.runBrittany 2 confFile t)
           return (J.TextEdit r ft)
 
