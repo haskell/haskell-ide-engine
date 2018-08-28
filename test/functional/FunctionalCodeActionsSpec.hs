@@ -117,7 +117,7 @@ spec = describe "code actions" $ do
       executeCodeAction (head actns)
 
       contents <- getDocumentEdit doc
-      liftIO $ contents `shouldBe` "import Control.Monad\nmain :: IO ()\nmain = when True $ putStrLn \"hello\""
+      liftIO $ contents `shouldBe` "import           Control.Monad\nmain :: IO ()\nmain = when True $ putStrLn \"hello\""
     it "formats with brittany if needed" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
       _ <- waitForDiagnosticsSource "ghcmod"

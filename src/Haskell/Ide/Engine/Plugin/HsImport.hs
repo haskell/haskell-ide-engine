@@ -20,7 +20,6 @@ import qualified GHC.Generics                  as Generics
 import qualified GhcMod.Utils                  as GM
 import           HsImport
 import           Haskell.Ide.Engine.MonadTypes
-import           Haskell.Ide.Engine.MonadFunctions
 import qualified Language.Haskell.LSP.Types    as J
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Plugin.Brittany
