@@ -429,11 +429,8 @@ reactor inp = do
               J.List changes = params ^. J.contentChanges
           mapFileFromVfs tn vtdi
           makeRequest $ GReq tn (Just uri) Nothing Nothing (const $ return ()) $
-            -- mark this module's cache as stale
-            pluginGetFile "markCacheStale:" uri $ \fp -> do
-              markCacheStale fp
-              -- Important - Call this before requestDiagnostics
-              updatePositionMap uri changes
+            -- Important - Call this before requestDiagnostics
+            updatePositionMap uri changes
           requestDiagnostics DiagnosticOnChange tn uri ver
 
         NotDidCloseTextDocument notification -> do
