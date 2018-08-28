@@ -35,12 +35,13 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , IdeState(..)
   , IdeGhcM
   , IdeM
+  , IdeDeferM
   , iterT
   , LiftsToGhc(..)
   -- * IdeResult
   , IdeResult(..)
   , IdeResultT(..)
-  , IdeDefer(..)
+  , Defer(..)
   , IdeError(..)
   , IdeErrorCode(..)
   -- * LSP types
@@ -101,7 +102,6 @@ import           Language.Haskell.LSP.Types (Command (..),
                                              WorkspaceEdit (..),
                                              filePathToUri,
                                              uriToFilePath)
-import           System.Directory
 
 
 type PluginId = T.Text
@@ -170,7 +170,7 @@ data DiagnosticTrigger = DiagnosticOnOpen
 
 type HoverProvider = Uri -> Position -> IdeM (IdeResult [Hover])
 
-type SymbolProvider = Uri -> IdeM (IdeResult [DocumentSymbol])
+type SymbolProvider = Uri -> IdeDeferM (IdeResult [DocumentSymbol])
 
 data PluginDescriptor =
   PluginDescriptor { pluginId                 :: PluginId
@@ -198,19 +198,20 @@ instance ToJSON IdePlugins where
 
 -- ---------------------------------------------------------------------
 
-type IdeGhcM = GM.GhcModT IdeBase
+-- | IdeM that allows for interaction with the ghc-mod session
+type IdeGhcM = GM.GhcModT IdeM
 
 -- | A computation that is deferred until the module is cached.
 -- Note that the module may not typecheck, in which case 'UriCacheFailed' is passed
-data IdeDefer a = IdeDefer FilePath (UriCache -> a) deriving Functor
-type IdeM = FreeT IdeDefer IdeBase
+data Defer a = Defer FilePath (UriCache -> a) deriving Functor
+type IdeDeferM = FreeT Defer IdeM
 
-type IdeBase = ReaderT ClientCapabilities (MultiThreadState IdeState)
+type IdeM = ReaderT ClientCapabilities (MultiThreadState IdeState)
 
 data IdeState = IdeState
   { moduleCache :: GhcModuleCache
   -- | A queue of requests to be performed once a module is loaded
-  , requestQueue :: Map.Map FilePath [UriCache -> IdeBase ()]
+  , requestQueue :: Map.Map FilePath [UriCache -> IdeM ()]
   , idePlugins  :: IdePlugins
   , extensibleState :: !(Map.Map TypeRep Dynamic)
   , ghcSession  :: Maybe (IORef HscEnv)
@@ -222,29 +223,21 @@ instance MonadMTState IdeState IdeGhcM where
   readMTS = lift $ lift $ lift readMTS
   modifyMTS = lift . lift . lift . modifyMTS
   
-instance MonadMTState IdeState IdeM where
+instance MonadMTState IdeState IdeDeferM where
   readMTS = lift $ lift readMTS
   modifyMTS = lift . lift . modifyMTS
+
+instance MonadMTState IdeState IdeM where
+  readMTS = lift readMTS
+  modifyMTS = lift . modifyMTS
 
 class (Monad m) => LiftsToGhc m where
   liftToGhc :: m a -> IdeGhcM a
 
-instance GM.MonadIO IdeM where
+instance GM.MonadIO IdeDeferM where
   liftIO = liftIO
 
 instance LiftsToGhc IdeM where
-  liftToGhc (FreeT f) = do
-    x <- liftToGhc f
-    case x of
-      Pure a -> return a
-      Free (IdeDefer fp cb) -> do
-        fp' <- liftIO $ canonicalizePath fp
-        muc <- fmap (Map.lookup fp' . uriCaches) getModuleCache
-        liftToGhc $ case muc of
-          Just uc -> cb uc
-          Nothing -> cb UriCacheFailed
-
-instance LiftsToGhc IdeBase where
   liftToGhc = lift . lift
 
 instance LiftsToGhc IdeGhcM where
@@ -254,11 +247,11 @@ instance HasGhcModuleCache IdeGhcM where
   getModuleCache = lift $ lift getModuleCache
   setModuleCache = lift . lift . setModuleCache
 
-instance HasGhcModuleCache IdeM where
+instance HasGhcModuleCache IdeDeferM where
   getModuleCache = lift getModuleCache
   setModuleCache = lift . setModuleCache
 
-instance HasGhcModuleCache IdeBase where
+instance HasGhcModuleCache IdeM where
   getModuleCache = do
     tvar <- lift ask
     state <- liftIO $ readTVarIO tvar

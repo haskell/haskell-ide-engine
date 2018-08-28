@@ -293,7 +293,7 @@ hoist f a =
 codeActionProvider :: CodeActionProvider
 codeActionProvider pId docId _ (J.Range pos _) _ =
   pluginGetFile "HaRe codeActionProvider: " (docId ^. J.uri) $ \file ->
-    withCachedModule file (IdeResultOk mempty) $ \cm -> do
+    ifCachedModule file (IdeResultOk mempty) $ \cm -> do
       let symbols = getArtifactsAtPos pos (defMap cm)
       debugm $ show $ map (Hie.showName . snd) symbols
       if not (null symbols)

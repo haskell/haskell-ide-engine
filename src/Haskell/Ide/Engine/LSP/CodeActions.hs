@@ -43,7 +43,7 @@ handleCodeActionReq tn req = do
         return $ IdeResultOk $ mapMaybe getProvider $ toList m
 
       providersCb providers =
-        let reqs = map (\f -> f docId maybeRootDir range context) providers
+        let reqs = map (\f -> lift (f docId maybeRootDir range context)) providers
         in makeRequests reqs tn (req ^. J.id) (send . concat)
 
   makeRequest (IReq tn (req ^. J.id) providersCb getProviders)

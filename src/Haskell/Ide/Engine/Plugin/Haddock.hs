@@ -27,6 +27,7 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.Plugin.HieExtras
 import qualified Haskell.Ide.Engine.Plugin.Hoogle             as Hoogle
+import           Haskell.Ide.Engine.PluginUtils
 import qualified Language.Haskell.LSP.Types as J
 import           HscTypes
 import           Name
@@ -217,26 +218,26 @@ renderMarkDown =
           removeInner x = T.replace "```" "" $ T.replace "```haskell" "" x
 
 hoverProvider :: HoverProvider
-hoverProvider doc pos = runIdeResultT $ do
-  df <- IdeResultT $ getDynFlags doc
-  names' <- IdeResultT $ getSymbolsAtPoint doc pos
-  let names = mapMaybe pickName $ groupBy f $ sortBy f' names'
-  docs <- forM names $ \(_,name) -> do
-    let sname = showName name
-    case getModule df name of
-      Nothing -> return $ "`" <> sname <> "` *local*"
-      (Just (pkg,mdl)) -> do
-        let mname = "`"<> sname <> "`\n\n"
-        let minfo = maybe "" (<>" ") pkg <> mdl
-        mdocu' <- lift $ getDocsWithType df name
-        mdocu <- case mdocu' of
-          Just _ -> return mdocu'
-          -- Hoogle as fallback
-          Nothing -> lift $ Hoogle.getDocsForName sname pkg mdl
-        case mdocu of
-          Nothing -> return $ mname <> minfo
-          Just docu -> return $ docu <> "\n\n" <> minfo
-  return [J.Hover (J.List $ fmap J.PlainString docs) Nothing]
+hoverProvider doc pos = pluginGetFile "haddock:hoverProvider" doc $ \fp ->
+  ifCachedModule fp (IdeResultOk mempty) $ \cm -> runIdeResultT $ do
+    let df = getDynFlags cm
+        names = mapMaybe pickName $ groupBy f $ sortBy f' $ getSymbolsAtPoint pos cm
+    docs <- forM names $ \(_,name) -> do
+      let sname = showName name
+      case getModule df name of
+        Nothing -> return $ "`" <> sname <> "` *local*"
+        (Just (pkg,mdl)) -> do
+          let mname = "`"<> sname <> "`\n\n"
+          let minfo = maybe "" (<>" ") pkg <> mdl
+          mdocu' <- lift $ getDocsWithType df name
+          mdocu <- case mdocu' of
+            Just _ -> return mdocu'
+            -- Hoogle as fallback
+            Nothing -> lift $ Hoogle.getDocsForName sname pkg mdl
+          case mdocu of
+            Nothing -> return $ mname <> minfo
+            Just docu -> return $ docu <> "\n\n" <> minfo
+    return [J.Hover (J.List $ fmap J.PlainString docs) Nothing]
   where
     pickName [] = Nothing
     pickName [x] = Just x

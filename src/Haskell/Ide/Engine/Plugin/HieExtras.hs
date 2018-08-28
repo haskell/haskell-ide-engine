@@ -4,6 +4,7 @@
 {-# LANGUAGE TypeFamilies        #-}
 module Haskell.Ide.Engine.Plugin.HieExtras
   ( getDynFlags
+  , getDynFlags
   , getCompletions
   , getTypeForName
   , getSymbolsAtPoint
@@ -51,14 +52,8 @@ import           SrcLoc
 import           TcEnv
 import           Var
 
-getDynFlags :: Uri -> IdeM (IdeResult DynFlags)
-getDynFlags uri =
-  pluginGetFile "getDynFlags: " uri $ \fp ->
-    withCachedModule fp (IdeResultFail err) (return . IdeResultOk . getDynFlagsPure)
-  where err = IdeError InternalError "Unable to get DynFlags" Null
-
-getDynFlagsPure :: CachedModule -> DynFlags
-getDynFlagsPure = ms_hspp_opts . pm_mod_summary . tm_parsed_module . tcMod
+getDynFlags :: CachedModule -> DynFlags
+getDynFlags = ms_hspp_opts . pm_mod_summary . tm_parsed_module . tcMod
 
 -- ---------------------------------------------------------------------
 
@@ -168,7 +163,7 @@ instance ModuleCache CachedCompletions where
         importDeclerations = map unLoc limports
 
         -- The list of all importable Modules from all packages
-        moduleNames = map showModName (GM.listVisibleModuleNames (getDynFlagsPure cm))
+        moduleNames = map showModName (GM.listVisibleModuleNames (getDynFlags cm))
 
         -- The given namespaces for the imported modules (ie. full name, or alias if used)
         allModNamesAsNS = map (showModName . asNamespace) importDeclerations
@@ -267,7 +262,7 @@ instance ModuleCache CachedCompletions where
       , importableModules = moduleNames
       }
 
-getCompletions :: Uri -> PosPrefixInfo -> IdeM (IdeResult [J.CompletionItem])
+getCompletions :: Uri -> PosPrefixInfo -> IdeDeferM (IdeResult [J.CompletionItem])
 getCompletions uri prefixInfo = pluginGetFile "getCompletions: " uri $ \file -> do
   let PosPrefixInfo {fullLine, prefixModule, prefixText} = prefixInfo
   debugm $ "got prefix" ++ show (prefixModule, prefixText)
@@ -313,12 +308,8 @@ getTypeForName n = do
 
 -- ---------------------------------------------------------------------
 
-getSymbolsAtPoint :: Uri -> Position -> IdeM (IdeResult [(Range, Name)])
-getSymbolsAtPoint uri pos = pluginGetFile "getSymbolsAtPoint: " uri $ \file ->
-  withCachedModule file (IdeResultOk mempty) $ return . IdeResultOk . getSymbolsAtPointPure pos
-
-getSymbolsAtPointPure :: Position -> CachedModule -> [(Range,Name)]
-getSymbolsAtPointPure pos cm = maybe [] (`getArtifactsAtPos` locMap cm) $ newPosToOld cm pos
+getSymbolsAtPoint :: Position -> CachedModule -> [(Range,Name)]
+getSymbolsAtPoint pos cm = maybe [] (`getArtifactsAtPos` locMap cm) $ newPosToOld cm pos
 
 symbolFromTypecheckedModule
   :: LocMap
@@ -333,7 +324,7 @@ symbolFromTypecheckedModule lm pos =
 
 -- | Find the references in the given doc, provided it has been
 -- loaded.  If not, return the empty list.
-getReferencesInDoc :: Uri -> Position -> IdeM (IdeResult [J.DocumentHighlight])
+getReferencesInDoc :: Uri -> Position -> IdeDeferM (IdeResult [J.DocumentHighlight])
 getReferencesInDoc uri pos =
   pluginGetFile "getReferencesInDoc: " uri $ \file ->
     withCachedModuleAndData file (IdeResultOk []) $
@@ -383,42 +374,39 @@ getModule df n = do
 -- ---------------------------------------------------------------------
 
 -- | Return the definition
-findDef :: Uri -> Position -> IdeM (IdeResult [Location])
+findDef :: Uri -> Position -> IdeDeferM (IdeResult [Location])
 findDef uri pos = pluginGetFile "findDef: " uri $ \file ->
-    withCachedModule file (IdeResultOk []) (\cm -> do
-      let rfm = revMap cm
-          lm = locMap cm
-          mm = moduleMap cm
-          oldPos = newPosToOld cm pos
+  withCachedModule file (IdeResultOk []) (\cm -> do
+    let rfm = revMap cm
+        lm = locMap cm
+        mm = moduleMap cm
+        oldPos = newPosToOld cm pos
 
-      case (\x -> Just $ getArtifactsAtPos x mm) =<< oldPos of
-        Just ((_,mn):_) -> gotoModule rfm mn
-        _ -> case symbolFromTypecheckedModule lm =<< oldPos of
-          Nothing -> return $ IdeResultOk []
-          Just (_, n) ->
-            case nameSrcSpan n of
-              UnhelpfulSpan _ -> return $ IdeResultOk []
-              realSpan   -> do
-                res <- srcSpan2Loc rfm realSpan
-                case res of
-                  Right l@(J.Location luri range) ->
-                    case uriToFilePath luri of
-                      Nothing -> return $ IdeResultOk [l]
-                      Just fp -> do
-                        mcm' <- getCachedModule fp
-                        case mcm' of
-                          ModuleCached cm' _ ->  case oldRangeToNew cm' range of
-                            Just r  -> return $ IdeResultOk [J.Location luri r]
-                            Nothing -> return $ IdeResultOk [l]
-                          _ -> return $ IdeResultOk [l]
-                  Left x -> do
-                    debugm "findDef: name srcspan not found/valid"
-                    pure (IdeResultFail
-                          (IdeError PluginError
-                                    ("hare:findDef" <> ": \"" <> x <> "\"")
-                                    Null)))
+    case (\x -> Just $ getArtifactsAtPos x mm) =<< oldPos of
+      Just ((_,mn):_) -> gotoModule rfm mn
+      _ -> case symbolFromTypecheckedModule lm =<< oldPos of
+        Nothing -> return $ IdeResultOk []
+        Just (_, n) ->
+          case nameSrcSpan n of
+            UnhelpfulSpan _ -> return $ IdeResultOk []
+            realSpan   -> do
+              res <- srcSpan2Loc rfm realSpan
+              case res of
+                Right l@(J.Location luri range) ->
+                  case uriToFilePath luri of
+                    Nothing -> return $ IdeResultOk [l]
+                    Just fp -> withCachedModule fp (IdeResultOk [l]) $ \cm' ->
+                      case oldRangeToNew cm' range of
+                        Just r  -> return $ IdeResultOk [J.Location luri r]
+                        Nothing -> return $ IdeResultOk [l]
+                Left x -> do
+                  debugm "findDef: name srcspan not found/valid"
+                  pure (IdeResultFail
+                        (IdeError PluginError
+                                  ("hare:findDef" <> ": \"" <> x <> "\"")
+                                  Null)))
   where
-    gotoModule :: (FilePath -> FilePath) -> ModuleName -> IdeM (IdeResult [Location])
+    gotoModule :: (FilePath -> FilePath) -> ModuleName -> IdeDeferM (IdeResult [Location])
     gotoModule rfm mn = do
 
       hscEnvRef <- ghcSession <$> readMTS
