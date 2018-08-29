@@ -3,25 +3,12 @@ packages:
 - .
 - hie-plugin-api
 
-- location:
-    ./submodules/HaRe
-  extra-dep: true
-
-- location:
-    ./submodules/ghc-mod
-  extra-dep: true
-  subdirs:
-    - .
-    - core
-
-- location:
-    ./submodules/haskell-lsp
-  extra-dep: true
-  subdirs:
-    - .
-    - haskell-lsp-types
-
 extra-deps:
+- ./submodules/HaRe
+- ./submodules/ghc-mod
+- ./submodules/ghc-mod/core
+- ./submodules/haskell-lsp
+- ./submodules/haskell-lsp/haskell-lsp-types
 - base-compat-0.9.3
 - brittany-0.11.0.0
 - cabal-helper-0.8.1.0@rev:0
