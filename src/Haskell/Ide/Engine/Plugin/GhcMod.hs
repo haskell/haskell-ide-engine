@@ -147,19 +147,20 @@ srcErrToDiag df rfm se = do
           Left e -> return (m, e:es)
   processMsgs errMsgs
 
-myLogger :: GM.IOish m
+myWrapper :: GM.IOish m
   => (FilePath -> FilePath)
   -> GM.GmlT m ()
   -> GM.GmlT m (Diagnostics, AdditionalErrs)
-myLogger rfm action = do
+myWrapper rfm action = do
   env <- getSession
   diagRef <- liftIO $ newIORef Map.empty
   errRef <- liftIO $ newIORef []
   let setLogger df = df { log_action = logDiag rfm errRef diagRef }
+      setDeferTypedHoles = setGeneralFlag' Opt_DeferTypedHoles
       ghcErrRes msg = (Map.empty, [T.pack msg])
       handlers = errorHandlers ghcErrRes (srcErrToDiag (hsc_dflags env) rfm )
       action' = do
-        GM.withDynFlags setLogger action
+        GM.withDynFlags (setLogger . setDeferTypedHoles) action
         diags <- liftIO $ readIORef diagRef
         errs <- liftIO $ readIORef errRef
         return (diags,errs)
@@ -197,7 +198,7 @@ setTypecheckedModule uri =
       ghcErrRes msg = ((Map.empty, [T.pack msg]),Nothing)
     debugm "setTypecheckedModule: before ghc-mod"
     ((diags', errs), mtm) <- GM.gcatches
-                              (GM.getTypecheckedModuleGhc' (myLogger rfm) fp)
+                              (GM.getTypecheckedModuleGhc' (myWrapper rfm) fp)
                               (errorHandlers ghcErrRes (return . ghcErrRes . show))
     debugm "setTypecheckedModule: after ghc-mod"
     canonUri <- canonicalizeUri uri
