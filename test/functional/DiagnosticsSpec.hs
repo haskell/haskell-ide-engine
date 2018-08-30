@@ -36,9 +36,12 @@ spec = describe "diagnostics providers" $ do
         -- docItem <- getDocItem file languageId
         sendNotification TextDocumentDidSave (DidSaveTextDocumentParams doc)
         diags2hlint <- waitForDiagnostics
-        liftIO $ length diags2hlint `shouldBe` 2
+        -- liftIO $ show diags2hlint `shouldBe` ""
+        -- liftIO $ length diags2hlint `shouldBe` 2
+        liftIO $ length diags2hlint `shouldBe` 3
         diags2liquid <- waitForDiagnostics
-        liftIO $ length diags2liquid `shouldBe` 2
+        -- liftIO $ length diags2liquid `shouldBe` 2
+        liftIO $ length diags2liquid `shouldBe` 3
         -- liftIO $ show diags2 `shouldBe` ""
         diags3@(d:_) <- waitForDiagnostics
         -- liftIO $ show diags3 `shouldBe` ""
@@ -49,6 +52,7 @@ spec = describe "diagnostics providers" $ do
           d ^. code `shouldBe` Nothing
           d ^. source `shouldBe` Just "eg2"
           d ^. message `shouldBe` (T.pack "Example plugin diagnostic, triggered byDiagnosticOnSave")
+
   describe "typed hole errors" $
     it "is deferred" $
       runSession hieCommand fullCaps "test/testdata" $ do

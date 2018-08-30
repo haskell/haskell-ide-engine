@@ -154,9 +154,8 @@ type CodeActionProvider =  PluginId
                         -> CodeActionContext
                         -> IdeM (IdeResult [CodeAction])
 
--- type DiagnosticProviderFunc = DiagnosticTrigger -> Uri -> IdeM (IdeResponse (Map.Map Uri (S.Set Diagnostic)))
 type DiagnosticProviderFunc
-  = DiagnosticTrigger -> Uri -> IdeM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
+  = DiagnosticTrigger -> Uri -> IdeDeferM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
 
 data DiagnosticProvider = DiagnosticProvider
      { dpTrigger :: S.Set DiagnosticTrigger -- AZ:should this be a NonEmptyList?

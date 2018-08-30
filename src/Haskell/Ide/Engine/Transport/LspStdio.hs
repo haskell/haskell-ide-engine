@@ -750,10 +750,12 @@ requestDiagnostics trigger tn file mVer = do
             publishDiagnostics maxToSend fileUri Nothing (Map.fromList [(Just pid,SL.toSortedList ds')])
 
           sendEmpty = publishDiagnostics maxToSend file Nothing (Map.fromList [(Just pid,SL.toSortedList [])])
-          fv = case mVer of
-            Nothing -> Nothing
-            Just v -> Just (file,v)
-        let reql = GReq tn (Just file) fv Nothing callbackl
+          -- fv = case mVer of
+          --   Nothing -> Nothing
+          --   Just v -> Just (file,v)
+        -- let reql = GReq tn (Just file) fv Nothing callbackl
+        let fakeId = J.IdString "fake,remove" -- TODO:AZ: IReq should take a Maybe LspId
+        let reql = IReq tn fakeId callbackl
                      $ ds trigger file
             callbackl pd = do
               let diags = Map.toList $ S.toList <$> pd

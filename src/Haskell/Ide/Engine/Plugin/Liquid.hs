@@ -97,7 +97,9 @@ instance ToJSON   LiquidError
 
 -- ---------------------------------------------------------------------
 
-diagnosticProvider :: DiagnosticTrigger -> Uri -> IdeM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
+-- diagnosticProvider :: DiagnosticTrigger -> Uri -> IdeM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
+
+diagnosticProvider :: DiagnosticProviderFunc
 diagnosticProvider trigger uri = pluginGetFile "Liquid.diagnosticProvider:" uri $ \file ->
   withCachedModuleAndData file (IdeResultOk Map.empty) $ \_cm () -> do
     me <- liftIO $ readJsonAnnot uri
