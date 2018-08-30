@@ -116,7 +116,7 @@ dispatchGhcRequest tn ctx n cin lc plugin com arg = do
 
 dispatchIdeRequest :: (Typeable a, ToJSON a)
                    => TrackingNumber -> String -> TChan (PluginRequest IO)
-                   -> TChan LogVal -> LspId -> IdeM (IdeResult a) -> IO ()
+                   -> TChan LogVal -> LspId -> IdeDeferM (IdeResult a) -> IO ()
 dispatchIdeRequest tn ctx cin lc lid f = do
   let
     logger :: (Typeable a, ToJSON a) => RequestCallback IO a
@@ -180,11 +180,8 @@ funcSpec = describe "functional dispatch" $ do
     let
       -- Model a hover request
       hoverReq tn idVal doc = dispatchIdeRequest tn ("IReq " ++ show idVal) cin logChan idVal $ do
-        pluginGetFile "hoverReq" doc $ \fp -> do
-          cached <- isCached fp
-          if cached
-            then return (IdeResultOk Cached)
-            else return (IdeResultOk NotCached)
+        pluginGetFile "hoverReq" doc $ \fp ->
+          ifCachedModule fp (IdeResultOk NotCached) $ const (return $ IdeResultOk Cached)
 
       unpackRes (r,Right md) = (r, fromDynJSON md)
       unpackRes r            = error $ "unpackRes:" ++ show r

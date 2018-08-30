@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -13,18 +12,18 @@ module Haskell.Ide.Engine.Plugin.HieExtras
   , findDef
   , showName
   , safeTyThingId
+  , PosPrefixInfo(..)
   ) where
 
 import           ConLike
+import           Control.Lens.Setter                          ( (?~) )
 import           Control.Monad.State
 import           Data.Aeson
 import           Data.IORef
 import qualified Data.List                                    as List
 import qualified Data.Map                                     as Map
 import           Data.Maybe
-#if __GLASGOW_HASKELL__ < 804
-import           Data.Monoid
-#endif
+import           Data.Monoid                                  ( (<>) )
 import qualified Data.Text                                    as T
 import           Data.Typeable
 import           DataCon
@@ -33,6 +32,7 @@ import           FastString
 import           Finder
 import           GHC
 import qualified GhcMod.LightGhc                              as GM
+import qualified GhcMod.Gap                                   as GM
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
@@ -51,12 +51,8 @@ import           SrcLoc
 import           TcEnv
 import           Var
 
-getDynFlags :: Uri -> IdeM (IdeResult DynFlags)
-getDynFlags uri =
-  pluginGetFile "getDynFlags: " uri $ \fp ->
-    withCachedModule fp (IdeResultFail err)
-      (return . IdeResultOk . ms_hspp_opts . pm_mod_summary . tm_parsed_module . tcMod)
-  where err = IdeError InternalError "Unable to get DynFlags" Null
+getDynFlags :: CachedModule -> DynFlags
+getDynFlags = ms_hspp_opts . pm_mod_summary . tm_parsed_module . tcMod
 
 -- ---------------------------------------------------------------------
 
@@ -123,10 +119,27 @@ safeTyThingId _                           = Nothing
 -- Associates a module's qualifier with its members
 type QualCompls = Map.Map T.Text [CompItem]
 
+-- | Describes the line at the current cursor position
+data PosPrefixInfo = PosPrefixInfo
+  { fullLine :: T.Text
+    -- ^ The full contents of the line the cursor is at
+
+  , prefixModule :: T.Text
+    -- ^ If any, the module name that was typed right before the cursor position.
+    --  For example, if the user has typed "Data.Maybe.from", then this property
+    --  will be "Data.Maybe"
+
+  , prefixText :: T.Text
+    -- ^ The word right before the cursor position, after removing the module part.
+    -- For example if the user has typed "Data.Maybe.from",
+    -- then this property will be "from"
+  }
+
 data CachedCompletions = CC
   { allModNamesAsNS :: [T.Text]
   , unqualCompls :: [CompItem]
   , qualCompls :: QualCompls
+  , importableModules :: [T.Text]
   } deriving (Typeable)
 
 instance ModuleCache CachedCompletions where
@@ -142,15 +155,14 @@ instance ModuleCache CachedCompletions where
         showModName :: ModuleName -> T.Text
         showModName = T.pack . moduleNameString
 
-#if __GLASGOW_HASKELL__ >= 802
         asNamespace :: ImportDecl name -> ModuleName
         asNamespace imp = fromMaybe (iDeclToModName imp) (fmap GHC.unLoc $ ideclAs imp)
-#else
-        asNamespace :: ImportDecl name -> ModuleName
-        asNamespace imp = fromMaybe (iDeclToModName imp) (ideclAs imp)
-#endif
+
         -- Full canonical names of imported modules
         importDeclerations = map unLoc limports
+
+        -- The list of all importable Modules from all packages
+        moduleNames = map showModName (GM.listVisibleModuleNames (getDynFlags cm))
 
         -- The given namespaces for the imported modules (ie. full name, or alias if used)
         allModNamesAsNS = map (showModName . asNamespace) importDeclerations
@@ -246,25 +258,39 @@ instance ModuleCache CachedCompletions where
       { allModNamesAsNS = allModNamesAsNS
       , unqualCompls = toplevelCompls ++ unquals
       , qualCompls = quals
+      , importableModules = moduleNames
       }
 
-getCompletions :: Uri -> (T.Text, T.Text) -> IdeM (IdeResult [J.CompletionItem])
-getCompletions uri (qualifier, ident) = pluginGetFile "getCompletions: " uri $ \file ->
-  let enteredQual = if T.null qualifier then "" else qualifier <> "."
-      fullPrefix = enteredQual <> ident
-  in withCachedModuleAndData file (IdeResultOk []) $ \_ CC { allModNamesAsNS, unqualCompls, qualCompls } ->
+getCompletions :: Uri -> PosPrefixInfo -> IdeDeferM (IdeResult [J.CompletionItem])
+getCompletions uri prefixInfo = pluginGetFile "getCompletions: " uri $ \file -> do
+  let PosPrefixInfo {fullLine, prefixModule, prefixText} = prefixInfo
+  debugm $ "got prefix" ++ show (prefixModule, prefixText)
+  let enteredQual = if T.null prefixModule then "" else prefixModule <> "."
+      fullPrefix = enteredQual <> prefixText
+  withCachedModuleAndData file (IdeResultOk []) $ \_ CC { allModNamesAsNS, unqualCompls, qualCompls, importableModules } ->
     let
       filtModNameCompls = map mkModCompl
         $ mapMaybe (T.stripPrefix enteredQual)
         $ Fuzzy.simpleFilter fullPrefix allModNamesAsNS
 
-      filtCompls = Fuzzy.filterBy label ident compls
+      filtCompls = Fuzzy.filterBy label prefixText compls
         where
-          compls = if T.null qualifier
+          compls = if T.null prefixModule
             then unqualCompls
-            else Map.findWithDefault [] qualifier qualCompls
+            else Map.findWithDefault [] prefixModule qualCompls
 
-      in return $ IdeResultOk $ filtModNameCompls ++ map mkCompl filtCompls
+      mkImportCompl label = (J.detail ?~ label)
+                          . mkModCompl
+                          $ fromMaybe "" (T.stripPrefix enteredQual label)
+
+      filtImportCompls = [ mkImportCompl label
+                          | label <- Fuzzy.simpleFilter fullPrefix importableModules
+                          , enteredQual `T.isPrefixOf` label
+                          ]
+    in return $ IdeResultOk $
+      if "import " `T.isPrefixOf` fullLine
+      then filtImportCompls
+      else filtModNameCompls ++ map mkCompl filtCompls
 
 -- ---------------------------------------------------------------------
 
@@ -281,12 +307,8 @@ getTypeForName n = do
 
 -- ---------------------------------------------------------------------
 
-getSymbolsAtPoint :: Uri -> Position -> IdeM (IdeResult [(Range, Name)])
-getSymbolsAtPoint uri pos = pluginGetFile "getSymbolsAtPoint: " uri $ \file ->
-  withCachedModule file (IdeResultOk mempty) $ return . IdeResultOk . getSymbolsAtPointPure pos
-
-getSymbolsAtPointPure :: Position -> CachedModule -> [(Range,Name)]
-getSymbolsAtPointPure pos cm = maybe [] (`getArtifactsAtPos` locMap cm) $ newPosToOld cm pos
+getSymbolsAtPoint :: Position -> CachedModule -> [(Range,Name)]
+getSymbolsAtPoint pos cm = maybe [] (`getArtifactsAtPos` locMap cm) $ newPosToOld cm pos
 
 symbolFromTypecheckedModule
   :: LocMap
@@ -301,7 +323,7 @@ symbolFromTypecheckedModule lm pos =
 
 -- | Find the references in the given doc, provided it has been
 -- loaded.  If not, return the empty list.
-getReferencesInDoc :: Uri -> Position -> IdeM (IdeResult [J.DocumentHighlight])
+getReferencesInDoc :: Uri -> Position -> IdeDeferM (IdeResult [J.DocumentHighlight])
 getReferencesInDoc uri pos =
   pluginGetFile "getReferencesInDoc: " uri $ \file ->
     withCachedModuleAndData file (IdeResultOk []) $
@@ -339,11 +361,7 @@ showName :: Outputable a => a -> T.Text
 showName = T.pack . prettyprint
   where
     prettyprint x = GHC.renderWithStyle GHC.unsafeGlobalDynFlags (GHC.ppr x) style
-#if __GLASGOW_HASKELL__ >= 802
     style = (GHC.mkUserStyle GHC.unsafeGlobalDynFlags GHC.neverQualify GHC.AllTheWay)
-#else
-    style = (GHC.mkUserStyle GHC.neverQualify GHC.AllTheWay)
-#endif
 
 getModule :: DynFlags -> Name -> Maybe (Maybe T.Text,T.Text)
 getModule df n = do
@@ -355,42 +373,39 @@ getModule df n = do
 -- ---------------------------------------------------------------------
 
 -- | Return the definition
-findDef :: Uri -> Position -> IdeM (IdeResult [Location])
+findDef :: Uri -> Position -> IdeDeferM (IdeResult [Location])
 findDef uri pos = pluginGetFile "findDef: " uri $ \file ->
-    withCachedModule file (IdeResultOk []) (\cm -> do
-      let rfm = revMap cm
-          lm = locMap cm
-          mm = moduleMap cm
-          oldPos = newPosToOld cm pos
+  withCachedModule file (IdeResultOk []) (\cm -> do
+    let rfm = revMap cm
+        lm = locMap cm
+        mm = moduleMap cm
+        oldPos = newPosToOld cm pos
 
-      case (\x -> Just $ getArtifactsAtPos x mm) =<< oldPos of
-        Just ((_,mn):_) -> gotoModule rfm mn
-        _ -> case symbolFromTypecheckedModule lm =<< oldPos of
-          Nothing -> return $ IdeResultOk []
-          Just (_, n) ->
-            case nameSrcSpan n of
-              UnhelpfulSpan _ -> return $ IdeResultOk []
-              realSpan   -> do
-                res <- srcSpan2Loc rfm realSpan
-                case res of
-                  Right l@(J.Location luri range) ->
-                    case uriToFilePath luri of
-                      Nothing -> return $ IdeResultOk [l]
-                      Just fp -> do
-                        mcm' <- getCachedModule fp
-                        case mcm' of
-                          ModuleCached cm' _ ->  case oldRangeToNew cm' range of
-                            Just r  -> return $ IdeResultOk [J.Location luri r]
-                            Nothing -> return $ IdeResultOk [l]
-                          _ -> return $ IdeResultOk [l]
-                  Left x -> do
-                    debugm "findDef: name srcspan not found/valid"
-                    pure (IdeResultFail
-                          (IdeError PluginError
-                                    ("hare:findDef" <> ": \"" <> x <> "\"")
-                                    Null)))
+    case (\x -> Just $ getArtifactsAtPos x mm) =<< oldPos of
+      Just ((_,mn):_) -> gotoModule rfm mn
+      _ -> case symbolFromTypecheckedModule lm =<< oldPos of
+        Nothing -> return $ IdeResultOk []
+        Just (_, n) ->
+          case nameSrcSpan n of
+            UnhelpfulSpan _ -> return $ IdeResultOk []
+            realSpan   -> do
+              res <- srcSpan2Loc rfm realSpan
+              case res of
+                Right l@(J.Location luri range) ->
+                  case uriToFilePath luri of
+                    Nothing -> return $ IdeResultOk [l]
+                    Just fp -> ifCachedModule fp (IdeResultOk [l]) $ \cm' ->
+                      case oldRangeToNew cm' range of
+                        Just r  -> return $ IdeResultOk [J.Location luri r]
+                        Nothing -> return $ IdeResultOk [l]
+                Left x -> do
+                  debugm "findDef: name srcspan not found/valid"
+                  pure (IdeResultFail
+                        (IdeError PluginError
+                                  ("hare:findDef" <> ": \"" <> x <> "\"")
+                                  Null)))
   where
-    gotoModule :: (FilePath -> FilePath) -> ModuleName -> IdeM (IdeResult [Location])
+    gotoModule :: (FilePath -> FilePath) -> ModuleName -> IdeDeferM (IdeResult [Location])
     gotoModule rfm mn = do
 
       hscEnvRef <- ghcSession <$> readMTS

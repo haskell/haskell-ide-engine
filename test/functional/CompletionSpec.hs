@@ -11,18 +11,46 @@ import Test.Hspec
 import TestUtils
 
 spec :: Spec
-spec = describe "completions" $
+spec = describe "completions" $ do
   it "works" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
     doc <- openDoc "Completion.hs" "haskell"
     _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
 
-    let te = TextEdit (Range (Position 1 7) (Position 1 24)) "putSt"
+    let te = TextEdit (Range (Position 4 7) (Position 4 24)) "put"
     _ <- applyEdit doc te
 
-    compls <- getCompletions doc (Position 1 9)
+    compls <- getCompletions doc (Position 4 9)
     let item = head $ filter ((== "putStrLn") . (^. label)) compls
     liftIO $ do
       item ^. label `shouldBe` "putStrLn"
       item ^. kind `shouldBe` Just CiFunction
       item ^. detail `shouldBe` Just "String -> IO ()\nPrelude"
   --TODO: Replay session
+
+  it "completes imports" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
+    doc <- openDoc "Completion.hs" "haskell"
+    _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
+
+    let te = TextEdit (Range (Position 0 17) (Position 0 26)) "Data.M"
+    _ <- applyEdit doc te
+
+    compls <- getCompletions doc (Position 0 22)
+    let item = head $ filter ((== "Maybe") . (^. label)) compls
+    liftIO $ do
+      item ^. label `shouldBe` "Maybe"
+      item ^. detail `shouldBe` Just "Data.Maybe"
+      item ^. kind `shouldBe` Just CiModule
+
+  it "completes qualified imports" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
+    doc <- openDoc "Completion.hs" "haskell"
+    _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
+
+    let te = TextEdit (Range (Position 1 17) (Position 0 25)) "Dat"
+    _ <- applyEdit doc te
+
+    compls <- getCompletions doc (Position 0 19)
+    let item = head $ filter ((== "Data.List") . (^. label)) compls
+    liftIO $ do
+      item ^. label `shouldBe` "Data.List"
+      item ^. detail `shouldBe` Just "Data.List"
+      item ^. kind `shouldBe` Just CiModule

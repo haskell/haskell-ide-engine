@@ -170,7 +170,7 @@ configVal defVal field = do
 -- ---------------------------------------------------------------------
 
 getPrefixAtPos :: (MonadIO m, MonadReader REnv m)
-  => Uri -> Position -> m (Maybe (T.Text,T.Text))
+  => Uri -> Position -> m (Maybe Hie.PosPrefixInfo)
 getPrefixAtPos uri (Position l c) = do
   mvf <- liftIO =<< asksLspFuncs Core.getVirtualFileFunc <*> pure uri
   case mvf of
@@ -190,7 +190,7 @@ getPrefixAtPos uri (Position l c) = do
           let modParts = dropWhile (not . isUpper . T.head)
                               $ reverse $ filter (not .T.null) xs
               modName = T.intercalate "." modParts
-          return (modName,x)
+          return $ Hie.PosPrefixInfo (Yi.toText curLine) modName x
     Nothing -> return Nothing
 
 -- ---------------------------------------------------------------------
@@ -237,21 +237,17 @@ _unmapFileFromVfs tn uri = do
 
 -- TODO: generalise this and move it to GhcMod.ModuleLoader
 updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeGhcM (IdeResult ())
-updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file -> do
-  mcm <- getCachedModule file
-  case mcm of
-    ModuleCached cm _ -> do
-      let n2oOld = newPosToOld cm
-          o2nOld = oldPosToNew cm
-          (n2o,o2n) = foldl' go (n2oOld, o2nOld) changes
-          go (n2o', o2n') (J.TextDocumentContentChangeEvent (Just r) _ txt) =
-            (n2o' <=< newToOld r txt, oldToNew r txt <=< o2n')
-          go _ _ = (const Nothing, const Nothing)
-      let cm' = cm {newPosToOld = n2o, oldPosToNew = o2n}
-      cacheModuleNoClear file cm'
-      return $ IdeResultOk ()
-    _ ->
-      return $ IdeResultOk ()
+updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file ->
+  ifCachedModule file (IdeResultOk ()) $ \cm -> do
+    let n2oOld = newPosToOld cm
+        o2nOld = oldPosToNew cm
+        (n2o,o2n) = foldl' go (n2oOld, o2nOld) changes
+        go (n2o', o2n') (J.TextDocumentContentChangeEvent (Just r) _ txt) =
+          (n2o' <=< newToOld r txt, oldToNew r txt <=< o2n')
+        go _ _ = (const Nothing, const Nothing)
+    let cm' = cm {newPosToOld = n2o, oldPosToNew = o2n}
+    cacheModuleNoClear file cm'
+    return $ IdeResultOk ()
   where
     f (+/-) (J.Range (Position sl _) (Position el _)) txt p@(Position l c)
       | l < sl = Just p
@@ -433,11 +429,8 @@ reactor inp = do
               J.List changes = params ^. J.contentChanges
           mapFileFromVfs tn vtdi
           makeRequest $ GReq tn (Just uri) Nothing Nothing (const $ return ()) $
-            -- mark this module's cache as stale
-            pluginGetFile "markCacheStale:" uri $ \fp -> do
-              markCacheStale fp
-              -- Important - Call this before requestDiagnostics
-              updatePositionMap uri changes
+            -- Important - Call this before requestDiagnostics
+            updatePositionMap uri changes
           requestDiagnostics DiagnosticOnChange tn uri ver
 
         NotDidCloseTextDocument notification -> do
@@ -488,14 +481,7 @@ reactor inp = do
 
               hreq :: PluginRequest R
               hreq = IReq tn (req ^. J.id) callback $
-                pluginGetFile "ReqHover:" doc $ \fp -> do
-                  cached <- isCached fp
-                  -- Hover requests need to be instant so don't wait
-                  -- for cached module to be loaded
-                  -- TODO:AZ: what if a plugin hoverprovider does not need the cached module?
-                  if cached
-                    then sequence <$> mapM (\hp -> hp doc pos) hps
-                    else return (IdeResultOk [])
+                sequence <$> mapM (\hp -> lift $ hp doc pos) hps
           makeRequest hreq
           liftIO $ U.logs "reactor:HoverRequest done"
 
@@ -614,7 +600,7 @@ reactor inp = do
               hreq = IReq tn (req ^. J.id) callback $ runIdeResultT $ case mquery of
                         Nothing -> return Nothing
                         Just query -> do
-                          result <- lift $ Hoogle.infoCmd' query
+                          result <- lift $ lift $ Hoogle.infoCmd' query
                           case result of
                             Right x -> return $ Just x
                             _ -> return Nothing

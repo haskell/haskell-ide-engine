@@ -210,7 +210,7 @@ liquidFileFor uri ext =
 hoverProvider :: HoverProvider
 hoverProvider uri pos =
   pluginGetFile "Liquid.hoverProvider: " uri $ \file ->
-    withCachedModuleAndData file (IdeResultOk []) $
+    ifCachedModuleAndData file (IdeResultOk []) $
       \cm () -> do
         merrs <- liftIO $ readVimAnnot uri
         case merrs of

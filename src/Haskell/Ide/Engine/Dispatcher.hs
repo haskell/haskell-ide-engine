@@ -98,7 +98,7 @@ ideDispatcher stateVar caps env errorHandler callbackHandler pin =
             IdeResultOk x -> callbackHandler callback x
             IdeResultFail (IdeError _ msg _) -> errorHandler lid J.InternalError msg
 
-  where queueDeferred (IdeDefer fp cacheCb) = do
+  where queueDeferred (Defer fp cacheCb) = do
           uri' <- liftIO $ canonicalizePath fp
           muc <- fmap (Map.lookup uri' . uriCaches) getModuleCache
           case muc of

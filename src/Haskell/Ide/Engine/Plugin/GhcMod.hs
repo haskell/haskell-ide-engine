@@ -147,19 +147,20 @@ srcErrToDiag df rfm se = do
           Left e -> return (m, e:es)
   processMsgs errMsgs
 
-myLogger :: GM.IOish m
+myWrapper :: GM.IOish m
   => (FilePath -> FilePath)
   -> GM.GmlT m ()
   -> GM.GmlT m (Diagnostics, AdditionalErrs)
-myLogger rfm action = do
+myWrapper rfm action = do
   env <- getSession
   diagRef <- liftIO $ newIORef Map.empty
   errRef <- liftIO $ newIORef []
   let setLogger df = df { log_action = logDiag rfm errRef diagRef }
+      setDeferTypedHoles = setGeneralFlag' Opt_DeferTypedHoles
       ghcErrRes msg = (Map.empty, [T.pack msg])
       handlers = errorHandlers ghcErrRes (srcErrToDiag (hsc_dflags env) rfm )
       action' = do
-        GM.withDynFlags setLogger action
+        GM.withDynFlags (setLogger . setDeferTypedHoles) action
         diags <- liftIO $ readIORef diagRef
         errs <- liftIO $ readIORef errRef
         return (diags,errs)
@@ -197,7 +198,7 @@ setTypecheckedModule uri =
       ghcErrRes msg = ((Map.empty, [T.pack msg]),Nothing)
     debugm "setTypecheckedModule: before ghc-mod"
     ((diags', errs), mtm) <- GM.gcatches
-                              (GM.getTypecheckedModuleGhc' (myLogger rfm) fp)
+                              (GM.getTypecheckedModuleGhc' (myWrapper rfm) fp)
                               (errorHandlers ghcErrRes (return . ghcErrRes . show))
     debugm "setTypecheckedModule: after ghc-mod"
     canonUri <- canonicalizeUri uri
@@ -275,11 +276,9 @@ typeCmd = CmdSync $ \(TP _bool uri pos) ->
 
 newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
 newTypeCmd newPos uri =
-  pluginGetFile "newTypeCmd: " uri $ \fp -> do
-      mcm <- getCachedModule fp
-      case mcm of
-        ModuleCached cm _ -> return $ IdeResultOk $ pureTypeCmd newPos cm
-        _ -> return $ IdeResultOk []
+  pluginGetFile "newTypeCmd: " uri $ \fp ->
+    ifCachedModule fp (IdeResultOk []) $ \cm ->
+      return $ IdeResultOk $ pureTypeCmd newPos cm
 
 pureTypeCmd :: Position -> CachedModule -> [(Range,T.Text)]
 pureTypeCmd newPos cm  =
@@ -322,21 +321,17 @@ splitCaseCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 splitCaseCmd' uri newPos =
   pluginGetFile "splitCaseCmd: " uri $ \path -> do
     origText <- GM.withMappedFile path $ liftIO . T.readFile
-    cachedMod <- getCachedModule path
-    case cachedMod of
-      ModuleCached checkedModule _ ->
-        runGhcModCommand $
-        case newPosToOld checkedModule newPos of
-          Just oldPos -> do
-            let (line, column) = unPos oldPos
-            splitResult' <- GM.splits' path (tcMod checkedModule) line column
-            case splitResult' of
-              Just splitResult -> do
-                wEdit <- liftToGhc $ splitResultToWorkspaceEdit origText splitResult
-                return $ oldToNewPositions checkedModule wEdit
-              Nothing -> return mempty
-          Nothing -> return mempty
-      _ -> return $ IdeResultOk mempty
+    ifCachedModule path (IdeResultOk mempty) $ \checkedModule -> runGhcModCommand $
+      case newPosToOld checkedModule newPos of
+        Just oldPos -> do
+          let (line, column) = unPos oldPos
+          splitResult' <- GM.splits' path (tcMod checkedModule) line column
+          case splitResult' of
+            Just splitResult -> do
+              wEdit <- liftToGhc $ splitResultToWorkspaceEdit origText splitResult
+              return $ oldToNewPositions checkedModule wEdit
+            Nothing -> return mempty
+        Nothing -> return mempty
   where
 
     -- | Transform all ranges in a WorkspaceEdit from old to new positions.
@@ -585,7 +580,8 @@ extractHoleSubstitutions diag
 hoverProvider :: HoverProvider
 hoverProvider doc pos = runIdeResultT $ do
   info' <- IdeResultT $ newTypeCmd pos doc
-  names' <- IdeResultT $ Hie.getSymbolsAtPoint doc pos
+  names' <- IdeResultT $ pluginGetFile "ghc-mod:hoverProvider" doc $ \fp ->
+    ifCachedModule fp (IdeResultOk []) (return . IdeResultOk . Hie.getSymbolsAtPoint pos)
   let
     f = (==) `on` (Hie.showName . snd)
     f' = compare `on` (Hie.showName . snd)
@@ -619,7 +615,7 @@ hoverProvider doc pos = runIdeResultT $ do
 data Decl = Decl LSP.SymbolKind (Located RdrName) [Decl] SrcSpan
           | Import LSP.SymbolKind (Located ModuleName) [Decl] SrcSpan
 
-symbolProvider :: Uri -> IdeM (IdeResult [LSP.DocumentSymbol])
+symbolProvider :: Uri -> IdeDeferM (IdeResult [LSP.DocumentSymbol])
 symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
   \file -> withCachedModule file (IdeResultOk []) $ \cm -> do
     let tm = tcMod cm
@@ -690,13 +686,13 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
                 in pure (Decl LSP.SkClass (ieLWrappedName n) children l')
             f _ = []
 
-        declsToSymbolInf :: Decl -> IdeM [LSP.DocumentSymbol]
+        declsToSymbolInf :: Decl -> IdeDeferM [LSP.DocumentSymbol]
         declsToSymbolInf (Decl kind (L nl rdrName) children l) =
           declToSymbolInf' l kind nl (Hie.showName rdrName) children
         declsToSymbolInf (Import kind (L nl modName) children l) =
           declToSymbolInf' l kind nl (Hie.showName modName) children
 
-        declToSymbolInf' :: SrcSpan -> LSP.SymbolKind -> SrcSpan -> T.Text -> [Decl] -> IdeM [LSP.DocumentSymbol]
+        declToSymbolInf' :: SrcSpan -> LSP.SymbolKind -> SrcSpan -> T.Text -> [Decl] -> IdeDeferM [LSP.DocumentSymbol]
         declToSymbolInf' ss kind nss name children = do
           childrenSymbols <- concat <$> mapM declsToSymbolInf children
           case (srcSpan2Range ss, srcSpan2Range nss) of
