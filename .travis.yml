@@ -3,74 +3,50 @@ sudo: false
 
 language: c
 compiler: gcc
+os: osx
 
 cache:
   directories:
   - $HOME/.stack
+  - $HOME/.local/bin
   - $TRAVIS_BUILD_DIR/.stack-work
-  timeout: 300
+  timeout: 600
 
-matrix:
-  include:
-    - env: GHC_VER="8.2.1" STACK_CACHE="https://www.dropbox.com/s/51ois4onz5cpuak/stack-8.2.1.tar.bz2?dl=1" ARGS="--stack-yaml=stack-8.2.1.yaml"
-      os: osx
-      addons:
-        artifacts: {paths: [./releases]}
-    - env: GHC_VER="8.2.2" STACK_CACHE="https://www.dropbox.com/s/2bvw2qaec8oe08b/stack-8.2.2.tar.bz2?dl=1" ARGS="--stack-yaml=stack-8.2.2.yaml"
-      os: osx
-      addons:
-        artifacts: {paths: [./releases]}
-    - env: GHC_VER="8.4.2" STACK_CACHE="https://www.dropbox.com/s/ph5x48keq7tk165/stack-8.4.2.tar.bz2?dl=1" ARGS="--stack-yaml=stack-8.4.2.yaml"
-      os: osx
-      addons:
-        artifacts: {paths: [./releases]}
-    - env: GHC_VER="8.4.3" STACK_CACHE="https://www.dropbox.com/s/r7522f5l79zynoe/stack-8.4.3.tar.bz2?dl=1" ARGS="--stack-yaml=stack-8.4.3.yaml"
-      os: osx
-      addons:
-        artifacts: {paths: [./releases]}
+stages:
+  - setup
+  - dependencies
+  - compile
+  - test
 
-before_install:
-  # Seeding the cache with some pre-compile packages
-  - |
-    if [[ ! -f "${HOME}/.stack/indices/Hackage/00-index.tar" ]]
-    then
-      mkdir -p $HOME/.stack
-      travis_retry curl -sSL $STACK_CACHE \
-        | tar xj --strip-components=1 -C $HOME/.stack
-    fi
-  # Download and unpack the stack executable
-  - mkdir -p ~/.local/bin
-  - |
-    if [[ "${TRAVIS_OS_NAME}" = "osx" ]]
-    then
-      travis_retry curl -sSL https://www.stackage.org/stack/${TRAVIS_OS_NAME}-x86_64 \
-        | tar xz --strip-components=1 -C ~/.local/bin --include   '*/stack'
-    else
-      travis_retry curl -sSL https://www.stackage.org/stack/${TRAVIS_OS_NAME}-x86_64 \
-        | tar xz --strip-components=1 -C ~/.local/bin --wildcards '*/stack'
-    fi
+env:
+  - GHC_VER="8.4.3" ARGS="--stack-yaml=stack-8.4.3.yaml"
 
-install:
-  - git submodule update --init
-  - travis_retry stack --no-terminal --install-ghc $ARGS build
+jobs:
+   include:
+     - stage: setup
+       script:
+         - mkdir -p $HOME/.stack
+         - mkdir -p ~/.local/bin
+         - |
+           if [[ ! -f "${HOME}/.local/bin/stack" ]]
+           then
+             travis_retry curl -sSL https://www.stackage.org/stack/${TRAVIS_OS_NAME}-x86_64 \
+               | tar xz --strip-components=1 -C ~/.local/bin --include   '*/stack'
+           fi
+         - travis_retry stack --no-terminal --install-ghc $ARGS setup
 
-script:
-  - stack --no-terminal $ARGS install
-  - stack --no-terminal $ARGS test
+     - stage: dependencies
+       script:
+         - travis_retry stack --no-terminal --install-ghc $ARGS test --only-dependencies --no-run-tests
 
-after_success:
-- mkdir -p ./releases/
-- cp "$(which hie)" "./releases/"
-- cp "$(which hie-wrapper)" "./releases/"
+     - stage: compile
+       script: stack --no-terminal $ARGS build --test --no-run-tests
 
-before_deploy:
-- mv ./releases/hie "./releases/hie-${GHC_VER}-macos"
-
-deploy:
-  provider: releases
-  api_key:
-    secure: jhNwLD87iJZBA4yCd3bXUz4bcAxzPVTR7PjW9okQxXu5LBOYfTbUFsYCqnpEaItk1ot8WKwAxOt6tXkU/KkmDwhYCkii1Mt1r9mEKzDkjp68WhRlRm/3iCjlUcophXavUwcKZDtZHpii2bn+hne2Y8Eo8zbMIb1l5kd+mDH6WqP9AAMcgKSaHa7ZIkoc2S2TJ04nU8OeEW7Ts6lfOc6NAuxC9V28sewDUdWoAl8DIydsXvZWEAJ245Ir06zvg7KmdDuGmqHnO+cR2XjaRCs5sSDypexhECH+u8pgMe8Bziiy8aI1FHvRB8nEh/LvS+urGj1eoDH6DQiH+MerUFqFknn1wTw5fW9m3IsMpufVdlIMgQb1cqrr0osHyH9ckL/O7gtu7Fr67LXXPVq5TiUkIcLE6ut+DbCMs9LjePrHKW1JiEkqBBYB+MKkkKrPh3cUOjzuOkgnrpFgvFaBASSabqvVQvoDhCb+CxZQrSH1N1Qqj9zMuy6WFsmDmN/Pb940H3J9/isF/zkrPwrYbm02ZVV3882IEWuNGlr3NUW1Ik9lXPlPlen9BtJebaxhVa/RkRdyWIjk5Wlv9iGwuT/dtxqfJvD1EXodnxKAfc6QJISRwqpRBMIVIvRHRWOdY42AqHy/0NWG4J0gsTcBuBB4z5iwi9/zG7n60zcYU4N+9pg=
-  file: "./releases/*"
-  skip_cleanup: true
-  on:
-    tags: true
+     - stage: test
+       script: stack --no-terminal $ARGS test haskell-ide-engine:test:func-test
+     -
+       script: stack --no-terminal $ARGS test haskell-ide-engine:test:unit-test
+     -
+       script: stack --no-terminal $ARGS test haskell-ide-engine:test:dispatcher-test
+     -
+       script: stack --no-terminal $ARGS test haskell-ide-engine:test:wrapper-test
