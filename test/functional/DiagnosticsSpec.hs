@@ -19,7 +19,7 @@ spec :: Spec
 spec = describe "diagnostics providers" $ do
   describe "diagnostics triggers" $ do
     it "runs diagnostics on save" $
-      runSessionWithConfig codeActionSupportConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
+      runSessionWithConfig noLogConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
         doc <- openDoc "ApplyRefact2.hs" "haskell"
 
         diags@(reduceDiag:_) <- waitForDiagnostics
@@ -63,8 +63,8 @@ spec = describe "diagnostics providers" $ do
 
 -- ---------------------------------------------------------------------
 
-codeActionSupportConfig :: SessionConfig
-codeActionSupportConfig = Test.defaultConfig
+noLogConfig :: SessionConfig
+noLogConfig = Test.defaultConfig { logMessages = False }
 
 codeActionSupportCaps :: C.ClientCapabilities
 codeActionSupportCaps = def { C._textDocument = Just textDocumentCaps }
