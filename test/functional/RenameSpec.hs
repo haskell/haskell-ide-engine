@@ -6,10 +6,11 @@ import Language.Haskell.LSP.Test
 import Language.Haskell.LSP.Types
 import Test.Hspec
 import TestUtils
+import Utils
 
 spec :: Spec
 spec = describe "rename" $
-  it "works" $ runSession hieCommand fullCaps "test/testdata" $ do
+  it "works" $ runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata" $ do
     doc <- openDoc "Rename.hs" "haskell"
     rename doc (Position 3 1) "baz" -- foo :: Int -> Int
     documentContents doc >>= liftIO . flip shouldBe expected

@@ -258,6 +258,7 @@ test-suite func-test
                      , ReferencesSpec
                      , RenameSpec
                      , SymbolsSpec
+                     , Utils
 
                      , TestUtils
   build-depends:       aeson

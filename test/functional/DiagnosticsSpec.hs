@@ -4,14 +4,12 @@ module DiagnosticsSpec where
 
 import Control.Lens hiding (List)
 import Control.Monad.IO.Class
-import Data.Default
 import qualified Data.Text as T
-import qualified Language.Haskell.LSP.Test as Test
 import Language.Haskell.LSP.Test hiding (message)
 import Language.Haskell.LSP.Types as LSP hiding (contents, error )
-import qualified Language.Haskell.LSP.Types.Capabilities as C
 import Test.Hspec
 import TestUtils
+import Utils
 
 -- ---------------------------------------------------------------------
 
@@ -55,20 +53,9 @@ spec = describe "diagnostics providers" $ do
 
   describe "typed hole errors" $
     it "is deferred" $
-      runSession hieCommand fullCaps "test/testdata" $ do
+      runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata" $ do
         _ <- openDoc "TypedHoles.hs" "haskell"
         [diag] <- waitForDiagnosticsSource "ghcmod"
         liftIO $ diag ^. severity `shouldBe` Just DsWarning
 
-
 -- ---------------------------------------------------------------------
-
-noLogConfig :: SessionConfig
-noLogConfig = Test.defaultConfig { logMessages = False }
-
-codeActionSupportCaps :: C.ClientCapabilities
-codeActionSupportCaps = def { C._textDocument = Just textDocumentCaps }
-  where
-    textDocumentCaps = def { C._codeAction = Just codeActionCaps }
-    codeActionCaps = C.CodeActionClientCapabilities (Just True) (Just literalSupport)
-    literalSupport = C.CodeActionLiteralSupport def

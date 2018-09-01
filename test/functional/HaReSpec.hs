@@ -9,6 +9,7 @@ import Language.Haskell.LSP.Test
 import Language.Haskell.LSP.Types hiding (error, context)
 import Test.Hspec
 import TestUtils
+import Utils
 
 spec :: Spec
 spec = describe "HaRe" $
@@ -59,9 +60,9 @@ getCANamed named = head . mapMaybe test
         test _ = Nothing
 
 execCodeAction :: String -> Range -> T.Text -> T.Text -> IO ()
-execCodeAction fp r n expected = runSession hieCommand fullCaps "test/testdata" $ do
+execCodeAction fp r n expected = runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata" $ do
   doc <- openDoc fp "haskell"
-  
+
   -- Code actions aren't deferred - need to wait for compilation
   _ <- count 2 waitForDiagnostics
 
