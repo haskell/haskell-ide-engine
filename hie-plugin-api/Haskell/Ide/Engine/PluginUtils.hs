@@ -61,16 +61,16 @@ canonicalizeUri uri =
       fp' <- liftIO $ canonicalizePath fp
       return $ filePathToUri fp'
 
-newRangeToOld :: CachedModule -> Range -> Maybe Range
-newRangeToOld cm (Range start end) = do
-  start' <- newPosToOld cm start
-  end'   <- newPosToOld cm end
+newRangeToOld :: CachedInfo -> Range -> Maybe Range
+newRangeToOld info (Range start end) = do
+  start' <- newPosToOld info start
+  end'   <- newPosToOld info end
   return (Range start' end')
 
-oldRangeToNew :: CachedModule -> Range -> Maybe Range
-oldRangeToNew cm (Range start end) = do
-  start' <- oldPosToNew cm start
-  end'   <- oldPosToNew cm end
+oldRangeToNew :: CachedInfo -> Range -> Maybe Range
+oldRangeToNew info (Range start end) = do
+  start' <- oldPosToNew info start
+  end'   <- oldPosToNew info end
   return (Range start' end')
 
 getRealSrcSpan :: SrcSpan -> Either T.Text RealSrcSpan

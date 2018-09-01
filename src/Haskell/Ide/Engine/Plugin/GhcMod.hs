@@ -207,21 +207,17 @@ setTypecheckedModule uri =
     case (mpm,mtm) of
       (Just pm, Nothing) -> do
         debugm $ "setTypecheckedModule: Did get parsed module for: " ++ show fp
-        let cm = CachedParsedModule pm
-        cacheModule fp (Right cm)
+        cacheModule fp (Left pm)
         debugm "setTypecheckedModule: done"
 
       (_, Just tm) -> do
         debugm $ "setTypecheckedModule: Did get typechecked module for: " ++ show fp
-        typm <- GM.unGmlT $ genTypeMap tm
         sess <- fmap GM.gmgsSession . GM.gmGhcSession <$> GM.gmsGet
-        
-        let cm = CachedModule tm (genLocMap tm) typm (genImportMap tm) (genDefMap tm) rfm return return
 
         -- set the session before we cache the module, so that deferred
         -- responses triggered by cacheModule can access it
         modifyMTS (\s -> s {ghcSession = sess})
-        cacheModule fp (Left cm)
+        cacheModule fp (Right tm)
         debugm "setTypecheckedModule: done"
         
       _ -> do
@@ -285,18 +281,17 @@ typeCmd = CmdSync $ \(TP _bool uri pos) ->
 newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
 newTypeCmd newPos uri =
   pluginGetFile "newTypeCmd: " uri $ \fp ->
-    ifCachedModule fp (IdeResultOk []) $ \cm ->
-      return $ IdeResultOk $ pureTypeCmd newPos cm
+    ifCachedModule fp (IdeResultOk []) $ \tm info ->
+      return $ IdeResultOk $ pureTypeCmd newPos tm info
 
-pureTypeCmd :: Position -> CachedModule -> [(Range,T.Text)]
-pureTypeCmd newPos cm  =
+pureTypeCmd :: Position -> GHC.TypecheckedModule -> CachedInfo -> [(Range,T.Text)]
+pureTypeCmd newPos tm info =
     case mOldPos of
       Nothing -> []
       Just pos -> concatMap f (spanTypes pos)
   where
-    mOldPos = newPosToOld cm newPos
-    tm = tcMod cm
-    typm = typeMap cm
+    mOldPos = newPosToOld info newPos
+    typm = typeMap info
     spanTypes' pos = getArtifactsAtPos pos typm
     spanTypes pos = sortBy (cmp `on` fst) (spanTypes' pos)
     dflag = ms_hspp_opts $ pm_mod_summary $ tm_parsed_module tm
@@ -308,7 +303,7 @@ pureTypeCmd newPos cm  =
 #endif
 
     f (range', t) =
-      case oldRangeToNew cm range' of
+      case oldRangeToNew info range' of
         (Just range) -> [(range , T.pack $ GM.pretty dflag st t)]
         _ -> []
 
@@ -329,25 +324,25 @@ splitCaseCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 splitCaseCmd' uri newPos =
   pluginGetFile "splitCaseCmd: " uri $ \path -> do
     origText <- GM.withMappedFile path $ liftIO . T.readFile
-    ifCachedModule path (IdeResultOk mempty) $ \checkedModule -> runGhcModCommand $
-      case newPosToOld checkedModule newPos of
+    ifCachedModule path (IdeResultOk mempty) $ \tm info -> runGhcModCommand $
+      case newPosToOld info newPos of
         Just oldPos -> do
           let (line, column) = unPos oldPos
-          splitResult' <- GM.splits' path (tcMod checkedModule) line column
+          splitResult' <- GM.splits' path tm line column
           case splitResult' of
             Just splitResult -> do
               wEdit <- liftToGhc $ splitResultToWorkspaceEdit origText splitResult
-              return $ oldToNewPositions checkedModule wEdit
+              return $ oldToNewPositions info wEdit
             Nothing -> return mempty
         Nothing -> return mempty
   where
 
     -- | Transform all ranges in a WorkspaceEdit from old to new positions.
-    oldToNewPositions :: CachedModule -> WorkspaceEdit -> WorkspaceEdit
-    oldToNewPositions cMod wsEdit =
+    oldToNewPositions :: CachedInfo -> WorkspaceEdit -> WorkspaceEdit
+    oldToNewPositions info wsEdit =
       wsEdit
-        & LSP.documentChanges %~ (>>= traverseOf (traverse . LSP.edits . traverse . LSP.range) (oldRangeToNew cMod))
-        & LSP.changes %~ (>>= traverseOf (traverse . traverse . LSP.range) (oldRangeToNew cMod))
+        & LSP.documentChanges %~ (>>= traverseOf (traverse . LSP.edits . traverse . LSP.range) (oldRangeToNew info))
+        & LSP.changes %~ (>>= traverseOf (traverse . traverse . LSP.range) (oldRangeToNew info))
 
     -- | Given the range and text to replace, construct a 'WorkspaceEdit'
     -- by diffing the change against the current text.
@@ -589,7 +584,8 @@ hoverProvider :: HoverProvider
 hoverProvider doc pos = runIdeResultT $ do
   info' <- IdeResultT $ newTypeCmd pos doc
   names' <- IdeResultT $ pluginGetFile "ghc-mod:hoverProvider" doc $ \fp ->
-    ifCachedModule fp (IdeResultOk []) (return . IdeResultOk . Hie.getSymbolsAtPoint pos)
+    ifCachedModule fp (IdeResultOk []) $ \(_ :: GHC.ParsedModule) info ->
+      return $ IdeResultOk $ Hie.getSymbolsAtPoint pos info
   let
     f = (==) `on` (Hie.showName . snd)
     f' = compare `on` (Hie.showName . snd)
@@ -623,10 +619,10 @@ hoverProvider doc pos = runIdeResultT $ do
 data Decl = Decl LSP.SymbolKind (Located RdrName) [Decl] SrcSpan
           | Import LSP.SymbolKind (Located ModuleName) [Decl] SrcSpan
 
-symbolProvider :: Int -> IdeDeferM (IdeResult [LSP.DocumentSymbol])
+symbolProvider :: Uri -> IdeDeferM (IdeResult [LSP.DocumentSymbol])
 symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
-  \file -> withParsedModule file (IdeResultOk []) $ \pm -> do
-    let hsMod = unLoc $ pm_parsed_source $ pm
+  \file -> withCachedModule file (IdeResultOk []) $ \pm _ -> do
+    let hsMod = unLoc $ pm_parsed_source pm
         imports = hsmodImports hsMod
         imps  = concatMap goImport imports
         decls = concatMap go $ hsmodDecls hsMod

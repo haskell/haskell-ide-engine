@@ -186,13 +186,13 @@ hoverProvider :: HoverProvider
 hoverProvider uri pos =
   pluginGetFile "Liquid.hoverProvider: " uri $ \file ->
     ifCachedModuleAndData file (IdeResultOk []) $
-      \cm () -> do
+      \_ info () -> do
         merrs <- liftIO $ readVimAnnot uri
         case merrs of
           Nothing -> return (IdeResultOk [])
           Just lerrs -> do
             let perrs = map (\le@(LE s e _) -> (lpToPos s,lpToPos e,le)) lerrs
-                ls    = getThingsAtPos cm pos perrs
+                ls    = getThingsAtPos info pos perrs
             hs <- forM ls $ \(r,LE _s _e msg) -> do
               let msgs = T.splitOn "\\n" msg
                   msg' = J.CodeString (J.LanguageString "haskell" (T.unlines msgs))

@@ -51,8 +51,8 @@ import           SrcLoc
 import           TcEnv
 import           Var
 
-getDynFlags :: CachedModule -> DynFlags
-getDynFlags = ms_hspp_opts . pm_mod_summary . tm_parsed_module . tcMod
+getDynFlags :: GHC.TypecheckedModule -> DynFlags
+getDynFlags = ms_hspp_opts . pm_mod_summary . tm_parsed_module
 
 -- ---------------------------------------------------------------------
 
@@ -64,8 +64,8 @@ invert :: (Ord v) => Map.Map k v -> Map.Map v [k]
 invert m = Map.fromListWith (++) [(v,[k]) | (k,v) <- Map.toList m]
 
 instance ModuleCache NameMapData where
-  cacheDataProducer cm = pure $ NMD inm
-    where nm  = initRdrNameMap $ tcMod cm
+  cacheDataProducer tm _ = pure $ NMD inm
+    where nm  = initRdrNameMap tm
           inm = invert nm
 
 -- ---------------------------------------------------------------------
@@ -143,9 +143,8 @@ data CachedCompletions = CC
   } deriving (Typeable)
 
 instance ModuleCache CachedCompletions where
-  cacheDataProducer cm = do
-    let tm = tcMod cm
-        parsedMod = tm_parsed_module tm
+  cacheDataProducer tm _ = do
+    let parsedMod = tm_parsed_module tm
         curMod = moduleName $ ms_mod $ pm_mod_summary parsedMod
         Just (_,limports,_,_) = tm_renamed_source tm
 
@@ -162,7 +161,7 @@ instance ModuleCache CachedCompletions where
         importDeclerations = map unLoc limports
 
         -- The list of all importable Modules from all packages
-        moduleNames = map showModName (GM.listVisibleModuleNames (getDynFlags cm))
+        moduleNames = map showModName (GM.listVisibleModuleNames (getDynFlags tm))
 
         -- The given namespaces for the imported modules (ie. full name, or alias if used)
         allModNamesAsNS = map (showModName . asNamespace) importDeclerations
@@ -267,7 +266,7 @@ getCompletions uri prefixInfo = pluginGetFile "getCompletions: " uri $ \file -> 
   debugm $ "got prefix" ++ show (prefixModule, prefixText)
   let enteredQual = if T.null prefixModule then "" else prefixModule <> "."
       fullPrefix = enteredQual <> prefixText
-  withCachedModuleAndData file (IdeResultOk []) $ \_ CC { allModNamesAsNS, unqualCompls, qualCompls, importableModules } ->
+  withCachedModuleAndData file (IdeResultOk []) $ \_ _ CC { allModNamesAsNS, unqualCompls, qualCompls, importableModules } ->
     let
       filtModNameCompls = map mkModCompl
         $ mapMaybe (T.stripPrefix enteredQual)
@@ -307,8 +306,8 @@ getTypeForName n = do
 
 -- ---------------------------------------------------------------------
 
-getSymbolsAtPoint :: Position -> CachedModule -> [(Range,Name)]
-getSymbolsAtPoint pos cm = maybe [] (`getArtifactsAtPos` locMap cm) $ newPosToOld cm pos
+getSymbolsAtPoint :: Position -> CachedInfo -> [(Range,Name)]
+getSymbolsAtPoint pos info = maybe [] (`getArtifactsAtPos` locMap info) $ newPosToOld info pos
 
 symbolFromTypecheckedModule
   :: LocMap
@@ -327,11 +326,11 @@ getReferencesInDoc :: Uri -> Position -> IdeDeferM (IdeResult [J.DocumentHighlig
 getReferencesInDoc uri pos =
   pluginGetFile "getReferencesInDoc: " uri $ \file ->
     withCachedModuleAndData file (IdeResultOk []) $
-      \cm NMD{inverseNameMap} -> do
-        let lm = locMap cm
-            pm = tm_parsed_module $ tcMod cm
+      \tcMod info NMD{inverseNameMap} -> do
+        let lm = locMap info
+            pm = tm_parsed_module tcMod
             cfile = ml_hs_file $ ms_location $ pm_mod_summary pm
-            mpos = newPosToOld cm pos
+            mpos = newPosToOld info pos
         case mpos of
           Nothing -> return $ IdeResultOk []
           Just pos' -> return $ fmap concat $
@@ -347,7 +346,7 @@ getReferencesInDoc uri pos =
                         foo (Left _) = Nothing
                         foo (Right r) = Just r
                       r <- foo $ srcSpan2Range spn
-                      r' <- oldRangeToNew cm r
+                      r' <- oldRangeToNew info r
                       return $ J.DocumentHighlight r' (Just kind)
                     highlights
                       |    isVarOcc (occName name)
@@ -375,11 +374,11 @@ getModule df n = do
 -- | Return the definition
 findDef :: Uri -> Position -> IdeDeferM (IdeResult [Location])
 findDef uri pos = pluginGetFile "findDef: " uri $ \file ->
-  withCachedModule file (IdeResultOk []) (\cm -> do
-    let rfm = revMap cm
-        lm = locMap cm
-        mm = moduleMap cm
-        oldPos = newPosToOld cm pos
+  withCachedInfo file (IdeResultOk []) (\info -> do
+    let rfm = revMap info
+        lm = locMap info
+        mm = moduleMap info
+        oldPos = newPosToOld info pos
 
     case (\x -> Just $ getArtifactsAtPos x mm) =<< oldPos of
       Just ((_,mn):_) -> gotoModule rfm mn
@@ -394,8 +393,8 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file ->
                 Right l@(J.Location luri range) ->
                   case uriToFilePath luri of
                     Nothing -> return $ IdeResultOk [l]
-                    Just fp -> ifCachedModule fp (IdeResultOk [l]) $ \cm' ->
-                      case oldRangeToNew cm' range of
+                    Just fp -> ifCachedModule fp (IdeResultOk [l]) $ \(_ :: ParsedModule) info' ->
+                      case oldRangeToNew info' range of
                         Just r  -> return $ IdeResultOk [J.Location luri r]
                         Nothing -> return $ IdeResultOk [l]
                 Left x -> do

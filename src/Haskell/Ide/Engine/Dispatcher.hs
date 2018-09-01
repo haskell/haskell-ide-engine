@@ -31,7 +31,6 @@ import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.Monad
 import qualified Language.Haskell.LSP.Types              as J
 import qualified Language.Haskell.LSP.Types.Capabilities as J
-import System.Directory
 
 data DispatcherEnv = DispatcherEnv
   { cancelReqsTVar     :: !(TVar (S.Set J.LspId))
@@ -98,18 +97,14 @@ ideDispatcher stateVar caps env errorHandler callbackHandler pin =
             IdeResultOk x -> callbackHandler callback x
             IdeResultFail (IdeError _ msg _) -> errorHandler lid J.InternalError msg
 
-  where queueDeferred (Defer fp cacheCb) = do
-          uri' <- liftIO $ canonicalizePath fp
-          muc <- fmap (Map.lookup uri' . uriCaches) getModuleCache
-          case muc of
-            Just uc -> cacheCb uc
-            Nothing -> lift $ modifyMTState $ \s ->
-              let oldQueue = requestQueue s 
-                  -- add to existing queue if possible
-                  update Nothing = [cacheCb]
-                  update (Just x) = cacheCb : x
-                  newQueue = Map.alter (Just . update) fp oldQueue
-              in s { requestQueue = newQueue }
+  where queueDeferred (Defer fp cacheCb) =
+          lift $ modifyMTState $ \s ->
+            let oldQueue = requestQueue s 
+                -- add to existing queue if possible
+                update Nothing = [cacheCb]
+                update (Just x) = cacheCb : x
+                newQueue = Map.alter (Just . update) fp oldQueue
+            in s { requestQueue = newQueue }
 
 ghcDispatcher :: forall void m. DispatcherEnv -> ErrorHandler -> CallbackHandler m -> TChan (GhcRequest m) -> IdeGhcM void
 ghcDispatcher env@DispatcherEnv{docVersionTVar} errorHandler callbackHandler pin = forever $ do
