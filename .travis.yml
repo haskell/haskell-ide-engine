@@ -10,6 +10,13 @@ cache:
   - $HOME/.stack
   - $HOME/.local/bin
   - $TRAVIS_BUILD_DIR/.stack-work
+  - $TRAVIS_BUILD_DIR/submodules/HaRe/.stack-work
+  - $TRAVIS_BUILD_DIR/submodules/ghc-mod/.stack-work
+  - $TRAVIS_BUILD_DIR/submodules/ghc-mod/core/.stack-work
+  - $TRAVIS_BUILD_DIR/submodules/haskell-lsp/.stack-work
+  - $TRAVIS_BUILD_DIR/submodules/haskell-lsp/haskell-lsp-types/.stack-work
+  - $TRAVIS_BUILD_DIR/submodules/cabal-helper/.stack-work
+  - $TRAVIS_BUILD_DIR/hie-plugin-api/.stack-work
   timeout: 600
 
 stages:
@@ -43,7 +50,9 @@ jobs:
        script: stack --no-terminal $ARGS build --test --no-run-tests
 
      - stage: test
-       script: stack --no-terminal $ARGS test haskell-ide-engine:test:func-test
+       script:
+         - stack --no-terminal $ARGS exec hoogle generate
+         - stack --no-terminal $ARGS test haskell-ide-engine:test:func-test
      -
        script: stack --no-terminal $ARGS test haskell-ide-engine:test:unit-test
      -
