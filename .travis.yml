@@ -52,10 +52,4 @@ jobs:
      - stage: test
        script:
          - stack --no-terminal $ARGS exec hoogle generate
-         - stack --no-terminal $ARGS test haskell-ide-engine:test:func-test
-     -
-       script: stack --no-terminal $ARGS test haskell-ide-engine:test:unit-test
-     -
-       script: stack --no-terminal $ARGS test haskell-ide-engine:test:dispatcher-test
-     -
-       script: stack --no-terminal $ARGS test haskell-ide-engine:test:wrapper-test
+         - stack --no-terminal $ARGS test
