@@ -7,6 +7,7 @@ compiler: gcc
 cache:
   directories:
   - $HOME/.stack
+  - $TRAVIS_BUILD_DIR/.stack-work
   timeout: 300
 
 matrix:
@@ -51,11 +52,10 @@ before_install:
 
 install:
   - git submodule update --init
-  - travis_retry stack --no-terminal --install-ghc $ARGS build --only-dependencies
-  - stack --no-terminal $ARGS install
+  - travis_retry stack --no-terminal --install-ghc $ARGS build --only-dependencies --test
 
 script:
-  - stack --no-terminal $ARGS test
+  - stack --no-terminal $ARGS install --test
 
 after_success:
 - mkdir -p ./releases/
