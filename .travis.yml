@@ -52,9 +52,10 @@ before_install:
 install:
   - git submodule update --init
   - travis_retry stack --no-terminal --install-ghc $ARGS build --only-dependencies
+  - stack --no-terminal $ARGS install
 
 script:
-  - stack --no-terminal $ARGS install
+  - stack --no-terminal $ARGS test
 
 after_success:
 - mkdir -p ./releases/
