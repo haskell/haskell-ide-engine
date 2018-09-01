@@ -11,19 +11,19 @@ cache:
 
 matrix:
   include:
-    - env: GHC_VER="8.2.1" STACK_CACHE="https://www.dropbox.com/s/ay5q7f1crjy1juq/stack-8.2.1.tar.bz?dl=1" ARGS="--stack-yaml=stack-8.2.1.yaml"
+    - env: GHC_VER="8.2.1" STACK_CACHE="https://www.dropbox.com/s/51ois4onz5cpuak/stack-8.2.1.tar.bz2?dl=1" ARGS="--stack-yaml=stack-8.2.1.yaml"
       os: osx
       addons:
         artifacts: {paths: [./releases]}
-    - env: GHC_VER="8.2.2" STACK_CACHE="https://www.dropbox.com/s/m0ibz81zerr0c2f/stack-8.2.2.tar.bz?dl=1" ARGS="--stack-yaml=stack-8.2.2.yaml"
+    - env: GHC_VER="8.2.2" STACK_CACHE="https://www.dropbox.com/s/2bvw2qaec8oe08b/stack-8.2.2.tar.bz2?dl=1" ARGS="--stack-yaml=stack-8.2.2.yaml"
       os: osx
       addons:
         artifacts: {paths: [./releases]}
-    - env: GHC_VER="8.4.2" STACK_CACHE="https://www.dropbox.com/s/zo316nei0cfom77/stack-8.4.2.tar.bz?dl=1" ARGS="--stack-yaml=stack-8.4.2.yaml"
+    - env: GHC_VER="8.4.2" STACK_CACHE="https://www.dropbox.com/s/ph5x48keq7tk165/stack-8.4.2.tar.bz2?dl=1" ARGS="--stack-yaml=stack-8.4.2.yaml"
       os: osx
       addons:
         artifacts: {paths: [./releases]}
-    - env: GHC_VER="8.4.3" STACK_CACHE="https://www.dropbox.com/s/xkf7c3ltx9jz0c9/stack-8.4.3.tar.bz?dl=1" ARGS="--stack-yaml=stack-8.4.3.yaml"
+    - env: GHC_VER="8.4.3" STACK_CACHE="https://www.dropbox.com/s/r7522f5l79zynoe/stack-8.4.3.tar.bz2?dl=1" ARGS="--stack-yaml=stack-8.4.3.yaml"
       os: osx
       addons:
         artifacts: {paths: [./releases]}
@@ -31,7 +31,7 @@ matrix:
 before_install:
   # Seeding the cache with some pre-compile packages
   - |
-    if [[ ! -f "${HOME}/.stack/indices/Hackage/00-index.tar.gz" ]]
+    if [[ ! -f "${HOME}/.stack/indices/Hackage/00-index.tar" ]]
     then
       mkdir -p $HOME/.stack
       travis_retry curl -sSL $STACK_CACHE \
