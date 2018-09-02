@@ -25,13 +25,11 @@ stages:
   - compile
   - test
 
-env:
-  - GHC_VER="8.4.3" ARGS="--stack-yaml=stack-8.4.3.yaml"
-
 jobs:
    include:
      - stage: setup
-       script:
+       env: ARGS="--stack-yaml=stack-8.4.3.yaml"
+       script: &setup
          - mkdir -p $HOME/.stack
          - mkdir -p ~/.local/bin
          - |
@@ -42,19 +40,80 @@ jobs:
            fi
          - travis_retry stack --no-terminal --install-ghc $ARGS setup
 
+     - stage: setup
+       env: ARGS="--stack-yaml=stack-8.4.3.yaml"
+       script: *setup
+
+     - stage: setup
+       env: ARGS="--stack-yaml=stack-8.2.2.yaml"
+       script: *setup
+
+     - stage: setup
+       env: ARGS="--stack-yaml=stack-8.2.1.yaml"
+       script: *setup
+
      - stage: dependencies
-       script:
+       env: ARGS="--stack-yaml=stack-8.4.3.yaml"
+       script: &dependencies
          - travis_retry stack --no-terminal --install-ghc $ARGS test --only-dependencies --no-run-tests
 
+     - stage: dependencies
+       env: ARGS="--stack-yaml=stack-8.4.2.yaml"
+       script: *dependencies
+
+     - stage: dependencies
+       env: ARGS="--stack-yaml=stack-8.2.2.yaml"
+       script: *dependencies
+
+     - stage: dependencies
+       env: ARGS="--stack-yaml=stack-8.2.1.yaml"
+       script: *dependencies
+
      - stage: compile
-       script: stack --no-terminal $ARGS build --test --no-run-tests
+       env: ARGS="--stack-yaml=stack-8.4.3.yaml"
+       script: &compile
+
+     - stage: compile
+       env: ARGS="--stack-yaml=stack-8.4.2.yaml"
+       script: *compile
+
+     - stage: compile
+       env: ARGS="--stack-yaml=stack-8.2.2.yaml"
+       script: *compile
+
+     - stage: compile
+       env: ARGS="--stack-yaml=stack-8.2.1.yaml"
+       script: *compile
 
      - stage: test
-       script:
+       env: ARGS="--stack-yaml=stack-8.4.3.yaml"
+       script: &functest
          - stack --no-terminal $ARGS exec hoogle generate
          - stack --no-terminal $ARGS test haskell-ide-engine:test:func-test
      -
-       script:
+       env: ARGS="--stack-yaml=stack-8.4.3.yaml"
+       script: &test
          - stack --no-terminal $ARGS test haskell-ide-engine:test:dispatcher-test
          - stack --no-terminal $ARGS test haskell-ide-engine:test:unit-test
          - stack --no-terminal $ARGS test haskell-ide-engine:test:wrapper-test
+
+     - stage: test
+       env: ARGS="--stack-yaml=stack-8.4.2.yaml"
+       script: *functest
+     -
+       env: ARGS="--stack-yaml=stack-8.4.2.yaml"
+       script: *test
+
+     - stage: test
+       env: ARGS="--stack-yaml=stack-8.2.2.yaml"
+       script: *functest
+     -
+       env: ARGS="--stack-yaml=stack-8.2.2.yaml"
+       script: *test
+
+     - stage: test
+       env: ARGS="--stack-yaml=stack-8.2.1.yaml"
+       script: *functest
+     -
+       env: ARGS="--stack-yaml=stack-8.2.1.yaml"
+       script: *test
