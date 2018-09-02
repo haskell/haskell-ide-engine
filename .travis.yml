@@ -43,7 +43,7 @@ jobs:
          - stack $ARGS build lens
 
      - stage: setup
-       env: ARGS="--stack-yaml=stack-8.4.3.yaml"
+       env: ARGS="--stack-yaml=stack-8.4.2.yaml"
        script: *setup
 
      - stage: setup
@@ -74,6 +74,7 @@ jobs:
      - stage: compile
        env: ARGS="--stack-yaml=stack-8.4.3.yaml"
        script: &compile
+         - stack --no-terminal $ARGS build --test --no-run-tests
 
      - stage: compile
        env: ARGS="--stack-yaml=stack-8.4.2.yaml"
