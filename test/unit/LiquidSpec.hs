@@ -8,6 +8,7 @@ import           Data.Monoid ((<>))
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Plugin.Liquid
 import           System.Directory
+import           System.Exit
 import           System.FilePath
 import           Test.Hspec
 
@@ -113,8 +114,9 @@ spec = do
         -- uri = filePathToUri fp
       r <- runLiquidHaskell fp
       r `shouldBe`
-         ["ExitFailure 1"
-         ,"RESULT\n[{\"start\":{\"line\":9,\"column\":1},\"stop\":{\"line\":9,\"column\":8},\"message\":\"Error: Liquid Type Mismatch\\n  Inferred type\\n    VV : {v : Int | v == (7 : int)}\\n \\n  not a subtype of Required type\\n    VV : {VV : Int | VV mod 2 == 0}\\n \\n  In Context\"}]\n"
-         ,""]
+         Just
+           (ExitFailure 1,
+           ["RESULT\n[{\"start\":{\"line\":9,\"column\":1},\"stop\":{\"line\":9,\"column\":8},\"message\":\"Error: Liquid Type Mismatch\\n  Inferred type\\n    VV : {v : Int | v == (7 : int)}\\n \\n  not a subtype of Required type\\n    VV : {VV : Int | VV mod 2 == 0}\\n \\n  In Context\"}]\n"
+           ,""])
 
     -- ---------------------------------

@@ -49,8 +49,8 @@ sayHelloTo n = return $ "hello " <> n <> " from ExamplePlugin2"
 
 -- ---------------------------------------------------------------------
 
-diagnosticProvider :: DiagnosticTrigger -> Uri -> IdeDeferM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
-diagnosticProvider trigger uri = do
+diagnosticProvider :: DiagnosticProviderFunc
+diagnosticProvider trigger uri _cb = do
   liftIO $ logm "Example2.diagnosticProvider called"
   let diag = Diagnostic
               { _range = Range (Position 0 0) (Position 1 0)

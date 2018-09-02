@@ -745,23 +745,29 @@ requestDiagnostics trigger tn file mVer = do
       forM_ dss $ \(pid,ds) -> do
         logm $ "requestDiagnostics: calling diagFunc for plugin:" ++ show pid
         let
+          publishDiagnosticsIO = Core.publishDiagnosticsFunc lf
           maxToSend = maybe 50 maxNumberOfProblems mc
           sendOne (fileUri,ds') = do
-            publishDiagnostics maxToSend fileUri Nothing (Map.fromList [(Just pid,SL.toSortedList ds')])
+            publishDiagnosticsIO maxToSend fileUri Nothing (Map.fromList [(Just pid,SL.toSortedList ds')])
 
-          sendEmpty = publishDiagnostics maxToSend file Nothing (Map.fromList [(Just pid,SL.toSortedList [])])
+          sendEmpty = publishDiagnosticsIO maxToSend file Nothing (Map.fromList [(Just pid,SL.toSortedList [])])
+
           -- fv = case mVer of
           --   Nothing -> Nothing
           --   Just v -> Just (file,v)
-        -- let reql = GReq tn (Just file) fv Nothing callbackl
         let fakeId = J.IdString "fake,remove" -- TODO:AZ: IReq should take a Maybe LspId
         let reql = IReq tn fakeId callbackl
-                     $ ds trigger file
+                     $ ds trigger file callbackl
+            -- This callback is used in R for the dispatcher normally,
+            -- but also in IO if the plugin chooses to spawn an
+            -- external process that returns diagnostics when it
+            -- completes.
+            callbackl :: forall m. MonadIO m => Map.Map Uri (S.Set Diagnostic) -> m ()
             callbackl pd = do
               let diags = Map.toList $ S.toList <$> pd
               case diags of
-                [] -> sendEmpty
-                _ -> mapM_ sendOne diags
+                [] -> liftIO sendEmpty
+                _ -> mapM_ (liftIO . sendOne) diags
         liftIO $ atomically $ writeTChan cin reql
 
 -- | get hlint and GHC diagnostics and loads the typechecked module into the cache
