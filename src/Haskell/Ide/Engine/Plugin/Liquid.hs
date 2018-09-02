@@ -44,7 +44,7 @@ liquidDescriptor plId = PluginDescriptor
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider= Just (DiagnosticProvider
                                     (S.singleton DiagnosticOnSave)
-                                    diagnosticProvider)
+                                    (DiagnosticProviderAsync diagnosticProvider))
   , pluginHoverProvider      = Just hoverProvider
   , pluginSymbolProvider = Nothing
   }
@@ -111,9 +111,9 @@ instance ExtensionClass LiquidData where
 
 -- diagnosticProvider :: DiagnosticTrigger -> Uri -> IdeM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
 
-diagnosticProvider :: DiagnosticProviderFunc
+diagnosticProvider :: DiagnosticProviderFuncAsync
 diagnosticProvider DiagnosticOnSave uri cb = pluginGetFile "Liquid.diagnosticProvider:" uri $ \file ->
-  withCachedModuleAndData file (IdeResultOk Map.empty) $ \_cm () -> do
+  withCachedModuleAndData file (IdeResultOk ()) $ \_cm () -> do
     -- New save, kill any prior instance that was running
     LiquidData mtid <- get
     mapM_ (liftIO . cancel) mtid
@@ -121,8 +121,8 @@ diagnosticProvider DiagnosticOnSave uri cb = pluginGetFile "Liquid.diagnosticPro
     tid <- liftIO $ async $ generateDiagnosics cb uri file
     put (LiquidData (Just tid))
 
-    return $ IdeResultOk Map.empty
-diagnosticProvider _ _ _ = return $ IdeResultOk Map.empty
+    return $ IdeResultOk ()
+diagnosticProvider _ _ _ = return (IdeResultOk ())
 
 -- ---------------------------------------------------------------------
 

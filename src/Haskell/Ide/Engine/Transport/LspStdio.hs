@@ -756,8 +756,13 @@ requestDiagnostics trigger tn file mVer = do
           --   Nothing -> Nothing
           --   Just v -> Just (file,v)
         let fakeId = J.IdString "fake,remove" -- TODO:AZ: IReq should take a Maybe LspId
-        let reql = IReq tn fakeId callbackl
-                     $ ds trigger file callbackl
+        let reql = case ds of
+              DiagnosticProviderSync dps ->
+                IReq tn fakeId callbackl
+                     $ dps trigger file
+              DiagnosticProviderAsync dpa ->
+                IReq tn fakeId pure
+                     $ dpa trigger file callbackl
             -- This callback is used in R for the dispatcher normally,
             -- but also in IO if the plugin chooses to spawn an
             -- external process that returns diagnostics when it

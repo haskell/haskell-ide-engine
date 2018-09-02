@@ -24,7 +24,8 @@ example2Descriptor plId = PluginDescriptor
       , PluginCommand "sayHelloTo ""say hello to the passed in param" sayHelloToCmd
       ]
   , pluginCodeActionProvider = Nothing
-  , pluginDiagnosticProvider = Just (DiagnosticProvider (S.singleton DiagnosticOnSave) diagnosticProvider)
+  , pluginDiagnosticProvider
+      = Just (DiagnosticProvider (S.singleton DiagnosticOnSave) (DiagnosticProviderSync diagnosticProvider))
   , pluginHoverProvider = Nothing
   , pluginSymbolProvider = Nothing
   }
@@ -49,8 +50,8 @@ sayHelloTo n = return $ "hello " <> n <> " from ExamplePlugin2"
 
 -- ---------------------------------------------------------------------
 
-diagnosticProvider :: DiagnosticProviderFunc
-diagnosticProvider trigger uri _cb = do
+diagnosticProvider :: DiagnosticProviderFuncSync
+diagnosticProvider trigger uri = do
   liftIO $ logm "Example2.diagnosticProvider called"
   let diag = Diagnostic
               { _range = Range (Position 0 0) (Position 1 0)

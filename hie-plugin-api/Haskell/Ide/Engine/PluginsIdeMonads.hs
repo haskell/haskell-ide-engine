@@ -26,7 +26,9 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , PluginCommand(..)
   , CodeActionProvider
   , DiagnosticProvider(..)
-  , DiagnosticProviderFunc
+  , DiagnosticProviderFunc(..)
+  , DiagnosticProviderFuncSync
+  , DiagnosticProviderFuncAsync
   , DiagnosticTrigger(..)
   , HoverProvider
   , SymbolProvider
@@ -154,10 +156,19 @@ type CodeActionProvider =  PluginId
                         -> CodeActionContext
                         -> IdeM (IdeResult [CodeAction])
 
-type DiagnosticProviderFunc
+type DiagnosticProviderFuncSync
+  = DiagnosticTrigger -> Uri
+  -> IdeDeferM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
+
+type DiagnosticProviderFuncAsync
   = DiagnosticTrigger -> Uri
   -> (Map.Map Uri (S.Set Diagnostic) -> IO ())
-  -> IdeDeferM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
+  -> IdeDeferM (IdeResult ())
+
+data DiagnosticProviderFunc
+  = DiagnosticProviderSync  DiagnosticProviderFuncSync
+  | DiagnosticProviderAsync DiagnosticProviderFuncAsync
+
 
 data DiagnosticProvider = DiagnosticProvider
      { dpTrigger :: S.Set DiagnosticTrigger -- AZ:should this be a NonEmptyList?
