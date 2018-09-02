@@ -17,7 +17,7 @@ cache:
   - $TRAVIS_BUILD_DIR/submodules/haskell-lsp/haskell-lsp-types/.stack-work
   - $TRAVIS_BUILD_DIR/submodules/cabal-helper/.stack-work
   - $TRAVIS_BUILD_DIR/hie-plugin-api/.stack-work
-  timeout: 600
+  timeout: 800
 
 stages:
   - setup
@@ -39,6 +39,8 @@ jobs:
                | tar xz --strip-components=1 -C ~/.local/bin --include   '*/stack'
            fi
          - travis_retry stack --no-terminal --install-ghc $ARGS setup
+         # Build a bing package to offload the next stage from doing too much work
+         - stack $ARGS build lens
 
      - stage: setup
        env: ARGS="--stack-yaml=stack-8.4.3.yaml"
