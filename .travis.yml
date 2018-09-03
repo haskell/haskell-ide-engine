@@ -102,21 +102,12 @@ jobs:
 
      - stage: test
        env: ARGS="--stack-yaml=stack-8.4.2.yaml"
-       script: *functest
-     -
-       env: ARGS="--stack-yaml=stack-8.4.2.yaml"
        script: *test
 
      - stage: test
        env: ARGS="--stack-yaml=stack-8.2.2.yaml"
-       script: *functest
-     -
-       env: ARGS="--stack-yaml=stack-8.2.2.yaml"
        script: *test
 
      - stage: test
-       env: ARGS="--stack-yaml=stack-8.2.1.yaml"
-       script: *functest
-     -
        env: ARGS="--stack-yaml=stack-8.2.1.yaml"
        script: *test
