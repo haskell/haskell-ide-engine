@@ -50,16 +50,16 @@ plugins includeExamples = pluginDescToIdePlugins allPlugins
                    else basePlugins
     basePlugins =
       [applyRefactDescriptor "applyrefact"
-      ,baseDescriptor "base"
-      ,brittanyDescriptor "brittany"
+      ,baseDescriptor        "base"
+      ,brittanyDescriptor    "brittany"
       ,buildPluginDescriptor "build"
-      ,ghcmodDescriptor "ghcmod"
-      ,hareDescriptor "hare"
-      ,hoogleDescriptor "hoogle"
-      ,hsimportDescriptor "hsimport"
-      ,liquidDescriptor "liquid"
-      ,packageDescriptor "package"
-      ,haddockDescriptor "haddock"
+      ,ghcmodDescriptor      "ghcmod"
+      ,hareDescriptor        "hare"
+      ,hoogleDescriptor      "hoogle"
+      ,hsimportDescriptor    "hsimport"
+      ,liquidDescriptor      "liquid"
+      ,packageDescriptor     "package"
+      ,haddockDescriptor     "haddock"
       ]
     examplePlugins =
       [example2Descriptor "eg2"

@@ -707,7 +707,7 @@ reactor inp = do
 
         NotDidChangeConfiguration notif -> do
           liftIO $ U.logs $ "reactor:didChangeConfiguration notification:" ++ show notif
-          -- if hlint has been turned off, flush the disgnostics
+          -- if hlint has been turned off, flush the diagnostics
           diagsOn              <- configVal True hlintOn
           maxDiagnosticsToSend <- configVal 50 maxNumberOfProblems
           liftIO $ U.logs $ "reactor:didChangeConfiguration diagsOn:" ++ show diagsOn
@@ -741,10 +741,14 @@ requestDiagnostics trigger tn file mVer = do
       logm $ "requestDiagnostics: no diagFunc for:" ++ show trigger
       return ()
     Just dss -> do
+      dpsEnabled <- configVal (Map.fromList [("liquid",False)]) getDiagnosticProvidersConfig
       logm $ "requestDiagnostics: got diagFunc for:" ++ show trigger
       forM_ dss $ \(pid,ds) -> do
         logm $ "requestDiagnostics: calling diagFunc for plugin:" ++ show pid
         let
+          enabled = case Map.lookup pid dpsEnabled of
+            Nothing -> True
+            Just flag -> flag
           publishDiagnosticsIO = Core.publishDiagnosticsFunc lf
           maxToSend = maybe 50 maxNumberOfProblems mc
           sendOne (fileUri,ds') = do
@@ -773,7 +777,7 @@ requestDiagnostics trigger tn file mVer = do
               case diags of
                 [] -> liftIO sendEmpty
                 _ -> mapM_ (liftIO . sendOne) diags
-        liftIO $ atomically $ writeTChan cin reql
+        when enabled $ liftIO $ atomically $ writeTChan cin reql
 
 -- | get hlint and GHC diagnostics and loads the typechecked module into the cache
 requestDiagnosticsNormal :: TrackingNumber -> J.Uri -> J.TextDocumentVersion -> R ()

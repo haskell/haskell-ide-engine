@@ -17,7 +17,8 @@ spec :: Spec
 spec = describe "diagnostics providers" $ do
   describe "diagnostics triggers" $ do
     it "runs diagnostics on save" $
-      runSessionWithConfig noLogConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
+      -- runSessionWithConfig noLogConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
+      runSessionWithConfig logConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
         doc <- openDoc "ApplyRefact2.hs" "haskell"
 
         diags@(reduceDiag:_) <- waitForDiagnostics
@@ -31,14 +32,21 @@ spec = describe "diagnostics providers" $ do
           reduceDiag ^. code `shouldBe` Just "Eta reduce"
           reduceDiag ^. source `shouldBe` Just "hlint"
 
+        -- diags2a <- waitForDiagnostics
+        -- -- liftIO $ show diags2a `shouldBe` ""
+        -- liftIO $ length diags2a `shouldBe` 2
+
+        diags2eg@(eg2:_) <- waitForDiagnostics
+        liftIO $ show diags2eg `shouldBe` ""
+        liftIO $ length diags2eg `shouldBe` 3
+        liftIO $ eg2 ^. source `shouldBe` Just "eg2"
+
         -- docItem <- getDocItem file languageId
         sendNotification TextDocumentDidSave (DidSaveTextDocumentParams doc)
         diags2hlint <- waitForDiagnostics
         -- liftIO $ show diags2hlint `shouldBe` ""
-        -- liftIO $ length diags2hlint `shouldBe` 2
         liftIO $ length diags2hlint `shouldBe` 3
         diags2liquid <- waitForDiagnostics
-        -- liftIO $ length diags2liquid `shouldBe` 2
         liftIO $ length diags2liquid `shouldBe` 3
         -- liftIO $ show diags2 `shouldBe` ""
         diags3@(d:_) <- waitForDiagnostics

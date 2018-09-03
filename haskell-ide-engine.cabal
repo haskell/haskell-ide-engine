@@ -255,6 +255,7 @@ test-suite func-test
                      , HaReSpec
                      , HighlightSpec
                      , HoverSpec
+                     , LiquidSpec
                      , ReferencesSpec
                      , RenameSpec
                      , SymbolsSpec

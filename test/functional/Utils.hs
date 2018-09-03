@@ -10,6 +10,9 @@ import qualified Language.Haskell.LSP.Types.Capabilities as C
 noLogConfig :: SessionConfig
 noLogConfig = Test.defaultConfig { logMessages = False }
 
+logConfig :: SessionConfig
+logConfig = Test.defaultConfig { logMessages = True }
+
 codeActionSupportCaps :: C.ClientCapabilities
 codeActionSupportCaps = def { C._textDocument = Just textDocumentCaps }
   where

@@ -10,6 +10,7 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Plugin.ApplyRefact
 import           Haskell.Ide.Engine.Plugin.GhcMod
 import           Haskell.Ide.Engine.Plugin.HaRe
+import           Haskell.Ide.Engine.LSP.Config
 
 import           Data.Aeson
 import           Test.Hspec
@@ -42,6 +43,7 @@ jsonSpec = do
   -- Plugin Api types
     prop "IdeErrorCode"      (propertyJsonRoundtrip :: IdeErrorCode -> Bool)
     prop "IdeError"          (propertyJsonRoundtrip :: IdeError -> Bool)
+    prop "Config"            (propertyJsonRoundtrip :: Config -> Bool)
 
 -- ---------------------------------------------------------------------
 
