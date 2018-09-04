@@ -42,11 +42,11 @@ liquidDescriptor plId = PluginDescriptor
       , PluginCommand "sayHelloTo" "say hello to the passed in param" sayHelloToCmd
       ]
   , pluginCodeActionProvider = Nothing
-  , pluginDiagnosticProvider= Just (DiagnosticProvider
+  , pluginDiagnosticProvider = Just (DiagnosticProvider
                                     (S.singleton DiagnosticOnSave)
                                     (DiagnosticProviderAsync diagnosticProvider))
   , pluginHoverProvider      = Just hoverProvider
-  , pluginSymbolProvider = Nothing
+  , pluginSymbolProvider     = Nothing
   }
 
 -- ---------------------------------------------------------------------
