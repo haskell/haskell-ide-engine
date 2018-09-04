@@ -752,14 +752,18 @@ requestDiagnostics trigger tn file mVer = do
           publishDiagnosticsIO = Core.publishDiagnosticsFunc lf
           maxToSend = maybe 50 maxNumberOfProblems mc
           sendOne (fileUri,ds') = do
+            logm $ "LspStdio.sendone:(fileUri,ds')=" ++ show(fileUri,ds')
             publishDiagnosticsIO maxToSend fileUri Nothing (Map.fromList [(Just pid,SL.toSortedList ds')])
 
-          sendEmpty = publishDiagnosticsIO maxToSend file Nothing (Map.fromList [(Just pid,SL.toSortedList [])])
+          sendEmpty = do
+            logm "LspStdio.sendempty"
+            publishDiagnosticsIO maxToSend file Nothing (Map.fromList [(Just pid,SL.toSortedList [])])
 
           -- fv = case mVer of
           --   Nothing -> Nothing
           --   Just v -> Just (file,v)
-        let fakeId = J.IdString "fake,remove" -- TODO:AZ: IReq should take a Maybe LspId
+        -- let fakeId = J.IdString "fake,remove" -- TODO:AZ: IReq should take a Maybe LspId
+        let fakeId = J.IdString ("fake,remove:pid=" <> pid) -- TODO:AZ: IReq should take a Maybe LspId
         let reql = case ds of
               DiagnosticProviderSync dps ->
                 IReq tn fakeId callbackl
@@ -773,6 +777,7 @@ requestDiagnostics trigger tn file mVer = do
             -- completes.
             callbackl :: forall m. MonadIO m => Map.Map Uri (S.Set Diagnostic) -> m ()
             callbackl pd = do
+              liftIO $ logm $ "LspStdio.callbackl called with pd=" ++ show pd
               let diags = Map.toList $ S.toList <$> pd
               case diags of
                 [] -> liftIO sendEmpty

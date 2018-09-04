@@ -99,3 +99,6 @@ instance Arbitrary Position where
     Positive l <- arbitrary
     Positive c <- arbitrary
     return $ Position l c
+
+instance Arbitrary Config where
+  arbitrary = Config <$> arbitrary <*> arbitrary <*> arbitrary

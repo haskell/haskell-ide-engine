@@ -262,6 +262,8 @@ test-suite func-test
                      , Utils
 
                      , TestUtils
+  -- This cannot currently be handled by hie (cabal-helper)
+  -- build-tool-depends:  haskell-ide-engine:hie
   build-depends:       aeson
                      , base
                      , containers

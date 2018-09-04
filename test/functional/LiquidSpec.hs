@@ -19,14 +19,14 @@ import           Utils
 spec :: Spec
 spec = describe "liquid haskell diagnostics" $ do
     it "runs diagnostics on save, no liquid" $
-      -- runSessionWithConfig noLogConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
-      runSessionWithConfig logConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
+      runSessionWithConfig noLogConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
+      -- runSessionWithConfig logConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
         doc <- openDoc "liquid/Evens.hs" "haskell"
 
         diags@(reduceDiag:_) <- waitForDiagnostics
 
         -- liftIO $ show diags `shouldBe` ""
-        liftIO $ putStrLn "a"
+        -- liftIO $ putStrLn "a"
 
         liftIO $ do
           length diags `shouldBe` 2
@@ -35,23 +35,23 @@ spec = describe "liquid haskell diagnostics" $ do
           reduceDiag ^. code `shouldBe` Just "Use negate"
           reduceDiag ^. source `shouldBe` Just "hlint"
 
-        liftIO $ putStrLn "b"
+        -- liftIO $ putStrLn "b"
 
         diags2hlint <- waitForDiagnostics
-        liftIO $ putStrLn "c"
+        -- liftIO $ putStrLn "c"
         -- liftIO $ show diags2hlint `shouldBe` ""
         liftIO $ length diags2hlint `shouldBe` 2
 
         -- docItem <- getDocItem file languageId
         sendNotification TextDocumentDidSave (DidSaveTextDocumentParams doc)
 
-        diags2liquid <- waitForDiagnostics
-        liftIO $ putStrLn "d"
-        liftIO $ length diags2liquid `shouldBe` 3
-        -- liftIO $ show diags2liquid `shouldBe` ""
+        -- diags2liquid <- waitForDiagnostics
+        -- liftIO $ putStrLn "d"
+        -- liftIO $ length diags2liquid `shouldBe` 3
+        -- -- liftIO $ show diags2liquid `shouldBe` ""
 
         diags3@(d:_) <- waitForDiagnostics
-        liftIO $ putStrLn "e"
+        -- liftIO $ putStrLn "e"
         -- liftIO $ show diags3 `shouldBe` ""
         liftIO $ do
           length diags3 `shouldBe` 3

@@ -24,7 +24,7 @@ data Config =
     { hlintOn             :: Bool
     , maxNumberOfProblems :: Int
     , liquidOn            :: Bool
-    } deriving (Show)
+    } deriving (Show,Eq)
 
 instance FromJSON Config where
   parseJSON = withObject "Config" $ \v -> do

@@ -2,14 +2,15 @@
 
 module DiagnosticsSpec where
 
-import Control.Lens hiding (List)
-import Control.Monad.IO.Class
+import           Control.Lens hiding (List)
+import           Control.Monad.IO.Class
 import qualified Data.Text as T
-import Language.Haskell.LSP.Test hiding (message)
-import Language.Haskell.LSP.Types as LSP hiding (contents, error )
-import Test.Hspec
-import TestUtils
-import Utils
+import           Haskell.Ide.Engine.MonadFunctions
+import           Language.Haskell.LSP.Test hiding (message)
+import           Language.Haskell.LSP.Types as LSP hiding (contents, error )
+import           Test.Hspec
+import           TestUtils
+import           Utils
 
 -- ---------------------------------------------------------------------
 
@@ -17,8 +18,9 @@ spec :: Spec
 spec = describe "diagnostics providers" $ do
   describe "diagnostics triggers" $ do
     it "runs diagnostics on save" $
-      -- runSessionWithConfig noLogConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
-      runSessionWithConfig logConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
+      runSessionWithConfig noLogConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
+      -- runSessionWithConfig logConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
+        logm $ "starting DiagnosticSpec.runs diagnostic on save"
         doc <- openDoc "ApplyRefact2.hs" "haskell"
 
         diags@(reduceDiag:_) <- waitForDiagnostics
@@ -32,23 +34,18 @@ spec = describe "diagnostics providers" $ do
           reduceDiag ^. code `shouldBe` Just "Eta reduce"
           reduceDiag ^. source `shouldBe` Just "hlint"
 
-        -- diags2a <- waitForDiagnostics
-        -- -- liftIO $ show diags2a `shouldBe` ""
-        -- liftIO $ length diags2a `shouldBe` 2
-
-        diags2eg@(eg2:_) <- waitForDiagnostics
-        liftIO $ show diags2eg `shouldBe` ""
-        liftIO $ length diags2eg `shouldBe` 3
-        liftIO $ eg2 ^. source `shouldBe` Just "eg2"
+        diags2a <- waitForDiagnostics
+        -- liftIO $ show diags2a `shouldBe` ""
+        liftIO $ length diags2a `shouldBe` 2
 
         -- docItem <- getDocItem file languageId
         sendNotification TextDocumentDidSave (DidSaveTextDocumentParams doc)
-        diags2hlint <- waitForDiagnostics
-        -- liftIO $ show diags2hlint `shouldBe` ""
-        liftIO $ length diags2hlint `shouldBe` 3
-        diags2liquid <- waitForDiagnostics
-        liftIO $ length diags2liquid `shouldBe` 3
-        -- liftIO $ show diags2 `shouldBe` ""
+        -- diags2hlint <- waitForDiagnostics
+        -- -- liftIO $ show diags2hlint `shouldBe` ""
+        -- liftIO $ length diags2hlint `shouldBe` 3
+        -- diags2liquid <- waitForDiagnostics
+        -- liftIO $ length diags2liquid `shouldBe` 3
+        -- -- liftIO $ show diags2 `shouldBe` ""
         diags3@(d:_) <- waitForDiagnostics
         -- liftIO $ show diags3 `shouldBe` ""
         liftIO $ do
