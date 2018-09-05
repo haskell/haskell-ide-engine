@@ -24,7 +24,8 @@ example2Descriptor plId = PluginDescriptor
       , PluginCommand "sayHelloTo ""say hello to the passed in param" sayHelloToCmd
       ]
   , pluginCodeActionProvider = Nothing
-  , pluginDiagnosticProvider = Just (DiagnosticProvider (S.singleton DiagnosticOnSave) diagnosticProvider)
+  , pluginDiagnosticProvider
+      = Just (DiagnosticProvider (S.singleton DiagnosticOnSave) (DiagnosticProviderSync diagnosticProvider))
   , pluginHoverProvider = Nothing
   , pluginSymbolProvider = Nothing
   }
@@ -49,7 +50,7 @@ sayHelloTo n = return $ "hello " <> n <> " from ExamplePlugin2"
 
 -- ---------------------------------------------------------------------
 
-diagnosticProvider :: DiagnosticTrigger -> Uri -> IdeGhcM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
+diagnosticProvider :: DiagnosticProviderFuncSync
 diagnosticProvider trigger uri = do
   liftIO $ logm "Example2.diagnosticProvider called"
   let diag = Diagnostic

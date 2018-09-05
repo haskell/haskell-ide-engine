@@ -7,6 +7,7 @@ import Language.Haskell.LSP.Test as Test
 import Language.Haskell.LSP.Types
 import Test.Hspec
 import TestUtils
+import Utils
 
 spec :: Spec
 spec = describe "document symbols" $ do
@@ -28,7 +29,7 @@ spec = describe "document symbols" $ do
       bR  = Range (Position 9 14) (Position 9 22)
 
   describe "3.10 hierarchical document symbols" $ do
-    it "provides nested data types and constructors" $ runSession hieCommand fullCaps "test/testdata" $ do
+    it "provides nested data types and constructors" $ runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "Symbols.hs" "haskell"
       Left symbs <- getDocumentSymbols doc
 
@@ -38,7 +39,7 @@ spec = describe "document symbols" $ do
 
       liftIO $ symbs `shouldContain` [myData]
 
-    it "provides nested where functions" $ runSession hieCommand fullCaps "test/testdata" $ do
+    it "provides nested where functions" $ runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "Symbols.hs" "haskell"
       Left symbs <- getDocumentSymbols doc
 
@@ -52,7 +53,7 @@ spec = describe "document symbols" $ do
     -- TODO: Test module, imports
 
   describe "pre 3.10 symbol information" $ do
-    it "provides nested data types and constructors" $ runSession hieCommand oldCaps "test/testdata" $ do
+    it "provides nested data types and constructors" $ runSessionWithConfig noLogConfig hieCommand oldCaps "test/testdata" $ do
       doc@(TextDocumentIdentifier testUri) <- openDoc "Symbols.hs" "haskell"
       Right symbs <- getDocumentSymbols doc
 
@@ -62,7 +63,7 @@ spec = describe "document symbols" $ do
 
       liftIO $ symbs `shouldContain` [myData, a, b]
 
-    it "provides nested where functions" $ runSession hieCommand oldCaps "test/testdata" $ do
+    it "provides nested where functions" $ runSessionWithConfig noLogConfig hieCommand oldCaps "test/testdata" $ do
       doc@(TextDocumentIdentifier testUri) <- openDoc "Symbols.hs" "haskell"
       Right symbs <- getDocumentSymbols doc
 

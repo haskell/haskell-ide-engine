@@ -8,6 +8,7 @@ import           Data.Monoid ((<>))
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Plugin.Liquid
 import           System.Directory
+import           System.Exit
 import           System.FilePath
 import           Test.Hspec
 
@@ -29,6 +30,8 @@ spec = do
       vimFile  `shouldBe` (cwd </> "test/testdata/liquid/.liquid/Evens.hs.vim.annot")
       jsonFile `shouldBe` (cwd </> "test/testdata/liquid/.liquid/Evens.hs.json")
 
+    -- ---------------------------------
+
     it "reads errors from json file" $ do
       let
         uri = filePathToUri $ cwd </> "test/testdata/liquid/Evens.hs"
@@ -46,21 +49,29 @@ spec = do
              }
          ]
 
+    -- ---------------------------------
+
     it "gracefully manages missing json file" $ do
       let
         uri = filePathToUri $ cwd </> "test/testdata/Rename.hs"
       n <- readJsonAnnot uri
       n `shouldBe` Nothing
 
+    -- ---------------------------------
+
     it "parses a vim annotation" $ do
       parseType "6:1-6:10::Main.weAreEven :: \"[{v : GHC.Types.Int | v mod 2 == 0}]\""
         `shouldBe`
           [LE (LP 6 1) (LP 6 10) "[{v : GHC.Types.Int | v mod 2 == 0}]"]
+    -- ---------------------------------
+
     it "parses multiple vim annotations" $ do
       parseType "1:1-1:1::Main.$trModule :: \"GHC.Types.Module\"\n6:1-6:10::Main.weAreEven :: \"[{v : GHC.Types.Int | v mod 2 == 0}]\""
         `shouldBe`
           [LE (LP 1 1) (LP 1 1) "GHC.Types.Module"
           ,LE (LP 6 1) (LP 6 10) "[{v : GHC.Types.Int | v mod 2 == 0}]"]
+
+    -- ---------------------------------
 
     it "reads types from vim.annot file" $ do
       let
@@ -74,6 +85,8 @@ spec = do
           ,LE (LP 6 1) (LP 6 10) "[{v : GHC.Types.Int | v mod 2 == 0}]"]
       length ts `shouldBe` 38
 
+    -- ---------------------------------
+
     it "reads types from vim.annot file 2" $ do
       let
         uri = filePathToUri $ cwd </> "test/testdata/liquid/Evens.hs"
@@ -84,8 +97,26 @@ spec = do
           ,LE (LP 6 1) (LP 6 10) "[{v : GHC.Types.Int | v mod 2 == 0}]"]
       length ts `shouldBe` 38
 
+    -- ---------------------------------
+
     it "gracefully manages missing vim.annot file" $ do
       let
         uri = filePathToUri $ cwd </> "test/testdata/Rename.hs"
       n <- readVimAnnot uri
       n `shouldBe` Nothing
+
+    -- ---------------------------------
+
+    it "runs the liquid haskell exe" $ do
+      let
+        fp = cwd </> "test/testdata/liquid/Evens.hs"
+        -- fp = "/home/alanz/tmp/haskell-proc-play/Evens.hs"
+        -- uri = filePathToUri fp
+      r <- runLiquidHaskell fp
+      r `shouldBe`
+         Just
+           (ExitFailure 1,
+           ["RESULT\n[{\"start\":{\"line\":9,\"column\":1},\"stop\":{\"line\":9,\"column\":8},\"message\":\"Error: Liquid Type Mismatch\\n  Inferred type\\n    VV : {v : Int | v == (7 : int)}\\n \\n  not a subtype of Required type\\n    VV : {VV : Int | VV mod 2 == 0}\\n \\n  In Context\"}]\n"
+           ,""])
+
+    -- ---------------------------------

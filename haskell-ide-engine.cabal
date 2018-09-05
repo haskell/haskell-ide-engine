@@ -255,11 +255,15 @@ test-suite func-test
                      , HaReSpec
                      , HighlightSpec
                      , HoverSpec
+                     , LiquidSpec
                      , ReferencesSpec
                      , RenameSpec
                      , SymbolsSpec
+                     , Utils
 
                      , TestUtils
+  -- This cannot currently be handled by hie (cabal-helper)
+  -- build-tool-depends:  haskell-ide-engine:hie
   build-depends:       aeson
                      , base
                      , containers

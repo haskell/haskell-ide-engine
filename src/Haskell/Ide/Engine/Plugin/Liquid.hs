@@ -4,8 +4,10 @@
 {-# LANGUAGE NamedFieldPuns      #-}
 module Haskell.Ide.Engine.Plugin.Liquid where
 
+import           Control.Concurrent.Async
 import           Control.Monad
 import           Control.Monad.IO.Class
+import           Control.Exception (bracket)
 #if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
 #endif
@@ -16,11 +18,15 @@ import qualified Data.Set                      as S
 import qualified Data.Text                     as T
 import qualified Data.Text.IO                  as T
 import           GHC.Generics
+import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes hiding (_range)
 import           Haskell.Ide.Engine.PluginUtils
-import qualified Language.Haskell.LSP.Types as J
+import qualified Language.Haskell.LSP.Types    as J
 import           System.Directory
+import           System.Environment
+import           System.Exit
 import           System.FilePath
+import           System.Process
 import           Text.Parsec
 import           Text.Parsec.Text
 
@@ -32,13 +38,15 @@ liquidDescriptor plId = PluginDescriptor
   , pluginName = "Liquid Haskell"
   , pluginDesc = "Integration with Liquid Haskell"
   , pluginCommands =
-      [ PluginCommand "sayHello" "say hello" sayHelloCmd
-      , PluginCommand "sayHelloTo ""say hello to the passed in param" sayHelloToCmd
+      [ PluginCommand "sayHello"   "say hello"                        sayHelloCmd
+      , PluginCommand "sayHelloTo" "say hello to the passed in param" sayHelloToCmd
       ]
   , pluginCodeActionProvider = Nothing
-  , pluginDiagnosticProvider = Just (DiagnosticProvider (S.singleton DiagnosticOnSave) diagnosticProvider)
+  , pluginDiagnosticProvider = Just (DiagnosticProvider
+                                    (S.singleton DiagnosticOnSave)
+                                    (DiagnosticProviderAsync diagnosticProvider))
   , pluginHoverProvider      = Just hoverProvider
-  , pluginSymbolProvider = Nothing
+  , pluginSymbolProvider     = Nothing
   }
 
 -- ---------------------------------------------------------------------
@@ -91,23 +99,76 @@ instance ToJSON   LiquidError
 
 -- ---------------------------------------------------------------------
 
-diagnosticProvider :: DiagnosticTrigger -> Uri -> IdeGhcM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
-diagnosticProvider _trigger uri = do
-  me <- liftIO $ readJsonAnnot uri
-  case me of
-    Nothing -> return $ IdeResultOk Map.empty
-    Just es -> return $ IdeResultOk m
-      where
-        m = Map.fromList [(uri,S.fromList (map liquidErrorToDiagnostic es))]
-  -- let diag = Diagnostic
-  --             { _range = Range (Position 5 0) (Position 7 0)
-  --             , _severity = Nothing
-  --             , _code = Nothing
-  --             , _source = Just "eg2"
-  --             , _message = "Liquid plugin diagnostic, vim annot in " <> T.pack (vimAnnotFile uri)
-  --             , _relatedInformation = Nothing
-  --             }
-  -- return $ IdeResultOk $ Map.fromList [(uri,S.singleton diag)]
+data LiquidData =
+  LiquidData
+    { tid :: Maybe (Async ())
+    }
+
+instance ExtensionClass LiquidData where
+  initialValue = LiquidData Nothing
+
+-- ---------------------------------------------------------------------
+
+-- diagnosticProvider :: DiagnosticTrigger -> Uri -> IdeM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
+
+diagnosticProvider :: DiagnosticProviderFuncAsync
+diagnosticProvider DiagnosticOnSave uri cb = pluginGetFile "Liquid.diagnosticProvider:" uri $ \file ->
+  withCachedModuleAndData file (IdeResultOk ()) $ \_cm () -> do
+    -- New save, kill any prior instance that was running
+    LiquidData mtid <- get
+    mapM_ (liftIO . cancel) mtid
+
+    tid <- liftIO $ async $ generateDiagnosics cb uri file
+    put (LiquidData (Just tid))
+
+    return $ IdeResultOk ()
+diagnosticProvider _ _ _ = return (IdeResultOk ())
+
+-- ---------------------------------------------------------------------
+
+generateDiagnosics :: (Map.Map Uri (S.Set Diagnostic) -> IO ()) -> Uri -> FilePath -> IO ()
+generateDiagnosics cb uri file = do
+  r <- runLiquidHaskell file
+  case r of
+    Nothing -> do
+      -- TODO: return an LSP warning
+      logm "Liquid.generateDiagnostics:no liquid exe found"
+      return ()
+    Just (_ec,_) -> do
+      me <- liftIO $ readJsonAnnot uri
+      case me of
+        Nothing -> do
+          logm "Liquid.generateDiagnostics:no liquid results parsed"
+          return ()
+        Just es -> do
+          logm "Liquid.generateDiagnostics:liquid results parsed"
+          cb m
+          where
+            m = Map.fromList [(uri,S.fromList (map liquidErrorToDiagnostic es))]
+      return ()
+
+-- ---------------------------------------------------------------------
+
+-- Find and run the liquid haskell executable
+runLiquidHaskell :: FilePath -> IO (Maybe (ExitCode,[String]))
+runLiquidHaskell fp = do
+  mexe <- findExecutable "liquid"
+  case mexe of
+    Nothing -> return Nothing
+    Just lh -> do
+      -- Putting quotes around the fp to help windows users with
+      -- spaces in paths
+      let cmd = lh ++ " --json \"" ++ fp ++ "\""
+          dir = takeDirectory fp
+          cp = (shell cmd) { cwd = Just dir }
+      logm $ "runLiquidHaskell:cmd=[" ++ cmd ++ "]"
+      mpp <- lookupEnv "GHC_PACKAGE_PATH"
+      (ec,o,e) <- bracket
+        (unsetEnv "GHC_PACKAGE_PATH")
+        (\_ -> mapM_ (setEnv "GHC_PACKAGE_PATH") mpp)
+        (\_ -> readCreateProcessWithExitCode cp "")
+      logm $ "runLiquidHaskell:v=" ++ show (ec,o,e)
+      return $ Just (ec,[o,e])
 
 -- ---------------------------------------------------------------------
 

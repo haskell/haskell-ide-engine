@@ -9,10 +9,11 @@ import Language.Haskell.LSP.Test
 import Language.Haskell.LSP.Types
 import Test.Hspec
 import TestUtils
+import Utils
 
 spec :: Spec
 spec = describe "hover" $
-  it "works" $ runSession hieCommand fullCaps "test/testdata" $ do
+  it "works" $ runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata" $ do
     doc <- openDoc "Hover.hs" "haskell"
     _ <- skipManyTill loggingNotification $ count 2 noDiagnostics
     Just hover <- getHover doc (Position 1 19)

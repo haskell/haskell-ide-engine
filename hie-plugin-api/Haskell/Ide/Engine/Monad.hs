@@ -17,4 +17,3 @@ runIdeGhcM ghcModOptions caps s0 f = do
     case eres of
         Left err  -> liftIO $ throwIO err
         Right res -> return res
-
