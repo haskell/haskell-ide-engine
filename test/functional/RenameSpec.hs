@@ -6,7 +6,6 @@ import Language.Haskell.LSP.Test
 import Language.Haskell.LSP.Types hiding (rename)
 import Test.Hspec
 import TestUtils
-import Utils
 
 spec :: Spec
 spec = describe "rename" $

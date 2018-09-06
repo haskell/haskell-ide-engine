@@ -9,7 +9,6 @@ import Language.Haskell.LSP.Test
 import Language.Haskell.LSP.Types as LSP
 import Test.Hspec
 import TestUtils
-import Utils
 
 spec :: Spec
 spec = describe "commands" $ do

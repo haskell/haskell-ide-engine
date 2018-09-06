@@ -17,7 +17,6 @@ import Test.Hspec
 import System.Directory
 import System.FilePath
 import TestUtils
-import Utils
 
 spec :: Spec
 spec = do

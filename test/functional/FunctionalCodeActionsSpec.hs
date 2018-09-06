@@ -18,7 +18,6 @@ import           Language.Haskell.LSP.Types as LSP hiding (contents, error, mess
 import qualified Language.Haskell.LSP.Types.Capabilities as C
 import           Test.Hspec
 import           TestUtils
-import           Utils
 
 spec :: Spec
 spec = describe "code actions" $ do

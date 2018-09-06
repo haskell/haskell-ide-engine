@@ -7,7 +7,6 @@ import Language.Haskell.LSP.Types
 import Language.Haskell.LSP.Types.Capabilities
 import Test.Hspec
 import TestUtils
-import Utils
 
 spec :: Spec
 spec = describe "document symbols" $ do

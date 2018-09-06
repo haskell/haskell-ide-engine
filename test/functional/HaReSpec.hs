@@ -9,7 +9,6 @@ import Language.Haskell.LSP.Test
 import Language.Haskell.LSP.Types hiding (error, context)
 import Test.Hspec
 import TestUtils
-import Utils
 
 spec :: Spec
 spec = describe "HaRe" $

@@ -7,7 +7,6 @@ import Language.Haskell.LSP.Types
 import System.Directory
 import Test.Hspec
 import TestUtils
-import Utils
 
 spec :: Spec
 spec = describe "definitions" $ do
