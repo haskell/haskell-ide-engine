@@ -14,7 +14,7 @@ import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import           Language.Haskell.LSP.Test as Test
 import qualified Language.Haskell.LSP.Types as LSP
-import           Language.Haskell.LSP.Types as LSP hiding (contents, error, message)
+import           Language.Haskell.LSP.Types as LSP hiding (contents, error, message, executeCommand)
 import qualified Language.Haskell.LSP.Types.Capabilities as C
 import           Test.Hspec
 import           TestUtils

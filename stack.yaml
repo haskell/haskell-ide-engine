@@ -23,7 +23,7 @@ extra-deps:
 - haddock-api-2.20.0
 - hsimport-0.8.6
 - monad-memo-0.4.1
-- lsp-test-0.2.1.0
+- lsp-test-0.3.0.0
 - semigroupoids-5.2.2
 - syz-0.2.0.0
 - temporary-1.2.1.1
