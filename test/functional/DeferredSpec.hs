@@ -22,7 +22,7 @@ import Utils
 spec :: Spec
 spec = do
   describe "deferred responses" $ do
-    it "do not affect hover requests" $ runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata" $ do
+    it "do not affect hover requests" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "FuncTest.hs" "haskell"
 
       id1 <- sendRequest TextDocumentHover (TextDocumentPositionParams doc (Position 4 2))
@@ -92,13 +92,13 @@ spec = do
                      }
                    ]
 
-    it "instantly respond to failed modules with no cache" $ runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata" $ do
+    it "instantly respond to failed modules with no cache" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "FuncTestFail.hs" "haskell"
 
       symbols <- request TextDocumentDocumentSymbol (DocumentSymbolParams doc) :: Session DocumentSymbolsResponse
       liftIO $ symbols ^. result `shouldBe` Just (DSDocumentSymbols mempty)
 
-    it "returns hints as diagnostics" $ runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata" $ do
+    it "returns hints as diagnostics" $ runSession hieCommand fullCaps "test/testdata" $ do
       _ <- openDoc "FuncTest.hs" "haskell"
 
       cwd <- liftIO getCurrentDirectory
@@ -136,7 +136,7 @@ spec = do
 
   describe "multi-server setup" $
     it "doesn't have clashing commands on two servers" $ do
-      let getCommands = runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata" $ do
+      let getCommands = runSession hieCommand fullCaps "test/testdata" $ do
               rsp <- initializeResponse
               let uuids = rsp ^? result . _Just . capabilities . executeCommandProvider . _Just . commands
               return $ fromJust uuids
@@ -148,8 +148,8 @@ spec = do
 
   describe "multiple main modules" $
     it "Can load one file at a time, when more than one Main module exists"
-                                  -- $ runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata" $ do
-                                  $ runSessionWithConfig noLogConfig hieCommandVomit fullCaps "test/testdata" $ do
+                                  -- $ runSession hieCommand fullCaps "test/testdata" $ do
+                                  $ runSession hieCommandVomit fullCaps "test/testdata" $ do
       _doc <- openDoc "ApplyRefact2.hs" "haskell"
       _diagsRspHlint <- skipManyTill anyNotification message :: Session PublishDiagnosticsNotification
       diagsRspGhc   <- skipManyTill anyNotification message :: Session PublishDiagnosticsNotification

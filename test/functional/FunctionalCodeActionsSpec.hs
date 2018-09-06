@@ -23,7 +23,7 @@ import           Utils
 spec :: Spec
 spec = describe "code actions" $ do
   describe "hlint suggestions" $ do
-    it "provides 3.8 code actions" $ runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata" $ do
+    it "provides 3.8 code actions" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "ApplyRefact2.hs" "haskell"
 
       diags@(reduceDiag:_) <- waitForDiagnostics
@@ -47,7 +47,7 @@ spec = describe "code actions" $ do
 
       noDiagnostics
 
-    it "falls back to pre 3.8 code actions" $ runSessionWithConfig noLogConfig hieCommand noLiteralCaps "test/testdata" $ do
+    it "falls back to pre 3.8 code actions" $ runSession hieCommand noLiteralCaps "test/testdata" $ do
       doc <- openDoc "ApplyRefact2.hs" "haskell"
 
       _ <- waitForDiagnostics
@@ -65,7 +65,7 @@ spec = describe "code actions" $ do
       noDiagnostics
 
   describe "rename suggestions" $ do
-    it "works" $ runSessionWithConfig noLogConfig hieCommand noLiteralCaps "test/testdata" $ do
+    it "works" $ runSession hieCommand noLiteralCaps "test/testdata" $ do
       doc <- openDoc "CodeActionRename.hs" "haskell"
 
       _ <- waitForDiagnosticsSource "ghcmod"
@@ -76,7 +76,7 @@ spec = describe "code actions" $ do
       x:_ <- T.lines <$> documentContents doc
       liftIO $ x `shouldBe` "main = putStrLn \"hello\""
     it "doesn't give both documentChanges and changes" $
-      runSessionWithConfig noLogConfig hieCommand noLiteralCaps "test/testdata" $ do
+      runSession hieCommand noLiteralCaps "test/testdata" $ do
         doc <- openDoc "CodeActionRename.hs" "haskell"
 
         _ <- waitForDiagnosticsSource "ghcmod"
@@ -94,7 +94,7 @@ spec = describe "code actions" $ do
         liftIO $ x `shouldBe` "foo = putStrLn \"world\""
 
   it "provides import suggestions and 3.8 code action kinds" $
-    runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata" $ do
+    runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImport.hs" "haskell"
 
       -- ignore the first empty hlint diagnostic publish
@@ -122,7 +122,7 @@ spec = describe "code actions" $ do
 
 
   describe "add package suggestions" $ do
-    it "adds to .cabal files" $ runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata/addPackageTest/cabal" $ do
+    it "adds to .cabal files" $ runSession hieCommand fullCaps "test/testdata/addPackageTest/cabal" $ do
       doc <- openDoc "AddPackage.hs" "haskell"
 
       -- ignore the first empty hlint diagnostic publish
@@ -143,7 +143,7 @@ spec = describe "code actions" $ do
       liftIO $ T.lines contents `shouldSatisfy` \x -> any (\l -> "text -any" `T.isSuffixOf` (x !! l)) [15, 16]
 
     it "adds to hpack package.yaml files" $
-      runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata/addPackageTest/hpack" $ do
+      runSession hieCommand fullCaps "test/testdata/addPackageTest/hpack" $ do
         doc <- openDoc "app/Asdf.hs" "haskell"
 
         -- ignore the first empty hlint diagnostic publish
@@ -170,7 +170,7 @@ spec = describe "code actions" $ do
 
   describe "redundant import code actions" $ do
     it "remove solitary redundant imports" $
-      runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata/redundantImportTest/" $ do
+      runSession hieCommand fullCaps "test/testdata/redundantImportTest/" $ do
         doc <- openDoc "src/CodeActionRedundant.hs" "haskell"
 
         -- ignore the first empty hlint diagnostic publish
@@ -196,7 +196,7 @@ spec = describe "code actions" $ do
         -- the server
         contents <- documentContents doc
         liftIO $ contents `shouldBe` "main :: IO ()\nmain = putStrLn \"hello\""
-    it "doesn't touch other imports" $ runSessionWithConfig noLogConfig hieCommand noLiteralCaps "test/testdata/redundantImportTest/" $ do
+    it "doesn't touch other imports" $ runSession hieCommand noLiteralCaps "test/testdata/redundantImportTest/" $ do
       doc <- openDoc "src/MultipleImports.hs" "haskell"
 
       _ <- count 2 waitForDiagnostics
@@ -215,7 +215,7 @@ spec = describe "code actions" $ do
 
   describe "typed hole code actions" $ do
       it "works" $
-        runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata" $ do
+        runSession hieCommand fullCaps "test/testdata" $ do
           doc <- openDoc "TypedHoles.hs" "haskell"
           _ <- waitForDiagnosticsSource "ghcmod"
           cas <- map (\(CACodeAction x)-> x) <$> getAllCodeActions doc
@@ -245,7 +245,7 @@ spec = describe "code actions" $ do
             \foo x = " <> suggestion
 
       it "shows more suggestions" $
-        runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata" $ do
+        runSession hieCommand fullCaps "test/testdata" $ do
           doc <- openDoc "TypedHoles2.hs" "haskell"
           _ <- waitForDiagnosticsSource "ghcmod"
           cas <- map (\(CACodeAction x)-> x) <$> getAllCodeActions doc

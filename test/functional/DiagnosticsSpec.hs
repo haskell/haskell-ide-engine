@@ -18,7 +18,7 @@ spec :: Spec
 spec = describe "diagnostics providers" $ do
   describe "diagnostics triggers" $ do
     it "runs diagnostics on save" $
-      runSessionWithConfig noLogConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
+      runSession hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
       -- runSessionWithConfig logConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
         logm $ "starting DiagnosticSpec.runs diagnostic on save"
         doc <- openDoc "ApplyRefact2.hs" "haskell"
@@ -58,7 +58,7 @@ spec = describe "diagnostics providers" $ do
 
   describe "typed hole errors" $
     it "is deferred" $
-      runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata" $ do
+      runSession hieCommand fullCaps "test/testdata" $ do
         _ <- openDoc "TypedHoles.hs" "haskell"
         [diag] <- waitForDiagnosticsSource "ghcmod"
         liftIO $ diag ^. severity `shouldBe` Just DsWarning
