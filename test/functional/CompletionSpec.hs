@@ -25,6 +25,8 @@ spec = describe "completions" $ do
       item ^. label `shouldBe` "putStrLn"
       item ^. kind `shouldBe` Just CiFunction
       item ^. detail `shouldBe` Just "String -> IO ()\nPrelude"
+      item ^. insertTextFormat `shouldBe` Just Snippet
+      item ^. insertText `shouldBe` Just "putStrLn ${1:String}"
   --TODO: Replay session
 
   it "completes imports" $ runSession hieCommand fullCaps "test/testdata/completion" $ do

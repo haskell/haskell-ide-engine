@@ -49,6 +49,7 @@ import qualified DynFlags                                     as GHC
 import           Packages
 import           SrcLoc
 import           TcEnv
+import           Type
 import           Var
 
 getDynFlags :: CachedModule -> DynFlags
@@ -73,9 +74,9 @@ instance ModuleCache NameMapData where
 data CompItem = CI
   { origName     :: Name
   , importedFrom :: T.Text
-  , thingType    :: Maybe T.Text
+  , thingType    :: Maybe Type
   , label        :: T.Text
-  } deriving (Show)
+  }
 
 instance Eq CompItem where
   (CI n1 _ _ _) == (CI n2 _ _ _) = n1 == n2
@@ -98,11 +99,22 @@ mkQuery name importedFrom = name <> " module:" <> importedFrom
 
 mkCompl :: CompItem -> J.CompletionItem
 mkCompl CI{origName,importedFrom,thingType,label} =
-  J.CompletionItem label kind (Just $ maybe "" (<>"\n") thingType <> importedFrom)
-    Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+  J.CompletionItem label kind (Just $ maybe "" (<>"\n") typeText <> importedFrom)
+    Nothing Nothing Nothing Nothing Nothing (Just insertText) (Just J.Snippet)
     Nothing Nothing Nothing Nothing hoogleQuery
   where kind  = Just $ occNameToComKind $ occName origName
         hoogleQuery = Just $ toJSON $ mkQuery label importedFrom
+        argTypes = maybe [] (fst . splitFunTys) thingType
+        insertText
+          | [] <- argTypes = label
+          | otherwise = label <> " " <> argText
+        argText :: T.Text
+        argText =  mconcat $ zipWith snippet [1..] argTypes
+        snippet :: Int -> Type -> T.Text
+        snippet i t = T.pack $ "${" <> show i <> ":" <> showGhc t <> "}"
+        typeText
+          | Just t <- thingType = Just $ T.pack (showGhc t)
+          | otherwise = Nothing
 
 mkModCompl :: T.Text -> J.CompletionItem
 mkModCompl label =
@@ -171,7 +183,7 @@ instance ModuleCache CachedCompletions where
         toplevelVars = mapMaybe safeTyThingId $ typeEnvElts typeEnv
         varToCompl var = CI name (showModName curMod) typ label
           where
-            typ = Just $ T.pack $ showGhc $ varType var
+            typ = Just $ varType var
             name = Var.varName var
             label = T.pack $ showGhc name
 
@@ -245,8 +257,8 @@ instance ModuleCache CachedCompletions where
             let typ = do
                   t <- mt
                   tyid <- safeTyThingId t
-                  return $ T.pack $ showGhc $ varType tyid
-            return $ ci {thingType = typ}
+                  return $ varType tyid
+            return $ ci { thingType = typ }
 
     hscEnvRef <- ghcSession <$> readMTS
     hscEnv <- liftIO $ traverse readIORef hscEnvRef
