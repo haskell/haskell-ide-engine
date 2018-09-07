@@ -7,11 +7,10 @@ import Language.Haskell.LSP.Test
 import Language.Haskell.LSP.Types
 import Test.Hspec
 import TestUtils
-import Utils
 
 spec :: Spec
 spec = describe "highlight" $
-  it "works" $ runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata" $ do
+  it "works" $ runSession hieCommand fullCaps "test/testdata" $ do
     doc <- openDoc "Highlight.hs" "haskell"
     _ <- skipManyTill loggingNotification $ count 2 noDiagnostics
     highlights <- getHighlights doc (Position 2 2)

@@ -6,14 +6,13 @@ import Control.Monad.IO.Class
 import Control.Lens
 import Language.Haskell.LSP.Test
 -- import Language.Haskell.LSP.Test.Replay
-import Language.Haskell.LSP.Types
+import Language.Haskell.LSP.Types hiding (applyEdit)
 import Test.Hspec
 import TestUtils
-import Utils
 
 spec :: Spec
 spec = describe "completions" $ do
-  it "works" $ runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata/completion" $ do
+  it "works" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
     doc <- openDoc "Completion.hs" "haskell"
     _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
 
@@ -28,7 +27,7 @@ spec = describe "completions" $ do
       item ^. detail `shouldBe` Just "String -> IO ()\nPrelude"
   --TODO: Replay session
 
-  it "completes imports" $ runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata/completion" $ do
+  it "completes imports" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
     doc <- openDoc "Completion.hs" "haskell"
     _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
 
@@ -42,7 +41,7 @@ spec = describe "completions" $ do
       item ^. detail `shouldBe` Just "Data.Maybe"
       item ^. kind `shouldBe` Just CiModule
 
-  it "completes qualified imports" $ runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata/completion" $ do
+  it "completes qualified imports" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
     doc <- openDoc "Completion.hs" "haskell"
     _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
 

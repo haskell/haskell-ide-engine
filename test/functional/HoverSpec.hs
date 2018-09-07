@@ -9,16 +9,15 @@ import Language.Haskell.LSP.Test
 import Language.Haskell.LSP.Types
 import Test.Hspec
 import TestUtils
-import Utils
 
 spec :: Spec
 spec = describe "hover" $
-  it "works" $ runSessionWithConfig noLogConfig hieCommand fullCaps "test/testdata" $ do
+  it "works" $ runSession hieCommand fullCaps "test/testdata" $ do
     doc <- openDoc "Hover.hs" "haskell"
     _ <- skipManyTill loggingNotification $ count 2 noDiagnostics
-    Just hover <- getHover doc (Position 1 19)
+    Just h <- getHover doc (Position 1 19)
     liftIO $ do
-      hover ^. range `shouldBe` Just (Range (Position 1 16) (Position 1 19))
+      h ^. range `shouldBe` Just (Range (Position 1 16) (Position 1 19))
       let hasType (CodeString (LanguageString "haskell" "sum :: [Int] -> Int")) = True
           hasType _ = False
 
@@ -26,5 +25,5 @@ spec = describe "hover" $
 
           hasDoc (PlainString s) = sumDoc `T.isInfixOf` s
           hasDoc _               = False
-      hover ^. contents `shouldSatisfy` any hasType
-      hover ^. contents `shouldSatisfy` any hasDoc
+      h ^. contents `shouldSatisfy` any hasType
+      h ^. contents `shouldSatisfy` any hasDoc

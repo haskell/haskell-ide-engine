@@ -19,7 +19,7 @@ import           Utils
 spec :: Spec
 spec = describe "liquid haskell diagnostics" $ do
     it "runs diagnostics on save, no liquid" $
-      runSessionWithConfig noLogConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
+      runSession hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
       -- runSessionWithConfig logConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
         doc <- openDoc "liquid/Evens.hs" "haskell"
 
@@ -64,7 +64,7 @@ spec = describe "liquid haskell diagnostics" $ do
     -- ---------------------------------
 
     it "runs diagnostics on save, with liquid haskell" $
-      runSessionWithConfig noLogConfig hieCommand codeActionSupportCaps "test/testdata" $ do
+      runSession hieCommand codeActionSupportCaps "test/testdata" $ do
       -- runSessionWithConfig logConfig hieCommand codeActionSupportCaps "test/testdata" $ do
         doc <- openDoc "liquid/Evens.hs" "haskell"
 
