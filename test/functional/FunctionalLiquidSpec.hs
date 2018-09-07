@@ -106,7 +106,7 @@ spec = describe "liquid haskell diagnostics" $ do
           d ^. severity `shouldBe` Just DsError
           d ^. code `shouldBe` Nothing
           d ^. source `shouldBe` Just "liquid"
-          d ^. message `shouldBe` (T.pack "Error: Liquid Type Mismatch\n  Inferred type\n    VV : {v : Int | v == (7 : int)}\n \n  not a subtype of Required type\n    VV : {VV : Int | VV mod 2 == 0}\n \n  In Context")
+          d ^. message `shouldSatisfy` (T.isPrefixOf "Error: Liquid Type Mismatch\n  Inferred type\n    VV : {v : Int | v == (7 : int)}\n \n  not a subtype of Required type\n    VV : {VV : Int | VV mod 2 == 0}\n")
 
 
 -- ---------------------------------------------------------------------

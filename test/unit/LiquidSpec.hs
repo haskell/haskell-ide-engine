@@ -3,6 +3,7 @@ module LiquidSpec where
 
 import           Data.Aeson
 import qualified Data.ByteString.Lazy as BS
+import           Data.List
 import qualified Data.Text.IO         as T
 import           Data.Monoid ((<>))
 import           Haskell.Ide.Engine.MonadTypes
@@ -112,11 +113,8 @@ spec = do
         fp = cwd </> "test/testdata/liquid/Evens.hs"
         -- fp = "/home/alanz/tmp/haskell-proc-play/Evens.hs"
         -- uri = filePathToUri fp
-      r <- runLiquidHaskell fp
-      r `shouldBe`
-         Just
-           (ExitFailure 1,
-           ["RESULT\n[{\"start\":{\"line\":9,\"column\":1},\"stop\":{\"line\":9,\"column\":8},\"message\":\"Error: Liquid Type Mismatch\\n  Inferred type\\n    VV : {v : Int | v == (7 : int)}\\n \\n  not a subtype of Required type\\n    VV : {VV : Int | VV mod 2 == 0}\\n \\n  In Context\"}]\n"
-           ,""])
+      Just (ef, [msg]) <- runLiquidHaskell fp
+      msg `shouldSatisfy` isPrefixOf "RESULT\n[{\"start\":{\"line\":9,\"column\":1},\"stop\":{\"line\":9,\"column\":8},\"message\":\"Error: Liquid Type Mismatch\\n  Inferred type\\n    VV : {v : Int | v == (7 : int)}\\n \\n  not a subtype of Required type\\n    VV : {VV : Int | VV mod 2 == 0}\\n \"}]\n"
+      ef `shouldBe` ExitFailure 1
 
     -- ---------------------------------
