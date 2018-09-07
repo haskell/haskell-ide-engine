@@ -251,11 +251,11 @@ test-suite func-test
                      , DiagnosticsSpec
                      , FormatSpec
                      , FunctionalCodeActionsSpec
+                     , FunctionalLiquidSpec
                      , FunctionalSpec
                      , HaReSpec
                      , HighlightSpec
                      , HoverSpec
-                     , LiquidSpec
                      , ReferencesSpec
                      , RenameSpec
                      , SymbolsSpec

@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module LiquidSpec where
+module FunctionalLiquidSpec where
 
 import           Control.Lens hiding (List)
 import           Control.Monad.IO.Class
