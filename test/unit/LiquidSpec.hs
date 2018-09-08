@@ -114,7 +114,7 @@ spec = do
         -- fp = "/home/alanz/tmp/haskell-proc-play/Evens.hs"
         -- uri = filePathToUri fp
       Just (ef, (msg:_)) <- runLiquidHaskell fp
-      msg `shouldSatisfy` isPrefixOf "RESULT\n[{\"start\":{\"line\":9,\"column\":1},\"stop\":{\"line\":9,\"column\":8},\"message\":\"Error: Liquid Type Mismatch\\n  Inferred type\\n    VV : {v : Int | v == (7 : int)}\\n \\n  not a subtype of Required type\\n    VV : {VV : Int | VV mod 2 == 0}\\n \"}]\n"
+      msg `shouldSatisfy` isPrefixOf "RESULT\n[{\"start\":{\"line\":9,\"column\":1},\"stop\":{\"line\":9,\"column\":8},\"message\":\"Error: Liquid Type Mismatch\\n  Inferred type\\n    VV : {v : Int | v == (7 : int)}\\n \\n  not a subtype of Required type\\n    VV : {VV : Int | VV mod 2 == 0}\\n"
       ef `shouldBe` ExitFailure 1
 
     -- ---------------------------------
