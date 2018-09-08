@@ -56,3 +56,18 @@ spec = describe "completions" $ do
       item ^. label `shouldBe` "Data.List"
       item ^. detail `shouldBe` Just "Data.List"
       item ^. kind `shouldBe` Just CiModule
+
+  it "provides snippets for polymorphic types" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
+    doc <- openDoc "Completion.hs" "haskell"
+    _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
+
+    let te = TextEdit (Range (Position 4 7) (Position 4 24)) "fold"
+    _ <- applyEdit doc te
+    
+    compls <- getCompletions doc (Position 4 11)
+    let item = head $ filter ((== "foldl") . (^. label)) compls
+    liftIO $ do
+      item ^. label `shouldBe` "foldl"
+      item ^. kind `shouldBe` Just CiFunction
+      item ^. insertTextFormat `shouldBe` Just Snippet
+      item ^. insertText `shouldBe` Just "foldl ${1:b -> a -> b} ${2:b} ${3:t a}"

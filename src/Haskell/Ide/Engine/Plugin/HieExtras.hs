@@ -104,17 +104,27 @@ mkCompl CI{origName,importedFrom,thingType,label} =
     Nothing Nothing Nothing Nothing hoogleQuery
   where kind  = Just $ occNameToComKind $ occName origName
         hoogleQuery = Just $ toJSON $ mkQuery label importedFrom
-        argTypes = maybe [] (fst . splitFunTys) thingType
+        argTypes = maybe [] getArgs thingType
         insertText
           | [] <- argTypes = label
           | otherwise = label <> " " <> argText
         argText :: T.Text
-        argText =  mconcat $ zipWith snippet [1..] argTypes
+        argText =  mconcat $ List.intersperse " " $ zipWith snippet [1..] argTypes
         snippet :: Int -> Type -> T.Text
         snippet i t = T.pack $ "${" <> show i <> ":" <> showGhc t <> "}"
         typeText
           | Just t <- thingType = Just $ T.pack (showGhc t)
           | otherwise = Nothing
+        getArgs :: Type -> [Type]
+        getArgs t
+          | isTyVarTy t = [t]
+          | isForAllTy t = getArgs $ snd (splitForAllTys t)
+          | isFunTy t =
+            let (args, ret) = splitFunTys t
+              in if isForAllTy ret then getArgs ret else args
+          | isPiTy t = getArgs $ snd (splitPiTys t)
+          | isCoercionTy t = maybe [] (getArgs . snd) (splitCoercionType_maybe t)
+          | otherwise = []
 
 mkModCompl :: T.Text -> J.CompletionItem
 mkModCompl label =
