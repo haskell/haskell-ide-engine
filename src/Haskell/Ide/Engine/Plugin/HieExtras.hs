@@ -117,14 +117,17 @@ mkCompl CI{origName,importedFrom,thingType,label} =
           | otherwise = Nothing
         getArgs :: Type -> [Type]
         getArgs t
-          | isTyVarTy t = [t]
+          | isPredTy t = []
+          | isDictTy t = []
           | isForAllTy t = getArgs $ snd (splitForAllTys t)
           | isFunTy t =
             let (args, ret) = splitFunTys t
-              in if isForAllTy ret then getArgs ret else args
+              in if isForAllTy ret
+                  then getArgs ret
+                  else filter (not . isDictTy) args
           | isPiTy t = getArgs $ snd (splitPiTys t)
           | isCoercionTy t = maybe [] (getArgs . snd) (splitCoercionType_maybe t)
-          | otherwise = []
+          | otherwise = [t]
 
 mkModCompl :: T.Text -> J.CompletionItem
 mkModCompl label =

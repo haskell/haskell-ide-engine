@@ -71,3 +71,18 @@ spec = describe "completions" $ do
       item ^. kind `shouldBe` Just CiFunction
       item ^. insertTextFormat `shouldBe` Just Snippet
       item ^. insertText `shouldBe` Just "foldl ${1:b -> a -> b} ${2:b} ${3:t a}"
+
+  it "provides snippets for complex types" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
+    doc <- openDoc "Completion.hs" "haskell"
+    _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
+
+    let te = TextEdit (Range (Position 4 7) (Position 4 24)) "mapM"
+    _ <- applyEdit doc te
+    
+    compls <- getCompletions doc (Position 4 11)
+    let item = head $ filter ((== "mapM") . (^. label)) compls
+    liftIO $ do
+      item ^. label `shouldBe` "mapM"
+      item ^. kind `shouldBe` Just CiFunction
+      item ^. insertTextFormat `shouldBe` Just Snippet
+      item ^. insertText `shouldBe` Just "mapM ${1:a -> m b} ${2:t a}"
