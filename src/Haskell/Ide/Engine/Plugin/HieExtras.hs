@@ -283,8 +283,8 @@ instance ModuleCache CachedCompletions where
       , importableModules = moduleNames
       }
 
-getCompletions :: Uri -> PosPrefixInfo -> IdeDeferM (IdeResult [J.CompletionItem])
-getCompletions uri prefixInfo = pluginGetFile "getCompletions: " uri $ \file -> do
+getCompletions :: Uri -> PosPrefixInfo -> Bool -> IdeDeferM (IdeResult [J.CompletionItem])
+getCompletions uri prefixInfo withSnippets = pluginGetFile "getCompletions: " uri $ \file -> do
   let PosPrefixInfo {fullLine, prefixModule, prefixText} = prefixInfo
   debugm $ "got prefix" ++ show (prefixModule, prefixText)
   let enteredQual = if T.null prefixModule then "" else prefixModule <> "."
@@ -312,7 +312,11 @@ getCompletions uri prefixInfo = pluginGetFile "getCompletions: " uri $ \file -> 
     in return $ IdeResultOk $
       if "import " `T.isPrefixOf` fullLine
       then filtImportCompls
-      else filtModNameCompls ++ map mkCompl filtCompls
+      else filtModNameCompls ++ map (toggleSnippets . mkCompl) filtCompls
+  where toggleSnippets x
+          | withSnippets = x
+          | otherwise = x { J._insertTextFormat = Just J.PlainText
+                          , J._insertText = Nothing }
 
 -- ---------------------------------------------------------------------
 
