@@ -475,7 +475,9 @@ reactor inp = do
                 -- TODO: maybe only have provider give MarkedString and
                 -- work out range here?
                 let hs = concat hhs
-                    h = J.Hover (fold (map (^. J.contents) hs)) r
+                    h = case (fold (map (^. J.contents) hs) :: List J.MarkedString) of
+                      List [] -> Nothing
+                      hh -> Just $ J.Hover hh r
                     r = listToMaybe $ mapMaybe (^. J.range) hs
                 in reactorSend $ RspHover $ Core.makeResponseMessage req h
 
@@ -707,7 +709,7 @@ reactor inp = do
 
         NotDidChangeConfiguration notif -> do
           liftIO $ U.logs $ "reactor:didChangeConfiguration notification:" ++ show notif
-          -- if hlint has been turned off, flush the disgnostics
+          -- if hlint has been turned off, flush the diagnostics
           diagsOn              <- configVal True hlintOn
           maxDiagnosticsToSend <- configVal 50 maxNumberOfProblems
           liftIO $ U.logs $ "reactor:didChangeConfiguration diagsOn:" ++ show diagsOn
@@ -741,26 +743,48 @@ requestDiagnostics trigger tn file mVer = do
       logm $ "requestDiagnostics: no diagFunc for:" ++ show trigger
       return ()
     Just dss -> do
+      dpsEnabled <- configVal (Map.fromList [("liquid",False)]) getDiagnosticProvidersConfig
       logm $ "requestDiagnostics: got diagFunc for:" ++ show trigger
       forM_ dss $ \(pid,ds) -> do
         logm $ "requestDiagnostics: calling diagFunc for plugin:" ++ show pid
         let
+          enabled = case Map.lookup pid dpsEnabled of
+            Nothing -> True
+            Just flag -> flag
+          publishDiagnosticsIO = Core.publishDiagnosticsFunc lf
           maxToSend = maybe 50 maxNumberOfProblems mc
           sendOne (fileUri,ds') = do
-            publishDiagnostics maxToSend fileUri Nothing (Map.fromList [(Just pid,SL.toSortedList ds')])
+            logm $ "LspStdio.sendone:(fileUri,ds')=" ++ show(fileUri,ds')
+            publishDiagnosticsIO maxToSend fileUri Nothing (Map.fromList [(Just pid,SL.toSortedList ds')])
 
-          sendEmpty = publishDiagnostics maxToSend file Nothing (Map.fromList [(Just pid,SL.toSortedList [])])
-          fv = case mVer of
-            Nothing -> Nothing
-            Just v -> Just (file,v)
-        let reql = GReq tn (Just file) fv Nothing callbackl
-                     $ ds trigger file
+          sendEmpty = do
+            logm "LspStdio.sendempty"
+            publishDiagnosticsIO maxToSend file Nothing (Map.fromList [(Just pid,SL.toSortedList [])])
+
+          -- fv = case mVer of
+          --   Nothing -> Nothing
+          --   Just v -> Just (file,v)
+        -- let fakeId = J.IdString "fake,remove" -- TODO:AZ: IReq should take a Maybe LspId
+        let fakeId = J.IdString ("fake,remove:pid=" <> pid) -- TODO:AZ: IReq should take a Maybe LspId
+        let reql = case ds of
+              DiagnosticProviderSync dps ->
+                IReq tn fakeId callbackl
+                     $ dps trigger file
+              DiagnosticProviderAsync dpa ->
+                IReq tn fakeId pure
+                     $ dpa trigger file callbackl
+            -- This callback is used in R for the dispatcher normally,
+            -- but also in IO if the plugin chooses to spawn an
+            -- external process that returns diagnostics when it
+            -- completes.
+            callbackl :: forall m. MonadIO m => Map.Map Uri (S.Set Diagnostic) -> m ()
             callbackl pd = do
+              liftIO $ logm $ "LspStdio.callbackl called with pd=" ++ show pd
               let diags = Map.toList $ S.toList <$> pd
               case diags of
-                [] -> sendEmpty
-                _ -> mapM_ sendOne diags
-        liftIO $ atomically $ writeTChan cin reql
+                [] -> liftIO sendEmpty
+                _ -> mapM_ (liftIO . sendOne) diags
+        when enabled $ liftIO $ atomically $ writeTChan cin reql
 
 -- | get hlint and GHC diagnostics and loads the typechecked module into the cache
 requestDiagnosticsNormal :: TrackingNumber -> J.Uri -> J.TextDocumentVersion -> R ()

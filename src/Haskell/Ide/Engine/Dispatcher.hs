@@ -82,7 +82,8 @@ mainDispatcher inChan ghcChan ideChan = forever $ do
 ideDispatcher :: forall void m. TVar IdeState -> J.ClientCapabilities
               -> DispatcherEnv -> ErrorHandler -> CallbackHandler m
               -> TChan (IdeRequest m) -> IO void
-ideDispatcher stateVar caps env errorHandler callbackHandler pin = 
+ideDispatcher stateVar caps env errorHandler callbackHandler pin =
+  -- TODO: AZ run a single ReaderT, with a composite R.
   flip runReaderT stateVar $ flip runReaderT caps $ forever $ do
     debugm "ideDispatcher: top of loop"
     (IdeRequest tn lid callback action) <- liftIO $ atomically $ readTChan pin

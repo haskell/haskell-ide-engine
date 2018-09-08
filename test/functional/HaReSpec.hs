@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module HaReSpec where
 
+import Control.Applicative.Combinators
 import Control.Monad.IO.Class
 import Data.Maybe
 import qualified Data.Text as T
@@ -60,6 +61,10 @@ getCANamed named = head . mapMaybe test
 execCodeAction :: String -> Range -> T.Text -> T.Text -> IO ()
 execCodeAction fp r n expected = runSession hieCommand fullCaps "test/testdata" $ do
   doc <- openDoc fp "haskell"
+
+  -- Code actions aren't deferred - need to wait for compilation
+  _ <- count 2 waitForDiagnostics
+
   ca <- getCANamed n <$> getCodeActions doc r
   executeCodeAction ca
 

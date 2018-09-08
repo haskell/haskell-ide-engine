@@ -478,7 +478,7 @@ codeActionProvider' supportsDocChanges _ docId _ _ context =
       | otherwise = substitutions
       where
         onlyErrorFuncs = null
-                       $ (map fsName subs) \\ ["undefined", "error", "errorWithoutStackTrace"]
+                       $ map fsName subs \\ ["undefined", "error", "errorWithoutStackTrace"]
         substitutions = map mkHoleAction subs
         suggestions = map mkHoleAction bindings
         mkHoleAction (FunctionSig name (TypeDef sig)) = codeAction
@@ -499,18 +499,19 @@ codeActionProvider' supportsDocChanges _ docId _ _ context =
 
 extractRenamableTerms :: T.Text -> [T.Text]
 extractRenamableTerms msg
-  | "not in scope:" `T.isInfixOf` head noBullets = go msg
+  -- Account for both "Variable not in scope" and "Not in scope"
+  | "ot in scope:" `T.isInfixOf` msg = extractSuggestions msg
   | otherwise = []
-
-  where noBullets = T.lines $ T.replace "• " "" msg
-        -- Extract everything in between ‘ ’
-        go t
-          | t == "" = []
-          | "‘" `T.isPrefixOf` t =
-            let rest = T.tail t
-                x = T.takeWhile (/= '’') rest
-              in x:go rest
-          | otherwise = go (T.dropWhile (/= '‘') t)
+  where
+    extractSuggestions = map getEnclosed
+                       . concatMap singleSuggestions
+                       . filter isKnownSymbol
+                       . T.lines
+    singleSuggestions = T.splitOn "), " -- Each suggestion is comma delimited
+    isKnownSymbol t = " (imported from" `T.isInfixOf` t  || " (line " `T.isInfixOf` t
+    getEnclosed = T.dropWhile (== '‘')
+                . T.dropWhileEnd (== '’')
+                . T.dropAround (\c -> c /= '‘' && c /= '’')
 
 extractRedundantImport :: T.Text -> Maybe T.Text
 extractRedundantImport msg =

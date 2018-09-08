@@ -251,6 +251,7 @@ test-suite func-test
                      , DiagnosticsSpec
                      , FormatSpec
                      , FunctionalCodeActionsSpec
+                     , FunctionalLiquidSpec
                      , FunctionalSpec
                      , HaReSpec
                      , HighlightSpec
@@ -258,15 +259,18 @@ test-suite func-test
                      , ReferencesSpec
                      , RenameSpec
                      , SymbolsSpec
+                     , Utils
 
                      , TestUtils
+  -- This cannot currently be handled by hie (cabal-helper)
+  -- build-tool-depends:  haskell-ide-engine:hie
   build-depends:       aeson
                      , base
                      , containers
                      , data-default
                      , directory
                      , filepath
-                     , lsp-test >= 0.2.1
+                     , lsp-test >= 0.3.0
                      , haskell-ide-engine
                      -- , hie-test-utils
                      , hie-plugin-api

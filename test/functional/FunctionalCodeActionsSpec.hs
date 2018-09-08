@@ -2,22 +2,22 @@
 
 module FunctionalCodeActionsSpec where
 
-import Control.Applicative.Combinators
-import Control.Lens hiding (List)
-import Control.Monad
-import Control.Monad.IO.Class
-import Data.Default
+import           Control.Applicative.Combinators
+import           Control.Lens hiding (List)
+import           Control.Monad
+import           Control.Monad.IO.Class
+import           Data.Aeson
+import           Data.Default
 import qualified Data.HashMap.Strict as HM
-import Data.Maybe
+import           Data.Maybe
+import           Data.Monoid ((<>))
 import qualified Data.Text as T
-import Data.Aeson
-import Language.Haskell.LSP.Test as Test
-import Language.Haskell.LSP.Types as LSP hiding (contents, error, message)
+import           Language.Haskell.LSP.Test as Test
 import qualified Language.Haskell.LSP.Types as LSP
+import           Language.Haskell.LSP.Types as LSP hiding (contents, error, message, executeCommand)
 import qualified Language.Haskell.LSP.Types.Capabilities as C
-import Test.Hspec
-import TestUtils
-import Data.Monoid ((<>))
+import           Test.Hspec
+import           TestUtils
 
 spec :: Spec
 spec = describe "code actions" $ do

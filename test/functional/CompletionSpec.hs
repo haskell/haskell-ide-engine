@@ -6,7 +6,7 @@ import Control.Monad.IO.Class
 import Control.Lens
 import Language.Haskell.LSP.Test
 -- import Language.Haskell.LSP.Test.Replay
-import Language.Haskell.LSP.Types
+import Language.Haskell.LSP.Types hiding (applyEdit)
 import Test.Hspec
 import TestUtils
 

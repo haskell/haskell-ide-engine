@@ -26,7 +26,9 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , PluginCommand(..)
   , CodeActionProvider
   , DiagnosticProvider(..)
-  , DiagnosticProviderFunc
+  , DiagnosticProviderFunc(..)
+  , DiagnosticProviderFuncSync
+  , DiagnosticProviderFuncAsync
   , DiagnosticTrigger(..)
   , HoverProvider
   , SymbolProvider
@@ -154,9 +156,19 @@ type CodeActionProvider =  PluginId
                         -> CodeActionContext
                         -> IdeM (IdeResult [CodeAction])
 
--- type DiagnosticProviderFunc = DiagnosticTrigger -> Uri -> IdeM (IdeResponse (Map.Map Uri (S.Set Diagnostic)))
-type DiagnosticProviderFunc
-  = DiagnosticTrigger -> Uri -> IdeGhcM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
+type DiagnosticProviderFuncSync
+  = DiagnosticTrigger -> Uri
+  -> IdeDeferM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
+
+type DiagnosticProviderFuncAsync
+  = DiagnosticTrigger -> Uri
+  -> (Map.Map Uri (S.Set Diagnostic) -> IO ())
+  -> IdeDeferM (IdeResult ())
+
+data DiagnosticProviderFunc
+  = DiagnosticProviderSync  DiagnosticProviderFuncSync
+  | DiagnosticProviderAsync DiagnosticProviderFuncAsync
+
 
 data DiagnosticProvider = DiagnosticProvider
      { dpTrigger :: S.Set DiagnosticTrigger -- AZ:should this be a NonEmptyList?
@@ -222,7 +234,7 @@ data IdeState = IdeState
 instance MonadMTState IdeState IdeGhcM where
   readMTS = lift $ lift $ lift readMTS
   modifyMTS = lift . lift . lift . modifyMTS
-  
+
 instance MonadMTState IdeState IdeDeferM where
   readMTS = lift $ lift readMTS
   modifyMTS = lift . lift . modifyMTS

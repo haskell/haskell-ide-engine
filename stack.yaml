@@ -1,30 +1,18 @@
-resolver: nightly-2018-07-26 # GHC 8.4.3
+resolver: nightly-2018-09-01 # GHC 8.4.3
 packages:
 - .
 - hie-plugin-api
 
-- location:
-    ./submodules/HaRe
-  extra-dep: true
-
-- location:
-    ./submodules/ghc-mod
-  extra-dep: true
-  subdirs:
-    - .
-    - core
-
-- location:
-    ./submodules/haskell-lsp
-  extra-dep: true
-  subdirs:
-    - .
-    - haskell-lsp-types
-
 extra-deps:
+- ./submodules/HaRe
+- ./submodules/ghc-mod
+- ./submodules/ghc-mod/core
+- ./submodules/haskell-lsp
+- ./submodules/haskell-lsp/haskell-lsp-types
 - aeson-1.3.1.1
-- apply-refact-0.5.0.0
+# - apply-refact-0.5.0.0
 - base-compat-0.9.3
+- base-orphans-0.7
 - brittany-0.11.0.0
 - cabal-helper-0.8.1.0@rev:0
 - cabal-plan-0.3.0.0
@@ -34,7 +22,9 @@ extra-deps:
 - ghc-exactprint-0.5.6.1
 - haddock-api-2.20.0
 - hsimport-0.8.6
-- lsp-test-0.2.1.0
+- monad-memo-0.4.1
+- lsp-test-0.3.0.0
+- semigroupoids-5.2.2
 - syz-0.2.0.0
 - temporary-1.2.1.1
 - yaml-0.8.32

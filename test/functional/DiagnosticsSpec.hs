@@ -2,16 +2,15 @@
 
 module DiagnosticsSpec where
 
-import Control.Lens hiding (List)
-import Control.Monad.IO.Class
-import Data.Default
+import           Control.Lens hiding (List)
+import           Control.Monad.IO.Class
 import qualified Data.Text as T
-import qualified Language.Haskell.LSP.Test as Test
-import Language.Haskell.LSP.Test hiding (message)
-import Language.Haskell.LSP.Types as LSP hiding (contents, error )
-import qualified Language.Haskell.LSP.Types.Capabilities as C
-import Test.Hspec
-import TestUtils
+import           Haskell.Ide.Engine.MonadFunctions
+import           Language.Haskell.LSP.Test hiding (message)
+import           Language.Haskell.LSP.Types as LSP hiding (contents, error )
+import           Test.Hspec
+import           TestUtils
+import           Utils
 
 -- ---------------------------------------------------------------------
 
@@ -19,7 +18,9 @@ spec :: Spec
 spec = describe "diagnostics providers" $ do
   describe "diagnostics triggers" $ do
     it "runs diagnostics on save" $
-      runSessionWithConfig codeActionSupportConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
+      runSession hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
+      -- runSessionWithConfig logConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
+        logm $ "starting DiagnosticSpec.runs diagnostic on save"
         doc <- openDoc "ApplyRefact2.hs" "haskell"
 
         diags@(reduceDiag:_) <- waitForDiagnostics
@@ -33,13 +34,18 @@ spec = describe "diagnostics providers" $ do
           reduceDiag ^. code `shouldBe` Just "Eta reduce"
           reduceDiag ^. source `shouldBe` Just "hlint"
 
+        diags2a <- waitForDiagnostics
+        -- liftIO $ show diags2a `shouldBe` ""
+        liftIO $ length diags2a `shouldBe` 2
+
         -- docItem <- getDocItem file languageId
         sendNotification TextDocumentDidSave (DidSaveTextDocumentParams doc)
-        diags2hlint <- waitForDiagnostics
-        liftIO $ length diags2hlint `shouldBe` 2
-        diags2liquid <- waitForDiagnostics
-        liftIO $ length diags2liquid `shouldBe` 2
-        -- liftIO $ show diags2 `shouldBe` ""
+        -- diags2hlint <- waitForDiagnostics
+        -- -- liftIO $ show diags2hlint `shouldBe` ""
+        -- liftIO $ length diags2hlint `shouldBe` 3
+        -- diags2liquid <- waitForDiagnostics
+        -- liftIO $ length diags2liquid `shouldBe` 3
+        -- -- liftIO $ show diags2 `shouldBe` ""
         diags3@(d:_) <- waitForDiagnostics
         -- liftIO $ show diags3 `shouldBe` ""
         liftIO $ do
@@ -49,6 +55,7 @@ spec = describe "diagnostics providers" $ do
           d ^. code `shouldBe` Nothing
           d ^. source `shouldBe` Just "eg2"
           d ^. message `shouldBe` (T.pack "Example plugin diagnostic, triggered byDiagnosticOnSave")
+
   describe "typed hole errors" $
     it "is deferred" $
       runSession hieCommand fullCaps "test/testdata" $ do
@@ -56,15 +63,4 @@ spec = describe "diagnostics providers" $ do
         [diag] <- waitForDiagnosticsSource "ghcmod"
         liftIO $ diag ^. severity `shouldBe` Just DsWarning
 
-
 -- ---------------------------------------------------------------------
-
-codeActionSupportConfig :: SessionConfig
-codeActionSupportConfig = Test.defaultConfig
-
-codeActionSupportCaps :: C.ClientCapabilities
-codeActionSupportCaps = def { C._textDocument = Just textDocumentCaps }
-  where
-    textDocumentCaps = def { C._codeAction = Just codeActionCaps }
-    codeActionCaps = C.CodeActionClientCapabilities (Just True) (Just literalSupport)
-    literalSupport = C.CodeActionLiteralSupport def
