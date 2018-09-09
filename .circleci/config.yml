@@ -22,9 +22,9 @@ defaults: &defaults
 
     - restore_cache:
         keys:
-          - stack-cache-07-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
-          - stack-cache-07-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
-          - stack-cache-07-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
+          - stack-cache-08-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
+          - stack-cache-08-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
+          - stack-cache-08-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
 
     - run:
         name: Stack setup
@@ -51,12 +51,17 @@ defaults: &defaults
         command: stack --stack-yaml=${STACK_FILE} exec hoogle generate
 
     - save_cache:
-        key: stack-cache-07-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
+        key: stack-cache-08-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
         paths:
           - ~/.stack
           - ~/.cache
           - ~/build/.stack-work
           - ~/build/hie-plugin-api/.stack-work
+          - ~/build/submodules/HaRe/.stack-work
+          - ~/build/submodules/ghc-mod/core/.stack-work
+          - ~/build/submodules/ghc-mod/.stack-work
+          - ~/build/submodules/haskell-lsp/.stack-work
+          - ~/build/submodules/cabal-helper/.stack-work
 
     - run:
         name: Test
@@ -67,20 +72,30 @@ defaults: &defaults
         path: test-logs
 
     - save_cache:
-        key: stack-cache-07-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
+        key: stack-cache-08-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
         paths:
           - ~/.stack
           - ~/.cache
           - ~/build/.stack-work
           - ~/build/hie-plugin-api/.stack-work
+          - ~/build/submodules/HaRe/.stack-work
+          - ~/build/submodules/ghc-mod/core/.stack-work
+          - ~/build/submodules/ghc-mod/.stack-work
+          - ~/build/submodules/haskell-lsp/.stack-work
+          - ~/build/submodules/cabal-helper/.stack-work
 
     - save_cache:
-        key: stack-cache-07-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
+        key: stack-cache-08-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
         paths:
           - ~/.stack
           - ~/.cache
           - ~/build/.stack-work
           - ~/build/hie-plugin-api/.stack-work
+          - ~/build/submodules/HaRe/.stack-work
+          - ~/build/submodules/ghc-mod/core/.stack-work
+          - ~/build/submodules/ghc-mod/.stack-work
+          - ~/build/submodules/haskell-lsp/.stack-work
+          - ~/build/submodules/cabal-helper/.stack-work
 
 version: 2
 jobs:
