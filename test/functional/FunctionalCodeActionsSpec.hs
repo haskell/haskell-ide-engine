@@ -247,7 +247,7 @@ spec = describe "code actions" $ do
         runSession hieCommand fullCaps "test/testdata" $ do
           doc <- openDoc "TypedHoles2.hs" "haskell"
           _ <- waitForDiagnosticsSource "ghcmod"
-          cas <- map (\(CACodeAction x)-> x) <$> getAllCodeActions doc
+          cas <- map fromAction <$> getAllCodeActions doc
 
           suggestion <-
             if ghc84 then do
