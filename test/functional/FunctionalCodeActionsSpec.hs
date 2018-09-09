@@ -247,7 +247,7 @@ spec = describe "code actions" $ do
         runSession hieCommand fullCaps "test/testdata" $ do
           doc <- openDoc "TypedHoles2.hs" "haskell"
           _ <- waitForDiagnosticsSource "ghcmod"
-          cas <- map (\(CACodeAction x)-> x) <$> getAllCodeActions doc
+          cas <- map fromAction <$> getAllCodeActions doc
 
           suggestion <-
             if ghc84 then do
@@ -277,6 +277,29 @@ spec = describe "code actions" $ do
             \foo2 x = " <> suggestion <> "\n\
             \  where\n\
             \    stuff (A a) = A (a + 1)\n"
+
+  describe "missing top level signature code actions" $
+    it "Adds top level signature" $
+      runSession hieCommand fullCaps "test/testdata/" $ do
+        doc <- openDoc "TopLevelSignature.hs" "haskell"
+
+        _ <- waitForDiagnosticsSource "ghcmod"
+        cas <- map fromAction <$> getAllCodeActions doc
+
+        liftIO $ map (^. title) cas `shouldContain` [ "Add signature: main :: IO ()"]
+
+        executeCodeAction $ head cas
+
+        contents <- documentContents doc
+
+        let expected = "{-# OPTIONS_GHC -Wall #-}\n\
+                       \module TopLevelSignature where\n\
+                       \main :: IO ()\n\
+                       \main = do\n\
+                       \  putStrLn \"Hello\"\n\
+                       \  return ()\n"
+
+        liftIO $ contents `shouldBe` expected
 
 fromAction :: CAResult -> CodeAction
 fromAction (CACodeAction action) = action
