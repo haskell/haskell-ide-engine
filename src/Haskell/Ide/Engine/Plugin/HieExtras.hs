@@ -4,6 +4,7 @@
 {-# LANGUAGE TypeFamilies        #-}
 module Haskell.Ide.Engine.Plugin.HieExtras
   ( getDynFlags
+  , WithSnippets(..)
   , getCompletions
   , getTypeForName
   , getSymbolsAtPoint
@@ -286,8 +287,11 @@ instance ModuleCache CachedCompletions where
       , importableModules = moduleNames
       }
 
-getCompletions :: Uri -> PosPrefixInfo -> Bool -> IdeDeferM (IdeResult [J.CompletionItem])
-getCompletions uri prefixInfo withSnippets = pluginGetFile "getCompletions: " uri $ \file -> do
+newtype WithSnippets = WithSnippets Bool
+
+-- | Returns the cached completions for the given module and position.
+getCompletions :: Uri -> PosPrefixInfo -> WithSnippets -> IdeDeferM (IdeResult [J.CompletionItem])
+getCompletions uri prefixInfo (WithSnippets withSnippets) = pluginGetFile "getCompletions: " uri $ \file -> do
   let PosPrefixInfo {fullLine, prefixModule, prefixText} = prefixInfo
   debugm $ "got prefix" ++ show (prefixModule, prefixText)
   let enteredQual = if T.null prefixModule then "" else prefixModule <> "."

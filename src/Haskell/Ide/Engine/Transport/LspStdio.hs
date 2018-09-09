@@ -581,7 +581,7 @@ reactor inp = do
           case mprefix of
             Nothing -> callback []
             Just prefix -> do
-              snippets <- configVal True completionSnippetsOn
+              snippets <- Hie.WithSnippets <$> configVal True completionSnippetsOn
               let hreq = IReq tn (req ^. J.id) callback
                            $ Hie.getCompletions doc prefix snippets
               makeRequest hreq
