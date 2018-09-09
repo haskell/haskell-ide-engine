@@ -3,7 +3,8 @@ module CompletionSpec where
 
 import Control.Applicative.Combinators
 import Control.Monad.IO.Class
-import Control.Lens
+import Control.Lens hiding ((.=))
+import Data.Aeson
 import Language.Haskell.LSP.Test
 -- import Language.Haskell.LSP.Test.Replay
 import Language.Haskell.LSP.Types hiding (applyEdit)
@@ -86,3 +87,25 @@ spec = describe "completions" $ do
       item ^. kind `shouldBe` Just CiFunction
       item ^. insertTextFormat `shouldBe` Just Snippet
       item ^. insertText `shouldBe` Just "mapM ${1:a -> m b} ${2:t a}"
+
+  it "respects snippets configuration" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
+    doc <- openDoc "Completion.hs" "haskell"
+    _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
+
+    let config = object ["languageServerHaskell" .= (object ["completionSnippetsOn" .= False])]
+
+    sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams config)
+
+    let te = TextEdit (Range (Position 4 7) (Position 4 24)) "fold"
+    _ <- applyEdit doc te
+    
+    compls <- getCompletions doc (Position 4 11)
+    let item = head $ filter ((== "foldl") . (^. label)) compls
+    liftIO $ do
+      item ^. label `shouldBe` "foldl"
+      item ^. kind `shouldBe` Just CiFunction
+      item ^. insertTextFormat `shouldBe` Just PlainText
+      item ^. insertText `shouldBe` Nothing
+
+
+
