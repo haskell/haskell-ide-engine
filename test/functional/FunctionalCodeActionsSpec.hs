@@ -284,7 +284,7 @@ spec = describe "code actions" $ do
         doc <- openDoc "TopLevelSignature.hs" "haskell"
 
         _ <- waitForDiagnosticsSource "ghcmod"
-        cas <- map (\(CACodeAction x)-> x) <$> getAllCodeActions doc
+        cas <- map fromAction <$> getAllCodeActions doc
 
         liftIO $ map (^. title) cas `shouldContain` [ "Add signature: main :: IO ()"]
 
