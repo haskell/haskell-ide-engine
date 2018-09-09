@@ -92,9 +92,14 @@ spec = do
 
     it "instantly respond to failed modules with no cache" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "FuncTestFail.hs" "haskell"
-
-      symbols <- request TextDocumentDocumentSymbol (DocumentSymbolParams doc) :: Session DocumentSymbolsResponse
-      liftIO $ symbols ^. result `shouldBe` Just (DSDocumentSymbols mempty)
+      defs <- getDefinitions doc (Position 1 11)
+      liftIO $ defs `shouldBe` []
+    
+    it "respond to untypecheckable modules with parsed module cache" $
+      runSession hieCommand fullCaps "test/testdata" $ do
+        doc <- openDoc "FuncTestFail.hs" "haskell"
+        (Left (sym:_)) <- getDocumentSymbols doc
+        liftIO $ sym ^. name `shouldBe` "main"
 
     it "returns hints as diagnostics" $ runSession hieCommand fullCaps "test/testdata" $ do
       _ <- openDoc "FuncTest.hs" "haskell"

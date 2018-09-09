@@ -195,6 +195,7 @@ test-suite dispatcher-test
                      , data-default
                      , directory
                      , filepath
+                     , ghc
                      , haskell-lsp
                      , haskell-ide-engine
                      -- , hie-test-utils
