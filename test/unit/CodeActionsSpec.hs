@@ -125,9 +125,24 @@ spec = do
       extractHoleSubstitutions msg `shouldBe` expected
 
   describe "missing package code actions" $ do
-    it "pick up relevant messages" $ 
+    it "pick up relevant messages" $
       let msg = "Could not find module ‘Foo.Bar’\n      Use -v to see a list of the files searched for."
         in extractModuleName msg `shouldBe` Just "Foo.Bar"
-    it "don't pick up irrelevant messages" $ 
+    it "don't pick up irrelevant messages" $
       let msg = "Could not find modulez ‘Foo.Bar’\n      Use -v to see a list of the files searched for."
         in extractModuleName msg `shouldBe` Nothing
+
+  describe "missing signature code actions" $ do
+    it "pick up relevant messages" $
+      let msg = "    Top-level binding with no type signature: main :: IO ()"
+        in extractMissingSignature msg `shouldBe` Just "main :: IO ()"
+
+    it "pick up multiline signatures" $
+      let msg = "    Top-level binding with no type signature:\n\
+                \      printResultsAndExit :: (Text.Megaparsec.Error.ShowToken t,\n\
+                \                              Text.Megaparsec.Error.ShowErrorComponent e, Ord t) =>\n\
+                \                             OutputFormat -> Format.Result t e -> IO b"
+          expected = "printResultsAndExit :: (Text.Megaparsec.Error.ShowToken t,\n\
+                \                              Text.Megaparsec.Error.ShowErrorComponent e, Ord t) =>\n\
+                \                             OutputFormat -> Format.Result t e -> IO b"
+        in extractMissingSignature msg `shouldBe` Just expected

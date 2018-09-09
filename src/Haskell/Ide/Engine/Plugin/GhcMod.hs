@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -13,18 +12,13 @@ import           Control.Lens hiding (cons, children)
 import           Control.Lens.Setter ((%~))
 import           Control.Lens.Traversal (traverseOf)
 import           Data.Aeson
-#if __GLASGOW_HASKELL__ < 802
-import           Data.Aeson.Types
-#endif
 import           Data.Function
 import qualified Data.HashMap.Strict               as HM
 import           Data.IORef
 import           Data.List
 import qualified Data.Map.Strict                   as Map
 import           Data.Maybe
-#if __GLASGOW_HASKELL__ < 804
-import           Data.Monoid
-#endif
+import           Data.Monoid ((<>))
 import qualified Data.Set                          as Set
 import qualified Data.Text                         as T
 import qualified Data.Text.IO                      as T
@@ -293,11 +287,7 @@ pureTypeCmd newPos cm  =
     spanTypes pos = sortBy (cmp `on` fst) (spanTypes' pos)
     dflag = ms_hspp_opts $ pm_mod_summary $ tm_parsed_module tm
     unqual = mkPrintUnqualified dflag $ tcg_rdr_env $ fst $ tm_internals_ tm
-#if __GLASGOW_HASKELL__ >= 802
     st = mkUserStyle dflag unqual AllTheWay
-#else
-    st = mkUserStyle unqual AllTheWay
-#endif
 
     f (range', t) =
       case oldRangeToNew cm range' of
@@ -398,7 +388,7 @@ data TypedHoles =
   TypedHoles { thDiag :: LSP.Diagnostic
              , thWant :: TypeDef
              , thSubstitutions :: ValidSubstitutions
-             , thBIndings :: Bindings
+             , thBindings :: Bindings
              } deriving (Eq, Show)
 
 codeActionProvider :: CodeActionProvider
@@ -414,7 +404,13 @@ codeActionProvider' supportsDocChanges _ docId _ _ context =
       redundantTerms = mapMaybe getRedundantImports diags
       redundantActions = concatMap (uncurry mkRedundantImportActions) redundantTerms
       typedHoleActions = concatMap mkTypedHoleActions (mapMaybe getTypedHoles diags)
-  in return $ IdeResultOk (renameActions ++ redundantActions ++ typedHoleActions)
+      missingSignatures = mapMaybe getMissingSignatures diags
+      topLevelSignatureActions = map (uncurry mkMissingSignatureAction) missingSignatures
+  in return $ IdeResultOk $ concat [ renameActions
+                                   , redundantActions
+                                   , typedHoleActions
+                                   , topLevelSignatureActions
+                                   ]
 
   where
 
@@ -493,6 +489,24 @@ codeActionProvider' supportsDocChanges _ docId _ _ context =
         Nothing -> Nothing
         Just (want, subs, bindings) -> Just $ TypedHoles diag want subs bindings
     getTypedHoles _ = Nothing
+
+    getMissingSignatures :: LSP.Diagnostic -> Maybe (LSP.Diagnostic, T.Text)
+    getMissingSignatures diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) =
+      case extractMissingSignature msg of
+        Nothing -> Nothing
+        Just signature -> Just (diag, signature)
+    getMissingSignatures _ = Nothing
+
+    mkMissingSignatureAction :: LSP.Diagnostic -> T.Text -> LSP.CodeAction
+    mkMissingSignatureAction diag sig =  codeAction
+      where title :: T.Text
+            title = "Add signature: " <> sig
+            diags = LSP.List [diag]
+            startOfLine = LSP.Position (diag ^. LSP.range . LSP.start . LSP.line) 0
+            range = LSP.Range startOfLine startOfLine
+            edit = mkWorkspaceEdit [LSP.TextEdit range (sig <> "\n")]
+            kind = LSP.CodeActionQuickFix
+            codeAction = LSP.CodeAction title (Just kind) (Just diags) (Just edit) Nothing
 
 extractRenamableTerms :: T.Text -> [T.Text]
 extractRenamableTerms msg
@@ -575,6 +589,14 @@ extractHoleSubstitutions diag
                    . T.breakOn "(bound at"
                    . keepAfter "::"
                    $ t
+
+extractMissingSignature :: T.Text -> Maybe T.Text
+extractMissingSignature msg = extractSignature <$> stripMessageStart msg
+  where
+    stripMessageStart = T.stripPrefix "Top-level binding with no type signature:"
+                      . T.strip
+    extractSignature = T.strip
+
 
 -- ---------------------------------------------------------------------
 
