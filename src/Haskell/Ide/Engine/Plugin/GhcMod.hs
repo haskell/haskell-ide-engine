@@ -198,7 +198,7 @@ setTypecheckedModule uri =
       ghcErrRes msg = ((Map.empty, [T.pack msg]),Nothing,Nothing)
     debugm "setTypecheckedModule: before ghc-mod"
     ((diags', errs), mtm, mpm) <- GM.gcatches
-                              (GM.getTypecheckedModuleGhc' (myWrapper rfm) fp)
+                              (GM.getModulesGhc' (myWrapper rfm) fp)
                               (errorHandlers ghcErrRes (return . ghcErrRes . show))
     debugm "setTypecheckedModule: after ghc-mod"
 

@@ -113,7 +113,7 @@ instance ExtensionClass LiquidData where
 
 diagnosticProvider :: DiagnosticProviderFuncAsync
 diagnosticProvider DiagnosticOnSave uri cb = pluginGetFile "Liquid.diagnosticProvider:" uri $ \file ->
-  withCachedModuleAndData file (IdeResultOk ()) $ \_cm () -> do
+  withCachedModuleAndData file (IdeResultOk ()) $ \_tm _info () -> do
     -- New save, kill any prior instance that was running
     LiquidData mtid <- get
     mapM_ (liftIO . cancel) mtid
