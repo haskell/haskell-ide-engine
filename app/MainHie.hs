@@ -127,7 +127,11 @@ run opts = do
 
   let vomitOptions = GM.defaultOptions { GM.optOutput = oo { GM.ooptLogLevel = GM.GmVomit}}
       oo = GM.optOutput GM.defaultOptions
-  let ghcModOptions = if optGhcModVomit opts then vomitOptions else GM.defaultOptions
+  let defaultOpts = if optGhcModVomit opts then vomitOptions else GM.defaultOptions
+      -- Running HIE on projects with -Werror breaks most of the features since all warnings
+      -- will be treated with the same severity of type errors. In order to offer a more useful
+      -- experience, we make sure warnings are always reported as warnings by setting -Wwarn
+      ghcModOptions = defaultOpts { GM.optGhcUserOptions = ["-Wwarn"] }
 
   when (optGhcModVomit opts) $
     logm "Enabling --vomit for ghc-mod. Output will be on stderr"
