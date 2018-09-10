@@ -108,6 +108,7 @@ files =
    , "./test/testdata/addPackageTest/cabal/"
    , "./test/testdata/addPackageTest/hpack/"
    , "./test/testdata/redundantImportTest/"
+   , "./test/testdata/wErrorTest/"
    , "./test/testdata/completion/"
    , "./test/testdata/definition/"
   ]
