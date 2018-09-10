@@ -20,7 +20,7 @@ spec = describe "diagnostics providers" $ do
     it "runs diagnostics on save" $
       runSession hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
       -- runSessionWithConfig logConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
-        logm $ "starting DiagnosticSpec.runs diagnostic on save"
+        logm "starting DiagnosticSpec.runs diagnostic on save"
         doc <- openDoc "ApplyRefact2.hs" "haskell"
 
         diags@(reduceDiag:_) <- waitForDiagnostics
@@ -54,12 +54,19 @@ spec = describe "diagnostics providers" $ do
           d ^. severity `shouldBe` Nothing
           d ^. code `shouldBe` Nothing
           d ^. source `shouldBe` Just "eg2"
-          d ^. message `shouldBe` (T.pack "Example plugin diagnostic, triggered byDiagnosticOnSave")
+          d ^. message `shouldBe` T.pack "Example plugin diagnostic, triggered byDiagnosticOnSave"
 
   describe "typed hole errors" $
     it "is deferred" $
       runSession hieCommand fullCaps "test/testdata" $ do
         _ <- openDoc "TypedHoles.hs" "haskell"
+        [diag] <- waitForDiagnosticsSource "ghcmod"
+        liftIO $ diag ^. severity `shouldBe` Just DsWarning
+
+  describe "Warnings are warnings" $
+    it "Overrides -Werror" $
+      runSession hieCommand fullCaps "test/testdata/wErrorTest" $ do
+        _ <- openDoc "src/WError.hs" "haskell"
         [diag] <- waitForDiagnosticsSource "ghcmod"
         liftIO $ diag ^. severity `shouldBe` Just DsWarning
 
