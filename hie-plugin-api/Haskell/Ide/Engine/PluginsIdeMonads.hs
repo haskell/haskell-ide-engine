@@ -215,7 +215,7 @@ type IdeGhcM = GM.GhcModT IdeM
 
 -- | A computation that is deferred until the module is cached.
 -- Note that the module may not typecheck, in which case 'UriCacheFailed' is passed
-data Defer a = Defer FilePath (UriCache -> a) deriving Functor
+data Defer a = Defer FilePath (UriCacheResult -> a) deriving Functor
 type IdeDeferM = FreeT Defer IdeM
 
 type IdeM = ReaderT ClientCapabilities (MultiThreadState IdeState)
@@ -223,7 +223,7 @@ type IdeM = ReaderT ClientCapabilities (MultiThreadState IdeState)
 data IdeState = IdeState
   { moduleCache :: GhcModuleCache
   -- | A queue of requests to be performed once a module is loaded
-  , requestQueue :: Map.Map FilePath [UriCache -> IdeM ()]
+  , requestQueue :: Map.Map FilePath [UriCacheResult -> IdeM ()]
   , idePlugins  :: IdePlugins
   , extensibleState :: !(Map.Map TypeRep Dynamic)
   , ghcSession  :: Maybe (IORef HscEnv)

@@ -189,33 +189,37 @@ setTypecheckedModule uri =
     debugm $ "setTypecheckedModule: file mapping state is: " ++ show fileMap
     rfm <- GM.mkRevRedirMapFunc
     let
-      ghcErrRes msg = ((Map.empty, [T.pack msg]),Nothing)
+      ghcErrRes msg = ((Map.empty, [T.pack msg]),Nothing,Nothing)
     debugm "setTypecheckedModule: before ghc-mod"
-    ((diags', errs), mtm) <- GM.gcatches
-                              (GM.getTypecheckedModuleGhc' (myWrapper rfm) fp)
+    ((diags', errs), mtm, mpm) <- GM.gcatches
+                              (GM.getModulesGhc' (myWrapper rfm) fp)
                               (errorHandlers ghcErrRes (return . ghcErrRes . show))
     debugm "setTypecheckedModule: after ghc-mod"
+
     canonUri <- canonicalizeUri uri
     let diags = Map.insertWith Set.union canonUri Set.empty diags'
-    case mtm of
-      Nothing -> do
-        debugm $ "setTypecheckedModule: Didn't get typechecked module for: " ++ show fp
+    case (mpm,mtm) of
+      (Just pm, Nothing) -> do
+        debugm $ "setTypecheckedModule: Did get parsed module for: " ++ show fp
+        cacheModule fp (Left pm)
+        debugm "setTypecheckedModule: done"
 
-        failModule fp
-
-        return $ IdeResultOk (diags,errs)
-      Just tm -> do
+      (_, Just tm) -> do
         debugm $ "setTypecheckedModule: Did get typechecked module for: " ++ show fp
-        typm <- GM.unGmlT $ genTypeMap tm
         sess <- fmap GM.gmgsSession . GM.gmGhcSession <$> GM.gmsGet
-        let cm = CachedModule tm (genLocMap tm) typm (genImportMap tm) (genDefMap tm) rfm return return
 
         -- set the session before we cache the module, so that deferred
         -- responses triggered by cacheModule can access it
         modifyMTS (\s -> s {ghcSession = sess})
-        cacheModule fp cm
+        cacheModule fp (Right tm)
         debugm "setTypecheckedModule: done"
-        return $ IdeResultOk (diags,errs)
+        
+      _ -> do
+        debugm $ "setTypecheckedModule: Didn't get typechecked or parsed module for: " ++ show fp
+
+        failModule fp
+
+    return $ IdeResultOk (diags,errs)
 
 -- ---------------------------------------------------------------------
 
@@ -271,18 +275,17 @@ typeCmd = CmdSync $ \(TP _bool uri pos) ->
 newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
 newTypeCmd newPos uri =
   pluginGetFile "newTypeCmd: " uri $ \fp ->
-    ifCachedModule fp (IdeResultOk []) $ \cm ->
-      return $ IdeResultOk $ pureTypeCmd newPos cm
+    ifCachedModule fp (IdeResultOk []) $ \tm info ->
+      return $ IdeResultOk $ pureTypeCmd newPos tm info
 
-pureTypeCmd :: Position -> CachedModule -> [(Range,T.Text)]
-pureTypeCmd newPos cm  =
+pureTypeCmd :: Position -> GHC.TypecheckedModule -> CachedInfo -> [(Range,T.Text)]
+pureTypeCmd newPos tm info =
     case mOldPos of
       Nothing -> []
       Just pos -> concatMap f (spanTypes pos)
   where
-    mOldPos = newPosToOld cm newPos
-    tm = tcMod cm
-    typm = typeMap cm
+    mOldPos = newPosToOld info newPos
+    typm = typeMap info
     spanTypes' pos = getArtifactsAtPos pos typm
     spanTypes pos = sortBy (cmp `on` fst) (spanTypes' pos)
     dflag = ms_hspp_opts $ pm_mod_summary $ tm_parsed_module tm
@@ -290,7 +293,7 @@ pureTypeCmd newPos cm  =
     st = mkUserStyle dflag unqual AllTheWay
 
     f (range', t) =
-      case oldRangeToNew cm range' of
+      case oldRangeToNew info range' of
         (Just range) -> [(range , T.pack $ GM.pretty dflag st t)]
         _ -> []
 
@@ -311,25 +314,25 @@ splitCaseCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 splitCaseCmd' uri newPos =
   pluginGetFile "splitCaseCmd: " uri $ \path -> do
     origText <- GM.withMappedFile path $ liftIO . T.readFile
-    ifCachedModule path (IdeResultOk mempty) $ \checkedModule -> runGhcModCommand $
-      case newPosToOld checkedModule newPos of
+    ifCachedModule path (IdeResultOk mempty) $ \tm info -> runGhcModCommand $
+      case newPosToOld info newPos of
         Just oldPos -> do
           let (line, column) = unPos oldPos
-          splitResult' <- GM.splits' path (tcMod checkedModule) line column
+          splitResult' <- GM.splits' path tm line column
           case splitResult' of
             Just splitResult -> do
               wEdit <- liftToGhc $ splitResultToWorkspaceEdit origText splitResult
-              return $ oldToNewPositions checkedModule wEdit
+              return $ oldToNewPositions info wEdit
             Nothing -> return mempty
         Nothing -> return mempty
   where
 
     -- | Transform all ranges in a WorkspaceEdit from old to new positions.
-    oldToNewPositions :: CachedModule -> WorkspaceEdit -> WorkspaceEdit
-    oldToNewPositions cMod wsEdit =
+    oldToNewPositions :: CachedInfo -> WorkspaceEdit -> WorkspaceEdit
+    oldToNewPositions info wsEdit =
       wsEdit
-        & LSP.documentChanges %~ (>>= traverseOf (traverse . LSP.edits . traverse . LSP.range) (oldRangeToNew cMod))
-        & LSP.changes %~ (>>= traverseOf (traverse . traverse . LSP.range) (oldRangeToNew cMod))
+        & LSP.documentChanges %~ (>>= traverseOf (traverse . LSP.edits . traverse . LSP.range) (oldRangeToNew info))
+        & LSP.changes %~ (>>= traverseOf (traverse . traverse . LSP.range) (oldRangeToNew info))
 
     -- | Given the range and text to replace, construct a 'WorkspaceEdit'
     -- by diffing the change against the current text.
@@ -604,7 +607,8 @@ hoverProvider :: HoverProvider
 hoverProvider doc pos = runIdeResultT $ do
   info' <- IdeResultT $ newTypeCmd pos doc
   names' <- IdeResultT $ pluginGetFile "ghc-mod:hoverProvider" doc $ \fp ->
-    ifCachedModule fp (IdeResultOk []) (return . IdeResultOk . Hie.getSymbolsAtPoint pos)
+    ifCachedModule fp (IdeResultOk []) $ \(_ :: GHC.ParsedModule) info ->
+      return $ IdeResultOk $ Hie.getSymbolsAtPoint pos info
   let
     f = (==) `on` (Hie.showName . snd)
     f' = compare `on` (Hie.showName . snd)
@@ -640,9 +644,8 @@ data Decl = Decl LSP.SymbolKind (Located RdrName) [Decl] SrcSpan
 
 symbolProvider :: Uri -> IdeDeferM (IdeResult [LSP.DocumentSymbol])
 symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
-  \file -> withCachedModule file (IdeResultOk []) $ \cm -> do
-    let tm = tcMod cm
-        hsMod = unLoc $ pm_parsed_source $ tm_parsed_module tm
+  \file -> withCachedModule file (IdeResultOk []) $ \pm _ -> do
+    let hsMod = unLoc $ pm_parsed_source pm
         imports = hsmodImports hsMod
         imps  = concatMap goImport imports
         decls = concatMap go $ hsmodDecls hsMod

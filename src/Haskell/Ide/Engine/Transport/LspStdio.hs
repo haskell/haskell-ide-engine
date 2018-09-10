@@ -238,15 +238,15 @@ _unmapFileFromVfs tn uri = do
 -- TODO: generalise this and move it to GhcMod.ModuleLoader
 updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeGhcM (IdeResult ())
 updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file ->
-  ifCachedModule file (IdeResultOk ()) $ \cm -> do
-    let n2oOld = newPosToOld cm
-        o2nOld = oldPosToNew cm
+  ifCachedInfo file (IdeResultOk ()) $ \info -> do
+    let n2oOld = newPosToOld info
+        o2nOld = oldPosToNew info
         (n2o,o2n) = foldl' go (n2oOld, o2nOld) changes
         go (n2o', o2n') (J.TextDocumentContentChangeEvent (Just r) _ txt) =
           (n2o' <=< newToOld r txt, oldToNew r txt <=< o2n')
         go _ _ = (const Nothing, const Nothing)
-    let cm' = cm {newPosToOld = n2o, oldPosToNew = o2n}
-    cacheModuleNoClear file cm'
+    let info' = info {newPosToOld = n2o, oldPosToNew = o2n}
+    cacheInfoNoClear file info'
     return $ IdeResultOk ()
   where
     f (+/-) (J.Range (Position sl _) (Position el _)) txt p@(Position l c)

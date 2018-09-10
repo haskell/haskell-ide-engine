@@ -14,6 +14,7 @@ import qualified Data.Set as S
 import           Data.Typeable
 import qualified Data.Text as T
 import           Data.Default
+import           GHC                            ( TypecheckedModule )
 import           GHC.Generics
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.MonadTypes
@@ -178,10 +179,12 @@ funcSpec = describe "functional dispatch" $ do
         testFailUri = filePathToUri $ cwd </> "FuncTestFail.hs"
 
     let
+      hoverReqHandler :: TypecheckedModule -> CachedInfo -> IdeDeferM (IdeResult Cached)
+      hoverReqHandler _ _ = return (IdeResultOk Cached)
       -- Model a hover request
       hoverReq tn idVal doc = dispatchIdeRequest tn ("IReq " ++ show idVal) cin logChan idVal $ do
         pluginGetFile "hoverReq" doc $ \fp ->
-          ifCachedModule fp (IdeResultOk NotCached) $ const (return $ IdeResultOk Cached)
+          ifCachedModule fp (IdeResultOk NotCached) hoverReqHandler
 
       unpackRes (r,Right md) = (r, fromDynJSON md)
       unpackRes r            = error $ "unpackRes:" ++ show r
@@ -313,12 +316,12 @@ funcSpec = describe "functional dispatch" $ do
 
     it "instantly responds to failed modules with no cache with the default" $ do
 
-      dispatchIdeRequest 7 "req7" cin logChan (IdInt 7) $ symbolProvider testFailUri
+      dispatchIdeRequest 7 "req7" cin logChan (IdInt 7) $ findDef testFailUri (Position 1 2)
 
       dispatchGhcRequest 8 "req8" 8 cin logChan "ghcmod" "check" (toJSON testFailUri)
 
       hr7 <- atomically $ readTChan logChan
-      unpackRes hr7 `shouldBe` ("req7", Just ([] :: [DocumentSymbol]))
+      unpackRes hr7 `shouldBe` ("req7", Just ([] :: [Location]))
 
       ("req8", Right diags) <- atomically $ readTChan logChan
       show diags `shouldBe` "((Map Uri (Set Diagnostic)),[Text])"
