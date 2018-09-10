@@ -82,9 +82,10 @@ spec = describe "liquid haskell diagnostics" $ do
         -- Enable liquid haskell plugin
         let config =
              Config
-               { hlintOn             = False
-               , maxNumberOfProblems = 50
-               , liquidOn            = True
+               { hlintOn              = False
+               , maxNumberOfProblems  = 50
+               , liquidOn             = True
+               , completionSnippetsOn = True
                }
         sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
 

@@ -4,6 +4,7 @@
 {-# LANGUAGE TypeFamilies        #-}
 module Haskell.Ide.Engine.Plugin.HieExtras
   ( getDynFlags
+  , WithSnippets(..)
   , getCompletions
   , getTypeForName
   , getSymbolsAtPoint
@@ -49,6 +50,7 @@ import qualified DynFlags                                     as GHC
 import           Packages
 import           SrcLoc
 import           TcEnv
+import           Type
 import           Var
 
 getDynFlags :: CachedModule -> DynFlags
@@ -73,9 +75,9 @@ instance ModuleCache NameMapData where
 data CompItem = CI
   { origName     :: Name
   , importedFrom :: T.Text
-  , thingType    :: Maybe T.Text
+  , thingType    :: Maybe Type
   , label        :: T.Text
-  } deriving (Show)
+  }
 
 instance Eq CompItem where
   (CI n1 _ _ _) == (CI n2 _ _ _) = n1 == n2
@@ -98,11 +100,35 @@ mkQuery name importedFrom = name <> " module:" <> importedFrom
 
 mkCompl :: CompItem -> J.CompletionItem
 mkCompl CI{origName,importedFrom,thingType,label} =
-  J.CompletionItem label kind (Just $ maybe "" (<>"\n") thingType <> importedFrom)
-    Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+  J.CompletionItem label kind (Just $ maybe "" (<>"\n") typeText <> importedFrom)
+    Nothing Nothing Nothing Nothing Nothing (Just insertText) (Just J.Snippet)
     Nothing Nothing Nothing Nothing hoogleQuery
   where kind  = Just $ occNameToComKind $ occName origName
         hoogleQuery = Just $ toJSON $ mkQuery label importedFrom
+        argTypes = maybe [] getArgs thingType
+        insertText
+          | [] <- argTypes = label
+          | otherwise = label <> " " <> argText
+        argText :: T.Text
+        argText =  mconcat $ List.intersperse " " $ zipWith snippet [1..] argTypes
+        snippet :: Int -> Type -> T.Text
+        snippet i t = T.pack $ "${" <> show i <> ":" <> showGhc t <> "}"
+        typeText
+          | Just t <- thingType = Just $ T.pack (showGhc t)
+          | otherwise = Nothing
+        getArgs :: Type -> [Type]
+        getArgs t
+          | isPredTy t = []
+          | isDictTy t = []
+          | isForAllTy t = getArgs $ snd (splitForAllTys t)
+          | isFunTy t =
+            let (args, ret) = splitFunTys t
+              in if isForAllTy ret
+                  then getArgs ret
+                  else filter (not . isDictTy) args
+          | isPiTy t = getArgs $ snd (splitPiTys t)
+          | isCoercionTy t = maybe [] (getArgs . snd) (splitCoercionType_maybe t)
+          | otherwise = [t]
 
 mkModCompl :: T.Text -> J.CompletionItem
 mkModCompl label =
@@ -171,7 +197,7 @@ instance ModuleCache CachedCompletions where
         toplevelVars = mapMaybe safeTyThingId $ typeEnvElts typeEnv
         varToCompl var = CI name (showModName curMod) typ label
           where
-            typ = Just $ T.pack $ showGhc $ varType var
+            typ = Just $ varType var
             name = Var.varName var
             label = T.pack $ showGhc name
 
@@ -245,8 +271,8 @@ instance ModuleCache CachedCompletions where
             let typ = do
                   t <- mt
                   tyid <- safeTyThingId t
-                  return $ T.pack $ showGhc $ varType tyid
-            return $ ci {thingType = typ}
+                  return $ varType tyid
+            return $ ci { thingType = typ }
 
     hscEnvRef <- ghcSession <$> readMTS
     hscEnv <- liftIO $ traverse readIORef hscEnvRef
@@ -261,8 +287,11 @@ instance ModuleCache CachedCompletions where
       , importableModules = moduleNames
       }
 
-getCompletions :: Uri -> PosPrefixInfo -> IdeDeferM (IdeResult [J.CompletionItem])
-getCompletions uri prefixInfo = pluginGetFile "getCompletions: " uri $ \file -> do
+newtype WithSnippets = WithSnippets Bool
+
+-- | Returns the cached completions for the given module and position.
+getCompletions :: Uri -> PosPrefixInfo -> WithSnippets -> IdeDeferM (IdeResult [J.CompletionItem])
+getCompletions uri prefixInfo (WithSnippets withSnippets) = pluginGetFile "getCompletions: " uri $ \file -> do
   let PosPrefixInfo {fullLine, prefixModule, prefixText} = prefixInfo
   debugm $ "got prefix" ++ show (prefixModule, prefixText)
   let enteredQual = if T.null prefixModule then "" else prefixModule <> "."
@@ -290,7 +319,11 @@ getCompletions uri prefixInfo = pluginGetFile "getCompletions: " uri $ \file -> 
     in return $ IdeResultOk $
       if "import " `T.isPrefixOf` fullLine
       then filtImportCompls
-      else filtModNameCompls ++ map mkCompl filtCompls
+      else filtModNameCompls ++ map (toggleSnippets . mkCompl) filtCompls
+  where toggleSnippets x
+          | withSnippets = x
+          | otherwise = x { J._insertTextFormat = Just J.PlainText
+                          , J._insertText = Nothing }
 
 -- ---------------------------------------------------------------------
 

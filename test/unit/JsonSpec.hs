@@ -101,4 +101,4 @@ instance Arbitrary Position where
     return $ Position l c
 
 instance Arbitrary Config where
-  arbitrary = Config <$> arbitrary <*> arbitrary <*> arbitrary
+  arbitrary = Config <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
