@@ -313,6 +313,7 @@ in
 * Paste in these settings. Make sure to change the command path to your `hie`
 
 ```
+{
 "clients": {
   "haskell-ide-engine": {
     "command": ["hie"],
@@ -321,6 +322,7 @@ in
     "languageId": "haskell",
   },
 },
+}
 ```
 
 Now open a haskell project with Sublime Text. You should have these features available to you:
