@@ -4,6 +4,7 @@ packages:
 - hie-plugin-api
 
 extra-deps:
+- ./submodules/brittany
 - ./submodules/HaRe
 - ./submodules/ghc-mod
 - ./submodules/ghc-mod/core
@@ -13,13 +14,13 @@ extra-deps:
 # - apply-refact-0.5.0.0
 - base-compat-0.9.3
 - base-orphans-0.7
-- brittany-0.11.0.0
+# - brittany-0.11.0.0
 - cabal-helper-0.8.1.0@rev:0
 - cabal-plan-0.3.0.0
 - constrained-dynamic-0.1.0.0
 - ekg-0.4.0.15
 - ekg-json-0.1.0.6
-- ghc-exactprint-0.5.6.1
+- ghc-exactprint-0.5.7.1
 - haddock-api-2.20.0
 - hsimport-0.8.6
 - monad-memo-0.4.1

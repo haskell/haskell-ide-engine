@@ -4,13 +4,14 @@ packages:
 - hie-plugin-api
 
 extra-deps:
+- ./submodules/brittany
 - ./submodules/HaRe
 - ./submodules/ghc-mod
 - ./submodules/ghc-mod/core
 - ./submodules/haskell-lsp
 - ./submodules/haskell-lsp/haskell-lsp-types
 - base-compat-0.9.3
-- brittany-0.11.0.0
+# - brittany-0.11.0.0
 - cabal-helper-0.8.1.0@rev:0
 - cabal-plan-0.3.0.0
 - constrained-dynamic-0.1.0.0

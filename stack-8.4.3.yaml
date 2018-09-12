@@ -4,6 +4,7 @@ packages:
 - hie-plugin-api
 
 extra-deps:
+- ./submodules/brittany
 - ./submodules/HaRe
 - ./submodules/ghc-mod
 - ./submodules/ghc-mod/core
