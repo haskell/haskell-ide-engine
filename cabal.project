@@ -2,9 +2,9 @@ packages:
          ./
          ./hie-plugin-api/
 
+         ./submodules/brittany
          ./submodules/HaRe
          ./submodules/ghc-mod/
          ./submodules/ghc-mod/core/
          ./submodules/haskell-lsp/
          ./submodules/haskell-lsp/haskell-lsp-types
-

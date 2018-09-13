@@ -1,7 +1,7 @@
 [submodule "submodules/HaRe"]
 	path = submodules/HaRe
-	url = https://github.com/bubba/HaRe.git
-	# url = https://github.com/alanz/HaRe.git
+	# url = https://github.com/bubba/HaRe.git
+	url = https://github.com/alanz/HaRe.git
 
 [submodule "submodules/cabal-helper"]
 	path = submodules/cabal-helper
@@ -10,8 +10,8 @@
 
 [submodule "submodules/ghc-mod"]
 	path = submodules/ghc-mod
-	url = https://github.com/bubba/ghc-mod.git
-	# url = https://github.com/alanz/ghc-mod.git
+	# url = https://github.com/bubba/ghc-mod.git
+	url = https://github.com/alanz/ghc-mod.git
 
 
 [submodule "submodules/yi-rope"]
@@ -21,6 +21,10 @@
 [submodule "submodules/haskell-lsp"]
 	path = submodules/haskell-lsp
 	url = https://github.com/alanz/haskell-lsp.git
+
 [submodule "submodules/haskell-lsp-test"]
 	path = submodules/haskell-lsp-test
 	url = https://github.com/Bubba/haskell-lsp-test.git
+[submodule "submodules/brittany"]
+	path = submodules/brittany
+	url = https://github.com/alanz/brittany.git
