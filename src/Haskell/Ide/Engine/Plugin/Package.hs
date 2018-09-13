@@ -35,7 +35,8 @@ import qualified Haskell.Ide.Engine.Plugin.Package.Compat as L
 #endif
 import           Distribution.Types.Dependency
 import           Distribution.Types.PackageName
-import qualified Language.Haskell.LSP.Types    as J
+import qualified Language.Haskell.LSP.Types      as J
+import qualified Language.Haskell.LSP.Types.Lens as J
 import           Distribution.Verbosity
 import           System.FilePath
 #if MIN_VERSION_filepath(1,4,2)

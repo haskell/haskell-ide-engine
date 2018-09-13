@@ -7,6 +7,7 @@ import qualified Data.Text as T
 import Data.Char
 import Language.Haskell.LSP.Test
 import Language.Haskell.LSP.Types as LSP
+import Language.Haskell.LSP.Types.Lens as LSP
 import Test.Hspec
 import TestUtils
 

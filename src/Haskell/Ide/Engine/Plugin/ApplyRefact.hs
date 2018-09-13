@@ -22,6 +22,7 @@ import           Language.Haskell.Exts.Parser
 import           Language.Haskell.Exts.Extension
 import           Language.Haskell.HLint3           as Hlint
 import qualified Language.Haskell.LSP.Types        as LSP
+import qualified Language.Haskell.LSP.Types.Lens   as LSP
 import           Refact.Apply
 
 -- ---------------------------------------------------------------------

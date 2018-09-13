@@ -6,7 +6,7 @@ import Control.Monad.IO.Class
 import Data.Maybe
 import qualified Data.Text as T
 import Language.Haskell.LSP.Test
-import Language.Haskell.LSP.Types hiding (error, context)
+import Language.Haskell.LSP.Types
 import Test.Hspec
 import TestUtils
 

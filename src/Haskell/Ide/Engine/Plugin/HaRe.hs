@@ -32,6 +32,7 @@ import qualified Haskell.Ide.Engine.Plugin.HieExtras          as Hie
 import           Language.Haskell.GHC.ExactPrint.Print
 import qualified Language.Haskell.LSP.Core                    as Core
 import qualified Language.Haskell.LSP.Types                   as J
+import qualified Language.Haskell.LSP.Types.Lens              as J
 import           Language.Haskell.Refact.API                  hiding (logm)
 import           Language.Haskell.Refact.HaRe
 import           Language.Haskell.Refact.Utils.Monad          hiding (logm)

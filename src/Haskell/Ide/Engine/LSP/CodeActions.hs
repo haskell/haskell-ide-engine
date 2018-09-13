@@ -15,6 +15,7 @@ import Haskell.Ide.Engine.LSP.Reactor
 import Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.Core as Core
 import qualified Language.Haskell.LSP.Types as J
+import qualified Language.Haskell.LSP.Types.Lens as J
 import qualified Language.Haskell.LSP.Types.Capabilities as C
 import Language.Haskell.LSP.VFS
 import Language.Haskell.LSP.Messages

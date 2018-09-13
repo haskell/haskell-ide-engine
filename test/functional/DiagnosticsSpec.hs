@@ -7,7 +7,8 @@ import           Control.Monad.IO.Class
 import qualified Data.Text as T
 import           Haskell.Ide.Engine.MonadFunctions
 import           Language.Haskell.LSP.Test hiding (message)
-import           Language.Haskell.LSP.Types as LSP hiding (contents, error )
+import           Language.Haskell.LSP.Types as LSP
+import           Language.Haskell.LSP.Types.Lens as LSP hiding (contents, error )
 import           Test.Hspec
 import           TestUtils
 import           Utils

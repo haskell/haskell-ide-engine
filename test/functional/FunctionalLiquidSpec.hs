@@ -8,7 +8,8 @@ import           Data.Aeson
 import qualified Data.Text as T
 import           Language.Haskell.LSP.Test hiding (message)
 -- import           Language.Haskell.LSP       as LSP
-import           Language.Haskell.LSP.Types as LSP hiding (contents, error )
+import           Language.Haskell.LSP.Types as LSP
+import           Language.Haskell.LSP.Types.Lens as LSP hiding (contents, error )
 import           Haskell.Ide.Engine.LSP.Config
 import           Test.Hspec
 import           TestUtils

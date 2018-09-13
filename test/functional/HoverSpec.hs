@@ -7,6 +7,7 @@ import Control.Monad.IO.Class
 import qualified Data.Text as T
 import Language.Haskell.LSP.Test
 import Language.Haskell.LSP.Types
+import Language.Haskell.LSP.Types.Lens
 import Test.Hspec
 import TestUtils
 

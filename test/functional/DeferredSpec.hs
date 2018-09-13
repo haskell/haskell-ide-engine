@@ -11,8 +11,9 @@ import Data.Aeson
 import qualified Data.HashMap.Strict as H
 import Data.Maybe
 import Language.Haskell.LSP.Test
-import Language.Haskell.LSP.Types hiding (message)
-import qualified Language.Haskell.LSP.Types as LSP (id)
+import Language.Haskell.LSP.Types
+import Language.Haskell.LSP.Types.Lens hiding (id, message)
+import qualified Language.Haskell.LSP.Types.Lens as LSP
 import Test.Hspec
 import System.Directory
 import System.FilePath
