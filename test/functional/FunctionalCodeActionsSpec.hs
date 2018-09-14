@@ -13,8 +13,8 @@ import           Data.Maybe
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import           Language.Haskell.LSP.Test as Test
-import qualified Language.Haskell.LSP.Types as LSP
-import           Language.Haskell.LSP.Types as LSP hiding (contents, error, message, executeCommand)
+import           Language.Haskell.LSP.Types
+import qualified Language.Haskell.LSP.Types.Lens as L
 import qualified Language.Haskell.LSP.Types.Capabilities as C
 import           Test.Hspec
 import           TestUtils
@@ -29,15 +29,15 @@ spec = describe "code actions" $ do
 
       liftIO $ do
         length diags `shouldBe` 2
-        reduceDiag ^. range `shouldBe` Range (Position 1 0) (Position 1 12)
-        reduceDiag ^. severity `shouldBe` Just DsInfo
-        reduceDiag ^. code `shouldBe` Just "Eta reduce"
-        reduceDiag ^. source `shouldBe` Just "hlint"
+        reduceDiag ^. L.range `shouldBe` Range (Position 1 0) (Position 1 12)
+        reduceDiag ^. L.severity `shouldBe` Just DsInfo
+        reduceDiag ^. L.code `shouldBe` Just "Eta reduce"
+        reduceDiag ^. L.source `shouldBe` Just "hlint"
 
       (CACodeAction ca:_) <- getAllCodeActions doc
 
       -- Evaluate became redundant id in later hlint versions
-      liftIO $ ["Apply hint:Redundant id", "Apply hint:Evaluate"] `shouldContain` [ca ^. title]
+      liftIO $ ["Apply hint:Redundant id", "Apply hint:Evaluate"] `shouldContain` [ca ^. L.title]
 
       executeCodeAction ca
 
@@ -54,7 +54,7 @@ spec = describe "code actions" $ do
       (CACommand cmd:_) <- getAllCodeActions doc
 
       -- Evaluate became redundant id in later hlint versions
-      liftIO $ ["Apply hint:Redundant id", "Apply hint:Evaluate"] `shouldContain` [cmd ^. title ]
+      liftIO $ ["Apply hint:Redundant id", "Apply hint:Evaluate"] `shouldContain` [cmd ^. L.title ]
 
       executeCommand cmd
 
@@ -81,7 +81,7 @@ spec = describe "code actions" $ do
         _ <- waitForDiagnosticsSource "ghcmod"
         
         CACommand cmd <- (!! 2) <$> getAllCodeActions doc
-        let Just (List [Object args]) = cmd ^. arguments
+        let Just (List [Object args]) = cmd ^. L.arguments
             Object editParams = args HM.! "fallbackWorkspaceEdit"
         liftIO $ do
           editParams `shouldSatisfy` HM.member "changes"
@@ -98,20 +98,20 @@ spec = describe "code actions" $ do
 
       -- ignore the first empty hlint diagnostic publish
       [_,diag:_] <- count 2 waitForDiagnostics
-      liftIO $ diag ^. LSP.message `shouldBe` "Variable not in scope: when :: Bool -> IO () -> IO ()"
+      liftIO $ diag ^. L.message `shouldBe` "Variable not in scope: when :: Bool -> IO () -> IO ()"
 
       actionsOrCommands <- getAllCodeActions doc
       let actns = map fromAction actionsOrCommands
 
       liftIO $ do
-        head actns ^. title `shouldBe` "Import module Control.Monad"
+        head actns ^. L.title `shouldBe` "Import module Control.Monad"
         forM_ actns $ \a -> do
-          a ^. kind `shouldBe` Just CodeActionQuickFix
-          a ^. command `shouldSatisfy` isJust
-          a ^. edit `shouldBe` Nothing
+          a ^. L.kind `shouldBe` Just CodeActionQuickFix
+          a ^. L.command `shouldSatisfy` isJust
+          a ^. L.edit `shouldBe` Nothing
           let hasOneDiag (Just (List [_])) = True
               hasOneDiag _ = False
-          a ^. diagnostics `shouldSatisfy` hasOneDiag
+          a ^. L.diagnostics `shouldSatisfy` hasOneDiag
         length actns `shouldBe` 5
 
       executeCodeAction (head actns)
@@ -127,14 +127,14 @@ spec = describe "code actions" $ do
       -- ignore the first empty hlint diagnostic publish
       [_,diag:_] <- count 2 waitForDiagnostics
 
-      liftIO $ diag ^. LSP.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Data.Text’"
+      liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Data.Text’"
 
       (CACodeAction action:_) <- getAllCodeActions doc
 
       liftIO $ do
-        action ^. title `shouldBe` "Add text as a dependency"
-        action ^. kind `shouldBe` Just CodeActionQuickFix
-        action ^. command . _Just . command `shouldSatisfy` T.isSuffixOf "package:add"
+        action ^. L.title `shouldBe` "Add text as a dependency"
+        action ^. L.kind `shouldBe` Just CodeActionQuickFix
+        action ^. L.command . _Just . L.command `shouldSatisfy` T.isSuffixOf "package:add"
 
       executeCodeAction action
 
@@ -148,16 +148,16 @@ spec = describe "code actions" $ do
         -- ignore the first empty hlint diagnostic publish
         [_,diag:_] <- count 2 waitForDiagnostics
 
-        liftIO $ diag ^. LSP.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Codec.Compression.GZip’"
+        liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Codec.Compression.GZip’"
 
         mActions <- getAllCodeActions doc
         let allActions = map fromAction mActions
             action = head allActions
 
         liftIO $ do
-          action ^. title `shouldBe` "Add zlib as a dependency"
-          forM_ allActions $ \a -> a ^. kind `shouldBe` Just CodeActionQuickFix
-          forM_ allActions $ \a -> a ^. command . _Just . command `shouldSatisfy` T.isSuffixOf "package:add"
+          action ^. L.title `shouldBe` "Add zlib as a dependency"
+          forM_ allActions $ \a -> a ^. L.kind `shouldBe` Just CodeActionQuickFix
+          forM_ allActions $ \a -> a ^. L.command . _Just . L.command `shouldSatisfy` T.isSuffixOf "package:add"
 
         executeCodeAction action
 
@@ -175,18 +175,18 @@ spec = describe "code actions" $ do
         -- ignore the first empty hlint diagnostic publish
         [_,diag:_] <- count 2 waitForDiagnostics
 
-        liftIO $ diag ^. LSP.message `shouldSatisfy` T.isPrefixOf "The import of ‘Data.List’ is redundant"
+        liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "The import of ‘Data.List’ is redundant"
 
         mActions <- getAllCodeActions doc
 
         let allActions@[removeAction, changeAction] = map fromAction mActions
 
         liftIO $ do
-          removeAction ^. title `shouldBe` "Remove redundant import"
-          changeAction ^. title `shouldBe` "Import instances"
-          forM_ allActions $ \a -> a ^. kind `shouldBe` Just CodeActionQuickFix
-          forM_ allActions $ \a -> a ^. command `shouldBe` Nothing
-          forM_ allActions $ \a -> a ^. edit `shouldSatisfy` isJust
+          removeAction ^. L.title `shouldBe` "Remove redundant import"
+          changeAction ^. L.title `shouldBe` "Import instances"
+          forM_ allActions $ \a -> a ^. L.kind `shouldBe` Just CodeActionQuickFix
+          forM_ allActions $ \a -> a ^. L.command `shouldBe` Nothing
+          forM_ allActions $ \a -> a ^. L.edit `shouldSatisfy` isJust
 
         executeCodeAction removeAction
 
@@ -221,14 +221,14 @@ spec = describe "code actions" $ do
 
           suggestion <-
             if ghc84 then do
-              liftIO $ map (^. title) cas `shouldMatchList`
+              liftIO $ map (^. L.title) cas `shouldMatchList`
                 [ "Substitute hole (Int) with maxBound (forall a. Bounded a => a)"
                 , "Substitute hole (Int) with minBound (forall a. Bounded a => a)"
                 , "Substitute hole (Int) with undefined (forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a)"
                 ]
               return "maxBound"
             else do
-              liftIO $ map (^. title) cas `shouldMatchList`
+              liftIO $ map (^. L.title) cas `shouldMatchList`
                 [ "Substitute hole (Int) with x ([Int])"
                 , "Substitute hole (Int) with foo ([Int] -> Int)"
                 ]
@@ -251,7 +251,7 @@ spec = describe "code actions" $ do
 
           suggestion <-
             if ghc84 then do
-              liftIO $ map (^. title) cas `shouldMatchList`
+              liftIO $ map (^. L.title) cas `shouldMatchList`
                 [ "Substitute hole (A) with undefined (forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a)"
                 , "Substitute hole (A) with stuff (A -> A)"
                 , "Substitute hole (A) with x ([A])"
@@ -259,7 +259,7 @@ spec = describe "code actions" $ do
                 ]
               return "undefined"
           else do
-              liftIO $ map (^. title) cas `shouldMatchList`
+              liftIO $ map (^. L.title) cas `shouldMatchList`
                 [ "Substitute hole (A) with stuff (A -> A)"
                 , "Substitute hole (A) with x ([A])"
                 , "Substitute hole (A) with foo2 ([A] -> A)"
@@ -286,7 +286,7 @@ spec = describe "code actions" $ do
         _ <- waitForDiagnosticsSource "ghcmod"
         cas <- map fromAction <$> getAllCodeActions doc
 
-        liftIO $ map (^. title) cas `shouldContain` [ "Add signature: main :: IO ()"]
+        liftIO $ map (^. L.title) cas `shouldContain` [ "Add signature: main :: IO ()"]
 
         executeCodeAction $ head cas
 

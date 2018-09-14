@@ -4,6 +4,7 @@ import Control.Lens
 import Control.Monad.IO.Class
 import Language.Haskell.LSP.Test
 import Language.Haskell.LSP.Types
+import Language.Haskell.LSP.Types.Lens
 import System.Directory
 import Test.Hspec
 import TestUtils

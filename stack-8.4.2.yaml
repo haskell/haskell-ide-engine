@@ -20,7 +20,7 @@ extra-deps:
 - haddock-library-1.6.0
 - hlint-2.1.8
 - hsimport-0.8.6
-- lsp-test-0.3.0.0
+- lsp-test-0.4.0.0
 - syz-0.2.0.0
 - temporary-1.2.1.1
 - yaml-0.8.32

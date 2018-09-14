@@ -17,8 +17,9 @@ module Haskell.Ide.Engine.Plugin.HieExtras
   ) where
 
 import           ConLike
-import           Control.Lens.Setter                          ( (?~) )
-import           Control.Monad.State
+import           Control.Lens.Operators                       ( (^?), (?~) )
+import           Control.Lens.Prism                           ( _Just )
+import           Control.Monad.Reader
 import           Data.Aeson
 import           Data.IORef
 import qualified Data.List                                    as List
@@ -41,6 +42,7 @@ import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Plugin.Fuzzy              as Fuzzy
 import           HscTypes
 import qualified Language.Haskell.LSP.Types                   as J
+import qualified Language.Haskell.LSP.Types.Lens              as J
 import           Language.Haskell.Refact.API                 (showGhc)
 import           Language.Haskell.Refact.Utils.MonadFunctions
 import           Name
@@ -291,7 +293,17 @@ newtype WithSnippets = WithSnippets Bool
 -- | Returns the cached completions for the given module and position.
 getCompletions :: Uri -> PosPrefixInfo -> WithSnippets -> IdeDeferM (IdeResult [J.CompletionItem])
 getCompletions uri prefixInfo (WithSnippets withSnippets) = pluginGetFile "getCompletions: " uri $ \file -> do
-  let PosPrefixInfo {fullLine, prefixModule, prefixText} = prefixInfo
+  supportsSnippets <- fromMaybe False <$> asks (^? J.textDocument
+                                                . _Just . J.completion
+                                                . _Just . J.completionItem
+                                                . _Just . J.snippetSupport
+                                                . _Just)
+  let toggleSnippets x
+        | withSnippets && supportsSnippets = x
+        | otherwise = x { J._insertTextFormat = Just J.PlainText
+                        , J._insertText = Nothing }
+
+      PosPrefixInfo {fullLine, prefixModule, prefixText} = prefixInfo
   debugm $ "got prefix" ++ show (prefixModule, prefixText)
   let enteredQual = if T.null prefixModule then "" else prefixModule <> "."
       fullPrefix = enteredQual <> prefixText
@@ -319,10 +331,6 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) = pluginGetFile "getCo
       if "import " `T.isPrefixOf` fullLine
       then filtImportCompls
       else filtModNameCompls ++ map (toggleSnippets . mkCompl) filtCompls
-  where toggleSnippets x
-          | withSnippets = x
-          | otherwise = x { J._insertTextFormat = Just J.PlainText
-                          , J._insertText = Nothing }
 
 -- ---------------------------------------------------------------------
 

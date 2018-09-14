@@ -3,7 +3,7 @@ module RenameSpec where
 
 import Control.Monad.IO.Class
 import Language.Haskell.LSP.Test
-import Language.Haskell.LSP.Types hiding (rename)
+import Language.Haskell.LSP.Types
 import Test.Hspec
 import TestUtils
 

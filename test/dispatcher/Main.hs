@@ -21,7 +21,7 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Types
-import           Language.Haskell.LSP.Types hiding (error)
+import           Language.Haskell.LSP.Types
 import           TestUtils
 import           System.Directory
 import           System.FilePath

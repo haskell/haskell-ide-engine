@@ -65,7 +65,7 @@ library
                      , gitrev >= 1.1
                      , haddock-api
                      , haddock-library
-                     , haskell-lsp >= 0.5
+                     , haskell-lsp >= 0.8
                      , haskell-src-exts
                      , hie-plugin-api
                      , hlint >= 2.0.11
@@ -271,7 +271,7 @@ test-suite func-test
                      , data-default
                      , directory
                      , filepath
-                     , lsp-test >= 0.3.0
+                     , lsp-test == 0.4.*
                      , haskell-ide-engine
                      -- , hie-test-utils
                      , hie-plugin-api

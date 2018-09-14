@@ -43,6 +43,7 @@ import           Haskell.Ide.Engine.Plugin.HaRe (HarePoint(..))
 import qualified Haskell.Ide.Engine.Plugin.HieExtras as Hie
 import           Haskell.Ide.Engine.ArtifactMap
 import qualified Language.Haskell.LSP.Types        as LSP
+import qualified Language.Haskell.LSP.Types.Lens   as LSP
 import           Language.Haskell.Refact.API       (hsNamessRdr)
 
 import           DynFlags

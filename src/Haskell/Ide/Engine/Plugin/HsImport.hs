@@ -17,7 +17,8 @@ import qualified GHC.Generics                  as Generics
 import qualified GhcMod.Utils                  as GM
 import           HsImport
 import           Haskell.Ide.Engine.MonadTypes
-import qualified Language.Haskell.LSP.Types    as J
+import qualified Language.Haskell.LSP.Types      as J
+import qualified Language.Haskell.LSP.Types.Lens as J
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Plugin.Hoogle as Hoogle
 import           System.Directory

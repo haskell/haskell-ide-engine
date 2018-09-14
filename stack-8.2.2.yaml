@@ -21,7 +21,7 @@ extra-deps:
 - haddock-api-2.18.1
 - haddock-library-1.4.4
 - hsimport-0.8.6
-- lsp-test-0.3.0.0
+- lsp-test-0.4.0.0
 - sorted-list-0.2.1.0
 - syz-0.2.0.0
 
