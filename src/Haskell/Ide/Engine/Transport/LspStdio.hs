@@ -32,7 +32,6 @@ import           Data.Char (isUpper, isAlphaNum)
 import           Data.Coerce (coerce)
 import           Data.Default
 import           Data.Maybe
-import           Data.Monoid ( (<>) )
 import           Data.Foldable
 import           Data.Function
 import qualified Data.Map as Map
