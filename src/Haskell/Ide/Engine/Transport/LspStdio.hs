@@ -18,6 +18,7 @@ import           Control.Concurrent
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM.TChan
 import           Control.Concurrent.STM.TVar
+import qualified Control.FoldDebounce as Debounce
 import qualified Control.Exception as E
 import           Control.Lens ( (^.), (.~) )
 import           Control.Monad
@@ -89,6 +90,13 @@ lspStdioTransport hieDispatcherProc cin origDir plugins captureFp = do
 
 -- ---------------------------------------------------------------------
 
+-- | Represents the most recent occurance of a certin event. We use this
+-- to diagnostics requests and only dispatch the most recent one.
+newtype MostRecent a = MostRecent a
+
+instance Semigroup (MostRecent a) where
+  _ <> b = b
+
 run
   :: (DispatcherEnv -> ErrorHandler -> CallbackHandler R -> ClientCapabilities -> IO ())
   -> TChan (PluginRequest R)
@@ -98,33 +106,50 @@ run
   -> IO Int
 run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
 
-  rin <- atomically newTChan :: IO (TChan ReactorInput)
+  rin        <- atomically newTChan :: IO (TChan ReactorInput)
   commandIds <- allLspCmdIds plugins
 
   let dp lf = do
         cancelTVar  <- atomically $ newTVar S.empty
         wipTVar     <- atomically $ newTVar S.empty
         versionTVar <- atomically $ newTVar Map.empty
+        diagIn      <- atomically newTChan
         let dEnv = DispatcherEnv
               { cancelReqsTVar = cancelTVar
               , wipReqsTVar    = wipTVar
               , docVersionTVar = versionTVar
               }
-        let reactorFunc = runReactor lf dEnv cin diagnosticProviders hps sps
-              $ reactor rin
+        let react = runReactor lf dEnv cin diagIn diagnosticProviders hps sps
+        let reactorFunc = react $ reactor rin
             caps = Core.clientCapabilities lf
 
         let errorHandler :: ErrorHandler
             errorHandler lid code e =
               Core.sendErrorResponseS (Core.sendFunc lf) (J.responseId lid) code e
             callbackHandler :: CallbackHandler R
-            callbackHandler f x = runReactor lf dEnv cin diagnosticProviders hps sps $ f x
+            callbackHandler f x = react $ f x
 
+        -- This is the callback the debouncer executes at the end of the timeout,
+        -- it executes the diagnostics for the most recent request.
+        let dispatchDiagnostics :: Maybe (MostRecent DiagnosticsRequest) -> R ()
+            dispatchDiagnostics Nothing = pure ()
+            dispatchDiagnostics (Just (MostRecent req)) = performDiagnostics req
+
+        -- Debounces messages published to the diagnostics channel.
+        let diagnosticsQueue tr = forever $ do
+              inval <- liftIO $ atomically $ readTChan diagIn
+              Debounce.send tr (Just $ MostRecent inval)
+
+        tr <- Debounce.new
+          (Debounce.forMonoid $ react . dispatchDiagnostics)
+          (Debounce.def { Debounce.delay = 350000, Debounce.alwaysResetTimer = True })
 
         -- haskell lsp sets the current directory to the project root in the InitializeRequest
-        -- We launch the dispatcher after that so that the defualt cradle is
+        -- We launch the dispatcher after that so that the default cradle is
         -- recognized properly by ghc-mod
-        _ <- forkIO $ race_ (dispatcherProc dEnv errorHandler callbackHandler caps) reactorFunc
+        _ <- forkIO $ dispatcherProc dEnv errorHandler callbackHandler caps
+                    `race_` reactorFunc
+                    `race_` diagnosticsQueue tr
         return Nothing
 
       diagnosticProviders :: Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
@@ -397,7 +422,8 @@ reactor inp = do
               uri = td ^. J.uri
               ver = Just $ td ^. J.version
           mapFileFromVfs tn $ J.VersionedTextDocumentIdentifier uri ver
-          requestDiagnostics DiagnosticOnOpen tn uri ver
+          -- We want to execute diagnostics for a newly opened file as soon as possible
+          performDiagnostics $ DiagnosticsRequest DiagnosticOnOpen tn uri ver
 
         -- -------------------------------
 
@@ -432,6 +458,7 @@ reactor inp = do
           makeRequest $ GReq tn (Just uri) Nothing Nothing (const $ return ()) $
             -- Important - Call this before requestDiagnostics
             updatePositionMap uri changes
+
           requestDiagnostics DiagnosticOnChange tn uri ver
 
         NotDidCloseTextDocument notification -> do
@@ -691,7 +718,7 @@ reactor inp = do
                           name = ds ^. J.name
                           si = J.SymbolInformation name (ds ^. J.kind) (ds ^. J.deprecated) loc parent
                       in [si] <> children
-                        
+
               callback = reactorSend . RspDocumentSymbols . Core.makeResponseMessage req . convertSymbols . concat
           let hreq = IReq tn (req ^. J.id) callback (sequence <$> mapM (\f -> f uri) sps)
           makeRequest hreq
@@ -731,8 +758,18 @@ reactor inp = do
 
 -- ---------------------------------------------------------------------
 
+-- | Queue a diagnostics request to be performed after a timeout. This prevents recompiling
+-- too often when there is a quick stream of changes.
 requestDiagnostics :: DiagnosticTrigger -> TrackingNumber -> J.Uri -> J.TextDocumentVersion -> R ()
-requestDiagnostics trigger tn file mVer = do
+requestDiagnostics dt tn uri mVer= do
+  dIn <- asks diagnosticsChan
+  liftIO $ atomically $ writeTChan dIn (DiagnosticsRequest dt tn uri mVer)
+
+
+-- | Actually compile the file and perform diagnostics and then send the diagnostics
+-- results back to the client
+performDiagnostics :: DiagnosticsRequest -> R ()
+performDiagnostics (DiagnosticsRequest trigger tn file mVer) = do
   when (S.member trigger (S.fromList [DiagnosticOnChange,DiagnosticOnOpen])) $
     requestDiagnosticsNormal tn file mVer
 
