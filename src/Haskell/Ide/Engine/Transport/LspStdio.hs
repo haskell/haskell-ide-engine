@@ -29,12 +29,14 @@ import qualified Data.Aeson as J
 import           Data.Aeson ( (.=) )
 import qualified Data.ByteString.Lazy as BL
 import           Data.Char (isUpper, isAlphaNum)
+import           Data.Coerce (coerce)
 import           Data.Default
 import           Data.Maybe
 import           Data.Monoid ( (<>) )
 import           Data.Foldable
 import           Data.Function
 import qualified Data.Map as Map
+import           Data.Semigroup (Semigroup(..), Option(..), option)
 import qualified Data.Set as S
 import qualified Data.SortedList as SL
 import qualified Data.Text as T
@@ -131,14 +133,13 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
 
         -- This is the callback the debouncer executes at the end of the timeout,
         -- it executes the diagnostics for the most recent request.
-        let dispatchDiagnostics :: Maybe (MostRecent DiagnosticsRequest) -> R ()
-            dispatchDiagnostics Nothing = pure ()
-            dispatchDiagnostics (Just (MostRecent req)) = performDiagnostics req
+        let dispatchDiagnostics :: Option (MostRecent DiagnosticsRequest) -> R ()
+            dispatchDiagnostics req = option (pure ()) (performDiagnostics . coerce) req
 
         -- Debounces messages published to the diagnostics channel.
         let diagnosticsQueue tr = forever $ do
               inval <- liftIO $ atomically $ readTChan diagIn
-              Debounce.send tr (Just $ MostRecent inval)
+              Debounce.send tr (coerce . Just $ MostRecent inval)
 
         tr <- Debounce.new
           (Debounce.forMonoid $ react . dispatchDiagnostics)
