@@ -9,7 +9,6 @@ module Haskell.Ide.Engine.LSP.Reactor
   , makeRequests
   , asksLspFuncs
   , REnv(..)
-  , DiagnosticsRequest(..)
   )
 where
 
@@ -26,25 +25,9 @@ import           Haskell.Ide.Engine.LSP.Config
 import           Haskell.Ide.Engine.PluginsIdeMonads
 import           Haskell.Ide.Engine.Types
 
--- | A request to compile a run diagnostics on a file
-data DiagnosticsRequest = DiagnosticsRequest
-  { diagTrigger         :: DiagnosticTrigger
-    -- ^ The type of event that is triggering the diagnostics
-
-  , diagTrackingNumber  :: TrackingNumber
-    -- ^ The tracking identifier for this request
-
-  , diagFileUri         :: J.Uri
-    -- ^ The file that was change and needs to be checked
-
-  , diagDocumentVersion :: J.TextDocumentVersion
-    -- ^ The current version of the document at the time of this request
-  }
-
 data REnv = REnv
   { dispatcherEnv     :: DispatcherEnv
   , reqChanIn         :: TChan (PluginRequest R)
-  , diagnosticsChan   :: TChan DiagnosticsRequest
   , lspFuncs          :: Core.LspFuncs Config
   , reactorPidCache   :: Int
   , diagnosticSources :: Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
@@ -65,15 +48,14 @@ runReactor
   :: Core.LspFuncs Config
   -> DispatcherEnv
   -> TChan (PluginRequest R)
-  -> TChan DiagnosticsRequest
   -> Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
   -> [HoverProvider]
   -> [SymbolProvider]
   -> R a
   -> IO a
-runReactor lf de cin diagIn dps hps sps f = do
+runReactor lf de cin dps hps sps f = do
   pid <- getProcessID
-  runReaderT f (REnv de cin diagIn lf pid dps hps sps)
+  runReaderT f (REnv de cin lf pid dps hps sps)
 
 -- ---------------------------------------------------------------------
 

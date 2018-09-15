@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NamedFieldPuns            #-}
 {-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
@@ -91,6 +92,21 @@ lspStdioTransport hieDispatcherProc cin origDir plugins captureFp = do
 
 -- ---------------------------------------------------------------------
 
+-- | A request to compile a run diagnostics on a file
+data DiagnosticsRequest = DiagnosticsRequest
+  { trigger         :: DiagnosticTrigger
+    -- ^ The type of event that is triggering the diagnostics
+
+  , trackingNumber  :: TrackingNumber
+    -- ^ The tracking identifier for this request
+
+  , file         :: J.Uri
+    -- ^ The file that was change and needs to be checked
+
+  , documentVersion :: J.TextDocumentVersion
+    -- ^ The current version of the document at the time of this request
+  }
+
 -- | Represents the most recent occurance of a certin event. We use this
 -- to diagnostics requests and only dispatch the most recent one.
 newtype MostRecent a = MostRecent a
@@ -120,8 +136,8 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
               , wipReqsTVar    = wipTVar
               , docVersionTVar = versionTVar
               }
-        let react = runReactor lf dEnv cin diagIn diagnosticProviders hps sps
-        let reactorFunc = react $ reactor rin
+        let react = runReactor lf dEnv cin diagnosticProviders hps sps
+        let reactorFunc = react $ reactor rin diagIn
             caps = Core.clientCapabilities lf
 
         let errorHandler :: ErrorHandler
@@ -141,7 +157,7 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
               Debounce.send tr (coerce . Just $ MostRecent inval)
 
         tr <- Debounce.new -- Debounce for 350ms
-          (Debounce.forMonoid $ react . dispatchDiagnostics)
+          (Debounce.forMonoid $ dispatchDiagnostics)
           (Debounce.def { Debounce.delay = 350000, Debounce.alwaysResetTimer = True })
 
         -- haskell lsp sets the current directory to the project root in the InitializeRequest
@@ -327,8 +343,8 @@ sendErrorLog msg = reactorSend' (`Core.sendErrorLogS` msg)
 -- | The single point that all events flow through, allowing management of state
 -- to stitch replies and requests together from the two asynchronous sides: lsp
 -- server and hie dispatcher
-reactor :: forall void. TChan ReactorInput -> R void
-reactor inp = do
+reactor :: forall void. TChan ReactorInput -> TChan DiagnosticsRequest -> R void
+reactor inp diagIn = do
   -- forever $ do
   let
     loop :: TrackingNumber -> R void
@@ -444,7 +460,7 @@ reactor inp = do
               -- ver = Just $ td ^. J.version
               ver = Nothing
           mapFileFromVfs tn $ J.VersionedTextDocumentIdentifier uri ver
-          queueDiagnosticsRequest DiagnosticOnSave tn uri ver
+          queueDiagnosticsRequest diagIn DiagnosticOnSave tn uri ver
 
         NotDidChangeTextDocument notification -> do
           liftIO $ U.logm "****** reactor: processing NotDidChangeTextDocument"
@@ -459,7 +475,7 @@ reactor inp = do
             -- Important - Call this before requestDiagnostics
             updatePositionMap uri changes
 
-          queueDiagnosticsRequest DiagnosticOnChange tn uri ver
+          queueDiagnosticsRequest diagIn DiagnosticOnChange tn uri ver
 
         NotDidCloseTextDocument notification -> do
           liftIO $ U.logm "****** reactor: processing NotDidCloseTextDocument"
@@ -760,18 +776,23 @@ reactor inp = do
 
 -- | Queue a diagnostics request to be performed after a timeout. This prevents recompiling
 -- too often when there is a quick stream of changes.
-queueDiagnosticsRequest :: DiagnosticTrigger -> TrackingNumber -> J.Uri -> J.TextDocumentVersion -> R ()
-queueDiagnosticsRequest dt tn uri mVer= do
-  dIn <- asks diagnosticsChan
-  liftIO $ atomically $ writeTChan dIn (DiagnosticsRequest dt tn uri mVer)
+queueDiagnosticsRequest
+  :: TChan DiagnosticsRequest -- ^ The channel to publish the diagnostics requests to
+  -> DiagnosticTrigger
+  -> TrackingNumber
+  -> J.Uri
+  -> J.TextDocumentVersion
+  -> IO ()
+queueDiagnosticsRequest diagIn dt tn uri mVer =
+  liftIO $ atomically $ writeTChan diagIn (DiagnosticsRequest dt tn uri mVer)
 
 
 -- | Actually compile the file and perform diagnostics and then send the diagnostics
 -- results back to the client
 requestDiagnostics :: DiagnosticsRequest -> R ()
-requestDiagnostics (DiagnosticsRequest trigger tn file mVer) = do
+requestDiagnostics DiagnosticsRequest{trigger, file, trackingNumber, documentVersion} = do
   when (S.member trigger (S.fromList [DiagnosticOnChange,DiagnosticOnOpen])) $
-    requestDiagnosticsNormal tn file mVer
+    requestDiagnosticsNormal trackingNumber file documentVersion
 
   diagFuncs <- asks diagnosticSources
   lf <- asks lspFuncs
@@ -800,17 +821,17 @@ requestDiagnostics (DiagnosticsRequest trigger tn file mVer) = do
             logm "LspStdio.sendempty"
             publishDiagnosticsIO maxToSend file Nothing (Map.fromList [(Just pid,SL.toSortedList [])])
 
-          -- fv = case mVer of
+          -- fv = case documentVersion of
           --   Nothing -> Nothing
           --   Just v -> Just (file,v)
         -- let fakeId = J.IdString "fake,remove" -- TODO:AZ: IReq should take a Maybe LspId
         let fakeId = J.IdString ("fake,remove:pid=" <> pid) -- TODO:AZ: IReq should take a Maybe LspId
         let reql = case ds of
               DiagnosticProviderSync dps ->
-                IReq tn fakeId callbackl
+                IReq trackingNumber fakeId callbackl
                      $ dps trigger file
               DiagnosticProviderAsync dpa ->
-                IReq tn fakeId pure
+                IReq trackingNumber fakeId pure
                      $ dpa trigger file callbackl
             -- This callback is used in R for the dispatcher normally,
             -- but also in IO if the plugin chooses to spawn an
