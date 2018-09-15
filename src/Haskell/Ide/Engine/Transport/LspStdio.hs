@@ -157,7 +157,7 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
               Debounce.send tr (coerce . Just $ MostRecent inval)
 
         tr <- Debounce.new -- Debounce for 350ms
-          (Debounce.forMonoid $ dispatchDiagnostics)
+          (Debounce.forMonoid $ react . dispatchDiagnostics)
           (Debounce.def { Debounce.delay = 350000, Debounce.alwaysResetTimer = True })
 
         -- haskell lsp sets the current directory to the project root in the InitializeRequest
@@ -782,7 +782,7 @@ queueDiagnosticsRequest
   -> TrackingNumber
   -> J.Uri
   -> J.TextDocumentVersion
-  -> IO ()
+  -> R ()
 queueDiagnosticsRequest diagIn dt tn uri mVer =
   liftIO $ atomically $ writeTChan diagIn (DiagnosticsRequest dt tn uri mVer)
 
