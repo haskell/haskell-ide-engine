@@ -134,14 +134,14 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
         -- This is the callback the debouncer executes at the end of the timeout,
         -- it executes the diagnostics for the most recent request.
         let dispatchDiagnostics :: Option (MostRecent DiagnosticsRequest) -> R ()
-            dispatchDiagnostics req = option (pure ()) (performDiagnostics . coerce) req
+            dispatchDiagnostics req = option (pure ()) (requestDiagnostics . coerce) req
 
         -- Debounces messages published to the diagnostics channel.
         let diagnosticsQueue tr = forever $ do
               inval <- liftIO $ atomically $ readTChan diagIn
               Debounce.send tr (coerce . Just $ MostRecent inval)
 
-        tr <- Debounce.new
+        tr <- Debounce.new -- Debounce for 350ms
           (Debounce.forMonoid $ react . dispatchDiagnostics)
           (Debounce.def { Debounce.delay = 350000, Debounce.alwaysResetTimer = True })
 
@@ -424,7 +424,7 @@ reactor inp = do
               ver = Just $ td ^. J.version
           mapFileFromVfs tn $ J.VersionedTextDocumentIdentifier uri ver
           -- We want to execute diagnostics for a newly opened file as soon as possible
-          performDiagnostics $ DiagnosticsRequest DiagnosticOnOpen tn uri ver
+          requestDiagnostics $ DiagnosticsRequest DiagnosticOnOpen tn uri ver
 
         -- -------------------------------
 
@@ -445,7 +445,7 @@ reactor inp = do
               -- ver = Just $ td ^. J.version
               ver = Nothing
           mapFileFromVfs tn $ J.VersionedTextDocumentIdentifier uri ver
-          requestDiagnostics DiagnosticOnSave tn uri ver
+          queueDiagnosticsRequest DiagnosticOnSave tn uri ver
 
         NotDidChangeTextDocument notification -> do
           liftIO $ U.logm "****** reactor: processing NotDidChangeTextDocument"
@@ -460,7 +460,7 @@ reactor inp = do
             -- Important - Call this before requestDiagnostics
             updatePositionMap uri changes
 
-          requestDiagnostics DiagnosticOnChange tn uri ver
+          queueDiagnosticsRequest DiagnosticOnChange tn uri ver
 
         NotDidCloseTextDocument notification -> do
           liftIO $ U.logm "****** reactor: processing NotDidCloseTextDocument"
@@ -761,16 +761,16 @@ reactor inp = do
 
 -- | Queue a diagnostics request to be performed after a timeout. This prevents recompiling
 -- too often when there is a quick stream of changes.
-requestDiagnostics :: DiagnosticTrigger -> TrackingNumber -> J.Uri -> J.TextDocumentVersion -> R ()
-requestDiagnostics dt tn uri mVer= do
+queueDiagnosticsRequest :: DiagnosticTrigger -> TrackingNumber -> J.Uri -> J.TextDocumentVersion -> R ()
+queueDiagnosticsRequest dt tn uri mVer= do
   dIn <- asks diagnosticsChan
   liftIO $ atomically $ writeTChan dIn (DiagnosticsRequest dt tn uri mVer)
 
 
 -- | Actually compile the file and perform diagnostics and then send the diagnostics
 -- results back to the client
-performDiagnostics :: DiagnosticsRequest -> R ()
-performDiagnostics (DiagnosticsRequest trigger tn file mVer) = do
+requestDiagnostics :: DiagnosticsRequest -> R ()
+requestDiagnostics (DiagnosticsRequest trigger tn file mVer) = do
   when (S.member trigger (S.fromList [DiagnosticOnChange,DiagnosticOnOpen])) $
     requestDiagnosticsNormal tn file mVer
 
