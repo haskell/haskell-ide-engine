@@ -1,33 +1,28 @@
 sudo: false
-
 language: c
 os: osx
-
 env:
 - GHC_VER=8.4.3
 - GHC_VER=8.2.1
-
 cache:
-- $HOME/.stack
-- $TRAVIS_BUILD_DIR/.stack-work
+  directories:
+  - "$HOME/.stack"
+  - "$TRAVIS_BUILD_DIR/.stack-work"
   timeout: 800
-
 before_install:
-  - mkdir -p ~/.local/bin
-  - travis_retry curl -sSL https://www.stackage.org/stack/${TRAVIS_OS_NAME}-x86_64 | tar xz --strip-components=1 -C ~/.local/bin '*/stack'
-
+- mkdir -p ~/.local/bin
+- travis_retry curl -sSL https://www.stackage.org/stack/${TRAVIS_OS_NAME}-x86_64 |
+  tar xz --strip-components=1 -C ~/.local/bin '*/stack'
 script:
 - stack build --stack-yaml=stack-$GHC_VER.yaml
-
 before_deploy:
 - mv .stack-work/install/*/*/*/bin/hie hie-$GHC_VER
 - mv .stack-work/install/*/*/8.4.3/bin/hie-wrapper hie-wrapper
-
 deploy:
   provider: releases
   skip_cleanup: true
   api_key:
-    secure: be4cVkMsLhp293jrw9OiqQ9sczZF8eSRf4RaIy0PmOqaZWCFVGrY5owCux1daGshRgrfyd+kKBKHuh7BlSlS+EkxtKaJWrAmgupTzldBoyogSU5WcBqED9+Am9HLKXy8UJCXU2GuN/rcV0QOrX6Zg6Js1qVcS/uZ7wDEblZYw1xRs6tme+rxf4I3OCvuJrwowGVOyRRlNiFqWXlpolztMuz/Wd9fVY3dVNbn5VbPlPaNcMarYgRze74+0heY0eJatnZ+DOVdlaS/lOKtHUnojFqtMj8IdT3M0gdkjKXfbAXV/mVWbsN8FbONdO0nmkN9Wi4E/hQCoVEaN/cXrhW/scnn6+EMwE3Pi1syI4O8AOL0OGOZJ7UtIjvi7odPF6BZ73pqufWKAgXqL6MLPZpelASA3LcimRAGZ5QYVF8fgdqIryNPWxksH/36m9zN+vaQ71zR7izC3+WfgNru8XqDMlGBjmJXZ6KphNVKfD2YQeSCOqxWyb6xtIrKxr1pFIgsCATVcnnpjVLn8/zZQXxPPLXFBl6F5GE/f+KNb4kfr2z6ESH2FGRKwNzluLQO8c7oNBFnLKAYueHE6922YojZiVYa1Rq2Z7tW4jBVk1/wcubb6U4slzL6BzoCpa6BuczPGse9p9yFgbCiyKWu9LA9Kukpozz6tkiBWKGdWZWzpuQ=
+    secure: jsRWOZVCLmI/pZzTwNfl7LPWMLIrpS44TmHQMw11hG6JV3JJWAiTBpxL5YI5kM/yvR67MTG5ocJdYm32SrJvuIyVbhoNuz9QyeAOc/QdALrQ9HPzFo26lKXT0qxZeBemBSa4O+gHp/X9qKzHQcsCPkgp+8l0pkUw9q+UFZMrC1LbTq3WpbXyqz7t0SKjkPRdAXUbY86xv/JY7PCioei2Ptm2m/CfuwLfQrN/PtsMnOlIKvVSPhaqh9fE3FT8xoMNXiE94V4ScVLDIr7fBNDhSPXufFm6BIGclC0fCncxW+Xe0fY+7M8SABoWyYaLl6MMzEReGvUZVCepvP7ES+fBaTSrMurU+F9v4lvIbbUFhZf6ko0hOigS2BxwgYdjnLOcVmIt6TExykMPbdEewszVNdoYZzgshhlVWEd5i9DG4l6v+RKvjm3S2scvKPzDtKmoIR0PCt+yXA89Q+lbeg7rZsrrGx9IsIKJvE8ZYXYMTSQzxEL49zPKTXYIudq0vETYonzrNa13xW41yiwWGLu5PCKNBu77wK4OoQaR6L8TluBg6BFurm4VjqCrCeexzFkvQSuazbK/UrLQskStS+F7tducUglpzFBJRA9SdMFL7yfmWagTqBfsFHeSki/wi1VrCpsX56YJNBQEXP0rclpkR3TUnwFUOTfBBvGT0JphjZc=
   file:
     - hie-$GHC_VER
     - hie-wrapper
