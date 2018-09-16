@@ -175,23 +175,24 @@ getPrefixAtPos :: (MonadIO m, MonadReader REnv m)
 getPrefixAtPos uri (Position l c) = do
   mvf <- liftIO =<< asksLspFuncs Core.getVirtualFileFunc <*> pure uri
   case mvf of
-    Just (VFS.VirtualFile _ yitext) -> return $ do
-      let headMaybe [] = Nothing
-          headMaybe (x:_) = Just x
-          lastMaybe [] = Nothing
-          lastMaybe xs = Just $ last xs
-      curLine <- headMaybe $ Yi.lines $ snd $ Yi.splitAtLine l yitext
-      let beforePos = Yi.take c curLine
-      curWord <- Yi.toText <$> lastMaybe (Yi.words beforePos)
-      let parts = T.split (=='.')
-                    $ T.takeWhileEnd (\x -> isAlphaNum x || x `elem` ("._'"::String)) curWord
-      case reverse parts of
-        [] -> Nothing
-        (x:xs) -> do
-          let modParts = dropWhile (not . isUpper . T.head)
-                              $ reverse $ filter (not .T.null) xs
-              modName = T.intercalate "." modParts
-          return $ Hie.PosPrefixInfo (Yi.toText curLine) modName x
+    Just (VFS.VirtualFile _ yitext) ->
+      return $ Just $ fromMaybe (Hie.PosPrefixInfo "" "" "") $ do
+        let headMaybe [] = Nothing
+            headMaybe (x:_) = Just x
+            lastMaybe [] = Nothing
+            lastMaybe xs = Just $ last xs
+        curLine <- headMaybe $ Yi.lines $ snd $ Yi.splitAtLine l yitext
+        let beforePos = Yi.take c curLine
+        curWord <- Yi.toText <$> lastMaybe (Yi.words beforePos)
+        let parts = T.split (=='.')
+                      $ T.takeWhileEnd (\x -> isAlphaNum x || x `elem` ("._'"::String)) curWord
+        case reverse parts of
+          [] -> Nothing
+          (x:xs) -> do
+            let modParts = dropWhile (not . isUpper . T.head)
+                                $ reverse $ filter (not .T.null) xs
+                modName = T.intercalate "." modParts
+            return $ Hie.PosPrefixInfo (Yi.toText curLine) modName x
     Nothing -> return Nothing
 
 -- ---------------------------------------------------------------------
