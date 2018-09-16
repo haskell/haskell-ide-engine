@@ -58,6 +58,12 @@ spec = describe "completions" $ do
       item ^. label `shouldBe` "Data.List"
       item ^. detail `shouldBe` Just "Data.List"
       item ^. kind `shouldBe` Just CiModule
+  
+  it "completes with no prefix" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
+    doc <- openDoc "Completion.hs" "haskell"
+    _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
+    compls <- getCompletions doc (Position 4 7)
+    liftIO $ filter ((== "!!") . (^. label)) compls `shouldNotSatisfy` null
 
   describe "snippets" $ do
     it "work for polymorphic types" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
