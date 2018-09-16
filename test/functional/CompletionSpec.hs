@@ -60,6 +60,19 @@ spec = describe "completions" $ do
       item ^. kind `shouldBe` Just CiModule
 
   describe "snippets" $ do
+    it "work for argumentless constructors" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
+      doc <- openDoc "Completion.hs" "haskell"
+      _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
+
+      let te = TextEdit (Range (Position 4 7) (Position 4 24)) "Nothing"
+      _ <- applyEdit doc te
+
+      compls <- getCompletions doc (Position 4 14)
+      let item = head $ filter ((== "Nothing") . (^. label)) compls
+      liftIO $ do
+        item ^. insertTextFormat `shouldBe` Just Snippet
+        item ^. insertText `shouldBe` Just "Nothing"
+
     it "work for polymorphic types" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
       doc <- openDoc "Completion.hs" "haskell"
       _ <- skipManyTill loggingNotification (count 2 noDiagnostics)

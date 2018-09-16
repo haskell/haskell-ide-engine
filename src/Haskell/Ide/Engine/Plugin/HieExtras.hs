@@ -130,7 +130,7 @@ mkCompl CI{origName,importedFrom,thingType,label} =
                   else filter (not . isDictTy) args
           | isPiTy t = getArgs $ snd (splitPiTys t)
           | isCoercionTy t = maybe [] (getArgs . snd) (splitCoercionType_maybe t)
-          | otherwise = [t]
+          | otherwise = []
 
 mkModCompl :: T.Text -> J.CompletionItem
 mkModCompl label =
