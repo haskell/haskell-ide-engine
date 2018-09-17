@@ -17,7 +17,10 @@ script:
 - stack build --stack-yaml=stack-$GHC_VER.yaml
 before_deploy:
 - mv .stack-work/install/*/*/*/bin/hie hie-$GHC_VER
-- mv .stack-work/install/*/*/8.4.3/bin/hie-wrapper hie-wrapper
+- if [ $GHC_VER = 8.4.3 ]; 
+  then
+    mv .stack-work/install/*/*/8.4.3/bin/hie-wrapper hie-wrapper
+  fi
 deploy:
   provider: releases
   api_key:
