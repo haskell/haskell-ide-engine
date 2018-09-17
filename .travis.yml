@@ -6,8 +6,16 @@ env:
 - GHC_VER=8.2.1
 cache:
   directories:
-  - "$HOME/.stack"
-  - "$TRAVIS_BUILD_DIR/.stack-work"
+  - $HOME/.stack
+  - $HOME/.local/bin
+  - $TRAVIS_BUILD_DIR/.stack-work
+  - $TRAVIS_BUILD_DIR/submodules/HaRe/.stack-work
+  - $TRAVIS_BUILD_DIR/submodules/ghc-mod/.stack-work
+  - $TRAVIS_BUILD_DIR/submodules/ghc-mod/core/.stack-work
+  - $TRAVIS_BUILD_DIR/submodules/haskell-lsp/.stack-work
+  - $TRAVIS_BUILD_DIR/submodules/haskell-lsp/haskell-lsp-types/.stack-work
+  - $TRAVIS_BUILD_DIR/submodules/cabal-helper/.stack-work
+  - $TRAVIS_BUILD_DIR/hie-plugin-api/.stack-work
   timeout: 800
 before_install:
 - mkdir -p ~/.local/bin
@@ -15,6 +23,7 @@ before_install:
   tar xz --strip-components=1 -C ~/.local/bin '*/stack'
 script:
 - stack build --stack-yaml=stack-$GHC_VER.yaml
+- stack exec hoogle generate --stack-yaml=stack-$GHC_VER.yaml
 before_deploy:
 - mv .stack-work/install/*/*/*/bin/hie hie-$GHC_VER
 - |
