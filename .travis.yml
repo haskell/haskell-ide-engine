@@ -24,6 +24,7 @@ before_install:
 script:
 - stack build --stack-yaml=stack-$GHC_VER.yaml
 - stack exec hoogle generate --stack-yaml=stack-$GHC_VER.yaml
+- stack test --stack-yaml=$GHC_VER.yaml
 before_deploy:
 - mv .stack-work/install/*/*/*/bin/hie hie-$GHC_VER
 - |
