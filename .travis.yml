@@ -25,6 +25,7 @@ cache:
 before_install:
   - stack setup 8.2.2
   - stack install cabal-install
+  - cabal update
   - cabal install liquidhaskell
   - export PATH=$HOME/.cabal/bin:$PATH
 # - mkdir -p ~/.local/bin
