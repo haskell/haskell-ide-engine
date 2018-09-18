@@ -23,11 +23,11 @@ cache:
   - $TRAVIS_BUILD_DIR/hie-plugin-api/.stack-work
   timeout: 800
 before_install:
-  - stack setup 8.2.2
-  - stack install cabal-install
-  - cabal update
-  - cabal install liquidhaskell
-  - export PATH=$HOME/.cabal/bin:$PATH
+  - cd $HOME
+  - git clone --recursive git@github.com:ucsd-progsys/liquidhaskell.git
+  - cd liquidhaskell
+  - stack install
+  - cd $TRAVIS_BUILD_DIR
 # - mkdir -p ~/.local/bin
 # - travis_retry curl -sSL https://www.stackage.org/stack/${TRAVIS_OS_NAME}-x86_64 |
 #   tar xz --strip-components=1 -C ~/.local/bin '*/stack'
