@@ -1,9 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NamedFieldPuns #-}
 module LiquidSpec where
 
 import           Data.Aeson
 import qualified Data.ByteString.Lazy as BS
 import           Data.List
+import qualified Data.Text            as T
 import qualified Data.Text.IO         as T
 import           Data.Monoid ((<>))
 import           Haskell.Ide.Engine.MonadTypes
@@ -39,16 +41,14 @@ spec = do
         jsonFile = jsonAnnotFile uri
       jf <- BS.readFile jsonFile
       let Just v = decode jf :: Maybe LiquidJson
-      (errors v) `shouldBe`
-         [LE { start = LP 9 1
-             , stop  = LP 9 8
-             , message =
-                 ("Error: Liquid Type Mismatch\n  Inferred type\n" <>
-                  "    VV : {v : Int | v == (7 : int)}\n \n" <>
-                  "  not a subtype of Required type\n" <>
-                  "    VV : {VV : Int | VV mod 2 == 0}\n \n  In Context")
-             }
-         ]
+      let [LE { start, stop, message }] = errors v
+      start `shouldBe` LP 9 1
+      stop `shouldBe` LP 9 8
+      message `shouldSatisfy` T.isPrefixOf
+               ("Error: Liquid Type Mismatch\n  Inferred type\n" <>
+                "    VV : {v : Int | v == (7 : int)}\n \n" <>
+                "  not a subtype of Required type\n" <>
+                "    VV : {VV : Int | VV mod 2 == 0}\n")
 
     -- ---------------------------------
 
