@@ -4,6 +4,11 @@ os: osx
 env:
 - GHC_VER=8.4.3
 - GHC_VER=8.2.1
+addons:
+  homebrew:
+    packages:
+    - z3
+    - stack
 cache:
   directories:
   - $HOME/.stack
@@ -18,9 +23,13 @@ cache:
   - $TRAVIS_BUILD_DIR/hie-plugin-api/.stack-work
   timeout: 800
 before_install:
-- mkdir -p ~/.local/bin
-- travis_retry curl -sSL https://www.stackage.org/stack/${TRAVIS_OS_NAME}-x86_64 |
-  tar xz --strip-components=1 -C ~/.local/bin '*/stack'
+  - stack setup 8.2.2
+  - stack install cabal-install
+  - cabal install liquidhaskell
+  - export PATH=$HOME/.cabal/bin:$PATH
+# - mkdir -p ~/.local/bin
+# - travis_retry curl -sSL https://www.stackage.org/stack/${TRAVIS_OS_NAME}-x86_64 |
+#   tar xz --strip-components=1 -C ~/.local/bin '*/stack'
 script:
 - stack build --stack-yaml=stack-$GHC_VER.yaml
 - stack exec hoogle generate --stack-yaml=stack-$GHC_VER.yaml
