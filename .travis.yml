@@ -24,7 +24,7 @@ cache:
   timeout: 800
 before_install:
   - cd $HOME
-  - git clone --recursive git@github.com:ucsd-progsys/liquidhaskell.git
+  - git clone --recursive https://github.com/ucsd-progsys/liquidhaskell.git
   - cd liquidhaskell
   - stack install
   - cd $TRAVIS_BUILD_DIR
