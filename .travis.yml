@@ -25,12 +25,7 @@ cache:
   - $TRAVIS_BUILD_DIR/submodules/brittany/.stack-work
   - $TRAVIS_BUILD_DIR/hie-plugin-api/.stack-work
   timeout: 800
-before_install:
-- ./test/install-liquid.sh
-- env
-- export PATH=$HOME/.local/bin/:$PATH
-- env
-- liquid
+before_install: ./test/install-liquid.sh
 script:
 - stack build --stack-yaml=stack-$GHC_VER.yaml
 - stack exec hoogle generate --stack-yaml=stack-$GHC_VER.yaml
