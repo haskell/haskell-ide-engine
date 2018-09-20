@@ -31,9 +31,8 @@ install:
 - |
   if [ ! -f $HOME/.cabal/bin/liquid ]; then
     stack setup 8.2.2
-    export PATH=$HOME/.stack/programs/x86_64-osx/ghc-8.2.2/bin/:$PATH
     cabal update
-    cabal install liquidhaskell
+    cabal install liquidhaskell -w $HOME/.stack/programs/x86_64-osx/ghc-8.2.2/bin/ghc
   fi
 - export PATH=$HOME/.cabal/bin/:$PATH
 script:
