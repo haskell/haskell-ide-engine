@@ -11,6 +11,7 @@ addons:
     packages:
     - z3
     - stack
+    - cabal-install
 cache:
   directories:
   - $HOME/.stack
@@ -26,7 +27,9 @@ cache:
   - $TRAVIS_BUILD_DIR/hie-plugin-api/.stack-work
   timeout: 800
 before_install:
-- ./test/install-liquid.sh
+- stack setup 8.2.2
+- export PATH=$HOME/.stack/programs/x86_64-osx/ghc-8.2.2/bin/:$PATH
+- cabal install liquidhaskell
 - liquid
 script:
 - stack build --stack-yaml=stack-$GHC_VER.yaml
