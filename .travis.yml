@@ -16,7 +16,7 @@ cache:
   directories:
   - $HOME/.stack
   - $HOME/.local/bin
-  - $HOME/.cabal/bin
+  - $HOME/.cabal/
   - $TRAVIS_BUILD_DIR/.stack-work
   - $TRAVIS_BUILD_DIR/submodules/HaRe/.stack-work
   - $TRAVIS_BUILD_DIR/submodules/ghc-mod/.stack-work
@@ -29,11 +29,11 @@ cache:
   timeout: 800
 install:
 - |
-  if [ ! -f $HOME/.cabal/bin/liquid ]; then
+        #if [ ! -f $HOME/.cabal/bin/liquid ]; then
     stack setup 8.2.2
     cabal update
     cabal install liquidhaskell -w $HOME/.stack/programs/x86_64-osx/ghc-8.2.2/bin/ghc
-  fi
+    #fi
 - export PATH=$HOME/.cabal/bin/:$PATH
 - liquid
 script:
