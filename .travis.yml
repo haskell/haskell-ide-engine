@@ -27,6 +27,8 @@ cache:
   - $TRAVIS_BUILD_DIR/submodules/brittany/.stack-work
   - $TRAVIS_BUILD_DIR/hie-plugin-api/.stack-work
   timeout: 800
+before_cache:
+  - rm -rf $TRAVIS_BUILD_DIR/.stack-work/logs/
 install:
 - |
   if [ ! -f $HOME/.cabal/bin/liquid ]; then
