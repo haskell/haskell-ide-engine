@@ -35,6 +35,7 @@ install:
     cabal install liquidhaskell -w $HOME/.stack/programs/x86_64-osx/ghc-8.2.2/bin/ghc
   fi
 - export PATH=$HOME/.cabal/bin/:$PATH
+- liquid
 script:
 - stack build --stack-yaml=stack-$GHC_VER.yaml
 - stack exec hoogle generate --stack-yaml=stack-$GHC_VER.yaml
