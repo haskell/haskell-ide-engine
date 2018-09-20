@@ -29,6 +29,7 @@ cache:
 install:
 - stack setup 8.2.2
 - export PATH=$HOME/.stack/programs/x86_64-osx/ghc-8.2.2/bin/:$PATH
+- cabal update
 - cabal install liquidhaskell
 script:
 - stack build --stack-yaml=stack-$GHC_VER.yaml
