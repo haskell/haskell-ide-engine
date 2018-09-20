@@ -3,9 +3,9 @@ language: c
 os: osx
 env:
 - GHC_VER=8.4.3
-- GHC_VER=8.4.2
-- GHC_VER=8.2.2
-- GHC_VER=8.2.1
+# - GHC_VER=8.4.2
+# - GHC_VER=8.2.2
+# - GHC_VER=8.2.1
 addons:
   homebrew:
     packages:
@@ -25,7 +25,9 @@ cache:
   - $TRAVIS_BUILD_DIR/submodules/brittany/.stack-work
   - $TRAVIS_BUILD_DIR/hie-plugin-api/.stack-work
   timeout: 800
-before_install: ./test/install-liquid.sh
+before_install:
+- ./test/install-liquid.sh
+- liquid
 script:
 - stack build --stack-yaml=stack-$GHC_VER.yaml
 - stack exec hoogle generate --stack-yaml=stack-$GHC_VER.yaml
