@@ -28,14 +28,13 @@ cache:
   - $TRAVIS_BUILD_DIR/hie-plugin-api/.stack-work
   timeout: 800
 install:
-        #- |
-  #if [ ! -f $HOME/.cabal/bin/liquid ]; then
-- stack setup 8.2.2
-- cabal update
-- cabal install liquidhaskell -w $HOME/.stack/programs/x86_64-osx/ghc-8.2.2/bin/ghc
-  #fi
+- |
+  if [ ! -f $HOME/.cabal/bin/liquid ]; then
+    stack setup 8.2.2
+    cabal update
+    cabal install liquidhaskell -w $HOME/.stack/programs/x86_64-osx/ghc-8.2.2/bin/ghc
+  fi
 - export PATH=$HOME/.cabal/bin/:$PATH
-- liquid
 script:
 - stack build --stack-yaml=stack-$GHC_VER.yaml
 - stack exec hoogle generate --stack-yaml=stack-$GHC_VER.yaml
