@@ -39,23 +39,21 @@ install:
 - export PATH=$HOME/.cabal/bin/:$PATH
 script:
 - stack build --stack-yaml=stack-$GHC_VER.yaml
-- stack exec hoogle generate --stack-yaml=stack-$GHC_VER.yaml
-- stack test --stack-yaml=stack-$GHC_VER.yaml
-before_deploy:
-- mv .stack-work/install/*/*/*/bin/hie hie-$GHC_VER
-- |
-  if [ "${GHC_VER}" == "8.4.3" ]; then
-    mv .stack-work/install/*/*/8.4.3/bin/hie-wrapper hie-wrapper
-  fi
-deploy:
-  provider: releases
-  api_key:
-    secure: K12xUSzK+VWpnS4gRo04rJjfi71sBi0zuMWKmAcsK1igvmdbsEjyuyX4SxFI58/sM4x5qlyXg/nWSPfECKjpQS7/Q/GG1ub+AjU9kq5iyiWACWjXpDLN9Jz9iLBceyPLaf3y3rswri45v7LdwvMNwSI/wYNKEz97IfJ3VkCR16kWv/cqHGdJUYWZk7lBJX/BL94Bof4zOoXwSiy0GbaSCptcSHm1qwtN1qYsYnmihgLYR0RtLRz6tvBPHmqDjsWAXMDhaEyi0zfZ06igITkm7E4at+c3/wssYfgSg15AT2fd5T+v9keyzyanBzGh9xHYcMmflIA9dAvQawl/vw8sGsnQRaddhmTd0bqKFrtrnMO5dRsbkIyu1r178BQCJVjvy5KqyVpXy1ycDcO17E5qONVr2V838x6eg9uPJBNGR30XMg3ZF+GPsbz0xhzxf2Hhab82pJ+lAAsBlnaPdDNVchs/wjEFMp94hcL+IL4ydaXk91piPVhs3VPsLfGboQ72sUnyPUI2aiKfkk5P4Xug+2UqbX17fXfLgnkRbfyCd/4IeM4IwHgRAKa3tT7017KGSZBShihqe2dDJBjS8MlIxDD+U69HR2TIkAJaDnJe+UFAndoc8w4Ajd2OJ1/C+ey236SZq9R7D3dqyFi6Sxc1kSpNguVmjjvlEUk/Jpz1ckA=
-  file:
-    - hie-$GHC_VER
-    - hie-wrapper
-  file_glob: true
-  skip_cleanup: true
-  on:
-    tags: true
-    repo: bubba/haskell-ide-engine
+  #- stack exec hoogle generate --stack-yaml=stack-$GHC_VER.yaml
+  #- stack test --stack-yaml=stack-$GHC_VER.yaml
+
+jobs:
+  include:
+    - stage: deploy
+      script: make build
+      before_deploy:
+      - tar -cvfz hie-macOS-$TRAVIS_BRANCH.tar.gz $HOME/.local/bin/hie-*
+      deploy:
+        provider: releases
+        api_key:
+          secure: K12xUSzK+VWpnS4gRo04rJjfi71sBi0zuMWKmAcsK1igvmdbsEjyuyX4SxFI58/sM4x5qlyXg/nWSPfECKjpQS7/Q/GG1ub+AjU9kq5iyiWACWjXpDLN9Jz9iLBceyPLaf3y3rswri45v7LdwvMNwSI/wYNKEz97IfJ3VkCR16kWv/cqHGdJUYWZk7lBJX/BL94Bof4zOoXwSiy0GbaSCptcSHm1qwtN1qYsYnmihgLYR0RtLRz6tvBPHmqDjsWAXMDhaEyi0zfZ06igITkm7E4at+c3/wssYfgSg15AT2fd5T+v9keyzyanBzGh9xHYcMmflIA9dAvQawl/vw8sGsnQRaddhmTd0bqKFrtrnMO5dRsbkIyu1r178BQCJVjvy5KqyVpXy1ycDcO17E5qONVr2V838x6eg9uPJBNGR30XMg3ZF+GPsbz0xhzxf2Hhab82pJ+lAAsBlnaPdDNVchs/wjEFMp94hcL+IL4ydaXk91piPVhs3VPsLfGboQ72sUnyPUI2aiKfkk5P4Xug+2UqbX17fXfLgnkRbfyCd/4IeM4IwHgRAKa3tT7017KGSZBShihqe2dDJBjS8MlIxDD+U69HR2TIkAJaDnJe+UFAndoc8w4Ajd2OJ1/C+ey236SZq9R7D3dqyFi6Sxc1kSpNguVmjjvlEUk/Jpz1ckA=
+        file: hie-macOS-$TRAVIS_BRANCH.tar.gz
+        skip_cleanup: true
+        on:
+          tags: true
+          repo: bubba/haskell-ide-engine
