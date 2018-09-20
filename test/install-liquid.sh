@@ -5,3 +5,6 @@ fi
 if [ ! -f $HOME/.local/bin/fixpoint ]; then
     curl -o ~/.local/bin/fixpoint lukelau.me/hie/fixpoint
 fi
+
+chmod u+x ~/.local/bin/liquid
+chmod u+x ~/.local/bin/fixpoint
