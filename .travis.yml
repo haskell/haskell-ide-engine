@@ -16,6 +16,7 @@ cache:
   directories:
   - $HOME/.stack
   - $HOME/.local/bin
+  - $HOME/.cabal/bin
   - $TRAVIS_BUILD_DIR/.stack-work
   - $TRAVIS_BUILD_DIR/submodules/HaRe/.stack-work
   - $TRAVIS_BUILD_DIR/submodules/ghc-mod/.stack-work
@@ -27,10 +28,14 @@ cache:
   - $TRAVIS_BUILD_DIR/hie-plugin-api/.stack-work
   timeout: 800
 install:
-- stack setup 8.2.2
-- export PATH=$HOME/.stack/programs/x86_64-osx/ghc-8.2.2/bin/:$PATH
-- cabal update
-- cabal install liquidhaskell
+- |
+  if [ ! -f $HOME/.cabal/bin/liquid ]; then
+    stack setup 8.2.2
+    export PATH=$HOME/.stack/programs/x86_64-osx/ghc-8.2.2/bin/:$PATH
+    cabal update
+    cabal install liquidhaskell
+  fi
+- export PATH=$HOME/.cabal/bin/:$PATH
 script:
 - stack build --stack-yaml=stack-$GHC_VER.yaml
 - stack exec hoogle generate --stack-yaml=stack-$GHC_VER.yaml
