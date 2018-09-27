@@ -316,7 +316,8 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) = pluginGetFile "getCo
       pos =
         let newPos = cursorPos prefixInfo
             Position l c = fromMaybe newPos (newPosToOld newPos)
-            stripTypeStuff = T.dropWhileEnd (\x -> any (\f -> f x) [isSpace, (== '>'), (== '-')])
+            typeStuff = [isSpace, (`elem` (">-." :: String))]
+            stripTypeStuff = T.dropWhileEnd (\x -> any (\f -> f x) typeStuff)
             d = T.length fullLine - T.length (stripTypeStuff fullLine)
             -- drop characters used when writing incomplete type sigs
             -- like '-> '
