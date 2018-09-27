@@ -224,7 +224,9 @@ getPrefixAtPos uri (Position l c) = do
             lastMaybe xs = Just $ last xs
         curLine <- headMaybe $ Yi.lines $ snd $ Yi.splitAtLine l yitext
         let beforePos = Yi.take c curLine
-        curWord <- Yi.toText <$> lastMaybe (Yi.words beforePos)
+        curWord <- case Yi.last beforePos of
+                     Just ' ' -> Just "" -- don't count abc as the curword in 'abc ' 
+                     _ -> Yi.toText <$> lastMaybe (Yi.words beforePos)
         let parts = T.split (=='.')
                       $ T.takeWhileEnd (\x -> isAlphaNum x || x `elem` ("._'"::String)) curWord
         case reverse parts of
