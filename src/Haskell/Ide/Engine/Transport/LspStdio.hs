@@ -213,11 +213,11 @@ configVal defVal field = do
 
 getPrefixAtPos :: (MonadIO m, MonadReader REnv m)
   => Uri -> Position -> m (Maybe Hie.PosPrefixInfo)
-getPrefixAtPos uri (Position l c) = do
+getPrefixAtPos uri pos@(Position l c) = do
   mvf <- liftIO =<< asksLspFuncs Core.getVirtualFileFunc <*> pure uri
   case mvf of
     Just (VFS.VirtualFile _ yitext) ->
-      return $ Just $ fromMaybe (Hie.PosPrefixInfo "" "" "") $ do
+      return $ Just $ fromMaybe (Hie.PosPrefixInfo "" "" "" pos) $ do
         let headMaybe [] = Nothing
             headMaybe (x:_) = Just x
             lastMaybe [] = Nothing
@@ -235,7 +235,7 @@ getPrefixAtPos uri (Position l c) = do
             let modParts = dropWhile (not . isUpper . T.head)
                                 $ reverse $ filter (not .T.null) xs
                 modName = T.intercalate "." modParts
-            return $ Hie.PosPrefixInfo (Yi.toText curLine) modName x
+            return $ Hie.PosPrefixInfo (Yi.toText curLine) modName x pos
     Nothing -> return Nothing
 
 -- ---------------------------------------------------------------------

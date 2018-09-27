@@ -1,4 +1,5 @@
 {-# LANGUAGE NamedFieldPuns      #-}
+{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE TypeFamilies        #-}
@@ -21,6 +22,7 @@ import           Control.Lens.Operators                       ( (^?), (?~) )
 import           Control.Lens.Prism                           ( _Just )
 import           Control.Monad.Reader
 import           Data.Aeson
+import           Data.Char
 import           Data.IORef
 import qualified Data.List                                    as List
 import qualified Data.Map                                     as Map
@@ -105,7 +107,7 @@ mkCompl CI{origName,importedFrom,thingType,label} =
   J.CompletionItem label kind (Just $ maybe "" (<>"\n") typeText <> importedFrom)
     Nothing Nothing Nothing Nothing Nothing (Just insertText) (Just J.Snippet)
     Nothing Nothing Nothing Nothing hoogleQuery
-  where kind  = Just $ occNameToComKind $ occName origName
+  where kind = Just $ occNameToComKind $ occName origName
         hoogleQuery = Just $ toJSON $ mkQuery label importedFrom
         argTypes = maybe [] getArgs thingType
         insertText
@@ -161,6 +163,8 @@ data PosPrefixInfo = PosPrefixInfo
     -- ^ The word right before the cursor position, after removing the module part.
     -- For example if the user has typed "Data.Maybe.from",
     -- then this property will be "from"
+  , cursorPos :: J.Position
+    -- ^ The cursor position
   }
 
 data CachedCompletions = CC
@@ -298,23 +302,46 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) = pluginGetFile "getCo
                                                 . _Just . J.completionItem
                                                 . _Just . J.snippetSupport
                                                 . _Just)
-  let toggleSnippets x
-        | withSnippets && supportsSnippets = x
-        | otherwise = x { J._insertTextFormat = Just J.PlainText
-                        , J._insertText = Nothing }
 
-      PosPrefixInfo {fullLine, prefixModule, prefixText} = prefixInfo
+  let PosPrefixInfo {fullLine, prefixModule, prefixText} = prefixInfo
   debugm $ "got prefix" ++ show (prefixModule, prefixText)
   let enteredQual = if T.null prefixModule then "" else prefixModule <> "."
       fullPrefix = enteredQual <> prefixText
-  withCachedModuleAndData file (IdeResultOk []) $ \_ _ CC { allModNamesAsNS, unqualCompls, qualCompls, importableModules } ->
+  withCachedModuleAndData file (IdeResultOk []) $ \_ CachedInfo { .. } CC { .. } ->
     let
+      -- correct the position by moving 'foo :: Int -> String ->    '
+      --                                                           ^
+      -- to                             'foo :: Int -> String ->    '
+      --                                                     ^
+      pos =
+        let newPos = cursorPos prefixInfo
+            Position l c = fromMaybe newPos (newPosToOld newPos)
+            stripTypeStuff = T.dropWhileEnd (\x -> any (\f -> f x) [isSpace, (== '>'), (== '-')])
+            d = T.length fullLine - T.length (stripTypeStuff fullLine)
+            -- drop characters used when writing incomplete type sigs
+            -- like '-> '
+        in Position l (c - d)
+
+      contexts = getArtifactsAtPos pos contextMap
+      -- default to value context if no explicit context
+      context = maybe ValueContext snd $ listToMaybe (reverse contexts)
+
+      toggleSnippets x
+        | withSnippets && supportsSnippets && context == ValueContext = x
+        | otherwise = x { J._insertTextFormat = Just J.PlainText
+                        , J._insertText = Nothing }
+                        
       filtModNameCompls = map mkModCompl
         $ mapMaybe (T.stripPrefix enteredQual)
         $ Fuzzy.simpleFilter fullPrefix allModNamesAsNS
 
-      filtCompls = Fuzzy.filterBy label prefixText compls
+      filtCompls = Fuzzy.filterBy label prefixText ctxCompls
         where
+          isTypeCompl = isTcOcc . occName . origName
+          -- completions specific to the current context
+          ctxCompls = case context of
+                        TypeContext -> filter isTypeCompl compls
+                        ValueContext -> filter (not . isTypeCompl) compls
           compls = if T.null prefixModule
             then unqualCompls
             else Map.findWithDefault [] prefixModule qualCompls
@@ -328,9 +355,9 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) = pluginGetFile "getCo
                           , enteredQual `T.isPrefixOf` label
                           ]
     in return $ IdeResultOk $
-      if "import " `T.isPrefixOf` fullLine
-      then filtImportCompls
-      else filtModNameCompls ++ map (toggleSnippets . mkCompl) filtCompls
+        if "import " `T.isPrefixOf` fullLine
+        then filtImportCompls
+        else filtModNameCompls ++ map (toggleSnippets . mkCompl) filtCompls
 
 -- ---------------------------------------------------------------------
 
