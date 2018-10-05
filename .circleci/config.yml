@@ -145,6 +145,9 @@ jobs:
           keys:
             - cabal-03
       - run:
+          name: Cabal version
+          command: cabal --version
+      - run:
           name: Update
           command: cabal new-update
       - run:
@@ -152,7 +155,6 @@ jobs:
           command: cabal new-configure --enable-tests
       - run:
           name: Build
-          command: cabal --version
           command: cabal new-build -j2
       - save_cache:
           key: cabal-03
