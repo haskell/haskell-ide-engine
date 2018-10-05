@@ -1,4 +1,4 @@
-resolver: lts-12.8
+resolver: lts-12.11
 packages:
 - .
 - hie-plugin-api
