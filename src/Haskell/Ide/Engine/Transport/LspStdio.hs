@@ -630,7 +630,7 @@ reactor inp diagIn = do
             Just prefix -> do
               snippets <- Hie.WithSnippets <$> configVal True completionSnippetsOn
               let hreq = IReq tn (req ^. J.id) callback
-                           $ Hie.getCompletions doc prefix snippets
+                           $ lift $ Hie.getCompletions doc prefix snippets
               makeRequest hreq
 
         ReqCompletionItemResolve req -> do

@@ -120,7 +120,7 @@ ifCachedModule fp def callback = do
   let x = do
         res <- muc
         case res of
-          UriCacheSuccess uc -> do 
+          UriCacheSuccess uc -> do
             let ci = cachedInfo uc
             cm <- fromUriCache uc
             return (ci, cm)
@@ -203,7 +203,7 @@ lookupCachedData fp tm info dat = do
       modifyCache (\s -> s {uriCaches = Map.insert fp' (UriCacheSuccess newUc)
                                                   (uriCaches s)})
       return val
-        
+
     Just x ->
       case fromDynamic x of
         Just val -> return val
@@ -224,9 +224,9 @@ cacheModule uri modul = do
         return $ case muc of
           Just (UriCacheSuccess uc) -> uc { cachedPsMod = pm }
           _ -> UriCache defInfo pm Nothing mempty
-        
+
       Right tm -> do
-        typm <- GM.unGmlT $ genTypeMap tm    
+        typm <- GM.unGmlT $ genTypeMap tm
         let info = CachedInfo (genLocMap tm) typm (genImportMap tm) (genDefMap tm) rfm return return
             pm = GHC.tm_parsed_module tm
         return $ UriCache info pm (Just tm) mempty
