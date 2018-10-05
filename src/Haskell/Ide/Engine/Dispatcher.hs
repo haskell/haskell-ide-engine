@@ -100,7 +100,7 @@ ideDispatcher stateVar caps env errorHandler callbackHandler pin =
 
   where queueDeferred (Defer fp cacheCb) =
           lift $ modifyMTState $ \s ->
-            let oldQueue = requestQueue s 
+            let oldQueue = requestQueue s
                 -- add to existing queue if possible
                 update Nothing = [cacheCb]
                 update (Just x) = cacheCb : x
