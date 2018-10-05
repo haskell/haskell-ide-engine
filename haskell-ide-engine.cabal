@@ -51,8 +51,6 @@ library
                      , async
                      , base >= 4.9 && < 5
                      , brittany
-                     -- , butcher == 1.3.1.*
-                     , deque == 0.2.1
                      , bytestring
                      , Cabal
                      , cabal-helper >= 0.8.1.0
@@ -270,8 +268,6 @@ test-suite func-test
   -- build-tool-depends:  haskell-ide-engine:hie
   build-depends:       aeson
                      , base
-                     -- , butcher == 1.3.1.*
-                     , deque == 0.2.1
                      , containers
                      , data-default
                      , directory
@@ -304,8 +300,6 @@ test-suite wrapper-test
   hs-source-dirs:      test/wrapper
   main-is:             HieWrapper.hs
   build-depends:       base
-                     -- , butcher == 1.3.1.*
-                     , deque == 0.2.1
                      , hspec
                      , directory
                      , process
