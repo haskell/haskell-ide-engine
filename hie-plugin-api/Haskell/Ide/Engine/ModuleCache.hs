@@ -224,7 +224,7 @@ cacheModule uri modul = do
             defInfo = CachedInfo mempty mempty mempty mempty ctxMap rfm return return
         return $ case muc of
           Just (UriCacheSuccess uc) ->
-            let newCI = (cachedInfo uc) { contextMap = ctxMap }
+            let newCI = (cachedInfo uc) { contextMap = ctxMap, revMap = rfm }
               in uc { cachedPsMod = pm, cachedInfo = newCI }
           _ -> UriCache defInfo pm Nothing mempty
         
