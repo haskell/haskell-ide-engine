@@ -143,7 +143,10 @@ jobs:
           command: git submodule update --recursive --init
       - restore-cache:
           keys:
-            - cabal-02
+            - cabal-03
+      - run:
+          name: Cabal version
+          command: cabal --version
       - run:
           name: Update
           command: cabal new-update
@@ -154,7 +157,7 @@ jobs:
           name: Build
           command: cabal new-build -j2
       - save_cache:
-          key: cabal-02
+          key: cabal-03
           paths:
             - ~/.cabal
 

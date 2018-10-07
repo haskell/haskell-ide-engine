@@ -295,7 +295,7 @@ instance ModuleCache CachedCompletions where
 newtype WithSnippets = WithSnippets Bool
 
 -- | Returns the cached completions for the given module and position.
-getCompletions :: Uri -> PosPrefixInfo -> WithSnippets -> IdeDeferM (IdeResult [J.CompletionItem])
+getCompletions :: Uri -> PosPrefixInfo -> WithSnippets -> IdeM (IdeResult [J.CompletionItem])
 getCompletions uri prefixInfo (WithSnippets withSnippets) = pluginGetFile "getCompletions: " uri $ \file -> do
   supportsSnippets <- fromMaybe False <$> asks (^? J.textDocument
                                                 . _Just . J.completion
@@ -307,7 +307,7 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) = pluginGetFile "getCo
   debugm $ "got prefix" ++ show (prefixModule, prefixText)
   let enteredQual = if T.null prefixModule then "" else prefixModule <> "."
       fullPrefix = enteredQual <> prefixText
-  withCachedModuleAndData file (IdeResultOk []) $ \_ CachedInfo { .. } CC { .. } ->
+  ifCachedModuleAndData file (IdeResultOk []) $ \_ CachedInfo { .. } CC { .. } ->
     let
       -- correct the position by moving 'foo :: Int -> String ->    '
       --                                                           ^
