@@ -63,7 +63,36 @@ spec = describe "completions" $ do
     doc <- openDoc "Completion.hs" "haskell"
     _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
     compls <- getCompletions doc (Position 4 7)
-    liftIO $ filter ((== "!!") . (^. label)) compls `shouldNotSatisfy` null
+    liftIO $ compls `shouldContainCompl` "!!"
+  
+  describe "contexts" $ do
+    it "only provides type suggestions" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
+      doc <- openDoc "Context.hs" "haskell"
+      _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
+      compls <- getCompletions doc (Position 2 17)
+      liftIO $ do
+        compls `shouldContainCompl` "Integer"
+        compls `shouldNotContainCompl` "interact"
+
+    it "only provides type suggestions" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
+      doc <- openDoc "Context.hs" "haskell"
+      _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
+      compls <- getCompletions doc (Position 3 9)
+      liftIO $ do
+        compls `shouldContainCompl` "abs" 
+        compls `shouldNotContainCompl` "Applicative"
+    
+    it "completes qualified type suggestions" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
+      doc <- openDoc "Context.hs" "haskell"
+      _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
+      let te = TextEdit (Range (Position 2 17) (Position 2 17)) " -> Conc."
+      _ <- applyEdit doc te
+      compls <- getCompletions doc (Position 2 26)
+      liftIO $ do
+        print compls
+        compls `shouldNotContainCompl` "forkOn"
+        compls `shouldContainCompl` "MVar"
+        compls `shouldContainCompl` "Chan"
 
   describe "snippets" $ do
     it "work for argumentless constructors" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
@@ -125,6 +154,11 @@ spec = describe "completions" $ do
 
       checkNoSnippets doc
   where
+    compls `shouldContainCompl` x  =
+      filter ((== x) . (^. label)) compls `shouldNotSatisfy` null
+    compls `shouldNotContainCompl` x =
+      filter ((== x) . (^. label)) compls `shouldSatisfy` null
+
     checkNoSnippets doc = do
       let te = TextEdit (Range (Position 4 7) (Position 4 24)) "fold"
       _ <- applyEdit doc te
