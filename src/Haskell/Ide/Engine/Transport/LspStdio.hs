@@ -18,7 +18,6 @@ module Haskell.Ide.Engine.Transport.LspStdio
 import           Control.Concurrent
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM.TChan
-import           Control.Concurrent.STM.TVar
 import qualified Control.FoldDebounce as Debounce
 import qualified Control.Exception as E
 import           Control.Lens ( (^.), (.~) )
@@ -48,6 +47,7 @@ import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.PluginUtils
+import qualified Haskell.Ide.Engine.Scheduler            as Scheduler
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.LSP.CodeActions
 import           Haskell.Ide.Engine.LSP.Config
@@ -79,14 +79,13 @@ import qualified Yi.Rope as Yi
 -- ---------------------------------------------------------------------
 
 lspStdioTransport
-  :: (DispatcherEnv -> ErrorHandler -> CallbackHandler R -> ClientCapabilities -> IO ())
-  -> TChan (PluginRequest R)
+  :: Scheduler.Scheduler R
   -> FilePath
   -> IdePlugins
   -> Maybe FilePath
   -> IO ()
-lspStdioTransport hieDispatcherProc cin origDir plugins captureFp = do
-  run hieDispatcherProc cin origDir plugins captureFp >>= \case
+lspStdioTransport scheduler origDir plugins captureFp = do
+  run scheduler origDir plugins captureFp >>= \case
     0 -> exitSuccess
     c -> exitWith . ExitFailure $ c
 
@@ -115,28 +114,19 @@ instance Semigroup (MostRecent a) where
   _ <> b = b
 
 run
-  :: (DispatcherEnv -> ErrorHandler -> CallbackHandler R -> ClientCapabilities -> IO ())
-  -> TChan (PluginRequest R)
+  :: Scheduler.Scheduler R
   -> FilePath
   -> IdePlugins
   -> Maybe FilePath
   -> IO Int
-run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
+run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
 
   rin        <- atomically newTChan :: IO (TChan ReactorInput)
   commandIds <- allLspCmdIds plugins
 
   let dp lf = do
-        cancelTVar  <- atomically $ newTVar S.empty
-        wipTVar     <- atomically $ newTVar S.empty
-        versionTVar <- atomically $ newTVar Map.empty
         diagIn      <- atomically newTChan
-        let dEnv = DispatcherEnv
-              { cancelReqsTVar = cancelTVar
-              , wipReqsTVar    = wipTVar
-              , docVersionTVar = versionTVar
-              }
-        let react = runReactor lf dEnv cin diagnosticProviders hps sps
+        let react = runReactor lf scheduler diagnosticProviders hps sps
         let reactorFunc = react $ reactor rin diagIn
             caps = Core.clientCapabilities lf
 
@@ -163,7 +153,7 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
         -- haskell lsp sets the current directory to the project root in the InitializeRequest
         -- We launch the dispatcher after that so that the default cradle is
         -- recognized properly by ghc-mod
-        _ <- forkIO $ dispatcherProc dEnv errorHandler callbackHandler caps
+        _ <- forkIO $ Scheduler.runScheduler scheduler errorHandler callbackHandler caps
                     `race_` reactorFunc
                     `race_` diagnosticsQueue tr
         return Nothing
@@ -243,8 +233,6 @@ mapFileFromVfs :: (MonadIO m, MonadReader REnv m)
                => TrackingNumber
                -> J.VersionedTextDocumentIdentifier -> m ()
 mapFileFromVfs tn vtdi = do
-  verTVar <- asks (docVersionTVar . dispatcherEnv)
-  cin <- asks reqChanIn
   let uri = vtdi ^. J.uri
       ver = fromMaybe 0 (vtdi ^. J.version)
   vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
@@ -258,25 +246,8 @@ mapFileFromVfs tn vtdi = do
                       GM.loadMappedFileSource fp text'
                       fileMap <- GM.getMMappedFiles
                       debugm $ "file mapping state is: " ++ show fileMap
-      liftIO $ atomically $ do
-        modifyTVar' verTVar (Map.insert uri ver)
-        writeTChan cin req
-      return ()
+      updateDocumentRequest uri ver req
     (_, _) -> return ()
-
-_unmapFileFromVfs :: (MonadIO m, MonadReader REnv m) => TrackingNumber -> J.Uri -> m ()
-_unmapFileFromVfs tn uri = do
-  verTVar <- asks (docVersionTVar . dispatcherEnv)
-  cin <- asks reqChanIn
-  case J.uriToFilePath uri of
-    Just fp -> do
-      let req = GReq tn (Just uri) Nothing Nothing (const $ return ())
-                $ IdeResultOk <$> GM.unloadMappedFile fp
-      liftIO $ atomically $ do
-        modifyTVar' verTVar (Map.delete uri)
-        writeTChan cin req
-      return ()
-    _ -> return ()
 
 -- TODO: generalise this and move it to GhcMod.ModuleLoader
 updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeGhcM (IdeResult ())
@@ -745,11 +716,7 @@ reactor inp diagIn = do
         NotCancelRequestFromClient notif -> do
           liftIO $ U.logs $ "reactor:got CancelRequest:" ++ show notif
           let lid = notif ^. J.params . J.id
-          DispatcherEnv cancelReqTVar wipTVar _ <- asks dispatcherEnv
-          liftIO $ atomically $ do
-            wip <- readTVar wipTVar
-            when (S.member lid wip) $ do
-              modifyTVar' cancelReqTVar (S.insert lid)
+          cancelRequest lid
 
         -- -------------------------------
 
@@ -797,7 +764,6 @@ requestDiagnostics DiagnosticsRequest{trigger, file, trackingNumber, documentVer
 
   diagFuncs <- asks diagnosticSources
   lf <- asks lspFuncs
-  cin <- asks reqChanIn
   mc <- liftIO $ Core.config lf
   case Map.lookup trigger diagFuncs of
     Nothing -> do
@@ -845,13 +811,12 @@ requestDiagnostics DiagnosticsRequest{trigger, file, trackingNumber, documentVer
               case diags of
                 [] -> liftIO sendEmpty
                 _ -> mapM_ (liftIO . sendOne) diags
-        when enabled $ liftIO $ atomically $ writeTChan cin reql
+        when enabled $ makeRequest reql
 
 -- | get hlint and GHC diagnostics and loads the typechecked module into the cache
 requestDiagnosticsNormal :: TrackingNumber -> J.Uri -> J.TextDocumentVersion -> R ()
 requestDiagnosticsNormal tn file mVer = do
   lf <- asks lspFuncs
-  cin <- asks reqChanIn
   mc <- liftIO $ Core.config lf
   let
     ver = fromMaybe 0 mVer
@@ -879,7 +844,7 @@ requestDiagnosticsNormal tn file mVer = do
                  $ ApplyRefact.lintCmd' file
         callbackl (PublishDiagnosticsParams fp (List ds))
              = sendOne "hlint" (fp, ds)
-    liftIO $ atomically $ writeTChan cin reql
+    makeRequest reql
 
   -- get GHC diagnostics and loads the typechecked module into the cache
   let reqg = GReq tn (Just file) (Just (file,ver)) Nothing callbackg
@@ -894,7 +859,7 @@ requestDiagnosticsNormal tn file mVer = do
           [] -> sendEmpty
           _ -> mapM_ (sendOneGhc "ghcmod") ds
 
-  liftIO $ atomically $ writeTChan cin reqg
+  makeRequest reqg
 
 -- ---------------------------------------------------------------------
 

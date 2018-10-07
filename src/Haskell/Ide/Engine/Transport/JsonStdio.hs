@@ -14,7 +14,6 @@ module Haskell.Ide.Engine.Transport.JsonStdio
 
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM.TChan
-import           Control.Concurrent.STM.TVar
 import qualified Control.Exception                     as E
 import           Control.Monad
 import           Control.Monad.STM
@@ -23,18 +22,15 @@ import qualified Data.Aeson                            as J
 import qualified Data.ByteString.Builder               as B
 import qualified Data.ByteString.Lazy.Char8            as B
 import           Data.Default
-import qualified Data.Map                              as Map
 #if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
 #endif
-import qualified Data.Set                              as S
 import qualified Data.Text                             as T
 import           GHC.Generics
-import           Haskell.Ide.Engine.Dispatcher
+import qualified Haskell.Ide.Engine.Scheduler          as Scheduler
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.Types            as J
-import           Language.Haskell.LSP.Types.Capabilities
 import           System.Exit
 import           System.IO
 import qualified System.Log.Logger                     as L
@@ -46,9 +42,9 @@ import qualified System.Log.Logger                     as L
 
 -- ---------------------------------------------------------------------
 
-jsonStdioTransport :: (DispatcherEnv -> ErrorHandler -> CallbackHandler IO -> ClientCapabilities -> IO ()) -> TChan (PluginRequest IO) -> IO ()
-jsonStdioTransport hieDispatcherProc cin = do
-  run hieDispatcherProc cin >>= \case
+jsonStdioTransport :: Scheduler.Scheduler IO -> IO ()
+jsonStdioTransport scheduler = do
+  run scheduler >>= \case
     0 -> exitSuccess
     c -> exitWith . ExitFailure $ c
 
@@ -68,25 +64,17 @@ data ReactorOutput = ReactorOutput
   , _response :: J.Value
   } deriving (Eq, Show, Generic, J.ToJSON, J.FromJSON)
 
-run :: (DispatcherEnv -> ErrorHandler -> CallbackHandler IO -> ClientCapabilities -> IO ()) -> TChan (PluginRequest IO) -> IO Int
-run dispatcherProc cin = flip E.catches handlers $ do
+run :: Scheduler.Scheduler IO -> IO Int
+run scheduler = flip E.catches handlers $ do
   flip E.finally finalProc $ do
     rout <- atomically newTChan :: IO (TChan ReactorOutput)
-    cancelTVar      <- atomically $ newTVar S.empty
-    wipTVar         <- atomically $ newTVar S.empty
-    versionTVar     <- atomically $ newTVar Map.empty
-    let dispatcherEnv = DispatcherEnv
-          { cancelReqsTVar     = cancelTVar
-          , wipReqsTVar        = wipTVar
-          , docVersionTVar     = versionTVar
-          }
 
     let race3_ a b c = race_ a (race_ b c)
 
     let errorHandler lid _ e = liftIO $ hPutStrLn stderr $ "Got an error for request " ++ show lid ++ ": " ++ T.unpack e
         callbackHandler callback x = callback x
 
-    race3_ (dispatcherProc dispatcherEnv errorHandler callbackHandler def)
+    race3_ (Scheduler.runScheduler scheduler errorHandler callbackHandler def)
            (outWriter rout)
            (reactor rout)
 
@@ -116,7 +104,7 @@ run dispatcherProc cin = flip E.catches handlers $ do
                   $ runPluginCommand (plugin req) (command req) (arg req)
                 rid = reqId req
                 callback = sendResponse rid . dynToJSON
-            atomically $ writeTChan cin preq
+            Scheduler.sendRequest scheduler Nothing preq
 
 getNextReq :: IO (Maybe ReactorInput)
 getNextReq = do
@@ -142,5 +130,3 @@ getNextReq = do
           rest <- readReqByteString
           let cur = B.charUtf8 char
           return $ Just $ maybe cur (cur <>) rest
-
-

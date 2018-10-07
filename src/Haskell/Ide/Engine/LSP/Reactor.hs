@@ -7,27 +7,26 @@ module Haskell.Ide.Engine.LSP.Reactor
   , reactorSend'
   , makeRequest
   , makeRequests
+  , updateDocumentRequest
+  , cancelRequest
   , asksLspFuncs
   , REnv(..)
   )
 where
 
-import           Control.Concurrent.STM
 import           Control.Monad.Reader
 import qualified Data.Map                      as Map
-import qualified Data.Set                      as S
 import qualified Language.Haskell.LSP.Core     as Core
 import qualified Language.Haskell.LSP.Messages as J
 import qualified Language.Haskell.LSP.Types    as J
 import           Haskell.Ide.Engine.Compat
-import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.LSP.Config
 import           Haskell.Ide.Engine.PluginsIdeMonads
+import qualified Haskell.Ide.Engine.Scheduler  as Scheduler
 import           Haskell.Ide.Engine.Types
 
 data REnv = REnv
-  { dispatcherEnv     :: DispatcherEnv
-  , reqChanIn         :: TChan (PluginRequest R)
+  { scheduler         :: Scheduler.Scheduler R
   , lspFuncs          :: Core.LspFuncs Config
   , reactorPidCache   :: Int
   , diagnosticSources :: Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
@@ -46,16 +45,15 @@ instance HasPidCache R where
 
 runReactor
   :: Core.LspFuncs Config
-  -> DispatcherEnv
-  -> TChan (PluginRequest R)
-  -> Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
+  -> Scheduler.Scheduler R
+  -> Map.Map DiagnosticTrigger [(PluginId, DiagnosticProviderFunc)]
   -> [HoverProvider]
   -> [SymbolProvider]
   -> R a
   -> IO a
-runReactor lf de cin dps hps sps f = do
+runReactor lf sc dps hps sps f = do
   pid <- getProcessID
-  runReaderT f (REnv de cin lf pid dps hps sps)
+  runReaderT f (REnv sc lf pid dps hps sps)
 
 -- ---------------------------------------------------------------------
 
@@ -82,30 +80,32 @@ reactorSend' f = do
 -- ---------------------------------------------------------------------
 
 makeRequest :: (MonadIO m, MonadReader REnv m) => PluginRequest R -> m ()
-makeRequest req@(GReq _ _ Nothing (Just lid) _ _) = writePluginReq req lid
-makeRequest req@(IReq _ lid _ _) = writePluginReq req lid
-makeRequest req = liftIO . atomically . flip writeTChan req =<< asks reqChanIn
+makeRequest req = do
+  sc <- asks scheduler
+  liftIO $ Scheduler.sendRequest sc Nothing req
 
-writePluginReq :: (MonadIO m, MonadReader REnv m) => PluginRequest R -> J.LspId -> m ()
-writePluginReq req lid = do
-  wipTVar <- asks (wipReqsTVar . dispatcherEnv)
-  cin     <- asks reqChanIn
-  liftIO $ atomically $ do
-    modifyTVar wipTVar (S.insert lid)
-    writeTChan cin req
+updateDocumentRequest
+  :: (MonadIO m, MonadReader REnv m) => Uri -> Int -> PluginRequest R -> m ()
+updateDocumentRequest uri ver req = do
+  sc <- asks scheduler
+  liftIO $ Scheduler.sendRequest sc (Just (uri, ver)) req
+
+cancelRequest :: (MonadIO m, MonadReader REnv m) => J.LspId -> m ()
+cancelRequest lid =
+  liftIO . flip Scheduler.cancelRequest lid =<< asks scheduler
 
 -- | Execute multiple ide requests sequentially
-makeRequests :: [IdeDeferM (IdeResult a)] -- ^ The requests to make
-             -> TrackingNumber
-             -> J.LspId
-             -> ([a] -> R ())          -- ^ Callback with the request inputs and results
-             -> R ()
+makeRequests
+  :: [IdeDeferM (IdeResult a)] -- ^ The requests to make
+  -> TrackingNumber
+  -> J.LspId
+  -> ([a] -> R ())          -- ^ Callback with the request inputs and results
+  -> R ()
 makeRequests = go []
-  where
-    go acc [] _ _ callback = callback acc
-    go acc (x:xs) tn reqId callback =
-      let reqCallback result = go (acc ++ [result]) xs tn reqId callback
-      in makeRequest $ IReq tn reqId reqCallback x
+ where
+  go acc [] _ _ callback = callback acc
+  go acc (x : xs) tn reqId callback =
+    let reqCallback result = go (acc ++ [result]) xs tn reqId callback
+    in  makeRequest $ IReq tn reqId reqCallback x
 
 -- ---------------------------------------------------------------------
-

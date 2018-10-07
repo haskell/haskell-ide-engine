@@ -6,15 +6,13 @@
 {-# LANGUAGE ScopedTypeVariables       #-}
 module Haskell.Ide.Engine.Dispatcher
   (
-    dispatcherP
+    ideDispatcher
+  , ghcDispatcher
   , DispatcherEnv(..)
   , ErrorHandler
   , CallbackHandler
   ) where
 
-import           Control.Concurrent.STM.TChan
-import           Control.Concurrent
-import           Control.Concurrent.Async
 import           Control.Concurrent.STM.TVar
 import           Control.Monad
 import           Control.Monad.IO.Class
@@ -23,14 +21,14 @@ import           Control.Monad.STM
 import qualified Data.Text                               as T
 import qualified Data.Map                                as Map
 import qualified Data.Set                                as S
-import qualified GhcMod.Types                            as GM
-import           Haskell.Ide.Engine.Compat
+
+import qualified Language.Haskell.LSP.Types              as J
+import qualified Language.Haskell.LSP.Types.Capabilities as J
+
+import qualified Haskell.Ide.Engine.Channel              as Channel
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Types
-import           Haskell.Ide.Engine.Monad
-import qualified Language.Haskell.LSP.Types              as J
-import qualified Language.Haskell.LSP.Types.Capabilities as J
 
 data DispatcherEnv = DispatcherEnv
   { cancelReqsTVar     :: !(TVar (S.Set J.LspId))
@@ -43,50 +41,15 @@ type ErrorHandler = J.LspId -> J.ErrorCode -> T.Text -> IO ()
 -- | A handler to run the requests' callback in your monad of choosing.
 type CallbackHandler m = forall a. RequestCallback m a -> a -> IO ()
 
-dispatcherP :: forall m. TChan (PluginRequest m)
-            -> IdePlugins
-            -> GM.Options
-            -> DispatcherEnv
-            -> ErrorHandler
-            -> CallbackHandler m
-            -> J.ClientCapabilities
-            -> IO ()
-dispatcherP inChan plugins ghcModOptions env errorHandler callbackHandler caps = do
-  stateVarVar <- newEmptyMVar
-  ideChan <- newTChanIO
-  ghcChan <- newTChanIO
-
-  pid <- getProcessID
-
-  let startState = IdeState emptyModuleCache Map.empty plugins Map.empty Nothing pid
-      runGhcDisp = runIdeGhcM ghcModOptions caps startState $ do
-        stateVar <- lift $ lift $ lift ask
-        liftIO $ putMVar stateVarVar stateVar
-        ghcDispatcher env errorHandler callbackHandler ghcChan
-      runIdeDisp = do
-        stateVar <- readMVar stateVarVar
-        ideDispatcher stateVar caps env errorHandler callbackHandler ideChan
-      runMainDisp = mainDispatcher inChan ghcChan ideChan
-
-  runGhcDisp `race_` runIdeDisp `race_` runMainDisp
-
-mainDispatcher :: forall void m. TChan (PluginRequest m) -> TChan (GhcRequest m) -> TChan (IdeRequest m) -> IO void
-mainDispatcher inChan ghcChan ideChan = forever $ do
-  req <- atomically $ readTChan inChan
-  case req of
-    Right r ->
-      atomically $ writeTChan ghcChan r
-    Left r ->
-      atomically $ writeTChan ideChan r
 
 ideDispatcher :: forall void m. TVar IdeState -> J.ClientCapabilities
               -> DispatcherEnv -> ErrorHandler -> CallbackHandler m
-              -> TChan (IdeRequest m) -> IO void
+              -> Channel.OutChan (IdeRequest m) -> IO void
 ideDispatcher stateVar caps env errorHandler callbackHandler pin =
   -- TODO: AZ run a single ReaderT, with a composite R.
   flip runReaderT stateVar $ flip runReaderT caps $ forever $ do
     debugm "ideDispatcher: top of loop"
-    (IdeRequest tn lid callback action) <- liftIO $ atomically $ readTChan pin
+    (IdeRequest tn lid callback action) <- liftIO $ Channel.readChan pin
     debugm $ "ideDispatcher: got request " ++ show tn ++ " with id: " ++ show lid
 
     iterT queueDeferred $
@@ -107,10 +70,10 @@ ideDispatcher stateVar caps env errorHandler callbackHandler pin =
                 newQueue = Map.alter (Just . update) fp oldQueue
             in s { requestQueue = newQueue }
 
-ghcDispatcher :: forall void m. DispatcherEnv -> ErrorHandler -> CallbackHandler m -> TChan (GhcRequest m) -> IdeGhcM void
+ghcDispatcher :: forall void m. DispatcherEnv -> ErrorHandler -> CallbackHandler m -> Channel.OutChan (GhcRequest m) -> IdeGhcM void
 ghcDispatcher env@DispatcherEnv{docVersionTVar} errorHandler callbackHandler pin = forever $ do
   debugm "ghcDispatcher: top of loop"
-  (GhcRequest tn context mver mid callback action) <- liftIO $ atomically $ readTChan pin
+  (GhcRequest tn context mver mid callback action) <- liftIO $  Channel.readChan pin
   debugm $ "ghcDispatcher:got request " ++ show tn ++ " with id: " ++ show mid
 
   let runner = case context of
