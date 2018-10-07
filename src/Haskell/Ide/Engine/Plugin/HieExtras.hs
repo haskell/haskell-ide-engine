@@ -307,7 +307,7 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) = pluginGetFile "getCo
   debugm $ "got prefix" ++ show (prefixModule, prefixText)
   let enteredQual = if T.null prefixModule then "" else prefixModule <> "."
       fullPrefix = enteredQual <> prefixText
-  ifCachedModuleAndData file (IdeResultOk []) $ \_ CachedInfo { .. } CC { .. } ->
+  ifCachedModuleAndData file (IdeResultOk []) $ \tm CachedInfo { .. } CC { .. } ->
     let
       -- correct the position by moving 'foo :: Int -> String ->    '
       --                                                           ^
@@ -323,7 +323,7 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) = pluginGetFile "getCo
             -- like '-> '
         in Position l (c - d)
 
-      contexts = getArtifactsAtPos pos contextMap
+      contexts = getArtifactsAtPos pos (genContextMap (tm_parsed_module tm))
       -- default to value context if no explicit context
       context = maybe ValueContext snd $ listToMaybe (reverse contexts)
 

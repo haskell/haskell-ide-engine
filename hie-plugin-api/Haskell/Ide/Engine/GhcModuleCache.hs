@@ -42,7 +42,6 @@ data CachedInfo = CachedInfo
   , typeMap        :: !TypeMap
   , moduleMap      :: !ModuleMap
   , defMap         :: !DefMap
-  , contextMap     :: !ContextMap
   , revMap         :: !(FilePath -> FilePath)
   , newPosToOld    :: !(Position -> Maybe Position)
   , oldPosToNew    :: !(Position -> Maybe Position)

@@ -220,19 +220,17 @@ cacheModule uri modul = do
     case modul of
       Left pm -> do
         muc <- getUriCache uri'
-        let ctxMap = genContextMap pm
-            defInfo = CachedInfo mempty mempty mempty mempty ctxMap rfm return return
+        let defInfo = CachedInfo mempty mempty mempty mempty rfm return return
         return $ case muc of
           Just (UriCacheSuccess uc) ->
-            let newCI = (cachedInfo uc) { contextMap = ctxMap, revMap = rfm }
+            let newCI = (cachedInfo uc) { revMap = rfm }
               in uc { cachedPsMod = pm, cachedInfo = newCI }
           _ -> UriCache defInfo pm Nothing mempty
 
       Right tm -> do
         typm <- GM.unGmlT $ genTypeMap tm    
-        let info = CachedInfo (genLocMap tm) typm (genImportMap tm) (genDefMap tm) ctxMap rfm return return
+        let info = CachedInfo (genLocMap tm) typm (genImportMap tm) (genDefMap tm) rfm return return
             pm = GHC.tm_parsed_module tm
-            ctxMap = genContextMap pm
         return $ UriCache info pm (Just tm) mempty
 
   let res = UriCacheSuccess newUc
