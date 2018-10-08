@@ -15,6 +15,7 @@ module Haskell.Ide.Engine.PluginUtils
   , diffText'
   , srcSpan2Range
   , srcSpan2Loc
+  , unpackRealSrcSpan
   , reverseMapFile
   , fileInfo
   , realSrcSpan2Range

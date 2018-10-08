@@ -1,17 +1,16 @@
 {-# LANGUAGE CPP #-}
 module Haskell.Ide.Engine.ArtifactMap where
 
-import Data.Maybe
+import           Data.Maybe
 import qualified Data.IntervalMap.FingerTree       as IM
 import qualified Data.Generics                     as SYB
 
-import GhcMod.SrcUtils
-
 import qualified GHC
-import           GHC                               (TypecheckedModule, ParsedModule)
+import           GHC                               (TypecheckedModule)
 import qualified SrcLoc                            as GHC
 import qualified Var
 import qualified GhcMod.Gap                        as GM
+import           GhcMod.SrcUtils
 
 import           Language.Haskell.LSP.Types
 
@@ -22,20 +21,8 @@ type LocMap      = SourceMap GHC.Name
 type TypeMap     = SourceMap GHC.Type
 type ModuleMap   = SourceMap GHC.ModuleName
 type DefMap      = SourceMap GHC.RdrName
-type ContextMap  = SourceMap Context
 
 -- TODO: Maybe look at using ranges instead of positions
-
--- ---------------------------------------------------------------------
-
--- | A context of a declaration in the program
--- e.g. is the declaration a type declaration or a value declaration
--- Used for determining which code completions to show
--- TODO: expand this with more contexts like classes or instances for
--- smarter code completion
-data Context = TypeContext
-             | ValueContext
-  deriving (Show, Eq)
 
 -- ---------------------------------------------------------------------
 
@@ -147,19 +134,6 @@ genDefMap tm = mconcat $ map (go . GHC.unLoc) decls
         golbs _ = mempty
     go _ = mempty
     decls = GHC.hsmodDecls $ GHC.unLoc $ GHC.pm_parsed_source $ GHC.tm_parsed_module tm
-
--- | Generates a map of where the context is a type and where the context is a value
--- i.e. where are the value decls and the type decls
-genContextMap :: ParsedModule -> ContextMap
-genContextMap pm = SYB.everything mappend (mempty `SYB.mkQ` go `SYB.extQ` goInline) decl
-  where decl = GHC.hsmodDecls $ GHC.unLoc $ GHC.pm_parsed_source pm
-        go :: GHC.LHsDecl GM.GhcPs -> ContextMap
-        go (GHC.L (GHC.RealSrcSpan r) (GHC.SigD _)) = IM.singleton (rspToInt r) TypeContext 
-        go (GHC.L (GHC.RealSrcSpan r) (GHC.ValD _)) = IM.singleton (rspToInt r) ValueContext 
-        go _ = mempty
-        goInline :: GHC.LHsType GM.GhcPs -> ContextMap
-        goInline (GHC.L (GHC.RealSrcSpan r) _) = IM.singleton (rspToInt r) TypeContext
-        goInline _ = mempty
 
 -- | Converts a RealSrcSpan to an interval for an IntervalMap.
 rspToInt :: GHC.RealSrcSpan -> IM.Interval Position

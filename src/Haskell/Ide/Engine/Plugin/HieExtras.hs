@@ -34,10 +34,11 @@ import           DataCon
 import           Exception
 import           FastString
 import           Finder
-import           GHC
+import           GHC                                          hiding (getContext)
 import qualified GhcMod.LightGhc                              as GM
 import qualified GhcMod.Gap                                   as GM
 import           Haskell.Ide.Engine.ArtifactMap
+import           Haskell.Ide.Engine.Context
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
@@ -323,9 +324,8 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) = pluginGetFile "getCo
             -- like '-> '
         in Position l (c - d)
 
-      contexts = getArtifactsAtPos pos (genContextMap (tm_parsed_module tm))
       -- default to value context if no explicit context
-      context = maybe ValueContext snd $ listToMaybe (reverse contexts)
+      context = fromMaybe ValueContext $ getContext pos (tm_parsed_module tm)
 
       toggleSnippets x
         | withSnippets && supportsSnippets && context == ValueContext = x
