@@ -41,6 +41,8 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Plugin.Fuzzy              as Fuzzy
 import           HscTypes
+import qualified Language.Haskell.LSP.Core                    as Core
+import qualified Language.Haskell.LSP.VFS                     as VFS
 import qualified Language.Haskell.LSP.Types                   as J
 import qualified Language.Haskell.LSP.Types.Lens              as J
 import           Language.Haskell.Refact.API                 (showGhc)
@@ -54,6 +56,9 @@ import           SrcLoc
 import           TcEnv
 import           Type
 import           Var
+import qualified Yi.Rope as Yi
+
+-- ---------------------------------------------------------------------
 
 getDynFlags :: GHC.TypecheckedModule -> DynFlags
 getDynFlags = ms_hspp_opts . pm_mod_summary . tm_parsed_module
@@ -468,3 +473,23 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file ->
         Nothing -> return $ IdeResultFail
           (IdeError PluginError "Couldn't get hscEnv when finding import" Null)
 
+-- ---------------------------------------------------------------------
+
+getRangeFromVFS :: (MonadIO m)
+  => Uri -> Range -> m (Maybe T.Text)
+getRangeFromVFS uri (Range (Position lf cf) (Position lt ct)) = do
+  mvf <- liftIO =<< asksLspFuncs Core.getVirtualFileFunc <*> pure uri
+  case mvf of
+    Just (VFS.VirtualFile _ yitext) -> do
+        let headMaybe [] = Nothing
+            headMaybe (x:_) = Just x
+            lastMaybe [] = Nothing
+            lastMaybe xs = Just $ last xs
+        let
+          (_,start) = Yi.splitAtLine lf yitext
+        let beforePos = Yi.take c curLine
+        curWord <- Yi.toText <$> lastMaybe (Yi.words beforePos)
+        let parts = T.split (=='.')
+                      $ T.takeWhileEnd (\x -> isAlphaNum x || x `elem` ("._'"::String)) curWord
+        return $ Just s
+    Nothing -> return Nothing
