@@ -113,13 +113,20 @@ fresh data is generated when first requested.
 ## Dispatcher and messaging
 
 ```haskell
-dispatcherP :: forall m. TChan (PluginRequest m)
-            -> IdePlugins
-            -> GM.Options
-            -> DispatcherEnv
-            -> ErrorHandler
-            -> CallbackHandler m
-            -> IO ()
+runScheduler
+  :: forall m
+   . Scheduler m
+  -> ErrorHandler
+  -> CallbackHandler m
+  -> C.ClientCapabilities
+  -> IO ()
+
+sendRequest
+  :: forall m
+   . Scheduler m
+  -> Maybe DocUpdate
+  -> PluginRequest m
+  -> IO ()
 
 type PluginRequest m = Either (IdeRequest m) (GhcRequest m)
 
@@ -139,8 +146,8 @@ data IdeRequest m = forall a. IdeRequest
 
 ```
 
-`dispatcherP`(thread #3) listens for `PluginRequest`s on the `TChan` and executes the 
-`pinReq`, sending the result to the `pinCallback`. `pinDocVer` and `pinLspReqId` help us 
+`runScheduler`(thread #3) waits for requests sent through `sendRequest` and executes the
+`pinReq`. Sending the result to the `pinCallback`. `pinDocVer` and `pinLspReqId` help us 
 make sure we don't execute a stale request or a request that has been cancelled by the IDE. 
 Note that because of the single threaded architecture, we can't cancel a request that 
 has already started execution.
