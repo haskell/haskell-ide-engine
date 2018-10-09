@@ -38,6 +38,8 @@ import           Haskell.Ide.Engine.Plugin.HsImport
 import           Haskell.Ide.Engine.Plugin.Liquid
 import           Haskell.Ide.Engine.Plugin.Package
 import           Haskell.Ide.Engine.Plugin.Haddock
+import           Haskell.Ide.Engine.Plugin.HfaAlign
+
 
 -- ---------------------------------------------------------------------
 
@@ -63,6 +65,7 @@ plugins includeExamples = pluginDescToIdePlugins allPlugins
       ]
     examplePlugins =
       [example2Descriptor "eg2"
+      ,hfaAlignDescriptor "hfaa"
       ]
 
 -- ---------------------------------------------------------------------

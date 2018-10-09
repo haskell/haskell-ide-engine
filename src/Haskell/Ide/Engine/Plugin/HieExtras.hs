@@ -14,6 +14,8 @@ module Haskell.Ide.Engine.Plugin.HieExtras
   , showName
   , safeTyThingId
   , PosPrefixInfo(..)
+  , getRangeFromVFS
+  , rangeLinesFromVfs
   ) where
 
 import           ConLike
@@ -41,8 +43,7 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Plugin.Fuzzy              as Fuzzy
 import           HscTypes
--- import qualified Language.Haskell.LSP.Core                    as Core
--- import qualified Language.Haskell.LSP.VFS                     as VFS
+import qualified Language.Haskell.LSP.VFS                     as VFS
 import qualified Language.Haskell.LSP.Types                   as J
 import qualified Language.Haskell.LSP.Types.Lens              as J
 import           Language.Haskell.Refact.API                 (showGhc)
@@ -56,7 +57,7 @@ import           SrcLoc
 import           TcEnv
 import           Type
 import           Var
--- import qualified Yi.Rope as Yi
+import qualified Yi.Rope as Yi
 
 -- ---------------------------------------------------------------------
 
@@ -475,21 +476,17 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file ->
 
 -- ---------------------------------------------------------------------
 
--- getRangeFromVFS :: (MonadIO m)
---   => Uri -> Range -> m (Maybe T.Text)
--- getRangeFromVFS uri (Range (Position lf cf) (Position lt ct)) = do
---   mvf <- liftIO =<< asksLspFuncs Core.getVirtualFileFunc <*> pure uri
---   case mvf of
---     Just (VFS.VirtualFile _ yitext) -> do
---         let headMaybe [] = Nothing
---             headMaybe (x:_) = Just x
---             lastMaybe [] = Nothing
---             lastMaybe xs = Just $ last xs
---         let
---           (_,start) = Yi.splitAtLine lf yitext
---         let beforePos = Yi.take c curLine
---         curWord <- Yi.toText <$> lastMaybe (Yi.words beforePos)
---         let parts = T.split (=='.')
---                       $ T.takeWhileEnd (\x -> isAlphaNum x || x `elem` ("._'"::String)) curWord
---         return $ Just s
---     Nothing -> return Nothing
+getRangeFromVFS :: (MonadIO m)
+  => Uri -> VirtualFileFunc -> Range -> m (Maybe T.Text)
+getRangeFromVFS uri vf rg = do
+  mvf <- liftIO $ vf uri
+  case mvf of
+    Just vfs -> return $ Just $ rangeLinesFromVfs vfs rg
+    Nothing  -> return Nothing
+
+rangeLinesFromVfs :: VFS.VirtualFile -> Range -> T.Text
+rangeLinesFromVfs (VFS.VirtualFile _ yitext) (Range (Position lf _cf) (Position lt _ct)) = r
+  where
+    (_ ,s1) = Yi.splitAtLine lf yitext
+    (s2, _) = Yi.splitAtLine (lt - lf) s1
+    r = Yi.toText s2

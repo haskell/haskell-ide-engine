@@ -8,18 +8,14 @@
 module Haskell.Ide.Engine.Plugin.HfaAlign where
 
 import           Control.Lens
--- import           Control.Monad.IO.Class
 import           Data.Aeson
 import qualified Data.HashMap.Strict           as H
 #if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
 #endif
--- import qualified Data.Map                      as Map
--- import qualified Data.Set                      as S
--- import qualified Data.Text                     as T
 import qualified GHC.Generics                  as Generics
--- import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes hiding (_range)
+import           Haskell.Ide.Engine.Plugin.HieExtras
 import qualified Language.Haskell.LSP.Types      as J
 import qualified Language.Haskell.LSP.Types.Lens as J
 
@@ -32,8 +28,8 @@ import qualified Safe
 
 -- ---------------------------------------------------------------------
 
-example2Descriptor :: PluginId -> PluginDescriptor
-example2Descriptor plId = PluginDescriptor
+hfaAlignDescriptor :: PluginId -> PluginDescriptor
+hfaAlignDescriptor plId = PluginDescriptor
   { pluginId = plId
   , pluginName = "Align Equals"
   , pluginDesc = "An example of writing an HIE plugin\nbased on http://www.haskellforall.com/2018/10/detailed-walkthrough-for-beginner.html"
@@ -55,32 +51,30 @@ data AlignParams = AlignParams
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
 alignCmd :: CommandFunc AlignParams J.WorkspaceEdit
-alignCmd = CmdSync $ \_ (AlignParams uri r) -> return $ IdeResultOk $ makeAlign uri r
-
-makeAlign :: J.Uri -> J.Range -> J.WorkspaceEdit
-makeAlign uri (J.Range (J.Position startLine _) _) = res
-  where
-    pos = (J.Position startLine 0)
-    textEdits = J.List
-      [J.TextEdit (J.Range pos pos)
-                  "-- TODO: from example2 plugin\n"
-      ]
-    res = J.WorkspaceEdit
-      (Just $ H.singleton uri textEdits)
-      Nothing
+alignCmd = CmdSync $ \vf (AlignParams uri rg) -> do
+  mtext <- getRangeFromVFS uri vf rg
+  case mtext of
+    Nothing -> return $ IdeResultOk $ J.WorkspaceEdit Nothing Nothing
+    Just txt -> do
+      let
+        adjusted = adjustText txt
+        textEdits = J.List [J.TextEdit rg adjusted ]
+        res = J.WorkspaceEdit
+          (Just $ H.singleton uri textEdits)
+          Nothing
+      return $ IdeResultOk res
 
 -- ---------------------------------------------------------------------
 
-
 codeActionProvider :: CodeActionProvider
-codeActionProvider plId docId _ _ r _context = do
-  cmd <- mkLspCommand plId "todo" title  (Just cmdParams)
+codeActionProvider plId docId _ _ (Range (Position sl _) (Position el _)) _context = do
+  cmd <- mkLspCommand plId "align" title  (Just cmdParams)
   return $ IdeResultOk [codeAction cmd]
   where
     codeAction :: J.Command -> J.CodeAction
     codeAction cmd = J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [])) Nothing (Just cmd)
-    title = "Add TODO marker"
-    cmdParams = [toJSON (AlignParams (docId ^. J.uri) r )]
+    title = "Align on ="
+    cmdParams = [toJSON (AlignParams (docId ^. J.uri) (Range (Position sl 0) (Position (el+1) 0)) )]
 
 -- ---------------------------------------------------------------------
 -- Blog post code
