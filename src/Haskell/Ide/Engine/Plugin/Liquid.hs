@@ -52,10 +52,10 @@ liquidDescriptor plId = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 sayHelloCmd :: CommandFunc () T.Text
-sayHelloCmd = CmdSync $ \_ -> return (IdeResultOk sayHello)
+sayHelloCmd = CmdSync $ \_ _ -> return (IdeResultOk sayHello)
 
 sayHelloToCmd :: CommandFunc T.Text T.Text
-sayHelloToCmd = CmdSync $ \n -> do
+sayHelloToCmd = CmdSync $ \_ n -> do
   r <- liftIO $ sayHelloTo n
   return $ IdeResultOk r
 

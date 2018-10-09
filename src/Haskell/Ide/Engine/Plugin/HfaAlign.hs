@@ -55,7 +55,7 @@ data AlignParams = AlignParams
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
 alignCmd :: CommandFunc AlignParams J.WorkspaceEdit
-alignCmd = CmdSync $ \(AlignParams uri r) -> return $ IdeResultOk $ makeAlign uri r
+alignCmd = CmdSync $ \_ (AlignParams uri r) -> return $ IdeResultOk $ makeAlign uri r
 
 makeAlign :: J.Uri -> J.Range -> J.WorkspaceEdit
 makeAlign uri (J.Range (J.Position startLine _) _) = res
@@ -73,7 +73,7 @@ makeAlign uri (J.Range (J.Position startLine _) _) = res
 
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider plId docId _ r _context = do
+codeActionProvider plId docId _ _ r _context = do
   cmd <- mkLspCommand plId "todo" title  (Just cmdParams)
   return $ IdeResultOk [codeAction cmd]
   where
