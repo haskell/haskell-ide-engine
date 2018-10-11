@@ -2,9 +2,12 @@
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE RecordWildCards           #-}
 {-# LANGUAGE NamedFieldPuns            #-}
+{-# LANGUAGE OverloadedStrings         #-}
 module Haskell.Ide.Engine.Scheduler
   ( Scheduler
   , DocUpdate
+  , ErrorHandler
+  , CallbackHandler
   , newScheduler
   , runScheduler
   , sendRequest
@@ -17,10 +20,12 @@ import qualified Control.Concurrent.MVar       as MVar
 import qualified Control.Concurrent.STM        as STM
 import           Control.Monad.IO.Class         ( liftIO )
 import           Control.Monad.Reader.Class     ( ask )
+import           Control.Monad.Reader           ( runReaderT )
 import           Control.Monad.Trans.Class      ( lift )
-import           Control.Monad                  ( when )
+import           Control.Monad
 import qualified Data.Set                      as Set
 import qualified Data.Map                      as Map
+import qualified Data.Text                     as T
 import qualified GhcMod.Types                  as GM
 import qualified Language.Haskell.LSP.Types    as J
 import qualified Language.Haskell.LSP.Types.Capabilities
@@ -31,8 +36,9 @@ import qualified Haskell.Ide.Engine.Compat     as Compat
 import qualified Haskell.Ide.Engine.Channel    as Channel
 import           Haskell.Ide.Engine.PluginsIdeMonads
 import           Haskell.Ide.Engine.Types
-import           Haskell.Ide.Engine.Dispatcher
 import qualified Haskell.Ide.Engine.Monad      as M
+import           Haskell.Ide.Engine.MonadFunctions
+import           Haskell.Ide.Engine.MonadTypes
 
 
 -- | A Scheduler is a coordinator between the two main processes the ide engine uses
@@ -104,6 +110,12 @@ newScheduler plugins ghcModOptions = do
     , ideChan            = ideChan
     , ghcChan            = ghcChan
     }
+
+-- | A handler for any errors that the dispatcher may encounter.
+type ErrorHandler = J.LspId -> J.ErrorCode -> T.Text -> IO ()
+
+-- | A handler to run the requests' callback in your monad of choosing.
+type CallbackHandler m = forall a. RequestCallback m a -> a -> IO ()
 
 
 -- | Runs the given scheduler. This is meant to run in a separate thread and
@@ -195,3 +207,144 @@ cancelRequest Scheduler { requestsToCancel, requestsInProgress } lid =
     wip <- STM.readTVar requestsInProgress
     when (Set.member lid wip)
       $ STM.modifyTVar' requestsToCancel (Set.insert lid)
+
+-------------------------------------------------------------------------------
+-- Dispatcher
+-------------------------------------------------------------------------------
+
+data DispatcherEnv = DispatcherEnv
+  { cancelReqsTVar     :: !(STM.TVar (Set.Set J.LspId))
+  , wipReqsTVar        :: !(STM.TVar (Set.Set J.LspId))
+  , docVersionTVar     :: !(STM.TVar (Map.Map Uri Int))
+  }
+
+-- | Processes requests published in the channel and runs the give callback
+-- or error handler as appropriate. Requests will not be processed if they
+-- were cancelled before. If already in progress and then cancelled, the callback
+-- will not be invoked in that case.
+-- Meant to be run in a separate thread and be kept alive.
+ideDispatcher
+  :: forall void m
+   . STM.TVar IdeState
+     -- ^ Holds the cached data relative to the current IDE state.
+  -> C.ClientCapabilities
+     -- ^ List of features the IDE client supports or has enabled.
+  -> DispatcherEnv
+     -- ^ A structure focusing on the mutable variables the dispatcher
+     -- is allowed to modify.
+  -> ErrorHandler
+     -- ^ Callback to run in case of errors.
+  -> CallbackHandler m
+     -- ^ Callback to run for handling the request.
+  -> Channel.OutChan (IdeRequest m)
+     -- ^ Reading end of the channel where the requests are sent to this process.
+  -> IO void
+ideDispatcher stateVar caps env errorHandler callbackHandler pin =
+  -- TODO: AZ run a single ReaderT, with a composite R.
+  flip runReaderT stateVar $ flip runReaderT caps $ forever $ do
+    debugm "ideDispatcher: top of loop"
+    (IdeRequest tn lid callback action) <- liftIO $ Channel.readChan pin
+    debugm
+      $  "ideDispatcher: got request "
+      ++ show tn
+      ++ " with id: "
+      ++ show lid
+
+    iterT queueDeferred $ unlessCancelled env lid errorHandler $ do
+      result <- action
+      unlessCancelled env lid errorHandler $ liftIO $ do
+        completedReq env lid
+        case result of
+          IdeResultOk x -> callbackHandler callback x
+          IdeResultFail (IdeError _ msg _) ->
+            errorHandler lid J.InternalError msg
+ where
+  queueDeferred (Defer fp cacheCb) = lift $ modifyMTState $ \s ->
+    let oldQueue = requestQueue s
+        -- add to existing queue if possible
+        update Nothing  = [cacheCb]
+        update (Just x) = cacheCb : x
+        newQueue = Map.alter (Just . update) fp oldQueue
+    in  s { requestQueue = newQueue }
+
+-- | Processes requests published in the channel and runs the give callback
+-- or error handler as appropriate. Requests will not be processed if they
+-- were cancelled before. If already in progress and then cancelled, the callback
+-- will not be invoked in that case.
+-- Meant to be run in a separate thread and be kept alive.
+ghcDispatcher
+  :: forall void m
+   . DispatcherEnv
+  -> ErrorHandler
+  -> CallbackHandler m
+  -> Channel.OutChan (GhcRequest m)
+  -> IdeGhcM void
+ghcDispatcher env@DispatcherEnv { docVersionTVar } errorHandler callbackHandler pin
+  = forever $ do
+    debugm "ghcDispatcher: top of loop"
+    (GhcRequest tn context mver mid callback action) <- liftIO
+      $ Channel.readChan pin
+    debugm $ "ghcDispatcher:got request " ++ show tn ++ " with id: " ++ show mid
+
+    let
+      runner = case context of
+        Nothing  -> runActionWithContext Nothing
+        Just uri -> case uriToFilePath uri of
+          Just fp -> runActionWithContext (Just fp)
+          Nothing -> \act -> do
+            debugm
+              "ghcDispatcher:Got malformed uri, running action with default context"
+            runActionWithContext Nothing act
+
+    let
+      runWithCallback = do
+        result <- runner action
+        liftIO $ case result of
+          IdeResultOk   x                      -> callbackHandler callback x
+          IdeResultFail err@(IdeError _ msg _) -> case mid of
+            Just lid -> errorHandler lid J.InternalError msg
+            Nothing ->
+              debugm $ "ghcDispatcher:Got error for a request: " ++ show err
+
+    let
+      runIfVersionMatch = case mver of
+        Nothing            -> runWithCallback
+        Just (uri, reqver) -> do
+          curver <-
+            liftIO
+            $   STM.atomically
+            $   Map.lookup uri
+            <$> STM.readTVar docVersionTVar
+          if Just reqver /= curver
+            then debugm
+              "ghcDispatcher:not processing request as it is for old version"
+            else do
+              debugm "ghcDispatcher:Processing request as version matches"
+              runWithCallback
+
+    case mid of
+      Nothing  -> runIfVersionMatch
+      Just lid -> unlessCancelled env lid errorHandler $ do
+        liftIO $ completedReq env lid
+        runIfVersionMatch
+
+-- | Runs the passed monad only if the request identified by the passed LspId
+-- has not already been cancelled.
+unlessCancelled
+  :: GM.MonadIO m => DispatcherEnv -> J.LspId -> ErrorHandler -> m () -> m ()
+unlessCancelled env lid errorHandler callback = do
+  cancelled <- liftIO $ STM.atomically isCancelled
+  if cancelled
+    then liftIO $ do
+      -- remove from cancelled and wip list
+      STM.atomically $ STM.modifyTVar' (cancelReqsTVar env) (Set.delete lid)
+      completedReq env lid
+      errorHandler lid J.RequestCancelled ""
+    else callback
+  where isCancelled = Set.member lid <$> STM.readTVar (cancelReqsTVar env)
+
+-- | Marks a request as completed by deleting the LspId from the
+-- requestsInProgress Set.
+completedReq :: DispatcherEnv -> J.LspId -> IO ()
+completedReq env lid =
+  STM.atomically $ STM.modifyTVar' (wipReqsTVar env) (Set.delete lid)

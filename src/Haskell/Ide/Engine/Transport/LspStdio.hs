@@ -45,7 +45,6 @@ import qualified GhcMod.Monad.Types       as GM
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
-import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Scheduler            as Scheduler
 import           Haskell.Ide.Engine.Types
@@ -130,10 +129,10 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
         let reactorFunc = react $ reactor rin diagIn
             caps = Core.clientCapabilities lf
 
-        let errorHandler :: ErrorHandler
+        let errorHandler :: Scheduler.ErrorHandler
             errorHandler lid code e =
               Core.sendErrorResponseS (Core.sendFunc lf) (J.responseId lid) code e
-            callbackHandler :: CallbackHandler R
+            callbackHandler :: Scheduler.CallbackHandler R
             callbackHandler f x = react $ f x
 
         -- This is the callback the debouncer executes at the end of the timeout,
