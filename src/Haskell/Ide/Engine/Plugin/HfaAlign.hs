@@ -10,9 +10,6 @@ module Haskell.Ide.Engine.Plugin.HfaAlign where
 import           Control.Lens
 import           Data.Aeson
 import qualified Data.HashMap.Strict           as H
-#if __GLASGOW_HASKELL__ < 804
-import           Data.Monoid
-#endif
 import qualified GHC.Generics                  as Generics
 import           Haskell.Ide.Engine.MonadTypes hiding (_range)
 import           Haskell.Ide.Engine.Plugin.HieExtras
