@@ -279,7 +279,7 @@ configureStack stackExe = do
     _manyPackages -> readProcess stackExe ["build"] ""
 
 configureCabal :: FilePath -> IO String
-configureCabal cabalExe = readProcess cabalExe ["configure"] ""
+configureCabal cabalExe = readProcess cabalExe ["new-configure"] ""
 
 -----------------------------------------------
 
@@ -360,7 +360,7 @@ buildDirectory = CmdSync $ \_ (BP m dd c s f mbDir) -> withCommonArgs (CommonPar
   liftIO $ case caMode ca of
     CabalMode -> do
       -- for cabal specifying directory have no sense
-      _ <- readProcess (caCabal ca) ["build"] ""
+      _ <- readProcess (caCabal ca) ["new-build"] ""
       return $ IdeResultOk ()
     StackMode -> do
       case mbDir of
@@ -398,7 +398,7 @@ buildTarget = CmdSync $ \_ (BT m dd c s f component package' compType) -> withCo
   ca <- ask
   liftIO $ case caMode ca of
     CabalMode -> do
-      _ <- readProcess (caCabal ca) ["build", T.unpack $ maybe "" id component] ""
+      _ <- readProcess (caCabal ca) ["new-build", T.unpack $ maybe "" id component] ""
       return $ IdeResultOk ()
     StackMode -> do
       case (package', component) of
