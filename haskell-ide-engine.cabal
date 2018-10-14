@@ -100,7 +100,7 @@ executable hie
   other-modules:       Paths_haskell_ide_engine
   build-depends:       base
                      , directory
-                     , ekg
+                     , ekg-wai
                      , ghc-mod-core
                      , haskell-ide-engine
                      , haskell-lsp

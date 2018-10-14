@@ -21,7 +21,7 @@ import qualified Paths_haskell_ide_engine              as Meta
 import           System.Directory
 import           System.Environment
 import qualified System.Log.Logger                     as L
-import qualified System.Remote.Monitoring              as EKG
+import qualified System.Remote.Monitoring.Wai          as EKG
 
 -- ---------------------------------------------------------------------
 -- plugins
