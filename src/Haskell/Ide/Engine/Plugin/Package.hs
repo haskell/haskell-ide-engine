@@ -72,7 +72,7 @@ data AddParams = AddParams
   deriving (Eq, Show, Read, Generic, ToJSON, FromJSON)
 
 addCmd :: CommandFunc AddParams J.WorkspaceEdit
-addCmd = CmdSync $ \(AddParams rootDir modulePath pkg) -> do
+addCmd = CmdSync $ \_ (AddParams rootDir modulePath pkg) -> do
 
   packageType <- liftIO $ findPackageType rootDir
   fileMap <- GM.mkRevRedirMapFunc
@@ -233,7 +233,7 @@ editCabalPackage file modulePath pkgName fileMap = do
             newDeps = oldDeps ++ [Dependency (mkPackageName dep) anyVersion]
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider plId docId mRootDir _ context = do
+codeActionProvider plId docId _ mRootDir _ context = do
   let J.List diags = context ^. J.diagnostics
       pkgs = mapMaybe getAddablePackages diags
 

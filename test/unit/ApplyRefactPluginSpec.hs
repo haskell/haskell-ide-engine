@@ -47,7 +47,7 @@ applyRefactSpec = do
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton applyRefactPath textEdits)
             Nothing
-      testCommand testPlugins act "applyrefact" "applyOne" arg res
+      testCommand testPlugins act "applyrefact" "applyOne" dummyVfs arg res
 
     -- ---------------------------------
 
@@ -59,8 +59,8 @@ applyRefactSpec = do
                            , TextEdit (Range (Position 3 0) (Position 3 15)) "foo x = x + 1" ]
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton applyRefactPath textEdits)
-            Nothing            
-      testCommand testPlugins act "applyrefact" "applyAll" arg res
+            Nothing
+      testCommand testPlugins act "applyrefact" "applyAll" dummyVfs arg res
 
     -- ---------------------------------
 
@@ -85,7 +85,7 @@ applyRefactSpec = do
                             "Redundant bracket\nFound:\n  (x + 1)\nWhy not:\n  x + 1\n"
                             Nothing
                ]}
-      testCommand testPlugins act "applyrefact" "lint" arg res
+      testCommand testPlugins act "applyrefact" "lint" dummyVfs arg res
 
     -- ---------------------------------
 
@@ -105,7 +105,7 @@ applyRefactSpec = do
                            , _source = Just "hlint"
                            , _message = "Parse error: :~:\n  import           Data.Type.Equality            ((:~:) (..), (:~~:) (..))\n  \n> data instance Sing (z :: (a :~: b)) where\n      SRefl :: Sing Refl\n\n"
                            , _relatedInformation = Nothing }]}
-      testCommand testPlugins act "applyrefact" "lint" arg res
+      testCommand testPlugins act "applyrefact" "lint" dummyVfs arg res
 
     -- ---------------------------------
 
@@ -144,4 +144,3 @@ applyRefactSpec = do
             , _diagnostics = List []
             }
            ))
-

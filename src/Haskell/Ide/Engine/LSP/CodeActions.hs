@@ -32,7 +32,8 @@ data FallbackCodeActionParams =
 handleCodeActionReq :: TrackingNumber -> J.CodeActionRequest -> R ()
 handleCodeActionReq tn req = do
 
-  maybeRootDir <- asksLspFuncs Core.rootPath
+  maybeRootDir    <- asksLspFuncs Core.rootPath
+  virtualFileFunc <- asksLspFuncs Core.getVirtualFileFunc
 
   vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
   docVersion <- fmap _version <$> liftIO (vfsFunc docUri)
@@ -44,7 +45,7 @@ handleCodeActionReq tn req = do
         return $ IdeResultOk $ mapMaybe getProvider $ toList m
 
       providersCb providers =
-        let reqs = map (\f -> lift (f docId maybeRootDir range context)) providers
+        let reqs = map (\f -> lift (f docId virtualFileFunc maybeRootDir range context)) providers
         in makeRequests reqs tn (req ^. J.id) (send . concat)
 
   makeRequest (IReq tn (req ^. J.id) providersCb getProviders)

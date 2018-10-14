@@ -8,6 +8,7 @@ module TestUtils
   , testCommand
   , runSingleReq
   , makeRequest
+  , dummyVfs
   , runIGM
   , ghc84
   , logFilePath
@@ -57,20 +58,25 @@ cdAndDo path fn = do
           $ const fn
 
 
-testCommand :: (ToJSON a, Typeable b, ToJSON b, Show b, Eq b) => IdePlugins -> IdeGhcM (IdeResult b) -> PluginId -> CommandName -> a -> IdeResult b -> IO ()
-testCommand testPlugins act plugin cmd arg res = do
+testCommand :: (ToJSON a, Typeable b, ToJSON b, Show b, Eq b)
+            => IdePlugins -> IdeGhcM (IdeResult b) -> PluginId -> CommandName -> VirtualFileFunc -> a -> IdeResult b -> IO ()
+testCommand testPlugins act plugin cmd vf arg res = do
   (newApiRes, oldApiRes) <- runIGM testPlugins $ do
     new <- act
-    old <- makeRequest plugin cmd arg
+    old <- makeRequest plugin cmd vf arg
     return (new, old)
   newApiRes `shouldBe` res
   fmap fromDynJSON oldApiRes `shouldBe` fmap Just res
 
-runSingleReq :: ToJSON a => IdePlugins -> PluginId -> CommandName -> a -> IO (IdeResult DynamicJSON)
-runSingleReq testPlugins plugin com arg = runIGM testPlugins (makeRequest plugin com arg)
+runSingleReq :: ToJSON a
+             => IdePlugins -> PluginId -> CommandName -> VirtualFileFunc -> a -> IO (IdeResult DynamicJSON)
+runSingleReq testPlugins plugin com vf arg = runIGM testPlugins (makeRequest plugin com vf arg)
 
-makeRequest :: ToJSON a => PluginId -> CommandName -> a -> IdeGhcM (IdeResult DynamicJSON)
-makeRequest plugin com arg = runPluginCommand plugin com (toJSON arg)
+makeRequest :: ToJSON a => PluginId -> CommandName -> VirtualFileFunc -> a -> IdeGhcM (IdeResult DynamicJSON)
+makeRequest plugin com vf arg = runPluginCommand plugin com vf (toJSON arg)
+
+dummyVfs :: VirtualFileFunc
+dummyVfs _ = return Nothing
 
 runIGM :: IdePlugins -> IdeGhcM a -> IO a
 runIGM testPlugins = runIdeGhcM testOptions def (IdeState emptyModuleCache Map.empty testPlugins Map.empty Nothing 0)

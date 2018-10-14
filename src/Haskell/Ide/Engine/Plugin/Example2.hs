@@ -42,10 +42,10 @@ example2Descriptor plId = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 sayHelloCmd :: CommandFunc () T.Text
-sayHelloCmd = CmdSync $ \_ -> return (IdeResultOk sayHello)
+sayHelloCmd = CmdSync $ \_ _ -> return (IdeResultOk sayHello)
 
 sayHelloToCmd :: CommandFunc T.Text T.Text
-sayHelloToCmd = CmdSync $ \n -> do
+sayHelloToCmd = CmdSync $ \_ n -> do
   r <- liftIO $ sayHelloTo n
   return $ IdeResultOk r
 
@@ -81,7 +81,7 @@ data TodoParams = TodoParams
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
 todoCmd :: CommandFunc TodoParams J.WorkspaceEdit
-todoCmd = CmdSync $ \(TodoParams uri r) -> return $ IdeResultOk $ makeTodo uri r
+todoCmd = CmdSync $ \_ (TodoParams uri r) -> return $ IdeResultOk $ makeTodo uri r
 
 makeTodo :: J.Uri -> J.Range -> J.WorkspaceEdit
 makeTodo uri (J.Range (J.Position startLine _) _) = res
@@ -99,7 +99,7 @@ makeTodo uri (J.Range (J.Position startLine _) _) = res
 
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider plId docId _ r _context = do
+codeActionProvider plId docId _ _ r _context = do
   cmd <- mkLspCommand plId "todo" title  (Just cmdParams)
   return $ IdeResultOk [codeAction cmd]
   where

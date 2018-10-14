@@ -50,14 +50,14 @@ baseDescriptor plId = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 versionCmd :: CommandFunc () T.Text
-versionCmd = CmdSync $ \_ -> return $ IdeResultOk (T.pack version)
+versionCmd = CmdSync $ \_ _ -> return $ IdeResultOk (T.pack version)
 
 pluginsCmd :: CommandFunc () IdePlugins
-pluginsCmd = CmdSync $ \_ ->
+pluginsCmd = CmdSync $ \_ _ ->
   IdeResultOk <$> getPlugins
 
 commandsCmd :: CommandFunc T.Text [CommandName]
-commandsCmd = CmdSync $ \p -> do
+commandsCmd = CmdSync $ \_ p -> do
   IdePlugins plugins <- getPlugins
   case Map.lookup p plugins of
     Nothing -> return $ IdeResultFail $ IdeError
@@ -68,7 +68,7 @@ commandsCmd = CmdSync $ \p -> do
     Just pl -> return $ IdeResultOk $ map commandName $ pluginCommands pl
 
 commandDetailCmd :: CommandFunc (T.Text, T.Text) T.Text
-commandDetailCmd = CmdSync $ \(p,command) -> do
+commandDetailCmd = CmdSync $ \_ (p,command) -> do
   IdePlugins plugins <- getPlugins
   case Map.lookup p plugins of
     Nothing -> return $ IdeResultFail $ IdeError
