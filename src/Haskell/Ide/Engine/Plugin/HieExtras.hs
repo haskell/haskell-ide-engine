@@ -139,6 +139,12 @@ mkModCompl label =
     Nothing Nothing Nothing Nothing hoogleQuery
   where hoogleQuery = Just $ toJSON $ "module:" <> label
 
+mkExtCompl :: T.Text -> J.CompletionItem
+mkExtCompl label =
+  J.CompletionItem label (Just J.CiModule) Nothing
+    Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+    Nothing Nothing Nothing Nothing Nothing
+
 safeTyThingId :: TyThing -> Maybe Id
 safeTyThingId (AnId i)                    = Just i
 safeTyThingId (AConLike (RealDataCon dc)) = Just $ dataConWrapId dc
@@ -168,6 +174,7 @@ data CachedCompletions = CC
   , unqualCompls :: [CompItem]
   , qualCompls :: QualCompls
   , importableModules :: [T.Text]
+  , cachedExtensions :: [T.Text]
   } deriving (Typeable)
 
 instance ModuleCache CachedCompletions where
@@ -193,6 +200,9 @@ instance ModuleCache CachedCompletions where
 
         -- The given namespaces for the imported modules (ie. full name, or alias if used)
         allModNamesAsNS = map (showModName . asNamespace) importDeclerations
+
+        -- The supported languages and extensions
+        languagesAndExts = map T.pack GHC.supportedLanguagesAndExtensions
 
         typeEnv = md_types $ snd $ tm_internals_ tm
         toplevelVars = mapMaybe safeTyThingId $ typeEnvElts typeEnv
@@ -286,6 +296,7 @@ instance ModuleCache CachedCompletions where
       , unqualCompls = toplevelCompls ++ unquals
       , qualCompls = quals
       , importableModules = moduleNames
+      , cachedExtensions = languagesAndExts
       }
 
 newtype WithSnippets = WithSnippets Bool
@@ -307,7 +318,7 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) = pluginGetFile "getCo
   debugm $ "got prefix" ++ show (prefixModule, prefixText)
   let enteredQual = if T.null prefixModule then "" else prefixModule <> "."
       fullPrefix = enteredQual <> prefixText
-  ifCachedModuleAndData file (IdeResultOk []) $ \_ _ CC { allModNamesAsNS, unqualCompls, qualCompls, importableModules } ->
+  ifCachedModuleAndData file (IdeResultOk []) $ \_ _ CC { allModNamesAsNS, unqualCompls, qualCompls, importableModules, cachedExtensions } ->
     let
       filtModNameCompls = map mkModCompl
         $ mapMaybe (T.stripPrefix enteredQual)
@@ -322,16 +333,21 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) = pluginGetFile "getCo
       mkImportCompl label = (J.detail ?~ label)
                           . mkModCompl
                           $ fromMaybe "" (T.stripPrefix enteredQual label)
+      
+      filtListWith f list = [ f label
+                             | label <- Fuzzy.simpleFilter fullPrefix list
+                             , enteredQual `T.isPrefixOf` label
+                             ]
 
-      filtImportCompls = [ mkImportCompl label
-                          | label <- Fuzzy.simpleFilter fullPrefix importableModules
-                          , enteredQual `T.isPrefixOf` label
-                          ]
-    in return $ IdeResultOk $
-      if "import " `T.isPrefixOf` fullLine
-      then filtImportCompls
-      else filtModNameCompls ++ map (toggleSnippets . mkCompl) filtCompls
+      filtImportCompls = filtListWith mkImportCompl importableModules
+      filtExtensionCompls = filtListWith mkExtCompl cachedExtensions
 
+      result
+        | "import " `T.isPrefixOf` fullLine      = filtImportCompls
+        | "{-# LANGUAGE" `T.isPrefixOf` fullLine = filtExtensionCompls
+        | otherwise                              =
+          filtModNameCompls ++ map (toggleSnippets . mkCompl) filtCompls
+    in return $ IdeResultOk result
 -- ---------------------------------------------------------------------
 
 getTypeForName :: Name -> IdeM (Maybe Type)
