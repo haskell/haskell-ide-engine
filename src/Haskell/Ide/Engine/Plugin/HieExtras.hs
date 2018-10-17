@@ -343,9 +343,11 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) = pluginGetFile "getCo
       filtExtensionCompls = filtListWith mkExtCompl cachedExtensions
 
       result
-        | "import " `T.isPrefixOf` fullLine      = filtImportCompls
-        | "{-# LANGUAGE" `T.isPrefixOf` fullLine = filtExtensionCompls
-        | otherwise                              =
+        | "import " `T.isPrefixOf` fullLine =
+          filtImportCompls
+        | "{-# language" `T.isPrefixOf` T.toLower fullLine = 
+          filtExtensionCompls
+        | otherwise =
           filtModNameCompls ++ map (toggleSnippets . mkCompl) filtCompls
     in return $ IdeResultOk result
 -- ---------------------------------------------------------------------
