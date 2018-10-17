@@ -35,10 +35,10 @@ spec = describe "completions" $ do
     doc <- openDoc "Completion.hs" "haskell"
     _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
 
-    let te = TextEdit (Range (Position 0 17) (Position 0 26)) "Data.M"
+    let te = TextEdit (Range (Position 1 17) (Position 1 26)) "Data.M"
     _ <- applyEdit doc te
 
-    compls <- getCompletions doc (Position 0 22)
+    compls <- getCompletions doc (Position 1 22)
     let item = head $ filter ((== "Maybe") . (^. label)) compls
     liftIO $ do
       item ^. label `shouldBe` "Maybe"
@@ -49,20 +49,33 @@ spec = describe "completions" $ do
     doc <- openDoc "Completion.hs" "haskell"
     _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
 
-    let te = TextEdit (Range (Position 1 17) (Position 0 25)) "Dat"
+    let te = TextEdit (Range (Position 2 17) (Position 1 25)) "Dat"
     _ <- applyEdit doc te
 
-    compls <- getCompletions doc (Position 0 19)
+    compls <- getCompletions doc (Position 1 19)
     let item = head $ filter ((== "Data.List") . (^. label)) compls
     liftIO $ do
       item ^. label `shouldBe` "Data.List"
       item ^. detail `shouldBe` Just "Data.List"
       item ^. kind `shouldBe` Just CiModule
+ 
+  it "completes language extensions" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
+    doc <- openDoc "Completion.hs" "haskell"
+    _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
+
+    let te = TextEdit (Range (Position 0 24) (Position 0 31)) ""
+    _ <- applyEdit doc te
+
+    compls <- getCompletions doc (Position 0 24)
+    let item = head $ filter ((== "OverloadedStrings") . (^. label)) compls
+    liftIO $ do
+      item ^. label `shouldBe` "OverloadedStrings"
+      item ^. kind `shouldBe` Just CiKeyword   
   
   it "completes with no prefix" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
     doc <- openDoc "Completion.hs" "haskell"
     _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
-    compls <- getCompletions doc (Position 4 7)
+    compls <- getCompletions doc (Position 5 7)
     liftIO $ filter ((== "!!") . (^. label)) compls `shouldNotSatisfy` null
 
   describe "snippets" $ do
@@ -70,10 +83,10 @@ spec = describe "completions" $ do
       doc <- openDoc "Completion.hs" "haskell"
       _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
 
-      let te = TextEdit (Range (Position 4 7) (Position 4 24)) "Nothing"
+      let te = TextEdit (Range (Position 5 7) (Position 5 24)) "Nothing"
       _ <- applyEdit doc te
 
-      compls <- getCompletions doc (Position 4 14)
+      compls <- getCompletions doc (Position 5 14)
       let item = head $ filter ((== "Nothing") . (^. label)) compls
       liftIO $ do
         item ^. insertTextFormat `shouldBe` Just Snippet
@@ -83,10 +96,10 @@ spec = describe "completions" $ do
       doc <- openDoc "Completion.hs" "haskell"
       _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
 
-      let te = TextEdit (Range (Position 4 7) (Position 4 24)) "fold"
+      let te = TextEdit (Range (Position 5 7) (Position 5 24)) "fold"
       _ <- applyEdit doc te
 
-      compls <- getCompletions doc (Position 4 11)
+      compls <- getCompletions doc (Position 5 11)
       let item = head $ filter ((== "foldl") . (^. label)) compls
       liftIO $ do
         item ^. label `shouldBe` "foldl"
@@ -98,10 +111,10 @@ spec = describe "completions" $ do
       doc <- openDoc "Completion.hs" "haskell"
       _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
 
-      let te = TextEdit (Range (Position 4 7) (Position 4 24)) "mapM"
+      let te = TextEdit (Range (Position 5 7) (Position 5 24)) "mapM"
       _ <- applyEdit doc te
 
-      compls <- getCompletions doc (Position 4 11)
+      compls <- getCompletions doc (Position 5 11)
       let item = head $ filter ((== "mapM") . (^. label)) compls
       liftIO $ do
         item ^. label `shouldBe` "mapM"
@@ -126,10 +139,10 @@ spec = describe "completions" $ do
       checkNoSnippets doc
   where
     checkNoSnippets doc = do
-      let te = TextEdit (Range (Position 4 7) (Position 4 24)) "fold"
+      let te = TextEdit (Range (Position 5 7) (Position 5 24)) "fold"
       _ <- applyEdit doc te
 
-      compls <- getCompletions doc (Position 4 11)
+      compls <- getCompletions doc (Position 5 11)
       let item = head $ filter ((== "foldl") . (^. label)) compls
       liftIO $ do
         item ^. label `shouldBe` "foldl"
