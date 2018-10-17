@@ -70,7 +70,7 @@ spec = describe "completions" $ do
     let item = head $ filter ((== "OverloadedStrings") . (^. label)) compls
     liftIO $ do
       item ^. label `shouldBe` "OverloadedStrings"
-      item ^. kind `shouldBe` Just CiModule   
+      item ^. kind `shouldBe` Just CiKeyword   
   
   it "completes with no prefix" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
     doc <- openDoc "Completion.hs" "haskell"
