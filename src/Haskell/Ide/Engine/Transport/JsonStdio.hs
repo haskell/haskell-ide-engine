@@ -100,8 +100,9 @@ run scheduler = flip E.catches handlers $ do
         case mreq of
           Nothing -> return()
           Just req -> do
+            let vfsFunc _ = return Nothing -- TODO: Stub for now, what to do?
             let preq = GReq 0 (context req) Nothing (Just $ J.IdInt rid) (liftIO . callback)
-                  $ runPluginCommand (plugin req) (command req) (arg req)
+                  $ runPluginCommand (plugin req) (command req) vfsFunc (arg req)
                 rid = reqId req
                 callback = sendResponse rid . dynToJSON
             Scheduler.sendRequest scheduler Nothing preq

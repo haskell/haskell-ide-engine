@@ -64,7 +64,7 @@ data OneHint = OneHint
   } deriving (Eq, Show)
 
 applyOneCmd :: CommandFunc ApplyOneParams WorkspaceEdit
-applyOneCmd = CmdSync $ \(AOP uri pos title) -> do
+applyOneCmd = CmdSync $ \_ (AOP uri pos title) -> do
   applyOneCmd' uri (OneHint pos title)
 
 applyOneCmd' :: Uri -> OneHint -> IdeGhcM (IdeResult WorkspaceEdit)
@@ -82,7 +82,7 @@ applyOneCmd' uri oneHint = pluginGetFile "applyOne: " uri $ \fp -> do
 -- ---------------------------------------------------------------------
 
 applyAllCmd :: CommandFunc Uri WorkspaceEdit
-applyAllCmd = CmdSync $ \uri -> do
+applyAllCmd = CmdSync $ \_ uri -> do
   applyAllCmd' uri
 
 applyAllCmd' :: Uri -> IdeGhcM (IdeResult WorkspaceEdit)
@@ -98,7 +98,7 @@ applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \fp -> do
 -- ---------------------------------------------------------------------
 
 lintCmd :: CommandFunc Uri PublishDiagnosticsParams
-lintCmd = CmdSync $ \uri -> do
+lintCmd = CmdSync $ \_ uri -> do
   lintCmd' uri
 
 -- AZ:TODO: Why is this in IdeGhcM?
@@ -278,7 +278,7 @@ showParseError (Hlint.ParseError location message content) =
 -- ---------------------------------------------------------------------
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider plId docId _ _ context = IdeResultOk <$> hlintActions
+codeActionProvider plId docId _ _ _ context = IdeResultOk <$> hlintActions
   where
 
     hlintActions :: IdeM [LSP.CodeAction]

@@ -99,8 +99,9 @@ dispatchGhcRequest tn ctx n scheduler lc plugin com arg = do
     logger x = logToChan lc (ctx, Right x)
 
   let req = GReq tn Nothing Nothing (Just (IdInt n)) logger $
-        runPluginCommand plugin com (toJSON arg)
+        runPluginCommand plugin com  dummyVfs (toJSON arg)
   sendRequest scheduler Nothing req
+
 
 dispatchIdeRequest :: (Typeable a, ToJSON a)
                    => TrackingNumber -> String -> Scheduler IO

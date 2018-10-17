@@ -82,7 +82,7 @@ type Diagnostics = Map.Map Uri (Set.Set Diagnostic)
 type AdditionalErrs = [T.Text]
 
 checkCmd :: CommandFunc Uri (Diagnostics, AdditionalErrs)
-checkCmd = CmdSync $ \ uri ->
+checkCmd = CmdSync $ \_ uri ->
   setTypecheckedModule uri
 
 -- ---------------------------------------------------------------------
@@ -214,7 +214,7 @@ setTypecheckedModule uri =
         modifyMTS (\s -> s {ghcSession = sess})
         cacheModule fp (Right tm)
         debugm "setTypecheckedModule: done"
-        
+
       _ -> do
         debugm $ "setTypecheckedModule: Didn't get typechecked or parsed module for: " ++ show fp
 
@@ -225,7 +225,7 @@ setTypecheckedModule uri =
 -- ---------------------------------------------------------------------
 
 lintCmd :: CommandFunc Uri T.Text
-lintCmd = CmdSync $ \ uri ->
+lintCmd = CmdSync $ \_ uri ->
   lintCmd' uri
 
 lintCmd' :: Uri -> IdeGhcM (IdeResult T.Text)
@@ -249,7 +249,7 @@ instance ToJSON InfoParams where
   toJSON = genericToJSON customOptions
 
 infoCmd :: CommandFunc InfoParams T.Text
-infoCmd = CmdSync $ \(IP uri expr) ->
+infoCmd = CmdSync $ \_ (IP uri expr) ->
   infoCmd' uri expr
 
 infoCmd' :: Uri -> T.Text -> IdeGhcM (IdeResult T.Text)
@@ -270,7 +270,7 @@ instance ToJSON TypeParams where
   toJSON = genericToJSON customOptions
 
 typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
-typeCmd = CmdSync $ \(TP _bool uri pos) ->
+typeCmd = CmdSync $ \_ (TP _bool uri pos) ->
   liftToGhc $ newTypeCmd pos uri
 
 newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
@@ -309,7 +309,7 @@ isSubRangeOf (Range sa ea) (Range sb eb) = sb <= sa && eb >= ea
 
 
 splitCaseCmd :: CommandFunc HarePoint WorkspaceEdit
-splitCaseCmd = CmdSync $ \(HP uri pos) -> splitCaseCmd' uri pos
+splitCaseCmd = CmdSync $ \_ (HP uri pos) -> splitCaseCmd' uri pos
 
 splitCaseCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 splitCaseCmd' uri newPos =
@@ -396,12 +396,12 @@ data TypedHoles =
              } deriving (Eq, Show)
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider pid docId mfp r ctx = do
+codeActionProvider pid docId vf mfp r ctx = do
   support <- clientSupportsDocumentChanges
-  codeActionProvider' support pid docId mfp r ctx
+  codeActionProvider' support pid docId vf mfp r ctx
 
 codeActionProvider' :: Bool -> CodeActionProvider
-codeActionProvider' supportsDocChanges _ docId _ _ context =
+codeActionProvider' supportsDocChanges _ docId _ _ _ context =
   let LSP.List diags = context ^. LSP.diagnostics
       terms = concatMap getRenamables diags
       renameActions = map (uncurry mkRenamableAction) terms
