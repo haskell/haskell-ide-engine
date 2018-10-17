@@ -141,7 +141,7 @@ mkModCompl label =
 
 mkExtCompl :: T.Text -> J.CompletionItem
 mkExtCompl label =
-  J.CompletionItem label (Just J.CiModule) Nothing
+  J.CompletionItem label (Just J.CiKeyword) Nothing
     Nothing Nothing Nothing Nothing Nothing Nothing Nothing
     Nothing Nothing Nothing Nothing Nothing
 
