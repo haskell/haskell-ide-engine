@@ -24,6 +24,9 @@ import qualified Data.ConstrainedDynamic         as CD
 import           Data.Typeable
 import           Haskell.Ide.Engine.IdeFunctions
 import           Haskell.Ide.Engine.MonadTypes
+import           Language.Haskell.LSP.VFS (VirtualFile(..))
+
+-- ---------------------------------------------------------------------
 
 pluginDescToIdePlugins :: [PluginDescriptor] -> IdePlugins
 pluginDescToIdePlugins plugins = IdePlugins $ Map.fromList $ map (\p -> (pluginId p, p)) plugins
@@ -41,8 +44,9 @@ toDynJSON = CD.toDyn
 
 -- | Runs a plugin command given a PluginId, CommandName and
 -- arguments in the form of a JSON object.
-runPluginCommand :: PluginId -> CommandName -> Value -> IdeGhcM (IdeResult DynamicJSON)
-runPluginCommand p com arg = do
+runPluginCommand :: PluginId -> CommandName -> (Uri -> IO (Maybe VirtualFile)) -> Value
+                 -> IdeGhcM (IdeResult DynamicJSON)
+runPluginCommand p com vf arg = do
   (IdePlugins m) <- lift $ lift $ lift getPlugins
   case Map.lookup p m of
     Nothing -> return $
@@ -54,5 +58,5 @@ runPluginCommand p com arg = do
         Error err -> return $ IdeResultFail $
           IdeError ParameterError ("error while parsing args for " <> com <> " in plugin " <> p <> ": " <> T.pack err) Null
         Success a -> do
-            res <- f a
+            res <- f vf a
             return $ fmap toDynJSON res

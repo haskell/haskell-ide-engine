@@ -15,6 +15,8 @@ module Haskell.Ide.Engine.Plugin.HieExtras
   , showName
   , safeTyThingId
   , PosPrefixInfo(..)
+  , getRangeFromVFS
+  , rangeLinesFromVfs
   ) where
 
 import           ConLike
@@ -44,6 +46,7 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Plugin.Fuzzy              as Fuzzy
 import           HscTypes
+import qualified Language.Haskell.LSP.VFS                     as VFS
 import qualified Language.Haskell.LSP.Types                   as J
 import qualified Language.Haskell.LSP.Types.Lens              as J
 import           Language.Haskell.Refact.API                 (showGhc)
@@ -57,6 +60,9 @@ import           SrcLoc
 import           TcEnv
 import           Type
 import           Var
+import qualified Yi.Rope as Yi
+
+-- ---------------------------------------------------------------------
 
 getDynFlags :: GHC.TypecheckedModule -> DynFlags
 getDynFlags = ms_hspp_opts . pm_mod_summary . tm_parsed_module
@@ -142,6 +148,12 @@ mkModCompl label =
     Nothing Nothing Nothing Nothing hoogleQuery
   where hoogleQuery = Just $ toJSON $ "module:" <> label
 
+mkExtCompl :: T.Text -> J.CompletionItem
+mkExtCompl label =
+  J.CompletionItem label (Just J.CiKeyword) Nothing
+    Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+    Nothing Nothing Nothing Nothing Nothing
+
 safeTyThingId :: TyThing -> Maybe Id
 safeTyThingId (AnId i)                    = Just i
 safeTyThingId (AConLike (RealDataCon dc)) = Just $ dataConWrapId dc
@@ -173,6 +185,7 @@ data CachedCompletions = CC
   , unqualCompls :: [CompItem]
   , qualCompls :: QualCompls
   , importableModules :: [T.Text]
+  , cachedExtensions :: [T.Text]
   } deriving (Typeable)
 
 instance ModuleCache CachedCompletions where
@@ -198,6 +211,9 @@ instance ModuleCache CachedCompletions where
 
         -- The given namespaces for the imported modules (ie. full name, or alias if used)
         allModNamesAsNS = map (showModName . asNamespace) importDeclerations
+
+        -- The supported languages and extensions
+        languagesAndExts = map T.pack GHC.supportedLanguagesAndExtensions
 
         typeEnv = md_types $ snd $ tm_internals_ tm
         toplevelVars = mapMaybe safeTyThingId $ typeEnvElts typeEnv
@@ -291,6 +307,7 @@ instance ModuleCache CachedCompletions where
       , unqualCompls = toplevelCompls ++ unquals
       , qualCompls = quals
       , importableModules = moduleNames
+      , cachedExtensions = languagesAndExts
       }
 
 newtype WithSnippets = WithSnippets Bool
@@ -350,16 +367,23 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) = pluginGetFile "getCo
       mkImportCompl label = (J.detail ?~ label)
                           . mkModCompl
                           $ fromMaybe "" (T.stripPrefix enteredQual label)
+      
+      filtListWith f list = [ f label
+                             | label <- Fuzzy.simpleFilter fullPrefix list
+                             , enteredQual `T.isPrefixOf` label
+                             ]
 
-      filtImportCompls = [ mkImportCompl label
-                          | label <- Fuzzy.simpleFilter fullPrefix importableModules
-                          , enteredQual `T.isPrefixOf` label
-                          ]
-    in return $ IdeResultOk $
-        if "import " `T.isPrefixOf` fullLine
-        then filtImportCompls
-        else filtModNameCompls ++ map (toggleSnippets . mkCompl) filtCompls
+      filtImportCompls = filtListWith mkImportCompl importableModules
+      filtExtensionCompls = filtListWith mkExtCompl cachedExtensions
 
+      result
+        | "import " `T.isPrefixOf` fullLine =
+          filtImportCompls
+        | "{-# language" `T.isPrefixOf` T.toLower fullLine = 
+          filtExtensionCompls
+        | otherwise =
+          filtModNameCompls ++ map (toggleSnippets . mkCompl) filtCompls
+    in return $ IdeResultOk result
 -- ---------------------------------------------------------------------
 
 getTypeForName :: Name -> IdeM (Maybe Type)
@@ -496,3 +520,19 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file ->
         Nothing -> return $ IdeResultFail
           (IdeError PluginError "Couldn't get hscEnv when finding import" Null)
 
+-- ---------------------------------------------------------------------
+
+getRangeFromVFS :: (MonadIO m)
+  => Uri -> VirtualFileFunc -> Range -> m (Maybe T.Text)
+getRangeFromVFS uri vf rg = do
+  mvf <- liftIO $ vf uri
+  case mvf of
+    Just vfs -> return $ Just $ rangeLinesFromVfs vfs rg
+    Nothing  -> return Nothing
+
+rangeLinesFromVfs :: VFS.VirtualFile -> Range -> T.Text
+rangeLinesFromVfs (VFS.VirtualFile _ yitext) (Range (Position lf _cf) (Position lt _ct)) = r
+  where
+    (_ ,s1) = Yi.splitAtLine lf yitext
+    (s2, _) = Yi.splitAtLine (lt - lf) s1
+    r = Yi.toText s2

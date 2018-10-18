@@ -34,6 +34,7 @@ library
                        Haskell.Ide.Engine.Plugin.HaRe
                        Haskell.Ide.Engine.Plugin.Haddock
                        Haskell.Ide.Engine.Plugin.HieExtras
+                       Haskell.Ide.Engine.Plugin.HfaAlign
                        Haskell.Ide.Engine.Plugin.Hoogle
                        Haskell.Ide.Engine.Plugin.HsImport
                        Haskell.Ide.Engine.Plugin.Liquid
@@ -80,6 +81,7 @@ library
                      , optparse-simple >= 0.0.3
                      , parsec
                      , process
+                     , safe
                      , sorted-list >= 0.2.1.0
                      , stm
                      , tagsoup
@@ -100,7 +102,7 @@ executable hie
   other-modules:       Paths_haskell_ide_engine
   build-depends:       base
                      , directory
-                     , ekg
+                     , ekg-wai
                      , ghc-mod-core
                      , haskell-ide-engine
                      , haskell-lsp

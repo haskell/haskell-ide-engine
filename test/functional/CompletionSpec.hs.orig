@@ -6,6 +6,7 @@ import Control.Monad.IO.Class
 import Control.Lens hiding ((.=))
 import Data.Aeson
 import Language.Haskell.LSP.Test
+-- import Language.Haskell.LSP.Test.Replay
 import Language.Haskell.LSP.Types
 import Language.Haskell.LSP.Types.Lens hiding (applyEdit)
 import Test.Hspec
@@ -17,10 +18,10 @@ spec = describe "completions" $ do
     doc <- openDoc "Completion.hs" "haskell"
     _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
 
-    let te = TextEdit (Range (Position 5 7) (Position 5 24)) "put"
+    let te = TextEdit (Range (Position 4 7) (Position 4 24)) "put"
     _ <- applyEdit doc te
 
-    compls <- getCompletions doc (Position 5 9)
+    compls <- getCompletions doc (Position 4 9)
     let item = head $ filter ((== "putStrLn") . (^. label)) compls
     liftIO $ do
       item ^. label `shouldBe` "putStrLn"
@@ -28,6 +29,7 @@ spec = describe "completions" $ do
       item ^. detail `shouldBe` Just "String -> IO ()\nPrelude"
       item ^. insertTextFormat `shouldBe` Just Snippet
       item ^. insertText `shouldBe` Just "putStrLn ${1:String}"
+  --TODO: Replay session
 
   it "completes imports" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
     doc <- openDoc "Completion.hs" "haskell"
@@ -73,8 +75,9 @@ spec = describe "completions" $ do
   it "completes with no prefix" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
     doc <- openDoc "Completion.hs" "haskell"
     _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
-    compls <- getCompletions doc (Position 5 7)
-    liftIO $ filter ((== "!!") . (^. label)) compls `shouldNotSatisfy` null
+<<<<<<< HEAD
+    compls <- getCompletions doc (Position 4 7)
+    liftIO $ compls `shouldContainCompl` "!!"
   
   describe "contexts" $ do
     it "only provides type suggestions" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
@@ -104,6 +107,10 @@ spec = describe "completions" $ do
         compls `shouldNotContainCompl` "forkOn"
         compls `shouldContainCompl` "MVar"
         compls `shouldContainCompl` "Chan"
+=======
+    compls <- getCompletions doc (Position 5 7)
+    liftIO $ filter ((== "!!") . (^. label)) compls `shouldNotSatisfy` null
+>>>>>>> b70010b417a3e3af6421cec9fa242363b9337b2e
 
   describe "snippets" $ do
     it "work for argumentless constructors" $ runSession hieCommand fullCaps "test/testdata/completion" $ do

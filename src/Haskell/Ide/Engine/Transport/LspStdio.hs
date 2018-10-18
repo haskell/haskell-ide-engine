@@ -566,6 +566,7 @@ reactor inp diagIn = do
                   Nothing -> reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req $ dynToJSON obj
 
               execCmd cmdId args = do
+                vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
                 -- The parameters to the HIE command are always the first element
                 let cmdParams = case args of
                      Just (J.List (x:_)) -> x
@@ -600,7 +601,7 @@ reactor inp diagIn = do
                   -- Just an ordinary HIE command
                   Just (plugin, cmd) ->
                     let preq = GReq tn Nothing Nothing (Just $ req ^. J.id) callback
-                               $ runPluginCommand plugin cmd cmdParams
+                               $ runPluginCommand plugin cmd vfsFunc cmdParams
                     in makeRequest preq
 
                   -- Couldn't parse the command identifier

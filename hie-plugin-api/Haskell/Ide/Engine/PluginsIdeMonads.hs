@@ -24,6 +24,7 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , CommandFunc(..)
   , PluginDescriptor(..)
   , PluginCommand(..)
+  , VirtualFileFunc
   , CodeActionProvider
   , DiagnosticProvider(..)
   , DiagnosticProviderFunc(..)
@@ -105,11 +106,14 @@ import           Language.Haskell.LSP.Types (Command (..),
                                              filePathToUri,
                                              uriToFilePath)
 
+import           Language.Haskell.LSP.VFS (VirtualFile(..))
+
+-- ---------------------------------------------------------------------
 
 type PluginId = T.Text
 type CommandName = T.Text
 
-newtype CommandFunc a b = CmdSync (a -> IdeGhcM (IdeResult b))
+newtype CommandFunc a b = CmdSync (VirtualFileFunc -> a -> IdeGhcM (IdeResult b))
 
 data PluginCommand = forall a b. (FromJSON a, ToJSON b, Typeable b) =>
   PluginCommand { commandName :: CommandName
@@ -127,7 +131,7 @@ instance HasPidCache IdeM where
 
 instance HasPidCache IO where
   getPidCache = getProcessID
-  
+
 instance HasPidCache m => HasPidCache (IdeResultT m) where
   getPidCache = lift getPidCache
 
@@ -149,8 +153,11 @@ mkLspCmdId plid cn = do
 
 -- ---------------------------------------------------------------------
 
+type VirtualFileFunc = Uri -> IO (Maybe VirtualFile)
+
 type CodeActionProvider =  PluginId
                         -> VersionedTextDocumentIdentifier
+                        -> VirtualFileFunc
                         -> Maybe FilePath -- ^ Project root directory
                         -> Range
                         -> CodeActionContext

@@ -43,7 +43,7 @@ data ImportParams = ImportParams
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
 importCmd :: CommandFunc ImportParams J.WorkspaceEdit
-importCmd = CmdSync $ \(ImportParams uri modName) -> importModule uri modName
+importCmd = CmdSync $ \_ (ImportParams uri modName) -> importModule uri modName
 
 importModule :: Uri -> T.Text -> IdeGhcM (IdeResult J.WorkspaceEdit)
 importModule uri modName =
@@ -72,7 +72,7 @@ importModule uri modName =
           return $ IdeResultOk workspaceEdit
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider plId docId _ _ context = do
+codeActionProvider plId docId _ _ _ context = do
   let J.List diags = context ^. J.diagnostics
       terms = mapMaybe getImportables diags
 

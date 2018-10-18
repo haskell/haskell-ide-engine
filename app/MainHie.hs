@@ -21,7 +21,7 @@ import qualified Paths_haskell_ide_engine              as Meta
 import           System.Directory
 import           System.Environment
 import qualified System.Log.Logger                     as L
-import qualified System.Remote.Monitoring              as EKG
+import qualified System.Remote.Monitoring.Wai          as EKG
 
 -- ---------------------------------------------------------------------
 -- plugins
@@ -38,6 +38,8 @@ import           Haskell.Ide.Engine.Plugin.HsImport
 import           Haskell.Ide.Engine.Plugin.Liquid
 import           Haskell.Ide.Engine.Plugin.Package
 import           Haskell.Ide.Engine.Plugin.Haddock
+import           Haskell.Ide.Engine.Plugin.HfaAlign
+
 
 -- ---------------------------------------------------------------------
 
@@ -63,6 +65,7 @@ plugins includeExamples = pluginDescToIdePlugins allPlugins
       ]
     examplePlugins =
       [example2Descriptor "eg2"
+      ,hfaAlignDescriptor "hfaa"
       ]
 
 -- ---------------------------------------------------------------------
