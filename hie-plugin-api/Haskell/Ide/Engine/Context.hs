@@ -3,6 +3,7 @@ module Haskell.Ide.Engine.Context where
 import Data.Generics
 import Language.Haskell.LSP.Types
 import GHC
+import GhcMod.Gap (GhcPs) -- for GHC 8.2.2
 import Haskell.Ide.Engine.PluginUtils
 
 -- | A context of a declaration in the program

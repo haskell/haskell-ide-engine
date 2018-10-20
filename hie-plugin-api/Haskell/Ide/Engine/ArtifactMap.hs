@@ -113,7 +113,7 @@ genImportMap tm = moduleMap
 genDefMap :: TypecheckedModule -> DefMap
 genDefMap tm = mconcat $ map (go . GHC.unLoc) decls
   where
-    -- go :: GHC.HsDecl GHC.GhcPs -> DefMap
+    go :: GHC.HsDecl GM.GhcPs -> DefMap
     -- Type signatures
     go (GHC.SigD (GHC.TypeSig lns _)) =
       foldl IM.union mempty $ fmap go' lns
