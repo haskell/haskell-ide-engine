@@ -336,9 +336,14 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) = pluginGetFile "getCo
             Position l c = fromMaybe newPos (newPosToOld newPos)
             typeStuff = [isSpace, (`elem` (">-." :: String))]
             stripTypeStuff = T.dropWhileEnd (\x -> any (\f -> f x) typeStuff)
-            d = T.length fullLine - T.length (stripTypeStuff fullLine)
+            -- if oldPos points to
+            -- foo -> bar -> baz
+            --    ^
+            -- Then only take the line up to there, discard '-> bar -> baz'
+            partialLine = T.take c fullLine
             -- drop characters used when writing incomplete type sigs
             -- like '-> '
+            d = T.length fullLine - T.length (stripTypeStuff partialLine)
         in Position l (c - d)
 
       -- default to value context if no explicit context

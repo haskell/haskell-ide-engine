@@ -100,7 +100,6 @@ spec = describe "completions" $ do
       _ <- applyEdit doc te
       compls <- getCompletions doc (Position 2 26)
       liftIO $ do
-        print compls
         compls `shouldNotContainCompl` "forkOn"
         compls `shouldContainCompl` "MVar"
         compls `shouldContainCompl` "Chan"

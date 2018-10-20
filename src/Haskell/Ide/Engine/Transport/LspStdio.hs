@@ -294,14 +294,20 @@ updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file 
     cacheInfoNoClear file info'
     return $ IdeResultOk ()
   where
-    f (+/-) (J.Range (Position sl _) (Position el _)) txt p@(Position l c)
+    f (+/-) (J.Range (Position sl sc) (Position el ec)) txt p@(Position l c)
       | l < sl = Just p
       | l > el = Just $ Position l' c
+      | l == sl && c <= sc = Just p
+      | l == sl && l == el && c <= nec && newL == 0 = Just $ Position l ec
+      | l == sl && l == el && c > nec && newL == 0 = Just $ Position l (c +/- (nec - sc))
       | otherwise = Nothing
          where l' = l +/- dl
                dl = newL - oldL
                oldL = el-sl
                newL = T.count "\n" txt
+               nec -- new end column
+                | newL == 0 = sc + T.length txt
+                | otherwise = T.length $ last $ T.lines txt
     oldToNew = f (+)
     newToOld = f (-)
 
@@ -804,13 +810,13 @@ requestDiagnostics DiagnosticsRequest{trigger, file, trackingNumber, documentVer
   mc <- liftIO $ Core.config lf
   case Map.lookup trigger diagFuncs of
     Nothing -> do
-      logm $ "requestDiagnostics: no diagFunc for:" ++ show trigger
+      debugm $ "requestDiagnostics: no diagFunc for:" ++ show trigger
       return ()
     Just dss -> do
       dpsEnabled <- configVal (Map.fromList [("liquid",False)]) getDiagnosticProvidersConfig
-      logm $ "requestDiagnostics: got diagFunc for:" ++ show trigger
+      debugm $ "requestDiagnostics: got diagFunc for:" ++ show trigger
       forM_ dss $ \(pid,ds) -> do
-        logm $ "requestDiagnostics: calling diagFunc for plugin:" ++ show pid
+        debugm $ "requestDiagnostics: calling diagFunc for plugin:" ++ show pid
         let
           enabled = case Map.lookup pid dpsEnabled of
             Nothing -> True
@@ -818,11 +824,11 @@ requestDiagnostics DiagnosticsRequest{trigger, file, trackingNumber, documentVer
           publishDiagnosticsIO = Core.publishDiagnosticsFunc lf
           maxToSend = maybe 50 maxNumberOfProblems mc
           sendOne (fileUri,ds') = do
-            logm $ "LspStdio.sendone:(fileUri,ds')=" ++ show(fileUri,ds')
+            debugm $ "LspStdio.sendone:(fileUri,ds')=" ++ show(fileUri,ds')
             publishDiagnosticsIO maxToSend fileUri Nothing (Map.fromList [(Just pid,SL.toSortedList ds')])
 
           sendEmpty = do
-            logm "LspStdio.sendempty"
+            debugm "LspStdio.sendempty"
             publishDiagnosticsIO maxToSend file Nothing (Map.fromList [(Just pid,SL.toSortedList [])])
 
           -- fv = case documentVersion of
