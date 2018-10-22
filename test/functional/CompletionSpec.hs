@@ -58,7 +58,7 @@ spec = describe "completions" $ do
       item ^. label `shouldBe` "Data.List"
       item ^. detail `shouldBe` Just "Data.List"
       item ^. kind `shouldBe` Just CiModule
- 
+
   it "completes language extensions" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
     doc <- openDoc "Completion.hs" "haskell"
     _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
@@ -70,8 +70,53 @@ spec = describe "completions" $ do
     let item = head $ filter ((== "OverloadedStrings") . (^. label)) compls
     liftIO $ do
       item ^. label `shouldBe` "OverloadedStrings"
-      item ^. kind `shouldBe` Just CiKeyword   
-  
+      item ^. kind `shouldBe` Just CiKeyword
+
+  it "completes pragmas" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
+    doc <- openDoc "Completion.hs" "haskell"
+    _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
+
+    let te = TextEdit (Range (Position 0 4) (Position 0 34)) ""
+    _ <- applyEdit doc te
+
+    compls <- getCompletions doc (Position 0 4)
+    let item = head $ filter ((== "LANGUAGE") . (^. label)) compls
+    liftIO $ do
+      item ^. label `shouldBe` "LANGUAGE"
+      item ^. kind `shouldBe` Just CiKeyword
+      item ^. insertTextFormat `shouldBe` Just Snippet
+      item ^. insertText `shouldBe` Just "LANGUAGE ${1:extension} #-}"
+
+  it "completes pragmas no close" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
+    doc <- openDoc "Completion.hs" "haskell"
+    _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
+
+    let te = TextEdit (Range (Position 0 4) (Position 0 24)) ""
+    _ <- applyEdit doc te
+
+    compls <- getCompletions doc (Position 0 4)
+    let item = head $ filter ((== "LANGUAGE") . (^. label)) compls
+    liftIO $ do
+      item ^. label `shouldBe` "LANGUAGE"
+      item ^. kind `shouldBe` Just CiKeyword
+      item ^. insertTextFormat `shouldBe` Just Snippet
+      item ^. insertText `shouldBe` Just "LANGUAGE ${1:extension}"
+
+  it "completes options pragma" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
+    doc <- openDoc "Completion.hs" "haskell"
+    _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
+
+    let te = TextEdit (Range (Position 0 4) (Position 0 34)) "OPTIONS"
+    _ <- applyEdit doc te
+
+    compls <- getCompletions doc (Position 0 4)
+    let item = head $ filter ((== "OPTIONS_GHC") . (^. label)) compls
+    liftIO $ do
+      item ^. label `shouldBe` "OPTIONS_GHC"
+      item ^. kind `shouldBe` Just CiKeyword
+      item ^. insertTextFormat `shouldBe` Just Snippet
+      item ^. insertText `shouldBe` Just ("OPTIONS_GHC -${1:option} #-}")
+
   it "completes with no prefix" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
     doc <- openDoc "Completion.hs" "haskell"
     _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
