@@ -151,6 +151,12 @@ mkExtCompl label =
     Nothing Nothing Nothing Nothing Nothing Nothing Nothing
     Nothing Nothing Nothing Nothing Nothing
 
+mkPragmaCompl :: T.Text -> T.Text -> J.CompletionItem
+mkPragmaCompl label insertText =
+  J.CompletionItem label (Just J.CiKeyword) Nothing
+    Nothing Nothing Nothing Nothing Nothing (Just insertText) (Just J.Snippet)
+    Nothing Nothing Nothing Nothing Nothing
+
 safeTyThingId :: TyThing -> Maybe Id
 safeTyThingId (AnId i)                    = Just i
 safeTyThingId (AConLike (RealDataCon dc)) = Just $ dataConWrapId dc
@@ -309,53 +315,95 @@ newtype WithSnippets = WithSnippets Bool
 
 -- | Returns the cached completions for the given module and position.
 getCompletions :: Uri -> PosPrefixInfo -> WithSnippets -> IdeM (IdeResult [J.CompletionItem])
-getCompletions uri prefixInfo (WithSnippets withSnippets) = pluginGetFile "getCompletions: " uri $ \file -> do
-  supportsSnippets <- fromMaybe False <$> asks (^? J.textDocument
-                                                . _Just . J.completion
-                                                . _Just . J.completionItem
-                                                . _Just . J.snippetSupport
-                                                . _Just)
-  let toggleSnippets x
-        | withSnippets && supportsSnippets = x
-        | otherwise = x { J._insertTextFormat = Just J.PlainText
-                        , J._insertText = Nothing }
+getCompletions uri prefixInfo (WithSnippets withSnippets) =
+  pluginGetFile "getCompletions: " uri $ \file -> do
+    supportsSnippets <- fromMaybe False <$> asks
+      (^? J.textDocument
+        . _Just
+        . J.completion
+        . _Just
+        . J.completionItem
+        . _Just
+        . J.snippetSupport
+        . _Just
+      )
+    let toggleSnippets x
+          | withSnippets && supportsSnippets = x
+          | otherwise = x { J._insertTextFormat = Just J.PlainText
+                          , J._insertText       = Nothing
+                          }
 
-      PosPrefixInfo {fullLine, prefixModule, prefixText} = prefixInfo
-  debugm $ "got prefix" ++ show (prefixModule, prefixText)
-  let enteredQual = if T.null prefixModule then "" else prefixModule <> "."
-      fullPrefix = enteredQual <> prefixText
-  ifCachedModuleAndData file (IdeResultOk []) $ \_ _ CC { allModNamesAsNS, unqualCompls, qualCompls, importableModules, cachedExtensions } ->
-    let
-      filtModNameCompls = map mkModCompl
-        $ mapMaybe (T.stripPrefix enteredQual)
-        $ Fuzzy.simpleFilter fullPrefix allModNamesAsNS
+        PosPrefixInfo { fullLine, prefixModule, prefixText } = prefixInfo
+    debugm $ "got prefix" ++ show (prefixModule, prefixText)
+    let enteredQual = if T.null prefixModule then "" else prefixModule <> "."
+        fullPrefix  = enteredQual <> prefixText
+    ifCachedModuleAndData file (IdeResultOk [])
+      $ \_ _ CC { allModNamesAsNS, unqualCompls, qualCompls, importableModules, cachedExtensions } ->
+          let
+            filtModNameCompls =
+              map mkModCompl
+                $ mapMaybe (T.stripPrefix enteredQual)
+                $ Fuzzy.simpleFilter fullPrefix allModNamesAsNS
 
-      filtCompls = Fuzzy.filterBy label prefixText compls
-        where
-          compls = if T.null prefixModule
-            then unqualCompls
-            else Map.findWithDefault [] prefixModule qualCompls
+            filtCompls = Fuzzy.filterBy label prefixText compls
+             where
+              compls = if T.null prefixModule
+                then unqualCompls
+                else Map.findWithDefault [] prefixModule qualCompls
 
-      mkImportCompl label = (J.detail ?~ label)
-                          . mkModCompl
-                          $ fromMaybe "" (T.stripPrefix enteredQual label)
-      
-      filtListWith f list = [ f label
-                             | label <- Fuzzy.simpleFilter fullPrefix list
-                             , enteredQual `T.isPrefixOf` label
-                             ]
+            mkImportCompl label = (J.detail ?~ label) . mkModCompl $ fromMaybe
+              ""
+              (T.stripPrefix enteredQual label)
 
-      filtImportCompls = filtListWith mkImportCompl importableModules
-      filtExtensionCompls = filtListWith mkExtCompl cachedExtensions
+            filtListWith f list =
+              [ f label
+              | label <- Fuzzy.simpleFilter fullPrefix list
+              , enteredQual `T.isPrefixOf` label
+              ]
 
-      result
-        | "import " `T.isPrefixOf` fullLine =
-          filtImportCompls
-        | "{-# language" `T.isPrefixOf` T.toLower fullLine = 
-          filtExtensionCompls
-        | otherwise =
-          filtModNameCompls ++ map (toggleSnippets . mkCompl) filtCompls
-    in return $ IdeResultOk result
+            filtListWithSnippet f list suffix =
+              [ toggleSnippets (f label (snippet <> suffix))
+              | (snippet, label) <- list
+              , Fuzzy.test fullPrefix label
+              ]
+
+            filtImportCompls = filtListWith mkImportCompl importableModules
+            filtPragmaCompls = filtListWithSnippet mkPragmaCompl validPragmas
+            filtOptsCompls   = filtListWith mkExtCompl
+
+            result
+              | "import " `T.isPrefixOf` fullLine
+              = filtImportCompls
+              | "{-# language" `T.isPrefixOf` T.toLower fullLine
+              = filtOptsCompls cachedExtensions
+              | "{-# options_ghc" `T.isPrefixOf` T.toLower fullLine
+              = filtOptsCompls (map T.pack $ GHC.flagsForCompletion False)
+              | "{-# " `T.isPrefixOf` fullLine
+              = filtPragmaCompls (pragmaSuffix fullLine)
+              | otherwise
+              = filtModNameCompls ++ map (toggleSnippets . mkCompl) filtCompls
+          in
+            return $ IdeResultOk result
+ where
+  validPragmas :: [(T.Text, T.Text)]
+  validPragmas =
+    [ ("LANGUAGE ${1:extension}"        , "LANGUAGE")
+    , ("OPTIONS_GHC -${1:option}"       , "OPTIONS_GHC")
+    , ("INLINE ${1:function}"           , "INLINE")
+    , ("NOINLINE ${1:function}"         , "NOINLINE")
+    , ("INLINABLE ${1:function}"        , "INLINABLE")
+    , ("WARNING ${1:message}"           , "WARNING")
+    , ("DEPRECATED ${1:message}"        , "DEPRECATED")
+    , ("ANN ${1:annotation}"            , "ANN")
+    , ("RULES"                          , "RULES")
+    , ("SPECIALIZE ${1:function}"       , "SPECIALIZE")
+    , ("SPECIALIZE INLINE ${1:function}", "SPECIALIZE INLINE")
+    ]
+
+  pragmaSuffix :: T.Text -> T.Text
+  pragmaSuffix fullLine
+    |  "}" `T.isSuffixOf` fullLine = mempty
+    | otherwise = " #-}"
 -- ---------------------------------------------------------------------
 
 getTypeForName :: Name -> IdeM (Maybe Type)
