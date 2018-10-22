@@ -112,7 +112,7 @@ files =
   [  "./test/testdata/"
    , "./test/testdata/addPackageTest/cabal/"
    , "./test/testdata/addPackageTest/hpack/"
-   , "./test/testdata/addPragmas"
+   , "./test/testdata/addPragmas/"
    , "./test/testdata/completion/"
    , "./test/testdata/definition/"
    , "./test/testdata/gototest/"

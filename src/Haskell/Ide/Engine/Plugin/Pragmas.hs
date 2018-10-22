@@ -5,11 +5,11 @@ module Haskell.Ide.Engine.Plugin.Pragmas where
 
 import           Control.Lens
 import           Data.Aeson
-import qualified Data.HashMap.Strict           as H
-import qualified Data.Text as T
-import qualified GHC.Generics                  as Generics
-import           Haskell.Ide.Engine.MonadTypes hiding (_range)
--- import           Haskell.Ide.Engine.Plugin.HieExtras
+import qualified Data.HashMap.Strict             as H
+import           Data.Monoid                     ((<>))
+import qualified Data.Text                       as T
+import qualified GHC.Generics                    as Generics
+import           Haskell.Ide.Engine.MonadTypes   hiding (_range)
 import qualified Language.Haskell.LSP.Types      as J
 import qualified Language.Haskell.LSP.Types.Lens as J
 
