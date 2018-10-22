@@ -329,9 +329,9 @@ spec = describe "code actions" $ do
 
         executeCodeAction $ head cas
 
-        contents <- documentContents doc
+        contents <- getDocumentEdit doc
 
-        let expected = "\n{-# LANGUAGE \"TypeSynonymInstances\" #-}\n\
+        let expected = "{-# LANGUAGE TypeSynonymInstances #-}\n\n\
                        \import GHC.Generics\n\n\
                        \main = putStrLn \"hello\"\n\n\
                        \type Foo = Int\n\n\
@@ -340,7 +340,7 @@ spec = describe "code actions" $ do
                        \instance Show (Int,String) where\n\
                        \  show  = undefined\n\n\
                        \data FFF a = FFF Int String a\n\
-                       \deriving (Generic,Functor,Traversable)\n"
+                       \           deriving (Generic,Functor,Traversable)\n"
 
         liftIO $ contents `shouldBe` expected
 
