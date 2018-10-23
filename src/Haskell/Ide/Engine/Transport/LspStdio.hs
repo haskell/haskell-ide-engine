@@ -810,9 +810,7 @@ requestDiagnostics DiagnosticsRequest{trigger, file, trackingNumber, documentVer
       forM_ dss $ \(pid,ds) -> do
         logm $ "requestDiagnostics: calling diagFunc for plugin:" ++ show pid
         let
-          enabled = case Map.lookup pid dpsEnabled of
-            Nothing -> True
-            Just flag -> flag
+          enabled = Map.findWithDefault True pid dpsEnabled
           publishDiagnosticsIO = Core.publishDiagnosticsFunc lf
           maxToSend = maybe 50 maxNumberOfProblems mc
           sendOne (fileUri,ds') = do

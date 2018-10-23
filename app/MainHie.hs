@@ -100,9 +100,7 @@ main = do
 
 run :: GlobalOpts -> IO ()
 run opts = do
-  let mLogFileName = case optLogFile opts of
-        Just f  -> Just f
-        Nothing -> Nothing
+  let mLogFileName = optLogFile opts
 
       logLevel = if optDebugOn opts
                    then L.DEBUG
