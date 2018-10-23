@@ -410,10 +410,13 @@ codeActionProvider' supportsDocChanges _ docId _ _ _ context =
       typedHoleActions = concatMap mkTypedHoleActions (mapMaybe getTypedHoles diags)
       missingSignatures = mapMaybe getMissingSignatures diags
       topLevelSignatureActions = map (uncurry mkMissingSignatureAction) missingSignatures
+      unusedTerms = mapMaybe getUnusedTerms diags
+      unusedTermActions = map (uncurry mkUnusedTermAction) unusedTerms
   in return $ IdeResultOk $ concat [ renameActions
                                    , redundantActions
                                    , typedHoleActions
                                    , topLevelSignatureActions
+                                   , unusedTermActions
                                    ]
 
   where
@@ -512,6 +515,26 @@ codeActionProvider' supportsDocChanges _ docId _ _ _ context =
             kind = LSP.CodeActionQuickFix
             codeAction = LSP.CodeAction title (Just kind) (Just diags) (Just edit) Nothing
 
+    getUnusedTerms :: LSP.Diagnostic -> Maybe (LSP.Diagnostic, T.Text)
+    getUnusedTerms diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) =
+      case extractUnusedTerm msg of
+        Nothing -> Nothing
+        Just signature -> Just (diag, signature)
+    getUnusedTerms _ = Nothing
+
+    mkUnusedTermAction :: LSP.Diagnostic -> T.Text -> LSP.CodeAction
+    mkUnusedTermAction diag term = LSP.CodeAction title (Just kind) (Just diags) Nothing (Just cmd)
+      where title :: T.Text
+            title = "Prefix " <> term <> " with _"
+            diags = LSP.List [diag]
+            newTerm = "_" <> term
+            pos = diag ^. (LSP.range . LSP.start)
+            kind = LSP.CodeActionQuickFix
+            cmdArgs = LSP.List
+              [ Object $ HM.fromList [("file", toJSON docUri),("pos", toJSON pos), ("text", toJSON newTerm)]]
+            -- The command label isen't used since the command is never presented to the user
+            cmd  = LSP.Command "Unused command label" "hare:rename" (Just cmdArgs)
+
 extractRenamableTerms :: T.Text -> [T.Text]
 extractRenamableTerms msg
   -- Account for both "Variable not in scope" and "Not in scope"
@@ -601,6 +624,14 @@ extractMissingSignature msg = extractSignature <$> stripMessageStart msg
                       . T.strip
     extractSignature = T.strip
 
+extractUnusedTerm :: T.Text -> Maybe T.Text
+extractUnusedTerm msg = extractTerm <$> stripMessageStart msg
+  where
+    stripMessageStart = T.stripPrefix "Defined but not used:"
+                      . T.strip
+    extractTerm       = T.dropWhile (== '‘')
+                      . T.dropWhileEnd (== '’')
+                      . T.dropAround (\c -> c /= '‘' && c /= '’')
 
 -- ---------------------------------------------------------------------
 
