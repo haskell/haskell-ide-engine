@@ -344,6 +344,31 @@ spec = describe "code actions" $ do
 
         liftIO $ contents `shouldBe` expected
 
+  -- -----------------------------------
+
+  describe "unused term code actions" $
+    it "Prefixes with '_'" $
+      runSession hieCommand fullCaps "test/testdata/" $ do
+        doc <- openDoc "UnusedTerm.hs" "haskell"
+
+        _ <- waitForDiagnosticsSource "ghcmod"
+        cas <- map fromAction <$> getAllCodeActions doc
+
+        liftIO $ map (^. L.title) cas `shouldContain` [ "Prefix imUnused with _"]
+
+        executeCodeAction $ head cas
+
+        edit <- getDocumentEdit doc
+
+        let expected = "{-# OPTIONS_GHC -Wall #-}\n\
+                        \module UnusedTerm () where\n\
+                        \_imUnused :: Int -> Int\n\
+                        \_imUnused 1 = 1\n\
+                        \_imUnused 2 = 2\n\
+                        \_imUnused _ = 3\n"
+
+        liftIO $ edit `shouldBe` expected
+
 -- ---------------------------------------------------------------------
 
 fromAction :: CAResult -> CodeAction
