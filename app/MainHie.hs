@@ -27,19 +27,19 @@ import qualified System.Remote.Monitoring.Wai          as EKG
 -- plugins
 
 import           Haskell.Ide.Engine.Plugin.ApplyRefact
+import           Haskell.Ide.Engine.Plugin.Base
 import           Haskell.Ide.Engine.Plugin.Brittany
 import           Haskell.Ide.Engine.Plugin.Build
-import           Haskell.Ide.Engine.Plugin.Base
 import           Haskell.Ide.Engine.Plugin.Example2
 import           Haskell.Ide.Engine.Plugin.GhcMod
 import           Haskell.Ide.Engine.Plugin.HaRe
+import           Haskell.Ide.Engine.Plugin.Haddock
+import           Haskell.Ide.Engine.Plugin.HfaAlign
 import           Haskell.Ide.Engine.Plugin.Hoogle
 import           Haskell.Ide.Engine.Plugin.HsImport
 import           Haskell.Ide.Engine.Plugin.Liquid
 import           Haskell.Ide.Engine.Plugin.Package
-import           Haskell.Ide.Engine.Plugin.Haddock
-import           Haskell.Ide.Engine.Plugin.HfaAlign
-
+import           Haskell.Ide.Engine.Plugin.Pragmas
 
 -- ---------------------------------------------------------------------
 
@@ -51,17 +51,18 @@ plugins includeExamples = pluginDescToIdePlugins allPlugins
                    then basePlugins ++ examplePlugins
                    else basePlugins
     basePlugins =
-      [applyRefactDescriptor "applyrefact"
-      ,baseDescriptor        "base"
-      ,brittanyDescriptor    "brittany"
-      ,buildPluginDescriptor "build"
-      ,ghcmodDescriptor      "ghcmod"
-      ,hareDescriptor        "hare"
-      ,hoogleDescriptor      "hoogle"
-      ,hsimportDescriptor    "hsimport"
-      ,liquidDescriptor      "liquid"
-      ,packageDescriptor     "package"
-      ,haddockDescriptor     "haddock"
+      [ applyRefactDescriptor "applyrefact"
+      , baseDescriptor        "base"
+      , brittanyDescriptor    "brittany"
+      , buildPluginDescriptor "build"
+      , ghcmodDescriptor      "ghcmod"
+      , haddockDescriptor     "haddock"
+      , hareDescriptor        "hare"
+      , hoogleDescriptor      "hoogle"
+      , hsimportDescriptor    "hsimport"
+      , liquidDescriptor      "liquid"
+      , packageDescriptor     "package"
+      , pragmasDescriptor     "pragmas"
       ]
     examplePlugins =
       [example2Descriptor "eg2"
