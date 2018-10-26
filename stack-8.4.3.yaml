@@ -20,9 +20,9 @@ extra-deps:
 - haddock-library-1.6.0
 - hsimport-0.8.6
 - lsp-test-0.4.0.0
+- pretty-show-1.8.2
 - syz-0.2.0.0
 - temporary-1.2.1.1
-- pretty-show-1.8.2
 
 flags:
   haskell-ide-engine:
