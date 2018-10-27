@@ -1,4 +1,5 @@
-resolver: lts-12.11
+resolver: lts-12.14
+compiler-check: newer-minor
 packages:
 - .
 - hie-plugin-api
