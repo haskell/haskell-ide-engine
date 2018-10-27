@@ -29,6 +29,7 @@ defaults: &defaults
     - run:
         name: Stack setup
         command: stack -j 2 --stack-yaml=${STACK_FILE} setup
+    - run:
         name: Stack setup GHC 8.4.4, to make sure it can be used
         command: stack -j 2 setup 8.4.4
 
