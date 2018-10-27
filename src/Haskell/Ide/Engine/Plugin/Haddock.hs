@@ -57,31 +57,20 @@ lookupHtmls :: DynFlags -> UnitId -> Maybe [FilePath]
 lookupHtmls df ui = haddockHTMLs <$> lookupPackage df ui
 
 lookupDocHtmlForModule :: DynFlags -> Module -> IO (Maybe FilePath)
-lookupDocHtmlForModule df m = do
-  let fp = go =<< lookupHtmls df ui
-  ex <- maybe (pure False) doesFileExist fp
-  if ex then
-    return fp
-  else
-    return Nothing
-  where
-    go [] = Nothing
-    go (x:_) = Just $ x</>mn<.>"html"
-    ui = moduleUnitId m
-    mn = map (\x -> if x == '.' then '-' else x) mns
-    mns = moduleNameString $ moduleName m
+lookupDocHtmlForModule = 
+  lookupHtmlForModule (\pkgDocDir modDocName -> pkgDocDir </> modDocName <.> "html")
 
 lookupSrcHtmlForModule :: DynFlags -> Module -> IO (Maybe FilePath)
-lookupSrcHtmlForModule df m = do
-  let fp = go =<< lookupHtmls df ui
-  ex <- maybe (pure False) doesFileExist fp
-  if ex then
-    return fp
-  else
-    return Nothing
+lookupSrcHtmlForModule =
+  lookupHtmlForModule (\pkgDocDir modDocName -> pkgDocDir </> "src" </> modDocName <.> "html")
+
+lookupHtmlForModule :: (FilePath -> FilePath -> FilePath) -> DynFlags -> Module -> IO (Maybe FilePath)
+lookupHtmlForModule mkDocPath df m = do
+  let mfp = go <$> (listToMaybe =<< lookupHtmls df ui)
+  exists <- maybe (pure False) doesFileExist mfp
+  return $ if exists then mfp else Nothing
   where
-    go [] = Nothing
-    go (x:_) = Just $ x</>"src"</>mn<.>"html"
+    go pkgDocDir = mkDocPath pkgDocDir mn
     ui = moduleUnitId m
     mn = map (\x -> if x == '.' then '-' else x) mns
     mns = moduleNameString $ moduleName m
@@ -116,11 +105,7 @@ getDocsForName df name = do
               lookupHaddock df . moduleUnitId
   mf <- case mfs of
     Nothing -> pure Nothing
-    Just fs -> liftIO $ do
-      fs' <- filterM doesFileExist fs
-      case fs' of
-        [] -> pure Nothing
-        (x:_) -> pure $ Just x
+    Just fs -> liftIO $ listToMaybe <$> filterM doesFileExist fs
   case mf of
     Nothing -> return Nothing
     Just f -> do
@@ -144,10 +129,10 @@ getDocsForName df name = do
               let selector
                     | isValName name = "v:"
                     | otherwise = "t:"
-              return $ Just $ T.intercalate "\n\n"
+              return $ Just $ T.concat
                 [ doc
-                , maybe "" (\x ->"[Documentation](file://"<>T.pack x<>"#"<>selector<>showName name<>")") mdoch
-                , maybe "" (\x ->"[Source](file://"<>T.pack x<>"#"<>showName name<>")") msrch
+                , maybe "" (\x ->"\n\n[Documentation](file://"<>T.pack x<>"#"<>selector<>showName name<>")") mdoch
+                , maybe "" (\x ->"\n\n[Source](file://"<>T.pack x<>"#"<>showName name<>")") msrch
                 ]
 
 getDocsWithType :: DynFlags -> Name -> IdeM (Maybe T.Text)
@@ -163,7 +148,7 @@ getDocsWithType df name = do
     (Nothing, Just typ) -> Just $ prettyprintType name typ
 
 prettyprintType :: Name -> Type -> T.Text
-prettyprintType n t = T.unlines $
+prettyprintType n t = T.unlines
   [ "```haskell"
   , showName n <> " :: " <> showName t
   , "```\n"
@@ -234,9 +219,9 @@ hoverProvider doc pos = pluginGetFile "haddock:hoverProvider" doc $ \fp ->
             Just _ -> return mdocu'
             -- Hoogle as fallback
             Nothing -> lift $ Hoogle.getDocsForName sname pkg mdl
-          case mdocu of
-            Nothing -> return $ mname <> minfo
-            Just docu -> return $ docu <> "\n\n" <> minfo
+          return $ case mdocu of
+            Nothing -> mname <> minfo
+            Just docu -> docu <> "\n\n" <> minfo
     return [J.Hover (J.List $ fmap J.PlainString docs) Nothing]
   where
     pickName [] = Nothing
