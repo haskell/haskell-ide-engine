@@ -15,6 +15,7 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.MonadFunctions
 import           Hoogle
 import           System.Directory
+import           System.Environment
 import           Text.HTML.TagSoup
 import           Text.HTML.TagSoup.Tree
 
@@ -55,7 +56,8 @@ instance ExtensionClass HoogleDb where
 
 initializeHoogleDb :: IdeGhcM (Maybe FilePath)
 initializeHoogleDb = do
-  db' <- liftIO $ defaultDatabaseLocation
+  explicitDbLocation <- liftIO $ lookupEnv "HIE_HOOGLE_DATABASE"
+  db' <- maybe (liftIO defaultDatabaseLocation) pure explicitDbLocation
   db <- liftIO $ makeAbsolute db'
   exists <- liftIO $ doesFileExist db
   if exists then do
