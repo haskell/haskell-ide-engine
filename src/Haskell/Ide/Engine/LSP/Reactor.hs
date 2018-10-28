@@ -1,5 +1,6 @@
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
 module Haskell.Ide.Engine.LSP.Reactor
   ( R
   , runReactor
@@ -40,6 +41,9 @@ type R = ReaderT REnv IO
 
 instance HasPidCache R where
   getPidCache = asks reactorPidCache
+
+instance Scheduler.HasScheduler REnv R where
+  getScheduler = scheduler
 
 -- ---------------------------------------------------------------------
 
@@ -82,17 +86,13 @@ reactorSend' f = do
 -- | Sends a single request to the scheduler so it can be be processed
 -- asynchronously.
 makeRequest :: (MonadIO m, MonadReader REnv m) => PluginRequest R -> m ()
-makeRequest req = do
-  sc <- asks scheduler
-  liftIO $ Scheduler.sendRequest sc Nothing req
+makeRequest = Scheduler.makeRequest
 
 -- | Updates the version of a document and then sends the request to be processed
 -- asynchronously.
 updateDocumentRequest
   :: (MonadIO m, MonadReader REnv m) => Uri -> Int -> PluginRequest R -> m ()
-updateDocumentRequest uri ver req = do
-  sc <- asks scheduler
-  liftIO $ Scheduler.sendRequest sc (Just (uri, ver)) req
+updateDocumentRequest = Scheduler.updateDocumentRequest
 
 -- | Marks a s requests as cencelled by its LspId
 cancelRequest :: (MonadIO m, MonadReader REnv m) => J.LspId -> m ()

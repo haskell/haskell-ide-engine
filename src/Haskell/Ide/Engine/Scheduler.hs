@@ -1,3 +1,4 @@
+{-# LANGUAGE MultiParamTypeClasses     #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE RecordWildCards           #-}
@@ -8,18 +9,25 @@ module Haskell.Ide.Engine.Scheduler
   , DocUpdate
   , ErrorHandler
   , CallbackHandler
+  , HasScheduler(..)
   , newScheduler
   , runScheduler
   , sendRequest
   , cancelRequest
+  , makeRequest
+  , updateDocumentRequest
   )
 where
 
 import           Control.Concurrent.Async       ( race_ )
 import qualified Control.Concurrent.MVar       as MVar
 import qualified Control.Concurrent.STM        as STM
-import           Control.Monad.IO.Class         ( liftIO )
-import           Control.Monad.Reader.Class     ( ask )
+import           Control.Monad.IO.Class         ( liftIO
+                                                , MonadIO
+                                                )
+import           Control.Monad.Reader.Class     ( ask
+                                                , MonadReader
+                                                )
 import           Control.Monad.Reader           ( runReaderT )
 import           Control.Monad.Trans.Class      ( lift )
 import           Control.Monad
@@ -84,6 +92,9 @@ data Scheduler m = Scheduler
 -- ^ A pair representing the document file path and a new version to store for it.
 type DocUpdate = (Uri, Int)
 
+
+class HasScheduler a m where
+  getScheduler :: a -> Scheduler m
 
 -- | Create a new scheduler parameterized with the monad of your choosing.
 -- This is the monad where the handler for requests and handler for errors will run.
@@ -207,6 +218,28 @@ cancelRequest Scheduler { requestsToCancel, requestsInProgress } lid =
     wip <- STM.readTVar requestsInProgress
     when (Set.member lid wip)
       $ STM.modifyTVar' requestsToCancel (Set.insert lid)
+
+-- | Sends a single request to the scheduler so it can be be processed
+-- asynchronously.
+makeRequest
+  :: (MonadReader env m, MonadIO m, HasScheduler env m2)
+  => PluginRequest m2
+  -> m ()
+makeRequest req = do
+  env <- ask
+  liftIO $ sendRequest (getScheduler env) Nothing req
+
+-- | Updates the version of a document and then sends the request to be processed
+-- asynchronously.
+updateDocumentRequest
+  :: (MonadReader env m, MonadIO m, HasScheduler env m2)
+  => Uri
+  -> Int
+  -> PluginRequest m2
+  -> m ()
+updateDocumentRequest uri ver req = do
+  env <- ask
+  liftIO $ sendRequest (getScheduler env) (Just (uri, ver)) req
 
 -------------------------------------------------------------------------------
 -- Dispatcher
