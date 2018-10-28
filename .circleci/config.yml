@@ -22,9 +22,9 @@ defaults: &defaults
 
     - restore_cache:
         keys:
-          - stack-cache-09-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
-          - stack-cache-09-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
-          - stack-cache-09-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
+          - stack-cache-10-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
+          - stack-cache-10-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
+          - stack-cache-10-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
 
     - run:
         name: Stack setup
@@ -50,8 +50,12 @@ defaults: &defaults
         name: Generate Hoogle database
         command: stack --stack-yaml=${STACK_FILE} exec hoogle generate
 
+    - run:
+        name: Clear cabal-helper cache
+        command: rm -fr ~/.cache/cabal-helper
+
     - save_cache:
-        key: stack-cache-09-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
+        key: stack-cache-10-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
         paths:
           - ~/.stack
           - ~/.cache
@@ -72,7 +76,7 @@ defaults: &defaults
         path: test-logs
 
     - save_cache:
-        key: stack-cache-09-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
+        key: stack-cache-10-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
         paths:
           - ~/.stack
           - ~/.cache
@@ -85,7 +89,7 @@ defaults: &defaults
           - ~/build/submodules/cabal-helper/.stack-work
 
     - save_cache:
-        key: stack-cache-09-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
+        key: stack-cache-10-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
         paths:
           - ~/.stack
           - ~/.cache
@@ -123,6 +127,12 @@ jobs:
     environment:
       - STACK_FILE: "stack-8.4.3.yaml"
     <<: *defaults
+
+  ghc-8.4.4:
+    environment:
+      - STACK_FILE: "stack-8.4.4.yaml"
+    <<: *defaults
+
 
   ghc-nightly:
     environment:
@@ -170,5 +180,6 @@ workflows:
       - ghc-8.2.2
       - ghc-8.4.2
       - ghc-8.4.3
+      - ghc-8.4.4
       - ghc-nightly
       - cabal

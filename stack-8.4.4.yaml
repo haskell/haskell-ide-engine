@@ -1,4 +1,4 @@
-resolver: lts-12.14 # Last for GHC 8.4.3
+resolver: lts-12.15 # LTS 12.15 is first to support GHC 8.4.4
 packages:
 - .
 - hie-plugin-api
