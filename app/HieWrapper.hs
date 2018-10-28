@@ -54,9 +54,7 @@ main = do
 
 run :: GlobalOpts -> IO ()
 run opts = do
-  let mLogFileName = case optLogFile opts of
-        Just f  -> Just f
-        Nothing -> Nothing
+  let mLogFileName = optLogFile opts
 
       logLevel = if optDebugOn opts
                    then L.DEBUG
@@ -85,12 +83,11 @@ run opts = do
 
   let
     hieBin = "hie-" ++ ghcVersion
-    backupHieBin = "hie-" ++ reverse (tail $ dropWhile (/='.') $ reverse ghcVersion)
+    backupHieBin = "hie-" ++ init (dropWhileEnd (/='.') ghcVersion)
+    candidates' = [hieBin, backupHieBin, "hie"]
+    candidates = map (++ exeExtension) candidates'
 
-  logm $ "hie exe candidates :" ++ show (hieBin,backupHieBin)
-
-  let candidates' = [hieBin, backupHieBin, "hie"]
-      candidates = map (++ exeExtension) candidates'
+  logm $ "hie exe candidates :" ++ show candidates
 
   mexes <- traverse findExecutable candidates
 
@@ -98,7 +95,6 @@ run opts = do
     Nothing -> logm $ "cannot find any hie exe, looked for:" ++ intercalate ", " candidates
     Just e -> do
       logm $ "found hie exe at:" ++ e
-      -- putStrLn $ "found hie exe at:" ++ e
       args <- getArgs
       logm $ "args:" ++ show args
       logm "launching ....\n\n\n"

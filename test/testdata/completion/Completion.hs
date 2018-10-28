@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 import           Data.Maybe
 import qualified Data.List
 
