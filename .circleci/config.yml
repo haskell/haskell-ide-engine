@@ -50,6 +50,10 @@ defaults: &defaults
         name: Generate Hoogle database
         command: stack --stack-yaml=${STACK_FILE} exec hoogle generate
 
+    - run:
+        name: Clear cabal-helper cache
+        command: rm -fr ~/.cache/cabal-helper
+
     - save_cache:
         key: stack-cache-10-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
         paths:
