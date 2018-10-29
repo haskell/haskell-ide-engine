@@ -2,17 +2,15 @@
 {-# LANGUAGE RankNTypes   #-}
 module Main where
 
-import           Control.Concurrent.STM.TChan
 import           Control.Monad
-import           Control.Monad.STM
 import           Data.Monoid                           ((<>))
 import           Data.Version                          (showVersion)
 import qualified GhcMod.Types                          as GM
-import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.Scheduler
 import           Haskell.Ide.Engine.Transport.LspStdio
 import           Haskell.Ide.Engine.Transport.JsonStdio
 import qualified Language.Haskell.LSP.Core             as Core
@@ -145,8 +143,8 @@ run opts = do
 
   -- launch the dispatcher.
   if optJson opts then do
-    pin <- atomically newTChan
-    jsonStdioTransport (dispatcherP pin plugins' ghcModOptions) pin
+    scheduler <- newScheduler plugins' ghcModOptions
+    jsonStdioTransport scheduler
   else do
-    pin <- atomically newTChan
-    lspStdioTransport (dispatcherP pin plugins' ghcModOptions) pin origDir plugins' (optCaptureFile opts)
+    scheduler <- newScheduler plugins' ghcModOptions
+    lspStdioTransport scheduler origDir plugins' (optCaptureFile opts)

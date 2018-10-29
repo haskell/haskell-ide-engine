@@ -69,7 +69,8 @@ defaults: &defaults
 
     - run:
         name: Test
-        command: stack -j 2 --stack-yaml=${STACK_FILE} test --dump-logs
+        # Tests MUST run with -j1, since multiple ghc-mod sessions are not allowed
+        command: stack -j 1 --stack-yaml=${STACK_FILE} test --dump-logs
         no_output_timeout: 120m
 
     - store_artifacts:
