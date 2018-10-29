@@ -63,3 +63,4 @@ test-logs/
 .DS_Store
 
 .hspec-failures
+/test/testdata/addPragmas/stack.yaml

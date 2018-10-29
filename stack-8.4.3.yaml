@@ -1,4 +1,4 @@
-resolver: lts-12.11
+resolver: lts-12.14 # Last for GHC 8.4.3
 packages:
 - .
 - hie-plugin-api
@@ -14,7 +14,7 @@ extra-deps:
 - cabal-helper-0.8.1.0@rev:0
 - cabal-plan-0.3.0.0
 - constrained-dynamic-0.1.0.0
-- ghc-exactprint-0.5.8.0
+- ghc-exactprint-0.5.8.2
 - haddock-api-2.20.0
 - haddock-library-1.6.0
 - hsimport-0.8.6

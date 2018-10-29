@@ -149,6 +149,26 @@ spec = describe "completions" $ do
         compls `shouldContainCompl` "MVar"
         compls `shouldContainCompl` "Chan"
 
+  it "have implicit foralls on basic polymorphic types" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
+    doc <- openDoc "Completion.hs" "haskell"
+    _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
+    let te = TextEdit (Range (Position 5 7) (Position 5 9)) "id"
+    _ <- applyEdit doc te
+    compls <- getCompletions doc (Position 5 9)
+    let item = head $ filter ((== "id") . (^. label)) compls
+    liftIO $
+      item ^. detail `shouldBe` Just "a -> a\nPrelude"
+ 
+  it "have implicit foralls with multiple type variables" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
+    doc <- openDoc "Completion.hs" "haskell"
+    _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
+    let te = TextEdit (Range (Position 5 7) (Position 5 24)) "flip"
+    _ <- applyEdit doc te
+    compls <- getCompletions doc (Position 5 11)
+    let item = head $ filter ((== "flip") . (^. label)) compls
+    liftIO $
+      item ^. detail `shouldBe` Just "(a -> b -> c) -> b -> a -> c\nPrelude"     
+
   describe "snippets" $ do
     it "work for argumentless constructors" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
       doc <- openDoc "Completion.hs" "haskell"

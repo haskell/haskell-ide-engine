@@ -46,6 +46,8 @@ spec = describe "code actions" $ do
 
       noDiagnostics
 
+    -- ---------------------------------
+
     it "falls back to pre 3.8 code actions" $ runSession hieCommand noLiteralCaps "test/testdata" $ do
       doc <- openDoc "ApplyRefact2.hs" "haskell"
 
@@ -63,6 +65,8 @@ spec = describe "code actions" $ do
 
       noDiagnostics
 
+  -- -----------------------------------
+
   describe "rename suggestions" $ do
     it "works" $ runSession hieCommand noLiteralCaps "test/testdata" $ do
       doc <- openDoc "CodeActionRename.hs" "haskell"
@@ -79,7 +83,7 @@ spec = describe "code actions" $ do
         doc <- openDoc "CodeActionRename.hs" "haskell"
 
         _ <- waitForDiagnosticsSource "ghcmod"
-        
+
         CACommand cmd <- (!! 2) <$> getAllCodeActions doc
         let Just (List [Object args]) = cmd ^. L.arguments
             Object editParams = args HM.! "fallbackWorkspaceEdit"
@@ -91,6 +95,8 @@ spec = describe "code actions" $ do
 
         _:x:_ <- T.lines <$> documentContents doc
         liftIO $ x `shouldBe` "foo = putStrLn \"world\""
+
+  -- -----------------------------------
 
   it "provides import suggestions and 3.8 code action kinds" $
     runSession hieCommand fullCaps "test/testdata" $ do
@@ -119,6 +125,7 @@ spec = describe "code actions" $ do
       contents <- getDocumentEdit doc
       liftIO $ contents `shouldBe` "import Control.Monad\nmain :: IO ()\nmain = when True $ putStrLn \"hello\""
 
+  -- -----------------------------------
 
   describe "add package suggestions" $ do
     it "adds to .cabal files" $ runSession hieCommand fullCaps "test/testdata/addPackageTest/cabal" $ do
@@ -167,6 +174,8 @@ spec = describe "code actions" $ do
           T.lines contents !! 12 `shouldNotSatisfy` T.isSuffixOf "zlib"
           T.lines contents !! 13 `shouldNotSatisfy` T.isSuffixOf "zlib"
 
+  -- -----------------------------------
+
   describe "redundant import code actions" $ do
     it "remove solitary redundant imports" $
       runSession hieCommand fullCaps "test/testdata/redundantImportTest/" $ do
@@ -211,6 +220,8 @@ spec = describe "code actions" $ do
         \import Data.Maybe\n\
         \foo :: Int\n\
         \foo = fromJust (Just 3)\n"
+
+  -- -----------------------------------
 
   describe "typed hole code actions" $ do
       it "works" $
@@ -278,6 +289,8 @@ spec = describe "code actions" $ do
             \  where\n\
             \    stuff (A a) = A (a + 1)\n"
 
+  -- -----------------------------------
+
   describe "missing top level signature code actions" $
     it "Adds top level signature" $
       runSession hieCommand fullCaps "test/testdata/" $ do
@@ -300,6 +313,63 @@ spec = describe "code actions" $ do
                        \  return ()\n"
 
         liftIO $ contents `shouldBe` expected
+
+  -- -----------------------------------
+
+  describe "missing pragma warning code actions" $
+    it "Adds TypeSynonymInstances pragma" $
+      runSession hieCommand fullCaps "test/testdata/addPragmas" $ do
+        doc <- openDoc "NeedsPragmas.hs" "haskell"
+
+        _ <- waitForDiagnosticsSource "ghcmod"
+        cas <- map fromAction <$> getAllCodeActions doc
+
+        liftIO $ map (^. L.title) cas `shouldContain` [ "Add \"TypeSynonymInstances\""]
+        liftIO $ map (^. L.title) cas `shouldContain` [ "Add \"FlexibleInstances\""]
+
+        executeCodeAction $ head cas
+
+        contents <- getDocumentEdit doc
+
+        let expected = "{-# LANGUAGE TypeSynonymInstances #-}\n\n\
+                       \import GHC.Generics\n\n\
+                       \main = putStrLn \"hello\"\n\n\
+                       \type Foo = Int\n\n\
+                       \instance Show Foo where\n\
+                       \  show x = undefined\n\n\
+                       \instance Show (Int,String) where\n\
+                       \  show  = undefined\n\n\
+                       \data FFF a = FFF Int String a\n\
+                       \           deriving (Generic,Functor,Traversable)\n"
+
+        liftIO $ contents `shouldBe` expected
+
+  -- -----------------------------------
+
+  describe "unused term code actions" $
+    it "Prefixes with '_'" $
+      runSession hieCommand fullCaps "test/testdata/" $ do
+        doc <- openDoc "UnusedTerm.hs" "haskell"
+
+        _ <- waitForDiagnosticsSource "ghcmod"
+        cas <- map fromAction <$> getAllCodeActions doc
+
+        liftIO $ map (^. L.title) cas `shouldContain` [ "Prefix imUnused with _"]
+
+        executeCodeAction $ head cas
+
+        edit <- getDocumentEdit doc
+
+        let expected = "{-# OPTIONS_GHC -Wall #-}\n\
+                        \module UnusedTerm () where\n\
+                        \_imUnused :: Int -> Int\n\
+                        \_imUnused 1 = 1\n\
+                        \_imUnused 2 = 2\n\
+                        \_imUnused _ = 3\n"
+
+        liftIO $ edit `shouldBe` expected
+
+-- ---------------------------------------------------------------------
 
 fromAction :: CAResult -> CodeAction
 fromAction (CACodeAction action) = action

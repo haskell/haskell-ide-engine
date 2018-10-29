@@ -110,13 +110,14 @@ setupStackFiles =
 files :: [FilePath]
 files =
   [  "./test/testdata/"
-   , "./test/testdata/gototest/"
    , "./test/testdata/addPackageTest/cabal/"
    , "./test/testdata/addPackageTest/hpack/"
-   , "./test/testdata/redundantImportTest/"
-   , "./test/testdata/wErrorTest/"
+   , "./test/testdata/addPragmas/"
    , "./test/testdata/completion/"
    , "./test/testdata/definition/"
+   , "./test/testdata/gototest/"
+   , "./test/testdata/redundantImportTest/"
+   , "./test/testdata/wErrorTest/"
   ]
 
 ghc84 :: Bool
@@ -128,8 +129,10 @@ ghc84 = False
 
 stackYaml :: FilePath
 stackYaml =
-#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,3,0)))
-  "stack.yaml"
+#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,4,0)))
+  "stack-8.4.4.yaml"
+#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,3,0)))
+  "stack-8.4.3.yaml"
 #elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,2,0)))
   "stack-8.4.2.yaml"
 #elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,2,2,0)))

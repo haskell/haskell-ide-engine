@@ -122,10 +122,15 @@ mkCompl CI{origName,importedFrom,thingType,label} =
           | otherwise = label <> " " <> argText
         argText :: T.Text
         argText =  mconcat $ List.intersperse " " $ zipWith snippet [1..] argTypes
+        stripForall t 
+          | T.isPrefixOf "forall" t =
+            -- We drop 2 to remove the '.' and the space after it
+            T.drop 2 (T.dropWhile (/= '.') t)
+          | otherwise               = t
         snippet :: Int -> Type -> T.Text
         snippet i t = T.pack $ "${" <> show i <> ":" <> showGhc t <> "}"
         typeText
-          | Just t <- thingType = Just $ T.pack (showGhc t)
+          | Just t <- thingType = Just . stripForall $ T.pack (showGhc t)
           | otherwise = Nothing
         getArgs :: Type -> [Type]
         getArgs t

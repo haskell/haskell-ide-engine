@@ -4,7 +4,7 @@
 
 https://github.com/Microsoft/language-server-protocol/blob/master/protocol.md
 
-Advantages include widespread tooling and IDE support, and standarisation.
+Advantages include widespread tooling and IDE support, and standardization.
 
 Implemented in [LspStdio.hs](../src/Haskell/Ide/Engine/Transport/LspStdio.hs)
 

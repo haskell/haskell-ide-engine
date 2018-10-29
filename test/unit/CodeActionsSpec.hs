@@ -146,3 +146,8 @@ spec = do
                 \                              Text.Megaparsec.Error.ShowErrorComponent e, Ord t) =>\n\
                 \                             OutputFormat -> Format.Result t e -> IO b"
         in extractMissingSignature msg `shouldBe` Just expected
+  
+  describe "unused term code actions" $ do
+    it "pick up unused term" $
+      let msg = "  Defined but not used: ‘imUnused’"
+       in extractUnusedTerm msg `shouldBe` Just "imUnused"
