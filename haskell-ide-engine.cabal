@@ -222,6 +222,39 @@ test-suite dispatcher-test
   default-language:    Haskell2010
   build-tool-depends:  hspec-discover:hspec-discover
 
+test-suite plugin-dispatcher-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test/plugin-dispatcher
+                       test/utils
+  main-is:             Main.hs
+  other-modules:       TestUtils
+  build-depends:       base
+                     , aeson
+                     , containers
+                     , data-default
+                     , directory
+                     , filepath
+                     , ghc
+                     , haskell-lsp
+                     , haskell-ide-engine
+                     -- , hie-test-utils
+                     , hie-plugin-api
+                     , hspec
+                     , stm
+                     , text
+                     , unordered-containers
+
+                     -- remove these once hie-test-utils is reinstated
+                     , hie-plugin-api
+                     , ghc-mod-core
+                     , hslogger
+                     , unordered-containers
+                     , yaml
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
+  if flag(pedantic)
+     ghc-options:      -Werror
+  default-language:    Haskell2010
+
 -- library hie-test-utils
 --   hs-source-dirs:      test/utils
 --   exposed-modules:     TestUtils
