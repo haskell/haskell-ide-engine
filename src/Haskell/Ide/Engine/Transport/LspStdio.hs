@@ -213,18 +213,20 @@ configVal defVal field = do
 
 getPrefixAtPos :: (MonadIO m, MonadReader REnv m)
   => Uri -> Position -> m (Maybe Hie.PosPrefixInfo)
-getPrefixAtPos uri (Position l c) = do
+getPrefixAtPos uri pos@(Position l c) = do
   mvf <- liftIO =<< asksLspFuncs Core.getVirtualFileFunc <*> pure uri
   case mvf of
     Just (VFS.VirtualFile _ yitext) ->
-      return $ Just $ fromMaybe (Hie.PosPrefixInfo "" "" "") $ do
+      return $ Just $ fromMaybe (Hie.PosPrefixInfo "" "" "" pos) $ do
         let headMaybe [] = Nothing
             headMaybe (x:_) = Just x
             lastMaybe [] = Nothing
             lastMaybe xs = Just $ last xs
         curLine <- headMaybe $ Yi.lines $ snd $ Yi.splitAtLine l yitext
         let beforePos = Yi.take c curLine
-        curWord <- Yi.toText <$> lastMaybe (Yi.words beforePos)
+        curWord <- case Yi.last beforePos of
+                     Just ' ' -> Just "" -- don't count abc as the curword in 'abc ' 
+                     _ -> Yi.toText <$> lastMaybe (Yi.words beforePos)
         let parts = T.split (=='.')
                       $ T.takeWhileEnd (\x -> isAlphaNum x || x `elem` ("._'"::String)) curWord
         case reverse parts of
@@ -233,7 +235,7 @@ getPrefixAtPos uri (Position l c) = do
             let modParts = dropWhile (not . isUpper . T.head)
                                 $ reverse $ filter (not .T.null) xs
                 modName = T.intercalate "." modParts
-            return $ Hie.PosPrefixInfo (Yi.toText curLine) modName x
+            return $ Hie.PosPrefixInfo (Yi.toText curLine) modName x pos
     Nothing -> return Nothing
 
 -- ---------------------------------------------------------------------
@@ -292,14 +294,67 @@ updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file 
     cacheInfoNoClear file info'
     return $ IdeResultOk ()
   where
-    f (+/-) (J.Range (Position sl _) (Position el _)) txt p@(Position l c)
+    f (+/-) (J.Range (Position sl sc) (Position el ec)) txt p@(Position l c)
+
+      -- pos is before the change - unaffected
       | l < sl = Just p
+      -- pos is somewhere after the changed line,
+      -- move down the pos to keep it the same
       | l > el = Just $ Position l' c
+
+      {-
+          LEGEND:
+          0-9   char index
+          x     untouched char
+          I/i   inserted/replaced char
+          .     deleted char
+          ^     pos to be converted
+      -}
+
+      {-
+          012345  67
+          xxxxxx  xx
+           ^
+          0123456789
+          xxIIIIiixx
+           ^
+          
+          pos is unchanged if before the edited range
+      -}
+      | l == sl && c <= sc = Just p
+
+      {-
+          01234  56
+          xxxxx  xx
+            ^    
+          012345678
+          xxIIIiixx
+                 ^
+          If pos is in the affected range move to after the range
+      -}
+      | l == sl && l == el && c <= nec && newL == 0 = Just $ Position l ec
+
+      {-
+          01234  56
+          xxxxx  xx
+                 ^
+          012345678
+          xxIIIiixx
+                 ^
+          If pos is after the affected range, update the char index
+          to keep it in the same place
+      -}
+      | l == sl && l == el && c > nec && newL == 0 = Just $ Position l (c +/- (nec - sc))
+
+      -- oh well we tried ¯\_(ツ)_/¯
       | otherwise = Nothing
          where l' = l +/- dl
                dl = newL - oldL
                oldL = el-sl
                newL = T.count "\n" txt
+               nec -- new end column
+                | newL == 0 = sc + T.length txt
+                | otherwise = T.length $ last $ T.lines txt
     oldToNew = f (+)
     newToOld = f (-)
 
@@ -802,23 +857,23 @@ requestDiagnostics DiagnosticsRequest{trigger, file, trackingNumber, documentVer
   mc <- liftIO $ Core.config lf
   case Map.lookup trigger diagFuncs of
     Nothing -> do
-      logm $ "requestDiagnostics: no diagFunc for:" ++ show trigger
+      debugm $ "requestDiagnostics: no diagFunc for:" ++ show trigger
       return ()
     Just dss -> do
       dpsEnabled <- configVal (Map.fromList [("liquid",False)]) getDiagnosticProvidersConfig
-      logm $ "requestDiagnostics: got diagFunc for:" ++ show trigger
+      debugm $ "requestDiagnostics: got diagFunc for:" ++ show trigger
       forM_ dss $ \(pid,ds) -> do
-        logm $ "requestDiagnostics: calling diagFunc for plugin:" ++ show pid
+        debugm $ "requestDiagnostics: calling diagFunc for plugin:" ++ show pid
         let
           enabled = Map.findWithDefault True pid dpsEnabled
           publishDiagnosticsIO = Core.publishDiagnosticsFunc lf
           maxToSend = maybe 50 maxNumberOfProblems mc
           sendOne (fileUri,ds') = do
-            logm $ "LspStdio.sendone:(fileUri,ds')=" ++ show(fileUri,ds')
+            debugm $ "LspStdio.sendone:(fileUri,ds')=" ++ show(fileUri,ds')
             publishDiagnosticsIO maxToSend fileUri Nothing (Map.fromList [(Just pid,SL.toSortedList ds')])
 
           sendEmpty = do
-            logm "LspStdio.sendempty"
+            debugm "LspStdio.sendempty"
             publishDiagnosticsIO maxToSend file Nothing (Map.fromList [(Just pid,SL.toSortedList [])])
 
           -- fv = case documentVersion of

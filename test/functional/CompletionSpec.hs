@@ -6,7 +6,6 @@ import Control.Monad.IO.Class
 import Control.Lens hiding ((.=))
 import Data.Aeson
 import Language.Haskell.LSP.Test
--- import Language.Haskell.LSP.Test.Replay
 import Language.Haskell.LSP.Types
 import Language.Haskell.LSP.Types.Lens hiding (applyEdit)
 import Test.Hspec
@@ -18,10 +17,10 @@ spec = describe "completions" $ do
     doc <- openDoc "Completion.hs" "haskell"
     _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
 
-    let te = TextEdit (Range (Position 4 7) (Position 4 24)) "put"
+    let te = TextEdit (Range (Position 5 7) (Position 5 24)) "put"
     _ <- applyEdit doc te
 
-    compls <- getCompletions doc (Position 4 9)
+    compls <- getCompletions doc (Position 5 9)
     let item = head $ filter ((== "putStrLn") . (^. label)) compls
     liftIO $ do
       item ^. label `shouldBe` "putStrLn"
@@ -29,7 +28,6 @@ spec = describe "completions" $ do
       item ^. detail `shouldBe` Just "String -> IO ()\nPrelude"
       item ^. insertTextFormat `shouldBe` Just Snippet
       item ^. insertText `shouldBe` Just "putStrLn ${1:String}"
-  --TODO: Replay session
 
   it "completes imports" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
     doc <- openDoc "Completion.hs" "haskell"
@@ -122,6 +120,35 @@ spec = describe "completions" $ do
     _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
     compls <- getCompletions doc (Position 5 7)
     liftIO $ filter ((== "!!") . (^. label)) compls `shouldNotSatisfy` null
+  
+  describe "contexts" $ do
+    it "only provides type suggestions" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
+      doc <- openDoc "Context.hs" "haskell"
+      _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
+      compls <- getCompletions doc (Position 2 17)
+      liftIO $ do
+        compls `shouldContainCompl` "Integer"
+        compls `shouldNotContainCompl` "interact"
+
+    it "only provides type suggestions" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
+      doc <- openDoc "Context.hs" "haskell"
+      _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
+      compls <- getCompletions doc (Position 3 9)
+      liftIO $ do
+        compls `shouldContainCompl` "abs" 
+        compls `shouldNotContainCompl` "Applicative"
+    
+    -- This currently fails if it takes too long to typecheck the module
+    -- it "completes qualified type suggestions" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
+    --   doc <- openDoc "Context.hs" "haskell"
+    --   _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
+    --   let te = TextEdit (Range (Position 2 17) (Position 2 17)) " -> Conc."
+    --   _ <- applyEdit doc te
+    --   compls <- getCompletions doc (Position 2 26)
+    --   liftIO $ do
+    --     compls `shouldNotContainCompl` "forkOn"
+    --     compls `shouldContainCompl` "MVar"
+    --     compls `shouldContainCompl` "Chan"
 
   it "have implicit foralls on basic polymorphic types" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
     doc <- openDoc "Completion.hs" "haskell"
@@ -203,6 +230,11 @@ spec = describe "completions" $ do
 
       checkNoSnippets doc
   where
+    compls `shouldContainCompl` x  =
+      filter ((== x) . (^. label)) compls `shouldNotSatisfy` null
+    compls `shouldNotContainCompl` x =
+      filter ((== x) . (^. label)) compls `shouldSatisfy` null
+
     checkNoSnippets doc = do
       let te = TextEdit (Range (Position 5 7) (Position 5 24)) "fold"
       _ <- applyEdit doc te

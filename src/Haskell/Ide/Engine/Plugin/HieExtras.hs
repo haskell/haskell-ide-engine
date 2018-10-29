@@ -1,4 +1,5 @@
 {-# LANGUAGE NamedFieldPuns      #-}
+{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE TypeFamilies        #-}
@@ -23,6 +24,7 @@ import           Control.Lens.Operators                       ( (^?), (?~) )
 import           Control.Lens.Prism                           ( _Just )
 import           Control.Monad.Reader
 import           Data.Aeson
+import           Data.Char
 import           Data.IORef
 import qualified Data.List                                    as List
 import qualified Data.Map                                     as Map
@@ -34,10 +36,11 @@ import           DataCon
 import           Exception
 import           FastString
 import           Finder
-import           GHC
+import           GHC                                          hiding (getContext)
 import qualified GhcMod.LightGhc                              as GM
 import qualified GhcMod.Gap                                   as GM
 import           Haskell.Ide.Engine.ArtifactMap
+import           Haskell.Ide.Engine.Context
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
@@ -111,7 +114,7 @@ mkCompl CI{origName,importedFrom,thingType,label} =
   J.CompletionItem label kind (Just $ maybe "" (<>"\n") typeText <> importedFrom)
     Nothing Nothing Nothing Nothing Nothing (Just insertText) (Just J.Snippet)
     Nothing Nothing Nothing Nothing hoogleQuery
-  where kind  = Just $ occNameToComKind $ occName origName
+  where kind = Just $ occNameToComKind $ occName origName
         hoogleQuery = Just $ toJSON $ mkQuery label importedFrom
         argTypes = maybe [] getArgs thingType
         insertText
@@ -184,6 +187,8 @@ data PosPrefixInfo = PosPrefixInfo
     -- ^ The word right before the cursor position, after removing the module part.
     -- For example if the user has typed "Data.Maybe.from",
     -- then this property will be "from"
+  , cursorPos :: J.Position
+    -- ^ The cursor position
   }
 
 data CachedCompletions = CC
@@ -342,19 +347,48 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) =
     debugm $ "got prefix" ++ show (prefixModule, prefixText)
     let enteredQual = if T.null prefixModule then "" else prefixModule <> "."
         fullPrefix  = enteredQual <> prefixText
+      
     ifCachedModuleAndData file (IdeResultOk [])
-      $ \_ _ CC { allModNamesAsNS, unqualCompls, qualCompls, importableModules, cachedExtensions } ->
+      $ \tm CachedInfo { newPosToOld } CC { allModNamesAsNS, unqualCompls, qualCompls, importableModules, cachedExtensions } ->
           let
+            -- default to value context if no explicit context
+            context = fromMaybe ValueContext $ getContext pos (tm_parsed_module tm)
+
+            {- correct the position by moving 'foo :: Int -> String ->    '
+                                                                         ^
+               to                             'foo :: Int -> String ->    '
+                                                                   ^
+            -}
+            pos =
+              let newPos = cursorPos prefixInfo
+                  Position l c = fromMaybe newPos (newPosToOld newPos)
+                  typeStuff = [isSpace, (`elem` (">-." :: String))]
+                  stripTypeStuff = T.dropWhileEnd (\x -> any (\f -> f x) typeStuff)
+                  -- if oldPos points to
+                  -- foo -> bar -> baz
+                  --    ^
+                  -- Then only take the line up to there, discard '-> bar -> baz'
+                  partialLine = T.take c fullLine
+                  -- drop characters used when writing incomplete type sigs
+                  -- like '-> '
+                  d = T.length fullLine - T.length (stripTypeStuff partialLine)
+              in Position l (c - d)
+
             filtModNameCompls =
               map mkModCompl
                 $ mapMaybe (T.stripPrefix enteredQual)
                 $ Fuzzy.simpleFilter fullPrefix allModNamesAsNS
 
-            filtCompls = Fuzzy.filterBy label prefixText compls
-             where
-              compls = if T.null prefixModule
-                then unqualCompls
-                else Map.findWithDefault [] prefixModule qualCompls
+            filtCompls = Fuzzy.filterBy label prefixText ctxCompls
+              where
+                isTypeCompl = isTcOcc . occName . origName
+                -- completions specific to the current context
+                ctxCompls = case context of
+                              TypeContext -> filter isTypeCompl compls
+                              ValueContext -> filter (not . isTypeCompl) compls
+                compls = if T.null prefixModule
+                  then unqualCompls
+                  else Map.findWithDefault [] prefixModule qualCompls
 
             mkImportCompl label = (J.detail ?~ label) . mkModCompl $ fromMaybe
               ""
@@ -409,6 +443,7 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) =
   pragmaSuffix fullLine
     |  "}" `T.isSuffixOf` fullLine = mempty
     | otherwise = " #-}"
+
 -- ---------------------------------------------------------------------
 
 getTypeForName :: Name -> IdeM (Maybe Type)
