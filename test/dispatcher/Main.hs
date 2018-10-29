@@ -41,9 +41,9 @@ import           Haskell.Ide.Engine.Plugin.HieExtras
 main :: IO ()
 main = do
   setupStackFiles
- --  withFileLogging "main-dispatcher.log" $ do
- --   hspec newPluginSpec
- --   hspec funcSpec
+  withFileLogging "main-dispatcher.log" $ do
+    hspec newPluginSpec
+    hspec funcSpec
 
 -- main :: IO ()
 -- main = do
