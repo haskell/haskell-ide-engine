@@ -222,11 +222,13 @@ cacheModule uri modul = do
         muc <- getUriCache uri'
         let defInfo = CachedInfo mempty mempty mempty mempty rfm return return
         return $ case muc of
-          Just (UriCacheSuccess uc) -> uc { cachedPsMod = pm }
+          Just (UriCacheSuccess uc) ->
+            let newCI = (cachedInfo uc) { revMap = rfm }
+              in uc { cachedPsMod = pm, cachedInfo = newCI }
           _ -> UriCache defInfo pm Nothing mempty
 
       Right tm -> do
-        typm <- GM.unGmlT $ genTypeMap tm
+        typm <- GM.unGmlT $ genTypeMap tm    
         let info = CachedInfo (genLocMap tm) typm (genImportMap tm) (genDefMap tm) rfm return return
             pm = GHC.tm_parsed_module tm
         return $ UriCache info pm (Just tm) mempty
