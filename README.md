@@ -484,7 +484,7 @@ $ cd haskell-ide-engine
 $ stack --stack-yaml=<stack.yaml you used to build hie> exec hoogle generate
 ```
 
-Or you can set the enviornment `HIE_HOOGLE_DATABASE` to specify a specific database.
+Or you can set the environment variable `HIE_HOOGLE_DATABASE` to specify a specific database.
 
 ## Contributing
 
