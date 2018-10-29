@@ -15,10 +15,11 @@ extra-deps:
 - cabal-helper-0.8.1.0@rev:0
 - cabal-plan-0.3.0.0
 - constrained-dynamic-0.1.0.0
-- ekg-wai-0.1.0.3
 - ekg-json-0.1.0.6
+- ekg-wai-0.1.0.3
 - haddock-api-2.20.0
 - hsimport-0.8.6
+- lsp-test-0.4.0.0
 - monad-memo-0.4.1
 - semigroupoids-5.2.2
 - syz-0.2.0.0
