@@ -7,6 +7,8 @@
 module Haskell.Ide.Engine.Plugin.HaRe where
 
 import           Control.Lens.Operators
+import           Control.Lens.Setter ((%~))
+import           Control.Lens.Traversal (traverseOf)
 import           Control.Monad.State
 import           Control.Monad.Trans.Control
 import           Data.Aeson
@@ -22,12 +24,14 @@ import qualified Data.Text.IO                                 as T
 import           Exception
 import           GHC.Generics                                 (Generic)
 import qualified GhcMod.Error                                 as GM
+import qualified GhcMod.Exe.CaseSplit                         as GM
 import qualified GhcMod.Monad                                 as GM
 import qualified GhcMod.Utils                                 as GM
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
+import           Haskell.Ide.Engine.Plugin.GhcMod             (runGhcModCommand)
 import qualified Haskell.Ide.Engine.Plugin.HieExtras          as Hie
 import           Language.Haskell.GHC.ExactPrint.Print
 import qualified Language.Haskell.LSP.Core                    as Core
@@ -64,6 +68,9 @@ hareDescriptor plId = PluginDescriptor
           deleteDefCmd
       , PluginCommand "genapplicative" "Generalise a monadic function to use applicative"
           genApplicativeCommand
+
+      , PluginCommand "casesplit" "Generate a pattern match for a binding under (LINE,COL)"
+          splitCaseCmd
       ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
@@ -213,6 +220,64 @@ genApplicativeCommand' uri pos =
 
 -- ---------------------------------------------------------------------
 
+splitCaseCmd :: CommandFunc HarePoint WorkspaceEdit
+splitCaseCmd = CmdSync $ \_ (HP uri pos) -> splitCaseCmd' uri pos
+
+splitCaseCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
+splitCaseCmd' uri newPos =
+  pluginGetFile "splitCaseCmd: " uri $ \path -> do
+    origText <- GM.withMappedFile path $ liftIO . T.readFile
+    ifCachedModule path (IdeResultOk mempty) $ \tm info -> runGhcModCommand $
+      case newPosToOld info newPos of
+        Just oldPos -> do
+          let (line, column) = unPos oldPos
+          splitResult' <- GM.splits' path tm line column
+          case splitResult' of
+            Just splitResult -> do
+              wEdit <- liftToGhc $ splitResultToWorkspaceEdit origText splitResult
+              return $ oldToNewPositions info wEdit
+            Nothing -> return mempty
+        Nothing -> return mempty
+  where
+
+    -- | Transform all ranges in a WorkspaceEdit from old to new positions.
+    oldToNewPositions :: CachedInfo -> WorkspaceEdit -> WorkspaceEdit
+    oldToNewPositions info wsEdit =
+      wsEdit
+        & J.documentChanges %~ (>>= traverseOf (traverse . J.edits . traverse . J.range) (oldRangeToNew info))
+        & J.changes %~ (>>= traverseOf (traverse . traverse . J.range) (oldRangeToNew info))
+
+    -- | Given the range and text to replace, construct a 'WorkspaceEdit'
+    -- by diffing the change against the current text.
+    splitResultToWorkspaceEdit :: T.Text -> GM.SplitResult -> IdeM WorkspaceEdit
+    splitResultToWorkspaceEdit originalText (GM.SplitResult replaceFromLine replaceFromCol replaceToLine replaceToCol replaceWith) =
+      diffText (uri, originalText) newText IncludeDeletions
+      where
+        before = takeUntil (toPos (replaceFromLine, replaceFromCol)) originalText
+        after = dropUntil (toPos (replaceToLine, replaceToCol)) originalText
+        newText = before <> replaceWith <> after
+
+    -- | Take the first part of text until the given position.
+    -- Returns all characters before the position.
+    takeUntil :: Position -> T.Text -> T.Text
+    takeUntil (Position l c) txt =
+      T.unlines takeLines <> takeCharacters
+      where
+        textLines = T.lines txt
+        takeLines = take l textLines
+        takeCharacters = T.take c (textLines !! c)
+
+    -- | Drop the first part of text until the given position.
+    -- Returns all characters after and including the position.
+    dropUntil :: Position -> T.Text -> T.Text
+    dropUntil (Position l c) txt = dropCharacters
+      where
+        textLines = T.lines txt
+        dropLines = drop l textLines
+        dropCharacters = T.drop c (T.unlines dropLines)
+
+-- ---------------------------------------------------------------------
+
 getRefactorResult :: [ApplyRefacResult] -> [(FilePath,T.Text)]
 getRefactorResult = map getNewFile . filter fileModified
   where fileModified ((_,m),_) = m == RefacModified
@@ -294,20 +359,26 @@ hoist f a =
 codeActionProvider :: CodeActionProvider
 codeActionProvider pId docId _ _ (J.Range pos _) _ =
   pluginGetFile "HaRe codeActionProvider: " (docId ^. J.uri) $ \file ->
-    ifCachedInfo file (IdeResultOk mempty) $ \info -> do
-      let symbols = getArtifactsAtPos pos (defMap info)
-      debugm $ show $ map (Hie.showName . snd) symbols
-      if not (null symbols)
-        then
-          let name = Hie.showName $ snd $ head symbols
-            in IdeResultOk <$> sequence [
+    ifCachedInfo file (IdeResultOk mempty) $ \info ->
+      case getArtifactsAtPos pos (defMap info) of
+        [h] -> do
+          let name = Hie.showName $ snd h
+          debugm $ show name
+          IdeResultOk <$> sequence [
               mkLiftOneAction name
             , mkLiftTopAction name
             , mkDemoteAction name
             , mkDeleteAction name
             , mkDuplicateAction name
             ]
-        else return (IdeResultOk [])
+        _   -> case getArtifactsAtPos pos (locMap info) of
+               [h] -> do
+                let name = Hie.showName $ snd h
+                debugm $ show name
+                IdeResultOk <$> sequence [
+                  mkCaseSplitAction name
+                  ]
+               _   -> return $ IdeResultOk []
 
   where
     mkLiftOneAction name = do
@@ -339,3 +410,9 @@ codeActionProvider pId docId _ _ (J.Range pos _) _ =
           title = "Duplicate definition of " <> name
       dupCmd <- mkLspCommand pId "dupdef" title (Just args)
       return $ J.CodeAction title (Just J.CodeActionRefactor) mempty Nothing (Just dupCmd)
+
+    mkCaseSplitAction name = do
+      let args = [J.toJSON $ HP (docId ^. J.uri) pos]
+          title = "Case split on " <> name
+      splCmd <- mkLspCommand pId "casesplit" title (Just args)
+      return $ J.CodeAction title (Just J.CodeActionRefactorRewrite) mempty Nothing (Just splCmd)

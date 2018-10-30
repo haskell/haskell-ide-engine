@@ -9,8 +9,6 @@ module Haskell.Ide.Engine.Plugin.GhcMod where
 import           Bag
 import           Control.Monad.IO.Class
 import           Control.Lens hiding (cons, children)
-import           Control.Lens.Setter ((%~))
-import           Control.Lens.Traversal (traverseOf)
 import           Data.Aeson
 import           Data.Function
 import qualified Data.HashMap.Strict               as HM
@@ -21,7 +19,6 @@ import           Data.Maybe
 import           Data.Monoid ((<>))
 import qualified Data.Set                          as Set
 import qualified Data.Text                         as T
-import qualified Data.Text.IO                      as T
 import           ErrUtils
 import qualified Exception                         as G
 import           Name
@@ -35,11 +32,9 @@ import qualified GhcMod.Monad                      as GM
 import qualified GhcMod.SrcUtils                   as GM
 import qualified GhcMod.Types                      as GM
 import qualified GhcMod.Utils                      as GM
-import qualified GhcMod.Exe.CaseSplit              as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
-import           Haskell.Ide.Engine.Plugin.HaRe (HarePoint(..))
 import qualified Haskell.Ide.Engine.Plugin.HieExtras as Hie
 import           Haskell.Ide.Engine.ArtifactMap
 import qualified Language.Haskell.LSP.Types        as LSP
@@ -68,7 +63,6 @@ ghcmodDescriptor plId = PluginDescriptor
       , PluginCommand "lint" "Check files using `hlint'" lintCmd
       , PluginCommand "info" "Look up an identifier in the context of FILE (like ghci's `:info')" infoCmd
       , PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmd
-      , PluginCommand "casesplit" "Generate a pattern match for a binding under (LINE,COL)" splitCaseCmd
       ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
@@ -306,65 +300,6 @@ cmp a b
 
 isSubRangeOf :: Range -> Range -> Bool
 isSubRangeOf (Range sa ea) (Range sb eb) = sb <= sa && eb >= ea
-
-
-splitCaseCmd :: CommandFunc HarePoint WorkspaceEdit
-splitCaseCmd = CmdSync $ \_ (HP uri pos) -> splitCaseCmd' uri pos
-
-splitCaseCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
-splitCaseCmd' uri newPos =
-  pluginGetFile "splitCaseCmd: " uri $ \path -> do
-    origText <- GM.withMappedFile path $ liftIO . T.readFile
-    ifCachedModule path (IdeResultOk mempty) $ \tm info -> runGhcModCommand $
-      case newPosToOld info newPos of
-        Just oldPos -> do
-          let (line, column) = unPos oldPos
-          splitResult' <- GM.splits' path tm line column
-          case splitResult' of
-            Just splitResult -> do
-              wEdit <- liftToGhc $ splitResultToWorkspaceEdit origText splitResult
-              return $ oldToNewPositions info wEdit
-            Nothing -> return mempty
-        Nothing -> return mempty
-  where
-
-    -- | Transform all ranges in a WorkspaceEdit from old to new positions.
-    oldToNewPositions :: CachedInfo -> WorkspaceEdit -> WorkspaceEdit
-    oldToNewPositions info wsEdit =
-      wsEdit
-        & LSP.documentChanges %~ (>>= traverseOf (traverse . LSP.edits . traverse . LSP.range) (oldRangeToNew info))
-        & LSP.changes %~ (>>= traverseOf (traverse . traverse . LSP.range) (oldRangeToNew info))
-
-    -- | Given the range and text to replace, construct a 'WorkspaceEdit'
-    -- by diffing the change against the current text.
-    splitResultToWorkspaceEdit :: T.Text -> GM.SplitResult -> IdeM WorkspaceEdit
-    splitResultToWorkspaceEdit originalText (GM.SplitResult replaceFromLine replaceFromCol replaceToLine replaceToCol replaceWith) =
-      diffText (uri, originalText) newText IncludeDeletions
-      where
-        before = takeUntil (toPos (replaceFromLine, replaceFromCol)) originalText
-        after = dropUntil (toPos (replaceToLine, replaceToCol)) originalText
-        newText = before <> replaceWith <> after
-
-    -- | Take the first part of text until the given position.
-    -- Returns all characters before the position.
-    takeUntil :: Position -> T.Text -> T.Text
-    takeUntil (Position l c) txt =
-      T.unlines takeLines <> takeCharacters
-      where
-        textLines = T.lines txt
-        takeLines = take l textLines
-        takeCharacters = T.take c (textLines !! c)
-
-    -- | Drop the first part of text until the given position.
-    -- Returns all characters after and including the position.
-    dropUntil :: Position -> T.Text -> T.Text
-    dropUntil (Position l c) txt = dropCharacters
-      where
-        textLines = T.lines txt
-        dropLines = drop l textLines
-        dropCharacters = T.drop c (T.unlines dropLines)
-
--- ---------------------------------------------------------------------
 
 runGhcModCommand :: IdeGhcM a
                  -> IdeGhcM (IdeResult a)
