@@ -20,7 +20,6 @@ import           Data.Monoid ((<>))
 import qualified Data.Set                          as Set
 import qualified Data.Text                         as T
 import           ErrUtils
-import qualified Exception                         as G
 import           Name
 import           GHC.Generics
 import qualified GhcMod                            as GM
@@ -63,6 +62,7 @@ ghcmodDescriptor plId = PluginDescriptor
       , PluginCommand "lint" "Check files using `hlint'" lintCmd
       , PluginCommand "info" "Look up an identifier in the context of FILE (like ghci's `:info')" infoCmd
       , PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmd
+      , PluginCommand "casesplit" "Generate a pattern match for a binding under (LINE,COL)" Hie.splitCaseCmd
       ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
@@ -225,7 +225,7 @@ lintCmd = CmdSync $ \_ uri ->
 lintCmd' :: Uri -> IdeGhcM (IdeResult T.Text)
 lintCmd' uri =
   pluginGetFile "lint: " uri $ \file ->
-    fmap T.pack <$> runGhcModCommand (GM.lint GM.defaultLintOpts file)
+    fmap T.pack <$> Hie.runGhcModCommand (GM.lint GM.defaultLintOpts file)
 
 -- ---------------------------------------------------------------------
 
@@ -249,7 +249,7 @@ infoCmd = CmdSync $ \_ (IP uri expr) ->
 infoCmd' :: Uri -> T.Text -> IdeGhcM (IdeResult T.Text)
 infoCmd' uri expr =
   pluginGetFile "info: " uri $ \file ->
-    fmap T.pack <$> runGhcModCommand (GM.info file (GM.Expression (T.unpack expr)))
+    fmap T.pack <$> Hie.runGhcModCommand (GM.info file (GM.Expression (T.unpack expr)))
 
 -- ---------------------------------------------------------------------
 data TypeParams =
@@ -300,15 +300,6 @@ cmp a b
 
 isSubRangeOf :: Range -> Range -> Bool
 isSubRangeOf (Range sa ea) (Range sb eb) = sb <= sa && eb >= ea
-
-runGhcModCommand :: IdeGhcM a
-                 -> IdeGhcM (IdeResult a)
-runGhcModCommand cmd =
-  (IdeResultOk <$> cmd) `G.gcatch`
-    \(e :: GM.GhcModError) ->
-      return $
-      IdeResultFail $
-      IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Null
 
 -- ---------------------------------------------------------------------
 

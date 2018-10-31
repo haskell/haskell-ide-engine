@@ -7,8 +7,6 @@
 module Haskell.Ide.Engine.Plugin.HaRe where
 
 import           Control.Lens.Operators
-import           Control.Lens.Setter ((%~))
-import           Control.Lens.Traversal (traverseOf)
 import           Control.Monad.State
 import           Control.Monad.Trans.Control
 import           Data.Aeson
@@ -24,14 +22,12 @@ import qualified Data.Text.IO                                 as T
 import           Exception
 import           GHC.Generics                                 (Generic)
 import qualified GhcMod.Error                                 as GM
-import qualified GhcMod.Exe.CaseSplit                         as GM
 import qualified GhcMod.Monad                                 as GM
 import qualified GhcMod.Utils                                 as GM
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
-import           Haskell.Ide.Engine.Plugin.GhcMod             (runGhcModCommand)
 import qualified Haskell.Ide.Engine.Plugin.HieExtras          as Hie
 import           Language.Haskell.GHC.ExactPrint.Print
 import qualified Language.Haskell.LSP.Core                    as Core
@@ -70,7 +66,7 @@ hareDescriptor plId = PluginDescriptor
           genApplicativeCommand
 
       , PluginCommand "casesplit" "Generate a pattern match for a binding under (LINE,COL)"
-          splitCaseCmd
+          Hie.splitCaseCmd
       ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
@@ -80,19 +76,6 @@ hareDescriptor plId = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-customOptions :: Int -> J.Options
-customOptions n = J.defaultOptions { J.fieldLabelModifier = J.camelTo2 '_' . drop n}
-
-data HarePoint =
-  HP { hpFile :: Uri
-     , hpPos  :: Position
-     } deriving (Eq,Generic,Show)
-
-instance FromJSON HarePoint where
-  parseJSON = genericParseJSON $ customOptions 2
-instance ToJSON HarePoint where
-  toJSON = genericToJSON $ customOptions 2
-
 data HarePointWithText =
   HPT { hptFile :: Uri
       , hptPos  :: Position
@@ -100,9 +83,9 @@ data HarePointWithText =
       } deriving (Eq,Generic,Show)
 
 instance FromJSON HarePointWithText where
-  parseJSON = genericParseJSON $ customOptions 3
+  parseJSON = genericParseJSON $ Hie.customOptions 3
 instance ToJSON HarePointWithText where
-  toJSON = genericToJSON $ customOptions 3
+  toJSON = genericToJSON $ Hie.customOptions 3
 
 data HareRange =
   HR { hrFile     :: Uri
@@ -111,14 +94,14 @@ data HareRange =
      } deriving (Eq,Generic,Show)
 
 instance FromJSON HareRange where
-  parseJSON = genericParseJSON $ customOptions 2
+  parseJSON = genericParseJSON $ Hie.customOptions 2
 instance ToJSON HareRange where
-  toJSON = genericToJSON $ customOptions 2
+  toJSON = genericToJSON $ Hie.customOptions 2
 
 -- ---------------------------------------------------------------------
 
-demoteCmd :: CommandFunc HarePoint WorkspaceEdit
-demoteCmd  = CmdSync $ \_ (HP uri pos) ->
+demoteCmd :: CommandFunc Hie.HarePoint WorkspaceEdit
+demoteCmd  = CmdSync $ \_ (Hie.HP uri pos) ->
   demoteCmd' uri pos
 
 demoteCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
@@ -156,8 +139,8 @@ iftocaseCmd' uri (Range startPos endPos) =
 
 -- ---------------------------------------------------------------------
 
-liftonelevelCmd :: CommandFunc HarePoint WorkspaceEdit
-liftonelevelCmd = CmdSync $ \_ (HP uri pos) ->
+liftonelevelCmd :: CommandFunc Hie.HarePoint WorkspaceEdit
+liftonelevelCmd = CmdSync $ \_ (Hie.HP uri pos) ->
   liftonelevelCmd' uri pos
 
 liftonelevelCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
@@ -169,8 +152,8 @@ liftonelevelCmd' uri pos =
 
 -- ---------------------------------------------------------------------
 
-lifttotoplevelCmd :: CommandFunc HarePoint WorkspaceEdit
-lifttotoplevelCmd = CmdSync $ \_ (HP uri pos) ->
+lifttotoplevelCmd :: CommandFunc Hie.HarePoint WorkspaceEdit
+lifttotoplevelCmd = CmdSync $ \_ (Hie.HP uri pos) ->
   lifttotoplevelCmd' uri pos
 
 lifttotoplevelCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
@@ -195,8 +178,8 @@ renameCmd' uri pos name =
 
 -- ---------------------------------------------------------------------
 
-deleteDefCmd :: CommandFunc HarePoint WorkspaceEdit
-deleteDefCmd  = CmdSync $ \_ (HP uri pos) ->
+deleteDefCmd :: CommandFunc Hie.HarePoint WorkspaceEdit
+deleteDefCmd  = CmdSync $ \_ (Hie.HP uri pos) ->
   deleteDefCmd' uri pos
 
 deleteDefCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
@@ -208,8 +191,8 @@ deleteDefCmd' uri pos =
 
 -- ---------------------------------------------------------------------
 
-genApplicativeCommand :: CommandFunc HarePoint WorkspaceEdit
-genApplicativeCommand  = CmdSync $ \_ (HP uri pos) ->
+genApplicativeCommand :: CommandFunc Hie.HarePoint WorkspaceEdit
+genApplicativeCommand  = CmdSync $ \_ (Hie.HP uri pos) ->
   genApplicativeCommand' uri pos
 
 genApplicativeCommand' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
@@ -217,64 +200,6 @@ genApplicativeCommand' uri pos =
   pluginGetFile "genapplicative: " uri $ \file ->
       runHareCommand "genapplicative" (compGenApplicative file (unPos pos))
 
-
--- ---------------------------------------------------------------------
-
-splitCaseCmd :: CommandFunc HarePoint WorkspaceEdit
-splitCaseCmd = CmdSync $ \_ (HP uri pos) -> splitCaseCmd' uri pos
-
-splitCaseCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
-splitCaseCmd' uri newPos =
-  pluginGetFile "splitCaseCmd: " uri $ \path -> do
-    origText <- GM.withMappedFile path $ liftIO . T.readFile
-    ifCachedModule path (IdeResultOk mempty) $ \tm info -> runGhcModCommand $
-      case newPosToOld info newPos of
-        Just oldPos -> do
-          let (line, column) = unPos oldPos
-          splitResult' <- GM.splits' path tm line column
-          case splitResult' of
-            Just splitResult -> do
-              wEdit <- liftToGhc $ splitResultToWorkspaceEdit origText splitResult
-              return $ oldToNewPositions info wEdit
-            Nothing -> return mempty
-        Nothing -> return mempty
-  where
-
-    -- | Transform all ranges in a WorkspaceEdit from old to new positions.
-    oldToNewPositions :: CachedInfo -> WorkspaceEdit -> WorkspaceEdit
-    oldToNewPositions info wsEdit =
-      wsEdit
-        & J.documentChanges %~ (>>= traverseOf (traverse . J.edits . traverse . J.range) (oldRangeToNew info))
-        & J.changes %~ (>>= traverseOf (traverse . traverse . J.range) (oldRangeToNew info))
-
-    -- | Given the range and text to replace, construct a 'WorkspaceEdit'
-    -- by diffing the change against the current text.
-    splitResultToWorkspaceEdit :: T.Text -> GM.SplitResult -> IdeM WorkspaceEdit
-    splitResultToWorkspaceEdit originalText (GM.SplitResult replaceFromLine replaceFromCol replaceToLine replaceToCol replaceWith) =
-      diffText (uri, originalText) newText IncludeDeletions
-      where
-        before = takeUntil (toPos (replaceFromLine, replaceFromCol)) originalText
-        after = dropUntil (toPos (replaceToLine, replaceToCol)) originalText
-        newText = before <> replaceWith <> after
-
-    -- | Take the first part of text until the given position.
-    -- Returns all characters before the position.
-    takeUntil :: Position -> T.Text -> T.Text
-    takeUntil (Position l c) txt =
-      T.unlines takeLines <> takeCharacters
-      where
-        textLines = T.lines txt
-        takeLines = take l textLines
-        takeCharacters = T.take c (textLines !! c)
-
-    -- | Drop the first part of text until the given position.
-    -- Returns all characters after and including the position.
-    dropUntil :: Position -> T.Text -> T.Text
-    dropUntil (Position l c) txt = dropCharacters
-      where
-        textLines = T.lines txt
-        dropLines = drop l textLines
-        dropCharacters = T.drop c (T.unlines dropLines)
 
 -- ---------------------------------------------------------------------
 
@@ -382,25 +307,25 @@ codeActionProvider pId docId _ _ (J.Range pos _) _ =
 
   where
     mkLiftOneAction name = do
-      let args = [J.toJSON $ HP (docId ^. J.uri) pos]
+      let args = [J.toJSON $ Hie.HP (docId ^. J.uri) pos]
           title = "Lift " <> name <> " one level"
       liftCmd <- mkLspCommand pId "liftonelevel" title (Just args)
       return $ J.CodeAction title (Just J.CodeActionRefactorExtract) mempty Nothing (Just liftCmd)
 
     mkLiftTopAction name = do
-      let args = [J.toJSON $ HP (docId ^. J.uri) pos]
+      let args = [J.toJSON $ Hie.HP (docId ^. J.uri) pos]
           title = "Lift " <> name <> " to top level"
       liftCmd <- mkLspCommand pId "lifttotoplevel" title (Just args)
       return $ J.CodeAction title (Just J.CodeActionRefactorExtract) mempty Nothing (Just liftCmd)
 
     mkDemoteAction name = do
-      let args = [J.toJSON $ HP (docId ^. J.uri) pos]
+      let args = [J.toJSON $ Hie.HP (docId ^. J.uri) pos]
           title = "Demote " <> name <> " one level"
       demCmd <- mkLspCommand pId "demote" title (Just args)
       return $ J.CodeAction title (Just J.CodeActionRefactorInline) mempty Nothing (Just demCmd)
 
     mkDeleteAction name = do
-      let args = [J.toJSON $ HP (docId ^. J.uri) pos]
+      let args = [J.toJSON $ Hie.HP (docId ^. J.uri) pos]
           title = "Delete definition of " <> name
       delCmd <- mkLspCommand pId "deletedef" title (Just args)
       return $ J.CodeAction title (Just J.CodeActionRefactor) mempty Nothing (Just delCmd)
@@ -412,7 +337,7 @@ codeActionProvider pId docId _ _ (J.Range pos _) _ =
       return $ J.CodeAction title (Just J.CodeActionRefactor) mempty Nothing (Just dupCmd)
 
     mkCaseSplitAction name = do
-      let args = [J.toJSON $ HP (docId ^. J.uri) pos]
+      let args = [J.toJSON $ Hie.HP (docId ^. J.uri) pos]
           title = "Case split on " <> name
       splCmd <- mkLspCommand pId "casesplit" title (Just args)
       return $ J.CodeAction title (Just J.CodeActionRefactorRewrite) mempty Nothing (Just splCmd)
