@@ -3,6 +3,7 @@
 module GhcModPluginSpec where
 
 import           Control.Exception
+import qualified Data.HashMap.Strict                 as H
 import qualified Data.Map                            as Map
 #if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
@@ -10,9 +11,11 @@ import           Data.Monoid
 import qualified Data.Set                            as S
 import qualified Data.Text                           as T
 import           Haskell.Ide.Engine.MonadTypes
+import           Haskell.Ide.Engine.Plugin.GhcMod
+import           Haskell.Ide.Engine.Plugin.HieExtras
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
-import           Haskell.Ide.Engine.Plugin.GhcMod
+import           Language.Haskell.LSP.Types          (TextEdit (..))
 import           System.Directory
 import           TestUtils
 
@@ -112,3 +115,38 @@ ghcmodSpec =
               ,(Range (toPos (5,1)) (toPos (5,14)), "Int -> Int")
               ]
         testCommand testPlugins act "ghcmod" "type"dummyVfs arg res
+
+    -- ---------------------------------
+
+    it "runs the casesplit command" $ cdAndDo "./test/testdata" $ do
+      fp <- makeAbsolute "GhcModCaseSplit.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            splitCaseCmd' uri (toPos (5,5))
+          arg = HP uri (toPos (5,5))
+          res = IdeResultOk $ WorkspaceEdit
+            (Just $ H.singleton uri
+                                $ List [TextEdit (Range (Position 4 0) (Position 4 10))
+                                          "foo Nothing = ()\nfoo (Just x) = ()"])
+            Nothing
+      testCommand testPlugins act "ghcmod" "casesplit" dummyVfs arg res
+
+    it "runs the casesplit command with an absolute path from another folder, correct params" $ do
+      fp <- makeAbsolute "./test/testdata/GhcModCaseSplit.hs"
+      cd <- getCurrentDirectory
+      cd2 <- getHomeDirectory
+      bracket (setCurrentDirectory cd2)
+              (\_-> setCurrentDirectory cd)
+              $ \_-> do
+        let uri = filePathToUri fp
+            act = do
+              _ <- setTypecheckedModule uri
+              splitCaseCmd' uri (toPos (5,5))
+            arg = HP uri (toPos (5,5))
+            res = IdeResultOk $ WorkspaceEdit
+              (Just $ H.singleton uri
+                                  $ List [TextEdit (Range (Position 4 0) (Position 4 10))
+                                            "foo Nothing = ()\nfoo (Just x) = ()"])
+              Nothing
+        testCommand testPlugins act "ghcmod" "casesplit" dummyVfs arg res
