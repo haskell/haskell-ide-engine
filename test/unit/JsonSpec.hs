@@ -10,6 +10,7 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Plugin.ApplyRefact
 import           Haskell.Ide.Engine.Plugin.GhcMod
 import           Haskell.Ide.Engine.Plugin.HaRe
+import           Haskell.Ide.Engine.Plugin.HieExtras
 import           Haskell.Ide.Engine.LSP.Config
 
 import           Data.Aeson
