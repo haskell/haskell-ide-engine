@@ -121,6 +121,22 @@ spec = describe "completions" $ do
     compls <- getCompletions doc (Position 5 7)
     liftIO $ filter ((== "!!") . (^. label)) compls `shouldNotSatisfy` null
   
+  -- See https://github.com/haskell/haskell-ide-engine/issues/903
+  it "strips compiler generated stuff from completions" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
+    doc <- openDoc "DupRecFields.hs" "haskell"
+    _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
+
+    let te = TextEdit (Range (Position 5 0) (Position 5 2)) "acc"
+    _ <- applyEdit doc te
+
+    compls <- getCompletions doc (Position 5 4)
+    let item = head $ filter (\c -> c^.label == "accessor") compls
+    liftIO $ do
+      item ^. label `shouldBe` "accessor"
+      item ^. kind `shouldBe` Just CiFunction
+      item ^. detail `shouldBe` Just "Two -> Int\nDupRecFields"
+      item ^. insertText `shouldBe` Just "accessor ${1:Two}"
+  
   describe "contexts" $ do
     it "only provides type suggestions" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
       doc <- openDoc "Context.hs" "haskell"
