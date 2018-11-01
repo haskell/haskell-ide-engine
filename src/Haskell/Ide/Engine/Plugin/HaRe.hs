@@ -290,54 +290,32 @@ codeActionProvider pId docId _ _ (J.Range pos _) _ =
           let name = Hie.showName $ snd h
           debugm $ show name
           IdeResultOk <$> sequence [
-              mkLiftOneAction name
-            , mkLiftTopAction name
-            , mkDemoteAction name
-            , mkDeleteAction name
-            , mkDuplicateAction name
+              mkAction "liftonelevel"
+                J.CodeActionRefactorExtract $ "Lift " <> name <> " one level"
+            , mkAction "lifttotoplevel"
+                J.CodeActionRefactorExtract $"Lift " <> name <> " to top level"
+            , mkAction "demote"
+                J.CodeActionRefactorInline $ "Demote " <> name <> " one level"
+            , mkAction "deletedef"
+                J.CodeActionRefactor $ "Delete definition of " <> name
+            , mkHptAction "dupdef"
+                J.CodeActionRefactor "Duplicate definition of " name
             ]
         _   -> case getArtifactsAtPos pos (locMap info) of
                [h] -> do
                 let name = Hie.showName $ snd h
-                debugm $ show name
                 IdeResultOk <$> sequence [
-                  mkCaseSplitAction name
+                    mkAction "casesplit"
+                      J.CodeActionRefactorRewrite $ "Case split on " <> name
                   ]
                _   -> return $ IdeResultOk []
-
   where
-    mkLiftOneAction name = do
+    mkAction aId kind title = do
       let args = [J.toJSON $ Hie.HP (docId ^. J.uri) pos]
-          title = "Lift " <> name <> " one level"
-      liftCmd <- mkLspCommand pId "liftonelevel" title (Just args)
-      return $ J.CodeAction title (Just J.CodeActionRefactorExtract) mempty Nothing (Just liftCmd)
+      cmd <- mkLspCommand pId aId title (Just args)
+      return $ J.CodeAction title (Just kind) mempty Nothing (Just cmd)
 
-    mkLiftTopAction name = do
-      let args = [J.toJSON $ Hie.HP (docId ^. J.uri) pos]
-          title = "Lift " <> name <> " to top level"
-      liftCmd <- mkLspCommand pId "lifttotoplevel" title (Just args)
-      return $ J.CodeAction title (Just J.CodeActionRefactorExtract) mempty Nothing (Just liftCmd)
-
-    mkDemoteAction name = do
-      let args = [J.toJSON $ Hie.HP (docId ^. J.uri) pos]
-          title = "Demote " <> name <> " one level"
-      demCmd <- mkLspCommand pId "demote" title (Just args)
-      return $ J.CodeAction title (Just J.CodeActionRefactorInline) mempty Nothing (Just demCmd)
-
-    mkDeleteAction name = do
-      let args = [J.toJSON $ Hie.HP (docId ^. J.uri) pos]
-          title = "Delete definition of " <> name
-      delCmd <- mkLspCommand pId "deletedef" title (Just args)
-      return $ J.CodeAction title (Just J.CodeActionRefactor) mempty Nothing (Just delCmd)
-
-    mkDuplicateAction name = do
+    mkHptAction aId kind title name = do
       let args = [J.toJSON $ HPT (docId ^. J.uri) pos (name <> "'")]
-          title = "Duplicate definition of " <> name
-      dupCmd <- mkLspCommand pId "dupdef" title (Just args)
-      return $ J.CodeAction title (Just J.CodeActionRefactor) mempty Nothing (Just dupCmd)
-
-    mkCaseSplitAction name = do
-      let args = [J.toJSON $ Hie.HP (docId ^. J.uri) pos]
-          title = "Case split on " <> name
-      splCmd <- mkLspCommand pId "casesplit" title (Just args)
-      return $ J.CodeAction title (Just J.CodeActionRefactorRewrite) mempty Nothing (Just splCmd)
+      cmd <- mkLspCommand pId aId title (Just args)
+      return $ J.CodeAction (title <> name) (Just kind) mempty Nothing (Just cmd)
