@@ -1,7 +1,7 @@
 defaults: &defaults
   working_directory: ~/build
   docker:
-    - image: quay.io/haskell_works/stack-build-icu
+    - image: alanz/haskell-hie-ci
   steps:
     - checkout
     - run:
@@ -22,10 +22,9 @@ defaults: &defaults
 
     - restore_cache:
         keys:
-          - stack-cache-05-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
-          - stack-cache-05-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
-          - stack-cache-05-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
-          - stack-work-dirs-05-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
+          - stack-cache-10-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
+          - stack-cache-10-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
+          - stack-cache-10-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
 
     - run:
         name: Stack setup
@@ -51,37 +50,57 @@ defaults: &defaults
         name: Generate Hoogle database
         command: stack --stack-yaml=${STACK_FILE} exec hoogle generate
 
+    - run:
+        name: Clear cabal-helper cache
+        command: rm -fr ~/.cache/cabal-helper
+
     - save_cache:
-        key: stack-cache-05-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
+        key: stack-cache-10-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
         paths:
           - ~/.stack
           - ~/.cache
+          - ~/build/.stack-work
+          - ~/build/hie-plugin-api/.stack-work
+          - ~/build/submodules/HaRe/.stack-work
+          - ~/build/submodules/ghc-mod/core/.stack-work
+          - ~/build/submodules/ghc-mod/.stack-work
+          - ~/build/submodules/haskell-lsp/.stack-work
+          - ~/build/submodules/cabal-helper/.stack-work
 
     - run:
         name: Test
-        command: stack -j 2 --stack-yaml=${STACK_FILE} test
+        # Tests MUST run with -j1, since multiple ghc-mod sessions are not allowed
+        command: stack -j 1 --stack-yaml=${STACK_FILE} test --dump-logs
         no_output_timeout: 120m
 
     - store_artifacts:
         path: test-logs
 
     - save_cache:
-        key: stack-cache-05-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
+        key: stack-cache-10-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
         paths:
           - ~/.stack
           - ~/.cache
-
-    - save_cache:
-        key: stack-cache-05-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
-        paths:
-          - ~/.stack
-          - ~/.cache
-
-    - save_cache:
-        key: stack-work-dirs-05-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
-        paths:
           - ~/build/.stack-work
           - ~/build/hie-plugin-api/.stack-work
+          - ~/build/submodules/HaRe/.stack-work
+          - ~/build/submodules/ghc-mod/core/.stack-work
+          - ~/build/submodules/ghc-mod/.stack-work
+          - ~/build/submodules/haskell-lsp/.stack-work
+          - ~/build/submodules/cabal-helper/.stack-work
+
+    - save_cache:
+        key: stack-cache-10-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
+        paths:
+          - ~/.stack
+          - ~/.cache
+          - ~/build/.stack-work
+          - ~/build/hie-plugin-api/.stack-work
+          - ~/build/submodules/HaRe/.stack-work
+          - ~/build/submodules/ghc-mod/core/.stack-work
+          - ~/build/submodules/ghc-mod/.stack-work
+          - ~/build/submodules/haskell-lsp/.stack-work
+          - ~/build/submodules/cabal-helper/.stack-work
 
 version: 2
 jobs:
@@ -110,6 +129,12 @@ jobs:
       - STACK_FILE: "stack-8.4.3.yaml"
     <<: *defaults
 
+  ghc-8.4.4:
+    environment:
+      - STACK_FILE: "stack-8.4.4.yaml"
+    <<: *defaults
+
+
   ghc-nightly:
     environment:
       - STACK_FILE: "stack.yaml"
@@ -129,7 +154,10 @@ jobs:
           command: git submodule update --recursive --init
       - restore-cache:
           keys:
-            - cabal-02
+            - cabal-03
+      - run:
+          name: Cabal version
+          command: cabal --version
       - run:
           name: Update
           command: cabal new-update
@@ -140,7 +168,7 @@ jobs:
           name: Build
           command: cabal new-build -j2
       - save_cache:
-          key: cabal-02
+          key: cabal-03
           paths:
             - ~/.cabal
 
@@ -153,5 +181,6 @@ workflows:
       - ghc-8.2.2
       - ghc-8.4.2
       - ghc-8.4.3
+      - ghc-8.4.4
       - ghc-nightly
       - cabal

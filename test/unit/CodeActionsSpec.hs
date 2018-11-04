@@ -39,11 +39,11 @@ spec = do
     it "doen't pick up irrelvant messages" $
       let msg = "The import of ‘Control.Exception’ is redundant\n      except perhaps to import instances from ‘Control.Exception’"
         in extractRenamableTerms msg `shouldBe` []
-      
+
     it "picks up variable not in scope with multiple suggestions" $
       let msg = "• Variable not in scope: uri\n• Perhaps you meant one of these:\n‘J.uri’ (imported from Language.Haskell.LSP.Types),\ndata constructor ‘J.Uri’ (imported from Language.Haskell.LSP.Types)"
         in extractRenamableTerms msg `shouldBe` ["J.uri", "J.Uri"]
-    
+
     it "picks up data constructors" $
       let msg = "• Data constructor not in scope:\n    MarkupContent :: J.MarkupKind -> Maybe T.Text -> t0\n• Perhaps you meant ‘J.MarkupContent’ (imported from Language.Haskell.LSP.Types)"
         in extractRenamableTerms msg `shouldBe` ["J.MarkupContent"]
@@ -51,10 +51,31 @@ spec = do
     it "returns nothing when there's no suggetsions" $
       let msg = "Variable not in scope:\n  fromJust\n    :: Maybe (Maybe (List CommandOrCodeAction)) -> Maybe (List a)"
         in extractRenamableTerms msg `shouldBe` []
+
     it "picks up variables not in scope on new line" $
       let msg = "• Variable not in scope:\n    forM_ :: [CodeAction] -> (s0 -> Expectation) -> IO a0\n• Perhaps you meant ‘iforM_’ (imported from Control.Lens)"
         in extractRenamableTerms msg `shouldBe` ["iforM_"]
-  
+
+    it "picks up qualified functions" $
+      let msg = "    Not in scope: ‘Foo.printResul’\n\
+                \    Perhaps you meant one of these:\n\
+                \      ‘Foo.printResult’ (imported from Mod.Bar.Foo),\n\
+                \      ‘Foo.formatResult’ (imported from Mod.Bar.Foo)\n\
+                \    Module ‘Mod.Bar.Foo’ does not export ‘printResul’"
+        in extractRenamableTerms msg `shouldBe` ["Foo.printResult", "Foo.formatResult"]
+
+    it "picks up local definitions" $
+      let msg = "• Variable not in scope: as :: f Foo\n\
+                \    • Perhaps you meant one of these:\n\
+                \        ‘ast’ (line 235)"
+        in extractRenamableTerms msg `shouldBe` ["ast"]
+
+    it "picks up definitions in same line" $
+      let msg = "• Variable not in scope: as :: f Foo\n\
+                \    • Perhaps you meant one of these:\n\
+                \        ‘ast’ (line 235), ‘abs’ (imported from Prelude)"
+        in extractRenamableTerms msg `shouldBe` ["ast", "abs"]
+
   describe "typed holes" $ do
     it "picks them up" $ do
       msg <- T.readFile "test/testdata/typedHoleDiag.txt"
@@ -104,9 +125,29 @@ spec = do
       extractHoleSubstitutions msg `shouldBe` expected
 
   describe "missing package code actions" $ do
-    it "pick up relevant messages" $ 
+    it "pick up relevant messages" $
       let msg = "Could not find module ‘Foo.Bar’\n      Use -v to see a list of the files searched for."
         in extractModuleName msg `shouldBe` Just "Foo.Bar"
-    it "don't pick up irrelevant messages" $ 
+    it "don't pick up irrelevant messages" $
       let msg = "Could not find modulez ‘Foo.Bar’\n      Use -v to see a list of the files searched for."
         in extractModuleName msg `shouldBe` Nothing
+
+  describe "missing signature code actions" $ do
+    it "pick up relevant messages" $
+      let msg = "    Top-level binding with no type signature: main :: IO ()"
+        in extractMissingSignature msg `shouldBe` Just "main :: IO ()"
+
+    it "pick up multiline signatures" $
+      let msg = "    Top-level binding with no type signature:\n\
+                \      printResultsAndExit :: (Text.Megaparsec.Error.ShowToken t,\n\
+                \                              Text.Megaparsec.Error.ShowErrorComponent e, Ord t) =>\n\
+                \                             OutputFormat -> Format.Result t e -> IO b"
+          expected = "printResultsAndExit :: (Text.Megaparsec.Error.ShowToken t,\n\
+                \                              Text.Megaparsec.Error.ShowErrorComponent e, Ord t) =>\n\
+                \                             OutputFormat -> Format.Result t e -> IO b"
+        in extractMissingSignature msg `shouldBe` Just expected
+  
+  describe "unused term code actions" $ do
+    it "pick up unused term" $
+      let msg = "  Defined but not used: ‘imUnused’"
+       in extractUnusedTerm msg `shouldBe` Just "imUnused"

@@ -11,11 +11,11 @@ import           Data.Monoid
 import qualified Data.Set                            as S
 import qualified Data.Text                           as T
 import           Haskell.Ide.Engine.MonadTypes
+import           Haskell.Ide.Engine.Plugin.GhcMod
+import           Haskell.Ide.Engine.Plugin.HieExtras
 import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
-import           Haskell.Ide.Engine.Plugin.GhcMod
-import           Haskell.Ide.Engine.Plugin.HaRe ( HarePoint(..) )
-import           Language.Haskell.LSP.Types     ( TextEdit(..) )
+import           Language.Haskell.LSP.Types          (TextEdit (..))
 import           System.Directory
 import           TestUtils
 
@@ -54,7 +54,7 @@ ghcmodSpec =
                             "Variable not in scope: x"
                             Nothing
 
-      testCommand testPlugins act "ghcmod" "check" arg res
+      testCommand testPlugins act "ghcmod" "check" dummyVfs arg res
 
     -- ---------------------------------
 
@@ -68,7 +68,7 @@ ghcmodSpec =
 #else
           res = IdeResultOk (T.pack fp <> ":6:9: Warning: Redundant do\NULFound:\NUL  do return (3 + x)\NULWhy not:\NUL  return (3 + x)\n")
 #endif
-      testCommand testPlugins act "ghcmod" "lint" arg res
+      testCommand testPlugins act "ghcmod" "lint" dummyVfs arg res
 
     -- ---------------------------------
 
@@ -79,7 +79,7 @@ ghcmodSpec =
           arg = IP uri "main"
           res = IdeResultOk "main :: IO () \t-- Defined at HaReRename.hs:2:1\n"
       -- ghc-mod tries to load the test file in the context of the hie project if we do not cd first.
-      testCommand testPlugins act "ghcmod" "info" arg res
+      testCommand testPlugins act "ghcmod" "info" dummyVfs arg res
 
     -- ---------------------------------
 
@@ -95,7 +95,7 @@ ghcmodSpec =
             ,(Range (toPos (5,9)) (toPos (5,14)), "Int")
             ,(Range (toPos (5,1)) (toPos (5,14)), "Int -> Int")
             ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "ghcmod" "type" dummyVfs arg res
 
     it "runs the type command with an absolute path from another folder, correct params" $ do
       fp <- makeAbsolute "./test/testdata/HaReRename.hs"
@@ -114,7 +114,7 @@ ghcmodSpec =
               ,(Range (toPos (5,9)) (toPos (5,14)), "Int")
               ,(Range (toPos (5,1)) (toPos (5,14)), "Int -> Int")
               ]
-        testCommand testPlugins act "ghcmod" "type" arg res
+        testCommand testPlugins act "ghcmod" "type"dummyVfs arg res
 
     -- ---------------------------------
 
@@ -130,7 +130,7 @@ ghcmodSpec =
                                 $ List [TextEdit (Range (Position 4 0) (Position 4 10))
                                           "foo Nothing = ()\nfoo (Just x) = ()"])
             Nothing
-      testCommand testPlugins act "ghcmod" "casesplit" arg res
+      testCommand testPlugins act "ghcmod" "casesplit" dummyVfs arg res
 
     it "runs the casesplit command with an absolute path from another folder, correct params" $ do
       fp <- makeAbsolute "./test/testdata/GhcModCaseSplit.hs"
@@ -149,4 +149,4 @@ ghcmodSpec =
                                   $ List [TextEdit (Range (Position 4 0) (Position 4 10))
                                             "foo Nothing = ()\nfoo (Just x) = ()"])
               Nothing
-        testCommand testPlugins act "ghcmod" "casesplit" arg res
+        testCommand testPlugins act "ghcmod" "casesplit" dummyVfs arg res

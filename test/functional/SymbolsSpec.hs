@@ -2,9 +2,9 @@
 module SymbolsSpec where
 
 import Control.Monad.IO.Class
-import Data.Default
 import Language.Haskell.LSP.Test as Test
 import Language.Haskell.LSP.Types
+import Language.Haskell.LSP.Types.Capabilities
 import Test.Hspec
 import TestUtils
 
@@ -75,8 +75,5 @@ spec = describe "document symbols" $ do
       liftIO $ symbs `shouldContain` [foo, bar, dog, cat]
 
 
--- TODO: Replace with capsForVersion
 oldCaps :: ClientCapabilities
-oldCaps = def { Test._textDocument = Just tdcs }
-  where tdcs = def { _documentSymbol = Just dscs }
-        dscs = DocumentSymbolClientCapabilities Nothing Nothing Nothing
+oldCaps = capsForVersion (LSPVersion 3 9)

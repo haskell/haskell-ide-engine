@@ -20,7 +20,8 @@ flag pedantic
 library
   hs-source-dirs:      src
   exposed-modules:     Haskell.Ide.Engine.Plugin.Base
-                       Haskell.Ide.Engine.Dispatcher
+                       Haskell.Ide.Engine.Channel
+                       Haskell.Ide.Engine.Scheduler
                        Haskell.Ide.Engine.LSP.CodeActions
                        Haskell.Ide.Engine.LSP.Config
                        Haskell.Ide.Engine.LSP.Reactor
@@ -34,11 +35,13 @@ library
                        Haskell.Ide.Engine.Plugin.HaRe
                        Haskell.Ide.Engine.Plugin.Haddock
                        Haskell.Ide.Engine.Plugin.HieExtras
+                       Haskell.Ide.Engine.Plugin.HfaAlign
                        Haskell.Ide.Engine.Plugin.Hoogle
                        Haskell.Ide.Engine.Plugin.HsImport
                        Haskell.Ide.Engine.Plugin.Liquid
                        Haskell.Ide.Engine.Plugin.Package
                        Haskell.Ide.Engine.Plugin.Package.Compat
+                       Haskell.Ide.Engine.Plugin.Pragmas
                        Haskell.Ide.Engine.Transport.JsonStdio
                        Haskell.Ide.Engine.Transport.LspStdio
                        Haskell.Ide.Engine.Types
@@ -58,6 +61,7 @@ library
                      , data-default
                      , directory
                      , filepath
+                     , fold-debounce
                      , ghc >= 8.0.1
                      , ghc-exactprint
                      , ghc-mod >= 5.9.0.0
@@ -65,7 +69,7 @@ library
                      , gitrev >= 1.1
                      , haddock-api
                      , haddock-library
-                     , haskell-lsp >= 0.5
+                     , haskell-lsp >= 0.8
                      , haskell-src-exts
                      , hie-plugin-api
                      , hlint >= 2.0.11
@@ -79,6 +83,7 @@ library
                      , optparse-simple >= 0.0.3
                      , parsec
                      , process
+                     , safe
                      , sorted-list >= 0.2.1.0
                      , stm
                      , tagsoup
@@ -99,7 +104,7 @@ executable hie
   other-modules:       Paths_haskell_ide_engine
   build-depends:       base
                      , directory
-                     , ekg
+                     , ekg-wai
                      , ghc-mod-core
                      , haskell-ide-engine
                      , haskell-lsp
@@ -159,6 +164,7 @@ test-suite unit-test
                      , containers
                      , directory
                      , filepath
+                     , free
                      , haskell-lsp
                      , haskell-ide-engine
                      -- , hie-test-utils
@@ -194,6 +200,7 @@ test-suite dispatcher-test
                      , data-default
                      , directory
                      , filepath
+                     , ghc
                      , haskell-lsp
                      , haskell-ide-engine
                      -- , hie-test-utils
@@ -214,6 +221,39 @@ test-suite dispatcher-test
      ghc-options:      -Werror
   default-language:    Haskell2010
   build-tool-depends:  hspec-discover:hspec-discover
+
+test-suite plugin-dispatcher-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test/plugin-dispatcher
+                       test/utils
+  main-is:             Main.hs
+  other-modules:       TestUtils
+  build-depends:       base
+                     , aeson
+                     , containers
+                     , data-default
+                     , directory
+                     , filepath
+                     , ghc
+                     , haskell-lsp
+                     , haskell-ide-engine
+                     -- , hie-test-utils
+                     , hie-plugin-api
+                     , hspec
+                     , stm
+                     , text
+                     , unordered-containers
+
+                     -- remove these once hie-test-utils is reinstated
+                     , hie-plugin-api
+                     , ghc-mod-core
+                     , hslogger
+                     , unordered-containers
+                     , yaml
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
+  if flag(pedantic)
+     ghc-options:      -Werror
+  default-language:    Haskell2010
 
 -- library hie-test-utils
 --   hs-source-dirs:      test/utils
@@ -250,6 +290,7 @@ test-suite func-test
                      , DiagnosticsSpec
                      , FormatSpec
                      , FunctionalCodeActionsSpec
+                     , FunctionalLiquidSpec
                      , FunctionalSpec
                      , HaReSpec
                      , HighlightSpec
@@ -257,15 +298,18 @@ test-suite func-test
                      , ReferencesSpec
                      , RenameSpec
                      , SymbolsSpec
+                     , Utils
 
                      , TestUtils
+  -- This cannot currently be handled by hie (cabal-helper)
+  -- build-tool-depends:  haskell-ide-engine:hie
   build-depends:       aeson
                      , base
                      , containers
                      , data-default
                      , directory
                      , filepath
-                     , lsp-test >= 0.2.1
+                     , lsp-test == 0.4.*
                      , haskell-ide-engine
                      -- , hie-test-utils
                      , hie-plugin-api

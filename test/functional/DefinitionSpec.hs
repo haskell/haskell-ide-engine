@@ -4,6 +4,7 @@ import Control.Lens
 import Control.Monad.IO.Class
 import Language.Haskell.LSP.Test
 import Language.Haskell.LSP.Types
+import Language.Haskell.LSP.Types.Lens
 import System.Directory
 import Test.Hspec
 import TestUtils
@@ -37,10 +38,10 @@ spec = describe "definitions" $ do
     liftIO $ do
       fp <- canonicalizePath "test/testdata/definition/Bar.hs"
       defs `shouldBe` [Location (filePathToUri fp) zeroRange]
-  
+
   it "goto's imported modules that are loaded, and then closed" $
     runSession hieCommand fullCaps "test/testdata/definition" $ do
-      doc <- openDoc "Foo.hs" "haskell" 
+      doc <- openDoc "Foo.hs" "haskell"
       otherDoc <- openDoc "Bar.hs" "haskell"
       closeDoc otherDoc
       defs <- getDefinitions doc (Position 2 8)

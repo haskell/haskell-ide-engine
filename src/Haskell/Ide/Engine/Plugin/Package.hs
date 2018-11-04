@@ -35,7 +35,8 @@ import qualified Haskell.Ide.Engine.Plugin.Package.Compat as L
 #endif
 import           Distribution.Types.Dependency
 import           Distribution.Types.PackageName
-import qualified Language.Haskell.LSP.Types    as J
+import qualified Language.Haskell.LSP.Types      as J
+import qualified Language.Haskell.LSP.Types.Lens as J
 import           Distribution.Verbosity
 import           System.FilePath
 #if MIN_VERSION_filepath(1,4,2)
@@ -71,7 +72,7 @@ data AddParams = AddParams
   deriving (Eq, Show, Read, Generic, ToJSON, FromJSON)
 
 addCmd :: CommandFunc AddParams J.WorkspaceEdit
-addCmd = CmdSync $ \(AddParams rootDir modulePath pkg) -> do
+addCmd = CmdSync $ \_ (AddParams rootDir modulePath pkg) -> do
 
   packageType <- liftIO $ findPackageType rootDir
   fileMap <- GM.mkRevRedirMapFunc
@@ -232,14 +233,14 @@ editCabalPackage file modulePath pkgName fileMap = do
             newDeps = oldDeps ++ [Dependency (mkPackageName dep) anyVersion]
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider plId docId mRootDir _ context = do
+codeActionProvider plId docId _ mRootDir _ context = do
   let J.List diags = context ^. J.diagnostics
       pkgs = mapMaybe getAddablePackages diags
 
   res <- mapM (bimapM return Hoogle.searchPackages) pkgs
   actions <- catMaybes <$> mapM (uncurry mkAddPackageAction) (concatPkgs res)
 
-  return $ IdeResponseOk actions
+  return (IdeResultOk actions)
 
   where
     concatPkgs = concatMap (\(d, ts) -> map (d,) ts)

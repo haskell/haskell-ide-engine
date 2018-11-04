@@ -26,7 +26,7 @@ pattern GReq :: TrackingNumber
              -> PluginRequest m
 pattern GReq a b c d e f = Right (GhcRequest   a b c d e f)
 
-pattern IReq :: TrackingNumber -> J.LspId -> RequestCallback m a -> IdeM (IdeResponse a) -> Either (IdeRequest m) b
+pattern IReq :: TrackingNumber -> J.LspId -> RequestCallback m a -> IdeDeferM (IdeResult a) -> Either (IdeRequest m) b
 pattern IReq a b c d   = Left  (IdeRequest a b c d)
 
 type PluginRequest m = Either (IdeRequest m) (GhcRequest m)
@@ -44,7 +44,7 @@ data IdeRequest m = forall a. IdeRequest
   { pureMsgNum      :: TrackingNumber -- ^ Exists to facilitate logging/tracing
   , pureReqId       :: J.LspId
   , pureReqCallback :: RequestCallback m a
-  , pureReq         :: IdeM (IdeResponse a)
+  , pureReq         :: IdeDeferM (IdeResult a)
   }
 
 -- ---------------------------------------------------------------------

@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 module HaReSpec where
 
+import Control.Applicative.Combinators
 import Control.Monad.IO.Class
 import Data.Maybe
 import qualified Data.Text as T
 import Language.Haskell.LSP.Test
-import Language.Haskell.LSP.Types hiding (error, context)
+import Language.Haskell.LSP.Types
 import Test.Hspec
 import TestUtils
 
@@ -48,6 +49,13 @@ spec = describe "HaRe" $
           expected = "\nmain = putStrLn \"hello\"\n\n\
                      \foo x = y + 3\n  where\n    y = 7\n"
         in execCodeAction "HaReDemote.hs" r "Demote y one level" expected
+    context "casesplit argument" $ it "works" $
+      let r = Range (Position 4 5) (Position 4 6)
+          expected = "\nmain = putStrLn \"hello\"\n\n\
+                     \foo :: Maybe Int -> ()\n\
+                     \foo Nothing = ()\n\
+                     \foo (Just x) = ()\n"
+        in execCodeAction "GhcModCaseSplit.hs" r "Case split on x" expected
 
 
 getCANamed :: T.Text -> [CAResult] -> CodeAction
@@ -60,6 +68,10 @@ getCANamed named = head . mapMaybe test
 execCodeAction :: String -> Range -> T.Text -> T.Text -> IO ()
 execCodeAction fp r n expected = runSession hieCommand fullCaps "test/testdata" $ do
   doc <- openDoc fp "haskell"
+
+  -- Code actions aren't deferred - need to wait for compilation
+  _ <- count 2 waitForDiagnostics
+
   ca <- getCANamed n <$> getCodeActions doc r
   executeCodeAction ca
 

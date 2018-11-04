@@ -1,11 +1,12 @@
 module ReferencesSpec where
 
+import Control.Lens
+import Control.Monad.IO.Class
 import Language.Haskell.LSP.Test
 import Language.Haskell.LSP.Types
+import Language.Haskell.LSP.Types.Lens
 import Test.Hspec
 import TestUtils
-import Control.Monad.IO.Class
-import Control.Lens
 
 spec :: Spec
 spec = describe "references" $

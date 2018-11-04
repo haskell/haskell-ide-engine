@@ -50,14 +50,14 @@ baseDescriptor plId = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 versionCmd :: CommandFunc () T.Text
-versionCmd = CmdSync $ \_ -> return $ IdeResultOk (T.pack version)
+versionCmd = CmdSync $ \_ _ -> return $ IdeResultOk (T.pack version)
 
 pluginsCmd :: CommandFunc () IdePlugins
-pluginsCmd = CmdSync $ \_ ->
+pluginsCmd = CmdSync $ \_ _ ->
   IdeResultOk <$> getPlugins
 
 commandsCmd :: CommandFunc T.Text [CommandName]
-commandsCmd = CmdSync $ \p -> do
+commandsCmd = CmdSync $ \_ p -> do
   IdePlugins plugins <- getPlugins
   case Map.lookup p plugins of
     Nothing -> return $ IdeResultFail $ IdeError
@@ -68,7 +68,7 @@ commandsCmd = CmdSync $ \p -> do
     Just pl -> return $ IdeResultOk $ map commandName $ pluginCommands pl
 
 commandDetailCmd :: CommandFunc (T.Text, T.Text) T.Text
-commandDetailCmd = CmdSync $ \(p,command) -> do
+commandDetailCmd = CmdSync $ \_ (p,command) -> do
   IdePlugins plugins <- getPlugins
   case Map.lookup p plugins of
     Nothing -> return $ IdeResultFail $ IdeError
@@ -111,21 +111,18 @@ getProjectGhcVersion = do
   if isStackProject && isStackInstalled
     then do
       L.infoM "hie" "Using stack GHC version"
-      catch (tryCommand "stack ghc -- --version") $ \e -> do
+      catch (tryCommand "stack ghc -- --numeric-version") $ \e -> do
         L.errorM "hie" $ show (e :: SomeException)
         L.infoM "hie" "Couldn't find stack version, falling back to plain GHC"
-        tryCommand "ghc --version"
+        tryCommand "ghc --numeric-version"
     else do
       L.infoM "hie" "Using plain GHC version"
-      tryCommand "ghc --version"
+      tryCommand "ghc --numeric-version"
 
   where
     tryCommand cmd =
-      crackGhcVersion <$> readCreateProcess (shell cmd) ""
-    -- "The Glorious Glasgow Haskell Compilation System, version 8.4.3\n"
-    -- "The Glorious Glasgow Haskell Compilation System, version 8.4.2\n"
-    crackGhcVersion :: String -> String
-    crackGhcVersion st = reverse $ takeWhile (/=' ') $ tail $ reverse st
+      -- Drop '\n' from the output like "7.10.3\n", "8.4.3\n"
+      init <$> readCreateProcess (shell cmd) ""
 
 hieGhcVersion :: String
 hieGhcVersion = VERSION_ghc

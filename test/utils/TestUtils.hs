@@ -8,8 +8,10 @@ module TestUtils
   , testCommand
   , runSingleReq
   , makeRequest
+  , dummyVfs
   , runIGM
   , ghc84
+  , logFilePath
   , hieCommand
   , hieCommandVomit
   , hieCommandExamplePlugin
@@ -56,20 +58,25 @@ cdAndDo path fn = do
           $ const fn
 
 
-testCommand :: (ToJSON a, Typeable b, ToJSON b, Show b, Eq b) => IdePlugins -> IdeGhcM (IdeResult b) -> PluginId -> CommandName -> a -> IdeResult b -> IO ()
-testCommand testPlugins act plugin cmd arg res = do
+testCommand :: (ToJSON a, Typeable b, ToJSON b, Show b, Eq b)
+            => IdePlugins -> IdeGhcM (IdeResult b) -> PluginId -> CommandName -> VirtualFileFunc -> a -> IdeResult b -> IO ()
+testCommand testPlugins act plugin cmd vf arg res = do
   (newApiRes, oldApiRes) <- runIGM testPlugins $ do
     new <- act
-    old <- makeRequest plugin cmd arg
+    old <- makeRequest plugin cmd vf arg
     return (new, old)
   newApiRes `shouldBe` res
   fmap fromDynJSON oldApiRes `shouldBe` fmap Just res
 
-runSingleReq :: ToJSON a => IdePlugins -> PluginId -> CommandName -> a -> IO (IdeResult DynamicJSON)
-runSingleReq testPlugins plugin com arg = runIGM testPlugins (makeRequest plugin com arg)
+runSingleReq :: ToJSON a
+             => IdePlugins -> PluginId -> CommandName -> VirtualFileFunc -> a -> IO (IdeResult DynamicJSON)
+runSingleReq testPlugins plugin com vf arg = runIGM testPlugins (makeRequest plugin com vf arg)
 
-makeRequest :: ToJSON a => PluginId -> CommandName -> a -> IdeGhcM (IdeResult DynamicJSON)
-makeRequest plugin com arg = runPluginCommand plugin com (toJSON arg)
+makeRequest :: ToJSON a => PluginId -> CommandName -> VirtualFileFunc -> a -> IdeGhcM (IdeResult DynamicJSON)
+makeRequest plugin com vf arg = runPluginCommand plugin com vf (toJSON arg)
+
+dummyVfs :: VirtualFileFunc
+dummyVfs _ = return Nothing
 
 runIGM :: IdePlugins -> IdeGhcM a -> IO a
 runIGM testPlugins = runIdeGhcM testOptions def (IdeState emptyModuleCache Map.empty testPlugins Map.empty Nothing 0)
@@ -103,12 +110,14 @@ setupStackFiles =
 files :: [FilePath]
 files =
   [  "./test/testdata/"
-   , "./test/testdata/gototest/"
    , "./test/testdata/addPackageTest/cabal/"
    , "./test/testdata/addPackageTest/hpack/"
-   , "./test/testdata/redundantImportTest/"
+   , "./test/testdata/addPragmas/"
    , "./test/testdata/completion/"
    , "./test/testdata/definition/"
+   , "./test/testdata/gototest/"
+   , "./test/testdata/redundantImportTest/"
+   , "./test/testdata/wErrorTest/"
   ]
 
 ghc84 :: Bool
@@ -120,8 +129,10 @@ ghc84 = False
 
 stackYaml :: FilePath
 stackYaml =
-#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,3,0)))
-  "stack.yaml"
+#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,4,0)))
+  "stack-8.4.4.yaml"
+#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,3,0)))
+  "stack-8.4.3.yaml"
 #elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,2,0)))
   "stack-8.4.2.yaml"
 #elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,2,2,0)))
@@ -132,6 +143,9 @@ stackYaml =
   "stack-8.0.2.yaml"
 #endif
 
+logFilePath :: String
+logFilePath = "functional-hie-" ++ stackYaml ++ ".log"
+
 -- | The command to execute the version of hie for the current compiler.
 -- Make sure to disable the STACK_EXE and GHC_PACKAGE_PATH environment
 -- variables or else it messes up -- ghc-mod.
@@ -139,7 +153,7 @@ stackYaml =
 -- run with `stack test`
 hieCommand :: String
 hieCommand = "stack exec --no-stack-exe --no-ghc-package-path --stack-yaml=" ++ stackYaml ++
-             " hie -- -d -l test-logs/functional-hie-" ++ stackYaml ++ ".log"
+             " hie -- -d -l test-logs/" ++ logFilePath
 
 hieCommandVomit :: String
 hieCommandVomit = hieCommand ++ " --vomit"

@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -23,26 +24,27 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , CommandFunc(..)
   , PluginDescriptor(..)
   , PluginCommand(..)
+  , VirtualFileFunc
   , CodeActionProvider
   , DiagnosticProvider(..)
-  , DiagnosticProviderFunc
+  , DiagnosticProviderFunc(..)
+  , DiagnosticProviderFuncSync
+  , DiagnosticProviderFuncAsync
   , DiagnosticTrigger(..)
   , HoverProvider
   , SymbolProvider
   , IdePlugins(..)
   -- * The IDE monad
-  , IdeGhcM
   , IdeState(..)
+  , IdeGhcM
   , IdeM
+  , IdeDeferM
+  , iterT
   , LiftsToGhc(..)
-  -- * IdeResult and IdeResponse
+  -- * IdeResult
   , IdeResult(..)
   , IdeResultT(..)
-  , pattern IdeResponseOk
-  , pattern IdeResponseFail
-  , IdeResponse
-  , IdeResponse'(..)
-  , IdeResponseT(..)
+  , Defer(..)
   , IdeError(..)
   , IdeErrorCode(..)
   -- * LSP types
@@ -64,6 +66,7 @@ module Haskell.Ide.Engine.PluginsIdeMonads
 import           Control.Concurrent.STM
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
+import           Control.Monad.Trans.Free
 
 import           Data.Aeson
 import           Data.Dynamic (Dynamic)
@@ -103,11 +106,14 @@ import           Language.Haskell.LSP.Types (Command (..),
                                              filePathToUri,
                                              uriToFilePath)
 
+import           Language.Haskell.LSP.VFS (VirtualFile(..))
+
+-- ---------------------------------------------------------------------
 
 type PluginId = T.Text
 type CommandName = T.Text
 
-newtype CommandFunc a b = CmdSync (a -> IdeGhcM (IdeResult b))
+newtype CommandFunc a b = CmdSync (VirtualFileFunc -> a -> IdeGhcM (IdeResult b))
 
 data PluginCommand = forall a b. (FromJSON a, ToJSON b, Typeable b) =>
   PluginCommand { commandName :: CommandName
@@ -116,7 +122,7 @@ data PluginCommand = forall a b. (FromJSON a, ToJSON b, Typeable b) =>
                 }
 
 -- ---------------------------------------------------------------------
- 
+
 class Monad m => HasPidCache m where
   getPidCache :: m Int
 
@@ -125,8 +131,8 @@ instance HasPidCache IdeM where
 
 instance HasPidCache IO where
   getPidCache = getProcessID
-  
-instance HasPidCache m => HasPidCache (IdeResponseT m) where
+
+instance HasPidCache m => HasPidCache (IdeResultT m) where
   getPidCache = lift getPidCache
 
 mkLspCommand :: HasPidCache m => PluginId -> CommandName -> T.Text -> Maybe [Value] -> m Command
@@ -147,16 +153,29 @@ mkLspCmdId plid cn = do
 
 -- ---------------------------------------------------------------------
 
+type VirtualFileFunc = Uri -> IO (Maybe VirtualFile)
+
 type CodeActionProvider =  PluginId
                         -> VersionedTextDocumentIdentifier
+                        -> VirtualFileFunc
                         -> Maybe FilePath -- ^ Project root directory
                         -> Range
                         -> CodeActionContext
-                        -> IdeM (IdeResponse [CodeAction])
+                        -> IdeM (IdeResult [CodeAction])
 
--- type DiagnosticProviderFunc = DiagnosticTrigger -> Uri -> IdeM (IdeResponse (Map.Map Uri (S.Set Diagnostic)))
-type DiagnosticProviderFunc
-  = DiagnosticTrigger -> Uri -> IdeGhcM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
+type DiagnosticProviderFuncSync
+  = DiagnosticTrigger -> Uri
+  -> IdeDeferM (IdeResult (Map.Map Uri (S.Set Diagnostic)))
+
+type DiagnosticProviderFuncAsync
+  = DiagnosticTrigger -> Uri
+  -> (Map.Map Uri (S.Set Diagnostic) -> IO ())
+  -> IdeDeferM (IdeResult ())
+
+data DiagnosticProviderFunc
+  = DiagnosticProviderSync  DiagnosticProviderFuncSync
+  | DiagnosticProviderAsync DiagnosticProviderFuncAsync
+
 
 data DiagnosticProvider = DiagnosticProvider
      { dpTrigger :: S.Set DiagnosticTrigger -- AZ:should this be a NonEmptyList?
@@ -168,9 +187,9 @@ data DiagnosticTrigger = DiagnosticOnOpen
                        | DiagnosticOnSave
                        deriving (Show,Ord,Eq)
 
-type HoverProvider = Uri -> Position -> IdeM (IdeResponse [Hover])
+type HoverProvider = Uri -> Position -> IdeM (IdeResult [Hover])
 
-type SymbolProvider = Uri -> IdeM (IdeResponse [DocumentSymbol])
+type SymbolProvider = Uri -> IdeDeferM (IdeResult [DocumentSymbol])
 
 data PluginDescriptor =
   PluginDescriptor { pluginId                 :: PluginId
@@ -198,13 +217,34 @@ instance ToJSON IdePlugins where
 
 -- ---------------------------------------------------------------------
 
+-- | IdeM that allows for interaction with the ghc-mod session
 type IdeGhcM = GM.GhcModT IdeM
+
+-- | A computation that is deferred until the module is cached.
+-- Note that the module may not typecheck, in which case 'UriCacheFailed' is passed
+data Defer a = Defer FilePath (UriCacheResult -> a) deriving Functor
+type IdeDeferM = FreeT Defer IdeM
+
+type IdeM = ReaderT ClientCapabilities (MultiThreadState IdeState)
+
+data IdeState = IdeState
+  { moduleCache :: GhcModuleCache
+  -- | A queue of requests to be performed once a module is loaded
+  , requestQueue :: Map.Map FilePath [UriCacheResult -> IdeM ()]
+  , idePlugins  :: IdePlugins
+  , extensibleState :: !(Map.Map TypeRep Dynamic)
+  , ghcSession  :: Maybe (IORef HscEnv)
+  -- The pid of this instance of hie
+  , idePidCache    :: Int
+  }
 
 instance MonadMTState IdeState IdeGhcM where
   readMTS = lift $ lift $ lift readMTS
-  modifyMTS f = lift $ lift $ lift $ modifyMTS f
+  modifyMTS = lift . lift . lift . modifyMTS
 
-type IdeM = ReaderT ClientCapabilities (MultiThreadState IdeState)
+instance MonadMTState IdeState IdeDeferM where
+  readMTS = lift $ lift readMTS
+  modifyMTS = lift . lift . modifyMTS
 
 instance MonadMTState IdeState IdeM where
   readMTS = lift readMTS
@@ -213,22 +253,22 @@ instance MonadMTState IdeState IdeM where
 class (Monad m) => LiftsToGhc m where
   liftToGhc :: m a -> IdeGhcM a
 
+instance GM.MonadIO IdeDeferM where
+  liftIO = liftIO
+
 instance LiftsToGhc IdeM where
   liftToGhc = lift . lift
 
 instance LiftsToGhc IdeGhcM where
   liftToGhc = id
 
-data IdeState = IdeState
-  { moduleCache :: GhcModuleCache
-  -- | A queue of requests to be performed once a module is loaded
-  , requestQueue :: Map.Map FilePath [Either T.Text CachedModule -> IdeM ()]
-  , idePlugins  :: IdePlugins
-  , extensibleState :: !(Map.Map TypeRep Dynamic)
-  , ghcSession  :: Maybe (IORef HscEnv)
-  -- The pid of this instance of hie
-  , idePidCache    :: Int
-  }
+instance HasGhcModuleCache IdeGhcM where
+  getModuleCache = lift $ lift getModuleCache
+  setModuleCache = lift . lift . setModuleCache
+
+instance HasGhcModuleCache IdeDeferM where
+  getModuleCache = lift getModuleCache
+  setModuleCache = lift . setModuleCache
 
 instance HasGhcModuleCache IdeM where
   getModuleCache = do
@@ -238,12 +278,6 @@ instance HasGhcModuleCache IdeM where
   setModuleCache mc = do
     tvar <- lift ask
     liftIO $ atomically $ modifyTVar' tvar (\st -> st { moduleCache = mc })
-
-instance HasGhcModuleCache IdeGhcM where
-  getModuleCache = lift . lift $ getModuleCache
-  setModuleCache = lift . lift . setModuleCache
-
-
 
 -- ---------------------------------------------------------------------
 
@@ -290,83 +324,12 @@ instance (Monad m) => Monad (IdeResultT m) where
 instance MonadTrans IdeResultT where
   lift m = IdeResultT (fmap IdeResultOk m)
 
--- | The IDE response, which wraps around an IdeResult that may be deferred.
--- Used mostly in IdeM.
-data IdeResponse' m a = IdeResponseDeferred FilePath (CachedModule -> m (IdeResponse' m a))
-                      | IdeResponseResult (IdeResult a)
-
-type IdeResponse a = IdeResponse' IdeM a
-
-pattern IdeResponseOk :: a -> IdeResponse' m a
-pattern IdeResponseOk a = IdeResponseResult (IdeResultOk a)
-pattern IdeResponseFail :: IdeError -> IdeResponse' m a
-pattern IdeResponseFail err = IdeResponseResult (IdeResultFail err)
-
-instance (Show a) => Show (IdeResponse' m a) where
-  show (IdeResponseResult x) = show x
-  show (IdeResponseDeferred fp _) = "Deferred response waiting on " ++ fp
-
-instance (Eq a) => Eq (IdeResponse' m a) where
-  (IdeResponseResult x) == (IdeResponseResult y) = x == y
-  _ == _ = False
-
-instance Monad m => Functor (IdeResponse' m) where
-  fmap f (IdeResponseResult (IdeResultOk x)) = IdeResponseOk (f x)
-  fmap _ (IdeResponseResult (IdeResultFail err)) = IdeResponseFail err
-  fmap f (IdeResponseDeferred fp cb) = IdeResponseDeferred fp $ cb >=> (return . fmap f)
-
-instance Monad m => Applicative (IdeResponse' m) where
-  pure = return
-
-  (IdeResponseResult (IdeResultFail err)) <*> _ = IdeResponseFail err
-  _ <*> (IdeResponseResult (IdeResultFail err)) = IdeResponseFail err
-
-  (IdeResponseResult (IdeResultOk f)) <*> (IdeResponseResult (IdeResultOk x)) = IdeResponseOk (f x)
-
-  (IdeResponseResult (IdeResultOk f)) <*> (IdeResponseDeferred fp cb) = IdeResponseDeferred fp $ fmap (fmap f) . cb
-
-  (IdeResponseDeferred fp cb) <*> x = IdeResponseDeferred fp $ \cm -> do
-    f <- cb cm
-    pure (f <*> x)
-
-instance Monad m => Monad (IdeResponse' m) where
-  (IdeResponseResult (IdeResultOk x)) >>= f = f x
-  (IdeResponseDeferred fp cb) >>= f = IdeResponseDeferred fp $ \cm -> do
-    x <- cb cm
-    return $ x >>= f
-  (IdeResponseResult (IdeResultFail err)) >>= _ = IdeResponseFail err
-  return = IdeResponseOk
-
-newtype IdeResponseT m a = IdeResponseT { runIdeResponseT :: m (IdeResponse' m a) }
-
-instance Monad m => Functor (IdeResponseT m) where
-  fmap = liftM
-
-instance Monad m => Applicative (IdeResponseT m) where
-  pure = return
-  (<*>) = ap
-
-instance (Monad m) => Monad (IdeResponseT m) where
-  return = IdeResponseT . return . IdeResponseOk
-
-  m >>= f = IdeResponseT $ do
-    v <- runIdeResponseT m
-    case v of
-      IdeResponseResult (IdeResultOk x) -> runIdeResponseT (f x)
-      IdeResponseResult (IdeResultFail err) -> return $ IdeResponseFail err
-      IdeResponseDeferred fp cb -> return $ IdeResponseDeferred fp $ \cm ->
-        runIdeResponseT $ IdeResponseT (cb cm) >>= f
-
-instance MonadTrans IdeResponseT where
-  lift m = IdeResponseT (fmap IdeResponseOk m)
-
 -- | Error codes. Add as required
 data IdeErrorCode
  = ParameterError          -- ^ Wrong parameter type
  | PluginError             -- ^ An error returned by a plugin
  | InternalError           -- ^ Code error (case not handled or deemed
                            --   impossible)
- | NoModuleAvailable       -- ^ No typechecked module available to use
  | UnknownPlugin           -- ^ Plugin is not registered
  | UnknownCommand          -- ^ Command is not registered
  | InvalidContext          -- ^ Context invalid for command

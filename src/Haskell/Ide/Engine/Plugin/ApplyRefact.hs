@@ -22,6 +22,7 @@ import           Language.Haskell.Exts.Parser
 import           Language.Haskell.Exts.Extension
 import           Language.Haskell.HLint3           as Hlint
 import qualified Language.Haskell.LSP.Types        as LSP
+import qualified Language.Haskell.LSP.Types.Lens   as LSP
 import           Refact.Apply
 
 -- ---------------------------------------------------------------------
@@ -63,7 +64,7 @@ data OneHint = OneHint
   } deriving (Eq, Show)
 
 applyOneCmd :: CommandFunc ApplyOneParams WorkspaceEdit
-applyOneCmd = CmdSync $ \(AOP uri pos title) -> do
+applyOneCmd = CmdSync $ \_ (AOP uri pos title) -> do
   applyOneCmd' uri (OneHint pos title)
 
 applyOneCmd' :: Uri -> OneHint -> IdeGhcM (IdeResult WorkspaceEdit)
@@ -81,7 +82,7 @@ applyOneCmd' uri oneHint = pluginGetFile "applyOne: " uri $ \fp -> do
 -- ---------------------------------------------------------------------
 
 applyAllCmd :: CommandFunc Uri WorkspaceEdit
-applyAllCmd = CmdSync $ \uri -> do
+applyAllCmd = CmdSync $ \_ uri -> do
   applyAllCmd' uri
 
 applyAllCmd' :: Uri -> IdeGhcM (IdeResult WorkspaceEdit)
@@ -97,7 +98,7 @@ applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \fp -> do
 -- ---------------------------------------------------------------------
 
 lintCmd :: CommandFunc Uri PublishDiagnosticsParams
-lintCmd = CmdSync $ \uri -> do
+lintCmd = CmdSync $ \_ uri -> do
   lintCmd' uri
 
 -- AZ:TODO: Why is this in IdeGhcM?
@@ -241,7 +242,7 @@ applyHint fp mhint fileMap = do
     return diff
 
 -- | Gets HLint ideas for
-getIdeas :: FilePath -> Maybe OneHint -> ExceptT String IdeM [Idea]
+getIdeas :: MonadIO m => FilePath -> Maybe OneHint -> ExceptT String m [Idea]
 getIdeas lintFile mhint = do
   let hOpts = hlintOpts lintFile (oneHintPos <$> mhint)
   ideas <- runHlint lintFile hOpts
@@ -263,7 +264,7 @@ hlintOpts lintFile mpos =
     opts = maybe "" posOpt mpos
   in [lintFile, "--quiet", "--refactor", "--refactor-options=" ++ opts ]
 
-runHlint :: FilePath -> [String] -> ExceptT String IdeM [Idea]
+runHlint :: MonadIO m => FilePath -> [String] -> ExceptT String m [Idea]
 runHlint fp args =
   do (flags,classify,hint) <- liftIO $ argsSettings args
      let myflags = flags { hseFlags = (hseFlags flags) { extensions = (EnableExtension TypeApplications:extensions (hseFlags flags))}}
@@ -277,7 +278,7 @@ showParseError (Hlint.ParseError location message content) =
 -- ---------------------------------------------------------------------
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider plId docId _ _ context = IdeResponseOk <$> hlintActions
+codeActionProvider plId docId _ _ _ context = IdeResultOk <$> hlintActions
   where
 
     hlintActions :: IdeM [LSP.CodeAction]

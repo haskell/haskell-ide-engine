@@ -20,7 +20,8 @@ import qualified GHC.Generics                  as Generics
 import qualified GhcMod.Utils                  as GM
 import           HsImport
 import           Haskell.Ide.Engine.MonadTypes
-import qualified Language.Haskell.LSP.Types    as J
+import qualified Language.Haskell.LSP.Types      as J
+import qualified Language.Haskell.LSP.Types.Lens as J
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Plugin.Brittany
                                                as Brittany
@@ -48,7 +49,7 @@ data ImportParams = ImportParams
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
 importCmd :: CommandFunc ImportParams J.WorkspaceEdit
-importCmd = CmdSync $ \(ImportParams uri modName) -> importModule uri modName
+importCmd = CmdSync $ \_ (ImportParams uri modName) -> importModule uri modName
 
 importModule :: Uri -> T.Text -> IdeGhcM (IdeResult J.WorkspaceEdit)
 importModule uri modName =
@@ -90,7 +91,7 @@ importModule uri modName =
           return (J.TextEdit r ft)
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider plId docId _ _ context = do
+codeActionProvider plId docId _ _ _ context = do
   let J.List diags = context ^. J.diagnostics
       terms = mapMaybe getImportables diags
 
@@ -102,8 +103,8 @@ codeActionProvider plId docId _ _ context = do
        let relaxedTerms = map (bimap id (head . T.words)) terms
        relaxedRes <- mapM (bimapM return Hoogle.searchModules) relaxedTerms
        relaxedActions <- catMaybes <$> mapM (uncurry mkImportAction) (concatTerms relaxedRes)
-       return $ IdeResponseOk relaxedActions
-     else return $ IdeResponseOk actions
+       return $ IdeResultOk relaxedActions
+     else return $ IdeResultOk actions
 
   where
     concatTerms = concatMap (\(d, ts) -> map (d,) ts)

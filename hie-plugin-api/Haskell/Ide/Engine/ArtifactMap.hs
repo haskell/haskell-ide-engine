@@ -1,17 +1,16 @@
 {-# LANGUAGE CPP #-}
 module Haskell.Ide.Engine.ArtifactMap where
 
-import Data.Maybe
+import           Data.Maybe
 import qualified Data.IntervalMap.FingerTree       as IM
 import qualified Data.Generics                     as SYB
-
-import GhcMod.SrcUtils
 
 import qualified GHC
 import           GHC                               (TypecheckedModule)
 import qualified SrcLoc                            as GHC
 import qualified Var
 import qualified GhcMod.Gap                        as GM
+import           GhcMod.SrcUtils
 
 import           Language.Haskell.LSP.Types
 
@@ -114,7 +113,7 @@ genImportMap tm = moduleMap
 genDefMap :: TypecheckedModule -> DefMap
 genDefMap tm = mconcat $ map (go . GHC.unLoc) decls
   where
-    -- go :: GHC.HsDecl GHC.GhcPs -> DefMap
+    go :: GHC.HsDecl GM.GhcPs -> DefMap
     -- Type signatures
     go (GHC.SigD (GHC.TypeSig lns _)) =
       foldl IM.union mempty $ fmap go' lns

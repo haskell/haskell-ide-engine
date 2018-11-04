@@ -33,18 +33,6 @@ data CachedModule = CachedModule
   , newPosToOld :: Position -> Maybe Position
   , oldPosToNew :: Position -> Maybe Position
   }
-
-getCachedModule :: Uri -> IdeM (CachedModuleResult)
-
--- | The possible states the cache can be in
--- along with the cache or error if present
-data CachedModuleResult = ModuleLoading
-                        -- ^ The module has no cache yet and has not failed
-                        | ModuleFailed T.Text
-                        -- ^ The module has no cache but something went wrong
-                        | ModuleCached CachedModule IsStale
-                        -- ^ A cache exists for the module
-type IsStale = Bool
 ```
 
 On every file open or edit, HIE tries to load a `TypecheckedModule`(as defined in the ghc api)
@@ -80,7 +68,8 @@ class Typeable a => ModuleCache a where
     cacheDataProducer :: CachedModule -> IdeM a
 
 withCachedModuleAndData :: forall a b. ModuleCache a
-  => Uri -> IdeM b -> (CachedModule -> a -> IdeM b) -> IdeM b
+                        => FilePath -> b
+                        -> (CachedModule -> a -> IdeM b) -> IdeM b
 withCachedModuleAndData uri noCache callback = ...
 ```
 
@@ -106,7 +95,7 @@ This data is used to find all references to a symbol, and to find the name corre
 a particular position in the source.
 
 ```haskell
-getReferencesInDoc :: Uri -> Position -> IdeM (IdeResponse [J.DocumentHighlight])
+getReferencesInDoc :: Uri -> Position -> IdeM (IdeResult [J.DocumentHighlight])
 getReferencesInDoc uri pos = do
   let noCache = return $ nonExistentCacheErr "getReferencesInDoc"
   withCachedModuleAndData uri noCache $
@@ -124,13 +113,20 @@ fresh data is generated when first requested.
 ## Dispatcher and messaging
 
 ```haskell
-dispatcherP :: forall m. TChan (PluginRequest m)
-            -> IdePlugins
-            -> GM.Options
-            -> DispatcherEnv
-            -> ErrorHandler
-            -> CallbackHandler m
-            -> IO ()
+runScheduler
+  :: forall m
+   . Scheduler m
+  -> ErrorHandler
+  -> CallbackHandler m
+  -> C.ClientCapabilities
+  -> IO ()
+
+sendRequest
+  :: forall m
+   . Scheduler m
+  -> Maybe DocUpdate
+  -> PluginRequest m
+  -> IO ()
 
 type PluginRequest m = Either (IdeRequest m) (GhcRequest m)
 
@@ -145,13 +141,13 @@ data GhcRequest m = forall a. GhcRequest
 data IdeRequest m = forall a. IdeRequest
   { pureReqId :: J.LspId
   , pureReqCallback :: RequestCallback m a
-  , pureReq :: IdeM (IdeResponse a)
+  , pureReq :: IdeM (IdeResult a)
   }
 
 ```
 
-`dispatcherP`(thread #3) listens for `PluginRequest`s on the `TChan` and executes the 
-`pinReq`, sending the result to the `pinCallback`. `pinDocVer` and `pinLspReqId` help us 
+`runScheduler`(thread #3) waits for requests sent through `sendRequest` and executes the
+`pinReq`. Sending the result to the `pinCallback`. `pinDocVer` and `pinLspReqId` help us 
 make sure we don't execute a stale request or a request that has been cancelled by the IDE. 
 Note that because of the single threaded architecture, we can't cancel a request that 
 has already started execution.
@@ -176,75 +172,26 @@ for handling the "definition" request
       ...
 
 -- HaRePlugin.hs
-findDef :: Uri -> Position -> IdeM (IdeResponse Location)
+findDef :: Uri -> Position -> IdeM (IdeResult Location)
 ```
 
 The request uses the `findDef` function in the `HaRe` plugin to get the `Location` 
 of the definition of the symbol at the given position. The callback makes a LSP 
 response message out of the location, and forwards it to thread #4 which sends
-it to the IDE via stdout
+it to the IDE via stdout.
 
-## Responses and results
+## Deferred requests
 
-While working in the `IdeGhcM` thread, you return results back to the dispatcher with
-`IdeResult`:
-
-```haskell
-runHareCommand :: String -> RefactGhc [ApplyRefacResult]
-                 -> IdeGhcM (IdeResult WorkspaceEdit)
-runHareCommand name cmd = do
-     eitherRes <- runHareCommand' cmd
-     case eitherRes of
-       Left err ->
-         pure (IdeResultFail
-                 (IdeError PluginError
-                           (T.pack $ name <> ": \"" <> err <> "\"")
-                           Null))
-       Right res -> do
-            let changes = getRefactorResult res
-            refactRes <- makeRefactorResult changes
-            pure (IdeResultOk refactRes)
-```
-
-On `IdeM`, you must wrap any `IdeResult` in an `IdeResponse`:
+Should you find yourself wanting to access a typechecked module from within `IdeM`, 
+use `withCachedModule` to get access to a cached version of that module.
+If there is no cached module available, then it will automatically defer your result,
+or return a default if that then fails to typecheck:
 
 ```haskell
-getDynFlags :: Uri -> IdeM (IdeResponse DynFlags)
-getDynFlags uri =
-  pluginGetFileResponse "getDynFlags: " uri $ \fp -> do
-      mcm <- getCachedModule fp
-      case mcm of
-        ModuleCached cm _ -> return $
-          IdeResponseOk $ ms_hspp_opts $ pm_mod_summary $ tm_parsed_module $ tcMod cm
-        _ -> return $
-          IdeResponseFail $
-            IdeError PluginError ("getDynFlags: \"" <> "module not loaded" <> "\"") Null
+withCachedModule file (IdeResultOk []) $ \cm -> do
+  -- poke about with cm here
 ```
 
-Sometimes a request may need access to the typechecked module from ghc-mod, but
-it is desirable to keep it on the `IdeM` thread. For this a deferred response can
-be made:
-
-```haskell
-getDynFlags :: Uri -> IdeM (IdeResponse DynFlags)
-getDynFlags uri =
-  pluginGetFileResponse "getDynFlags: " uri $ \fp -> do
-    mcm <- getCachedModule fp
-    return $ case mcm of
-      ModuleCached cm _ -> IdeResponseOk $ getFlags cm
-      _ -> IdeResponseDeferred fp getFlags
-  where getFlags = ms_hspp_opts $ pm_mod_summary $ tm_parsed_module $ tcMod cm
-```
-
-A deferred response takes a file path to a module, and a callback which will be executed
-as with the cached module passed as an argument as soon as the module is loaded.
-
-This is wrapped with the helper function `withCachedModule` which will immediately return
-the cached module if it is already available to use, and only defer it otherwise.
-
-```haskell
-getDynFlags :: Uri -> IdeM (IdeResponse DynFlags)
-getDynFlags uri =
-  pluginGetFileResponse "getDynFlags: " uri $ \fp ->
-    withCachedModule fp (return . IdeResponseOk . ms_hspp_opts . pm_mod_summary . tm_parsed_module . tcMod)
-```
+Internally, a deferred response is represented by `IdeDefer`, which takes a file path
+to a module, and a callback which will be executed with a `UriCache` passed as an
+argument as soon as the module is loaded, or a `UriCacheFailed` if it failed.

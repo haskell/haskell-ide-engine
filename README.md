@@ -313,6 +313,7 @@ in
 * Paste in these settings. Make sure to change the command path to your `hie`
 
 ```
+{
 "clients": {
   "haskell-ide-engine": {
     "command": ["hie"],
@@ -321,6 +322,7 @@ in
     "languageId": "haskell",
   },
 },
+}
 ```
 
 Now open a haskell project with Sublime Text. You should have these features available to you:
@@ -482,6 +484,8 @@ $ cd haskell-ide-engine
 $ stack --stack-yaml=<stack.yaml you used to build hie> exec hoogle generate
 ```
 
+Or you can set the environment variable `HIE_HOOGLE_DATABASE` to specify a specific database.
+
 ## Contributing
 
 ### Planned Features
@@ -554,3 +558,15 @@ All the documentation is in [the docs folder](/docs) at the root of this project
 
 [Rename the file](https://github.com/alanz/vscode-hie-server/issues/89#issuecomment-398212122) at `~/.stack/programs/x86_64-osx/ghc-8.4.3/lib/ghc-8.4.3/integer-gmp-1.0.2.0/HSinteger-gmp-1.0.2.0.o` to a temporary name.
 [Should be fixed in GHC 8.8.1.](https://ghc.haskell.org/trac/ghc/ticket/15105)
+
+
+### cannot satisfy -package-id \<package\>
+
+#### Is \<package\> base-x? 
+Make sure that you are running the correct version of hie for your version of ghc, or check out hie-wrapper.
+
+#### Is there a hash (#) after \<package\>?
+Delete any `.ghc.environment*` files in your project root and try again. (At the time of writing, cabal new-style projects are not supported with ghc-mod)
+
+#### Otherwise
+Try running `cabal update`. 

@@ -1,21 +1,16 @@
-{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes   #-}
 module Main where
 
-import           Control.Concurrent.STM.TChan
 import           Control.Monad
-import           Control.Monad.STM
-#if __GLASGOW_HASKELL__ < 804
-import           Data.Semigroup
-#endif
+import           Data.Monoid                           ((<>))
 import           Data.Version                          (showVersion)
 import qualified GhcMod.Types                          as GM
-import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.Scheduler
 import           Haskell.Ide.Engine.Transport.LspStdio
 import           Haskell.Ide.Engine.Transport.JsonStdio
 import qualified Language.Haskell.LSP.Core             as Core
@@ -24,23 +19,25 @@ import qualified Paths_haskell_ide_engine              as Meta
 import           System.Directory
 import           System.Environment
 import qualified System.Log.Logger                     as L
-import qualified System.Remote.Monitoring              as EKG
+import qualified System.Remote.Monitoring.Wai          as EKG
 
 -- ---------------------------------------------------------------------
 -- plugins
 
 import           Haskell.Ide.Engine.Plugin.ApplyRefact
+import           Haskell.Ide.Engine.Plugin.Base
 import           Haskell.Ide.Engine.Plugin.Brittany
 import           Haskell.Ide.Engine.Plugin.Build
-import           Haskell.Ide.Engine.Plugin.Base
 import           Haskell.Ide.Engine.Plugin.Example2
 import           Haskell.Ide.Engine.Plugin.GhcMod
 import           Haskell.Ide.Engine.Plugin.HaRe
+import           Haskell.Ide.Engine.Plugin.Haddock
+import           Haskell.Ide.Engine.Plugin.HfaAlign
 import           Haskell.Ide.Engine.Plugin.Hoogle
 import           Haskell.Ide.Engine.Plugin.HsImport
 import           Haskell.Ide.Engine.Plugin.Liquid
 import           Haskell.Ide.Engine.Plugin.Package
-import           Haskell.Ide.Engine.Plugin.Haddock
+import           Haskell.Ide.Engine.Plugin.Pragmas
 
 -- ---------------------------------------------------------------------
 
@@ -52,20 +49,22 @@ plugins includeExamples = pluginDescToIdePlugins allPlugins
                    then basePlugins ++ examplePlugins
                    else basePlugins
     basePlugins =
-      [applyRefactDescriptor "applyrefact"
-      ,baseDescriptor "base"
-      ,brittanyDescriptor "brittany"
-      ,buildPluginDescriptor "build"
-      ,ghcmodDescriptor "ghcmod"
-      ,hareDescriptor "hare"
-      ,hoogleDescriptor "hoogle"
-      ,hsimportDescriptor "hsimport"
-      ,liquidDescriptor "liquid"
-      ,packageDescriptor "package"
-      ,haddockDescriptor "haddock"
+      [ applyRefactDescriptor "applyrefact"
+      , baseDescriptor        "base"
+      , brittanyDescriptor    "brittany"
+      , buildPluginDescriptor "build"
+      , ghcmodDescriptor      "ghcmod"
+      , haddockDescriptor     "haddock"
+      , hareDescriptor        "hare"
+      , hoogleDescriptor      "hoogle"
+      , hsimportDescriptor    "hsimport"
+      , liquidDescriptor      "liquid"
+      , packageDescriptor     "package"
+      , pragmasDescriptor     "pragmas"
       ]
     examplePlugins =
       [example2Descriptor "eg2"
+      ,hfaAlignDescriptor "hfaa"
       ]
 
 -- ---------------------------------------------------------------------
@@ -100,9 +99,7 @@ main = do
 
 run :: GlobalOpts -> IO ()
 run opts = do
-  let mLogFileName = case optLogFile opts of
-        Just f  -> Just f
-        Nothing -> Nothing
+  let mLogFileName = optLogFile opts
 
       logLevel = if optDebugOn opts
                    then L.DEBUG
@@ -130,7 +127,11 @@ run opts = do
 
   let vomitOptions = GM.defaultOptions { GM.optOutput = oo { GM.ooptLogLevel = GM.GmVomit}}
       oo = GM.optOutput GM.defaultOptions
-  let ghcModOptions = if optGhcModVomit opts then vomitOptions else GM.defaultOptions
+  let defaultOpts = if optGhcModVomit opts then vomitOptions else GM.defaultOptions
+      -- Running HIE on projects with -Werror breaks most of the features since all warnings
+      -- will be treated with the same severity of type errors. In order to offer a more useful
+      -- experience, we make sure warnings are always reported as warnings by setting -Wwarn
+      ghcModOptions = defaultOpts { GM.optGhcUserOptions = ["-Wwarn"] }
 
   when (optGhcModVomit opts) $
     logm "Enabling --vomit for ghc-mod. Output will be on stderr"
@@ -142,8 +143,8 @@ run opts = do
 
   -- launch the dispatcher.
   if optJson opts then do
-    pin <- atomically newTChan
-    jsonStdioTransport (dispatcherP pin plugins' ghcModOptions) pin
+    scheduler <- newScheduler plugins' ghcModOptions
+    jsonStdioTransport scheduler
   else do
-    pin <- atomically newTChan
-    lspStdioTransport (dispatcherP pin plugins' ghcModOptions) pin origDir plugins' (optCaptureFile opts)
+    scheduler <- newScheduler plugins' ghcModOptions
+    lspStdioTransport scheduler origDir plugins' (optCaptureFile opts)

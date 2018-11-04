@@ -8,7 +8,6 @@ module Haskell.Ide.Engine.PluginUtils
   (
     mapEithers
   , pluginGetFile
-  , pluginGetFileResponse
   , makeDiffResult
   , WithDeletions(..)
   , makeAdditiveDiffResult
@@ -16,6 +15,7 @@ module Haskell.Ide.Engine.PluginUtils
   , diffText'
   , srcSpan2Range
   , srcSpan2Loc
+  , unpackRealSrcSpan
   , reverseMapFile
   , fileInfo
   , realSrcSpan2Range
@@ -62,16 +62,16 @@ canonicalizeUri uri =
       fp' <- liftIO $ canonicalizePath fp
       return $ filePathToUri fp'
 
-newRangeToOld :: CachedModule -> Range -> Maybe Range
-newRangeToOld cm (Range start end) = do
-  start' <- newPosToOld cm start
-  end'   <- newPosToOld cm end
+newRangeToOld :: CachedInfo -> Range -> Maybe Range
+newRangeToOld info (Range start end) = do
+  start' <- newPosToOld info start
+  end'   <- newPosToOld info end
   return (Range start' end')
 
-oldRangeToNew :: CachedModule -> Range -> Maybe Range
-oldRangeToNew cm (Range start end) = do
-  start' <- oldPosToNew cm start
-  end'   <- oldPosToNew cm end
+oldRangeToNew :: CachedInfo -> Range -> Maybe Range
+oldRangeToNew info (Range start end) = do
+  start' <- oldPosToNew info start
+  end'   <- oldPosToNew info end
   return (Range start' end')
 
 getRealSrcSpan :: SrcSpan -> Either T.Text RealSrcSpan
@@ -121,16 +121,6 @@ pluginGetFile name uri f =
     Just file -> f file
     Nothing -> return $ IdeResultFail (IdeError PluginError
                  (name <> "Couldn't resolve uri" <> getUri uri) Null)
-
--- | @pluginGetFile but for IdeResponse - use with IdeM
-pluginGetFileResponse
-  :: Monad m
-  => T.Text -> Uri -> (FilePath -> m (IdeResponse a)) -> m (IdeResponse a)
-pluginGetFileResponse name uri f =
-  case uriToFilePath uri of
-    Just file -> f file
-    Nothing -> return $ IdeResponseFail (IdeError PluginError
-                (name <> "Couldn't resolve uri" <> getUri uri) Null)
 
 -- ---------------------------------------------------------------------
 -- courtesy of http://stackoverflow.com/questions/19891061/mapeithers-function-in-haskell
@@ -184,7 +174,7 @@ diffText' supports (f,fText) f2Text withDeletions  =
 
     isDeletion (Deletion _ _) = True
     isDeletion _ = False
-    
+
     r = map diffOperationToTextEdit diffOps
     diff = J.List r
     h = H.singleton f diff

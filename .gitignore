@@ -47,9 +47,12 @@
 /test/testdata/gototest/stack.yaml
 /test/testdata/stack.yaml
 /test/testdata/addPackageTest/**/stack.yaml
+/test/testdata/addPackageTest/**/stack.yaml
+/test/testdata/addPackageTest/hpack/*.cabal
 /test/testdata/redundantImportTest/stack.yaml
 /test/testdata/completion/stack.yaml
 /test/testdata/definition/stack.yaml
+/test/testdata/wErrorTest/stack.yaml
 TAGS
 cabal-dev/
 cabal.sandbox.config
@@ -60,3 +63,4 @@ test-logs/
 .DS_Store
 
 .hspec-failures
+/test/testdata/addPragmas/stack.yaml

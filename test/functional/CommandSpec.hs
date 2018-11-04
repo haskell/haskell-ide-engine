@@ -7,6 +7,7 @@ import qualified Data.Text as T
 import Data.Char
 import Language.Haskell.LSP.Test
 import Language.Haskell.LSP.Types as LSP
+import Language.Haskell.LSP.Types.Lens as LSP
 import Test.Hspec
 import TestUtils
 
@@ -27,3 +28,4 @@ spec = describe "commands" $ do
     let ResponseError _ msg _ = err
     -- We expect an error message about the dud arguments, but should pickup "add" and "package"
     liftIO $ msg `shouldSatisfy` T.isInfixOf "while parsing args for add in plugin package"
+
