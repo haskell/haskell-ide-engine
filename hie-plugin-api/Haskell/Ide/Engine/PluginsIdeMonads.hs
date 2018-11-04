@@ -250,7 +250,7 @@ type IdeM = ReaderT IdeEnv (MultiThreadState IdeState)
 runIdeM :: Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeM a -> IO a
 runIdeM mlf stateVar f = do
   let env = IdeEnv mlf
-  flip runReaderT stateVar $ flip runReaderT env f
+  flip runReaderT stateVar $ runReaderT f env
 
 data IdeEnv = IdeEnv (Maybe (Core.LspFuncs Config))
 

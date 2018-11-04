@@ -17,10 +17,10 @@ module TestUtils
   , hieCommandExamplePlugin
   ) where
 
+import           Control.Concurrent.STM
 import           Control.Exception
 import           Control.Monad
 import           Data.Aeson.Types (typeMismatch)
-import           Data.Default
 import           Data.Text (pack)
 import           Data.Typeable
 import           Data.Yaml
@@ -28,7 +28,6 @@ import qualified Data.Map as Map
 import qualified GhcMod.Monad as GM
 import qualified GhcMod.Types as GM
 import qualified Language.Haskell.LSP.Core as Core
-import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginDescriptor
 import           System.Directory
@@ -79,7 +78,9 @@ dummyVfs :: VirtualFileFunc
 dummyVfs _ = return Nothing
 
 runIGM :: IdePlugins -> IdeGhcM a -> IO a
-runIGM testPlugins = runIdeGhcM testOptions def (IdeState emptyModuleCache Map.empty testPlugins Map.empty Nothing 0)
+runIGM testPlugins f = do
+  stateVar <- newTVarIO $ IdeState emptyModuleCache Map.empty testPlugins Map.empty Nothing 0
+  runIdeGhcM testOptions Nothing stateVar f
 
 withFileLogging :: FilePath -> IO a -> IO a
 withFileLogging logFile f = do
