@@ -21,7 +21,6 @@ import           Control.Monad.IO.Class
 import qualified Data.Aeson                            as J
 import qualified Data.ByteString.Builder               as B
 import qualified Data.ByteString.Lazy.Char8            as B
-import           Data.Default
 #if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
 #endif
@@ -74,7 +73,7 @@ run scheduler = flip E.catches handlers $ do
     let errorHandler lid _ e = liftIO $ hPutStrLn stderr $ "Got an error for request " ++ show lid ++ ": " ++ T.unpack e
         callbackHandler callback x = callback x
 
-    race3_ (Scheduler.runScheduler scheduler errorHandler callbackHandler def)
+    race3_ (Scheduler.runScheduler scheduler errorHandler callbackHandler Nothing)
            (outWriter rout)
            (reactor rout)
 

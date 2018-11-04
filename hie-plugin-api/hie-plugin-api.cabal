@@ -20,11 +20,11 @@ library
   exposed-modules:
                        Haskell.Ide.Engine.ArtifactMap
                        Haskell.Ide.Engine.Compat
+                       Haskell.Ide.Engine.Config
                        Haskell.Ide.Engine.Context
                        Haskell.Ide.Engine.GhcModuleCache
                        Haskell.Ide.Engine.IdeFunctions
                        Haskell.Ide.Engine.ModuleCache
-                       Haskell.Ide.Engine.Monad
                        Haskell.Ide.Engine.MonadFunctions
                        Haskell.Ide.Engine.MonadTypes
                        Haskell.Ide.Engine.MultiThreadState
@@ -36,6 +36,7 @@ library
                      , aeson
                      , constrained-dynamic
                      , containers
+                     , data-default
                      , directory
                      , filepath
                      , fingertree

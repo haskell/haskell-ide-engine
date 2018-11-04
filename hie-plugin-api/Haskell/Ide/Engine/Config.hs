@@ -1,10 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Haskell.Ide.Engine.LSP.Config where
+module Haskell.Ide.Engine.Config where
 
 import           Data.Aeson
+import           Data.Default
 import qualified Data.Map  as Map
 import qualified Data.Text as T
-import           Haskell.Ide.Engine.PluginsIdeMonads
 import           Language.Haskell.LSP.Types
 
 -- ---------------------------------------------------------------------
@@ -27,14 +27,23 @@ data Config =
     , completionSnippetsOn :: Bool
     } deriving (Show,Eq)
 
+instance Default Config where
+  def = Config
+    { hlintOn = True
+    , maxNumberOfProblems = 100
+    , liquidOn = False
+    , completionSnippetsOn = True
+    }
+
+-- TODO: Add API for plugins to expose their own LSP config options
 instance FromJSON Config where
   parseJSON = withObject "Config" $ \v -> do
     s <- v .: "languageServerHaskell"
     flip (withObject "Config.settings") s $ \o -> Config
-      <$> o .:? "hlintOn"              .!= True
-      <*> o .:? "maxNumberOfProblems"  .!= 100
-      <*> o .:? "liquidOn"             .!= False
-      <*> o .:? "completionSnippetsOn" .!= True
+      <$> o .:? "hlintOn"              .!= hlintOn def
+      <*> o .:? "maxNumberOfProblems"  .!= maxNumberOfProblems def
+      <*> o .:? "liquidOn"             .!= liquidOn def
+      <*> o .:? "completionSnippetsOn" .!= completionSnippetsOn def
 
 -- 2017-10-09 23:22:00.710515298 [ThreadId 11] - ---> {"jsonrpc":"2.0","method":"workspace/didChangeConfiguration","params":{"settings":{"languageServerHaskell":{"maxNumberOfProblems":100,"hlintOn":true}}}}
 -- 2017-10-09 23:22:00.710667381 [ThreadId 15] - reactor:got didChangeConfiguration notification:
@@ -58,7 +67,7 @@ instance ToJSON Config where
 
 -- | For the diagnostic providers in the config, return a map of
 -- current enabled state, indexed by the plugin id.
-getDiagnosticProvidersConfig :: Config -> Map.Map PluginId Bool
+getDiagnosticProvidersConfig :: Config -> Map.Map T.Text Bool
 getDiagnosticProvidersConfig c = Map.fromList [("applyrefact",hlintOn c)
                                               ,("liquid",     liquidOn c)
                                               ]

@@ -23,7 +23,6 @@ library
                        Haskell.Ide.Engine.Channel
                        Haskell.Ide.Engine.Scheduler
                        Haskell.Ide.Engine.LSP.CodeActions
-                       Haskell.Ide.Engine.LSP.Config
                        Haskell.Ide.Engine.LSP.Reactor
                        Haskell.Ide.Engine.Options
                        Haskell.Ide.Engine.Plugin.ApplyRefact

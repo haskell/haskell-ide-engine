@@ -37,8 +37,12 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   -- * The IDE monad
   , IdeState(..)
   , IdeGhcM
+  , runIdeGhcM
   , IdeM
+  , runIdeM
   , IdeDeferM
+  , getClientCapabilities
+  , getConfig
   , iterT
   , LiftsToGhc(..)
   -- * IdeResult
@@ -64,27 +68,33 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   ) where
 
 import           Control.Concurrent.STM
+import           Control.Exception
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Free
 
 import           Data.Aeson
+import           Data.Default
 import           Data.Dynamic (Dynamic)
 import           Data.IORef
 import qualified Data.Map as Map
+import           Data.Maybe
 import           Data.Monoid ((<>))
 import qualified Data.Set as S
 import qualified Data.Text as T
 import           Data.Typeable (TypeRep, Typeable)
 
 import qualified GhcMod.Monad        as GM
+import qualified GhcMod.Types                  as GM
 import           GHC.Generics
 import           GHC (HscEnv)
 
 import           Haskell.Ide.Engine.Compat
+import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.GhcModuleCache
 
+import qualified Language.Haskell.LSP.Core as Core
 import           Language.Haskell.LSP.Types.Capabilities
 import           Language.Haskell.LSP.Types (Command (..),
                                              CodeAction (..),
@@ -220,12 +230,43 @@ instance ToJSON IdePlugins where
 -- | IdeM that allows for interaction with the ghc-mod session
 type IdeGhcM = GM.GhcModT IdeM
 
+-- | Run an IdeGhcM with Cradle found from the current directory
+runIdeGhcM :: GM.Options -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeGhcM a -> IO a
+runIdeGhcM ghcModOptions mlf stateVar f = do
+  let env = IdeEnv mlf
+  (eres, _) <- flip runReaderT stateVar $ flip runReaderT env $ GM.runGhcModT ghcModOptions f
+  case eres of
+      Left err  -> liftIO $ throwIO err
+      Right res -> return res
+
 -- | A computation that is deferred until the module is cached.
 -- Note that the module may not typecheck, in which case 'UriCacheFailed' is passed
 data Defer a = Defer FilePath (UriCacheResult -> a) deriving Functor
 type IdeDeferM = FreeT Defer IdeM
 
-type IdeM = ReaderT ClientCapabilities (MultiThreadState IdeState)
+type IdeM = ReaderT IdeEnv (MultiThreadState IdeState)
+
+-- | Run an IdeM 
+runIdeM :: Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeM a -> IO a
+runIdeM mlf stateVar f = do
+  let env = IdeEnv mlf
+  flip runReaderT stateVar $ flip runReaderT env f
+
+data IdeEnv = IdeEnv (Maybe (Core.LspFuncs Config))
+
+getClientCapabilities :: IdeM ClientCapabilities
+getClientCapabilities = do
+  IdeEnv mlf <- ask
+  case mlf of
+    Just lf -> return (Core.clientCapabilities lf)
+    Nothing -> return def
+
+getConfig :: IdeM Config
+getConfig = do
+  IdeEnv mlf <- ask
+  case mlf of
+    Just lf -> fromMaybe def <$> (liftIO $ Core.config lf)
+    Nothing -> return def
 
 data IdeState = IdeState
   { moduleCache :: GhcModuleCache
@@ -235,6 +276,7 @@ data IdeState = IdeState
   , extensibleState :: !(Map.Map TypeRep Dynamic)
   , ghcSession  :: Maybe (IORef HscEnv)
   -- The pid of this instance of hie
+  -- TODO: Move this to IdeEnv
   , idePidCache    :: Int
   }
 

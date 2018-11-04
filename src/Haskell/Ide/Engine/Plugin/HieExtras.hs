@@ -340,16 +340,15 @@ newtype WithSnippets = WithSnippets Bool
 getCompletions :: Uri -> PosPrefixInfo -> WithSnippets -> IdeM (IdeResult [J.CompletionItem])
 getCompletions uri prefixInfo (WithSnippets withSnippets) =
   pluginGetFile "getCompletions: " uri $ \file -> do
-    supportsSnippets <- fromMaybe False <$> asks
-      (^? J.textDocument
-        . _Just
-        . J.completion
-        . _Just
-        . J.completionItem
-        . _Just
-        . J.snippetSupport
-        . _Just
-      )
+    let snippetLens = (^? J.textDocument
+                        . _Just
+                        . J.completion
+                        . _Just
+                        . J.completionItem
+                        . _Just
+                        . J.snippetSupport
+                        . _Just)
+    supportsSnippets <- (fromMaybe False . snippetLens) <$> getClientCapabilities
     let toggleSnippets x
           | withSnippets && supportsSnippets = x
           | otherwise = x { J._insertTextFormat = Just J.PlainText
