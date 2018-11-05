@@ -22,8 +22,8 @@ extensibleStateSpec =
   describe "stores and retrieves in the state" $
     it "stores the first one" $ do
       r <- runIGM testPlugins $ do
-          r1 <- makeRequest "test" "cmd1" dummyVfs ()
-          r2 <- makeRequest "test" "cmd2" dummyVfs ()
+          r1 <- makeRequest "test" "cmd1" ()
+          r2 <- makeRequest "test" "cmd2" ()
           return (r1,r2)
       fmap fromDynJSON (fst r) `shouldBe` IdeResultOk (Just "result:put foo" :: Maybe T.Text)
       fmap fromDynJSON (snd r) `shouldBe` IdeResultOk (Just "result:got:\"foo\"" :: Maybe T.Text)
@@ -51,12 +51,12 @@ testDescriptor plId = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 cmd1 :: CommandFunc () T.Text
-cmd1 = CmdSync $ \_ _ -> do
+cmd1 = CmdSync $ \_ -> do
   put (MS1 "foo")
   return (IdeResultOk (T.pack "result:put foo"))
 
 cmd2 :: CommandFunc () T.Text
-cmd2 = CmdSync $ \_ _ -> do
+cmd2 = CmdSync $ \_ -> do
   (MS1 v) <- get
   return (IdeResultOk (T.pack $ "result:got:" ++ show v))
 

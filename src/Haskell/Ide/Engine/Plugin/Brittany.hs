@@ -41,7 +41,7 @@ brittanyDescriptor plId = PluginDescriptor
  where
   cmd :: CommandFunc FormatParams [J.TextEdit]
   cmd =
-    CmdSync $ \_ (FormatParams tabSize uri range) -> brittanyCmd tabSize uri range
+    CmdSync $ \(FormatParams tabSize uri range) -> brittanyCmd tabSize uri range
 
 brittanyCmd :: Int -> Uri -> Maybe Range -> IdeGhcM (IdeResult [J.TextEdit])
 brittanyCmd tabSize uri range =

@@ -594,10 +594,9 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file ->
 
 -- ---------------------------------------------------------------------
 
-getRangeFromVFS :: (MonadIO m)
-  => Uri -> VirtualFileFunc -> Range -> m (Maybe T.Text)
-getRangeFromVFS uri vf rg = do
-  mvf <- liftIO $ vf uri
+getRangeFromVFS :: Uri -> Range -> IdeM (Maybe T.Text)
+getRangeFromVFS uri rg = do
+  mvf <- getVirtualFile uri
   case mvf of
     Just vfs -> return $ Just $ rangeLinesFromVfs vfs rg
     Nothing  -> return Nothing
@@ -638,7 +637,7 @@ runGhcModCommand cmd =
 -- ---------------------------------------------------------------------
 
 splitCaseCmd :: CommandFunc HarePoint WorkspaceEdit
-splitCaseCmd = CmdSync $ \_ (HP uri pos) -> splitCaseCmd' uri pos
+splitCaseCmd = CmdSync $ \(HP uri pos) -> splitCaseCmd' uri pos
 
 splitCaseCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 splitCaseCmd' uri newPos =

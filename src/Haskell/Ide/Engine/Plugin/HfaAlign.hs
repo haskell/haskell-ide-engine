@@ -48,8 +48,8 @@ data AlignParams = AlignParams
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
 alignCmd :: CommandFunc AlignParams J.WorkspaceEdit
-alignCmd = CmdSync $ \vf (AlignParams uri rg) -> do
-  mtext <- getRangeFromVFS uri vf rg
+alignCmd = CmdSync $ \(AlignParams uri rg) -> do
+  mtext <- liftToGhc $ getRangeFromVFS uri rg
   case mtext of
     Nothing -> return $ IdeResultOk $ J.WorkspaceEdit Nothing Nothing
     Just txt -> do
@@ -64,7 +64,7 @@ alignCmd = CmdSync $ \vf (AlignParams uri rg) -> do
 -- ---------------------------------------------------------------------
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider plId docId _ _ (Range (Position sl _) (Position el _)) _context = do
+codeActionProvider plId docId (Range (Position sl _) (Position el _)) _context = do
   cmd <- mkLspCommand plId "align" title  (Just cmdParams)
   return $ IdeResultOk [codeAction cmd]
   where

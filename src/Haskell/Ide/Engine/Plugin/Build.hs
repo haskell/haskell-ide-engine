@@ -239,7 +239,7 @@ withCommonArgs req a = do
 -----------------------------------------------
 
 prepareHelper :: CommandFunc CommonParams ()
-prepareHelper = CmdSync $ \_ req -> withCommonArgs req $ do
+prepareHelper = CmdSync $ \req -> withCommonArgs req $ do
   ca <- ask
   liftIO $ case caMode ca of
       StackMode -> do
@@ -255,7 +255,7 @@ prepareHelper' distDir cabalExe dir =
 -----------------------------------------------
 
 isConfigured :: CommandFunc CommonParams Bool
-isConfigured = CmdSync $ \_ req -> withCommonArgs req $ do
+isConfigured = CmdSync $ \req -> withCommonArgs req $ do
   distDir <- asks caDistDir
   ret <- liftIO $ doesFileExist $ localBuildInfoFile distDir
   return $ IdeResultOk ret
@@ -263,7 +263,7 @@ isConfigured = CmdSync $ \_ req -> withCommonArgs req $ do
 -----------------------------------------------
 
 configure :: CommandFunc CommonParams ()
-configure = CmdSync $ \_ req -> withCommonArgs req $ do
+configure = CmdSync $ \req -> withCommonArgs req $ do
   ca <- ask
   _ <- liftIO $ case caMode ca of
       StackMode -> configureStack (caStack ca)
@@ -291,7 +291,7 @@ instance ToJSON ListFlagsParams where
   toJSON = J.genericToJSON $ customOptions 2
 
 listFlags :: CommandFunc ListFlagsParams Object
-listFlags = CmdSync $ \_ (LF mode) -> do
+listFlags = CmdSync $ \(LF mode) -> do
       cwd <- liftIO $ getCurrentDirectory
       flags0 <- liftIO $ case mode of
             "stack" -> listFlagsStack cwd
@@ -355,14 +355,14 @@ instance ToJSON BuildParams where
   toJSON = J.genericToJSON $ customOptions 2
 
 buildDirectory :: CommandFunc BuildParams ()
-buildDirectory = CmdSync $ \_ (BP m dd c s f mbDir) -> withCommonArgs (CommonParams m dd c s f) $ do
+buildDirectory = CmdSync $ \(BP m dd c s f mbDir) -> withCommonArgs (CommonParams m dd c s f) $ do
   ca <- ask
   liftIO $ case caMode ca of
     CabalMode -> do
       -- for cabal specifying directory have no sense
       _ <- readProcess (caCabal ca) ["build"] ""
       return $ IdeResultOk ()
-    StackMode -> do
+    StackMode ->
       case mbDir of
         Nothing -> do
           _ <- readProcess (caStack ca) ["build"] ""
@@ -394,7 +394,7 @@ instance ToJSON BuildTargetParams where
   toJSON = J.genericToJSON $ customOptions 2
 
 buildTarget :: CommandFunc BuildTargetParams ()
-buildTarget = CmdSync $ \_ (BT m dd c s f component package' compType) -> withCommonArgs (CommonParams m dd c s f) $ do
+buildTarget = CmdSync $ \(BT m dd c s f component package' compType) -> withCommonArgs (CommonParams m dd c s f) $ do
   ca <- ask
   liftIO $ case caMode ca of
     CabalMode -> do
@@ -424,7 +424,7 @@ data Package = Package {
   }
 
 listTargets :: CommandFunc CommonParams [Value]
-listTargets = CmdSync $ \_ req -> withCommonArgs req $ do
+listTargets = CmdSync $ \req -> withCommonArgs req $ do
   ca <- ask
   targets <- liftIO $ case caMode ca of
       CabalMode -> (:[]) <$> listCabalTargets (caDistDir ca) "."

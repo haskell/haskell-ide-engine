@@ -24,7 +24,6 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , CommandFunc(..)
   , PluginDescriptor(..)
   , PluginCommand(..)
-  , VirtualFileFunc
   , CodeActionProvider
   , DiagnosticProvider(..)
   , DiagnosticProviderFunc(..)
@@ -43,6 +42,8 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , IdeDeferM
   , getClientCapabilities
   , getConfig
+  , getVirtualFile
+  , getRootPath
   , iterT
   , LiftsToGhc(..)
   -- * IdeResult
@@ -123,7 +124,7 @@ import           Language.Haskell.LSP.VFS (VirtualFile(..))
 type PluginId = T.Text
 type CommandName = T.Text
 
-newtype CommandFunc a b = CmdSync (VirtualFileFunc -> a -> IdeGhcM (IdeResult b))
+newtype CommandFunc a b = CmdSync (a -> IdeGhcM (IdeResult b))
 
 data PluginCommand = forall a b. (FromJSON a, ToJSON b, Typeable b) =>
   PluginCommand { commandName :: CommandName
@@ -163,12 +164,8 @@ mkLspCmdId plid cn = do
 
 -- ---------------------------------------------------------------------
 
-type VirtualFileFunc = Uri -> IO (Maybe VirtualFile)
-
 type CodeActionProvider =  PluginId
                         -> VersionedTextDocumentIdentifier
-                        -> VirtualFileFunc
-                        -> Maybe FilePath -- ^ Project root directory
                         -> Range
                         -> CodeActionContext
                         -> IdeM (IdeResult [CodeAction])
@@ -252,8 +249,6 @@ runIdeM mlf stateVar f = do
   let env = IdeEnv mlf
   flip runReaderT stateVar $ runReaderT f env
 
-data IdeEnv = IdeEnv (Maybe (Core.LspFuncs Config))
-
 getClientCapabilities :: IdeM ClientCapabilities
 getClientCapabilities = do
   IdeEnv mlf <- ask
@@ -265,8 +260,24 @@ getConfig :: IdeM Config
 getConfig = do
   IdeEnv mlf <- ask
   case mlf of
-    Just lf -> fromMaybe def <$> (liftIO $ Core.config lf)
+    Just lf -> fromMaybe def <$> liftIO (Core.config lf)
     Nothing -> return def
+
+getVirtualFile :: Uri -> IdeM (Maybe VirtualFile)
+getVirtualFile uri = do
+  IdeEnv mlf <- ask
+  case mlf of
+    Just lf -> liftIO $ Core.getVirtualFileFunc lf uri
+    Nothing -> return Nothing
+
+getRootPath :: IdeM (Maybe FilePath)
+getRootPath = do
+  IdeEnv mlf <- ask
+  case mlf of
+    Just lf -> return (Core.rootPath lf)
+    Nothing -> return Nothing
+
+data IdeEnv = IdeEnv (Maybe (Core.LspFuncs Config))
 
 data IdeState = IdeState
   { moduleCache :: GhcModuleCache

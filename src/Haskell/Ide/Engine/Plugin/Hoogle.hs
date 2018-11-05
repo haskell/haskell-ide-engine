@@ -67,7 +67,7 @@ initializeHoogleDb = do
     return Nothing
 
 infoCmd :: CommandFunc T.Text T.Text
-infoCmd = CmdSync $ \_ expr -> do
+infoCmd = CmdSync $ \expr -> do
   res <- liftToGhc $ bimap hoogleErrorToIdeError id <$> infoCmd' expr
   return $ case res of
     Left err -> IdeResultFail err
@@ -130,7 +130,7 @@ searchTargets f term = do
 ------------------------------------------------------------------------
 
 lookupCmd :: CommandFunc T.Text [T.Text]
-lookupCmd = CmdSync $ \_ term -> do
+lookupCmd = CmdSync $ \term -> do
   res <- liftToGhc $ bimap hoogleErrorToIdeError id <$> lookupCmd' 10 term
   return $ case res of
     Left err -> IdeResultFail err
