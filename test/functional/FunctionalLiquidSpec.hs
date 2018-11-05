@@ -80,8 +80,8 @@ spec = describe "liquid haskell diagnostics" $ do
           reduceDiag ^. code `shouldBe` Just "Use negate"
           reduceDiag ^. source `shouldBe` Just "hlint"
 
-        -- Enable liquid haskell plugin
-        let config = def { liquidOn  = True }
+        -- Enable liquid haskell plugin and disable hlint
+        let config = def { liquidOn  = True, hlintOn = False }
         sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
 
         -- docItem <- getDocItem file languageId
