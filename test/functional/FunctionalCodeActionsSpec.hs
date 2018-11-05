@@ -12,6 +12,7 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Maybe
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
+import           Haskell.Ide.Engine.Config
 import           Language.Haskell.LSP.Test as Test
 import           Language.Haskell.LSP.Types
 import qualified Language.Haskell.LSP.Types.Lens as L
@@ -96,7 +97,7 @@ spec = describe "code actions" $ do
         _:x:_ <- T.lines <$> documentContents doc
         liftIO $ x `shouldBe` "foo = putStrLn \"world\""
 
-  describe "import suggetsions" $ do
+  describe "import suggestions" $ do
     it "works with 3.8 code action kinds" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImport.hs" "haskell"
 
@@ -135,6 +136,22 @@ spec = describe "code actions" $ do
         let l1:l2:_ = T.lines contents
         l1 `shouldBe` "import qualified Data.Maybe"
         l2 `shouldBe` "import           Control.Monad"
+    it "respects format config" $ runSession hieCommand fullCaps "test/testdata" $ do
+      doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
+      _ <- waitForDiagnosticsSource "ghcmod"
+      
+      let config = def { formatOnImportOn = False }
+      sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
+
+      actionsOrCommands <- getAllCodeActions doc
+      let action:_ = map fromAction actionsOrCommands
+      executeCodeAction action
+
+      contents <- getDocumentEdit doc
+      liftIO $ do
+        let l1:l2:_ = T.lines contents
+        l1 `shouldBe` "import qualified Data.Maybe"
+        l2 `shouldBe` "import Control.Monad"
 
   describe "add package suggestions" $ do
     it "adds to .cabal files" $ runSession hieCommand fullCaps "test/testdata/addPackageTest/cabal" $ do

@@ -80,11 +80,10 @@ importModule uri modName =
           liftIO $ removeFile output
           J.WorkspaceEdit mChanges mDocChanges <- liftToGhc $ makeDiffResult input newText fileMap
 
-          confFile <- liftIO $ Brittany.getConfFile origInput
-          -- Format the import with Brittany
-
           if shouldFormat
             then do 
+              -- Format the import with Brittany
+              confFile <- liftIO $ Brittany.getConfFile origInput
               newChanges <- forM mChanges $ mapM $ mapM (formatTextEdit confFile)
               newDocChanges <- forM mDocChanges $ mapM $ \(J.TextDocumentEdit vDocId tes) -> do
                 ftes <- forM tes (formatTextEdit confFile)

@@ -64,7 +64,7 @@ instance ToJSON Config where
                  , "maxNumberOfProblems"  .= m
                  , "liquidOn"             .= l
                  , "completionSnippetsOn" .= c
-                 , "completionSnippetsOn" .= f
+                 , "formatOnImportOn"     .= f
                  ]
 
 -- ---------------------------------------------------------------------
