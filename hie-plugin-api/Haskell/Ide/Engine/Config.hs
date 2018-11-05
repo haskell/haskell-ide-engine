@@ -25,14 +25,16 @@ data Config =
     , maxNumberOfProblems  :: Int
     , liquidOn             :: Bool
     , completionSnippetsOn :: Bool
+    , formatOnImportOn     :: Bool
     } deriving (Show,Eq)
 
 instance Default Config where
   def = Config
-    { hlintOn = True
-    , maxNumberOfProblems = 100
-    , liquidOn = False
-    , completionSnippetsOn = True
+    { hlintOn                 = True
+    , maxNumberOfProblems     = 100
+    , liquidOn                = False
+    , completionSnippetsOn    = True
+    , formatOnImportOn        = True
     }
 
 -- TODO: Add API for plugins to expose their own LSP config options
@@ -44,6 +46,7 @@ instance FromJSON Config where
       <*> o .:? "maxNumberOfProblems"  .!= maxNumberOfProblems def
       <*> o .:? "liquidOn"             .!= liquidOn def
       <*> o .:? "completionSnippetsOn" .!= completionSnippetsOn def
+      <*> o .:? "formatOnImportOn"     .!= formatOnImportOn def 
 
 -- 2017-10-09 23:22:00.710515298 [ThreadId 11] - ---> {"jsonrpc":"2.0","method":"workspace/didChangeConfiguration","params":{"settings":{"languageServerHaskell":{"maxNumberOfProblems":100,"hlintOn":true}}}}
 -- 2017-10-09 23:22:00.710667381 [ThreadId 15] - reactor:got didChangeConfiguration notification:
@@ -55,12 +58,13 @@ instance FromJSON Config where
 --                                                                                          ,("maxNumberOfProblems",Number 100.0)]))])}}
 
 instance ToJSON Config where
-  toJSON (Config h m l c) = object [ "languageServerHaskell" .= r ]
+  toJSON (Config h m l c f) = object [ "languageServerHaskell" .= r ]
     where
       r = object [ "hlintOn"              .= h
                  , "maxNumberOfProblems"  .= m
                  , "liquidOn"             .= l
                  , "completionSnippetsOn" .= c
+                 , "completionSnippetsOn" .= f
                  ]
 
 -- ---------------------------------------------------------------------

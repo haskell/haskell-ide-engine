@@ -19,6 +19,7 @@ import qualified Data.Text.IO                  as T
 import qualified GHC.Generics                  as Generics
 import qualified GhcMod.Utils                  as GM
 import           HsImport
+import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.MonadTypes
 import qualified Language.Haskell.LSP.Types      as J
 import qualified Language.Haskell.LSP.Types.Lens as J
@@ -54,6 +55,9 @@ importCmd = CmdSync $ \(ImportParams uri modName) -> importModule uri modName
 importModule :: Uri -> T.Text -> IdeGhcM (IdeResult J.WorkspaceEdit)
 importModule uri modName =
   pluginGetFile "hsimport cmd: " uri $ \origInput -> do
+
+    shouldFormat <- formatOnImportOn <$> liftToGhc getConfig
+
     fileMap <- GM.mkRevRedirMapFunc
     GM.withMappedFile origInput $ \input -> do
 
@@ -78,12 +82,17 @@ importModule uri modName =
 
           confFile <- liftIO $ Brittany.getConfFile origInput
           -- Format the import with Brittany
-          newChanges <- forM mChanges $ mapM $ mapM (formatTextEdit confFile)
-          newDocChanges <- forM mDocChanges $ mapM $ \(J.TextDocumentEdit vDocId tes) -> do
-            ftes <- forM tes (formatTextEdit confFile)
-            return (J.TextDocumentEdit vDocId ftes)
 
-          return $ IdeResultOk (J.WorkspaceEdit newChanges newDocChanges)
+          if shouldFormat
+            then do 
+              newChanges <- forM mChanges $ mapM $ mapM (formatTextEdit confFile)
+              newDocChanges <- forM mDocChanges $ mapM $ \(J.TextDocumentEdit vDocId tes) -> do
+                ftes <- forM tes (formatTextEdit confFile)
+                return (J.TextDocumentEdit vDocId ftes)
+
+              return $ IdeResultOk (J.WorkspaceEdit newChanges newDocChanges)
+            else
+              return $ IdeResultOk (J.WorkspaceEdit mChanges mDocChanges)
 
   where formatTextEdit confFile (J.TextEdit r t) = do
           -- TODO: This tab size of 2 spaces should probably be taken from a config
