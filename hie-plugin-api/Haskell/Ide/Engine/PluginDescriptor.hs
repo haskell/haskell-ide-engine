@@ -12,7 +12,6 @@ module Haskell.Ide.Engine.PluginDescriptor
   , toDynJSON
   ) where
 
-import           Control.Monad.State.Strict
 import           Data.Aeson
 import           Data.List
 import qualified Data.Map                        as Map
@@ -22,7 +21,6 @@ import           Data.Monoid
 import qualified Data.Text                       as T
 import qualified Data.ConstrainedDynamic         as CD
 import           Data.Typeable
-import           Haskell.Ide.Engine.IdeFunctions
 import           Haskell.Ide.Engine.MonadTypes
 
 -- ---------------------------------------------------------------------
@@ -46,7 +44,7 @@ toDynJSON = CD.toDyn
 runPluginCommand :: PluginId -> CommandName -> Value
                  -> IdeGhcM (IdeResult DynamicJSON)
 runPluginCommand p com arg = do
-  (IdePlugins m) <- lift $ lift $ lift getPlugins
+  IdePlugins m <- getPlugins
   case Map.lookup p m of
     Nothing -> return $
       IdeResultFail $ IdeError UnknownPlugin ("Plugin " <> p <> " doesn't exist") Null

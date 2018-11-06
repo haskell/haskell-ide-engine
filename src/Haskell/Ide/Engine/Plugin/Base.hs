@@ -18,7 +18,6 @@ import qualified Data.Text                       as T
 import           Development.GitRev              (gitCommitCount)
 import           Distribution.System             (buildArch)
 import           Distribution.Text               (display)
-import           Haskell.Ide.Engine.IdeFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Options.Applicative.Simple      (simpleVersion)
 import qualified Paths_haskell_ide_engine        as Meta

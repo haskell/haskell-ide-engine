@@ -40,10 +40,7 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , IdeM
   , runIdeM
   , IdeDeferM
-  , getClientCapabilities
-  , getConfig
-  , getVirtualFile
-  , getRootPath
+  , MonadIde(..)
   , iterT
   , LiftsToGhc(..)
   -- * IdeResult
@@ -138,7 +135,7 @@ class Monad m => HasPidCache m where
   getPidCache :: m Int
 
 instance HasPidCache IdeM where
-  getPidCache = idePidCache <$> readMTS
+  getPidCache = asks ideEnvPidCache
 
 instance HasPidCache IO where
   getPidCache = getProcessID
@@ -228,9 +225,9 @@ instance ToJSON IdePlugins where
 type IdeGhcM = GM.GhcModT IdeM
 
 -- | Run an IdeGhcM with Cradle found from the current directory
-runIdeGhcM :: GM.Options -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeGhcM a -> IO a
-runIdeGhcM ghcModOptions mlf stateVar f = do
-  let env = IdeEnv mlf
+runIdeGhcM :: GM.Options -> IdePlugins -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeGhcM a -> IO a
+runIdeGhcM ghcModOptions plugins mlf stateVar f = do
+  env <- IdeEnv <$> pure mlf <*> getProcessID <*> pure plugins
   (eres, _) <- flip runReaderT stateVar $ flip runReaderT env $ GM.runGhcModT ghcModOptions f
   case eres of
       Left err  -> liftIO $ throwIO err
@@ -244,51 +241,74 @@ type IdeDeferM = FreeT Defer IdeM
 type IdeM = ReaderT IdeEnv (MultiThreadState IdeState)
 
 -- | Run an IdeM 
-runIdeM :: Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeM a -> IO a
-runIdeM mlf stateVar f = do
-  let env = IdeEnv mlf
+runIdeM :: IdePlugins -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeM a -> IO a
+runIdeM plugins mlf stateVar f = do
+  env <- IdeEnv <$> pure mlf <*> getProcessID <*> pure plugins
+  -- TODO: AZ run a single ReaderT, with a composite R.
   flip runReaderT stateVar $ runReaderT f env
 
-getClientCapabilities :: IdeM ClientCapabilities
-getClientCapabilities = do
-  IdeEnv mlf <- ask
-  case mlf of
-    Just lf -> return (Core.clientCapabilities lf)
-    Nothing -> return def
+data IdeEnv = IdeEnv
+  { ideEnvLspFuncs :: Maybe (Core.LspFuncs Config)
+  -- | The pid of this instance of hie
+  , ideEnvPidCache :: Int
+  , idePlugins  :: IdePlugins
+  }
 
-getConfig :: IdeM Config
-getConfig = do
-  IdeEnv mlf <- ask
-  case mlf of
-    Just lf -> fromMaybe def <$> liftIO (Core.config lf)
-    Nothing -> return def
+-- | The class of monads that support common IDE functions, namely IdeM/IdeGhcM/IdeDeferM
+class Monad m => MonadIde m where
+  getRootPath :: m (Maybe FilePath)
+  getVirtualFile :: Uri -> m (Maybe VirtualFile)
+  getConfig :: m Config
+  getClientCapabilities :: m ClientCapabilities
+  getPlugins :: m IdePlugins
 
-getVirtualFile :: Uri -> IdeM (Maybe VirtualFile)
-getVirtualFile uri = do
-  IdeEnv mlf <- ask
-  case mlf of
-    Just lf -> liftIO $ Core.getVirtualFileFunc lf uri
-    Nothing -> return Nothing
+instance MonadIde IdeM where
+  getRootPath = do
+    mlf <- asks ideEnvLspFuncs
+    case mlf of
+      Just lf -> return (Core.rootPath lf)
+      Nothing -> return Nothing
 
-getRootPath :: IdeM (Maybe FilePath)
-getRootPath = do
-  IdeEnv mlf <- ask
-  case mlf of
-    Just lf -> return (Core.rootPath lf)
-    Nothing -> return Nothing
+  getVirtualFile uri = do
+    mlf <- asks ideEnvLspFuncs
+    case mlf of
+      Just lf -> liftIO $ Core.getVirtualFileFunc lf uri
+      Nothing -> return Nothing
 
-data IdeEnv = IdeEnv (Maybe (Core.LspFuncs Config))
+  getConfig = do
+    mlf <- asks ideEnvLspFuncs
+    case mlf of
+      Just lf -> fromMaybe def <$> liftIO (Core.config lf)
+      Nothing -> return def
+    
+  getClientCapabilities = do
+    mlf <- asks ideEnvLspFuncs
+    case mlf of
+      Just lf -> return (Core.clientCapabilities lf)
+      Nothing -> return def
+  
+  getPlugins = asks idePlugins
 
+instance MonadIde IdeGhcM where
+  getRootPath = lift $ lift getRootPath
+  getVirtualFile = lift . lift . getVirtualFile
+  getConfig = lift $ lift getConfig
+  getClientCapabilities = lift $ lift getClientCapabilities
+  getPlugins = lift $ lift getPlugins
+
+instance MonadIde IdeDeferM where
+  getRootPath = lift getRootPath
+  getVirtualFile = lift . getVirtualFile
+  getConfig = lift getConfig
+  getClientCapabilities = lift getClientCapabilities
+  getPlugins = lift getPlugins
+      
 data IdeState = IdeState
   { moduleCache :: GhcModuleCache
   -- | A queue of requests to be performed once a module is loaded
   , requestQueue :: Map.Map FilePath [UriCacheResult -> IdeM ()]
-  , idePlugins  :: IdePlugins
   , extensibleState :: !(Map.Map TypeRep Dynamic)
   , ghcSession  :: Maybe (IORef HscEnv)
-  -- The pid of this instance of hie
-  -- TODO: Move this to IdeEnv
-  , idePidCache    :: Int
   }
 
 instance MonadMTState IdeState IdeGhcM where

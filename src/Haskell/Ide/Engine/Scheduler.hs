@@ -37,7 +37,6 @@ import qualified Language.Haskell.LSP.Core     as Core
 import qualified Language.Haskell.LSP.Types    as J
 
 import           Haskell.Ide.Engine.GhcModuleCache
-import qualified Haskell.Ide.Engine.Compat     as Compat
 import           Haskell.Ide.Engine.Config
 import qualified Haskell.Ide.Engine.Channel    as Channel
 import           Haskell.Ide.Engine.PluginsIdeMonads
@@ -146,18 +145,16 @@ runScheduler Scheduler {..} errorHandler callbackHandler mlf = do
         , docVersionTVar = documentVersions
         }
 
-  pid         <- Compat.getProcessID
-
   let (_, ghcChanOut) = ghcChan
       (_, ideChanOut) = ideChan
 
-  let initialState = IdeState emptyModuleCache Map.empty plugins Map.empty Nothing pid
+  let initialState = IdeState emptyModuleCache Map.empty Map.empty Nothing
 
   stateVar <- STM.newTVarIO initialState
 
-  let runGhcDisp = runIdeGhcM ghcModOptions mlf stateVar $
+  let runGhcDisp = runIdeGhcM ghcModOptions plugins mlf stateVar $
                     ghcDispatcher dEnv errorHandler callbackHandler ghcChanOut
-      runIdeDisp = runIdeM mlf stateVar $
+      runIdeDisp = runIdeM plugins mlf stateVar $
                     ideDispatcher dEnv errorHandler callbackHandler ideChanOut
 
 
@@ -261,7 +258,6 @@ ideDispatcher
      -- ^ Reading end of the channel where the requests are sent to this process.
   -> IdeM void
 ideDispatcher env errorHandler callbackHandler pin =
-  -- TODO: AZ run a single ReaderT, with a composite R.
   forever $ do
     debugm "ideDispatcher: top of loop"
     (IdeRequest tn lid callback action) <- liftIO $ Channel.readChan pin

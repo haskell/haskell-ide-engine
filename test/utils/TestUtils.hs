@@ -75,8 +75,8 @@ makeRequest plugin com arg = runPluginCommand plugin com (toJSON arg)
 
 runIGM :: IdePlugins -> IdeGhcM a -> IO a
 runIGM testPlugins f = do
-  stateVar <- newTVarIO $ IdeState emptyModuleCache Map.empty testPlugins Map.empty Nothing 0
-  runIdeGhcM testOptions Nothing stateVar f
+  stateVar <- newTVarIO $ IdeState emptyModuleCache Map.empty Map.empty Nothing
+  runIdeGhcM testOptions testPlugins Nothing stateVar f
 
 withFileLogging :: FilePath -> IO a -> IO a
 withFileLogging logFile f = do

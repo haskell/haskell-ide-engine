@@ -19,7 +19,6 @@ import qualified Language.Haskell.LSP.Types.Lens as J
 import qualified Language.Haskell.LSP.Types.Capabilities as C
 import Language.Haskell.LSP.VFS
 import Language.Haskell.LSP.Messages
-import Haskell.Ide.Engine.IdeFunctions
 import Haskell.Ide.Engine.PluginsIdeMonads
 
 data FallbackCodeActionParams =

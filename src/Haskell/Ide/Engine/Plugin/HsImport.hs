@@ -56,7 +56,7 @@ importModule :: Uri -> T.Text -> IdeGhcM (IdeResult J.WorkspaceEdit)
 importModule uri modName =
   pluginGetFile "hsimport cmd: " uri $ \origInput -> do
 
-    shouldFormat <- formatOnImportOn <$> liftToGhc getConfig
+    shouldFormat <- formatOnImportOn <$> getConfig
 
     fileMap <- GM.mkRevRedirMapFunc
     GM.withMappedFile origInput $ \input -> do
