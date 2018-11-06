@@ -8,8 +8,10 @@ extra-deps:
 - ./submodules/HaRe
 - ./submodules/ghc-mod
 - ./submodules/ghc-mod/core
+- ./submodules/cabal-helper
+
 - base-compat-0.9.3
-- cabal-helper-0.8.1.0@rev:0
+# - brittany-0.11.0.0
 - cabal-plan-0.3.0.0
 - constrained-dynamic-0.1.0.0
 - ghc-exactprint-0.5.8.0
@@ -20,6 +22,7 @@ extra-deps:
 - hlint-2.1.8
 - hsimport-0.8.6
 - lsp-test-0.4.0.0
+- pretty-show-1.8.2
 - syz-0.2.0.0
 - temporary-1.2.1.1
 - windns-0.1.0.0
