@@ -6,3 +6,4 @@ packages:
          ./submodules/HaRe
          ./submodules/ghc-mod/
          ./submodules/ghc-mod/core/
+         ./submodules/cabal-helper/
