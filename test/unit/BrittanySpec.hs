@@ -2,7 +2,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 module BrittanySpec where
 
-import           Haskell.Ide.Engine.PluginDescriptor
 import           Language.Haskell.LSP.Types
 import           System.Directory
 import           Haskell.Ide.Engine.Plugin.Brittany

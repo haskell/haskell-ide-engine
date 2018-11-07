@@ -5,7 +5,6 @@ module HooglePluginSpec where
 import           Control.Monad
 import           Data.Maybe
 import           Haskell.Ide.Engine.MonadTypes
-import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Plugin.Hoogle
 import           Hoogle
 import           System.Directory

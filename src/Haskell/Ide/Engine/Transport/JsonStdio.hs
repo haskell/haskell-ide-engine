@@ -26,8 +26,8 @@ import           Data.Monoid
 #endif
 import qualified Data.Text                             as T
 import           GHC.Generics
+import           Haskell.Ide.Engine.PluginsIdeMonads
 import qualified Haskell.Ide.Engine.Scheduler          as Scheduler
-import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.Types            as J
 import           System.Exit

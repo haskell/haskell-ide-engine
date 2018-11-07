@@ -28,7 +28,6 @@ import qualified GhcMod.Monad as GM
 import qualified GhcMod.Types as GM
 import qualified Language.Haskell.LSP.Core as Core
 import           Haskell.Ide.Engine.MonadTypes
-import           Haskell.Ide.Engine.PluginDescriptor
 import           System.Directory
 import           System.FilePath
 import qualified System.Log.Logger as L

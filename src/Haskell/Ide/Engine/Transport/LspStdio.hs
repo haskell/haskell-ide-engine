@@ -43,7 +43,6 @@ import           Data.Text.Encoding
 import qualified GhcModCore               as GM
 import qualified GhcMod.Monad.Types       as GM
 import           Haskell.Ide.Engine.Config
-import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils

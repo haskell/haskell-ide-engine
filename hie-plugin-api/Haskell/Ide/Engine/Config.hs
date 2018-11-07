@@ -3,7 +3,6 @@ module Haskell.Ide.Engine.Config where
 
 import           Data.Aeson
 import           Data.Default
-import qualified Data.Map  as Map
 import qualified Data.Text as T
 import           Language.Haskell.LSP.Types
 
@@ -66,12 +65,3 @@ instance ToJSON Config where
                  , "completionSnippetsOn" .= c
                  , "formatOnImportOn"     .= f
                  ]
-
--- ---------------------------------------------------------------------
-
--- | For the diagnostic providers in the config, return a map of
--- current enabled state, indexed by the plugin id.
-getDiagnosticProvidersConfig :: Config -> Map.Map T.Text Bool
-getDiagnosticProvidersConfig c = Map.fromList [("applyrefact",hlintOn c)
-                                              ,("liquid",     liquidOn c)
-                                              ]

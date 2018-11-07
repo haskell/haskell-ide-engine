@@ -13,7 +13,6 @@ import qualified Data.Text                           as T
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Plugin.GhcMod
 import           Haskell.Ide.Engine.Plugin.HieExtras
-import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Language.Haskell.LSP.Types          (TextEdit (..))
 import           System.Directory

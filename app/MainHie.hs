@@ -9,7 +9,6 @@ import qualified GhcMod.Types                          as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Options
-import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Scheduler
 import           Haskell.Ide.Engine.Transport.LspStdio
 import           Haskell.Ide.Engine.Transport.JsonStdio
