@@ -1,3 +1,7 @@
+# 0.3.0.0
+
+Numerous changes.
+
 # 0.2.2.0
 
 Add more code actions for various diagnostics:
