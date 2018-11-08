@@ -10,7 +10,7 @@
    - HaRe refactoring
    - Misspelled variables
    - Missing top-level signatures
-   - Prefix unused terms with '_'
+   - Prefix unused terms with `_`
    - Case splitting
    - Suggested pragmas and language extensions
  - The parsed output from a module is now cached
