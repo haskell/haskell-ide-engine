@@ -33,7 +33,7 @@ Thanks to the contributors for this release:
  - @cblp
  - @cronokirby
  - @expipiplus1
- - @jhrceck
+ - @jhrcek
  - @jkachmar
  - @lorenzo
  - @m13m
