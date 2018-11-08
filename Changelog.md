@@ -23,23 +23,23 @@
  - Add the ability to set an explicit hoogle database
 
 Thanks to the contributors for this release:
- - bbarker
- - Avi-D-coder
- - jhreck
- - Technix
- - meck
- - alanz
- - cronokirby
- - expipiplus1
- - mpilgrem
- - jkachmar
- - lorenzo
- - bubba
- - m13m
- - cblp
- - waddlaw
- - apeyroux
- - Gurkenglas
+ - @Avi-D-coder
+ - @Gurkenglas
+ - @Technix
+ - @alanz
+ - @apeyroux
+ - @bbarker
+ - @bubba
+ - @cblp
+ - @cronokirby
+ - @expipiplus1
+ - @jhrceck
+ - @jkachmar
+ - @lorenzo
+ - @m13m
+ - @meck
+ - @mpilgrem
+ - @waddlaw
 
 # 0.2.2.0
 
