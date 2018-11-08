@@ -14,7 +14,7 @@ extra-deps:
 # - brittany-0.11.0.0
 - cabal-plan-0.3.0.0
 - constrained-dynamic-0.1.0.0
-- ghc-exactprint-0.5.8.0
+- ghc-exactprint-0.5.8.2
 - haddock-api-2.20.0
 - haddock-library-1.6.0
 - haskell-lsp-0.8.0.1
