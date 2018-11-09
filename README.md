@@ -200,28 +200,19 @@ stack --stack-yaml=stack-8.0.2.yaml install
 
 ### Installation on Windows
 
-#### The `make` tool
+The `Makefile` doesn't work on Windows due to several UNIX-specific things, such
+as the `cp` command or extensionless executable names. Instead, a PowerShell
+script is provided specifically for this purpose:
 
-If the `make` tool is not already available on your path (in Command Prompt, try
-commands `where make` or `stack exec where -- make` to investigate; in
-PowerShell, try `where.exe make` or `stack exec where -- make`), it can be added
-to the `stack` environment with the command:
-
-```batch
-stack exec pacman -- -S make
+**Under PowerShell run:**
+```
+./build-all.ps1
 ```
 
-The `make build-all` command is then accessible using the command:
-
-```batch
-stack exec make -- build-all
+**Under cmd.exe run:**
 ```
-
-For users of [Cygwin](http://www.cygwin.com/), the Cygwin installer also
-provides the `make` tool as an option.
-
-Alternatively, the Windows batch file `make-build-all.bat` can substitute for
-`make build-all` on systems without the `make` command.
+powershell -ExecutionPolicy RemoteSigned -c ./build-all.ps1
+```
 
 #### Long paths
 
