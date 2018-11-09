@@ -1,4 +1,4 @@
-# Windows batch file script that replicates the function of 'make build-all'.
+# Windows PowerShell script that replicates the function of 'make build-all'.
 #
 # The Makefile itself cannot be used on Windows, because it contains certain
 # UNIX-only features, such as `cp` command and extensionless executables.
