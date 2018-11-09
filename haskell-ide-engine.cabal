@@ -102,6 +102,7 @@ executable hie
   hs-source-dirs:      app
   main-is:             MainHie.hs
   other-modules:       Paths_haskell_ide_engine
+  build-tool-depends:  cabal-helper:cabal-helper-wrapper
   build-depends:       base
                      , directory
                      , ekg-wai

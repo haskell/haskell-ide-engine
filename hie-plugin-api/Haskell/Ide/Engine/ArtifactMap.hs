@@ -158,8 +158,6 @@ genDefMap tm = mconcat $ map (go . GHC.unLoc) decls
 
 #if __GLASGOW_HASKELL__ >= 806
         golbs (GHC.HsValBinds _ (GHC.ValBinds _ lhsbs lsigs)) =
-#elif __GLASGOW_HASKELL__ > 802
-        golbs (GHC.HsValBinds (GHC.ValBinds _ lhsbs lsigs)) =
 #else
         golbs (GHC.HsValBinds (GHC.ValBindsIn lhsbs lsigs)) =
 #endif
