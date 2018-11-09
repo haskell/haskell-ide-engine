@@ -197,11 +197,11 @@ withCommonArgs (CommonParams mode0 mDistDir mCabalExe mStackExe _fileUri) a = do
         Just mode -> do
           let cabalExe = maybe "cabal" id mCabalExe
               stackExe = maybe "stack" id mStackExe
-          distDir <- maybe (liftIO $ getDistDir mode stackExe) return $
+          distDir' <- maybe (liftIO $ getDistDir mode stackExe) return $
                 mDistDir -- >>= uriToFilePath -- fileUri
           runReaderT a $ CommonArgs {
               caMode = mode,
-              caDistDir = distDir,
+              caDistDir = distDir',
               caCabal = cabalExe,
               caStack = stackExe
             }
@@ -217,12 +217,12 @@ withCommonArgs req a = do
                 Map.lookup "cabalExe" (ideParams req) >>= (\(ParamTextP v) -> return $ T.unpack v)
               stackExe = maybe "stack" id $
                 Map.lookup "stackExe" (ideParams req) >>= (\(ParamTextP v) -> return $ T.unpack v)
-          distDir <- maybe (liftIO $ getDistDir mode stackExe) return $
+          distDir' <- maybe (liftIO $ getDistDir mode stackExe) return $
                 Map.lookup "distDir" (ideParams req) >>=
                          uriToFilePath . (\(ParamFileP v) -> v)
           runReaderT a $ CommonArgs {
               caMode = mode,
-              caDistDir = distDir,
+              caDistDir = distDir',
               caCabal = cabalExe,
               caStack = stackExe
             }
@@ -232,8 +232,8 @@ withCommonArgs req a = do
 
 -- isHelperPrepared :: CommandFunc Bool
 -- isHelperPrepared = CmdSync $ \ctx req -> withCommonArgs ctx req $ do
---   distDir <- asks caDistDir
---   ret <- liftIO $ isPrepared (defaultQueryEnv "." distDir)
+--   distDir' <- asks caDistDir
+--   ret <- liftIO $ isPrepared (defaultQueryEnv "." distDir')
 --   return $ IdeResultOk ret
 
 -----------------------------------------------
@@ -249,15 +249,15 @@ prepareHelper = CmdSync $ \_ req -> withCommonArgs req $ do
   return $ IdeResultOk ()
 
 prepareHelper' :: MonadIO m => FilePath -> FilePath -> FilePath -> m ()
-prepareHelper' distDir cabalExe dir =
-  prepare $ (mkQueryEnv dir distDir) {qePrograms = defaultPrograms {cabalProgram = cabalExe}}
+prepareHelper' distDir' cabalExe dir =
+  prepare $ (mkQueryEnv dir distDir') {qePrograms = defaultPrograms {cabalProgram = cabalExe}}
 
 -----------------------------------------------
 
 isConfigured :: CommandFunc CommonParams Bool
 isConfigured = CmdSync $ \_ req -> withCommonArgs req $ do
-  distDir <- asks caDistDir
-  ret <- liftIO $ doesFileExist $ localBuildInfoFile distDir
+  distDir' <- asks caDistDir
+  ret <- liftIO $ doesFileExist $ localBuildInfoFile distDir'
   return $ IdeResultOk ret
 
 -----------------------------------------------
@@ -279,7 +279,7 @@ configureStack stackExe = do
     _manyPackages -> readProcess stackExe ["build"] ""
 
 configureCabal :: FilePath -> IO String
-configureCabal cabalExe = readProcess cabalExe ["configure"] ""
+configureCabal cabalExe = readProcess cabalExe ["new-configure"] ""
 
 -----------------------------------------------
 
@@ -360,7 +360,7 @@ buildDirectory = CmdSync $ \_ (BP m dd c s f mbDir) -> withCommonArgs (CommonPar
   liftIO $ case caMode ca of
     CabalMode -> do
       -- for cabal specifying directory have no sense
-      _ <- readProcess (caCabal ca) ["build"] ""
+      _ <- readProcess (caCabal ca) ["new-build"] ""
       return $ IdeResultOk ()
     StackMode -> do
       case mbDir of
@@ -398,7 +398,7 @@ buildTarget = CmdSync $ \_ (BT m dd c s f component package' compType) -> withCo
   ca <- ask
   liftIO $ case caMode ca of
     CabalMode -> do
-      _ <- readProcess (caCabal ca) ["build", T.unpack $ maybe "" id component] ""
+      _ <- readProcess (caCabal ca) ["new-build", T.unpack $ maybe "" id component] ""
       return $ IdeResultOk ()
     StackMode -> do
       case (package', component) of
@@ -436,13 +436,13 @@ listTargets = CmdSync $ \_ req -> withCommonArgs req $ do
   return $ IdeResultOk ret
 
 listStackTargets :: FilePath -> IO [Package]
-listStackTargets distDir = do
+listStackTargets distDir' = do
   stackPackageDirs <- getStackLocalPackages "stack.yaml"
-  mapM (listCabalTargets distDir) stackPackageDirs
+  mapM (listCabalTargets distDir') stackPackageDirs
 
 listCabalTargets :: MonadIO m => FilePath -> FilePath -> m Package
-listCabalTargets distDir dir = do
-  runQuery (mkQueryEnv dir distDir) $ do
+listCabalTargets distDir' dir = do
+  runQuery (mkQueryEnv dir distDir') $ do
     pkgName' <- fst <$> packageId
     cc <- components $ (,) CH.<$> entrypoints
     let comps = map (fixupLibraryEntrypoint pkgName') $ map snd cc
