@@ -680,6 +680,11 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
         goValD (L _ (VarBind _ _ _))        = error "goValD"
         goValD (L _ (AbsBinds _ _ _ _ _ _)) = error "goValD"
         goValD (L _ (PatSynBind _))         = error "goValD"
+#else
+        goValD (L _ (VarBind _ _ _))           = error "goValD"
+        goValD (L _ (AbsBinds _ _ _ _ _))      = error "goValD"
+        goValD (L _ (AbsBindsSig _ _ _ _ _ _)) = error "goValD"
+        goValD (L _ (PatSynBind _))            = error "goValD"
 #endif
 
         -- -----------------------------
