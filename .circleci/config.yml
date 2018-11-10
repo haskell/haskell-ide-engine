@@ -149,7 +149,7 @@ jobs:
     working_directory: ~/build
     docker:
       # - image: quay.io/haskell_works/ghc-8.4.3
-      - image: quay.io/haskell_works/ghc-8.6.2
+      - image: quay.io/haskell_works/ghc-8.6.1
     steps:
       - checkout
       - run:
