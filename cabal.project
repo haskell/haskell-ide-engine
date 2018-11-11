@@ -3,7 +3,6 @@ packages:
          ./hie-plugin-api/
 
          ./submodules/HaRe
-         ./submodules/apply-refact
          ./submodules/brittany
          ./submodules/cabal-helper/
          ./submodules/ghc-mod/

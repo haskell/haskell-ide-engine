@@ -5,73 +5,53 @@ packages:
 
 extra-deps:
 - ./submodules/HaRe
-- ./submodules/apply-refact
 - ./submodules/brittany
 - ./submodules/cabal-helper
 - ./submodules/ghc-mod
 - ./submodules/ghc-mod/core
 - ./submodules/lsp-test
 
-- array-0.5.2.0
-- binary-0.8.6.0
-- butcher-1.3.2.1
-- bytestring-0.10.8.2
-- cabal-install-2.4.0.0
-# - Cabal-2.4.0.1
-- cabal-plan-0.4.0.0
-- containers-0.6.0.1
-- constrained-dynamic-0.1.0.0
-- contravariant-1.5
-- cryptohash-sha256-0.11.101.0
-- czipwith-1.0.1.1
-- data-tree-print-0.1.0.2
-- deepseq-1.4.4.0
-- directory-1.3.3.0
-- ed25519-0.0.5.0
-- ekg-core-0.1.1.4
-- ekg-json-0.1.0.6
-- ekg-wai-0.1.0.3
-- hackage-security-0.5.3.0
-- haddock-api-2.21.0
-- haddock-library-1.7.0
-- haskell-lsp-0.8.0.1
-- haskell-lsp-types-0.8.0.1
-- hpc-0.6.0.3
-- hsimport-0.8.6
-- lsp-test-0.4.0.0
-- monad-memo-0.4.1
-- monoid-subclasses-0.4.6.1
-- multistate-0.8.0.1
-- network-2.7.0.2
-- parsec-3.1.13.0
-- pretty-1.1.3.6
-- primes-0.2.1.0
-- process-1.6.3.0
-- resolv-0.1.1.2
-- syz-0.2.0.0
-- temporary-1.2.1.1
-- template-haskell-2.14.0.0
-- text-1.2.3.1
-- time-1.8.0.2
-- unix-2.7.2.2
-- yaml-0.8.32
-- ghc-boot-th-8.6.1
+- apply-refact-0.6.0.0@sha256:82fce1a684784310424ed3391d2c7472d340fb1a483fa1c08193e5816b5309a2
+- butcher-1.3.2.1@sha256:cf479ea83a08f4f59a482e7c023c70714e7c93c1ccd7d53fe076ad3f1a3d2b8d
+- cabal-install-2.4.0.0@sha256:b4156226d429dfe384e67743c1671eb97777fba1e6ff60249e2c4853e32d34f6
+- cabal-plan-0.4.0.0@sha256:0bb2b5194d7f757437a55b98d8c35312d362f5912268668dc2faa2ca977b3b98
+- constrained-dynamic-0.1.0.0@sha256:3516d3b95c8180f8904671aa982af2fae55a185b18642192f5c8f50657108e82
+- cryptohash-sha256-0.11.101.0@sha256:2790b29264ebf63dac368dd05ec931254e5c70b0ccbc87d0969903533b32b054
+- czipwith-1.0.1.1@sha256:d876c6957788963a4c2d6ce3628cdc7dda1471cf53c96899e7f474f40e210d20
+- data-tree-print-0.1.0.2@sha256:5559bb66832c00fe1c41d628e29176a97f7eb9313963fb8fb6cd2570d08ef417
+- ed25519-0.0.5.0@sha256:2e051ab9d98bc22e0c4afe09e763d3e8e0571ea51a3ae952db33ac89e58006b3
+- ekg-core-0.1.1.4@sha256:48e1126d494cacd0b1cf937fe0de61cd583059488e2cc83ecf39009e7a2165e8
+- ekg-json-0.1.0.6@sha256:4dfd67603c95096ca1e5b4be64cd7ceb3e4203f9b7d020318ec8d2cbab4d0234
+- ekg-wai-0.1.0.3@sha256:d6b62107589f7ddd30b6c56dbb22f9904e274fd9ce24807db76833fab9506c9e
+- hackage-security-0.5.3.0@sha256:9e43e44e2da6d4f24da8309d92fc562a0ea20495976be86adc4ef101841c011e
+- haddock-api-2.21.0@sha256:3c03de46f7395931e210e07f5d8576738bbfeb482d76d88959a70afc74df2489
+- haskell-lsp-0.8.0.1@sha256:895273c99324fbab2432c2ce0d853d1a4381c3c86755e29f8437802d209f1d29
+- haskell-lsp-types-0.8.0.1@sha256:204a7a2ec6d43b4a62b797b993170ab2ecd03f4c664361594ce123a9cecd4f06
+- hsimport-0.8.6@sha256:cf7a3c3d57879eb108dc12a39a4ee0d839f69224e4869af5d1072b79abc4f9e0
+- monoid-subclasses-0.4.6.1@sha256:a9a685021bb18ed969340058f66319c302fd0740333c446fca926417ef3ba2d4
+- multistate-0.8.0.1@sha256:496ac087a0df3984045d7460b981d5e868a49e160b60a6555f6799e81e58542d
+- primes-0.2.1.0@sha256:94885df2e13153e439ca9c6eb1893726776ca7022128fe860278294bad49d6a9
+- resolv-0.1.1.2@sha256:7d17b4538f99de1490e1b81ed3a14fc72525f8e30fca04ca58b49d1ea3c28225
+- syz-0.2.0.0@sha256:7307acb8f6ae7720e7e235c974281ecee912703c1394ebcac19caf83d70bb492
+
+
+
 
 flags:
   haskell-ide-engine:
     pedantic: true
   hie-plugin-api:
     pedantic: true
-  ekg-core:
-    allow-newer: true
-  ekg-json:
-    allow-newer: true
-  ekg-wai:
-    allow-newer: true
-  base:
-    allow-newer: true
-  process:
-    allow-newer: true
+  # ekg-core:
+  #   allow-newer: true
+  # ekg-json:
+  #   allow-newer: true
+  # ekg-wai:
+  #   allow-newer: true
+  # base:
+  #   allow-newer: true
+  # process:
+  #   allow-newer: true
 
 allow-newer: true
 
