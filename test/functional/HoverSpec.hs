@@ -16,10 +16,7 @@ spec = describe "hover" $
   it "works" $ runSession hieCommand fullCaps "test/testdata" $ do
     doc <- openDoc "Hover.hs" "haskell"
     _ <- skipManyTill loggingNotification $ count 2 noDiagnostics
-    mh <- getHover doc (Position 1 19)
-    h <- case mh of
-      Just h -> return h
-      _ -> fail "match fail"
+    Just h <- getHover doc (Position 1 19)
     liftIO $ do
       h ^. range `shouldBe` Just (Range (Position 1 16) (Position 1 19))
       let hasType (CodeString (LanguageString "haskell" "sum :: [Int] -> Int")) = True

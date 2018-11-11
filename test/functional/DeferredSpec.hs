@@ -99,10 +99,7 @@ spec = do
     it "respond to untypecheckable modules with parsed module cache" $
       runSession hieCommand fullCaps "test/testdata" $ do
         doc <- openDoc "FuncTestFail.hs" "haskell"
-        msym <- getDocumentSymbols doc
-        sym <- case msym of
-          Left (sym:_) -> return sym
-          _ -> fail "match fail"
+        (Left (sym:_)) <- getDocumentSymbols doc
         liftIO $ sym ^. name `shouldBe` "main"
 
     it "returns hints as diagnostics" $ runSession hieCommand fullCaps "test/testdata" $ do

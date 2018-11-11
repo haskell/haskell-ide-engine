@@ -24,10 +24,7 @@ spec = describe "diagnostics providers" $ do
         logm "starting DiagnosticSpec.runs diagnostic on save"
         doc <- openDoc "ApplyRefact2.hs" "haskell"
 
-        diags <- waitForDiagnostics
-        reduceDiag <- case diags of
-          (reduceDiag:_) -> return reduceDiag
-          _ -> fail "match fail"
+        diags@(reduceDiag:_) <- waitForDiagnostics
 
         -- liftIO $ show diags `shouldBe` ""
 
@@ -50,10 +47,7 @@ spec = describe "diagnostics providers" $ do
         -- diags2liquid <- waitForDiagnostics
         -- liftIO $ length diags2liquid `shouldBe` 3
         -- -- liftIO $ show diags2 `shouldBe` ""
-        diags3 <- waitForDiagnostics
-        d <- case diags3 of
-          (d:_) -> return d
-          _ -> fail "match fail"
+        diags3@(d:_) <- waitForDiagnostics
         -- liftIO $ show diags3 `shouldBe` ""
         liftIO $ do
           length diags3 `shouldBe` 3
@@ -67,20 +61,14 @@ spec = describe "diagnostics providers" $ do
     it "is deferred" $
       runSession hieCommand fullCaps "test/testdata" $ do
         _ <- openDoc "TypedHoles.hs" "haskell"
-        mdiags <- waitForDiagnosticsSource "ghcmod"
-        diag <- case mdiags of
-          [diag] -> return diag
-          _ -> fail "match fail"
+        [diag] <- waitForDiagnosticsSource "ghcmod"
         liftIO $ diag ^. severity `shouldBe` Just DsWarning
 
   describe "Warnings are warnings" $
     it "Overrides -Werror" $
       runSession hieCommand fullCaps "test/testdata/wErrorTest" $ do
         _ <- openDoc "src/WError.hs" "haskell"
-        mdiags <- waitForDiagnosticsSource "ghcmod"
-        diag <- case mdiags of
-          [diag] -> return diag
-          _ -> fail "match fail"
+        [diag] <- waitForDiagnosticsSource "ghcmod"
         liftIO $ diag ^. severity `shouldBe` Just DsWarning
 
 -- ---------------------------------------------------------------------

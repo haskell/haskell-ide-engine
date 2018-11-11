@@ -14,10 +14,7 @@ import TestUtils
 spec :: Spec
 spec = describe "commands" $ do
   it "are prefixed" $ runSession hieCommand fullCaps "test/testdata/" $ do
-    mres <- initializeResponse
-    res <- case mres of
-      ResponseMessage _ _ (Just res) Nothing -> return res
-      _ -> fail "match fail"
+    ResponseMessage _ _ (Just res) Nothing <- initializeResponse
     let List cmds = res ^. LSP.capabilities . executeCommandProvider . _Just . commands
         f x = (T.length (T.takeWhile isNumber x) >= 1) && (T.count ":" x >= 2)
     liftIO $ do
@@ -25,12 +22,9 @@ spec = describe "commands" $ do
       cmds `shouldNotSatisfy` null
 
   it "get de-prefixed" $ runSession hieCommand fullCaps "test/testdata/" $ do
-    merr <- request
-              WorkspaceExecuteCommand
-              (ExecuteCommandParams "1234:package:add" (Just (List []))) :: Session ExecuteCommandResponse
-    err <- case merr of
-      ResponseMessage _ _ _ (Just err) -> return err
-      _ -> fail "match fail"
+    ResponseMessage _ _ _ (Just err) <- request
+            WorkspaceExecuteCommand
+            (ExecuteCommandParams "1234:package:add" (Just (List []))) :: Session ExecuteCommandResponse
     let ResponseError _ msg _ = err
     -- We expect an error message about the dud arguments, but should pickup "add" and "package"
     liftIO $ msg `shouldSatisfy` T.isInfixOf "while parsing args for add in plugin package"
