@@ -11,7 +11,6 @@ import           Data.Aeson
 import qualified Data.Map                      as M
 import qualified Data.HashMap.Strict           as H
 import           Haskell.Ide.Engine.MonadTypes
-import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Plugin.GhcMod
 import           Haskell.Ide.Engine.Plugin.HaRe
@@ -64,7 +63,7 @@ hareSpec = do
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton uri textEdits)
             Nothing
-      testCommand testPlugins act "hare" "rename" dummyVfs arg res
+      testCommand testPlugins act "hare" "rename" arg res
 
     -- ---------------------------------
 
@@ -75,7 +74,7 @@ hareSpec = do
           res = IdeResultFail
                   IdeError { ideCode = PluginError
                            , ideMessage = "rename: \"Invalid cursor position!\"", ideInfo = Null}
-      testCommand testPlugins act "hare" "rename" dummyVfs arg res
+      testCommand testPlugins act "hare" "rename" arg res
 
     -- ---------------------------------
 
@@ -87,7 +86,7 @@ hareSpec = do
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton uri textEdits)
             Nothing
-      testCommand testPlugins act "hare" "demote" dummyVfs arg res
+      testCommand testPlugins act "hare" "demote" arg res
 
     -- ---------------------------------
 
@@ -99,7 +98,7 @@ hareSpec = do
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton uri textEdits)
             Nothing
-      testCommand testPlugins act "hare" "dupdef" dummyVfs arg res
+      testCommand testPlugins act "hare" "dupdef" arg res
 
     -- ---------------------------------
 
@@ -114,7 +113,7 @@ hareSpec = do
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton uri textEdits)
             Nothing
-      testCommand testPlugins act "hare" "iftocase" dummyVfs arg res
+      testCommand testPlugins act "hare" "iftocase" arg res
 
     -- ---------------------------------
 
@@ -128,7 +127,7 @@ hareSpec = do
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton uri textEdits)
             Nothing
-      testCommand testPlugins act "hare" "liftonelevel" dummyVfs arg res
+      testCommand testPlugins act "hare" "liftonelevel" arg res
 
     -- ---------------------------------
 
@@ -144,7 +143,7 @@ hareSpec = do
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton uri textEdits)
             Nothing
-      testCommand testPlugins act "hare" "lifttotoplevel" dummyVfs arg res
+      testCommand testPlugins act "hare" "lifttotoplevel" arg res
 
     -- ---------------------------------
 
@@ -156,7 +155,7 @@ hareSpec = do
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton uri textEdits)
             Nothing
-      testCommand testPlugins act "hare" "deletedef" dummyVfs arg res
+      testCommand testPlugins act "hare" "deletedef" arg res
 
     -- ---------------------------------
 
@@ -169,7 +168,7 @@ hareSpec = do
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton uri textEdits)
             Nothing
-      testCommand testPlugins act "hare" "genapplicative" dummyVfs arg res
+      testCommand testPlugins act "hare" "genapplicative" arg res
 
     -- ---------------------------------
 

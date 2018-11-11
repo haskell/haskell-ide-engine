@@ -5,7 +5,6 @@ module ApplyRefactPluginSpec where
 import qualified Data.HashMap.Strict                   as H
 import           Haskell.Ide.Engine.Plugin.ApplyRefact
 import           Haskell.Ide.Engine.MonadTypes
-import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
 import           Language.Haskell.LSP.Types
 import           System.Directory
@@ -47,7 +46,7 @@ applyRefactSpec = do
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton applyRefactPath textEdits)
             Nothing
-      testCommand testPlugins act "applyrefact" "applyOne" dummyVfs arg res
+      testCommand testPlugins act "applyrefact" "applyOne" arg res
 
     -- ---------------------------------
 
@@ -60,7 +59,7 @@ applyRefactSpec = do
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton applyRefactPath textEdits)
             Nothing
-      testCommand testPlugins act "applyrefact" "applyAll" dummyVfs arg res
+      testCommand testPlugins act "applyrefact" "applyAll" arg res
 
     -- ---------------------------------
 
@@ -85,7 +84,7 @@ applyRefactSpec = do
                             "Redundant bracket\nFound:\n  (x + 1)\nWhy not:\n  x + 1\n"
                             Nothing
                ]}
-      testCommand testPlugins act "applyrefact" "lint" dummyVfs arg res
+      testCommand testPlugins act "applyrefact" "lint" arg res
 
     -- ---------------------------------
 
@@ -105,7 +104,7 @@ applyRefactSpec = do
                            , _source = Just "hlint"
                            , _message = "Parse error: :~:\n  import           Data.Type.Equality            ((:~:) (..), (:~~:) (..))\n  \n> data instance Sing (z :: (a :~: b)) where\n      SRefl :: Sing Refl\n\n"
                            , _relatedInformation = Nothing }]}
-      testCommand testPlugins act "applyrefact" "lint" dummyVfs arg res
+      testCommand testPlugins act "applyrefact" "lint" arg res
 
     -- ---------------------------------
 

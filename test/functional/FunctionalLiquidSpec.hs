@@ -5,12 +5,12 @@ module FunctionalLiquidSpec where
 import           Control.Lens hiding (List)
 import           Control.Monad.IO.Class
 import           Data.Aeson
+import           Data.Default
 import qualified Data.Text as T
 import           Language.Haskell.LSP.Test hiding (message)
--- import           Language.Haskell.LSP       as LSP
 import           Language.Haskell.LSP.Types as LSP
 import           Language.Haskell.LSP.Types.Lens as LSP hiding (contents, error )
-import           Haskell.Ide.Engine.LSP.Config
+import           Haskell.Ide.Engine.Config
 import           Test.Hspec
 import           TestUtils
 import           Utils
@@ -80,14 +80,8 @@ spec = describe "liquid haskell diagnostics" $ do
           reduceDiag ^. code `shouldBe` Just "Use negate"
           reduceDiag ^. source `shouldBe` Just "hlint"
 
-        -- Enable liquid haskell plugin
-        let config =
-             Config
-               { hlintOn              = False
-               , maxNumberOfProblems  = 50
-               , liquidOn             = True
-               , completionSnippetsOn = True
-               }
+        -- Enable liquid haskell plugin and disable hlint
+        let config = def { liquidOn  = True, hlintOn = False }
         sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
 
         -- docItem <- getDocItem file languageId

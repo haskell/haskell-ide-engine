@@ -18,7 +18,6 @@ import qualified Data.Text                       as T
 import           Development.GitRev              (gitCommitCount)
 import           Distribution.System             (buildArch)
 import           Distribution.Text               (display)
-import           Haskell.Ide.Engine.IdeFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Options.Applicative.Simple      (simpleVersion)
 import qualified Paths_haskell_ide_engine        as Meta
@@ -50,14 +49,14 @@ baseDescriptor plId = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 versionCmd :: CommandFunc () T.Text
-versionCmd = CmdSync $ \_ _ -> return $ IdeResultOk (T.pack version)
+versionCmd = CmdSync $ \_ -> return $ IdeResultOk (T.pack version)
 
 pluginsCmd :: CommandFunc () IdePlugins
-pluginsCmd = CmdSync $ \_ _ ->
+pluginsCmd = CmdSync $ \_ ->
   IdeResultOk <$> getPlugins
 
 commandsCmd :: CommandFunc T.Text [CommandName]
-commandsCmd = CmdSync $ \_ p -> do
+commandsCmd = CmdSync $ \p -> do
   IdePlugins plugins <- getPlugins
   case Map.lookup p plugins of
     Nothing -> return $ IdeResultFail $ IdeError
@@ -68,7 +67,7 @@ commandsCmd = CmdSync $ \_ p -> do
     Just pl -> return $ IdeResultOk $ map commandName $ pluginCommands pl
 
 commandDetailCmd :: CommandFunc (T.Text, T.Text) T.Text
-commandDetailCmd = CmdSync $ \_ (p,command) -> do
+commandDetailCmd = CmdSync $ \(p,command) -> do
   IdePlugins plugins <- getPlugins
   case Map.lookup p plugins of
     Nothing -> return $ IdeResultFail $ IdeError

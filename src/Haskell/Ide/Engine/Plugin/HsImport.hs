@@ -4,23 +4,30 @@
 {-# LANGUAGE TupleSections #-}
 module Haskell.Ide.Engine.Plugin.HsImport where
 
-import           Control.Lens
+import           Control.Lens.Operators
 import           Control.Monad.IO.Class
+import           Control.Monad
 import           Data.Aeson
 import           Data.Bitraversable
+import           Data.Bifunctor
+import           Data.Either
 import           Data.Foldable
 import           Data.Maybe
-import           Data.Monoid ((<>))
+import           Data.Monoid                    ( (<>) )
 import qualified Data.Text                     as T
 import qualified Data.Text.IO                  as T
 import qualified GHC.Generics                  as Generics
 import qualified GhcMod.Utils                  as GM
 import           HsImport
+import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.MonadTypes
 import qualified Language.Haskell.LSP.Types      as J
 import qualified Language.Haskell.LSP.Types.Lens as J
 import           Haskell.Ide.Engine.PluginUtils
-import qualified Haskell.Ide.Engine.Plugin.Hoogle as Hoogle
+import qualified Haskell.Ide.Engine.Plugin.Brittany
+                                               as Brittany
+import qualified Haskell.Ide.Engine.Plugin.Hoogle
+                                               as Hoogle
 import           System.Directory
 import           System.IO
 
@@ -43,11 +50,14 @@ data ImportParams = ImportParams
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
 importCmd :: CommandFunc ImportParams J.WorkspaceEdit
-importCmd = CmdSync $ \_ (ImportParams uri modName) -> importModule uri modName
+importCmd = CmdSync $ \(ImportParams uri modName) -> importModule uri modName
 
 importModule :: Uri -> T.Text -> IdeGhcM (IdeResult J.WorkspaceEdit)
 importModule uri modName =
   pluginGetFile "hsimport cmd: " uri $ \origInput -> do
+
+    shouldFormat <- formatOnImportOn <$> getConfig
+
     fileMap <- GM.mkRevRedirMapFunc
     GM.withMappedFile origInput $ \input -> do
 
@@ -68,11 +78,28 @@ importModule uri modName =
         Nothing -> do
           newText <- liftIO $ T.readFile output
           liftIO $ removeFile output
-          workspaceEdit <- liftToGhc $ makeDiffResult input newText fileMap
-          return $ IdeResultOk workspaceEdit
+          J.WorkspaceEdit mChanges mDocChanges <- liftToGhc $ makeDiffResult input newText fileMap
+
+          if shouldFormat
+            then do 
+              -- Format the import with Brittany
+              confFile <- liftIO $ Brittany.getConfFile origInput
+              newChanges <- forM mChanges $ mapM $ mapM (formatTextEdit confFile)
+              newDocChanges <- forM mDocChanges $ mapM $ \(J.TextDocumentEdit vDocId tes) -> do
+                ftes <- forM tes (formatTextEdit confFile)
+                return (J.TextDocumentEdit vDocId ftes)
+
+              return $ IdeResultOk (J.WorkspaceEdit newChanges newDocChanges)
+            else
+              return $ IdeResultOk (J.WorkspaceEdit mChanges mDocChanges)
+
+  where formatTextEdit confFile (J.TextEdit r t) = do
+          -- TODO: This tab size of 2 spaces should probably be taken from a config
+          ft <- fromRight t <$> liftIO (Brittany.runBrittany 2 confFile t)
+          return (J.TextEdit r ft)
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider plId docId _ _ _ context = do
+codeActionProvider plId docId _ context = do
   let J.List diags = context ^. J.diagnostics
       terms = mapMaybe getImportables diags
 

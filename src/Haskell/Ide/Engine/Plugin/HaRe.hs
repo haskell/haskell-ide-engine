@@ -101,7 +101,7 @@ instance ToJSON HareRange where
 -- ---------------------------------------------------------------------
 
 demoteCmd :: CommandFunc Hie.HarePoint WorkspaceEdit
-demoteCmd  = CmdSync $ \_ (Hie.HP uri pos) ->
+demoteCmd  = CmdSync $ \(Hie.HP uri pos) ->
   demoteCmd' uri pos
 
 demoteCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
@@ -114,7 +114,7 @@ demoteCmd' uri pos =
 -- ---------------------------------------------------------------------
 
 dupdefCmd :: CommandFunc HarePointWithText WorkspaceEdit
-dupdefCmd = CmdSync $ \_ (HPT uri pos name) ->
+dupdefCmd = CmdSync $ \(HPT uri pos name) ->
   dupdefCmd' uri pos name
 
 dupdefCmd' :: Uri -> Position -> T.Text -> IdeGhcM (IdeResult WorkspaceEdit)
@@ -127,7 +127,7 @@ dupdefCmd' uri pos name =
 -- ---------------------------------------------------------------------
 
 iftocaseCmd :: CommandFunc HareRange WorkspaceEdit
-iftocaseCmd = CmdSync $ \_ (HR uri startPos endPos) ->
+iftocaseCmd = CmdSync $ \(HR uri startPos endPos) ->
   iftocaseCmd' uri (Range startPos endPos)
 
 iftocaseCmd' :: Uri -> Range -> IdeGhcM (IdeResult WorkspaceEdit)
@@ -140,7 +140,7 @@ iftocaseCmd' uri (Range startPos endPos) =
 -- ---------------------------------------------------------------------
 
 liftonelevelCmd :: CommandFunc Hie.HarePoint WorkspaceEdit
-liftonelevelCmd = CmdSync $ \_ (Hie.HP uri pos) ->
+liftonelevelCmd = CmdSync $ \(Hie.HP uri pos) ->
   liftonelevelCmd' uri pos
 
 liftonelevelCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
@@ -153,7 +153,7 @@ liftonelevelCmd' uri pos =
 -- ---------------------------------------------------------------------
 
 lifttotoplevelCmd :: CommandFunc Hie.HarePoint WorkspaceEdit
-lifttotoplevelCmd = CmdSync $ \_ (Hie.HP uri pos) ->
+lifttotoplevelCmd = CmdSync $ \(Hie.HP uri pos) ->
   lifttotoplevelCmd' uri pos
 
 lifttotoplevelCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
@@ -166,7 +166,7 @@ lifttotoplevelCmd' uri pos =
 -- ---------------------------------------------------------------------
 
 renameCmd :: CommandFunc HarePointWithText WorkspaceEdit
-renameCmd = CmdSync $ \_ (HPT uri pos name) ->
+renameCmd = CmdSync $ \(HPT uri pos name) ->
   renameCmd' uri pos name
 
 renameCmd' :: Uri -> Position -> T.Text -> IdeGhcM (IdeResult WorkspaceEdit)
@@ -179,7 +179,7 @@ renameCmd' uri pos name =
 -- ---------------------------------------------------------------------
 
 deleteDefCmd :: CommandFunc Hie.HarePoint WorkspaceEdit
-deleteDefCmd  = CmdSync $ \_ (Hie.HP uri pos) ->
+deleteDefCmd  = CmdSync $ \(Hie.HP uri pos) ->
   deleteDefCmd' uri pos
 
 deleteDefCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
@@ -192,7 +192,7 @@ deleteDefCmd' uri pos =
 -- ---------------------------------------------------------------------
 
 genApplicativeCommand :: CommandFunc Hie.HarePoint WorkspaceEdit
-genApplicativeCommand  = CmdSync $ \_ (Hie.HP uri pos) ->
+genApplicativeCommand  = CmdSync $ \(Hie.HP uri pos) ->
   genApplicativeCommand' uri pos
 
 genApplicativeCommand' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
@@ -282,7 +282,7 @@ hoist f a =
 -- ---------------------------------------------------------------------
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider pId docId _ _ (J.Range pos _) _ =
+codeActionProvider pId docId (J.Range pos _) _ =
   pluginGetFile "HaRe codeActionProvider: " (docId ^. J.uri) $ \file ->
     ifCachedInfo file (IdeResultOk mempty) $ \info ->
       case getArtifactsAtPos pos (defMap info) of

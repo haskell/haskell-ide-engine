@@ -72,7 +72,7 @@ data AddParams = AddParams
   deriving (Eq, Show, Read, Generic, ToJSON, FromJSON)
 
 addCmd :: CommandFunc AddParams J.WorkspaceEdit
-addCmd = CmdSync $ \_ (AddParams rootDir modulePath pkg) -> do
+addCmd = CmdSync $ \(AddParams rootDir modulePath pkg) -> do
 
   packageType <- liftIO $ findPackageType rootDir
   fileMap <- GM.mkRevRedirMapFunc
@@ -233,20 +233,21 @@ editCabalPackage file modulePath pkgName fileMap = do
             newDeps = oldDeps ++ [Dependency (mkPackageName dep) anyVersion]
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider plId docId _ mRootDir _ context = do
+codeActionProvider plId docId _ context = do
+  mRootDir <- getRootPath
   let J.List diags = context ^. J.diagnostics
       pkgs = mapMaybe getAddablePackages diags
 
   res <- mapM (bimapM return Hoogle.searchPackages) pkgs
-  actions <- catMaybes <$> mapM (uncurry mkAddPackageAction) (concatPkgs res)
+  actions <- catMaybes <$> mapM (uncurry (mkAddPackageAction mRootDir)) (concatPkgs res)
 
   return (IdeResultOk actions)
 
   where
     concatPkgs = concatMap (\(d, ts) -> map (d,) ts)
 
-    mkAddPackageAction :: J.Diagnostic -> T.Text -> IdeM (Maybe J.CodeAction)
-    mkAddPackageAction diag pkgName = case (mRootDir, J.uriToFilePath (docId ^. J.uri)) of
+    mkAddPackageAction :: Maybe FilePath -> J.Diagnostic -> T.Text -> IdeM (Maybe J.CodeAction)
+    mkAddPackageAction mRootDir diag pkgName = case (mRootDir, J.uriToFilePath (docId ^. J.uri)) of
      (Just rootDir, Just docFp) -> do
        let title = "Add " <> pkgName <> " as a dependency"
            cmdParams = [toJSON (AddParams rootDir docFp pkgName)]

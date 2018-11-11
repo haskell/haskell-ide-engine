@@ -8,7 +8,6 @@ import           Control.Monad.STM
 import qualified Data.Text as T
 import           Data.Default
 import           Haskell.Ide.Engine.MonadTypes
-import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Scheduler
 import           Haskell.Ide.Engine.Types
 import           Language.Haskell.LSP.Types

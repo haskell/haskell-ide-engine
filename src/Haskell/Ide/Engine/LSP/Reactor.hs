@@ -21,7 +21,7 @@ import qualified Language.Haskell.LSP.Core     as Core
 import qualified Language.Haskell.LSP.Messages as J
 import qualified Language.Haskell.LSP.Types    as J
 import           Haskell.Ide.Engine.Compat
-import           Haskell.Ide.Engine.LSP.Config
+import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.PluginsIdeMonads
 import qualified Haskell.Ide.Engine.Scheduler  as Scheduler
 import           Haskell.Ide.Engine.Types

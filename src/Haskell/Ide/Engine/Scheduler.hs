@@ -20,7 +20,6 @@ module Haskell.Ide.Engine.Scheduler
 where
 
 import           Control.Concurrent.Async       ( race_ )
-import qualified Control.Concurrent.MVar       as MVar
 import qualified Control.Concurrent.STM        as STM
 import           Control.Monad.IO.Class         ( liftIO
                                                 , MonadIO
@@ -28,23 +27,20 @@ import           Control.Monad.IO.Class         ( liftIO
 import           Control.Monad.Reader.Class     ( ask
                                                 , MonadReader
                                                 )
-import           Control.Monad.Reader           ( runReaderT )
 import           Control.Monad.Trans.Class      ( lift )
 import           Control.Monad
 import qualified Data.Set                      as Set
 import qualified Data.Map                      as Map
 import qualified Data.Text                     as T
 import qualified GhcMod.Types                  as GM
+import qualified Language.Haskell.LSP.Core     as Core
 import qualified Language.Haskell.LSP.Types    as J
-import qualified Language.Haskell.LSP.Types.Capabilities
-                                               as C
 
 import           Haskell.Ide.Engine.GhcModuleCache
-import qualified Haskell.Ide.Engine.Compat     as Compat
+import           Haskell.Ide.Engine.Config
 import qualified Haskell.Ide.Engine.Channel    as Channel
 import           Haskell.Ide.Engine.PluginsIdeMonads
 import           Haskell.Ide.Engine.Types
-import qualified Haskell.Ide.Engine.Monad      as M
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 
@@ -139,34 +135,27 @@ runScheduler
      -- ^ A handler for any errors that the dispatcher may encounter.
   -> CallbackHandler m
      -- ^ A handler to run the requests' callback in your monad of choosing.
-  -> C.ClientCapabilities
-     -- ^ List of features the IDE client supports or has enabled.
+  -> Maybe (Core.LspFuncs Config)
+     -- ^ The LspFuncs provided by haskell-lsp, if using LSP.
   -> IO ()
-runScheduler Scheduler {..} errorHandler callbackHandler caps = do
+runScheduler Scheduler {..} errorHandler callbackHandler mlf = do
   let dEnv = DispatcherEnv
         { cancelReqsTVar = requestsToCancel
         , wipReqsTVar    = requestsInProgress
         , docVersionTVar = documentVersions
         }
 
-  stateVarVar <- MVar.newEmptyMVar
-  pid         <- Compat.getProcessID
-
-
   let (_, ghcChanOut) = ghcChan
       (_, ideChanOut) = ideChan
 
-  let initialState =
-        IdeState emptyModuleCache Map.empty plugins Map.empty Nothing pid
+  let initialState = IdeState emptyModuleCache Map.empty Map.empty Nothing
 
-      runGhcDisp = M.runIdeGhcM ghcModOptions caps initialState $ do
-        stateVar <- lift . lift . lift $ ask
-        liftIO $ MVar.putMVar stateVarVar stateVar
-        ghcDispatcher dEnv errorHandler callbackHandler ghcChanOut
+  stateVar <- STM.newTVarIO initialState
 
-      runIdeDisp = do
-        stateVar <- MVar.readMVar stateVarVar
-        ideDispatcher stateVar caps dEnv errorHandler callbackHandler ideChanOut
+  let runGhcDisp = runIdeGhcM ghcModOptions plugins mlf stateVar $
+                    ghcDispatcher dEnv errorHandler callbackHandler ghcChanOut
+      runIdeDisp = runIdeM plugins mlf stateVar $
+                    ideDispatcher dEnv errorHandler callbackHandler ideChanOut
 
 
   runGhcDisp `race_` runIdeDisp
@@ -258,11 +247,7 @@ data DispatcherEnv = DispatcherEnv
 -- Meant to be run in a separate thread and be kept alive.
 ideDispatcher
   :: forall void m
-   . STM.TVar IdeState
-     -- ^ Holds the cached data relative to the current IDE state.
-  -> C.ClientCapabilities
-     -- ^ List of features the IDE client supports or has enabled.
-  -> DispatcherEnv
+   . DispatcherEnv
      -- ^ A structure focusing on the mutable variables the dispatcher
      -- is allowed to modify.
   -> ErrorHandler
@@ -271,10 +256,9 @@ ideDispatcher
      -- ^ Callback to run for handling the request.
   -> Channel.OutChan (IdeRequest m)
      -- ^ Reading end of the channel where the requests are sent to this process.
-  -> IO void
-ideDispatcher stateVar caps env errorHandler callbackHandler pin =
-  -- TODO: AZ run a single ReaderT, with a composite R.
-  flip runReaderT stateVar $ flip runReaderT caps $ forever $ do
+  -> IdeM void
+ideDispatcher env errorHandler callbackHandler pin =
+  forever $ do
     debugm "ideDispatcher: top of loop"
     (IdeRequest tn lid callback action) <- liftIO $ Channel.readChan pin
     debugm

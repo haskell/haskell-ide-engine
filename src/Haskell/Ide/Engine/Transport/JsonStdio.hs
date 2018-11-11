@@ -21,14 +21,13 @@ import           Control.Monad.IO.Class
 import qualified Data.Aeson                            as J
 import qualified Data.ByteString.Builder               as B
 import qualified Data.ByteString.Lazy.Char8            as B
-import           Data.Default
 #if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
 #endif
 import qualified Data.Text                             as T
 import           GHC.Generics
+import           Haskell.Ide.Engine.PluginsIdeMonads
 import qualified Haskell.Ide.Engine.Scheduler          as Scheduler
-import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.Types            as J
 import           System.Exit
@@ -74,7 +73,7 @@ run scheduler = flip E.catches handlers $ do
     let errorHandler lid _ e = liftIO $ hPutStrLn stderr $ "Got an error for request " ++ show lid ++ ": " ++ T.unpack e
         callbackHandler callback x = callback x
 
-    race3_ (Scheduler.runScheduler scheduler errorHandler callbackHandler def)
+    race3_ (Scheduler.runScheduler scheduler errorHandler callbackHandler Nothing)
            (outWriter rout)
            (reactor rout)
 
@@ -100,9 +99,8 @@ run scheduler = flip E.catches handlers $ do
         case mreq of
           Nothing -> return()
           Just req -> do
-            let vfsFunc _ = return Nothing -- TODO: Stub for now, what to do?
             let preq = GReq 0 (context req) Nothing (Just $ J.IdInt rid) (liftIO . callback)
-                  $ runPluginCommand (plugin req) (command req) vfsFunc (arg req)
+                  $ runPluginCommand (plugin req) (command req) (arg req)
                 rid = reqId req
                 callback = sendResponse rid . dynToJSON
             Scheduler.sendRequest scheduler Nothing preq

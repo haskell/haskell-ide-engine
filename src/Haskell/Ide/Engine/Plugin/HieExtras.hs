@@ -340,16 +340,15 @@ newtype WithSnippets = WithSnippets Bool
 getCompletions :: Uri -> PosPrefixInfo -> WithSnippets -> IdeM (IdeResult [J.CompletionItem])
 getCompletions uri prefixInfo (WithSnippets withSnippets) =
   pluginGetFile "getCompletions: " uri $ \file -> do
-    supportsSnippets <- fromMaybe False <$> asks
-      (^? J.textDocument
-        . _Just
-        . J.completion
-        . _Just
-        . J.completionItem
-        . _Just
-        . J.snippetSupport
-        . _Just
-      )
+    let snippetLens = (^? J.textDocument
+                        . _Just
+                        . J.completion
+                        . _Just
+                        . J.completionItem
+                        . _Just
+                        . J.snippetSupport
+                        . _Just)
+    supportsSnippets <- (fromMaybe False . snippetLens) <$> getClientCapabilities
     let toggleSnippets x
           | withSnippets && supportsSnippets = x
           | otherwise = x { J._insertTextFormat = Just J.PlainText
@@ -595,10 +594,9 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file ->
 
 -- ---------------------------------------------------------------------
 
-getRangeFromVFS :: (MonadIO m)
-  => Uri -> VirtualFileFunc -> Range -> m (Maybe T.Text)
-getRangeFromVFS uri vf rg = do
-  mvf <- liftIO $ vf uri
+getRangeFromVFS :: Uri -> Range -> IdeM (Maybe T.Text)
+getRangeFromVFS uri rg = do
+  mvf <- getVirtualFile uri
   case mvf of
     Just vfs -> return $ Just $ rangeLinesFromVfs vfs rg
     Nothing  -> return Nothing
@@ -639,7 +637,7 @@ runGhcModCommand cmd =
 -- ---------------------------------------------------------------------
 
 splitCaseCmd :: CommandFunc HarePoint WorkspaceEdit
-splitCaseCmd = CmdSync $ \_ (HP uri pos) -> splitCaseCmd' uri pos
+splitCaseCmd = CmdSync $ \(HP uri pos) -> splitCaseCmd' uri pos
 
 splitCaseCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 splitCaseCmd' uri newPos =

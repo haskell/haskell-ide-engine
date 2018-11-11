@@ -76,8 +76,7 @@ type Diagnostics = Map.Map Uri (Set.Set Diagnostic)
 type AdditionalErrs = [T.Text]
 
 checkCmd :: CommandFunc Uri (Diagnostics, AdditionalErrs)
-checkCmd = CmdSync $ \_ uri ->
-  setTypecheckedModule uri
+checkCmd = CmdSync setTypecheckedModule
 
 -- ---------------------------------------------------------------------
 
@@ -219,8 +218,7 @@ setTypecheckedModule uri =
 -- ---------------------------------------------------------------------
 
 lintCmd :: CommandFunc Uri T.Text
-lintCmd = CmdSync $ \_ uri ->
-  lintCmd' uri
+lintCmd = CmdSync lintCmd'
 
 lintCmd' :: Uri -> IdeGhcM (IdeResult T.Text)
 lintCmd' uri =
@@ -243,7 +241,7 @@ instance ToJSON InfoParams where
   toJSON = genericToJSON customOptions
 
 infoCmd :: CommandFunc InfoParams T.Text
-infoCmd = CmdSync $ \_ (IP uri expr) ->
+infoCmd = CmdSync $ \(IP uri expr) ->
   infoCmd' uri expr
 
 infoCmd' :: Uri -> T.Text -> IdeGhcM (IdeResult T.Text)
@@ -264,7 +262,7 @@ instance ToJSON TypeParams where
   toJSON = genericToJSON customOptions
 
 typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
-typeCmd = CmdSync $ \_ (TP _bool uri pos) ->
+typeCmd = CmdSync $ \(TP _bool uri pos) ->
   liftToGhc $ newTypeCmd pos uri
 
 newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
@@ -322,12 +320,12 @@ data TypedHoles =
              } deriving (Eq, Show)
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider pid docId vf mfp r ctx = do
+codeActionProvider pid docId r ctx = do
   support <- clientSupportsDocumentChanges
-  codeActionProvider' support pid docId vf mfp r ctx
+  codeActionProvider' support pid docId r ctx
 
 codeActionProvider' :: Bool -> CodeActionProvider
-codeActionProvider' supportsDocChanges _ docId _ _ _ context =
+codeActionProvider' supportsDocChanges _ docId _ context =
   let LSP.List diags = context ^. LSP.diagnostics
       terms = concatMap getRenamables diags
       renameActions = map (uncurry mkRenamableAction) terms

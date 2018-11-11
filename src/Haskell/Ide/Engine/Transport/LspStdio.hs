@@ -42,14 +42,13 @@ import qualified Data.Text as T
 import           Data.Text.Encoding
 import qualified GhcModCore               as GM
 import qualified GhcMod.Monad.Types       as GM
-import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Scheduler            as Scheduler
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.LSP.CodeActions
-import           Haskell.Ide.Engine.LSP.Config
 import           Haskell.Ide.Engine.LSP.Reactor
 import qualified Haskell.Ide.Engine.Plugin.HaRe          as HaRe
 import qualified Haskell.Ide.Engine.Plugin.GhcMod        as GhcMod
@@ -126,8 +125,7 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
   let dp lf = do
         diagIn      <- atomically newTChan
         let react = runReactor lf scheduler diagnosticProviders hps sps
-        let reactorFunc = react $ reactor rin diagIn
-            caps = Core.clientCapabilities lf
+            reactorFunc = react $ reactor rin diagIn
 
         let errorHandler :: Scheduler.ErrorHandler
             errorHandler lid code e =
@@ -152,7 +150,7 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
         -- haskell lsp sets the current directory to the project root in the InitializeRequest
         -- We launch the dispatcher after that so that the default cradle is
         -- recognized properly by ghc-mod
-        _ <- forkIO $ Scheduler.runScheduler scheduler errorHandler callbackHandler caps
+        _ <- forkIO $ Scheduler.runScheduler scheduler errorHandler callbackHandler (Just lf)
                     `race_` reactorFunc
                     `race_` diagnosticsQueue tr
         return Nothing
@@ -589,7 +587,6 @@ reactor inp diagIn = do
                   Nothing -> reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req $ dynToJSON obj
 
               execCmd cmdId args = do
-                vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
                 -- The parameters to the HIE command are always the first element
                 let cmdParams = case args of
                      Just (J.List (x:_)) -> x
@@ -624,7 +621,7 @@ reactor inp diagIn = do
                   -- Just an ordinary HIE command
                   Just (plugin, cmd) ->
                     let preq = GReq tn Nothing Nothing (Just $ req ^. J.id) callback
-                               $ runPluginCommand plugin cmd vfsFunc cmdParams
+                               $ runPluginCommand plugin cmd cmdParams
                     in makeRequest preq
 
                   -- Couldn't parse the command identifier

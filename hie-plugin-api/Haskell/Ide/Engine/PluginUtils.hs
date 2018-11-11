@@ -232,7 +232,7 @@ fileInfo tfileName =
 
 clientSupportsDocumentChanges :: IdeM Bool
 clientSupportsDocumentChanges = do
-  ClientCapabilities mwCaps _ _ <- ask
+  ClientCapabilities mwCaps _ _ <- getClientCapabilities
   let supports = do
         wCaps <- mwCaps
         WorkspaceEditClientCapabilities mDc <- _workspaceEdit wCaps
