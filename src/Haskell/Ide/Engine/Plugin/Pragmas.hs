@@ -40,7 +40,7 @@ data AddPragmaParams = AddPragmaParams
 addPragmaCmd :: CommandFunc AddPragmaParams J.WorkspaceEdit
 addPragmaCmd = CmdSync $ \(AddPragmaParams uri pragmaName) -> do
   let
-    pos = (J.Position 0 0)
+    pos = J.Position 0 0
     textEdits = J.List
       [J.TextEdit (J.Range pos pos)
                   ("{-# LANGUAGE " <> pragmaName <> " #-}\n")
@@ -73,10 +73,7 @@ codeActionProvider plId docId _ (J.CodeActionContext (J.List diags) _monly) = do
 findPragma :: T.Text -> [T.Text]
 findPragma str = concatMap check possiblePragmas
   where
-    check p =
-      if T.isInfixOf p str
-        then [p]
-        else []
+    check p = [p | T.isInfixOf p str]
 
 -- ---------------------------------------------------------------------
 

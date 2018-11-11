@@ -1,6 +1,6 @@
-{-# LANGUAGE CPP               #-}
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 module Haskell.Ide.Engine.Plugin.Liquid where
 
@@ -12,7 +12,7 @@ import           Control.Exception (bracket)
 import           Data.Monoid
 #endif
 import           Data.Aeson
-import qualified Data.ByteString.Lazy as BS
+import qualified Data.ByteString.Lazy          as BS
 import qualified Data.Map                      as Map
 import qualified Data.Set                      as S
 import qualified Data.Text                     as T
@@ -99,7 +99,7 @@ instance ToJSON   LiquidError
 
 -- ---------------------------------------------------------------------
 
-data LiquidData =
+newtype LiquidData =
   LiquidData
     { tid :: Maybe (Async ())
     }
@@ -272,7 +272,7 @@ parseType str =
 -- ---------------------------------------------------------------------
 
 parseTypes :: Parser [LiquidError]
-parseTypes = parseTypeFromVim `sepBy` (string "\n")
+parseTypes = parseTypeFromVim `sepBy` string "\n"
 
 -- | Parse a line of the form
 -- 6:1-6:10::Main.weAreEven :: "[{v : GHC.Types.Int | v mod 2 == 0}]"

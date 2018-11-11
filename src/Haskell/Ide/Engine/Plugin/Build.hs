@@ -1,10 +1,10 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE CPP                   #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes            #-}
 module Haskell.Ide.Engine.Plugin.Build where
 
 #ifdef MIN_VERSION_Cabal
@@ -16,38 +16,45 @@ import qualified Data.Aeson                             as J
 #if __GLASGOW_HASKELL__ < 802
 import qualified Data.Aeson.Types                       as J
 #endif
+import           Data.Maybe                             (fromMaybe)
 #if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
 #endif
-import qualified Control.Exception as Exception
+import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Reader
-import           GHC.Generics                                 (Generic)
+import qualified Data.ByteString                        as B
+import qualified Data.Text                              as T
+import           GHC.Generics                           (Generic)
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
-import qualified Data.ByteString as B
-import qualified Data.Text as T
-import System.Directory (makeAbsolute, getCurrentDirectory, getDirectoryContents, doesFileExist)
-import System.FilePath ((</>), normalise, takeExtension, takeFileName, makeRelative)
-import System.Process (readProcess)
-import System.IO (openFile, hClose, IOMode(..))
+import           System.Directory                       (doesFileExist,
+                                                         getCurrentDirectory,
+                                                         getDirectoryContents,
+                                                         makeAbsolute)
+import           System.FilePath                        (makeRelative,
+                                                         normalise,
+                                                         takeExtension,
+                                                         takeFileName, (</>))
+import           System.IO                              (IOMode (..), withFile)
+import           System.Process                         (readProcess)
 
-import Distribution.Helper as CH
+import           Distribution.Helper                    as CH
 
-import Distribution.Simple.Setup (defaultDistPref)
-import Distribution.Simple.Configure (localBuildInfoFile)
-import Distribution.Package (pkgName, unPackageName)
-import Distribution.PackageDescription
+import           Distribution.Package                   (pkgName, unPackageName)
+import           Distribution.PackageDescription
+import           Distribution.Simple.Configure          (localBuildInfoFile)
+import           Distribution.Simple.Setup              (defaultDistPref)
 #if CH_MIN_VERSION_Cabal(2,2,0)
-import Distribution.PackageDescription.Parsec (readGenericPackageDescription)
+import           Distribution.PackageDescription.Parsec (readGenericPackageDescription)
 #elif CH_MIN_VERSION_Cabal(2,0,0)
-import Distribution.PackageDescription.Parse (readGenericPackageDescription)
+import           Distribution.PackageDescription.Parse  (readGenericPackageDescription)
 #else
-import Distribution.PackageDescription.Parse (readPackageDescription)
+import           Distribution.PackageDescription.Parse  (readPackageDescription)
 #endif
-import qualified Distribution.Verbosity as Verb
+import qualified Distribution.Verbosity                 as Verb
 
-import Data.Yaml
+import           Data.Yaml
 
 -- ---------------------------------------------------------------------
 {-
@@ -191,13 +198,13 @@ incorrectParameter :: String -> [String] -> a -> b
 incorrectParameter = undefined
 
 withCommonArgs :: MonadIO m => CommonParams -> ReaderT CommonArgs m a -> m a
-withCommonArgs (CommonParams mode0 mDistDir mCabalExe mStackExe _fileUri) a = do
+withCommonArgs (CommonParams mode0 mDistDir mCabalExe mStackExe _fileUri) a =
       case readMode mode0 of
         Nothing -> return $ incorrectParameter "mode" ["stack","cabal"] mode0
         Just mode -> do
-          let cabalExe = maybe "cabal" id mCabalExe
-              stackExe = maybe "stack" id mStackExe
-          distDir' <- maybe (liftIO $ getDistDir mode stackExe) return $
+          let cabalExe = fromMaybe "cabal" mCabalExe
+              stackExe = fromMaybe "stack" mStackExe
+          distDir' <- maybe (liftIO $ getDistDir mode stackExe) return
                 mDistDir -- >>= uriToFilePath -- fileUri
           runReaderT a $ CommonArgs {
               caMode = mode,
@@ -283,7 +290,7 @@ configureCabal cabalExe = readProcess cabalExe ["new-configure"] ""
 
 -----------------------------------------------
 
-data ListFlagsParams = LF { lfMode :: T.Text } deriving Generic
+newtype ListFlagsParams = LF { lfMode :: T.Text } deriving Generic
 
 instance FromJSON ListFlagsParams where
   parseJSON = J.genericParseJSON $ customOptions 2
@@ -292,7 +299,7 @@ instance ToJSON ListFlagsParams where
 
 listFlags :: CommandFunc ListFlagsParams Object
 listFlags = CmdSync $ \(LF mode) -> do
-      cwd <- liftIO $ getCurrentDirectory
+      cwd <- liftIO getCurrentDirectory
       flags0 <- liftIO $ case mode of
             "stack" -> listFlagsStack cwd
             "cabal" -> fmap (:[]) (listFlagsCabal cwd)
@@ -326,7 +333,7 @@ flagToJSON f = object
         --    'FlagName' is now opaque; conversion to/from 'String' now works
         --    via 'unFlagName' and 'mkFlagName' functions.
 
-                 [ "name"        .= (unFlagName $ flagName f)
+                 [ "name"        .= unFlagName (flagName f)
                  , "description" .= flagDescription f
                  , "default"     .= flagDefault f]
 
@@ -398,9 +405,9 @@ buildTarget = CmdSync $ \(BT m dd c s f component package' compType) -> withComm
   ca <- ask
   liftIO $ case caMode ca of
     CabalMode -> do
-      _ <- readProcess (caCabal ca) ["new-build", T.unpack $ maybe "" id component] ""
+      _ <- readProcess (caCabal ca) ["new-build", T.unpack $ fromMaybe "" component] ""
       return $ IdeResultOk ()
-    StackMode -> do
+    StackMode ->
       case (package', component) of
         (Just p, Nothing) -> do
           _ <- readProcess (caStack ca) ["build", T.unpack $ p `T.append` compType] ""
@@ -441,11 +448,11 @@ listStackTargets distDir' = do
   mapM (listCabalTargets distDir') stackPackageDirs
 
 listCabalTargets :: MonadIO m => FilePath -> FilePath -> m Package
-listCabalTargets distDir' dir = do
+listCabalTargets distDir' dir =
   runQuery (mkQueryEnv dir distDir') $ do
     pkgName' <- fst <$> packageId
     cc <- components $ (,) CH.<$> entrypoints
-    let comps = map (fixupLibraryEntrypoint pkgName') $ map snd cc
+    let comps = map (fixupLibraryEntrypoint pkgName' .snd) cc
     absDir <- liftIO $ makeAbsolute dir
     return $ Package pkgName' absDir comps
   where
@@ -453,7 +460,7 @@ listCabalTargets distDir' dir = do
 #if MIN_VERSION_Cabal(1,24,0)
     fixupLibraryEntrypoint _n ChLibName = ChLibName
 #else
-    fixupLibraryEntrypoint n (ChLibName "") = (ChLibName n)
+    fixupLibraryEntrypoint n (ChLibName "") = ChLibName n
 #endif
     fixupLibraryEntrypoint _ e = e
 
@@ -466,7 +473,7 @@ getComponents env = runQuery env $ components $ (,) CH.<$> entrypoints
 
 -----------------------------------------------
 
-data StackYaml = StackYaml [StackPackage]
+newtype StackYaml = StackYaml [StackPackage]
 data StackPackage = LocalOrHTTPPackage { stackPackageName :: String }
                   | Repository
 
@@ -524,9 +531,7 @@ takeExtension' p =
       else takeExtension p
 
 withBinaryFileContents :: FilePath -> (B.ByteString -> IO c) -> IO c
-withBinaryFileContents name act =
-  Exception.bracket (openFile name ReadMode) hClose
-                    (\hnd -> B.hGetContents hnd >>= act)
+withBinaryFileContents name act = withFile name ReadMode $ B.hGetContents >=> act
 
 customOptions :: Int -> J.Options
 customOptions n = J.defaultOptions { J.fieldLabelModifier = J.camelTo2 '_' . drop n}

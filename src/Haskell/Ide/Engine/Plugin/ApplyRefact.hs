@@ -178,7 +178,7 @@ hintToDiagnostic idea
 -- ---------------------------------------------------------------------
 
 idea2Message :: Idea -> T.Text
-idea2Message idea = T.unlines $ [T.pack $ ideaHint idea, "Found:", ("  " <> T.pack (ideaFrom idea))]
+idea2Message idea = T.unlines $ [T.pack $ ideaHint idea, "Found:", "  " <> T.pack (ideaFrom idea)]
                                <> toIdea <> map (T.pack . show) (ideaNote idea)
   where
     toIdea :: [T.Text]
@@ -267,7 +267,7 @@ hlintOpts lintFile mpos =
 runHlint :: MonadIO m => FilePath -> [String] -> ExceptT String m [Idea]
 runHlint fp args =
   do (flags,classify,hint) <- liftIO $ argsSettings args
-     let myflags = flags { hseFlags = (hseFlags flags) { extensions = (EnableExtension TypeApplications:extensions (hseFlags flags))}}
+     let myflags = flags { hseFlags = (hseFlags flags) { extensions = EnableExtension TypeApplications:extensions (hseFlags flags)}}
      res <- bimapExceptT showParseError id $ ExceptT $ liftIO $ parseModuleEx myflags fp Nothing
      pure $ applyHints classify hint [res]
 
@@ -282,7 +282,7 @@ codeActionProvider plId docId _ context = IdeResultOk <$> hlintActions
   where
 
     hlintActions :: IdeM [LSP.CodeAction]
-    hlintActions = catMaybes <$> (mapM mkHlintAction $ filter validCommand diags)
+    hlintActions = catMaybes <$> mapM mkHlintAction (filter validCommand diags)
 
     -- |Some hints do not have an associated refactoring
     validCommand (LSP.Diagnostic _ _ (Just code) (Just "hlint") _ _) =

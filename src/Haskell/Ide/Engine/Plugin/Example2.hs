@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP               #-}
-{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveAnyClass    #-}
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.Engine.Plugin.Example2 where
@@ -86,7 +86,7 @@ todoCmd = CmdSync $ \(TodoParams uri r) -> return $ IdeResultOk $ makeTodo uri r
 makeTodo :: J.Uri -> J.Range -> J.WorkspaceEdit
 makeTodo uri (J.Range (J.Position startLine _) _) = res
   where
-    pos = (J.Position startLine 0)
+    pos = J.Position startLine 0
     textEdits = J.List
       [J.TextEdit (J.Range pos pos)
                   "-- TODO: from example2 plugin\n"
