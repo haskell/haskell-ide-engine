@@ -17,6 +17,9 @@ import qualified Distribution.Types.BuildInfo as BI (BuildInfo(..))
 
 #if MIN_VERSION_Cabal(2,2,0)
 #else
+
+{-# ANN module ("HLint: ignore Avoid lambda" :: String) #-}
+
 condBenchmarks :: Lens' GenericPackageDescription [(UnqualComponentName, CondTree ConfVar [Dependency] Benchmark)]
 condBenchmarks f (GenericPackageDescription x1 x2 x3 x4 x5 x6 x7 x8) = fmap (\y1 -> GenericPackageDescription x1 x2 x3 x4 x5 x6 x7 y1) (f x8)
 {-# INLINE condBenchmarks #-}
