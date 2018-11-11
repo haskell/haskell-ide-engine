@@ -30,7 +30,10 @@ spec = describe "document symbols" $ do
   describe "3.10 hierarchical document symbols" $ do
     it "provides nested data types and constructors" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "Symbols.hs" "haskell"
-      Left symbs <- getDocumentSymbols doc
+      msymbs <- getDocumentSymbols doc
+      symbs <- case msymbs of
+        Left symbs -> return symbs
+        _ -> fail "Expecting 'Left symbs'"
 
       let myData = DocumentSymbol "MyData" (Just "") SkClass Nothing myDataR myDataSR (Just (List [a, b]))
           a = DocumentSymbol "A" (Just "") SkConstructor Nothing aR aSR (Just mempty)
@@ -40,7 +43,10 @@ spec = describe "document symbols" $ do
 
     it "provides nested where functions" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "Symbols.hs" "haskell"
-      Left symbs <- getDocumentSymbols doc
+      msymbs <- getDocumentSymbols doc
+      symbs <- case msymbs of
+        Left symbs -> return symbs
+        _ -> fail "Expecting 'Left symbs'"
 
       let foo = DocumentSymbol "foo" (Just "") SkFunction Nothing fooR fooSR (Just (List [bar]))
           bar = DocumentSymbol "bar" (Just "") SkFunction Nothing barR barSR (Just (List [dog, cat]))
@@ -54,7 +60,10 @@ spec = describe "document symbols" $ do
   describe "pre 3.10 symbol information" $ do
     it "provides nested data types and constructors" $ runSession hieCommand oldCaps "test/testdata" $ do
       doc@(TextDocumentIdentifier testUri) <- openDoc "Symbols.hs" "haskell"
-      Right symbs <- getDocumentSymbols doc
+      msymbs <- getDocumentSymbols doc
+      symbs <- case msymbs of
+        Right symbs -> return symbs
+        _ -> fail "Expecting 'Right symbs'"
 
       let myData = SymbolInformation "MyData" SkClass Nothing (Location testUri myDataR) Nothing
           a = SymbolInformation "A" SkConstructor Nothing (Location testUri aR) (Just "MyData")
@@ -64,7 +73,10 @@ spec = describe "document symbols" $ do
 
     it "provides nested where functions" $ runSession hieCommand oldCaps "test/testdata" $ do
       doc@(TextDocumentIdentifier testUri) <- openDoc "Symbols.hs" "haskell"
-      Right symbs <- getDocumentSymbols doc
+      msymbs <- getDocumentSymbols doc
+      symbs <- case msymbs of
+        Right symbs -> return symbs
+        _ -> fail "Expecting 'Right symbs'"
 
       let foo = SymbolInformation "foo" SkFunction Nothing (Location testUri fooR) Nothing
           bar = SymbolInformation "bar" SkFunction Nothing (Location testUri barR) (Just "foo")

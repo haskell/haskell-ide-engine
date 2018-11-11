@@ -25,7 +25,10 @@ spec = describe "code actions" $ do
     it "provides 3.8 code actions" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "ApplyRefact2.hs" "haskell"
 
-      diags@(reduceDiag:_) <- waitForDiagnostics
+      mdiags <- waitForDiagnostics
+      (diags,reduceDiag) <- case mdiags of
+        (reduceDiag:_) -> return (mdiags,reduceDiag)
+        _ -> fail "match fail"
 
       liftIO $ do
         length diags `shouldBe` 2
@@ -34,7 +37,10 @@ spec = describe "code actions" $ do
         reduceDiag ^. L.code `shouldBe` Just "Eta reduce"
         reduceDiag ^. L.source `shouldBe` Just "hlint"
 
-      (CACodeAction ca:_) <- getAllCodeActions doc
+      mcas <- getAllCodeActions doc
+      ca <- case mcas of
+        (CACodeAction ca:_) -> return ca
+        _ -> fail "match fail"
 
       -- Evaluate became redundant id in later hlint versions
       liftIO $ ["Apply hint:Redundant id", "Apply hint:Evaluate"] `shouldContain` [ca ^. L.title]
@@ -53,7 +59,10 @@ spec = describe "code actions" $ do
 
       _ <- waitForDiagnostics
 
-      (CACommand cmd:_) <- getAllCodeActions doc
+      mcmd <- getAllCodeActions doc
+      cmd <- case mcmd of
+        (CACommand cmd:_) -> return cmd
+        _ -> fail "match fail"
 
       -- Evaluate became redundant id in later hlint versions
       liftIO $ ["Apply hint:Redundant id", "Apply hint:Evaluate"] `shouldContain` [cmd ^. L.title ]
@@ -73,10 +82,17 @@ spec = describe "code actions" $ do
 
       _ <- waitForDiagnosticsSource "ghcmod"
 
-      CACommand cmd:_ <- getAllCodeActions doc
+      mcmds <- getAllCodeActions doc
+      cmd <- case mcmds of
+        CACommand cmd:_ -> return cmd
+        _ -> fail "match fail"
       executeCommand cmd
 
-      x:_ <- T.lines <$> documentContents doc
+      mxs <- T.lines <$> documentContents doc
+      x <- case mxs of
+        x:_ -> return x
+        _ -> fail "match fail"
+
       liftIO $ x `shouldBe` "main = putStrLn \"hello\""
     it "doesn't give both documentChanges and changes" $
       runSession hieCommand noLiteralCaps "test/testdata" $ do
@@ -84,7 +100,10 @@ spec = describe "code actions" $ do
 
         _ <- waitForDiagnosticsSource "ghcmod"
 
-        CACommand cmd <- (!! 2) <$> getAllCodeActions doc
+        mcmd <- (!! 2) <$> getAllCodeActions doc
+        cmd <- case mcmd of
+          CACommand cmd -> return cmd
+          _ -> fail "match fail"
         let Just (List [Object args]) = cmd ^. L.arguments
             Object editParams = args HM.! "fallbackWorkspaceEdit"
         liftIO $ do
@@ -93,7 +112,10 @@ spec = describe "code actions" $ do
 
         executeCommand cmd
 
-        _:x:_ <- T.lines <$> documentContents doc
+        mxs <- T.lines <$> documentContents doc
+        x <- case mxs of
+          _:x:_ -> return x
+          _ -> fail "match fail"
         liftIO $ x `shouldBe` "foo = putStrLn \"world\""
 
   -- -----------------------------------
@@ -103,7 +125,10 @@ spec = describe "code actions" $ do
       doc <- openDoc "CodeActionImport.hs" "haskell"
 
       -- ignore the first empty hlint diagnostic publish
-      [_,diag:_] <- count 2 waitForDiagnostics
+      mdiag <- count 2 waitForDiagnostics
+      diag <- case mdiag of
+        [_,diag:_] -> return diag
+        _ -> fail "match fail"
       liftIO $ diag ^. L.message `shouldBe` "Variable not in scope: when :: Bool -> IO () -> IO ()"
 
       actionsOrCommands <- getAllCodeActions doc
@@ -132,11 +157,17 @@ spec = describe "code actions" $ do
       doc <- openDoc "AddPackage.hs" "haskell"
 
       -- ignore the first empty hlint diagnostic publish
-      [_,diag:_] <- count 2 waitForDiagnostics
+      mdiag <- count 2 waitForDiagnostics
+      diag <- case mdiag of
+        [_,diag:_] -> return diag
+        _ -> fail "match fail"
 
       liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Data.Text’"
 
-      (CACodeAction action:_) <- getAllCodeActions doc
+      maction <- getAllCodeActions doc
+      action <- case maction of
+        (CACodeAction action:_) -> return action
+        _ -> fail "match fail"
 
       liftIO $ do
         action ^. L.title `shouldBe` "Add text as a dependency"
@@ -153,7 +184,10 @@ spec = describe "code actions" $ do
         doc <- openDoc "app/Asdf.hs" "haskell"
 
         -- ignore the first empty hlint diagnostic publish
-        [_,diag:_] <- count 2 waitForDiagnostics
+        mdiag <- count 2 waitForDiagnostics
+        diag <- case mdiag of
+          [_,diag:_] -> return diag
+          _ -> fail "match fail"
 
         liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Codec.Compression.GZip’"
 
@@ -182,7 +216,10 @@ spec = describe "code actions" $ do
         doc <- openDoc "src/CodeActionRedundant.hs" "haskell"
 
         -- ignore the first empty hlint diagnostic publish
-        [_,diag:_] <- count 2 waitForDiagnostics
+        mdiag <- count 2 waitForDiagnostics
+        diag <- case mdiag of
+          [_,diag:_] -> return diag
+          _ -> fail "match fail"
 
         liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "The import of ‘Data.List’ is redundant"
 
@@ -209,7 +246,10 @@ spec = describe "code actions" $ do
 
       _ <- count 2 waitForDiagnostics
 
-      [CACommand cmd, _] <- getAllCodeActions doc
+      mcmd <- getAllCodeActions doc
+      cmd <- case mcmd of
+        [CACommand cmd, _] -> return cmd
+        _ -> fail "match fail"
 
       executeCommand cmd
 

@@ -95,11 +95,14 @@ spec = do
       doc <- openDoc "FuncTestFail.hs" "haskell"
       defs <- getDefinitions doc (Position 1 11)
       liftIO $ defs `shouldBe` []
-    
+
     it "respond to untypecheckable modules with parsed module cache" $
       runSession hieCommand fullCaps "test/testdata" $ do
         doc <- openDoc "FuncTestFail.hs" "haskell"
-        (Left (sym:_)) <- getDocumentSymbols doc
+        msym <- getDocumentSymbols doc
+        sym <- case msym of
+          Left (sym:_) -> return sym
+          _ -> fail "match fail"
         liftIO $ sym ^. name `shouldBe` "main"
 
     it "returns hints as diagnostics" $ runSession hieCommand fullCaps "test/testdata" $ do

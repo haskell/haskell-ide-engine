@@ -4,12 +4,13 @@ packages:
 - hie-plugin-api
 
 extra-deps:
+- ./submodules/HaRe
 - ./submodules/apply-refact
 - ./submodules/brittany
-- ./submodules/HaRe
+- ./submodules/cabal-helper
 - ./submodules/ghc-mod
 - ./submodules/ghc-mod/core
-- ./submodules/cabal-helper
+- ./submodules/lsp-test
 
 - array-0.5.2.0
 - binary-0.8.6.0

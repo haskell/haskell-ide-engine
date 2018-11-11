@@ -2,12 +2,13 @@ packages:
          ./
          ./hie-plugin-api/
 
+         ./submodules/HaRe
          ./submodules/apply-refact
          ./submodules/brittany
-         ./submodules/HaRe
+         ./submodules/cabal-helper/
          ./submodules/ghc-mod/
          ./submodules/ghc-mod/core/
-         ./submodules/cabal-helper/
+         ./submodules/lsp-test/
 
 allow-newer:ekg-core-0.1.1.4:base
 allow-newer:ekg-json-0.1.0.6:base
