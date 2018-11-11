@@ -34,6 +34,9 @@ extra-deps:
 - resolv-0.1.1.2@sha256:7d17b4538f99de1490e1b81ed3a14fc72525f8e30fca04ca58b49d1ea3c28225
 - syz-0.2.0.0@sha256:7307acb8f6ae7720e7e235c974281ecee912703c1394ebcac19caf83d70bb492
 
+- temporary-1.2.1.1
+- yaml-0.8.32
+- monad-memo-0.4.1
 
 
 
