@@ -57,7 +57,7 @@ lookupHtmls :: DynFlags -> UnitId -> Maybe [FilePath]
 lookupHtmls df ui = haddockHTMLs <$> lookupPackage df ui
 
 lookupDocHtmlForModule :: DynFlags -> Module -> IO (Maybe FilePath)
-lookupDocHtmlForModule = 
+lookupDocHtmlForModule =
   lookupHtmlForModule (\pkgDocDir modDocName -> pkgDocDir </> modDocName <.> "html")
 
 lookupSrcHtmlForModule :: DynFlags -> Module -> IO (Maybe FilePath)

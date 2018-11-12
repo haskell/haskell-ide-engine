@@ -106,7 +106,7 @@ demoteCmd  = CmdSync $ \(Hie.HP uri pos) ->
 
 demoteCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 demoteCmd' uri pos =
-  pluginGetFile "demote: " uri $ \file -> do
+  pluginGetFile "demote: " uri $ \file ->
     runHareCommand "demote" (compDemote file (unPos pos))
 
 -- compDemote :: FilePath -> SimpPos -> IO [FilePath]
@@ -119,7 +119,7 @@ dupdefCmd = CmdSync $ \(HPT uri pos name) ->
 
 dupdefCmd' :: Uri -> Position -> T.Text -> IdeGhcM (IdeResult WorkspaceEdit)
 dupdefCmd' uri pos name =
-  pluginGetFile "dupdef: " uri $ \file -> do
+  pluginGetFile "dupdef: " uri $ \file ->
     runHareCommand  "dupdef" (compDuplicateDef file (T.unpack name) (unPos pos))
 
 -- compDuplicateDef :: FilePath -> String -> SimpPos -> IO [FilePath]
@@ -132,7 +132,7 @@ iftocaseCmd = CmdSync $ \(HR uri startPos endPos) ->
 
 iftocaseCmd' :: Uri -> Range -> IdeGhcM (IdeResult WorkspaceEdit)
 iftocaseCmd' uri (Range startPos endPos) =
-  pluginGetFile "iftocase: " uri $ \file -> do
+  pluginGetFile "iftocase: " uri $ \file ->
     runHareCommand "iftocase" (compIfToCase file (unPos startPos) (unPos endPos))
 
 -- compIfToCase :: FilePath -> SimpPos -> SimpPos -> IO [FilePath]
@@ -145,7 +145,7 @@ liftonelevelCmd = CmdSync $ \(Hie.HP uri pos) ->
 
 liftonelevelCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 liftonelevelCmd' uri pos =
-  pluginGetFile "liftonelevelCmd: " uri $ \file -> do
+  pluginGetFile "liftonelevelCmd: " uri $ \file ->
     runHareCommand "liftonelevel" (compLiftOneLevel file (unPos pos))
 
 -- compLiftOneLevel :: FilePath -> SimpPos -> IO [FilePath]
@@ -158,7 +158,7 @@ lifttotoplevelCmd = CmdSync $ \(Hie.HP uri pos) ->
 
 lifttotoplevelCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 lifttotoplevelCmd' uri pos =
-  pluginGetFile "lifttotoplevelCmd: " uri $ \file -> do
+  pluginGetFile "lifttotoplevelCmd: " uri $ \file ->
     runHareCommand "lifttotoplevel" (compLiftToTopLevel file (unPos pos))
 
 -- compLiftToTopLevel :: FilePath -> SimpPos -> IO [FilePath]
@@ -171,7 +171,7 @@ renameCmd = CmdSync $ \(HPT uri pos name) ->
 
 renameCmd' :: Uri -> Position -> T.Text -> IdeGhcM (IdeResult WorkspaceEdit)
 renameCmd' uri pos name =
-  pluginGetFile "rename: " uri $ \file -> do
+  pluginGetFile "rename: " uri $ \file ->
       runHareCommand "rename" (compRename file (T.unpack name) (unPos pos))
 
 -- compRename :: FilePath -> String -> SimpPos -> IO [FilePath]
@@ -184,7 +184,7 @@ deleteDefCmd  = CmdSync $ \(Hie.HP uri pos) ->
 
 deleteDefCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 deleteDefCmd' uri pos =
-  pluginGetFile "deletedef: " uri $ \file -> do
+  pluginGetFile "deletedef: " uri $ \file ->
       runHareCommand "deltetedef" (compDeleteDef file (unPos pos))
 
 -- compDeleteDef ::FilePath -> SimpPos -> RefactGhc [ApplyRefacResult]
