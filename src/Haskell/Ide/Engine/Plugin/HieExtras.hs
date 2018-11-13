@@ -82,9 +82,8 @@ getDynFlags = ms_hspp_opts . pm_mod_summary . tm_parsed_module
 
 -- ---------------------------------------------------------------------
 
-{-# ANN module ("HLint: ignore Use newtype instead of data" :: String) #-}
-data NameMapData = NMD
-  { inverseNameMap ::  !(Map.Map Name [SrcSpan])
+newtype NameMapData = NMD
+  { inverseNameMap ::  Map.Map Name [SrcSpan]
   } deriving (Typeable)
 
 
