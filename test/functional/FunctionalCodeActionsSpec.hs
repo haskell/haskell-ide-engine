@@ -135,6 +135,7 @@ spec = describe "code actions" $ do
       -- ignore the first empty hlint diagnostic publish
       [_,diag:_] <- count 2 waitForDiagnostics
 
+
 #if __GLASGOW_HASKELL__ >= 806
       liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not load module \8216Data.Text\8217"
 #else
