@@ -9,7 +9,6 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE TupleSections         #-}
 
 module Haskell.Ide.Engine.Transport.LspStdio
   (
@@ -74,7 +73,7 @@ import qualified Yi.Rope as Yi
 -- ---------------------------------------------------------------------
 {-# ANN module ("hlint: ignore Eta reduce" :: String) #-}
 {-# ANN module ("hlint: ignore Redundant do" :: String) #-}
-
+{-# ANN module ("hlint: ignore Use tuple-section" :: String) #-}
 -- ---------------------------------------------------------------------
 
 lspStdioTransport
@@ -160,7 +159,7 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
       diagnosticProviders = Map.fromListWith (++) $ concatMap explode providers
         where
           explode :: (PluginId,DiagnosticProvider) -> [(DiagnosticTrigger,[(PluginId,DiagnosticProviderFunc)])]
-          explode (pid,DiagnosticProvider tr f) = map (,[(pid,f)]) $ S.elems tr
+          explode (pid,DiagnosticProvider tr f) = map (\t -> (t,[(pid,f)])) $ S.elems tr
 
           providers :: [(PluginId,DiagnosticProvider)]
           providers = concatMap pp $ Map.toList (ipMap plugins)
