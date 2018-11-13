@@ -4,7 +4,7 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE NamedFieldPuns            #-}
+{-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
@@ -73,7 +73,7 @@ import qualified Yi.Rope as Yi
 -- ---------------------------------------------------------------------
 {-# ANN module ("hlint: ignore Eta reduce" :: String) #-}
 {-# ANN module ("hlint: ignore Redundant do" :: String) #-}
-
+{-# ANN module ("hlint: ignore Use tuple-section" :: String) #-}
 -- ---------------------------------------------------------------------
 
 lspStdioTransport
@@ -212,7 +212,7 @@ getPrefixAtPos uri pos@(Position l c) = do
         curLine <- headMaybe $ Yi.lines $ snd $ Yi.splitAtLine l yitext
         let beforePos = Yi.take c curLine
         curWord <- case Yi.last beforePos of
-                     Just ' ' -> Just "" -- don't count abc as the curword in 'abc ' 
+                     Just ' ' -> Just "" -- don't count abc as the curword in 'abc '
                      _ -> Yi.toText <$> lastMaybe (Yi.words beforePos)
         let parts = T.split (=='.')
                       $ T.takeWhileEnd (\x -> isAlphaNum x || x `elem` ("._'"::String)) curWord
@@ -286,7 +286,7 @@ updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file 
           0123456789
           xxIIIIiixx
            ^
-          
+
           pos is unchanged if before the edited range
       -}
       | l == sl && c <= sc = Just p
@@ -294,7 +294,7 @@ updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file 
       {-
           01234  56
           xxxxx  xx
-            ^    
+            ^
           012345678
           xxIIIiixx
                  ^
@@ -332,7 +332,7 @@ publishDiagnostics :: (MonadIO m, MonadReader REnv m)
   => Int -> J.Uri -> J.TextDocumentVersion -> DiagnosticsBySource -> m ()
 publishDiagnostics maxToSend uri' mv diags = do
   lf <- asks lspFuncs
-  liftIO $ (Core.publishDiagnosticsFunc lf) maxToSend uri' mv diags
+  liftIO $ Core.publishDiagnosticsFunc lf maxToSend uri' mv diags
 
 -- ---------------------------------------------------------------------
 
@@ -340,7 +340,7 @@ flushDiagnosticsBySource :: (MonadIO m, MonadReader REnv m)
   => Int -> Maybe J.DiagnosticSource -> m ()
 flushDiagnosticsBySource maxToSend msource = do
   lf <- asks lspFuncs
-  liftIO $ (Core.flushDiagnosticsBySourceFunc lf) maxToSend msource
+  liftIO $ Core.flushDiagnosticsBySourceFunc lf maxToSend msource
 
 -- ---------------------------------------------------------------------
 
@@ -515,9 +515,7 @@ reactor inp diagIn = do
 
         ReqRename req -> do
           liftIO $ U.logs $ "reactor:got RenameRequest:" ++ show req
-          let params = req ^. J.params
-              doc = params ^. J.textDocument . J.uri
-              pos = params ^. J.position
+          let (params, doc, pos) = reqParams req
               newName  = params ^. J.newName
               callback = reactorSend . RspRename . Core.makeResponseMessage req
           let hreq = GReq tn (Just doc) Nothing (Just $ req ^. J.id) callback
@@ -638,9 +636,7 @@ reactor inp diagIn = do
 
         ReqCompletion req -> do
           liftIO $ U.logs $ "reactor:got CompletionRequest:" ++ show req
-          let params = req ^. J.params
-              doc = params ^. (J.textDocument . J.uri)
-              pos = params ^. J.position
+          let (_, doc, pos) = reqParams req
 
           mprefix <- getPrefixAtPos doc pos
 
@@ -681,9 +677,7 @@ reactor inp diagIn = do
 
         ReqDocumentHighlights req -> do
           liftIO $ U.logs $ "reactor:got DocumentHighlightsRequest:" ++ show req
-          let params = req ^. J.params
-              doc = params ^. (J.textDocument . J.uri)
-              pos = params ^. J.position
+          let (_, doc, pos) = reqParams req
               callback = reactorSend . RspDocumentHighlights . Core.makeResponseMessage req . J.List
           let hreq = IReq tn (req ^. J.id) callback
                    $ Hie.getReferencesInDoc doc pos
@@ -704,9 +698,7 @@ reactor inp diagIn = do
         ReqFindReferences req -> do
           liftIO $ U.logs $ "reactor:got FindReferences:" ++ show req
           -- TODO: implement project-wide references
-          let params = req ^. J.params
-              doc = params ^. (J.textDocument . J.uri)
-              pos = params ^. J.position
+          let (_, doc, pos) = reqParams req
               callback = reactorSend . RspFindReferences.  Core.makeResponseMessage req . J.List
           let hreq = IReq tn (req ^. J.id) callback
                    $ fmap (map (J.Location doc . (^. J.range)))
@@ -912,6 +904,16 @@ requestDiagnosticsNormal tn file mVer = do
   makeRequest reqg
 
 -- ---------------------------------------------------------------------
+
+reqParams ::
+     (J.HasParams r p, J.HasTextDocument p i, J.HasUri i u, J.HasPosition p l)
+  => r
+  -> (p, u, l)
+reqParams req = (params, doc, pos)
+  where
+    params = req ^. J.params
+    doc = params ^. (J.textDocument . J.uri)
+    pos = params ^. J.position
 
 syncOptions :: J.TextDocumentSyncOptions
 syncOptions = J.TextDocumentSyncOptions
