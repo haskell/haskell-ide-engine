@@ -120,7 +120,7 @@ spec = describe "completions" $ do
     _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
     compls <- getCompletions doc (Position 5 7)
     liftIO $ filter ((== "!!") . (^. label)) compls `shouldNotSatisfy` null
-  
+
   -- See https://github.com/haskell/haskell-ide-engine/issues/903
   it "strips compiler generated stuff from completions" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
     doc <- openDoc "DupRecFields.hs" "haskell"
@@ -136,7 +136,7 @@ spec = describe "completions" $ do
       item ^. kind `shouldBe` Just CiFunction
       item ^. detail `shouldBe` Just "Two -> Int\nDupRecFields"
       item ^. insertText `shouldBe` Just "accessor ${1:Two}"
-  
+
   describe "contexts" $ do
     it "only provides type suggestions" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
       doc <- openDoc "Context.hs" "haskell"
@@ -151,9 +151,9 @@ spec = describe "completions" $ do
       _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
       compls <- getCompletions doc (Position 3 9)
       liftIO $ do
-        compls `shouldContainCompl` "abs" 
+        compls `shouldContainCompl` "abs"
         compls `shouldNotContainCompl` "Applicative"
-    
+
     -- This currently fails if it takes too long to typecheck the module
     -- it "completes qualified type suggestions" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
     --   doc <- openDoc "Context.hs" "haskell"
@@ -175,7 +175,7 @@ spec = describe "completions" $ do
     let item = head $ filter ((== "id") . (^. label)) compls
     liftIO $
       item ^. detail `shouldBe` Just "a -> a\nPrelude"
- 
+
   it "have implicit foralls with multiple type variables" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
     doc <- openDoc "Completion.hs" "haskell"
     _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
@@ -184,7 +184,7 @@ spec = describe "completions" $ do
     compls <- getCompletions doc (Position 5 11)
     let item = head $ filter ((== "flip") . (^. label)) compls
     liftIO $
-      item ^. detail `shouldBe` Just "(a -> b -> c) -> b -> a -> c\nPrelude"     
+      item ^. detail `shouldBe` Just "(a -> b -> c) -> b -> a -> c\nPrelude"
 
   describe "snippets" $ do
     it "work for argumentless constructors" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
