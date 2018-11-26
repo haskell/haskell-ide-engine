@@ -10,10 +10,8 @@ extra-deps:
 - ./submodules/ghc-mod
 - ./submodules/ghc-mod/core
 
-- Cabal-2.4.1.0
 - apply-refact-0.6.0.0
 - butcher-1.3.2.1
-- cabal-install-2.4.1.0
 - cabal-plan-0.4.0.0
 - constrained-dynamic-0.1.0.0
 - ekg-json-0.1.0.6
