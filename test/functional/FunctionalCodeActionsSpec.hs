@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module FunctionalCodeActionsSpec where
@@ -136,11 +135,11 @@ spec = describe "code actions" $ do
       [_,diag:_] <- count 2 waitForDiagnostics
 
 
-#if __GLASGOW_HASKELL__ >= 806
-      liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not load module \8216Data.Text\8217"
-#else
-      liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Data.Text’"
-#endif
+      if ghcVersion == GHC86
+        then
+          liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not load module \8216Data.Text\8217"
+         else
+          liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Data.Text’"
 
       liftIO $ putStrLn $ "add package suggestions:waiting for code actions" -- AZ
       acts <- getAllCodeActions doc
@@ -165,11 +164,11 @@ spec = describe "code actions" $ do
         -- ignore the first empty hlint diagnostic publish
         [_,diag:_] <- count 2 waitForDiagnostics
 
-#if __GLASGOW_HASKELL__ >= 806
-        liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not load module ‘Codec.Compression.GZip’"
-#else
-        liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Codec.Compression.GZip’"
-#endif
+        if ghcVersion == GHC86
+          then
+            liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not load module ‘Codec.Compression.GZip’"
+          else
+            liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Codec.Compression.GZip’"
 
         mActions <- getAllCodeActions doc
         let allActions = map fromAction mActions
@@ -246,19 +245,28 @@ spec = describe "code actions" $ do
           cas <- map (\(CACodeAction x)-> x) <$> getAllCodeActions doc
 
           suggestion <-
-            if ghc84 then do
-              liftIO $ map (^. L.title) cas `shouldMatchList`
-                [ "Substitute hole (Int) with maxBound (forall a. Bounded a => a)"
-                , "Substitute hole (Int) with minBound (forall a. Bounded a => a)"
-                , "Substitute hole (Int) with undefined (forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a)"
-                ]
-              return "maxBound"
-            else do
-              liftIO $ map (^. L.title) cas `shouldMatchList`
-                [ "Substitute hole (Int) with x ([Int])"
-                , "Substitute hole (Int) with foo ([Int] -> Int)"
-                ]
-              return "x"
+            case ghcVersion of
+              GHC86 -> do
+                liftIO $ map (^. L.title) cas `shouldMatchList`
+                  [ "Substitute hole (Int) with x ([Int])"
+                  , "Substitute hole (Int) with foo ([Int] -> Int Valid hole fits include)"
+                  , "Substitute hole (Int) with maxBound (forall a. Bounded a => a with maxBound @Int)"
+                  , "Substitute hole (Int) with minBound (forall a. Bounded a => a with minBound @Int)"
+                  ]
+                return "x"
+              GHC84 -> do
+                liftIO $ map (^. L.title) cas `shouldMatchList`
+                  [ "Substitute hole (Int) with maxBound (forall a. Bounded a => a)"
+                  , "Substitute hole (Int) with minBound (forall a. Bounded a => a)"
+                  , "Substitute hole (Int) with undefined (forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a)"
+                  ]
+                return "maxBound"
+              GHCPre84 -> do
+                liftIO $ map (^. L.title) cas `shouldMatchList`
+                  [ "Substitute hole (Int) with x ([Int])"
+                  , "Substitute hole (Int) with foo ([Int] -> Int)"
+                  ]
+                return "x"
 
           executeCodeAction $ head cas
 
@@ -276,21 +284,29 @@ spec = describe "code actions" $ do
           cas <- map fromAction <$> getAllCodeActions doc
 
           suggestion <-
-            if ghc84 then do
-              liftIO $ map (^. L.title) cas `shouldMatchList`
-                [ "Substitute hole (A) with undefined (forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a)"
-                , "Substitute hole (A) with stuff (A -> A)"
-                , "Substitute hole (A) with x ([A])"
-                , "Substitute hole (A) with foo2 ([A] -> A)"
-                ]
-              return "undefined"
-          else do
-              liftIO $ map (^. L.title) cas `shouldMatchList`
-                [ "Substitute hole (A) with stuff (A -> A)"
-                , "Substitute hole (A) with x ([A])"
-                , "Substitute hole (A) with foo2 ([A] -> A)"
-                ]
-              return "stuff"
+            case ghcVersion of
+              GHC86 -> do
+                liftIO $ map (^. L.title) cas `shouldMatchList`
+                  [ "Substitute hole (A) with stuff (A -> A)"
+                  , "Substitute hole (A) with x ([A])"
+                  , "Substitute hole (A) with foo2 ([A] -> A)"
+                  ]
+                return "stuff"
+              GHC84 -> do
+                liftIO $ map (^. L.title) cas `shouldMatchList`
+                  [ "Substitute hole (A) with undefined (forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a)"
+                  , "Substitute hole (A) with stuff (A -> A)"
+                  , "Substitute hole (A) with x ([A])"
+                  , "Substitute hole (A) with foo2 ([A] -> A)"
+                  ]
+                return "undefined"
+              GHCPre84 -> do
+                liftIO $ map (^. L.title) cas `shouldMatchList`
+                  [ "Substitute hole (A) with stuff (A -> A)"
+                  , "Substitute hole (A) with x ([A])"
+                  , "Substitute hole (A) with foo2 ([A] -> A)"
+                  ]
+                return "stuff"
 
           executeCodeAction $ head cas
 
