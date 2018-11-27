@@ -17,7 +17,7 @@ build-all: build build-docs
 # ------------------------------------------------------
 
 ## Builds hie for GHC version 8.2.1 only
-hie-8.2.1: submodules
+hie-8.2.1: submodules cabal
 	stack --stack-yaml=stack-8.2.1.yaml install happy
 	stack --stack-yaml=stack-8.2.1.yaml build
 	stack --stack-yaml=stack-8.2.1.yaml install                                \
@@ -26,7 +26,7 @@ hie-8.2.1: submodules
 .PHONY: hie-8.2.1
 
 ## Builds hie for GHC version 8.2.2 only
-hie-8.2.2: submodules
+hie-8.2.2: submodules cabal
 	stack --stack-yaml=stack-8.2.2.yaml install happy
 	stack --stack-yaml=stack-8.2.2.yaml build
 	stack --stack-yaml=stack-8.2.2.yaml install                                \
@@ -35,7 +35,7 @@ hie-8.2.2: submodules
 .PHONY: hie-8.2.2
 
 ## Builds hie for GHC version 8.4.2 only
-hie-8.4.2: submodules
+hie-8.4.2: submodules cabal
 	stack --stack-yaml=stack-8.4.2.yaml build
 	stack --stack-yaml=stack-8.4.2.yaml install                                \
 		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.4.2'    \
@@ -43,7 +43,7 @@ hie-8.4.2: submodules
 .PHONY: hie-8.2.2
 
 ## Builds hie for GHC version 8.4.3 only
-hie-8.4.3: submodules
+hie-8.4.3: submodules cabal
 	stack --stack-yaml=stack-8.4.3.yaml build
 	stack --stack-yaml=stack-8.4.3.yaml install                                      \
 		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.4.3'    \
@@ -51,7 +51,7 @@ hie-8.4.3: submodules
 .PHONY: hie-8.4.3
 
 ## Builds hie for GHC version 8.4.4 only
-hie-8.4.4: submodules
+hie-8.4.4: submodules cabal
 	stack --stack-yaml=stack-8.4.4.yaml build
 	stack --stack-yaml=stack-8.4.4.yaml install                                      \
 		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.4.4'    \
@@ -59,7 +59,7 @@ hie-8.4.4: submodules
 .PHONY: hie-8.4.4
 
 ## Builds hie for GHC version 8.6.1 only
-hie-8.6.1: submodules
+hie-8.6.1: submodules cabal
 	stack --stack-yaml=stack-8.6.1.yaml build
 	stack --stack-yaml=stack-8.6.1.yaml install                                      \
 		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.6.1'    \
@@ -67,7 +67,7 @@ hie-8.6.1: submodules
 .PHONY: hie-8.6.1
 
 ## Builds hie for GHC version 8.6.2 only
-hie-8.6.2: submodules
+hie-8.6.2: submodules cabal
 	stack --stack-yaml=stack-8.6.2.yaml build
 	stack --stack-yaml=stack-8.6.2.yaml install                                      \
 		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.6.2'    \
@@ -80,6 +80,22 @@ hie-8.6.2: submodules
 submodules:
 	git submodule update --init
 .PHONY: submodules
+
+# ------------------------------------------------------
+
+## Makes sure that Cabal the lib is available for cabal-helper-wapper,
+## to speed up project start
+
+## NOTE 1: cabal-helper-wrapper builds with old style cabal build, so
+##         must be installed this way.
+## NOTE 2: this is temporary, will go away once the new cabal-helper lands.
+## NOTE 3: This is needed for stack only projects too
+cabal:
+	cabal update
+	cabal install Cabal-2.4.1.0
+.PHONY: cabal
+
+# ------------------------------------------------------
 
 ## Builds the Hoogle database for all supported GHC versions
 build-docs:
@@ -96,7 +112,7 @@ build-docs:
 # ------------------------------------------------------
 
 ## Runs hie tests
-test: submodules
+test: submodules cabal
 	stack --stack-yaml=stack-8.2.1.yaml test \
 	&& stack --stack-yaml=stack-8.2.2.yaml test \
 	&& stack --stack-yaml=stack-8.4.2.yaml test \
@@ -106,7 +122,7 @@ test: submodules
 	&& stack --stack-yaml=stack-8.6.2.yaml test
 .PHONY: test
 
-build-copy-compiler-tool: submodules
+build-copy-compiler-tool: submodules cabal
 	stack --stack-yaml=stack-8.2.1.yaml build --copy-compiler-tool \
 	&& stack --stack-yaml=stack-8.2.2.yaml build --copy-compiler-tool \
 	&& stack --stack-yaml=stack-8.4.2.yaml build --copy-compiler-tool \

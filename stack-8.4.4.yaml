@@ -1,4 +1,4 @@
-resolver: lts-12.17 # LTS 12.15 is first to support GHC 8.4.4
+resolver: lts-12.20 # LTS 12.15 is first to support GHC 8.4.4
 packages:
 - .
 - hie-plugin-api
@@ -10,8 +10,8 @@ extra-deps:
 - ./submodules/ghc-mod/core
 - ./submodules/cabal-helper
 
-- base-compat-0.9.3
-- cabal-plan-0.3.0.0
+# - brittany-0.11.0.0
+- cabal-plan-0.4.0.0
 - constrained-dynamic-0.1.0.0
 - ghc-exactprint-0.5.8.2
 - haddock-api-2.20.0
