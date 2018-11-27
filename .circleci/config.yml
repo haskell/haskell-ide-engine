@@ -39,8 +39,12 @@ defaults: &defaults
         command: stack --stack-yaml=${STACK_FILE} install hoogle
 
     - run:
-        name: Build
+        name: Build (we need the exe for tests)
         command: stack -j 2 --stack-yaml=${STACK_FILE} install
+
+    - run:
+        name: Build Testsuite without running it
+        command: stack -j 2 --stack-yaml=${STACK_FILE}  build --test --no-run-tests
 
     - store_artifacts:
         path: ~/.local/bin
