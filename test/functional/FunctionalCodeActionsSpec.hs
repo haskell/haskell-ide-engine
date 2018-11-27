@@ -134,18 +134,14 @@ spec = describe "code actions" $ do
       -- ignore the first empty hlint diagnostic publish
       [_,diag:_] <- count 2 waitForDiagnostics
 
-
       if ghcVersion == GHC86
         then
           liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not load module \8216Data.Text\8217"
          else
           liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Data.Text’"
 
-      liftIO $ putStrLn $ "add package suggestions:waiting for code actions" -- AZ
       acts <- getAllCodeActions doc
-      liftIO $ putStrLn $ "add package suggestions:acts=" ++ show acts -- AZ
       let (CACodeAction action:_) = acts
-      liftIO $ putStrLn $ "add package suggestions:action=" ++ show action -- AZ
 
       liftIO $ do
         action ^. L.title `shouldBe` "Add text as a dependency"
