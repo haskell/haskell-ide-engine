@@ -164,7 +164,7 @@ jobs:
           command: git submodule update --recursive --init
       - restore-cache:
           keys:
-            - cabal-03
+            - cabal-12-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
       - run:
           name: Cabal version
           command: cabal --version
@@ -178,7 +178,7 @@ jobs:
           name: Build
           command: cabal new-build -j2
       - save_cache:
-          key: cabal-03
+          key: cabal-12-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
           paths:
             - ~/.cabal
 
