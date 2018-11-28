@@ -105,7 +105,7 @@ sudo apt install libicu-dev libtinfo-dev
 ```
 
 
-### Getting the source for GHC 8.2.1, 8.2.2, 8.4.2, 8.4.3
+### Getting the source for GHC 8.2.1 to 8.6.2
 
 HIE builds from source code, so first,
 
