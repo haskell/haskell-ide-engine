@@ -28,4 +28,3 @@ spec = describe "commands" $ do
     let ResponseError _ msg _ = err
     -- We expect an error message about the dud arguments, but should pickup "add" and "package"
     liftIO $ msg `shouldSatisfy` T.isInfixOf "while parsing args for add in plugin package"
-

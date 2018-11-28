@@ -21,15 +21,15 @@ getContext :: Position -> ParsedModule -> Maybe Context
 getContext pos pm = everything join (Nothing `mkQ` go `extQ` goInline) decl
   where decl = hsmodDecls $ unLoc $ pm_parsed_source pm
         go :: LHsDecl GhcPs -> Maybe Context
-        go (L (RealSrcSpan r) (SigD _))
+        go (L (RealSrcSpan r) (SigD {}))
           | pos `isInsideRange` r = Just TypeContext
           | otherwise = Nothing
-        go (L (GHC.RealSrcSpan r) (GHC.ValD _))
-          | pos `isInsideRange` r = Just ValueContext 
+        go (L (GHC.RealSrcSpan r) (GHC.ValD {}))
+          | pos `isInsideRange` r = Just ValueContext
           | otherwise = Nothing
         go _ = Nothing
         goInline :: GHC.LHsType GhcPs -> Maybe Context
-        goInline (GHC.L (GHC.RealSrcSpan r) _) 
+        goInline (GHC.L (GHC.RealSrcSpan r) _)
           | pos `isInsideRange` r = Just TypeContext
           | otherwise = Nothing
         goInline _ = Nothing

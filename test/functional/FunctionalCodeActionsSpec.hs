@@ -160,9 +160,14 @@ spec = describe "code actions" $ do
       -- ignore the first empty hlint diagnostic publish
       [_,diag:_] <- count 2 waitForDiagnostics
 
-      liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Data.Text’"
+      if ghcVersion == GHC86
+        then
+          liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not load module \8216Data.Text\8217"
+         else
+          liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Data.Text’"
 
-      (CACodeAction action:_) <- getAllCodeActions doc
+      acts <- getAllCodeActions doc
+      let (CACodeAction action:_) = acts
 
       liftIO $ do
         action ^. L.title `shouldBe` "Add text as a dependency"
@@ -181,7 +186,11 @@ spec = describe "code actions" $ do
         -- ignore the first empty hlint diagnostic publish
         [_,diag:_] <- count 2 waitForDiagnostics
 
-        liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Codec.Compression.GZip’"
+        if ghcVersion == GHC86
+          then
+            liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not load module ‘Codec.Compression.GZip’"
+          else
+            liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Codec.Compression.GZip’"
 
         mActions <- getAllCodeActions doc
         let allActions = map fromAction mActions
@@ -241,11 +250,12 @@ spec = describe "code actions" $ do
 
       contents <- documentContents doc
 
-      liftIO $ contents `shouldBe`
-        "module MultipleImports where\n\
-        \import Data.Maybe\n\
-        \foo :: Int\n\
-        \foo = fromJust (Just 3)\n"
+      liftIO $ (T.lines contents) `shouldBe`
+        [ "module MultipleImports where"
+        , "import Data.Maybe"
+        , "foo :: Int"
+        , "foo = fromJust (Just 3)"
+        ]
 
   -- -----------------------------------
 
@@ -257,19 +267,28 @@ spec = describe "code actions" $ do
           cas <- map (\(CACodeAction x)-> x) <$> getAllCodeActions doc
 
           suggestion <-
-            if ghc84 then do
-              liftIO $ map (^. L.title) cas `shouldMatchList`
-                [ "Substitute hole (Int) with maxBound (forall a. Bounded a => a)"
-                , "Substitute hole (Int) with minBound (forall a. Bounded a => a)"
-                , "Substitute hole (Int) with undefined (forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a)"
-                ]
-              return "maxBound"
-            else do
-              liftIO $ map (^. L.title) cas `shouldMatchList`
-                [ "Substitute hole (Int) with x ([Int])"
-                , "Substitute hole (Int) with foo ([Int] -> Int)"
-                ]
-              return "x"
+            case ghcVersion of
+              GHC86 -> do
+                liftIO $ map (^. L.title) cas `shouldMatchList`
+                  [ "Substitute hole (Int) with x ([Int])"
+                  , "Substitute hole (Int) with foo ([Int] -> Int Valid hole fits include)"
+                  , "Substitute hole (Int) with maxBound (forall a. Bounded a => a with maxBound @Int)"
+                  , "Substitute hole (Int) with minBound (forall a. Bounded a => a with minBound @Int)"
+                  ]
+                return "x"
+              GHC84 -> do
+                liftIO $ map (^. L.title) cas `shouldMatchList`
+                  [ "Substitute hole (Int) with maxBound (forall a. Bounded a => a)"
+                  , "Substitute hole (Int) with minBound (forall a. Bounded a => a)"
+                  , "Substitute hole (Int) with undefined (forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a)"
+                  ]
+                return "maxBound"
+              GHCPre84 -> do
+                liftIO $ map (^. L.title) cas `shouldMatchList`
+                  [ "Substitute hole (Int) with x ([Int])"
+                  , "Substitute hole (Int) with foo ([Int] -> Int)"
+                  ]
+                return "x"
 
           executeCodeAction $ head cas
 
@@ -287,33 +306,42 @@ spec = describe "code actions" $ do
           cas <- map fromAction <$> getAllCodeActions doc
 
           suggestion <-
-            if ghc84 then do
-              liftIO $ map (^. L.title) cas `shouldMatchList`
-                [ "Substitute hole (A) with undefined (forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a)"
-                , "Substitute hole (A) with stuff (A -> A)"
-                , "Substitute hole (A) with x ([A])"
-                , "Substitute hole (A) with foo2 ([A] -> A)"
-                ]
-              return "undefined"
-          else do
-              liftIO $ map (^. L.title) cas `shouldMatchList`
-                [ "Substitute hole (A) with stuff (A -> A)"
-                , "Substitute hole (A) with x ([A])"
-                , "Substitute hole (A) with foo2 ([A] -> A)"
-                ]
-              return "stuff"
+            case ghcVersion of
+              GHC86 -> do
+                liftIO $ map (^. L.title) cas `shouldMatchList`
+                  [ "Substitute hole (A) with stuff (A -> A)"
+                  , "Substitute hole (A) with x ([A])"
+                  , "Substitute hole (A) with foo2 ([A] -> A)"
+                  ]
+                return "stuff"
+              GHC84 -> do
+                liftIO $ map (^. L.title) cas `shouldMatchList`
+                  [ "Substitute hole (A) with undefined (forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a)"
+                  , "Substitute hole (A) with stuff (A -> A)"
+                  , "Substitute hole (A) with x ([A])"
+                  , "Substitute hole (A) with foo2 ([A] -> A)"
+                  ]
+                return "undefined"
+              GHCPre84 -> do
+                liftIO $ map (^. L.title) cas `shouldMatchList`
+                  [ "Substitute hole (A) with stuff (A -> A)"
+                  , "Substitute hole (A) with x ([A])"
+                  , "Substitute hole (A) with foo2 ([A] -> A)"
+                  ]
+                return "stuff"
 
           executeCodeAction $ head cas
 
           contents <- documentContents doc
 
-          liftIO $ contents `shouldBe`
-            "module TypedHoles2 (foo2) where\n\
-            \newtype A = A Int\n\
-            \foo2 :: [A] -> A\n\
-            \foo2 x = " <> suggestion <> "\n\
-            \  where\n\
-            \    stuff (A a) = A (a + 1)\n"
+          liftIO $ (T.lines contents) `shouldBe`
+            [ "module TypedHoles2 (foo2) where"
+            , "newtype A = A Int"
+            , "foo2 :: [A] -> A"
+            , "foo2 x = " <> suggestion <> ""
+            , "  where"
+            , "    stuff (A a) = A (a + 1)"
+            ]
 
   -- -----------------------------------
 
@@ -331,14 +359,15 @@ spec = describe "code actions" $ do
 
         contents <- documentContents doc
 
-        let expected = "{-# OPTIONS_GHC -Wall #-}\n\
-                       \module TopLevelSignature where\n\
-                       \main :: IO ()\n\
-                       \main = do\n\
-                       \  putStrLn \"Hello\"\n\
-                       \  return ()\n"
+        let expected = [ "{-# OPTIONS_GHC -Wall #-}"
+                       , "module TopLevelSignature where"
+                       , "main :: IO ()"
+                       , "main = do"
+                       , "  putStrLn \"Hello\""
+                       , "  return ()"
+                       ]
 
-        liftIO $ contents `shouldBe` expected
+        liftIO $ (T.lines contents) `shouldBe` expected
 
   -- -----------------------------------
 
@@ -357,18 +386,25 @@ spec = describe "code actions" $ do
 
         contents <- getDocumentEdit doc
 
-        let expected = "{-# LANGUAGE TypeSynonymInstances #-}\n\n\
-                       \import GHC.Generics\n\n\
-                       \main = putStrLn \"hello\"\n\n\
-                       \type Foo = Int\n\n\
-                       \instance Show Foo where\n\
-                       \  show x = undefined\n\n\
-                       \instance Show (Int,String) where\n\
-                       \  show  = undefined\n\n\
-                       \data FFF a = FFF Int String a\n\
-                       \           deriving (Generic,Functor,Traversable)\n"
+        let expected = [ "{-# LANGUAGE TypeSynonymInstances #-}"
+                       , ""
+                       , "import GHC.Generics"
+                       , ""
+                       , "main = putStrLn \"hello\""
+                       , ""
+                       , "type Foo = Int"
+                       , ""
+                       , "instance Show Foo where"
+                       , "  show x = undefined"
+                       , ""
+                       , "instance Show (Int,String) where"
+                       , "  show  = undefined"
+                       , ""
+                       , "data FFF a = FFF Int String a"
+                       , "           deriving (Generic,Functor,Traversable)"
+                       ]
 
-        liftIO $ contents `shouldBe` expected
+        liftIO $ (T.lines contents) `shouldBe` expected
 
   -- -----------------------------------
 
@@ -386,14 +422,15 @@ spec = describe "code actions" $ do
 
         edit <- getDocumentEdit doc
 
-        let expected = "{-# OPTIONS_GHC -Wall #-}\n\
-                        \module UnusedTerm () where\n\
-                        \_imUnused :: Int -> Int\n\
-                        \_imUnused 1 = 1\n\
-                        \_imUnused 2 = 2\n\
-                        \_imUnused _ = 3\n"
+        let expected = [ "{-# OPTIONS_GHC -Wall #-}"
+                       , "module UnusedTerm () where"
+                       , "_imUnused :: Int -> Int"
+                       , "_imUnused 1 = 1"
+                       , "_imUnused 2 = 2"
+                       , "_imUnused _ = 3"
+                       ]
 
-        liftIO $ edit `shouldBe` expected
+        liftIO $ edit `shouldBe` (T.unlines expected)
 
 -- ---------------------------------------------------------------------
 

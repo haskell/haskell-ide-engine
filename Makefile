@@ -5,7 +5,9 @@ all: help
 .PHONY: all
 
 ## Builds hie for all supported GHC versions (8.2.1, 8.2.2, 8.4.2 and 8.4.3, 8.4.4)
-build: hie-8.2.1 hie-8.2.2 hie-8.4.2 hie-8.4.3 hie-8.4.4
+build: hie-8.2.1 hie-8.2.2 \
+       hie-8.4.2 hie-8.4.3 hie-8.4.4 \
+       hie-8.6.1 hie-8.6.2
 .PHONY: build
 
 ## Builds hie and hoogle databases for all supported GHC versions
@@ -15,7 +17,7 @@ build-all: build build-docs
 # ------------------------------------------------------
 
 ## Builds hie for GHC version 8.2.1 only
-hie-8.2.1: submodules
+hie-8.2.1: submodules cabal
 	stack --stack-yaml=stack-8.2.1.yaml install happy
 	stack --stack-yaml=stack-8.2.1.yaml build
 	stack --stack-yaml=stack-8.2.1.yaml install                                \
@@ -24,7 +26,7 @@ hie-8.2.1: submodules
 .PHONY: hie-8.2.1
 
 ## Builds hie for GHC version 8.2.2 only
-hie-8.2.2: submodules
+hie-8.2.2: submodules cabal
 	stack --stack-yaml=stack-8.2.2.yaml install happy
 	stack --stack-yaml=stack-8.2.2.yaml build
 	stack --stack-yaml=stack-8.2.2.yaml install                                \
@@ -33,7 +35,7 @@ hie-8.2.2: submodules
 .PHONY: hie-8.2.2
 
 ## Builds hie for GHC version 8.4.2 only
-hie-8.4.2: submodules
+hie-8.4.2: submodules cabal
 	stack --stack-yaml=stack-8.4.2.yaml build
 	stack --stack-yaml=stack-8.4.2.yaml install                                \
 		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.4.2'    \
@@ -41,7 +43,7 @@ hie-8.4.2: submodules
 .PHONY: hie-8.2.2
 
 ## Builds hie for GHC version 8.4.3 only
-hie-8.4.3: submodules
+hie-8.4.3: submodules cabal
 	stack --stack-yaml=stack-8.4.3.yaml build
 	stack --stack-yaml=stack-8.4.3.yaml install                                      \
 		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.4.3'    \
@@ -49,12 +51,28 @@ hie-8.4.3: submodules
 .PHONY: hie-8.4.3
 
 ## Builds hie for GHC version 8.4.4 only
-hie-8.4.4: submodules
+hie-8.4.4: submodules cabal
 	stack --stack-yaml=stack-8.4.4.yaml build
 	stack --stack-yaml=stack-8.4.4.yaml install                                      \
 		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.4.4'    \
 		&& cp '$(STACKLOCALBINDIR)/hie-8.4.4' '$(STACKLOCALBINDIR)/hie-8.4'
 .PHONY: hie-8.4.4
+
+## Builds hie for GHC version 8.6.1 only
+hie-8.6.1: submodules cabal
+	stack --stack-yaml=stack-8.6.1.yaml build
+	stack --stack-yaml=stack-8.6.1.yaml install                                      \
+		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.6.1'    \
+		&& cp '$(STACKLOCALBINDIR)/hie-8.6.1' '$(STACKLOCALBINDIR)/hie-8.4'
+.PHONY: hie-8.6.1
+
+## Builds hie for GHC version 8.6.2 only
+hie-8.6.2: submodules cabal
+	stack --stack-yaml=stack-8.6.2.yaml build
+	stack --stack-yaml=stack-8.6.2.yaml install                                      \
+		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.6.2'    \
+		&& cp '$(STACKLOCALBINDIR)/hie-8.6.2' '$(STACKLOCALBINDIR)/hie-8.4'
+.PHONY: hie-8.6.2
 
 # ------------------------------------------------------
 
@@ -63,6 +81,22 @@ submodules:
 	git submodule update --init
 .PHONY: submodules
 
+# ------------------------------------------------------
+
+## Makes sure that Cabal the lib is available for cabal-helper-wapper,
+## to speed up project start
+
+## NOTE 1: cabal-helper-wrapper builds with old style cabal build, so
+##         must be installed this way.
+## NOTE 2: this is temporary, will go away once the new cabal-helper lands.
+## NOTE 3: This is needed for stack only projects too
+cabal:
+	cabal update
+	cabal install Cabal-2.4.1.0
+.PHONY: cabal
+
+# ------------------------------------------------------
+
 ## Builds the Hoogle database for all supported GHC versions
 build-docs:
 	stack --stack-yaml=stack-8.2.1.yaml exec hoogle generate \
@@ -70,26 +104,32 @@ build-docs:
 	&& stack --stack-yaml=stack-8.4.2.yaml exec hoogle generate \
 	&& stack --stack-yaml=stack-8.4.3.yaml exec hoogle generate \
 	&& stack --stack-yaml=stack-8.4.4.yaml exec hoogle generate
+	&& stack --stack-yaml=stack-8.6.1.yaml exec hoogle generate
+	&& stack --stack-yaml=stack-8.6.2.yaml exec hoogle generate
 .PHONY: build-docs
 
 
 # ------------------------------------------------------
 
 ## Runs hie tests
-test: submodules
+test: submodules cabal
 	stack --stack-yaml=stack-8.2.1.yaml test \
 	&& stack --stack-yaml=stack-8.2.2.yaml test \
 	&& stack --stack-yaml=stack-8.4.2.yaml test \
 	&& stack --stack-yaml=stack-8.4.3.yaml test \
 	&& stack --stack-yaml=stack-8.4.4.yaml test
+	&& stack --stack-yaml=stack-8.6.1.yaml test
+	&& stack --stack-yaml=stack-8.6.2.yaml test
 .PHONY: test
 
-build-copy-compiler-tool: submodules
+build-copy-compiler-tool: submodules cabal
 	stack --stack-yaml=stack-8.2.1.yaml build --copy-compiler-tool \
 	&& stack --stack-yaml=stack-8.2.2.yaml build --copy-compiler-tool \
 	&& stack --stack-yaml=stack-8.4.2.yaml build --copy-compiler-tool \
 	&& stack --stack-yaml=stack-8.4.3.yaml build --copy-compiler-tool \
 	&& stack --stack-yaml=stack-8.4.4.yaml build --copy-compiler-tool
+	&& stack --stack-yaml=stack-8.6.1.yaml build --copy-compiler-tool
+	&& stack --stack-yaml=stack-8.6.2.yaml build --copy-compiler-tool
 .PHONY: build-copy-compiler-tool
 
 ## Fixes icu related problems in MacOS
@@ -114,6 +154,12 @@ icu-macos-fix-build:
 	  --extra-lib-dirs=/usr/local/opt/icu4c/lib            \
 	  --extra-include-dirs=/usr/local/opt/icu4c/include    \
 	&& stack --stack-yaml=stack-8.4.4.yaml build text-icu  \
+	  --extra-lib-dirs=/usr/local/opt/icu4c/lib            \
+	  --extra-include-dirs=/usr/local/opt/icu4c/include    \
+	&& stack --stack-yaml=stack-8.6.1.yaml build text-icu  \
+	  --extra-lib-dirs=/usr/local/opt/icu4c/lib            \
+	  --extra-include-dirs=/usr/local/opt/icu4c/include    \
+	&& stack --stack-yaml=stack-8.6.2.yaml build text-icu  \
 	  --extra-lib-dirs=/usr/local/opt/icu4c/lib            \
 	  --extra-include-dirs=/usr/local/opt/icu4c/include
 .PHONY: icu-macos-fix-build

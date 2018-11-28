@@ -95,7 +95,7 @@ spec = do
       doc <- openDoc "FuncTestFail.hs" "haskell"
       defs <- getDefinitions doc (Position 1 11)
       liftIO $ defs `shouldBe` []
-    
+
     it "respond to untypecheckable modules with parsed module cache" $
       runSession hieCommand fullCaps "test/testdata" $ do
         doc <- openDoc "FuncTestFail.hs" "haskell"

@@ -262,6 +262,16 @@ codeActionProvider plId docId _ context = do
 extractModuleName :: T.Text -> Maybe T.Text
 extractModuleName msg
   | T.isPrefixOf "Could not find module " msg = Just $ T.tail $ T.init nameAndQuotes
+  | T.isPrefixOf "Could not load module " msg = Just $ T.tail $ T.init nameAndQuotes
   | otherwise = Nothing
-  where line = T.replace "\n" "" msg
+  where line = head $ T.lines msg
         nameAndQuotes = T.dropWhileEnd (/= '’') $ T.dropWhile (/= '‘') line
+
+{- GHC 8.6.2 error message is
+
+"Could not load module \8216Data.Text\8217\n" ++
+"It is a member of the hidden package \8216text-1.2.3.1\8217.\n" ++
+"Perhaps you need to add \8216text\8217 to the build-depends in your .cabal file.\n" ++
+"Use -v to see a list of the files searched for.
+
+-}
