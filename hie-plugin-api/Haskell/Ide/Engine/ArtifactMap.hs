@@ -69,7 +69,19 @@ genLocMap tm = names
     checker (GHC.L (GHC.RealSrcSpan r) x) = IM.singleton (rspToInt r) x
     checker _                             = IM.empty
 
-#if __GLASGOW_HASKELL__ > 710
+#if __GLASGOW_HASKELL__ >= 806
+    fieldOcc :: GHC.FieldOcc GM.GhcRn -> LocMap
+    fieldOcc (GHC.FieldOcc n (GHC.L (GHC.RealSrcSpan r) _)) = IM.singleton (rspToInt r) n
+    fieldOcc _ = IM.empty
+
+    hsRecFieldN :: GHC.LHsExpr GM.GhcRn -> LocMap
+    hsRecFieldN (GHC.L _ (GHC.HsRecFld _ (GHC.Unambiguous n (GHC.L (GHC.RealSrcSpan r) _)) )) = IM.singleton (rspToInt r) n
+    hsRecFieldN _ = IM.empty
+
+    hsRecFieldT :: GHC.LHsExpr GM.GhcTc -> LocMap
+    hsRecFieldT (GHC.L _ (GHC.HsRecFld _ (GHC.Ambiguous n (GHC.L (GHC.RealSrcSpan r) _)) )) = IM.singleton (rspToInt r) (Var.varName n)
+    hsRecFieldT _ = IM.empty
+#elif __GLASGOW_HASKELL__ > 710
     fieldOcc :: GHC.FieldOcc GM.GhcRn -> LocMap
     fieldOcc (GHC.FieldOcc (GHC.L (GHC.RealSrcSpan r) _) n) = IM.singleton (rspToInt r) n
     fieldOcc _ = IM.empty
@@ -104,7 +116,11 @@ genImportMap tm = moduleMap
     goImp acc _ = acc
 
     goExp :: ModuleMap -> GHC.LIE name -> ModuleMap
+#if __GLASGOW_HASKELL__ >= 806
+    goExp acc (GHC.L (GHC.RealSrcSpan r) (GHC.IEModuleContents _ lmn)) =
+#else
     goExp acc (GHC.L (GHC.RealSrcSpan r) (GHC.IEModuleContents lmn)) =
+#endif
       IM.insert (rspToInt r) (GHC.unLoc lmn) acc
     goExp acc _ = acc
 
@@ -115,22 +131,43 @@ genDefMap tm = mconcat $ map (go . GHC.unLoc) decls
   where
     go :: GHC.HsDecl GM.GhcPs -> DefMap
     -- Type signatures
+#if __GLASGOW_HASKELL__ >= 806
+    go (GHC.SigD _ (GHC.TypeSig _ lns _)) =
+#else
     go (GHC.SigD (GHC.TypeSig lns _)) =
+#endif
       foldl IM.union mempty $ fmap go' lns
-      where go' (GHC.L (GHC.RealSrcSpan r) n) = IM.singleton (rspToInt r) n 
+      where go' (GHC.L (GHC.RealSrcSpan r) n) = IM.singleton (rspToInt r) n
             go' _ = mempty
     -- Definitions
+#if __GLASGOW_HASKELL__ >= 806
+    go (GHC.ValD _ (GHC.FunBind _ (GHC.L (GHC.RealSrcSpan r) n) GHC.MG { GHC.mg_alts = llms } _ _)) =
+#else
     go (GHC.ValD (GHC.FunBind (GHC.L (GHC.RealSrcSpan r) n) GHC.MG { GHC.mg_alts = llms } _ _ _)) =
+#endif
       IM.insert (rspToInt r) n wheres
       where
         wheres = mconcat $ fmap (gomatch . GHC.unLoc) (GHC.unLoc llms)
 
         gomatch GHC.Match { GHC.m_grhss = GHC.GRHSs { GHC.grhssLocalBinds = lbs } } =
             golbs (GHC.unLoc lbs)
+#if __GLASGOW_HASKELL__ >= 806
+        gomatch GHC.XMatch{} = error "GHC.XMatch"
+        gomatch (GHC.Match _ _ _ (GHC.XGRHSs _)) = error "GHC.XMatch"
+#endif
 
+#if __GLASGOW_HASKELL__ >= 806
+        golbs (GHC.HsValBinds _ (GHC.ValBinds _ lhsbs lsigs)) =
+#else
         golbs (GHC.HsValBinds (GHC.ValBindsIn lhsbs lsigs)) =
+#endif
+#if __GLASGOW_HASKELL__ >= 806
+          foldl (\acc x -> IM.union acc (go $ GHC.ValD GHC.NoExt $ GHC.unLoc x)) mempty lhsbs
+            `mappend` foldl IM.union mempty (fmap (go . GHC.SigD GHC.NoExt . GHC.unLoc) lsigs)
+#else
           foldl (\acc x -> IM.union acc (go $ GHC.ValD $ GHC.unLoc x)) mempty lhsbs
             `mappend` foldl IM.union mempty (fmap (go . GHC.SigD . GHC.unLoc) lsigs)
+#endif
         golbs _ = mempty
     go _ = mempty
     decls = GHC.hsmodDecls $ GHC.unLoc $ GHC.pm_parsed_source $ GHC.tm_parsed_module tm
@@ -168,6 +205,3 @@ toPos (l,c) = Position (l-1) (c-1)
 
 -- ---------------------------------------------------------------------
 -- ---------------------------------------------------------------------
-
-
-

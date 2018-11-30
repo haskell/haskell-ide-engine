@@ -26,4 +26,10 @@
 
 [submodule "submodules/brittany"]
 	path = submodules/brittany
-	url = https://github.com/alanz/brittany.git
+	url = https://github.com/lspitzner/brittany.git
+[submodule "submodules/apply-refact"]
+	path = submodules/apply-refact
+	url = https://github.com/alanz/apply-refact.git
+[submodule "submodules/lsp-test"]
+	path = submodules/lsp-test
+	url = https://github.com/alanz/lsp-test.git

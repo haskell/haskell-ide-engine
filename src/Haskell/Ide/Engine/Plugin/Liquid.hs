@@ -1,7 +1,8 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE NamedFieldPuns      #-}
+{-# LANGUAGE CPP                   #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE NamedFieldPuns        #-}
 module Haskell.Ide.Engine.Plugin.Liquid where
 
 import           Control.Concurrent.Async

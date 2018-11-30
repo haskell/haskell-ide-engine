@@ -309,7 +309,7 @@ test-suite func-test
                      , data-default
                      , directory
                      , filepath
-                     , lsp-test == 0.4.*
+                     , lsp-test == 0.5.*
                      , haskell-ide-engine
                      -- , hie-test-utils
                      , hie-plugin-api

@@ -9,7 +9,7 @@ module TestUtils
   , runSingleReq
   , makeRequest
   , runIGM
-  , ghc84
+  , ghcVersion, GhcVersion(..)
   , logFilePath
   , hieCommand
   , hieCommandVomit
@@ -116,16 +116,28 @@ files =
    , "./test/testdata/wErrorTest/"
   ]
 
-ghc84 :: Bool
-#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)))
-ghc84 = True
+data GhcVersion
+  = GHC86
+  | GHC84
+  | GHCPre84
+  deriving (Eq,Show)
+
+ghcVersion :: GhcVersion
+#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)))
+ghcVersion = GHC86
+#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)))
+ghcVersion = GHC84
 #else
-ghc84 = False
+ghcVersion = GHCPre84
 #endif
 
 stackYaml :: FilePath
 stackYaml =
-#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,4,0)))
+#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,6,2,0)))
+  "stack-8.6.2.yaml"
+#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,6,1,0)))
+  "stack-8.6.1.yaml"
+#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,4,0)))
   "stack-8.4.4.yaml"
 #elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,3,0)))
   "stack-8.4.3.yaml"
