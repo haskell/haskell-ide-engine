@@ -174,7 +174,7 @@ icu-macos-fix-build:
 
 # ------------------------------------------------------
 
-HIE_GIT_REF:=$(shell git symbolic-ref -q --short HEAD || git describe --tags --exact-match)
+HIE_GIT_REF:=$(shell git describe --tags)
 HIE_DIST_NAME:=hie-${HIE_GIT_REF}-`uname -m`-`uname -s`
 HIE_DIST_DIR:=/tmp/${HIE_DIST_NAME}
 ## Creates a tarball containing all the hie binaries
@@ -189,9 +189,13 @@ dist:
 	stack --stack-yaml=stack-8.4.3.yaml build
 	cp .stack-work/install/*/*/8.4.3/bin/hie ${HIE_DIST_DIR}/hie-8.4.3
 	stack --stack-yaml=stack-8.4.4.yaml build
-	cp .stack-work/install/*/*/8.4.4/bin/hie ${HIE_DIST_DIR}/hie
 	cp .stack-work/install/*/*/8.4.4/bin/hie ${HIE_DIST_DIR}/hie-8.4.4
-	cp .stack-work/install/*/*/8.4.4/bin/hie-wrapper ${HIE_DIST_DIR}/hie-wrapper
+	stack --stack-yaml=stack-8.6.1.yaml build
+	cp .stack-work/install/*/*/8.6.1/bin/hie ${HIE_DIST_DIR}/hie-8.6.1
+	stack --stack-yaml=stack-8.6.2.yaml build
+	cp .stack-work/install/*/*/8.6.2/bin/hie ${HIE_DIST_DIR}/hie-8.6.2
+	cp .stack-work/install/*/*/8.6.2/bin/hie ${HIE_DIST_DIR}/hie
+	cp .stack-work/install/*/*/8.6.2/bin/hie-wrapper ${HIE_DIST_DIR}/hie-wrapper
 	tar -czf ${HIE_DIST_NAME}.tar.gz -C ${HIE_DIST_DIR} .
 	rm -r ${HIE_DIST_DIR}
 .PHONY: dist
