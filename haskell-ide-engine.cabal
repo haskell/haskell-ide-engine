@@ -1,5 +1,5 @@
 name:                haskell-ide-engine
-version:             0.2.2.0
+version:             0.4.0.1
 synopsis:            Provide a common engine to power any Haskell IDE
 description:         Please see README.md
 homepage:            http://github.com/githubuser/haskell-ide-engine#readme
@@ -20,9 +20,9 @@ flag pedantic
 library
   hs-source-dirs:      src
   exposed-modules:     Haskell.Ide.Engine.Plugin.Base
-                       Haskell.Ide.Engine.Dispatcher
+                       Haskell.Ide.Engine.Channel
+                       Haskell.Ide.Engine.Scheduler
                        Haskell.Ide.Engine.LSP.CodeActions
-                       Haskell.Ide.Engine.LSP.Config
                        Haskell.Ide.Engine.LSP.Reactor
                        Haskell.Ide.Engine.Options
                        Haskell.Ide.Engine.Plugin.ApplyRefact
@@ -40,6 +40,7 @@ library
                        Haskell.Ide.Engine.Plugin.Liquid
                        Haskell.Ide.Engine.Plugin.Package
                        Haskell.Ide.Engine.Plugin.Package.Compat
+                       Haskell.Ide.Engine.Plugin.Pragmas
                        Haskell.Ide.Engine.Transport.JsonStdio
                        Haskell.Ide.Engine.Transport.LspStdio
                        Haskell.Ide.Engine.Types
@@ -54,7 +55,7 @@ library
                      , brittany
                      , bytestring
                      , Cabal
-                     , cabal-helper >= 0.8.1.0
+                     , cabal-helper >= 0.8.0.4
                      , containers
                      , data-default
                      , directory
@@ -151,6 +152,7 @@ library hie-test-utils
                      , ghc-mod-core
                      , hslogger
                      , hspec
+                     , stm
                      , text
                      , unordered-containers
                      , yaml
@@ -189,6 +191,7 @@ test-suite unit-test
                      , hoogle > 5.0.11
                      , hspec
                      , quickcheck-instances
+                     , stm
                      , text
                      , unordered-containers
 
@@ -224,6 +227,31 @@ test-suite dispatcher-test
   default-language:    Haskell2010
   build-tool-depends:  hspec-discover:hspec-discover
 
+test-suite plugin-dispatcher-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test/plugin-dispatcher
+  main-is:             Main.hs
+  build-depends:       base
+                     , aeson
+                     , containers
+                     , data-default
+                     , directory
+                     , filepath
+                     , ghc
+                     , haskell-lsp
+                     , haskell-ide-engine
+                     , hie-test-utils
+                     , hie-plugin-api
+                     , hspec
+                     , stm
+                     , text
+                     , unordered-containers
+
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
+  if flag(pedantic)
+     ghc-options:      -Werror
+  default-language:    Haskell2010
+
 test-suite func-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test/functional
@@ -251,7 +279,7 @@ test-suite func-test
                      , data-default
                      , directory
                      , filepath
-                     , lsp-test >= 0.4
+                     , lsp-test == 0.5.*
                      , haskell-ide-engine
                      , haskell-lsp-types >= 0.4
                      , hie-test-utils

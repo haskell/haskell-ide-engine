@@ -12,6 +12,7 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Maybe
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
+import           Haskell.Ide.Engine.Config
 import           Language.Haskell.LSP.Test as Test
 import           Language.Haskell.LSP.Types
 import qualified Language.Haskell.LSP.Types.Lens as L
@@ -46,6 +47,8 @@ spec = describe "code actions" $ do
 
       noDiagnostics
 
+    -- ---------------------------------
+
     it "falls back to pre 3.8 code actions" $ runSession hieCommand noLiteralCaps "test/testdata" $ do
       doc <- openDoc "ApplyRefact2.hs" "haskell"
 
@@ -63,6 +66,8 @@ spec = describe "code actions" $ do
 
       noDiagnostics
 
+  -- -----------------------------------
+
   describe "rename suggestions" $ do
     it "works" $ runSession hieCommand noLiteralCaps "test/testdata" $ do
       doc <- openDoc "CodeActionRename.hs" "haskell"
@@ -79,7 +84,7 @@ spec = describe "code actions" $ do
         doc <- openDoc "CodeActionRename.hs" "haskell"
 
         _ <- waitForDiagnosticsSource "ghcmod"
-        
+
         CACommand cmd <- (!! 2) <$> getAllCodeActions doc
         let Just (List [Object args]) = cmd ^. L.arguments
             Object editParams = args HM.! "fallbackWorkspaceEdit"
@@ -92,8 +97,8 @@ spec = describe "code actions" $ do
         _:x:_ <- T.lines <$> documentContents doc
         liftIO $ x `shouldBe` "foo = putStrLn \"world\""
 
-  it "provides import suggestions and 3.8 code action kinds" $
-    runSession hieCommand fullCaps "test/testdata" $ do
+  describe "import suggestions" $ do
+    it "works with 3.8 code action kinds" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImport.hs" "haskell"
 
       -- ignore the first empty hlint diagnostic publish
@@ -117,8 +122,36 @@ spec = describe "code actions" $ do
       executeCodeAction (head actns)
 
       contents <- getDocumentEdit doc
-      liftIO $ contents `shouldBe` "import Control.Monad\nmain :: IO ()\nmain = when True $ putStrLn \"hello\""
+      liftIO $ contents `shouldBe` "import           Control.Monad\nmain :: IO ()\nmain = when True $ putStrLn \"hello\""
+    it "formats with brittany" $ runSession hieCommand fullCaps "test/testdata" $ do
+      doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
+      _ <- waitForDiagnosticsSource "ghcmod"
 
+      actionsOrCommands <- getAllCodeActions doc
+      let action:_ = map fromAction actionsOrCommands
+      executeCodeAction action
+
+      contents <- getDocumentEdit doc
+      liftIO $ do
+        let l1:l2:_ = T.lines contents
+        l1 `shouldBe` "import qualified Data.Maybe"
+        l2 `shouldBe` "import           Control.Monad"
+    it "respects format config" $ runSession hieCommand fullCaps "test/testdata" $ do
+      doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
+      _ <- waitForDiagnosticsSource "ghcmod"
+      
+      let config = def { formatOnImportOn = False }
+      sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
+
+      actionsOrCommands <- getAllCodeActions doc
+      let action:_ = map fromAction actionsOrCommands
+      executeCodeAction action
+
+      contents <- getDocumentEdit doc
+      liftIO $ do
+        let l1:l2:_ = T.lines contents
+        l1 `shouldBe` "import qualified Data.Maybe"
+        l2 `shouldBe` "import Control.Monad"
 
   describe "add package suggestions" $ do
     it "adds to .cabal files" $ runSession hieCommand fullCaps "test/testdata/addPackageTest/cabal" $ do
@@ -127,9 +160,14 @@ spec = describe "code actions" $ do
       -- ignore the first empty hlint diagnostic publish
       [_,diag:_] <- count 2 waitForDiagnostics
 
-      liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Data.Text’"
+      if ghcVersion == GHC86
+        then
+          liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not load module \8216Data.Text\8217"
+         else
+          liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Data.Text’"
 
-      (CACodeAction action:_) <- getAllCodeActions doc
+      acts <- getAllCodeActions doc
+      let (CACodeAction action:_) = acts
 
       liftIO $ do
         action ^. L.title `shouldBe` "Add text as a dependency"
@@ -148,7 +186,11 @@ spec = describe "code actions" $ do
         -- ignore the first empty hlint diagnostic publish
         [_,diag:_] <- count 2 waitForDiagnostics
 
-        liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Codec.Compression.GZip’"
+        if ghcVersion == GHC86
+          then
+            liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not load module ‘Codec.Compression.GZip’"
+          else
+            liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Codec.Compression.GZip’"
 
         mActions <- getAllCodeActions doc
         let allActions = map fromAction mActions
@@ -166,6 +208,8 @@ spec = describe "code actions" $ do
           T.lines contents !! 33 `shouldSatisfy` T.isSuffixOf "zlib"
           T.lines contents !! 12 `shouldNotSatisfy` T.isSuffixOf "zlib"
           T.lines contents !! 13 `shouldNotSatisfy` T.isSuffixOf "zlib"
+
+  -- -----------------------------------
 
   describe "redundant import code actions" $ do
     it "remove solitary redundant imports" $
@@ -206,11 +250,14 @@ spec = describe "code actions" $ do
 
       contents <- documentContents doc
 
-      liftIO $ contents `shouldBe`
-        "module MultipleImports where\n\
-        \import Data.Maybe\n\
-        \foo :: Int\n\
-        \foo = fromJust (Just 3)\n"
+      liftIO $ (T.lines contents) `shouldBe`
+        [ "module MultipleImports where"
+        , "import Data.Maybe"
+        , "foo :: Int"
+        , "foo = fromJust (Just 3)"
+        ]
+
+  -- -----------------------------------
 
   describe "typed hole code actions" $ do
       it "works" $
@@ -220,19 +267,28 @@ spec = describe "code actions" $ do
           cas <- map (\(CACodeAction x)-> x) <$> getAllCodeActions doc
 
           suggestion <-
-            if ghc84 then do
-              liftIO $ map (^. L.title) cas `shouldMatchList`
-                [ "Substitute hole (Int) with maxBound (forall a. Bounded a => a)"
-                , "Substitute hole (Int) with minBound (forall a. Bounded a => a)"
-                , "Substitute hole (Int) with undefined (forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a)"
-                ]
-              return "maxBound"
-            else do
-              liftIO $ map (^. L.title) cas `shouldMatchList`
-                [ "Substitute hole (Int) with x ([Int])"
-                , "Substitute hole (Int) with foo ([Int] -> Int)"
-                ]
-              return "x"
+            case ghcVersion of
+              GHC86 -> do
+                liftIO $ map (^. L.title) cas `shouldMatchList`
+                  [ "Substitute hole (Int) with x ([Int])"
+                  , "Substitute hole (Int) with foo ([Int] -> Int Valid hole fits include)"
+                  , "Substitute hole (Int) with maxBound (forall a. Bounded a => a with maxBound @Int)"
+                  , "Substitute hole (Int) with minBound (forall a. Bounded a => a with minBound @Int)"
+                  ]
+                return "x"
+              GHC84 -> do
+                liftIO $ map (^. L.title) cas `shouldMatchList`
+                  [ "Substitute hole (Int) with maxBound (forall a. Bounded a => a)"
+                  , "Substitute hole (Int) with minBound (forall a. Bounded a => a)"
+                  , "Substitute hole (Int) with undefined (forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a)"
+                  ]
+                return "maxBound"
+              GHCPre84 -> do
+                liftIO $ map (^. L.title) cas `shouldMatchList`
+                  [ "Substitute hole (Int) with x ([Int])"
+                  , "Substitute hole (Int) with foo ([Int] -> Int)"
+                  ]
+                return "x"
 
           executeCodeAction $ head cas
 
@@ -250,33 +306,44 @@ spec = describe "code actions" $ do
           cas <- map fromAction <$> getAllCodeActions doc
 
           suggestion <-
-            if ghc84 then do
-              liftIO $ map (^. L.title) cas `shouldMatchList`
-                [ "Substitute hole (A) with undefined (forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a)"
-                , "Substitute hole (A) with stuff (A -> A)"
-                , "Substitute hole (A) with x ([A])"
-                , "Substitute hole (A) with foo2 ([A] -> A)"
-                ]
-              return "undefined"
-          else do
-              liftIO $ map (^. L.title) cas `shouldMatchList`
-                [ "Substitute hole (A) with stuff (A -> A)"
-                , "Substitute hole (A) with x ([A])"
-                , "Substitute hole (A) with foo2 ([A] -> A)"
-                ]
-              return "stuff"
+            case ghcVersion of
+              GHC86 -> do
+                liftIO $ map (^. L.title) cas `shouldMatchList`
+                  [ "Substitute hole (A) with stuff (A -> A)"
+                  , "Substitute hole (A) with x ([A])"
+                  , "Substitute hole (A) with foo2 ([A] -> A)"
+                  ]
+                return "stuff"
+              GHC84 -> do
+                liftIO $ map (^. L.title) cas `shouldMatchList`
+                  [ "Substitute hole (A) with undefined (forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a)"
+                  , "Substitute hole (A) with stuff (A -> A)"
+                  , "Substitute hole (A) with x ([A])"
+                  , "Substitute hole (A) with foo2 ([A] -> A)"
+                  ]
+                return "undefined"
+              GHCPre84 -> do
+                liftIO $ map (^. L.title) cas `shouldMatchList`
+                  [ "Substitute hole (A) with stuff (A -> A)"
+                  , "Substitute hole (A) with x ([A])"
+                  , "Substitute hole (A) with foo2 ([A] -> A)"
+                  ]
+                return "stuff"
 
           executeCodeAction $ head cas
 
           contents <- documentContents doc
 
-          liftIO $ contents `shouldBe`
-            "module TypedHoles2 (foo2) where\n\
-            \newtype A = A Int\n\
-            \foo2 :: [A] -> A\n\
-            \foo2 x = " <> suggestion <> "\n\
-            \  where\n\
-            \    stuff (A a) = A (a + 1)\n"
+          liftIO $ (T.lines contents) `shouldBe`
+            [ "module TypedHoles2 (foo2) where"
+            , "newtype A = A Int"
+            , "foo2 :: [A] -> A"
+            , "foo2 x = " <> suggestion <> ""
+            , "  where"
+            , "    stuff (A a) = A (a + 1)"
+            ]
+
+  -- -----------------------------------
 
   describe "missing top level signature code actions" $
     it "Adds top level signature" $
@@ -292,14 +359,80 @@ spec = describe "code actions" $ do
 
         contents <- documentContents doc
 
-        let expected = "{-# OPTIONS_GHC -Wall #-}\n\
-                       \module TopLevelSignature where\n\
-                       \main :: IO ()\n\
-                       \main = do\n\
-                       \  putStrLn \"Hello\"\n\
-                       \  return ()\n"
+        let expected = [ "{-# OPTIONS_GHC -Wall #-}"
+                       , "module TopLevelSignature where"
+                       , "main :: IO ()"
+                       , "main = do"
+                       , "  putStrLn \"Hello\""
+                       , "  return ()"
+                       ]
 
-        liftIO $ contents `shouldBe` expected
+        liftIO $ (T.lines contents) `shouldBe` expected
+
+  -- -----------------------------------
+
+  describe "missing pragma warning code actions" $
+    it "Adds TypeSynonymInstances pragma" $
+      runSession hieCommand fullCaps "test/testdata/addPragmas" $ do
+        doc <- openDoc "NeedsPragmas.hs" "haskell"
+
+        _ <- waitForDiagnosticsSource "ghcmod"
+        cas <- map fromAction <$> getAllCodeActions doc
+
+        liftIO $ map (^. L.title) cas `shouldContain` [ "Add \"TypeSynonymInstances\""]
+        liftIO $ map (^. L.title) cas `shouldContain` [ "Add \"FlexibleInstances\""]
+
+        executeCodeAction $ head cas
+
+        contents <- getDocumentEdit doc
+
+        let expected = [ "{-# LANGUAGE TypeSynonymInstances #-}"
+                       , ""
+                       , "import GHC.Generics"
+                       , ""
+                       , "main = putStrLn \"hello\""
+                       , ""
+                       , "type Foo = Int"
+                       , ""
+                       , "instance Show Foo where"
+                       , "  show x = undefined"
+                       , ""
+                       , "instance Show (Int,String) where"
+                       , "  show  = undefined"
+                       , ""
+                       , "data FFF a = FFF Int String a"
+                       , "           deriving (Generic,Functor,Traversable)"
+                       ]
+
+        liftIO $ (T.lines contents) `shouldBe` expected
+
+  -- -----------------------------------
+
+  describe "unused term code actions" $
+    it "Prefixes with '_'" $
+      runSession hieCommand fullCaps "test/testdata/" $ do
+        doc <- openDoc "UnusedTerm.hs" "haskell"
+
+        _ <- waitForDiagnosticsSource "ghcmod"
+        cas <- map fromAction <$> getAllCodeActions doc
+
+        liftIO $ map (^. L.title) cas `shouldContain` [ "Prefix imUnused with _"]
+
+        executeCodeAction $ head cas
+
+        edit <- getDocumentEdit doc
+
+        let expected = [ "{-# OPTIONS_GHC -Wall #-}"
+                       , "module UnusedTerm () where"
+                       , "_imUnused :: Int -> Int"
+                       , "_imUnused 1 = 1"
+                       , "_imUnused 2 = 2"
+                       , "_imUnused _ = 3"
+                       ]
+
+        liftIO $ edit `shouldBe` (T.unlines expected)
+
+-- ---------------------------------------------------------------------
 
 fromAction :: CAResult -> CodeAction
 fromAction (CACodeAction action) = action

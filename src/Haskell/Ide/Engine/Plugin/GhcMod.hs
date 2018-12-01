@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -9,8 +10,6 @@ module Haskell.Ide.Engine.Plugin.GhcMod where
 import           Bag
 import           Control.Monad.IO.Class
 import           Control.Lens hiding (cons, children)
-import           Control.Lens.Setter ((%~))
-import           Control.Lens.Traversal (traverseOf)
 import           Data.Aeson
 import           Data.Function
 import qualified Data.HashMap.Strict               as HM
@@ -21,9 +20,7 @@ import           Data.Maybe
 import           Data.Monoid ((<>))
 import qualified Data.Set                          as Set
 import qualified Data.Text                         as T
-import qualified Data.Text.IO                      as T
 import           ErrUtils
-import qualified Exception                         as G
 import           Name
 import           GHC.Generics
 import qualified GhcMod                            as GM
@@ -35,11 +32,9 @@ import qualified GhcMod.Monad                      as GM
 import qualified GhcMod.SrcUtils                   as GM
 import qualified GhcMod.Types                      as GM
 import qualified GhcMod.Utils                      as GM
-import qualified GhcMod.Exe.CaseSplit              as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
-import           Haskell.Ide.Engine.Plugin.HaRe (HarePoint(..))
 import qualified Haskell.Ide.Engine.Plugin.HieExtras as Hie
 import           Haskell.Ide.Engine.ArtifactMap
 import qualified Language.Haskell.LSP.Types        as LSP
@@ -68,7 +63,7 @@ ghcmodDescriptor plId = PluginDescriptor
       , PluginCommand "lint" "Check files using `hlint'" lintCmd
       , PluginCommand "info" "Look up an identifier in the context of FILE (like ghci's `:info')" infoCmd
       , PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmd
-      , PluginCommand "casesplit" "Generate a pattern match for a binding under (LINE,COL)" splitCaseCmd
+      , PluginCommand "casesplit" "Generate a pattern match for a binding under (LINE,COL)" Hie.splitCaseCmd
       ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
@@ -82,8 +77,7 @@ type Diagnostics = Map.Map Uri (Set.Set Diagnostic)
 type AdditionalErrs = [T.Text]
 
 checkCmd :: CommandFunc Uri (Diagnostics, AdditionalErrs)
-checkCmd = CmdSync $ \_ uri ->
-  setTypecheckedModule uri
+checkCmd = CmdSync setTypecheckedModule
 
 -- ---------------------------------------------------------------------
 
@@ -225,13 +219,12 @@ setTypecheckedModule uri =
 -- ---------------------------------------------------------------------
 
 lintCmd :: CommandFunc Uri T.Text
-lintCmd = CmdSync $ \_ uri ->
-  lintCmd' uri
+lintCmd = CmdSync lintCmd'
 
 lintCmd' :: Uri -> IdeGhcM (IdeResult T.Text)
 lintCmd' uri =
   pluginGetFile "lint: " uri $ \file ->
-    fmap T.pack <$> runGhcModCommand (GM.lint GM.defaultLintOpts file)
+    fmap T.pack <$> Hie.runGhcModCommand (GM.lint GM.defaultLintOpts file)
 
 -- ---------------------------------------------------------------------
 
@@ -249,13 +242,13 @@ instance ToJSON InfoParams where
   toJSON = genericToJSON customOptions
 
 infoCmd :: CommandFunc InfoParams T.Text
-infoCmd = CmdSync $ \_ (IP uri expr) ->
+infoCmd = CmdSync $ \(IP uri expr) ->
   infoCmd' uri expr
 
 infoCmd' :: Uri -> T.Text -> IdeGhcM (IdeResult T.Text)
 infoCmd' uri expr =
   pluginGetFile "info: " uri $ \file ->
-    fmap T.pack <$> runGhcModCommand (GM.info file (GM.Expression (T.unpack expr)))
+    fmap T.pack <$> Hie.runGhcModCommand (GM.info file (GM.Expression (T.unpack expr)))
 
 -- ---------------------------------------------------------------------
 data TypeParams =
@@ -270,7 +263,7 @@ instance ToJSON TypeParams where
   toJSON = genericToJSON customOptions
 
 typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
-typeCmd = CmdSync $ \_ (TP _bool uri pos) ->
+typeCmd = CmdSync $ \(TP _bool uri pos) ->
   liftToGhc $ newTypeCmd pos uri
 
 newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
@@ -307,74 +300,6 @@ cmp a b
 isSubRangeOf :: Range -> Range -> Bool
 isSubRangeOf (Range sa ea) (Range sb eb) = sb <= sa && eb >= ea
 
-
-splitCaseCmd :: CommandFunc HarePoint WorkspaceEdit
-splitCaseCmd = CmdSync $ \_ (HP uri pos) -> splitCaseCmd' uri pos
-
-splitCaseCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
-splitCaseCmd' uri newPos =
-  pluginGetFile "splitCaseCmd: " uri $ \path -> do
-    origText <- GM.withMappedFile path $ liftIO . T.readFile
-    ifCachedModule path (IdeResultOk mempty) $ \tm info -> runGhcModCommand $
-      case newPosToOld info newPos of
-        Just oldPos -> do
-          let (line, column) = unPos oldPos
-          splitResult' <- GM.splits' path tm line column
-          case splitResult' of
-            Just splitResult -> do
-              wEdit <- liftToGhc $ splitResultToWorkspaceEdit origText splitResult
-              return $ oldToNewPositions info wEdit
-            Nothing -> return mempty
-        Nothing -> return mempty
-  where
-
-    -- | Transform all ranges in a WorkspaceEdit from old to new positions.
-    oldToNewPositions :: CachedInfo -> WorkspaceEdit -> WorkspaceEdit
-    oldToNewPositions info wsEdit =
-      wsEdit
-        & LSP.documentChanges %~ (>>= traverseOf (traverse . LSP.edits . traverse . LSP.range) (oldRangeToNew info))
-        & LSP.changes %~ (>>= traverseOf (traverse . traverse . LSP.range) (oldRangeToNew info))
-
-    -- | Given the range and text to replace, construct a 'WorkspaceEdit'
-    -- by diffing the change against the current text.
-    splitResultToWorkspaceEdit :: T.Text -> GM.SplitResult -> IdeM WorkspaceEdit
-    splitResultToWorkspaceEdit originalText (GM.SplitResult replaceFromLine replaceFromCol replaceToLine replaceToCol replaceWith) =
-      diffText (uri, originalText) newText IncludeDeletions
-      where
-        before = takeUntil (toPos (replaceFromLine, replaceFromCol)) originalText
-        after = dropUntil (toPos (replaceToLine, replaceToCol)) originalText
-        newText = before <> replaceWith <> after
-
-    -- | Take the first part of text until the given position.
-    -- Returns all characters before the position.
-    takeUntil :: Position -> T.Text -> T.Text
-    takeUntil (Position l c) txt =
-      T.unlines takeLines <> takeCharacters
-      where
-        textLines = T.lines txt
-        takeLines = take l textLines
-        takeCharacters = T.take c (textLines !! c)
-
-    -- | Drop the first part of text until the given position.
-    -- Returns all characters after and including the position.
-    dropUntil :: Position -> T.Text -> T.Text
-    dropUntil (Position l c) txt = dropCharacters
-      where
-        textLines = T.lines txt
-        dropLines = drop l textLines
-        dropCharacters = T.drop c (T.unlines dropLines)
-
--- ---------------------------------------------------------------------
-
-runGhcModCommand :: IdeGhcM a
-                 -> IdeGhcM (IdeResult a)
-runGhcModCommand cmd =
-  (IdeResultOk <$> cmd) `G.gcatch`
-    \(e :: GM.GhcModError) ->
-      return $
-      IdeResultFail $
-      IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Null
-
 -- ---------------------------------------------------------------------
 
 newtype TypeDef = TypeDef T.Text deriving (Eq, Show)
@@ -396,12 +321,12 @@ data TypedHoles =
              } deriving (Eq, Show)
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider pid docId vf mfp r ctx = do
+codeActionProvider pid docId r ctx = do
   support <- clientSupportsDocumentChanges
-  codeActionProvider' support pid docId vf mfp r ctx
+  codeActionProvider' support pid docId r ctx
 
 codeActionProvider' :: Bool -> CodeActionProvider
-codeActionProvider' supportsDocChanges _ docId _ _ _ context =
+codeActionProvider' supportsDocChanges _ docId _ context =
   let LSP.List diags = context ^. LSP.diagnostics
       terms = concatMap getRenamables diags
       renameActions = map (uncurry mkRenamableAction) terms
@@ -410,10 +335,13 @@ codeActionProvider' supportsDocChanges _ docId _ _ _ context =
       typedHoleActions = concatMap mkTypedHoleActions (mapMaybe getTypedHoles diags)
       missingSignatures = mapMaybe getMissingSignatures diags
       topLevelSignatureActions = map (uncurry mkMissingSignatureAction) missingSignatures
+      unusedTerms = mapMaybe getUnusedTerms diags
+      unusedTermActions = map (uncurry mkUnusedTermAction) unusedTerms
   in return $ IdeResultOk $ concat [ renameActions
                                    , redundantActions
                                    , typedHoleActions
                                    , topLevelSignatureActions
+                                   , unusedTermActions
                                    ]
 
   where
@@ -512,6 +440,26 @@ codeActionProvider' supportsDocChanges _ docId _ _ _ context =
             kind = LSP.CodeActionQuickFix
             codeAction = LSP.CodeAction title (Just kind) (Just diags) (Just edit) Nothing
 
+    getUnusedTerms :: LSP.Diagnostic -> Maybe (LSP.Diagnostic, T.Text)
+    getUnusedTerms diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) =
+      case extractUnusedTerm msg of
+        Nothing -> Nothing
+        Just signature -> Just (diag, signature)
+    getUnusedTerms _ = Nothing
+
+    mkUnusedTermAction :: LSP.Diagnostic -> T.Text -> LSP.CodeAction
+    mkUnusedTermAction diag term = LSP.CodeAction title (Just kind) (Just diags) Nothing (Just cmd)
+      where title :: T.Text
+            title = "Prefix " <> term <> " with _"
+            diags = LSP.List [diag]
+            newTerm = "_" <> term
+            pos = diag ^. (LSP.range . LSP.start)
+            kind = LSP.CodeActionQuickFix
+            cmdArgs = LSP.List
+              [ Object $ HM.fromList [("file", toJSON docUri),("pos", toJSON pos), ("text", toJSON newTerm)]]
+            -- The command label isen't used since the command is never presented to the user
+            cmd  = LSP.Command "Unused command label" "hare:rename" (Just cmdArgs)
+
 extractRenamableTerms :: T.Text -> [T.Text]
 extractRenamableTerms msg
   -- Account for both "Variable not in scope" and "Not in scope"
@@ -601,6 +549,14 @@ extractMissingSignature msg = extractSignature <$> stripMessageStart msg
                       . T.strip
     extractSignature = T.strip
 
+extractUnusedTerm :: T.Text -> Maybe T.Text
+extractUnusedTerm msg = extractTerm <$> stripMessageStart msg
+  where
+    stripMessageStart = T.stripPrefix "Defined but not used:"
+                      . T.strip
+    extractTerm       = T.dropWhile (== '‘')
+                      . T.dropWhileEnd (== '’')
+                      . T.dropAround (\c -> c /= '‘' && c /= '’')
 
 -- ---------------------------------------------------------------------
 
@@ -652,38 +608,102 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
         decls = concatMap go $ hsmodDecls hsMod
 
         go :: LHsDecl GM.GhcPs -> [Decl]
-        go (L l (TyClD FamDecl { tcdFam = FamilyDecl { fdLName = n } })) = pure (Decl LSP.SkClass n [] l)
-        go (L l (TyClD SynDecl { tcdLName = n })) = pure (Decl LSP.SkClass n [] l)
-        go (L l (TyClD DataDecl { tcdLName = n, tcdDataDefn = HsDataDefn { dd_cons = cons } })) =
+#if __GLASGOW_HASKELL__ >= 806
+        go (L l (TyClD _ d)) = goTyClD (L l d)
+#else
+        go (L l (TyClD   d)) = goTyClD (L l d)
+#endif
+
+#if __GLASGOW_HASKELL__ >= 806
+        go (L l (ValD _ d)) = goValD (L l d)
+#else
+        go (L l (ValD   d)) = goValD (L l d)
+#endif
+#if __GLASGOW_HASKELL__ >= 806
+        go (L l (ForD _ ForeignImport { fd_name = n })) = pure (Decl LSP.SkFunction n [] l)
+#else
+        go (L l (ForD   ForeignImport { fd_name = n })) = pure (Decl LSP.SkFunction n [] l)
+#endif
+        go _ = []
+
+        -- -----------------------------
+
+        goTyClD (L l (FamDecl { tcdFam = FamilyDecl { fdLName = n } })) = pure (Decl LSP.SkClass n [] l)
+        goTyClD (L l (SynDecl { tcdLName = n })) = pure (Decl LSP.SkClass n [] l)
+        goTyClD (L l (DataDecl { tcdLName = n, tcdDataDefn = HsDataDefn { dd_cons = cons } })) =
           pure (Decl LSP.SkClass n (concatMap processCon cons) l)
-        go (L l (TyClD ClassDecl { tcdLName = n, tcdSigs = sigs, tcdATs = fams })) =
+        goTyClD (L l (ClassDecl { tcdLName = n, tcdSigs = sigs, tcdATs = fams })) =
           pure (Decl LSP.SkInterface n children l)
           where children = famDecls ++ sigDecls
+#if __GLASGOW_HASKELL__ >= 806
+                famDecls = concatMap (go . fmap (TyClD NoExt . FamDecl NoExt)) fams
+#else
                 famDecls = concatMap (go . fmap (TyClD . FamDecl)) fams
+#endif
                 sigDecls = concatMap processSig sigs
+#if __GLASGOW_HASKELL__ >= 806
+        goTyClD (L _ (FamDecl _ (XFamilyDecl _)))        = error "goTyClD"
+        goTyClD (L _ (DataDecl _ _ _ _ (XHsDataDefn _))) = error "goTyClD"
+        goTyClD (L _ (XTyClDecl _))                      = error "goTyClD"
+#endif
 
-        go (L l (ValD FunBind { fun_id = ln, fun_matches = MG { mg_alts = llms } })) =
+        -- -----------------------------
+
+        goValD :: LHsBind GM.GhcPs -> [Decl]
+        goValD (L l (FunBind { fun_id = ln, fun_matches = MG { mg_alts = llms } })) =
           pure (Decl LSP.SkFunction ln wheres l)
           where
             wheres = concatMap (gomatch . unLoc) (unLoc llms)
             gomatch Match { m_grhss = GRHSs { grhssLocalBinds = lbs } } = golbs (unLoc lbs)
+#if __GLASGOW_HASKELL__ >= 806
+            gomatch (Match _ _ _ (XGRHSs _)) = error "gomatch"
+            gomatch (XMatch _)               = error "gomatch"
+
+            golbs (HsValBinds _ (ValBinds _ lhsbs _)) = concatMap (go . fmap (ValD NoExt)) lhsbs
+#else
             golbs (HsValBinds (ValBindsIn lhsbs _ )) = concatMap (go . fmap ValD) lhsbs
+#endif
             golbs _ = []
 
-        go (L l (ValD PatBind { pat_lhs = p })) =
+        goValD (L l (PatBind { pat_lhs = p })) =
           map (\n -> Decl LSP.SkVariable n [] l) $ hsNamessRdr p
-        go (L l (ForD ForeignImport { fd_name = n })) = pure (Decl LSP.SkFunction n [] l)
-        go _ = []
+
+#if __GLASGOW_HASKELL__ >= 806
+        goValD (L _ (FunBind _ _ (XMatchGroup _) _ _)) = error "goValD"
+        goValD (L _ (VarBind _ _ _ _))                 = error "goValD"
+        goValD (L _ (AbsBinds _ _ _ _ _ _ _))          = error "goValD"
+        goValD (L _ (PatSynBind _ _))                  = error "goValD"
+        goValD (L _ (XHsBindsLR _))                    = error "goValD"
+#elif __GLASGOW_HASKELL__ >= 804
+        goValD (L _ (VarBind _ _ _))        = error "goValD"
+        goValD (L _ (AbsBinds _ _ _ _ _ _)) = error "goValD"
+        goValD (L _ (PatSynBind _))         = error "goValD"
+#else
+        goValD (L _ (VarBind _ _ _))           = error "goValD"
+        goValD (L _ (AbsBinds _ _ _ _ _))      = error "goValD"
+        goValD (L _ (AbsBindsSig _ _ _ _ _ _)) = error "goValD"
+        goValD (L _ (PatSynBind _))            = error "goValD"
+#endif
+
+        -- -----------------------------
 
         processSig :: LSig GM.GhcPs -> [Decl]
+#if __GLASGOW_HASKELL__ >= 806
+        processSig (L l (ClassOpSig _ False names _)) =
+#else
         processSig (L l (ClassOpSig False names _)) =
+#endif
           map (\n -> Decl LSP.SkMethod n [] l) names
         processSig _ = []
 
         processCon :: LConDecl GM.GhcPs -> [Decl]
         processCon (L l ConDeclGADT { con_names = names }) =
           map (\n -> Decl LSP.SkConstructor n [] l) names
+#if __GLASGOW_HASKELL__ >= 806
+        processCon (L l ConDeclH98 { con_name = name, con_args    = dets }) =
+#else
         processCon (L l ConDeclH98 { con_name = name, con_details = dets }) =
+#endif
           pure (Decl LSP.SkConstructor name xs l)
           where
             f (L fl ln) = Decl LSP.SkField ln [] fl
@@ -692,6 +712,9 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
                                             . cd_fld_names
                                             . unLoc) rs
               _ -> []
+#if __GLASGOW_HASKELL__ >= 806
+        processCon (L _ (XConDecl _)) = error "processCon"
+#endif
 
         goImport :: LImportDecl GM.GhcPs -> [Decl]
         goImport (L l ImportDecl { ideclName = lmn, ideclAs = as, ideclHiding = meis }) = pure im
@@ -703,15 +726,25 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
             xs = case meis of
                     Just (False, eis) -> concatMap f (unLoc eis)
                     _ -> []
-            f (L l' (IEVar n)) = pure (Decl LSP.SkFunction (ieLWrappedName n) [] l')
+#if __GLASGOW_HASKELL__ >= 806
+            f (L l' (IEVar _ n))      = pure (Decl LSP.SkFunction (ieLWrappedName n) [] l')
+            f (L l' (IEThingAbs _ n)) = pure (Decl LSP.SkClass (ieLWrappedName n) [] l')
+            f (L l' (IEThingAll _ n)) = pure (Decl LSP.SkClass (ieLWrappedName n) [] l')
+            f (L l' (IEThingWith _ n _ vars fields)) =
+#else
+            f (L l' (IEVar n))      = pure (Decl LSP.SkFunction (ieLWrappedName n) [] l')
             f (L l' (IEThingAbs n)) = pure (Decl LSP.SkClass (ieLWrappedName n) [] l')
             f (L l' (IEThingAll n)) = pure (Decl LSP.SkClass (ieLWrappedName n) [] l')
             f (L l' (IEThingWith n _ vars fields)) =
-              let funcDecls = map (\n' -> Decl LSP.SkFunction (ieLWrappedName n') [] (getLoc n')) vars
+#endif
+              let funcDecls  = map (\n' -> Decl LSP.SkFunction (ieLWrappedName n') [] (getLoc n')) vars
                   fieldDecls = map (\f' -> Decl LSP.SkField (flSelector <$> f') [] (getLoc f')) fields
                   children = funcDecls ++ fieldDecls
                 in pure (Decl LSP.SkClass (ieLWrappedName n) children l')
             f _ = []
+#if __GLASGOW_HASKELL__ >= 806
+        goImport (L _ (XImportDecl _)) = error "goImport"
+#endif
 
         declsToSymbolInf :: Decl -> IdeDeferM [LSP.DocumentSymbol]
         declsToSymbolInf (Decl kind (L nl rdrName) children l) =

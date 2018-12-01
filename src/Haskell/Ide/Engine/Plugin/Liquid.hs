@@ -1,7 +1,8 @@
-{-# LANGUAGE CPP               #-}
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE NamedFieldPuns      #-}
+{-# LANGUAGE CPP                   #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE NamedFieldPuns        #-}
 module Haskell.Ide.Engine.Plugin.Liquid where
 
 import           Control.Concurrent.Async
@@ -12,7 +13,7 @@ import           Control.Exception (bracket)
 import           Data.Monoid
 #endif
 import           Data.Aeson
-import qualified Data.ByteString.Lazy as BS
+import qualified Data.ByteString.Lazy          as BS
 import qualified Data.Map                      as Map
 import qualified Data.Set                      as S
 import qualified Data.Text                     as T
@@ -52,10 +53,10 @@ liquidDescriptor plId = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 sayHelloCmd :: CommandFunc () T.Text
-sayHelloCmd = CmdSync $ \_ _ -> return (IdeResultOk sayHello)
+sayHelloCmd = CmdSync $ \_ -> return (IdeResultOk sayHello)
 
 sayHelloToCmd :: CommandFunc T.Text T.Text
-sayHelloToCmd = CmdSync $ \_ n -> do
+sayHelloToCmd = CmdSync $ \n -> do
   r <- liftIO $ sayHelloTo n
   return $ IdeResultOk r
 
@@ -99,7 +100,7 @@ instance ToJSON   LiquidError
 
 -- ---------------------------------------------------------------------
 
-data LiquidData =
+newtype LiquidData =
   LiquidData
     { tid :: Maybe (Async ())
     }
@@ -272,7 +273,7 @@ parseType str =
 -- ---------------------------------------------------------------------
 
 parseTypes :: Parser [LiquidError]
-parseTypes = parseTypeFromVim `sepBy` (string "\n")
+parseTypes = parseTypeFromVim `sepBy` string "\n"
 
 -- | Parse a line of the form
 -- 6:1-6:10::Main.weAreEven :: "[{v : GHC.Types.Int | v mod 2 == 0}]"

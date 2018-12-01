@@ -64,7 +64,7 @@ data OneHint = OneHint
   } deriving (Eq, Show)
 
 applyOneCmd :: CommandFunc ApplyOneParams WorkspaceEdit
-applyOneCmd = CmdSync $ \_ (AOP uri pos title) -> do
+applyOneCmd = CmdSync $ \(AOP uri pos title) -> do
   applyOneCmd' uri (OneHint pos title)
 
 applyOneCmd' :: Uri -> OneHint -> IdeGhcM (IdeResult WorkspaceEdit)
@@ -82,7 +82,7 @@ applyOneCmd' uri oneHint = pluginGetFile "applyOne: " uri $ \fp -> do
 -- ---------------------------------------------------------------------
 
 applyAllCmd :: CommandFunc Uri WorkspaceEdit
-applyAllCmd = CmdSync $ \_ uri -> do
+applyAllCmd = CmdSync $ \uri -> do
   applyAllCmd' uri
 
 applyAllCmd' :: Uri -> IdeGhcM (IdeResult WorkspaceEdit)
@@ -98,7 +98,7 @@ applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \fp -> do
 -- ---------------------------------------------------------------------
 
 lintCmd :: CommandFunc Uri PublishDiagnosticsParams
-lintCmd = CmdSync $ \_ uri -> do
+lintCmd = CmdSync $ \uri -> do
   lintCmd' uri
 
 -- AZ:TODO: Why is this in IdeGhcM?
@@ -178,7 +178,7 @@ hintToDiagnostic idea
 -- ---------------------------------------------------------------------
 
 idea2Message :: Idea -> T.Text
-idea2Message idea = T.unlines $ [T.pack $ ideaHint idea, "Found:", ("  " <> T.pack (ideaFrom idea))]
+idea2Message idea = T.unlines $ [T.pack $ ideaHint idea, "Found:", "  " <> T.pack (ideaFrom idea)]
                                <> toIdea <> map (T.pack . show) (ideaNote idea)
   where
     toIdea :: [T.Text]
@@ -267,7 +267,7 @@ hlintOpts lintFile mpos =
 runHlint :: MonadIO m => FilePath -> [String] -> ExceptT String m [Idea]
 runHlint fp args =
   do (flags,classify,hint) <- liftIO $ argsSettings args
-     let myflags = flags { hseFlags = (hseFlags flags) { extensions = (EnableExtension TypeApplications:extensions (hseFlags flags))}}
+     let myflags = flags { hseFlags = (hseFlags flags) { extensions = EnableExtension TypeApplications:extensions (hseFlags flags)}}
      res <- bimapExceptT showParseError id $ ExceptT $ liftIO $ parseModuleEx myflags fp Nothing
      pure $ applyHints classify hint [res]
 
@@ -278,11 +278,11 @@ showParseError (Hlint.ParseError location message content) =
 -- ---------------------------------------------------------------------
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider plId docId _ _ _ context = IdeResultOk <$> hlintActions
+codeActionProvider plId docId _ context = IdeResultOk <$> hlintActions
   where
 
     hlintActions :: IdeM [LSP.CodeAction]
-    hlintActions = catMaybes <$> (mapM mkHlintAction $ filter validCommand diags)
+    hlintActions = catMaybes <$> mapM mkHlintAction (filter validCommand diags)
 
     -- |Some hints do not have an associated refactoring
     validCommand (LSP.Diagnostic _ _ (Just code) (Just "hlint") _ _) =

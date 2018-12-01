@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -16,28 +17,43 @@ module Haskell.Ide.Engine.Plugin.HieExtras
   , PosPrefixInfo(..)
   , getRangeFromVFS
   , rangeLinesFromVfs
+  , HarePoint(..)
+  , customOptions
+  , runGhcModCommand
+  , splitCaseCmd'
+  , splitCaseCmd
   ) where
 
 import           ConLike
-import           Control.Lens.Operators                       ( (^?), (?~) )
+import           Control.Lens.Operators                       ( (^?), (?~), (&) )
 import           Control.Lens.Prism                           ( _Just )
+import           Control.Lens.Setter ((%~))
+import           Control.Lens.Traversal (traverseOf)
 import           Control.Monad.Reader
 import           Data.Aeson
+import qualified Data.Aeson.Types                             as J
+import           Data.Char
 import           Data.IORef
 import qualified Data.List                                    as List
 import qualified Data.Map                                     as Map
 import           Data.Maybe
 import           Data.Monoid                                  ( (<>) )
 import qualified Data.Text                                    as T
+import qualified Data.Text.IO                                 as T
 import           Data.Typeable
 import           DataCon
 import           Exception
 import           FastString
 import           Finder
-import           GHC
-import qualified GhcMod.LightGhc                              as GM
+import           GHC                                          hiding (getContext)
+import           GHC.Generics                                 (Generic)
+import qualified GhcMod.Error                                 as GM
+import qualified GhcMod.Exe.CaseSplit                         as GM
 import qualified GhcMod.Gap                                   as GM
+import qualified GhcMod.LightGhc                              as GM
+import qualified GhcMod.Utils                                 as GM
 import           Haskell.Ide.Engine.ArtifactMap
+import           Haskell.Ide.Engine.Context
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
@@ -66,9 +82,10 @@ getDynFlags = ms_hspp_opts . pm_mod_summary . tm_parsed_module
 
 -- ---------------------------------------------------------------------
 
-data NameMapData = NMD
-  { inverseNameMap ::  !(Map.Map Name [SrcSpan])
+newtype NameMapData = NMD
+  { inverseNameMap ::  Map.Map Name [SrcSpan]
   } deriving (Typeable)
+
 
 invert :: (Ord v) => Map.Map k v -> Map.Map v [k]
 invert m = Map.fromListWith (++) [(v,[k]) | (k,v) <- Map.toList m]
@@ -111,7 +128,7 @@ mkCompl CI{origName,importedFrom,thingType,label} =
   J.CompletionItem label kind (Just $ maybe "" (<>"\n") typeText <> importedFrom)
     Nothing Nothing Nothing Nothing Nothing (Just insertText) (Just J.Snippet)
     Nothing Nothing Nothing Nothing hoogleQuery
-  where kind  = Just $ occNameToComKind $ occName origName
+  where kind = Just $ occNameToComKind $ occName origName
         hoogleQuery = Just $ toJSON $ mkQuery label importedFrom
         argTypes = maybe [] getArgs thingType
         insertText
@@ -119,10 +136,15 @@ mkCompl CI{origName,importedFrom,thingType,label} =
           | otherwise = label <> " " <> argText
         argText :: T.Text
         argText =  mconcat $ List.intersperse " " $ zipWith snippet [1..] argTypes
+        stripForall t
+          | T.isPrefixOf "forall" t =
+            -- We drop 2 to remove the '.' and the space after it
+            T.drop 2 (T.dropWhile (/= '.') t)
+          | otherwise               = t
         snippet :: Int -> Type -> T.Text
         snippet i t = T.pack $ "${" <> show i <> ":" <> showGhc t <> "}"
         typeText
-          | Just t <- thingType = Just $ T.pack (showGhc t)
+          | Just t <- thingType = Just . stripForall $ T.pack (showGhc t)
           | otherwise = Nothing
         getArgs :: Type -> [Type]
         getArgs t
@@ -151,6 +173,12 @@ mkExtCompl label =
     Nothing Nothing Nothing Nothing Nothing Nothing Nothing
     Nothing Nothing Nothing Nothing Nothing
 
+mkPragmaCompl :: T.Text -> T.Text -> J.CompletionItem
+mkPragmaCompl label insertText =
+  J.CompletionItem label (Just J.CiKeyword) Nothing
+    Nothing Nothing Nothing Nothing Nothing (Just insertText) (Just J.Snippet)
+    Nothing Nothing Nothing Nothing Nothing
+
 safeTyThingId :: TyThing -> Maybe Id
 safeTyThingId (AnId i)                    = Just i
 safeTyThingId (AConLike (RealDataCon dc)) = Just $ dataConWrapId dc
@@ -173,6 +201,8 @@ data PosPrefixInfo = PosPrefixInfo
     -- ^ The word right before the cursor position, after removing the module part.
     -- For example if the user has typed "Data.Maybe.from",
     -- then this property will be "from"
+  , cursorPos :: J.Position
+    -- ^ The cursor position
   }
 
 data CachedCompletions = CC
@@ -196,8 +226,7 @@ instance ModuleCache CachedCompletions where
         showModName = T.pack . moduleNameString
 
         asNamespace :: ImportDecl name -> ModuleName
-        asNamespace imp = fromMaybe (iDeclToModName imp) (fmap GHC.unLoc $ ideclAs imp)
-
+        asNamespace imp = maybe (iDeclToModName imp) GHC.unLoc (ideclAs imp)
         -- Full canonical names of imported modules
         importDeclerations = map unLoc limports
 
@@ -245,7 +274,7 @@ instance ModuleCache CachedCompletions where
 
         orgUnqualQual hscEnv (prevUnquals, prevQualKVs) (isQual, modQual, modName, hasHiddsMembers) =
           let
-            ifUnqual xs = if isQual then prevUnquals else (prevUnquals ++ xs)
+            ifUnqual xs = if isQual then prevUnquals else prevUnquals ++ xs
             setTypes = setComplsType hscEnv
           in
             case hasHiddsMembers of
@@ -309,53 +338,124 @@ newtype WithSnippets = WithSnippets Bool
 
 -- | Returns the cached completions for the given module and position.
 getCompletions :: Uri -> PosPrefixInfo -> WithSnippets -> IdeM (IdeResult [J.CompletionItem])
-getCompletions uri prefixInfo (WithSnippets withSnippets) = pluginGetFile "getCompletions: " uri $ \file -> do
-  supportsSnippets <- fromMaybe False <$> asks (^? J.textDocument
-                                                . _Just . J.completion
-                                                . _Just . J.completionItem
-                                                . _Just . J.snippetSupport
-                                                . _Just)
-  let toggleSnippets x
-        | withSnippets && supportsSnippets = x
-        | otherwise = x { J._insertTextFormat = Just J.PlainText
-                        , J._insertText = Nothing }
+getCompletions uri prefixInfo (WithSnippets withSnippets) =
+  pluginGetFile "getCompletions: " uri $ \file -> do
+    let snippetLens = (^? J.textDocument
+                        . _Just
+                        . J.completion
+                        . _Just
+                        . J.completionItem
+                        . _Just
+                        . J.snippetSupport
+                        . _Just)
+    supportsSnippets <- fromMaybe False . snippetLens <$> getClientCapabilities
+    let toggleSnippets x
+          | withSnippets && supportsSnippets = x
+          | otherwise = x { J._insertTextFormat = Just J.PlainText
+                          , J._insertText       = Nothing
+                          }
 
-      PosPrefixInfo {fullLine, prefixModule, prefixText} = prefixInfo
-  debugm $ "got prefix" ++ show (prefixModule, prefixText)
-  let enteredQual = if T.null prefixModule then "" else prefixModule <> "."
-      fullPrefix = enteredQual <> prefixText
-  ifCachedModuleAndData file (IdeResultOk []) $ \_ _ CC { allModNamesAsNS, unqualCompls, qualCompls, importableModules, cachedExtensions } ->
-    let
-      filtModNameCompls = map mkModCompl
-        $ mapMaybe (T.stripPrefix enteredQual)
-        $ Fuzzy.simpleFilter fullPrefix allModNamesAsNS
+        PosPrefixInfo { fullLine, prefixModule, prefixText } = prefixInfo
+    debugm $ "got prefix" ++ show (prefixModule, prefixText)
+    let enteredQual = if T.null prefixModule then "" else prefixModule <> "."
+        fullPrefix  = enteredQual <> prefixText
 
-      filtCompls = Fuzzy.filterBy label prefixText compls
-        where
-          compls = if T.null prefixModule
-            then unqualCompls
-            else Map.findWithDefault [] prefixModule qualCompls
+    ifCachedModuleAndData file (IdeResultOk [])
+      $ \tm CachedInfo { newPosToOld } CC { allModNamesAsNS, unqualCompls, qualCompls, importableModules, cachedExtensions } ->
+          let
+            -- default to value context if no explicit context
+            context = fromMaybe ValueContext $ getContext pos (tm_parsed_module tm)
 
-      mkImportCompl label = (J.detail ?~ label)
-                          . mkModCompl
-                          $ fromMaybe "" (T.stripPrefix enteredQual label)
-      
-      filtListWith f list = [ f label
-                             | label <- Fuzzy.simpleFilter fullPrefix list
-                             , enteredQual `T.isPrefixOf` label
-                             ]
+            {- correct the position by moving 'foo :: Int -> String ->    '
+                                                                         ^
+               to                             'foo :: Int -> String ->    '
+                                                                   ^
+            -}
+            pos =
+              let newPos = cursorPos prefixInfo
+                  Position l c = fromMaybe newPos (newPosToOld newPos)
+                  typeStuff = [isSpace, (`elem` (">-." :: String))]
+                  stripTypeStuff = T.dropWhileEnd (\x -> any (\f -> f x) typeStuff)
+                  -- if oldPos points to
+                  -- foo -> bar -> baz
+                  --    ^
+                  -- Then only take the line up to there, discard '-> bar -> baz'
+                  partialLine = T.take c fullLine
+                  -- drop characters used when writing incomplete type sigs
+                  -- like '-> '
+                  d = T.length fullLine - T.length (stripTypeStuff partialLine)
+              in Position l (c - d)
 
-      filtImportCompls = filtListWith mkImportCompl importableModules
-      filtExtensionCompls = filtListWith mkExtCompl cachedExtensions
+            filtModNameCompls =
+              map mkModCompl
+                $ mapMaybe (T.stripPrefix enteredQual)
+                $ Fuzzy.simpleFilter fullPrefix allModNamesAsNS
 
-      result
-        | "import " `T.isPrefixOf` fullLine =
-          filtImportCompls
-        | "{-# language" `T.isPrefixOf` T.toLower fullLine = 
-          filtExtensionCompls
-        | otherwise =
-          filtModNameCompls ++ map (toggleSnippets . mkCompl) filtCompls
-    in return $ IdeResultOk result
+            filtCompls = Fuzzy.filterBy label prefixText ctxCompls
+              where
+                isTypeCompl = isTcOcc . occName . origName
+                -- completions specific to the current context
+                ctxCompls = case context of
+                              TypeContext -> filter isTypeCompl compls
+                              ValueContext -> filter (not . isTypeCompl) compls
+                compls = if T.null prefixModule
+                  then unqualCompls
+                  else Map.findWithDefault [] prefixModule qualCompls
+
+            mkImportCompl label = (J.detail ?~ label) . mkModCompl $ fromMaybe
+              ""
+              (T.stripPrefix enteredQual label)
+
+            filtListWith f list =
+              [ f label
+              | label <- Fuzzy.simpleFilter fullPrefix list
+              , enteredQual `T.isPrefixOf` label
+              ]
+
+            filtListWithSnippet f list suffix =
+              [ toggleSnippets (f label (snippet <> suffix))
+              | (snippet, label) <- list
+              , Fuzzy.test fullPrefix label
+              ]
+
+            filtImportCompls = filtListWith mkImportCompl importableModules
+            filtPragmaCompls = filtListWithSnippet mkPragmaCompl validPragmas
+            filtOptsCompls   = filtListWith mkExtCompl
+
+            result
+              | "import " `T.isPrefixOf` fullLine
+              = filtImportCompls
+              | "{-# language" `T.isPrefixOf` T.toLower fullLine
+              = filtOptsCompls cachedExtensions
+              | "{-# options_ghc" `T.isPrefixOf` T.toLower fullLine
+              = filtOptsCompls (map T.pack $ GHC.flagsForCompletion False)
+              | "{-# " `T.isPrefixOf` fullLine
+              = filtPragmaCompls (pragmaSuffix fullLine)
+              | otherwise
+              = filtModNameCompls ++ map (toggleSnippets . mkCompl . stripAutoGenerated) filtCompls
+          in
+            return $ IdeResultOk result
+ where
+  validPragmas :: [(T.Text, T.Text)]
+  validPragmas =
+    [ ("LANGUAGE ${1:extension}"        , "LANGUAGE")
+    , ("OPTIONS_GHC -${1:option}"       , "OPTIONS_GHC")
+    , ("INLINE ${1:function}"           , "INLINE")
+    , ("NOINLINE ${1:function}"         , "NOINLINE")
+    , ("INLINABLE ${1:function}"        , "INLINABLE")
+    , ("WARNING ${1:message}"           , "WARNING")
+    , ("DEPRECATED ${1:message}"        , "DEPRECATED")
+    , ("ANN ${1:annotation}"            , "ANN")
+    , ("RULES"                          , "RULES")
+    , ("SPECIALIZE ${1:function}"       , "SPECIALIZE")
+    , ("SPECIALIZE INLINE ${1:function}", "SPECIALIZE INLINE")
+    ]
+
+  pragmaSuffix :: T.Text -> T.Text
+  pragmaSuffix fullLine
+    |  "}" `T.isSuffixOf` fullLine = mempty
+    | otherwise = " #-}"
+
 -- ---------------------------------------------------------------------
 
 getTypeForName :: Name -> IdeM (Maybe Type)
@@ -425,7 +525,7 @@ showName :: Outputable a => a -> T.Text
 showName = T.pack . prettyprint
   where
     prettyprint x = GHC.renderWithStyle GHC.unsafeGlobalDynFlags (GHC.ppr x) style
-    style = (GHC.mkUserStyle GHC.unsafeGlobalDynFlags GHC.neverQualify GHC.AllTheWay)
+    style = GHC.mkUserStyle GHC.unsafeGlobalDynFlags GHC.neverQualify GHC.AllTheWay
 
 getModule :: DynFlags -> Name -> Maybe (Maybe T.Text,T.Text)
 getModule df n = do
@@ -494,10 +594,9 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file ->
 
 -- ---------------------------------------------------------------------
 
-getRangeFromVFS :: (MonadIO m)
-  => Uri -> VirtualFileFunc -> Range -> m (Maybe T.Text)
-getRangeFromVFS uri vf rg = do
-  mvf <- liftIO $ vf uri
+getRangeFromVFS :: Uri -> Range -> IdeM (Maybe T.Text)
+getRangeFromVFS uri rg = do
+  mvf <- getVirtualFile uri
   case mvf of
     Just vfs -> return $ Just $ rangeLinesFromVfs vfs rg
     Nothing  -> return Nothing
@@ -508,3 +607,151 @@ rangeLinesFromVfs (VFS.VirtualFile _ yitext) (Range (Position lf _cf) (Position 
     (_ ,s1) = Yi.splitAtLine lf yitext
     (s2, _) = Yi.splitAtLine (lt - lf) s1
     r = Yi.toText s2
+
+-- ---------------------------------------------------------------------
+
+data HarePoint =
+  HP { hpFile :: Uri
+     , hpPos  :: Position
+     } deriving (Eq,Generic,Show)
+
+customOptions :: Int -> J.Options
+customOptions n = J.defaultOptions { J.fieldLabelModifier = J.camelTo2 '_' . drop n}
+
+instance FromJSON HarePoint where
+  parseJSON = genericParseJSON $ customOptions 2
+instance ToJSON HarePoint where
+  toJSON = genericToJSON $ customOptions 2
+
+-- ---------------------------------------------------------------------
+
+runGhcModCommand :: IdeGhcM a
+                 -> IdeGhcM (IdeResult a)
+runGhcModCommand cmd =
+  (IdeResultOk <$> cmd) `gcatch`
+    \(e :: GM.GhcModError) ->
+      return $
+      IdeResultFail $
+      IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Null
+
+-- ---------------------------------------------------------------------
+
+splitCaseCmd :: CommandFunc HarePoint WorkspaceEdit
+splitCaseCmd = CmdSync $ \(HP uri pos) -> splitCaseCmd' uri pos
+
+splitCaseCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
+splitCaseCmd' uri newPos =
+  pluginGetFile "splitCaseCmd: " uri $ \path -> do
+    origText <- GM.withMappedFile path $ liftIO . T.readFile
+    ifCachedModule path (IdeResultOk mempty) $ \tm info -> runGhcModCommand $
+      case newPosToOld info newPos of
+        Just oldPos -> do
+          let (line, column) = unPos oldPos
+          splitResult' <- GM.splits' path tm line column
+          case splitResult' of
+            Just splitResult -> do
+              wEdit <- liftToGhc $ splitResultToWorkspaceEdit origText splitResult
+              return $ oldToNewPositions info wEdit
+            Nothing -> return mempty
+        Nothing -> return mempty
+  where
+
+    -- | Transform all ranges in a WorkspaceEdit from old to new positions.
+    oldToNewPositions :: CachedInfo -> WorkspaceEdit -> WorkspaceEdit
+    oldToNewPositions info wsEdit =
+      wsEdit
+        & J.documentChanges %~ (>>= traverseOf (traverse . J.edits . traverse . J.range) (oldRangeToNew info))
+        & J.changes %~ (>>= traverseOf (traverse . traverse . J.range) (oldRangeToNew info))
+
+    -- | Given the range and text to replace, construct a 'WorkspaceEdit'
+    -- by diffing the change against the current text.
+    splitResultToWorkspaceEdit :: T.Text -> GM.SplitResult -> IdeM WorkspaceEdit
+    splitResultToWorkspaceEdit originalText (GM.SplitResult replaceFromLine replaceFromCol replaceToLine replaceToCol replaceWith) =
+      diffText (uri, originalText) newText IncludeDeletions
+      where
+        before = takeUntil (toPos (replaceFromLine, replaceFromCol)) originalText
+        after = dropUntil (toPos (replaceToLine, replaceToCol)) originalText
+        newText = before <> replaceWith <> after
+
+    -- | Take the first part of text until the given position.
+    -- Returns all characters before the position.
+    takeUntil :: Position -> T.Text -> T.Text
+    takeUntil (Position l c) txt =
+      T.unlines takeLines <> takeCharacters
+      where
+        textLines = T.lines txt
+        takeLines = take l textLines
+        takeCharacters = T.take c (textLines !! c)
+
+    -- | Drop the first part of text until the given position.
+    -- Returns all characters after and including the position.
+    dropUntil :: Position -> T.Text -> T.Text
+    dropUntil (Position l c) txt = dropCharacters
+      where
+        textLines = T.lines txt
+        dropLines = drop l textLines
+        dropCharacters = T.drop c (T.unlines dropLines)
+
+-- ---------------------------------------------------------------------
+
+-- | Under certain circumstance GHC generates some extra stuff that we
+-- don't want in the autocompleted symbols
+stripAutoGenerated :: CompItem -> CompItem
+stripAutoGenerated ci =
+    ci {label = stripPrefix (label ci)}
+    {- When e.g. DuplicateRecordFields is enabled, compiler generates
+    names like "$sel:accessor:One" and "$sel:accessor:Two" to disambiguate record selectors
+    https://ghc.haskell.org/trac/ghc/wiki/Records/OverloadedRecordFields/DuplicateRecordFields#Implementation
+    -}
+
+-- TODO: Turn this into an alex lexer that discards prefixes as if they were whitespace.
+
+stripPrefix :: T.Text -> T.Text
+stripPrefix name = T.takeWhile (/=':') $ go prefixes
+  where
+    go [] = name
+    go (p:ps)
+      | T.isPrefixOf p name = T.drop (T.length p) name
+      | otherwise = go ps
+
+-- | Prefixes that can occur in a GHC OccName
+prefixes :: [T.Text]
+prefixes =
+  [
+    -- long ones
+    "$con2tag_"
+  , "$tag2con_"
+  , "$maxtag_"
+
+  -- four chars
+  , "$sel:"
+  , "$tc'"
+
+  -- three chars
+  , "$dm"
+  , "$co"
+  , "$tc"
+  , "$cp"
+  , "$fx"
+
+  -- two chars
+  , "$W"
+  , "$w"
+  , "$m"
+  , "$b"
+  , "$c"
+  , "$d"
+  , "$i"
+  , "$s"
+  , "$f"
+  , "$r"
+  , "C:"
+  , "N:"
+  , "D:"
+  , "$p"
+  , "$L"
+  , "$f"
+  , "$t"
+  , "$c"
+  , "$m"
+  ]

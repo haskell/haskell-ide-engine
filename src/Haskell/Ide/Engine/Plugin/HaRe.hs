@@ -64,6 +64,9 @@ hareDescriptor plId = PluginDescriptor
           deleteDefCmd
       , PluginCommand "genapplicative" "Generalise a monadic function to use applicative"
           genApplicativeCommand
+
+      , PluginCommand "casesplit" "Generate a pattern match for a binding under (LINE,COL)"
+          Hie.splitCaseCmd
       ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
@@ -73,19 +76,6 @@ hareDescriptor plId = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-customOptions :: Int -> J.Options
-customOptions n = J.defaultOptions { J.fieldLabelModifier = J.camelTo2 '_' . drop n}
-
-data HarePoint =
-  HP { hpFile :: Uri
-     , hpPos  :: Position
-     } deriving (Eq,Generic,Show)
-
-instance FromJSON HarePoint where
-  parseJSON = genericParseJSON $ customOptions 2
-instance ToJSON HarePoint where
-  toJSON = genericToJSON $ customOptions 2
-
 data HarePointWithText =
   HPT { hptFile :: Uri
       , hptPos  :: Position
@@ -93,9 +83,9 @@ data HarePointWithText =
       } deriving (Eq,Generic,Show)
 
 instance FromJSON HarePointWithText where
-  parseJSON = genericParseJSON $ customOptions 3
+  parseJSON = genericParseJSON $ Hie.customOptions 3
 instance ToJSON HarePointWithText where
-  toJSON = genericToJSON $ customOptions 3
+  toJSON = genericToJSON $ Hie.customOptions 3
 
 data HareRange =
   HR { hrFile     :: Uri
@@ -104,19 +94,19 @@ data HareRange =
      } deriving (Eq,Generic,Show)
 
 instance FromJSON HareRange where
-  parseJSON = genericParseJSON $ customOptions 2
+  parseJSON = genericParseJSON $ Hie.customOptions 2
 instance ToJSON HareRange where
-  toJSON = genericToJSON $ customOptions 2
+  toJSON = genericToJSON $ Hie.customOptions 2
 
 -- ---------------------------------------------------------------------
 
-demoteCmd :: CommandFunc HarePoint WorkspaceEdit
-demoteCmd  = CmdSync $ \_ (HP uri pos) ->
+demoteCmd :: CommandFunc Hie.HarePoint WorkspaceEdit
+demoteCmd  = CmdSync $ \(Hie.HP uri pos) ->
   demoteCmd' uri pos
 
 demoteCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 demoteCmd' uri pos =
-  pluginGetFile "demote: " uri $ \file -> do
+  pluginGetFile "demote: " uri $ \file ->
     runHareCommand "demote" (compDemote file (unPos pos))
 
 -- compDemote :: FilePath -> SimpPos -> IO [FilePath]
@@ -124,12 +114,12 @@ demoteCmd' uri pos =
 -- ---------------------------------------------------------------------
 
 dupdefCmd :: CommandFunc HarePointWithText WorkspaceEdit
-dupdefCmd = CmdSync $ \_ (HPT uri pos name) ->
+dupdefCmd = CmdSync $ \(HPT uri pos name) ->
   dupdefCmd' uri pos name
 
 dupdefCmd' :: Uri -> Position -> T.Text -> IdeGhcM (IdeResult WorkspaceEdit)
 dupdefCmd' uri pos name =
-  pluginGetFile "dupdef: " uri $ \file -> do
+  pluginGetFile "dupdef: " uri $ \file ->
     runHareCommand  "dupdef" (compDuplicateDef file (T.unpack name) (unPos pos))
 
 -- compDuplicateDef :: FilePath -> String -> SimpPos -> IO [FilePath]
@@ -137,38 +127,38 @@ dupdefCmd' uri pos name =
 -- ---------------------------------------------------------------------
 
 iftocaseCmd :: CommandFunc HareRange WorkspaceEdit
-iftocaseCmd = CmdSync $ \_ (HR uri startPos endPos) ->
+iftocaseCmd = CmdSync $ \(HR uri startPos endPos) ->
   iftocaseCmd' uri (Range startPos endPos)
 
 iftocaseCmd' :: Uri -> Range -> IdeGhcM (IdeResult WorkspaceEdit)
 iftocaseCmd' uri (Range startPos endPos) =
-  pluginGetFile "iftocase: " uri $ \file -> do
+  pluginGetFile "iftocase: " uri $ \file ->
     runHareCommand "iftocase" (compIfToCase file (unPos startPos) (unPos endPos))
 
 -- compIfToCase :: FilePath -> SimpPos -> SimpPos -> IO [FilePath]
 
 -- ---------------------------------------------------------------------
 
-liftonelevelCmd :: CommandFunc HarePoint WorkspaceEdit
-liftonelevelCmd = CmdSync $ \_ (HP uri pos) ->
+liftonelevelCmd :: CommandFunc Hie.HarePoint WorkspaceEdit
+liftonelevelCmd = CmdSync $ \(Hie.HP uri pos) ->
   liftonelevelCmd' uri pos
 
 liftonelevelCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 liftonelevelCmd' uri pos =
-  pluginGetFile "liftonelevelCmd: " uri $ \file -> do
+  pluginGetFile "liftonelevelCmd: " uri $ \file ->
     runHareCommand "liftonelevel" (compLiftOneLevel file (unPos pos))
 
 -- compLiftOneLevel :: FilePath -> SimpPos -> IO [FilePath]
 
 -- ---------------------------------------------------------------------
 
-lifttotoplevelCmd :: CommandFunc HarePoint WorkspaceEdit
-lifttotoplevelCmd = CmdSync $ \_ (HP uri pos) ->
+lifttotoplevelCmd :: CommandFunc Hie.HarePoint WorkspaceEdit
+lifttotoplevelCmd = CmdSync $ \(Hie.HP uri pos) ->
   lifttotoplevelCmd' uri pos
 
 lifttotoplevelCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 lifttotoplevelCmd' uri pos =
-  pluginGetFile "lifttotoplevelCmd: " uri $ \file -> do
+  pluginGetFile "lifttotoplevelCmd: " uri $ \file ->
     runHareCommand "lifttotoplevel" (compLiftToTopLevel file (unPos pos))
 
 -- compLiftToTopLevel :: FilePath -> SimpPos -> IO [FilePath]
@@ -176,33 +166,33 @@ lifttotoplevelCmd' uri pos =
 -- ---------------------------------------------------------------------
 
 renameCmd :: CommandFunc HarePointWithText WorkspaceEdit
-renameCmd = CmdSync $ \_ (HPT uri pos name) ->
+renameCmd = CmdSync $ \(HPT uri pos name) ->
   renameCmd' uri pos name
 
 renameCmd' :: Uri -> Position -> T.Text -> IdeGhcM (IdeResult WorkspaceEdit)
 renameCmd' uri pos name =
-  pluginGetFile "rename: " uri $ \file -> do
+  pluginGetFile "rename: " uri $ \file ->
       runHareCommand "rename" (compRename file (T.unpack name) (unPos pos))
 
 -- compRename :: FilePath -> String -> SimpPos -> IO [FilePath]
 
 -- ---------------------------------------------------------------------
 
-deleteDefCmd :: CommandFunc HarePoint WorkspaceEdit
-deleteDefCmd  = CmdSync $ \_ (HP uri pos) ->
+deleteDefCmd :: CommandFunc Hie.HarePoint WorkspaceEdit
+deleteDefCmd  = CmdSync $ \(Hie.HP uri pos) ->
   deleteDefCmd' uri pos
 
 deleteDefCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 deleteDefCmd' uri pos =
-  pluginGetFile "deletedef: " uri $ \file -> do
+  pluginGetFile "deletedef: " uri $ \file ->
       runHareCommand "deltetedef" (compDeleteDef file (unPos pos))
 
 -- compDeleteDef ::FilePath -> SimpPos -> RefactGhc [ApplyRefacResult]
 
 -- ---------------------------------------------------------------------
 
-genApplicativeCommand :: CommandFunc HarePoint WorkspaceEdit
-genApplicativeCommand  = CmdSync $ \_ (HP uri pos) ->
+genApplicativeCommand :: CommandFunc Hie.HarePoint WorkspaceEdit
+genApplicativeCommand  = CmdSync $ \(Hie.HP uri pos) ->
   genApplicativeCommand' uri pos
 
 genApplicativeCommand' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
@@ -292,50 +282,40 @@ hoist f a =
 -- ---------------------------------------------------------------------
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider pId docId _ _ (J.Range pos _) _ =
+codeActionProvider pId docId (J.Range pos _) _ =
   pluginGetFile "HaRe codeActionProvider: " (docId ^. J.uri) $ \file ->
-    ifCachedInfo file (IdeResultOk mempty) $ \info -> do
-      let symbols = getArtifactsAtPos pos (defMap info)
-      debugm $ show $ map (Hie.showName . snd) symbols
-      if not (null symbols)
-        then
-          let name = Hie.showName $ snd $ head symbols
-            in IdeResultOk <$> sequence [
-              mkLiftOneAction name
-            , mkLiftTopAction name
-            , mkDemoteAction name
-            , mkDeleteAction name
-            , mkDuplicateAction name
+    ifCachedInfo file (IdeResultOk mempty) $ \info ->
+      case getArtifactsAtPos pos (defMap info) of
+        [h] -> do
+          let name = Hie.showName $ snd h
+          debugm $ show name
+          IdeResultOk <$> sequence [
+              mkAction "liftonelevel"
+                J.CodeActionRefactorExtract $ "Lift " <> name <> " one level"
+            , mkAction "lifttotoplevel"
+                J.CodeActionRefactorExtract $"Lift " <> name <> " to top level"
+            , mkAction "demote"
+                J.CodeActionRefactorInline $ "Demote " <> name <> " one level"
+            , mkAction "deletedef"
+                J.CodeActionRefactor $ "Delete definition of " <> name
+            , mkHptAction "dupdef"
+                J.CodeActionRefactor "Duplicate definition of " name
             ]
-        else return (IdeResultOk [])
-
+        _   -> case getArtifactsAtPos pos (locMap info) of
+               [h] -> do
+                let name = Hie.showName $ snd h
+                IdeResultOk <$> sequence [
+                    mkAction "casesplit"
+                      J.CodeActionRefactorRewrite $ "Case split on " <> name
+                  ]
+               _   -> return $ IdeResultOk []
   where
-    mkLiftOneAction name = do
-      let args = [J.toJSON $ HP (docId ^. J.uri) pos]
-          title = "Lift " <> name <> " one level"
-      liftCmd <- mkLspCommand pId "liftonelevel" title (Just args)
-      return $ J.CodeAction title (Just J.CodeActionRefactorExtract) mempty Nothing (Just liftCmd)
+    mkAction aId kind title = do
+      let args = [J.toJSON $ Hie.HP (docId ^. J.uri) pos]
+      cmd <- mkLspCommand pId aId title (Just args)
+      return $ J.CodeAction title (Just kind) mempty Nothing (Just cmd)
 
-    mkLiftTopAction name = do
-      let args = [J.toJSON $ HP (docId ^. J.uri) pos]
-          title = "Lift " <> name <> " to top level"
-      liftCmd <- mkLspCommand pId "lifttotoplevel" title (Just args)
-      return $ J.CodeAction title (Just J.CodeActionRefactorExtract) mempty Nothing (Just liftCmd)
-
-    mkDemoteAction name = do
-      let args = [J.toJSON $ HP (docId ^. J.uri) pos]
-          title = "Demote " <> name <> " one level"
-      demCmd <- mkLspCommand pId "demote" title (Just args)
-      return $ J.CodeAction title (Just J.CodeActionRefactorInline) mempty Nothing (Just demCmd)
-
-    mkDeleteAction name = do
-      let args = [J.toJSON $ HP (docId ^. J.uri) pos]
-          title = "Delete definition of " <> name
-      delCmd <- mkLspCommand pId "deletedef" title (Just args)
-      return $ J.CodeAction title (Just J.CodeActionRefactor) mempty Nothing (Just delCmd)
-
-    mkDuplicateAction name = do
+    mkHptAction aId kind title name = do
       let args = [J.toJSON $ HPT (docId ^. J.uri) pos (name <> "'")]
-          title = "Duplicate definition of " <> name
-      dupCmd <- mkLspCommand pId "dupdef" title (Just args)
-      return $ J.CodeAction title (Just J.CodeActionRefactor) mempty Nothing (Just dupCmd)
+      cmd <- mkLspCommand pId aId title (Just args)
+      return $ J.CodeAction (title <> name) (Just kind) mempty Nothing (Just cmd)

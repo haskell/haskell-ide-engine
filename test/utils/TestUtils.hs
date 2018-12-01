@@ -8,19 +8,18 @@ module TestUtils
   , testCommand
   , runSingleReq
   , makeRequest
-  , dummyVfs
   , runIGM
-  , ghc84
+  , ghcVersion, GhcVersion(..)
   , logFilePath
   , hieCommand
   , hieCommandVomit
   , hieCommandExamplePlugin
   ) where
 
+import           Control.Concurrent.STM
 import           Control.Exception
 import           Control.Monad
 import           Data.Aeson.Types (typeMismatch)
-import           Data.Default
 import           Data.Text (pack)
 import           Data.Typeable
 import           Data.Yaml
@@ -28,9 +27,7 @@ import qualified Data.Map as Map
 import qualified GhcMod.Monad as GM
 import qualified GhcMod.Types as GM
 import qualified Language.Haskell.LSP.Core as Core
-import           Haskell.Ide.Engine.Monad
 import           Haskell.Ide.Engine.MonadTypes
-import           Haskell.Ide.Engine.PluginDescriptor
 import           System.Directory
 import           System.FilePath
 import qualified System.Log.Logger as L
@@ -59,27 +56,26 @@ cdAndDo path fn = do
 
 
 testCommand :: (ToJSON a, Typeable b, ToJSON b, Show b, Eq b)
-            => IdePlugins -> IdeGhcM (IdeResult b) -> PluginId -> CommandName -> VirtualFileFunc -> a -> IdeResult b -> IO ()
-testCommand testPlugins act plugin cmd vf arg res = do
+            => IdePlugins -> IdeGhcM (IdeResult b) -> PluginId -> CommandName -> a -> IdeResult b -> IO ()
+testCommand testPlugins act plugin cmd arg res = do
   (newApiRes, oldApiRes) <- runIGM testPlugins $ do
     new <- act
-    old <- makeRequest plugin cmd vf arg
+    old <- makeRequest plugin cmd arg
     return (new, old)
   newApiRes `shouldBe` res
   fmap fromDynJSON oldApiRes `shouldBe` fmap Just res
 
 runSingleReq :: ToJSON a
-             => IdePlugins -> PluginId -> CommandName -> VirtualFileFunc -> a -> IO (IdeResult DynamicJSON)
-runSingleReq testPlugins plugin com vf arg = runIGM testPlugins (makeRequest plugin com vf arg)
+             => IdePlugins -> PluginId -> CommandName -> a -> IO (IdeResult DynamicJSON)
+runSingleReq testPlugins plugin com arg = runIGM testPlugins (makeRequest plugin com arg)
 
-makeRequest :: ToJSON a => PluginId -> CommandName -> VirtualFileFunc -> a -> IdeGhcM (IdeResult DynamicJSON)
-makeRequest plugin com vf arg = runPluginCommand plugin com vf (toJSON arg)
-
-dummyVfs :: VirtualFileFunc
-dummyVfs _ = return Nothing
+makeRequest :: ToJSON a => PluginId -> CommandName -> a -> IdeGhcM (IdeResult DynamicJSON)
+makeRequest plugin com arg = runPluginCommand plugin com (toJSON arg)
 
 runIGM :: IdePlugins -> IdeGhcM a -> IO a
-runIGM testPlugins = runIdeGhcM testOptions def (IdeState emptyModuleCache Map.empty testPlugins Map.empty Nothing 0)
+runIGM testPlugins f = do
+  stateVar <- newTVarIO $ IdeState emptyModuleCache Map.empty Map.empty Nothing
+  runIdeGhcM testOptions testPlugins Nothing stateVar f
 
 withFileLogging :: FilePath -> IO a -> IO a
 withFileLogging logFile f = do
@@ -110,26 +106,41 @@ setupStackFiles =
 files :: [FilePath]
 files =
   [  "./test/testdata/"
-   , "./test/testdata/gototest/"
    , "./test/testdata/addPackageTest/cabal/"
    , "./test/testdata/addPackageTest/hpack/"
-   , "./test/testdata/redundantImportTest/"
-   , "./test/testdata/wErrorTest/"
+   , "./test/testdata/addPragmas/"
    , "./test/testdata/completion/"
    , "./test/testdata/definition/"
+   , "./test/testdata/gototest/"
+   , "./test/testdata/redundantImportTest/"
+   , "./test/testdata/wErrorTest/"
   ]
 
-ghc84 :: Bool
-#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)))
-ghc84 = True
+data GhcVersion
+  = GHC86
+  | GHC84
+  | GHCPre84
+  deriving (Eq,Show)
+
+ghcVersion :: GhcVersion
+#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,6,0,0)))
+ghcVersion = GHC86
+#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)))
+ghcVersion = GHC84
 #else
-ghc84 = False
+ghcVersion = GHCPre84
 #endif
 
 stackYaml :: FilePath
 stackYaml =
-#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,3,0)))
-  "stack.yaml"
+#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,6,2,0)))
+  "stack-8.6.2.yaml"
+#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,6,1,0)))
+  "stack-8.6.1.yaml"
+#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,4,0)))
+  "stack-8.4.4.yaml"
+#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,3,0)))
+  "stack-8.4.3.yaml"
 #elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,2,0)))
   "stack-8.4.2.yaml"
 #elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,2,2,0)))

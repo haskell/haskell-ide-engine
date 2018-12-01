@@ -25,7 +25,7 @@ we talk to clients.__
         - [ArchLinux](#archlinux)
     - [Configuration](#configuration)
     - [Editor Integration](#editor-integration)
-        - Using HIE with [VS Code](#using-hie-with-vs-code), [Sublime Text](#using-hie-with-sublime-text), [Vim/Neovim](#using-hie-with-vim-or-neovim), [Atom](#using-hie-with-atom), [Oni](#using-hie-with-oni), [Emacs](#using-hie-with-emacs) or [Spacemacs](#using-hie-with-spacemacs)
+        - Using HIE with [VS Code](#using-hie-with-vs-code), [Sublime Text](#using-hie-with-sublime-text), [Vim/Neovim](#using-hie-with-vim-or-neovim), [Atom](#using-hie-with-atom), [Oni](#using-hie-with-oni), [Emacs](#using-hie-with-emacs), [Spacemacs](#using-hie-with-spacemacs) or [Spacemacs+Nix](#using-hie-with-spacemacs-on-nix-based-projects)
     - [Docs on hover/completion](#docs-on-hovercompletion)
     - [Contributing](#contributing)
         - [Planned Features](#planned-features)
@@ -105,7 +105,7 @@ sudo apt install libicu-dev libtinfo-dev
 ```
 
 
-### Getting the source for GHC 8.2.1, 8.2.2, 8.4.2, 8.4.3
+### Getting the source for GHC 8.2.1 to 8.6.2
 
 HIE builds from source code, so first,
 
@@ -200,28 +200,19 @@ stack --stack-yaml=stack-8.0.2.yaml install
 
 ### Installation on Windows
 
-#### The `make` tool
+The `Makefile` doesn't work on Windows due to several UNIX-specific things, such
+as the `cp` command or extensionless executable names. Instead, a PowerShell
+script is provided specifically for this purpose:
 
-If the `make` tool is not already available on your path (in Command Prompt, try
-commands `where make` or `stack exec where -- make` to investigate; in
-PowerShell, try `where.exe make` or `stack exec where -- make`), it can be added
-to the `stack` environment with the command:
-
-```batch
-stack exec pacman -- -S make
+**Under PowerShell run:**
+```
+./build-all.ps1
 ```
 
-The `make build-all` command is then accessible using the command:
-
-```batch
-stack exec make -- build-all
+**Under cmd.exe run:**
 ```
-
-For users of [Cygwin](http://www.cygwin.com/), the Cygwin installer also
-provides the `make` tool as an option.
-
-Alternatively, the Windows batch file `make-build-all.bat` can substitute for
-`make build-all` on systems without the `make` command.
+powershell -ExecutionPolicy RemoteSigned -c ./build-all.ps1
+```
 
 #### Long paths
 
@@ -446,6 +437,18 @@ and then activate [`lsp-haskell`](https://github.com/emacs-lsp/lsp-haskell) in y
 
 Now you should be able to use HIE in Spacemacs. I still recommend checking out [lsp-ui](https://github.com/emacs-lsp/lsp-ui) and [lsp-mode](https://github.com/emacs-lsp/lsp-mode).
 
+### Using HIE with Spacemacs on Nix Based Projects
+
+If you use HIE with spacemacs on nix-built haskell projects, you may want to try
+out [this spacemacs layer](https://github.com/benkolera/spacemacs-hie-nix). It
+has installation instructions which includes a nix expression to install
+everything that hie needs in your environment. It wraps the hie binary calls to
+use nix-sandbox to find the closest ancestor directory that has nixfiles.
+
+It is still pretty new and may change drastically as the author understands the
+lsp, lsp-ui, lsp-haskell, hie stack a bit better. PRs and feedback are very
+welcome on the layer's repo if you find it useful and/or lacking in some way.
+
 ### Using HIE with Oni
 
 [Oni](https://www.onivim.io/) (a Neovim GUI) added built-in support for HIE, using stack, in [#1918](https://github.com/onivim/oni/pull/1918/files). If you need to change the configuration for HIE, you can overwrite the following settings in your `~/.config/oni/config.tsx` file (accessible via the command palette and `Configuration: Edit User Config`),
@@ -483,6 +486,8 @@ To generate a hoogle database that hie can use
 $ cd haskell-ide-engine
 $ stack --stack-yaml=<stack.yaml you used to build hie> exec hoogle generate
 ```
+
+Or you can set the environment variable `HIE_HOOGLE_DATABASE` to specify a specific database.
 
 ## Contributing
 

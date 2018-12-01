@@ -5,21 +5,17 @@ module Main where
 
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
-import           Control.Concurrent.STM.TVar
 import           Control.Monad.STM
 import           Data.Aeson
 import qualified Data.HashMap.Strict                   as H
-import qualified Data.Map as Map
-import qualified Data.Set as S
 import           Data.Typeable
 import qualified Data.Text as T
 import           Data.Default
 import           GHC                            ( TypecheckedModule )
 import           GHC.Generics
-import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.MonadTypes
-import           Haskell.Ide.Engine.PluginDescriptor
 import           Haskell.Ide.Engine.PluginUtils
+import           Haskell.Ide.Engine.Scheduler
 import           Haskell.Ide.Engine.Types
 import           Language.Haskell.LSP.Types
 import           TestUtils
@@ -45,7 +41,6 @@ main :: IO ()
 main = do
   setupStackFiles
   withFileLogging "main-dispatcher.log" $ do
-    hspec newPluginSpec
     hspec funcSpec
 
 -- main :: IO ()
@@ -70,28 +65,18 @@ plugins = pluginDescToIdePlugins
   ,baseDescriptor "base"
   ]
 
-startServer :: IO (TChan (PluginRequest IO), TChan LogVal, ThreadId)
+startServer :: IO (Scheduler IO, TChan LogVal, ThreadId)
 startServer = do
-
-  cin      <- newTChanIO
+  scheduler <- newScheduler plugins testOptions
   logChan  <- newTChanIO
-    
-  cancelTVar      <- newTVarIO S.empty
-  wipTVar         <- newTVarIO S.empty
-  versionTVar     <- newTVarIO Map.empty
-  let dispatcherEnv = DispatcherEnv
-        { cancelReqsTVar     = cancelTVar
-        , wipReqsTVar        = wipTVar
-        , docVersionTVar     = versionTVar
-        }
-
   dispatcher <- forkIO $
-    dispatcherP cin plugins testOptions dispatcherEnv
+    runScheduler
+    scheduler
     (\lid errCode e -> logToChan logChan ("received an error", Left (lid, errCode, e)))
     (\g x -> g x)
     def
 
-  return (cin, logChan, dispatcher)
+  return (scheduler, logChan, dispatcher)
 
 -- ---------------------------------------------------------------------
 
@@ -104,27 +89,28 @@ logToChan c t = atomically $ writeTChan c t
 
 dispatchGhcRequest :: ToJSON a
                    => TrackingNumber -> String -> Int
-                   -> TChan (PluginRequest IO) -> TChan LogVal
+                   -> Scheduler IO -> TChan LogVal
                    -> PluginId -> CommandName -> a -> IO ()
-dispatchGhcRequest tn ctx n cin lc plugin com arg = do
+dispatchGhcRequest tn ctx n scheduler lc plugin com arg = do
   let
     logger :: RequestCallback IO DynamicJSON
     logger x = logToChan lc (ctx, Right x)
 
   let req = GReq tn Nothing Nothing (Just (IdInt n)) logger $
-        runPluginCommand plugin com  dummyVfs(toJSON arg)
-  atomically $ writeTChan cin req
+        runPluginCommand plugin com (toJSON arg)
+  sendRequest scheduler Nothing req
+
 
 dispatchIdeRequest :: (Typeable a, ToJSON a)
-                   => TrackingNumber -> String -> TChan (PluginRequest IO)
+                   => TrackingNumber -> String -> Scheduler IO
                    -> TChan LogVal -> LspId -> IdeDeferM (IdeResult a) -> IO ()
-dispatchIdeRequest tn ctx cin lc lid f = do
+dispatchIdeRequest tn ctx scheduler lc lid f = do
   let
     logger :: (Typeable a, ToJSON a) => RequestCallback IO a
     logger x = logToChan lc (ctx, Right (toDynJSON x))
 
   let req = IReq tn lid logger f
-  atomically $ writeTChan cin req
+  sendRequest scheduler Nothing req
 
 -- ---------------------------------------------------------------------
 
@@ -136,45 +122,13 @@ instance ToJSON   Cached where
 
 -- ---------------------------------------------------------------------
 
-newPluginSpec :: Spec
-newPluginSpec = do
-  describe "New plugin dispatcher operation" $
-    it "dispatches response correctly" $ do
-      inChan <- atomically newTChan
-      outChan <- atomically newTChan
-      cancelTVar <- newTVarIO S.empty
-      wipTVar <- newTVarIO S.empty
-      versionTVar <- newTVarIO $ Map.singleton (filePathToUri "test") 3
-      let req1 = GReq 1 Nothing Nothing                          (Just $ IdInt 1) (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text1"
-          req2 = GReq 2 Nothing Nothing                          (Just $ IdInt 2) (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text2"
-          req3 = GReq 3 Nothing (Just (filePathToUri "test", 2)) Nothing            (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text3"
-          req4 = GReq 4 Nothing Nothing                          (Just $ IdInt 3) (atomically . writeTChan outChan) $ return $ IdeResultOk $ T.pack "text4"
-
-      pid <- forkIO $ dispatcherP inChan
-                              (pluginDescToIdePlugins [])
-                              testOptions
-                              (DispatcherEnv cancelTVar wipTVar versionTVar)
-                              (\_ _ _ -> return ())
-                              (\f x -> f x)
-                              def
-      atomically $ writeTChan inChan req1
-      atomically $ modifyTVar cancelTVar (S.insert (IdInt 2))
-      atomically $ writeTChan inChan req2
-      atomically $ writeTChan inChan req3
-      atomically $ writeTChan inChan req4
-      resp1 <- atomically $ readTChan outChan
-      resp2 <- atomically $ readTChan outChan
-      killThread pid
-      resp1 `shouldBe` "text1"
-      resp2 `shouldBe` "text4"
-
 funcSpec :: Spec
 funcSpec = describe "functional dispatch" $ do
     runIO $ setCurrentDirectory "test/testdata"
-    (cin, logChan, dispatcher) <- runIO startServer
+    (scheduler, logChan, dispatcher) <- runIO startServer
 
     cwd <- runIO getCurrentDirectory
-    
+
     let testUri = filePathToUri $ cwd </> "FuncTest.hs"
         testFailUri = filePathToUri $ cwd </> "FuncTestFail.hs"
 
@@ -182,7 +136,7 @@ funcSpec = describe "functional dispatch" $ do
       hoverReqHandler :: TypecheckedModule -> CachedInfo -> IdeDeferM (IdeResult Cached)
       hoverReqHandler _ _ = return (IdeResultOk Cached)
       -- Model a hover request
-      hoverReq tn idVal doc = dispatchIdeRequest tn ("IReq " ++ show idVal) cin logChan idVal $ do
+      hoverReq tn idVal doc = dispatchIdeRequest tn ("IReq " ++ show idVal) scheduler logChan idVal $ do
         pluginGetFile "hoverReq" doc $ \fp ->
           ifCachedModule fp (IdeResultOk NotCached) hoverReqHandler
 
@@ -199,13 +153,13 @@ funcSpec = describe "functional dispatch" $ do
       unpackRes hr0 `shouldBe` ("IReq IdInt 0",Just NotCached)
 
       -- This request should be deferred, only return when the module is loaded
-      dispatchIdeRequest 1 "req1" cin logChan (IdInt 1) $ symbolProvider testUri
+      dispatchIdeRequest 1 "req1" scheduler logChan (IdInt 1) $ symbolProvider testUri
 
       rrr <- atomically $ tryReadTChan logChan
       show rrr `shouldBe` "Nothing"
 
       -- need to typecheck the module to trigger deferred response
-      dispatchGhcRequest 2 "req2" 2 cin logChan "ghcmod" "check" (toJSON testUri)
+      dispatchGhcRequest 2 "req2" 2 scheduler logChan "ghcmod" "check" (toJSON testUri)
 
       -- And now we get the deferred response (once the module is loaded)
       ("req1",Right res) <- atomically $ readTChan logChan
@@ -231,7 +185,7 @@ funcSpec = describe "functional dispatch" $ do
     it "instantly responds to deferred requests if cache is available" $ do
       -- deferred responses should return something now immediately
       -- as long as the above test ran before
-      dispatchIdeRequest 0 "references" cin logChan (IdInt 4)
+      dispatchIdeRequest 0 "references" scheduler logChan (IdInt 4)
         $ getReferencesInDoc testUri (Position 7 0)
 
       hr4 <- atomically $ readTChan logChan
@@ -283,7 +237,7 @@ funcSpec = describe "functional dispatch" $ do
 
     it "returns hints as diagnostics" $ do
 
-      dispatchGhcRequest 5 "r5" 5 cin logChan "applyrefact" "lint" testUri
+      dispatchGhcRequest 5 "r5" 5 scheduler logChan "applyrefact" "lint" testUri
 
       hr5 <- atomically $ readTChan logChan
       unpackRes hr5 `shouldBe` ("r5",
@@ -302,7 +256,7 @@ funcSpec = describe "functional dispatch" $ do
                     )
 
       let req6 = HP testUri (toPos (8, 1))
-      dispatchGhcRequest 6 "r6" 6 cin logChan "hare" "demote" req6
+      dispatchGhcRequest 6 "r6" 6 scheduler logChan "hare" "demote" req6
 
       hr6 <- atomically $ readTChan logChan
       -- show hr6 `shouldBe` "hr6"
@@ -316,9 +270,9 @@ funcSpec = describe "functional dispatch" $ do
 
     it "instantly responds to failed modules with no cache with the default" $ do
 
-      dispatchIdeRequest 7 "req7" cin logChan (IdInt 7) $ findDef testFailUri (Position 1 2)
+      dispatchIdeRequest 7 "req7" scheduler logChan (IdInt 7) $ findDef testFailUri (Position 1 2)
 
-      dispatchGhcRequest 8 "req8" 8 cin logChan "ghcmod" "check" (toJSON testFailUri)
+      dispatchGhcRequest 8 "req8" 8 scheduler logChan "ghcmod" "check" (toJSON testFailUri)
 
       hr7 <- atomically $ readTChan logChan
       unpackRes hr7 `shouldBe` ("req7", Just ([] :: [Location]))

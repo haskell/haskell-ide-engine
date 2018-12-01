@@ -4,7 +4,7 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE NamedFieldPuns            #-}
+{-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
@@ -18,7 +18,6 @@ module Haskell.Ide.Engine.Transport.LspStdio
 import           Control.Concurrent
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM.TChan
-import           Control.Concurrent.STM.TVar
 import qualified Control.FoldDebounce as Debounce
 import qualified Control.Exception as E
 import           Control.Lens ( (^.), (.~) )
@@ -43,14 +42,13 @@ import qualified Data.Text as T
 import           Data.Text.Encoding
 import qualified GhcModCore               as GM
 import qualified GhcMod.Monad.Types       as GM
-import           Haskell.Ide.Engine.PluginDescriptor
+import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
-import           Haskell.Ide.Engine.Dispatcher
 import           Haskell.Ide.Engine.PluginUtils
+import qualified Haskell.Ide.Engine.Scheduler            as Scheduler
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.LSP.CodeActions
-import           Haskell.Ide.Engine.LSP.Config
 import           Haskell.Ide.Engine.LSP.Reactor
 import qualified Haskell.Ide.Engine.Plugin.HaRe          as HaRe
 import qualified Haskell.Ide.Engine.Plugin.GhcMod        as GhcMod
@@ -75,18 +73,17 @@ import qualified Yi.Rope as Yi
 -- ---------------------------------------------------------------------
 {-# ANN module ("hlint: ignore Eta reduce" :: String) #-}
 {-# ANN module ("hlint: ignore Redundant do" :: String) #-}
-
+{-# ANN module ("hlint: ignore Use tuple-section" :: String) #-}
 -- ---------------------------------------------------------------------
 
 lspStdioTransport
-  :: (DispatcherEnv -> ErrorHandler -> CallbackHandler R -> ClientCapabilities -> IO ())
-  -> TChan (PluginRequest R)
+  :: Scheduler.Scheduler R
   -> FilePath
   -> IdePlugins
   -> Maybe FilePath
   -> IO ()
-lspStdioTransport hieDispatcherProc cin origDir plugins captureFp = do
-  run hieDispatcherProc cin origDir plugins captureFp >>= \case
+lspStdioTransport scheduler origDir plugins captureFp = do
+  run scheduler origDir plugins captureFp >>= \case
     0 -> exitSuccess
     c -> exitWith . ExitFailure $ c
 
@@ -115,35 +112,25 @@ instance Semigroup (MostRecent a) where
   _ <> b = b
 
 run
-  :: (DispatcherEnv -> ErrorHandler -> CallbackHandler R -> ClientCapabilities -> IO ())
-  -> TChan (PluginRequest R)
+  :: Scheduler.Scheduler R
   -> FilePath
   -> IdePlugins
   -> Maybe FilePath
   -> IO Int
-run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
+run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
 
   rin        <- atomically newTChan :: IO (TChan ReactorInput)
   commandIds <- allLspCmdIds plugins
 
   let dp lf = do
-        cancelTVar  <- atomically $ newTVar S.empty
-        wipTVar     <- atomically $ newTVar S.empty
-        versionTVar <- atomically $ newTVar Map.empty
         diagIn      <- atomically newTChan
-        let dEnv = DispatcherEnv
-              { cancelReqsTVar = cancelTVar
-              , wipReqsTVar    = wipTVar
-              , docVersionTVar = versionTVar
-              }
-        let react = runReactor lf dEnv cin diagnosticProviders hps sps
-        let reactorFunc = react $ reactor rin diagIn
-            caps = Core.clientCapabilities lf
+        let react = runReactor lf scheduler diagnosticProviders hps sps
+            reactorFunc = react $ reactor rin diagIn
 
-        let errorHandler :: ErrorHandler
+        let errorHandler :: Scheduler.ErrorHandler
             errorHandler lid code e =
               Core.sendErrorResponseS (Core.sendFunc lf) (J.responseId lid) code e
-            callbackHandler :: CallbackHandler R
+            callbackHandler :: Scheduler.CallbackHandler R
             callbackHandler f x = react $ f x
 
         -- This is the callback the debouncer executes at the end of the timeout,
@@ -163,7 +150,7 @@ run dispatcherProc cin _origDir plugins captureFp = flip E.catches handlers $ do
         -- haskell lsp sets the current directory to the project root in the InitializeRequest
         -- We launch the dispatcher after that so that the default cradle is
         -- recognized properly by ghc-mod
-        _ <- forkIO $ dispatcherProc dEnv errorHandler callbackHandler caps
+        _ <- forkIO $ Scheduler.runScheduler scheduler errorHandler callbackHandler (Just lf)
                     `race_` reactorFunc
                     `race_` diagnosticsQueue tr
         return Nothing
@@ -213,18 +200,20 @@ configVal defVal field = do
 
 getPrefixAtPos :: (MonadIO m, MonadReader REnv m)
   => Uri -> Position -> m (Maybe Hie.PosPrefixInfo)
-getPrefixAtPos uri (Position l c) = do
+getPrefixAtPos uri pos@(Position l c) = do
   mvf <- liftIO =<< asksLspFuncs Core.getVirtualFileFunc <*> pure uri
   case mvf of
     Just (VFS.VirtualFile _ yitext) ->
-      return $ Just $ fromMaybe (Hie.PosPrefixInfo "" "" "") $ do
+      return $ Just $ fromMaybe (Hie.PosPrefixInfo "" "" "" pos) $ do
         let headMaybe [] = Nothing
             headMaybe (x:_) = Just x
             lastMaybe [] = Nothing
             lastMaybe xs = Just $ last xs
         curLine <- headMaybe $ Yi.lines $ snd $ Yi.splitAtLine l yitext
         let beforePos = Yi.take c curLine
-        curWord <- Yi.toText <$> lastMaybe (Yi.words beforePos)
+        curWord <- case Yi.last beforePos of
+                     Just ' ' -> Just "" -- don't count abc as the curword in 'abc '
+                     _ -> Yi.toText <$> lastMaybe (Yi.words beforePos)
         let parts = T.split (=='.')
                       $ T.takeWhileEnd (\x -> isAlphaNum x || x `elem` ("._'"::String)) curWord
         case reverse parts of
@@ -233,7 +222,7 @@ getPrefixAtPos uri (Position l c) = do
             let modParts = dropWhile (not . isUpper . T.head)
                                 $ reverse $ filter (not .T.null) xs
                 modName = T.intercalate "." modParts
-            return $ Hie.PosPrefixInfo (Yi.toText curLine) modName x
+            return $ Hie.PosPrefixInfo (Yi.toText curLine) modName x pos
     Nothing -> return Nothing
 
 -- ---------------------------------------------------------------------
@@ -243,8 +232,6 @@ mapFileFromVfs :: (MonadIO m, MonadReader REnv m)
                => TrackingNumber
                -> J.VersionedTextDocumentIdentifier -> m ()
 mapFileFromVfs tn vtdi = do
-  verTVar <- asks (docVersionTVar . dispatcherEnv)
-  cin <- asks reqChanIn
   let uri = vtdi ^. J.uri
       ver = fromMaybe 0 (vtdi ^. J.version)
   vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
@@ -258,25 +245,8 @@ mapFileFromVfs tn vtdi = do
                       GM.loadMappedFileSource fp text'
                       fileMap <- GM.getMMappedFiles
                       debugm $ "file mapping state is: " ++ show fileMap
-      liftIO $ atomically $ do
-        modifyTVar' verTVar (Map.insert uri ver)
-        writeTChan cin req
-      return ()
+      updateDocumentRequest uri ver req
     (_, _) -> return ()
-
-_unmapFileFromVfs :: (MonadIO m, MonadReader REnv m) => TrackingNumber -> J.Uri -> m ()
-_unmapFileFromVfs tn uri = do
-  verTVar <- asks (docVersionTVar . dispatcherEnv)
-  cin <- asks reqChanIn
-  case J.uriToFilePath uri of
-    Just fp -> do
-      let req = GReq tn (Just uri) Nothing Nothing (const $ return ())
-                $ IdeResultOk <$> GM.unloadMappedFile fp
-      liftIO $ atomically $ do
-        modifyTVar' verTVar (Map.delete uri)
-        writeTChan cin req
-      return ()
-    _ -> return ()
 
 -- TODO: generalise this and move it to GhcMod.ModuleLoader
 updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeGhcM (IdeResult ())
@@ -292,14 +262,67 @@ updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file 
     cacheInfoNoClear file info'
     return $ IdeResultOk ()
   where
-    f (+/-) (J.Range (Position sl _) (Position el _)) txt p@(Position l c)
+    f (+/-) (J.Range (Position sl sc) (Position el ec)) txt p@(Position l c)
+
+      -- pos is before the change - unaffected
       | l < sl = Just p
+      -- pos is somewhere after the changed line,
+      -- move down the pos to keep it the same
       | l > el = Just $ Position l' c
+
+      {-
+          LEGEND:
+          0-9   char index
+          x     untouched char
+          I/i   inserted/replaced char
+          .     deleted char
+          ^     pos to be converted
+      -}
+
+      {-
+          012345  67
+          xxxxxx  xx
+           ^
+          0123456789
+          xxIIIIiixx
+           ^
+
+          pos is unchanged if before the edited range
+      -}
+      | l == sl && c <= sc = Just p
+
+      {-
+          01234  56
+          xxxxx  xx
+            ^
+          012345678
+          xxIIIiixx
+                 ^
+          If pos is in the affected range move to after the range
+      -}
+      | l == sl && l == el && c <= nec && newL == 0 = Just $ Position l ec
+
+      {-
+          01234  56
+          xxxxx  xx
+                 ^
+          012345678
+          xxIIIiixx
+                 ^
+          If pos is after the affected range, update the char index
+          to keep it in the same place
+      -}
+      | l == sl && l == el && c > nec && newL == 0 = Just $ Position l (c +/- (nec - sc))
+
+      -- oh well we tried ¯\_(ツ)_/¯
       | otherwise = Nothing
          where l' = l +/- dl
                dl = newL - oldL
                oldL = el-sl
                newL = T.count "\n" txt
+               nec -- new end column
+                | newL == 0 = sc + T.length txt
+                | otherwise = T.length $ last $ T.lines txt
     oldToNew = f (+)
     newToOld = f (-)
 
@@ -309,7 +332,7 @@ publishDiagnostics :: (MonadIO m, MonadReader REnv m)
   => Int -> J.Uri -> J.TextDocumentVersion -> DiagnosticsBySource -> m ()
 publishDiagnostics maxToSend uri' mv diags = do
   lf <- asks lspFuncs
-  liftIO $ (Core.publishDiagnosticsFunc lf) maxToSend uri' mv diags
+  liftIO $ Core.publishDiagnosticsFunc lf maxToSend uri' mv diags
 
 -- ---------------------------------------------------------------------
 
@@ -317,7 +340,7 @@ flushDiagnosticsBySource :: (MonadIO m, MonadReader REnv m)
   => Int -> Maybe J.DiagnosticSource -> m ()
 flushDiagnosticsBySource maxToSend msource = do
   lf <- asks lspFuncs
-  liftIO $ (Core.flushDiagnosticsBySourceFunc lf) maxToSend msource
+  liftIO $ Core.flushDiagnosticsBySourceFunc lf maxToSend msource
 
 -- ---------------------------------------------------------------------
 
@@ -492,9 +515,7 @@ reactor inp diagIn = do
 
         ReqRename req -> do
           liftIO $ U.logs $ "reactor:got RenameRequest:" ++ show req
-          let params = req ^. J.params
-              doc = params ^. J.textDocument . J.uri
-              pos = params ^. J.position
+          let (params, doc, pos) = reqParams req
               newName  = params ^. J.newName
               callback = reactorSend . RspRename . Core.makeResponseMessage req
           let hreq = GReq tn (Just doc) Nothing (Just $ req ^. J.id) callback
@@ -564,7 +585,6 @@ reactor inp diagIn = do
                   Nothing -> reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req $ dynToJSON obj
 
               execCmd cmdId args = do
-                vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
                 -- The parameters to the HIE command are always the first element
                 let cmdParams = case args of
                      Just (J.List (x:_)) -> x
@@ -599,7 +619,7 @@ reactor inp diagIn = do
                   -- Just an ordinary HIE command
                   Just (plugin, cmd) ->
                     let preq = GReq tn Nothing Nothing (Just $ req ^. J.id) callback
-                               $ runPluginCommand plugin cmd vfsFunc cmdParams
+                               $ runPluginCommand plugin cmd cmdParams
                     in makeRequest preq
 
                   -- Couldn't parse the command identifier
@@ -616,9 +636,7 @@ reactor inp diagIn = do
 
         ReqCompletion req -> do
           liftIO $ U.logs $ "reactor:got CompletionRequest:" ++ show req
-          let params = req ^. J.params
-              doc = params ^. (J.textDocument . J.uri)
-              pos = params ^. J.position
+          let (_, doc, pos) = reqParams req
 
           mprefix <- getPrefixAtPos doc pos
 
@@ -659,9 +677,7 @@ reactor inp diagIn = do
 
         ReqDocumentHighlights req -> do
           liftIO $ U.logs $ "reactor:got DocumentHighlightsRequest:" ++ show req
-          let params = req ^. J.params
-              doc = params ^. (J.textDocument . J.uri)
-              pos = params ^. J.position
+          let (_, doc, pos) = reqParams req
               callback = reactorSend . RspDocumentHighlights . Core.makeResponseMessage req . J.List
           let hreq = IReq tn (req ^. J.id) callback
                    $ Hie.getReferencesInDoc doc pos
@@ -682,9 +698,7 @@ reactor inp diagIn = do
         ReqFindReferences req -> do
           liftIO $ U.logs $ "reactor:got FindReferences:" ++ show req
           -- TODO: implement project-wide references
-          let params = req ^. J.params
-              doc = params ^. (J.textDocument . J.uri)
-              pos = params ^. J.position
+          let (_, doc, pos) = reqParams req
               callback = reactorSend . RspFindReferences.  Core.makeResponseMessage req . J.List
           let hreq = IReq tn (req ^. J.id) callback
                    $ fmap (map (J.Location doc . (^. J.range)))
@@ -746,11 +760,7 @@ reactor inp diagIn = do
         NotCancelRequestFromClient notif -> do
           liftIO $ U.logs $ "reactor:got CancelRequest:" ++ show notif
           let lid = notif ^. J.params . J.id
-          DispatcherEnv cancelReqTVar wipTVar _ <- asks dispatcherEnv
-          liftIO $ atomically $ do
-            wip <- readTVar wipTVar
-            when (S.member lid wip) $ do
-              modifyTVar' cancelReqTVar (S.insert lid)
+          cancelRequest lid
 
         -- -------------------------------
 
@@ -798,29 +808,26 @@ requestDiagnostics DiagnosticsRequest{trigger, file, trackingNumber, documentVer
 
   diagFuncs <- asks diagnosticSources
   lf <- asks lspFuncs
-  cin <- asks reqChanIn
   mc <- liftIO $ Core.config lf
   case Map.lookup trigger diagFuncs of
     Nothing -> do
-      logm $ "requestDiagnostics: no diagFunc for:" ++ show trigger
+      debugm $ "requestDiagnostics: no diagFunc for:" ++ show trigger
       return ()
     Just dss -> do
       dpsEnabled <- configVal (Map.fromList [("liquid",False)]) getDiagnosticProvidersConfig
-      logm $ "requestDiagnostics: got diagFunc for:" ++ show trigger
+      debugm $ "requestDiagnostics: got diagFunc for:" ++ show trigger
       forM_ dss $ \(pid,ds) -> do
-        logm $ "requestDiagnostics: calling diagFunc for plugin:" ++ show pid
+        debugm $ "requestDiagnostics: calling diagFunc for plugin:" ++ show pid
         let
-          enabled = case Map.lookup pid dpsEnabled of
-            Nothing -> True
-            Just flag -> flag
+          enabled = Map.findWithDefault True pid dpsEnabled
           publishDiagnosticsIO = Core.publishDiagnosticsFunc lf
           maxToSend = maybe 50 maxNumberOfProblems mc
           sendOne (fileUri,ds') = do
-            logm $ "LspStdio.sendone:(fileUri,ds')=" ++ show(fileUri,ds')
+            debugm $ "LspStdio.sendone:(fileUri,ds')=" ++ show(fileUri,ds')
             publishDiagnosticsIO maxToSend fileUri Nothing (Map.fromList [(Just pid,SL.toSortedList ds')])
 
           sendEmpty = do
-            logm "LspStdio.sendempty"
+            debugm "LspStdio.sendempty"
             publishDiagnosticsIO maxToSend file Nothing (Map.fromList [(Just pid,SL.toSortedList [])])
 
           -- fv = case documentVersion of
@@ -846,13 +853,12 @@ requestDiagnostics DiagnosticsRequest{trigger, file, trackingNumber, documentVer
               case diags of
                 [] -> liftIO sendEmpty
                 _ -> mapM_ (liftIO . sendOne) diags
-        when enabled $ liftIO $ atomically $ writeTChan cin reql
+        when enabled $ makeRequest reql
 
 -- | get hlint and GHC diagnostics and loads the typechecked module into the cache
 requestDiagnosticsNormal :: TrackingNumber -> J.Uri -> J.TextDocumentVersion -> R ()
 requestDiagnosticsNormal tn file mVer = do
   lf <- asks lspFuncs
-  cin <- asks reqChanIn
   mc <- liftIO $ Core.config lf
   let
     ver = fromMaybe 0 mVer
@@ -880,7 +886,7 @@ requestDiagnosticsNormal tn file mVer = do
                  $ ApplyRefact.lintCmd' file
         callbackl (PublishDiagnosticsParams fp (List ds))
              = sendOne "hlint" (fp, ds)
-    liftIO $ atomically $ writeTChan cin reql
+    makeRequest reql
 
   -- get GHC diagnostics and loads the typechecked module into the cache
   let reqg = GReq tn (Just file) (Just (file,ver)) Nothing callbackg
@@ -895,9 +901,19 @@ requestDiagnosticsNormal tn file mVer = do
           [] -> sendEmpty
           _ -> mapM_ (sendOneGhc "ghcmod") ds
 
-  liftIO $ atomically $ writeTChan cin reqg
+  makeRequest reqg
 
 -- ---------------------------------------------------------------------
+
+reqParams ::
+     (J.HasParams r p, J.HasTextDocument p i, J.HasUri i u, J.HasPosition p l)
+  => r
+  -> (p, u, l)
+reqParams req = (params, doc, pos)
+  where
+    params = req ^. J.params
+    doc = params ^. (J.textDocument . J.uri)
+    pos = params ^. J.position
 
 syncOptions :: J.TextDocumentSyncOptions
 syncOptions = J.TextDocumentSyncOptions

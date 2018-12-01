@@ -2,7 +2,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 module BrittanySpec where
 
-import           Haskell.Ide.Engine.PluginDescriptor
 import           Language.Haskell.LSP.Types
 import           System.Directory
 import           Haskell.Ide.Engine.Plugin.Brittany
@@ -39,7 +38,7 @@ brittanySpec = describe "brittany plugin commands" $ do
             , _newText = "foo :: Int -> String -> IO ()\nfoo x y = do\n    print x\n    return 42\n"
             }
         ]
-    testCommand testPlugins act "brittany" "format" dummyVfs arg res
+    testCommand testPlugins act "brittany" "format" arg res
 
   it "formats a document with CRLF endings" $ do
     let
@@ -54,7 +53,7 @@ brittanySpec = describe "brittany plugin commands" $ do
             , _newText = "foo :: Int -> String -> IO ()\nfoo x y = do\n    print x\n    return 42\n"
             }
         ]
-    testCommand testPlugins act "brittany" "format" dummyVfs arg res
+    testCommand testPlugins act "brittany" "format" arg res
 
   it "formats a range with LF endings" $ do
     let r   = Range (Position 1 0) (Position 2 22)
@@ -69,7 +68,7 @@ brittanySpec = describe "brittany plugin commands" $ do
               , _newText = "foo x y = do\n    print x\n    return 42\n"
               }
           ]
-    testCommand testPlugins act "brittany" "format" dummyVfs arg res
+    testCommand testPlugins act "brittany" "format" arg res
 
   it "formats a range with CRLF endings" $ do
     let r   = Range (Position 1 0) (Position 2 22)
@@ -84,4 +83,4 @@ brittanySpec = describe "brittany plugin commands" $ do
               , _newText = "foo x y = do\n    print x\n    return 42\n"
               }
           ]
-    testCommand testPlugins act "brittany" "format" dummyVfs arg res
+    testCommand testPlugins act "brittany" "format" arg res

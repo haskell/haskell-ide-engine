@@ -72,7 +72,7 @@ data AddParams = AddParams
   deriving (Eq, Show, Read, Generic, ToJSON, FromJSON)
 
 addCmd :: CommandFunc AddParams J.WorkspaceEdit
-addCmd = CmdSync $ \_ (AddParams rootDir modulePath pkg) -> do
+addCmd = CmdSync $ \(AddParams rootDir modulePath pkg) -> do
 
   packageType <- liftIO $ findPackageType rootDir
   fileMap <- GM.mkRevRedirMapFunc
@@ -233,20 +233,21 @@ editCabalPackage file modulePath pkgName fileMap = do
             newDeps = oldDeps ++ [Dependency (mkPackageName dep) anyVersion]
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider plId docId _ mRootDir _ context = do
+codeActionProvider plId docId _ context = do
+  mRootDir <- getRootPath
   let J.List diags = context ^. J.diagnostics
       pkgs = mapMaybe getAddablePackages diags
 
   res <- mapM (bimapM return Hoogle.searchPackages) pkgs
-  actions <- catMaybes <$> mapM (uncurry mkAddPackageAction) (concatPkgs res)
+  actions <- catMaybes <$> mapM (uncurry (mkAddPackageAction mRootDir)) (concatPkgs res)
 
   return (IdeResultOk actions)
 
   where
     concatPkgs = concatMap (\(d, ts) -> map (d,) ts)
 
-    mkAddPackageAction :: J.Diagnostic -> T.Text -> IdeM (Maybe J.CodeAction)
-    mkAddPackageAction diag pkgName = case (mRootDir, J.uriToFilePath (docId ^. J.uri)) of
+    mkAddPackageAction :: Maybe FilePath -> J.Diagnostic -> T.Text -> IdeM (Maybe J.CodeAction)
+    mkAddPackageAction mRootDir diag pkgName = case (mRootDir, J.uriToFilePath (docId ^. J.uri)) of
      (Just rootDir, Just docFp) -> do
        let title = "Add " <> pkgName <> " as a dependency"
            cmdParams = [toJSON (AddParams rootDir docFp pkgName)]
@@ -261,6 +262,16 @@ codeActionProvider plId docId _ mRootDir _ context = do
 extractModuleName :: T.Text -> Maybe T.Text
 extractModuleName msg
   | T.isPrefixOf "Could not find module " msg = Just $ T.tail $ T.init nameAndQuotes
+  | T.isPrefixOf "Could not load module " msg = Just $ T.tail $ T.init nameAndQuotes
   | otherwise = Nothing
-  where line = T.replace "\n" "" msg
+  where line = head $ T.lines msg
         nameAndQuotes = T.dropWhileEnd (/= '’') $ T.dropWhile (/= '‘') line
+
+{- GHC 8.6.2 error message is
+
+"Could not load module \8216Data.Text\8217\n" ++
+"It is a member of the hidden package \8216text-1.2.3.1\8217.\n" ++
+"Perhaps you need to add \8216text\8217 to the build-depends in your .cabal file.\n" ++
+"Use -v to see a list of the files searched for.
+
+-}

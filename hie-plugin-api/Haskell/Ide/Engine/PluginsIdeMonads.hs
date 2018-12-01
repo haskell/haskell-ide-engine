@@ -14,17 +14,23 @@
 -- | IdeGhcM and associated types
 module Haskell.Ide.Engine.PluginsIdeMonads
   (
-  -- * Plugins
-    PluginId
-  , CommandName
-  , HasPidCache(..)
+  -- * LSP Commands
+    HasPidCache(..)
   , mkLspCommand
   , allLspCmdIds
   , mkLspCmdId
-  , CommandFunc(..)
+  -- * Plugins
+  , PluginId
+  , CommandName
   , PluginDescriptor(..)
+  , pluginDescToIdePlugins
   , PluginCommand(..)
-  , VirtualFileFunc
+  , CommandFunc(..)
+  , runPluginCommand
+  , DynamicJSON
+  , dynToJSON
+  , fromDynJSON
+  , toDynJSON
   , CodeActionProvider
   , DiagnosticProvider(..)
   , DiagnosticProviderFunc(..)
@@ -34,11 +40,15 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , HoverProvider
   , SymbolProvider
   , IdePlugins(..)
-  -- * The IDE monad
+  , getDiagnosticProvidersConfig
+  -- * IDE monads
   , IdeState(..)
   , IdeGhcM
+  , runIdeGhcM
   , IdeM
+  , runIdeM
   , IdeDeferM
+  , MonadIde(..)
   , iterT
   , LiftsToGhc(..)
   -- * IdeResult
@@ -61,73 +71,74 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , DiagnosticSeverity(..)
   , PublishDiagnosticsParams(..)
   , List(..)
-  ) where
+  )
+where
 
 import           Control.Concurrent.STM
+import           Control.Exception
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Free
 
 import           Data.Aeson
-import           Data.Dynamic (Dynamic)
+import qualified Data.ConstrainedDynamic       as CD
+import           Data.Default
+import qualified Data.List                     as List
+import           Data.Dynamic                   ( Dynamic )
 import           Data.IORef
-import qualified Data.Map as Map
-import           Data.Monoid ((<>))
-import qualified Data.Set as S
-import qualified Data.Text as T
-import           Data.Typeable (TypeRep, Typeable)
+import qualified Data.Map                      as Map
+import           Data.Maybe
+import           Data.Monoid                    ( (<>) )
+import qualified Data.Set                      as S
+import qualified Data.Text                     as T
+import           Data.Typeable                  ( TypeRep
+                                                , Typeable
+                                                )
 
-import qualified GhcMod.Monad        as GM
+import qualified GhcMod.Monad                  as GM
+import qualified GhcMod.Types                  as GM
 import           GHC.Generics
-import           GHC (HscEnv)
+import           GHC                            ( HscEnv )
 
 import           Haskell.Ide.Engine.Compat
+import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.GhcModuleCache
 
+import qualified Language.Haskell.LSP.Core     as Core
 import           Language.Haskell.LSP.Types.Capabilities
-import           Language.Haskell.LSP.Types (Command (..),
-                                             CodeAction (..),
-                                             CodeActionContext (..),
-                                             Diagnostic (..),
-                                             DiagnosticSeverity (..),
-                                             DocumentSymbol (..),
-                                             List (..),
-                                             Hover (..),
-                                             Location (..),
-                                             Position (..),
-                                             PublishDiagnosticsParams (..),
-                                             Range (..),
-                                             TextDocumentIdentifier (..),
-                                             TextDocumentPositionParams (..),
-                                             Uri (..),
-                                             VersionedTextDocumentIdentifier(..),
-                                             WorkspaceEdit (..),
-                                             filePathToUri,
-                                             uriToFilePath)
+import           Language.Haskell.LSP.Types     ( Command(..)
+                                                , CodeAction(..)
+                                                , CodeActionContext(..)
+                                                , Diagnostic(..)
+                                                , DiagnosticSeverity(..)
+                                                , DocumentSymbol(..)
+                                                , List(..)
+                                                , Hover(..)
+                                                , Location(..)
+                                                , Position(..)
+                                                , PublishDiagnosticsParams(..)
+                                                , Range(..)
+                                                , TextDocumentIdentifier(..)
+                                                , TextDocumentPositionParams(..)
+                                                , Uri(..)
+                                                , VersionedTextDocumentIdentifier(..)
+                                                , WorkspaceEdit(..)
+                                                , filePathToUri
+                                                , uriToFilePath
+                                                )
 
-import           Language.Haskell.LSP.VFS (VirtualFile(..))
+import           Language.Haskell.LSP.VFS       ( VirtualFile(..) )
 
 -- ---------------------------------------------------------------------
-
-type PluginId = T.Text
-type CommandName = T.Text
-
-newtype CommandFunc a b = CmdSync (VirtualFileFunc -> a -> IdeGhcM (IdeResult b))
-
-data PluginCommand = forall a b. (FromJSON a, ToJSON b, Typeable b) =>
-  PluginCommand { commandName :: CommandName
-                , commandDesc :: T.Text
-                , commandFunc :: CommandFunc a b
-                }
-
+-- LSP Commands
 -- ---------------------------------------------------------------------
 
 class Monad m => HasPidCache m where
   getPidCache :: m Int
 
 instance HasPidCache IdeM where
-  getPidCache = idePidCache <$> readMTS
+  getPidCache = asks ideEnvPidCache
 
 instance HasPidCache IO where
   getPidCache = getProcessID
@@ -152,13 +163,11 @@ mkLspCmdId plid cn = do
   return $ pid <> ":" <> plid <> ":" <> cn
 
 -- ---------------------------------------------------------------------
-
-type VirtualFileFunc = Uri -> IO (Maybe VirtualFile)
+-- Plugins
+-- ---------------------------------------------------------------------
 
 type CodeActionProvider =  PluginId
                         -> VersionedTextDocumentIdentifier
-                        -> VirtualFileFunc
-                        -> Maybe FilePath -- ^ Project root directory
                         -> Range
                         -> CodeActionContext
                         -> IdeM (IdeResult [CodeAction])
@@ -205,6 +214,50 @@ data PluginDescriptor =
 instance Show PluginCommand where
   show (PluginCommand name _ _) = "PluginCommand { name = " ++ T.unpack name ++ " }"
 
+type PluginId = T.Text
+type CommandName = T.Text
+
+newtype CommandFunc a b = CmdSync (a -> IdeGhcM (IdeResult b))
+
+data PluginCommand = forall a b. (FromJSON a, ToJSON b, Typeable b) =>
+  PluginCommand { commandName :: CommandName
+                , commandDesc :: T.Text
+                , commandFunc :: CommandFunc a b
+                }
+
+pluginDescToIdePlugins :: [PluginDescriptor] -> IdePlugins
+pluginDescToIdePlugins plugins = IdePlugins $ Map.fromList $ map (\p -> (pluginId p, p)) plugins
+
+type DynamicJSON = CD.ConstrainedDynamic ToJSON
+
+dynToJSON :: DynamicJSON -> Value
+dynToJSON x = CD.applyClassFn x toJSON
+
+fromDynJSON :: (Typeable a, ToJSON a) => DynamicJSON -> Maybe a
+fromDynJSON = CD.fromDynamic
+
+toDynJSON :: (Typeable a, ToJSON a) => a -> DynamicJSON
+toDynJSON = CD.toDyn
+
+-- | Runs a plugin command given a PluginId, CommandName and
+-- arguments in the form of a JSON object.
+runPluginCommand :: PluginId -> CommandName -> Value
+                  -> IdeGhcM (IdeResult DynamicJSON)
+runPluginCommand p com arg = do
+  IdePlugins m <- getPlugins
+  case Map.lookup p m of
+    Nothing -> return $
+      IdeResultFail $ IdeError UnknownPlugin ("Plugin " <> p <> " doesn't exist") Null
+    Just (PluginDescriptor { pluginCommands = xs }) -> case List.find ((com ==) . commandName) xs of
+      Nothing -> return $ IdeResultFail $
+        IdeError UnknownCommand ("Command " <> com <> " isn't defined for plugin " <> p <> ". Legal commands are: " <> T.pack(show $ map commandName xs)) Null
+      Just (PluginCommand _ _ (CmdSync f)) -> case fromJSON arg of
+        Error err -> return $ IdeResultFail $
+          IdeError ParameterError ("error while parsing args for " <> com <> " in plugin " <> p <> ": " <> T.pack err) Null
+        Success a -> do
+            res <- f a
+            return $ fmap toDynJSON res
+
 -- | a Description of the available commands stored in IdeGhcM
 newtype IdePlugins = IdePlugins
   { ipMap :: Map.Map PluginId PluginDescriptor
@@ -215,27 +268,105 @@ newtype IdePlugins = IdePlugins
 instance ToJSON IdePlugins where
   toJSON (IdePlugins m) = toJSON $ fmap (\x -> (commandName x, commandDesc x)) <$> fmap pluginCommands m
 
+-- | For the diagnostic providers in the config, return a map of
+-- current enabled state, indexed by the plugin id.
+getDiagnosticProvidersConfig :: Config -> Map.Map PluginId Bool
+getDiagnosticProvidersConfig c = Map.fromList [("applyrefact",hlintOn c)
+                                              ,("liquid",     liquidOn c)
+                                              ]
+
+-- ---------------------------------------------------------------------
+-- Monads
 -- ---------------------------------------------------------------------
 
 -- | IdeM that allows for interaction with the ghc-mod session
 type IdeGhcM = GM.GhcModT IdeM
+
+-- | Run an IdeGhcM with Cradle found from the current directory
+runIdeGhcM :: GM.Options -> IdePlugins -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeGhcM a -> IO a
+runIdeGhcM ghcModOptions plugins mlf stateVar f = do
+  env <- IdeEnv <$> pure mlf <*> getProcessID <*> pure plugins
+  (eres, _) <- flip runReaderT stateVar $ flip runReaderT env $ GM.runGhcModT ghcModOptions f
+  case eres of
+      Left err  -> liftIO $ throwIO err
+      Right res -> return res
 
 -- | A computation that is deferred until the module is cached.
 -- Note that the module may not typecheck, in which case 'UriCacheFailed' is passed
 data Defer a = Defer FilePath (UriCacheResult -> a) deriving Functor
 type IdeDeferM = FreeT Defer IdeM
 
-type IdeM = ReaderT ClientCapabilities (MultiThreadState IdeState)
+type IdeM = ReaderT IdeEnv (MultiThreadState IdeState)
 
+-- | Run an IdeM 
+runIdeM :: IdePlugins -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeM a -> IO a
+runIdeM plugins mlf stateVar f = do
+  env <- IdeEnv <$> pure mlf <*> getProcessID <*> pure plugins
+  -- TODO: AZ run a single ReaderT, with a composite R.
+  flip runReaderT stateVar $ runReaderT f env
+
+data IdeEnv = IdeEnv
+  { ideEnvLspFuncs :: Maybe (Core.LspFuncs Config)
+  -- | The pid of this instance of hie
+  , ideEnvPidCache :: Int
+  , idePlugins  :: IdePlugins
+  }
+
+-- | The class of monads that support common IDE functions, namely IdeM/IdeGhcM/IdeDeferM
+class Monad m => MonadIde m where
+  getRootPath :: m (Maybe FilePath)
+  getVirtualFile :: Uri -> m (Maybe VirtualFile)
+  getConfig :: m Config
+  getClientCapabilities :: m ClientCapabilities
+  getPlugins :: m IdePlugins
+
+instance MonadIde IdeM where
+  getRootPath = do
+    mlf <- asks ideEnvLspFuncs
+    case mlf of
+      Just lf -> return (Core.rootPath lf)
+      Nothing -> return Nothing
+
+  getVirtualFile uri = do
+    mlf <- asks ideEnvLspFuncs
+    case mlf of
+      Just lf -> liftIO $ Core.getVirtualFileFunc lf uri
+      Nothing -> return Nothing
+
+  getConfig = do
+    mlf <- asks ideEnvLspFuncs
+    case mlf of
+      Just lf -> fromMaybe def <$> liftIO (Core.config lf)
+      Nothing -> return def
+    
+  getClientCapabilities = do
+    mlf <- asks ideEnvLspFuncs
+    case mlf of
+      Just lf -> return (Core.clientCapabilities lf)
+      Nothing -> return def
+  
+  getPlugins = asks idePlugins
+
+instance MonadIde IdeGhcM where
+  getRootPath = lift $ lift getRootPath
+  getVirtualFile = lift . lift . getVirtualFile
+  getConfig = lift $ lift getConfig
+  getClientCapabilities = lift $ lift getClientCapabilities
+  getPlugins = lift $ lift getPlugins
+
+instance MonadIde IdeDeferM where
+  getRootPath = lift getRootPath
+  getVirtualFile = lift . getVirtualFile
+  getConfig = lift getConfig
+  getClientCapabilities = lift getClientCapabilities
+  getPlugins = lift getPlugins
+      
 data IdeState = IdeState
   { moduleCache :: GhcModuleCache
   -- | A queue of requests to be performed once a module is loaded
   , requestQueue :: Map.Map FilePath [UriCacheResult -> IdeM ()]
-  , idePlugins  :: IdePlugins
   , extensibleState :: !(Map.Map TypeRep Dynamic)
   , ghcSession  :: Maybe (IORef HscEnv)
-  -- The pid of this instance of hie
-  , idePidCache    :: Int
   }
 
 instance MonadMTState IdeState IdeGhcM where
@@ -280,7 +411,8 @@ instance HasGhcModuleCache IdeM where
     liftIO $ atomically $ modifyTVar' tvar (\st -> st { moduleCache = mc })
 
 -- ---------------------------------------------------------------------
-
+-- Results
+-- ---------------------------------------------------------------------
 
 -- | The result of a plugin action, containing the result and an error if
 -- it failed. IdeGhcM usually skips IdeResponse and jumps straight to this.

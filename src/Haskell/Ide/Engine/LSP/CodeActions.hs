@@ -19,7 +19,6 @@ import qualified Language.Haskell.LSP.Types.Lens as J
 import qualified Language.Haskell.LSP.Types.Capabilities as C
 import Language.Haskell.LSP.VFS
 import Language.Haskell.LSP.Messages
-import Haskell.Ide.Engine.IdeFunctions
 import Haskell.Ide.Engine.PluginsIdeMonads
 
 data FallbackCodeActionParams =
@@ -32,9 +31,6 @@ data FallbackCodeActionParams =
 handleCodeActionReq :: TrackingNumber -> J.CodeActionRequest -> R ()
 handleCodeActionReq tn req = do
 
-  maybeRootDir    <- asksLspFuncs Core.rootPath
-  virtualFileFunc <- asksLspFuncs Core.getVirtualFileFunc
-
   vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
   docVersion <- fmap _version <$> liftIO (vfsFunc docUri)
   let docId = J.VersionedTextDocumentIdentifier docUri docVersion
@@ -45,7 +41,7 @@ handleCodeActionReq tn req = do
         return $ IdeResultOk $ mapMaybe getProvider $ toList m
 
       providersCb providers =
-        let reqs = map (\f -> lift (f docId virtualFileFunc maybeRootDir range context)) providers
+        let reqs = map (\f -> lift (f docId range context)) providers
         in makeRequests reqs tn (req ^. J.id) (send . concat)
 
   makeRequest (IReq tn (req ^. J.id) providersCb getProviders)

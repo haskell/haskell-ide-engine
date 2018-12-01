@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP               #-}
-{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveAnyClass    #-}
 {-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.Engine.Plugin.Example2 where
 
@@ -42,10 +43,10 @@ example2Descriptor plId = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 sayHelloCmd :: CommandFunc () T.Text
-sayHelloCmd = CmdSync $ \_ _ -> return (IdeResultOk sayHello)
+sayHelloCmd = CmdSync $ \_ -> return (IdeResultOk sayHello)
 
 sayHelloToCmd :: CommandFunc T.Text T.Text
-sayHelloToCmd = CmdSync $ \_ n -> do
+sayHelloToCmd = CmdSync $ \n -> do
   r <- liftIO $ sayHelloTo n
   return $ IdeResultOk r
 
@@ -81,12 +82,12 @@ data TodoParams = TodoParams
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
 todoCmd :: CommandFunc TodoParams J.WorkspaceEdit
-todoCmd = CmdSync $ \_ (TodoParams uri r) -> return $ IdeResultOk $ makeTodo uri r
+todoCmd = CmdSync $ \(TodoParams uri r) -> return $ IdeResultOk $ makeTodo uri r
 
 makeTodo :: J.Uri -> J.Range -> J.WorkspaceEdit
 makeTodo uri (J.Range (J.Position startLine _) _) = res
   where
-    pos = (J.Position startLine 0)
+    pos = J.Position startLine 0
     textEdits = J.List
       [J.TextEdit (J.Range pos pos)
                   "-- TODO: from example2 plugin\n"
@@ -99,7 +100,7 @@ makeTodo uri (J.Range (J.Position startLine _) _) = res
 
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider plId docId _ _ r _context = do
+codeActionProvider plId docId r _context = do
   cmd <- mkLspCommand plId "todo" title  (Just cmdParams)
   return $ IdeResultOk [codeAction cmd]
   where

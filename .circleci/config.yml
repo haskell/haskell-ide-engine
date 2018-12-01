@@ -22,9 +22,9 @@ defaults: &defaults
 
     - restore_cache:
         keys:
-          - stack-cache-08-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
-          - stack-cache-08-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
-          - stack-cache-08-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
+          - stack-cache-12-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
+          - stack-cache-12-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
+          - stack-cache-12-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
 
     - run:
         name: Stack setup
@@ -39,8 +39,12 @@ defaults: &defaults
         command: stack --stack-yaml=${STACK_FILE} install hoogle
 
     - run:
-        name: Build
+        name: Build (we need the exe for tests)
         command: stack -j 2 --stack-yaml=${STACK_FILE} install
+
+    - run:
+        name: Build Testsuite without running it
+        command: stack -j 2 --stack-yaml=${STACK_FILE}  build --test --no-run-tests
 
     - store_artifacts:
         path: ~/.local/bin
@@ -50,8 +54,12 @@ defaults: &defaults
         name: Generate Hoogle database
         command: stack --stack-yaml=${STACK_FILE} exec hoogle generate
 
+    - run:
+        name: Clear cabal-helper cache
+        command: rm -fr ~/.cache/cabal-helper
+
     - save_cache:
-        key: stack-cache-08-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
+        key: stack-cache-12-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
         paths:
           - ~/.stack
           - ~/.cache
@@ -65,14 +73,15 @@ defaults: &defaults
 
     - run:
         name: Test
-        command: stack -j 2 --stack-yaml=${STACK_FILE} test --dump-logs
+        # Tests MUST run with -j1, since multiple ghc-mod sessions are not allowed
+        command: stack -j 1 --stack-yaml=${STACK_FILE} test --dump-logs
         no_output_timeout: 120m
 
     - store_artifacts:
         path: test-logs
 
     - save_cache:
-        key: stack-cache-08-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
+        key: stack-cache-12-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
         paths:
           - ~/.stack
           - ~/.cache
@@ -85,7 +94,7 @@ defaults: &defaults
           - ~/build/submodules/cabal-helper/.stack-work
 
     - save_cache:
-        key: stack-cache-08-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
+        key: stack-cache-12-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
         paths:
           - ~/.stack
           - ~/.cache
@@ -124,6 +133,21 @@ jobs:
       - STACK_FILE: "stack-8.4.3.yaml"
     <<: *defaults
 
+  ghc-8.4.4:
+    environment:
+      - STACK_FILE: "stack-8.4.4.yaml"
+    <<: *defaults
+
+  ghc-8.6.1:
+    environment:
+      - STACK_FILE: "stack-8.6.1.yaml"
+    <<: *defaults
+
+  ghc-8.6.2:
+    environment:
+      - STACK_FILE: "stack-8.6.2.yaml"
+    <<: *defaults
+
   ghc-nightly:
     environment:
       - STACK_FILE: "stack.yaml"
@@ -132,7 +156,8 @@ jobs:
   cabal:
     working_directory: ~/build
     docker:
-      - image: quay.io/haskell_works/ghc-8.4.3
+      # - image: quay.io/haskell_works/ghc-8.4.3
+      - image: quay.io/haskell_works/ghc-8.6.1
     steps:
       - checkout
       - run:
@@ -143,7 +168,7 @@ jobs:
           command: git submodule update --recursive --init
       - restore-cache:
           keys:
-            - cabal-03
+            - cabal-12-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
       - run:
           name: Cabal version
           command: cabal --version
@@ -157,7 +182,7 @@ jobs:
           name: Build
           command: cabal new-build -j2
       - save_cache:
-          key: cabal-03
+          key: cabal-12-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
           paths:
             - ~/.cabal
 
@@ -170,5 +195,8 @@ workflows:
       - ghc-8.2.2
       - ghc-8.4.2
       - ghc-8.4.3
+      - ghc-8.4.4
+      - ghc-8.6.1
+      - ghc-8.6.2
       - ghc-nightly
       - cabal

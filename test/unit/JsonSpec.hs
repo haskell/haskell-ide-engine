@@ -10,7 +10,8 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Plugin.ApplyRefact
 import           Haskell.Ide.Engine.Plugin.GhcMod
 import           Haskell.Ide.Engine.Plugin.HaRe
-import           Haskell.Ide.Engine.LSP.Config
+import           Haskell.Ide.Engine.Plugin.HieExtras
+import           Haskell.Ide.Engine.Config
 
 import           Data.Aeson
 import           Test.Hspec
@@ -101,4 +102,4 @@ instance Arbitrary Position where
     return $ Position l c
 
 instance Arbitrary Config where
-  arbitrary = Config <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+  arbitrary = Config <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary

@@ -17,6 +17,9 @@ To build and test with all of them, use
 make test
 ```
 
+Note that some tests require `liquid` binary to be present in your PATH. 
+To install it follow the instructions in [liquidhaskell](https://github.com/ucsd-progsys/liquidhaskell/blob/develop/INSTALL.md).
+
 To see what version/compiler you are running
 
 ```bash
@@ -130,7 +133,7 @@ the `plugins` table.
 
 ### Operation
 
-When a request is recived from any of the frontends, this is routed to the
+When a request is received from any of the frontends, this is routed to the
 central dispatcher via a `Chan`. Based on the specified plugin name and
 `IdeRequest` `ideCommand` value the appropriate `UiCommand` is identified and
 its `uiFunc` is called.
@@ -144,5 +147,5 @@ type Dispatcher = forall m. (MonadIO m,GHC.GhcMonad m,HasIdeState m) => IdeReque
 This type is not the monad used in `HIE`, but does guarantee that it can access
 IO and the `HIE` state, which is currently only the table of plugins.
 
-It also makes the `GhcMonad` available. In a fully general version this my not
+It also makes the `GhcMonad` available. In a fully general version this may not
 be necessary.
