@@ -14,6 +14,13 @@ build: hie-8.2.1 hie-8.2.2 \
 build-all: build build-docs
 .PHONY: build-all
 
+GHC := $(shell stack path --compiler-exe)
+
+ghc:
+	$(GHC) --version
+	@echo GHC
+.PHONY: ghc
+
 # ------------------------------------------------------
 
 ## Builds hie for GHC version 8.2.1 only
@@ -91,8 +98,9 @@ submodules:
 ## NOTE 2: this is temporary, will go away once the new cabal-helper lands.
 ## NOTE 3: This is needed for stack only projects too
 cabal:
-	cabal update
-	cabal install Cabal-2.4.1.0
+	stack install cabal-install
+	cabal v1-update
+	cabal v1-install Cabal-2.4.1.0 --with-compiler=$(GHC)
 .PHONY: cabal
 
 # ------------------------------------------------------
