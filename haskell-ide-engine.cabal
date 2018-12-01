@@ -110,7 +110,6 @@ executable hie
                      , hie-plugin-api
                      , hslogger
                      , optparse-simple
-                     , stm
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
                        -with-rtsopts=-T
   if flag(pedantic)
@@ -191,7 +190,6 @@ test-suite unit-test
                      , hoogle > 5.0.11
                      , hspec
                      , quickcheck-instances
-                     , stm
                      , text
                      , unordered-containers
 
@@ -207,13 +205,12 @@ test-suite dispatcher-test
   main-is:             Main.hs
   build-depends:       base
                      , aeson
-                     , containers
                      , data-default
                      , directory
                      , filepath
                      , ghc
-                     , haskell-lsp
                      , haskell-ide-engine
+                     , haskell-lsp-types
                      , hie-test-utils
                      , hie-plugin-api
                      , hspec
@@ -232,20 +229,14 @@ test-suite plugin-dispatcher-test
   hs-source-dirs:      test/plugin-dispatcher
   main-is:             Main.hs
   build-depends:       base
-                     , aeson
-                     , containers
                      , data-default
-                     , directory
-                     , filepath
-                     , ghc
-                     , haskell-lsp
                      , haskell-ide-engine
-                     , hie-test-utils
+                     , haskell-lsp-types
                      , hie-plugin-api
+                     , hie-test-utils
                      , hspec
                      , stm
                      , text
-                     , unordered-containers
 
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
