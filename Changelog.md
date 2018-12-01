@@ -1,3 +1,8 @@
+# 0.4.0.1
+
+- Install cabal / Cabal (needed for Cabal 2.4.0.1 support) via stack,
+  for when there is no other GHC installed.
+
 # 0.4.0.0
 
 - Supports GHC 8.6
