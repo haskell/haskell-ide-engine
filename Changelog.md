@@ -1,3 +1,13 @@
+# 0.4.0.0
+
+- Supports GHC 8.6
+- Preliminary support for cabal new-build projects
+- Can install via cabal new-build
+- Completions: more comprehensive filtering of name prefixes
+  introduced by GHC
+- Replace bat script with PowerShell, update Windows instructions in
+  README (@fsoikin)
+
 # 0.3.0.0
 
  - LSP mode is now the default, and the `--lsp` flag has no effect
