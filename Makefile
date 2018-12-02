@@ -99,8 +99,8 @@ submodules:
 ## NOTE 3: This is needed for stack only projects too
 cabal:
 	stack install cabal-install
-	cabal v1-update
-	cabal v1-install Cabal-2.4.1.0 --with-compiler=$(GHC)
+	cabal update
+	cabal install Cabal-2.4.1.0 --with-compiler=$(GHC)
 .PHONY: cabal
 
 # ------------------------------------------------------
