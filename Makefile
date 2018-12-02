@@ -111,8 +111,8 @@ build-docs:
 	&& stack --stack-yaml=stack-8.2.2.yaml exec hoogle generate \
 	&& stack --stack-yaml=stack-8.4.2.yaml exec hoogle generate \
 	&& stack --stack-yaml=stack-8.4.3.yaml exec hoogle generate \
-	&& stack --stack-yaml=stack-8.4.4.yaml exec hoogle generate
-	&& stack --stack-yaml=stack-8.6.1.yaml exec hoogle generate
+	&& stack --stack-yaml=stack-8.4.4.yaml exec hoogle generate \
+	&& stack --stack-yaml=stack-8.6.1.yaml exec hoogle generate \
 	&& stack --stack-yaml=stack-8.6.2.yaml exec hoogle generate
 .PHONY: build-docs
 
@@ -125,8 +125,8 @@ test: submodules cabal
 	&& stack --stack-yaml=stack-8.2.2.yaml test \
 	&& stack --stack-yaml=stack-8.4.2.yaml test \
 	&& stack --stack-yaml=stack-8.4.3.yaml test \
-	&& stack --stack-yaml=stack-8.4.4.yaml test
-	&& stack --stack-yaml=stack-8.6.1.yaml test
+	&& stack --stack-yaml=stack-8.4.4.yaml test \
+	&& stack --stack-yaml=stack-8.6.1.yaml test \
 	&& stack --stack-yaml=stack-8.6.2.yaml test
 .PHONY: test
 
@@ -135,8 +135,8 @@ build-copy-compiler-tool: submodules cabal
 	&& stack --stack-yaml=stack-8.2.2.yaml build --copy-compiler-tool \
 	&& stack --stack-yaml=stack-8.4.2.yaml build --copy-compiler-tool \
 	&& stack --stack-yaml=stack-8.4.3.yaml build --copy-compiler-tool \
-	&& stack --stack-yaml=stack-8.4.4.yaml build --copy-compiler-tool
-	&& stack --stack-yaml=stack-8.6.1.yaml build --copy-compiler-tool
+	&& stack --stack-yaml=stack-8.4.4.yaml build --copy-compiler-tool \
+	&& stack --stack-yaml=stack-8.6.1.yaml build --copy-compiler-tool \
 	&& stack --stack-yaml=stack-8.6.2.yaml build --copy-compiler-tool
 .PHONY: build-copy-compiler-tool
 
