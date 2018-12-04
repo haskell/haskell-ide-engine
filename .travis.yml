@@ -2,6 +2,9 @@ sudo: false
 language: c
 os: osx
 env:
+- GHC_VER=8.6.2
+- GHC_VER=8.6.1
+- GHC_VER=8.4.4
 - GHC_VER=8.4.3
 - GHC_VER=8.4.2
 - GHC_VER=8.2.2
