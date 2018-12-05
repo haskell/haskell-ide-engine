@@ -99,8 +99,8 @@ submodules:
 ## NOTE 3: This is needed for stack only projects too
 cabal:
 	stack install cabal-install
-	cabal v1-update
-	cabal v1-install Cabal-2.4.1.0 --with-compiler=$(GHC)
+	cabal update
+	cabal install Cabal-2.4.1.0 --with-compiler=$(GHC)
 .PHONY: cabal
 
 # ------------------------------------------------------
@@ -111,8 +111,8 @@ build-docs:
 	&& stack --stack-yaml=stack-8.2.2.yaml exec hoogle generate \
 	&& stack --stack-yaml=stack-8.4.2.yaml exec hoogle generate \
 	&& stack --stack-yaml=stack-8.4.3.yaml exec hoogle generate \
-	&& stack --stack-yaml=stack-8.4.4.yaml exec hoogle generate
-	&& stack --stack-yaml=stack-8.6.1.yaml exec hoogle generate
+	&& stack --stack-yaml=stack-8.4.4.yaml exec hoogle generate \
+	&& stack --stack-yaml=stack-8.6.1.yaml exec hoogle generate \
 	&& stack --stack-yaml=stack-8.6.2.yaml exec hoogle generate
 .PHONY: build-docs
 
@@ -125,8 +125,8 @@ test: submodules cabal
 	&& stack --stack-yaml=stack-8.2.2.yaml test \
 	&& stack --stack-yaml=stack-8.4.2.yaml test \
 	&& stack --stack-yaml=stack-8.4.3.yaml test \
-	&& stack --stack-yaml=stack-8.4.4.yaml test
-	&& stack --stack-yaml=stack-8.6.1.yaml test
+	&& stack --stack-yaml=stack-8.4.4.yaml test \
+	&& stack --stack-yaml=stack-8.6.1.yaml test \
 	&& stack --stack-yaml=stack-8.6.2.yaml test
 .PHONY: test
 
@@ -135,8 +135,8 @@ build-copy-compiler-tool: submodules cabal
 	&& stack --stack-yaml=stack-8.2.2.yaml build --copy-compiler-tool \
 	&& stack --stack-yaml=stack-8.4.2.yaml build --copy-compiler-tool \
 	&& stack --stack-yaml=stack-8.4.3.yaml build --copy-compiler-tool \
-	&& stack --stack-yaml=stack-8.4.4.yaml build --copy-compiler-tool
-	&& stack --stack-yaml=stack-8.6.1.yaml build --copy-compiler-tool
+	&& stack --stack-yaml=stack-8.4.4.yaml build --copy-compiler-tool \
+	&& stack --stack-yaml=stack-8.6.1.yaml build --copy-compiler-tool \
 	&& stack --stack-yaml=stack-8.6.2.yaml build --copy-compiler-tool
 .PHONY: build-copy-compiler-tool
 

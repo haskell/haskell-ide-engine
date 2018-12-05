@@ -157,46 +157,26 @@ to VS Code user settings.
 
 Otherwise, do one of the following.
 
-#### For GHC 8.4.3
+#### For GHC 8.4.4
 
 Using master
 
 ```bash
 stack install
 ```
-#### For GHC 8.4.2
+
+#### For Earlier Versions of GHC
 
 Using master
 
 ```bash
-stack --stack-yaml=stack-8.4.2.yaml install
+stack --stack-yaml=stack-<VERSION>.yaml install
 ```
 
-#### For GHC 8.2.2
+where <VERSION> correlates to one of the yaml files in the hie directory.
 
-Using master
-
-```bash
-stack --stack-yaml=stack-8.2.2.yaml install
-```
-
-Using branch `hie-0.1.0.0`
-
-```bash
-stack install
-```
-
-#### For GHC 8.2.1
-
-```bash
-stack --stack-yaml=stack-8.2.1.yaml install
-```
-
-#### For GHC 8.0.2 (only via branch `hie-0.1.0.0`)
-
-```bash
-stack --stack-yaml=stack-8.0.2.yaml install
-```
+Note that GHC 8.0.2 is only available via branch `hie-0.1.0.0` and will require
+you to use the instructions above 'For Earlier Versions of GHC'
 
 ### Installation on Windows
 
