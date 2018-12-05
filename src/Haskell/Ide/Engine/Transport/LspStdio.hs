@@ -142,10 +142,12 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
         let diagnosticsQueue tr = forever $ do
               inval <- liftIO $ atomically $ readTChan diagIn
               Debounce.send tr (coerce . Just $ MostRecent inval)
-
-        tr <- Debounce.new -- Debounce for 350ms
+        
+        -- Debounce for (default) 350ms.
+        debounceDuration <- diagnosticsDebounceDuration . fromMaybe def <$> Core.config lf
+        tr <- Debounce.new
           (Debounce.forMonoid $ react . dispatchDiagnostics)
-          (Debounce.def { Debounce.delay = 350000, Debounce.alwaysResetTimer = True })
+          (Debounce.def { Debounce.delay = debounceDuration, Debounce.alwaysResetTimer = True })
 
         -- haskell lsp sets the current directory to the project root in the InitializeRequest
         -- We launch the dispatcher after that so that the default cradle is
@@ -486,6 +488,7 @@ reactor inp diagIn = do
               -- ver = Just $ td ^. J.version
               ver = Nothing
           mapFileFromVfs tn $ J.VersionedTextDocumentIdentifier uri ver
+          -- don't debounce/queue diagnostics when saving
           requestDiagnostics (DiagnosticsRequest DiagnosticOnSave tn uri ver)
 
         -- -------------------------------
