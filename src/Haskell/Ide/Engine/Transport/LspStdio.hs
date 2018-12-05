@@ -475,6 +475,8 @@ reactor inp diagIn = do
         NotWillSaveTextDocument _notification -> do
           liftIO $ U.logm "****** reactor: not processing NotWillSaveTextDocument"
 
+        -- -------------------------------
+
         NotDidSaveTextDocument notification -> do
           -- This notification is redundant, as we get the NotDidChangeTextDocument
           liftIO $ U.logm "****** reactor: processing NotDidSaveTextDocument"
@@ -484,7 +486,9 @@ reactor inp diagIn = do
               -- ver = Just $ td ^. J.version
               ver = Nothing
           mapFileFromVfs tn $ J.VersionedTextDocumentIdentifier uri ver
-          queueDiagnosticsRequest diagIn DiagnosticOnSave tn uri ver
+          requestDiagnostics (DiagnosticsRequest DiagnosticOnSave tn uri ver)
+
+        -- -------------------------------
 
         NotDidChangeTextDocument notification -> do
           liftIO $ U.logm "****** reactor: processing NotDidChangeTextDocument"
@@ -500,6 +504,8 @@ reactor inp diagIn = do
             updatePositionMap uri changes
 
           queueDiagnosticsRequest diagIn DiagnosticOnChange tn uri ver
+
+        -- -------------------------------
 
         NotDidCloseTextDocument notification -> do
           liftIO $ U.logm "****** reactor: processing NotDidCloseTextDocument"
@@ -803,8 +809,7 @@ queueDiagnosticsRequest diagIn dt tn uri mVer =
 -- results back to the client
 requestDiagnostics :: DiagnosticsRequest -> R ()
 requestDiagnostics DiagnosticsRequest{trigger, file, trackingNumber, documentVersion} = do
-  when (S.member trigger (S.fromList [DiagnosticOnChange,DiagnosticOnOpen])) $
-    requestDiagnosticsNormal trackingNumber file documentVersion
+  requestDiagnosticsNormal trackingNumber file documentVersion
 
   diagFuncs <- asks diagnosticSources
   lf <- asks lspFuncs
