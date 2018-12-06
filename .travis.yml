@@ -7,7 +7,6 @@ addons:
     packages:
     - z3
     - stack
-    - cabal-install
 
 cache:
   directories:
@@ -37,13 +36,6 @@ jobs:
      - stage: setup
        env: GHC_VER="8.4.4"
        script: &setup
-         - |
-           if [ ! -f $HOME/.cabal/bin/liquid ]; then
-             stack setup 8.2.2
-             cabal update
-             cabal install liquidhaskell -w $HOME/.stack/programs/x86_64-osx/ghc-8.2.2/bin/ghc
-           fi
-         - export PATH=$HOME/.cabal/bin/:$PATH
          - mkdir -p dist
          - travis_retry stack --no-terminal --install-ghc --stack-yaml=stack-$GHC_VER.yaml setup
          # Build a big package to offload the next stage from doing too much work
