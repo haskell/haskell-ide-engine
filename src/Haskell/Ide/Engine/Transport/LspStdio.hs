@@ -142,10 +142,12 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
         let diagnosticsQueue tr = forever $ do
               inval <- liftIO $ atomically $ readTChan diagIn
               Debounce.send tr (coerce . Just $ MostRecent inval)
-
-        tr <- Debounce.new -- Debounce for 350ms
+        
+        -- Debounce for (default) 350ms.
+        debounceDuration <- diagnosticsDebounceDuration . fromMaybe def <$> Core.config lf
+        tr <- Debounce.new
           (Debounce.forMonoid $ react . dispatchDiagnostics)
-          (Debounce.def { Debounce.delay = 350000, Debounce.alwaysResetTimer = True })
+          (Debounce.def { Debounce.delay = debounceDuration, Debounce.alwaysResetTimer = True })
 
         -- haskell lsp sets the current directory to the project root in the InitializeRequest
         -- We launch the dispatcher after that so that the default cradle is
@@ -475,6 +477,8 @@ reactor inp diagIn = do
         NotWillSaveTextDocument _notification -> do
           liftIO $ U.logm "****** reactor: not processing NotWillSaveTextDocument"
 
+        -- -------------------------------
+
         NotDidSaveTextDocument notification -> do
           -- This notification is redundant, as we get the NotDidChangeTextDocument
           liftIO $ U.logm "****** reactor: processing NotDidSaveTextDocument"
@@ -484,7 +488,10 @@ reactor inp diagIn = do
               -- ver = Just $ td ^. J.version
               ver = Nothing
           mapFileFromVfs tn $ J.VersionedTextDocumentIdentifier uri ver
-          queueDiagnosticsRequest diagIn DiagnosticOnSave tn uri ver
+          -- don't debounce/queue diagnostics when saving
+          requestDiagnostics (DiagnosticsRequest DiagnosticOnSave tn uri ver)
+
+        -- -------------------------------
 
         NotDidChangeTextDocument notification -> do
           liftIO $ U.logm "****** reactor: processing NotDidChangeTextDocument"
@@ -500,6 +507,8 @@ reactor inp diagIn = do
             updatePositionMap uri changes
 
           queueDiagnosticsRequest diagIn DiagnosticOnChange tn uri ver
+
+        -- -------------------------------
 
         NotDidCloseTextDocument notification -> do
           liftIO $ U.logm "****** reactor: processing NotDidCloseTextDocument"
@@ -803,8 +812,7 @@ queueDiagnosticsRequest diagIn dt tn uri mVer =
 -- results back to the client
 requestDiagnostics :: DiagnosticsRequest -> R ()
 requestDiagnostics DiagnosticsRequest{trigger, file, trackingNumber, documentVersion} = do
-  when (S.member trigger (S.fromList [DiagnosticOnChange,DiagnosticOnOpen])) $
-    requestDiagnosticsNormal trackingNumber file documentVersion
+  requestDiagnosticsNormal trackingNumber file documentVersion
 
   diagFuncs <- asks diagnosticSources
   lf <- asks lspFuncs
