@@ -173,10 +173,10 @@ Using master
 stack --stack-yaml=stack-<VERSION>.yaml install
 ```
 
-where <VERSION> correlates to one of the yaml files in the hie directory.
+where `<VERSION>` correlates to one of the yaml files in the hie directory.
 
-Note that GHC 8.0.2 is only available via branch `hie-0.1.0.0` and will require
-you to use the instructions above 'For Earlier Versions of GHC'
+Note that GHC 8.0.2 is only available via branch `hie-0.1.0.0` and not
+`master`, but otherwise the instructions above are the same.
 
 ### Installation on Windows
 
