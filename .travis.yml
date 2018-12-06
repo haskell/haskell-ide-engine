@@ -39,7 +39,7 @@ jobs:
          - mkdir -p dist
          - travis_retry stack --no-terminal --install-ghc --stack-yaml=stack-$GHC_VER.yaml setup
          # Build a big package to offload the next stage from doing too much work
-         - stack $ARGS build lens
+         - stack --stack-yaml=stack-$GHC_VER.yaml build lens
 
      - stage: setup
        env: GHC_VER="8.4.3"
