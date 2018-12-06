@@ -186,11 +186,10 @@ spec = describe "code actions" $ do
         -- ignore the first empty hlint diagnostic publish
         [_,diag:_] <- count 2 waitForDiagnostics
 
-        if ghcVersion == GHC86
-          then
-            liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not load module ‘Codec.Compression.GZip’"
-          else
-            liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Codec.Compression.GZip’"
+        let preds = [ T.isPrefixOf "Could not load module ‘Codec.Compression.GZip’"
+                    , T.isPrefixOf "Could not find module ‘Codec.Compression.GZip’"
+                    ]
+          in liftIO $ diag ^. L.message `shouldSatisfy` \x -> any (\f -> f x) preds
 
         mActions <- getAllCodeActions doc
         let allActions = map fromAction mActions
