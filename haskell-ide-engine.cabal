@@ -284,7 +284,7 @@ test-suite func-test
                      , test/utils
   main-is:             Main.hs
   other-modules:       CompletionSpec
-                     , CommandSpec
+                     , ZCommandSpec
                      , DeferredSpec
                      , DefinitionSpec
                      , DiagnosticsSpec
