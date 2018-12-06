@@ -21,7 +21,9 @@ extra-deps:
 - monad-memo-0.4.1
 - multistate-0.8.0.1
 - resolv-0.1.1.2
-- lsp-test-0.5.0.2
+# - lsp-test-0.5.0.2
+- github: bubba/lsp-test
+  commit: master
 - pretty-show-1.8.2
 - syz-0.2.0.0
 - temporary-1.2.1.1
