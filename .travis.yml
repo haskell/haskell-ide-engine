@@ -60,7 +60,7 @@ jobs:
      - stage: dependencies
        env: GHC_VER="8.4.4"
        script: &dependencies
-         - travis_retry stack --no-terminal --install-ghc --stack-yaml=stack-$GHC_VER.yaml test --only-dependencies --no-run-tests
+         - travis_retry stack --no-terminal --install-ghc --stack-yaml=stack-$GHC_VER.yaml build --only-dependencies
 
      - stage: dependencies
        env: GHC_VER="8.4.3"
@@ -114,3 +114,7 @@ jobs:
            - dist/*
          file_glob: true
          skip_cleanup: true
+         draft: true
+         tag_name: "${TRAVIS_TAG}"
+         on:
+          tags: true
