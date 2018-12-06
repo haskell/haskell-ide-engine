@@ -94,7 +94,7 @@ spec = describe "liquid haskell diagnostics" $ do
         diags2liquid <- waitForDiagnostics
         liftIO $ length diags2liquid `shouldBe` 0
         -- liftIO $ show diags2liquid `shouldBe` ""
-        diags3@(d:_) <- waitForDiagnostics
+        diags3@(d:_) <- waitForDiagnosticsSource "liquid"
         -- liftIO $ show diags3 `shouldBe` ""
         liftIO $ do
           length diags3 `shouldBe` 1
