@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module ZCommandSpec where
+module CommandSpec where
 
 import Control.Lens hiding (List)
 import Control.Monad.IO.Class
