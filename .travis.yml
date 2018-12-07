@@ -103,12 +103,12 @@ jobs:
      - stage: deploy
        env: GHC_VER="8.4.4"
        script: &deploy
-         - mkdir -p $HOME/.dist
-         - cp .stack-work/install/*/*/$GHC_VER/bin/hie $HOME/.dist
-         - cp .stack-work/install/*/*/$GHC_VER/bin/hie-wrapper $HOME/.dist
-         - upx -q --best $HOME/.dist/hie-$GHC_VER
-         - upx -q --best $HOME/.dist/hie-wrapper
-         - tar czf "hie-$GHC_VER-Darwin.tar.gz" $HOME/.dist
+         - mkdir -p $HOME/hie-macos
+         - cp .stack-work/install/*/*/$GHC_VER/bin/hie $HOME/hie-macos
+         - cp .stack-work/install/*/*/$GHC_VER/bin/hie-wrapper $HOME/hie-macos
+         - upx -q --best $HOME/hie-macos/hie
+         - upx -q --best $HOME/hie-macos/hie-wrapper
+         - tar czf "hie-$GHC_VER-Darwin.tar.gz" $HOME/hie-macos
        deploy: &upload
          provider: releases
          api_key:
