@@ -86,6 +86,7 @@ jobs:
        script: &test
          - stack --no-terminal --stack-yaml=stack-$GHC_VER.yaml install
          - mv $HOME/.local/bin/hie $HOME/.dist/hie-$GHC_VER
+         - ls $HOME/.dist
          - |
            if [ "${GHC_VER}" == "8.4.4" ]; then
              mv $HOME/.local/bin/hie-wrapper $HOME/.dist/hie-wrapper
@@ -109,6 +110,7 @@ jobs:
 
      - stage: deploy
        script:
+         - ls $HOME/.dist
          - upx -q --best $HOME/.dist/hie-8.4.4
          - upx -q --best $HOME/.dist/hie-8.4.3
          - upx -q --best $HOME/.dist/hie-8.4.2
