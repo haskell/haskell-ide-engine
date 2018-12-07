@@ -22,7 +22,7 @@ cache:
   - $TRAVIS_BUILD_DIR/submodules/haskell-lsp/haskell-lsp-types/.stack-work
   - $TRAVIS_BUILD_DIR/submodules/cabal-helper/.stack-work
   - $TRAVIS_BUILD_DIR/hie-plugin-api/.stack-work
-  - $TRAVIS_BUILD_DIR/.dist
+  - $HOME/.dist
   timeout: 800
 before_cache:
   - rm -rf $TRAVIS_BUILD_DIR/.stack-work/logs/
@@ -38,7 +38,8 @@ jobs:
      - stage: setup
        env: GHC_VER="8.4.4"
        script: &setup
-         - mkdir -p $TRAVIS_BUILD_DIR/.dist
+         - mkdir -p $HOME/.dist
+         - ls $HOME/.dist
          - travis_retry stack --no-terminal --install-ghc --stack-yaml=stack-$GHC_VER.yaml setup
          # Build a big package to offload the next stage from doing too much work
          - stack --stack-yaml=stack-$GHC_VER.yaml build lens
@@ -84,10 +85,10 @@ jobs:
        env: GHC_VER="8.4.4"
        script: &test
          - stack --no-terminal --stack-yaml=stack-$GHC_VER.yaml build
-         - mv .stack-work/install/*/*/*/bin/hie $TRAVIS_BUILD_DIR/.dist/hie-$GHC_VER
+         - mv .stack-work/install/*/*/$GHC_VER/bin/hie $HOME/.dist/hie-$GHC_VER
          - |
            if [ "${GHC_VER}" == "8.4.4" ]; then
-             mv .stack-work/install/*/*/$GHC_VER/bin/hie-wrapper $TRAVIS_BUILD_DIR/.dist/hie-wrapper
+             mv .stack-work/install/*/*/$GHC_VER/bin/hie-wrapper $HOME/.dist/hie-wrapper
            fi
 
      - stage: test
@@ -108,8 +109,8 @@ jobs:
 
      - stage: deploy
        script:
-         - upx -q --best $TRAVIS_BUILD_DIR/.dist/hie*
-         - tar czf "hie-${TRAVIS_TAG}-x86_64-Darwin.tar.gz" $TRAVIS_BUILD_DIR/.dist
+         - upx -q --best $HOME/.dist/hie*
+         - tar czf "hie-${TRAVIS_TAG}-x86_64-Darwin.tar.gz" $HOME/.dist
        deploy:
          provider: releases
          api_key:
