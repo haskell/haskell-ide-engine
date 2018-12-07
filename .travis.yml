@@ -22,7 +22,6 @@ cache:
   - $TRAVIS_BUILD_DIR/submodules/haskell-lsp/haskell-lsp-types/.stack-work
   - $TRAVIS_BUILD_DIR/submodules/cabal-helper/.stack-work
   - $TRAVIS_BUILD_DIR/hie-plugin-api/.stack-work
-  - $HOME/.dist
   timeout: 800
 before_cache:
   - rm -rf $TRAVIS_BUILD_DIR/.stack-work/logs/
@@ -38,7 +37,6 @@ jobs:
      - stage: setup
        env: GHC_VER="8.4.4"
        script: &setup
-         - mkdir -p $HOME/.dist
          - ls .stack-work/install/*/*/*/bin/hie || true
          - travis_retry stack --no-terminal --install-ghc --stack-yaml=stack-$GHC_VER.yaml setup
          # Build a big package to offload the next stage from doing too much work
@@ -85,12 +83,6 @@ jobs:
        env: GHC_VER="8.4.4"
        script: &test
          - stack --no-terminal --stack-yaml=stack-$GHC_VER.yaml install
-         - mv $HOME/.local/bin/hie $HOME/.dist/hie-$GHC_VER
-         - ls $HOME/.dist
-         - |
-           if [ "${GHC_VER}" == "8.4.4" ]; then
-             mv $HOME/.local/bin/hie-wrapper $HOME/.dist/hie-wrapper
-           fi
 
      - stage: test
        env: GHC_VER="8.4.3"
@@ -109,22 +101,42 @@ jobs:
        script: *test
 
      - stage: deploy
-       script:
-         - ls $HOME/.dist
-         - upx -q --best $HOME/.dist/hie-8.4.4
-         - upx -q --best $HOME/.dist/hie-8.4.3
-         - upx -q --best $HOME/.dist/hie-8.4.2
-         - upx -q --best $HOME/.dist/hie-8.2.2
-         - upx -q --best $HOME/.dist/hie-8.2.1
-         - tar czf "hie-${TRAVIS_TAG}-x86_64-Darwin.tar.gz" $HOME/.dist
-       deploy:
+       env: GHC_VER="8.4.4"
+       script: &deploy
+         - mkdir -p $HOME/.dist
+         - cp .stack-work/install/*/*/$GHC_VER/bin/hie $HOME/.dist
+         - cp .stack-work/install/*/*/$GHC_VER/bin/hie-wrapper $HOME/.dist
+         - upx -q --best $HOME/.dist/hie-$GHC_VER
+         - upx -q --best $HOME/.dist/hie-wrapper
+         - tar czf "hie-$GHC_VER-Darwin.tar.gz" $HOME/.dist
+       deploy: &upload
          provider: releases
          api_key:
            secure: K12xUSzK+VWpnS4gRo04rJjfi71sBi0zuMWKmAcsK1igvmdbsEjyuyX4SxFI58/sM4x5qlyXg/nWSPfECKjpQS7/Q/GG1ub+AjU9kq5iyiWACWjXpDLN9Jz9iLBceyPLaf3y3rswri45v7LdwvMNwSI/wYNKEz97IfJ3VkCR16kWv/cqHGdJUYWZk7lBJX/BL94Bof4zOoXwSiy0GbaSCptcSHm1qwtN1qYsYnmihgLYR0RtLRz6tvBPHmqDjsWAXMDhaEyi0zfZ06igITkm7E4at+c3/wssYfgSg15AT2fd5T+v9keyzyanBzGh9xHYcMmflIA9dAvQawl/vw8sGsnQRaddhmTd0bqKFrtrnMO5dRsbkIyu1r178BQCJVjvy5KqyVpXy1ycDcO17E5qONVr2V838x6eg9uPJBNGR30XMg3ZF+GPsbz0xhzxf2Hhab82pJ+lAAsBlnaPdDNVchs/wjEFMp94hcL+IL4ydaXk91piPVhs3VPsLfGboQ72sUnyPUI2aiKfkk5P4Xug+2UqbX17fXfLgnkRbfyCd/4IeM4IwHgRAKa3tT7017KGSZBShihqe2dDJBjS8MlIxDD+U69HR2TIkAJaDnJe+UFAndoc8w4Ajd2OJ1/C+ey236SZq9R7D3dqyFi6Sxc1kSpNguVmjjvlEUk/Jpz1ckA=
          file:
-           - "hie-${TRAVIS_TAG}-x86_64-Darwin.tar.gz"
+           - "hie-$GHC_VER-Darwin.tar.gz"
          skip_cleanup: true
          draft: true
          tag_name: "${TRAVIS_TAG}"
          on:
           tags: true
+
+     - stage: deploy
+       env: GHC_VER="8.4.3"
+       script: *deploy
+       deploy: *upload
+
+     - stage: deploy
+       env: GHC_VER="8.4.2"
+       script: *deploy
+       deploy: *upload
+
+     - stage: deploy
+       env: GHC_VER="8.2.2"
+       script: *deploy
+       deploy: *upload
+
+     - stage: deploy
+       env: GHC_VER="8.2.1"
+       script: *deploy
+       deploy: *upload
