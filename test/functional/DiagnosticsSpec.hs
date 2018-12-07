@@ -17,7 +17,7 @@ import           Utils
 
 spec :: Spec
 spec = describe "diagnostics providers" $ do
-  describe "diagnostics triggers" $ do
+  describe "diagnostics triggers" $
     it "runs diagnostics on save" $
       runSession hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
       -- runSessionWithConfig logConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
