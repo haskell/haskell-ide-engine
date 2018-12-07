@@ -70,7 +70,7 @@ hie-8.6.1: submodules cabal
 	stack --stack-yaml=stack-8.6.1.yaml build
 	stack --stack-yaml=stack-8.6.1.yaml install                                      \
 		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.6.1'    \
-		&& cp '$(STACKLOCALBINDIR)/hie-8.6.1' '$(STACKLOCALBINDIR)/hie-8.4'
+		&& cp '$(STACKLOCALBINDIR)/hie-8.6.1' '$(STACKLOCALBINDIR)/hie-8.6'
 .PHONY: hie-8.6.1
 
 ## Builds hie for GHC version 8.6.2 only
@@ -78,7 +78,7 @@ hie-8.6.2: submodules cabal
 	stack --stack-yaml=stack-8.6.2.yaml build
 	stack --stack-yaml=stack-8.6.2.yaml install                                      \
 		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.6.2'    \
-		&& cp '$(STACKLOCALBINDIR)/hie-8.6.2' '$(STACKLOCALBINDIR)/hie-8.4'
+		&& cp '$(STACKLOCALBINDIR)/hie-8.6.2' '$(STACKLOCALBINDIR)/hie-8.6'
 .PHONY: hie-8.6.2
 
 # ------------------------------------------------------
