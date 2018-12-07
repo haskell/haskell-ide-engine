@@ -108,7 +108,7 @@ jobs:
 
      - stage: deploy
        script:
-         - upx -q --best --ultra-brute $TRAVIS_BUILD_DIR/.dist/hie*
+         - upx -q --best $TRAVIS_BUILD_DIR/.dist/hie*
          - tar czf "hie-${TRAVIS_TAG}-x86_64-Darwin.tar.gz" $TRAVIS_BUILD_DIR/.dist
        deploy:
          provider: releases
