@@ -204,6 +204,15 @@ In order to avoid problems with long paths on Windows you can do the following:
 2. Clone the `haskell-ide-engine` to the root of your logical drive (e.g. to
    `E:\hie`)
 
+### Installation on macOS
+
+Download the pre-built binaries from the [releases page](https://github.com/haskell/haskell-ide-engine/releases), and copy/symlink them into `/usr/local/bin` (or somewhere else in your $PATH):
+
+```bash
+ln -s hie-bin-dir/hie* /usr/local/bin/
+```
+
+Alternatively, you can install from source with `make build`. 
 
 ### Installation with Nix
 
