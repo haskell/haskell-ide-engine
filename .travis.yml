@@ -39,7 +39,7 @@ jobs:
        env: GHC_VER="8.4.4"
        script: &setup
          - mkdir -p $HOME/.dist
-         - ls $HOME/.dist
+         - ls .stack-work/install/*/*/*/bin/hie || true
          - travis_retry stack --no-terminal --install-ghc --stack-yaml=stack-$GHC_VER.yaml setup
          # Build a big package to offload the next stage from doing too much work
          - stack --stack-yaml=stack-$GHC_VER.yaml build lens
@@ -84,7 +84,7 @@ jobs:
      - stage: test
        env: GHC_VER="8.4.4"
        script: &test
-         - stack --no-terminal --stack-yaml=stack-$GHC_VER.yaml build
+         - stack --no-terminal --stack-yaml=stack-$GHC_VER.yaml install
          - mv .stack-work/install/*/*/$GHC_VER/bin/hie $HOME/.dist/hie-$GHC_VER
          - |
            if [ "${GHC_VER}" == "8.4.4" ]; then
