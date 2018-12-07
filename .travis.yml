@@ -85,10 +85,10 @@ jobs:
        env: GHC_VER="8.4.4"
        script: &test
          - stack --no-terminal --stack-yaml=stack-$GHC_VER.yaml install
-         - mv .stack-work/install/*/*/$GHC_VER/bin/hie $HOME/.dist/hie-$GHC_VER
+         - mv $HOME/.local/bin/hie $HOME/.dist/hie-$GHC_VER
          - |
            if [ "${GHC_VER}" == "8.4.4" ]; then
-             mv .stack-work/install/*/*/$GHC_VER/bin/hie-wrapper $HOME/.dist/hie-wrapper
+             mv $HOME/.local/bin/hie-wrapper $HOME/.dist/hie-wrapper
            fi
 
      - stage: test
@@ -109,7 +109,11 @@ jobs:
 
      - stage: deploy
        script:
-         - upx -q --best $HOME/.dist/hie*
+         - upx -q --best $HOME/.dist/hie-8.4.4
+         - upx -q --best $HOME/.dist/hie-8.4.3
+         - upx -q --best $HOME/.dist/hie-8.4.2
+         - upx -q --best $HOME/.dist/hie-8.2.2
+         - upx -q --best $HOME/.dist/hie-8.2.1
          - tar czf "hie-${TRAVIS_TAG}-x86_64-Darwin.tar.gz" $HOME/.dist
        deploy:
          provider: releases
