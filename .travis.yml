@@ -106,8 +106,8 @@ jobs:
          - mkdir -p $HOME/hie-macos
          - cp .stack-work/install/*/*/$GHC_VER/bin/hie $HOME/hie-macos
          - cp .stack-work/install/*/*/$GHC_VER/bin/hie-wrapper $HOME/hie-macos
-         - upx -q --best $HOME/hie-macos/hie
-         - upx -q --best $HOME/hie-macos/hie-wrapper
+         - upx --best $HOME/hie-macos/hie
+         - upx --best $HOME/hie-macos/hie-wrapper
          - tar czf "hie-$GHC_VER-Darwin.tar.gz" $HOME/hie-macos
        deploy: &upload
          provider: releases
