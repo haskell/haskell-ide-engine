@@ -85,6 +85,7 @@ hie-8.6.2: submodules cabal
 
 ## Updates local git submodules
 submodules:
+	git submodule sync
 	git submodule update --init
 .PHONY: submodules
 
