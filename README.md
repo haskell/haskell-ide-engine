@@ -157,7 +157,7 @@ to VS Code user settings.
 
 Otherwise, do one of the following.
 
-#### For GHC 8.4.4
+#### For GHC 8.6.2
 
 Using master
 
@@ -165,7 +165,7 @@ Using master
 stack install
 ```
 
-#### For Earlier Versions of GHC
+#### For Other Versions of GHC
 
 Using master
 
