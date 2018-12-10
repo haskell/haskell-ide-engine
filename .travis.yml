@@ -1,60 +1,142 @@
 sudo: false
 language: c
 os: osx
-env:
-- GHC_VER=8.4.3
-- GHC_VER=8.4.2
-- GHC_VER=8.2.2
-- GHC_VER=8.2.1
+
 addons:
   homebrew:
     packages:
     - z3
     - stack
-    - cabal-install
+    - upx
+
 cache:
   directories:
   - $HOME/.stack
-  - $HOME/.local/bin
   - $HOME/.cabal/
   - $TRAVIS_BUILD_DIR/.stack-work
+  - $TRAVIS_BUILD_DIR/submodules/brittany/.stack-work
   - $TRAVIS_BUILD_DIR/submodules/HaRe/.stack-work
   - $TRAVIS_BUILD_DIR/submodules/ghc-mod/.stack-work
   - $TRAVIS_BUILD_DIR/submodules/ghc-mod/core/.stack-work
   - $TRAVIS_BUILD_DIR/submodules/haskell-lsp/.stack-work
   - $TRAVIS_BUILD_DIR/submodules/haskell-lsp/haskell-lsp-types/.stack-work
   - $TRAVIS_BUILD_DIR/submodules/cabal-helper/.stack-work
-  - $TRAVIS_BUILD_DIR/submodules/brittany/.stack-work
   - $TRAVIS_BUILD_DIR/hie-plugin-api/.stack-work
   timeout: 800
 before_cache:
   - rm -rf $TRAVIS_BUILD_DIR/.stack-work/logs/
-install:
-- |
-  if [ ! -f $HOME/.cabal/bin/liquid ]; then
-    stack setup 8.2.2
-    cabal update
-    cabal install liquidhaskell -w $HOME/.stack/programs/x86_64-osx/ghc-8.2.2/bin/ghc
-  fi
-- export PATH=$HOME/.cabal/bin/:$PATH
-script:
-- stack build --stack-yaml=stack-$GHC_VER.yaml
-- stack exec hoogle generate --stack-yaml=stack-$GHC_VER.yaml
-- stack test --stack-yaml=stack-$GHC_VER.yaml
-before_deploy:
-- mv .stack-work/install/*/*/*/bin/hie hie-$GHC_VER
-- |
-  if [ "${GHC_VER}" == "8.4.3" ]; then
-    mv .stack-work/install/*/*/8.4.3/bin/hie-wrapper hie-wrapper
-  fi
-deploy:
-  provider: releases
-  api_key:
-    secure: K12xUSzK+VWpnS4gRo04rJjfi71sBi0zuMWKmAcsK1igvmdbsEjyuyX4SxFI58/sM4x5qlyXg/nWSPfECKjpQS7/Q/GG1ub+AjU9kq5iyiWACWjXpDLN9Jz9iLBceyPLaf3y3rswri45v7LdwvMNwSI/wYNKEz97IfJ3VkCR16kWv/cqHGdJUYWZk7lBJX/BL94Bof4zOoXwSiy0GbaSCptcSHm1qwtN1qYsYnmihgLYR0RtLRz6tvBPHmqDjsWAXMDhaEyi0zfZ06igITkm7E4at+c3/wssYfgSg15AT2fd5T+v9keyzyanBzGh9xHYcMmflIA9dAvQawl/vw8sGsnQRaddhmTd0bqKFrtrnMO5dRsbkIyu1r178BQCJVjvy5KqyVpXy1ycDcO17E5qONVr2V838x6eg9uPJBNGR30XMg3ZF+GPsbz0xhzxf2Hhab82pJ+lAAsBlnaPdDNVchs/wjEFMp94hcL+IL4ydaXk91piPVhs3VPsLfGboQ72sUnyPUI2aiKfkk5P4Xug+2UqbX17fXfLgnkRbfyCd/4IeM4IwHgRAKa3tT7017KGSZBShihqe2dDJBjS8MlIxDD+U69HR2TIkAJaDnJe+UFAndoc8w4Ajd2OJ1/C+ey236SZq9R7D3dqyFi6Sxc1kSpNguVmjjvlEUk/Jpz1ckA=
-  file:
-    - hie-$GHC_VER
-    - hie-wrapper
-  file_glob: true
-  skip_cleanup: true
-  on:
-    tags: true
+
+stages:
+  - setup
+  - dependencies
+  - test
+  - deploy
+
+jobs:
+   include:
+     - stage: setup
+       env: GHC_VER="8.4.4"
+       script: &setup
+         - ls .stack-work/install/*/*/*/bin/hie || true
+         - travis_retry stack --no-terminal --install-ghc --stack-yaml=stack-$GHC_VER.yaml setup
+         # Build a big package to offload the next stage from doing too much work
+         - stack --stack-yaml=stack-$GHC_VER.yaml build lens
+
+     - stage: setup
+       env: GHC_VER="8.4.3"
+       script: *setup
+
+     - stage: setup
+       env: GHC_VER="8.4.2"
+       script: *setup
+
+     - stage: setup
+       env: GHC_VER="8.2.2"
+       script: *setup
+
+     - stage: setup
+       env: GHC_VER="8.2.1"
+       script: *setup
+
+     - stage: dependencies
+       env: GHC_VER="8.4.4"
+       script: &dependencies
+         - travis_retry stack --no-terminal --install-ghc --stack-yaml=stack-$GHC_VER.yaml build --only-dependencies
+
+     - stage: dependencies
+       env: GHC_VER="8.4.3"
+       script: *dependencies
+
+     - stage: dependencies
+       env: GHC_VER="8.4.2"
+       script: *dependencies
+
+     - stage: dependencies
+       env: GHC_VER="8.2.2"
+       script: *dependencies
+
+     - stage: dependencies
+       env: GHC_VER="8.2.1"
+       script: *dependencies
+
+     - stage: test
+       env: GHC_VER="8.4.4"
+       script: &test
+         - stack --no-terminal --stack-yaml=stack-$GHC_VER.yaml install
+
+     - stage: test
+       env: GHC_VER="8.4.3"
+       script: *test
+
+     - stage: test
+       env: GHC_VER="8.4.2"
+       script: *test
+
+     - stage: test
+       env: GHC_VER="8.2.2"
+       script: *test
+
+     - stage: test
+       env: GHC_VER="8.2.1"
+       script: *test
+
+     - stage: deploy
+       env: GHC_VER="8.4.4"
+       script: &deploy
+         - mkdir -p $HOME/hie-macos
+         - cp .stack-work/install/*/*/$GHC_VER/bin/hie $HOME/hie-macos
+         - cp .stack-work/install/*/*/$GHC_VER/bin/hie-wrapper $HOME/hie-macos
+         - upx --best $HOME/hie-macos/hie
+         - upx --best $HOME/hie-macos/hie-wrapper
+         - tar czf "hie-$GHC_VER-Darwin.tar.gz" $HOME/hie-macos
+       deploy: &upload
+         provider: releases
+         api_key:
+           secure: K12xUSzK+VWpnS4gRo04rJjfi71sBi0zuMWKmAcsK1igvmdbsEjyuyX4SxFI58/sM4x5qlyXg/nWSPfECKjpQS7/Q/GG1ub+AjU9kq5iyiWACWjXpDLN9Jz9iLBceyPLaf3y3rswri45v7LdwvMNwSI/wYNKEz97IfJ3VkCR16kWv/cqHGdJUYWZk7lBJX/BL94Bof4zOoXwSiy0GbaSCptcSHm1qwtN1qYsYnmihgLYR0RtLRz6tvBPHmqDjsWAXMDhaEyi0zfZ06igITkm7E4at+c3/wssYfgSg15AT2fd5T+v9keyzyanBzGh9xHYcMmflIA9dAvQawl/vw8sGsnQRaddhmTd0bqKFrtrnMO5dRsbkIyu1r178BQCJVjvy5KqyVpXy1ycDcO17E5qONVr2V838x6eg9uPJBNGR30XMg3ZF+GPsbz0xhzxf2Hhab82pJ+lAAsBlnaPdDNVchs/wjEFMp94hcL+IL4ydaXk91piPVhs3VPsLfGboQ72sUnyPUI2aiKfkk5P4Xug+2UqbX17fXfLgnkRbfyCd/4IeM4IwHgRAKa3tT7017KGSZBShihqe2dDJBjS8MlIxDD+U69HR2TIkAJaDnJe+UFAndoc8w4Ajd2OJ1/C+ey236SZq9R7D3dqyFi6Sxc1kSpNguVmjjvlEUk/Jpz1ckA=
+         file:
+           - "hie-$GHC_VER-Darwin.tar.gz"
+         skip_cleanup: true
+         draft: true
+         tag_name: "${TRAVIS_TAG}"
+         on:
+          tags: true
+
+     - stage: deploy
+       env: GHC_VER="8.4.3"
+       script: *deploy
+       deploy: *upload
+
+     - stage: deploy
+       env: GHC_VER="8.4.2"
+       script: *deploy
+       deploy: *upload
+
+     - stage: deploy
+       env: GHC_VER="8.2.2"
+       script: *deploy
+       deploy: *upload
+
+     - stage: deploy
+       env: GHC_VER="8.2.1"
+       script: *deploy
+       deploy: *upload
