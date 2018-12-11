@@ -4,4 +4,4 @@ packages:
 - .
 
 nix:
-  packages: [ icu libcxx zlib ]
+  packages: [ zlib ]
