@@ -6,6 +6,8 @@ import           Development.Shake.Command
 import           Development.Shake.FilePath
 import           Development.Shake.Util
 import           Control.Monad
+import           System.Environment
+
 
 type VersionNumber = String
 type GhcPath = String
@@ -21,7 +23,10 @@ hies = [ "hie-8.2.1"
        ]
 
 main :: IO ()
-main = shakeArgs shakeOptions { shakeFiles = "_build" } $ do
+main = do
+    -- unset GHC_PACKAGE_PATH for cabal
+    unsetEnv "GHC_PACKAGE_PATH" 
+    shakeArgs shakeOptions { shakeFiles = "_build" } $ do
         phony "ghc" $ do
             ghc <- readGhcPath
             command_ [] ghc ["--version"]
