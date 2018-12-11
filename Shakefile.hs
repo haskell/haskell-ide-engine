@@ -1,5 +1,5 @@
 #!/usr/bin/env stack
--- stack --resolver lts-12.21 --install-ghc runghc --package shake
+-- stack --stack-yaml=shake.yaml  --install-ghc runghc --package shake
 
 import           Development.Shake
 import           Development.Shake.Command
@@ -40,7 +40,8 @@ main = shakeArgs shakeOptions { shakeFiles = "_build" } $ do
         forM_
             hies
             (\hie -> phony hie $ do
-                need ["submodules", "cabal"]
+                need ["submodules"]
+                need ["cabal"]
                 stackLocalDir <- getLocalBin
                 let versionNumber = drop 4 hie
                 buildHie stackLocalDir versionNumber
