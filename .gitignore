@@ -65,3 +65,6 @@ test-logs/
 .hspec-failures
 /test/testdata/addPragmas/stack.yaml
 .vscode
+
+# shake build information
+_build/
