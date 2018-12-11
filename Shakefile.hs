@@ -81,9 +81,9 @@ buildHie localBinDir versionNumber = do
     $ execStackWithYaml versionNumber ["install", "happy"]
   execStackWithYaml versionNumber ["build"]
   execStackWithYaml versionNumber ["install"]
-  cmd_ "cp"
-       [localBinDir </> "hie" <.> exe]
-       [localBinDir </> "hie-" ++ versionNumber <.> exe]
+  copyFile'
+       (localBinDir </> "hie" <.> exe)
+       (localBinDir </> "hie-" ++ versionNumber <.> exe)
 
 buildCopyCompilerTool :: VersionNumber -> Action ()
 buildCopyCompilerTool versionNumber =
