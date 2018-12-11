@@ -1,61 +1,65 @@
+#!/usr/bin/env stack
+-- stack --resolver lts-12.21 --install-ghc runghc --package shake
+
 import           Development.Shake
 import           Development.Shake.Command
 import           Development.Shake.FilePath
 import           Development.Shake.Util
-import           Control.Monad.IO.Class
 import           Control.Monad
 
 type VersionNumber = String
-type GhcVersion = String
+type GhcPath = String
 
 hies :: [FilePath]
-hies = [ "hie-8.2.2"
+hies = [ "hie-8.2.1"
+       , "hie-8.2.2"
        , "hie-8.4.2" 
        , "hie-8.4.3" 
        , "hie-8.4.4"
        , "hie-8.6.1" 
-       , "hie-8.6.2"]
+       , "hie-8.6.2"
+       ]
 
 main :: IO ()
 main = shakeArgs shakeOptions { shakeFiles = "_build" } $ do
-    phony "ghc" $ do
-        ghc <- readGhcVersion
-        command_ [] ghc ["--version"]
-        putNormal "GHC"
+        phony "ghc" $ do
+            ghc <- readGhcPath
+            command_ [] ghc ["--version"]
+            putNormal "GHC"
 
-    phony "submodules" buildSubmodules
-    phony "cabal" $ readGhcVersion >>= installCabal
+        phony "submodules" buildSubmodules
+        phony "cabal" $ readGhcPath >>= installCabal
 
-    phony "all"   helpMessage
-    phony "help"  helpMessage
+        phony "all"   helpMessage
+        phony "help"  helpMessage
 
-    phony "build" (need hies)
+        phony "build" (need hies)
 
-    phony "build-all" (need ["build", "build-docs"])
+        phony "build-all" (need ["build", "build-docs"])
 
-    forM_
-        hies
-        (\hie -> phony hie $ do
-            need ["submodules", "cabal"]
-            stackLocalDir <- getLocalBin
+        forM_
+            hies
+            (\hie -> phony hie $ do
+                need ["submodules", "cabal"]
+                stackLocalDir <- getLocalBin
+                let versionNumber = drop 4 hie
+                buildHie stackLocalDir versionNumber
+            )
+
+        phony "build-docs" $ forM_ hies $ \hie -> do
             let versionNumber = drop 4 hie
-            buildHie stackLocalDir versionNumber
-        )
+            buildDoc versionNumber
 
-    phony "build-docs" $ forM_ hies $ \hie -> do
-        let versionNumber = drop 4 hie
-        buildDoc versionNumber
+        phony "build-copy-compiler-tool" $ forM_ hies $ \hie -> do 
+            let versionNumber = drop 4 hie
+            buildCopyCompilerTool versionNumber
 
-    phony "build-copy-compiler-tool" $ forM_ hies $ \hie -> do 
-        let versionNumber = drop 4 hie
-        buildCopyCompilerTool versionNumber
+        phony "test" $ forM_ hies $ \hie -> do 
+            let versionNumber = drop 4 hie
+            test versionNumber
 
-    phony "test" $ forM_ hies $ \hie -> do 
-        let versionNumber = drop 4 hie
-        test versionNumber
-
-readGhcVersion :: Action GhcVersion
-readGhcVersion = do
+readGhcPath :: Action GhcPath
+readGhcPath = do
     Stdout ghc' <- execStack ["path", "--compiler-exe"]
     return (init ghc')
 
@@ -69,21 +73,21 @@ buildSubmodules = do
     command_ [] "git" ["submodule", "sync"]
     command_ [] "git" ["submodule", "update", "--init"]
 
-installCabal :: GhcVersion -> Action ()
+installCabal :: GhcPath -> Action ()
 installCabal ghc = do
     execStack_ ["install", "cabal-install"]
     execCabal_ ["update"]
     execCabal_ ["install", "Cabal-2.4.1.0", "--with-compiler=" ++ ghc]
 
 installHappy :: VersionNumber -> Action ()
-installHappy versionNumber = execStackWithGhcVersion versionNumber [ "install", "happy"]
+installHappy versionNumber = execStackWithYaml versionNumber [ "install", "happy"]
 
 buildHie :: FilePath -> VersionNumber -> Action ()
 buildHie localBinDir versionNumber = do
     when (versionNumber `elem` ["hie-8.2.2", "hie-8.2.1"]) $
-        execStackWithGhcVersion versionNumber ["install", "happy"]
-    execStackWithGhcVersion versionNumber [ "build"]
-    execStackWithGhcVersion versionNumber [ "install"]
+        execStackWithYaml versionNumber ["install", "happy"]
+    execStackWithYaml versionNumber [ "build"]
+    execStackWithYaml versionNumber [ "install"]
     cmd_
         "cp"
         [ localBinDir </> "hie" <.> exe]
@@ -92,21 +96,43 @@ buildHie localBinDir versionNumber = do
 
 buildCopyCompilerTool :: VersionNumber -> Action () 
 buildCopyCompilerTool versionNumber = do 
-    execStackWithGhcVersion versionNumber ["build", "--copy-compiler-tool"]
+    execStackWithYaml versionNumber ["build", "--copy-compiler-tool"]
 
 test :: VersionNumber -> Action () 
-test versionNumber = execStackWithGhcVersion versionNumber ["test"]
+test versionNumber = execStackWithYaml versionNumber ["test"]
 
 buildDoc :: VersionNumber -> Action ()
 buildDoc versionNumber = do
-    execStackWithGhcVersion versionNumber ["install", "hoogle"]
-    execStackWithGhcVersion versionNumber ["exec", "hoogle", "generate"]
+    execStackWithYaml versionNumber ["install", "hoogle"]
+    execStackWithYaml versionNumber ["exec", "hoogle", "generate"]
 
 helpMessage :: Action ()
-helpMessage = putNormal "Let me help you!"
+helpMessage = do 
+    putNormal ""
+    putNormal "Usage:"
+    putNormal "    make <target>"
+    putNormal ""
+    putNormal "Targets:"
+    putNormal "    build                Builds hie for all supported GHC versions (8.2.1, 8.2.2, 8.4.2 and 8.4.3, 8.4.4)"
+    putNormal "    build-all            Builds hie and hoogle databases for all supported GHC versions"
+    putNormal "    hie-8.2.1            Builds hie for GHC version 8.2.1 only"
+    putNormal "    hie-8.2.2            Builds hie for GHC version 8.2.2 only"
+    putNormal "    hie-8.4.2            Builds hie for GHC version 8.4.2 only"
+    putNormal "    hie-8.4.3            Builds hie for GHC version 8.4.3 only"
+    putNormal "    hie-8.4.4            Builds hie for GHC version 8.4.4 only"
+    putNormal "    hie-8.6.1            Builds hie for GHC version 8.6.1 only"
+    putNormal "    hie-8.6.2            Builds hie for GHC version 8.6.2 only"
+    putNormal "    submodules           Updates local git submodules"
+    putNormal "    cabal                NOTE 3: This is needed for stack only projects too"
+    putNormal "    build-docs           Builds the Hoogle database for all supported GHC versions"
+    putNormal "    test                 Runs hie tests"
+    putNormal "    icu-macos-fix        Fixes icu related problems in MacOS"
+    putNormal "    dist                 Creates a tarball containing all the hie binaries"
+    putNormal "    help                 Show help"
+    putNormal ""
 
-execStackWithGhcVersion :: VersionNumber -> [String] -> Action ()
-execStackWithGhcVersion versionNumber args = do 
+execStackWithYaml :: VersionNumber -> [String] -> Action ()
+execStackWithYaml versionNumber args = do 
     let stackFile = "stack-" ++ versionNumber ++ ".yaml"
     command_ []
              "stack"
