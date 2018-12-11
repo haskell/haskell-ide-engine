@@ -103,7 +103,7 @@ HIE_DIST_NAME:=hie-${HIE_GIT_REF}-$(shell uname -m)-$(shell uname -s)
 HIE_DIST_DIR:=/tmp/${HIE_DIST_NAME}
 
 ## Creates a tarball containing all the hie binaries
-dist: dist-8.6.2
+dist: $(foreach version, $(GHC_VERSIONS), icu-macos-fix-build-$(version))
 	cp .stack-work/install/*/*/$(firstword $(GHC_VERSIONS))/bin/hie ${HIE_DIST_DIR}
 	cp .stack-work/install/*/*/$(firstword $(GHC_VERSIONS))/bin/hie-wrapper ${HIE_DIST_DIR}
 	tar -czf ${HIE_DIST_NAME}.tar.gz -C ${HIE_DIST_DIR} .
