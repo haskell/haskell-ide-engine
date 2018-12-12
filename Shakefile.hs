@@ -81,7 +81,7 @@ buildDist = do
                     (temporaryDir </> "hie")
 
       liftIO
-        $   BS.writeFile (hieDistName ++ "tar.gz")
+        $   BS.writeFile (hieDistName ++ ".tar.gz")
         .   GZip.compress
         .   Tar.write
         =<< Tar.pack temporaryDir
