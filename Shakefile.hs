@@ -14,16 +14,28 @@ import qualified Codec.Compression.GZip        as GZip
 import           Development.Shake
 import           Development.Shake.Command
 import           Development.Shake.FilePath
-import           Development.Shake.Util
 import           Control.Monad
-import           System.Environment
-import           System.Info
+import           System.Environment             ( unsetEnv )
+import           System.Info                    ( os
+                                                , arch
+                                                )
+
+import           Data.List                      ( dropWhileEnd )
+import           Data.Char                      ( isSpace )
 
 type VersionNumber = String
 type GhcPath = String
 
-hieVersions :: [FilePath]
+-- |Defines all different hie versions that are buildable.
+-- If they are edited, 
+hieVersions :: [VersionNumber]
 hieVersions = ["8.2.1", "8.2.2", "8.4.2", "8.4.3", "8.4.4", "8.6.1", "8.6.2"]
+
+-- |Most recent version of hie.
+-- Important for `dist`, the `hie-wrapper` of the most recent hie 
+-- will be copied to the tar-archive.
+mostRecentHieVersion :: VersionNumber
+mostRecentHieVersion = last hieVersions
 
 main :: IO ()
 main = do
@@ -31,11 +43,11 @@ main = do
   unsetEnv "GHC_PACKAGE_PATH"
   shakeArgs shakeOptions { shakeFiles = "_build" } $ do
     phony "ghc" $ do
-      ghc <- readGhcPath
+      ghc <- getGhcPath
       command_ [] ghc ["--version"]
       liftIO $ putStrLn "GHC"
     phony "submodules" updateSubmodules
-    phony "cabal"      (readGhcPath >>= installCabal)
+    phony "cabal"      (getGhcPath >>= installCabal)
     phony "all"        helpMessage
     phony "help"       helpMessage
     phony "build"      (need (map ("hie-" ++) hieVersions))
@@ -60,31 +72,36 @@ main = do
     phony "icu-macos-fix-install" (command_ [] "brew" ["install", "icu4c"])
     phony "icu-macos-fix-build" $ mapM_ buildIcuMacosFix hieVersions
 
+-- |Creates a compressed tar-archive consisting of all hie versions and `hie-wrapper`.
+-- Creates a temporary folder, copies all hie versions to it and compresses it in the end.
 buildDist :: Action ()
 buildDist = do
+  -- Create the name of the resulting tar file.
   Stdout gitRef' <- command [] "git" ["describe", "--tags"]
-  let gitRef      = init gitRef'
+  let gitRef      = trim gitRef'
   let hieDistName = concat ["hie-", gitRef, "-", arch, "-", os]
+
   withTempDir
     (\temporaryDir -> do
       forM_ hieVersions $ \hieVersion -> do
         buildHie hieVersion
-        Stdout localInstallRoot' <- execStackWithYaml
-          hieVersion
-          ["path", "--local-install-root"]
-        let localInstallRoot = init localInstallRoot'
+
+        -- after building `hie` copy it to the temporary folder
+        localInstallRoot <- getLocalInstallRoot hieVersion
         copyFile' (localInstallRoot </> "bin" </> "hie")
                   (temporaryDir </> "hie-" ++ hieVersion)
 
         -- if the most recent hie-* version is copied,
         -- copy it again as the default hie version
-        -- Also, add the newest hie-wrapper to the tar archive 
-        when (hieVersion == "8.6.2") $ do
+        -- Also, add its hie-wrapper to the tar archive 
+        when (hieVersion == mostRecentHieVersion) $ do
           copyFile' (localInstallRoot </> "bin" </> "hie-wrapper")
                     (temporaryDir </> "hie-wrapper")
           copyFile' (localInstallRoot </> "bin" </> "hie")
                     (temporaryDir </> "hie")
 
+      -- After every hie has been built, pack them into a tar.
+      -- Encrypt the resulting tar file with gzip
       liftIO
         $   BS.writeFile (hieDistName ++ ".tar.gz")
         .   GZip.compress
@@ -147,11 +164,11 @@ helpMessage = do
   let out = liftIO . putStrLn
   out ""
   out "Usage:"
-  out "    make <target>"
+  out "    stack Shakefile.hs <target>"
   out ""
   out "Targets:"
   out
-    "    build                Builds hie for all supported GHC versions (8.2.1, 8.2.2, 8.4.2 and 8.4.3, 8.4.4)"
+    "    build                Builds hie for all supported GHC versions (8.2.1, 8.2.2, 8.4.2, 8.4.3, 8.4.4, 8.6.1 and 8.6.2)"
   out
     "    build-all            Builds hie and hoogle databases for all supported GHC versions"
   out "    hie-8.2.1            Builds hie for GHC version 8.2.1 only"
@@ -192,12 +209,30 @@ execStack_ = command_ [] "stack"
 execCabal_ :: [String] -> Action ()
 execCabal_ = command_ [] "cabal"
 
-readGhcPath :: Action GhcPath
-readGhcPath = do
+-- |Get the path to the GHC compiler executable linked to the local `stack.yaml`
+-- Equal to the command `stack path --compiler-exe`
+getGhcPath :: Action GhcPath
+getGhcPath = do
   Stdout ghc' <- execStack ["path", "--compiler-exe"]
-  return (init ghc')
+  return $ trim ghc'
 
+-- |Read the local install root of the stack project specified by the VersionNumber
+-- Returns the filepath of the local install root. 
+-- Equal to the command `stack path --local-install-root`
+getLocalInstallRoot :: VersionNumber -> Action FilePath
+getLocalInstallRoot hieVersion = do
+  Stdout localInstallRoot' <- execStackWithYaml
+    hieVersion
+    ["path", "--local-install-root"]
+  return $ trim localInstallRoot'
+
+-- |Get the local binary path of stack.
+-- Equal to the command `stack path --local-bin`
 getLocalBin :: Action FilePath
 getLocalBin = do
   Stdout stackLocalDir' <- execStack ["path", "--local-bin"]
-  return (init stackLocalDir')
+  return $ trim stackLocalDir'
+
+-- |Trim the end of a string
+trim :: String -> String
+trim = dropWhileEnd isSpace
