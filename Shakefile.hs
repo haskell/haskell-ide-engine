@@ -55,6 +55,11 @@ main = do
         installHie stackLocalDir version
       )
 
+    phony "icu-macos-fix"
+          (need ["icu-macos-fix-install"] >> need ["icu-macos-fix-build"])
+    phony "icu-macos-fix-install" (command_ [] "brew" ["install", "icu4c"])
+    phony "icu-macos-fix-build" $ mapM_ buildIcuMacosFix hieVersions
+
 buildDist :: Action ()
 buildDist = do
   Stdout gitRef' <- command [] "git" ["describe", "--tags"]
@@ -88,6 +93,15 @@ buildDist = do
                      ("hie-wrapper" : "hie" : map ("hie-" ++) hieVersions)
     )
   return ()
+
+buildIcuMacosFix :: VersionNumber -> Action ()
+buildIcuMacosFix version = execStackWithYaml_
+  version
+  [ "build"
+  , "text-icu"
+  , "--extra-lib-dirs=/usr/local/opt/icu4c/lib"
+  , "--extra-include-dirs=/usr/local/opt/icu4c/include"
+  ]
 
 updateSubmodules :: Action ()
 updateSubmodules = do
