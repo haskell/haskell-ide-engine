@@ -80,25 +80,27 @@ buildDist = do
   Stdout gitRef' <- command [] "git" ["describe", "--tags"]
   let gitRef      = trim gitRef'
   let hieDistName = concat ["hie-", gitRef, "-", arch, "-", os]
+  -- define name constants for later use
+  let hieWrapper  = "hie-wrapper" <.> exe
+  let hie         = "hie" <.> exe
+  let mkHie version = "hie-" ++ version <.> exe
 
   withTempDir
     (\temporaryDir -> do
       forM_ hieVersions $ \hieVersion -> do
         buildHie hieVersion
-
         -- after building `hie` copy it to the temporary folder
         localInstallRoot <- getLocalInstallRoot hieVersion
-        copyFile' (localInstallRoot </> "bin" </> "hie")
-                  (temporaryDir </> "hie-" ++ hieVersion)
+        copyFile' (localInstallRoot </> "bin" </> hie)
+                  (temporaryDir </> mkHie hieVersion)
 
         -- if the most recent hie-* version is copied,
         -- copy it again as the default hie version
         -- Also, add its hie-wrapper to the tar archive 
         when (hieVersion == mostRecentHieVersion) $ do
-          copyFile' (localInstallRoot </> "bin" </> "hie-wrapper")
-                    (temporaryDir </> "hie-wrapper")
-          copyFile' (localInstallRoot </> "bin" </> "hie")
-                    (temporaryDir </> "hie")
+          copyFile' (localInstallRoot </> "bin" </> hieWrapper)
+                    (temporaryDir </> hieWrapper)
+          copyFile' (localInstallRoot </> "bin" </> hie) (temporaryDir </> hie)
 
       -- After every hie has been built, pack them into a tar.
       -- Encrypt the resulting tar file with gzip
@@ -106,8 +108,7 @@ buildDist = do
         $   BS.writeFile (hieDistName ++ ".tar.gz")
         .   GZip.compress
         .   Tar.write
-        =<< Tar.pack temporaryDir
-                     ("hie-wrapper" : "hie" : map ("hie-" ++) hieVersions)
+        =<< Tar.pack temporaryDir (hieWrapper : hie : map mkHie hieVersions)
     )
   return ()
 
