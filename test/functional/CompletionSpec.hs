@@ -115,6 +115,28 @@ spec = describe "completions" $ do
       item ^. insertTextFormat `shouldBe` Just Snippet
       item ^. insertText `shouldBe` Just ("OPTIONS_GHC -${1:option} #-}")
 
+  -- -----------------------------------
+
+  it "completes ghc options pragma values" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
+    doc <- openDoc "Completion.hs" "haskell"
+
+    _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
+
+    let te = TextEdit (Range (Position 0 0) (Position 0 0)) "{-# OPTIONS_GHC -Wno-red  #-}\n"
+    _ <- applyEdit doc te
+
+    compls <- getCompletions doc (Position 0 24)
+    -- liftIO $ putStrLn $ "completions=" ++ show (map (^.label) compls)
+    let item = head $ filter ((== "Wno-redundant-constraints") . (^. label)) compls
+    liftIO $ putStrLn $ "item=" ++ show item
+    liftIO $ do
+      item ^. label `shouldBe` "Wno-redundant-constraints"
+      item ^. kind `shouldBe` Just CiKeyword
+      item ^. insertTextFormat `shouldBe` Nothing
+      item ^. insertText `shouldBe` Nothing
+
+  -- -----------------------------------
+
   it "completes with no prefix" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
     doc <- openDoc "Completion.hs" "haskell"
     _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
