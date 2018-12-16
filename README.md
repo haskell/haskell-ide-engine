@@ -100,8 +100,6 @@ we talk to clients.__
 
 ### Installation with stack on Linux
 
-The preferred installation mechanism is via `make` (this calls `stack` under the hood), as it makes sure the repo is synced, installs the required cabal libraries if missing, and makes copies of the executables with suffixes to be able to tell them apart.
-
 To install HIE, you need stack version >= 1.7.1.
 
 HIE builds from source code, so there's a couple of extra steps. 
@@ -152,20 +150,20 @@ You can check which version of ghc you are using in your project by running the 
 stack ghc -- --version
 ```
 
-You can install an specific version or all available GHC versions (see below).
+You can install an specific version or [all available GHC versions](#install-all-available-ghc-versions).
 
-#### Install a GHC version 8.2.1 - 8.6.2
+#### Install a specific GHC version 8.2.1 - 8.6.2
 
-We will use the `make` tools here to wrap `stack install`. For Windows [skip to the Powershell section](#install-all-available-ghc-versions-on-windows).
+We will use the `make` tools here to wrap `stack install`. The preferred installation mechanism is via `make`, as it makes sure the repo is synced, installs the required cabal libraries if missing, and makes copies of the executables with suffixes to be able to tell them apart.
 
-Install nightly (and hoogle docs):
+Install **Nightly** (and hoogle docs):
 
 ```bash
 make hie-8.6.2
 make build-doc-8.6.2
 ```
 
-Install LTS (and hoogle docs):
+Install **LTS** (and hoogle docs):
 
 ```bash
 make hie-8.4.4
