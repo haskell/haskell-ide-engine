@@ -1,4 +1,4 @@
-# Haskell IDE Engine
+# Haskell IDE Engine (HIE)
 <img src="https://github.com/haskell/haskell-ide-engine/raw/master/logos/HIE_logo_512.png" width="256" style="margin:25px;" align="right"/>
 
 [![License BSD3][badge-license]][license]
@@ -21,8 +21,9 @@ we talk to clients.__
 - [Haskell IDE Engine](#haskell-ide-engine)
     - [Features](#features)
     - [Installation](#installation)
-        - Installation with [stack](#installation-with-stack) or [Nix](#installation-with-nix)
-        - [ArchLinux](#archlinux)
+        - [stack](#installation-with-stack)
+        - [Nix](#installation-with-nix)
+        - [ArchLinux](#installation-on-archlinux)
     - [Configuration](#configuration)
     - [Editor Integration](#editor-integration)
         - Using HIE with [VS Code](#using-hie-with-vs-code), [Sublime Text](#using-hie-with-sublime-text), [Vim/Neovim](#using-hie-with-vim-or-neovim), [Atom](#using-hie-with-atom), [Oni](#using-hie-with-oni), [Emacs](#using-hie-with-emacs), [Spacemacs](#using-hie-with-spacemacs) or [Spacemacs+Nix](#using-hie-with-spacemacs-on-nix-based-projects)
@@ -95,52 +96,96 @@ we talk to clients.__
 
 ## Installation
 
-Note: The version on branch `hie-0.1.0.0` supports GHC 8.0.2. This is
-not supported in master.
+### Installation with stack
 
-On linux derivatives you will need to do the equivalent of before building
+This route should work on Linux, Windows and macOS.
+
+To install HIE, you need Stack version >= 1.7.1.
+
+HIE builds from source code, so there's a couple of extra steps. 
+
+The `stack install` step can take more than 30 minutes, so grab a coffee and please be patient!
+
+#### Linux pre-requirements
+
+On Linux you will need install a couple of extra libraries (for Unicode ([ICU](http://site.icu-project.org/)) and [NCURSES](https://www.gnu.org/software/ncurses/)):
+
+**Debian/Ubuntu**: 
 
 ```bash
 sudo apt install libicu-dev libtinfo-dev
 ```
-
-
-### Getting the source for GHC 8.2.1 to 8.6.2
-
-HIE builds from source code, so first,
+**Fedora**:
 
 ```bash
-$ git clone https://github.com/haskell/haskell-ide-engine --recursive
-$ cd haskell-ide-engine
+sudo dnf install libicu-devel ncurses-devel
 ```
-### Getting the source for GHC 8.0.2
+**ArchLinux**: see [below](#installation-on-archlinux).
 
-HIE builds from source code, so first,
+#### Download the source code (Linux and Windows)
 
 ```bash
-$ git clone https://github.com/haskell/haskell-ide-engine
-$ cd haskell-ide-engine
-$ git checkout hie-0.1.0.0
-$ git submodule update --init
+git clone https://github.com/haskell/haskell-ide-engine --recursive
+cd haskell-ide-engine
 ```
 
-### Installation with stack
-
-To install HIE, you need Stack version >= 1.7.1
-
-In order to support both stack and cabal, `hie` requires `cabal-install`
-as well.
-
-If it is not already installed, install it and update its package list. One of the ways is:
+In order to support both stack and cabal, HIE requires `cabal-install`
+as well. If it is not already installed, install it and update its package list:
 
 ```bash
 stack install cabal-install
 cabal update
 ```
 
-To install all supported GHC versions, name them as expected by the VS Code
-plugin, and also build a local hoogle database, you need the `make` tool (on
-Windows, see the further advice below). Use the command:
+Check your GHC version inside the cloned directory:
+
+```bash
+stack ghc -- --version
+```
+
+#### For GHC 8.6.2
+
+```bash
+stack install
+```
+
+#### For GHC 8.2.1 - 8.6.2
+
+```bash
+stack --stack-yaml=stack-<VERSION>.yaml install
+```
+
+You can see which `<VERSION>` is available via `ls stack-*.yaml`, for example:
+
+```bash
+stack --stack-yaml=stack-8.2.1.yaml install
+```
+
+#### For GHC 8.0.2
+
+This is no longer supported on the HIE `master` branch, so you must switch to the `hie-0.1.0.0` branch:
+
+```bash
+git checkout hie-0.1.0.0
+git submodule update --init
+```
+Then you can run stack install:
+
+```bash
+stack --stack-yaml=stack-8.0.2.yaml install
+```
+
+#### *All* available GHC versions
+
+*Warning*: Requires 20+ GB of space and potentially more than 2 hours to install, so please be patient!
+
+This will:
+
+* install all supported GHC versions
+* name them as expected by the VS Code plugin
+* build a local hoogle database
+
+For this you need the `make` tool (on Windows, see the further advice below). Use the command:
 
 ```bash
 make build-all
@@ -155,41 +200,18 @@ Then add
 
 to VS Code user settings.
 
-Otherwise, do one of the following.
-
-#### For GHC 8.6.2
-
-Using master
-
-```bash
-stack install
-```
-
-#### For Other Versions of GHC
-
-Using master
-
-```bash
-stack --stack-yaml=stack-<VERSION>.yaml install
-```
-
-where `<VERSION>` correlates to one of the yaml files in the hie directory.
-
-Note that GHC 8.0.2 is only available via branch `hie-0.1.0.0` and not
-`master`, but otherwise the instructions above are the same.
-
-### Installation on Windows
+##### *All* available GHC versions on Windows
 
 The `Makefile` doesn't work on Windows due to several UNIX-specific things, such
 as the `cp` command or extensionless executable names. Instead, a PowerShell
 script is provided specifically for this purpose:
 
-**Under PowerShell run:**
+**PowerShell:**
 ```
 ./build-all.ps1
 ```
 
-**Under cmd.exe run:**
+**cmd.exe:**
 ```
 powershell -ExecutionPolicy RemoteSigned -c ./build-all.ps1
 ```
@@ -198,11 +220,11 @@ powershell -ExecutionPolicy RemoteSigned -c ./build-all.ps1
 
 In order to avoid problems with long paths on Windows you can do the following:
 
-1. Edit the group policy: set "Enable Win32 long paths" to "Enabled". Works
-   only for Windows 10
+1. Edit the group policy: set "Enable Win32 long paths" to "Enabled" (Works
+   only for Windows 10).
 
 2. Clone the `haskell-ide-engine` to the root of your logical drive (e.g. to
-   `E:\hie`)
+   `C:\hie`)
 
 ### Installation on macOS
 
@@ -219,7 +241,7 @@ Alternatively, you can install from source with `make build`.
 Follow the instructions at https://github.com/domenkozar/hie-nix
 
 
-### ArchLinux
+### Installation on ArchLinux
 
 An [haskell-ide-engine-git](https://aur.archlinux.org/packages/haskell-ide-engine-git/) package is available on the AUR.
 
