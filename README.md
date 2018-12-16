@@ -21,7 +21,9 @@ we talk to clients.__
 - [Haskell IDE Engine](#haskell-ide-engine)
     - [Features](#features)
     - [Installation](#installation)
-        - [stack](#installation-with-stack)
+        - [stack on Linux](#installation-with-stack-on-linux)
+        - [stack on Windows](#installation-with-stack-on-windows)
+        - [macOS](#installation-on-macos)
         - [Nix](#installation-with-nix)
         - [ArchLinux](#installation-on-archlinux)
     - [Configuration](#configuration)
@@ -96,15 +98,13 @@ we talk to clients.__
 
 ## Installation
 
-### Installation with stack
+### Installation with stack on Linux
 
-This route should work on Linux, Windows and macOS.
+The preferred installation mechanism is via `make` (this calls `stack` under the hood), as it makes sure the repo is synced, installs the required cabal libraries if missing, and makes copies of the executables with suffixes to be able to tell them apart.
 
-To install HIE, you need Stack version >= 1.7.1.
+To install HIE, you need stack version >= 1.7.1.
 
 HIE builds from source code, so there's a couple of extra steps. 
-
-The `stack install` step can take more than 30 minutes, so grab a coffee and please be patient!
 
 #### Linux pre-requirements
 
@@ -122,7 +122,7 @@ sudo dnf install libicu-devel ncurses-devel
 ```
 **ArchLinux**: see [below](#installation-on-archlinux).
 
-#### Download the source code (Linux and Windows)
+#### Download the source code
 
 ```bash
 git clone https://github.com/haskell/haskell-ide-engine --recursive
@@ -137,29 +137,44 @@ stack install cabal-install
 cabal update
 ```
 
-Check your GHC version inside the cloned directory:
+#### Choose your GHC version
+
+The GHC version you are going to install HIE for depends on which version of GHC you are using for your project. If you don't have a current project there are two potential options:
+
+1. The Nightly GHC version ([currently](https://www.stackage.org/nightly) 8.6.2)
+2. The LTS GHC version (which is [currently](https://www.stackage.org/lts) 8.4.4)
+
+By default in a stack project you will get the LTS version.
+
+You can check which version of ghc you are using in your project by running the following at the root of your project:
 
 ```bash
 stack ghc -- --version
 ```
 
-#### For GHC 8.6.2
+You can install an specific version or all available GHC versions (see below).
+
+#### Install a GHC version 8.2.1 - 8.6.2
+
+We will use the `make` tools here to wrap `stack install`. For Windows [skip to the Powershell section](#install-all-available-ghc-versions-on-windows).
+
+Install nightly (and hoogle docs):
 
 ```bash
-stack install
+make hie-8.6.2
+make build-doc-8.6.2
 ```
 
-#### For GHC 8.2.1 - 8.6.2
+Install LTS (and hoogle docs):
 
 ```bash
-stack --stack-yaml=stack-<VERSION>.yaml install
+make hie-8.4.4
+make build-doc-8.4.4
 ```
 
-You can see which `<VERSION>` is available via `ls stack-*.yaml`, for example:
+This step can take more than 30 minutes, so grab a coffee and please be patient!
 
-```bash
-stack --stack-yaml=stack-8.2.1.yaml install
-```
+The available versions depend on the `stack-*.yaml` config files in the `haskell-ide-engine` directory.
 
 #### For GHC 8.0.2
 
@@ -169,21 +184,23 @@ This is no longer supported on the HIE `master` branch, so you must switch to th
 git checkout hie-0.1.0.0
 git submodule update --init
 ```
-Then you can run stack install:
+Then you can run `stack install`:
 
 ```bash
 stack --stack-yaml=stack-8.0.2.yaml install
 ```
 
-#### *All* available GHC versions
+#### Install *all* available GHC versions
+
+This is the simplest approach as it will install all GHC versions to match against any project versions you might have.
 
 *Warning*: Requires 20+ GB of space and potentially more than 2 hours to install, so please be patient!
 
 This will:
 
-* install all supported GHC versions
+* install all supported GHC versions (8.2.1 - 8.6.2)
 * name them as expected by the VS Code plugin
-* build a local hoogle database
+* build local hoogle docs for each version
 
 For this you need the `make` tool (on Windows, see the further advice below). Use the command:
 
@@ -200,18 +217,51 @@ Then add
 
 to VS Code user settings.
 
-##### *All* available GHC versions on Windows
+### Installation with stack on Windows
 
-The `Makefile` doesn't work on Windows due to several UNIX-specific things, such
+To install HIE, you need stack version >= 1.7.1.
+
+#### Download the source code
+
+```bash
+git clone https://github.com/haskell/haskell-ide-engine --recursive
+cd haskell-ide-engine
+```
+
+In order to support both stack and cabal, HIE requires `cabal-install`
+as well. If it is not already installed, install it and update its package list:
+
+```bash
+stack install cabal-install
+cabal update
+```
+
+`make` doesn't work on Windows due to several UNIX-specific things, such
 as the `cp` command or extensionless executable names. Instead, a PowerShell
 script is provided specifically for this purpose:
 
+```
+git clone https://github.com/haskell/haskell-ide-engine --recursive
+cd haskell-ide-engine
+```
+#### Install *all* available GHC versions
+
+*Warning*: Requires 20+ GB of space and potentially more than 2 hours to install, so please be patient!
+
+This will:
+
+* install all supported GHC versions (8.2.1 - 8.6.2)
+* name them as expected by the VS Code plugin
+* build local hoogle docs for each version
+
 **PowerShell:**
+
 ```
 ./build-all.ps1
 ```
 
 **cmd.exe:**
+
 ```
 powershell -ExecutionPolicy RemoteSigned -c ./build-all.ps1
 ```
