@@ -234,14 +234,6 @@ stack install cabal-install
 cabal update
 ```
 
-`make` doesn't work on Windows due to several UNIX-specific things, such
-as the `cp` command or extensionless executable names. Instead, a PowerShell
-script is provided specifically for this purpose:
-
-```
-git clone https://github.com/haskell/haskell-ide-engine --recursive
-cd haskell-ide-engine
-```
 #### Install *all* available GHC versions
 
 *Warning*: Requires 20+ GB of space and potentially more than 2 hours to install, so please be patient!
@@ -251,6 +243,10 @@ This will:
 * install all supported GHC versions (8.2.1 - 8.6.2)
 * name them as expected by the VS Code plugin
 * build local hoogle docs for each version
+
+`make` doesn't work on Windows due to several UNIX-specific things, such
+as the `cp` command or extensionless executable names. Instead, a PowerShell
+script is provided specifically for this purpose:
 
 **PowerShell:**
 
