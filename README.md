@@ -101,7 +101,7 @@ not supported in master.
 On linux derivatives you will need to do the equivalent of before building
 
 ```bash
-sudo apt install libicu-dev libtinfo-dev
+sudo apt install libicu-dev libtinfo-dev libgmp-dev
 ```
 
 
