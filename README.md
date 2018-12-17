@@ -111,7 +111,7 @@ On Linux you will need install a couple of extra libraries (for Unicode ([ICU](h
 **Debian/Ubuntu**: 
 
 ```bash
-sudo apt install libicu-dev libtinfo-dev
+sudo apt install libicu-dev libtinfo-dev libgmp-dev
 ```
 **Fedora**:
 
