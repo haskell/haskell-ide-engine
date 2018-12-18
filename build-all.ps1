@@ -5,18 +5,21 @@
 
 $stackbindir = stack path --local-bin
 
-$supported_versions = 
+$supported_versions =
     @{ "8.2.1" = "8.2"
     ;  "8.2.2" = "8.2"
     ;  "8.4.2" = "8.4"
     ;  "8.4.3" = "8.4"
     ;  "8.4.4" = "8.4"
+    ;  "8.6.1" = "8.6"
+    ;  "8.6.2" = "8.6"
+    ;  "8.6.3" = "8.6"
     }
 
 function main($requested_versions) {
     $build_versions =
         $requested_versions | sort `
-        | %{ 
+        | %{
             $major = $supported_versions[$_]
             if (-not $major) { bail_unsupported_version $_ }
             @{ version=$_; major=$major }
@@ -45,5 +48,5 @@ function bail_unsupported_version($v) {
     exit
 }
 
-if ($args) { main $args } 
+if ($args) { main $args }
 else { main $supported_versions.Keys }
