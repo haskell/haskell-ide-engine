@@ -139,7 +139,7 @@ cabal update
 
 The GHC version you are going to install HIE for depends on which version of GHC you are using for your project. If you don't have a current project there are two potential options:
 
-1. The Nightly GHC version ([currently](https://www.stackage.org/nightly) 8.6.2)
+1. The Nightly GHC version ([currently](https://www.stackage.org/nightly) 8.6.3)
 2. The LTS GHC version (which is [currently](https://www.stackage.org/lts) 8.4.4)
 
 By default in a stack project you will get the LTS version.
@@ -152,15 +152,15 @@ stack ghc -- --version
 
 You can install an specific version or [all available GHC versions](#install-all-available-ghc-versions).
 
-#### Install a specific GHC version 8.2.1 - 8.6.2
+#### Install a specific GHC version 8.2.1 - 8.6.3
 
 We will use the `make` tools here to wrap `stack install`. The preferred installation mechanism is via `make`, as it makes sure the repo is synced, installs the required cabal libraries if missing, and makes copies of the executables with suffixes to be able to tell them apart.
 
 Install **Nightly** (and hoogle docs):
 
 ```bash
-make hie-8.6.2
-make build-doc-8.6.2
+make hie-8.6.3
+make build-doc-8.6.3
 ```
 
 Install **LTS** (and hoogle docs):
@@ -196,7 +196,7 @@ This is the simplest approach as it will install all GHC versions to match again
 
 This will:
 
-* install all supported GHC versions (8.2.1 - 8.6.2)
+* install all supported GHC versions (8.2.1 - 8.6.3)
 * name them as expected by the VS Code plugin
 * build local hoogle docs for each version
 
@@ -240,7 +240,7 @@ cabal update
 
 This will:
 
-* install all supported GHC versions (8.2.1 - 8.6.2)
+* install all supported GHC versions (8.2.1 - 8.6.3)
 * name them as expected by the VS Code plugin
 * build local hoogle docs for each version
 
