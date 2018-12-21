@@ -63,9 +63,8 @@ main = do
       (\version -> phony ("hie-" ++ version) $ do
         need ["submodules"]
         need ["cabal"]
-        stackLocalDir <- getLocalBin
         buildHie version
-        installHie stackLocalDir version
+        installHie version
       )
 
     phony "icu-macos-fix"
@@ -133,9 +132,15 @@ installCabal ghc = do
   execCabal_ ["v1-update"]
   execCabal_ ["v1-install", "Cabal-2.4.1.0", "--with-compiler=" ++ ghc]
 
-installHappy :: VersionNumber -> Action ()
-installHappy versionNumber =
-  execStackWithYaml_ versionNumber ["install", "happy"]
+hieBin :: VersionNumber -> Action FilePath
+hieBin versionNumber = do
+  localBin <- getLocalBin
+  return $ localBin </> "hie-" ++ versionNumber <.> exe
+
+localHieBin :: VersionNumber -> Action FilePath
+localHieBin versionNumber = do
+  localInstallRoot <- getLocalInstallRoot versionNumber
+  return $ localInstallRoot </> "bin" </> "hie" <.> exe
 
 buildHie :: VersionNumber -> Action ()
 buildHie versionNumber = do
@@ -143,10 +148,13 @@ buildHie versionNumber = do
     $ execStackWithYaml_ versionNumber ["install", "happy"]
   execStackWithYaml_ versionNumber ["build"]
 
-installHie :: FilePath -> VersionNumber -> Action ()
-installHie localBinDir versionNumber = do
+installHie :: VersionNumber -> Action ()
+installHie versionNumber = do
   execStackWithYaml_ versionNumber ["install"]
-  copyFile' (localBinDir </> "hie" <.> exe)
+  localBinDir      <- getLocalBin
+  localInstallRoot <- getLocalInstallRoot versionNumber
+  let hie = "hie" <.> exe
+  copyFile' (localInstallRoot </> "bin" </> hie)
             (localBinDir </> "hie-" ++ versionNumber <.> exe)
 
 buildCopyCompilerTool :: VersionNumber -> Action ()
