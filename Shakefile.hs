@@ -51,7 +51,7 @@ main = do
     phony "cabal"      (getGhcPath >>= installCabal)
     phony "all"        helpMessage
     phony "help"       helpMessage
-    phony "build"      (need (map ("hie-" ++) hieVersions))
+    phony "build"      (need (reverse $ map ("hie-" ++) hieVersions))
     phony "build-all"  (need ["build"] >> need ["build-docs"])
     phony "dist"       buildDist
     phony "build-docs" (forM_ hieVersions buildDoc)
@@ -132,16 +132,6 @@ installCabal ghc = do
   execCabal_ ["v1-update"]
   execCabal_ ["v1-install", "Cabal-2.4.1.0", "--with-compiler=" ++ ghc]
 
-hieBin :: VersionNumber -> Action FilePath
-hieBin versionNumber = do
-  localBin <- getLocalBin
-  return $ localBin </> "hie-" ++ versionNumber <.> exe
-
-localHieBin :: VersionNumber -> Action FilePath
-localHieBin versionNumber = do
-  localInstallRoot <- getLocalInstallRoot versionNumber
-  return $ localInstallRoot </> "bin" </> "hie" <.> exe
-
 buildHie :: VersionNumber -> Action ()
 buildHie versionNumber = do
   when (versionNumber `elem` ["hie-8.2.2", "hie-8.2.1"])
@@ -156,6 +146,8 @@ installHie versionNumber = do
   let hie = "hie" <.> exe
   copyFile' (localInstallRoot </> "bin" </> hie)
             (localBinDir </> "hie-" ++ versionNumber <.> exe)
+  copyFile' (localInstallRoot </> "bin" </> hie)
+          (localBinDir </> "hie-" ++ dropExtension versionNumber <.> exe)
 
 buildCopyCompilerTool :: VersionNumber -> Action ()
 buildCopyCompilerTool versionNumber =
