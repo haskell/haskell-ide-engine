@@ -42,6 +42,7 @@ main = do
   -- unset GHC_PACKAGE_PATH for cabal
   unsetEnv "GHC_PACKAGE_PATH"
   shakeArgs shakeOptions { shakeFiles = "_build" } $ do
+    want ["help"]
     phony "ghc" $ do
       ghc <- getGhcPath
       command_ [] ghc ["--version"]
