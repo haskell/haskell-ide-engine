@@ -54,9 +54,15 @@ main = do
     phony "build"      (need (reverse $ map ("hie-" ++) hieVersions))
     phony "build-all"  (need ["build"] >> need ["build-docs"])
     phony "dist"       buildDist
-    phony "build-docs" (forM_ hieVersions buildDoc)
+    phony "build-docs" (need (reverse $ map ("build-doc-hie-" ++) hieVersions))
     phony "test"       (forM_ hieVersions test)
     phony "build-copy-compiler-tool" $ forM_ hieVersions buildCopyCompilerTool
+
+    forM_
+      hieVersions
+      (\version -> phony ("build-doc-hie-" ++ version) $ do
+        buildDoc version
+      )
 
     forM_
       hieVersions
@@ -170,7 +176,7 @@ helpMessage = do
   out ""
   out "Targets:"
   out
-    "    build                Builds hie for all supported GHC versions (8.2.1, 8.2.2, 8.4.2, 8.4.3, 8.4.4, 8.6.1 and 8.6.2)"
+    "    build                Builds hie for all supported GHC versions (8.2.1, 8.2.2, 8.4.2, 8.4.3, 8.4.4, 8.6.1, 8.6.2 and 8.6.3)"
   out
     "    build-all            Builds hie and hoogle databases for all supported GHC versions"
   out "    hie-8.2.1            Builds hie for GHC version 8.2.1 only"
@@ -180,6 +186,7 @@ helpMessage = do
   out "    hie-8.4.4            Builds hie for GHC version 8.4.4 only"
   out "    hie-8.6.1            Builds hie for GHC version 8.6.1 only"
   out "    hie-8.6.2            Builds hie for GHC version 8.6.2 only"
+  out "    hie-8.6.3            Builds hie for GHC version 8.6.3 only"
   out "    submodules           Updates local git submodules"
   out
     "    cabal                NOTE 3: This is needed for stack only projects too"
