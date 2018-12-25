@@ -29,7 +29,7 @@ type GhcPath = String
 -- |Defines all different hie versions that are buildable.
 -- If they are edited, 
 hieVersions :: [VersionNumber]
-hieVersions = ["8.2.1", "8.2.2", "8.4.2", "8.4.3", "8.4.4", "8.6.1", "8.6.2"]
+hieVersions = ["8.2.2", "8.4.3", "8.4.4", "8.6.1", "8.6.2", "8.6.3"]
 
 -- |Most recent version of hie.
 -- Important for `dist`, the `hie-wrapper` of the most recent hie 
@@ -147,7 +147,7 @@ installHie versionNumber = do
   copyFile' (localInstallRoot </> "bin" </> hie)
             (localBinDir </> "hie-" ++ versionNumber <.> exe)
   copyFile' (localInstallRoot </> "bin" </> hie)
-          (localBinDir </> "hie-" ++ dropExtension versionNumber <.> exe)
+            (localBinDir </> "hie-" ++ dropExtension versionNumber <.> exe)
 
 buildCopyCompilerTool :: VersionNumber -> Action ()
 buildCopyCompilerTool versionNumber =
