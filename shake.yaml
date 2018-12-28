@@ -1,5 +1,5 @@
 # Used to provide a different environment for the shake build script
-resolver: lts-13.0 # GHC 8.6.2
+resolver: lts-12.25 # GHC 8.4.4
 packages:
 - .
 
