@@ -154,20 +154,20 @@ You can install an specific version or [all available GHC versions](#install-all
 
 #### Install a specific GHC version 8.2.1 - 8.6.3
 
-We will use the `shake` tools here to wrap `stack install`. The preferred installation mechanism is via `./Shakefile.hs`, as it makes sure the repo is synced, installs the required cabal libraries if missing, and makes copies of the executables with suffixes to be able to tell them apart.
+We will use the `make` tools here to wrap `stack install`. The preferred installation mechanism is via `make`, as it makes sure the repo is synced, installs the required cabal libraries if missing, and makes copies of the executables with suffixes to be able to tell them apart.
 
 Install **Nightly** (and hoogle docs):
 
 ```bash
-./Shakefile.hs hie-8.6.3
-./Shakefile.hs build-doc-8.6.3
+make hie-8.6.3
+make build-doc-8.6.3
 ```
 
 Install **LTS** (and hoogle docs):
 
 ```bash
-./Shakefile.hs hie-8.4.4
-./Shakefile.hs build-doc-8.4.4
+make hie-8.4.4
+make build-doc-8.4.4
 ```
 
 This step can take more than 30 minutes, so grab a coffee and please be patient!
@@ -200,10 +200,10 @@ This will:
 * name them as expected by the VS Code plugin
 * build local hoogle docs for each version
 
-For this you need the `shake` tool. Use the command:
+For this you need the `make` tool (on Windows, see the further advice below). Use the command:
 
 ```bash
-./Shakefile.hs build-all
+make build-all
 ```
 
 Then add
@@ -234,6 +234,32 @@ stack install cabal-install
 cabal update
 ```
 
+#### Install *all* available GHC versions
+
+*Warning*: Requires 20+ GB of space and potentially more than 2 hours to install, so please be patient!
+
+This will:
+
+* install all supported GHC versions (8.2.1 - 8.6.3)
+* name them as expected by the VS Code plugin
+* build local hoogle docs for each version
+
+`make` doesn't work on Windows due to several UNIX-specific things, such
+as the `cp` command or extensionless executable names. Instead, a PowerShell
+script is provided specifically for this purpose:
+
+**PowerShell:**
+
+```
+./build-all.ps1
+```
+
+**cmd.exe:**
+
+```
+powershell -ExecutionPolicy RemoteSigned -c ./build-all.ps1
+```
+
 #### Long paths
 
 In order to avoid problems with long paths on Windows you can do the following:
@@ -252,7 +278,7 @@ Download the pre-built binaries from the [releases page](https://github.com/hask
 ln -s hie-bin-dir/hie* /usr/local/bin/
 ```
 
-Alternatively, you can install from source with `./Shakefile.hs build`. 
+Alternatively, you can install from source with `make build`. 
 
 ### Installation with Nix
 
