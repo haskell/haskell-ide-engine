@@ -105,7 +105,7 @@ hieGhcDisplayVersion = compilerName ++ "-" ++ VERSION_ghc
 
 getProjectGhcVersion :: IO String
 getProjectGhcVersion = do
-  isStackProject <- doesFileExist "stack.yaml"
+  isStackProject   <- doesFileExist "stack.yaml"
   isStackInstalled <- isJust <$> findExecutable "stack"
   if isStackProject && isStackInstalled
     then do
@@ -113,14 +113,19 @@ getProjectGhcVersion = do
       catch (tryCommand "stack ghc -- --numeric-version") $ \e -> do
         L.errorM "hie" $ show (e :: SomeException)
         L.infoM "hie" "Couldn't find stack version, falling back to plain GHC"
-        tryCommand "ghc --numeric-version"
+        getGhcVersion
     else do
       L.infoM "hie" "Using plain GHC version"
-      tryCommand "ghc --numeric-version"
+      getGhcVersion
 
   where
+    getGhcVersion = do
+      isGhcInstalled   <- isJust <$> findExecutable "ghc"
+      if isGhcInstalled
+        then tryCommand "ghc --numeric-version"
+        else return "No System GHC found"
+
     tryCommand cmd =
-      -- Drop '\n' from the output like "7.10.3\n", "8.4.3\n"
       init <$> readCreateProcess (shell cmd) ""
 
 hieGhcVersion :: String
