@@ -109,6 +109,7 @@ files =
    , "./test/testdata/addPackageTest/cabal/"
    , "./test/testdata/addPackageTest/hpack/"
    , "./test/testdata/addPragmas/"
+   , "./test/testdata/badProjects/cabal/"
    , "./test/testdata/completion/"
    , "./test/testdata/definition/"
    , "./test/testdata/gototest/"

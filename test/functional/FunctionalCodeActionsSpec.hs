@@ -139,7 +139,7 @@ spec = describe "code actions" $ do
     it "respects format config" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
       _ <- waitForDiagnosticsSource "ghcmod"
-      
+
       let config = def { formatOnImportOn = False }
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
 
