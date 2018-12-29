@@ -83,7 +83,10 @@ run opts = do
 
   let
     hieBin = "hie-" ++ ghcVersion
-    backupHieBin = "hie-" ++ init (dropWhileEnd (/='.') ghcVersion)
+    backupHieBin =
+      case dropWhileEnd (/='.') ghcVersion of
+        [] -> "hie"
+        xs -> "hie-" ++ init xs
     candidates' = [hieBin, backupHieBin, "hie"]
     candidates = map (++ exeExtension) candidates'
 

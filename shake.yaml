@@ -1,0 +1,7 @@
+# Used to provide a different environment for the shake build script
+resolver: lts-12.25 # GHC 8.4.4
+packages:
+- .
+
+nix:
+  packages: [ zlib ]

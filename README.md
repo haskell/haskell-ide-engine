@@ -26,6 +26,7 @@ we talk to clients.__
         - [macOS](#installation-on-macos)
         - [Nix](#installation-with-nix)
         - [ArchLinux](#installation-on-archlinux)
+        - [Shake](#installation-with-shake)
     - [Configuration](#configuration)
     - [Editor Integration](#editor-integration)
         - Using HIE with [VS Code](#using-hie-with-vs-code), [Sublime Text](#using-hie-with-sublime-text), [Vim/Neovim](#using-hie-with-vim-or-neovim), [Atom](#using-hie-with-atom), [Oni](#using-hie-with-oni), [Emacs](#using-hie-with-emacs), [Spacemacs](#using-hie-with-spacemacs) or [Spacemacs+Nix](#using-hie-with-spacemacs-on-nix-based-projects)
@@ -294,6 +295,62 @@ Using [Aura](https://github.com/aurapm/aura):
 ```
 # aura -A haskell-ide-engine-git
 ```
+
+### Installation with Shake
+
+Experimental build script for HIE. Feedback is appreciated.
+Uses the [shake](https://shakebuild.com/) build system for predictable builds.
+The build script is platform independent and the only prerequisites are that `git` and `stack` are installed. The dependency on `make` and other linux specific commands has been dropped.
+
+Note, on first invocation of the build script, a GHC is being installed for execution. However, if you build HIE for every GHC, no GHC is downloaded twice.
+The GHC used for the `Shakefile.hs` can be adjusted in `shake.yaml` by using a different resolver.
+
+Available commands can be seen with:
+
+```bash
+stack ./Shakefile.hs help
+```
+
+Remember, this will take time to download a Stackage-LTS and an appropriate GHC. However, afterwards all commands should work as expected. 
+
+#### Install specific GHC Version with Shake
+
+Install **Nightly** (and hoogle docs):
+
+```bash
+stack ./Shakefile.hs hie-8.6.3
+stack ./Shakefile.hs build-doc-8.6.3
+```
+
+Install **LTS** (and hoogle docs):
+
+```bash
+stack ./Shakefile.hs hie-8.4.4
+stack ./Shakefile.hs build-doc-8.4.4
+```
+
+#### Install *all* available GHC versions with Shake
+
+*Warning*: Requires 20+ GB of space and potentially more than 2 hours to install, so please be patient!
+
+This will:
+
+* install all supported GHC versions (8.2.1 - 8.6.3)
+* name them as expected by the VS Code plugin
+* build local hoogle docs for each version
+
+```bash
+stack ./Shakefile.hs build-all
+```
+
+Then add
+
+```json
+"languageServerHaskell.useCustomHieWrapper": true,
+"languageServerHaskell.useCustomHieWrapperPath": "hie-wrapper",
+```
+
+to VS Code user settings.
 
 ## Configuration
 There are some settings that can be configured via a `settings.json` file:
