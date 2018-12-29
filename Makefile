@@ -1,11 +1,8 @@
 BASEDIR=$(CURDIR)
-STACKLOCALBINDIR:=$(shell stack path --local-bin)
-GHC_VERSIONS= 8.6.3 8.6.2 8.6.1 8.4.4 8.4.3 8.4.2 8.2.2 8.2.1
+GHC_VERSIONS = 8.2.1 8.2.2 8.4.2 8.4.3 8.4.4 8.6.1 8.6.2 8.6.3
 
 all: help
 .PHONY: all
-
-
 
 ## Builds hie for all supported GHC versions (8.2.1, 8.2.2, 8.4.2, 8.4.3, 8.4.4, 8.6.1, 8.6.2 and 8.6.3)
 build: $(foreach version, $(GHC_VERSIONS), hie-$(version))
@@ -15,8 +12,7 @@ build: $(foreach version, $(GHC_VERSIONS), hie-$(version))
 build-all: build build-docs
 .PHONY: build-all
 
-GHC := $(shell stack path --compiler-exe)
-
+ghc: GHC=$(shell stack path --compiler-exe)
 ghc:
 	$(GHC) --version
 	@echo GHC
@@ -25,9 +21,9 @@ ghc:
 # ------------------------------------------------------
 
 ## Builds hie for GHC version % only
-hie-%: submodules cabal
+hie-%: STACKLOCALBINDIR=$(shell stack --stack-yaml=stack-$*.yaml path --local-bin)
+hie-%: submodules cabal-%
 	stack --stack-yaml=stack-$*.yaml install happy
-	stack --stack-yaml=stack-$*.yaml build
 	stack --stack-yaml=stack-$*.yaml install                                \
 		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-$*'    \
 		&& cp '$(STACKLOCALBINDIR)/hie-$*' '$(STACKLOCALBINDIR)/hie-$(basename $*)'
@@ -50,11 +46,19 @@ submodules:
 ##         must be installed this way.
 ## NOTE 2: this is temporary, will go away once the new cabal-helper lands.
 ## NOTE 3: This is needed for stack only projects too
+cabal: GHC=$(shell stack path --compiler-exe)
 cabal:
 	stack install cabal-install
 	cabal update
 	cabal install Cabal-2.4.1.0 --with-compiler=$(GHC)
 .PHONY: cabal
+
+cabal-%: GHC=$(shell stack --stack-yaml=stack-$*.yaml path --compiler-exe)
+cabal-%:
+	stack --stack-yaml=stack-$*.yaml install cabal-install
+	cabal update
+	cabal install Cabal-2.4.1.0 --with-compiler=$(GHC)
+.PHONY: cabal-%
 
 # ------------------------------------------------------
 
