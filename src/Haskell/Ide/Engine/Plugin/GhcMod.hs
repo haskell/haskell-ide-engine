@@ -491,7 +491,10 @@ extractRedundantImport msg =
       && " is redundant" `T.isSuffixOf` firstLine
     then Just $ T.init $ T.tail $ T.dropWhileEnd (/= '’') $ T.dropWhile (/= '‘') firstLine
     else Nothing
-  where firstLine = head (T.lines msg)
+  where
+    firstLine = case T.lines msg of
+      [] -> ""
+      (l:_) -> l
 
 extractHoleSubstitutions :: T.Text -> Maybe (TypeDef, ValidSubstitutions, Bindings)
 extractHoleSubstitutions diag

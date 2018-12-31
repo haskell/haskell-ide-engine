@@ -42,10 +42,9 @@ import qualified GhcMod.Utils  as GM
 import qualified GHC           as GHC
 
 import           Haskell.Ide.Engine.ArtifactMap
+import           Haskell.Ide.Engine.GhcModuleCache
 import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.PluginsIdeMonads
-import           Haskell.Ide.Engine.GhcModuleCache
-
 
 -- ---------------------------------------------------------------------
 
@@ -228,7 +227,7 @@ cacheModule uri modul = do
           _ -> UriCache defInfo pm Nothing mempty
 
       Right tm -> do
-        typm <- GM.unGmlT $ genTypeMap tm    
+        typm <- GM.unGmlT $ genTypeMap tm
         let info = CachedInfo (genLocMap tm) typm (genImportMap tm) (genDefMap tm) rfm return return
             pm = GHC.tm_parsed_module tm
         return $ UriCache info pm (Just tm) mempty
@@ -267,10 +266,11 @@ failModule fp = do
 runDeferredActions :: FilePath -> UriCacheResult -> IdeGhcM ()
 runDeferredActions uri res = do
       actions <- fmap (fromMaybe [] . Map.lookup uri) (requestQueue <$> readMTS)
-      liftToGhc $ forM_ actions (\a -> a res)
-
       -- remove queued actions
       modifyMTS $ \s -> s { requestQueue = Map.delete uri (requestQueue s) }
+
+      liftToGhc $ forM_ actions (\a -> a res)
+
 
 -- | Saves a module to the cache without clearing the associated cache data - use only if you are
 -- sure that the cached data associated with the module doesn't change

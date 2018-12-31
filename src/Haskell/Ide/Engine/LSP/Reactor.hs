@@ -17,19 +17,21 @@ where
 
 import           Control.Monad.Reader
 import qualified Data.Map                      as Map
-import qualified Language.Haskell.LSP.Core     as Core
-import qualified Language.Haskell.LSP.Messages as J
-import qualified Language.Haskell.LSP.Types    as J
 import           Haskell.Ide.Engine.Compat
 import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.PluginsIdeMonads
 import qualified Haskell.Ide.Engine.Scheduler  as Scheduler
 import           Haskell.Ide.Engine.Types
+import qualified Language.Haskell.LSP.Core     as Core
+import qualified Language.Haskell.LSP.Messages as J
+import qualified Language.Haskell.LSP.Types    as J
+
+-- ---------------------------------------------------------------------
 
 data REnv = REnv
   { scheduler         :: Scheduler.Scheduler R
   , lspFuncs          :: Core.LspFuncs Config
-  , reactorPidCache   :: Int
+  , reactorPidCache   :: Int -- TODO:AZ: do we need this? what is it for?
   , diagnosticSources :: Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
   , hoverProviders    :: [HoverProvider]
   , symbolProviders   :: [SymbolProvider]
