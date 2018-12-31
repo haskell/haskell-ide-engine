@@ -1,4 +1,4 @@
-resolver: nightly-2018-12-27 # GHC 8.6.3
+resolver: nightly-2018-12-31 # GHC 8.6.3
 packages:
 - .
 - hie-plugin-api
@@ -23,7 +23,6 @@ extra-deps:
 - syz-0.2.0.0
 - temporary-1.2.1.1
 - yaml-0.8.32
-
 
 flags:
   haskell-ide-engine:
