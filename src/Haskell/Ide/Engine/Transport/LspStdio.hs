@@ -16,7 +16,6 @@ module Haskell.Ide.Engine.Transport.LspStdio
   ) where
 
 import           Control.Concurrent
-import           Control.Concurrent.Async
 import           Control.Concurrent.STM.TChan
 import qualified Control.FoldDebounce as Debounce
 import qualified Control.Exception as E
@@ -142,7 +141,7 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
         let diagnosticsQueue tr = forever $ do
               inval <- liftIO $ atomically $ readTChan diagIn
               Debounce.send tr (coerce . Just $ MostRecent inval)
-        
+
         -- Debounce for (default) 350ms.
         debounceDuration <- diagnosticsDebounceDuration . fromMaybe def <$> Core.config lf
         tr <- Debounce.new
@@ -153,8 +152,8 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
         -- We launch the dispatcher after that so that the default cradle is
         -- recognized properly by ghc-mod
         _ <- forkIO $ Scheduler.runScheduler scheduler errorHandler callbackHandler (Just lf)
-                    `race_` reactorFunc
-                    `race_` diagnosticsQueue tr
+        _ <- forkIO   reactorFunc
+        _ <- forkIO $ diagnosticsQueue tr
         return Nothing
 
       diagnosticProviders :: Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
@@ -375,6 +374,7 @@ reactor inp diagIn = do
   let
     loop :: TrackingNumber -> R void
     loop tn = do
+      liftIO $ U.logs $ "****** reactor: top of loop"
       inval <- liftIO $ atomically $ readTChan inp
       liftIO $ U.logs $ "****** reactor: got message number:" ++ show tn
 
