@@ -15,14 +15,11 @@ extra-deps:
 - cabal-install-2.4.0.0
 - cabal-plan-0.4.0.0
 - constrained-dynamic-0.1.0.0
-- cryptohash-sha256-0.11.101.0
 - czipwith-1.0.1.1
 - data-tree-print-0.1.0.2
-- ed25519-0.0.5.0
-- ekg-core-0.1.1.4
+- ekg-core-0.1.1.6
 - ekg-json-0.1.0.6
 - ekg-wai-0.1.0.3
-- hackage-security-0.5.3.0
 - haddock-api-2.21.0
 - haskell-lsp-0.8.0.1
 - haskell-lsp-types-0.8.0.1
@@ -38,24 +35,11 @@ extra-deps:
 - yaml-0.8.32
 
 
-
 flags:
   haskell-ide-engine:
     pedantic: true
   hie-plugin-api:
     pedantic: true
-  # ekg-core:
-  #   allow-newer: true
-  # ekg-json:
-  #   allow-newer: true
-  # ekg-wai:
-  #   allow-newer: true
-  # base:
-  #   allow-newer: true
-  # process:
-  #   allow-newer: true
-
-allow-newer: true
 
 nix:
   packages: [ icu libcxx zlib ]
