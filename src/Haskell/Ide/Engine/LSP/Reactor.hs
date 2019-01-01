@@ -31,7 +31,8 @@ import qualified Language.Haskell.LSP.Types    as J
 data REnv = REnv
   { scheduler         :: Scheduler.Scheduler R
   , lspFuncs          :: Core.LspFuncs Config
-  , reactorPidCache   :: Int -- TODO:AZ: do we need this? what is it for?
+  -- | The process ID of HIE. See 'HasPidCache'
+  , reactorPidCache   :: Int
   , diagnosticSources :: Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
   , hoverProviders    :: [HoverProvider]
   , symbolProviders   :: [SymbolProvider]

@@ -134,6 +134,8 @@ import           Language.Haskell.LSP.VFS       ( VirtualFile(..) )
 -- LSP Commands
 -- ---------------------------------------------------------------------
 
+-- | A monad that provides access to the current process ID.
+-- Used when generating LSP command IDs
 class Monad m => HasPidCache m where
   getPidCache :: m Int
 
