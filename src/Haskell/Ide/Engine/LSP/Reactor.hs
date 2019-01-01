@@ -32,7 +32,7 @@ data REnv = REnv
   { scheduler         :: Scheduler.Scheduler R
   , lspFuncs          :: Core.LspFuncs Config
   -- | The process ID of HIE. See 'HasPidCache'
-  , reactorPidCache   :: Int -- TODO:AZ: do we need this? what is it for?
+  , reactorPidCache   :: Int
   , diagnosticSources :: Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
   , hoverProviders    :: [HoverProvider]
   , symbolProviders   :: [SymbolProvider]
