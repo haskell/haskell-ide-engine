@@ -3,7 +3,7 @@
  - Introduce Shakefile as build alternative (@fendor)
  - Support GHC 8.6.3
  - Stability improvements
-   - fixed process dying on some code actin requests (#1018)
+   - fixed process dying on some code action requests (#1018)
    - Deal with missing system GHC in hie-wrapper (#1012)
    - Deal with missing system GHC in hie
    - Return an error diagnostic when a project cannot be built (#1011)
