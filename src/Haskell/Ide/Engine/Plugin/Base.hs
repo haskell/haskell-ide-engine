@@ -107,7 +107,7 @@ hieGhcDisplayVersion = compilerName ++ "-" ++ VERSION_ghc
 getProjectGhcVersion :: IO String
 getProjectGhcVersion =
   onException
-    (asum [tryStackProject, tryCabalProject, tryGhcVersion])
+    (asum [tryStackProject, tryCabalProject, trySystemGhc])
     (error "Couldn't find GHC version through stack, cabal, nor system GHC.")
 
   where
@@ -125,7 +125,7 @@ getProjectGhcVersion =
       L.infoM "hie" "Trying cabal GHC version"
       tryCommand "cabal v2-exec ghc -- --numeric-version"
 
-    tryGhcVersion = do
+    trySystemGhc = do
       isGhcInstalled   <- isJust <$> findExecutable "ghc"
       guard isGhcInstalled
       L.infoM "hie" "Trying system GHC version"
