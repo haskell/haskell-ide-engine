@@ -7,6 +7,7 @@
 module Haskell.Ide.Engine.Plugin.Base where
 
 import           Control.Exception
+import           Control.Monad
 import           Data.Aeson
 import           Data.Foldable
 import qualified Data.Map                        as Map
@@ -104,26 +105,31 @@ hieGhcDisplayVersion :: String
 hieGhcDisplayVersion = compilerName ++ "-" ++ VERSION_ghc
 
 getProjectGhcVersion :: IO String
-getProjectGhcVersion = do
-  isStackProject   <- doesFileExist "stack.yaml"
-  isStackInstalled <- isJust <$> findExecutable "stack"
-  if isStackProject && isStackInstalled
-    then do
-      L.infoM "hie" "Using stack GHC version"
-      catch (tryCommand "stack ghc -- --numeric-version") $ \e -> do
-        L.errorM "hie" $ show (e :: SomeException)
-        L.infoM "hie" "Couldn't find stack version, falling back to plain GHC"
-        getGhcVersion
-    else do
-      L.infoM "hie" "Using plain GHC version"
-      getGhcVersion
+getProjectGhcVersion =
+  onException
+    (asum [tryStackProject, tryCabalProject, tryGhcVersion])
+    (error "Couldn't find GHC version through stack, cabal, nor system GHC.")
 
   where
-    getGhcVersion = do
+    tryStackProject = do
+      isStackProject   <- doesFileExist "stack.yaml"
+      isStackInstalled <- isJust <$> findExecutable "stack"
+      guard $ isStackProject && isStackInstalled
+      L.infoM "hie" "Trying stack GHC version"
+      tryCommand "stack ghc -- --numeric-version"
+
+    tryCabalProject = do
+      isCabalProject <- doesFileExist "cabal.project"
+      isCabalInstalled <- isJust <$> findExecutable "cabal"
+      guard $ isCabalProject && isCabalInstalled
+      L.infoM "hie" "Trying cabal GHC version"
+      tryCommand "cabal v2-exec ghc -- --numeric-version"
+
+    tryGhcVersion = do
       isGhcInstalled   <- isJust <$> findExecutable "ghc"
-      if isGhcInstalled
-        then tryCommand "ghc --numeric-version"
-        else return "No System GHC found"
+      guard isGhcInstalled
+      L.infoM "hie" "Trying system GHC version"
+      tryCommand "ghc --numeric-version"
 
     tryCommand cmd =
       init <$> readCreateProcess (shell cmd) ""
