@@ -181,120 +181,27 @@ stack ghc -- --version
 
 You can install an specific version or [all available GHC versions](#install-all-available-ghc-versions).
 
-#### Install a specific GHC version 8.2.1 - 8.6.3
+#### Install HIE for projects with GHC >= 8.2.1
 
-We will use the `make` tools here to wrap `stack install`. The preferred installation mechanism is via `make`, as it makes sure the repo is synced, installs the required cabal libraries if missing, and makes copies of the executables with suffixes to be able to tell them apart.
-
-Install **Nightly** (and hoogle docs):
-
-```bash
-make hie-8.6.3
-make build-doc-8.6.3
-```
-
-Install **LTS** (and hoogle docs):
-
-```bash
-make hie-8.4.4
-make build-doc-8.4.4
-```
-
-This step can take more than 30 minutes, so grab a coffee and please be patient!
-
-The available versions depend on the `stack-*.yaml` config files in the `haskell-ide-engine` directory.
-
-#### For GHC 8.0.2
-
-This is no longer supported on the HIE `master` branch, so you must switch to the `hie-0.1.0.0` branch:
-
-```bash
-git checkout hie-0.1.0.0
-git submodule update --init
-```
-Then you can run `stack install`:
-
-```bash
-stack --stack-yaml=stack-8.0.2.yaml install
-```
-
-#### Install *all* available GHC versions
-
-This is the simplest approach as it will install all GHC versions to match against any project versions you might have.
-
-*Warning*: Requires 20+ GB of space and potentially more than 2 hours to install, so please be patient!
-
-This will:
-
-* install all supported GHC versions (8.2.1 - 8.6.3)
-* name them as expected by the VS Code plugin
-* build local hoogle docs for each version
-
-On non-Windows platforms use the command:
-
-```bash
-make build-all
-```
-
-On Windows use:
-**PowerShell:**
-
-```
-./build-all.ps1
-```
-
-or
-
-**cmd.exe:**
-
-```
-powershell -ExecutionPolicy RemoteSigned -c ./build-all.ps1
-```
-
-
-Then add
-
-```json
-"languageServerHaskell.useCustomHieWrapper": true,
-"languageServerHaskell.useCustomHieWrapperPath": "hie-wrapper",
-```
-
-to VS Code user settings.
-
-
-### Installation with Shake
-
-Experimental build script for HIE. Feedback is appreciated.
 Uses the [shake](https://shakebuild.com/) build system for predictable builds.
-The build script is platform independent and the only prerequisites are that `git` and `stack` are installed. The dependency on `make` and other linux specific commands has been dropped.
+The build script itself is platform independent and the only prerequisites are that `git` and `stack` are installed.
 
 Note, on first invocation of the build script, a GHC is being installed for execution. However, if you build HIE for every GHC, no GHC is downloaded twice.
 The GHC used for the `Shakefile.hs` can be adjusted in `shake.yaml` by using a different resolver.
 
-Available commands can be seen with:
+To build and install HIE for chosen GHC X.Y.Z version use command:
+
+```bash
+stack ./Shakefile.hs hie-X.Y.Z
+```
+
+All available commands can be seen with:
 
 ```bash
 stack ./Shakefile.hs help
 ```
 
-Remember, this will take time to download a Stackage-LTS and an appropriate GHC. However, afterwards all commands should work as expected. 
-
-#### Install specific GHC Version with Shake
-
-Install **Nightly** (and hoogle docs):
-
-```bash
-stack ./Shakefile.hs hie-8.6.3
-stack ./Shakefile.hs build-doc-8.6.3
-```
-
-Install **LTS** (and hoogle docs):
-
-```bash
-stack ./Shakefile.hs hie-8.4.4
-stack ./Shakefile.hs build-doc-8.4.4
-```
-
-#### Install *all* available GHC versions with Shake
+#### Install *all* available GHC versions
 
 *Warning*: Requires 20+ GB of space and potentially more than 2 hours to install, so please be patient!
 
@@ -316,6 +223,20 @@ Then add
 ```
 
 to VS Code user settings.
+
+#### For GHC 8.0.2
+
+This is no longer supported on the HIE `master` branch, so you must switch to the `hie-0.1.0.0` branch:
+
+```bash
+git checkout hie-0.1.0.0
+git submodule update --init
+```
+Then you can run `stack install`:
+
+```bash
+stack --stack-yaml=stack-8.0.2.yaml install
+```
 
 ## Configuration
 There are some settings that can be configured via a `settings.json` file:
