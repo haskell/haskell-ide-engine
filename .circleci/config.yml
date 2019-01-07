@@ -18,7 +18,7 @@ defaults: &defaults
 
     - run:
         name: Create a composite cabal file for changes detection
-        command: find . -name "*.cabal" | grep -v "stack-work" | xargs cat > all-cabal.txt
+        command: find . -name "*.cabal" | grep -v -e "stack-work" -e "dist-newstyle" | xargs cat > all-cabal.txt
 
     - restore_cache:
         keys:
