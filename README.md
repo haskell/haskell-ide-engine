@@ -203,11 +203,27 @@ This will:
 * name them as expected by the VS Code plugin
 * build local hoogle docs for each version
 
-For this you need the `make` tool (on Windows, see the further advice below). Use the command:
+On non-Windows platforms use the command:
 
 ```bash
 make build-all
 ```
+
+On Windows use:
+**PowerShell:**
+
+```
+./build-all.ps1
+```
+
+or
+
+**cmd.exe:**
+
+```
+powershell -ExecutionPolicy RemoteSigned -c ./build-all.ps1
+```
+
 
 Then add
 
@@ -218,31 +234,6 @@ Then add
 
 to VS Code user settings.
 
-#### Install *all* available GHC versions
-
-*Warning*: Requires 20+ GB of space and potentially more than 2 hours to install, so please be patient!
-
-This will:
-
-* install all supported GHC versions (8.2.1 - 8.6.3)
-* name them as expected by the VS Code plugin
-* build local hoogle docs for each version
-
-`make` doesn't work on Windows due to several UNIX-specific things, such
-as the `cp` command or extensionless executable names. Instead, a PowerShell
-script is provided specifically for this purpose:
-
-**PowerShell:**
-
-```
-./build-all.ps1
-```
-
-**cmd.exe:**
-
-```
-powershell -ExecutionPolicy RemoteSigned -c ./build-all.ps1
-```
 
 ### Installation on macOS
 
