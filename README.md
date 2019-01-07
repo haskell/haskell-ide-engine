@@ -687,6 +687,11 @@ All the documentation is in [the docs folder](/docs) at the root of this project
 
 ## Troubleshooting
 
+### macOS: Got error while installing GHC 8.6.1 or 8.6.2 - dyld: Library not loaded: /usr/local/opt/gmp/lib/libgmp.10.dylib
+
+These builds have a dependency on [homebrew](https://brew.sh)'s `gmp` library. Install with brew: `brew install gmp`.
+[Should be fixed in GHC 8.6.3.](https://ghc.haskell.org/trac/ghc/ticket/15769)
+
 ### macOS: Got error while processing diagnostics: unable to load package `integer-gmp-1.0.2.0`
 
 [Rename the file](https://github.com/alanz/vscode-hie-server/issues/89#issuecomment-398212122) at `~/.stack/programs/x86_64-osx/ghc-8.4.3/lib/ghc-8.4.3/integer-gmp-1.0.2.0/HSinteger-gmp-1.0.2.0.o` to a temporary name.
