@@ -99,7 +99,33 @@ we talk to clients.__
 
 ## Installation
 
-### Installation with stack
+### Installation on macOS
+
+Download the pre-built binaries from the [releases page](https://github.com/haskell/haskell-ide-engine/releases), and copy/symlink them into `/usr/local/bin` (or somewhere else in your $PATH):
+
+```bash
+ln -s hie-bin-dir/hie* /usr/local/bin/
+```
+
+Alternatively, you can install from source. See instructions below
+
+### Installation with Nix
+
+Follow the instructions at https://github.com/domenkozar/hie-nix
+
+
+### Installation on ArchLinux
+
+An [haskell-ide-engine-git](https://aur.archlinux.org/packages/haskell-ide-engine-git/) package is available on the AUR.
+
+Using [Aura](https://github.com/aurapm/aura):
+
+```
+# aura -A haskell-ide-engine-git
+```
+
+
+### Installation from source
 
 To install HIE, you need stack version >= 1.7.1.
 
@@ -234,31 +260,6 @@ Then add
 
 to VS Code user settings.
 
-
-### Installation on macOS
-
-Download the pre-built binaries from the [releases page](https://github.com/haskell/haskell-ide-engine/releases), and copy/symlink them into `/usr/local/bin` (or somewhere else in your $PATH):
-
-```bash
-ln -s hie-bin-dir/hie* /usr/local/bin/
-```
-
-Alternatively, you can install from source with `make build` or `make build-all`.
-
-### Installation with Nix
-
-Follow the instructions at https://github.com/domenkozar/hie-nix
-
-
-### Installation on ArchLinux
-
-An [haskell-ide-engine-git](https://aur.archlinux.org/packages/haskell-ide-engine-git/) package is available on the AUR.
-
-Using [Aura](https://github.com/aurapm/aura):
-
-```
-# aura -A haskell-ide-engine-git
-```
 
 ### Installation with Shake
 
