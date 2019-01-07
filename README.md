@@ -128,14 +128,6 @@ git clone https://github.com/haskell/haskell-ide-engine --recursive
 cd haskell-ide-engine
 ```
 
-In order to support both stack and cabal, HIE requires `cabal-install`
-as well. If it is not already installed, install it and update its package list:
-
-```bash
-stack install cabal-install
-cabal update
-```
-
 #### Choose your GHC version
 
 The GHC version you are going to install HIE for depends on which version of GHC you are using for your project. If you don't have a current project there are two potential options:
@@ -225,14 +217,6 @@ To install HIE, you need stack version >= 1.7.1.
 ```bash
 git clone https://github.com/haskell/haskell-ide-engine --recursive
 cd haskell-ide-engine
-```
-
-In order to support both stack and cabal, HIE requires `cabal-install`
-as well. If it is not already installed, install it and update its package list:
-
-```bash
-stack install cabal-install
-cabal update
 ```
 
 #### Install *all* available GHC versions
