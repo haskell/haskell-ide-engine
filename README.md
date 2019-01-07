@@ -99,11 +99,11 @@ we talk to clients.__
 
 ## Installation
 
-### Installation with stack on Linux
+### Installation with stack
 
 To install HIE, you need stack version >= 1.7.1.
 
-HIE builds from source code, so there's a couple of extra steps. 
+HIE builds from source code, so there's a couple of extra steps.
 
 #### Linux pre-requirements
 
@@ -207,17 +207,6 @@ Then add
 ```
 
 to VS Code user settings.
-
-### Installation with stack on Windows
-
-To install HIE, you need stack version >= 1.7.1.
-
-#### Download the source code
-
-```bash
-git clone https://github.com/haskell/haskell-ide-engine --recursive
-cd haskell-ide-engine
-```
 
 #### Install *all* available GHC versions
 
