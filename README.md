@@ -121,6 +121,16 @@ sudo dnf install libicu-devel ncurses-devel
 ```
 **ArchLinux**: see [below](#installation-on-archlinux).
 
+#### Windows: long paths (optional)
+
+In order to avoid problems with long paths on Windows you can do the following:
+
+1. Edit the group policy: set "Enable Win32 long paths" to "Enabled" (Works
+   only for Windows 10).
+
+2. Clone the `haskell-ide-engine` to the root of your logical drive (e.g. to
+   `C:\hie`)
+
 #### Download the source code
 
 ```bash
@@ -233,16 +243,6 @@ script is provided specifically for this purpose:
 ```
 powershell -ExecutionPolicy RemoteSigned -c ./build-all.ps1
 ```
-
-#### Long paths
-
-In order to avoid problems with long paths on Windows you can do the following:
-
-1. Edit the group policy: set "Enable Win32 long paths" to "Enabled" (Works
-   only for Windows 10).
-
-2. Clone the `haskell-ide-engine` to the root of your logical drive (e.g. to
-   `C:\hie`)
 
 ### Installation on macOS
 
