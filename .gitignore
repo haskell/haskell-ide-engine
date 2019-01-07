@@ -61,6 +61,7 @@ dist-newstyle/
 dist
 tags
 test-logs/
+test-results/
 .DS_Store
 
 .hspec-failures

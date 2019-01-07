@@ -26,6 +26,8 @@ extra-deps:
 - pretty-show-1.8.2
 - sorted-list-0.2.1.0
 - syz-0.2.0.0
+- github: LeastAuthority/hspec-jenkins
+  commit: 2899766bbd36216b81b1719423a5c2443458ae06
 
 flags:
   haskell-ide-engine:

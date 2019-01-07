@@ -2,7 +2,6 @@
 module TestUtils
   (
     testOptions
-  , cdAndDo
   , withFileLogging
   , setupStackFiles
   , testCommand
@@ -14,10 +13,10 @@ module TestUtils
   , hieCommand
   , hieCommandVomit
   , hieCommandExamplePlugin
+  , getHspecFormattedConfig
   ) where
 
 import           Control.Concurrent.STM
-import           Control.Exception
 import           Control.Monad
 import           Data.Aeson.Types (typeMismatch)
 import           Data.Text (pack)
@@ -33,6 +32,8 @@ import           System.FilePath
 import qualified System.Log.Logger as L
 
 import           Test.Hspec
+import           Test.Hspec.Runner (Config(..), defaultConfig)
+import           Test.Hspec.Formatters.Jenkins (xmlFormatter)
 
 -- ---------------------------------------------------------------------
 
@@ -47,12 +48,6 @@ testOptions = GM.defaultOptions {
     }
 
     }
-
-cdAndDo :: FilePath -> IO a -> IO a
-cdAndDo path fn = do
-  old <- getCurrentDirectory
-  bracket (setCurrentDirectory path) (\_ -> setCurrentDirectory old)
-          $ const fn
 
 
 testCommand :: (ToJSON a, Typeable b, ToJSON b, Show b, Eq b)
@@ -202,4 +197,16 @@ stackFileContents resolver = unlines
   , "flags: {}"
   , "extra-package-dbs: []"
   ]
+
+-- ---------------------------------------------------------------------
+
+getHspecFormattedConfig :: String -> IO Config
+getHspecFormattedConfig name = do
+  let subdir = "test-results" </> name
+  createDirectoryIfMissing True subdir
+
+  return $ defaultConfig { configFormatter = Just xmlFormatter
+                         , configOutputFile = Right $ subdir </> "results.xml"
+                         }
+
 -- ---------------------------------------------------------------------
