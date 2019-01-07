@@ -245,24 +245,6 @@ ln -s hie-bin-dir/hie* /usr/local/bin/
 
 Alternatively, you can install from source with `make build` or `make build-all`.
 
-#### DYLD on macOS
-
-If you hit a problem that looks like ```can't load .so/.DLL for: libiconv.dylib (dlopen(libiconv.dylib, 5): image not found)```, it means that libraries cannot be found in the library path. We can hint where to look for them and append more paths to `DYLD_LIBRARY_PATH`.
-
-```
-export DYLD_LIBRARY_PATH="$DYLD_LIBRARY_PATH:/usr/lib:/usr/local/lib"
-```
-
-On practice `/usr/local/lib` is full of dylibs linked by `brew`. After you amend `DYLD_LIBRARY_PATH`, some of the previously compiled application might not work and yell about incorrect linking, for example, `dyld: Symbol not found: __cg_jpeg_resync_to_restart`. You may need to look up where it comes from and remove clashing links, in this case it were clashing images libs:
-
-```sh
-$ brew unlink libjpeg
-$ brew unlink libtiff
-$ brew unlink libpng
-```
-
-Recompile.
-
 ### Installation with Nix
 
 Follow the instructions at https://github.com/domenkozar/hie-nix
@@ -650,6 +632,24 @@ Existing transports are still functional for the time being.
 All the documentation is in [the docs folder](/docs) at the root of this project.
 
 ## Troubleshooting
+
+### DYLD on macOS
+
+If you hit a problem that looks like ```can't load .so/.DLL for: libiconv.dylib (dlopen(libiconv.dylib, 5): image not found)```, it means that libraries cannot be found in the library path. We can hint where to look for them and append more paths to `DYLD_LIBRARY_PATH`.
+
+```
+export DYLD_LIBRARY_PATH="$DYLD_LIBRARY_PATH:/usr/lib:/usr/local/lib"
+```
+
+On practice `/usr/local/lib` is full of dylibs linked by `brew`. After you amend `DYLD_LIBRARY_PATH`, some of the previously compiled application might not work and yell about incorrect linking, for example, `dyld: Symbol not found: __cg_jpeg_resync_to_restart`. You may need to look up where it comes from and remove clashing links, in this case it were clashing images libs:
+
+```sh
+$ brew unlink libjpeg
+$ brew unlink libtiff
+$ brew unlink libpng
+```
+
+Recompile.
 
 ### macOS: Got error while installing GHC 8.6.1 or 8.6.2 - dyld: Library not loaded: /usr/local/opt/gmp/lib/libgmp.10.dylib
 
