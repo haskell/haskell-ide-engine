@@ -23,11 +23,13 @@ import           Data.Text (pack)
 import           Data.Typeable
 import           Data.Yaml
 import qualified Data.Map as Map
+import           Data.Maybe
 import qualified GhcMod.Monad as GM
 import qualified GhcMod.Types as GM
 import qualified Language.Haskell.LSP.Core as Core
 import           Haskell.Ide.Engine.MonadTypes
 import           System.Directory
+import           System.Environment
 import           System.FilePath
 import qualified System.Log.Logger as L
 
@@ -202,11 +204,18 @@ stackFileContents resolver = unlines
 
 getHspecFormattedConfig :: String -> IO Config
 getHspecFormattedConfig name = do
-  let subdir = "test-results" </> name
-  createDirectoryIfMissing True subdir
+  -- https://circleci.com/docs/2.0/env-vars/#built-in-environment-variables
+  isCI <- isJust <$> lookupEnv "CI"
 
-  return $ defaultConfig { configFormatter = Just xmlFormatter
-                         , configOutputFile = Right $ subdir </> "results.xml"
-                         }
+  -- Only use the xml formatter on CI since it hides console output
+  if isCI
+    then do
+      let subdir = "test-results" </> name
+      createDirectoryIfMissing True subdir
+
+      return $ defaultConfig { configFormatter = Just xmlFormatter
+                             , configOutputFile = Right $ subdir </> "results.xml"
+                             }
+    else return defaultConfig
 
 -- ---------------------------------------------------------------------
