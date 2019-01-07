@@ -52,7 +52,7 @@ defaults: &defaults
 
     - run:
         name: Generate Hoogle database
-        command: stack --stack-yaml=${STACK_FILE} exec hoogle generate
+        command: if [ -d ~/.hoogle ]; then stack --stack-yaml=${STACK_FILE} exec hoogle generate; fi
 
     - run:
         name: Clear cabal-helper cache
@@ -63,6 +63,7 @@ defaults: &defaults
         paths: &cache_paths
           - ~/.stack
           - ~/.cache
+          - ~/.hoogle
           - ~/build/.stack-work
           - ~/build/hie-plugin-api/.stack-work
           - ~/build/submodules/HaRe/.stack-work
