@@ -17,18 +17,21 @@ where
 
 import           Control.Monad.Reader
 import qualified Data.Map                      as Map
-import qualified Language.Haskell.LSP.Core     as Core
-import qualified Language.Haskell.LSP.Messages as J
-import qualified Language.Haskell.LSP.Types    as J
 import           Haskell.Ide.Engine.Compat
 import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.PluginsIdeMonads
 import qualified Haskell.Ide.Engine.Scheduler  as Scheduler
 import           Haskell.Ide.Engine.Types
+import qualified Language.Haskell.LSP.Core     as Core
+import qualified Language.Haskell.LSP.Messages as J
+import qualified Language.Haskell.LSP.Types    as J
+
+-- ---------------------------------------------------------------------
 
 data REnv = REnv
   { scheduler         :: Scheduler.Scheduler R
   , lspFuncs          :: Core.LspFuncs Config
+  -- | The process ID of HIE. See 'HasPidCache'
   , reactorPidCache   :: Int
   , diagnosticSources :: Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
   , hoverProviders    :: [HoverProvider]

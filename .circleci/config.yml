@@ -22,9 +22,9 @@ defaults: &defaults
 
     - restore_cache:
         keys:
-          - stack-cache-12-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
-          - stack-cache-12-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
-          - stack-cache-12-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
+          - stack-cache-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
+          - stack-cache-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
+          - stack-cache-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
 
     - run:
         name: Stack setup
@@ -59,13 +59,14 @@ defaults: &defaults
         command: rm -fr ~/.cache/cabal-helper
 
     - save_cache:
-        key: stack-cache-12-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
-        paths:
+        key: stack-cache-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
+        paths: &cache_paths
           - ~/.stack
           - ~/.cache
           - ~/build/.stack-work
           - ~/build/hie-plugin-api/.stack-work
           - ~/build/submodules/HaRe/.stack-work
+          - ~/build/submodules/brittany/.stack-work
           - ~/build/submodules/ghc-mod/core/.stack-work
           - ~/build/submodules/ghc-mod/.stack-work
           - ~/build/submodules/haskell-lsp/.stack-work
@@ -81,30 +82,12 @@ defaults: &defaults
         path: test-logs
 
     - save_cache:
-        key: stack-cache-12-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
-        paths:
-          - ~/.stack
-          - ~/.cache
-          - ~/build/.stack-work
-          - ~/build/hie-plugin-api/.stack-work
-          - ~/build/submodules/HaRe/.stack-work
-          - ~/build/submodules/ghc-mod/core/.stack-work
-          - ~/build/submodules/ghc-mod/.stack-work
-          - ~/build/submodules/haskell-lsp/.stack-work
-          - ~/build/submodules/cabal-helper/.stack-work
+        key: stack-cache-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
+        paths: *cache_paths
 
     - save_cache:
-        key: stack-cache-12-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
-        paths:
-          - ~/.stack
-          - ~/.cache
-          - ~/build/.stack-work
-          - ~/build/hie-plugin-api/.stack-work
-          - ~/build/submodules/HaRe/.stack-work
-          - ~/build/submodules/ghc-mod/core/.stack-work
-          - ~/build/submodules/ghc-mod/.stack-work
-          - ~/build/submodules/haskell-lsp/.stack-work
-          - ~/build/submodules/cabal-helper/.stack-work
+        key: stack-cache-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
+        paths: *cache_paths
 
 version: 2
 jobs:
@@ -148,6 +131,11 @@ jobs:
       - STACK_FILE: "stack-8.6.2.yaml"
     <<: *defaults
 
+  ghc-8.6.3:
+    environment:
+      - STACK_FILE: "stack-8.6.3.yaml"
+    <<: *defaults
+
   ghc-nightly:
     environment:
       - STACK_FILE: "stack.yaml"
@@ -168,7 +156,7 @@ jobs:
           command: git submodule update --recursive --init
       - restore-cache:
           keys:
-            - cabal-12-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
+            - cabal-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
       - run:
           name: Cabal version
           command: cabal --version
@@ -182,7 +170,7 @@ jobs:
           name: Build
           command: cabal new-build -j2
       - save_cache:
-          key: cabal-12-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
+          key: cabal-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
           paths:
             - ~/.cabal
 
@@ -198,5 +186,6 @@ workflows:
       - ghc-8.4.4
       - ghc-8.6.1
       - ghc-8.6.2
+      - ghc-8.6.3
       - ghc-nightly
       - cabal

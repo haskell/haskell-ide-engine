@@ -109,6 +109,7 @@ files =
    , "./test/testdata/addPackageTest/cabal/"
    , "./test/testdata/addPackageTest/hpack/"
    , "./test/testdata/addPragmas/"
+   , "./test/testdata/badProjects/cabal/"
    , "./test/testdata/completion/"
    , "./test/testdata/definition/"
    , "./test/testdata/gototest/"
@@ -133,7 +134,9 @@ ghcVersion = GHCPre84
 
 stackYaml :: FilePath
 stackYaml =
-#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,6,2,0)))
+#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,6,3,0)))
+  "stack-8.6.3.yaml"
+#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,6,2,0)))
   "stack-8.6.2.yaml"
 #elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,6,1,0)))
   "stack-8.6.1.yaml"

@@ -44,14 +44,15 @@
 /test/testdata/HaReMoveDef.refactored.hs
 /test/testdata/HaReRename.hs.keep
 /test/testdata/HaReRename.refactored.hs
-/test/testdata/gototest/stack.yaml
-/test/testdata/stack.yaml
 /test/testdata/addPackageTest/**/stack.yaml
 /test/testdata/addPackageTest/**/stack.yaml
 /test/testdata/addPackageTest/hpack/*.cabal
-/test/testdata/redundantImportTest/stack.yaml
+/test/testdata/badProjects/cabal/stack.yaml
 /test/testdata/completion/stack.yaml
 /test/testdata/definition/stack.yaml
+/test/testdata/gototest/stack.yaml
+/test/testdata/redundantImportTest/stack.yaml
+/test/testdata/stack.yaml
 /test/testdata/wErrorTest/stack.yaml
 TAGS
 cabal-dev/
@@ -65,3 +66,6 @@ test-logs/
 .hspec-failures
 /test/testdata/addPragmas/stack.yaml
 .vscode
+
+# shake build information
+_build/

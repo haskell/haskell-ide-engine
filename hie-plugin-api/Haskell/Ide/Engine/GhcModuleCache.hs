@@ -22,6 +22,10 @@ data UriCacheResult = UriCacheSuccess UriCache
                     | UriCacheFailed
   deriving (Show)
 
+uriCacheState :: UriCacheResult -> String
+uriCacheState UriCacheFailed    = "UriCacheFailed"
+uriCacheState UriCacheSuccess{} = "UriCacheSuccess"
+
 data UriCache = UriCache
   { cachedInfo   :: !CachedInfo
   , cachedPsMod  :: !ParsedModule

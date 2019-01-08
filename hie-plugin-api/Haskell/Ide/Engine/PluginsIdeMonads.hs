@@ -134,6 +134,8 @@ import           Language.Haskell.LSP.VFS       ( VirtualFile(..) )
 -- LSP Commands
 -- ---------------------------------------------------------------------
 
+-- | A monad that provides access to the current process ID.
+-- Used when generating LSP command IDs
 class Monad m => HasPidCache m where
   getPidCache :: m Int
 
@@ -298,7 +300,7 @@ type IdeDeferM = FreeT Defer IdeM
 
 type IdeM = ReaderT IdeEnv (MultiThreadState IdeState)
 
--- | Run an IdeM 
+-- | Run an IdeM
 runIdeM :: IdePlugins -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeM a -> IO a
 runIdeM plugins mlf stateVar f = do
   env <- IdeEnv <$> pure mlf <*> getProcessID <*> pure plugins
@@ -338,13 +340,13 @@ instance MonadIde IdeM where
     case mlf of
       Just lf -> fromMaybe def <$> liftIO (Core.config lf)
       Nothing -> return def
-    
+
   getClientCapabilities = do
     mlf <- asks ideEnvLspFuncs
     case mlf of
       Just lf -> return (Core.clientCapabilities lf)
       Nothing -> return def
-  
+
   getPlugins = asks idePlugins
 
 instance MonadIde IdeGhcM where
@@ -360,7 +362,7 @@ instance MonadIde IdeDeferM where
   getConfig = lift getConfig
   getClientCapabilities = lift getClientCapabilities
   getPlugins = lift getPlugins
-      
+
 data IdeState = IdeState
   { moduleCache :: GhcModuleCache
   -- | A queue of requests to be performed once a module is loaded

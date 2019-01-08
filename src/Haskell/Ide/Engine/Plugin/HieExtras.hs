@@ -422,13 +422,19 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) =
             filtPragmaCompls = filtListWithSnippet mkPragmaCompl validPragmas
             filtOptsCompls   = filtListWith mkExtCompl
 
+            stripLeading :: Char -> String -> String
+            stripLeading _ [] = []
+            stripLeading c (s:ss)
+              | s == c = ss
+              | otherwise = s:ss
+
             result
               | "import " `T.isPrefixOf` fullLine
               = filtImportCompls
               | "{-# language" `T.isPrefixOf` T.toLower fullLine
               = filtOptsCompls cachedExtensions
               | "{-# options_ghc" `T.isPrefixOf` T.toLower fullLine
-              = filtOptsCompls (map T.pack $ GHC.flagsForCompletion False)
+              = filtOptsCompls (map (T.pack . stripLeading '-') $ GHC.flagsForCompletion False)
               | "{-# " `T.isPrefixOf` fullLine
               = filtPragmaCompls (pragmaSuffix fullLine)
               | otherwise

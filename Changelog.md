@@ -1,3 +1,17 @@
+# 0.5.0.0
+
+ - Introduce Shakefile as build alternative (@fendor)
+ - Support GHC 8.6.3
+ - Stability improvements
+   - fixed process dying on some code action requests (#1018)
+   - Deal with missing system GHC in hie-wrapper (#1012)
+   - Deal with missing system GHC in hie
+   - Return an error diagnostic when a project cannot be built (#1011)
+ - Completion now strips out OccName prefixes added by GHC (#996)
+ - improve building on windows
+ - improve building on macos
+ - Run diagnostics on file save. It used to only do it on change.
+
 # 0.4.0.1
 
 - Install cabal / Cabal (needed for Cabal 2.4.0.1 support) via stack,

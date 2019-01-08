@@ -193,11 +193,12 @@ setTypecheckedModule uri =
 
     canonUri <- canonicalizeUri uri
     let diags = Map.insertWith Set.union canonUri Set.empty diags'
-    case (mpm,mtm) of
+    diags2 <- case (mpm,mtm) of
       (Just pm, Nothing) -> do
         debugm $ "setTypecheckedModule: Did get parsed module for: " ++ show fp
         cacheModule fp (Left pm)
         debugm "setTypecheckedModule: done"
+        return diags
 
       (_, Just tm) -> do
         debugm $ "setTypecheckedModule: Did get typechecked module for: " ++ show fp
@@ -208,13 +209,21 @@ setTypecheckedModule uri =
         modifyMTS (\s -> s {ghcSession = sess})
         cacheModule fp (Right tm)
         debugm "setTypecheckedModule: done"
+        return diags
 
       _ -> do
         debugm $ "setTypecheckedModule: Didn't get typechecked or parsed module for: " ++ show fp
+        debugm $ "setTypecheckedModule: errs: " ++ show errs
 
         failModule fp
 
-    return $ IdeResultOk (diags,errs)
+        let sev = Just DsError
+            range = Range (Position 0 0) (Position 1 0)
+            msgTxt = T.unlines errs
+        let d = Diagnostic range sev Nothing (Just "ghcmod") msgTxt Nothing
+        return $ Map.insertWith Set.union canonUri (Set.singleton d) diags
+
+    return $ IdeResultOk (diags2,errs)
 
 -- ---------------------------------------------------------------------
 
@@ -482,7 +491,10 @@ extractRedundantImport msg =
       && " is redundant" `T.isSuffixOf` firstLine
     then Just $ T.init $ T.tail $ T.dropWhileEnd (/= '’') $ T.dropWhile (/= '‘') firstLine
     else Nothing
-  where firstLine = head (T.lines msg)
+  where
+    firstLine = case T.lines msg of
+      [] -> ""
+      (l:_) -> l
 
 extractHoleSubstitutions :: T.Text -> Maybe (TypeDef, ValidSubstitutions, Bindings)
 extractHoleSubstitutions diag

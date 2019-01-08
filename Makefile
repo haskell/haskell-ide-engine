@@ -1,13 +1,14 @@
 BASEDIR=$(CURDIR)
 STACKLOCALBINDIR:=$(shell stack path --local-bin)
+GHC_VERSIONS= 8.6.3 8.6.2 8.6.1 8.4.4 8.4.3 8.4.2 8.2.2 8.2.1
 
 all: help
 .PHONY: all
 
-## Builds hie for all supported GHC versions (8.2.1, 8.2.2, 8.4.2 and 8.4.3, 8.4.4)
-build: hie-8.2.1 hie-8.2.2 \
-       hie-8.4.2 hie-8.4.3 hie-8.4.4 \
-       hie-8.6.1 hie-8.6.2
+
+
+## Builds hie for all supported GHC versions (8.2.1, 8.2.2, 8.4.2, 8.4.3, 8.4.4, 8.6.1, 8.6.2 and 8.6.3)
+build: $(foreach version, $(GHC_VERSIONS), hie-$(version))
 .PHONY: build
 
 ## Builds hie and hoogle databases for all supported GHC versions
@@ -23,69 +24,21 @@ ghc:
 
 # ------------------------------------------------------
 
-## Builds hie for GHC version 8.2.1 only
-hie-8.2.1: submodules cabal
-	stack --stack-yaml=stack-8.2.1.yaml install happy
-	stack --stack-yaml=stack-8.2.1.yaml build
-	stack --stack-yaml=stack-8.2.1.yaml install                                \
-		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.2.1'    \
-		&& cp '$(STACKLOCALBINDIR)/hie-8.2.1' '$(STACKLOCALBINDIR)/hie-8.2'
-.PHONY: hie-8.2.1
-
-## Builds hie for GHC version 8.2.2 only
-hie-8.2.2: submodules cabal
-	stack --stack-yaml=stack-8.2.2.yaml install happy
-	stack --stack-yaml=stack-8.2.2.yaml build
-	stack --stack-yaml=stack-8.2.2.yaml install                                \
-		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.2.2'    \
-		&& cp '$(STACKLOCALBINDIR)/hie-8.2.2' '$(STACKLOCALBINDIR)/hie-8.2'
-.PHONY: hie-8.2.2
-
-## Builds hie for GHC version 8.4.2 only
-hie-8.4.2: submodules cabal
-	stack --stack-yaml=stack-8.4.2.yaml build
-	stack --stack-yaml=stack-8.4.2.yaml install                                \
-		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.4.2'    \
-		&& cp '$(STACKLOCALBINDIR)/hie-8.4.2' '$(STACKLOCALBINDIR)/hie-8.4'
-.PHONY: hie-8.2.2
-
-## Builds hie for GHC version 8.4.3 only
-hie-8.4.3: submodules cabal
-	stack --stack-yaml=stack-8.4.3.yaml build
-	stack --stack-yaml=stack-8.4.3.yaml install                                      \
-		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.4.3'    \
-		&& cp '$(STACKLOCALBINDIR)/hie-8.4.3' '$(STACKLOCALBINDIR)/hie-8.4'
-.PHONY: hie-8.4.3
-
-## Builds hie for GHC version 8.4.4 only
-hie-8.4.4: submodules cabal
-	stack --stack-yaml=stack-8.4.4.yaml build
-	stack --stack-yaml=stack-8.4.4.yaml install                                      \
-		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.4.4'    \
-		&& cp '$(STACKLOCALBINDIR)/hie-8.4.4' '$(STACKLOCALBINDIR)/hie-8.4'
-.PHONY: hie-8.4.4
-
-## Builds hie for GHC version 8.6.1 only
-hie-8.6.1: submodules cabal
-	stack --stack-yaml=stack-8.6.1.yaml build
-	stack --stack-yaml=stack-8.6.1.yaml install                                      \
-		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.6.1'    \
-		&& cp '$(STACKLOCALBINDIR)/hie-8.6.1' '$(STACKLOCALBINDIR)/hie-8.4'
-.PHONY: hie-8.6.1
-
-## Builds hie for GHC version 8.6.2 only
-hie-8.6.2: submodules cabal
-	stack --stack-yaml=stack-8.6.2.yaml build
-	stack --stack-yaml=stack-8.6.2.yaml install                                      \
-		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-8.6.2'    \
-		&& cp '$(STACKLOCALBINDIR)/hie-8.6.2' '$(STACKLOCALBINDIR)/hie-8.4'
-.PHONY: hie-8.6.2
+## Builds hie for GHC version % only
+hie-%: submodules cabal
+	stack --stack-yaml=stack-$*.yaml install happy
+	stack --stack-yaml=stack-$*.yaml build
+	stack --stack-yaml=stack-$*.yaml install                                \
+		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-$*'    \
+		&& cp '$(STACKLOCALBINDIR)/hie-$*' '$(STACKLOCALBINDIR)/hie-$(basename $*)'
+.PHONY: hie-%
 
 # ------------------------------------------------------
 
 ## Updates local git submodules
 submodules:
-	git submodule update --init
+	git submodule sync --recursive
+	git submodule update --init --recursive
 .PHONY: submodules
 
 # ------------------------------------------------------
@@ -99,46 +52,33 @@ submodules:
 ## NOTE 3: This is needed for stack only projects too
 cabal:
 	stack install cabal-install
-	cabal v1-update
-	cabal v1-install Cabal-2.4.1.0 --with-compiler=$(GHC)
+	cabal update
+	cabal install Cabal-2.4.1.0 --with-compiler=$(GHC)
 .PHONY: cabal
 
 # ------------------------------------------------------
 
 ## Builds the Hoogle database for all supported GHC versions
-build-docs:
-	stack --stack-yaml=stack-8.2.1.yaml exec hoogle generate \
-	&& stack --stack-yaml=stack-8.2.2.yaml exec hoogle generate \
-	&& stack --stack-yaml=stack-8.4.2.yaml exec hoogle generate \
-	&& stack --stack-yaml=stack-8.4.3.yaml exec hoogle generate \
-	&& stack --stack-yaml=stack-8.4.4.yaml exec hoogle generate
-	&& stack --stack-yaml=stack-8.6.1.yaml exec hoogle generate
-	&& stack --stack-yaml=stack-8.6.2.yaml exec hoogle generate
+build-docs: $(foreach version, $(GHC_VERSIONS), build-doc-$(version))
 .PHONY: build-docs
 
+build-doc-%:
+	stack --stack-yaml=stack-$*.yaml exec hoogle generate
 
 # ------------------------------------------------------
 
 ## Runs hie tests
-test: submodules cabal
-	stack --stack-yaml=stack-8.2.1.yaml test \
-	&& stack --stack-yaml=stack-8.2.2.yaml test \
-	&& stack --stack-yaml=stack-8.4.2.yaml test \
-	&& stack --stack-yaml=stack-8.4.3.yaml test \
-	&& stack --stack-yaml=stack-8.4.4.yaml test
-	&& stack --stack-yaml=stack-8.6.1.yaml test
-	&& stack --stack-yaml=stack-8.6.2.yaml test
+test: $(foreach version, $(GHC_VERSIONS), test-$(version))
 .PHONY: test
 
-build-copy-compiler-tool: submodules cabal
-	stack --stack-yaml=stack-8.2.1.yaml build --copy-compiler-tool \
-	&& stack --stack-yaml=stack-8.2.2.yaml build --copy-compiler-tool \
-	&& stack --stack-yaml=stack-8.4.2.yaml build --copy-compiler-tool \
-	&& stack --stack-yaml=stack-8.4.3.yaml build --copy-compiler-tool \
-	&& stack --stack-yaml=stack-8.4.4.yaml build --copy-compiler-tool
-	&& stack --stack-yaml=stack-8.6.1.yaml build --copy-compiler-tool
-	&& stack --stack-yaml=stack-8.6.2.yaml build --copy-compiler-tool
+test-%: submodules cabal
+	stack --stack-yaml=stack-$*.yaml test
+
+build-copy-compiler-tool: $(foreach version, $(GHC_VERSIONS), build-copy-compiler-tool-$(version))
 .PHONY: build-copy-compiler-tool
+
+build-copy-compiler-tool-%: submodules cabal
+	stack --stack-yaml=stack-$*.yaml build --copy-compiler-tool
 
 ## Fixes icu related problems in MacOS
 icu-macos-fix: icu-macos-fix-install icu-macos-fix-build
@@ -148,52 +88,32 @@ icu-macos-fix-install:
 	brew install icu4c
 .PHONY: icu-macos-fix-install
 
-icu-macos-fix-build:
-	stack --stack-yaml=stack-8.2.1.yaml build text-icu     \
-	  --extra-lib-dirs=/usr/local/opt/icu4c/lib            \
-	  --extra-include-dirs=/usr/local/opt/icu4c/include    \
-	&& stack --stack-yaml=stack-8.2.2.yaml build text-icu  \
-	  --extra-lib-dirs=/usr/local/opt/icu4c/lib            \
-	  --extra-include-dirs=/usr/local/opt/icu4c/include    \
-	&& stack --stack-yaml=stack-8.4.2.yaml build text-icu  \
-	  --extra-lib-dirs=/usr/local/opt/icu4c/lib            \
-	  --extra-include-dirs=/usr/local/opt/icu4c/include    \
-	&& stack --stack-yaml=stack-8.4.3.yaml build text-icu  \
-	  --extra-lib-dirs=/usr/local/opt/icu4c/lib            \
-	  --extra-include-dirs=/usr/local/opt/icu4c/include    \
-	&& stack --stack-yaml=stack-8.4.4.yaml build text-icu  \
-	  --extra-lib-dirs=/usr/local/opt/icu4c/lib            \
-	  --extra-include-dirs=/usr/local/opt/icu4c/include    \
-	&& stack --stack-yaml=stack-8.6.1.yaml build text-icu  \
-	  --extra-lib-dirs=/usr/local/opt/icu4c/lib            \
-	  --extra-include-dirs=/usr/local/opt/icu4c/include    \
-	&& stack --stack-yaml=stack-8.6.2.yaml build text-icu  \
-	  --extra-lib-dirs=/usr/local/opt/icu4c/lib            \
-	  --extra-include-dirs=/usr/local/opt/icu4c/include
+icu-macos-fix-build: $(foreach version, $(GHC_VERSIONS), icu-macos-fix-build-$(version))
 .PHONY: icu-macos-fix-build
+
+icu-macos-fix-build-%:
+	stack --stack-yaml=stack-$*.yaml build text-icu \
+	  --extra-lib-dirs=/usr/local/opt/icu4c/lib \
+	  --extra-include-dirs=/usr/local/opt/icu4c/include
 
 # ------------------------------------------------------
 
-HIE_GIT_REF:=$(shell git symbolic-ref -q --short HEAD || git describe --tags --exact-match)
-HIE_DIST_NAME:=hie-${HIE_GIT_REF}-`uname -m`-`uname -s`
+HIE_GIT_REF:=$(shell git describe --tags)
+HIE_DIST_NAME:=hie-${HIE_GIT_REF}-$(shell uname -m)-$(shell uname -s)
 HIE_DIST_DIR:=/tmp/${HIE_DIST_NAME}
+
 ## Creates a tarball containing all the hie binaries
-dist:
-	mkdir ${HIE_DIST_DIR}
-	stack --stack-yaml=stack-8.2.1.yaml build
-	cp .stack-work/install/*/*/8.2.1/bin/hie ${HIE_DIST_DIR}/hie-8.2.1
-	stack --stack-yaml=stack-8.2.2.yaml build
-	cp .stack-work/install/*/*/8.2.2/bin/hie ${HIE_DIST_DIR}/hie-8.2.2
-	stack --stack-yaml=stack-8.4.2.yaml build
-	cp .stack-work/install/*/*/8.4.2/bin/hie ${HIE_DIST_DIR}/hie-8.4.2
-	stack --stack-yaml=stack-8.4.3.yaml build
-	cp .stack-work/install/*/*/8.4.3/bin/hie ${HIE_DIST_DIR}/hie-8.4.3
-	stack --stack-yaml=stack-8.4.4.yaml build
-	cp .stack-work/install/*/*/8.4.4/bin/hie ${HIE_DIST_DIR}/hie
-	cp .stack-work/install/*/*/8.4.4/bin/hie ${HIE_DIST_DIR}/hie-8.4.4
-	cp .stack-work/install/*/*/8.4.4/bin/hie-wrapper ${HIE_DIST_DIR}/hie-wrapper
+dist: $(foreach version, $(GHC_VERSIONS), dist-$(version))
+	cp .stack-work/install/*/*/$(firstword $(GHC_VERSIONS))/bin/hie ${HIE_DIST_DIR}
+	cp .stack-work/install/*/*/$(firstword $(GHC_VERSIONS))/bin/hie-wrapper ${HIE_DIST_DIR}
 	tar -czf ${HIE_DIST_NAME}.tar.gz -C ${HIE_DIST_DIR} .
 	rm -r ${HIE_DIST_DIR}
+
+dist-%:
+	mkdir -p ${HIE_DIST_DIR}
+	stack --stack-yaml=stack-$*.yaml build
+	cp .stack-work/install/*/*/$*/bin/hie ${HIE_DIST_DIR}
+	mv ${HIE_DIST_DIR}/hie ${HIE_DIST_DIR}/hie-$*
 .PHONY: dist
 
 
@@ -216,12 +136,22 @@ help:
 	@echo '  ${YELLOW}make${RESET} ${GREEN}<target>${RESET}'
 	@echo ''
 	@echo 'Targets:'
-	@awk '/^[a-zA-Z\-\.\_0-9]+:/ { \
+	@awk '/^[a-zA-Z\-\.\_0-9%]+:/ { \
 		helpMessage = match(lastLine, /^## (.*)/); \
 		if (helpMessage) { \
 		  helpCommand = $$1; sub(/:$$/, "", helpCommand); \
-			helpMessage = substr(lastLine, RSTART + 3, RLENGTH); \
-			printf "  ${YELLOW}%-$(TARGET_MAX_CHAR_NUM)s${RESET} ${GREEN}%s${RESET}\n", helpCommand, helpMessage; \
+		  helpMessage = substr(lastLine, RSTART + 3, RLENGTH); \
+		  hasWildcard = match(helpCommand, /%/); \
+		  if (hasWildcard) {\
+		    split("$(GHC_VERSIONS)", versions); \
+		    for (version in versions) { \
+		      expandedCommand = helpCommand; sub(/%/, versions[version], expandedCommand);\
+		      expandedMessage = helpMessage; sub(/%/, versions[version], expandedMessage);\
+		      printf "  ${YELLOW}%-$(TARGET_MAX_CHAR_NUM)s${RESET} ${GREEN}%s${RESET}\n", expandedCommand, expandedMessage; \
+	            } \
+		  } else { \
+		    printf "  ${YELLOW}%-$(TARGET_MAX_CHAR_NUM)s${RESET} ${GREEN}%s${RESET}\n", helpCommand, helpMessage; \
+	          } \
 		} \
 	} \
 	{ lastLine = $$0 }' $(MAKEFILE_LIST)
