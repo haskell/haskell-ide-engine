@@ -129,8 +129,8 @@ buildIcuMacosFix version = execStackWithYaml_
 
 updateSubmodules :: Action ()
 updateSubmodules = do
-  command_ [] "git" ["submodule", "sync"]
-  command_ [] "git" ["submodule", "update", "--init"]
+  command_ [] "git" ["submodule", "sync", "--recursive"]
+  command_ [] "git" ["submodule", "update", "--init", "--recursive"]
 
 installCabal :: GhcPath -> Action ()
 installCabal ghc = do
