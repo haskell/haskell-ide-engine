@@ -21,7 +21,7 @@ Most importantly, the `~/.stack-work` directories for HIE as well as every submo
 
 Before restoring any cache, the CircleCI job creates three files and uses their checksum to detect any changes:
 
-1. `all-cabal.txt` detects any changes to `.cabal` files (in submodules too)
+1. `all-cabal.txt` detects any changes to `.cabal` files (not in submodules or test data)
 2. `stack-build.txt` detects any changes to the `stack-x.y.z` file
 3. `resolver.txt` detects any changes to the stack resolver
 
