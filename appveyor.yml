@@ -1,6 +1,7 @@
 version: 1.0.{build}
 environment:
   matrix:
+  - GHCVER: 8.6.3
   - GHCVER: 8.6.2
   - GHCVER: 8.6.1
   - GHCVER: 8.4.4
@@ -18,6 +19,7 @@ install:
 cache:
 - '%LOCALAPPDATA%\Programs\stack\'
 - c:\sr
+- .stack-work
 build_script:
 - cmd: stack --stack-yaml=stack-%GHCVER%.yaml install
 test: off
