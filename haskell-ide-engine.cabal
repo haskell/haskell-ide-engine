@@ -181,7 +181,8 @@ test-suite unit-test
                      , ghc-mod-core
                      , hslogger
                      , yaml
-                     , hspec-jenkins
+                     , hspec-core
+                     , blaze-markup
   -- don't multithread i.e. --with-rtsopts=-N
   -- otherwise ghc-mod operations become super slow on CircleCI
   ghc-options:         -Wall -Wredundant-constraints
@@ -218,7 +219,8 @@ test-suite dispatcher-test
                      , hslogger
                      , unordered-containers
                      , yaml
-                     , hspec-jenkins
+                     , hspec-core
+                     , blaze-markup
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror
@@ -253,7 +255,8 @@ test-suite plugin-dispatcher-test
                      , hslogger
                      , unordered-containers
                      , yaml
-                     , hspec-jenkins
+                     , hspec-core
+                     , blaze-markup
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror
@@ -331,7 +334,8 @@ test-suite func-test
                      , unordered-containers
                      , yaml
                      , haskell-lsp
-                     , hspec-jenkins
+                     , hspec-core
+                     , blaze-markup
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror

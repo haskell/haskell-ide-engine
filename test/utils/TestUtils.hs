@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP, OverloadedStrings, NamedFieldPuns #-}
 module TestUtils
   (
     testOptions
@@ -19,6 +19,7 @@ module TestUtils
 import           Control.Concurrent.STM
 import           Control.Monad
 import           Data.Aeson.Types (typeMismatch)
+import           Data.List (intercalate)
 import           Data.Text (pack)
 import           Data.Typeable
 import           Data.Yaml
@@ -32,10 +33,11 @@ import           System.Directory
 import           System.Environment
 import           System.FilePath
 import qualified System.Log.Logger as L
-
 import           Test.Hspec
-import           Test.Hspec.Runner (Config(..), defaultConfig)
-import           Test.Hspec.Formatters.Jenkins (xmlFormatter)
+import           Test.Hspec.Runner
+import           Test.Hspec.Core.Formatters
+import           Text.Blaze.Renderer.String (renderMarkup)
+import           Text.Blaze.Internal
 
 -- ---------------------------------------------------------------------
 
@@ -218,4 +220,69 @@ getHspecFormattedConfig name = do
                              }
     else return defaultConfig
 
+-- | A Hspec formatter for CircleCI.
+-- Originally from https://github.com/LeastAuthority/hspec-jenkins
+xmlFormatter :: Formatter
+xmlFormatter = silent {
+    headerFormatter = do
+      writeLine "<?xml version='1.0' encoding='UTF-8'?>"
+      writeLine "<testsuite>"
+  , exampleSucceeded
+  , exampleFailed
+  , examplePending
+  , footerFormatter = writeLine "</testsuite>"
+  }
+  where
+
+#if MIN_VERSION_hspec(2,5,0)
+    exampleSucceeded path _ =
+#else
+    exampleSucceeded path =
+#endif
+      writeLine $ renderMarkup $ testcase path ""
+
+#if MIN_VERSION_hspec(2,5,0)
+    exampleFailed path _ err =
+#else
+    exampleFailed path (Left err) =
+      writeLine $ renderMarkup $ testcase path $
+        failure ! message (show err) $ ""
+    exampleFailed path (Right err) =
+#endif
+      writeLine $ renderMarkup $ testcase path $
+        failure ! message (reasonAsString err) $ ""
+
+#if MIN_VERSION_hspec(2,5,0)
+    examplePending path _ reason = 
+#else
+    examplePending path reason =
+#endif
+      writeLine $ renderMarkup $ testcase path $
+        case reason of
+          Just desc -> skipped ! message desc  $ ""
+          Nothing -> skipped ""
+
+    failure, skipped :: Markup -> Markup
+    failure = customParent "failure"
+    skipped = customParent "skipped"
+
+    name, className, message :: String -> Attribute
+    name = customAttribute "name" . stringValue
+    className = customAttribute "classname" . stringValue
+    message = customAttribute "message" . stringValue
+
+    testcase :: Path -> Markup -> Markup
+    testcase (xs,x) = customParent "testcase" ! name x ! className (intercalate "." xs)
+
+    reasonAsString :: FailureReason -> String
+    reasonAsString NoReason = "no reason given"
+    reasonAsString (Reason x) = x
+    reasonAsString (ExpectedButGot Nothing expected got) = "Expected " ++ expected ++ " but got " ++ got
+    reasonAsString (ExpectedButGot (Just src) expected got) = src ++ " expected " ++ expected ++ " but got " ++ got
+#if MIN_VERSION_hspec(2,5,0)
+    reasonAsString (Error Nothing err ) = show err
+    reasonAsString (Error (Just s) err) = s ++ show err
+#endif
+
 -- ---------------------------------------------------------------------
+

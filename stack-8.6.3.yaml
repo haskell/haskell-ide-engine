@@ -22,8 +22,6 @@ extra-deps:
 - syz-0.2.0.0
 - temporary-1.2.1.1
 - yaml-0.8.32
-- github: LeastAuthority/hspec-jenkins
-  commit: 2899766bbd36216b81b1719423a5c2443458ae06
 
 flags:
   haskell-ide-engine:

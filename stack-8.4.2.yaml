@@ -28,8 +28,6 @@ extra-deps:
 - windns-0.1.0.0
 - yaml-0.8.32
 - yi-rope-0.11
-- github: LeastAuthority/hspec-jenkins
-  commit: 2899766bbd36216b81b1719423a5c2443458ae06
 
 flags:
   haskell-ide-engine:

@@ -27,8 +27,6 @@ extra-deps:
 - sorted-list-0.2.1.0
 - syz-0.2.0.0
 - yaml-0.8.32
-- github: LeastAuthority/hspec-jenkins
-  commit: e5ad80f176779c99fc6a8c044afc2f89ceb43103
 
 flags:
   haskell-ide-engine:
