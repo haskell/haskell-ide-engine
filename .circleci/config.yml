@@ -89,6 +89,12 @@ defaults: &defaults
         key: stack-cache-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
         paths: *cache_paths
 
+    - persist_to_workspace:
+        root: .stack-work
+        paths:
+          - install
+          - dist
+
 version: 2
 jobs:
   ghc-8.0.2:
@@ -144,8 +150,7 @@ jobs:
   cabal:
     working_directory: ~/build
     docker:
-      # - image: quay.io/haskell_works/ghc-8.4.3
-      - image: quay.io/haskell_works/ghc-8.6.1
+      - image: alanz/haskell-hie-ci
     steps:
       - checkout
       - run:
@@ -174,6 +179,15 @@ jobs:
           paths:
             - ~/.cabal
 
+  shakefile:
+    docker:
+      - image: fpco/stack-build
+    steps:
+      - checkout # don't checkout submodules: Shakefile.hs should take care of that
+      - attach_workspace:
+        at: .stack-work
+      - run: ./Shakefile.hs build-8.6.3
+
 
 workflows:
   version: 2
@@ -189,3 +203,6 @@ workflows:
       - ghc-8.6.3
       - ghc-nightly
       - cabal
+      - shakefile:
+          requires:
+            - ghc-8.6.3
