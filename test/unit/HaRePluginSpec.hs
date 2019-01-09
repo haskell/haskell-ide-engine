@@ -43,7 +43,7 @@ testPlugins = pluginDescToIdePlugins [hareDescriptor "hare"]
 
 dispatchRequestPGoto :: IdeGhcM a -> IO a
 dispatchRequestPGoto =
-  cdAndDo "./test/testdata/gototest"
+  withCurrentDirectory "./test/testdata/gototest"
     . runIGM testPlugins
 
 -- ---------------------------------------------------------------------
@@ -54,7 +54,7 @@ hareSpec = do
     cwd <- runIO getCurrentDirectory
     -- ---------------------------------
 
-    it "renames" $ cdAndDo "test/testdata" $ do
+    it "renames" $ withCurrentDirectory "test/testdata" $ do
 
       let uri = filePathToUri $ cwd </> "test/testdata/HaReRename.hs"
           act = renameCmd' uri (toPos (5,1)) "foolong"
@@ -67,7 +67,7 @@ hareSpec = do
 
     -- ---------------------------------
 
-    it "returns an error for invalid rename" $ cdAndDo "test/testdata" $ do
+    it "returns an error for invalid rename" $ withCurrentDirectory "test/testdata" $ do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReRename.hs"
           act = renameCmd' uri (toPos (15,1)) "foolong"
           arg = HPT uri (toPos (15,1)) "foolong"
@@ -78,7 +78,7 @@ hareSpec = do
 
     -- ---------------------------------
 
-    it "demotes" $ cdAndDo "test/testdata" $ do
+    it "demotes" $ withCurrentDirectory "test/testdata" $ do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReDemote.hs"
           act = demoteCmd' uri (toPos (6,1))
           arg = HP uri (toPos (6,1))
@@ -90,7 +90,7 @@ hareSpec = do
 
     -- ---------------------------------
 
-    it "duplicates a definition" $ cdAndDo "test/testdata" $ do
+    it "duplicates a definition" $ withCurrentDirectory "test/testdata" $ do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReRename.hs"
           act = dupdefCmd' uri (toPos (5,1)) "foonew"
           arg = HPT uri (toPos (5,1)) "foonew"
@@ -102,7 +102,7 @@ hareSpec = do
 
     -- ---------------------------------
 
-    it "converts if to case" $ cdAndDo "test/testdata" $ do
+    it "converts if to case" $ withCurrentDirectory "test/testdata" $ do
 
       let uri = filePathToUri $ cwd </> "test/testdata/HaReCase.hs"
           act = iftocaseCmd' uri (Range (toPos (5,9))
@@ -117,7 +117,7 @@ hareSpec = do
 
     -- ---------------------------------
 
-    it "lifts one level" $ cdAndDo "test/testdata" $ do
+    it "lifts one level" $ withCurrentDirectory "test/testdata" $ do
 
       let uri = filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs"
           act = liftonelevelCmd' uri (toPos (6,5))
@@ -131,7 +131,7 @@ hareSpec = do
 
     -- ---------------------------------
 
-    it "lifts to top level" $ cdAndDo "test/testdata" $ do
+    it "lifts to top level" $ withCurrentDirectory "test/testdata" $ do
 
       let uri = filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs"
           act = lifttotoplevelCmd' uri (toPos (12,9))
@@ -147,7 +147,7 @@ hareSpec = do
 
     -- ---------------------------------
 
-    it "deletes a definition" $ cdAndDo "test/testdata" $ do
+    it "deletes a definition" $ withCurrentDirectory "test/testdata" $ do
       let uri = filePathToUri $ cwd </> "test/testdata/FuncTest.hs"
           act = deleteDefCmd' uri (toPos (6,1))
           arg = HP uri (toPos (6,1))
@@ -159,7 +159,7 @@ hareSpec = do
 
     -- ---------------------------------
 
-    it "generalises an applicative" $ cdAndDo "test/testdata" $ do
+    it "generalises an applicative" $ withCurrentDirectory "test/testdata" $ do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReGA1.hs"
           act = genApplicativeCommand' uri (toPos (4,1))
           arg = HP uri (toPos (4,1))

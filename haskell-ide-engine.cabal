@@ -144,6 +144,7 @@ library hie-test-utils
                      , haskell-lsp
                      , hie-plugin-api
                      , aeson
+                     , blaze-markup
                      , containers
                      , data-default
                      , directory
@@ -151,6 +152,7 @@ library hie-test-utils
                      , ghc-mod-core
                      , hslogger
                      , hspec
+                     , hspec-core
                      , stm
                      , text
                      , unordered-containers
