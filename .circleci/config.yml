@@ -92,8 +92,7 @@ defaults: &defaults
     - persist_to_workspace:
         root: .stack-work
         paths:
-          - install
-          - dist
+          - install/*/*/
 
 version: 2
 jobs:
@@ -185,8 +184,17 @@ jobs:
     steps:
       - checkout # don't checkout submodules: Shakefile.hs should take care of that
       - attach_workspace:
-        at: .stack-work
-      - run: ./Shakefile.hs build-8.6.3
+          at: .stack-work
+      - run: ./Shakefile.hs build-all
+      - run: hie-wrapper --version
+      - run: hie-8.6.3 --version
+      - run: hie-8.6.2 --version
+      - run: hie-8.6.1 --version
+      - run: hie-8.4.4 --version
+      - run: hie-8.4.3 --version
+      - run: hie-8.4.2 --version
+      - run: hie-8.2.3 --version
+      - run: hie-8.2.2 --version
 
 
 workflows:
@@ -205,4 +213,11 @@ workflows:
       - cabal
       - shakefile:
           requires:
+            - ghc-8.2.1
+            - ghc-8.2.2
+            - ghc-8.4.2
+            - ghc-8.4.3
+            - ghc-8.4.4
+            - ghc-8.6.1
+            - ghc-8.6.2
             - ghc-8.6.3
