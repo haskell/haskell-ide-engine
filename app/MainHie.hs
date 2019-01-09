@@ -18,7 +18,6 @@ import qualified Paths_haskell_ide_engine              as Meta
 import           System.Directory
 import           System.Environment
 import qualified System.Log.Logger                     as L
-import qualified System.Remote.Monitoring.Wai          as EKG
 
 -- ---------------------------------------------------------------------
 -- plugins
@@ -110,10 +109,6 @@ run opts = do
   when (projGhcVersion /= hieGhcVersion) $
     warningm $ "Mismatching GHC versions: Project is " ++ projGhcVersion
             ++ ", HIE is " ++ hieGhcVersion
-
-  when (optEkg opts) $ do
-    logm $ "Launching EKG server on port " ++ show (optEkgPort opts)
-    void $ EKG.forkServer "localhost" (optEkgPort opts)
 
   origDir <- getCurrentDirectory
 
