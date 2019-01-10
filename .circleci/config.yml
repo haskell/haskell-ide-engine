@@ -89,56 +89,78 @@ defaults: &defaults
         key: stack-cache-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
         paths: *cache_paths
 
-    - persist_to_workspace:
-        root: .stack-work
-        paths:
-          - install/*/*/
-
 version: 2
 jobs:
-  ghc-8.0.2:
-    environment:
-      - STACK_FILE: "stack-8.0.2.yaml"
-    <<: *defaults
-
   ghc-8.2.1:
     environment:
       - STACK_FILE: "stack-8.2.1.yaml"
+    - persist_to_workspace:
+        root: .stack-work
+        paths:
+          - install/*/*/8.2.1
     <<: *defaults
 
   ghc-8.2.2:
     environment:
       - STACK_FILE: "stack-8.2.2.yaml"
+    - persist_to_workspace:
+        root: .stack-work
+        paths:
+          - install/*/*/8.2.2
     <<: *defaults
 
   ghc-8.4.2:
     environment:
       - STACK_FILE: "stack-8.4.2.yaml"
+    - persist_to_workspace:
+        root: .stack-work
+        paths:
+          - install/*/*/8.4.2
     <<: *defaults
 
   ghc-8.4.3:
     environment:
       - STACK_FILE: "stack-8.4.3.yaml"
+    - persist_to_workspace:
+        root: .stack-work
+        paths:
+          - install/*/*/8.4.3
     <<: *defaults
 
   ghc-8.4.4:
     environment:
       - STACK_FILE: "stack-8.4.4.yaml"
+    - persist_to_workspace:
+        root: .stack-work
+        paths:
+          - install/*/*/8.4.4
     <<: *defaults
 
   ghc-8.6.1:
     environment:
       - STACK_FILE: "stack-8.6.1.yaml"
+    - persist_to_workspace:
+        root: .stack-work
+        paths:
+          - install/*/*/8.6.1
     <<: *defaults
 
   ghc-8.6.2:
     environment:
       - STACK_FILE: "stack-8.6.2.yaml"
+    - persist_to_workspace:
+        root: .stack-work
+        paths:
+          - install/*/*/8.6.2
     <<: *defaults
 
   ghc-8.6.3:
     environment:
       - STACK_FILE: "stack-8.6.3.yaml"
+    - persist_to_workspace:
+        root: .stack-work
+        paths:
+          - install/*/*/8.6.3
     <<: *defaults
 
   ghc-nightly:
