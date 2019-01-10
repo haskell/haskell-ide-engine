@@ -13,8 +13,6 @@ extra-deps:
 - butcher-1.3.2.1
 - cabal-plan-0.4.0.0
 - constrained-dynamic-0.1.0.0
-- ekg-json-0.1.0.6
-- ekg-wai-0.1.0.3
 - haddock-api-2.21.0
 - hsimport-0.8.6
 - monad-memo-0.4.1
