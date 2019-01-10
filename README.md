@@ -7,7 +7,7 @@
 
 [badge-license]: https://img.shields.io/badge/license-BSD3-green.svg?dummy
 [license]: https://github.com/haskell/haskell-ide-engine/blob/master/LICENSE
-[badge-circleci]: https://img.shields.io/circleci/project/github/haskell/haskell-ide-engine.svg
+[badge-circleci]: https://img.shields.io/circleci/project/github/haskell/haskell-ide-engine/master.svg
 [circleci]: https://circleci.com/gh/haskell/haskell-ide-engine/
 [badge-appveyor]: https://ci.appveyor.com/api/projects/status/6hit7mxvgdrao3q0?svg=true
 [appveyor]: https://ci.appveyor.com/project/Bubba/haskell-ide-engine-74xec

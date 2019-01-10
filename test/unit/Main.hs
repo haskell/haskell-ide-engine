@@ -9,7 +9,8 @@ import qualified Spec
 main :: IO ()
 main = do
   setupStackFiles
-  withFileLogging "main.log" $ hspec Spec.spec
+  config <- getHspecFormattedConfig "unit"
+  withFileLogging "main.log" $ hspecWith config $ Spec.spec
 
 -- main :: IO ()
 -- main = do

@@ -39,7 +39,7 @@ testPlugins = pluginDescToIdePlugins [ghcmodDescriptor "ghcmod"]
 ghcmodSpec :: Spec
 ghcmodSpec =
   describe "ghc-mod plugin commands(old plugin api)" $ do
-    it "runs the check command" $ cdAndDo "./test/testdata" $ do
+    it "runs the check command" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "./FileWithWarning.hs"
       let act = setTypecheckedModule arg
           arg = filePathToUri fp
@@ -57,7 +57,7 @@ ghcmodSpec =
 
     -- ---------------------------------
 
-    it "runs the lint command" $ cdAndDo "./test/testdata" $ do
+    it "runs the lint command" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "FileWithWarning.hs"
       let uri = filePathToUri fp
           act = lintCmd' uri
@@ -71,7 +71,7 @@ ghcmodSpec =
 
     -- ---------------------------------
 
-    it "runs the info command" $ cdAndDo "./test/testdata" $ do
+    it "runs the info command" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "HaReRename.hs"
       let uri = filePathToUri fp
           act = infoCmd' uri "main"
@@ -82,7 +82,7 @@ ghcmodSpec =
 
     -- ---------------------------------
 
-    it "runs the type command" $ cdAndDo "./test/testdata" $ do
+    it "runs the type command" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "HaReRename.hs"
       let uri = filePathToUri fp
           act = do
@@ -117,7 +117,7 @@ ghcmodSpec =
 
     -- ---------------------------------
 
-    it "runs the casesplit command" $ cdAndDo "./test/testdata" $ do
+    it "runs the casesplit command" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "GhcModCaseSplit.hs"
       let uri = filePathToUri fp
           act = do
