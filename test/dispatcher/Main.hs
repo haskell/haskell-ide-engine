@@ -23,6 +23,7 @@ import           System.Directory
 import           System.FilePath
 
 import           Test.Hspec
+import           Test.Hspec.Runner
 
 -- ---------------------------------------------------------------------
 -- plugins
@@ -40,8 +41,9 @@ import           Haskell.Ide.Engine.Plugin.HieExtras
 main :: IO ()
 main = do
   setupStackFiles
+  config <- getHspecFormattedConfig "dispatcher"
   withFileLogging "main-dispatcher.log" $ do
-    hspec funcSpec
+    hspecWith config funcSpec
 
 -- main :: IO ()
 -- main = do

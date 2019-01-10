@@ -29,7 +29,7 @@ type GhcPath = String
 -- |Defines all different hie versions that are buildable.
 -- If they are edited, 
 hieVersions :: [VersionNumber]
-hieVersions = ["8.2.2", "8.4.3", "8.4.4", "8.6.1", "8.6.2", "8.6.3"]
+hieVersions = ["8.2.1", "8.2.2", "8.4.2", "8.4.3", "8.4.4", "8.6.1", "8.6.2", "8.6.3"]
 
 -- |Most recent version of hie.
 -- Important for `dist`, the `hie-wrapper` of the most recent hie 
@@ -129,8 +129,8 @@ buildIcuMacosFix version = execStackWithYaml_
 
 updateSubmodules :: Action ()
 updateSubmodules = do
-  command_ [] "git" ["submodule", "sync"]
-  command_ [] "git" ["submodule", "update", "--init"]
+  command_ [] "git" ["submodule", "sync", "--recursive"]
+  command_ [] "git" ["submodule", "update", "--init", "--recursive"]
 
 installCabal :: GhcPath -> Action ()
 installCabal ghc = do

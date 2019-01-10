@@ -110,7 +110,6 @@ executable hie
                      , hie-plugin-api
                      , hslogger
                      , optparse-simple
-                     , stm
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
                        -with-rtsopts=-T
   if flag(pedantic)
@@ -137,11 +136,35 @@ executable hie-wrapper
      ghc-options:      -Werror
   default-language:    Haskell2010
 
+library hie-test-utils
+  hs-source-dirs:      test/utils
+  exposed-modules:     TestUtils
+  build-depends:       base
+                     , haskell-ide-engine
+                     , haskell-lsp
+                     , hie-plugin-api
+                     , aeson
+                     , blaze-markup
+                     , containers
+                     , data-default
+                     , directory
+                     , filepath
+                     , ghc-mod-core
+                     , hslogger
+                     , hspec
+                     , hspec-core
+                     , stm
+                     , text
+                     , unordered-containers
+                     , yaml
+  ghc-options:         -Wall -Wredundant-constraints
+  if flag(pedantic)
+     ghc-options:      -Werror
+  default-language:    Haskell2010
 
 test-suite unit-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test/unit
-                     , test/utils
   main-is:             Main.hs
   other-modules:       ApplyRefactPluginSpec
                        BrittanySpec
@@ -154,8 +177,6 @@ test-suite unit-test
                        HooglePluginSpec
                        JsonSpec
                        Spec
-
-                       TestUtils
   build-depends:       QuickCheck
                      , aeson
                      , base
@@ -164,25 +185,16 @@ test-suite unit-test
                      , directory
                      , filepath
                      , free
-                     , haskell-lsp
                      , haskell-ide-engine
-                     -- , hie-test-utils
+                     , haskell-lsp-types >= 0.4
+                     , hie-test-utils
                      , hie-plugin-api
                      , hoogle > 5.0.11
                      , hspec
                      , quickcheck-instances
-                     , stm
                      , text
                      , unordered-containers
 
-                     -- remove these once hie-test-utils is reinstated
-                     , data-default
-                     , hie-plugin-api
-                     , ghc-mod-core
-                     , hslogger
-                     , yaml
-  -- don't multithread i.e. --with-rtsopts=-N
-  -- otherwise ghc-mod operations become super slow on CircleCI
   ghc-options:         -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror
@@ -192,31 +204,22 @@ test-suite unit-test
 test-suite dispatcher-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test/dispatcher
-                       test/utils
   main-is:             Main.hs
-  other-modules:       TestUtils
   build-depends:       base
                      , aeson
-                     , containers
                      , data-default
                      , directory
                      , filepath
                      , ghc
-                     , haskell-lsp
                      , haskell-ide-engine
-                     -- , hie-test-utils
+                     , haskell-lsp-types
+                     , hie-test-utils
                      , hie-plugin-api
                      , hspec
                      , stm
                      , text
                      , unordered-containers
 
-                     -- remove these once hie-test-utils is reinstated
-                     , hie-plugin-api
-                     , ghc-mod-core
-                     , hslogger
-                     , unordered-containers
-                     , yaml
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror
@@ -226,63 +229,25 @@ test-suite dispatcher-test
 test-suite plugin-dispatcher-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test/plugin-dispatcher
-                       test/utils
   main-is:             Main.hs
-  other-modules:       TestUtils
   build-depends:       base
-                     , aeson
-                     , containers
                      , data-default
-                     , directory
-                     , filepath
-                     , ghc
-                     , haskell-lsp
                      , haskell-ide-engine
-                     -- , hie-test-utils
+                     , haskell-lsp-types
                      , hie-plugin-api
+                     , hie-test-utils
                      , hspec
                      , stm
                      , text
-                     , unordered-containers
 
-                     -- remove these once hie-test-utils is reinstated
-                     , hie-plugin-api
-                     , ghc-mod-core
-                     , hslogger
-                     , unordered-containers
-                     , yaml
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror
   default-language:    Haskell2010
 
--- library hie-test-utils
---   hs-source-dirs:      test/utils
---   exposed-modules:     TestUtils
---   build-depends:       base
---                      , haskell-ide-engine
---                      , haskell-lsp
---                      , hie-plugin-api
---                      , aeson
---                      , containers
---                      , data-default
---                      , directory
---                      , filepath
---                      , ghc-mod-core
---                      , hslogger
---                      , hspec
---                      , text
---                      , unordered-containers
---                      , yaml
---   ghc-options:         -Wall -Wredundant-constraints
---   if flag(pedantic)
---      ghc-options:      -Werror
---   default-language:    Haskell2010
-
 test-suite func-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test/functional
-                     , test/utils
   main-is:             Main.hs
   other-modules:       CompletionSpec
                      , CommandSpec
@@ -301,33 +266,22 @@ test-suite func-test
                      , RenameSpec
                      , SymbolsSpec
                      , Utils
-
-                     , TestUtils
   -- This cannot currently be handled by hie (cabal-helper)
   -- build-tool-depends:  haskell-ide-engine:hie
   build-depends:       aeson
                      , base
-                     , containers
                      , data-default
                      , directory
                      , filepath
                      , lsp-test == 0.5.*
                      , haskell-ide-engine
-                     -- , hie-test-utils
+                     , haskell-lsp-types >= 0.4
+                     , hie-test-utils
                      , hie-plugin-api
                      , hspec
                      , lens
-                     , stm
                      , text
                      , unordered-containers
-
-                     -- remove these once hie-test-utils is reinstated
-                     , hie-plugin-api
-                     , ghc-mod-core
-                     , hslogger
-                     , unordered-containers
-                     , yaml
-                     , haskell-lsp
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror

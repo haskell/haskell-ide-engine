@@ -134,7 +134,7 @@ applyRefactSpec = do
       filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/HlintPragma.hs"
 
       let req = lintCmd' filePath
-      r <- cdAndDo "./test/testdata" $ runIGM testPlugins req
+      r <- withCurrentDirectory "./test/testdata" $ runIGM testPlugins req
       r `shouldBe`
         (IdeResultOk
            (PublishDiagnosticsParams

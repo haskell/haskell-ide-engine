@@ -14,14 +14,15 @@ import           Language.Haskell.LSP.Types
 import           TestUtils
 
 import           Test.Hspec
+import           Test.Hspec.Runner
 
 -- ---------------------------------------------------------------------
 
 main :: IO ()
 main = do
   setupStackFiles
-  withFileLogging "plugin-dispatcher.log" $ do
-    hspec newPluginSpec
+  config <- getHspecFormattedConfig "plugin-dispatcher"
+  withFileLogging "plugin-dispatcher.log" $ hspecWith config newPluginSpec
 
 -- ---------------------------------------------------------------------
 
