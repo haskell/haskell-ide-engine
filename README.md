@@ -99,11 +99,37 @@ we talk to clients.__
 
 ## Installation
 
-### Installation with stack on Linux
+### Installation on macOS
+
+Download the pre-built binaries from the [releases page](https://github.com/haskell/haskell-ide-engine/releases), and copy/symlink them into `/usr/local/bin` (or somewhere else in your $PATH):
+
+```bash
+ln -s hie-bin-dir/hie* /usr/local/bin/
+```
+
+Alternatively, you can install from source. See instructions below
+
+### Installation with Nix
+
+Follow the instructions at https://github.com/domenkozar/hie-nix
+
+
+### Installation on ArchLinux
+
+An [haskell-ide-engine-git](https://aur.archlinux.org/packages/haskell-ide-engine-git/) package is available on the AUR.
+
+Using [Aura](https://github.com/aurapm/aura):
+
+```
+# aura -A haskell-ide-engine-git
+```
+
+
+### Installation from source
 
 To install HIE, you need stack version >= 1.7.1.
 
-HIE builds from source code, so there's a couple of extra steps. 
+HIE builds from source code, so there's a couple of extra steps.
 
 #### Linux pre-requirements
 
@@ -121,19 +147,21 @@ sudo dnf install libicu-devel ncurses-devel
 ```
 **ArchLinux**: see [below](#installation-on-archlinux).
 
+#### Windows: long paths (optional)
+
+In order to avoid problems with long paths on Windows you can do the following:
+
+1. Edit the group policy: set "Enable Win32 long paths" to "Enabled" (Works
+   only for Windows 10).
+
+2. Clone the `haskell-ide-engine` to the root of your logical drive (e.g. to
+   `C:\hie`)
+
 #### Download the source code
 
 ```bash
 git clone https://github.com/haskell/haskell-ide-engine --recursive
 cd haskell-ide-engine
-```
-
-In order to support both stack and cabal, HIE requires `cabal-install`
-as well. If it is not already installed, install it and update its package list:
-
-```bash
-stack install cabal-install
-cabal update
 ```
 
 #### Choose your GHC version
@@ -201,11 +229,27 @@ This will:
 * name them as expected by the VS Code plugin
 * build local hoogle docs for each version
 
-For this you need the `make` tool (on Windows, see the further advice below). Use the command:
+On non-Windows platforms use the command:
 
 ```bash
 make build-all
 ```
+
+On Windows use:
+**PowerShell:**
+
+```
+./build-all.ps1
+```
+
+or
+
+**cmd.exe:**
+
+```
+powershell -ExecutionPolicy RemoteSigned -c ./build-all.ps1
+```
+
 
 Then add
 
@@ -216,103 +260,6 @@ Then add
 
 to VS Code user settings.
 
-### Installation with stack on Windows
-
-To install HIE, you need stack version >= 1.7.1.
-
-#### Download the source code
-
-```bash
-git clone https://github.com/haskell/haskell-ide-engine --recursive
-cd haskell-ide-engine
-```
-
-In order to support both stack and cabal, HIE requires `cabal-install`
-as well. If it is not already installed, install it and update its package list:
-
-```bash
-stack install cabal-install
-cabal update
-```
-
-#### Install *all* available GHC versions
-
-*Warning*: Requires 20+ GB of space and potentially more than 2 hours to install, so please be patient!
-
-This will:
-
-* install all supported GHC versions (8.2.1 - 8.6.3)
-* name them as expected by the VS Code plugin
-* build local hoogle docs for each version
-
-`make` doesn't work on Windows due to several UNIX-specific things, such
-as the `cp` command or extensionless executable names. Instead, a PowerShell
-script is provided specifically for this purpose:
-
-**PowerShell:**
-
-```
-./build-all.ps1
-```
-
-**cmd.exe:**
-
-```
-powershell -ExecutionPolicy RemoteSigned -c ./build-all.ps1
-```
-
-#### Long paths
-
-In order to avoid problems with long paths on Windows you can do the following:
-
-1. Edit the group policy: set "Enable Win32 long paths" to "Enabled" (Works
-   only for Windows 10).
-
-2. Clone the `haskell-ide-engine` to the root of your logical drive (e.g. to
-   `C:\hie`)
-
-### Installation on macOS
-
-Download the pre-built binaries from the [releases page](https://github.com/haskell/haskell-ide-engine/releases), and copy/symlink them into `/usr/local/bin` (or somewhere else in your $PATH):
-
-```bash
-ln -s hie-bin-dir/hie* /usr/local/bin/
-```
-
-Alternatively, you can install from source with `make build` or `make build-all`.
-
-#### DYLD on macOS
-
-If you hit a problem that looks like ```can't load .so/.DLL for: libiconv.dylib (dlopen(libiconv.dylib, 5): image not found)```, it means that libraries cannot be found in the library path. We can hint where to look for them and append more paths to `DYLD_LIBRARY_PATH`.
-
-```
-export DYLD_LIBRARY_PATH="$DYLD_LIBRARY_PATH:/usr/lib:/usr/local/lib"
-```
-
-On practice `/usr/local/lib` is full of dylibs linked by `brew`. After you amend `DYLD_LIBRARY_PATH`, some of the previously compiled application might not work and yell about incorrect linking, for example, `dyld: Symbol not found: __cg_jpeg_resync_to_restart`. You may need to look up where it comes from and remove clashing links, in this case it were clashing images libs:
-
-```sh
-$ brew unlink libjpeg
-$ brew unlink libtiff
-$ brew unlink libpng
-```
-
-Recompile.
-
-### Installation with Nix
-
-Follow the instructions at https://github.com/domenkozar/hie-nix
-
-
-### Installation on ArchLinux
-
-An [haskell-ide-engine-git](https://aur.archlinux.org/packages/haskell-ide-engine-git/) package is available on the AUR.
-
-Using [Aura](https://github.com/aurapm/aura):
-
-```
-# aura -A haskell-ide-engine-git
-```
 
 ### Installation with Shake
 
@@ -686,6 +633,24 @@ Existing transports are still functional for the time being.
 All the documentation is in [the docs folder](/docs) at the root of this project.
 
 ## Troubleshooting
+
+### DYLD on macOS
+
+If you hit a problem that looks like ```can't load .so/.DLL for: libiconv.dylib (dlopen(libiconv.dylib, 5): image not found)```, it means that libraries cannot be found in the library path. We can hint where to look for them and append more paths to `DYLD_LIBRARY_PATH`.
+
+```
+export DYLD_LIBRARY_PATH="$DYLD_LIBRARY_PATH:/usr/lib:/usr/local/lib"
+```
+
+On practice `/usr/local/lib` is full of dylibs linked by `brew`. After you amend `DYLD_LIBRARY_PATH`, some of the previously compiled application might not work and yell about incorrect linking, for example, `dyld: Symbol not found: __cg_jpeg_resync_to_restart`. You may need to look up where it comes from and remove clashing links, in this case it were clashing images libs:
+
+```sh
+$ brew unlink libjpeg
+$ brew unlink libtiff
+$ brew unlink libpng
+```
+
+Recompile.
 
 ### macOS: Got error while installing GHC 8.6.1 or 8.6.2 - dyld: Library not loaded: /usr/local/opt/gmp/lib/libgmp.10.dylib
 
