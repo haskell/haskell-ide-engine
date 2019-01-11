@@ -268,12 +268,12 @@ Uses the [shake](https://shakebuild.com/) build system for predictable builds.
 The build script is platform independent and the only prerequisites are that `git` and `stack` are installed. The dependency on `make` and other linux specific commands has been dropped.
 
 Note, on first invocation of the build script, a GHC is being installed for execution. However, if you build HIE for every GHC, no GHC is downloaded twice.
-The GHC used for the `Shakefile.hs` can be adjusted in `shake.yaml` by using a different resolver.
+The GHC used for the `install.hs` can be adjusted in `shake.yaml` by using a different resolver.
 
 Available commands can be seen with:
 
 ```bash
-stack ./Shakefile.hs help
+stack ./install.hs help
 ```
 
 Remember, this will take time to download a Stackage-LTS and an appropriate GHC. However, afterwards all commands should work as expected. 
@@ -283,15 +283,15 @@ Remember, this will take time to download a Stackage-LTS and an appropriate GHC.
 Install **Nightly** (and hoogle docs):
 
 ```bash
-stack ./Shakefile.hs hie-8.6.3
-stack ./Shakefile.hs build-doc-8.6.3
+stack ./install.hs hie-8.6.3
+stack ./install.hs build-doc-8.6.3
 ```
 
 Install **LTS** (and hoogle docs):
 
 ```bash
-stack ./Shakefile.hs hie-8.4.4
-stack ./Shakefile.hs build-doc-8.4.4
+stack ./install.hs hie-8.4.4
+stack ./install.hs build-doc-8.4.4
 ```
 
 #### Install *all* available GHC versions with Shake
@@ -305,7 +305,7 @@ This will:
 * build local hoogle docs for each version
 
 ```bash
-stack ./Shakefile.hs build-all
+stack ./install.hs build-all
 ```
 
 Then add
