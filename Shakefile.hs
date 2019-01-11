@@ -135,8 +135,8 @@ updateSubmodules = do
 installCabal :: GhcPath -> Action ()
 installCabal ghc = do
   execStack_ ["install", "cabal-install"]
-  execCabal_ ["v1-update"]
-  execCabal_ ["v1-install", "Cabal-2.4.1.0", "--with-compiler=" ++ ghc]
+  execCabal_ ["update"]
+  execCabal_ ["install", "Cabal-2.4.1.0", "--with-compiler=" ++ ghc]
 
 buildHie :: VersionNumber -> Action ()
 buildHie versionNumber = do
