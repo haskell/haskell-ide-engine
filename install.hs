@@ -172,7 +172,7 @@ helpMessage = do
   let out = liftIO . putStrLn
   out ""
   out "Usage:"
-  out "    stack Shakefile.hs <target>"
+  out "    stack install.hs <target>"
   out ""
   out "Targets:"
   out
