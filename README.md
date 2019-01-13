@@ -160,7 +160,7 @@ In order to avoid problems with long paths on Windows you can do the following:
 #### Download the source code
 
 ```bash
-git clone https://github.com/haskell/haskell-ide-engine --recursive
+git clone https://github.com/haskell/haskell-ide-engine --recurse-submodules
 cd haskell-ide-engine
 ```
 
