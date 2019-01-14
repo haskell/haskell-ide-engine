@@ -15,7 +15,9 @@ import           Development.Shake
 import           Development.Shake.Command
 import           Development.Shake.FilePath
 import           Control.Monad
-import           System.Environment             ( unsetEnv )
+import           System.Environment             ( getProgName
+                                                , unsetEnv
+                                                )
 import           System.Info                    ( os
                                                 , arch
                                                 )
@@ -170,9 +172,10 @@ buildDoc versionNumber = do
 helpMessage :: Action ()
 helpMessage = do
   let out = liftIO . putStrLn
+  scriptName <- liftIO getProgName
   out ""
   out "Usage:"
-  out "    stack install.hs <target>"
+  out ("    stack " <> scriptName <> " <target>")
   out ""
   out "Targets:"
   out
