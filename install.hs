@@ -1,16 +1,9 @@
 #!/usr/bin/env stack
 {- stack
-  --stack-yaml shake.yaml
-  --install-ghc
-  runghc
+  script
+  --resolver lts-12.25
   --package shake
-  --package tar
-  --package zlib
 -}
-
-import qualified Data.ByteString.Lazy          as BS
-import qualified Codec.Archive.Tar             as Tar
-import qualified Codec.Compression.GZip        as GZip
 
 import           Development.Shake
 import           Development.Shake.Command
@@ -113,11 +106,7 @@ buildDist = do
 
       -- After every hie has been built, pack them into a tar.
       -- Encrypt the resulting tar file with gzip
-      liftIO
-        $   BS.writeFile (hieDistName ++ ".tar.gz")
-        .   GZip.compress
-        .   Tar.write
-        =<< Tar.pack temporaryDir (hieWrapper : hie : map mkHie hieVersions)
+      command_ [] "tar" ["-czf", hieDistName ++ ".tar.gz", temporaryDir]
     )
   return ()
 
