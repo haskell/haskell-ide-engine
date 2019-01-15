@@ -32,7 +32,8 @@ type GhcPath = String
 -- |Defines all different hie versions that are buildable.
 -- If they are edited, 
 hieVersions :: [VersionNumber]
-hieVersions = ["8.2.1", "8.2.2", "8.4.2", "8.4.3", "8.4.4", "8.6.1", "8.6.2", "8.6.3"]
+hieVersions =
+  ["8.2.1", "8.2.2", "8.4.2", "8.4.3", "8.4.4", "8.6.1", "8.6.2", "8.6.3"]
 
 -- |Most recent version of hie.
 -- Important for `dist`, the `hie-wrapper` of the most recent hie 
@@ -85,6 +86,8 @@ main = do
 -- Creates a temporary folder, copies all hie versions to it and compresses it in the end.
 buildDist :: Action ()
 buildDist = do
+  need ["submodules"]
+  need ["cabal"]
   -- Create the name of the resulting tar file.
   Stdout gitRef' <- command [] "git" ["describe", "--tags"]
   let gitRef      = trim gitRef'
