@@ -1,10 +1,11 @@
 #!/usr/bin/env stack
-{- stack 
-  --stack-yaml=shake.yaml  
-  --install-ghc runghc 
-    --package shake 
-    --package tar 
-    --package zlib
+{- stack
+  --stack-yaml shake.yaml
+  --install-ghc
+  runghc
+  --package shake
+  --package tar
+  --package zlib
 -}
 
 import qualified Data.ByteString.Lazy          as BS
