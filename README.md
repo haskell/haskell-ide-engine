@@ -99,16 +99,6 @@ we talk to clients.__
 
 ## Installation
 
-### Installation on macOS
-
-Download the pre-built binaries from the [releases page](https://github.com/haskell/haskell-ide-engine/releases), and copy/symlink them into `/usr/local/bin` (or somewhere else in your $PATH):
-
-```bash
-ln -s hie-bin-dir/hie* /usr/local/bin/
-```
-
-Alternatively, you can install from source. See instructions below
-
 ### Installation with Nix
 
 Follow the instructions at https://github.com/domenkozar/hie-nix
