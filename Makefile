@@ -24,6 +24,7 @@ ghc:
 hie-%: STACKLOCALBINDIR=$(shell stack --stack-yaml=stack-$*.yaml path --local-bin)
 hie-%: submodules cabal-%
 	stack --stack-yaml=stack-$*.yaml install happy
+	stack --stack-yaml=stack-$*.yaml build
 	stack --stack-yaml=stack-$*.yaml install                                \
 		&& cp '$(STACKLOCALBINDIR)/hie' '$(STACKLOCALBINDIR)/hie-$*'    \
 		&& cp '$(STACKLOCALBINDIR)/hie-$*' '$(STACKLOCALBINDIR)/hie-$(basename $*)'
