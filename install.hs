@@ -30,13 +30,13 @@ type VersionNumber = String
 type GhcPath = String
 
 -- |Defines all different hie versions that are buildable.
--- If they are edited, 
+-- If they are edited,
 hieVersions :: [VersionNumber]
 hieVersions =
   ["8.2.1", "8.2.2", "8.4.2", "8.4.3", "8.4.4", "8.6.1", "8.6.2", "8.6.3"]
 
 -- |Most recent version of hie.
--- Important for `dist`, the `hie-wrapper` of the most recent hie 
+-- Important for `dist`, the `hie-wrapper` of the most recent hie
 -- will be copied to the tar-archive.
 mostRecentHieVersion :: VersionNumber
 mostRecentHieVersion = last hieVersions
@@ -108,7 +108,7 @@ buildDist = do
 
         -- if the most recent hie-* version is copied,
         -- copy it again as the default hie version
-        -- Also, add its hie-wrapper to the tar archive 
+        -- Also, add its hie-wrapper to the tar archive
         when (hieVersion == mostRecentHieVersion) $ do
           copyFile' (localInstallRoot </> "bin" </> hieWrapper)
                     (temporaryDir </> hieWrapper)
@@ -148,7 +148,19 @@ buildHie :: VersionNumber -> Action ()
 buildHie versionNumber = do
   when (versionNumber `elem` ["hie-8.2.2", "hie-8.2.1"])
     $ execStackWithYaml_ versionNumber ["install", "happy"]
-  execStackWithYaml_ versionNumber ["build"]
+  (execStackWithYaml_ versionNumber ["build"]) `actionOnException`
+    liftIO (putStrLn buildFailMsg)
+
+buildFailMsg :: String
+buildFailMsg =
+    let starsLine = "\n******************************************************************\n"
+    in
+    starsLine
+        ++ "building failed, "
+        ++ "try running `stack clean` and restart the build\n"
+        ++ "if this does not work, open an issue at \n"
+        ++ "https://github.com/haskell/haskell-ide-engine"
+        ++ starsLine
 
 installHie :: VersionNumber -> Action ()
 installHie versionNumber = do
@@ -233,7 +245,7 @@ getGhcPath = do
   return $ trim ghc'
 
 -- |Read the local install root of the stack project specified by the VersionNumber
--- Returns the filepath of the local install root. 
+-- Returns the filepath of the local install root.
 -- Equal to the command `stack path --local-install-root`
 getLocalInstallRoot :: VersionNumber -> Action FilePath
 getLocalInstallRoot hieVersion = do
