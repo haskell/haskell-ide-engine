@@ -17,7 +17,7 @@ extra-deps:
 - haskell-src-exts-1.21.0
 - hlint-2.1.13
 - hsimport-0.8.8
-- hoogle-5.0.17.4
+- hoogle-5.0.17.5
 - monad-memo-0.4.1
 - multistate-0.8.0.1
 - optparse-simple-0.1.0
