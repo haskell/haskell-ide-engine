@@ -7,3 +7,8 @@ packages:
          ./submodules/cabal-helper/
          ./submodules/ghc-mod/
          ./submodules/ghc-mod/core/
+
+allow-newer:ghc-mod-5.9.0.0:haskell-src-exts
+allow-newer:ghc-mod-core-5.9.0.0:haskell-src-exts
+allow-newer:HaRe-0.8.4.1:haskell-src-exts
+allow-newer:hsimport-0.8.6:haskell-src-exts

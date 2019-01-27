@@ -14,7 +14,7 @@ extra-deps:
 - cabal-plan-0.4.0.0
 - constrained-dynamic-0.1.0.0
 - haddock-api-2.21.0
-- hsimport-0.8.6
+- hsimport-0.8.8
 - lsp-test-0.5.0.2
 - monad-memo-0.4.1
 - multistate-0.8.0.1
