@@ -1,4 +1,4 @@
-resolver: nightly-2019-01-27 # GHC 8.6.3
+resolver: nightly-2019-01-28 # GHC 8.6.3
 packages:
 - .
 - hie-plugin-api
@@ -15,7 +15,7 @@ extra-deps:
 - constrained-dynamic-0.1.0.0
 - haddock-api-2.21.0
 - haskell-src-exts-1.21.0
-- hlint-2.1.13
+- hlint-2.1.14
 - hsimport-0.8.8
 - hoogle-5.0.17.5
 - monad-memo-0.4.1

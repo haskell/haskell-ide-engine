@@ -96,13 +96,13 @@ applyRefactSpec = do
           res = IdeResultOk
             PublishDiagnosticsParams
              { _uri = filePath
-             , _diagnostics = List $
-               [Diagnostic {_range = Range { _start = Position {_line = 11, _character = 28}
-                                           , _end = Position {_line = 11, _character = 100000}}
+             , _diagnostics = List
+               [Diagnostic {_range = Range { _start = Position {_line = 13, _character = 0}
+                                           , _end = Position {_line = 13, _character = 100000}}
                            , _severity = Just DsInfo
                            , _code = Just "parser"
                            , _source = Just "hlint"
-                           , _message = "Parse error: :~:\n  import           Data.Type.Equality            ((:~:) (..), (:~~:) (..))\n  \n> data instance Sing (z :: (a :~: b)) where\n      SRefl :: Sing Refl\n\n"
+                           , _message = "Parse error: virtual }\n  data instance Sing (z :: (a :~: b)) where\n      SRefl :: Sing Refl +\n> \n\n"
                            , _relatedInformation = Nothing }]}
       testCommand testPlugins act "applyrefact" "lint" arg res
 
