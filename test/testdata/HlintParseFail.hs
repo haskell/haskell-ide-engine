@@ -10,4 +10,4 @@ import           Data.Singletons.TypeLits
 import           Data.Type.Equality            ((:~:) (..), (:~~:) (..))
 
 data instance Sing (z :: (a :~: b)) where
-    SRefl :: Sing Refl
+    SRefl :: Sing Refl +

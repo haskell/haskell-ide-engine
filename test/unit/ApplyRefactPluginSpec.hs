@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings     #-}
 module ApplyRefactPluginSpec where
@@ -96,14 +97,24 @@ applyRefactSpec = do
           res = IdeResultOk
             PublishDiagnosticsParams
              { _uri = filePath
-             , _diagnostics = List $
+             , _diagnostics = List
+#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,2,2,0)))
+               [Diagnostic {_range = Range { _start = Position {_line = 13, _character = 0}
+                                           , _end = Position {_line = 13, _character = 100000}}
+                           , _severity = Just DsInfo
+                           , _code = Just "parser"
+                           , _source = Just "hlint"
+                           , _message = "Parse error: virtual }\n  data instance Sing (z :: (a :~: b)) where\n      SRefl :: Sing Refl +\n> \n\n"
+                           , _relatedInformation = Nothing }]}
+#else
                [Diagnostic {_range = Range { _start = Position {_line = 11, _character = 28}
                                            , _end = Position {_line = 11, _character = 100000}}
                            , _severity = Just DsInfo
                            , _code = Just "parser"
                            , _source = Just "hlint"
-                           , _message = "Parse error: :~:\n  import           Data.Type.Equality            ((:~:) (..), (:~~:) (..))\n  \n> data instance Sing (z :: (a :~: b)) where\n      SRefl :: Sing Refl\n\n"
+                           , _message = "Parse error: :~:\n  import           Data.Type.Equality            ((:~:) (..), (:~~:) (..))\n  \n> data instance Sing (z :: (a :~: b)) where\n      SRefl :: Sing Refl +\n\n"
                            , _relatedInformation = Nothing }]}
+#endif
       testCommand testPlugins act "applyrefact" "lint" arg res
 
     -- ---------------------------------
