@@ -23,7 +23,9 @@ import           System.Info                    ( os
                                                 , arch
                                                 )
 
-import           Data.List                      ( dropWhileEnd )
+import           Data.List                      ( dropWhileEnd
+                                                , intersperse
+                                                )
 import           Data.Char                      ( isSpace )
 
 type VersionNumber = String
@@ -211,10 +213,18 @@ helpMessage = do
   hieTarget version =
     ("hie-" ++ version, "Builds hie for GHC version " ++ version ++ " only")
 
+  allVersionMessage :: String
+  allVersionMessage =
+    let msg         = intersperse ", " hieVersions
+        lastVersion = last msg
+    in  concat $ (init $ init msg) ++ [" and ", lastVersion]
+
   -- All targets with their respective help message.
   targets =
     [ ( "build"
-      , "Builds hie for all supported GHC versions (8.2.1, 8.2.2, 8.4.2, 8.4.3, 8.4.4, 8.6.1, 8.6.2 and 8.6.3)"
+      , "Builds hie for all supported GHC versions ("
+      ++ allVersionMessage
+      ++ ")"
       )
       , ( "build-all"
         , "Builds hie and hoogle databases for all supported GHC versions"
