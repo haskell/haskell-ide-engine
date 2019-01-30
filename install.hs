@@ -30,7 +30,7 @@ type VersionNumber = String
 type GhcPath = String
 
 -- |Defines all different hie versions that are buildable.
--- If they are edited,
+-- If they are edited, make sure to maintain the order of the versions.
 hieVersions :: [VersionNumber]
 hieVersions =
   ["8.2.1", "8.2.2", "8.4.2", "8.4.3", "8.4.4", "8.6.1", "8.6.2", "8.6.3"]
@@ -62,11 +62,8 @@ main = do
     phony "test"       (forM_ hieVersions test)
     phony "build-copy-compiler-tool" $ forM_ hieVersions buildCopyCompilerTool
 
-    forM_
-      hieVersions
-      (\version -> phony ("build-doc-hie-" ++ version) $ do
-        buildDoc version
-      )
+    forM_ hieVersions
+          (\version -> phony ("build-doc-hie-" ++ version) $ buildDoc version)
 
     forM_
       hieVersions
@@ -148,14 +145,14 @@ buildHie :: VersionNumber -> Action ()
 buildHie versionNumber = do
   when (versionNumber `elem` ["hie-8.2.2", "hie-8.2.1"])
     $ execStackWithYaml_ versionNumber ["install", "happy"]
-  (execStackWithYaml_ versionNumber ["build"]) `actionOnException`
-    liftIO (putStrLn buildFailMsg)
+  execStackWithYaml_ versionNumber ["build"]
+    `actionOnException` liftIO (putStrLn buildFailMsg)
 
 buildFailMsg :: String
 buildFailMsg =
-    let starsLine = "\n******************************************************************\n"
-    in
-    starsLine
+  let starsLine
+        = "\n******************************************************************\n"
+  in  starsLine
         ++ "building failed, "
         ++ "try running `stack clean` and restart the build\n"
         ++ "if this does not work, open an issue at \n"
@@ -187,36 +184,51 @@ buildDoc versionNumber = do
 
 helpMessage :: Action ()
 helpMessage = do
-  let out = liftIO . putStrLn
   scriptName <- liftIO getProgName
   out ""
   out "Usage:"
-  out ("    stack " <> scriptName <> " <target>")
+  out' ("stack " <> scriptName <> " <target>")
   out ""
   out "Targets:"
-  out
-    "    build                Builds hie for all supported GHC versions (8.2.1, 8.2.2, 8.4.2, 8.4.3, 8.4.4, 8.6.1, 8.6.2 and 8.6.3)"
-  out
-    "    build-all            Builds hie and hoogle databases for all supported GHC versions"
-  out "    hie-8.2.1            Builds hie for GHC version 8.2.1 only"
-  out "    hie-8.2.2            Builds hie for GHC version 8.2.2 only"
-  out "    hie-8.4.2            Builds hie for GHC version 8.4.2 only"
-  out "    hie-8.4.3            Builds hie for GHC version 8.4.3 only"
-  out "    hie-8.4.4            Builds hie for GHC version 8.4.4 only"
-  out "    hie-8.6.1            Builds hie for GHC version 8.6.1 only"
-  out "    hie-8.6.2            Builds hie for GHC version 8.6.2 only"
-  out "    hie-8.6.3            Builds hie for GHC version 8.6.3 only"
-  out "    submodules           Updates local git submodules"
-  out
-    "    cabal                NOTE 3: This is needed for stack only projects too"
-  out
-    "    build-docs           Builds the Hoogle database for all supported GHC versions"
-  out "    test                 Runs hie tests"
-  out "    icu-macos-fix        Fixes icu related problems in MacOS"
-  out
-    "    dist                 Creates a tarball containing all the hie binaries"
-  out "    help                 Show help"
+  mapM_ (out' . showTarget) targets
   out ""
+ where
+  out  = liftIO . putStrLn
+  out' = out . ("    " ++)
+  -- |Number of spaces the target name including whitespace should have.
+  -- At least twenty, maybe more if target names are long. At most length of the longest target plus five.
+  space :: Int
+  space = maximum (20 : map ((+ 5) . length . fst) targets)
+
+  -- |Show a target.
+  -- Concatenates the target with its help message and inserts whitespace between them.
+  showTarget :: (String, String) -> String
+  showTarget (target, msg) =
+    target ++ replicate (space - length target) ' ' ++ msg
+
+  -- |Target for a specific ghc version
+  hieTarget :: String -> (String, String)
+  hieTarget version =
+    ("hie-" ++ version, "Builds hie for GHC version " ++ version ++ " only")
+
+  -- All targets with their respective help message.
+  targets =
+    [ ( "build"
+      , "Builds hie for all supported GHC versions (8.2.1, 8.2.2, 8.4.2, 8.4.3, 8.4.4, 8.6.1, 8.6.2 and 8.6.3)"
+      )
+      , ( "build-all"
+        , "Builds hie and hoogle databases for all supported GHC versions"
+        )
+      , ("cabal", "NOTE 3: This is needed for stack only projects too")
+      , ( "build-docs"
+        , "Builds the Hoogle database for all supported GHC versions"
+        )
+      , ("test"         , "Runs hie tests")
+      , ("icu-macos-fix", "Fixes icu related problems in MacOS")
+      , ("dist", "Creates a tarball containing all the hie binaries")
+      , ("help"         , "Show help")
+      ]
+      ++ map hieTarget hieVersions
 
 execStackWithYaml_ :: VersionNumber -> [String] -> Action ()
 execStackWithYaml_ versionNumber args = do
