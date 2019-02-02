@@ -12,7 +12,7 @@
 - Speed up CI on circleci (@bubba)
 - Build via make
   - Recursively sync and update submodules in Makefile (@bubba)
-- buid via shake
+- build via shake
   - Add 8.4.2 and 8.2.1 HIE versions to Shakefile (@Anrock)
   - Sync & update submodules recursively in Shakefile (@Anrock)
   - Remove v1 prefix from cabal commands in Shakefile (@Anrock)
