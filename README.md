@@ -179,14 +179,14 @@ Install **Nightly** (and hoogle docs):
 
 ```bash
 make hie-8.6.3
-make build-doc-8.6.3
+make build-doc-hie-8.6.3
 ```
 
 Install **LTS** (and hoogle docs):
 
 ```bash
 make hie-8.4.4
-make build-doc-8.4.4
+make build-doc-hie-8.4.4
 ```
 
 This step can take more than 30 minutes, so grab a coffee and please be patient!
@@ -274,14 +274,14 @@ Install **Nightly** (and hoogle docs):
 
 ```bash
 stack ./install.hs hie-8.6.3
-stack ./install.hs build-doc-8.6.3
+stack ./install.hs build-doc-hie-8.6.3
 ```
 
 Install **LTS** (and hoogle docs):
 
 ```bash
 stack ./install.hs hie-8.4.4
-stack ./install.hs build-doc-8.4.4
+stack ./install.hs build-doc-hie-8.4.4
 ```
 
 #### Install *all* available GHC versions with Shake
