@@ -1,3 +1,38 @@
+# 0.6.0.0
+
+- Resolver bumped, LTS 13.5 for GHC 8.6.3 (@alanz)
+- Use internal library hie-test-utils for testing (@bubba)
+- Read files in UTF8 mode in ghc-mod (@alanz)
+- documentation updates
+  - document reactorPidcache (@bubba)
+  - Add a note in README about dyld path for macOS builds (@kubum)
+  - document workaround for missing gmp library (@Rhywun)
+  - Change --recursive to --recurse-submodules when cloning
+    (@leifmetcalf)
+- Speed up CI on circleci (@bubba)
+- Build via make
+  - Recursively sync and update submodules in Makefile (@bubba)
+- build via shake
+  - Add 8.4.2 and 8.2.1 HIE versions to Shakefile (@Anrock)
+  - Sync & update submodules recursively in Shakefile (@Anrock)
+  - Remove v1 prefix from cabal commands in Shakefile (@Anrock)
+  - Rename Shakefile.hs to install.hs (@Anrock)
+  - install.hs: Sync submodules and install cabal before building
+    `dist`(@fendor)
+  - Display error message on stack-compilation errors (@power-fungus)
+    Suggests doing `stack clean` and trying again.
+  - Generate Shake help message based on GHC version (@fendor)
+- remove EKG to reduce dependency footprint (@bubba)
+- Bump hlint to 2.1.14 (@alanz)
+  (for GHC versions from 8.2.2 to 8.6.3)
+
+And there is work happening currently on a new implementation of
+`cabal-helper` to fully support `cabal new-build`, together with a
+rework of `ghc-mod-core` to make use of the new `cabal-helper`. This
+is a complex effort, and will take some time, but is being tackled by
+@DanielG, assisted by @fendor and @power-fungus,
+
+
 # 0.5.0.0
 
  - Introduce Shakefile as build alternative (@fendor)
