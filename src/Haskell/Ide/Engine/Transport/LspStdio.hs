@@ -55,6 +55,7 @@ import qualified Haskell.Ide.Engine.Plugin.ApplyRefact   as ApplyRefact
 import qualified Haskell.Ide.Engine.Plugin.Brittany      as Brittany
 import qualified Haskell.Ide.Engine.Plugin.Hoogle        as Hoogle
 import qualified Haskell.Ide.Engine.Plugin.HieExtras     as Hie
+import qualified Haskell.Ide.Engine.User.Config          as UserConfig
 import           Haskell.Ide.Engine.Plugin.Base
 import qualified Language.Haskell.LSP.Control            as CTRL
 import qualified Language.Haskell.LSP.Core               as Core
@@ -120,11 +121,13 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
 
   rin        <- atomically newTChan :: IO (TChan ReactorInput)
   commandIds <- allLspCmdIds plugins
+  
+  userConfig <- UserConfig.getUserConfigFile Nothing
 
   let dp lf = do
         diagIn      <- atomically newTChan
         let react = runReactor lf scheduler diagnosticProviders hps sps
-            reactorFunc = react $ reactor rin diagIn
+            reactorFunc = react $ reactor userConfig rin diagIn
 
         let errorHandler :: Scheduler.ErrorHandler
             errorHandler lid code e =
@@ -368,8 +371,8 @@ sendErrorLog msg = reactorSend' (`Core.sendErrorLogS` msg)
 -- | The single point that all events flow through, allowing management of state
 -- to stitch replies and requests together from the two asynchronous sides: lsp
 -- server and hie dispatcher
-reactor :: forall void. TChan ReactorInput -> TChan DiagnosticsRequest -> R void
-reactor inp diagIn = do
+reactor :: forall void. UserConfig.HieConfigFile -> TChan ReactorInput -> TChan DiagnosticsRequest -> R void
+reactor userConfig inp diagIn = do
   -- forever $ do
   let
     loop :: TrackingNumber -> R void
@@ -493,20 +496,23 @@ reactor inp diagIn = do
 
         -- -------------------------------
 
-        NotDidChangeTextDocument notification -> do
-          liftIO $ U.logm "****** reactor: processing NotDidChangeTextDocument"
-          let
-              params = notification ^. J.params
-              vtdi = params ^. J.textDocument
-              uri  = vtdi ^. J.uri
-              ver  = vtdi ^. J.version
-              J.List changes = params ^. J.contentChanges
-          mapFileFromVfs tn vtdi
-          makeRequest $ GReq tn (Just uri) Nothing Nothing (const $ return ()) $
-            -- Important - Call this before requestDiagnostics
-            updatePositionMap uri changes
-
-          queueDiagnosticsRequest diagIn DiagnosticOnChange tn uri ver
+        NotDidChangeTextDocument notification ->
+          if UserConfig.hasUserOverrideRequest UserConfig.OnSaveOnly userConfig
+            then liftIO $ U.logm "****** reactor: not processing NotDidChangeTextDocument"
+            else do
+              liftIO $ U.logm "****** reactor: processing NotDidChangeTextDocument"
+              let
+                  params = notification ^. J.params
+                  vtdi = params ^. J.textDocument
+                  uri  = vtdi ^. J.uri
+                  ver  = vtdi ^. J.version
+                  J.List changes = params ^. J.contentChanges
+              mapFileFromVfs tn vtdi
+              makeRequest $ GReq tn (Just uri) Nothing Nothing (const $ return ()) $
+                -- Important - Call this before requestDiagnostics
+                updatePositionMap uri changes
+              
+              queueDiagnosticsRequest diagIn DiagnosticOnChange tn uri ver
 
         -- -------------------------------
 
@@ -658,7 +664,7 @@ reactor inp diagIn = do
             Just prefix -> do
               snippets <- Hie.WithSnippets <$> configVal True completionSnippetsOn
               let hreq = IReq tn (req ^. J.id) callback
-                           $ lift $ Hie.getCompletions doc prefix snippets
+                           $ lift $ Hie.getCompletions userConfig doc prefix snippets
               makeRequest hreq
 
         ReqCompletionItemResolve req -> do
