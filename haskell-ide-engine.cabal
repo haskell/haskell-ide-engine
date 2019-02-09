@@ -29,6 +29,7 @@ library
                        Haskell.Ide.Engine.Plugin.Brittany
                        Haskell.Ide.Engine.Plugin.Build
                        Haskell.Ide.Engine.Plugin.Example2
+                       Haskell.Ide.Engine.Plugin.Floskell
                        Haskell.Ide.Engine.Plugin.Fuzzy
                        Haskell.Ide.Engine.Plugin.GhcMod
                        Haskell.Ide.Engine.Plugin.HaRe
@@ -60,6 +61,7 @@ library
                      , data-default
                      , directory
                      , filepath
+                     , floskell
                      , fold-debounce
                      , ghc >= 8.0.1
                      , ghc-exactprint
@@ -96,6 +98,7 @@ library
   if flag(pedantic)
      ghc-options:      -Werror
   default-language:    Haskell2010
+  mixins:              floskell (Floskell as FloskellFloskell)
 
 executable hie
   hs-source-dirs:      app

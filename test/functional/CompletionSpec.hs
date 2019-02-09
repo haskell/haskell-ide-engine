@@ -126,9 +126,7 @@ spec = describe "completions" $ do
     _ <- applyEdit doc te
 
     compls <- getCompletions doc (Position 0 24)
-    -- liftIO $ putStrLn $ "completions=" ++ show (map (^.label) compls)
     let item = head $ filter ((== "Wno-redundant-constraints") . (^. label)) compls
-    liftIO $ putStrLn $ "item=" ++ show item
     liftIO $ do
       item ^. label `shouldBe` "Wno-redundant-constraints"
       item ^. kind `shouldBe` Just CiKeyword

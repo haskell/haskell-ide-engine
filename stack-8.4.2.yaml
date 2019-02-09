@@ -9,6 +9,7 @@ extra-deps:
 - ./submodules/ghc-mod
 - ./submodules/ghc-mod/core
 - ./submodules/cabal-helper
+- ./submodules/floskell
 
 - base-compat-0.9.3
 # - brittany-0.11.0.0

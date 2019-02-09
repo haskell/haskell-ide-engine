@@ -17,6 +17,8 @@ module Haskell.Ide.Engine.PluginUtils
   , srcSpan2Loc
   , unpackRealSrcSpan
   , reverseMapFile
+  , extractRange
+  , fullRange
   , fileInfo
   , realSrcSpan2Range
   , canonicalizeUri
@@ -218,6 +220,27 @@ diffText' supports (f,fText) f2Text withDeletions  =
         el = snd $ lrNumbers fm
         ec = length $ last $ lrContents fm
         e = J.Position (el - 1) ec  -- Note: zero-based lines
+
+-- ---------------------------------------------------------------------
+
+extractRange :: Range -> T.Text -> T.Text
+extractRange (Range (Position sl _) (Position el _)) s = newS
+  where focusLines = take (el-sl+1) $ drop sl $ T.lines s
+        newS = T.unlines focusLines
+
+-- | Gets the range that covers the entire text
+fullRange :: T.Text -> Range
+fullRange s = Range startPos endPos
+  where startPos = Position 0 0
+        endPos = Position lastLine 0
+        {-
+        In order to replace everything including newline characters,
+        the end range should extend below the last line. From the specification:
+        "If you want to specify a range that contains a line including
+        the line ending character(s) then use an end position denoting
+        the start of the next line"
+        -}
+        lastLine = length $ T.lines s
 
 -- ---------------------------------------------------------------------
 

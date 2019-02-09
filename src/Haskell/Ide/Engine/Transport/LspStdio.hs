@@ -123,7 +123,7 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
 
   let dp lf = do
         diagIn      <- atomically newTChan
-        let react = runReactor lf scheduler diagnosticProviders hps sps
+        let react = runReactor lf scheduler diagnosticProviders hps sps fps
             reactorFunc = react $ reactor rin diagIn
 
         let errorHandler :: Scheduler.ErrorHandler
@@ -174,6 +174,9 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
 
       sps :: [SymbolProvider]
       sps = mapMaybe pluginSymbolProvider $ Map.elems $ ipMap plugins
+
+      fps :: Map.Map PluginId FormattingProvider
+      fps = Map.mapMaybe pluginFormattingProvider $ ipMap plugins
 
   flip E.finally finalProc $ do
     CTRL.run (getConfigFromNotification, dp) (hieHandlers rin) (hieOptions commandIds) captureFp
@@ -718,13 +721,27 @@ reactor inp diagIn = do
 
         ReqDocumentFormatting req -> do
           liftIO $ U.logs $ "reactor:got FormatRequest:" ++ show req
-          let params = req ^. J.params
-              doc = params ^. J.textDocument . J.uri
-              tabSize = params ^. J.options . J.tabSize
-              callback = reactorSend . RspDocumentFormatting . Core.makeResponseMessage req . J.List
-          let hreq = GReq tn (Just doc) Nothing (Just $ req ^. J.id) callback
-                       $ Brittany.brittanyCmd tabSize doc Nothing
-          makeRequest hreq
+          providers <- asks formattingProviders
+          lf <- asks lspFuncs
+          mc <- liftIO $ Core.config lf
+          let providerName = formattingProvider (fromMaybe def mc)
+              providerType = Map.lookup providerName providers
+          case providerType of
+            Nothing -> do
+              reactorSend (RspDocumentFormatting (Core.makeResponseMessage req (J.List [])))
+              unless (providerName == "none") $ do
+                let msg = providerName <> " is not a recognised plugin for formatting. Check your config"
+                reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
+                reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg    
+            Just provider ->
+              -- LL: Is this overengineered? Do we need a pluginFormattingProvider
+              -- or should we just call plugins straight from here based on the providerType?
+              let params = req ^. J.params
+                  doc = params ^. J.textDocument . J.uri
+                  callback = reactorSend . RspDocumentFormatting . Core.makeResponseMessage req . J.List
+                  hreq = GReq tn (Just doc) Nothing (Just $ req ^. J.id) callback
+                          $ provider doc FormatDocument (params ^. J.options)
+              in makeRequest hreq
 
         -- -------------------------------
 

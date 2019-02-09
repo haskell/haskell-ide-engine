@@ -9,6 +9,7 @@ extra-deps:
 - ./submodules/ghc-mod
 - ./submodules/ghc-mod/core
 - ./submodules/cabal-helper
+- ./submodules/floskell
 
 # - brittany-0.11.0.0
 - cabal-plan-0.4.0.0
@@ -23,6 +24,7 @@ extra-deps:
 - hoogle-5.0.17.5
 - hsimport-0.8.8
 - lsp-test-0.5.0.2
+- monad-dijkstra-0.1.1.2
 - optparse-simple-0.1.0
 - pretty-show-1.9.5
 - syz-0.2.0.0

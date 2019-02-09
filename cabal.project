@@ -7,3 +7,4 @@ packages:
          ./submodules/cabal-helper/
          ./submodules/ghc-mod/
          ./submodules/ghc-mod/core/
+         ./submodules/floskell
