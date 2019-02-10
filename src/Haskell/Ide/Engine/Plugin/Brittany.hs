@@ -5,16 +5,13 @@ module Haskell.Ide.Engine.Plugin.Brittany where
 
 import           Control.Lens
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Maybe (MaybeT, runMaybeT)
 import           Data.Aeson
 import           Data.Coerce
 import           Data.Semigroup
 import           Data.Text                             (Text)
 import qualified Data.Text                             as T
--- import qualified Data.Text.IO                          as T
 import           GHC.Generics
--- import qualified GhcMod.Utils                          as GM
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           Language.Haskell.Brittany
