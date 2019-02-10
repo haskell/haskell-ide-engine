@@ -29,6 +29,9 @@ module Haskell.Ide.Engine.PluginUtils
   , unPos
   , toPos
   , clientSupportsDocumentChanges
+  , readVFS
+  , getRangeFromVFS
+  , rangeLinesFromVfs
   ) where
 
 import           Control.Monad.IO.Class
@@ -47,12 +50,14 @@ import           FastString
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.ArtifactMap
+import           Language.Haskell.LSP.VFS
 import           Language.Haskell.LSP.Types.Capabilities
 import qualified Language.Haskell.LSP.Types            as J
 import           Prelude                               hiding (log)
 import           SrcLoc
 import           System.Directory
 import           System.FilePath
+import qualified Yi.Rope as Yi
 
 -- ---------------------------------------------------------------------
 
@@ -261,3 +266,26 @@ clientSupportsDocumentChanges = do
         WorkspaceEditClientCapabilities mDc <- _workspaceEdit wCaps
         mDc
   return $ fromMaybe False supports
+
+-- ---------------------------------------------------------------------
+
+readVFS :: MonadIde m => Uri -> m (Maybe T.Text)
+readVFS uri = do
+  mvf <- getVirtualFile uri
+  case mvf of
+    Just (VirtualFile _ txt) -> return $ Just (Yi.toText txt)
+    Nothing -> return Nothing
+
+getRangeFromVFS :: MonadIde m => Uri -> Range -> m (Maybe T.Text)
+getRangeFromVFS uri rg = do
+  mvf <- getVirtualFile uri
+  case mvf of
+    Just vfs -> return $ Just $ rangeLinesFromVfs vfs rg
+    Nothing  -> return Nothing
+
+rangeLinesFromVfs :: VirtualFile -> Range -> T.Text
+rangeLinesFromVfs (VirtualFile _ yitext) (Range (Position lf _cf) (Position lt _ct)) = r
+  where
+    (_ ,s1) = Yi.splitAtLine lf yitext
+    (s2, _) = Yi.splitAtLine (lt - lf) s1
+    r = Yi.toText s2

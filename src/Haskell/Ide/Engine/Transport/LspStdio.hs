@@ -52,7 +52,6 @@ import           Haskell.Ide.Engine.LSP.Reactor
 import qualified Haskell.Ide.Engine.Plugin.HaRe          as HaRe
 import qualified Haskell.Ide.Engine.Plugin.GhcMod        as GhcMod
 import qualified Haskell.Ide.Engine.Plugin.ApplyRefact   as ApplyRefact
-import qualified Haskell.Ide.Engine.Plugin.Brittany      as Brittany
 import qualified Haskell.Ide.Engine.Plugin.Hoogle        as Hoogle
 import qualified Haskell.Ide.Engine.Plugin.HieExtras     as Hie
 import           Haskell.Ide.Engine.Plugin.Base
@@ -721,39 +720,23 @@ reactor inp diagIn = do
 
         ReqDocumentFormatting req -> do
           liftIO $ U.logs $ "reactor:got FormatRequest:" ++ show req
-          providers <- asks formattingProviders
-          lf <- asks lspFuncs
-          mc <- liftIO $ Core.config lf
-          let providerName = formattingProvider (fromMaybe def mc)
-              providerType = Map.lookup providerName providers
-          case providerType of
-            Nothing -> do
-              reactorSend (RspDocumentFormatting (Core.makeResponseMessage req (J.List [])))
-              unless (providerName == "none") $ do
-                let msg = providerName <> " is not a recognised plugin for formatting. Check your config"
-                reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
-                reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg    
-            Just provider ->
-              -- LL: Is this overengineered? Do we need a pluginFormattingProvider
-              -- or should we just call plugins straight from here based on the providerType?
-              let params = req ^. J.params
-                  doc = params ^. J.textDocument . J.uri
-                  callback = reactorSend . RspDocumentFormatting . Core.makeResponseMessage req . J.List
-                  hreq = GReq tn (Just doc) Nothing (Just $ req ^. J.id) callback
-                          $ provider doc FormatDocument (params ^. J.options)
-              in makeRequest hreq
+          provider <- getFormattingProvider
+          let params = req ^. J.params
+              doc = params ^. J.textDocument . J.uri
+              callback = reactorSend . RspDocumentFormatting . Core.makeResponseMessage req . J.List
+              hreq = IReq tn (req ^. J.id) callback $ provider doc FormatDocument (params ^. J.options)
+          makeRequest hreq
 
         -- -------------------------------
 
         ReqDocumentRangeFormatting req -> do
           liftIO $ U.logs $ "reactor:got FormatRequest:" ++ show req
+          provider <- getFormattingProvider
           let params = req ^. J.params
               doc = params ^. J.textDocument . J.uri
               range = params ^. J.range
-              tabSize = params ^. J.options . J.tabSize
               callback = reactorSend . RspDocumentRangeFormatting . Core.makeResponseMessage req . J.List
-          let hreq = GReq tn (Just doc) Nothing (Just $ req ^. J.id) callback
-                       $ Brittany.brittanyCmd tabSize doc (Just range)
+              hreq = IReq tn (req ^. J.id) callback $ provider doc (FormatRange range) (params ^. J.options)
           makeRequest hreq
 
         -- -------------------------------
@@ -809,6 +792,26 @@ reactor inp diagIn = do
 
   -- Actually run the thing
   loop 0
+
+-- ---------------------------------------------------------------------
+
+getFormattingProvider :: R FormattingProvider
+getFormattingProvider = do
+  providers <- asks formattingProviders
+  lf <- asks lspFuncs
+  mc <- liftIO $ Core.config lf
+  -- LL: Is this overengineered? Do we need a pluginFormattingProvider
+  -- or should we just call plugins straight from here based on the providerType?
+  let providerName = formattingProvider (fromMaybe def mc)
+      mProvider = Map.lookup providerName providers
+  case mProvider of
+    Nothing -> do
+      unless (providerName == "none") $ do
+        let msg = providerName <> " is not a recognised plugin for formatting. Check your config"
+        reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
+        reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg    
+      return (\_ _ _ -> return (IdeResultOk [])) -- nop formatter
+    Just provider -> return provider
 
 -- ---------------------------------------------------------------------
 

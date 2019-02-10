@@ -5,15 +5,16 @@ module Haskell.Ide.Engine.Plugin.Brittany where
 
 import           Control.Lens
 import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Maybe (MaybeT, runMaybeT)
 import           Data.Aeson
 import           Data.Coerce
 import           Data.Semigroup
 import           Data.Text                             (Text)
 import qualified Data.Text                             as T
-import qualified Data.Text.IO                          as T
+-- import qualified Data.Text.IO                          as T
 import           GHC.Generics
-import qualified GhcMod.Utils                          as GM
+-- import qualified GhcMod.Utils                          as GM
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           Language.Haskell.Brittany
@@ -43,17 +44,18 @@ brittanyDescriptor plId = PluginDescriptor
  where
   cmd :: CommandFunc FormatParams [J.TextEdit]
   cmd =
-    CmdSync $ \(FormatParams tabSize uri range) -> brittanyCmd tabSize uri range
+    CmdSync $ \(FormatParams tabSize uri range) -> liftToGhc $ brittanyCmd tabSize uri range
   provider :: FormattingProvider
-  provider uri FormatDocument opts = brittanyCmd (opts ^. J.tabSize) uri Nothing
-  provider uri (FormatRange r) opts = brittanyCmd (opts ^. J.tabSize) uri (Just r)
+  provider uri FormatDocument opts = lift $ brittanyCmd (opts ^. J.tabSize) uri Nothing
+  provider uri (FormatRange r) opts = lift $ brittanyCmd (opts ^. J.tabSize) uri (Just r)
 
-brittanyCmd :: Int -> Uri -> Maybe Range -> IdeGhcM (IdeResult [J.TextEdit])
-brittanyCmd tabSize uri range =
-  pluginGetFile "brittanyCmd: " uri $ \file -> do
-    confFile <- liftIO $ getConfFile file
-    text <- GM.withMappedFile file $ liftIO . T.readFile
-    case range of
+brittanyCmd :: Int -> Uri -> Maybe Range -> IdeM (IdeResult [J.TextEdit])
+brittanyCmd tabSize uri range = pluginGetFile "brittanyCmd: " uri $ \file -> do
+  confFile <- liftIO $ getConfFile file
+  mtext <- readVFS uri
+  case mtext of
+    Nothing -> return $ IdeResultFail (IdeError InternalError "File was not open" Null)
+    Just text -> case range of
       Just r -> do
         -- format selection
         res <- liftIO $ runBrittany tabSize confFile $ extractRange r text

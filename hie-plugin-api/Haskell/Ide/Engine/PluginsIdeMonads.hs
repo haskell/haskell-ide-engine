@@ -210,7 +210,7 @@ type SymbolProvider = Uri -> IdeDeferM (IdeResult [DocumentSymbol])
 
 data FormattingType = FormatDocument
                     | FormatRange Range
-type FormattingProvider = Uri -> FormattingType -> FormattingOptions -> IdeGhcM (IdeResult [TextEdit])
+type FormattingProvider = Uri -> FormattingType -> FormattingOptions -> IdeDeferM (IdeResult [TextEdit])
 
 data PluginDescriptor =
   PluginDescriptor { pluginId                 :: PluginId
