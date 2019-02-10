@@ -25,6 +25,7 @@ extra-deps:
 - hoogle-5.0.17.5
 - hsimport-0.8.8
 - lsp-test-0.5.0.2
+- monad-dijkstra-0.1.1.2
 - pretty-show-1.8.2
 - syz-0.2.0.0
 - temporary-1.2.1.1
