@@ -11,13 +11,13 @@ import qualified Data.Text                     as T
 import qualified Data.Text.Encoding            as T
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
-import           FloskellFloskell
+import           Floskell
 
 floskellDescriptor :: PluginId -> PluginDescriptor
 floskellDescriptor plId = PluginDescriptor
   { pluginId                 = plId
   , pluginName               = "Floskell"
-  , pluginDesc               = "Floskell is a flexible Haskell source code pretty printer."
+  , pluginDesc               = "A flexible Haskell source code pretty printer."
   , pluginCommands           = []
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Nothing
@@ -35,7 +35,11 @@ provider uri typ _opts = do
       let (range, selectedContents) = case typ of
             FormatDocument -> (fullRange contents, contents)
             FormatRange r  -> (r, extractRange r contents)
-          result = reformat defaultAppConfig (uriToFilePath uri) (T.encodeUtf8 selectedContents)
-      in case result of
-        Left  err -> return $ IdeResultFail (IdeError PluginError (T.pack err) Null)
-        Right new -> return $ IdeResultOk [TextEdit range (T.decodeUtf8 (BS.toStrict new))]
+          result = reformat config (uriToFilePath uri) (T.encodeUtf8 selectedContents)
+      in  case result of
+            Left  err -> return $ IdeResultFail (IdeError PluginError (T.pack err) Null)
+            Right new -> return $ IdeResultOk [TextEdit range (T.decodeUtf8 (BS.toStrict new))]
+ where
+  config    = defaultAppConfig { appStyle = gibiansky }
+  -- seems to be the cmd line default
+  gibiansky = head (filter (\s -> styleName s == "gibiansky") styles)

@@ -98,7 +98,6 @@ library
   if flag(pedantic)
      ghc-options:      -Werror
   default-language:    Haskell2010
-  mixins:              floskell (Floskell as FloskellFloskell)
 
 executable hie
   hs-source-dirs:      app

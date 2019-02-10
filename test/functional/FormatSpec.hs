@@ -49,6 +49,10 @@ spec = do
     it "can change on the fly" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "Format.hs" "haskell"
 
+      sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (formatLspConfig "brittany"))
+      formatDoc doc (FormattingOptions 2 True)
+      documentContents doc >>= liftIO . (`shouldBe` formattedDocTabSize2)
+
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (formatLspConfig "floskell"))
       formatDoc doc (FormattingOptions 2 True)
       documentContents doc >>= liftIO . (`shouldBe` formattedFloskell)
@@ -56,10 +60,6 @@ spec = do
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (formatLspConfig "brittany"))
       formatDoc doc (FormattingOptions 2 True)
       documentContents doc >>= liftIO . (`shouldBe` formattedBrittanyPostFloskell)
-
-      sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (formatLspConfig "floskell"))
-      formatDoc doc (FormattingOptions 2 True)
-      documentContents doc >>= liftIO . (`shouldBe` formattedFloskell)
 
 
 formattedDocTabSize2 :: T.Text
@@ -118,16 +118,18 @@ formattedFloskell =
   \\n\
   \bar :: String -> IO String\n\
   \bar s = do\n\
-  \    x <- return \"hello\"\n\
-  \    return \"asdf\"\n\
+  \  x <- return \"hello\"\n\
+  \  return \"asdf\"\n\
   \"
 
 formattedBrittanyPostFloskell :: T.Text
 formattedBrittanyPostFloskell =
-  "module Format where\n\n\
+  "module Format where\n\
+  \\n\
   \foo :: Int -> Int\n\
   \foo 3 = 2\n\
-  \foo x = x\n\n\
+  \foo x = x\n\
+  \\n\
   \bar :: String -> IO String\n\
   \bar s = do\n\
   \  x <- return \"hello\"\n\
