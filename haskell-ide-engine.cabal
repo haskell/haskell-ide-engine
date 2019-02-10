@@ -168,7 +168,6 @@ test-suite unit-test
   hs-source-dirs:      test/unit
   main-is:             Main.hs
   other-modules:       ApplyRefactPluginSpec
-                       BrittanySpec
                        CodeActionsSpec
                        DiffSpec
                        ExtensibleStateSpec

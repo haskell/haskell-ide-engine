@@ -31,33 +31,22 @@ brittanyDescriptor plId = PluginDescriptor
   { pluginId       = plId
   , pluginName     = "Brittany"
   , pluginDesc     = "Brittany is a tool to format source code."
-  , pluginCommands = [ PluginCommand "format"
-                                     "Format a range of text or document"
-                                     cmd
-                     ]
+  , pluginCommands = []
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Nothing
   , pluginSymbolProvider = Nothing
   , pluginFormattingProvider = Just provider
   }
- where
-  cmd :: CommandFunc FormatParams [J.TextEdit]
-  cmd =
-    CmdSync $ \(FormatParams tabSize uri range) -> liftToGhc $ brittanyCmd tabSize uri range
-  provider :: FormattingProvider
-  provider uri FormatDocument opts = lift $ brittanyCmd (opts ^. J.tabSize) uri Nothing
-  provider uri (FormatRange r) opts = lift $ brittanyCmd (opts ^. J.tabSize) uri (Just r)
 
-brittanyCmd :: Int -> Uri -> Maybe Range -> IdeM (IdeResult [J.TextEdit])
-brittanyCmd tabSize uri range = pluginGetFile "brittanyCmd: " uri $ \file -> do
+provider :: FormattingProvider
+provider uri formatType opts = pluginGetFile "brittanyCmd: " uri $ \file -> do
   confFile <- liftIO $ getConfFile file
   mtext <- readVFS uri
   case mtext of
     Nothing -> return $ IdeResultFail (IdeError InternalError "File was not open" Null)
-    Just text -> case range of
-      Just r -> do
-        -- format selection
+    Just text -> case formatType of
+      FormatRange r -> do
         res <- liftIO $ runBrittany tabSize confFile $ extractRange r text
         case res of
           Left err -> return $ IdeResultFail (IdeError PluginError
@@ -65,14 +54,14 @@ brittanyCmd tabSize uri range = pluginGetFile "brittanyCmd: " uri $ \file -> do
           Right newText -> do
             let textEdit = J.TextEdit (normalize r) newText
             return $ IdeResultOk [textEdit]
-      Nothing -> do
-        -- format document
+      FormatDocument -> do
         res <- liftIO $ runBrittany tabSize confFile text
         case res of
           Left err -> return $ IdeResultFail (IdeError PluginError
                       (T.pack $ "brittanyCmd: " ++ unlines (map showErr err)) Null)
           Right newText ->
             return $ IdeResultOk [J.TextEdit (fullRange text) newText]
+  where tabSize = opts ^. J.tabSize
 
 normalize :: Range -> Range
 normalize (Range (Position sl _) (Position el _)) =
