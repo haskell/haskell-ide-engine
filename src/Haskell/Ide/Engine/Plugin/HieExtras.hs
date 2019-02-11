@@ -15,8 +15,6 @@ module Haskell.Ide.Engine.Plugin.HieExtras
   , showName
   , safeTyThingId
   , PosPrefixInfo(..)
-  , getRangeFromVFS
-  , rangeLinesFromVfs
   , HarePoint(..)
   , customOptions
   , runGhcModCommand
@@ -59,7 +57,6 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Plugin.Fuzzy              as Fuzzy
 import           HscTypes
-import qualified Language.Haskell.LSP.VFS                     as VFS
 import qualified Language.Haskell.LSP.Types                   as J
 import qualified Language.Haskell.LSP.Types.Lens              as J
 import           Language.Haskell.Refact.API                 (showGhc)
@@ -73,7 +70,6 @@ import           SrcLoc
 import           TcEnv
 import           Type
 import           Var
-import qualified Yi.Rope as Yi
 
 -- ---------------------------------------------------------------------
 
@@ -597,22 +593,6 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file ->
             _ -> return (IdeResultOk [])
         Nothing -> return $ IdeResultFail
           (IdeError PluginError "Couldn't get hscEnv when finding import" Null)
-
--- ---------------------------------------------------------------------
-
-getRangeFromVFS :: Uri -> Range -> IdeM (Maybe T.Text)
-getRangeFromVFS uri rg = do
-  mvf <- getVirtualFile uri
-  case mvf of
-    Just vfs -> return $ Just $ rangeLinesFromVfs vfs rg
-    Nothing  -> return Nothing
-
-rangeLinesFromVfs :: VFS.VirtualFile -> Range -> T.Text
-rangeLinesFromVfs (VFS.VirtualFile _ yitext) (Range (Position lf _cf) (Position lt _ct)) = r
-  where
-    (_ ,s1) = Yi.splitAtLine lf yitext
-    (s2, _) = Yi.splitAtLine (lt - lf) s1
-    r = Yi.toText s2
 
 -- ---------------------------------------------------------------------
 

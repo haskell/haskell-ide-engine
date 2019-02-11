@@ -72,6 +72,7 @@ hareDescriptor plId = PluginDescriptor
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Nothing
   , pluginSymbolProvider = Nothing
+  , pluginFormattingProvider = Nothing
   }
 
 -- ---------------------------------------------------------------------

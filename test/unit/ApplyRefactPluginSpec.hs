@@ -7,7 +7,6 @@ import qualified Data.HashMap.Strict                   as H
 import           Haskell.Ide.Engine.Plugin.ApplyRefact
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
-import           Language.Haskell.LSP.Types
 import           System.Directory
 import           TestUtils
 

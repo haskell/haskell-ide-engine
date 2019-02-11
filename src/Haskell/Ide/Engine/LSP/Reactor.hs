@@ -29,13 +29,14 @@ import qualified Language.Haskell.LSP.Types    as J
 -- ---------------------------------------------------------------------
 
 data REnv = REnv
-  { scheduler         :: Scheduler.Scheduler R
-  , lspFuncs          :: Core.LspFuncs Config
+  { scheduler           :: Scheduler.Scheduler R
+  , lspFuncs            :: Core.LspFuncs Config
   -- | The process ID of HIE. See 'HasPidCache'
-  , reactorPidCache   :: Int
-  , diagnosticSources :: Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
-  , hoverProviders    :: [HoverProvider]
-  , symbolProviders   :: [SymbolProvider]
+  , reactorPidCache     :: Int
+  , diagnosticSources   :: Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
+  , hoverProviders      :: [HoverProvider]
+  , symbolProviders     :: [SymbolProvider]
+  , formattingProviders :: Map.Map PluginId FormattingProvider
   -- TODO: Add code action providers here
   }
 
@@ -56,11 +57,12 @@ runReactor
   -> Map.Map DiagnosticTrigger [(PluginId, DiagnosticProviderFunc)]
   -> [HoverProvider]
   -> [SymbolProvider]
+  -> Map.Map PluginId FormattingProvider
   -> R a
   -> IO a
-runReactor lf sc dps hps sps f = do
+runReactor lf sc dps hps sps fps f = do
   pid <- getProcessID
-  runReaderT f (REnv sc lf pid dps hps sps)
+  runReaderT f (REnv sc lf pid dps hps sps fps)
 
 -- ---------------------------------------------------------------------
 

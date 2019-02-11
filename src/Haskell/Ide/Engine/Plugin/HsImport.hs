@@ -41,6 +41,7 @@ hsimportDescriptor plId = PluginDescriptor
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Nothing
   , pluginSymbolProvider = Nothing
+  , pluginFormattingProvider = Nothing
   }
 
 data ImportParams = ImportParams

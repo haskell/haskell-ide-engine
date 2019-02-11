@@ -17,6 +17,8 @@ module Haskell.Ide.Engine.PluginUtils
   , srcSpan2Loc
   , unpackRealSrcSpan
   , reverseMapFile
+  , extractRange
+  , fullRange
   , fileInfo
   , realSrcSpan2Range
   , canonicalizeUri
@@ -27,6 +29,9 @@ module Haskell.Ide.Engine.PluginUtils
   , unPos
   , toPos
   , clientSupportsDocumentChanges
+  , readVFS
+  , getRangeFromVFS
+  , rangeLinesFromVfs
   ) where
 
 import           Control.Monad.IO.Class
@@ -45,12 +50,14 @@ import           FastString
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.ArtifactMap
+import           Language.Haskell.LSP.VFS
 import           Language.Haskell.LSP.Types.Capabilities
 import qualified Language.Haskell.LSP.Types            as J
 import           Prelude                               hiding (log)
 import           SrcLoc
 import           System.Directory
 import           System.FilePath
+import qualified Yi.Rope as Yi
 
 -- ---------------------------------------------------------------------
 
@@ -221,6 +228,27 @@ diffText' supports (f,fText) f2Text withDeletions  =
 
 -- ---------------------------------------------------------------------
 
+extractRange :: Range -> T.Text -> T.Text
+extractRange (Range (Position sl _) (Position el _)) s = newS
+  where focusLines = take (el-sl+1) $ drop sl $ T.lines s
+        newS = T.unlines focusLines
+
+-- | Gets the range that covers the entire text
+fullRange :: T.Text -> Range
+fullRange s = Range startPos endPos
+  where startPos = Position 0 0
+        endPos = Position lastLine 0
+        {-
+        In order to replace everything including newline characters,
+        the end range should extend below the last line. From the specification:
+        "If you want to specify a range that contains a line including
+        the line ending character(s) then use an end position denoting
+        the start of the next line"
+        -}
+        lastLine = length $ T.lines s
+
+-- ---------------------------------------------------------------------
+
 -- | Returns the directory and file name
 fileInfo :: T.Text -> (FilePath,FilePath)
 fileInfo tfileName =
@@ -238,3 +266,26 @@ clientSupportsDocumentChanges = do
         WorkspaceEditClientCapabilities mDc <- _workspaceEdit wCaps
         mDc
   return $ fromMaybe False supports
+
+-- ---------------------------------------------------------------------
+
+readVFS :: MonadIde m => Uri -> m (Maybe T.Text)
+readVFS uri = do
+  mvf <- getVirtualFile uri
+  case mvf of
+    Just (VirtualFile _ txt) -> return $ Just (Yi.toText txt)
+    Nothing -> return Nothing
+
+getRangeFromVFS :: MonadIde m => Uri -> Range -> m (Maybe T.Text)
+getRangeFromVFS uri rg = do
+  mvf <- getVirtualFile uri
+  case mvf of
+    Just vfs -> return $ Just $ rangeLinesFromVfs vfs rg
+    Nothing  -> return Nothing
+
+rangeLinesFromVfs :: VirtualFile -> Range -> T.Text
+rangeLinesFromVfs (VirtualFile _ yitext) (Range (Position lf _cf) (Position lt _ct)) = r
+  where
+    (_ ,s1) = Yi.splitAtLine lf yitext
+    (s2, _) = Yi.splitAtLine (lt - lf) s1
+    r = Yi.toText s2

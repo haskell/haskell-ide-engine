@@ -69,6 +69,7 @@ ghcmodDescriptor plId = PluginDescriptor
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Just hoverProvider
   , pluginSymbolProvider = Just symbolProvider
+  , pluginFormattingProvider = Nothing
   }
 
 -- ---------------------------------------------------------------------

@@ -39,6 +39,8 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , DiagnosticTrigger(..)
   , HoverProvider
   , SymbolProvider
+  , FormattingType(..)
+  , FormattingProvider
   , IdePlugins(..)
   , getDiagnosticProvidersConfig
   -- * IDE monads
@@ -66,11 +68,13 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , Location(..)
   , TextDocumentIdentifier(..)
   , TextDocumentPositionParams(..)
+  , TextEdit(..)
   , WorkspaceEdit(..)
   , Diagnostic(..)
   , DiagnosticSeverity(..)
   , PublishDiagnosticsParams(..)
   , List(..)
+  , FormattingOptions(..)
   )
 where
 
@@ -114,6 +118,7 @@ import           Language.Haskell.LSP.Types     ( Command(..)
                                                 , DiagnosticSeverity(..)
                                                 , DocumentSymbol(..)
                                                 , List(..)
+                                                , FormattingOptions(..)
                                                 , Hover(..)
                                                 , Location(..)
                                                 , Position(..)
@@ -121,6 +126,7 @@ import           Language.Haskell.LSP.Types     ( Command(..)
                                                 , Range(..)
                                                 , TextDocumentIdentifier(..)
                                                 , TextDocumentPositionParams(..)
+                                                , TextEdit(..)
                                                 , Uri(..)
                                                 , VersionedTextDocumentIdentifier(..)
                                                 , WorkspaceEdit(..)
@@ -202,6 +208,10 @@ type HoverProvider = Uri -> Position -> IdeM (IdeResult [Hover])
 
 type SymbolProvider = Uri -> IdeDeferM (IdeResult [DocumentSymbol])
 
+data FormattingType = FormatDocument
+                    | FormatRange Range
+type FormattingProvider = Uri -> FormattingType -> FormattingOptions -> IdeDeferM (IdeResult [TextEdit])
+
 data PluginDescriptor =
   PluginDescriptor { pluginId                 :: PluginId
                    , pluginName               :: T.Text
@@ -211,6 +221,7 @@ data PluginDescriptor =
                    , pluginDiagnosticProvider :: Maybe DiagnosticProvider
                    , pluginHoverProvider      :: Maybe HoverProvider
                    , pluginSymbolProvider     :: Maybe SymbolProvider
+                   , pluginFormattingProvider :: Maybe FormattingProvider
                    } deriving (Generic)
 
 instance Show PluginCommand where
