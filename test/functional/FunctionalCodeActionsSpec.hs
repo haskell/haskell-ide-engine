@@ -429,7 +429,21 @@ spec = describe "code actions" $ do
                        , "_imUnused _ = 3"
                        ]
 
-        liftIO $ edit `shouldBe` (T.unlines expected)
+        liftIO $ edit `shouldBe` T.unlines expected
+
+  it "respect 'only' parameter" $ runSession hieCommand fullCaps "test/testdata" $ do
+    doc <- openDoc "CodeActionOnly.hs" "haskell"
+    _ <- count 2 waitForDiagnostics -- need to wait for both hlint and ghcmod
+    diags <- getCurrentDiagnostics doc
+    let params = CodeActionParams doc (Range (Position 2 10) (Position 4 0)) caContext
+        caContext = CodeActionContext (List diags) (Just (List [CodeActionRefactorInline]))
+    ResponseMessage _ _ (Just (List res)) _ <- request TextDocumentCodeAction params :: Session CodeActionResponse
+    let cas = map fromAction res
+        kinds = map (^. L.kind) cas
+    liftIO $ do
+      kinds `shouldNotSatisfy` null
+      kinds `shouldNotSatisfy` any (Just CodeActionRefactorInline /=)
+      kinds `shouldSatisfy` all (Just CodeActionRefactorInline ==)
 
 -- ---------------------------------------------------------------------
 

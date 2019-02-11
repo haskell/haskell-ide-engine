@@ -293,7 +293,7 @@ codeActionProvider pId docId (J.Range pos _) _ =
               mkAction "liftonelevel"
                 J.CodeActionRefactorExtract $ "Lift " <> name <> " one level"
             , mkAction "lifttotoplevel"
-                J.CodeActionRefactorExtract $"Lift " <> name <> " to top level"
+                J.CodeActionRefactorExtract $ "Lift " <> name <> " to top level"
             , mkAction "demote"
                 J.CodeActionRefactorInline $ "Demote " <> name <> " one level"
             , mkAction "deletedef"
