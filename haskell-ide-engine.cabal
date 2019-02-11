@@ -19,15 +19,16 @@ flag pedantic
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Haskell.Ide.Engine.Plugin.Base
-                       Haskell.Ide.Engine.Channel
+  exposed-modules:     Haskell.Ide.Engine.Channel
                        Haskell.Ide.Engine.Scheduler
-                       Haskell.Ide.Engine.LSP.CodeActions
-                       Haskell.Ide.Engine.LSP.Reactor
+                       Haskell.Ide.Engine.Server
+                       Haskell.Ide.Engine.CodeActions
+                       Haskell.Ide.Engine.Reactor
                        Haskell.Ide.Engine.Options
+                       Haskell.Ide.Engine.Types
+                       Haskell.Ide.Engine.Version
                        Haskell.Ide.Engine.Plugin.ApplyRefact
                        Haskell.Ide.Engine.Plugin.Brittany
-                       Haskell.Ide.Engine.Plugin.Build
                        Haskell.Ide.Engine.Plugin.Example2
                        Haskell.Ide.Engine.Plugin.Floskell
                        Haskell.Ide.Engine.Plugin.Fuzzy
@@ -42,9 +43,6 @@ library
                        Haskell.Ide.Engine.Plugin.Package
                        Haskell.Ide.Engine.Plugin.Package.Compat
                        Haskell.Ide.Engine.Plugin.Pragmas
-                       Haskell.Ide.Engine.Transport.JsonStdio
-                       Haskell.Ide.Engine.Transport.LspStdio
-                       Haskell.Ide.Engine.Types
   other-modules:       Paths_haskell_ide_engine
   build-depends:       Cabal >= 1.22
                      , Diff

@@ -29,7 +29,6 @@ import           Test.Hspec.Runner
 -- plugins
 
 import           Haskell.Ide.Engine.Plugin.ApplyRefact
-import           Haskell.Ide.Engine.Plugin.Base
 import           Haskell.Ide.Engine.Plugin.Example2
 import           Haskell.Ide.Engine.Plugin.GhcMod
 import           Haskell.Ide.Engine.Plugin.HaRe
@@ -64,7 +63,6 @@ plugins = pluginDescToIdePlugins
   ,example2Descriptor "eg2"
   ,ghcmodDescriptor "ghcmod"
   ,hareDescriptor "hare"
-  ,baseDescriptor "base"
   ]
 
 startServer :: IO (Scheduler IO, TChan LogVal, ThreadId)

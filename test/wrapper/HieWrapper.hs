@@ -1,6 +1,6 @@
 module Main where
 
-import Haskell.Ide.Engine.Plugin.Base
+import Haskell.Ide.Engine.Version
 import Test.Hspec
 import System.Directory
 import System.Process

@@ -10,8 +10,8 @@ import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.Scheduler
-import           Haskell.Ide.Engine.Transport.LspStdio
-import           Haskell.Ide.Engine.Transport.JsonStdio
+import           Haskell.Ide.Engine.Server
+import           Haskell.Ide.Engine.Version
 import qualified Language.Haskell.LSP.Core             as Core
 import           Options.Applicative.Simple
 import qualified Paths_haskell_ide_engine              as Meta
@@ -23,9 +23,7 @@ import qualified System.Log.Logger                     as L
 -- plugins
 
 import           Haskell.Ide.Engine.Plugin.ApplyRefact
-import           Haskell.Ide.Engine.Plugin.Base
 import           Haskell.Ide.Engine.Plugin.Brittany
-import           Haskell.Ide.Engine.Plugin.Build
 import           Haskell.Ide.Engine.Plugin.Example2
 import           Haskell.Ide.Engine.Plugin.GhcMod
 import           Haskell.Ide.Engine.Plugin.HaRe
@@ -49,9 +47,7 @@ plugins includeExamples = pluginDescToIdePlugins allPlugins
                    else basePlugins
     basePlugins =
       [ applyRefactDescriptor "applyrefact"
-      , baseDescriptor        "base"
       , brittanyDescriptor    "brittany"
-      , buildPluginDescriptor "build"
       , ghcmodDescriptor      "ghcmod"
       , haddockDescriptor     "haddock"
       , hareDescriptor        "hare"
@@ -87,7 +83,7 @@ main = do
     -- Parse the options and run
     (global, ()) <-
         simpleOptions
-            version
+            hieVersion
             "haskell-ide-engine - Provide a common engine to power any Haskell IDE"
             ""
             (numericVersion <*> compiler <*> globalOptsParser)
@@ -117,7 +113,7 @@ run opts = do
   maybe (pure ()) setCurrentDirectory $ projectRoot opts
 
   progName <- getProgName
-  logm $  "Run entered for HIE(" ++ progName ++ ") " ++ version
+  logm $  "Run entered for HIE(" ++ progName ++ ") " ++ hieVersion
   d <- getCurrentDirectory
   logm $ "Current directory:" ++ d
 
@@ -137,10 +133,6 @@ run opts = do
 
   let plugins' = plugins (optExamplePlugin opts)
 
-  -- launch the dispatcher.
-  if optJson opts then do
-    scheduler <- newScheduler plugins' ghcModOptions
-    jsonStdioTransport scheduler
-  else do
-    scheduler <- newScheduler plugins' ghcModOptions
-    lspStdioTransport scheduler origDir plugins' (optCaptureFile opts)
+  -- launch the server.
+  scheduler <- newScheduler plugins' ghcModOptions
+  server scheduler origDir plugins' (optCaptureFile opts)

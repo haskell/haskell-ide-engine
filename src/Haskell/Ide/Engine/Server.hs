@@ -10,9 +10,9 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 
-module Haskell.Ide.Engine.Transport.LspStdio
+module Haskell.Ide.Engine.Server
   (
-    lspStdioTransport
+    server
   ) where
 
 import           Control.Concurrent
@@ -47,14 +47,14 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Scheduler            as Scheduler
 import           Haskell.Ide.Engine.Types
-import           Haskell.Ide.Engine.LSP.CodeActions
-import           Haskell.Ide.Engine.LSP.Reactor
+import           Haskell.Ide.Engine.Version
+import           Haskell.Ide.Engine.CodeActions
+import           Haskell.Ide.Engine.Reactor
 import qualified Haskell.Ide.Engine.Plugin.HaRe          as HaRe
 import qualified Haskell.Ide.Engine.Plugin.GhcMod        as GhcMod
 import qualified Haskell.Ide.Engine.Plugin.ApplyRefact   as ApplyRefact
 import qualified Haskell.Ide.Engine.Plugin.Hoogle        as Hoogle
 import qualified Haskell.Ide.Engine.Plugin.HieExtras     as Hie
-import           Haskell.Ide.Engine.Plugin.Base
 import qualified Language.Haskell.LSP.Control            as CTRL
 import qualified Language.Haskell.LSP.Core               as Core
 import qualified Language.Haskell.LSP.VFS                as VFS
@@ -64,6 +64,7 @@ import qualified Language.Haskell.LSP.Types              as J
 import qualified Language.Haskell.LSP.Types.Lens         as J
 import           Language.Haskell.LSP.Types.Capabilities as C
 import qualified Language.Haskell.LSP.Utility            as U
+import           System.Directory
 import           System.Exit
 import qualified System.Log.Logger as L
 import qualified Yi.Rope as Yi
@@ -74,13 +75,13 @@ import qualified Yi.Rope as Yi
 {-# ANN module ("hlint: ignore Use tuple-section" :: String) #-}
 -- ---------------------------------------------------------------------
 
-lspStdioTransport
+server
   :: Scheduler.Scheduler R
   -> FilePath
   -> IdePlugins
   -> Maybe FilePath
   -> IO ()
-lspStdioTransport scheduler origDir plugins captureFp = do
+server scheduler origDir plugins captureFp = do
   run scheduler origDir plugins captureFp >>= \case
     0 -> exitSuccess
     c -> exitWith . ExitFailure $ c
@@ -429,10 +430,11 @@ reactor inp diagIn = do
             reactorSend $ ReqRegisterCapability $ fmServerRegisterCapabilityRequest rid registrations
 
           reactorSend $ NotLogMessage $
-                  fmServerLogMessageNotification J.MtLog $ "Using hie version: " <> T.pack version
+                  fmServerLogMessageNotification J.MtLog $ "Using hie version: " <> T.pack hieVersion
 
           -- Check for mismatching GHC versions
           projGhcVersion <- liftIO getProjectGhcVersion
+
           when (projGhcVersion /= hieGhcVersion) $ do
             let msg = T.pack $ "Mismatching GHC versions: Project is " ++ projGhcVersion ++ ", HIE is " ++ hieGhcVersion
                       ++ "\nYou may want to use hie-wrapper. Check the README for more information"
@@ -440,7 +442,7 @@ reactor inp diagIn = do
             reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg
 
           -- Check cabal is installed
-          hasCabal <- liftIO checkCabalInstall
+          hasCabal <- isJust <$> liftIO (findExecutable "cabal")
           unless hasCabal $ do
             let msg = T.pack "cabal-install is not installed. Check the README for more information"
             reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
