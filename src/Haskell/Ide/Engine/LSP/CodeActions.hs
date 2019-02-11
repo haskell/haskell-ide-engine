@@ -42,7 +42,7 @@ handleCodeActionReq tn req = do
 
       providersCb providers =
         let reqs = map (\f -> lift (f docId range context)) providers
-        in makeRequests reqs tn (req ^. J.id) (send . concat)
+        in makeRequests reqs tn (req ^. J.id) (send . filter wasRequested . concat)
 
   makeRequest (IReq tn (req ^. J.id) providersCb getProviders)
 
@@ -51,6 +51,13 @@ handleCodeActionReq tn req = do
     docUri = params ^. J.textDocument . J.uri
     range = params ^. J.range
     context = params ^. J.context
+
+    wasRequested :: J.CodeAction -> Bool
+    wasRequested ca
+      | Nothing <- J.only context = True
+      | Just (J.List allowed) <- J.only context
+      , Just caKind <- ca ^. J.kind = caKind `elem` allowed
+      | otherwise = False
 
     wrapCodeAction :: J.CodeAction -> R (Maybe J.CAResult)
     wrapCodeAction action = do
