@@ -23,11 +23,11 @@ import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.MonadTypes
 import qualified Language.Haskell.LSP.Types      as J
 import qualified Language.Haskell.LSP.Types.Lens as J
+import qualified Haskell.Ide.Engine.Hoogle
+                                               as Hoogle
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Plugin.Brittany
                                                as Brittany
-import qualified Haskell.Ide.Engine.Plugin.Hoogle
-                                               as Hoogle
 import           System.Directory
 import           System.IO
 

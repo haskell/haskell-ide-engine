@@ -24,6 +24,9 @@ library
                        Haskell.Ide.Engine.Server
                        Haskell.Ide.Engine.CodeActions
                        Haskell.Ide.Engine.Reactor
+                       Haskell.Ide.Engine.Fuzzy
+                       Haskell.Ide.Engine.Extras
+                       Haskell.Ide.Engine.Hoogle
                        Haskell.Ide.Engine.Options
                        Haskell.Ide.Engine.Types
                        Haskell.Ide.Engine.Version
@@ -31,13 +34,10 @@ library
                        Haskell.Ide.Engine.Plugin.Brittany
                        Haskell.Ide.Engine.Plugin.Example2
                        Haskell.Ide.Engine.Plugin.Floskell
-                       Haskell.Ide.Engine.Plugin.Fuzzy
                        Haskell.Ide.Engine.Plugin.GhcMod
                        Haskell.Ide.Engine.Plugin.HaRe
                        Haskell.Ide.Engine.Plugin.Haddock
-                       Haskell.Ide.Engine.Plugin.HieExtras
                        Haskell.Ide.Engine.Plugin.HfaAlign
-                       Haskell.Ide.Engine.Plugin.Hoogle
                        Haskell.Ide.Engine.Plugin.HsImport
                        Haskell.Ide.Engine.Plugin.Liquid
                        Haskell.Ide.Engine.Plugin.Package

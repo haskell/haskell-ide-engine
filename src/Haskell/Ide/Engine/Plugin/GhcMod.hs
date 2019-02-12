@@ -30,10 +30,10 @@ import qualified GhcMod.ModuleLoader               as GM
 import qualified GhcMod.Monad                      as GM
 import qualified GhcMod.SrcUtils                   as GM
 import qualified GhcMod.Utils                      as GM
+import           Haskell.Ide.Engine.Extras
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
-import qualified Haskell.Ide.Engine.Plugin.HieExtras as Hie
 import           Haskell.Ide.Engine.ArtifactMap
 import qualified Language.Haskell.LSP.Types        as LSP
 import qualified Language.Haskell.LSP.Types.Lens   as LSP
@@ -515,10 +515,10 @@ hoverProvider doc pos = runIdeResultT $ do
   info' <- IdeResultT $ newTypeCmd pos doc
   names' <- IdeResultT $ pluginGetFile "ghc-mod:hoverProvider" doc $ \fp ->
     ifCachedModule fp (IdeResultOk []) $ \(_ :: GHC.ParsedModule) info ->
-      return $ IdeResultOk $ Hie.getSymbolsAtPoint pos info
+      return $ IdeResultOk $ getSymbolsAtPoint pos info
   let
-    f = (==) `on` (Hie.showName . snd)
-    f' = compare `on` (Hie.showName . snd)
+    f = (==) `on` (showName . snd)
+    f' = compare `on` (showName . snd)
     names = mapMaybe pickName $ groupBy f $ sortBy f' names'
     pickName [] = Nothing
     pickName [x] = Just x
@@ -534,7 +534,7 @@ hoverProvider doc pos = runIdeResultT $ do
               (Just $ LSP.CodeString $ LSP.LanguageString "haskell" $ "_ :: " <> typ, Just r)
             Just (_,name)
               | nnames == 1 ->
-                (Just $ LSP.CodeString $ LSP.LanguageString "haskell" $ Hie.showName name <> " :: " <> typ, Just r)
+                (Just $ LSP.CodeString $ LSP.LanguageString "haskell" $ showName name <> " :: " <> typ, Just r)
               | otherwise ->
                 (Just $ LSP.CodeString $ LSP.LanguageString "haskell" $ "_ :: " <> typ, Just r)
         [] -> case names of
@@ -698,9 +698,9 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
 
         declsToSymbolInf :: Decl -> IdeDeferM [LSP.DocumentSymbol]
         declsToSymbolInf (Decl kind (L nl rdrName) children l) =
-          declToSymbolInf' l kind nl (Hie.showName rdrName) children
+          declToSymbolInf' l kind nl (showName rdrName) children
         declsToSymbolInf (Import kind (L nl modName) children l) =
-          declToSymbolInf' l kind nl (Hie.showName modName) children
+          declToSymbolInf' l kind nl (showName modName) children
 
         declToSymbolInf' :: SrcSpan -> LSP.SymbolKind -> SrcSpan -> T.Text -> [Decl] -> IdeDeferM [LSP.DocumentSymbol]
         declToSymbolInf' ss kind nss name children = do

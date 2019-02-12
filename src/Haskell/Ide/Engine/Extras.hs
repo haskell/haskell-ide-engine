@@ -3,7 +3,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE TypeFamilies        #-}
-module Haskell.Ide.Engine.Plugin.HieExtras
+module Haskell.Ide.Engine.Extras
   ( getDynFlags
   , WithSnippets(..)
   , getCompletions
@@ -42,7 +42,7 @@ import           Haskell.Ide.Engine.Context
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
-import qualified Haskell.Ide.Engine.Plugin.Fuzzy              as Fuzzy
+import qualified Haskell.Ide.Engine.Fuzzy                     as Fuzzy
 import           HscTypes
 import qualified Language.Haskell.LSP.Types                   as J
 import qualified Language.Haskell.LSP.Types.Lens              as J

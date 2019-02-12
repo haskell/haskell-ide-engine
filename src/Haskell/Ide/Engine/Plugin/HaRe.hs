@@ -27,10 +27,10 @@ import qualified GhcMod.Error                                 as GM
 import qualified GhcMod.Monad                                 as GM
 import qualified GhcMod.Utils                                 as GM
 import           Haskell.Ide.Engine.ArtifactMap
+import           Haskell.Ide.Engine.Extras
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
-import qualified Haskell.Ide.Engine.Plugin.HieExtras          as Hie
 import           Language.Haskell.GHC.ExactPrint.Print
 import qualified Language.Haskell.LSP.Core                    as Core
 import qualified Language.Haskell.LSP.Types                   as J
@@ -256,7 +256,7 @@ codeActionProvider pId docId (J.Range pos _) _ =
     ifCachedInfo file (IdeResultOk mempty) $ \info ->
       case getArtifactsAtPos pos (defMap info) of
         [h] -> do
-          let name = Hie.showName $ snd h
+          let name = showName $ snd h
           debugm $ show name
           IdeResultOk <$> sequence [
               mkAction "liftonelevel"
@@ -272,7 +272,7 @@ codeActionProvider pId docId (J.Range pos _) _ =
             ]
         _   -> case getArtifactsAtPos pos (locMap info) of
                [h] -> do
-                let name = Hie.showName $ snd h
+                let name = showName $ snd h
                 IdeResultOk <$> sequence [
                     mkAction "casesplit"
                       J.CodeActionRefactorRewrite $ "Case split on " <> name
@@ -351,4 +351,4 @@ splitCaseCmd (HP uri newPos) =
         \(e :: GM.GhcModError) ->
           return $
           IdeResultFail $
-          IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Null
+          IdeError PluginError (T.pack $ "ghc-mod: " ++ show e) Null

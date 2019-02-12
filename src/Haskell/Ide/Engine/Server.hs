@@ -50,11 +50,11 @@ import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.Version
 import           Haskell.Ide.Engine.CodeActions
 import           Haskell.Ide.Engine.Reactor
+import qualified Haskell.Ide.Engine.Hoogle               as Hoogle
+import           Haskell.Ide.Engine.Extras
 import qualified Haskell.Ide.Engine.Plugin.HaRe          as HaRe
 import qualified Haskell.Ide.Engine.Plugin.GhcMod        as GhcMod
 import qualified Haskell.Ide.Engine.Plugin.ApplyRefact   as ApplyRefact
-import qualified Haskell.Ide.Engine.Plugin.Hoogle        as Hoogle
-import qualified Haskell.Ide.Engine.Plugin.HieExtras     as Hie
 import qualified Language.Haskell.LSP.Control            as CTRL
 import qualified Language.Haskell.LSP.Core               as Core
 import qualified Language.Haskell.LSP.VFS                as VFS
@@ -203,12 +203,12 @@ configVal defVal field = do
 -- ---------------------------------------------------------------------
 
 getPrefixAtPos :: (MonadIO m, MonadReader REnv m)
-  => Uri -> Position -> m (Maybe Hie.PosPrefixInfo)
+  => Uri -> Position -> m (Maybe PosPrefixInfo)
 getPrefixAtPos uri pos@(Position l c) = do
   mvf <- liftIO =<< asksLspFuncs Core.getVirtualFileFunc <*> pure uri
   case mvf of
     Just (VFS.VirtualFile _ yitext) ->
-      return $ Just $ fromMaybe (Hie.PosPrefixInfo "" "" "" pos) $ do
+      return $ Just $ fromMaybe (PosPrefixInfo "" "" "" pos) $ do
         let headMaybe [] = Nothing
             headMaybe (x:_) = Just x
             lastMaybe [] = Nothing
@@ -226,7 +226,7 @@ getPrefixAtPos uri pos@(Position l c) = do
             let modParts = dropWhile (not . isUpper . T.head)
                                 $ reverse $ filter (not .T.null) xs
                 modName = T.intercalate "." modParts
-            return $ Hie.PosPrefixInfo (Yi.toText curLine) modName x pos
+            return $ PosPrefixInfo (Yi.toText curLine) modName x pos
     Nothing -> return Nothing
 
 -- ---------------------------------------------------------------------
@@ -660,9 +660,9 @@ reactor inp diagIn = do
           case mprefix of
             Nothing -> callback []
             Just prefix -> do
-              snippets <- Hie.WithSnippets <$> configVal True completionSnippetsOn
+              snippets <- WithSnippets <$> configVal True completionSnippetsOn
               let hreq = IReq tn (req ^. J.id) callback
-                           $ lift $ Hie.getCompletions doc prefix snippets
+                           $ lift $ getCompletions doc prefix snippets
               makeRequest hreq
 
         ReqCompletionItemResolve req -> do
@@ -693,7 +693,7 @@ reactor inp diagIn = do
           let (_, doc, pos) = reqParams req
               callback = reactorSend . RspDocumentHighlights . Core.makeResponseMessage req . J.List
           let hreq = IReq tn (req ^. J.id) callback
-                   $ Hie.getReferencesInDoc doc pos
+                   $ getReferencesInDoc doc pos
           makeRequest hreq
 
         -- -------------------------------
@@ -705,7 +705,7 @@ reactor inp diagIn = do
               pos = params ^. J.position
               callback = reactorSend . RspDefinition . Core.makeResponseMessage req
           let hreq = IReq tn (req ^. J.id) callback
-                       $ fmap J.MultiLoc <$> Hie.findDef doc pos
+                       $ fmap J.MultiLoc <$> findDef doc pos
           makeRequest hreq
 
         ReqFindReferences req -> do
@@ -715,7 +715,7 @@ reactor inp diagIn = do
               callback = reactorSend . RspFindReferences.  Core.makeResponseMessage req . J.List
           let hreq = IReq tn (req ^. J.id) callback
                    $ fmap (map (J.Location doc . (^. J.range)))
-                   <$> Hie.getReferencesInDoc doc pos
+                   <$> getReferencesInDoc doc pos
           makeRequest hreq
 
         -- -------------------------------

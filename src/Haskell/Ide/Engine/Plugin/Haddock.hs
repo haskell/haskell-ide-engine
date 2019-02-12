@@ -23,10 +23,10 @@ import           GHC
 import           GhcMonad
 import qualified GhcMod.Monad                                 as GM
 import qualified GhcMod.LightGhc                              as GM
+import           Haskell.Ide.Engine.Extras
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.MonadFunctions
-import           Haskell.Ide.Engine.Plugin.HieExtras
-import qualified Haskell.Ide.Engine.Plugin.Hoogle             as Hoogle
+import qualified Haskell.Ide.Engine.Hoogle             as Hoogle
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Language.Haskell.LSP.Types as J
 import           HscTypes

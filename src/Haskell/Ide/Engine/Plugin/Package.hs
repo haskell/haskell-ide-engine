@@ -6,8 +6,8 @@
 {-# LANGUAGE TupleSections #-}
 module Haskell.Ide.Engine.Plugin.Package where
 
+import qualified Haskell.Ide.Engine.Hoogle as Hoogle
 import           Haskell.Ide.Engine.MonadTypes
-import qualified Haskell.Ide.Engine.Plugin.Hoogle as Hoogle
 import           Haskell.Ide.Engine.PluginUtils
 import           GHC.Generics
 import           GHC.Exts
