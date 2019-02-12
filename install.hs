@@ -4,6 +4,7 @@
   --install-ghc
   runghc
   --package shake
+  --package directory
   --package tar
   --package zlib
 -}
@@ -16,6 +17,7 @@ import           Development.Shake
 import           Development.Shake.Command
 import           Development.Shake.FilePath
 import           Control.Monad
+import           System.Directory               ( findExecutable )
 import           System.Environment             ( getProgName
                                                 , unsetEnv
                                                 )
@@ -51,10 +53,22 @@ main = do
     want ["help"]
     -- general purpose targets
     phony "submodules" updateSubmodules
-    phony "cabal"      (getGhcPath mostRecentHieVersion >>= installCabal)
+    phony "cabal"      (getStackGhcPath mostRecentHieVersion >>= installCabal)
     phony "all"        helpMessage
     phony "help"       helpMessage
     phony "dist"       buildDist
+
+    phony "cabal-ghcs" $ do
+      ghcPaths <- findInstalledGhcs
+      let
+        msg =
+          "Found the following GHC paths: \n"
+            ++ unlines
+                 (map (\(version, path) -> "ghc-" ++ version ++ ": " ++ path)
+                      ghcPaths
+                 )
+      liftIO $ putStrLn $ embedInStars msg
+
 
     -- stack specific targets
     phony "build"      (need (reverse $ map ("hie-" ++) hieVersions))
@@ -75,11 +89,18 @@ main = do
       )
 
     -- cabal specific targets
-    phony "cabal-build"     (need (reverse $ map ("cabal-hie-" ++) hieVersions))
+    phony "cabal-build" $ do
+      ghcPaths <- findInstalledGhcs
+      let ghcVersions = map fst ghcPaths
+      need (reverse $ map ("cabal-hie-" ++) ghcVersions)
+
     phony "cabal-build-all" (need ["cabal-build"] >> need ["cabal-build-docs"])
-    phony "cabal-build-docs"
-          (need (reverse $ map ("cabal-build-doc-hie-" ++) hieVersions))
-    phony "cabal-test" (forM_ hieVersions stackTest)
+    phony "cabal-build-docs" $ do
+      ghcPaths <- findInstalledGhcs
+      let ghcVersions = map fst ghcPaths
+      need (reverse $ map ("cabal-hie-" ++) ghcVersions)
+
+    -- phony "cabal-test" (forM_ hieVersions stackTest)
     forM_
       hieVersions
       (\version -> phony ("cabal-build-doc-hie-" ++ version) $ do
@@ -158,11 +179,26 @@ updateSubmodules = do
   command_ [] "git" ["submodule", "sync", "--recursive"]
   command_ [] "git" ["submodule", "update", "--init", "--recursive"]
 
-
 configureCabal :: VersionNumber -> Action ()
 configureCabal versionNumber = do
-  ghcPath <- getGhcPath versionNumber
+  ghcPath' <- getGhcPath versionNumber
+  ghcPath  <- case ghcPath' of
+    Nothing -> do
+      liftIO $ putStrLn $ embedInStars (ghcVersionNotFound versionNumber)
+      error (ghcVersionNotFound versionNumber)
+    Just p -> return p
   execCabal_ ["new-configure", "-w", ghcPath]
+
+findInstalledGhcs :: Action [(VersionNumber, GhcPath)]
+findInstalledGhcs = foldM
+  (\found version -> do
+    path <- getGhcPath version
+    case path of
+      Nothing -> return found
+      Just p  -> return $ (version, p) : found
+  )
+  []
+  hieVersions
 
 cabalBuildHie :: Action ()
 cabalBuildHie = execCabal_ ["new-build"]
@@ -196,14 +232,11 @@ stackBuildHie versionNumber = do
 
 buildFailMsg :: String
 buildFailMsg =
-  let starsLine
-        = "\n******************************************************************\n"
-  in  starsLine
-        ++ "building failed, "
-        ++ "try running `stack clean` and restart the build\n"
-        ++ "if this does not work, open an issue at \n"
-        ++ "https://github.com/haskell/haskell-ide-engine"
-        ++ starsLine
+  embedInStars
+    $  "building failed, "
+    ++ "try running `stack clean` and restart the build\n"
+    ++ "if this does not work, open an issue at \n"
+    ++ "https://github.com/haskell/haskell-ide-engine"
 
 stackInstallHie :: VersionNumber -> Action ()
 stackInstallHie versionNumber = do
@@ -300,16 +333,17 @@ helpMessage = do
       ++ map stackHieTarget hieVersions
 
   cabalTargets =
-    [ ( "cabal-build"
-      , "Builds hie with cabal for all supported GHC versions ("
-      ++ allVersionMessage
-      ++ ")"
+    [ ( "cabal-ghcs"
+      , "Show all GHC versions that can be installed via `cabal-build` and `cabal-build-all`."
       )
+      , ( "cabal-build"
+        , "Builds hie with cabal with all installed GHCs. Target `cabal-ghcs` shows all GHC versions that will be installed"
+        )
       , ( "cabal-build-all"
-        , "Builds hie and hoogle databases for all supported GHC versions with cabal"
+        , "Builds hie and hoogle databases for all installed GHC versions with cabal"
         )
       , ( "cabal-build-docs"
-        , "Builds the Hoogle database for all supported GHC versions with cabal"
+        , "Builds the Hoogle database for all installed GHC versions with cabal"
         )
       , ("cabal-test", "Runs hie tests with cabal")
       ]
@@ -334,12 +368,28 @@ execStack_ = command_ [] "stack"
 execCabal_ :: [String] -> Action ()
 execCabal_ = command_ [] "cabal"
 
--- |Get the path to the GHC compiler executable linked to the local `stack-$GHCVER.yaml`
--- Equal to the command `stack path --stack-yaml $stack-yaml --compiler-exe`
-getGhcPath :: VersionNumber -> Action GhcPath
-getGhcPath hieVersion = do
-  Stdout ghc' <- execStackWithYaml hieVersion ["path", "--compiler-exe"]
-  return $ trim ghc'
+-- |Get the path to the GHC compiler executable linked to the local `stack-$GHCVER.yaml`.
+-- Equal to the command `stack path --stack-yaml $stack-yaml --compiler-exe`.
+-- This might install a GHC if it is not already installed, thus, might fail if stack fails to install the GHC.
+getStackGhcPath :: VersionNumber -> Action GhcPath
+getStackGhcPath ghcVersion = do
+  Stdout ghc <- execStackWithYaml ghcVersion ["path", "--compiler-exe"]
+  return $ trim ghc
+
+-- |Get the path to a GHC that has the version specified by `VersionNumber`
+-- If no such GHC can be found, Nothing is returned.
+getGhcPath :: VersionNumber -> Action (Maybe GhcPath)
+getGhcPath ghcVersion = do
+  pathMay <- liftIO $ findExecutable ("ghc-" ++ ghcVersion)
+  case pathMay of
+    Nothing -> do
+      noPrefixPathMay <- liftIO $ findExecutable "ghc"
+      case noPrefixPathMay of
+        Nothing -> return Nothing
+        Just p  -> do
+          Stdout version <- command [] p ["--numeric-version"]
+          if ghcVersion == trim version then return $ Just p else return Nothing
+    p -> return p
 
 -- |Read the local install root of the stack project specified by the VersionNumber
 -- Returns the filepath of the local install root.
@@ -362,3 +412,15 @@ getLocalBin versionNumber = do
 -- |Trim the end of a string
 trim :: String -> String
 trim = dropWhileEnd isSpace
+
+-- |Embed a string within two lines of stars to improve readability.
+embedInStars :: String -> String
+embedInStars str =
+  let starsLine
+        = "\n******************************************************************\n"
+  in  starsLine <> str <> starsLine
+
+-- |No suitable ghc version has been found.
+ghcVersionNotFound :: VersionNumber -> String
+ghcVersionNotFound versionNumber =
+  "No GHC with version " <> versionNumber <> " has been found."
