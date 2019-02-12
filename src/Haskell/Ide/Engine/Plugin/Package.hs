@@ -53,9 +53,7 @@ import qualified Data.Yaml as Y
 packageDescriptor :: T.Text -> PluginDescriptor
 packageDescriptor plId = PluginDescriptor
   { pluginId       = plId
-  , pluginName     = "package"
-  , pluginDesc     = "Tools for editing .cabal and package.yaml files."
-  , pluginCommands = [PluginCommand "add" "Add a packge" addCmd]
+  , pluginCommands = [PluginCommand "Add a package" "add" addCmd]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Nothing
@@ -72,8 +70,8 @@ data AddParams = AddParams
   }
   deriving (Eq, Show, Read, Generic, ToJSON, FromJSON)
 
-addCmd :: CommandFunc AddParams J.WorkspaceEdit
-addCmd = CmdSync $ \(AddParams rootDir modulePath pkg) -> do
+addCmd :: AddParams -> IdeGhcM (IdeResult J.WorkspaceEdit)
+addCmd (AddParams rootDir modulePath pkg) = do
 
   packageType <- liftIO $ findPackageType rootDir
   fileMap <- GM.mkRevRedirMapFunc

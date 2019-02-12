@@ -15,21 +15,13 @@ module Haskell.Ide.Engine.Plugin.HieExtras
   , showName
   , safeTyThingId
   , PosPrefixInfo(..)
-  , HarePoint(..)
-  , customOptions
-  , runGhcModCommand
-  , splitCaseCmd'
-  , splitCaseCmd
   ) where
 
 import           ConLike
-import           Control.Lens.Operators                       ( (^?), (?~), (&) )
+import           Control.Lens.Operators                       ( (^?), (?~) )
 import           Control.Lens.Prism                           ( _Just )
-import           Control.Lens.Setter ((%~))
-import           Control.Lens.Traversal (traverseOf)
 import           Control.Monad.Reader
 import           Data.Aeson
-import qualified Data.Aeson.Types                             as J
 import           Data.Char
 import           Data.IORef
 import qualified Data.List                                    as List
@@ -37,19 +29,14 @@ import qualified Data.Map                                     as Map
 import           Data.Maybe
 import           Data.Monoid                                  ( (<>) )
 import qualified Data.Text                                    as T
-import qualified Data.Text.IO                                 as T
 import           Data.Typeable
 import           DataCon
 import           Exception
 import           FastString
 import           Finder
 import           GHC                                          hiding (getContext)
-import           GHC.Generics                                 (Generic)
-import qualified GhcMod.Error                                 as GM
-import qualified GhcMod.Exe.CaseSplit                         as GM
 import qualified GhcMod.Gap                                   as GM
 import qualified GhcMod.LightGhc                              as GM
-import qualified GhcMod.Utils                                 as GM
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.Context
 import           Haskell.Ide.Engine.MonadFunctions
@@ -593,90 +580,6 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file ->
             _ -> return (IdeResultOk [])
         Nothing -> return $ IdeResultFail
           (IdeError PluginError "Couldn't get hscEnv when finding import" Null)
-
--- ---------------------------------------------------------------------
-
-data HarePoint =
-  HP { hpFile :: Uri
-     , hpPos  :: Position
-     } deriving (Eq,Generic,Show)
-
-customOptions :: Int -> J.Options
-customOptions n = J.defaultOptions { J.fieldLabelModifier = J.camelTo2 '_' . drop n}
-
-instance FromJSON HarePoint where
-  parseJSON = genericParseJSON $ customOptions 2
-instance ToJSON HarePoint where
-  toJSON = genericToJSON $ customOptions 2
-
--- ---------------------------------------------------------------------
-
-runGhcModCommand :: IdeGhcM a
-                 -> IdeGhcM (IdeResult a)
-runGhcModCommand cmd =
-  (IdeResultOk <$> cmd) `gcatch`
-    \(e :: GM.GhcModError) ->
-      return $
-      IdeResultFail $
-      IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Null
-
--- ---------------------------------------------------------------------
-
-splitCaseCmd :: CommandFunc HarePoint WorkspaceEdit
-splitCaseCmd = CmdSync $ \(HP uri pos) -> splitCaseCmd' uri pos
-
-splitCaseCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
-splitCaseCmd' uri newPos =
-  pluginGetFile "splitCaseCmd: " uri $ \path -> do
-    origText <- GM.withMappedFile path $ liftIO . T.readFile
-    ifCachedModule path (IdeResultOk mempty) $ \tm info -> runGhcModCommand $
-      case newPosToOld info newPos of
-        Just oldPos -> do
-          let (line, column) = unPos oldPos
-          splitResult' <- GM.splits' path tm line column
-          case splitResult' of
-            Just splitResult -> do
-              wEdit <- liftToGhc $ splitResultToWorkspaceEdit origText splitResult
-              return $ oldToNewPositions info wEdit
-            Nothing -> return mempty
-        Nothing -> return mempty
-  where
-
-    -- | Transform all ranges in a WorkspaceEdit from old to new positions.
-    oldToNewPositions :: CachedInfo -> WorkspaceEdit -> WorkspaceEdit
-    oldToNewPositions info wsEdit =
-      wsEdit
-        & J.documentChanges %~ (>>= traverseOf (traverse . J.edits . traverse . J.range) (oldRangeToNew info))
-        & J.changes %~ (>>= traverseOf (traverse . traverse . J.range) (oldRangeToNew info))
-
-    -- | Given the range and text to replace, construct a 'WorkspaceEdit'
-    -- by diffing the change against the current text.
-    splitResultToWorkspaceEdit :: T.Text -> GM.SplitResult -> IdeM WorkspaceEdit
-    splitResultToWorkspaceEdit originalText (GM.SplitResult replaceFromLine replaceFromCol replaceToLine replaceToCol replaceWith) =
-      diffText (uri, originalText) newText IncludeDeletions
-      where
-        before = takeUntil (toPos (replaceFromLine, replaceFromCol)) originalText
-        after = dropUntil (toPos (replaceToLine, replaceToCol)) originalText
-        newText = before <> replaceWith <> after
-
-    -- | Take the first part of text until the given position.
-    -- Returns all characters before the position.
-    takeUntil :: Position -> T.Text -> T.Text
-    takeUntil (Position l c) txt =
-      T.unlines takeLines <> takeCharacters
-      where
-        textLines = T.lines txt
-        takeLines = take l textLines
-        takeCharacters = T.take c (textLines !! c)
-
-    -- | Drop the first part of text until the given position.
-    -- Returns all characters after and including the position.
-    dropUntil :: Position -> T.Text -> T.Text
-    dropUntil (Position l c) txt = dropCharacters
-      where
-        textLines = T.lines txt
-        dropLines = drop l textLines
-        dropCharacters = T.drop c (T.unlines dropLines)
 
 -- ---------------------------------------------------------------------
 

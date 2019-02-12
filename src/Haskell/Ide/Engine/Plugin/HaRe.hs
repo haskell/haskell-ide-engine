@@ -7,6 +7,7 @@
 module Haskell.Ide.Engine.Plugin.HaRe where
 
 import           Control.Lens.Operators
+import           Control.Lens.Traversal
 import           Control.Monad.State
 import           Control.Monad.Trans.Control
 import           Data.Aeson
@@ -21,6 +22,7 @@ import qualified Data.Text                                    as T
 import qualified Data.Text.IO                                 as T
 import           Exception
 import           GHC.Generics                                 (Generic)
+import qualified GhcMod.Exe.CaseSplit                         as GM
 import qualified GhcMod.Error                                 as GM
 import qualified GhcMod.Monad                                 as GM
 import qualified GhcMod.Utils                                 as GM
@@ -42,31 +44,16 @@ import           Language.Haskell.Refact.Utils.Monad          hiding (logm)
 hareDescriptor :: PluginId -> PluginDescriptor
 hareDescriptor plId = PluginDescriptor
   { pluginId = plId
-  , pluginName = "HaRe"
-  , pluginDesc = "A Haskell 2010 refactoring tool. HaRe supports the full "
-              <> "Haskell 2010 standard, through making use of the GHC API.  HaRe attempts to "
-              <> "operate in a safe way, by first writing new files with proposed changes, and "
-              <> "only swapping these with the originals when the change is accepted. "
   , pluginCommands =
-      [ PluginCommand "demote" "Move a definition one level down"
-          demoteCmd
-      , PluginCommand "dupdef" "Duplicate a definition"
-          dupdefCmd
-      , PluginCommand "iftocase" "Converts an if statement to a case statement"
-          iftocaseCmd
-      , PluginCommand "liftonelevel" "Move a definition one level up from where it is now"
-          liftonelevelCmd
-      , PluginCommand "lifttotoplevel" "Move a definition to the top level from where it is now"
-          lifttotoplevelCmd
-      , PluginCommand "rename" "rename a variable or type"
-          renameCmd
-      , PluginCommand "deletedef" "Delete a definition"
-          deleteDefCmd
-      , PluginCommand "genapplicative" "Generalise a monadic function to use applicative"
-          genApplicativeCommand
-
-      , PluginCommand "casesplit" "Generate a pattern match for a binding under (LINE,COL)"
-          Hie.splitCaseCmd
+      [ PluginCommand "Demote definition" "demote" demoteCmd
+      , PluginCommand "Duplicate definition" "dupdef" dupdefCmd
+      , PluginCommand "Convert if to case" "iftocase" iftocaseCmd
+      , PluginCommand "Lift one level" "liftonelevel" liftonelevelCmd
+      , PluginCommand "Lift to top ""lifttotoplevel" lifttotoplevelCmd
+      , PluginCommand "Rename" "rename" renameCmd
+      , PluginCommand "Delete definition" "deletedef" deleteDefCmd
+      , PluginCommand "Generalise to applicative" "genapplicative" genApplicativeCommand
+      , PluginCommand "Split case" "casesplit" splitCaseCmd
       ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
@@ -77,6 +64,19 @@ hareDescriptor plId = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
+data HarePoint =
+  HP { hpFile :: Uri
+     , hpPos  :: Position
+     } deriving (Eq,Generic,Show)
+
+customOptions :: Int -> J.Options
+customOptions n = J.defaultOptions { J.fieldLabelModifier = J.camelTo2 '_' . drop n}
+
+instance FromJSON HarePoint where
+  parseJSON = genericParseJSON $ customOptions 2
+instance ToJSON HarePoint where
+  toJSON = genericToJSON $ customOptions 2
+
 data HarePointWithText =
   HPT { hptFile :: Uri
       , hptPos  :: Position
@@ -84,9 +84,9 @@ data HarePointWithText =
       } deriving (Eq,Generic,Show)
 
 instance FromJSON HarePointWithText where
-  parseJSON = genericParseJSON $ Hie.customOptions 3
+  parseJSON = genericParseJSON $ customOptions 3
 instance ToJSON HarePointWithText where
-  toJSON = genericToJSON $ Hie.customOptions 3
+  toJSON = genericToJSON $ customOptions 3
 
 data HareRange =
   HR { hrFile     :: Uri
@@ -95,18 +95,14 @@ data HareRange =
      } deriving (Eq,Generic,Show)
 
 instance FromJSON HareRange where
-  parseJSON = genericParseJSON $ Hie.customOptions 2
+  parseJSON = genericParseJSON $ customOptions 2
 instance ToJSON HareRange where
-  toJSON = genericToJSON $ Hie.customOptions 2
+  toJSON = genericToJSON $ customOptions 2
 
 -- ---------------------------------------------------------------------
 
-demoteCmd :: CommandFunc Hie.HarePoint WorkspaceEdit
-demoteCmd  = CmdSync $ \(Hie.HP uri pos) ->
-  demoteCmd' uri pos
-
-demoteCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
-demoteCmd' uri pos =
+demoteCmd :: HarePoint -> IdeGhcM (IdeResult WorkspaceEdit)
+demoteCmd (HP uri pos) =
   pluginGetFile "demote: " uri $ \file ->
     runHareCommand "demote" (compDemote file (unPos pos))
 
@@ -114,12 +110,8 @@ demoteCmd' uri pos =
 
 -- ---------------------------------------------------------------------
 
-dupdefCmd :: CommandFunc HarePointWithText WorkspaceEdit
-dupdefCmd = CmdSync $ \(HPT uri pos name) ->
-  dupdefCmd' uri pos name
-
-dupdefCmd' :: Uri -> Position -> T.Text -> IdeGhcM (IdeResult WorkspaceEdit)
-dupdefCmd' uri pos name =
+dupdefCmd :: HarePointWithText -> IdeGhcM (IdeResult WorkspaceEdit)
+dupdefCmd (HPT uri pos name) =
   pluginGetFile "dupdef: " uri $ \file ->
     runHareCommand  "dupdef" (compDuplicateDef file (T.unpack name) (unPos pos))
 
@@ -127,12 +119,8 @@ dupdefCmd' uri pos name =
 
 -- ---------------------------------------------------------------------
 
-iftocaseCmd :: CommandFunc HareRange WorkspaceEdit
-iftocaseCmd = CmdSync $ \(HR uri startPos endPos) ->
-  iftocaseCmd' uri (Range startPos endPos)
-
-iftocaseCmd' :: Uri -> Range -> IdeGhcM (IdeResult WorkspaceEdit)
-iftocaseCmd' uri (Range startPos endPos) =
+iftocaseCmd :: HareRange -> IdeGhcM (IdeResult WorkspaceEdit)
+iftocaseCmd (HR uri startPos endPos) =
   pluginGetFile "iftocase: " uri $ \file ->
     runHareCommand "iftocase" (compIfToCase file (unPos startPos) (unPos endPos))
 
@@ -140,12 +128,8 @@ iftocaseCmd' uri (Range startPos endPos) =
 
 -- ---------------------------------------------------------------------
 
-liftonelevelCmd :: CommandFunc Hie.HarePoint WorkspaceEdit
-liftonelevelCmd = CmdSync $ \(Hie.HP uri pos) ->
-  liftonelevelCmd' uri pos
-
-liftonelevelCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
-liftonelevelCmd' uri pos =
+liftonelevelCmd :: HarePoint  -> IdeGhcM (IdeResult WorkspaceEdit)
+liftonelevelCmd (HP uri pos) =
   pluginGetFile "liftonelevelCmd: " uri $ \file ->
     runHareCommand "liftonelevel" (compLiftOneLevel file (unPos pos))
 
@@ -153,12 +137,8 @@ liftonelevelCmd' uri pos =
 
 -- ---------------------------------------------------------------------
 
-lifttotoplevelCmd :: CommandFunc Hie.HarePoint WorkspaceEdit
-lifttotoplevelCmd = CmdSync $ \(Hie.HP uri pos) ->
-  lifttotoplevelCmd' uri pos
-
-lifttotoplevelCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
-lifttotoplevelCmd' uri pos =
+lifttotoplevelCmd :: HarePoint -> IdeGhcM (IdeResult WorkspaceEdit)
+lifttotoplevelCmd (HP uri pos) =
   pluginGetFile "lifttotoplevelCmd: " uri $ \file ->
     runHareCommand "lifttotoplevel" (compLiftToTopLevel file (unPos pos))
 
@@ -166,12 +146,8 @@ lifttotoplevelCmd' uri pos =
 
 -- ---------------------------------------------------------------------
 
-renameCmd :: CommandFunc HarePointWithText WorkspaceEdit
-renameCmd = CmdSync $ \(HPT uri pos name) ->
-  renameCmd' uri pos name
-
-renameCmd' :: Uri -> Position -> T.Text -> IdeGhcM (IdeResult WorkspaceEdit)
-renameCmd' uri pos name =
+renameCmd :: HarePointWithText -> IdeGhcM (IdeResult WorkspaceEdit)
+renameCmd (HPT uri pos name) =
   pluginGetFile "rename: " uri $ \file ->
       runHareCommand "rename" (compRename file (T.unpack name) (unPos pos))
 
@@ -179,12 +155,8 @@ renameCmd' uri pos name =
 
 -- ---------------------------------------------------------------------
 
-deleteDefCmd :: CommandFunc Hie.HarePoint WorkspaceEdit
-deleteDefCmd  = CmdSync $ \(Hie.HP uri pos) ->
-  deleteDefCmd' uri pos
-
-deleteDefCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
-deleteDefCmd' uri pos =
+deleteDefCmd :: HarePoint -> IdeGhcM (IdeResult WorkspaceEdit)
+deleteDefCmd (HP uri pos) =
   pluginGetFile "deletedef: " uri $ \file ->
       runHareCommand "deltetedef" (compDeleteDef file (unPos pos))
 
@@ -192,12 +164,8 @@ deleteDefCmd' uri pos =
 
 -- ---------------------------------------------------------------------
 
-genApplicativeCommand :: CommandFunc Hie.HarePoint WorkspaceEdit
-genApplicativeCommand  = CmdSync $ \(Hie.HP uri pos) ->
-  genApplicativeCommand' uri pos
-
-genApplicativeCommand' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
-genApplicativeCommand' uri pos =
+genApplicativeCommand :: HarePoint -> IdeGhcM (IdeResult WorkspaceEdit)
+genApplicativeCommand (HP uri pos) =
   pluginGetFile "genapplicative: " uri $ \file ->
       runHareCommand "genapplicative" (compGenApplicative file (unPos pos))
 
@@ -312,7 +280,7 @@ codeActionProvider pId docId (J.Range pos _) _ =
                _   -> return $ IdeResultOk []
   where
     mkAction aId kind title = do
-      let args = [J.toJSON $ Hie.HP (docId ^. J.uri) pos]
+      let args = [J.toJSON $ HP (docId ^. J.uri) pos]
       cmd <- mkLspCommand pId aId title (Just args)
       return $ J.CodeAction title (Just kind) mempty Nothing (Just cmd)
 
@@ -320,3 +288,67 @@ codeActionProvider pId docId (J.Range pos _) _ =
       let args = [J.toJSON $ HPT (docId ^. J.uri) pos (name <> "'")]
       cmd <- mkLspCommand pId aId title (Just args)
       return $ J.CodeAction (title <> name) (Just kind) mempty Nothing (Just cmd)
+
+-- ---------------------------------------------------------------------
+
+splitCaseCmd :: HarePoint -> IdeGhcM (IdeResult WorkspaceEdit)
+splitCaseCmd (HP uri newPos) =
+  pluginGetFile "splitCaseCmd: " uri $ \path -> do
+    origText <- GM.withMappedFile path $ liftIO . T.readFile
+    ifCachedModule path (IdeResultOk mempty) $ \tm info -> runGhcModCommand $
+      case newPosToOld info newPos of
+        Just oldPos -> do
+          let (line, column) = unPos oldPos
+          splitResult' <- GM.splits' path tm line column
+          case splitResult' of
+            Just splitResult -> do
+              wEdit <- liftToGhc $ splitResultToWorkspaceEdit origText splitResult
+              return $ oldToNewPositions info wEdit
+            Nothing -> return mempty
+        Nothing -> return mempty
+  where
+
+    -- | Transform all ranges in a WorkspaceEdit from old to new positions.
+    oldToNewPositions :: CachedInfo -> WorkspaceEdit -> WorkspaceEdit
+    oldToNewPositions info wsEdit =
+      wsEdit
+        & J.documentChanges %~ (>>= traverseOf (traverse . J.edits . traverse . J.range) (oldRangeToNew info))
+        & J.changes %~ (>>= traverseOf (traverse . traverse . J.range) (oldRangeToNew info))
+
+    -- | Given the range and text to replace, construct a 'WorkspaceEdit'
+    -- by diffing the change against the current text.
+    splitResultToWorkspaceEdit :: T.Text -> GM.SplitResult -> IdeM WorkspaceEdit
+    splitResultToWorkspaceEdit originalText (GM.SplitResult replaceFromLine replaceFromCol replaceToLine replaceToCol replaceWith) =
+      diffText (uri, originalText) newText IncludeDeletions
+      where
+        before = takeUntil (toPos (replaceFromLine, replaceFromCol)) originalText
+        after = dropUntil (toPos (replaceToLine, replaceToCol)) originalText
+        newText = before <> replaceWith <> after
+
+    -- | Take the first part of text until the given position.
+    -- Returns all characters before the position.
+    takeUntil :: Position -> T.Text -> T.Text
+    takeUntil (Position l c) txt =
+      T.unlines takeLines <> takeCharacters
+      where
+        textLines = T.lines txt
+        takeLines = take l textLines
+        takeCharacters = T.take c (textLines !! c)
+
+    -- | Drop the first part of text until the given position.
+    -- Returns all characters after and including the position.
+    dropUntil :: Position -> T.Text -> T.Text
+    dropUntil (Position l c) txt = dropCharacters
+      where
+        textLines = T.lines txt
+        dropLines = drop l textLines
+        dropCharacters = T.drop c (T.unlines dropLines)
+
+    runGhcModCommand :: IdeGhcM a
+                    -> IdeGhcM (IdeResult a)
+    runGhcModCommand cmd =
+      (IdeResultOk <$> cmd) `gcatch`
+        \(e :: GM.GhcModError) ->
+          return $
+          IdeResultFail $
+          IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Null

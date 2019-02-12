@@ -28,11 +28,7 @@ import qualified Safe
 hfaAlignDescriptor :: PluginId -> PluginDescriptor
 hfaAlignDescriptor plId = PluginDescriptor
   { pluginId = plId
-  , pluginName = "Align Equals"
-  , pluginDesc = "An example of writing an HIE plugin\nbased on http://www.haskellforall.com/2018/10/detailed-walkthrough-for-beginner.html"
-  , pluginCommands =
-      [ PluginCommand "align" "Align = in active range" alignCmd
-      ]
+  , pluginCommands = [ PluginCommand "Align = in active range" "align" alignCmd ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Nothing
@@ -48,8 +44,8 @@ data AlignParams = AlignParams
   }
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
-alignCmd :: CommandFunc AlignParams J.WorkspaceEdit
-alignCmd = CmdSync $ \(AlignParams uri rg) -> do
+alignCmd :: AlignParams -> IdeGhcM (IdeResult J.WorkspaceEdit)
+alignCmd (AlignParams uri rg) = do
   mtext <- getRangeFromVFS uri rg
   case mtext of
     Nothing -> return $ IdeResultOk $ J.WorkspaceEdit Nothing Nothing

@@ -36,15 +36,9 @@ type HintTitle = T.Text
 applyRefactDescriptor :: PluginId -> PluginDescriptor
 applyRefactDescriptor plId = PluginDescriptor
   { pluginId = plId
-  , pluginName = "ApplyRefact"
-  , pluginDesc = "apply-refact applies refactorings specified by the refact package. It is currently integrated into hlint to enable the automatic application of suggestions."
-  , pluginCommands =
-      [ PluginCommand "applyOne" "Apply a single hint" applyOneCmd
-      , PluginCommand "applyAll" "Apply all hints to the file" applyAllCmd
-      , PluginCommand "lint" "Run hlint on the file to generate hints" lintCmd
-      ]
+  , pluginCommands = [ PluginCommand "Apply one" "applyOne" applyOneCmd ]
   , pluginCodeActionProvider = Just codeActionProvider
-  , pluginDiagnosticProvider = Nothing
+  , pluginDiagnosticProvider = Nothing -- TODO should something be here?
   , pluginHoverProvider = Nothing
   , pluginSymbolProvider = Nothing
   , pluginFormattingProvider = Nothing
@@ -64,12 +58,9 @@ data OneHint = OneHint
   , oneHintTitle :: HintTitle
   } deriving (Eq, Show)
 
-applyOneCmd :: CommandFunc ApplyOneParams WorkspaceEdit
-applyOneCmd = CmdSync $ \(AOP uri pos title) -> do
-  applyOneCmd' uri (OneHint pos title)
-
-applyOneCmd' :: Uri -> OneHint -> IdeGhcM (IdeResult WorkspaceEdit)
-applyOneCmd' uri oneHint = pluginGetFile "applyOne: " uri $ \fp -> do
+applyOneCmd :: ApplyOneParams -> IdeGhcM (IdeResult WorkspaceEdit)
+applyOneCmd (AOP uri pos title) = pluginGetFile "applyOne: " uri $ \fp -> do
+      let oneHint = OneHint pos title
       revMapp <- GM.mkRevRedirMapFunc
       res <- GM.withMappedFile fp $ \file' -> liftToGhc $ applyHint file' (Just oneHint) revMapp
       logm $ "applyOneCmd:file=" ++ show fp
@@ -82,12 +73,8 @@ applyOneCmd' uri oneHint = pluginGetFile "applyOne: " uri $ \fp -> do
 
 -- ---------------------------------------------------------------------
 
-applyAllCmd :: CommandFunc Uri WorkspaceEdit
-applyAllCmd = CmdSync $ \uri -> do
-  applyAllCmd' uri
-
-applyAllCmd' :: Uri -> IdeGhcM (IdeResult WorkspaceEdit)
-applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \fp -> do
+applyAllCmd :: Uri -> IdeGhcM (IdeResult WorkspaceEdit)
+applyAllCmd uri = pluginGetFile "applyAll: " uri $ \fp -> do
       revMapp <- GM.mkRevRedirMapFunc
       res <- GM.withMappedFile fp $ \file' -> liftToGhc $ applyHint file' Nothing revMapp
       logm $ "applyAllCmd:res=" ++ show res
@@ -98,13 +85,9 @@ applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \fp -> do
 
 -- ---------------------------------------------------------------------
 
-lintCmd :: CommandFunc Uri PublishDiagnosticsParams
-lintCmd = CmdSync $ \uri -> do
-  lintCmd' uri
-
 -- AZ:TODO: Why is this in IdeGhcM?
-lintCmd' :: Uri -> IdeGhcM (IdeResult PublishDiagnosticsParams)
-lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
+lintCmd :: Uri -> IdeGhcM (IdeResult PublishDiagnosticsParams)
+lintCmd uri = pluginGetFile "lintCmd: " uri $ \fp -> do
       res <- GM.withMappedFile fp $ \file' -> liftIO $ runExceptT $ runLintCmd file' []
       case res of
         Left diags ->

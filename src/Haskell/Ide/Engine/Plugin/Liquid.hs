@@ -36,12 +36,7 @@ import           Text.Parsec.Text
 liquidDescriptor :: PluginId -> PluginDescriptor
 liquidDescriptor plId = PluginDescriptor
   { pluginId = plId
-  , pluginName = "Liquid Haskell"
-  , pluginDesc = "Integration with Liquid Haskell"
-  , pluginCommands =
-      [ PluginCommand "sayHello"   "say hello"                        sayHelloCmd
-      , PluginCommand "sayHelloTo" "say hello to the passed in param" sayHelloToCmd
-      ]
+  , pluginCommands = []
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Just (DiagnosticProvider
                                     (S.singleton DiagnosticOnSave)
@@ -50,26 +45,6 @@ liquidDescriptor plId = PluginDescriptor
   , pluginSymbolProvider     = Nothing
   , pluginFormattingProvider = Nothing
   }
-
--- ---------------------------------------------------------------------
-
-sayHelloCmd :: CommandFunc () T.Text
-sayHelloCmd = CmdSync $ \_ -> return (IdeResultOk sayHello)
-
-sayHelloToCmd :: CommandFunc T.Text T.Text
-sayHelloToCmd = CmdSync $ \n -> do
-  r <- liftIO $ sayHelloTo n
-  return $ IdeResultOk r
-
--- ---------------------------------------------------------------------
-
-sayHello :: T.Text
-sayHello = "hello from ExamplePlugin2"
-
-sayHelloTo :: T.Text -> IO T.Text
-sayHelloTo n = return $ "hello " <> n <> " from ExamplePlugin2"
-
--- ---------------------------------------------------------------------
 
 data LiquidJson
   = LJ

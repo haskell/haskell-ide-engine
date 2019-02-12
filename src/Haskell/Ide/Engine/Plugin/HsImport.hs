@@ -34,9 +34,7 @@ import           System.IO
 hsimportDescriptor :: PluginId -> PluginDescriptor
 hsimportDescriptor plId = PluginDescriptor
   { pluginId = plId
-  , pluginName = "HsImport"
-  , pluginDesc = "A tool for extending the import list of a Haskell source file."
-  , pluginCommands = [PluginCommand "import" "Import a module" importCmd]
+  , pluginCommands = [PluginCommand "Import module" "import" importCmd]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Nothing
@@ -50,11 +48,8 @@ data ImportParams = ImportParams
   }
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
-importCmd :: CommandFunc ImportParams J.WorkspaceEdit
-importCmd = CmdSync $ \(ImportParams uri modName) -> importModule uri modName
-
-importModule :: Uri -> T.Text -> IdeGhcM (IdeResult J.WorkspaceEdit)
-importModule uri modName =
+importCmd :: ImportParams -> IdeGhcM (IdeResult J.WorkspaceEdit)
+importCmd (ImportParams uri modName) =
   pluginGetFile "hsimport cmd: " uri $ \origInput -> do
 
     shouldFormat <- formatOnImportOn <$> getConfig

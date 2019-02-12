@@ -26,8 +26,6 @@ data FormatParams = FormatParams Int Uri (Maybe Range)
 brittanyDescriptor :: PluginId -> PluginDescriptor
 brittanyDescriptor plId = PluginDescriptor
   { pluginId       = plId
-  , pluginName     = "Brittany"
-  , pluginDesc     = "Brittany is a tool to format source code."
   , pluginCommands = []
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Nothing

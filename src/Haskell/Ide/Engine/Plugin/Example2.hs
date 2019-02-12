@@ -26,12 +26,10 @@ import qualified Language.Haskell.LSP.Types.Lens as J
 example2Descriptor :: PluginId -> PluginDescriptor
 example2Descriptor plId = PluginDescriptor
   { pluginId = plId
-  , pluginName = "Hello World"
-  , pluginDesc = "An example of writing an HIE plugin"
   , pluginCommands =
-      [ PluginCommand "sayHello" "say hello" sayHelloCmd
-      , PluginCommand "sayHelloTo ""say hello to the passed in param" sayHelloToCmd
-      , PluginCommand "todo" "Add a TODO marker" todoCmd
+      [ PluginCommand "Say hello" "sayHello" sayHelloCmd
+      , PluginCommand "Say hello to" "sayHelloTo" sayHelloToCmd
+      , PluginCommand "Add TODO marker" "todo" todoCmd
       ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider
@@ -43,11 +41,11 @@ example2Descriptor plId = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-sayHelloCmd :: CommandFunc () T.Text
-sayHelloCmd = CmdSync $ \_ -> return (IdeResultOk sayHello)
+sayHelloCmd :: () -> IdeGhcM (IdeResult T.Text)
+sayHelloCmd () = return (IdeResultOk sayHello)
 
-sayHelloToCmd :: CommandFunc T.Text T.Text
-sayHelloToCmd = CmdSync $ \n -> do
+sayHelloToCmd :: T.Text -> IdeGhcM (IdeResult T.Text)
+sayHelloToCmd n = do
   r <- liftIO $ sayHelloTo n
   return $ IdeResultOk r
 
@@ -82,11 +80,8 @@ data TodoParams = TodoParams
   }
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
-todoCmd :: CommandFunc TodoParams J.WorkspaceEdit
-todoCmd = CmdSync $ \(TodoParams uri r) -> return $ IdeResultOk $ makeTodo uri r
-
-makeTodo :: J.Uri -> J.Range -> J.WorkspaceEdit
-makeTodo uri (J.Range (J.Position startLine _) _) = res
+todoCmd :: TodoParams -> IdeGhcM (IdeResult J.WorkspaceEdit)
+todoCmd (TodoParams uri (J.Range (J.Position startLine _) _)) = return $ IdeResultOk res
   where
     pos = J.Position startLine 0
     textEdits = J.List

@@ -29,7 +29,6 @@ import           Haskell.Ide.Engine.Plugin.GhcMod
 import           Haskell.Ide.Engine.Plugin.HaRe
 import           Haskell.Ide.Engine.Plugin.Haddock
 import           Haskell.Ide.Engine.Plugin.HfaAlign
-import           Haskell.Ide.Engine.Plugin.Hoogle
 import           Haskell.Ide.Engine.Plugin.HsImport
 import           Haskell.Ide.Engine.Plugin.Liquid
 import           Haskell.Ide.Engine.Plugin.Package
@@ -51,7 +50,6 @@ plugins includeExamples = pluginDescToIdePlugins allPlugins
       , ghcmodDescriptor      "ghcmod"
       , haddockDescriptor     "haddock"
       , hareDescriptor        "hare"
-      , hoogleDescriptor      "hoogle"
       , hsimportDescriptor    "hsimport"
       , liquidDescriptor      "liquid"
       , packageDescriptor     "package"
@@ -59,8 +57,8 @@ plugins includeExamples = pluginDescToIdePlugins allPlugins
       , floskellDescriptor    "floskell"
       ]
     examplePlugins =
-      [example2Descriptor "eg2"
-      ,hfaAlignDescriptor "hfaa"
+      [ example2Descriptor "eg2"
+      , hfaAlignDescriptor "hfaa"
       ]
 
 -- ---------------------------------------------------------------------

@@ -22,7 +22,6 @@ import qualified Data.Set                          as Set
 import qualified Data.Text                         as T
 import           ErrUtils
 import           Name
-import           GHC.Generics
 import qualified GhcMod                            as GM
 import qualified GhcMod.DynFlags                   as GM
 import qualified GhcMod.Error                      as GM
@@ -30,7 +29,6 @@ import qualified GhcMod.Gap                        as GM
 import qualified GhcMod.ModuleLoader               as GM
 import qualified GhcMod.Monad                      as GM
 import qualified GhcMod.SrcUtils                   as GM
-import qualified GhcMod.Types                      as GM
 import qualified GhcMod.Utils                      as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
@@ -54,17 +52,7 @@ import           Outputable                        (renderWithStyle, mkUserStyle
 ghcmodDescriptor :: PluginId -> PluginDescriptor
 ghcmodDescriptor plId = PluginDescriptor
   { pluginId = plId
-  , pluginName = "ghc-mod"
-  , pluginDesc = "ghc-mod is a backend program to enrich Haskell programming "
-              <> "in editors. It strives to offer most of the features one has come to expect "
-              <> "from modern IDEs in any editor."
-  , pluginCommands =
-      [ PluginCommand "check" "check a file for GHC warnings and errors" checkCmd
-      , PluginCommand "lint" "Check files using `hlint'" lintCmd
-      , PluginCommand "info" "Look up an identifier in the context of FILE (like ghci's `:info')" infoCmd
-      , PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmd
-      , PluginCommand "casesplit" "Generate a pattern match for a binding under (LINE,COL)" Hie.splitCaseCmd
-      ]
+  , pluginCommands = []
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Just hoverProvider
@@ -76,9 +64,6 @@ ghcmodDescriptor plId = PluginDescriptor
 
 type Diagnostics = Map.Map Uri (Set.Set Diagnostic)
 type AdditionalErrs = [T.Text]
-
-checkCmd :: CommandFunc Uri (Diagnostics, AdditionalErrs)
-checkCmd = CmdSync setTypecheckedModule
 
 -- ---------------------------------------------------------------------
 
@@ -227,54 +212,6 @@ setTypecheckedModule uri =
     return $ IdeResultOk (diags2,errs)
 
 -- ---------------------------------------------------------------------
-
-lintCmd :: CommandFunc Uri T.Text
-lintCmd = CmdSync lintCmd'
-
-lintCmd' :: Uri -> IdeGhcM (IdeResult T.Text)
-lintCmd' uri =
-  pluginGetFile "lint: " uri $ \file ->
-    fmap T.pack <$> Hie.runGhcModCommand (GM.lint GM.defaultLintOpts file)
-
--- ---------------------------------------------------------------------
-
-customOptions :: Options
-customOptions = defaultOptions { fieldLabelModifier = camelTo2 '_' . drop 2}
-
-data InfoParams =
-  IP { ipFile :: Uri
-     , ipExpr :: T.Text
-     } deriving (Eq,Show,Generic)
-
-instance FromJSON InfoParams where
-  parseJSON = genericParseJSON customOptions
-instance ToJSON InfoParams where
-  toJSON = genericToJSON customOptions
-
-infoCmd :: CommandFunc InfoParams T.Text
-infoCmd = CmdSync $ \(IP uri expr) ->
-  infoCmd' uri expr
-
-infoCmd' :: Uri -> T.Text -> IdeGhcM (IdeResult T.Text)
-infoCmd' uri expr =
-  pluginGetFile "info: " uri $ \file ->
-    fmap T.pack <$> Hie.runGhcModCommand (GM.info file (GM.Expression (T.unpack expr)))
-
--- ---------------------------------------------------------------------
-data TypeParams =
-  TP { tpIncludeConstraints :: Bool
-     , tpFile               :: Uri
-     , tpPos                :: Position
-     } deriving (Eq,Show,Generic)
-
-instance FromJSON TypeParams where
-  parseJSON = genericParseJSON customOptions
-instance ToJSON TypeParams where
-  toJSON = genericToJSON customOptions
-
-typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
-typeCmd = CmdSync $ \(TP _bool uri pos) ->
-  liftToGhc $ newTypeCmd pos uri
 
 newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
 newTypeCmd newPos uri =

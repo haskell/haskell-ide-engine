@@ -21,11 +21,10 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , mkLspCmdId
   -- * Plugins
   , PluginId
-  , CommandName
+  , CommandId
   , PluginDescriptor(..)
   , pluginDescToIdePlugins
   , PluginCommand(..)
-  , CommandFunc(..)
   , runPluginCommand
   , DynamicJSON
   , dynToJSON
@@ -154,7 +153,7 @@ instance HasPidCache IO where
 instance HasPidCache m => HasPidCache (IdeResultT m) where
   getPidCache = lift getPidCache
 
-mkLspCommand :: HasPidCache m => PluginId -> CommandName -> T.Text -> Maybe [Value] -> m Command
+mkLspCommand :: HasPidCache m => PluginId -> CommandId -> T.Text -> Maybe [Value] -> m Command
 mkLspCommand plid cn title args' = do
   cmdId <- mkLspCmdId plid cn
   let args = List <$> args'
@@ -163,9 +162,9 @@ mkLspCommand plid cn title args' = do
 allLspCmdIds :: HasPidCache m => IdePlugins -> m [T.Text]
 allLspCmdIds (IdePlugins m) = concat <$> mapM go (Map.toList (pluginCommands <$> m))
   where
-    go (plid, cmds) = mapM (mkLspCmdId plid . commandName) cmds
+    go (plid, cmds) = mapM (mkLspCmdId plid . commandId) cmds
 
-mkLspCmdId :: HasPidCache m => PluginId -> CommandName -> m T.Text
+mkLspCmdId :: HasPidCache m => PluginId -> CommandId -> m T.Text
 mkLspCmdId plid cn = do
   pid <- T.pack . show <$> getPidCache
   return $ pid <> ":" <> plid <> ":" <> cn
@@ -214,8 +213,6 @@ type FormattingProvider = Uri -> FormattingType -> FormattingOptions -> IdeDefer
 
 data PluginDescriptor =
   PluginDescriptor { pluginId                 :: PluginId
-                   , pluginName               :: T.Text
-                   , pluginDesc               :: T.Text
                    , pluginCommands           :: [PluginCommand]
                    , pluginCodeActionProvider :: Maybe CodeActionProvider
                    , pluginDiagnosticProvider :: Maybe DiagnosticProvider
@@ -228,14 +225,13 @@ instance Show PluginCommand where
   show (PluginCommand name _ _) = "PluginCommand { name = " ++ T.unpack name ++ " }"
 
 type PluginId = T.Text
-type CommandName = T.Text
+type CommandId = T.Text
 
-newtype CommandFunc a b = CmdSync (a -> IdeGhcM (IdeResult b))
-
+-- TODO: unify with lsp
 data PluginCommand = forall a b. (FromJSON a, ToJSON b, Typeable b) =>
-  PluginCommand { commandName :: CommandName
-                , commandDesc :: T.Text
-                , commandFunc :: CommandFunc a b
+  PluginCommand { commandTitle :: T.Text
+                , commandId    :: CommandId
+                , commandFunc  :: a -> IdeGhcM (IdeResult b)
                 }
 
 pluginDescToIdePlugins :: [PluginDescriptor] -> IdePlugins
@@ -252,19 +248,19 @@ fromDynJSON = CD.fromDynamic
 toDynJSON :: (Typeable a, ToJSON a) => a -> DynamicJSON
 toDynJSON = CD.toDyn
 
--- | Runs a plugin command given a PluginId, CommandName and
+-- | Runs a plugin command given a PluginId, CommandId and
 -- arguments in the form of a JSON object.
-runPluginCommand :: PluginId -> CommandName -> Value
+runPluginCommand :: PluginId -> CommandId -> Value
                   -> IdeGhcM (IdeResult DynamicJSON)
 runPluginCommand p com arg = do
   IdePlugins m <- getPlugins
   case Map.lookup p m of
     Nothing -> return $
       IdeResultFail $ IdeError UnknownPlugin ("Plugin " <> p <> " doesn't exist") Null
-    Just (PluginDescriptor { pluginCommands = xs }) -> case List.find ((com ==) . commandName) xs of
+    Just (PluginDescriptor { pluginCommands = xs }) -> case List.find ((com ==) . commandId) xs of
       Nothing -> return $ IdeResultFail $
-        IdeError UnknownCommand ("Command " <> com <> " isn't defined for plugin " <> p <> ". Legal commands are: " <> T.pack(show $ map commandName xs)) Null
-      Just (PluginCommand _ _ (CmdSync f)) -> case fromJSON arg of
+        IdeError UnknownCommand ("Command " <> com <> " isn't defined for plugin " <> p <> ". Legal commands are: " <> T.pack(show $ map commandId xs)) Null
+      Just (PluginCommand _ _ f) -> case fromJSON arg of
         Error err -> return $ IdeResultFail $
           IdeError ParameterError ("error while parsing args for " <> com <> " in plugin " <> p <> ": " <> T.pack err) Null
         Success a -> do
@@ -276,10 +272,6 @@ newtype IdePlugins = IdePlugins
   { ipMap :: Map.Map PluginId PluginDescriptor
   } deriving (Generic)
 
--- TODO:AZ this is a defective instance, do we actually need it?
--- Perhaps rather make a separate type explicitly for this purpose.
-instance ToJSON IdePlugins where
-  toJSON (IdePlugins m) = toJSON $ fmap (\x -> (commandName x, commandDesc x)) <$> fmap pluginCommands m
 
 -- | For the diagnostic providers in the config, return a map of
 -- current enabled state, indexed by the plugin id.

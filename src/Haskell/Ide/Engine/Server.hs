@@ -532,7 +532,7 @@ reactor inp diagIn = do
               newName  = params ^. J.newName
               callback = reactorSend . RspRename . Core.makeResponseMessage req
           let hreq = GReq tn (Just doc) Nothing (Just $ req ^. J.id) callback
-                       $ HaRe.renameCmd' doc pos newName
+                       $ HaRe.renameCmd (HaRe.HPT doc pos newName)
           makeRequest hreq
 
 
@@ -680,7 +680,7 @@ reactor inp diagIn = do
               hreq = IReq tn (req ^. J.id) callback $ runIdeResultT $ case mquery of
                         Nothing -> return Nothing
                         Just query -> do
-                          result <- lift $ lift $ Hoogle.infoCmd' query
+                          result <- lift $ lift $ Hoogle.search query
                           case result of
                             Right x -> return $ Just x
                             _ -> return Nothing
@@ -913,7 +913,7 @@ requestDiagnosticsNormal tn file mVer = do
   when sendHlint $ do
     -- get hlint diagnostics
     let reql = GReq tn (Just file) (Just (file,ver)) Nothing callbackl
-                 $ ApplyRefact.lintCmd' file
+                 $ ApplyRefact.lintCmd file
         callbackl (PublishDiagnosticsParams fp (List ds))
              = sendOne "hlint" (fp, ds)
     makeRequest reql

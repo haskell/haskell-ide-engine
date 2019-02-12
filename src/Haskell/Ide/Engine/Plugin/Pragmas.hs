@@ -18,10 +18,8 @@ import qualified Language.Haskell.LSP.Types.Lens as J
 pragmasDescriptor :: PluginId -> PluginDescriptor
 pragmasDescriptor plId = PluginDescriptor
   { pluginId = plId
-  , pluginName = "Add Missing Pragmas"
-  , pluginDesc = "Provide code actions to add missing pragmas when GHC suggests this"
   , pluginCommands =
-      [ PluginCommand "addPragma" "add the given pragma" addPragmaCmd
+      [ PluginCommand "Add pragma" "addPragma" addPragmaCmd
       ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
@@ -38,8 +36,8 @@ data AddPragmaParams = AddPragmaParams
   }
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
-addPragmaCmd :: CommandFunc AddPragmaParams J.WorkspaceEdit
-addPragmaCmd = CmdSync $ \(AddPragmaParams uri pragmaName) -> do
+addPragmaCmd :: AddPragmaParams -> IdeGhcM (IdeResult J.WorkspaceEdit)
+addPragmaCmd (AddPragmaParams uri pragmaName) = do
   let
     pos = J.Position 0 0
     textEdits = J.List

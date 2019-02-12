@@ -55,7 +55,7 @@ testOptions = GM.defaultOptions {
 
 
 testCommand :: (ToJSON a, Typeable b, ToJSON b, Show b, Eq b)
-            => IdePlugins -> IdeGhcM (IdeResult b) -> PluginId -> CommandName -> a -> IdeResult b -> IO ()
+            => IdePlugins -> IdeGhcM (IdeResult b) -> PluginId -> CommandId -> a -> IdeResult b -> IO ()
 testCommand testPlugins act plugin cmd arg res = do
   (newApiRes, oldApiRes) <- runIGM testPlugins $ do
     new <- act
@@ -65,10 +65,10 @@ testCommand testPlugins act plugin cmd arg res = do
   fmap fromDynJSON oldApiRes `shouldBe` fmap Just res
 
 runSingleReq :: ToJSON a
-             => IdePlugins -> PluginId -> CommandName -> a -> IO (IdeResult DynamicJSON)
+             => IdePlugins -> PluginId -> CommandId -> a -> IO (IdeResult DynamicJSON)
 runSingleReq testPlugins plugin com arg = runIGM testPlugins (makeRequest plugin com arg)
 
-makeRequest :: ToJSON a => PluginId -> CommandName -> a -> IdeGhcM (IdeResult DynamicJSON)
+makeRequest :: ToJSON a => PluginId -> CommandId -> a -> IdeGhcM (IdeResult DynamicJSON)
 makeRequest plugin com arg = runPluginCommand plugin com (toJSON arg)
 
 runIGM :: IdePlugins -> IdeGhcM a -> IO a
