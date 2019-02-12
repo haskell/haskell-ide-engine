@@ -27,9 +27,9 @@ example2Descriptor :: PluginId -> PluginDescriptor
 example2Descriptor plId = PluginDescriptor
   { pluginId = plId
   , pluginCommands =
-      [ PluginCommand "Say hello" "sayHello" sayHelloCmd
-      , PluginCommand "Say hello to" "sayHelloTo" sayHelloToCmd
-      , PluginCommand "Add TODO marker" "todo" todoCmd
+      [ PluginCommand "sayHello" sayHelloCmd
+      , PluginCommand "sayHelloTo" sayHelloToCmd
+      , PluginCommand "todo" todoCmd
       ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider

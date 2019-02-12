@@ -45,15 +45,15 @@ hareDescriptor :: PluginId -> PluginDescriptor
 hareDescriptor plId = PluginDescriptor
   { pluginId = plId
   , pluginCommands =
-      [ PluginCommand "Demote definition" "demote" demoteCmd
-      , PluginCommand "Duplicate definition" "dupdef" dupdefCmd
-      , PluginCommand "Convert if to case" "iftocase" iftocaseCmd
-      , PluginCommand "Lift one level" "liftonelevel" liftonelevelCmd
-      , PluginCommand "Lift to top ""lifttotoplevel" lifttotoplevelCmd
-      , PluginCommand "Rename" "rename" renameCmd
-      , PluginCommand "Delete definition" "deletedef" deleteDefCmd
-      , PluginCommand "Generalise to applicative" "genapplicative" genApplicativeCommand
-      , PluginCommand "Split case" "casesplit" splitCaseCmd
+      [ PluginCommand "demote" demoteCmd
+      , PluginCommand "dupdef" dupdefCmd
+      , PluginCommand "iftocase" iftocaseCmd
+      , PluginCommand "liftonelevel" liftonelevelCmd
+      , PluginCommand "lifttotoplevel" lifttotoplevelCmd
+      , PluginCommand "rename" renameCmd
+      , PluginCommand "deletedef" deleteDefCmd
+      , PluginCommand "genapplicative" genApplicativeCommand
+      , PluginCommand "casesplit" splitCaseCmd
       ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing

@@ -221,18 +221,17 @@ data PluginDescriptor =
                    , pluginFormattingProvider :: Maybe FormattingProvider
                    } deriving (Generic)
 
-instance Show PluginCommand where
-  show (PluginCommand name _ _) = "PluginCommand { name = " ++ T.unpack name ++ " }"
-
 type PluginId = T.Text
 type CommandId = T.Text
 
--- TODO: unify with lsp
+-- TODO: Figure out a type-safer way to handle plugin + command ids
 data PluginCommand = forall a b. (FromJSON a, ToJSON b, Typeable b) =>
-  PluginCommand { commandTitle :: T.Text
-                , commandId    :: CommandId
-                , commandFunc  :: a -> IdeGhcM (IdeResult b)
+  PluginCommand { commandId   :: CommandId
+                , commandFunc :: a -> IdeGhcM (IdeResult b)
                 }
+
+instance Show PluginCommand where
+  show (PluginCommand name _) = "PluginCommand { name = " ++ T.unpack name ++ " }"
 
 pluginDescToIdePlugins :: [PluginDescriptor] -> IdePlugins
 pluginDescToIdePlugins plugins = IdePlugins $ Map.fromList $ map (\p -> (pluginId p, p)) plugins
@@ -257,10 +256,10 @@ runPluginCommand p com arg = do
   case Map.lookup p m of
     Nothing -> return $
       IdeResultFail $ IdeError UnknownPlugin ("Plugin " <> p <> " doesn't exist") Null
-    Just (PluginDescriptor { pluginCommands = xs }) -> case List.find ((com ==) . commandId) xs of
+    Just PluginDescriptor { pluginCommands = xs } -> case List.find ((com ==) . commandId) xs of
       Nothing -> return $ IdeResultFail $
         IdeError UnknownCommand ("Command " <> com <> " isn't defined for plugin " <> p <> ". Legal commands are: " <> T.pack(show $ map commandId xs)) Null
-      Just (PluginCommand _ _ f) -> case fromJSON arg of
+      Just (PluginCommand _ f) -> case fromJSON arg of
         Error err -> return $ IdeResultFail $
           IdeError ParameterError ("error while parsing args for " <> com <> " in plugin " <> p <> ": " <> T.pack err) Null
         Success a -> do

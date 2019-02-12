@@ -36,7 +36,7 @@ type HintTitle = T.Text
 applyRefactDescriptor :: PluginId -> PluginDescriptor
 applyRefactDescriptor plId = PluginDescriptor
   { pluginId = plId
-  , pluginCommands = [ PluginCommand "Apply one" "applyOne" applyOneCmd ]
+  , pluginCommands = [ PluginCommand "applyOne" applyOneCmd ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing -- TODO should something be here?
   , pluginHoverProvider = Nothing

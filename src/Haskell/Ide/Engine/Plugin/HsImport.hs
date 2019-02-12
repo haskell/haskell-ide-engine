@@ -34,7 +34,7 @@ import           System.IO
 hsimportDescriptor :: PluginId -> PluginDescriptor
 hsimportDescriptor plId = PluginDescriptor
   { pluginId = plId
-  , pluginCommands = [PluginCommand "Import module" "import" importCmd]
+  , pluginCommands = [PluginCommand "import" importCmd]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Nothing

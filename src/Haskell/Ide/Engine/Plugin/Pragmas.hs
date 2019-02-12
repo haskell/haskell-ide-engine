@@ -19,7 +19,7 @@ pragmasDescriptor :: PluginId -> PluginDescriptor
 pragmasDescriptor plId = PluginDescriptor
   { pluginId = plId
   , pluginCommands =
-      [ PluginCommand "Add pragma" "addPragma" addPragmaCmd
+      [ PluginCommand "addPragma" addPragmaCmd
       ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing

@@ -53,7 +53,7 @@ import qualified Data.Yaml as Y
 packageDescriptor :: T.Text -> PluginDescriptor
 packageDescriptor plId = PluginDescriptor
   { pluginId       = plId
-  , pluginCommands = [PluginCommand "Add a package" "add" addCmd]
+  , pluginCommands = [PluginCommand "add" addCmd]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Nothing

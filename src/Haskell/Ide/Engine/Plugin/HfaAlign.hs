@@ -28,7 +28,7 @@ import qualified Safe
 hfaAlignDescriptor :: PluginId -> PluginDescriptor
 hfaAlignDescriptor plId = PluginDescriptor
   { pluginId = plId
-  , pluginCommands = [ PluginCommand "Align = in active range" "align" alignCmd ]
+  , pluginCommands = [ PluginCommand "align" alignCmd ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Nothing
