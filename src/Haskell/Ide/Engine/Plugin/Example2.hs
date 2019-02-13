@@ -23,9 +23,9 @@ import qualified Language.Haskell.LSP.Types.Lens as J
 
 -- ---------------------------------------------------------------------
 
-example2Descriptor :: PluginId -> PluginDescriptor
-example2Descriptor plId = PluginDescriptor
-  { pluginId = plId
+example2Descriptor :: PluginDescriptor
+example2Descriptor = PluginDescriptor
+  { pluginId = "eg2"
   , pluginCommands =
       [ PluginCommand "sayHello" sayHelloCmd
       , PluginCommand "sayHelloTo" sayHelloToCmd

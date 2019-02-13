@@ -39,26 +39,26 @@ import           Haskell.Ide.Engine.Plugin.Floskell
 
 -- | This will be read from a configuration, eventually
 plugins :: Bool -> IdePlugins
-plugins includeExamples = pluginDescToIdePlugins allPlugins
+plugins includeExamples = mkIdePlugins allPlugins
   where
     allPlugins = if includeExamples
                    then basePlugins ++ examplePlugins
                    else basePlugins
     basePlugins =
-      [ applyRefactDescriptor "applyrefact"
-      , brittanyDescriptor    "brittany"
-      , ghcmodDescriptor      "ghcmod"
-      , haddockDescriptor     "haddock"
-      , hareDescriptor        "hare"
-      , hsimportDescriptor    "hsimport"
-      , liquidDescriptor      "liquid"
-      , packageDescriptor     "package"
-      , pragmasDescriptor     "pragmas"
-      , floskellDescriptor    "floskell"
+      [ applyRefactDescriptor
+      , brittanyDescriptor
+      , ghcmodDescriptor
+      , haddockDescriptor
+      , hareDescriptor
+      , hsimportDescriptor
+      , liquidDescriptor
+      , packageDescriptor
+      , pragmasDescriptor
+      , floskellDescriptor
       ]
     examplePlugins =
-      [ example2Descriptor "eg2"
-      , hfaAlignDescriptor "hfaa"
+      [ example2Descriptor
+      , hfaAlignDescriptor
       ]
 
 -- ---------------------------------------------------------------------

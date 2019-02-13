@@ -25,9 +25,9 @@ import qualified Safe
 
 -- ---------------------------------------------------------------------
 
-hfaAlignDescriptor :: PluginId -> PluginDescriptor
-hfaAlignDescriptor plId = PluginDescriptor
-  { pluginId = plId
+hfaAlignDescriptor :: PluginDescriptor
+hfaAlignDescriptor = PluginDescriptor
+  { pluginId = "hfaa"
   , pluginCommands = [ PluginCommand "align" alignCmd ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing

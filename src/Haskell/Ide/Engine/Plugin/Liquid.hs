@@ -33,9 +33,9 @@ import           Text.Parsec.Text
 
 -- ---------------------------------------------------------------------
 
-liquidDescriptor :: PluginId -> PluginDescriptor
-liquidDescriptor plId = PluginDescriptor
-  { pluginId = plId
+liquidDescriptor :: PluginDescriptor
+liquidDescriptor = PluginDescriptor
+  { pluginId = "liquid"
   , pluginCommands = []
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Just (DiagnosticProvider

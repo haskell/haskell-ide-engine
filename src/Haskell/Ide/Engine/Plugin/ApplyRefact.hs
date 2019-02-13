@@ -33,9 +33,9 @@ import           Refact.Apply
 
 type HintTitle = T.Text
 
-applyRefactDescriptor :: PluginId -> PluginDescriptor
-applyRefactDescriptor plId = PluginDescriptor
-  { pluginId = plId
+applyRefactDescriptor :: PluginDescriptor
+applyRefactDescriptor = PluginDescriptor
+  { pluginId = "applyrefact"
   , pluginCommands = [ PluginCommand "applyOne" applyOneCmd ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing -- TODO should something be here?

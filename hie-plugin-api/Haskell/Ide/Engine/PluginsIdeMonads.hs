@@ -20,10 +20,11 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , allLspCmdIds
   , mkLspCmdId
   -- * Plugins
+  , IdePlugins
+  , mkIdePlugins
   , PluginId
   , CommandId
   , PluginDescriptor(..)
-  , pluginDescToIdePlugins
   , PluginCommand(..)
   , runPluginCommand
   , DynamicJSON
@@ -40,7 +41,6 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , SymbolProvider
   , FormattingType(..)
   , FormattingProvider
-  , IdePlugins(..)
   , getDiagnosticProvidersConfig
   -- * IDE monads
   , IdeState(..)
@@ -160,7 +160,7 @@ mkLspCommand plid cn title args' = do
   return $ Command title cmdId args
 
 allLspCmdIds :: HasPidCache m => IdePlugins -> m [T.Text]
-allLspCmdIds (IdePlugins m) = concat <$> mapM go (Map.toList (pluginCommands <$> m))
+allLspCmdIds m = concat <$> mapM go (Map.toList (pluginCommands <$> m))
   where
     go (plid, cmds) = mapM (mkLspCmdId plid . commandId) cmds
 
@@ -233,9 +233,6 @@ data PluginCommand = forall a b. (FromJSON a, ToJSON b, Typeable b) =>
 instance Show PluginCommand where
   show (PluginCommand name _) = "PluginCommand { name = " ++ T.unpack name ++ " }"
 
-pluginDescToIdePlugins :: [PluginDescriptor] -> IdePlugins
-pluginDescToIdePlugins plugins = IdePlugins $ Map.fromList $ map (\p -> (pluginId p, p)) plugins
-
 type DynamicJSON = CD.ConstrainedDynamic ToJSON
 
 dynToJSON :: DynamicJSON -> Value
@@ -252,7 +249,7 @@ toDynJSON = CD.toDyn
 runPluginCommand :: PluginId -> CommandId -> Value
                   -> IdeGhcM (IdeResult DynamicJSON)
 runPluginCommand p com arg = do
-  IdePlugins m <- getPlugins
+  m <- getPlugins
   case Map.lookup p m of
     Nothing -> return $
       IdeResultFail $ IdeError UnknownPlugin ("Plugin " <> p <> " doesn't exist") Null
@@ -267,10 +264,10 @@ runPluginCommand p com arg = do
             return $ fmap toDynJSON res
 
 -- | a Description of the available commands stored in IdeGhcM
-newtype IdePlugins = IdePlugins
-  { ipMap :: Map.Map PluginId PluginDescriptor
-  } deriving (Generic)
+type IdePlugins = Map.Map PluginId PluginDescriptor
 
+mkIdePlugins :: [PluginDescriptor] -> IdePlugins
+mkIdePlugins = Map.fromList . map (\x -> (pluginId x, x))
 
 -- | For the diagnostic providers in the config, return a map of
 -- current enabled state, indexed by the plugin id.

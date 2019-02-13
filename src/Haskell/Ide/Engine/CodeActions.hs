@@ -36,9 +36,7 @@ handleCodeActionReq tn req = do
   let docId = J.VersionedTextDocumentIdentifier docUri docVersion
 
   let getProvider p = pluginCodeActionProvider p <*> return (pluginId p)
-      getProviders = do
-        IdePlugins m <- getPlugins
-        return $ IdeResultOk $ mapMaybe getProvider $ toList m
+      getProviders = IdeResultOk . mapMaybe getProvider . toList <$> getPlugins
 
       providersCb providers =
         let reqs = map (\f -> lift (f docId range context)) providers

@@ -15,9 +15,9 @@ import qualified Language.Haskell.LSP.Types.Lens as J
 
 -- ---------------------------------------------------------------------
 
-pragmasDescriptor :: PluginId -> PluginDescriptor
-pragmasDescriptor plId = PluginDescriptor
-  { pluginId = plId
+pragmasDescriptor :: PluginDescriptor
+pragmasDescriptor = PluginDescriptor
+  { pluginId = "pragmas"
   , pluginCommands =
       [ PluginCommand "addPragma" addPragmaCmd
       ]

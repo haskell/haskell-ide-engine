@@ -23,9 +23,9 @@ import           Data.Maybe (maybeToList)
 data FormatParams = FormatParams Int Uri (Maybe Range)
      deriving (Eq, Show, Generic, FromJSON, ToJSON)
 
-brittanyDescriptor :: PluginId -> PluginDescriptor
-brittanyDescriptor plId = PluginDescriptor
-  { pluginId       = plId
+brittanyDescriptor :: PluginDescriptor
+brittanyDescriptor = PluginDescriptor
+  { pluginId       = "brittany"
   , pluginCommands = []
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Nothing

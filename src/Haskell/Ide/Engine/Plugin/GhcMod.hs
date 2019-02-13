@@ -49,9 +49,9 @@ import           Outputable                        (renderWithStyle, mkUserStyle
 
 -- ---------------------------------------------------------------------
 
-ghcmodDescriptor :: PluginId -> PluginDescriptor
-ghcmodDescriptor plId = PluginDescriptor
-  { pluginId = plId
+ghcmodDescriptor :: PluginDescriptor
+ghcmodDescriptor = PluginDescriptor
+  { pluginId = "ghcmod"
   , pluginCommands = []
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing

@@ -37,9 +37,9 @@ import           Packages
 import Documentation.Haddock
 import Documentation.Haddock.Types
 
-haddockDescriptor :: PluginId -> PluginDescriptor
-haddockDescriptor plId = PluginDescriptor
-  { pluginId = plId
+haddockDescriptor :: PluginDescriptor
+haddockDescriptor = PluginDescriptor
+  { pluginId = "haddock"
   , pluginCommands = []
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Nothing

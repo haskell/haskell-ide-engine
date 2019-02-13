@@ -50,9 +50,9 @@ import           Distribution.Types.CondTree
 import qualified Distribution.PackageDescription.PrettyPrint as PP
 import qualified Data.Yaml as Y
 
-packageDescriptor :: T.Text -> PluginDescriptor
-packageDescriptor plId = PluginDescriptor
-  { pluginId       = plId
+packageDescriptor :: PluginDescriptor
+packageDescriptor = PluginDescriptor
+  { pluginId       = "package"
   , pluginCommands = [PluginCommand "add" addCmd]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing

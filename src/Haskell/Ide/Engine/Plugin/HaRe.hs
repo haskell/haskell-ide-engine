@@ -41,9 +41,9 @@ import           Language.Haskell.Refact.Utils.Monad          hiding (logm)
 
 -- ---------------------------------------------------------------------
 
-hareDescriptor :: PluginId -> PluginDescriptor
-hareDescriptor plId = PluginDescriptor
-  { pluginId = plId
+hareDescriptor :: PluginDescriptor
+hareDescriptor = PluginDescriptor
+  { pluginId = "hare"
   , pluginCommands =
       [ PluginCommand "demote" demoteCmd
       , PluginCommand "dupdef" dupdefCmd

@@ -31,9 +31,9 @@ import qualified Haskell.Ide.Engine.Plugin.Brittany
 import           System.Directory
 import           System.IO
 
-hsimportDescriptor :: PluginId -> PluginDescriptor
-hsimportDescriptor plId = PluginDescriptor
-  { pluginId = plId
+hsimportDescriptor :: PluginDescriptor
+hsimportDescriptor = PluginDescriptor
+  { pluginId = "hsimport"
   , pluginCommands = [PluginCommand "import" importCmd]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing

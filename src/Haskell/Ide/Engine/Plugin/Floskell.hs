@@ -13,9 +13,9 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           Floskell
 
-floskellDescriptor :: PluginId -> PluginDescriptor
-floskellDescriptor plId = PluginDescriptor
-  { pluginId                 = plId
+floskellDescriptor :: PluginDescriptor
+floskellDescriptor = PluginDescriptor
+  { pluginId                 = "floskell"
   , pluginCommands           = []
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Nothing

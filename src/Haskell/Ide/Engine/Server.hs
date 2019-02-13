@@ -163,20 +163,20 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
           explode (pid,DiagnosticProvider tr f) = map (\t -> (t,[(pid,f)])) $ S.elems tr
 
           providers :: [(PluginId,DiagnosticProvider)]
-          providers = concatMap pp $ Map.toList (ipMap plugins)
+          providers = concatMap pp $ Map.toList plugins
 
           pp (p,pd) = case pluginDiagnosticProvider pd of
             Nothing -> []
             Just dpf -> [(p,dpf)]
 
       hps :: [HoverProvider]
-      hps = mapMaybe pluginHoverProvider $ Map.elems $ ipMap plugins
+      hps = mapMaybe pluginHoverProvider $ Map.elems plugins
 
       sps :: [SymbolProvider]
-      sps = mapMaybe pluginSymbolProvider $ Map.elems $ ipMap plugins
+      sps = mapMaybe pluginSymbolProvider $ Map.elems plugins
 
       fps :: Map.Map PluginId FormattingProvider
-      fps = Map.mapMaybe pluginFormattingProvider $ ipMap plugins
+      fps = Map.mapMaybe pluginFormattingProvider plugins
 
   flip E.finally finalProc $ do
     CTRL.run (getConfigFromNotification, dp) (hieHandlers rin) (hieOptions commandIds) captureFp
