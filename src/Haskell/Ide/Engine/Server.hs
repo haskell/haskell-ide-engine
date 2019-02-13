@@ -680,7 +680,7 @@ reactor inp diagIn = do
               hreq = IReq tn (req ^. J.id) callback $ runIdeResultT $ case mquery of
                         Nothing -> return Nothing
                         Just query -> do
-                          result <- lift $ lift $ Hoogle.search query
+                          result <- lift $ lift $ Hoogle.info query
                           case result of
                             Right x -> return $ Just x
                             _ -> return Nothing

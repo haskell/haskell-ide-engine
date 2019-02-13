@@ -44,8 +44,8 @@ initializeHoogleDb = do
   else
     return Nothing
 
-search :: T.Text -> IdeM (Either HoogleError T.Text)
-search expr = do
+info :: T.Text -> IdeM (Either HoogleError T.Text)
+info expr = do
   HoogleDb mdb <- get
   liftIO $ runHoogleQuery mdb expr $ \res ->
       if null res then
@@ -53,8 +53,8 @@ search expr = do
       else
         return $ T.pack $ targetInfo $ head res
 
-searchFancyRender :: T.Text -> IdeM (Either HoogleError T.Text)
-searchFancyRender expr = do
+infoFancyRender :: T.Text -> IdeM (Either HoogleError T.Text)
+infoFancyRender expr = do
   HoogleDb mdb <- get
   liftIO $ runHoogleQuery mdb expr $ \res ->
       if null res then
@@ -84,6 +84,12 @@ renderTarget t = T.intercalate "\n\n" $
 
 ------------------------------------------------------------------------
 
+lookup :: Int -> T.Text -> IdeM (Either HoogleError [T.Text])
+lookup n term = do
+  HoogleDb mdb <- get
+  liftIO $ runHoogleQuery mdb term
+    (Right . map (T.pack . targetResultDisplay False) . take n)
+
 searchModules :: T.Text -> IdeM [T.Text]
 searchModules = fmap (nub . take 5) . searchTargets (fmap (T.pack . fst) . targetModule)
 
@@ -105,6 +111,8 @@ runHoogleQuery Nothing _ _ = return $ Left NoDb
 runHoogleQuery (Just db) quer f = do
   res <- withDatabase db (return . flip searchDatabase (T.unpack quer))
   return (f res)
+
+
 ------------------------------------------------------------------------
 
 docRules :: Maybe T.Text -> T.Text -> T.Text
@@ -126,7 +134,7 @@ getDocsForName name pkg modName' = do
            <> " module:" <> modName
            <> " is:exact"
   debugm $ "hoogle query: " ++ T.unpack query
-  res <- searchFancyRender query
+  res <- infoFancyRender query
   case res of
     Right x -> return $ Just x
     Left _ -> return Nothing
