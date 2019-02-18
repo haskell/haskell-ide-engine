@@ -48,6 +48,7 @@ liquidDescriptor plId = PluginDescriptor
                                     (DiagnosticProviderAsync diagnosticProvider))
   , pluginHoverProvider      = Just hoverProvider
   , pluginSymbolProvider     = Nothing
+  , pluginFormattingProvider = Nothing
   }
 
 -- ---------------------------------------------------------------------

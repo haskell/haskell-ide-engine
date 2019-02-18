@@ -12,7 +12,7 @@ import           Data.Aeson
 import qualified Data.HashMap.Strict           as H
 import qualified GHC.Generics                  as Generics
 import           Haskell.Ide.Engine.MonadTypes hiding (_range)
-import           Haskell.Ide.Engine.Plugin.HieExtras
+import           Haskell.Ide.Engine.PluginUtils
 import qualified Language.Haskell.LSP.Types      as J
 import qualified Language.Haskell.LSP.Types.Lens as J
 
@@ -37,6 +37,7 @@ hfaAlignDescriptor plId = PluginDescriptor
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Nothing
   , pluginSymbolProvider = Nothing
+  , pluginFormattingProvider = Nothing
   }
 
 -- ---------------------------------------------------------------------
@@ -49,7 +50,7 @@ data AlignParams = AlignParams
 
 alignCmd :: CommandFunc AlignParams J.WorkspaceEdit
 alignCmd = CmdSync $ \(AlignParams uri rg) -> do
-  mtext <- liftToGhc $ getRangeFromVFS uri rg
+  mtext <- getRangeFromVFS uri rg
   case mtext of
     Nothing -> return $ IdeResultOk $ J.WorkspaceEdit Nothing Nothing
     Just txt -> do

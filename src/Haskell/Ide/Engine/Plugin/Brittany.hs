@@ -11,13 +11,12 @@ import           Data.Coerce
 import           Data.Semigroup
 import           Data.Text                             (Text)
 import qualified Data.Text                             as T
-import qualified Data.Text.IO                          as T
 import           GHC.Generics
-import qualified GhcMod.Utils                          as GM
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           Language.Haskell.Brittany
 import qualified Language.Haskell.LSP.Types            as J
+import qualified Language.Haskell.LSP.Types.Lens       as J
 import           System.FilePath (FilePath, takeDirectory)
 import           Data.Maybe (maybeToList)
 
@@ -29,28 +28,22 @@ brittanyDescriptor plId = PluginDescriptor
   { pluginId       = plId
   , pluginName     = "Brittany"
   , pluginDesc     = "Brittany is a tool to format source code."
-  , pluginCommands = [ PluginCommand "format"
-                                     "Format a range of text or document"
-                                     cmd
-                     ]
+  , pluginCommands = []
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Nothing
   , pluginSymbolProvider = Nothing
+  , pluginFormattingProvider = Just provider
   }
- where
-  cmd :: CommandFunc FormatParams [J.TextEdit]
-  cmd =
-    CmdSync $ \(FormatParams tabSize uri range) -> brittanyCmd tabSize uri range
 
-brittanyCmd :: Int -> Uri -> Maybe Range -> IdeGhcM (IdeResult [J.TextEdit])
-brittanyCmd tabSize uri range =
-  pluginGetFile "brittanyCmd: " uri $ \file -> do
-    confFile <- liftIO $ getConfFile file
-    text <- GM.withMappedFile file $ liftIO . T.readFile
-    case range of
-      Just r -> do
-        -- format selection
+provider :: FormattingProvider
+provider uri formatType opts = pluginGetFile "brittanyCmd: " uri $ \file -> do
+  confFile <- liftIO $ getConfFile file
+  mtext <- readVFS uri
+  case mtext of
+    Nothing -> return $ IdeResultFail (IdeError InternalError "File was not open" Null)
+    Just text -> case formatType of
+      FormatRange r -> do
         res <- liftIO $ runBrittany tabSize confFile $ extractRange r text
         case res of
           Left err -> return $ IdeResultFail (IdeError PluginError
@@ -58,30 +51,14 @@ brittanyCmd tabSize uri range =
           Right newText -> do
             let textEdit = J.TextEdit (normalize r) newText
             return $ IdeResultOk [textEdit]
-      Nothing -> do
-        -- format document
+      FormatDocument -> do
         res <- liftIO $ runBrittany tabSize confFile text
         case res of
           Left err -> return $ IdeResultFail (IdeError PluginError
                       (T.pack $ "brittanyCmd: " ++ unlines (map showErr err)) Null)
-          Right newText -> do
-            let startPos = Position 0 0
-                endPos = Position lastLine 0
-                {-
-                In order to replace everything including newline characters,
-                the end range should extend below the last line. From the specification:
-                "If you want to specify a range that contains a line including
-                the line ending character(s) then use an end position denoting
-                the start of the next line"
-                -}
-                lastLine = length $ T.lines text
-                textEdit = J.TextEdit (Range startPos endPos) newText
-            return $ IdeResultOk [textEdit]
-
-extractRange :: Range -> Text -> Text
-extractRange (Range (Position sl _) (Position el _)) s = newS
-  where focusLines = take (el-sl+1) $ drop sl $ T.lines s
-        newS = T.unlines focusLines
+          Right newText ->
+            return $ IdeResultOk [J.TextEdit (fullRange text) newText]
+  where tabSize = opts ^. J.tabSize
 
 normalize :: Range -> Range
 normalize (Range (Position sl _) (Position el _)) =

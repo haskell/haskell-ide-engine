@@ -1,5 +1,5 @@
 name:                haskell-ide-engine
-version:             0.5.0.0
+version:             0.6.0.0
 synopsis:            Provide a common engine to power any Haskell IDE
 description:         Please see README.md
 homepage:            http://github.com/githubuser/haskell-ide-engine#readme
@@ -29,6 +29,7 @@ library
                        Haskell.Ide.Engine.Plugin.Brittany
                        Haskell.Ide.Engine.Plugin.Build
                        Haskell.Ide.Engine.Plugin.Example2
+                       Haskell.Ide.Engine.Plugin.Floskell
                        Haskell.Ide.Engine.Plugin.Fuzzy
                        Haskell.Ide.Engine.Plugin.GhcMod
                        Haskell.Ide.Engine.Plugin.HaRe
@@ -60,6 +61,7 @@ library
                      , data-default
                      , directory
                      , filepath
+                     , floskell
                      , fold-debounce
                      , ghc >= 8.0.1
                      , ghc-exactprint
@@ -166,7 +168,6 @@ test-suite unit-test
   hs-source-dirs:      test/unit
   main-is:             Main.hs
   other-modules:       ApplyRefactPluginSpec
-                       BrittanySpec
                        CodeActionsSpec
                        DiffSpec
                        ExtensibleStateSpec

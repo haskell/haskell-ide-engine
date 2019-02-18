@@ -274,14 +274,14 @@ Install **Nightly** (and hoogle docs):
 
 ```bash
 stack ./install.hs hie-8.6.3
-stack ./install.hs build-doc-8.6.3
+stack ./install.hs build-doc-hie-8.6.3
 ```
 
 Install **LTS** (and hoogle docs):
 
 ```bash
 stack ./install.hs hie-8.4.4
-stack ./install.hs build-doc-8.4.4
+stack ./install.hs build-doc-hie-8.4.4
 ```
 
 #### Install *all* available GHC versions with Shake
