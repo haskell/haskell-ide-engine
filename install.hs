@@ -92,13 +92,13 @@ main = do
     phony "cabal-build" $ do
       ghcPaths <- findInstalledGhcs
       let ghcVersions = map fst ghcPaths
-      need (reverse $ map ("cabal-hie-" ++) ghcVersions)
+      need (map ("cabal-hie-" ++) ghcVersions)
 
     phony "cabal-build-all" (need ["cabal-build"] >> need ["cabal-build-docs"])
     phony "cabal-build-docs" $ do
       ghcPaths <- findInstalledGhcs
       let ghcVersions = map fst ghcPaths
-      need (reverse $ map ("cabal-build-doc-hie-" ++) ghcVersions)
+      need (map ("cabal-build-doc-hie-" ++) ghcVersions)
 
     -- phony "cabal-test" (forM_ hieVersions stackTest)
     forM_
@@ -187,7 +187,8 @@ configureCabal versionNumber = do
       liftIO $ putStrLn $ embedInStars (ghcVersionNotFound versionNumber)
       error (ghcVersionNotFound versionNumber)
     Just p -> return p
-  execCabal_ ["new-configure", "-w", ghcPath, "--write-ghc-environment-files=never"]
+  execCabal_
+    ["new-configure", "-w", ghcPath, "--write-ghc-environment-files=never"]
 
 findInstalledGhcs :: Action [(VersionNumber, GhcPath)]
 findInstalledGhcs = foldM
@@ -205,8 +206,19 @@ cabalBuildHie = execCabal_ ["new-build", "--write-ghc-environment-files=never"]
 
 cabalInstallHie :: VersionNumber -> Action ()
 cabalInstallHie versionNumber = do
-  execCabal_ ["new-install", "--write-ghc-environment-files=never", "exe:hie", "--overwrite-policy=always"]
-  execCabal_ ["new-install", "--write-ghc-environment-files=never", "exe:hie", "--overwrite-policy=always", "--program-suffix=-" ++ versionNumber]
+  execCabal_
+    [ "new-install"
+    , "--write-ghc-environment-files=never"
+    , "exe:hie"
+    , "--overwrite-policy=always"
+    ]
+  execCabal_
+    [ "new-install"
+    , "--write-ghc-environment-files=never"
+    , "exe:hie"
+    , "--overwrite-policy=always"
+    , "--program-suffix=-" ++ versionNumber
+    ]
 
 cabalBuildDoc :: VersionNumber -> Action ()
 cabalBuildDoc versionNumber = do
@@ -423,5 +435,7 @@ embedInStars str =
 -- |No suitable ghc version has been found.
 ghcVersionNotFound :: VersionNumber -> String
 ghcVersionNotFound versionNumber =
-  "No GHC with version " <> versionNumber <> " has been found.\n"
-  <> "Either install a fitting GHC, use the stack targets or modify the PATH variable accordingly."
+  "No GHC with version "
+    <> versionNumber
+    <> " has been found.\n"
+    <> "Either install a fitting GHC, use the stack targets or modify the PATH variable accordingly."
