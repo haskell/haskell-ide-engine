@@ -206,19 +206,16 @@ cabalBuildHie = execCabal_ ["new-build", "--write-ghc-environment-files=never"]
 
 cabalInstallHie :: VersionNumber -> Action ()
 cabalInstallHie versionNumber = do
+  localBin <- getLocalBin
   execCabal_
     [ "new-install"
     , "--write-ghc-environment-files=never"
+    , "--symlink-bindir=" ++ localBin
     , "exe:hie"
     , "--overwrite-policy=always"
     ]
-  execCabal_
-    [ "new-install"
-    , "--write-ghc-environment-files=never"
-    , "exe:hie"
-    , "--overwrite-policy=always"
-    , "--program-suffix=-" ++ versionNumber
-    ]
+  copyFile' (localBin </> "hie" <.> exe) (localBin </> "hie-" ++ versionNumber <.> exe)
+  copyFile' (localBin </> "hie" <.> exe) (localBin </> "hie-" ++ dropExtension versionNumber <.> exe)
 
 cabalBuildDoc :: VersionNumber -> Action ()
 cabalBuildDoc versionNumber = do
@@ -253,7 +250,7 @@ buildFailMsg =
 stackInstallHie :: VersionNumber -> Action ()
 stackInstallHie versionNumber = do
   execStackWithYaml_ versionNumber ["install"]
-  localBinDir      <- getLocalBin versionNumber
+  localBinDir      <- getLocalBin
   localInstallRoot <- getLocalInstallRoot versionNumber
   let hie = "hie" <.> exe
   copyFile' (localInstallRoot </> "bin" </> hie)
@@ -415,10 +412,10 @@ getLocalInstallRoot hieVersion = do
 
 -- |Get the local binary path of stack.
 -- Equal to the command `stack path --local-bin`
-getLocalBin :: VersionNumber -> Action FilePath
-getLocalBin versionNumber = do
-  Stdout stackLocalDir' <- execStackWithYaml versionNumber
-                                             ["path", "--local-bin"]
+getLocalBin :: Action FilePath
+getLocalBin = do
+  Stdout stackLocalDir' <- execStack
+                                             ["path", "--stack-yaml=shake.yaml", "--local-bin"]
   return $ trim stackLocalDir'
 
 -- |Trim the end of a string
