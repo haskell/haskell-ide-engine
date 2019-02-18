@@ -209,9 +209,13 @@ helpMessage = do
     target ++ replicate (space - length target) ' ' ++ msg
 
   -- |Target for a specific ghc version
-  hieTarget :: String -> (String, String)
+  hieTarget :: VersionNumber -> (String, String)
   hieTarget version =
     ("hie-" ++ version, "Builds hie for GHC version " ++ version ++ " only")
+
+  buildDocHieTarget :: VersionNumber -> (String, String)
+  buildDocHieTarget version =
+    ("build-doc-hie-" ++ version, "Builds the Hoogle database for GHC version " ++ version ++ " only")
 
   allVersionMessage :: String
   allVersionMessage =
@@ -239,6 +243,7 @@ helpMessage = do
       , ("help"         , "Show help")
       ]
       ++ map hieTarget hieVersions
+      ++ map buildDocHieTarget hieVersions
 
 execStackWithYaml_ :: VersionNumber -> [String] -> Action ()
 execStackWithYaml_ versionNumber args = do
