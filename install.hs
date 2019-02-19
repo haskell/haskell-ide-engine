@@ -60,12 +60,12 @@ main = do
     phony "build"      (need (reverse $ map ("hie-" ++) hieVersions))
     phony "build-all"  (need ["build"] >> need ["build-docs"])
     phony "dist"       buildDist
-    phony "build-docs" (need (reverse $ map ("build-doc-hie-" ++) hieVersions))
+    phony "build-docs" (need (reverse $ map ("build-doc-" ++) hieVersions))
     phony "test"       (forM_ hieVersions test)
     phony "build-copy-compiler-tool" $ forM_ hieVersions buildCopyCompilerTool
 
     forM_ hieVersions
-          (\version -> phony ("build-doc-hie-" ++ version) $ buildDoc version)
+          (\version -> phony ("build-doc-" ++ version) $ buildDoc version)
 
     forM_
       hieVersions
@@ -209,9 +209,13 @@ helpMessage = do
     target ++ replicate (space - length target) ' ' ++ msg
 
   -- |Target for a specific ghc version
-  hieTarget :: String -> (String, String)
+  hieTarget :: VersionNumber -> (String, String)
   hieTarget version =
     ("hie-" ++ version, "Builds hie for GHC version " ++ version ++ " only")
+
+  buildDocTarget :: VersionNumber -> (String, String)
+  buildDocTarget version =
+    ("build-doc-" ++ version, "Builds the Hoogle database for GHC version " ++ version ++ " only")
 
   allVersionMessage :: String
   allVersionMessage =
@@ -239,6 +243,7 @@ helpMessage = do
       , ("help"         , "Show help")
       ]
       ++ map hieTarget hieVersions
+      ++ map buildDocTarget hieVersions
 
 execStackWithYaml_ :: VersionNumber -> [String] -> Action ()
 execStackWithYaml_ versionNumber args = do
