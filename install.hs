@@ -107,7 +107,9 @@ main = do
     phony "cabal-test" $ do
       need ["submodules"]
       need ["cabal"]
-      forM_ hieVersions cabalTest
+      ghcPaths <- findInstalledGhcs
+      let ghcVersions = map fst ghcPaths
+      forM_ ghcVersions cabalTest
 
     -- phony "cabal-test" (forM_ hieVersions stackTest)
     forM_
@@ -347,8 +349,10 @@ helpMessage = do
 
   -- All targets with their respective help message.
   generalTargets =
-    [ ("help" , "Show help")
-    , ("cabal", "Makes sure that Cabal the lib is available for cabal-helper-wapper, to speed up project start")
+    [ ("help", "Show help")
+    , ( "cabal"
+      , "Makes sure that Cabal the lib is available for cabal-helper-wapper, to speed up project start"
+      )
     , ("dist", "Creates a tarball containing all the hie binaries")
     ]
 
