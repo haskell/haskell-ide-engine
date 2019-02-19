@@ -62,6 +62,7 @@ cabal:
 build-docs: $(foreach version, $(GHC_VERSIONS), build-doc-$(version))
 .PHONY: build-docs
 
+## Builds the Hoogle database for GHC version % only
 build-doc-%:
 	stack --stack-yaml=stack-$*.yaml exec hoogle generate
 

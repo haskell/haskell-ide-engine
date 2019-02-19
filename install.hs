@@ -72,13 +72,17 @@ main = do
 
     -- stack specific targets
     phony "build"      (need (reverse $ map ("hie-" ++) hieVersions))
-    phony "build-all"  (need ["build"] >> need ["build-docs"])
-    phony "build-docs" (need (reverse $ map ("build-doc-hie-" ++) hieVersions))
-    phony "test"       (forM_ hieVersions stackTest)
+    phony "build-all"  (need ["build-docs", "build"])
+    phony "build-docs" (need (reverse $ map ("build-doc-" ++) hieVersions))
+    phony "test" $ do
+      need ["submodules"]
+      need ["cabal"]
+      forM_ hieVersions stackTest
+
     phony "build-copy-compiler-tool" $ forM_ hieVersions buildCopyCompilerTool
     forM_
       hieVersions
-      (\version -> phony ("build-doc-hie-" ++ version) $ stackBuildDoc version)
+      (\version -> phony ("build-doc-" ++ version) $ stackBuildDoc version)
     forM_
       hieVersions
       (\version -> phony ("hie-" ++ version) $ do
@@ -94,17 +98,23 @@ main = do
       let ghcVersions = map fst ghcPaths
       need (map ("cabal-hie-" ++) ghcVersions)
 
-    phony "cabal-build-all" (need ["cabal-build"] >> need ["cabal-build-docs"])
+    phony "cabal-build-all" (need ["cabal-build-docs", "cabal-build"])
     phony "cabal-build-docs" $ do
       ghcPaths <- findInstalledGhcs
       let ghcVersions = map fst ghcPaths
-      need (map ("cabal-build-doc-hie-" ++) ghcVersions)
+      need (map ("cabal-build-doc-" ++) ghcVersions)
+
+    phony "cabal-test" $ do
+      need ["submodules"]
+      need ["cabal"]
+      forM_ hieVersions cabalTest
 
     -- phony "cabal-test" (forM_ hieVersions stackTest)
     forM_
       hieVersions
-      (\version -> phony ("cabal-build-doc-hie-" ++ version) $ do
+      (\version -> phony ("cabal-build-doc-" ++ version) $ do
         need ["submodules"]
+        need ["cabal"]
         configureCabal version
         cabalBuildDoc version
       )
@@ -112,6 +122,7 @@ main = do
       hieVersions
       (\version -> phony ("cabal-hie-" ++ version) $ do
         need ["submodules"]
+        need ["cabal"]
         configureCabal version
         cabalBuildHie
         cabalInstallHie version
@@ -214,8 +225,10 @@ cabalInstallHie versionNumber = do
     , "exe:hie"
     , "--overwrite-policy=always"
     ]
-  copyFile' (localBin </> "hie" <.> exe) (localBin </> "hie-" ++ versionNumber <.> exe)
-  copyFile' (localBin </> "hie" <.> exe) (localBin </> "hie-" ++ dropExtension versionNumber <.> exe)
+  copyFile' (localBin </> "hie" <.> exe)
+            (localBin </> "hie-" ++ versionNumber <.> exe)
+  copyFile' (localBin </> "hie" <.> exe)
+            (localBin </> "hie-" ++ dropExtension versionNumber <.> exe)
 
 cabalBuildDoc :: VersionNumber -> Action ()
 cabalBuildDoc versionNumber = do
@@ -307,6 +320,22 @@ helpMessage = do
     , "Builds hie for GHC version " ++ version ++ " only with cabal new-build"
     )
 
+  stackBuildDocTarget :: VersionNumber -> (String, String)
+  stackBuildDocTarget version =
+    ( "build-doc-" ++ version
+    , "Builds the Hoogle database for GHC version "
+      ++ version
+      ++ " only with stack"
+    )
+
+  cabalBuildDocTarget :: VersionNumber -> (String, String)
+  cabalBuildDocTarget version =
+    ( "cabal-build-doc-" ++ version
+    , "Builds the Hoogle database for GHC version "
+      ++ version
+      ++ " only with cabal"
+    )
+
   allVersionMessage :: String
   allVersionMessage =
     let msg         = intersperse ", " hieVersions
@@ -339,7 +368,8 @@ helpMessage = do
         )
       , ("test", "Runs hie tests with stack")
       ]
-      ++ map stackHieTarget hieVersions
+      ++ map stackHieTarget      hieVersions
+      ++ map stackBuildDocTarget hieVersions
 
   cabalTargets =
     [ ( "cabal-ghcs"
@@ -356,7 +386,9 @@ helpMessage = do
         )
       , ("cabal-test", "Runs hie tests with cabal")
       ]
-      ++ map cabalHieTarget hieVersions
+      ++ map cabalHieTarget      hieVersions
+      ++ map cabalBuildDocTarget hieVersions
+
 
 execStackWithYaml_ :: VersionNumber -> [String] -> Action ()
 execStackWithYaml_ versionNumber args = do
@@ -415,7 +447,7 @@ getLocalInstallRoot hieVersion = do
 getLocalBin :: Action FilePath
 getLocalBin = do
   Stdout stackLocalDir' <- execStack
-                                             ["path", "--stack-yaml=shake.yaml", "--local-bin"]
+    ["path", "--stack-yaml=shake.yaml", "--local-bin"]
   return $ trim stackLocalDir'
 
 -- |Trim the end of a string
