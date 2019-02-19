@@ -348,7 +348,7 @@ helpMessage = do
   -- All targets with their respective help message.
   generalTargets =
     [ ("help" , "Show help")
-    , ("cabal", "NOTE 3: This is needed for stack only projects too")
+    , ("cabal", "Makes sure that Cabal the lib is available for cabal-helper-wapper, to speed up project start")
     , ("dist", "Creates a tarball containing all the hie binaries")
     ]
 
