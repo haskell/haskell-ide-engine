@@ -493,9 +493,9 @@ reactor configFile inp diagIn = do
         -- -------------------------------
 
         NotDidChangeTextDocument notification ->
-          configVal (onSaveOnly configFile) onSaveOnly >>= \flag -> if flag
-            then liftIO $ U.logm "****** reactor: not processing NotDidChangeTextDocument"
-            else do
+          configVal (onSaveOnly configFile) onSaveOnly >>= \case
+            True -> liftIO $ U.logm "****** reactor: not processing NotDidChangeTextDocument"
+            False -> do
               liftIO $ U.logm "****** reactor: processing NotDidChangeTextDocument"
               let
                   params = notification ^. J.params

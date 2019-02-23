@@ -1,15 +1,17 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE LambdaCase #-}
 module Haskell.Ide.Engine.Config where
 
 import           Data.Aeson
 import           Data.Default
-import           Data.Functor ((<&>))
 import           Control.Monad (join)
+import           Control.Applicative ((<**>))
+import           Data.Maybe (fromMaybe)
+import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as T
 import qualified Control.Exception as E (handle, IOException)
 import qualified System.Directory as SD (getCurrentDirectory, getHomeDirectory, doesFileExist)
 import           Language.Haskell.LSP.Types
+
 
 -- ---------------------------------------------------------------------
 
@@ -29,10 +31,8 @@ getConfigFromFileSystem root = E.handle onIOException go
     onIOException :: E.IOException -> IO Config
     onIOException _ = return def
     
-    parse :: FilePath -> IO Config
-    parse filePath = decodeFileStrict filePath <&> \case
-      Just x -> x
-      Nothing -> def
+    parse :: FilePath -> IO (Maybe Config)
+    parse filePath = LBS.readFile filePath <**> return decode
     
     go :: IO Config
     go = do
@@ -40,18 +40,20 @@ getConfigFromFileSystem root = E.handle onIOException go
       local <- checkForConfigFile =<< SD.getCurrentDirectory
       home <- checkForConfigFile =<< SD.getHomeDirectory
       case (suggested, local, home) of
-        (Just filePath, _, _) -> parse filePath
-        (_, Just filePath, _) -> parse filePath
-        (_, _, Just filePath) -> parse filePath
+        (Just filePath, _, _) -> fromMaybe def <$> parse filePath
+        (_, Just filePath, _) -> fromMaybe def <$> parse filePath
+        (_, _, Just filePath) -> fromMaybe def <$> parse filePath
         _ -> return def
     
     checkForConfigFile :: FilePath -> IO (Maybe FilePath)
-    checkForConfigFile dir = SD.doesFileExist settingsFilePath <&> \case
-      True -> Just settingsFilePath
-      _ -> Nothing
+    checkForConfigFile dir = SD.doesFileExist settingsFilePath <**> return f
       where
+        f :: Bool -> Maybe FilePath
+        f True = Just settingsFilePath
+        f False = Nothing
+        
         settingsFilePath :: FilePath
-        settingsFilePath = dir <> "/settings.json"
+        settingsFilePath = dir ++ "/settings.json"
 
 -- ---------------------------------------------------------------------
 
