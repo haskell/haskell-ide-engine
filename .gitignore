@@ -69,4 +69,3 @@ test-logs/
 
 # shake build information
 _build/
-/.hie.yaml

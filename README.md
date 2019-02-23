@@ -355,15 +355,29 @@ to VS Code user settings.
 ## Configuration
 There are some settings that can be configured via a `settings.json` file:
 
-```json
+```javascript
 {
     "languageServerHaskell": {
+        // Default: true.
         "hlintOn": Boolean,
-        "maxNumberOfProblems": Number
+        // Default: 100.
+        "maxNumberOfProblems": Number,
+        // Disables interactive “as you type“ linter/diagnostic feedback.
+        // Default: false.
+        "onSaveOnly": Boolean,
+        // Excludes argument types from autocomplete insertions (see “With regards to atom users” for elaboration).
+        // Default: false.
+        "noAutocompleteArguments": Boolean,
     }
 }
 ```
+> Note that the above comments are for field specific commentary and must be excluded in your real `settings.json` file.
 
+#### With regards to atom users:
+* If you are using the ‘linter’ package, setting “Lint on Change” to `false` will have no effect unless you create a `settings.json` file with the aforementioned `noAutocompleteArguments` option.
+* Completion insertions from the ‘linter’ or the ‘atom-ide-ui’ packages in conjunction with 'hie' and 'ide-haskell-hie' will include the argument types. E.g. selecting `mapM` will insert `mapM a -> m b t a` unless your `settings.json` file includes the aforementioned `noAutocompleteArguments` option.
+
+#### Misc.
 - VS Code: These settings will show up in the settings window
 - LanguageClient-neovim: Create this file in `$projectdir/.vim/settings.json` or set `g:LanguageClient_settingsPath`
 
