@@ -31,6 +31,7 @@ import qualified GhcMod.ModuleLoader               as GM
 import qualified GhcMod.Monad                      as GM
 import qualified GhcMod.SrcUtils                   as GM
 import qualified GhcMod.Types                      as GM
+import qualified GhcMod.Utils                      as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
@@ -182,7 +183,7 @@ setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     fileMap <- GM.getMMappedFiles
     debugm $ "setTypecheckedModule: file mapping state is: " ++ show fileMap
-    rfm <- return id --GM.mkRevRedirMapFunc
+    rfm <- GM.mkRevRedirMapFunc
     let
       ghcErrRes msg = ((Map.empty, [T.pack msg]),Nothing,Nothing)
     debugm "setTypecheckedModule: before ghc-mod"
