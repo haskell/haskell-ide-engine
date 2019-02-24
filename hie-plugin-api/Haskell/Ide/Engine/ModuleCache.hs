@@ -38,7 +38,6 @@ import           System.FilePath
 import qualified GhcMod.Cradle as GM
 import qualified GhcMod.Monad  as GM
 import qualified GhcMod.Types  as GM
-import qualified GhcMod.Utils  as GM
 import qualified GHC           as GHC
 
 import           Haskell.Ide.Engine.ArtifactMap
@@ -213,7 +212,7 @@ lookupCachedData fp tm info dat = do
 cacheModule :: FilePath -> (Either GHC.ParsedModule GHC.TypecheckedModule) -> IdeGhcM ()
 cacheModule uri modul = do
   uri' <- liftIO $ canonicalizePath uri
-  rfm <- GM.mkRevRedirMapFunc
+  rfm <- return id -- GM.mkRevRedirMapFunc
 
   newUc <-
     case modul of
