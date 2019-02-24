@@ -117,7 +117,6 @@ main = do
       (\version -> phony ("cabal-build-doc-" ++ version) $ do
         need ["submodules"]
         need ["cabal"]
-        configureCabal version
         cabalBuildDoc version
       )
     forM_
@@ -125,8 +124,7 @@ main = do
       (\version -> phony ("cabal-hie-" ++ version) $ do
         need ["submodules"]
         need ["cabal"]
-        configureCabal version
-        cabalBuildHie
+        cabalBuildHie version
         cabalInstallHie version
       )
 
@@ -214,8 +212,10 @@ findInstalledGhcs = foldM
   []
   hieVersions
 
-cabalBuildHie :: Action ()
-cabalBuildHie = execCabal_ ["new-build", "--write-ghc-environment-files=never"]
+cabalBuildHie :: VersionNumber -> Action ()
+cabalBuildHie versionNumber = do
+  configureCabal versionNumber
+  execCabal_ ["new-build", "--write-ghc-environment-files=never"]
 
 cabalInstallHie :: VersionNumber -> Action ()
 cabalInstallHie versionNumber = do
@@ -338,11 +338,16 @@ helpMessage = do
       ++ " only with cabal"
     )
 
-  allVersionMessage :: String
-  allVersionMessage =
-    let msg         = intersperse ", " hieVersions
-        lastVersion = last msg
-    in  concat $ (init $ init msg) ++ [" and ", lastVersion]
+  -- | Creates a message of the form "a, b, c and d", where a,b,c,d are GHC versions.
+  -- If there is no GHC in the list of `hieVersions`
+  allVersionMessage :: [String] -> String
+  allVersionMessage wordList = case wordList of
+    []  -> ""
+    [a] -> show a
+    (a : as) ->
+      let msg         = intersperse ", " wordList
+          lastVersion = last msg
+      in  concat $ (init $ init msg) ++ [" and ", lastVersion]
 
   -- All targets the shake file supports
   targets = generalTargets ++ stackTargets ++ cabalTargets ++ macosTargets
@@ -361,7 +366,7 @@ helpMessage = do
   stackTargets =
     [ ( "build"
       , "Builds hie for all supported GHC versions ("
-      ++ allVersionMessage
+      ++ allVersionMessage hieVersions
       ++ ")"
       )
       , ( "build-all"
@@ -393,7 +398,6 @@ helpMessage = do
       ++ map cabalHieTarget      hieVersions
       ++ map cabalBuildDocTarget hieVersions
 
-
 execStackWithYaml_ :: VersionNumber -> [String] -> Action ()
 execStackWithYaml_ versionNumber args = do
   let stackFile = "stack-" ++ versionNumber ++ ".yaml"
@@ -423,6 +427,9 @@ getStackGhcPath ghcVersion = do
 
 -- |Get the path to a GHC that has the version specified by `VersionNumber`
 -- If no such GHC can be found, Nothing is returned.
+-- First, it is checked whether there is a GHC with the name `ghc-$VersionNumber`.
+-- If this yields no result, it is checked, whether the numeric-version of the `ghc`
+-- command fits to the desired version. 
 getGhcPath :: VersionNumber -> Action (Maybe GhcPath)
 getGhcPath ghcVersion = do
   pathMay <- liftIO $ findExecutable ("ghc-" ++ ghcVersion)
@@ -458,14 +465,14 @@ getLocalBin = do
 trim :: String -> String
 trim = dropWhileEnd isSpace
 
--- |Embed a string within two lines of stars to improve readability.
+-- |Embed a string within two lines of stars to improve perceivability and, thus, readability.
 embedInStars :: String -> String
 embedInStars str =
   let starsLine
         = "\n******************************************************************\n"
   in  starsLine <> str <> starsLine
 
--- |No suitable ghc version has been found.
+-- |No suitable ghc version has been found. Show a message.
 ghcVersionNotFound :: VersionNumber -> String
 ghcVersionNotFound versionNumber =
   "No GHC with version "
