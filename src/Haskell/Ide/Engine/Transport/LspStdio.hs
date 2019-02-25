@@ -51,6 +51,7 @@ import           Haskell.Ide.Engine.LSP.CodeActions
 import           Haskell.Ide.Engine.LSP.Reactor
 import qualified Haskell.Ide.Engine.Plugin.HaRe          as HaRe
 import qualified Haskell.Ide.Engine.Plugin.GhcMod        as GhcMod
+import qualified Haskell.Ide.Engine.Plugin.Hhp           as Hhp
 import qualified Haskell.Ide.Engine.Plugin.ApplyRefact   as ApplyRefact
 import qualified Haskell.Ide.Engine.Plugin.Hoogle        as Hoogle
 import qualified Haskell.Ide.Engine.Plugin.HieExtras     as Hie
@@ -809,7 +810,7 @@ getFormattingProvider = do
       unless (providerName == "none") $ do
         let msg = providerName <> " is not a recognised plugin for formatting. Check your config"
         reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
-        reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg    
+        reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg
       return (\_ _ _ -> return (IdeResultOk [])) -- nop formatter
     Just provider -> return provider
 
@@ -918,7 +919,7 @@ requestDiagnosticsNormal tn file mVer = do
 
   -- get GHC diagnostics and loads the typechecked module into the cache
   let reqg = GReq tn (Just file) (Just (file,ver)) Nothing callbackg
-               $ GhcMod.setTypecheckedModule file
+               $ Hhp.setTypecheckedModule file
       callbackg (pd, errs) = do
         forM_ errs $ \e -> do
           reactorSend $ NotShowMessage $

@@ -32,6 +32,7 @@ library
                        Haskell.Ide.Engine.Plugin.Floskell
                        Haskell.Ide.Engine.Plugin.Fuzzy
                        Haskell.Ide.Engine.Plugin.GhcMod
+                       Haskell.Ide.Engine.Plugin.Hhp
                        Haskell.Ide.Engine.Plugin.HaRe
                        Haskell.Ide.Engine.Plugin.Haddock
                        Haskell.Ide.Engine.Plugin.HieExtras
@@ -94,6 +95,7 @@ library
                      , vector
                      , yaml >= 0.8.31
                      , yi-rope
+                     , hhp
   ghc-options:         -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror
