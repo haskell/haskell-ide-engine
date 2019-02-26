@@ -27,7 +27,7 @@ import           Haskell.Ide.Engine.Plugin.Base
 import           Haskell.Ide.Engine.Plugin.Brittany
 import           Haskell.Ide.Engine.Plugin.Build
 import           Haskell.Ide.Engine.Plugin.Example2
-import           Haskell.Ide.Engine.Plugin.Hhp
+import           Haskell.Ide.Engine.Plugin.Bios
 import           Haskell.Ide.Engine.Plugin.HaRe
 import           Haskell.Ide.Engine.Plugin.Haddock
 import           Haskell.Ide.Engine.Plugin.HfaAlign
@@ -61,7 +61,7 @@ plugins includeExamples = pluginDescToIdePlugins allPlugins
       , packageDescriptor     "package"
       , pragmasDescriptor     "pragmas"
       , floskellDescriptor    "floskell"
-      , hhpDescriptor "hpp"
+      , biosDescriptor        "bios"
       ]
     examplePlugins =
       [example2Descriptor "eg2"

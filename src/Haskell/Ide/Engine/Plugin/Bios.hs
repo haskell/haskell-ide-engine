@@ -5,7 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeFamilies        #-}
-module Haskell.Ide.Engine.Plugin.Hhp(setTypecheckedModule, hhpDescriptor) where
+module Haskell.Ide.Engine.Plugin.Bios(setTypecheckedModule, biosDescriptor) where
 
 import           Bag
 import           Control.Monad.IO.Class
@@ -51,18 +51,21 @@ import           HscTypes
 import           DataCon
 import           TcRnTypes
 import           Outputable hiding ((<>))
-import Hhp
-import qualified Hhp as HH
+import qualified HIE.Bios as BIOS
+import qualified HIE.Bios as BIOS
+-- This function should be defined in HIE probably, nothing in particular
+-- to do with BIOS
+import qualified HIE.Bios.GHCApi as BIOS (withDynFlags)
 import System.Directory
 
 
 -- ---------------------------------------------------------------------
 
-hhpDescriptor :: PluginId -> PluginDescriptor
-hhpDescriptor plId = PluginDescriptor
+biosDescriptor :: PluginId -> PluginDescriptor
+biosDescriptor plId = PluginDescriptor
   { pluginId = plId
-  , pluginName = "hhp"
-  , pluginDesc = "hhp"
+  , pluginName = "bios"
+  , pluginDesc = "bios"
   , pluginCommands =
       [ PluginCommand "check" "check a file for GHC warnings and errors" checkCmd ]
   , pluginCodeActionProvider = Nothing
@@ -153,7 +156,7 @@ myWrapper  rfm action = do
 
       handlers = errorHandlers ghcErrRes to_diag
       action' = do
-        r <- withDynFlags (setLogger . setDeferTypedHoles) action
+        r <- BIOS.withDynFlags (setLogger . setDeferTypedHoles) action
         diags <- liftIO $ readIORef diagRef
         errs <- liftIO $ readIORef errRef
         return (diags,errs, Just r)
@@ -188,14 +191,18 @@ setTypecheckedModule :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
 setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     debugm "setTypecheckedModule: before ghc-mod"
-    cradle <- liftIO $ findCradle fp
+    -- TODO: Need to get rid of this and only find the cradle once and
+    -- maintain it through the GHC session
+    cradle <- liftIO $ BIOS.findCradle fp
     let ghcErrRes msg = (Map.empty, [T.pack msg],Nothing)
     liftIO $ setCurrentDirectory "/home/matt/ghc"
     debugm (show cradle)
-    let opts = Hhp.defaultOptions
     debugm "Loading file"
     (diags', errs, mmods) <- GM.gcatches
-                          (myWrapper id $ liftIO $ HH.loadFile cradle opts fp)
+                          -- Likewise, this needs to NOT be in IO.
+                          -- The wrapper is broken because of this
+                          -- currently.
+                          (myWrapper id $ liftIO $ BIOS.loadFile cradle fp)
                           (errorHandlers ghcErrRes (pure . ghcErrRes . show))
     debugm "File, loaded"
     canonUri <- canonicalizeUri uri

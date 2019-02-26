@@ -10,3 +10,4 @@ packages:
          ./submodules/ghc-mod/core/
          ./submodules/floskell
          ../hhp
+-- profiling: true

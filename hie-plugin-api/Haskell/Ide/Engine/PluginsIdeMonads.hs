@@ -102,7 +102,7 @@ import           Data.Typeable                  ( TypeRep
 import qualified GhcMod.Monad                  as GM
 import qualified GhcMod.Types                  as GM
 import GhcMonad
-import qualified Hhp as HH
+import qualified HIE.Bios as BIOS
 import           GHC.Generics
 import           GHC                            ( HscEnv, GhcT )
 
@@ -304,7 +304,7 @@ instance GM.MonadIO (GhcT IdeM) where
 runIdeGhcM :: GM.Options -> IdePlugins -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeGhcM a -> IO a
 runIdeGhcM ghcModOptions plugins mlf stateVar f = do
   env <- IdeEnv <$> pure mlf <*> getProcessID <*> pure plugins
-  eres <- flip runReaderT stateVar $ flip runReaderT env $ HH.withGhcT f
+  eres <- flip runReaderT stateVar $ flip runReaderT env $ BIOS.withGhcT f
   return eres
   {-
   case eres of

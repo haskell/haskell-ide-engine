@@ -40,7 +40,7 @@ import qualified GhcMod.Monad  as GM
 import qualified GhcMod.Types  as GM
 import qualified GhcMod.Utils  as GM
 import qualified GHC           as GHC
-import qualified Hhp as HH
+import qualified HIE.Bios as BIOS
 
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.GhcModuleCache
@@ -56,9 +56,9 @@ modifyCache f = do
 
 -- ---------------------------------------------------------------------
 -- | Runs an IdeM action with the given Cradle
-withCradle :: GHC.GhcMonad m => HH.Cradle -> m a -> m a
+withCradle :: GHC.GhcMonad m => BIOS.Cradle -> m a -> m a
 withCradle crdl body = do
-  HH.initializeFlagsWithCradle crdl
+  BIOS.initializeFlagsWithCradle crdl
   body
 
   --GM.gmeLocal (\env -> env {GM.gmCradle = crdl})
@@ -77,7 +77,7 @@ runActionWithContext Nothing action = do
   liftIO $ setCurrentDirectory "/home/matt/ghc"
   action
 runActionWithContext (Just uri) action = do
-  crdl <- liftIO $ HH.findCradle uri
+  crdl <- liftIO $ BIOS.findCradle uri
   liftIO $ setCurrentDirectory "/home/matt/ghc"
   withCradle crdl action
 
