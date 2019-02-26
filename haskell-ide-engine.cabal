@@ -95,7 +95,7 @@ library
                      , vector
                      , yaml >= 0.8.31
                      , yi-rope
-                     , hhp
+                     , hie-bios
   ghc-options:         -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror

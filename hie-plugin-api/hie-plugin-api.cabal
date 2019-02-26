@@ -41,6 +41,7 @@ library
                      , free
                      , ghc
                      , ghc-mod-core >= 5.9.0.0
+                     , hie-bios
                      , haskell-lsp >= 0.8
                      , hslogger
                      , monad-control

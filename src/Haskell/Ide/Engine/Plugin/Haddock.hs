@@ -45,7 +45,7 @@ haddockDescriptor plId = PluginDescriptor
   , pluginCommands = []
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Nothing
-  , pluginHoverProvider = Just hoverProvider
+  , pluginHoverProvider = Nothing
   , pluginSymbolProvider = Nothing
   , pluginFormattingProvider = Nothing
   }

@@ -18,8 +18,8 @@ module Haskell.Ide.Engine.Plugin.HieExtras
   , HarePoint(..)
   , customOptions
   , runGhcModCommand
-  , splitCaseCmd'
-  , splitCaseCmd
+  -- , splitCaseCmd'
+  -- , splitCaseCmd
   ) where
 
 import           ConLike
@@ -622,6 +622,7 @@ runGhcModCommand cmd =
 
 -- ---------------------------------------------------------------------
 
+{-
 splitCaseCmd :: CommandFunc HarePoint WorkspaceEdit
 splitCaseCmd = CmdSync $ \(HP uri pos) -> splitCaseCmd' uri pos
 
@@ -677,6 +678,7 @@ splitCaseCmd' uri newPos =
         textLines = T.lines txt
         dropLines = drop l textLines
         dropCharacters = T.drop c (T.unlines dropLines)
+        -}
 
 -- ---------------------------------------------------------------------
 

@@ -6,7 +6,7 @@
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeFamilies        #-}
 module Haskell.Ide.Engine.Plugin.GhcMod where
-
+{-
 import           Bag
 import           Control.Monad.IO.Class
 import           Control.Lens hiding (cons, children)
@@ -63,7 +63,6 @@ ghcmodDescriptor plId = PluginDescriptor
       , PluginCommand "lint" "Check files using `hlint'" lintCmd
       , PluginCommand "info" "Look up an identifier in the context of FILE (like ghci's `:info')" infoCmd
       , PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmd
-      , PluginCommand "casesplit" "Generate a pattern match for a binding under (LINE,COL)" Hie.splitCaseCmd
       ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
@@ -786,3 +785,4 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
 
     symInfs <- concat <$> mapM declsToSymbolInf (imps ++ decls)
     return $ IdeResultOk symInfs
+    -}

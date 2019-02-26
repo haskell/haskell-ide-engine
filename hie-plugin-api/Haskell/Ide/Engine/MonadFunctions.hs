@@ -24,6 +24,7 @@ import qualified Data.Map as Map
 
 import Haskell.Ide.Engine.MultiThreadState
 import Haskell.Ide.Engine.PluginsIdeMonads
+import System.IO
 
 -- ---------------------------------------------------------------------
 
@@ -31,7 +32,7 @@ logm :: MonadIO m => String -> m ()
 logm s = liftIO $ infoM "hie" s
 
 debugm :: MonadIO m => String -> m ()
-debugm s = liftIO $ debugM "hie" s
+debugm s = liftIO $ hPutStrLn stderr s
 
 warningm :: MonadIO m => String -> m ()
 warningm s = liftIO $ warningM "hie" s

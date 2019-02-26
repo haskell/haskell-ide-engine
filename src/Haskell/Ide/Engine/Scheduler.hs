@@ -43,6 +43,7 @@ import           Haskell.Ide.Engine.PluginsIdeMonads
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
+import System.Directory
 
 
 -- | A Scheduler is a coordinator between the two main processes the ide engine uses
@@ -348,7 +349,7 @@ ghcDispatcher env@DispatcherEnv { docVersionTVar } errorHandler callbackHandler 
 -- | Runs the passed monad only if the request identified by the passed LspId
 -- has not already been cancelled.
 unlessCancelled
-  :: GM.MonadIO m => DispatcherEnv -> J.LspId -> ErrorHandler -> m () -> m ()
+  :: MonadIO m => DispatcherEnv -> J.LspId -> ErrorHandler -> m () -> m ()
 unlessCancelled env lid errorHandler callback = do
   cancelled <- liftIO $ STM.atomically isCancelled
   if cancelled

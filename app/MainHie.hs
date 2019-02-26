@@ -27,7 +27,7 @@ import           Haskell.Ide.Engine.Plugin.Base
 import           Haskell.Ide.Engine.Plugin.Brittany
 import           Haskell.Ide.Engine.Plugin.Build
 import           Haskell.Ide.Engine.Plugin.Example2
-import           Haskell.Ide.Engine.Plugin.GhcMod
+import           Haskell.Ide.Engine.Plugin.Hhp
 import           Haskell.Ide.Engine.Plugin.HaRe
 import           Haskell.Ide.Engine.Plugin.Haddock
 import           Haskell.Ide.Engine.Plugin.HfaAlign
@@ -52,7 +52,7 @@ plugins includeExamples = pluginDescToIdePlugins allPlugins
       , baseDescriptor        "base"
       , brittanyDescriptor    "brittany"
       , buildPluginDescriptor "build"
-      , ghcmodDescriptor      "ghcmod"
+      -- , ghcmodDescriptor      "ghcmod"
       , haddockDescriptor     "haddock"
       , hareDescriptor        "hare"
       , hoogleDescriptor      "hoogle"
@@ -61,6 +61,7 @@ plugins includeExamples = pluginDescToIdePlugins allPlugins
       , packageDescriptor     "package"
       , pragmasDescriptor     "pragmas"
       , floskellDescriptor    "floskell"
+      , hhpDescriptor "hpp"
       ]
     examplePlugins =
       [example2Descriptor "eg2"

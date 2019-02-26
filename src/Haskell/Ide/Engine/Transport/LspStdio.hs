@@ -246,9 +246,10 @@ mapFileFromVfs tn vtdi = do
           -- text = "{-# LINE 1 \"" ++ fp ++ "\"#-}\n" <> text'
       let req = GReq tn (Just uri) Nothing Nothing (const $ return ())
                   $ IdeResultOk <$> do
-                      GM.loadMappedFileSource fp text'
-                      fileMap <- GM.getMMappedFiles
-                      debugm $ "file mapping state is: " ++ show fileMap
+                      --GM.loadMappedFileSource fp text'
+                      --fileMap <- GM.getMMappedFiles
+                      --debugm $ "file mapping state is: " ++ show fileMap
+                      return ()
       updateDocumentRequest uri ver req
     (_, _) -> return ()
 

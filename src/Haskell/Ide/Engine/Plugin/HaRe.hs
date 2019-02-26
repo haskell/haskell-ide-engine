@@ -65,8 +65,6 @@ hareDescriptor plId = PluginDescriptor
       , PluginCommand "genapplicative" "Generalise a monadic function to use applicative"
           genApplicativeCommand
 
-      , PluginCommand "casesplit" "Generate a pattern match for a binding under (LINE,COL)"
-          Hie.splitCaseCmd
       ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
@@ -214,7 +212,8 @@ makeRefactorResult changedFiles = do
   let
     diffOne :: (FilePath, T.Text) -> IdeGhcM WorkspaceEdit
     diffOne (fp, newText) = do
-      origText <- GM.withMappedFile fp $ liftIO . T.readFile
+      origText <- liftIO $ T.readFile fp
+        -- GM.withMappedFile fp $ liftIO . T.readFile
       -- TODO: remove this logging once we are sure we have a working solution
       logm $ "makeRefactorResult:groupedDiff = " ++ show (getGroupedDiff (lines $ T.unpack origText) (lines $ T.unpack newText))
       logm $ "makeRefactorResult:diffops = " ++ show (diffToLineRanges $ getGroupedDiff (lines $ T.unpack origText) (lines $ T.unpack newText))
@@ -265,7 +264,12 @@ runHareCommand' cmd =
          handlers =
            [GM.GHandler (\(ErrorCall e) -> pure (Left e))
            ,GM.GHandler (\(err :: GM.GhcModError) -> pure (Left (show err)))]
-     fmap Right embeddedCmd `GM.gcatches` handlers
+
+     r <- liftIO $ GM.runGhcModT Language.Haskell.Refact.HaRe.defaultOptions (fmap Right embeddedCmd `GM.gcatches` handlers)
+     case r of
+       (Right err, _) -> return err
+       (Left err, _)  -> error (show err)
+
 
 -- ---------------------------------------------------------------------
 -- | This is like hoist from the mmorph package, but build on

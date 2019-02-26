@@ -59,8 +59,10 @@ importModule uri modName =
 
     shouldFormat <- formatOnImportOn <$> getConfig
 
-    fileMap <- GM.mkRevRedirMapFunc
-    GM.withMappedFile origInput $ \input -> do
+    fileMap <- return id -- TODO: GM.mkRevRedirMapFunc
+--    GM.withMappedFile origInput $ \input -> do
+    let input = origInput
+    do
 
       tmpDir            <- liftIO getTemporaryDirectory
       (output, outputH) <- liftIO $ openTempFile tmpDir "hsimportOutput"

@@ -42,6 +42,7 @@ import qualified GhcMod.Monad                      as GM
 import qualified GhcMod.SrcUtils                   as GM
 import qualified GhcMod.Types                      as GM
 import qualified GhcMod.Utils                      as GM
+import qualified GhcMod.Target                     as GM
 
 import           DynFlags
 import           GHC
@@ -51,6 +52,8 @@ import           DataCon
 import           TcRnTypes
 import           Outputable                        (renderWithStyle, mkUserStyle, Depth(..))
 import Hhp
+import qualified Hhp as HH
+import System.Directory
 
 
 -- ---------------------------------------------------------------------
@@ -186,14 +189,23 @@ setTypecheckedModule :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
 setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     debugm "setTypecheckedModule: before ghc-mod"
-    cradle <- liftIO $ findCradle
+    cradle <- liftIO $ findCradle fp
+
+    liftIO $ setCurrentDirectory "/home/matt/ghc"
+    debugm (show cradle)
     let opts = Hhp.defaultOptions
-    (pm, tm) <- liftIO $ loadFile cradle opts fp
-    let diags' = Map.empty
-        errs = []
+    debugm "Loading file"
+    (pm, tm) <- liftIO $ HH.loadFile cradle opts fp
+    debugm "File, loaded"
+    canonUri <- canonicalizeUri uri
+    let diags' = Map.insert canonUri (Set.singleton (Diagnostic (Range (Position 1 7) (Position 1 25))
+                            (Just DsHint)
+                            (Just "Redundant bracket")
+                            (Just "hlint")
+                            "Redundant bracket\nFound:\n  (putStrLn \"hello\")\nWhy not:\n  putStrLn \"hello\"\n" Nothing )) Map.empty
+        errs = ["does this do anything"]
     debugm "setTypecheckedModule: after ghc-mod"
 
-    canonUri <- canonicalizeUri uri
     let diags = Map.insertWith Set.union canonUri Set.empty diags'
     diags2 <- case (Just pm, Just tm) of
       (Just pm, Nothing) -> do
@@ -204,11 +216,11 @@ setTypecheckedModule uri =
 
       (_, Just tm) -> do
         debugm $ "setTypecheckedModule: Did get typechecked module for: " ++ show fp
-        sess <- fmap GM.gmgsSession . GM.gmGhcSession <$> GM.gmsGet
+        --sess <- fmap GM.gmgsSession . GM.gmGhcSession <$> GM.gmsGet
 
         -- set the session before we cache the module, so that deferred
         -- responses triggered by cacheModule can access it
-        modifyMTS (\s -> s {ghcSession = sess})
+        --modifyMTS (\s -> s {ghcSession = sess})
         cacheModule fp (Right tm)
         debugm "setTypecheckedModule: done"
         return diags

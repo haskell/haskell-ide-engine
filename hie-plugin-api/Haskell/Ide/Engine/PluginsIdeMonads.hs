@@ -101,8 +101,10 @@ import           Data.Typeable                  ( TypeRep
 
 import qualified GhcMod.Monad                  as GM
 import qualified GhcMod.Types                  as GM
+import GhcMonad
+import qualified Hhp as HH
 import           GHC.Generics
-import           GHC                            ( HscEnv )
+import           GHC                            ( HscEnv, GhcT )
 
 import           Haskell.Ide.Engine.Compat
 import           Haskell.Ide.Engine.Config
@@ -293,16 +295,19 @@ getDiagnosticProvidersConfig c = Map.fromList [("applyrefact",hlintOn c)
 -- ---------------------------------------------------------------------
 
 -- | IdeM that allows for interaction with the ghc-mod session
-type IdeGhcM = GM.GhcModT IdeM
+type IdeGhcM = GhcT IdeM
 
 -- | Run an IdeGhcM with Cradle found from the current directory
 runIdeGhcM :: GM.Options -> IdePlugins -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeGhcM a -> IO a
 runIdeGhcM ghcModOptions plugins mlf stateVar f = do
   env <- IdeEnv <$> pure mlf <*> getProcessID <*> pure plugins
-  (eres, _) <- flip runReaderT stateVar $ flip runReaderT env $ GM.runGhcModT ghcModOptions f
+  eres <- flip runReaderT stateVar $ flip runReaderT env $ HH.withGhcT f
+  return eres
+  {-
   case eres of
       Left err  -> liftIO $ throwIO err
       Right res -> return res
+      -}
 
 -- | A computation that is deferred until the module is cached.
 -- Note that the module may not typecheck, in which case 'UriCacheFailed' is passed
@@ -360,12 +365,15 @@ instance MonadIde IdeM where
 
   getPlugins = asks idePlugins
 
+instance MonadTrans GhcT where
+  lift m = liftGhcT m
+
 instance MonadIde IdeGhcM where
-  getRootPath = lift $ lift getRootPath
-  getVirtualFile = lift . lift . getVirtualFile
-  getConfig = lift $ lift getConfig
-  getClientCapabilities = lift $ lift getClientCapabilities
-  getPlugins = lift $ lift getPlugins
+  getRootPath = lift getRootPath
+  getVirtualFile = lift . getVirtualFile
+  getConfig = lift getConfig
+  getClientCapabilities = lift getClientCapabilities
+  getPlugins = lift getPlugins
 
 instance MonadIde IdeDeferM where
   getRootPath = lift getRootPath
@@ -383,12 +391,12 @@ data IdeState = IdeState
   }
 
 instance MonadMTState IdeState IdeGhcM where
-  readMTS = lift $ lift $ lift readMTS
-  modifyMTS = lift . lift . lift . modifyMTS
-
-instance MonadMTState IdeState IdeDeferM where
   readMTS = lift $ lift readMTS
   modifyMTS = lift . lift . modifyMTS
+
+instance MonadMTState IdeState IdeDeferM where
+  readMTS = lift readMTS
+  modifyMTS = lift . modifyMTS
 
 instance MonadMTState IdeState IdeM where
   readMTS = lift readMTS
@@ -401,14 +409,14 @@ instance GM.MonadIO IdeDeferM where
   liftIO = liftIO
 
 instance LiftsToGhc IdeM where
-  liftToGhc = lift . lift
+  liftToGhc = lift
 
 instance LiftsToGhc IdeGhcM where
   liftToGhc = id
 
 instance HasGhcModuleCache IdeGhcM where
-  getModuleCache = lift $ lift getModuleCache
-  setModuleCache = lift . lift . setModuleCache
+  getModuleCache = lift getModuleCache
+  setModuleCache = lift . setModuleCache
 
 instance HasGhcModuleCache IdeDeferM where
   getModuleCache = lift getModuleCache
