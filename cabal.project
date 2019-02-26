@@ -1,6 +1,7 @@
 packages:
          ./
          ./hie-plugin-api/
+         ./hie-bios/
 
          ./submodules/HaRe
          ./submodules/brittany
@@ -9,5 +10,5 @@ packages:
          ./submodules/ghc-mod/
          ./submodules/ghc-mod/core/
          ./submodules/floskell
-         ../hhp
+
 -- profiling: true
