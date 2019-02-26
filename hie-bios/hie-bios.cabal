@@ -1,0 +1,60 @@
+Name:                   hie-bios
+Version:                0.0.0
+Author:                 Kazu Yamamoto <kazu@iij.ad.jp> and Matthew Pickering <matthewtpickering@gmail.com>
+Maintainer:             Matthew Pickering <matthewtpickering@gmail.com>
+License:                BSD3
+License-File:           LICENSE
+Homepage:               https://github.com/mpickering/hie-bios
+Synopsis:               Set up a GHC API session
+Description:
+
+Category:               Development
+Cabal-Version:          >= 1.10
+Build-Type:             Simple
+Extra-Source-Files:     ChangeLog
+
+Library
+  Default-Language:     Haskell2010
+  GHC-Options:          -Wall
+  HS-Source-Dirs:       lib
+  Exposed-Modules:      HIE.Bios
+                        HIE.Bios.Check
+                        HIE.Bios.Cradle
+                        HIE.Bios.Debug
+                        HIE.Bios.Flag
+                        HIE.Bios.GHCApi
+                        HIE.Bios.Gap
+                        HIE.Bios.Doc
+                        HIE.Bios.Logger
+                        HIE.Bios.Lang
+                        HIE.Bios.Types
+                        HIE.Bios.Things
+                        HIE.Bios.Load
+  Build-Depends:        base >= 4.9 && < 5
+                      , Cabal >= 1.24
+                      , containers
+                      , deepseq
+                      , directory
+                      , filepath
+                      , ghc
+                      , hlint >= 1.8.61
+                      , process
+                      , transformers
+  if impl(ghc < 8.2)
+    Build-Depends:      ghc-boot
+
+Executable biosc
+  Default-Language:     Haskell2010
+  Main-Is:              biosc.hs
+  Other-Modules:        Paths_hie_bios
+  GHC-Options:          -Wall
+  HS-Source-Dirs:       src
+  Build-Depends:        base >= 4.9 && < 5
+                      , directory
+                      , filepath
+                      , ghc
+                      , hie-bios
+
+Source-Repository head
+  Type:                 git
+  Location:             git://github.com/mpickering/hie-bios.git
