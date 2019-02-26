@@ -297,6 +297,9 @@ getDiagnosticProvidersConfig c = Map.fromList [("applyrefact",hlintOn c)
 -- | IdeM that allows for interaction with the ghc-mod session
 type IdeGhcM = GhcT IdeM
 
+instance GM.MonadIO (GhcT IdeM) where
+  liftIO = liftIO
+
 -- | Run an IdeGhcM with Cradle found from the current directory
 runIdeGhcM :: GM.Options -> IdePlugins -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeGhcM a -> IO a
 runIdeGhcM ghcModOptions plugins mlf stateVar f = do

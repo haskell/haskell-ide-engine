@@ -50,7 +50,7 @@ import           IOEnv                             as G
 import           HscTypes
 import           DataCon
 import           TcRnTypes
-import           Outputable                        (renderWithStyle, mkUserStyle, Depth(..))
+import           Outputable hiding ((<>))
 import Hhp
 import qualified Hhp as HH
 import System.Directory
@@ -110,7 +110,6 @@ unhelpfulSrcSpanErr err =
             ("Unhelpful SrcSpan" <> ": \"" <> err <> "\"")
             Null
 
-{-
 srcErrToDiag :: MonadIO m
   => DynFlags
   -> (FilePath -> FilePath)
@@ -137,30 +136,30 @@ srcErrToDiag df rfm se = do
             return (Map.insertWith Set.union uri (Set.singleton diag) m, es)
           Left e -> return (m, e:es)
   processMsgs errMsgs
-  -}
 
-{-
-myWrapper :: GM.IOish m
+myWrapper :: (GM.MonadIO m, GhcMonad m)
   => (FilePath -> FilePath)
-  -> GM.GmlT m ()
-  -> GM.GmlT m (Diagnostics, AdditionalErrs)
-myWrapper rfm action = do
+  -> m r
+  -> m (Diagnostics, AdditionalErrs, Maybe r)
+myWrapper  rfm action = do
   env <- getSession
   diagRef <- liftIO $ newIORef Map.empty
   errRef <- liftIO $ newIORef []
   let setLogger df = df { log_action = logDiag rfm errRef diagRef }
       setDeferTypedHoles = setGeneralFlag' Opt_DeferTypedHoles
-      ghcErrRes msg = (Map.empty, [T.pack msg])
-      handlers = errorHandlers ghcErrRes (srcErrToDiag (hsc_dflags env) rfm )
+      ghcErrRes msg = (Map.empty, [T.pack msg], Nothing)
+      to_diag x =
+        (\(a, b) -> (a, b, Nothing)) <$> srcErrToDiag (hsc_dflags env) rfm x
+
+      handlers = errorHandlers ghcErrRes to_diag
       action' = do
-        GM.withDynFlags (setLogger . setDeferTypedHoles) action
+        r <- withDynFlags (setLogger . setDeferTypedHoles) action
         diags <- liftIO $ readIORef diagRef
         errs <- liftIO $ readIORef errRef
-        return (diags,errs)
+        return (diags,errs, Just r)
   GM.gcatches action' handlers
-  -}
 
-{-
+
 errorHandlers :: (Monad m) => (String -> a) -> (SourceError -> m a) -> [GM.GHandler m a]
 errorHandlers ghcErrRes renderSourceError = handlers
   where
@@ -182,7 +181,7 @@ errorHandlers ghcErrRes renderSourceError = handlers
         -- , GM.GHandler $ \(ex :: GM.SomeException) ->
         --     return $ ghcErrRes (show ex)
         ]
-        -}
+
 
 
 setTypecheckedModule :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
@@ -190,24 +189,24 @@ setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     debugm "setTypecheckedModule: before ghc-mod"
     cradle <- liftIO $ findCradle fp
-
+    let ghcErrRes msg = (Map.empty, [T.pack msg],Nothing)
     liftIO $ setCurrentDirectory "/home/matt/ghc"
     debugm (show cradle)
     let opts = Hhp.defaultOptions
     debugm "Loading file"
-    (pm, tm) <- liftIO $ HH.loadFile cradle opts fp
+    (diags', errs, mmods) <- GM.gcatches
+                          (myWrapper id $ liftIO $ HH.loadFile cradle opts fp)
+                          (errorHandlers ghcErrRes (pure . ghcErrRes . show))
     debugm "File, loaded"
     canonUri <- canonicalizeUri uri
-    let diags' = Map.insert canonUri (Set.singleton (Diagnostic (Range (Position 1 7) (Position 1 25))
-                            (Just DsHint)
-                            (Just "Redundant bracket")
-                            (Just "hlint")
-                            "Redundant bracket\nFound:\n  (putStrLn \"hello\")\nWhy not:\n  putStrLn \"hello\"\n" Nothing )) Map.empty
-        errs = ["does this do anything"]
+    let diags = Map.insertWith Set.union canonUri Set.empty diags'
     debugm "setTypecheckedModule: after ghc-mod"
+    pprTraceM "Diags" (text $ show diags')
 
     let diags = Map.insertWith Set.union canonUri Set.empty diags'
-    diags2 <- case (Just pm, Just tm) of
+        diagonal Nothing = (Nothing, Nothing)
+        diagonal (Just (x, y)) = (Just x, Just y)
+    diags2 <- case diagonal mmods of
       (Just pm, Nothing) -> do
         debugm $ "setTypecheckedModule: Did get parsed module for: " ++ show fp
         cacheModule fp (Left pm)
