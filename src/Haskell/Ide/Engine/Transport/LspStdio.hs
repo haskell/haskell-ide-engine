@@ -707,7 +707,7 @@ reactor inp diagIn = do
           makeRequest hreq
 
         ReqTypeDefinition req -> do
-          liftIO $ U.logs $ "reactor:got DefinitionRequest:" ++ show req
+          liftIO $ U.logs $ "reactor:got DefinitionTypeRequest:" ++ show req
           let params = req ^. J.params
               doc = params ^. J.textDocument . J.uri
               pos = params ^. J.position
