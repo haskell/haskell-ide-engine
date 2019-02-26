@@ -706,6 +706,16 @@ reactor inp diagIn = do
                        $ fmap J.MultiLoc <$> Hie.findDef doc pos
           makeRequest hreq
 
+        ReqTypeDefinition req -> do
+          liftIO $ U.logs $ "reactor:got DefinitionRequest:" ++ show req
+          let params = req ^. J.params
+              doc = params ^. J.textDocument . J.uri
+              pos = params ^. J.position
+              callback = reactorSend . RspTypeDefinition . Core.makeResponseMessage req
+          let hreq = IReq tn (req ^. J.id) callback
+                       $ fmap J.MultiLoc <$> Hie.findDef doc pos
+          makeRequest hreq
+
         ReqFindReferences req -> do
           liftIO $ U.logs $ "reactor:got FindReferences:" ++ show req
           -- TODO: implement project-wide references
@@ -971,6 +981,7 @@ hieHandlers rin
   = def { Core.initializedHandler                       = Just $ passHandler rin NotInitialized
         , Core.renameHandler                            = Just $ passHandler rin ReqRename
         , Core.definitionHandler                        = Just $ passHandler rin ReqDefinition
+        , Core.typeDefinitionHandler                    = Just $ passHandler rin ReqTypeDefinition
         , Core.referencesHandler                        = Just $ passHandler rin ReqFindReferences
         , Core.hoverHandler                             = Just $ passHandler rin ReqHover
         , Core.didOpenTextDocumentNotificationHandler   = Just $ passHandler rin NotDidOpenTextDocument
