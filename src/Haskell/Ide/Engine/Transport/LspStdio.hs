@@ -69,6 +69,8 @@ import           System.Exit
 import qualified System.Log.Logger as L
 import qualified Yi.Rope as Yi
 
+import Outputable hiding ((<>))
+
 -- ---------------------------------------------------------------------
 {-# ANN module ("hlint: ignore Eta reduce" :: String) #-}
 {-# ANN module ("hlint: ignore Redundant do" :: String) #-}
@@ -929,7 +931,7 @@ requestDiagnosticsNormal tn file mVer = do
         let ds = Map.toList $ S.toList <$> pd
         case ds of
           [] -> sendEmpty
-          _ -> mapM_ (sendOneGhc "ghcmod") ds
+          _ -> pprTrace "Diags" (text (show ds)) $ mapM_ (sendOneGhc "ghcmod") ds
 
   makeRequest reqg
 

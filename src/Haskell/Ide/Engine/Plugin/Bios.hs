@@ -102,8 +102,10 @@ logDiag rfm eref dref df _reason sev spn style msg = do
       let update = Map.insertWith Set.union uri l
             where l = Set.singleton diag
           diag = Diagnostic range (Just $ lspSev sev) Nothing (Just "ghcmod") msgTxt Nothing
+      pprTraceM "Writing diag" (text (show diag))
       modifyIORef' dref update
     Left _ -> do
+      pprTraceM "Writing err" (text (show msgTxt))
       modifyIORef' eref (msgTxt:)
       return ()
 
@@ -150,9 +152,16 @@ myWrapper  rfm action = do
   errRef <- liftIO $ newIORef []
   let setLogger df = df { log_action = logDiag rfm errRef diagRef }
       setDeferTypedHoles = setGeneralFlag' Opt_DeferTypedHoles
-      ghcErrRes msg = (Map.empty, [T.pack msg], Nothing)
-      to_diag x =
-        (\(a, b) -> (a, b, Nothing)) <$> srcErrToDiag (hsc_dflags env) rfm x
+      ghcErrRes msg = do
+        diags <- liftIO $ readIORef diagRef
+        errs <- liftIO $ readIORef errRef
+        return (diags, (T.pack msg) : errs, Nothing)
+      to_diag x = do
+        (d1, e1) <- srcErrToDiag (hsc_dflags env) rfm x
+        diags <- liftIO $ readIORef diagRef
+        errs <- liftIO $ readIORef errRef
+        return (Map.unionWith Set.union d1 diags, e1 ++ errs, Nothing)
+
 
       handlers = errorHandlers ghcErrRes to_diag
       action' = do
@@ -163,24 +172,24 @@ myWrapper  rfm action = do
   GM.gcatches action' handlers
 
 
-errorHandlers :: (Monad m) => (String -> a) -> (SourceError -> m a) -> [GM.GHandler m a]
+errorHandlers :: (Monad m) => (String -> m a) -> (SourceError -> m a) -> [GM.GHandler m a]
 errorHandlers ghcErrRes renderSourceError = handlers
   where
       -- ghc throws GhcException, SourceError, GhcApiError and
       -- IOEnvFailure. ghc-mod-core throws GhcModError.
       handlers =
         [ GM.GHandler $ \(ex :: GM.GhcModError) ->
-            return $ ghcErrRes (show ex)
+            ghcErrRes (show ex)
         , GM.GHandler $ \(ex :: IOEnvFailure) ->
-            return $ ghcErrRes (show ex)
+            ghcErrRes (show ex)
         , GM.GHandler $ \(ex :: GhcApiError) ->
-            return $ ghcErrRes (show ex)
+            ghcErrRes (show ex)
         , GM.GHandler $ \(ex :: SourceError) ->
             renderSourceError ex
         , GM.GHandler $ \(ex :: GhcException) ->
-            return $ ghcErrRes $ GM.renderGm $ GM.ghcExceptionDoc ex
+            ghcErrRes $ GM.renderGm $ GM.ghcExceptionDoc ex
         , GM.GHandler $ \(ex :: IOError) ->
-            return $ ghcErrRes (show ex)
+            ghcErrRes (show ex)
         -- , GM.GHandler $ \(ex :: GM.SomeException) ->
         --     return $ ghcErrRes (show ex)
         ]
@@ -195,9 +204,7 @@ setTypecheckedModule uri =
     -- maintain it through the GHC session
     let ghcErrRes msg = (Map.empty, [T.pack msg],Nothing)
     debugm "Loading file"
-    (diags', errs, mmods) <- GM.gcatches
-                          (myWrapper id $ BIOS.loadFile fp)
-                          (errorHandlers ghcErrRes (pure . ghcErrRes . show))
+    (diags', errs, mmods) <- (myWrapper id $ BIOS.loadFile fp)
     debugm "File, loaded"
     canonUri <- canonicalizeUri uri
     let diags = Map.insertWith Set.union canonUri Set.empty diags'
