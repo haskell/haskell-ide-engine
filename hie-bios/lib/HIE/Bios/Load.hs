@@ -26,7 +26,6 @@ loadFile cradle file = withGhcT $ do
   initializeFlagsWithCradle cradle
   dir <- liftIO $ getCurrentDirectory
   pprTraceM "loadFile:2" (ppr dir)
-  liftIO $ setCurrentDirectory "/home/matt/ghc"
   body
   where
     body = inModuleContext file $ \dflag _style -> do
