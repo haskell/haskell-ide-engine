@@ -78,7 +78,7 @@ runActionWithContext Nothing action = do
   action
 runActionWithContext (Just uri) action = do
   crdl <- liftIO $ BIOS.findCradle uri
-  liftIO $ setCurrentDirectory (BIO.cradleRootDir crdl)
+  liftIO $ setCurrentDirectory (BIOS.cradleRootDir crdl)
   withCradle crdl action
 
 -- | Get the Cradle that should be used for a given URI

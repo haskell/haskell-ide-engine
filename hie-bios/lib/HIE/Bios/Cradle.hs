@@ -20,7 +20,8 @@ import Data.List
 --   Find a sandbox according to a cabal sandbox config
 --   in a cabal directory.
 findCradle :: FilePath -> IO Cradle
-findCradle wdir = do
+findCradle wfile = do
+    let wdir = takeDirectory wfile
     res <- runMaybeT (biosCradle wdir <|> cabalCradle wdir)
     case res of
       Just c -> return c

@@ -259,57 +259,6 @@ infoCmd' uri expr =
   pluginGetFile "info: " uri $ \file ->
     fmap T.pack <$> Hie.runGhcModCommand (GM.info file (GM.Expression (T.unpack expr)))
 
--- ---------------------------------------------------------------------
-data TypeParams =
-  TP { tpIncludeConstraints :: Bool
-     , tpFile               :: Uri
-     , tpPos                :: Position
-     } deriving (Eq,Show,Generic)
-
-instance FromJSON TypeParams where
-  parseJSON = genericParseJSON customOptions
-instance ToJSON TypeParams where
-  toJSON = genericToJSON customOptions
-
-typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
-typeCmd = CmdSync $ \(TP _bool uri pos) ->
-  liftToGhc $ newTypeCmd pos uri
-
-newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
-newTypeCmd newPos uri =
-  pluginGetFile "newTypeCmd: " uri $ \fp ->
-    ifCachedModule fp (IdeResultOk []) $ \tm info ->
-      return $ IdeResultOk $ pureTypeCmd newPos tm info
-
-pureTypeCmd :: Position -> GHC.TypecheckedModule -> CachedInfo -> [(Range,T.Text)]
-pureTypeCmd newPos tm info =
-    case mOldPos of
-      Nothing -> []
-      Just pos -> concatMap f (spanTypes pos)
-  where
-    mOldPos = newPosToOld info newPos
-    typm = typeMap info
-    spanTypes' pos = getArtifactsAtPos pos typm
-    spanTypes pos = sortBy (cmp `on` fst) (spanTypes' pos)
-    dflag = ms_hspp_opts $ pm_mod_summary $ tm_parsed_module tm
-    unqual = mkPrintUnqualified dflag $ tcg_rdr_env $ fst $ tm_internals_ tm
-    st = mkUserStyle dflag unqual AllTheWay
-
-    f (range', t) =
-      case oldRangeToNew info range' of
-        (Just range) -> [(range , T.pack $ GM.pretty dflag st t)]
-        _ -> []
-
-cmp :: Range -> Range -> Ordering
-cmp a b
-  | a `isSubRangeOf` b = LT
-  | b `isSubRangeOf` a = GT
-  | otherwise = EQ
-
-isSubRangeOf :: Range -> Range -> Bool
-isSubRangeOf (Range sa ea) (Range sb eb) = sb <= sa && eb >= ea
-
--- ---------------------------------------------------------------------
 
 newtype TypeDef = TypeDef T.Text deriving (Eq, Show)
 
@@ -570,43 +519,6 @@ extractUnusedTerm msg = extractTerm <$> stripMessageStart msg
                       . T.dropWhileEnd (== '’')
                       . T.dropAround (\c -> c /= '‘' && c /= '’')
 
--- ---------------------------------------------------------------------
-
-hoverProvider :: HoverProvider
-hoverProvider doc pos = runIdeResultT $ do
-  info' <- IdeResultT $ newTypeCmd pos doc
-  names' <- IdeResultT $ pluginGetFile "ghc-mod:hoverProvider" doc $ \fp ->
-    ifCachedModule fp (IdeResultOk []) $ \(_ :: GHC.ParsedModule) info ->
-      return $ IdeResultOk $ Hie.getSymbolsAtPoint pos info
-  let
-    f = (==) `on` (Hie.showName . snd)
-    f' = compare `on` (Hie.showName . snd)
-    names = mapMaybe pickName $ groupBy f $ sortBy f' names'
-    pickName [] = Nothing
-    pickName [x] = Just x
-    pickName xs@(x:_) = case find (isJust . nameModule_maybe . snd) xs of
-      Nothing -> Just x
-      Just a -> Just a
-    nnames = length names
-    (info,mrange) =
-      case map last $ groupBy ((==) `on` fst) info' of
-        ((r,typ):_) ->
-          case find ((r ==) . fst) names of
-            Nothing ->
-              (Just $ LSP.CodeString $ LSP.LanguageString "haskell" $ "_ :: " <> typ, Just r)
-            Just (_,name)
-              | nnames == 1 ->
-                (Just $ LSP.CodeString $ LSP.LanguageString "haskell" $ Hie.showName name <> " :: " <> typ, Just r)
-              | otherwise ->
-                (Just $ LSP.CodeString $ LSP.LanguageString "haskell" $ "_ :: " <> typ, Just r)
-        [] -> case names of
-          [] -> (Nothing, Nothing)
-          ((r,_):_) -> (Nothing, Just r)
-  return $ case mrange of
-    Just r -> [LSP.Hover (LSP.List $ catMaybes [info]) (Just r)]
-    Nothing -> []
-
--- ---------------------------------------------------------------------
 
 data Decl = Decl LSP.SymbolKind (Located RdrName) [Decl] SrcSpan
           | Import LSP.SymbolKind (Located ModuleName) [Decl] SrcSpan

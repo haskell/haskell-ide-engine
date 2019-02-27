@@ -12,18 +12,16 @@ import Outputable
 import HIE.Bios.Doc (getStyle)
 import HIE.Bios.GHCApi
 import HIE.Bios.Gap
-import HIE.Bios.Types
 import System.Directory
 import EnumSet
 import Control.Monad (filterM)
 
 -- | Obtaining type of a target expression. (GHCi's type:)
-loadFile :: Cradle
-         -> FilePath     -- ^ A target file.
-         -> IO (G.ParsedModule, TypecheckedModule)
-loadFile cradle file = withGhcT $ do
-  pprTraceM "loadFile:1" (ppr (show cradle, file))
-  initializeFlagsWithCradle cradle
+loadFile :: GhcMonad m
+         => FilePath     -- ^ A target file.
+         -> m (G.ParsedModule, TypecheckedModule)
+loadFile file = do
+  pprTraceM "loadFile:1" (ppr (file))
   dir <- liftIO $ getCurrentDirectory
   pprTraceM "loadFile:2" (ppr dir)
   body
