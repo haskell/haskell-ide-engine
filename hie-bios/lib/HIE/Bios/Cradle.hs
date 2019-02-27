@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 module HIE.Bios.Cradle (
     findCradle
   ) where
@@ -12,6 +13,12 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Control.Applicative ((<|>))
 import Data.List
+import Data.FileEmbed
+import System.IO.Temp
+import System.IO
+
+import Debug.Trace
+import System.Posix.Files
 
 ----------------------------------------------------------------
 
@@ -61,22 +68,19 @@ cabalCradle fp = do
     , cradleOptsProg   = CradleAction "cabal" cabalAction
   }
 
+cabalWrapper :: String
+cabalWrapper = $(embedStringFile "wrappers/cabal")
+
 cabalAction :: FilePath -> IO (ExitCode, String, [String])
 cabalAction fp = do
-  fs <- findFile (".ghc.environment" `isPrefixOf`) fp
-  -- TODO: Check it is for the right compiler version
-  env_file <- case fs of
-    [] -> do
-            -- This will create a .ghc-env file
-            withCurrentDirectory fp (callProcess "cabal" ["new-build"])
-            fs <- findFile (".ghc-environment" `isPrefixOf`) fp
-            case fs of
-              [] -> error "Couldn't find/create environment file"
-              (e:_) -> return e
-    (e:_) -> return e
-  -- Could also copy this into a tempdir.
-  ce <- canonicalizePath env_file
-  return (ExitSuccess, "", ["-package-env", ce])
+  wrapper_fp <- writeSystemTempFile "wrapper" cabalWrapper
+  -- TODO: This isn't portable for windows
+  setFileMode wrapper_fp accessModes
+  check <- readFile wrapper_fp
+  traceM check
+  (ex, args, stde) <-
+      withCurrentDirectory fp (readProcessWithExitCode "cabal" ["v2-repl", "-v0", "-w", wrapper_fp] [])
+  return (ex, stde, words args)
 
 
 cabalDir :: FilePath -> MaybeT IO FilePath

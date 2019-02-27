@@ -29,15 +29,16 @@ Library
                         HIE.Bios.Things
                         HIE.Bios.Load
   Build-Depends:        base >= 4.9 && < 5
-                      , Cabal >= 1.24
                       , containers
                       , deepseq
                       , directory
                       , filepath
                       , ghc
-                      , hlint >= 1.8.61
                       , process
                       , transformers
+                      , file-embed
+                      , temporary
+                      , unix
   if impl(ghc < 8.2)
     Build-Depends:      ghc-boot
 

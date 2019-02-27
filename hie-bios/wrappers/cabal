@@ -1,0 +1,7 @@
+if [ "$1" == "--numeric-version" ]; then
+  ghc --numeric-version
+elif [ "$1" == "--info" ]; then
+  ghc --info
+else
+  echo "$@"
+fi
