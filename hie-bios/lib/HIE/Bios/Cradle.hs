@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module HIE.Bios.Cradle (
-    findCradle
+      findCradle
+    , defaultCradle
   ) where
 
 import System.Process
@@ -32,7 +33,22 @@ findCradle wfile = do
     res <- runMaybeT (biosCradle wdir <|> cabalCradle wdir)
     case res of
       Just c -> return c
-      Nothing -> error "No cradle found"
+      Nothing -> return (defaultCradle wdir)
+
+
+---------------------------------------------------------------
+-- Default cradle has no special options, not very useful for loading
+-- modules.
+
+defaultCradle :: FilePath -> Cradle
+defaultCradle cur_dir =
+  Cradle {
+      cradleCurrentDir = cur_dir
+    , cradleRootDir = cur_dir
+    , cradleOptsProg = CradleAction "default" (const $ return (ExitSuccess, "", []))
+    }
+
+---------------------------------------------------------------
 
 
 -- | Find a cradle by finding an executable `hie-bios` file which will

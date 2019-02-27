@@ -73,8 +73,9 @@ withCradle crdl body = do
 runActionWithContext :: (GHC.GhcMonad m)
                      => Maybe FilePath -> m a -> m a
 runActionWithContext Nothing action = do
---  crdl <- GM.cradle
-  action
+  -- Cradle with no additional flags
+  dir <- liftIO $ getCurrentDirectory
+  withCradle (BIOS.defaultCradle dir) action
 runActionWithContext (Just uri) action = do
   crdl <- liftIO $ BIOS.findCradle uri
   liftIO $ setCurrentDirectory (BIOS.cradleRootDir crdl)
