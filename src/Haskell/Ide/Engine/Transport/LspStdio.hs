@@ -908,7 +908,7 @@ requestDiagnosticsNormal tn file mVer = do
     hasSeverity :: J.DiagnosticSeverity -> J.Diagnostic -> Bool
     hasSeverity sev (J.Diagnostic _ (Just s) _ _ _ _) = s == sev
     hasSeverity _ _ = False
-    sendEmpty = publishDiagnostics maxToSend file Nothing (Map.fromList [(Just "ghcmod",SL.toSortedList [])])
+    sendEmpty = publishDiagnostics maxToSend file Nothing (Map.fromList [(Just "bios",SL.toSortedList [])])
     maxToSend = maybe 50 maxNumberOfProblems mc
 
   let sendHlint = maybe True hlintOn mc
@@ -931,7 +931,7 @@ requestDiagnosticsNormal tn file mVer = do
         let ds = Map.toList $ S.toList <$> pd
         case ds of
           [] -> sendEmpty
-          _ -> pprTrace "Diags" (text (show ds)) $ mapM_ (sendOneGhc "ghcmod") ds
+          _ -> pprTrace "Diags" (text (show ds)) $ mapM_ (sendOneGhc "bios") ds
 
   makeRequest reqg
 

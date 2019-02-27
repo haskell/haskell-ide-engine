@@ -30,7 +30,7 @@ import System.Posix.Files
 findCradle :: FilePath -> IO Cradle
 findCradle wfile = do
     let wdir = takeDirectory wfile
-    res <- runMaybeT (biosCradle wdir <|> cabalCradle wdir)
+    res <- runMaybeT (rulesHaskellCradle wdir <|> biosCradle wdir <|> cabalCradle wdir)
     case res of
       Just c -> return c
       Nothing -> return (defaultCradle wdir)
@@ -103,6 +103,37 @@ cabalDir :: FilePath -> MaybeT IO FilePath
 cabalDir = findFileUpwards isCabal
   where
     isCabal name = name == "cabal.project"
+
+----------------------------------------------------------------------------
+-- rules_haskell - Thanks for David Smith for helping with this one.
+
+rulesHaskellCradle :: FilePath -> MaybeT IO Cradle
+rulesHaskellCradle fp = do
+  wdir <- findFileUpwards (== "WORKSPACE") fp
+  traceM "Using rules_haskell"
+  return Cradle {
+    cradleCurrentDir = fp
+    , cradleRootDir  = wdir
+    , cradleOptsProg   = CradleAction "bazel" rulesHaskellAction
+    }
+
+
+bazelCommand = "bazel build //main:demorgan@repl --experimental_show_artifacts 2>&1 | sed -ne '/>>>/ s/^>>>\\(.*\\)$/\\1/ p' | xargs tail -1"
+
+rulesHaskellAction :: FilePath -> IO (ExitCode, String, [String])
+rulesHaskellAction fp = do
+  wrapper_fp <- writeSystemTempFile "wrapper" bazelCommand
+  -- TODO: This isn't portable for windows
+  setFileMode wrapper_fp accessModes
+  check <- readFile wrapper_fp
+  traceM check
+  (ex, args, stde) <-
+      withCurrentDirectory fp (readProcessWithExitCode wrapper_fp [] [])
+  let args'  = filter (/= '\'') args
+  let args'' = filter (/= "\"$GHCI_LOCATION\"") (words args')
+  return (ex, stde, args'')
+
+
 
 
 -- Looks for the directory with the first cabal.project file
