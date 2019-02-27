@@ -56,7 +56,7 @@ defaultCradle cur_dir =
 biosCradle :: FilePath -> MaybeT IO Cradle
 biosCradle cur_dir = do
   wdir <- biosDir cur_dir
-  liftIO $ print "Using hie-bios"
+  traceM "Using bios"
   return Cradle {
       cradleCurrentDir = cur_dir
     , cradleRootDir    = wdir
@@ -77,7 +77,7 @@ biosAction fp = do
 cabalCradle :: FilePath -> MaybeT IO Cradle
 cabalCradle fp = do
   wdir <- cabalDir fp
-  liftIO $ print "Using cabal.project"
+  traceM "Using cabal.project"
   return Cradle {
       cradleCurrentDir = fp
     , cradleRootDir    = wdir
