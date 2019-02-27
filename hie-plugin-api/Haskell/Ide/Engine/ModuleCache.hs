@@ -75,7 +75,10 @@ runActionWithContext :: (GHC.GhcMonad m)
 runActionWithContext Nothing action = do
   -- Cradle with no additional flags
   dir <- liftIO $ getCurrentDirectory
-  withCradle (BIOS.defaultCradle dir) action
+  --This causes problems when loading a later package which sets the
+  --packageDb
+  --withCradle (BIOS.defaultCradle dir) action
+  action
 runActionWithContext (Just uri) action = do
   crdl <- liftIO $ BIOS.findCradle uri
   liftIO $ setCurrentDirectory (BIOS.cradleRootDir crdl)

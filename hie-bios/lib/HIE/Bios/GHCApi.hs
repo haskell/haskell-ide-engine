@@ -79,12 +79,11 @@ initializeFlagsWithCradle ::
         => Cradle
         -> m ()
 initializeFlagsWithCradle cradle = do
-      liftIO $ hPutStr "withOptsFile"
       dir <- liftIO $ getCurrentDirectory
       (ex, err, ghcOpts) <- liftIO $ getOptions (cradleOptsProg cradle) (cradleRootDir cradle)
       G.pprTraceM "res" (G.text (show (ex, err, ghcOpts, dir)))
       let compOpts = CompilerOptions ghcOpts
-      liftIO $ hPrint ghcOpts
+      liftIO $ hPrint stderr ghcOpts
       initSession SingleFile compOpts
 
 
