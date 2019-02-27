@@ -33,7 +33,6 @@ we talk to clients.__
     - [Docs on hover/completion](#docs-on-hovercompletion)
     - [Contributing](#contributing)
         - [Planned Features](#planned-features)
-        - [This is *not* yet another `ghc-mod` or `ide-backend` project](#this-is-not-yet-another-ghc-mod-or-ide-backend-project)
         - [It's time to join the project!](#its-time-to-join-the-project)
     - [Architecture](#architecture)
         - [1. BIOS layer](#1-bios-layer)
@@ -568,10 +567,6 @@ Or you can set the environment variable `HIE_HOOGLE_DATABASE` to specify a speci
  - [ ] More code actions
  - [ ] Cross project/dependency Find Definition
  - [ ] Case splitting, type insertion etc.
-
-### This is *not* yet another [`ghc-mod`](https://github.com/kazu-yamamoto/ghc-mod) or [`ide-backend`](https://github.com/fpco/ide-backend) project
-
- > Both the ghc-mod and ide-backend maintainers have agreed to contribute code to this new repository and then rebase the old repos on this. The reason we're using a new repo instead of modifying one of the existing ones is so that the existing projects experience no disruption during this migration process. If this was a new set of people starting a new project without support from existing projects, I'd agree with you. But Alan's reached out to existing players already, which is an important distinction.
 
 This project is not started from scratch:
 
