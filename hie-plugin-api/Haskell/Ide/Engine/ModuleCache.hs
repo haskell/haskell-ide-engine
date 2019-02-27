@@ -74,7 +74,6 @@ runActionWithContext :: (GHC.GhcMonad m)
                      => Maybe FilePath -> m a -> m a
 runActionWithContext Nothing action = do
 --  crdl <- GM.cradle
-  liftIO $ setCurrentDirectory "/home/matt/ghc"
   action
 runActionWithContext (Just uri) action = do
   crdl <- liftIO $ BIOS.findCradle uri
