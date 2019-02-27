@@ -195,7 +195,6 @@ setTypecheckedModule uri =
     -- maintain it through the GHC session
     cradle <- liftIO $ BIOS.findCradle fp
     let ghcErrRes msg = (Map.empty, [T.pack msg],Nothing)
-    liftIO $ setCurrentDirectory "/home/matt/ghc"
     debugm (show cradle)
     debugm "Loading file"
     (diags', errs, mmods) <- GM.gcatches
