@@ -76,12 +76,12 @@ data Build = CabalPkg | SingleFile deriving Eq
 -- provided.
 initializeFlagsWithCradle ::
         (GhcMonad m)
-        => Cradle
+        => FilePath -- The file we are loading it because of
+        -> Cradle
         -> m ()
-initializeFlagsWithCradle cradle = do
-      dir <- liftIO $ getCurrentDirectory
-      (ex, err, ghcOpts) <- liftIO $ getOptions (cradleOptsProg cradle) (cradleRootDir cradle)
-      G.pprTraceM "res" (G.text (show (ex, err, ghcOpts, dir)))
+initializeFlagsWithCradle fp cradle = do
+      (ex, err, ghcOpts) <- liftIO $ getOptions (cradleOptsProg cradle) fp
+      G.pprTraceM "res" (G.text (show (ex, err, ghcOpts, fp)))
       let compOpts = CompilerOptions ghcOpts
       liftIO $ hPrint stderr ghcOpts
       initSession SingleFile compOpts

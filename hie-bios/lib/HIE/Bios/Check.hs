@@ -24,7 +24,7 @@ checkSyntax :: Options
 checkSyntax _   _      []    = return ""
 checkSyntax opt cradle files = withGhcT $ do
     pprTraceM "cradble" (text $ show cradle)
-    initializeFlagsWithCradle cradle
+    initializeFlagsWithCradle (head files) cradle
     either id id <$> check opt files
   where
     {-
@@ -53,7 +53,7 @@ expandTemplate :: Options
                -> IO String
 expandTemplate _   _      []    = return ""
 expandTemplate opt cradle files = withGHC sessionName $ do
-    initializeFlagsWithCradle cradle
+    initializeFlagsWithCradle (head files) cradle
     either id id <$> expand opt files
   where
     sessionName = case files of

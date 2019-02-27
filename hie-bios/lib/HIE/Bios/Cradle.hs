@@ -81,21 +81,21 @@ cabalCradle fp = do
   return Cradle {
       cradleCurrentDir = fp
     , cradleRootDir    = wdir
-    , cradleOptsProg   = CradleAction "cabal" cabalAction
+    , cradleOptsProg   = CradleAction "cabal" (cabalAction wdir)
   }
 
 cabalWrapper :: String
 cabalWrapper = $(embedStringFile "wrappers/cabal")
 
-cabalAction :: FilePath -> IO (ExitCode, String, [String])
-cabalAction fp = do
+cabalAction :: FilePath -> FilePath -> IO (ExitCode, String, [String])
+cabalAction work_dir fp = do
   wrapper_fp <- writeSystemTempFile "wrapper" cabalWrapper
   -- TODO: This isn't portable for windows
   setFileMode wrapper_fp accessModes
   check <- readFile wrapper_fp
   traceM check
   (ex, args, stde) <-
-      withCurrentDirectory fp (readProcessWithExitCode "cabal" ["v2-repl", "-v0", "-w", wrapper_fp] [])
+      withCurrentDirectory work_dir (readProcessWithExitCode "cabal" ["v2-repl", "-v0", "-w", wrapper_fp] [])
   return (ex, stde, words args)
 
 
@@ -114,21 +114,23 @@ rulesHaskellCradle fp = do
   return Cradle {
     cradleCurrentDir = fp
     , cradleRootDir  = wdir
-    , cradleOptsProg   = CradleAction "bazel" rulesHaskellAction
+    , cradleOptsProg   = CradleAction "bazel" (rulesHaskellAction wdir)
     }
 
 
-bazelCommand = "bazel build //main:demorgan@repl --experimental_show_artifacts 2>&1 | sed -ne '/>>>/ s/^>>>\\(.*\\)$/\\1/ p' | xargs tail -1"
+bazelCommand = $(embedStringFile "wrappers/bazel")
 
-rulesHaskellAction :: FilePath -> IO (ExitCode, String, [String])
-rulesHaskellAction fp = do
+rulesHaskellAction :: FilePath -> FilePath -> IO (ExitCode, String, [String])
+rulesHaskellAction work_dir fp = do
   wrapper_fp <- writeSystemTempFile "wrapper" bazelCommand
   -- TODO: This isn't portable for windows
   setFileMode wrapper_fp accessModes
   check <- readFile wrapper_fp
   traceM check
+  let rel_path = makeRelative work_dir fp
+  traceM rel_path
   (ex, args, stde) <-
-      withCurrentDirectory fp (readProcessWithExitCode wrapper_fp [] [])
+      withCurrentDirectory work_dir (readProcessWithExitCode wrapper_fp [rel_path] [])
   let args'  = filter (/= '\'') args
   let args'' = filter (/= "\"$GHCI_LOCATION\"") (words args')
   return (ex, stde, args'')

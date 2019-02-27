@@ -35,6 +35,8 @@ import           Exception (ExceptionMonad)
 import           System.Directory
 import           System.FilePath
 
+import Debug.Trace
+
 import qualified GhcMod.Cradle as GM
 import qualified GhcMod.Monad  as GM
 import qualified GhcMod.Types  as GM
@@ -56,9 +58,9 @@ modifyCache f = do
 
 -- ---------------------------------------------------------------------
 -- | Runs an IdeM action with the given Cradle
-withCradle :: GHC.GhcMonad m => BIOS.Cradle -> m a -> m a
-withCradle crdl body = do
-  BIOS.initializeFlagsWithCradle crdl
+withCradle :: GHC.GhcMonad m => FilePath -> BIOS.Cradle -> m a -> m a
+withCradle fp crdl body = do
+  BIOS.initializeFlagsWithCradle fp crdl
   body
 
   --GM.gmeLocal (\env -> env {GM.gmCradle = crdl})
@@ -81,8 +83,9 @@ runActionWithContext Nothing action = do
   action
 runActionWithContext (Just uri) action = do
   crdl <- liftIO $ BIOS.findCradle uri
+  traceShowM crdl
   liftIO $ setCurrentDirectory (BIOS.cradleRootDir crdl)
-  withCradle crdl action
+  withCradle uri crdl action
 
 -- | Get the Cradle that should be used for a given URI
 getCradle :: (GM.GmEnv m, GM.MonadIO m, HasGhcModuleCache m, GM.GmLog m
