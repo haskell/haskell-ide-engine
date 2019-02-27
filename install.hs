@@ -92,26 +92,19 @@ main = do
         stackInstallHie version
       )
 
-    -- cabal specific targets
-    phony "cabal-build" $ do
-      ghcPaths <- findInstalledGhcs
-      let ghcVersions = map fst ghcPaths
-      need (map ("cabal-hie-" ++) ghcVersions)
+    ghcPaths <- findInstalledGhcs
+    let ghcVersions = map fst ghcPaths
 
-    phony "cabal-build-all" (need ["cabal-build-docs", "cabal-build"])
-    phony "cabal-build-docs" $ do
-      ghcPaths <- findInstalledGhcs
-      let ghcVersions = map fst ghcPaths
-      need (map ("cabal-build-doc-" ++) ghcVersions)
+    -- cabal specific targets
+    phony "cabal-build"      (need (map ("cabal-hie-" ++) ghcVersions))
+    phony "cabal-build-all"  (need ["cabal-build-docs", "cabal-build"])
+    phony "cabal-build-docs" (need (map ("cabal-build-doc-" ++) ghcVersions))
 
     phony "cabal-test" $ do
       need ["submodules"]
       need ["cabal"]
-      ghcPaths <- findInstalledGhcs
-      let ghcVersions = map fst ghcPaths
       forM_ ghcVersions cabalTest
 
-    -- phony "cabal-test" (forM_ hieVersions stackTest)
     forM_
       hieVersions
       (\version -> phony ("cabal-build-doc-" ++ version) $ do
@@ -122,6 +115,7 @@ main = do
     forM_
       hieVersions
       (\version -> phony ("cabal-hie-" ++ version) $ do
+        validateCabalNewInstallIsSupported
         need ["submodules"]
         need ["cabal"]
         cabalBuildHie version
@@ -189,6 +183,11 @@ updateSubmodules :: Action ()
 updateSubmodules = do
   command_ [] "git" ["submodule", "sync", "--recursive"]
   command_ [] "git" ["submodule", "update", "--init", "--recursive"]
+
+validateCabalNewInstallIsSupported :: Action ()
+validateCabalNewInstallIsSupported = when (os `elem` ["mingw32", "win32"]) $ do
+  liftIO $ putStrLn $ embedInStars cabalInstallNotSuported
+  error cabalInstallNotSuported
 
 configureCabal :: VersionNumber -> Action ()
 configureCabal versionNumber = do
@@ -480,3 +479,11 @@ ghcVersionNotFound versionNumber =
     <> versionNumber
     <> " has been found.\n"
     <> "Either install a fitting GHC, use the stack targets or modify the PATH variable accordingly."
+
+-- | Error message when a windows system tries to install HIE via `cabal new-install`
+cabalInstallNotSuported :: String
+cabalInstallNotSuported =
+  "This system has been identified as a windows system.\n"
+    ++ "Unfortunately, `cabal new-install` is currently not supported on windows.\n"
+    ++ "Please use one of the stack-based targets.\n\n"
+    ++ "If this system has been falsely identified, please open an issue at https://github.com/haskell/haskell-ide-engine\n"
