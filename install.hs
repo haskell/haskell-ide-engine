@@ -49,6 +49,10 @@ main :: IO ()
 main = do
   -- unset GHC_PACKAGE_PATH for cabal
   unsetEnv "GHC_PACKAGE_PATH"
+
+  ghcPaths <- findInstalledGhcs
+  let ghcVersions = map fst ghcPaths
+
   shakeArgs shakeOptions { shakeFiles = "_build" } $ do
     want ["help"]
     -- general purpose targets
@@ -59,7 +63,6 @@ main = do
     phony "dist"       buildDist
 
     phony "cabal-ghcs" $ do
-      ghcPaths <- findInstalledGhcs
       let
         msg =
           "Found the following GHC paths: \n"
@@ -91,9 +94,6 @@ main = do
         stackBuildHie version
         stackInstallHie version
       )
-
-    ghcPaths <- findInstalledGhcs
-    let ghcVersions = map fst ghcPaths
 
     -- cabal specific targets
     phony "cabal-build"      (need (map ("cabal-hie-" ++) ghcVersions))
@@ -191,7 +191,7 @@ validateCabalNewInstallIsSupported = when (os `elem` ["mingw32", "win32"]) $ do
 
 configureCabal :: VersionNumber -> Action ()
 configureCabal versionNumber = do
-  ghcPath' <- getGhcPath versionNumber
+  ghcPath' <- liftIO $ getGhcPath versionNumber
   ghcPath  <- case ghcPath' of
     Nothing -> do
       liftIO $ putStrLn $ embedInStars (ghcVersionNotFound versionNumber)
@@ -200,7 +200,7 @@ configureCabal versionNumber = do
   execCabal_
     ["new-configure", "-w", ghcPath, "--write-ghc-environment-files=never"]
 
-findInstalledGhcs :: Action [(VersionNumber, GhcPath)]
+findInstalledGhcs :: IO [(VersionNumber, GhcPath)]
 findInstalledGhcs = foldM
   (\found version -> do
     path <- getGhcPath version
@@ -252,15 +252,7 @@ stackBuildHie :: VersionNumber -> Action ()
 stackBuildHie versionNumber = do
   execStackWithYaml_ versionNumber ["install", "happy"]
   execStackWithYaml_ versionNumber ["build"]
-    `actionOnException` liftIO (putStrLn buildFailMsg)
-
-buildFailMsg :: String
-buildFailMsg =
-  embedInStars
-    $  "building failed, "
-    ++ "try running `stack clean` and restart the build\n"
-    ++ "if this does not work, open an issue at \n"
-    ++ "https://github.com/haskell/haskell-ide-engine"
+    `actionOnException` liftIO (putStrLn stackBuildFailMsg)
 
 stackInstallHie :: VersionNumber -> Action ()
 stackInstallHie versionNumber = do
@@ -430,16 +422,16 @@ getStackGhcPath ghcVersion = do
 -- First, it is checked whether there is a GHC with the name `ghc-$VersionNumber`.
 -- If this yields no result, it is checked, whether the numeric-version of the `ghc`
 -- command fits to the desired version. 
-getGhcPath :: VersionNumber -> Action (Maybe GhcPath)
+getGhcPath :: VersionNumber -> IO (Maybe GhcPath)
 getGhcPath ghcVersion = do
-  pathMay <- liftIO $ findExecutable ("ghc-" ++ ghcVersion)
+  pathMay <- findExecutable ("ghc-" ++ ghcVersion)
   case pathMay of
     Nothing -> do
-      noPrefixPathMay <- liftIO $ findExecutable "ghc"
+      noPrefixPathMay <- findExecutable "ghc"
       case noPrefixPathMay of
         Nothing -> return Nothing
         Just p  -> do
-          Stdout version <- command [] p ["--numeric-version"]
+          Stdout version <- cmd p ["--numeric-version"] :: IO (Stdout String)
           if ghcVersion == trim version then return $ Just p else return Nothing
     p -> return p
 
@@ -471,6 +463,15 @@ embedInStars str =
   let starsLine
         = "\n******************************************************************\n"
   in  starsLine <> str <> starsLine
+
+-- |Stack build fails message
+stackBuildFailMsg :: String
+stackBuildFailMsg =
+  embedInStars
+    $  "Building failed, "
+    ++ "Try running `stack clean` and restart the build\n"
+    ++ "If this does not work, open an issue at \n"
+    ++ "\thttps://github.com/haskell/haskell-ide-engine"
 
 -- |No suitable ghc version has been found. Show a message.
 ghcVersionNotFound :: VersionNumber -> String
