@@ -584,38 +584,17 @@ This project is not started from scratch:
  - Fork this repo and hack as much as you can.
  - Ask @alanz or @hvr to join the project.
 
-## Architecture
-
-Below you find a short overview of the main architectural layers of `haskell-ide-engine`.
-For more info have a look in [the docs folder](/docs) at the root of this project, especially:
-
- - The [Architecture discussion](docs/Architecture.md)
- - The [Protocol discussion](docs/Protocol.md)
- - The [Design discussion](docs/Design.md)
-
-### 1. BIOS layer
-
-[`ghc-mod`](https://github.com/kazu-yamamoto/ghc-mod) stays an AGPL project,
-and is used for its "awesome sauce" in terms of
-the BIOS functions that it does so well. This interface is
-[straightforward to use](http://alanz.github.io/haskell%20refactorer/2015/10/02/ghc-mod-for-tooling),
-and if a license-constrained user wants to do something else it is also easy to
-replace, if there is strong control of the operating environment.
-
-### 2. Plugin layer
-
-A layer providing a point to integrate tools and existing functions, probably
-including ghci.
-
-### 3. IDE interfacing layer
-
-The focus is currently on [LSP](https://github.com/Microsoft/language-server-protocol/blob/master/protocol.md) as the protocol we use to interface with IDEs.
-
-Existing transports are still functional for the time being.
-
 ## Documentation
 
 All the documentation is in [the docs folder](/docs) at the root of this project.
+
+### Architecture
+
+Have a look at
+
+ - the [Architecture discussion](docs/Architecture.md),
+ - [Protocol discussion](docs/Protocol.md) and
+ - [Design discussion](docs/Design.md).
 
 ## Troubleshooting
 
