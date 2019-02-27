@@ -15,8 +15,6 @@ import System.IO (hPutStr, hPutStrLn, stdout, stderr, hSetEncoding, utf8)
 
 import HIE.Bios
 import HIE.Bios.Types
-import HIE.Bios.Lang
-import HIE.Bios.Flag
 import HIE.Bios.Check
 import HIE.Bios.Debug
 import Paths_hie_bios
@@ -57,8 +55,6 @@ main = flip E.catches handlers $ do
         remainingArgs = tail args
         opt = defaultOptions
     res <- case cmdArg0 of
-      "lang"    -> listLanguages opt
-      "flag"    -> listFlags opt
       "check"   -> checkSyntax opt cradle remainingArgs
       "expand"  -> expandTemplate opt cradle remainingArgs
       "debug"   -> debugInfo opt cradle

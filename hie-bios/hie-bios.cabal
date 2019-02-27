@@ -21,12 +21,10 @@ Library
                         HIE.Bios.Check
                         HIE.Bios.Cradle
                         HIE.Bios.Debug
-                        HIE.Bios.Flag
                         HIE.Bios.GHCApi
                         HIE.Bios.Gap
                         HIE.Bios.Doc
                         HIE.Bios.Logger
-                        HIE.Bios.Lang
                         HIE.Bios.Types
                         HIE.Bios.Things
                         HIE.Bios.Load
