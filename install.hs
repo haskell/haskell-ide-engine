@@ -487,4 +487,4 @@ cabalInstallNotSuported =
   "This system has been identified as a windows system.\n"
     ++ "Unfortunately, `cabal new-install` is currently not supported on windows.\n"
     ++ "Please use one of the stack-based targets.\n\n"
-    ++ "If this system has been falsely identified, please open an issue at https://github.com/haskell/haskell-ide-engine\n"
+    ++ "If this system has been falsely identified, please open an issue at:\n\thttps://github.com/haskell/haskell-ide-engine\n"
