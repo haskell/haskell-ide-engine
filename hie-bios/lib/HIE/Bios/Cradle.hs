@@ -30,7 +30,9 @@ import System.Posix.Files
 findCradle :: FilePath -> IO Cradle
 findCradle wfile = do
     let wdir = takeDirectory wfile
-    res <- runMaybeT (rulesHaskellCradle wdir <|> biosCradle wdir <|> cabalCradle wdir)
+    res <- runMaybeT ( biosCradle wdir
+                      <|> rulesHaskellCradle wdir
+                      <|> cabalCradle wdir)
     case res of
       Just c -> return c
       Nothing -> return (defaultCradle wdir)
@@ -68,7 +70,7 @@ biosDir = findFileUpwards ("hie-bios" ==)
 
 biosAction :: FilePath -> IO (ExitCode, String, [String])
 biosAction fp = do
-  (ex, res, std) <- readProcessWithExitCode (fp </> "hie-bios") [] []
+  (ex, res, std) <- readProcessWithExitCode (fp </> "hie-bios") [fp] []
   return (ex, std, words res)
 
 -- Cabal Cradle
