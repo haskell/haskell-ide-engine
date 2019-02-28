@@ -340,7 +340,14 @@ helpMessage = do
   spaces = space targets
   -- All targets the shake file supports
   targets :: [(String, String)]
-  targets = generalTargets ++ stackTargets ++ cabalTargets ++ macosTargets
+  targets =
+    generalTargets
+      ++ [emptyTarget]
+      ++ stackTargets
+      ++ [emptyTarget]
+      ++ cabalTargets
+      ++ [emptyTarget]
+      ++ macosTargets
 
   -- All targets with their respective help message.
   generalTargets =
@@ -386,7 +393,7 @@ helpMessage = do
       ++ map cabalHieTarget      hieVersions
       ++ map cabalBuildDocTarget hieVersions
 
--- | Empty target. Purpose is to introduce a newline between the tagets
+-- | Empty target. Purpose is to introduce a newline between the targets
 emptyTarget :: (String, String)
 emptyTarget = ("", "")
 
