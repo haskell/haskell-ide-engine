@@ -81,7 +81,7 @@ initializeFlagsWithCradle ::
         -> m ()
 initializeFlagsWithCradle fp cradle = do
       (ex, err, ghcOpts) <- liftIO $ getOptions (cradleOptsProg cradle) fp
-      G.pprTraceM "res" (G.text (show (ex, err, ghcOpts, fp)))
+      G.pprTrace "res" (G.text (show (ex, err, ghcOpts, fp))) (return ())
       let compOpts = CompilerOptions ghcOpts
       liftIO $ hPrint stderr ghcOpts
       initSession SingleFile compOpts
@@ -146,7 +146,7 @@ addCmdOpts cmdOpts df1 = do
 setTargetFiles :: GhcMonad m => [FilePath] -> m ()
 setTargetFiles files = do
     targets <- forM files $ \file -> G.guessTarget file Nothing
-    G.pprTraceM "setTargets" (G.ppr (files, targets))
+    G.pprTrace "setTargets" (G.ppr (files, targets)) (return ())
     G.setTargets (map (\t -> t { G.targetAllowObjCode = False }) targets)
     void $ G.load LoadAllTargets
 

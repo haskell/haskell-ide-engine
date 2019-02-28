@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP #-}
 module HIE.Bios.Load ( loadFile ) where
 
 import CoreMonad (liftIO)
@@ -15,6 +16,10 @@ import HIE.Bios.Gap
 import System.Directory
 import EnumSet
 import Control.Monad (filterM)
+
+#if __GLASGOW_HASKELL__ < 806
+pprTraceM x s = pprTrace x s (return ())
+#endif
 
 -- | Obtaining type of a target expression. (GHCi's type:)
 loadFile :: GhcMonad m

@@ -31,6 +31,7 @@ findCradle :: FilePath -> IO Cradle
 findCradle wfile = do
     let wdir = takeDirectory wfile
     res <- runMaybeT ( biosCradle wdir
+                      <|> obeliskCradle wdir
                       <|> rulesHaskellCradle wdir
                       <|> cabalCradle wdir)
     case res of
@@ -74,7 +75,8 @@ biosAction fp = do
   return (ex, std, words res)
 
 -- Cabal Cradle
--- Works for new-build using the ghc-environment file
+-- Works for new-build by invoking `v2-repl` does not support components
+-- yet.
 
 cabalCradle :: FilePath -> MaybeT IO Cradle
 cabalCradle fp = do
@@ -108,6 +110,7 @@ cabalDir = findFileUpwards isCabal
 
 ----------------------------------------------------------------------------
 -- rules_haskell - Thanks for David Smith for helping with this one.
+-- Looks for the directory containing a WORKSPACE file
 
 rulesHaskellCradle :: FilePath -> MaybeT IO Cradle
 rulesHaskellCradle fp = do
@@ -138,9 +141,40 @@ rulesHaskellAction work_dir fp = do
   return (ex, stde, args'')
 
 
+------------------------------------------------------------------------------
+-- Obelisk Cradle
+-- Searches for the directory which contains `.obelisk`.
+
+obeliskCradle :: FilePath -> MaybeT IO Cradle
+obeliskCradle fp = do
+  -- Find a possible root which will contain the cabal.project
+  wdir <- findFileUpwards (== "cabal.project") fp
+  -- Check for the ".obelisk" folder in this directory
+  check <- liftIO $ doesDirectoryExist (wdir </> ".obelisk")
+  unless check (fail "Not obelisk dir")
+  return Cradle {
+    cradleCurrentDir = fp
+    , cradleRootDir  = wdir
+    , cradleOptsProg = CradleAction "obelisk" (obeliskAction wdir)
+    }
+
+obeliskAction :: FilePath -> FilePath -> IO (ExitCode, String, [String])
+obeliskAction work_dir fp = do
+  (ex, args, stde) <-
+      withCurrentDirectory work_dir (readProcessWithExitCode "ob" ["ide-args"] [])
+  return (ex, stde, words args)
 
 
--- Looks for the directory with the first cabal.project file
+
+
+
+
+------------------------------------------------------------------------------
+-- Utilities
+
+
+-- | Searches upwards for the first directory containing a file to match
+-- the predicate.
 findFileUpwards :: (FilePath -> Bool) -> FilePath -> MaybeT IO FilePath
 findFileUpwards p dir = do
     cnts <- liftIO $ findFile p dir
@@ -151,6 +185,7 @@ findFileUpwards p dir = do
   where
     dir' = takeDirectory dir
 
+-- | Sees if any file in the directory matches the predicate
 findFile :: (FilePath -> Bool) -> FilePath -> IO [FilePath]
 findFile p dir = getFiles >>= filterM doesPredFileExist
   where

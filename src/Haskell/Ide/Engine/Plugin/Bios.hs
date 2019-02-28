@@ -109,6 +109,8 @@ logDiag rfm eref dref df _reason sev spn style msg = do
       modifyIORef' eref (msgTxt:)
       return ()
 
+pprTraceM a b = pprTrace a b (return ())
+
 unhelpfulSrcSpanErr :: T.Text -> IdeError
 unhelpfulSrcSpanErr err =
   IdeError PluginError
