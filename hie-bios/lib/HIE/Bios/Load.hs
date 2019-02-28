@@ -71,6 +71,7 @@ inModuleContext file action =
     pprTraceM "loadFile:3" (ppr $ optLevel df)
     pprTraceM "loadFile:4" (text $ show (EnumSet.toList (generalFlags df)))
     setTargetFiles [file]
+    pprTraceM "loaded" (ppr file)
     withContext $ do
         dflag <- G.getSessionDynFlags
         style <- getStyle dflag

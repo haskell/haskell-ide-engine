@@ -63,15 +63,15 @@ biosCradle cur_dir = do
   return Cradle {
       cradleCurrentDir = cur_dir
     , cradleRootDir    = wdir
-    , cradleOptsProg   = CradleAction "bios" biosAction
+    , cradleOptsProg   = CradleAction "bios" (biosAction wdir)
   }
 
 biosDir :: FilePath -> MaybeT IO FilePath
 biosDir = findFileUpwards ("hie-bios" ==)
 
-biosAction :: FilePath -> IO (ExitCode, String, [String])
-biosAction fp = do
-  (ex, res, std) <- readProcessWithExitCode (fp </> "hie-bios") [fp] []
+biosAction :: FilePath -> FilePath -> IO (ExitCode, String, [String])
+biosAction wdir fp = do
+  (ex, res, std) <- readProcessWithExitCode (wdir </> "hie-bios") [fp] []
   return (ex, std, words res)
 
 -- Cabal Cradle
