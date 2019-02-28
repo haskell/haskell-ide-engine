@@ -54,11 +54,12 @@ main = do
   let ghcVersions = map fst ghcPaths
 
   shakeArgs shakeOptions { shakeFiles = "_build" } $ do
-    want ["help"]
+    want ["short-help"]
     -- general purpose targets
     phony "submodules" updateSubmodules
     phony "cabal"      (getStackGhcPath mostRecentHieVersion >>= installCabal)
-    phony "all"        helpMessage
+    phony "short-help" shortHelpMessage
+    phony "all"        shortHelpMessage
     phony "help"       helpMessage
     phony "dist"       buildDist
 
@@ -244,7 +245,7 @@ cabalTest versionNumber = do
 
 installCabal :: GhcPath -> Action ()
 installCabal ghc = do
-  execStack_ ["install", "cabal-install"]
+  execStack_ ["install", "--stack-yaml=shake.yaml", "cabal-install"]
   execCabal_ ["update"]
   execCabal_ ["install", "Cabal-2.4.1.0", "--with-compiler=" ++ ghc]
 
@@ -277,6 +278,51 @@ stackBuildDoc versionNumber = do
   execStackWithYaml_ versionNumber ["install", "hoogle"]
   execStackWithYaml_ versionNumber ["exec", "hoogle", "generate"]
 
+shortHelpMessage :: Action ()
+shortHelpMessage = do
+  let out = liftIO . putStrLn
+  scriptName <- liftIO getProgName
+  out ""
+  out "Usage:"
+  out' ("stack " <> scriptName <> " <target>")
+  out ""
+  out "Targets:"
+  mapM_ (out' . showTarget spaces) targets
+  out ""
+ where
+  out    = liftIO . putStrLn
+  out'   = out . ("    " ++)
+
+  spaces = space targets
+  targets =
+    [ ("help", "Show help message including all targets")
+    , ( "build"
+      , "Builds hie for all supported GHC versions ("
+        ++ allVersionMessage hieVersions
+        ++ ")"
+      )
+    , ( "build-all"
+      , "Builds hie and hoogle databases for all supported GHC versions"
+      )
+    , stackHieTarget mostRecentHieVersion
+    , stackBuildDocTarget mostRecentHieVersion
+    , stackHieTarget "8.4.4"
+    , stackBuildDocTarget "8.4.4"
+    , emptyTarget
+    , ( "cabal-ghcs"
+      , "Show all GHC versions that can be installed via `cabal-build` and `cabal-build-all`."
+      )
+    , ("cabal-build", "Builds hie with cabal with all installed GHCs.")
+    , ( "cabal-build-all"
+      , "Builds hie and hoogle databases for all installed GHC versions with cabal"
+      )
+    , cabalHieTarget mostRecentHieVersion
+    , cabalBuildDocTarget mostRecentHieVersion
+    , cabalHieTarget "8.4.4"
+    , cabalBuildDocTarget "8.4.4"
+    ]
+
+
 helpMessage :: Action ()
 helpMessage = do
   scriptName <- liftIO getProgName
@@ -285,68 +331,20 @@ helpMessage = do
   out' ("stack " <> scriptName <> " <target>")
   out ""
   out "Targets:"
-  mapM_ (out' . showTarget) targets
+  mapM_ (out' . showTarget spaces) targets
   out ""
  where
-  out  = liftIO . putStrLn
-  out' = out . ("    " ++)
-  -- |Number of spaces the target name including whitespace should have.
-  -- At least twenty, maybe more if target names are long. At most length of the longest target plus five.
-  space :: Int
-  space = maximum (20 : map ((+ 5) . length . fst) targets)
+  out    = liftIO . putStrLn
+  out'   = out . ("    " ++)
 
-  -- |Show a target.
-  -- Concatenates the target with its help message and inserts whitespace between them.
-  showTarget :: (String, String) -> String
-  showTarget (target, msg) =
-    target ++ replicate (space - length target) ' ' ++ msg
-
-  -- |Target for a specific ghc version
-  stackHieTarget :: String -> (String, String)
-  stackHieTarget version =
-    ( "hie-" ++ version
-    , "Builds hie for GHC version " ++ version ++ " only with stack"
-    )
-  -- |Target for a specific ghc version
-  cabalHieTarget :: String -> (String, String)
-  cabalHieTarget version =
-    ( "cabal-hie-" ++ version
-    , "Builds hie for GHC version " ++ version ++ " only with cabal new-build"
-    )
-
-  stackBuildDocTarget :: VersionNumber -> (String, String)
-  stackBuildDocTarget version =
-    ( "build-doc-" ++ version
-    , "Builds the Hoogle database for GHC version "
-      ++ version
-      ++ " only with stack"
-    )
-
-  cabalBuildDocTarget :: VersionNumber -> (String, String)
-  cabalBuildDocTarget version =
-    ( "cabal-build-doc-" ++ version
-    , "Builds the Hoogle database for GHC version "
-      ++ version
-      ++ " only with cabal"
-    )
-
-  -- | Creates a message of the form "a, b, c and d", where a,b,c,d are GHC versions.
-  -- If there is no GHC in the list of `hieVersions`
-  allVersionMessage :: [String] -> String
-  allVersionMessage wordList = case wordList of
-    []  -> ""
-    [a] -> show a
-    (a : as) ->
-      let msg         = intersperse ", " wordList
-          lastVersion = last msg
-      in  concat $ (init $ init msg) ++ [" and ", lastVersion]
-
+  spaces = space targets
   -- All targets the shake file supports
+  targets :: [(String, String)]
   targets = generalTargets ++ stackTargets ++ cabalTargets ++ macosTargets
 
   -- All targets with their respective help message.
   generalTargets =
-    [ ("help", "Show help")
+    [ ("help", "Show help message including all targets")
     , ( "cabal"
       , "Makes sure that Cabal the lib is available for cabal-helper-wapper, to speed up project start"
       )
@@ -376,9 +374,7 @@ helpMessage = do
     [ ( "cabal-ghcs"
       , "Show all GHC versions that can be installed via `cabal-build` and `cabal-build-all`."
       )
-      , ( "cabal-build"
-        , "Builds hie with cabal with all installed GHCs. Target `cabal-ghcs` shows all GHC versions that will be installed"
-        )
+      , ("cabal-build", "Builds hie with cabal with all installed GHCs.")
       , ( "cabal-build-all"
         , "Builds hie and hoogle databases for all installed GHC versions with cabal"
         )
@@ -389,6 +385,62 @@ helpMessage = do
       ]
       ++ map cabalHieTarget      hieVersions
       ++ map cabalBuildDocTarget hieVersions
+
+-- | Empty target. Purpose is to introduce a newline between the tagets
+emptyTarget :: (String, String)
+emptyTarget = ("", "")
+
+-- |Number of spaces the target name including whitespace should have.
+-- At least twenty, maybe more if target names are long. At most length of the longest target plus five.
+space :: [(String, String)] -> Int
+space phonyTargets = maximum (20 : map ((+ 5) . length . fst) phonyTargets)
+
+-- |Show a target.
+-- Concatenates the target with its help message and inserts whitespace between them.
+showTarget :: Int -> (String, String) -> String
+showTarget spaces (target, msg) =
+  target ++ replicate (spaces - length target) ' ' ++ msg
+
+-- |Target for a specific ghc version
+stackHieTarget :: String -> (String, String)
+stackHieTarget version =
+  ( "hie-" ++ version
+  , "Builds hie for GHC version " ++ version ++ " only with stack"
+  )
+
+-- |Target for a specific ghc version
+cabalHieTarget :: String -> (String, String)
+cabalHieTarget version =
+  ( "cabal-hie-" ++ version
+  , "Builds hie for GHC version " ++ version ++ " only with cabal new-build"
+  )
+
+stackBuildDocTarget :: VersionNumber -> (String, String)
+stackBuildDocTarget version =
+  ( "build-doc-" ++ version
+  , "Builds the Hoogle database for GHC version "
+    ++ version
+    ++ " only with stack"
+  )
+
+cabalBuildDocTarget :: VersionNumber -> (String, String)
+cabalBuildDocTarget version =
+  ( "cabal-build-doc-" ++ version
+  , "Builds the Hoogle database for GHC version "
+    ++ version
+    ++ " only with cabal"
+  )
+
+-- | Creates a message of the form "a, b, c and d", where a,b,c,d are GHC versions.
+-- If there is no GHC in the list of `hieVersions`
+allVersionMessage :: [String] -> String
+allVersionMessage wordList = case wordList of
+  []  -> ""
+  [a] -> show a
+  (a : as) ->
+    let msg         = intersperse ", " wordList
+        lastVersion = last msg
+    in  concat $ (init $ init msg) ++ [" and ", lastVersion]
 
 execStackWithYaml_ :: VersionNumber -> [String] -> Action ()
 execStackWithYaml_ versionNumber args = do
