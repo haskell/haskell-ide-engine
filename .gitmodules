@@ -34,4 +34,4 @@
 
 [submodule "submodules/floskell"]
 	path = submodules/floskell
-	url = https://github.com/bubba/floskell
+	url = https://github.com/ennocramer/floskell

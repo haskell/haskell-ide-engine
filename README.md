@@ -51,13 +51,9 @@ we talk to clients.__
   - [Docs on hover/completion](#docs-on-hovercompletion)
   - [Contributing](#contributing)
     - [Planned Features](#planned-features)
-    - [This is *not* yet another `ghc-mod` or `ide-backend` project](#this-is-not-yet-another-ghc-mod-or-ide-backend-project)
     - [It's time to join the project!](#its-time-to-join-the-project)
-  - [Architecture](#architecture)
-    - [1. BIOS layer](#1-bios-layer)
-    - [2. Plugin layer](#2-plugin-layer)
-    - [3. IDE interfacing layer](#3-ide-interfacing-layer)
   - [Documentation](#documentation)
+    - [Architecture](#architecture)
   - [Troubleshooting](#troubleshooting)
     - [DYLD on macOS](#dyld-on-macos)
     - [macOS: Got error while installing GHC 8.6.1 or 8.6.2 - dyld: Library not loaded: /usr/local/opt/gmp/lib/libgmp.10.dylib](#macos-got-error-while-installing-ghc-861-or-862---dyld-library-not-loaded-usrlocaloptgmpliblibgmp10dylib)
@@ -337,7 +333,7 @@ stack install.hs cabal-hie-8.4.4
 stack install.hs cabal-build-doc-8.4.4
 ```
 
-In general, targets that use `cabal` instead of `stack` are prefixed with `cabal-*` and identical to their counterpart. 
+In general, targets that use `cabal` instead of `stack` are prefixed with `cabal-*` and are identical to their counterpart, except they do not install a GHC if it is missing but fail.
 
 #### Install *all* available GHC versions with Shake
 
@@ -636,10 +632,6 @@ Or you can set the environment variable `HIE_HOOGLE_DATABASE` to specify a speci
  - [ ] Cross project/dependency Find Definition
  - [ ] Case splitting, type insertion etc.
 
-### This is *not* yet another [`ghc-mod`](https://github.com/kazu-yamamoto/ghc-mod) or [`ide-backend`](https://github.com/fpco/ide-backend) project
-
- > Both the ghc-mod and ide-backend maintainers have agreed to contribute code to this new repository and then rebase the old repos on this. The reason we're using a new repo instead of modifying one of the existing ones is so that the existing projects experience no disruption during this migration process. If this was a new set of people starting a new project without support from existing projects, I'd agree with you. But Alan's reached out to existing players already, which is an important distinction.
-
 This project is not started from scratch:
 
 1. See why [we should supersede previous tools](/docs/Challenges.md)
@@ -656,38 +648,17 @@ This project is not started from scratch:
  - Fork this repo and hack as much as you can.
  - Ask @alanz or @hvr to join the project.
 
-## Architecture
-
-Below you find a short overview of the main architectural layers of `haskell-ide-engine`.
-For more info have a look in [the docs folder](/docs) at the root of this project, especially:
-
- - The [Architecture discussion](docs/Architecture.md)
- - The [Protocol discussion](docs/Protocol.md)
- - The [Design discussion](docs/Design.md)
-
-### 1. BIOS layer
-
-[`ghc-mod`](https://github.com/kazu-yamamoto/ghc-mod) stays an AGPL project,
-and is used for its "awesome sauce" in terms of
-the BIOS functions that it does so well. This interface is
-[straightforward to use](http://alanz.github.io/haskell%20refactorer/2015/10/02/ghc-mod-for-tooling),
-and if a license-constrained user wants to do something else it is also easy to
-replace, if there is strong control of the operating environment.
-
-### 2. Plugin layer
-
-A layer providing a point to integrate tools and existing functions, probably
-including ghci.
-
-### 3. IDE interfacing layer
-
-The focus is currently on [LSP](https://github.com/Microsoft/language-server-protocol/blob/master/protocol.md) as the protocol we use to interface with IDEs.
-
-Existing transports are still functional for the time being.
-
 ## Documentation
 
 All the documentation is in [the docs folder](/docs) at the root of this project.
+
+### Architecture
+
+Have a look at
+
+ - the [Architecture discussion](docs/Architecture.md),
+ - [Protocol discussion](docs/Protocol.md) and
+ - [Design discussion](docs/Design.md).
 
 ## Troubleshooting
 
