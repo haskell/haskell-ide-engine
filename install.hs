@@ -296,6 +296,7 @@ shortHelpMessage = do
   spaces = space targets
   targets =
     [ ("help", "Show help message including all targets")
+    , emptyTarget
     , ( "build"
       , "Builds hie for all supported GHC versions ("
         ++ allVersionMessage hieVersions
