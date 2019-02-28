@@ -1,4 +1,4 @@
-resolver: nightly-2019-02-08 # GHC 8.6.3
+resolver: nightly-2019-02-27 # GHC 8.6.3
 packages:
 - .
 - hie-plugin-api
@@ -11,12 +11,13 @@ extra-deps:
 - ./submodules/ghc-mod/core
 - ./submodules/floskell
 
+- ansi-terminal-0.8.2
 - butcher-1.3.2.1
 - cabal-plan-0.4.0.0
 - constrained-dynamic-0.1.0.0
 - haddock-api-2.21.0
 - haskell-src-exts-1.21.0
-- hlint-2.1.14
+- hlint-2.1.15
 - hsimport-0.8.8
 - hoogle-5.0.17.5
 - monad-dijkstra-0.1.1.2
@@ -25,6 +26,7 @@ extra-deps:
 - optparse-simple-0.1.0
 - syz-0.2.0.0
 - temporary-1.2.1.1
+- unordered-containers-0.2.9.0
 - yaml-0.8.32
 
 flags:
