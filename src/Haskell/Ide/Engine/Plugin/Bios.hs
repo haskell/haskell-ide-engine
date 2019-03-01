@@ -102,14 +102,12 @@ logDiag rfm eref dref df _reason sev spn style msg = do
       let update = Map.insertWith Set.union uri l
             where l = Set.singleton diag
           diag = Diagnostic range (Just $ lspSev sev) Nothing (Just "ghcmod") msgTxt Nothing
-      pprTraceM "Writing diag" (text (show diag))
+      debugm $ "Writing diag" <> (show diag)
       modifyIORef' dref update
     Left _ -> do
-      pprTraceM "Writing err" (text (show msgTxt))
+      debugm $ "Writing err" <> (show msgTxt)
       modifyIORef' eref (msgTxt:)
       return ()
-
-pprTraceM a b = pprTrace a b (return ())
 
 unhelpfulSrcSpanErr :: T.Text -> IdeError
 unhelpfulSrcSpanErr err =
@@ -144,11 +142,11 @@ srcErrToDiag df rfm se = do
           Left e -> return (m, e:es)
   processMsgs errMsgs
 
-myWrapper :: (GM.MonadIO m, GhcMonad m)
+captureDiagnostics :: (GM.MonadIO m, GhcMonad m)
   => (FilePath -> FilePath)
   -> m r
   -> m (Diagnostics, AdditionalErrs, Maybe r)
-myWrapper  rfm action = do
+captureDiagnostics rfm action = do
   env <- getSession
   diagRef <- liftIO $ newIORef Map.empty
   errRef <- liftIO $ newIORef []
@@ -202,16 +200,14 @@ setTypecheckedModule :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
 setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     debugm "setTypecheckedModule: before ghc-mod"
-    -- TODO: Need to get rid of this and only find the cradle once and
-    -- maintain it through the GHC session
     let ghcErrRes msg = (Map.empty, [T.pack msg],Nothing)
     debugm "Loading file"
-    (diags', errs, mmods) <- (myWrapper id $ BIOS.loadFile fp)
+    (diags', errs, mmods) <- (captureDiagnostics id $ BIOS.loadFile fp)
     debugm "File, loaded"
     canonUri <- canonicalizeUri uri
     let diags = Map.insertWith Set.union canonUri Set.empty diags'
     debugm "setTypecheckedModule: after ghc-mod"
-    pprTraceM "Diags" (text $ show diags')
+    debugm ("Diags: " <> show diags')
 
     let diagonal Nothing = (Nothing, Nothing)
         diagonal (Just (x, y)) = (Just x, Just y)
@@ -271,15 +267,14 @@ newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
 newTypeCmd newPos uri =
   pluginGetFile "newTypeCmd: " uri $ \fp ->
     ifCachedModule fp (IdeResultOk []) $ \tm info -> do
-      pprTraceM "newTypeCmd" (text (show (newPos, uri)))
+      debugm $ "newTypeCmd: " <> (show (newPos, uri))
       return $ IdeResultOk $ pureTypeCmd newPos tm info
 
 pureTypeCmd :: Position -> GHC.TypecheckedModule -> CachedInfo -> [(Range,T.Text)]
 pureTypeCmd newPos tm info =
     case mOldPos of
-      Nothing -> pprTrace "No Result:" (text $ show mOldPos) []
-      Just pos -> pprTrace "Result:" (text $ show $ concatMap f (spanTypes pos))
-                                       (concatMap f (spanTypes pos))
+      Nothing -> []
+      Just pos -> concatMap f (spanTypes pos)
   where
     mOldPos = newPosToOld info newPos
     typm = typeMap info
