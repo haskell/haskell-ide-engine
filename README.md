@@ -277,6 +277,8 @@ to VS Code user settings.
 Experimental build script for HIE. Feedback is appreciated.
 Uses the [shake](https://shakebuild.com/) build system for predictable builds.
 The build script is platform independent and the only prerequisites are that `git` and `stack` are installed. The dependency on `make` and other linux specific commands has been dropped.
+It is also required, that the directory output of `stack path --local-bin` is on the path before installation, otherwise the installation of `cabal` will fail and `hie` executables may not be found.
+The installation path is usually `~/.local/bin` on UNIX systems and `C:\Users\User\AppData\Roaming\local\bin` on windows.
 
 Note, on first invocation of the build script, a GHC is being installed for execution. However, if you build HIE for every GHC, no GHC is downloaded twice.
 The GHC used for the `install.hs` can be adjusted in `shake.yaml` by using a different resolver.
