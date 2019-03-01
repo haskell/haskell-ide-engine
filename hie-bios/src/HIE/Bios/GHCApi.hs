@@ -27,7 +27,6 @@ import System.Exit (exitSuccess)
 import System.IO (hPutStr, hPrint, stderr)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Process (readProcess)
-import System.Directory
 
 import qualified HIE.Bios.Gap as Gap
 import HIE.Bios.Types

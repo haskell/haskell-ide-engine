@@ -13,10 +13,8 @@ import System.FilePath
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Applicative ((<|>))
-import Data.List
 --import Data.FileEmbed
 import System.IO.Temp
-import System.IO
 
 import Debug.Trace
 import System.Posix.Files
@@ -51,7 +49,7 @@ defaultCradle cur_dir =
     , cradleOptsProg = CradleAction "default" (const $ return (ExitSuccess, "", []))
     }
 
----------------------------------------------------------------
+-------------------------------------------------------------------------
 
 
 -- | Find a cradle by finding an executable `hie-bios` file which will
@@ -74,6 +72,7 @@ biosAction wdir fp = do
   (ex, res, std) <- readProcessWithExitCode (wdir </> "hie-bios") [fp] []
   return (ex, std, words res)
 
+------------------------------------------------------------------------
 -- Cabal Cradle
 -- Works for new-build by invoking `v2-repl` does not support components
 -- yet.
@@ -92,7 +91,7 @@ cabalWrapper :: String
 cabalWrapper = "" -- $(embedStringFile "wrappers/cabal")
 
 cabalAction :: FilePath -> FilePath -> IO (ExitCode, String, [String])
-cabalAction work_dir fp = do
+cabalAction work_dir _fp = do
   wrapper_fp <- writeSystemTempFile "wrapper" cabalWrapper
   -- TODO: This isn't portable for windows
   setFileMode wrapper_fp accessModes
@@ -123,6 +122,7 @@ rulesHaskellCradle fp = do
     }
 
 
+bazelCommand :: String
 bazelCommand = "" -- $(embedStringFile "wrappers/bazel")
 
 rulesHaskellAction :: FilePath -> FilePath -> IO (ExitCode, String, [String])
@@ -159,14 +159,10 @@ obeliskCradle fp = do
     }
 
 obeliskAction :: FilePath -> FilePath -> IO (ExitCode, String, [String])
-obeliskAction work_dir fp = do
+obeliskAction work_dir _fp = do
   (ex, args, stde) <-
       withCurrentDirectory work_dir (readProcessWithExitCode "ob" ["ide-args"] [])
   return (ex, stde, words args)
-
-
-
-
 
 
 ------------------------------------------------------------------------------
