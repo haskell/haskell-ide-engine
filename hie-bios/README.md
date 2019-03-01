@@ -77,7 +77,10 @@ ghci $(./hie-bios /path/to/foo.hs) /path/to/foo.hs
 ```
 
 This is useful if you are designing a new build system or the other modes
-fail to setup the correct session for some reason.
+fail to setup the correct session for some reason. For example, if a project
+provides a `stack.yaml` file and `cabal.project` file then you might choose
+to write a specific `hie-bios` file to use `stack` or `cabal` to get up
+the environment.
 
 ## Priority
 
