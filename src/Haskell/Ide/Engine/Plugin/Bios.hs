@@ -92,29 +92,15 @@ lspSev SevFatal   = DsError
 lspSev SevInfo    = DsInfo
 lspSev _          = DsInfo
 
--- type LogAction = DynFlags -> WarnReason -> Severity -> SrcSpan -> PprStyle -> MsgDoc -> IO ()
-logDiag :: (FilePath -> FilePath) -> IORef AdditionalErrs -> IORef Diagnostics -> LogAction
-logDiag rfm eref dref df _reason sev spn style msg = do
-  eloc <- srcSpan2Loc rfm spn
-  let msgTxt = T.pack $ renderWithStyle df msg style
-  case eloc of
-    Right (Location uri range) -> do
-      let update = Map.insertWith Set.union uri l
-            where l = Set.singleton diag
-          diag = Diagnostic range (Just $ lspSev sev) Nothing (Just "ghcmod") msgTxt Nothing
-      debugm $ "Writing diag" <> (show diag)
-      modifyIORef' dref update
-    Left _ -> do
-      debugm $ "Writing err" <> (show msgTxt)
-      modifyIORef' eref (msgTxt:)
-      return ()
 
+-- | Make an error which doesn't have its own location
 unhelpfulSrcSpanErr :: T.Text -> IdeError
 unhelpfulSrcSpanErr err =
   IdeError PluginError
             ("Unhelpful SrcSpan" <> ": \"" <> err <> "\"")
             Null
 
+-- | Turn a 'SourceError' into the HIE 'Diagnostics' format.
 srcErrToDiag :: MonadIO m
   => DynFlags
   -> (FilePath -> FilePath)
@@ -142,6 +128,8 @@ srcErrToDiag df rfm se = do
           Left e -> return (m, e:es)
   processMsgs errMsgs
 
+
+-- | Run a Ghc action and capture any diagnostics and errors produced.
 captureDiagnostics :: (GM.MonadIO m, GhcMonad m)
   => (FilePath -> FilePath)
   -> m r
@@ -171,6 +159,25 @@ captureDiagnostics rfm action = do
         return (diags,errs, Just r)
   GM.gcatches action' handlers
 
+-- | Create a 'LogAction' which will be invoked by GHC when it tries to
+-- write anything to `stdout`.
+logDiag :: (FilePath -> FilePath) -> IORef AdditionalErrs -> IORef Diagnostics -> LogAction
+-- type LogAction = DynFlags -> WarnReason -> Severity -> SrcSpan -> PprStyle -> MsgDoc -> IO ()
+logDiag rfm eref dref df _reason sev spn style msg = do
+  eloc <- srcSpan2Loc rfm spn
+  let msgTxt = T.pack $ renderWithStyle df msg style
+  case eloc of
+    Right (Location uri range) -> do
+      let update = Map.insertWith Set.union uri l
+            where l = Set.singleton diag
+          diag = Diagnostic range (Just $ lspSev sev) Nothing (Just "ghcmod") msgTxt Nothing
+      debugm $ "Writing diag" <> (show diag)
+      modifyIORef' dref update
+    Left _ -> do
+      debugm $ "Writing err" <> (show msgTxt)
+      modifyIORef' eref (msgTxt:)
+      return ()
+
 
 errorHandlers :: (Monad m) => (String -> m a) -> (SourceError -> m a) -> [GM.GHandler m a]
 errorHandlers ghcErrRes renderSourceError = handlers
@@ -186,8 +193,6 @@ errorHandlers ghcErrRes renderSourceError = handlers
             ghcErrRes (show ex)
         , GM.GHandler $ \(ex :: SourceError) ->
             renderSourceError ex
-        , GM.GHandler $ \(ex :: GhcException) ->
-            ghcErrRes $ GM.renderGm $ GM.ghcExceptionDoc ex
         , GM.GHandler $ \(ex :: IOError) ->
             ghcErrRes (show ex)
         -- , GM.GHandler $ \(ex :: GM.SomeException) ->
