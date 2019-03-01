@@ -312,7 +312,7 @@ To see what GHC versions are available, the command `stack install.hs cabal-ghcs
 It will list all GHC versions that are on the path and their respective installation directory.
 If you think, this list is incomplete, you can try to modify the PATH variable, such that the executables can be found.
 Note, that the targets `cabal-build`, `cabal-build-docs` and `cabal-build-all` depend on the found GHC versions.
-They install Haskell IDE Engine only for the found GHC versions. 
+They install Haskell IDE Engine only for the found GHC versions.
 
 An example output is:
 
@@ -364,7 +364,7 @@ To install HIE only for those GHC versions that are present on your system, you 
 stack ./install.hs cabal-build-all
 ```
 
-This wil:
+This will:
 
 - install Haskell Ide Engine for GHC versions that have been found on your path
 - name them as expected by the VS Code plugin
