@@ -14,7 +14,7 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Control.Applicative ((<|>))
 import Data.List
-import Data.FileEmbed
+--import Data.FileEmbed
 import System.IO.Temp
 import System.IO
 
@@ -89,7 +89,7 @@ cabalCradle fp = do
   }
 
 cabalWrapper :: String
-cabalWrapper = $(embedStringFile "wrappers/cabal")
+cabalWrapper = "" -- $(embedStringFile "wrappers/cabal")
 
 cabalAction :: FilePath -> FilePath -> IO (ExitCode, String, [String])
 cabalAction work_dir fp = do
@@ -123,7 +123,7 @@ rulesHaskellCradle fp = do
     }
 
 
-bazelCommand = $(embedStringFile "wrappers/bazel")
+bazelCommand = "" -- $(embedStringFile "wrappers/bazel")
 
 rulesHaskellAction :: FilePath -> FilePath -> IO (ExitCode, String, [String])
 rulesHaskellAction work_dir fp = do

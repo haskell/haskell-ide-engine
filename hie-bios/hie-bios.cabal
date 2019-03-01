@@ -16,7 +16,7 @@ Extra-Source-Files:     ChangeLog
 Library
   Default-Language:     Haskell2010
   GHC-Options:          -Wall
-  HS-Source-Dirs:       lib
+  HS-Source-Dirs:       src
   Exposed-Modules:      HIE.Bios
                         HIE.Bios.Check
                         HIE.Bios.Cradle
@@ -47,7 +47,7 @@ Executable biosc
   Main-Is:              biosc.hs
   Other-Modules:        Paths_hie_bios
   GHC-Options:          -Wall
-  HS-Source-Dirs:       src
+  HS-Source-Dirs:       exe
   Build-Depends:        base >= 4.9 && < 5
                       , directory
                       , filepath
