@@ -2,12 +2,12 @@
 
 - Resolver bumped, LTS 13.9 for GHC 8.6.3 (@alanz)
 - Ongoing improvements of `install.hs` installation process and
-  documentation. (@fendor, @power-fungus, @Anrock)
+  documentation. (@fendor, @power-fungus, @Anrock, @Hogeyama )
   - Improved documentation
   - can now also build via `cabal new-build`
   - improved cross-platform support
 - Introduce [floskell](https://github.com/ennocramer/floskell) as an
-  alternative formatting provider (@bubba)
+  alternative formatting provider (@bubba, @AlexeyRaga, @luigy)
   - Introduces `formattingProvider` as a plugin API function.
   - Can be selected via configuration option `formattingProvider`
 - Respects the `only` parameter of codeAction requests (@bubba)
