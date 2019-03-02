@@ -50,8 +50,8 @@ instance FromJSON Config where
       <*> o .:? "diagnosticsDebounceDuration" .!= diagnosticsDebounceDuration def
       <*> o .:? "liquidOn"                    .!= liquidOn def
       <*> o .:? "completionSnippetsOn"        .!= completionSnippetsOn def
-      <*> o .:? "formatOnImportOn"            .!= formatOnImportOn def 
-      <*> o .:? "formattingProvider"          .!= formattingProvider def 
+      <*> o .:? "formatOnImportOn"            .!= formatOnImportOn def
+      <*> o .:? "formattingProvider"          .!= formattingProvider def
 
 -- 2017-10-09 23:22:00.710515298 [ThreadId 11] - ---> {"jsonrpc":"2.0","method":"workspace/didChangeConfiguration","params":{"settings":{"languageServerHaskell":{"maxNumberOfProblems":100,"hlintOn":true}}}}
 -- 2017-10-09 23:22:00.710667381 [ThreadId 15] - reactor:got didChangeConfiguration notification:
