@@ -380,6 +380,12 @@ There are some settings that can be configured via a `settings.json` file:
     "languageServerHaskell": {
         "hlintOn": Boolean,
         "maxNumberOfProblems": Number
+        "diagnosticsDebounceDuration" : Number
+        "liquidOn"                    : Bool (default False)
+        "completionSnippetsOn"        : Bool (default True)
+        "formatOnImportOn"            : Bool (default True)
+        "formattingProvider"          : String (default "brittany",
+                                                alternate "floskell")
     }
 }
 ```
