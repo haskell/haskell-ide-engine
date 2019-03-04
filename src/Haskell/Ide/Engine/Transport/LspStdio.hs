@@ -24,7 +24,7 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Control.Monad.Reader
-import qualified Data.Aeson as J
+import qualified Data.Aeson as A
 import           Data.Aeson ( (.=) )
 import qualified Data.ByteString.Lazy as BL
 import           Data.Char (isUpper, isAlphaNum)
@@ -389,7 +389,7 @@ reactor inp diagIn = do
           liftIO $ U.logs $ "reactor:got RspFromClient:" ++ show resp
           case merr of
             Nothing -> return ()
-            Just _ -> sendErrorLog $ "Got error response:" <> decodeUtf8 (BL.toStrict $ J.encode resp)
+            Just _ -> sendErrorLog $ "Got error response:" <> decodeUtf8 (BL.toStrict $ A.encode resp)
 
         -- -------------------------------
 
@@ -420,7 +420,7 @@ reactor inp diagIn = do
           -- TODO: Register all commands?
           hareId <- mkLspCmdId "hare" "demote"
           let
-            options = J.object ["documentSelector" .= J.object [ "language" .= J.String "haskell"]]
+            options = A.object ["documentSelector" .= A.object [ "language" .= A.String "haskell"]]
             registrationsList =
               [ J.Registration hareId J.WorkspaceExecuteCommand (Just options)
               ]
@@ -593,7 +593,7 @@ reactor inp diagIn = do
                 case fromDynJSON obj :: Maybe J.WorkspaceEdit of
                   Just v -> do
                     lid <- nextLspReqId
-                    reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req (J.Object mempty)
+                    reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req (A.Object mempty)
                     let msg = fmServerApplyWorkspaceEditRequest lid $ J.ApplyWorkspaceEditParams v
                     liftIO $ U.logs $ "ExecuteCommand sending edit: " ++ show msg
                     reactorSend $ ReqApplyWorkspaceEdit msg
@@ -603,13 +603,13 @@ reactor inp diagIn = do
                 -- The parameters to the HIE command are always the first element
                 let cmdParams = case args of
                      Just (J.List (x:_)) -> x
-                     _ -> J.Null
+                     _ -> A.Null
 
                 case parseCmdId cmdId of
                   -- Shortcut for immediately applying a applyWorkspaceEdit as a fallback for v3.8 code actions
                   Just ("hie", "fallbackCodeAction") -> do
-                    case J.fromJSON cmdParams of
-                      J.Success (FallbackCodeActionParams mEdit mCmd) -> do
+                    case A.fromJSON cmdParams of
+                      A.Success (FallbackCodeActionParams mEdit mCmd) -> do
 
                         -- Send off the workspace request if it has one
                         forM_ mEdit $ \edit -> do
@@ -623,7 +623,7 @@ reactor inp diagIn = do
                           Just (J.Command _ innerCmdId innerArgs) -> execCmd innerCmdId innerArgs
 
                           -- Otherwise we need to send back a response oureslves
-                          Nothing -> reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req (J.Object mempty)
+                          Nothing -> reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req (A.Object mempty)
 
                       -- Couldn't parse the fallback command params
                       _ -> liftIO $
@@ -670,8 +670,8 @@ reactor inp diagIn = do
         ReqCompletionItemResolve req -> do
           liftIO $ U.logs $ "reactor:got CompletionItemResolveRequest:" ++ show req
           let origCompl = req ^. J.params
-              mquery = case J.fromJSON <$> origCompl ^. J.xdata of
-                         Just (J.Success q) -> Just q
+              mquery = case A.fromJSON <$> origCompl ^. J.xdata of
+                         Just (A.Success q) -> Just q
                          _ -> Nothing
               callback docText = do
                 let markup = J.MarkupContent J.MkMarkdown <$> docText
