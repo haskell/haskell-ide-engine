@@ -2,6 +2,7 @@ packages:
          ./
          ./hie-plugin-api/
          ./hie-bios/
+         ./haskell-lsp/
 
          ./submodules/HaRe
          ./submodules/brittany

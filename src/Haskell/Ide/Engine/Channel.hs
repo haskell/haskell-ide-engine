@@ -35,7 +35,7 @@ newChanSTM = do
 
 -- | Consumes and returns the next value of the given channel
 readChan :: OutChan a -> IO a
-readChan = STM.atomically . readChanSTM
+readChan = STM.atomically . readChanSTM . id
 
 -- | STM version of 'readChan', useful for chaining many STM calls inside a single
 -- 'atomically' block.

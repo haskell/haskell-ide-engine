@@ -273,7 +273,7 @@ readVFS :: MonadIde m => Uri -> m (Maybe T.Text)
 readVFS uri = do
   mvf <- getVirtualFile uri
   case mvf of
-    Just (VirtualFile _ txt) -> return $ Just (Yi.toText txt)
+    Just (VirtualFile _ txt _) -> return $ Just (Yi.toText txt)
     Nothing -> return Nothing
 
 getRangeFromVFS :: MonadIde m => Uri -> Range -> m (Maybe T.Text)
@@ -284,7 +284,7 @@ getRangeFromVFS uri rg = do
     Nothing  -> return Nothing
 
 rangeLinesFromVfs :: VirtualFile -> Range -> T.Text
-rangeLinesFromVfs (VirtualFile _ yitext) (Range (Position lf _cf) (Position lt _ct)) = r
+rangeLinesFromVfs (VirtualFile _ yitext _) (Range (Position lf _cf) (Position lt _ct)) = r
   where
     (_ ,s1) = Yi.splitAtLine lf yitext
     (s2, _) = Yi.splitAtLine (lt - lf) s1

@@ -209,7 +209,7 @@ getPrefixAtPos :: (MonadIO m, MonadReader REnv m)
 getPrefixAtPos uri pos@(Position l c) = do
   mvf <- liftIO =<< asksLspFuncs Core.getVirtualFileFunc <*> pure uri
   case mvf of
-    Just (VFS.VirtualFile _ yitext) ->
+    Just (VFS.VirtualFile _ yitext _) ->
       return $ Just $ fromMaybe (Hie.PosPrefixInfo "" "" "" pos) $ do
         let headMaybe [] = Nothing
             headMaybe (x:_) = Just x
@@ -240,20 +240,13 @@ mapFileFromVfs :: (MonadIO m, MonadReader REnv m)
 mapFileFromVfs tn vtdi = do
   let uri = vtdi ^. J.uri
       ver = fromMaybe 0 (vtdi ^. J.version)
-  vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
-  mvf <- liftIO $ vfsFunc uri
-  case (mvf, uriToFilePath uri) of
-    (Just (VFS.VirtualFile _ yitext), Just fp) -> do
-      let text' = Yi.toString yitext
-          -- text = "{-# LINE 1 \"" ++ fp ++ "\"#-}\n" <> text'
+  case (uriToFilePath uri) of
+    Just fp ->
       let req = GReq tn (Just uri) Nothing Nothing (const $ return ())
                   $ IdeResultOk <$> do
-                      --GM.loadMappedFileSource fp text'
-                      --fileMap <- GM.getMMappedFiles
-                      --debugm $ "file mapping state is: " ++ show fileMap
-                      return ()
-      updateDocumentRequest uri ver req
-    (_, _) -> return ()
+                      persistVirtualFile uri
+      in updateDocumentRequest uri ver req
+    _ -> return ()
 
 -- TODO: generalise this and move it to GhcMod.ModuleLoader
 updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeGhcM (IdeResult ())

@@ -337,6 +337,7 @@ data IdeEnv = IdeEnv
 class Monad m => MonadIde m where
   getRootPath :: m (Maybe FilePath)
   getVirtualFile :: Uri -> m (Maybe VirtualFile)
+  persistVirtualFile :: Uri -> m FilePath
   getConfig :: m Config
   getClientCapabilities :: m ClientCapabilities
   getPlugins :: m IdePlugins
@@ -353,6 +354,12 @@ instance MonadIde IdeM where
     case mlf of
       Just lf -> liftIO $ Core.getVirtualFileFunc lf uri
       Nothing -> return Nothing
+
+  persistVirtualFile uri = do
+    mlf <- asks ideEnvLspFuncs
+    case mlf of
+      Just lf -> liftIO $ Core.persistVirtualFileFunc lf uri
+      Nothing -> maybe (error "persist") return (uriToFilePath uri)
 
   getConfig = do
     mlf <- asks ideEnvLspFuncs
@@ -374,13 +381,16 @@ instance MonadTrans GhcT where
 instance MonadIde IdeGhcM where
   getRootPath = lift getRootPath
   getVirtualFile = lift . getVirtualFile
+  persistVirtualFile = lift . persistVirtualFile
   getConfig = lift getConfig
   getClientCapabilities = lift getClientCapabilities
   getPlugins = lift getPlugins
 
+
 instance MonadIde IdeDeferM where
   getRootPath = lift getRootPath
   getVirtualFile = lift . getVirtualFile
+  persistVirtualFile = lift . persistVirtualFile
   getConfig = lift getConfig
   getClientCapabilities = lift getClientCapabilities
   getPlugins = lift getPlugins

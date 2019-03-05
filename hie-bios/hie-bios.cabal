@@ -27,7 +27,6 @@ Library
                         HIE.Bios.Logger
                         HIE.Bios.Types
                         HIE.Bios.Things
-                        HIE.Bios.Load
   Build-Depends:        base >= 4.9 && < 5
                       , containers
                       , deepseq

@@ -41,8 +41,8 @@ check :: (GhcMonad m)
       => Options
       -> [FilePath]  -- ^ The target files.
       -> m (Either String String)
-check opt fileNames = withLogger opt setAllWaringFlags $
-    setTargetFiles fileNames
+check opt fileNames = withLogger opt setAllWaringFlags $ undefined
+    --setTargetFiles fileNames
 
 ----------------------------------------------------------------
 
@@ -66,8 +66,8 @@ expandTemplate opt cradle files = withGHC sessionName $ do
 expand :: Options
       -> [FilePath]  -- ^ The target files.
       -> Ghc (Either String String)
-expand opt fileNames = withLogger opt (setDumpSplices . setNoWaringFlags) $
-    setTargetFiles fileNames
+expand opt fileNames = withLogger opt (setDumpSplices . setNoWaringFlags) $ undefined
+--    setTargetFiles fileNames
 
 setDumpSplices :: DynFlags -> DynFlags
 setDumpSplices dflag = dopt_set dflag Opt_D_dump_splices

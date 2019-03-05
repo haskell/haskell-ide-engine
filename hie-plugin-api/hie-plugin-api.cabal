@@ -23,6 +23,7 @@ library
                        Haskell.Ide.Engine.Config
                        Haskell.Ide.Engine.Context
                        Haskell.Ide.Engine.GhcModuleCache
+                       Haskell.Ide.Engine.Load
                        Haskell.Ide.Engine.ModuleCache
                        Haskell.Ide.Engine.MonadFunctions
                        Haskell.Ide.Engine.MonadTypes

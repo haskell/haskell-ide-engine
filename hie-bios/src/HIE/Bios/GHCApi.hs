@@ -5,7 +5,6 @@ module HIE.Bios.GHCApi (
   , withGHC'
   , withGhcT
   , initializeFlagsWithCradle
-  , setTargetFiles
   , getDynamicFlags
   , getSystemLibDir
   , withDynFlags
@@ -21,6 +20,7 @@ import qualified GHC as G
 import qualified Outputable as G
 import qualified MonadUtils as G
 import DynFlags
+import DriverPhases
 
 import Control.Monad (forM, void)
 import System.Exit (exitSuccess)
@@ -141,13 +141,6 @@ addCmdOpts cmdOpts df1 = do
 
 ----------------------------------------------------------------
 
--- | Set the files as targets and load them.
-setTargetFiles :: GhcMonad m => [FilePath] -> m ()
-setTargetFiles files = do
-    targets <- forM files $ \file -> G.guessTarget file Nothing
-    G.pprTrace "setTargets" (G.ppr (files, targets)) (return ())
-    G.setTargets (map (\t -> t { G.targetAllowObjCode = False }) targets)
-    void $ G.load LoadAllTargets
 
 ----------------------------------------------------------------
 

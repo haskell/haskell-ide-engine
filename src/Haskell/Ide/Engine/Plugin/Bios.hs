@@ -29,6 +29,7 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Plugin.HieExtras as Hie
 import           Haskell.Ide.Engine.ArtifactMap
+import           Haskell.Ide.Engine.Load
 import qualified Language.Haskell.LSP.Types        as LSP
 import qualified Language.Haskell.LSP.Types.Lens   as LSP
 import           Language.Haskell.Refact.API       (hsNamessRdr)
@@ -116,7 +117,7 @@ srcErrToDiag df rfm se = do
         eloc <- srcSpan2Loc rfm $ errMsgSpan err
         case eloc of
           Right (Location uri range) ->
-            return $ Right (uri, Diagnostic range sev Nothing (Just "ghcmod") msgTxt Nothing)
+            return $ Right (uri, Diagnostic range sev Nothing (Just "bios") msgTxt Nothing)
           Left _ -> return $ Left msgTxt
       processMsgs [] = return (Map.empty,[])
       processMsgs (x:xs) = do
@@ -170,7 +171,7 @@ logDiag rfm eref dref df _reason sev spn style msg = do
     Right (Location uri range) -> do
       let update = Map.insertWith Set.union uri l
             where l = Set.singleton diag
-          diag = Diagnostic range (Just $ lspSev sev) Nothing (Just "ghcmod") msgTxt Nothing
+          diag = Diagnostic range (Just $ lspSev sev) Nothing (Just "bios") msgTxt Nothing
       debugm $ "Writing diag" <> (show diag)
       modifyIORef' dref update
     Left _ -> do
@@ -207,7 +208,8 @@ setTypecheckedModule uri =
     debugm "setTypecheckedModule: before ghc-mod"
     let ghcErrRes msg = (Map.empty, [T.pack msg],Nothing)
     debugm "Loading file"
-    (diags', errs, mmods) <- (captureDiagnostics id $ BIOS.loadFile fp)
+    mapped_fp <- persistVirtualFile uri
+    (diags', errs, mmods) <- (captureDiagnostics id $ loadFile (fp, mapped_fp))
     debugm "File, loaded"
     canonUri <- canonicalizeUri uri
     let diags = Map.insertWith Set.union canonUri Set.empty diags'
@@ -243,7 +245,7 @@ setTypecheckedModule uri =
         let sev = Just DsError
             range = Range (Position 0 0) (Position 1 0)
             msgTxt = T.unlines errs
-        let d = Diagnostic range sev Nothing (Just "ghcmod") msgTxt Nothing
+        let d = Diagnostic range sev Nothing (Just "bios") msgTxt Nothing
         return $ Map.insertWith Set.union canonUri (Set.singleton d) diags
 
     return $ IdeResultOk (diags2,errs)

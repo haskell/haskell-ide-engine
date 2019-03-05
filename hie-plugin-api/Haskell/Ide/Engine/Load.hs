@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP #-}
-module HIE.Bios.Load ( loadFile ) where
+module Haskell.Ide.Engine.Load ( loadFile ) where
 
 import CoreMonad (liftIO)
 import DynFlags (gopt_set, wopt_set, WarningFlag(Opt_WarnTypedHoles))
@@ -15,7 +15,7 @@ import HIE.Bios.GHCApi
 import HIE.Bios.Gap
 import System.Directory
 import EnumSet
-import Control.Monad (filterM)
+import Control.Monad (filterM, forM, void)
 
 #if __GLASGOW_HASKELL__ < 806
 pprTraceM x s = pprTrace x s (return ())
@@ -23,7 +23,7 @@ pprTraceM x s = pprTrace x s (return ())
 
 -- | Obtaining type of a target expression. (GHCi's type:)
 loadFile :: GhcMonad m
-         => FilePath     -- ^ A target file.
+         => (FilePath, FilePath)     -- ^ A target file.
          -> m (G.ParsedModule, TypecheckedModule)
 loadFile file = do
   pprTraceM "loadFile:1" (ppr (file))
@@ -32,7 +32,7 @@ loadFile file = do
   body
   where
     body = inModuleContext file $ \dflag _style -> do
-        modSum <- fileModSummary file
+        modSum <- fileModSummary (snd file)
         pprTraceM "loadFile:3" (ppr $ optLevel dflag)
         pprTraceM "loadFile:4" (ppr $ show (EnumSet.toList (generalFlags dflag)))
         p <- G.parseModule modSum
@@ -63,7 +63,7 @@ withContext action = G.gbracket setup teardown body
     setCtx = G.setContext
 
 
-inModuleContext :: GhcMonad m => FilePath -> (DynFlags -> PprStyle -> m a) -> m a
+inModuleContext :: GhcMonad m => (FilePath, FilePath) -> (DynFlags -> PprStyle -> m a) -> m a
 inModuleContext file action =
     withDynFlags (setWarnTypedHoles . setDeferTypeErrors . setNoWaringFlags) $ do
 
@@ -82,3 +82,22 @@ setDeferTypeErrors dflag = gopt_set dflag G.Opt_DeferTypeErrors
 
 setWarnTypedHoles :: DynFlags -> DynFlags
 setWarnTypedHoles dflag = wopt_set dflag Opt_WarnTypedHoles
+
+-- | Set the files as targets and load them.
+setTargetFiles :: (GhcMonad m)  => [(FilePath, FilePath)] -> m ()
+setTargetFiles files = do
+    targets <- forM files guessTargetMapped
+    pprTrace "setTargets" (ppr (files, targets)) (return ())
+    G.setTargets (map (\t -> t { G.targetAllowObjCode = False }) targets)
+    void $ G.load LoadAllTargets
+
+guessTargetMapped :: (GhcMonad m) => (FilePath, FilePath) -> m Target
+guessTargetMapped (orig_file_name, mapped_file_name) = do
+  t <- G.guessTarget orig_file_name Nothing
+  return (setTargetFilename mapped_file_name t)
+
+setTargetFilename :: FilePath -> Target -> Target
+setTargetFilename fn t =
+  t { targetId = case targetId t of
+                  TargetFile _ p -> TargetFile fn p
+                  tid -> tid }
