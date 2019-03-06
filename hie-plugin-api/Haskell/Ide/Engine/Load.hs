@@ -26,15 +26,12 @@ loadFile :: GhcMonad m
          => (FilePath, FilePath)     -- ^ A target file.
          -> m (G.ParsedModule, TypecheckedModule)
 loadFile file = do
-  pprTraceM "loadFile:1" (ppr (file))
   dir <- liftIO $ getCurrentDirectory
-  pprTraceM "loadFile:2" (ppr dir)
+  pprTraceM "loadFile:2" (text dir)
   body
   where
     body = inModuleContext file $ \dflag _style -> do
         modSum <- fileModSummary (snd file)
-        pprTraceM "loadFile:3" (ppr $ optLevel dflag)
-        pprTraceM "loadFile:4" (ppr $ show (EnumSet.toList (generalFlags dflag)))
         p <- G.parseModule modSum
         tcm <- G.typecheckModule p
         return $ (p, tcm)
@@ -69,9 +66,8 @@ inModuleContext file action =
 
     df <- getSessionDynFlags
     pprTraceM "loadFile:3" (ppr $ optLevel df)
-    pprTraceM "loadFile:4" (text $ show (EnumSet.toList (generalFlags df)))
     setTargetFiles [file]
-    pprTraceM "loaded" (ppr file)
+    pprTraceM "loaded" (text (fst file) $$ text (snd file))
     withContext $ do
         dflag <- G.getSessionDynFlags
         style <- getStyle dflag
@@ -87,7 +83,7 @@ setWarnTypedHoles dflag = wopt_set dflag Opt_WarnTypedHoles
 setTargetFiles :: (GhcMonad m)  => [(FilePath, FilePath)] -> m ()
 setTargetFiles files = do
     targets <- forM files guessTargetMapped
-    pprTrace "setTargets" (ppr (files, targets)) (return ())
+    pprTrace "setTargets" (vcat (map ppr files) $$ ppr targets) (return ())
     G.setTargets (map (\t -> t { G.targetAllowObjCode = False }) targets)
     void $ G.load LoadAllTargets
 

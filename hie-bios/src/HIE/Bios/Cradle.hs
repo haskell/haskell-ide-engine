@@ -65,11 +65,11 @@ biosCradle cur_dir = do
   }
 
 biosDir :: FilePath -> MaybeT IO FilePath
-biosDir = findFileUpwards ("hie-bios" ==)
+biosDir = findFileUpwards (".hie-bios" ==)
 
 biosAction :: FilePath -> FilePath -> IO (ExitCode, String, [String])
 biosAction wdir fp = do
-  (ex, res, std) <- readProcessWithExitCode (wdir </> "hie-bios") [fp] []
+  (ex, res, std) <- readProcessWithExitCode (wdir </> ".hie-bios") [fp] []
   return (ex, std, words res)
 
 ------------------------------------------------------------------------

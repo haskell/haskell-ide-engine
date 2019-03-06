@@ -111,7 +111,7 @@ initSession _build CompilerOptions {..} = do
 setLinkerOptions :: DynFlags -> DynFlags
 setLinkerOptions df = df {
     ghcLink   = LinkInMemory
-  , hscTarget = HscInterpreted
+  , hscTarget = HscNothing
   , ghcMode = CompManager
   }
 
