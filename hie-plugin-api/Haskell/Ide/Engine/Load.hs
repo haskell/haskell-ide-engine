@@ -7,15 +7,21 @@ import DynFlags (gopt_set, wopt_set, WarningFlag(Opt_WarnTypedHoles))
 import GHC
 import qualified GHC as G
 import qualified Exception as GE
-import HscTypes (ModSummary)
+import HscTypes
 import Outputable
+
+import Data.IORef
 
 import HIE.Bios.Doc (getStyle)
 import HIE.Bios.GHCApi
 import HIE.Bios.Gap
 import System.Directory
 import EnumSet
+import Hooks
+import TcRnTypes (FrontendResult(..))
 import Control.Monad (filterM, forM, void)
+import GhcMonad
+import HscMain
 
 #if __GLASGOW_HASKELL__ < 806
 pprTraceM x s = pprTrace x s (return ())
@@ -28,13 +34,13 @@ loadFile :: GhcMonad m
 loadFile file = do
   dir <- liftIO $ getCurrentDirectory
   pprTraceM "loadFile:2" (text dir)
-  body
-  where
-    body = inModuleContext file $ \dflag _style -> do
-        modSum <- fileModSummary (snd file)
-        p <- G.parseModule modSum
-        tcm <- G.typecheckModule p
-        return $ (p, tcm)
+  withDynFlags (setWarnTypedHoles . setDeferTypeErrors . setNoWaringFlags) $ do
+
+    df <- getSessionDynFlags
+    pprTraceM "loadFile:3" (ppr $ optLevel df)
+    (_, tcs) <- collectASTs (setTargetFiles [file])
+    pprTraceM "loaded" (text (fst file) $$ text (snd file))
+    return (undefined, head tcs)
 
 fileModSummary :: GhcMonad m => FilePath -> m ModSummary
 fileModSummary file = do
@@ -60,18 +66,6 @@ withContext action = G.gbracket setup teardown body
     setCtx = G.setContext
 
 
-inModuleContext :: GhcMonad m => (FilePath, FilePath) -> (DynFlags -> PprStyle -> m a) -> m a
-inModuleContext file action =
-    withDynFlags (setWarnTypedHoles . setDeferTypeErrors . setNoWaringFlags) $ do
-
-    df <- getSessionDynFlags
-    pprTraceM "loadFile:3" (ppr $ optLevel df)
-    setTargetFiles [file]
-    pprTraceM "loaded" (text (fst file) $$ text (snd file))
-    withContext $ do
-        dflag <- G.getSessionDynFlags
-        style <- getStyle dflag
-        action dflag style
 
 setDeferTypeErrors :: DynFlags -> DynFlags
 setDeferTypeErrors dflag = gopt_set dflag G.Opt_DeferTypeErrors
@@ -86,6 +80,34 @@ setTargetFiles files = do
     pprTrace "setTargets" (vcat (map ppr files) $$ ppr targets) (return ())
     G.setTargets (map (\t -> t { G.targetAllowObjCode = False }) targets)
     void $ G.load LoadAllTargets
+
+collectASTs :: (GhcMonad m) => m a -> m (a, [TypecheckedModule])
+collectASTs action = do
+  dflags0 <- getSessionDynFlags
+  ref1 <- liftIO $ newIORef []
+  let dflags1 = dflags0 { hooks = (hooks dflags0)
+                          { hscFrontendHook = Just (astHook ref1) } }
+  setSessionDynFlags dflags1
+  res <- action
+  tcs <- liftIO $ readIORef ref1
+  return (res, tcs)
+
+astHook :: IORef [TypecheckedModule] -> ModSummary -> Hsc FrontendResult
+astHook tc_ref ms = ghcInHsc $ do
+  p <- G.parseModule ms
+  tcm <- G.typecheckModule p
+  let tcg_env = fst (tm_internals_ tcm)
+  liftIO $ modifyIORef tc_ref (tcm :)
+  return $ FrontendTypecheck tcg_env
+
+ghcInHsc :: Ghc a -> Hsc a
+ghcInHsc gm = do
+  hsc_session <- getHscEnv
+  session <- liftIO $ newIORef hsc_session
+  liftIO $ reflectGhc gm (Session session)
+
+
+
 
 guessTargetMapped :: (GhcMonad m) => (FilePath, FilePath) -> m Target
 guessTargetMapped (orig_file_name, mapped_file_name) = do
