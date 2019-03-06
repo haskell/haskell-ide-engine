@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP #-}
-module Haskell.Ide.Engine.Load ( loadFile ) where
+module HIE.Bios.Load ( loadFile, setTargetFiles ) where
 
 import CoreMonad (liftIO)
 import DynFlags (gopt_set, wopt_set, WarningFlag(Opt_WarnTypedHoles))

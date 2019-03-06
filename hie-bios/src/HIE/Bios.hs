@@ -6,6 +6,8 @@ module HIE.Bios (
   , findCradle
   , defaultCradle
   , initializeFlagsWithCradle
+  -- * Load a module into a session
+  , loadFile
   -- * Eliminate a session to IO
   , withGhcT
   ) where
@@ -13,3 +15,4 @@ module HIE.Bios (
 import HIE.Bios.Cradle
 import HIE.Bios.Types
 import HIE.Bios.GHCApi
+import HIE.Bios.Load

@@ -24,6 +24,7 @@ Library
                         HIE.Bios.GHCApi
                         HIE.Bios.Gap
                         HIE.Bios.Doc
+                        HIE.Bios.Load
                         HIE.Bios.Logger
                         HIE.Bios.Types
                         HIE.Bios.Things

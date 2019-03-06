@@ -27,7 +27,6 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Plugin.HieExtras as Hie
 import           Haskell.Ide.Engine.ArtifactMap
-import           Haskell.Ide.Engine.Load
 import qualified Language.Haskell.LSP.Types        as LSP
 
 import qualified GhcMod                            as GM
@@ -45,6 +44,7 @@ import           Outputable hiding ((<>))
 -- This function should be defined in HIE probably, nothing in particular
 -- to do with BIOS
 import qualified HIE.Bios.GHCApi as BIOS (withDynFlags)
+import qualified HIE.Bios as BIOS
 
 
 -- ---------------------------------------------------------------------
@@ -184,7 +184,7 @@ setTypecheckedModule uri =
     debugm "Loading file"
     mapped_fp <- persistVirtualFile uri
     rfm <- reverseFileMap
-    (diags', errs, mmods) <- (captureDiagnostics rfm $ loadFile (fp, mapped_fp))
+    (diags', errs, mmods) <- (captureDiagnostics rfm $ BIOS.loadFile (fp, mapped_fp))
     debugm "File, loaded"
     canonUri <- canonicalizeUri uri
     let diags = Map.insertWith Set.union canonUri Set.empty diags'

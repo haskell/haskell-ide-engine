@@ -11,6 +11,7 @@ import GHC (Ghc, DynFlags(..), GhcMonad)
 import HIE.Bios.GHCApi
 import HIE.Bios.Logger
 import HIE.Bios.Types
+import HIE.Bios.Load
 import Outputable
 
 ----------------------------------------------------------------
@@ -41,8 +42,10 @@ check :: (GhcMonad m)
       => Options
       -> [FilePath]  -- ^ The target files.
       -> m (Either String String)
-check opt fileNames = withLogger opt setAllWaringFlags $ undefined
-    --setTargetFiles fileNames
+check opt fileNames = withLogger opt setAllWaringFlags $ setTargetFiles (map dup fileNames)
+
+dup :: a -> (a, a)
+dup x = (x, x)
 
 ----------------------------------------------------------------
 
@@ -66,8 +69,7 @@ expandTemplate opt cradle files = withGHC sessionName $ do
 expand :: Options
       -> [FilePath]  -- ^ The target files.
       -> Ghc (Either String String)
-expand opt fileNames = withLogger opt (setDumpSplices . setNoWaringFlags) $ undefined
---    setTargetFiles fileNames
+expand opt fileNames = withLogger opt (setDumpSplices . setNoWaringFlags) $ setTargetFiles (map dup fileNames)
 
 setDumpSplices :: DynFlags -> DynFlags
 setDumpSplices dflag = dopt_set dflag Opt_D_dump_splices
