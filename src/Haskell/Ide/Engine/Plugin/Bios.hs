@@ -216,16 +216,14 @@ setTypecheckedModule uri =
     debugm "setTypecheckedModule: after ghc-mod"
     debugm ("Diags: " <> show diags')
 
-    let diagonal Nothing = (Nothing, Nothing)
-        diagonal (Just (x, y)) = (Just x, Just y)
-    diags2 <- case diagonal mmods of
-      (Just pm, Nothing) -> do
+    diags2 <- case mmods of
+      Just (Just pm, Nothing) -> do
         debugm $ "setTypecheckedModule: Did get parsed module for: " ++ show fp
         cacheModule fp (Left pm)
         debugm "setTypecheckedModule: done"
         return diags
 
-      (_, Just tm) -> do
+      Just (_, Just tm) -> do
         debugm $ "setTypecheckedModule: Did get typechecked module for: " ++ show fp
         --sess <- fmap GM.gmgsSession . GM.gmGhcSession <$> GM.gmsGet
 

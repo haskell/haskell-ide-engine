@@ -30,7 +30,7 @@ pprTraceM x s = pprTrace x s (return ())
 -- | Obtaining type of a target expression. (GHCi's type:)
 loadFile :: GhcMonad m
          => (FilePath, FilePath)     -- ^ A target file.
-         -> m (G.ParsedModule, TypecheckedModule)
+         -> m (Maybe G.ParsedModule, Maybe TypecheckedModule)
 loadFile file = do
   dir <- liftIO $ getCurrentDirectory
   pprTraceM "loadFile:2" (text dir)
@@ -40,7 +40,9 @@ loadFile file = do
     pprTraceM "loadFile:3" (ppr $ optLevel df)
     (_, tcs) <- collectASTs (setTargetFiles [file])
     pprTraceM "loaded" (text (fst file) $$ text (snd file))
-    return (undefined, head tcs)
+    case tcs of
+      [] -> return (Nothing, Nothing)
+      (tc:_) -> return (Nothing, Just tc)
 
 fileModSummary :: GhcMonad m => FilePath -> m ModSummary
 fileModSummary file = do
