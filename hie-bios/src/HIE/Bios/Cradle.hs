@@ -18,6 +18,7 @@ import System.IO.Temp
 
 import Debug.Trace
 import System.Posix.Files
+import System.FilePath.Posix
 
 ----------------------------------------------------------------
 
@@ -31,7 +32,8 @@ findCradle wfile = do
     res <- runMaybeT ( biosCradle wdir
                       <|> obeliskCradle wdir
                       <|> rulesHaskellCradle wdir
-                      <|> cabalCradle wdir)
+                      <|> cabalCradle wdir
+                      <|> stackCradle wdir)
     case res of
       Just c -> return c
       Nothing -> return (defaultCradle wdir)
@@ -106,6 +108,47 @@ cabalDir :: FilePath -> MaybeT IO FilePath
 cabalDir = findFileUpwards isCabal
   where
     isCabal name = name == "cabal.project"
+
+------------------------------------------------------------------------
+-- Stack Cradle
+-- Works for by invoking `stack repl` with a wrapper script
+
+stackCradle :: FilePath -> MaybeT IO Cradle
+stackCradle fp = do
+  wdir <- stackDir fp
+  traceM "Using stack"
+  return Cradle {
+      cradleCurrentDir = fp
+    , cradleRootDir    = wdir
+    , cradleOptsProg   = CradleAction "stack" (stackAction wdir)
+  }
+
+-- Same wrapper works as with cabal
+stackWrapper :: String
+stackWrapper = $(embedStringFile "wrappers/cabal")
+
+stackAction :: FilePath -> FilePath -> IO (ExitCode, String, [String])
+stackAction work_dir fp = do
+  wrapper_fp <- writeSystemTempFile "wrapper" stackWrapper
+  -- TODO: This isn't portable for windows
+  setFileMode wrapper_fp accessModes
+  check <- readFile wrapper_fp
+  traceM check
+  (ex, args, stde) <-
+      withCurrentDirectory work_dir (readProcessWithExitCode "stack" ["repl", "--silent", "--no-load", "--with-ghc", wrapper_fp, fp ] [])
+  (ex, pkg_args, stdr) <-
+      withCurrentDirectory work_dir (readProcessWithExitCode "stack" ["path", "--ghc-package-path"] [])
+  let split_pkgs = splitSearchPath (init pkg_args)
+      pkg_ghc_args = concatMap (\p -> ["-package-db", p] ) split_pkgs
+      ghc_args = words args ++ pkg_ghc_args
+  return (ex, stde, ghc_args)
+
+
+stackDir :: FilePath -> MaybeT IO FilePath
+stackDir = findFileUpwards isStack
+  where
+    isStack name = name == "stack.yaml"
+
 
 ----------------------------------------------------------------------------
 -- rules_haskell - Thanks for David Smith for helping with this one.
