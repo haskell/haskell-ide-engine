@@ -209,7 +209,8 @@ setTypecheckedModule uri =
     let ghcErrRes msg = (Map.empty, [T.pack msg],Nothing)
     debugm "Loading file"
     mapped_fp <- persistVirtualFile uri
-    (diags', errs, mmods) <- (captureDiagnostics id $ loadFile (fp, mapped_fp))
+    rfm <- reverseFileMap
+    (diags', errs, mmods) <- (captureDiagnostics rfm $ loadFile (fp, mapped_fp))
     debugm "File, loaded"
     canonUri <- canonicalizeUri uri
     let diags = Map.insertWith Set.union canonUri Set.empty diags'

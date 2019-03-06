@@ -76,7 +76,7 @@ addCmd :: CommandFunc AddParams J.WorkspaceEdit
 addCmd = CmdSync $ \(AddParams rootDir modulePath pkg) -> do
 
   packageType <- liftIO $ findPackageType rootDir
-  fileMap <- return id -- GM.mkRevRedirMapFunc
+  fileMap <- reverseFileMap
 
   case packageType of
     CabalPackage relFp -> do

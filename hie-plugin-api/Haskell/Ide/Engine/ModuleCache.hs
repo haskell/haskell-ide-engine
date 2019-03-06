@@ -223,7 +223,7 @@ lookupCachedData fp tm info dat = do
 cacheModule :: FilePath -> (Either GHC.ParsedModule GHC.TypecheckedModule) -> IdeGhcM ()
 cacheModule uri modul = do
   uri' <- liftIO $ canonicalizePath uri
-  rfm <- return id --TODO: GM.mkRevRedirMapFunc
+  rfm <- reverseFileMap
 
   newUc <-
     case modul of
