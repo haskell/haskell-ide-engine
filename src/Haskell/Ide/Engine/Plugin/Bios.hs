@@ -9,10 +9,8 @@ module Haskell.Ide.Engine.Plugin.Bios(setTypecheckedModule, biosDescriptor) wher
 
 import           Bag
 import           Control.Monad.IO.Class
-import           Control.Lens hiding (cons, children)
 import           Data.Aeson
 import           Data.Function
-import qualified Data.HashMap.Strict               as HM
 import           Data.IORef
 import           Data.List
 import qualified Data.Map.Strict                   as Map
@@ -31,33 +29,22 @@ import qualified Haskell.Ide.Engine.Plugin.HieExtras as Hie
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.Load
 import qualified Language.Haskell.LSP.Types        as LSP
-import qualified Language.Haskell.LSP.Types.Lens   as LSP
-import           Language.Haskell.Refact.API       (hsNamessRdr)
 
 import qualified GhcMod                            as GM
-import qualified GhcMod.DynFlags                   as GM
 import qualified GhcMod.Error                      as GM
 import qualified GhcMod.Gap                        as GM
-import qualified GhcMod.ModuleLoader               as GM
 import qualified GhcMod.Monad                      as GM
 import qualified GhcMod.SrcUtils                   as GM
-import qualified GhcMod.Types                      as GM
-import qualified GhcMod.Utils                      as GM
-import qualified GhcMod.Target                     as GM
 
 import           DynFlags
 import           GHC
 import           IOEnv                             as G
 import           HscTypes
-import           DataCon
 import           TcRnTypes
 import           Outputable hiding ((<>))
-import qualified HIE.Bios as BIOS
-import qualified HIE.Bios as BIOS
 -- This function should be defined in HIE probably, nothing in particular
 -- to do with BIOS
 import qualified HIE.Bios.GHCApi as BIOS (withDynFlags)
-import System.Directory
 
 
 -- ---------------------------------------------------------------------
@@ -92,14 +79,6 @@ lspSev SevError   = DsError
 lspSev SevFatal   = DsError
 lspSev SevInfo    = DsInfo
 lspSev _          = DsInfo
-
-
--- | Make an error which doesn't have its own location
-unhelpfulSrcSpanErr :: T.Text -> IdeError
-unhelpfulSrcSpanErr err =
-  IdeError PluginError
-            ("Unhelpful SrcSpan" <> ": \"" <> err <> "\"")
-            Null
 
 -- | Turn a 'SourceError' into the HIE 'Diagnostics' format.
 srcErrToDiag :: MonadIO m
@@ -180,15 +159,13 @@ logDiag rfm eref dref df _reason sev spn style msg = do
       return ()
 
 
-errorHandlers :: (Monad m) => (String -> m a) -> (SourceError -> m a) -> [GM.GHandler m a]
+errorHandlers :: (String -> m a) -> (SourceError -> m a) -> [GM.GHandler m a]
 errorHandlers ghcErrRes renderSourceError = handlers
   where
       -- ghc throws GhcException, SourceError, GhcApiError and
       -- IOEnvFailure. ghc-mod-core throws GhcModError.
       handlers =
-        [ GM.GHandler $ \(ex :: GM.GhcModError) ->
-            ghcErrRes (show ex)
-        , GM.GHandler $ \(ex :: IOEnvFailure) ->
+        [ GM.GHandler $ \(ex :: IOEnvFailure) ->
             ghcErrRes (show ex)
         , GM.GHandler $ \(ex :: GhcApiError) ->
             ghcErrRes (show ex)
@@ -196,8 +173,6 @@ errorHandlers ghcErrRes renderSourceError = handlers
             renderSourceError ex
         , GM.GHandler $ \(ex :: IOError) ->
             ghcErrRes (show ex)
-        -- , GM.GHandler $ \(ex :: GM.SomeException) ->
-        --     return $ ghcErrRes (show ex)
         ]
 
 
@@ -206,7 +181,6 @@ setTypecheckedModule :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
 setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     debugm "setTypecheckedModule: before ghc-mod"
-    let ghcErrRes msg = (Map.empty, [T.pack msg],Nothing)
     debugm "Loading file"
     mapped_fp <- persistVirtualFile uri
     rfm <- reverseFileMap
@@ -265,10 +239,6 @@ instance FromJSON TypeParams where
 instance ToJSON TypeParams where
   toJSON = genericToJSON customOptions
 
-typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
-typeCmd = CmdSync $ \(TP _bool uri pos) ->
-  liftToGhc $ newTypeCmd pos uri
-
 newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
 newTypeCmd newPos uri =
   pluginGetFile "newTypeCmd: " uri $ \fp ->
@@ -295,6 +265,7 @@ pureTypeCmd newPos tm info =
         (Just range) -> [(range , T.pack $ GM.pretty dflag st t)]
         _ -> []
 
+-- TODO: MP: Why is this defined here?
 cmp :: Range -> Range -> Ordering
 cmp a b
   | a `isSubRangeOf` b = LT

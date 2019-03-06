@@ -43,7 +43,6 @@ import           Haskell.Ide.Engine.PluginsIdeMonads
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
-import System.Directory
 
 
 -- | A Scheduler is a coordinator between the two main processes the ide engine uses

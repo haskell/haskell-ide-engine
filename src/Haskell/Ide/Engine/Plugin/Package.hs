@@ -44,7 +44,6 @@ import           System.FilePath
 #endif
 import           Control.Monad.IO.Class
 import           System.Directory
-import qualified GhcMod.Utils                  as GM
 import           Distribution.Types.GenericPackageDescription
 import           Distribution.Types.CondTree
 import qualified Distribution.PackageDescription.PrettyPrint as PP

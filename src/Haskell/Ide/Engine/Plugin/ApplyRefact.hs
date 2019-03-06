@@ -16,7 +16,6 @@ import           Data.Maybe
 import           Data.Monoid                       ((<>))
 import qualified Data.Text                         as T
 import           GHC.Generics
-import qualified GhcMod.Utils                      as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
@@ -92,7 +91,7 @@ applyAllCmd = CmdSync $ \uri -> do
 
 applyAllCmd' :: Uri -> IdeGhcM (IdeResult WorkspaceEdit)
 applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \fp -> do
-      revMapp <- return id --TODO: GM.mkRevRedirMapFunc
+      revMapp <- reverseFileMap
       res <- liftToGhc $ applyHint fp Nothing revMapp
         --GM.withMappedFile fp $ \file' -> liftToGhc $ applyHint file' Nothing revMapp
       logm $ "applyAllCmd:res=" ++ show res

@@ -39,8 +39,6 @@ import qualified Data.Set as S
 import qualified Data.SortedList as SL
 import qualified Data.Text as T
 import           Data.Text.Encoding
-import qualified GhcModCore               as GM
-import qualified GhcMod.Monad.Types       as GM
 import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
@@ -50,7 +48,6 @@ import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.LSP.CodeActions
 import           Haskell.Ide.Engine.LSP.Reactor
 import qualified Haskell.Ide.Engine.Plugin.HaRe          as HaRe
-import qualified Haskell.Ide.Engine.Plugin.GhcMod        as GhcMod
 import qualified Haskell.Ide.Engine.Plugin.Bios          as BIOS
 import qualified Haskell.Ide.Engine.Plugin.ApplyRefact   as ApplyRefact
 import qualified Haskell.Ide.Engine.Plugin.Hoogle        as Hoogle
@@ -240,13 +237,10 @@ mapFileFromVfs :: (MonadIO m, MonadReader REnv m)
 mapFileFromVfs tn vtdi = do
   let uri = vtdi ^. J.uri
       ver = fromMaybe 0 (vtdi ^. J.version)
-  case (uriToFilePath uri) of
-    Just fp ->
-      let req = GReq tn (Just uri) Nothing Nothing (const $ return ())
+      req = GReq tn (Just uri) Nothing Nothing (const $ return ())
                   $ IdeResultOk <$> do
                       persistVirtualFile uri
-      in updateDocumentRequest uri ver req
-    _ -> return ()
+  updateDocumentRequest uri ver req
 
 -- TODO: generalise this and move it to GhcMod.ModuleLoader
 updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeGhcM (IdeResult ())

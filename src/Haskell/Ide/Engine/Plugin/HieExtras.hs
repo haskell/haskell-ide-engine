@@ -23,10 +23,8 @@ module Haskell.Ide.Engine.Plugin.HieExtras
   ) where
 
 import           ConLike
-import           Control.Lens.Operators                       ( (^?), (?~), (&) )
+import           Control.Lens.Operators                       ( (^?), (?~) )
 import           Control.Lens.Prism                           ( _Just )
-import           Control.Lens.Setter ((%~))
-import           Control.Lens.Traversal (traverseOf)
 import           Control.Monad.Reader
 import           Data.Aeson
 import qualified Data.Aeson.Types                             as J
@@ -37,7 +35,6 @@ import qualified Data.Map                                     as Map
 import           Data.Maybe
 import           Data.Monoid                                  ( (<>) )
 import qualified Data.Text                                    as T
-import qualified Data.Text.IO                                 as T
 import           Data.Typeable
 import           DataCon
 import           Exception
@@ -46,10 +43,8 @@ import           Finder
 import           GHC                                          hiding (getContext)
 import           GHC.Generics                                 (Generic)
 import qualified GhcMod.Error                                 as GM
-import qualified GhcMod.Exe.CaseSplit                         as GM
 import qualified GhcMod.Gap                                   as GM
 import qualified GhcMod.LightGhc                              as GM
-import qualified GhcMod.Utils                                 as GM
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.Context
 import           Haskell.Ide.Engine.MonadFunctions
