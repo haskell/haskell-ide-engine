@@ -14,6 +14,7 @@ $supported_versions =
     ;  "8.6.1" = "8.6"
     ;  "8.6.2" = "8.6"
     ;  "8.6.3" = "8.6"
+    ;  "8.6.4" = "8.6"
     }
 
 function main($requested_versions) {

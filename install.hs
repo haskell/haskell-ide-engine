@@ -37,7 +37,7 @@ type GhcPath = String
 -- If they are edited, make sure to maintain the order of the versions.
 hieVersions :: [VersionNumber]
 hieVersions =
-  ["8.2.1", "8.2.2", "8.4.2", "8.4.3", "8.4.4", "8.6.1", "8.6.2", "8.6.3"]
+  ["8.2.1", "8.2.2", "8.4.2", "8.4.3", "8.4.4", "8.6.1", "8.6.2", "8.6.3", "8.6.4"]
 
 -- |Most recent version of hie.
 -- Important for `dist`, the `hie-wrapper` of the most recent hie

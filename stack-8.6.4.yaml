@@ -24,6 +24,7 @@ extra-deps:
 - monad-memo-0.4.1
 - multistate-0.8.0.1
 # - optparse-simple-0.1.0
+# - pretty-show-1.9.5
 - syz-0.2.0.0
 - temporary-1.2.1.1
 - transformers-0.5.6.2
