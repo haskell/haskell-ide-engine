@@ -174,7 +174,7 @@ errorHandlers ghcErrRes renderSourceError = handlers
         , GM.GHandler $ \(ex :: IOError) ->
             ghcErrRes (show ex)
         , GM.GHandler $ \(ex :: BIOS.CradleError) ->
-          ghcErrRes (show ex)
+            ghcErrRes (show ex)
         ]
 
 
