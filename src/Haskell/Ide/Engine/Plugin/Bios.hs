@@ -43,7 +43,7 @@ import           TcRnTypes
 import           Outputable hiding ((<>))
 -- This function should be defined in HIE probably, nothing in particular
 -- to do with BIOS
-import qualified HIE.Bios.GHCApi as BIOS (withDynFlags)
+import qualified HIE.Bios.GHCApi as BIOS (withDynFlags, CradleError)
 import qualified HIE.Bios as BIOS
 
 
@@ -173,6 +173,8 @@ errorHandlers ghcErrRes renderSourceError = handlers
             renderSourceError ex
         , GM.GHandler $ \(ex :: IOError) ->
             ghcErrRes (show ex)
+        , GM.GHandler $ \(ex :: BIOS.CradleError) ->
+          ghcErrRes (show ex)
         ]
 
 

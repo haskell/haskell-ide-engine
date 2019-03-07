@@ -11,10 +11,11 @@ module HIE.Bios.GHCApi (
   , withCmdFlags
   , setNoWaringFlags
   , setAllWaringFlags
+  , CradleError(..)
   ) where
 
 import CoreMonad (liftIO)
-import Exception (ghandle, SomeException(..), ExceptionMonad(..))
+import Exception (ghandle, SomeException(..), ExceptionMonad(..), throwIO, Exception(..))
 import GHC (Ghc, DynFlags(..), GhcLink(..), HscTarget(..), LoadHowMuch(..), GhcMonad, GhcT)
 import qualified GHC as G
 import qualified Outputable as G
@@ -23,7 +24,7 @@ import DynFlags
 import DriverPhases
 
 import Control.Monad (forM, void)
-import System.Exit (exitSuccess)
+import System.Exit (exitSuccess, ExitCode(..))
 import System.IO (hPutStr, hPrint, stderr)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Process (readProcess)
@@ -81,10 +82,19 @@ initializeFlagsWithCradle ::
 initializeFlagsWithCradle fp cradle = do
       (ex, err, ghcOpts) <- liftIO $ getOptions (cradleOptsProg cradle) fp
       G.pprTrace "res" (G.text (show (ex, err, ghcOpts, fp))) (return ())
+      case ex of
+        ExitFailure _ -> throwCradleError err
+        _ -> return ()
       let compOpts = CompilerOptions ghcOpts
       liftIO $ hPrint stderr ghcOpts
       initSession SingleFile compOpts
 
+data CradleError = CradleError String deriving (Show)
+
+instance Exception CradleError where
+
+throwCradleError :: GhcMonad m => String -> m ()
+throwCradleError = liftIO . throwIO . CradleError
 
 ----------------------------------------------------------------
 

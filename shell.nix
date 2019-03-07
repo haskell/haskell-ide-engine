@@ -1,12 +1,12 @@
-with import ./nixpkgs.nix {};
+with (import <nixpkgs> {});
 stdenv.mkDerivation {
   name = "haskell-ide-engine";
   buildInputs = [
     gmp
     zlib
     ncurses
-    haskell.compiler.ghc843
     haskellPackages.cabal-install
+    haskellPackages.stack
   ];
   src = null;
   shellHook = ''
