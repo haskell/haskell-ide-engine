@@ -156,7 +156,6 @@ sudo apt install libicu-dev libtinfo-dev libgmp-dev
 ```bash
 sudo dnf install libicu-devel ncurses-devel
 ```
-**ArchLinux**: see [below](#installation-on-archlinux).
 
 #### Windows: long paths (optional)
 
