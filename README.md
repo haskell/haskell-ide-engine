@@ -174,11 +174,10 @@ git clone https://github.com/haskell/haskell-ide-engine --recurse-submodules
 cd haskell-ide-engine
 ```
 
-### Installation with Shake
+### Installation
 
-Experimental build script for HIE. Feedback is appreciated.
 Uses the [shake](https://shakebuild.com/) build system for predictable builds.
-The build script is platform independent and the only prerequisites are that `git` and `stack` are installed. The dependency on `make` and other linux specific commands has been dropped.
+The build script is platform independent and the only prerequisites are that `git` and `stack` are installed.
 It is also required, that the directory output of `stack path --local-bin` is on the path before installation, otherwise the installation of `cabal` will fail and `hie` executables may not be found.
 The installation path is usually `~/.local/bin` on UNIX systems and `C:\Users\User\AppData\Roaming\local\bin` on windows.
 
@@ -193,7 +192,7 @@ stack ./install.hs help
 
 Remember, this will take time to download a Stackage-LTS and an appropriate GHC. However, afterwards all commands should work as expected. 
 
-#### Install specific GHC Version with Shake
+#### Install specific GHC Version
 
 Install **Nightly** (and hoogle docs):
 
@@ -239,7 +238,7 @@ stack install.hs cabal-build-doc-8.4.4
 
 In general, targets that use `cabal` instead of `stack` are prefixed with `cabal-*` and are identical to their counterpart, except they do not install a GHC if it is missing but fail.
 
-#### Install *all* available GHC versions with Shake
+#### Install *all* available GHC versions
 
 *Warning*: Requires 20+ GB of space and potentially more than 2 hours to install, so please be patient!
 
