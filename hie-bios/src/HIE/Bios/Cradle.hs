@@ -32,8 +32,8 @@ findCradle wfile = do
     res <- runMaybeT ( biosCradle wdir
                       <|> obeliskCradle wdir
                       <|> rulesHaskellCradle wdir
-                      <|> cabalCradle wdir
-                      <|> stackCradle wdir)
+                      <|> stackCradle wdir
+                      <|> cabalCradle wdir )
     case res of
       Just c -> return c
       Nothing -> return (defaultCradle wdir)
