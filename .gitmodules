@@ -38,4 +38,5 @@
 	url = https://github.com/alanz/floskell
 [submodule "submodules/monad-dijkstra"]
 	path = submodules/monad-dijkstra
-	url = https://github.com/alanz/monad-dijkstra.git
+	# url = https://github.com/alanz/monad-dijkstra.git
+	url = https://github.com/ennocramer/monad-dijkstra.git
