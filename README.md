@@ -148,6 +148,10 @@ HIE builds from source code, so there's a couple of extra steps.
 * `git` must be in your PATH
 * Stack local bin directory must be in your PATH. Get it with `stack path --local-bin`
 
+Tip: you can quickly check if some command is in your path by running the command.
+If you receive some meaningful output instead of "command not found"-like message
+then it means you have the command in PATH.
+
 #### Linux-specific pre-requirements
 
 On Linux you will need install a couple of extra libraries (for Unicode ([ICU](http://site.icu-project.org/)) and [NCURSES](https://www.gnu.org/software/ncurses/)):
