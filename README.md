@@ -184,7 +184,7 @@ cd haskell-ide-engine
 
 Uses the [shake](https://shakebuild.com/) build system for predictable builds.
 
-Note, on first invocation of the build script, a GHC is being installed for execution. However, if you build HIE for every GHC, no GHC is downloaded twice.
+Note, on first invocation of the build script, a GHC is being installed for execution.
 The GHC used for the `install.hs` can be adjusted in `shake.yaml` by using a different resolver.
 
 Available commands can be seen with:
@@ -239,42 +239,24 @@ stack install.hs cabal-hie-8.4.4
 stack install.hs cabal-build-doc-8.4.4
 ```
 
-In general, targets that use `cabal` instead of `stack` are prefixed with `cabal-*` and are identical to their counterpart, except they do not install a GHC if it is missing but fail.
-
-#### Install *all* available GHC versions
-
-*Warning*: Requires 20+ GB of space and potentially more than 2 hours to install, so please be patient!
-
-This will:
-
-* install all supported GHC versions (8.2.1 - 8.6.3)
-* name them as expected by the VS Code plugin
-* build local hoogle docs for each version
-
-```bash
-stack ./install.hs build-all
-```
-
-Then add
-
-```json
-"languageServerHaskell.useCustomHieWrapper": true,
-"languageServerHaskell.useCustomHieWrapperPath": "hie-wrapper",
-```
-
-to VS Code user settings.
-
-To install HIE only for those GHC versions that are present on your system, you use:
+To install HIE for all GHC versions that are present on your system, use:
 
 ```bash
 stack ./install.hs cabal-build-all
 ```
 
-This will:
+In general, targets that use `cabal` instead of `stack` are prefixed with `cabal-*` and are identical to their counterpart, except they do not install a GHC if it is missing but fail.
 
-- install Haskell Ide Engine for GHC versions that have been found on your path
-- name them as expected by the VS Code plugin
-- build local hoogle docs for each version
+#### Multiple versions of HIE (optional)
+
+If you installed multiple versions of HIE then you will need to use a wrapper script.
+Wrapper script will analyze your project, find suitable version of HIE and launch it.
+Enable it by editing VS Code settings like that:
+
+```json
+"languageServerHaskell.useCustomHieWrapper": true,
+"languageServerHaskell.useCustomHieWrapperPath": "hie-wrapper",
+```
 
 ## Configuration
 There are some settings that can be configured via a `settings.json` file:
