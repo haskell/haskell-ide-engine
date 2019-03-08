@@ -1,6 +1,6 @@
 BASEDIR=$(CURDIR)
 STACKLOCALBINDIR:=$(shell stack path --local-bin)
-GHC_VERSIONS= 8.6.3 8.6.2 8.6.1 8.4.4 8.4.3 8.4.2 8.2.2 8.2.1
+GHC_VERSIONS= 8.6.4 8.6.3 8.6.2 8.6.1 8.4.4 8.4.3 8.4.2 8.2.2 8.2.1
 
 all: help
 .PHONY: all

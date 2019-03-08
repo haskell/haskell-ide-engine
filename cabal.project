@@ -8,3 +8,4 @@ packages:
          ./submodules/ghc-mod/
          ./submodules/ghc-mod/core/
          ./submodules/floskell
+         ./submodules/monad-dijkstra
