@@ -142,7 +142,17 @@ To install HIE, you need stack version >= 1.7.1.
 
 HIE builds from source code, so there's a couple of extra steps.
 
-#### Linux pre-requirements
+#### Common pre-requirements
+
+* `stack` must be in your PATH
+* `git` must be in your PATH
+* Stack local bin directory must be in your PATH. Get it with `stack path --local-bin`
+
+Tip: you can quickly check if some command is in your path by running the command.
+If you receive some meaningful output instead of "command not found"-like message
+then it means you have the command in PATH.
+
+#### Linux-specific pre-requirements
 
 On Linux you will need install a couple of extra libraries (for Unicode ([ICU](http://site.icu-project.org/)) and [NCURSES](https://www.gnu.org/software/ncurses/)):
 
@@ -156,9 +166,8 @@ sudo apt install libicu-dev libtinfo-dev libgmp-dev
 ```bash
 sudo dnf install libicu-devel ncurses-devel
 ```
-**ArchLinux**: see [below](#installation-on-archlinux).
 
-#### Windows: long paths (optional)
+#### Windows-specific pre-requirements (optional)
 
 In order to avoid problems with long paths on Windows you can do the following:
 
@@ -175,112 +184,11 @@ git clone https://github.com/haskell/haskell-ide-engine --recurse-submodules
 cd haskell-ide-engine
 ```
 
-#### Choose your GHC version
+### Installation
 
-The GHC version you are going to install HIE for depends on which version of GHC you are using for your project. If you don't have a current project there are two potential options:
-
-1. The Nightly GHC version ([currently](https://www.stackage.org/nightly) 8.6.3)
-2. The LTS GHC version (which is [currently](https://www.stackage.org/lts) 8.4.4)
-
-By default in a stack project you will get the LTS version.
-
-You can check which version of ghc you are using in your project by running the following at the root of your project:
-
-```bash
-stack ghc -- --version
-```
-
-You can install an specific version or [all available GHC versions](#install-all-available-ghc-versions).
-
-#### Install a specific GHC version 8.2.1 - 8.6.3
-
-We will use the `make` tools here to wrap `stack install`. The preferred installation mechanism is via `make`, as it makes sure the repo is synced, installs the required cabal libraries if missing, and makes copies of the executables with suffixes to be able to tell them apart.
-
-Install **Nightly** (and hoogle docs):
-
-```bash
-make hie-8.6.3
-make build-doc-8.6.3
-```
-
-Install **LTS** (and hoogle docs):
-
-```bash
-make hie-8.4.4
-make build-doc-8.4.4
-```
-
-This step can take more than 30 minutes, so grab a coffee and please be patient!
-
-The available versions depend on the `stack-*.yaml` config files in the `haskell-ide-engine` directory.
-
-#### For GHC 8.0.2
-
-This is no longer supported on the HIE `master` branch, so you must switch to the `hie-0.1.0.0` branch:
-
-```bash
-git checkout hie-0.1.0.0
-git submodule update --init
-```
-Then you can run `stack install`:
-
-```bash
-stack --stack-yaml=stack-8.0.2.yaml install
-```
-
-#### Install *all* available GHC versions
-
-This is the simplest approach as it will install all GHC versions to match against any project versions you might have.
-
-*Warning*: Requires 20+ GB of space and potentially more than 2 hours to install, so please be patient!
-
-This will:
-
-* install all supported GHC versions (8.2.1 - 8.6.3)
-* name them as expected by the VS Code plugin
-* build local hoogle docs for each version
-
-On non-Windows platforms use the command:
-
-```bash
-make build-all
-```
-
-On Windows use:
-**PowerShell:**
-
-```
-./build-all.ps1
-```
-
-or
-
-**cmd.exe:**
-
-```
-powershell -ExecutionPolicy RemoteSigned -c ./build-all.ps1
-```
-
-
-Then add
-
-```json
-"languageServerHaskell.useCustomHieWrapper": true,
-"languageServerHaskell.useCustomHieWrapperPath": "hie-wrapper",
-```
-
-to VS Code user settings.
-
-
-### Installation with Shake
-
-Experimental build script for HIE. Feedback is appreciated.
 Uses the [shake](https://shakebuild.com/) build system for predictable builds.
-The build script is platform independent and the only prerequisites are that `git` and `stack` are installed. The dependency on `make` and other linux specific commands has been dropped.
-It is also required, that the directory output of `stack path --local-bin` is on the path before installation, otherwise the installation of `cabal` will fail and `hie` executables may not be found.
-The installation path is usually `~/.local/bin` on UNIX systems and `C:\Users\User\AppData\Roaming\local\bin` on windows.
 
-Note, on first invocation of the build script, a GHC is being installed for execution. However, if you build HIE for every GHC, no GHC is downloaded twice.
+Note, on first invocation of the build script, a GHC is being installed for execution.
 The GHC used for the `install.hs` can be adjusted in `shake.yaml` by using a different resolver.
 
 Available commands can be seen with:
@@ -291,7 +199,7 @@ stack ./install.hs help
 
 Remember, this will take time to download a Stackage-LTS and an appropriate GHC. However, afterwards all commands should work as expected. 
 
-#### Install specific GHC Version with Shake
+#### Install specific GHC Version
 
 Install **Nightly** (and hoogle docs):
 
@@ -335,42 +243,24 @@ stack install.hs cabal-hie-8.4.4
 stack install.hs cabal-build-doc-8.4.4
 ```
 
-In general, targets that use `cabal` instead of `stack` are prefixed with `cabal-*` and are identical to their counterpart, except they do not install a GHC if it is missing but fail.
-
-#### Install *all* available GHC versions with Shake
-
-*Warning*: Requires 20+ GB of space and potentially more than 2 hours to install, so please be patient!
-
-This will:
-
-* install all supported GHC versions (8.2.1 - 8.6.3)
-* name them as expected by the VS Code plugin
-* build local hoogle docs for each version
-
-```bash
-stack ./install.hs build-all
-```
-
-Then add
-
-```json
-"languageServerHaskell.useCustomHieWrapper": true,
-"languageServerHaskell.useCustomHieWrapperPath": "hie-wrapper",
-```
-
-to VS Code user settings.
-
-To install HIE only for those GHC versions that are present on your system, you use:
+To install HIE for all GHC versions that are present on your system, use:
 
 ```bash
 stack ./install.hs cabal-build-all
 ```
 
-This will:
+In general, targets that use `cabal` instead of `stack` are prefixed with `cabal-*` and are identical to their counterpart, except they do not install a GHC if it is missing but fail.
 
-- install Haskell Ide Engine for GHC versions that have been found on your path
-- name them as expected by the VS Code plugin
-- build local hoogle docs for each version
+#### Multiple versions of HIE (optional)
+
+If you installed multiple versions of HIE then you will need to use a wrapper script.
+Wrapper script will analyze your project, find suitable version of HIE and launch it.
+Enable it by editing VS Code settings like that:
+
+```json
+"languageServerHaskell.useCustomHieWrapper": true,
+"languageServerHaskell.useCustomHieWrapperPath": "hie-wrapper",
+```
 
 ## Configuration
 There are some settings that can be configured via a `settings.json` file:
