@@ -142,7 +142,13 @@ To install HIE, you need stack version >= 1.7.1.
 
 HIE builds from source code, so there's a couple of extra steps.
 
-#### Linux pre-requirements
+#### Common pre-requirements
+
+* `stack` must be in your PATH
+* `git` must be in your PATH
+* Stack local bin directory must be in your PATH. Get it with `stack path --local-bin`
+
+#### Linux-specific pre-requirements
 
 On Linux you will need install a couple of extra libraries (for Unicode ([ICU](http://site.icu-project.org/)) and [NCURSES](https://www.gnu.org/software/ncurses/)):
 
@@ -157,7 +163,7 @@ sudo apt install libicu-dev libtinfo-dev libgmp-dev
 sudo dnf install libicu-devel ncurses-devel
 ```
 
-#### Windows: long paths (optional)
+#### Windows-specific pre-requirements (optional)
 
 In order to avoid problems with long paths on Windows you can do the following:
 
@@ -177,9 +183,6 @@ cd haskell-ide-engine
 ### Installation
 
 Uses the [shake](https://shakebuild.com/) build system for predictable builds.
-The build script is platform independent and the only prerequisites are that `git` and `stack` are installed.
-It is also required, that the directory output of `stack path --local-bin` is on the path before installation, otherwise the installation of `cabal` will fail and `hie` executables may not be found.
-The installation path is usually `~/.local/bin` on UNIX systems and `C:\Users\User\AppData\Roaming\local\bin` on windows.
 
 Note, on first invocation of the build script, a GHC is being installed for execution. However, if you build HIE for every GHC, no GHC is downloaded twice.
 The GHC used for the `install.hs` can be adjusted in `shake.yaml` by using a different resolver.
