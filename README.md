@@ -458,8 +458,9 @@ and then activate [`lsp-haskell`](https://github.com/emacs-lsp/lsp-haskell) in y
 ```lisp
 (defun dotspacemacs/user-config ()
   "..."
+  (setq lsp-haskell-process-path-hie "hie-wrapper")
   (require 'lsp-haskell)
-  (add-hook 'haskell-mode-hook #'lsp-haskell-enable)
+  (add-hook 'haskell-mode-hook #'lsp)
   )
 ```
 
