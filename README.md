@@ -24,16 +24,13 @@ we talk to clients.__
     - [Installation with Nix](#installation-with-nix)
     - [Installation on ArchLinux](#installation-on-archlinux)
     - [Installation from source](#installation-from-source)
-      - [Linux pre-requirements](#linux-pre-requirements)
-      - [Windows: long paths (optional)](#windows-long-paths-optional)
+      - [Common pre-requirements](#common-pre-requirements)
+      - [Linux-specific pre-requirements](#linux-specific-pre-requirements)
+      - [Windows-specific pre-requirements (optional)](#windows-specific-pre-requirements-optional)
       - [Download the source code](#download-the-source-code)
-      - [Choose your GHC version](#choose-your-ghc-version)
-      - [Install a specific GHC version 8.2.1 - 8.6.3](#install-a-specific-ghc-version-821---863)
-      - [For GHC 8.0.2](#for-ghc-802)
-      - [Install *all* available GHC versions](#install-all-available-ghc-versions)
-    - [Installation with Shake](#installation-with-shake)
-      - [Install specific GHC Version with Shake](#install-specific-ghc-version-with-shake)
-      - [Install *all* available GHC versions with Shake](#install-all-available-ghc-versions-with-shake)
+      - [Building](#building)
+        - [Install specific GHC Version](#install-specific-ghc-version)
+        - [Multiple versions of HIE (optional)](#multiple-versions-of-hie-optional)
   - [Configuration](#configuration)
   - [Editor Integration](#editor-integration)
     - [Using HIE with VS Code](#using-hie-with-vs-code)
@@ -184,7 +181,7 @@ git clone https://github.com/haskell/haskell-ide-engine --recurse-submodules
 cd haskell-ide-engine
 ```
 
-### Installation
+#### Building
 
 Uses the [shake](https://shakebuild.com/) build system for predictable builds.
 
@@ -199,7 +196,7 @@ stack ./install.hs help
 
 Remember, this will take time to download a Stackage-LTS and an appropriate GHC. However, afterwards all commands should work as expected. 
 
-#### Install specific GHC Version
+##### Install specific GHC Version
 
 Install **Nightly** (and hoogle docs):
 
@@ -251,7 +248,7 @@ stack ./install.hs cabal-build-all
 
 In general, targets that use `cabal` instead of `stack` are prefixed with `cabal-*` and are identical to their counterpart, except they do not install a GHC if it is missing but fail.
 
-#### Multiple versions of HIE (optional)
+##### Multiple versions of HIE (optional)
 
 If you installed multiple versions of HIE then you will need to use a wrapper script.
 Wrapper script will analyze your project, find suitable version of HIE and launch it.
