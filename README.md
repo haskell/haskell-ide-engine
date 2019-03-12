@@ -201,8 +201,8 @@ Remember, this will take time to download a Stackage-LTS and an appropriate GHC.
 Install **Nightly** (and hoogle docs):
 
 ```bash
-stack ./install.hs hie-8.6.3
-stack ./install.hs build-doc-8.6.3
+stack ./install.hs hie-8.6.4
+stack ./install.hs build-doc-8.6.4
 ```
 
 Install **LTS** (and hoogle docs):
