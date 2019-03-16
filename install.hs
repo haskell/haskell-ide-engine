@@ -5,14 +5,7 @@
   runghc
   --package shake
   --package directory
-  --package tar
-  --package zlib
 -}
-
-import qualified Data.ByteString.Lazy          as BS
-import qualified Codec.Archive.Tar             as Tar
-import qualified Codec.Compression.GZip        as GZip
-
 import           Development.Shake
 import           Development.Shake.Command
 import           Development.Shake.FilePath
@@ -40,8 +33,7 @@ hieVersions =
   ["8.2.1", "8.2.2", "8.4.2", "8.4.3", "8.4.4", "8.6.1", "8.6.2", "8.6.3", "8.6.4"]
 
 -- |Most recent version of hie.
--- Important for `dist`, the `hie-wrapper` of the most recent hie
--- will be copied to the tar-archive.
+-- Shown in the more concise help message.
 mostRecentHieVersion :: VersionNumber
 mostRecentHieVersion = last hieVersions
 
@@ -61,7 +53,6 @@ main = do
     phony "short-help" shortHelpMessage
     phony "all"        shortHelpMessage
     phony "help"       helpMessage
-    phony "dist"       buildDist
 
     phony "cabal-ghcs" $ do
       let
@@ -129,47 +120,6 @@ main = do
     phony "icu-macos-fix-install" (command_ [] "brew" ["install", "icu4c"])
     phony "icu-macos-fix-build" $ mapM_ buildIcuMacosFix hieVersions
 
--- |Creates a compressed tar-archive consisting of all hie versions and `hie-wrapper`.
--- Creates a temporary folder, copies all hie versions to it and compresses it in the end.
-buildDist :: Action ()
-buildDist = do
-  need ["submodules"]
-  need ["cabal"]
-  -- Create the name of the resulting tar file.
-  Stdout gitRef' <- command [] "git" ["describe", "--tags"]
-  let gitRef      = trim gitRef'
-  let hieDistName = concat ["hie-", gitRef, "-", arch, "-", os]
-  -- define name constants for later use
-  let hieWrapper  = "hie-wrapper" <.> exe
-  let hie         = "hie" <.> exe
-  let mkHie version = "hie-" ++ version <.> exe
-
-  withTempDir
-    (\temporaryDir -> do
-      forM_ hieVersions $ \hieVersion -> do
-        stackBuildHie hieVersion
-        -- after building `hie` copy it to the temporary folder
-        localInstallRoot <- getLocalInstallRoot hieVersion
-        copyFile' (localInstallRoot </> "bin" </> hie)
-                  (temporaryDir </> mkHie hieVersion)
-
-        -- if the most recent hie-* version is copied,
-        -- copy it again as the default hie version
-        -- Also, add its hie-wrapper to the tar archive
-        when (hieVersion == mostRecentHieVersion) $ do
-          copyFile' (localInstallRoot </> "bin" </> hieWrapper)
-                    (temporaryDir </> hieWrapper)
-          copyFile' (localInstallRoot </> "bin" </> hie) (temporaryDir </> hie)
-
-      -- After every hie has been built, pack them into a tar.
-      -- Encrypt the resulting tar file with gzip
-      liftIO
-        $   BS.writeFile (hieDistName ++ ".tar.gz")
-        .   GZip.compress
-        .   Tar.write
-        =<< Tar.pack temporaryDir (hieWrapper : hie : map mkHie hieVersions)
-    )
-  return ()
 
 buildIcuMacosFix :: VersionNumber -> Action ()
 buildIcuMacosFix version = execStackWithYaml_
@@ -356,7 +306,6 @@ helpMessage = do
     , ( "cabal"
       , "Makes sure that Cabal the lib is available for cabal-helper-wapper, to speed up project start"
       )
-    , ("dist", "Creates a tarball containing all the hie binaries")
     ]
 
   macosTargets = [("icu-macos-fix", "Fixes icu related problems in MacOS")]
