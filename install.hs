@@ -1,8 +1,7 @@
 #!/usr/bin/env stack
 {- stack
-  --stack-yaml shake.yaml
-  --install-ghc
-  runghc
+  script
+  --resolver nightly-2018-12-17
   --package shake
   --package directory
 -}
