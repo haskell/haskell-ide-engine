@@ -1,5 +1,5 @@
 # Used to provide a different environment for the shake build script
-resolver: nightly-2018-12-17 # GHC 8.6.2
+resolver: nightly-2018-12-15 # GHC 8.6.2
 packages:
 - .
 
