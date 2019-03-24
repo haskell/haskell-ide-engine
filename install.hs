@@ -1,7 +1,7 @@
 #!/usr/bin/env stack
 {- stack
   script
-  --resolver nightly-2018-12-17
+  --resolver nightly-2018-12-15
   --package shake
   --package directory
 -}
