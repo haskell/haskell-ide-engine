@@ -12,20 +12,22 @@ spec :: Spec
 spec = describe "document symbols" $ do
 
   -- Some common ranges and selection ranges in Symbols.hs
-  let fooSR = Range (Position 4 0) (Position 4 3)
-      fooR  = Range (Position 4 0) (Position 6 43)
-      barSR = Range (Position 5 8) (Position 5 11)
-      barR  = Range (Position 5 8) (Position 6 43)
-      dogSR = Range (Position 6 17) (Position 6 20)
-      dogR  = Range (Position 6 16) (Position 6 43)
-      catSR = Range (Position 6 22) (Position 6 25)
-      catR  = Range (Position 6 16) (Position 6 43)
-      myDataSR = Range (Position 8 5) (Position 8 11)
-      myDataR  = Range (Position 8 0) (Position 9 22)
-      aSR = Range (Position 8 14) (Position 8 15)
-      aR  = Range (Position 8 14) (Position 8 19)
-      bSR = Range (Position 9 14) (Position 9 15)
-      bR  = Range (Position 9 14) (Position 9 22)
+  let fooSR = Range (Position 5 0) (Position 5 3)
+      fooR  = Range (Position 5 0) (Position 7 43)
+      barSR = Range (Position 6 8) (Position 6 11)
+      barR  = Range (Position 6 8) (Position 7 43)
+      dogSR = Range (Position 7 17) (Position 7 20)
+      dogR  = Range (Position 7 16) (Position 7 43)
+      catSR = Range (Position 7 22) (Position 7 25)
+      catR  = Range (Position 7 16) (Position 7 43)
+      myDataSR = Range (Position 9 5) (Position 9 11)
+      myDataR  = Range (Position 9 0) (Position 10 22)
+      aSR = Range (Position 9 14) (Position 9 15)
+      aR  = Range (Position 9 14) (Position 9 19)
+      bSR = Range (Position 10 14) (Position 10 15)
+      bR  = Range (Position 10 14) (Position 10 22)
+      testPatternSR = Range (Position 13 8) (Position 13 19)
+      testPatternR = Range (Position 13 0) (Position 13 27)
 
   describe "3.10 hierarchical document symbols" $ do
     it "provides nested data types and constructors" $ runSession hieCommand fullCaps "test/testdata" $ do
@@ -48,6 +50,14 @@ spec = describe "document symbols" $ do
           cat = DocumentSymbol "cat" (Just "") SkVariable Nothing catR catSR (Just mempty)
 
       liftIO $ symbs `shouldContain` [foo]
+    it "provides pattern synonyms" $ runSession hieCommand fullCaps "test/testdata" $ do
+      doc <- openDoc "Symbols.hs" "haskell"
+      Left symbs <- getDocumentSymbols doc
+
+      let testPattern = DocumentSymbol "TestPattern"
+            (Just "") SkFunction Nothing testPatternR testPatternSR (Just mempty)
+
+      liftIO $ symbs `shouldContain` [testPattern]
 
     -- TODO: Test module, imports
 
