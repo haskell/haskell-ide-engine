@@ -198,9 +198,18 @@ cabalInstallHie versionNumber = do
             (localBin </> "hie-" ++ dropExtension versionNumber <.> exe)
 
 cabalBuildDoc :: Action ()
-cabalBuildDoc = do
-  execCabal_ ["new-install", "hoogle"]
+cabalBuildDoc = generateHoogleDatabase $ do 
+  localBin <- getLocalBin
+  execCabal_ ["new-install", "--symlink-bindir=" ++ localBin, "hoogle"]
   execCabal_ ["new-exec", "hoogle", "generate"]
+
+generateHoogleDatabase :: Action () -> Action ()
+generateHoogleDatabase installIfNecessary = do
+  mayHoogle <- liftIO $ findExecutable "hoogle"
+  case mayHoogle of
+    Nothing -> installIfNecessary
+    Just hoogle -> command_ [] "hoogle" ["generate"]
+
 
 cabalTest :: VersionNumber -> Action ()
 cabalTest versionNumber = do
@@ -238,7 +247,7 @@ stackTest :: VersionNumber -> Action ()
 stackTest versionNumber = execStackWithYaml_ versionNumber ["test"]
 
 stackBuildDoc :: Action ()
-stackBuildDoc = do
+stackBuildDoc = generateHoogleDatabase $ do
   execStack_ ["--stack-yaml=shake.yaml", "install", "hoogle"]
   execStack_ ["--stack-yaml=shake.yaml", "exec", "hoogle", "generate"]
 
