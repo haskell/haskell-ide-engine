@@ -136,8 +136,8 @@ updateSubmodules = do
 
 validateCabalNewInstallIsSupported :: Action ()
 validateCabalNewInstallIsSupported = when (os `elem` ["mingw32", "win32"]) $ do
-  liftIO $ putStrLn $ embedInStars cabalInstallNotSuported
-  error cabalInstallNotSuported
+  liftIO $ putStrLn $ embedInStars cabalInstallNotSupported
+  error cabalInstallNotSupported
 
 configureCabal :: VersionNumber -> Action ()
 configureCabal versionNumber = do
@@ -184,7 +184,7 @@ cabalInstallHie versionNumber = do
 cabalBuildDoc :: VersionNumber -> Action ()
 cabalBuildDoc versionNumber = do
   configureCabal versionNumber
-  execCabal_ ["new-install", "hoogle"]
+  execCabal_ ["new-install", "hoogle", "--overwrite-policy=always"]
   execCabal_ ["new-exec", "hoogle", "generate"]
 
 cabalTest :: VersionNumber -> Action ()
@@ -490,8 +490,8 @@ ghcVersionNotFound versionNumber =
     <> "Either install a fitting GHC, use the stack targets or modify the PATH variable accordingly."
 
 -- | Error message when a windows system tries to install HIE via `cabal new-install`
-cabalInstallNotSuported :: String
-cabalInstallNotSuported =
+cabalInstallNotSupported :: String
+cabalInstallNotSupported =
   "This system has been identified as a windows system.\n"
     ++ "Unfortunately, `cabal new-install` is currently not supported on windows.\n"
     ++ "Please use one of the stack-based targets.\n\n"
