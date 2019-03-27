@@ -184,37 +184,39 @@ setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     debugm "setTypecheckedModule: before ghc-mod"
     debugm "Loading file"
-    mapped_fp <- persistVirtualFile uri
-    rfm <- reverseFileMap
-    (diags', errs, mmods) <- (captureDiagnostics rfm $ BIOS.loadFile (fp, mapped_fp))
+--    mapped_fp <- persistVirtualFile uri
+--    rfm <- reverseFileMap
+    (diags', errs, mmods) <- (captureDiagnostics id $ BIOS.loadFile (fp, fp))
     debugm "File, loaded"
     canonUri <- canonicalizeUri uri
     let diags = Map.insertWith Set.union canonUri Set.empty diags'
     debugm "setTypecheckedModule: after ghc-mod"
     debugm ("Diags: " <> show diags')
+    let collapse Nothing = (Nothing, [])
+        collapse (Just (n, xs)) = (n, xs)
 
-    diags2 <- case mmods of
-      Just (Just pm, Nothing) -> do
-        debugm $ "setTypecheckedModule: Did get parsed module for: " ++ show fp
-        cacheModule fp (Left pm)
-        debugm "setTypecheckedModule: done"
-        return diags
+    diags2 <- case collapse mmods of
+      --Just (Just pm, Nothing) -> do
+      --  debugm $ "setTypecheckedModule: Did get parsed module for: " ++ show fp
+       -- cacheModule fp (Left pm)
+       -- debugm "setTypecheckedModule: done"
+      --  return diags
 
-      Just (_, Just tm) -> do
+      (Just tm, ts) -> do
         debugm $ "setTypecheckedModule: Did get typechecked module for: " ++ show fp
         --sess <- fmap GM.gmgsSession . GM.gmGhcSession <$> GM.gmsGet
 
         -- set the session before we cache the module, so that deferred
         -- responses triggered by cacheModule can access it
         --modifyMTS (\s -> s {ghcSession = sess})
-        cacheModule fp (Right tm)
+        cacheModules ts
         debugm "setTypecheckedModule: done"
         return diags
 
-      _ -> do
+      (Nothing, ts) -> do
         debugm $ "setTypecheckedModule: Didn't get typechecked or parsed module for: " ++ show fp
         --debugm $ "setTypecheckedModule: errs: " ++ show errs
-
+        cacheModules ts
         failModule fp
 
         let sev = Just DsError

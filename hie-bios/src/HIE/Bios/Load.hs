@@ -6,6 +6,7 @@ import CoreMonad (liftIO)
 import DynFlags (gopt_set, wopt_set, WarningFlag(Opt_WarnTypedHoles))
 import GHC
 import qualified GHC as G
+import Module
 import qualified Exception as GE
 import HscTypes
 import Outputable
@@ -18,10 +19,12 @@ import HIE.Bios.Gap
 import System.Directory
 import EnumSet
 import Hooks
-import TcRnTypes (FrontendResult(..))
+import TcRnTypes (FrontendResult(..), tcg_mod)
 import Control.Monad (filterM, forM, void)
 import GhcMonad
 import HscMain
+import Debug.Trace
+import Data.List
 
 #if __GLASGOW_HASKELL__ < 806
 pprTraceM x s = pprTrace x s (return ())
@@ -30,7 +33,7 @@ pprTraceM x s = pprTrace x s (return ())
 -- | Obtaining type of a target expression. (GHCi's type:)
 loadFile :: GhcMonad m
          => (FilePath, FilePath)     -- ^ A target file.
-         -> m (Maybe G.ParsedModule, Maybe TypecheckedModule)
+         -> m (Maybe TypecheckedModule, [TypecheckedModule])
 loadFile file = do
   dir <- liftIO $ getCurrentDirectory
   pprTraceM "loadFile:2" (text dir)
@@ -40,9 +43,13 @@ loadFile file = do
     pprTraceM "loadFile:3" (ppr $ optLevel df)
     (_, tcs) <- collectASTs (setTargetFiles [file])
     pprTraceM "loaded" (text (fst file) $$ text (snd file))
-    case tcs of
-      [] -> return (Nothing, Nothing)
-      (tc:_) -> return (Nothing, Just tc)
+    let get_fp = ml_hs_file . ms_location . pm_mod_summary . tm_parsed_module
+--    traceShowM ("tms", (map get_fp tcs))
+    let findMod [] = Nothing
+        findMod (x:xs) = case get_fp x of
+                           Just fp -> if fp `isSuffixOf` (fst file) then Just x else findMod xs
+                           Nothing -> findMod xs
+    return (findMod tcs, tcs)
 
 fileModSummary :: GhcMonad m => FilePath -> m ModSummary
 fileModSummary file = do

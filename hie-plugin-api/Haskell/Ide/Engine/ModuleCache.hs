@@ -17,6 +17,7 @@ module Haskell.Ide.Engine.ModuleCache
   , deleteCachedModule
   , failModule
   , cacheModule
+  , cacheModules
   , cacheInfoNoClear
   , runActionWithContext
   , ModuleCache(..)
@@ -106,7 +107,8 @@ getCradle fp k = do
       mcache <- getModuleCache
       let mcradle = lookupCradle dir mcache
       case mcradle of
-        Just crdl ->
+        Just crdl -> do
+          traceShowM ("Reusing cradle" , crdl)
           k crdl
         Nothing -> do
           crdl <- liftIO $ BIOS.findCradle fp
@@ -225,6 +227,14 @@ lookupCachedData fp tm info dat = do
       case fromDynamic x of
         Just val -> return val
         Nothing  -> error "impossible"
+
+cacheModules :: [GHC.TypecheckedModule] -> IdeGhcM ()
+cacheModules ms = mapM_ go_one ms
+  where
+    go_one m = case get_fp m of
+                 Just fp -> cacheModule fp (Right m)
+                 Nothing -> return ()
+    get_fp = GHC.ml_hs_file . GHC.ms_location . GHC.pm_mod_summary . GHC.tm_parsed_module
 
 -- | Saves a module to the cache and executes any deferred
 -- responses waiting on that module.
