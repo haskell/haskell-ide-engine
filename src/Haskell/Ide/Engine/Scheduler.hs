@@ -35,6 +35,7 @@ import qualified Data.Text                     as T
 import qualified GhcMod.Types                  as GM
 import qualified Language.Haskell.LSP.Core     as Core
 import qualified Language.Haskell.LSP.Types    as J
+import GhcMonad
 
 import           Haskell.Ide.Engine.GhcModuleCache
 import           Haskell.Ide.Engine.Config
@@ -297,7 +298,9 @@ ghcDispatcher
   -> Channel.OutChan (GhcRequest m)
   -> IdeGhcM void
 ghcDispatcher env@DispatcherEnv { docVersionTVar } errorHandler callbackHandler pin
-  = forever $ do
+  = do
+  iniDynFlags <- getSessionDynFlags
+  forever $ do
     debugm "ghcDispatcher: top of loop"
     (GhcRequest tn context mver mid callback action) <- liftIO
       $ Channel.readChan pin
@@ -305,13 +308,13 @@ ghcDispatcher env@DispatcherEnv { docVersionTVar } errorHandler callbackHandler 
 
     let
       runner = case context of
-        Nothing  -> runActionWithContext Nothing
+        Nothing  -> runActionWithContext iniDynFlags Nothing
         Just uri -> case uriToFilePath uri of
-          Just fp -> runActionWithContext (Just fp)
+          Just fp -> runActionWithContext iniDynFlags (Just fp)
           Nothing -> \act -> do
             debugm
               "ghcDispatcher:Got malformed uri, running action with default context"
-            runActionWithContext Nothing act
+            runActionWithContext iniDynFlags Nothing act
 
     let
       runWithCallback = do

@@ -12,7 +12,7 @@ import           Data.Typeable (TypeRep)
 import qualified GhcMod.Types                      as GM
 import qualified HIE.Bios as BIOS
 
-import           GHC                               (TypecheckedModule, ParsedModule)
+import           GHC                               (TypecheckedModule, ParsedModule, DynFlags)
 
 import Haskell.Ide.Engine.ArtifactMap
 
@@ -84,15 +84,24 @@ class (Monad m) => HasGhcModuleCache m where
 emptyModuleCache :: GhcModuleCache
 emptyModuleCache = GhcModuleCache Map.empty Map.empty Nothing
 
+data LookupCradleResult = ReuseCradle | LoadCradle CachedCradle | NewCradle FilePath
+
 -- The boolean indicates whether we have to reload the cradle or not
-lookupCradle :: FilePath -> GhcModuleCache -> Maybe (BIOS.Cradle, Bool)
+lookupCradle :: FilePath -> GhcModuleCache -> LookupCradleResult
 lookupCradle fp gmc = traceShow (fp, gmc) $
   case currentCradle gmc of
-    Just (dirs, c) | fp `elem` dirs -> Just (c, True)
-    _ -> (, False) <$> Map.lookup fp (cradleCache gmc)
+    Just (dirs, c) | fp `elem` dirs -> ReuseCradle
+    _ -> case Map.lookup fp (cradleCache gmc) of
+           Just c -> LoadCradle c
+           Nothing  -> NewCradle fp
+
+data CachedCradle = CachedCradle BIOS.Cradle DynFlags
+
+instance Show CachedCradle where
+  show (CachedCradle x _) = show x
 
 data GhcModuleCache = GhcModuleCache
-  { cradleCache :: !(Map.Map FilePath BIOS.Cradle)
+  { cradleCache :: !(Map.Map FilePath CachedCradle)
               -- ^ map from dirs to cradles
   , uriCaches  :: !UriCaches
   , currentCradle :: Maybe ([FilePath], BIOS.Cradle)

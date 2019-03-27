@@ -4,6 +4,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TupleSections #-}
 
 module Haskell.Ide.Engine.ModuleCache
   ( modifyCache
@@ -74,46 +75,67 @@ withCradle fp crdl body = do
 -- Sets the current directory to the cradle root dir
 -- in either case
 runActionWithContext :: (GHC.GhcMonad m, HasGhcModuleCache m)
-                     => Maybe FilePath -> m a -> m a
-runActionWithContext Nothing action = do
+                     => GHC.DynFlags -> Maybe FilePath -> m a -> m a
+runActionWithContext df Nothing action = do
   -- Cradle with no additional flags
   dir <- liftIO $ getCurrentDirectory
   --This causes problems when loading a later package which sets the
   --packageDb
   --withCradle (BIOS.defaultCradle dir) action
   action
-runActionWithContext (Just uri) action = do
-  getCradle uri $ (\(crdl, b) ->
-    if b then action
-         else do
+runActionWithContext df (Just uri) action = do
+  getCradle uri (\lc -> loadCradle df lc >> action)
+
+loadCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => GHC.DynFlags -> LookupCradleResult -> m ()
+loadCradle _ ReuseCradle = do
+    traceM ("Reusing cradle")
+loadCradle iniDynFlags (NewCradle fp) = do
+    traceShowM ("New cradle" , fp)
+    -- Cache the existing cradle
+    maybe (return ()) cacheCradle =<< (currentCradle <$> getModuleCache)
+
+    -- Now load the new cradle
+    crdl <- liftIO $ BIOS.findCradle fp
     traceShowM crdl
+    GHC.setSessionDynFlags iniDynFlags
     liftIO $ setCurrentDirectory (BIOS.cradleRootDir crdl)
-    BIOS.initializeFlagsWithCradle uri crdl
-    dirs <- GHC.importPaths <$> GHC.getDynFlags
+    BIOS.initializeFlagsWithCradle fp crdl
+loadCradle iniDynFlags (LoadCradle (CachedCradle crd dflags)) = do
+    traceShowM ("Reload Cradle" , crd)
+    -- Cache the existing cradle
+    maybe (return ()) cacheCradle =<< (currentCradle <$> getModuleCache)
+
+    GHC.setSessionDynFlags iniDynFlags
+    GHC.setSessionDynFlags dflags
+
+    setCurrentCradle crd dflags
+
+
+
+setCurrentCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => BIOS.Cradle -> GHC.DynFlags -> m ()
+setCurrentCradle crdl df = do
+    let dirs = GHC.importPaths df
     traceShowM dirs
     dirs' <- liftIO $ mapM canonicalizePath dirs
-    -- TODO: head is not right here
-    modifyCache (\s -> s { cradleCache = Map.insert (head dirs) crdl (cradleCache s)
-                         , currentCradle = Just (dirs', crdl) })
-    action)
+    modifyCache (\s -> s { currentCradle = Just (dirs', crdl) })
+
+
+cacheCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => ([FilePath], BIOS.Cradle) -> m ()
+cacheCradle (ds, c) = do
+  dflags <- GHC.getSessionDynFlags
+  let cc = CachedCradle c dflags
+      new_map = Map.fromList (map (, cc) ds)
+  modifyCache (\s -> s { cradleCache = Map.union new_map (cradleCache s) })
 
 -- | Get the Cradle that should be used for a given URI
 --getCradle :: (GM.GmEnv m, GM.MonadIO m, HasGhcModuleCache m, GM.GmLog m
 --             , MonadBaseControl IO m, ExceptionMonad m, GM.GmOut m)
 getCradle :: (GHC.GhcMonad m, HasGhcModuleCache m)
-         => FilePath -> ((BIOS.Cradle, Bool) -> m r) -> m r
+         => FilePath -> (LookupCradleResult -> m r) -> m r
 getCradle fp k = do
       dir <- liftIO $ takeDirectory <$> canonicalizePath fp
       mcache <- getModuleCache
-      let mcradle = lookupCradle dir mcache
-      case mcradle of
-        Just crdl -> do
-          traceShowM ("Reusing cradle" , crdl)
-          k crdl
-        Nothing -> do
-          crdl <- liftIO $ BIOS.findCradle fp
-          traceM $ "cradle cache miss for " ++ dir ++ ", generating cradle " ++ show crdl
-          k (crdl, False)
+      k (lookupCradle dir mcache)
 
 ifCachedInfo :: (HasGhcModuleCache m, MonadIO m) => FilePath -> a -> (CachedInfo -> m a) -> m a
 ifCachedInfo fp def callback = do
