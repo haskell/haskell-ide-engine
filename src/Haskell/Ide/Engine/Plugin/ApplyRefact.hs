@@ -5,7 +5,10 @@
 module Haskell.Ide.Engine.Plugin.ApplyRefact where
 
 import           Control.Arrow
-import           Control.Lens hiding (List)
+import           Control.Exception              ( IOException
+                                                , try
+                                                )
+import           Control.Lens            hiding ( List )
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
 import           Data.Aeson                        hiding (Error)
@@ -105,14 +108,25 @@ lintCmd = CmdSync $ \uri -> do
 -- AZ:TODO: Why is this in IdeGhcM?
 lintCmd' :: Uri -> IdeGhcM (IdeResult PublishDiagnosticsParams)
 lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
-      res <- GM.withMappedFile fp $ \file' -> liftIO $ runExceptT $ runLintCmd file' []
-      case res of
-        Left diags ->
-          return (IdeResultOk (PublishDiagnosticsParams (filePathToUri fp) $ List diags))
-        Right fs ->
-          return $ IdeResultOk $
-            PublishDiagnosticsParams (filePathToUri fp)
-              $ List (map hintToDiagnostic $ stripIgnores fs)
+  eitherErrorResult <- GM.withMappedFile fp $ \file' -> 
+    liftIO (try $ runExceptT $ runLintCmd file' [] :: IO (Either IOException (Either [Diagnostic] [Idea])))
+  
+  case eitherErrorResult of
+    Left err ->
+      return
+        $ IdeResultFail (IdeError PluginError
+        (T.pack $ "lintCmd: " ++ show err) Null)
+    Right res -> case res of
+      Left diags ->
+        return
+          (IdeResultOk
+            (PublishDiagnosticsParams (filePathToUri fp) $ List diags)
+          )
+      Right fs ->
+        return
+          $ IdeResultOk
+          $ PublishDiagnosticsParams (filePathToUri fp)
+          $ List (map hintToDiagnostic $ stripIgnores fs)
 
 runLintCmd :: FilePath -> [String] -> ExceptT [Diagnostic] IO [Idea]
 runLintCmd fp args = do
