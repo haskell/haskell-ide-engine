@@ -1,6 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TupleSections #-}
 
 module Haskell.Ide.Engine.GhcModuleCache where
 
@@ -9,12 +10,14 @@ import           Data.Dynamic (Dynamic)
 import           Data.Typeable (TypeRep)
 
 import qualified GhcMod.Types                      as GM
+import qualified HIE.Bios as BIOS
 
 import           GHC                               (TypecheckedModule, ParsedModule)
 
 import Haskell.Ide.Engine.ArtifactMap
 
 import Language.Haskell.LSP.Types
+import Debug.Trace
 
 type UriCaches = Map.Map FilePath UriCacheResult
 
@@ -79,12 +82,22 @@ class (Monad m) => HasGhcModuleCache m where
   setModuleCache :: GhcModuleCache -> m ()
 
 emptyModuleCache :: GhcModuleCache
-emptyModuleCache = GhcModuleCache Map.empty Map.empty
+emptyModuleCache = GhcModuleCache Map.empty Map.empty Nothing
+
+-- The boolean indicates whether we have to reload the cradle or not
+lookupCradle :: FilePath -> GhcModuleCache -> Maybe (BIOS.Cradle, Bool)
+lookupCradle fp gmc = traceShow (fp, gmc) $
+  case currentCradle gmc of
+    Just (dirs, c) | fp `elem` dirs -> Just (c, True)
+    _ -> (, False) <$> Map.lookup fp (cradleCache gmc)
 
 data GhcModuleCache = GhcModuleCache
-  { cradleCache :: !(Map.Map FilePath GM.Cradle)
+  { cradleCache :: !(Map.Map FilePath BIOS.Cradle)
               -- ^ map from dirs to cradles
   , uriCaches  :: !UriCaches
+  , currentCradle :: Maybe ([FilePath], BIOS.Cradle)
+              -- ^ The current cradle and which directories it is
+              -- responsible for
   } deriving (Show)
 
 -- ---------------------------------------------------------------------

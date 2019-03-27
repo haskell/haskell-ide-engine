@@ -42,6 +42,7 @@ import qualified GhcMod.Monad  as GM
 import qualified GhcMod.Types  as GM
 import qualified GhcMod.Utils  as GM
 import qualified GHC           as GHC
+import qualified DynFlags      as GHC
 import qualified HIE.Bios as BIOS
 
 import           Haskell.Ide.Engine.ArtifactMap
@@ -60,7 +61,6 @@ modifyCache f = do
 -- | Runs an IdeM action with the given Cradle
 withCradle :: GHC.GhcMonad m => FilePath -> BIOS.Cradle -> m a -> m a
 withCradle fp crdl body = do
-  BIOS.initializeFlagsWithCradle fp crdl
   body
 
   --GM.gmeLocal (\env -> env {GM.gmCradle = crdl})
@@ -72,7 +72,7 @@ withCradle fp crdl body = do
 -- then runs the action in the default cradle.
 -- Sets the current directory to the cradle root dir
 -- in either case
-runActionWithContext :: (GHC.GhcMonad m)
+runActionWithContext :: (GHC.GhcMonad m, HasGhcModuleCache m)
                      => Maybe FilePath -> m a -> m a
 runActionWithContext Nothing action = do
   -- Cradle with no additional flags
@@ -82,28 +82,36 @@ runActionWithContext Nothing action = do
   --withCradle (BIOS.defaultCradle dir) action
   action
 runActionWithContext (Just uri) action = do
-  crdl <- liftIO $ BIOS.findCradle uri
-  traceShowM crdl
-  liftIO $ setCurrentDirectory (BIOS.cradleRootDir crdl)
-  withCradle uri crdl action
+  getCradle uri $ (\(crdl, b) ->
+    if b then action
+         else do
+    traceShowM crdl
+    liftIO $ setCurrentDirectory (BIOS.cradleRootDir crdl)
+    BIOS.initializeFlagsWithCradle uri crdl
+    dirs <- GHC.importPaths <$> GHC.getDynFlags
+    traceShowM dirs
+    dirs' <- liftIO $ mapM canonicalizePath dirs
+    -- TODO: head is not right here
+    modifyCache (\s -> s { cradleCache = Map.insert (head dirs) crdl (cradleCache s)
+                         , currentCradle = Just (dirs', crdl) })
+    action)
 
 -- | Get the Cradle that should be used for a given URI
-getCradle :: (GM.GmEnv m, GM.MonadIO m, HasGhcModuleCache m, GM.GmLog m
-             , MonadBaseControl IO m, ExceptionMonad m, GM.GmOut m)
-          => FilePath -> m GM.Cradle
-getCradle fp = do
+--getCradle :: (GM.GmEnv m, GM.MonadIO m, HasGhcModuleCache m, GM.GmLog m
+--             , MonadBaseControl IO m, ExceptionMonad m, GM.GmOut m)
+getCradle :: (GHC.GhcMonad m, HasGhcModuleCache m)
+         => FilePath -> ((BIOS.Cradle, Bool) -> m r) -> m r
+getCradle fp k = do
       dir <- liftIO $ takeDirectory <$> canonicalizePath fp
       mcache <- getModuleCache
-      let mcradle = (Map.lookup dir . cradleCache) mcache
+      let mcradle = lookupCradle dir mcache
       case mcradle of
         Just crdl ->
-          return crdl
+          k crdl
         Nothing -> do
-          opts <- GM.options
-          crdl <- GM.findCradle' (GM.optPrograms opts) dir
-          -- debugm $ "cradle cache miss for " ++ dir ++ ", generating cradle " ++ show crdl
-          modifyCache (\s -> s { cradleCache = Map.insert dir crdl (cradleCache s)})
-          return crdl
+          crdl <- liftIO $ BIOS.findCradle fp
+          traceM $ "cradle cache miss for " ++ dir ++ ", generating cradle " ++ show crdl
+          k (crdl, False)
 
 ifCachedInfo :: (HasGhcModuleCache m, MonadIO m) => FilePath -> a -> (CachedInfo -> m a) -> m a
 ifCachedInfo fp def callback = do
