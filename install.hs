@@ -29,7 +29,16 @@ type GhcPath = String
 -- If they are edited, make sure to maintain the order of the versions.
 hieVersions :: [VersionNumber]
 hieVersions =
-  ["8.2.1", "8.2.2", "8.4.2", "8.4.3", "8.4.4", "8.6.1", "8.6.2", "8.6.3", "8.6.4"]
+  [ "8.2.1"
+  , "8.2.2"
+  , "8.4.2"
+  , "8.4.3"
+  , "8.4.4"
+  , "8.6.1"
+  , "8.6.2"
+  , "8.6.3"
+  , "8.6.4"
+  ]
 
 -- |Most recent version of hie.
 -- Shown in the more concise help message.
@@ -74,9 +83,15 @@ main = do
       forM_ hieVersions stackTest
 
     phony "build-copy-compiler-tool" $ forM_ hieVersions buildCopyCompilerTool
+
+    phony "stack-build-doc" stackBuildDoc
     forM_
       hieVersions
-      (\version -> phony ("build-doc-" ++ version) $ stackBuildDoc version)
+      (\version -> phony ("build-doc-" ++ version) $ do
+        need ["submodules"]
+        need ["cabal"]
+        need ["stack-build-doc"]
+      )
     forM_
       hieVersions
       (\version -> phony ("hie-" ++ version) $ do
@@ -96,12 +111,13 @@ main = do
       need ["cabal"]
       forM_ ghcVersions cabalTest
 
+    phony "cabal-doc" cabalBuildDoc
     forM_
       hieVersions
       (\version -> phony ("cabal-build-doc-" ++ version) $ do
         need ["submodules"]
         need ["cabal"]
-        cabalBuildDoc version
+        need ["cabal-doc"]
       )
     forM_
       hieVersions
@@ -181,11 +197,19 @@ cabalInstallHie versionNumber = do
   copyFile' (localBin </> "hie" <.> exe)
             (localBin </> "hie-" ++ dropExtension versionNumber <.> exe)
 
-cabalBuildDoc :: VersionNumber -> Action ()
-cabalBuildDoc versionNumber = do
-  configureCabal versionNumber
-  execCabal_ ["new-install", "hoogle"]
+cabalBuildDoc :: Action ()
+cabalBuildDoc = generateHoogleDatabase $ do 
+  localBin <- getLocalBin
+  execCabal_ ["new-install", "--symlink-bindir=" ++ localBin, "hoogle"]
   execCabal_ ["new-exec", "hoogle", "generate"]
+
+generateHoogleDatabase :: Action () -> Action ()
+generateHoogleDatabase installIfNecessary = do
+  mayHoogle <- liftIO $ findExecutable "hoogle"
+  case mayHoogle of
+    Nothing -> installIfNecessary
+    Just hoogle -> command_ [] "hoogle" ["generate"]
+
 
 cabalTest :: VersionNumber -> Action ()
 cabalTest versionNumber = do
@@ -222,10 +246,10 @@ buildCopyCompilerTool versionNumber =
 stackTest :: VersionNumber -> Action ()
 stackTest versionNumber = execStackWithYaml_ versionNumber ["test"]
 
-stackBuildDoc :: VersionNumber -> Action ()
-stackBuildDoc versionNumber = do
-  execStackWithYaml_ versionNumber ["install", "hoogle"]
-  execStackWithYaml_ versionNumber ["exec", "hoogle", "generate"]
+stackBuildDoc :: Action ()
+stackBuildDoc = generateHoogleDatabase $ do
+  execStack_ ["--stack-yaml=shake.yaml", "install", "hoogle"]
+  execStack_ ["--stack-yaml=shake.yaml", "exec", "hoogle", "generate"]
 
 shortHelpMessage :: Action ()
 shortHelpMessage = do
