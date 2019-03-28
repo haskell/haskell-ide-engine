@@ -110,6 +110,7 @@ initSession _build CompilerOptions {..} = do
     void $ G.setSessionDynFlags
       (disableOptimisation
       $ setIgnoreInterfacePragmas
+      $ resetPackageDb
       $ setLinkerOptions df'
       )
 
@@ -124,6 +125,9 @@ setLinkerOptions df = df {
   , hscTarget = HscNothing
   , ghcMode = CompManager
   }
+
+resetPackageDb :: DynFlags -> DynFlags
+resetPackageDb df = df { pkgDatabase = Nothing }
 
 setIgnoreInterfacePragmas :: DynFlags -> DynFlags
 setIgnoreInterfacePragmas df =
