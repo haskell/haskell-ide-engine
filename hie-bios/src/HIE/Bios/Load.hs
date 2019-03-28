@@ -44,10 +44,10 @@ loadFile file = do
     (_, tcs) <- collectASTs (setTargetFiles [file])
     pprTraceM "loaded" (text (fst file) $$ text (snd file))
     let get_fp = ml_hs_file . ms_location . pm_mod_summary . tm_parsed_module
---    traceShowM ("tms", (map get_fp tcs))
+    traceShowM ("tms", (map get_fp tcs))
     let findMod [] = Nothing
         findMod (x:xs) = case get_fp x of
-                           Just fp -> if fp `isSuffixOf` (fst file) then Just x else findMod xs
+                           Just fp -> if fp `isSuffixOf` (snd file) then Just x else findMod xs
                            Nothing -> findMod xs
     return (findMod tcs, tcs)
 

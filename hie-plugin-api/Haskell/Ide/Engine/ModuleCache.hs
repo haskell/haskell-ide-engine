@@ -250,11 +250,11 @@ lookupCachedData fp tm info dat = do
         Just val -> return val
         Nothing  -> error "impossible"
 
-cacheModules :: [GHC.TypecheckedModule] -> IdeGhcM ()
-cacheModules ms = mapM_ go_one ms
+cacheModules :: (FilePath -> FilePath) -> [GHC.TypecheckedModule] -> IdeGhcM ()
+cacheModules rfm ms = mapM_ go_one ms
   where
     go_one m = case get_fp m of
-                 Just fp -> cacheModule fp (Right m)
+                 Just fp -> cacheModule (rfm fp) (Right m)
                  Nothing -> return ()
     get_fp = GHC.ml_hs_file . GHC.ms_location . GHC.pm_mod_summary . GHC.tm_parsed_module
 

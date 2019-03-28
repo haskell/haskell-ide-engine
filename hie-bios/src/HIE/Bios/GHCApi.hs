@@ -111,6 +111,7 @@ initSession _build CompilerOptions {..} = do
       (disableOptimisation
       $ setIgnoreInterfacePragmas
       $ resetPackageDb
+      $ ignorePackageEnv
       $ setLinkerOptions df'
       )
 
@@ -128,6 +129,9 @@ setLinkerOptions df = df {
 
 resetPackageDb :: DynFlags -> DynFlags
 resetPackageDb df = df { pkgDatabase = Nothing }
+
+ignorePackageEnv :: DynFlags -> DynFlags
+ignorePackageEnv df = df { packageEnv = Just "-" }
 
 setIgnoreInterfacePragmas :: DynFlags -> DynFlags
 setIgnoreInterfacePragmas df =

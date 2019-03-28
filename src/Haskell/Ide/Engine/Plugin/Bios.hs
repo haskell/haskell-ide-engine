@@ -184,9 +184,9 @@ setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     debugm "setTypecheckedModule: before ghc-mod"
     debugm "Loading file"
---    mapped_fp <- persistVirtualFile uri
---    rfm <- reverseFileMap
-    (diags', errs, mmods) <- (captureDiagnostics id $ BIOS.loadFile (fp, fp))
+    mapped_fp <- persistVirtualFile uri
+    rfm <- reverseFileMap
+    (diags', errs, mmods) <- (captureDiagnostics rfm $ BIOS.loadFile (fp, mapped_fp))
     debugm "File, loaded"
     canonUri <- canonicalizeUri uri
     let diags = Map.insertWith Set.union canonUri Set.empty diags'
@@ -209,14 +209,14 @@ setTypecheckedModule uri =
         -- set the session before we cache the module, so that deferred
         -- responses triggered by cacheModule can access it
         --modifyMTS (\s -> s {ghcSession = sess})
-        cacheModules ts
+        cacheModules rfm ts
         debugm "setTypecheckedModule: done"
         return diags
 
       (Nothing, ts) -> do
         debugm $ "setTypecheckedModule: Didn't get typechecked or parsed module for: " ++ show fp
         --debugm $ "setTypecheckedModule: errs: " ++ show errs
-        cacheModules ts
+        cacheModules rfm ts
         failModule fp
 
         let sev = Just DsError
