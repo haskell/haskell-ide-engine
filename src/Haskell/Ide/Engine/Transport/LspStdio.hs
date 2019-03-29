@@ -713,7 +713,7 @@ reactor inp diagIn = do
               pos = params ^. J.position
               callback = reactorSend . RspTypeDefinition . Core.makeResponseMessage req
           let hreq = IReq tn (req ^. J.id) callback
-                       $ fmap J.MultiLoc <$> Hie.findDef doc pos
+                       $ fmap J.MultiLoc <$> Hie.findTypeDef doc pos
           makeRequest hreq
 
         ReqFindReferences req -> do
