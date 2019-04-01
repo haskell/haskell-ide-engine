@@ -3,6 +3,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE LambdaCase          #-}
 module Haskell.Ide.Engine.Support.HieExtras
   ( getDynFlags
   , WithSnippets(..)
@@ -29,6 +30,7 @@ import           Control.Lens.Prism                           ( _Just )
 import           Control.Lens.Setter ((%~))
 import           Control.Lens.Traversal (traverseOf)
 import           Control.Monad.Reader
+import           Control.Monad.Trans.Maybe
 import           Data.Aeson
 import qualified Data.Aeson.Types                             as J
 import           Data.Char
@@ -478,6 +480,9 @@ getTypeForName n = do
 getSymbolsAtPoint :: Position -> CachedInfo -> [(Range,Name)]
 getSymbolsAtPoint pos info = maybe [] (`getArtifactsAtPos` locMap info) $ newPosToOld info pos
 
+-- |Get a symbol from the given location map at the given location.
+-- Retrieves the name and range of the symbol at the given location 
+-- from the cached location map.
 symbolFromTypecheckedModule
   :: LocMap
   -> Position
@@ -540,6 +545,12 @@ getModule df n = do
 
 -- ---------------------------------------------------------------------
 -- TODO: there has to be a simpler way, using the appropriate GHC internals
+-- |Find the Id for a given Name.
+-- Requires an already TypecheckedModule.
+-- A TypecheckedModule can be obtained by using the functions 
+-- @ifCachedModuleAndData@ or @withCachedModuleAndData@.
+--
+-- Function is copied from @HaRe/src/Language/Haskell/Refact/Utils/TypeUtils.hs:2954@. 
 findIdForName :: TypecheckedModule -> Name -> IdeM (Maybe Id)
 findIdForName tm n = do
   let t = GHC.tm_typechecked_source tm
@@ -550,6 +561,14 @@ findIdForName tm n = do
 
 -- ---------------------------------------------------------------------
 
+-- | Get the type for a name.
+-- Requires an already TypecheckedModule.
+-- A TypecheckedModule can be obtained by using the functions 
+-- @ifCachedModuleAndData@ or @withCachedModuleAndData@.
+-- 
+-- Returns the type of a variable or a sum type constructor.
+-- 
+-- Function is taken from @HaRe/src/Language/Haskell/Refact/Utils/TypeUtils.hs:2966@.
 getTypeForName' :: TypecheckedModule -> Name -> IdeM (Maybe Type)
 getTypeForName' tm n = do
   mId <- findIdForName tm n
@@ -557,12 +576,15 @@ getTypeForName' tm n = do
     Nothing -> getTypeForName n
     Just i  -> return $ Just (varType i)
 
--- | Return the type definition
+-- | Return the type definition of the symbol at the given position.
+-- Works for Datatypes, Newtypes and Type Definitions.
+-- The latter is only possible, if the type that is defined is defined in the project.
+-- Sum Types can also be searched.
 findTypeDef :: Uri -> Position -> IdeDeferM (IdeResult [Location])
 findTypeDef uri pos = pluginGetFile "findTypeDef: " uri $ \file ->
-  ifCachedModuleAndData
-    file
-    (IdeResultOk [])
+  ifCachedModuleAndData -- Dont wait on this function if the module is not cached.
+    file 
+    (IdeResultOk []) -- Default result
     (\tm info NMD{} -> do
       let rfm    = revMap info
           lm     = locMap info
@@ -570,40 +592,49 @@ findTypeDef uri pos = pluginGetFile "findTypeDef: " uri $ \file ->
           oldPos = newPosToOld info pos
       case (\x -> Just $ getArtifactsAtPos x mm) =<< oldPos of
         Just ((_, mn) : _) -> gotoModule rfm mn
-        _                  -> case symbolFromTypecheckedModule lm =<< oldPos of
-          Nothing     -> return $ IdeResultOk []
-          Just (_, n) -> do
-            mayType <- lift $ getTypeForName' tm n
-            case mayType of 
-              Nothing -> 
-                return $ IdeResultOk []
-              Just t -> case tyConAppTyCon_maybe t of 
-                Nothing  ->
-                  return $ IdeResultOk []
-                Just tyCon -> 
-                  case nameSrcSpan (getName tyCon) of
-                    UnhelpfulSpan _ -> return $ IdeResultOk []
-                    realSpan        -> do
-                      res <- srcSpan2Loc rfm realSpan
-                      case res of
-                        Right l@(J.Location luri range) -> case uriToFilePath luri of
-                          Nothing -> return $ IdeResultOk [l]
-                          Just fp ->
-                            ifCachedModule fp (IdeResultOk [l])
-                              $ \(_ :: ParsedModule) info' ->
-                                  case oldRangeToNew info' range of
-                                    Just r ->
-                                      return $ IdeResultOk [J.Location luri r]
-                                    Nothing -> return $ IdeResultOk [l]
-                        Left x -> do
-                          debugm "findTypeDef: name srcspan not found/valid"
-                          pure
-                            (IdeResultFail
-                              (IdeError PluginError
-                                        ("hare:findTypeDef" <> ": \"" <> x <> "\"")
-                                        Null
-                              )
-                            )
+        _                  -> do 
+          let
+              -- | Get SrcSpan of the name at the given position.
+              -- If the old position is Nothing, e.g. there is no cached info about it,
+              -- Nothing is returned.
+              -- 
+              -- Otherwise, searches for the Type of the given position 
+              -- and retrieves its SrcSpan.
+              getSrcSpanFromPosition :: Maybe Position -> MaybeT IdeDeferM SrcSpan
+              getSrcSpanFromPosition oldPosition = do
+                (_, n) <- MaybeT $ return $ symbolFromTypecheckedModule lm =<< oldPosition
+                t <- MaybeT $ lift $ getTypeForName' tm n
+                tyCon <- MaybeT $ return $ tyConAppTyCon_maybe t
+                case nameSrcSpan (getName tyCon) of
+                  UnhelpfulSpan _ -> fail "Unhelpful Span" -- this message is never shown
+                  realSpan        -> return realSpan
+
+          runMaybeT (getSrcSpanFromPosition oldPos) >>= \case
+            Nothing -> return $ IdeResultOk  []
+            Just realSpan -> do 
+              -- Since we found a real SrcSpan, we now translate it 
+              -- to the position in the file
+              res <- srcSpan2Loc rfm realSpan
+              case res of
+                Right l@(J.Location luri range) -> case uriToFilePath luri of
+                  Nothing -> return $ IdeResultOk [l]
+                  Just fp ->
+                    ifCachedModule fp (IdeResultOk [l])
+                      $ \(_ :: ParsedModule) info' ->
+                          case oldRangeToNew info' range of
+                            Just r ->
+                              return $ IdeResultOk [J.Location luri r]
+                            Nothing -> return $ IdeResultOk [l]
+                Left x -> do
+                  -- SrcSpan does not have a file location!
+                  debugm "findTypeDef: name srcspan not found/valid"
+                  pure
+                    (IdeResultFail
+                      (IdeError PluginError
+                                ("hare:findTypeDef" <> ": \"" <> x <> "\"")
+                                Null
+                      )
+                    )
     )
 
 -- | Return the definition
