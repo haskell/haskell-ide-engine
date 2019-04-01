@@ -33,3 +33,8 @@ type TypEnu = Enu
 
 typEnuId :: TypEnu -> TypEnu
 typEnuId enu = enu
+
+data Parameter a = Parameter a
+
+parameterId :: Parameter a -> Parameter a
+parameterId pid = pid

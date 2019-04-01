@@ -270,6 +270,16 @@ hareSpec = do
             (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
             (Range (toPos (8, 1)) (toPos (8, 29)))
         ]
+    it "find definition of parameterized data type" $ do
+      let u    = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs"
+          lreq = setTypecheckedModule u
+          req  = liftToGhc $ TestDeferM $ findTypeDef u (toPos (40, 19))
+      r <- dispatchRequestPGoto $ lreq >> req
+      r `shouldBe` IdeResultOk
+        [ Location
+            (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
+            (Range (toPos (37, 1)) (toPos (37, 31)))
+        ]
 
     -- ---------------------------------
 

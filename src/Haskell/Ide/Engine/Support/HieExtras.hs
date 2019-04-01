@@ -182,6 +182,9 @@ mkPragmaCompl label insertText =
 safeTyThingId :: TyThing -> Maybe Id
 safeTyThingId (AnId i)                    = Just i
 safeTyThingId (AConLike (RealDataCon dc)) = Just $ dataConWrapId dc
+safeTyThingId (ATyCon tyCon)              = case GHC.tyConTyVars tyCon of
+    [] -> Nothing
+    (a:_) -> Just a
 safeTyThingId _                           = Nothing
 
 -- Associates a module's qualifier with its members
