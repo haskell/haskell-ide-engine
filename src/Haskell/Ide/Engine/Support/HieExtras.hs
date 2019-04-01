@@ -540,7 +540,7 @@ getModule df n = do
 
 -- ---------------------------------------------------------------------
 -- TODO: there has to be a simpler way, using the appropriate GHC internals
-findIdForName :: GHC.TypecheckedModule -> GHC.Name -> IdeM (Maybe GHC.Id)
+findIdForName :: TypecheckedModule -> Name -> IdeM (Maybe Id)
 findIdForName tm n = do
   let t = GHC.tm_typechecked_source tm
   let r = SYB.something (SYB.mkQ Nothing worker) t
@@ -550,17 +550,16 @@ findIdForName tm n = do
 
 -- ---------------------------------------------------------------------
 
-getTypeForName' :: GHC.TypecheckedModule -> GHC.Name -> IdeM (Maybe GHC.Type)
+getTypeForName' :: TypecheckedModule -> Name -> IdeM (Maybe Type)
 getTypeForName' tm n = do
   mId <- findIdForName tm n
   case mId of
-    Nothing -> return Nothing
+    Nothing -> getTypeForName n
     Just i  -> return $ Just (varType i)
 
 -- | Return the type definition
 findTypeDef :: Uri -> Position -> IdeDeferM (IdeResult [Location])
-findTypeDef uri pos = pluginGetFile "findTypeDef: " uri $ \file -> do
-  liftIO $ putStrLn "pluginGetFile"
+findTypeDef uri pos = pluginGetFile "findTypeDef: " uri $ \file ->
   ifCachedModuleAndData
     file
     (IdeResultOk [])
@@ -569,7 +568,6 @@ findTypeDef uri pos = pluginGetFile "findTypeDef: " uri $ \file -> do
           lm     = locMap info
           mm     = moduleMap info
           oldPos = newPosToOld info pos
-      liftIO $ putStrLn "withCachedModuleAndData"
       case (\x -> Just $ getArtifactsAtPos x mm) =<< oldPos of
         Just ((_, mn) : _) -> gotoModule rfm mn
         _                  -> case symbolFromTypecheckedModule lm =<< oldPos of
@@ -577,18 +575,15 @@ findTypeDef uri pos = pluginGetFile "findTypeDef: " uri $ \file -> do
           Just (_, n) -> do
             mayType <- lift $ getTypeForName' tm n
             case mayType of 
-              Nothing -> do
-                liftIO $ putStrLn "No Type found :/"
+              Nothing -> 
                 return $ IdeResultOk []
               Just t -> case tyConAppTyCon_maybe t of 
-                Nothing  -> do 
-                  liftIO $ putStrLn "Not a typeCon :("
+                Nothing  ->
                   return $ IdeResultOk []
                 Just tyCon -> 
                   case nameSrcSpan (getName tyCon) of
                     UnhelpfulSpan _ -> return $ IdeResultOk []
                     realSpan        -> do
-                      liftIO $ putStrLn "Found real span"
                       res <- srcSpan2Loc rfm realSpan
                       case res of
                         Right l@(J.Location luri range) -> case uriToFilePath luri of
@@ -610,30 +605,6 @@ findTypeDef uri pos = pluginGetFile "findTypeDef: " uri $ \file -> do
                               )
                             )
     )
- where
-  gotoModule
-    :: (FilePath -> FilePath) -> ModuleName -> IdeDeferM (IdeResult [Location])
-  gotoModule rfm mn = do
-
-    hscEnvRef <- ghcSession <$> readMTS
-    mHscEnv   <- liftIO $ traverse readIORef hscEnvRef
-
-    case mHscEnv of
-      Just env -> do
-        fr <- liftIO $ do
-          -- Flush cache or else we get temporary files
-          flushFinderCaches env
-          findImportedModule env mn Nothing
-        case fr of
-          Found (ModLocation (Just src) _ _) _ -> do
-            fp <- reverseMapFile rfm src
-
-            let r   = Range (Position 0 0) (Position 0 0)
-                loc = Location (filePathToUri fp) r
-            return (IdeResultOk [loc])
-          _ -> return (IdeResultOk [])
-      Nothing -> return $ IdeResultFail
-        (IdeError PluginError "Couldn't get hscEnv when finding import" Null)
 
 -- | Return the definition
 findDef :: Uri -> Position -> IdeDeferM (IdeResult [Location])
@@ -667,30 +638,27 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file ->
                         (IdeError PluginError
                                   ("hare:findDef" <> ": \"" <> x <> "\"")
                                   Null)))
-  where
-    gotoModule :: (FilePath -> FilePath) -> ModuleName -> IdeDeferM (IdeResult [Location])
-    gotoModule rfm mn = do
 
-      hscEnvRef <- ghcSession <$> readMTS
-      mHscEnv <- liftIO $ traverse readIORef hscEnvRef
-
-      case mHscEnv of
-        Just env -> do
-          fr <- liftIO $ do
-            -- Flush cache or else we get temporary files
-            flushFinderCaches env
-            findImportedModule env mn Nothing
-          case fr of
-            Found (ModLocation (Just src) _ _) _ -> do
-              fp <- reverseMapFile rfm src
-
-              let r = Range (Position 0 0) (Position 0 0)
-                  loc = Location (filePathToUri fp) r
-              return (IdeResultOk [loc])
-            _ -> return (IdeResultOk [])
-        Nothing -> return $ IdeResultFail
-          (IdeError PluginError "Couldn't get hscEnv when finding import" Null)
-
+gotoModule :: (FilePath -> FilePath) -> ModuleName -> IdeDeferM (IdeResult [Location])
+gotoModule rfm mn = do
+  hscEnvRef <- ghcSession <$> readMTS
+  mHscEnv <- liftIO $ traverse readIORef hscEnvRef
+  case mHscEnv of
+    Just env -> do
+      fr <- liftIO $ do
+        -- Flush cache or else we get temporary files
+        flushFinderCaches env
+        findImportedModule env mn Nothing
+      case fr of
+        Found (ModLocation (Just src) _ _) _ -> do
+          fp <- reverseMapFile rfm src
+          
+          let r = Range (Position 0 0) (Position 0 0)
+              loc = Location (filePathToUri fp) r
+          return (IdeResultOk [loc])
+        _ -> return (IdeResultOk [])
+    Nothing -> return $ IdeResultFail
+      (IdeError PluginError "Couldn't get hscEnv when finding import" Null)
 -- ---------------------------------------------------------------------
 
 data HarePoint =
