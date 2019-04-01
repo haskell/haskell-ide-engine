@@ -21,8 +21,8 @@ import           Language.Haskell.LSP.Types     ( Location(..)
 import           System.Directory
 import           System.FilePath
 import           TestUtils
+
 import           Test.Hspec
-import Test.Hspec.Runner
 
 -- ---------------------------------------------------------------------
 {-# ANN module ("hlint: ignore Eta reduce" :: String) #-}
@@ -30,10 +30,7 @@ import Test.Hspec.Runner
 -- ---------------------------------------------------------------------
 
 main :: IO ()
-main = do
-  setupStackFiles
-  config <- getHspecFormattedConfig "unit"
-  hspecWith config spec
+main = hspec spec 
 
 spec :: Spec
 spec = do
@@ -242,7 +239,11 @@ hareSpec = do
           lreq = setTypecheckedModule u
           req  = liftToGhc $ TestDeferM $ findTypeDef u (toPos (24, 7))
       r <- dispatchRequestPGoto $ lreq >> req
-      r `shouldBe` IdeResultOk [(Range (toPos (18, 1)) (toPos (18, 26)))]
+      r `shouldBe` IdeResultOk 
+        [ Location
+            (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs") 
+            (Range (toPos (18, 1)) (toPos (18, 26)))
+        ]
     it "can not find non-local definition of type def" $ do
       let u    = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs"
           lreq = setTypecheckedModule u
