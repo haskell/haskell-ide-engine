@@ -30,11 +30,11 @@ import           Control.Lens.Prism                           ( _Just )
 import           Control.Lens.Setter ((%~))
 import           Control.Lens.Traversal (traverseOf)
 import           Control.Monad.Reader
-import           Control.Monad.Trans.Maybe
+import           Control.Monad.Except
 import           Data.Aeson
 import qualified Data.Aeson.Types                             as J
 import           Data.Char
-import qualified Data.Generics as SYB
+import qualified Data.Generics                                as SYB
 import           Data.IORef
 import qualified Data.List                                    as List
 import qualified Data.Map                                     as Map
@@ -600,41 +600,29 @@ findTypeDef uri pos = pluginGetFile "findTypeDef: " uri $ \file ->
               -- 
               -- Otherwise, searches for the Type of the given position 
               -- and retrieves its SrcSpan.
-              getSrcSpanFromPosition :: Maybe Position -> MaybeT IdeDeferM SrcSpan
-              getSrcSpanFromPosition oldPosition = do
-                (_, n) <- MaybeT $ return $ symbolFromTypecheckedModule lm =<< oldPosition
-                t <- MaybeT $ lift $ getTypeForName' tm n
-                tyCon <- MaybeT $ return $ tyConAppTyCon_maybe t
+              getSrcSpanFromPosition :: Maybe Position -> ExceptT () IdeDeferM SrcSpan
+              getSrcSpanFromPosition maybeOldPosition = do
+                oldPosition <- liftMaybe maybeOldPosition
+                (_, n) <- liftMaybe $ symbolFromTypecheckedModule lm oldPosition
+                t <- liftMaybeM (lift $ getTypeForName' tm n)
+                tyCon <- liftMaybe $ tyConAppTyCon_maybe t
                 case nameSrcSpan (getName tyCon) of
-                  UnhelpfulSpan _ -> fail "Unhelpful Span" -- this message is never shown
+                  UnhelpfulSpan _ -> throwError ()
                   realSpan        -> return realSpan
+              
+              liftMaybe :: Monad m => Maybe a -> ExceptT () m a
+              liftMaybe val = liftEither $ case val of 
+                Nothing -> Left ()
+                Just s -> Right s
 
-          runMaybeT (getSrcSpanFromPosition oldPos) >>= \case
-            Nothing -> return $ IdeResultOk  []
-            Just realSpan -> do 
-              -- Since we found a real SrcSpan, we now translate it 
-              -- to the position in the file
-              res <- srcSpan2Loc rfm realSpan
-              case res of
-                Right l@(J.Location luri range) -> case uriToFilePath luri of
-                  Nothing -> return $ IdeResultOk [l]
-                  Just fp ->
-                    ifCachedModule fp (IdeResultOk [l])
-                      $ \(_ :: ParsedModule) info' ->
-                          case oldRangeToNew info' range of
-                            Just r ->
-                              return $ IdeResultOk [J.Location luri r]
-                            Nothing -> return $ IdeResultOk [l]
-                Left x -> do
-                  -- SrcSpan does not have a file location!
-                  debugm "findTypeDef: name srcspan not found/valid"
-                  pure
-                    (IdeResultFail
-                      (IdeError PluginError
-                                ("hare:findTypeDef" <> ": \"" <> x <> "\"")
-                                Null
-                      )
-                    )
+              liftMaybeM :: Monad m => m (Maybe a) -> ExceptT () m a
+              liftMaybeM mval = do
+                val <- lift mval 
+                liftMaybe val
+
+          runExceptT (getSrcSpanFromPosition oldPos) >>= \case
+            Left () -> return $ IdeResultOk []
+            Right realSpan -> lift $ srcSpanToFileLocation "hare:findTypeDef" rfm realSpan
     )
 
 -- | Return the definition
@@ -653,23 +641,33 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file ->
         Just (_, n) ->
           case nameSrcSpan n of
             UnhelpfulSpan _ -> return $ IdeResultOk []
-            realSpan   -> do
-              res <- srcSpan2Loc rfm realSpan
-              case res of
-                Right l@(J.Location luri range) ->
-                  case uriToFilePath luri of
-                    Nothing -> return $ IdeResultOk [l]
-                    Just fp -> ifCachedModule fp (IdeResultOk [l]) $ \(_ :: ParsedModule) info' ->
-                      case oldRangeToNew info' range of
-                        Just r  -> return $ IdeResultOk [J.Location luri r]
-                        Nothing -> return $ IdeResultOk [l]
-                Left x -> do
-                  debugm "findDef: name srcspan not found/valid"
-                  pure (IdeResultFail
-                        (IdeError PluginError
-                                  ("hare:findDef" <> ": \"" <> x <> "\"")
-                                  Null)))
+            realSpan   -> lift $ srcSpanToFileLocation "hare:findDef" rfm realSpan
+  )
 
+-- | Resolve the given SrcSpan to a Location in a file.
+-- Takes the name of the invoking function for error display.
+--
+-- If the SrcSpan can not be resolved, an error will be returned.
+srcSpanToFileLocation :: T.Text -> (FilePath -> FilePath) -> SrcSpan -> IdeM (IdeResult [Location])
+srcSpanToFileLocation invoker rfm srcSpan = do
+  -- Since we found a real SrcSpan, try to map it to real files
+  res <- srcSpan2Loc rfm srcSpan
+  case res of
+    Right l@(J.Location luri range) ->
+      case uriToFilePath luri of
+        Nothing -> return $ IdeResultOk [l]
+        Just fp -> ifCachedModule fp (IdeResultOk [l]) $ \(_ :: ParsedModule) info' ->
+          case oldRangeToNew info' range of
+            Just r  -> return $ IdeResultOk [J.Location luri r]
+            Nothing -> return $ IdeResultOk [l]
+    Left x -> do
+      debugm (T.unpack invoker <> ": name srcspan not found/valid")
+      pure (IdeResultFail
+            (IdeError PluginError
+                      (invoker <> ": \"" <> x <> "\"")
+                      Null))
+
+-- | Goto given module.
 gotoModule :: (FilePath -> FilePath) -> ModuleName -> IdeDeferM (IdeResult [Location])
 gotoModule rfm mn = do
   hscEnvRef <- ghcSession <$> readMTS

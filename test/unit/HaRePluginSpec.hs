@@ -30,7 +30,7 @@ import           Test.Hspec
 -- ---------------------------------------------------------------------
 
 main :: IO ()
-main = hspec spec 
+main = hspec spec
 
 spec :: Spec
 spec = do
