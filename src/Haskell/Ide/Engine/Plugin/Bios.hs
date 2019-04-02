@@ -183,7 +183,10 @@ errorHandlers ghcErrRes renderSourceError = handlers
 setTypecheckedModule :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
 setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
-    ifCachedModuleM fp (setTypecheckedModule_load uri) cont
+    debugm "setTypecheckedModule: before ghc-mod"
+    debugm "Loading file"
+    mapped_fp <- persistVirtualFile uri
+    ifCachedModuleM mapped_fp (setTypecheckedModule_load uri) cont
   where
     cont :: TypecheckedModule -> CachedInfo
          -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))

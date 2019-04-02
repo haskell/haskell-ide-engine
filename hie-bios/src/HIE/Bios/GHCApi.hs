@@ -102,6 +102,14 @@ throwCradleError :: GhcMonad m => String -> m ()
 throwCradleError = liftIO . throwIO . CradleError
 
 ----------------------------------------------------------------
+cacheDir = "haskell-ide-engine"
+
+clearInterfaceCache :: FilePath -> IO ()
+clearInterfaceCache fp = do
+  getCacheDir fp >>= removeDirectoryRecursive
+
+getCacheDir :: FilePath -> IO FilePath
+getCacheDir fp = getXdgDirectory XdgCache (cacheDir ++ "/" ++ fp)
 
 initSession :: (GhcMonad m)
             => Build
@@ -112,7 +120,10 @@ initSession _build CompilerOptions {..} = do
     traceShowM (length ghcOptions)
 
     let opts_hash = B.unpack $ encode $ H.finalize $ H.updates H.init (map B.pack ghcOptions)
-    fp <- liftIO $ getXdgDirectory XdgCache ("haskell-ide-engine/" ++ opts_hash)
+    fp <- liftIO $ getCacheDir opts_hash
+    -- For now, clear the cache initially rather than persist it across
+    -- sessions
+    liftIO $ clearInterfaceCache opts_hash
     df' <- addCmdOpts ghcOptions df
     void $ G.setSessionDynFlags
       (disableOptimisation
