@@ -96,6 +96,7 @@ library
                      , yaml >= 0.8.31
                      , yi-rope
                      , hie-bios
+                     , bytestring-trie
   ghc-options:         -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror

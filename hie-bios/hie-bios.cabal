@@ -41,6 +41,9 @@ Library
                       , file-embed
                       , temporary
                       , unix
+                      , cryptohash-sha1
+                      , bytestring
+                      , base16-bytestring
   if impl(ghc < 8.2)
     Build-Depends:      ghc-boot
 

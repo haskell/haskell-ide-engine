@@ -29,9 +29,14 @@ import System.IO (hPutStr, hPrint, stderr)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Process (readProcess)
 
+import System.Directory
+
 import qualified HIE.Bios.Gap as Gap
 import HIE.Bios.Types
 import Debug.Trace
+import qualified Crypto.Hash.SHA1 as H
+import qualified Data.ByteString.Char8 as B
+import Data.ByteString.Base16
 
 ----------------------------------------------------------------
 
@@ -106,12 +111,15 @@ initSession _build CompilerOptions {..} = do
     df <- G.getSessionDynFlags
     traceShowM (length ghcOptions)
 
+    let opts_hash = B.unpack $ encode $ H.finalize $ H.updates H.init (map B.pack ghcOptions)
+    fp <- liftIO $ getXdgDirectory XdgCache ("haskell-ide-engine/" ++ opts_hash)
     df' <- addCmdOpts ghcOptions df
     void $ G.setSessionDynFlags
       (disableOptimisation
       $ setIgnoreInterfacePragmas
       $ resetPackageDb
       $ ignorePackageEnv
+      $ writeInterfaceFiles (Just fp)
       $ setLinkerOptions df'
       )
 
@@ -136,6 +144,13 @@ ignorePackageEnv df = df { packageEnv = Just "-" }
 setIgnoreInterfacePragmas :: DynFlags -> DynFlags
 setIgnoreInterfacePragmas df =
  gopt_set df Opt_IgnoreInterfacePragmas
+
+writeInterfaceFiles :: Maybe FilePath -> DynFlags -> DynFlags
+writeInterfaceFiles Nothing df = df
+writeInterfaceFiles (Just hi_dir) df = setHiDir hi_dir (gopt_set df Opt_WriteInterface)
+
+setHiDir :: FilePath -> DynFlags -> DynFlags
+setHiDir f d = d { hiDir      = Just f}
 
 
 addCmdOpts :: (GhcMonad m)

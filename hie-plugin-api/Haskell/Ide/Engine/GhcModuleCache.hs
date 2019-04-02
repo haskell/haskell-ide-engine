@@ -11,8 +11,14 @@ import           Data.Typeable (TypeRep)
 
 import qualified GhcMod.Types                      as GM
 import qualified HIE.Bios as BIOS
+import qualified Data.Trie as T
+import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString as BS
+import Crypto.Hash.SHA1
 
 import           GHC                               (TypecheckedModule, ParsedModule, DynFlags)
+
+import Data.List
 
 import Haskell.Ide.Engine.ArtifactMap
 
@@ -36,12 +42,19 @@ data UriCache = UriCache
   -- | Data pertaining to the typechecked module,
   -- not the parsed module
   , cachedData   :: !(Map.Map TypeRep Dynamic)
+  , cachedHash   :: !ModuleHash
   }
 
+newtype ModuleHash = ModuleHash BS.ByteString deriving (Show, Eq)
+
+hashModule :: FilePath -> IO ModuleHash
+hashModule f = ModuleHash . hash <$> BS.readFile f
+
+
 instance Show UriCache where
-  show (UriCache _ _ (Just _) dat) =
+  show (UriCache _ _ (Just _) dat _h) =
     "UriCache { cachedTcMod, cachedData { " ++ show dat ++ " } }"
-  show (UriCache _ _ _ dat) =
+  show (UriCache _ _ _ dat _h) =
     "UriCache { cachedPsMod, cachedData { " ++ show dat ++ " } }"
 
 data CachedInfo = CachedInfo
@@ -58,10 +71,10 @@ class CacheableModule a where
   fromUriCache :: UriCache -> Maybe a
 
 instance CacheableModule TypecheckedModule where
-  fromUriCache (UriCache _ _ mtm _) = mtm
+  fromUriCache (UriCache _ _ mtm _ _) = mtm
 
 instance CacheableModule ParsedModule where
-  fromUriCache (UriCache _ pm _ _) = Just pm
+  fromUriCache (UriCache _ pm _ _ _) = Just pm
 
 -- ---------------------------------------------------------------------
 
@@ -82,17 +95,17 @@ class (Monad m) => HasGhcModuleCache m where
   setModuleCache :: GhcModuleCache -> m ()
 
 emptyModuleCache :: GhcModuleCache
-emptyModuleCache = GhcModuleCache Map.empty Map.empty Nothing
+emptyModuleCache = GhcModuleCache T.empty Map.empty Nothing
 
 data LookupCradleResult = ReuseCradle | LoadCradle CachedCradle | NewCradle FilePath
 
 -- The boolean indicates whether we have to reload the cradle or not
 lookupCradle :: FilePath -> GhcModuleCache -> LookupCradleResult
-lookupCradle fp gmc = traceShow (fp, gmc) $
+lookupCradle fp gmc = traceShow ("lookupCradle", fp, gmc) $
   case currentCradle gmc of
-    Just (dirs, c) | fp `elem` dirs -> ReuseCradle
-    _ -> case Map.lookup fp (cradleCache gmc) of
-           Just c -> LoadCradle c
+    Just (dirs, _c) | traceShow ("just", fp, dirs) (any (\d -> d `isPrefixOf` fp) dirs) -> ReuseCradle
+    _ -> case T.match  (cradleCache gmc) (B.pack fp) of
+           Just (k, c, suf) -> traceShow ("matchjust",k, suf) $ LoadCradle c
            Nothing  -> NewCradle fp
 
 data CachedCradle = CachedCradle BIOS.Cradle DynFlags
@@ -101,7 +114,7 @@ instance Show CachedCradle where
   show (CachedCradle x _) = show x
 
 data GhcModuleCache = GhcModuleCache
-  { cradleCache :: !(Map.Map FilePath CachedCradle)
+  { cradleCache :: !(T.Trie CachedCradle)
               -- ^ map from dirs to cradles
   , uriCaches  :: !UriCaches
   , currentCradle :: Maybe ([FilePath], BIOS.Cradle)

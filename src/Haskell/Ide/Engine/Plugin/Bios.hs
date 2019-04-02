@@ -178,9 +178,21 @@ errorHandlers ghcErrRes renderSourceError = handlers
         ]
 
 
-
+-- | Load a module from a filepath into the cache, first check the cache
+-- to see if it's already there.
 setTypecheckedModule :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
 setTypecheckedModule uri =
+  pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
+    ifCachedModuleM fp (setTypecheckedModule_load uri) cont
+  where
+    cont :: TypecheckedModule -> CachedInfo
+         -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
+    cont _ _ = return (IdeResultOk (Map.empty, []))
+
+
+-- | Actually load the module if it's not in the cache
+setTypecheckedModule_load :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
+setTypecheckedModule_load uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     debugm "setTypecheckedModule: before ghc-mod"
     debugm "Loading file"

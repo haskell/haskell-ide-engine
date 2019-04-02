@@ -12,6 +12,7 @@ module Haskell.Ide.Engine.ModuleCache
   , ifCachedInfo
   , withCachedInfo
   , ifCachedModule
+  , ifCachedModuleM
   , ifCachedModuleAndData
   , withCachedModule
   , withCachedModuleAndData
@@ -45,7 +46,10 @@ import qualified GhcMod.Types  as GM
 import qualified GhcMod.Utils  as GM
 import qualified GHC           as GHC
 import qualified DynFlags      as GHC
+import qualified Data.Trie.Convenience as T
+import qualified Data.Trie as T
 import qualified HIE.Bios as BIOS
+import qualified Data.ByteString.Char8 as B
 
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.GhcModuleCache
@@ -100,6 +104,7 @@ loadCradle iniDynFlags (NewCradle fp) = do
     GHC.setSessionDynFlags iniDynFlags
     liftIO $ setCurrentDirectory (BIOS.cradleRootDir crdl)
     BIOS.initializeFlagsWithCradle fp crdl
+    GHC.getSessionDynFlags >>= setCurrentCradle crdl
 loadCradle iniDynFlags (LoadCradle (CachedCradle crd dflags)) = do
     traceShowM ("Reload Cradle" , crd)
     -- Cache the existing cradle
@@ -124,8 +129,8 @@ cacheCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => ([FilePath], BIOS.Cradle
 cacheCradle (ds, c) = do
   dflags <- GHC.getSessionDynFlags
   let cc = CachedCradle c dflags
-      new_map = Map.fromList (map (, cc) ds)
-  modifyCache (\s -> s { cradleCache = Map.union new_map (cradleCache s) })
+      new_map = T.fromList (map (, cc) (map B.pack ds))
+  modifyCache (\s -> s { cradleCache = T.unionWith (\a _ -> a) new_map (cradleCache s) })
 
 -- | Get the Cradle that should be used for a given URI
 --getCradle :: (GM.GmEnv m, GM.MonadIO m, HasGhcModuleCache m, GM.GmLog m
@@ -149,14 +154,18 @@ withCachedInfo fp def callback = deferIfNotCached fp go
   where go (UriCacheSuccess uc) = callback (cachedInfo uc)
         go UriCacheFailed = return def
 
+ifCachedModule :: (HasGhcModuleCache m, GM.MonadIO m, CacheableModule b) => FilePath -> a -> (b -> CachedInfo -> m a) -> m a
+ifCachedModule fp def callback = ifCachedModuleM fp (return def) callback
+
 -- | Calls the callback with the cached module for the provided path.
 -- Otherwise returns the default immediately if there is no cached module
 -- available.
 -- If you need custom data, see also 'ifCachedModuleAndData'.
 -- If you are in IdeDeferM and would like to wait until a cached module is available,
 -- see also 'withCachedModule'.
-ifCachedModule :: (HasGhcModuleCache m, GM.MonadIO m, CacheableModule b) => FilePath -> a -> (b -> CachedInfo -> m a) -> m a
-ifCachedModule fp def callback = do
+ifCachedModuleM :: (HasGhcModuleCache m, GM.MonadIO m, CacheableModule b)
+                => FilePath -> m a -> (b -> CachedInfo -> m a) -> m a
+ifCachedModuleM fp k callback = do
   muc <- getUriCache fp
   let x = do
         res <- muc
@@ -168,7 +177,7 @@ ifCachedModule fp def callback = do
           UriCacheFailed -> Nothing
   case x of
     Just (ci, cm) -> callback cm ci
-    Nothing -> return def
+    Nothing -> k
 
 -- | Calls the callback with the cached module and data for the provided path.
 -- Otherwise returns the default immediately if there is no cached module
@@ -180,7 +189,7 @@ ifCachedModuleAndData :: forall a b m. (ModuleCache a, HasGhcModuleCache m, GM.M
 ifCachedModuleAndData fp def callback = do
   muc <- getUriCache fp
   case muc of
-    Just (UriCacheSuccess uc@(UriCache info _ (Just tm) dat)) ->
+    Just (UriCacheSuccess uc@(UriCache info _ (Just tm) dat _)) ->
       case fromUriCache uc of
         Just modul -> lookupCachedData fp tm info dat >>= callback modul (cachedInfo uc)
         Nothing -> return def
@@ -195,7 +204,7 @@ ifCachedModuleAndData fp def callback = do
 -- see also 'ifCachedModule'.
 withCachedModule :: CacheableModule b => FilePath -> a -> (b -> CachedInfo -> IdeDeferM a) -> IdeDeferM a
 withCachedModule fp def callback = deferIfNotCached fp go
-  where go (UriCacheSuccess uc@(UriCache _ _ _ _)) =
+  where go (UriCacheSuccess uc@(UriCache _ _ _ _ _)) =
           case fromUriCache uc of
             Just modul -> callback modul (cachedInfo uc)
             Nothing -> wrap (Defer fp go)
@@ -213,15 +222,26 @@ withCachedModuleAndData :: forall a b. (ModuleCache a)
                         => FilePath -> b
                         -> (GHC.TypecheckedModule -> CachedInfo -> a -> IdeDeferM b) -> IdeDeferM b
 withCachedModuleAndData fp def callback = deferIfNotCached fp go
-  where go (UriCacheSuccess (uc@(UriCache info _ (Just tm) dat))) =
+  where go (UriCacheSuccess (uc@(UriCache info _ (Just tm) dat _))) =
           lookupCachedData fp tm info dat >>= callback tm (cachedInfo uc)
-        go (UriCacheSuccess (UriCache _ _ Nothing _)) = wrap (Defer fp go)
+        go (UriCacheSuccess (UriCache { cachedTcMod = Nothing })) = wrap (Defer fp go)
         go UriCacheFailed = return def
 
 getUriCache :: (HasGhcModuleCache m, MonadIO m) => FilePath -> m (Maybe UriCacheResult)
 getUriCache fp = do
-  uri' <- liftIO $ canonicalizePath fp
-  fmap (Map.lookup uri' . uriCaches) getModuleCache
+  canonical_fp <- liftIO $ canonicalizePath fp
+  raw_res <- fmap (Map.lookup canonical_fp . uriCaches) getModuleCache
+  case raw_res of
+    Just uri_res -> liftIO $ checkModuleHash canonical_fp uri_res
+    Nothing      -> return Nothing
+
+checkModuleHash :: FilePath -> UriCacheResult -> IO (Maybe UriCacheResult)
+checkModuleHash fp r@(UriCacheSuccess uri_res) = do
+  cur_hash <- hashModule fp
+  return $ if cachedHash uri_res == cur_hash
+    then Just r
+    else Nothing
+checkModuleHash _ r = return (Just r)
 
 deferIfNotCached :: FilePath -> (UriCacheResult -> IdeDeferM a) -> IdeDeferM a
 deferIfNotCached fp cb = do
@@ -233,15 +253,16 @@ deferIfNotCached fp cb = do
 lookupCachedData :: forall a m. (HasGhcModuleCache m, MonadMTState IdeState m, GM.MonadIO m, Typeable a, ModuleCache a)
                  => FilePath -> GHC.TypecheckedModule -> CachedInfo -> (Map.Map TypeRep Dynamic) -> m a
 lookupCachedData fp tm info dat = do
-  fp' <- liftIO $ canonicalizePath fp
+  canonical_fp <- liftIO $ canonicalizePath fp
   let proxy :: Proxy a
       proxy = Proxy
   case Map.lookup (typeRep proxy) dat of
     Nothing -> do
       val <- cacheDataProducer tm info
+      h <- liftIO $ hashModule canonical_fp
       let dat' = Map.insert (typeOf val) (toDyn val) dat
-          newUc = UriCache info (GHC.tm_parsed_module tm) (Just tm) dat'
-      modifyCache (\s -> s {uriCaches = Map.insert fp' (UriCacheSuccess newUc)
+          newUc = UriCache info (GHC.tm_parsed_module tm) (Just tm) dat' h
+      modifyCache (\s -> s {uriCaches = Map.insert canonical_fp (UriCacheSuccess newUc)
                                                   (uriCaches s)})
       return val
 
@@ -261,33 +282,33 @@ cacheModules rfm ms = mapM_ go_one ms
 -- | Saves a module to the cache and executes any deferred
 -- responses waiting on that module.
 cacheModule :: FilePath -> (Either GHC.ParsedModule GHC.TypecheckedModule) -> IdeGhcM ()
-cacheModule uri modul = do
-  uri' <- liftIO $ canonicalizePath uri
+cacheModule fp modul = do
+  canonical_fp <- liftIO $ canonicalizePath fp
   rfm <- reverseFileMap
-
+  fp_hash <- liftIO $ hashModule fp
   newUc <-
     case modul of
       Left pm -> do
-        muc <- getUriCache uri'
+        muc <- getUriCache canonical_fp
         let defInfo = CachedInfo mempty mempty mempty mempty rfm return return
         return $ case muc of
           Just (UriCacheSuccess uc) ->
             let newCI = (cachedInfo uc) { revMap = rfm }
-              in uc { cachedPsMod = pm, cachedInfo = newCI }
-          _ -> UriCache defInfo pm Nothing mempty
+              in uc { cachedPsMod = pm, cachedInfo = newCI, cachedHash = fp_hash }
+          _ -> UriCache defInfo pm Nothing mempty fp_hash
 
       Right tm -> do
         typm <- genTypeMap tm
         let info = CachedInfo (genLocMap tm) typm (genImportMap tm) (genDefMap tm) rfm return return
             pm = GHC.tm_parsed_module tm
-        return $ UriCache info pm (Just tm) mempty
+        return $ UriCache info pm (Just tm) mempty fp_hash
 
   let res = UriCacheSuccess newUc
   modifyCache $ \gmc ->
-      gmc { uriCaches = Map.insert uri' res (uriCaches gmc) }
+      gmc { uriCaches = Map.insert canonical_fp res (uriCaches gmc) }
 
   -- execute any queued actions for the module
-  runDeferredActions uri' res
+  runDeferredActions canonical_fp res
 
 -- | Marks a module that it failed to load and triggers
 -- any deferred responses waiting on it

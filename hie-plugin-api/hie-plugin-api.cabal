@@ -32,6 +32,9 @@ library
   build-depends:       base >= 4.9 && < 5
                      , Diff
                      , aeson
+                     , bytestring-trie
+                     , bytestring
+                     , cryptohash-sha1
                      , constrained-dynamic
                      , containers
                      , data-default
