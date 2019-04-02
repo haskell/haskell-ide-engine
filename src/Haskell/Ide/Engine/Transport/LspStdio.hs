@@ -499,7 +499,10 @@ reactor inp diagIn = do
             -- Important - Call this before requestDiagnostics
             updatePositionMap uri changes
 
-          queueDiagnosticsRequest diagIn DiagnosticOnChange tn uri ver
+          lf <- asks lspFuncs
+          mc <- liftIO $ Core.config lf
+          when (maybe False diagnosticsOnChange mc)
+               (queueDiagnosticsRequest diagIn DiagnosticOnChange tn uri ver)
 
         -- -------------------------------
 
