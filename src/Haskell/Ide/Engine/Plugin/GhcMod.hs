@@ -234,6 +234,7 @@ lintCmd' :: Uri -> IdeGhcM (IdeResult T.Text)
 lintCmd' uri =
   pluginGetFile "lint: " uri $ \file ->
     fmap T.pack <$> Hie.runGhcModCommand (GM.lint GM.defaultLintOpts file)
+<<<<<<< HEAD
 
 <<<<<<< HEAD
 -- ---------------------------------------------------------------------
@@ -701,3 +702,6 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
     -}
 =======
 >>>>>>> bd4e451a... Code moved to generic module
+=======
+-}
+>>>>>>> 8ff74795... Try to fix some tests

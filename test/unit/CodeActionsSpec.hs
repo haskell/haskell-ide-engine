@@ -4,7 +4,7 @@ module CodeActionsSpec where
 import Test.Hspec
 import qualified Data.Text.IO as T
 import Haskell.Ide.Engine.Plugin.HsImport
-import Haskell.Ide.Engine.Plugin.GhcMod
+import Haskell.Ide.Engine.Plugin.Generic
 import Haskell.Ide.Engine.Plugin.Package
 
 main :: IO ()
@@ -146,7 +146,7 @@ spec = do
                 \                              Text.Megaparsec.Error.ShowErrorComponent e, Ord t) =>\n\
                 \                             OutputFormat -> Format.Result t e -> IO b"
         in extractMissingSignature msg `shouldBe` Just expected
-  
+
   describe "unused term code actions" $ do
     it "pick up unused term" $
       let msg = "  Defined but not used: ‘imUnused’"

@@ -39,3 +39,6 @@
 [submodule "haskell-lsp"]
 	path = haskell-lsp
 	url = https://github.com/mpickering/haskell-lsp.git
+[submodule "lsp-test"]
+	path = lsp-test
+	url = https://github.com/bubba/lsp-test.git

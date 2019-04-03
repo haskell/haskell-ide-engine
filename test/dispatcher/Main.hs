@@ -31,9 +31,10 @@ import           Test.Hspec.Runner
 import           Haskell.Ide.Engine.Plugin.ApplyRefact
 import           Haskell.Ide.Engine.Plugin.Base
 import           Haskell.Ide.Engine.Plugin.Example2
-import           Haskell.Ide.Engine.Plugin.GhcMod
 import           Haskell.Ide.Engine.Plugin.HaRe
 import           Haskell.Ide.Engine.Plugin.HieExtras
+import           Haskell.Ide.Engine.Plugin.Bios
+import           Haskell.Ide.Engine.Plugin.Generic
 
 {-# ANN module ("HLint: ignore Redundant do"       :: String) #-}
 -- ---------------------------------------------------------------------

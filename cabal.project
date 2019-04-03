@@ -3,6 +3,7 @@ packages:
          ./hie-plugin-api/
          ./hie-bios/
          ./haskell-lsp/
+         ./lsp-test
 
          ./submodules/HaRe
          ./submodules/brittany
@@ -11,5 +12,6 @@ packages:
          ./submodules/ghc-mod/
          ./submodules/ghc-mod/core/
          ./submodules/floskell
+
 
 -- profiling: true
