@@ -56,7 +56,7 @@ dhallConfig :: FilePath -> MaybeT IO (CradleConfig, FilePath)
 dhallConfig fp = do
   wdir <- findFileUpwards ("hie.dhall" ==) fp
   cfg  <- liftIO $ readConfig (wdir </> "hie.dhall")
-  return (cradle cfg, wdir)
+  return (stringToCC (cradle cfg), wdir)
 
 
 
