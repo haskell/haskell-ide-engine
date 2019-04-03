@@ -18,12 +18,10 @@ debugInfo opt cradle = convert opt <$> do
     mglibdir <- liftIO getSystemLibDir
     return [
         "Root directory:      " ++ rootDir
-      , "Current directory:   " ++ currentDir
       , "GHC options:         " ++ unwords gopts
       , "System libraries:    " ++ fromMaybe "" mglibdir
       ]
   where
-    currentDir = cradleCurrentDir cradle
     rootDir    = cradleRootDir cradle
 
 ----------------------------------------------------------------

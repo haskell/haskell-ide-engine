@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
 module HIE.Bios.Cradle (
       findCradle
     , defaultCradle
@@ -7,6 +8,7 @@ module HIE.Bios.Cradle (
 import System.Process
 import System.Exit
 import HIE.Bios.Types
+import HIE.Bios.Config
 import System.Directory hiding (findFile)
 import Control.Monad.Trans.Maybe
 import System.FilePath
@@ -29,14 +31,34 @@ import System.FilePath.Posix
 findCradle :: FilePath -> IO Cradle
 findCradle wfile = do
     let wdir = takeDirectory wfile
-    res <- runMaybeT ( biosCradle wdir
-                      <|> obeliskCradle wdir
-                      <|> rulesHaskellCradle wdir
-                      <|> stackCradle wdir
-                      <|> cabalCradle wdir )
-    case res of
-      Just c -> return c
-      Nothing -> return (defaultCradle wdir)
+    cfg <- runMaybeT (dhallConfig wdir <|> implicitConfig wdir)
+    return $ case cfg of
+      Just bc -> getCradle bc
+      Nothing -> (defaultCradle wdir)
+
+
+getCradle :: (CradleConfig, FilePath) -> Cradle
+getCradle (cc, wdir) = case cc of
+                 Cabal -> cabalCradle wdir
+                 Stack -> stackCradle wdir
+                 Bazel -> rulesHaskellCradle wdir
+                 Obelisk -> obeliskCradle wdir
+                 Bios -> biosCradle wdir
+
+implicitConfig :: FilePath -> MaybeT IO (CradleConfig, FilePath)
+implicitConfig fp =
+    (Obelisk,) <$> obeliskWorkDir fp
+     <|> (Bazel,) <$> rulesHaskellWorkDir fp
+     <|> (Stack,) <$> stackWorkDir fp
+     <|> ((Cabal,) <$> cabalWorkDir fp)
+
+dhallConfig :: FilePath -> MaybeT IO (CradleConfig, FilePath)
+dhallConfig fp = do
+  wdir <- findFileUpwards ("hie.dhall" ==) fp
+  cfg  <- liftIO $ readConfig (wdir </> "hie.dhall")
+  return (cradle cfg, wdir)
+
+
 
 
 ---------------------------------------------------------------
@@ -46,8 +68,7 @@ findCradle wfile = do
 defaultCradle :: FilePath -> Cradle
 defaultCradle cur_dir =
   Cradle {
-      cradleCurrentDir = cur_dir
-    , cradleRootDir = cur_dir
+      cradleRootDir = cur_dir
     , cradleOptsProg = CradleAction "default" (const $ return (ExitSuccess, "", []))
     }
 
@@ -56,18 +77,16 @@ defaultCradle cur_dir =
 
 -- | Find a cradle by finding an executable `hie-bios` file which will
 -- be executed to find the correct GHC options to use.
-biosCradle :: FilePath -> MaybeT IO Cradle
-biosCradle cur_dir = do
-  wdir <- biosDir cur_dir
-  traceM "Using bios"
-  return Cradle {
-      cradleCurrentDir = cur_dir
-    , cradleRootDir    = wdir
+biosCradle :: FilePath -> Cradle
+biosCradle wdir = do
+  Cradle {
+      cradleRootDir    = wdir
     , cradleOptsProg   = CradleAction "bios" (biosAction wdir)
   }
 
 biosDir :: FilePath -> MaybeT IO FilePath
 biosDir = findFileUpwards (".hie-bios" ==)
+
 
 biosAction :: FilePath -> FilePath -> IO (ExitCode, String, [String])
 biosAction wdir fp = do
@@ -79,13 +98,10 @@ biosAction wdir fp = do
 -- Works for new-build by invoking `v2-repl` does not support components
 -- yet.
 
-cabalCradle :: FilePath -> MaybeT IO Cradle
-cabalCradle fp = do
-  wdir <- cabalDir fp
-  traceM "Using cabal.project"
-  return Cradle {
-      cradleCurrentDir = fp
-    , cradleRootDir    = wdir
+cabalCradle :: FilePath -> Cradle
+cabalCradle wdir = do
+  Cradle {
+      cradleRootDir    = wdir
     , cradleOptsProg   = CradleAction "cabal" (cabalAction wdir)
   }
 
@@ -104,8 +120,8 @@ cabalAction work_dir _fp = do
   return (ex, stde, words args)
 
 
-cabalDir :: FilePath -> MaybeT IO FilePath
-cabalDir = findFileUpwards isCabal
+cabalWorkDir :: FilePath -> MaybeT IO FilePath
+cabalWorkDir = findFileUpwards isCabal
   where
     isCabal name = name == "cabal.project"
 
@@ -113,13 +129,10 @@ cabalDir = findFileUpwards isCabal
 -- Stack Cradle
 -- Works for by invoking `stack repl` with a wrapper script
 
-stackCradle :: FilePath -> MaybeT IO Cradle
-stackCradle fp = do
-  wdir <- stackDir fp
-  traceM "Using stack"
-  return Cradle {
-      cradleCurrentDir = fp
-    , cradleRootDir    = wdir
+stackCradle :: FilePath -> Cradle
+stackCradle wdir =
+  Cradle {
+      cradleRootDir    = wdir
     , cradleOptsProg   = CradleAction "stack" (stackAction wdir)
   }
 
@@ -144,8 +157,8 @@ stackAction work_dir fp = do
   return (ex, stde, ghc_args)
 
 
-stackDir :: FilePath -> MaybeT IO FilePath
-stackDir = findFileUpwards isStack
+stackWorkDir :: FilePath -> MaybeT IO FilePath
+stackWorkDir = findFileUpwards isStack
   where
     isStack name = name == "stack.yaml"
 
@@ -153,14 +166,15 @@ stackDir = findFileUpwards isStack
 ----------------------------------------------------------------------------
 -- rules_haskell - Thanks for David Smith for helping with this one.
 -- Looks for the directory containing a WORKSPACE file
+--
+rulesHaskellWorkDir :: FilePath -> MaybeT IO FilePath
+rulesHaskellWorkDir fp =
+  findFileUpwards (== "WORKSPACE") fp
 
-rulesHaskellCradle :: FilePath -> MaybeT IO Cradle
-rulesHaskellCradle fp = do
-  wdir <- findFileUpwards (== "WORKSPACE") fp
-  traceM "Using rules_haskell"
-  return Cradle {
-    cradleCurrentDir = fp
-    , cradleRootDir  = wdir
+rulesHaskellCradle :: FilePath -> Cradle
+rulesHaskellCradle wdir = do
+  Cradle {
+      cradleRootDir  = wdir
     , cradleOptsProg   = CradleAction "bazel" (rulesHaskellAction wdir)
     }
 
@@ -188,16 +202,20 @@ rulesHaskellAction work_dir fp = do
 -- Obelisk Cradle
 -- Searches for the directory which contains `.obelisk`.
 
-obeliskCradle :: FilePath -> MaybeT IO Cradle
-obeliskCradle fp = do
+obeliskWorkDir :: FilePath -> MaybeT IO FilePath
+obeliskWorkDir fp = do
   -- Find a possible root which will contain the cabal.project
   wdir <- findFileUpwards (== "cabal.project") fp
   -- Check for the ".obelisk" folder in this directory
   check <- liftIO $ doesDirectoryExist (wdir </> ".obelisk")
   unless check (fail "Not obelisk dir")
-  return Cradle {
-    cradleCurrentDir = fp
-    , cradleRootDir  = wdir
+  return wdir
+
+
+obeliskCradle :: FilePath -> Cradle
+obeliskCradle wdir =
+  Cradle {
+      cradleRootDir  = wdir
     , cradleOptsProg = CradleAction "obelisk" (obeliskAction wdir)
     }
 

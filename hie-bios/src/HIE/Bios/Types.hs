@@ -142,10 +142,8 @@ quote opt str = ("\"" ++) .  (quote' str ++) . ("\"" ++)
 
 -- | The environment where this library is used.
 data Cradle = Cradle {
-  -- | The directory where this library is executed.
-    cradleCurrentDir :: FilePath
   -- | The project root directory.
-  , cradleRootDir    :: FilePath
+    cradleRootDir    :: FilePath
   -- | The action which needs to be executed to get the correct
   -- command line arguments
   , cradleOptsProg   :: CradleAction

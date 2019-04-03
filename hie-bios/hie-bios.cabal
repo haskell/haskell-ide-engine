@@ -30,6 +30,7 @@ Library
                         HIE.Bios.Logger
                         HIE.Bios.Types
                         HIE.Bios.Things
+                        HIE.Bios.Config
   Build-Depends:        base >= 4.9 && < 5
                       , containers
                       , deepseq
@@ -44,6 +45,8 @@ Library
                       , cryptohash-sha1
                       , bytestring
                       , base16-bytestring
+                      , dhall
+                      , text
   if impl(ghc < 8.2)
     Build-Depends:      ghc-boot
 
