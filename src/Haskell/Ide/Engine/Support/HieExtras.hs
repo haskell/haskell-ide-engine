@@ -555,43 +555,38 @@ findTypeDef uri pos = pluginGetFile "findTypeDef: " uri $ \file ->
     (IdeResultOk []) -- Default result
     (\info -> do
       let rfm    = revMap info
-          mm     = moduleMap info
           tmap   = typeMap info
           oldPos = newPosToOld info pos
 
-      case (\x -> Just $ getArtifactsAtPos x mm) =<< oldPos of
-        Just ((_, mn) : _) -> gotoModule rfm mn
-        _                  -> do
-          let
-              -- | Get SrcSpan of the name at the given position.
-              -- If the old position is Nothing, e.g. there is no cached info about it,
-              -- Nothing is returned.
-              -- 
-              -- Otherwise, searches for the Type of the given position 
-              -- and retrieves its SrcSpan.
-              getTypeSrcSpanFromPosition
-                :: Maybe Position -> ExceptT () IdeDeferM SrcSpan
-              getTypeSrcSpanFromPosition maybeOldPosition = do
-                oldPosition <- liftMaybe maybeOldPosition
-                let tmapRes = getArtifactsAtPos oldPosition tmap
-                case tmapRes of
-                  [] -> throwError ()
-                  a  -> do
-                    -- take last type since this is always the most accurate one
-                    tyCon <- liftMaybe $ tyConAppTyCon_maybe (snd $ last a)
-                    case nameSrcSpan (getName tyCon) of
-                      UnhelpfulSpan _ -> throwError ()
-                      realSpan        -> return realSpan
+          -- | Get SrcSpan of the name at the given position.
+          -- If the old position is Nothing, e.g. there is no cached info about it,
+          -- Nothing is returned.
+          -- 
+          -- Otherwise, searches for the Type of the given position 
+          -- and retrieves its SrcSpan.
+          getTypeSrcSpanFromPosition
+            :: Maybe Position -> ExceptT () IdeDeferM SrcSpan
+          getTypeSrcSpanFromPosition maybeOldPosition = do
+            oldPosition <- liftMaybe maybeOldPosition
+            let tmapRes = getArtifactsAtPos oldPosition tmap
+            case tmapRes of
+              [] -> throwError ()
+              a  -> do
+                -- take last type since this is always the most accurate one
+                tyCon <- liftMaybe $ tyConAppTyCon_maybe (snd $ last a)
+                case nameSrcSpan (getName tyCon) of
+                  UnhelpfulSpan _ -> throwError ()
+                  realSpan        -> return realSpan
 
-              liftMaybe :: Monad m => Maybe a -> ExceptT () m a
-              liftMaybe val = liftEither $ case val of
-                Nothing -> Left ()
-                Just s  -> Right s
+          liftMaybe :: Monad m => Maybe a -> ExceptT () m a
+          liftMaybe val = liftEither $ case val of
+            Nothing -> Left ()
+            Just s  -> Right s
 
-          runExceptT (getTypeSrcSpanFromPosition oldPos) >>= \case
-            Left () -> return $ IdeResultOk []
-            Right realSpan ->
-              lift $ srcSpanToFileLocation "hare:findTypeDef" rfm realSpan
+      runExceptT (getTypeSrcSpanFromPosition oldPos) >>= \case
+        Left () -> return $ IdeResultOk []
+        Right realSpan ->
+          lift $ srcSpanToFileLocation "hare:findTypeDef" rfm realSpan
     )
 
 -- | Return the definition
