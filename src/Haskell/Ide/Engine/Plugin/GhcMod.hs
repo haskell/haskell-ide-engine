@@ -235,6 +235,7 @@ lintCmd' uri =
   pluginGetFile "lint: " uri $ \file ->
     fmap T.pack <$> Hie.runGhcModCommand (GM.lint GM.defaultLintOpts file)
 
+<<<<<<< HEAD
 -- ---------------------------------------------------------------------
 
 customOptions :: Options
@@ -698,3 +699,5 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
     symInfs <- concat <$> mapM declsToSymbolInf (imps ++ decls)
     return $ IdeResultOk symInfs
     -}
+=======
+>>>>>>> bd4e451a... Code moved to generic module
