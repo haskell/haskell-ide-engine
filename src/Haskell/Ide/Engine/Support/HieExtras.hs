@@ -34,7 +34,6 @@ import           Control.Monad.Except
 import           Data.Aeson
 import qualified Data.Aeson.Types                             as J
 import           Data.Char
-import qualified Data.Generics                                as SYB
 import           Data.IORef
 import qualified Data.List                                    as List
 import qualified Data.Map                                     as Map
@@ -182,9 +181,6 @@ mkPragmaCompl label insertText =
 safeTyThingId :: TyThing -> Maybe Id
 safeTyThingId (AnId i)                    = Just i
 safeTyThingId (AConLike (RealDataCon dc)) = Just $ dataConWrapId dc
-safeTyThingId (ATyCon tyCon)              = case GHC.tyConTyVars tyCon of
-    [] -> Nothing
-    (a:_) -> Just a
 safeTyThingId _                           = Nothing
 
 -- Associates a module's qualifier with its members
@@ -547,55 +543,25 @@ getModule df n = do
   return (pkg, T.pack $ moduleNameString $ moduleName m)
 
 -- ---------------------------------------------------------------------
--- TODO: there has to be a simpler way, using the appropriate GHC internals
--- |Find the Id for a given Name.
--- Requires an already TypecheckedModule.
--- A TypecheckedModule can be obtained by using the functions 
--- @ifCachedModuleAndData@ or @withCachedModuleAndData@.
---
--- Function is copied from @HaRe/src/Language/Haskell/Refact/Utils/TypeUtils.hs:2954@. 
-findIdForName :: TypecheckedModule -> Name -> IdeM (Maybe Id)
-findIdForName tm n = do
-  let t = GHC.tm_typechecked_source tm
-  let r = SYB.something (SYB.mkQ Nothing worker) t
-      worker (i :: GHC.Id) | nameUnique n == varUnique i = Just i
-      worker _ = Nothing
-  return r
-
--- ---------------------------------------------------------------------
-
--- | Get the type for a name.
--- Requires an already TypecheckedModule.
--- A TypecheckedModule can be obtained by using the functions 
--- @ifCachedModuleAndData@ or @withCachedModuleAndData@.
--- 
--- Returns the type of a variable or a sum type constructor.
--- 
--- Function is taken from @HaRe/src/Language/Haskell/Refact/Utils/TypeUtils.hs:2966@.
-getTypeForName' :: TypecheckedModule -> Name -> IdeM (Maybe Type)
-getTypeForName' tm n = do
-  mId <- findIdForName tm n
-  case mId of
-    Nothing -> getTypeForName n
-    Just i  -> return $ Just (varType i)
 
 -- | Return the type definition of the symbol at the given position.
--- Works for Datatypes, Newtypes and Type Definitions.
--- The latter is only possible, if the type that is defined is defined in the project.
+-- Works for Datatypes, Newtypes and Type Definitions, as well as paremterized types.
+-- Type Definitions can only be looked up, if the corresponding type is defined in the project.
 -- Sum Types can also be searched.
 findTypeDef :: Uri -> Position -> IdeDeferM (IdeResult [Location])
 findTypeDef uri pos = pluginGetFile "findTypeDef: " uri $ \file ->
-  ifCachedModuleAndData -- Dont wait on this function if the module is not cached.
-    file 
+  withCachedInfo
+    file
     (IdeResultOk []) -- Default result
-    (\tm info NMD{} -> do
+    (\info -> do
       let rfm    = revMap info
-          lm     = locMap info
           mm     = moduleMap info
+          tmap   = typeMap info
           oldPos = newPosToOld info pos
+
       case (\x -> Just $ getArtifactsAtPos x mm) =<< oldPos of
         Just ((_, mn) : _) -> gotoModule rfm mn
-        _                  -> do 
+        _                  -> do
           let
               -- | Get SrcSpan of the name at the given position.
               -- If the old position is Nothing, e.g. there is no cached info about it,
@@ -603,29 +569,29 @@ findTypeDef uri pos = pluginGetFile "findTypeDef: " uri $ \file ->
               -- 
               -- Otherwise, searches for the Type of the given position 
               -- and retrieves its SrcSpan.
-              getSrcSpanFromPosition :: Maybe Position -> ExceptT () IdeDeferM SrcSpan
-              getSrcSpanFromPosition maybeOldPosition = do
+              getTypeSrcSpanFromPosition
+                :: Maybe Position -> ExceptT () IdeDeferM SrcSpan
+              getTypeSrcSpanFromPosition maybeOldPosition = do
                 oldPosition <- liftMaybe maybeOldPosition
-                (_, n) <- liftMaybe $ symbolFromTypecheckedModule lm oldPosition
-                t <- liftMaybeM (lift $ getTypeForName' tm n)
-                tyCon <- liftMaybe $ tyConAppTyCon_maybe t
-                case nameSrcSpan (getName tyCon) of
-                  UnhelpfulSpan _ -> throwError ()
-                  realSpan        -> return realSpan
-              
+                let tmapRes = getArtifactsAtPos oldPosition tmap
+                case tmapRes of
+                  [] -> throwError ()
+                  a  -> do
+                    -- take last type since this is always the most accurate one
+                    tyCon <- liftMaybe $ tyConAppTyCon_maybe (snd $ last a)
+                    case nameSrcSpan (getName tyCon) of
+                      UnhelpfulSpan _ -> throwError ()
+                      realSpan        -> return realSpan
+
               liftMaybe :: Monad m => Maybe a -> ExceptT () m a
-              liftMaybe val = liftEither $ case val of 
+              liftMaybe val = liftEither $ case val of
                 Nothing -> Left ()
-                Just s -> Right s
+                Just s  -> Right s
 
-              liftMaybeM :: Monad m => m (Maybe a) -> ExceptT () m a
-              liftMaybeM mval = do
-                val <- lift mval 
-                liftMaybe val
-
-          runExceptT (getSrcSpanFromPosition oldPos) >>= \case
+          runExceptT (getTypeSrcSpanFromPosition oldPos) >>= \case
             Left () -> return $ IdeResultOk []
-            Right realSpan -> lift $ srcSpanToFileLocation "hare:findTypeDef" rfm realSpan
+            Right realSpan ->
+              lift $ srcSpanToFileLocation "hare:findTypeDef" rfm realSpan
     )
 
 -- | Return the definition

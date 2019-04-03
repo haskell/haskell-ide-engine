@@ -87,7 +87,6 @@ library
                      , safe
                      , sorted-list >= 0.2.1.0
                      , stm
-                     , syb
                      , tagsoup
                      , text
                      , transformers
