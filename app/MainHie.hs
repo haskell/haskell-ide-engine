@@ -37,6 +37,7 @@ import           Haskell.Ide.Engine.Plugin.Liquid
 import           Haskell.Ide.Engine.Plugin.Package
 import           Haskell.Ide.Engine.Plugin.Pragmas
 import           Haskell.Ide.Engine.Plugin.Floskell
+import           Haskell.Ide.Engine.Plugin.Generic
 
 -- ---------------------------------------------------------------------
 
@@ -62,6 +63,7 @@ plugins includeExamples = pluginDescToIdePlugins allPlugins
       , pragmasDescriptor     "pragmas"
       , floskellDescriptor    "floskell"
       , biosDescriptor        "bios"
+      , genericDescriptor     "generic"
       ]
     examplePlugins =
       [example2Descriptor "eg2"

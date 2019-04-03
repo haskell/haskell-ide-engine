@@ -58,7 +58,7 @@ biosDescriptor plId = PluginDescriptor
       [ PluginCommand "check" "check a file for GHC warnings and errors" checkCmd ]
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Nothing
-  , pluginHoverProvider = Just hoverProvider
+  , pluginHoverProvider = Nothing
   , pluginSymbolProvider = Nothing
   , pluginFormattingProvider = Nothing
   }
@@ -243,93 +243,3 @@ setTypecheckedModule_load uri =
     return $ IdeResultOk (diags2,errs)
 
 
--- ---------------------------------------------------------------------
-data TypeParams =
-  TP { tpIncludeConstraints :: Bool
-     , tpFile               :: Uri
-     , tpPos                :: Position
-     } deriving (Eq,Show,Generic)
-
-customOptions :: Options
-customOptions = defaultOptions { fieldLabelModifier = camelTo2 '_' . drop 2}
-
-instance FromJSON TypeParams where
-  parseJSON = genericParseJSON customOptions
-instance ToJSON TypeParams where
-  toJSON = genericToJSON customOptions
-
-newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
-newTypeCmd newPos uri =
-  pluginGetFile "newTypeCmd: " uri $ \fp ->
-    ifCachedModule fp (IdeResultOk []) $ \tm info -> do
-      debugm $ "newTypeCmd: " <> (show (newPos, uri))
-      return $ IdeResultOk $ pureTypeCmd newPos tm info
-
-pureTypeCmd :: Position -> GHC.TypecheckedModule -> CachedInfo -> [(Range,T.Text)]
-pureTypeCmd newPos tm info =
-    case mOldPos of
-      Nothing -> []
-      Just pos -> concatMap f (spanTypes pos)
-  where
-    mOldPos = newPosToOld info newPos
-    typm = typeMap info
-    spanTypes' pos = getArtifactsAtPos pos typm
-    spanTypes pos = sortBy (cmp `on` fst) (spanTypes' pos)
-    dflag = ms_hspp_opts $ pm_mod_summary $ tm_parsed_module tm
-    unqual = mkPrintUnqualified dflag $ tcg_rdr_env $ fst $ tm_internals_ tm
-    st = mkUserStyle dflag unqual AllTheWay
-
-    f (range', t) =
-      case oldRangeToNew info range' of
-        (Just range) -> [(range , T.pack $ GM.pretty dflag st t)]
-        _ -> []
-
--- TODO: MP: Why is this defined here?
-cmp :: Range -> Range -> Ordering
-cmp a b
-  | a `isSubRangeOf` b = LT
-  | b `isSubRangeOf` a = GT
-  | otherwise = EQ
-
-isSubRangeOf :: Range -> Range -> Bool
-isSubRangeOf (Range sa ea) (Range sb eb) = sb <= sa && eb >= ea
-
--- ---------------------------------------------------------------------
---
--- ---------------------------------------------------------------------
-
-hoverProvider :: HoverProvider
-hoverProvider doc pos = runIdeResultT $ do
-  info' <- IdeResultT $ newTypeCmd pos doc
-  names' <- IdeResultT $ pluginGetFile "ghc-mod:hoverProvider" doc $ \fp ->
-    ifCachedModule fp (IdeResultOk []) $ \(_ :: GHC.ParsedModule) info ->
-      return $ IdeResultOk $ Hie.getSymbolsAtPoint pos info
-  let
-    f = (==) `on` (Hie.showName . snd)
-    f' = compare `on` (Hie.showName . snd)
-    names = mapMaybe pickName $ groupBy f $ sortBy f' names'
-    pickName [] = Nothing
-    pickName [x] = Just x
-    pickName xs@(x:_) = case find (isJust . nameModule_maybe . snd) xs of
-      Nothing -> Just x
-      Just a -> Just a
-    nnames = length names
-    (info,mrange) =
-      case map last $ groupBy ((==) `on` fst) info' of
-        ((r,typ):_) ->
-          case find ((r ==) . fst) names of
-            Nothing ->
-              (Just $ LSP.CodeString $ LSP.LanguageString "haskell" $ "_ :: " <> typ, Just r)
-            Just (_,name)
-              | nnames == 1 ->
-                (Just $ LSP.CodeString $ LSP.LanguageString "haskell" $ Hie.showName name <> " :: " <> typ, Just r)
-              | otherwise ->
-                (Just $ LSP.CodeString $ LSP.LanguageString "haskell" $ "_ :: " <> typ, Just r)
-        [] -> case names of
-          [] -> (Nothing, Nothing)
-          ((r,_):_) -> (Nothing, Just r)
-  return $ case mrange of
-    Just r -> [LSP.Hover (LSP.List $ catMaybes [info]) (Just r)]
-    Nothing -> []
-
--- ---------------------------------------------------------------------

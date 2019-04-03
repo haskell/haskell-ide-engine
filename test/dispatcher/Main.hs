@@ -62,7 +62,7 @@ plugins :: IdePlugins
 plugins = pluginDescToIdePlugins
   [applyRefactDescriptor "applyrefact"
   ,example2Descriptor "eg2"
-  ,ghcmodDescriptor "ghcmod"
+  ,biosDescriptor "bios"
   ,hareDescriptor "hare"
   ,baseDescriptor "base"
   ]
@@ -166,7 +166,7 @@ funcSpec = describe "functional dispatch" $ do
       -- And now we get the deferred response (once the module is loaded)
       ("req1",Right res) <- atomically $ readTChan logChan
       let Just ds = fromDynJSON res :: Maybe [DocumentSymbol]
-          DocumentSymbol mainName _ mainKind _ mainRange _ _ = head ds 
+          DocumentSymbol mainName _ mainKind _ mainRange _ _ = head ds
       mainName `shouldBe` "main"
       mainKind `shouldBe` SkFunction
       mainRange `shouldBe` Range (Position 2 0) (Position 2 23)
