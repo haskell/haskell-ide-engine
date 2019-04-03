@@ -23,7 +23,7 @@ import qualified MonadUtils as G
 import DynFlags
 import DriverPhases
 
-import Control.Monad (forM, void)
+import Control.Monad (forM, void, when)
 import System.Exit (exitSuccess, ExitCode(..))
 import System.IO (hPutStr, hPrint, stderr)
 import System.IO.Unsafe (unsafePerformIO)
@@ -106,7 +106,9 @@ cacheDir = "haskell-ide-engine"
 
 clearInterfaceCache :: FilePath -> IO ()
 clearInterfaceCache fp = do
-  getCacheDir fp >>= removeDirectoryRecursive
+  cd <- getCacheDir fp
+  res <- doesPathExist cd
+  when res (removeDirectoryRecursive cd)
 
 getCacheDir :: FilePath -> IO FilePath
 getCacheDir fp = getXdgDirectory XdgCache (cacheDir ++ "/" ++ fp)

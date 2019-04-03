@@ -138,9 +138,9 @@ cacheCradle (ds, c) = do
 getCradle :: (GHC.GhcMonad m, HasGhcModuleCache m)
          => FilePath -> (LookupCradleResult -> m r) -> m r
 getCradle fp k = do
-      dir <- liftIO $ takeDirectory <$> canonicalizePath fp
+      canon_fp <- liftIO $ canonicalizePath fp
       mcache <- getModuleCache
-      k (lookupCradle dir mcache)
+      k (lookupCradle canon_fp mcache)
 
 ifCachedInfo :: (HasGhcModuleCache m, MonadIO m) => FilePath -> a -> (CachedInfo -> m a) -> m a
 ifCachedInfo fp def callback = do
