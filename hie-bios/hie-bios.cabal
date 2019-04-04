@@ -41,7 +41,7 @@ Library
                       , transformers
                       , file-embed
                       , temporary
-                      , unix
+                      , unix-compat
                       , cryptohash-sha1
                       , bytestring
                       , base16-bytestring

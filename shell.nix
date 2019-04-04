@@ -6,7 +6,7 @@ stdenv.mkDerivation {
     zlib
     ncurses
     haskellPackages.cabal-install
-    haskell.compiler.ghc863
+    haskell.compiler.ghc864
     haskellPackages.stack
   ];
   src = null;

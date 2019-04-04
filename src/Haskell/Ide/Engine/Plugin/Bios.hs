@@ -198,6 +198,12 @@ setTypecheckedModule uri =
       return (IdeResultOk (Map.empty, []))
 
 -- Hacky, need to copy hs-boot file if one exists for a module
+-- This is because the virtual file gets created at VFS-1234.hs and
+-- then GHC looks for the boot file at VFS-1234.hs-boot
+--
+-- This strategy doesn't work if the user wants to edit the boot file but
+-- not save it and expect the VFS to save them. However, I expect that HIE
+-- already didn't deal with boot files correctly.
 copyHsBoot :: FilePath -> FilePath -> IO ()
 copyHsBoot fp mapped_fp = do
   ex <- doesFileExist (fp <> "-boot")
