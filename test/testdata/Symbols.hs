@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternSynonyms #-}
 module Symbols where
 
 import Data.Maybe
@@ -8,3 +9,6 @@ foo = bar
 
 data MyData = A Int
             | B String
+
+pattern TestPattern :: Int -> MyData
+pattern TestPattern x = A x
