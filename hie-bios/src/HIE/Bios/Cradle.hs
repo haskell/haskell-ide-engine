@@ -44,11 +44,11 @@ getCradle (cc, wdir) = case cc of
                  Stack -> stackCradle wdir
                  Bazel -> rulesHaskellCradle wdir
                  Obelisk -> obeliskCradle wdir
-                 Bios {} -> biosCradle wdir
+                 Bios bios -> biosCradle wdir bios
 
 implicitConfig :: FilePath -> MaybeT IO (CradleConfig, FilePath)
 implicitConfig fp =
-         (Bios Nothing,) <$> biosWorkDir fp
+         (\wdir -> (Bios (wdir </> ".hie-bios"), wdir)) <$> biosWorkDir fp
      <|> (Obelisk,) <$> obeliskWorkDir fp
      <|> (Bazel,) <$> rulesHaskellWorkDir fp
      <|> (Stack,) <$> stackWorkDir fp
@@ -79,20 +79,21 @@ defaultCradle cur_dir =
 
 -- | Find a cradle by finding an executable `hie-bios` file which will
 -- be executed to find the correct GHC options to use.
-biosCradle :: FilePath -> Cradle
-biosCradle wdir = do
+biosCradle :: FilePath -> FilePath -> Cradle
+biosCradle wdir bios = do
   Cradle {
       cradleRootDir    = wdir
-    , cradleOptsProg   = CradleAction "bios" (biosAction wdir)
+    , cradleOptsProg   = CradleAction "bios" (biosAction wdir bios)
   }
 
 biosWorkDir :: FilePath -> MaybeT IO FilePath
 biosWorkDir = findFileUpwards (".hie-bios" ==)
 
 
-biosAction :: FilePath -> FilePath -> IO (ExitCode, String, [String])
-biosAction wdir fp = do
-  (ex, res, std) <- readProcessWithExitCode (wdir </> ".hie-bios") [fp] []
+biosAction :: FilePath -> FilePath -> FilePath -> IO (ExitCode, String, [String])
+biosAction wdir bios fp = do
+  bios' <- canonicalizePath bios
+  (ex, res, std) <- readProcessWithExitCode bios' [fp] []
   return (ex, std, words res)
 
 ------------------------------------------------------------------------

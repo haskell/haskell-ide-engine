@@ -191,7 +191,9 @@ setTypecheckedModule uri =
   where
     cont :: TypecheckedModule -> CachedInfo
          -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
-    cont _ _ = return (IdeResultOk (Map.empty, []))
+    cont _ _ = do
+      debugm ("Using cache" ++ show uri)
+      return (IdeResultOk (Map.empty, []))
 
 
 -- | Actually load the module if it's not in the cache

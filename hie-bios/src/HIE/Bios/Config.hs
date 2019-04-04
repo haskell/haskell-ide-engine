@@ -14,7 +14,7 @@ data CradleConfig = Cabal { component :: Maybe String }
                   | Stack
                   | Bazel
                   | Obelisk
-                  | Bios { prog :: Maybe FilePath }
+                  | Bios { prog :: FilePath }
                   | Default
                   deriving (Generic, Show)
 
@@ -27,7 +27,7 @@ instance Interpret Config
 
 wrapper :: T.Text -> T.Text
 wrapper t =
-  "let CradleConfig : Type = < Cabal : { component : Optional Text } | Stack : {} | Bazel : {} | Obelisk : {} | Bios : { prog : Optional Text} | Default : {} > in\n" <> t
+  "let CradleConfig : Type = < Cabal : { component : Optional Text } | Stack : {} | Bazel : {} | Obelisk : {} | Bios : { prog : Text} | Default : {} > in\n" <> t
 
 readConfig :: FilePath -> IO Config
 readConfig fp = T.readFile fp >>= input auto . wrapper
