@@ -46,6 +46,8 @@ import           Outputable hiding ((<>))
 import qualified HIE.Bios.GHCApi as BIOS (withDynFlags, CradleError)
 import qualified HIE.Bios as BIOS
 
+import System.Directory
+
 
 -- ---------------------------------------------------------------------
 
@@ -185,7 +187,7 @@ setTypecheckedModule uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     debugm "setTypecheckedModule: before ghc-mod"
     debugm "Loading file"
-    mapped_fp <- persistVirtualFile uri
+    -- mapped_fp <- persistVirtualFile uri
     -- ifCachedModuleM mapped_fp (setTypecheckedModule_load uri) cont
     setTypecheckedModule_load uri
   where
@@ -195,6 +197,14 @@ setTypecheckedModule uri =
       debugm ("Using cache" ++ show uri)
       return (IdeResultOk (Map.empty, []))
 
+-- Hacky, need to copy hs-boot file if one exists for a module
+copyHsBoot :: FilePath -> FilePath -> IO ()
+copyHsBoot fp mapped_fp = do
+  ex <- doesFileExist (fp <> "-boot")
+  if ex
+    then copyFile (fp <> "-boot") (mapped_fp <> "-boot")
+    else return ()
+
 
 -- | Actually load the module if it's not in the cache
 setTypecheckedModule_load :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
@@ -203,6 +213,7 @@ setTypecheckedModule_load uri =
     debugm "setTypecheckedModule: before ghc-mod"
     debugm "Loading file"
     mapped_fp <- persistVirtualFile uri
+    liftIO $ copyHsBoot fp mapped_fp
     rfm <- reverseFileMap
     (diags', errs, mmods) <- (captureDiagnostics rfm $ BIOS.loadFile (fp, mapped_fp))
     debugm "File, loaded"
