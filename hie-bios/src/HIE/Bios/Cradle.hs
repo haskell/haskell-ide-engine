@@ -21,7 +21,7 @@ import Data.List
 
 import Debug.Trace
 import System.PosixCompat.Files
-import System.FilePath.Posix
+--import System.FilePath.Posix
 
 ----------------------------------------------------------------
 
