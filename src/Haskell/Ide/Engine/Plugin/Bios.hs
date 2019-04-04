@@ -186,7 +186,8 @@ setTypecheckedModule uri =
     debugm "setTypecheckedModule: before ghc-mod"
     debugm "Loading file"
     mapped_fp <- persistVirtualFile uri
-    ifCachedModuleM mapped_fp (setTypecheckedModule_load uri) cont
+    -- ifCachedModuleM mapped_fp (setTypecheckedModule_load uri) cont
+    setTypecheckedModule_load uri
   where
     cont :: TypecheckedModule -> CachedInfo
          -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
@@ -225,6 +226,7 @@ setTypecheckedModule_load uri =
         -- responses triggered by cacheModule can access it
         --modifyMTS (\s -> s {ghcSession = sess})
         cacheModules rfm ts
+        --cacheModules rfm [tm]
         debugm "setTypecheckedModule: done"
         return diags
 

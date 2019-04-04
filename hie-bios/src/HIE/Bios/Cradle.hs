@@ -17,6 +17,7 @@ import Control.Monad.IO.Class
 import Control.Applicative ((<|>))
 import Data.FileEmbed
 import System.IO.Temp
+import Data.List
 
 import Debug.Trace
 import System.Posix.Files
@@ -39,18 +40,19 @@ findCradle wfile = do
 
 getCradle :: (CradleConfig, FilePath) -> Cradle
 getCradle (cc, wdir) = case cc of
-                 Cabal -> cabalCradle wdir
+                 Cabal mc -> cabalCradle wdir mc
                  Stack -> stackCradle wdir
                  Bazel -> rulesHaskellCradle wdir
                  Obelisk -> obeliskCradle wdir
-                 Bios -> biosCradle wdir
+                 Bios {} -> biosCradle wdir
 
 implicitConfig :: FilePath -> MaybeT IO (CradleConfig, FilePath)
 implicitConfig fp =
-    (Obelisk,) <$> obeliskWorkDir fp
+         (Bios Nothing,) <$> biosWorkDir fp
+     <|> (Obelisk,) <$> obeliskWorkDir fp
      <|> (Bazel,) <$> rulesHaskellWorkDir fp
      <|> (Stack,) <$> stackWorkDir fp
-     <|> ((Cabal,) <$> cabalWorkDir fp)
+     <|> ((Cabal Nothing,) <$> cabalWorkDir fp)
 
 dhallConfig :: FilePath -> MaybeT IO (CradleConfig, FilePath)
 dhallConfig fp = do
@@ -84,8 +86,8 @@ biosCradle wdir = do
     , cradleOptsProg   = CradleAction "bios" (biosAction wdir)
   }
 
-biosDir :: FilePath -> MaybeT IO FilePath
-biosDir = findFileUpwards (".hie-bios" ==)
+biosWorkDir :: FilePath -> MaybeT IO FilePath
+biosWorkDir = findFileUpwards (".hie-bios" ==)
 
 
 biosAction :: FilePath -> FilePath -> IO (ExitCode, String, [String])
@@ -98,26 +100,39 @@ biosAction wdir fp = do
 -- Works for new-build by invoking `v2-repl` does not support components
 -- yet.
 
-cabalCradle :: FilePath -> Cradle
-cabalCradle wdir = do
+cabalCradle :: FilePath -> Maybe String -> Cradle
+cabalCradle wdir mc = do
   Cradle {
       cradleRootDir    = wdir
-    , cradleOptsProg   = CradleAction "cabal" (cabalAction wdir)
+    , cradleOptsProg   = CradleAction "cabal" (cabalAction wdir mc)
   }
 
 cabalWrapper :: String
 cabalWrapper = $(embedStringFile "wrappers/cabal")
 
-cabalAction :: FilePath -> FilePath -> IO (ExitCode, String, [String])
-cabalAction work_dir _fp = do
+cabalAction :: FilePath -> Maybe String -> FilePath -> IO (ExitCode, String, [String])
+cabalAction work_dir mc _fp = do
   wrapper_fp <- writeSystemTempFile "wrapper" cabalWrapper
   -- TODO: This isn't portable for windows
   setFileMode wrapper_fp accessModes
   check <- readFile wrapper_fp
   traceM check
+  let cab_args = ["v2-repl", "-v0", "-w", wrapper_fp]
+                  ++ [component_name | Just component_name <- [mc]]
   (ex, args, stde) <-
-      withCurrentDirectory work_dir (readProcessWithExitCode "cabal" ["v2-repl", "-v0", "-w", wrapper_fp] [])
-  return (ex, stde, words args)
+      withCurrentDirectory work_dir (readProcessWithExitCode "cabal" cab_args [])
+  let [dir, ghc_args] = lines args
+      final_args = map (fixImportDirs dir) (words ghc_args)
+  traceM dir
+  return (ex, stde, final_args)
+
+fixImportDirs :: FilePath -> String -> String
+fixImportDirs base_dir arg =
+  if "-i" `isPrefixOf` arg
+    then let dir = drop 2 arg
+         in if isRelative dir then ("-i" <> base_dir <> dir)
+                              else arg
+    else arg
 
 
 cabalWorkDir :: FilePath -> MaybeT IO FilePath

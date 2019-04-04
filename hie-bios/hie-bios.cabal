@@ -47,6 +47,7 @@ Library
                       , base16-bytestring
                       , dhall
                       , text
+                      , lens-family-core
   if impl(ghc < 8.2)
     Build-Depends:      ghc-boot
 

@@ -133,6 +133,7 @@ initSession _build CompilerOptions {..} = do
       $ resetPackageDb
       $ ignorePackageEnv
       $ writeInterfaceFiles (Just fp)
+      $ setVerbosity
       $ setLinkerOptions df'
       )
 
@@ -155,8 +156,10 @@ ignorePackageEnv :: DynFlags -> DynFlags
 ignorePackageEnv df = df { packageEnv = Just "-" }
 
 setIgnoreInterfacePragmas :: DynFlags -> DynFlags
-setIgnoreInterfacePragmas df =
- gopt_set df Opt_IgnoreInterfacePragmas
+setIgnoreInterfacePragmas df = gopt_set df Opt_IgnoreInterfacePragmas
+
+setVerbosity :: DynFlags -> DynFlags
+setVerbosity df = df { verbosity = 1 }
 
 writeInterfaceFiles :: Maybe FilePath -> DynFlags -> DynFlags
 writeInterfaceFiles Nothing df = df
