@@ -1,4 +1,4 @@
-resolver: lts-13.12 # GHC 8.6.4
+resolver: lts-13.15 # GHC 8.6.4
 packages:
 - .
 - hie-plugin-api
@@ -18,7 +18,7 @@ extra-deps:
 - haskell-src-exts-1.21.0
 - hlint-2.1.15
 - hsimport-0.8.8
-- hoogle-5.0.17.5
+- hoogle-5.0.17.6
 - monad-dijkstra-0.1.1.2@rev:1
 - monad-memo-0.4.1
 - multistate-0.8.0.1
