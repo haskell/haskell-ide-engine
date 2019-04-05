@@ -1,5 +1,5 @@
 name:                haskell-ide-engine
-version:             0.7.0.0
+version:             0.8.0.0
 synopsis:            Provide a common engine to power any Haskell IDE
 description:         Please see README.md
 homepage:            http://github.com/githubuser/haskell-ide-engine#readme
