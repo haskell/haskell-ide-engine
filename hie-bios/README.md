@@ -58,12 +58,24 @@ The complete dhall configuration is described by the following type
   | Obelisk : {}
   | Bios : { prog : Text}
   | Default : {} > >
-``
+```
 
 ## Implicit Configuration
 
 There are several built in modes which captures most common Haskell development
-scenarios.
+scenarios. If no `hie.dhall` configuration file is found then an implicit
+configuration is searched for.
+
+### Priority
+
+The targets are searched for in following order.
+
+1. A specific `hie-bios` file.
+2. An `obelisk` project
+3. A `rules_haskell` project
+4. A `stack` project
+4. A `cabal` project
+5. The default cradle which has no specific options.
 
 ### `cabal-install`
 
@@ -71,18 +83,8 @@ The workspace root is the first folder containing a `cabal.project` file.
 
 The arguments are collected by running `cabal v2-repl`.
 
-If `cabal v2-repl` fails, then the user needs to implement a `hie-bios` file.
-
-`cabal` currently lacks support for mapping filenames to components so a
-`hie-bios` file should be specified for a complicated project with multiple
-components.
-
-### `hadrian`
-
-The workspace root is the folder containing the `hadrian` subdirectory.
-
-There is a special target to hadrian called `dump-args` which is responsible
-for providing the correct arguments.
+If `cabal v2-repl` fails, then the user needs to configure the correct
+target to use by writing a `hie.dhall` file.
 
 ### `rules_haskell`
 
@@ -101,7 +103,7 @@ The options are collected by running `ob ide-args`.
 The most general form is the `bios` mode which allows a user to specify themselves
 which flags to provide.
 
-In this mode, an executable file called `hie-bios` is placed in the root
+In this mode, an executable file called `.hie-bios` is placed in the root
 of the workspace directory. The script takes one argument, the filepath
 to the current file we want to load into the session. The script returns
 the correct arguments in order to load that file successfully.
@@ -114,20 +116,9 @@ ghci $(./hie-bios /path/to/foo.hs) /path/to/foo.hs
 ```
 
 This is useful if you are designing a new build system or the other modes
-fail to setup the correct session for some reason. For example, if a project
-provides a `stack.yaml` file and `cabal.project` file then you might choose
-to write a specific `hie-bios` file to use `stack` or `cabal` to get up
-the environment.
+fail to setup the correct session for some reason. For example, this is
+how hadrian (GHC's build system) is integrated into HIE.
 
-## Priority
-
-The targets are searched for in following order.
-
-1. A specific `hie-bios` file.
-2. An `obelisk` project
-3. A `rule_haskell` project
-4. A `cabal` project
-5. The default cradle which has no specific options.
 
 ## Relationship with `ghcid`
 
