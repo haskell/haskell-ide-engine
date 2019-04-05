@@ -30,14 +30,14 @@ describes how to setup the environment. For example, to explicitly state
 that you want to use `stack` then the configuration file would look like:
 
 ```
-{ cradle = Cradle.Stack {=} }
+{ cradle = CradleConfig.Stack {=} }
 ```
 
 If you use `cabal` then you probably need to specify which component you want
 to use.
 
 ```
-{ cradle = Cradle.Cabal { component = Some "lib:haskell-ide-engine" } }
+{ cradle = CradleConfig.Cabal { component = Some "lib:haskell-ide-engine" } }
 ```
 
 Or you can explicitly state the program which should be used to collect
@@ -45,7 +45,7 @@ the options by supplying the path to the program. It is interpreted
 relative to the current working directory if it is not an absolute path.
 
 ```
-{ cradle = Cradle.Bios { prog = ".hie-bios" } }
+{ cradle = CradleConfig.Bios { prog = ".hie-bios" } }
 ```
 
 The complete dhall configuration is described by the following type
