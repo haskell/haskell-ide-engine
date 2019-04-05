@@ -63,21 +63,6 @@ Executable biosc
                       , ghc
                       , hie-bios
 
-
-test-suite unit-test
-  type:                exitcode-stdio-1.0
-  hs-source-dirs:      test/
-  main-is:             Main.hs
-  other-modules:
-  build-depends:       base
-                     , hie-bios
-                     , hspec
-                     , filepath
-                     , directory
-
-  ghc-options:         -Wall -Wredundant-constraints
-  default-language:    Haskell2010
-
 Source-Repository head
   Type:                 git
   Location:             git://github.com/mpickering/hie-bios.git
