@@ -23,7 +23,44 @@ Futher it means that any failure to set up the API session is the responsibility
 of the build tool. It is up to them to provide the correct information if they
 want HIE to work correctly.
 
-## Specific Modes of operation
+## Explicit Configuration
+
+The user can place a `hie.dhall` file in the root of the workspace which
+describes how to setup the environment. For example, to explicitly state
+that you want to use `stack` then the configuration file would look like:
+
+```
+{ cradle = Cradle.Stack {=} }
+```
+
+If you use `cabal` then you probably need to specify which component you want
+to use.
+
+```
+{ cradle = Cradle.Cabal { component = Some "lib:haskell-ide-engine" } }
+```
+
+Or you can explicitly state the program which should be used to collect
+the options by supplying the path to the program. It is interpreted
+relative to the current working directory if it is not an absolute path.
+
+```
+{ cradle = Cradle.Bios { prog = ".hie-bios" } }
+```
+
+The complete dhall configuration is described by the following type
+
+```
+< cradle :
+< Cabal : { component : Optional Text }
+  | Stack : {}
+  | Bazel : {}
+  | Obelisk : {}
+  | Bios : { prog : Text}
+  | Default : {} > >
+``
+
+## Implicit Configuration
 
 There are several built in modes which captures most common Haskell development
 scenarios.
