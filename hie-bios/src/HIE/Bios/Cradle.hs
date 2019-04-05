@@ -122,10 +122,12 @@ cabalAction work_dir mc _fp = do
                   ++ [component_name | Just component_name <- [mc]]
   (ex, args, stde) <-
       withCurrentDirectory work_dir (readProcessWithExitCode "cabal" cab_args [])
-  let [dir, ghc_args] = lines args
-      final_args = map (fixImportDirs dir) (words ghc_args)
-  traceM dir
-  return (ex, stde, final_args)
+  case lines args of
+    [dir, ghc_args] -> do
+      let final_args = map (fixImportDirs dir) (words ghc_args)
+      traceM dir
+      return (ex, stde, final_args)
+    _ -> error (show (ex, args, stde))
 
 fixImportDirs :: FilePath -> String -> String
 fixImportDirs base_dir arg =
