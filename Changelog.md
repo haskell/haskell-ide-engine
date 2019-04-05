@@ -2,7 +2,8 @@
 
 - GHC 8.6.4 support added.
 - Resolver bumped, LTS 13.10 for GHC 8.6.3, LTS 13.15 for GHC 8.6.4 (@alanz)
-- Clarify install section of README.md (@Anrock, @antonlogvinenko)
+- Clarify install section of README.md (@antonlogvinenko)
+- Shake is now the only supported method of building HIE (@Anrock)
 - Clarify the spacemacs installation (@chkl)
 - Further install.hs improvements
   - idempotent builds (@fendor)
