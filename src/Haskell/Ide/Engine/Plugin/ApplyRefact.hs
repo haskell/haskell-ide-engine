@@ -109,7 +109,6 @@ lintCmd = CmdSync $ \uri -> do
 -- AZ:TODO: Why is this in IdeGhcM?
 lintCmd' :: Uri -> IdeGhcM (IdeResult PublishDiagnosticsParams)
 lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
-<<<<<<< HEAD
   eitherErrorResult <-
     liftIO (try $ runExceptT $ runLintCmd fp [] :: IO (Either IOException (Either [Diagnostic] [Idea])))
   --TODO: GM.withMappedFile fp $ \file' -> liftIO $ runExceptT $ runLintCmd file' []

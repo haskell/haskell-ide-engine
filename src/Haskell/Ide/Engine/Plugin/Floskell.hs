@@ -8,6 +8,7 @@ where
 import           Control.Monad.IO.Class         (liftIO)
 import           Data.Aeson                     (Value (Null))
 import qualified Data.ByteString.Lazy           as BS
+import qualified Data.ByteString                as B
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as T
 import           Floskell
@@ -38,7 +39,7 @@ provider uri typ _opts =
         let (range, selectedContents) = case typ of
               FormatDocument -> (fullRange contents, contents)
               FormatRange r  -> (r, extractRange r contents)
-            result = reformat config (uriToFilePath uri) (BS.fromStrict (T.encodeUtf8 selectedContents))
+            result = reformat config (uriToFilePath uri) ((T.encodeUtf8 selectedContents))
         in  case result of
               Left  err -> return $ IdeResultFail (IdeError PluginError (T.pack err) Null)
               Right new -> return $ IdeResultOk [TextEdit range (T.decodeUtf8 (BS.toStrict new))]

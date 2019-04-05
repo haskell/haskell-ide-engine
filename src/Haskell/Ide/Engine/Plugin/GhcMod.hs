@@ -700,8 +700,3 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
     symInfs <- concat <$> mapM declsToSymbolInf (imps ++ decls)
     return $ IdeResultOk symInfs
     -}
-=======
->>>>>>> bd4e451a... Code moved to generic module
-=======
--}
->>>>>>> 8ff74795... Try to fix some tests
