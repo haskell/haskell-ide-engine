@@ -35,7 +35,7 @@
 [submodule "submodules/floskell"]
 	path = submodules/floskell
 	# url = https://github.com/alanz/floskell
-	url = https://github.com/bubba/floskell
+  url = https://github.com/ennocramer/floskell
 [submodule "haskell-lsp"]
 	path = haskell-lsp
 	url = https://github.com/mpickering/haskell-lsp.git
