@@ -6,8 +6,7 @@
 - Clarify the spacemacs installation (@chkl)
 - Further install.hs improvements
   - idempotent builds (@fendor)
-  - remove redundant shake.yaml (@fendor)
-  - remove no longer needed Makefile and build-all.ps1 (@fendor)
+  - remove no longer needed Makefile and build-all.ps1 (@Anrock)
   - only generate the hoogle database once (@fendor)
   - install hoogle if not found (@fendor)
 - Add support for pattern synonyms in ghc-mod plugin (@anton-dessiatov)
