@@ -3,7 +3,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE TypeFamilies        #-}
-module Haskell.Ide.Engine.Plugin.HieExtras
+module Haskell.Ide.Engine.Support.HieExtras
   ( getDynFlags
   , WithSnippets(..)
   , getCompletions
@@ -40,6 +40,7 @@ import qualified Data.Text                                    as T
 import qualified Data.Text.IO                                 as T
 import           Data.Typeable
 import           DataCon
+import qualified DynFlags                                     as GHC
 import           Exception
 import           FastString
 import           Finder
@@ -55,7 +56,7 @@ import           Haskell.Ide.Engine.Context
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
-import qualified Haskell.Ide.Engine.Plugin.Fuzzy              as Fuzzy
+import qualified Haskell.Ide.Engine.Support.Fuzzy              as Fuzzy
 import           HscTypes
 import qualified Language.Haskell.LSP.Types                   as J
 import qualified Language.Haskell.LSP.Types.Lens              as J
@@ -64,7 +65,6 @@ import           Language.Haskell.Refact.Utils.MonadFunctions
 import           Name
 import           Outputable                                   (Outputable)
 import qualified Outputable                                   as GHC
-import qualified DynFlags                                     as GHC
 import           Packages
 import           SrcLoc
 import           TcEnv

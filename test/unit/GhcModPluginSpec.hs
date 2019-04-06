@@ -12,8 +12,8 @@ import qualified Data.Set                            as S
 import qualified Data.Text                           as T
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Plugin.GhcMod
-import           Haskell.Ide.Engine.Plugin.HieExtras
 import           Haskell.Ide.Engine.PluginUtils
+import           Haskell.Ide.Engine.Support.HieExtras
 import           Language.Haskell.LSP.Types          (TextEdit (..))
 import           System.Directory
 import           TestUtils

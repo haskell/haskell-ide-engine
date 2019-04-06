@@ -100,4 +100,3 @@ showErr (ErrorUnusedComment s)  = s
 showErr (LayoutWarning s)       = s
 showErr (ErrorUnknownNode s _)  = s
 showErr ErrorOutputCheck        = "Brittany error - invalid output"
-
