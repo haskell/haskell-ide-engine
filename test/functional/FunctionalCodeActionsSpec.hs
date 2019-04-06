@@ -20,12 +20,18 @@ import qualified Language.Haskell.LSP.Types.Capabilities as C
 import           Test.Hspec
 import           TestUtils
 
+runSessionWithOnChange :: String -> C.ClientCapabilities -> FilePath -> Session a -> IO a
+runSessionWithOnChange cmd caps name test = runSession cmd caps name $ do
+  let config = def { diagnosticsOnChange = True }
+  sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
+  test
+
 spec :: Spec
 spec = describe "code actions" $ do
   describe "hlint suggestions" $ do
-    it "provides 3.8 code actions" $ runSession hieCommand fullCaps "test/testdata" $ do
-      doc <- openDoc "ApplyRefact2.hs" "haskell"
+    it "provides 3.8 code actions" $ runSessionWithOnChange hieCommand fullCaps "test/testdata" $ do
 
+      doc <- openDoc "ApplyRefact2.hs" "haskell"
       diags@(reduceDiag:_) <- waitForDiagnostics
 
       liftIO $ do
@@ -49,7 +55,7 @@ spec = describe "code actions" $ do
 
     -- ---------------------------------
 
-    it "falls back to pre 3.8 code actions" $ runSession hieCommand noLiteralCaps "test/testdata" $ do
+    it "falls back to pre 3.8 code actions" $ runSessionWithOnChange hieCommand noLiteralCaps "test/testdata" $ do
       doc <- openDoc "ApplyRefact2.hs" "haskell"
 
       _ <- waitForDiagnostics
@@ -63,6 +69,33 @@ spec = describe "code actions" $ do
 
       contents <- skipManyTill publishDiagnosticsNotification $ getDocumentEdit doc
       liftIO $ contents `shouldBe` "main = undefined\nfoo x = x\n"
+
+      noDiagnostics
+
+    it "runs diagnostics on save" $ runSession hieCommand fullCaps "test/testdata" $ do
+      let config = def { diagnosticsOnChange = False }
+      sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
+
+      doc <- openDoc "ApplyRefact2.hs" "haskell"
+      diags@(reduceDiag:_) <- waitForDiagnostics
+
+      liftIO $ do
+        length diags `shouldBe` 2
+        reduceDiag ^. L.range `shouldBe` Range (Position 1 0) (Position 1 12)
+        reduceDiag ^. L.severity `shouldBe` Just DsInfo
+        reduceDiag ^. L.code `shouldBe` Just "Eta reduce"
+        reduceDiag ^. L.source `shouldBe` Just "hlint"
+
+      (CACodeAction ca:_) <- getAllCodeActions doc
+
+      -- Evaluate became redundant id in later hlint versions
+      liftIO $ ["Apply hint:Redundant id", "Apply hint:Evaluate"] `shouldContain` [ca ^. L.title]
+
+      executeCodeAction ca
+
+      contents <- getDocumentEdit doc
+      liftIO $ contents `shouldBe` "main = undefined\nfoo x = x\n"
+      sendNotification TextDocumentDidSave (DidSaveTextDocumentParams doc)
 
       noDiagnostics
 
