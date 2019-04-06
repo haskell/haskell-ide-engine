@@ -11,6 +11,8 @@ extra-deps:
 - ./submodules/ghc-mod
 - ./submodules/ghc-mod/core
 - ./submodules/floskell
+- ./haskell-lsp
+- ./lsp-test
 
 - butcher-1.3.2.1
 - bytestring-trie-0.2.5.0
