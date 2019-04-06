@@ -1,3 +1,18 @@
+# 0.8.0.0
+
+- GHC 8.6.4 support added.
+- Resolver bumped, LTS 13.10 for GHC 8.6.3, LTS 13.15 for GHC 8.6.4 (@alanz)
+- Clarify install section of README.md (@antonlogvinenko)
+- Clarify the spacemacs installation (@chkl)
+- Further install.hs improvements
+  - idempotent builds (@fendor)
+  - Shake is now the only supported method of building HIE,
+    remove no longer needed Makefile and build-all.ps1 (@Anrock)
+  - only generate the hoogle database once (@fendor)
+  - install hoogle if not found (@fendor)
+- Add support for pattern synonyms in ghc-mod plugin (@anton-dessiatov)
+- prevent hie crash if hlint crashes (@fendor)
+
 # 0.7.0.0
 
 - Resolver bumped, LTS 13.9 for GHC 8.6.3 (@alanz)
