@@ -19,10 +19,9 @@ flag pedantic
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Haskell.Ide.Engine.Plugin.Base
-                       Haskell.Ide.Engine.Channel
-                       Haskell.Ide.Engine.Scheduler
+  exposed-modules:     Haskell.Ide.Engine.Channel
                        Haskell.Ide.Engine.LSP.CodeActions
+                       Haskell.Ide.Engine.Plugin.Base
                        Haskell.Ide.Engine.LSP.Reactor
                        Haskell.Ide.Engine.Options
                        Haskell.Ide.Engine.Plugin.ApplyRefact
@@ -30,11 +29,9 @@ library
                        Haskell.Ide.Engine.Plugin.Build
                        Haskell.Ide.Engine.Plugin.Example2
                        Haskell.Ide.Engine.Plugin.Floskell
-                       Haskell.Ide.Engine.Plugin.Fuzzy
                        Haskell.Ide.Engine.Plugin.GhcMod
                        Haskell.Ide.Engine.Plugin.HaRe
                        Haskell.Ide.Engine.Plugin.Haddock
-                       Haskell.Ide.Engine.Plugin.HieExtras
                        Haskell.Ide.Engine.Plugin.HfaAlign
                        Haskell.Ide.Engine.Plugin.Hoogle
                        Haskell.Ide.Engine.Plugin.HsImport
@@ -42,6 +39,9 @@ library
                        Haskell.Ide.Engine.Plugin.Package
                        Haskell.Ide.Engine.Plugin.Package.Compat
                        Haskell.Ide.Engine.Plugin.Pragmas
+                       Haskell.Ide.Engine.Scheduler
+                       Haskell.Ide.Engine.Support.Fuzzy
+                       Haskell.Ide.Engine.Support.HieExtras
                        Haskell.Ide.Engine.Transport.JsonStdio
                        Haskell.Ide.Engine.Transport.LspStdio
                        Haskell.Ide.Engine.Types

@@ -17,53 +17,53 @@ module Haskell.Ide.Engine.Transport.LspStdio
 
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
-import qualified Control.FoldDebounce as Debounce
 import qualified Control.Exception as E
+import qualified Control.FoldDebounce as Debounce
 import           Control.Lens ( (^.), (.~) )
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           Control.Monad.STM
 import           Control.Monad.Reader
-import qualified Data.Aeson as J
+import           Control.Monad.STM
 import           Data.Aeson ( (.=) )
+import qualified Data.Aeson as J
 import qualified Data.ByteString.Lazy as BL
 import           Data.Char (isUpper, isAlphaNum)
 import           Data.Coerce (coerce)
 import           Data.Default
-import           Data.Maybe
 import           Data.Foldable
 import           Data.Function
 import qualified Data.Map as Map
+import           Data.Maybe
 import           Data.Semigroup (Semigroup(..), Option(..), option)
 import qualified Data.Set as S
 import qualified Data.SortedList as SL
 import qualified Data.Text as T
 import           Data.Text.Encoding
-import qualified GhcModCore               as GM
 import qualified GhcMod.Monad.Types       as GM
+import qualified GhcModCore               as GM
 import           Haskell.Ide.Engine.Config
-import           Haskell.Ide.Engine.MonadFunctions
-import           Haskell.Ide.Engine.MonadTypes
-import           Haskell.Ide.Engine.PluginUtils
-import qualified Haskell.Ide.Engine.Scheduler            as Scheduler
-import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.LSP.CodeActions
 import           Haskell.Ide.Engine.LSP.Reactor
-import qualified Haskell.Ide.Engine.Plugin.HaRe          as HaRe
-import qualified Haskell.Ide.Engine.Plugin.GhcMod        as GhcMod
+import           Haskell.Ide.Engine.MonadFunctions
+import           Haskell.Ide.Engine.MonadTypes
 import qualified Haskell.Ide.Engine.Plugin.ApplyRefact   as ApplyRefact
-import qualified Haskell.Ide.Engine.Plugin.Hoogle        as Hoogle
-import qualified Haskell.Ide.Engine.Plugin.HieExtras     as Hie
 import           Haskell.Ide.Engine.Plugin.Base
+import qualified Haskell.Ide.Engine.Plugin.GhcMod        as GhcMod
+import qualified Haskell.Ide.Engine.Plugin.HaRe          as HaRe
+import qualified Haskell.Ide.Engine.Plugin.Hoogle        as Hoogle
+import           Haskell.Ide.Engine.PluginUtils
+import qualified Haskell.Ide.Engine.Scheduler            as Scheduler
+import qualified Haskell.Ide.Engine.Support.HieExtras     as Hie
+import           Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.Control            as CTRL
 import qualified Language.Haskell.LSP.Core               as Core
-import qualified Language.Haskell.LSP.VFS                as VFS
 import           Language.Haskell.LSP.Diagnostics
 import           Language.Haskell.LSP.Messages
 import qualified Language.Haskell.LSP.Types              as J
-import qualified Language.Haskell.LSP.Types.Lens         as J
 import           Language.Haskell.LSP.Types.Capabilities as C
+import qualified Language.Haskell.LSP.Types.Lens         as J
 import qualified Language.Haskell.LSP.Utility            as U
+import qualified Language.Haskell.LSP.VFS                as VFS
 import           System.Exit
 import qualified System.Log.Logger as L
 import qualified Yi.Rope as Yi

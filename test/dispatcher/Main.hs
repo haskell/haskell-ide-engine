@@ -16,6 +16,7 @@ import           GHC.Generics
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Scheduler
+import           Haskell.Ide.Engine.Support.HieExtras
 import           Haskell.Ide.Engine.Types
 import           Language.Haskell.LSP.Types
 import           TestUtils
@@ -33,7 +34,6 @@ import           Haskell.Ide.Engine.Plugin.Base
 import           Haskell.Ide.Engine.Plugin.Example2
 import           Haskell.Ide.Engine.Plugin.GhcMod
 import           Haskell.Ide.Engine.Plugin.HaRe
-import           Haskell.Ide.Engine.Plugin.HieExtras
 
 {-# ANN module ("HLint: ignore Redundant do"       :: String) #-}
 -- ---------------------------------------------------------------------
