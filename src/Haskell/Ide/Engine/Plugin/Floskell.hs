@@ -27,6 +27,9 @@ floskellDescriptor plId = PluginDescriptor
   , pluginFormattingProvider = Just provider
   }
 
+-- |Format provider of Floskell.
+-- Formats the given source in either a given Range or the whole Document.
+-- If the provider fails an error is returned that can be displayed to the user.
 provider :: FormattingProvider
 provider uri typ _opts =
   pluginGetFile "Floskell: " uri $ \file -> do
@@ -43,8 +46,10 @@ provider uri typ _opts =
               Left  err -> return $ IdeResultFail (IdeError PluginError (T.pack err) Null)
               Right new -> return $ IdeResultOk [TextEdit range (T.decodeUtf8 (BS.toStrict new))]
 
-
-
+-- |Find Floskell Config, user and system wide or provides a default style.
+-- Every directory of the filepath will be searched to find a user configuration.
+-- Also looks into places such as XDG_CONFIG_DIRECTORY<https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html>.
+-- This function may not throw an exception and returns a default config.
 findConfigOrDefault :: FilePath -> IO AppConfig
 findConfigOrDefault file = do
   mbConf <- findAppConfigIn file
