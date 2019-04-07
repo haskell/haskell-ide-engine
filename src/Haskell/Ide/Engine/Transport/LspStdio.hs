@@ -122,7 +122,7 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
 
   let dp lf = do
         diagIn      <- atomically newTChan
-        let react = runReactor lf scheduler diagnosticProviders hps sps fps
+        let react = runReactor lf scheduler diagnosticProviders hps sps fps plugins
             reactorFunc = react $ reactor rin diagIn
 
         let errorHandler :: Scheduler.ErrorHandler
@@ -808,20 +808,20 @@ reactor inp diagIn = do
 
 getFormattingProvider :: R FormattingProvider
 getFormattingProvider = do
-  providers <- asks formattingProviders
-  clientConfig <- getClientConfig
-  -- LL: Is this overengineered? Do we need a pluginFormattingProvider
-  -- or should we just call plugins straight from here based on the providerType?
-  let providerName = formattingProvider clientConfig
-      mProvider = Map.lookup providerName providers
-  case mProvider of
+  plugins <- asks idePlugins
+  config <- getClientConfig
+      -- LL: Is this overengineered? Do we need a pluginFormattingProvider
+      -- or should we just call plugins straight from here based on the providerType?
+      providerName = formattingProvider config
+      mprovider = Hie.getFormattingPlugin config plugins
+  case mprovider of
     Nothing -> do
       unless (providerName == "none") $ do
         let msg = providerName <> " is not a recognised plugin for formatting. Check your config"
         reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
         reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg
       return (\_ _ _ -> return (IdeResultOk [])) -- nop formatter
-    Just provider -> return provider
+    Just (_, provider) -> return provider
 
 -- ---------------------------------------------------------------------
 

@@ -21,6 +21,7 @@ import qualified GhcMod.Utils                  as GM
 import           HsImport
 import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.MonadTypes
+import qualified Haskell.Ide.Engine.Support.HieExtras as Hie
 import qualified Language.Haskell.LSP.Types      as J
 import qualified Language.Haskell.LSP.Types.Lens as J
 import           Haskell.Ide.Engine.PluginUtils
@@ -83,14 +84,25 @@ importModule uri modName =
 
           if shouldFormat
             then do
-              -- Format the import with Brittany
-              confFile <- liftIO $ Brittany.getConfFile origInput
-              newChanges <- forM mChanges $ mapM $ mapM (formatTextEdit confFile)
-              newDocChanges <- forM mDocChanges $ mapM $ \(J.TextDocumentEdit vDocId tes) -> do
-                ftes <- forM tes (formatTextEdit confFile)
-                return (J.TextDocumentEdit vDocId ftes)
+              config <- getConfig
+              plugins <- getPlugins
+              let mprovider = Hie.getFormattingPlugin config plugins
+              case mprovider of 
+                Nothing -> return $ IdeResultOk (J.WorkspaceEdit mChanges mDocChanges)
+                Just (plugin, _) -> do
+                  let fmtCmd = J.Command "unused" 
+                  results <- forM mChanges $ mapM $ mapM $ (runPluginCommand (pluginId plugin) "format" . dynToJSON . toDynJSON)
 
-              return $ IdeResultOk (J.WorkspaceEdit newChanges newDocChanges)
+
+
+                  -- -- Format the import with Brittany
+                  -- confFile <- liftIO $ Brittany.getConfFile origInput
+                  -- newChanges <- forM mChanges $ mapM $ mapM (formatTextEdit confFile)
+                  -- newDocChanges <- forM mDocChanges $ mapM $ \(J.TextDocumentEdit vDocId tes) -> do
+                  --   ftes <- forM tes (formatTextEdit confFile)
+                  --   return (J.TextDocumentEdit vDocId ftes)
+
+                  return $ IdeResultOk  (J.WorkspaceEdit mChanges mDocChanges) -- (J.WorkspaceEdit newChanges newDocChanges)
             else
               return $ IdeResultOk (J.WorkspaceEdit mChanges mDocChanges)
 
