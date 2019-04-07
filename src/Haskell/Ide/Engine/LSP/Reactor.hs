@@ -37,6 +37,8 @@ data REnv = REnv
   , hoverProviders      :: [HoverProvider]
   , symbolProviders     :: [SymbolProvider]
   , formattingProviders :: Map.Map PluginId FormattingProvider
+  -- | Ide Plugins that are available
+  , idePlugins          :: IdePlugins
   -- TODO: Add code action providers here
   }
 
@@ -58,11 +60,12 @@ runReactor
   -> [HoverProvider]
   -> [SymbolProvider]
   -> Map.Map PluginId FormattingProvider
+  -> IdePlugins
   -> R a
   -> IO a
-runReactor lf sc dps hps sps fps f = do
+runReactor lf sc dps hps sps fps plugins f = do
   pid <- getProcessID
-  runReaderT f (REnv sc lf pid dps hps sps fps)
+  runReaderT f (REnv sc lf pid dps hps sps fps plugins)
 
 -- ---------------------------------------------------------------------
 
