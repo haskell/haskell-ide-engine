@@ -36,7 +36,7 @@ brittanyDescriptor plId = PluginDescriptor
   , pluginFormattingProvider = Just provider
   }
 
--- |Formatter provider of Brittany.
+-- | Formatter provider of Brittany.
 -- Formats the given source in either a given Range or the whole Document.
 -- If the provider fails an error is returned that can be displayed to the user.
 provider :: FormattingProvider
@@ -68,7 +68,7 @@ normalize (Range (Position sl _) (Position el _)) =
   -- Extend to the line below to replace newline character, as above
   Range (Position sl 0) (Position (el + 1) 0)
 
--- |Recursively search in every directory of the given filepath for brittany.yaml
+-- | Recursively search in every directory of the given filepath for brittany.yaml
 -- If no such file has been found, return Nothing.
 getConfFile :: FilePath -> IO (Maybe FilePath)
 getConfFile = findLocalConfigPath . takeDirectory

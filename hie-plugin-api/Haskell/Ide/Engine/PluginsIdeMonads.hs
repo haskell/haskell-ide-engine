@@ -212,8 +212,8 @@ type SymbolProvider = Uri -> IdeDeferM (IdeResult [DocumentSymbol])
 data FormattingType = FormatDocument
                     | FormatRange Range
 
--- |Formats the given Uri with the given options.
--- A formatting type can be given to either format the whole documetn or only a Range.
+-- | Formats the given Uri with the given options.
+-- A formatting type can be given to either format the whole document or only a Range.
 -- Fails if the formatter can not parse the source.
 -- Failing menas here that a IdeResultFail is returned.
 -- This can be used to display errors to the user, unless the error is an Internal one.
