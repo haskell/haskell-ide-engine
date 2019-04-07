@@ -64,9 +64,7 @@ spec = describe "type definitions" $ do
   it "find local definition of type def"
     $ runSession hieCommand fullCaps "test/testdata/gototest"
     $ do
-        doc      <- openDoc "src/Lib2.hs" "haskell"
-        otherDoc <- openDoc "src/Lib.hs" "haskell"
-        closeDoc otherDoc
+        doc      <- openDoc "src/Lib.hs" "haskell"
         defs <- getTypeDefinitions doc (toPos (35, 16))
         liftIO $ do
           fp <- canonicalizePath "test/testdata/gototest/src/Lib.hs"
@@ -78,7 +76,9 @@ spec = describe "type definitions" $ do
   it "find type-definition of type def in component"
     $ runSession hieCommand fullCaps "test/testdata/gototest"
     $ do
-        doc  <- openDoc "src/Lib.hs" "haskell"
+        doc      <- openDoc "src/Lib2.hs" "haskell"
+        otherDoc <- openDoc "src/Lib.hs" "haskell"
+        closeDoc otherDoc
         defs <- getTypeDefinitions doc (toPos (13, 20))
         liftIO $ do
           fp <- canonicalizePath "test/testdata/gototest/src/Lib.hs"
