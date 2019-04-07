@@ -37,3 +37,7 @@
 	url = https://github.com/ennocramer/floskell
 	# url = https://github.com/alanz/floskell
 
+[submodule "submodules/lsp-test"]
+	path = submodules/lsp-test
+	url = https://github.com/bubba/lsp-test
+	# url = https://github.com/alanz/floskell
