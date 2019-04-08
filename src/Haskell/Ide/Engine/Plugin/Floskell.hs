@@ -10,16 +10,21 @@ import           Data.Aeson                     (Value (Null))
 import qualified Data.ByteString.Lazy           as BS
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as T
+import           Data.Maybe
 import           Floskell
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
+import qualified Language.Haskell.LSP.Types            as J
 
 floskellDescriptor :: PluginId -> PluginDescriptor
 floskellDescriptor plId = PluginDescriptor
   { pluginId                 = plId
   , pluginName               = "Floskell"
   , pluginDesc               = "A flexible Haskell source code pretty printer."
-  , pluginCommands           = []
+  , pluginCommands = [ PluginCommand "formatText"
+                                     "Format the given Text with Floskell"
+                                     formatCmd
+                     ]
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider      = Nothing
@@ -43,8 +48,30 @@ provider uri typ _opts =
               FormatRange r  -> (r, extractRange r contents)
             result = reformat config (uriToFilePath uri) (BS.fromStrict (T.encodeUtf8 selectedContents))
         in  case result of
-              Left  err -> return $ IdeResultFail (IdeError PluginError (T.pack err) Null)
+              Left  err -> return $ IdeResultFail (IdeError PluginError (T.pack $  "floskellCmd: " ++ err) Null)
               Right new -> return $ IdeResultOk [TextEdit range (T.decodeUtf8 (BS.toStrict new))]
+
+-- | Format a source with the given options.
+-- Synchronized command.
+-- Other plugins can use this Command it to execute formatters.
+-- Command can be run by 
+-- ```
+-- runPluginCommand
+--     (pluginId plugin)
+--     "formatText"
+--     (dynToJSON $ toDynJSON $ FormatTextCmdParams t r (FormattingOptions 2 True))
+-- ```
+formatCmd :: CommandFunc FormatTextCmdParams [TextEdit]
+formatCmd = CmdSync $ \(FormatTextCmdParams text fmtRange _) -> do
+  rootPath <- getRootPath
+  config   <- liftIO $ findConfigOrDefault (fromMaybe "" rootPath)
+  let textEdit = reformat config Nothing (BS.fromStrict (T.encodeUtf8 text))
+  case textEdit of
+    Left err -> return $ IdeResultFail
+      (IdeError PluginError (T.pack $ "floskellCmd: " ++ err) Null)
+    Right newText -> do
+      let edit = J.TextEdit fmtRange (T.decodeUtf8 (BS.toStrict newText))
+      return $ IdeResultOk [edit]
 
 -- | Find Floskell Config, user and system wide or provides a default style.
 -- Every directory of the filepath will be searched to find a user configuration.

@@ -75,6 +75,7 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , PublishDiagnosticsParams(..)
   , List(..)
   , FormattingOptions(..)
+  , FormatTextCmdParams(..)
   )
 where
 
@@ -207,6 +208,16 @@ data DiagnosticTrigger = DiagnosticOnOpen
 type HoverProvider = Uri -> Position -> IdeM (IdeResult [Hover])
 
 type SymbolProvider = Uri -> IdeDeferM (IdeResult [DocumentSymbol])
+
+-- | Format Paramaters for Cmd. 
+-- Can be used to send messages to formatters
+data FormatTextCmdParams = FormatTextCmdParams
+  { fmtText ::  T.Text -- ^ Text to format
+  , fmtResultRange :: Range -- ^ Range where the text will be inserted.
+  , fmtTextOptions :: FormattingOptions -- ^ Options for the formatter
+  }
+  deriving (Eq, Show, Generic, FromJSON, ToJSON)
+
 
 -- | Format the document either as a whole or only a given Range of it.
 data FormattingType = FormatDocument
