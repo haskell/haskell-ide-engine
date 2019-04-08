@@ -16,7 +16,7 @@ import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString as BS
 import Crypto.Hash.SHA1
 
-import           GHC                               (TypecheckedModule, ParsedModule, DynFlags)
+import           GHC (TypecheckedModule, ParsedModule, DynFlags, HscEnv)
 
 import Data.List
 
@@ -108,7 +108,7 @@ lookupCradle fp gmc = traceShow ("lookupCradle", fp, gmc) $
            Just (k, c, suf) -> traceShow ("matchjust",k, suf) $ LoadCradle c
            Nothing  -> NewCradle fp
 
-data CachedCradle = CachedCradle BIOS.Cradle DynFlags
+data CachedCradle = CachedCradle BIOS.Cradle HscEnv
 
 instance Show CachedCradle where
   show (CachedCradle x _) = show x

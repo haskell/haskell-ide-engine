@@ -46,6 +46,8 @@ import qualified GhcMod.Types  as GM
 import qualified GhcMod.Utils  as GM
 import qualified GHC           as GHC
 import qualified DynFlags      as GHC
+import qualified HscMain       as GHC
+import qualified HscTypes      as GHC
 import qualified Data.Trie.Convenience as T
 import qualified Data.Trie as T
 import qualified HIE.Bios as BIOS
@@ -101,19 +103,16 @@ loadCradle iniDynFlags (NewCradle fp) = do
     -- Now load the new cradle
     crdl <- liftIO $ BIOS.findCradle fp
     traceShowM crdl
-    GHC.setSessionDynFlags iniDynFlags
+    liftIO (GHC.newHscEnv iniDynFlags) >>= GHC.setSession
     liftIO $ setCurrentDirectory (BIOS.cradleRootDir crdl)
     BIOS.initializeFlagsWithCradle fp crdl
     GHC.getSessionDynFlags >>= setCurrentCradle crdl
-loadCradle iniDynFlags (LoadCradle (CachedCradle crd dflags)) = do
+loadCradle iniDynFlags (LoadCradle (CachedCradle crd env)) = do
     traceShowM ("Reload Cradle" , crd)
     -- Cache the existing cradle
     maybe (return ()) cacheCradle =<< (currentCradle <$> getModuleCache)
-
-    GHC.setSessionDynFlags iniDynFlags
-    GHC.setSessionDynFlags dflags
-
-    setCurrentCradle crd dflags
+    GHC.setSession env
+    setCurrentCradle crd (GHC.hsc_dflags env)
 
 
 
@@ -127,8 +126,8 @@ setCurrentCradle crdl df = do
 
 cacheCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => ([FilePath], BIOS.Cradle) -> m ()
 cacheCradle (ds, c) = do
-  dflags <- GHC.getSessionDynFlags
-  let cc = CachedCradle c dflags
+  env <- GHC.getSession
+  let cc = CachedCradle c env
       new_map = T.fromList (map (, cc) (map B.pack ds))
   modifyCache (\s -> s { cradleCache = T.unionWith (\a _ -> a) new_map (cradleCache s) })
 
