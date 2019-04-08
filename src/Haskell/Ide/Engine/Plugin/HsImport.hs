@@ -10,7 +10,6 @@ import           Control.Monad
 import           Data.Aeson
 import           Data.Bitraversable
 import           Data.Bifunctor
-import           Data.Either
 import           Data.Foldable
 import           Data.Maybe
 import           Data.Monoid                    ( (<>) )
@@ -25,8 +24,6 @@ import qualified Haskell.Ide.Engine.Support.HieExtras as Hie
 import qualified Language.Haskell.LSP.Types      as J
 import qualified Language.Haskell.LSP.Types.Lens as J
 import           Haskell.Ide.Engine.PluginUtils
-import qualified Haskell.Ide.Engine.Plugin.Brittany
-                                               as Brittany
 import qualified Haskell.Ide.Engine.Plugin.Hoogle
                                                as Hoogle
 import           System.Directory
@@ -55,12 +52,10 @@ importCmd :: CommandFunc ImportParams J.WorkspaceEdit
 importCmd = CmdSync $ \(ImportParams uri modName) -> importModule uri modName
 
 importModule :: Uri -> T.Text -> IdeGhcM (IdeResult J.WorkspaceEdit)
-importModule uri modName =
-  pluginGetFile "hsimport cmd: " uri $ \origInput -> do
-
+importModule uri modName = pluginGetFile "hsimport cmd: " uri $ \origInput -> do
     shouldFormat <- formatOnImportOn <$> getConfig
 
-    fileMap <- GM.mkRevRedirMapFunc
+    fileMap      <- GM.mkRevRedirMapFunc
     GM.withMappedFile origInput $ \input -> do
 
       tmpDir            <- liftIO getTemporaryDirectory
@@ -80,36 +75,51 @@ importModule uri modName =
         Nothing -> do
           newText <- liftIO $ T.readFile output
           liftIO $ removeFile output
-          J.WorkspaceEdit mChanges mDocChanges <- liftToGhc $ makeDiffResult input newText fileMap
+          J.WorkspaceEdit mChanges mDocChanges <- liftToGhc
+            $ makeDiffResult input newText fileMap
 
           if shouldFormat
             then do
-              config <- getConfig
+              config  <- getConfig
               plugins <- getPlugins
               let mprovider = Hie.getFormattingPlugin config plugins
-              case mprovider of 
-                Nothing -> return $ IdeResultOk (J.WorkspaceEdit mChanges mDocChanges)
+              case mprovider of
+                Nothing -> 
+                  return $ IdeResultOk (J.WorkspaceEdit mChanges mDocChanges)
+
                 Just (plugin, _) -> do
-                  let fmtCmd = J.Command "unused" 
-                  results <- forM mChanges $ mapM $ mapM $ (runPluginCommand (pluginId plugin) "format" . dynToJSON . toDynJSON)
+                  newChanges <- forM mChanges $ \change -> do
+                    let func = mapM (formatTextEdit plugin)
+                    res <- mapM func change
+                    return $ fmap flatten res 
 
+                  newDocChanges <- forM mDocChanges $ \change -> do
+                    let cmd (J.TextDocumentEdit vids edits) = do
+                          newEdits <- mapM (formatTextEdit plugin) edits
+                          return $ J.TextDocumentEdit vids (flatten newEdits)
+                    mapM cmd change
 
-
-                  -- -- Format the import with Brittany
-                  -- confFile <- liftIO $ Brittany.getConfFile origInput
-                  -- newChanges <- forM mChanges $ mapM $ mapM (formatTextEdit confFile)
-                  -- newDocChanges <- forM mDocChanges $ mapM $ \(J.TextDocumentEdit vDocId tes) -> do
-                  --   ftes <- forM tes (formatTextEdit confFile)
-                  --   return (J.TextDocumentEdit vDocId ftes)
-
-                  return $ IdeResultOk  (J.WorkspaceEdit mChanges mDocChanges) -- (J.WorkspaceEdit newChanges newDocChanges)
-            else
+                  return $ IdeResultOk
+                    (J.WorkspaceEdit newChanges
+                                     newDocChanges
+                    )
+            else 
               return $ IdeResultOk (J.WorkspaceEdit mChanges mDocChanges)
 
-  where formatTextEdit confFile (J.TextEdit r t) = do
-          -- TODO: This tab size of 2 spaces should probably be taken from a config
-          ft <- fromRight t <$> liftIO (Brittany.runBrittany 2 confFile t)
-          return (J.TextEdit r ft)
+ where
+flatten :: List [a] -> List a
+flatten (J.List list) = J.List (join list)
+
+formatTextEdit :: PluginDescriptor -> J.TextEdit -> IdeGhcM [J.TextEdit]
+formatTextEdit plugin edit@(J.TextEdit r t) = do
+  result <- runPluginCommand
+    (pluginId plugin)
+    "formatText"
+    -- TODO: should this be in the configs?
+    (dynToJSON $ toDynJSON $ FormatTextCmdParams t r (FormattingOptions 2 True))
+  return $ case result of
+    IdeResultOk e -> fromMaybe [edit] (fromDynJSON e)
+    _             -> [edit]
 
 codeActionProvider :: CodeActionProvider
 codeActionProvider plId docId _ context = do

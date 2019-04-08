@@ -25,14 +25,17 @@ data FormatParams = FormatParams Int Uri (Maybe Range)
 
 brittanyDescriptor :: PluginId -> PluginDescriptor
 brittanyDescriptor plId = PluginDescriptor
-  { pluginId = plId
-  , pluginName = "Brittany"
-  , pluginDesc = "Brittany is a tool to format source code."
-  , pluginCommands = [PluginCommand "format" "Format the document" formatCmd]
+  { pluginId                 = plId
+  , pluginName               = "Brittany"
+  , pluginDesc               = "Brittany is a tool to format source code."
+  , pluginCommands           = [ PluginCommand "formatText"
+                                               "Format the given Text with Brittany"
+                                               formatCmd
+                               ]
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Nothing
-  , pluginHoverProvider = Nothing
-  , pluginSymbolProvider = Nothing
+  , pluginHoverProvider      = Nothing
+  , pluginSymbolProvider     = Nothing
   , pluginFormattingProvider = Just provider
   }
 
@@ -45,51 +48,71 @@ provider = format
 -- |Formatter of Brittany.
 -- Formats the given source in either a given Range or the whole Document.
 -- If the provider fails an error is returned that can be displayed to the user.
-format :: (MonadIO m, MonadIde m)
-       => Uri
-       -> FormattingType
-       -> FormattingOptions
-       -> m (IdeResult [TextEdit])
+format
+  :: (MonadIO m, MonadIde m)
+  => Uri
+  -> FormattingType
+  -> FormattingOptions
+  -> m (IdeResult [TextEdit])
 format uri formatType opts = pluginGetFile "brittanyCmd: " uri $ \fp -> do
   confFile <- liftIO $ getConfFile fp
-  mtext <- readVFS uri
+  mtext    <- readVFS uri
   case mtext of
-    Nothing   -> return
-      $ IdeResultFail (IdeError InternalError "File was not open" Null)
-    Just text -> case formatType of
-      FormatRange r  -> do
-        res <- liftIO $ runBrittany tabSize confFile $ extractRange r text
-        case res of
-          Left err      -> return
-            $ IdeResultFail
-              (IdeError
-                 PluginError
-                 (T.pack $ "brittanyCmd: " ++ unlines (map showErr err))
-                 Null)
-          Right newText -> do
-            let textEdit = J.TextEdit (normalize r) newText
-            return $ IdeResultOk [textEdit]
-      FormatDocument -> do
-        res <- liftIO $ runBrittany tabSize confFile text
-        case res of
-          Left err      -> return
-            $ IdeResultFail
-              (IdeError
-                 PluginError
-                 (T.pack $ "brittanyCmd: " ++ unlines (map showErr err))
-                 Null)
-          Right newText -> return
-            $ IdeResultOk [J.TextEdit (fullRange text) newText]
-  where
-    tabSize = opts ^. J.tabSize
+    -- Uri could not be read from the virtual file system.
+    Nothing ->
+      return $ IdeResultFail (IdeError InternalError "File was not open" Null)
+    Just text -> do
+      let (range, selectedContents) = case formatType of
+            FormatDocument -> (fullRange text, text)
+            FormatRange r  -> (normalize r, extractRange r text)
+
+      res <- formatText confFile opts selectedContents
+      case res of
+        Left err -> return $ IdeResultFail
+          (IdeError PluginError
+                    (T.pack $ "brittanyCmd: " ++ unlines (map showErr err))
+                    Null
+          )
+        Right newText -> do
+          let textEdit = J.TextEdit range newText
+          return $ IdeResultOk [textEdit]
+
+-- | Primitive to format text with the given option.
+-- May not throw exceptions but return a Left value.
+-- Errors may be presented to the user.
+formatText
+  :: MonadIO m
+  => Maybe FilePath -- ^ Path to configs. If Nothing, default configs will be used.
+  -> FormattingOptions -- ^ Options for the formatter such as indentation.
+  -> Text -- ^ Text to format
+  -> m (Either [BrittanyError] Text) -- ^ Either formatted Text or a error from Brittany. 
+formatText confFile opts text = 
+  liftIO $ runBrittany tabSize confFile text
+  where tabSize = opts ^. J.tabSize
 
 -- | Format a source with the given options.
 -- Synchronized command.
 -- Other plugins can use this Command it to execute formatters.
--- Command can be run by ``
-formatCmd :: CommandFunc FormatCmdParams [TextEdit]
-formatCmd = CmdSync $ \fmtParam -> 
-  format (fmtUri fmtParam) (fmtType fmtParam) (fmtOptions fmtParam)
+-- Command can be run by 
+-- ```
+-- runPluginCommand
+--     (pluginId plugin)
+--     "formatText"
+--     (dynToJSON $ toDynJSON $ FormatTextCmdParams t r (FormattingOptions 2 True))
+-- ```
+formatCmd :: CommandFunc FormatTextCmdParams [TextEdit]
+formatCmd = CmdSync $ \(FormatTextCmdParams text fmtRange fmtOpts) -> do
+  rootPath <- getRootPath
+  textEdit <- formatText rootPath fmtOpts text
+  case textEdit of
+    Left err -> return $ IdeResultFail
+      (IdeError PluginError
+                (T.pack $ "brittanyCmd: " ++ unlines (map showErr err))
+                Null
+      )
+    Right newText -> do
+      let edit = J.TextEdit fmtRange newText
+      return $ IdeResultOk [edit]
 
 -- | Extend to the line below to replace newline character, as above.
 normalize :: Range -> Range
