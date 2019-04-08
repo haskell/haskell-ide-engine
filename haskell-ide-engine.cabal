@@ -265,6 +265,7 @@ test-suite func-test
                      , ReferencesSpec
                      , RenameSpec
                      , SymbolsSpec
+                     , TypeDefinitionSpec
                      , Utils
   -- This cannot currently be handled by hie (cabal-helper)
   -- build-tool-depends:  haskell-ide-engine:hie
