@@ -810,6 +810,7 @@ getFormattingProvider :: R FormattingProvider
 getFormattingProvider = do
   plugins <- asks idePlugins
   config <- getClientConfig
+  let
       -- LL: Is this overengineered? Do we need a pluginFormattingProvider
       -- or should we just call plugins straight from here based on the providerType?
       providerName = formattingProvider config

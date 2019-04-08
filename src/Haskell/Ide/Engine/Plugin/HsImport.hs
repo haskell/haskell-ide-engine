@@ -84,14 +84,14 @@ importModule uri modName = pluginGetFile "hsimport cmd: " uri $ \origInput -> do
               plugins <- getPlugins
               let mprovider = Hie.getFormattingPlugin config plugins
               case mprovider of
-                Nothing -> 
+                Nothing ->
                   return $ IdeResultOk (J.WorkspaceEdit mChanges mDocChanges)
 
                 Just (plugin, _) -> do
                   newChanges <- forM mChanges $ \change -> do
                     let func = mapM (formatTextEdit plugin)
                     res <- mapM func change
-                    return $ fmap flatten res 
+                    return $ fmap flatten res
 
                   newDocChanges <- forM mDocChanges $ \change -> do
                     let cmd (J.TextDocumentEdit vids edits) = do
@@ -99,27 +99,27 @@ importModule uri modName = pluginGetFile "hsimport cmd: " uri $ \origInput -> do
                           return $ J.TextDocumentEdit vids (flatten newEdits)
                     mapM cmd change
 
-                  return $ IdeResultOk
-                    (J.WorkspaceEdit newChanges
-                                     newDocChanges
-                    )
-            else 
-              return $ IdeResultOk (J.WorkspaceEdit mChanges mDocChanges)
+                  return
+                    $ IdeResultOk (J.WorkspaceEdit newChanges newDocChanges)
+            else return $ IdeResultOk (J.WorkspaceEdit mChanges mDocChanges)
 
  where
-flatten :: List [a] -> List a
-flatten (J.List list) = J.List (join list)
+  flatten :: List [a] -> List a
+  flatten (J.List list) = J.List (join list)
 
-formatTextEdit :: PluginDescriptor -> J.TextEdit -> IdeGhcM [J.TextEdit]
-formatTextEdit plugin edit@(J.TextEdit r t) = do
-  result <- runPluginCommand
-    (pluginId plugin)
-    "formatText"
-    -- TODO: should this be in the configs?
-    (dynToJSON $ toDynJSON $ FormatTextCmdParams t r (FormattingOptions 2 True))
-  return $ case result of
-    IdeResultOk e -> fromMaybe [edit] (fromDynJSON e)
-    _             -> [edit]
+  formatTextEdit :: PluginDescriptor -> J.TextEdit -> IdeGhcM [J.TextEdit]
+  formatTextEdit plugin edit@(J.TextEdit r t) = do
+    result <- runPluginCommand
+      (pluginId plugin)
+      "formatText"
+      -- TODO: should this be in the configs?
+      (dynToJSON $ toDynJSON $ FormatTextCmdParams t
+                                                   r
+                                                   (FormattingOptions 2 True)
+      )
+    return $ case result of
+      IdeResultOk e -> fromMaybe [edit] (fromDynJSON e)
+      _             -> [edit]
 
 codeActionProvider :: CodeActionProvider
 codeActionProvider plId docId _ context = do
