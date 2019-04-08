@@ -210,9 +210,20 @@ type HoverProvider = Uri -> Position -> IdeM (IdeResult [Hover])
 
 type SymbolProvider = Uri -> IdeDeferM (IdeResult [DocumentSymbol])
 
+-- | Format the document either as a whole or only a given Range of it.
 data FormattingType = FormatDocument
                     | FormatRange Range
-type FormattingProvider = Uri -> FormattingType -> FormattingOptions -> IdeDeferM (IdeResult [TextEdit])
+
+-- | Formats the given Uri with the given options.
+-- A formatting type can be given to either format the whole document or only a Range.
+-- Fails if the formatter can not parse the source.
+-- Failing menas here that a IdeResultFail is returned.
+-- This can be used to display errors to the user, unless the error is an Internal one.
+-- The record 'IdeError' and 'IdeErrorCode' can be used to determine the type of error.
+type FormattingProvider = Uri -- ^ Uri to the file to format. Can be mapped to a file with `pluginGetFile`
+        -> FormattingType  -- ^ How much to format
+        -> FormattingOptions -- ^ Options for the formatter
+        -> IdeDeferM (IdeResult [TextEdit]) -- ^ Result of the formatting or the unchanged text.
 
 data PluginDescriptor =
   PluginDescriptor { pluginId                 :: PluginId

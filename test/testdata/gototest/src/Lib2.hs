@@ -8,3 +8,6 @@ g = do
   where z = 1+2
         y = z+z
         x = y*z
+
+otherId :: DataType -> DataType
+otherId dataType = dataType

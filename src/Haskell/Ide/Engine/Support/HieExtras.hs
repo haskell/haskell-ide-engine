@@ -3,7 +3,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE TypeFamilies        #-}
-module Haskell.Ide.Engine.Plugin.HieExtras
+{-# LANGUAGE LambdaCase          #-}
+module Haskell.Ide.Engine.Support.HieExtras
   ( getDynFlags
   , WithSnippets(..)
   , getCompletions
@@ -12,6 +13,7 @@ module Haskell.Ide.Engine.Plugin.HieExtras
   , getReferencesInDoc
   , getModule
   , findDef
+  , findTypeDef
   , showName
   , safeTyThingId
   , PosPrefixInfo(..)
@@ -26,6 +28,7 @@ import           ConLike
 import           Control.Lens.Operators                       ( (^?), (?~) )
 import           Control.Lens.Prism                           ( _Just )
 import           Control.Monad.Reader
+import           Control.Monad.Except
 import           Data.Aeson
 import qualified Data.Aeson.Types                             as J
 import           Data.Char
@@ -37,6 +40,7 @@ import           Data.Monoid                                  ( (<>) )
 import qualified Data.Text                                    as T
 import           Data.Typeable
 import           DataCon
+import qualified DynFlags                                     as GHC
 import           Exception
 import           FastString
 import           Finder
@@ -50,7 +54,7 @@ import           Haskell.Ide.Engine.Context
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
-import qualified Haskell.Ide.Engine.Plugin.Fuzzy              as Fuzzy
+import qualified Haskell.Ide.Engine.Support.Fuzzy              as Fuzzy
 import           HscTypes
 import qualified Language.Haskell.LSP.Types                   as J
 import qualified Language.Haskell.LSP.Types.Lens              as J
@@ -59,7 +63,6 @@ import           Language.Haskell.Refact.Utils.MonadFunctions
 import           Name
 import           Outputable                                   (Outputable)
 import qualified Outputable                                   as GHC
-import qualified DynFlags                                     as GHC
 import           Packages
 import           SrcLoc
 import           TcEnv
@@ -471,6 +474,9 @@ getTypeForName n = do
 getSymbolsAtPoint :: Position -> CachedInfo -> [(Range,Name)]
 getSymbolsAtPoint pos info = maybe [] (`getArtifactsAtPos` locMap info) $ newPosToOld info pos
 
+-- |Get a symbol from the given location map at the given location.
+-- Retrieves the name and range of the symbol at the given location 
+-- from the cached location map.
 symbolFromTypecheckedModule
   :: LocMap
   -> Position
@@ -533,6 +539,51 @@ getModule df n = do
 
 -- ---------------------------------------------------------------------
 
+-- | Return the type definition of the symbol at the given position.
+-- Works for Datatypes, Newtypes and Type Definitions, as well as paremterized types.
+-- Type Definitions can only be looked up, if the corresponding type is defined in the project.
+-- Sum Types can also be searched.
+findTypeDef :: Uri -> Position -> IdeDeferM (IdeResult [Location])
+findTypeDef uri pos = pluginGetFile "findTypeDef: " uri $ \file ->
+  withCachedInfo
+    file
+    (IdeResultOk []) -- Default result
+    (\info -> do
+      let rfm    = revMap info
+          tmap   = typeMap info
+          oldPos = newPosToOld info pos
+
+          -- | Get SrcSpan of the name at the given position.
+          -- If the old position is Nothing, e.g. there is no cached info about it,
+          -- Nothing is returned.
+          -- 
+          -- Otherwise, searches for the Type of the given position 
+          -- and retrieves its SrcSpan.
+          getTypeSrcSpanFromPosition
+            :: Maybe Position -> ExceptT () IdeDeferM SrcSpan
+          getTypeSrcSpanFromPosition maybeOldPosition = do
+            oldPosition <- liftMaybe maybeOldPosition
+            let tmapRes = getArtifactsAtPos oldPosition tmap
+            case tmapRes of
+              [] -> throwError ()
+              a  -> do
+                -- take last type since this is always the most accurate one
+                tyCon <- liftMaybe $ tyConAppTyCon_maybe (snd $ last a)
+                case nameSrcSpan (getName tyCon) of
+                  UnhelpfulSpan _ -> throwError ()
+                  realSpan        -> return realSpan
+
+          liftMaybe :: Monad m => Maybe a -> ExceptT () m a
+          liftMaybe val = liftEither $ case val of
+            Nothing -> Left ()
+            Just s  -> Right s
+
+      runExceptT (getTypeSrcSpanFromPosition oldPos) >>= \case
+        Left () -> return $ IdeResultOk []
+        Right realSpan ->
+          lift $ srcSpanToFileLocation "hare:findTypeDef" rfm realSpan
+    )
+
 -- | Return the definition
 findDef :: Uri -> Position -> IdeDeferM (IdeResult [Location])
 findDef uri pos = pluginGetFile "findDef: " uri $ \file ->
@@ -549,46 +600,53 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file ->
         Just (_, n) ->
           case nameSrcSpan n of
             UnhelpfulSpan _ -> return $ IdeResultOk []
-            realSpan   -> do
-              res <- srcSpan2Loc rfm realSpan
-              case res of
-                Right l@(J.Location luri range) ->
-                  case uriToFilePath luri of
-                    Nothing -> return $ IdeResultOk [l]
-                    Just fp -> ifCachedModule fp (IdeResultOk [l]) $ \(_ :: ParsedModule) info' ->
-                      case oldRangeToNew info' range of
-                        Just r  -> return $ IdeResultOk [J.Location luri r]
-                        Nothing -> return $ IdeResultOk [l]
-                Left x -> do
-                  debugm "findDef: name srcspan not found/valid"
-                  pure (IdeResultFail
-                        (IdeError PluginError
-                                  ("hare:findDef" <> ": \"" <> x <> "\"")
-                                  Null)))
-  where
-    gotoModule :: (FilePath -> FilePath) -> ModuleName -> IdeDeferM (IdeResult [Location])
-    gotoModule rfm mn = do
+            realSpan   -> lift $ srcSpanToFileLocation "hare:findDef" rfm realSpan
+  )
 
-      hscEnvRef <- ghcSession <$> readMTS
-      mHscEnv <- liftIO $ traverse readIORef hscEnvRef
+-- | Resolve the given SrcSpan to a Location in a file.
+-- Takes the name of the invoking function for error display.
+--
+-- If the SrcSpan can not be resolved, an error will be returned.
+srcSpanToFileLocation :: T.Text -> (FilePath -> FilePath) -> SrcSpan -> IdeM (IdeResult [Location])
+srcSpanToFileLocation invoker rfm srcSpan = do
+  -- Since we found a real SrcSpan, try to map it to real files
+  res <- srcSpan2Loc rfm srcSpan
+  case res of
+    Right l@(J.Location luri range) ->
+      case uriToFilePath luri of
+        Nothing -> return $ IdeResultOk [l]
+        Just fp -> ifCachedModule fp (IdeResultOk [l]) $ \(_ :: ParsedModule) info' ->
+          case oldRangeToNew info' range of
+            Just r  -> return $ IdeResultOk [J.Location luri r]
+            Nothing -> return $ IdeResultOk [l]
+    Left x -> do
+      debugm (T.unpack invoker <> ": name srcspan not found/valid")
+      pure (IdeResultFail
+            (IdeError PluginError
+                      (invoker <> ": \"" <> x <> "\"")
+                      Null))
 
-      case mHscEnv of
-        Just env -> do
-          fr <- liftIO $ do
-            -- Flush cache or else we get temporary files
-            flushFinderCaches env
-            findImportedModule env mn Nothing
-          case fr of
-            Found (ModLocation (Just src) _ _) _ -> do
-              fp <- reverseMapFile rfm src
-
-              let r = Range (Position 0 0) (Position 0 0)
-                  loc = Location (filePathToUri fp) r
-              return (IdeResultOk [loc])
-            _ -> return (IdeResultOk [])
-        Nothing -> return $ IdeResultFail
-          (IdeError PluginError "Couldn't get hscEnv when finding import" Null)
-
+-- | Goto given module.
+gotoModule :: (FilePath -> FilePath) -> ModuleName -> IdeDeferM (IdeResult [Location])
+gotoModule rfm mn = do
+  hscEnvRef <- ghcSession <$> readMTS
+  mHscEnv <- liftIO $ traverse readIORef hscEnvRef
+  case mHscEnv of
+    Just env -> do
+      fr <- liftIO $ do
+        -- Flush cache or else we get temporary files
+        flushFinderCaches env
+        findImportedModule env mn Nothing
+      case fr of
+        Found (ModLocation (Just src) _ _) _ -> do
+          fp <- reverseMapFile rfm src
+          
+          let r = Range (Position 0 0) (Position 0 0)
+              loc = Location (filePathToUri fp) r
+          return (IdeResultOk [loc])
+        _ -> return (IdeResultOk [])
+    Nothing -> return $ IdeResultFail
+      (IdeError PluginError "Couldn't get hscEnv when finding import" Null)
 -- ---------------------------------------------------------------------
 
 data HarePoint =

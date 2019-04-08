@@ -28,7 +28,7 @@ import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
-import qualified Haskell.Ide.Engine.Plugin.HieExtras          as Hie
+import qualified Haskell.Ide.Engine.Support.HieExtras         as Hie
 import           Language.Haskell.GHC.ExactPrint.Print
 import qualified Language.Haskell.LSP.Core                    as Core
 import qualified Language.Haskell.LSP.Types                   as J

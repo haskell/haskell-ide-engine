@@ -25,7 +25,7 @@ import           GHC.Generics
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
-import qualified Haskell.Ide.Engine.Plugin.HieExtras as Hie
+--import qualified Haskell.Ide.Engine.Plugin.HieExtras as Hie
 import           Haskell.Ide.Engine.ArtifactMap
 import qualified Language.Haskell.LSP.Types        as LSP
 

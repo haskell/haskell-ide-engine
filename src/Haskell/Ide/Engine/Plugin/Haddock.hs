@@ -17,21 +17,21 @@ import           Data.IORef
 import Data.Function
 import Data.Maybe
 import Data.List
-import           System.Directory
-import           System.FilePath
 import           GHC
-import           GhcMonad
-import qualified GhcMod.Monad                                 as GM
 import qualified GhcMod.LightGhc                              as GM
-import           Haskell.Ide.Engine.MonadTypes
+import qualified GhcMod.Monad                                 as GM
+import           GhcMonad
 import           Haskell.Ide.Engine.MonadFunctions
-import           Haskell.Ide.Engine.Plugin.HieExtras
+import           Haskell.Ide.Engine.MonadTypes
 import qualified Haskell.Ide.Engine.Plugin.Hoogle             as Hoogle
 import           Haskell.Ide.Engine.PluginUtils
-import qualified Language.Haskell.LSP.Types as J
+import           Haskell.Ide.Engine.Support.HieExtras
 import           HscTypes
+import qualified Language.Haskell.LSP.Types as J
 import           Name
 import           Packages
+import           System.Directory
+import           System.FilePath
 
 
 import Documentation.Haddock

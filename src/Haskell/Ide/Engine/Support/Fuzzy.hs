@@ -4,7 +4,7 @@
 -- | Forked from: Text.Fuzzy (MIT)
 -- Original Author: Joomy Korkut, http://github.com/joom/fuzzy
 -- Uses 'TextualMonoid' to be able to run on different types of strings.
-module Haskell.Ide.Engine.Plugin.Fuzzy where
+module Haskell.Ide.Engine.Support.Fuzzy where
 
 import Prelude hiding (filter, null)
 
