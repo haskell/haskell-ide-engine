@@ -33,7 +33,7 @@ data Config =
 instance Default Config where
   def = Config
     { hlintOn                     = True
-    , diagnosticsOnChange         = False
+    , diagnosticsOnChange         = True
     , maxNumberOfProblems         = 100
     , diagnosticsDebounceDuration = 350000
     , liquidOn                    = False

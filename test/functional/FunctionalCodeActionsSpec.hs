@@ -20,16 +20,10 @@ import qualified Language.Haskell.LSP.Types.Capabilities as C
 import           Test.Hspec
 import           TestUtils
 
-runSessionWithOnChange :: String -> C.ClientCapabilities -> FilePath -> Session a -> IO a
-runSessionWithOnChange cmd caps name test = runSession cmd caps name $ do
-  let config = def { diagnosticsOnChange = True }
-  sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
-  test
-
 spec :: Spec
 spec = describe "code actions" $ do
   describe "hlint suggestions" $ do
-    it "provides 3.8 code actions" $ runSessionWithOnChange hieCommand fullCaps "test/testdata" $ do
+    it "provides 3.8 code actions" $ runSession hieCommand fullCaps "test/testdata" $ do
 
       doc <- openDoc "ApplyRefact2.hs" "haskell"
       diags@(reduceDiag:_) <- waitForDiagnostics
@@ -55,7 +49,7 @@ spec = describe "code actions" $ do
 
     -- ---------------------------------
 
-    it "falls back to pre 3.8 code actions" $ runSessionWithOnChange hieCommand noLiteralCaps "test/testdata" $ do
+    it "falls back to pre 3.8 code actions" $ runSession hieCommand noLiteralCaps "test/testdata" $ do
       doc <- openDoc "ApplyRefact2.hs" "haskell"
 
       _ <- waitForDiagnostics
