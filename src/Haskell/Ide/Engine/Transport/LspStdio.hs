@@ -965,6 +965,7 @@ hieOptions :: [T.Text] -> Core.Options
 hieOptions commandIds =
   def { Core.textDocumentSync       = Just syncOptions
       , Core.completionProvider     = Just (J.CompletionOptions (Just True) (Just ["."]))
+      , Core.typeDefinitionProvider = Just (J.GotoOptionsStatic True)
       -- As of 2018-05-24, vscode needs the commands to be registered
       -- otherwise they will not be available as codeActions (will be
       -- silently ignored, despite UI showing to the contrary).
