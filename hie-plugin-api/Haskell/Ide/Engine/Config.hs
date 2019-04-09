@@ -21,6 +21,7 @@ getConfigFromNotification (NotificationMessage _ _ (DidChangeConfigurationParams
 data Config =
   Config
     { hlintOn                     :: Bool
+    , diagnosticsOnChange         :: Bool
     , maxNumberOfProblems         :: Int
     , diagnosticsDebounceDuration :: Int
     , liquidOn                    :: Bool
@@ -32,6 +33,7 @@ data Config =
 instance Default Config where
   def = Config
     { hlintOn                     = True
+    , diagnosticsOnChange         = True
     , maxNumberOfProblems         = 100
     , diagnosticsDebounceDuration = 350000
     , liquidOn                    = False
@@ -46,6 +48,7 @@ instance FromJSON Config where
     s <- v .: "languageServerHaskell"
     flip (withObject "Config.settings") s $ \o -> Config
       <$> o .:? "hlintOn"                     .!= hlintOn def
+      <*> o .:? "diagnosticsOnChange"         .!= diagnosticsOnChange def
       <*> o .:? "maxNumberOfProblems"         .!= maxNumberOfProblems def
       <*> o .:? "diagnosticsDebounceDuration" .!= diagnosticsDebounceDuration def
       <*> o .:? "liquidOn"                    .!= liquidOn def
@@ -63,9 +66,10 @@ instance FromJSON Config where
 --                                                                                          ,("maxNumberOfProblems",Number 100.0)]))])}}
 
 instance ToJSON Config where
-  toJSON (Config h m d l c f fp) = object [ "languageServerHaskell" .= r ]
+  toJSON (Config h diag m d l c f fp) = object [ "languageServerHaskell" .= r ]
     where
       r = object [ "hlintOn"                     .= h
+                 , "diagnosticsOnChange"         .= diag
                  , "maxNumberOfProblems"         .= m
                  , "diagnosticsDebounceDuration" .= d
                  , "liquidOn"                    .= l

@@ -193,11 +193,8 @@ type ReactorInput
 
 -- ---------------------------------------------------------------------
 
-configVal :: c -> (Config -> c) -> R c
-configVal defVal field = do
-  gmc <- asksLspFuncs Core.config
-  mc <- liftIO gmc
-  return $ maybe defVal field mc
+configVal :: (Config -> c) -> R c
+configVal field = field <$> getClientConfig
 
 -- ---------------------------------------------------------------------
 
@@ -508,7 +505,11 @@ reactor inp diagIn = do
             -- Important - Call this before requestDiagnostics
             updatePositionMap uri changes
 
-          queueDiagnosticsRequest diagIn DiagnosticOnChange tn uri ver
+          -- By default we don't run diagnostics on each change, unless configured
+          -- by the clietn explicitly
+          shouldRunDiag <- configVal diagnosticsOnChange
+          when shouldRunDiag
+               (queueDiagnosticsRequest diagIn DiagnosticOnChange tn uri ver)
 
         -- -------------------------------
 
@@ -658,7 +659,7 @@ reactor inp diagIn = do
           case mprefix of
             Nothing -> callback []
             Just prefix -> do
-              snippets <- Hie.WithSnippets <$> configVal True completionSnippetsOn
+              snippets <- Hie.WithSnippets <$> configVal completionSnippetsOn
               let hreq = IReq tn (req ^. J.id) callback
                            $ lift $ Hie.getCompletions doc prefix snippets
               makeRequest hreq
@@ -786,8 +787,8 @@ reactor inp diagIn = do
         NotDidChangeConfiguration notif -> do
           liftIO $ U.logs $ "reactor:didChangeConfiguration notification:" ++ show notif
           -- if hlint has been turned off, flush the diagnostics
-          diagsOn              <- configVal True hlintOn
-          maxDiagnosticsToSend <- configVal 50 maxNumberOfProblems
+          diagsOn              <- configVal hlintOn
+          maxDiagnosticsToSend <- configVal maxNumberOfProblems
           liftIO $ U.logs $ "reactor:didChangeConfiguration diagsOn:" ++ show diagsOn
           -- If hlint is off, remove the diags. But make sure they get sent, in
           -- case maxDiagnosticsToSend has changed.
@@ -808,18 +809,17 @@ reactor inp diagIn = do
 getFormattingProvider :: R FormattingProvider
 getFormattingProvider = do
   providers <- asks formattingProviders
-  lf <- asks lspFuncs
-  mc <- liftIO $ Core.config lf
+  clientConfig <- getClientConfig
   -- LL: Is this overengineered? Do we need a pluginFormattingProvider
   -- or should we just call plugins straight from here based on the providerType?
-  let providerName = formattingProvider (fromMaybe def mc)
+  let providerName = formattingProvider clientConfig
       mProvider = Map.lookup providerName providers
   case mProvider of
     Nothing -> do
       unless (providerName == "none") $ do
         let msg = providerName <> " is not a recognised plugin for formatting. Check your config"
         reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
-        reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg    
+        reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg
       return (\_ _ _ -> return (IdeResultOk [])) -- nop formatter
     Just provider -> return provider
 
@@ -846,20 +846,20 @@ requestDiagnostics DiagnosticsRequest{trigger, file, trackingNumber, documentVer
 
   diagFuncs <- asks diagnosticSources
   lf <- asks lspFuncs
-  mc <- liftIO $ Core.config lf
+  clientConfig <- getClientConfig
   case Map.lookup trigger diagFuncs of
     Nothing -> do
       debugm $ "requestDiagnostics: no diagFunc for:" ++ show trigger
       return ()
     Just dss -> do
-      dpsEnabled <- configVal (Map.fromList [("liquid",False)]) getDiagnosticProvidersConfig
+      dpsEnabled <- configVal getDiagnosticProvidersConfig
       debugm $ "requestDiagnostics: got diagFunc for:" ++ show trigger
       forM_ dss $ \(pid,ds) -> do
         debugm $ "requestDiagnostics: calling diagFunc for plugin:" ++ show pid
         let
           enabled = Map.findWithDefault True pid dpsEnabled
           publishDiagnosticsIO = Core.publishDiagnosticsFunc lf
-          maxToSend = maybe 50 maxNumberOfProblems mc
+          maxToSend = maxNumberOfProblems clientConfig
           sendOne (fileUri,ds') = do
             debugm $ "LspStdio.sendone:(fileUri,ds')=" ++ show(fileUri,ds')
             publishDiagnosticsIO maxToSend fileUri Nothing (Map.fromList [(Just pid,SL.toSortedList ds')])
@@ -896,8 +896,7 @@ requestDiagnostics DiagnosticsRequest{trigger, file, trackingNumber, documentVer
 -- | get hlint and GHC diagnostics and loads the typechecked module into the cache
 requestDiagnosticsNormal :: TrackingNumber -> J.Uri -> J.TextDocumentVersion -> R ()
 requestDiagnosticsNormal tn file mVer = do
-  lf <- asks lspFuncs
-  mc <- liftIO $ Core.config lf
+  clientConfig <- getClientConfig
   let
     ver = fromMaybe 0 mVer
 
@@ -915,9 +914,9 @@ requestDiagnosticsNormal tn file mVer = do
     hasSeverity sev (J.Diagnostic _ (Just s) _ _ _ _) = s == sev
     hasSeverity _ _ = False
     sendEmpty = publishDiagnostics maxToSend file Nothing (Map.fromList [(Just "ghcmod",SL.toSortedList [])])
-    maxToSend = maybe 50 maxNumberOfProblems mc
+    maxToSend = maxNumberOfProblems clientConfig
 
-  let sendHlint = maybe True hlintOn mc
+  let sendHlint = hlintOn clientConfig
   when sendHlint $ do
     -- get hlint diagnostics
     let reql = GReq tn (Just file) (Just (file,ver)) Nothing callbackl
