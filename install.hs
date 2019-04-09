@@ -12,22 +12,31 @@ import           Development.Shake
 import           Development.Shake.Command
 import           Development.Shake.FilePath
 import           Control.Monad
+import           Control.Monad
 import           Control.Monad.IO.Class
-import           Control.Monad.Extra (unlessM, mapMaybeM)
-import           Data.Maybe (isJust)
-import           System.Directory               ( findExecutable )
-import           System.Environment             ( getProgName
-                                                , unsetEnv
-                                                )
-import           System.Info                    ( os
-                                                , arch
-                                                )
+import           Control.Monad.Extra                      ( unlessM
+                                                          , mapMaybeM
+                                                          )
+import           Data.Maybe                               ( isJust )
+import           System.Directory                         ( findExecutable )
+import           System.Environment                       ( getProgName
+                                                          , unsetEnv
+                                                          )
+import           System.Info                              ( os
+                                                          , arch
+                                                          )
 
-import           Data.List                      ( dropWhileEnd
-                                                , intersperse
-                                                , intercalate
-                                                )
-import           Data.Char                      ( isSpace )
+import           Data.Maybe                               ( isNothing )
+import           Data.List                                ( dropWhileEnd
+                                                          , intersperse
+                                                          , intercalate
+                                                          )
+import           Data.Char                                ( isSpace )
+import           Data.Version                             ( parseVersion
+                                                          , makeVersion
+                                                          )
+import           Data.Function                            ( (&) )
+import           Text.ParserCombinators.ReadP             ( readP_to_S )
 
 type VersionNumber = String
 type GhcPath = String
@@ -80,8 +89,8 @@ main = do
       liftIO $ putStrLn $ embedInStars msg
 
     -- stack specific targets
-    phony "build"      (need (reverse $ map ("hie-" ++) hieVersions))
-    phony "build-all"  (need ["build-doc", "build"])
+    phony "build"     (need (reverse $ map ("hie-" ++) hieVersions))
+    phony "build-all" (need ["build-doc", "build"])
     phony "test" $ do
       need ["submodules"]
       need ["cabal"]
@@ -90,8 +99,8 @@ main = do
     phony "build-copy-compiler-tool" $ forM_ hieVersions buildCopyCompilerTool
 
     phony "build-doc" $ do
-        need ["submodules"]
-        stackBuildDoc
+      need ["submodules"]
+      stackBuildDoc
 
     -- main targets for building hie with `stack`
     forM_
@@ -104,12 +113,12 @@ main = do
       )
 
     -- cabal specific targets
-    phony "cabal-build"      (need (map ("cabal-hie-" ++) ghcVersions))
-    phony "cabal-build-all"  (need ["cabal-build-doc", "cabal-build"])
+    phony "cabal-build"     (need (map ("cabal-hie-" ++) ghcVersions))
+    phony "cabal-build-all" (need ["cabal-build-doc", "cabal-build"])
     phony "cabal-build-doc" $ do
-        need ["submodules"]
-        need ["cabal"]
-        cabalBuildDoc
+      need ["submodules"]
+      need ["cabal"]
+      cabalBuildDoc
 
     phony "cabal-test" $ do
       need ["submodules"]
@@ -149,7 +158,7 @@ updateSubmodules = do
   command_ [] "git" ["submodule", "update", "--init", "--recursive"]
 
 validateCabalNewInstallIsSupported :: Action ()
-validateCabalNewInstallIsSupported = when (os `elem` ["mingw32", "win32"]) $ do
+validateCabalNewInstallIsSupported = when isWindowsSystem $ do
   liftIO $ putStrLn $ embedInStars cabalInstallNotSuported
   error cabalInstallNotSuported
 
@@ -165,10 +174,9 @@ configureCabal versionNumber = do
 
 findInstalledGhcs :: IO [(VersionNumber, GhcPath)]
 findInstalledGhcs = mapMaybeM
-  (\version -> do
-    getGhcPath version >>= \case
-      Nothing -> return Nothing
-      Just p  -> return $ Just (version, p)
+  (\version -> getGhcPath version >>= \case
+    Nothing -> return Nothing
+    Just p  -> return $ Just (version, p)
   )
   (reverse hieVersions)
 
@@ -204,8 +212,22 @@ cabalTest versionNumber = do
 
 installCabal :: Action ()
 installCabal = do
+  -- try to find existing `cabal` executable with appropriate version
+  cabalExe <- liftIO (findExecutable "cabal") >>= \case
+    Nothing       -> return Nothing
+    Just cabalExe -> do
+      Stdout cabalVersion <- execCabal ["--numeric-version"]
+      let (parsedVersion, "") : _ =
+            cabalVersion & trim & readP_to_S parseVersion & filter
+              (("" ==) . snd)
+
+      return $ if parsedVersion >= makeVersion [2, 4, 1, 0]
+        then Just cabalExe
+        else Nothing
+
+
   -- install `cabal-install` if not already installed
-  unlessM (existsExecutable "cabal") $ do
+  when (isNothing cabalExe) $
     execStack_ ["install", "--stack-yaml=shake.yaml", "cabal-install"]
   execCabal_ ["update"]
   ghc <- getStackGhcPath mostRecentHieVersion
@@ -298,14 +320,9 @@ helpMessage = do
   spaces = space targets
   -- All targets the shake file supports
   targets :: [(String, String)]
-  targets =
-    intercalate
-      [emptyTarget]
-      [ generalTargets
-      , stackTargets
-      , cabalTargets
-      , macosTargets
-      ]
+  targets = intercalate
+    [emptyTarget]
+    [generalTargets, stackTargets, cabalTargets, macosTargets]
 
   -- All targets with their respective help message.
   generalTargets =
@@ -327,7 +344,7 @@ helpMessage = do
       , stackBuildDocTarget
       , ("test", "Runs hie tests with stack")
       ]
-      ++ map stackHieTarget      hieVersions
+      ++ map stackHieTarget hieVersions
 
   cabalTargets =
     [ ( "cabal-ghcs"
@@ -338,7 +355,7 @@ helpMessage = do
       , cabalBuildDocTarget
       , ("cabal-test", "Runs hie tests with cabal")
       ]
-      ++ map cabalHieTarget      hieVersions
+      ++ map cabalHieTarget hieVersions
 
 -- | Empty target. Purpose is to introduce a newline between the targets
 emptyTarget :: (String, String)
@@ -370,10 +387,7 @@ cabalHieTarget version =
   )
 
 stackBuildDocTarget :: (String, String)
-stackBuildDocTarget =
-  ( "build-doc"
-  , "Builds the Hoogle database"
-  )
+stackBuildDocTarget = ("build-doc", "Builds the Hoogle database")
 
 stackBuildAllTarget :: (String, String)
 stackBuildAllTarget =
@@ -387,9 +401,7 @@ cabalBuildTarget =
 
 cabalBuildDocTarget :: (String, String)
 cabalBuildDocTarget =
-  ( "cabal-build-doc"
-  , "Builds the Hoogle database with cabal"
-  )
+  ("cabal-build-doc", "Builds the Hoogle database with cabal")
 
 cabalBuildAllTarget :: (String, String)
 cabalBuildAllTarget =
@@ -427,11 +439,18 @@ execStack = command [] "stack"
 execStack_ :: [String] -> Action ()
 execStack_ = command_ [] "stack"
 
+execCabal :: CmdResult r => [String] -> Action r
+execCabal = command [] "cabal"
+
 execCabal_ :: [String] -> Action ()
 execCabal_ = command_ [] "cabal"
 
 existsExecutable :: MonadIO m => String -> m Bool
 existsExecutable executable = liftIO $ isJust <$> findExecutable executable
+
+-- |Check if the current system is windows
+isWindowsSystem :: Bool
+isWindowsSystem = os `elem` ["mingw32", "win32"]
 
 -- |Get the path to the GHC compiler executable linked to the local `stack-$GHCVER.yaml`.
 -- Equal to the command `stack path --stack-yaml $stack-yaml --compiler-exe`.
