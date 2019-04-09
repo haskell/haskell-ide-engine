@@ -156,7 +156,7 @@ validateCabalNewInstallIsSupported = when (os `elem` ["mingw32", "win32"]) $ do
 configureCabal :: VersionNumber -> Action ()
 configureCabal versionNumber = do
   ghcPath <- getGhcPath versionNumber >>= \case
-    Nothing -> do -- TODO: this is better written using a monad-transformer
+    Nothing -> do
       liftIO $ putStrLn $ embedInStars (ghcVersionNotFound versionNumber)
       error (ghcVersionNotFound versionNumber)
     Just p -> return p
@@ -170,7 +170,7 @@ findInstalledGhcs = mapMaybeM
       Nothing -> return Nothing
       Just p  -> return $ Just (version, p)
   )
-  hieVersions
+  (reverse hieVersions)
 
 cabalBuildHie :: VersionNumber -> Action ()
 cabalBuildHie versionNumber = do
@@ -345,7 +345,7 @@ emptyTarget :: (String, String)
 emptyTarget = ("", "")
 
 -- |Number of spaces the target name including whitespace should have.
--- At least twenty, maybe more if target names are long and at least the length of the longest target plus five.
+-- At least twenty, maybe more if target names are long. At most the length of the longest target plus five.
 space :: [(String, String)] -> Int
 space phonyTargets = maximum (20 : map ((+ 5) . length . fst) phonyTargets)
 
