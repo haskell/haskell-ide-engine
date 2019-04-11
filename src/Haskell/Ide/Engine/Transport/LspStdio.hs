@@ -733,9 +733,10 @@ reactor inp diagIn = do
           provider <- getFormattingProvider
           let params = req ^. J.params
               doc = params ^. J.textDocument . J.uri
-              callback = reactorSend . RspDocumentFormatting . Core.makeResponseMessage req . J.List
-              hreq = IReq tn (req ^. J.id) callback $ provider doc FormatDocument (params ^. J.options)
-          makeRequest hreq
+          withDocumentContents (req ^. J.id) doc $ \text ->
+            let callback = reactorSend . RspDocumentFormatting . Core.makeResponseMessage req . J.List
+                hreq = IReq tn (req ^. J.id) callback $ lift $ provider text doc FormatDocument (params ^. J.options)
+              in makeRequest hreq
 
         -- -------------------------------
 
@@ -744,10 +745,11 @@ reactor inp diagIn = do
           provider <- getFormattingProvider
           let params = req ^. J.params
               doc = params ^. J.textDocument . J.uri
-              range = params ^. J.range
-              callback = reactorSend . RspDocumentRangeFormatting . Core.makeResponseMessage req . J.List
-              hreq = IReq tn (req ^. J.id) callback $ provider doc (FormatRange range) (params ^. J.options)
-          makeRequest hreq
+          withDocumentContents (req ^. J.id) doc $ \text ->
+            let range = params ^. J.range
+                callback = reactorSend . RspDocumentRangeFormatting . Core.makeResponseMessage req . J.List
+                hreq = IReq tn (req ^. J.id) callback $ lift $ provider text doc (FormatRange range) (params ^. J.options)
+              in makeRequest hreq
 
         -- -------------------------------
 
@@ -805,6 +807,19 @@ reactor inp diagIn = do
 
 -- ---------------------------------------------------------------------
 
+withDocumentContents :: J.LspId -> J.Uri -> (T.Text -> R ()) -> R ()
+withDocumentContents reqId uri f = do
+  vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
+  mvf <- liftIO $ vfsFunc uri
+  lf <- asks lspFuncs
+  case mvf of
+    Nothing -> liftIO $
+      Core.sendErrorResponseS (Core.sendFunc lf)
+        (J.responseId reqId)
+        J.InvalidRequest
+        "Document was not open"
+    Just (VFS.VirtualFile _ txt) -> f (Yi.toText txt)
+
 getFormattingProvider :: R FormattingProvider
 getFormattingProvider = do
   plugins <- asks idePlugins
@@ -821,7 +836,7 @@ getFormattingProvider = do
         let msg = providerName <> " is not a recognised plugin for formatting. Check your config"
         reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
         reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg    
-      return (\_ _ _ -> return (IdeResultOk [])) -- nop formatter
+      return (\_ _ _ _ -> return (IdeResultOk [])) -- nop formatter
     Just (_, provider) -> return provider
 
 -- ---------------------------------------------------------------------

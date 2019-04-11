@@ -7,7 +7,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -229,10 +228,11 @@ data FormattingType = FormatDocument
 -- Failing menas here that a IdeResultFail is returned.
 -- This can be used to display errors to the user, unless the error is an Internal one.
 -- The record 'IdeError' and 'IdeErrorCode' can be used to determine the type of error.
-type FormattingProvider = Uri -- ^ Uri to the file to format. Can be mapped to a file with `pluginGetFile`
+type FormattingProvider = T.Text -- ^ Text to format
+        -> Uri -- ^ Uri of the file being formatted
         -> FormattingType  -- ^ How much to format
         -> FormattingOptions -- ^ Options for the formatter
-        -> IdeDeferM (IdeResult [TextEdit]) -- ^ Result of the formatting or the unchanged text.
+        -> IdeM (IdeResult [TextEdit]) -- ^ Result of the formatting or the unchanged text.
 
 data PluginDescriptor =
   PluginDescriptor { pluginId                 :: PluginId
@@ -283,7 +283,7 @@ runPluginCommand p com arg = do
   case Map.lookup p m of
     Nothing -> return $
       IdeResultFail $ IdeError UnknownPlugin ("Plugin " <> p <> " doesn't exist") Null
-    Just (PluginDescriptor { pluginCommands = xs }) -> case List.find ((com ==) . commandName) xs of
+    Just PluginDescriptor { pluginCommands = xs } -> case List.find ((com ==) . commandName) xs of
       Nothing -> return $ IdeResultFail $
         IdeError UnknownCommand ("Command " <> com <> " isn't defined for plugin " <> p <> ". Legal commands are: " <> T.pack(show $ map commandName xs)) Null
       Just (PluginCommand _ _ (CmdSync f)) -> case fromJSON arg of
