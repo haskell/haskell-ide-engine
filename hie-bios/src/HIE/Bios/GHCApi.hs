@@ -131,7 +131,7 @@ initSession _build CompilerOptions {..} = do
       (disableOptimisation
       $ setIgnoreInterfacePragmas
       $ resetPackageDb
-      $ ignorePackageEnv
+--      $ ignorePackageEnv
       $ writeInterfaceFiles (Just fp)
       $ setVerbosity
       $ setLinkerOptions df'
