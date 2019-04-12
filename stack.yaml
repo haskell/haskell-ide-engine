@@ -18,6 +18,8 @@ extra-deps:
 - deque-0.2.7
 - ghc-exactprint-0.5.8.2
 - haddock-api-2.22.0
+- haskell-lsp-0.8.2.0
+- haskell-lsp-types-0.8.2.0
 - hlint-2.1.15
 - hsimport-0.8.8
 - lsp-test-0.5.1.0
