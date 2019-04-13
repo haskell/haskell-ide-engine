@@ -808,6 +808,13 @@ reactor inp diagIn = do
 
 -- ---------------------------------------------------------------------
 
+-- | Execute a function in the current request with an Uri.
+-- Reads the content of the file specified by the Uri and invokes 
+-- the function on it.
+--
+-- If the Uri can not be mapped to a real file, the function will 
+-- not be executed and an error message will be sent to the client.
+-- Error message is associated with the request id and, thus, identifiable.
 withDocumentContents :: J.LspId -> J.Uri -> (T.Text -> R ()) -> R ()
 withDocumentContents reqId uri f = do
   vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
@@ -821,15 +828,19 @@ withDocumentContents reqId uri f = do
         "Document was not open"
     Just (VFS.VirtualFile _ txt) -> f (Yi.toText txt)
 
+-- | Get the currently configured formatter provider.
+-- The currently configured formatter provider is defined in @Config@ by PluginId.
+-- 
+-- It is possible that formatter configured by the user is not present.
+-- In this case, a nop (No-Operation) formatter is returned and a message will 
+-- be sent to the user.
 getFormattingProvider :: R FormattingProvider
 getFormattingProvider = do
   plugins <- asks idePlugins
-  lf <- asks lspFuncs
-  mc <- liftIO $ Core.config lf
-  let config = fromMaybe def mc
-      -- LL: Is this overengineered? Do we need a pluginFormattingProvider
-      -- or should we just call plugins straight from here based on the providerType?
-      providerName = formattingProvider config
+  config <- getClientConfig
+  -- LL: Is this overengineered? Do we need a pluginFormattingProvider
+  -- or should we just call plugins straight from here based on the providerType?
+  let providerName = formattingProvider config
       mprovider = Hie.getFormattingPlugin config plugins
   case mprovider of
     Nothing -> do

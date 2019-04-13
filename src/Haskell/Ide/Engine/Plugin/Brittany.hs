@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveAnyClass    #-}
-{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.Engine.Plugin.Brittany where
 
@@ -11,7 +9,6 @@ import           Data.Coerce
 import           Data.Semigroup
 import           Data.Text                             (Text)
 import qualified Data.Text                             as T
-import           GHC.Generics
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           Language.Haskell.Brittany
@@ -20,15 +17,12 @@ import qualified Language.Haskell.LSP.Types.Lens       as J
 import           System.FilePath (FilePath, takeDirectory)
 import           Data.Maybe (maybeToList)
 
-data FormatParams = FormatParams Int Uri (Maybe Range)
-     deriving (Eq, Show, Generic, FromJSON, ToJSON)
-
 brittanyDescriptor :: PluginId -> PluginDescriptor
 brittanyDescriptor plId = PluginDescriptor
   { pluginId                 = plId
   , pluginName               = "Brittany"
   , pluginDesc               = "Brittany is a tool to format source code."
-  , pluginCommands           = [ ]
+  , pluginCommands           = []
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider      = Nothing

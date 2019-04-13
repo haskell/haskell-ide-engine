@@ -74,7 +74,6 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , PublishDiagnosticsParams(..)
   , List(..)
   , FormattingOptions(..)
-  , FormatTextCmdParams(..)
   )
 where
 
@@ -208,24 +207,21 @@ type HoverProvider = Uri -> Position -> IdeM (IdeResult [Hover])
 
 type SymbolProvider = Uri -> IdeDeferM (IdeResult [DocumentSymbol])
 
--- | Format Paramaters for Cmd. 
--- Can be used to send messages to formatters
-data FormatTextCmdParams = FormatTextCmdParams
-  { fmtText ::  T.Text -- ^ Text to format
-  , fmtResultRange :: Range -- ^ Range where the text will be inserted.
-  , fmtTextOptions :: FormattingOptions -- ^ Options for the formatter
-  }
-  deriving (Eq, Show, Generic, FromJSON, ToJSON)
-
-
 -- | Format the document either as a whole or only a given Range of it.
 data FormattingType = FormatDocument
                     | FormatRange Range
 
--- | Formats the given Uri with the given options.
+-- | Formats the given Text associated with the given Uri.
+-- Should, but might not, honor the provided formatting options (e.g. Floskell does not).
 -- A formatting type can be given to either format the whole document or only a Range.
+-- 
+-- Text to format, may or may not, originate from the associated Uri. 
+-- E.g. it is ok, to modify the text and then reformat it through this API.
+--
+-- The Uri is mainly used to discover formatting configurations in the file's path.
+--
 -- Fails if the formatter can not parse the source.
--- Failing menas here that a IdeResultFail is returned.
+-- Failing means here that a IdeResultFail is returned.
 -- This can be used to display errors to the user, unless the error is an Internal one.
 -- The record 'IdeError' and 'IdeErrorCode' can be used to determine the type of error.
 type FormattingProvider = T.Text -- ^ Text to format
