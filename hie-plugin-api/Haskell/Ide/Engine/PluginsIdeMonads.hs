@@ -7,7 +7,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -75,6 +74,7 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , PublishDiagnosticsParams(..)
   , List(..)
   , FormattingOptions(..)
+  , FormatTextCmdParams(..)
   )
 where
 
@@ -208,6 +208,16 @@ type HoverProvider = Uri -> Position -> IdeM (IdeResult [Hover])
 
 type SymbolProvider = Uri -> IdeDeferM (IdeResult [DocumentSymbol])
 
+-- | Format Paramaters for Cmd. 
+-- Can be used to send messages to formatters
+data FormatTextCmdParams = FormatTextCmdParams
+  { fmtText ::  T.Text -- ^ Text to format
+  , fmtResultRange :: Range -- ^ Range where the text will be inserted.
+  , fmtTextOptions :: FormattingOptions -- ^ Options for the formatter
+  }
+  deriving (Eq, Show, Generic, FromJSON, ToJSON)
+
+
 -- | Format the document either as a whole or only a given Range of it.
 data FormattingType = FormatDocument
                     | FormatRange Range
@@ -218,10 +228,11 @@ data FormattingType = FormatDocument
 -- Failing menas here that a IdeResultFail is returned.
 -- This can be used to display errors to the user, unless the error is an Internal one.
 -- The record 'IdeError' and 'IdeErrorCode' can be used to determine the type of error.
-type FormattingProvider = Uri -- ^ Uri to the file to format. Can be mapped to a file with `pluginGetFile`
+type FormattingProvider = T.Text -- ^ Text to format
+        -> Uri -- ^ Uri of the file being formatted
         -> FormattingType  -- ^ How much to format
         -> FormattingOptions -- ^ Options for the formatter
-        -> IdeDeferM (IdeResult [TextEdit]) -- ^ Result of the formatting or the unchanged text.
+        -> IdeM (IdeResult [TextEdit]) -- ^ Result of the formatting or the unchanged text.
 
 data PluginDescriptor =
   PluginDescriptor { pluginId                 :: PluginId
@@ -272,7 +283,7 @@ runPluginCommand p com arg = do
   case Map.lookup p m of
     Nothing -> return $
       IdeResultFail $ IdeError UnknownPlugin ("Plugin " <> p <> " doesn't exist") Null
-    Just (PluginDescriptor { pluginCommands = xs }) -> case List.find ((com ==) . commandName) xs of
+    Just PluginDescriptor { pluginCommands = xs } -> case List.find ((com ==) . commandName) xs of
       Nothing -> return $ IdeResultFail $
         IdeError UnknownCommand ("Command " <> com <> " isn't defined for plugin " <> p <> ". Legal commands are: " <> T.pack(show $ map commandName xs)) Null
       Just (PluginCommand _ _ (CmdSync f)) -> case fromJSON arg of

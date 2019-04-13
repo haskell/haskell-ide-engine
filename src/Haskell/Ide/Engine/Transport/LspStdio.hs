@@ -122,7 +122,7 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
 
   let dp lf = do
         diagIn      <- atomically newTChan
-        let react = runReactor lf scheduler diagnosticProviders hps sps fps
+        let react = runReactor lf scheduler diagnosticProviders hps sps fps plugins
             reactorFunc = react $ reactor rin diagIn
 
         let errorHandler :: Scheduler.ErrorHandler
@@ -734,9 +734,10 @@ reactor inp diagIn = do
           provider <- getFormattingProvider
           let params = req ^. J.params
               doc = params ^. J.textDocument . J.uri
-              callback = reactorSend . RspDocumentFormatting . Core.makeResponseMessage req . J.List
-              hreq = IReq tn (req ^. J.id) callback $ provider doc FormatDocument (params ^. J.options)
-          makeRequest hreq
+          withDocumentContents (req ^. J.id) doc $ \text ->
+            let callback = reactorSend . RspDocumentFormatting . Core.makeResponseMessage req . J.List
+                hreq = IReq tn (req ^. J.id) callback $ lift $ provider text doc FormatDocument (params ^. J.options)
+              in makeRequest hreq
 
         -- -------------------------------
 
@@ -745,10 +746,11 @@ reactor inp diagIn = do
           provider <- getFormattingProvider
           let params = req ^. J.params
               doc = params ^. J.textDocument . J.uri
-              range = params ^. J.range
-              callback = reactorSend . RspDocumentRangeFormatting . Core.makeResponseMessage req . J.List
-              hreq = IReq tn (req ^. J.id) callback $ provider doc (FormatRange range) (params ^. J.options)
-          makeRequest hreq
+          withDocumentContents (req ^. J.id) doc $ \text ->
+            let range = params ^. J.range
+                callback = reactorSend . RspDocumentRangeFormatting . Core.makeResponseMessage req . J.List
+                hreq = IReq tn (req ^. J.id) callback $ lift $ provider text doc (FormatRange range) (params ^. J.options)
+              in makeRequest hreq
 
         -- -------------------------------
 
@@ -806,22 +808,37 @@ reactor inp diagIn = do
 
 -- ---------------------------------------------------------------------
 
+withDocumentContents :: J.LspId -> J.Uri -> (T.Text -> R ()) -> R ()
+withDocumentContents reqId uri f = do
+  vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
+  mvf <- liftIO $ vfsFunc uri
+  lf <- asks lspFuncs
+  case mvf of
+    Nothing -> liftIO $
+      Core.sendErrorResponseS (Core.sendFunc lf)
+        (J.responseId reqId)
+        J.InvalidRequest
+        "Document was not open"
+    Just (VFS.VirtualFile _ txt) -> f (Yi.toText txt)
+
 getFormattingProvider :: R FormattingProvider
 getFormattingProvider = do
-  providers <- asks formattingProviders
-  clientConfig <- getClientConfig
-  -- LL: Is this overengineered? Do we need a pluginFormattingProvider
-  -- or should we just call plugins straight from here based on the providerType?
-  let providerName = formattingProvider clientConfig
-      mProvider = Map.lookup providerName providers
-  case mProvider of
+  plugins <- asks idePlugins
+  lf <- asks lspFuncs
+  mc <- liftIO $ Core.config lf
+  let config = fromMaybe def mc
+      -- LL: Is this overengineered? Do we need a pluginFormattingProvider
+      -- or should we just call plugins straight from here based on the providerType?
+      providerName = formattingProvider config
+      mprovider = Hie.getFormattingPlugin config plugins
+  case mprovider of
     Nothing -> do
       unless (providerName == "none") $ do
         let msg = providerName <> " is not a recognised plugin for formatting. Check your config"
         reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
-        reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg
-      return (\_ _ _ -> return (IdeResultOk [])) -- nop formatter
-    Just provider -> return provider
+        reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg    
+      return (\_ _ _ _ -> return (IdeResultOk [])) -- nop formatter
+    Just (_, provider) -> return provider
 
 -- ---------------------------------------------------------------------
 

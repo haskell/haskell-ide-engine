@@ -22,6 +22,7 @@ module Haskell.Ide.Engine.Support.HieExtras
   , runGhcModCommand
   , splitCaseCmd'
   , splitCaseCmd
+  , getFormattingPlugin
   ) where
 
 import           ConLike
@@ -55,6 +56,7 @@ import qualified GhcMod.Gap                                   as GM
 import qualified GhcMod.LightGhc                              as GM
 import qualified GhcMod.Utils                                 as GM
 import           Haskell.Ide.Engine.ArtifactMap
+import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.Context
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
@@ -799,3 +801,12 @@ prefixes =
   , "$c"
   , "$m"
   ]
+
+-- ---------------------------------------------------------------------
+
+getFormattingPlugin :: Config -> IdePlugins -> Maybe (PluginDescriptor, FormattingProvider)
+getFormattingPlugin config plugins = do 
+  let providerName = formattingProvider config
+  fmtPlugin <- Map.lookup providerName (ipMap plugins)
+  fmtProvider <- pluginFormattingProvider fmtPlugin
+  return (fmtPlugin, fmtProvider)
