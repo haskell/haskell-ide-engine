@@ -161,6 +161,7 @@ updateSubmodules = do
   command_ [] "git" ["submodule", "sync", "--recursive"]
   command_ [] "git" ["submodule", "update", "--init", "--recursive"]
 
+-- TODO: this restriction will be gone in the next release of cabal
 validateCabalNewInstallIsSupported :: Action ()
 validateCabalNewInstallIsSupported = when isWindowsSystem $ do
   liftIO $ putStrLn $ embedInStars cabalInstallNotSuportedFailMsg
