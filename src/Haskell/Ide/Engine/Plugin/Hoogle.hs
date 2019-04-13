@@ -65,6 +65,8 @@ instance ExtensionClass HoogleDb where
 -- 
 -- If no hoogle database has been found, Nothing is returned
 -- and we will have no access to the hoogle database.
+-- However, it is still safe to use the hoogle API, 
+-- e.g. either error or default values are returned.
 initializeHoogleDb :: IdeGhcM (Maybe FilePath)
 initializeHoogleDb = do
   explicitDbLocation <- liftIO $ lookupEnv "HIE_HOOGLE_DATABASE"
@@ -138,16 +140,16 @@ renderTarget t = T.intercalate "\n\n" $
 -- | Search for modules that satisfy the given search text.
 -- Will return at most five, unique results.
 --
--- If an error happens, such as no has been hoogle database found,
--- an empty list will be returned.
+-- If an error occurs, such as no hoogle database has been found,
+-- or the search term has no match, an empty list will be returned.
 searchModules :: T.Text -> IdeM [T.Text]
 searchModules = fmap (nub . take 5) . searchTargets (fmap (T.pack . fst) . targetModule)
 
 -- | Search for packages that satisfy the given search text.
 -- Will return at most five, unique results.
 --
--- If an error happens, such as no has been hoogle database found,
--- an empty list will be returned.
+-- If an error occurs, such as no hoogle database has been found,
+-- or the search term has no match, an empty list will be returned.
 searchPackages :: T.Text -> IdeM [T.Text]
 searchPackages = fmap (nub . take 5) . searchTargets (fmap (T.pack . fst) . targetPackage)
 
@@ -157,8 +159,8 @@ searchPackages = fmap (nub . take 5) . searchTargets (fmap (T.pack . fst) . targ
 -- although there are matches, if none of the first ten matches
 -- satisfies the predicate.
 --
--- If an error happens, such as no hoogle database found, 
--- an empty list will be returned.
+-- If an error occurs, such as no hoogle database has been found,
+-- or the search term has no match, an empty list will be returned.
 searchTargets :: (Target -> Maybe a) -> T.Text -> IdeM [a]
 searchTargets f term = do
   HoogleDb mdb <- get
