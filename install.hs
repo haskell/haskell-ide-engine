@@ -1,7 +1,7 @@
 #!/usr/bin/env stack
 {- stack
-  script
-  --resolver nightly-2018-12-15
+  runghc
+  --stack-yaml=shake.yaml
   --package shake
   --package directory
   --package extra
@@ -147,7 +147,7 @@ main = do
 
 
 buildIcuMacosFix :: VersionNumber -> Action ()
-buildIcuMacosFix version = execStackWithYaml_
+buildIcuMacosFix version = execStackWithGhc_
   version
   [ "build"
   , "text-icu"
@@ -163,15 +163,15 @@ updateSubmodules = do
 
 validateCabalNewInstallIsSupported :: Action ()
 validateCabalNewInstallIsSupported = when isWindowsSystem $ do
-  liftIO $ putStrLn $ embedInStars cabalInstallNotSuported
-  error cabalInstallNotSuported
+  liftIO $ putStrLn $ embedInStars cabalInstallNotSuportedFailMsg
+  error cabalInstallNotSuportedFailMsg
 
 configureCabal :: VersionNumber -> Action ()
 configureCabal versionNumber = do
   ghcPath <- getGhcPath versionNumber >>= \case
     Nothing -> do
-      liftIO $ putStrLn $ embedInStars (ghcVersionNotFound versionNumber)
-      error (ghcVersionNotFound versionNumber)
+      liftIO $ putStrLn $ embedInStars (ghcVersionNotFoundFailMsg versionNumber)
+      error (ghcVersionNotFoundFailMsg versionNumber)
     Just p -> return p
   execCabal_
     ["new-configure", "-w", ghcPath, "--write-ghc-environment-files=never"]
@@ -230,7 +230,7 @@ installCabal = do
         else Nothing
   -- install `cabal-install` if not already installed
   when (isNothing cabalExe) $
-    execStack_ ["install", "--stack-yaml=shake.yaml", "cabal-install"]
+    execStackShake_ ["install", "cabal-install"]
   execCabal_ ["update"]
   ghc <- getStackGhcPathShake
   execCabal_ ["install", "Cabal-2.4.1.0", "--with-compiler=" ++ ghc]
@@ -238,24 +238,24 @@ installCabal = do
 
 checkStack :: Action ()
 checkStack = do
-  Stdout stackVersion <- execStack ["--numeric-version"]
+  Stdout stackVersion <- execStackShake ["--numeric-version"]
   let (parsedVersion, "") : _ =
         stackVersion & trim & readP_to_S parseVersion & filter
           (("" ==) . snd)
   unless (parsedVersion >= makeVersion [1, 9, 3]) $ do
-    liftIO $ putStrLn $ embedInStars stackExeIsOld
-    error stackExeIsOld
+    liftIO $ putStrLn $ embedInStars stackExeIsOldFailMsg
+    error stackExeIsOldFailMsg
 
 
 stackBuildHie :: VersionNumber -> Action ()
 stackBuildHie versionNumber =
-  execStackWithYaml_ versionNumber ["build"]
+  execStackWithGhc_ versionNumber ["build"]
     `actionOnException` liftIO (putStrLn stackBuildFailMsg)
 
 -- | copy the built binaries into the localBinDir
 stackInstallHie :: VersionNumber -> Action ()
 stackInstallHie versionNumber = do
-  execStackWithYaml_ versionNumber ["install"]
+  execStackWithGhc_ versionNumber ["install"]
   localBinDir      <- getLocalBin
   localInstallRoot <- getLocalInstallRoot versionNumber
   let hie = "hie" <.> exe
@@ -266,15 +266,15 @@ stackInstallHie versionNumber = do
 
 buildCopyCompilerTool :: VersionNumber -> Action ()
 buildCopyCompilerTool versionNumber =
-  execStackWithYaml_ versionNumber ["build", "--copy-compiler-tool"]
+  execStackWithGhc_ versionNumber ["build", "--copy-compiler-tool"]
 
 stackTest :: VersionNumber -> Action ()
-stackTest versionNumber = execStackWithYaml_ versionNumber ["test"]
+stackTest versionNumber = execStackWithGhc_ versionNumber ["test"]
 
 stackBuildDoc :: Action ()
 stackBuildDoc = do
-  execStack_ ["--stack-yaml=shake.yaml", "build", "hoogle"]
-  execStack_ ["--stack-yaml=shake.yaml", "exec", "hoogle", "generate"]
+  execStackShake_ ["build", "hoogle"]
+  execStackShake_ ["exec", "hoogle", "generate"]
 
 -- | short help message is printed by default
 shortHelpMessage :: Action ()
@@ -435,32 +435,42 @@ allVersionMessage wordList = case wordList of
     in  concat $ (init $ init msg) ++ [" and ", lastVersion]
 
 
--- TODO: more sophisticated interface to stack and cabal
+-- RUN EXECUTABLES
 
-execStackWithYaml_ :: VersionNumber -> [String] -> Action ()
-execStackWithYaml_ versionNumber args = do
+-- |Execute a stack command for a specified ghc, discarding the output
+execStackWithGhc_ :: VersionNumber -> [String] -> Action ()
+execStackWithGhc_ versionNumber args = do
   let stackFile = "stack-" ++ versionNumber ++ ".yaml"
   command_ [] "stack" (("--stack-yaml=" ++ stackFile) : args)
 
-execStackWithYaml :: CmdResult r => VersionNumber -> [String] -> Action r
-execStackWithYaml versionNumber args = do
+-- |Execute a stack command for a specified ghc
+execStackWithGhc :: CmdResult r => VersionNumber -> [String] -> Action r
+execStackWithGhc versionNumber args = do
   let stackFile = "stack-" ++ versionNumber ++ ".yaml"
   command [] "stack" (("--stack-yaml=" ++ stackFile) : args)
 
-execStack :: CmdResult r => [String] -> Action r
-execStack = command [] "stack"
+-- |Execute a stack command with the same resolver as the build script
+execStackShake :: CmdResult r => [String] -> Action r
+execStackShake args =
+  command [] "stack" ("--stack-yaml=shake.yaml" : args)
 
-execStack_ :: [String] -> Action ()
-execStack_ = command_ [] "stack"
+-- |Execute a stack command with the same resolver as the build script, discarding the output
+execStackShake_ :: [String] -> Action ()
+execStackShake_ args =
+  command_ [] "stack" ("--stack-yaml=shake.yaml" : args)
 
 execCabal :: CmdResult r => [String] -> Action r
-execCabal = command [] "cabal"
+execCabal =
+  command [] "cabal"
 
 execCabal_ :: [String] -> Action ()
 execCabal_ = command_ [] "cabal"
 
 existsExecutable :: MonadIO m => String -> m Bool
 existsExecutable executable = liftIO $ isJust <$> findExecutable executable
+
+
+-- QUERY ENVIRONMENT
 
 -- |Check if the current system is windows
 isWindowsSystem :: Bool
@@ -471,12 +481,12 @@ isWindowsSystem = os `elem` ["mingw32", "win32"]
 -- This might install a GHC if it is not already installed, thus, might fail if stack fails to install the GHC.
 getStackGhcPath :: VersionNumber -> Action GhcPath
 getStackGhcPath ghcVersion = do
-  Stdout ghc <- execStackWithYaml ghcVersion ["path", "--compiler-exe"]
+  Stdout ghc <- execStackWithGhc ghcVersion ["path", "--compiler-exe"]
   return $ trim ghc
 
 getStackGhcPathShake :: Action GhcPath
 getStackGhcPathShake = do
-  Stdout ghc <- execStack ["--stack-yaml=shake.yaml", "path", "--compiler-exe"]
+  Stdout ghc <- execStackShake ["path", "--compiler-exe"]
   return $ trim ghc
 
 -- |Get the path to a GHC that has the version specified by `VersionNumber`
@@ -485,7 +495,7 @@ getStackGhcPathShake = do
 -- If this yields no result, it is checked, whether the numeric-version of the `ghc`
 -- command fits to the desired version.
 getGhcPath :: MonadIO m => VersionNumber -> m (Maybe GhcPath)
-getGhcPath ghcVersion = liftIO $ do
+getGhcPath ghcVersion = liftIO $
   findExecutable ("ghc-" ++ ghcVersion) >>= \case
     Nothing -> do
       findExecutable "ghc" >>= \case
@@ -500,7 +510,7 @@ getGhcPath ghcVersion = liftIO $ do
 -- Equal to the command `stack path --local-install-root`
 getLocalInstallRoot :: VersionNumber -> Action FilePath
 getLocalInstallRoot hieVersion = do
-  Stdout localInstallRoot' <- execStackWithYaml
+  Stdout localInstallRoot' <- execStackWithGhc
     hieVersion
     ["path", "--local-install-root"]
   return $ trim localInstallRoot'
@@ -509,8 +519,8 @@ getLocalInstallRoot hieVersion = do
 -- Equal to the command `stack path --local-bin`
 getLocalBin :: Action FilePath
 getLocalBin = do
-  Stdout stackLocalDir' <- execStack
-    ["path", "--stack-yaml=shake.yaml", "--local-bin"]
+  Stdout stackLocalDir' <- execStackShake
+    ["path", "--local-bin"]
   return $ trim stackLocalDir'
 
 -- |Trim the end of a string
@@ -534,23 +544,23 @@ stackBuildFailMsg =
     ++ "\thttps://github.com/haskell/haskell-ide-engine"
 
 -- |No suitable ghc version has been found. Show a message.
-ghcVersionNotFound :: VersionNumber -> String
-ghcVersionNotFound versionNumber =
+ghcVersionNotFoundFailMsg :: VersionNumber -> String
+ghcVersionNotFoundFailMsg versionNumber =
   "No GHC with version "
     <> versionNumber
     <> " has been found.\n"
     <> "Either install a fitting GHC, use the stack targets or modify the PATH variable accordingly."
 
 -- | Error message when a windows system tries to install HIE via `cabal new-install`
-cabalInstallNotSuported :: String
-cabalInstallNotSuported =
+cabalInstallNotSuportedFailMsg :: String
+cabalInstallNotSuportedFailMsg =
   "This system has been identified as a windows system.\n"
     ++ "Unfortunately, `cabal new-install` is currently not supported on windows.\n"
     ++ "Please use one of the stack-based targets.\n\n"
     ++ "If this system has been falsely identified, please open an issue at:\n\thttps://github.com/haskell/haskell-ide-engine\n"
 
 -- | Error message when a windows system tries to install HIE via `cabal new-install`
-stackExeIsOld :: String
-stackExeIsOld =
-  "You The `stack` executable is outdated.\n"
-    ++ "Please run `stack upgrade` to upgrade you stack installation"
+stackExeIsOldFailMsg :: String
+stackExeIsOldFailMsg =
+  "The `stack` executable is outdated.\n"
+    ++ "Please run `stack upgrade` to upgrade your stack installation"
