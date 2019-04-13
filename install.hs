@@ -232,7 +232,7 @@ installCabal = do
   when (isNothing cabalExe) $
     execStack_ ["install", "--stack-yaml=shake.yaml", "cabal-install"]
   execCabal_ ["update"]
-  ghc <- getStackGhcPath mostRecentHieVersion
+  ghc <- getStackGhcPathShake
   execCabal_ ["install", "Cabal-2.4.1.0", "--with-compiler=" ++ ghc]
 
 
@@ -472,6 +472,11 @@ isWindowsSystem = os `elem` ["mingw32", "win32"]
 getStackGhcPath :: VersionNumber -> Action GhcPath
 getStackGhcPath ghcVersion = do
   Stdout ghc <- execStackWithYaml ghcVersion ["path", "--compiler-exe"]
+  return $ trim ghc
+
+getStackGhcPathShake :: Action GhcPath
+getStackGhcPathShake = do
+  Stdout ghc <- execStack ["--stack-yaml=shake.yaml", "path", "--compiler-exe"]
   return $ trim ghc
 
 -- |Get the path to a GHC that has the version specified by `VersionNumber`
