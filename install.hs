@@ -72,11 +72,12 @@ main = do
   shakeArgs shakeOptions { shakeFiles = "_build" } $ do
     want ["short-help"]
     -- general purpose targets
-    phony "submodules" updateSubmodules
-    phony "cabal"      installCabal
-    phony "short-help" shortHelpMessage
-    phony "all"        shortHelpMessage
-    phony "help"       helpMessage
+    phony "submodules"  updateSubmodules
+    phony "cabal"       installCabal
+    phony "short-help"  shortHelpMessage
+    phony "all"         shortHelpMessage
+    phony "help"        helpMessage
+    phony "check-stack" checkStack
 
     phony "cabal-ghcs" $ do
       let
@@ -93,6 +94,7 @@ main = do
     phony "build-all" (need ["build-doc", "build"])
     phony "test" $ do
       need ["submodules"]
+      need ["check-stack"]
       need ["cabal"]
       forM_ hieVersions stackTest
 
@@ -100,6 +102,7 @@ main = do
 
     phony "build-doc" $ do
       need ["submodules"]
+      need ["check-stack"]
       stackBuildDoc
 
     -- main targets for building hie with `stack`
@@ -107,6 +110,7 @@ main = do
       hieVersions
       (\version -> phony ("hie-" ++ version) $ do
         need ["submodules"]
+        need ["check-stack"]
         need ["cabal"]
         stackBuildHie version
         stackInstallHie version
@@ -224,8 +228,6 @@ installCabal = do
       return $ if parsedVersion >= makeVersion [2, 4, 1, 0]
         then Just cabalExe
         else Nothing
-
-
   -- install `cabal-install` if not already installed
   when (isNothing cabalExe) $
     execStack_ ["install", "--stack-yaml=shake.yaml", "cabal-install"]
@@ -233,8 +235,20 @@ installCabal = do
   ghc <- getStackGhcPath mostRecentHieVersion
   execCabal_ ["install", "Cabal-2.4.1.0", "--with-compiler=" ++ ghc]
 
+
+checkStack :: Action ()
+checkStack = do
+  Stdout stackVersion <- execStack ["--numeric-version"]
+  let (parsedVersion, "") : _ =
+        stackVersion & trim & readP_to_S parseVersion & filter
+          (("" ==) . snd)
+  unless (parsedVersion >= makeVersion [1, 9, 3]) $ do
+    liftIO $ putStrLn $ embedInStars stackExeIsOld
+    error stackExeIsOld
+
+
 stackBuildHie :: VersionNumber -> Action ()
-stackBuildHie versionNumber = do
+stackBuildHie versionNumber =
   execStackWithYaml_ versionNumber ["build"]
     `actionOnException` liftIO (putStrLn stackBuildFailMsg)
 
@@ -529,3 +543,9 @@ cabalInstallNotSuported =
     ++ "Unfortunately, `cabal new-install` is currently not supported on windows.\n"
     ++ "Please use one of the stack-based targets.\n\n"
     ++ "If this system has been falsely identified, please open an issue at:\n\thttps://github.com/haskell/haskell-ide-engine\n"
+
+-- | Error message when a windows system tries to install HIE via `cabal new-install`
+stackExeIsOld :: String
+stackExeIsOld =
+  "You The `stack` executable is outdated.\n"
+    ++ "Please run `stack upgrade` to upgrade you stack installation"
