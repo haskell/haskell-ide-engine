@@ -1,5 +1,5 @@
 name:                hie-plugin-api
-version:             0.6.0.0
+version:             0.8.0.0
 synopsis:            Haskell IDE API for plugin communication
 license:             BSD3
 license-file:        LICENSE
@@ -27,8 +27,9 @@ library
                        Haskell.Ide.Engine.MonadFunctions
                        Haskell.Ide.Engine.MonadTypes
                        Haskell.Ide.Engine.MultiThreadState
-                       Haskell.Ide.Engine.PluginsIdeMonads
+                       Haskell.Ide.Engine.PluginApi
                        Haskell.Ide.Engine.PluginUtils
+                       Haskell.Ide.Engine.PluginsIdeMonads
   build-depends:       base >= 4.9 && < 5
                      , Diff
                      , aeson
