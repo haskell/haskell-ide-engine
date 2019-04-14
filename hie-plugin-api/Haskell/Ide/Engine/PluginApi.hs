@@ -17,7 +17,21 @@ module Haskell.Ide.Engine.PluginApi
   , GM.GmComponent(..)
   , GM.GmComponentType(..)
   , GM.cabalResolvedComponents
+
+  -- * IDE monads
+  , HIE.IdeState(..)
+  , HIE.IdeGhcM
+  , HIE.runIdeGhcM
+  , HIE.IdeM
+  , HIE.runIdeM
+  , HIE.IdeDeferM
+  , HIE.MonadIde(..)
+  , HIE.iterT
+  , HIE.LiftsToGhc(..)
+
+
   -- probably remove the next ones
+
   , GM.IOish
   , GM.MonadIO(..)
   , GM.GmOut(..)
@@ -42,3 +56,5 @@ import qualified GhcMod.Types          as GM (ModulePath(..),GmModuleGraph(..),G
 import qualified GhcMod.Utils          as GM (mkRevRedirMapFunc)
 import qualified GhcModCore            as GM (Options(..),defaultOptions,getModulesGhc',GhcModT,runGhcModT)
 import qualified GhcMod.Options.Options as GM (globalArgSpec)
+
+import Haskell.Ide.Engine.PluginsIdeMonads as HIE
