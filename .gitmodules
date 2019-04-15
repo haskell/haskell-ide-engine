@@ -29,7 +29,7 @@
 	path = submodules/ghc-mod
 	# url = https://github.com/arbor/ghc-mod.git
 	# url = https://github.com/bubba/ghc-mod.git
-	url = https://github.com/alanz/ghc-mod.git
+	url = https://github.com/mpickering/ghc-mod.git
 
 
 [submodule "submodules/floskell"]
