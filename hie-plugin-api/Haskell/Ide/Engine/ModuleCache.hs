@@ -118,10 +118,11 @@ loadCradle iniDynFlags (LoadCradle (CachedCradle crd env)) = do
 
 setCurrentCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => BIOS.Cradle -> GHC.DynFlags -> m ()
 setCurrentCradle crdl df = do
-    let dirs = GHC.importPaths df
-    traceShowM dirs
-    dirs' <- liftIO $ mapM canonicalizePath dirs
-    modifyCache (\s -> s { currentCradle = Just (dirs', crdl) })
+    mg <- GHC.getModuleGraph
+    let ps = mapMaybe (GHC.ml_hs_file . GHC.ms_location) (GHC.mgModSummaries mg)
+    traceShowM ps
+    ps' <- liftIO $ mapM canonicalizePath ps
+    modifyCache (\s -> s { currentCradle = Just (ps', crdl) })
 
 
 cacheCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => ([FilePath], BIOS.Cradle) -> m ()
