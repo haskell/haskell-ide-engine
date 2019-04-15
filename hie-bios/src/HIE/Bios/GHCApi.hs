@@ -136,9 +136,11 @@ initSession _build CompilerOptions {..} = do
       $ resetPackageDb
 --      $ ignorePackageEnv
       $ writeInterfaceFiles (Just fp)
-      $ setVerbosity
+--      $ setVerbosity
+
       $ setLinkerOptions df'
       )
+    G.setLogAction (\_df _wr _s _ss _pp _m -> return ())
     G.setTargets targets
     G.depanal [] True
     void $ G.load LoadAllTargets
