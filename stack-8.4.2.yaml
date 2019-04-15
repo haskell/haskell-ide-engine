@@ -11,8 +11,8 @@ extra-deps:
 - ./submodules/cabal-helper
 - ./submodules/floskell
 
-- base-compat-0.9.3
 # - brittany-0.11.0.0
+- base-compat-0.9.3
 - cabal-plan-0.3.0.0
 - constrained-dynamic-0.1.0.0
 - ghc-exactprint-0.5.8.2
@@ -21,8 +21,9 @@ extra-deps:
 - haskell-lsp-0.8.2.0
 - haskell-lsp-types-0.8.2.0
 - haskell-src-exts-1.21.0
-- hlint-2.1.15
-- hoogle-5.0.17.5
+- haskell-src-exts-util-0.2.5
+- hlint-2.1.16
+- hoogle-5.0.17.6
 - hsimport-0.8.8
 - lsp-test-0.5.1.0
 - monad-dijkstra-0.1.1.2
