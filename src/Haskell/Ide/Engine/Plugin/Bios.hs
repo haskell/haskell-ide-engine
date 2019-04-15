@@ -45,6 +45,7 @@ import           Outputable hiding ((<>))
 -- to do with BIOS
 import qualified HIE.Bios.GHCApi as BIOS (withDynFlags, CradleError)
 import qualified HIE.Bios as BIOS
+import Debug.Trace
 
 import System.Directory
 
@@ -147,6 +148,7 @@ logDiag :: (FilePath -> FilePath) -> IORef AdditionalErrs -> IORef Diagnostics -
 -- type LogAction = DynFlags -> WarnReason -> Severity -> SrcSpan -> PprStyle -> MsgDoc -> IO ()
 logDiag rfm eref dref df _reason sev spn style msg = do
   eloc <- srcSpan2Loc rfm spn
+  traceShowM (spn, eloc)
   let msgTxt = T.pack $ renderWithStyle df msg style
   case eloc of
     Right (Location uri range) -> do

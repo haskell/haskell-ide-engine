@@ -275,7 +275,7 @@ cacheModules rfm ms = mapM_ go_one ms
   where
     go_one m = case get_fp m of
                  Just fp -> cacheModule (rfm fp) (Right m)
-                 Nothing -> return ()
+                 Nothing -> trace ("rfm failed: " ++ (show $ get_fp m)) $ return ()
     get_fp = GHC.ml_hs_file . GHC.ms_location . GHC.pm_mod_summary . GHC.tm_parsed_module
 
 -- | Saves a module to the cache and executes any deferred

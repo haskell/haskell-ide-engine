@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables, RecordWildCards, CPP #-}
 
 module HIE.Bios.GHCApi (
     withGHC
@@ -30,6 +30,8 @@ import System.IO.Unsafe (unsafePerformIO)
 import System.Process (readProcess)
 
 import System.Directory
+import System.FilePath
+import Config
 
 import qualified HIE.Bios.Gap as Gap
 import HIE.Bios.Types
@@ -37,6 +39,7 @@ import Debug.Trace
 import qualified Crypto.Hash.SHA1 as H
 import qualified Data.ByteString.Char8 as B
 import Data.ByteString.Base16
+import Data.List
 
 ----------------------------------------------------------------
 
@@ -126,7 +129,7 @@ initSession _build CompilerOptions {..} = do
     -- For now, clear the cache initially rather than persist it across
     -- sessions
     liftIO $ clearInterfaceCache opts_hash
-    df' <- addCmdOpts ghcOptions df
+    (df', targets) <- addCmdOpts ghcOptions df
     void $ G.setSessionDynFlags
       (disableOptimisation
       $ setIgnoreInterfacePragmas
@@ -136,6 +139,9 @@ initSession _build CompilerOptions {..} = do
       $ setVerbosity
       $ setLinkerOptions df'
       )
+    G.setTargets targets
+    G.depanal [] True
+    void $ G.load LoadAllTargets
 
 ----------------------------------------------------------------
 
@@ -170,10 +176,32 @@ setHiDir f d = d { hiDir      = Just f}
 
 
 addCmdOpts :: (GhcMonad m)
-           => [String] -> DynFlags -> m DynFlags
+           => [String] -> DynFlags -> m (DynFlags, [G.Target])
 addCmdOpts cmdOpts df1 = do
-    (df2, leftovers, warns) <- G.parseDynamicFlags df1 (map G.noLoc cmdOpts)
-    traceShowM (map G.unLoc leftovers, length warns)
+  (df2, leftovers, warns) <- G.parseDynamicFlags df1 (map G.noLoc cmdOpts)
+  traceShowM (map G.unLoc leftovers, length warns)
+
+  let
+     -- To simplify the handling of filepaths, we normalise all filepaths right
+     -- away. Note the asymmetry of FilePath.normalise:
+     --    Linux:   p/q -> p/q; p\q -> p\q
+     --    Windows: p/q -> p\q; p\q -> p\q
+     -- #12674: Filenames starting with a hypen get normalised from ./-foo.hs
+     -- to -foo.hs. We have to re-prepend the current directory.
+    normalise_hyp fp
+        | strt_dot_sl && "-" `isPrefixOf` nfp = cur_dir ++ nfp
+        | otherwise                           = nfp
+        where
+#if defined(mingw32_HOST_OS)
+          strt_dot_sl = "./" `isPrefixOf` fp || ".\\" `isPrefixOf` fp
+#else
+          strt_dot_sl = "./" `isPrefixOf` fp
+#endif
+          cur_dir = '.' : [pathSeparator]
+          nfp = normalise fp
+    normal_fileish_paths = map (normalise_hyp . G.unLoc) leftovers
+  ts <- mapM (flip G.guessTarget Nothing) normal_fileish_paths
+  return (df2, ts)
     -- TODO: Need to handle these as well
     -- Ideally it requires refactoring to work in GHCi monad rather than
     -- Ghc monad and then can just use newDynFlags.
@@ -186,7 +214,6 @@ addCmdOpts cmdOpts df1 = do
     when (interactive_only && packageFlagsChanged idflags1 idflags0) $ do
        liftIO $ hPutStrLn stderr "cannot set package flags with :seti; use :set"
     -}
-    return df2
 
 ----------------------------------------------------------------
 
@@ -216,7 +243,7 @@ withCmdFlags ::
 withCmdFlags flags body = G.gbracket setup teardown (\_ -> body)
   where
     setup = do
-        dflag <- G.getSessionDynFlags >>= addCmdOpts flags
+        (dflag, _) <- G.getSessionDynFlags >>= addCmdOpts flags
         void $ G.setSessionDynFlags dflag
         return dflag
     teardown = void . G.setSessionDynFlags
@@ -240,5 +267,5 @@ allWarningFlags = unsafePerformIO $ do
     mlibdir <- getSystemLibDir
     G.runGhcT mlibdir $ do
         df <- G.getSessionDynFlags
-        df' <- addCmdOpts ["-Wall"] df
+        (df', _) <- addCmdOpts ["-Wall"] df
         return $ G.warningFlags df'
