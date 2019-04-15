@@ -124,10 +124,12 @@ cabalAction work_dir mc _fp = do
       withCurrentDirectory work_dir (readProcessWithExitCode "cabal" cab_args [])
   case lines args of
     [dir, ghc_args] -> do
-      let final_args = map (fixImportDirs dir) (words ghc_args)
+      let final_args = removeInteractive $ map (fixImportDirs dir) (words ghc_args)
       traceM dir
       return (ex, stde, final_args)
     _ -> error (show (ex, args, stde))
+
+removeInteractive = filter (/= "--interactive")
 
 fixImportDirs :: FilePath -> String -> String
 fixImportDirs base_dir arg =
