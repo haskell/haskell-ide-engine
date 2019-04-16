@@ -34,6 +34,7 @@ import           Data.List                                ( dropWhileEnd
 import           Data.Char                                ( isSpace )
 import           Data.Version                             ( parseVersion
                                                           , makeVersion
+                                                          , showVersion
                                                           )
 import           Data.Function                            ( (&) )
 import           Text.ParserCombinators.ReadP             ( readP_to_S )
@@ -243,9 +244,9 @@ checkStack = do
   let (parsedVersion, "") : _ =
         stackVersion & trim & readP_to_S parseVersion & filter
           (("" ==) . snd)
-  unless (parsedVersion >= makeVersion [1, 9, 3]) $ do
-    liftIO $ putStrLn $ embedInStars $ stackExeIsOldFailMsg stackVersion
-    error $ stackExeIsOldFailMsg stackVersion
+  unless (parsedVersion >= makeVersion requiredStackVersion) $ do
+    liftIO $ putStrLn $ embedInStars $ stackExeIsOldFailMsg $ trim stackVersion
+    error $ stackExeIsOldFailMsg $ trim stackVersion
 
 
 stackBuildHie :: VersionNumber -> Action ()
@@ -565,4 +566,8 @@ stackExeIsOldFailMsg :: String -> String
 stackExeIsOldFailMsg stackVersion =
   "The `stack` executable is outdated.\n"
     ++ "found version is `" ++ stackVersion ++ "`.\n"
+    ++ "required version is `" ++ showVersion (makeVersion requiredStackVersion) ++ "`.\n"
     ++ "Please run `stack upgrade` to upgrade your stack installation"
+
+requiredStackVersion :: [Int]
+requiredStackVersion = [1, 9, 3]
