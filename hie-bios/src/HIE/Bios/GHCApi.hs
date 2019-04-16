@@ -135,7 +135,7 @@ initSession _build CompilerOptions {..} = do
       $ resetPackageDb
 --      $ ignorePackageEnv
       $ writeInterfaceFiles (Just fp)
-      $ setVerbosity 1
+      $ setVerbosity 0
 
       $ setLinkerOptions df'
       )

@@ -303,7 +303,7 @@ gcatches :: forall m a . (MonadIO m, ExceptionMonad m) => m a -> [ErrorHandler m
 gcatches act handlers = gcatch act h
   where
     h :: SomeException -> m a
-    h e = foldr (\(ErrorHandler hand) me -> maybe me hand (fromException e)) (throw e) handlers
+    h e = foldr (\(ErrorHandler hand) me -> maybe me hand (fromException e)) (liftIO $ throw e) handlers
 
 
 
