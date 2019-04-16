@@ -41,7 +41,7 @@ import           Text.ParserCombinators.ReadP             ( readP_to_S )
 type VersionNumber = String
 type GhcPath = String
 
--- |Defines all different hie versions that are buildable.
+-- | Defines all different hie versions that are buildable.
 -- If they are edited, make sure to maintain the order of the versions.
 hieVersions :: [VersionNumber]
 hieVersions =
@@ -56,7 +56,7 @@ hieVersions =
   , "8.6.4"
   ]
 
--- |Most recent version of hie.
+-- | Most recent version of hie.
 -- Shown in the more concise help message.
 mostRecentHieVersion :: VersionNumber
 mostRecentHieVersion = last hieVersions
@@ -155,7 +155,7 @@ buildIcuMacosFix version = execStackWithGhc_
   , "--extra-include-dirs=/usr/local/opt/icu4c/include"
   ]
 
--- |update the submodules that the project is in the state as required by the `stack.yaml` files
+-- | update the submodules that the project is in the state as required by the `stack.yaml` files
 updateSubmodules :: Action ()
 updateSubmodules = do
   command_ [] "git" ["submodule", "sync", "--recursive"]
@@ -376,25 +376,25 @@ helpMessage = do
 emptyTarget :: (String, String)
 emptyTarget = ("", "")
 
--- |Number of spaces the target name including whitespace should have.
+-- | Number of spaces the target name including whitespace should have.
 -- At least twenty, maybe more if target names are long. At most the length of the longest target plus five.
 space :: [(String, String)] -> Int
 space phonyTargets = maximum (20 : map ((+ 5) . length . fst) phonyTargets)
 
--- |Show a target.
+-- | Show a target.
 -- Concatenates the target with its help message and inserts whitespace between them.
 showTarget :: Int -> (String, String) -> String
 showTarget spaces (target, msg) =
   target ++ replicate (spaces - length target) ' ' ++ msg
 
--- |Target for a specific ghc version
+-- | Target for a specific ghc version
 stackHieTarget :: String -> (String, String)
 stackHieTarget version =
   ( "hie-" ++ version
   , "Builds hie for GHC version " ++ version ++ " only with stack"
   )
 
--- |Target for a specific ghc version
+-- | Target for a specific ghc version
 cabalHieTarget :: String -> (String, String)
 cabalHieTarget version =
   ( "cabal-hie-" ++ version
@@ -438,24 +438,24 @@ allVersionMessage wordList = case wordList of
 
 -- RUN EXECUTABLES
 
--- |Execute a stack command for a specified ghc, discarding the output
+-- | Execute a stack command for a specified ghc, discarding the output
 execStackWithGhc_ :: VersionNumber -> [String] -> Action ()
 execStackWithGhc_ versionNumber args = do
   let stackFile = "stack-" ++ versionNumber ++ ".yaml"
   command_ [] "stack" (("--stack-yaml=" ++ stackFile) : args)
 
--- |Execute a stack command for a specified ghc
+-- | Execute a stack command for a specified ghc
 execStackWithGhc :: CmdResult r => VersionNumber -> [String] -> Action r
 execStackWithGhc versionNumber args = do
   let stackFile = "stack-" ++ versionNumber ++ ".yaml"
   command [] "stack" (("--stack-yaml=" ++ stackFile) : args)
 
--- |Execute a stack command with the same resolver as the build script
+-- | Execute a stack command with the same resolver as the build script
 execStackShake :: CmdResult r => [String] -> Action r
 execStackShake args =
   command [] "stack" ("--stack-yaml=shake.yaml" : args)
 
--- |Execute a stack command with the same resolver as the build script, discarding the output
+-- | Execute a stack command with the same resolver as the build script, discarding the output
 execStackShake_ :: [String] -> Action ()
 execStackShake_ args =
   command_ [] "stack" ("--stack-yaml=shake.yaml" : args)
@@ -477,7 +477,7 @@ existsExecutable executable = liftIO $ isJust <$> findExecutable executable
 isWindowsSystem :: Bool
 isWindowsSystem = os `elem` ["mingw32", "win32"]
 
--- |Get the path to the GHC compiler executable linked to the local `stack-$GHCVER.yaml`.
+-- | Get the path to the GHC compiler executable linked to the local `stack-$GHCVER.yaml`.
 -- Equal to the command `stack path --stack-yaml $stack-yaml --compiler-exe`.
 -- This might install a GHC if it is not already installed, thus, might fail if stack fails to install the GHC.
 getStackGhcPath :: VersionNumber -> Action GhcPath
@@ -490,7 +490,7 @@ getStackGhcPathShake = do
   Stdout ghc <- execStackShake ["path", "--compiler-exe"]
   return $ trim ghc
 
--- |Get the path to a GHC that has the version specified by `VersionNumber`
+-- | Get the path to a GHC that has the version specified by `VersionNumber`
 -- If no such GHC can be found, Nothing is returned.
 -- First, it is checked whether there is a GHC with the name `ghc-$VersionNumber`.
 -- If this yields no result, it is checked, whether the numeric-version of the `ghc`
@@ -506,7 +506,7 @@ getGhcPath ghcVersion = liftIO $
           if ghcVersion == trim version then return $ Just p else return Nothing
     p -> return p
 
--- |Read the local install root of the stack project specified by the VersionNumber
+-- | Read the local install root of the stack project specified by the VersionNumber
 -- Returns the filepath of the local install root.
 -- Equal to the command `stack path --local-install-root`
 getLocalInstallRoot :: VersionNumber -> Action FilePath
@@ -516,7 +516,7 @@ getLocalInstallRoot hieVersion = do
     ["path", "--local-install-root"]
   return $ trim localInstallRoot'
 
--- |Get the local binary path of stack.
+-- | Get the local binary path of stack.
 -- Equal to the command `stack path --local-bin`
 getLocalBin :: Action FilePath
 getLocalBin = do
@@ -524,11 +524,11 @@ getLocalBin = do
     ["path", "--local-bin"]
   return $ trim stackLocalDir'
 
--- |Trim the end of a string
+-- | Trim the end of a string
 trim :: String -> String
 trim = dropWhileEnd isSpace
 
--- |Embed a string within two lines of stars to improve perceivability and, thus, readability.
+-- | Embed a string within two lines of stars to improve perceivability and, thus, readability.
 embedInStars :: String -> String
 embedInStars str =
   let starsLine
@@ -544,7 +544,7 @@ stackBuildFailMsg =
     ++ "If this does not work, open an issue at \n"
     ++ "\thttps://github.com/haskell/haskell-ide-engine"
 
--- |No suitable ghc version has been found. Show a message.
+-- | No suitable ghc version has been found. Show a message.
 ghcVersionNotFoundFailMsg :: VersionNumber -> String
 ghcVersionNotFoundFailMsg versionNumber =
   "No GHC with version "
@@ -560,7 +560,7 @@ cabalInstallNotSuportedFailMsg =
     ++ "Please use one of the stack-based targets.\n\n"
     ++ "If this system has been falsely identified, please open an issue at:\n\thttps://github.com/haskell/haskell-ide-engine\n"
 
--- | Error message when a windows system tries to install HIE via `cabal new-install`
+-- | Error message when the `stack` binary is an older version
 stackExeIsOldFailMsg :: String
 stackExeIsOldFailMsg =
   "The `stack` executable is outdated.\n"
