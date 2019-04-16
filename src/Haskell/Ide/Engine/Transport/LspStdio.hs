@@ -26,7 +26,6 @@ import           Control.Monad.Reader
 import qualified Data.Aeson as A
 import           Control.Monad.STM
 import           Data.Aeson ( (.=) )
-import qualified Data.Aeson as J
 import qualified Data.ByteString.Lazy as BL
 import           Data.Char (isUpper, isAlphaNum)
 import           Data.Coerce (coerce)
@@ -40,8 +39,6 @@ import qualified Data.Set as S
 import qualified Data.SortedList as SL
 import qualified Data.Text as T
 import           Data.Text.Encoding
-import qualified GhcMod.Monad.Types       as GM
-import qualified GhcModCore               as GM
 import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.LSP.CodeActions
 import           Haskell.Ide.Engine.LSP.Reactor
@@ -49,21 +46,20 @@ import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import qualified Haskell.Ide.Engine.Plugin.ApplyRefact   as ApplyRefact
 import           Haskell.Ide.Engine.Plugin.Base
-import qualified Haskell.Ide.Engine.Plugin.GhcMod        as GhcMod
 import qualified Haskell.Ide.Engine.Plugin.HaRe          as HaRe
 import qualified Haskell.Ide.Engine.Plugin.Hoogle        as Hoogle
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Scheduler            as Scheduler
 import qualified Haskell.Ide.Engine.Support.HieExtras     as Hie
 import           Haskell.Ide.Engine.Types
-import           Haskell.Ide.Engine.LSP.CodeActions
-import           Haskell.Ide.Engine.LSP.Reactor
-import qualified Haskell.Ide.Engine.Plugin.HaRe          as HaRe
+--import           Haskell.Ide.Engine.LSP.CodeActions
+--import           Haskell.Ide.Engine.LSP.Reactor
+-- import qualified Haskell.Ide.Engine.Plugin.HaRe          as HaRe
 import qualified Haskell.Ide.Engine.Plugin.Bios          as BIOS
-import qualified Haskell.Ide.Engine.Plugin.ApplyRefact   as ApplyRefact
-import qualified Haskell.Ide.Engine.Plugin.Hoogle        as Hoogle
-import qualified Haskell.Ide.Engine.Support.HieExtras     as Hie
-import           Haskell.Ide.Engine.Plugin.Base
+--import qualified Haskell.Ide.Engine.Plugin.ApplyRefact   as ApplyRefact
+--import qualified Haskell.Ide.Engine.Plugin.Hoogle        as Hoogle
+--import qualified Haskell.Ide.Engine.Support.HieExtras     as Hie
+-- import           Haskell.Ide.Engine.Plugin.Base
 import qualified Language.Haskell.LSP.Control            as CTRL
 import qualified Language.Haskell.LSP.Core               as Core
 import           Language.Haskell.LSP.Diagnostics

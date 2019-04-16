@@ -10,6 +10,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | IdeGhcM and associated types
 module Haskell.Ide.Engine.PluginsIdeMonads
@@ -79,7 +80,6 @@ module Haskell.Ide.Engine.PluginsIdeMonads
 where
 
 import           Control.Concurrent.STM
-import           Control.Exception
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Free
@@ -98,9 +98,8 @@ import qualified Data.Text                     as T
 import           Data.Typeable                  ( TypeRep
                                                 , Typeable
                                                 )
-
-import qualified GhcMod.Monad                  as GM
-import qualified GhcMod.Types                  as GM
+-- For the ReaderT ExceptionMonad instance only
+import GhcMod.Monad ()
 import GhcMonad
 import qualified HIE.Bios as BIOS
 import           GHC.Generics
@@ -308,12 +307,15 @@ getDiagnosticProvidersConfig c = Map.fromList [("applyrefact",hlintOn c)
 -- | IdeM that allows for interaction with the ghc-mod session
 type IdeGhcM = GhcT IdeM
 
-instance GM.MonadIO (GhcT IdeM) where
-  liftIO = liftIO
+--instance GM.MonadIO (GhcT IdeM) where
+--  liftIO = liftIO
+--instance ExceptionMonad IdeM where
+--  gcatch = _
+--  gmask = _
 
 -- | Run an IdeGhcM with Cradle found from the current directory
-runIdeGhcM :: GM.Options -> IdePlugins -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeGhcM a -> IO a
-runIdeGhcM ghcModOptions plugins mlf stateVar f = do
+runIdeGhcM :: IdePlugins -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeGhcM a -> IO a
+runIdeGhcM plugins mlf stateVar f = do
   env <- IdeEnv <$> pure mlf <*> getProcessID <*> pure plugins
   eres <- flip runReaderT stateVar $ flip runReaderT env $ BIOS.withGhcT f
   return eres
@@ -439,8 +441,8 @@ instance MonadMTState IdeState IdeM where
 class (Monad m) => LiftsToGhc m where
   liftToGhc :: m a -> IdeGhcM a
 
-instance GM.MonadIO IdeDeferM where
-  liftIO = liftIO
+--instance GM.MonadIO IdeDeferM where
+--  liftIO = liftIO
 
 instance LiftsToGhc IdeM where
   liftToGhc = lift

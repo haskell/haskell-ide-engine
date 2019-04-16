@@ -23,7 +23,7 @@ import           Exception
 import           GHC.Generics                                 (Generic)
 import qualified GhcMod.Error                                 as GM
 import qualified GhcMod.Monad                                 as GM
-import qualified GhcMod.Utils                                 as GM
+-- import qualified GhcMod.Utils                                 as GM
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes

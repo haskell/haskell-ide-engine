@@ -21,9 +21,8 @@ import qualified GHC as G
 import qualified Outputable as G
 import qualified MonadUtils as G
 import DynFlags
-import DriverPhases
 
-import Control.Monad (forM, void, when)
+import Control.Monad (void, when)
 import System.Exit (exitSuccess, ExitCode(..))
 import System.IO (hPutStr, hPrint, stderr)
 import System.IO.Unsafe (unsafePerformIO)
@@ -31,7 +30,6 @@ import System.Process (readProcess)
 
 import System.Directory
 import System.FilePath
-import Config
 
 import qualified HIE.Bios.Gap as Gap
 import HIE.Bios.Types
@@ -105,6 +103,7 @@ throwCradleError :: GhcMonad m => String -> m ()
 throwCradleError = liftIO . throwIO . CradleError
 
 ----------------------------------------------------------------
+cacheDir :: String
 cacheDir = "haskell-ide-engine"
 
 clearInterfaceCache :: FilePath -> IO ()
@@ -136,13 +135,14 @@ initSession _build CompilerOptions {..} = do
       $ resetPackageDb
 --      $ ignorePackageEnv
       $ writeInterfaceFiles (Just fp)
---      $ setVerbosity
+      $ setVerbosity 1
 
       $ setLinkerOptions df'
       )
     G.setLogAction (\_df _wr _s _ss _pp _m -> return ())
     G.setTargets targets
-    G.depanal [] True
+    -- Get the module graph using the function `getModuleGraph`
+    void $ G.depanal [] True
     void $ G.load LoadAllTargets
 
 ----------------------------------------------------------------
@@ -160,14 +160,14 @@ setLinkerOptions df = df {
 resetPackageDb :: DynFlags -> DynFlags
 resetPackageDb df = df { pkgDatabase = Nothing }
 
-ignorePackageEnv :: DynFlags -> DynFlags
-ignorePackageEnv df = df { packageEnv = Just "-" }
+--ignorePackageEnv :: DynFlags -> DynFlags
+--ignorePackageEnv df = df { packageEnv = Just "-" }
 
 setIgnoreInterfacePragmas :: DynFlags -> DynFlags
 setIgnoreInterfacePragmas df = gopt_set df Opt_IgnoreInterfacePragmas
 
-setVerbosity :: DynFlags -> DynFlags
-setVerbosity df = df { verbosity = 1 }
+setVerbosity :: Int -> DynFlags -> DynFlags
+setVerbosity n df = df { verbosity = n }
 
 writeInterfaceFiles :: Maybe FilePath -> DynFlags -> DynFlags
 writeInterfaceFiles Nothing df = df

@@ -6,21 +6,16 @@ import CoreMonad (liftIO)
 import DynFlags (gopt_set, wopt_set, WarningFlag(Opt_WarnTypedHoles))
 import GHC
 import qualified GHC as G
-import Module
-import qualified Exception as GE
 import HscTypes
 import Outputable
 
 import Data.IORef
 
-import HIE.Bios.Doc (getStyle)
 import HIE.Bios.GHCApi
-import HIE.Bios.Gap
 import System.Directory
-import EnumSet
 import Hooks
-import TcRnTypes (FrontendResult(..), tcg_mod)
-import Control.Monad (filterM, forM, void)
+import TcRnTypes (FrontendResult(..))
+import Control.Monad (forM, void)
 import GhcMonad
 import HscMain
 import Debug.Trace
@@ -51,29 +46,13 @@ loadFile file = do
                            Nothing -> findMod xs
     return (findMod tcs, tcs)
 
+{-
 fileModSummary :: GhcMonad m => FilePath -> m ModSummary
 fileModSummary file = do
     mss <- getModSummaries <$> G.getModuleGraph
     let [ms] = filter (\m -> G.ml_hs_file (G.ms_location m) == Just file) mss
     return ms
-
-withContext :: (GhcMonad m) => m a -> m a
-withContext action = G.gbracket setup teardown body
-  where
-    setup = G.getContext
-    teardown = setCtx
-    body _ = do
-        topImports >>= setCtx
-        action
-    topImports = do
-        mss <- getModSummaries <$> G.getModuleGraph
-        map modName <$> filterM isTop mss
-    isTop mos = lookupMod mos `GE.gcatch` (\(_ :: GE.IOException) -> returnFalse)
-    lookupMod mos = G.lookupModule (G.ms_mod_name mos) Nothing >> return True
-    returnFalse = return False
-    modName = G.IIModule . G.moduleName . G.ms_mod
-    setCtx = G.setContext
-
+    -}
 
 
 setDeferTypeErrors :: DynFlags -> DynFlags
@@ -96,7 +75,7 @@ collectASTs action = do
   ref1 <- liftIO $ newIORef []
   let dflags1 = dflags0 { hooks = (hooks dflags0)
                           { hscFrontendHook = Just (astHook ref1) } }
-  setSessionDynFlags dflags1
+  void $ setSessionDynFlags dflags1
   res <- action
   tcs <- liftIO $ readIORef ref1
   return (res, tcs)

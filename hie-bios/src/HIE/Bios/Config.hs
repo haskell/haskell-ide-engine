@@ -6,8 +6,8 @@ module HIE.Bios.Config where
 import Dhall
 import qualified Data.Text.IO as T
 import qualified Data.Text as T
-import Lens.Family ( set )
-import qualified Dhall.Context as C
+-- import Lens.Family ( set )
+-- import qualified Dhall.Context as C
 
 
 data CradleConfig = Cabal { component :: Maybe String }
@@ -32,8 +32,8 @@ wrapper t =
 readConfig :: FilePath -> IO Config
 readConfig fp = T.readFile fp >>= input auto . wrapper
   where
-    ip = (set startingContext sc defaultInputSettings)
-    sc = C.insert "CradleConfig" (expected (auto @CradleConfig)) C.empty
+    -- ip = (set startingContext sc defaultInputSettings)
+    -- sc = C.insert "CradleConfig" (expected (auto @CradleConfig)) C.empty
 
 {-
 stringToCC :: T.Text -> CradleConfig
@@ -46,4 +46,3 @@ stringToCC t = case t of
                  "default" -> Default
                  _ -> Default
                  -}
-stringToCC = id

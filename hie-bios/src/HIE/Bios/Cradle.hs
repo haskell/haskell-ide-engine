@@ -45,6 +45,7 @@ getCradle (cc, wdir) = case cc of
                  Bazel -> rulesHaskellCradle wdir
                  Obelisk -> obeliskCradle wdir
                  Bios bios -> biosCradle wdir bios
+                 Default   -> defaultCradle wdir
 
 implicitConfig :: FilePath -> MaybeT IO (CradleConfig, FilePath)
 implicitConfig fp =
@@ -58,7 +59,7 @@ dhallConfig :: FilePath -> MaybeT IO (CradleConfig, FilePath)
 dhallConfig fp = do
   wdir <- findFileUpwards ("hie.dhall" ==) fp
   cfg  <- liftIO $ readConfig (wdir </> "hie.dhall")
-  return (stringToCC (cradle cfg), wdir)
+  return (cradle cfg, wdir)
 
 
 
@@ -91,7 +92,7 @@ biosWorkDir = findFileUpwards (".hie-bios" ==)
 
 
 biosAction :: FilePath -> FilePath -> FilePath -> IO (ExitCode, String, [String])
-biosAction wdir bios fp = do
+biosAction _wdir bios fp = do
   bios' <- canonicalizePath bios
   (ex, res, std) <- readProcessWithExitCode bios' [fp] []
   return (ex, std, words res)
@@ -129,6 +130,7 @@ cabalAction work_dir mc _fp = do
       return (ex, stde, final_args)
     _ -> error (show (ex, args, stde))
 
+removeInteractive :: [String] -> [String]
 removeInteractive = filter (/= "--interactive")
 
 fixImportDirs :: FilePath -> String -> String
@@ -167,14 +169,21 @@ stackAction work_dir fp = do
   setFileMode wrapper_fp accessModes
   check <- readFile wrapper_fp
   traceM check
-  (ex, args, stde) <-
+  (ex1, args, stde) <-
       withCurrentDirectory work_dir (readProcessWithExitCode "stack" ["repl", "--silent", "--no-load", "--with-ghc", wrapper_fp, fp ] [])
-  (ex, pkg_args, stdr) <-
+  (ex2, pkg_args, stdr) <-
       withCurrentDirectory work_dir (readProcessWithExitCode "stack" ["path", "--ghc-package-path"] [])
   let split_pkgs = splitSearchPath (init pkg_args)
       pkg_ghc_args = concatMap (\p -> ["-package-db", p] ) split_pkgs
       ghc_args = words args ++ pkg_ghc_args
-  return (ex, stde, ghc_args)
+  return (combineExitCodes [ex1, ex2], stde ++ stdr, ghc_args)
+
+combineExitCodes :: [ExitCode] -> ExitCode
+combineExitCodes = foldr go ExitSuccess
+  where
+    go ExitSuccess b = b
+    go a _ = a
+
 
 
 stackWorkDir :: FilePath -> MaybeT IO FilePath

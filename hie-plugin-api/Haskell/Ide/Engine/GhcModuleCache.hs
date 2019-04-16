@@ -9,14 +9,13 @@ import qualified Data.Map as Map
 import           Data.Dynamic (Dynamic)
 import           Data.Typeable (TypeRep)
 
-import qualified GhcMod.Types                      as GM
 import qualified HIE.Bios as BIOS
 import qualified Data.Trie as T
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString as BS
 import Crypto.Hash.SHA1
 
-import           GHC (TypecheckedModule, ParsedModule, DynFlags, HscEnv)
+import           GHC (TypecheckedModule, ParsedModule, HscEnv)
 
 import Data.List
 

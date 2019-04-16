@@ -9,37 +9,24 @@ module Haskell.Ide.Engine.Plugin.Bios(setTypecheckedModule, biosDescriptor) wher
 
 import           Bag
 import           Control.Monad.IO.Class
-import           Data.Aeson
-import           Data.Function
 import           Data.IORef
-import           Data.List
 import qualified Data.Map.Strict                   as Map
-import           Data.Maybe
 import           Data.Monoid ((<>))
 import qualified Data.Set                          as Set
 import qualified Data.Text                         as T
 import           ErrUtils
-import           Name
-import           GHC.Generics
 
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 --import qualified Haskell.Ide.Engine.Plugin.HieExtras as Hie
-import           Haskell.Ide.Engine.ArtifactMap
-import qualified Language.Haskell.LSP.Types        as LSP
 
-import qualified GhcMod                            as GM
-import qualified GhcMod.Error                      as GM
 import qualified GhcMod.Gap                        as GM
-import qualified GhcMod.Monad                      as GM
-import qualified GhcMod.SrcUtils                   as GM
 
 import           DynFlags
 import           GHC
 import           IOEnv                             as G
 import           HscTypes
-import           TcRnTypes
 import           Outputable hiding ((<>))
 -- This function should be defined in HIE probably, nothing in particular
 -- to do with BIOS
@@ -113,7 +100,7 @@ srcErrToDiag df rfm se = do
 
 
 -- | Run a Ghc action and capture any diagnostics and errors produced.
-captureDiagnostics :: (GM.MonadIO m, GhcMonad m)
+captureDiagnostics :: (MonadIO m, GhcMonad m)
   => (FilePath -> FilePath)
   -> m r
   -> m (Diagnostics, AdditionalErrs, Maybe r)
@@ -140,7 +127,7 @@ captureDiagnostics rfm action = do
         diags <- liftIO $ readIORef diagRef
         errs <- liftIO $ readIORef errRef
         return (diags,errs, Just r)
-  GM.gcatches action' handlers
+  gcatches action' handlers
 
 -- | Create a 'LogAction' which will be invoked by GHC when it tries to
 -- write anything to `stdout`.
@@ -163,21 +150,21 @@ logDiag rfm eref dref df _reason sev spn style msg = do
       return ()
 
 
-errorHandlers :: (String -> m a) -> (SourceError -> m a) -> [GM.GHandler m a]
+errorHandlers :: (String -> m a) -> (SourceError -> m a) -> [ErrorHandler m a]
 errorHandlers ghcErrRes renderSourceError = handlers
   where
       -- ghc throws GhcException, SourceError, GhcApiError and
       -- IOEnvFailure. ghc-mod-core throws GhcModError.
       handlers =
-        [ GM.GHandler $ \(ex :: IOEnvFailure) ->
+        [ ErrorHandler $ \(ex :: IOEnvFailure) ->
             ghcErrRes (show ex)
-        , GM.GHandler $ \(ex :: GhcApiError) ->
+        , ErrorHandler $ \(ex :: GhcApiError) ->
             ghcErrRes (show ex)
-        , GM.GHandler $ \(ex :: SourceError) ->
+        , ErrorHandler $ \(ex :: SourceError) ->
             renderSourceError ex
-        , GM.GHandler $ \(ex :: IOError) ->
+        , ErrorHandler $ \(ex :: IOError) ->
             ghcErrRes (show ex)
-        , GM.GHandler $ \(ex :: BIOS.CradleError) ->
+        , ErrorHandler $ \(ex :: BIOS.CradleError) ->
             ghcErrRes (show ex)
         ]
 
@@ -186,18 +173,12 @@ errorHandlers ghcErrRes renderSourceError = handlers
 -- to see if it's already there.
 setTypecheckedModule :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
 setTypecheckedModule uri =
-  pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
+  pluginGetFile "setTypecheckedModule: " uri $ \_fp -> do
     debugm "setTypecheckedModule: before ghc-mod"
     debugm "Loading file"
     -- mapped_fp <- persistVirtualFile uri
     -- ifCachedModuleM mapped_fp (setTypecheckedModule_load uri) cont
     setTypecheckedModule_load uri
-  where
-    cont :: TypecheckedModule -> CachedInfo
-         -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
-    cont _ _ = do
-      debugm ("Using cache" ++ show uri)
-      return (IdeResultOk (Map.empty, []))
 
 -- Hacky, need to copy hs-boot file if one exists for a module
 -- This is because the virtual file gets created at VFS-1234.hs and
@@ -239,7 +220,7 @@ setTypecheckedModule_load uri =
        -- debugm "setTypecheckedModule: done"
       --  return diags
 
-      (Just tm, ts) -> do
+      (Just _tm, ts) -> do
         debugm $ "setTypecheckedModule: Did get typechecked module for: " ++ show fp
         --sess <- fmap GM.gmgsSession . GM.gmGhcSession <$> GM.gmsGet
 

@@ -32,6 +32,9 @@ module Haskell.Ide.Engine.PluginUtils
   , readVFS
   , getRangeFromVFS
   , rangeLinesFromVfs
+
+  , gcatches
+  , ErrorHandler(..)
   ) where
 
 import           Control.Monad.IO.Class
@@ -55,6 +58,7 @@ import           Language.Haskell.LSP.Types.Capabilities
 import qualified Language.Haskell.LSP.Types            as J
 import           Prelude                               hiding (log)
 import           SrcLoc
+import           Exception
 import           System.Directory
 import           System.FilePath
 import qualified Yi.Rope as Yi
@@ -289,3 +293,17 @@ rangeLinesFromVfs (VirtualFile _ yitext _) (Range (Position lf _cf) (Position lt
     (_ ,s1) = Yi.splitAtLine lf yitext
     (s2, _) = Yi.splitAtLine (lt - lf) s1
     r = Yi.toText s2
+
+
+-- Error catching utilities
+
+data ErrorHandler m a = forall e . Exception e => ErrorHandler (e -> m a)
+
+gcatches :: forall m a . (MonadIO m, ExceptionMonad m) => m a -> [ErrorHandler m a] -> m a
+gcatches act handlers = gcatch act h
+  where
+    h :: SomeException -> m a
+    h e = foldr (\(ErrorHandler hand) me -> maybe me hand (fromException e)) (throw e) handlers
+
+
+

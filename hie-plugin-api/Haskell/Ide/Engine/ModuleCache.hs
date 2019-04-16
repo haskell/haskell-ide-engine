@@ -8,7 +8,6 @@
 
 module Haskell.Ide.Engine.ModuleCache
   ( modifyCache
-  , withCradle
   , ifCachedInfo
   , withCachedInfo
   , ifCachedModule
@@ -27,27 +26,18 @@ module Haskell.Ide.Engine.ModuleCache
 
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Control
 import           Control.Monad.Trans.Free
 import           Data.Dynamic (toDyn, fromDynamic, Dynamic)
 import           Data.Generics (Proxy(..), TypeRep, typeRep, typeOf)
 import qualified Data.Map as Map
 import           Data.Maybe
 import           Data.Typeable (Typeable)
-import           Exception (ExceptionMonad)
 import           System.Directory
-import           System.FilePath
 
 import Debug.Trace
 
-import qualified GhcMod.Cradle as GM
-import qualified GhcMod.Monad  as GM
-import qualified GhcMod.Types  as GM
-import qualified GhcMod.Utils  as GM
 import qualified GHC           as GHC
-import qualified DynFlags      as GHC
 import qualified HscMain       as GHC
-import qualified HscTypes      as GHC
 import qualified Data.Trie.Convenience as T
 import qualified Data.Trie as T
 import qualified HIE.Bios as BIOS
@@ -66,15 +56,6 @@ modifyCache f = do
   setModuleCache (f mc)
 
 -- ---------------------------------------------------------------------
--- | Runs an IdeM action with the given Cradle
-withCradle :: GHC.GhcMonad m => FilePath -> BIOS.Cradle -> m a -> m a
-withCradle fp crdl body = do
-  body
-
-  --GM.gmeLocal (\env -> env {GM.gmCradle = crdl})
-
-
--- ---------------------------------------------------------------------
 -- | Runs an action in a ghc-mod Cradle found from the
 -- directory of the given file. If no file is found
 -- then runs the action in the default cradle.
@@ -82,12 +63,12 @@ withCradle fp crdl body = do
 -- in either case
 runActionWithContext :: (GHC.GhcMonad m, HasGhcModuleCache m)
                      => GHC.DynFlags -> Maybe FilePath -> m a -> m a
-runActionWithContext df Nothing action = do
+runActionWithContext _df Nothing action = do
   -- Cradle with no additional flags
-  dir <- liftIO $ getCurrentDirectory
+  -- dir <- liftIO $ getCurrentDirectory
   --This causes problems when loading a later package which sets the
   --packageDb
-  --withCradle (BIOS.defaultCradle dir) action
+  -- loadCradle df (BIOS.defaultCradle dir)
   action
 runActionWithContext df (Just uri) action = do
   getCradle uri (\lc -> loadCradle df lc >> action)
@@ -106,18 +87,18 @@ loadCradle iniDynFlags (NewCradle fp) = do
     liftIO (GHC.newHscEnv iniDynFlags) >>= GHC.setSession
     liftIO $ setCurrentDirectory (BIOS.cradleRootDir crdl)
     BIOS.initializeFlagsWithCradle fp crdl
-    GHC.getSessionDynFlags >>= setCurrentCradle crdl
-loadCradle iniDynFlags (LoadCradle (CachedCradle crd env)) = do
+    setCurrentCradle crdl
+loadCradle _iniDynFlags (LoadCradle (CachedCradle crd env)) = do
     traceShowM ("Reload Cradle" , crd)
     -- Cache the existing cradle
     maybe (return ()) cacheCradle =<< (currentCradle <$> getModuleCache)
     GHC.setSession env
-    setCurrentCradle crd (GHC.hsc_dflags env)
+    setCurrentCradle crd
 
 
 
-setCurrentCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => BIOS.Cradle -> GHC.DynFlags -> m ()
-setCurrentCradle crdl df = do
+setCurrentCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => BIOS.Cradle -> m ()
+setCurrentCradle crdl = do
     mg <- GHC.getModuleGraph
     let ps = mapMaybe (GHC.ml_hs_file . GHC.ms_location) (GHC.mgModSummaries mg)
     traceShowM ps
@@ -133,7 +114,7 @@ cacheCradle (ds, c) = do
   modifyCache (\s -> s { cradleCache = T.unionWith (\a _ -> a) new_map (cradleCache s) })
 
 -- | Get the Cradle that should be used for a given URI
---getCradle :: (GM.GmEnv m, GM.MonadIO m, HasGhcModuleCache m, GM.GmLog m
+--getCradle :: (GM.GmEnv m, MonadIO m, HasGhcModuleCache m, GM.GmLog m
 --             , MonadBaseControl IO m, ExceptionMonad m, GM.GmOut m)
 getCradle :: (GHC.GhcMonad m, HasGhcModuleCache m)
          => FilePath -> (LookupCradleResult -> m r) -> m r
@@ -154,7 +135,7 @@ withCachedInfo fp def callback = deferIfNotCached fp go
   where go (UriCacheSuccess uc) = callback (cachedInfo uc)
         go UriCacheFailed = return def
 
-ifCachedModule :: (HasGhcModuleCache m, GM.MonadIO m, CacheableModule b) => FilePath -> a -> (b -> CachedInfo -> m a) -> m a
+ifCachedModule :: (HasGhcModuleCache m, MonadIO m, CacheableModule b) => FilePath -> a -> (b -> CachedInfo -> m a) -> m a
 ifCachedModule fp def callback = ifCachedModuleM fp (return def) callback
 
 -- | Calls the callback with the cached module for the provided path.
@@ -163,7 +144,7 @@ ifCachedModule fp def callback = ifCachedModuleM fp (return def) callback
 -- If you need custom data, see also 'ifCachedModuleAndData'.
 -- If you are in IdeDeferM and would like to wait until a cached module is available,
 -- see also 'withCachedModule'.
-ifCachedModuleM :: (HasGhcModuleCache m, GM.MonadIO m, CacheableModule b)
+ifCachedModuleM :: (HasGhcModuleCache m, MonadIO m, CacheableModule b)
                 => FilePath -> m a -> (b -> CachedInfo -> m a) -> m a
 ifCachedModuleM fp k callback = do
   muc <- getUriCache fp
@@ -184,7 +165,7 @@ ifCachedModuleM fp k callback = do
 -- available.
 -- If you are in IdeDeferM and would like to wait until a cached module is available,
 -- see also 'withCachedModuleAndData'.
-ifCachedModuleAndData :: forall a b m. (ModuleCache a, HasGhcModuleCache m, GM.MonadIO m, MonadMTState IdeState m)
+ifCachedModuleAndData :: forall a b m. (ModuleCache a, HasGhcModuleCache m, MonadIO m, MonadMTState IdeState m)
                       => FilePath -> b -> (GHC.TypecheckedModule -> CachedInfo -> a -> m b) -> m b
 ifCachedModuleAndData fp def callback = do
   muc <- getUriCache fp
@@ -250,7 +231,7 @@ deferIfNotCached fp cb = do
     Just res -> cb res
     Nothing -> wrap (Defer fp cb)
 
-lookupCachedData :: forall a m. (HasGhcModuleCache m, MonadMTState IdeState m, GM.MonadIO m, Typeable a, ModuleCache a)
+lookupCachedData :: forall a m. (HasGhcModuleCache m, MonadMTState IdeState m, MonadIO m, Typeable a, ModuleCache a)
                  => FilePath -> GHC.TypecheckedModule -> CachedInfo -> (Map.Map TypeRep Dynamic) -> m a
 lookupCachedData fp tm info dat = do
   canonical_fp <- liftIO $ canonicalizePath fp
@@ -376,7 +357,7 @@ deleteCachedModule uri = do
 -- TODO: this name is confusing, given GhcModuleCache. Change it
 class Typeable a => ModuleCache a where
     -- | Defines an initial value for the state extension
-    cacheDataProducer :: (GM.MonadIO m, MonadMTState IdeState m)
+    cacheDataProducer :: (MonadIO m, MonadMTState IdeState m)
                       => GHC.TypecheckedModule -> CachedInfo -> m a
 
 instance ModuleCache () where

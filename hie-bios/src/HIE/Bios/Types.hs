@@ -10,8 +10,6 @@ import GHC (Ghc)
 import Control.Exception (IOException)
 import Control.Applicative (Alternative(..))
 import System.Exit
-import Crypto.Hash.SHA1
-import qualified Data.ByteString as B
 
 -- | Output style.
 data OutputStyle = LispStyle  -- ^ S expression style.

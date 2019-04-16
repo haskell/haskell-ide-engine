@@ -153,7 +153,7 @@ runScheduler Scheduler {..} errorHandler callbackHandler mlf = do
 
   stateVar <- STM.newTVarIO initialState
 
-  let runGhcDisp = runIdeGhcM ghcModOptions plugins mlf stateVar $
+  let runGhcDisp = runIdeGhcM plugins mlf stateVar $
                     ghcDispatcher dEnv errorHandler callbackHandler ghcChanOut
       runIdeDisp = runIdeM plugins mlf stateVar $
                     ideDispatcher dEnv errorHandler callbackHandler ideChanOut
