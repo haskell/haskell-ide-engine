@@ -244,8 +244,8 @@ checkStack = do
         stackVersion & trim & readP_to_S parseVersion & filter
           (("" ==) . snd)
   unless (parsedVersion >= makeVersion [1, 9, 3]) $ do
-    liftIO $ putStrLn $ embedInStars stackExeIsOldFailMsg
-    error stackExeIsOldFailMsg
+    liftIO $ putStrLn $ embedInStars $ stackExeIsOldFailMsg stackVersion
+    error $ stackExeIsOldFailMsg stackVersion
 
 
 stackBuildHie :: VersionNumber -> Action ()
@@ -561,7 +561,8 @@ cabalInstallNotSuportedFailMsg =
     ++ "If this system has been falsely identified, please open an issue at:\n\thttps://github.com/haskell/haskell-ide-engine\n"
 
 -- | Error message when the `stack` binary is an older version
-stackExeIsOldFailMsg :: String
-stackExeIsOldFailMsg =
+stackExeIsOldFailMsg :: String -> String
+stackExeIsOldFailMsg stackVersion =
   "The `stack` executable is outdated.\n"
+    ++ "found version is `" ++ stackVersion ++ "`.\n"
     ++ "Please run `stack upgrade` to upgrade your stack installation"
