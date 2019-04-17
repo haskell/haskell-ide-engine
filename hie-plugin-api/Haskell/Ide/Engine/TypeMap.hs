@@ -57,7 +57,7 @@ everythingInTypecheckedSourceM
   => (forall a . Data a => a -> IO TypeMap)
   -> x
   -> IO TypeMap
-everythingInTypecheckedSourceM f = everythingButTypeM @GHC.Name f
+everythingInTypecheckedSourceM f = everythingButTypeM @GHC.Id f
 
 -- | Combine two queries into one using alternative combinator.
 combineM
