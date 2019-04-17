@@ -29,6 +29,7 @@ library
                        Haskell.Ide.Engine.MultiThreadState
                        Haskell.Ide.Engine.PluginsIdeMonads
                        Haskell.Ide.Engine.PluginUtils
+                       Haskell.Ide.Engine.TypeMap
   build-depends:       base >= 4.9 && < 5
                      , Diff
                      , aeson
