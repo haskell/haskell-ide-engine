@@ -44,6 +44,7 @@ import qualified HIE.Bios as BIOS
 import qualified Data.ByteString.Char8 as B
 
 import           Haskell.Ide.Engine.ArtifactMap
+import           Haskell.Ide.Engine.TypeMap
 import           Haskell.Ide.Engine.GhcModuleCache
 import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.PluginsIdeMonads
