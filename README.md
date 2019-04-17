@@ -153,7 +153,7 @@ then it means you have the command in PATH.
 
 On Linux you will need install a couple of extra libraries (for Unicode ([ICU](http://site.icu-project.org/)) and [NCURSES](https://www.gnu.org/software/ncurses/)):
 
-**Debian/Ubuntu**: 
+**Debian/Ubuntu**:
 
 ```bash
 sudo apt install libicu-dev libtinfo-dev libgmp-dev
@@ -194,7 +194,7 @@ Available commands can be seen with:
 stack ./install.hs help
 ```
 
-Remember, this will take time to download a Stackage-LTS and an appropriate GHC. However, afterwards all commands should work as expected. 
+Remember, this will take time to download a Stackage-LTS and an appropriate GHC. However, afterwards all commands should work as expected.
 
 ##### Install specific GHC Version
 
@@ -202,14 +202,14 @@ Install **Nightly** (and hoogle docs):
 
 ```bash
 stack ./install.hs hie-8.6.4
-stack ./install.hs build-doc-8.6.4
+stack ./install.hs build-docs
 ```
 
 Install **LTS** (and hoogle docs):
 
 ```bash
 stack ./install.hs hie-8.4.4
-stack ./install.hs build-doc-8.4.4
+stack ./install.hs build-docs
 ```
 
 The Haskell IDE Engine can also be built with `cabal new-build` instead of `stack build`.
@@ -237,7 +237,7 @@ If your desired ghc has been found, you use it to install Haskell IDE Engine.
 
 ```bash
 stack install.hs cabal-hie-8.4.4
-stack install.hs cabal-build-doc-8.4.4
+stack install.hs cabal-build-docs
 ```
 
 To install HIE for all GHC versions that are present on your system, use:
@@ -589,11 +589,11 @@ These builds have a dependency on [homebrew](https://brew.sh)'s `gmp` library. I
 
 ### cannot satisfy -package-id \<package\>
 
-#### Is \<package\> base-x? 
+#### Is \<package\> base-x?
 Make sure that you are running the correct version of hie for your version of ghc, or check out hie-wrapper.
 
 #### Is there a hash (#) after \<package\>?
 Delete any `.ghc.environment*` files in your project root and try again. (At the time of writing, cabal new-style projects are not supported with ghc-mod)
 
 #### Otherwise
-Try running `cabal update`. 
+Try running `cabal update`.
