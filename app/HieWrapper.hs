@@ -69,7 +69,7 @@ run opts = do
   d <- getCurrentDirectory
   logm $ "Current directory:" ++ d
 
-  -- Get the cabal directory from the ghc-mod cradle
+  -- Get the cabal directory from the cradle
   cr <- findCradle d
   let dir = cradleRootDir cr
   logm $ "Cradle directory:" ++ dir

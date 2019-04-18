@@ -32,7 +32,7 @@ import           Control.Monad
 import qualified Data.Set                      as Set
 import qualified Data.Map                      as Map
 import qualified Data.Text                     as T
-import qualified GhcMod.Types                  as GM
+import HIE.Bios.Types
 import qualified Language.Haskell.LSP.Core     as Core
 import qualified Language.Haskell.LSP.Types    as J
 import GhcMonad
@@ -61,9 +61,8 @@ data Scheduler m = Scheduler
  { plugins :: IdePlugins
    -- ^ The list of plugins that will be used for responding to requests
 
- , ghcModOptions :: GM.Options
-   -- ^ Options for the ghc-mod session. Since we only keep a single ghc-mod session
-   -- at a time, this cannot be changed a runtime.
+ , biosOpts :: CradleOpts
+   -- ^ Options for the hie-bios cradle finding
 
  , requestsToCancel :: STM.TVar (Set.Set J.LspId)
    -- ^ The request IDs that were canceled by the client. This causes requests to
@@ -100,10 +99,10 @@ class HasScheduler a m where
 newScheduler
   :: IdePlugins
      -- ^ The list of plugins that will be used for responding to requests
-  -> GM.Options
+  -> CradleOpts
    -- ^ Options for the ghc-mod session. Since we only keep a single ghc-mod session
   -> IO (Scheduler m)
-newScheduler plugins ghcModOptions = do
+newScheduler plugins cradleOpts = do
   cancelTVar  <- STM.atomically $ STM.newTVar Set.empty
   wipTVar     <- STM.atomically $ STM.newTVar Set.empty
   versionTVar <- STM.atomically $ STM.newTVar Map.empty
@@ -111,7 +110,7 @@ newScheduler plugins ghcModOptions = do
   ghcChan     <- Channel.newChan
   return $ Scheduler
     { plugins            = plugins
-    , ghcModOptions      = ghcModOptions
+    , biosOpts           = cradleOpts
     , requestsToCancel   = cancelTVar
     , requestsInProgress = wipTVar
     , documentVersions   = versionTVar

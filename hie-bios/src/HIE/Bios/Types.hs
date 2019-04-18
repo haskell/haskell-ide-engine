@@ -10,6 +10,18 @@ import GHC (Ghc)
 import Control.Exception (IOException)
 import Control.Applicative (Alternative(..))
 import System.Exit
+import System.IO
+
+data BIOSVerbosity = Silent | Verbose
+
+data CradleOpts = CradleOpts
+                { cradleOptsVerbosity :: BIOSVerbosity
+                , cradleOptsHandle :: Maybe Handle
+                -- ^ The handle where to send output to, if not set, stderr
+                }
+
+defaultCradleOpts :: CradleOpts
+defaultCradleOpts = CradleOpts Silent Nothing
 
 -- | Output style.
 data OutputStyle = LispStyle  -- ^ S expression style.

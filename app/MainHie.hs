@@ -5,7 +5,6 @@ module Main where
 import           Control.Monad
 import           Data.Monoid                           ((<>))
 import           Data.Version                          (showVersion)
-import qualified GhcMod.Types                          as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Options
@@ -18,6 +17,7 @@ import qualified Paths_haskell_ide_engine              as Meta
 import           System.Directory
 import           System.Environment
 import qualified System.Log.Logger                     as L
+import HIE.Bios.Types
 
 -- ---------------------------------------------------------------------
 -- plugins
@@ -124,16 +124,15 @@ run opts = do
   d <- getCurrentDirectory
   logm $ "Current directory:" ++ d
 
-  let vomitOptions = GM.defaultOptions { GM.optOutput = oo { GM.ooptLogLevel = GM.GmVomit}}
-      oo = GM.optOutput GM.defaultOptions
-  let defaultOpts = if optGhcModVomit opts then vomitOptions else GM.defaultOptions
+  let initOpts = defaultCradleOpts { cradleOptsVerbosity = verbosity }
+      verbosity = if optBiosVerbose opts then Verbose else Silent
       -- Running HIE on projects with -Werror breaks most of the features since all warnings
       -- will be treated with the same severity of type errors. In order to offer a more useful
       -- experience, we make sure warnings are always reported as warnings by setting -Wwarn
-      ghcModOptions = defaultOpts { GM.optGhcUserOptions = ["-Wwarn"] }
+--      ghcModOptions = defaultOpts { GM.optGhcUserOptions = ["-Wwarn"] }
 
-  when (optGhcModVomit opts) $
-    logm "Enabling --vomit for ghc-mod. Output will be on stderr"
+  when (optBiosVerbose opts) $
+    logm "Enabling verbose mode for hie-bios. Output will be on stderr"
 
   when (optExamplePlugin opts) $
     logm "Enabling Example2 plugin, will insert constant diagnostics etc."
@@ -142,8 +141,8 @@ run opts = do
 
   -- launch the dispatcher.
   if optJson opts then do
-    scheduler <- newScheduler plugins' ghcModOptions
+    scheduler <- newScheduler plugins' initOpts
     jsonStdioTransport scheduler
   else do
-    scheduler <- newScheduler plugins' ghcModOptions
+    scheduler <- newScheduler plugins' initOpts
     lspStdioTransport scheduler origDir plugins' (optCaptureFile opts)

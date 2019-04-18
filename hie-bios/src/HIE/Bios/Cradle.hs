@@ -2,6 +2,7 @@
 {-# LANGUAGE TupleSections #-}
 module HIE.Bios.Cradle (
       findCradle
+    , findCradleWithOpts
     , defaultCradle
   ) where
 
@@ -21,16 +22,17 @@ import Data.List
 
 import Debug.Trace
 import System.PosixCompat.Files
---import System.FilePath.Posix
 
 ----------------------------------------------------------------
+findCradle :: FilePath -> IO Cradle
+findCradle = findCradleWithOpts defaultCradleOpts
 
 -- | Finding 'Cradle'.
 --   Find a cabal file by tracing ancestor directories.
 --   Find a sandbox according to a cabal sandbox config
 --   in a cabal directory.
-findCradle :: FilePath -> IO Cradle
-findCradle wfile = do
+findCradleWithOpts :: CradleOpts -> FilePath -> IO Cradle
+findCradleWithOpts _copts wfile = do
     let wdir = takeDirectory wfile
     cfg <- runMaybeT (dhallConfig wdir <|> implicitConfig wdir)
     return $ case cfg of
