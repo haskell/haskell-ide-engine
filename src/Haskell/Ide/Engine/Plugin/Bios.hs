@@ -21,8 +21,6 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 --import qualified Haskell.Ide.Engine.Plugin.HieExtras as Hie
 
-import qualified GhcMod.Gap                        as GM
-
 import           DynFlags
 import           GHC
 import           IOEnv                             as G
@@ -81,7 +79,7 @@ srcErrToDiag df rfm se = do
       processMsg err = do
         let sev = Just DsError
             unqual = errMsgContext err
-            st = GM.mkErrStyle' df unqual
+            st = mkErrStyle df unqual
             msgTxt = T.pack $ renderWithStyle df (pprLocErrMsg err) st
         eloc <- srcSpan2Loc rfm $ errMsgSpan err
         case eloc of

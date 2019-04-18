@@ -20,6 +20,7 @@ library
   exposed-modules:
                        Haskell.Ide.Engine.ArtifactMap
                        Haskell.Ide.Engine.Compat
+                       Haskell.Ide.Engine.GhcCompat
                        Haskell.Ide.Engine.Config
                        Haskell.Ide.Engine.Context
                        Haskell.Ide.Engine.GhcModuleCache

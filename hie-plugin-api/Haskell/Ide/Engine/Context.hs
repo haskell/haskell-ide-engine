@@ -2,8 +2,8 @@ module Haskell.Ide.Engine.Context where
 
 import Data.Generics
 import Language.Haskell.LSP.Types
-import GHC
-import GhcMod.Gap (GhcPs) -- for GHC 8.2.2
+import qualified GHC
+import Haskell.Ide.Engine.GhcCompat (GhcPs) -- for GHC 8.2.2
 import Haskell.Ide.Engine.PluginUtils
 
 -- | A context of a declaration in the program
@@ -17,14 +17,14 @@ data Context = TypeContext
 
 -- | Generates a map of where the context is a type and where the context is a value
 -- i.e. where are the value decls and the type decls
-getContext :: Position -> ParsedModule -> Maybe Context
+getContext :: Position -> GHC.ParsedModule -> Maybe Context
 getContext pos pm = everything join (Nothing `mkQ` go `extQ` goInline) decl
-  where decl = hsmodDecls $ unLoc $ pm_parsed_source pm
-        go :: LHsDecl GhcPs -> Maybe Context
-        go (L (RealSrcSpan r) (SigD {}))
+  where decl = GHC.hsmodDecls $ GHC.unLoc $ GHC.pm_parsed_source pm
+        go :: GHC.LHsDecl GhcPs -> Maybe Context
+        go (GHC.L (GHC.RealSrcSpan r) (GHC.SigD {}))
           | pos `isInsideRange` r = Just TypeContext
           | otherwise = Nothing
-        go (L (GHC.RealSrcSpan r) (GHC.ValD {}))
+        go (GHC.L (GHC.RealSrcSpan r) (GHC.ValD {}))
           | pos `isInsideRange` r = Just ValueContext
           | otherwise = Nothing
         go _ = Nothing

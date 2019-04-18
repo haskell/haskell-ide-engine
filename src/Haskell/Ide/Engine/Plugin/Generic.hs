@@ -18,11 +18,11 @@ import           Data.Monoid ((<>))
 import qualified Data.Text                         as T
 import           Name
 import           GHC.Generics
-import qualified GhcMod.Gap                        as GM
 import qualified GhcMod.SrcUtils                   as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
+import qualified Haskell.Ide.Engine.GhcCompat as C ( GhcPs )
 import qualified Haskell.Ide.Engine.Support.HieExtras as Hie
 import           Haskell.Ide.Engine.ArtifactMap
 import qualified Language.Haskell.LSP.Types        as LSP
@@ -424,7 +424,7 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
         imps  = concatMap goImport imports
         decls = concatMap go $ hsmodDecls hsMod
 
-        go :: LHsDecl GM.GhcPs -> [Decl]
+        go :: LHsDecl C.GhcPs -> [Decl]
 #if __GLASGOW_HASKELL__ >= 806
         go (L l (TyClD _ d)) = goTyClD (L l d)
 #else
@@ -466,7 +466,7 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
 
         -- -----------------------------
 
-        goValD :: LHsBind GM.GhcPs -> [Decl]
+        goValD :: LHsBind C.GhcPs -> [Decl]
         goValD (L l (FunBind { fun_id = ln, fun_matches = MG { mg_alts = llms } })) =
           pure (Decl LSP.SkFunction ln wheres l)
           where
@@ -504,7 +504,7 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
 
         -- -----------------------------
 
-        processSig :: LSig GM.GhcPs -> [Decl]
+        processSig :: LSig C.GhcPs -> [Decl]
 #if __GLASGOW_HASKELL__ >= 806
         processSig (L l (ClassOpSig _ False names _)) =
 #else
@@ -513,7 +513,7 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
           map (\n -> Decl LSP.SkMethod n [] l) names
         processSig _ = []
 
-        processCon :: LConDecl GM.GhcPs -> [Decl]
+        processCon :: LConDecl C.GhcPs -> [Decl]
         processCon (L l ConDeclGADT { con_names = names }) =
           map (\n -> Decl LSP.SkConstructor n [] l) names
 #if __GLASGOW_HASKELL__ >= 806
@@ -533,7 +533,7 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
         processCon (L _ (XConDecl _)) = error "processCon"
 #endif
 
-        goImport :: LImportDecl GM.GhcPs -> [Decl]
+        goImport :: LImportDecl C.GhcPs -> [Decl]
         goImport (L l ImportDecl { ideclName = lmn, ideclAs = as, ideclHiding = meis }) = pure im
           where
             im = Import imKind lmn xs l

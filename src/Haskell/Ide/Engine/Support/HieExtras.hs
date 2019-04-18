@@ -46,7 +46,6 @@ import           Finder
 import           GHC                                          hiding (getContext)
 import           GhcMonad
 import           GHC.Generics                                 (Generic)
-import qualified GhcMod.Gap                                   as GM
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.Context
 import           Haskell.Ide.Engine.MonadFunctions
@@ -223,7 +222,7 @@ instance ModuleCache CachedCompletions where
         importDeclerations = map unLoc limports
 
         -- The list of all importable Modules from all packages
-        moduleNames = map showModName (GM.listVisibleModuleNames (getDynFlags tm))
+        moduleNames = map showModName (listVisibleModuleNames (getDynFlags tm))
 
         -- The given namespaces for the imported modules (ie. full name, or alias if used)
         allModNamesAsNS = map (showModName . asNamespace) importDeclerations

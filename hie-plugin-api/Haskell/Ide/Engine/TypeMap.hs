@@ -10,7 +10,6 @@ import qualified Data.IntervalMap.FingerTree   as IM
 
 import qualified GHC
 import           GHC                            ( TypecheckedModule )
-import           GhcMod.SrcUtils
 
 import           Data.Data                     as Data
 import           Control.Monad.IO.Class
@@ -29,10 +28,6 @@ genTypeMap tm = do
   hs_env      <- GHC.getSession
   liftIO $ types hs_env typecheckedSource
 
-collectAllSpansTypes'
-  :: GHC.GhcMonad m => Bool -> TypecheckedModule -> m [(GHC.SrcSpan, GHC.Type)]
-collectAllSpansTypes' = collectAllSpansTypes
-
 -- | Obtain details map for types.
 types :: GHC.HscEnv -> GHC.TypecheckedSource -> IO TypeMap
 types hs_env = everythingInTypecheckedSourceM (ty `combineM` fun)
@@ -40,7 +35,7 @@ types hs_env = everythingInTypecheckedSourceM (ty `combineM` fun)
   ty :: forall a . Data a => a -> IO TypeMap
   ty term = case cast term of
     (Just lhsExprGhc@(GHC.L (GHC.RealSrcSpan spn) _)) ->
-      getType hs_env lhsExprGhc >>= \case 
+      getType hs_env lhsExprGhc >>= \case
         Nothing -> return IM.empty
         Just (_, typ) -> return (IM.singleton (rspToInt spn) typ)
     _ -> return IM.empty
@@ -57,14 +52,14 @@ everythingInTypecheckedSourceM
   => (forall a . Data a => a -> IO TypeMap)
   -> x
   -> IO TypeMap
-everythingInTypecheckedSourceM f = everythingButTypeM @GHC.Name f
+everythingInTypecheckedSourceM f = everythingButTypeM @GHC.Id f
 
 -- | Combine two queries into one using alternative combinator.
 combineM
   :: (forall a. Data a => a -> IO TypeMap)
   -> (forall a. Data a => a -> IO TypeMap)
   -> (forall a. Data a => a -> IO TypeMap)
-combineM f g x = do 
+combineM f g x = do
   a <- f x
   b <- g x
   return (a `IM.union` b)

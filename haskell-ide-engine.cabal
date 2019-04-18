@@ -29,7 +29,6 @@ library
                        Haskell.Ide.Engine.Plugin.Build
                        Haskell.Ide.Engine.Plugin.Example2
                        Haskell.Ide.Engine.Plugin.Floskell
-                       Haskell.Ide.Engine.Plugin.GhcMod
                        Haskell.Ide.Engine.Plugin.Bios
                        Haskell.Ide.Engine.Plugin.HaRe
                        Haskell.Ide.Engine.Plugin.Haddock

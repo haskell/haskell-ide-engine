@@ -9,7 +9,7 @@ import qualified GHC
 import           GHC                               (TypecheckedModule)
 import qualified SrcLoc                            as GHC
 import qualified Var
-import qualified GhcMod.Gap                        as GM
+import Haskell.Ide.Engine.GhcCompat
 
 import           Language.Haskell.LSP.Types
 
@@ -60,27 +60,27 @@ genLocMap tm = names
     checker _                             = IM.empty
 
 #if __GLASGOW_HASKELL__ >= 806
-    fieldOcc :: GHC.FieldOcc GM.GhcRn -> LocMap
+    fieldOcc :: GHC.FieldOcc GhcRn -> LocMap
     fieldOcc (GHC.FieldOcc n (GHC.L (GHC.RealSrcSpan r) _)) = IM.singleton (rspToInt r) n
     fieldOcc _ = IM.empty
 
-    hsRecFieldN :: GHC.LHsExpr GM.GhcRn -> LocMap
+    hsRecFieldN :: GHC.LHsExpr GhcRn -> LocMap
     hsRecFieldN (GHC.L _ (GHC.HsRecFld _ (GHC.Unambiguous n (GHC.L (GHC.RealSrcSpan r) _)) )) = IM.singleton (rspToInt r) n
     hsRecFieldN _ = IM.empty
 
-    hsRecFieldT :: GHC.LHsExpr GM.GhcTc -> LocMap
+    hsRecFieldT :: GHC.LHsExpr GhcTc -> LocMap
     hsRecFieldT (GHC.L _ (GHC.HsRecFld _ (GHC.Ambiguous n (GHC.L (GHC.RealSrcSpan r) _)) )) = IM.singleton (rspToInt r) (Var.varName n)
     hsRecFieldT _ = IM.empty
 #elif __GLASGOW_HASKELL__ > 710
-    fieldOcc :: GHC.FieldOcc GM.GhcRn -> LocMap
+    fieldOcc :: GHC.FieldOcc GhcRn -> LocMap
     fieldOcc (GHC.FieldOcc (GHC.L (GHC.RealSrcSpan r) _) n) = IM.singleton (rspToInt r) n
     fieldOcc _ = IM.empty
 
-    hsRecFieldN :: GHC.LHsExpr GM.GhcRn -> LocMap
+    hsRecFieldN :: GHC.LHsExpr GhcRn -> LocMap
     hsRecFieldN (GHC.L _ (GHC.HsRecFld (GHC.Unambiguous (GHC.L (GHC.RealSrcSpan r) _) n) )) = IM.singleton (rspToInt r) n
     hsRecFieldN _ = IM.empty
 
-    hsRecFieldT :: GHC.LHsExpr GM.GhcTc -> LocMap
+    hsRecFieldT :: GHC.LHsExpr GhcTc -> LocMap
     hsRecFieldT (GHC.L _ (GHC.HsRecFld (GHC.Ambiguous (GHC.L (GHC.RealSrcSpan r) _) n) )) = IM.singleton (rspToInt r) (Var.varName n)
     hsRecFieldT _ = IM.empty
 #endif
@@ -119,7 +119,7 @@ genImportMap tm = moduleMap
 genDefMap :: TypecheckedModule -> DefMap
 genDefMap tm = mconcat $ map (go . GHC.unLoc) decls
   where
-    go :: GHC.HsDecl GM.GhcPs -> DefMap
+    go :: GHC.HsDecl GhcPs -> DefMap
     -- Type signatures
 #if __GLASGOW_HASKELL__ >= 806
     go (GHC.SigD _ (GHC.TypeSig _ lns _)) =
@@ -168,7 +168,7 @@ rspToInt = uncurry IM.Interval . unpackRealSrcSpan
 
 -- -- | Seaches for all the symbols at a point in the
 -- -- given LocMap
--- getNamesAtPos :: Position -> LocMap -> [((Position,Position), GM.GhcRn)]
+-- getNamesAtPos :: Position -> LocMap -> [((Position,Position), GhcRn)]
 -- getNamesAtPos p im = map f $ IM.search p im
 
 getArtifactsAtPos :: Position -> SourceMap a -> [(Range, a)]
