@@ -98,12 +98,11 @@ import qualified Data.Text                     as T
 import           Data.Typeable                  ( TypeRep
                                                 , Typeable
                                                 )
--- For the ReaderT ExceptionMonad instance only
-import GhcMod.Monad ()
 import GhcMonad
 import qualified HIE.Bios as BIOS
 import           GHC.Generics
 import           GHC                            ( HscEnv, GhcT )
+import Exception
 
 import           Haskell.Ide.Engine.Compat
 import           Haskell.Ide.Engine.Config
@@ -538,3 +537,10 @@ data IdeError = IdeError
 
 instance ToJSON IdeError
 instance FromJSON IdeError
+
+instance ExceptionMonad m => ExceptionMonad (ReaderT e m) where
+  gcatch (ReaderT m) c = ReaderT $ \r -> m r `gcatch` \e -> runReaderT (c e) r
+  gmask a = ReaderT $ \e -> gmask $ \u -> runReaderT (a $ q u) e
+    where q :: (m a -> m a) -> ReaderT e m a -> ReaderT e m a
+          q u (ReaderT b) = ReaderT (u . b)
+
