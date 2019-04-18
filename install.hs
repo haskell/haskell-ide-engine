@@ -248,8 +248,6 @@ installCabal = do
   when (isNothing cabalExe) $
     execStackShake_ ["install", "cabal-install"]
   execCabal_ ["update"]
-  ghc <- getStackGhcPathShake
-  execCabal_ ["install", "Cabal-2.4.1.0", "--with-compiler=" ++ ghc]
 
 
 checkStack :: Action ()
