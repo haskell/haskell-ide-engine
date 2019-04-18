@@ -18,8 +18,6 @@ import Data.Function
 import Data.Maybe
 import Data.List
 import           GHC
-import qualified GhcMod.LightGhc                              as GM
-import qualified GhcMod.Monad                                 as GM
 import           GhcMonad
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
@@ -86,13 +84,15 @@ nameCacheFromGhcMonad = ( read_from_session , write_to_session )
        ref <- withSession (return . hsc_NC)
        liftIO $ writeIORef ref nc'
 
-runInLightGhc :: GM.LightGhc a -> IdeM a
+runInLightGhc :: Ghc a -> IdeM a
 runInLightGhc a = do
   hscEnvRef <- ghcSession <$> readMTS
   mhscEnv <- liftIO $ traverse readIORef hscEnvRef
-  case mhscEnv of
+  liftIO $ case mhscEnv of
     Nothing -> error "Ghc Session not initialized"
-    Just env -> GM.runLightGhc env a
+    Just env -> do
+      session <- Session <$> newIORef env
+      unGhc a session
 
 nameCacheFromIdeM :: NameCacheAccessor IdeM
 nameCacheFromIdeM = ( read_from_session , write_to_session )
