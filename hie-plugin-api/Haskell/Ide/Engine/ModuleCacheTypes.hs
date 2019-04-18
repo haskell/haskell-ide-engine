@@ -5,7 +5,6 @@ import qualified Data.Map as Map
 import Data.Dynamic
 import Data.Typeable
 import GHC (ParsedModule, TypecheckedModule)
-import qualified GhcMod.Cradle as GM
 import Haskell.Ide.Engine.ArtifactMap
 import Language.Haskell.LSP.Types
 
@@ -60,9 +59,7 @@ emptyModuleCache :: IdeCache
 emptyModuleCache = IdeCache Map.empty Map.empty
 
 data IdeCache = IdeCache
-  { cradleCache :: !(Map.Map FilePath GM.Cradle)
-                -- ^ map from dirs to cradles
-  , uriCaches   :: !(Map.Map FilePath UriCacheResult)
+  { uriCaches   :: !(Map.Map FilePath UriCacheResult)
                 -- ^ map from module paths to module caches
   } deriving (Show)
 
