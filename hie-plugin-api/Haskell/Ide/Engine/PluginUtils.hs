@@ -48,7 +48,6 @@ import           Data.Monoid
 import qualified Data.Text                             as T
 import qualified Data.Text.IO                          as T
 import           Data.Maybe
-import qualified GhcMod.Utils                          as GM
 import           FastString
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.MonadFunctions
@@ -153,7 +152,7 @@ makeDiffResult :: FilePath -> T.Text -> (FilePath -> FilePath) -> IdeM Workspace
 makeDiffResult orig new fileMap = do
   origText <- liftIO $ T.readFile orig
   let fp' = fileMap orig
-  fp <- liftIO $ GM.makeAbsolute' fp'
+  fp <- liftIO $ makeAbsolute fp'
   diffText (filePathToUri fp,origText) new IncludeDeletions
 
 -- | A version of 'makeDiffResult' that has does not insert any deletions
@@ -161,7 +160,7 @@ makeAdditiveDiffResult :: FilePath -> T.Text -> (FilePath -> FilePath) -> IdeM W
 makeAdditiveDiffResult orig new fileMap = do
   origText <- liftIO $ T.readFile orig
   let fp' = fileMap orig
-  fp <- liftIO $ GM.makeAbsolute' fp'
+  fp <- liftIO $ makeAbsolute fp'
   diffText (filePathToUri fp,origText) new SkipDeletions
 
 -- | Generate a 'WorkspaceEdit' value from a pair of source Text
