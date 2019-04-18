@@ -18,7 +18,9 @@ import           Control.Monad.Extra                      ( unlessM
                                                           , mapMaybeM
                                                           )
 import           Data.Maybe                               ( isJust )
-import           System.Directory                         ( findExecutable )
+import           System.Directory                         ( findExecutable
+                                                          , listDirectory
+                                                          )
 import           System.Environment                       ( getProgName
                                                           , unsetEnv
                                                           )
@@ -26,11 +28,14 @@ import           System.Info                              ( os
                                                           , arch
                                                           )
 
-import           Data.Maybe                               ( isNothing )
+import           Data.Maybe                               ( isNothing
+                                                          , mapMaybe
+                                                          )
 import           Data.List                                ( dropWhileEnd
                                                           , intersperse
                                                           , intercalate
                                                           )
+import qualified Data.Text as T
 import           Data.Char                                ( isSpace )
 import           Data.Version                             ( parseVersion
                                                           , makeVersion
@@ -43,24 +48,27 @@ type VersionNumber = String
 type GhcPath = String
 
 -- | Defines all different hie versions that are buildable.
--- If they are edited, make sure to maintain the order of the versions.
-hieVersions :: [VersionNumber]
-hieVersions =
-  [ "8.2.1"
-  , "8.2.2"
-  , "8.4.2"
-  , "8.4.3"
-  , "8.4.4"
-  , "8.6.1"
-  , "8.6.2"
-  , "8.6.3"
-  , "8.6.4"
-  ]
+--
+-- The current directory is scanned for `stack-*.yaml` files.
+-- On windows, `8.6.3` is excluded as this version of ghc does not work there
+getHieVersions :: MonadIO m => m [VersionNumber]
+getHieVersions = do
+  let stackYamlPrefix = T.pack "stack-"
+  let stackYamlSuffix = T.pack ".yaml"
+  files <- liftIO $ listDirectory "."
+  let hieVersions = files
+        & map T.pack
+        & mapMaybe
+          (T.stripPrefix stackYamlPrefix >=> T.stripSuffix stackYamlSuffix)
+        & map T.unpack
+        -- the following line excludes `8.6.3` on windows systems
+        & filter (\p -> not isWindowsSystem || p /= "8.6.3")
+  return hieVersions
 
 -- | Most recent version of hie.
 -- Shown in the more concise help message.
-mostRecentHieVersion :: VersionNumber
-mostRecentHieVersion = last hieVersions
+mostRecentHieVersion :: MonadIO m => m VersionNumber
+mostRecentHieVersion = last <$> getHieVersions
 
 main :: IO ()
 main = do
@@ -69,6 +77,8 @@ main = do
 
   ghcPaths <- findInstalledGhcs
   let ghcVersions = map fst ghcPaths
+
+  hieVersions <- getHieVersions
 
   shakeArgs shakeOptions { shakeFiles = "_build" } $ do
     want ["short-help"]
@@ -179,12 +189,14 @@ configureCabal versionNumber = do
     ["new-configure", "-w", ghcPath, "--write-ghc-environment-files=never"]
 
 findInstalledGhcs :: IO [(VersionNumber, GhcPath)]
-findInstalledGhcs = mapMaybeM
-  (\version -> getGhcPath version >>= \case
-    Nothing -> return Nothing
-    Just p  -> return $ Just (version, p)
-  )
-  (reverse hieVersions)
+findInstalledGhcs = do
+  hieVersions <- getHieVersions :: IO [VersionNumber]
+  mapMaybeM
+    (\version -> getGhcPath version >>= \case
+      Nothing -> return Nothing
+      Just p  -> return $ Just (version, p)
+    )
+    (reverse hieVersions)
 
 cabalBuildHie :: VersionNumber -> Action ()
 cabalBuildHie versionNumber = do
@@ -281,6 +293,7 @@ stackBuildDoc = do
 -- | short help message is printed by default
 shortHelpMessage :: Action ()
 shortHelpMessage = do
+  hieVersions <- getHieVersions
   let out = liftIO . putStrLn
   scriptName <- liftIO getProgName
   out ""
@@ -288,14 +301,14 @@ shortHelpMessage = do
   out' ("stack " <> scriptName <> " <target>")
   out ""
   out "Targets:"
-  mapM_ (out' . showTarget spaces) targets
+  mapM_ (out' . showTarget (spaces hieVersions)) (targets hieVersions)
   out ""
  where
   out    = liftIO . putStrLn
   out'   = out . ("    " ++)
 
-  spaces = space targets
-  targets =
+  spaces hieVersions = space (targets hieVersions)
+  targets hieVersions =
     [ ("help", "Show help message including all targets")
     , emptyTarget
     , ( "build"
@@ -304,7 +317,7 @@ shortHelpMessage = do
         ++ ")"
       )
     , stackBuildAllTarget
-    , stackHieTarget mostRecentHieVersion
+    -- , stackHieTarget mostRecentHieVersion
     , stackBuildDocTarget
     , stackHieTarget "8.4.4"
     , emptyTarget
@@ -313,7 +326,7 @@ shortHelpMessage = do
       )
     , cabalBuildTarget
     , cabalBuildAllTarget
-    , cabalHieTarget mostRecentHieVersion
+    -- , cabalHieTarget mostRecentHieVersion
     , cabalBuildDocTarget
     , cabalHieTarget "8.4.4"
     ]
@@ -321,24 +334,30 @@ shortHelpMessage = do
 
 helpMessage :: Action ()
 helpMessage = do
+
+  hieVersions <- getHieVersions
   scriptName <- liftIO getProgName
   out ""
   out "Usage:"
   out' ("stack " <> scriptName <> " <target>")
   out ""
   out "Targets:"
-  mapM_ (out' . showTarget spaces) targets
+  mapM_ (out' . showTarget (spaces hieVersions)) (targets hieVersions)
   out ""
  where
   out    = liftIO . putStrLn
   out'   = out . ("    " ++)
 
-  spaces = space targets
+  spaces hieVersions = space (targets hieVersions)
   -- All targets the shake file supports
-  targets :: [(String, String)]
-  targets = intercalate
+  targets :: [VersionNumber] -> [(String, String)]
+  targets hieVersions = intercalate
     [emptyTarget]
-    [generalTargets, stackTargets, cabalTargets, macosTargets]
+    [ generalTargets
+    , stackTargets hieVersions
+    , cabalTargets hieVersions
+    , macosTargets
+    ]
 
   -- All targets with their respective help message.
   generalTargets =
@@ -350,7 +369,7 @@ helpMessage = do
 
   macosTargets = [("icu-macos-fix", "Fixes icu related problems in MacOS")]
 
-  stackTargets =
+  stackTargets hieVersions =
     [ ( "build"
       , "Builds hie for all supported GHC versions ("
       ++ allVersionMessage hieVersions
@@ -362,7 +381,7 @@ helpMessage = do
       ]
       ++ map stackHieTarget hieVersions
 
-  cabalTargets =
+  cabalTargets hieVersions =
     [ ( "cabal-ghcs"
       , "Show all GHC versions that can be installed via `cabal-build` and `cabal-build-all`."
       )
