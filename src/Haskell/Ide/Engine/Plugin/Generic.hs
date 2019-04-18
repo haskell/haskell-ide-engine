@@ -18,7 +18,6 @@ import           Data.Monoid ((<>))
 import qualified Data.Text                         as T
 import           Name
 import           GHC.Generics
-import qualified GhcMod.SrcUtils                   as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
@@ -28,12 +27,14 @@ import           Haskell.Ide.Engine.ArtifactMap
 import qualified Language.Haskell.LSP.Types        as LSP
 import qualified Language.Haskell.LSP.Types.Lens   as LSP
 import           Language.Haskell.Refact.API       (hsNamessRdr)
+import           HIE.Bios.Doc
 
 import           GHC
 import           HscTypes
 import           DataCon
 import           TcRnTypes
-import           Outputable                        (mkUserStyle, Depth(..))
+import           Outputable hiding ((<>))
+import           PprTyThing
 
 
 -- ---------------------------------------------------------------------
@@ -87,8 +88,11 @@ pureTypeCmd newPos tm info =
 
     f (range', t) =
       case oldRangeToNew info range' of
-        (Just range) -> [(range , T.pack $ GM.pretty dflag st t)]
+        (Just range) -> [(range , T.pack $ prettyTy st t)]
         _ -> []
+
+    prettyTy stl
+      = showOneLine dflag stl . pprTypeForUser
 
 -- TODO: MP: Why is this defined here?
 cmp :: Range -> Range -> Ordering
