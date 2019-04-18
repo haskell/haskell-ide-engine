@@ -9,8 +9,7 @@ import           Data.Semigroup
 import           Data.List
 import           Data.Foldable
 import           Data.Version                          (showVersion)
-import qualified GhcMod.Monad                          as GM
-import qualified GhcMod.Types                          as GM
+import           HIE.Bios
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.Plugin.Base
@@ -71,10 +70,8 @@ run opts = do
   logm $ "Current directory:" ++ d
 
   -- Get the cabal directory from the ghc-mod cradle
-  (mcr,_) <- GM.runGhcModT GM.defaultOptions GM.cradle
-  dir <- case mcr of
-    Left err -> error (show err)
-    Right cr -> return $ GM.cradleRootDir cr
+  cr <- findCradle d
+  let dir = cradleRootDir cr
   logm $ "Cradle directory:" ++ dir
   setCurrentDirectory dir
 
