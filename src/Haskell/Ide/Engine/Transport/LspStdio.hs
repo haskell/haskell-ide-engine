@@ -553,9 +553,9 @@ reactor inp diagIn = do
                 -- TODO: maybe only have provider give MarkedString and
                 -- work out range here?
                 let hs = concat hhs
-                    h = case (fold (map (^. J.contents) hs) :: List J.MarkedString) of
-                      List [] -> Nothing
-                      hh -> Just $ J.Hover hh r
+                    h = case mconcat ((map (^. J.contents) hs) :: [J.HoverContents]) of
+                      J.HoverContentsMS (List []) -> Nothing
+                      hh                          -> Just $ J.Hover hh r
                     r = listToMaybe $ mapMaybe (^. J.range) hs
                 in reactorSend $ RspHover $ Core.makeResponseMessage req h
 

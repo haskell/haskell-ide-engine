@@ -60,12 +60,12 @@ instance ExtensionClass HoogleDb where
 -- | Initialise the Hoogle Database.
 -- Search for the Hoogle Database and set it in the global config if found.
 -- Looks first into custom hoogle database locations, then in the default location.
--- Note, that the FilePath must be an absolute path, otherwise Hoogle can not 
+-- Note, that the FilePath must be an absolute path, otherwise Hoogle can not
 -- find the database.
--- 
+--
 -- If no hoogle database has been found, Nothing is returned
 -- and we will have no access to the hoogle database.
--- However, it is still safe to use the hoogle API, 
+-- However, it is still safe to use the hoogle API,
 -- e.g. either error or default values are returned.
 initializeHoogleDb :: IdeGhcM (Maybe FilePath)
 initializeHoogleDb = do
@@ -100,9 +100,9 @@ infoCmd' expr = do
 -- If documentation can be found for it, the result will be rendered
 -- in markdown for the lsp-client. If multiple results have been found,
 -- only the first result will be shown.
--- 
--- If no result can be found for the identifier, a hoogle error is returned 
--- that can be shown to the client by converting it 
+--
+-- If no result can be found for the identifier, a hoogle error is returned
+-- that can be shown to the client by converting it
 -- to an IdeError with 'hoogleErrorToIdeError'.
 infoCmdFancyRender :: T.Text -> IdeM (Either HoogleError T.Text)
 infoCmdFancyRender expr = do
@@ -116,7 +116,8 @@ infoCmdFancyRender expr = do
 -- | Render the target in valid markdown.
 -- Transform haddock documentation into markdown.
 renderTarget :: Target -> T.Text
-renderTarget t = T.intercalate "\n\n" $
+-- renderTarget t = T.intercalate "\n\n" $
+renderTarget t = T.intercalate "\n" $
      ["```haskell\n" <> unHTML (T.pack $ targetItem t) <> "```"]
   ++ [T.pack $ unwords mdl | not $ null mdl]
   ++ [renderDocs $ targetDocs t]
@@ -154,8 +155,8 @@ searchPackages :: T.Text -> IdeM [T.Text]
 searchPackages = fmap (nub . take 5) . searchTargets (fmap (T.pack . fst) . targetPackage)
 
 -- | Search for Targets that fit to the given Text and satisfy the given predicate.
--- Limits the amount of matches to at most ten. 
--- Applies the predicate to the first ten matches. May also return zero matches, 
+-- Limits the amount of matches to at most ten.
+-- Applies the predicate to the first ten matches. May also return zero matches,
 -- although there are matches, if none of the first ten matches
 -- satisfies the predicate.
 --
@@ -192,7 +193,7 @@ lookupCmd' n term = do
 
 ------------------------------------------------------------------------
 
--- | Run a query for Hoogle on the given Hoogle database. 
+-- | Run a query for Hoogle on the given Hoogle database.
 -- If no Database is given, no search is executed.
 -- If the Database cannot be found at the given location, an IOException will be thrown.
 -- Note, that the database file must be an absolute path.
@@ -201,15 +202,15 @@ lookupCmd' n term = do
 -- Found targets can be consumed with the given callback function.
 -- You can limit the amount of results, by taking only the first ten results.
 -- Example call:
--- 
--- @ 
---   runHoogleQuery 
---    (Just "/home/user/.hoogle/default-haskell-5.0.17.hoo") 
---    (Data.Text.pack "take :: Int -> [a] -> [a]") 
+--
+-- @
+--   runHoogleQuery
+--    (Just "/home/user/.hoogle/default-haskell-5.0.17.hoo")
+--    (Data.Text.pack "take :: Int -> [a] -> [a]")
 --    (Right . Prelude.take 10)
 -- @
 -- This limits the results to ten and looks for a function `take` that has the given signature.
--- 
+--
 -- HoogleError's can be translated to IdeErrors with @hoogleErrorToIdeError@
 -- and shown to the client.
 runHoogleQuery :: Maybe FilePath -> T.Text -> ([Target] -> Either HoogleError a) -> IO (Either HoogleError a)
@@ -219,7 +220,7 @@ runHoogleQuery (Just db) quer f = do
   return (f res)
 
 
--- | Run a query for Hoogle on the given Hoogle database. 
+-- | Run a query for Hoogle on the given Hoogle database.
 -- If the database can not be found, an IOException is thrown.
 -- The target may be of the form: `take`, `take :: Int -> [a] -> [a]`
 searchHoogle :: FilePath -> T.Text -> IO [Target]
