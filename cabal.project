@@ -8,4 +8,3 @@ packages:
          ./submodules/floskell
          ./submodules/ghc-mod/
          ./submodules/ghc-mod/core/
-         ./submodules/lsp-test
