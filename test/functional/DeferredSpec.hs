@@ -29,7 +29,7 @@ spec = do
 
       skipMany anyNotification
       hoverRsp <- message :: Session HoverResponse
-      liftIO $ hoverRsp ^? result . _Just . _Just . contents `shouldBe` Nothing
+      liftIO $ hoverRsp ^? result . _Just . _Just . contents `shouldBe` (Just HoverContentsEmpty)
       liftIO $ hoverRsp ^. LSP.id `shouldBe` responseId id1
 
       id2 <- sendRequest TextDocumentDocumentSymbol (DocumentSymbolParams doc)
@@ -40,7 +40,7 @@ spec = do
       hoverRsp2 <- skipManyTill anyNotification message :: Session HoverResponse
       liftIO $ hoverRsp2 ^. LSP.id `shouldBe` responseId id3
 
-      let (Just (List contents2)) = hoverRsp2 ^? result . _Just . _Just . contents
+      let contents2 = hoverRsp2 ^? result . _Just . _Just . contents
       liftIO $ contents2 `shouldNotSatisfy` null
 
       -- Now that we have cache the following request should be instant

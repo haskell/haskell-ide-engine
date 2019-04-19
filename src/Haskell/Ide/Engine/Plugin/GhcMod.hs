@@ -594,17 +594,17 @@ hoverProvider doc pos = runIdeResultT $ do
         ((r,typ):_) ->
           case find ((r ==) . fst) names of
             Nothing ->
-              (Just $ LSP.CodeString $ LSP.LanguageString "haskell" $ "_ :: " <> typ, Just r)
+              (Just $ LSP.markedUpContent "haskell" $ "_ :: " <> typ, Just r)
             Just (_,name)
               | nnames == 1 ->
-                (Just $ LSP.CodeString $ LSP.LanguageString "haskell" $ Hie.showName name <> " :: " <> typ, Just r)
+                (Just $ LSP.markedUpContent "haskell" $ Hie.showName name <> " :: " <> typ, Just r)
               | otherwise ->
-                (Just $ LSP.CodeString $ LSP.LanguageString "haskell" $ "_ :: " <> typ, Just r)
+                (Just $ LSP.markedUpContent "haskell" $ "_ :: " <> typ, Just r)
         [] -> case names of
           [] -> (Nothing, Nothing)
           ((r,_):_) -> (Nothing, Just r)
   return $ case mrange of
-    Just r -> [LSP.Hover (LSP.List $ catMaybes [info]) (Just r)]
+    Just r -> [LSP.Hover (LSP.HoverContents $ mconcat $ catMaybes [info]) (Just r)]
     Nothing -> []
 
 -- ---------------------------------------------------------------------
