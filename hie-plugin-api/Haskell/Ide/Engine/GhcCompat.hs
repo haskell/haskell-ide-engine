@@ -306,19 +306,6 @@ mgModSummaries = id
 #endif
 
 #if __GLASGOW_HASKELL__ < 806
-valBinds valds =
-  case valds of
-    ValBindsOut _ lsigs -> lsigs
-    ValBindsIn _ lsigs ->
-      error "should not hit ValBindsIn when accessing renamed AST"
-
-
-pattern ValBindsCompat  lsigs <- (valBinds -> lsigs)
-#else
-pattern ValBindsCompat lsigs <- XValBindsLR (NValBinds _ lsigs)
-#endif
-
-#if __GLASGOW_HASKELL__ < 806
 pattern HsForAllTyCompat binders <- HsForAllTy binders _
 #else
 pattern HsForAllTyCompat binders <- HsForAllTy _ binders _
@@ -417,6 +404,93 @@ pattern ClsInstDeclCompat lty lbinds  <-
   ClsInstDecl lty lbinds _ _ _ _
 #else
   ClsInstDecl _ lty lbinds _ _ _ _
+#endif
+
+pattern FieldOccCompat n l <-
+#if __GLASGOW_HASKELL__ < 806
+  FieldOcc l n
+#else
+  FieldOcc n l
+#endif
+
+pattern UnambiguousCompat n l <-
+#if __GLASGOW_HASKELL__ < 806
+  Unambiguous l n
+#else
+  Unambiguous n l
+#endif
+
+pattern AmbiguousCompat n l <-
+#if __GLASGOW_HASKELL__ < 806
+  Ambiguous l n
+#else
+  Ambiguous n l
+#endif
+
+pattern HsRecFldCompat f <-
+#if __GLASGOW_HASKELL__ < 806
+  HsRecFld f
+#else
+  HsRecFld _ f
+#endif
+
+pattern IEModuleContentsCompat f <-
+#if __GLASGOW_HASKELL__ < 806
+  IEModuleContents f
+#else
+  IEModuleContents _ f
+#endif
+
+pattern HsValBindsCompat f <-
+#if __GLASGOW_HASKELL__ < 806
+  HsValBinds f
+#else
+  HsValBinds _ f
+#endif
+
+pattern ValBindsCompat f g <-
+#if __GLASGOW_HASKELL__ < 806
+  ValBinds f g
+#else
+  ValBinds _ f g
+#endif
+
+pattern ValDCompat :: HsBind (GhcPass p) -> HsDecl (GhcPass p)
+pattern ValDCompat f <-
+#if __GLASGOW_HASKELL__ < 806
+  ValD f
+  where
+    ValDCompat f = ValD f
+#else
+  ValD _ f
+  where
+    ValDCompat f = ValD NoExt f
+#endif
+
+pattern SigDCompat :: Sig (GhcPass p) -> HsDecl (GhcPass p)
+pattern SigDCompat f <-
+#if __GLASGOW_HASKELL__ < 806
+  SigD f
+  where
+    SigDCompat f = SigD f
+#else
+  SigD _ f
+  where
+    SigDCompat f = SigD NoExt f
+#endif
+
+
+{-# COMPLETE MatchCompat #-}
+
+pattern MatchCompat ms <-
+#if __GLASGOW_HASKELL__ < 806
+   Match ({ GHC.m_grhss = GHC.GRHSs { GHC.grhssLocalBinds = ms } })
+#else
+  (gomatch' -> ms)
+
+gomatch' GHC.Match { GHC.m_grhss = GHC.GRHSs { GHC.grhssLocalBinds = lbs } } = lbs
+gomatch' GHC.XMatch{} = error "GHC.XMatch"
+gomatch' (GHC.Match _ _ _ (GHC.XGRHSs _)) = error "GHC.XMatch"
 #endif
 
 
