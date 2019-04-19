@@ -66,8 +66,6 @@ library
                      , fold-debounce
                      , ghc >= 8.0.1
                      , ghc-exactprint
-                     , ghc-mod >= 5.9.0.0
-                     , ghc-mod-core >= 5.9.0.0
                      , gitrev >= 1.1
                      , haddock-api
                      , haddock-library
@@ -146,6 +144,7 @@ library hie-test-utils
   build-depends:       base
                      , haskell-ide-engine
                      , haskell-lsp
+                     , hie-bios
                      , hie-plugin-api
                      , aeson
                      , blaze-markup
@@ -153,7 +152,6 @@ library hie-test-utils
                      , data-default
                      , directory
                      , filepath
-                     , ghc-mod-core
                      , hslogger
                      , hspec
                      , hspec-core

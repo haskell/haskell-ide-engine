@@ -1,8 +1,7 @@
 {-# LANGUAGE CPP, OverloadedStrings, NamedFieldPuns #-}
 module TestUtils
   (
-    testOptions
-  , withFileLogging
+    withFileLogging
   , setupStackFiles
   , testCommand
   , runSingleReq
@@ -25,8 +24,6 @@ import           Data.Typeable
 import           Data.Yaml
 import qualified Data.Map as Map
 import           Data.Maybe
-import qualified GhcMod.Monad as GM
-import qualified GhcMod.Types as GM
 import qualified Language.Haskell.LSP.Core as Core
 import           Haskell.Ide.Engine.MonadTypes
 import           System.Directory
@@ -40,18 +37,6 @@ import           Text.Blaze.Renderer.String (renderMarkup)
 import           Text.Blaze.Internal
 
 -- ---------------------------------------------------------------------
-
-testOptions :: GM.Options
-testOptions = GM.defaultOptions {
-    GM.optOutput     = GM.OutputOpts {
-      GM.ooptLogLevel       = GM.GmError
-      -- GM.ooptLogLevel       = GM.GmVomit
-    , GM.ooptStyle          = GM.PlainStyle
-    , GM.ooptLineSeparator  = GM.LineSeparator "\0"
-    , GM.ooptLinePrefix     = Nothing
-    }
-
-    }
 
 
 testCommand :: (ToJSON a, Typeable b, ToJSON b, Show b, Eq b)

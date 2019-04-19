@@ -525,7 +525,7 @@ reactor inp diagIn = do
 
         -- -------------------------------
 
-        ReqRename req -> do
+        {-ReqRename req -> do
           liftIO $ U.logs $ "reactor:got RenameRequest:" ++ show req
           let (params, doc, pos) = reqParams req
               newName  = params ^. J.newName
@@ -533,6 +533,7 @@ reactor inp diagIn = do
           let hreq = GReq tn (Just doc) Nothing (Just $ req ^. J.id) callback
                        $ HaRe.renameCmd' doc pos newName
           makeRequest hreq
+          -}
 
 
         -- -------------------------------

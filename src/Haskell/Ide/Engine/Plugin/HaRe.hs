@@ -21,8 +21,8 @@ import qualified Data.Text                                    as T
 import qualified Data.Text.IO                                 as T
 import           Exception
 import           GHC.Generics                                 (Generic)
-import qualified GhcMod.Error                                 as GM
-import qualified GhcMod.Monad                                 as GM
+--import qualified GhcMod.Error                                 as GM
+--import qualified GhcMod.Monad                                 as GM
 -- import qualified GhcMod.Utils                                 as GM
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.MonadFunctions
@@ -38,7 +38,6 @@ import           Language.Haskell.Refact.HaRe
 import           Language.Haskell.Refact.Utils.Monad          hiding (logm)
 
 -- ---------------------------------------------------------------------
-
 hareDescriptor :: PluginId -> PluginDescriptor
 hareDescriptor plId = PluginDescriptor
   { pluginId = plId
@@ -47,7 +46,8 @@ hareDescriptor plId = PluginDescriptor
               <> "Haskell 2010 standard, through making use of the GHC API.  HaRe attempts to "
               <> "operate in a safe way, by first writing new files with proposed changes, and "
               <> "only swapping these with the originals when the change is accepted. "
-  , pluginCommands =
+  , pluginCommands = []
+  {-
       [ PluginCommand "demote" "Move a definition one level down"
           demoteCmd
       , PluginCommand "dupdef" "Duplicate a definition"
@@ -66,12 +66,14 @@ hareDescriptor plId = PluginDescriptor
           genApplicativeCommand
 
       ]
-  , pluginCodeActionProvider = Just codeActionProvider
+  -}
+  , pluginCodeActionProvider = Nothing -- Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Nothing
   , pluginSymbolProvider = Nothing
   , pluginFormattingProvider = Nothing
   }
+  {-
 
 -- ---------------------------------------------------------------------
 
@@ -324,3 +326,4 @@ codeActionProvider pId docId (J.Range pos _) _ =
       let args = [J.toJSON $ HPT (docId ^. J.uri) pos (name <> "'")]
       cmd <- mkLspCommand pId aId title (Just args)
       return $ J.CodeAction (title <> name) (Just kind) mempty Nothing (Just cmd)
+-}
