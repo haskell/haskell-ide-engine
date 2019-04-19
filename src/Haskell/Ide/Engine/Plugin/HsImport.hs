@@ -58,6 +58,9 @@ importCmd = CmdSync $ \(ImportParams uri importList modName) ->
 
 -- | Import the given module for the given file.
 -- May take an explicit function name to perform an import-list import.
+-- Multiple import-list imports will result in merged imports,
+-- e.g. two consecutive imports for the same module will result in a single
+-- import line.
 importModule
   :: Uri -> Maybe T.Text -> T.Text -> IdeGhcM (IdeResult J.WorkspaceEdit)
 importModule uri importList modName =
@@ -75,6 +78,7 @@ importModule uri importList modName =
                              , symbolName    = T.unpack $ fromMaybe "" importList
                              , outputSrcFile = output
                              }
+      -- execute hsimport on the given file and write into a temporary file.
       maybeErr <- liftIO $ hsimportWithArgs defaultConfig args
       case maybeErr of
         Just err -> do
@@ -82,26 +86,31 @@ importModule uri importList modName =
           let msg = T.pack $ show err
           return $ IdeResultFail (IdeError PluginError msg Null)
         Nothing -> do
+          -- Since no error happened, calculate the differences of
+          -- the original file and after the import has been done.
           newText <- liftIO $ T.readFile output
           liftIO $ removeFile output
           J.WorkspaceEdit mChanges mDocChanges <- liftToGhc
             $ makeDiffResult input newText fileMap
 
+          -- If the client wants its import formatted,
+          -- it can be configured in the config.
           if shouldFormat
             then do
               config  <- getConfig
               plugins <- getPlugins
               let mprovider = Hie.getFormattingPlugin config plugins
               case mprovider of
+                -- Client may have no formatter selected
+                -- but still the option to format on import.
                 Nothing ->
                   return $ IdeResultOk (J.WorkspaceEdit mChanges mDocChanges)
 
                 Just (_, provider) -> do
                   let formatEdit :: J.TextEdit -> IdeGhcM J.TextEdit
                       formatEdit origEdit@(J.TextEdit r t) = do
-                        let strippedText = T.dropWhileEnd (=='\n') t
                         -- TODO: are these default FormattingOptions ok?
-                        res <- liftToGhc $ provider strippedText uri FormatDocument (FormattingOptions 2 True)
+                        res <- liftToGhc $ provider t uri FormatText (FormattingOptions 2 True)
                         let formatEdits = case res of
                                             IdeResultOk xs -> xs
                                             _ -> [origEdit]
