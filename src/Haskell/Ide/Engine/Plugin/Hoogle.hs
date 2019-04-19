@@ -3,6 +3,8 @@
 module Haskell.Ide.Engine.Plugin.Hoogle where
 
 import           Control.Monad.IO.Class
+import           Control.Monad (join)
+import           Control.Exception
 import           Data.Aeson
 import           Data.Bifunctor
 import           Data.Maybe
@@ -42,7 +44,11 @@ hoogleDescriptor plId = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-data HoogleError = NoDb | NoResults deriving (Eq,Ord,Show)
+data HoogleError 
+  = NoDb
+  | DbFail T.Text
+  | NoResults 
+  deriving (Eq,Ord,Show)
 
 newtype HoogleDb = HoogleDb (Maybe FilePath)
 
@@ -53,6 +59,8 @@ hoogleErrorToIdeError NoResults =
   IdeError PluginError "No results found" Null
 hoogleErrorToIdeError NoDb =
   IdeError PluginError "Hoogle database not found. Run hoogle generate to generate" Null
+hoogleErrorToIdeError (DbFail msg) =
+  IdeError PluginError ("Hoogle failed with following error: " <> msg) Null
 
 instance ExtensionClass HoogleDb where
   initialValue = HoogleDb Nothing
@@ -216,8 +224,8 @@ lookupCmd' n term = do
 runHoogleQuery :: Maybe FilePath -> T.Text -> ([Target] -> Either HoogleError a) -> IO (Either HoogleError a)
 runHoogleQuery Nothing _ _ = return $ Left NoDb
 runHoogleQuery (Just db) quer f = do
-  res <- searchHoogle db quer
-  return (f res)
+  res <- try (searchHoogle db quer) :: IO (Either ErrorCall [Target])
+  return . join $ bimap (DbFail . T.pack . show) f res
 
 
 -- | Run a query for Hoogle on the given Hoogle database.
