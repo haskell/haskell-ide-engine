@@ -47,7 +47,7 @@ hsimportDescriptor plId = PluginDescriptor
 -- or to import only a specific function from a module.
 data ImportParams = ImportParams
   { file            :: Uri -- ^ Uri to the file to import the module to.
-  , addToImportList :: Maybe T.Text -- ^ If not Nothing, an import-list will be created.
+  , addToImportList :: Maybe T.Text -- ^ If set, an import-list will be created.
   , moduleToImport  :: T.Text -- ^ Name of the module to import.
   }
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
@@ -131,19 +131,28 @@ importModule uri importList modName =
                     $ IdeResultOk (J.WorkspaceEdit newChanges newDocChanges)
             else return $ IdeResultOk (J.WorkspaceEdit mChanges mDocChanges)
 
+-- | Search style for Hoogle.
+-- Can be used to look either for the exact term,
+-- only the exact name or a relaxed form of the term.
+data SearchStyle
+  = Exact -- ^ If you want to match exactly the search string.
+  | ExactName -- ^ If you want to match exactly a function name.
+              -- Same as @Exact@ if the term is just a function name.
+  | Relax (T.Text -> T.Text) -- ^ Relax the search term to match even more.
+
 -- | Produces code actions.
 codeActionProvider :: CodeActionProvider
 codeActionProvider plId docId _ context = do
   let J.List diags = context ^. J.diagnostics
       terms        = mapMaybe getImportables diags
-  -- Search for the given diagnostics and prodice appropiate import actions.
-  actions <- importActionsForTerms id terms
+  -- Search for the given diagnostics and produce appropiate import actions.
+  actions <- importActionsForTerms Exact terms
 
   if null actions
     then do
       -- If we didn't find any exact matches, relax the search terms.
       -- Only looks for the function names, not the exact siganture.
-      relaxedActions <- importActionsForTerms (head . T.words) terms
+      relaxedActions <- importActionsForTerms ExactName terms
       return $ IdeResultOk relaxedActions
     else return $ IdeResultOk actions
 
@@ -157,9 +166,9 @@ codeActionProvider plId docId _ context = do
   --
   -- Result may produce several import actions, or none.
   importActionsForTerms
-    :: (T.Text -> T.Text) -> [(J.Diagnostic, T.Text)] -> IdeM [J.CodeAction]
-  importActionsForTerms relax terms = do
-    let searchTerms   = map (bimap id relax) terms
+    :: SearchStyle -> [(J.Diagnostic, T.Text)] -> IdeM [J.CodeAction]
+  importActionsForTerms style terms = do
+    let searchTerms   = map (bimap id (applySearchStyle style)) terms
     -- Get the function names for a nice import-list title.
     let functionNames = map (head . T.words . snd) terms
     searchResults' <- mapM (bimapM return Hoogle.searchModules) searchTerms
@@ -167,7 +176,18 @@ codeActionProvider plId docId _ context = do
     let normalise =
           concatMap (\(a, b) -> zip (repeat a) (concatTerms b)) searchResults
 
-    concat <$> mapM (uncurry termToActions) normalise
+    concat <$> mapM (uncurry (termToActions style)) normalise
+
+  -- | Apply the search style to given term.
+  -- Can be used to look for a term that matches exactly the search term,
+  -- or one that matches only the exact name.
+  -- At last, a custom relaxation function can be passed for more control.
+  applySearchStyle :: SearchStyle -> T.Text -> T.Text
+  applySearchStyle Exact term = "is:exact " <> term
+  applySearchStyle ExactName term = case T.words term of
+    [] -> term
+    (x:_) -> "is:exact " <> x
+  applySearchStyle (Relax relax) term = relax term
 
   -- | Turn a search term with function name into Import Actions.
   -- Function name may be of only the exact phrase to import.
@@ -177,11 +197,18 @@ codeActionProvider plId docId _ context = do
   -- Note, that repeated use of the Import-List will add imports to
   -- the appropriate import line, e.g. no module import is duplicated, except
   -- for qualified imports.
-  termToActions :: T.Text -> (J.Diagnostic, T.Text) -> IdeM [J.CodeAction]
-  termToActions functionName (diagnostic, termName) = catMaybes <$> sequenceA
-    [ mkImportAction Nothing             diagnostic termName
-    , mkImportAction (Just functionName) diagnostic termName
-    ]
+  --
+  -- If the search term is relaxed in a custom way,
+  -- no import list can be offered, since the function name
+  -- may be not the one we expect.
+  termToActions
+    :: SearchStyle -> T.Text -> (J.Diagnostic, T.Text) -> IdeM [J.CodeAction]
+  termToActions style functionName (diagnostic, termName) = do
+    let useImportList = case style of
+          Relax _ -> Nothing
+          _       -> Just (mkImportAction (Just functionName) diagnostic termName)
+    catMaybes <$> sequenceA
+      (mkImportAction Nothing diagnostic termName : maybeToList useImportList)
 
   concatTerms :: (a, [b]) -> [(a, b)]
   concatTerms (a, b) = zip (repeat a) b
@@ -213,7 +240,8 @@ codeActionProvider plId docId _ context = do
   getImportables _ = Nothing
 
 -- | Extract from an error message an appropriate term to search for.
--- This looks at the error message and tries to extract the expected signature of unknown function.
+-- This looks at the error message and tries to extract the expected
+-- signature of an unknown function.
 -- If this is not possible, Nothing is returned.
 extractImportableTerm :: T.Text -> Maybe T.Text
 extractImportableTerm dirtyMsg = T.strip <$> asum
