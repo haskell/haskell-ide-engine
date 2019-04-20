@@ -93,6 +93,7 @@ possiblePragmas =
   , "DerivingStrategies"
   , "DerivingVia"
   , "EmptyCase"
+  , "EmptyDataDecls"
   , "EmptyDataDeriving"
   , "FlexibleContexts"
   , "FlexibleInstances"
