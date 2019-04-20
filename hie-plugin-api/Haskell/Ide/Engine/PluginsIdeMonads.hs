@@ -46,6 +46,7 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , IdeState(..)
   , IdeGhcM
   , runIdeGhcM
+  , runIdeGhcMBare
   , IdeM
   , runIdeM
   , IdeDeferM
@@ -321,6 +322,16 @@ runIdeGhcM ghcModOptions plugins mlf stateVar f = do
   case eres of
       Left err  -> liftIO $ throwIO err
       Right res -> return res
+
+-- | Run an IdeGhcM in an external context (e.g. HaRe), with no plugins or LSP functions
+runIdeGhcMBare :: GM.Options -> IdeGhcM a -> IO a
+runIdeGhcMBare ghcModOptions f = do
+  let
+    plugins  = IdePlugins Map.empty
+    mlf      = Nothing
+    initialState = IdeState emptyModuleCache Map.empty Map.empty Nothing
+  stateVar <- newTVarIO initialState
+  runIdeGhcM ghcModOptions plugins mlf stateVar f
 
 -- | A computation that is deferred until the module is cached.
 -- Note that the module may not typecheck, in which case 'UriCacheFailed' is passed

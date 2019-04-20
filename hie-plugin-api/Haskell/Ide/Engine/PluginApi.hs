@@ -22,13 +22,13 @@ module Haskell.Ide.Engine.PluginApi
   , HIE.IdeState(..)
   , HIE.IdeGhcM
   , HIE.runIdeGhcM
+  , HIE.runIdeGhcMBare
   , HIE.IdeM
   , HIE.runIdeM
   , HIE.IdeDeferM
   , HIE.MonadIde(..)
   , HIE.iterT
   , HIE.LiftsToGhc(..)
-
 
   -- probably remove the next ones
 
