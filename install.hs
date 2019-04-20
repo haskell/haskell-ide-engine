@@ -34,6 +34,7 @@ import           Data.Maybe                               ( isNothing
 import           Data.List                                ( dropWhileEnd
                                                           , intersperse
                                                           , intercalate
+                                                          , sort
                                                           )
 import qualified Data.Text as T
 import           Data.Char                                ( isSpace )
@@ -63,6 +64,7 @@ getHieVersions = do
         & map T.unpack
         -- the following line excludes `8.6.3` on windows systems
         & filter (\p -> not isWindowsSystem || p /= "8.6.3")
+        & sort
   return hieVersions
 
 -- | Most recent version of hie.
@@ -319,7 +321,7 @@ shortHelpMessage = do
     , stackBuildAllTarget
     -- , stackHieTarget mostRecentHieVersion
     , stackBuildDocTarget
-    , stackHieTarget "8.4.4"
+    , stackHieTarget (last hieVersions)
     , emptyTarget
     , ( "cabal-ghcs"
       , "Show all GHC versions that can be installed via `cabal-build` and `cabal-build-all`."
@@ -328,7 +330,7 @@ shortHelpMessage = do
     , cabalBuildAllTarget
     -- , cabalHieTarget mostRecentHieVersion
     , cabalBuildDocTarget
-    , cabalHieTarget "8.4.4"
+    , cabalHieTarget (last hieVersions)
     ]
 
 
