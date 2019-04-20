@@ -136,7 +136,8 @@ spec = describe "code actions" $ do
       let actns = map fromAction actionsOrCommands
 
       liftIO $ do
-        head actns ^. L.title `shouldBe` "Import module Control.Monad"
+        head actns        ^. L.title `shouldBe` "Import module Control.Monad"
+        head (tail actns) ^. L.title `shouldBe` "Import module Control.Monad (when)"
         forM_ actns $ \a -> do
           a ^. L.kind `shouldBe` Just CodeActionQuickFix
           a ^. L.command `shouldSatisfy` isJust
@@ -144,7 +145,7 @@ spec = describe "code actions" $ do
           let hasOneDiag (Just (List [_])) = True
               hasOneDiag _ = False
           a ^. L.diagnostics `shouldSatisfy` hasOneDiag
-        length actns `shouldBe` 5
+        length actns `shouldBe` 10
 
       executeCodeAction (head actns)
 
@@ -160,9 +161,59 @@ spec = describe "code actions" $ do
 
       contents <- getDocumentEdit doc
       liftIO $ do
-        let l1:l2:_ = T.lines contents
+        let l1:l2:l3:_ = T.lines contents
         l1 `shouldBe` "import qualified Data.Maybe"
         l2 `shouldBe` "import           Control.Monad"
+        l3 `shouldBe` "main :: IO ()"
+    it "formats with floskell" $ runSession hieCommand fullCaps "test/testdata" $ do
+      doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
+      _ <- waitForDiagnosticsSource "ghcmod"
+
+      let config = def { formattingProvider = "floskell" }
+      sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
+
+      actionsOrCommands <- getAllCodeActions doc
+      let action:_ = map fromAction actionsOrCommands
+      executeCodeAction action
+
+      contents <- getDocumentEdit doc
+      liftIO $ do
+        let l1:l2:l3:_ = T.lines contents
+        l1 `shouldBe` "import qualified Data.Maybe"
+        l2 `shouldBe` "import           Control.Monad"
+        l3 `shouldBe` "main :: IO ()"
+    it "import-list formats with brittany" $ runSession hieCommand fullCaps "test/testdata" $ do
+      doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
+      _ <- waitForDiagnosticsSource "ghcmod"
+
+      actionsOrCommands <- getAllCodeActions doc
+      let _:action:_ = map fromAction actionsOrCommands
+      executeCodeAction action
+
+      contents <- getDocumentEdit doc
+      liftIO $ do
+        let l1:l2:l3:_ = T.lines contents
+        l1 `shouldBe` "import qualified Data.Maybe"
+        l2 `shouldBe` "import           Control.Monad                  ( when )"
+        l3 `shouldBe` "main :: IO ()"
+    it "import-list formats with floskell" $ runSession hieCommand fullCaps "test/testdata" $ do
+      doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
+      _ <- waitForDiagnosticsSource "ghcmod"
+
+      let config = def { formattingProvider = "floskell" }
+      sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
+
+      actionsOrCommands <- getAllCodeActions doc
+      let _:action:_ = map fromAction actionsOrCommands
+      executeCodeAction action
+
+      contents <- getDocumentEdit doc
+      liftIO $ do
+        let l1:l2:l3:_ = T.lines contents
+        l1 `shouldBe` "import qualified Data.Maybe"
+        l2 `shouldBe` "import           Control.Monad (when)"
+        l3 `shouldBe` "main :: IO ()"
+    -- TODO: repeated code actions
     it "respects format config" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
       _ <- waitForDiagnosticsSource "ghcmod"
@@ -179,7 +230,22 @@ spec = describe "code actions" $ do
         let l1:l2:_ = T.lines contents
         l1 `shouldBe` "import qualified Data.Maybe"
         l2 `shouldBe` "import Control.Monad"
+    it "import-list respects format config" $ runSession hieCommand fullCaps "test/testdata" $ do
+      doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
+      _ <- waitForDiagnosticsSource "ghcmod"
 
+      let config = def { formatOnImportOn = False }
+      sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
+
+      actionsOrCommands <- getAllCodeActions doc
+      let _:action:_ = map fromAction actionsOrCommands
+      executeCodeAction action
+
+      contents <- getDocumentEdit doc
+      liftIO $ do
+        let l1:l2:_ = T.lines contents
+        l1 `shouldBe` "import qualified Data.Maybe"
+        l2 `shouldBe` "import Control.Monad (when)"
   describe "add package suggestions" $ do
     it "adds to .cabal files" $ runSession hieCommand fullCaps "test/testdata/addPackageTest/cabal" $ do
       doc <- openDoc "AddPackage.hs" "haskell"
