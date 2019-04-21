@@ -29,7 +29,15 @@ module Haskell.Ide.Engine.PluginApi
   , HIE.MonadIde(..)
   , HIE.iterT
   , HIE.LiftsToGhc(..)
+  , HIE.HasGhcModuleCache(..)
 
+  -- * Using the HIE module cache etc
+  , HIE.setTypecheckedModule
+  , HIE.Diagnostics
+  , HIE.AdditionalErrs
+  , LSP.filePathToUri
+  , HIE.ifCachedModule
+  , HIE.CachedInfo(..)
   -- probably remove the next ones
 
   , GM.IOish
@@ -51,10 +59,13 @@ module Haskell.Ide.Engine.PluginApi
 import qualified GhcMod.Monad.Newtypes as GM (GmlT(..))
 import qualified GhcMod.Monad.Out      as GM (GmOut(..))
 import qualified GhcMod.Monad.Types    as GM (GmEnv(..),IOish,gmlGetSession,gmlSetSession,cradle)
+import qualified GhcMod.Options.Options as GM (globalArgSpec)
 import qualified GhcMod.Target         as GM (cabalResolvedComponents)
 import qualified GhcMod.Types          as GM (ModulePath(..),GmModuleGraph(..),GmComponent(..),GmComponentType(..),Cradle(..),MonadIO(..),OutputOpts(..),GmLogLevel(..),OutputStyle(..),LineSeparator(..))
 import qualified GhcMod.Utils          as GM (mkRevRedirMapFunc)
 import qualified GhcModCore            as GM (Options(..),defaultOptions,getModulesGhc',GhcModT,runGhcModT)
-import qualified GhcMod.Options.Options as GM (globalArgSpec)
-
-import Haskell.Ide.Engine.PluginsIdeMonads as HIE
+import qualified Haskell.Ide.Engine.Ghc              as HIE
+import qualified Haskell.Ide.Engine.GhcModuleCache  as HIE (CachedInfo(..),HasGhcModuleCache(..))
+import qualified Haskell.Ide.Engine.ModuleCache      as HIE (ifCachedModule)
+import qualified Haskell.Ide.Engine.PluginsIdeMonads as HIE
+import qualified Language.Haskell.LSP.Types          as LSP ( filePathToUri )
