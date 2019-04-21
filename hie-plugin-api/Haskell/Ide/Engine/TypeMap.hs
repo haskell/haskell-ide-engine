@@ -23,10 +23,12 @@ import qualified Desugar
 
 import           Haskell.Ide.Engine.ArtifactMap
 
+-- | Generate a mapping from an Interval to types.
+-- Intervals may overlap and return more specific results.
 genTypeMap :: GHC.GhcMonad m => TypecheckedModule -> m TypeMap
 genTypeMap tm = do
   let typecheckedSource = GHC.tm_typechecked_source tm
-  hs_env      <- GHC.getSession
+  hs_env <- GHC.getSession
   liftIO $ types hs_env typecheckedSource
 
 collectAllSpansTypes'
@@ -40,8 +42,8 @@ types hs_env = everythingInTypecheckedSourceM (ty `combineM` fun)
   ty :: forall a . Data a => a -> IO TypeMap
   ty term = case cast term of
     (Just lhsExprGhc@(GHC.L (GHC.RealSrcSpan spn) _)) ->
-      getType hs_env lhsExprGhc >>= \case 
-        Nothing -> return IM.empty
+      getType hs_env lhsExprGhc >>= \case
+        Nothing       -> return IM.empty
         Just (_, typ) -> return (IM.singleton (rspToInt spn) typ)
     _ -> return IM.empty
 
@@ -53,18 +55,15 @@ types hs_env = everythingInTypecheckedSourceM (ty `combineM` fun)
 
 
 everythingInTypecheckedSourceM
-  :: Data x
-  => (forall a . Data a => a -> IO TypeMap)
-  -> x
-  -> IO TypeMap
+  :: Data x => (forall a . Data a => a -> IO TypeMap) -> x -> IO TypeMap
 everythingInTypecheckedSourceM f = everythingButTypeM @GHC.Id f
 
 -- | Combine two queries into one using alternative combinator.
 combineM
-  :: (forall a. Data a => a -> IO TypeMap)
-  -> (forall a. Data a => a -> IO TypeMap)
-  -> (forall a. Data a => a -> IO TypeMap)
-combineM f g x = do 
+  :: (forall a . Data a => a -> IO TypeMap)
+  -> (forall a . Data a => a -> IO TypeMap)
+  -> (forall a . Data a => a -> IO TypeMap)
+combineM f g x = do
   a <- f x
   b <- g x
   return (a `IM.union` b)
