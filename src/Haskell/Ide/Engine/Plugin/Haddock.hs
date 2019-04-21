@@ -223,7 +223,7 @@ hoverProvider doc pos = pluginGetFile "haddock:hoverProvider" doc $ \fp ->
           return $ case mdocu of
             Nothing -> mname <> minfo
             Just docu -> docu <> "\n\n" <> minfo
-    return [J.Hover (J.List $ fmap J.PlainString docs) Nothing]
+    return [J.Hover (J.HoverContents $ J.MarkupContent J.MkMarkdown (T.intercalate J.sectionSeparator docs)) Nothing]
   where
     pickName [] = Nothing
     pickName [x] = Just x

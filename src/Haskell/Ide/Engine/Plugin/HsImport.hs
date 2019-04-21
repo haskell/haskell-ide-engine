@@ -10,7 +10,6 @@ import           Control.Monad
 import           Data.Aeson
 import           Data.Bitraversable
 import           Data.Bifunctor
-import           Data.Either
 import           Data.Foldable
 import           Data.Maybe
 import           Data.Monoid                    ( (<>) )
@@ -21,11 +20,10 @@ import qualified GhcMod.Utils                  as GM
 import           HsImport
 import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.MonadTypes
+import qualified Haskell.Ide.Engine.Support.HieExtras as Hie
 import qualified Language.Haskell.LSP.Types      as J
 import qualified Language.Haskell.LSP.Types.Lens as J
 import           Haskell.Ide.Engine.PluginUtils
-import qualified Haskell.Ide.Engine.Plugin.Brittany
-                                               as Brittany
 import qualified Haskell.Ide.Engine.Plugin.Hoogle
                                                as Hoogle
 import           System.Directory
@@ -54,12 +52,10 @@ importCmd :: CommandFunc ImportParams J.WorkspaceEdit
 importCmd = CmdSync $ \(ImportParams uri modName) -> importModule uri modName
 
 importModule :: Uri -> T.Text -> IdeGhcM (IdeResult J.WorkspaceEdit)
-importModule uri modName =
-  pluginGetFile "hsimport cmd: " uri $ \origInput -> do
-
+importModule uri modName = pluginGetFile "hsimport cmd: " uri $ \origInput -> do
     shouldFormat <- formatOnImportOn <$> getConfig
 
-    fileMap <- GM.mkRevRedirMapFunc
+    fileMap      <- GM.mkRevRedirMapFunc
     GM.withMappedFile origInput $ \input -> do
 
       tmpDir            <- liftIO getTemporaryDirectory
@@ -79,25 +75,40 @@ importModule uri modName =
         Nothing -> do
           newText <- liftIO $ T.readFile output
           liftIO $ removeFile output
-          J.WorkspaceEdit mChanges mDocChanges <- liftToGhc $ makeDiffResult input newText fileMap
+          J.WorkspaceEdit mChanges mDocChanges <- liftToGhc
+            $ makeDiffResult input newText fileMap
 
           if shouldFormat
             then do
-              -- Format the import with Brittany
-              confFile <- liftIO $ Brittany.getConfFile origInput
-              newChanges <- forM mChanges $ mapM $ mapM (formatTextEdit confFile)
-              newDocChanges <- forM mDocChanges $ mapM $ \(J.TextDocumentEdit vDocId tes) -> do
-                ftes <- forM tes (formatTextEdit confFile)
-                return (J.TextDocumentEdit vDocId ftes)
+              config  <- getConfig
+              plugins <- getPlugins
+              let mprovider = Hie.getFormattingPlugin config plugins
+              case mprovider of
+                Nothing ->
+                  return $ IdeResultOk (J.WorkspaceEdit mChanges mDocChanges)
 
-              return $ IdeResultOk (J.WorkspaceEdit newChanges newDocChanges)
-            else
-              return $ IdeResultOk (J.WorkspaceEdit mChanges mDocChanges)
+                Just (_, provider) -> do
+                  let formatEdit :: J.TextEdit -> IdeGhcM J.TextEdit
+                      formatEdit origEdit@(J.TextEdit _ t) = do
+                        -- TODO: are these default FormattingOptions ok?
+                        res <- liftToGhc $ provider t uri FormatDocument (FormattingOptions 2 True)
+                        let formatEdits = case res of
+                                            IdeResultOk xs -> xs
+                                            _ -> []
+                        return $ foldl' J.editTextEdit origEdit formatEdits
 
-  where formatTextEdit confFile (J.TextEdit r t) = do
-          -- TODO: This tab size of 2 spaces should probably be taken from a config
-          ft <- fromRight t <$> liftIO (Brittany.runBrittany 2 confFile t)
-          return (J.TextEdit r ft)
+                  -- behold: the legendary triple mapM
+                  newChanges <- (mapM . mapM . mapM) formatEdit mChanges
+
+                  newDocChanges <- forM mDocChanges $ \change -> do
+                    let cmd (J.TextDocumentEdit vids edits) = do
+                          newEdits <- mapM formatEdit edits
+                          return $ J.TextDocumentEdit vids newEdits
+                    mapM cmd change
+
+                  return
+                    $ IdeResultOk (J.WorkspaceEdit newChanges newDocChanges)
+            else return $ IdeResultOk (J.WorkspaceEdit mChanges mDocChanges)
 
 codeActionProvider :: CodeActionProvider
 codeActionProvider plId docId _ context = do
