@@ -22,6 +22,7 @@ library
                        Haskell.Ide.Engine.Compat
                        Haskell.Ide.Engine.Config
                        Haskell.Ide.Engine.Context
+                       Haskell.Ide.Engine.Ghc
                        Haskell.Ide.Engine.GhcModuleCache
                        Haskell.Ide.Engine.ModuleCache
                        Haskell.Ide.Engine.MonadFunctions
