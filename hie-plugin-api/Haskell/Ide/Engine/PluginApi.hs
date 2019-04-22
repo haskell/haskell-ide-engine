@@ -2,6 +2,37 @@
 -- integrated into HIE can use, so that they can make use of the
 -- shared BIOS features.
 
+{-
+CachedInfo(..)
+Cradle(..)
+GhcModT
+GmComponent(..)
+GmComponentType(..)
+GmModuleGraph(..)
+GmModuleGraph(..)
+GmlT(..)
+HasGhcModuleCache(..)
+IOish
+IdeGhcM
+IdeM)
+ModulePath(..)
+ModulePath(..)
+MonadIO(..)
+Options(..)
+Options(..)
+cabalResolvedComponents
+cradle
+filePathToUri
+getModulesGhc'
+gmlGetSession
+gmlSetSession
+ifCachedModule
+mkRevRedirMapFunc
+runIdeGhcMBare
+setTypecheckedModule
+-}
+
+
 module Haskell.Ide.Engine.PluginApi
   (
   -- ** Re-exported from ghc-mod
@@ -38,6 +69,7 @@ module Haskell.Ide.Engine.PluginApi
   , LSP.filePathToUri
   , HIE.ifCachedModule
   , HIE.CachedInfo(..)
+
   -- probably remove the next ones
 
   , GM.IOish
