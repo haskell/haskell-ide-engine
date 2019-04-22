@@ -62,7 +62,7 @@ handleCodeActionReq tn req = do
     wrapCodeAction :: J.CodeAction -> R (Maybe J.CAResult)
     wrapCodeAction action = do
 
-      (C.ClientCapabilities _ textDocCaps _) <- asksLspFuncs Core.clientCapabilities
+      (C.ClientCapabilities _ textDocCaps _ _) <- asksLspFuncs Core.clientCapabilities
       let literalSupport = textDocCaps >>= C._codeAction >>= C._codeActionLiteralSupport
 
       case literalSupport of
@@ -77,4 +77,4 @@ handleCodeActionReq tn req = do
       body <- J.List . catMaybes <$> mapM wrapCodeAction codeActions
       reactorSend $ RspCodeAction $ Core.makeResponseMessage req body
 
-  -- TODO: make context specific commands for all sorts of things, such as refactorings          
+  -- TODO: make context specific commands for all sorts of things, such as refactorings

@@ -175,7 +175,7 @@ renderMarkDown =
          , markupOrderedList =
              T.unlines . zipWith (\i n -> T.pack (show (i :: Int)) <> ". " <> n) [1..]
          , markupDefList = T.unlines . map (\(a, b) -> a <> " :: " <> b)
-         , markupCodeBlock = \x -> "\n```haskell\n" <> removeInner x <> "```"
+         , markupCodeBlock = \x -> "\n```haskell\n" <> removeInner x <> "\n```\n"
          , markupHyperlink = \h ->
              T.pack $ maybe
                (hyperlinkUrl h)
@@ -188,12 +188,12 @@ renderMarkDown =
          , markupProperty = \s -> T.unlines
              ["\n```haskell"
              ,"prop> " <> removeInner (T.pack s)
-             ,"```\n"]
+             ,"\n```\n"]
          , markupExample = T.unlines . map (\e -> T.pack $ unlines $
              ["\n```haskell"
              ,"> " <> exampleExpression e
              ] ++ exampleResult e ++
-             ["```\n"])
+             ["\n```\n"])
          , markupHeader = \h ->
              T.replicate (headerLevel h) "#" <> " " <> headerTitle h <> "\n"
 #if __GLASGOW_HASKELL__ >= 804
@@ -223,7 +223,7 @@ hoverProvider doc pos = pluginGetFile "haddock:hoverProvider" doc $ \fp ->
           return $ case mdocu of
             Nothing -> mname <> minfo
             Just docu -> docu <> "\n\n" <> minfo
-    return [J.Hover (J.List $ fmap J.PlainString docs) Nothing]
+    return [J.Hover (J.HoverContents $ J.MarkupContent J.MkMarkdown (T.intercalate J.sectionSeparator docs)) Nothing]
   where
     pickName [] = Nothing
     pickName [x] = Just x

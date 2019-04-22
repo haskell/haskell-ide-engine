@@ -258,8 +258,8 @@ hoverProvider uri pos =
                 ls    = getThingsAtPos info pos perrs
             hs <- forM ls $ \(r,LE _s _e msg) -> do
               let msgs = T.splitOn "\\n" msg
-                  msg' = J.CodeString (J.LanguageString "haskell" (T.unlines msgs))
-              return $ J.Hover (J.List [msg']) (Just r)
+                  msgm = J.markedUpContent "haskell" (T.unlines msgs)
+              return $ J.Hover (J.HoverContents msgm) (Just r)
             return (IdeResultOk hs)
 
 -- ---------------------------------------------------------------------

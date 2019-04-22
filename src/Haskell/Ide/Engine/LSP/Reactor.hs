@@ -11,12 +11,15 @@ module Haskell.Ide.Engine.LSP.Reactor
   , updateDocumentRequest
   , cancelRequest
   , asksLspFuncs
+  , getClientConfig
   , REnv(..)
   )
 where
 
 import           Control.Monad.Reader
 import qualified Data.Map                      as Map
+import qualified Data.Default
+import           Data.Maybe                     ( fromMaybe )
 import           Haskell.Ide.Engine.Compat
 import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.PluginsIdeMonads
@@ -37,6 +40,8 @@ data REnv = REnv
   , hoverProviders      :: [HoverProvider]
   , symbolProviders     :: [SymbolProvider]
   , formattingProviders :: Map.Map PluginId FormattingProvider
+  -- | Ide Plugins that are available
+  , idePlugins          :: IdePlugins
   -- TODO: Add code action providers here
   }
 
@@ -58,16 +63,28 @@ runReactor
   -> [HoverProvider]
   -> [SymbolProvider]
   -> Map.Map PluginId FormattingProvider
+  -> IdePlugins
   -> R a
   -> IO a
-runReactor lf sc dps hps sps fps f = do
+runReactor lf sc dps hps sps fps plugins f = do
   pid <- getProcessID
-  runReaderT f (REnv sc lf pid dps hps sps fps)
+  runReaderT f (REnv sc lf pid dps hps sps fps plugins)
 
 -- ---------------------------------------------------------------------
 
 asksLspFuncs :: MonadReader REnv m => (Core.LspFuncs Config -> a) -> m a
 asksLspFuncs f = asks (f . lspFuncs)
+
+-- | Returns the current client configuration. It is not wise to permanently
+-- cache the returned value of this function, as clients can at runitime change
+-- their configuration.
+--
+-- If no custom configuration has been set by the client, this function returns
+-- our own defaults.
+getClientConfig :: (MonadIO m, MonadReader REnv m) => m Config
+getClientConfig = do
+  lf <- asks lspFuncs
+  liftIO $ fromMaybe Data.Default.def <$> Core.config lf
 
 -- ---------------------------------------------------------------------
 -- reactor monad functions

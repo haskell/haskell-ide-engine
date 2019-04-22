@@ -108,42 +108,6 @@ isSubRangeOf (Range sa ea) (Range sb eb) = sb <= sa && eb >= ea
 --
 -- ---------------------------------------------------------------------
 
-hoverProvider :: HoverProvider
-hoverProvider doc pos = runIdeResultT $ do
-  info' <- IdeResultT $ newTypeCmd pos doc
-  names' <- IdeResultT $ pluginGetFile "ghc-mod:hoverProvider" doc $ \fp ->
-    ifCachedModule fp (IdeResultOk []) $ \(_ :: GHC.ParsedModule) info ->
-      return $ IdeResultOk $ Hie.getSymbolsAtPoint pos info
-  let
-    f = (==) `on` (Hie.showName . snd)
-    f' = compare `on` (Hie.showName . snd)
-    names = mapMaybe pickName $ groupBy f $ sortBy f' names'
-    pickName [] = Nothing
-    pickName [x] = Just x
-    pickName xs@(x:_) = case find (isJust . nameModule_maybe . snd) xs of
-      Nothing -> Just x
-      Just a -> Just a
-    nnames = length names
-    (info,mrange) =
-      case map last $ groupBy ((==) `on` fst) info' of
-        ((r,typ):_) ->
-          case find ((r ==) . fst) names of
-            Nothing ->
-              (Just $ LSP.CodeString $ LSP.LanguageString "haskell" $ "_ :: " <> typ, Just r)
-            Just (_,name)
-              | nnames == 1 ->
-                (Just $ LSP.CodeString $ LSP.LanguageString "haskell" $ Hie.showName name <> " :: " <> typ, Just r)
-              | otherwise ->
-                (Just $ LSP.CodeString $ LSP.LanguageString "haskell" $ "_ :: " <> typ, Just r)
-        [] -> case names of
-          [] -> (Nothing, Nothing)
-          ((r,_):_) -> (Nothing, Just r)
-  return $ case mrange of
-    Just r -> [LSP.Hover (LSP.List $ catMaybes [info]) (Just r)]
-    Nothing -> []
-
--- ---------------------------------------------------------------------
-
 customOptions :: Options
 customOptions = defaultOptions { fieldLabelModifier = camelTo2 '_' . drop 2}
 
@@ -416,6 +380,43 @@ extractUnusedTerm msg = extractTerm <$> stripMessageStart msg
                       . T.dropWhileEnd (== '’')
                       . T.dropAround (\c -> c /= '‘' && c /= '’')
 
+-- ---------------------------------------------------------------------
+
+hoverProvider :: HoverProvider
+hoverProvider doc pos = runIdeResultT $ do
+  info' <- IdeResultT $ newTypeCmd pos doc
+  names' <- IdeResultT $ pluginGetFile "ghc-mod:hoverProvider" doc $ \fp ->
+    ifCachedModule fp (IdeResultOk []) $ \(_ :: GHC.ParsedModule) info ->
+      return $ IdeResultOk $ Hie.getSymbolsAtPoint pos info
+  let
+    f = (==) `on` (Hie.showName . snd)
+    f' = compare `on` (Hie.showName . snd)
+    names = mapMaybe pickName $ groupBy f $ sortBy f' names'
+    pickName [] = Nothing
+    pickName [x] = Just x
+    pickName xs@(x:_) = case find (isJust . nameModule_maybe . snd) xs of
+      Nothing -> Just x
+      Just a -> Just a
+    nnames = length names
+    (info,mrange) =
+      case map last $ groupBy ((==) `on` fst) info' of
+        ((r,typ):_) ->
+          case find ((r ==) . fst) names of
+            Nothing ->
+              (Just $ LSP.markedUpContent "haskell" $ "_ :: " <> typ, Just r)
+            Just (_,name)
+              | nnames == 1 ->
+                (Just $ LSP.markedUpContent "haskell" $ Hie.showName name <> " :: " <> typ, Just r)
+              | otherwise ->
+                (Just $ LSP.markedUpContent "haskell" $ "_ :: " <> typ, Just r)
+        [] -> case names of
+          [] -> (Nothing, Nothing)
+          ((r,_):_) -> (Nothing, Just r)
+  return $ case mrange of
+    Just r -> [LSP.Hover (LSP.HoverContents $ mconcat $ catMaybes [info]) (Just r)]
+    Nothing -> []
+
+-- ---------------------------------------------------------------------
 
 data Decl = Decl LSP.SymbolKind (Located RdrName) [Decl] SrcSpan
           | Import LSP.SymbolKind (Located ModuleName) [Decl] SrcSpan
