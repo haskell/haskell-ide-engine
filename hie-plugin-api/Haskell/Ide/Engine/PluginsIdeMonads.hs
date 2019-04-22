@@ -344,14 +344,15 @@ data IdeEnv = IdeEnv
   }
 
 -- | The class of monads that support common IDE functions, namely IdeM/IdeGhcM/IdeDeferM
-class Monad m => MonadIde m where
+class MonadIO m => MonadIde m where
   getRootPath :: m (Maybe FilePath)
   getVirtualFile :: Uri -> m (Maybe VirtualFile)
   getConfig :: m Config
   getClientCapabilities :: m ClientCapabilities
   getPlugins :: m IdePlugins
+  withIndefiniteProgress :: T.Text -> m a -> m a
 
-instance MonadIde IdeM where
+instance MonadIO m => MonadIde (ReaderT IdeEnv m) where
   getRootPath = do
     mlf <- asks ideEnvLspFuncs
     case mlf of
@@ -378,12 +379,19 @@ instance MonadIde IdeM where
 
   getPlugins = asks idePlugins
 
+  withIndefiniteProgress t f = do
+    lf <- asks ideEnvLspFuncs
+    withIndefiniteProgress' lf t f
+
 instance MonadIde IdeGhcM where
   getRootPath = lift $ lift getRootPath
   getVirtualFile = lift . lift . getVirtualFile
   getConfig = lift $ lift getConfig
   getClientCapabilities = lift $ lift getClientCapabilities
   getPlugins = lift $ lift getPlugins
+  withIndefiniteProgress t f = do
+    lf <- lift $ lift $ asks ideEnvLspFuncs
+    withIndefiniteProgress' lf t f
 
 instance MonadIde IdeDeferM where
   getRootPath = lift getRootPath
@@ -391,6 +399,16 @@ instance MonadIde IdeDeferM where
   getConfig = lift getConfig
   getClientCapabilities = lift getClientCapabilities
   getPlugins = lift getPlugins
+  withIndefiniteProgress t f = do
+    lf <- lift $ asks ideEnvLspFuncs
+    withIndefiniteProgress' lf t f
+
+withIndefiniteProgress' :: MonadIO m => Maybe (Core.LspFuncs Config) -> T.Text -> m a -> m a
+withIndefiniteProgress' lspFuncs t f =
+  let mWp = Core.withIndefiniteProgress <$> lspFuncs
+    in case mWp of
+        Nothing -> f
+        Just wp -> wp t f
 
 data IdeState = IdeState
   { moduleCache :: GhcModuleCache

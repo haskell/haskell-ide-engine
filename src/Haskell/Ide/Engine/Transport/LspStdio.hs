@@ -757,7 +757,7 @@ reactor inp diagIn = do
         ReqDocumentSymbols req -> do
           liftIO $ U.logs $ "reactor:got Document symbol request:" ++ show req
           sps <- asks symbolProviders
-          C.ClientCapabilities _ tdc _ <- asksLspFuncs Core.clientCapabilities
+          C.ClientCapabilities _ tdc _ _ <- asksLspFuncs Core.clientCapabilities
           let uri = req ^. J.params . J.textDocument . J.uri
               supportsHierarchy = fromMaybe False $ tdc >>= C._documentSymbol >>= C._hierarchicalDocumentSymbolSupport
               convertSymbols :: [J.DocumentSymbol] -> J.DSResult

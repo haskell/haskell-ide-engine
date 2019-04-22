@@ -20,6 +20,7 @@ import           Data.Maybe
 import           Data.Monoid ((<>))
 import qualified Data.Set                          as Set
 import qualified Data.Text                         as T
+import           System.FilePath
 import           ErrUtils
 import           Name
 import           GHC.Generics
@@ -186,10 +187,12 @@ setTypecheckedModule uri =
     rfm <- GM.mkRevRedirMapFunc
     let
       ghcErrRes msg = ((Map.empty, [T.pack msg]),Nothing,Nothing)
+      progTitle = "Typechecking " <> T.pack (takeFileName fp)
     debugm "setTypecheckedModule: before ghc-mod"
-    ((diags', errs), mtm, mpm) <- GM.gcatches
-                              (GM.getModulesGhc' (myWrapper rfm) fp)
-                              (errorHandlers ghcErrRes (return . ghcErrRes . show))
+    -- TODO: Are there any hooks we can use to report back on the progress?
+    ((diags', errs), mtm, mpm) <- withIndefiniteProgress progTitle $ GM.gcatches
+      (GM.getModulesGhc' (myWrapper rfm) fp)
+      (errorHandlers ghcErrRes (return . ghcErrRes . show))
     debugm "setTypecheckedModule: after ghc-mod"
 
     canonUri <- canonicalizeUri uri
