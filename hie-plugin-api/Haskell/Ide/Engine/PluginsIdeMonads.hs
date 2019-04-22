@@ -7,7 +7,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -207,9 +206,28 @@ type HoverProvider = Uri -> Position -> IdeM (IdeResult [Hover])
 
 type SymbolProvider = Uri -> IdeDeferM (IdeResult [DocumentSymbol])
 
+-- | Format the document either as a whole or only a given Range of it.
 data FormattingType = FormatDocument
                     | FormatRange Range
-type FormattingProvider = Uri -> FormattingType -> FormattingOptions -> IdeDeferM (IdeResult [TextEdit])
+
+-- | Formats the given Text associated with the given Uri.
+-- Should, but might not, honor the provided formatting options (e.g. Floskell does not).
+-- A formatting type can be given to either format the whole document or only a Range.
+-- 
+-- Text to format, may or may not, originate from the associated Uri. 
+-- E.g. it is ok, to modify the text and then reformat it through this API.
+--
+-- The Uri is mainly used to discover formatting configurations in the file's path.
+--
+-- Fails if the formatter can not parse the source.
+-- Failing means here that a IdeResultFail is returned.
+-- This can be used to display errors to the user, unless the error is an Internal one.
+-- The record 'IdeError' and 'IdeErrorCode' can be used to determine the type of error.
+type FormattingProvider = T.Text -- ^ Text to format
+        -> Uri -- ^ Uri of the file being formatted
+        -> FormattingType  -- ^ How much to format
+        -> FormattingOptions -- ^ Options for the formatter
+        -> IdeM (IdeResult [TextEdit]) -- ^ Result of the formatting or the unchanged text.
 
 data PluginDescriptor =
   PluginDescriptor { pluginId                 :: PluginId

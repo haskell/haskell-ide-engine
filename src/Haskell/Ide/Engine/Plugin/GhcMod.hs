@@ -30,7 +30,7 @@ import qualified GhcMod.ModuleLoader               as GM
 import qualified GhcMod.Monad                      as GM
 import qualified GhcMod.SrcUtils                   as GM
 import qualified GhcMod.Utils                      as GM
-import           Haskell.Ide.Engine.Extras
+import           Haskell.Ide.Engine.Support.Extras
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
@@ -531,17 +531,17 @@ hoverProvider doc pos = runIdeResultT $ do
         ((r,typ):_) ->
           case find ((r ==) . fst) names of
             Nothing ->
-              (Just $ LSP.CodeString $ LSP.LanguageString "haskell" $ "_ :: " <> typ, Just r)
+              (Just $ LSP.markedUpContent "haskell" $ "_ :: " <> typ, Just r)
             Just (_,name)
               | nnames == 1 ->
-                (Just $ LSP.CodeString $ LSP.LanguageString "haskell" $ showName name <> " :: " <> typ, Just r)
+                (Just $ LSP.markedUpContent "haskell" $ showName name <> " :: " <> typ, Just r)
               | otherwise ->
-                (Just $ LSP.CodeString $ LSP.LanguageString "haskell" $ "_ :: " <> typ, Just r)
+                (Just $ LSP.markedUpContent "haskell" $ "_ :: " <> typ, Just r)
         [] -> case names of
           [] -> (Nothing, Nothing)
           ((r,_):_) -> (Nothing, Just r)
   return $ case mrange of
-    Just r -> [LSP.Hover (LSP.List $ catMaybes [info]) (Just r)]
+    Just r -> [LSP.Hover (LSP.HoverContents $ mconcat $ catMaybes [info]) (Just r)]
     Nothing -> []
 
 -- ---------------------------------------------------------------------
@@ -619,20 +619,29 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
           map (\n -> Decl LSP.SkVariable n [] l) $ hsNamessRdr p
 
 #if __GLASGOW_HASKELL__ >= 806
+        goValD (L l (PatSynBind _ idR)) = case idR of
+          XPatSynBind _ -> error "xPatSynBind"
+          PSB { psb_id = ln } ->
+#else
+        goValD (L l (PatSynBind (PSB { psb_id = ln }))) =
+#endif
+            -- We are reporting pattern synonyms as functions. There is no such
+            -- thing as pattern synonym in current LSP specification so we pick up
+            -- an (arguably) closest match.
+            pure (Decl LSP.SkFunction ln [] l)
+
+#if __GLASGOW_HASKELL__ >= 806
         goValD (L _ (FunBind _ _ (XMatchGroup _) _ _)) = error "goValD"
         goValD (L _ (VarBind _ _ _ _))                 = error "goValD"
         goValD (L _ (AbsBinds _ _ _ _ _ _ _))          = error "goValD"
-        goValD (L _ (PatSynBind _ _))                  = error "goValD"
         goValD (L _ (XHsBindsLR _))                    = error "goValD"
 #elif __GLASGOW_HASKELL__ >= 804
         goValD (L _ (VarBind _ _ _))        = error "goValD"
         goValD (L _ (AbsBinds _ _ _ _ _ _)) = error "goValD"
-        goValD (L _ (PatSynBind _))         = error "goValD"
 #else
         goValD (L _ (VarBind _ _ _))           = error "goValD"
         goValD (L _ (AbsBinds _ _ _ _ _))      = error "goValD"
         goValD (L _ (AbsBindsSig _ _ _ _ _ _)) = error "goValD"
-        goValD (L _ (PatSynBind _))            = error "goValD"
 #endif
 
         -- -----------------------------

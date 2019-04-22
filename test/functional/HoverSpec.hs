@@ -19,12 +19,16 @@ spec = describe "hover" $
     Just h <- getHover doc (Position 1 19)
     liftIO $ do
       h ^. range `shouldBe` Just (Range (Position 1 16) (Position 1 19))
-      let hasType (CodeString (LanguageString "haskell" "sum :: [Int] -> Int")) = True
+      let
+          hasType (HoverContents (MarkupContent MkMarkdown s))
+            = "```haskell\nsum :: [Int] -> Int\n```" `T.isPrefixOf`s
           hasType _ = False
 
           sumDoc = "The `sum` function computes the sum of the numbers of a structure."
 
-          hasDoc (PlainString s) = sumDoc `T.isInfixOf` s
+          hasDoc (HoverContents (MarkupContent MkMarkdown s))
+            = sumDoc `T.isInfixOf` s
           hasDoc _               = False
-      h ^. contents `shouldSatisfy` any hasType
-      h ^. contents `shouldSatisfy` any hasDoc
+
+      h ^. contents `shouldSatisfy` hasType
+      h ^. contents `shouldSatisfy` hasDoc

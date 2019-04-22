@@ -17,21 +17,21 @@ import           Data.IORef
 import Data.Function
 import Data.Maybe
 import Data.List
-import           System.Directory
-import           System.FilePath
 import           GHC
-import           GhcMonad
-import qualified GhcMod.Monad                                 as GM
 import qualified GhcMod.LightGhc                              as GM
-import           Haskell.Ide.Engine.Extras
+import           Haskell.Ide.Engine.Support.Extras
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.MonadFunctions
-import qualified Haskell.Ide.Engine.Hoogle             as Hoogle
+import qualified Haskell.Ide.Engine.Hoogle                    as Hoogle
+import qualified GhcMod.Monad                                 as GM
+import           GhcMonad
 import           Haskell.Ide.Engine.PluginUtils
-import qualified Language.Haskell.LSP.Types as J
 import           HscTypes
+import qualified Language.Haskell.LSP.Types as J
 import           Name
 import           Packages
+import           System.Directory
+import           System.FilePath
 
 
 import Documentation.Haddock
@@ -221,7 +221,7 @@ hoverProvider doc pos = pluginGetFile "haddock:hoverProvider" doc $ \fp ->
           return $ case mdocu of
             Nothing -> mname <> minfo
             Just docu -> docu <> "\n\n" <> minfo
-    return [J.Hover (J.List $ fmap J.PlainString docs) Nothing]
+    return [J.Hover (J.HoverContents $ J.MarkupContent J.MkMarkdown (T.intercalate J.sectionSeparator docs)) Nothing]
   where
     pickName [] = Nothing
     pickName [x] = Just x

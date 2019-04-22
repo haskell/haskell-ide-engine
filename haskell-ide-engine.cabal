@@ -1,5 +1,5 @@
 name:                haskell-ide-engine
-version:             0.6.0.0
+version:             0.8.0.0
 synopsis:            Provide a common engine to power any Haskell IDE
 description:         Please see README.md
 homepage:            http://github.com/githubuser/haskell-ide-engine#readme
@@ -24,8 +24,8 @@ library
                        Haskell.Ide.Engine.Server
                        Haskell.Ide.Engine.CodeActions
                        Haskell.Ide.Engine.Reactor
-                       Haskell.Ide.Engine.Fuzzy
-                       Haskell.Ide.Engine.Extras
+                       Haskell.Ide.Engine.Support.Fuzzy
+                       Haskell.Ide.Engine.Support.Extras
                        Haskell.Ide.Engine.Hoogle
                        Haskell.Ide.Engine.Options
                        Haskell.Ide.Engine.Types
@@ -68,7 +68,8 @@ library
                      , gitrev >= 1.1
                      , haddock-api
                      , haddock-library
-                     , haskell-lsp >= 0.8
+                     , haskell-lsp == 0.9.*
+                     , haskell-lsp-types == 0.9.*
                      , haskell-src-exts
                      , hie-plugin-api
                      , hlint >= 2.0.11
@@ -263,6 +264,7 @@ test-suite func-test
                      , ReferencesSpec
                      , RenameSpec
                      , SymbolsSpec
+                     , TypeDefinitionSpec
                      , Utils
   -- This cannot currently be handled by hie (cabal-helper)
   -- build-tool-depends:  haskell-ide-engine:hie
@@ -271,7 +273,7 @@ test-suite func-test
                      , data-default
                      , directory
                      , filepath
-                     , lsp-test == 0.5.*
+                     , lsp-test >= 0.5.1.1 && < 0.5.2
                      , haskell-ide-engine
                      , haskell-lsp-types >= 0.4
                      , hie-test-utils

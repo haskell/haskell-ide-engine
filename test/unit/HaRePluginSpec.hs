@@ -14,7 +14,7 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Plugin.GhcMod
 import           Haskell.Ide.Engine.Plugin.HaRe
-import           Haskell.Ide.Engine.Plugin.HieExtras
+import           Haskell.Ide.Engine.Support.HieExtras
 import           Language.Haskell.LSP.Types     ( Location(..)
                                                 , TextEdit(..)
                                                 )
@@ -199,12 +199,87 @@ hareSpec = do
           req = liftToGhc $ TestDeferM $ findDef u (toPos (7,11))
       r <- dispatchRequestPGoto $ lreq >> req
       r `shouldBe` IdeResultOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
-                                           (Range (toPos (10,9)) (toPos (10,10)))]
+                                            (Range (toPos (10,9)) (toPos (10,10)))]
       let req2 = liftToGhc $ TestDeferM $ findDef u (toPos (10,13))
       r2 <- dispatchRequestPGoto $ lreq >> req2
       r2 `shouldBe` IdeResultOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
                                             (Range (toPos (9,9)) (toPos (9,10)))]
-
+    it "finds local definition of record variable" $ do
+      let u    = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs"
+          lreq = setTypecheckedModule u
+          req  = liftToGhc $ TestDeferM $ findTypeDef u (toPos (11, 23))
+      r <- dispatchRequestPGoto $ lreq >> req
+      r `shouldBe` IdeResultOk
+        [ Location
+            (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
+            (Range (toPos (8, 1)) (toPos (8, 29)))
+        ]
+    it "finds local definition of newtype variable" $ do
+      let u    = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs"
+          lreq = setTypecheckedModule u
+          req  = liftToGhc $ TestDeferM $ findTypeDef u (toPos (16, 21))
+      r <- dispatchRequestPGoto $ lreq >> req
+      r `shouldBe` IdeResultOk
+        [ Location
+            (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
+            (Range (toPos (13, 1)) (toPos (13, 30)))
+        ]
+    it "finds local definition of sum type variable" $ do
+      let u    = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs"
+          lreq = setTypecheckedModule u
+          req  = liftToGhc $ TestDeferM $ findTypeDef u (toPos (21, 13))
+      r <- dispatchRequestPGoto $ lreq >> req
+      r `shouldBe` IdeResultOk
+        [ Location
+            (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
+            (Range (toPos (18, 1)) (toPos (18, 26)))
+        ]
+    it "finds local definition of sum type contructor" $ do
+      let u    = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs"
+          lreq = setTypecheckedModule u
+          req  = liftToGhc $ TestDeferM $ findTypeDef u (toPos (24, 7))
+      r <- dispatchRequestPGoto $ lreq >> req
+      r `shouldBe` IdeResultOk 
+        [ Location
+            (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs") 
+            (Range (toPos (18, 1)) (toPos (18, 26)))
+        ]
+    it "can not find non-local definition of type def" $ do
+      let u    = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs"
+          lreq = setTypecheckedModule u
+          req  = liftToGhc $ TestDeferM $ findTypeDef u (toPos (30, 17))
+      r <- dispatchRequestPGoto $ lreq >> req
+      r `shouldBe` IdeResultOk []
+    it "find local definition of type def" $ do
+      let u    = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs"
+          lreq = setTypecheckedModule u
+          req  = liftToGhc $ TestDeferM $ findTypeDef u (toPos (35, 16))
+      r <- dispatchRequestPGoto $ lreq >> req
+      r `shouldBe` IdeResultOk
+        [ Location
+            (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
+            (Range (toPos (18, 1)) (toPos (18, 26)))
+        ]
+    it "find type-definition of type def in component" $ do
+      let u    = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs"
+          lreq = setTypecheckedModule u
+          req  = liftToGhc $ TestDeferM $ findTypeDef u (toPos (13, 20))
+      r <- dispatchRequestPGoto $ lreq >> req
+      r `shouldBe` IdeResultOk
+        [ Location
+            (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
+            (Range (toPos (8, 1)) (toPos (8, 29)))
+        ]
+    it "find definition of parameterized data type" $ do
+      let u    = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs"
+          lreq = setTypecheckedModule u
+          req  = liftToGhc $ TestDeferM $ findTypeDef u (toPos (40, 19))
+      r <- dispatchRequestPGoto $ lreq >> req
+      r `shouldBe` IdeResultOk
+        [ Location
+            (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
+            (Range (toPos (37, 1)) (toPos (37, 31)))
+        ]
 
     -- ---------------------------------
 

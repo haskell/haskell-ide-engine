@@ -150,7 +150,7 @@ formattedFloskell =
   \bar :: String -> IO String\n\
   \bar s = do\n\
   \  x <- return \"hello\"\n\
-  \  return \"asdf\"\n\
+  \  return \"asdf\"\n\n\
   \"
 
 formattedBrittanyPostFloskell :: T.Text
@@ -164,4 +164,4 @@ formattedBrittanyPostFloskell =
   \bar :: String -> IO String\n\
   \bar s = do\n\
   \  x <- return \"hello\"\n\
-  \  return \"asdf\"\n"
+  \  return \"asdf\"\n\n"

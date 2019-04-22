@@ -1,3 +1,34 @@
+# 0.8.0.0
+
+- GHC 8.6.4 support added.
+- Resolver bumped, LTS 13.10 for GHC 8.6.3, LTS 13.15 for GHC 8.6.4 (@alanz)
+- Clarify install section of README.md (@antonlogvinenko)
+- Clarify the spacemacs installation (@chkl)
+- Further install.hs improvements
+  - idempotent builds (@fendor)
+  - Shake is now the only supported method of building HIE,
+    remove no longer needed Makefile and build-all.ps1 (@Anrock)
+  - only generate the hoogle database once (@fendor)
+  - install hoogle if not found (@fendor)
+- Add support for pattern synonyms in ghc-mod plugin (@anton-dessiatov)
+- prevent hie crash if hlint crashes (@fendor)
+
+# 0.7.0.0
+
+- Resolver bumped, LTS 13.9 for GHC 8.6.3 (@alanz)
+- Ongoing improvements of `install.hs` installation process and
+  documentation. (@fendor, @power-fungus, @Anrock, @Hogeyama )
+  - Improved documentation
+  - can now also build via `cabal new-build`
+  - improved cross-platform support
+- Introduce [floskell](https://github.com/ennocramer/floskell) as an
+  alternative formatting provider (@bubba, @AlexeyRaga, @luigy)
+  - Introduces `formattingProvider` as a plugin API function.
+  - Can be selected via configuration option `formattingProvider`
+- Respects the `only` parameter of codeAction requests (@bubba)
+  - So can request only `quickfix` or `refactor` code actions.
+- Bump hlint to 2.1.15 (@alanz)
+
 # 0.6.0.0
 
 - Resolver bumped, LTS 13.5 for GHC 8.6.3 (@alanz)

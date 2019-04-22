@@ -17,30 +17,30 @@ module Haskell.Ide.Engine.Server
 
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
-import qualified Control.FoldDebounce as Debounce
 import qualified Control.Exception as E
+import qualified Control.FoldDebounce as Debounce
 import           Control.Lens ( (^.), (.~) )
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           Control.Monad.STM
 import           Control.Monad.Reader
-import qualified Data.Aeson as J
+import           Control.Monad.STM
 import           Data.Aeson ( (.=) )
+import qualified Data.Aeson as J
 import qualified Data.ByteString.Lazy as BL
 import           Data.Char (isUpper, isAlphaNum)
 import           Data.Coerce (coerce)
 import           Data.Default
-import           Data.Maybe
 import           Data.Foldable
 import           Data.Function
 import qualified Data.Map as Map
+import           Data.Maybe
 import           Data.Semigroup (Semigroup(..), Option(..), option)
 import qualified Data.Set as S
 import qualified Data.SortedList as SL
 import qualified Data.Text as T
 import           Data.Text.Encoding
-import qualified GhcModCore               as GM
 import qualified GhcMod.Monad.Types       as GM
+import qualified GhcModCore               as GM
 import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
@@ -51,20 +51,20 @@ import           Haskell.Ide.Engine.Version
 import           Haskell.Ide.Engine.CodeActions
 import           Haskell.Ide.Engine.Reactor
 import qualified Haskell.Ide.Engine.Hoogle               as Hoogle
-import           Haskell.Ide.Engine.Extras
+import           Haskell.Ide.Engine.Support.Extras
 import qualified Haskell.Ide.Engine.Plugin.HaRe          as HaRe
 import qualified Haskell.Ide.Engine.Plugin.GhcMod        as GhcMod
 import qualified Haskell.Ide.Engine.Plugin.ApplyRefact   as ApplyRefact
 import qualified Language.Haskell.LSP.Control            as CTRL
 import qualified Language.Haskell.LSP.Core               as Core
-import qualified Language.Haskell.LSP.VFS                as VFS
 import           Language.Haskell.LSP.Diagnostics
 import           Language.Haskell.LSP.Messages
 import qualified Language.Haskell.LSP.Types              as J
-import qualified Language.Haskell.LSP.Types.Lens         as J
 import           Language.Haskell.LSP.Types.Capabilities as C
+import qualified Language.Haskell.LSP.Types.Lens         as J
 import qualified Language.Haskell.LSP.Utility            as U
 import           System.Directory
+import qualified Language.Haskell.LSP.VFS                as VFS
 import           System.Exit
 import qualified System.Log.Logger as L
 import qualified Yi.Rope as Yi
@@ -123,7 +123,7 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
 
   let dp lf = do
         diagIn      <- atomically newTChan
-        let react = runReactor lf scheduler diagnosticProviders hps sps fps
+        let react = runReactor lf scheduler diagnosticProviders hps sps fps plugins
             reactorFunc = react $ reactor rin diagIn
 
         let errorHandler :: Scheduler.ErrorHandler
@@ -194,11 +194,8 @@ type ReactorInput
 
 -- ---------------------------------------------------------------------
 
-configVal :: c -> (Config -> c) -> R c
-configVal defVal field = do
-  gmc <- asksLspFuncs Core.config
-  mc <- liftIO gmc
-  return $ maybe defVal field mc
+configVal :: (Config -> c) -> R c
+configVal field = field <$> getClientConfig
 
 -- ---------------------------------------------------------------------
 
@@ -510,7 +507,11 @@ reactor inp diagIn = do
             -- Important - Call this before requestDiagnostics
             updatePositionMap uri changes
 
-          queueDiagnosticsRequest diagIn DiagnosticOnChange tn uri ver
+          -- By default we don't run diagnostics on each change, unless configured
+          -- by the clietn explicitly
+          shouldRunDiag <- configVal diagnosticsOnChange
+          when shouldRunDiag
+               (queueDiagnosticsRequest diagIn DiagnosticOnChange tn uri ver)
 
         -- -------------------------------
 
@@ -554,9 +555,9 @@ reactor inp diagIn = do
                 -- TODO: maybe only have provider give MarkedString and
                 -- work out range here?
                 let hs = concat hhs
-                    h = case (fold (map (^. J.contents) hs) :: List J.MarkedString) of
-                      List [] -> Nothing
-                      hh -> Just $ J.Hover hh r
+                    h = case mconcat ((map (^. J.contents) hs) :: [J.HoverContents]) of
+                      J.HoverContentsMS (List []) -> Nothing
+                      hh                          -> Just $ J.Hover hh r
                     r = listToMaybe $ mapMaybe (^. J.range) hs
                 in reactorSend $ RspHover $ Core.makeResponseMessage req h
 
@@ -660,7 +661,7 @@ reactor inp diagIn = do
           case mprefix of
             Nothing -> callback []
             Just prefix -> do
-              snippets <- WithSnippets <$> configVal True completionSnippetsOn
+              snippets <- WithSnippets <$> configVal completionSnippetsOn
               let hreq = IReq tn (req ^. J.id) callback
                            $ lift $ getCompletions doc prefix snippets
               makeRequest hreq
@@ -708,6 +709,16 @@ reactor inp diagIn = do
                        $ fmap J.MultiLoc <$> findDef doc pos
           makeRequest hreq
 
+        ReqTypeDefinition req -> do
+          liftIO $ U.logs $ "reactor:got DefinitionTypeRequest:" ++ show req
+          let params = req ^. J.params
+              doc = params ^. J.textDocument . J.uri
+              pos = params ^. J.position
+              callback = reactorSend . RspTypeDefinition . Core.makeResponseMessage req
+          let hreq = IReq tn (req ^. J.id) callback
+                       $ fmap J.MultiLoc <$> findTypeDef doc pos
+          makeRequest hreq
+
         ReqFindReferences req -> do
           liftIO $ U.logs $ "reactor:got FindReferences:" ++ show req
           -- TODO: implement project-wide references
@@ -725,9 +736,10 @@ reactor inp diagIn = do
           provider <- getFormattingProvider
           let params = req ^. J.params
               doc = params ^. J.textDocument . J.uri
-              callback = reactorSend . RspDocumentFormatting . Core.makeResponseMessage req . J.List
-              hreq = IReq tn (req ^. J.id) callback $ provider doc FormatDocument (params ^. J.options)
-          makeRequest hreq
+          withDocumentContents (req ^. J.id) doc $ \text ->
+            let callback = reactorSend . RspDocumentFormatting . Core.makeResponseMessage req . J.List
+                hreq = IReq tn (req ^. J.id) callback $ lift $ provider text doc FormatDocument (params ^. J.options)
+              in makeRequest hreq
 
         -- -------------------------------
 
@@ -736,10 +748,11 @@ reactor inp diagIn = do
           provider <- getFormattingProvider
           let params = req ^. J.params
               doc = params ^. J.textDocument . J.uri
-              range = params ^. J.range
-              callback = reactorSend . RspDocumentRangeFormatting . Core.makeResponseMessage req . J.List
-              hreq = IReq tn (req ^. J.id) callback $ provider doc (FormatRange range) (params ^. J.options)
-          makeRequest hreq
+          withDocumentContents (req ^. J.id) doc $ \text ->
+            let range = params ^. J.range
+                callback = reactorSend . RspDocumentRangeFormatting . Core.makeResponseMessage req . J.List
+                hreq = IReq tn (req ^. J.id) callback $ lift $ provider text doc (FormatRange range) (params ^. J.options)
+              in makeRequest hreq
 
         -- -------------------------------
 
@@ -778,8 +791,8 @@ reactor inp diagIn = do
         NotDidChangeConfiguration notif -> do
           liftIO $ U.logs $ "reactor:didChangeConfiguration notification:" ++ show notif
           -- if hlint has been turned off, flush the diagnostics
-          diagsOn              <- configVal True hlintOn
-          maxDiagnosticsToSend <- configVal 50 maxNumberOfProblems
+          diagsOn              <- configVal hlintOn
+          maxDiagnosticsToSend <- configVal maxNumberOfProblems
           liftIO $ U.logs $ "reactor:didChangeConfiguration diagsOn:" ++ show diagsOn
           -- If hlint is off, remove the diags. But make sure they get sent, in
           -- case maxDiagnosticsToSend has changed.
@@ -797,23 +810,48 @@ reactor inp diagIn = do
 
 -- ---------------------------------------------------------------------
 
+-- | Execute a function in the current request with an Uri.
+-- Reads the content of the file specified by the Uri and invokes 
+-- the function on it.
+--
+-- If the Uri can not be mapped to a real file, the function will 
+-- not be executed and an error message will be sent to the client.
+-- Error message is associated with the request id and, thus, identifiable.
+withDocumentContents :: J.LspId -> J.Uri -> (T.Text -> R ()) -> R ()
+withDocumentContents reqId uri f = do
+  vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
+  mvf <- liftIO $ vfsFunc uri
+  lf <- asks lspFuncs
+  case mvf of
+    Nothing -> liftIO $
+      Core.sendErrorResponseS (Core.sendFunc lf)
+        (J.responseId reqId)
+        J.InvalidRequest
+        "Document was not open"
+    Just (VFS.VirtualFile _ txt) -> f (Yi.toText txt)
+
+-- | Get the currently configured formatter provider.
+-- The currently configured formatter provider is defined in @Config@ by PluginId.
+-- 
+-- It is possible that formatter configured by the user is not present.
+-- In this case, a nop (No-Operation) formatter is returned and a message will 
+-- be sent to the user.
 getFormattingProvider :: R FormattingProvider
 getFormattingProvider = do
-  providers <- asks formattingProviders
-  lf <- asks lspFuncs
-  mc <- liftIO $ Core.config lf
+  plugins <- asks idePlugins
+  config <- getClientConfig
   -- LL: Is this overengineered? Do we need a pluginFormattingProvider
   -- or should we just call plugins straight from here based on the providerType?
-  let providerName = formattingProvider (fromMaybe def mc)
-      mProvider = Map.lookup providerName providers
-  case mProvider of
+  let providerName = formattingProvider config
+      mprovider = getFormattingPlugin config plugins
+  case mprovider of
     Nothing -> do
       unless (providerName == "none") $ do
         let msg = providerName <> " is not a recognised plugin for formatting. Check your config"
         reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
         reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg    
-      return (\_ _ _ -> return (IdeResultOk [])) -- nop formatter
-    Just provider -> return provider
+      return (\_ _ _ _ -> return (IdeResultOk [])) -- nop formatter
+    Just (_, provider) -> return provider
 
 -- ---------------------------------------------------------------------
 
@@ -838,20 +876,20 @@ requestDiagnostics DiagnosticsRequest{trigger, file, trackingNumber, documentVer
 
   diagFuncs <- asks diagnosticSources
   lf <- asks lspFuncs
-  mc <- liftIO $ Core.config lf
+  clientConfig <- getClientConfig
   case Map.lookup trigger diagFuncs of
     Nothing -> do
       debugm $ "requestDiagnostics: no diagFunc for:" ++ show trigger
       return ()
     Just dss -> do
-      dpsEnabled <- configVal (Map.fromList [("liquid",False)]) getDiagnosticProvidersConfig
+      dpsEnabled <- configVal getDiagnosticProvidersConfig
       debugm $ "requestDiagnostics: got diagFunc for:" ++ show trigger
       forM_ dss $ \(pid,ds) -> do
         debugm $ "requestDiagnostics: calling diagFunc for plugin:" ++ show pid
         let
           enabled = Map.findWithDefault True pid dpsEnabled
           publishDiagnosticsIO = Core.publishDiagnosticsFunc lf
-          maxToSend = maybe 50 maxNumberOfProblems mc
+          maxToSend = maxNumberOfProblems clientConfig
           sendOne (fileUri,ds') = do
             debugm $ "LspStdio.sendone:(fileUri,ds')=" ++ show(fileUri,ds')
             publishDiagnosticsIO maxToSend fileUri Nothing (Map.fromList [(Just pid,SL.toSortedList ds')])
@@ -888,8 +926,7 @@ requestDiagnostics DiagnosticsRequest{trigger, file, trackingNumber, documentVer
 -- | get hlint and GHC diagnostics and loads the typechecked module into the cache
 requestDiagnosticsNormal :: TrackingNumber -> J.Uri -> J.TextDocumentVersion -> R ()
 requestDiagnosticsNormal tn file mVer = do
-  lf <- asks lspFuncs
-  mc <- liftIO $ Core.config lf
+  clientConfig <- getClientConfig
   let
     ver = fromMaybe 0 mVer
 
@@ -907,9 +944,9 @@ requestDiagnosticsNormal tn file mVer = do
     hasSeverity sev (J.Diagnostic _ (Just s) _ _ _ _) = s == sev
     hasSeverity _ _ = False
     sendEmpty = publishDiagnostics maxToSend file Nothing (Map.fromList [(Just "ghcmod",SL.toSortedList [])])
-    maxToSend = maybe 50 maxNumberOfProblems mc
+    maxToSend = maxNumberOfProblems clientConfig
 
-  let sendHlint = maybe True hlintOn mc
+  let sendHlint = hlintOn clientConfig
   when sendHlint $ do
     -- get hlint diagnostics
     let reql = GReq tn (Just file) (Just (file,ver)) Nothing callbackl
@@ -973,6 +1010,7 @@ hieHandlers rin
   = def { Core.initializedHandler                       = Just $ passHandler rin NotInitialized
         , Core.renameHandler                            = Just $ passHandler rin ReqRename
         , Core.definitionHandler                        = Just $ passHandler rin ReqDefinition
+        , Core.typeDefinitionHandler                    = Just $ passHandler rin ReqTypeDefinition
         , Core.referencesHandler                        = Just $ passHandler rin ReqFindReferences
         , Core.hoverHandler                             = Just $ passHandler rin ReqHover
         , Core.didOpenTextDocumentNotificationHandler   = Just $ passHandler rin NotDidOpenTextDocument

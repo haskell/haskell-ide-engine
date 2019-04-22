@@ -4,12 +4,12 @@ packages:
 - hie-plugin-api
 
 extra-deps:
-- ./submodules/brittany
 - ./submodules/HaRe
-- ./submodules/ghc-mod
-- ./submodules/ghc-mod/core
+- ./submodules/brittany
 - ./submodules/cabal-helper
 - ./submodules/floskell
+- ./submodules/ghc-mod
+- ./submodules/ghc-mod/core
 
 - base-compat-0.9.3
 - cabal-plan-0.3.0.0
@@ -17,13 +17,14 @@ extra-deps:
 - ghc-exactprint-0.5.8.2
 - haddock-api-2.20.0
 - haddock-library-1.6.0
-- haskell-lsp-0.8.0.1
-- haskell-lsp-types-0.8.0.1
+- haskell-lsp-0.9.0.0
+- haskell-lsp-types-0.9.0.0
 - haskell-src-exts-1.21.0
-- hlint-2.1.14
-- hoogle-5.0.17.5
+- haskell-src-exts-util-0.2.5
+- hlint-2.1.16
+- hoogle-5.0.17.6
 - hsimport-0.8.8
-- lsp-test-0.5.0.2
+- lsp-test-0.5.1.1
 - monad-dijkstra-0.1.1.2
 - pretty-show-1.8.2
 - syz-0.2.0.0
