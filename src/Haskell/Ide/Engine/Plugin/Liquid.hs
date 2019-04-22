@@ -120,7 +120,9 @@ diagnosticProvider DiagnosticOnSave uri cb = pluginGetFile "Liquid.diagnosticPro
     LiquidData mtid <- get
     mapM_ (liftIO . cancel) mtid
 
-    tid <- liftIO $ async $ generateDiagnosics cb uri file
+    let progTitle = "Running Liquid Haskell on " <> T.pack (takeFileName file)
+    tid <- withIndefiniteProgress progTitle $
+      liftIO $ async $ generateDiagnosics cb uri file
     put (LiquidData (Just tid))
 
     return $ IdeResultOk ()

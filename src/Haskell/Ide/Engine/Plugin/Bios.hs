@@ -15,6 +15,7 @@ import           Data.Monoid ((<>))
 import qualified Data.Set                          as Set
 import qualified Data.Text                         as T
 import           ErrUtils
+import           System.FilePath
 
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
@@ -202,7 +203,8 @@ setTypecheckedModule_load uri =
     mapped_fp <- persistVirtualFile uri
     liftIO $ copyHsBoot fp mapped_fp
     rfm <- reverseFileMap
-    (diags', errs, mmods) <- (captureDiagnostics rfm $ BIOS.loadFile (fp, mapped_fp))
+    let progTitle = "Typechecking " <> T.pack (takeFileName fp)
+    (diags', errs, mmods) <- withIndefiniteProgress progTitle (captureDiagnostics rfm $ BIOS.loadFile (fp, mapped_fp))
     debugm "File, loaded"
     canonUri <- canonicalizeUri uri
     let diags = Map.insertWith Set.union canonUri Set.empty diags'
