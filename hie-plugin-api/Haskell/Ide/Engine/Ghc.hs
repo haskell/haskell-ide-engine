@@ -13,6 +13,7 @@ module Haskell.Ide.Engine.Ghc
     setTypecheckedModule
   , Diagnostics
   , AdditionalErrs
+  , cabalModuleGraphs
   ) where
 
 import           Bag
@@ -27,6 +28,8 @@ import qualified GhcMod.Error                      as GM
 import qualified GhcMod.Gap                        as GM
 import qualified GhcMod.ModuleLoader               as GM
 import qualified GhcMod.Monad                      as GM
+import qualified GhcMod.Target                     as GM
+import qualified GhcMod.Types                      as GM
 import qualified GhcMod.Utils                      as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
@@ -203,5 +206,21 @@ setTypecheckedModule uri =
         return $ Map.insertWith Set.union canonUri (Set.singleton d) diags
 
     return $ IdeResultOk (diags2,errs)
+
+-- ---------------------------------------------------------------------
+
+cabalModuleGraphs :: IdeGhcM [GM.GmModuleGraph]
+cabalModuleGraphs = doCabalModuleGraphs
+  where
+    doCabalModuleGraphs :: (GM.IOish m) => GM.GhcModT m [GM.GmModuleGraph]
+    doCabalModuleGraphs = do
+      crdl <- GM.cradle
+      case GM.cradleCabalFile crdl of
+        Just _ -> do
+          mcs <- GM.cabalResolvedComponents
+          let graph = map GM.gmcHomeModuleGraph $ Map.elems mcs
+          return graph
+        Nothing -> return []
+
 
 -- ---------------------------------------------------------------------

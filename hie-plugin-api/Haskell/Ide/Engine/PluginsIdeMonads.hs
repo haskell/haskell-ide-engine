@@ -103,6 +103,10 @@ import qualified GhcMod.Monad                  as GM
 import qualified GhcMod.Types                  as GM
 import           GHC.Generics
 import           GHC                            ( HscEnv )
+import qualified DynFlags      as GHC
+import qualified GHC           as GHC
+import qualified HscTypes      as GHC
+
 
 import           Haskell.Ide.Engine.Compat
 import           Haskell.Ide.Engine.Config
@@ -451,6 +455,15 @@ instance HasGhcModuleCache IdeM where
   setModuleCache mc = do
     tvar <- lift ask
     liftIO $ atomically $ modifyTVar' tvar (\st -> st { moduleCache = mc })
+
+-- ---------------------------------------------------------------------
+
+instance GHC.HasDynFlags IdeGhcM where
+  getDynFlags = GHC.hsc_dflags <$> GHC.getSession
+
+instance GHC.GhcMonad IdeGhcM where
+  getSession     = GM.unGmlT GM.gmlGetSession
+  setSession env = GM.unGmlT (GM.gmlSetSession env)
 
 -- ---------------------------------------------------------------------
 -- Results
