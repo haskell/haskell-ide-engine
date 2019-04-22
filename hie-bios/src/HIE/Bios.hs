@@ -8,6 +8,7 @@ module HIE.Bios (
   , initializeFlagsWithCradle
   -- * Load a module into a session
   , loadFile
+  , loadFileWithMessage
   -- * Eliminate a session to IO
   , withGhcT
   ) where

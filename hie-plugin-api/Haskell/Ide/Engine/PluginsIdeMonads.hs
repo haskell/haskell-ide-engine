@@ -365,7 +365,7 @@ class MonadIO m => MonadIde m where
   -- 'withProgress' @title f@ wraps a progress reporting session for long running tasks.
   -- f is passed a reporting function that can be used to give updates on the progress
   -- of the task.
-  withProgress :: T.Text -> ((Core.Progress -> m ()) -> m a) -> m a
+  withProgress :: T.Text -> ((Core.Progress -> IO ()) -> m a) -> m a
   -- 'withIndefiniteProgress' @title f@ is the same as the 'withProgress' but for tasks
   -- which do not continuously report their progress.
   withIndefiniteProgress :: T.Text -> m a -> m a
@@ -452,7 +452,7 @@ instance MonadIde IdeDeferM where
     lf <- lift $ asks ideEnvLspFuncs
     withIndefiniteProgress' lf t f
 
-withProgress' :: MonadIO m => Maybe (Core.LspFuncs Config) -> T.Text -> ((Core.Progress -> m ()) -> m a) -> m a
+withProgress' :: MonadIO m => Maybe (Core.LspFuncs Config) -> T.Text -> ((Core.Progress -> IO ()) -> m a) -> m a
 withProgress' lspFuncs t f =
   let mWp = Core.withProgress <$> lspFuncs
     in case mWp of

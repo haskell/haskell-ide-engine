@@ -1,11 +1,13 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP #-}
-module HIE.Bios.Load ( loadFile, setTargetFiles ) where
+module HIE.Bios.Load ( loadFileWithMessage, loadFile, setTargetFiles, setTargetFilesWithMessage) where
 
 import CoreMonad (liftIO)
 import DynFlags (gopt_set, wopt_set, WarningFlag(Opt_WarnTypedHoles))
 import GHC
 import qualified GHC as G
+import qualified GhcMake as G
+import qualified HscMain as G
 import HscTypes
 import Outputable
 
@@ -26,17 +28,18 @@ pprTraceM x s = pprTrace x s (return ())
 #endif
 
 -- | Obtaining type of a target expression. (GHCi's type:)
-loadFile :: GhcMonad m
-         => (FilePath, FilePath)     -- ^ A target file.
+loadFileWithMessage :: GhcMonad m
+         => Maybe G.Messager
+         -> (FilePath, FilePath)     -- ^ A target file.
          -> m (Maybe TypecheckedModule, [TypecheckedModule])
-loadFile file = do
+loadFileWithMessage msg file = do
   dir <- liftIO $ getCurrentDirectory
   pprTraceM "loadFile:2" (text dir)
   withDynFlags (setWarnTypedHoles . setDeferTypeErrors . setNoWaringFlags) $ do
 
     df <- getSessionDynFlags
     pprTraceM "loadFile:3" (ppr $ optLevel df)
-    (_, tcs) <- collectASTs (setTargetFiles [file])
+    (_, tcs) <- collectASTs (setTargetFilesWithMessage msg [file])
     pprTraceM "loaded" (text (fst file) $$ text (snd file))
     let get_fp = ml_hs_file . ms_location . pm_mod_summary . tm_parsed_module
     traceShowM ("tms", (map get_fp tcs))
@@ -45,6 +48,11 @@ loadFile file = do
                            Just fp -> if fp `isSuffixOf` (snd file) then Just x else findMod xs
                            Nothing -> findMod xs
     return (findMod tcs, tcs)
+
+loadFile :: (GhcMonad m)
+         => (FilePath, FilePath)
+         -> m (Maybe TypecheckedModule, [TypecheckedModule])
+loadFile = loadFileWithMessage (Just G.batchMsg)
 
 {-
 fileModSummary :: GhcMonad m => FilePath -> m ModSummary
@@ -61,13 +69,17 @@ setDeferTypeErrors dflag = gopt_set dflag G.Opt_DeferTypeErrors
 setWarnTypedHoles :: DynFlags -> DynFlags
 setWarnTypedHoles dflag = wopt_set dflag Opt_WarnTypedHoles
 
+setTargetFiles :: GhcMonad m => [(FilePath, FilePath)] -> m ()
+setTargetFiles = setTargetFilesWithMessage (Just G.batchMsg)
+
 -- | Set the files as targets and load them.
-setTargetFiles :: (GhcMonad m)  => [(FilePath, FilePath)] -> m ()
-setTargetFiles files = do
+setTargetFilesWithMessage :: (GhcMonad m)  => Maybe G.Messager -> [(FilePath, FilePath)] -> m ()
+setTargetFilesWithMessage msg files = do
     targets <- forM files guessTargetMapped
     pprTrace "setTargets" (vcat (map ppr files) $$ ppr targets) (return ())
     G.setTargets (map (\t -> t { G.targetAllowObjCode = False }) targets)
-    void $ G.load LoadAllTargets
+    mod_graph <- depanal [] False
+    void $ G.load' LoadAllTargets msg mod_graph
 
 collectASTs :: (GhcMonad m) => m a -> m (a, [TypecheckedModule])
 collectASTs action = do
