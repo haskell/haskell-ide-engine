@@ -50,8 +50,17 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , IdeM
   , runIdeM
   , IdeDeferM
-  , MonadIde(..)
+  -- ** MonadIde and functions
+  , MonadIde
+  , getRootPath
+  , getVirtualFile
+  , getConfig
+  , getClientCapabilities
+  , getPlugins
+  , withProgress
+  , withIndefiniteProgress
   , Core.Progress(..)
+  -- ** Lifting
   , iterT
   , LiftsToGhc(..)
   -- * IdeResult
@@ -354,117 +363,69 @@ data IdeEnv = IdeEnv
   }
 
 -- | The class of monads that support common IDE functions, namely IdeM/IdeGhcM/IdeDeferM
-class MonadIO m => MonadIde m where
-  getRootPath :: m (Maybe FilePath)
-  getVirtualFile :: Uri -> m (Maybe VirtualFile)
-  persistVirtualFile :: Uri -> m FilePath
-  reverseFileMap :: m (FilePath -> FilePath)
-  getConfig :: m Config
-  getClientCapabilities :: m ClientCapabilities
-  getPlugins :: m IdePlugins
-  -- 'withProgress' @title f@ wraps a progress reporting session for long running tasks.
-  -- f is passed a reporting function that can be used to give updates on the progress
-  -- of the task.
-  withProgress :: T.Text -> ((Core.Progress -> IO ()) -> m a) -> m a
-  -- 'withIndefiniteProgress' @title f@ is the same as the 'withProgress' but for tasks
-  -- which do not continuously report their progress.
-  withIndefiniteProgress :: T.Text -> m a -> m a
+class Monad m => MonadIde m where
+  getIdeEnv :: m IdeEnv
 
-instance MonadIO m => MonadIde (ReaderT IdeEnv m) where
-  getRootPath = do
-    mlf <- asks ideEnvLspFuncs
-    case mlf of
-      Just lf -> return (Core.rootPath lf)
-      Nothing -> return Nothing
-
-  getVirtualFile uri = do
-    mlf <- asks ideEnvLspFuncs
-    case mlf of
-      Just lf -> liftIO $ Core.getVirtualFileFunc lf uri
-      Nothing -> return Nothing
-
-  persistVirtualFile uri = do
-    mlf <- asks ideEnvLspFuncs
-    case mlf of
-      Just lf -> liftIO $ Core.persistVirtualFileFunc lf uri
-      Nothing -> maybe (error "persist") return (uriToFilePath uri)
-
-  reverseFileMap = do
-    mlf <- asks ideEnvLspFuncs
-    case mlf of
-      Just lf -> liftIO $ Core.reverseFileMapFunc lf
-      Nothing -> return id
-
-
-  getConfig = do
-    mlf <- asks ideEnvLspFuncs
-    case mlf of
-      Just lf -> fromMaybe def <$> liftIO (Core.config lf)
-      Nothing -> return def
-
-  getClientCapabilities = do
-    mlf <- asks ideEnvLspFuncs
-    case mlf of
-      Just lf -> return (Core.clientCapabilities lf)
-      Nothing -> return def
-
-  getPlugins = asks idePlugins
-
-  withProgress t f = do
-    lf <- asks ideEnvLspFuncs
-    withProgress' lf t f
-
-  withIndefiniteProgress t f = do
-    lf <- asks ideEnvLspFuncs
-    withIndefiniteProgress' lf t f
-
-instance MonadTrans GhcT where
-  lift m = liftGhcT m
-
-instance MonadIde IdeGhcM where
-  getRootPath = lift getRootPath
-  getVirtualFile = lift . getVirtualFile
-  persistVirtualFile = lift . persistVirtualFile
-  reverseFileMap = lift reverseFileMap
-  getConfig = lift getConfig
-  getClientCapabilities = lift getClientCapabilities
-  getPlugins = lift getPlugins
-  withProgress t f = do
-    lf <- lift $ asks ideEnvLspFuncs
-    withProgress' lf t f
-  withIndefiniteProgress t f = do
-    lf <- lift $ asks ideEnvLspFuncs
-    withIndefiniteProgress' lf t f
-
+instance MonadIde IdeM where
+  getIdeEnv = ask
 
 instance MonadIde IdeDeferM where
-  getRootPath = lift getRootPath
-  getVirtualFile = lift . getVirtualFile
-  persistVirtualFile = lift . persistVirtualFile
-  reverseFileMap = lift reverseFileMap
-  getConfig = lift getConfig
-  getClientCapabilities = lift getClientCapabilities
-  getPlugins = lift getPlugins
-  withProgress t f = do
-    lf <- lift $ asks ideEnvLspFuncs
-    withProgress' lf t f
-  withIndefiniteProgress t f = do
-    lf <- lift $ asks ideEnvLspFuncs
-    withIndefiniteProgress' lf t f
+  getIdeEnv = lift ask
 
-withProgress' :: MonadIO m => Maybe (Core.LspFuncs Config) -> T.Text -> ((Core.Progress -> IO ()) -> m a) -> m a
-withProgress' lspFuncs t f =
-  let mWp = Core.withProgress <$> lspFuncs
-    in case mWp of
-        Nothing -> f (const $ return ())
-        Just wp -> wp t f
+instance MonadIde IdeGhcM where
+  getIdeEnv = lift ask
 
-withIndefiniteProgress' :: MonadIO m => Maybe (Core.LspFuncs Config) -> T.Text -> m a -> m a
-withIndefiniteProgress' lspFuncs t f =
-  let mWp = Core.withIndefiniteProgress <$> lspFuncs
-    in case mWp of
-        Nothing -> f
-        Just wp -> wp t f
+getRootPath :: MonadIde m => m (Maybe FilePath)
+getRootPath = do
+  mlf <- ideEnvLspFuncs <$> getIdeEnv
+  case mlf of
+    Just lf -> return (Core.rootPath lf)
+    Nothing -> return Nothing
+
+getVirtualFile :: (MonadIde m, MonadIO m) => Uri -> m (Maybe VirtualFile)
+getVirtualFile uri = do
+  mlf <- ideEnvLspFuncs <$> getIdeEnv
+  case mlf of
+    Just lf -> liftIO $ Core.getVirtualFileFunc lf uri
+    Nothing -> return Nothing
+
+getConfig :: (MonadIde m, MonadIO m) => m Config
+getConfig = do
+  mlf <- ideEnvLspFuncs <$> getIdeEnv
+  case mlf of
+    Just lf -> fromMaybe def <$> liftIO (Core.config lf)
+    Nothing -> return def
+
+getClientCapabilities :: MonadIde m => m ClientCapabilities
+getClientCapabilities = do
+  mlf <- ideEnvLspFuncs <$> getIdeEnv
+  case mlf of
+    Just lf -> return (Core.clientCapabilities lf)
+    Nothing -> return def
+
+getPlugins :: MonadIde m => m IdePlugins
+getPlugins = idePlugins <$> getIdeEnv
+
+-- | 'withProgress' @title f@ wraps a progress reporting session for long running tasks.
+-- f is passed a reporting function that can be used to give updates on the progress
+-- of the task.
+withProgress :: (MonadIde m, MonadUnliftIO m) => T.Text -> ((Core.Progress -> m ()) -> m a) -> m a
+withProgress t f = do
+  lf <- ideEnvLspFuncs <$> getIdeEnv
+  let mWp = Core.withProgress <$> lf
+  case mWp of
+    Nothing -> f (const $ return ())
+    Just wp -> wp t f
+
+-- | 'withIndefiniteProgress' @title f@ is the same as the 'withProgress' but for tasks
+-- which do not continuously report their progress.
+withIndefiniteProgress :: (MonadIde m, MonadIO m) => T.Text -> m a -> m a
+withIndefiniteProgress t f = do
+  lf <- ideEnvLspFuncs <$> getIdeEnv
+  let mWp = Core.withIndefiniteProgress <$> lf
+  case mWp of
+    Nothing -> f
+    Just wp -> wp t f
 
 data IdeState = IdeState
   { moduleCache :: GhcModuleCache
@@ -593,3 +554,5 @@ instance ExceptionMonad m => ExceptionMonad (ReaderT e m) where
     where q :: (m a -> m a) -> ReaderT e m a -> ReaderT e m a
           q u (ReaderT b) = ReaderT (u . b)
 
+instance MonadTrans GhcT where
+  lift m = liftGhcT m
