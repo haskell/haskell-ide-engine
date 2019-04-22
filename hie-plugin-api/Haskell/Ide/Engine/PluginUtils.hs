@@ -269,14 +269,14 @@ clientSupportsDocumentChanges = do
 
 -- ---------------------------------------------------------------------
 
-readVFS :: MonadIde m => Uri -> m (Maybe T.Text)
+readVFS :: (MonadIde m, MonadIO m) => Uri -> m (Maybe T.Text)
 readVFS uri = do
   mvf <- getVirtualFile uri
   case mvf of
     Just (VirtualFile _ txt) -> return $ Just (Yi.toText txt)
     Nothing -> return Nothing
 
-getRangeFromVFS :: MonadIde m => Uri -> Range -> m (Maybe T.Text)
+getRangeFromVFS :: (MonadIde m, MonadIO m) => Uri -> Range -> m (Maybe T.Text)
 getRangeFromVFS uri rg = do
   mvf <- getVirtualFile uri
   case mvf of
