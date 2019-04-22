@@ -17,8 +17,8 @@ extra-deps:
 - ghc-exactprint-0.5.8.2
 - haddock-api-2.20.0
 - haddock-library-1.6.0
-- haskell-lsp-0.9.0.0
-- haskell-lsp-types-0.9.0.0
+- haskell-lsp-0.10.0.0
+- haskell-lsp-types-0.10.0.0
 - haskell-src-exts-1.21.0
 - haskell-src-exts-util-0.2.5
 - hlint-2.1.16
