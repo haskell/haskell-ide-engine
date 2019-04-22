@@ -1,4 +1,5 @@
-fullname=$(bazel query $1)
+#!/usr/bin/env bash
+fullname=$(bazel query "$1")
 attr=$(bazel query "kind(haskell_*, attr('srcs', $fullname, ${fullname//:*/}:*))")
 bazel build "$attr@repl" --experimental_show_artifacts 2>&1 | sed -ne '/>>>/ s/^>>>\(.*\)$/\1/ p' | xargs tail -1
 

@@ -1,6 +1,7 @@
+#!/usr/bin/env bash
 if [ "$1" == "--interactive" ]; then
   pwd
   echo "$@"
 else
-  ghc $@
+  ghc "$@"
 fi
