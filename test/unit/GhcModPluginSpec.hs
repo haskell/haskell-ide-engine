@@ -1,12 +1,8 @@
-{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 module GhcModPluginSpec where
 
 import           Control.Exception
 import qualified Data.Map                            as Map
-#if __GLASGOW_HASKELL__ < 804
-import           Data.Monoid
-#endif
 import qualified Data.Set                            as S
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Plugin.GhcMod
