@@ -188,12 +188,12 @@ renderMarkDown =
          , markupProperty = \s -> T.unlines
              ["\n```haskell"
              ,"prop> " <> removeInner (T.pack s)
-             ,"\n```\n"]
+             ,"```\n"]
          , markupExample = T.unlines . map (\e -> T.pack $ unlines $
              ["\n```haskell"
              ,"> " <> exampleExpression e
              ] ++ exampleResult e ++
-             ["\n```\n"])
+             ["```\n"])
          , markupHeader = \h ->
              T.replicate (headerLevel h) "#" <> " " <> headerTitle h <> "\n"
 #if __GLASGOW_HASKELL__ >= 804
