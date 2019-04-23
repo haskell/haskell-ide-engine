@@ -709,7 +709,7 @@ prefixes =
 
 getFormattingPlugin :: Config -> IdePlugins -> Maybe (PluginDescriptor, FormattingProvider)
 getFormattingPlugin config plugins = do 
-  let providerName = formattingProvider config
+  let providerName = PluginId (formattingProvider config)
   fmtPlugin <- Map.lookup providerName plugins
   fmtProvider <- pluginFormattingProvider fmtPlugin
   return (fmtPlugin, fmtProvider)

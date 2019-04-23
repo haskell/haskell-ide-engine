@@ -581,10 +581,10 @@ reactor inp diagIn = do
 
           let params = req ^. J.params
 
-              parseCmdId :: T.Text -> Maybe (T.Text, T.Text)
+              parseCmdId :: T.Text -> Maybe (PluginId, CommandId)
               parseCmdId x = case T.splitOn ":" x of
-                [plugin, command] -> Just (plugin, command)
-                [_, plugin, command] -> Just (plugin, command)
+                [plugin, command] -> Just (PluginId plugin, CommandId command)
+                [_, plugin, command] -> Just (PluginId plugin, CommandId command)
                 _ -> Nothing
 
               callback obj = do
@@ -887,22 +887,23 @@ requestDiagnostics DiagnosticsRequest{trigger, file, trackingNumber, documentVer
       forM_ dss $ \(pid,ds) -> do
         debugm $ "requestDiagnostics: calling diagFunc for plugin:" ++ show pid
         let
+          PluginId pidText = pid
           enabled = Map.findWithDefault True pid dpsEnabled
           publishDiagnosticsIO = Core.publishDiagnosticsFunc lf
           maxToSend = maxNumberOfProblems clientConfig
           sendOne (fileUri,ds') = do
             debugm $ "LspStdio.sendone:(fileUri,ds')=" ++ show(fileUri,ds')
-            publishDiagnosticsIO maxToSend fileUri Nothing (Map.fromList [(Just pid,SL.toSortedList ds')])
+            publishDiagnosticsIO maxToSend fileUri Nothing (Map.fromList [(Just pidText,SL.toSortedList ds')])
 
           sendEmpty = do
             debugm "LspStdio.sendempty"
-            publishDiagnosticsIO maxToSend file Nothing (Map.fromList [(Just pid,SL.toSortedList [])])
+            publishDiagnosticsIO maxToSend file Nothing (Map.fromList [(Just pidText,SL.toSortedList [])])
 
           -- fv = case documentVersion of
           --   Nothing -> Nothing
           --   Just v -> Just (file,v)
         -- let fakeId = J.IdString "fake,remove" -- TODO:AZ: IReq should take a Maybe LspId
-        let fakeId = J.IdString ("fake,remove:pid=" <> pid) -- TODO:AZ: IReq should take a Maybe LspId
+        let fakeId = J.IdString ("fake,remove:pid=" <> pidText) -- TODO:AZ: IReq should take a Maybe LspId
         let reql = case ds of
               DiagnosticProviderSync dps ->
                 IReq trackingNumber fakeId callbackl

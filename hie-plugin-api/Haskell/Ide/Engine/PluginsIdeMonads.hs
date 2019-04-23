@@ -21,8 +21,8 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   -- * Plugins
   , IdePlugins
   , mkIdePlugins
-  , PluginId
-  , CommandId
+  , PluginId(..)
+  , CommandId(..)
   , PluginDescriptor(..)
   , PluginCommand(..)
   , runPluginCommand
@@ -92,6 +92,7 @@ import qualified Data.Map                      as Map
 import           Data.Maybe
 import           Data.Monoid                    ( (<>) )
 import qualified Data.Set                      as S
+import           Data.String
 import qualified Data.Text                     as T
 import           Data.Typeable                  ( TypeRep
                                                 , Typeable
@@ -164,7 +165,7 @@ allLspCmdIds m = concat <$> mapM go (Map.toList (pluginCommands <$> m))
     go (plid, cmds) = mapM (mkLspCmdId plid . commandId) cmds
 
 mkLspCmdId :: HasPidCache m => PluginId -> CommandId -> m T.Text
-mkLspCmdId plid cn = do
+mkLspCmdId (PluginId plid) (CommandId cn) = do
   pid <- T.pack . show <$> getPidCache
   return $ pid <> ":" <> plid <> ":" <> cn
 
@@ -239,8 +240,17 @@ data PluginDescriptor =
                    , pluginFormattingProvider :: Maybe FormattingProvider
                    } deriving (Generic)
 
-type PluginId = T.Text
-type CommandId = T.Text
+newtype PluginId = PluginId T.Text
+  deriving (Show, Read, Eq, Ord)
+
+instance IsString PluginId where
+  fromString = PluginId . T.pack
+
+newtype CommandId = CommandId T.Text
+  deriving (Show, Read, Eq, Ord)
+
+instance IsString CommandId where
+  fromString = CommandId . T.pack
 
 -- TODO: Figure out a type-safer way to handle plugin + command ids
 data PluginCommand = forall a b. (FromJSON a, ToJSON b, Typeable b) =>
@@ -249,7 +259,7 @@ data PluginCommand = forall a b. (FromJSON a, ToJSON b, Typeable b) =>
                 }
 
 instance Show PluginCommand where
-  show (PluginCommand name _) = "PluginCommand { name = " ++ T.unpack name ++ " }"
+  show (PluginCommand (CommandId name) _) = "PluginCommand { name = " ++ T.unpack name ++ " }"
 
 type DynamicJSON = CD.ConstrainedDynamic ToJSON
 
@@ -270,13 +280,13 @@ runPluginCommand p com arg = do
   m <- getPlugins
   case Map.lookup p m of
     Nothing -> return $
-      IdeResultFail $ IdeError UnknownPlugin ("Plugin " <> p <> " doesn't exist") Null
+      IdeResultFail $ IdeError UnknownPlugin (T.pack $ "Plugin " <> show p <> " doesn't exist") Null
     Just PluginDescriptor { pluginCommands = xs } -> case List.find ((com ==) . commandId) xs of
       Nothing -> return $ IdeResultFail $
-        IdeError UnknownCommand ("Command " <> com <> " isn't defined for plugin " <> p <> ". Legal commands are: " <> T.pack(show $ map commandId xs)) Null
+        IdeError UnknownCommand (T.pack $ "Command " <> show com <> " isn't defined for plugin " <> show p <> ". Legal commands are: " <> (show $ map commandId xs)) Null
       Just (PluginCommand _ f) -> case fromJSON arg of
         Error err -> return $ IdeResultFail $
-          IdeError ParameterError ("error while parsing args for " <> com <> " in plugin " <> p <> ": " <> T.pack err) Null
+          IdeError ParameterError (T.pack $ "error while parsing args for " <> show com <> " in plugin " <> show p <> ": " <> err) Null
         Success a -> do
             res <- f a
             return $ fmap toDynJSON res
