@@ -276,17 +276,17 @@ toDynJSON = CD.toDyn
 -- arguments in the form of a JSON object.
 runPluginCommand :: PluginId -> CommandId -> Value
                   -> IdeGhcM (IdeResult DynamicJSON)
-runPluginCommand p com arg = do
+runPluginCommand p@(PluginId pText) com@(CommandId comText) arg = do
   m <- getPlugins
   case Map.lookup p m of
     Nothing -> return $
-      IdeResultFail $ IdeError UnknownPlugin (T.pack $ "Plugin " <> show p <> " doesn't exist") Null
+      IdeResultFail $ IdeError UnknownPlugin ("Plugin " <> pText <> " doesn't exist") Null
     Just PluginDescriptor { pluginCommands = xs } -> case List.find ((com ==) . commandId) xs of
       Nothing -> return $ IdeResultFail $
-        IdeError UnknownCommand (T.pack $ "Command " <> show com <> " isn't defined for plugin " <> show p <> ". Legal commands are: " <> (show $ map commandId xs)) Null
+        IdeError UnknownCommand ("Command " <> comText <> " isn't defined for plugin " <> pText <> ". Legal commands are: " <> (T.pack $ show $ map (\(CommandId x) -> x) $ map commandId xs)) Null
       Just (PluginCommand _ f) -> case fromJSON arg of
         Error err -> return $ IdeResultFail $
-          IdeError ParameterError (T.pack $ "error while parsing args for " <> show com <> " in plugin " <> show p <> ": " <> err) Null
+          IdeError ParameterError ("error while parsing args for " <> comText <> " in plugin " <> pText <> ": " <> T.pack err) Null
         Success a -> do
             res <- f a
             return $ fmap toDynJSON res
