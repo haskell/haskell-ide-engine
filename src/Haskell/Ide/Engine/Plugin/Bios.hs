@@ -20,7 +20,7 @@ import           System.FilePath
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
-import qualified Language.Haskell.LSP.Core as Core
+import           Haskell.Ide.Engine.GhcUtils
 --import qualified Haskell.Ide.Engine.Plugin.HieExtras as Hie
 
 import           DynFlags
@@ -200,31 +200,6 @@ loadFile :: (FilePath -> FilePath) -> (FilePath, FilePath)
                      Maybe (Maybe TypecheckedModule, [TypecheckedModule]))
 loadFile rfm t = do
     withProgress "loading" $ \f -> (captureDiagnostics rfm $ BIOS.loadFileWithMessage (Just $ toMessager f) t)
-    where
-      toMessager :: (Core.Progress -> IO ()) -> G.Messager
-      toMessager k hsc_env (nk, n) rc_reason ms =
-        let prog = Core.Progress (Just (fromIntegral nk/ fromIntegral n))  (Just mod_name)
-            mod_name = T.pack $ moduleNameString (moduleName (ms_mod ms))
-        in pprTrace "loading" (ppr (nk, n)) $ k prog
-
-{-
-toMessager :: Messager
-toMessager hsc_env mod_index recomp mod_summary =
-    case recomp of
-        MustCompile -> showMsg "Compiling " ""
-        UpToDate
-            | verbosity (hsc_dflags hsc_env) >= 2 -> showMsg "Skipping  " ""
-            | otherwise -> return ()
-        RecompBecause reason -> showMsg "Compiling " (" [" ++ reason ++ "]")
-    where
-        dflags = hsc_dflags hsc_env
-        showMsg msg reason =
-            compilationProgressMsg dflags $
-            (showModuleIndex mod_index ++
-            msg ++ showModMsg dflags (hscTarget dflags)
-                              (recompileRequired recomp) mod_summary)
-                ++ reason
-                -}
 
 -- | Actually load the module if it's not in the cache
 setTypecheckedModule_load :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))

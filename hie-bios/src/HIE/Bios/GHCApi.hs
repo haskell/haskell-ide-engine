@@ -5,6 +5,7 @@ module HIE.Bios.GHCApi (
   , withGHC'
   , withGhcT
   , initializeFlagsWithCradle
+  , initializeFlagsWithCradleWithMessage
   , getDynamicFlags
   , getSystemLibDir
   , withDynFlags
@@ -20,6 +21,8 @@ import GHC (Ghc, DynFlags(..), GhcLink(..), HscTarget(..), LoadHowMuch(..), GhcM
 import qualified GHC as G
 import qualified Outputable as G
 import qualified MonadUtils as G
+import qualified HscMain as G
+import qualified GhcMake as G
 import DynFlags
 
 import Control.Monad (void, when)
@@ -77,15 +80,23 @@ withGhcT body = do
 
 data Build = CabalPkg | SingleFile deriving Eq
 
--- | Initialize the 'DynFlags' relating to the compilation of a single
--- file or GHC session according to the 'Cradle' and 'Options'
--- provided.
 initializeFlagsWithCradle ::
         (GhcMonad m)
         => FilePath -- The file we are loading it because of
         -> Cradle
         -> m ()
-initializeFlagsWithCradle fp cradle = do
+initializeFlagsWithCradle = initializeFlagsWithCradleWithMessage (Just G.batchMsg)
+
+-- | Initialize the 'DynFlags' relating to the compilation of a single
+-- file or GHC session according to the 'Cradle' and 'Options'
+-- provided.
+initializeFlagsWithCradleWithMessage ::
+        (GhcMonad m)
+        => Maybe G.Messager
+        -> FilePath -- The file we are loading it because of
+        -> Cradle
+        -> m ()
+initializeFlagsWithCradleWithMessage msg fp cradle = do
       (ex, err, ghcOpts) <- liftIO $ getOptions (cradleOptsProg cradle) fp
       G.pprTrace "res" (G.text (show (ex, err, ghcOpts, fp))) (return ())
       case ex of
@@ -93,7 +104,7 @@ initializeFlagsWithCradle fp cradle = do
         _ -> return ()
       let compOpts = CompilerOptions ghcOpts
       liftIO $ hPrint stderr ghcOpts
-      initSession SingleFile compOpts
+      initSessionWithMessage msg compOpts
 
 data CradleError = CradleError String deriving (Show)
 
@@ -115,11 +126,11 @@ clearInterfaceCache fp = do
 getCacheDir :: FilePath -> IO FilePath
 getCacheDir fp = getXdgDirectory XdgCache (cacheDir ++ "/" ++ fp)
 
-initSession :: (GhcMonad m)
-            => Build
+initSessionWithMessage :: (GhcMonad m)
+            => Maybe G.Messager
             -> CompilerOptions
             -> m ()
-initSession _build CompilerOptions {..} = do
+initSessionWithMessage msg CompilerOptions {..} = do
     df <- G.getSessionDynFlags
     traceShowM (length ghcOptions)
 
@@ -142,8 +153,8 @@ initSession _build CompilerOptions {..} = do
     G.setLogAction (\_df _wr _s _ss _pp _m -> return ())
     G.setTargets targets
     -- Get the module graph using the function `getModuleGraph`
-    void $ G.depanal [] True
-    void $ G.load LoadAllTargets
+    mod_graph <- G.depanal [] True
+    void $ G.load' LoadAllTargets msg mod_graph
 
 ----------------------------------------------------------------
 

@@ -49,7 +49,7 @@ import           Haskell.Ide.Engine.TypeMap
 import           Haskell.Ide.Engine.GhcModuleCache
 import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.PluginsIdeMonads
-
+import           Haskell.Ide.Engine.GhcUtils
 -- ---------------------------------------------------------------------
 
 modifyCache :: (HasGhcModuleCache m) => (GhcModuleCache -> GhcModuleCache) -> m ()
@@ -88,7 +88,8 @@ loadCradle iniDynFlags (NewCradle fp) = do
     traceShowM crdl
     liftIO (GHC.newHscEnv iniDynFlags) >>= GHC.setSession
     liftIO $ setCurrentDirectory (BIOS.cradleRootDir crdl)
-    withIndefiniteProgress "Initialising Cradle" $ BIOS.initializeFlagsWithCradle fp crdl
+    withProgress "Initialising Cradle" $ \f ->
+      BIOS.initializeFlagsWithCradleWithMessage (Just $ toMessager f) fp crdl
     setCurrentCradle crdl
 loadCradle _iniDynFlags (LoadCradle (CachedCradle crd env)) = do
     traceShowM ("Reload Cradle" , crd)

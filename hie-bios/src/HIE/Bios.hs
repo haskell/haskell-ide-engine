@@ -6,6 +6,7 @@ module HIE.Bios (
   , findCradle
   , defaultCradle
   , initializeFlagsWithCradle
+  , initializeFlagsWithCradleWithMessage
   -- * Load a module into a session
   , loadFile
   , loadFileWithMessage
