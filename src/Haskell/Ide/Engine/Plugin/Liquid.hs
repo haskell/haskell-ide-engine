@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -9,9 +8,6 @@ import           Control.Concurrent.Async
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Exception (bracket)
-#if __GLASGOW_HASKELL__ < 804
-import           Data.Monoid
-#endif
 import           Data.Aeson
 import qualified Data.ByteString.Lazy          as BS
 import qualified Data.Map                      as Map
