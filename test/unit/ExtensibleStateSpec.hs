@@ -30,16 +30,14 @@ extensibleStateSpec =
 -- ---------------------------------------------------------------------
 
 testPlugins :: IdePlugins
-testPlugins = pluginDescToIdePlugins [testDescriptor "test"]
+testPlugins = mkIdePlugins [testDescriptor]
 
-testDescriptor :: PluginId -> PluginDescriptor
-testDescriptor plId = PluginDescriptor
-  { pluginId = plId
-  , pluginName = "testDescriptor"
-  , pluginDesc = "PluginDescriptor for testing Dispatcher"
+testDescriptor :: PluginDescriptor
+testDescriptor = PluginDescriptor
+  { pluginId = "test"
   , pluginCommands = [
-        PluginCommand "cmd1" "description" cmd1
-      , PluginCommand "cmd2" "description" cmd2
+        PluginCommand "cmd1" cmd1
+      , PluginCommand "cmd2" cmd2
       ]
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Nothing
@@ -50,13 +48,13 @@ testDescriptor plId = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-cmd1 :: CommandFunc () T.Text
-cmd1 = CmdSync $ \_ -> do
+cmd1 :: () -> IdeGhcM (IdeResult T.Text)
+cmd1 _ = do
   put (MS1 "foo")
   return (IdeResultOk (T.pack "result:put foo"))
 
-cmd2 :: CommandFunc () T.Text
-cmd2 = CmdSync $ \_ -> do
+cmd2 :: () -> IdeGhcM (IdeResult T.Text)
+cmd2 _ = do
   (MS1 v) <- get
   return (IdeResultOk (T.pack $ "result:got:" ++ show v))
 

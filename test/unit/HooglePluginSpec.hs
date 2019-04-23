@@ -5,7 +5,7 @@ module HooglePluginSpec where
 import           Control.Monad
 import           Data.Maybe
 import           Haskell.Ide.Engine.MonadTypes
-import           Haskell.Ide.Engine.Plugin.Hoogle
+import           Haskell.Ide.Engine.Hoogle as Hoogle
 import           Hoogle
 import           System.Directory
 import           Test.Hspec
@@ -23,7 +23,7 @@ spec = do
 -- ---------------------------------------------------------------------
 
 testPlugins :: IdePlugins
-testPlugins = pluginDescToIdePlugins [hoogleDescriptor "hoogle"]
+testPlugins = mkIdePlugins []
 
 dispatchRequestP :: IdeGhcM a -> IO a
 dispatchRequestP = runIGM testPlugins
@@ -46,13 +46,13 @@ hoogleSpec = do
 
   describe "hoogle plugin commands(new plugin api)" $ do
     it "runs the info command" $ do
-      let req = liftToGhc $ infoCmd' "head"
+      let req = liftToGhc $ info "head"
       r <- dispatchRequestP $ initializeHoogleDb >> req
       r `shouldBe` Right "head :: [a] -> a\nbase Prelude\nExtract the first element of a list, which must be non-empty.\n\n"
 
     -- ---------------------------------
 
     it "runs the lookup command" $ do
-      let req = liftToGhc $ lookupCmd' 1 "[a] -> a"
+      let req = liftToGhc $ Hoogle.lookup 1 "[a] -> a"
       r <- dispatchRequestP $ initializeHoogleDb >> req
       r `shouldBe` Right ["Prelude head :: [a] -> a"]

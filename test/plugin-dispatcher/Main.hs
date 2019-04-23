@@ -31,7 +31,7 @@ newPluginSpec = do
   describe "New plugin dispatcher operation" $
     it "dispatches response correctly" $ do
       outChan <- atomically newTChan
-      scheduler <- newScheduler (pluginDescToIdePlugins []) testOptions
+      scheduler <- newScheduler (mkIdePlugins []) testOptions
       let defCallback = atomically . writeTChan outChan
           delayedCallback = \r -> threadDelay 10000 >> defCallback r
 

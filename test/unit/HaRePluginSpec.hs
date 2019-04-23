@@ -1,12 +1,12 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module HaRePluginSpec where
 
 import           Control.Monad.Trans.Free
 import           Control.Monad.IO.Class
+import           Control.Exception
 import           Data.Aeson
 import qualified Data.Map                      as M
 import qualified Data.HashMap.Strict           as H
@@ -14,7 +14,7 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Plugin.GhcMod
 import           Haskell.Ide.Engine.Plugin.HaRe
-import           Haskell.Ide.Engine.Support.HieExtras
+import           Haskell.Ide.Engine.Support.Extras
 import           Language.Haskell.LSP.Types     ( Location(..)
                                                 , TextEdit(..)
                                                 )
@@ -39,7 +39,7 @@ spec = do
 -- ---------------------------------------------------------------------
 
 testPlugins :: IdePlugins
-testPlugins = pluginDescToIdePlugins [hareDescriptor "hare"]
+testPlugins = mkIdePlugins [hareDescriptor]
 
 dispatchRequestPGoto :: IdeGhcM a -> IO a
 dispatchRequestPGoto =
@@ -57,7 +57,7 @@ hareSpec = do
     it "renames" $ withCurrentDirectory "test/testdata" $ do
 
       let uri = filePathToUri $ cwd </> "test/testdata/HaReRename.hs"
-          act = renameCmd' uri (toPos (5,1)) "foolong"
+          act = renameCmd arg
           arg = HPT uri (toPos (5,1)) "foolong"
           textEdits = List [TextEdit (Range (Position 3 0) (Position 4 13)) "foolong :: Int -> Int\nfoolong x = x + 3"]
           res = IdeResultOk $ WorkspaceEdit
@@ -69,7 +69,7 @@ hareSpec = do
 
     it "returns an error for invalid rename" $ withCurrentDirectory "test/testdata" $ do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReRename.hs"
-          act = renameCmd' uri (toPos (15,1)) "foolong"
+          act = renameCmd arg
           arg = HPT uri (toPos (15,1)) "foolong"
           res = IdeResultFail
                   IdeError { ideCode = PluginError
@@ -80,7 +80,7 @@ hareSpec = do
 
     it "demotes" $ withCurrentDirectory "test/testdata" $ do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReDemote.hs"
-          act = demoteCmd' uri (toPos (6,1))
+          act = demoteCmd arg
           arg = HP uri (toPos (6,1))
           textEdits = List [TextEdit (Range (Position 4 0) (Position 5 5)) "  where\n    y = 7"]
           res = IdeResultOk $ WorkspaceEdit
@@ -92,7 +92,7 @@ hareSpec = do
 
     it "duplicates a definition" $ withCurrentDirectory "test/testdata" $ do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReRename.hs"
-          act = dupdefCmd' uri (toPos (5,1)) "foonew"
+          act = dupdefCmd arg
           arg = HPT uri (toPos (5,1)) "foonew"
           textEdits = List [TextEdit (Range (Position 6 0) (Position 6 0)) "foonew :: Int -> Int\nfoonew x = x + 3\n\n"]
           res = IdeResultOk $ WorkspaceEdit
@@ -105,8 +105,7 @@ hareSpec = do
     it "converts if to case" $ withCurrentDirectory "test/testdata" $ do
 
       let uri = filePathToUri $ cwd </> "test/testdata/HaReCase.hs"
-          act = iftocaseCmd' uri (Range (toPos (5,9))
-                                        (toPos (9,12)))
+          act = iftocaseCmd arg
           arg = HR uri (toPos (5,9)) (toPos (9,12))
           textEdits = List [TextEdit (Range (Position 4 0) (Position 8 11))
                       "foo x = case odd x of\n  True  ->\n    x + 3\n  False ->\n    x"]
@@ -120,7 +119,7 @@ hareSpec = do
     it "lifts one level" $ withCurrentDirectory "test/testdata" $ do
 
       let uri = filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs"
-          act = liftonelevelCmd' uri (toPos (6,5))
+          act = liftonelevelCmd arg
           arg = HP uri (toPos (6,5))
           textEdits = List [ TextEdit (Range (Position 6 0) (Position 6 0)) "y = 4\n\n"
                           , TextEdit (Range (Position 4 0) (Position 6 0)) ""]
@@ -134,7 +133,7 @@ hareSpec = do
     it "lifts to top level" $ withCurrentDirectory "test/testdata" $ do
 
       let uri = filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs"
-          act = lifttotoplevelCmd' uri (toPos (12,9))
+          act = lifttotoplevelCmd arg
           arg = HP uri (toPos (12,9))
           textEdits = List [ TextEdit (Range (Position 13 0) (Position 13 0)) "\n"
                            , TextEdit (Range (Position 12 0) (Position 12 0)) "z = 7\n"
@@ -149,7 +148,7 @@ hareSpec = do
 
     it "deletes a definition" $ withCurrentDirectory "test/testdata" $ do
       let uri = filePathToUri $ cwd </> "test/testdata/FuncTest.hs"
-          act = deleteDefCmd' uri (toPos (6,1))
+          act = deleteDefCmd arg
           arg = HP uri (toPos (6,1))
           textEdits = List [TextEdit (Range (Position 4 0) (Position 7 0)) ""]
           res = IdeResultOk $ WorkspaceEdit
@@ -161,7 +160,7 @@ hareSpec = do
 
     it "generalises an applicative" $ withCurrentDirectory "test/testdata" $ do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReGA1.hs"
-          act = genApplicativeCommand' uri (toPos (4,1))
+          act = genApplicativeCommand arg
           arg = HP uri (toPos (4,1))
           textEdits = List [TextEdit (Range (Position 4 0) (Position 8 12))
                       "parseStr = char '\"' *> (many1 (noneOf \"\\\"\")) <* char '\"'"]
@@ -282,6 +281,41 @@ hareSpec = do
         ]
 
     -- ---------------------------------
+
+  describe "casesplit" $ do
+
+    it "runs the casesplit command" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "GhcModCaseSplit.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            splitCaseCmd arg
+          arg = HP uri (toPos (5,5))
+          res = IdeResultOk $ WorkspaceEdit
+            (Just $ H.singleton uri
+                                $ List [TextEdit (Range (Position 4 0) (Position 4 10))
+                                          "foo Nothing = ()\nfoo (Just x) = ()"])
+            Nothing
+      testCommand testPlugins act "hare" "casesplit" arg res
+
+    it "runs the casesplit command with an absolute path from another folder, correct params" $ do
+      fp <- makeAbsolute "./test/testdata/GhcModCaseSplit.hs"
+      cd <- getCurrentDirectory
+      cd2 <- getHomeDirectory
+      bracket (setCurrentDirectory cd2)
+              (\_-> setCurrentDirectory cd)
+              $ \_-> do
+        let uri = filePathToUri fp
+            act = do
+              _ <- setTypecheckedModule uri
+              splitCaseCmd arg
+            arg = HP uri (toPos (5,5))
+            res = IdeResultOk $ WorkspaceEdit
+              (Just $ H.singleton uri
+                                  $ List [TextEdit (Range (Position 4 0) (Position 4 10))
+                                            "foo Nothing = ()\nfoo (Just x) = ()"])
+              Nothing
+        testCommand testPlugins act "hare" "casesplit" arg res
 
 newtype TestDeferM a = TestDeferM (IdeDeferM a) deriving (Functor, Applicative, Monad)
 instance LiftsToGhc TestDeferM where

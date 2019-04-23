@@ -1,6 +1,5 @@
 {-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 -- | Test for JSON serialization
 module JsonSpec where
@@ -8,9 +7,7 @@ module JsonSpec where
 import           Haskell.Ide.Engine.MonadTypes
 
 import           Haskell.Ide.Engine.Plugin.ApplyRefact
-import           Haskell.Ide.Engine.Plugin.GhcMod
 import           Haskell.Ide.Engine.Plugin.HaRe
-import           Haskell.Ide.Engine.Support.HieExtras
 import           Haskell.Ide.Engine.Config
 
 import           Data.Aeson
@@ -37,7 +34,6 @@ jsonSpec = do
   describe "General JSON instances round trip" $ do
   -- Plugin params
     prop "ApplyOneParams"    (propertyJsonRoundtrip :: ApplyOneParams -> Bool)
-    prop "InfoParams"        (propertyJsonRoundtrip :: InfoParams -> Bool)
     prop "HarePoint"         (propertyJsonRoundtrip :: HarePoint -> Bool)
     prop "HarePointWithText" (propertyJsonRoundtrip :: HarePointWithText -> Bool)
     prop "HareRange"         (propertyJsonRoundtrip :: HareRange -> Bool)
@@ -61,9 +57,6 @@ smallList = resize 3 . listOf
 
 instance Arbitrary ApplyOneParams where
   arbitrary = AOP <$> arbitrary <*> arbitrary <*>  arbitrary
-
-instance Arbitrary InfoParams where
-  arbitrary = IP <$> arbitrary <*> arbitrary
 
 instance Arbitrary HarePoint where
   arbitrary = HP <$> arbitrary <*> arbitrary

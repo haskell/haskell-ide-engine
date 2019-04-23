@@ -26,7 +26,7 @@ spec = do
 -- ---------------------------------------------------------------------
 
 testPlugins :: IdePlugins
-testPlugins = pluginDescToIdePlugins [applyRefactDescriptor "applyrefact"]
+testPlugins = mkIdePlugins [applyRefactDescriptor]
 
 -- ---------------------------------------------------------------------
 
@@ -40,32 +40,31 @@ applyRefactSpec = do
     it "applies one hint only" $ do
 
       let furi = applyRefactPath
-          act = applyOneCmd' furi (OneHint (toPos (2,8)) "Redundant bracket")
           arg = AOP furi (toPos (2,8)) "Redundant bracket"
           textEdits = List [TextEdit (Range (Position 1 0) (Position 1 25)) "main = putStrLn \"hello\""]
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton applyRefactPath textEdits)
             Nothing
-      testCommand testPlugins act "applyrefact" "applyOne" arg res
+      testCommand testPlugins (applyOneCmd arg) "applyrefact" "applyOne" arg res
 
     -- ---------------------------------
 
     it "applies all hints" $ do
 
-      let act = applyAllCmd' arg
+      let act = applyAllCmd arg
           arg = applyRefactPath
           textEdits = List [ TextEdit (Range (Position 1 0) (Position 1 25)) "main = putStrLn \"hello\""
                            , TextEdit (Range (Position 3 0) (Position 3 15)) "foo x = x + 1" ]
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton applyRefactPath textEdits)
             Nothing
-      testCommand testPlugins act "applyrefact" "applyAll" arg res
+      runIGM testPlugins act `shouldReturn` res
 
     -- ---------------------------------
 
     it "returns hints as diagnostics" $ do
 
-      let act = lintCmd' arg
+      let act = lintCmd arg
           arg = applyRefactPath
           res = IdeResultOk
             PublishDiagnosticsParams
@@ -84,14 +83,14 @@ applyRefactSpec = do
                             "Redundant bracket\nFound:\n  (x + 1)\nWhy not:\n  x + 1\n"
                             Nothing
                ]}
-      testCommand testPlugins act "applyrefact" "lint" arg res
+      runIGM testPlugins act `shouldReturn` res
 
     -- ---------------------------------
 
     it "returns hlint parse error as DsInfo ignored diagnostic" $ do
       filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/HlintParseFail.hs"
 
-      let act = lintCmd' arg
+      let act = lintCmd arg
           arg = filePath
           res = IdeResultOk
             PublishDiagnosticsParams
@@ -114,14 +113,14 @@ applyRefactSpec = do
                            , _message = "Parse error: :~:\n  import           Data.Type.Equality            ((:~:) (..), (:~~:) (..))\n  \n> data instance Sing (z :: (a :~: b)) where\n      SRefl :: Sing Refl +\n\n"
                            , _relatedInformation = Nothing }]}
 #endif
-      testCommand testPlugins act "applyrefact" "lint" arg res
+      runIGM testPlugins act `shouldReturn` res
 
     -- ---------------------------------
 
     it "respects hlint pragmas in the source file" $ do
       filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/HlintPragma.hs"
 
-      let req = lintCmd' filePath
+      let req = lintCmd filePath
       r <- runIGM testPlugins req
       r `shouldBe`
         (IdeResultOk
@@ -143,7 +142,7 @@ applyRefactSpec = do
     it "respects hlint config files in project root dir" $ do
       filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/HlintPragma.hs"
 
-      let req = lintCmd' filePath
+      let req = lintCmd filePath
       r <- withCurrentDirectory "./test/testdata" $ runIGM testPlugins req
       r `shouldBe`
         (IdeResultOk
