@@ -8,7 +8,7 @@ module Haskell.Ide.Engine.Plugin.HaRe where
 
 import           Control.Lens.Operators
 import           Control.Monad.State
-import           Control.Monad.Trans.Control
+-- import           Control.Monad.Trans.Control
 import           Data.Aeson
 import qualified Data.Aeson.Types                             as J
 import           Data.Algorithm.Diff

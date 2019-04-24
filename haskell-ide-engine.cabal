@@ -78,7 +78,6 @@ library
                      , hsimport
                      , hslogger
                      , lens >= 4.15.2
-                     , monad-control
                      , monoid-subclasses > 0.4
                      , mtl
                      , optparse-simple >= 0.0.3
@@ -96,6 +95,7 @@ library
                      , yi-rope
                      , hie-bios
                      , bytestring-trie
+                     , unliftio
   ghc-options:         -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror

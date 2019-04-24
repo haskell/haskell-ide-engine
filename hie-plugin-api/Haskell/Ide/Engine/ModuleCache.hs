@@ -34,6 +34,7 @@ import qualified Data.Map as Map
 import           Data.Maybe
 import           Data.Typeable (Typeable)
 import           System.Directory
+import UnliftIO
 
 import Debug.Trace
 
@@ -63,7 +64,7 @@ modifyCache f = do
 -- then runs the action in the default cradle.
 -- Sets the current directory to the cradle root dir
 -- in either case
-runActionWithContext :: (MonadIde m, GHC.GhcMonad m, HasGhcModuleCache m)
+runActionWithContext :: (MonadIde m, GHC.GhcMonad m, HasGhcModuleCache m, MonadUnliftIO m)
                      => GHC.DynFlags -> Maybe FilePath -> m a -> m a
 runActionWithContext _df Nothing action = do
   -- Cradle with no additional flags
@@ -75,7 +76,8 @@ runActionWithContext _df Nothing action = do
 runActionWithContext df (Just uri) action = do
   getCradle uri (\lc -> loadCradle df lc >> action)
 
-loadCradle :: (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m) => GHC.DynFlags -> LookupCradleResult -> m ()
+loadCradle :: (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m
+              , MonadUnliftIO m) => GHC.DynFlags -> LookupCradleResult -> m ()
 loadCradle _ ReuseCradle = do
     traceM ("Reusing cradle")
 loadCradle iniDynFlags (NewCradle fp) = do

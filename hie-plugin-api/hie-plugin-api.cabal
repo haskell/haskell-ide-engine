@@ -50,7 +50,7 @@ library
                      , hie-bios
                      , haskell-lsp == 0.10.*
                      , hslogger
-                     , monad-control
+                     , unliftio
                      , mtl
                      , stm
                      , syb

@@ -5,7 +5,7 @@
 {-# LANGUAGE NamedFieldPuns        #-}
 module Haskell.Ide.Engine.Plugin.Liquid where
 
-import           Control.Concurrent.Async
+--import           Control.Concurrent.Async
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Exception (bracket)
@@ -30,6 +30,7 @@ import           System.FilePath
 import           System.Process
 import           Text.Parsec
 import           Text.Parsec.Text
+import UnliftIO.Async
 
 -- ---------------------------------------------------------------------
 
@@ -121,8 +122,9 @@ diagnosticProvider DiagnosticOnSave uri cb = pluginGetFile "Liquid.diagnosticPro
     mapM_ (liftIO . cancel) mtid
 
     let progTitle = "Running Liquid Haskell on " <> T.pack (takeFileName file)
-    tid <- withIndefiniteProgress progTitle $
-      liftIO $ async $ generateDiagnosics cb uri file
+--    tid <- async $ withIndefiniteProgress progTitle $ (liftIO $ generateDiagnosics cb uri file)
+    tid <- liftIO $ async $ generateDiagnosics cb uri file
+
     put (LiquidData (Just tid))
 
     return $ IdeResultOk ()

@@ -9,6 +9,8 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE DerivingVia #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | IdeGhcM and associated types
@@ -59,6 +61,9 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , getPlugins
   , withProgress
   , withIndefiniteProgress
+  , withIndefiniteProgressIO
+  , persistVirtualFile
+  , reverseFileMap
   , Core.Progress(..)
   -- ** Lifting
   , iterT
@@ -88,17 +93,16 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   )
 where
 
-import           Control.Concurrent.STM
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Free
+import           UnliftIO
 
 import           Data.Aeson
 import qualified Data.ConstrainedDynamic       as CD
 import           Data.Default
 import qualified Data.List                     as List
 import           Data.Dynamic                   ( Dynamic )
-import           Data.IORef
 import qualified Data.Map                      as Map
 import           Data.Maybe
 import           Data.Monoid                    ( (<>) )
@@ -343,8 +347,15 @@ runIdeGhcM plugins mlf stateVar f = do
 
 -- | A computation that is deferred until the module is cached.
 -- Note that the module may not typecheck, in which case 'UriCacheFailed' is passed
-data Defer a = Defer FilePath (UriCacheResult -> a) deriving Functor
+data Defer a = Defer FilePath (UriCacheResult -> a)
+             | DeferAction (IdeM ()) deriving Functor
 type IdeDeferM = FreeT Defer IdeM
+
+{-
+data IdeDeferM a = Defer FilePath (UriCacheResult -> IdeDeferM a)
+                 | IdeLeaf (IdeM a)
+                 deriving Functor
+                 -}
 
 type IdeM = ReaderT IdeEnv (MultiThreadState IdeState)
 
@@ -389,6 +400,20 @@ getVirtualFile uri = do
     Just lf -> liftIO $ Core.getVirtualFileFunc lf uri
     Nothing -> return Nothing
 
+persistVirtualFile :: (MonadIde m, MonadIO m) => Uri -> m FilePath
+persistVirtualFile uri = do
+  mlf <- ideEnvLspFuncs <$> getIdeEnv
+  case mlf of
+    Just lf ->  liftIO $ Core.persistVirtualFileFunc lf uri
+    Nothing -> maybe (error "persist") return (uriToFilePath uri)
+
+reverseFileMap :: (MonadIde m, MonadIO m) => m (FilePath -> FilePath)
+reverseFileMap = do
+    mlf <- ideEnvLspFuncs <$> getIdeEnv
+    case mlf of
+      Just lf -> liftIO $ Core.reverseFileMapFunc lf
+      Nothing -> return id
+
 getConfig :: (MonadIde m, MonadIO m) => m Config
 getConfig = do
   mlf <- ideEnvLspFuncs <$> getIdeEnv
@@ -409,21 +434,31 @@ getPlugins = idePlugins <$> getIdeEnv
 -- | 'withProgress' @title f@ wraps a progress reporting session for long running tasks.
 -- f is passed a reporting function that can be used to give updates on the progress
 -- of the task.
-withProgress :: (MonadIde m, MonadUnliftIO m) => T.Text -> ((Core.Progress -> m ()) -> m a) -> m a
+withProgress :: forall m a . (MonadIde m, MonadUnliftIO m) => T.Text -> ((Core.Progress -> IO ()) -> m a) -> m a
 withProgress t f = do
   lf <- ideEnvLspFuncs <$> getIdeEnv
   let mWp = Core.withProgress <$> lf
   case mWp of
     Nothing -> f (const $ return ())
-    Just wp -> wp t f
+    Just wp -> withRunInIO $ \u -> wp t (u . f)
 
 -- | 'withIndefiniteProgress' @title f@ is the same as the 'withProgress' but for tasks
 -- which do not continuously report their progress.
-withIndefiniteProgress :: (MonadIde m, MonadIO m) => T.Text -> m a -> m a
+withIndefiniteProgress :: (MonadIde m, MonadUnliftIO m) => T.Text -> m a -> m a
 withIndefiniteProgress t f = do
   lf <- ideEnvLspFuncs <$> getIdeEnv
   let mWp = Core.withIndefiniteProgress <$> lf
   case mWp of
+    Nothing -> f
+    Just wp -> withRunInIO $ \u -> wp t (u f)
+
+-- | 'withIndefiniteProgress' @title f@ is the same as the 'withProgress' but for tasks
+-- which do not continuously report their progress.
+withIndefiniteProgressIO :: (MonadIO m, MonadIde m) => T.Text -> IO a -> m a
+withIndefiniteProgressIO t f = do
+  lf <- ideEnvLspFuncs <$> getIdeEnv
+  let mWp = Core.withIndefiniteProgress <$> lf
+  liftIO $ case mWp of
     Nothing -> f
     Just wp -> wp t f
 
@@ -470,11 +505,11 @@ instance HasGhcModuleCache IdeDeferM where
 instance HasGhcModuleCache IdeM where
   getModuleCache = do
     tvar <- lift ask
-    state <- liftIO $ readTVarIO tvar
+    state <- readTVarIO tvar
     return (moduleCache state)
   setModuleCache mc = do
     tvar <- lift ask
-    liftIO $ atomically $ modifyTVar' tvar (\st -> st { moduleCache = mc })
+    atomically $ modifyTVar' tvar (\st -> st { moduleCache = mc })
 
 -- ---------------------------------------------------------------------
 -- Results
@@ -556,3 +591,6 @@ instance ExceptionMonad m => ExceptionMonad (ReaderT e m) where
 
 instance MonadTrans GhcT where
   lift m = liftGhcT m
+
+deriving via (ReaderT Session IO) instance MonadUnliftIO Ghc
+deriving via (ReaderT Session IdeM) instance MonadUnliftIO (GhcT IdeM)
