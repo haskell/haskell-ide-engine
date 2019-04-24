@@ -10,7 +10,6 @@ import qualified Data.IntervalMap.FingerTree   as IM
 
 import qualified GHC
 import           GHC                            ( TypecheckedModule )
-import           GhcMod.SrcUtils
 
 import           Data.Data                     as Data
 import           Control.Monad.IO.Class
@@ -31,9 +30,11 @@ genTypeMap tm = do
   hs_env <- GHC.getSession
   liftIO $ types hs_env typecheckedSource
 
-collectAllSpansTypes'
-  :: GHC.GhcMonad m => Bool -> TypecheckedModule -> m [(GHC.SrcSpan, GHC.Type)]
-collectAllSpansTypes' = collectAllSpansTypes
+
+everythingInTypecheckedSourceM
+  :: Data x => (forall a . Data a => a -> IO TypeMap) -> x -> IO TypeMap
+everythingInTypecheckedSourceM = everythingButTypeM @GHC.Id
+
 
 -- | Obtain details map for types.
 types :: GHC.HscEnv -> GHC.TypecheckedSource -> IO TypeMap
@@ -52,11 +53,6 @@ types hs_env = everythingInTypecheckedSourceM (ty `combineM` fun)
     (Just (GHC.L (GHC.RealSrcSpan spn) hsPatType)) ->
       return (IM.singleton (rspToInt spn) (TcHsSyn.hsPatType hsPatType))
     _ -> return IM.empty
-
-
-everythingInTypecheckedSourceM
-  :: Data x => (forall a . Data a => a -> IO TypeMap) -> x -> IO TypeMap
-everythingInTypecheckedSourceM f = everythingButTypeM @GHC.Id f
 
 -- | Combine two queries into one using alternative combinator.
 combineM
@@ -115,7 +111,7 @@ everythingButM f x = do
 -- Since the above is quite costly, we just skip cases where computing the
 -- expression's type is going to be expensive.
 --
--- See #16233
+-- See #16233<https://gitlab.haskell.org/ghc/ghc/issues/16233>
 getType
   :: GHC.HscEnv -> GHC.LHsExpr GHC.GhcTc -> IO (Maybe (GHC.SrcSpan, Type.Type))
 getType hs_env e@(GHC.L spn e') =
