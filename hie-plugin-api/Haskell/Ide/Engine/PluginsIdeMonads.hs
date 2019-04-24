@@ -347,15 +347,8 @@ runIdeGhcM plugins mlf stateVar f = do
 
 -- | A computation that is deferred until the module is cached.
 -- Note that the module may not typecheck, in which case 'UriCacheFailed' is passed
-data Defer a = Defer FilePath (UriCacheResult -> a)
-             | DeferAction (IdeM ()) deriving Functor
+data Defer a = Defer FilePath (UriCacheResult -> a) deriving Functor
 type IdeDeferM = FreeT Defer IdeM
-
-{-
-data IdeDeferM a = Defer FilePath (UriCacheResult -> IdeDeferM a)
-                 | IdeLeaf (IdeM a)
-                 deriving Functor
-                 -}
 
 type IdeM = ReaderT IdeEnv (MultiThreadState IdeState)
 

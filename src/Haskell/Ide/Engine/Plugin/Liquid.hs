@@ -8,6 +8,7 @@ module Haskell.Ide.Engine.Plugin.Liquid where
 --import           Control.Concurrent.Async
 import           Control.Monad
 import           Control.Monad.IO.Class
+import Control.Monad.Trans.Class
 import           Control.Exception (bracket)
 #if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
@@ -122,8 +123,7 @@ diagnosticProvider DiagnosticOnSave uri cb = pluginGetFile "Liquid.diagnosticPro
     mapM_ (liftIO . cancel) mtid
 
     let progTitle = "Running Liquid Haskell on " <> T.pack (takeFileName file)
---    tid <- async $ withIndefiniteProgress progTitle $ (liftIO $ generateDiagnosics cb uri file)
-    tid <- liftIO $ async $ generateDiagnosics cb uri file
+    tid <- lift $ async $ withIndefiniteProgress progTitle $ (liftIO $ generateDiagnosics cb uri file)
 
     put (LiquidData (Just tid))
 
