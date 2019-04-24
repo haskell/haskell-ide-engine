@@ -9,6 +9,9 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE DerivingVia #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | IdeGhcM and associated types
 module Haskell.Ide.Engine.PluginsIdeMonads
@@ -59,6 +62,7 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , withProgress
   , withIndefiniteProgress
   , Core.Progress(..)
+  , Core.ProgressCancellable(..)
   -- ** Lifting
   , iterT
   , LiftsToGhc(..)
@@ -92,6 +96,7 @@ import           Control.Exception
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Free
+import           Control.Monad.Trans.Control
 
 import           Data.Aeson
 import qualified Data.ConstrainedDynamic       as CD
@@ -224,8 +229,8 @@ data FormattingType = FormatDocument
 -- | Formats the given Text associated with the given Uri.
 -- Should, but might not, honor the provided formatting options (e.g. Floskell does not).
 -- A formatting type can be given to either format the whole document or only a Range.
--- 
--- Text to format, may or may not, originate from the associated Uri. 
+--
+-- Text to format, may or may not, originate from the associated Uri.
 -- E.g. it is ok, to modify the text and then reformat it through this API.
 --
 -- The Uri is mainly used to discover formatting configurations in the file's path.
@@ -337,6 +342,12 @@ runIdeGhcM ghcModOptions plugins mlf stateVar f = do
 data Defer a = Defer FilePath (UriCacheResult -> a) deriving Functor
 type IdeDeferM = FreeT Defer IdeM
 
+{-
+data IdeDeferM a = Defer FilePath (UriCacheResult -> IdeDeferM a)
+                 | IdeLeaf (IdeM a)
+                 deriving Functor
+                 -}
+
 type IdeM = ReaderT IdeEnv (MultiThreadState IdeState)
 
 -- | Run an IdeM
@@ -400,23 +411,27 @@ getPlugins = idePlugins <$> getIdeEnv
 -- | 'withProgress' @title f@ wraps a progress reporting session for long running tasks.
 -- f is passed a reporting function that can be used to give updates on the progress
 -- of the task.
-withProgress :: (MonadIde m, MonadIO m) => T.Text -> ((Core.Progress -> m ()) -> m a) -> m a
-withProgress t f = do
+withProgress :: (MonadIde m , MonadIO m, MonadBaseControl IO m)
+             => T.Text -> Core.ProgressCancellable
+             -> ((Core.Progress -> m ()) -> m a) -> m a
+withProgress t c f = do
   lf <- ideEnvLspFuncs <$> getIdeEnv
   let mWp = Core.withProgress <$> lf
   case mWp of
     Nothing -> f (const $ return ())
-    Just wp -> wp t f
+    Just wp -> control $ \run -> wp t c $ \update -> run (f (liftIO . update))
+
 
 -- | 'withIndefiniteProgress' @title f@ is the same as the 'withProgress' but for tasks
--- which do not continuously report their progress. 
-withIndefiniteProgress :: (MonadIde m, MonadIO m) => T.Text -> m a -> m a
-withIndefiniteProgress t f = do
+-- which do not continuously report their progress.
+withIndefiniteProgress :: (MonadIde m, MonadBaseControl IO m)
+                       => T.Text -> Core.ProgressCancellable -> m a -> m a
+withIndefiniteProgress t c f = do
   lf <- ideEnvLspFuncs <$> getIdeEnv
   let mWp = Core.withIndefiniteProgress <$> lf
   case mWp of
     Nothing -> f
-    Just wp -> wp t f
+    Just wp -> control $ \run -> wp t c (run f)
 
 data IdeState = IdeState
   { moduleCache :: GhcModuleCache
@@ -538,3 +553,6 @@ data IdeError = IdeError
 
 instance ToJSON IdeError
 instance FromJSON IdeError
+
+-- deriving via (ReaderT Session IO) instance MonadUnliftIO Ghc
+-- deriving via (StateT GM.GhcModState (ErrorT GhcModError(JournalT GhcModLog (ReaderT GhcModEnv ) instance MonadUnliftIO GhcModT

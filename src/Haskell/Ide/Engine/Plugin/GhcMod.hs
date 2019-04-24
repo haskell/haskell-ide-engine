@@ -190,7 +190,7 @@ setTypecheckedModule uri =
       progTitle = "Typechecking " <> T.pack (takeFileName fp)
     debugm "setTypecheckedModule: before ghc-mod"
     -- TODO: Are there any hooks we can use to report back on the progress?
-    ((diags', errs), mtm, mpm) <- withIndefiniteProgress progTitle $ GM.gcatches
+    ((diags', errs), mtm, mpm) <- withIndefiniteProgress progTitle NotCancellable $ GM.gcatches
       (GM.getModulesGhc' (myWrapper rfm) fp)
       (errorHandlers ghcErrRes (return . ghcErrRes . show))
     debugm "setTypecheckedModule: after ghc-mod"

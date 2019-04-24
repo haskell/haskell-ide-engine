@@ -41,7 +41,7 @@ library
                      , free
                      , ghc
                      , ghc-mod-core >= 5.9.0.0
-                     , haskell-lsp == 0.10.*
+                     , haskell-lsp == 0.11.*
                      , hslogger
                      , monad-control
                      , mtl
