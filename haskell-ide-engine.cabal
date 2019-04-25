@@ -269,8 +269,6 @@ test-suite func-test
                      , SymbolsSpec
                      , TypeDefinitionSpec
                      , Utils
-  -- This cannot currently be handled by hie (cabal-helper)
-  -- build-tool-depends:  haskell-ide-engine:hie
   build-depends:       aeson
                      , base
                      , data-default
@@ -290,6 +288,8 @@ test-suite func-test
      ghc-options:      -Werror
   default-language:    Haskell2010
   build-tool-depends:  hspec-discover:hspec-discover
+                     , haskell-ide-engine:hie
+                     , cabal-helper:cabal-helper-main
 
 test-suite wrapper-test
   type:                exitcode-stdio-1.0
