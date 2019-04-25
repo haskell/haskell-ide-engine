@@ -14,7 +14,9 @@ The design of the build system has the following main goals:
     - `git`
 * is completely functional right after a simple `git clone` and after every `git pull`
 * one-stop-shop for building and naming all executables required for using `hie` in IDEs.
-* fails with meaningful error messages in known circumstances
+* prevents certain build failures by either identifying a failed precondition (such as wrong `stack` version) or by performing the necessary steps so users can't forget them (such as invoking `git` to update submodules)
+
+
 * is able to modify the environment such that `hie` can be run
     - setup `hoogle` database
     - setup `hlint` data-files
@@ -30,7 +32,7 @@ The build script `install.hs` defines several targets using the `shake` build sy
 * `build-doc`: builds the hoogle-db required by `hie`
 * `cabal-*`: execute the same task as the original target, but with `cabal` instead of `stack`
 
-Each `stack-*.yaml` contains references to packages in the submodules. Calling `stack` with one of those causes the build to fail if the submodules have not been initialized already. The file `shake.yaml` solves this issue. Moreover, it specifies the correct version of `shake` and is used for installing all run-time dependencies such as `cabal` and `hoogle` if necessary.
+Each `stack-*.yaml` contains references to packages in the submodules. Calling `stack` with one of those causes the build to fail if the submodules have not been initialized already. The file `shake.yaml` solves this issue invoking the `git` binary itself to update the submodules. Moreover, it specifies the correct version of `shake` and is used for installing all run-time dependencies such as `cabal` and `hoogle` if necessary.
 
 ### Run-time dependencies
 
@@ -57,7 +59,7 @@ This ensures that a complete install is always possible after each `git pull` or
 The `install.hs` script performs some checks to ensure that a correct installation is possible and provide meaningful error messages for known issues.
 
 * `stack` needs to be up-to-date. Version `1.9.3` is required
-* `ghc-8.6.3` does not work in windows. Trying to install `hie-8.6.3` on windows is not possible
+* `ghc-8.6.3` is broken on windows. Trying to install `hie-8.6.3` on windows is not possible.
 * `cabal new-build` does not work on windows at the moment. All `cabal-*` targets exit with an error message about that.
 * When the build fails, an error message, that suggests to remove `.stack-work` directory, is displayed.
 
