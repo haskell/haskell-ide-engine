@@ -15,10 +15,10 @@ import           Data.Data                     as Data
 import           Control.Monad.IO.Class
 import           Data.Maybe
 import qualified TcHsSyn
-import qualified TysWiredIn
 import qualified CoreUtils
 import qualified Type
 import qualified Desugar
+import           Haskell.Ide.Engine.Compat
 
 import           Haskell.Ide.Engine.ArtifactMap
 
@@ -118,20 +118,14 @@ getType hs_env e@(GHC.L spn e') =
   -- Some expression forms have their type immediately available
   let
     tyOpt = case e' of
-      GHC.HsLit     _ l -> Just (TcHsSyn.hsLitType l)
-      GHC.HsOverLit _ o -> Just (GHC.overLitType o)
-
-      GHC.HsLam _ GHC.MG { GHC.mg_ext = groupTy } ->
-        Just (matchGroupType groupTy)
-      GHC.HsLamCase _ GHC.MG { GHC.mg_ext = groupTy } ->
-        Just (matchGroupType groupTy)
-      GHC.HsCase _ _ GHC.MG { GHC.mg_ext = groupTy } ->
-        Just (GHC.mg_res_ty groupTy)
-
-      GHC.ExplicitList ty _ _  -> Just (TysWiredIn.mkListTy ty)
-      GHC.ExplicitSum ty _ _ _ -> Just (TysWiredIn.mkSumTy ty)
-      GHC.HsDo ty _ _          -> Just ty
-      GHC.HsMultiIf ty _       -> Just ty
+      HsOverLitType t -> Just t
+      HsLitType t -> Just t
+      HsLamType t -> Just t
+      HsLamCaseType t -> Just t
+      HsCaseType t -> Just t
+      ExplicitListType t -> Just t
+      ExplicitSumType t -> Just t
+      HsMultiIfType t -> Just t
 
       _                        -> Nothing
   in  case tyOpt of
@@ -142,8 +136,6 @@ getType hs_env e@(GHC.L spn e') =
             let res = (spn, ) . CoreUtils.exprType <$> mbe
             pure res
  where
-  matchGroupType :: GHC.MatchGroupTc -> GHC.Type
-  matchGroupType (GHC.MatchGroupTc args res) = Type.mkFunTys args res
   -- | Skip desugaring of these expressions for performance reasons.
   --
   -- See impact on Haddock output (esp. missing type annotations or links)
