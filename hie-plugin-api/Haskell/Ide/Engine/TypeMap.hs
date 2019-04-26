@@ -113,7 +113,7 @@ everythingButM f x = do
 --
 -- See #16233<https://gitlab.haskell.org/ghc/ghc/issues/16233>
 getType
-  :: GHC.HscEnv -> GHC.LHsExpr GHC.GhcTc -> IO (Maybe (GHC.SrcSpan, Type.Type))
+  :: GHC.HscEnv -> GHC.LHsExpr GhcTc -> IO (Maybe (GHC.SrcSpan, Type.Type))
 getType hs_env e@(GHC.L spn e') =
   -- Some expression forms have their type immediately available
   let
