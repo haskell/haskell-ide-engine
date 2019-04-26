@@ -123,7 +123,9 @@ ghcmodSpec =
             _ <- setTypecheckedModule uri
             liftToGhc $ newTypeCmd (toPos (6,16)) uri
           arg = TP False uri (toPos (6,16))
-          res = IdeResultOk [(Range (toPos (6, 16)) (toPos (6,17)), "Int")]
+          res = IdeResultOk
+              [ (Range (toPos (6, 16)) (toPos (6,17)), "Int")
+              ]
       testCommand testPlugins act "ghcmod" "type" arg res
 
     it "runs the type command, sum type pattern match, just" $ withCurrentDirectory "./test/testdata" $ do
@@ -162,7 +164,9 @@ ghcmodSpec =
             _ <- setTypecheckedModule uri
             liftToGhc $ newTypeCmd (toPos (7,5)) uri
           arg = TP False uri (toPos (7,5))
-          res = IdeResultOk [(Range (toPos (7, 5)) (toPos (7, 12)), "Maybe Int")]
+          res = IdeResultOk
+              [ (Range (toPos (7, 5)) (toPos (7, 12)), "Maybe Int")
+              ]
       testCommand testPlugins act "ghcmod" "type" arg res
 
     it "runs the type command, sum type pattern match, nothing, literal" $ withCurrentDirectory "./test/testdata" $ do
@@ -172,7 +176,9 @@ ghcmodSpec =
             _ <- setTypecheckedModule uri
             liftToGhc $ newTypeCmd (toPos (7,15)) uri
           arg = TP False uri (toPos (7,15))
-          res = IdeResultOk [(Range (toPos (7, 15)) (toPos (7, 16)), "Int")]
+          res = IdeResultOk
+              [ (Range (toPos (7, 15)) (toPos (7, 16)), "Int")
+              ]
       testCommand testPlugins act "ghcmod" "type" arg res
 
     it "runs the type command, variable matching" $ withCurrentDirectory "./test/testdata" $ do
@@ -182,7 +188,9 @@ ghcmodSpec =
             _ <- setTypecheckedModule uri
             liftToGhc $ newTypeCmd (toPos (10,5)) uri
           arg = TP False uri (toPos (10,5))
-          res = IdeResultOk [(Range (toPos (10, 5)) (toPos (10, 6)), "Maybe Int")]
+          res = IdeResultOk
+              [ (Range (toPos (10, 5)) (toPos (10, 6)), "Maybe Int")
+              ]
       testCommand testPlugins act "ghcmod" "type" arg res
 
     it "runs the type command, case expr" $ withCurrentDirectory "./test/testdata" $ do
@@ -258,7 +266,9 @@ ghcmodSpec =
             _ <- setTypecheckedModule uri
             liftToGhc $ newTypeCmd (toPos (16,5)) uri
           arg = TP False uri (toPos (16,5))
-          res = IdeResultOk [(Range (toPos (16, 5)) (toPos (16, 6)), "Int")]
+          res = IdeResultOk
+              [ (Range (toPos (16, 5)) (toPos (16, 6)), "Int")
+              ]
       testCommand testPlugins act "ghcmod" "type" arg res
 
     it "runs the type command, do bind expr" $ withCurrentDirectory "./test/testdata" $ do
@@ -268,7 +278,9 @@ ghcmodSpec =
             _ <- setTypecheckedModule uri
             liftToGhc $ newTypeCmd (toPos (16,10)) uri
           arg = TP False uri (toPos (16,10))
-          res = IdeResultOk [(Range (toPos (16, 10)) (toPos (16, 11)), "Maybe Int")]
+          res = IdeResultOk
+              [ (Range (toPos (16, 10)) (toPos (16, 11)), "Maybe Int")
+              ]
       testCommand testPlugins act "ghcmod" "type" arg res
 
     it "runs the type command, let binding function, return func" $ withCurrentDirectory "./test/testdata" $ do
@@ -278,7 +290,9 @@ ghcmodSpec =
             _ <- setTypecheckedModule uri
             liftToGhc $ newTypeCmd (toPos (17,13)) uri
           arg = TP False uri (toPos (17,13))
-          res = IdeResultOk [(Range (toPos (17, 13)) (toPos (17, 19)), "Int -> Maybe Int")]
+          res = IdeResultOk
+              [ (Range (toPos (17, 13)) (toPos (17, 19)), "Int -> Maybe Int")
+              ]
       testCommand testPlugins act "ghcmod" "type" arg res
 
     it "runs the type command, let binding function, return param" $ withCurrentDirectory "./test/testdata" $ do
@@ -288,7 +302,9 @@ ghcmodSpec =
             _ <- setTypecheckedModule uri
             liftToGhc $ newTypeCmd (toPos (17,21)) uri
           arg = TP False uri (toPos (17,21))
-          res = IdeResultOk [(Range (toPos (17, 21)) (toPos (17, 22)), "Int")]
+          res = IdeResultOk
+              [ (Range (toPos (17, 21)) (toPos (17, 22)), "Int")
+              ]
       testCommand testPlugins act "ghcmod" "type" arg res
 
     it "runs the type command, let binding function, function type" $ withCurrentDirectory "./test/testdata" $ do
@@ -310,7 +326,9 @@ ghcmodSpec =
             _ <- setTypecheckedModule uri
             liftToGhc $ newTypeCmd (toPos (18,10)) uri
           arg = TP False uri (toPos (18,10))
-          res = IdeResultOk [(Range (toPos (18, 10)) (toPos (18, 11)), "Maybe Int")]
+          res = IdeResultOk
+              [ (Range (toPos (18, 10)) (toPos (18, 11)), "Maybe Int")
+              ]
       testCommand testPlugins act "ghcmod" "type" arg res
 
     it "runs the type command, let binding function, do expr bind for local func" $ withCurrentDirectory "./test/testdata" $ do
@@ -320,7 +338,9 @@ ghcmodSpec =
             _ <- setTypecheckedModule uri
             liftToGhc $ newTypeCmd (toPos (18,5)) uri
           arg = TP False uri (toPos (18,5))
-          res = IdeResultOk [(Range (toPos (18, 5)) (toPos (18, 6)), "Int")]
+          res = IdeResultOk
+              [ (Range (toPos (18, 5)) (toPos (18, 6)), "Int")
+              ]
       testCommand testPlugins act "ghcmod" "type" arg res
 
     it "runs the type command, function type" $ withCurrentDirectory "./test/testdata" $ do
@@ -342,7 +362,9 @@ ghcmodSpec =
             _ <- setTypecheckedModule uri
             liftToGhc $ newTypeCmd (toPos (22,10)) uri
           arg = TP False uri (toPos (22,10))
-          res = IdeResultOk [(Range (toPos (22, 10)) (toPos (22, 11)), "a -> a")]
+          res = IdeResultOk
+              [ (Range (toPos (22, 10)) (toPos (22, 11)), "a -> a")
+              ]
       testCommand testPlugins act "ghcmod" "type" arg res
 
     it "runs the type command, function parameter" $ withCurrentDirectory "./test/testdata" $ do
@@ -352,7 +374,9 @@ ghcmodSpec =
             _ <- setTypecheckedModule uri
             liftToGhc $ newTypeCmd (toPos (22,10)) uri
           arg = TP False uri (toPos (22,10))
-          res = IdeResultOk [(Range (toPos (22, 10)) (toPos (22, 11)), "a -> a")]
+          res = IdeResultOk
+              [ (Range (toPos (22, 10)) (toPos (22, 11)), "a -> a")
+              ]
       testCommand testPlugins act "ghcmod" "type" arg res
 
     it "runs the type command, function composition" $ withCurrentDirectory "./test/testdata" $ do
@@ -386,7 +410,9 @@ ghcmodSpec =
             _ <- setTypecheckedModule uri
             liftToGhc $ newTypeCmd (toPos (25,33)) uri
           arg = TP False uri (toPos (25,33))
-          res = IdeResultOk [(Range (toPos (25, 33)) (toPos (25, 34)), "a -> c")]
+          res = IdeResultOk
+              [ (Range (toPos (25, 33)) (toPos (25, 34)), "a -> c")
+              ]
       testCommand testPlugins act "ghcmod" "type" arg res
 
     it "runs the type command, function type composition" $ withCurrentDirectory "./test/testdata" $ do
@@ -408,7 +434,9 @@ ghcmodSpec =
             _ <- setTypecheckedModule uri
             liftToGhc $ newTypeCmd (toPos (28,25)) uri
           arg = TP False uri (toPos (28,25))
-          res = IdeResultOk [(Range (toPos (28, 25)) (toPos (28, 28)), "(a -> b) -> IO a -> IO b")]
+          res = IdeResultOk
+              [ (Range (toPos (28, 25)) (toPos (28, 28)), "(a -> b) -> IO a -> IO b")
+              ]
       testCommand testPlugins act "ghcmod" "type" arg res
 
     it "runs the type command, constructor" $ withCurrentDirectory "./test/testdata" $ do
