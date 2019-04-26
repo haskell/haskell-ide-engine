@@ -121,7 +121,8 @@ getType hs_env e@(GHC.L spn e') =
 
       _                        -> Nothing
   in  case tyOpt of
-        _
+        Just t -> return $ Just (spn ,t)
+        Nothing
           | skipDesugaring e' -> pure Nothing
           | otherwise -> do
             (_, mbe) <- Desugar.deSugarExpr hs_env e
