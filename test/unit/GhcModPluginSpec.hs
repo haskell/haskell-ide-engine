@@ -82,7 +82,7 @@ ghcmodSpec =
 
     -- ---------------------------------
 
-    it "runs the type command" $ withCurrentDirectory "./test/testdata" $ do
+    it "runs the type command, find type" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "HaReRename.hs"
       let uri = filePathToUri fp
           act = do
@@ -92,6 +92,27 @@ ghcmodSpec =
           res = IdeResultOk
             [(Range (toPos (5,9)) (toPos (5,10)), "Int")
             ]
+      testCommand testPlugins act "ghcmod" "type" arg res
+    it "runs the type command, find function type" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "HaReRename.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (2,11)) uri
+          arg = TP False uri (toPos (2,11))
+          res = IdeResultOk
+            [(Range (toPos (2, 8)) (toPos (2,16)), "String -> IO ()")
+            ]
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, no type at location" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "HaReRename.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (1,1)) uri
+          arg = TP False uri (toPos (1,1))
+          res = IdeResultOk []
       testCommand testPlugins act "ghcmod" "type" arg res
 
     it "runs the type command with an absolute path from another folder, correct params" $ do
