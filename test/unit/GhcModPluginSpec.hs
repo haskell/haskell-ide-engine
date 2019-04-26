@@ -91,8 +91,6 @@ ghcmodSpec =
           arg = TP False uri (toPos (5,9))
           res = IdeResultOk
             [(Range (toPos (5,9)) (toPos (5,10)), "Int")
-            ,(Range (toPos (5,9)) (toPos (5,14)), "Int")
-            ,(Range (toPos (5,1)) (toPos (5,14)), "Int -> Int")
             ]
       testCommand testPlugins act "ghcmod" "type" arg res
 
@@ -110,8 +108,6 @@ ghcmodSpec =
         let arg = TP False uri (toPos (5,9))
         let res = IdeResultOk
               [(Range (toPos (5,9)) (toPos (5,10)), "Int")
-              ,(Range (toPos (5,9)) (toPos (5,14)), "Int")
-              ,(Range (toPos (5,1)) (toPos (5,14)), "Int -> Int")
               ]
         testCommand testPlugins act "ghcmod" "type" arg res
 
