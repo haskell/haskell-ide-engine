@@ -97,19 +97,11 @@ everythingButM f x = do
       (everythingButM f)
       x
 
--- | This instance tries to construct 'HieAST' nodes which include the type of
--- the expression. It is not yet possible to do this efficiently for all
--- expression forms, so we skip filling in the type for those inputs.
+-- | Attempts to get the type for expressions in a lazy and cost saving way.
+-- Avoids costly desugaring of Expressions and only obtains the type at the leaf of an expression.
 --
--- 'HsApp', for example, doesn't have any type information available directly on
--- the node. Our next recourse would be to desugar it into a 'CoreExpr' then
--- query the type of that. Yet both the desugaring call and the type query both
--- involve recursive calls to the function and argument! This is particularly
--- problematic when you realize that the HIE traversal will eventually visit
--- those nodes too and ask for their types again.
---
--- Since the above is quite costly, we just skip cases where computing the
--- expression's type is going to be expensive.
+-- Implementation is taken from: HieAst.hs<https://gitlab.haskell.org/ghc/ghc/blob/1f5cc9dc8aeeafa439d6d12c3c4565ada524b926/compiler/hieFile/HieAst.hs>
+-- Slightly adapted to work for the supported GHC versions 8.2.1 - 8.6.4
 --
 -- See #16233<https://gitlab.haskell.org/ghc/ghc/issues/16233>
 getType
