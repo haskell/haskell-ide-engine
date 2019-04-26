@@ -115,6 +115,292 @@ ghcmodSpec =
           res = IdeResultOk []
       testCommand testPlugins act "ghcmod" "type" arg res
 
+-- ----------------------------------------------------------------------------
+    it "runs the type command, simple" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (6,16)) uri
+          arg = TP False uri (toPos (6,16))
+          res = IdeResultOk [(Range (toPos (6, 16)) (toPos (6,17)), "Int")]
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, sum type pattern match, just" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (6,6)) uri
+          arg = TP False uri (toPos (6, 6))
+          res = IdeResultOk
+              [ (Range (toPos (6, 6)) (toPos (6, 12)), "Maybe Int")
+              , (Range (toPos (6, 5)) (toPos (6, 13)), "Maybe Int")
+              -- TODO: why is this happening?
+              ]
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, sum type pattern match, just value" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (6,11)) uri
+          arg = TP False uri (toPos (6, 11))
+          res = IdeResultOk
+            [ (Range (toPos (6, 11)) (toPos (6, 12)), "Int")
+            , (Range (toPos (6, 6)) (toPos (6, 12)), "Maybe Int")
+            , (Range (toPos (6, 5)) (toPos (6, 13)), "Maybe Int")
+            -- TODO: why is this happening?
+            ]
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, sum type pattern match, nothing" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (7,5)) uri
+          arg = TP False uri (toPos (7,5))
+          res = IdeResultOk [(Range (toPos (7, 5)) (toPos (7, 12)), "Maybe Int")]
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, sum type pattern match, nothing, literal" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (7,15)) uri
+          arg = TP False uri (toPos (7,15))
+          res = IdeResultOk []
+            -- TODO: do we want this?
+            --(Range (toPos (7, 15)) (toPos (7, 16)), "Int")
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, variable matching" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (10,5)) uri
+          arg = TP False uri (toPos (10,5))
+          res = IdeResultOk [(Range (toPos (10, 5)) (toPos (10, 6)), "Maybe Int")]
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, case expr" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (10,14)) uri
+          arg = TP False uri (toPos (10,14))
+          res = IdeResultOk [(Range (toPos (10, 14)) (toPos (10, 15)), "Maybe Int")]
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, case expr match, just" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (11,5)) uri
+          arg = TP False uri (toPos (11,5))
+          res = IdeResultOk [(Range (toPos (11, 5)) (toPos (11, 11)), "Maybe Int")]
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, case expr match, just value" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (11,10)) uri
+          arg = TP False uri (toPos (11,10))
+          res = IdeResultOk
+              [ (Range (toPos (11, 10)) (toPos (11, 11)), "Int")
+              , (Range (toPos (11, 5)) (toPos (11, 11)), "Maybe Int")
+              ]
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, infix operator" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (11,17)) uri
+          arg = TP False uri (toPos (11,17))
+          res = IdeResultOk
+              [ (Range (toPos (11, 17)) (toPos (11, 18)), "Int -> Int -> Int")
+              ]
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, case expr match, nothing" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (12,5)) uri
+          arg = TP False uri (toPos (12,5))
+          res = IdeResultOk [(Range (toPos (12, 5)) (toPos (12, 12)), "Maybe Int")]
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, do bind expr result " $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (16,5)) uri
+          arg = TP False uri (toPos (16,5))
+          res = IdeResultOk [(Range (toPos (16, 5)) (toPos (16, 6)), "Int")]
+      testCommand testPlugins act "ghcmod" "type" arg res
+    it "runs the type command, do bind expr" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (16,10)) uri
+          arg = TP False uri (toPos (16,10))
+          res = IdeResultOk [(Range (toPos (16, 10)) (toPos (16, 11)), "Maybe Int")]
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, let binding function, return func" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (17,13)) uri
+          arg = TP False uri (toPos (17,13))
+          res = IdeResultOk [(Range (toPos (17, 13)) (toPos (17, 19)), "Int -> Maybe Int")]
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, let binding function, return param" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (17,21)) uri
+          arg = TP False uri (toPos (17,21))
+          res = IdeResultOk [(Range (toPos (17, 21)) (toPos (17, 22)), "Int")]
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, let binding function, function type" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (17,9)) uri
+          arg = TP False uri (toPos (17,9))
+          res = IdeResultOk []
+            -- TODO: do we want this?
+            -- (Range (toPos (17, 9)) (toPos (17, 10)), "Maybe Int")
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, do expr, function type" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (18,10)) uri
+          arg = TP False uri (toPos (18,10))
+          res = IdeResultOk [(Range (toPos (18, 10)) (toPos (18, 11)), "Maybe Int")]
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, let binding function, do expr bind for local func" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (18,5)) uri
+          arg = TP False uri (toPos (18,5))
+          res = IdeResultOk [(Range (toPos (18, 5)) (toPos (18, 6)), "Int")]
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, function type" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (15,5)) uri
+          arg = TP False uri (toPos (15,5))
+          res = IdeResultOk []
+            -- TODO: the type is known, why not in the map?
+            -- [(Range (toPos (15, 1)) (toPos (14, 11)), "Maybe Int -> Maybe Int")]
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, function parameter" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (22,10)) uri
+          arg = TP False uri (toPos (22,10))
+          res = IdeResultOk [(Range (toPos (22, 10)) (toPos (22, 11)), "a -> a")]
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, function parameter" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (22,10)) uri
+          arg = TP False uri (toPos (22,10))
+          res = IdeResultOk [(Range (toPos (22, 10)) (toPos (22, 11)), "a -> a")]
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, function composition" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (25,26)) uri
+          arg = TP False uri (toPos (25,26))
+          res = IdeResultOk
+              [ (Range (toPos (25, 26)) (toPos (25, 27)), "(b -> c) -> (a -> b) -> a -> c")
+              ]
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, let binding, function composition" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (25,20)) uri
+          arg = TP False uri (toPos (25,20))
+          res = IdeResultOk []
+              -- TODO: do we want this?
+              --(Range (toPos (25, 20)) (toPos (25, 21)), "a -> c")
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, let binding, type of function" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (25,33)) uri
+          arg = TP False uri (toPos (25,33))
+          res = IdeResultOk [(Range (toPos (25, 33)) (toPos (25, 34)), "a -> c")]
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, function type composition" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (25,5)) uri
+          arg = TP False uri (toPos (25,5))
+          res = IdeResultOk []
+            -- TODO: the type is known, why not in the map?
+            -- (Range (toPos (25, 1)) (toPos (25, 9)), "(b -> c) -> (a -> b) -> a -> c")
+      testCommand testPlugins act "ghcmod" "type" arg res
+
+    it "runs the type command, infix operator" $ withCurrentDirectory "./test/testdata" $ do
+      fp <- makeAbsolute "Types.hs"
+      let uri = filePathToUri fp
+          act = do
+            _ <- setTypecheckedModule uri
+            liftToGhc $ newTypeCmd (toPos (28,25)) uri
+          arg = TP False uri (toPos (28,25))
+          res = IdeResultOk [(Range (toPos (28, 25)) (toPos (28, 28)), "(a -> b) -> IO a -> IO b")]
+      testCommand testPlugins act "ghcmod" "type" arg res
+-- ----------------------------------------------------------------------------
     it "runs the type command with an absolute path from another folder, correct params" $ do
       fp <- makeAbsolute "./test/testdata/HaReRename.hs"
       cd <- getCurrentDirectory
