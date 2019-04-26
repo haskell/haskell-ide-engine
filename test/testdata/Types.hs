@@ -26,3 +26,8 @@ compTest f g = let h = f . g in h
 
 monadStuff :: (a -> b) -> IO a -> IO b
 monadStuff f action = f <$> action
+
+data Test
+    = TestC Int
+    | TestM String
+    deriving (Show, Eq, Ord)
