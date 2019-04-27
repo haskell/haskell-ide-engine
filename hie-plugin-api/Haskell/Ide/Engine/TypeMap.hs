@@ -18,6 +18,7 @@ import qualified TcHsSyn
 import qualified CoreUtils
 import qualified Type
 import qualified Desugar
+import qualified Var
 import           Haskell.Ide.Engine.Compat
 
 import           Haskell.Ide.Engine.ArtifactMap
@@ -38,7 +39,7 @@ everythingInTypecheckedSourceM = everythingButTypeM @GHC.Id
 
 -- | Obtain details map for types.
 types :: GHC.HscEnv -> GHC.TypecheckedSource -> IO TypeMap
-types hs_env = everythingInTypecheckedSourceM (ty `combineM` fun)
+types hs_env = everythingInTypecheckedSourceM (ty `combineM` fun `combineM` funBind)
  where
   ty :: forall a . Data a => a -> IO TypeMap
   ty term = case cast term of
@@ -52,6 +53,12 @@ types hs_env = everythingInTypecheckedSourceM (ty `combineM` fun)
   fun term = case cast term of
     (Just (GHC.L (GHC.RealSrcSpan spn) hsPatType)) ->
       return (IM.singleton (rspToInt spn) (TcHsSyn.hsPatType hsPatType))
+    _ -> return IM.empty
+
+  funBind :: forall a . Data a => a -> IO TypeMap
+  funBind term = case cast term of
+    (Just (GHC.L (GHC.RealSrcSpan spn) ((GHC.FunBind _ (GHC.L _ (idp :: GHC.IdP GhcTc)) _ _ _) :: GHC.HsBindLR GhcTc GhcTc))) ->
+      return (IM.singleton (rspToInt spn) (Var.varType idp))
     _ -> return IM.empty
 
 -- | Combine two queries into one using alternative combinator.
