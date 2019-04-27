@@ -1,49 +1,76 @@
 #!/usr/bin/env stack
 {- stack
-  script
-  --resolver nightly-2018-12-15
+  runghc
+  --stack-yaml=shake.yaml
   --package shake
   --package directory
+  --package extra
 -}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TupleSections #-}
 import           Development.Shake
 import           Development.Shake.Command
 import           Development.Shake.FilePath
 import           Control.Monad
-import           System.Directory               ( findExecutable )
-import           System.Environment             ( getProgName
-                                                , unsetEnv
-                                                )
-import           System.Info                    ( os
-                                                , arch
-                                                )
+import           Control.Monad
+import           Control.Monad.IO.Class
+import           Control.Monad.Extra                      ( unlessM
+                                                          , mapMaybeM
+                                                          )
+import           Data.Maybe                               ( isJust )
+import           System.Directory                         ( findExecutable
+                                                          , listDirectory
+                                                          )
+import           System.Environment                       ( getProgName
+                                                          , unsetEnv
+                                                          )
+import           System.Info                              ( os
+                                                          , arch
+                                                          )
 
-import           Data.List                      ( dropWhileEnd
-                                                , intersperse
-                                                )
-import           Data.Char                      ( isSpace )
+import           Data.Maybe                               ( isNothing
+                                                          , mapMaybe
+                                                          )
+import           Data.List                                ( dropWhileEnd
+                                                          , intersperse
+                                                          , intercalate
+                                                          , sort
+                                                          )
+import qualified Data.Text as T
+import           Data.Char                                ( isSpace )
+import           Data.Version                             ( parseVersion
+                                                          , makeVersion
+                                                          , showVersion
+                                                          )
+import           Data.Function                            ( (&) )
+import           Text.ParserCombinators.ReadP             ( readP_to_S )
 
 type VersionNumber = String
 type GhcPath = String
 
--- |Defines all different hie versions that are buildable.
--- If they are edited, make sure to maintain the order of the versions.
-hieVersions :: [VersionNumber]
-hieVersions =
-  [ "8.2.1"
-  , "8.2.2"
-  , "8.4.2"
-  , "8.4.3"
-  , "8.4.4"
-  , "8.6.1"
-  , "8.6.2"
-  , "8.6.3"
-  , "8.6.4"
-  ]
+-- | Defines all different hie versions that are buildable.
+--
+-- The current directory is scanned for `stack-*.yaml` files.
+-- On windows, `8.6.3` is excluded as this version of ghc does not work there
+getHieVersions :: MonadIO m => m [VersionNumber]
+getHieVersions = do
+  let stackYamlPrefix = T.pack "stack-"
+  let stackYamlSuffix = T.pack ".yaml"
+  files <- liftIO $ listDirectory "."
+  let hieVersions = files
+        & map T.pack
+        & mapMaybe
+          (T.stripPrefix stackYamlPrefix >=> T.stripSuffix stackYamlSuffix)
+        & map T.unpack
+        -- the following line excludes `8.6.3` on windows systems
+        & filter (\p -> not isWindowsSystem || p /= "8.6.3")
+        & sort
+  return hieVersions
 
--- |Most recent version of hie.
+-- | Most recent version of hie.
 -- Shown in the more concise help message.
-mostRecentHieVersion :: VersionNumber
-mostRecentHieVersion = last hieVersions
+mostRecentHieVersion :: MonadIO m => m VersionNumber
+mostRecentHieVersion = last <$> getHieVersions
 
 main :: IO ()
 main = do
@@ -53,14 +80,17 @@ main = do
   ghcPaths <- findInstalledGhcs
   let ghcVersions = map fst ghcPaths
 
+  hieVersions <- getHieVersions
+
   shakeArgs shakeOptions { shakeFiles = "_build" } $ do
     want ["short-help"]
     -- general purpose targets
-    phony "submodules" updateSubmodules
-    phony "cabal"      (getStackGhcPath mostRecentHieVersion >>= installCabal)
-    phony "short-help" shortHelpMessage
-    phony "all"        shortHelpMessage
-    phony "help"       helpMessage
+    phony "submodules"  updateSubmodules
+    phony "cabal"       installCabal
+    phony "short-help"  shortHelpMessage
+    phony "all"         shortHelpMessage
+    phony "help"        helpMessage
+    phony "check-stack" checkStack
 
     phony "cabal-ghcs" $ do
       let
@@ -72,53 +102,46 @@ main = do
                  )
       liftIO $ putStrLn $ embedInStars msg
 
-
     -- stack specific targets
-    phony "build"      (need (reverse $ map ("hie-" ++) hieVersions))
-    phony "build-all"  (need ["build-docs", "build"])
-    phony "build-docs" (need (reverse $ map ("build-doc-" ++) hieVersions))
+    phony "build"     (need (reverse $ map ("hie-" ++) hieVersions))
+    phony "build-all" (need ["build-doc", "build"])
     phony "test" $ do
       need ["submodules"]
+      need ["check-stack"]
       need ["cabal"]
       forM_ hieVersions stackTest
 
     phony "build-copy-compiler-tool" $ forM_ hieVersions buildCopyCompilerTool
 
-    phony "stack-build-doc" stackBuildDoc
-    forM_
-      hieVersions
-      (\version -> phony ("build-doc-" ++ version) $ do
-        need ["submodules"]
-        need ["cabal"]
-        need ["stack-build-doc"]
-      )
+    phony "build-doc" $ do
+      need ["submodules"]
+      need ["check-stack"]
+      stackBuildDoc
+
+    -- main targets for building hie with `stack`
     forM_
       hieVersions
       (\version -> phony ("hie-" ++ version) $ do
         need ["submodules"]
+        need ["check-stack"]
         need ["cabal"]
         stackBuildHie version
         stackInstallHie version
       )
 
     -- cabal specific targets
-    phony "cabal-build"      (need (map ("cabal-hie-" ++) ghcVersions))
-    phony "cabal-build-all"  (need ["cabal-build-docs", "cabal-build"])
-    phony "cabal-build-docs" (need (map ("cabal-build-doc-" ++) ghcVersions))
+    phony "cabal-build"     (need (map ("cabal-hie-" ++) ghcVersions))
+    phony "cabal-build-all" (need ["cabal-build-doc", "cabal-build"])
+    phony "cabal-build-doc" $ do
+      need ["submodules"]
+      need ["cabal"]
+      cabalBuildDoc
 
     phony "cabal-test" $ do
       need ["submodules"]
       need ["cabal"]
       forM_ ghcVersions cabalTest
 
-    phony "cabal-doc" cabalBuildDoc
-    forM_
-      hieVersions
-      (\version -> phony ("cabal-build-doc-" ++ version) $ do
-        need ["submodules"]
-        need ["cabal"]
-        need ["cabal-doc"]
-      )
     forM_
       hieVersions
       (\version -> phony ("cabal-hie-" ++ version) $ do
@@ -137,7 +160,7 @@ main = do
 
 
 buildIcuMacosFix :: VersionNumber -> Action ()
-buildIcuMacosFix version = execStackWithYaml_
+buildIcuMacosFix version = execStackWithGhc_
   version
   [ "build"
   , "text-icu"
@@ -145,37 +168,37 @@ buildIcuMacosFix version = execStackWithYaml_
   , "--extra-include-dirs=/usr/local/opt/icu4c/include"
   ]
 
+-- | update the submodules that the project is in the state as required by the `stack.yaml` files
 updateSubmodules :: Action ()
 updateSubmodules = do
   command_ [] "git" ["submodule", "sync", "--recursive"]
   command_ [] "git" ["submodule", "update", "--init", "--recursive"]
 
+-- TODO: this restriction will be gone in the next release of cabal
 validateCabalNewInstallIsSupported :: Action ()
-validateCabalNewInstallIsSupported = when (os `elem` ["mingw32", "win32"]) $ do
-  liftIO $ putStrLn $ embedInStars cabalInstallNotSuported
-  error cabalInstallNotSuported
+validateCabalNewInstallIsSupported = when isWindowsSystem $ do
+  liftIO $ putStrLn $ embedInStars cabalInstallNotSuportedFailMsg
+  error cabalInstallNotSuportedFailMsg
 
 configureCabal :: VersionNumber -> Action ()
 configureCabal versionNumber = do
-  ghcPath' <- liftIO $ getGhcPath versionNumber
-  ghcPath  <- case ghcPath' of
+  ghcPath <- getGhcPath versionNumber >>= \case
     Nothing -> do
-      liftIO $ putStrLn $ embedInStars (ghcVersionNotFound versionNumber)
-      error (ghcVersionNotFound versionNumber)
+      liftIO $ putStrLn $ embedInStars (ghcVersionNotFoundFailMsg versionNumber)
+      error (ghcVersionNotFoundFailMsg versionNumber)
     Just p -> return p
   execCabal_
     ["new-configure", "-w", ghcPath, "--write-ghc-environment-files=never"]
 
 findInstalledGhcs :: IO [(VersionNumber, GhcPath)]
-findInstalledGhcs = foldM
-  (\found version -> do
-    path <- getGhcPath version
-    case path of
-      Nothing -> return found
-      Just p  -> return $ (version, p) : found
-  )
-  []
-  hieVersions
+findInstalledGhcs = do
+  hieVersions <- getHieVersions :: IO [VersionNumber]
+  mapMaybeM
+    (\version -> getGhcPath version >>= \case
+      Nothing -> return Nothing
+      Just p  -> return $ Just (version, p)
+    )
+    (reverse hieVersions)
 
 cabalBuildHie :: VersionNumber -> Action ()
 cabalBuildHie versionNumber = do
@@ -198,39 +221,55 @@ cabalInstallHie versionNumber = do
             (localBin </> "hie-" ++ dropExtension versionNumber <.> exe)
 
 cabalBuildDoc :: Action ()
-cabalBuildDoc = generateHoogleDatabase $ do 
-  localBin <- getLocalBin
-  execCabal_ ["new-install", "--symlink-bindir=" ++ localBin, "hoogle"]
+cabalBuildDoc = do
+  execCabal_ ["new-build", "hoogle", "generate"]
   execCabal_ ["new-exec", "hoogle", "generate"]
-
-generateHoogleDatabase :: Action () -> Action ()
-generateHoogleDatabase installIfNecessary = do
-  mayHoogle <- liftIO $ findExecutable "hoogle"
-  case mayHoogle of
-    Nothing -> installIfNecessary
-    Just hoogle -> command_ [] "hoogle" ["generate"]
-
 
 cabalTest :: VersionNumber -> Action ()
 cabalTest versionNumber = do
   configureCabal versionNumber
   execCabal_ ["new-test"]
 
-installCabal :: GhcPath -> Action ()
-installCabal ghc = do
-  execStack_ ["install", "--stack-yaml=shake.yaml", "cabal-install"]
+installCabal :: Action ()
+installCabal = do
+  -- try to find existing `cabal` executable with appropriate version
+  cabalExe <- liftIO (findExecutable "cabal") >>= \case
+    Nothing       -> return Nothing
+    Just cabalExe -> do
+      Stdout cabalVersion <- execCabal ["--numeric-version"]
+      let (parsedVersion, "") : _ =
+            cabalVersion & trim & readP_to_S parseVersion & filter
+              (("" ==) . snd)
+
+      return $ if parsedVersion >= makeVersion [2, 4, 1, 0]
+        then Just cabalExe
+        else Nothing
+  -- install `cabal-install` if not already installed
+  when (isNothing cabalExe) $
+    execStackShake_ ["install", "cabal-install"]
   execCabal_ ["update"]
-  execCabal_ ["install", "Cabal-2.4.1.0", "--with-compiler=" ++ ghc]
+
+
+checkStack :: Action ()
+checkStack = do
+  Stdout stackVersion <- execStackShake ["--numeric-version"]
+  let (parsedVersion, "") : _ =
+        stackVersion & trim & readP_to_S parseVersion & filter
+          (("" ==) . snd)
+  unless (parsedVersion >= makeVersion requiredStackVersion) $ do
+    liftIO $ putStrLn $ embedInStars $ stackExeIsOldFailMsg $ trim stackVersion
+    error $ stackExeIsOldFailMsg $ trim stackVersion
+
 
 stackBuildHie :: VersionNumber -> Action ()
-stackBuildHie versionNumber = do
-  execStackWithYaml_ versionNumber ["install", "happy"]
-  execStackWithYaml_ versionNumber ["build"]
+stackBuildHie versionNumber =
+  execStackWithGhc_ versionNumber ["build"]
     `actionOnException` liftIO (putStrLn stackBuildFailMsg)
 
+-- | copy the built binaries into the localBinDir
 stackInstallHie :: VersionNumber -> Action ()
 stackInstallHie versionNumber = do
-  execStackWithYaml_ versionNumber ["install"]
+  execStackWithGhc_ versionNumber ["install"]
   localBinDir      <- getLocalBin
   localInstallRoot <- getLocalInstallRoot versionNumber
   let hie = "hie" <.> exe
@@ -241,18 +280,20 @@ stackInstallHie versionNumber = do
 
 buildCopyCompilerTool :: VersionNumber -> Action ()
 buildCopyCompilerTool versionNumber =
-  execStackWithYaml_ versionNumber ["build", "--copy-compiler-tool"]
+  execStackWithGhc_ versionNumber ["build", "--copy-compiler-tool"]
 
 stackTest :: VersionNumber -> Action ()
-stackTest versionNumber = execStackWithYaml_ versionNumber ["test"]
+stackTest versionNumber = execStackWithGhc_ versionNumber ["test"]
 
 stackBuildDoc :: Action ()
-stackBuildDoc = generateHoogleDatabase $ do
-  execStack_ ["--stack-yaml=shake.yaml", "install", "hoogle"]
-  execStack_ ["--stack-yaml=shake.yaml", "exec", "hoogle", "generate"]
+stackBuildDoc = do
+  execStackShake_ ["build", "hoogle"]
+  execStackShake_ ["exec", "hoogle", "generate"]
 
+-- | short help message is printed by default
 shortHelpMessage :: Action ()
 shortHelpMessage = do
+  hieVersions <- getHieVersions
   let out = liftIO . putStrLn
   scriptName <- liftIO getProgName
   out ""
@@ -260,14 +301,14 @@ shortHelpMessage = do
   out' ("stack " <> scriptName <> " <target>")
   out ""
   out "Targets:"
-  mapM_ (out' . showTarget spaces) targets
+  mapM_ (out' . showTarget (spaces hieVersions)) (targets hieVersions)
   out ""
  where
   out    = liftIO . putStrLn
   out'   = out . ("    " ++)
 
-  spaces = space targets
-  targets =
+  spaces hieVersions = space (targets hieVersions)
+  targets hieVersions =
     [ ("help", "Show help message including all targets")
     , emptyTarget
     , ( "build"
@@ -275,53 +316,48 @@ shortHelpMessage = do
         ++ allVersionMessage hieVersions
         ++ ")"
       )
-    , ( "build-all"
-      , "Builds hie and hoogle databases for all supported GHC versions"
-      )
-    , stackHieTarget mostRecentHieVersion
-    , stackBuildDocTarget mostRecentHieVersion
-    , stackHieTarget "8.4.4"
-    , stackBuildDocTarget "8.4.4"
+    , stackBuildAllTarget
+    -- , stackHieTarget mostRecentHieVersion
+    , stackBuildDocTarget
+    , stackHieTarget (last hieVersions)
     , emptyTarget
     , ( "cabal-ghcs"
       , "Show all GHC versions that can be installed via `cabal-build` and `cabal-build-all`."
       )
-    , ("cabal-build", "Builds hie with cabal with all installed GHCs.")
-    , ( "cabal-build-all"
-      , "Builds hie and hoogle databases for all installed GHC versions with cabal"
-      )
-    , cabalHieTarget mostRecentHieVersion
-    , cabalBuildDocTarget mostRecentHieVersion
-    , cabalHieTarget "8.4.4"
-    , cabalBuildDocTarget "8.4.4"
+    , cabalBuildTarget
+    , cabalBuildAllTarget
+    -- , cabalHieTarget mostRecentHieVersion
+    , cabalBuildDocTarget
+    , cabalHieTarget (last hieVersions)
     ]
 
 
 helpMessage :: Action ()
 helpMessage = do
+
+  hieVersions <- getHieVersions
   scriptName <- liftIO getProgName
   out ""
   out "Usage:"
   out' ("stack " <> scriptName <> " <target>")
   out ""
   out "Targets:"
-  mapM_ (out' . showTarget spaces) targets
+  mapM_ (out' . showTarget (spaces hieVersions)) (targets hieVersions)
   out ""
  where
   out    = liftIO . putStrLn
   out'   = out . ("    " ++)
 
-  spaces = space targets
+  spaces hieVersions = space (targets hieVersions)
   -- All targets the shake file supports
-  targets :: [(String, String)]
-  targets =
-    generalTargets
-      ++ [emptyTarget]
-      ++ stackTargets
-      ++ [emptyTarget]
-      ++ cabalTargets
-      ++ [emptyTarget]
-      ++ macosTargets
+  targets :: [VersionNumber] -> [(String, String)]
+  targets hieVersions = intercalate
+    [emptyTarget]
+    [ generalTargets
+    , stackTargets hieVersions
+    , cabalTargets hieVersions
+    , macosTargets
+    ]
 
   -- All targets with their respective help message.
   generalTargets =
@@ -333,82 +369,79 @@ helpMessage = do
 
   macosTargets = [("icu-macos-fix", "Fixes icu related problems in MacOS")]
 
-  stackTargets =
+  stackTargets hieVersions =
     [ ( "build"
       , "Builds hie for all supported GHC versions ("
       ++ allVersionMessage hieVersions
       ++ ")"
       )
-      , ( "build-all"
-        , "Builds hie and hoogle databases for all supported GHC versions"
-        )
-      , ( "build-docs"
-        , "Builds the Hoogle database for all supported GHC versions"
-        )
+      , stackBuildAllTarget
+      , stackBuildDocTarget
       , ("test", "Runs hie tests with stack")
       ]
-      ++ map stackHieTarget      hieVersions
-      ++ map stackBuildDocTarget hieVersions
+      ++ map stackHieTarget hieVersions
 
-  cabalTargets =
+  cabalTargets hieVersions =
     [ ( "cabal-ghcs"
       , "Show all GHC versions that can be installed via `cabal-build` and `cabal-build-all`."
       )
-      , ("cabal-build", "Builds hie with cabal with all installed GHCs.")
-      , ( "cabal-build-all"
-        , "Builds hie and hoogle databases for all installed GHC versions with cabal"
-        )
-      , ( "cabal-build-docs"
-        , "Builds the Hoogle database for all installed GHC versions with cabal"
-        )
+      , cabalBuildTarget
+      , cabalBuildAllTarget
+      , cabalBuildDocTarget
       , ("cabal-test", "Runs hie tests with cabal")
       ]
-      ++ map cabalHieTarget      hieVersions
-      ++ map cabalBuildDocTarget hieVersions
+      ++ map cabalHieTarget hieVersions
 
 -- | Empty target. Purpose is to introduce a newline between the targets
 emptyTarget :: (String, String)
 emptyTarget = ("", "")
 
--- |Number of spaces the target name including whitespace should have.
--- At least twenty, maybe more if target names are long. At most length of the longest target plus five.
+-- | Number of spaces the target name including whitespace should have.
+-- At least twenty, maybe more if target names are long. At most the length of the longest target plus five.
 space :: [(String, String)] -> Int
 space phonyTargets = maximum (20 : map ((+ 5) . length . fst) phonyTargets)
 
--- |Show a target.
+-- | Show a target.
 -- Concatenates the target with its help message and inserts whitespace between them.
 showTarget :: Int -> (String, String) -> String
 showTarget spaces (target, msg) =
   target ++ replicate (spaces - length target) ' ' ++ msg
 
--- |Target for a specific ghc version
+-- | Target for a specific ghc version
 stackHieTarget :: String -> (String, String)
 stackHieTarget version =
   ( "hie-" ++ version
   , "Builds hie for GHC version " ++ version ++ " only with stack"
   )
 
--- |Target for a specific ghc version
+-- | Target for a specific ghc version
 cabalHieTarget :: String -> (String, String)
 cabalHieTarget version =
   ( "cabal-hie-" ++ version
   , "Builds hie for GHC version " ++ version ++ " only with cabal new-build"
   )
 
-stackBuildDocTarget :: VersionNumber -> (String, String)
-stackBuildDocTarget version =
-  ( "build-doc-" ++ version
-  , "Builds the Hoogle database for GHC version "
-    ++ version
-    ++ " only with stack"
+stackBuildDocTarget :: (String, String)
+stackBuildDocTarget = ("build-doc", "Builds the Hoogle database")
+
+stackBuildAllTarget :: (String, String)
+stackBuildAllTarget =
+  ( "build-all"
+  , "Builds hie for all supported GHC versions and the hoogle database"
   )
 
-cabalBuildDocTarget :: VersionNumber -> (String, String)
-cabalBuildDocTarget version =
-  ( "cabal-build-doc-" ++ version
-  , "Builds the Hoogle database for GHC version "
-    ++ version
-    ++ " only with cabal"
+cabalBuildTarget :: (String, String)
+cabalBuildTarget =
+  ("cabal-build", "Builds hie with cabal with all installed GHCs.")
+
+cabalBuildDocTarget :: (String, String)
+cabalBuildDocTarget =
+  ("cabal-build-doc", "Builds the Hoogle database with cabal")
+
+cabalBuildAllTarget :: (String, String)
+cabalBuildAllTarget =
+  ( "cabal-build-all"
+  , "Builds hie for all installed GHC versions and the hoogle database with cabal"
   )
 
 -- | Creates a message of the form "a, b, c and d", where a,b,c,d are GHC versions.
@@ -422,74 +455,100 @@ allVersionMessage wordList = case wordList of
         lastVersion = last msg
     in  concat $ (init $ init msg) ++ [" and ", lastVersion]
 
-execStackWithYaml_ :: VersionNumber -> [String] -> Action ()
-execStackWithYaml_ versionNumber args = do
+
+-- RUN EXECUTABLES
+
+-- | Execute a stack command for a specified ghc, discarding the output
+execStackWithGhc_ :: VersionNumber -> [String] -> Action ()
+execStackWithGhc_ versionNumber args = do
   let stackFile = "stack-" ++ versionNumber ++ ".yaml"
   command_ [] "stack" (("--stack-yaml=" ++ stackFile) : args)
 
-execStackWithYaml :: CmdResult r => VersionNumber -> [String] -> Action r
-execStackWithYaml versionNumber args = do
+-- | Execute a stack command for a specified ghc
+execStackWithGhc :: CmdResult r => VersionNumber -> [String] -> Action r
+execStackWithGhc versionNumber args = do
   let stackFile = "stack-" ++ versionNumber ++ ".yaml"
   command [] "stack" (("--stack-yaml=" ++ stackFile) : args)
 
-execStack :: CmdResult r => [String] -> Action r
-execStack = command [] "stack"
+-- | Execute a stack command with the same resolver as the build script
+execStackShake :: CmdResult r => [String] -> Action r
+execStackShake args =
+  command [] "stack" ("--stack-yaml=shake.yaml" : args)
 
-execStack_ :: [String] -> Action ()
-execStack_ = command_ [] "stack"
+-- | Execute a stack command with the same resolver as the build script, discarding the output
+execStackShake_ :: [String] -> Action ()
+execStackShake_ args =
+  command_ [] "stack" ("--stack-yaml=shake.yaml" : args)
+
+execCabal :: CmdResult r => [String] -> Action r
+execCabal =
+  command [] "cabal"
 
 execCabal_ :: [String] -> Action ()
 execCabal_ = command_ [] "cabal"
 
--- |Get the path to the GHC compiler executable linked to the local `stack-$GHCVER.yaml`.
+existsExecutable :: MonadIO m => String -> m Bool
+existsExecutable executable = liftIO $ isJust <$> findExecutable executable
+
+
+-- QUERY ENVIRONMENT
+
+-- |Check if the current system is windows
+isWindowsSystem :: Bool
+isWindowsSystem = os `elem` ["mingw32", "win32"]
+
+-- | Get the path to the GHC compiler executable linked to the local `stack-$GHCVER.yaml`.
 -- Equal to the command `stack path --stack-yaml $stack-yaml --compiler-exe`.
 -- This might install a GHC if it is not already installed, thus, might fail if stack fails to install the GHC.
 getStackGhcPath :: VersionNumber -> Action GhcPath
 getStackGhcPath ghcVersion = do
-  Stdout ghc <- execStackWithYaml ghcVersion ["path", "--compiler-exe"]
+  Stdout ghc <- execStackWithGhc ghcVersion ["path", "--compiler-exe"]
   return $ trim ghc
 
--- |Get the path to a GHC that has the version specified by `VersionNumber`
+getStackGhcPathShake :: Action GhcPath
+getStackGhcPathShake = do
+  Stdout ghc <- execStackShake ["path", "--compiler-exe"]
+  return $ trim ghc
+
+-- | Get the path to a GHC that has the version specified by `VersionNumber`
 -- If no such GHC can be found, Nothing is returned.
 -- First, it is checked whether there is a GHC with the name `ghc-$VersionNumber`.
 -- If this yields no result, it is checked, whether the numeric-version of the `ghc`
--- command fits to the desired version. 
-getGhcPath :: VersionNumber -> IO (Maybe GhcPath)
-getGhcPath ghcVersion = do
-  pathMay <- findExecutable ("ghc-" ++ ghcVersion)
-  case pathMay of
+-- command fits to the desired version.
+getGhcPath :: MonadIO m => VersionNumber -> m (Maybe GhcPath)
+getGhcPath ghcVersion = liftIO $
+  findExecutable ("ghc-" ++ ghcVersion) >>= \case
     Nothing -> do
-      noPrefixPathMay <- findExecutable "ghc"
-      case noPrefixPathMay of
+      findExecutable "ghc" >>= \case
         Nothing -> return Nothing
         Just p  -> do
           Stdout version <- cmd p ["--numeric-version"] :: IO (Stdout String)
           if ghcVersion == trim version then return $ Just p else return Nothing
     p -> return p
 
--- |Read the local install root of the stack project specified by the VersionNumber
+-- | Read the local install root of the stack project specified by the VersionNumber
 -- Returns the filepath of the local install root.
 -- Equal to the command `stack path --local-install-root`
 getLocalInstallRoot :: VersionNumber -> Action FilePath
 getLocalInstallRoot hieVersion = do
-  Stdout localInstallRoot' <- execStackWithYaml
+  Stdout localInstallRoot' <- execStackWithGhc
     hieVersion
     ["path", "--local-install-root"]
   return $ trim localInstallRoot'
 
--- |Get the local binary path of stack.
+-- | Get the local binary path of stack.
 -- Equal to the command `stack path --local-bin`
 getLocalBin :: Action FilePath
 getLocalBin = do
-  Stdout stackLocalDir' <- execStack
-    ["path", "--stack-yaml=shake.yaml", "--local-bin"]
+  Stdout stackLocalDir' <- execStackShake
+    ["path", "--local-bin"]
   return $ trim stackLocalDir'
 
--- |Trim the end of a string
+-- | Trim the end of a string
 trim :: String -> String
 trim = dropWhileEnd isSpace
 
--- |Embed a string within two lines of stars to improve perceivability and, thus, readability.
+-- | Embed a string within two lines of stars to improve perceivability and, thus, readability.
 embedInStars :: String -> String
 embedInStars str =
   let starsLine
@@ -505,18 +564,29 @@ stackBuildFailMsg =
     ++ "If this does not work, open an issue at \n"
     ++ "\thttps://github.com/haskell/haskell-ide-engine"
 
--- |No suitable ghc version has been found. Show a message.
-ghcVersionNotFound :: VersionNumber -> String
-ghcVersionNotFound versionNumber =
+-- | No suitable ghc version has been found. Show a message.
+ghcVersionNotFoundFailMsg :: VersionNumber -> String
+ghcVersionNotFoundFailMsg versionNumber =
   "No GHC with version "
     <> versionNumber
     <> " has been found.\n"
     <> "Either install a fitting GHC, use the stack targets or modify the PATH variable accordingly."
 
 -- | Error message when a windows system tries to install HIE via `cabal new-install`
-cabalInstallNotSuported :: String
-cabalInstallNotSuported =
+cabalInstallNotSuportedFailMsg :: String
+cabalInstallNotSuportedFailMsg =
   "This system has been identified as a windows system.\n"
     ++ "Unfortunately, `cabal new-install` is currently not supported on windows.\n"
     ++ "Please use one of the stack-based targets.\n\n"
     ++ "If this system has been falsely identified, please open an issue at:\n\thttps://github.com/haskell/haskell-ide-engine\n"
+
+-- | Error message when the `stack` binary is an older version
+stackExeIsOldFailMsg :: String -> String
+stackExeIsOldFailMsg stackVersion =
+  "The `stack` executable is outdated.\n"
+    ++ "found version is `" ++ stackVersion ++ "`.\n"
+    ++ "required version is `" ++ showVersion (makeVersion requiredStackVersion) ++ "`.\n"
+    ++ "Please run `stack upgrade` to upgrade your stack installation"
+
+requiredStackVersion :: [Int]
+requiredStackVersion = [1, 9, 3]
