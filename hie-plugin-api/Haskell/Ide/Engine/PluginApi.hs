@@ -6,7 +6,6 @@
 -- Stuff used in HaRe currently
 Options(..)
 defaultOptions
-mkRevRedirMapFunc
 GmModuleGraph(..)
 ModulePath(..)
 GmComponent(..)
@@ -18,6 +17,7 @@ IdeGhcM
 
 cabalModuleGraphs
 filePathToUri
+makeRevRedirMapFunc
 
 MonadIO(..)
 ifCachedModule
@@ -31,7 +31,6 @@ module Haskell.Ide.Engine.PluginApi
   -- ** Re-exported from ghc-mod
     GM.Options(..)
   , GM.defaultOptions
-  , GM.mkRevRedirMapFunc
   , GP.GmModuleGraph(..)
   , GP.ModulePath(..)
   , GP.GmComponent(..)
@@ -50,6 +49,7 @@ module Haskell.Ide.Engine.PluginApi
   , HIE.LiftsToGhc(..)
   , HIE.HasGhcModuleCache(..)
   , HIE.cabalModuleGraphs
+  , HIE.makeRevRedirMapFunc
 
   -- * Using the HIE module cache etc
   , HIE.setTypecheckedModule

@@ -219,8 +219,8 @@ data FormattingType = FormatDocument
 -- | Formats the given Text associated with the given Uri.
 -- Should, but might not, honor the provided formatting options (e.g. Floskell does not).
 -- A formatting type can be given to either format the whole document or only a Range.
--- 
--- Text to format, may or may not, originate from the associated Uri. 
+--
+-- Text to format, may or may not, originate from the associated Uri.
 -- E.g. it is ok, to modify the text and then reformat it through this API.
 --
 -- The Uri is mainly used to discover formatting configurations in the file's path.

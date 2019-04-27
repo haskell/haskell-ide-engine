@@ -14,6 +14,7 @@ module Haskell.Ide.Engine.Ghc
   , Diagnostics
   , AdditionalErrs
   , cabalModuleGraphs
+  , makeRevRedirMapFunc
   ) where
 
 import           Bag
@@ -222,5 +223,12 @@ cabalModuleGraphs = doCabalModuleGraphs
           return graph
         Nothing -> return []
 
+-- ---------------------------------------------------------------------
+
+makeRevRedirMapFunc :: IdeGhcM (FilePath -> FilePath)
+makeRevRedirMapFunc = make
+  where
+    make :: (GM.IOish m) => GM.GhcModT m (FilePath -> FilePath)
+    make = GM.mkRevRedirMapFunc
 
 -- ---------------------------------------------------------------------

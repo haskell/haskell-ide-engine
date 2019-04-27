@@ -92,6 +92,8 @@ srcSpan2Range :: SrcSpan -> Either T.Text Range
 srcSpan2Range spn =
   realSrcSpan2Range <$> getRealSrcSpan spn
 
+
+
 reverseMapFile :: MonadIO m => (FilePath -> FilePath) -> FilePath -> m FilePath
 reverseMapFile rfm fp = do
   fp' <- liftIO $ canonicalizePath fp
