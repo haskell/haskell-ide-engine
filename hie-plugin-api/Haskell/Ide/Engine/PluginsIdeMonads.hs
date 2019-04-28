@@ -9,9 +9,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE DerivingVia #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | IdeGhcM and associated types
 module Haskell.Ide.Engine.PluginsIdeMonads
@@ -553,6 +550,3 @@ data IdeError = IdeError
 
 instance ToJSON IdeError
 instance FromJSON IdeError
-
--- deriving via (ReaderT Session IO) instance MonadUnliftIO Ghc
--- deriving via (StateT GM.GhcModState (ErrorT GhcModError(JournalT GhcModLog (ReaderT GhcModEnv ) instance MonadUnliftIO GhcModT
