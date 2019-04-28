@@ -15,6 +15,7 @@ module Haskell.Ide.Engine.Plugin.GhcMod
   , InfoParams(..)
   , TypeDef(..)
   , TypeParams(..)
+  , TypedHoles(..) -- only to keep the GHC 8.4 and below unused field warning happy
   , ValidSubstitutions(..)
   , extractHoleSubstitutions
   , extractMissingSignature
