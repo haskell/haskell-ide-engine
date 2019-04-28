@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE LambdaCase #-}
 module Haskell.Ide.Engine.Plugin.HsImport where
 
 import           Control.Lens.Operators
@@ -72,7 +73,6 @@ importModule uri importList modName =
       tmpDir            <- liftIO getTemporaryDirectory
       (output, outputH) <- liftIO $ openTempFile tmpDir "hsimportOutput"
       liftIO $ hClose outputH
-
       let args = defaultArgs { moduleName    = T.unpack modName
                              , inputSrcFile  = input
                              , symbolName    = T.unpack $ fromMaybe "" importList
@@ -107,16 +107,38 @@ importModule uri importList modName =
                   return $ IdeResultOk (J.WorkspaceEdit mChanges mDocChanges)
 
                 Just (_, provider) -> do
-                  let formatEdit :: J.TextEdit -> IdeGhcM J.TextEdit
+                  let
+                      -- | Dirty little hack.
+                      -- Necessary in the following case:
+                      -- We want to add an item to an existing import-list.
+                      -- The diff algorithm does not count the newline character
+                      -- as part of the diff between new and old text.
+                      -- However, some formatters (Brittany), add a trailing
+                      -- newline nevertheless.
+                      -- This leads to the problem that an additional
+                      -- newline is inserted into the source.
+                      -- This function makes sure, that if the original text
+                      -- did not have a newline, none will be added, assuming
+                      -- that the diff algorithm continues to not count newlines
+                      -- as part of the diff.
+                      -- This is only save to do in this very specific environment.
+                      -- In any other case, this function may not be copy-pasted
+                      -- to solve a similar problem.
+                      renormalise :: T.Text -> T.Text -> T.Text
+                      renormalise orig formatted
+                        | T.null orig || T.null formatted = orig <> formatted
+                        | T.last orig /= '\n' && T.last formatted == '\n' = T.init formatted
+                        | otherwise = formatted
+
+                      formatEdit :: J.TextEdit -> IdeGhcM J.TextEdit
                       formatEdit origEdit@(J.TextEdit r t) = do
                         -- TODO: are these default FormattingOptions ok?
-                        res <- liftToGhc $ provider t uri FormatText (FormattingOptions 2 True)
-                        let formatEdits = case res of
-                                            IdeResultOk xs -> xs
-                                            _ -> [origEdit]
+                        formatEdits <-
+                          liftToGhc $ provider t uri FormatText (FormattingOptions 2 True) >>= \case
+                            IdeResultOk xs -> return xs
+                            _              -> return [origEdit]
                         -- let edits = foldl' J.editTextEdit origEdit formatEdits -- TODO: this seems broken.
-                        -- liftIO $ hPutStrLn stderr $ "Text Edits: " ++ show formatEdits
-                        return (J.TextEdit r (J._newText $ head formatEdits))
+                        return (J.TextEdit r (renormalise t . J._newText $ head formatEdits))
 
                   -- behold: the legendary triple mapM
                   newChanges <- (mapM . mapM . mapM) formatEdit mChanges
@@ -186,7 +208,7 @@ codeActionProvider plId docId _ context = do
   applySearchStyle Exact term = "is:exact " <> term
   applySearchStyle ExactName term = case T.words term of
     [] -> term
-    (x:_) -> "is:exact " <> x
+    (x : _) -> "is:exact " <> x
   applySearchStyle (Relax relax) term = relax term
 
   -- | Turn a search term with function name into Import Actions.
@@ -206,7 +228,7 @@ codeActionProvider plId docId _ context = do
   termToActions style functionName (diagnostic, termName) = do
     let useImportList = case style of
           Relax _ -> Nothing
-          _       -> Just (mkImportAction (Just functionName) diagnostic termName)
+          _ -> Just (mkImportAction (Just functionName) diagnostic termName)
     catMaybes <$> sequenceA
       (mkImportAction Nothing diagnostic termName : maybeToList useImportList)
 
