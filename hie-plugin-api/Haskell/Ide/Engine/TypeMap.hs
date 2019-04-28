@@ -18,7 +18,6 @@ import qualified TcHsSyn
 import qualified CoreUtils
 import qualified Type
 import qualified Desugar
-import qualified Var
 import           Haskell.Ide.Engine.Compat
 
 import           Haskell.Ide.Engine.ArtifactMap
@@ -57,8 +56,8 @@ types hs_env = everythingInTypecheckedSourceM (ty `combineM` fun `combineM` funB
 
   funBind :: forall a . Data a => a -> IO TypeMap
   funBind term = case cast term of
-    (Just (GHC.L (GHC.RealSrcSpan spn) ((GHC.FunBind _ (GHC.L _ (idp :: GHC.IdP GhcTc)) _ _ _) :: GHC.HsBindLR GhcTc GhcTc))) ->
-      return (IM.singleton (rspToInt spn) (Var.varType idp))
+    (Just (GHC.L (GHC.RealSrcSpan spn) (FunBindType t))) ->
+      return (IM.singleton (rspToInt spn) t)
     _ -> return IM.empty
 
 -- | Combine two queries into one using alternative combinator.

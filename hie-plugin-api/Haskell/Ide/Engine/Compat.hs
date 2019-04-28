@@ -7,6 +7,7 @@ import qualified GHC
 import qualified Type
 import qualified TcHsSyn
 import qualified TysWiredIn
+import qualified Var
 
 #if MIN_VERSION_filepath(1,4,2)
 #else
@@ -122,6 +123,17 @@ pattern HsMultiIfType t <-
 #else
     GHC.HsMultiIf t _
 #endif
+
+pattern FunBindType :: Type.Type -> GHC.HsBindLR GhcTc GhcTc
+pattern FunBindType t <-
+#if MIN_VERSION_ghc(8, 6, 0)
+    GHC.FunBind _ (GHC.L _ (Var.varType -> t)) _ _ _
+#elif MIN_VERSION_ghc(8, 4, 0)
+    GHC.FunBind (GHC.L _ (Var.varType -> t)) _ _ _ _
+#else
+    GHC.FunBind (GHC.L _ (Var.varType -> t)) _ _ _ _
+#endif
+
 
 #if MIN_VERSION_ghc(8, 6, 0)
 matchGroupType :: GHC.MatchGroupTc -> GHC.Type
