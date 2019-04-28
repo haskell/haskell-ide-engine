@@ -63,8 +63,8 @@ formatText
   => Maybe FilePath -- ^ Path to configs. If Nothing, default configs will be used.
   -> FormattingOptions -- ^ Options for the formatter such as indentation.
   -> Text -- ^ Text to format
-  -> m (Either [BrittanyError] Text) -- ^ Either formatted Text or a error from Brittany. 
-formatText confFile opts text = 
+  -> m (Either [BrittanyError] Text) -- ^ Either formatted Text or a error from Brittany.
+formatText confFile opts text =
   liftIO $ runBrittany tabSize confFile text
   where tabSize = opts ^. J.tabSize
 
