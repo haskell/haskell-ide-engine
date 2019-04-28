@@ -339,12 +339,6 @@ runIdeGhcM ghcModOptions plugins mlf stateVar f = do
 data Defer a = Defer FilePath (UriCacheResult -> a) deriving Functor
 type IdeDeferM = FreeT Defer IdeM
 
-{-
-data IdeDeferM a = Defer FilePath (UriCacheResult -> IdeDeferM a)
-                 | IdeLeaf (IdeM a)
-                 deriving Functor
-                 -}
-
 type IdeM = ReaderT IdeEnv (MultiThreadState IdeState)
 
 -- | Run an IdeM
@@ -405,21 +399,21 @@ getClientCapabilities = do
 getPlugins :: MonadIde m => m IdePlugins
 getPlugins = idePlugins <$> getIdeEnv
 
--- | 'withProgress' @title f@ wraps a progress reporting session for long running tasks.
+-- | 'withProgress' @title cancellable f@ wraps a progress reporting session for long running tasks.
 -- f is passed a reporting function that can be used to give updates on the progress
 -- of the task.
 withProgress :: (MonadIde m , MonadIO m, MonadBaseControl IO m)
              => T.Text -> Core.ProgressCancellable
-             -> ((Core.Progress -> m ()) -> m a) -> m a
+             -> ((Core.Progress -> IO ()) -> m a) -> m a
 withProgress t c f = do
   lf <- ideEnvLspFuncs <$> getIdeEnv
   let mWp = Core.withProgress <$> lf
   case mWp of
     Nothing -> f (const $ return ())
-    Just wp -> control $ \run -> wp t c $ \update -> run (f (liftIO . update))
+    Just wp -> control $ \run -> wp t c $ \update -> run (f update)
 
 
--- | 'withIndefiniteProgress' @title f@ is the same as the 'withProgress' but for tasks
+-- | 'withIndefiniteProgress' @title cancellable f@ is the same as the 'withProgress' but for tasks
 -- which do not continuously report their progress.
 withIndefiniteProgress :: (MonadIde m, MonadBaseControl IO m)
                        => T.Text -> Core.ProgressCancellable -> m a -> m a
