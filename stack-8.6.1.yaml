@@ -10,6 +10,7 @@ extra-deps:
 - ./submodules/floskell
 - ./submodules/ghc-mod
 - ./submodules/ghc-mod/core
+- ./submodules/ghc-mod/ghc-project-types
 
 - apply-refact-0.6.0.0
 - butcher-1.3.2.1
