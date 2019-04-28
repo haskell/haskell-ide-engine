@@ -214,8 +214,8 @@ data FormattingType = FormatDocument
 -- | Formats the given Text associated with the given Uri.
 -- Should, but might not, honor the provided formatting options (e.g. Floskell does not).
 -- A formatting type can be given to either format the whole document or only a Range.
--- 
--- Text to format, may or may not, originate from the associated Uri. 
+--
+-- Text to format, may or may not, originate from the associated Uri.
 -- E.g. it is ok, to modify the text and then reformat it through this API.
 --
 -- The Uri is mainly used to discover formatting configurations in the file's path.
@@ -295,7 +295,15 @@ runPluginCommand p@(PluginId pText) com@(CommandId comText) arg = do
 type IdePlugins = Map.Map PluginId PluginDescriptor
 
 mkIdePlugins :: [PluginDescriptor] -> IdePlugins
-mkIdePlugins = Map.fromList . map (\x -> (pluginId x, x))
+mkIdePlugins plugins
+  | Just pid <- checkClashes plugins = error $ "Two plugins have the same id: " <> pid
+  | otherwise = Map.fromList $ map (\x -> (pluginId x, x)) plugins
+  where
+    checkClashes = foldl go Nothing . List.group . List.sort . map pluginId
+    go :: Maybe String -> [PluginId] -> Maybe String
+    go (Just x) _ = Just x
+    go Nothing (PluginId a:_:_) = Just (T.unpack a)
+    go Nothing _ = Nothing
 
 -- | For the diagnostic providers in the config, return a map of
 -- current enabled state, indexed by the plugin id.
