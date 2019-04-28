@@ -28,10 +28,8 @@ setTypecheckedModule
 
 module Haskell.Ide.Engine.PluginApi
   (
-  -- ** Re-exported from ghc-mod
-    GM.Options(..)
-  , GM.defaultOptions
-  , GP.GmModuleGraph(..)
+  -- ** Re-exported from ghc-mod via ghc-project-types
+    GP.GmModuleGraph(..)
   , GP.ModulePath(..)
   , GP.GmComponent(..)
   , GP.GmComponentType(..)
@@ -60,21 +58,14 @@ module Haskell.Ide.Engine.PluginApi
   , HIE.CachedInfo(..)
 
   -- * used for tests in HaRe
-  , GM.globalArgSpec
-  , GM.OutputOpts(..)
-  , GM.GmLogLevel(..)
-  , GM.OutputStyle(..)
-  , GM.LineSeparator(..)
+  , HIE.BiosLogLevel(..)
+  , HIE.BiosOptions(..)
+  , HIE.defaultOptions
   ) where
 
-import qualified GhcMod.Options.Options as GM (globalArgSpec)
--- import qualified GhcMod.Types          as GM (ModulePath(..),GmModuleGraph(..),GmComponent(..),GmComponentType(..),OutputOpts(..),GmLogLevel(..),OutputStyle(..),LineSeparator(..))
-import qualified GhcMod.Types          as GM (OutputOpts(..),GmLogLevel(..),OutputStyle(..),LineSeparator(..))
-import qualified GhcMod.Utils          as GM (mkRevRedirMapFunc)
-import qualified GhcModCore            as GM (Options(..),defaultOptions)
-import qualified GhcProject.Types      as GP
+import qualified GhcProject.Types                    as GP
 import qualified Haskell.Ide.Engine.Ghc              as HIE
-import qualified Haskell.Ide.Engine.GhcModuleCache  as HIE (CachedInfo(..),HasGhcModuleCache(..))
+import qualified Haskell.Ide.Engine.GhcModuleCache   as HIE (CachedInfo(..),HasGhcModuleCache(..))
 import qualified Haskell.Ide.Engine.ModuleCache      as HIE (ifCachedModule)
 import qualified Haskell.Ide.Engine.PluginsIdeMonads as HIE
 import qualified Language.Haskell.LSP.Types          as LSP ( filePathToUri )

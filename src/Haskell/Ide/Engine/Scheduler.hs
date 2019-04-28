@@ -60,8 +60,8 @@ data Scheduler m = Scheduler
  { plugins :: IdePlugins
    -- ^ The list of plugins that will be used for responding to requests
 
- , ghcModOptions :: GM.Options
-   -- ^ Options for the ghc-mod session. Since we only keep a single ghc-mod session
+ , biosOptions :: BiosOptions
+   -- ^ Options for the bios session. Since we only keep a single bios session
    -- at a time, this cannot be changed a runtime.
 
  , requestsToCancel :: STM.TVar (Set.Set J.LspId)
@@ -99,10 +99,10 @@ class HasScheduler a m where
 newScheduler
   :: IdePlugins
      -- ^ The list of plugins that will be used for responding to requests
-  -> GM.Options
+  -> BiosOptions
    -- ^ Options for the ghc-mod session. Since we only keep a single ghc-mod session
   -> IO (Scheduler m)
-newScheduler plugins ghcModOptions = do
+newScheduler plugins biosOpts = do
   cancelTVar  <- STM.atomically $ STM.newTVar Set.empty
   wipTVar     <- STM.atomically $ STM.newTVar Set.empty
   versionTVar <- STM.atomically $ STM.newTVar Map.empty
@@ -110,7 +110,7 @@ newScheduler plugins ghcModOptions = do
   ghcChan     <- Channel.newChan
   return $ Scheduler
     { plugins            = plugins
-    , ghcModOptions      = ghcModOptions
+    , biosOptions        = biosOpts
     , requestsToCancel   = cancelTVar
     , requestsInProgress = wipTVar
     , documentVersions   = versionTVar
@@ -152,7 +152,7 @@ runScheduler Scheduler {..} errorHandler callbackHandler mlf = do
 
   stateVar <- STM.newTVarIO initialState
 
-  let runGhcDisp = runIdeGhcM ghcModOptions plugins mlf stateVar $
+  let runGhcDisp = runIdeGhcM biosOptions plugins mlf stateVar $
                     ghcDispatcher dEnv errorHandler callbackHandler ghcChanOut
       runIdeDisp = runIdeM plugins mlf stateVar $
                     ideDispatcher dEnv errorHandler callbackHandler ideChanOut

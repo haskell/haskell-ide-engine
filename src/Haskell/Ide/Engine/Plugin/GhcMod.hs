@@ -41,7 +41,7 @@ import qualified GhcMod.Gap                        as GM
 import qualified GhcMod.SrcUtils                   as GM
 import qualified GhcMod.Types                      as GM
 import           Haskell.Ide.Engine.Ghc
-import           Haskell.Ide.Engine.MonadTypes
+import           Haskell.Ide.Engine.MonadTypes hiding (defaultOptions)
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Support.HieExtras as Hie
 import           Haskell.Ide.Engine.ArtifactMap

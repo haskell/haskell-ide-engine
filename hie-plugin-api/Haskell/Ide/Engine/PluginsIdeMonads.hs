@@ -75,6 +75,11 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , PublishDiagnosticsParams(..)
   , List(..)
   , FormattingOptions(..)
+  -- * Options
+  , BiosLogLevel(..)
+  , BiosOptions(..)
+  , defaultOptions
+  , mkGhcModOptions
   )
 where
 
@@ -84,7 +89,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Free
 
-import           Data.Aeson
+import           Data.Aeson                    hiding (defaultOptions)
 import qualified Data.ConstrainedDynamic       as CD
 import           Data.Default
 import qualified Data.List                     as List
@@ -107,11 +112,10 @@ import qualified DynFlags      as GHC
 import qualified GHC           as GHC
 import qualified HscTypes      as GHC
 
-
 import           Haskell.Ide.Engine.Compat
 import           Haskell.Ide.Engine.Config
-import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.GhcModuleCache
+import           Haskell.Ide.Engine.MultiThreadState
 
 import qualified Language.Haskell.LSP.Core     as Core
 import           Language.Haskell.LSP.Types.Capabilities
@@ -319,23 +323,24 @@ getDiagnosticProvidersConfig c = Map.fromList [("applyrefact",hlintOn c)
 type IdeGhcM = GM.GhcModT IdeM
 
 -- | Run an IdeGhcM with Cradle found from the current directory
-runIdeGhcM :: GM.Options -> IdePlugins -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeGhcM a -> IO a
-runIdeGhcM ghcModOptions plugins mlf stateVar f = do
+runIdeGhcM :: BiosOptions -> IdePlugins -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeGhcM a -> IO a
+runIdeGhcM biosOptions plugins mlf stateVar f = do
   env <- IdeEnv <$> pure mlf <*> getProcessID <*> pure plugins
+  let ghcModOptions = mkGhcModOptions biosOptions
   (eres, _) <- flip runReaderT stateVar $ flip runReaderT env $ GM.runGhcModT ghcModOptions f
   case eres of
       Left err  -> liftIO $ throwIO err
       Right res -> return res
 
 -- | Run an IdeGhcM in an external context (e.g. HaRe), with no plugins or LSP functions
-runIdeGhcMBare :: GM.Options -> IdeGhcM a -> IO a
-runIdeGhcMBare ghcModOptions f = do
+runIdeGhcMBare :: BiosOptions -> IdeGhcM a -> IO a
+runIdeGhcMBare biosOptions f = do
   let
     plugins  = IdePlugins Map.empty
     mlf      = Nothing
     initialState = IdeState emptyModuleCache Map.empty Map.empty Nothing
   stateVar <- newTVarIO initialState
-  runIdeGhcM ghcModOptions plugins mlf stateVar f
+  runIdeGhcM biosOptions plugins mlf stateVar f
 
 -- | A computation that is deferred until the module is cached.
 -- Note that the module may not typecheck, in which case 'UriCacheFailed' is passed
@@ -536,3 +541,45 @@ data IdeError = IdeError
 
 instance ToJSON IdeError
 instance FromJSON IdeError
+
+-- ---------------------------------------------------------------------
+-- Probably need to move this some time, but hitting import cycle issues
+
+data BiosLogLevel =
+    BlError
+  | BlWarning
+  | BlInfo
+  | BlDebug
+  | BlVomit
+    deriving (Eq, Ord, Enum, Bounded, Show, Read)
+
+data BiosOptions = BiosOptions {
+    boGhcUserOptions :: [String]
+  , boLogging        :: BiosLogLevel
+  } deriving Show
+
+defaultOptions :: BiosOptions
+defaultOptions = BiosOptions {
+    boGhcUserOptions = []
+  , boLogging        = BlWarning
+  }
+
+fmBiosLog :: BiosLogLevel -> GM.GmLogLevel
+fmBiosLog bl = case bl of
+  BlError   -> GM.GmError
+  BlWarning -> GM.GmWarning
+  BlInfo    -> GM.GmInfo
+  BlDebug   -> GM.GmDebug
+  BlVomit   -> GM.GmVomit
+
+-- ---------------------------------------------------------------------
+
+-- | Apply BiosOptions to default ghc-mod Options
+mkGhcModOptions :: BiosOptions -> GM.Options
+mkGhcModOptions bo = GM.defaultOptions
+  {
+    GM.optGhcUserOptions = boGhcUserOptions bo
+  , GM.optOutput = (GM.optOutput GM.defaultOptions) { GM.ooptLogLevel = fmBiosLog (boLogging bo) }
+  }
+
+-- ---------------------------------------------------------------------
