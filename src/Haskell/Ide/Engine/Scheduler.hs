@@ -100,7 +100,7 @@ newScheduler
   :: IdePlugins
      -- ^ The list of plugins that will be used for responding to requests
   -> BiosOptions
-   -- ^ Options for the ghc-mod session. Since we only keep a single ghc-mod session
+   -- ^ Options for the bios session. Since we only keep a single bios session
   -> IO (Scheduler m)
 newScheduler plugins biosOpts = do
   cancelTVar  <- STM.atomically $ STM.newTVar Set.empty
