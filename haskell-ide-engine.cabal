@@ -275,9 +275,10 @@ test-suite func-test
                      , data-default
                      , directory
                      , filepath
-                     , lsp-test == 0.5.1.*
+                     , lsp-test >= 0.5.2
                      , haskell-ide-engine
                      , haskell-lsp-types == 0.11.*
+                     , haskell-lsp == 0.11.*
                      , hie-test-utils
                      , hie-plugin-api
                      , hspec
