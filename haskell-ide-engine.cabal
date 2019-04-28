@@ -178,6 +178,8 @@ test-suite unit-test
                        HooglePluginSpec
                        JsonSpec
                        Spec
+  -- Technically cabal-helper should be a 'run-tool-depends', but that doesn't exist yet
+  build-tool-depends:  cabal-helper:cabal-helper-main, hspec-discover:hspec-discover
   build-depends:       QuickCheck
                      , aeson
                      , base
@@ -200,7 +202,6 @@ test-suite unit-test
   if flag(pedantic)
      ghc-options:      -Werror
   default-language:    Haskell2010
-  build-tool-depends:  hspec-discover:hspec-discover
 
 test-suite dispatcher-test
   type:                exitcode-stdio-1.0
@@ -269,8 +270,6 @@ test-suite func-test
                      , SymbolsSpec
                      , TypeDefinitionSpec
                      , Utils
-  -- This cannot currently be handled by hie (cabal-helper)
-  -- build-tool-depends:  haskell-ide-engine:hie
   build-depends:       aeson
                      , base
                      , data-default
@@ -290,6 +289,8 @@ test-suite func-test
      ghc-options:      -Werror
   default-language:    Haskell2010
   build-tool-depends:  hspec-discover:hspec-discover
+                     , haskell-ide-engine:hie
+                     , cabal-helper:cabal-helper-main
 
 test-suite wrapper-test
   type:                exitcode-stdio-1.0

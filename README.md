@@ -311,7 +311,7 @@ in
   packageOverrides = pkgs: rec {
 
     vscode = pkgs.vscode.overrideDerivation (old: {
-      postFixup = old.postFixup + ''
+      postFixup = ''
         wrapProgram $out/bin/code --prefix PATH : ${lib.makeBinPath [hie]}
       '';
     });
