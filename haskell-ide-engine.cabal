@@ -78,6 +78,7 @@ library
                      , hoogle >= 5.0.13
                      , hsimport
                      , hslogger
+                     , lifted-async
                      , lens >= 4.15.2
                      , monad-control
                      , monoid-subclasses > 0.4

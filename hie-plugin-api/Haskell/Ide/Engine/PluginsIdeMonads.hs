@@ -59,7 +59,6 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , getPlugins
   , withProgress
   , withIndefiniteProgress
-  , withIndefiniteProgressIO
   , Core.Progress(..)
   , Core.ProgressCancellable(..)
   -- ** Lifting
@@ -425,17 +424,6 @@ withIndefiniteProgress t c f = do
   case mWp of
     Nothing -> f
     Just wp -> control $ \run -> wp t c (run f)
-
--- | 'withIndefiniteProgressIO' @title cancellable f@ is the same as the 'withIndefiniteProgress' but
--- for actions restricted to IO
-withIndefiniteProgressIO :: MonadIde m
-                         => m (T.Text -> Core.ProgressCancellable -> IO a -> IO a)
-withIndefiniteProgressIO = do
-  lf <- ideEnvLspFuncs <$> getIdeEnv
-  let mWp = Core.withIndefiniteProgress <$> lf
-  case mWp of
-    Nothing -> return (const . const id)
-    Just wp -> return wp
 
 data IdeState = IdeState
   { moduleCache :: GhcModuleCache
