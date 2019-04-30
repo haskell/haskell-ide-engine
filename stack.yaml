@@ -1,4 +1,4 @@
-resolver: nightly-2019-04-05 # GHC 8.6.4
+resolver: nightly-2019-04-30 # GHC 8.6.4
 packages:
 - .
 - hie-plugin-api
@@ -20,7 +20,6 @@ extra-deps:
 - haddock-api-2.22.0
 - haskell-lsp-0.9.0.0
 - haskell-lsp-types-0.9.0.0
-- haskell-src-exts-util-0.2.5
 - hlint-2.1.17
 - hsimport-0.8.8
 - lsp-test-0.5.1.1
