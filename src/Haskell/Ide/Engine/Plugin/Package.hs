@@ -107,7 +107,7 @@ addCmd = CmdSync $ \(AddParams rootDir modulePath pkg) -> do
 
 data PackageType = CabalPackage FilePath -- ^ Location of Cabal File.
                  | HpackPackage FilePath -- ^ Location of `package.yaml`
-                 | NoPackage -- ^ No package format ahs been found.
+                 | NoPackage -- ^ No package format has been found.
 
 -- | Find the package type the project with the given root uses.
 -- Might have weird results if there is more than one cabal package specification
