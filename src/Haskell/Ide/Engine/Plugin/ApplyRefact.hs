@@ -6,6 +6,7 @@ module Haskell.Ide.Engine.Plugin.ApplyRefact where
 
 import           Control.Arrow
 import           Control.Exception              ( IOException
+                                                , SomeException
                                                 , try
                                                 )
 import           Control.Lens            hiding ( List )
@@ -251,10 +252,15 @@ applyHint fp mhint fileMap = do
     -- If we provide "applyRefactorings" with "Just (1,13)" then
     -- the "Redundant bracket" hint will never be executed
     -- because SrcSpan (1,20,??,??) doesn't contain position (1,13).
-    appliedFile <- liftIO $ applyRefactorings Nothing commands fp
-    diff <- ExceptT $ Right <$> makeDiffResult fp (T.pack appliedFile) fileMap
-    liftIO $ logm $ "applyHint:diff=" ++ show diff
-    return diff
+    res <- liftIO
+      (try $ applyRefactorings Nothing commands fp :: IO (Either SomeException String))
+    case res of
+      Right appliedFile -> do
+        diff <- ExceptT $ Right <$> makeDiffResult fp (T.pack appliedFile) fileMap
+        liftIO $ logm $ "applyHint:diff=" ++ show diff
+        return diff
+      Left err ->
+        throwE (show err)
 
 -- | Gets HLint ideas for
 getIdeas :: MonadIO m => FilePath -> Maybe OneHint -> ExceptT String m [Idea]
