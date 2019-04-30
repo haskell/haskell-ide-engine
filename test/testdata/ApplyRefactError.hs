@@ -1,2 +1,2 @@
-hoge :: forall a. (a -> a) -> a -> a
-hoge f x = f $ x
+foo :: forall a. (a -> a) -> a -> a
+foo f x = f $ x
