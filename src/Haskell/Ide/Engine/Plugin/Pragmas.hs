@@ -60,8 +60,6 @@ addPragmaCmd = CmdSync $ \(AddPragmaParams uri pragmaName) -> do
 
 -- | Offer to add a missing Language Pragma to the top of a file.
 -- Pragmas are defined by a curated list of known pragmas, see 'possiblePragmas'.
--- May also offer to add unknown pragmas, if the pragma is a subexpression of
--- an existing plugin.
 codeActionProvider :: CodeActionProvider
 codeActionProvider plId docId _ (J.CodeActionContext (J.List diags) _monly) = do
   cmds <- mapM mkCommand pragmas
@@ -83,7 +81,7 @@ codeActionProvider plId docId _ (J.CodeActionContext (J.List diags) _monly) = do
 
 -- ---------------------------------------------------------------------
 
--- | Find all Pragmas that have the search term as infix.
+-- | Find all Pragmas are an infix of the search term.
 findPragma :: T.Text -> [T.Text]
 findPragma str = concatMap check possiblePragmas
   where
@@ -91,7 +89,7 @@ findPragma str = concatMap check possiblePragmas
 
 -- ---------------------------------------------------------------------
 
--- | Possible Pragama names.
+-- | Possible Pragma names.
 -- Is non-exhaustive, and may be extended.
 possiblePragmas :: [T.Text]
 possiblePragmas =
