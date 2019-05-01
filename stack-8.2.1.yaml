@@ -22,7 +22,7 @@ extra-deps:
 - haskell-lsp-0.9.0.0
 - haskell-lsp-types-0.9.0.0
 - hlint-2.0.11
-- hsimport-0.8.6
+- hsimport-0.8.8
 - lsp-test-0.5.1.1
 - monad-dijkstra-0.1.1.2
 - mtl-2.2.2
