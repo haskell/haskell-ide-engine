@@ -1,4 +1,4 @@
-resolver: lts-13.15 # GHC 8.6.4
+resolver: lts-13.19 # GHC 8.6.4
 packages:
 - .
 - hie-plugin-api
@@ -18,7 +18,6 @@ extra-deps:
 - haskell-lsp-0.11.0.0
 - haskell-lsp-types-0.11.0.0
 - haskell-src-exts-1.21.0
-- haskell-src-exts-util-0.2.5
 - hlint-2.1.17
 - hoogle-5.0.17.6
 - hsimport-0.8.8

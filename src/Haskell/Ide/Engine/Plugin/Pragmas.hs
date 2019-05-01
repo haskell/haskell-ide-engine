@@ -32,12 +32,17 @@ pragmasDescriptor plId = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
+-- | Parameters for the addPragma PluginCommand.
 data AddPragmaParams = AddPragmaParams
-  { file   :: Uri
-  , pragma :: T.Text
+  { file   :: Uri    -- ^ Uri of the file to add the pragma to
+  , pragma :: T.Text -- ^ Name of the Pragma to add
   }
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
+-- | Add a Pragma to the given URI at the top of the file.
+-- Pragma is added to the first line of the Uri.
+-- It is assumed that the pragma name is a valid pragma,
+-- thus, not validated.
 addPragmaCmd :: CommandFunc AddPragmaParams J.WorkspaceEdit
 addPragmaCmd = CmdSync $ \(AddPragmaParams uri pragmaName) -> do
   let
@@ -53,15 +58,20 @@ addPragmaCmd = CmdSync $ \(AddPragmaParams uri pragmaName) -> do
 
 -- ---------------------------------------------------------------------
 
+-- | Offer to add a missing Language Pragma to the top of a file.
+-- Pragmas are defined by a curated list of known pragmas, see 'possiblePragmas'.
 codeActionProvider :: CodeActionProvider
 codeActionProvider plId docId _ (J.CodeActionContext (J.List diags) _monly) = do
   cmds <- mapM mkCommand pragmas
   return $ IdeResultOk cmds
   where
+    -- Filter diagnostics that are from ghcmod
     ghcDiags = filter (\d -> d ^. J.source == Just "ghcmod") diags
+    -- Get all potential Pragmas for all diagnostics.
     pragmas = concatMap (\d -> findPragma (d ^. J.message)) ghcDiags
     mkCommand pragmaName = do
       let
+        -- | Code Action for the given command.
         codeAction :: J.Command -> J.CodeAction
         codeAction cmd = J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [])) Nothing (Just cmd)
         title = "Add \"" <> pragmaName <> "\""
@@ -71,6 +81,7 @@ codeActionProvider plId docId _ (J.CodeActionContext (J.List diags) _monly) = do
 
 -- ---------------------------------------------------------------------
 
+-- | Find all Pragmas are an infix of the search term.
 findPragma :: T.Text -> [T.Text]
 findPragma str = concatMap check possiblePragmas
   where
@@ -78,6 +89,8 @@ findPragma str = concatMap check possiblePragmas
 
 -- ---------------------------------------------------------------------
 
+-- | Possible Pragma names.
+-- Is non-exhaustive, and may be extended.
 possiblePragmas :: [T.Text]
 possiblePragmas =
   [
