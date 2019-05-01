@@ -231,6 +231,35 @@ spec = describe "code actions" $ do
           T.lines contents !! 12 `shouldNotSatisfy` T.isSuffixOf "zlib"
           T.lines contents !! 13 `shouldNotSatisfy` T.isSuffixOf "zlib"
 
+    it "adds to hpack package.yaml files if both are present" $
+      runSession hieCommand fullCaps "test/testdata/addPackageTest/hybrid" $ do
+        doc <- openDoc "app/Asdf.hs" "haskell"
+
+        -- ignore the first empty hlint diagnostic publish
+        [_,diag:_] <- count 2 waitForDiagnostics
+
+        let preds = [ T.isPrefixOf "Could not load module ‘Codec.Compression.GZip’"
+                    , T.isPrefixOf "Could not find module ‘Codec.Compression.GZip’"
+                    ]
+          in liftIO $ diag ^. L.message `shouldSatisfy` \x -> any (\f -> f x) preds
+
+        mActions <- getAllCodeActions doc
+        let allActions = map fromAction mActions
+            action = head allActions
+
+        liftIO $ do
+          action ^. L.title `shouldBe` "Add zlib as a dependency"
+          forM_ allActions $ \a -> a ^. L.kind `shouldBe` Just CodeActionQuickFix
+          forM_ allActions $ \a -> a ^. L.command . _Just . L.command `shouldSatisfy` T.isSuffixOf "package:add"
+
+        executeCodeAction action
+
+        contents <- getDocumentEdit . TextDocumentIdentifier =<< getDocUri "package.yaml"
+        liftIO $ do
+          T.lines contents !! 33 `shouldSatisfy` T.isSuffixOf "zlib"
+          T.lines contents !! 12 `shouldNotSatisfy` T.isSuffixOf "zlib"
+          T.lines contents !! 13 `shouldNotSatisfy` T.isSuffixOf "zlib"
+
   -- -----------------------------------
 
   describe "redundant import code actions" $ do

@@ -174,10 +174,11 @@ test-suite unit-test
                        DiffSpec
                        ExtensibleStateSpec
                        GhcModPluginSpec
-                       LiquidSpec
                        HaRePluginSpec
                        HooglePluginSpec
                        JsonSpec
+                       LiquidSpec
+                       PackagePluginSpec
                        Spec
   -- Technically cabal-helper should be a 'run-tool-depends', but that doesn't exist yet
   build-tool-depends:  cabal-helper:cabal-helper-main, hspec-discover:hspec-discover

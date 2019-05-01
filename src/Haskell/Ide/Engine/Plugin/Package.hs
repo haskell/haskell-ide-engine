@@ -67,7 +67,7 @@ data AddParams = AddParams
   { rootDirParam   :: FilePath   -- ^ The root directory.
   , fileParam      :: ModulePath -- ^ A path to a module inside the
                                  -- library/executable/test-suite you want to
-                                 -- add the package to. May be a realtive oir
+                                 -- add the package to. May be a relative or
                                  -- absolute path, thus, must be normalised.
   , packageParam   :: Package    -- ^ The name of the package to add.
   }
@@ -88,8 +88,14 @@ type Package = T.Text
 -- Supported are `*.cabal` and `package.yaml` specifications.
 -- Moreover, may fail with an IOException in case of a filesystem problem.
 addCmd :: CommandFunc AddParams J.WorkspaceEdit
-addCmd = CmdSync $ \(AddParams rootDir modulePath pkg) -> do
+addCmd = CmdSync addCmd'
 
+-- | Add a package to the project's dependencies.
+-- May fail if no project dependency specification can be found.
+-- Supported are `*.cabal` and `package.yaml` specifications.
+-- Moreover, may fail with an IOException in case of a filesystem problem.
+addCmd' :: AddParams -> IdeGhcM (IdeResult J.WorkspaceEdit)
+addCmd' (AddParams rootDir modulePath pkg) = do
   packageType <- liftIO $ findPackageType rootDir
   fileMap <- GM.mkRevRedirMapFunc
 
@@ -105,9 +111,10 @@ addCmd = CmdSync $ \(AddParams rootDir modulePath pkg) -> do
       liftToGhc $ editHpackPackage absFp relModulePath pkg
     NoPackage -> return $ IdeResultFail (IdeError PluginError "No package.yaml or .cabal found" Null)
 
-data PackageType = CabalPackage FilePath -- ^ Location of Cabal File.
-                 | HpackPackage FilePath -- ^ Location of `package.yaml`
+data PackageType = CabalPackage FilePath -- ^ Location of Cabal File. May be relative.
+                 | HpackPackage FilePath -- ^ Location of `package.yaml`. May be relative.
                  | NoPackage -- ^ No package format has been found.
+                 deriving (Show, Eq)
 
 -- | Find the package type the project with the given root uses.
 -- Might have weird results if there is more than one cabal package specification
