@@ -69,7 +69,7 @@ data AddParams = AddParams
                                  -- library/executable/test-suite you want to
                                  -- add the package to. May be a realtive oir
                                  -- absolute path, thus, must be normalised.
-  , packageParam   :: T.Text     -- ^ The name of the package to add.
+  , packageParam   :: Package    -- ^ The name of the package to add.
   }
   deriving (Eq, Show, Read, Generic, ToJSON, FromJSON)
 
@@ -296,7 +296,7 @@ codeActionProvider plId docId _ context = do
     concatPkgs = concatMap (\(d, ts) -> map (d,) ts)
 
     -- | Create the Add Package Action with the given diagnostics and the found package name.
-    mkAddPackageAction :: Maybe FilePath -> J.Diagnostic -> T.Text -> IdeM (Maybe J.CodeAction)
+    mkAddPackageAction :: Maybe FilePath -> J.Diagnostic -> Package -> IdeM (Maybe J.CodeAction)
     mkAddPackageAction mRootDir diag pkgName = case (mRootDir, J.uriToFilePath (docId ^. J.uri)) of
      (Just rootDir, Just docFp) -> do
        let title = "Add " <> pkgName <> " as a dependency"
@@ -305,12 +305,12 @@ codeActionProvider plId docId _ context = do
        return $ Just (J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [diag])) Nothing (Just cmd))
      _ -> return Nothing
 
-    getAddablePackages :: J.Diagnostic -> Maybe (J.Diagnostic, T.Text)
+    getAddablePackages :: J.Diagnostic -> Maybe (J.Diagnostic, Package)
     getAddablePackages diag@(J.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractModuleName msg
     getAddablePackages _ = Nothing
 
 -- | Extract a module name from an error message.
-extractModuleName :: T.Text -> Maybe T.Text
+extractModuleName :: T.Text -> Maybe Package
 extractModuleName msg
   | T.isPrefixOf "Could not find module " msg = Just $ T.tail $ T.init nameAndQuotes
   | T.isPrefixOf "Could not load module " msg = Just $ T.tail $ T.init nameAndQuotes
