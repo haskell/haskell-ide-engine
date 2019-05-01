@@ -9,6 +9,7 @@ import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Default
 import qualified Data.HashMap.Strict as HM
+import qualified Data.Set as Set
 import           Data.Maybe
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
@@ -546,7 +547,7 @@ hsImportSpec formatterName [e1, e2, e3] =
       executeAllCodeActions doc wantedCodeActionTitles
 
       contents <- documentContents doc
-      liftIO $ T.lines contents `shouldBe` e3
+      liftIO $ Set.fromList (T.lines contents) `shouldBe` Set.fromList e3
 
     it "respects format config, multiple import-list" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImportList.hs" "haskell"
@@ -561,18 +562,18 @@ hsImportSpec formatterName [e1, e2, e3] =
                                    ]
 
       executeAllCodeActions doc wantedCodeActionTitles
-
       contents <- documentContents doc
-      liftIO $ T.lines contents `shouldBe`
-        [ "import System.IO (stdout, hPutStrLn)"
-        , "import Control.Monad (when)"
-        , "import Data.Maybe (fromMaybe)"
-        , "main :: IO ()"
-        , "main ="
-        , "    when True"
-        , "        $ hPutStrLn stdout"
-        , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
-        ]
+      liftIO $ Set.fromList (T.lines contents) `shouldBe`
+        Set.fromList
+          [ "import System.IO (stdout, hPutStrLn)"
+          , "import Control.Monad (when)"
+          , "import Data.Maybe (fromMaybe)"
+          , "main :: IO ()"
+          , "main ="
+          , "    when True"
+          , "        $ hPutStrLn stdout"
+          , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
+          ]
     it "respects format config" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
       _ <- waitForDiagnosticsSource "ghcmod"
