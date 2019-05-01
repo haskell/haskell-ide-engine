@@ -1,3 +1,44 @@
+# 0.9.0.0
+
+- GHC 8.6.5 preliminary support added via the nightly build (@alanz)
+- Add `diagnosticsOnChange` config parameter, default `True`
+  (preserving prior hie behaviour). Setting it `False` only generates
+  diagnostics on file save. (#1164, @mpickering/@lorenzo)
+- The `Hsimport` plugin now formats the resulting change using the
+  formatter configured for hie. (#1167,@fendor)
+- Actually enable type definition requests, if supported by the client
+  (e.g. vscode). (#1169/@fendor, #1172/@bubba)
+- Use LSP MarkupContent for generated documentation (#1181, @alanz)
+- remove installation of Cabal by cabal (#1184, @power-fungus)
+- Add EmptyDataDecls to available pragmas, for generating code actions
+  to insert if needed. (#1187,@fendor)
+- Make sure the end of formatted text is properly indicated for marked
+  up documentation (#1189, @alanz)
+- Fix some of the tests with cabal new-build (#1194, @michaelpj)
+- Update build-tool-depends for func-test (#1198, @bubba)
+- Fix version of lsp-test so `cabal new-build` works (#1211, @power-fungus)
+- Bump hlint to 2.1.17 (#1213, @alanz)
+- Use cabal helper that searches with exe extension on windows (#1217, @alanz)
+
+- Stability improvements
+  - Avoid crash in case of nonsensical hoogle db (#1174, @fendor)
+  - Prevent hie crash if apply-refact crashes (#1220, @Hogeyama)
+
+- Documentation improvements
+  - Improve code documentation about formatters (#1165,@fendor)
+  - Add code documentation for the Hoogle plugin (#1173,@fendor)
+  - Change 'build-docs' to 'build-doc' in README (#1185, @ajeetdsouza)
+  - README Nix - replace old.postFixup -> postFixup (#1193, @backuitist)
+  - Expand documentation on the build system (#1200, @power-fungus)
+  - Fixed a typo. (#1212, @rashadg1030)
+  - Add documentation about building hie with profiling
+    enabled. (#1225, @skress)
+  - Add Documentation for Pragmas Plugin (#1222, @fendor)
+
+- Build system improvements
+  - Further improvements and simplification of the `./install.hs`
+    build system (#1168, @power-fungus)
+
 # 0.8.0.0
 
 - GHC 8.6.4 support added.
