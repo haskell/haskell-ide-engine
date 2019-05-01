@@ -76,7 +76,7 @@ data AddParams = AddParams
 -- | FilePath to a cabal package description file.
 type CabalFilePath = FilePath
 -- | FilePath to a package.yaml package description file.
-type PackageYamlFilePath = FilePath
+type HpackFilePath = FilePath
 -- | FilePath to a module within the project.
 -- May be used to establish what component the dependency shall be added to.
 type ModulePath = FilePath
@@ -140,8 +140,8 @@ findPackageType rootDir = do
 -- Currently does not preserve format.
 -- Keep an eye out on this other GSOC project!
 -- https://github.com/wisn/format-preserving-yaml
-editHpackPackage :: PackageYamlFilePath -- ^ Path to the package.yaml file
-                                        -- containing the package description.
+editHpackPackage :: HpackFilePath -- ^ Path to the package.yaml file
+                                  -- containing the package description.
                  -> ModulePath -- ^ Path to the module where the command has
                                -- been issued in.
                                -- Used to find out what component the
