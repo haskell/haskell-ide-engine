@@ -59,6 +59,7 @@ we talk to clients.__
       - [Is \<package\> base-x?](#is-package-base-x)
       - [Is there a hash (#) after \<package\>?](#is-there-a-hash--after-package)
       - [Otherwise](#otherwise)
+    - [Nix: cabal-helper, No such file or directory](#nix-cabal-helper-no-such-file-or-directory)
 
 ## Features
 
@@ -597,3 +598,16 @@ Delete any `.ghc.environment*` files in your project root and try again. (At the
 
 #### Otherwise
 Try running `cabal update`.
+
+### Nix: cabal-helper, No such file or directory
+
+An error on stderr like
+
+```
+cabal-helper-wrapper: /home/<...>/.cache/cabal-helper/cabal-helper<...>: createProcess: runInteractiveProcess:
+  exec: does not exist (No such file or directory)
+```
+
+can happen because cabal-helper compiles and runs above executable at runtime without using nix-build, which means a Nix garbage collection can delete the paths it depends on. Delete ~/.cache/cabal-helper and restart HIE to fix this.
+
+
