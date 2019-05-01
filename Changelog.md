@@ -1,6 +1,7 @@
 # 0.9.0.0
 
 - GHC 8.6.5 preliminary support added via the nightly build (@alanz)
+- Bump 8.6.4 snapshot (@alanz)
 - Add `diagnosticsOnChange` config parameter, default `True`
   (preserving prior hie behaviour). Setting it `False` only generates
   diagnostics on file save. ([#1164](https://github.com/haskell/haskell-ide-engine/pull/1164), @mpickering/@lorenzo)
