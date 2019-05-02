@@ -177,7 +177,7 @@ spec = describe "code actions" $ do
         ]
       ]
   describe "add package suggestions" $ do
-    it "adds to .cabal files" $ runSession hieCommand fullCaps "test/testdata/addPackageTest/cabal" $ do
+    it "adds to .cabal files" $ runSession hieCommand fullCaps "test/testdata/addPackageTest/cabal-exe" $ do
       doc <- openDoc "AddPackage.hs" "haskell"
 
       -- ignore the first empty hlint diagnostic publish
@@ -203,7 +203,7 @@ spec = describe "code actions" $ do
       liftIO $ T.lines contents `shouldSatisfy` \x -> any (\l -> "text -any" `T.isSuffixOf` (x !! l)) [15, 16]
 
     it "adds to hpack package.yaml files" $
-      runSession hieCommand fullCaps "test/testdata/addPackageTest/hpack" $ do
+      runSession hieCommand fullCaps "test/testdata/addPackageTest/hpack-exe" $ do
         doc <- openDoc "app/Asdf.hs" "haskell"
 
         -- ignore the first empty hlint diagnostic publish
@@ -232,7 +232,7 @@ spec = describe "code actions" $ do
           T.lines contents !! 13 `shouldNotSatisfy` T.isSuffixOf "zlib"
 
     it "adds to hpack package.yaml files if both are present" $
-      runSession hieCommand fullCaps "test/testdata/addPackageTest/hybrid" $ do
+      runSession hieCommand fullCaps "test/testdata/addPackageTest/hybrid-exe" $ do
         doc <- openDoc "app/Asdf.hs" "haskell"
 
         -- ignore the first empty hlint diagnostic publish
