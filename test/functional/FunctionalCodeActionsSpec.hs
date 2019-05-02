@@ -227,9 +227,8 @@ spec = describe "code actions" $ do
 
         contents <- getDocumentEdit . TextDocumentIdentifier =<< getDocUri "package.yaml"
         liftIO $ do
-          T.lines contents !! 33 `shouldSatisfy` T.isSuffixOf "zlib"
-          T.lines contents !! 12 `shouldNotSatisfy` T.isSuffixOf "zlib"
-          T.lines contents !! 13 `shouldNotSatisfy` T.isSuffixOf "zlib"
+          T.lines contents !! 3 `shouldSatisfy` T.isSuffixOf "zlib"
+          T.lines contents !! 21 `shouldNotSatisfy` T.isSuffixOf "zlib"
 
     it "adds to hpack package.yaml files if both are present" $
       runSession hieCommand fullCaps "test/testdata/addPackageTest/hybrid-exe" $ do
@@ -256,9 +255,9 @@ spec = describe "code actions" $ do
 
         contents <- getDocumentEdit . TextDocumentIdentifier =<< getDocUri "package.yaml"
         liftIO $ do
-          T.lines contents !! 33 `shouldSatisfy` T.isSuffixOf "zlib"
-          T.lines contents !! 12 `shouldNotSatisfy` T.isSuffixOf "zlib"
-          T.lines contents !! 13 `shouldNotSatisfy` T.isSuffixOf "zlib"
+          T.lines contents !! 23 `shouldSatisfy` T.isSuffixOf "zlib"
+          T.lines contents !! 5 `shouldNotSatisfy` T.isSuffixOf "zlib"
+          T.lines contents !! 6 `shouldNotSatisfy` T.isSuffixOf "zlib"
 
   -- -----------------------------------
 
