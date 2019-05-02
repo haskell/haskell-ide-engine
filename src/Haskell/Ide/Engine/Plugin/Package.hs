@@ -186,8 +186,10 @@ editHpackPackage fp modulePath pkgName = do
 
     mapMainDependencies :: (Value -> Value) -> Object -> Object
     mapMainDependencies f o =
-      let g "dependencies" = f
-          g _              = id
+      let g :: T.Text -> Value -> Value
+          g "dependencies" x = f x
+          g "library" (Y.Object o') = Y.Object (mapMainDependencies f o')
+          g _ x = x
       in HM.mapWithKey g o
 
     mapComponentTypes :: (Value -> Value) -> Object -> Object

@@ -130,12 +130,11 @@ packageSpec = do
             res  = IdeResultOk
               $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
             textEdits = List
-              [ TextEdit (Range (Position 0 0) (Position 37 0)) $ T.concat
-                  [ "library:\n"
-                  , "  source-dirs: src\n"
-                  , "copyright: 2018 Author name here\n"
+              [ TextEdit (Range (Position 0 0) (Position 34 0)) $ T.concat
+                  [ "copyright: 2018 Author name here\n"
                   , "maintainer: example@example.com\n"
                   , "dependencies:\n"
+                  , "- zlib\n"
                   , "- base >= 4.7 && < 5\n"
                   , "name: asdf\n"
                   , "version: 0.1.0.0\n"
@@ -176,8 +175,8 @@ packageSpec = do
                   [ "library:\n"
                   , "  source-dirs: app\n"
                   , "  dependencies:\n"
+                  , "  - zlib\n"
                   , "  - base >= 4.7 && < 5\n"
-                  , "  - asdf\n"
                   , "copyright: 2018 Author name here\n"
                   , "maintainer: example@example.com\n"
                   , "name: asdf\n"
@@ -249,8 +248,8 @@ packageSpec = do
                   [ "library:\n"
                   , "  source-dirs: app\n"
                   , "  dependencies:\n"
+                  , "  - zlib\n"
                   , "  - base >= 4.7 && < 5\n"
-                  , "  - asdf\n"
                   , "copyright: 2018 Author name here\n"
                   , "maintainer: example@example.com\n"
                   , "name: asdf\n"
