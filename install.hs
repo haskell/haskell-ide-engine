@@ -222,7 +222,7 @@ cabalInstallHie versionNumber = do
 
 cabalBuildDoc :: Action ()
 cabalBuildDoc = do
-  execCabal_ ["new-build", "hoogle", "generate"]
+  execCabal_ ["new-build", "hoogle"]
   execCabal_ ["new-exec", "hoogle", "generate"]
 
 cabalTest :: VersionNumber -> Action ()
