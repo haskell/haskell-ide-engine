@@ -1,0 +1,5 @@
+jobs:
+- template: ./.azure/linux-stack.yml
+  parameters:
+    name: Linux_Stack
+    vmImage: ubuntu-16.04
