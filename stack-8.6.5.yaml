@@ -18,11 +18,11 @@ extra-deps:
 - deque-0.2.7
 - ghc-exactprint-0.5.8.2
 - haddock-api-2.22.0
-- haskell-lsp-0.9.0.0
-- haskell-lsp-types-0.9.0.0
+- haskell-lsp-0.11.0.0
+- haskell-lsp-types-0.11.0.0
 - hlint-2.1.17
 - hsimport-0.8.8
-- lsp-test-0.5.1.1
+- lsp-test-0.5.2.0
 - monad-dijkstra-0.1.1.2@rev:1
 - monad-memo-0.4.1
 - multistate-0.8.0.1
