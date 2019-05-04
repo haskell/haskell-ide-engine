@@ -35,9 +35,9 @@ provider contents uri typ _opts =
   pluginGetFile "Floskell: " uri $ \file -> do
     config <- liftIO $ findConfigOrDefault file
     let (range, selectedContents) = case typ of
-          FormatDocument -> (fullRange contents, contents)
-          FormatRange r  -> (r, extractRange r contents)
-        result = reformat config (uriToFilePath uri) (BS.fromStrict (T.encodeUtf8 selectedContents))
+          FormatText    -> (fullRange contents, contents)
+          FormatRange r -> (r, extractRange r contents)
+        result = reformat config (Just file) (BS.fromStrict (T.encodeUtf8 selectedContents))
     case result of
       Left  err -> return $ IdeResultFail (IdeError PluginError (T.pack $  "floskellCmd: " ++ err) Null)
       Right new -> return $ IdeResultOk [TextEdit range (T.decodeUtf8 (BS.toStrict new))]

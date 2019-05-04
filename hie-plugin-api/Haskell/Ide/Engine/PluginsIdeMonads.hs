@@ -207,15 +207,18 @@ type HoverProvider = Uri -> Position -> IdeM (IdeResult [Hover])
 
 type SymbolProvider = Uri -> IdeDeferM (IdeResult [DocumentSymbol])
 
--- | Format the document either as a whole or only a given Range of it.
-data FormattingType = FormatDocument
+-- | Format the given Text as a whole or only a @Range@ of it.
+-- Range must be relative to the text to format.
+-- To format the whole document, read the Text from the file and use 'FormatText'
+-- as the FormattingType.
+data FormattingType = FormatText
                     | FormatRange Range
 
 -- | Formats the given Text associated with the given Uri.
--- Should, but might not, honor the provided formatting options (e.g. Floskell does not).
--- A formatting type can be given to either format the whole document or only a Range.
--- 
--- Text to format, may or may not, originate from the associated Uri. 
+-- Should, but might not, honour the provided formatting options (e.g. Floskell does not).
+-- A formatting type can be given to either format the whole text or only a Range.
+--
+-- Text to format, may or may not, originate from the associated Uri.
 -- E.g. it is ok, to modify the text and then reformat it through this API.
 --
 -- The Uri is mainly used to discover formatting configurations in the file's path.
@@ -224,6 +227,11 @@ data FormattingType = FormatDocument
 -- Failing means here that a IdeResultFail is returned.
 -- This can be used to display errors to the user, unless the error is an Internal one.
 -- The record 'IdeError' and 'IdeErrorCode' can be used to determine the type of error.
+--
+--
+-- To format a whole document, the 'FormatText' @FormattingType@ can be used.
+-- It is required to pass in the whole Document Text for that to happen, an empty text
+-- and file uri, does not suffice.
 type FormattingProvider = T.Text -- ^ Text to format
         -> Uri -- ^ Uri of the file being formatted
         -> FormattingType  -- ^ How much to format

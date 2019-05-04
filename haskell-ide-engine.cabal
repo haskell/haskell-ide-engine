@@ -283,6 +283,7 @@ test-suite func-test
                      , lens
                      , text
                      , unordered-containers
+                     , containers
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror
