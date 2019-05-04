@@ -35,6 +35,7 @@ import qualified GhcMod.Utils                      as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
+import           System.FilePath
 
 import           DynFlags
 import           GHC
@@ -164,14 +165,16 @@ setTypecheckedModule uri =
     rfm <- GM.mkRevRedirMapFunc
     let
       ghcErrRes msg = ((Map.empty, [T.pack msg]),Nothing,Nothing)
+      progTitle = "Typechecking " <> T.pack (takeFileName fp)
     debugm "setTypecheckedModule: before ghc-mod"
     -- TODO:AZ: loading this one module may/should trigger loads of any
     -- other modules which currently have a VFS entry.  Need to make
     -- sure that their diagnostics are reported, and their module
     -- cache entries are updated.
-    ((diags', errs), mtm, mpm) <- GM.gcatches
-                              (GM.getModulesGhc' (myWrapper rfm) fp)
-                              (errorHandlers ghcErrRes (return . ghcErrRes . show))
+    -- TODO: Are there any hooks we can use to report back on the progress?
+    ((diags', errs), mtm, mpm) <- withIndefiniteProgress progTitle NotCancellable $ GM.gcatches
+      (GM.getModulesGhc' (myWrapper rfm) fp)
+      (errorHandlers ghcErrRes (return . ghcErrRes . show))
     debugm "setTypecheckedModule: after ghc-mod"
 
     canonUri <- canonicalizeUri uri

@@ -42,7 +42,7 @@ module Haskell.Ide.Engine.PluginApi
   , HIE.IdeM
   , HIE.runIdeM
   , HIE.IdeDeferM
-  , HIE.MonadIde(..)
+  , HIE.MonadIde
   , HIE.iterT
   , HIE.LiftsToGhc(..)
   , HIE.HasGhcModuleCache(..)
