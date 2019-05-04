@@ -70,9 +70,7 @@ defaults: &defaults
           - ~/build/submodules/brittany/.stack-work
           - ~/build/submodules/ghc-mod/core/.stack-work
           - ~/build/submodules/ghc-mod/.stack-work
-          - ~/build/submodules/haskell-lsp/.stack-work
           - ~/build/submodules/cabal-helper/.stack-work
-          - ~/build/submodules/floskell/.stack-work
 
     - run:
         name: Test

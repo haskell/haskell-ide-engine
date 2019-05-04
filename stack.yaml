@@ -7,7 +7,6 @@ extra-deps:
 - ./submodules/HaRe
 - ./submodules/brittany
 - ./submodules/cabal-helper
-- ./submodules/floskell
 - ./submodules/ghc-mod
 - ./submodules/ghc-mod/core
 
@@ -16,6 +15,7 @@ extra-deps:
 - cabal-plan-0.4.0.0
 - constrained-dynamic-0.1.0.0
 - deque-0.2.7
+- floskell-0.10.0
 - ghc-exactprint-0.5.8.2
 - haddock-api-2.22.0
 - haskell-lsp-0.11.0.0

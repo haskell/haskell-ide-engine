@@ -5,7 +5,6 @@ packages:
          ./submodules/HaRe
          ./submodules/brittany
          ./submodules/cabal-helper/
-         ./submodules/floskell
          ./submodules/ghc-mod/
          ./submodules/ghc-mod/core/
 
