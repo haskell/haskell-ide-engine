@@ -42,6 +42,7 @@ import qualified GhcMod.Utils  as GM
 import qualified GHC           as GHC
 
 import           Haskell.Ide.Engine.ArtifactMap
+import           Haskell.Ide.Engine.TypeMap
 import           Haskell.Ide.Engine.GhcModuleCache
 import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.PluginsIdeMonads
