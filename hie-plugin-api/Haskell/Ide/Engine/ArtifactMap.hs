@@ -10,7 +10,6 @@ import           GHC                               (TypecheckedModule)
 import qualified SrcLoc                            as GHC
 import qualified Var
 import qualified GhcMod.Gap                        as GM
-import           GhcMod.SrcUtils
 
 import           Language.Haskell.LSP.Types
 
@@ -32,15 +31,6 @@ genIntervalMap ts = foldr go IM.empty ts
     go (l,h,x) im = IM.insert (IM.Interval l h) x im
 
 -- ---------------------------------------------------------------------
-
-genTypeMap :: GHC.GhcMonad m => TypecheckedModule -> m TypeMap
-genTypeMap tm = do
-    ts <- collectAllSpansTypes True tm
-    return $ foldr go IM.empty ts
-  where
-    go (GHC.RealSrcSpan spn, typ) im =
-      IM.insert (rspToInt spn) typ im
-    go _ im = im
 
 -- | Generates a LocMap from a TypecheckedModule,
 -- which allows fast queries for all the symbols

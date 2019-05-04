@@ -54,6 +54,37 @@ Installing `hie` is a multi-step process:
 
 This ensures that a complete install is always possible after each `git pull` or a `git clone`.
 
+#### Building `hie` with profiling support
+
+To build `hie` with profiling enabled `cabal new-install` needs to be used instead of `stack`.
+
+Configure `cabal` to enable profiling by setting `profiling: True` in `cabal.project.local` for all packages. If that file does not already exist, create it as follows:
+
+```bash
+cat << EOF > cabal.project.local
+package *
+  profiling: True
+EOF
+```
+
+Then `hie` can be compiled for a specific GHC version:
+
+```bash
+export GHCP=<path-to-ghc-binary>
+cabal new-install exe:hie -w $GHCP \
+  --write-ghc-environment-files=never --symlink-bindir=$HOME/.local/bin \
+  --overwrite-policy=always --reinstall
+```
+
+The final step is to configure the `hie` client to use a custom `hie-wrapper` script that enables the runtime options for profiling. Such a script could look like this:
+
+```bash
+#!/bin/sh
+~/.local/bin/hie-wrapper "$@" +RTS -xc
+```
+
+(Note: If no profiling information is shown when using `hie` with a certain project, it may help to build that project itself with profiling support, e.g. `stack build --profile`.)
+
 ### Safety checks
 
 The `install.hs` script performs some checks to ensure that a correct installation is possible and provide meaningful error messages for known issues.
