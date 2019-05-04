@@ -9,3 +9,9 @@ buildSystem =
 #else
   "cabal"
 #endif
+
+isRunFromStack :: Bool
+isRunFromStack = buildSystem == "stack"
+
+isRunFromCabal :: Bool
+isRunFromCabal = buildSystem == "cabal"

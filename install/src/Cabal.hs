@@ -1,0 +1,122 @@
+module Cabal where
+
+import           Development.Shake
+import           Development.Shake.Command
+import           Development.Shake.FilePath
+import           Control.Monad
+import           Data.Maybe                               ( isNothing )
+import           Control.Monad.Extra                      ( whenMaybe )
+import           System.Directory                         ( findExecutable )
+
+import           Version
+import           Print
+import           Env
+import           Stack
+
+
+execCabal :: CmdResult r => [String] -> Action r
+execCabal = command [] "cabal"
+
+execCabal_ :: [String] -> Action ()
+execCabal_ = command_ [] "cabal"
+
+-- TODO: review
+installCabal :: Action ()
+installCabal = do
+  -- try to find existing `cabal` executable with appropriate version
+  cabalExe <- liftIO (findExecutable "cabal") >>= \case
+    Nothing       -> return Nothing
+    Just cabalExe -> do
+      cabalVersion <- trimmedStdout <$> execCabal ["--numeric-version"]
+      whenMaybe (checkVersion requiredCabalVersion cabalVersion)
+        $ return cabalExe
+
+  -- install `cabal-install` if not already installed
+  when (isNothing cabalExe) $ execStackShake_ ["install", "cabal-install"]
+
+-- | check `stack` has the required version
+checkCabal :: Action ()
+checkCabal = do
+  cabalVersion <- trimmedStdout <$> execCabal ["--numeric-version"]
+  unless (checkVersion requiredCabalVersion cabalVersion) $ do
+    printInStars $ cabalInstallIsOldFailMsg cabalVersion
+    error $ stackExeIsOldFailMsg cabalVersion
+
+
+getCabalVersion :: Action String
+getCabalVersion = trimmedStdout <$> execCabal ["--numeric-version"]
+
+
+-- | update the cabal index. This is required for ghc-mod.
+--
+-- TODO: remove when ghc-mod supports new-style builds
+updateCabal :: Action ()
+updateCabal = do
+  execCabal_ ["v1-update"]
+
+
+cabalBuildDoc :: Action ()
+cabalBuildDoc = do
+  execCabal_ ["new-build", "hoogle", "generate"]
+  execCabal_ ["new-exec", "hoogle", "generate"]
+
+configureCabal :: VersionNumber -> Action ()
+configureCabal versionNumber = do
+  ghcPath <- getGhcPath versionNumber >>= \case
+    Nothing -> do
+      printInStars $ ghcVersionNotFoundFailMsg versionNumber
+      error (ghcVersionNotFoundFailMsg versionNumber)
+    Just p -> return p
+  execCabal_
+    ["new-configure", "-w", ghcPath, "--write-ghc-environment-files=never"]
+
+cabalBuildHie :: VersionNumber -> Action ()
+cabalBuildHie versionNumber = do
+  configureCabal versionNumber
+  execCabal_ ["new-build", "--write-ghc-environment-files=never"]
+
+cabalInstallHie :: VersionNumber -> Action ()
+cabalInstallHie versionNumber = do
+  localBin <- getLocalBin
+  execCabal_
+    [ "new-install"
+    , "--write-ghc-environment-files=never"
+    , "--symlink-bindir=" ++ localBin
+    , "exe:hie"
+    , "--overwrite-policy=always"
+    ]
+  copyFile' (localBin </> "hie" <.> exe)
+            (localBin </> "hie-" ++ versionNumber <.> exe)
+  copyFile' (localBin </> "hie" <.> exe)
+            (localBin </> "hie-" ++ dropExtension versionNumber <.> exe)
+
+
+-- TODO: this restriction will be gone in the next release of cabal
+validateCabalNewInstallIsSupported :: Action ()
+validateCabalNewInstallIsSupported = when isWindowsSystem $ do
+  printInStars cabalInstallNotSuportedFailMsg
+  error cabalInstallNotSuportedFailMsg
+
+-- | Error message when a windows system tries to install HIE via `cabal new-install`
+cabalInstallNotSuportedFailMsg :: String
+cabalInstallNotSuportedFailMsg =
+  "This system has been identified as a windows system.\n"
+    ++ "Unfortunately, `cabal new-install` is currently not supported on windows.\n"
+    ++ "Please use one of the stack-based targets.\n\n"
+    ++ "If this system has been falsely identified, please open an issue at:\n\thttps://github.com/haskell/haskell-ide-engine\n"
+
+
+-- | Error message when the `stack` binary is an older version
+cabalInstallIsOldFailMsg :: String -> String
+cabalInstallIsOldFailMsg cabalVersion =
+  "The `cabal` executable is outdated.\n"
+    ++ "found version is `"
+    ++ cabalVersion
+    ++ "`.\n"
+    ++ "required version is `"
+    ++ versionToString requiredCabalVersion
+    ++ "`."
+
+
+requiredCabalVersion :: RequiredVersion
+requiredCabalVersion = [2, 4, 1, 0]
