@@ -31,6 +31,7 @@ import           Data.List
 import           Data.Maybe
 import           Data.Monoid ((<>))
 import qualified Data.Text                         as T
+import           GHC.Generics
 import           Name
 import qualified GhcMod.Gap                        as GM
 import qualified GhcMod.SrcUtils                   as GM
@@ -53,7 +54,7 @@ import           Outputable                        (mkUserStyle, Depth(..))
 ghcmodDescriptor :: PluginDescriptor
 ghcmodDescriptor = PluginDescriptor
   { pluginId = "ghcmod"
-  , pluginCommands = []
+  , pluginCommands = [PluginCommand "type" typeCmd]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Just hoverProvider
@@ -63,7 +64,23 @@ ghcmodDescriptor = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
--- TODO: We need to expose this back to the vscode plugin somehow
+data TypeParams =
+  TP { tpIncludeConstraints :: Bool
+     , tpFile               :: Uri
+     , tpPos                :: Position
+     } deriving (Eq, Show, Generic)
+
+instance FromJSON TypeParams where
+  parseJSON = genericParseJSON customOptions
+instance ToJSON TypeParams where
+  toJSON = genericToJSON customOptions
+
+typeCmd :: TypeParams -> IdeGhcM (IdeResult [(Range,T.Text)])
+typeCmd (TP _bool uri pos) = liftToGhc $ newTypeCmd pos uri
+
+customOptions :: Options
+customOptions = defaultOptions { fieldLabelModifier = camelTo2 '_' . drop 2}
+
 newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
 newTypeCmd newPos uri =
   pluginGetFile "newTypeCmd: " uri $ \fp ->
