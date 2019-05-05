@@ -13,6 +13,7 @@ module Haskell.Ide.Engine.Plugin.GhcMod
   , Bindings(..)
   , FunctionSig(..)
   , TypeDef(..)
+  , TypeParams(..)
   , TypedHoles(..) -- only to keep the GHC 8.4 and below unused field warning happy
   , ValidSubstitutions(..)
   , extractHoleSubstitutions
