@@ -45,7 +45,7 @@ import           Data.Monoid
 import qualified Data.Text                             as T
 import qualified Data.Text.IO                          as T
 import           Data.Maybe
-import qualified GhcMod.Utils                          as GM
+import qualified GhcMod.Utils                          as GM ( makeAbsolute' )
 import           FastString
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.MonadFunctions
