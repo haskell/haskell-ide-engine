@@ -12,6 +12,7 @@ import           Control.Exception (bracket)
 import           Data.Aeson
 import qualified Data.ByteString.Lazy          as BS
 import qualified Data.Map                      as Map
+import           Data.Monoid                   ((<>)) -- for ghc 8.2
 import qualified Data.Set                      as S
 import qualified Data.Text                     as T
 import qualified Data.Text.IO                  as T
