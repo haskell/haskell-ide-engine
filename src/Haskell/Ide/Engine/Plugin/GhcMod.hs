@@ -20,6 +20,7 @@ module Haskell.Ide.Engine.Plugin.GhcMod
   , extractRenamableTerms
   , extractUnusedTerm
   , symbolProvider
+  , newTypeCmd
   ) where
 
 import           Control.Lens hiding (cons, children)

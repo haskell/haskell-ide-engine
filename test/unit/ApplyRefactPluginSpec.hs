@@ -159,7 +159,7 @@ applyRefactSpec = do
     it "reports error without crash" $ do
       filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/ApplyRefactError.hs"
 
-      let req = applyAllCmd' filePath
+      let req = applyAllCmd filePath
           isExpectedError (IdeResultFail (IdeError PluginError err _)) =
               "Illegal symbol '.' in type" `T.isInfixOf` err
           isExpectedError _ = False
