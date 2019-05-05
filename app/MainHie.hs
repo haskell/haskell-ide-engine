@@ -5,7 +5,6 @@ module Main where
 import           Control.Monad
 import           Data.Monoid                           ((<>))
 import           Data.Version                          (showVersion)
-import qualified GhcMod.Types                          as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Options
@@ -115,13 +114,12 @@ run opts = do
   d <- getCurrentDirectory
   logm $ "Current directory:" ++ d
 
-  let vomitOptions = GM.defaultOptions { GM.optOutput = oo { GM.ooptLogLevel = GM.GmVomit}}
-      oo = GM.optOutput GM.defaultOptions
-  let defaultOpts = if optGhcModVomit opts then vomitOptions else GM.defaultOptions
+  let vomitOptions = defaultOptions { boLogging = BlVomit}
+  let defaultOpts = if optGhcModVomit opts then vomitOptions else defaultOptions
       -- Running HIE on projects with -Werror breaks most of the features since all warnings
       -- will be treated with the same severity of type errors. In order to offer a more useful
       -- experience, we make sure warnings are always reported as warnings by setting -Wwarn
-      ghcModOptions = defaultOpts { GM.optGhcUserOptions = ["-Wwarn"] }
+      biosOptions = defaultOpts { boGhcUserOptions = ["-Wwarn"] }
 
   when (optGhcModVomit opts) $
     logm "Enabling --vomit for ghc-mod. Output will be on stderr"
@@ -132,5 +130,5 @@ run opts = do
   let plugins' = plugins (optExamplePlugin opts)
 
   -- launch the server.
-  scheduler <- newScheduler plugins' ghcModOptions
+  scheduler <- newScheduler plugins' biosOptions
   server scheduler origDir plugins' (optCaptureFile opts)

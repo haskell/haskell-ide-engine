@@ -92,6 +92,8 @@ srcSpan2Range :: SrcSpan -> Either T.Text Range
 srcSpan2Range spn =
   realSrcSpan2Range <$> getRealSrcSpan spn
 
+
+
 reverseMapFile :: MonadIO m => (FilePath -> FilePath) -> FilePath -> m FilePath
 reverseMapFile rfm fp = do
   fp' <- liftIO $ canonicalizePath fp
@@ -260,7 +262,7 @@ fileInfo tfileName =
 
 clientSupportsDocumentChanges :: IdeM Bool
 clientSupportsDocumentChanges = do
-  ClientCapabilities mwCaps _ _ <- getClientCapabilities
+  ClientCapabilities mwCaps _ _ _ <- getClientCapabilities
   let supports = do
         wCaps <- mwCaps
         WorkspaceEditClientCapabilities mDc <- _workspaceEdit wCaps
@@ -269,14 +271,14 @@ clientSupportsDocumentChanges = do
 
 -- ---------------------------------------------------------------------
 
-readVFS :: MonadIde m => Uri -> m (Maybe T.Text)
+readVFS :: (MonadIde m, MonadIO m) => Uri -> m (Maybe T.Text)
 readVFS uri = do
   mvf <- getVirtualFile uri
   case mvf of
     Just (VirtualFile _ txt) -> return $ Just (Yi.toText txt)
     Nothing -> return Nothing
 
-getRangeFromVFS :: MonadIde m => Uri -> Range -> m (Maybe T.Text)
+getRangeFromVFS :: (MonadIde m, MonadIO m) => Uri -> Range -> m (Maybe T.Text)
 getRangeFromVFS uri rg = do
   mvf <- getVirtualFile uri
   case mvf of

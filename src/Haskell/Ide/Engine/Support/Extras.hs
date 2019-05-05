@@ -469,7 +469,7 @@ getSymbolsAtPoint :: Position -> CachedInfo -> [(Range,Name)]
 getSymbolsAtPoint pos info = maybe [] (`getArtifactsAtPos` locMap info) $ newPosToOld info pos
 
 -- |Get a symbol from the given location map at the given location.
--- Retrieves the name and range of the symbol at the given location 
+-- Retrieves the name and range of the symbol at the given location
 -- from the cached location map.
 symbolFromTypecheckedModule
   :: LocMap
@@ -550,8 +550,8 @@ findTypeDef uri pos = pluginGetFile "findTypeDef: " uri $ \file ->
           -- | Get SrcSpan of the name at the given position.
           -- If the old position is Nothing, e.g. there is no cached info about it,
           -- Nothing is returned.
-          -- 
-          -- Otherwise, searches for the Type of the given position 
+          --
+          -- Otherwise, searches for the Type of the given position
           -- and retrieves its SrcSpan.
           getTypeSrcSpanFromPosition
             :: Maybe Position -> ExceptT () IdeDeferM SrcSpan
@@ -634,7 +634,7 @@ gotoModule rfm mn = do
       case fr of
         Found (ModLocation (Just src) _ _) _ -> do
           fp <- reverseMapFile rfm src
-          
+
           let r = Range (Position 0 0) (Position 0 0)
               loc = Location (filePathToUri fp) r
           return (IdeResultOk [loc])
@@ -708,7 +708,7 @@ prefixes =
 -- ---------------------------------------------------------------------
 
 getFormattingPlugin :: Config -> IdePlugins -> Maybe (PluginDescriptor, FormattingProvider)
-getFormattingPlugin config plugins = do 
+getFormattingPlugin config plugins = do
   let providerName = PluginId (formattingProvider config)
   fmtPlugin <- Map.lookup providerName plugins
   fmtProvider <- pluginFormattingProvider fmtPlugin

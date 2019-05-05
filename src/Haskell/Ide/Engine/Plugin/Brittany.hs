@@ -41,8 +41,8 @@ provider
 provider text uri formatType opts = pluginGetFile "brittanyCmd: " uri $ \fp -> do
   confFile <- liftIO $ getConfFile fp
   let (range, selectedContents) = case formatType of
-        FormatDocument -> (fullRange text, text)
-        FormatRange r  -> (normalize r, extractRange r text)
+        FormatText    -> (fullRange text, text)
+        FormatRange r -> (normalize r, extractRange r text)
 
   res <- formatText confFile opts selectedContents
   case res of
@@ -68,16 +68,23 @@ formatText confFile opts text =
   liftIO $ runBrittany tabSize confFile text
   where tabSize = opts ^. J.tabSize
 
--- | Extend to the line below to replace newline character, as above.
+-- | Extend to the line below and above to replace newline character.
 normalize :: Range -> Range
 normalize (Range (Position sl _) (Position el _)) =
   Range (Position sl 0) (Position (el + 1) 0)
 
--- | Recursively search in every directory of the given filepath for brittany.yaml
+-- | Recursively search in every directory of the given filepath for brittany.yaml.
 -- If no such file has been found, return Nothing.
 getConfFile :: FilePath -> IO (Maybe FilePath)
 getConfFile = findLocalConfigPath . takeDirectory
 
+-- | Run Brittany on the given text with the given tab size and
+-- a configuration path. If no configuration path is given, a
+-- default configuration is chosen. The configuration may overwrite
+-- tab size parameter.
+--
+-- Returns either a list of Brittany Errors or the reformatted text.
+-- May not throw an exception.
 runBrittany :: Int              -- ^ tab  size
             -> Maybe FilePath   -- ^ local config file
             -> Text             -- ^ text to format

@@ -9,6 +9,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | IdeGhcM and associated types
 module Haskell.Ide.Engine.PluginsIdeMonads
@@ -45,10 +46,22 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , IdeState(..)
   , IdeGhcM
   , runIdeGhcM
+  , runIdeGhcMBare
   , IdeM
   , runIdeM
   , IdeDeferM
-  , MonadIde(..)
+  -- ** MonadIde and functions
+  , MonadIde
+  , getRootPath
+  , getVirtualFile
+  , getConfig
+  , getClientCapabilities
+  , getPlugins
+  , withProgress
+  , withIndefiniteProgress
+  , Core.Progress(..)
+  , Core.ProgressCancellable(..)
+  -- ** Lifting
   , iterT
   , LiftsToGhc(..)
   -- * IdeResult
@@ -73,6 +86,11 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , PublishDiagnosticsParams(..)
   , List(..)
   , FormattingOptions(..)
+  -- * Options
+  , BiosLogLevel(..)
+  , BiosOptions(..)
+  , defaultOptions
+  , mkGhcModOptions
   )
 where
 
@@ -81,8 +99,9 @@ import           Control.Exception
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Free
+import           Control.Monad.Trans.Control
 
-import           Data.Aeson
+import           Data.Aeson                    hiding (defaultOptions)
 import qualified Data.ConstrainedDynamic       as CD
 import           Data.Default
 import qualified Data.List                     as List
@@ -102,11 +121,14 @@ import qualified GhcMod.Monad                  as GM
 import qualified GhcMod.Types                  as GM
 import           GHC.Generics
 import           GHC                            ( HscEnv )
+import qualified DynFlags      as GHC
+import qualified GHC           as GHC
+import qualified HscTypes      as GHC
 
 import           Haskell.Ide.Engine.Compat
 import           Haskell.Ide.Engine.Config
-import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.GhcModuleCache
+import           Haskell.Ide.Engine.MultiThreadState
 
 import qualified Language.Haskell.LSP.Core     as Core
 import           Language.Haskell.LSP.Types.Capabilities
@@ -207,13 +229,16 @@ type HoverProvider = Uri -> Position -> IdeM (IdeResult [Hover])
 
 type SymbolProvider = Uri -> IdeDeferM (IdeResult [DocumentSymbol])
 
--- | Format the document either as a whole or only a given Range of it.
-data FormattingType = FormatDocument
+-- | Format the given Text as a whole or only a @Range@ of it.
+-- Range must be relative to the text to format.
+-- To format the whole document, read the Text from the file and use 'FormatText'
+-- as the FormattingType.
+data FormattingType = FormatText
                     | FormatRange Range
 
 -- | Formats the given Text associated with the given Uri.
--- Should, but might not, honor the provided formatting options (e.g. Floskell does not).
--- A formatting type can be given to either format the whole document or only a Range.
+-- Should, but might not, honour the provided formatting options (e.g. Floskell does not).
+-- A formatting type can be given to either format the whole text or only a Range.
 --
 -- Text to format, may or may not, originate from the associated Uri.
 -- E.g. it is ok, to modify the text and then reformat it through this API.
@@ -224,6 +249,11 @@ data FormattingType = FormatDocument
 -- Failing means here that a IdeResultFail is returned.
 -- This can be used to display errors to the user, unless the error is an Internal one.
 -- The record 'IdeError' and 'IdeErrorCode' can be used to determine the type of error.
+--
+--
+-- To format a whole document, the 'FormatText' @FormattingType@ can be used.
+-- It is required to pass in the whole Document Text for that to happen, an empty text
+-- and file uri, does not suffice.
 type FormattingProvider = T.Text -- ^ Text to format
         -> Uri -- ^ Uri of the file being formatted
         -> FormattingType  -- ^ How much to format
@@ -320,13 +350,24 @@ getDiagnosticProvidersConfig c = Map.fromList [("applyrefact",hlintOn c)
 type IdeGhcM = GM.GhcModT IdeM
 
 -- | Run an IdeGhcM with Cradle found from the current directory
-runIdeGhcM :: GM.Options -> IdePlugins -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeGhcM a -> IO a
-runIdeGhcM ghcModOptions plugins mlf stateVar f = do
+runIdeGhcM :: BiosOptions -> IdePlugins -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeGhcM a -> IO a
+runIdeGhcM biosOptions plugins mlf stateVar f = do
   env <- IdeEnv <$> pure mlf <*> getProcessID <*> pure plugins
+  let ghcModOptions = mkGhcModOptions biosOptions
   (eres, _) <- flip runReaderT stateVar $ flip runReaderT env $ GM.runGhcModT ghcModOptions f
   case eres of
       Left err  -> liftIO $ throwIO err
       Right res -> return res
+
+-- | Run an IdeGhcM in an external context (e.g. HaRe), with no plugins or LSP functions
+runIdeGhcMBare :: BiosOptions -> IdeGhcM a -> IO a
+runIdeGhcMBare biosOptions f = do
+  let
+    plugins  = mkIdePlugins mempty
+    mlf      = Nothing
+    initialState = IdeState emptyModuleCache Map.empty Map.empty Nothing
+  stateVar <- newTVarIO initialState
+  runIdeGhcM biosOptions plugins mlf stateVar f
 
 -- | A computation that is deferred until the module is cached.
 -- Note that the module may not typecheck, in which case 'UriCacheFailed' is passed
@@ -351,52 +392,72 @@ data IdeEnv = IdeEnv
 
 -- | The class of monads that support common IDE functions, namely IdeM/IdeGhcM/IdeDeferM
 class Monad m => MonadIde m where
-  getRootPath :: m (Maybe FilePath)
-  getVirtualFile :: Uri -> m (Maybe VirtualFile)
-  getConfig :: m Config
-  getClientCapabilities :: m ClientCapabilities
-  getPlugins :: m IdePlugins
+  getIdeEnv :: m IdeEnv
 
 instance MonadIde IdeM where
-  getRootPath = do
-    mlf <- asks ideEnvLspFuncs
-    case mlf of
-      Just lf -> return (Core.rootPath lf)
-      Nothing -> return Nothing
-
-  getVirtualFile uri = do
-    mlf <- asks ideEnvLspFuncs
-    case mlf of
-      Just lf -> liftIO $ Core.getVirtualFileFunc lf uri
-      Nothing -> return Nothing
-
-  getConfig = do
-    mlf <- asks ideEnvLspFuncs
-    case mlf of
-      Just lf -> fromMaybe def <$> liftIO (Core.config lf)
-      Nothing -> return def
-
-  getClientCapabilities = do
-    mlf <- asks ideEnvLspFuncs
-    case mlf of
-      Just lf -> return (Core.clientCapabilities lf)
-      Nothing -> return def
-
-  getPlugins = asks idePlugins
-
-instance MonadIde IdeGhcM where
-  getRootPath = lift $ lift getRootPath
-  getVirtualFile = lift . lift . getVirtualFile
-  getConfig = lift $ lift getConfig
-  getClientCapabilities = lift $ lift getClientCapabilities
-  getPlugins = lift $ lift getPlugins
+  getIdeEnv = ask
 
 instance MonadIde IdeDeferM where
-  getRootPath = lift getRootPath
-  getVirtualFile = lift . getVirtualFile
-  getConfig = lift getConfig
-  getClientCapabilities = lift getClientCapabilities
-  getPlugins = lift getPlugins
+  getIdeEnv = lift ask
+
+instance MonadIde IdeGhcM where
+  getIdeEnv = lift $ lift ask
+
+getRootPath :: MonadIde m => m (Maybe FilePath)
+getRootPath = do
+  mlf <- ideEnvLspFuncs <$> getIdeEnv
+  case mlf of
+    Just lf -> return (Core.rootPath lf)
+    Nothing -> return Nothing
+
+getVirtualFile :: (MonadIde m, MonadIO m) => Uri -> m (Maybe VirtualFile)
+getVirtualFile uri = do
+  mlf <- ideEnvLspFuncs <$> getIdeEnv
+  case mlf of
+    Just lf -> liftIO $ Core.getVirtualFileFunc lf uri
+    Nothing -> return Nothing
+
+getConfig :: (MonadIde m, MonadIO m) => m Config
+getConfig = do
+  mlf <- ideEnvLspFuncs <$> getIdeEnv
+  case mlf of
+    Just lf -> fromMaybe def <$> liftIO (Core.config lf)
+    Nothing -> return def
+
+getClientCapabilities :: MonadIde m => m ClientCapabilities
+getClientCapabilities = do
+  mlf <- ideEnvLspFuncs <$> getIdeEnv
+  case mlf of
+    Just lf -> return (Core.clientCapabilities lf)
+    Nothing -> return def
+
+getPlugins :: MonadIde m => m IdePlugins
+getPlugins = idePlugins <$> getIdeEnv
+
+-- | 'withProgress' @title cancellable f@ wraps a progress reporting session for long running tasks.
+-- f is passed a reporting function that can be used to give updates on the progress
+-- of the task.
+withProgress :: (MonadIde m , MonadIO m, MonadBaseControl IO m)
+             => T.Text -> Core.ProgressCancellable
+             -> ((Core.Progress -> IO ()) -> m a) -> m a
+withProgress t c f = do
+  lf <- ideEnvLspFuncs <$> getIdeEnv
+  let mWp = Core.withProgress <$> lf
+  case mWp of
+    Nothing -> f (const $ return ())
+    Just wp -> control $ \run -> wp t c $ \update -> run (f update)
+
+
+-- | 'withIndefiniteProgress' @title cancellable f@ is the same as the 'withProgress' but for tasks
+-- which do not continuously report their progress.
+withIndefiniteProgress :: (MonadIde m, MonadBaseControl IO m)
+                       => T.Text -> Core.ProgressCancellable -> m a -> m a
+withIndefiniteProgress t c f = do
+  lf <- ideEnvLspFuncs <$> getIdeEnv
+  let mWp = Core.withIndefiniteProgress <$> lf
+  case mWp of
+    Nothing -> f
+    Just wp -> control $ \run -> wp t c (run f)
 
 data IdeState = IdeState
   { moduleCache :: GhcModuleCache
@@ -446,6 +507,15 @@ instance HasGhcModuleCache IdeM where
   setModuleCache mc = do
     tvar <- lift ask
     liftIO $ atomically $ modifyTVar' tvar (\st -> st { moduleCache = mc })
+
+-- ---------------------------------------------------------------------
+
+instance GHC.HasDynFlags IdeGhcM where
+  getDynFlags = GHC.hsc_dflags <$> GHC.getSession
+
+instance GHC.GhcMonad IdeGhcM where
+  getSession     = GM.unGmlT GM.gmlGetSession
+  setSession env = GM.unGmlT (GM.gmlSetSession env)
 
 -- ---------------------------------------------------------------------
 -- Results
@@ -518,3 +588,45 @@ data IdeError = IdeError
 
 instance ToJSON IdeError
 instance FromJSON IdeError
+
+-- ---------------------------------------------------------------------
+-- Probably need to move this some time, but hitting import cycle issues
+
+data BiosLogLevel =
+    BlError
+  | BlWarning
+  | BlInfo
+  | BlDebug
+  | BlVomit
+    deriving (Eq, Ord, Enum, Bounded, Show, Read)
+
+data BiosOptions = BiosOptions {
+    boGhcUserOptions :: [String]
+  , boLogging        :: BiosLogLevel
+  } deriving Show
+
+defaultOptions :: BiosOptions
+defaultOptions = BiosOptions {
+    boGhcUserOptions = []
+  , boLogging        = BlWarning
+  }
+
+fmBiosLog :: BiosLogLevel -> GM.GmLogLevel
+fmBiosLog bl = case bl of
+  BlError   -> GM.GmError
+  BlWarning -> GM.GmWarning
+  BlInfo    -> GM.GmInfo
+  BlDebug   -> GM.GmDebug
+  BlVomit   -> GM.GmVomit
+
+-- ---------------------------------------------------------------------
+
+-- | Apply BiosOptions to default ghc-mod Options
+mkGhcModOptions :: BiosOptions -> GM.Options
+mkGhcModOptions bo = GM.defaultOptions
+  {
+    GM.optGhcUserOptions = boGhcUserOptions bo
+  , GM.optOutput = (GM.optOutput GM.defaultOptions) { GM.ooptLogLevel = fmBiosLog (boLogging bo) }
+  }
+
+-- ---------------------------------------------------------------------

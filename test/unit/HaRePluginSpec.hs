@@ -10,9 +10,9 @@ import           Control.Exception
 import           Data.Aeson
 import qualified Data.Map                      as M
 import qualified Data.HashMap.Strict           as H
+import           Haskell.Ide.Engine.Ghc
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
-import           Haskell.Ide.Engine.Plugin.GhcMod
 import           Haskell.Ide.Engine.Plugin.HaRe
 import           Haskell.Ide.Engine.Support.Extras
 import           Language.Haskell.LSP.Types     ( Location(..)

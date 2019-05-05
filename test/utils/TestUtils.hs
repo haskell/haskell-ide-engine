@@ -25,8 +25,8 @@ import           Data.Typeable
 import           Data.Yaml
 import qualified Data.Map as Map
 import           Data.Maybe
-import qualified GhcMod.Monad as GM
-import qualified GhcMod.Types as GM
+-- import qualified GhcMod.Monad as GM
+-- import qualified GhcMod.Types as GM
 import qualified Language.Haskell.LSP.Core as Core
 import           Haskell.Ide.Engine.MonadTypes
 import           System.Directory
@@ -41,16 +41,12 @@ import           Text.Blaze.Internal
 
 -- ---------------------------------------------------------------------
 
-testOptions :: GM.Options
-testOptions = GM.defaultOptions {
-    GM.optOutput     = GM.OutputOpts {
-      GM.ooptLogLevel       = GM.GmError
-      -- GM.ooptLogLevel       = GM.GmVomit
-    , GM.ooptStyle          = GM.PlainStyle
-    , GM.ooptLineSeparator  = GM.LineSeparator "\0"
-    , GM.ooptLinePrefix     = Nothing
-    }
-
+testOptions :: BiosOptions
+testOptions = defaultOptions {
+    boLogging   = BlError
+      -- boLoggingg       = BlDebug
+      -- boLoggingg       = BlVomit
+    -- , boGhcUserOptions = ["-v4", "-DDEBUG"]
     }
 
 
@@ -133,7 +129,9 @@ ghcVersion = GHCPre84
 
 stackYaml :: FilePath
 stackYaml =
-#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,6,4,0)))
+#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,6,5,0)))
+  "stack.yaml"
+#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,6,4,0)))
   "stack-8.6.4.yaml"
 #elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,6,3,0)))
   "stack-8.6.3.yaml"

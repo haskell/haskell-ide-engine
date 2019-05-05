@@ -42,6 +42,7 @@ import           Data.Text.Encoding
 import qualified GhcMod.Monad.Types       as GM
 import qualified GhcModCore               as GM
 import           Haskell.Ide.Engine.Config
+import           Haskell.Ide.Engine.Ghc
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
@@ -53,7 +54,6 @@ import           Haskell.Ide.Engine.Reactor
 import qualified Haskell.Ide.Engine.Hoogle               as Hoogle
 import           Haskell.Ide.Engine.Support.Extras
 import qualified Haskell.Ide.Engine.Plugin.HaRe          as HaRe
-import qualified Haskell.Ide.Engine.Plugin.GhcMod        as GhcMod
 import qualified Haskell.Ide.Engine.Plugin.ApplyRefact   as ApplyRefact
 import qualified Language.Haskell.LSP.Control            as CTRL
 import qualified Language.Haskell.LSP.Core               as Core
@@ -738,7 +738,7 @@ reactor inp diagIn = do
               doc = params ^. J.textDocument . J.uri
           withDocumentContents (req ^. J.id) doc $ \text ->
             let callback = reactorSend . RspDocumentFormatting . Core.makeResponseMessage req . J.List
-                hreq = IReq tn (req ^. J.id) callback $ lift $ provider text doc FormatDocument (params ^. J.options)
+                hreq = IReq tn (req ^. J.id) callback $ lift $ provider text doc FormatText (params ^. J.options)
               in makeRequest hreq
 
         -- -------------------------------
@@ -759,7 +759,7 @@ reactor inp diagIn = do
         ReqDocumentSymbols req -> do
           liftIO $ U.logs $ "reactor:got Document symbol request:" ++ show req
           sps <- asks symbolProviders
-          C.ClientCapabilities _ tdc _ <- asksLspFuncs Core.clientCapabilities
+          C.ClientCapabilities _ tdc _ _ <- asksLspFuncs Core.clientCapabilities
           let uri = req ^. J.params . J.textDocument . J.uri
               supportsHierarchy = fromMaybe False $ tdc >>= C._documentSymbol >>= C._hierarchicalDocumentSymbolSupport
               convertSymbols :: [J.DocumentSymbol] -> J.DSResult
@@ -811,10 +811,10 @@ reactor inp diagIn = do
 -- ---------------------------------------------------------------------
 
 -- | Execute a function in the current request with an Uri.
--- Reads the content of the file specified by the Uri and invokes 
+-- Reads the content of the file specified by the Uri and invokes
 -- the function on it.
 --
--- If the Uri can not be mapped to a real file, the function will 
+-- If the Uri can not be mapped to a real file, the function will
 -- not be executed and an error message will be sent to the client.
 -- Error message is associated with the request id and, thus, identifiable.
 withDocumentContents :: J.LspId -> J.Uri -> (T.Text -> R ()) -> R ()
@@ -832,9 +832,9 @@ withDocumentContents reqId uri f = do
 
 -- | Get the currently configured formatter provider.
 -- The currently configured formatter provider is defined in @Config@ by PluginId.
--- 
+--
 -- It is possible that formatter configured by the user is not present.
--- In this case, a nop (No-Operation) formatter is returned and a message will 
+-- In this case, a nop (No-Operation) formatter is returned and a message will
 -- be sent to the user.
 getFormattingProvider :: R FormattingProvider
 getFormattingProvider = do
@@ -849,7 +849,7 @@ getFormattingProvider = do
       unless (providerName == "none") $ do
         let msg = providerName <> " is not a recognised plugin for formatting. Check your config"
         reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
-        reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg    
+        reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg
       return (\_ _ _ _ -> return (IdeResultOk [])) -- nop formatter
     Just (_, provider) -> return provider
 
@@ -958,7 +958,7 @@ requestDiagnosticsNormal tn file mVer = do
 
   -- get GHC diagnostics and loads the typechecked module into the cache
   let reqg = GReq tn (Just file) (Just (file,ver)) Nothing callbackg
-               $ GhcMod.setTypecheckedModule file
+               $ setTypecheckedModule file
       callbackg (pd, errs) = do
         forM_ errs $ \e -> do
           reactorSend $ NotShowMessage $

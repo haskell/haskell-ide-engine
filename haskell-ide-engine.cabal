@@ -1,5 +1,5 @@
 name:                haskell-ide-engine
-version:             0.8.0.0
+version:             0.9.0.0
 synopsis:            Provide a common engine to power any Haskell IDE
 description:         Please see README.md
 homepage:            http://github.com/githubuser/haskell-ide-engine#readme
@@ -59,7 +59,7 @@ library
                      , data-default
                      , directory
                      , filepath
-                     , floskell
+                     , floskell == 0.10.*
                      , fold-debounce
                      , ghc >= 8.0.1
                      , ghc-exactprint
@@ -68,14 +68,15 @@ library
                      , gitrev >= 1.1
                      , haddock-api
                      , haddock-library
-                     , haskell-lsp == 0.9.*
-                     , haskell-lsp-types == 0.9.*
+                     , haskell-lsp == 0.11.*
+                     , haskell-lsp-types == 0.11.*
                      , haskell-src-exts
                      , hie-plugin-api
                      , hlint >= 2.0.11
                      , hoogle >= 5.0.13
                      , hsimport
                      , hslogger
+                     , lifted-async
                      , lens >= 4.15.2
                      , monad-control
                      , monoid-subclasses > 0.4
@@ -176,6 +177,8 @@ test-suite unit-test
                        HooglePluginSpec
                        JsonSpec
                        Spec
+  -- Technically cabal-helper should be a 'run-tool-depends', but that doesn't exist yet
+  build-tool-depends:  cabal-helper:cabal-helper-main, hspec-discover:hspec-discover
   build-depends:       QuickCheck
                      , aeson
                      , base
@@ -185,7 +188,7 @@ test-suite unit-test
                      , filepath
                      , free
                      , haskell-ide-engine
-                     , haskell-lsp-types >= 0.4
+                     , haskell-lsp-types
                      , hie-test-utils
                      , hie-plugin-api
                      , hoogle > 5.0.11
@@ -198,7 +201,6 @@ test-suite unit-test
   if flag(pedantic)
      ghc-options:      -Werror
   default-language:    Haskell2010
-  build-tool-depends:  hspec-discover:hspec-discover
 
 test-suite dispatcher-test
   type:                exitcode-stdio-1.0
@@ -261,6 +263,7 @@ test-suite func-test
                      , HaReSpec
                      , HighlightSpec
                      , HoverSpec
+                     , ProgressSpec
                      , ReferencesSpec
                      , RenameSpec
                      , SymbolsSpec
@@ -271,15 +274,17 @@ test-suite func-test
                      , data-default
                      , directory
                      , filepath
-                     , lsp-test >= 0.5.1.1 && < 0.5.2
+                     , lsp-test >= 0.5.2
                      , haskell-ide-engine
-                     , haskell-lsp-types >= 0.4
+                     , haskell-lsp-types == 0.11.*
+                     , haskell-lsp == 0.11.*
                      , hie-test-utils
                      , hie-plugin-api
                      , hspec
                      , lens
                      , text
                      , unordered-containers
+                     , containers
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror

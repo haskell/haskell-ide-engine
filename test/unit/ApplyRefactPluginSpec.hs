@@ -4,6 +4,7 @@
 module ApplyRefactPluginSpec where
 
 import qualified Data.HashMap.Strict                   as H
+import qualified Data.Text                             as T
 import           Haskell.Ide.Engine.Plugin.ApplyRefact
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
@@ -152,3 +153,15 @@ applyRefactSpec = do
             , _diagnostics = List []
             }
            ))
+
+    -- ---------------------------------
+
+    it "reports error without crash" $ do
+      filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/ApplyRefactError.hs"
+
+      let req = applyAllCmd' filePath
+          isExpectedError (IdeResultFail (IdeError PluginError err _)) =
+              "Illegal symbol '.' in type" `T.isInfixOf` err
+          isExpectedError _ = False
+      r <- withCurrentDirectory "./test/testdata" $ runIGM testPlugins req
+      r `shouldSatisfy` isExpectedError

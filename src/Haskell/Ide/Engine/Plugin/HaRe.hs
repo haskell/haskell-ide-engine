@@ -24,7 +24,6 @@ import           Exception
 import           GHC.Generics                                 (Generic)
 import qualified GhcMod.Exe.CaseSplit                         as GM
 import qualified GhcMod.Error                                 as GM
-import qualified GhcMod.Monad                                 as GM
 import qualified GhcMod.Utils                                 as GM
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.Support.Extras
@@ -209,7 +208,11 @@ runHareCommand name cmd = do
 
 -- ---------------------------------------------------------------------
 
-runHareCommand' :: RefactGhc a
+-- newtype RefactGhc a = RefactGhc
+--     { unRefactGhc :: StateT RefactState HIE.IdeGhcM a
+--     }
+
+runHareCommand' :: forall a. RefactGhc a
                  -> IdeGhcM (Either String a)
 runHareCommand' cmd =
   do let initialState =
@@ -222,11 +225,11 @@ runHareCommand' cmd =
                  ,rsStorage = StorageNone
                  ,rsCurrentTarget = Nothing
                  ,rsModule = Nothing}
-     let cmd' = unRefactGhc cmd
+     let
+         cmd' :: StateT RefactState IdeGhcM a
+         cmd' = unRefactGhc cmd
          embeddedCmd =
-           GM.unGmlT $
-           hoist (liftIO . flip evalStateT initialState)
-                 (GM.GmlT cmd')
+           evalStateT cmd' initialState
          handlers
            :: Applicative m
            => [GM.GHandler m (Either String a)]
@@ -234,6 +237,7 @@ runHareCommand' cmd =
            [GM.GHandler (\(ErrorCall e) -> pure (Left e))
            ,GM.GHandler (\(err :: GM.GhcModError) -> pure (Left (show err)))]
      fmap Right embeddedCmd `GM.gcatches` handlers
+
 
 -- ---------------------------------------------------------------------
 -- | This is like hoist from the mmorph package, but build on
