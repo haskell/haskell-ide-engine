@@ -52,6 +52,9 @@ we talk to clients.__
   - [Documentation](#documentation)
     - [Architecture](#architecture)
   - [Troubleshooting](#troubleshooting)
+    - [Emacs](#emacs)
+      - [Parse errors, file state going out of sync](#parse-errors-file-state-going-out-of-sync)
+      - [`emacs-direnv` loads environment too late](#emacs-direnv-loads-environment-too-late)
     - [DYLD on macOS](#dyld-on-macos)
     - [macOS: Got error while installing GHC 8.6.1 or 8.6.2 - dyld: Library not loaded: /usr/local/opt/gmp/lib/libgmp.10.dylib](#macos-got-error-while-installing-ghc-861-or-862---dyld-library-not-loaded-usrlocaloptgmpliblibgmp10dylib)
     - [macOS: Got error while processing diagnostics: unable to load package `integer-gmp-1.0.2.0`](#macos-got-error-while-processing-diagnostics-unable-to-load-package-integer-gmp-1020)
@@ -558,6 +561,22 @@ Have a look at
  - [Design discussion](docs/Design.md).
 
 ## Troubleshooting
+
+### Emacs
+
+#### Parse errors, file state going out of sync
+With the `lsp-mode` client for Emacs, it seems that the document can very easily get out of sync between, which leads to parse errors being displayed. To fix this, enable full document synchronization with
+
+```elisp
+(setq lsp-document-sync-method 'full)
+```
+
+#### [`emacs-direnv`](https://github.com/wbolster/emacs-direnv) loads environment too late
+`emacs-direnv` sometimes loads the environment too late, meaning `lsp-mode` won't be able to find correct GHC/cabal versions. To fix this, add a direnv update hook *after* adding the lsp hook for `haskell-mode` (meaning the direnv hook is executed first, because hooks are LIFO):
+```elisp
+(add-hook 'haskell-mode-hook 'lsp)
+(add-hook 'haskell-mode-hook 'direnv-update-environment)
+```
 
 ### DYLD on macOS
 
