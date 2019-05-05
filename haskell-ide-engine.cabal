@@ -26,7 +26,7 @@ library
                        Haskell.Ide.Engine.Options
                        Haskell.Ide.Engine.Plugin.ApplyRefact
                        Haskell.Ide.Engine.Plugin.Brittany
-                       Haskell.Ide.Engine.Plugin.Build
+                      --  Haskell.Ide.Engine.Plugin.Build
                        Haskell.Ide.Engine.Plugin.Example2
                        Haskell.Ide.Engine.Plugin.Floskell
                        Haskell.Ide.Engine.Plugin.GhcMod
@@ -56,7 +56,7 @@ library
                      , brittany
                      , bytestring
                      , Cabal
-                     , cabal-helper >= 0.8.0.4
+                     , cabal-helper == 1.0.*
                      , containers
                      , data-default
                      , directory
@@ -180,7 +180,8 @@ test-suite unit-test
                        JsonSpec
                        Spec
   -- Technically cabal-helper should be a 'run-tool-depends', but that doesn't exist yet
-  build-tool-depends:  cabal-helper:cabal-helper-main, hspec-discover:hspec-discover
+  -- build-tool-depends:  cabal-helper:cabal-helper-main, hspec-discover:hspec-discover
+  build-tool-depends:  hspec-discover:hspec-discover
   build-depends:       QuickCheck
                      , aeson
                      , base
@@ -293,7 +294,7 @@ test-suite func-test
   default-language:    Haskell2010
   build-tool-depends:  hspec-discover:hspec-discover
                      , haskell-ide-engine:hie
-                     , cabal-helper:cabal-helper-main
+                    --  , cabal-helper:cabal-helper-main
 
 test-suite wrapper-test
   type:                exitcode-stdio-1.0

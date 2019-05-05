@@ -449,28 +449,30 @@ listStackTargets distDir' = do
   mapM (listCabalTargets distDir') stackPackageDirs
 
 listCabalTargets :: MonadIO m => FilePath -> FilePath -> m Package
-listCabalTargets distDir' dir =
-  runQuery (mkQueryEnv dir distDir') $ do
-    pkgName' <- fst <$> packageId
-    cc <- components $ (,) CH.<$> entrypoints
-    let comps = map (fixupLibraryEntrypoint pkgName' .snd) cc
-    absDir <- liftIO $ makeAbsolute dir
-    return $ Package pkgName' absDir comps
-  where
--- # if MIN_VERSION_Cabal(2,0,0)
-#if MIN_VERSION_Cabal(1,24,0)
-    fixupLibraryEntrypoint _n ChLibName = ChLibName
-#else
-    fixupLibraryEntrypoint n (ChLibName "") = ChLibName n
-#endif
-    fixupLibraryEntrypoint _ e = e
+listCabalTargets = undefined
+-- listCabalTargets distDir' dir =
+--   runQuery (mkQueryEnv dir distDir') $ do
+--     pkgName' <- fst <$> packageId
+--     cc <- components $ (,) CH.<$> entrypoints
+--     let comps = map (fixupLibraryEntrypoint pkgName' .snd) cc
+--     absDir <- liftIO $ makeAbsolute dir
+--     return $ Package pkgName' absDir comps
+--   where
+-- -- # if MIN_VERSION_Cabal(2,0,0)
+-- #if MIN_VERSION_Cabal(1,24,0)
+--     fixupLibraryEntrypoint _n ChLibName = ChLibName
+-- #else
+--     fixupLibraryEntrypoint n (ChLibName "") = ChLibName n
+-- #endif
+--     fixupLibraryEntrypoint _ e = e
 
 -- Example of new way to use cabal helper 'entrypoints' is a ComponentQuery,
 -- components applies it to all components in the project, the semigroupoids
 -- apply batches the result per component, and returns the component as the last
 -- item.
-getComponents :: QueryEnv -> IO [(ChEntrypoint,ChComponentName)]
-getComponents env = runQuery env $ components $ (,) CH.<$> entrypoints
+getComponents :: QueryEnv pt -> IO [(ChEntrypoint,ChComponentName)]
+getComponents = undefined
+-- getComponents env = runQuery env $ components $ (,) CH.<$> entrypoints
 
 -----------------------------------------------
 
