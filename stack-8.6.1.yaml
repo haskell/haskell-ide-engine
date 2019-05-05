@@ -7,7 +7,6 @@ extra-deps:
 - ./submodules/HaRe
 - ./submodules/brittany
 - ./submodules/cabal-helper
-- ./submodules/floskell
 - ./submodules/ghc-mod
 - ./submodules/ghc-mod/core
 - ./submodules/ghc-mod/ghc-project-types
@@ -19,6 +18,7 @@ extra-deps:
 - constrained-dynamic-0.1.0.0
 - czipwith-1.0.1.1
 - data-tree-print-0.1.0.2
+- floskell-0.10.0
 - haddock-api-2.21.0
 - haskell-lsp-0.11.0.0
 - haskell-lsp-types-0.11.0.0
