@@ -8,5 +8,6 @@ packages:
          ./submodules/floskell
          ./submodules/ghc-mod/
          ./submodules/ghc-mod/core/
+         ./submodules/ghc-mod/ghc-project-types
 
 tests: true

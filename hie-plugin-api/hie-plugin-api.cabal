@@ -22,13 +22,15 @@ library
                        Haskell.Ide.Engine.Compat
                        Haskell.Ide.Engine.Config
                        Haskell.Ide.Engine.Context
+                       Haskell.Ide.Engine.Ghc
                        Haskell.Ide.Engine.GhcModuleCache
                        Haskell.Ide.Engine.ModuleCache
                        Haskell.Ide.Engine.MonadFunctions
                        Haskell.Ide.Engine.MonadTypes
                        Haskell.Ide.Engine.MultiThreadState
-                       Haskell.Ide.Engine.PluginsIdeMonads
+                       Haskell.Ide.Engine.PluginApi
                        Haskell.Ide.Engine.PluginUtils
+                       Haskell.Ide.Engine.PluginsIdeMonads
                        Haskell.Ide.Engine.TypeMap
   build-depends:       base >= 4.9 && < 5
                      , Diff
@@ -42,6 +44,7 @@ library
                      , free
                      , ghc
                      , ghc-mod-core >= 5.9.0.0
+                     , ghc-project-types >= 5.9.0.0
                      , haskell-lsp == 0.11.*
                      , hslogger
                      , monad-control

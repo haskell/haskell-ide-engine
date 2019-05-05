@@ -10,6 +10,7 @@ extra-deps:
 - ./submodules/floskell
 - ./submodules/ghc-mod
 - ./submodules/ghc-mod/core
+- ./submodules/ghc-mod/ghc-project-types
 
 # - brittany-0.11.0.0
 - cabal-plan-0.4.0.0

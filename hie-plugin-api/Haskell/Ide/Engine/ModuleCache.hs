@@ -114,7 +114,8 @@ withCachedInfo fp def callback = deferIfNotCached fp go
 -- If you need custom data, see also 'ifCachedModuleAndData'.
 -- If you are in IdeDeferM and would like to wait until a cached module is available,
 -- see also 'withCachedModule'.
-ifCachedModule :: (HasGhcModuleCache m, GM.MonadIO m, CacheableModule b) => FilePath -> a -> (b -> CachedInfo -> m a) -> m a
+ifCachedModule :: (HasGhcModuleCache m, MonadIO m, CacheableModule b)
+               => FilePath -> a -> (b -> CachedInfo -> m a) -> m a
 ifCachedModule fp def callback = do
   muc <- getUriCache fp
   let x = do
@@ -177,7 +178,7 @@ withCachedModuleAndData fp def callback = deferIfNotCached fp go
         go (UriCacheSuccess (UriCache _ _ Nothing _)) = wrap (Defer fp go)
         go UriCacheFailed = return def
 
-getUriCache :: (HasGhcModuleCache m, GM.MonadIO m) => FilePath -> m (Maybe UriCacheResult)
+getUriCache :: (HasGhcModuleCache m, MonadIO m) => FilePath -> m (Maybe UriCacheResult)
 getUriCache fp = do
   uri' <- liftIO $ canonicalizePath fp
   fmap (Map.lookup uri' . uriCaches) getModuleCache
@@ -211,7 +212,7 @@ lookupCachedData fp tm info dat = do
 
 -- | Saves a module to the cache and executes any deferred
 -- responses waiting on that module.
-cacheModule :: FilePath -> (Either GHC.ParsedModule GHC.TypecheckedModule) -> IdeGhcM ()
+cacheModule :: FilePath -> Either GHC.ParsedModule GHC.TypecheckedModule -> IdeGhcM ()
 cacheModule uri modul = do
   uri' <- liftIO $ canonicalizePath uri
   rfm <- GM.mkRevRedirMapFunc
