@@ -16,7 +16,7 @@ module Haskell.Ide.Engine.Support.HieExtras
   , findTypeDef
   , showName
   , safeTyThingId
-  , PosPrefixInfo(..)
+  , VFS.PosPrefixInfo(..)
   , HarePoint(..)
   , customOptions
   , runGhcModCommand
@@ -65,6 +65,7 @@ import qualified Haskell.Ide.Engine.Support.Fuzzy              as Fuzzy
 import           HscTypes
 import qualified Language.Haskell.LSP.Types                   as J
 import qualified Language.Haskell.LSP.Types.Lens              as J
+import qualified Language.Haskell.LSP.VFS                     as VFS
 import           Language.Haskell.Refact.API                 (showGhc)
 import           Language.Haskell.Refact.Utils.MonadFunctions
 import           Name
@@ -188,23 +189,23 @@ safeTyThingId _                           = Nothing
 -- Associates a module's qualifier with its members
 type QualCompls = Map.Map T.Text [CompItem]
 
--- | Describes the line at the current cursor position
-data PosPrefixInfo = PosPrefixInfo
-  { fullLine :: T.Text
-    -- ^ The full contents of the line the cursor is at
+-- -- | Describes the line at the current cursor position
+-- data PosPrefixInfo = PosPrefixInfo
+--   { fullLine :: T.Text
+--     -- ^ The full contents of the line the cursor is at
 
-  , prefixModule :: T.Text
-    -- ^ If any, the module name that was typed right before the cursor position.
-    --  For example, if the user has typed "Data.Maybe.from", then this property
-    --  will be "Data.Maybe"
+--   , prefixModule :: T.Text
+--     -- ^ If any, the module name that was typed right before the cursor position.
+--     --  For example, if the user has typed "Data.Maybe.from", then this property
+--     --  will be "Data.Maybe"
 
-  , prefixText :: T.Text
-    -- ^ The word right before the cursor position, after removing the module part.
-    -- For example if the user has typed "Data.Maybe.from",
-    -- then this property will be "from"
-  , cursorPos :: J.Position
-    -- ^ The cursor position
-  }
+--   , prefixText :: T.Text
+--     -- ^ The word right before the cursor position, after removing the module part.
+--     -- For example if the user has typed "Data.Maybe.from",
+--     -- then this property will be "from"
+--   , cursorPos :: J.Position
+--     -- ^ The cursor position
+--   }
 
 data CachedCompletions = CC
   { allModNamesAsNS :: [T.Text]
@@ -338,7 +339,7 @@ instance ModuleCache CachedCompletions where
 newtype WithSnippets = WithSnippets Bool
 
 -- | Returns the cached completions for the given module and position.
-getCompletions :: Uri -> PosPrefixInfo -> WithSnippets -> IdeM (IdeResult [J.CompletionItem])
+getCompletions :: Uri -> VFS.PosPrefixInfo -> WithSnippets -> IdeM (IdeResult [J.CompletionItem])
 getCompletions uri prefixInfo (WithSnippets withSnippets) =
   pluginGetFile "getCompletions: " uri $ \file -> do
     let snippetLens = (^? J.textDocument
@@ -356,7 +357,7 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) =
                           , J._insertText       = Nothing
                           }
 
-        PosPrefixInfo { fullLine, prefixModule, prefixText } = prefixInfo
+        VFS.PosPrefixInfo { VFS.fullLine, VFS.prefixModule, VFS.prefixText } = prefixInfo
     debugm $ "got prefix" ++ show (prefixModule, prefixText)
     let enteredQual = if T.null prefixModule then "" else prefixModule <> "."
         fullPrefix  = enteredQual <> prefixText
@@ -373,7 +374,7 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) =
                                                                    ^
             -}
             pos =
-              let newPos = cursorPos prefixInfo
+              let newPos = VFS.cursorPos prefixInfo
                   Position l c = fromMaybe newPos (newPosToOld newPos)
                   typeStuff = [isSpace, (`elem` (">-." :: String))]
                   stripTypeStuff = T.dropWhileEnd (\x -> any (\f -> f x) typeStuff)

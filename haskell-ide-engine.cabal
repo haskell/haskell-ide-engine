@@ -70,8 +70,8 @@ library
                      , gitrev >= 1.1
                      , haddock-api
                      , haddock-library
-                     , haskell-lsp == 0.11.*
-                     , haskell-lsp-types == 0.11.*
+                     , haskell-lsp == 0.12.*
+                     , haskell-lsp-types == 0.12.*
                      , haskell-src-exts
                      , hie-plugin-api
                      , hlint >= 2.0.11
@@ -86,6 +86,7 @@ library
                      , optparse-simple >= 0.0.3
                      , parsec
                      , process
+                     , rope-utf16-splay
                      , safe
                      , sorted-list >= 0.2.1.0
                      , stm
@@ -95,7 +96,6 @@ library
                      , unordered-containers
                      , vector
                      , yaml >= 0.8.31
-                     , yi-rope
   ghc-options:         -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror
@@ -278,8 +278,8 @@ test-suite func-test
                      , filepath
                      , lsp-test >= 0.5.2
                      , haskell-ide-engine
-                     , haskell-lsp-types == 0.11.*
-                     , haskell-lsp == 0.11.*
+                     , haskell-lsp-types == 0.12.*
+                     , haskell-lsp == 0.12.*
                      , hie-test-utils
                      , hie-plugin-api
                      , hspec
