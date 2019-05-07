@@ -555,6 +555,7 @@ reactor inp diagIn = do
                 let hs = concat hhs
                     h = case mconcat ((map (^. J.contents) hs) :: [J.HoverContents]) of
                       J.HoverContentsMS (List []) -> Nothing
+                      J.HoverContentsEmpty        -> Nothing
                       hh                          -> Just $ J.Hover hh r
                     r = listToMaybe $ mapMaybe (^. J.range) hs
                 in reactorSend $ RspHover $ Core.makeResponseMessage req h
