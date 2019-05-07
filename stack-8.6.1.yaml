@@ -37,6 +37,7 @@ extra-deps:
 - multistate-0.8.0.1
 - primes-0.2.1.0
 - resolv-0.1.1.2
+- rope-utf16-splay-0.3.1.0
 - syz-0.2.0.0
 - temporary-1.2.1.1
 - yaml-0.8.32

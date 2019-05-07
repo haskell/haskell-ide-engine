@@ -31,6 +31,7 @@ extra-deps:
 - monad-dijkstra-0.1.1.2
 - mtl-2.2.2
 - pretty-show-1.8.2
+- rope-utf16-splay-0.3.1.0
 - sorted-list-0.2.1.0
 - syz-0.2.0.0
 - yaml-0.8.32
