@@ -27,7 +27,6 @@ import           Control.Monad.STM
 import           Data.Aeson ( (.=) )
 import qualified Data.Aeson as J
 import qualified Data.ByteString.Lazy as BL
--- import           Data.Char (isUpper, isAlphaNum)
 import           Data.Coerce (coerce)
 import           Data.Default
 import           Data.Foldable
@@ -203,33 +202,6 @@ getPrefixAtPos :: (MonadIO m, MonadReader REnv m)
 getPrefixAtPos uri pos = do
   mvf <- liftIO =<< asksLspFuncs Core.getVirtualFileFunc <*> pure uri
   case mvf of
-    -- Just (VFS.VirtualFile _ yitext) ->
-    --   return $ Just $ fromMaybe (Hie.PosPrefixInfo "" "" "" pos) $ do
-    --     let headMaybe [] = Nothing
-    --         headMaybe (x:_) = Just x
-    --         lastMaybe [] = Nothing
-    --         lastMaybe xs = Just $ last xs
-    --     -- curLine <- headMaybe $ Yi.lines $ snd $ Yi.splitAtLine l yitext
-    --     -- let beforePos = Yi.take c curLine
-    --     -- curWord <- case Yi.last beforePos of
-    --     --              Just ' ' -> Just "" -- don't count abc as the curword in 'abc '
-    --     --              _ -> Yi.toText <$> lastMaybe (Yi.words beforePos)
-
-    --     curLine <- headMaybe $ Yi.lines $ snd $ splitAtLine l yitext
-    --     let beforePos = Yi.take c curLine
-    --     curWord <- case Yi.last beforePos of
-    --                  Just ' ' -> Just "" -- don't count abc as the curword in 'abc '
-    --                  _ -> Yi.toText <$> lastMaybe (Yi.words beforePos)
-
-    --     let parts = T.split (=='.')
-    --                   $ T.takeWhileEnd (\x -> isAlphaNum x || x `elem` ("._'"::String)) curWord
-    --     case reverse parts of
-    --       [] -> Nothing
-    --       (x:xs) -> do
-    --         let modParts = dropWhile (not . isUpper . T.head)
-    --                             $ reverse $ filter (not .T.null) xs
-    --             modName = T.intercalate "." modParts
-    --         return $ Hie.PosPrefixInfo (Yi.toText curLine) modName x pos
     Just vf -> VFS.getCompletionPrefix pos vf
     Nothing -> return Nothing
 

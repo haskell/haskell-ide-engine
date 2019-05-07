@@ -189,24 +189,6 @@ safeTyThingId _                           = Nothing
 -- Associates a module's qualifier with its members
 type QualCompls = Map.Map T.Text [CompItem]
 
--- -- | Describes the line at the current cursor position
--- data PosPrefixInfo = PosPrefixInfo
---   { fullLine :: T.Text
---     -- ^ The full contents of the line the cursor is at
-
---   , prefixModule :: T.Text
---     -- ^ If any, the module name that was typed right before the cursor position.
---     --  For example, if the user has typed "Data.Maybe.from", then this property
---     --  will be "Data.Maybe"
-
---   , prefixText :: T.Text
---     -- ^ The word right before the cursor position, after removing the module part.
---     -- For example if the user has typed "Data.Maybe.from",
---     -- then this property will be "from"
---   , cursorPos :: J.Position
---     -- ^ The cursor position
---   }
-
 data CachedCompletions = CC
   { allModNamesAsNS :: [T.Text]
   , unqualCompls :: [CompItem]

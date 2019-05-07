@@ -86,7 +86,7 @@ library
                      , optparse-simple >= 0.0.3
                      , parsec
                      , process
-                     , rope-utf16-splay
+                     , rope-utf16-splay >= 0.3.1.0
                      , safe
                      , sorted-list >= 0.2.1.0
                      , stm

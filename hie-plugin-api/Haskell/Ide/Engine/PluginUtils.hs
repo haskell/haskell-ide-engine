@@ -32,7 +32,6 @@ module Haskell.Ide.Engine.PluginUtils
   , readVFS
   , getRangeFromVFS
   , rangeLinesFromVfs
-  , splitAtLine
   ) where
 
 import           Control.Monad.IO.Class
@@ -285,12 +284,5 @@ getRangeFromVFS uri rg = do
   case mvf of
     Just vfs -> return $ Just $ rangeLinesFromVfs vfs rg
     Nothing  -> return Nothing
-
--- rangeLinesFromVfs :: VirtualFile -> Range -> T.Text
--- rangeLinesFromVfs (VirtualFile _ yitext _) (Range (Position lf _cf) (Position lt _ct)) = r
---   where
---     (_ ,s1) = splitAtLine lf yitext
---     (s2, _) = splitAtLine (lt - lf) s1
---     r = Rope.toText s2
 
 -- ---------------------------------------------------------------------

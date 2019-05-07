@@ -49,7 +49,7 @@ library
                      , hslogger
                      , monad-control
                      , mtl
-                     , rope-utf16-splay == 0.2.*
+                     , rope-utf16-splay >= 0.3.1.0
                      , stm
                      , syb
                      , text
