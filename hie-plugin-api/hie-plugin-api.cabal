@@ -45,16 +45,16 @@ library
                      , ghc
                      , ghc-mod-core >= 5.9.0.0
                      , ghc-project-types >= 5.9.0.0
-                     , haskell-lsp == 0.11.*
+                     , haskell-lsp == 0.12.*
                      , hslogger
                      , monad-control
                      , mtl
+                     , rope-utf16-splay >= 0.3.1.0
                      , stm
                      , syb
                      , text
                      , transformers
                      , unordered-containers
-                     , yi-rope
   if os(windows)
     build-depends:     Win32
   else
