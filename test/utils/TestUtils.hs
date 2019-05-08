@@ -166,7 +166,8 @@ logFilePath = "functional-hie-" ++ stackYaml ++ ".log"
 -- We also need to unset STACK_EXE manually inside the tests if they are
 -- run with `stack test`
 hieCommand :: String
-hieCommand = "hie -d -l test-logs/" ++ logFilePath
+hieCommand = "stack exec --no-stack-exe --no-ghc-package-path --stack-yaml=" ++ stackYaml ++
+             " hie -- -d -l test-logs/" ++ logFilePath
 
 hieCommandVomit :: String
 hieCommandVomit = hieCommand ++ " --vomit"
