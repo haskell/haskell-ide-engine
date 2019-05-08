@@ -21,8 +21,11 @@ import qualified Data.Text                                    as T
 import qualified Data.Text.IO                                 as T
 import           Exception
 import           GHC.Generics                                 (Generic)
-import qualified GhcMod.Error                                 as GM
-import qualified GhcMod.Utils                                 as GM
+-- import qualified GhcMod.Error                                 as GM
+-- import qualified GhcMod.Utils                                 as GM
+
+import qualified GhcModCore                                 as GM (GhcModError(..),withMappedFile,GHandler(..),gcatches)
+
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes

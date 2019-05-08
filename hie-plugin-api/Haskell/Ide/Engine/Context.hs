@@ -3,7 +3,8 @@ module Haskell.Ide.Engine.Context where
 import Data.Generics
 import Language.Haskell.LSP.Types
 import GHC
-import GhcMod.Gap (GhcPs) -- for GHC 8.2.2
+-- import qualified GhcMod.Gap as GM (GhcPs) -- for GHC 8.2.2
+import qualified GhcModCore as GM (GhcPs) -- for GHC 8.2.2
 import Haskell.Ide.Engine.PluginUtils
 
 -- | A context of a declaration in the program
@@ -20,7 +21,7 @@ data Context = TypeContext
 getContext :: Position -> ParsedModule -> Maybe Context
 getContext pos pm = everything join (Nothing `mkQ` go `extQ` goInline) decl
   where decl = hsmodDecls $ unLoc $ pm_parsed_source pm
-        go :: LHsDecl GhcPs -> Maybe Context
+        go :: LHsDecl GM.GhcPs -> Maybe Context
         go (L (RealSrcSpan r) (SigD {}))
           | pos `isInsideRange` r = Just TypeContext
           | otherwise = Nothing
@@ -28,7 +29,7 @@ getContext pos pm = everything join (Nothing `mkQ` go `extQ` goInline) decl
           | pos `isInsideRange` r = Just ValueContext
           | otherwise = Nothing
         go _ = Nothing
-        goInline :: GHC.LHsType GhcPs -> Maybe Context
+        goInline :: GHC.LHsType GM.GhcPs -> Maybe Context
         goInline (GHC.L (GHC.RealSrcSpan r) _)
           | pos `isInsideRange` r = Just TypeContext
           | otherwise = Nothing

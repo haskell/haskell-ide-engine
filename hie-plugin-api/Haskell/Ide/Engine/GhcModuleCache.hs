@@ -8,7 +8,8 @@ import qualified Data.Map as Map
 import           Data.Dynamic (Dynamic)
 import           Data.Typeable (TypeRep)
 
-import qualified GhcMod.Types                      as GM ( Cradle(..) )
+-- import qualified GhcMod.Types                      as GM ( Cradle(..) )
+import qualified GhcModCore                      as GM ( Cradle(..) )
 
 import           GHC                               (TypecheckedModule, ParsedModule)
 
