@@ -29,7 +29,7 @@ spec = do
 
       skipMany anyNotification
       hoverRsp <- message :: Session HoverResponse
-      liftIO $ hoverRsp ^? result . _Just . _Just . contents `shouldBe` Nothing
+      liftIO $ hoverRsp ^? result . _Just . _Just . contents `shouldBe` (Just HoverContentsEmpty)
       liftIO $ hoverRsp ^. LSP.id `shouldBe` responseId id1
 
       id2 <- sendRequest TextDocumentDocumentSymbol (DocumentSymbolParams doc)
