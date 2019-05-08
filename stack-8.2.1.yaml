@@ -10,8 +10,6 @@ extra-deps:
 - ./submodules/ghc-mod
 - ./submodules/ghc-mod/core
 - ./submodules/ghc-mod/ghc-project-types
-- ./submodules/haskell-lsp
-- ./submodules/haskell-lsp/haskell-lsp-types
 - ./submodules/lsp-test
 
 # - brittany-0.11.0.0
@@ -23,8 +21,8 @@ extra-deps:
 - ghc-exactprint-0.5.8.2
 - haddock-api-2.18.1
 - haddock-library-1.4.4
-# - haskell-lsp-0.12.1.0
-# - haskell-lsp-types-0.12.1.0
+- haskell-lsp-0.12.1.0
+- haskell-lsp-types-0.12.1.0
 - hlint-2.0.11
 - hsimport-0.8.8
 # - lsp-test-0.5.2.1
