@@ -10,6 +10,9 @@ extra-deps:
 - ./submodules/ghc-mod
 - ./submodules/ghc-mod/core
 - ./submodules/ghc-mod/ghc-project-types
+- ./submodules/haskell-lsp
+- ./submodules/haskell-lsp/haskell-lsp-types
+- ./submodules/lsp-test
 
 # - brittany-0.11.0.0
 - base-compat-0.9.3
@@ -19,16 +22,17 @@ extra-deps:
 - ghc-exactprint-0.5.8.2
 - haddock-api-2.20.0
 - haddock-library-1.6.0
-- haskell-lsp-0.11.0.0
-- haskell-lsp-types-0.11.0.0
+# - haskell-lsp-0.12.1.0
+# - haskell-lsp-types-0.12.1.0
 - haskell-src-exts-1.21.0
 - haskell-src-exts-util-0.2.5
 - hlint-2.1.17
 - hoogle-5.0.17.6
 - hsimport-0.8.8
-- lsp-test-0.5.2.0
+# - lsp-test-0.5.2.1
 - monad-dijkstra-0.1.1.2
 - pretty-show-1.8.2
+- rope-utf16-splay-0.3.1.0
 - syz-0.2.0.0
 - temporary-1.2.1.1
 - windns-0.1.0.0
