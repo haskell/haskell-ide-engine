@@ -10,6 +10,5 @@ packages:
          ./submodules/ghc-mod/ghc-project-types
          ./submodules/haskell-lsp
          ./submodules/haskell-lsp/haskell-lsp-types
-         ./submodules/lsp-test
 
 tests: true
