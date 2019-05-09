@@ -12,7 +12,6 @@ extra-deps:
 - ./submodules/ghc-mod/ghc-project-types
 - ./submodules/haskell-lsp
 - ./submodules/haskell-lsp/haskell-lsp-types
-- ./submodules/lsp-test
 
 # - brittany-0.11.0.0
 - base-compat-0.9.3
@@ -29,7 +28,7 @@ extra-deps:
 - hlint-2.1.17
 - hoogle-5.0.17.6
 - hsimport-0.8.8
-# - lsp-test-0.5.2.1
+- lsp-test-0.5.2.2
 - monad-dijkstra-0.1.1.2
 - pretty-show-1.8.2
 - rope-utf16-splay-0.3.1.0
