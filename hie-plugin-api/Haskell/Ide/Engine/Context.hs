@@ -3,7 +3,6 @@ module Haskell.Ide.Engine.Context where
 import Data.Generics
 import Language.Haskell.LSP.Types
 import GHC
--- import qualified GhcMod.Gap as GM (GhcPs) -- for GHC 8.2.2
 import qualified GhcModCore as GM (GhcPs) -- for GHC 8.2.2
 import Haskell.Ide.Engine.PluginUtils
 

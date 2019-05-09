@@ -117,9 +117,6 @@ import           Data.Typeable                  ( TypeRep
                                                 , Typeable
                                                 )
 
--- import qualified GhcMod.Monad                  as GM ( GhcModT, runGhcModT, GmlT(..), gmlGetSession, gmlSetSession )
--- import qualified GhcMod.Types                  as GM ( MonadIO(..), GmLogLevel(..), Options(..), defaultOptions, OutputOpts(..) )
-
 import qualified GhcModCore                  as GM ( GhcModT, runGhcModT, GmlT(..), gmlGetSession, gmlSetSession
                                                    , MonadIO(..), GmLogLevel(..), Options(..), defaultOptions, OutputOpts(..) )
 

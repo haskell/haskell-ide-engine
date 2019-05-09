@@ -37,10 +37,8 @@ import           Data.Monoid ((<>))
 import qualified Data.Text                         as T
 import           Name
 import           GHC.Generics
-import qualified GhcMod                            as GM
-import qualified GhcMod.Gap                        as GM
-import qualified GhcMod.SrcUtils                   as GM
-import qualified GhcMod.Types                      as GM
+import qualified GhcMod                            as GM ( lint, info )
+import qualified GhcModCore                      as GM ( defaultLintOpts, Expression(..), pretty, defaultLintOpts, Expression(..), GhcPs )
 import           Haskell.Ide.Engine.Ghc
 import           Haskell.Ide.Engine.MonadTypes hiding (defaultOptions)
 import           Haskell.Ide.Engine.PluginUtils
@@ -89,6 +87,7 @@ checkCmd = CmdSync setTypecheckedModule
 lintCmd :: CommandFunc Uri T.Text
 lintCmd = CmdSync lintCmd'
 
+-- TODO:AZ why are we not calling hlint directly?
 lintCmd' :: Uri -> IdeGhcM (IdeResult T.Text)
 lintCmd' uri =
   pluginGetFile "lint: " uri $ \file ->

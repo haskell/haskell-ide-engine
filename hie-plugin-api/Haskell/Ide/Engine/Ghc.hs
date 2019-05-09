@@ -26,15 +26,6 @@ import qualified Data.Set                          as Set
 import qualified Data.Text                         as T
 import           ErrUtils
 
--- import qualified GhcMod.DynFlags                   as GM ( withDynFlags )
--- import qualified GhcMod.Error                      as GM ( gcatches, GHandler(..), ghcExceptionDoc )
--- import qualified GhcMod.Gap                        as GM ( mkErrStyle', renderGm )
--- import qualified GhcMod.ModuleLoader               as GM ( getModulesGhc' )
--- import qualified GhcMod.Monad                      as GM ( GmlT(..), getMMappedFiles, GmState(..), GhcModT, cradle )
--- import qualified GhcMod.Target                     as GM ( cabalResolvedComponents )
--- import qualified GhcMod.Types                      as GM ( IOish, GhcModError(..), GmGhcSession(..), GhcModState(..), GmModuleGraph(..), Cradle(..), gmcHomeModuleGraph )
--- import qualified GhcMod.Utils                      as GM ( mkRevRedirMapFunc )
-
 import qualified GhcModCore                   as GM ( withDynFlags
                                                     , gcatches, GHandler(..), ghcExceptionDoc
                                                     , mkErrStyle', renderGm

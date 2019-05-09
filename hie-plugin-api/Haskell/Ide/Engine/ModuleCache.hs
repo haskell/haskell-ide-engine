@@ -35,11 +35,6 @@ import           Exception (ExceptionMonad)
 import           System.Directory
 import           System.FilePath
 
--- import qualified GhcMod.Cradle as GM ( findCradle' )
--- import qualified GhcMod.Monad  as GM ( GmEnv(..), GmLog(..), GmlT(..), GmOut(..), cradle, options )
--- import qualified GhcMod.Types  as GM ( Cradle(..), GhcModEnv(..), MonadIO(..), Options(..) )
--- import qualified GhcMod.Utils  as GM ( mkRevRedirMapFunc )
-
 import qualified GhcModCore as GM ( findCradle'
                                   , GmEnv(..), GmLog(..), GmlT(..), GmOut(..), cradle, options
                                   , Cradle(..), GhcModEnv(..), MonadIO(..), Options(..)

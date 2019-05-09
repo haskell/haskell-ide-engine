@@ -32,7 +32,6 @@ import           Control.Monad
 import qualified Data.Set                      as Set
 import qualified Data.Map                      as Map
 import qualified Data.Text                     as T
-import qualified GhcMod.Types                  as GM
 import qualified Language.Haskell.LSP.Core     as Core
 import qualified Language.Haskell.LSP.Types    as J
 
@@ -348,7 +347,8 @@ ghcDispatcher env@DispatcherEnv { docVersionTVar } errorHandler callbackHandler 
 -- | Runs the passed monad only if the request identified by the passed LspId
 -- has not already been cancelled.
 unlessCancelled
-  :: GM.MonadIO m => DispatcherEnv -> J.LspId -> ErrorHandler -> m () -> m ()
+  -- :: GM.MonadIO m => DispatcherEnv -> J.LspId -> ErrorHandler -> m () -> m ()
+  :: MonadIO m => DispatcherEnv -> J.LspId -> ErrorHandler -> m () -> m ()
 unlessCancelled env lid errorHandler callback = do
   cancelled <- liftIO $ STM.atomically isCancelled
   if cancelled

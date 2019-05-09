@@ -19,7 +19,7 @@ import           Data.Maybe
 import           Data.Monoid                       ((<>))
 import qualified Data.Text                         as T
 import           GHC.Generics
-import qualified GhcMod.Utils                      as GM
+import qualified GhcModCore                      as GM ( mkRevRedirMapFunc, withMappedFile )
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
