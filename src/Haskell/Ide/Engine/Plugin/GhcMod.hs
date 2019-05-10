@@ -22,7 +22,7 @@ module Haskell.Ide.Engine.Plugin.GhcMod
   , extractRenamableTerms
   , extractUnusedTerm
   , infoCmd'
-  , lintCmd'
+  -- , lintCmd'
   , newTypeCmd
   , symbolProvider
   ) where
@@ -37,8 +37,10 @@ import           Data.Monoid ((<>))
 import qualified Data.Text                         as T
 import           Name
 import           GHC.Generics
-import qualified GhcMod                            as GM ( lint, info )
-import qualified GhcModCore                      as GM ( defaultLintOpts, Expression(..), pretty, defaultLintOpts, Expression(..), GhcPs )
+-- import qualified GhcMod                            as GM ( lint, info )
+import qualified GhcMod                            as GM ( info )
+-- import qualified GhcModCore                        as GM ( defaultLintOpts, Expression(..), pretty, defaultLintOpts, Expression(..), GhcPs )
+import qualified GhcModCore                        as GM ( Expression(..), pretty, Expression(..), GhcPs )
 import           Haskell.Ide.Engine.Ghc
 import           Haskell.Ide.Engine.MonadTypes hiding (defaultOptions)
 import           Haskell.Ide.Engine.PluginUtils
@@ -65,7 +67,7 @@ ghcmodDescriptor plId = PluginDescriptor
               <> "from modern IDEs in any editor."
   , pluginCommands =
       [ PluginCommand "check" "check a file for GHC warnings and errors" checkCmd
-      , PluginCommand "lint" "Check files using `hlint'" lintCmd
+      -- , PluginCommand "lint" "Check files using `hlint'" lintCmd
       , PluginCommand "info" "Look up an identifier in the context of FILE (like ghci's `:info')" infoCmd
       , PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmd
       , PluginCommand "casesplit" "Generate a pattern match for a binding under (LINE,COL)" Hie.splitCaseCmd
@@ -84,14 +86,14 @@ checkCmd = CmdSync setTypecheckedModule
 
 -- ---------------------------------------------------------------------
 
-lintCmd :: CommandFunc Uri T.Text
-lintCmd = CmdSync lintCmd'
+-- lintCmd :: CommandFunc Uri T.Text
+-- lintCmd = CmdSync lintCmd'
 
--- TODO:AZ why are we not calling hlint directly?
-lintCmd' :: Uri -> IdeGhcM (IdeResult T.Text)
-lintCmd' uri =
-  pluginGetFile "lint: " uri $ \file ->
-    fmap T.pack <$> Hie.runGhcModCommand (GM.lint GM.defaultLintOpts file)
+-- -- TODO:AZ why are we not calling hlint directly?
+-- lintCmd' :: Uri -> IdeGhcM (IdeResult T.Text)
+-- lintCmd' uri =
+--   pluginGetFile "lint: " uri $ \file ->
+--     fmap T.pack <$> Hie.runGhcModCommand (GM.lint GM.defaultLintOpts file)
 
 -- ---------------------------------------------------------------------
 

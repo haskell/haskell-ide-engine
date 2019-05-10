@@ -9,7 +9,7 @@ import qualified Data.Map                            as Map
 import           Data.Monoid
 #endif
 import qualified Data.Set                            as S
-import qualified Data.Text                           as T
+-- import qualified Data.Text                           as T
 import           Haskell.Ide.Engine.Ghc
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Plugin.GhcMod
@@ -59,16 +59,17 @@ ghcmodSpec =
     -- ---------------------------------
 
     it "runs the lint command" $ withCurrentDirectory "./test/testdata" $ do
-      fp <- makeAbsolute "FileWithWarning.hs"
-      let uri = filePathToUri fp
-          act = lintCmd' uri
-          arg = uri
-#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,2,2,0)))
-          res = IdeResultOk (T.pack fp <> ":6:9: Warning: Redundant do\NULFound:\NUL  do return (3 + x)\NULPerhaps:\NUL  return (3 + x)\n")
-#else
-          res = IdeResultOk (T.pack fp <> ":6:9: Warning: Redundant do\NULFound:\NUL  do return (3 + x)\NULWhy not:\NUL  return (3 + x)\n")
-#endif
-      testCommand testPlugins act "ghcmod" "lint" arg res
+      pendingWith "make sure we test this elsewhere"
+--       fp <- makeAbsolute "FileWithWarning.hs"
+--       let uri = filePathToUri fp
+--           act = lintCmd' uri
+--           arg = uri
+-- #if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,2,2,0)))
+--           res = IdeResultOk (T.pack fp <> ":6:9: Warning: Redundant do\NULFound:\NUL  do return (3 + x)\NULPerhaps:\NUL  return (3 + x)\n")
+-- #else
+--           res = IdeResultOk (T.pack fp <> ":6:9: Warning: Redundant do\NULFound:\NUL  do return (3 + x)\NULWhy not:\NUL  return (3 + x)\n")
+-- #endif
+--       testCommand testPlugins act "ghcmod" "lint" arg res
 
     -- ---------------------------------
 
