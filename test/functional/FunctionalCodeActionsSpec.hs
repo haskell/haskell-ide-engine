@@ -345,10 +345,11 @@ spec = describe "code actions" $ do
 
           contents <- documentContents doc
 
-          liftIO $ contents `shouldBe`
-            "module TypedHoles where\n\
-            \foo :: [Int] -> Int\n\
-            \foo x = " <> suggestion
+          liftIO $ contents `shouldBe` T.concat
+            [ "module TypedHoles where\n"
+            , "foo :: [Int] -> Int\n"
+            , "foo x = " <> suggestion
+            ]
 
       it "shows more suggestions" $
         runSession hieCommand fullCaps "test/testdata" $ do
