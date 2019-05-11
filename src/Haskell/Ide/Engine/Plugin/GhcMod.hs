@@ -21,8 +21,6 @@ module Haskell.Ide.Engine.Plugin.GhcMod
   , extractMissingSignature
   , extractRenamableTerms
   , extractUnusedTerm
-  , infoCmd'
-  -- , lintCmd'
   , newTypeCmd
   , symbolProvider
   ) where
@@ -37,10 +35,7 @@ import           Data.Monoid ((<>))
 import qualified Data.Text                         as T
 import           Name
 import           GHC.Generics
--- import qualified GhcMod                            as GM ( lint, info )
-import qualified GhcMod                            as GM ( info )
--- import qualified GhcModCore                        as GM ( defaultLintOpts, Expression(..), pretty, defaultLintOpts, Expression(..), GhcPs )
-import qualified GhcModCore                        as GM ( Expression(..), pretty, Expression(..), GhcPs )
+import qualified GhcModCore                        as GM ( pretty, GhcPs )
 import           Haskell.Ide.Engine.Ghc
 import           Haskell.Ide.Engine.MonadTypes hiding (defaultOptions)
 import           Haskell.Ide.Engine.PluginUtils
@@ -66,10 +61,14 @@ ghcmodDescriptor plId = PluginDescriptor
               <> "in editors. It strives to offer most of the features one has come to expect "
               <> "from modern IDEs in any editor."
   , pluginCommands =
-      [ PluginCommand "check" "check a file for GHC warnings and errors" checkCmd
-      -- , PluginCommand "lint" "Check files using `hlint'" lintCmd
-      , PluginCommand "info" "Look up an identifier in the context of FILE (like ghci's `:info')" infoCmd
+      [
+        -- This one is used in the dispatcher tests, and is a wrapper around what we are already using anyway
+        PluginCommand "check" "check a file for GHC warnings and errors" checkCmd
+
+        -- PluginCommand "info" "Look up an identifier in the context of FILE (like ghci's `:info')" infoCmd
       , PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmd
+
+        -- This one is registered in the vscode plugin, for some reason
       , PluginCommand "casesplit" "Generate a pattern match for a binding under (LINE,COL)" Hie.splitCaseCmd
       ]
   , pluginCodeActionProvider = Just codeActionProvider
@@ -86,17 +85,6 @@ checkCmd = CmdSync setTypecheckedModule
 
 -- ---------------------------------------------------------------------
 
--- lintCmd :: CommandFunc Uri T.Text
--- lintCmd = CmdSync lintCmd'
-
--- -- TODO:AZ why are we not calling hlint directly?
--- lintCmd' :: Uri -> IdeGhcM (IdeResult T.Text)
--- lintCmd' uri =
---   pluginGetFile "lint: " uri $ \file ->
---     fmap T.pack <$> Hie.runGhcModCommand (GM.lint GM.defaultLintOpts file)
-
--- ---------------------------------------------------------------------
-
 customOptions :: Options
 customOptions = defaultOptions { fieldLabelModifier = camelTo2 '_' . drop 2}
 
@@ -110,14 +98,14 @@ instance FromJSON InfoParams where
 instance ToJSON InfoParams where
   toJSON = genericToJSON customOptions
 
-infoCmd :: CommandFunc InfoParams T.Text
-infoCmd = CmdSync $ \(IP uri expr) ->
-  infoCmd' uri expr
+-- infoCmd :: CommandFunc InfoParams T.Text
+-- infoCmd = CmdSync $ \(IP uri expr) ->
+--   infoCmd' uri expr
 
-infoCmd' :: Uri -> T.Text -> IdeGhcM (IdeResult T.Text)
-infoCmd' uri expr =
-  pluginGetFile "info: " uri $ \file ->
-    fmap T.pack <$> Hie.runGhcModCommand (GM.info file (GM.Expression (T.unpack expr)))
+-- infoCmd' :: Uri -> T.Text -> IdeGhcM (IdeResult T.Text)
+-- infoCmd' uri expr =
+--   pluginGetFile "info: " uri $ \file ->
+--     fmap T.pack <$> Hie.runGhcModCommand (GM.info file (GM.Expression (T.unpack expr)))
 
 -- ---------------------------------------------------------------------
 data TypeParams =
@@ -135,6 +123,7 @@ typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
 typeCmd = CmdSync $ \(TP _bool uri pos) ->
   liftToGhc $ newTypeCmd pos uri
 
+-- AZ: currently only used in tests, but
 newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
 newTypeCmd newPos uri =
   pluginGetFile "newTypeCmd: " uri $ \fp ->

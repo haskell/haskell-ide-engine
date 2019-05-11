@@ -73,14 +73,14 @@ ghcmodSpec =
 
     -- ---------------------------------
 
-    it "runs the info command" $ withCurrentDirectory "./test/testdata" $ do
-      fp <- makeAbsolute "HaReRename.hs"
-      let uri = filePathToUri fp
-          act = infoCmd' uri "main"
-          arg = IP uri "main"
-          res = IdeResultOk "main :: IO () \t-- Defined at HaReRename.hs:2:1\n"
-      -- ghc-mod tries to load the test file in the context of the hie project if we do not cd first.
-      testCommand testPlugins act "ghcmod" "info" arg res
+    -- it "runs the info command" $ withCurrentDirectory "./test/testdata" $ do
+    --   fp <- makeAbsolute "HaReRename.hs"
+    --   let uri = filePathToUri fp
+    --       act = infoCmd' uri "main"
+    --       arg = IP uri "main"
+    --       res = IdeResultOk "main :: IO () \t-- Defined at HaReRename.hs:2:1\n"
+    --   -- ghc-mod tries to load the test file in the context of the hie project if we do not cd first.
+    --   testCommand testPlugins act "ghcmod" "info" arg res
 
 -- ----------------------------------------------------------------------------
 
@@ -97,6 +97,7 @@ ghcmodSpec =
             ]
 
       testCommand testPlugins act "ghcmod" "type" arg res
+
     it "runs the type command, find function type" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "HaReRename.hs"
       let uri = filePathToUri fp
