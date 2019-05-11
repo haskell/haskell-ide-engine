@@ -92,7 +92,7 @@ packageSpec = do
                   , "version: 0.1.0.0\n"
                   , "cabal-version: >=1.10\n"
                   , "build-type: Simple\n"
-                  , "license: BSD3"
+                  , "license: BSD3\n"
                   , "maintainer: luke_lau@icloud.com\n"
                   , "author: Luke Lau\n"
                   , "extra-source-files:\n"
@@ -100,7 +100,7 @@ packageSpec = do
                   ]
                 , TextEdit (Range (Position 9 0) (Position 13 34)) $ T.concat
                   [ "executable  AddPackage\n"
-                  , "    main-is: AddPackage.hs"
+                  , "    main-is: AddPackage.hs\n"
                   ]
                 ]
 #endif
@@ -150,7 +150,7 @@ packageSpec = do
                   , "maintainer: luke_lau@icloud.com\n"
                   , "author: Luke Lau\n"
                   , "extra-source-files:\n"
-                  , "    ChangeLog.md\n"
+                  , "    ChangeLog.md"
                   ]
                 , TextEdit (Range (Position 10 0) (Position 13 34)) $ T.concat
                   [ "    exposed-modules:\n"
