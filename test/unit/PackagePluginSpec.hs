@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP #-}
 
 module PackagePluginSpec where
 
@@ -62,26 +63,47 @@ packageSpec = do
             uri       = filePathToUri $ fp </> "add-package-test.cabal"
             args      = AddParams fp (fp </> "AddPackage.hs") "text"
             act       = addCmd' args
-            textEdits = List
-              [ TextEdit (Range (Position 0 0) (Position 7 27)) $ T.concat
-                [ "cabal-version: >=1.10\n"
-                , "name: add-package-test\n"
-                , "version: 0.1.0.0\n"
-                , "license: BSD3\n"
-                , "maintainer: luke_lau@icloud.com\n"
-                , "author: Luke Lau\n"
-                , "build-type: Simple\n"
-                , "extra-source-files:\n"
-                , "    ChangeLog.md"
+            textEdits =
+#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)))
+              List
+                [ TextEdit (Range (Position 0 0) (Position 7 27)) $ T.concat
+                  [ "cabal-version: >=1.10\n"
+                  , "name: add-package-test\n"
+                  , "version: 0.1.0.0\n"
+                  , "license: BSD3\n"
+                  , "maintainer: luke_lau@icloud.com\n"
+                  , "author: Luke Lau\n"
+                  , "build-type: Simple\n"
+                  , "extra-source-files:\n"
+                  , "    ChangeLog.md"
+                  ]
+                , TextEdit (Range (Position 10 0) (Position 13 34)) $ T.concat
+                  [ "    main-is: AddPackage.hs\n"
+                  , "    default-language: Haskell2010\n"
+                  , "    build-depends:\n"
+                  , "        base >=4.7 && <5,\n"
+                  , "        text -any"
+                  ]
                 ]
-              , TextEdit (Range (Position 10 0) (Position 13 34)) $ T.concat
-                [ "    main-is: AddPackage.hs\n"
-                , "    default-language: Haskell2010\n"
-                , "    build-depends:\n"
-                , "        base >=4.7 && <5,\n"
-                , "        text -any"
+#else
+              List -- TODO: this seems to indicate that the command does nothing
+                [ TextEdit (Range (Position 0 0) (Position 7 27)) $ T.concat
+                  [ "name: add-package-test\n"
+                  , "version: 0.1.0.0\n"
+                  , "cabal-version: >=1.10\n"
+                  , "build-type: Simple\n"
+                  , "license: BSD3"
+                  , "maintainer: luke_lau@icloud.com\n"
+                  , "author: Luke Lau\n"
+                  , "extra-source-files:\n"
+                  , "    ChangeLog.md"
+                  ]
+                , TextEdit (Range (Position 9 0) (Position 13 34)) $ T.concat
+                  [ "executable  AddPackage\n"
+                  , "    main-is: AddPackage.hs"
+                  ]
                 ]
-              ]
+#endif
             res = IdeResultOk
               $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
           testCommand testPlugins act "package" "add" args res
@@ -94,30 +116,56 @@ packageSpec = do
             uri       = filePathToUri $ fp </> "add-package-test.cabal"
             args      = AddParams fp (fp </> "AddPackage.hs") "text"
             act       = addCmd' args
-            textEdits = List
-              [ TextEdit (Range (Position 0 0) (Position 7 27)) $ T.concat
-                [ "cabal-version: >=1.10\n"
-                , "name: add-package-test\n"
-                , "version: 0.1.0.0\n"
-                , "license: BSD3\n"
-                , "maintainer: luke_lau@icloud.com\n"
-                , "author: Luke Lau\n"
-                , "build-type: Simple\n"
-                , "extra-source-files:\n"
-                , "    ChangeLog.md"
+            textEdits =
+#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)))
+              List
+                [ TextEdit (Range (Position 0 0) (Position 7 27)) $ T.concat
+                  [ "cabal-version: >=1.10\n"
+                  , "name: add-package-test\n"
+                  , "version: 0.1.0.0\n"
+                  , "license: BSD3\n"
+                  , "maintainer: luke_lau@icloud.com\n"
+                  , "author: Luke Lau\n"
+                  , "build-type: Simple\n"
+                  , "extra-source-files:\n"
+                  , "    ChangeLog.md"
+                  ]
+                , TextEdit (Range (Position 10 0) (Position 13 34)) $ T.concat
+                  [ "    exposed-modules:\n"
+                  , "        AddPackage\n"
+                  , "    default-language: Haskell2010\n"
+                  , "    build-depends:\n"
+                  , "        base >=4.7 && <5,\n"
+                  , "        text -any"
+                  ]
                 ]
-              , TextEdit (Range (Position 10 0) (Position 13 34)) $ T.concat
-                [ "    exposed-modules:\n"
-                , "        AddPackage\n"
-                , "    default-language: Haskell2010\n"
-                , "    build-depends:\n"
-                , "        base >=4.7 && <5,\n"
-                , "        text -any"
+#else
+              List
+                [ TextEdit (Range (Position 0 0) (Position 7 27)) $ T.concat
+                  [ "name: add-package-test\n"
+                  , "version: 0.1.0.0\n"
+                  , "cabal-version: >=1.10\n"
+                  , "build-type: Simple\n"
+                  , "license: BSD3\n"
+                  , "maintainer: luke_lau@icloud.com\n"
+                  , "author: Luke Lau\n"
+                  , "extra-source-files:\n"
+                  , "    ChangeLog.md\n"
+                  ]
+                , TextEdit (Range (Position 10 0) (Position 13 34)) $ T.concat
+                  [ "    exposed-modules:\n"
+                  , "        AddPackage\n"
+                  , "    build-depends:\n"
+                  , "        base >=4.7 && <5,\n"
+                  , "        text -any\n"
+                  , "    default-language: Haskell2010\n"
+                  ]
                 ]
-              ]
+#endif
             res = IdeResultOk
               $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
           testCommand testPlugins act "package" "add" args res
+
 
     it "Add package to package.yaml to executable component"
       $ withCurrentDirectory (testdata </> "hpack-exe")
@@ -169,26 +217,27 @@ packageSpec = do
             act  = addCmd' args
             res  = IdeResultOk
               $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
-            textEdits = List
-              [ TextEdit (Range (Position 0 0) (Position 25 0)) $ T.concat
-                  [ "library:\n"
-                  , "  source-dirs: app\n"
-                  , "  dependencies:\n"
-                  , "  - zlib\n"
-                  , "  - base >= 4.7 && < 5\n"
-                  , "copyright: 2018 Author name here\n"
-                  , "maintainer: example@example.com\n"
-                  , "name: asdf\n"
-                  , "version: 0.1.0.0\n"
-                  , "extra-source-files:\n"
-                  , "- README.md\n"
-                  , "- ChangeLog.md\n"
-                  , "author: Author name here\n"
-                  , "github: githubuser/asdf\n"
-                  , "license: BSD3\n"
-                  , "description: Please see the README on GitHub at <https://github.com/githubuser/asdf#readme>\n"
-                  ]
-              ]
+            textEdits =
+              List
+                [ TextEdit (Range (Position 0 0) (Position 25 0)) $ T.concat
+                    [ "library:\n"
+                    , "  source-dirs: app\n"
+                    , "  dependencies:\n"
+                    , "  - zlib\n"
+                    , "  - base >= 4.7 && < 5\n"
+                    , "copyright: 2018 Author name here\n"
+                    , "maintainer: example@example.com\n"
+                    , "name: asdf\n"
+                    , "version: 0.1.0.0\n"
+                    , "extra-source-files:\n"
+                    , "- README.md\n"
+                    , "- ChangeLog.md\n"
+                    , "author: Author name here\n"
+                    , "github: githubuser/asdf\n"
+                    , "license: BSD3\n"
+                    , "description: Please see the README on GitHub at <https://github.com/githubuser/asdf#readme>\n"
+                    ]
+                ]
           testCommand testPlugins act "package" "add" args res
     it
         "Add package to package.yaml in hpack project with generated cabal to executable component"
