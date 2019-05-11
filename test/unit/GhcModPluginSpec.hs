@@ -6,7 +6,7 @@ import           Control.Exception
 import qualified Data.HashMap.Strict                 as H
 import qualified Data.Map                            as Map
 #if __GLASGOW_HASKELL__ < 804
-import           Data.Monoid
+-- import           Data.Monoid
 #endif
 import qualified Data.Set                            as S
 -- import qualified Data.Text                           as T
