@@ -19,7 +19,7 @@ import           Data.Maybe
 import           Data.Monoid                       ((<>))
 import qualified Data.Text                         as T
 import           GHC.Generics
-import qualified GhcMod.Utils                      as GM
+import qualified GhcModCore                      as GM ( mkRevRedirMapFunc, withMappedFile )
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
@@ -111,9 +111,9 @@ lintCmd = CmdSync $ \uri -> do
 -- AZ:TODO: Why is this in IdeGhcM?
 lintCmd' :: Uri -> IdeGhcM (IdeResult PublishDiagnosticsParams)
 lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
-  eitherErrorResult <- GM.withMappedFile fp $ \file' -> 
+  eitherErrorResult <- GM.withMappedFile fp $ \file' ->
     liftIO (try $ runExceptT $ runLintCmd file' [] :: IO (Either IOException (Either [Diagnostic] [Idea])))
-  
+
   case eitherErrorResult of
     Left err ->
       return

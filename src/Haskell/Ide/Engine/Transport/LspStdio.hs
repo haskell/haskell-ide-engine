@@ -38,8 +38,7 @@ import qualified Data.Set as S
 import qualified Data.SortedList as SL
 import qualified Data.Text as T
 import           Data.Text.Encoding
-import qualified GhcMod.Monad.Types       as GM
-import qualified GhcModCore               as GM
+import qualified GhcModCore               as GM ( loadMappedFileSource, getMMappedFiles )
 import           Haskell.Ide.Engine.Config
 import qualified Haskell.Ide.Engine.Ghc   as HIE
 import           Haskell.Ide.Engine.LSP.CodeActions

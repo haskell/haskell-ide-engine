@@ -10,6 +10,7 @@ import           Data.List
 import           Data.Foldable
 import           Data.Version                          (showVersion)
 import qualified GhcMod.Monad                          as GM
+import qualified GhcMod.Monad.Types                    as GM
 import qualified GhcMod.Types                          as GM
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.Options

@@ -21,18 +21,20 @@ import           Bag
 import           Control.Monad.IO.Class
 import           Data.IORef
 import qualified Data.Map.Strict                   as Map
+import           Data.Monoid ((<>))
 import qualified Data.Set                          as Set
 import qualified Data.Text                         as T
 import           ErrUtils
-import qualified GhcMod.DynFlags                   as GM
-import qualified GhcMod.Error                      as GM
-import qualified GhcMod.Gap                        as GM
-import qualified GhcMod.ModuleLoader               as GM
-import qualified GhcMod.Monad                      as GM
-import           Data.Monoid ((<>))
-import qualified GhcMod.Target                     as GM
-import qualified GhcMod.Types                      as GM
-import qualified GhcMod.Utils                      as GM
+
+import qualified GhcModCore                   as GM ( withDynFlags
+                                                    , gcatches, GHandler(..), ghcExceptionDoc
+                                                    , mkErrStyle', renderGm
+                                                    , getModulesGhc'
+                                                    , GmlT(..), getMMappedFiles, GmState(..), GhcModT, cradle
+                                                    , cabalResolvedComponents
+                                                    , IOish, GhcModError(..), GmGhcSession(..), GhcModState(..), GmModuleGraph(..), Cradle(..), gmcHomeModuleGraph
+                                                    , mkRevRedirMapFunc )
+
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils

@@ -18,8 +18,7 @@ import Data.Function
 import Data.Maybe
 import Data.List
 import           GHC
-import qualified GhcMod.LightGhc                              as GM
-import qualified GhcMod.Monad                                 as GM
+import qualified GhcModCore                           as GM ( LightGhc(..), runLightGhc )
 import           GhcMonad
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes

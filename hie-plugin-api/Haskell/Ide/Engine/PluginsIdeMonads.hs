@@ -117,8 +117,9 @@ import           Data.Typeable                  ( TypeRep
                                                 , Typeable
                                                 )
 
-import qualified GhcMod.Monad                  as GM
-import qualified GhcMod.Types                  as GM
+import qualified GhcModCore                  as GM ( GhcModT, runGhcModT, GmlT(..), gmlGetSession, gmlSetSession
+                                                   , MonadIO(..), GmLogLevel(..), Options(..), defaultOptions, OutputOpts(..) )
+
 import           GHC.Generics
 import           GHC                            ( HscEnv )
 import qualified DynFlags      as GHC
