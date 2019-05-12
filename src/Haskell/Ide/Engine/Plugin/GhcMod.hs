@@ -12,7 +12,6 @@ module Haskell.Ide.Engine.Plugin.GhcMod
   -- * For tests
   , Bindings(..)
   , FunctionSig(..)
-  , InfoParams(..)
   , TypeDef(..)
   , TypeParams(..)
   , TypedHoles(..) -- only to keep the GHC 8.4 and below unused field warning happy
@@ -88,26 +87,8 @@ checkCmd = CmdSync setTypecheckedModule
 customOptions :: Options
 customOptions = defaultOptions { fieldLabelModifier = camelTo2 '_' . drop 2}
 
-data InfoParams =
-  IP { ipFile :: Uri
-     , ipExpr :: T.Text
-     } deriving (Eq,Show,Generic)
-
-instance FromJSON InfoParams where
-  parseJSON = genericParseJSON customOptions
-instance ToJSON InfoParams where
-  toJSON = genericToJSON customOptions
-
--- infoCmd :: CommandFunc InfoParams T.Text
--- infoCmd = CmdSync $ \(IP uri expr) ->
---   infoCmd' uri expr
-
--- infoCmd' :: Uri -> T.Text -> IdeGhcM (IdeResult T.Text)
--- infoCmd' uri expr =
---   pluginGetFile "info: " uri $ \file ->
---     fmap T.pack <$> Hie.runGhcModCommand (GM.info file (GM.Expression (T.unpack expr)))
-
 -- ---------------------------------------------------------------------
+
 data TypeParams =
   TP { tpIncludeConstraints :: Bool
      , tpFile               :: Uri
@@ -123,7 +104,6 @@ typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
 typeCmd = CmdSync $ \(TP _bool uri pos) ->
   liftToGhc $ newTypeCmd pos uri
 
--- AZ: currently only used in tests, but
 newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
 newTypeCmd newPos uri =
   pluginGetFile "newTypeCmd: " uri $ \fp ->

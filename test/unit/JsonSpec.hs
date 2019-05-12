@@ -37,7 +37,7 @@ jsonSpec = do
   describe "General JSON instances round trip" $ do
   -- Plugin params
     prop "ApplyOneParams"    (propertyJsonRoundtrip :: ApplyOneParams -> Bool)
-    prop "InfoParams"        (propertyJsonRoundtrip :: InfoParams -> Bool)
+    prop "TypeParams"        (propertyJsonRoundtrip :: TypeParams -> Bool)
     prop "HarePoint"         (propertyJsonRoundtrip :: HarePoint -> Bool)
     prop "HarePointWithText" (propertyJsonRoundtrip :: HarePointWithText -> Bool)
     prop "HareRange"         (propertyJsonRoundtrip :: HareRange -> Bool)
@@ -62,8 +62,8 @@ smallList = resize 3 . listOf
 instance Arbitrary ApplyOneParams where
   arbitrary = AOP <$> arbitrary <*> arbitrary <*>  arbitrary
 
-instance Arbitrary InfoParams where
-  arbitrary = IP <$> arbitrary <*> arbitrary
+instance Arbitrary TypeParams where
+  arbitrary = TP <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance Arbitrary HarePoint where
   arbitrary = HP <$> arbitrary <*> arbitrary
