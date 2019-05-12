@@ -32,7 +32,7 @@ spec = describe "behaviour on malformed projects" $ do
           d ^. code `shouldBe` Nothing
           d ^. source `shouldBe` Just "ghcmod"
           d ^. message `shouldBe`
-            (T.pack "readCreateProcess: stack \"build\" \"--only-configure\" \".\" (exit 1): failed\n")
+            (T.pack "callProcessStderr: stack --stack-yaml=/root/build/test/testdata/badProjects/cabal/stack.yaml build --only-configure . (exit 1): failed\n")
 
     -- ---------------------------------
 
