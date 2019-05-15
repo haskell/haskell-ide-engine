@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings     #-}
 module ApplyRefactPluginSpec where
 
+import           Control.Monad.IO.Class
 import qualified Data.HashMap.Strict                   as H
 import qualified Data.Text                             as T
 import           Haskell.Ide.Engine.Plugin.ApplyRefact
@@ -85,7 +86,9 @@ applyRefactSpec = do
                             "Redundant bracket\nFound:\n  (x + 1)\nWhy not:\n  x + 1\n"
                             Nothing
                ]}
+      liftIO $ putStrLn "returns hints as diagnostics:1"
       testCommand testPlugins act "applyrefact" "lint" arg res
+      liftIO $ putStrLn "returns hints as diagnostics:2"
 
     -- ---------------------------------
 
@@ -115,7 +118,9 @@ applyRefactSpec = do
                            , _message = "Parse error: :~:\n  import           Data.Type.Equality            ((:~:) (..), (:~~:) (..))\n  \n> data instance Sing (z :: (a :~: b)) where\n      SRefl :: Sing Refl +\n\n"
                            , _relatedInformation = Nothing }]}
 #endif
+      liftIO $ putStrLn "returns hlint parse error as DsInfo ignored diagnostic:1"
       testCommand testPlugins act "applyrefact" "lint" arg res
+      liftIO $ putStrLn "returns hlint parse error as DsInfo ignored diagnostic:2"
 
     -- ---------------------------------
 
