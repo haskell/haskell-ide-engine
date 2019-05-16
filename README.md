@@ -123,7 +123,7 @@ we talk to clients.__
 
 ### Installation with Nix
 
-Follow the instructions at https://github.com/domenkozar/hie-nix
+Follow the instructions at https://github.com/Infinisil/all-hies
 
 
 ### Installation on ArchLinux
