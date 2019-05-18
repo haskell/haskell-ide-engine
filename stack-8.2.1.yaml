@@ -24,7 +24,7 @@ extra-deps:
 - haskell-lsp-types-0.13.0.0@rev:2
 - hlint-2.0.11
 - hsimport-0.8.8
-- lsp-test-0.5.2.2@rev:1
+- lsp-test-0.5.2.3
 - monad-dijkstra-0.1.1.2
 - mtl-2.2.2
 - pretty-show-1.8.2
