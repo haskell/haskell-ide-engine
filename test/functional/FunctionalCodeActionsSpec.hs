@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE CPP #-}
 
 module FunctionalCodeActionsSpec where
 
@@ -178,9 +177,7 @@ spec = describe "code actions" $ do
         ]
       ]
   describe "add package suggestions" $ do
-    -- Only execute this test with ghc 8.4.4, below seems to be broken in the package.
-#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)))
-    it "adds to .cabal files" $ runSession hieCommand fullCaps "test/testdata/addPackageTest/cabal-exe" $ do
+    it "adds to .cabal files" $ runSession hieCommand fullCaps "test/testdata/addPackageTest/cabal" $ do
       doc <- openDoc "AddPackage.hs" "haskell"
 
       -- ignore the first empty hlint diagnostic publish
@@ -204,9 +201,9 @@ spec = describe "code actions" $ do
 
       contents <- getDocumentEdit . TextDocumentIdentifier =<< getDocUri "add-package-test.cabal"
       liftIO $ T.lines contents `shouldSatisfy` \x -> any (\l -> "text -any" `T.isSuffixOf` (x !! l)) [15, 16]
-#endif
+
     it "adds to hpack package.yaml files" $
-      runSession hieCommand fullCaps "test/testdata/addPackageTest/hpack-exe" $ do
+      runSession hieCommand fullCaps "test/testdata/addPackageTest/hpack" $ do
         doc <- openDoc "app/Asdf.hs" "haskell"
 
         -- ignore the first empty hlint diagnostic publish
@@ -230,35 +227,9 @@ spec = describe "code actions" $ do
 
         contents <- getDocumentEdit . TextDocumentIdentifier =<< getDocUri "package.yaml"
         liftIO $ do
-          T.lines contents !! 3 `shouldSatisfy` T.isSuffixOf "zlib"
-          T.lines contents !! 21 `shouldNotSatisfy` T.isSuffixOf "zlib"
-
-    it "adds to hpack package.yaml files if both are present" $
-      runSession hieCommand fullCaps "test/testdata/addPackageTest/hybrid-exe" $ do
-        doc <- openDoc "app/Asdf.hs" "haskell"
-
-        -- ignore the first empty hlint diagnostic publish
-        [_,diag:_] <- count 2 waitForDiagnostics
-
-        let preds = [ T.isPrefixOf "Could not load module ‘Codec.Compression.GZip’"
-                    , T.isPrefixOf "Could not find module ‘Codec.Compression.GZip’"
-                    ]
-          in liftIO $ diag ^. L.message `shouldSatisfy` \x -> any (\f -> f x) preds
-
-        mActions <- getAllCodeActions doc
-        let allActions = map fromAction mActions
-            action = head allActions
-
-        liftIO $ do
-          action ^. L.title `shouldBe` "Add zlib as a dependency"
-          forM_ allActions $ \a -> a ^. L.kind `shouldBe` Just CodeActionQuickFix
-          forM_ allActions $ \a -> a ^. L.command . _Just . L.command `shouldSatisfy` T.isSuffixOf "package:add"
-
-        executeCodeAction action
-
-        contents <- getDocumentEdit . TextDocumentIdentifier =<< getDocUri "package.yaml"
-        liftIO $
-          T.lines contents !! 21 `shouldSatisfy` T.isSuffixOf "zlib"
+          T.lines contents !! 33 `shouldSatisfy` T.isSuffixOf "zlib"
+          T.lines contents !! 12 `shouldNotSatisfy` T.isSuffixOf "zlib"
+          T.lines contents !! 13 `shouldNotSatisfy` T.isSuffixOf "zlib"
 
   -- -----------------------------------
 
@@ -345,11 +316,10 @@ spec = describe "code actions" $ do
 
           contents <- documentContents doc
 
-          liftIO $ contents `shouldBe` T.concat
-            [ "module TypedHoles where\n"
-            , "foo :: [Int] -> Int\n"
-            , "foo x = " <> suggestion
-            ]
+          liftIO $ contents `shouldBe`
+            "module TypedHoles where\n\
+            \foo :: [Int] -> Int\n\
+            \foo x = " <> suggestion
 
       it "shows more suggestions" $
         runSession hieCommand fullCaps "test/testdata" $ do

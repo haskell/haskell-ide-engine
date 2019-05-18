@@ -101,12 +101,8 @@ setupStackFiles =
 files :: [FilePath]
 files =
   [  "./test/testdata/"
-   , "./test/testdata/addPackageTest/cabal-exe/"
-   , "./test/testdata/addPackageTest/hpack-exe/"
-   , "./test/testdata/addPackageTest/hybrid-exe/"
-   , "./test/testdata/addPackageTest/cabal-lib/"
-   , "./test/testdata/addPackageTest/hpack-lib/"
-   , "./test/testdata/addPackageTest/hybrid-lib/"
+   , "./test/testdata/addPackageTest/cabal/"
+   , "./test/testdata/addPackageTest/hpack/"
    , "./test/testdata/addPragmas/"
    , "./test/testdata/badProjects/cabal/"
    , "./test/testdata/completion/"
@@ -257,7 +253,7 @@ xmlFormatter = silent {
         failure ! message (reasonAsString err) $ ""
 
 #if MIN_VERSION_hspec(2,5,0)
-    examplePending path _ reason =
+    examplePending path _ reason = 
 #else
     examplePending path reason =
 #endif

@@ -67,7 +67,7 @@ data AddParams = AddParams
   { rootDirParam   :: FilePath   -- ^ The root directory.
   , fileParam      :: ModulePath -- ^ A path to a module inside the
                                  -- library/executable/test-suite you want to
-                                 -- add the package to. May be a relative or
+                                 -- add the package to. May be a realtive oir
                                  -- absolute path, thus, must be normalised.
   , packageParam   :: Package    -- ^ The name of the package to add.
   }
@@ -76,7 +76,7 @@ data AddParams = AddParams
 -- | FilePath to a cabal package description file.
 type CabalFilePath = FilePath
 -- | FilePath to a package.yaml package description file.
-type HpackFilePath = FilePath
+type PackageYamlFilePath = FilePath
 -- | FilePath to a module within the project.
 -- May be used to establish what component the dependency shall be added to.
 type ModulePath = FilePath
@@ -88,14 +88,8 @@ type Package = T.Text
 -- Supported are `*.cabal` and `package.yaml` specifications.
 -- Moreover, may fail with an IOException in case of a filesystem problem.
 addCmd :: CommandFunc AddParams J.WorkspaceEdit
-addCmd = CmdSync addCmd'
+addCmd = CmdSync $ \(AddParams rootDir modulePath pkg) -> do
 
--- | Add a package to the project's dependencies.
--- May fail if no project dependency specification can be found.
--- Supported are `*.cabal` and `package.yaml` specifications.
--- Moreover, may fail with an IOException in case of a filesystem problem.
-addCmd' :: AddParams -> IdeGhcM (IdeResult J.WorkspaceEdit)
-addCmd' (AddParams rootDir modulePath pkg) = do
   packageType <- liftIO $ findPackageType rootDir
   fileMap <- GM.mkRevRedirMapFunc
 
@@ -111,10 +105,9 @@ addCmd' (AddParams rootDir modulePath pkg) = do
       liftToGhc $ editHpackPackage absFp relModulePath pkg
     NoPackage -> return $ IdeResultFail (IdeError PluginError "No package.yaml or .cabal found" Null)
 
-data PackageType = CabalPackage FilePath -- ^ Location of Cabal File. May be relative.
-                 | HpackPackage FilePath -- ^ Location of `package.yaml`. May be relative.
+data PackageType = CabalPackage FilePath -- ^ Location of Cabal File.
+                 | HpackPackage FilePath -- ^ Location of `package.yaml`
                  | NoPackage -- ^ No package format has been found.
-                 deriving (Show, Eq)
 
 -- | Find the package type the project with the given root uses.
 -- Might have weird results if there is more than one cabal package specification
@@ -136,13 +129,12 @@ findPackageType rootDir = do
   return $ fromMaybe NoPackage $ asum [HpackPackage <$> mHpack, CabalPackage <$> mCabal]
 
 -- | Edit a hpack package to add the given package to the package.yaml.
--- If package.yaml is not in an expected format, will fail fatally.
 --
 -- Currently does not preserve format.
 -- Keep an eye out on this other GSOC project!
 -- https://github.com/wisn/format-preserving-yaml
-editHpackPackage :: HpackFilePath -- ^ Path to the package.yaml file
-                                  -- containing the package description.
+editHpackPackage :: PackageYamlFilePath -- ^ Path to the package.yaml file
+                                        -- containing the package description.
                  -> ModulePath -- ^ Path to the module where the command has
                                -- been issued in.
                                -- Used to find out what component the
@@ -156,29 +148,19 @@ editHpackPackage fp modulePath pkgName = do
 
   case Y.decodeThrow contents :: Maybe Object of
     Just obj -> do
-        -- Map over all major components, such as "executable", "executables",
-        -- "tests" and "benchmarks". Note, that "library" is a major component,
-        -- but its structure is different and can not be mapped over in the same way.
-        --
-        -- Only adds the package if the declared "source-dirs" field is part of the
-        -- module path, or if no "source-dirs" is declared.
         let compsMapped = mapComponentTypes (ensureObject $ mapComponents (ensureObject $ mapCompDependencies addDep)) obj
 
-        -- Is there a global "dependencies" yaml object?
-        let addDepToMainDep = fromMaybe False $ do
-              Array _ <- HM.lookup "dependencies" compsMapped
-              return True
+        let addDepToMainLib = fromMaybe True $ do
+              Object lib <- HM.lookup "library" compsMapped
+              sourceDirs <- HM.lookup "source-dirs" lib
+              return $ isInSourceDir sourceDirs
 
-        -- Either add the package to only the top-level "dependencies",
-        -- or to all main components of which the given module is part of.
-        let newPkg
-              | addDepToMainDep = mapMainDependencies addDep obj
-              -- Map over the library component at last, since it has different structure.
-              | otherwise = mapLibraryDependency addDep compsMapped
+        let newPkg = if addDepToMainLib
+            then mapMainDependencies addDep compsMapped
+            else compsMapped
 
-        let newPkgText = T.decodeUtf8 $ Y.encode newPkg
+            newPkgText = T.decodeUtf8 $ Y.encode newPkg
 
-        -- Construct the WorkSpaceEdit
         let numOldLines = length $ T.lines $ T.decodeUtf8 contents
             range = J.Range (J.Position 0 0) (J.Position numOldLines 0)
             textEdit = J.TextEdit range newPkgText
@@ -197,16 +179,8 @@ editHpackPackage fp modulePath pkgName = do
 
     mapMainDependencies :: (Value -> Value) -> Object -> Object
     mapMainDependencies f o =
-      let g :: T.Text -> Value -> Value
-          g "dependencies" = f
+      let g "dependencies" = f
           g _              = id
-      in HM.mapWithKey g o
-
-    mapLibraryDependency :: (Value -> Value) -> Object -> Object
-    mapLibraryDependency f o =
-      let g :: T.Text -> Value -> Value
-          g "library" (Y.Object o') = Y.Object (mapCompDependencies f o')
-          g _ x = x
       in HM.mapWithKey g o
 
     mapComponentTypes :: (Value -> Value) -> Object -> Object
