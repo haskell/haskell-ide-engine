@@ -21,7 +21,7 @@ spec = describe "hover" $
       h ^. range `shouldBe` Just (Range (Position 1 16) (Position 1 19))
       let
           hasType (HoverContents (MarkupContent MkMarkdown s))
-            = "```haskell\nsum :: [Int] -> Int\n```" `T.isPrefixOf`s
+            = "\n```haskell\nsum :: [Int] -> Int\n```" `T.isPrefixOf`s
           hasType _ = False
 
           sumDoc = "The `sum` function computes the sum of the numbers of a structure."
