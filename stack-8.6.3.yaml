@@ -16,14 +16,14 @@ extra-deps:
 - constrained-dynamic-0.1.0.0
 - floskell-0.10.0
 - haddock-api-2.21.0
-- haskell-lsp-0.12.1.0
-- haskell-lsp-types-0.12.1.0
+- haskell-lsp-0.13.0.0
+- haskell-lsp-types-0.13.0.0
 - haskell-src-exts-1.21.0
 - haskell-src-exts-util-0.2.5
 - hlint-2.1.17
 - hoogle-5.0.17.6
 - hsimport-0.8.8
-- lsp-test-0.5.2.2
+- lsp-test-0.5.2.2@rev:1
 - monad-dijkstra-0.1.1.2
 - monad-memo-0.4.1
 - multistate-0.8.0.1
