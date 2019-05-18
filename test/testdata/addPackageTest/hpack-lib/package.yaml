@@ -19,30 +19,7 @@ extra-source-files:
 # common to point users to the README.md file.
 description:         Please see the README on GitHub at <https://github.com/githubuser/asdf#readme>
 
-dependencies:
-- base >= 4.7 && < 5
-
 library:
-  source-dirs: src
-
-executables:
-  asdf-exe:
-    main:                Main.hs
-    source-dirs:         app
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - asdf
-
-tests:
-  asdf-test:
-    main:                Spec.hs
-    source-dirs:         test
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - asdf
+  source-dirs: app
+  dependencies:
+  - base >= 4.7 && < 5
