@@ -22,7 +22,7 @@ extra-deps:
 - haddock-api-2.22.0
 - haskell-lsp-0.12.1.0
 - haskell-lsp-types-0.12.1.0
-- hlint-2.1.20
+- hlint-2.1.21
 - hsimport-0.8.8
 - lsp-test-0.5.2.2
 - monad-dijkstra-0.1.1.2@rev:1

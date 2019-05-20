@@ -28,6 +28,7 @@ spec = describe "code actions" $ do
 
       doc <- openDoc "ApplyRefact2.hs" "haskell"
       diags@(reduceDiag:_) <- waitForDiagnostics
+      liftIO $ putStrLn "a1"
 
       liftIO $ do
         length diags `shouldBe` 2
@@ -35,16 +36,22 @@ spec = describe "code actions" $ do
         reduceDiag ^. L.severity `shouldBe` Just DsInfo
         reduceDiag ^. L.code `shouldBe` Just "Eta reduce"
         reduceDiag ^. L.source `shouldBe` Just "hlint"
+      liftIO $ putStrLn "a2"
 
       (CACodeAction ca:_) <- getAllCodeActions doc
+      liftIO $ putStrLn "a3"
 
       -- Evaluate became redundant id in later hlint versions
       liftIO $ ["Apply hint:Redundant id", "Apply hint:Evaluate"] `shouldContain` [ca ^. L.title]
 
+      liftIO $ putStrLn "a4"
       executeCodeAction ca
+      liftIO $ putStrLn "a5"
 
       contents <- getDocumentEdit doc
+      liftIO $ putStrLn "a6"
       liftIO $ contents `shouldBe` "main = undefined\nfoo x = x\n"
+      liftIO $ putStrLn "a7"
 
       noDiagnostics
 
