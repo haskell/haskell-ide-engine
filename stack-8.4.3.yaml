@@ -24,7 +24,7 @@ extra-deps:
 - haskell-src-exts-util-0.2.5
 - hlint-2.1.17
 - hoogle-5.0.17.6
-- hsimport-0.8.8
+- hsimport-0.10.0
 - lsp-test-0.5.2.3
 - monad-dijkstra-0.1.1.2
 - pretty-show-1.8.2
