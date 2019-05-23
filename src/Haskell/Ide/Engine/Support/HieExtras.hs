@@ -75,7 +75,6 @@ import           SrcLoc
 import           TcEnv
 import           Type
 import           Var
-import           System.IO (hPutStrLn, stderr)
 
 -- ---------------------------------------------------------------------
 
