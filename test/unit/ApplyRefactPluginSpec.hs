@@ -3,7 +3,6 @@
 {-# LANGUAGE OverloadedStrings     #-}
 module ApplyRefactPluginSpec where
 
-import           Control.Monad.IO.Class
 import qualified Data.HashMap.Strict                   as H
 import qualified Data.Text                             as T
 import           Haskell.Ide.Engine.Plugin.ApplyRefact
