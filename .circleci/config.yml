@@ -41,10 +41,12 @@ defaults: &defaults
     - run:
         name: Build (we need the exe for tests)
         command: stack -j 2 --stack-yaml=${STACK_FILE} install
+        no_output_timeout: 30m
 
     - run:
         name: Build Testsuite without running it
         command: stack -j 2 --stack-yaml=${STACK_FILE}  build --test --no-run-tests
+        no_output_timeout: 30m
 
     - store_artifacts:
         path: ~/.local/bin
