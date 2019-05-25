@@ -40,7 +40,8 @@ defaults: &defaults
 
     - run:
         name: Build (we need the exe for tests)
-        command: stack -j 2 --stack-yaml=${STACK_FILE} install
+        command: stack -j 1 --stack-yaml=${STACK_FILE} install
+                       # need j1, else ghc-lib-parser triggers OOM
         no_output_timeout: 30m
 
     - run:
@@ -159,8 +160,6 @@ jobs:
   cabal:
     working_directory: ~/build
     docker:
-      # - image: quay.io/haskell_works/ghc-8.4.3
-      # - image: quay.io/haskell_works/ghc-8.6.1
       - image: quay.io/haskell_works/ghc-8.6.5
     steps:
       - checkout
@@ -183,12 +182,8 @@ jobs:
           name: Configure
           command: cabal new-configure --enable-tests
       - run:
-          name: Build ghc-lib-parser by itself, to not trigger OOM
-          command: cabal new-install -j1 ghc-lib-parser
-          no_output_timeout: 30m
-      - run:
           name: Build
-          command: cabal new-build -j2
+          command: cabal new-build -j1 # need j1, else ghc-lib-parser triggers OOM
           no_output_timeout: 30m
       - save_cache:
           key: cabal-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
