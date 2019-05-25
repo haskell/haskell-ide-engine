@@ -70,11 +70,11 @@ library
                      , gitrev >= 1.1
                      , haddock-api
                      , haddock-library
-                     , haskell-lsp == 0.12.*
-                     , haskell-lsp-types == 0.12.*
+                     , haskell-lsp == 0.13.*
+                     , haskell-lsp-types == 0.13.*
                      , haskell-src-exts
                      , hie-plugin-api
-                     , hlint >= 2.0.11
+                     , hlint (>= 2.0.11 && < 2.1.18) || >= 2.1.22
                      , hoogle >= 5.0.13
                      , hsimport
                      , hslogger
@@ -173,10 +173,11 @@ test-suite unit-test
                        DiffSpec
                        ExtensibleStateSpec
                        GhcModPluginSpec
-                       LiquidSpec
                        HaRePluginSpec
                        HooglePluginSpec
                        JsonSpec
+                       LiquidSpec
+                       PackagePluginSpec
                        Spec
   -- Technically cabal-helper should be a 'run-tool-depends', but that doesn't exist yet
   build-tool-depends:  cabal-helper:cabal-helper-main, hspec-discover:hspec-discover
@@ -277,8 +278,8 @@ test-suite func-test
                      , filepath
                      , lsp-test >= 0.5.2
                      , haskell-ide-engine
-                     , haskell-lsp-types == 0.12.*
-                     , haskell-lsp == 0.12.*
+                     , haskell-lsp-types == 0.13.*
+                     , haskell-lsp == 0.13.*
                      , hie-test-utils
                      , hie-plugin-api
                      , hspec

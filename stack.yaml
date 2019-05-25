@@ -20,11 +20,11 @@ extra-deps:
 - ghc-exactprint-0.5.8.2
 - ghc-lib-parser-0.20190523
 - haddock-api-2.22.0
-- haskell-lsp-0.12.1.0
-- haskell-lsp-types-0.12.1.0
+- haskell-lsp-0.13.0.0
+- haskell-lsp-types-0.13.0.0
 - hlint-2.1.22
-- hsimport-0.8.8
-- lsp-test-0.5.2.2
+- hsimport-0.10.0
+- lsp-test-0.5.2.3
 - monad-dijkstra-0.1.1.2@rev:1
 - monad-memo-0.4.1
 - multistate-0.8.0.1
