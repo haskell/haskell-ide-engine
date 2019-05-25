@@ -86,9 +86,7 @@ applyRefactSpec = do
                             "Redundant bracket\nFound:\n  (x + 1)\nWhy not:\n  x + 1\n"
                             Nothing
                ]}
-      liftIO $ putStrLn "returns hints as diagnostics:1"
       testCommand testPlugins act "applyrefact" "lint" arg res
-      liftIO $ putStrLn "returns hints as diagnostics:2"
 
     -- ---------------------------------
 

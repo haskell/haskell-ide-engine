@@ -7,7 +7,6 @@ module Haskell.Ide.Engine.Plugin.ApplyRefact where
 import           Control.Arrow
 import           Control.Exception              ( IOException
                                                 , ErrorCall
-                                                , SomeException -- AZ:temporary
                                                 , Handler(..)
                                                 , catches
                                                 , try
@@ -258,9 +257,7 @@ applyHint fp mhint fileMap = do
     res <- liftIO $ (Right <$> applyRefactorings Nothing commands fp) `catches`
               [ Handler $ \e -> return (Left (show (e :: IOException)))
               , Handler $ \e -> return (Left (show (e :: ErrorCall)))
-              , Handler $ \e -> return (Left (show (e :: SomeException))) -- AZ:temporary
               ]
-    liftIO $ logm $ "applyHint:res=" ++ show res
     case res of
       Right appliedFile -> do
         diff <- ExceptT $ Right <$> makeDiffResult fp (T.pack appliedFile) fileMap
