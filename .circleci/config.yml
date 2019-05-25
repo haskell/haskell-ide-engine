@@ -160,7 +160,8 @@ jobs:
     working_directory: ~/build
     docker:
       # - image: quay.io/haskell_works/ghc-8.4.3
-      - image: quay.io/haskell_works/ghc-8.6.1
+      # - image: quay.io/haskell_works/ghc-8.6.1
+      - image: quay.io/haskell_works/ghc-8.6.5
     steps:
       - checkout
       - run:
@@ -182,8 +183,13 @@ jobs:
           name: Configure
           command: cabal new-configure --enable-tests
       - run:
+          name: Build ghc-lib-parser by itself, to not trigger OOM
+          command: cabal new-install -j1 ghc-lib-parser
+          no_output_timeout: 30m
+      - run:
           name: Build
           command: cabal new-build -j2
+          no_output_timeout: 30m
       - save_cache:
           key: cabal-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
           paths:
