@@ -9,7 +9,9 @@
 
 # stack --stack-yaml=stack-8.6.4.yaml test haskell-ide-engine:unit-test --test-arguments "--match \"ApplyRefactPlugin\""
 
-stack --stack-yaml=stack.yaml test haskell-ide-engine:func-test --test-arguments "--match \"/FunctionalCodeActions/code actions/hlint suggestions/provides 3.8 code actions/\""
+# stack --stack-yaml=stack.yaml test haskell-ide-engine:func-test --test-arguments "--match \"/FunctionalCodeActions/code actions/hlint suggestions/provides 3.8 code actions/\""
 
   # To rerun use: --match "/FunctionalCodeActions/code actions/hlint suggestions/falls back to pre 3.8 code actions/"
   # To rerun use: --match "/FunctionalCodeActions/code actions/hlint suggestions/runs diagnostics on save/"
+
+stack --stack-yaml=stack.yaml test haskell-ide-engine:unit-test --test-arguments "--match \"/ApplyRefactPlugin/apply-refact plugin/apply-refact plugin commands/returns hlint parse error as DsInfo ignored diagnostic/\""

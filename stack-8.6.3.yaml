@@ -15,13 +15,13 @@ extra-deps:
 - cabal-plan-0.4.0.0
 - constrained-dynamic-0.1.0.0
 - floskell-0.10.0
-- ghc-lib-parser-0.20190423
+- ghc-lib-parser-0.20190523
 - haddock-api-2.21.0
 - haskell-lsp-0.12.1.0
 - haskell-lsp-types-0.12.1.0
 - haskell-src-exts-1.21.0
 - haskell-src-exts-util-0.2.5
-- hlint-2.1.20
+- hlint-2.1.22
 - hoogle-5.0.17.6
 - hsimport-0.8.8
 - lsp-test-0.5.2.2

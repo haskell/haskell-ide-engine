@@ -93,7 +93,8 @@ applyRefactSpec = do
     -- ---------------------------------
 
     it "returns hlint parse error as DsInfo ignored diagnostic" $ do
-      filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/HlintParseFail.hs"
+      filePathNoUri  <- makeAbsolute "./test/testdata/HlintParseFail.hs"
+      let filePath = filePathToUri filePathNoUri
 
       let act = lintCmd' arg
           arg = filePath
@@ -107,7 +108,8 @@ applyRefactSpec = do
                            , _severity = Just DsInfo
                            , _code = Just "parser"
                            , _source = Just "hlint"
-                           , _message = "Parse error: virtual }\n  data instance Sing (z :: (a :~: b)) where\n      SRefl :: Sing Refl +\n> \n\n"
+                           -- , _message = "Parse error: virtual }\n  data instance Sing (z :: (a :~: b)) where\n      SRefl :: Sing Refl +\n> \n\n"
+                           , _message = T.pack filePathNoUri <> ":13:24: error:\n    Operator applied to too few arguments: +\n  data instance Sing (z :: (a :~: b)) where\n      SRefl :: Sing Refl +\n> \n\n"
                            , _relatedInformation = Nothing }]}
 #else
                [Diagnostic {_range = Range { _start = Position {_line = 11, _character = 28}
@@ -118,9 +120,7 @@ applyRefactSpec = do
                            , _message = "Parse error: :~:\n  import           Data.Type.Equality            ((:~:) (..), (:~~:) (..))\n  \n> data instance Sing (z :: (a :~: b)) where\n      SRefl :: Sing Refl +\n\n"
                            , _relatedInformation = Nothing }]}
 #endif
-      liftIO $ putStrLn "returns hlint parse error as DsInfo ignored diagnostic:1"
       testCommand testPlugins act "applyrefact" "lint" arg res
-      liftIO $ putStrLn "returns hlint parse error as DsInfo ignored diagnostic:2"
 
     -- ---------------------------------
 
