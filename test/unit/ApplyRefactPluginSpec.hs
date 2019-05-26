@@ -90,7 +90,8 @@ applyRefactSpec = do
     -- ---------------------------------
 
     it "returns hlint parse error as DsInfo ignored diagnostic" $ do
-      filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/HlintParseFail.hs"
+      filePathNoUri  <- makeAbsolute "./test/testdata/HlintParseFail.hs"
+      let filePath = filePathToUri filePathNoUri
 
       let act = lintCmd' arg
           arg = filePath
@@ -98,7 +99,15 @@ applyRefactSpec = do
             PublishDiagnosticsParams
              { _uri = filePath
              , _diagnostics = List
-#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,2,2,0)))
+#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)))
+               [Diagnostic {_range = Range { _start = Position {_line = 13, _character = 0}
+                                           , _end = Position {_line = 13, _character = 100000}}
+                           , _severity = Just DsInfo
+                           , _code = Just "parser"
+                           , _source = Just "hlint"
+                           , _message = T.pack filePathNoUri <> ":13:24: error:\n    Operator applied to too few arguments: +\n  data instance Sing (z :: (a :~: b)) where\n      SRefl :: Sing Refl +\n> \n\n"
+                           , _relatedInformation = Nothing }]}
+#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,2,2,0)))
                [Diagnostic {_range = Range { _start = Position {_line = 13, _character = 0}
                                            , _end = Position {_line = 13, _character = 100000}}
                            , _severity = Just DsInfo

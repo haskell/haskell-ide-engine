@@ -19,12 +19,13 @@ extra-deps:
 - czipwith-1.0.1.1
 - data-tree-print-0.1.0.2
 - floskell-0.10.0
+- ghc-lib-parser-0.20190523
 - haddock-api-2.21.0
 - haskell-lsp-0.13.0.0
 - haskell-lsp-types-0.13.0.0
 - haskell-src-exts-1.21.0
 - haskell-src-exts-util-0.2.5
-- hlint-2.1.17
+- hlint-2.1.22
 - hoogle-5.0.17.6
 - hsimport-0.10.0
 - lsp-test-0.5.2.3

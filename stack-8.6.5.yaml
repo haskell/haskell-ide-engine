@@ -18,10 +18,11 @@ extra-deps:
 - deque-0.2.7
 - floskell-0.10.0
 - ghc-exactprint-0.5.8.2
+- ghc-lib-parser-0.20190523
 - haddock-api-2.22.0
 - haskell-lsp-0.13.0.0
 - haskell-lsp-types-0.13.0.0
-- hlint-2.1.17
+- hlint-2.1.22
 - hsimport-0.10.0
 - lsp-test-0.5.2.3
 - monad-dijkstra-0.1.1.2@rev:1

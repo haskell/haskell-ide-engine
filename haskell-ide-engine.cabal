@@ -74,7 +74,7 @@ library
                      , haskell-lsp-types == 0.13.*
                      , haskell-src-exts
                      , hie-plugin-api
-                     , hlint >= 2.0.11 && < 2.1.18
+                     , hlint (>= 2.0.11 && < 2.1.18) || >= 2.1.22
                      , hoogle >= 5.0.13
                      , hsimport
                      , hslogger
