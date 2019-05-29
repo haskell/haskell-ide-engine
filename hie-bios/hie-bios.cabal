@@ -45,7 +45,7 @@ Library
                       , cryptohash-sha1
                       , bytestring
                       , base16-bytestring
-                      , dhall
+                      , dhall <= 1.20.1
                       , text
                       , lens-family-core
   if impl(ghc < 8.2)

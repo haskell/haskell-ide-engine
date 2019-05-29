@@ -12,8 +12,6 @@ packages:
 
 allow-newer: floskell:all
 
-executable-dynamic: True
-
 ghc-options: -Werror
 
 
