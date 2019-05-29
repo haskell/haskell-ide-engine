@@ -16,8 +16,6 @@ import           Data.List
 import           Data.Maybe
 import           Data.Monoid ((<>))
 import qualified Data.Text                         as T
-import           System.FilePath
-import           ErrUtils
 import           Name
 import           GHC.Generics
 import           Haskell.Ide.Engine.MonadFunctions

@@ -2,20 +2,18 @@ packages:
          ./
          ./hie-plugin-api/
          ./hie-bios/
-         ./haskell-lsp/
-         ./lsp-test
 
          ./submodules/HaRe
          ./submodules/brittany
          ./submodules/cabal-helper/
-         ./submodules/floskell
          ./submodules/ghc-mod/
          ./submodules/ghc-mod/core/
-         ./submodules/floskell
+         ./submodules/ghc-mod/ghc-project-types
 
 allow-newer: floskell:all
 
 executable-dynamic: True
 
 ghc-options: -Werror
+
 

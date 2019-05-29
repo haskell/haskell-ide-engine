@@ -13,7 +13,7 @@ where
 import qualified Control.Concurrent.STM.TChan  as TChan
 import qualified Control.Concurrent.STM        as STM
 
--- | The writing end of a STM channel, only values of type 'a' cam be written
+-- | The writing end of a STM channel, only values of type 'a' can be written
 -- to the channel
 newtype InChan a = InChan (TChan.TChan a)
 

@@ -40,11 +40,14 @@ defaults: &defaults
 
     - run:
         name: Build (we need the exe for tests)
-        command: stack -j 2 --stack-yaml=${STACK_FILE} install
+        command: stack -j 1 --stack-yaml=${STACK_FILE} install
+                       # need j1, else ghc-lib-parser triggers OOM
+        no_output_timeout: 30m
 
     - run:
         name: Build Testsuite without running it
         command: stack -j 2 --stack-yaml=${STACK_FILE}  build --test --no-run-tests
+        no_output_timeout: 30m
 
     - store_artifacts:
         path: ~/.local/bin
@@ -70,9 +73,7 @@ defaults: &defaults
           - ~/build/submodules/brittany/.stack-work
           - ~/build/submodules/ghc-mod/core/.stack-work
           - ~/build/submodules/ghc-mod/.stack-work
-          - ~/build/submodules/haskell-lsp/.stack-work
           - ~/build/submodules/cabal-helper/.stack-work
-          - ~/build/submodules/floskell/.stack-work
 
     - run:
         name: Test
@@ -146,6 +147,11 @@ jobs:
       - STACK_FILE: "stack-8.6.4.yaml"
     <<: *defaults
 
+  ghc-8.6.5:
+    environment:
+      - STACK_FILE: "stack-8.6.5.yaml"
+    <<: *defaults
+
   ghc-nightly:
     environment:
       - STACK_FILE: "stack.yaml"
@@ -154,8 +160,7 @@ jobs:
   cabal:
     working_directory: ~/build
     docker:
-      # - image: quay.io/haskell_works/ghc-8.4.3
-      - image: quay.io/haskell_works/ghc-8.6.1
+      - image: quay.io/haskell_works/ghc-8.6.5
     steps:
       - checkout
       - run:
@@ -178,7 +183,8 @@ jobs:
           command: cabal new-configure --enable-tests
       - run:
           name: Build
-          command: cabal new-build -j2
+          command: cabal new-build -j1 # need j1, else ghc-lib-parser triggers OOM
+          no_output_timeout: 30m
       - save_cache:
           key: cabal-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
           paths:
@@ -196,7 +202,8 @@ workflows:
       - ghc-8.4.4
       - ghc-8.6.1
       - ghc-8.6.2
-      - ghc-8.6.3
+      # - ghc-8.6.3
       - ghc-8.6.4
+      - ghc-8.6.5
       - ghc-nightly
       - cabal

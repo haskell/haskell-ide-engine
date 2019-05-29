@@ -27,6 +27,7 @@ module Haskell.Ide.Engine.ModuleCache
 
 import           Control.Monad
 import           Control.Monad.IO.Class
+import Control.Monad.Trans.Control
 import           Control.Monad.Trans.Free
 import           Data.Dynamic (toDyn, fromDynamic, Dynamic)
 import           Data.Generics (Proxy(..), TypeRep, typeRep, typeOf)
@@ -64,7 +65,7 @@ modifyCache f = do
 -- then runs the action in the default cradle.
 -- Sets the current directory to the cradle root dir
 -- in either case
-runActionWithContext :: (MonadIde m, GHC.GhcMonad m, HasGhcModuleCache m, MonadUnliftIO m)
+runActionWithContext :: (MonadIde m, GHC.GhcMonad m, HasGhcModuleCache m, MonadBaseControl IO m)
                      => GHC.DynFlags -> Maybe FilePath -> m a -> m a
 runActionWithContext _df Nothing action = do
   -- Cradle with no additional flags
@@ -77,7 +78,7 @@ runActionWithContext df (Just uri) action = do
   getCradle uri (\lc -> loadCradle df lc >> action)
 
 loadCradle :: (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m
-              , MonadUnliftIO m) => GHC.DynFlags -> LookupCradleResult -> m ()
+              , MonadBaseControl IO m) => GHC.DynFlags -> LookupCradleResult -> m ()
 loadCradle _ ReuseCradle = do
     traceM ("Reusing cradle")
 loadCradle iniDynFlags (NewCradle fp) = do
@@ -90,7 +91,7 @@ loadCradle iniDynFlags (NewCradle fp) = do
     traceShowM crdl
     liftIO (GHC.newHscEnv iniDynFlags) >>= GHC.setSession
     liftIO $ setCurrentDirectory (BIOS.cradleRootDir crdl)
-    withProgress "Initialising Cradle" $ \f ->
+    withProgress "Initialising Cradle" NotCancellable $ \f ->
       BIOS.initializeFlagsWithCradleWithMessage (Just $ toMessager f) fp crdl
     setCurrentCradle crdl
 loadCradle _iniDynFlags (LoadCradle (CachedCradle crd env)) = do

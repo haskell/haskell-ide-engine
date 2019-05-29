@@ -62,27 +62,29 @@ library
                      , data-default
                      , directory
                      , filepath
-                     , floskell
+                     , floskell == 0.10.*
                      , fold-debounce
                      , ghc >= 8.0.1
                      , ghc-exactprint
                      , gitrev >= 1.1
                      , haddock-api
                      , haddock-library
-                     , haskell-lsp == 0.10.*
-                     , haskell-lsp-types == 0.10.*
+                     , haskell-lsp == 0.13.*
+                     , haskell-lsp-types == 0.13.*
                      , haskell-src-exts
                      , hie-plugin-api
-                     , hlint >= 2.0.11
+                     , hlint (>= 2.0.11 && < 2.1.18) || >= 2.1.22
                      , hoogle >= 5.0.13
                      , hsimport
                      , hslogger
+                     , lifted-async
                      , lens >= 4.15.2
                      , monoid-subclasses > 0.4
                      , mtl
                      , optparse-simple >= 0.0.3
                      , parsec
                      , process
+                     , rope-utf16-splay >= 0.3.1.0
                      , safe
                      , sorted-list >= 0.2.1.0
                      , stm
@@ -92,7 +94,6 @@ library
                      , unordered-containers
                      , vector
                      , yaml >= 0.8.31
-                     , yi-rope
                      , hie-bios
                      , bytestring-trie
                      , unliftio
@@ -174,11 +175,14 @@ test-suite unit-test
                        DiffSpec
                        ExtensibleStateSpec
                        GhcModPluginSpec
-                       LiquidSpec
                        HaRePluginSpec
                        HooglePluginSpec
                        JsonSpec
+                       LiquidSpec
+                       PackagePluginSpec
                        Spec
+  -- Technically cabal-helper should be a 'run-tool-depends', but that doesn't exist yet
+  build-tool-depends:  cabal-helper:cabal-helper-main, hspec-discover:hspec-discover
   build-depends:       QuickCheck
                      , aeson
                      , base
@@ -201,7 +205,6 @@ test-suite unit-test
   if flag(pedantic)
      ghc-options:      -Werror
   default-language:    Haskell2010
-  build-tool-depends:  hspec-discover:hspec-discover
 
 test-suite dispatcher-test
   type:                exitcode-stdio-1.0
@@ -270,27 +273,29 @@ test-suite func-test
                      , SymbolsSpec
                      , TypeDefinitionSpec
                      , Utils
-  -- This cannot currently be handled by hie (cabal-helper)
-  -- build-tool-depends:  haskell-ide-engine:hie
   build-depends:       aeson
                      , base
                      , data-default
                      , directory
                      , filepath
-                     , lsp-test >= 0.5.1.3
+                     , lsp-test >= 0.5.2
                      , haskell-ide-engine
-                     , haskell-lsp-types == 0.10.*
+                     , haskell-lsp-types == 0.13.*
+                     , haskell-lsp == 0.13.*
                      , hie-test-utils
                      , hie-plugin-api
                      , hspec
                      , lens
                      , text
                      , unordered-containers
+                     , containers
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror
   default-language:    Haskell2010
   build-tool-depends:  hspec-discover:hspec-discover
+                     , haskell-ide-engine:hie
+                     , cabal-helper:cabal-helper-main
 
 test-suite wrapper-test
   type:                exitcode-stdio-1.0

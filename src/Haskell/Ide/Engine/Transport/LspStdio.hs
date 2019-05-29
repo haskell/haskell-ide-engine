@@ -27,7 +27,6 @@ import qualified Data.Aeson as A
 import           Control.Monad.STM
 import           Data.Aeson ( (.=) )
 import qualified Data.ByteString.Lazy as BL
-import           Data.Char (isUpper, isAlphaNum)
 import           Data.Coerce (coerce)
 import           Data.Default
 import           Data.Foldable
@@ -40,6 +39,7 @@ import qualified Data.SortedList as SL
 import qualified Data.Text as T
 import           Data.Text.Encoding
 import           Haskell.Ide.Engine.Config
+import qualified Haskell.Ide.Engine.Ghc   as HIE
 import           Haskell.Ide.Engine.LSP.CodeActions
 import           Haskell.Ide.Engine.LSP.Reactor
 import           Haskell.Ide.Engine.MonadFunctions
@@ -70,8 +70,8 @@ import qualified Language.Haskell.LSP.Types.Lens         as J
 import qualified Language.Haskell.LSP.Utility            as U
 import qualified Language.Haskell.LSP.VFS                as VFS
 import           System.Exit
-import qualified System.Log.Logger as L
-import qualified Yi.Rope as Yi
+import qualified System.Log.Logger                       as L
+import qualified Data.Rope.UTF16                         as Rope
 
 import Outputable hiding ((<>))
 
@@ -207,29 +207,10 @@ configVal field = field <$> getClientConfig
 
 getPrefixAtPos :: (MonadIO m, MonadReader REnv m)
   => Uri -> Position -> m (Maybe Hie.PosPrefixInfo)
-getPrefixAtPos uri pos@(Position l c) = do
+getPrefixAtPos uri pos = do
   mvf <- liftIO =<< asksLspFuncs Core.getVirtualFileFunc <*> pure uri
   case mvf of
-    Just (VFS.VirtualFile _ yitext _) ->
-      return $ Just $ fromMaybe (Hie.PosPrefixInfo "" "" "" pos) $ do
-        let headMaybe [] = Nothing
-            headMaybe (x:_) = Just x
-            lastMaybe [] = Nothing
-            lastMaybe xs = Just $ last xs
-        curLine <- headMaybe $ Yi.lines $ snd $ Yi.splitAtLine l yitext
-        let beforePos = Yi.take c curLine
-        curWord <- case Yi.last beforePos of
-                     Just ' ' -> Just "" -- don't count abc as the curword in 'abc '
-                     _ -> Yi.toText <$> lastMaybe (Yi.words beforePos)
-        let parts = T.split (=='.')
-                      $ T.takeWhileEnd (\x -> isAlphaNum x || x `elem` ("._'"::String)) curWord
-        case reverse parts of
-          [] -> Nothing
-          (x:xs) -> do
-            let modParts = dropWhile (not . isUpper . T.head)
-                                $ reverse $ filter (not .T.null) xs
-                modName = T.intercalate "." modParts
-            return $ Hie.PosPrefixInfo (Yi.toText curLine) modName x pos
+    Just vf -> VFS.getCompletionPrefix pos vf
     Nothing -> return Nothing
 
 -- ---------------------------------------------------------------------
@@ -735,7 +716,7 @@ reactor inp diagIn = do
               doc = params ^. J.textDocument . J.uri
           withDocumentContents (req ^. J.id) doc $ \text ->
             let callback = reactorSend . RspDocumentFormatting . Core.makeResponseMessage req . J.List
-                hreq = IReq tn (req ^. J.id) callback $ lift $ provider text doc FormatDocument (params ^. J.options)
+                hreq = IReq tn (req ^. J.id) callback $ lift $ provider text doc FormatText (params ^. J.options)
               in makeRequest hreq
 
         -- -------------------------------
@@ -825,7 +806,7 @@ withDocumentContents reqId uri f = do
         (J.responseId reqId)
         J.InvalidRequest
         "Document was not open"
-    Just (VFS.VirtualFile _ txt _) -> f (Yi.toText txt)
+    Just (VFS.VirtualFile _ txt _) -> f (Rope.toText txt)
 
 -- | Get the currently configured formatter provider.
 -- The currently configured formatter provider is defined in @Config@ by PluginId.

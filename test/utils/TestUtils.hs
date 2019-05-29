@@ -24,6 +24,8 @@ import           Data.Typeable
 import           Data.Yaml
 import qualified Data.Map as Map
 import           Data.Maybe
+-- import qualified GhcMod.Monad as GM
+-- import qualified GhcMod.Types as GM
 import qualified Language.Haskell.LSP.Core as Core
 import           Haskell.Ide.Engine.MonadTypes
 import           System.Directory
@@ -90,8 +92,12 @@ setupStackFiles =
 files :: [FilePath]
 files =
   [  "./test/testdata/"
-   , "./test/testdata/addPackageTest/cabal/"
-   , "./test/testdata/addPackageTest/hpack/"
+   , "./test/testdata/addPackageTest/cabal-exe/"
+   , "./test/testdata/addPackageTest/hpack-exe/"
+   , "./test/testdata/addPackageTest/hybrid-exe/"
+   , "./test/testdata/addPackageTest/cabal-lib/"
+   , "./test/testdata/addPackageTest/hpack-lib/"
+   , "./test/testdata/addPackageTest/hybrid-lib/"
    , "./test/testdata/addPragmas/"
    , "./test/testdata/badProjects/cabal/"
    , "./test/testdata/completion/"
@@ -118,7 +124,9 @@ ghcVersion = GHCPre84
 
 stackYaml :: FilePath
 stackYaml =
-#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,6,4,0)))
+#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,6,5,0)))
+  "stack.yaml"
+#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,6,4,0)))
   "stack-8.6.4.yaml"
 #elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,6,3,0)))
   "stack-8.6.3.yaml"

@@ -63,17 +63,38 @@ packageDescriptor plId = PluginDescriptor
   }
 
 data AddParams = AddParams
-  { rootDirParam   :: FilePath -- ^ The root directory.
-  , fileParam      :: FilePath -- ^ A path to a module inside the
-                               -- library/executable/test-suite you want to
-                               -- add the package to.
-  , packageParam   :: T.Text   -- ^ The name of the package to add.
+  { rootDirParam   :: FilePath   -- ^ The root directory.
+  , fileParam      :: ModulePath -- ^ A path to a module inside the
+                                 -- library/executable/test-suite you want to
+                                 -- add the package to. May be a relative or
+                                 -- absolute path, thus, must be normalised.
+  , packageParam   :: Package    -- ^ The name of the package to add.
   }
   deriving (Eq, Show, Read, Generic, ToJSON, FromJSON)
 
-addCmd :: CommandFunc AddParams J.WorkspaceEdit
-addCmd = CmdSync $ \(AddParams rootDir modulePath pkg) -> do
+-- | FilePath to a cabal package description file.
+type CabalFilePath = FilePath
+-- | FilePath to a package.yaml package description file.
+type HpackFilePath = FilePath
+-- | FilePath to a module within the project.
+-- May be used to establish what component the dependency shall be added to.
+type ModulePath = FilePath
+-- | Name of the Package to add.
+type Package = T.Text
 
+-- | Add a package to the project's dependencies.
+-- May fail if no project dependency specification can be found.
+-- Supported are `*.cabal` and `package.yaml` specifications.
+-- Moreover, may fail with an IOException in case of a filesystem problem.
+addCmd :: CommandFunc AddParams J.WorkspaceEdit
+addCmd = CmdSync addCmd'
+
+-- | Add a package to the project's dependencies.
+-- May fail if no project dependency specification can be found.
+-- Supported are `*.cabal` and `package.yaml` specifications.
+-- Moreover, may fail with an IOException in case of a filesystem problem.
+addCmd' :: AddParams -> IdeGhcM (IdeResult J.WorkspaceEdit)
+addCmd' (AddParams rootDir modulePath pkg) = do
   packageType <- liftIO $ findPackageType rootDir
   fileMap <- reverseFileMap
 
@@ -82,30 +103,51 @@ addCmd = CmdSync $ \(AddParams rootDir modulePath pkg) -> do
       absFp <- liftIO $ canonicalizePath relFp
       let relModulePath = makeRelative (takeDirectory absFp) modulePath
 
-      liftToGhc $ editCabalPackage absFp relModulePath (T.unpack pkg) fileMap
+      liftToGhc $ editCabalPackage absFp relModulePath pkg fileMap
     HpackPackage relFp -> do
       absFp <- liftIO $ canonicalizePath relFp
       let relModulePath = makeRelative (takeDirectory absFp) modulePath
       liftToGhc $ editHpackPackage absFp relModulePath pkg
     NoPackage -> return $ IdeResultFail (IdeError PluginError "No package.yaml or .cabal found" Null)
 
-data PackageType = CabalPackage FilePath
-                 | HpackPackage FilePath
-                 | NoPackage
+data PackageType = CabalPackage FilePath -- ^ Location of Cabal File. May be relative.
+                 | HpackPackage FilePath -- ^ Location of `package.yaml`. May be relative.
+                 | NoPackage -- ^ No package format has been found.
+                 deriving (Show, Eq)
 
+-- | Find the package type the project with the given root uses.
+-- Might have weird results if there is more than one cabal package specification
+-- in the root directory.
+-- The `package.yaml` is preferred in case both files are present.
+-- May fail with various IOException's, for example if the given
+-- directory does not exist, a Hardware Failure happens or
+-- the permissions deny it.
+-- However, normally this command should succeeed without any exceptions.
 findPackageType :: FilePath -> IO PackageType
 findPackageType rootDir = do
   files <- getDirectoryContents rootDir
+  -- Search for all files that have '.cabal' as a file ending,
+  -- since that is the format of the cabal file. May be more to one or zero.
   let mCabal = listToMaybe $ filter (isExtensionOf "cabal") files
 
   mHpack <- findFile [rootDir] "package.yaml"
 
   return $ fromMaybe NoPackage $ asum [HpackPackage <$> mHpack, CabalPackage <$> mCabal]
 
+-- | Edit a hpack package to add the given package to the package.yaml.
+-- If package.yaml is not in an expected format, will fail fatally.
+--
 -- Currently does not preserve format.
 -- Keep an eye out on this other GSOC project!
 -- https://github.com/wisn/format-preserving-yaml
-editHpackPackage :: FilePath -> FilePath -> T.Text -> IdeM (IdeResult WorkspaceEdit)
+editHpackPackage :: HpackFilePath -- ^ Path to the package.yaml file
+                                  -- containing the package description.
+                 -> ModulePath -- ^ Path to the module where the command has
+                               -- been issued in.
+                               -- Used to find out what component the
+                               -- dependency shall be added to.
+                 -> Package -- ^ Name of the package to add as a dependency.
+                 -> IdeM (IdeResult WorkspaceEdit)
 editHpackPackage fp modulePath pkgName = do
   contents <- liftIO $ B.readFile fp
 
@@ -113,19 +155,29 @@ editHpackPackage fp modulePath pkgName = do
 
   case Y.decodeThrow contents :: Maybe Object of
     Just obj -> do
+        -- Map over all major components, such as "executable", "executables",
+        -- "tests" and "benchmarks". Note, that "library" is a major component,
+        -- but its structure is different and can not be mapped over in the same way.
+        --
+        -- Only adds the package if the declared "source-dirs" field is part of the
+        -- module path, or if no "source-dirs" is declared.
         let compsMapped = mapComponentTypes (ensureObject $ mapComponents (ensureObject $ mapCompDependencies addDep)) obj
 
-        let addDepToMainLib = fromMaybe True $ do
-              Object lib <- HM.lookup "library" compsMapped
-              sourceDirs <- HM.lookup "source-dirs" lib
-              return $ isInSourceDir sourceDirs
+        -- Is there a global "dependencies" yaml object?
+        let addDepToMainDep = fromMaybe False $ do
+              Array _ <- HM.lookup "dependencies" compsMapped
+              return True
 
-        let newPkg = if addDepToMainLib
-            then mapMainDependencies addDep compsMapped
-            else compsMapped
+        -- Either add the package to only the top-level "dependencies",
+        -- or to all main components of which the given module is part of.
+        let newPkg
+              | addDepToMainDep = mapMainDependencies addDep obj
+              -- Map over the library component at last, since it has different structure.
+              | otherwise = mapLibraryDependency addDep compsMapped
 
-            newPkgText = T.decodeUtf8 $ Y.encode newPkg
+        let newPkgText = T.decodeUtf8 $ Y.encode newPkg
 
+        -- Construct the WorkSpaceEdit
         let numOldLines = length $ T.lines $ T.decodeUtf8 contents
             range = J.Range (J.Position 0 0) (J.Position numOldLines 0)
             textEdit = J.TextEdit range newPkgText
@@ -144,8 +196,16 @@ editHpackPackage fp modulePath pkgName = do
 
     mapMainDependencies :: (Value -> Value) -> Object -> Object
     mapMainDependencies f o =
-      let g "dependencies" = f
+      let g :: T.Text -> Value -> Value
+          g "dependencies" = f
           g _              = id
+      in HM.mapWithKey g o
+
+    mapLibraryDependency :: (Value -> Value) -> Object -> Object
+    mapLibraryDependency f o =
+      let g :: T.Text -> Value -> Value
+          g "library" (Y.Object o') = Y.Object (mapCompDependencies f o')
+          g _ x = x
       in HM.mapWithKey g o
 
     mapComponentTypes :: (Value -> Value) -> Object -> Object
@@ -185,9 +245,16 @@ editHpackPackage fp modulePath pkgName = do
     addDep (Array deps) = Array $ fromList (String pkgName:GHC.Exts.toList deps)
     addDep _            = error "Not an array in addDep"
 
-
--- | Takes a cabal file and a path to a module in the dependency you want to edit.
-editCabalPackage :: FilePath -> FilePath ->  String -> (FilePath -> FilePath) -> IdeM (IdeResult J.WorkspaceEdit)
+-- | Takes a cabal file and a path to a module in the project and a package name to add
+-- to the cabal file. Reverse file map is needed to find the correct file in the project.
+-- May fail with an IOException if the Cabal file is invalid.
+editCabalPackage :: CabalFilePath -- ^ Path to the cabal file to add the dependency to.
+                 -> ModulePath -- ^ Path to the module that wants to add the package.
+                               -- Used to find out what component the
+                               -- dependency shall be added to.
+                 -> Package -- ^ Name of the package added as a dependency.
+                 -> (FilePath -> FilePath) -- ^ Reverse File for computing file diffs.
+                 -> IdeM (IdeResult J.WorkspaceEdit)
 editCabalPackage file modulePath pkgName fileMap = do
 
   package <- liftIO $ readGenericPackageDescription normal file
@@ -203,7 +270,6 @@ editCabalPackage file modulePath pkgName fileMap = do
 
   IdeResultOk <$> makeAdditiveDiffResult file newContents fileMap
 
-
   where
 
     applyLens :: L.HasBuildInfo a => Lens' GenericPackageDescription [(b, CondTree v c a)]
@@ -217,7 +283,7 @@ editCabalPackage file modulePath pkgName fileMap = do
     updateTree = mapIfHasModule modulePath (addDep pkgName)
 
 
-    mapIfHasModule :: L.HasBuildInfo a => FilePath -> (a -> a) -> CondTree v c a -> CondTree v c a
+    mapIfHasModule :: L.HasBuildInfo a => ModulePath -> (a -> a) -> CondTree v c a -> CondTree v c a
     mapIfHasModule modFp f = mapTreeData g
       where g x
               | null (sourceDirs x) = f x
@@ -226,18 +292,26 @@ editCabalPackage file modulePath pkgName fileMap = do
             hasThisModule = any (`isPrefixOf` modFp) . sourceDirs
             sourceDirs x = x ^. L.buildInfo . L.hsSourceDirs
 
-    addDep :: L.HasBuildInfo a => String -> a -> a
+    -- | Add the given package name to the cabal file.
+    -- Package is appended to the dependency list.
+    addDep :: L.HasBuildInfo a => Package -> a -> a
     addDep dep x = L.buildInfo . L.targetBuildDepends .~ newDeps $ x
       where oldDeps = x ^. L.buildInfo . L.targetBuildDepends
             -- Add it to the bottom of the dependencies list
-            newDeps = oldDeps ++ [Dependency (mkPackageName dep) anyVersion]
+            -- TODO: we could sort the depencies and then insert it,
+            -- or insert it in order iff the list is already sorted.
+            newDeps = oldDeps ++ [Dependency (mkPackageName (T.unpack dep)) anyVersion]
 
+-- | Provide a code action to add a package to the local package.yaml or cabal file.
+-- Reads from diagnostics the unknown import module path and searches for it on Hoogle.
+-- If found, offer a code action to add the package to the local package description.
 codeActionProvider :: CodeActionProvider
 codeActionProvider plId docId _ context = do
   mRootDir <- getRootPath
   let J.List diags = context ^. J.diagnostics
       pkgs = mapMaybe getAddablePackages diags
 
+  -- Search for packages that define the given module.
   res <- mapM (bimapM return Hoogle.searchPackages) pkgs
   actions <- catMaybes <$> mapM (uncurry (mkAddPackageAction mRootDir)) (concatPkgs res)
 
@@ -246,7 +320,8 @@ codeActionProvider plId docId _ context = do
   where
     concatPkgs = concatMap (\(d, ts) -> map (d,) ts)
 
-    mkAddPackageAction :: Maybe FilePath -> J.Diagnostic -> T.Text -> IdeM (Maybe J.CodeAction)
+    -- | Create the Add Package Action with the given diagnostics and the found package name.
+    mkAddPackageAction :: Maybe FilePath -> J.Diagnostic -> Package -> IdeM (Maybe J.CodeAction)
     mkAddPackageAction mRootDir diag pkgName = case (mRootDir, J.uriToFilePath (docId ^. J.uri)) of
      (Just rootDir, Just docFp) -> do
        let title = "Add " <> pkgName <> " as a dependency"
@@ -255,11 +330,12 @@ codeActionProvider plId docId _ context = do
        return $ Just (J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [diag])) Nothing (Just cmd))
      _ -> return Nothing
 
-    getAddablePackages :: J.Diagnostic -> Maybe (J.Diagnostic, T.Text)
+    getAddablePackages :: J.Diagnostic -> Maybe (J.Diagnostic, Package)
     getAddablePackages diag@(J.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractModuleName msg
     getAddablePackages _ = Nothing
 
-extractModuleName :: T.Text -> Maybe T.Text
+-- | Extract a module name from an error message.
+extractModuleName :: T.Text -> Maybe Package
 extractModuleName msg
   | T.isPrefixOf "Could not find module " msg = Just $ T.tail $ T.init nameAndQuotes
   | T.isPrefixOf "Could not load module " msg = Just $ T.tail $ T.init nameAndQuotes
@@ -267,6 +343,7 @@ extractModuleName msg
   where line = head $ T.lines msg
         nameAndQuotes = T.dropWhileEnd (/= '’') $ T.dropWhile (/= '‘') line
 
+-- Example error messages
 {- GHC 8.6.2 error message is
 
 "Could not load module \8216Data.Text\8217\n" ++

@@ -60,7 +60,7 @@ import           SrcLoc
 import           Exception
 import           System.Directory
 import           System.FilePath
-import qualified Yi.Rope as Yi
+import qualified Data.Rope.UTF16 as Rope
 
 -- ---------------------------------------------------------------------
 
@@ -94,6 +94,8 @@ realSrcSpan2Range = uncurry Range . unpackRealSrcSpan
 srcSpan2Range :: SrcSpan -> Either T.Text Range
 srcSpan2Range spn =
   realSrcSpan2Range <$> getRealSrcSpan spn
+
+
 
 reverseMapFile :: MonadIO m => (FilePath -> FilePath) -> FilePath -> m FilePath
 reverseMapFile rfm fp = do
@@ -276,7 +278,7 @@ readVFS :: (MonadIde m, MonadIO m) => Uri -> m (Maybe T.Text)
 readVFS uri = do
   mvf <- getVirtualFile uri
   case mvf of
-    Just (VirtualFile _ txt _) -> return $ Just (Yi.toText txt)
+    Just (VirtualFile _ txt _) -> return $ Just (Rope.toText txt)
     Nothing -> return Nothing
 
 getRangeFromVFS :: (MonadIde m, MonadIO m) => Uri -> Range -> m (Maybe T.Text)
@@ -285,13 +287,6 @@ getRangeFromVFS uri rg = do
   case mvf of
     Just vfs -> return $ Just $ rangeLinesFromVfs vfs rg
     Nothing  -> return Nothing
-
-rangeLinesFromVfs :: VirtualFile -> Range -> T.Text
-rangeLinesFromVfs (VirtualFile _ yitext _) (Range (Position lf _cf) (Position lt _ct)) = r
-  where
-    (_ ,s1) = Yi.splitAtLine lf yitext
-    (s2, _) = Yi.splitAtLine (lt - lf) s1
-    r = Yi.toText s2
 
 
 -- Error catching utilities

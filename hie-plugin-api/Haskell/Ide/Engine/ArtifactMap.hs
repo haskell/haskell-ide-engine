@@ -1,4 +1,4 @@
-module Haskell.Ide.Engine.ArtifactMap where
+    module Haskell.Ide.Engine.ArtifactMap where
 
 import           Data.Maybe
 import qualified Data.IntervalMap.FingerTree       as IM

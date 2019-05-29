@@ -4,6 +4,7 @@
 module ApplyRefactPluginSpec where
 
 import qualified Data.HashMap.Strict                   as H
+import qualified Data.Text                             as T
 import           Haskell.Ide.Engine.Plugin.ApplyRefact
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
@@ -89,7 +90,8 @@ applyRefactSpec = do
     -- ---------------------------------
 
     it "returns hlint parse error as DsInfo ignored diagnostic" $ do
-      filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/HlintParseFail.hs"
+      filePathNoUri  <- makeAbsolute "./test/testdata/HlintParseFail.hs"
+      let filePath = filePathToUri filePathNoUri
 
       let act = lintCmd' arg
           arg = filePath
@@ -97,7 +99,15 @@ applyRefactSpec = do
             PublishDiagnosticsParams
              { _uri = filePath
              , _diagnostics = List
-#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,2,2,0)))
+#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)))
+               [Diagnostic {_range = Range { _start = Position {_line = 13, _character = 0}
+                                           , _end = Position {_line = 13, _character = 100000}}
+                           , _severity = Just DsInfo
+                           , _code = Just "parser"
+                           , _source = Just "hlint"
+                           , _message = T.pack filePathNoUri <> ":13:24: error:\n    Operator applied to too few arguments: +\n  data instance Sing (z :: (a :~: b)) where\n      SRefl :: Sing Refl +\n> \n\n"
+                           , _relatedInformation = Nothing }]}
+#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,2,2,0)))
                [Diagnostic {_range = Range { _start = Position {_line = 13, _character = 0}
                                            , _end = Position {_line = 13, _character = 100000}}
                            , _severity = Just DsInfo
@@ -153,3 +163,15 @@ applyRefactSpec = do
             , _diagnostics = List []
             }
            ))
+
+    -- ---------------------------------
+
+    it "reports error without crash" $ do
+      filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/ApplyRefactError.hs"
+
+      let req = applyAllCmd' filePath
+          isExpectedError (IdeResultFail (IdeError PluginError err _)) =
+              "Illegal symbol '.' in type" `T.isInfixOf` err
+          isExpectedError _ = False
+      r <- withCurrentDirectory "./test/testdata" $ runIGM testPlugins req
+      r `shouldSatisfy` isExpectedError

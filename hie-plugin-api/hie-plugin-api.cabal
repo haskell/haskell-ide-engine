@@ -1,5 +1,5 @@
 name:                hie-plugin-api
-version:             0.6.0.0
+version:             0.9.0.0
 synopsis:            Haskell IDE API for plugin communication
 license:             BSD3
 license-file:        LICENSE
@@ -24,13 +24,15 @@ library
                        Haskell.Ide.Engine.GhcUtils
                        Haskell.Ide.Engine.Config
                        Haskell.Ide.Engine.Context
+                       Haskell.Ide.Engine.Ghc
                        Haskell.Ide.Engine.GhcModuleCache
                        Haskell.Ide.Engine.ModuleCache
                        Haskell.Ide.Engine.MonadFunctions
                        Haskell.Ide.Engine.MonadTypes
                        Haskell.Ide.Engine.MultiThreadState
-                       Haskell.Ide.Engine.PluginsIdeMonads
+                       Haskell.Ide.Engine.PluginApi
                        Haskell.Ide.Engine.PluginUtils
+                       Haskell.Ide.Engine.PluginsIdeMonads
                        Haskell.Ide.Engine.TypeMap
   build-depends:       base >= 4.9 && < 5
                      , Diff
@@ -48,16 +50,19 @@ library
                      , ghc
                      , ghc-mod-core >= 5.9.0.0
                      , hie-bios
-                     , haskell-lsp == 0.10.*
+                     , ghc-project-types >= 5.9.0.0
+                     , haskell-lsp == 0.13.*
                      , hslogger
                      , unliftio
+                     , monad-control
                      , mtl
+                     , rope-utf16-splay >= 0.3.1.0
                      , stm
                      , syb
                      , text
                      , transformers
                      , unordered-containers
-                     , yi-rope
+                     , transformers-base
   if os(windows)
     build-depends:     Win32
   else

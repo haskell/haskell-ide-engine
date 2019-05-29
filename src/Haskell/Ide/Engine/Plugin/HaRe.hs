@@ -242,7 +242,11 @@ runHareCommand name cmd = do
 
 -- ---------------------------------------------------------------------
 
-runHareCommand' :: RefactGhc a
+-- newtype RefactGhc a = RefactGhc
+--     { unRefactGhc :: StateT RefactState HIE.IdeGhcM a
+--     }
+
+runHareCommand' :: forall a. RefactGhc a
                  -> IdeGhcM (Either String a)
 runHareCommand' cmd =
   do let initialState =
@@ -255,11 +259,11 @@ runHareCommand' cmd =
                  ,rsStorage = StorageNone
                  ,rsCurrentTarget = Nothing
                  ,rsModule = Nothing}
-     let cmd' = unRefactGhc cmd
+     let
+         cmd' :: StateT RefactState IdeGhcM a
+         cmd' = unRefactGhc cmd
          embeddedCmd =
-           GM.unGmlT $
-           hoist (liftIO . flip evalStateT initialState)
-                 (GM.GmlT cmd')
+           evalStateT cmd' initialState
          handlers
            :: Applicative m
            => [GM.GHandler m (Either String a)]
@@ -271,6 +275,7 @@ runHareCommand' cmd =
      case r of
        (Right err, _) -> return err
        (Left err, _)  -> error (show err)
+
 
 
 -- ---------------------------------------------------------------------

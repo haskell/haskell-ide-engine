@@ -12,6 +12,9 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DerivingVia #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
+
 
 -- | IdeGhcM and associated types
 module Haskell.Ide.Engine.PluginsIdeMonads
@@ -49,6 +52,7 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , IdeState(..)
   , IdeGhcM
   , runIdeGhcM
+ -- , runIdeGhcMBare
   , IdeM
   , runIdeM
   , IdeDeferM
@@ -61,10 +65,10 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , getPlugins
   , withProgress
   , withIndefiniteProgress
-  , withIndefiniteProgressIO
   , persistVirtualFile
   , reverseFileMap
   , Core.Progress(..)
+  , Core.ProgressCancellable(..)
   -- ** Lifting
   , iterT
   , LiftsToGhc(..)
@@ -96,9 +100,12 @@ where
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Free
+import Control.Monad.Trans.Control
+import Control.Monad.Base
 import           UnliftIO
+import Control.Applicative
 
-import           Data.Aeson
+import           Data.Aeson                    hiding (defaultOptions)
 import qualified Data.ConstrainedDynamic       as CD
 import           Data.Default
 import qualified Data.List                     as List
@@ -119,8 +126,8 @@ import Exception
 
 import           Haskell.Ide.Engine.Compat
 import           Haskell.Ide.Engine.Config
-import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.GhcModuleCache
+import           Haskell.Ide.Engine.MultiThreadState
 
 import qualified Language.Haskell.LSP.Core     as Core
 import           Language.Haskell.LSP.Types.Capabilities
@@ -221,13 +228,16 @@ type HoverProvider = Uri -> Position -> IdeM (IdeResult [Hover])
 
 type SymbolProvider = Uri -> IdeDeferM (IdeResult [DocumentSymbol])
 
--- | Format the document either as a whole or only a given Range of it.
-data FormattingType = FormatDocument
+-- | Format the given Text as a whole or only a @Range@ of it.
+-- Range must be relative to the text to format.
+-- To format the whole document, read the Text from the file and use 'FormatText'
+-- as the FormattingType.
+data FormattingType = FormatText
                     | FormatRange Range
 
 -- | Formats the given Text associated with the given Uri.
--- Should, but might not, honor the provided formatting options (e.g. Floskell does not).
--- A formatting type can be given to either format the whole document or only a Range.
+-- Should, but might not, honour the provided formatting options (e.g. Floskell does not).
+-- A formatting type can be given to either format the whole text or only a Range.
 --
 -- Text to format, may or may not, originate from the associated Uri.
 -- E.g. it is ok, to modify the text and then reformat it through this API.
@@ -238,6 +248,11 @@ data FormattingType = FormatDocument
 -- Failing means here that a IdeResultFail is returned.
 -- This can be used to display errors to the user, unless the error is an Internal one.
 -- The record 'IdeError' and 'IdeErrorCode' can be used to determine the type of error.
+--
+--
+-- To format a whole document, the 'FormatText' @FormattingType@ can be used.
+-- It is required to pass in the whole Document Text for that to happen, an empty text
+-- and file uri, does not suffice.
 type FormattingProvider = T.Text -- ^ Text to format
         -> Uri -- ^ Uri of the file being formatted
         -> FormattingType  -- ^ How much to format
@@ -339,11 +354,18 @@ runIdeGhcM plugins mlf stateVar f = do
   env <- IdeEnv <$> pure mlf <*> getProcessID <*> pure plugins
   eres <- flip runReaderT stateVar $ flip runReaderT env $ BIOS.withGhcT f
   return eres
-  {-
-  case eres of
-      Left err  -> liftIO $ throwIO err
-      Right res -> return res
-      -}
+
+{-
+-- | Run an IdeGhcM in an external context (e.g. HaRe), with no plugins or LSP functions
+runIdeGhcMBare :: BiosOptions -> IdeGhcM a -> IO a
+runIdeGhcMBare biosOptions f = do
+  let
+    plugins  = IdePlugins Map.empty
+    mlf      = Nothing
+    initialState = IdeState emptyModuleCache Map.empty Map.empty Nothing
+  stateVar <- newTVarIO initialState
+  runIdeGhcM biosOptions plugins mlf stateVar f
+  -}
 
 -- | A computation that is deferred until the module is cached.
 -- Note that the module may not typecheck, in which case 'UriCacheFailed' is passed
@@ -424,36 +446,30 @@ getClientCapabilities = do
 getPlugins :: MonadIde m => m IdePlugins
 getPlugins = idePlugins <$> getIdeEnv
 
--- | 'withProgress' @title f@ wraps a progress reporting session for long running tasks.
+-- | 'withProgress' @title cancellable f@ wraps a progress reporting session for long running tasks.
 -- f is passed a reporting function that can be used to give updates on the progress
 -- of the task.
-withProgress :: forall m a . (MonadIde m, MonadUnliftIO m) => T.Text -> ((Core.Progress -> IO ()) -> m a) -> m a
-withProgress t f = do
+withProgress :: (MonadIde m , MonadIO m, MonadBaseControl IO m)
+             => T.Text -> Core.ProgressCancellable
+             -> ((Core.Progress -> IO ()) -> m a) -> m a
+withProgress t c f = do
   lf <- ideEnvLspFuncs <$> getIdeEnv
   let mWp = Core.withProgress <$> lf
   case mWp of
     Nothing -> f (const $ return ())
-    Just wp -> withRunInIO $ \u -> wp t (u . f)
+    Just wp -> control $ \run -> wp t c $ \update -> run (f update)
 
--- | 'withIndefiniteProgress' @title f@ is the same as the 'withProgress' but for tasks
+
+-- | 'withIndefiniteProgress' @title cancellable f@ is the same as the 'withProgress' but for tasks
 -- which do not continuously report their progress.
-withIndefiniteProgress :: (MonadIde m, MonadUnliftIO m) => T.Text -> m a -> m a
-withIndefiniteProgress t f = do
+withIndefiniteProgress :: (MonadIde m, MonadBaseControl IO m)
+                       => T.Text -> Core.ProgressCancellable -> m a -> m a
+withIndefiniteProgress t c f = do
   lf <- ideEnvLspFuncs <$> getIdeEnv
   let mWp = Core.withIndefiniteProgress <$> lf
   case mWp of
     Nothing -> f
-    Just wp -> withRunInIO $ \u -> wp t (u f)
-
--- | 'withIndefiniteProgress' @title f@ is the same as the 'withProgress' but for tasks
--- which do not continuously report their progress.
-withIndefiniteProgressIO :: (MonadIO m, MonadIde m) => T.Text -> IO a -> m a
-withIndefiniteProgressIO t f = do
-  lf <- ideEnvLspFuncs <$> getIdeEnv
-  let mWp = Core.withIndefiniteProgress <$> lf
-  liftIO $ case mWp of
-    Nothing -> f
-    Just wp -> wp t f
+    Just wp -> control $ \run -> wp t c (run f)
 
 data IdeState = IdeState
   { moduleCache :: GhcModuleCache
@@ -503,6 +519,17 @@ instance HasGhcModuleCache IdeM where
   setModuleCache mc = do
     tvar <- lift ask
     atomically $ modifyTVar' tvar (\st -> st { moduleCache = mc })
+
+-- ---------------------------------------------------------------------
+
+{-
+instance GHC.HasDynFlags IdeGhcM where
+  getDynFlags = GHC.hsc_dflags <$> GHC.getSession
+
+instance GHC.GhcMonad IdeGhcM where
+  getSession     = GM.unGmlT GM.gmlGetSession
+  setSession env = GM.unGmlT (GM.gmlSetSession env)
+  -}
 
 -- ---------------------------------------------------------------------
 -- Results
@@ -587,3 +614,7 @@ instance MonadTrans GhcT where
 
 deriving via (ReaderT Session IO) instance MonadUnliftIO Ghc
 deriving via (ReaderT Session IdeM) instance MonadUnliftIO (GhcT IdeM)
+deriving via (ReaderT Session IdeM) instance MonadBaseControl IO (GhcT IdeM)
+deriving via (ReaderT Session IdeM) instance MonadBase IO (GhcT IdeM)
+deriving via (ReaderT Session IdeM) instance MonadPlus (GhcT IdeM)
+deriving via (ReaderT Session IdeM) instance Alternative (GhcT IdeM)
