@@ -257,13 +257,13 @@ spec = describe "completions" $ do
       let te = TextEdit (Range (Position 5 7) (Position 5 24)) "even `filte"
       _ <- applyEdit doc te
 
-      compls <- getCompletions doc (Position 5 17)
+      compls <- getCompletions doc (Position 5 18)
       let item = head $ filter ((== "filter") . (^. label)) compls
       liftIO $ do
         item ^. label `shouldBe` "filter"
         item ^. kind `shouldBe` Just CiFunction
         item ^. insertTextFormat `shouldBe` Just Snippet
-        item ^. insertText `shouldBe` Just "`filter`"
+        item ^. insertText `shouldBe` Just "filter`"
 
     it "work for infix functions in backticks" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
       doc <- openDoc "Completion.hs" "haskell"
@@ -272,13 +272,13 @@ spec = describe "completions" $ do
       let te = TextEdit (Range (Position 5 7) (Position 5 24)) "even `filte`"
       _ <- applyEdit doc te
 
-      compls <- getCompletions doc (Position 5 17)
+      compls <- getCompletions doc (Position 5 18)
       let item = head $ filter ((== "filter") . (^. label)) compls
       liftIO $ do
         item ^. label `shouldBe` "filter"
         item ^. kind `shouldBe` Just CiFunction
         item ^. insertTextFormat `shouldBe` Just Snippet
-        item ^. insertText `shouldBe` Just "`filter`"
+        item ^. insertText `shouldBe` Just "filter"
 
     it "work for qualified infix functions" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
       doc <- openDoc "Completion.hs" "haskell"
@@ -287,13 +287,13 @@ spec = describe "completions" $ do
       let te = TextEdit (Range (Position 5 7) (Position 5 24)) "\"\" `Data.List.interspe"
       _ <- applyEdit doc te
 
-      compls <- getCompletions doc (Position 5 34)
+      compls <- getCompletions doc (Position 5 29)
       let item = head $ filter ((== "intersperse") . (^. label)) compls
       liftIO $ do
         item ^. label `shouldBe` "intersperse"
         item ^. kind `shouldBe` Just CiFunction
         item ^. insertTextFormat `shouldBe` Just Snippet
-        item ^. insertText `shouldBe` Just "`Data.List.intersperse`"
+        item ^. insertText `shouldBe` Just "intersperse`"
 
     it "work for qualified infix functions in backticks" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
       doc <- openDoc "Completion.hs" "haskell"
@@ -303,13 +303,13 @@ spec = describe "completions" $ do
       _ <- applyEdit doc te
 
 
-      compls <- getCompletions doc (Position 5 34)
+      compls <- getCompletions doc (Position 5 29)
       let item = head $ filter ((== "intersperse") . (^. label)) compls
       liftIO $ do
         item ^. label `shouldBe` "intersperse"
         item ^. kind `shouldBe` Just CiFunction
         item ^. insertTextFormat `shouldBe` Just Snippet
-        item ^. insertText `shouldBe` Just "`Data.List.intersperse`"
+        item ^. insertText `shouldBe` Just "intersperse"
 
     it "respects lsp configuration" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
       doc <- openDoc "Completion.hs" "haskell"
