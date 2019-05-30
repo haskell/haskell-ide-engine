@@ -247,7 +247,7 @@ installCabal = do
   -- install `cabal-install` if not already installed
   when (isNothing cabalExe) $
     execStackShake_ ["install", "cabal-install"]
-  execCabal_ ["update"]
+  execCabal_ ["v1-update"]
 
 
 checkStack :: Action ()
