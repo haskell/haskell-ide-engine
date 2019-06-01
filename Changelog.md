@@ -1,5 +1,9 @@
 # 0.10.0.0
 
+- Drop GHC 8.2.1 support.
+  ([#1279](https://github.com/haskell/haskell-ide-engine/pull/1279),
+  @alanz)
+
 - Bump resolvers and hoogle, LTS 13.23 for GHC 8.6.5,
   nightly-2019-05-31 for stack.yaml and hoogle version 5.0.17.9
   ([#1277](https://github.com/haskell/haskell-ide-engine/pull/1277),
@@ -90,17 +94,6 @@
   - Avoid legacy warning
     ([#1273](https://github.com/haskell/haskell-ide-engine/pull/1273),
     @fendor)
-
-
-
-
-
-
-
-
-
-
-
 
 # 0.9.0.0
 
