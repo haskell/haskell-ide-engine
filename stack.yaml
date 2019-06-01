@@ -1,4 +1,4 @@
-resolver: nightly-2019-04-30 # First GHC 8.6.5
+resolver: nightly-2019-05-31 # GHC 8.6.5
 packages:
 - .
 - hie-plugin-api
@@ -12,13 +12,13 @@ extra-deps:
 - ./submodules/ghc-mod/ghc-project-types
 
 - ansi-terminal-0.8.2
+- ansi-wl-pprint-0.6.8.2
 - butcher-1.3.2.1
 - cabal-plan-0.4.0.0
 - constrained-dynamic-0.1.0.0
 - deque-0.2.7
-- floskell-0.10.0
+- floskell-0.10.1
 - ghc-exactprint-0.5.8.2
-- ghc-lib-parser-0.20190523
 - haddock-api-2.22.0
 - haskell-lsp-0.13.0.0
 - haskell-lsp-types-0.13.0.0
@@ -28,7 +28,6 @@ extra-deps:
 - monad-dijkstra-0.1.1.2@rev:1
 - monad-memo-0.4.1
 - multistate-0.8.0.1
-- rope-utf16-splay-0.3.1.0
 - syz-0.2.0.0
 - temporary-1.2.1.1
 - yaml-0.8.32
