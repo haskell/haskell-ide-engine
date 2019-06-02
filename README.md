@@ -63,6 +63,7 @@ we talk to clients.__
       - [Is there a hash (#) after \<package\>?](#is-there-a-hash--after-package)
       - [Otherwise](#otherwise)
     - [Nix: cabal-helper, No such file or directory](#nix-cabal-helper-no-such-file-or-directory)
+    - [Liquid Haskell](#liquid-haskell)
 
 ## Features
 
@@ -629,4 +630,7 @@ cabal-helper-wrapper: /home/<...>/.cache/cabal-helper/cabal-helper<...>: createP
 
 can happen because cabal-helper compiles and runs above executable at runtime without using nix-build, which means a Nix garbage collection can delete the paths it depends on. Delete ~/.cache/cabal-helper and restart HIE to fix this.
 
+### Liquid Haskell
 
+Liquid Haskell requires an SMT solver on the path. We do not take care of installing one, thus, Liquid Haskell will not run until one is installed.
+The recommended SMT solver is [z3](https://github.com/Z3Prover/z3). To run the tests, it is also required to have an SMT solver on the path, otherwise the tests will fail for Liquid Haskell.
