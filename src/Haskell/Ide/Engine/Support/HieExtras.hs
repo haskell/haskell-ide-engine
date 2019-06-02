@@ -103,13 +103,16 @@ data CompItem = CI
   , importedFrom :: T.Text
   , thingType    :: Maybe Type
   , label        :: T.Text
+  , isInfix      :: Maybe Backtick
   }
 
+data Backtick = Surrounded | LeftSide
+
 instance Eq CompItem where
-  (CI n1 _ _ _) == (CI n2 _ _ _) = n1 == n2
+  ci1 == ci2 = origName ci1 == origName ci2
 
 instance Ord CompItem where
-  compare (CI n1 _ _ _) (CI n2 _ _ _) = compare n1 n2
+  compare ci1 ci2 = origName ci1 `compare` origName ci2
 
 occNameToComKind :: OccName -> J.CompletionItemKind
 occNameToComKind oc
@@ -125,16 +128,21 @@ mkQuery name importedFrom = name <> " module:" <> importedFrom
                                  <> " is:exact"
 
 mkCompl :: CompItem -> J.CompletionItem
-mkCompl CI{origName,importedFrom,thingType,label} =
+mkCompl CI{origName,importedFrom,thingType,label,isInfix} =
   J.CompletionItem label kind (Just $ maybe "" (<>"\n") typeText <> importedFrom)
     Nothing Nothing Nothing Nothing Nothing (Just insertText) (Just J.Snippet)
     Nothing Nothing Nothing Nothing hoogleQuery
   where kind = Just $ occNameToComKind $ occName origName
         hoogleQuery = Just $ toJSON $ mkQuery label importedFrom
         argTypes = maybe [] getArgs thingType
-        insertText
-          | [] <- argTypes = label
-          | otherwise = label <> " " <> argText
+        insertText = case isInfix of
+            Nothing -> case argTypes of
+                            []  -> label
+                            _ -> label <> " " <> argText
+            Just LeftSide -> label <> "`"
+
+            Just Surrounded -> label
+
         argText :: T.Text
         argText =  mconcat $ List.intersperse " " $ zipWith snippet [1..] argTypes
         stripForall t
@@ -224,17 +232,20 @@ instance ModuleCache CachedCompletions where
 
         typeEnv = md_types $ snd $ tm_internals_ tm
         toplevelVars = mapMaybe safeTyThingId $ typeEnvElts typeEnv
-        varToCompl var = CI name (showModName curMod) typ label
+
+        varToCompl :: Var -> CompItem
+        varToCompl var = CI name (showModName curMod) typ label Nothing
           where
             typ = Just $ varType var
             name = Var.varName var
             label = T.pack $ showGhc name
 
+        toplevelCompls :: [CompItem]
         toplevelCompls = map varToCompl toplevelVars
 
         toCompItem :: ModuleName -> Name -> CompItem
         toCompItem mn n =
-          CI n (showModName mn) Nothing (T.pack $ showGhc n)
+          CI n (showModName mn) Nothing (T.pack $ showGhc n) Nothing
 
         allImportsInfo :: [(Bool, T.Text, ModuleName, Maybe (Bool, [Name]))]
         allImportsInfo = map getImpInfo importDeclerations
@@ -369,6 +380,26 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) =
                   d = T.length fullLine - T.length (stripTypeStuff partialLine)
               in Position l (c - d)
 
+            hasTrailingBacktick =
+              if T.length fullLine <= trailingBacktickIndex
+                  then False
+                  else (fullLine `T.index` trailingBacktickIndex) == '`'
+
+            trailingBacktickIndex = let Position _ cursorColumn = VFS.cursorPos prefixInfo in cursorColumn
+
+            isUsedAsInfix = if backtickIndex < 0
+                    then False
+                    else (fullLine `T.index` backtickIndex) == '`'
+
+            backtickIndex =
+              let Position _ cursorColumn = VFS.cursorPos prefixInfo
+                  prefixLength = T.length prefixText
+                  moduleLength = if prefixModule == ""
+                            then 0
+                            else T.length prefixModule + 1 {- Because of "." -}
+              in
+                     cursorColumn - (prefixLength + moduleLength) - 1 {- Points to the first letter of either the module or prefix text -}
+
             filtModNameCompls =
               map mkModCompl
                 $ mapMaybe (T.stripPrefix enteredQual)
@@ -378,12 +409,22 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) =
               where
                 isTypeCompl = isTcOcc . occName . origName
                 -- completions specific to the current context
-                ctxCompls = case context of
+                ctxCompls' = case context of
                               TypeContext -> filter isTypeCompl compls
                               ValueContext -> filter (not . isTypeCompl) compls
+                -- Add whether the text to insert has backticks
+                ctxCompls = map (\comp -> comp { isInfix = infixCompls }) ctxCompls'
+
+                infixCompls :: Maybe Backtick
+                infixCompls = case (isUsedAsInfix, hasTrailingBacktick) of
+                    (True, False) -> Just LeftSide
+                    (True, True) -> Just Surrounded
+                    _ -> Nothing
+
                 compls = if T.null prefixModule
                   then unqualCompls
                   else Map.findWithDefault [] prefixModule qualCompls
+
 
             mkImportCompl label = (J.detail ?~ label) . mkModCompl $ fromMaybe
               ""
