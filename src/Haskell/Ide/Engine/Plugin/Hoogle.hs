@@ -44,10 +44,10 @@ hoogleDescriptor plId = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-data HoogleError 
+data HoogleError
   = NoDb
   | DbFail T.Text
-  | NoResults 
+  | NoResults
   deriving (Eq,Ord,Show)
 
 newtype HoogleDb = HoogleDb (Maybe FilePath)
