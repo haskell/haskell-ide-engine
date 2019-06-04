@@ -152,7 +152,19 @@ renderTarget t = T.intercalate "\n" $
 -- If an error occurs, such as no hoogle database has been found,
 -- or the search term has no match, an empty list will be returned.
 searchModules :: T.Text -> IdeM [T.Text]
-searchModules = fmap (nub . take 5) . searchTargets (fmap (T.pack . fst) . targetModule)
+searchModules = fmap (map fst) . searchModules'
+
+-- | Just like 'searchModules', but includes the signature of the search term
+-- that has been found in the module.
+searchModules' :: T.Text -> IdeM [(T.Text, T.Text)]
+searchModules' = fmap (nub . take 5)
+  . searchTargets
+    (\target
+     -> (\modTarget -> (T.pack $ fst modTarget, normaliseItem . T.pack $ targetItem target))
+     <$> targetModule target)
+     where
+      normaliseItem :: T.Text -> T.Text
+      normaliseItem  = innerText . parseTags
 
 -- | Search for packages that satisfy the given search text.
 -- Will return at most five, unique results.

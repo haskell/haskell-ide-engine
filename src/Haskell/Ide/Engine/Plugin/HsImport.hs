@@ -283,7 +283,7 @@ codeActionProvider plId docId _ context = do
     :: SearchStyle -> [ImportDiagnostic] -> IdeM [J.CodeAction]
   importActionsForTerms style importDiagnostics = do
     let searchTerms   = map (applySearchStyle style . term) importDiagnostics
-    searchResults <- mapM Hoogle.searchModules searchTerms
+    searchResults <- mapM Hoogle.searchModules' searchTerms
     let importTerms = zip searchResults importDiagnostics
     concat <$> mapM (uncurry (termToActions style)) importTerms
 
@@ -311,9 +311,9 @@ codeActionProvider plId docId _ context = do
   -- no import list can be offered, since the function name
   -- may be not the one we expect.
   termToActions
-    :: SearchStyle -> [ModuleName] -> ImportDiagnostic -> IdeM [J.CodeAction]
+    :: SearchStyle -> [(ModuleName, SymbolName)] -> ImportDiagnostic -> IdeM [J.CodeAction]
   termToActions style modules impDiagnostic =
-    concat <$> mapM (importModuleAction style impDiagnostic) modules
+    concat <$> mapM (uncurry (importModuleAction style impDiagnostic)) modules
 
   -- | Creates various import actions for a module and the diagnostic.
   -- Possible import actions depend on the type of the symbol to import.
@@ -322,8 +322,8 @@ codeActionProvider plId docId _ context = do
   -- Thus, it may return zero, one or multiple import actions for a module.
   -- List of import actions does contain no duplicates.
   importModuleAction
-    :: SearchStyle -> ImportDiagnostic -> ModuleName -> IdeM [J.CodeAction]
-  importModuleAction searchStyle impDiagnostic moduleName =
+    :: SearchStyle -> ImportDiagnostic -> ModuleName -> SymbolName -> IdeM [J.CodeAction]
+  importModuleAction searchStyle impDiagnostic moduleName symbolTerm =
     catMaybes <$> sequenceA codeActions
     where
       importListActions :: [IdeM (Maybe J.CodeAction)]
@@ -339,23 +339,23 @@ codeActionProvider plId docId _ context = do
             -- import only this function
             Symbol
               -> [ mkImportAction moduleName impDiagnostic . Just . Only
-                     <$> symName (term impDiagnostic)
+                     <$> symName symbolTerm
                 ]
             -- Constructors can be imported in two ways, either all
             -- constructors of a type or only a subset.
             -- We can only import a single constructor at a time though.
             Constructor
               -> [ mkImportAction moduleName impDiagnostic . Just . AllOf
-                     <$> datatypeName (term impDiagnostic)
+                     <$> datatypeName symbolTerm
                  , (\dt sym -> mkImportAction moduleName impDiagnostic . Just
                     $ OneOf dt sym)
-                     <$> datatypeName (term impDiagnostic)
-                     <*> symName (term impDiagnostic)
+                     <$> datatypeName symbolTerm
+                     <*> symName symbolTerm
                  ]
             -- If we are looking for a type, import it as just a symbol
             Type
               -> [ mkImportAction moduleName impDiagnostic . Just . Only
-                     <$> symName (term impDiagnostic)]
+                     <$> symName symbolTerm]
 
       -- | All code actions that may be available
       -- Currently, omits all
