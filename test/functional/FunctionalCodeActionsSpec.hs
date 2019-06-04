@@ -153,6 +153,25 @@ spec = describe "code actions" $ do
         , "        $ hPutStrLn stdout"
         , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
         ]
+      , -- Complex imports for Constructos and functions
+        [ "{-# LANGUAGE NoImplicitPrelude #-}"
+        , "import           System.IO                     ( IO"
+        , "                                               , hPutStrLn"
+        , "                                               , stdout"
+        , "                                               )"
+        , "import           Prelude                       ( Bool(..) )"
+        , "import           Control.Monad                 ( when )"
+        , "import           Data.Maybe                    ( fromMaybe"
+        , "                                               , Maybe(Just)"
+        , "                                               )"
+        , "import           Data.Function                 ( ($) )"
+        , "-- | Main entry point to the program"
+        , "main :: IO ()"
+        , "main ="
+        , "    when True"
+        , "        $ hPutStrLn stdout"
+        , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
+        ]
       ]
     hsImportSpec "floskell"
       [ -- Expected output for simple format.
@@ -171,6 +190,20 @@ spec = describe "code actions" $ do
         [ "import           System.IO (stdout, hPutStrLn)"
         , "import           Control.Monad (when)"
         , "import           Data.Maybe (fromMaybe)"
+        , "-- | Main entry point to the program"
+        , "main :: IO ()"
+        , "main ="
+        , "    when True"
+        , "        $ hPutStrLn stdout"
+        , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
+        ]
+      ,  -- Complex imports for Constructos and functions
+        [ "{-# LANGUAGE NoImplicitPrelude #-}"
+        , "import           System.IO (IO, hPutStrLn, stdout)"
+        , "import           Prelude (Bool(..))"
+        , "import           Control.Monad (when)"
+        , "import           Data.Maybe (fromMaybe, Maybe(Just))"
+        , "import           Data.Function (($))"
         , "-- | Main entry point to the program"
         , "main :: IO ()"
         , "main ="
@@ -504,7 +537,7 @@ spec = describe "code actions" $ do
 -- Parameterized HsImport Spec.
 -- ---------------------------------------------------------------------
 hsImportSpec :: T.Text -> [[T.Text]]-> Spec
-hsImportSpec formatterName [e1, e2, e3] =
+hsImportSpec formatterName [e1, e2, e3, e4] =
   describe ("Execute HsImport with formatter " <> T.unpack formatterName) $ do
     it "works with 3.8 code action kinds" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImport.hs" "haskell"
@@ -626,7 +659,7 @@ hsImportSpec formatterName [e1, e2, e3] =
         l3 `shouldBe` "main :: IO ()"
         l4 `shouldBe` "main = when True $ putStrLn \"hello\""
 
-    it ("import-list respects format config with " <> T.unpack formatterName) $ runSession hieCommand fullCaps "test/testdata" $ do
+    it "import-list respects format config" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
       _ <- waitForDiagnosticsSource "ghcmod"
 
@@ -644,6 +677,63 @@ hsImportSpec formatterName [e1, e2, e3] =
         l2 `shouldBe` "import Control.Monad (when)"
         l3 `shouldBe` "main :: IO ()"
         l4 `shouldBe` "main = when True $ putStrLn \"hello\""
+
+    it "complex import-list" $ runSession hieCommand fullCaps "test/testdata" $ do
+      doc <- openDoc "CodeActionImportListElaborate.hs" "haskell"
+      _ <- waitForDiagnosticsSource "ghcmod"
+
+      let config = def { formatOnImportOn = False, formattingProvider = formatterName }
+      sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
+
+      let wantedCodeActionTitles = [ "Import module System.IO (hPutSetrLn)"
+                                   , "Import module System.IO (stdout)"
+                                   , "Import module Control.Monad (when)"
+                                   , "Import module Data.Maybe (fromMaybe)"
+                                   , "Import module Data.Function (($))"
+                                   , "Import module Data.Maybe (Maybe(Just))"
+                                   , "Import module Prelude (Bool(..))"
+                                   ]
+
+      executeAllCodeActions doc wantedCodeActionTitles
+
+      contents <- getDocumentEdit doc
+      liftIO $
+        T.lines contents `shouldBe` e4
+
+    it "complex import-list respects format config" $ runSession hieCommand fullCaps "test/testdata" $ do
+      doc <- openDoc "CodeActionImportListElaborate.hs" "haskell"
+      _ <- waitForDiagnosticsSource "ghcmod"
+
+      let config = def { formatOnImportOn = False, formattingProvider = formatterName }
+      sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
+
+      let wantedCodeActionTitles = [ "Import module System.IO (hPutStrLn)"
+                                   , "Import module System.IO (stdout)"
+                                   , "Import module Control.Monad (when)"
+                                   , "Import module Data.Maybe (fromMaybe)"
+                                   , "Import module Data.Function (($))"
+                                   , "Import module Data.Maybe (Maybe(Just))"
+                                   , "Import module Prelude (Bool(..))"
+                                   ]
+
+      executeAllCodeActions doc wantedCodeActionTitles
+
+      contents <- getDocumentEdit doc
+      liftIO $ do
+        let [l1, l2, l3, l4, l5, l6, l7, l8, l9, l10, l11, l12] = T.lines contents
+        l1  `shouldBe` "{-# LANGUAGE NoImplicitPrelude #-}"
+        l2  `shouldBe` "import System.IO (IO, hPutStrLn, stdout)"
+        l3  `shouldBe` "import Prelude (Bool(..))"
+        l4  `shouldBe` "import Control.Monad (when)"
+        l5  `shouldBe` "import Data.Maybe (fromMaybe, Maybe(Just))"
+        l6  `shouldBe` "import Data.Function (($))"
+        l7  `shouldBe` "-- | Main entry point to the program"
+        l8  `shouldBe` "main :: IO ()"
+        l9  `shouldBe` "main ="
+        l10 `shouldBe` "    when True"
+        l11 `shouldBe` "        $ hPutStrLn stdout"
+        l12 `shouldBe` "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
+
   where
     executeAllCodeActions :: TextDocumentIdentifier -> [T.Text] -> Session ()
     executeAllCodeActions doc names =
