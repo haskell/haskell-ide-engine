@@ -41,27 +41,35 @@ hsimportDescriptor plId = PluginDescriptor
   , pluginFormattingProvider = Nothing
   }
 
+-- | Type of the symbol to import.
+-- Important to offer the correct import list, or hiding code action.
 data SymbolType
-  = Symbol
-  | Constructor
-  | Type
+  = Symbol -- ^ Symbol is a simple function
+  | Constructor -- ^ Symbol is a constructor
+  | Type -- ^ Symbol is a type
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
 
 -- | What of the symbol should be taken.
+-- Import a simple symbol, or a value constructor.
 data SymbolKind
-  = Only  SymbolName -- ^ only the symbol should be taken
-  | AllOf DatatypeName -- ^ all constructors or methods of the symbol should be taken: Symbol(..)
-  | OneOf DatatypeName SymbolName -- ^ some constructors or methods of the symbol should be taken: Symbol(X, Y)
+  = Only  SymbolName -- ^ Only the symbol should be taken
+  | OneOf DatatypeName SymbolName -- ^ Some constructors or methods of the symbol should be taken: Symbol(X)
+  | AllOf DatatypeName -- ^ All constructors or methods of the symbol should be taken: Symbol(..)
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
--- | The imported or from the import hidden symbol.
+-- | Disambiguates between an import action and an hiding action.
+-- Can be used to determine suggestion tpye from ghc-mod,
+-- e.g. whether ghc-mod suggests to hide an identifier or to import an identifier.
+-- Also important later, to know how the symbol shall be imported.
 data SymbolImport a
   = Import a -- ^ the symbol to import
   | Hiding a -- ^ the symbol to hide from the import
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
 
+-- | Utility to retrieve the contents of the 'SymbolImport'.
+-- May never fail.
 extractSymbolImport :: SymbolImport a -> a
 extractSymbolImport (Hiding s) = s
 extractSymbolImport (Import s) = s
@@ -70,18 +78,25 @@ type ModuleName = T.Text
 type SymbolName = T.Text
 type DatatypeName = T.Text
 
+-- | How to import a module.
+-- Can be used to express to import a whole module or only specific symbols
+-- from a module.
+-- Is used to either hide symbols from an import or use an import-list to
+-- import only a specific symbol.
 data ImportStyle
     = Simple -- ^ Import the whole module
     | Complex (SymbolImport SymbolKind) -- ^ Complex operation, import module hiding symbols or import only selected symbols.
     deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
+-- | Contains information about the diagnostic, the symbol ghc-mod
+-- complained about and what the kind of the symbol is and whether
+-- to import or hide the symbol as suggested by ghc-mod.
 data ImportDiagnostic = ImportDiagnostic
   { diagnostic :: J.Diagnostic
   , term :: SymbolName
   , termType :: SymbolImport SymbolType
   }
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
-
 
 -- | Import Parameters for Modules.
 -- Can be used to import every symbol from a module,
@@ -189,23 +204,31 @@ importModule uri impStyle modName =
                     $ IdeResultOk (J.WorkspaceEdit newChanges newDocChanges)
             else return $ IdeResultOk (J.WorkspaceEdit mChanges mDocChanges)
 
+-- | Convert the import style arguments into HsImport arguments.
+-- Takes an input and an output file as well as a module name.
 importStyleToHsImportArgs
   :: FilePath -> FilePath -> ModuleName -> ImportStyle -> HsImport.HsImportArgs
 importStyleToHsImportArgs input output modName style =
-  let defaultArgs =
+  let defaultArgs = -- Default args, must be set every time.
         HsImport.defaultArgs { HsImport.moduleName = T.unpack modName
                              , HsImport.inputSrcFile = input
                              , HsImport.outputSrcFile = output
                              }
+
+      kindToArgs :: SymbolKind -> HsImport.HsImportArgs
       kindToArgs kind = case kind of
+        -- Only import a single symbol e.g. Data.Text (isPrefixOf)
         Only sym     -> defaultArgs { HsImport.symbolName = T.unpack sym }
+        -- Import a constructor e.g. Data.Mabye (Maybe(Just))
         OneOf dt sym -> defaultArgs { HsImport.symbolName = T.unpack dt
                                     , HsImport.with = [T.unpack sym]
                                     }
+        -- Import all constructors e.g. Data.Maybe (Maybe(..))
         AllOf dt     -> defaultArgs { HsImport.symbolName = T.unpack dt
                                     , HsImport.all = True
                                     }
   in case style of
+       -- If the import style is simple, import thw whole module
        Simple    -> defaultArgs
        Complex s -> case s of
          Hiding kind -> kindToArgs kind {- TODO: wait for hsimport version bump -}
@@ -265,8 +288,8 @@ codeActionProvider plId docId _ context = do
     (x : _) -> "is:exact " <> x
   applySearchStyle (Relax relax) termName = relax termName
 
-  -- | Turn a search term with function name into Import Actions.
-  -- Function name may be of only the exact phrase to import.
+  -- | Turn a search term with function name into an Import Actions.
+  -- The function name may be of only the exact phrase to import.
   -- The resulting CodeAction's contain a general import of a module or
   -- uses an Import-List.
   --
@@ -282,6 +305,12 @@ codeActionProvider plId docId _ context = do
   termToActions style modules impDiagnostic =
     concat <$> mapM (importModuleAction style impDiagnostic) modules
 
+  -- | Creates various import actions for a module and the diagnostic.
+  -- Possible import actions depend on the type of the symbol to import.
+  -- It may be a 'Constructor', so the import actions need to be different
+  -- to a simple function symbol.
+  -- Thus, it may return zero, one or multiple import actions for a module.
+  -- List of import actions does contain no duplicates.
   importModuleAction
     :: SearchStyle -> ImportDiagnostic -> ModuleName -> IdeM [J.CodeAction]
   importModuleAction searchStyle impDiagnostic moduleName =
@@ -289,13 +318,22 @@ codeActionProvider plId docId _ context = do
     where
       importListActions :: [IdeM (Maybe J.CodeAction)]
       importListActions = case searchStyle of
+        -- If the search has been relaxed by a custom function,
+        -- we cant know how much the search query has been altered
+        -- and how close the result terms are to the initial diagnostic.
+        -- Thus, we cant offer more specific imports.
         Relax _ -> []
         _       -> catMaybes
           $ case extractSymbolImport $ termType impDiagnostic of
+            -- If the term to import is a simple symbol, such as a function,
+            -- import only this function
             Symbol
               -> [ mkImportAction moduleName impDiagnostic . Just . Only
                      <$> symName (term impDiagnostic)
                 ]
+            -- Constructors can be imported in two ways, either all
+            -- constructors of a type or only a subset.
+            -- We can only import a single constructor at a time though.
             Constructor
               -> [ mkImportAction moduleName impDiagnostic . Just . AllOf
                      <$> datatypeName (term impDiagnostic)
@@ -304,22 +342,43 @@ codeActionProvider plId docId _ context = do
                      <$> datatypeName (term impDiagnostic)
                      <*> symName (term impDiagnostic)
                  ]
+            -- If we are looking for a type, import it as just a symbol
             Type
               -> [ mkImportAction moduleName impDiagnostic . Just . Only
                      <$> symName (term impDiagnostic)]
 
+      -- | All code actions that may be available
+      -- Currently, omits all
       codeActions :: [IdeM (Maybe J.CodeAction)]
       codeActions = case termType impDiagnostic of
-        Hiding _ -> []
+        Hiding _ -> [] {- If we are hiding an import, we can not import
+                          a module hiding everything from it. -}
         Import _ -> [mkImportAction moduleName impDiagnostic Nothing]
+                    -- ^ Simple import, import the whole module
         ++ importListActions
 
+      -- | Retrieve the function signature of a term such as
+      -- >>> signatureOf "take :: Int -> [a] -> [a]"
+      -- Just " Int -> [a] -> [a]"
       signatureOf :: T.Text -> Maybe T.Text
       signatureOf sig = do
         let parts =  T.splitOn "::" sig
         typeSig <- S.tailMay parts
         S.headMay typeSig
 
+      -- | Retrieve the datatype name of a Constructor.
+      --
+      -- >>> datatypeName "Null :: Data.Aeson.Internal.Types.Value"
+      -- Just "Value"
+      --
+      -- >>> datatypeName "take :: Int -> [a] -> [a]" -- Not a constructor
+      -- Just "[a]"
+      --
+      -- >>> datatypeName "Just :: a -> Maybe a"
+      -- Just "Maybe"
+      --
+      -- Thus, the result of this function only makes sense,
+      -- if the symbol kind of the diagnostic term is of type 'Constructor'
       datatypeName :: T.Text -> Maybe T.Text
       datatypeName sig = do
         sig_ <- signatureOf sig
@@ -330,6 +389,10 @@ codeActionProvider plId docId _ context = do
         let qualifiedDtNameParts = T.splitOn "." qualifiedDtName
         S.lastMay qualifiedDtNameParts
 
+      -- | Name of a symbol. May contain a function signature.
+      --
+      -- >>> symName "take :: Int -> [a] -> [a]"
+      -- Just "take"
       symName :: T.Text -> Maybe SymbolName
       symName = S.headMay . T.words
 
