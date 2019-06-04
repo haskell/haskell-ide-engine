@@ -78,6 +78,12 @@ type ModuleName = T.Text
 type SymbolName = T.Text
 type DatatypeName = T.Text
 
+-- | Wrapper for a FilePath that is used as an Input file for HsImport
+newtype InputFilePath = MkInputFilePath { getInput :: FilePath }
+
+-- | Wrapper for a FilePath that is used as an Output file for HsImport
+newtype OutputFilePath = MkOutputFilePath { getOutput :: FilePath }
+
 -- | How to import a module.
 -- Can be used to express to import a whole module or only specific symbols
 -- from a module.
@@ -128,7 +134,11 @@ importModule uri impStyle modName =
       tmpDir            <- liftIO getTemporaryDirectory
       (output, outputH) <- liftIO $ openTempFile tmpDir "hsimportOutput"
       liftIO $ hClose outputH
-      let args = importStyleToHsImportArgs input output modName impStyle
+      let args = importStyleToHsImportArgs
+                    (MkInputFilePath input)
+                    (MkOutputFilePath output)
+                    modName
+                    impStyle
       -- execute hsimport on the given file and write into a temporary file.
       maybeErr <- liftIO $ HsImport.hsimportWithArgs HsImport.defaultConfig args
       case maybeErr of
@@ -207,12 +217,12 @@ importModule uri impStyle modName =
 -- | Convert the import style arguments into HsImport arguments.
 -- Takes an input and an output file as well as a module name.
 importStyleToHsImportArgs
-  :: FilePath -> FilePath -> ModuleName -> ImportStyle -> HsImport.HsImportArgs
+  :: InputFilePath -> OutputFilePath -> ModuleName -> ImportStyle -> HsImport.HsImportArgs
 importStyleToHsImportArgs input output modName style =
   let defaultArgs = -- Default args, must be set every time.
         HsImport.defaultArgs { HsImport.moduleName = T.unpack modName
-                             , HsImport.inputSrcFile = input
-                             , HsImport.outputSrcFile = output
+                             , HsImport.inputSrcFile = getInput input
+                             , HsImport.outputSrcFile = getOutput output
                              }
 
       kindToArgs :: SymbolKind -> HsImport.HsImportArgs
@@ -393,6 +403,9 @@ codeActionProvider plId docId _ context = do
       --
       -- >>> symName "take :: Int -> [a] -> [a]"
       -- Just "take"
+      --
+      -- >>> symName "take"
+      -- Just "take"
       symName :: T.Text -> Maybe SymbolName
       symName = S.headMay . T.words
 
@@ -403,7 +416,7 @@ codeActionProvider plId docId _ context = do
   mkImportAction modName importDiagnostic symbolType = do
     cmd <- mkLspCommand plId "import" title (Just cmdParams)
     return (Just (codeAction cmd))
-   where
+    where
     codeAction cmd = J.CodeAction title
                                   (Just J.CodeActionQuickFix)
                                   (Just (J.List [diagnostic importDiagnostic]))
@@ -413,6 +426,8 @@ codeActionProvider plId docId _ context = do
       <> modName
       <> case termType importDiagnostic of
         Hiding _ -> "hiding "
+        -- ^ Note, that it must never happen
+        -- in combination with `symbolType == Nothing`
         Import _ -> ""
       <> case symbolType of
         Just s  -> case s of
@@ -442,25 +457,27 @@ codeActionProvider plId docId _ context = do
 -- This looks at the error message and tries to extract the expected
 -- signature of an unknown function.
 -- If this is not possible, Nothing is returned.
-extractImportableTerm :: T.Text -> Maybe (T.Text, (SymbolImport SymbolType) )
+extractImportableTerm :: T.Text -> Maybe (T.Text, SymbolImport SymbolType)
 extractImportableTerm dirtyMsg =
-  let extractedTerm  =
-        asum
-          [ (\name -> (name, Import Symbol)) <$> T.stripPrefix "Variable not in scope: " importMsg
-          , (\name -> (T.init name, Import Type)) <$> T.stripPrefix "Not in scope: type constructor or class ‘" importMsg
-          , (\name -> (name, Import Constructor)) <$> T.stripPrefix "Data constructor not in scope: " importMsg
-          ]
+  let extractedTerm = asum
+        [ (\name -> (name, Import Symbol))
+            <$> T.stripPrefix "Variable not in scope: " importMsg
+        , (\name -> (T.init name, Import Type))
+            <$> T.stripPrefix
+              "Not in scope: type constructor or class ‘"
+              importMsg
+        , (\name -> (name, Import Constructor))
+            <$> T.stripPrefix "Data constructor not in scope: " importMsg]
   in do
-    (n, s) <- extractedTerm
-    let n' = T.strip n
-    return (n', s)
- where
-  importMsg =
-    head
-        -- Get rid of the rename suggestion parts
+       (n, s) <- extractedTerm
+       let n' = T.strip n
+       return (n', s)
+  where
+    importMsg = head
+       -- Get rid of the rename suggestion parts
       $ T.splitOn "Perhaps you meant "
       $ T.replace "\n" " "
-        -- Get rid of trailing/leading whitespace on each individual line
+       -- Get rid of trailing/leading whitespace on each individual line
       $ T.unlines
       $ map T.strip
       $ T.lines
