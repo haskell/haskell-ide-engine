@@ -225,16 +225,28 @@ importStyleToHsImportArgs input output modName style =
                              , HsImport.outputSrcFile = getOutput output
                              }
 
+      -- | Remove parenthesis for operators and infix operator cosntructors.
+      -- HsImport demands it. E.g.
+      -- > hsimport -m Data.Array.Repa -s :. -w :.
+      -- import Data.Array.Repa ((:.)((:.)))
+      --
+      -- > hsimport -m Data.Function -s $
+      -- import Data.Function (($))
+      trimParenthesis :: T.Text -> T.Text
+      trimParenthesis = T.dropAround isParenthesis
+
+      isParenthesis = (`elem` ['(', ')'])
+
       kindToArgs :: SymbolKind -> HsImport.HsImportArgs
       kindToArgs kind = case kind of
         -- Only import a single symbol e.g. Data.Text (isPrefixOf)
-        Only sym     -> defaultArgs { HsImport.symbolName = T.unpack sym }
+        Only sym     -> defaultArgs { HsImport.symbolName = T.unpack $ trimParenthesis sym }
         -- Import a constructor e.g. Data.Mabye (Maybe(Just))
-        OneOf dt sym -> defaultArgs { HsImport.symbolName = T.unpack dt
-                                    , HsImport.with = [T.unpack sym]
+        OneOf dt sym -> defaultArgs { HsImport.symbolName = T.unpack $ trimParenthesis dt
+                                    , HsImport.with = [T.unpack $ trimParenthesis sym]
                                     }
         -- Import all constructors e.g. Data.Maybe (Maybe(..))
-        AllOf dt     -> defaultArgs { HsImport.symbolName = T.unpack dt
+        AllOf dt     -> defaultArgs { HsImport.symbolName = T.unpack $ trimParenthesis dt
                                     , HsImport.all = True
                                     }
   in case style of
