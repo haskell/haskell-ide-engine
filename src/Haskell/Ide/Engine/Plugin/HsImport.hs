@@ -437,15 +437,15 @@ codeActionProvider plId docId _ context = do
     title = "Import module "
       <> modName
       <> case termType importDiagnostic of
-        Hiding _ -> "hiding "
+        Hiding _ -> "hiding"
         -- ^ Note, that it must never happen
         -- in combination with `symbolType == Nothing`
-        Import _ -> " "
+        Import _ -> ""
       <> case symbolType of
         Just s  -> case s of
-          Only sym  -> "(" <> sym <> ")"
-          AllOf dt -> "(" <> dt <> " (..))"
-          OneOf dt sym -> "(" <> dt <> " (" <> sym <> "))"
+          Only sym  -> " (" <> sym <> ")"
+          AllOf dt -> " (" <> dt <> " (..))"
+          OneOf dt sym -> " (" <> dt <> " (" <> sym <> "))"
         Nothing -> ""
 
     importStyleParam :: ImportStyle

@@ -157,7 +157,7 @@ spec = describe "code actions" $ do
         [ "{-# LANGUAGE NoImplicitPrelude #-}"
         , "import           System.IO                     ( IO"
         , "                                               , hPutStrLn"
-        , "                                               , stdout"
+        , "                                               , stderr"
         , "                                               )"
         , "import           Prelude                       ( Bool(..) )"
         , "import           Control.Monad                 ( when )"
@@ -169,7 +169,7 @@ spec = describe "code actions" $ do
         , "main :: IO ()"
         , "main ="
         , "    when True"
-        , "        $ hPutStrLn stdout"
+        , "        $ hPutStrLn stderr"
         , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
         ]
       ]
@@ -199,7 +199,7 @@ spec = describe "code actions" $ do
         ]
       ,  -- Complex imports for Constructos and functions
         [ "{-# LANGUAGE NoImplicitPrelude #-}"
-        , "import           System.IO (IO, hPutStrLn, stdout)"
+        , "import           System.IO (IO, hPutStrLn, stderr)"
         , "import           Prelude (Bool(..))"
         , "import           Control.Monad (when)"
         , "import           Data.Maybe (fromMaybe, Maybe(Just))"
@@ -208,7 +208,7 @@ spec = describe "code actions" $ do
         , "main :: IO ()"
         , "main ="
         , "    when True"
-        , "        $ hPutStrLn stdout"
+        , "        $ hPutStrLn stderr"
         , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
         ]
       ]
@@ -685,13 +685,13 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
       let config = def { formatOnImportOn = False, formattingProvider = formatterName }
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
 
-      let wantedCodeActionTitles = [ "Import module System.IO (hPutSetrLn)"
-                                   , "Import module System.IO (stdout)"
+      let wantedCodeActionTitles = [ "Import module System.IO (hPutStrLn)"
                                    , "Import module Control.Monad (when)"
                                    , "Import module Data.Maybe (fromMaybe)"
                                    , "Import module Data.Function (($))"
-                                   , "Import module Data.Maybe (Maybe(Just))"
-                                   , "Import module Prelude (Bool(..))"
+                                   , "Import module Data.Maybe (Maybe (Just))"
+                                   , "Import module Prelude (Bool (..))"
+                                   , "Import module System.IO (stderr)"
                                    ]
 
       executeAllCodeActions doc wantedCodeActionTitles
@@ -708,12 +708,12 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
 
       let wantedCodeActionTitles = [ "Import module System.IO (hPutStrLn)"
-                                   , "Import module System.IO (stdout)"
                                    , "Import module Control.Monad (when)"
                                    , "Import module Data.Maybe (fromMaybe)"
                                    , "Import module Data.Function (($))"
-                                   , "Import module Data.Maybe (Maybe(Just))"
-                                   , "Import module Prelude (Bool(..))"
+                                   , "Import module Data.Maybe (Maybe (Just))"
+                                   , "Import module Prelude (Bool (..))"
+                                   , "Import module System.IO (stderr)"
                                    ]
 
       executeAllCodeActions doc wantedCodeActionTitles
@@ -722,7 +722,7 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
       liftIO $ do
         let [l1, l2, l3, l4, l5, l6, l7, l8, l9, l10, l11, l12] = T.lines contents
         l1  `shouldBe` "{-# LANGUAGE NoImplicitPrelude #-}"
-        l2  `shouldBe` "import System.IO (IO, hPutStrLn, stdout)"
+        l2  `shouldBe` "import System.IO (IO, hPutStrLn, stderr)"
         l3  `shouldBe` "import Prelude (Bool(..))"
         l4  `shouldBe` "import Control.Monad (when)"
         l5  `shouldBe` "import Data.Maybe (fromMaybe, Maybe(Just))"
@@ -731,7 +731,7 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
         l8  `shouldBe` "main :: IO ()"
         l9  `shouldBe` "main ="
         l10 `shouldBe` "    when True"
-        l11 `shouldBe` "        $ hPutStrLn stdout"
+        l11 `shouldBe` "        $ hPutStrLn stderr"
         l12 `shouldBe` "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
 
   where
@@ -754,7 +754,7 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
           error
             $  "Found an unexpected amount of action. Expected 1, but got: "
             ++ show (length xs)
-            ++ "\n. Titles: " ++ show (map (^. L.title) allActions)
+            ++ ".\n Titles: " ++ show (map (^. L.title) allActions)
 
 -- Silence warnings
 hsImportSpec formatter args =

@@ -4,5 +4,5 @@ import           System.IO (IO)
 main :: IO ()
 main =
     when True
-        $ hPutStrLn stdout
+        $ hPutStrLn stderr
         $ fromMaybe "Good night, World!" (Just "Hello, World!")
