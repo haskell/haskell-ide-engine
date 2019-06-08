@@ -470,27 +470,27 @@ codeActionProvider plId docId _ context = do
 -- signature of an unknown function.
 -- If this is not possible, Nothing is returned.
 extractImportableTerm :: T.Text -> Maybe (T.Text, SymbolImport SymbolType)
-extractImportableTerm dirtyMsg =
-  let extractedTerm = asum
-        [ (\name -> (name, Import Symbol))
-            <$> T.stripPrefix "Variable not in scope: " importMsg
-        , (\name -> (T.init name, Import Type))
-            <$> T.stripPrefix
-              "Not in scope: type constructor or class ‘"
-              importMsg
-        , (\name -> (name, Import Constructor))
-            <$> T.stripPrefix "Data constructor not in scope: " importMsg]
-  in do
-       (n, s) <- extractedTerm
-       let n' = T.strip n
-       return (n', s)
+extractImportableTerm dirtyMsg = do
+  (n, s) <- extractedTerm
+  let n' = T.strip n
+  return (n', s)
   where
     importMsg = head
-       -- Get rid of the rename suggestion parts
+      -- Get rid of the rename suggestion parts
       $ T.splitOn "Perhaps you meant "
       $ T.replace "\n" " "
-       -- Get rid of trailing/leading whitespace on each individual line
+      -- Get rid of trailing/leading whitespace on each individual line
       $ T.unlines
       $ map T.strip
       $ T.lines
       $ T.replace "• " "" dirtyMsg
+
+    extractedTerm = asum
+      [ (\name -> (name, Import Symbol))
+          <$> T.stripPrefix "Variable not in scope: " importMsg
+      , (\name -> (T.init name, Import Type))
+          <$> T.stripPrefix
+            "Not in scope: type constructor or class ‘"
+            importMsg
+      , (\name -> (name, Import Constructor))
+          <$> T.stripPrefix "Data constructor not in scope: " importMsg]
