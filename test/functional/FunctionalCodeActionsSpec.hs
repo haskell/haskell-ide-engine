@@ -127,7 +127,7 @@ spec = describe "code actions" $ do
         liftIO $ x `shouldBe` "foo = putStrLn \"world\""
 
   describe "import suggestions" $ do
-    hsImportSpec "brittany"
+    describe "formats with brittany" $ hsImportSpec "brittany"
       [ -- Expected output for simple format.
         [ "import qualified Data.Maybe"
         , "import           Control.Monad"
@@ -155,16 +155,16 @@ spec = describe "code actions" $ do
         ]
       , -- Complex imports for Constructos and functions
         [ "{-# LANGUAGE NoImplicitPrelude #-}"
-        , "import           System.IO                     ( IO"
-        , "                                               , hPutStrLn"
-        , "                                               , stderr"
-        , "                                               )"
-        , "import           Prelude                       ( Bool(..) )"
-        , "import           Control.Monad                 ( when )"
-        , "import           Data.Maybe                    ( fromMaybe"
-        , "                                               , Maybe(Just)"
-        , "                                               )"
-        , "import           Data.Function                 ( ($) )"
+        , "import           System.IO                      ( IO"
+        , "                                                , hPutStrLn"
+        , "                                                , stderr"
+        , "                                                )"
+        , "import           Prelude                        ( Bool(..) )"
+        , "import           Control.Monad                  ( when )"
+        , "import           Data.Function                  ( ($) )"
+        , "import           Data.Maybe                     ( fromMaybe"
+        , "                                                , Maybe(Just)"
+        , "                                                )"
         , "-- | Main entry point to the program"
         , "main :: IO ()"
         , "main ="
@@ -173,7 +173,7 @@ spec = describe "code actions" $ do
         , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
         ]
       ]
-    hsImportSpec "floskell"
+    describe "formats with floskell" $ hsImportSpec "floskell"
       [ -- Expected output for simple format.
         [ "import qualified Data.Maybe"
         , "import           Control.Monad"
@@ -202,8 +202,8 @@ spec = describe "code actions" $ do
         , "import           System.IO (IO, hPutStrLn, stderr)"
         , "import           Prelude (Bool(..))"
         , "import           Control.Monad (when)"
-        , "import           Data.Maybe (fromMaybe, Maybe(Just))"
         , "import           Data.Function (($))"
+        , "import           Data.Maybe (fromMaybe, Maybe(Just))"
         , "-- | Main entry point to the program"
         , "main :: IO ()"
         , "main ="
@@ -609,9 +609,8 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
                                    , "Import module Data.Maybe (fromMaybe)"
                                    ]
 
-      executeAllCodeActions doc wantedCodeActionTitles
+      contents <- executeAllCodeActions doc wantedCodeActionTitles
 
-      contents <- documentContents doc
       liftIO $ Set.fromList (T.lines contents) `shouldBe` Set.fromList e3
 
     it "respects format config, multiple import-list" $ runSession hieCommand fullCaps "test/testdata" $ do
@@ -626,8 +625,7 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
                                    , "Import module Data.Maybe (fromMaybe)"
                                    ]
 
-      executeAllCodeActions doc wantedCodeActionTitles
-      contents <- documentContents doc
+      contents <- executeAllCodeActions doc wantedCodeActionTitles
       liftIO $ Set.fromList (T.lines contents) `shouldBe`
         Set.fromList
           [ "import System.IO (stdout, hPutStrLn)"
@@ -682,7 +680,7 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
       doc <- openDoc "CodeActionImportListElaborate.hs" "haskell"
       _ <- waitForDiagnosticsSource "ghcmod"
 
-      let config = def { formatOnImportOn = False, formattingProvider = formatterName }
+      let config = def { formatOnImportOn = True, formattingProvider = formatterName }
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
 
       let wantedCodeActionTitles = [ "Import module System.IO (hPutStrLn)"
@@ -694,9 +692,8 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
                                    , "Import module System.IO (stderr)"
                                    ]
 
-      executeAllCodeActions doc wantedCodeActionTitles
+      contents <- executeAllCodeActions doc wantedCodeActionTitles
 
-      contents <- getDocumentEdit doc
       liftIO $
         T.lines contents `shouldBe` e4
 
@@ -716,32 +713,36 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
                                    , "Import module System.IO (stderr)"
                                    ]
 
-      executeAllCodeActions doc wantedCodeActionTitles
+      contents <- executeAllCodeActions doc wantedCodeActionTitles
 
-      contents <- getDocumentEdit doc
-      liftIO $ do
-        let [l1, l2, l3, l4, l5, l6, l7, l8, l9, l10, l11, l12] = T.lines contents
-        l1  `shouldBe` "{-# LANGUAGE NoImplicitPrelude #-}"
-        l2  `shouldBe` "import System.IO (IO, hPutStrLn, stderr)"
-        l3  `shouldBe` "import Prelude (Bool(..))"
-        l4  `shouldBe` "import Control.Monad (when)"
-        l5  `shouldBe` "import Data.Maybe (fromMaybe, Maybe(Just))"
-        l6  `shouldBe` "import Data.Function (($))"
-        l7  `shouldBe` "-- | Main entry point to the program"
-        l8  `shouldBe` "main :: IO ()"
-        l9  `shouldBe` "main ="
-        l10 `shouldBe` "    when True"
-        l11 `shouldBe` "        $ hPutStrLn stderr"
-        l12 `shouldBe` "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
+      liftIO $
+        T.lines contents `shouldBe`
+          [ "{-# LANGUAGE NoImplicitPrelude #-}"
+          , "import System.IO (IO, hPutStrLn, stderr)"
+          , "import Prelude (Bool(..))"
+          , "import Control.Monad (when)"
+          , "import Data.Function (($))"
+          , "import Data.Maybe (fromMaybe, Maybe(Just))"
+          , "-- | Main entry point to the program"
+          , "main :: IO ()"
+          , "main ="
+          , "    when True"
+          , "        $ hPutStrLn stderr"
+          , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
+          ]
 
   where
-    executeAllCodeActions :: TextDocumentIdentifier -> [T.Text] -> Session ()
+    executeAllCodeActions :: TextDocumentIdentifier -> [T.Text] -> Session T.Text
     executeAllCodeActions doc names =
-      replicateM_ (length names) $ do
-        _ <- waitForDiagnosticsSource "ghcmod"
-        executeCodeActionByName doc names
-        _ <- skipManyTill publishDiagnosticsNotification $ getDocumentEdit doc
-        waitForDiagnosticsSource "ghcmod"
+      foldM (\_ _ -> do
+          _ <- waitForDiagnosticsSource "ghcmod"
+          executeCodeActionByName doc names
+          content <- skipManyTill publishDiagnosticsNotification $ getDocumentEdit doc
+          _ <- waitForDiagnosticsSource "ghcmod"
+          return content
+        )
+        (T.pack "")
+        [ 1 .. length names ]
 
     executeCodeActionByName :: TextDocumentIdentifier -> [T.Text] -> Session ()
     executeCodeActionByName doc names = do
@@ -760,7 +761,7 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
 hsImportSpec formatter args =
   error $ "Not the right amount of arguments for \"hsImportSpec ("
     ++ T.unpack formatter
-    ++ ")\", expected 3, got "
+    ++ ")\", expected 4, got "
     ++ show (length args)
 -- ---------------------------------------------------------------------
 
