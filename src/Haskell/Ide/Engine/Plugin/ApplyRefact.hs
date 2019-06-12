@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -26,7 +27,11 @@ import           Haskell.Ide.Engine.PluginUtils
 import           Language.Haskell.Exts.SrcLoc
 import           Language.Haskell.Exts.Parser
 import           Language.Haskell.Exts.Extension
+#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)))
+import           Language.Haskell.HLint4           as Hlint
+#else
 import           Language.Haskell.HLint3           as Hlint
+#endif
 import qualified Language.Haskell.LSP.Types        as LSP
 import qualified Language.Haskell.LSP.Types.Lens   as LSP
 import           Refact.Apply
