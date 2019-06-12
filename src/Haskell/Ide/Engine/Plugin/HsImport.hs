@@ -475,7 +475,7 @@ extractImportableTerm dirtyMsg = do
   let n' = T.strip n
   return (n', s)
   where
-    importMsg = head
+    importMsg = S.headMay
       -- Get rid of the rename suggestion parts
       $ T.splitOn "Perhaps you meant "
       $ T.replace "\n" " "
@@ -486,11 +486,14 @@ extractImportableTerm dirtyMsg = do
       $ T.replace "• " "" dirtyMsg
 
     extractedTerm = asum
-      [ (\name -> (name, Import Symbol))
-          <$> T.stripPrefix "Variable not in scope: " importMsg
-      , (\name -> (T.init name, Import Type))
-          <$> T.stripPrefix
-            "Not in scope: type constructor or class ‘"
-            importMsg
-      , (\name -> (name, Import Constructor))
-          <$> T.stripPrefix "Data constructor not in scope: " importMsg]
+      [ importMsg
+          >>= T.stripPrefix "Variable not in scope: "
+          >>= \name -> Just (name, Import Symbol)
+      , importMsg
+          >>= T.stripPrefix "Not in scope: type constructor or class ‘"
+          >>= \name -> Just (T.init name, Import Type)
+      , importMsg
+          >>= T.stripPrefix "Data constructor not in scope: "
+          >>= \name -> Just (name, Import Constructor)]
+
+
