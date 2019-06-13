@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.Engine.Plugin.Hoogle where
@@ -5,6 +6,7 @@ module Haskell.Ide.Engine.Plugin.Hoogle where
 import           Control.Monad.IO.Class
 import           Control.Monad (join)
 import           Control.Exception
+import           Control.Applicative (liftA2)
 import           Data.Aeson
 import           Data.Bifunctor
 import           Data.Maybe
@@ -44,10 +46,10 @@ hoogleDescriptor plId = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-data HoogleError 
+data HoogleError
   = NoDb
   | DbFail T.Text
-  | NoResults 
+  | NoResults
   deriving (Eq,Ord,Show)
 
 newtype HoogleDb = HoogleDb (Maybe FilePath)
@@ -152,7 +154,28 @@ renderTarget t = T.intercalate "\n" $
 -- If an error occurs, such as no hoogle database has been found,
 -- or the search term has no match, an empty list will be returned.
 searchModules :: T.Text -> IdeM [T.Text]
-searchModules = fmap (nub . take 5) . searchTargets (fmap (T.pack . fst) . targetModule)
+searchModules = fmap (map fst) . searchModules'
+
+-- | Just like 'searchModules', but includes the signature of the search term
+-- that has been found in the module.
+searchModules' :: T.Text -> IdeM [(T.Text, T.Text)]
+searchModules' = fmap (take 5 . nub) . searchTargets retrieveModuleAndSignature
+  where
+    -- | Hoogle results contain html like tags.
+    -- We remove them with `tagsoup` here.
+    -- So, if something hoogle related shows html tags,
+    -- then maybe this function is responsible.
+    normaliseItem :: T.Text -> T.Text
+    normaliseItem = innerText . parseTags
+
+    retrieveModuleAndSignature :: Target -> Maybe (T.Text, T.Text)
+    retrieveModuleAndSignature target = liftA2 (,) (packModuleName target) (packSymbolSignature target)
+
+    packModuleName :: Target -> Maybe T.Text
+    packModuleName = fmap (T.pack . fst) . targetModule
+
+    packSymbolSignature :: Target -> Maybe T.Text
+    packSymbolSignature = Just . normaliseItem . T.pack . targetItem
 
 -- | Search for packages that satisfy the given search text.
 -- Will return at most five, unique results.
@@ -160,7 +183,7 @@ searchModules = fmap (nub . take 5) . searchTargets (fmap (T.pack . fst) . targe
 -- If an error occurs, such as no hoogle database has been found,
 -- or the search term has no match, an empty list will be returned.
 searchPackages :: T.Text -> IdeM [T.Text]
-searchPackages = fmap (nub . take 5) . searchTargets (fmap (T.pack . fst) . targetPackage)
+searchPackages = fmap (take 5 . nub) . searchTargets (fmap (T.pack . fst) . targetPackage)
 
 -- | Search for Targets that fit to the given Text and satisfy the given predicate.
 -- Limits the amount of matches to at most ten.

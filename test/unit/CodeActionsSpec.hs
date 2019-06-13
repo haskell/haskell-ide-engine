@@ -15,19 +15,22 @@ spec = do
   describe "import code actions" $ do
     it "pick up variable not in scope" $
       let msg =  "Variable not in scope: fromJust :: Maybe Integer -> t"
-        in extractImportableTerm msg `shouldBe` Just "fromJust :: Maybe Integer -> t"
+        in extractImportableTerm msg `shouldBe` Just ("fromJust :: Maybe Integer -> t", Import Symbol)
     it "pick up variable not in scope with 'perhaps you meant'" $
       let msg =  "• Variable not in scope: msgs :: T.Text\n• Perhaps you meant ‘msg’ (line 90)"
-        in extractImportableTerm msg `shouldBe` Just "msgs :: T.Text"
+        in extractImportableTerm msg `shouldBe` Just ("msgs :: T.Text", Import Symbol)
     it "pick up multi-line variable not in scope" $
       let msg = "Variable not in scope:\nliftIO\n:: IO [FilePath]\n-> GhcMod.Monad.Newtypes.GmT\n                (GhcMod.Monad.Newtypes.GmOutT IdeM) [[t0]]"
-        in extractImportableTerm msg `shouldBe` Just "liftIO :: IO [FilePath] -> GhcMod.Monad.Newtypes.GmT (GhcMod.Monad.Newtypes.GmOutT IdeM) [[t0]]"
+        in extractImportableTerm msg `shouldBe` Just ("liftIO :: IO [FilePath] -> GhcMod.Monad.Newtypes.GmT (GhcMod.Monad.Newtypes.GmOutT IdeM) [[t0]]", Import Symbol)
     it "pick up when" $
       let msg = "Variable not in scope: when :: Bool -> IO () -> t"
-        in extractImportableTerm msg `shouldBe` Just "when :: Bool -> IO () -> t"
+        in extractImportableTerm msg `shouldBe` Just ("when :: Bool -> IO () -> t", Import Symbol)
     it "pick up data constructors" $
       let msg = "Data constructor not in scope: ExitFailure :: Integer -> t"
-        in extractImportableTerm msg `shouldBe` Just "ExitFailure :: Integer -> t"
+        in extractImportableTerm msg `shouldBe` Just ("ExitFailure :: Integer -> t", Import Constructor)
+    it "pick up type" $
+      let msg = "Not in scope: type constructor or class ‘Text"
+        in extractImportableTerm msg `shouldBe` Just ("Text", Import Type)
 
   describe "rename code actions" $ do
     it "pick up variable not in scope perhaps you meant" $
@@ -146,7 +149,7 @@ spec = do
                 \                              Text.Megaparsec.Error.ShowErrorComponent e, Ord t) =>\n\
                 \                             OutputFormat -> Format.Result t e -> IO b"
         in extractMissingSignature msg `shouldBe` Just expected
-  
+
   describe "unused term code actions" $ do
     it "pick up unused term" $
       let msg = "  Defined but not used: ‘imUnused’"
