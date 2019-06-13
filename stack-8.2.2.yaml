@@ -21,14 +21,14 @@ extra-deps:
 - ghc-exactprint-0.5.8.2
 - haddock-api-2.18.1
 - haddock-library-1.4.4
-- haskell-lsp-0.13.0.0
-- haskell-lsp-types-0.13.0.0@rev:2
+- haskell-lsp-0.14.0.0
+- haskell-lsp-types-0.14.0.1
 - haskell-src-exts-1.21.0
 - haskell-src-exts-util-0.2.5
 - hlint-2.1.17 # last hlint supporting GHC 8.2
 - hoogle-5.0.17.9
 - hsimport-0.8.8
-- lsp-test-0.5.2.3
+- lsp-test-0.5.4.0
 - monad-dijkstra-0.1.1.2
 - pretty-show-1.8.2
 - rope-utf16-splay-0.3.1.0
