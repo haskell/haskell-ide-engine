@@ -103,7 +103,14 @@ infoCmd' expr = do
       if null res then
         Left NoResults
       else
-        return $ renderTarget $ head res
+        return $ renderTargetInfo $ head res
+
+renderTargetInfo :: Target -> T.Text
+renderTargetInfo t =
+  T.intercalate "\n"
+    $  ["```haskell\n" <> unHTML (T.pack $ targetItem t) <> "\n```"]
+    ++ [renderDocs $ targetDocs t]
+    ++ [T.pack $ curry annotate "More info" $ targetURL t]
 
 -- | Command to get the prettified documentation of an hoogle identifier.
 -- Identifier should be understandable for hoogle.
@@ -128,23 +135,30 @@ infoCmdFancyRender expr = do
 renderTarget :: Target -> T.Text
 -- renderTarget t = T.intercalate "\n\n" $
 renderTarget t = T.intercalate "\n" $
-     ["```haskell\n" <> unHTML (T.pack $ targetItem t) <> "\n```"]
+     ["```haskell\n" <> unHTML (T.pack $ targetItem t) <> "```"]
   ++ [T.pack $ unwords mdl | not $ null mdl]
   ++ [renderDocs $ targetDocs t]
   ++ [T.pack $ curry annotate "More info" $ targetURL t]
   where mdl = map annotate $ catMaybes [targetPackage t, targetModule t]
-        annotate (thing,url) = "["<>thing++"]"++"("++url++")"
-        unHTML = T.replace "<0>" "" . innerText . parseTags
-        renderDocs = T.concat . map htmlToMarkDown . parseTree . T.pack
-        htmlToMarkDown :: TagTree T.Text -> T.Text
-        htmlToMarkDown (TagLeaf x) = fromMaybe "" $ maybeTagText x
-        htmlToMarkDown (TagBranch "i" _ tree) = "*" <> T.concat (map htmlToMarkDown tree) <> "*"
-        htmlToMarkDown (TagBranch "b" _ tree) = "**" <> T.concat (map htmlToMarkDown tree) <> "**"
-        htmlToMarkDown (TagBranch "a" _ tree) = "`" <> T.concat (map htmlToMarkDown tree) <> "`"
-        htmlToMarkDown (TagBranch "li" _ tree) = "- " <> T.concat (map htmlToMarkDown tree)
-        htmlToMarkDown (TagBranch "tt" _ tree) = "`" <> innerText (flattenTree tree) <> "`"
-        htmlToMarkDown (TagBranch "pre" _ tree) = "```haskell\n" <> T.concat (map htmlToMarkDown tree) <> "```"
-        htmlToMarkDown (TagBranch _ _ tree) = T.concat $ map htmlToMarkDown tree
+
+annotate :: (String, String) -> String
+annotate (thing,url) = "["<>thing<>"]"<>"("<>url<>")"
+
+unHTML :: T.Text -> T.Text
+unHTML = T.replace "<0>" "" . innerText . parseTags
+
+renderDocs :: String -> T.Text
+renderDocs = T.concat . map htmlToMarkDown . parseTree . T.pack
+
+htmlToMarkDown :: TagTree T.Text -> T.Text
+htmlToMarkDown (TagLeaf x) = fromMaybe "" $ maybeTagText x
+htmlToMarkDown (TagBranch "i" _ tree) = "*" <> T.concat (map htmlToMarkDown tree) <> "*"
+htmlToMarkDown (TagBranch "b" _ tree) = "**" <> T.concat (map htmlToMarkDown tree) <> "**"
+htmlToMarkDown (TagBranch "a" _ tree) = "`" <> T.concat (map htmlToMarkDown tree) <> "`"
+htmlToMarkDown (TagBranch "li" _ tree) = "- " <> T.concat (map htmlToMarkDown tree)
+htmlToMarkDown (TagBranch "tt" _ tree) = "`" <> innerText (flattenTree tree) <> "`"
+htmlToMarkDown (TagBranch "pre" _ tree) = "```haskell\n" <> T.concat (map htmlToMarkDown tree) <> "```"
+htmlToMarkDown (TagBranch _ _ tree) = T.concat $ map htmlToMarkDown tree
 
 ------------------------------------------------------------------------
 
