@@ -103,7 +103,7 @@ infoCmd' expr = do
       if null res then
         Left NoResults
       else
-        return $ T.pack $ targetInfo $ head res
+        return $ renderTarget $ head res
 
 -- | Command to get the prettified documentation of an hoogle identifier.
 -- Identifier should be understandable for hoogle.
@@ -128,7 +128,7 @@ infoCmdFancyRender expr = do
 renderTarget :: Target -> T.Text
 -- renderTarget t = T.intercalate "\n\n" $
 renderTarget t = T.intercalate "\n" $
-     ["```haskell\n" <> unHTML (T.pack $ targetItem t) <> "```"]
+     ["```haskell\n" <> unHTML (T.pack $ targetItem t) <> "\n```"]
   ++ [T.pack $ unwords mdl | not $ null mdl]
   ++ [renderDocs $ targetDocs t]
   ++ [T.pack $ curry annotate "More info" $ targetURL t]
