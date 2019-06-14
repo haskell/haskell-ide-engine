@@ -2,10 +2,33 @@ module Stack where
 
 import           Development.Shake
 import           Development.Shake.Command
+import           Development.Shake.FilePath
 import           Control.Monad
 
 import           Version
 import           Print
+import           Env
+
+
+stackBuildHie :: VersionNumber -> Action ()
+stackBuildHie versionNumber = execStackWithGhc_ versionNumber ["build"]
+  `actionOnException` liftIO (putStrLn stackBuildFailMsg)
+
+-- | copy the built binaries into the localBinDir
+stackInstallHie :: VersionNumber -> Action ()
+stackInstallHie versionNumber = do
+  execStackWithGhc_ versionNumber ["install"]
+  localBinDir      <- getLocalBin
+  let hie = "hie" <.> exe
+  copyFile' (localBinDir </> hie)
+            (localBinDir </> "hie-" ++ versionNumber <.> exe)
+  copyFile' (localBinDir </> hie)
+            (localBinDir </> "hie-" ++ dropExtension versionNumber <.> exe)
+
+buildCopyCompilerTool :: VersionNumber -> Action ()
+buildCopyCompilerTool versionNumber =
+  execStackWithGhc_ versionNumber ["build", "--copy-compiler-tool"]
+
 
 -- | check `stack` has the required version
 checkStack :: Action ()
@@ -22,6 +45,10 @@ getLocalBin = do
   Stdout stackLocalDir' <- execStackShake ["path", "--local-bin"]
   return $ trim stackLocalDir'
 
+stackBuildData :: Action ()
+stackBuildData = do
+  execStackShake_ ["build", "hoogle"]
+  execStackShake_ ["exec", "hoogle", "generate"]
 
 -- | Execute a stack command for a specified ghc, discarding the output
 execStackWithGhc_ :: VersionNumber -> [String] -> Action ()
@@ -58,3 +85,12 @@ stackExeIsOldFailMsg stackVersion =
 
 requiredStackVersion :: RequiredVersion
 requiredStackVersion = [1, 9, 3]
+
+-- |Stack build fails message
+stackBuildFailMsg :: String
+stackBuildFailMsg =
+  embedInStars
+    $  "Building failed, "
+    ++ "Try running `stack clean` and restart the build\n"
+    ++ "If this does not work, open an issue at \n"
+    ++ "\thttps://github.com/haskell/haskell-ide-engine"

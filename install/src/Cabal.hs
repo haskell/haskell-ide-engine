@@ -20,6 +20,36 @@ execCabal = command [] "cabal"
 execCabal_ :: [String] -> Action ()
 execCabal_ = command_ [] "cabal"
 
+cabalBuildData :: Action ()
+cabalBuildData = do
+  execCabal_ ["new-build", "hoogle"]
+  execCabal_ ["new-exec", "hoogle", "generate"]
+
+cabalBuildHie :: VersionNumber -> Action ()
+cabalBuildHie versionNumber = do
+  ghcPath <- getGhcPath versionNumber >>= \case
+    Nothing -> do
+      printInStars $ ghcVersionNotFoundFailMsg versionNumber
+      error (ghcVersionNotFoundFailMsg versionNumber)
+    Just p -> return p
+  execCabal_
+    ["new-build", "-w", ghcPath, "--write-ghc-environment-files=never"]
+
+cabalInstallHie :: VersionNumber -> Action ()
+cabalInstallHie versionNumber = do
+  localBin <- getLocalBin
+  execCabal_
+    [ "new-install"
+    , "--write-ghc-environment-files=never"
+    , "--symlink-bindir=" ++ localBin
+    , "exe:hie"
+    , "--overwrite-policy=always"
+    ]
+  copyFile' (localBin </> "hie" <.> exe)
+            (localBin </> "hie-" ++ versionNumber <.> exe)
+  copyFile' (localBin </> "hie" <.> exe)
+            (localBin </> "hie-" ++ dropExtension versionNumber <.> exe)
+
 -- TODO: review
 installCabal :: Action ()
 installCabal = do
@@ -42,54 +72,8 @@ checkCabal = do
     printInStars $ cabalInstallIsOldFailMsg cabalVersion
     error $ stackExeIsOldFailMsg cabalVersion
 
-
 getCabalVersion :: Action String
 getCabalVersion = trimmedStdout <$> execCabal ["--numeric-version"]
-
-
--- | update the cabal index. This is required for ghc-mod.
---
--- TODO: remove when ghc-mod supports new-style builds
-updateCabal :: Action ()
-updateCabal = do
-  execCabal_ ["v1-update"]
-
-
-cabalBuildDoc :: Action ()
-cabalBuildDoc = do
-  execCabal_ ["new-build", "hoogle", "generate"]
-  execCabal_ ["new-exec", "hoogle", "generate"]
-
-configureCabal :: VersionNumber -> Action ()
-configureCabal versionNumber = do
-  ghcPath <- getGhcPath versionNumber >>= \case
-    Nothing -> do
-      printInStars $ ghcVersionNotFoundFailMsg versionNumber
-      error (ghcVersionNotFoundFailMsg versionNumber)
-    Just p -> return p
-  execCabal_
-    ["new-configure", "-w", ghcPath, "--write-ghc-environment-files=never"]
-
-cabalBuildHie :: VersionNumber -> Action ()
-cabalBuildHie versionNumber = do
-  configureCabal versionNumber
-  execCabal_ ["new-build", "--write-ghc-environment-files=never"]
-
-cabalInstallHie :: VersionNumber -> Action ()
-cabalInstallHie versionNumber = do
-  localBin <- getLocalBin
-  execCabal_
-    [ "new-install"
-    , "--write-ghc-environment-files=never"
-    , "--symlink-bindir=" ++ localBin
-    , "exe:hie"
-    , "--overwrite-policy=always"
-    ]
-  copyFile' (localBin </> "hie" <.> exe)
-            (localBin </> "hie-" ++ versionNumber <.> exe)
-  copyFile' (localBin </> "hie" <.> exe)
-            (localBin </> "hie-" ++ dropExtension versionNumber <.> exe)
-
 
 -- TODO: this restriction will be gone in the next release of cabal
 validateCabalNewInstallIsSupported :: Action ()

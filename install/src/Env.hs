@@ -89,3 +89,9 @@ getHieVersions = do
           & filter (\p -> not isWindowsSystem || p /= "8.6.3")
           & sort
   return hieVersions
+
+
+-- | Most recent version of hie.
+-- Shown in the more concise help message.
+mostRecentHieVersion :: MonadIO m => m VersionNumber
+mostRecentHieVersion = last <$> getHieVersions

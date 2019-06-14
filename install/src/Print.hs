@@ -8,6 +8,12 @@ import           Data.List                                ( dropWhileEnd
                                                           )
 import           Data.Char                                ( isSpace )
 
+out :: MonadIO m => String -> m ()
+out  = liftIO . putStrLn
+
+out' :: MonadIO m => String -> m ()
+out' = out . ("    " ++)
+
 embedInStars :: String -> String
 embedInStars str =
   let starsLine = "\n" <> replicate 30 '*' <> "\n"
