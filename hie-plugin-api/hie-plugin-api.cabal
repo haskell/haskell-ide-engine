@@ -67,7 +67,7 @@ library
     build-depends:     Win32
   else
     build-depends:     unix
-  ghc-options:         -Wall
+  ghc-options:         -Wall -g3 -debug
   if flag(pedantic)
      ghc-options:      -Werror
   default-language:    Haskell2010

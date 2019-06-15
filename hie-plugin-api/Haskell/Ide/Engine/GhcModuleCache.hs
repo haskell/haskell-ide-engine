@@ -23,12 +23,24 @@ import Haskell.Ide.Engine.ArtifactMap
 
 import Language.Haskell.LSP.Types
 import Debug.Trace
+import System.Mem.Weak
+import System.IO
+
+data Leakable = Leakable
+  { leakableTcMod :: Weak (Maybe TypecheckedModule)
+  , leakablePsMod :: Weak ParsedModule
+  }
+
+mkLeakable :: UriCache -> IO UriCacheResult
+mkLeakable uc@(UriCache { cachedTcMod = tcmod, cachedPsMod = psmod }) = do
+  tcptr <- mkWeakPtr tcmod (Just (hPutStrLn stderr "garbage collected typechecked module"))
+  psptr <- mkWeakPtr psmod (Just (hPutStrLn stderr "garbage collected parsed module"))
+  return (UriCacheSuccess (Leakable tcptr psptr) uc)
 
 type UriCaches = Map.Map FilePath UriCacheResult
 
-data UriCacheResult = UriCacheSuccess UriCache
+data UriCacheResult = UriCacheSuccess Leakable UriCache
                     | UriCacheFailed
-  deriving (Show)
 
 uriCacheState :: UriCacheResult -> String
 uriCacheState UriCacheFailed    = "UriCacheFailed"
@@ -119,6 +131,9 @@ data GhcModuleCache = GhcModuleCache
   , currentCradle :: Maybe ([FilePath], BIOS.Cradle)
               -- ^ The current cradle and which directories it is
               -- responsible for
-  } deriving (Show)
+  }
+
+instance Show GhcModuleCache where
+  show _ = "ghcmodulecache"
 
 -- ---------------------------------------------------------------------
