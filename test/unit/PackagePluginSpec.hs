@@ -9,7 +9,6 @@ import qualified Data.Aeson                    as Json
 import qualified Data.Text                     as T
 import qualified Data.HashMap.Strict           as H
 import           Haskell.Ide.Engine.MonadTypes
-import           Haskell.Ide.Engine.Plugin.Base
 import           Haskell.Ide.Engine.Plugin.Package
 import           System.FilePath
 import           System.Directory
@@ -244,7 +243,6 @@ packageSpec = do
         "Add package to package.yaml in hpack project with generated cabal to executable component"
       $ withCurrentDirectory (testdata </> "hybrid-exe")
       $ do
-          Just stackVersion <- getStackVersion
           let
             fp   = cwd </> testdata </> "hybrid-exe"
             uri  = filePathToUri $ fp </> "package.yaml"
@@ -252,9 +250,7 @@ packageSpec = do
             act  = addCmd' args
             res  = IdeResultOk
               $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
-            textEdits = if stackVersion <= stack193Version
-              then
-                List
+            textEdits = List
                    [ TextEdit (Range (Position 0 0) (Position 37 0)) $ T.concat
                        [ "library:\n"
                        , "  source-dirs: src\n"
@@ -281,35 +277,6 @@ packageSpec = do
                        , "    dependencies:\n"
                        , "    - zlib\n"
                        , "    - base\n"
-                       , "    - asdf\n"
-                       , "description: Please see the README on GitHub at <https://github.com/githubuser/asdf#readme>\n"
-                       ]
-                   ]
-              else
-                List
-                   [ TextEdit (Range (Position 0 0) (Position 34 0)) $ T.concat
-                       [ "library:\n"
-                       , "  source-dirs: src\n"
-                       , "copyright: 2018 Author name here\n"
-                       , "maintainer: example@example.com\n"
-                       , "name: asdf\n"
-                       , "version: 0.1.0.0\n"
-                       , "extra-source-files:\n"
-                       , "- README.md\n"
-                       , "- ChangeLog.md\n"
-                       , "author: Author name here\n"
-                       , "github: githubuser/asdf\n"
-                       , "license: BSD3\n"
-                       , "executables:\n"
-                       , "  asdf-exe:\n"
-                       , "    source-dirs: app\n"
-                       , "    main: Main.hs\n"
-                       , "    ghc-options:\n"
-                       , "    - -threaded\n"
-                       , "    - -rtsopts\n"
-                       , "    - -with-rtsopts=-N\n"
-                       , "    dependencies:\n"
-                       , "    - zlib\n"
                        , "    - asdf\n"
                        , "description: Please see the README on GitHub at <https://github.com/githubuser/asdf#readme>\n"
                        ]
