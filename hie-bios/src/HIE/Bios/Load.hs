@@ -35,7 +35,7 @@ loadFileWithMessage :: GhcMonad m
 loadFileWithMessage msg file = do
   dir <- liftIO $ getCurrentDirectory
   pprTraceM "loadFile:2" (text dir)
-  withDynFlags (setWarnTypedHoles . setDeferTypeErrors . setNoWaringFlags) $ do
+  withDynFlags (setWarnTypedHoles . setNoWaringFlags) $ do
 
     df <- getSessionDynFlags
     pprTraceM "loadFile:3" (ppr $ optLevel df)
