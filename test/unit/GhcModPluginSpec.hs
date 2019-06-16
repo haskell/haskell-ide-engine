@@ -9,7 +9,7 @@ import qualified Data.Map                            as Map
 -- import           Data.Monoid
 #endif
 import qualified Data.Set                            as S
--- import qualified Data.Text                           as T
+import qualified Data.Text                           as T
 import           Haskell.Ide.Engine.Ghc
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Plugin.GhcMod
@@ -44,8 +44,14 @@ ghcmodSpec =
       fp <- makeAbsolute "./FileWithWarning.hs"
       let act = setTypecheckedModule arg
           arg = filePathToUri fp
+      IdeResultOk (_,env) <- runSingle testPlugins act
+      case env of
+        [] -> return ()
+        [s] -> T.unpack s `shouldStartWith` "Loaded package environment from"
+        ss -> fail $ "got:" ++ show ss
+      let
           res = IdeResultOk $
-            (Map.singleton arg (S.singleton diag), [])
+            (Map.singleton arg (S.singleton diag), env)
           diag = Diagnostic (Range (toPos (4,7))
                                    (toPos (4,8)))
                             (Just DsError)
