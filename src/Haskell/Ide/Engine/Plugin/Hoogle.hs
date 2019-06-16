@@ -1,4 +1,5 @@
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.Engine.Plugin.Hoogle where
@@ -99,11 +100,9 @@ infoCmd = CmdSync $ \expr -> do
 infoCmd' :: T.Text -> IdeM (Either HoogleError T.Text)
 infoCmd' expr = do
   HoogleDb mdb <- get
-  liftIO $ runHoogleQuery mdb expr $ \res ->
-      if null res then
-        Left NoResults
-      else
-        return $ renderTargetInfo $ head res
+  liftIO $ runHoogleQuery mdb expr $ \case
+    [] -> Left NoResults
+    h:_ -> return $ renderTargetInfo h
 
 renderTargetInfo :: Target -> T.Text
 renderTargetInfo t =
@@ -124,11 +123,9 @@ renderTargetInfo t =
 infoCmdFancyRender :: T.Text -> IdeM (Either HoogleError T.Text)
 infoCmdFancyRender expr = do
   HoogleDb mdb <- get
-  liftIO $ runHoogleQuery mdb expr $ \res ->
-      if null res then
-        Left NoResults
-      else
-        return $ renderTarget $ head res
+  liftIO $ runHoogleQuery mdb expr $ \case
+    [] -> Left NoResults
+    h:_ -> return $ renderTarget h
 
 -- | Render the target in valid markdown.
 -- Transform haddock documentation into markdown.
