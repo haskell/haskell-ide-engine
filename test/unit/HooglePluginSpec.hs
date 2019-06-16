@@ -48,7 +48,7 @@ hoogleSpec = do
     it "runs the info command" $ do
       let req = liftToGhc $ infoCmd' "head"
       r <- dispatchRequestP $ initializeHoogleDb >> req
-      r `shouldBe` Right "head :: [a] -> a\nbase Prelude\nExtract the first element of a list, which must be non-empty.\n\n"
+      r `shouldBe` Right "```haskell\nhead :: [a] -> a\n```\nExtract the first element of a list, which must be non-empty.\n\n[More info](https://hackage.haskell.org/package/base/docs/Prelude.html#v:head)"
 
     -- ---------------------------------
 

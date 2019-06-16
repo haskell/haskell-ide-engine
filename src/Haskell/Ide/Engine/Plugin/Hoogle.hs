@@ -1,4 +1,5 @@
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.Engine.Plugin.Hoogle where
@@ -99,11 +100,16 @@ infoCmd = CmdSync $ \expr -> do
 infoCmd' :: T.Text -> IdeM (Either HoogleError T.Text)
 infoCmd' expr = do
   HoogleDb mdb <- get
-  liftIO $ runHoogleQuery mdb expr $ \res ->
-      if null res then
-        Left NoResults
-      else
-        return $ T.pack $ targetInfo $ head res
+  liftIO $ runHoogleQuery mdb expr $ \case
+    [] -> Left NoResults
+    h:_ -> return $ renderTargetInfo h
+
+renderTargetInfo :: Target -> T.Text
+renderTargetInfo t =
+  T.intercalate "\n"
+    $  ["```haskell\n" <> unHTML (T.pack $ targetItem t) <> "\n```"]
+    ++ [renderDocs $ targetDocs t]
+    ++ [T.pack $ curry annotate "More info" $ targetURL t]
 
 -- | Command to get the prettified documentation of an hoogle identifier.
 -- Identifier should be understandable for hoogle.
@@ -117,11 +123,9 @@ infoCmd' expr = do
 infoCmdFancyRender :: T.Text -> IdeM (Either HoogleError T.Text)
 infoCmdFancyRender expr = do
   HoogleDb mdb <- get
-  liftIO $ runHoogleQuery mdb expr $ \res ->
-      if null res then
-        Left NoResults
-      else
-        return $ renderTarget $ head res
+  liftIO $ runHoogleQuery mdb expr $ \case
+    [] -> Left NoResults
+    h:_ -> return $ renderTarget h
 
 -- | Render the target in valid markdown.
 -- Transform haddock documentation into markdown.
@@ -133,18 +137,25 @@ renderTarget t = T.intercalate "\n" $
   ++ [renderDocs $ targetDocs t]
   ++ [T.pack $ curry annotate "More info" $ targetURL t]
   where mdl = map annotate $ catMaybes [targetPackage t, targetModule t]
-        annotate (thing,url) = "["<>thing++"]"++"("++url++")"
-        unHTML = T.replace "<0>" "" . innerText . parseTags
-        renderDocs = T.concat . map htmlToMarkDown . parseTree . T.pack
-        htmlToMarkDown :: TagTree T.Text -> T.Text
-        htmlToMarkDown (TagLeaf x) = fromMaybe "" $ maybeTagText x
-        htmlToMarkDown (TagBranch "i" _ tree) = "*" <> T.concat (map htmlToMarkDown tree) <> "*"
-        htmlToMarkDown (TagBranch "b" _ tree) = "**" <> T.concat (map htmlToMarkDown tree) <> "**"
-        htmlToMarkDown (TagBranch "a" _ tree) = "`" <> T.concat (map htmlToMarkDown tree) <> "`"
-        htmlToMarkDown (TagBranch "li" _ tree) = "- " <> T.concat (map htmlToMarkDown tree)
-        htmlToMarkDown (TagBranch "tt" _ tree) = "`" <> innerText (flattenTree tree) <> "`"
-        htmlToMarkDown (TagBranch "pre" _ tree) = "```haskell\n" <> T.concat (map htmlToMarkDown tree) <> "```"
-        htmlToMarkDown (TagBranch _ _ tree) = T.concat $ map htmlToMarkDown tree
+
+annotate :: (String, String) -> String
+annotate (thing,url) = "["<>thing<>"]"<>"("<>url<>")"
+
+unHTML :: T.Text -> T.Text
+unHTML = T.replace "<0>" "" . innerText . parseTags
+
+renderDocs :: String -> T.Text
+renderDocs = T.concat . map htmlToMarkDown . parseTree . T.pack
+
+htmlToMarkDown :: TagTree T.Text -> T.Text
+htmlToMarkDown (TagLeaf x) = fromMaybe "" $ maybeTagText x
+htmlToMarkDown (TagBranch "i" _ tree) = "*" <> T.concat (map htmlToMarkDown tree) <> "*"
+htmlToMarkDown (TagBranch "b" _ tree) = "**" <> T.concat (map htmlToMarkDown tree) <> "**"
+htmlToMarkDown (TagBranch "a" _ tree) = "`" <> T.concat (map htmlToMarkDown tree) <> "`"
+htmlToMarkDown (TagBranch "li" _ tree) = "- " <> T.concat (map htmlToMarkDown tree)
+htmlToMarkDown (TagBranch "tt" _ tree) = "`" <> innerText (flattenTree tree) <> "`"
+htmlToMarkDown (TagBranch "pre" _ tree) = "```haskell\n" <> T.concat (map htmlToMarkDown tree) <> "```"
+htmlToMarkDown (TagBranch _ _ tree) = T.concat $ map htmlToMarkDown tree
 
 ------------------------------------------------------------------------
 
