@@ -455,7 +455,7 @@ withIndefiniteProgress t c f = do
     Just wp -> control $ \run -> wp t c (run f)
 
 data IdeState = IdeState
-  { moduleCache :: GhcModuleCache
+  { moduleCache :: !GhcModuleCache
   -- | A queue of requests to be performed once a module is loaded
   , requestQueue :: Map.Map FilePath [UriCacheResult -> IdeM ()]
   , extensibleState :: !(Map.Map TypeRep Dynamic)
