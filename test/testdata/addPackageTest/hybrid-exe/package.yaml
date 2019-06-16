@@ -21,6 +21,8 @@ description:         Please see the README on GitHub at <https://github.com/gith
 
 library:
   source-dirs: src
+  dependencies:
+  - base
 
 executables:
   asdf-exe:
@@ -31,4 +33,5 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
+    - base
     - asdf

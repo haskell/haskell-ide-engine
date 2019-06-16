@@ -5,6 +5,7 @@ module TestUtils
   , withFileLogging
   , setupStackFiles
   , testCommand
+  , runSingle
   , runSingleReq
   , makeRequest
   , runIGM
@@ -59,6 +60,9 @@ testCommand testPlugins act plugin cmd arg res = do
     return (new, old)
   newApiRes `shouldBe` res
   fmap fromDynJSON oldApiRes `shouldBe` fmap Just res
+
+runSingle :: IdePlugins -> IdeGhcM (IdeResult b) -> IO (IdeResult b)
+runSingle testPlugins act = runIGM testPlugins  act
 
 runSingleReq :: ToJSON a
              => IdePlugins -> PluginId -> CommandName -> a -> IO (IdeResult DynamicJSON)

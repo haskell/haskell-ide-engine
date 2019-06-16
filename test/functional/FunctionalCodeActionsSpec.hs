@@ -293,7 +293,7 @@ spec = describe "code actions" $ do
 
         contents <- getDocumentEdit . TextDocumentIdentifier =<< getDocUri "package.yaml"
         liftIO $
-          T.lines contents !! 21 `shouldSatisfy` T.isSuffixOf "zlib"
+          T.lines contents !! 23 `shouldSatisfy` T.isSuffixOf "zlib"
 
   -- -----------------------------------
 

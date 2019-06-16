@@ -95,6 +95,7 @@ library
                      , transformers
                      , unordered-containers
                      , vector
+                     , versions
                      , yaml >= 0.8.31
   ghc-options:         -Wall -Wredundant-constraints
   if flag(pedantic)
