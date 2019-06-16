@@ -19,7 +19,7 @@ library
                      , Env
                      , Help
   build-depends:       base >= 4.9 && < 5
-                     , shake == 0.17.3
+                     , shake == 0.17.8
                      , directory
                      , extra
                      , text
