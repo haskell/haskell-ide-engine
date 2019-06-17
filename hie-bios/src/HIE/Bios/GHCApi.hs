@@ -24,6 +24,9 @@ import qualified MonadUtils as G
 import qualified HscMain as G
 import qualified GhcMake as G
 import DynFlags
+import HscTypes
+import GhcMonad
+import DynamicLoading
 
 import Control.Monad (void, when)
 import System.Exit (exitSuccess, ExitCode(..))
@@ -146,10 +149,14 @@ initSessionWithMessage msg CompilerOptions {..} = do
       $ resetPackageDb
 --      $ ignorePackageEnv
       $ writeInterfaceFiles (Just fp)
+      $ setOutputDir fp
       $ setVerbosity 0
 
       $ setLinkerOptions df'
       )
+    hsc_env <- G.getSession
+    dflags <- G.getSessionDynFlags >>= liftIO . initializePlugins hsc_env
+    modifySession $ \h -> h { hsc_dflags = dflags }
     G.setLogAction (\_df _wr _s _ss _pp _m -> return ())
     G.setTargets targets
     -- Get the module graph using the function `getModuleGraph`
