@@ -12,8 +12,13 @@ packages:
 
 allow-newer: floskell:all
 
-profiling: true
+--profiling: True
 
-ghc-options: -Werror
+debug-info: 3
+executable-stripping: False
+
+executable-stripping: False
+library-stripping: False
+
 
 

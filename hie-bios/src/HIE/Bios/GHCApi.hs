@@ -161,6 +161,9 @@ initSessionWithMessage msg CompilerOptions {..} = do
     G.setTargets targets
     -- Get the module graph using the function `getModuleGraph`
     mod_graph <- G.depanal [] True
+    sess <- G.getSession
+    G.pprTraceM "Plugins" (G.ppr (length (plugins (hsc_dflags sess))))
+    G.pprTraceM "Plugins" (G.ppr (pluginModNames (hsc_dflags sess)))
     void $ G.load' LoadAllTargets msg mod_graph
 
 ----------------------------------------------------------------
@@ -193,6 +196,9 @@ writeInterfaceFiles (Just hi_dir) df = setHiDir hi_dir (gopt_set df Opt_WriteInt
 
 setHiDir :: FilePath -> DynFlags -> DynFlags
 setHiDir f d = d { hiDir      = Just f}
+
+setOutputDir :: FilePath -> DynFlags -> DynFlags
+setOutputDir f d = d { objectDir = Just f }
 
 
 addCmdOpts :: (GhcMonad m)

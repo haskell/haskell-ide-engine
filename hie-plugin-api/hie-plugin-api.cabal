@@ -36,6 +36,7 @@ library
                        Haskell.Ide.Engine.TypeMap
   build-depends:       base >= 4.9 && < 5
                      , Diff
+                     , ghc-prim
                      , aeson
                      , bytestring-trie
                      , bytestring
@@ -51,7 +52,7 @@ library
                      , ghc-mod-core >= 5.9.0.0
                      , hie-bios
                      , ghc-project-types >= 5.9.0.0
-                     , haskell-lsp == 0.13.*
+                     , haskell-lsp == 0.14.*
                      , hslogger
                      , unliftio
                      , monad-control

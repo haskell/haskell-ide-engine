@@ -8,6 +8,7 @@ stdenv.mkDerivation {
     haskellPackages.cabal-install
     haskell.compiler.ghc864
     haskellPackages.stack
+    gdb
   ];
   src = null;
   shellHook = ''

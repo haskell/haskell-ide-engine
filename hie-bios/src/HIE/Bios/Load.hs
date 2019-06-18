@@ -22,6 +22,7 @@ import GhcMonad
 import HscMain
 import Debug.Trace
 import Data.List
+import HscTypes
 
 #if __GLASGOW_HASKELL__ < 806
 pprTraceM x s = pprTrace x s (return ())
@@ -77,33 +78,39 @@ setTargetFilesWithMessage :: (GhcMonad m)  => Maybe G.Messager -> [(FilePath, Fi
 setTargetFilesWithMessage msg files = do
     targets <- forM files guessTargetMapped
     pprTrace "setTargets" (vcat (map ppr files) $$ ppr targets) (return ())
-    G.setTargets (map (\t -> t { G.targetAllowObjCode = False }) targets)
+    G.setTargets targets
     mod_graph <- depanal [] False
+    sess <- getSession
+    pprTraceM "Plugins2" (ppr (length (plugins (hsc_dflags sess))))
+    pprTraceM "Plugins2" (ppr (pluginModNames (hsc_dflags sess)))
     void $ G.load' LoadAllTargets msg mod_graph
 
 collectASTs :: (GhcMonad m) => m a -> m (a, [TypecheckedModule])
 collectASTs action = do
   dflags0 <- getSessionDynFlags
+  pprTraceM "Plugins3" (ppr (length (plugins (dflags0))))
+  pprTraceM "Plugins3" (ppr (pluginModNames (dflags0)))
+  hsc_env <- getSession
   ref1 <- liftIO $ newIORef []
   let dflags1 = dflags0 { hooks = (hooks dflags0)
-                          { hscFrontendHook = Just (astHook ref1) } }
+                          { hscFrontendHook = Just (astHook hsc_env ref1) } }
   void $ setSessionDynFlags dflags1
   res <- action
   tcs <- liftIO $ readIORef ref1
+  liftIO $ writeIORef ref1 []
   return (res, tcs)
 
-astHook :: IORef [TypecheckedModule] -> ModSummary -> Hsc FrontendResult
-astHook tc_ref ms = ghcInHsc $ do
+astHook :: HscEnv -> IORef [TypecheckedModule] -> ModSummary -> Hsc FrontendResult
+astHook env tc_ref ms = ghcInHsc env $ do
   p <- G.parseModule ms
   tcm <- G.typecheckModule p
   let tcg_env = fst (tm_internals_ tcm)
-  liftIO $ modifyIORef tc_ref (tcm :)
+  liftIO $ modifyIORef' tc_ref (tcm :)
   return $ FrontendTypecheck tcg_env
 
-ghcInHsc :: Ghc a -> Hsc a
-ghcInHsc gm = do
-  hsc_session <- getHscEnv
-  session <- liftIO $ newIORef hsc_session
+ghcInHsc :: HscEnv -> Ghc a -> Hsc a
+ghcInHsc env gm = do
+  session <- liftIO $ newIORef env
   liftIO $ reflectGhc gm (Session session)
 
 

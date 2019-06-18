@@ -6,6 +6,9 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE UnboxedTuples #-}
 
 module Haskell.Ide.Engine.ModuleCache
   ( modifyCache
@@ -36,6 +39,9 @@ import           Data.Maybe
 import           Data.Typeable (Typeable)
 import           System.Directory
 import UnliftIO
+import GHC.Exts
+import Data.Bits
+import Foreign.Ptr
 
 import Debug.Trace
 
@@ -56,13 +62,29 @@ import           Haskell.Ide.Engine.GhcUtils
 import System.Mem
 import System.Mem.Weak
 import System.IO
+{-# LANGUAGE MagicHash, UnboxedTuples #-}
+
+import GHC.Exts
+import GHC.Weak
+import GHC.Types
+import GHC.Word
+
+data Void
+
+anyToPtr :: a -> IO (Ptr Void)
+anyToPtr !a = IO (\s -> case anyToAddr# a s of (# s', a' #) -> (# s', Ptr a' #))
+
+weakToPtr :: Weak v -> IO (Maybe (Ptr Void))
+weakToPtr w = deRefWeak w >>= maybe (return Nothing) (fmap Just . anyToPtr)
+
+
 -- ---------------------------------------------------------------------
 
 modifyCache :: (HasGhcModuleCache m) => (GhcModuleCache -> GhcModuleCache) -> m ()
 modifyCache f = do
   mc <- getModuleCache
-  let x = (f mc)
-  x `seq` setModuleCache x
+--  let x = (f mc)
+  setModuleCache (f mc)
 
 -- ---------------------------------------------------------------------
 -- | Runs an action in a ghc-mod Cradle found from the
@@ -272,6 +294,16 @@ cacheModules rfm ms = mapM_ go_one ms
                  Nothing -> trace ("rfm failed: " ++ (show $ get_fp m)) $ return ()
     get_fp = GHC.ml_hs_file . GHC.ms_location . GHC.pm_mod_summary . GHC.tm_parsed_module
 
+-- A datatype that has the same layout as Word and so can be casted to it.
+data Ptr' a = Ptr' a
+
+-- Any is a type to which any type can be safely unsafeCoerced to.
+aToWord# :: Any -> Word#
+aToWord# a = let !mb = Ptr' a in case unsafeCoerce# mb :: Word of W# addr -> addr
+
+unsafeAddr :: a -> Int
+unsafeAddr a = I# (word2Int# (aToWord# (unsafeCoerce# a)))
+
 -- | Saves a module to the cache and executes any deferred
 -- responses waiting on that module.
 cacheModule :: FilePath -> (Either GHC.ParsedModule GHC.TypecheckedModule) -> IdeGhcM ()
@@ -298,22 +330,26 @@ cacheModule fp modul = do
 
   res <- liftIO $ mkLeakable newUc
 
-  maybeOldUc <- (Map.lookup canonical_fp . uriCaches) <$> getModuleCache 
+  maybeOldUc <- (Map.lookup canonical_fp . uriCaches) <$> getModuleCache
 
   modifyCache $ \gmc ->
       gmc { uriCaches = Map.insert canonical_fp res (uriCaches gmc) }
 
   liftIO $ hPutStrLn stderr "cacheModule"
+  liftIO $ traceEventIO "Cache Module"
   -- check leaks
+  let mask x = intPtrToPtr (complement (shiftL 1 3 - 1) .&. ptrToIntPtr x)
   case maybeOldUc of
     Just (UriCacheSuccess (Leakable tcptr psptr) _) -> do
       liftIO performGC
       res <- liftIO $ deRefWeak tcptr
       case res of
-        Just _ -> error $ "leaking: " <> canonical_fp
-        Nothing -> error $ "not leaking: " <> canonical_fp
-    Nothing -> return ()
+        Just v -> liftIO $ do hPutStrLn stderr $ "leaking: " <> canonical_fp
+                              anyToPtr v >>= hPutStrLn stderr . show . mask
+                              readLn
 
+        Nothing -> liftIO $ hPutStrLn stderr $ "not leaking: " <> canonical_fp
+    Nothing -> return ()
   -- execute any queued actions for the module
   runDeferredActions canonical_fp res
 
@@ -378,11 +414,14 @@ deleteCachedModule uri = do
                                   Just (UriCacheSuccess l _) -> l
                                   _ -> error "deleteCachedModule: nothing to delete"
   modifyCache (\s -> s { uriCaches = Map.delete uri' (uriCaches s) })
+  liftIO $ traceEventIO "Leak Cached Module"
+  {-
   liftIO performGC
   res <- liftIO $ deRefWeak tcptr
   case res of
     Just _ -> error $ "leaking: " <> uri'
     Nothing -> error $ "not leaking: " <> uri'
+    -}
 
 -- ---------------------------------------------------------------------
 -- | A ModuleCache is valid for the lifetime of a CachedModule

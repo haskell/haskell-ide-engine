@@ -217,8 +217,9 @@ setTypecheckedModule_load uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     debugm "setTypecheckedModule: before ghc-mod"
     debugm "Loading file"
-    mapped_fp <- persistVirtualFile uri
-    liftIO $ copyHsBoot fp mapped_fp
+    --mapped_fp <- persistVirtualFile uri
+    --liftIO $ copyHsBoot fp mapped_fp
+    let mapped_fp = fp
     rfm <- reverseFileMap
     let progTitle = "Typechecking " <> T.pack (takeFileName fp)
     (diags', errs, mmods) <- loadFile rfm (fp, mapped_fp)

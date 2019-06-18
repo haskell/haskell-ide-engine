@@ -108,7 +108,7 @@ getProjectGhcVersion :: IO String
 getProjectGhcVersion = do
   isStackProject   <- doesFileExist "stack.yaml"
   isStackInstalled <- isJust <$> findExecutable "stack"
-  if isStackProject && isStackInstalled
+  if isStackProject && isStackInstalled && False
     then do
       L.infoM "hie" "Using stack GHC version"
       catch (tryCommand "stack ghc -- --numeric-version") $ \e -> do
