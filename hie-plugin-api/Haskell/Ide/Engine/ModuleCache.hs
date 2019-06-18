@@ -75,7 +75,7 @@ anyToPtr :: a -> IO (Ptr Void)
 anyToPtr !a = IO (\s -> case anyToAddr# a s of (# s', a' #) -> (# s', Ptr a' #))
 
 weakToPtr :: Weak v -> IO (Maybe (Ptr Void))
-weakToPtr w = deRefWeak w >>= maybe (return Nothing) (fmap Just . anyToPtr)
+weakToPtr w = deRefWeak w >>= traverse anyToPtr
 
 
 -- ---------------------------------------------------------------------
@@ -293,16 +293,6 @@ cacheModules rfm ms = mapM_ go_one ms
                  Just fp -> cacheModule (rfm fp) (Right m)
                  Nothing -> trace ("rfm failed: " ++ (show $ get_fp m)) $ return ()
     get_fp = GHC.ml_hs_file . GHC.ms_location . GHC.pm_mod_summary . GHC.tm_parsed_module
-
--- A datatype that has the same layout as Word and so can be casted to it.
-data Ptr' a = Ptr' a
-
--- Any is a type to which any type can be safely unsafeCoerced to.
-aToWord# :: Any -> Word#
-aToWord# a = let !mb = Ptr' a in case unsafeCoerce# mb :: Word of W# addr -> addr
-
-unsafeAddr :: a -> Int
-unsafeAddr a = I# (word2Int# (aToWord# (unsafeCoerce# a)))
 
 -- | Saves a module to the cache and executes any deferred
 -- responses waiting on that module.
