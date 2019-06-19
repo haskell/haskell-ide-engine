@@ -206,10 +206,10 @@ findInstalledGhcs = do
     (reverse hieVersions)
   availableGhcs <- getGhcPaths
   return
-    -- filter out stack provided GHCs
-    $ filter (not . isInfixOf ".stack" . snd)
     -- nub by version. knownGhcs takes precedence.
-    $ nubBy ((==) `on` fst) (knownGhcs ++ availableGhcs)
+    $ nubBy ((==) `on` fst)
+    -- filter out stack provided GHCs
+    $ filter (not . isInfixOf ".stack" . snd) (knownGhcs ++ availableGhcs)
 
 cabalBuildHie :: VersionNumber -> Action ()
 cabalBuildHie versionNumber = do
