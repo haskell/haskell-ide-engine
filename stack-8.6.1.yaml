@@ -38,6 +38,8 @@ extra-deps:
 - rope-utf16-splay-0.3.1.0
 - syz-0.2.0.0
 - temporary-1.2.1.1
+# To make build work in windows 7
+- unix-time-0.4.7
 - yaml-0.8.32
 
 flags:
