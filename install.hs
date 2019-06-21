@@ -19,6 +19,7 @@ import           Control.Monad.Extra                      ( unlessM
                                                           )
 import           Data.Maybe                               ( isJust )
 import           System.Directory                         ( findExecutable
+                                                          , findExecutables
                                                           , listDirectory
                                                           )
 import           System.Environment                       ( getProgName
@@ -34,6 +35,8 @@ import           Data.Maybe                               ( isNothing
 import           Data.List                                ( dropWhileEnd
                                                           , intersperse
                                                           , intercalate
+                                                          , isInfixOf
+                                                          , nubBy
                                                           , sort
                                                           )
 import qualified Data.Text as T
@@ -42,7 +45,9 @@ import           Data.Version                             ( parseVersion
                                                           , makeVersion
                                                           , showVersion
                                                           )
-import           Data.Function                            ( (&) )
+import           Data.Function                            ( (&)
+                                                          , on
+                                                          )
 import           Text.ParserCombinators.ReadP             ( readP_to_S )
 
 type VersionNumber = String
@@ -143,7 +148,7 @@ main = do
       forM_ ghcVersions cabalTest
 
     forM_
-      hieVersions
+      ghcVersions
       (\version -> phony ("cabal-hie-" ++ version) $ do
         validateCabalNewInstallIsSupported
         need ["submodules"]
@@ -182,7 +187,7 @@ validateCabalNewInstallIsSupported = when isWindowsSystem $ do
 
 configureCabal :: VersionNumber -> Action ()
 configureCabal versionNumber = do
-  ghcPath <- getGhcPath versionNumber >>= \case
+  ghcPath <- getGhcPathOf versionNumber >>= \case
     Nothing -> do
       liftIO $ putStrLn $ embedInStars (ghcVersionNotFoundFailMsg versionNumber)
       error (ghcVersionNotFoundFailMsg versionNumber)
@@ -193,12 +198,18 @@ configureCabal versionNumber = do
 findInstalledGhcs :: IO [(VersionNumber, GhcPath)]
 findInstalledGhcs = do
   hieVersions <- getHieVersions :: IO [VersionNumber]
-  mapMaybeM
-    (\version -> getGhcPath version >>= \case
+  knownGhcs <- mapMaybeM
+    (\version -> getGhcPathOf version >>= \case
       Nothing -> return Nothing
       Just p  -> return $ Just (version, p)
     )
     (reverse hieVersions)
+  availableGhcs <- getGhcPaths
+  return
+    -- nub by version. knownGhcs takes precedence.
+    $ nubBy ((==) `on` fst)
+    -- filter out stack provided GHCs
+    $ filter (not . isInfixOf ".stack" . snd) (knownGhcs ++ availableGhcs)
 
 cabalBuildHie :: VersionNumber -> Action ()
 cabalBuildHie versionNumber = do
@@ -515,16 +526,19 @@ getStackGhcPathShake = do
 -- First, it is checked whether there is a GHC with the name `ghc-$VersionNumber`.
 -- If this yields no result, it is checked, whether the numeric-version of the `ghc`
 -- command fits to the desired version.
-getGhcPath :: MonadIO m => VersionNumber -> m (Maybe GhcPath)
-getGhcPath ghcVersion = liftIO $
-  findExecutable ("ghc-" ++ ghcVersion) >>= \case
-    Nothing -> do
-      findExecutable "ghc" >>= \case
-        Nothing -> return Nothing
-        Just p  -> do
-          Stdout version <- cmd p ["--numeric-version"] :: IO (Stdout String)
-          if ghcVersion == trim version then return $ Just p else return Nothing
-    p -> return p
+getGhcPathOf :: MonadIO m => VersionNumber -> m (Maybe GhcPath)
+getGhcPathOf ghcVersion =
+  liftIO $ findExecutable ("ghc-" ++ ghcVersion) >>= \case
+    Nothing -> lookup ghcVersion <$> getGhcPaths
+    path -> return path
+
+-- | Get a list of GHCs that are available in $PATH
+getGhcPaths :: MonadIO m => m [(VersionNumber, GhcPath)]
+getGhcPaths = liftIO $ do
+  paths <- findExecutables "ghc"
+  forM paths $ \path -> do
+    Stdout version <- cmd path ["--numeric-version"]
+    return (trim version, path)
 
 -- | Read the local install root of the stack project specified by the VersionNumber
 -- Returns the filepath of the local install root.
