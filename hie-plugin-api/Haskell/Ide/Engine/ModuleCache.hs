@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -54,8 +53,7 @@ import           Haskell.Ide.Engine.PluginsIdeMonads
 modifyCache :: (HasGhcModuleCache m) => (GhcModuleCache -> GhcModuleCache) -> m ()
 modifyCache f = do
   mc <- getModuleCache
-  let !cached = f mc -- Avoid a space leak by forcing the cache calculation
-  setModuleCache cached
+  setModuleCache (f mc)
 
 -- ---------------------------------------------------------------------
 -- | Runs an IdeM action with the given Cradle

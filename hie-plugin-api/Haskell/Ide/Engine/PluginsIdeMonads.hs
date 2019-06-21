@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveAnyClass #-}
@@ -499,7 +500,7 @@ instance HasGhcModuleCache IdeM where
     tvar <- lift ask
     state <- liftIO $ readTVarIO tvar
     return (moduleCache state)
-  setModuleCache mc = do
+  setModuleCache !mc = do
     tvar <- lift ask
     liftIO $ atomically $ modifyTVar' tvar (\st -> st { moduleCache = mc })
 
