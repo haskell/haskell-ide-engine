@@ -93,6 +93,7 @@ library
                      , tagsoup
                      , text
                      , transformers
+                     , unix-time >= 0.4.7
                      , unordered-containers
                      , vector
                      , versions
