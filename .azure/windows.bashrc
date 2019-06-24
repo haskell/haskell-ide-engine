@@ -1,1 +1,1 @@
-export PATH=$HOME/.local/bin:$PATH
+export PATH=$LOCALAPPDATA/bin:$PATH
