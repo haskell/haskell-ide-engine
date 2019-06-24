@@ -1,1 +1,3 @@
-export PATH=$HOME/.local/bin:$PATH
+export STACK_ROOT="C:\\sr"
+export LOCAL_BIN_PATH=$LOCALAPPDATA\\bin
+export PATH=$LOCAL_BIN_PATH:$PATH
