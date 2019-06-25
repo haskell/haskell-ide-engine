@@ -4,6 +4,7 @@ import           Development.Shake
 import           Development.Shake.Command
 import           Development.Shake.FilePath
 import           Control.Monad
+import           System.Directory                         ( copyFile )
 
 import           Version
 import           Print
@@ -18,12 +19,13 @@ stackBuildHie versionNumber = execStackWithGhc_ versionNumber ["build"]
 stackInstallHie :: VersionNumber -> Action ()
 stackInstallHie versionNumber = do
   execStackWithGhc_ versionNumber ["install"]
-  localBinDir      <- getLocalBin
+  localBinDir <- getLocalBin
   let hie = "hie" <.> exe
-  copyFile' (localBinDir </> hie)
-            (localBinDir </> "hie-" ++ versionNumber <.> exe)
-  copyFile' (localBinDir </> hie)
-            (localBinDir </> "hie-" ++ dropExtension versionNumber <.> exe)
+  liftIO $ do
+    copyFile (localBinDir </> hie)
+             (localBinDir </> "hie-" ++ versionNumber <.> exe)
+    copyFile (localBinDir </> hie)
+             (localBinDir </> "hie-" ++ dropExtension versionNumber <.> exe)
 
 buildCopyCompilerTool :: VersionNumber -> Action ()
 buildCopyCompilerTool versionNumber =

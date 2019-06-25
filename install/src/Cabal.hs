@@ -6,7 +6,9 @@ import           Development.Shake.FilePath
 import           Control.Monad
 import           Data.Maybe                               ( isNothing )
 import           Control.Monad.Extra                      ( whenMaybe )
-import           System.Directory                         ( findExecutable )
+import           System.Directory                         ( findExecutable
+                                                          , copyFile
+                                                          )
 
 import           Version
 import           Print
@@ -45,10 +47,11 @@ cabalInstallHie versionNumber = do
     , "exe:hie"
     , "--overwrite-policy=always"
     ]
-  copyFile' (localBin </> "hie" <.> exe)
-            (localBin </> "hie-" ++ versionNumber <.> exe)
-  copyFile' (localBin </> "hie" <.> exe)
-            (localBin </> "hie-" ++ dropExtension versionNumber <.> exe)
+  liftIO $ do
+    copyFile (localBin </> "hie" <.> exe)
+             (localBin </> "hie-" ++ versionNumber <.> exe)
+    copyFile (localBin </> "hie" <.> exe)
+             (localBin </> "hie-" ++ dropExtension versionNumber <.> exe)
 
 -- TODO: review
 installCabal :: Action ()
