@@ -27,7 +27,7 @@ cabalBuildData = do
 
 cabalBuildHie :: VersionNumber -> Action ()
 cabalBuildHie versionNumber = do
-  ghcPath <- getGhcPath versionNumber >>= \case
+  ghcPath <- getGhcPathOf versionNumber >>= \case
     Nothing -> do
       printInStars $ ghcVersionNotFoundFailMsg versionNumber
       error (ghcVersionNotFoundFailMsg versionNumber)

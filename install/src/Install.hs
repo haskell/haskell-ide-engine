@@ -47,9 +47,11 @@ defaultMain = do
   -- unset GHC_PACKAGE_PATH for cabal
   unsetEnv "GHC_PACKAGE_PATH"
 
+  -- used for cabal-based targets
   ghcPaths <- findInstalledGhcs
   let ghcVersions = map fst ghcPaths
 
+  -- used for stack-based targets
   hieVersions <- getHieVersions
 
   putStrLn $ "run from: " ++ buildSystem
@@ -110,7 +112,7 @@ defaultMain = do
       need ["cabal"]
       cabalBuildData
     forM_
-      hieVersions
+      ghcVersions
       (\version -> phony ("cabal-hie-" ++ version) $ do
         validateCabalNewInstallIsSupported
         need ["submodules"]
