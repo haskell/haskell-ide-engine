@@ -10,8 +10,7 @@ import           Control.Monad.Extra                      ( unlessM
                                                           )
 import           Data.Maybe                               ( isJust )
 import           System.Directory                         ( listDirectory )
-import           System.Environment                       ( unsetEnv
-                                                          )
+import           System.Environment                       ( unsetEnv )
 import           System.Info                              ( os
                                                           , arch
                                                           )
@@ -54,6 +53,10 @@ defaultMain = do
   -- used for stack-based targets
   hieVersions <- getHieVersions
 
+  let versions = BuildableVersions { stackVersions = hieVersions
+                                   , cabalVersions = ghcVersions
+                                   }
+
   putStrLn $ "run from: " ++ buildSystem
 
   shakeArgs shakeOptions { shakeFiles = "_build" } $ do
@@ -63,7 +66,7 @@ defaultMain = do
     phony "cabal"       installCabal
     phony "short-help"  shortHelpMessage
     phony "all"         shortHelpMessage
-    phony "help"        helpMessage
+    phony "help"        (helpMessage versions)
     phony "check-stack" checkStack
     phony "check-cabal" checkCabal
 

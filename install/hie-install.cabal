@@ -25,6 +25,7 @@ library
                      , text
   default-extensions: LambdaCase
                     , TupleSections
+                    , RecordWildCards
   default-language:    Haskell2010
 
   if flag(run-from-stack)

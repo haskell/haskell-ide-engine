@@ -6,9 +6,10 @@ import           Data.List                                ( intersperse
                                                           , intercalate
                                                           )
 
-import Env
-import Print
-import Version
+import           Env
+import           Print
+import           Version
+import           BuildSystem
 
 printUsage :: Action ()
 printUsage = do
@@ -39,26 +40,35 @@ shortHelpMessage = do
     , cabalGhcsTarget
     ]
 
+-- | A record that specifies for each build system which versions of @hie@ can be built.
+data BuildableVersions = BuildableVersions
+  { stackVersions :: [VersionNumber]
+  , cabalVersions :: [VersionNumber]
+  }
 
+getDefaultBuildSystemVersions :: BuildableVersions -> [VersionNumber]
+getDefaultBuildSystemVersions BuildableVersions{..}
+  | isRunFromStack = stackVersions
+  | isRunFromCabal = cabalVersions
+  | otherwise = error $ "unknown build system: " ++ buildSystem
 
-helpMessage :: Action ()
-helpMessage = do
-  hieVersions <- getHieVersions
+helpMessage :: BuildableVersions -> Action ()
+helpMessage versions@BuildableVersions{..} = do
   printUsage
   out ""
   out "Targets:"
-  mapM_ (out' . showTarget (spaces hieVersions)) (targets hieVersions)
+  mapM_ (out' . showTarget spaces) targets
   out ""
  where
-  spaces hieVersions = space (targets hieVersions)
+  spaces = space targets
   -- All targets the shake file supports
-  targets :: [VersionNumber] -> [(String, String)]
-  targets hieVersions = intercalate
+  targets :: [(String, String)]
+  targets  = intercalate
     [emptyTarget]
     [ generalTargets
-    , defaultTargets hieVersions
-    , stackTargets hieVersions
-    , cabalTargets hieVersions
+    , defaultTargets
+    , stackTargets
+    , cabalTargets
     , [macosIcuTarget]
     ]
 
@@ -67,27 +77,27 @@ helpMessage = do
     [ helpTarget
     ]
 
-  defaultTargets hieVersions =
+  defaultTargets =
     [ buildTarget
     , buildAllTarget
     , buildDataTarget
     ]
-      ++ map hieTarget hieVersions
+      ++ map hieTarget (getDefaultBuildSystemVersions versions)
 
-  stackTargets hieVersions =
+  stackTargets =
     [ stackTarget buildTarget
     , stackTarget buildAllTarget
     , stackTarget buildDataTarget
     ]
-      ++ map (stackTarget . hieTarget) hieVersions
+      ++ map (stackTarget . hieTarget) stackVersions
 
-  cabalTargets hieVersions =
+  cabalTargets =
     [ cabalGhcsTarget
     , cabalTarget buildTarget
     , cabalTarget buildAllTarget
     , cabalTarget buildDataTarget
     ]
-      ++ map (cabalTarget . hieTarget) hieVersions
+      ++ map (cabalTarget . hieTarget) cabalVersions
 
 -- | Empty target. Purpose is to introduce a newline between the targets
 emptyTarget :: (String, String)
