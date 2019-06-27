@@ -47,13 +47,13 @@ data BuildableVersions = BuildableVersions
   }
 
 getDefaultBuildSystemVersions :: BuildableVersions -> [VersionNumber]
-getDefaultBuildSystemVersions BuildableVersions{..}
+getDefaultBuildSystemVersions BuildableVersions {..}
   | isRunFromStack = stackVersions
   | isRunFromCabal = cabalVersions
-  | otherwise = error $ "unknown build system: " ++ buildSystem
+  | otherwise      = error $ "unknown build system: " ++ buildSystem
 
 helpMessage :: BuildableVersions -> Action ()
-helpMessage versions@BuildableVersions{..} = do
+helpMessage versions@BuildableVersions {..} = do
   printUsage
   out ""
   out "Targets:"
@@ -63,7 +63,7 @@ helpMessage versions@BuildableVersions{..} = do
   spaces = space targets
   -- All targets the shake file supports
   targets :: [(String, String)]
-  targets  = intercalate
+  targets = intercalate
     [emptyTarget]
     [ generalTargets
     , defaultTargets
@@ -73,30 +73,24 @@ helpMessage versions@BuildableVersions{..} = do
     ]
 
   -- All targets with their respective help message.
-  generalTargets =
-    [ helpTarget
-    ]
+  generalTargets = [helpTarget]
 
-  defaultTargets =
-    [ buildTarget
-    , buildAllTarget
-    , buildDataTarget
-    ]
-      ++ map hieTarget (getDefaultBuildSystemVersions versions)
+  defaultTargets = [buildTarget, buildAllTarget, buildDataTarget]
+    ++ map hieTarget (getDefaultBuildSystemVersions versions)
 
   stackTargets =
     [ stackTarget buildTarget
-    , stackTarget buildAllTarget
-    , stackTarget buildDataTarget
-    ]
+      , stackTarget buildAllTarget
+      , stackTarget buildDataTarget
+      ]
       ++ map (stackTarget . hieTarget) stackVersions
 
   cabalTargets =
     [ cabalGhcsTarget
-    , cabalTarget buildTarget
-    , cabalTarget buildAllTarget
-    , cabalTarget buildDataTarget
-    ]
+      , cabalTarget buildTarget
+      , cabalTarget buildAllTarget
+      , cabalTarget buildDataTarget
+      ]
       ++ map (cabalTarget . hieTarget) cabalVersions
 
 -- | Empty target. Purpose is to introduce a newline between the targets
@@ -115,13 +109,10 @@ cabalTarget = targetWithBuildSystem "cabal"
 
 hieTarget :: String -> TargetDescription
 hieTarget version =
-  ( "hie-" ++ version
-  , "Builds hie for GHC version " ++ version
-  )
+  ("hie-" ++ version, "Builds hie for GHC version " ++ version)
 
 buildTarget :: TargetDescription
-buildTarget =
-  ("build", "Builds hie with all installed GHCs")
+buildTarget = ("build", "Builds hie with all installed GHCs")
 
 buildDataTarget :: TargetDescription
 buildDataTarget =
@@ -129,9 +120,7 @@ buildDataTarget =
 
 buildAllTarget :: TargetDescription
 buildAllTarget =
-  ( "build-all"
-  , "Builds hie for all installed GHC versions and the data files"
-  )
+  ("build-all", "Builds hie for all installed GHC versions and the data files")
 
 -- speical targets
 

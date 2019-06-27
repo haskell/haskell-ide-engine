@@ -9,7 +9,7 @@ import           Data.List                                ( dropWhileEnd
 import           Data.Char                                ( isSpace )
 
 out :: MonadIO m => String -> m ()
-out  = liftIO . putStrLn
+out = liftIO . putStrLn
 
 out' :: MonadIO m => String -> m ()
 out' = out . ("    " ++)
