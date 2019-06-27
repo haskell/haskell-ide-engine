@@ -19,6 +19,6 @@ versionToString = showVersion . makeVersion
 parseVersionEx :: String -> Version
 parseVersionEx = fst . head . filter (("" ==) . snd) . readP_to_S parseVersion
 
-
+-- | Check that a given version-string is not smaller than the required version
 checkVersion :: RequiredVersion -> String -> Bool
 checkVersion required given = parseVersionEx given >= makeVersion required

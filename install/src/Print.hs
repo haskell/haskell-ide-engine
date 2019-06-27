@@ -8,11 +8,13 @@ import           Data.List                                ( dropWhileEnd
                                                           )
 import           Data.Char                                ( isSpace )
 
-out :: MonadIO m => String -> m ()
-out = liftIO . putStrLn
+-- | lift putStrLn to MonadIO
+printLine :: MonadIO m => String -> m ()
+printLine = liftIO . putStrLn
 
-out' :: MonadIO m => String -> m ()
-out' = out . ("    " ++)
+-- | print a line prepended with 4 spaces
+printLineIndented :: MonadIO m => String -> m ()
+printLineIndented = printLine . ("    " ++)
 
 embedInStars :: String -> String
 embedInStars str =

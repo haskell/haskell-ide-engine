@@ -13,21 +13,21 @@ import           BuildSystem
 
 printUsage :: Action ()
 printUsage = do
-  out ""
-  out "Usage:"
-  out' ("stack install.hs <target>")
-  out' "or"
-  out' ("cabal new-run install.hs --project-file shake.project <target>")
+  printLine ""
+  printLine "Usage:"
+  printLineIndented ("stack install.hs <target>")
+  printLineIndented "or"
+  printLineIndented ("cabal new-run install.hs --project-file shake.project <target>")
 
 -- | short help message is printed by default
 shortHelpMessage :: Action ()
 shortHelpMessage = do
   hieVersions <- getHieVersions
   printUsage
-  out ""
-  out "Targets:"
-  mapM_ (out' . showTarget (spaces hieVersions)) (targets hieVersions)
-  out ""
+  printLine ""
+  printLine "Targets:"
+  mapM_ (printLineIndented . showTarget (spaces hieVersions)) (targets hieVersions)
+  printLine ""
  where
   spaces hieVersions = space (targets hieVersions)
   targets hieVersions =
@@ -55,10 +55,10 @@ getDefaultBuildSystemVersions BuildableVersions {..}
 helpMessage :: BuildableVersions -> Action ()
 helpMessage versions@BuildableVersions {..} = do
   printUsage
-  out ""
-  out "Targets:"
-  mapM_ (out' . showTarget spaces) targets
-  out ""
+  printLine ""
+  printLine "Targets:"
+  mapM_ (printLineIndented . showTarget spaces) targets
+  printLine ""
  where
   spaces = space targets
   -- All targets the shake file supports
