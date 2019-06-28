@@ -85,7 +85,7 @@ defaultMain = do
     phony "build-all" $ need [buildSystem ++ "-build-all"]
     phony "build-data" $ need [buildSystem ++ "-build-data"]
     forM_
-      hieVersions
+      (getDefaultBuildSystemVersions versions)
       (\version ->
         phony ("hie-" ++ version) $ need [buildSystem ++ "-hie-" ++ version]
       )

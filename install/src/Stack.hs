@@ -66,11 +66,11 @@ execStackWithGhc versionNumber args = do
 
 -- | Execute a stack command with the same resolver as the build script
 execStackShake :: CmdResult r => [String] -> Action r
-execStackShake args = command [] "stack" ("--stack-yaml=shake.yaml" : args)
+execStackShake args = command [] "stack" ("--stack-yaml=install/shake.yaml" : args)
 
 -- | Execute a stack command with the same resolver as the build script, discarding the output
 execStackShake_ :: [String] -> Action ()
-execStackShake_ args = command_ [] "stack" ("--stack-yaml=shake.yaml" : args)
+execStackShake_ args = command_ [] "stack" ("--stack-yaml=install/shake.yaml" : args)
 
 
 -- | Error message when the `stack` binary is an older version
