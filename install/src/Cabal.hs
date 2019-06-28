@@ -35,7 +35,7 @@ cabalBuildHie versionNumber = do
       error (ghcVersionNotFoundFailMsg versionNumber)
     Just p -> return p
   execCabal_
-    ["new-build", "-w", ghcPath, "--write-ghc-environment-files=never"]
+    ["new-build", "-w", ghcPath, "--write-ghc-environment-files=never", "--max-backjumps=5000"]
 
 cabalInstallHie :: VersionNumber -> Action ()
 cabalInstallHie versionNumber = do
