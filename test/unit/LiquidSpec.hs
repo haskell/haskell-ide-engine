@@ -47,8 +47,8 @@ spec = do
         uri = filePathToUri $ cwd </> "test/testdata/liquid/Evens.hs"
         vimFile  = vimAnnotFile uri
         jsonFile = jsonAnnotFile uri
-      vimFile  `shouldBe` (cwd </> "test/testdata/liquid/.liquid/Evens.hs.vim.annot")
-      jsonFile `shouldBe` (cwd </> "test/testdata/liquid/.liquid/Evens.hs.json")
+      vimFile  `shouldBe` normalise (cwd </> "test/testdata/liquid/.liquid/Evens.hs.vim.annot")
+      jsonFile `shouldBe` normalise (cwd </> "test/testdata/liquid/.liquid/Evens.hs.json")
 
     -- ---------------------------------
 
