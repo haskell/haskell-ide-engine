@@ -201,6 +201,18 @@ stack ./install.hs help
 
 Remember, this will take time to download a Stackage-LTS and an appropriate GHC. However, afterwards all commands should work as expected.
 
+##### Install via cabal
+
+The install-script can be invoked via `cabal` instead of `stack` with the command
+
+```bash
+cabal v2-run ./install.hs --project-file install/shake.project <target>
+```
+
+Unfortunalely, it is still required to have `stack` installed so that the install-script can locate the `local-bin` directory (on Linux `~/.local/bin`) and copy the the `hie` binaries to `hie-x.y.z`, which is required for the `hie-wrapper` to function as expected.
+
+For briefty, only the `stack`-based commands are presented in the following sections.
+
 ##### Install specific GHC Version
 
 Install **Nightly** (and hoogle docs):
