@@ -57,8 +57,7 @@ import           Haskell.Ide.Engine.GhcUtils
 modifyCache :: (HasGhcModuleCache m) => (GhcModuleCache -> GhcModuleCache) -> m ()
 modifyCache f = do
   mc <- getModuleCache
-  let x = (f mc)
-  x `seq` setModuleCache x
+  setModuleCache (f mc)
 
 -- ---------------------------------------------------------------------
 -- | Runs an action in a ghc-mod Cradle found from the
