@@ -149,7 +149,7 @@ initSessionWithMessage msg CompilerOptions {..} = do
       $ resetPackageDb
 --      $ ignorePackageEnv
       $ writeInterfaceFiles (Just fp)
-      $ setOutputDir fp
+      -- $ setOutputDir fp
       $ setVerbosity 0
 
       $ setLinkerOptions df'
