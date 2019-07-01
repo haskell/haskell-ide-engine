@@ -15,6 +15,6 @@ build-depends:
 
 -- TODO: set `shake.project` in cabal-config above, when supported
 
-import Install (defaultMain)
+import HieInstall (defaultMain)
 
 main = defaultMain

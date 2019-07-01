@@ -1,4 +1,4 @@
-module Install where
+module HieInstall where
 
 import           Development.Shake
 import           Development.Shake.Command
