@@ -53,7 +53,6 @@ cabalInstallHie versionNumber = do
     copyFile (localBin </> "hie" <.> exe)
              (localBin </> "hie-" ++ dropExtension versionNumber <.> exe)
 
--- TODO: review
 installCabal :: Action ()
 installCabal = do
   -- try to find existing `cabal` executable with appropriate version
