@@ -2,3 +2,5 @@ jobs:
 - template: ./.azure/linux-stack.yml
 - template: ./.azure/windows-stack.yml
 - template: ./.azure/macos-stack.yml
+- template: ./.azure/windows-installhs-stack.yml
+
