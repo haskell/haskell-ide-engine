@@ -129,12 +129,12 @@ Follow the instructions at https://github.com/Infinisil/all-hies
 
 ### Installation on ArchLinux
 
-An [haskell-ide-engine-git](https://aur.archlinux.org/packages/haskell-ide-engine-git/) package is available on the AUR.
+An [haskell-ide-engine](https://aur.archlinux.org/packages/haskell-ide-engine/) package is available on the AUR.
 
 Using [Aura](https://github.com/aurapm/aura):
 
 ```
-# aura -A haskell-ide-engine-git
+# aura -A haskell-ide-engine
 ```
 
 
