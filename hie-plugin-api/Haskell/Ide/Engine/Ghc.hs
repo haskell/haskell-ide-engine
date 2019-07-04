@@ -58,6 +58,7 @@ instance Semigroup Diagnostics where
   Diagnostics d1 <> Diagnostics d2 = Diagnostics (d1 <> d2)
 
 instance Monoid Diagnostics where
+  mappend = (<>)
   mempty = Diagnostics mempty
 
 instance Data.Aeson.ToJSON Diagnostics where
