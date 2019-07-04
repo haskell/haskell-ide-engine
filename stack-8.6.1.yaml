@@ -28,7 +28,7 @@ extra-deps:
 - hlint-2.1.24
 - hoogle-5.0.17.9
 - hsimport-0.10.0
-- lsp-test-0.5.4.0
+- lsp-test-0.6.0.0
 - monad-dijkstra-0.1.1.2
 - monad-memo-0.4.1
 - monoid-subclasses-0.4.6.1
