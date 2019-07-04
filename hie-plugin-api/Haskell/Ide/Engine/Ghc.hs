@@ -21,7 +21,7 @@ import           Bag
 import           Control.Monad.IO.Class
 import           Data.IORef
 import qualified Data.Map.Strict                   as Map
-import           Data.Semigroup ((<>))
+import           Data.Semigroup ((<>), Semigroup)
 import qualified Data.Set                          as Set
 import qualified Data.Text                         as T
 import qualified Data.Aeson
