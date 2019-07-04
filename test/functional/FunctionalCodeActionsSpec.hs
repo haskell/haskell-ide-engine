@@ -755,7 +755,7 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
           error
             $  "No action found to be executed!"
             ++ "\n Actual actions titles: " ++ show (map (^. L.title) allActions)
-            ++ "\n Expected action titles: " ++ show names
+            ++ "\n Expected actions titles: " ++ show names
 
 -- Silence warnings
 hsImportSpec formatter args =
