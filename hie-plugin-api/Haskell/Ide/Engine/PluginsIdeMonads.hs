@@ -155,6 +155,7 @@ import           Language.Haskell.LSP.Types     ( Command(..)
                                                 , WorkspaceEdit(..)
                                                 , filePathToUri
                                                 , uriToFilePath
+                                                , toNormalizedUri
                                                 )
 
 import           Language.Haskell.LSP.VFS       ( VirtualFile(..) )
@@ -410,7 +411,7 @@ getVirtualFile :: (MonadIde m, MonadIO m) => Uri -> m (Maybe VirtualFile)
 getVirtualFile uri = do
   mlf <- ideEnvLspFuncs <$> getIdeEnv
   case mlf of
-    Just lf -> liftIO $ Core.getVirtualFileFunc lf uri
+    Just lf -> liftIO $ Core.getVirtualFileFunc lf (toNormalizedUri uri)
     Nothing -> return Nothing
 
 getConfig :: (MonadIde m, MonadIO m) => m Config
