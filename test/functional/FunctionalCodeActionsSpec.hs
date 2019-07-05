@@ -751,11 +751,11 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
       let actions = filter (\actn -> actn ^. L.title `elem` names) allActions
       case actions of
         (action:_) -> executeCodeAction action
-        xs ->
+        [] ->
           error
-            $  "Found an unexpected amount of action. Expected 1, but got: "
-            ++ show (length xs)
-            ++ ".\n Titles: " ++ show (map (^. L.title) allActions)
+            $  "No action found to be executed!"
+            ++ "\n Actual actions titles: " ++ show (map (^. L.title) allActions)
+            ++ "\n Expected actions titles: " ++ show names
 
 -- Silence warnings
 hsImportSpec formatter args =
