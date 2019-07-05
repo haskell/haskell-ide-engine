@@ -173,7 +173,7 @@ funcSpec = describe "functional dispatch" $ do
 
       -- followed by the diagnostics ...
       ("req2",Right res2) <- atomically $ readTChan logChan
-      show res2 `shouldBe` "((Map Uri (Set Diagnostic)),[Text])"
+      show res2 `shouldBe` "(Diagnostics,[Text])"
 
       -- No more pending results
       rr3 <- atomically $ tryReadTChan logChan
@@ -280,7 +280,7 @@ funcSpec = describe "functional dispatch" $ do
       unpackRes hr7 `shouldBe` ("req7", Just ([] :: [Location]))
 
       ("req8", Right diags) <- atomically $ readTChan logChan
-      show diags `shouldBe` "((Map Uri (Set Diagnostic)),[Text])"
+      show diags `shouldBe` "(Diagnostics,[Text])"
 
       killThread dispatcher
 

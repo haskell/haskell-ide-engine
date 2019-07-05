@@ -11,7 +11,7 @@
 module Haskell.Ide.Engine.Ghc
   (
     setTypecheckedModule
-  , Diagnostics
+  , Diagnostics(..)
   , AdditionalErrs
   , cabalModuleGraphs
   , makeRevRedirMapFunc
@@ -21,9 +21,11 @@ import           Bag
 import           Control.Monad.IO.Class
 import           Data.IORef
 import qualified Data.Map.Strict                   as Map
-import           Data.Monoid ((<>))
+import           Data.Semigroup ((<>), Semigroup)
 import qualified Data.Set                          as Set
 import qualified Data.Text                         as T
+import qualified Data.Aeson
+import           Data.Coerce
 import           ErrUtils
 
 import qualified GhcModCore                   as GM ( withDynFlags
@@ -45,10 +47,24 @@ import           GHC
 import           IOEnv                             as G
 import           HscTypes
 import           Outputable                        (renderWithStyle)
+import           Language.Haskell.LSP.Types        ( NormalizedUri(..), toNormalizedUri )
 
 -- ---------------------------------------------------------------------
 
-type Diagnostics = Map.Map Uri (Set.Set Diagnostic)
+newtype Diagnostics = Diagnostics (Map.Map NormalizedUri (Set.Set Diagnostic))
+  deriving (Show, Eq)
+
+instance Semigroup Diagnostics where
+  Diagnostics d1 <> Diagnostics d2 = Diagnostics (d1 <> d2)
+
+instance Monoid Diagnostics where
+  mappend = (<>)
+  mempty = Diagnostics mempty
+
+instance Data.Aeson.ToJSON Diagnostics where
+  toJSON (Diagnostics d) = Data.Aeson.toJSON
+    (Map.mapKeys coerce d :: Map.Map T.Text (Set.Set Diagnostic))
+
 type AdditionalErrs = [T.Text]
 
 -- ---------------------------------------------------------------------
@@ -68,10 +84,9 @@ logDiag rfm eref dref df _reason sev spn style msg = do
   let msgTxt = T.pack $ renderWithStyle df msg style
   case eloc of
     Right (Location uri range) -> do
-      let update = Map.insertWith Set.union uri l
-            where l = Set.singleton diag
+      let update = Map.insertWith Set.union (toNormalizedUri uri) (Set.singleton diag)
           diag = Diagnostic range (Just $ lspSev sev) Nothing (Just "ghcmod") msgTxt Nothing
-      modifyIORef' dref update
+      modifyIORef' dref (\(Diagnostics d) -> Diagnostics $ update d)
     Left _ -> do
       modifyIORef' eref (msgTxt:)
       return ()
@@ -109,9 +124,11 @@ srcErrToDiag df rfm se = do
         (m,es) <- processMsgs xs
         case res of
           Right (uri, diag) ->
-            return (Map.insertWith Set.union uri (Set.singleton diag) m, es)
+            return (Map.insertWith Set.union (toNormalizedUri uri) (Set.singleton diag) m, es)
           Left e -> return (m, e:es)
-  processMsgs errMsgs
+
+  (diags, errs) <- processMsgs errMsgs
+  return (Diagnostics diags, errs)
 
 -- ---------------------------------------------------------------------
 
@@ -121,11 +138,14 @@ myWrapper :: GM.IOish m
   -> GM.GmlT m (Diagnostics, AdditionalErrs)
 myWrapper rfm action = do
   env <- getSession
-  diagRef <- liftIO $ newIORef Map.empty
+  diagRef <- liftIO $ newIORef mempty
   errRef <- liftIO $ newIORef []
   let setLogger df = df { log_action = logDiag rfm errRef diagRef }
       setDeferTypedHoles = setGeneralFlag' Opt_DeferTypedHoles
-      ghcErrRes msg = (Map.empty, [T.pack msg])
+
+      ghcErrRes :: String -> (Diagnostics, AdditionalErrs)
+      ghcErrRes msg = (mempty, [T.pack msg])
+
       handlers = errorHandlers ghcErrRes (srcErrToDiag (hsc_dflags env) rfm )
       action' = do
         GM.withDynFlags (setLogger . setDeferTypedHoles) action
@@ -167,7 +187,7 @@ setTypecheckedModule uri =
     debugm $ "setTypecheckedModule: file mapping state is: " ++ show fileMap
     rfm <- GM.mkRevRedirMapFunc
     let
-      ghcErrRes msg = ((Map.empty, [T.pack msg]),Nothing,Nothing)
+      ghcErrRes msg = ((Diagnostics Map.empty, [T.pack msg]),Nothing,Nothing)
       progTitle = "Typechecking " <> T.pack (takeFileName fp)
     debugm "setTypecheckedModule: before ghc-mod"
     -- TODO:AZ: loading this one module may/should trigger loads of any
@@ -175,12 +195,12 @@ setTypecheckedModule uri =
     -- sure that their diagnostics are reported, and their module
     -- cache entries are updated.
     -- TODO: Are there any hooks we can use to report back on the progress?
-    ((diags', errs), mtm, mpm) <- withIndefiniteProgress progTitle NotCancellable $ GM.gcatches
+    ((Diagnostics diags', errs), mtm, mpm) <- withIndefiniteProgress progTitle NotCancellable $ GM.gcatches
       (GM.getModulesGhc' (myWrapper rfm) fp)
       (errorHandlers ghcErrRes (return . ghcErrRes . show))
     debugm "setTypecheckedModule: after ghc-mod"
 
-    canonUri <- canonicalizeUri uri
+    canonUri <- toNormalizedUri <$> canonicalizeUri uri
     let diags = Map.insertWith Set.union canonUri Set.empty diags'
     diags2 <- case (mpm,mtm) of
       (Just pm, Nothing) -> do
@@ -212,7 +232,7 @@ setTypecheckedModule uri =
         let d = Diagnostic range sev Nothing (Just "ghcmod") msgTxt Nothing
         return $ Map.insertWith Set.union canonUri (Set.singleton d) diags
 
-    return $ IdeResultOk (diags2,errs)
+    return $ IdeResultOk (Diagnostics diags2,errs)
 
 -- ---------------------------------------------------------------------
 
