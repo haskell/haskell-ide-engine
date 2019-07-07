@@ -1,4 +1,4 @@
-resolver: nightly-2019-05-31 # GHC 8.6.5
+resolver: nightly-2019-07-07 # GHC 8.6.5
 packages:
 - .
 - hie-plugin-api
@@ -13,12 +13,9 @@ extra-deps:
 - ansi-terminal-0.8.2
 - ansi-wl-pprint-0.6.8.2
 - brittany-0.12.0.0
-- butcher-1.3.2.1
 - cabal-plan-0.4.0.0
 - constrained-dynamic-0.1.0.0
-- deque-0.2.7
 - floskell-0.10.1
-- ghc-exactprint-0.5.8.2
 - ghc-lib-parser-8.8.0.20190424
 - haddock-api-2.22.0
 - haskell-lsp-0.15.0.0
@@ -27,8 +24,6 @@ extra-deps:
 - hsimport-0.10.0
 - lsp-test-0.6.0.0
 - monad-dijkstra-0.1.1.2@rev:1
-- monad-memo-0.4.1
-- multistate-0.8.0.1
 - syz-0.2.0.0
 - temporary-1.2.1.1
 # To make build work in windows 7
