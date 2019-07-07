@@ -141,6 +141,10 @@ renderTarget t = T.intercalate "\n" $
 annotate :: (String, String) -> String
 annotate (thing,url) = "["<>thing<>"]"<>"("<>url<>")"
 
+-- | Hoogle results contain html like tags.
+-- We remove them with `tagsoup` here.
+-- So, if something hoogle related shows html tags,
+-- then maybe this function is responsible.
 unHTML :: T.Text -> T.Text
 unHTML = T.replace "<0>" "" . innerText . parseTags
 
@@ -172,13 +176,6 @@ searchModules = fmap (map fst) . searchModules'
 searchModules' :: T.Text -> IdeM [(T.Text, T.Text)]
 searchModules' = fmap (take 5 . nub) . searchTargets retrieveModuleAndSignature
   where
-    -- | Hoogle results contain html like tags.
-    -- We remove them with `tagsoup` here.
-    -- So, if something hoogle related shows html tags,
-    -- then maybe this function is responsible.
-    normaliseItem :: T.Text -> T.Text
-    normaliseItem = innerText . parseTags
-
     retrieveModuleAndSignature :: Target -> Maybe (T.Text, T.Text)
     retrieveModuleAndSignature target = liftA2 (,) (packModuleName target) (packSymbolSignature target)
 
@@ -186,7 +183,7 @@ searchModules' = fmap (take 5 . nub) . searchTargets retrieveModuleAndSignature
     packModuleName = fmap (T.pack . fst) . targetModule
 
     packSymbolSignature :: Target -> Maybe T.Text
-    packSymbolSignature = Just . normaliseItem . T.pack . targetItem
+    packSymbolSignature = Just . unHTML . T.pack . targetItem
 
 -- | Search for packages that satisfy the given search text.
 -- Will return at most five, unique results.
