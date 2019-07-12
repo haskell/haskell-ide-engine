@@ -5,3 +5,7 @@ packages:
 
 nix:
   packages: [ zlib ]
+
+flags:
+  hie-install:
+    run-from-stack: true
