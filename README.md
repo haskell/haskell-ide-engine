@@ -360,7 +360,7 @@ in
 }
 ```
 
-Now open a haskell project with Sublime Text. You should have these features available to you:
+Now open a Haskell project with Sublime Text. You should have these features available to you:
 
 1. Errors are underlined in red
 2. LSP: Show Diagnostics will show a list of hints and errors
@@ -371,8 +371,8 @@ Now open a haskell project with Sublime Text. You should have these features ava
 As above, make sure HIE is installed. These instructions are for using the [LanguageClient-neovim](https://github.com/autozimu/LanguageClient-neovim) client.
 
 #### vim-plug
-If you use [vim-plug](https://github.com/junegunn/vim-plug), then you can do this by e.g.
-including the following line in the Plug section of your `init.vim`:
+If you use [vim-plug](https://github.com/junegunn/vim-plug), then you can do this by e.g.,
+including the following line in the Plug section of your `init.vim` or `~/.vimrc`:
 
 ```
 Plug 'autozimu/LanguageClient-neovim', {
@@ -381,10 +381,10 @@ Plug 'autozimu/LanguageClient-neovim', {
     \ }
 ```
 
-and issuing a `:PlugInstall` command within neovim.
+and issuing a `:PlugInstall` command within Neovim or Vim.
 
-#### Vim 8.0
-Clone [LanguageClient-neovim](https://github.com/autozimu/LanguageClient-neovim)
+#### Clone the LanguageClient-neovim repo
+As an alternative to using [vim-plug](https://github.com/junegunn/vim-plug) shown above, clone [LanguageClient-neovim](https://github.com/autozimu/LanguageClient-neovim)
 into `~/.vim/pack/XXX/start/`, where `XXX` is just a name for your "plugin suite".
 
 #### Sample `~/.vimrc`
