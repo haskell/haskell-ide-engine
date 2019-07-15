@@ -4,6 +4,7 @@ module TestUtils
     withFileLogging
   , setupStackFiles
   , testCommand
+  , runSingle
   , runSingleReq
   , makeRequest
   , runIGM
@@ -51,6 +52,9 @@ testCommand testPlugins act plugin cmd arg res = do
   newApiRes `shouldBe` res
   fmap fromDynJSON oldApiRes `shouldBe` fmap Just res
 
+runSingle :: IdePlugins -> IdeGhcM (IdeResult b) -> IO (IdeResult b)
+runSingle testPlugins act = runIGM testPlugins  act
+
 runSingleReq :: ToJSON a
              => IdePlugins -> PluginId -> CommandName -> a -> IO (IdeResult DynamicJSON)
 runSingleReq testPlugins plugin com arg = runIGM testPlugins (makeRequest plugin com arg)
@@ -94,10 +98,8 @@ files =
   [  "./test/testdata/"
    , "./test/testdata/addPackageTest/cabal-exe/"
    , "./test/testdata/addPackageTest/hpack-exe/"
-   , "./test/testdata/addPackageTest/hybrid-exe/"
    , "./test/testdata/addPackageTest/cabal-lib/"
    , "./test/testdata/addPackageTest/hpack-lib/"
-   , "./test/testdata/addPackageTest/hybrid-lib/"
    , "./test/testdata/addPragmas/"
    , "./test/testdata/badProjects/cabal/"
    , "./test/testdata/completion/"

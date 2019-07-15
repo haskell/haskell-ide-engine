@@ -280,9 +280,13 @@ cacheModule fp modul = do
         let defInfo = CachedInfo mempty mempty mempty mempty rfm return return
         return $ case muc of
           Just (UriCacheSuccess uc) ->
-            let newCI = (cachedInfo uc) { revMap = rfm }
-              in uc { cachedPsMod = pm, cachedInfo = newCI, cachedHash = fp_hash }
-          _ -> UriCache defInfo pm Nothing mempty fp_hash
+            let newCI = oldCI { revMap = rfm . revMap oldCI }
+                    --                         ^^^^^^^^^^^^
+                    -- We have to retain the old mapping state, since the
+                    -- old TypecheckedModule still contains spans relative to that
+                oldCI = cachedInfo uc
+              in uc { cachedPsMod = pm, cachedInfo = newCI }
+          _ -> UriCache defInfo pm Nothing mempty
 
       Right tm -> do
         typm <- genTypeMap tm

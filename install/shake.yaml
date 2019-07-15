@@ -1,7 +1,11 @@
 # Used to provide a different environment for the shake build script
-resolver: nightly-2018-12-15 # GHC 8.6.2
+resolver: lts-13.18 # GHC 8.6.4
 packages:
 - .
 
 nix:
   packages: [ zlib ]
+
+flags:
+  hie-install:
+    run-from-stack: true

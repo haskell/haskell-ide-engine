@@ -4,7 +4,6 @@ packages:
          ./hie-bios/
 
          ./submodules/HaRe
-         ./submodules/brittany
          ./submodules/cabal-helper/
          ./submodules/ghc-mod/
          ./submodules/ghc-mod/core/

@@ -156,7 +156,7 @@ generateDiagnosics cb uri file = do
 
 -- ---------------------------------------------------------------------
 
--- Find and run the liquid haskell executable
+-- | Find and run the liquid haskell executable
 runLiquidHaskell :: FilePath -> IO (Maybe (ExitCode,[String]))
 runLiquidHaskell fp = do
   mexe <- findExecutable "liquid"
@@ -168,13 +168,14 @@ runLiquidHaskell fp = do
       let cmd = lh ++ " --json \"" ++ fp ++ "\""
           dir = takeDirectory fp
           cp = (shell cmd) { cwd = Just dir }
-      logm $ "runLiquidHaskell:cmd=[" ++ cmd ++ "]"
+      -- logm $ "runLiquidHaskell:cmd=[" ++ cmd ++ "]"
       mpp <- lookupEnv "GHC_PACKAGE_PATH"
+      -- logm $ "runLiquidHaskell:mpp=[" ++ show mpp ++ "]"
       (ec,o,e) <- bracket
         (unsetEnv "GHC_PACKAGE_PATH")
         (\_ -> mapM_ (setEnv "GHC_PACKAGE_PATH") mpp)
         (\_ -> readCreateProcessWithExitCode cp "")
-      logm $ "runLiquidHaskell:v=" ++ show (ec,o,e)
+      -- logm $ "runLiquidHaskell:v=" ++ show (ec,o,e)
       return $ Just (ec,[o,e])
 
 -- ---------------------------------------------------------------------

@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveAnyClass #-}
@@ -152,6 +153,7 @@ import           Language.Haskell.LSP.Types     ( Command(..)
                                                 , WorkspaceEdit(..)
                                                 , filePathToUri
                                                 , uriToFilePath
+                                                , toNormalizedUri
                                                 )
 
 import           Language.Haskell.LSP.VFS       ( VirtualFile(..) )
@@ -412,7 +414,7 @@ getVirtualFile :: (MonadIde m, MonadIO m) => Uri -> m (Maybe VirtualFile)
 getVirtualFile uri = do
   mlf <- ideEnvLspFuncs <$> getIdeEnv
   case mlf of
-    Just lf -> liftIO $ Core.getVirtualFileFunc lf uri
+    Just lf -> liftIO $ Core.getVirtualFileFunc lf (toNormalizedUri uri)
     Nothing -> return Nothing
 
 persistVirtualFile :: (MonadIde m, MonadIO m) => Uri -> m FilePath
@@ -472,7 +474,7 @@ withIndefiniteProgress t c f = do
     Just wp -> control $ \run -> wp t c (run f)
 
 data IdeState = IdeState
-  { moduleCache :: GhcModuleCache
+  { moduleCache :: !GhcModuleCache
   -- | A queue of requests to be performed once a module is loaded
   , requestQueue :: Map.Map FilePath [UriCacheResult -> IdeM ()]
   , extensibleState :: !(Map.Map TypeRep Dynamic)
@@ -516,7 +518,7 @@ instance HasGhcModuleCache IdeM where
     tvar <- lift ask
     state <- readTVarIO tvar
     return (moduleCache state)
-  setModuleCache mc = do
+  setModuleCache !mc = do
     tvar <- lift ask
     atomically $ modifyTVar' tvar (\st -> st { moduleCache = mc })
 
