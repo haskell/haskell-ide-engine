@@ -9,6 +9,7 @@ extra-deps:
 - ./submodules/cabal-helper
 - ./submodules/ghc-mod/ghc-project-types
 
+- deque-0.2.7@sha256:ab8ac7a379347fdb8e083297d3bc95372e420c8a96833ddb10a9c8d11ae1f278,1202
 - ansi-terminal-0.8.2
 - butcher-1.3.2.1
 - bytestring-trie-0.2.5.0

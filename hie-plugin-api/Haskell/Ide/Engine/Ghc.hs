@@ -75,7 +75,7 @@ newtype Diagnostics = Diagnostics (Map.Map NormalizedUri (Set.Set Diagnostic))
   deriving (Show, Eq)
 
 instance Semigroup Diagnostics where
-  Diagnostics d1 <> Diagnostics d2 = Diagnostics (d1 <> d2)
+  Diagnostics d1 <> Diagnostics d2 = Diagnostics (Map.unionWith Set.union d1 d2)
 
 instance Monoid Diagnostics where
   mappend = (<>)
@@ -96,20 +96,6 @@ lspSev SevError   = DsError
 lspSev SevFatal   = DsError
 lspSev SevInfo    = DsInfo
 lspSev _          = DsInfo
-
--- type LogAction = DynFlags -> WarnReason -> Severity -> SrcSpan -> PprStyle -> MsgDoc -> IO ()
-logDiag :: (FilePath -> FilePath) -> IORef AdditionalErrs -> IORef Diagnostics -> LogAction
-logDiag rfm eref dref df _reason sev spn style msg = do
-  eloc <- srcSpan2Loc rfm spn
-  let msgTxt = T.pack $ renderWithStyle df msg style
-  case eloc of
-    Right (Location uri range) -> do
-      let update = Map.insertWith Set.union (toNormalizedUri uri) (Set.singleton diag)
-          diag = Diagnostic range (Just $ lspSev sev) Nothing (Just "ghcmod") msgTxt Nothing
-      modifyIORef' dref (\(Diagnostics d) -> Diagnostics $ update d)
-    Left _ -> do
-      modifyIORef' eref (msgTxt:)
-      return ()
 
 -- ---------------------------------------------------------------------
 
@@ -158,24 +144,20 @@ captureDiagnostics :: (MonadIO m, GhcMonad m)
   -> m (Diagnostics, AdditionalErrs, Maybe r)
 captureDiagnostics rfm action = do
   env <- getSession
-  diagRef <- liftIO $ newIORef mempty
+  diagRef <- liftIO $ newIORef $ Diagnostics mempty
   errRef <- liftIO $ newIORef []
   let setLogger df = df { log_action = logDiag rfm errRef diagRef }
       setDeferTypedHoles = setGeneralFlag' Opt_DeferTypedHoles
 
-      ghcErrRes :: String -> (Diagnostics, AdditionalErrs)
-      ghcErrRes msg = do
-        diags <- liftIO $ readIORef diagRef
-        errs <- liftIO $ readIORef errRef
-        return (diags, (T.pack msg) : errs, Nothing)
+      ghcErrRes msg = pure (mempty, [T.pack msg], Nothing)
       to_diag x = do
         (d1, e1) <- srcErrToDiag (hsc_dflags env) rfm x
         diags <- liftIO $ readIORef diagRef
         errs <- liftIO $ readIORef errRef
-        return (Map.unionWith Set.union d1 diags, e1 ++ errs, Nothing)
+        return (d1 <> diags, e1 ++ errs, Nothing)
 
+      handlers = errorHandlers ghcErrRes to_diag
 
-      handlers = errorHandlers ghcErrRes (srcErrToDiag (hsc_dflags env) rfm )
       action' = do
         r <- BIOS.withDynFlags (setLogger . setDeferTypedHoles) action
         diags <- liftIO $ readIORef diagRef
@@ -193,11 +175,11 @@ logDiag rfm eref dref df _reason sev spn style msg = do
   let msgTxt = T.pack $ renderWithStyle df msg style
   case eloc of
     Right (Location uri range) -> do
-      let update = Map.insertWith Set.union uri l
+      let update = Map.insertWith Set.union (toNormalizedUri uri) l
             where l = Set.singleton diag
           diag = Diagnostic range (Just $ lspSev sev) Nothing (Just "bios") msgTxt Nothing
       debugm $ "Writing diag" <> (show diag)
-      modifyIORef' dref update
+      modifyIORef' dref (\(Diagnostics u) -> Diagnostics (update u))
     Left _ -> do
       debugm $ "Writing err" <> (show msgTxt)
       modifyIORef' eref (msgTxt:)
@@ -263,25 +245,13 @@ setTypecheckedModule_load uri =
     mapped_fp <- persistVirtualFile uri
     liftIO $ copyHsBoot fp mapped_fp
     rfm <- reverseFileMap
-    let progTitle = "Typechecking " <> T.pack (takeFileName fp)
-    (diags', errs, mmods) <- loadFile rfm (fp, mapped_fp)
-    debugm "File, loaded"
-    fileMap <- GM.getMMappedFiles
-    debugm $ "setTypecheckedModule: file mapping state is: " ++ show fileMap
-    rfm <- GM.mkRevRedirMapFunc
-    let
-      ghcErrRes msg = ((Diagnostics Map.empty, [T.pack msg]),Nothing,Nothing)
-      progTitle = "Typechecking " <> T.pack (takeFileName fp)
-    debugm "setTypecheckedModule: before ghc-mod"
     -- TODO:AZ: loading this one module may/should trigger loads of any
     -- other modules which currently have a VFS entry.  Need to make
     -- sure that their diagnostics are reported, and their module
     -- cache entries are updated.
     -- TODO: Are there any hooks we can use to report back on the progress?
-    ((Diagnostics diags', errs), mtm, mpm) <- withIndefiniteProgress progTitle NotCancellable $ GM.gcatches
-      (GM.getModulesGhc' (myWrapper rfm) fp)
-      (errorHandlers ghcErrRes (return . ghcErrRes . show))
-
+    (Diagnostics diags', errs, mmods) <- loadFile rfm (fp, mapped_fp)
+    debugm "File, loaded"
     canonUri <- toNormalizedUri <$> canonicalizeUri uri
     let diags = Map.insertWith Set.union canonUri Set.empty diags'
     debugm "setTypecheckedModule: after ghc-mod"

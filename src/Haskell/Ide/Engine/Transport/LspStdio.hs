@@ -234,7 +234,8 @@ mapFileFromVfs tn vtdi = do
       let req = GReq tn (Just uri) Nothing Nothing (const $ return ())
                   $ IdeResultOk <$> do
                       persistVirtualFile uri
-  updateDocumentRequest uri ver req
+      updateDocumentRequest uri ver req
+    (_, _) -> return ()
 
 -- TODO: generalise this and move it to GhcMod.ModuleLoader
 updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeGhcM (IdeResult ())
@@ -947,7 +948,7 @@ requestDiagnosticsNormal tn file mVer = do
   -- get GHC diagnostics and loads the typechecked module into the cache
   let reqg = GReq tn (Just file) (Just (file,ver)) Nothing callbackg
                $ BIOS.setTypecheckedModule file
-      callbackg (pd, errs) = do
+      callbackg (HIE.Diagnostics pd, errs) = do
         forM_ errs $ \e -> do
           reactorSend $ NotShowMessage $
             fmServerShowMessageNotification J.MtError

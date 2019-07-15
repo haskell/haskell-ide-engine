@@ -286,7 +286,7 @@ cacheModule fp modul = do
                     -- old TypecheckedModule still contains spans relative to that
                 oldCI = cachedInfo uc
               in uc { cachedPsMod = pm, cachedInfo = newCI }
-          _ -> UriCache defInfo pm Nothing mempty
+          _ -> UriCache defInfo pm Nothing mempty fp_hash
 
       Right tm -> do
         typm <- genTypeMap tm

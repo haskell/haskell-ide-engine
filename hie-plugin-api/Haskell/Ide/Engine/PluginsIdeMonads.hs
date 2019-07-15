@@ -421,7 +421,7 @@ persistVirtualFile :: (MonadIde m, MonadIO m) => Uri -> m FilePath
 persistVirtualFile uri = do
   mlf <- ideEnvLspFuncs <$> getIdeEnv
   case mlf of
-    Just lf ->  liftIO $ Core.persistVirtualFileFunc lf uri
+    Just lf ->  liftIO $ Core.persistVirtualFileFunc lf (toNormalizedUri uri)
     Nothing -> maybe (error "persist") return (uriToFilePath uri)
 
 reverseFileMap :: (MonadIde m, MonadIO m) => m (FilePath -> FilePath)
