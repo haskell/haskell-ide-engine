@@ -8,8 +8,6 @@ extra-deps:
 - ./submodules/HaRe
 - ./submodules/brittany
 - ./submodules/cabal-helper
-- ./submodules/ghc-mod
-- ./submodules/ghc-mod/core
 - ./submodules/ghc-mod/ghc-project-types
 
 - ansi-terminal-0.8.2
