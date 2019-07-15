@@ -21,9 +21,6 @@ import qualified Data.Text                                    as T
 import qualified Data.Text.IO                                 as T
 import           Exception
 import           GHC.Generics                                 (Generic)
---import qualified GhcMod.Error                                 as GM
---import qualified GhcMod.Monad                                 as GM
--- import qualified GhcMod.Utils                                 as GM
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
@@ -46,8 +43,7 @@ hareDescriptor plId = PluginDescriptor
               <> "Haskell 2010 standard, through making use of the GHC API.  HaRe attempts to "
               <> "operate in a safe way, by first writing new files with proposed changes, and "
               <> "only swapping these with the originals when the change is accepted. "
-  , pluginCommands = []
-  {-
+  , pluginCommands =
       [ PluginCommand "demote" "Move a definition one level down"
           demoteCmd
       , PluginCommand "dupdef" "Duplicate a definition"
@@ -66,14 +62,12 @@ hareDescriptor plId = PluginDescriptor
           genApplicativeCommand
 
       ]
-  -}
-  , pluginCodeActionProvider = Nothing -- Just codeActionProvider
+  , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Nothing
   , pluginSymbolProvider = Nothing
   , pluginFormattingProvider = Nothing
   }
-  {-
 
 -- ---------------------------------------------------------------------
 
@@ -266,30 +260,11 @@ runHareCommand' cmd =
            evalStateT cmd' initialState
          handlers
            :: Applicative m
-           => [GM.GHandler m (Either String a)]
+           => [ErrorHandler m (Either String a)]
          handlers =
-           [GM.GHandler (\(ErrorCall e) -> pure (Left e))
-           ,GM.GHandler (\(err :: GM.GhcModError) -> pure (Left (show err)))]
+           [ErrorHandler (\(ErrorCall e) -> pure (Left e))]
+     fmap Right embeddedCmd `gcatches` handlers
 
-     r <- liftIO $ GM.runGhcModT Language.Haskell.Refact.HaRe.defaultOptions (fmap Right embeddedCmd `GM.gcatches` handlers)
-     case r of
-       (Right err, _) -> return err
-       (Left err, _)  -> error (show err)
-
-
-
--- ---------------------------------------------------------------------
--- | This is like hoist from the mmorph package, but build on
--- `MonadTransControl` since we don’t have an `MFunctor` instance.
-hoist
-  :: (MonadTransControl t,Monad (t m'),Monad m',Monad m)
-  => (forall b. m b -> m' b) -> t m a -> t m' a
-hoist f a =
-  liftWith (\run ->
-              let b = run a
-                  c = f b
-              in pure c) >>=
-  restoreT
 
 -- ---------------------------------------------------------------------
 
@@ -331,4 +306,3 @@ codeActionProvider pId docId (J.Range pos _) _ =
       let args = [J.toJSON $ HPT (docId ^. J.uri) pos (name <> "'")]
       cmd <- mkLspCommand pId aId title (Just args)
       return $ J.CodeAction (title <> name) (Just kind) mempty Nothing (Just cmd)
--}

@@ -52,14 +52,7 @@ import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Scheduler            as Scheduler
 import qualified Haskell.Ide.Engine.Support.HieExtras     as Hie
 import           Haskell.Ide.Engine.Types
---import           Haskell.Ide.Engine.LSP.CodeActions
---import           Haskell.Ide.Engine.LSP.Reactor
--- import qualified Haskell.Ide.Engine.Plugin.HaRe          as HaRe
 import qualified Haskell.Ide.Engine.Plugin.Bios          as BIOS
---import qualified Haskell.Ide.Engine.Plugin.ApplyRefact   as ApplyRefact
---import qualified Haskell.Ide.Engine.Plugin.Hoogle        as Hoogle
---import qualified Haskell.Ide.Engine.Support.HieExtras     as Hie
--- import           Haskell.Ide.Engine.Plugin.Base
 import qualified Language.Haskell.LSP.Control            as CTRL
 import qualified Language.Haskell.LSP.Core               as Core
 import           Language.Haskell.LSP.Diagnostics
@@ -514,7 +507,7 @@ reactor inp diagIn = do
 
         -- -------------------------------
 
-        {-ReqRename req -> do
+        ReqRename req -> do
           liftIO $ U.logs $ "reactor:got RenameRequest:" ++ show req
           let (params, doc, pos) = reqParams req
               newName  = params ^. J.newName
@@ -522,7 +515,6 @@ reactor inp diagIn = do
           let hreq = GReq tn (Just doc) Nothing (Just $ req ^. J.id) callback
                        $ HaRe.renameCmd' doc pos newName
           makeRequest hreq
-          -}
 
 
         -- -------------------------------
