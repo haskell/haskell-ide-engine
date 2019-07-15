@@ -34,6 +34,7 @@ extra-deps:
 - syz-0.2.0.0
 - temporary-1.2.1.1
 - yaml-0.8.32
+- dhall-1.20.1@sha256:3377090039ba3560b50515799affc57d74d2d3e57d3f8699bb2a9fc428fa4918,23401
 
 
 # allow-newer: true

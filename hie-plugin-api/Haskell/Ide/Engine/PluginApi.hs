@@ -58,7 +58,7 @@ module Haskell.Ide.Engine.PluginApi
   , HIE.CachedInfo(..)
 
   -- * used for tests in HaRe
---  , HIE.BiosLogLevel(..)
+  , BiosLogLevel(..)
   , BiosOptions(..)
   , defaultOptions
   ) where
