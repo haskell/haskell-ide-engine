@@ -68,6 +68,7 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , withIndefiniteProgress
   , persistVirtualFile
   , reverseFileMap
+  , withMappedFile
   , Core.Progress(..)
   , Core.ProgressCancellable(..)
   -- ** Lifting
@@ -119,6 +120,7 @@ import qualified Data.Text                     as T
 import           Data.Typeable                  ( TypeRep
                                                 , Typeable
                                                 )
+import System.Directory
 import GhcMonad
 import qualified HIE.Bios as BIOS
 import           GHC.Generics
@@ -430,6 +432,13 @@ reverseFileMap = do
     case mlf of
       Just lf -> liftIO $ Core.reverseFileMapFunc lf
       Nothing -> return id
+
+withMappedFile :: (MonadIde m, MonadIO m) => FilePath -> (FilePath -> m a) -> m a
+withMappedFile fp k = do
+  rfm <- reverseFileMap
+  fp' <- liftIO $ canonicalizePath fp
+  k $ rfm fp'
+
 
 getConfig :: (MonadIde m, MonadIO m) => m Config
 getConfig = do

@@ -128,8 +128,7 @@ importModule uri impStyle modName =
   pluginGetFile "hsimport cmd: " uri $ \origInput -> do
     shouldFormat <- formatOnImportOn <$> getConfig
 
-    fileMap <- return id -- TODO: GM.mkRevRedirMapFunc
---    GM.withMappedFile origInput $ \input -> do
+    fileMap <- reverseFileMap
     let input = origInput
     do
       tmpDir            <- liftIO getTemporaryDirectory

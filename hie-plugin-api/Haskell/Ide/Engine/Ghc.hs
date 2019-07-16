@@ -21,6 +21,7 @@ import           Bag
 import           Control.Monad.IO.Class
 import           Data.IORef
 import qualified Data.Map.Strict                   as Map
+import qualified Data.IntMap.Strict                   as IM
 import           Data.Semigroup ((<>), Semigroup)
 import qualified Data.Set                          as Set
 import qualified Data.Text                         as T
@@ -31,7 +32,6 @@ import           ErrUtils
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
-import           System.FilePath
 
 import           DynFlags
 import           GHC
@@ -40,35 +40,23 @@ import           HscTypes
 import           Outputable                        (renderWithStyle)
 import           Language.Haskell.LSP.Types        ( NormalizedUri(..), toNormalizedUri )
 
-import           Bag
-import           Control.Monad.IO.Class
-import           Data.IORef
-import qualified Data.Map.Strict                   as Map
 import           Data.Monoid ((<>))
-import qualified Data.Set                          as Set
-import qualified Data.Text                         as T
-import           ErrUtils
-import           System.FilePath
 
-import           Haskell.Ide.Engine.MonadFunctions
-import           Haskell.Ide.Engine.MonadTypes
-import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.GhcUtils
 --import qualified Haskell.Ide.Engine.Plugin.HieExtras as Hie
 
-import           DynFlags
-import           GHC
-import           IOEnv                             as G
-import           HscTypes
 import           Outputable hiding ((<>))
 -- This function should be defined in HIE probably, nothing in particular
 -- to do with BIOS
 import qualified HIE.Bios.GHCApi as BIOS (withDynFlags, CradleError)
 import qualified HIE.Bios as BIOS
 import Debug.Trace
-import qualified HscMain as G
 
 import System.Directory
+
+import GhcProject.Types as GM
+import Digraph (Node(..), verticesG)
+import GhcMake ( moduleGraphNodes )
 
 
 newtype Diagnostics = Diagnostics (Map.Map NormalizedUri (Set.Set Diagnostic))
@@ -292,22 +280,29 @@ setTypecheckedModule_load uri =
 
     return $ IdeResultOk (Diagnostics diags2,errs)
 
---
-cabalModuleGraphs = undefined
-{-
+-- TODO: make this work for all components
 cabalModuleGraphs :: IdeGhcM [GM.GmModuleGraph]
-cabalModuleGraphs = doCabalModuleGraphs
-  where
-    doCabalModuleGraphs :: (GM.IOish m) => GM.GhcModT m [GM.GmModuleGraph]
-    doCabalModuleGraphs = do
-      crdl <- GM.cradle
-      case GM.cradleCabalFile crdl of
-        Just _ -> do
-          mcs <- GM.cabalResolvedComponents
-          let graph = map GM.gmcHomeModuleGraph $ Map.elems mcs
-          return graph
-        Nothing -> return []
-        -}
+cabalModuleGraphs = do
+  mg <- getModuleGraph
+  let (graph, _) = moduleGraphNodes False (mgModSummaries mg)
+      msToModulePath ms =
+        case ml_hs_file (ms_location ms) of
+          Nothing -> []
+          Just fp -> [ModulePath mn fp]
+        where mn = moduleName (ms_mod ms)
+      nodeMap = IM.fromList [(node_key n,n) | n <- nodes]
+      nodes = verticesG graph
+      gmg = Map.fromList
+              [(mp,Set.fromList deps)
+                  | node <- nodes
+                  , mp <- msToModulePath (node_payload node)
+                  , let int_deps = node_dependencies node
+                        deps = [ d | i <- int_deps
+                                   , Just dep_node <- pure $ IM.lookup i nodeMap
+                                   , d <- msToModulePath (node_payload dep_node)
+                               ]
+                  ]
+  pure [GmModuleGraph gmg]
 
 -- ---------------------------------------------------------------------
 

@@ -28,11 +28,14 @@ import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Support.HieExtras         as Hie
 import           Language.Haskell.GHC.ExactPrint.Print
 import qualified Language.Haskell.LSP.Core                    as Core
+import           Language.Haskell.LSP.VFS
 import qualified Language.Haskell.LSP.Types                   as J
 import qualified Language.Haskell.LSP.Types.Lens              as J
 import           Language.Haskell.Refact.API                  hiding (logm)
 import           Language.Haskell.Refact.HaRe
 import           Language.Haskell.Refact.Utils.Monad          hiding (logm)
+import qualified Data.Rope.UTF16 as Rope
+
 
 -- ---------------------------------------------------------------------
 hareDescriptor :: PluginId -> PluginDescriptor
@@ -208,8 +211,11 @@ makeRefactorResult changedFiles = do
   let
     diffOne :: (FilePath, T.Text) -> IdeGhcM WorkspaceEdit
     diffOne (fp, newText) = do
-      origText <- liftIO $ T.readFile fp
-        -- GM.withMappedFile fp $ liftIO . T.readFile
+      uri <- canonicalizeUri $ filePathToUri fp
+      mvf <- getVirtualFile uri
+      origText <- case mvf of
+        Nothing -> withMappedFile fp $ liftIO . T.readFile
+        Just vf -> pure (Rope.toText $ _text vf)
       -- TODO: remove this logging once we are sure we have a working solution
       logm $ "makeRefactorResult:groupedDiff = " ++ show (getGroupedDiff (lines $ T.unpack origText) (lines $ T.unpack newText))
       logm $ "makeRefactorResult:diffops = " ++ show (diffToLineRanges $ getGroupedDiff (lines $ T.unpack origText) (lines $ T.unpack newText))

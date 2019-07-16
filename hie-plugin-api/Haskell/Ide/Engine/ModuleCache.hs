@@ -35,7 +35,6 @@ import qualified Data.Map as Map
 import           Data.Maybe
 import           Data.Typeable (Typeable)
 import           System.Directory
-import UnliftIO
 
 import Debug.Trace
 
@@ -176,7 +175,7 @@ ifCachedModuleAndData :: forall a b m. (ModuleCache a, HasGhcModuleCache m, Mona
 ifCachedModuleAndData fp def callback = do
   muc <- getUriCache fp
   case muc of
-    Just (UriCacheSuccess uc@(UriCache info _ (Just tm) dat _)) ->
+    Just (UriCacheSuccess uc@(UriCache info _ (Just tm) dat)) ->
       case fromUriCache uc of
         Just modul -> lookupCachedData fp tm info dat >>= callback modul (cachedInfo uc)
         Nothing -> return def
@@ -191,7 +190,7 @@ ifCachedModuleAndData fp def callback = do
 -- see also 'ifCachedModule'.
 withCachedModule :: CacheableModule b => FilePath -> a -> (b -> CachedInfo -> IdeDeferM a) -> IdeDeferM a
 withCachedModule fp def callback = deferIfNotCached fp go
-  where go (UriCacheSuccess uc@(UriCache _ _ _ _ _)) =
+  where go (UriCacheSuccess uc@(UriCache _ _ _ _)) =
           case fromUriCache uc of
             Just modul -> callback modul (cachedInfo uc)
             Nothing -> wrap (Defer fp go)
@@ -209,7 +208,7 @@ withCachedModuleAndData :: forall a b. (ModuleCache a)
                         => FilePath -> b
                         -> (GHC.TypecheckedModule -> CachedInfo -> a -> IdeDeferM b) -> IdeDeferM b
 withCachedModuleAndData fp def callback = deferIfNotCached fp go
-  where go (UriCacheSuccess (uc@(UriCache info _ (Just tm) dat _))) =
+  where go (UriCacheSuccess (uc@(UriCache info _ (Just tm) dat))) =
           lookupCachedData fp tm info dat >>= callback tm (cachedInfo uc)
         go (UriCacheSuccess (UriCache { cachedTcMod = Nothing })) = wrap (Defer fp go)
         go UriCacheFailed = return def
@@ -217,18 +216,7 @@ withCachedModuleAndData fp def callback = deferIfNotCached fp go
 getUriCache :: (HasGhcModuleCache m, MonadIO m) => FilePath -> m (Maybe UriCacheResult)
 getUriCache fp = do
   canonical_fp <- liftIO $ canonicalizePath fp
-  raw_res <- fmap (Map.lookup canonical_fp . uriCaches) getModuleCache
-  case raw_res of
-    Just uri_res -> liftIO $ checkModuleHash canonical_fp uri_res
-    Nothing      -> return Nothing
-
-checkModuleHash :: FilePath -> UriCacheResult -> IO (Maybe UriCacheResult)
-checkModuleHash fp r@(UriCacheSuccess uri_res) = do
-  cur_hash <- hashModule fp
-  return $ if cachedHash uri_res == cur_hash
-    then Just r
-    else Nothing
-checkModuleHash _ r = return (Just r)
+  fmap (Map.lookup canonical_fp . uriCaches) getModuleCache
 
 deferIfNotCached :: FilePath -> (UriCacheResult -> IdeDeferM a) -> IdeDeferM a
 deferIfNotCached fp cb = do
@@ -246,9 +234,8 @@ lookupCachedData fp tm info dat = do
   case Map.lookup (typeRep proxy) dat of
     Nothing -> do
       val <- cacheDataProducer tm info
-      h <- liftIO $ hashModule canonical_fp
       let dat' = Map.insert (typeOf val) (toDyn val) dat
-          newUc = UriCache info (GHC.tm_parsed_module tm) (Just tm) dat' h
+          newUc = UriCache info (GHC.tm_parsed_module tm) (Just tm) dat'
       modifyCache (\s -> s {uriCaches = Map.insert canonical_fp (UriCacheSuccess newUc)
                                                   (uriCaches s)})
       return val
@@ -272,7 +259,6 @@ cacheModule :: FilePath -> (Either GHC.ParsedModule GHC.TypecheckedModule) -> Id
 cacheModule fp modul = do
   canonical_fp <- liftIO $ canonicalizePath fp
   rfm <- reverseFileMap
-  fp_hash <- liftIO $ hashModule fp
   newUc <-
     case modul of
       Left pm -> do
@@ -286,13 +272,13 @@ cacheModule fp modul = do
                     -- old TypecheckedModule still contains spans relative to that
                 oldCI = cachedInfo uc
               in uc { cachedPsMod = pm, cachedInfo = newCI }
-          _ -> UriCache defInfo pm Nothing mempty fp_hash
+          _ -> UriCache defInfo pm Nothing mempty
 
       Right tm -> do
         typm <- genTypeMap tm
         let info = CachedInfo (genLocMap tm) typm (genImportMap tm) (genDefMap tm) rfm return return
             pm = GHC.tm_parsed_module tm
-        return $ UriCache info pm (Just tm) mempty fp_hash
+        return $ UriCache info pm (Just tm) mempty
 
   let res = UriCacheSuccess newUc
   modifyCache $ \gmc ->

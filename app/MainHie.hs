@@ -18,6 +18,7 @@ import           System.Directory
 import           System.Environment
 import qualified System.Log.Logger                     as L
 import HIE.Bios.Types
+import System.IO
 
 -- ---------------------------------------------------------------------
 -- plugins
@@ -102,6 +103,7 @@ main = do
 
 run :: GlobalOpts -> IO ()
 run opts = do
+  hSetBuffering stderr LineBuffering
   let mLogFileName = optLogFile opts
 
       logLevel = if optDebugOn opts
