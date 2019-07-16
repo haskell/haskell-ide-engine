@@ -25,6 +25,7 @@ import           System.FilePath
 
 import           Test.Hspec
 import           Test.Hspec.Runner
+import System.IO
 
 -- ---------------------------------------------------------------------
 -- plugins
@@ -41,6 +42,7 @@ import           Haskell.Ide.Engine.Plugin.Generic
 
 main :: IO ()
 main = do
+  hSetBuffering stderr LineBuffering
   setupStackFiles
   config <- getHspecFormattedConfig "dispatcher"
   withFileLogging "main-dispatcher.log" $ do
@@ -162,7 +164,7 @@ funcSpec = describe "functional dispatch" $ do
       show rrr `shouldBe` "Nothing"
 
       -- need to typecheck the module to trigger deferred response
-      dispatchGhcRequest 2 "req2" 2 scheduler logChan "ghcmod" "check" (toJSON testUri)
+      dispatchGhcRequest 2 "req2" 2 scheduler logChan "bios" "check" (toJSON testUri)
 
       -- And now we get the deferred response (once the module is loaded)
       ("req1",Right res) <- atomically $ readTChan logChan
@@ -275,7 +277,7 @@ funcSpec = describe "functional dispatch" $ do
 
       dispatchIdeRequest 7 "req7" scheduler logChan (IdInt 7) $ findDef testFailUri (Position 1 2)
 
-      dispatchGhcRequest 8 "req8" 8 scheduler logChan "ghcmod" "check" (toJSON testFailUri)
+      dispatchGhcRequest 8 "req8" 8 scheduler logChan "bios" "check" (toJSON testFailUri)
 
       hr7 <- atomically $ readTChan logChan
       unpackRes hr7 `shouldBe` ("req7", Just ([] :: [Location]))

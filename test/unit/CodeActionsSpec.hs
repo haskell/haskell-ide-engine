@@ -4,7 +4,7 @@ module CodeActionsSpec where
 import Test.Hspec
 import qualified Data.Text.IO as T
 import Haskell.Ide.Engine.Plugin.HsImport
-import Haskell.Ide.Engine.Plugin.Generic
+import Haskell.Ide.Engine.Plugin.Generic hiding (Import)
 import Haskell.Ide.Engine.Plugin.Package
 
 main :: IO ()
