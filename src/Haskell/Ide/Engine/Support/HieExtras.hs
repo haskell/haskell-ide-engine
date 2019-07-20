@@ -24,6 +24,7 @@ module Haskell.Ide.Engine.Support.HieExtras
   , getFormattingPlugin
   ) where
 
+import TcRnTypes
 import           ConLike
 import           Control.Lens.Operators                       ( (^?), (?~) )
 import           Control.Lens.Prism                           ( _Just )
@@ -224,6 +225,8 @@ instance ModuleCache CachedCompletions where
         languagesAndExts = map T.pack GHC.supportedLanguagesAndExtensions
 
         typeEnv = md_types $ snd $ tm_internals_ tm
+        typeEnv' = tcg_type_env $ fst $ tm_internals_ tm
+        rdrev = tcg_rdr_env $ fst $ tm_internals_ tm
         toplevelVars = mapMaybe safeTyThingId $ typeEnvElts typeEnv
 
         varToCompl :: Var -> CompItem
@@ -307,11 +310,14 @@ instance ModuleCache CachedCompletions where
                   return $ varType tyid
             return $ ci { thingType = typ }
 
-    hscEnvRef <- ghcSession <$> readMTS
-    hscEnv <- liftIO $ traverse readIORef hscEnvRef
+    hscEnv <- ghcSession <$> readMTS
+
     (unquals, quals) <- maybe
                           (pure ([], Map.empty))
                           (\env -> liftIO $ do sess <- newIORef env
+                                               debugm $ GHC.showPpr (hsc_dflags env) typeEnv
+                                               debugm $ GHC.showPpr (hsc_dflags env) typeEnv'
+                                               debugm $ GHC.showPpr (hsc_dflags env) rdrev
                                                reflectGhc (getModCompls env) (Session sess))
                           hscEnv
     return $ CC
@@ -484,8 +490,7 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) =
 
 getTypeForName :: Name -> IdeM (Maybe Type)
 getTypeForName n = do
-  hscEnvRef <- ghcSession <$> readMTS
-  mhscEnv <- liftIO $ traverse readIORef hscEnvRef
+  mhscEnv <- ghcSession <$> readMTS
   case mhscEnv of
     Nothing -> return Nothing
     Just hscEnv -> do
@@ -653,8 +658,7 @@ srcSpanToFileLocation invoker rfm srcSpan = do
 -- | Goto given module.
 gotoModule :: (FilePath -> FilePath) -> ModuleName -> IdeDeferM (IdeResult [Location])
 gotoModule rfm mn = do
-  hscEnvRef <- ghcSession <$> readMTS
-  mHscEnv <- liftIO $ traverse readIORef hscEnvRef
+  mHscEnv <- ghcSession <$> readMTS
   case mHscEnv of
     Just env -> do
       fr <- liftIO $ do

@@ -167,7 +167,7 @@ logFilePath = "functional-hie-" ++ stackYaml ++ ".log"
 -- run with `stack test`
 hieCommand :: String
 hieCommand = "stack exec --no-stack-exe --no-ghc-package-path --stack-yaml=" ++ stackYaml ++
-             " hie -- -d -l test-logs/" ++ logFilePath
+             " hie -- --bios-verbose -d -l test-logs/" ++ logFilePath
 
 hieCommandVomit :: String
 hieCommandVomit = hieCommand ++ " --vomit"

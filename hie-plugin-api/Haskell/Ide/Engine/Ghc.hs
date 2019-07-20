@@ -260,7 +260,8 @@ setTypecheckedModule_load uri =
 
         -- set the session before we cache the module, so that deferred
         -- responses triggered by cacheModule can access it
-        --modifyMTS (\s -> s {ghcSession = sess})
+        sess <- getSession
+        modifyMTS (\s -> s {ghcSession = Just sess})
         cacheModules rfm ts
         --cacheModules rfm [tm]
         debugm "setTypecheckedModule: done"
