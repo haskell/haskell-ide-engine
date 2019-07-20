@@ -19,7 +19,7 @@ import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
 import qualified Control.Exception as E
 import qualified Control.FoldDebounce as Debounce
-import           Control.Lens ( (^.), (.~) )
+import           Control.Lens ( (^.) )
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
@@ -30,7 +30,6 @@ import qualified Data.ByteString.Lazy as BL
 import           Data.Coerce (coerce)
 import           Data.Default
 import           Data.Foldable
-import           Data.Function
 import qualified Data.Map as Map
 import           Data.Maybe
 import           Data.Semigroup (Semigroup(..), Option(..), option)
@@ -649,22 +648,11 @@ reactor inp diagIn = do
         ReqCompletionItemResolve req -> do
           liftIO $ U.logs $ "reactor:got CompletionItemResolveRequest:" ++ show req
           let origCompl = req ^. J.params
-              mquery = case A.fromJSON <$> origCompl ^. J.xdata of
-                         Just (A.Success q) -> Just q
-                         _ -> Nothing
-              callback docText = do
-                let markup = J.MarkupContent J.MkMarkdown <$> docText
-                    docs = J.CompletionDocMarkup <$> markup
-                    rspMsg = Core.makeResponseMessage req $
-                              origCompl & J.documentation .~ docs
+              callback res = do
+                let rspMsg = Core.makeResponseMessage req $ res
                 reactorSend $ RspCompletionItemResolve rspMsg
-              hreq = IReq tn (req ^. J.id) callback $ runIdeResultT $ case mquery of
-                        Nothing -> return Nothing
-                        Just query -> do
-                          result <- lift $ lift $ Hoogle.infoCmd' query
-                          case result of
-                            Right x -> return $ Just x
-                            _ -> return Nothing
+              hreq = IReq tn (req ^. J.id) callback $ runIdeResultT $ do
+                lift $ lift $ Hie.resolveCompletion origCompl
           makeRequest hreq
 
         -- -------------------------------
