@@ -8,6 +8,7 @@ module Haskell.Ide.Engine.Support.HieExtras
   ( getDynFlags
   , WithSnippets(..)
   , getCompletions
+  , resolveCompletion
   , getTypeForName
   , getSymbolsAtPoint
   , getReferencesInDoc
@@ -26,7 +27,7 @@ module Haskell.Ide.Engine.Support.HieExtras
   ) where
 
 import           ConLike
-import           Control.Lens.Operators                       ( (^?), (?~), (&) )
+import           Control.Lens.Operators                       ( (.~), (^.), (^?), (?~), (&) )
 import           Control.Lens.Prism                           ( _Just )
 import           Control.Lens.Setter ((%~))
 import           Control.Lens.Traversal (traverseOf)
@@ -62,7 +63,8 @@ import           Haskell.Ide.Engine.Context
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
-import qualified Haskell.Ide.Engine.Support.Fuzzy              as Fuzzy
+import qualified Haskell.Ide.Engine.Support.Fuzzy             as Fuzzy
+import qualified Haskell.Ide.Engine.Plugin.Hoogle             as Hoogle
 import           HscTypes
 import qualified Language.Haskell.LSP.Types                   as J
 import qualified Language.Haskell.LSP.Types.Lens              as J
@@ -74,9 +76,11 @@ import           Outputable                                   (Outputable)
 import qualified Outputable                                   as GHC
 import           Packages
 import           SrcLoc
-import           TcEnv
 import           Type
 import           Var
+import           Unique
+import           UniqFM
+import           Module hiding (getModule)
 
 -- ---------------------------------------------------------------------
 
@@ -124,6 +128,67 @@ occNameToComKind oc
   | otherwise    = J.CiVariable
 
 type HoogleQuery = T.Text
+data CompItemResolveData
+  = CompItemResolveData
+  { nameDetails :: Maybe NameDetails
+  , hoogleQuery :: HoogleQuery
+  } deriving (Eq,Generic)
+
+data NameDetails
+  = NameDetails Unique Module
+  deriving (Eq)
+
+instance FromJSON NameDetails where
+  parseJSON v@(Array _)
+    = do
+      [uchar,uint,modname,modid] <- parseJSON v
+      ch  <- parseJSON uchar
+      i   <- parseJSON uint
+      mn  <- parseJSON modname
+      mid <- parseJSON modid
+      pure $ NameDetails (mkUnique ch i) (mkModule (stringToUnitId mid) (mkModuleName mn))
+  parseJSON _ = mempty
+instance ToJSON NameDetails where
+  toJSON (NameDetails uniq mdl) = toJSON [toJSON ch,toJSON uint,toJSON mname,toJSON mid]
+    where
+      (ch,uint) = unpkUnique uniq
+      mname = moduleNameString $ moduleName mdl
+      mid = unitIdString $ moduleUnitId mdl
+
+instance FromJSON CompItemResolveData where
+  parseJSON = genericParseJSON $ customOptions 2
+instance ToJSON CompItemResolveData where
+  toJSON = genericToJSON $ customOptions 2
+
+resolveCompletion :: J.CompletionItem -> IdeM J.CompletionItem
+resolveCompletion origCompl =
+  case fromJSON <$> origCompl ^. J.xdata of
+    Just (J.Success (CompItemResolveData dets query)) -> do
+      mdocs <- Hoogle.infoCmd' query
+      let docText = case mdocs of
+            Right x -> Just x
+            _ -> Nothing
+          markup = J.MarkupContent J.MkMarkdown <$> docText
+          docs = J.CompletionDocMarkup <$> markup
+      (detail,insert) <- case dets of
+        Nothing -> pure (Nothing,Nothing)
+        Just (NameDetails uniq mdl) -> do
+          mtyp <- getTypeForNameDirectly uniq mdl
+          case mtyp of
+            Nothing -> pure (Nothing, Nothing)
+            Just typ -> do
+              let label = origCompl ^. J.label
+                  insertText = label <> " " <> getArgText typ
+                  det = Just . stripForall $ T.pack (showGhc typ) <> "\n"
+              pure (det,Just insertText)
+      return $ origCompl & J.documentation .~ docs
+                         & J.insertText .~ insert
+                         & J.detail .~ (detail <> origCompl ^. J.detail)
+    Just (J.Error err) -> do
+      debugm $ "resolveCompletion: Decoding data failed because of: " ++ err
+      pure origCompl
+    _ -> pure origCompl
+
 
 mkQuery :: T.Text -> T.Text -> HoogleQuery
 mkQuery name importedFrom = name <> " module:" <> importedFrom
@@ -133,50 +198,62 @@ mkCompl :: CompItem -> J.CompletionItem
 mkCompl CI{origName,importedFrom,thingType,label,isInfix} =
   J.CompletionItem label kind (Just $ maybe "" (<>"\n") typeText <> importedFrom)
     Nothing Nothing Nothing Nothing Nothing (Just insertText) (Just J.Snippet)
-    Nothing Nothing Nothing Nothing hoogleQuery
+    Nothing Nothing Nothing Nothing resolveData
   where kind = Just $ occNameToComKind $ occName origName
-        hoogleQuery = Just $ toJSON $ mkQuery label importedFrom
-        argTypes = maybe [] getArgs thingType
+        resolveData = Just $ toJSON $ CompItemResolveData nameDets hoogleQuery
+        hoogleQuery = mkQuery label importedFrom
         insertText = case isInfix of
-            Nothing -> case argTypes of
-                            []  -> label
-                            _ -> label <> " " <> argText
+            Nothing -> case getArgText <$> thingType of
+                            Nothing -> label
+                            Just argText -> label <> " " <> argText
             Just LeftSide -> label <> "`"
 
             Just Surrounded -> label
-
-        argText :: T.Text
-        argText =  mconcat $ List.intersperse " " $ zipWith snippet [1..] argTypes
-        stripForall t
-          | T.isPrefixOf "forall" t =
-            -- We drop 2 to remove the '.' and the space after it
-            T.drop 2 (T.dropWhile (/= '.') t)
-          | otherwise               = t
-        snippet :: Int -> Type -> T.Text
-        snippet i t = T.pack $ "${" <> show i <> ":" <> showGhc t <> "}"
         typeText
           | Just t <- thingType = Just . stripForall $ T.pack (showGhc t)
           | otherwise = Nothing
-        getArgs :: Type -> [Type]
-        getArgs t
-          | isPredTy t = []
-          | isDictTy t = []
-          | isForAllTy t = getArgs $ snd (splitForAllTys t)
-          | isFunTy t =
-            let (args, ret) = splitFunTys t
-              in if isForAllTy ret
-                  then getArgs ret
-                  else filter (not . isDictTy) args
-          | isPiTy t = getArgs $ snd (splitPiTys t)
-          | isCoercionTy t = maybe [] (getArgs . snd) (splitCoercionType_maybe t)
-          | otherwise = []
+        nameDets =
+          case (thingType, nameModule_maybe origName) of
+            (Just _,_) -> Nothing
+            (Nothing, Nothing) -> Nothing
+            (Nothing, Just mdl) -> Just (NameDetails (nameUnique origName) mdl)
+
+stripForall :: T.Text -> T.Text
+stripForall t
+  | T.isPrefixOf "forall" t =
+    -- We drop 2 to remove the '.' and the space after it
+    T.drop 2 (T.dropWhile (/= '.') t)
+  | otherwise               = t
+
+getArgText :: Type -> T.Text
+getArgText typ = argText
+  where
+    argTypes = getArgs typ
+    argText :: T.Text
+    argText =  mconcat $ List.intersperse " " $ zipWith snippet [1..] argTypes
+    snippet :: Int -> Type -> T.Text
+    snippet i t = T.pack $ "${" <> show i <> ":" <> showGhc t <> "}"
+    getArgs :: Type -> [Type]
+    getArgs t
+      | isPredTy t = []
+      | isDictTy t = []
+      | isForAllTy t = getArgs $ snd (splitForAllTys t)
+      | isFunTy t =
+        let (args, ret) = splitFunTys t
+          in if isForAllTy ret
+              then getArgs ret
+              else filter (not . isDictTy) args
+      | isPiTy t = getArgs $ snd (splitPiTys t)
+      | isCoercionTy t = maybe [] (getArgs . snd) (splitCoercionType_maybe t)
+      | otherwise = []
 
 mkModCompl :: T.Text -> J.CompletionItem
 mkModCompl label =
   J.CompletionItem label (Just J.CiModule) Nothing
     Nothing Nothing Nothing Nothing Nothing Nothing Nothing
-    Nothing Nothing Nothing Nothing hoogleQuery
-  where hoogleQuery = Just $ toJSON $ "module:" <> label
+    Nothing Nothing Nothing Nothing (Just $ toJSON resolveData)
+  where hoogleQuery = "module:" <> label
+        resolveData = Just $ CompItemResolveData Nothing hoogleQuery
 
 mkExtCompl :: T.Text -> J.CompletionItem
 mkExtCompl label =
@@ -445,15 +522,35 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) =
 -- ---------------------------------------------------------------------
 
 getTypeForName :: Name -> IdeM (Maybe Type)
-getTypeForName n = do
+getTypeForName n = case nameModule_maybe n of
+  Nothing -> pure Nothing
+  Just mdl -> getTypeForNameDirectly (nameUnique n) mdl
+
+getTypeForNameDirectly :: Unique -> Module -> IdeM (Maybe Type)
+getTypeForNameDirectly n m = do
   hscEnvRef <- ghcSession <$> readMTS
   mhscEnv <- liftIO $ traverse readIORef hscEnvRef
   case mhscEnv of
     Nothing -> return Nothing
     Just hscEnv -> do
-      mt <- liftIO $ (Just <$> lookupGlobal hscEnv n)
-                        `catch` \(_ :: SomeException) -> return Nothing
+      mt <- liftIO $ lookupGlobalDirectly hscEnv n m
       return $ fmap varType $ safeTyThingId =<< mt
+
+lookupTypeDirectly
+  :: HomePackageTable
+  -> PackageTypeEnv
+  -> Unique
+  -> Module
+  -> Maybe TyThing
+lookupTypeDirectly hpt pte name mdl
+  = case lookupHptByModule hpt mdl of
+       Just hm -> lookupUFM_Directly (md_types (hm_details hm)) name
+       Nothing -> lookupUFM_Directly pte name
+
+lookupGlobalDirectly :: HscEnv -> Unique -> Module -> IO (Maybe TyThing)
+lookupGlobalDirectly hsc_env name mdl = do
+    eps <- readIORef (hsc_EPS hsc_env)
+    return $! lookupTypeDirectly (hsc_HPT hsc_env) (eps_PTE eps) name mdl
 
 -- ---------------------------------------------------------------------
 
