@@ -435,9 +435,9 @@ reverseFileMap = do
 
 withMappedFile :: (MonadIde m, MonadIO m) => FilePath -> (FilePath -> m a) -> m a
 withMappedFile fp k = do
-  rfm <- reverseFileMap
-  fp' <- liftIO $ canonicalizePath fp
-  k $ rfm fp'
+  canon <- liftIO $ canonicalizePath fp
+  fp' <- persistVirtualFile (filePathToUri canon)
+  k fp'
 
 
 getConfig :: (MonadIde m, MonadIO m) => m Config
