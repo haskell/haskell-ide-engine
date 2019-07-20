@@ -331,7 +331,7 @@ codeActionProvider plId docId _ context = do
      _ -> return Nothing
 
     getAddablePackages :: J.Diagnostic -> Maybe (J.Diagnostic, Package)
-    getAddablePackages diag@(J.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractModuleName msg
+    getAddablePackages diag@(J.Diagnostic _ _ _ (Just "bios") msg _) = (diag,) <$> extractModuleName msg
     getAddablePackages _ = Nothing
 
 -- | Extract a module name from an error message.

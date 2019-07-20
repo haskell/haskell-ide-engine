@@ -461,7 +461,7 @@ codeActionProvider plId docId _ context = do
   -- | For a Diagnostic, get an associated function name.
   -- If Ghc-Mod can not find any candidates, Nothing is returned.
   getImportables :: J.Diagnostic -> Maybe ImportDiagnostic
-  getImportables diag@(J.Diagnostic _ _ _ (Just "ghcmod") msg _) =
+  getImportables diag@(J.Diagnostic _ _ _ (Just "bios") msg _) =
     uncurry (ImportDiagnostic diag) <$> extractImportableTerm msg
   getImportables _ = Nothing
 

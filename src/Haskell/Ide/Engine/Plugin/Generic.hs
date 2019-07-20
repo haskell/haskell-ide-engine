@@ -187,7 +187,7 @@ codeActionProvider' supportsDocChanges _ docId _ context =
        codeAction = LSP.CodeAction title (Just kind) (Just diags) (Just we) Nothing
 
     getRenamables :: LSP.Diagnostic -> [(LSP.Diagnostic, T.Text)]
-    getRenamables diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) = map (diag,) $ extractRenamableTerms msg
+    getRenamables diag@(LSP.Diagnostic _ _ _ (Just "bios") msg _) = map (diag,) $ extractRenamableTerms msg
     getRenamables _ = []
 
     mkRedundantImportActions :: LSP.Diagnostic -> T.Text -> [LSP.CodeAction]
@@ -213,7 +213,7 @@ codeActionProvider' supportsDocChanges _ docId _ context =
         tEdit = LSP.TextEdit (diag ^. LSP.range) ("import " <> modName <> "()")
 
     getRedundantImports :: LSP.Diagnostic -> Maybe (LSP.Diagnostic, T.Text)
-    getRedundantImports diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractRedundantImport msg
+    getRedundantImports diag@(LSP.Diagnostic _ _ _ (Just "bios") msg _) = (diag,) <$> extractRedundantImport msg
     getRedundantImports _ = Nothing
 
     mkTypedHoleActions :: TypedHoles -> [LSP.CodeAction]
@@ -235,14 +235,14 @@ codeActionProvider' supportsDocChanges _ docId _ context =
 
 
     getTypedHoles :: LSP.Diagnostic -> Maybe TypedHoles
-    getTypedHoles diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) =
+    getTypedHoles diag@(LSP.Diagnostic _ _ _ (Just "bios") msg _) =
       case extractHoleSubstitutions msg of
         Nothing -> Nothing
         Just (want, subs, bindings) -> Just $ TypedHoles diag want subs bindings
     getTypedHoles _ = Nothing
 
     getMissingSignatures :: LSP.Diagnostic -> Maybe (LSP.Diagnostic, T.Text)
-    getMissingSignatures diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) =
+    getMissingSignatures diag@(LSP.Diagnostic _ _ _ (Just "bios") msg _) =
       case extractMissingSignature msg of
         Nothing -> Nothing
         Just signature -> Just (diag, signature)
@@ -260,7 +260,7 @@ codeActionProvider' supportsDocChanges _ docId _ context =
             codeAction = LSP.CodeAction title (Just kind) (Just diags) (Just edit) Nothing
 
     getUnusedTerms :: LSP.Diagnostic -> Maybe (LSP.Diagnostic, T.Text)
-    getUnusedTerms diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) =
+    getUnusedTerms diag@(LSP.Diagnostic _ _ _ (Just "bios") msg _) =
       case extractUnusedTerm msg of
         Nothing -> Nothing
         Just signature -> Just (diag, signature)

@@ -101,7 +101,7 @@ spec = describe "code actions" $ do
     it "works" $ runSession hieCommand noLiteralCaps "test/testdata" $ do
       doc <- openDoc "CodeActionRename.hs" "haskell"
 
-      _ <- waitForDiagnosticsSource "ghcmod"
+      _ <- waitForDiagnosticsSource "bios"
 
       CACommand cmd:_ <- getAllCodeActions doc
       executeCommand cmd
@@ -112,7 +112,7 @@ spec = describe "code actions" $ do
       runSession hieCommand noLiteralCaps "test/testdata" $ do
         doc <- openDoc "CodeActionRename.hs" "haskell"
 
-        _ <- waitForDiagnosticsSource "ghcmod"
+        _ <- waitForDiagnosticsSource "bios"
 
         CACommand cmd <- (!! 2) <$> getAllCodeActions doc
         let Just (List [Object args]) = cmd ^. L.arguments
@@ -323,7 +323,7 @@ spec = describe "code actions" $ do
       it "works" $
         runSession hieCommand fullCaps "test/testdata" $ do
           doc <- openDoc "TypedHoles.hs" "haskell"
-          _ <- waitForDiagnosticsSource "ghcmod"
+          _ <- waitForDiagnosticsSource "bios"
           cas <- map (\(CACodeAction x)-> x) <$> getAllCodeActions doc
 
           suggestion <-
@@ -363,7 +363,7 @@ spec = describe "code actions" $ do
       it "shows more suggestions" $
         runSession hieCommand fullCaps "test/testdata" $ do
           doc <- openDoc "TypedHoles2.hs" "haskell"
-          _ <- waitForDiagnosticsSource "ghcmod"
+          _ <- waitForDiagnosticsSource "bios"
           cas <- map fromAction <$> getAllCodeActions doc
 
           suggestion <-
@@ -411,7 +411,7 @@ spec = describe "code actions" $ do
       runSession hieCommand fullCaps "test/testdata/" $ do
         doc <- openDoc "TopLevelSignature.hs" "haskell"
 
-        _ <- waitForDiagnosticsSource "ghcmod"
+        _ <- waitForDiagnosticsSource "bios"
         cas <- map fromAction <$> getAllCodeActions doc
 
         liftIO $ map (^. L.title) cas `shouldContain` [ "Add signature: main :: IO ()"]
@@ -437,7 +437,7 @@ spec = describe "code actions" $ do
       runSession hieCommand fullCaps "test/testdata/addPragmas" $ do
         doc <- openDoc "NeedsPragmas.hs" "haskell"
 
-        _ <- waitForDiagnosticsSource "ghcmod"
+        _ <- waitForDiagnosticsSource "bios"
         cas <- map fromAction <$> getAllCodeActions doc
 
         liftIO $ map (^. L.title) cas `shouldContain` [ "Add \"TypeSynonymInstances\""]
@@ -474,7 +474,7 @@ spec = describe "code actions" $ do
       runSession hieCommand fullCaps "test/testdata/" $ do
         doc <- openDoc "UnusedTerm.hs" "haskell"
 
-        _ <- waitForDiagnosticsSource "ghcmod"
+        _ <- waitForDiagnosticsSource "bios"
         cas <- map fromAction <$> getAllCodeActions doc
 
         liftIO $ map (^. L.title) cas `shouldContain` [ "Prefix imUnused with _"]
@@ -545,7 +545,7 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
 
     it "formats" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
-      _ <- waitForDiagnosticsSource "ghcmod"
+      _ <- waitForDiagnosticsSource "bios"
 
       let config = def { formattingProvider = formatterName }
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
@@ -559,7 +559,7 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
 
     it "import-list formats" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
-      _ <- waitForDiagnosticsSource "ghcmod"
+      _ <- waitForDiagnosticsSource "bios"
 
       let config = def { formattingProvider = formatterName }
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
@@ -614,7 +614,7 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
           ]
     it "respects format config" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
-      _ <- waitForDiagnosticsSource "ghcmod"
+      _ <- waitForDiagnosticsSource "bios"
 
       let config = def { formatOnImportOn = False, formattingProvider = formatterName }
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
@@ -633,7 +633,7 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
 
     it "import-list respects format config" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
-      _ <- waitForDiagnosticsSource "ghcmod"
+      _ <- waitForDiagnosticsSource "bios"
 
       let config = def { formatOnImportOn = False, formattingProvider = formatterName }
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
@@ -652,7 +652,7 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
 
     it "complex import-list" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImportListElaborate.hs" "haskell"
-      _ <- waitForDiagnosticsSource "ghcmod"
+      _ <- waitForDiagnosticsSource "bios"
 
       let config = def { formatOnImportOn = True, formattingProvider = formatterName }
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
@@ -673,7 +673,7 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
 
     it "complex import-list respects format config" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImportListElaborate.hs" "haskell"
-      _ <- waitForDiagnosticsSource "ghcmod"
+      _ <- waitForDiagnosticsSource "bios"
 
       let config = def { formatOnImportOn = False, formattingProvider = formatterName }
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
@@ -709,10 +709,10 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
     executeAllCodeActions :: TextDocumentIdentifier -> [T.Text] -> Session T.Text
     executeAllCodeActions doc names =
       foldM (\_ _ -> do
-          _ <- waitForDiagnosticsSource "ghcmod"
+          _ <- waitForDiagnosticsSource "bios"
           executeCodeActionByName doc names
           content <- skipManyTill publishDiagnosticsNotification $ getDocumentEdit doc
-          _ <- waitForDiagnosticsSource "ghcmod"
+          _ <- waitForDiagnosticsSource "bios"
           return content
         )
         (T.pack "")
