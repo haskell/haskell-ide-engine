@@ -86,7 +86,8 @@ nameCacheFromGhcMonad = ( read_from_session , write_to_session )
 
 runInLightGhc :: Ghc a -> IdeM a
 runInLightGhc a = do
-  mhscEnv <- ghcSession <$> readMTS
+  hscEnvRef <- ghcSession <$> readMTS
+  mhscEnv <- liftIO $ traverse readIORef hscEnvRef
   liftIO $ case mhscEnv of
     Nothing -> error "Ghc Session not initialized"
     Just env -> do

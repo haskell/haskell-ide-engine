@@ -487,7 +487,7 @@ data IdeState = IdeState
   -- | A queue of requests to be performed once a module is loaded
   , requestQueue :: Map.Map FilePath [UriCacheResult -> IdeM ()]
   , extensibleState :: !(Map.Map TypeRep Dynamic)
-  , ghcSession  :: Maybe HscEnv
+  , ghcSession  :: !(Maybe (IORef HscEnv))
   }
 
 instance MonadMTState IdeState IdeGhcM where

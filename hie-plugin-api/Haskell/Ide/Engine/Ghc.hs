@@ -57,6 +57,7 @@ import System.Directory
 import GhcProject.Types as GM
 import Digraph (Node(..), verticesG)
 import GhcMake ( moduleGraphNodes )
+import GhcMonad
 
 
 newtype Diagnostics = Diagnostics (Map.Map NormalizedUri (Set.Set Diagnostic))
@@ -260,7 +261,8 @@ setTypecheckedModule_load uri =
 
         -- set the session before we cache the module, so that deferred
         -- responses triggered by cacheModule can access it
-        sess <- getSession
+
+        Session sess <- GhcT pure
         modifyMTS (\s -> s {ghcSession = Just sess})
         cacheModules rfm ts
         --cacheModules rfm [tm]

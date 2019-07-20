@@ -42,17 +42,12 @@ import qualified Data.Text                                    as T
 import           Data.Typeable
 import           DataCon
 import qualified DynFlags                                     as GHC
-import           Exception
 import           FastString
 import           Finder
 import           GHC                                          hiding (getContext)
-import           GhcMonad
 import           GHC.Generics                                 (Generic)
 import           TcRnTypes
 import           RdrName
-
-import qualified GhcMod                                       as GM (splits',SplitResult(..))
-import qualified GhcModCore                                   as GM (GhcModError(..), listVisibleModuleNames, withMappedFile )
 
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.Config
@@ -709,8 +704,9 @@ srcSpanToFileLocation invoker rfm srcSpan = do
 -- | Goto given module.
 gotoModule :: (FilePath -> FilePath) -> ModuleName -> IdeDeferM (IdeResult [Location])
 gotoModule rfm mn = do
-  mHscEnv <- ghcSession <$> readMTS
-  case mHscEnv of
+  hscEnvRef <- ghcSession <$> readMTS
+  mhscEnv <- liftIO $ traverse readIORef hscEnvRef
+  case mhscEnv of
     Just env -> do
       fr <- liftIO $ do
         -- Flush cache or else we get temporary files
