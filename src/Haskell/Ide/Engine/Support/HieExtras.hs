@@ -156,9 +156,9 @@ instance ToJSON NameDetails where
       mid = unitIdString $ moduleUnitId mdl
 
 instance FromJSON CompItemResolveData where
-  parseJSON = genericParseJSON $ customOptions 2
+  parseJSON = genericParseJSON $ customOptions 0
 instance ToJSON CompItemResolveData where
-  toJSON = genericToJSON $ customOptions 2
+  toJSON = genericToJSON $ customOptions 0
 
 resolveCompletion :: J.CompletionItem -> IdeM J.CompletionItem
 resolveCompletion origCompl =
