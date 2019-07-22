@@ -21,7 +21,7 @@ import           Language.Haskell.LSP.Types     ( Location(..)
 import           System.Directory
 import           System.FilePath
 import           TestUtils
-
+import GhcMonad
 import           Test.Hspec
 
 -- ---------------------------------------------------------------------
@@ -176,8 +176,11 @@ hareSpec = do
     cwd <- runIO getCurrentDirectory
 
     it "finds definition across components" $ do
-      let u = filePathToUri $ cwd </> "test/testdata/gototest/app/Main.hs"
-          lreq = setTypecheckedModule u
+      let fp = cwd </> "test/testdata/gototest/app/Main.hs"
+      let u = filePathToUri $ fp
+          lreq = do
+            df <- getSessionDynFlags
+            runActionWithContext df (Just fp) $ setTypecheckedModule u
           req = liftToGhc $ TestDeferM $ findDef u (toPos (7,8))
       r <- dispatchRequestPGoto $ lreq >> req
       r `shouldBe` IdeResultOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
@@ -187,15 +190,21 @@ hareSpec = do
       r2 `shouldBe` IdeResultOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
                                             (Range (toPos (5,1)) (toPos (5,2)))]
     it "finds definition in the same component" $ do
-      let u = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs"
-          lreq = setTypecheckedModule u
+      let fp = cwd </> "test/testdata/gototest/src/Lib2.hs"
+      let u    = filePathToUri $ fp
+          lreq = do
+            df <- getSessionDynFlags
+            runActionWithContext df (Just fp) $ setTypecheckedModule u
           req = liftToGhc $ TestDeferM $ findDef u (toPos (6,5))
       r <- dispatchRequestPGoto $ lreq >> req
       r `shouldBe` IdeResultOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
                                            (Range (toPos (6,1)) (toPos (6,9)))]
     it "finds local definitions" $ do
-      let u = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs"
-          lreq = setTypecheckedModule u
+      let fp = cwd </> "test/testdata/gototest/src/Lib2.hs"
+      let u    = filePathToUri $ fp
+          lreq = do
+            df <- getSessionDynFlags
+            runActionWithContext df (Just fp) $ setTypecheckedModule u
           req = liftToGhc $ TestDeferM $ findDef u (toPos (7,11))
       r <- dispatchRequestPGoto $ lreq >> req
       r `shouldBe` IdeResultOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
@@ -261,8 +270,11 @@ hareSpec = do
             (Range (toPos (18, 1)) (toPos (18, 26)))
         ]
     it "find type-definition of type def in component" $ do
-      let u    = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs"
-          lreq = setTypecheckedModule u
+      let fp = cwd </> "test/testdata/gototest/src/Lib2.hs"
+      let u    = filePathToUri $ fp
+          lreq = do
+            df <- getSessionDynFlags
+            runActionWithContext df (Just fp) $ setTypecheckedModule u
           req  = liftToGhc $ TestDeferM $ findTypeDef u (toPos (13, 20))
       r <- dispatchRequestPGoto $ lreq >> req
       r `shouldBe` IdeResultOk

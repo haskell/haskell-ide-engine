@@ -11,7 +11,7 @@ packages:
 
 allow-newer: floskell:all
 
-profiling: True
+profiling: false
 
 ghc-options: -Werror
 

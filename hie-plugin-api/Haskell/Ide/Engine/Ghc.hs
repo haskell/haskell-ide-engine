@@ -248,7 +248,7 @@ setTypecheckedModule_load uri =
     let collapse Nothing = (Nothing, [])
         collapse (Just (n, xs)) = (n, xs)
 
-    diags2 <- case collapse mmods of
+    case collapse mmods of
       --Just (Just pm, Nothing) -> do
       --  debugm $ "setTypecheckedModule: Did get parsed module for: " ++ show fp
        -- cacheModule fp (Left pm)
@@ -267,7 +267,6 @@ setTypecheckedModule_load uri =
         cacheModules rfm ts
         --cacheModules rfm [tm]
         debugm "setTypecheckedModule: done"
-        return diags
 
       (Nothing, ts) -> do
         debugm $ "setTypecheckedModule: Didn't get typechecked or parsed module for: " ++ show fp
@@ -275,13 +274,7 @@ setTypecheckedModule_load uri =
         cacheModules rfm ts
         failModule fp
 
-        let sev = Just DsError
-            range = Range (Position 0 0) (Position 1 0)
-            msgTxt = T.unlines errs
-        let d = Diagnostic range sev Nothing (Just "bios") msgTxt Nothing
-        return $ Map.insertWith Set.union canonUri (Set.singleton d) diags
-
-    return $ IdeResultOk (Diagnostics diags2,errs)
+    return $ IdeResultOk (Diagnostics diags,errs)
 
 -- TODO: make this work for all components
 cabalModuleGraphs :: IdeGhcM [GM.GmModuleGraph]
