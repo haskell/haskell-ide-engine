@@ -86,7 +86,7 @@ stackExeIsOldFailMsg stackVersion =
     ++ "Please run `stack upgrade` to upgrade your stack installation"
 
 requiredStackVersion :: RequiredVersion
-requiredStackVersion = [1, 9, 3]
+requiredStackVersion = [2, 1, 1]
 
 -- |Stack build fails message
 stackBuildFailMsg :: String
