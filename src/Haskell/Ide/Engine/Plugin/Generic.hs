@@ -44,7 +44,7 @@ genericDescriptor plId = PluginDescriptor
   { pluginId = plId
   , pluginName = "generic"
   , pluginDesc = "generic actions"
-  , pluginCommands = []
+  , pluginCommands = [PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmd]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Just hoverProvider
@@ -64,6 +64,10 @@ instance FromJSON TypeParams where
   parseJSON = genericParseJSON customOptions
 instance ToJSON TypeParams where
   toJSON = genericToJSON customOptions
+
+typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
+typeCmd = CmdSync $ \(TP _bool uri pos) ->
+  liftToGhc $ newTypeCmd pos uri
 
 newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
 newTypeCmd newPos uri =
