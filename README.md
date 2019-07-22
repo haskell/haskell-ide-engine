@@ -221,14 +221,14 @@ Install **Nightly** (and hoogle docs):
 
 ```bash
 stack ./install.hs hie-8.6.4
-stack ./install.hs build-doc
+stack ./install.hs build-data
 ```
 
 Install **LTS** (and hoogle docs):
 
 ```bash
 stack ./install.hs hie-8.4.4
-stack ./install.hs build-doc
+stack ./install.hs build-data
 ```
 
 The Haskell IDE Engine can also be built with `cabal new-build` instead of `stack build`.
@@ -237,7 +237,7 @@ However, this approach does currently not work for windows due to a missing feat
 To see what GHC versions are available, the command `stack install.hs cabal-ghcs` can be used.
 It will list all GHC versions that are on the path and their respective installation directory.
 If you think, this list is incomplete, you can try to modify the PATH variable, such that the executables can be found.
-Note, that the targets `cabal-build`, `cabal-build-doc` and `cabal-build-all` depend on the found GHC versions.
+Note, that the targets `cabal-build`, `cabal-build-data` and `cabal-build-all` depend on the found GHC versions.
 They install Haskell IDE Engine only for the found GHC versions.
 
 An example output is:
@@ -256,7 +256,7 @@ If your desired ghc has been found, you use it to install Haskell IDE Engine.
 
 ```bash
 stack install.hs cabal-hie-8.4.4
-stack install.hs cabal-build-doc
+stack install.hs cabal-build-data
 ```
 
 To install HIE for all GHC versions that are present on your system, use:
