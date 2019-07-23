@@ -21,7 +21,7 @@ spec = describe "behaviour on malformed projects" $ do
       -- runSessionWithConfig logConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
         _doc <- openDoc "Foo.hs" "haskell"
 
-        diags@(d:_) <- waitForDiagnosticsSource "ghcmod"
+        diags@(d:_) <- waitForDiagnosticsSource "bios"
         -- liftIO $ show diags `shouldBe` ""
         -- liftIO $ putStrLn $ show diags
         -- liftIO $ putStrLn "a"
@@ -30,7 +30,7 @@ spec = describe "behaviour on malformed projects" $ do
           d ^. range `shouldBe` Range (Position 0 0) (Position 1 0)
           d ^. severity `shouldBe` (Just DsError)
           d ^. code `shouldBe` Nothing
-          d ^. source `shouldBe` Just "ghcmod"
+          d ^. source `shouldBe` Just "bios"
           d ^. message `shouldBe`
             (T.pack "readCreateProcess: stack \"build\" \"--only-configure\" \".\" (exit 1): failed\n")
 

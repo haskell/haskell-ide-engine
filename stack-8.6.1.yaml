@@ -5,13 +5,13 @@ packages:
 
 extra-deps:
 - ./submodules/HaRe
-- ./submodules/brittany
 - ./submodules/cabal-helper
 - ./submodules/ghc-mod
 - ./submodules/ghc-mod/core
 - ./submodules/ghc-mod/ghc-project-types
 
 - apply-refact-0.6.0.0
+- brittany-0.12.0.0
 - butcher-1.3.2.1
 - cabal-install-2.4.0.0
 - cabal-plan-0.4.0.0
@@ -19,16 +19,16 @@ extra-deps:
 - czipwith-1.0.1.1
 - data-tree-print-0.1.0.2
 - floskell-0.10.0
-- ghc-lib-parser-0.20190523
+- ghc-lib-parser-8.8.0.20190424
 - haddock-api-2.21.0
-- haskell-lsp-0.13.0.0
-- haskell-lsp-types-0.13.0.0
+- haskell-lsp-0.15.0.0
+- haskell-lsp-types-0.15.0.0
 - haskell-src-exts-1.21.0
 - haskell-src-exts-util-0.2.5
-- hlint-2.1.22
-- hoogle-5.0.17.6
+- hlint-2.2
+- hoogle-5.0.17.9
 - hsimport-0.10.0
-- lsp-test-0.5.2.3
+- lsp-test-0.6.0.0
 - monad-dijkstra-0.1.1.2
 - monad-memo-0.4.1
 - monoid-subclasses-0.4.6.1
@@ -38,6 +38,8 @@ extra-deps:
 - rope-utf16-splay-0.3.1.0
 - syz-0.2.0.0
 - temporary-1.2.1.1
+# To make build work in windows 7
+- unix-time-0.4.7
 - yaml-0.8.32
 
 flags:

@@ -41,7 +41,6 @@ data UriCache = UriCache
   -- | Data pertaining to the typechecked module,
   -- not the parsed module
   , cachedData   :: !(Map.Map TypeRep Dynamic)
-  , cachedHash   :: !ModuleHash
   }
 
 newtype ModuleHash = ModuleHash BS.ByteString deriving (Show, Eq)
@@ -51,9 +50,9 @@ hashModule f = ModuleHash . hash <$> BS.readFile f
 
 
 instance Show UriCache where
-  show (UriCache _ _ (Just _) dat _h) =
+  show (UriCache _ _ (Just _) dat) =
     "UriCache { cachedTcMod, cachedData { " ++ show dat ++ " } }"
-  show (UriCache _ _ _ dat _h) =
+  show (UriCache _ _ _ dat) =
     "UriCache { cachedPsMod, cachedData { " ++ show dat ++ " } }"
 
 data CachedInfo = CachedInfo
@@ -70,10 +69,10 @@ class CacheableModule a where
   fromUriCache :: UriCache -> Maybe a
 
 instance CacheableModule TypecheckedModule where
-  fromUriCache (UriCache _ _ mtm _ _) = mtm
+  fromUriCache (UriCache _ _ mtm _) = mtm
 
 instance CacheableModule ParsedModule where
-  fromUriCache (UriCache _ pm _ _ _) = Just pm
+  fromUriCache (UriCache _ pm _ _) = Just pm
 
 -- ---------------------------------------------------------------------
 

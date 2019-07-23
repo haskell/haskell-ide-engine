@@ -19,7 +19,7 @@ import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
 import qualified Control.Exception as E
 import qualified Control.FoldDebounce as Debounce
-import           Control.Lens ( (^.), (.~) )
+import           Control.Lens ( (^.) )
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
@@ -30,7 +30,6 @@ import qualified Data.ByteString.Lazy as BL
 import           Data.Coerce (coerce)
 import           Data.Default
 import           Data.Foldable
-import           Data.Function
 import qualified Data.Map as Map
 import           Data.Maybe
 import           Data.Semigroup (Semigroup(..), Option(..), option)
@@ -52,14 +51,7 @@ import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Scheduler            as Scheduler
 import qualified Haskell.Ide.Engine.Support.HieExtras     as Hie
 import           Haskell.Ide.Engine.Types
---import           Haskell.Ide.Engine.LSP.CodeActions
---import           Haskell.Ide.Engine.LSP.Reactor
--- import qualified Haskell.Ide.Engine.Plugin.HaRe          as HaRe
 import qualified Haskell.Ide.Engine.Plugin.Bios          as BIOS
---import qualified Haskell.Ide.Engine.Plugin.ApplyRefact   as ApplyRefact
---import qualified Haskell.Ide.Engine.Plugin.Hoogle        as Hoogle
---import qualified Haskell.Ide.Engine.Support.HieExtras     as Hie
--- import           Haskell.Ide.Engine.Plugin.Base
 import qualified Language.Haskell.LSP.Control            as CTRL
 import qualified Language.Haskell.LSP.Core               as Core
 import           Language.Haskell.LSP.Diagnostics
@@ -102,7 +94,7 @@ data DiagnosticsRequest = DiagnosticsRequest
   , trackingNumber  :: TrackingNumber
     -- ^ The tracking identifier for this request
 
-  , file         :: J.Uri
+  , file         :: Uri
     -- ^ The file that was change and needs to be checked
 
   , documentVersion :: J.TextDocumentVersion
@@ -127,7 +119,7 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
   rin        <- atomically newTChan :: IO (TChan ReactorInput)
   commandIds <- allLspCmdIds plugins
 
-  let dp lf = do
+  let onStartup lf = do
         diagIn      <- atomically newTChan
         let react = runReactor lf scheduler diagnosticProviders hps sps fps plugins
             reactorFunc = react $ reactor rin diagIn
@@ -184,8 +176,11 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
       fps :: Map.Map PluginId FormattingProvider
       fps = Map.mapMaybe pluginFormattingProvider $ ipMap plugins
 
+      initCallbacks :: Core.InitializeCallbacks Config
+      initCallbacks = Core.InitializeCallbacks getInitialConfig getConfigFromNotification onStartup
+
   flip E.finally finalProc $ do
-    CTRL.run (getConfigFromNotification, dp) (hieHandlers rin) (hieOptions commandIds) captureFp
+    CTRL.run initCallbacks (hieHandlers rin) (hieOptions commandIds) captureFp
  where
   handlers  = [E.Handler ioExcept, E.Handler someExcept]
   finalProc = L.removeAllHandlers
@@ -208,7 +203,7 @@ configVal field = field <$> getClientConfig
 getPrefixAtPos :: (MonadIO m, MonadReader REnv m)
   => Uri -> Position -> m (Maybe Hie.PosPrefixInfo)
 getPrefixAtPos uri pos = do
-  mvf <- liftIO =<< asksLspFuncs Core.getVirtualFileFunc <*> pure uri
+  mvf <- liftIO =<< asksLspFuncs Core.getVirtualFileFunc <*> pure (J.toNormalizedUri uri)
   case mvf of
     Just vf -> VFS.getCompletionPrefix pos vf
     Nothing -> return Nothing
@@ -222,10 +217,17 @@ mapFileFromVfs :: (MonadIO m, MonadReader REnv m)
 mapFileFromVfs tn vtdi = do
   let uri = vtdi ^. J.uri
       ver = fromMaybe 0 (vtdi ^. J.version)
-      req = GReq tn (Just uri) Nothing Nothing (const $ return ())
+  vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
+  mvf <- liftIO $ vfsFunc (J.toNormalizedUri uri)
+  case (mvf, uriToFilePath uri) of
+    (Just (VFS.VirtualFile _ yitext _), Just fp) -> do
+      let text' = Rope.toString yitext
+          -- text = "{-# LINE 1 \"" ++ fp ++ "\"#-}\n" <> text'
+      let req = GReq tn (Just uri) Nothing Nothing (const $ return ())
                   $ IdeResultOk <$> do
                       persistVirtualFile uri
-  updateDocumentRequest uri ver req
+      updateDocumentRequest uri ver req
+    (_, _) -> return ()
 
 -- TODO: generalise this and move it to GhcMod.ModuleLoader
 updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeGhcM (IdeResult ())
@@ -308,7 +310,7 @@ updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file 
 -- ---------------------------------------------------------------------
 
 publishDiagnostics :: (MonadIO m, MonadReader REnv m)
-  => Int -> J.Uri -> J.TextDocumentVersion -> DiagnosticsBySource -> m ()
+  => Int -> J.NormalizedUri -> J.TextDocumentVersion -> DiagnosticsBySource -> m ()
 publishDiagnostics maxToSend uri' mv diags = do
   lf <- asks lspFuncs
   liftIO $ Core.publishDiagnosticsFunc lf maxToSend uri' mv diags
@@ -504,7 +506,7 @@ reactor inp diagIn = do
 
         -- -------------------------------
 
-        {-ReqRename req -> do
+        ReqRename req -> do
           liftIO $ U.logs $ "reactor:got RenameRequest:" ++ show req
           let (params, doc, pos) = reqParams req
               newName  = params ^. J.newName
@@ -512,7 +514,6 @@ reactor inp diagIn = do
           let hreq = GReq tn (Just doc) Nothing (Just $ req ^. J.id) callback
                        $ HaRe.renameCmd' doc pos newName
           makeRequest hreq
-          -}
 
 
         -- -------------------------------
@@ -647,22 +648,11 @@ reactor inp diagIn = do
         ReqCompletionItemResolve req -> do
           liftIO $ U.logs $ "reactor:got CompletionItemResolveRequest:" ++ show req
           let origCompl = req ^. J.params
-              mquery = case A.fromJSON <$> origCompl ^. J.xdata of
-                         Just (A.Success q) -> Just q
-                         _ -> Nothing
-              callback docText = do
-                let markup = J.MarkupContent J.MkMarkdown <$> docText
-                    docs = J.CompletionDocMarkup <$> markup
-                    rspMsg = Core.makeResponseMessage req $
-                              origCompl & J.documentation .~ docs
+              callback res = do
+                let rspMsg = Core.makeResponseMessage req $ res
                 reactorSend $ RspCompletionItemResolve rspMsg
-              hreq = IReq tn (req ^. J.id) callback $ runIdeResultT $ case mquery of
-                        Nothing -> return Nothing
-                        Just query -> do
-                          result <- lift $ lift $ Hoogle.infoCmd' query
-                          case result of
-                            Right x -> return $ Just x
-                            _ -> return Nothing
+              hreq = IReq tn (req ^. J.id) callback $ runIdeResultT $ do
+                lift $ lift $ Hie.resolveCompletion origCompl
           makeRequest hreq
 
         -- -------------------------------
@@ -798,7 +788,7 @@ reactor inp diagIn = do
 withDocumentContents :: J.LspId -> J.Uri -> (T.Text -> R ()) -> R ()
 withDocumentContents reqId uri f = do
   vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
-  mvf <- liftIO $ vfsFunc uri
+  mvf <- liftIO $ vfsFunc (J.toNormalizedUri uri)
   lf <- asks lspFuncs
   case mvf of
     Nothing -> liftIO $
@@ -839,7 +829,7 @@ queueDiagnosticsRequest
   :: TChan DiagnosticsRequest -- ^ The channel to publish the diagnostics requests to
   -> DiagnosticTrigger
   -> TrackingNumber
-  -> J.Uri
+  -> Uri
   -> J.TextDocumentVersion
   -> R ()
 queueDiagnosticsRequest diagIn dt tn uri mVer =
@@ -870,11 +860,11 @@ requestDiagnostics DiagnosticsRequest{trigger, file, trackingNumber, documentVer
           maxToSend = maxNumberOfProblems clientConfig
           sendOne (fileUri,ds') = do
             debugm $ "LspStdio.sendone:(fileUri,ds')=" ++ show(fileUri,ds')
-            publishDiagnosticsIO maxToSend fileUri Nothing (Map.fromList [(Just pid,SL.toSortedList ds')])
+            publishDiagnosticsIO maxToSend (J.toNormalizedUri fileUri) Nothing (Map.fromList [(Just pid,SL.toSortedList ds')])
 
           sendEmpty = do
             debugm "LspStdio.sendempty"
-            publishDiagnosticsIO maxToSend file Nothing (Map.fromList [(Just pid,SL.toSortedList [])])
+            publishDiagnosticsIO maxToSend (J.toNormalizedUri file) Nothing (Map.fromList [(Just pid,SL.toSortedList [])])
 
           -- fv = case documentVersion of
           --   Nothing -> Nothing
@@ -902,7 +892,7 @@ requestDiagnostics DiagnosticsRequest{trigger, file, trackingNumber, documentVer
         when enabled $ makeRequest reql
 
 -- | get hlint and GHC diagnostics and loads the typechecked module into the cache
-requestDiagnosticsNormal :: TrackingNumber -> J.Uri -> J.TextDocumentVersion -> R ()
+requestDiagnosticsNormal :: TrackingNumber -> Uri -> J.TextDocumentVersion -> R ()
 requestDiagnosticsNormal tn file mVer = do
   clientConfig <- getClientConfig
   let
@@ -910,18 +900,20 @@ requestDiagnosticsNormal tn file mVer = do
 
     -- | If there is a GHC error, flush the hlint diagnostics
     -- TODO: Just flush the parse error diagnostics
-    sendOneGhc :: J.DiagnosticSource -> (Uri, [Diagnostic]) -> R ()
+    sendOneGhc :: J.DiagnosticSource -> (J.NormalizedUri, [Diagnostic]) -> R ()
     sendOneGhc pid (fileUri,ds) = do
       if any (hasSeverity J.DsError) ds
         then publishDiagnostics maxToSend fileUri Nothing
                (Map.fromList [(Just "hlint",SL.toSortedList []),(Just pid,SL.toSortedList ds)])
         else sendOne pid (fileUri,ds)
+
     sendOne pid (fileUri,ds) = do
       publishDiagnostics maxToSend fileUri Nothing (Map.fromList [(Just pid,SL.toSortedList ds)])
+
     hasSeverity :: J.DiagnosticSeverity -> J.Diagnostic -> Bool
     hasSeverity sev (J.Diagnostic _ (Just s) _ _ _ _) = s == sev
     hasSeverity _ _ = False
-    sendEmpty = publishDiagnostics maxToSend file Nothing (Map.fromList [(Just "bios",SL.toSortedList [])])
+    sendEmpty = publishDiagnostics maxToSend (J.toNormalizedUri file) Nothing (Map.fromList [(Just "bios",SL.toSortedList [])])
     maxToSend = maxNumberOfProblems clientConfig
 
   let sendHlint = hlintOn clientConfig
@@ -930,13 +922,13 @@ requestDiagnosticsNormal tn file mVer = do
     let reql = GReq tn (Just file) (Just (file,ver)) Nothing callbackl
                  $ ApplyRefact.lintCmd' file
         callbackl (PublishDiagnosticsParams fp (List ds))
-             = sendOne "hlint" (fp, ds)
+             = sendOne "hlint" (J.toNormalizedUri fp, ds)
     makeRequest reql
 
   -- get GHC diagnostics and loads the typechecked module into the cache
   let reqg = GReq tn (Just file) (Just (file,ver)) Nothing callbackg
                $ BIOS.setTypecheckedModule file
-      callbackg (pd, errs) = do
+      callbackg (HIE.Diagnostics pd, errs) = do
         forM_ errs $ \e -> do
           reactorSend $ NotShowMessage $
             fmServerShowMessageNotification J.MtError

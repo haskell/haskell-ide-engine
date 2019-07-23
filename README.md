@@ -63,6 +63,7 @@ we talk to clients.__
       - [Is there a hash (#) after \<package\>?](#is-there-a-hash--after-package)
       - [Otherwise](#otherwise)
     - [Nix: cabal-helper, No such file or directory](#nix-cabal-helper-no-such-file-or-directory)
+    - [Liquid Haskell](#liquid-haskell)
 
 ## Features
 
@@ -128,12 +129,12 @@ Follow the instructions at https://github.com/Infinisil/all-hies
 
 ### Installation on ArchLinux
 
-An [haskell-ide-engine-git](https://aur.archlinux.org/packages/haskell-ide-engine-git/) package is available on the AUR.
+An [haskell-ide-engine](https://aur.archlinux.org/packages/haskell-ide-engine/) package is available on the AUR.
 
 Using [Aura](https://github.com/aurapm/aura):
 
 ```
-# aura -A haskell-ide-engine-git
+# aura -A haskell-ide-engine
 ```
 
 
@@ -199,6 +200,20 @@ stack ./install.hs help
 ```
 
 Remember, this will take time to download a Stackage-LTS and an appropriate GHC. However, afterwards all commands should work as expected.
+
+##### Install via cabal
+
+The install-script can be invoked via `cabal` instead of `stack` with the command
+
+```bash
+cabal v2-run ./install.hs --project-file install/shake.project <target>
+```
+
+Running the script with cabal on windows seems to have some issues and is currently not fully supported.
+
+Unfortunately, it is still required to have `stack` installed so that the install-script can locate the `local-bin` directory (on Linux `~/.local/bin`) and copy the `hie` binaries to `hie-x.y.z`, which is required for the `hie-wrapper` to function as expected.
+
+For brevity, only the `stack`-based commands are presented in the following sections.
 
 ##### Install specific GHC Version
 
@@ -345,7 +360,7 @@ in
 }
 ```
 
-Now open a haskell project with Sublime Text. You should have these features available to you:
+Now open a Haskell project with Sublime Text. You should have these features available to you:
 
 1. Errors are underlined in red
 2. LSP: Show Diagnostics will show a list of hints and errors
@@ -356,8 +371,8 @@ Now open a haskell project with Sublime Text. You should have these features ava
 As above, make sure HIE is installed. These instructions are for using the [LanguageClient-neovim](https://github.com/autozimu/LanguageClient-neovim) client.
 
 #### vim-plug
-If you use [vim-plug](https://github.com/junegunn/vim-plug), then you can do this by e.g.
-including the following line in the Plug section of your `init.vim`:
+If you use [vim-plug](https://github.com/junegunn/vim-plug), then you can do this by e.g.,
+including the following line in the Plug section of your `init.vim` or `~/.vimrc`:
 
 ```
 Plug 'autozimu/LanguageClient-neovim', {
@@ -366,10 +381,10 @@ Plug 'autozimu/LanguageClient-neovim', {
     \ }
 ```
 
-and issuing a `:PlugInstall` command within neovim.
+and issuing a `:PlugInstall` command within Neovim or Vim.
 
-#### Vim 8.0
-Clone [LanguageClient-neovim](https://github.com/autozimu/LanguageClient-neovim)
+#### Clone the LanguageClient-neovim repo
+As an alternative to using [vim-plug](https://github.com/junegunn/vim-plug) shown above, clone [LanguageClient-neovim](https://github.com/autozimu/LanguageClient-neovim)
 into `~/.vim/pack/XXX/start/`, where `XXX` is just a name for your "plugin suite".
 
 #### Sample `~/.vimrc`
@@ -629,4 +644,7 @@ cabal-helper-wrapper: /home/<...>/.cache/cabal-helper/cabal-helper<...>: createP
 
 can happen because cabal-helper compiles and runs above executable at runtime without using nix-build, which means a Nix garbage collection can delete the paths it depends on. Delete ~/.cache/cabal-helper and restart HIE to fix this.
 
+### Liquid Haskell
 
+Liquid Haskell requires an SMT solver on the path. We do not take care of installing one, thus, Liquid Haskell will not run until one is installed.
+The recommended SMT solver is [z3](https://github.com/Z3Prover/z3). To run the tests, it is also required to have an SMT solver on the path, otherwise the tests will fail for Liquid Haskell.

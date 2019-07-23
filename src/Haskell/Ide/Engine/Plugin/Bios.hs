@@ -7,16 +7,6 @@
 {-# LANGUAGE TypeFamilies        #-}
 module Haskell.Ide.Engine.Plugin.Bios(setTypecheckedModule, biosDescriptor) where
 
-import           Bag
-import           Control.Monad.IO.Class
-import           Data.IORef
-import qualified Data.Map.Strict                   as Map
-import           Data.Monoid ((<>))
-import qualified Data.Set                          as Set
-import qualified Data.Text                         as T
-import           ErrUtils
-import           System.FilePath
-
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
@@ -28,11 +18,6 @@ import           GHC
 import           IOEnv                             as G
 import           HscTypes
 import           Outputable hiding ((<>))
--- This function should be defined in HIE probably, nothing in particular
--- to do with BIOS
-import qualified HIE.Bios.GHCApi as BIOS (withDynFlags, CradleError)
-import qualified HIE.Bios as BIOS
-import Debug.Trace
 import qualified HscMain as G
 import Haskell.Ide.Engine.Ghc
 

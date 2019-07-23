@@ -4,6 +4,7 @@ module TestUtils
     withFileLogging
   , setupStackFiles
   , testCommand
+  , runSingle
   , runSingleReq
   , makeRequest
   , runIGM
@@ -13,6 +14,7 @@ module TestUtils
   , hieCommandVomit
   , hieCommandExamplePlugin
   , getHspecFormattedConfig
+  , testOptions
   ) where
 
 import           Control.Concurrent.STM
@@ -37,6 +39,12 @@ import           Test.Hspec.Runner
 import           Test.Hspec.Core.Formatters
 import           Text.Blaze.Renderer.String (renderMarkup)
 import           Text.Blaze.Internal
+import qualified Haskell.Ide.Engine.PluginApi as HIE (BiosOptions(..),BiosLogLevel(..),defaultOptions)
+
+import HIE.Bios.Types
+
+testOptions :: HIE.BiosOptions
+testOptions = HIE.defaultOptions { cradleOptsVerbosity = Verbose }
 
 -- ---------------------------------------------------------------------
 
@@ -50,6 +58,9 @@ testCommand testPlugins act plugin cmd arg res = do
     return (new, old)
   newApiRes `shouldBe` res
   fmap fromDynJSON oldApiRes `shouldBe` fmap Just res
+
+runSingle :: IdePlugins -> IdeGhcM (IdeResult b) -> IO (IdeResult b)
+runSingle testPlugins act = runIGM testPlugins  act
 
 runSingleReq :: ToJSON a
              => IdePlugins -> PluginId -> CommandName -> a -> IO (IdeResult DynamicJSON)
@@ -94,10 +105,8 @@ files =
   [  "./test/testdata/"
    , "./test/testdata/addPackageTest/cabal-exe/"
    , "./test/testdata/addPackageTest/hpack-exe/"
-   , "./test/testdata/addPackageTest/hybrid-exe/"
    , "./test/testdata/addPackageTest/cabal-lib/"
    , "./test/testdata/addPackageTest/hpack-lib/"
-   , "./test/testdata/addPackageTest/hybrid-lib/"
    , "./test/testdata/addPragmas/"
    , "./test/testdata/badProjects/cabal/"
    , "./test/testdata/completion/"
@@ -158,7 +167,7 @@ logFilePath = "functional-hie-" ++ stackYaml ++ ".log"
 -- run with `stack test`
 hieCommand :: String
 hieCommand = "stack exec --no-stack-exe --no-ghc-package-path --stack-yaml=" ++ stackYaml ++
-             " hie -- -d -l test-logs/" ++ logFilePath
+             " hie -- --bios-verbose -d -l test-logs/" ++ logFilePath
 
 hieCommandVomit :: String
 hieCommandVomit = hieCommand ++ " --vomit"

@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveAnyClass #-}
@@ -67,6 +68,7 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , withIndefiniteProgress
   , persistVirtualFile
   , reverseFileMap
+  , withMappedFile
   , Core.Progress(..)
   , Core.ProgressCancellable(..)
   -- ** Lifting
@@ -118,6 +120,7 @@ import qualified Data.Text                     as T
 import           Data.Typeable                  ( TypeRep
                                                 , Typeable
                                                 )
+import System.Directory
 import GhcMonad
 import qualified HIE.Bios as BIOS
 import           GHC.Generics
@@ -152,6 +155,7 @@ import           Language.Haskell.LSP.Types     ( Command(..)
                                                 , WorkspaceEdit(..)
                                                 , filePathToUri
                                                 , uriToFilePath
+                                                , toNormalizedUri
                                                 )
 
 import           Language.Haskell.LSP.VFS       ( VirtualFile(..) )
@@ -412,14 +416,14 @@ getVirtualFile :: (MonadIde m, MonadIO m) => Uri -> m (Maybe VirtualFile)
 getVirtualFile uri = do
   mlf <- ideEnvLspFuncs <$> getIdeEnv
   case mlf of
-    Just lf -> liftIO $ Core.getVirtualFileFunc lf uri
+    Just lf -> liftIO $ Core.getVirtualFileFunc lf (toNormalizedUri uri)
     Nothing -> return Nothing
 
 persistVirtualFile :: (MonadIde m, MonadIO m) => Uri -> m FilePath
 persistVirtualFile uri = do
   mlf <- ideEnvLspFuncs <$> getIdeEnv
   case mlf of
-    Just lf ->  liftIO $ Core.persistVirtualFileFunc lf uri
+    Just lf ->  liftIO $ Core.persistVirtualFileFunc lf (toNormalizedUri uri)
     Nothing -> maybe (error "persist") return (uriToFilePath uri)
 
 reverseFileMap :: (MonadIde m, MonadIO m) => m (FilePath -> FilePath)
@@ -428,6 +432,13 @@ reverseFileMap = do
     case mlf of
       Just lf -> liftIO $ Core.reverseFileMapFunc lf
       Nothing -> return id
+
+withMappedFile :: (MonadIde m, MonadIO m) => FilePath -> (FilePath -> m a) -> m a
+withMappedFile fp k = do
+  canon <- liftIO $ canonicalizePath fp
+  fp' <- persistVirtualFile (filePathToUri canon)
+  k fp'
+
 
 getConfig :: (MonadIde m, MonadIO m) => m Config
 getConfig = do
@@ -472,11 +483,11 @@ withIndefiniteProgress t c f = do
     Just wp -> control $ \run -> wp t c (run f)
 
 data IdeState = IdeState
-  { moduleCache :: GhcModuleCache
+  { moduleCache :: !GhcModuleCache
   -- | A queue of requests to be performed once a module is loaded
   , requestQueue :: Map.Map FilePath [UriCacheResult -> IdeM ()]
   , extensibleState :: !(Map.Map TypeRep Dynamic)
-  , ghcSession  :: Maybe (IORef HscEnv)
+  , ghcSession  :: !(Maybe (IORef HscEnv))
   }
 
 instance MonadMTState IdeState IdeGhcM where
@@ -516,7 +527,7 @@ instance HasGhcModuleCache IdeM where
     tvar <- lift ask
     state <- readTVarIO tvar
     return (moduleCache state)
-  setModuleCache mc = do
+  setModuleCache !mc = do
     tvar <- lift ask
     atomically $ modifyTVar' tvar (\st -> st { moduleCache = mc })
 

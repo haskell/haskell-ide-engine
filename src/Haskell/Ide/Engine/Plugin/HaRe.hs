@@ -21,9 +21,6 @@ import qualified Data.Text                                    as T
 import qualified Data.Text.IO                                 as T
 import           Exception
 import           GHC.Generics                                 (Generic)
---import qualified GhcMod.Error                                 as GM
---import qualified GhcMod.Monad                                 as GM
--- import qualified GhcMod.Utils                                 as GM
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
@@ -31,11 +28,14 @@ import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Support.HieExtras         as Hie
 import           Language.Haskell.GHC.ExactPrint.Print
 import qualified Language.Haskell.LSP.Core                    as Core
+import           Language.Haskell.LSP.VFS
 import qualified Language.Haskell.LSP.Types                   as J
 import qualified Language.Haskell.LSP.Types.Lens              as J
 import           Language.Haskell.Refact.API                  hiding (logm)
 import           Language.Haskell.Refact.HaRe
 import           Language.Haskell.Refact.Utils.Monad          hiding (logm)
+import qualified Data.Rope.UTF16 as Rope
+
 
 -- ---------------------------------------------------------------------
 hareDescriptor :: PluginId -> PluginDescriptor
@@ -46,8 +46,7 @@ hareDescriptor plId = PluginDescriptor
               <> "Haskell 2010 standard, through making use of the GHC API.  HaRe attempts to "
               <> "operate in a safe way, by first writing new files with proposed changes, and "
               <> "only swapping these with the originals when the change is accepted. "
-  , pluginCommands = []
-  {-
+  , pluginCommands =
       [ PluginCommand "demote" "Move a definition one level down"
           demoteCmd
       , PluginCommand "dupdef" "Duplicate a definition"
@@ -66,14 +65,12 @@ hareDescriptor plId = PluginDescriptor
           genApplicativeCommand
 
       ]
-  -}
-  , pluginCodeActionProvider = Nothing -- Just codeActionProvider
+  , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Nothing
   , pluginSymbolProvider = Nothing
   , pluginFormattingProvider = Nothing
   }
-  {-
 
 -- ---------------------------------------------------------------------
 
@@ -214,8 +211,11 @@ makeRefactorResult changedFiles = do
   let
     diffOne :: (FilePath, T.Text) -> IdeGhcM WorkspaceEdit
     diffOne (fp, newText) = do
-      origText <- liftIO $ T.readFile fp
-        -- GM.withMappedFile fp $ liftIO . T.readFile
+      uri <- canonicalizeUri $ filePathToUri fp
+      mvf <- getVirtualFile uri
+      origText <- case mvf of
+        Nothing -> withMappedFile fp $ liftIO . T.readFile
+        Just vf -> pure (Rope.toText $ _text vf)
       -- TODO: remove this logging once we are sure we have a working solution
       logm $ "makeRefactorResult:groupedDiff = " ++ show (getGroupedDiff (lines $ T.unpack origText) (lines $ T.unpack newText))
       logm $ "makeRefactorResult:diffops = " ++ show (diffToLineRanges $ getGroupedDiff (lines $ T.unpack origText) (lines $ T.unpack newText))
@@ -266,30 +266,11 @@ runHareCommand' cmd =
            evalStateT cmd' initialState
          handlers
            :: Applicative m
-           => [GM.GHandler m (Either String a)]
+           => [ErrorHandler m (Either String a)]
          handlers =
-           [GM.GHandler (\(ErrorCall e) -> pure (Left e))
-           ,GM.GHandler (\(err :: GM.GhcModError) -> pure (Left (show err)))]
+           [ErrorHandler (\(ErrorCall e) -> pure (Left e))]
+     fmap Right embeddedCmd `gcatches` handlers
 
-     r <- liftIO $ GM.runGhcModT Language.Haskell.Refact.HaRe.defaultOptions (fmap Right embeddedCmd `GM.gcatches` handlers)
-     case r of
-       (Right err, _) -> return err
-       (Left err, _)  -> error (show err)
-
-
-
--- ---------------------------------------------------------------------
--- | This is like hoist from the mmorph package, but build on
--- `MonadTransControl` since we don’t have an `MFunctor` instance.
-hoist
-  :: (MonadTransControl t,Monad (t m'),Monad m',Monad m)
-  => (forall b. m b -> m' b) -> t m a -> t m' a
-hoist f a =
-  liftWith (\run ->
-              let b = run a
-                  c = f b
-              in pure c) >>=
-  restoreT
 
 -- ---------------------------------------------------------------------
 
@@ -331,4 +312,3 @@ codeActionProvider pId docId (J.Range pos _) _ =
       let args = [J.toJSON $ HPT (docId ^. J.uri) pos (name <> "'")]
       cmd <- mkLspCommand pId aId title (Just args)
       return $ J.CodeAction (title <> name) (Just kind) mempty Nothing (Just cmd)
--}

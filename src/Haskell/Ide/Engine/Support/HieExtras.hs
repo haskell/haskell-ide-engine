@@ -8,6 +8,7 @@ module Haskell.Ide.Engine.Support.HieExtras
   ( getDynFlags
   , WithSnippets(..)
   , getCompletions
+  , resolveCompletion
   , getTypeForName
   , getSymbolsAtPoint
   , getReferencesInDoc
@@ -25,7 +26,7 @@ module Haskell.Ide.Engine.Support.HieExtras
   ) where
 
 import           ConLike
-import           Control.Lens.Operators                       ( (^?), (?~) )
+import           Control.Lens.Operators                       ( (.~), (^.), (^?), (?~), (&) )
 import           Control.Lens.Prism                           ( _Just )
 import           Control.Monad.Reader
 import           Control.Monad.Except
@@ -41,19 +42,21 @@ import qualified Data.Text                                    as T
 import           Data.Typeable
 import           DataCon
 import qualified DynFlags                                     as GHC
-import           Exception
 import           FastString
 import           Finder
 import           GHC                                          hiding (getContext)
-import           GhcMonad
 import           GHC.Generics                                 (Generic)
+import           TcRnTypes
+import           RdrName
+
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.Context
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
-import qualified Haskell.Ide.Engine.Support.Fuzzy              as Fuzzy
+import qualified Haskell.Ide.Engine.Support.Fuzzy             as Fuzzy
+import qualified Haskell.Ide.Engine.Plugin.Hoogle             as Hoogle
 import           HscTypes
 import qualified Language.Haskell.LSP.Types                   as J
 import qualified Language.Haskell.LSP.Types.Lens              as J
@@ -65,9 +68,11 @@ import           Outputable                                   (Outputable)
 import qualified Outputable                                   as GHC
 import           Packages
 import           SrcLoc
-import           TcEnv
 import           Type
 import           Var
+import           Unique
+import           UniqFM
+import           Module hiding (getModule)
 
 -- ---------------------------------------------------------------------
 
@@ -96,13 +101,16 @@ data CompItem = CI
   , importedFrom :: T.Text
   , thingType    :: Maybe Type
   , label        :: T.Text
+  , isInfix      :: Maybe Backtick
   }
 
+data Backtick = Surrounded | LeftSide
+
 instance Eq CompItem where
-  (CI n1 _ _ _) == (CI n2 _ _ _) = n1 == n2
+  ci1 == ci2 = origName ci1 == origName ci2
 
 instance Ord CompItem where
-  compare (CI n1 _ _ _) (CI n2 _ _ _) = compare n1 n2
+  compare ci1 ci2 = origName ci1 `compare` origName ci2
 
 occNameToComKind :: OccName -> J.CompletionItemKind
 occNameToComKind oc
@@ -112,54 +120,132 @@ occNameToComKind oc
   | otherwise    = J.CiVariable
 
 type HoogleQuery = T.Text
+data CompItemResolveData
+  = CompItemResolveData
+  { nameDetails :: Maybe NameDetails
+  , hoogleQuery :: HoogleQuery
+  } deriving (Eq,Generic)
+
+data NameDetails
+  = NameDetails Unique Module
+  deriving (Eq)
+
+instance FromJSON NameDetails where
+  parseJSON v@(Array _)
+    = do
+      [uchar,uint,modname,modid] <- parseJSON v
+      ch  <- parseJSON uchar
+      i   <- parseJSON uint
+      mn  <- parseJSON modname
+      mid <- parseJSON modid
+      pure $ NameDetails (mkUnique ch i) (mkModule (stringToUnitId mid) (mkModuleName mn))
+  parseJSON _ = mempty
+instance ToJSON NameDetails where
+  toJSON (NameDetails uniq mdl) = toJSON [toJSON ch,toJSON uint,toJSON mname,toJSON mid]
+    where
+      (ch,uint) = unpkUnique uniq
+      mname = moduleNameString $ moduleName mdl
+      mid = unitIdString $ moduleUnitId mdl
+
+instance FromJSON CompItemResolveData where
+  parseJSON = genericParseJSON $ customOptions 0
+instance ToJSON CompItemResolveData where
+  toJSON = genericToJSON $ customOptions 0
+
+resolveCompletion :: J.CompletionItem -> IdeM J.CompletionItem
+resolveCompletion origCompl =
+  case fromJSON <$> origCompl ^. J.xdata of
+    Just (J.Success (CompItemResolveData dets query)) -> do
+      mdocs <- Hoogle.infoCmd' query
+      let docText = case mdocs of
+            Right x -> Just x
+            _ -> Nothing
+          markup = J.MarkupContent J.MkMarkdown <$> docText
+          docs = J.CompletionDocMarkup <$> markup
+      (detail,insert) <- case dets of
+        Nothing -> pure (Nothing,Nothing)
+        Just (NameDetails uniq mdl) -> do
+          mtyp <- getTypeForNameDirectly uniq mdl
+          case mtyp of
+            Nothing -> pure (Nothing, Nothing)
+            Just typ -> do
+              let label = origCompl ^. J.label
+                  insertText = label <> " " <> getArgText typ
+                  det = Just . stripForall $ T.pack (showGhc typ) <> "\n"
+              pure (det,Just insertText)
+      return $ origCompl & J.documentation .~ docs
+                         & J.insertText .~ insert
+                         & J.detail .~ (detail <> origCompl ^. J.detail)
+    Just (J.Error err) -> do
+      debugm $ "resolveCompletion: Decoding data failed because of: " ++ err
+      pure origCompl
+    _ -> pure origCompl
+
 
 mkQuery :: T.Text -> T.Text -> HoogleQuery
 mkQuery name importedFrom = name <> " module:" <> importedFrom
                                  <> " is:exact"
 
 mkCompl :: CompItem -> J.CompletionItem
-mkCompl CI{origName,importedFrom,thingType,label} =
+mkCompl CI{origName,importedFrom,thingType,label,isInfix} =
   J.CompletionItem label kind (Just $ maybe "" (<>"\n") typeText <> importedFrom)
     Nothing Nothing Nothing Nothing Nothing (Just insertText) (Just J.Snippet)
-    Nothing Nothing Nothing Nothing hoogleQuery
+    Nothing Nothing Nothing Nothing resolveData
   where kind = Just $ occNameToComKind $ occName origName
-        hoogleQuery = Just $ toJSON $ mkQuery label importedFrom
-        argTypes = maybe [] getArgs thingType
-        insertText
-          | [] <- argTypes = label
-          | otherwise = label <> " " <> argText
-        argText :: T.Text
-        argText =  mconcat $ List.intersperse " " $ zipWith snippet [1..] argTypes
-        stripForall t
-          | T.isPrefixOf "forall" t =
-            -- We drop 2 to remove the '.' and the space after it
-            T.drop 2 (T.dropWhile (/= '.') t)
-          | otherwise               = t
-        snippet :: Int -> Type -> T.Text
-        snippet i t = T.pack $ "${" <> show i <> ":" <> showGhc t <> "}"
+        resolveData = Just $ toJSON $ CompItemResolveData nameDets hoogleQuery
+        hoogleQuery = mkQuery label importedFrom
+        insertText = case isInfix of
+            Nothing -> case getArgText <$> thingType of
+                            Nothing -> label
+                            Just argText -> label <> " " <> argText
+            Just LeftSide -> label <> "`"
+
+            Just Surrounded -> label
         typeText
           | Just t <- thingType = Just . stripForall $ T.pack (showGhc t)
           | otherwise = Nothing
-        getArgs :: Type -> [Type]
-        getArgs t
-          | isPredTy t = []
-          | isDictTy t = []
-          | isForAllTy t = getArgs $ snd (splitForAllTys t)
-          | isFunTy t =
-            let (args, ret) = splitFunTys t
-              in if isForAllTy ret
-                  then getArgs ret
-                  else filter (not . isDictTy) args
-          | isPiTy t = getArgs $ snd (splitPiTys t)
-          | isCoercionTy t = maybe [] (getArgs . snd) (splitCoercionType_maybe t)
-          | otherwise = []
+        nameDets =
+          case (thingType, nameModule_maybe origName) of
+            (Just _,_) -> Nothing
+            (Nothing, Nothing) -> Nothing
+            (Nothing, Just mdl) -> Just (NameDetails (nameUnique origName) mdl)
+
+stripForall :: T.Text -> T.Text
+stripForall t
+  | T.isPrefixOf "forall" t =
+    -- We drop 2 to remove the '.' and the space after it
+    T.drop 2 (T.dropWhile (/= '.') t)
+  | otherwise               = t
+
+getArgText :: Type -> T.Text
+getArgText typ = argText
+  where
+    argTypes = getArgs typ
+    argText :: T.Text
+    argText =  mconcat $ List.intersperse " " $ zipWith snippet [1..] argTypes
+    snippet :: Int -> Type -> T.Text
+    snippet i t = T.pack $ "${" <> show i <> ":" <> showGhc t <> "}"
+    getArgs :: Type -> [Type]
+    getArgs t
+      | isPredTy t = []
+      | isDictTy t = []
+      | isForAllTy t = getArgs $ snd (splitForAllTys t)
+      | isFunTy t =
+        let (args, ret) = splitFunTys t
+          in if isForAllTy ret
+              then getArgs ret
+              else filter (not . isDictTy) args
+      | isPiTy t = getArgs $ snd (splitPiTys t)
+      | isCoercionTy t = maybe [] (getArgs . snd) (splitCoercionType_maybe t)
+      | otherwise = []
 
 mkModCompl :: T.Text -> J.CompletionItem
 mkModCompl label =
   J.CompletionItem label (Just J.CiModule) Nothing
     Nothing Nothing Nothing Nothing Nothing Nothing Nothing
-    Nothing Nothing Nothing Nothing hoogleQuery
-  where hoogleQuery = Just $ toJSON $ "module:" <> label
+    Nothing Nothing Nothing Nothing (Just $ toJSON resolveData)
+  where hoogleQuery = "module:" <> label
+        resolveData = Just $ CompItemResolveData Nothing hoogleQuery
 
 mkExtCompl :: T.Text -> J.CompletionItem
 mkExtCompl label =
@@ -179,15 +265,24 @@ safeTyThingId (AConLike (RealDataCon dc)) = Just $ dataConWrapId dc
 safeTyThingId _                           = Nothing
 
 -- Associates a module's qualifier with its members
-type QualCompls = Map.Map T.Text [CompItem]
+newtype QualCompls = QualCompls { getQualCompls :: Map.Map T.Text [CompItem] }
+
+instance Semigroup QualCompls where
+  (QualCompls a) <> (QualCompls b) = QualCompls $ Map.unionWith (++) a b
+
+instance Monoid QualCompls where
+  mempty = QualCompls Map.empty
 
 data CachedCompletions = CC
   { allModNamesAsNS :: [T.Text]
   , unqualCompls :: [CompItem]
   , qualCompls :: QualCompls
   , importableModules :: [T.Text]
-  , cachedExtensions :: [T.Text]
   } deriving (Typeable)
+
+-- The supported languages and extensions
+languagesAndExts :: [T.Text]
+languagesAndExts = map T.pack GHC.supportedLanguagesAndExtensions
 
 instance ModuleCache CachedCompletions where
   cacheDataProducer tm _ = do
@@ -212,103 +307,50 @@ instance ModuleCache CachedCompletions where
         -- The given namespaces for the imported modules (ie. full name, or alias if used)
         allModNamesAsNS = map (showModName . asNamespace) importDeclerations
 
-        -- The supported languages and extensions
-        languagesAndExts = map T.pack GHC.supportedLanguagesAndExtensions
+        typeEnv = tcg_type_env $ fst $ tm_internals_ tm
+        rdrEnv = tcg_rdr_env $ fst $ tm_internals_ tm
+        rdrElts = globalRdrEnvElts rdrEnv
 
-        typeEnv = md_types $ snd $ tm_internals_ tm
-        toplevelVars = mapMaybe safeTyThingId $ typeEnvElts typeEnv
-        varToCompl var = CI name (showModName curMod) typ label
+        getCompls :: [GlobalRdrElt] -> ([CompItem],QualCompls)
+        getCompls = foldMap getComplsForOne
+
+        getComplsForOne :: GlobalRdrElt -> ([CompItem],QualCompls)
+        getComplsForOne (GRE n _ True _) =
+          case lookupTypeEnv typeEnv n of
+            Just tt -> case safeTyThingId tt of
+              Just var -> ([varToCompl var],mempty)
+              Nothing -> ([toCompItem curMod n],mempty)
+            Nothing -> ([toCompItem curMod n],mempty)
+        getComplsForOne (GRE n _ False prov) =
+          flip foldMap (map is_decl prov) $ \spec ->
+            let unqual
+                  | is_qual spec = []
+                  | otherwise = compItem
+                qual
+                  | is_qual spec = Map.singleton asMod compItem
+                  | otherwise = Map.fromList [(asMod,compItem),(origMod,compItem)]
+                compItem = [toCompItem (is_mod spec) n]
+                asMod = showModName (is_as spec)
+                origMod = showModName (is_mod spec)
+            in (unqual,QualCompls qual)
+
+        varToCompl :: Var -> CompItem
+        varToCompl var = CI name (showModName curMod) typ label Nothing
           where
             typ = Just $ varType var
             name = Var.varName var
             label = T.pack $ showGhc name
 
-        toplevelCompls = map varToCompl toplevelVars
-
         toCompItem :: ModuleName -> Name -> CompItem
         toCompItem mn n =
-          CI n (showModName mn) Nothing (T.pack $ showGhc n)
+          CI n (showModName mn) Nothing (T.pack $ showGhc n) Nothing
 
-        allImportsInfo :: [(Bool, T.Text, ModuleName, Maybe (Bool, [Name]))]
-        allImportsInfo = map getImpInfo importDeclerations
-          where
-            getImpInfo imp =
-              let modName = iDeclToModName imp
-                  modQual = showModName (asNamespace imp)
-                  isQual = ideclQualified imp
-                  hasHiddsMembers =
-                    case ideclHiding imp of
-                      Nothing -> Nothing
-                      Just (hasHiddens, L _ liens) ->
-                        Just (hasHiddens, concatMap (ieNames . unLoc) liens)
-              in (isQual, modQual, modName, hasHiddsMembers)
-
-        getModCompls :: GhcMonad m => HscEnv -> m ([CompItem], QualCompls)
-        getModCompls hscEnv = do
-          (unquals, qualKVs) <- foldM (orgUnqualQual hscEnv) ([], []) allImportsInfo
-          return (unquals, Map.fromListWith (++) qualKVs)
-
-        orgUnqualQual hscEnv (prevUnquals, prevQualKVs) (isQual, modQual, modName, hasHiddsMembers) =
-          let
-            ifUnqual xs = if isQual then prevUnquals else prevUnquals ++ xs
-            setTypes = setComplsType hscEnv
-          in
-            case hasHiddsMembers of
-              Just (False, members) -> do
-                compls <- setTypes (map (toCompItem modName) members)
-                return
-                  ( ifUnqual compls
-                  , (modQual, compls) : prevQualKVs
-                  )
-              Just (True , members) -> do
-                let hiddens = map (toCompItem modName) members
-                allCompls <- getComplsFromModName modName
-                compls <- setTypes (allCompls List.\\ hiddens)
-                return
-                  ( ifUnqual compls
-                  , (modQual, compls) : prevQualKVs
-                  )
-              Nothing -> do
-                -- debugm $ "///////// Nothing " ++ (show modQual)
-                compls <- setTypes =<< getComplsFromModName modName
-                return
-                  ( ifUnqual compls
-                  , (modQual, compls) : prevQualKVs
-                  )
-
-        getComplsFromModName :: GhcMonad m
-          => ModuleName -> m [CompItem]
-        getComplsFromModName mn = do
-          mminf <- getModuleInfo =<< findModule mn Nothing
-          return $ case mminf of
-            Nothing -> []
-            Just minf -> map (toCompItem mn) $ modInfoExports minf
-
-        setComplsType :: (Traversable t, MonadIO m)
-          => HscEnv -> t CompItem -> m (t CompItem)
-        setComplsType hscEnv xs =
-          liftIO $ forM xs $ \ci@CI{origName} -> do
-            mt <- (Just <$> lookupGlobal hscEnv origName)
-                    `catch` \(_ :: SourceError) -> return Nothing
-            let typ = do
-                  t <- mt
-                  tyid <- safeTyThingId t
-                  return $ varType tyid
-            return $ ci { thingType = typ }
-
-    hscEnvRef <- ghcSession <$> readMTS
-    hscEnv <- liftIO $ traverse readIORef hscEnvRef
-    (unquals, quals) <- maybe
-                          (pure ([], Map.empty))
-                          (\env -> liftIO $ do sess <- newIORef env
-                                               reflectGhc (getModCompls env) (Session sess))
-                          hscEnv
+        (unquals,quals) = getCompls rdrElts
     return $ CC
       { allModNamesAsNS = allModNamesAsNS
-      , unqualCompls = toplevelCompls ++ unquals
+      , unqualCompls = unquals
       , qualCompls = quals
       , importableModules = moduleNames
-      , cachedExtensions = languagesAndExts
       }
 
 newtype WithSnippets = WithSnippets Bool
@@ -338,7 +380,7 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) =
         fullPrefix  = enteredQual <> prefixText
 
     ifCachedModuleAndData file (IdeResultOk [])
-      $ \tm CachedInfo { newPosToOld } CC { allModNamesAsNS, unqualCompls, qualCompls, importableModules, cachedExtensions } ->
+      $ \tm CachedInfo { newPosToOld } CC { allModNamesAsNS, unqualCompls, qualCompls, importableModules } ->
           let
             -- default to value context if no explicit context
             context = fromMaybe ValueContext $ getContext pos (tm_parsed_module tm)
@@ -363,6 +405,26 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) =
                   d = T.length fullLine - T.length (stripTypeStuff partialLine)
               in Position l (c - d)
 
+            hasTrailingBacktick =
+              if T.length fullLine <= trailingBacktickIndex
+                  then False
+                  else (fullLine `T.index` trailingBacktickIndex) == '`'
+
+            trailingBacktickIndex = let Position _ cursorColumn = VFS.cursorPos prefixInfo in cursorColumn
+
+            isUsedAsInfix = if backtickIndex < 0
+                    then False
+                    else (fullLine `T.index` backtickIndex) == '`'
+
+            backtickIndex =
+              let Position _ cursorColumn = VFS.cursorPos prefixInfo
+                  prefixLength = T.length prefixText
+                  moduleLength = if prefixModule == ""
+                            then 0
+                            else T.length prefixModule + 1 {- Because of "." -}
+              in
+                     cursorColumn - (prefixLength + moduleLength) - 1 {- Points to the first letter of either the module or prefix text -}
+
             filtModNameCompls =
               map mkModCompl
                 $ mapMaybe (T.stripPrefix enteredQual)
@@ -372,12 +434,22 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) =
               where
                 isTypeCompl = isTcOcc . occName . origName
                 -- completions specific to the current context
-                ctxCompls = case context of
+                ctxCompls' = case context of
                               TypeContext -> filter isTypeCompl compls
                               ValueContext -> filter (not . isTypeCompl) compls
+                -- Add whether the text to insert has backticks
+                ctxCompls = map (\comp -> comp { isInfix = infixCompls }) ctxCompls'
+
+                infixCompls :: Maybe Backtick
+                infixCompls = case (isUsedAsInfix, hasTrailingBacktick) of
+                    (True, False) -> Just LeftSide
+                    (True, True) -> Just Surrounded
+                    _ -> Nothing
+
                 compls = if T.null prefixModule
                   then unqualCompls
-                  else Map.findWithDefault [] prefixModule qualCompls
+                  else Map.findWithDefault [] prefixModule $ getQualCompls qualCompls
+
 
             mkImportCompl label = (J.detail ?~ label) . mkModCompl $ fromMaybe
               ""
@@ -409,7 +481,7 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) =
               | "import " `T.isPrefixOf` fullLine
               = filtImportCompls
               | "{-# language" `T.isPrefixOf` T.toLower fullLine
-              = filtOptsCompls cachedExtensions
+              = filtOptsCompls languagesAndExts
               | "{-# options_ghc" `T.isPrefixOf` T.toLower fullLine
               = filtOptsCompls (map (T.pack . stripLeading '-') $ GHC.flagsForCompletion False)
               | "{-# " `T.isPrefixOf` fullLine
@@ -442,15 +514,35 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) =
 -- ---------------------------------------------------------------------
 
 getTypeForName :: Name -> IdeM (Maybe Type)
-getTypeForName n = do
+getTypeForName n = case nameModule_maybe n of
+  Nothing -> pure Nothing
+  Just mdl -> getTypeForNameDirectly (nameUnique n) mdl
+
+getTypeForNameDirectly :: Unique -> Module -> IdeM (Maybe Type)
+getTypeForNameDirectly n m = do
   hscEnvRef <- ghcSession <$> readMTS
   mhscEnv <- liftIO $ traverse readIORef hscEnvRef
   case mhscEnv of
     Nothing -> return Nothing
     Just hscEnv -> do
-      mt <- liftIO $ (Just <$> lookupGlobal hscEnv n)
-                        `catch` \(_ :: SomeException) -> return Nothing
+      mt <- liftIO $ lookupGlobalDirectly hscEnv n m
       return $ fmap varType $ safeTyThingId =<< mt
+
+lookupTypeDirectly
+  :: HomePackageTable
+  -> PackageTypeEnv
+  -> Unique
+  -> Module
+  -> Maybe TyThing
+lookupTypeDirectly hpt pte name mdl
+  = case lookupHptByModule hpt mdl of
+       Just hm -> lookupUFM_Directly (md_types (hm_details hm)) name
+       Nothing -> lookupUFM_Directly pte name
+
+lookupGlobalDirectly :: HscEnv -> Unique -> Module -> IO (Maybe TyThing)
+lookupGlobalDirectly hsc_env name mdl = do
+    eps <- readIORef (hsc_EPS hsc_env)
+    return $! lookupTypeDirectly (hsc_HPT hsc_env) (eps_PTE eps) name mdl
 
 -- ---------------------------------------------------------------------
 
@@ -613,8 +705,8 @@ srcSpanToFileLocation invoker rfm srcSpan = do
 gotoModule :: (FilePath -> FilePath) -> ModuleName -> IdeDeferM (IdeResult [Location])
 gotoModule rfm mn = do
   hscEnvRef <- ghcSession <$> readMTS
-  mHscEnv <- liftIO $ traverse readIORef hscEnvRef
-  case mHscEnv of
+  mhscEnv <- liftIO $ traverse readIORef hscEnvRef
+  case mhscEnv of
     Just env -> do
       fr <- liftIO $ do
         -- Flush cache or else we get temporary files

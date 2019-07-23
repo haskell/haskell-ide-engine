@@ -24,36 +24,42 @@ spec = describe "window/progress" $ do
 
       skipMany loggingNotification
 
-      -- Initial hlint notifications
-      _ <- publishDiagnosticsNotification
-
       startNotification <- message :: Session ProgressStartNotification
       liftIO $ do
-        startNotification ^. L.params . L.title `shouldBe` "Typechecking ApplyRefact2.hs"
+        startNotification ^. L.params . L.title `shouldBe` "Initialising Cradle"
         startNotification ^. L.params . L.id `shouldBe` "0"
+
+      reportNotification <- message :: Session ProgressReportNotification
+      liftIO $ do
+        reportNotification ^. L.params . L.message `shouldBe` Just "Main"
+        reportNotification ^. L.params . L.id `shouldBe` "0"
 
       doneNotification <- message :: Session ProgressDoneNotification
       liftIO $ doneNotification ^. L.params . L.id `shouldBe` "0"
 
-      -- the ghc-mod diagnostics
+      -- Initial hlint notifications
       _ <- publishDiagnosticsNotification
 
       -- Test incrementing ids
       sendNotification TextDocumentDidSave (DidSaveTextDocumentParams doc)
 
-      -- hlint notifications
-      _ <- publishDiagnosticsNotification
-
       startNotification' <- message :: Session ProgressStartNotification
       liftIO $ do
-        startNotification' ^. L.params . L.title `shouldBe` "Typechecking ApplyRefact2.hs"
+        startNotification' ^. L.params . L.title `shouldBe` "loading"
         startNotification' ^. L.params . L.id `shouldBe` "1"
+
+      reportNotification' <- message :: Session ProgressReportNotification
+      liftIO $ do
+        reportNotification' ^. L.params . L.message `shouldBe` Just "Main"
+        reportNotification' ^. L.params . L.id `shouldBe` "1"
 
       doneNotification' <- message :: Session ProgressDoneNotification
       liftIO $ doneNotification' ^. L.params . L.id `shouldBe` "1"
 
-      -- the ghc-mod diagnostics
-      const () <$> publishDiagnosticsNotification
+      -- hlint notifications
+      _ <- publishDiagnosticsNotification
+      return ()
+
   it "sends indefinite progress notifications with liquid" $
     -- Testing that Liquid Haskell sends progress notifications
     runSession hieCommand progressCaps "test/testdata" $ do

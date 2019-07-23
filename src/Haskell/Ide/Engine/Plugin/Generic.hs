@@ -44,7 +44,7 @@ genericDescriptor plId = PluginDescriptor
   { pluginId = plId
   , pluginName = "generic"
   , pluginDesc = "generic actions"
-  , pluginCommands = []
+  , pluginCommands = [PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmd]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Just hoverProvider
@@ -64,6 +64,10 @@ instance FromJSON TypeParams where
   parseJSON = genericParseJSON customOptions
 instance ToJSON TypeParams where
   toJSON = genericToJSON customOptions
+
+typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
+typeCmd = CmdSync $ \(TP _bool uri pos) ->
+  liftToGhc $ newTypeCmd pos uri
 
 newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
 newTypeCmd newPos uri =
@@ -187,7 +191,7 @@ codeActionProvider' supportsDocChanges _ docId _ context =
        codeAction = LSP.CodeAction title (Just kind) (Just diags) (Just we) Nothing
 
     getRenamables :: LSP.Diagnostic -> [(LSP.Diagnostic, T.Text)]
-    getRenamables diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) = map (diag,) $ extractRenamableTerms msg
+    getRenamables diag@(LSP.Diagnostic _ _ _ (Just "bios") msg _) = map (diag,) $ extractRenamableTerms msg
     getRenamables _ = []
 
     mkRedundantImportActions :: LSP.Diagnostic -> T.Text -> [LSP.CodeAction]
@@ -213,7 +217,7 @@ codeActionProvider' supportsDocChanges _ docId _ context =
         tEdit = LSP.TextEdit (diag ^. LSP.range) ("import " <> modName <> "()")
 
     getRedundantImports :: LSP.Diagnostic -> Maybe (LSP.Diagnostic, T.Text)
-    getRedundantImports diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractRedundantImport msg
+    getRedundantImports diag@(LSP.Diagnostic _ _ _ (Just "bios") msg _) = (diag,) <$> extractRedundantImport msg
     getRedundantImports _ = Nothing
 
     mkTypedHoleActions :: TypedHoles -> [LSP.CodeAction]
@@ -235,14 +239,14 @@ codeActionProvider' supportsDocChanges _ docId _ context =
 
 
     getTypedHoles :: LSP.Diagnostic -> Maybe TypedHoles
-    getTypedHoles diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) =
+    getTypedHoles diag@(LSP.Diagnostic _ _ _ (Just "bios") msg _) =
       case extractHoleSubstitutions msg of
         Nothing -> Nothing
         Just (want, subs, bindings) -> Just $ TypedHoles diag want subs bindings
     getTypedHoles _ = Nothing
 
     getMissingSignatures :: LSP.Diagnostic -> Maybe (LSP.Diagnostic, T.Text)
-    getMissingSignatures diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) =
+    getMissingSignatures diag@(LSP.Diagnostic _ _ _ (Just "bios") msg _) =
       case extractMissingSignature msg of
         Nothing -> Nothing
         Just signature -> Just (diag, signature)
@@ -260,7 +264,7 @@ codeActionProvider' supportsDocChanges _ docId _ context =
             codeAction = LSP.CodeAction title (Just kind) (Just diags) (Just edit) Nothing
 
     getUnusedTerms :: LSP.Diagnostic -> Maybe (LSP.Diagnostic, T.Text)
-    getUnusedTerms diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) =
+    getUnusedTerms diag@(LSP.Diagnostic _ _ _ (Just "bios") msg _) =
       case extractUnusedTerm msg of
         Nothing -> Nothing
         Just signature -> Just (diag, signature)
@@ -491,10 +495,21 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
           map (\n -> Decl LSP.SkVariable n [] l) $ hsNamessRdr p
 
 #if __GLASGOW_HASKELL__ >= 806
+        goValD (L l (PatSynBind _ idR)) = case idR of
+          XPatSynBind _ -> error "xPatSynBind"
+          PSB { psb_id = ln } ->
+#else
+        goValD (L l (PatSynBind (PSB { psb_id = ln }))) =
+#endif
+            -- We are reporting pattern synonyms as functions. There is no such
+            -- thing as pattern synonym in current LSP specification so we pick up
+            -- an (arguably) closest match.
+            pure (Decl LSP.SkFunction ln [] l)
+
+#if __GLASGOW_HASKELL__ >= 806
         goValD (L _ (FunBind _ _ (XMatchGroup _) _ _)) = error "goValD"
         goValD (L _ (VarBind _ _ _ _))                 = error "goValD"
         goValD (L _ (AbsBinds _ _ _ _ _ _ _))          = error "goValD"
-        goValD (L _ (PatSynBind _ _))                  = error "goValD"
         goValD (L _ (XHsBindsLR _))                    = error "goValD"
 #elif __GLASGOW_HASKELL__ >= 804
         goValD (L _ (VarBind _ _ _))        = error "goValD"

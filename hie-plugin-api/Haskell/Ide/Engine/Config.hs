@@ -8,11 +8,20 @@ import           Language.Haskell.LSP.Types
 
 -- ---------------------------------------------------------------------
 
--- | Callback from haskell-lsp core to convert the generic message to the
--- specific one for hie
+-- | Given a DidChangeConfigurationNotification message, this function returns the parsed
+-- Config object if possible.
 getConfigFromNotification :: DidChangeConfigurationNotification -> Either T.Text Config
 getConfigFromNotification (NotificationMessage _ _ (DidChangeConfigurationParams p)) =
   case fromJSON p of
+    Success c -> Right c
+    Error err -> Left $ T.pack err
+
+-- | Given an InitializeRequest message, this function returns the parsed
+-- Config object if possible. Otherwise, it returns the default configuration
+getInitialConfig :: InitializeRequest -> Either T.Text Config
+getInitialConfig (RequestMessage _ _ _ InitializeParams{_initializationOptions = Nothing }) = Right def
+getInitialConfig (RequestMessage _ _ _ InitializeParams{_initializationOptions = Just opts}) =
+  case fromJSON opts of
     Success c -> Right c
     Error err -> Left $ T.pack err
 
@@ -33,7 +42,7 @@ data Config =
 instance Default Config where
   def = Config
     { hlintOn                     = True
-    , diagnosticsOnChange         = False
+    , diagnosticsOnChange         = True
     , maxNumberOfProblems         = 100
     , diagnosticsDebounceDuration = 350000
     , liquidOn                    = False

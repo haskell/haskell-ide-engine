@@ -54,10 +54,6 @@ jobs:
        env: GHC_VER="8.2.2"
        script: *setup
 
-     - stage: setup
-       env: GHC_VER="8.2.1"
-       script: *setup
-
      - stage: dependencies
        env: GHC_VER="8.4.4"
        script: &dependencies
@@ -75,10 +71,6 @@ jobs:
        env: GHC_VER="8.2.2"
        script: *dependencies
 
-     - stage: dependencies
-       env: GHC_VER="8.2.1"
-       script: *dependencies
-
      - stage: test
        env: GHC_VER="8.4.4"
        script: &test
@@ -94,10 +86,6 @@ jobs:
 
      - stage: test
        env: GHC_VER="8.2.2"
-       script: *test
-
-     - stage: test
-       env: GHC_VER="8.2.1"
        script: *test
 
      - stage: deploy
@@ -133,10 +121,5 @@ jobs:
 
      - stage: deploy
        env: GHC_VER="8.2.2"
-       script: *deploy
-       deploy: *upload
-
-     - stage: deploy
-       env: GHC_VER="8.2.1"
        script: *deploy
        deploy: *upload

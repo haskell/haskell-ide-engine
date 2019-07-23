@@ -4,7 +4,6 @@ packages:
          ./hie-bios/
 
          ./submodules/HaRe
-         ./submodules/brittany
          ./submodules/cabal-helper/
          ./submodules/ghc-mod/
          ./submodules/ghc-mod/core/
@@ -12,7 +11,7 @@ packages:
 
 allow-newer: floskell:all
 
-profiling: True
+profiling: false
 
 ghc-options: -Werror
 

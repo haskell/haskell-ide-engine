@@ -1,3 +1,165 @@
+# 0.11.0.0
+
+- Bump resolvers. `lts-13.27` for GHC 8.6.5, `nightly-2019-07-07` for
+  nightly build, rest are unchanged.
+([#1319 ](https://github.com/haskell/haskell-ide-engine/pull/1319),by @alanz)
+([#1316 ](https://github.com/haskell/haskell-ide-engine/pull/1316), by @lorenzo)
+
+- Clear out pattern matching and error message of executeCodeActionByName
+([#1317 ](https://github.com/haskell/haskell-ide-engine/pull/1317), by @jneira)
+
+- Upgrade to haskell-lsp 0.15
+([#1316 ](https://github.com/haskell/haskell-ide-engine/pull/1316), by @lorenzo)
+
+- Update Arch Linux install instructions
+([#1315 ](https://github.com/haskell/haskell-ide-engine/pull/1315), by @friedbrice)
+
+- Fix liquid unit test normalizing paths
+([#1310 ](https://github.com/haskell/haskell-ide-engine/pull/1310), by @jneira)
+
+- Add unix-time constraint to cabal file
+([#1306 ](https://github.com/haskell/haskell-ide-engine/pull/1306), by @alanz)
+
+- Fix a memory leak found by @mpickering
+([#1305 ](https://github.com/haskell/haskell-ide-engine/pull/1305), by @lorenzo)
+
+- Fix build for Windows 7
+([#1304 ](https://github.com/haskell/haskell-ide-engine/pull/1304), by @jneira)
+
+- Brittany 0.12
+([#1301 ](https://github.com/haskell/haskell-ide-engine/pull/1301), by @alanz)
+
+- Use ghc-mod without memory leak
+([#1299 ](https://github.com/haskell/haskell-ide-engine/pull/1299), by @alanz)
+
+- install.hs: Make all available GHCs in PATH buildable
+([#1297 ](https://github.com/haskell/haskell-ide-engine/pull/1297), by @maoe)
+
+- Fix file mapping state when we have a parsed module but not a typechecked module
+([#1295 ](https://github.com/haskell/haskell-ide-engine/pull/1295), by @wz1000)
+
+- Use ghc-mod which loads ghc plugins
+([#1293 ](https://github.com/haskell/haskell-ide-engine/pull/1293), by @alanz)
+
+- Fix UriCaches being leaked (bug fix)
+([#1292 ](https://github.com/haskell/haskell-ide-engine/pull/1292), by @bubba)
+
+- Stack 2.1.1
+([#1291 ](https://github.com/haskell/haskell-ide-engine/pull/1291), by @alanz)
+
+- Render completion documentation to markdown
+([#1290 ](https://github.com/haskell/haskell-ide-engine/pull/1290), by @Avi-D-coder)
+
+- Trying out haskell-lsp 0.14
+([#1288 ](https://github.com/haskell/haskell-ide-engine/pull/1288), by @alanz)
+
+- Hlint 2.1.24
+([#1287 ](https://github.com/haskell/haskell-ide-engine/pull/1287), by @alanz)
+
+- Improve import action of hsimport
+([#1284 ](https://github.com/haskell/haskell-ide-engine/pull/1284), by @fendor)
+
+- Add liquid haskell smt solver to README
+([#1283 ](https://github.com/haskell/haskell-ide-engine/pull/1283), by @fendor)
+
+
+# 0.10.0.0
+
+- Drop GHC 8.2.1 support.
+  ([#1279](https://github.com/haskell/haskell-ide-engine/pull/1279),
+  @alanz)
+
+- Bump resolvers and hoogle, LTS 13.23 for GHC 8.6.5,
+  nightly-2019-05-31 for stack.yaml and hoogle version 5.0.17.9
+  ([#1277](https://github.com/haskell/haskell-ide-engine/pull/1277),
+  @alanz)
+
+- HsImport importlist, Offers code action to add a function to import list.
+  ([#1170](https://github.com/haskell/haskell-ide-engine/pull/1170), @fendor)
+
+- Typemap reimplementation
+  ([#1186](https://github.com/haskell/haskell-ide-engine/pull/1186), @fendor)
+
+- Add window/progress reporting for typechecking. Note: needs LSP
+  client to support a recent spec change.
+  ([#1190](https://github.com/haskell/haskell-ide-engine/pull/1190),
+  @bubba)
+
+- Add package to library component in package.yaml
+  ([#1237](https://github.com/haskell/haskell-ide-engine/pull/1237), @fendor)
+
+- hie sends invalid message on hover
+([#1246](https://github.com/haskell/haskell-ide-engine/pull/1246), @Hogeyama)
+
+- Use floskell from hackage
+([#1242](https://github.com/haskell/haskell-ide-engine/pull/1242), @bubba)
+
+- Adapting to new haskell-lsp
+([#1247](https://github.com/haskell/haskell-ide-engine/pull/1247), @alanz)
+
+- Remove HoverContentsEmpty
+([#1251](https://github.com/haskell/haskell-ide-engine/pull/1251), @alanz)
+
+- Use lsp-test-0.5.2.2 from hackage
+([#1252](https://github.com/haskell/haskell-ide-engine/pull/1252), @bubba)
+
+- Use haskell-lsp-12.1.0 from hackage
+([#1253](https://github.com/haskell/haskell-ide-engine/pull/1253), @alanz)
+
+- Bump haskell-lsp to 0.13.0.0
+([#1260](https://github.com/haskell/haskell-ide-engine/pull/1260), @alanz)
+
+- Bump version for hsimport to 0.10.0
+([#1265](https://github.com/haskell/haskell-ide-engine/pull/1265), @fendor)
+
+- Revert "Revert "Merge pull request #1237 from fendor/add-package-tests""
+([#1268](https://github.com/haskell/haskell-ide-engine/pull/1268), @alanz)
+
+- Hlint 2.1.22
+([#1270](https://github.com/haskell/haskell-ide-engine/pull/1270), @alanz)
+
+- Documentation
+
+  - Add Nix cabal-helper fix to troubleshooting section
+    ([#1231](https://github.com/haskell/haskell-ide-engine/pull/1231),
+    @Infinisil)
+
+  - Troubleshooting for emacs
+    ([#1240](https://github.com/haskell/haskell-ide-engine/pull/1240),
+    @Infinisil)
+
+  - Change url for nix installation instructions
+    ([#1258](https://github.com/haskell/haskell-ide-engine/pull/1258),
+    @malob)
+
+- Preparations for hie-bios
+
+  - HaRe hie plugin api
+    ([#1215](https://github.com/haskell/haskell-ide-engine/pull/1215),
+    @alanz)
+
+  - Narrow ghc mod core
+    ([#1255](https://github.com/haskell/haskell-ide-engine/pull/1255),
+    @alanz)
+
+- Build system (install.hs)
+
+  - Extra argument causes cabal-build-doc to fail
+    ([#1239](https://github.com/haskell/haskell-ide-engine/pull/1239),
+    @bflyblue)
+
+  - Add an explicit stack file for GHC 8.6.5
+    ([#1241](https://github.com/haskell/haskell-ide-engine/pull/1241),
+    @alanz)
+
+  - Bump shake resolver
+    ([#1272](https://github.com/haskell/haskell-ide-engine/pull/1272),
+    @fendor)
+
+  - Avoid legacy warning
+    ([#1273](https://github.com/haskell/haskell-ide-engine/pull/1273),
+    @fendor)
+
 # 0.9.0.0
 
 - GHC 8.6.5 preliminary support added via the nightly build (@alanz)

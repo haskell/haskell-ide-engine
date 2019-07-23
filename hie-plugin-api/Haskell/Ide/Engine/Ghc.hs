@@ -11,7 +11,7 @@
 module Haskell.Ide.Engine.Ghc
   (
     setTypecheckedModule
-  , Diagnostics
+  , Diagnostics(..)
   , AdditionalErrs
   , cabalModuleGraphs
   , makeRevRedirMapFunc
@@ -21,67 +21,85 @@ import           Bag
 import           Control.Monad.IO.Class
 import           Data.IORef
 import qualified Data.Map.Strict                   as Map
-import           Data.Monoid ((<>))
+import qualified Data.IntMap.Strict                   as IM
+import           Data.Semigroup ((<>), Semigroup)
 import qualified Data.Set                          as Set
 import qualified Data.Text                         as T
+import qualified Data.Aeson
+import           Data.Coerce
 import           ErrUtils
 
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
-import           System.FilePath
 
 import           DynFlags
+import qualified EnumSet as ES
 import           GHC
 import           IOEnv                             as G
 import           HscTypes
 import           Outputable                        (renderWithStyle)
+import           Language.Haskell.LSP.Types        ( NormalizedUri(..), toNormalizedUri )
 
-import           Bag
-import           Control.Monad.IO.Class
-import           Data.IORef
-import qualified Data.Map.Strict                   as Map
-import           Data.Monoid ((<>))
-import qualified Data.Set                          as Set
-import qualified Data.Text                         as T
-import           ErrUtils
-import           System.FilePath
-
-import           Haskell.Ide.Engine.MonadFunctions
-import           Haskell.Ide.Engine.MonadTypes
-import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.GhcUtils
 --import qualified Haskell.Ide.Engine.Plugin.HieExtras as Hie
 
-import           DynFlags
-import           GHC
-import           IOEnv                             as G
-import           HscTypes
 import           Outputable hiding ((<>))
 -- This function should be defined in HIE probably, nothing in particular
 -- to do with BIOS
-import qualified HIE.Bios.GHCApi as BIOS (withDynFlags, CradleError)
+import qualified HIE.Bios.GHCApi as BIOS (withDynFlags, CradleError,setDeferTypeErrors)
 import qualified HIE.Bios as BIOS
 import Debug.Trace
-import qualified HscMain as G
 
 import System.Directory
 
+import GhcProject.Types as GM
+import Digraph (Node(..), verticesG)
+import GhcMake ( moduleGraphNodes )
+import GhcMonad
 
-type Diagnostics = Map.Map Uri (Set.Set Diagnostic)
+
+newtype Diagnostics = Diagnostics (Map.Map NormalizedUri (Set.Set Diagnostic))
+  deriving (Show, Eq)
+
+instance Semigroup Diagnostics where
+  Diagnostics d1 <> Diagnostics d2 = Diagnostics (Map.unionWith Set.union d1 d2)
+
+instance Monoid Diagnostics where
+  mappend = (<>)
+  mempty = Diagnostics mempty
+
+instance Data.Aeson.ToJSON Diagnostics where
+  toJSON (Diagnostics d) = Data.Aeson.toJSON
+    (Map.mapKeys coerce d :: Map.Map T.Text (Set.Set Diagnostic))
+
 type AdditionalErrs = [T.Text]
 
 
 -- ---------------------------------------------------------------------
 
-lspSev :: Severity -> DiagnosticSeverity
-lspSev SevWarning = DsWarning
-lspSev SevError   = DsError
-lspSev SevFatal   = DsError
-lspSev SevInfo    = DsInfo
-lspSev _          = DsInfo
+lspSev :: WarnReason -> Severity -> DiagnosticSeverity
+lspSev (Reason r) _
+  | r `elem` [ Opt_WarnDeferredTypeErrors
+             , Opt_WarnDeferredOutOfScopeVariables
+             ]
+  = DsError
+lspSev _ SevWarning  = DsWarning
+lspSev _ SevError    = DsError
+lspSev _ SevFatal    = DsError
+lspSev _ SevInfo     = DsInfo
+lspSev _ _           = DsInfo
 
--- | Turn a 'SourceError' into the HIE 'Diagnostics' format.
+-- ---------------------------------------------------------------------
+
+-- unhelpfulSrcSpanErr :: T.Text -> IdeError
+-- unhelpfulSrcSpanErr err =
+--   IdeError PluginError
+--             ("Unhelpful SrcSpan" <> ": \"" <> err <> "\"")
+--             Null
+
+-- ---------------------------------------------------------------------
+
 srcErrToDiag :: MonadIO m
   => DynFlags
   -> (FilePath -> FilePath)
@@ -105,9 +123,11 @@ srcErrToDiag df rfm se = do
         (m,es) <- processMsgs xs
         case res of
           Right (uri, diag) ->
-            return (Map.insertWith Set.union uri (Set.singleton diag) m, es)
+            return (Map.insertWith Set.union (toNormalizedUri uri) (Set.singleton diag) m, es)
           Left e -> return (m, e:es)
-  processMsgs errMsgs
+
+  (diags, errs) <- processMsgs errMsgs
+  return (Diagnostics diags, errs)
 
 
 -- | Run a Ghc action and capture any diagnostics and errors produced.
@@ -117,24 +137,23 @@ captureDiagnostics :: (MonadIO m, GhcMonad m)
   -> m (Diagnostics, AdditionalErrs, Maybe r)
 captureDiagnostics rfm action = do
   env <- getSession
-  diagRef <- liftIO $ newIORef Map.empty
+  diagRef <- liftIO $ newIORef $ Diagnostics mempty
   errRef <- liftIO $ newIORef []
   let setLogger df = df { log_action = logDiag rfm errRef diagRef }
-      setDeferTypedHoles = setGeneralFlag' Opt_DeferTypedHoles
-      ghcErrRes msg = do
-        diags <- liftIO $ readIORef diagRef
-        errs <- liftIO $ readIORef errRef
-        return (diags, (T.pack msg) : errs, Nothing)
+      unsetWErr df = unSetGeneralFlag' Opt_WarnIsError (df {fatalWarningFlags = ES.empty})
+
+      ghcErrRes msg = pure (mempty, [T.pack msg], Nothing)
       to_diag x = do
         (d1, e1) <- srcErrToDiag (hsc_dflags env) rfm x
         diags <- liftIO $ readIORef diagRef
         errs <- liftIO $ readIORef errRef
-        return (Map.unionWith Set.union d1 diags, e1 ++ errs, Nothing)
-
+        return (d1 <> diags, e1 ++ errs, Nothing)
 
       handlers = errorHandlers ghcErrRes to_diag
+
       action' = do
-        r <- BIOS.withDynFlags (setLogger . setDeferTypedHoles) action
+        r <- BIOS.withDynFlags (setLogger . BIOS.setDeferTypeErrors . unsetWErr) $
+                action
         diags <- liftIO $ readIORef diagRef
         errs <- liftIO $ readIORef errRef
         return (diags,errs, Just r)
@@ -144,17 +163,17 @@ captureDiagnostics rfm action = do
 -- write anything to `stdout`.
 logDiag :: (FilePath -> FilePath) -> IORef AdditionalErrs -> IORef Diagnostics -> LogAction
 -- type LogAction = DynFlags -> WarnReason -> Severity -> SrcSpan -> PprStyle -> MsgDoc -> IO ()
-logDiag rfm eref dref df _reason sev spn style msg = do
+logDiag rfm eref dref df reason sev spn style msg = do
   eloc <- srcSpan2Loc rfm spn
   traceShowM (spn, eloc)
   let msgTxt = T.pack $ renderWithStyle df msg style
   case eloc of
     Right (Location uri range) -> do
-      let update = Map.insertWith Set.union uri l
+      let update = Map.insertWith Set.union (toNormalizedUri uri) l
             where l = Set.singleton diag
-          diag = Diagnostic range (Just $ lspSev sev) Nothing (Just "bios") msgTxt Nothing
+          diag = Diagnostic range (Just $ lspSev reason sev) Nothing (Just "bios") msgTxt Nothing
       debugm $ "Writing diag" <> (show diag)
-      modifyIORef' dref update
+      modifyIORef' dref (\(Diagnostics u) -> Diagnostics (update u))
     Left _ -> do
       debugm $ "Writing err" <> (show msgTxt)
       modifyIORef' eref (msgTxt:)
@@ -220,17 +239,21 @@ setTypecheckedModule_load uri =
     mapped_fp <- persistVirtualFile uri
     liftIO $ copyHsBoot fp mapped_fp
     rfm <- reverseFileMap
-    let progTitle = "Typechecking " <> T.pack (takeFileName fp)
-    (diags', errs, mmods) <- loadFile rfm (fp, mapped_fp)
+    -- TODO:AZ: loading this one module may/should trigger loads of any
+    -- other modules which currently have a VFS entry.  Need to make
+    -- sure that their diagnostics are reported, and their module
+    -- cache entries are updated.
+    -- TODO: Are there any hooks we can use to report back on the progress?
+    (Diagnostics diags', errs, mmods) <- loadFile rfm (fp, mapped_fp)
     debugm "File, loaded"
-    canonUri <- canonicalizeUri uri
+    canonUri <- toNormalizedUri <$> canonicalizeUri uri
     let diags = Map.insertWith Set.union canonUri Set.empty diags'
     debugm "setTypecheckedModule: after ghc-mod"
     debugm ("Diags: " <> show diags')
     let collapse Nothing = (Nothing, [])
         collapse (Just (n, xs)) = (n, xs)
 
-    diags2 <- case collapse mmods of
+    case collapse mmods of
       --Just (Just pm, Nothing) -> do
       --  debugm $ "setTypecheckedModule: Did get parsed module for: " ++ show fp
        -- cacheModule fp (Left pm)
@@ -243,11 +266,12 @@ setTypecheckedModule_load uri =
 
         -- set the session before we cache the module, so that deferred
         -- responses triggered by cacheModule can access it
-        --modifyMTS (\s -> s {ghcSession = sess})
+
+        Session sess <- GhcT pure
+        modifyMTS (\s -> s {ghcSession = Just sess})
         cacheModules rfm ts
         --cacheModules rfm [tm]
         debugm "setTypecheckedModule: done"
-        return diags
 
       (Nothing, ts) -> do
         debugm $ "setTypecheckedModule: Didn't get typechecked or parsed module for: " ++ show fp
@@ -255,30 +279,31 @@ setTypecheckedModule_load uri =
         cacheModules rfm ts
         failModule fp
 
-        let sev = Just DsError
-            range = Range (Position 0 0) (Position 1 0)
-            msgTxt = T.unlines errs
-        let d = Diagnostic range sev Nothing (Just "bios") msgTxt Nothing
-        return $ Map.insertWith Set.union canonUri (Set.singleton d) diags
+    return $ IdeResultOk (Diagnostics diags,errs)
 
-    return $ IdeResultOk (diags2,errs)
-
---
-cabalModuleGraphs = undefined
-{-
+-- TODO: make this work for all components
 cabalModuleGraphs :: IdeGhcM [GM.GmModuleGraph]
-cabalModuleGraphs = doCabalModuleGraphs
-  where
-    doCabalModuleGraphs :: (GM.IOish m) => GM.GhcModT m [GM.GmModuleGraph]
-    doCabalModuleGraphs = do
-      crdl <- GM.cradle
-      case GM.cradleCabalFile crdl of
-        Just _ -> do
-          mcs <- GM.cabalResolvedComponents
-          let graph = map GM.gmcHomeModuleGraph $ Map.elems mcs
-          return graph
-        Nothing -> return []
-        -}
+cabalModuleGraphs = do
+  mg <- getModuleGraph
+  let (graph, _) = moduleGraphNodes False (mgModSummaries mg)
+      msToModulePath ms =
+        case ml_hs_file (ms_location ms) of
+          Nothing -> []
+          Just fp -> [ModulePath mn fp]
+        where mn = moduleName (ms_mod ms)
+      nodeMap = IM.fromList [(node_key n,n) | n <- nodes]
+      nodes = verticesG graph
+      gmg = Map.fromList
+              [(mp,Set.fromList deps)
+                  | node <- nodes
+                  , mp <- msToModulePath (node_payload node)
+                  , let int_deps = node_dependencies node
+                        deps = [ d | i <- int_deps
+                                   , Just dep_node <- pure $ IM.lookup i nodeMap
+                                   , d <- msToModulePath (node_payload dep_node)
+                               ]
+                  ]
+  pure [GmModuleGraph gmg]
 
 -- ---------------------------------------------------------------------
 

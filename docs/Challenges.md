@@ -2,15 +2,15 @@
 
 ### ghc-mod
 
- 1. Linking aginst Cabal directly meant lots of breakage when interacting with the on disk configuration state. (Since solved by using wrapper)
- 2. Supporting ill defined interfaces and protocols is hard to impossible. Over the course of it's almost 100 releases (!!!) compatibility was broken way too often.
- 3. Supporting many GHC versions simultaniously is very hard since they keep breaking the API.
- 4. Linking against GHC means simmilar problems as with linking against Cabal, i.e. when the user upgrades their GHC binary stuff will break.
+ 1. Linking against Cabal directly meant lots of breakage when interacting with the on-disk configuration state. (Since solved by using wrapper)
+ 2. Supporting ill-defined interfaces and protocols is hard to impossible. Over the course of its almost 100 releases (!!!) compatibility was broken way too often.
+ 3. Supporting many GHC versions simultaneously is very hard since they keep breaking the API.
+ 4. Linking against GHC means similar problems as with linking against Cabal, i.e., when the user upgrades their GHC binary stuff will break.
 
-:memo: Don't link against Cabal directly ever
-:memo: (maybe) Target only one GHC version at a time or provide some compatibility layer
-:memo: Let's get the interfaces mostly right on the first go
-:memo: Handle changing compiler versions transparently
+* :memo: Don't link against Cabal directly ever
+* :memo: (maybe) Target only one GHC version at a time or provide some compatibility layer
+* :memo: Let's get the interfaces mostly right on the first go
+* :memo: Handle changing compiler versions transparently
 
 ### ide-backend / stack-ide
 

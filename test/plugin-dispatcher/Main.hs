@@ -12,7 +12,6 @@ import           Haskell.Ide.Engine.Scheduler
 import           Haskell.Ide.Engine.Types
 import           Language.Haskell.LSP.Types
 import           TestUtils
-
 import           Test.Hspec
 import           Test.Hspec.Runner
 
