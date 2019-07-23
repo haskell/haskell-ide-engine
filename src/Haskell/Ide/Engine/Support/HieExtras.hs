@@ -31,6 +31,7 @@ import           Control.Lens.Operators                       ( (.~), (^.), (^?)
 import           Control.Lens.Prism                           ( _Just )
 import           Control.Monad.Reader
 import           Control.Monad.Except
+import           Control.Exception (SomeException)
 import           Data.Aeson
 import qualified Data.Aeson.Types                             as J
 import           Data.Char
