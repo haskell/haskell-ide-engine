@@ -41,7 +41,6 @@ import           Data.IORef
 import qualified Data.List                                    as List
 import qualified Data.Map                                     as Map
 import           Data.Maybe
-import           Data.Monoid                                  ( (<>) )
 import qualified Data.Text                                    as T
 import qualified Data.Text.IO                                 as T
 import           Data.Typeable
