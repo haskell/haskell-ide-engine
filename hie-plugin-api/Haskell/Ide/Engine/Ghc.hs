@@ -34,13 +34,12 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 
 import           DynFlags
+import qualified EnumSet as ES
 import           GHC
 import           IOEnv                             as G
 import           HscTypes
 import           Outputable                        (renderWithStyle)
 import           Language.Haskell.LSP.Types        ( NormalizedUri(..), toNormalizedUri )
-
-import           Data.Monoid ((<>))
 
 import           Haskell.Ide.Engine.GhcUtils
 --import qualified Haskell.Ide.Engine.Plugin.HieExtras as Hie
@@ -48,7 +47,7 @@ import           Haskell.Ide.Engine.GhcUtils
 import           Outputable hiding ((<>))
 -- This function should be defined in HIE probably, nothing in particular
 -- to do with BIOS
-import qualified HIE.Bios.GHCApi as BIOS (withDynFlags, CradleError)
+import qualified HIE.Bios.GHCApi as BIOS (withDynFlags, CradleError,setDeferTypeErrors)
 import qualified HIE.Bios as BIOS
 import Debug.Trace
 
@@ -79,12 +78,17 @@ type AdditionalErrs = [T.Text]
 
 -- ---------------------------------------------------------------------
 
-lspSev :: Severity -> DiagnosticSeverity
-lspSev SevWarning = DsWarning
-lspSev SevError   = DsError
-lspSev SevFatal   = DsError
-lspSev SevInfo    = DsInfo
-lspSev _          = DsInfo
+lspSev :: WarnReason -> Severity -> DiagnosticSeverity
+lspSev (Reason r) _
+  | r `elem` [ Opt_WarnDeferredTypeErrors
+             , Opt_WarnDeferredOutOfScopeVariables
+             ]
+  = DsError
+lspSev _ SevWarning  = DsWarning
+lspSev _ SevError    = DsError
+lspSev _ SevFatal    = DsError
+lspSev _ SevInfo     = DsInfo
+lspSev _ _           = DsInfo
 
 -- ---------------------------------------------------------------------
 
@@ -136,7 +140,7 @@ captureDiagnostics rfm action = do
   diagRef <- liftIO $ newIORef $ Diagnostics mempty
   errRef <- liftIO $ newIORef []
   let setLogger df = df { log_action = logDiag rfm errRef diagRef }
-      setDeferTypedHoles = setGeneralFlag' Opt_DeferTypedHoles
+      unsetWErr df = unSetGeneralFlag' Opt_WarnIsError (df {fatalWarningFlags = ES.empty})
 
       ghcErrRes msg = pure (mempty, [T.pack msg], Nothing)
       to_diag x = do
@@ -148,7 +152,8 @@ captureDiagnostics rfm action = do
       handlers = errorHandlers ghcErrRes to_diag
 
       action' = do
-        r <- BIOS.withDynFlags (setLogger . setDeferTypedHoles) action
+        r <- BIOS.withDynFlags (setLogger . BIOS.setDeferTypeErrors . unsetWErr) $
+                action
         diags <- liftIO $ readIORef diagRef
         errs <- liftIO $ readIORef errRef
         return (diags,errs, Just r)
@@ -158,7 +163,7 @@ captureDiagnostics rfm action = do
 -- write anything to `stdout`.
 logDiag :: (FilePath -> FilePath) -> IORef AdditionalErrs -> IORef Diagnostics -> LogAction
 -- type LogAction = DynFlags -> WarnReason -> Severity -> SrcSpan -> PprStyle -> MsgDoc -> IO ()
-logDiag rfm eref dref df _reason sev spn style msg = do
+logDiag rfm eref dref df reason sev spn style msg = do
   eloc <- srcSpan2Loc rfm spn
   traceShowM (spn, eloc)
   let msgTxt = T.pack $ renderWithStyle df msg style
@@ -166,7 +171,7 @@ logDiag rfm eref dref df _reason sev spn style msg = do
     Right (Location uri range) -> do
       let update = Map.insertWith Set.union (toNormalizedUri uri) l
             where l = Set.singleton diag
-          diag = Diagnostic range (Just $ lspSev sev) Nothing (Just "bios") msgTxt Nothing
+          diag = Diagnostic range (Just $ lspSev reason sev) Nothing (Just "bios") msgTxt Nothing
       debugm $ "Writing diag" <> (show diag)
       modifyIORef' dref (\(Diagnostics u) -> Diagnostics (update u))
     Left _ -> do
