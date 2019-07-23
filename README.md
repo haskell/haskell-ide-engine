@@ -38,7 +38,7 @@ we talk to clients.__
     - [Using HIE with Sublime Text](#using-hie-with-sublime-text)
     - [Using HIE with Vim or Neovim](#using-hie-with-vim-or-neovim)
       - [vim-plug](#vim-plug)
-      - [Vim 8.0](#vim-80)
+      - [Clone the LanguageClient-neovim repo](#clone-the-languageclient-neovim-repo)
       - [Sample `~/.vimrc`](#sample-vimrc)
     - [Using HIE with Atom](#using-hie-with-atom)
     - [Using HIE with Emacs](#using-hie-with-emacs)
