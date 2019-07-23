@@ -1,4 +1,5 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module CompletionSpec where
 
 import Control.Applicative.Combinators
@@ -25,9 +26,15 @@ spec = describe "completions" $ do
     liftIO $ do
       item ^. label `shouldBe` "putStrLn"
       item ^. kind `shouldBe` Just CiFunction
-      item ^. detail `shouldBe` Just "String -> IO ()\nPrelude"
-      item ^. insertTextFormat `shouldBe` Just Snippet
-      item ^. insertText `shouldBe` Just "putStrLn ${1:String}"
+      item ^. detail `shouldBe` Just "Prelude"
+    resolvedRes <- request CompletionItemResolve item
+    let Just (resolved :: CompletionItem) = resolvedRes ^. result
+    liftIO $ do
+      resolved ^. label `shouldBe` "putStrLn"
+      resolved ^. kind `shouldBe` Just CiFunction
+      resolved ^. detail `shouldBe` Just "String -> IO ()\nPrelude"
+      resolved ^. insertTextFormat `shouldBe` Just Snippet
+      resolved ^. insertText `shouldBe` Just "putStrLn ${1:String}"
 
   it "completes imports" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
     doc <- openDoc "Completion.hs" "haskell"
@@ -193,8 +200,10 @@ spec = describe "completions" $ do
     _ <- applyEdit doc te
     compls <- getCompletions doc (Position 5 9)
     let item = head $ filter ((== "id") . (^. label)) compls
+    resolvedRes <- request CompletionItemResolve item
+    let Just (resolved :: CompletionItem) = resolvedRes ^. result
     liftIO $
-      item ^. detail `shouldBe` Just "a -> a\nPrelude"
+      resolved ^. detail `shouldBe` Just "a -> a\nPrelude"
 
   it "have implicit foralls with multiple type variables" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
     doc <- openDoc "Completion.hs" "haskell"
@@ -203,8 +212,10 @@ spec = describe "completions" $ do
     _ <- applyEdit doc te
     compls <- getCompletions doc (Position 5 11)
     let item = head $ filter ((== "flip") . (^. label)) compls
+    resolvedRes <- request CompletionItemResolve item
+    let Just (resolved :: CompletionItem) = resolvedRes ^. result
     liftIO $
-      item ^. detail `shouldBe` Just "(a -> b -> c) -> b -> a -> c\nPrelude"
+      resolved ^. detail `shouldBe` Just "(a -> b -> c) -> b -> a -> c\nPrelude"
 
   describe "snippets" $ do
     it "work for argumentless constructors" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
@@ -229,11 +240,13 @@ spec = describe "completions" $ do
 
       compls <- getCompletions doc (Position 5 11)
       let item = head $ filter ((== "foldl") . (^. label)) compls
+      resolvedRes <- request CompletionItemResolve item
+      let Just (resolved :: CompletionItem) = resolvedRes ^. result
       liftIO $ do
-        item ^. label `shouldBe` "foldl"
-        item ^. kind `shouldBe` Just CiFunction
-        item ^. insertTextFormat `shouldBe` Just Snippet
-        item ^. insertText `shouldBe` Just "foldl ${1:b -> a -> b} ${2:b} ${3:t a}"
+        resolved ^. label `shouldBe` "foldl"
+        resolved ^. kind `shouldBe` Just CiFunction
+        resolved ^. insertTextFormat `shouldBe` Just Snippet
+        resolved ^. insertText `shouldBe` Just "foldl ${1:b -> a -> b} ${2:b} ${3:t a}"
 
     it "work for complex types" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
       doc <- openDoc "Completion.hs" "haskell"
@@ -244,11 +257,13 @@ spec = describe "completions" $ do
 
       compls <- getCompletions doc (Position 5 11)
       let item = head $ filter ((== "mapM") . (^. label)) compls
+      resolvedRes <- request CompletionItemResolve item
+      let Just (resolved :: CompletionItem) = resolvedRes ^. result
       liftIO $ do
-        item ^. label `shouldBe` "mapM"
-        item ^. kind `shouldBe` Just CiFunction
-        item ^. insertTextFormat `shouldBe` Just Snippet
-        item ^. insertText `shouldBe` Just "mapM ${1:a -> m b} ${2:t a}"
+        resolved ^. label `shouldBe` "mapM"
+        resolved ^. kind `shouldBe` Just CiFunction
+        resolved ^. insertTextFormat `shouldBe` Just Snippet
+        resolved ^. insertText `shouldBe` Just "mapM ${1:a -> m b} ${2:t a}"
 
     it "work for infix functions" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
       doc <- openDoc "Completion.hs" "haskell"
