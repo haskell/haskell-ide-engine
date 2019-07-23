@@ -39,7 +39,6 @@ import           Data.IORef
 import qualified Data.List                                    as List
 import qualified Data.Map                                     as Map
 import           Data.Maybe
-import           Data.Monoid                                  ( (<>) )
 import qualified Data.Text                                    as T
 import           Data.Typeable
 import           DataCon
@@ -173,14 +172,14 @@ instance ToJSON CompItemResolveData where
 resolveCompletion :: J.CompletionItem -> IdeM J.CompletionItem
 resolveCompletion origCompl =
   case fromJSON <$> origCompl ^. J.xdata of
-    Just (J.Success (CompItemResolveData dets query)) -> do
-      mdocs <- Hoogle.infoCmd' query
+    Just (J.Success compdata) -> do
+      mdocs <- Hoogle.infoCmd' $ hoogleQuery compdata
       let docText = case mdocs of
             Right x -> Just x
             _ -> Nothing
           markup = J.MarkupContent J.MkMarkdown <$> docText
           docs = J.CompletionDocMarkup <$> markup
-      (detail,insert) <- case dets of
+      (detail,insert) <- case nameDetails compdata of
         Nothing -> pure (Nothing,Nothing)
         Just nd -> do
           mtyp <- getTypeForNameDetails nd
