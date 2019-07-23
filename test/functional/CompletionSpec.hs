@@ -36,38 +36,6 @@ spec = describe "completions" $ do
       resolved ^. insertTextFormat `shouldBe` Just Snippet
       resolved ^. insertText `shouldBe` Just "putStrLn ${1:String}"
 
-  it "does not pull in unnecessary modules until needed" $
-      runSession hieCommand fullCaps "test/testdata/completion" $ do
-    doc <- openDoc "Completion.hs" "haskell"
-    _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
-
-    let te = TextEdit (Range (Position 5 7) (Position 5 24)) "enum"
-    _ <- applyEdit doc te
-
-    compls <- getCompletions doc (Position 5 11)
-    let item = head $ filter ((== "enumFrom") . (^. label)) compls
-    resolvedRes <- request CompletionItemResolve item
-    let Just (resolved :: CompletionItem) = resolvedRes ^. result
-    liftIO $ do
-      resolved ^. label `shouldBe` "enumFrom"
-      resolved ^. kind `shouldBe` Just CiFunction
-      resolved ^. detail `shouldBe` Just "Prelude"
-      resolved ^. insertText `shouldBe` Nothing
-
-    let te2 = TextEdit (Range (Position 5 7) (Position 5 11)) "putStrLn (enumFrom 'a')"
-    _ <- applyEdit doc te2
-    _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
-
-    compls2 <- getCompletions doc (Position 5 22)
-    let item2 = head $ filter ((== "enumFrom") . (^. label)) compls2
-    resolvedRes2 <- request CompletionItemResolve item2
-    let Just (resolved2 :: CompletionItem) = resolvedRes2 ^. result
-    liftIO $ do
-      resolved2 ^. label `shouldBe` "enumFrom"
-      resolved2 ^. kind `shouldBe` Just CiFunction
-      resolved2 ^. detail `shouldBe` Just "Enum a => a -> [a]\nPrelude"
-      resolved2 ^. insertText `shouldBe` Just "enumFrom ${1:a}"
-
   it "completes imports" $ runSession hieCommand fullCaps "test/testdata/completion" $ do
     doc <- openDoc "Completion.hs" "haskell"
     _ <- skipManyTill loggingNotification (count 2 noDiagnostics)
