@@ -331,7 +331,7 @@ spec = describe "code actions" $ do
               GHC86 -> do
                 liftIO $ map (^. L.title) cas `shouldMatchList`
                   [ "Substitute hole (Int) with x ([Int])"
-                  , "Substitute hole (Int) with foo ([Int] -> Int Valid hole fits include)"
+                  , "Substitute hole (Int) with foo ([Int] -> Int)"
                   , "Substitute hole (Int) with maxBound (forall a. Bounded a => a with maxBound @Int)"
                   , "Substitute hole (Int) with minBound (forall a. Bounded a => a with minBound @Int)"
                   ]
