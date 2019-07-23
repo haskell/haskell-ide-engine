@@ -26,7 +26,7 @@ module Haskell.Ide.Engine.Support.HieExtras
   , getFormattingPlugin
   ) where
 
-import           Data.Semigroup (Semigroup)
+import           Data.Semigroup (Semigroup(..))
 import           ConLike
 import           Control.Lens.Operators                       ( (.~), (^.), (^?), (?~), (&) )
 import           Control.Lens.Prism                           ( _Just )
