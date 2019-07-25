@@ -25,11 +25,13 @@ module Haskell.Ide.Engine.Support.HieExtras
   , getFormattingPlugin
   ) where
 
+import           Data.Semigroup (Semigroup(..))
 import           ConLike
 import           Control.Lens.Operators                       ( (.~), (^.), (^?), (?~), (&) )
 import           Control.Lens.Prism                           ( _Just )
 import           Control.Monad.Reader
 import           Control.Monad.Except
+import           Control.Exception (SomeException, catch)
 import           Data.Aeson
 import qualified Data.Aeson.Types                             as J
 import           Data.Char
@@ -37,7 +39,6 @@ import           Data.IORef
 import qualified Data.List                                    as List
 import qualified Data.Map                                     as Map
 import           Data.Maybe
-import           Data.Monoid                                  ( (<>) )
 import qualified Data.Text                                    as T
 import           Data.Typeable
 import           DataCon
@@ -64,14 +65,14 @@ import qualified Language.Haskell.LSP.VFS                     as VFS
 import           Language.Haskell.Refact.API                 (showGhc)
 import           Language.Haskell.Refact.Utils.MonadFunctions
 import           Name
+import           NameCache
 import           Outputable                                   (Outputable)
 import qualified Outputable                                   as GHC
 import           Packages
 import           SrcLoc
+import           TcEnv
 import           Type
 import           Var
-import           Unique
-import           UniqFM
 import           Module hiding (getModule)
 
 -- ---------------------------------------------------------------------
@@ -127,25 +128,41 @@ data CompItemResolveData
   } deriving (Eq,Generic)
 
 data NameDetails
-  = NameDetails Unique Module
+  = NameDetails Module OccName
   deriving (Eq)
+
+nsJSON :: NameSpace -> Value
+nsJSON ns
+  | isVarNameSpace ns = String "v"
+  | isDataConNameSpace ns = String "c"
+  | isTcClsNameSpace ns  = String "t"
+  | isTvNameSpace ns = String "z"
+  | otherwise = error "namespace not recognized"
+
+parseNs :: Value -> J.Parser NameSpace
+parseNs (String "v") = pure Name.varName
+parseNs (String "c") = pure dataName
+parseNs (String "t") = pure tcClsName
+parseNs (String "z") = pure tvName
+parseNs _ = mempty
 
 instance FromJSON NameDetails where
   parseJSON v@(Array _)
     = do
-      [uchar,uint,modname,modid] <- parseJSON v
-      ch  <- parseJSON uchar
-      i   <- parseJSON uint
+      [modname,modid,namesp,occname] <- parseJSON v
       mn  <- parseJSON modname
       mid <- parseJSON modid
-      pure $ NameDetails (mkUnique ch i) (mkModule (stringToUnitId mid) (mkModuleName mn))
+      ns <- parseNs namesp
+      occn <- parseJSON occname
+      pure $ NameDetails (mkModule (stringToUnitId mid) (mkModuleName mn)) (mkOccName ns occn)
   parseJSON _ = mempty
 instance ToJSON NameDetails where
-  toJSON (NameDetails uniq mdl) = toJSON [toJSON ch,toJSON uint,toJSON mname,toJSON mid]
+  toJSON (NameDetails mdl occ) = toJSON [toJSON mname,toJSON mid,nsJSON ns,toJSON occs]
     where
-      (ch,uint) = unpkUnique uniq
       mname = moduleNameString $ moduleName mdl
       mid = unitIdString $ moduleUnitId mdl
+      ns = occNameSpace occ
+      occs = occNameString occ
 
 instance FromJSON CompItemResolveData where
   parseJSON = genericParseJSON $ customOptions 0
@@ -155,17 +172,17 @@ instance ToJSON CompItemResolveData where
 resolveCompletion :: J.CompletionItem -> IdeM J.CompletionItem
 resolveCompletion origCompl =
   case fromJSON <$> origCompl ^. J.xdata of
-    Just (J.Success (CompItemResolveData dets query)) -> do
-      mdocs <- Hoogle.infoCmd' query
+    Just (J.Success compdata) -> do
+      mdocs <- Hoogle.infoCmd' $ hoogleQuery compdata
       let docText = case mdocs of
             Right x -> Just x
             _ -> Nothing
           markup = J.MarkupContent J.MkMarkdown <$> docText
           docs = J.CompletionDocMarkup <$> markup
-      (detail,insert) <- case dets of
+      (detail,insert) <- case nameDetails compdata of
         Nothing -> pure (Nothing,Nothing)
-        Just (NameDetails uniq mdl) -> do
-          mtyp <- getTypeForNameDirectly uniq mdl
+        Just nd -> do
+          mtyp <- getTypeForNameDetails nd
           case mtyp of
             Nothing -> pure (Nothing, Nothing)
             Just typ -> do
@@ -208,7 +225,7 @@ mkCompl CI{origName,importedFrom,thingType,label,isInfix} =
           case (thingType, nameModule_maybe origName) of
             (Just _,_) -> Nothing
             (Nothing, Nothing) -> Nothing
-            (Nothing, Just mdl) -> Just (NameDetails (nameUnique origName) mdl)
+            (Nothing, Just mdl) -> Just (NameDetails mdl (nameOccName origName))
 
 stripForall :: T.Text -> T.Text
 stripForall t
@@ -272,6 +289,7 @@ instance Semigroup QualCompls where
 
 instance Monoid QualCompls where
   mempty = QualCompls Map.empty
+  mappend = (<>)
 
 data CachedCompletions = CC
   { allModNamesAsNS :: [T.Text]
@@ -514,35 +532,30 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) =
 -- ---------------------------------------------------------------------
 
 getTypeForName :: Name -> IdeM (Maybe Type)
-getTypeForName n = case nameModule_maybe n of
-  Nothing -> pure Nothing
-  Just mdl -> getTypeForNameDirectly (nameUnique n) mdl
-
-getTypeForNameDirectly :: Unique -> Module -> IdeM (Maybe Type)
-getTypeForNameDirectly n m = do
+getTypeForName n = do
   hscEnvRef <- ghcSession <$> readMTS
   mhscEnv <- liftIO $ traverse readIORef hscEnvRef
   case mhscEnv of
-    Nothing -> return Nothing
+    Nothing -> pure Nothing
+    Just hscEnv -> liftIO $ getTypeForName_ hscEnv n
+
+getTypeForNameDetails :: NameDetails -> IdeM (Maybe Type)
+getTypeForNameDetails (NameDetails mdl occ) = do
+  hscEnvRef <- ghcSession <$> readMTS
+  mhscEnv <- liftIO $ traverse readIORef hscEnvRef
+  case mhscEnv of
+    Nothing -> pure Nothing
     Just hscEnv -> do
-      mt <- liftIO $ lookupGlobalDirectly hscEnv n m
-      return $ fmap varType $ safeTyThingId =<< mt
+      nc <- liftIO $ readIORef $ hsc_NC hscEnv
+      case lookupOrigNameCache (nsNames nc) mdl occ of
+        Nothing -> pure Nothing
+        Just n -> liftIO $ getTypeForName_ hscEnv n
 
-lookupTypeDirectly
-  :: HomePackageTable
-  -> PackageTypeEnv
-  -> Unique
-  -> Module
-  -> Maybe TyThing
-lookupTypeDirectly hpt pte name mdl
-  = case lookupHptByModule hpt mdl of
-       Just hm -> lookupUFM_Directly (md_types (hm_details hm)) name
-       Nothing -> lookupUFM_Directly pte name
-
-lookupGlobalDirectly :: HscEnv -> Unique -> Module -> IO (Maybe TyThing)
-lookupGlobalDirectly hsc_env name mdl = do
-    eps <- readIORef (hsc_EPS hsc_env)
-    return $! lookupTypeDirectly (hsc_HPT hsc_env) (eps_PTE eps) name mdl
+getTypeForName_ :: HscEnv -> Name -> IO (Maybe Type)
+getTypeForName_ hscEnv n = do
+  mt <- (Just <$> lookupGlobal hscEnv n)
+          `catch` \(_ :: SomeException) -> return Nothing
+  pure $ fmap varType $ safeTyThingId =<< mt
 
 -- ---------------------------------------------------------------------
 
