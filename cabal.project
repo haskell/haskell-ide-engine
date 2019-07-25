@@ -13,6 +13,5 @@ allow-newer: floskell:all
 
 profiling: false
 
-ghc-options: -Werror
 
 
