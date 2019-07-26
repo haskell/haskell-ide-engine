@@ -56,15 +56,14 @@ cabalInstallHie versionNumber = do
 installCabal :: Action ()
 installCabal = do
   -- try to find existing `cabal` executable with appropriate version
-  cabalExe <- liftIO (findExecutable "cabal") >>= \case
-    Nothing       -> return Nothing
-    Just cabalExe -> do
-      cabalVersion <- trimmedStdout <$> execCabal ["--numeric-version"]
-      whenMaybe (checkVersion requiredCabalVersion cabalVersion)
-        $ return cabalExe
+  cabalExeOk <- liftIO (findExecutable "cabal") >>= \case
+    Nothing -> return False
+    Just _  -> do
+      checkCabal
+      return True
 
   -- install `cabal-install` if not already installed
-  when (isNothing cabalExe) $ execStackShake_ ["install", "cabal-install"]
+  unless cabalExeOk $ execStackShake_ ["install", "cabal-install"]
 
 -- | check `stack` has the required version
 checkCabal :: Action ()
