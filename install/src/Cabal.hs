@@ -4,7 +4,9 @@ import           Development.Shake
 import           Development.Shake.Command
 import           Development.Shake.FilePath
 import           Control.Monad
-import           Data.Maybe                               ( isNothing )
+import           Data.Maybe                               ( isNothing
+                                                          , isJust
+                                                          )
 import           Control.Monad.Extra                      ( whenMaybe )
 import           System.Directory                         ( findExecutable
                                                           , copyFile
@@ -56,11 +58,10 @@ cabalInstallHie versionNumber = do
 installCabal :: Action ()
 installCabal = do
   -- try to find existing `cabal` executable with appropriate version
-  cabalExeOk <- liftIO (findExecutable "cabal") >>= \case
-    Nothing -> return False
-    Just _  -> do
-      checkCabal
-      return True
+  cabalExeOk <- do
+    c <- liftIO (findExecutable "cabal")
+    when (isJust c) checkCabal
+    return $ isJust c
 
   -- install `cabal-install` if not already installed
   unless cabalExeOk $ execStackShake_ ["install", "cabal-install"]
@@ -68,7 +69,7 @@ installCabal = do
 -- | check `stack` has the required version
 checkCabal :: Action ()
 checkCabal = do
-  cabalVersion <- trimmedStdout <$> execCabal ["--numeric-version"]
+  cabalVersion <- getCabalVersion
   unless (checkVersion requiredCabalVersion cabalVersion) $ do
     printInStars $ cabalInstallIsOldFailMsg cabalVersion
     error $ stackExeIsOldFailMsg cabalVersion
