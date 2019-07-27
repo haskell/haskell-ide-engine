@@ -160,7 +160,7 @@ stackYaml =
 #endif
 
 logFilePath :: String
-logFilePath = "functional-hie-" ++ stackYaml ++ ".log"
+logFilePath = "hie-" ++ stackYaml ++ ".log"
 
 -- | The command to execute the version of hie for the current compiler.
 --
