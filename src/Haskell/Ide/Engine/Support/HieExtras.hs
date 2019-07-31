@@ -199,6 +199,7 @@ resolveCompletion origCompl =
               pure (det,Just insertText)
       return $ origCompl & J.documentation .~ docs
                          & J.insertText .~ insert
+                         & J.insertTextFormat ?~ J.Snippet
                          & J.detail .~ (detail <> origCompl ^. J.detail)
     Just (J.Error err) -> do
       debugm $ "resolveCompletion: Decoding data failed because of: " ++ err
