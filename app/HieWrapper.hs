@@ -22,6 +22,7 @@ import           System.Directory
 import           System.Environment
 import qualified System.Log.Logger as L
 import           System.Process
+import           System.Info
 
 -- ---------------------------------------------------------------------
 
@@ -70,6 +71,7 @@ run opts = do
   logm $  "run entered for hie-wrapper(" ++ progName ++ ") " ++ version
   d <- getCurrentDirectory
   logm $ "Current directory:" ++ d
+  logm $ "Operating system:" ++ os
 
   -- Get the cabal directory from the ghc-mod cradle
   (mcr,_) <- GM.runGhcModT GM.defaultOptions GM.cradle
