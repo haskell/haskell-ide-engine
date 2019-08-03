@@ -1,3 +1,58 @@
+# 0.12.0.0
+
+- Monthly resolver bump, `lts-13.30` for GHC 8.6.5, and `nightly-2019-07-31` for
+  nightly build, rest are unchanged.
+([#1352](https://github.com/haskell/haskell-ide-engine/pull/1352), by @alanz)
+
+- Log OS in hie-wrapper
+([#1351](https://github.com/haskell/haskell-ide-engine/pull/1351), by @chrismwendt)
+
+- Fix completionItem/resolve sending snippets as plain text
+([#1349](https://github.com/haskell/haskell-ide-engine/pull/1349), by @Avi-D-coder)
+
+- Bump hlint to 2.2.2
+([#1347](https://github.com/haskell/haskell-ide-engine/pull/1347), by @alanz)
+
+- fail installation if cabal-version is too low
+([#1344](https://github.com/haskell/haskell-ide-engine/pull/1344), by @power-fungus)
+
+- Update vim links in TOC
+([#1341](https://github.com/haskell/haskell-ide-engine/pull/1341), by @adamse)
+
+- lift required stack-version to 2.1.1
+([#1338](https://github.com/haskell/haskell-ide-engine/pull/1338), by @power-fungus)
+
+- Replace every occurrence of build-doc by build-data
+([#1336](https://github.com/haskell/haskell-ide-engine/pull/1336), by @w1gz)
+
+- Use preview of pipeline caching in azure builds
+([#1335](https://github.com/haskell/haskell-ide-engine/pull/1335), by @jneira)
+
+- Simpler completion
+([#1334](https://github.com/haskell/haskell-ide-engine/pull/1334), by @wz1000)
+
+- Clarify README.md for Vim users
+([#1331](https://github.com/haskell/haskell-ide-engine/pull/1331), by @mb720)
+
+- Fix typos in Challenges.md
+([#1329](https://github.com/haskell/haskell-ide-engine/pull/1329), by @mb720)
+
+- Remove unnecesary extra-dep unix-time
+([#1326](https://github.com/haskell/haskell-ide-engine/pull/1326), by @jneira)
+
+- Use hlint-2.2
+([#1325](https://github.com/haskell/haskell-ide-engine/pull/1325), by @alanz)
+
+- Remove "hybrid" test cases
+([#1324](https://github.com/haskell/haskell-ide-engine/pull/1324), by @fendor)
+
+- Reuse unHTML for searchModules'
+([#1323](https://github.com/haskell/haskell-ide-engine/pull/1323), by @fendor)
+
+- add possibility to run `install.hs` from cabal
+([#1221](https://github.com/haskell/haskell-ide-engine/pull/1221), by @power-fungus)
+
+
 # 0.11.0.0
 
 - Bump resolvers. `lts-13.27` for GHC 8.6.5, `nightly-2019-07-07` for
