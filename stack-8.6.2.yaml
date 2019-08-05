@@ -21,6 +21,7 @@ extra-deps:
 - haskell-lsp-types-0.15.0.0
 - haskell-src-exts-1.21.0
 - haskell-src-exts-util-0.2.5
+- hlint-2.2.2
 - hoogle-5.0.17.9
 - hsimport-0.10.0
 - lsp-test-0.6.0.0
