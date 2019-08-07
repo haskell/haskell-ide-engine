@@ -74,7 +74,6 @@ library
                      , haskell-lsp-types == 0.15.*
                      , haskell-src-exts
                      , hie-plugin-api
-                     , hlint (>= 2.0.11 && < 2.1.18) || >= 2.1.22
                      , hoogle >= 5.0.13
                      , hsimport
                      , hslogger
@@ -98,6 +97,11 @@ library
                      , vector
                      , versions
                      , yaml >= 0.8.31
+  if impl(ghc < 8.4)
+    build-depends:     hlint >= 2.0.11 && < 2.1.18
+  else
+    build-depends:     hlint >= 2.2.2
+
   ghc-options:         -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror
