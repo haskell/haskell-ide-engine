@@ -10,8 +10,8 @@ extra-deps:
 - ./submodules/ghc-mod/core
 - ./submodules/ghc-mod/ghc-project-types
 
-- base-compat-0.9.3
 - brittany-0.12.0.0
+- base-compat-0.9.3
 - cabal-plan-0.3.0.0
 - constrained-dynamic-0.1.0.0
 - floskell-0.10.0
