@@ -72,7 +72,7 @@ checkCabal = do
   cabalVersion <- getCabalVersion
   unless (checkVersion requiredCabalVersion cabalVersion) $ do
     printInStars $ cabalInstallIsOldFailMsg cabalVersion
-    error $ stackExeIsOldFailMsg cabalVersion
+    error $ cabalInstallIsOldFailMsg cabalVersion
 
 getCabalVersion :: Action String
 getCabalVersion = trimmedStdout <$> execCabal ["--numeric-version"]
