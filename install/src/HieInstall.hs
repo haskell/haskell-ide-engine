@@ -91,7 +91,7 @@ defaultMain = do
       )
 
     -- stack specific targets
-    phony "stack-build"     (need (reverse $ map ("hie-" ++) hieVersions))
+    phony "stack-build"     (need (reverse $ map ("stack-hie-" ++) hieVersions))
     phony "stack-build-all" (need ["build-data", "build"])
     phony "stack-build-data" $ do
       need ["submodules"]
