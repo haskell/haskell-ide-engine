@@ -15,9 +15,9 @@ printUsage :: Action ()
 printUsage = do
   printLine ""
   printLine "Usage:"
-  printLineIndented ("stack install.hs <target>")
+  printLineIndented "stack install.hs <target>"
   printLineIndented "or"
-  printLineIndented ("cabal new-run install.hs --project-file shake.project <target>")
+  printLineIndented "cabal new-run install.hs --project-file install/shake.project <target>"
 
 -- | short help message is printed by default
 shortHelpMessage :: Action ()
