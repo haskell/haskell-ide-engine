@@ -37,9 +37,11 @@ we talk to clients.__
       - [Using VS Code with Nix](#using-vs-code-with-nix)
     - [Using HIE with Sublime Text](#using-hie-with-sublime-text)
     - [Using HIE with Vim or Neovim](#using-hie-with-vim-or-neovim)
-      - [vim-plug](#vim-plug)
-      - [Clone the LanguageClient-neovim repo](#clone-the-languageclient-neovim-repo)
-      - [Sample `~/.vimrc`](#sample-vimrc)
+      - [Coc](#Coc)
+      - [LanguageClient-neovim](#LanguageClient-neovim)
+        - [vim-plug](#vim-plug)
+        - [Clone the LanguageClient-neovim repo](#clone-the-languageclient-neovim-repo)
+        - [Sample `~/.vimrc`](#sample-vimrc)
     - [Using HIE with Atom](#using-hie-with-atom)
     - [Using HIE with Emacs](#using-hie-with-emacs)
     - [Using HIE with Spacemacs](#using-hie-with-spacemacs)
@@ -368,9 +370,40 @@ Now open a Haskell project with Sublime Text. You should have these features ava
 
 ### Using HIE with Vim or Neovim
 
-As above, make sure HIE is installed. These instructions are for using the [LanguageClient-neovim](https://github.com/autozimu/LanguageClient-neovim) client.
+As above, make sure HIE is installed.
+Then you can use [Coc](https://github.com/neoclide/coc.nvim), [LanguageClient-neovim](https://github.com/autozimu/LanguageClient-neovim)
+or any other vim Langauge server protocol client.
+Coc is recommend since it is the only complete LSP implementation for Vim and Neovim and offers snippets and floating documentation out of the box.
 
-#### vim-plug
+#### Coc
+Follow Coc's [installation instructions](https://github.com/neoclide/coc.nvim),
+Then issue `:CocConfig` and add the following to your Coc config file.
+
+```jsonc
+"languageserver": {
+  "haskell": {
+    "command": "hie-wrapper",
+    "rootPatterns": [
+      ".stack.yaml",
+      "cabal.config",
+      "package.yaml"
+    ],
+    "filetypes": [
+      "hs",
+      "lhs",
+      "haskell"
+    ],
+    "initializationOptions": {
+      "languageServerHaskell": {
+      }
+    },
+  }
+}
+```
+
+#### LanguageClient-neovim
+
+##### vim-plug
 If you use [vim-plug](https://github.com/junegunn/vim-plug), then you can do this by e.g.,
 including the following line in the Plug section of your `init.vim` or `~/.vimrc`:
 
@@ -383,11 +416,11 @@ Plug 'autozimu/LanguageClient-neovim', {
 
 and issuing a `:PlugInstall` command within Neovim or Vim.
 
-#### Clone the LanguageClient-neovim repo
+##### Clone the LanguageClient-neovim repo
 As an alternative to using [vim-plug](https://github.com/junegunn/vim-plug) shown above, clone [LanguageClient-neovim](https://github.com/autozimu/LanguageClient-neovim)
 into `~/.vim/pack/XXX/start/`, where `XXX` is just a name for your "plugin suite".
 
-#### Sample `~/.vimrc`
+##### Sample `~/.vimrc`
 
 ```vim
 set rtp+=~/.vim/pack/XXX/start/LanguageClient-neovim
