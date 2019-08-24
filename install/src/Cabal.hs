@@ -66,7 +66,7 @@ installCabal = do
   -- install `cabal-install` if not already installed
   unless cabalExeOk $ execStackShake_ ["install", "cabal-install"]
 
--- | check `stack` has the required version
+-- | check `cabal` has the required version
 checkCabal :: Action ()
 checkCabal = do
   cabalVersion <- getCabalVersion
@@ -92,7 +92,7 @@ cabalInstallNotSuportedFailMsg =
     ++ "If this system has been falsely identified, please open an issue at:\n\thttps://github.com/haskell/haskell-ide-engine\n"
 
 
--- | Error message when the `stack` binary is an older version
+-- | Error message when the `cabal` binary is an older version
 cabalInstallIsOldFailMsg :: String -> String
 cabalInstallIsOldFailMsg cabalVersion =
   "The `cabal` executable is outdated.\n"
