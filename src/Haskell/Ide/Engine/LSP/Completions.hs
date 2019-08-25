@@ -23,6 +23,7 @@ import qualified Data.List                     as List
 import qualified Data.Text                     as T
 import qualified Data.Map                      as Map
 import           Data.Maybe
+import           Data.Semigroup (Semigroup(..))
 import           Data.Typeable
 import           GHC.Generics                   ( Generic )
 
