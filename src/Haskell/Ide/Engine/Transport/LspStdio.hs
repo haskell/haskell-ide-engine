@@ -41,7 +41,7 @@ import qualified GhcModCore               as GM ( loadMappedFileSource, getMMapp
 import           Haskell.Ide.Engine.Config
 import qualified Haskell.Ide.Engine.Ghc   as HIE
 import           Haskell.Ide.Engine.LSP.CodeActions
-import           Haskell.Ide.Engine.LSP.Completions
+import qualified Haskell.Ide.Engine.LSP.Completions      as Completions
 import           Haskell.Ide.Engine.LSP.Reactor
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
@@ -641,9 +641,9 @@ reactor inp diagIn = do
           case mprefix of
             Nothing -> callback []
             Just prefix -> do
-              snippets <- WithSnippets <$> configVal completionSnippetsOn
+              snippets <- Completions.WithSnippets <$> configVal completionSnippetsOn
               let hreq = IReq tn (req ^. J.id) callback
-                           $ lift $ getCompletions doc prefix snippets
+                           $ lift $ Completions.getCompletions doc prefix snippets
               makeRequest hreq
 
         ReqCompletionItemResolve req -> do
@@ -653,7 +653,7 @@ reactor inp diagIn = do
                 let rspMsg = Core.makeResponseMessage req $ res
                 reactorSend $ RspCompletionItemResolve rspMsg
               hreq = IReq tn (req ^. J.id) callback $ runIdeResultT $ do
-                lift $ lift $ resolveCompletion origCompl
+                lift $ lift $ Completions.resolveCompletion origCompl
           makeRequest hreq
 
         -- -------------------------------
