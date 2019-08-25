@@ -21,6 +21,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Haskell.Ide.Engine.Channel
                        Haskell.Ide.Engine.LSP.CodeActions
+                       Haskell.Ide.Engine.LSP.Completions
                        Haskell.Ide.Engine.Plugin.Base
                        Haskell.Ide.Engine.LSP.Reactor
                        Haskell.Ide.Engine.Options
