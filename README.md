@@ -658,7 +658,12 @@ These builds have a dependency on [homebrew](https://brew.sh)'s `gmp` library. I
 ### cannot satisfy -package-id \<package\>
 
 #### Is \<package\> base-x?
-Make sure that you are running the correct version of hie for your version of ghc, or check out hie-wrapper.
+Make sure that the GHC version of HIE matches the one of the project. After that run
+```
+$ cabal configure
+```
+
+and then restart HIE (e.g. by restarting your editor).
 
 #### Is there a hash (#) after \<package\>?
 Delete any `.ghc.environment*` files in your project root and try again. (At the time of writing, cabal new-style projects are not supported with ghc-mod)
