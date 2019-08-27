@@ -486,7 +486,6 @@ ghcmodSpec =
               , (Range (toPos (33, 15)) (toPos (33, 19)), "Int -> Test -> ShowS")
               , (Range (toPos (33, 15)) (toPos (33, 19)), "Test -> String")
               , (Range (toPos (33, 15)) (toPos (33, 19)), "[Test] -> ShowS")
-              , (Range (toPos (33, 15)) (toPos (33, 19)), "Int -> Test -> ShowS")
 #if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)))
 #else
               , (Range (toPos (33, 15)) (toPos (33, 19)), "[Test] -> ShowS")
@@ -503,7 +502,6 @@ ghcmodSpec =
           arg = TP False uri (toPos (33,21))
           res = IdeResultOk
               [ (Range (toPos (33, 21)) (toPos (33, 23)), "(Test -> Test -> Bool) -> (Test -> Test -> Bool) -> Eq Test")
-              , (Range (toPos (33, 21)) (toPos (33, 23)), "Test -> Test -> Bool")
               , (Range (toPos (33, 21)) (toPos (33, 23)), "Test -> Test -> Bool")
               , (Range (toPos (33, 21)) (toPos (33, 23)), "Test -> Test -> Bool")
 #if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)))
