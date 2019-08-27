@@ -12,7 +12,6 @@ import qualified GHC
 import           GHC                            ( TypecheckedModule, GhcMonad )
 import           Bag
 import           BasicTypes
-import           Var
 
 import           Data.Data                     as Data
 import           Control.Monad.IO.Class
@@ -43,13 +42,13 @@ everythingInTypecheckedSourceM xs = bs
 processBind :: GhcMonad m => GHC.LHsBindLR Compat.GhcTc Compat.GhcTc -> m TypeMap
 processBind x@(GHC.L (GHC.RealSrcSpan spn) b) =
   case b of
-    GHC.FunBind _ fid fmatches _ _ ->
+    Compat.FunBindGen t fmatches ->
       case GHC.mg_origin fmatches of
         Generated -> return IM.empty
         FromSource -> do
           im <- types fmatches
-          return $ (IM.singleton (rspToInt spn) (varType (GHC.unLoc fid))) `IM.union` im
-    GHC.AbsBinds _ _ _ _ _ bs _ -> everythingInTypecheckedSourceM bs
+          return $ IM.singleton (rspToInt spn) t `IM.union` im
+    Compat.AbsBinds bs -> everythingInTypecheckedSourceM bs
     _ -> types x
 processBind _ = return IM.empty
 

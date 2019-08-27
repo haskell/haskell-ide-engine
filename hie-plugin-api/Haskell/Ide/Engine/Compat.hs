@@ -134,6 +134,25 @@ pattern FunBindType t <-
     GHC.FunBind (GHC.L _ (Var.varType -> t)) _ _ _ _
 #endif
 
+pattern FunBindGen :: Type.Type -> GHC.MatchGroup GhcTc (GHC.LHsExpr GhcTc) -> GHC.HsBindLR GhcTc GhcTc
+pattern FunBindGen t fmatches <-
+#if MIN_VERSION_ghc(8, 6, 0)
+    GHC.FunBind _ (GHC.L _ (Var.varType -> t)) fmatches _ _
+#elif MIN_VERSION_ghc(8, 4, 0)
+    GHC.FunBind (GHC.L _ (Var.varType -> t)) fmatches _ _ _
+#else
+    GHC.FunBind (GHC.L _ (Var.varType -> t)) fmatches _ _ _
+#endif
+
+pattern AbsBinds :: GHC.LHsBinds GhcTc -> GHC.HsBindLR GhcTc GhcTc
+pattern AbsBinds bs <-
+#if MIN_VERSION_ghc(8, 6, 0)
+    GHC.AbsBinds _ _ _ _ _ bs _
+#elif MIN_VERSION_ghc(8, 4, 0)
+    GHC.AbsBinds _ _ _ _ bs _
+#else
+    GHC.AbsBinds _ _ _ _ bs
+#endif
 
 #if MIN_VERSION_ghc(8, 6, 0)
 matchGroupType :: GHC.MatchGroupTc -> GHC.Type
