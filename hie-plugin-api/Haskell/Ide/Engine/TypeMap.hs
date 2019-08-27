@@ -9,10 +9,14 @@ module Haskell.Ide.Engine.TypeMap where
 import qualified Data.IntervalMap.FingerTree   as IM
 
 import qualified GHC
-import           GHC                            ( TypecheckedModule )
+import           GHC                            ( TypecheckedModule, GhcMonad )
+import           Bag
+import           BasicTypes
+import           Var
 
 import           Data.Data                     as Data
 import           Control.Monad.IO.Class
+import           Control.Applicative
 import           Data.Maybe
 import qualified TcHsSyn
 import qualified CoreUtils
@@ -27,34 +31,47 @@ import           Haskell.Ide.Engine.ArtifactMap
 genTypeMap :: GHC.GhcMonad m => TypecheckedModule -> m TypeMap
 genTypeMap tm = do
   let typecheckedSource = GHC.tm_typechecked_source tm
-  hs_env <- GHC.getSession
-  liftIO $ types hs_env typecheckedSource
+  everythingInTypecheckedSourceM typecheckedSource
 
 
 everythingInTypecheckedSourceM
-  :: Data x => (forall a . Data a => a -> IO TypeMap) -> x -> IO TypeMap
-everythingInTypecheckedSourceM = everythingButTypeM @GHC.Id
+  :: GhcMonad m => GHC.TypecheckedSource -> m TypeMap
+everythingInTypecheckedSourceM xs = bs
+  where
+    bs = foldBag (liftA2 IM.union) processBind (return IM.empty) xs
 
+processBind :: GhcMonad m => GHC.LHsBindLR GHC.GhcTc GHC.GhcTc -> m TypeMap
+processBind x@(GHC.L (GHC.RealSrcSpan spn) b) =
+  case b of
+    GHC.FunBind _ fid fmatches _ _ ->
+      case GHC.mg_origin fmatches of
+        Generated -> return IM.empty
+        FromSource -> do
+          im <- types fmatches
+          return $ (IM.singleton (rspToInt spn) (varType (GHC.unLoc fid))) `IM.union` im
+    GHC.AbsBinds _ _ _ _ _ bs _ -> everythingInTypecheckedSourceM bs
+    _ -> types x
+processBind _ = return IM.empty
 
 -- | Obtain details map for types.
-types :: GHC.HscEnv -> GHC.TypecheckedSource -> IO TypeMap
-types hs_env = everythingInTypecheckedSourceM (ty `combineM` fun `combineM` funBind)
+types :: forall m a . (GhcMonad m, Data a) => a -> m TypeMap
+types = everythingButTypeM @GHC.Id (ty `combineM` fun `combineM` funBind)
  where
-  ty :: forall a . Data a => a -> IO TypeMap
+  ty :: forall a' . (GhcMonad m, Data a') => a' -> m TypeMap
   ty term = case cast term of
     (Just lhsExprGhc@(GHC.L (GHC.RealSrcSpan spn) _)) ->
-      getType hs_env lhsExprGhc >>= \case
+      getType lhsExprGhc >>= \case
         Nothing       -> return IM.empty
         Just (_, typ) -> return (IM.singleton (rspToInt spn) typ)
     _ -> return IM.empty
 
-  fun :: forall a . Data a => a -> IO TypeMap
+  fun :: forall a' . (GhcMonad m, Data a') => a' -> m TypeMap
   fun term = case cast term of
     (Just (GHC.L (GHC.RealSrcSpan spn) hsPatType)) ->
       return (IM.singleton (rspToInt spn) (TcHsSyn.hsPatType hsPatType))
     _ -> return IM.empty
 
-  funBind :: forall a . Data a => a -> IO TypeMap
+  funBind :: forall a' . (GhcMonad m, Data a') => a' -> m TypeMap
   funBind term = case cast term of
     (Just (GHC.L (GHC.RealSrcSpan spn) (FunBindType t))) ->
       return (IM.singleton (rspToInt spn) t)
@@ -62,9 +79,9 @@ types hs_env = everythingInTypecheckedSourceM (ty `combineM` fun `combineM` funB
 
 -- | Combine two queries into one using alternative combinator.
 combineM
-  :: (forall a . Data a => a -> IO TypeMap)
-  -> (forall a . Data a => a -> IO TypeMap)
-  -> (forall a . Data a => a -> IO TypeMap)
+  :: (forall a . (Monad m, Data a) => a -> m TypeMap)
+  -> (forall a . (Monad m, Data a) => a -> m TypeMap)
+  -> (forall a . (Monad m, Data a) => a -> m TypeMap)
 combineM f g x = do
   a <- f x
   b <- g x
@@ -73,10 +90,10 @@ combineM f g x = do
 -- | Variation of "everything" that does not recurse into children of type t
 -- requires AllowAmbiguousTypes
 everythingButTypeM
-  :: forall t
+  :: forall t m
    . (Typeable t)
-  => (forall a . Data a => a -> IO TypeMap)
-  -> (forall a . Data a => a -> IO TypeMap)
+  => (forall a . (Monad m, Data a) => a -> m TypeMap)
+  -> (forall a . (Monad m, Data a) => a -> m TypeMap)
 everythingButTypeM f = everythingButM $ (,) <$> f <*> isType @t
 
 -- | Returns true if a == t.
@@ -87,8 +104,8 @@ isType _ = isJust $ eqT @a @b
 -- | Variation of "everything" with an added stop condition
 -- Just like 'everything', this is stolen from SYB package.
 everythingButM
-  :: (forall a . Data a => a -> (IO TypeMap, Bool))
-  -> (forall a . Data a => a -> IO TypeMap)
+  :: forall m . (forall a . (Monad m, Data a) => a -> (m TypeMap, Bool))
+  -> (forall a . (Monad m, Data a) => a -> m TypeMap)
 everythingButM f x = do
   let (v, stop) = f x
   if stop
@@ -111,8 +128,8 @@ everythingButM f x = do
 --
 -- See #16233<https://gitlab.haskell.org/ghc/ghc/issues/16233>
 getType
-  :: GHC.HscEnv -> GHC.LHsExpr GhcTc -> IO (Maybe (GHC.SrcSpan, Type.Type))
-getType hs_env e@(GHC.L spn e') =
+  :: GhcMonad m => GHC.LHsExpr GhcTc -> m (Maybe (GHC.SrcSpan, Type.Type))
+getType e@(GHC.L spn e') =
   -- Some expression forms have their type immediately available
   let
     tyOpt = case e' of
@@ -131,7 +148,8 @@ getType hs_env e@(GHC.L spn e') =
         Nothing
           | skipDesugaring e' -> pure Nothing
           | otherwise -> do
-            (_, mbe) <- Desugar.deSugarExpr hs_env e
+            hsc_env <- GHC.getSession
+            (_, mbe) <- liftIO $ Desugar.deSugarExpr hsc_env e
             let res = (spn, ) . CoreUtils.exprType <$> mbe
             pure res
  where
