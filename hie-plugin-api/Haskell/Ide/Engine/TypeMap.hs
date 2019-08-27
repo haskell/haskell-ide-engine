@@ -22,7 +22,7 @@ import qualified TcHsSyn
 import qualified CoreUtils
 import qualified Type
 import qualified Desugar
-import           Haskell.Ide.Engine.Compat
+import qualified Haskell.Ide.Engine.Compat as Compat
 
 import           Haskell.Ide.Engine.ArtifactMap
 
@@ -40,7 +40,7 @@ everythingInTypecheckedSourceM xs = bs
   where
     bs = foldBag (liftA2 IM.union) processBind (return IM.empty) xs
 
-processBind :: GhcMonad m => GHC.LHsBindLR GHC.GhcTc GHC.GhcTc -> m TypeMap
+processBind :: GhcMonad m => GHC.LHsBindLR Compat.GhcTc Compat.GhcTc -> m TypeMap
 processBind x@(GHC.L (GHC.RealSrcSpan spn) b) =
   case b of
     GHC.FunBind _ fid fmatches _ _ ->
@@ -73,7 +73,7 @@ types = everythingButTypeM @GHC.Id (ty `combineM` fun `combineM` funBind)
 
   funBind :: forall a' . (GhcMonad m, Data a') => a' -> m TypeMap
   funBind term = case cast term of
-    (Just (GHC.L (GHC.RealSrcSpan spn) (FunBindType t))) ->
+    (Just (GHC.L (GHC.RealSrcSpan spn) (Compat.FunBindType t))) ->
       return (IM.singleton (rspToInt spn) t)
     _ -> return IM.empty
 
@@ -128,19 +128,19 @@ everythingButM f x = do
 --
 -- See #16233<https://gitlab.haskell.org/ghc/ghc/issues/16233>
 getType
-  :: GhcMonad m => GHC.LHsExpr GhcTc -> m (Maybe (GHC.SrcSpan, Type.Type))
+  :: GhcMonad m => GHC.LHsExpr Compat.GhcTc -> m (Maybe (GHC.SrcSpan, Type.Type))
 getType e@(GHC.L spn e') =
   -- Some expression forms have their type immediately available
   let
     tyOpt = case e' of
-      HsOverLitType t -> Just t
-      HsLitType t -> Just t
-      HsLamType t -> Just t
-      HsLamCaseType t -> Just t
-      HsCaseType t -> Just t
-      ExplicitListType t -> Just t
-      ExplicitSumType t -> Just t
-      HsMultiIfType t -> Just t
+      Compat.HsOverLitType t -> Just t
+      Compat.HsLitType t -> Just t
+      Compat.HsLamType t -> Just t
+      Compat.HsLamCaseType t -> Just t
+      Compat.HsCaseType t -> Just t
+      Compat.ExplicitListType t -> Just t
+      Compat.ExplicitSumType t -> Just t
+      Compat.HsMultiIfType t -> Just t
 
       _                        -> Nothing
   in  case tyOpt of
