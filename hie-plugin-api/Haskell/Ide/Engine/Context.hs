@@ -1,7 +1,6 @@
 module Haskell.Ide.Engine.Context where
 
 import Data.Generics
-import Data.Foldable (asum)
 import Language.Haskell.LSP.Types
 import GHC
 import qualified GhcModCore as GM (GhcPs) -- for GHC 8.2.2
@@ -37,10 +36,10 @@ getContext pos pm
   , pos `isInsideRange` r
   = Just ExportContext
 
-  | Just ctx <- everything (<|>) (Nothing `mkQ` go `extQ` goInline) decl
+  | Just ctx <- something (Nothing `mkQ` go `extQ` goInline) decl
   = Just ctx
 
-  | Just ctx <- asum $ map importGo imports
+  | Just ctx <- something (Nothing `mkQ` importGo) imports
   = Just ctx
 
   | otherwise
