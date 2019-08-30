@@ -58,11 +58,12 @@ import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Context
 
 data CompItem = CI
-  { origName     :: Name
-  , importedFrom :: T.Text
-  , thingType    :: Maybe Type
-  , label        :: T.Text
-  , isInfix      :: Maybe Backtick
+  { origName     :: Name           -- ^ Original name, such as Maybe, //, or find.
+  , importedFrom :: T.Text         -- ^ From where this item is imported from.
+  , thingType    :: Maybe Type     -- ^ Available type information.
+  , label        :: T.Text         -- ^ Label to display to the user.
+  , isInfix      :: Maybe Backtick -- ^ Did the completion happen
+                                   -- in the context of an infix notation.
   }
 
 data Backtick = Surrounded | LeftSide
@@ -210,10 +211,12 @@ instance Monoid QualCompls where
   mappend = (<>)
 
 data CachedCompletions = CC
-  { allModNamesAsNS :: [T.Text]
-  , unqualCompls :: [CompItem]
-  , qualCompls :: QualCompls
-  , importableModules :: [T.Text]
+  { allModNamesAsNS :: [T.Text] -- ^ All module names in scope.
+                                -- Prelude is a single module
+  , unqualCompls :: [CompItem]  -- ^ All Possible completion items
+  , qualCompls :: QualCompls    -- ^ Completion items associated to
+                                -- to a specific module name.
+  , importableModules :: [T.Text] -- ^ All modules that may be imported.
   } deriving (Typeable)
 
 -- The supported languages and extensions
@@ -341,26 +344,6 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) =
                   d = T.length fullLine - T.length (stripTypeStuff partialLine)
               in Position l (c - d)
 
-            hasTrailingBacktick =
-              if T.length fullLine <= trailingBacktickIndex
-                  then False
-                  else (fullLine `T.index` trailingBacktickIndex) == '`'
-
-            trailingBacktickIndex = let Position _ cursorColumn = VFS.cursorPos prefixInfo in cursorColumn
-
-            isUsedAsInfix = if backtickIndex < 0
-                    then False
-                    else (fullLine `T.index` backtickIndex) == '`'
-
-            backtickIndex =
-              let Position _ cursorColumn = VFS.cursorPos prefixInfo
-                  prefixLength = T.length prefixText
-                  moduleLength = if prefixModule == ""
-                            then 0
-                            else T.length prefixModule + 1 {- Because of "." -}
-              in
-                     cursorColumn - (prefixLength + moduleLength) - 1 {- Points to the first letter of either the module or prefix text -}
-
             filtModNameCompls =
               map mkModCompl
                 $ mapMaybe (T.stripPrefix enteredQual)
@@ -378,10 +361,7 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) =
                 ctxCompls = map (\comp -> comp { isInfix = infixCompls }) ctxCompls'
 
                 infixCompls :: Maybe Backtick
-                infixCompls = case (isUsedAsInfix, hasTrailingBacktick) of
-                    (True, False) -> Just LeftSide
-                    (True, True) -> Just Surrounded
-                    _ -> Nothing
+                infixCompls = isUsedAsInfix fullLine prefixModule prefixText (VFS.cursorPos prefixInfo)
 
                 compls = if T.null prefixModule
                   then unqualCompls
@@ -447,6 +427,43 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) =
   pragmaSuffix fullLine
     |  "}" `T.isSuffixOf` fullLine = mempty
     | otherwise = " #-}"
+
+-- ---------------------------------------------------------------------
+-- helper functions for infix backticks
+-- ---------------------------------------------------------------------
+
+hasTrailingBacktick :: T.Text -> Position -> Bool
+hasTrailingBacktick line pos
+    | T.length line > cursorIndex = (line `T.index` cursorIndex) == '`'
+    | otherwise = False
+    where cursorIndex = pos ^. J.character
+
+isUsedAsInfix :: T.Text -> T.Text -> T.Text -> Position -> Maybe Backtick
+isUsedAsInfix line prefixMod prefixText pos
+    | hasClosingBacktick && hasOpeningBacktick = Just Surrounded
+    | hasOpeningBacktick = Just LeftSide
+    | otherwise = Nothing
+  where
+    hasOpeningBacktick = openingBacktick line prefixMod prefixText pos
+    hasClosingBacktick = hasTrailingBacktick line pos
+
+openingBacktick :: T.Text -> T.Text -> T.Text -> Position -> Bool
+openingBacktick line prefixModule prefixText pos
+  | backtickIndex < 0 = False
+  | otherwise = (line `T.index` backtickIndex) == '`'
+    where
+    column = pos ^. J.character
+
+    backtickIndex :: Int
+    backtickIndex =
+      let
+          prefixLength = T.length prefixText
+          moduleLength = if prefixModule == ""
+                    then 0
+                    else T.length prefixModule + 1 {- Because of "." -}
+      in
+        -- Points to the first letter of either the module or prefix text
+        column - (prefixLength + moduleLength) - 1
 
 
 -- ---------------------------------------------------------------------
