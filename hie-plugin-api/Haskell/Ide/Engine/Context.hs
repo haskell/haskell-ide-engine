@@ -14,14 +14,11 @@ import Control.Applicative ( (<|>) )
 -- smarter code completion
 data Context = TypeContext
              | ValueContext
-             | ModuleContext String
-             | ImportContext String
-             | ImportListContext String
-             | ImportHidingContext String
-             | ExportContext
-             | InstanceContext
-             | ClassContext
-             | DerivingContext
+             | ModuleContext String -- ^ module context with module name
+             | ImportContext String -- ^ import context with module name
+             | ImportListContext String -- ^ import list context with module name
+             | ImportHidingContext String -- ^ import hiding context with module name
+             | ExportContext -- ^ List of exported identifiers from the current module
   deriving (Show, Eq)
 
 -- | Generates a map of where the context is a type and where the context is a value
@@ -56,15 +53,6 @@ getContext pos pm
           | otherwise = Nothing
         go (L (GHC.RealSrcSpan r) GHC.ValD {})
           | pos `isInsideRange` r = Just ValueContext
-          | otherwise = Nothing
-        go (L (GHC.RealSrcSpan r) GHC.InstD {})
-          | pos `isInsideRange` r = Just InstanceContext
-          | otherwise = Nothing
-        go (L (GHC.RealSrcSpan r) GHC.DerivD {})
-          | pos `isInsideRange` r = Just DerivingContext
-          | otherwise = Nothing
-        go (L (GHC.RealSrcSpan r) (GHC.TyClD _ GHC.ClassDecl {}))
-          | pos `isInsideRange` r = Just ClassContext
           | otherwise = Nothing
         go _ = Nothing
 

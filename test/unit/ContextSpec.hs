@@ -32,10 +32,10 @@ spec = describe "Context of different cursor positions" $ do
     it "module header context"
         $ withCurrentDirectory "./test/testdata/context"
         $ do
-              fp_ <- makeAbsolute "./ExampleContext.hs"
+              fp <- makeAbsolute "./ExampleContext.hs"
               let res = IdeResultOk (Just (ModuleContext "ExampleContext"))
 
-              actual <- getContextAt fp_ (toPos (1, 10))
+              actual <- getContextAt fp (toPos (1, 10))
 
               actual `shouldBe` res
 
@@ -43,71 +43,71 @@ spec = describe "Context of different cursor positions" $ do
     it "module export list context"
         $ withCurrentDirectory "./test/testdata/context"
         $ do
-              fp_ <- makeAbsolute "./ExampleContext.hs"
+              fp <- makeAbsolute "./ExampleContext.hs"
               let res = IdeResultOk (Just ExportContext)
-              actual <- getContextAt fp_ (toPos (1, 24))
+              actual <- getContextAt fp (toPos (1, 24))
 
               actual `shouldBe` res
 
     it "value context" $ withCurrentDirectory "./test/testdata/context" $ do
-        fp_ <- makeAbsolute "./ExampleContext.hs"
+        fp <- makeAbsolute "./ExampleContext.hs"
         let res = IdeResultOk (Just ValueContext)
-        actual <- getContextAt fp_ (toPos (7, 6))
+        actual <- getContextAt fp (toPos (7, 6))
 
         actual `shouldBe` res
 
     it "value addition context" $ withCurrentDirectory "./test/testdata/context" $ do
-        fp_ <- makeAbsolute "./ExampleContext.hs"
+        fp <- makeAbsolute "./ExampleContext.hs"
         let res = IdeResultOk (Just ValueContext)
-        actual <- getContextAt fp_ (toPos (7, 12))
+        actual <- getContextAt fp (toPos (7, 12))
 
         actual `shouldBe` res
 
     it "import context" $ withCurrentDirectory "./test/testdata/context" $ do
-        fp_ <- makeAbsolute "./ExampleContext.hs"
+        fp <- makeAbsolute "./ExampleContext.hs"
         let res = IdeResultOk (Just (ImportContext "Data.List"))
-        actual <- getContextAt fp_ (toPos (3, 8))
+        actual <- getContextAt fp (toPos (3, 8))
 
         actual `shouldBe` res
 
     it "import list context" $ withCurrentDirectory "./test/testdata/context" $ do
-        fp_ <- makeAbsolute "./ExampleContext.hs"
+        fp <- makeAbsolute "./ExampleContext.hs"
         let res = IdeResultOk (Just (ImportListContext "Data.List"))
-        actual <- getContextAt fp_ (toPos (3, 20))
+        actual <- getContextAt fp (toPos (3, 20))
 
         actual `shouldBe` res
 
     it "import hiding context" $ withCurrentDirectory "./test/testdata/context" $ do
-        fp_ <- makeAbsolute "./ExampleContext.hs"
+        fp <- makeAbsolute "./ExampleContext.hs"
         let res = IdeResultOk (Just (ImportHidingContext "Control.Monad"))
-        actual <- getContextAt fp_ (toPos (4, 32))
+        actual <- getContextAt fp (toPos (4, 32))
 
         actual `shouldBe` res
 
     it "function declaration context"
         $ withCurrentDirectory "./test/testdata/context"
         $ do
-              fp_ <- makeAbsolute "./ExampleContext.hs"
+              fp <- makeAbsolute "./ExampleContext.hs"
               let res = IdeResultOk (Just TypeContext)
-              actual <- getContextAt fp_ (toPos (6, 1))
+              actual <- getContextAt fp (toPos (6, 1))
 
               actual `shouldBe` res
-              
+
     it "function signature context"
         $ withCurrentDirectory "./test/testdata/context"
         $ do
-            fp_ <- makeAbsolute "./ExampleContext.hs"
+            fp <- makeAbsolute "./ExampleContext.hs"
             let res = IdeResultOk (Just TypeContext)
-            actual <- getContextAt fp_ (toPos (6, 8))
+            actual <- getContextAt fp (toPos (6, 8))
             actual `shouldBe` res
 
 
     it "function definition context"
         $ withCurrentDirectory "./test/testdata/context"
         $ do
-              fp_ <- makeAbsolute "./ExampleContext.hs"
+              fp <- makeAbsolute "./ExampleContext.hs"
               let res = IdeResultOk (Just ValueContext)
-              actual <- getContextAt fp_ (toPos (7, 1))
+              actual <- getContextAt fp (toPos (7, 1))
               actual `shouldBe` res
 
     -- This is interesting, the context for this is assumed to be ValueContext
@@ -118,17 +118,17 @@ spec = describe "Context of different cursor positions" $ do
     it "inner function declaration context"
         $ withCurrentDirectory "./test/testdata/context"
         $ do
-            fp_ <- makeAbsolute "./ExampleContext.hs"
+            fp <- makeAbsolute "./ExampleContext.hs"
             let res = IdeResultOk (Just ValueContext)
-            actual <- getContextAt fp_ (toPos (9, 10))
+            actual <- getContextAt fp (toPos (9, 10))
             actual `shouldBe` res
 
     it "inner function value context"
         $ withCurrentDirectory "./test/testdata/context"
         $ do
-            fp_ <- makeAbsolute "./ExampleContext.hs"
+            fp <- makeAbsolute "./ExampleContext.hs"
             let res = IdeResultOk (Just ValueContext)
-            actual <- getContextAt fp_ (toPos (10, 10))
+            actual <- getContextAt fp (toPos (10, 10))
             actual `shouldBe` res
 
 
@@ -136,51 +136,55 @@ spec = describe "Context of different cursor positions" $ do
     it "data declaration context"
         $ withCurrentDirectory "./test/testdata/context"
         $ do
-            fp_ <- makeAbsolute "./ExampleContext.hs"
+            fp <- makeAbsolute "./ExampleContext.hs"
             let res = IdeResultOk Nothing
-            actual <- getContextAt fp_ (toPos (12, 8))
+            actual <- getContextAt fp (toPos (12, 8))
             actual `shouldBe` res
 
     -- Define a datatype.
     it "data definition context"
         $ withCurrentDirectory "./test/testdata/context"
         $ do
-            fp_ <- makeAbsolute "./ExampleContext.hs"
+            fp <- makeAbsolute "./ExampleContext.hs"
             let res = IdeResultOk (Just TypeContext)
-            actual <- getContextAt fp_ (toPos (12, 18))
+            actual <- getContextAt fp (toPos (12, 18))
             actual `shouldBe` res
 
+    -- Declaration of a class. Should be something with types.
     it "class declaration context"
         $ withCurrentDirectory "./test/testdata/context"
         $ do
-            fp_ <- makeAbsolute "./ExampleContext.hs"
-            let res = IdeResultOk (Just ClassContext)
-            actual <- getContextAt fp_ (toPos (15, 8))
+            fp <- makeAbsolute "./ExampleContext.hs"
+            let res = IdeResultOk Nothing
+            actual <- getContextAt fp (toPos (15, 8))
             actual `shouldBe` res
 
+    -- Function signature in class declaration.
+    -- Ought to be TypeContext
     it "class declaration function sig context"
         $ withCurrentDirectory "./test/testdata/context"
         $ do
-            fp_ <- makeAbsolute "./ExampleContext.hs"
-            let res = IdeResultOk (Just ClassContext)
-            actual <- getContextAt fp_ (toPos (16, 7))
+            fp <- makeAbsolute "./ExampleContext.hs"
+            let res = IdeResultOk Nothing
+            actual <- getContextAt fp (toPos (16, 7))
             actual `shouldBe` res
 
     it "instance declaration context"
         $ withCurrentDirectory "./test/testdata/context"
         $ do
-            fp_ <- makeAbsolute "./ExampleContext.hs"
-            let res = IdeResultOk (Just InstanceContext)
-            actual <- getContextAt fp_ (toPos (18, 7))
+            fp <- makeAbsolute "./ExampleContext.hs"
+            let res = IdeResultOk Nothing
+            actual <- getContextAt fp (toPos (18, 7))
             actual `shouldBe` res
 
-    -- Function definition
+    -- Function definition in an instance declaration
+    -- Should be ValueContext, but nothing is fine, too for now
     it "instance declaration function def context"
             $ withCurrentDirectory "./test/testdata/context"
             $ do
-                fp_ <- makeAbsolute "./ExampleContext.hs"
-                let res = IdeResultOk (Just InstanceContext)
-                actual <- getContextAt fp_ (toPos (19, 6))
+                fp <- makeAbsolute "./ExampleContext.hs"
+                let res = IdeResultOk Nothing
+                actual <- getContextAt fp (toPos (19, 6))
                 actual `shouldBe` res
 
     -- This seems plain wrong, if the cursor is on the String "deriving",
@@ -189,9 +193,9 @@ spec = describe "Context of different cursor positions" $ do
     it "deriving context"
         $ withCurrentDirectory "./test/testdata/context"
         $ do
-            fp_ <- makeAbsolute "./ExampleContext.hs"
+            fp <- makeAbsolute "./ExampleContext.hs"
             let res = IdeResultOk Nothing
-            actual <- getContextAt fp_ (toPos (13, 9))
+            actual <- getContextAt fp (toPos (13, 9))
             actual `shouldBe` res
 
     -- Cursor is directly before the open parenthesis of a deriving clause.
@@ -201,9 +205,9 @@ spec = describe "Context of different cursor positions" $ do
     it "deriving parenthesis context"
         $ withCurrentDirectory "./test/testdata/context"
         $ do
-            fp_ <- makeAbsolute "./ExampleContext.hs"
+            fp <- makeAbsolute "./ExampleContext.hs"
             let res = IdeResultOk Nothing
-            actual <- getContextAt fp_ (toPos (13, 14))
+            actual <- getContextAt fp (toPos (13, 14))
             actual `shouldBe` res
 
     -- Cursor is directly after the open parenthesis of a deriving clause.
@@ -215,32 +219,32 @@ spec = describe "Context of different cursor positions" $ do
     it "deriving parenthesis context"
         $ withCurrentDirectory "./test/testdata/context"
         $ do
-            fp_ <- makeAbsolute "./ExampleContext.hs"
+            fp <- makeAbsolute "./ExampleContext.hs"
             let res = IdeResultOk (Just TypeContext)
-            actual <- getContextAt fp_ (toPos (13, 15))
+            actual <- getContextAt fp (toPos (13, 15))
             actual `shouldBe` res
 
     it "deriving typeclass context"
         $ withCurrentDirectory "./test/testdata/context"
         $ do
-            fp_ <- makeAbsolute "./ExampleContext.hs"
+            fp <- makeAbsolute "./ExampleContext.hs"
             let res = IdeResultOk (Just TypeContext)
-            actual <- getContextAt fp_ (toPos (13, 18))
+            actual <- getContextAt fp (toPos (13, 18))
             actual `shouldBe` res
 
     -- Point at an empty line.
     -- There is no context
     it "nothing" $ withCurrentDirectory "./test/testdata/context" $ do
-        fp_ <- makeAbsolute "./ExampleContext.hs"
+        fp <- makeAbsolute "./ExampleContext.hs"
         let res = IdeResultOk Nothing
-        actual <- getContextAt fp_ (toPos (2, 1))
+        actual <- getContextAt fp (toPos (2, 1))
         actual `shouldBe` res
 
-getContextAt :: [Char] -> Position -> IO (IdeResult (Maybe Context))
-getContextAt fp_ pos = do
-    let arg = filePathToUri fp_
+getContextAt :: FilePath -> Position -> IO (IdeResult (Maybe Context))
+getContextAt fp pos = do
+    let arg = filePathToUri fp
     runSingle (IdePlugins mempty) $ do
         _ <- setTypecheckedModule arg
-        pluginGetFile "getContext: " arg $ \fp ->
-            ifCachedModuleAndData fp (IdeResultOk Nothing) $ \tm _ () ->
+        pluginGetFile "getContext: " arg $ \fp_ ->
+            ifCachedModuleAndData fp_ (IdeResultOk Nothing) $ \tm _ () ->
                 return $ IdeResultOk $ getContext pos (tm_parsed_module tm)
