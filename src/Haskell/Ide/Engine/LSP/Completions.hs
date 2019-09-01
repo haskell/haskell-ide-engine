@@ -373,6 +373,7 @@ getCompletions uri prefixInfo (WithSnippets withSnippets) =
                 ctxCompls' = case context of
                               TypeContext -> filter isTypeCompl compls
                               ValueContext -> filter (not . isTypeCompl) compls
+                              _ -> filter (not . isTypeCompl) compls
                 -- Add whether the text to insert has backticks
                 ctxCompls = map (\comp -> comp { isInfix = infixCompls }) ctxCompls'
 
