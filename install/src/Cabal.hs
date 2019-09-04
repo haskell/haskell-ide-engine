@@ -17,6 +17,7 @@ import           Print
 import           Env
 import           Stack
 
+
 execCabal :: CmdResult r => [String] -> Action r
 execCabal = command [] "cabal"
 
@@ -40,10 +41,9 @@ cabalBuildHie versionNumber = do
 
 cabalInstallHie :: VersionNumber -> Action ()
 cabalInstallHie versionNumber = do
-
   localBin <- getLocalBin
   cabalVersion <- getCabalVersion
-  
+
   let isCabal3 = checkVersion [3,0,0,0] cabalVersion
       installDirOpt | isCabal3 = "--installdir"
                     | otherwise = "--symlink-bindir"
@@ -85,7 +85,6 @@ checkCabal = do
 getCabalVersion :: Action String
 getCabalVersion = trimmedStdout <$> execCabal ["--numeric-version"]
 
--- TODO: this restriction will be gone in the next release of cabal
 validateCabalNewInstallIsSupported :: Action ()
 validateCabalNewInstallIsSupported = do
   cabalVersion <- getCabalVersion
@@ -114,6 +113,7 @@ cabalInstallIsOldFailMsg cabalVersion =
     ++ "required version is `"
     ++ versionToString requiredCabalVersion
     ++ "`."
+
 
 requiredCabalVersion :: RequiredVersion
 requiredCabalVersion = [2, 4, 1, 0]
