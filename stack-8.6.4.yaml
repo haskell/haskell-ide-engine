@@ -2,6 +2,7 @@ resolver: lts-13.19 # GHC 8.6.4
 packages:
 - .
 - hie-plugin-api
+- hie-bios
 
 extra-deps:
 - ./submodules/HaRe
@@ -12,6 +13,7 @@ extra-deps:
 
 - brittany-0.12.0.0
 - butcher-1.3.2.1
+- bytestring-trie-0.2.5.0
 - cabal-plan-0.4.0.0
 - constrained-dynamic-0.1.0.0
 - floskell-0.10.0
@@ -33,12 +35,6 @@ extra-deps:
 # To make build work in windows 7
 - unix-time-0.4.7
 - yaml-0.8.32
-
-flags:
-  haskell-ide-engine:
-    pedantic: true
-  hie-plugin-api:
-    pedantic: true
 
 # allow-newer: true
 

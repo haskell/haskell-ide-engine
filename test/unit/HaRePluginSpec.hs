@@ -21,7 +21,7 @@ import           Language.Haskell.LSP.Types     ( Location(..)
 import           System.Directory
 import           System.FilePath
 import           TestUtils
-
+import GhcMonad
 import           Test.Hspec
 
 -- ---------------------------------------------------------------------
@@ -48,6 +48,13 @@ dispatchRequestPGoto =
 
 -- ---------------------------------------------------------------------
 
+runWithContext :: Uri -> IdeGhcM a -> IdeGhcM a
+runWithContext uri act = case uriToFilePath uri of
+  Just fp -> do
+    df <- getSessionDynFlags
+    runActionWithContext df (Just fp) act
+  Nothing -> error $ "uri not valid: " ++ show uri
+
 hareSpec :: Spec
 hareSpec = do
   describe "hare plugin commands(old plugin api)" $ do
@@ -57,7 +64,7 @@ hareSpec = do
     it "renames" $ withCurrentDirectory "test/testdata" $ do
 
       let uri = filePathToUri $ cwd </> "test/testdata/HaReRename.hs"
-          act = renameCmd' uri (toPos (5,1)) "foolong"
+          act = runWithContext uri $ renameCmd' uri (toPos (5,1)) "foolong"
           arg = HPT uri (toPos (5,1)) "foolong"
           textEdits = List [TextEdit (Range (Position 3 0) (Position 4 13)) "foolong :: Int -> Int\nfoolong x = x + 3"]
           res = IdeResultOk $ WorkspaceEdit
@@ -69,7 +76,7 @@ hareSpec = do
 
     it "returns an error for invalid rename" $ withCurrentDirectory "test/testdata" $ do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReRename.hs"
-          act = renameCmd' uri (toPos (15,1)) "foolong"
+          act = runWithContext uri $ renameCmd' uri (toPos (15,1)) "foolong"
           arg = HPT uri (toPos (15,1)) "foolong"
           res = IdeResultFail
                   IdeError { ideCode = PluginError
@@ -80,7 +87,7 @@ hareSpec = do
 
     it "demotes" $ withCurrentDirectory "test/testdata" $ do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReDemote.hs"
-          act = demoteCmd' uri (toPos (6,1))
+          act = runWithContext uri $ demoteCmd' uri (toPos (6,1))
           arg = HP uri (toPos (6,1))
           textEdits = List [TextEdit (Range (Position 4 0) (Position 5 5)) "  where\n    y = 7"]
           res = IdeResultOk $ WorkspaceEdit
@@ -92,7 +99,7 @@ hareSpec = do
 
     it "duplicates a definition" $ withCurrentDirectory "test/testdata" $ do
       let uri = filePathToUri $ cwd </> "test/testdata/HaReRename.hs"
-          act = dupdefCmd' uri (toPos (5,1)) "foonew"
+          act = runWithContext uri $ dupdefCmd' uri (toPos (5,1)) "foonew"
           arg = HPT uri (toPos (5,1)) "foonew"
           textEdits = List [TextEdit (Range (Position 6 0) (Position 6 0)) "foonew :: Int -> Int\nfoonew x = x + 3\n\n"]
           res = IdeResultOk $ WorkspaceEdit
@@ -105,7 +112,7 @@ hareSpec = do
     it "converts if to case" $ withCurrentDirectory "test/testdata" $ do
 
       let uri = filePathToUri $ cwd </> "test/testdata/HaReCase.hs"
-          act = iftocaseCmd' uri (Range (toPos (5,9))
+          act = runWithContext uri $ iftocaseCmd' uri (Range (toPos (5,9))
                                         (toPos (9,12)))
           arg = HR uri (toPos (5,9)) (toPos (9,12))
           textEdits = List [TextEdit (Range (Position 4 0) (Position 8 11))
@@ -120,7 +127,7 @@ hareSpec = do
     it "lifts one level" $ withCurrentDirectory "test/testdata" $ do
 
       let uri = filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs"
-          act = liftonelevelCmd' uri (toPos (6,5))
+          act = runWithContext uri $ liftonelevelCmd' uri (toPos (6,5))
           arg = HP uri (toPos (6,5))
           textEdits = List [ TextEdit (Range (Position 6 0) (Position 6 0)) "y = 4\n\n"
                           , TextEdit (Range (Position 4 0) (Position 6 0)) ""]
@@ -134,7 +141,7 @@ hareSpec = do
     it "lifts to top level" $ withCurrentDirectory "test/testdata" $ do
 
       let uri = filePathToUri $ cwd </> "test/testdata/HaReMoveDef.hs"
-          act = lifttotoplevelCmd' uri (toPos (12,9))
+          act = runWithContext uri $ lifttotoplevelCmd' uri (toPos (12,9))
           arg = HP uri (toPos (12,9))
           textEdits = List [ TextEdit (Range (Position 13 0) (Position 13 0)) "\n"
                            , TextEdit (Range (Position 12 0) (Position 12 0)) "z = 7\n"
@@ -149,7 +156,7 @@ hareSpec = do
 
     it "deletes a definition" $ withCurrentDirectory "test/testdata" $ do
       let uri = filePathToUri $ cwd </> "test/testdata/FuncTest.hs"
-          act = deleteDefCmd' uri (toPos (6,1))
+          act = runWithContext uri $ deleteDefCmd' uri (toPos (6,1))
           arg = HP uri (toPos (6,1))
           textEdits = List [TextEdit (Range (Position 4 0) (Position 7 0)) ""]
           res = IdeResultOk $ WorkspaceEdit
@@ -159,9 +166,9 @@ hareSpec = do
 
     -- ---------------------------------
 
-    it "generalises an applicative" $ withCurrentDirectory "test/testdata" $ do
-      let uri = filePathToUri $ cwd </> "test/testdata/HaReGA1.hs"
-          act = genApplicativeCommand' uri (toPos (4,1))
+    it "generalises an applicative" $ withCurrentDirectory "test/testdata/HaReGA1/" $ do
+      let uri = filePathToUri $ cwd </> "test/testdata/HaReGA1/HaReGA1.hs"
+          act = runWithContext uri $ genApplicativeCommand' uri (toPos (4,1))
           arg = HP uri (toPos (4,1))
           textEdits = List [TextEdit (Range (Position 4 0) (Position 8 12))
                       "parseStr = char '\"' *> (many1 (noneOf \"\\\"\")) <* char '\"'"]
@@ -176,8 +183,9 @@ hareSpec = do
     cwd <- runIO getCurrentDirectory
 
     it "finds definition across components" $ do
-      let u = filePathToUri $ cwd </> "test/testdata/gototest/app/Main.hs"
-          lreq = setTypecheckedModule u
+      let fp = cwd </> "test/testdata/gototest/app/Main.hs"
+      let u = filePathToUri $ fp
+          lreq = runWithContext u $ setTypecheckedModule u
           req = liftToGhc $ TestDeferM $ findDef u (toPos (7,8))
       r <- dispatchRequestPGoto $ lreq >> req
       r `shouldBe` IdeResultOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
@@ -187,15 +195,17 @@ hareSpec = do
       r2 `shouldBe` IdeResultOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
                                             (Range (toPos (5,1)) (toPos (5,2)))]
     it "finds definition in the same component" $ do
-      let u = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs"
-          lreq = setTypecheckedModule u
+      let fp = cwd </> "test/testdata/gototest/src/Lib2.hs"
+      let u    = filePathToUri $ fp
+          lreq = runWithContext u $ setTypecheckedModule u
           req = liftToGhc $ TestDeferM $ findDef u (toPos (6,5))
       r <- dispatchRequestPGoto $ lreq >> req
       r `shouldBe` IdeResultOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs")
                                            (Range (toPos (6,1)) (toPos (6,9)))]
     it "finds local definitions" $ do
-      let u = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs"
-          lreq = setTypecheckedModule u
+      let fp = cwd </> "test/testdata/gototest/src/Lib2.hs"
+      let u    = filePathToUri $ fp
+          lreq = runWithContext u $ setTypecheckedModule u
           req = liftToGhc $ TestDeferM $ findDef u (toPos (7,11))
       r <- dispatchRequestPGoto $ lreq >> req
       r `shouldBe` IdeResultOk [Location (filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs")
@@ -206,7 +216,7 @@ hareSpec = do
                                             (Range (toPos (9,9)) (toPos (9,10)))]
     it "finds local definition of record variable" $ do
       let u    = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs"
-          lreq = setTypecheckedModule u
+          lreq = runWithContext u $ setTypecheckedModule u
           req  = liftToGhc $ TestDeferM $ findTypeDef u (toPos (11, 23))
       r <- dispatchRequestPGoto $ lreq >> req
       r `shouldBe` IdeResultOk
@@ -216,7 +226,7 @@ hareSpec = do
         ]
     it "finds local definition of newtype variable" $ do
       let u    = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs"
-          lreq = setTypecheckedModule u
+          lreq = runWithContext u $ setTypecheckedModule u
           req  = liftToGhc $ TestDeferM $ findTypeDef u (toPos (16, 21))
       r <- dispatchRequestPGoto $ lreq >> req
       r `shouldBe` IdeResultOk
@@ -226,7 +236,7 @@ hareSpec = do
         ]
     it "finds local definition of sum type variable" $ do
       let u    = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs"
-          lreq = setTypecheckedModule u
+          lreq = runWithContext u $ setTypecheckedModule u
           req  = liftToGhc $ TestDeferM $ findTypeDef u (toPos (21, 13))
       r <- dispatchRequestPGoto $ lreq >> req
       r `shouldBe` IdeResultOk
@@ -236,7 +246,7 @@ hareSpec = do
         ]
     it "finds local definition of sum type contructor" $ do
       let u    = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs"
-          lreq = setTypecheckedModule u
+          lreq = runWithContext u $ setTypecheckedModule u
           req  = liftToGhc $ TestDeferM $ findTypeDef u (toPos (24, 7))
       r <- dispatchRequestPGoto $ lreq >> req
       r `shouldBe` IdeResultOk
@@ -246,13 +256,13 @@ hareSpec = do
         ]
     it "can not find non-local definition of type def" $ do
       let u    = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs"
-          lreq = setTypecheckedModule u
+          lreq = runWithContext u $ setTypecheckedModule u
           req  = liftToGhc $ TestDeferM $ findTypeDef u (toPos (30, 17))
       r <- dispatchRequestPGoto $ lreq >> req
       r `shouldBe` IdeResultOk []
     it "find local definition of type def" $ do
       let u    = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs"
-          lreq = setTypecheckedModule u
+          lreq = runWithContext u $ setTypecheckedModule u
           req  = liftToGhc $ TestDeferM $ findTypeDef u (toPos (35, 16))
       r <- dispatchRequestPGoto $ lreq >> req
       r `shouldBe` IdeResultOk
@@ -261,8 +271,9 @@ hareSpec = do
             (Range (toPos (18, 1)) (toPos (18, 26)))
         ]
     it "find type-definition of type def in component" $ do
-      let u    = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib2.hs"
-          lreq = setTypecheckedModule u
+      let fp = cwd </> "test/testdata/gototest/src/Lib2.hs"
+      let u    = filePathToUri $ fp
+          lreq = runWithContext u $ setTypecheckedModule u
           req  = liftToGhc $ TestDeferM $ findTypeDef u (toPos (13, 20))
       r <- dispatchRequestPGoto $ lreq >> req
       r `shouldBe` IdeResultOk
@@ -272,7 +283,7 @@ hareSpec = do
         ]
     it "find definition of parameterized data type" $ do
       let u    = filePathToUri $ cwd </> "test/testdata/gototest/src/Lib.hs"
-          lreq = setTypecheckedModule u
+          lreq = runWithContext u $ setTypecheckedModule u
           req  = liftToGhc $ TestDeferM $ findTypeDef u (toPos (40, 19))
       r <- dispatchRequestPGoto $ lreq >> req
       r `shouldBe` IdeResultOk

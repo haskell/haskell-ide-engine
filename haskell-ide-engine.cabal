@@ -1,5 +1,5 @@
 name:                haskell-ide-engine
-version:             0.12.0.0
+version:             1.0.0.0
 synopsis:            Provide a common engine to power any Haskell IDE
 description:         Please see README.md
 homepage:            http://github.com/githubuser/haskell-ide-engine#readme
@@ -30,7 +30,7 @@ library
                        Haskell.Ide.Engine.Plugin.Build
                        Haskell.Ide.Engine.Plugin.Example2
                        Haskell.Ide.Engine.Plugin.Floskell
-                       Haskell.Ide.Engine.Plugin.GhcMod
+                       Haskell.Ide.Engine.Plugin.Bios
                        Haskell.Ide.Engine.Plugin.HaRe
                        Haskell.Ide.Engine.Plugin.Haddock
                        Haskell.Ide.Engine.Plugin.HfaAlign
@@ -40,6 +40,7 @@ library
                        Haskell.Ide.Engine.Plugin.Package
                        Haskell.Ide.Engine.Plugin.Package.Compat
                        Haskell.Ide.Engine.Plugin.Pragmas
+                       Haskell.Ide.Engine.Plugin.Generic
                        Haskell.Ide.Engine.Scheduler
                        Haskell.Ide.Engine.Support.Fuzzy
                        Haskell.Ide.Engine.Support.HieExtras
@@ -66,8 +67,6 @@ library
                      , fold-debounce
                      , ghc >= 8.0.1
                      , ghc-exactprint
-                     , ghc-mod >= 5.9.0.0
-                     , ghc-mod-core >= 5.9.0.0
                      , gitrev >= 1.1
                      , haddock-api
                      , haddock-library
@@ -80,7 +79,6 @@ library
                      , hslogger
                      , lifted-async
                      , lens >= 4.15.2
-                     , monad-control
                      , monoid-subclasses > 0.4
                      , mtl
                      , optparse-simple >= 0.0.3
@@ -98,6 +96,9 @@ library
                      , vector
                      , versions
                      , yaml >= 0.8.31
+                     , hie-bios
+                     , bytestring-trie
+                     , unliftio
   if impl(ghc < 8.4)
     build-depends:     hlint >= 2.0.11 && < 2.1.18
   else
@@ -114,6 +115,7 @@ executable hie
   other-modules:       Paths_haskell_ide_engine
   build-depends:       base
                      , directory
+                     , hie-bios
                      , haskell-ide-engine
                      , haskell-lsp
                      , hie-plugin-api
@@ -132,7 +134,7 @@ executable hie-wrapper
   other-modules:       Paths_haskell_ide_engine
   build-depends:       base
                      , directory
-                     , ghc-mod-core
+                     , hie-bios
                      , haskell-ide-engine
                      , haskell-lsp
                      , hie-plugin-api
@@ -151,6 +153,7 @@ library hie-test-utils
   build-depends:       base
                      , haskell-ide-engine
                      , haskell-lsp
+                     , hie-bios
                      , hie-plugin-api
                      , aeson
                      , blaze-markup
@@ -158,7 +161,6 @@ library hie-test-utils
                      , data-default
                      , directory
                      , filepath
-                     , ghc-mod-core
                      , hslogger
                      , hspec
                      , hspec-core
@@ -191,6 +193,7 @@ test-suite unit-test
   build-tool-depends:  cabal-helper:cabal-helper-main, hspec-discover:hspec-discover
   build-depends:       QuickCheck
                      , aeson
+                     , ghc
                      , base
                      , bytestring
                      , containers

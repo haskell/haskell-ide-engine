@@ -5,24 +5,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeFamilies        #-}
-module Haskell.Ide.Engine.Plugin.GhcMod
-  (
-    ghcmodDescriptor
-
-  -- * For tests
-  , Bindings(..)
-  , FunctionSig(..)
-  , TypeDef(..)
-  , TypeParams(..)
-  , TypedHoles(..) -- only to keep the GHC 8.4 and below unused field warning happy
-  , ValidSubstitutions(..)
-  , extractHoleSubstitutions
-  , extractMissingSignature
-  , extractRenamableTerms
-  , extractUnusedTerm
-  , newTypeCmd
-  , symbolProvider
-  ) where
+-- Generic actions which require a typechecked module
+module Haskell.Ide.Engine.Plugin.Generic where
 
 import           Control.Lens hiding (cons, children)
 import           Data.Aeson
@@ -34,58 +18,39 @@ import           Data.Monoid ((<>))
 import qualified Data.Text                         as T
 import           Name
 import           GHC.Generics
-import qualified GhcModCore                        as GM ( pretty, GhcPs )
-import           Haskell.Ide.Engine.Ghc
-import           Haskell.Ide.Engine.MonadTypes hiding (defaultOptions)
+import           Haskell.Ide.Engine.MonadFunctions
+import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
+import qualified Haskell.Ide.Engine.GhcCompat as C ( GhcPs )
 import qualified Haskell.Ide.Engine.Support.HieExtras as Hie
 import           Haskell.Ide.Engine.ArtifactMap
 import qualified Language.Haskell.LSP.Types        as LSP
 import qualified Language.Haskell.LSP.Types.Lens   as LSP
 import           Language.Haskell.Refact.API       (hsNamessRdr)
+import           HIE.Bios.Doc
 
 import           GHC
 import           HscTypes
 import           DataCon
 import           TcRnTypes
-import           Outputable                        (mkUserStyle, Depth(..))
+import           Outputable hiding ((<>))
+import           PprTyThing
+
 
 -- ---------------------------------------------------------------------
 
-ghcmodDescriptor :: PluginId -> PluginDescriptor
-ghcmodDescriptor plId = PluginDescriptor
+genericDescriptor :: PluginId -> PluginDescriptor
+genericDescriptor plId = PluginDescriptor
   { pluginId = plId
-  , pluginName = "ghc-mod"
-  , pluginDesc = "ghc-mod is a backend program to enrich Haskell programming "
-              <> "in editors. It strives to offer most of the features one has come to expect "
-              <> "from modern IDEs in any editor."
-  , pluginCommands =
-      [
-        -- This one is used in the dispatcher tests, and is a wrapper around what we are already using anyway
-        PluginCommand "check" "check a file for GHC warnings and errors" checkCmd
-
-        -- PluginCommand "info" "Look up an identifier in the context of FILE (like ghci's `:info')" infoCmd
-      , PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmd
-
-        -- This one is registered in the vscode plugin, for some reason
-      , PluginCommand "casesplit" "Generate a pattern match for a binding under (LINE,COL)" Hie.splitCaseCmd
-      ]
+  , pluginName = "generic"
+  , pluginDesc = "generic actions"
+  , pluginCommands = [PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmd]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Just hoverProvider
   , pluginSymbolProvider = Just symbolProvider
   , pluginFormattingProvider = Nothing
   }
-
--- ---------------------------------------------------------------------
-
-checkCmd :: CommandFunc Uri (Diagnostics, AdditionalErrs)
-checkCmd = CmdSync setTypecheckedModule
-
--- ---------------------------------------------------------------------
-
-customOptions :: Options
-customOptions = defaultOptions { fieldLabelModifier = camelTo2 '_' . drop 2}
 
 -- ---------------------------------------------------------------------
 
@@ -107,7 +72,8 @@ typeCmd = CmdSync $ \(TP _bool uri pos) ->
 newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
 newTypeCmd newPos uri =
   pluginGetFile "newTypeCmd: " uri $ \fp ->
-    ifCachedModule fp (IdeResultOk []) $ \tm info ->
+    ifCachedModule fp (IdeResultOk []) $ \tm info -> do
+      debugm $ "newTypeCmd: " <> (show (newPos, uri))
       return $ IdeResultOk $ pureTypeCmd newPos tm info
 
 pureTypeCmd :: Position -> GHC.TypecheckedModule -> CachedInfo -> [(Range,T.Text)]
@@ -126,9 +92,13 @@ pureTypeCmd newPos tm info =
 
     f (range', t) =
       case oldRangeToNew info range' of
-        (Just range) -> [(range , T.pack $ GM.pretty dflag st t)]
+        (Just range) -> [(range , T.pack $ prettyTy st t)]
         _ -> []
 
+    prettyTy stl
+      = showOneLine dflag stl . pprTypeForUser
+
+-- TODO: MP: Why is this defined here?
 cmp :: Range -> Range -> Ordering
 cmp a b
   | a `isSubRangeOf` b = LT
@@ -139,6 +109,21 @@ isSubRangeOf :: Range -> Range -> Bool
 isSubRangeOf (Range sa ea) (Range sb eb) = sb <= sa && eb >= ea
 
 -- ---------------------------------------------------------------------
+--
+-- ---------------------------------------------------------------------
+
+customOptions :: Options
+customOptions = defaultOptions { fieldLabelModifier = camelTo2 '_' . drop 2}
+
+data InfoParams =
+  IP { ipFile :: Uri
+     , ipExpr :: T.Text
+     } deriving (Eq,Show,Generic)
+
+instance FromJSON InfoParams where
+  parseJSON = genericParseJSON customOptions
+instance ToJSON InfoParams where
+  toJSON = genericToJSON customOptions
 
 newtype TypeDef = TypeDef T.Text deriving (Eq, Show)
 
@@ -206,7 +191,7 @@ codeActionProvider' supportsDocChanges _ docId _ context =
        codeAction = LSP.CodeAction title (Just kind) (Just diags) (Just we) Nothing
 
     getRenamables :: LSP.Diagnostic -> [(LSP.Diagnostic, T.Text)]
-    getRenamables diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) = map (diag,) $ extractRenamableTerms msg
+    getRenamables diag@(LSP.Diagnostic _ _ _ (Just "bios") msg _) = map (diag,) $ extractRenamableTerms msg
     getRenamables _ = []
 
     mkRedundantImportActions :: LSP.Diagnostic -> T.Text -> [LSP.CodeAction]
@@ -232,7 +217,7 @@ codeActionProvider' supportsDocChanges _ docId _ context =
         tEdit = LSP.TextEdit (diag ^. LSP.range) ("import " <> modName <> "()")
 
     getRedundantImports :: LSP.Diagnostic -> Maybe (LSP.Diagnostic, T.Text)
-    getRedundantImports diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractRedundantImport msg
+    getRedundantImports diag@(LSP.Diagnostic _ _ _ (Just "bios") msg _) = (diag,) <$> extractRedundantImport msg
     getRedundantImports _ = Nothing
 
     mkTypedHoleActions :: TypedHoles -> [LSP.CodeAction]
@@ -254,14 +239,14 @@ codeActionProvider' supportsDocChanges _ docId _ context =
 
 
     getTypedHoles :: LSP.Diagnostic -> Maybe TypedHoles
-    getTypedHoles diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) =
+    getTypedHoles diag@(LSP.Diagnostic _ _ _ (Just "bios") msg _) =
       case extractHoleSubstitutions msg of
         Nothing -> Nothing
         Just (want, subs, bindings) -> Just $ TypedHoles diag want subs bindings
     getTypedHoles _ = Nothing
 
     getMissingSignatures :: LSP.Diagnostic -> Maybe (LSP.Diagnostic, T.Text)
-    getMissingSignatures diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) =
+    getMissingSignatures diag@(LSP.Diagnostic _ _ _ (Just "bios") msg _) =
       case extractMissingSignature msg of
         Nothing -> Nothing
         Just signature -> Just (diag, signature)
@@ -279,7 +264,7 @@ codeActionProvider' supportsDocChanges _ docId _ context =
             codeAction = LSP.CodeAction title (Just kind) (Just diags) (Just edit) Nothing
 
     getUnusedTerms :: LSP.Diagnostic -> Maybe (LSP.Diagnostic, T.Text)
-    getUnusedTerms diag@(LSP.Diagnostic _ _ _ (Just "ghcmod") msg _) =
+    getUnusedTerms diag@(LSP.Diagnostic _ _ _ (Just "bios") msg _) =
       case extractUnusedTerm msg of
         Nothing -> Nothing
         Just signature -> Just (diag, signature)
@@ -448,7 +433,7 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
         imps  = concatMap goImport imports
         decls = concatMap go $ hsmodDecls hsMod
 
-        go :: LHsDecl GM.GhcPs -> [Decl]
+        go :: LHsDecl C.GhcPs -> [Decl]
 #if __GLASGOW_HASKELL__ >= 806
         go (L l (TyClD _ d)) = goTyClD (L l d)
 #else
@@ -490,7 +475,7 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
 
         -- -----------------------------
 
-        goValD :: LHsBind GM.GhcPs -> [Decl]
+        goValD :: LHsBind C.GhcPs -> [Decl]
         goValD (L l (FunBind { fun_id = ln, fun_matches = MG { mg_alts = llms } })) =
           pure (Decl LSP.SkFunction ln wheres l)
           where
@@ -529,15 +514,17 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
 #elif __GLASGOW_HASKELL__ >= 804
         goValD (L _ (VarBind _ _ _))        = error "goValD"
         goValD (L _ (AbsBinds _ _ _ _ _ _)) = error "goValD"
+        goValD (L _ (PatSynBind _))         = error "goValD"
 #else
         goValD (L _ (VarBind _ _ _))           = error "goValD"
         goValD (L _ (AbsBinds _ _ _ _ _))      = error "goValD"
         goValD (L _ (AbsBindsSig _ _ _ _ _ _)) = error "goValD"
+        goValD (L _ (PatSynBind _))            = error "goValD"
 #endif
 
         -- -----------------------------
 
-        processSig :: LSig GM.GhcPs -> [Decl]
+        processSig :: LSig C.GhcPs -> [Decl]
 #if __GLASGOW_HASKELL__ >= 806
         processSig (L l (ClassOpSig _ False names _)) =
 #else
@@ -546,7 +533,7 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
           map (\n -> Decl LSP.SkMethod n [] l) names
         processSig _ = []
 
-        processCon :: LConDecl GM.GhcPs -> [Decl]
+        processCon :: LConDecl C.GhcPs -> [Decl]
         processCon (L l ConDeclGADT { con_names = names }) =
           map (\n -> Decl LSP.SkConstructor n [] l) names
 #if __GLASGOW_HASKELL__ >= 806
@@ -566,7 +553,7 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
         processCon (L _ (XConDecl _)) = error "processCon"
 #endif
 
-        goImport :: LImportDecl GM.GhcPs -> [Decl]
+        goImport :: LImportDecl C.GhcPs -> [Decl]
         goImport (L l ImportDecl { ideclName = lmn, ideclAs = as, ideclHiding = meis }) = pure im
           where
             im = Import imKind lmn xs l

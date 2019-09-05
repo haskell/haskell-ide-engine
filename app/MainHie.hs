@@ -17,6 +17,8 @@ import qualified Paths_haskell_ide_engine              as Meta
 import           System.Directory
 import           System.Environment
 import qualified System.Log.Logger                     as L
+import HIE.Bios.Types
+import System.IO
 
 -- ---------------------------------------------------------------------
 -- plugins
@@ -26,7 +28,7 @@ import           Haskell.Ide.Engine.Plugin.Base
 import           Haskell.Ide.Engine.Plugin.Brittany
 import           Haskell.Ide.Engine.Plugin.Build
 import           Haskell.Ide.Engine.Plugin.Example2
-import           Haskell.Ide.Engine.Plugin.GhcMod
+import           Haskell.Ide.Engine.Plugin.Bios
 import           Haskell.Ide.Engine.Plugin.HaRe
 import           Haskell.Ide.Engine.Plugin.Haddock
 import           Haskell.Ide.Engine.Plugin.HfaAlign
@@ -36,6 +38,7 @@ import           Haskell.Ide.Engine.Plugin.Liquid
 import           Haskell.Ide.Engine.Plugin.Package
 import           Haskell.Ide.Engine.Plugin.Pragmas
 import           Haskell.Ide.Engine.Plugin.Floskell
+import           Haskell.Ide.Engine.Plugin.Generic
 
 -- ---------------------------------------------------------------------
 
@@ -51,7 +54,7 @@ plugins includeExamples = pluginDescToIdePlugins allPlugins
       , baseDescriptor        "base"
       , brittanyDescriptor    "brittany"
       , buildPluginDescriptor "build"
-      , ghcmodDescriptor      "ghcmod"
+      -- , ghcmodDescriptor      "ghcmod"
       , haddockDescriptor     "haddock"
       , hareDescriptor        "hare"
       , hoogleDescriptor      "hoogle"
@@ -60,6 +63,8 @@ plugins includeExamples = pluginDescToIdePlugins allPlugins
       , packageDescriptor     "package"
       , pragmasDescriptor     "pragmas"
       , floskellDescriptor    "floskell"
+      , biosDescriptor        "bios"
+      , genericDescriptor     "generic"
       ]
     examplePlugins =
       [example2Descriptor "eg2"
@@ -98,6 +103,7 @@ main = do
 
 run :: GlobalOpts -> IO ()
 run opts = do
+  hSetBuffering stderr LineBuffering
   let mLogFileName = optLogFile opts
 
       logLevel = if optDebugOn opts
@@ -120,15 +126,15 @@ run opts = do
   d <- getCurrentDirectory
   logm $ "Current directory:" ++ d
 
-  let vomitOptions = defaultOptions { boLogging = BlVomit}
-  let defaultOpts = if optGhcModVomit opts then vomitOptions else defaultOptions
+  let initOpts = defaultCradleOpts { cradleOptsVerbosity = verbosity }
+      verbosity = if optBiosVerbose opts then Verbose else Silent
       -- Running HIE on projects with -Werror breaks most of the features since all warnings
       -- will be treated with the same severity of type errors. In order to offer a more useful
       -- experience, we make sure warnings are always reported as warnings by setting -Wwarn
-      biosOptions = defaultOpts { boGhcUserOptions = ["-Wwarn"] }
+--      ghcModOptions = defaultOpts { GM.optGhcUserOptions = ["-Wwarn"] }
 
-  when (optGhcModVomit opts) $
-    logm "Enabling --vomit for ghc-mod. Output will be on stderr"
+  when (optBiosVerbose opts) $
+    logm "Enabling verbose mode for hie-bios. Output will be on stderr"
 
   when (optExamplePlugin opts) $
     logm "Enabling Example2 plugin, will insert constant diagnostics etc."
@@ -137,8 +143,8 @@ run opts = do
 
   -- launch the dispatcher.
   if optJson opts then do
-    scheduler <- newScheduler plugins' biosOptions
+    scheduler <- newScheduler plugins' initOpts
     jsonStdioTransport scheduler
   else do
-    scheduler <- newScheduler plugins' biosOptions
+    scheduler <- newScheduler plugins' initOpts
     lspStdioTransport scheduler origDir plugins' (optCaptureFile opts)

@@ -6,13 +6,14 @@ import           Control.Exception
 import qualified Data.HashMap.Strict                 as H
 import qualified Data.Map                            as Map
 #if __GLASGOW_HASKELL__ < 804
--- import           Data.Monoid
+import           Data.Monoid
 #endif
 import qualified Data.Set                            as S
 import qualified Data.Text                           as T
 import           Haskell.Ide.Engine.Ghc
 import           Haskell.Ide.Engine.MonadTypes
-import           Haskell.Ide.Engine.Plugin.GhcMod
+import           Haskell.Ide.Engine.Plugin.Generic
+import           Haskell.Ide.Engine.Plugin.Bios
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Support.HieExtras
 import           Language.Haskell.LSP.Types          (TextEdit (..), toNormalizedUri)
@@ -33,7 +34,7 @@ spec = do
 -- ---------------------------------------------------------------------
 
 testPlugins :: IdePlugins
-testPlugins = pluginDescToIdePlugins [ghcmodDescriptor "ghcmod"]
+testPlugins = pluginDescToIdePlugins [biosDescriptor "bios", genericDescriptor "generic" ]
 
 -- ---------------------------------------------------------------------
 
@@ -56,11 +57,11 @@ ghcmodSpec =
                                    (toPos (4,8)))
                             (Just DsError)
                             Nothing
-                            (Just "ghcmod")
+                            (Just "bios")
                             "Variable not in scope: x"
                             Nothing
 
-      testCommand testPlugins act "ghcmod" "check" arg res
+      testCommand testPlugins act "bios" "check" arg res
 
     -- ---------------------------------
 
@@ -75,7 +76,7 @@ ghcmodSpec =
 -- #else
 --           res = IdeResultOk (T.pack fp <> ":6:9: Warning: Redundant do\NULFound:\NUL  do return (3 + x)\NULWhy not:\NUL  return (3 + x)\n")
 -- #endif
---       testCommand testPlugins act "ghcmod" "lint" arg res
+--       testCommand testPlugins act "bios" "lint" arg res
 
     -- ---------------------------------
 
@@ -86,7 +87,7 @@ ghcmodSpec =
     --       arg = IP uri "main"
     --       res = IdeResultOk "main :: IO () \t-- Defined at HaReRename.hs:2:1\n"
     --   -- ghc-mod tries to load the test file in the context of the hie project if we do not cd first.
-    --   testCommand testPlugins act "ghcmod" "info" arg res
+    --   testCommand testPlugins act "bios" "info" arg res
 
 -- ----------------------------------------------------------------------------
 
@@ -102,7 +103,7 @@ ghcmodSpec =
             , (Range (toPos (5,1)) (toPos (5,14)), "Int -> Int")
             ]
 
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, find function type" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "HaReRename.hs"
@@ -115,7 +116,7 @@ ghcmodSpec =
             [ (Range (toPos (2, 8)) (toPos (2,16)), "String -> IO ()")
             , (Range (toPos (2, 1)) (toPos (2,24)), "IO ()")
             ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, no type at location" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "HaReRename.hs"
@@ -125,7 +126,7 @@ ghcmodSpec =
             liftToGhc $ newTypeCmd (toPos (1,1)) uri
           arg = TP False uri (toPos (1,1))
           res = IdeResultOk []
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, simple" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -138,7 +139,7 @@ ghcmodSpec =
               [ (Range (toPos (6, 16)) (toPos (6,17)), "Int")
               , (Range (toPos (6, 1)) (toPos (7, 16)), "Maybe Int -> Int")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, sum type pattern match, just" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -152,7 +153,7 @@ ghcmodSpec =
               , (Range (toPos (6, 5)) (toPos (6, 13)), "Maybe Int")
               , (Range (toPos (6, 1)) (toPos (7, 16)), "Maybe Int -> Int")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, sum type pattern match, just value" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -167,7 +168,7 @@ ghcmodSpec =
             , (Range (toPos (6, 5)) (toPos (6, 13)), "Maybe Int")
             , (Range (toPos (6, 1)) (toPos (7, 16)), "Maybe Int -> Int")
             ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, sum type pattern match, nothing" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -180,7 +181,7 @@ ghcmodSpec =
               [ (Range (toPos (7, 5)) (toPos (7, 12)), "Maybe Int")
               , (Range (toPos (6, 1)) (toPos (7, 16)), "Maybe Int -> Int")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, sum type pattern match, nothing, literal" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -193,7 +194,7 @@ ghcmodSpec =
               [ (Range (toPos (7, 15)) (toPos (7, 16)), "Int")
               , (Range (toPos (6, 1)) (toPos (7, 16)), "Maybe Int -> Int")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, variable matching" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -206,7 +207,7 @@ ghcmodSpec =
               [ (Range (toPos (10, 5)) (toPos (10, 6)), "Maybe Int")
               , (Range (toPos (10, 1)) (toPos (12, 17)), "Maybe Int -> Int")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, case expr" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -220,7 +221,7 @@ ghcmodSpec =
               , (Range (toPos (10, 9)) (toPos (12, 17)), "Maybe Int -> Int")
               , (Range (toPos (10, 1)) (toPos (12, 17)), "Maybe Int -> Int")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, case expr match, just" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -234,7 +235,7 @@ ghcmodSpec =
               , (Range (toPos (10, 9)) (toPos (12, 17)), "Maybe Int -> Int")
               , (Range (toPos (10, 1)) (toPos (12, 17)), "Maybe Int -> Int")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, case expr match, just value" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -249,7 +250,7 @@ ghcmodSpec =
               , (Range (toPos (10, 9)) (toPos (12, 17)), "Maybe Int -> Int")
               , (Range (toPos (10, 1)) (toPos (12, 17)), "Maybe Int -> Int")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, infix operator" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -263,7 +264,7 @@ ghcmodSpec =
               , (Range (toPos (10, 9)) (toPos (12, 17)), "Maybe Int -> Int")
               , (Range (toPos (10, 1)) (toPos (12, 17)), "Maybe Int -> Int")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, case expr match, nothing" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -277,7 +278,7 @@ ghcmodSpec =
               , (Range (toPos (10, 9)) (toPos (12, 17)), "Maybe Int -> Int")
               , (Range (toPos (10, 1)) (toPos (12, 17)), "Maybe Int -> Int")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, do bind expr result " $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -290,7 +291,7 @@ ghcmodSpec =
               [ (Range (toPos (16, 5)) (toPos (16, 6)), "Int")
               , (Range (toPos (15, 1)) (toPos (19, 19)), "Maybe Int -> Maybe Int")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, do bind expr" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -303,7 +304,7 @@ ghcmodSpec =
               [ (Range (toPos (16, 10)) (toPos (16, 11)), "Maybe Int")
               , (Range (toPos (15, 1)) (toPos (19, 19)), "Maybe Int -> Maybe Int")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, let binding function, return func" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -317,7 +318,7 @@ ghcmodSpec =
               , (Range (toPos (17, 9)) (toPos (17, 28)), "Maybe Int")
               , (Range (toPos (15, 1)) (toPos (19, 19)), "Maybe Int -> Maybe Int")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, let binding function, return param" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -331,7 +332,7 @@ ghcmodSpec =
               , (Range (toPos (17, 9)) (toPos (17, 28)), "Maybe Int")
               , (Range (toPos (15, 1)) (toPos (19, 19)), "Maybe Int -> Maybe Int")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, let binding function, function type" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -344,7 +345,7 @@ ghcmodSpec =
               [ (Range (toPos (17, 9)) (toPos (17, 28)), "Maybe Int")
               , (Range (toPos (15, 1)) (toPos (19, 19)), "Maybe Int -> Maybe Int")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, do expr, function type" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -357,7 +358,7 @@ ghcmodSpec =
               [ (Range (toPos (18, 10)) (toPos (18, 11)), "Maybe Int")
               , (Range (toPos (15, 1)) (toPos (19, 19)), "Maybe Int -> Maybe Int")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, let binding function, do expr bind for local func" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -370,7 +371,7 @@ ghcmodSpec =
               [ (Range (toPos (18, 5)) (toPos (18, 6)), "Int")
               , (Range (toPos (15, 1)) (toPos (19, 19)), "Maybe Int -> Maybe Int")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, function type" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -382,7 +383,7 @@ ghcmodSpec =
           res = IdeResultOk
               [ (Range (toPos (15, 1)) (toPos (19, 19)), "Maybe Int -> Maybe Int")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, function parameter" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -395,7 +396,7 @@ ghcmodSpec =
               [ (Range (toPos (22, 10)) (toPos (22, 11)), "a -> a")
               , (Range (toPos (22, 1)) (toPos (22, 19)), "(a -> a) -> a -> a")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, function composition" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -409,7 +410,7 @@ ghcmodSpec =
               , (Range (toPos (25, 20)) (toPos (25, 29)), "a -> c")
               , (Range (toPos (25, 1)) (toPos (25, 34)), "(b -> c) -> (a -> b) -> a -> c")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, let binding, function composition" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -422,7 +423,7 @@ ghcmodSpec =
               [ (Range (toPos (25, 20)) (toPos (25, 29)), "a -> c")
               , (Range (toPos (25, 1)) (toPos (25, 34)), "(b -> c) -> (a -> b) -> a -> c")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, let binding, type of function" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -435,7 +436,7 @@ ghcmodSpec =
               [ (Range (toPos (25, 33)) (toPos (25, 34)), "a -> c")
               , (Range (toPos (25, 1)) (toPos (25, 34)), "(b -> c) -> (a -> b) -> a -> c")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, function type composition" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -447,7 +448,7 @@ ghcmodSpec =
           res = IdeResultOk
               [ (Range (toPos (25, 1)) (toPos (25, 34)), "(b -> c) -> (a -> b) -> a -> c")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, infix operator" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -460,7 +461,7 @@ ghcmodSpec =
               [ (Range (toPos (28, 25)) (toPos (28, 28)), "(a -> b) -> IO a -> IO b")
               , (Range (toPos (28, 1)) (toPos (28, 35)), "(a -> b) -> IO a -> IO b")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, constructor" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -472,7 +473,7 @@ ghcmodSpec =
           res = IdeResultOk
               [ -- (Range (toPos (31, 7)) (toPos (31, 12)), "Int -> Test")
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, deriving clause Show type" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -492,7 +493,7 @@ ghcmodSpec =
               , (Range (toPos (33, 15)) (toPos (33, 19)), "[Test] -> ShowS")
 #endif
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
     it "runs the type command, deriving clause Eq type" $ withCurrentDirectory "./test/testdata" $ do
       fp <- makeAbsolute "Types.hs"
@@ -511,7 +512,7 @@ ghcmodSpec =
               , (Range (toPos (33, 21)) (toPos (33, 23)), "Test -> Test -> Bool")
 #endif
               ]
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins act "generic" "type" arg res
 
 -- ----------------------------------------------------------------------------
     it "runs the type command with an absolute path from another folder, correct params" $ do
@@ -530,39 +531,39 @@ ghcmodSpec =
               [(Range (toPos (5,9)) (toPos (5,10)), "Int")
               , (Range (toPos (5,1)) (toPos (5,14)), "Int -> Int")
               ]
-        testCommand testPlugins act "ghcmod" "type" arg res
+        testCommand testPlugins act "generic" "type" arg res
 
     -- ---------------------------------
 
-    it "runs the casesplit command" $ withCurrentDirectory "./test/testdata" $ do
-      fp <- makeAbsolute "GhcModCaseSplit.hs"
-      let uri = filePathToUri fp
-          act = do
-            _ <- setTypecheckedModule uri
-            splitCaseCmd' uri (toPos (5,5))
-          arg = HP uri (toPos (5,5))
-          res = IdeResultOk $ WorkspaceEdit
-            (Just $ H.singleton uri
-                                $ List [TextEdit (Range (Position 4 0) (Position 4 10))
-                                          "foo Nothing = ()\nfoo (Just x) = ()"])
-            Nothing
-      testCommand testPlugins act "ghcmod" "casesplit" arg res
+--    it "runs the casesplit command" $ withCurrentDirectory "./test/testdata" $ do
+--      fp <- makeAbsolute "GhcModCaseSplit.hs"
+--      let uri = filePathToUri fp
+--          act = do
+--            _ <- setTypecheckedModule uri
+--            splitCaseCmd' uri (toPos (5,5))
+--          arg = HP uri (toPos (5,5))
+--          res = IdeResultOk $ WorkspaceEdit
+--            (Just $ H.singleton uri
+--                                $ List [TextEdit (Range (Position 4 0) (Position 4 10))
+--                                          "foo Nothing = ()\nfoo (Just x) = ()"])
+--            Nothing
+--      testCommand testPlugins act "bios" "casesplit" arg res
 
-    it "runs the casesplit command with an absolute path from another folder, correct params" $ do
-      fp <- makeAbsolute "./test/testdata/GhcModCaseSplit.hs"
-      cd <- getCurrentDirectory
-      cd2 <- getHomeDirectory
-      bracket (setCurrentDirectory cd2)
-              (\_-> setCurrentDirectory cd)
-              $ \_-> do
-        let uri = filePathToUri fp
-            act = do
-              _ <- setTypecheckedModule uri
-              splitCaseCmd' uri (toPos (5,5))
-            arg = HP uri (toPos (5,5))
-            res = IdeResultOk $ WorkspaceEdit
-              (Just $ H.singleton uri
-                                  $ List [TextEdit (Range (Position 4 0) (Position 4 10))
-                                            "foo Nothing = ()\nfoo (Just x) = ()"])
-              Nothing
-        testCommand testPlugins act "ghcmod" "casesplit" arg res
+--    it "runs the casesplit command with an absolute path from another folder, correct params" $ do
+--      fp <- makeAbsolute "./test/testdata/GhcModCaseSplit.hs"
+--      cd <- getCurrentDirectory
+--      cd2 <- getHomeDirectory
+--      bracket (setCurrentDirectory cd2)
+--              (\_-> setCurrentDirectory cd)
+--              $ \_-> do
+--        let uri = filePathToUri fp
+--            act = do
+--              _ <- setTypecheckedModule uri
+--              splitCaseCmd' uri (toPos (5,5))
+--            arg = HP uri (toPos (5,5))
+--            res = IdeResultOk $ WorkspaceEdit
+--              (Just $ H.singleton uri
+--                                  $ List [TextEdit (Range (Position 4 0) (Position 4 10))
+--                                            "foo Nothing = ()\nfoo (Just x) = ()"])
+--              Nothing
+--        testCommand testPlugins act "bios" "casesplit" arg res

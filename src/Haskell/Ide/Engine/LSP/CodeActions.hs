@@ -77,4 +77,4 @@ handleCodeActionReq tn req = do
       body <- J.List . catMaybes <$> mapM wrapCodeAction codeActions
       reactorSend $ RspCodeAction $ Core.makeResponseMessage req body
 
-  -- TODO: make context specific commands for all sorts of things, such as refactorings          
+  -- TODO: make context specific commands for all sorts of things, such as refactorings

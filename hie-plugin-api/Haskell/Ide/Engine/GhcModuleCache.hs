@@ -1,6 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TupleSections #-}
 
 module Haskell.Ide.Engine.GhcModuleCache where
 
@@ -8,13 +9,20 @@ import qualified Data.Map as Map
 import           Data.Dynamic (Dynamic)
 import           Data.Typeable (TypeRep)
 
-import qualified GhcModCore                      as GM ( Cradle(..) )
+import qualified HIE.Bios as BIOS
+import qualified Data.Trie as T
+import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString as BS
+import Crypto.Hash.SHA1
 
-import           GHC                               (TypecheckedModule, ParsedModule)
+import           GHC (TypecheckedModule, ParsedModule, HscEnv)
+
+import Data.List
 
 import Haskell.Ide.Engine.ArtifactMap
 
 import Language.Haskell.LSP.Types
+import Debug.Trace
 
 type UriCaches = Map.Map FilePath UriCacheResult
 
@@ -34,6 +42,12 @@ data UriCache = UriCache
   -- not the parsed module
   , cachedData   :: !(Map.Map TypeRep Dynamic)
   }
+
+newtype ModuleHash = ModuleHash BS.ByteString deriving (Show, Eq)
+
+hashModule :: FilePath -> IO ModuleHash
+hashModule f = ModuleHash . hash <$> BS.readFile f
+
 
 instance Show UriCache where
   show (UriCache _ _ (Just _) dat) =
@@ -79,12 +93,31 @@ class (Monad m) => HasGhcModuleCache m where
   setModuleCache :: GhcModuleCache -> m ()
 
 emptyModuleCache :: GhcModuleCache
-emptyModuleCache = GhcModuleCache Map.empty Map.empty
+emptyModuleCache = GhcModuleCache T.empty Map.empty Nothing
+
+data LookupCradleResult = ReuseCradle | LoadCradle CachedCradle | NewCradle FilePath
+
+-- The boolean indicates whether we have to reload the cradle or not
+lookupCradle :: FilePath -> GhcModuleCache -> LookupCradleResult
+lookupCradle fp gmc = traceShow ("lookupCradle", fp, gmc) $
+  case currentCradle gmc of
+    Just (dirs, _c) | traceShow ("just", fp, dirs) (any (\d -> d `isPrefixOf` fp) dirs) -> ReuseCradle
+    _ -> case T.match  (cradleCache gmc) (B.pack fp) of
+           Just (k, c, suf) -> traceShow ("matchjust",k, suf) $ LoadCradle c
+           Nothing  -> NewCradle fp
+
+data CachedCradle = CachedCradle BIOS.Cradle HscEnv
+
+instance Show CachedCradle where
+  show (CachedCradle x _) = show x
 
 data GhcModuleCache = GhcModuleCache
-  { cradleCache :: !(Map.Map FilePath GM.Cradle)
+  { cradleCache :: !(T.Trie CachedCradle)
               -- ^ map from dirs to cradles
   , uriCaches  :: !UriCaches
+  , currentCradle :: Maybe ([FilePath], BIOS.Cradle)
+              -- ^ The current cradle and which directories it is
+              -- responsible for
   } deriving (Show)
 
 -- ---------------------------------------------------------------------

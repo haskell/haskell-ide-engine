@@ -32,8 +32,10 @@ import           Control.Monad
 import qualified Data.Set                      as Set
 import qualified Data.Map                      as Map
 import qualified Data.Text                     as T
+import HIE.Bios.Types
 import qualified Language.Haskell.LSP.Core     as Core
 import qualified Language.Haskell.LSP.Types    as J
+import GhcMonad
 
 import           Haskell.Ide.Engine.GhcModuleCache
 import           Haskell.Ide.Engine.Config
@@ -59,9 +61,8 @@ data Scheduler m = Scheduler
  { plugins :: IdePlugins
    -- ^ The list of plugins that will be used for responding to requests
 
- , biosOptions :: BiosOptions
-   -- ^ Options for the bios session. Since we only keep a single bios session
-   -- at a time, this cannot be changed a runtime.
+ , biosOpts :: CradleOpts
+   -- ^ Options for the hie-bios cradle finding
 
  , requestsToCancel :: STM.TVar (Set.Set J.LspId)
    -- ^ The request IDs that were canceled by the client. This causes requests to
@@ -98,10 +99,10 @@ class HasScheduler a m where
 newScheduler
   :: IdePlugins
      -- ^ The list of plugins that will be used for responding to requests
-  -> BiosOptions
-   -- ^ Options for the bios session. Since we only keep a single bios session
+  -> CradleOpts
+   -- ^ Options for the ghc-mod session. Since we only keep a single ghc-mod session
   -> IO (Scheduler m)
-newScheduler plugins biosOpts = do
+newScheduler plugins cradleOpts = do
   cancelTVar  <- STM.atomically $ STM.newTVar Set.empty
   wipTVar     <- STM.atomically $ STM.newTVar Set.empty
   versionTVar <- STM.atomically $ STM.newTVar Map.empty
@@ -109,7 +110,7 @@ newScheduler plugins biosOpts = do
   ghcChan     <- Channel.newChan
   return $ Scheduler
     { plugins            = plugins
-    , biosOptions        = biosOpts
+    , biosOpts           = cradleOpts
     , requestsToCancel   = cancelTVar
     , requestsInProgress = wipTVar
     , documentVersions   = versionTVar
@@ -151,7 +152,7 @@ runScheduler Scheduler {..} errorHandler callbackHandler mlf = do
 
   stateVar <- STM.newTVarIO initialState
 
-  let runGhcDisp = runIdeGhcM biosOptions plugins mlf stateVar $
+  let runGhcDisp = runIdeGhcM plugins mlf stateVar $
                     ghcDispatcher dEnv errorHandler callbackHandler ghcChanOut
       runIdeDisp = runIdeM plugins mlf stateVar $
                     ideDispatcher dEnv errorHandler callbackHandler ideChanOut
@@ -296,7 +297,9 @@ ghcDispatcher
   -> Channel.OutChan (GhcRequest m)
   -> IdeGhcM void
 ghcDispatcher env@DispatcherEnv { docVersionTVar } errorHandler callbackHandler pin
-  = forever $ do
+  = do
+  iniDynFlags <- getSessionDynFlags
+  forever $ do
     debugm "ghcDispatcher: top of loop"
     (GhcRequest tn context mver mid callback action) <- liftIO
       $ Channel.readChan pin
@@ -304,13 +307,13 @@ ghcDispatcher env@DispatcherEnv { docVersionTVar } errorHandler callbackHandler 
 
     let
       runner = case context of
-        Nothing  -> runActionWithContext Nothing
+        Nothing  -> runActionWithContext iniDynFlags Nothing
         Just uri -> case uriToFilePath uri of
-          Just fp -> runActionWithContext (Just fp)
+          Just fp -> runActionWithContext iniDynFlags (Just fp)
           Nothing -> \act -> do
             debugm
               "ghcDispatcher:Got malformed uri, running action with default context"
-            runActionWithContext Nothing act
+            runActionWithContext iniDynFlags Nothing act
 
     let
       runWithCallback = do
@@ -347,7 +350,6 @@ ghcDispatcher env@DispatcherEnv { docVersionTVar } errorHandler callbackHandler 
 -- | Runs the passed monad only if the request identified by the passed LspId
 -- has not already been cancelled.
 unlessCancelled
-  -- :: GM.MonadIO m => DispatcherEnv -> J.LspId -> ErrorHandler -> m () -> m ()
   :: MonadIO m => DispatcherEnv -> J.LspId -> ErrorHandler -> m () -> m ()
 unlessCancelled env lid errorHandler callback = do
   cancelled <- liftIO $ STM.atomically isCancelled

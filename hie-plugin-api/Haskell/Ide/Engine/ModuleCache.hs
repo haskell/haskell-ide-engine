@@ -4,19 +4,22 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Haskell.Ide.Engine.ModuleCache
   ( modifyCache
-  , withCradle
   , ifCachedInfo
   , withCachedInfo
   , ifCachedModule
+  , ifCachedModuleM
   , ifCachedModuleAndData
   , withCachedModule
   , withCachedModuleAndData
   , deleteCachedModule
   , failModule
   , cacheModule
+  , cacheModules
   , cacheInfoNoClear
   , runActionWithContext
   , ModuleCache(..)
@@ -24,30 +27,30 @@ module Haskell.Ide.Engine.ModuleCache
 
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Control
+import Control.Monad.Trans.Control
 import           Control.Monad.Trans.Free
 import           Data.Dynamic (toDyn, fromDynamic, Dynamic)
 import           Data.Generics (Proxy(..), TypeRep, typeRep, typeOf)
 import qualified Data.Map as Map
 import           Data.Maybe
 import           Data.Typeable (Typeable)
-import           Exception (ExceptionMonad)
 import           System.Directory
-import           System.FilePath
 
-import qualified GhcModCore as GM ( findCradle'
-                                  , GmEnv(..), GmLog(..), GmlT(..), GmOut(..), cradle, options
-                                  , Cradle(..), GhcModEnv(..), MonadIO(..), Options(..)
-                                  , mkRevRedirMapFunc )
+import Debug.Trace
 
 import qualified GHC           as GHC
+import qualified HscMain       as GHC
+import qualified Data.Trie.Convenience as T
+import qualified Data.Trie as T
+import qualified HIE.Bios as BIOS
+import qualified Data.ByteString.Char8 as B
 
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.TypeMap
 import           Haskell.Ide.Engine.GhcModuleCache
 import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.PluginsIdeMonads
-
+import           Haskell.Ide.Engine.GhcUtils
 -- ---------------------------------------------------------------------
 
 modifyCache :: (HasGhcModuleCache m) => (GhcModuleCache -> GhcModuleCache) -> m ()
@@ -56,48 +59,76 @@ modifyCache f = do
   setModuleCache (f mc)
 
 -- ---------------------------------------------------------------------
--- | Runs an IdeM action with the given Cradle
-withCradle :: (GM.GmEnv m) => GM.Cradle -> m a -> m a
-withCradle crdl =
-  GM.gmeLocal (\env -> env {GM.gmCradle = crdl})
-
--- ---------------------------------------------------------------------
 -- | Runs an action in a ghc-mod Cradle found from the
 -- directory of the given file. If no file is found
 -- then runs the action in the default cradle.
 -- Sets the current directory to the cradle root dir
 -- in either case
-runActionWithContext :: (GM.GmEnv m, GM.MonadIO m, HasGhcModuleCache m
-                        , GM.GmLog m, MonadBaseControl IO m, ExceptionMonad m, GM.GmOut m)
-                     => Maybe FilePath -> m a -> m a
-runActionWithContext Nothing action = do
-  crdl <- GM.cradle
-  liftIO $ setCurrentDirectory $ GM.cradleRootDir crdl
+runActionWithContext :: (MonadIde m, GHC.GhcMonad m, HasGhcModuleCache m, MonadBaseControl IO m)
+                     => GHC.DynFlags -> Maybe FilePath -> m a -> m a
+runActionWithContext _df Nothing action = do
+  -- Cradle with no additional flags
+  -- dir <- liftIO $ getCurrentDirectory
+  --This causes problems when loading a later package which sets the
+  --packageDb
+  -- loadCradle df (BIOS.defaultCradle dir)
   action
-runActionWithContext (Just uri) action = do
-  crdl <- getCradle uri
-  liftIO $ setCurrentDirectory $ GM.cradleRootDir crdl
-  withCradle crdl action
+runActionWithContext df (Just uri) action = do
+  getCradle uri (\lc -> loadCradle df lc >> action)
+
+loadCradle :: (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m
+              , MonadBaseControl IO m) => GHC.DynFlags -> LookupCradleResult -> m ()
+loadCradle _ ReuseCradle = do
+    traceM ("Reusing cradle")
+loadCradle iniDynFlags (NewCradle fp) = do
+    traceShowM ("New cradle" , fp)
+    -- Cache the existing cradle
+    maybe (return ()) cacheCradle =<< (currentCradle <$> getModuleCache)
+
+    -- Now load the new cradle
+    crdl <- liftIO $ BIOS.findCradle fp
+    traceShowM crdl
+    liftIO (GHC.newHscEnv iniDynFlags) >>= GHC.setSession
+    liftIO $ setCurrentDirectory (BIOS.cradleRootDir crdl)
+    withProgress "Initialising Cradle" NotCancellable $ \f ->
+      BIOS.initializeFlagsWithCradleWithMessage (Just $ toMessager f) fp crdl
+    setCurrentCradle crdl
+loadCradle _iniDynFlags (LoadCradle (CachedCradle crd env)) = do
+    traceShowM ("Reload Cradle" , crd)
+    -- Cache the existing cradle
+    maybe (return ()) cacheCradle =<< (currentCradle <$> getModuleCache)
+    GHC.setSession env
+    setCurrentCradle crd
+
+
+
+setCurrentCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => BIOS.Cradle -> m ()
+setCurrentCradle crdl = do
+    mg <- GHC.getModuleGraph
+    let ps = mapMaybe (GHC.ml_hs_file . GHC.ms_location) (GHC.mgModSummaries mg)
+    traceShowM ps
+    ps' <- liftIO $ mapM canonicalizePath ps
+    modifyCache (\s -> s { currentCradle = Just (ps', crdl) })
+
+
+cacheCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => ([FilePath], BIOS.Cradle) -> m ()
+cacheCradle (ds, c) = do
+  env <- GHC.getSession
+  let cc = CachedCradle c env
+      new_map = T.fromList (map (, cc) (map B.pack ds))
+  modifyCache (\s -> s { cradleCache = T.unionWith (\a _ -> a) new_map (cradleCache s) })
 
 -- | Get the Cradle that should be used for a given URI
-getCradle :: (GM.GmEnv m, GM.MonadIO m, HasGhcModuleCache m, GM.GmLog m
-             , MonadBaseControl IO m, ExceptionMonad m, GM.GmOut m)
-          => FilePath -> m GM.Cradle
-getCradle fp = do
-      dir <- liftIO $ takeDirectory <$> canonicalizePath fp
+--getCradle :: (GM.GmEnv m, MonadIO m, HasGhcModuleCache m, GM.GmLog m
+--             , MonadBaseControl IO m, ExceptionMonad m, GM.GmOut m)
+getCradle :: (GHC.GhcMonad m, HasGhcModuleCache m)
+         => FilePath -> (LookupCradleResult -> m r) -> m r
+getCradle fp k = do
+      canon_fp <- liftIO $ canonicalizePath fp
       mcache <- getModuleCache
-      let mcradle = (Map.lookup dir . cradleCache) mcache
-      case mcradle of
-        Just crdl ->
-          return crdl
-        Nothing -> do
-          opts <- GM.options
-          crdl <- GM.findCradle' (GM.optPrograms opts) dir
-          -- debugm $ "cradle cache miss for " ++ dir ++ ", generating cradle " ++ show crdl
-          modifyCache (\s -> s { cradleCache = Map.insert dir crdl (cradleCache s)})
-          return crdl
+      k (lookupCradle canon_fp mcache)
 
-ifCachedInfo :: (HasGhcModuleCache m, GM.MonadIO m) => FilePath -> a -> (CachedInfo -> m a) -> m a
+ifCachedInfo :: (HasGhcModuleCache m, MonadIO m) => FilePath -> a -> (CachedInfo -> m a) -> m a
 ifCachedInfo fp def callback = do
   muc <- getUriCache fp
   case muc of
@@ -109,15 +140,18 @@ withCachedInfo fp def callback = deferIfNotCached fp go
   where go (UriCacheSuccess uc) = callback (cachedInfo uc)
         go UriCacheFailed = return def
 
+ifCachedModule :: (HasGhcModuleCache m, MonadIO m, CacheableModule b) => FilePath -> a -> (b -> CachedInfo -> m a) -> m a
+ifCachedModule fp def callback = ifCachedModuleM fp (return def) callback
+
 -- | Calls the callback with the cached module for the provided path.
 -- Otherwise returns the default immediately if there is no cached module
 -- available.
 -- If you need custom data, see also 'ifCachedModuleAndData'.
 -- If you are in IdeDeferM and would like to wait until a cached module is available,
 -- see also 'withCachedModule'.
-ifCachedModule :: (HasGhcModuleCache m, MonadIO m, CacheableModule b)
-               => FilePath -> a -> (b -> CachedInfo -> m a) -> m a
-ifCachedModule fp def callback = do
+ifCachedModuleM :: (HasGhcModuleCache m, MonadIO m, CacheableModule b)
+                => FilePath -> m a -> (b -> CachedInfo -> m a) -> m a
+ifCachedModuleM fp k callback = do
   muc <- getUriCache fp
   let x = do
         res <- muc
@@ -129,14 +163,14 @@ ifCachedModule fp def callback = do
           UriCacheFailed -> Nothing
   case x of
     Just (ci, cm) -> callback cm ci
-    Nothing -> return def
+    Nothing -> k
 
 -- | Calls the callback with the cached module and data for the provided path.
 -- Otherwise returns the default immediately if there is no cached module
 -- available.
 -- If you are in IdeDeferM and would like to wait until a cached module is available,
 -- see also 'withCachedModuleAndData'.
-ifCachedModuleAndData :: forall a b m. (ModuleCache a, HasGhcModuleCache m, GM.MonadIO m, MonadMTState IdeState m)
+ifCachedModuleAndData :: forall a b m. (ModuleCache a, HasGhcModuleCache m, MonadIO m, MonadMTState IdeState m)
                       => FilePath -> b -> (GHC.TypecheckedModule -> CachedInfo -> a -> m b) -> m b
 ifCachedModuleAndData fp def callback = do
   muc <- getUriCache fp
@@ -176,13 +210,13 @@ withCachedModuleAndData :: forall a b. (ModuleCache a)
 withCachedModuleAndData fp def callback = deferIfNotCached fp go
   where go (UriCacheSuccess (uc@(UriCache info _ (Just tm) dat))) =
           lookupCachedData fp tm info dat >>= callback tm (cachedInfo uc)
-        go (UriCacheSuccess (UriCache _ _ Nothing _)) = wrap (Defer fp go)
+        go (UriCacheSuccess (UriCache { cachedTcMod = Nothing })) = wrap (Defer fp go)
         go UriCacheFailed = return def
 
 getUriCache :: (HasGhcModuleCache m, MonadIO m) => FilePath -> m (Maybe UriCacheResult)
 getUriCache fp = do
-  uri' <- liftIO $ canonicalizePath fp
-  fmap (Map.lookup uri' . uriCaches) getModuleCache
+  canonical_fp <- liftIO $ canonicalizePath fp
+  fmap (Map.lookup canonical_fp . uriCaches) getModuleCache
 
 deferIfNotCached :: FilePath -> (UriCacheResult -> IdeDeferM a) -> IdeDeferM a
 deferIfNotCached fp cb = do
@@ -191,10 +225,10 @@ deferIfNotCached fp cb = do
     Just res -> cb res
     Nothing -> wrap (Defer fp cb)
 
-lookupCachedData :: forall a m. (HasGhcModuleCache m, MonadMTState IdeState m, GM.MonadIO m, Typeable a, ModuleCache a)
+lookupCachedData :: forall a m. (HasGhcModuleCache m, MonadMTState IdeState m, MonadIO m, Typeable a, ModuleCache a)
                  => FilePath -> GHC.TypecheckedModule -> CachedInfo -> (Map.Map TypeRep Dynamic) -> m a
 lookupCachedData fp tm info dat = do
-  fp' <- liftIO $ canonicalizePath fp
+  canonical_fp <- liftIO $ canonicalizePath fp
   let proxy :: Proxy a
       proxy = Proxy
   case Map.lookup (typeRep proxy) dat of
@@ -202,7 +236,7 @@ lookupCachedData fp tm info dat = do
       val <- cacheDataProducer tm info
       let dat' = Map.insert (typeOf val) (toDyn val) dat
           newUc = UriCache info (GHC.tm_parsed_module tm) (Just tm) dat'
-      modifyCache (\s -> s {uriCaches = Map.insert fp' (UriCacheSuccess newUc)
+      modifyCache (\s -> s {uriCaches = Map.insert canonical_fp (UriCacheSuccess newUc)
                                                   (uriCaches s)})
       return val
 
@@ -211,17 +245,24 @@ lookupCachedData fp tm info dat = do
         Just val -> return val
         Nothing  -> error "impossible"
 
+cacheModules :: (FilePath -> FilePath) -> [GHC.TypecheckedModule] -> IdeGhcM ()
+cacheModules rfm ms = mapM_ go_one ms
+  where
+    go_one m = case get_fp m of
+                 Just fp -> cacheModule (rfm fp) (Right m)
+                 Nothing -> trace ("rfm failed: " ++ (show $ get_fp m)) $ return ()
+    get_fp = GHC.ml_hs_file . GHC.ms_location . GHC.pm_mod_summary . GHC.tm_parsed_module
+
 -- | Saves a module to the cache and executes any deferred
 -- responses waiting on that module.
-cacheModule :: FilePath -> Either GHC.ParsedModule GHC.TypecheckedModule -> IdeGhcM ()
-cacheModule uri modul = do
-  uri' <- liftIO $ canonicalizePath uri
-  rfm <- GM.mkRevRedirMapFunc
-
+cacheModule :: FilePath -> (Either GHC.ParsedModule GHC.TypecheckedModule) -> IdeGhcM ()
+cacheModule fp modul = do
+  canonical_fp <- liftIO $ canonicalizePath fp
+  rfm <- reverseFileMap
   newUc <-
     case modul of
       Left pm -> do
-        muc <- getUriCache uri'
+        muc <- getUriCache canonical_fp
         let defInfo = CachedInfo mempty mempty mempty mempty rfm return return
         return $ case muc of
           Just (UriCacheSuccess uc) ->
@@ -234,17 +275,17 @@ cacheModule uri modul = do
           _ -> UriCache defInfo pm Nothing mempty
 
       Right tm -> do
-        typm <- GM.unGmlT $ genTypeMap tm
+        typm <- genTypeMap tm
         let info = CachedInfo (genLocMap tm) typm (genImportMap tm) (genDefMap tm) rfm return return
             pm = GHC.tm_parsed_module tm
         return $ UriCache info pm (Just tm) mempty
 
   let res = UriCacheSuccess newUc
   modifyCache $ \gmc ->
-      gmc { uriCaches = Map.insert uri' res (uriCaches gmc) }
+      gmc { uriCaches = Map.insert canonical_fp res (uriCaches gmc) }
 
   -- execute any queued actions for the module
-  runDeferredActions uri' res
+  runDeferredActions canonical_fp res
 
 -- | Marks a module that it failed to load and triggers
 -- any deferred responses waiting on it
@@ -281,7 +322,7 @@ runDeferredActions uri res = do
 
 -- | Saves a module to the cache without clearing the associated cache data - use only if you are
 -- sure that the cached data associated with the module doesn't change
-cacheInfoNoClear :: (GM.MonadIO m, HasGhcModuleCache m)
+cacheInfoNoClear :: (MonadIO m, HasGhcModuleCache m)
                  => FilePath -> CachedInfo -> m ()
 cacheInfoNoClear uri ci = do
   uri' <- liftIO $ canonicalizePath uri
@@ -298,7 +339,7 @@ cacheInfoNoClear uri ci = do
     updateCachedInfo UriCacheFailed        = UriCacheFailed
 
 -- | Deletes a module from the cache
-deleteCachedModule :: (GM.MonadIO m, HasGhcModuleCache m) => FilePath -> m ()
+deleteCachedModule :: (MonadIO m, HasGhcModuleCache m) => FilePath -> m ()
 deleteCachedModule uri = do
   uri' <- liftIO $ canonicalizePath uri
   modifyCache (\s -> s { uriCaches = Map.delete uri' (uriCaches s) })
@@ -312,7 +353,7 @@ deleteCachedModule uri = do
 -- TODO: this name is confusing, given GhcModuleCache. Change it
 class Typeable a => ModuleCache a where
     -- | Defines an initial value for the state extension
-    cacheDataProducer :: (GM.MonadIO m, MonadMTState IdeState m)
+    cacheDataProducer :: (MonadIO m, MonadMTState IdeState m)
                       => GHC.TypecheckedModule -> CachedInfo -> m a
 
 instance ModuleCache () where

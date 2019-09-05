@@ -8,7 +8,7 @@ module Haskell.Ide.Engine.Plugin.Liquid where
 import           Control.Concurrent.Async.Lifted
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans
+import Control.Monad.Trans.Class
 import           Control.Exception (bracket)
 #if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid

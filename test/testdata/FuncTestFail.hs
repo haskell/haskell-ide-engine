@@ -1,2 +1,2 @@
 main :: IO Int
-main = return "yow"
+main = return "yow

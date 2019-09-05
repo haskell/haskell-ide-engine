@@ -8,7 +8,7 @@ module Haskell.Ide.Engine.Plugin.HaRe where
 
 import           Control.Lens.Operators
 import           Control.Monad.State
-import           Control.Monad.Trans.Control
+-- import           Control.Monad.Trans.Control
 import           Data.Aeson
 import qualified Data.Aeson.Types                             as J
 import           Data.Algorithm.Diff
@@ -21,9 +21,6 @@ import qualified Data.Text                                    as T
 import qualified Data.Text.IO                                 as T
 import           Exception
 import           GHC.Generics                                 (Generic)
-
-import qualified GhcModCore              as GM (GhcModError(..),withMappedFile,GHandler(..),gcatches)
-
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
@@ -31,14 +28,16 @@ import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Support.HieExtras         as Hie
 import           Language.Haskell.GHC.ExactPrint.Print
 import qualified Language.Haskell.LSP.Core                    as Core
+import           Language.Haskell.LSP.VFS
 import qualified Language.Haskell.LSP.Types                   as J
 import qualified Language.Haskell.LSP.Types.Lens              as J
 import           Language.Haskell.Refact.API                  hiding (logm)
 import           Language.Haskell.Refact.HaRe
 import           Language.Haskell.Refact.Utils.Monad          hiding (logm)
+import qualified Data.Rope.UTF16 as Rope
+
 
 -- ---------------------------------------------------------------------
-
 hareDescriptor :: PluginId -> PluginDescriptor
 hareDescriptor plId = PluginDescriptor
   { pluginId = plId
@@ -65,8 +64,6 @@ hareDescriptor plId = PluginDescriptor
       , PluginCommand "genapplicative" "Generalise a monadic function to use applicative"
           genApplicativeCommand
 
-      , PluginCommand "casesplit" "Generate a pattern match for a binding under (LINE,COL)"
-          Hie.splitCaseCmd
       ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
@@ -214,7 +211,11 @@ makeRefactorResult changedFiles = do
   let
     diffOne :: (FilePath, T.Text) -> IdeGhcM WorkspaceEdit
     diffOne (fp, newText) = do
-      origText <- GM.withMappedFile fp $ liftIO . T.readFile
+      uri <- canonicalizeUri $ filePathToUri fp
+      mvf <- getVirtualFile uri
+      origText <- case mvf of
+        Nothing -> withMappedFile fp $ liftIO . T.readFile
+        Just vf -> pure (Rope.toText $ _text vf)
       -- TODO: remove this logging once we are sure we have a working solution
       logm $ "makeRefactorResult:groupedDiff = " ++ show (getGroupedDiff (lines $ T.unpack origText) (lines $ T.unpack newText))
       logm $ "makeRefactorResult:diffops = " ++ show (diffToLineRanges $ getGroupedDiff (lines $ T.unpack origText) (lines $ T.unpack newText))
@@ -265,25 +266,11 @@ runHareCommand' cmd =
            evalStateT cmd' initialState
          handlers
            :: Applicative m
-           => [GM.GHandler m (Either String a)]
+           => [ErrorHandler m (Either String a)]
          handlers =
-           [GM.GHandler (\(ErrorCall e) -> pure (Left e))
-           ,GM.GHandler (\(err :: GM.GhcModError) -> pure (Left (show err)))]
-     fmap Right embeddedCmd `GM.gcatches` handlers
+           [ErrorHandler (\(ErrorCall e) -> pure (Left e))]
+     fmap Right embeddedCmd `gcatches` handlers
 
-
--- ---------------------------------------------------------------------
--- | This is like hoist from the mmorph package, but build on
--- `MonadTransControl` since we don’t have an `MFunctor` instance.
-hoist
-  :: (MonadTransControl t,Monad (t m'),Monad m',Monad m)
-  => (forall b. m b -> m' b) -> t m a -> t m' a
-hoist f a =
-  liftWith (\run ->
-              let b = run a
-                  c = f b
-              in pure c) >>=
-  restoreT
 
 -- ---------------------------------------------------------------------
 

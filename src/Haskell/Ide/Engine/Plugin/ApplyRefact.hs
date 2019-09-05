@@ -20,7 +20,6 @@ import           Data.Maybe
 import           Data.Monoid                       ((<>))
 import qualified Data.Text                         as T
 import           GHC.Generics
-import qualified GhcModCore                      as GM ( mkRevRedirMapFunc, withMappedFile )
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
@@ -81,8 +80,8 @@ applyOneCmd = CmdSync $ \(AOP uri pos title) -> do
 
 applyOneCmd' :: Uri -> OneHint -> IdeGhcM (IdeResult WorkspaceEdit)
 applyOneCmd' uri oneHint = pluginGetFile "applyOne: " uri $ \fp -> do
-      revMapp <- GM.mkRevRedirMapFunc
-      res <- GM.withMappedFile fp $ \file' -> liftToGhc $ applyHint file' (Just oneHint) revMapp
+      revMapp <- reverseFileMap
+      res <- withMappedFile fp $ \file' -> liftToGhc $ applyHint file' (Just oneHint) revMapp
       logm $ "applyOneCmd:file=" ++ show fp
       logm $ "applyOneCmd:res=" ++ show res
       case res of
@@ -99,8 +98,8 @@ applyAllCmd = CmdSync $ \uri -> do
 
 applyAllCmd' :: Uri -> IdeGhcM (IdeResult WorkspaceEdit)
 applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \fp -> do
-      revMapp <- GM.mkRevRedirMapFunc
-      res <- GM.withMappedFile fp $ \file' -> liftToGhc $ applyHint file' Nothing revMapp
+      revMapp <- reverseFileMap
+      res <- withMappedFile fp $ \file' -> liftToGhc $ applyHint file' Nothing revMapp
       logm $ "applyAllCmd:res=" ++ show res
       case res of
         Left err -> return $ IdeResultFail (IdeError PluginError
@@ -116,9 +115,8 @@ lintCmd = CmdSync $ \uri -> do
 -- AZ:TODO: Why is this in IdeGhcM?
 lintCmd' :: Uri -> IdeGhcM (IdeResult PublishDiagnosticsParams)
 lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
-  eitherErrorResult <- GM.withMappedFile fp $ \file' ->
+  eitherErrorResult <- withMappedFile fp $ \file' ->
     liftIO (try $ runExceptT $ runLintCmd file' [] :: IO (Either IOException (Either [Diagnostic] [Idea])))
-
   case eitherErrorResult of
     Left err ->
       return

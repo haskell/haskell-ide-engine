@@ -153,7 +153,7 @@ spec = do
   describe "multiple main modules" $
     it "Can load one file at a time, when more than one Main module exists"
                                   -- $ runSession hieCommand fullCaps "test/testdata" $ do
-                                  $ runSession hieCommandVomit fullCaps "test/testdata" $ do
+                                  $ runSession hieCommand fullCaps "test/testdata" $ do
       _doc <- openDoc "ApplyRefact2.hs" "haskell"
       _diagsRspHlint <- skipManyTill anyNotification message :: Session PublishDiagnosticsNotification
       diagsRspGhc   <- skipManyTill anyNotification message :: Session PublishDiagnosticsNotification

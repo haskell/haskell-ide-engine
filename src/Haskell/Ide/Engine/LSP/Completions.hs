@@ -27,8 +27,6 @@ import           Data.Semigroup (Semigroup(..))
 import           Data.Typeable
 import           GHC.Generics                   ( Generic )
 
-import qualified GhcModCore                    as GM
-                                                ( listVisibleModuleNames )
 
 import           HscTypes
 import qualified DynFlags                      as GHC
@@ -38,6 +36,7 @@ import           Name
 import           TcRnTypes
 import           Type
 import           Var
+import           Packages (listVisibleModuleNames)
 
 
 import           Language.Haskell.Refact.API    ( showGhc )
@@ -238,7 +237,7 @@ instance ModuleCache CachedCompletions where
         importDeclerations = map unLoc limports
 
         -- The list of all importable Modules from all packages
-        moduleNames = map showModName (GM.listVisibleModuleNames (getDynFlags tm))
+        moduleNames = map showModName (listVisibleModuleNames (getDynFlags tm))
 
         -- The given namespaces for the imported modules (ie. full name, or alias if used)
         allModNamesAsNS = map (showModName . asNamespace) importDeclerations

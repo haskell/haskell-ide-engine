@@ -23,9 +23,9 @@ import           Control.Lens ( (^.) )
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
+import qualified Data.Aeson as A
 import           Control.Monad.STM
 import           Data.Aeson ( (.=) )
-import qualified Data.Aeson as J
 import qualified Data.ByteString.Lazy as BL
 import           Data.Coerce (coerce)
 import           Data.Default
@@ -37,7 +37,6 @@ import qualified Data.Set as S
 import qualified Data.SortedList as SL
 import qualified Data.Text as T
 import           Data.Text.Encoding
-import qualified GhcModCore               as GM ( loadMappedFileSource, getMMappedFiles )
 import           Haskell.Ide.Engine.Config
 import qualified Haskell.Ide.Engine.Ghc   as HIE
 import           Haskell.Ide.Engine.LSP.CodeActions
@@ -53,6 +52,7 @@ import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Scheduler            as Scheduler
 import qualified Haskell.Ide.Engine.Support.HieExtras     as Hie
 import           Haskell.Ide.Engine.Types
+import qualified Haskell.Ide.Engine.Plugin.Bios          as BIOS
 import qualified Language.Haskell.LSP.Control            as CTRL
 import qualified Language.Haskell.LSP.Core               as Core
 import           Language.Haskell.LSP.Diagnostics
@@ -65,6 +65,8 @@ import qualified Language.Haskell.LSP.VFS                as VFS
 import           System.Exit
 import qualified System.Log.Logger                       as L
 import qualified Data.Rope.UTF16                         as Rope
+
+import Outputable hiding ((<>))
 
 -- ---------------------------------------------------------------------
 {-# ANN module ("hlint: ignore Eta reduce" :: String) #-}
@@ -224,9 +226,7 @@ mapFileFromVfs tn vtdi = do
           -- text = "{-# LINE 1 \"" ++ fp ++ "\"#-}\n" <> text'
       let req = GReq tn (Just uri) Nothing Nothing (const $ return ())
                   $ IdeResultOk <$> do
-                      GM.loadMappedFileSource fp text'
-                      fileMap <- GM.getMMappedFiles
-                      debugm $ "file mapping state is: " ++ show fileMap
+                      persistVirtualFile uri
       updateDocumentRequest uri ver req
     (_, _) -> return ()
 
@@ -364,7 +364,7 @@ reactor inp diagIn = do
           liftIO $ U.logs $ "reactor:got RspFromClient:" ++ show resp
           case merr of
             Nothing -> return ()
-            Just _ -> sendErrorLog $ "Got error response:" <> decodeUtf8 (BL.toStrict $ J.encode resp)
+            Just _ -> sendErrorLog $ "Got error response:" <> decodeUtf8 (BL.toStrict $ A.encode resp)
 
         -- -------------------------------
 
@@ -395,7 +395,7 @@ reactor inp diagIn = do
           -- TODO: Register all commands?
           hareId <- mkLspCmdId "hare" "demote"
           let
-            options = J.object ["documentSelector" .= J.object [ "language" .= J.String "haskell"]]
+            options = A.object ["documentSelector" .= A.object [ "language" .= A.String "haskell"]]
             registrationsList =
               [ J.Registration hareId J.WorkspaceExecuteCommand (Just options)
               ]
@@ -572,7 +572,7 @@ reactor inp diagIn = do
                 case fromDynJSON obj :: Maybe J.WorkspaceEdit of
                   Just v -> do
                     lid <- nextLspReqId
-                    reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req (J.Object mempty)
+                    reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req (A.Object mempty)
                     let msg = fmServerApplyWorkspaceEditRequest lid $ J.ApplyWorkspaceEditParams v
                     liftIO $ U.logs $ "ExecuteCommand sending edit: " ++ show msg
                     reactorSend $ ReqApplyWorkspaceEdit msg
@@ -582,13 +582,13 @@ reactor inp diagIn = do
                 -- The parameters to the HIE command are always the first element
                 let cmdParams = case args of
                      Just (J.List (x:_)) -> x
-                     _ -> J.Null
+                     _ -> A.Null
 
                 case parseCmdId cmdId of
                   -- Shortcut for immediately applying a applyWorkspaceEdit as a fallback for v3.8 code actions
                   Just ("hie", "fallbackCodeAction") -> do
-                    case J.fromJSON cmdParams of
-                      J.Success (FallbackCodeActionParams mEdit mCmd) -> do
+                    case A.fromJSON cmdParams of
+                      A.Success (FallbackCodeActionParams mEdit mCmd) -> do
 
                         -- Send off the workspace request if it has one
                         forM_ mEdit $ \edit -> do
@@ -602,7 +602,7 @@ reactor inp diagIn = do
                           Just (J.Command _ innerCmdId innerArgs) -> execCmd innerCmdId innerArgs
 
                           -- Otherwise we need to send back a response oureslves
-                          Nothing -> reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req (J.Object mempty)
+                          Nothing -> reactorSend $ RspExecuteCommand $ Core.makeResponseMessage req (A.Object mempty)
 
                       -- Couldn't parse the fallback command params
                       _ -> liftIO $
@@ -914,7 +914,7 @@ requestDiagnosticsNormal tn file mVer = do
     hasSeverity :: J.DiagnosticSeverity -> J.Diagnostic -> Bool
     hasSeverity sev (J.Diagnostic _ (Just s) _ _ _ _) = s == sev
     hasSeverity _ _ = False
-    sendEmpty = publishDiagnostics maxToSend (J.toNormalizedUri file) Nothing (Map.fromList [(Just "ghcmod",SL.toSortedList [])])
+    sendEmpty = publishDiagnostics maxToSend (J.toNormalizedUri file) Nothing (Map.fromList [(Just "bios",SL.toSortedList [])])
     maxToSend = maxNumberOfProblems clientConfig
 
   let sendHlint = hlintOn clientConfig
@@ -928,7 +928,7 @@ requestDiagnosticsNormal tn file mVer = do
 
   -- get GHC diagnostics and loads the typechecked module into the cache
   let reqg = GReq tn (Just file) (Just (file,ver)) Nothing callbackg
-               $ HIE.setTypecheckedModule file
+               $ BIOS.setTypecheckedModule file
       callbackg (HIE.Diagnostics pd, errs) = do
         forM_ errs $ \e -> do
           reactorSend $ NotShowMessage $
@@ -937,7 +937,7 @@ requestDiagnosticsNormal tn file mVer = do
         let ds = Map.toList $ S.toList <$> pd
         case ds of
           [] -> sendEmpty
-          _ -> mapM_ (sendOneGhc "ghcmod") ds
+          _ -> pprTrace "Diags" (text (show ds)) $ mapM_ (sendOneGhc "bios") ds
 
   makeRequest reqg
 
@@ -966,6 +966,7 @@ hieOptions :: [T.Text] -> Core.Options
 hieOptions commandIds =
   def { Core.textDocumentSync       = Just syncOptions
       , Core.completionProvider     = Just (J.CompletionOptions (Just True) (Just ["."]))
+      , Core.typeDefinitionProvider = Just (J.GotoOptionsStatic True)
       -- As of 2018-05-24, vscode needs the commands to be registered
       -- otherwise they will not be available as codeActions (will be
       -- silently ignored, despite UI showing to the contrary).

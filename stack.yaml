@@ -2,15 +2,17 @@ resolver: nightly-2019-07-31 # GHC 8.6.5
 packages:
 - .
 - hie-plugin-api
+- hie-bios
 
 extra-deps:
 - ./submodules/HaRe
 - ./submodules/cabal-helper
-- ./submodules/ghc-mod
-- ./submodules/ghc-mod/core
 - ./submodules/ghc-mod/ghc-project-types
 
+- deque-0.2.7@sha256:ab8ac7a379347fdb8e083297d3bc95372e420c8a96833ddb10a9c8d11ae1f278,1202
 - ansi-terminal-0.8.2
+- butcher-1.3.2.1
+- bytestring-trie-0.2.5.0
 - ansi-wl-pprint-0.6.8.2
 - brittany-0.12.0.0
 - cabal-plan-0.4.0.0
@@ -27,12 +29,8 @@ extra-deps:
 - syz-0.2.0.0
 - temporary-1.2.1.1
 - yaml-0.8.32
+- dhall-1.20.1@sha256:3377090039ba3560b50515799affc57d74d2d3e57d3f8699bb2a9fc428fa4918,23401
 
-flags:
-  haskell-ide-engine:
-    pedantic: true
-  hie-plugin-api:
-    pedantic: true
 
 # allow-newer: true
 

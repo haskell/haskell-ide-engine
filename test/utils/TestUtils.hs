@@ -1,8 +1,7 @@
 {-# LANGUAGE CPP, OverloadedStrings, NamedFieldPuns #-}
 module TestUtils
   (
-    testOptions
-  , withFileLogging
+    withFileLogging
   , setupStackFiles
   , testCommand
   , runSingle
@@ -15,6 +14,7 @@ module TestUtils
   , hieCommandVomit
   , hieCommandExamplePlugin
   , getHspecFormattedConfig
+  , testOptions
   ) where
 
 import           Control.Concurrent.STM
@@ -39,16 +39,14 @@ import           Test.Hspec.Runner
 import           Test.Hspec.Core.Formatters
 import           Text.Blaze.Renderer.String (renderMarkup)
 import           Text.Blaze.Internal
+import qualified Haskell.Ide.Engine.PluginApi as HIE (BiosOptions(..),BiosLogLevel(..),defaultOptions)
+
+import HIE.Bios.Types
+
+testOptions :: HIE.BiosOptions
+testOptions = HIE.defaultOptions { cradleOptsVerbosity = Verbose }
 
 -- ---------------------------------------------------------------------
-
-testOptions :: BiosOptions
-testOptions = defaultOptions {
-    boLogging   = BlError
-      -- boLoggingg       = BlDebug
-      -- boLoggingg       = BlVomit
-    -- , boGhcUserOptions = ["-v4", "-DDEBUG"]
-    }
 
 
 testCommand :: (ToJSON a, Typeable b, ToJSON b, Show b, Eq b)
@@ -74,7 +72,7 @@ makeRequest plugin com arg = runPluginCommand plugin com (toJSON arg)
 runIGM :: IdePlugins -> IdeGhcM a -> IO a
 runIGM testPlugins f = do
   stateVar <- newTVarIO $ IdeState emptyModuleCache Map.empty Map.empty Nothing
-  runIdeGhcM testOptions testPlugins Nothing stateVar f
+  runIdeGhcM testPlugins Nothing stateVar f
 
 withFileLogging :: FilePath -> IO a -> IO a
 withFileLogging logFile f = do
@@ -168,7 +166,7 @@ logFilePath = "hie-" ++ stackYaml ++ ".log"
 -- on PATH. Cabal seems to respond to @build-tool-depends@ specifically while
 -- stack just puts all project executables on PATH.
 hieCommand :: String
-hieCommand = "hie -d -l test-logs/" ++ logFilePath
+hieCommand = "hie --bios-verbose -d -l test-logs/" ++ logFilePath
 
 hieCommandVomit :: String
 hieCommandVomit = hieCommand ++ " --vomit"

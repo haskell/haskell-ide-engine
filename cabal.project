@@ -1,6 +1,7 @@
 packages:
          ./
          ./hie-plugin-api/
+         ./hie-bios/
 
          ./submodules/HaRe
          ./submodules/cabal-helper/
@@ -12,3 +13,10 @@ tests: true
 
 package haskell-ide-engine
   test-show-details: direct
+
+allow-newer: floskell:all
+
+profiling: false
+
+
+

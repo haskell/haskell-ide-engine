@@ -10,7 +10,12 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE DerivingVia #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
+
 
 -- | IdeGhcM and associated types
 module Haskell.Ide.Engine.PluginsIdeMonads
@@ -48,7 +53,7 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , IdeState(..)
   , IdeGhcM
   , runIdeGhcM
-  , runIdeGhcMBare
+ -- , runIdeGhcMBare
   , IdeM
   , runIdeM
   , IdeDeferM
@@ -61,6 +66,9 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , getPlugins
   , withProgress
   , withIndefiniteProgress
+  , persistVirtualFile
+  , reverseFileMap
+  , withMappedFile
   , Core.Progress(..)
   , Core.ProgressCancellable(..)
   -- ** Lifting
@@ -88,27 +96,22 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , PublishDiagnosticsParams(..)
   , List(..)
   , FormattingOptions(..)
-  -- * Options
-  , BiosLogLevel(..)
-  , BiosOptions(..)
-  , defaultOptions
-  , mkGhcModOptions
   )
 where
 
-import           Control.Concurrent.STM
-import           Control.Exception
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Free
-import           Control.Monad.Trans.Control
+import Control.Monad.Trans.Control
+import Control.Monad.Base
+import           UnliftIO
+import Control.Applicative
 
 import           Data.Aeson                    hiding (defaultOptions)
 import qualified Data.ConstrainedDynamic       as CD
 import           Data.Default
 import qualified Data.List                     as List
 import           Data.Dynamic                   ( Dynamic )
-import           Data.IORef
 import qualified Data.Map                      as Map
 import           Data.Maybe
 import           Data.Monoid                    ( (<>) )
@@ -117,15 +120,12 @@ import qualified Data.Text                     as T
 import           Data.Typeable                  ( TypeRep
                                                 , Typeable
                                                 )
-
-import qualified GhcModCore                  as GM ( GhcModT, runGhcModT, GmlT(..), gmlGetSession, gmlSetSession
-                                                   , MonadIO(..), GmLogLevel(..), Options(..), defaultOptions, OutputOpts(..) )
-
+import System.Directory
+import GhcMonad
+import qualified HIE.Bios as BIOS
 import           GHC.Generics
-import           GHC                            ( HscEnv )
-import qualified DynFlags      as GHC
-import qualified GHC           as GHC
-import qualified HscTypes      as GHC
+import           GHC                            ( HscEnv, GhcT )
+import Exception
 
 import           Haskell.Ide.Engine.Compat
 import           Haskell.Ide.Engine.Config
@@ -344,18 +344,22 @@ getDiagnosticProvidersConfig c = Map.fromList [("applyrefact",hlintOn c)
 -- ---------------------------------------------------------------------
 
 -- | IdeM that allows for interaction with the ghc-mod session
-type IdeGhcM = GM.GhcModT IdeM
+type IdeGhcM = GhcT IdeM
+
+--instance GM.MonadIO (GhcT IdeM) where
+--  liftIO = liftIO
+--instance ExceptionMonad IdeM where
+--  gcatch = _
+--  gmask = _
 
 -- | Run an IdeGhcM with Cradle found from the current directory
-runIdeGhcM :: BiosOptions -> IdePlugins -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeGhcM a -> IO a
-runIdeGhcM biosOptions plugins mlf stateVar f = do
+runIdeGhcM :: IdePlugins -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeGhcM a -> IO a
+runIdeGhcM plugins mlf stateVar f = do
   env <- IdeEnv <$> pure mlf <*> getProcessID <*> pure plugins
-  let ghcModOptions = mkGhcModOptions biosOptions
-  (eres, _) <- flip runReaderT stateVar $ flip runReaderT env $ GM.runGhcModT ghcModOptions f
-  case eres of
-      Left err  -> liftIO $ throwIO err
-      Right res -> return res
+  eres <- flip runReaderT stateVar $ flip runReaderT env $ BIOS.withGhcT f
+  return eres
 
+{-
 -- | Run an IdeGhcM in an external context (e.g. HaRe), with no plugins or LSP functions
 runIdeGhcMBare :: BiosOptions -> IdeGhcM a -> IO a
 runIdeGhcMBare biosOptions f = do
@@ -365,6 +369,7 @@ runIdeGhcMBare biosOptions f = do
     initialState = IdeState emptyModuleCache Map.empty Map.empty Nothing
   stateVar <- newTVarIO initialState
   runIdeGhcM biosOptions plugins mlf stateVar f
+  -}
 
 -- | A computation that is deferred until the module is cached.
 -- Note that the module may not typecheck, in which case 'UriCacheFailed' is passed
@@ -398,7 +403,7 @@ instance MonadIde IdeDeferM where
   getIdeEnv = lift ask
 
 instance MonadIde IdeGhcM where
-  getIdeEnv = lift $ lift ask
+  getIdeEnv = lift ask
 
 getRootPath :: MonadIde m => m (Maybe FilePath)
 getRootPath = do
@@ -413,6 +418,27 @@ getVirtualFile uri = do
   case mlf of
     Just lf -> liftIO $ Core.getVirtualFileFunc lf (toNormalizedUri uri)
     Nothing -> return Nothing
+
+persistVirtualFile :: (MonadIde m, MonadIO m) => Uri -> m FilePath
+persistVirtualFile uri = do
+  mlf <- ideEnvLspFuncs <$> getIdeEnv
+  case mlf of
+    Just lf ->  liftIO $ Core.persistVirtualFileFunc lf (toNormalizedUri uri)
+    Nothing -> maybe (error "persist") return (uriToFilePath uri)
+
+reverseFileMap :: (MonadIde m, MonadIO m) => m (FilePath -> FilePath)
+reverseFileMap = do
+    mlf <- ideEnvLspFuncs <$> getIdeEnv
+    case mlf of
+      Just lf -> liftIO $ Core.reverseFileMapFunc lf
+      Nothing -> return id
+
+withMappedFile :: (MonadIde m, MonadIO m) => FilePath -> (FilePath -> m a) -> m a
+withMappedFile fp k = do
+  canon <- liftIO $ canonicalizePath fp
+  fp' <- persistVirtualFile (filePathToUri canon)
+  k fp'
+
 
 getConfig :: (MonadIde m, MonadIO m) => m Config
 getConfig = do
@@ -461,16 +487,16 @@ data IdeState = IdeState
   -- | A queue of requests to be performed once a module is loaded
   , requestQueue :: Map.Map FilePath [UriCacheResult -> IdeM ()]
   , extensibleState :: !(Map.Map TypeRep Dynamic)
-  , ghcSession  :: Maybe (IORef HscEnv)
+  , ghcSession  :: !(Maybe (IORef HscEnv))
   }
 
 instance MonadMTState IdeState IdeGhcM where
-  readMTS = lift $ lift $ lift readMTS
-  modifyMTS = lift . lift . lift . modifyMTS
-
-instance MonadMTState IdeState IdeDeferM where
   readMTS = lift $ lift readMTS
   modifyMTS = lift . lift . modifyMTS
+
+instance MonadMTState IdeState IdeDeferM where
+  readMTS = lift readMTS
+  modifyMTS = lift . modifyMTS
 
 instance MonadMTState IdeState IdeM where
   readMTS = lift readMTS
@@ -479,18 +505,18 @@ instance MonadMTState IdeState IdeM where
 class (Monad m) => LiftsToGhc m where
   liftToGhc :: m a -> IdeGhcM a
 
-instance GM.MonadIO IdeDeferM where
-  liftIO = liftIO
+--instance GM.MonadIO IdeDeferM where
+--  liftIO = liftIO
 
 instance LiftsToGhc IdeM where
-  liftToGhc = lift . lift
+  liftToGhc = lift
 
 instance LiftsToGhc IdeGhcM where
   liftToGhc = id
 
 instance HasGhcModuleCache IdeGhcM where
-  getModuleCache = lift $ lift getModuleCache
-  setModuleCache = lift . lift . setModuleCache
+  getModuleCache = lift getModuleCache
+  setModuleCache = lift . setModuleCache
 
 instance HasGhcModuleCache IdeDeferM where
   getModuleCache = lift getModuleCache
@@ -499,20 +525,22 @@ instance HasGhcModuleCache IdeDeferM where
 instance HasGhcModuleCache IdeM where
   getModuleCache = do
     tvar <- lift ask
-    state <- liftIO $ readTVarIO tvar
+    state <- readTVarIO tvar
     return (moduleCache state)
   setModuleCache !mc = do
     tvar <- lift ask
-    liftIO $ atomically $ modifyTVar' tvar (\st -> st { moduleCache = mc })
+    atomically $ modifyTVar' tvar (\st -> st { moduleCache = mc })
 
 -- ---------------------------------------------------------------------
 
+{-
 instance GHC.HasDynFlags IdeGhcM where
   getDynFlags = GHC.hsc_dflags <$> GHC.getSession
 
 instance GHC.GhcMonad IdeGhcM where
   getSession     = GM.unGmlT GM.gmlGetSession
   setSession env = GM.unGmlT (GM.gmlSetSession env)
+  -}
 
 -- ---------------------------------------------------------------------
 -- Results
@@ -586,44 +614,18 @@ data IdeError = IdeError
 instance ToJSON IdeError
 instance FromJSON IdeError
 
--- ---------------------------------------------------------------------
--- Probably need to move this some time, but hitting import cycle issues
+instance ExceptionMonad m => ExceptionMonad (ReaderT e m) where
+  gcatch (ReaderT m) c = ReaderT $ \r -> m r `gcatch` \e -> runReaderT (c e) r
+  gmask a = ReaderT $ \e -> gmask $ \u -> runReaderT (a $ q u) e
+    where q :: (m a -> m a) -> ReaderT e m a -> ReaderT e m a
+          q u (ReaderT b) = ReaderT (u . b)
 
-data BiosLogLevel =
-    BlError
-  | BlWarning
-  | BlInfo
-  | BlDebug
-  | BlVomit
-    deriving (Eq, Ord, Enum, Bounded, Show, Read)
+instance MonadTrans GhcT where
+  lift m = liftGhcT m
 
-data BiosOptions = BiosOptions {
-    boGhcUserOptions :: [String]
-  , boLogging        :: BiosLogLevel
-  } deriving Show
-
-defaultOptions :: BiosOptions
-defaultOptions = BiosOptions {
-    boGhcUserOptions = []
-  , boLogging        = BlWarning
-  }
-
-fmBiosLog :: BiosLogLevel -> GM.GmLogLevel
-fmBiosLog bl = case bl of
-  BlError   -> GM.GmError
-  BlWarning -> GM.GmWarning
-  BlInfo    -> GM.GmInfo
-  BlDebug   -> GM.GmDebug
-  BlVomit   -> GM.GmVomit
-
--- ---------------------------------------------------------------------
-
--- | Apply BiosOptions to default ghc-mod Options
-mkGhcModOptions :: BiosOptions -> GM.Options
-mkGhcModOptions bo = GM.defaultOptions
-  {
-    GM.optGhcUserOptions = boGhcUserOptions bo
-  , GM.optOutput = (GM.optOutput GM.defaultOptions) { GM.ooptLogLevel = fmBiosLog (boLogging bo) }
-  }
-
--- ---------------------------------------------------------------------
+deriving via (ReaderT Session IO) instance MonadUnliftIO Ghc
+deriving via (ReaderT Session IdeM) instance MonadUnliftIO (GhcT IdeM)
+deriving via (ReaderT Session IdeM) instance MonadBaseControl IO (GhcT IdeM)
+deriving via (ReaderT Session IdeM) instance MonadBase IO (GhcT IdeM)
+deriving via (ReaderT Session IdeM) instance MonadPlus (GhcT IdeM)
+deriving via (ReaderT Session IdeM) instance Alternative (GhcT IdeM)

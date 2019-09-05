@@ -64,14 +64,14 @@ spec = describe "diagnostics providers" $ do
     it "is deferred" $
       runSession hieCommand fullCaps "test/testdata" $ do
         _ <- openDoc "TypedHoles.hs" "haskell"
-        [diag] <- waitForDiagnosticsSource "ghcmod"
+        [diag] <- waitForDiagnosticsSource "bios"
         liftIO $ diag ^. LSP.severity `shouldBe` Just DsWarning
 
   describe "Warnings are warnings" $
     it "Overrides -Werror" $
       runSession hieCommand fullCaps "test/testdata/wErrorTest" $ do
         _ <- openDoc "src/WError.hs" "haskell"
-        [diag] <- waitForDiagnosticsSource "ghcmod"
+        [diag] <- waitForDiagnosticsSource "bios"
         liftIO $ diag ^. LSP.severity `shouldBe` Just DsWarning
 
   describe "only diagnostics on save" $

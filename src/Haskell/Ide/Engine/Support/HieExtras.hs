@@ -19,9 +19,8 @@ module Haskell.Ide.Engine.Support.HieExtras
   , VFS.PosPrefixInfo(..)
   , HarePoint(..)
   , customOptions
-  , runGhcModCommand
-  , splitCaseCmd'
-  , splitCaseCmd
+  -- , splitCaseCmd'
+  -- , splitCaseCmd
   , getFormattingPlugin
   ) where
 
@@ -32,24 +31,20 @@ import           Control.Lens.Setter ((%~))
 import           Control.Lens.Traversal (traverseOf)
 import           Control.Monad.Reader
 import           Control.Monad.Except
+import           Control.Exception (SomeException, catch)
 import           Data.Aeson
 import qualified Data.Aeson.Types                             as J
 import           Data.IORef
 import qualified Data.Map                                     as Map
 import           Data.Maybe
 import qualified Data.Text                                    as T
-import qualified Data.Text.IO                                 as T
 import           Data.Typeable
 import           DataCon
 import qualified DynFlags                                     as GHC
-import           Exception
 import           FastString
 import           Finder
 import           GHC                                          hiding (getContext)
 import           GHC.Generics                                 (Generic)
-
-import qualified GhcMod                                       as GM (splits',SplitResult(..))
-import qualified GhcModCore                                   as GM (GhcModError(..), withMappedFile )
 
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.Config
@@ -323,8 +318,8 @@ srcSpanToFileLocation invoker rfm srcSpan = do
 gotoModule :: (FilePath -> FilePath) -> ModuleName -> IdeDeferM (IdeResult [Location])
 gotoModule rfm mn = do
   hscEnvRef <- ghcSession <$> readMTS
-  mHscEnv <- liftIO $ traverse readIORef hscEnvRef
-  case mHscEnv of
+  mhscEnv <- liftIO $ traverse readIORef hscEnvRef
+  case mhscEnv of
     Just env -> do
       fr <- liftIO $ do
         -- Flush cache or else we get temporary files
@@ -357,6 +352,7 @@ instance ToJSON HarePoint where
 
 -- ---------------------------------------------------------------------
 
+{-
 runGhcModCommand :: IdeGhcM a
                  -> IdeGhcM (IdeResult a)
 runGhcModCommand cmd =
@@ -365,9 +361,11 @@ runGhcModCommand cmd =
       return $
       IdeResultFail $
       IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Null
+      -}
 
 -- ---------------------------------------------------------------------
 
+{-
 splitCaseCmd :: CommandFunc HarePoint WorkspaceEdit
 splitCaseCmd = CmdSync $ \(HP uri pos) -> splitCaseCmd' uri pos
 
@@ -423,6 +421,7 @@ splitCaseCmd' uri newPos =
         textLines = T.lines txt
         dropLines = drop l textLines
         dropCharacters = T.drop c (T.unlines dropLines)
+        -}
 
 getFormattingPlugin :: Config -> IdePlugins -> Maybe (PluginDescriptor, FormattingProvider)
 getFormattingPlugin config plugins = do
