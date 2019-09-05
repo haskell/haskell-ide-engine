@@ -21,6 +21,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Haskell.Ide.Engine.Channel
                        Haskell.Ide.Engine.LSP.CodeActions
+                       Haskell.Ide.Engine.LSP.Completions
                        Haskell.Ide.Engine.Plugin.Base
                        Haskell.Ide.Engine.LSP.Reactor
                        Haskell.Ide.Engine.Options
@@ -176,6 +177,7 @@ test-suite unit-test
   main-is:             Main.hs
   other-modules:       ApplyRefactPluginSpec
                        CodeActionsSpec
+                       ContextSpec
                        DiffSpec
                        ExtensibleStateSpec
                        GhcModPluginSpec
@@ -195,6 +197,7 @@ test-suite unit-test
                      , directory
                      , filepath
                      , free
+                     , ghc
                      , haskell-ide-engine
                      , haskell-lsp-types >= 0.15.0.0
                      , hie-test-utils
