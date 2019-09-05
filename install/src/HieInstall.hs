@@ -102,7 +102,6 @@ defaultMain = do
       (\version -> phony ("stack-hie-" ++ version) $ do
         need ["submodules"]
         need ["check-stack"]
-        need ["cabal"]
         stackBuildHie version
         stackInstallHie version
       )
