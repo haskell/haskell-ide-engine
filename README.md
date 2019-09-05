@@ -4,6 +4,7 @@
 [![License BSD3][badge-license]][license]
 [![CircleCI][badge-circleci]][circleci]
 [![AppVeyor][badge-appveyor]][appveyor]
+[![Open Source Helpers](https://www.codetriage.com/haskell/haskell-ide-engine/badges/users.svg)](https://www.codetriage.com/haskell/haskell-ide-engine)
 
 [badge-license]: https://img.shields.io/badge/license-BSD3-green.svg?dummy
 [license]: https://github.com/haskell/haskell-ide-engine/blob/master/LICENSE
