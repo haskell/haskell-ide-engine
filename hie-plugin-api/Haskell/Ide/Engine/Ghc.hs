@@ -47,7 +47,9 @@ import           Haskell.Ide.Engine.GhcUtils
 import           Outputable hiding ((<>))
 -- This function should be defined in HIE probably, nothing in particular
 -- to do with BIOS
-import qualified HIE.Bios.GHCApi as BIOS (withDynFlags, CradleError,setDeferTypeErrors)
+import qualified HIE.Bios.Ghc.Api as BIOS (withDynFlags, setDeferTypeErrors)
+import qualified HIE.Bios.Ghc.Load as BIOS
+import qualified HIE.Bios.Flags as BIOS (CradleError)
 import qualified HIE.Bios as BIOS
 import Debug.Trace
 

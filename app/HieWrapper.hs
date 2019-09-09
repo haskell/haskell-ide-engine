@@ -73,7 +73,10 @@ run opts = do
   logm $ "Operating system:" ++ os
 
   -- Get the cabal directory from the cradle
-  cr <- findCradle (d </> "File.hs")
+  conf <- findCradle (d </> "File.hs")
+  cr <- case conf of
+    Just yaml -> loadCradle yaml
+    Nothing -> loadImplicitCradle (d </> "File.hs")
   let dir = cradleRootDir cr
   logm $ "Cradle directory:" ++ dir
   setCurrentDirectory dir

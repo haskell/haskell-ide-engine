@@ -43,6 +43,7 @@ import qualified HscMain       as GHC
 import qualified Data.Trie.Convenience as T
 import qualified Data.Trie as T
 import qualified HIE.Bios as BIOS
+import qualified HIE.Bios.Ghc.Api as BIOS
 import qualified Data.ByteString.Char8 as B
 
 import           Haskell.Ide.Engine.ArtifactMap
@@ -86,7 +87,10 @@ loadCradle iniDynFlags (NewCradle fp) = do
     maybe (return ()) cacheCradle =<< (currentCradle <$> getModuleCache)
 
     -- Now load the new cradle
-    crdl <- liftIO $ BIOS.findCradle fp
+    crdlPath <- liftIO $ BIOS.findCradle fp
+    crdl <- liftIO $ case crdlPath of
+      Just yaml -> BIOS.loadCradle yaml
+      Nothing -> BIOS.loadImplicitCradle fp
     traceShowM crdl
     liftIO (GHC.newHscEnv iniDynFlags) >>= GHC.setSession
     liftIO $ setCurrentDirectory (BIOS.cradleRootDir crdl)

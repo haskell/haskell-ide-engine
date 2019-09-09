@@ -27,7 +27,7 @@ import           Haskell.Ide.Engine.ArtifactMap
 import qualified Language.Haskell.LSP.Types        as LSP
 import qualified Language.Haskell.LSP.Types.Lens   as LSP
 import           Language.Haskell.Refact.API       (hsNamessRdr)
-import           HIE.Bios.Doc
+import           HIE.Bios.Ghc.Doc
 
 import           GHC
 import           HscTypes
