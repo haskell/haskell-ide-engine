@@ -134,6 +134,7 @@ executable hie-wrapper
   other-modules:       Paths_haskell_ide_engine
   build-depends:       base
                      , directory
+                     , filepath
                      , hie-bios
                      , haskell-ide-engine
                      , haskell-lsp

@@ -17,6 +17,7 @@ import qualified Language.Haskell.LSP.Core             as Core
 import           Options.Applicative.Simple
 import qualified Paths_haskell_ide_engine              as Meta
 import           System.Directory
+import           System.FilePath
 import           System.Environment
 import qualified System.Log.Logger as L
 import           System.Process
@@ -72,7 +73,7 @@ run opts = do
   logm $ "Operating system:" ++ os
 
   -- Get the cabal directory from the cradle
-  cr <- findCradle d
+  cr <- findCradle (d </> "File.hs")
   let dir = cradleRootDir cr
   logm $ "Cradle directory:" ++ dir
   setCurrentDirectory dir
