@@ -218,16 +218,22 @@ mapFileFromVfs :: (MonadIO m, MonadReader REnv m)
 mapFileFromVfs tn vtdi = do
   let uri = vtdi ^. J.uri
       ver = fromMaybe 0 (vtdi ^. J.version)
+  lf <- asks lspFuncs
   vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
   mvf <- liftIO $ vfsFunc (J.toNormalizedUri uri)
   case (mvf, uriToFilePath uri) of
     (Just (VFS.VirtualFile _ yitext _), Just fp) -> do
       let text' = Rope.toString yitext
           -- text = "{-# LINE 1 \"" ++ fp ++ "\"#-}\n" <> text'
+      -- TODO: @fendor, better document that, why do we even have this?
+      -- We have it to cancel operations that would operate on stale files
+      -- Maybe CloseDocument should call it, too?
       let req = GReq tn (Just uri) Nothing Nothing (const $ return ())
-                  $ IdeResultOk <$> do
-                      persistVirtualFile uri
+                  $ return (IdeResultOk ())
+
       updateDocumentRequest uri ver req
+      _ <- liftIO $ getPersistedFile' lf uri
+      return ()
     (_, _) -> return ()
 
 -- TODO: generalise this and move it to GhcMod.ModuleLoader

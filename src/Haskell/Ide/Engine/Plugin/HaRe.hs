@@ -214,7 +214,7 @@ makeRefactorResult changedFiles = do
       uri <- canonicalizeUri $ filePathToUri fp
       mvf <- getVirtualFile uri
       origText <- case mvf of
-        Nothing -> withMappedFile fp $ liftIO . T.readFile
+        Nothing -> withMappedFile fp undefined $ liftIO . T.readFile
         Just vf -> pure (Rope.toText $ _text vf)
       -- TODO: remove this logging once we are sure we have a working solution
       logm $ "makeRefactorResult:groupedDiff = " ++ show (getGroupedDiff (lines $ T.unpack origText) (lines $ T.unpack newText))

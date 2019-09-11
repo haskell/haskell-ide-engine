@@ -5,6 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE LambdaCase          #-}
 -- | This module provides the interface to GHC, mainly for loading
 -- modules while updating the module cache.
 
@@ -238,50 +239,52 @@ setTypecheckedModule_load uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     debugm "setTypecheckedModule: before ghc-mod"
     debugm "Loading file"
-    mapped_fp <- persistVirtualFile uri
-    liftIO $ copyHsBoot fp mapped_fp
-    rfm <- reverseFileMap
-    -- TODO:AZ: loading this one module may/should trigger loads of any
-    -- other modules which currently have a VFS entry.  Need to make
-    -- sure that their diagnostics are reported, and their module
-    -- cache entries are updated.
-    -- TODO: Are there any hooks we can use to report back on the progress?
-    (Diagnostics diags', errs, mmods) <- loadFile rfm (fp, mapped_fp)
-    debugm "File, loaded"
-    canonUri <- toNormalizedUri <$> canonicalizeUri uri
-    let diags = Map.insertWith Set.union canonUri Set.empty diags'
-    debugm "setTypecheckedModule: after ghc-mod"
-    debugm ("Diags: " <> show diags')
-    let collapse Nothing = (Nothing, [])
-        collapse (Just (n, xs)) = (n, xs)
+    getPersistedFile uri >>= \case
+      Nothing -> return $ IdeResultOk (Diagnostics mempty, [])
+      Just mapped_fp -> do
+        liftIO $ copyHsBoot fp mapped_fp
+        rfm <- reverseFileMap
+        -- TODO:AZ: loading this one module may/should trigger loads of any
+        -- other modules which currently have a VFS entry.  Need to make
+        -- sure that their diagnostics are reported, and their module
+        -- cache entries are updated.
+        -- TODO: Are there any hooks we can use to report back on the progress?
+        (Diagnostics diags', errs, mmods) <- loadFile rfm (fp, mapped_fp)
+        debugm "File, loaded"
+        canonUri <- toNormalizedUri <$> canonicalizeUri uri
+        let diags = Map.insertWith Set.union canonUri Set.empty diags'
+        debugm "setTypecheckedModule: after ghc-mod"
+        debugm ("Diags: " <> show diags')
+        let collapse Nothing = (Nothing, [])
+            collapse (Just (n, xs)) = (n, xs)
 
-    case collapse mmods of
-      --Just (Just pm, Nothing) -> do
-      --  debugm $ "setTypecheckedModule: Did get parsed module for: " ++ show fp
-       -- cacheModule fp (Left pm)
-       -- debugm "setTypecheckedModule: done"
-      --  return diags
+        case collapse mmods of
+          --Just (Just pm, Nothing) -> do
+          --  debugm $ "setTypecheckedModule: Did get parsed module for: " ++ show fp
+          -- cacheModule fp (Left pm)
+          -- debugm "setTypecheckedModule: done"
+          --  return diags
 
-      (Just _tm, ts) -> do
-        debugm $ "setTypecheckedModule: Did get typechecked module for: " ++ show fp
-        --sess <- fmap GM.gmgsSession . GM.gmGhcSession <$> GM.gmsGet
+          (Just _tm, ts) -> do
+            debugm $ "setTypecheckedModule: Did get typechecked module for: " ++ show fp
+            --sess <- fmap GM.gmgsSession . GM.gmGhcSession <$> GM.gmsGet
 
-        -- set the session before we cache the module, so that deferred
-        -- responses triggered by cacheModule can access it
+            -- set the session before we cache the module, so that deferred
+            -- responses triggered by cacheModule can access it
 
-        Session sess <- GhcT pure
-        modifyMTS (\s -> s {ghcSession = Just sess})
-        cacheModules rfm ts
-        --cacheModules rfm [tm]
-        debugm "setTypecheckedModule: done"
+            Session sess <- GhcT pure
+            modifyMTS (\s -> s {ghcSession = Just sess})
+            cacheModules rfm ts
+            --cacheModules rfm [tm]
+            debugm "setTypecheckedModule: done"
 
-      (Nothing, ts) -> do
-        debugm $ "setTypecheckedModule: Didn't get typechecked or parsed module for: " ++ show fp
-        --debugm $ "setTypecheckedModule: errs: " ++ show errs
-        cacheModules rfm ts
-        failModule fp
+          (Nothing, ts) -> do
+            debugm $ "setTypecheckedModule: Didn't get typechecked or parsed module for: " ++ show fp
+            --debugm $ "setTypecheckedModule: errs: " ++ show errs
+            cacheModules rfm ts
+            failModule fp
 
-    return $ IdeResultOk (Diagnostics diags,errs)
+        return $ IdeResultOk (Diagnostics diags,errs)
 
 -- TODO: make this work for all components
 cabalModuleGraphs :: IdeGhcM [GM.GmModuleGraph]

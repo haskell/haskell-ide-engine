@@ -127,8 +127,13 @@ importModule
 importModule uri impStyle modName =
   pluginGetFile "hsimport cmd: " uri $ \origInput -> do
     shouldFormat <- formatOnImportOn <$> getConfig
-    fileMap <- reverseFileMap
-    withMappedFile origInput $ \input -> do
+    fileMap      <- reverseFileMap
+    let resultFail = return $ IdeResultFail
+          (IdeError PluginError
+                    (T.pack $ "hsImport: no access to the persisted file.")
+                    Null
+          )
+    withMappedFile origInput resultFail $ \input -> do
       tmpDir            <- liftIO getTemporaryDirectory
       (output, outputH) <- liftIO $ openTempFile tmpDir "hsimportOutput"
       liftIO $ hClose outputH
