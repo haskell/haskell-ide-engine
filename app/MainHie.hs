@@ -17,8 +17,8 @@ import qualified Paths_haskell_ide_engine              as Meta
 import           System.Directory
 import           System.Environment
 import qualified System.Log.Logger                     as L
-import HIE.Bios.Types
-import System.IO
+import           HIE.Bios.Types
+import           System.IO
 
 -- ---------------------------------------------------------------------
 -- plugins
