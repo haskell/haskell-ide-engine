@@ -14,7 +14,7 @@ import           Data.Monoid                    ( (<>) )
 import qualified Data.Text                     as T
 import qualified Data.Text.IO                  as T
 import qualified GHC.Generics                  as Generics
-import           HsImport
+import qualified HsImport
 import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.MonadTypes
 import qualified Haskell.Ide.Engine.Support.HieExtras as Hie

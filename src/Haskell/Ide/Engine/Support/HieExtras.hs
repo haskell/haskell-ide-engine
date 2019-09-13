@@ -26,9 +26,6 @@ module Haskell.Ide.Engine.Support.HieExtras
 
 import           Data.Semigroup (Semigroup(..))
 import           ConLike
-import           Control.Lens.Operators                       ( (&) )
-import           Control.Lens.Setter ((%~))
-import           Control.Lens.Traversal (traverseOf)
 import           Control.Monad.Reader
 import           Control.Monad.Except
 import           Control.Exception (SomeException, catch)
@@ -53,7 +50,6 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           HscTypes
 import qualified Language.Haskell.LSP.Types                   as J
-import qualified Language.Haskell.LSP.Types.Lens              as J
 import qualified Language.Haskell.LSP.VFS                     as VFS
 import           Language.Haskell.Refact.Utils.MonadFunctions
 import           Name

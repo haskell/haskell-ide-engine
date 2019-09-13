@@ -3,7 +3,6 @@
 module GhcModPluginSpec where
 
 import           Control.Exception
-import qualified Data.HashMap.Strict                 as H
 import qualified Data.Map                            as Map
 #if __GLASGOW_HASKELL__ < 804
 import           Data.Monoid
@@ -15,8 +14,7 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Plugin.Generic
 import           Haskell.Ide.Engine.Plugin.Bios
 import           Haskell.Ide.Engine.PluginUtils
-import           Haskell.Ide.Engine.Support.HieExtras
-import           Language.Haskell.LSP.Types          (TextEdit (..), toNormalizedUri)
+import           Language.Haskell.LSP.Types          (toNormalizedUri)
 import           System.Directory
 import           TestUtils
 

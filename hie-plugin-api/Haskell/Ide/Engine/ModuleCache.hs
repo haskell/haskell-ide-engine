@@ -67,22 +67,22 @@ modifyCache f = do
 -- in either case
 runActionWithContext :: (MonadIde m, GHC.GhcMonad m, HasGhcModuleCache m, MonadBaseControl IO m)
                      => GHC.DynFlags -> Maybe FilePath -> m a -> m a
-runActionWithContext _df Nothing action = do
+runActionWithContext _df Nothing action =
   -- Cradle with no additional flags
   -- dir <- liftIO $ getCurrentDirectory
   --This causes problems when loading a later package which sets the
   --packageDb
   -- loadCradle df (BIOS.defaultCradle dir)
   action
-runActionWithContext df (Just uri) action = do
+runActionWithContext df (Just uri) action =
   getCradle uri (\lc -> loadCradle df lc >> action)
 
 loadCradle :: (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m
               , MonadBaseControl IO m) => GHC.DynFlags -> LookupCradleResult -> m ()
-loadCradle _ ReuseCradle = do
-    traceM ("Reusing cradle")
+loadCradle _ ReuseCradle =
+    traceM ("Reusing cradle" :: String)
 loadCradle iniDynFlags (NewCradle fp) = do
-    traceShowM ("New cradle" , fp)
+    traceShowM ("New cradle" :: String , fp)
     -- Cache the existing cradle
     maybe (return ()) cacheCradle =<< (currentCradle <$> getModuleCache)
 
@@ -98,7 +98,7 @@ loadCradle iniDynFlags (NewCradle fp) = do
       BIOS.initializeFlagsWithCradleWithMessage (Just $ toMessager f) fp crdl
     setCurrentCradle crdl
 loadCradle _iniDynFlags (LoadCradle (CachedCradle crd env)) = do
-    traceShowM ("Reload Cradle" , crd)
+    traceShowM ("Reload Cradle" :: String, crd)
     -- Cache the existing cradle
     maybe (return ()) cacheCradle =<< (currentCradle <$> getModuleCache)
     GHC.setSession env

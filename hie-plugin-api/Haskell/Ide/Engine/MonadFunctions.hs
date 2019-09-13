@@ -24,7 +24,6 @@ import qualified Data.Map as Map
 
 import Haskell.Ide.Engine.MultiThreadState
 import Haskell.Ide.Engine.PluginsIdeMonads
-import System.IO
 
 -- ---------------------------------------------------------------------
 

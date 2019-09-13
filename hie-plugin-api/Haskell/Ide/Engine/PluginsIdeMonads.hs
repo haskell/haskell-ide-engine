@@ -126,7 +126,6 @@ import           Data.Typeable                  ( TypeRep
                                                 )
 import System.Directory
 import GhcMonad
-import qualified HIE.Bios as BIOS
 import qualified HIE.Bios.Ghc.Api as BIOS
 import           GHC.Generics
 import           GHC                            ( HscEnv, GhcT )

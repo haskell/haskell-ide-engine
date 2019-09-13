@@ -10,7 +10,7 @@ import qualified Data.Text as T
 
 -- Convert progress continuation to a messager
 toMessager :: (Core.Progress -> IO ()) -> G.Messager
-toMessager k hsc_env (nk, n) rc_reason ms =
+toMessager k _hsc_env (nk, n) _rc_reason ms =
   let prog = Core.Progress (Just (fromIntegral nk/ fromIntegral n))  (Just mod_name)
       mod_name = T.pack $ moduleNameString (moduleName (ms_mod ms))
   in pprTrace "loading" (ppr (nk, n)) $ k prog

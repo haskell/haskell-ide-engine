@@ -66,7 +66,7 @@ import           System.Exit
 import qualified System.Log.Logger                       as L
 import qualified Data.Rope.UTF16                         as Rope
 
-import Outputable hiding ((<>))
+import qualified Outputable hiding ((<>))
 
 -- ---------------------------------------------------------------------
 {-# ANN module ("hlint: ignore Eta reduce" :: String) #-}
@@ -222,12 +222,12 @@ mapFileFromVfs tn vtdi = do
   vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
   mvf <- liftIO $ vfsFunc (J.toNormalizedUri uri)
   case (mvf, uriToFilePath uri) of
-    (Just (VFS.VirtualFile _ yitext _), Just fp) -> do
-      let text' = Rope.toString yitext
+    (Just (VFS.VirtualFile _ _ _), Just _fp) -> do
+      -- let text' = Rope.toString yitext
           -- text = "{-# LINE 1 \"" ++ fp ++ "\"#-}\n" <> text'
       -- TODO: @fendor, better document that, why do we even have this?
-      -- We have it to cancel operations that would operate on stale files
-      -- Maybe CloseDocument should call it, too?
+      -- We have it to cancel operations that would operate on stale file versions
+      -- Maybe NotDidCloseDocument should call it, too?
       let req = GReq tn (Just uri) Nothing Nothing (const $ return ())
                   $ return (IdeResultOk ())
 
@@ -943,7 +943,7 @@ requestDiagnosticsNormal tn file mVer = do
         let ds = Map.toList $ S.toList <$> pd
         case ds of
           [] -> sendEmpty
-          _ -> pprTrace "Diags" (text (show ds)) $ mapM_ (sendOneGhc "bios") ds
+          _ -> Outputable.pprTrace "Diags" (Outputable.text (show ds)) $ mapM_ (sendOneGhc "bios") ds
 
   makeRequest reqg
 

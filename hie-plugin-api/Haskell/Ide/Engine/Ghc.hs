@@ -1,9 +1,7 @@
 {-# LANGUAGE CPP                 #-}
-{-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE LambdaCase          #-}
 -- | This module provides the interface to GHC, mainly for loading
@@ -20,6 +18,7 @@ module Haskell.Ide.Engine.Ghc
 
 import           Bag
 import           Control.Monad.IO.Class
+import           Control.Monad                  ( when )
 import           Data.IORef
 import qualified Data.Map.Strict                   as Map
 import qualified Data.IntMap.Strict                   as IM
@@ -51,7 +50,6 @@ import           Outputable hiding ((<>))
 import qualified HIE.Bios.Ghc.Api as BIOS (withDynFlags, setDeferTypeErrors)
 import qualified HIE.Bios.Ghc.Load as BIOS
 import qualified HIE.Bios.Flags as BIOS (CradleError)
-import qualified HIE.Bios as BIOS
 import Debug.Trace
 
 import System.Directory
@@ -223,14 +221,13 @@ setTypecheckedModule uri =
 copyHsBoot :: FilePath -> FilePath -> IO ()
 copyHsBoot fp mapped_fp = do
   ex <- doesFileExist (fp <> "-boot")
-  if ex
-    then copyFile (fp <> "-boot") (mapped_fp <> "-boot")
-    else return ()
+  when ex $ copyFile (fp <> "-boot") (mapped_fp <> "-boot")
+
 
 loadFile :: (FilePath -> FilePath) -> (FilePath, FilePath)
          -> IdeGhcM (Diagnostics, AdditionalErrs,
                      Maybe (Maybe TypecheckedModule, [TypecheckedModule]))
-loadFile rfm t = do
+loadFile rfm t =
     withProgress "loading" NotCancellable $ \f -> (captureDiagnostics rfm $ BIOS.loadFileWithMessage (Just $ toMessager f) t)
 
 -- | Actually load the module if it's not in the cache

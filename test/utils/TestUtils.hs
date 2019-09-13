@@ -39,7 +39,7 @@ import           Test.Hspec.Runner
 import           Test.Hspec.Core.Formatters
 import           Text.Blaze.Renderer.String (renderMarkup)
 import           Text.Blaze.Internal
-import qualified Haskell.Ide.Engine.PluginApi as HIE (BiosOptions(..),BiosLogLevel(..),defaultOptions)
+import qualified Haskell.Ide.Engine.PluginApi as HIE (BiosOptions, defaultOptions)
 
 import HIE.Bios.Types
 
