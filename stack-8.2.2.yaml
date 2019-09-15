@@ -2,6 +2,7 @@ resolver: lts-11.18 # lts-11.x is the last one for GHC 8.2.2
 packages:
 - .
 - hie-plugin-api
+- hie-bios
 
 extra-deps:
 - ./submodules/HaRe
@@ -12,6 +13,7 @@ extra-deps:
 
 - brittany-0.12.0.0
 - butcher-1.3.1.1
+- bytestring-trie-0.2.5.0
 - cabal-plan-0.3.0.0
 - conduit-parse-0.2.1.0
 - constrained-dynamic-0.1.0.0
@@ -35,6 +37,17 @@ extra-deps:
 - syz-0.2.0.0
 # To make build work in windows 7
 - unix-time-0.4.7
+- dhall-1.20.1@sha256:3377090039ba3560b50515799affc57d74d2d3e57d3f8699bb2a9fc428fa4918,23401
+- extra-1.6.18@sha256:5f1fff126f0ae47b701fff5aa8462dc63cb44465d5a724b0afd20a3d731903af
+- unix-compat-0.5.2@sha256:16763f1fae4a25abf61ac6195eb530ce838474bd04d86c7d353340aee8716bbb
+- yaml-0.11.1.2@sha256:cbc4ddb233c564967aad27ee47c1cd8fd6a06b9183353e76fe66c9be7c9dfd76
+- unordered-containers-0.2.10.0@sha256:5e9b095a9283d9e2f064fec73a81a6b6ea0b7fda3f219a8175785d2d2a3de204
+- containers-0.6.2.1@sha256:bbc3d2d5eef59a5d26383fb4b727c968390f2b6e9bd413d29aa875175bb16f8b,2460
+- directory-1.3.4.0@sha256:500019f04494324d1df16cf83eefeb3f809b2b20b32a32ccd755ee0439c18bfd,2829
+- file-embed-0.0.11@sha256:77bb3b1dc219ccd682706b1d3dfbc5bf2db5beb1af6c108ed9e0f5b4d58a5a0a,1325
+- filepath-1.4.2.1@sha256:0a5334c8d6eb9b00cba7a07f2c4141d395d0b430861d04866c6a8d373aea59c1,2245
+- libyaml-0.1.1.0@sha256:b3fcd8c44622c75e054c2267f3fec39a58a311748000310cbc8257a4683d3f02,2090
+- transformers-0.5.6.2@sha256:6c959d14430f4deffb99579ba019de07c3d852a2122b6f449344386c7d75ff1d,3172
 
 flags:
   haskell-ide-engine:

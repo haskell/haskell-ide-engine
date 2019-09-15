@@ -2,6 +2,7 @@ resolver: lts-12.26 # LTS 12.15 is first to support GHC 8.4.4
 packages:
 - .
 - hie-plugin-api
+- hie-bios
 
 extra-deps:
 - ./submodules/HaRe
@@ -11,6 +12,7 @@ extra-deps:
 - ./submodules/ghc-mod/ghc-project-types
 
 - brittany-0.12.0.0
+- bytestring-trie-0.2.5.0
 - cabal-plan-0.4.0.0
 - constrained-dynamic-0.1.0.0
 - floskell-0.10.0
@@ -34,6 +36,13 @@ extra-deps:
 # To make build work in windows 7
 - unix-time-0.4.7
 - temporary-1.2.1.1
+- dhall-1.20.1@sha256:3377090039ba3560b50515799affc57d74d2d3e57d3f8699bb2a9fc428fa4918,23401
+- extra-1.6.18@sha256:5f1fff126f0ae47b701fff5aa8462dc63cb44465d5a724b0afd20a3d731903af
+- unix-compat-0.5.2@sha256:16763f1fae4a25abf61ac6195eb530ce838474bd04d86c7d353340aee8716bbb
+- yaml-0.11.1.2@sha256:cbc4ddb233c564967aad27ee47c1cd8fd6a06b9183353e76fe66c9be7c9dfd76
+- unordered-containers-0.2.10.0@sha256:5e9b095a9283d9e2f064fec73a81a6b6ea0b7fda3f219a8175785d2d2a3de204
+- file-embed-0.0.11@sha256:77bb3b1dc219ccd682706b1d3dfbc5bf2db5beb1af6c108ed9e0f5b4d58a5a0a,1325
+- libyaml-0.1.1.0@sha256:b3fcd8c44622c75e054c2267f3fec39a58a311748000310cbc8257a4683d3f02,2090
 
 flags:
   haskell-ide-engine:
