@@ -2,7 +2,6 @@ resolver: nightly-2018-12-17 # Last GHC 8.6.2
 packages:
 - .
 - hie-plugin-api
-- hie-bios
 
 extra-deps:
 - ./submodules/HaRe
@@ -35,6 +34,7 @@ extra-deps:
 - temporary-1.2.1.1
 # To make build work in windows 7
 - unix-time-0.4.7
+- hie-bios-0.2.1@sha256:5f98a3516ce65e0a3ffd88bf6fb416b04cc084371d0fbf0e1762780de1d652ce,3219
 - dhall-1.20.1@sha256:3377090039ba3560b50515799affc57d74d2d3e57d3f8699bb2a9fc428fa4918,23401
 - extra-1.6.18@sha256:5f1fff126f0ae47b701fff5aa8462dc63cb44465d5a724b0afd20a3d731903af
 - unix-compat-0.5.2@sha256:16763f1fae4a25abf61ac6195eb530ce838474bd04d86c7d353340aee8716bbb

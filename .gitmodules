@@ -26,6 +26,4 @@
 	# url = https://github.com/arbor/ghc-mod.git
 	url = https://github.com/alanz/ghc-mod.git
   #url = https://github.com/mpickering/ghc-mod.git
-[submodule "hie-bios"]
-	path = hie-bios
-	url = https://github.com/mpickering/hie-bios
+
