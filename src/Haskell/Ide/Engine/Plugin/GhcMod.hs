@@ -314,7 +314,7 @@ extractRenamableTerms msg
                      . T.dropWhileEnd (== e)
                      . T.dropAround (\c -> c /= b && c /= e)
     getEnclosed txt = case getEnclosed' '‘' '’' txt of
-                        ""  -> getEnclosed' '`' '\'' txt
+                        ""  -> getEnclosed' '`' '\'' txt -- Needed for windows
                         enc -> enc
 
 extractRedundantImport :: T.Text -> Maybe T.Text
