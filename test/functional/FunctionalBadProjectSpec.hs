@@ -15,7 +15,7 @@ import           Utils
 -- ---------------------------------------------------------------------
 
 spec :: Spec
-spec = describe "behaviour on malformed projects" $ do
+spec = describe "behaviour on malformed projects" $
     it "deals with cabal file with unsatisfiable dependency" $
       runSession hieCommandExamplePlugin codeActionSupportCaps "test/testdata/badProjects/cabal" $ do
       -- runSessionWithConfig logConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do

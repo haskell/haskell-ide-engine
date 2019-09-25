@@ -298,7 +298,7 @@ spec = describe "code actions" $ do
         -- provides workspace edit property which skips round trip to
         -- the server
         contents <- documentContents doc
-        liftIO $ contents `shouldBe` "main :: IO ()\nmain = putStrLn \"hello\""
+        liftIO $ contents `shouldBe` "module CodeActionRedundant where\nmain :: IO ()\nmain = putStrLn \"hello\""
     it "doesn't touch other imports" $ runSession hieCommand noLiteralCaps "test/testdata/redundantImportTest/" $ do
       doc <- openDoc "src/MultipleImports.hs" "haskell"
 
