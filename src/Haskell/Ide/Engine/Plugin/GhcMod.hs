@@ -310,9 +310,12 @@ extractRenamableTerms msg
                        . T.lines
     singleSuggestions = T.splitOn "), " -- Each suggestion is comma delimited
     isKnownSymbol t = " (imported from" `T.isInfixOf` t  || " (line " `T.isInfixOf` t
-    getEnclosed = T.dropWhile (== '‘')
-                . T.dropWhileEnd (== '’')
-                . T.dropAround (\c -> c /= '‘' && c /= '’')
+    getEnclosed' b e = T.dropWhile (== b)
+                     . T.dropWhileEnd (== e)
+                     . T.dropAround (\c -> c /= b && c /= e)
+    getEnclosed txt = case getEnclosed' '‘' '’' txt of
+                        ""  -> getEnclosed' '`' '\'' txt -- Needed for windows
+                        enc -> enc
 
 extractRedundantImport :: T.Text -> Maybe T.Text
 extractRedundantImport msg =
