@@ -11,7 +11,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE DerivingVia #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE LambdaCase #-}
@@ -128,7 +127,7 @@ import System.Directory
 import GhcMonad
 import qualified HIE.Bios.Ghc.Api as BIOS
 import           GHC.Generics
-import           GHC                            ( HscEnv, GhcT )
+import           GHC                            ( HscEnv )
 import Exception
 
 import           Haskell.Ide.Engine.Compat
@@ -685,9 +684,74 @@ instance ExceptionMonad m => ExceptionMonad (ReaderT e m) where
 instance MonadTrans GhcT where
   lift m = liftGhcT m
 
-deriving via (ReaderT Session IO) instance MonadUnliftIO Ghc
-deriving via (ReaderT Session IdeM) instance MonadUnliftIO (GhcT IdeM)
-deriving via (ReaderT Session IdeM) instance MonadBaseControl IO (GhcT IdeM)
-deriving via (ReaderT Session IdeM) instance MonadBase IO (GhcT IdeM)
-deriving via (ReaderT Session IdeM) instance MonadPlus (GhcT IdeM)
-deriving via (ReaderT Session IdeM) instance Alternative (GhcT IdeM)
+
+instance MonadUnliftIO Ghc where
+    {-# INLINE askUnliftIO #-}
+    askUnliftIO = Ghc $ \s ->
+                  withUnliftIO $ \u ->
+                  return (UnliftIO (unliftIO u . flip unGhc s))
+
+    {-# INLINE withRunInIO #-}
+    withRunInIO inner =
+      Ghc $ \s ->
+      withRunInIO $ \run ->
+      inner (run . flip unGhc s)
+
+instance MonadUnliftIO (GhcT IdeM) where
+    {-# INLINE askUnliftIO #-}
+    askUnliftIO = GhcT $ \s ->
+                  withUnliftIO $ \u ->
+                  return (UnliftIO (unliftIO u . flip unGhcT s))
+
+    {-# INLINE withRunInIO #-}
+    withRunInIO inner =
+      GhcT $ \s ->
+      withRunInIO $ \run ->
+      inner (run . flip unGhcT s)
+
+instance MonadTransControl GhcT where
+    type StT GhcT a = a
+
+    {-# INLINABLE liftWith #-}
+    liftWith f = GhcT $ \s -> f $ \t -> unGhcT t s
+
+    {-# INLINABLE restoreT #-}
+    restoreT = GhcT . const
+
+instance MonadBaseControl IO (GhcT IdeM) where
+    type StM (GhcT IdeM) a = ComposeSt GhcT IdeM a;
+
+    {-# INLINABLE liftBaseWith #-}
+    liftBaseWith = defaultLiftBaseWith
+
+    {-# INLINABLE restoreM #-}
+    restoreM = defaultRestoreM
+
+instance MonadBase IO (GhcT IdeM) where
+
+    {-# INLINABLE liftBase #-}
+    liftBase = liftBaseDefault
+
+
+instance MonadPlus (GhcT IdeM) where
+    {-# INLINE mzero #-}
+    mzero = lift mzero
+
+    {-# INLINE mplus #-}
+    m `mplus` n = GhcT $ \s -> unGhcT m s `mplus` unGhcT n s
+
+instance Alternative (GhcT IdeM) where
+    {-# INLINE empty #-}
+    empty = lift empty
+
+    {-# INLINE (<|>) #-}
+    m <|> n = GhcT $ \s ->  unGhcT m s <|> unGhcT n s
+
+-- ghc-8.6 required
+-- {-# LANGUAGE DerivingVia #-}
+-- deriving via (ReaderT Session IO) instance MonadUnliftIO Ghc
+-- deriving via (ReaderT Session IdeM) instance MonadUnliftIO (GhcT IdeM)
+-- deriving via (ReaderT Session IdeM) instance MonadBaseControl IO (GhcT IdeM)
+-- deriving via (ReaderT Session IdeM) instance MonadBase IO (GhcT IdeM)
+-- deriving via (ReaderT Session IdeM) instance MonadPlus (GhcT IdeM)
+-- deriving via (ReaderT Session IdeM) instance Alternative (GhcT IdeM)
