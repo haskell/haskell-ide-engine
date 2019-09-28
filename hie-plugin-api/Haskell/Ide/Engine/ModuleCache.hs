@@ -4,6 +4,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -27,7 +28,7 @@ module Haskell.Ide.Engine.ModuleCache
 
 import           Control.Monad
 import           Control.Monad.IO.Class
-import Control.Monad.Trans.Control
+import           Control.Monad.Trans.Control
 import           Control.Monad.Trans.Free
 import           Data.Dynamic (toDyn, fromDynamic, Dynamic)
 import           Data.Generics (Proxy(..), TypeRep, typeRep, typeOf)
@@ -95,8 +96,13 @@ loadCradle iniDynFlags (NewCradle fp) = do
     traceShowM crdl
     liftIO (GHC.newHscEnv iniDynFlags) >>= GHC.setSession
     liftIO $ setCurrentDirectory (BIOS.cradleRootDir crdl)
-    withProgress "Initialising Cradle" NotCancellable $ \f ->
-      BIOS.initializeFlagsWithCradleWithMessage (Just $ toMessager f) fp crdl
+
+    withProgress "Initialising Cradle" NotCancellable $ \f -> do
+      GHC.gcatch
+            (BIOS.initializeFlagsWithCradleWithMessage (Just $ toMessager f) fp crdl)
+            (\(err :: GHC.GhcException) -> traceShowM ("Failed to initialise cradle" :: String, err))
+      return ()
+
     setCurrentCradle crdl
 loadCradle _iniDynFlags (LoadCradle (CachedCradle crd env)) = do
     traceShowM ("Reload Cradle" :: String, crd)
