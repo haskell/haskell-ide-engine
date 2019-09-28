@@ -67,9 +67,9 @@ genLocMap tm = names
 genImportMap :: TypecheckedModule -> ModuleMap
 genImportMap tm = moduleMap
   where
-    (_, lImports, mlies, _) = fromJust $ GHC.tm_renamed_source tm
+    (lImports, mlies) = fromJust $ exportedSymbols tm
 
-    lies = map fst $ fromMaybe [] mlies
+    lies = fromMaybe [] mlies
 
     moduleMap :: ModuleMap
     moduleMap = foldl goImp IM.empty lImports `IM.union` foldl goExp IM.empty lies

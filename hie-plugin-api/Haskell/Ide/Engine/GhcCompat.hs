@@ -26,9 +26,13 @@
 module Haskell.Ide.Engine.GhcCompat where
 
 import Control.Arrow ((&&&))
+import qualified Digraph
 
 #if __GLASGOW_HASKELL__ >= 804
+import qualified EnumSet as ES
 import qualified HsExtension as GHC
+#else
+import qualified Data.IntSet as ES
 #endif
 
 import CmdLineParser
@@ -300,9 +304,11 @@ type Warn = Located String
 needsTemplateHaskellOrQQ = needsTemplateHaskell
 #endif
 
-
+mgModSummaries :: GHC.ModuleGraph -> [GHC.ModSummary]
 #if __GLASGOW_HASKELL__ < 804
 mgModSummaries = id
+#else
+mgModSummaries = GHC.mgModSummaries
 #endif
 
 #if __GLASGOW_HASKELL__ < 806
@@ -455,25 +461,28 @@ pattern ValBindsCompat f g <-
   ValBinds _ f g
 #endif
 
-pattern ValDCompat :: HsBind (GhcPass p) -> HsDecl (GhcPass p)
-pattern ValDCompat f <-
+
 #if __GLASGOW_HASKELL__ < 806
+pattern ValDCompat f <-
   ValD f
   where
     ValDCompat f = ValD f
 #else
+pattern ValDCompat :: HsBind (GhcPass p) -> HsDecl (GhcPass p)
+pattern ValDCompat f <-
   ValD _ f
   where
     ValDCompat f = ValD NoExt f
 #endif
 
-pattern SigDCompat :: Sig (GhcPass p) -> HsDecl (GhcPass p)
-pattern SigDCompat f <-
 #if __GLASGOW_HASKELL__ < 806
+pattern SigDCompat f <-
   SigD f
   where
     SigDCompat f = SigD f
 #else
+pattern SigDCompat :: Sig (GhcPass p) -> HsDecl (GhcPass p)
+pattern SigDCompat f <-
   SigD _ f
   where
     SigDCompat f = SigD NoExt f
@@ -494,5 +503,47 @@ gomatch' (GHC.Match _ _ _ (GHC.XGRHSs _)) = error "GHC.XMatch"
 #endif
 
 
+exportedSymbols :: GHC.TypecheckedModule -> Maybe ([LImportDecl GhcRn], Maybe [LIE GhcRn])
+exportedSymbols tm =
+  case GHC.renamedSource tm of
+    Nothing -> Nothing
+    Just (_, limport, mlies, _) ->
+#if __GLASGOW_HASKELL__ >= 804
+      Just (limport, fmap (map fst) mlies)
+#else
+      Just (limport, mlies)
+#endif
 
+emptyFatalWarningFlags :: DynFlags -> DynFlags
+emptyFatalWarningFlags df = df { fatalWarningFlags = ES.empty }
 
+-- Abstract Digraph
+
+node_key :: Digraph.Node key payload -> key
+node_key n =
+#if __GLASGOW_HASKELL__ >= 804
+  Digraph.node_key n
+#else
+  let (_, key, _) = n
+  in key
+#endif
+
+node_payload :: Digraph.Node key payload -> payload
+node_payload n =
+#if __GLASGOW_HASKELL__ >= 804
+  Digraph.node_payload n
+#else
+  let (payload, _, _) = n
+  in payload
+#endif
+
+node_dependencies :: Digraph.Node key payload -> [key]
+node_dependencies n =
+#if __GLASGOW_HASKELL__ >= 804
+  Digraph.node_dependencies n
+#else
+  let (_, _, deps) = n
+  in deps
+#endif
+
+verticesG = Digraph.verticesG

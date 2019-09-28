@@ -51,6 +51,7 @@ import           Haskell.Ide.Engine.TypeMap
 import           Haskell.Ide.Engine.GhcModuleCache
 import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.PluginsIdeMonads
+import           Haskell.Ide.Engine.GhcCompat
 import           Haskell.Ide.Engine.GhcUtils
 -- ---------------------------------------------------------------------
 
@@ -109,7 +110,7 @@ loadCradle _iniDynFlags (LoadCradle (CachedCradle crd env)) = do
 setCurrentCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => BIOS.Cradle -> m ()
 setCurrentCradle crdl = do
     mg <- GHC.getModuleGraph
-    let ps = mapMaybe (GHC.ml_hs_file . GHC.ms_location) (GHC.mgModSummaries mg)
+    let ps = mapMaybe (GHC.ml_hs_file . GHC.ms_location) (mgModSummaries mg)
     traceShowM ps
     ps' <- liftIO $ mapM canonicalizePath ps
     modifyCache (\s -> s { currentCradle = Just (ps', crdl) })

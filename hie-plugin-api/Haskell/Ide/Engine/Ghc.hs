@@ -34,14 +34,14 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 
 import           DynFlags
-import qualified EnumSet as ES
 import           GHC
 import           IOEnv                             as G
-import           HscTypes
+import qualified HscTypes
 import           Outputable                        (renderWithStyle)
 import           Language.Haskell.LSP.Types        ( NormalizedUri(..), toNormalizedUri )
 
 import           Haskell.Ide.Engine.GhcUtils
+import           Haskell.Ide.Engine.GhcCompat as Compat
 --import qualified Haskell.Ide.Engine.Plugin.HieExtras as Hie
 
 import           Outputable hiding ((<>))
@@ -55,7 +55,6 @@ import Debug.Trace
 import System.Directory
 
 import GhcProject.Types as GM
-import Digraph (Node(..), verticesG)
 import GhcMake ( moduleGraphNodes )
 import GhcMonad
 
@@ -104,10 +103,10 @@ lspSev _ _           = DsInfo
 srcErrToDiag :: MonadIO m
   => DynFlags
   -> (FilePath -> FilePath)
-  -> SourceError -> m (Diagnostics, AdditionalErrs)
+  -> HscTypes.SourceError -> m (Diagnostics, AdditionalErrs)
 srcErrToDiag df rfm se = do
   debugm "in srcErrToDiag"
-  let errMsgs = bagToList $ srcErrorMessages se
+  let errMsgs = bagToList $ HscTypes.srcErrorMessages se
       processMsg err = do
         let sev = Just DsError
             unqual = errMsgContext err
@@ -141,11 +140,11 @@ captureDiagnostics rfm action = do
   diagRef <- liftIO $ newIORef $ Diagnostics mempty
   errRef <- liftIO $ newIORef []
   let setLogger df = df { log_action = logDiag rfm errRef diagRef }
-      unsetWErr df = unSetGeneralFlag' Opt_WarnIsError (df {fatalWarningFlags = ES.empty})
+      unsetWErr df = unSetGeneralFlag' Opt_WarnIsError (emptyFatalWarningFlags df)
 
       ghcErrRes msg = pure (mempty, [T.pack msg], Nothing)
       to_diag x = do
-        (d1, e1) <- srcErrToDiag (hsc_dflags env) rfm x
+        (d1, e1) <- srcErrToDiag (HscTypes.hsc_dflags env) rfm x
         diags <- liftIO $ readIORef diagRef
         errs <- liftIO $ readIORef errRef
         return (d1 <> diags, e1 ++ errs, Nothing)
@@ -181,7 +180,7 @@ logDiag rfm eref dref df reason sev spn style msg = do
       return ()
 
 
-errorHandlers :: (String -> m a) -> (SourceError -> m a) -> [ErrorHandler m a]
+errorHandlers :: (String -> m a) -> (HscTypes.SourceError -> m a) -> [ErrorHandler m a]
 errorHandlers ghcErrRes renderSourceError = handlers
   where
       -- ghc throws GhcException, SourceError, GhcApiError and
@@ -189,9 +188,9 @@ errorHandlers ghcErrRes renderSourceError = handlers
       handlers =
         [ ErrorHandler $ \(ex :: IOEnvFailure) ->
             ghcErrRes (show ex)
-        , ErrorHandler $ \(ex :: GhcApiError) ->
+        , ErrorHandler $ \(ex :: HscTypes.GhcApiError) ->
             ghcErrRes (show ex)
-        , ErrorHandler $ \(ex :: SourceError) ->
+        , ErrorHandler $ \(ex :: HscTypes.SourceError) ->
             renderSourceError ex
         , ErrorHandler $ \(ex :: IOError) ->
             ghcErrRes (show ex)
@@ -287,7 +286,7 @@ setTypecheckedModule_load uri =
 cabalModuleGraphs :: IdeGhcM [GM.GmModuleGraph]
 cabalModuleGraphs = do
   mg <- getModuleGraph
-  let (graph, _) = moduleGraphNodes False (mgModSummaries mg)
+  let (graph, _) = moduleGraphNodes False (Compat.mgModSummaries mg)
       msToModulePath ms =
         case ml_hs_file (ms_location ms) of
           Nothing -> []
