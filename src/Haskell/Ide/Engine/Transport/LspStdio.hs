@@ -37,6 +37,7 @@ import qualified Data.Set as S
 import qualified Data.SortedList as SL
 import qualified Data.Text as T
 import           Data.Text.Encoding
+import           Haskell.Ide.Engine.Cradle (findLocalCradle)
 import           Haskell.Ide.Engine.Config
 import qualified Haskell.Ide.Engine.Ghc   as HIE
 import           Haskell.Ide.Engine.LSP.CodeActions
@@ -62,6 +63,8 @@ import           Language.Haskell.LSP.Types.Capabilities as C
 import qualified Language.Haskell.LSP.Types.Lens         as J
 import qualified Language.Haskell.LSP.Utility            as U
 import qualified Language.Haskell.LSP.VFS                as VFS
+import           System.Directory (getCurrentDirectory)
+import           System.FilePath ((</>))
 import           System.Exit
 import qualified System.Log.Logger                       as L
 import qualified Data.Rope.UTF16                         as Rope
@@ -416,8 +419,10 @@ reactor inp diagIn = do
           reactorSend $ NotLogMessage $
                   fmServerLogMessageNotification J.MtLog $ "Using hie version: " <> T.pack version
 
+          d <- liftIO getCurrentDirectory
+          cradle <- liftIO $ findLocalCradle (d </> "File.hs")
           -- Check for mismatching GHC versions
-          projGhcVersion <- liftIO getProjectGhcVersion
+          projGhcVersion <- liftIO $ getProjectGhcVersion cradle
           when (projGhcVersion /= hieGhcVersion) $ do
             let msg = T.pack $ "Mismatching GHC versions: Project is " ++ projGhcVersion ++ ", HIE is " ++ hieGhcVersion
                       ++ "\nYou may want to use hie-wrapper. Check the README for more information"

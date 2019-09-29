@@ -48,6 +48,7 @@ import qualified HIE.Bios.Ghc.Api as BIOS
 import qualified Data.ByteString.Char8 as B
 
 import           Haskell.Ide.Engine.ArtifactMap
+import           Haskell.Ide.Engine.Cradle (findLocalCradle)
 import           Haskell.Ide.Engine.TypeMap
 import           Haskell.Ide.Engine.GhcModuleCache
 import           Haskell.Ide.Engine.MultiThreadState
@@ -89,21 +90,18 @@ loadCradle iniDynFlags (NewCradle fp) = do
     maybe (return ()) cacheCradle =<< (currentCradle <$> getModuleCache)
 
     -- Now load the new cradle
-    crdlPath <- liftIO $ BIOS.findCradle fp
-    crdl <- liftIO $ case crdlPath of
-      Just yaml -> BIOS.loadCradle yaml
-      Nothing -> BIOS.loadImplicitCradle fp
-    traceShowM crdl
+    cradle <- liftIO $ findLocalCradle fp
+    traceShowM cradle
     liftIO (GHC.newHscEnv iniDynFlags) >>= GHC.setSession
-    liftIO $ setCurrentDirectory (BIOS.cradleRootDir crdl)
+    liftIO $ setCurrentDirectory (BIOS.cradleRootDir cradle)
 
     withProgress "Initialising Cradle" NotCancellable $ \f -> do
       GHC.gcatch
-            (BIOS.initializeFlagsWithCradleWithMessage (Just $ toMessager f) fp crdl)
+            (BIOS.initializeFlagsWithCradleWithMessage (Just $ toMessager f) fp cradle)
             (\(err :: GHC.GhcException) -> traceShowM ("Failed to initialise cradle" :: String, err))
       return ()
 
-    setCurrentCradle crdl
+    setCurrentCradle cradle
 loadCradle _iniDynFlags (LoadCradle (CachedCradle crd env)) = do
     traceShowM ("Reload Cradle" :: String, crd)
     -- Cache the existing cradle
@@ -114,12 +112,12 @@ loadCradle _iniDynFlags (LoadCradle (CachedCradle crd env)) = do
 
 
 setCurrentCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => BIOS.Cradle -> m ()
-setCurrentCradle crdl = do
+setCurrentCradle cradle = do
     mg <- GHC.getModuleGraph
     let ps = mapMaybe (GHC.ml_hs_file . GHC.ms_location) (mgModSummaries mg)
     traceShowM ps
     ps' <- liftIO $ mapM canonicalizePath ps
-    modifyCache (\s -> s { currentCradle = Just (ps', crdl) })
+    modifyCache (\s -> s { currentCradle = Just (ps', cradle) })
 
 
 cacheCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => ([FilePath], BIOS.Cradle) -> m ()

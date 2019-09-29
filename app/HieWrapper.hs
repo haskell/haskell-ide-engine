@@ -11,17 +11,18 @@ import           Data.Foldable
 import           Data.Version                          (showVersion)
 import           HIE.Bios
 import           Haskell.Ide.Engine.MonadFunctions
+import           Haskell.Ide.Engine.Cradle (findLocalCradle)
 import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.Plugin.Base
 import qualified Language.Haskell.LSP.Core             as Core
 import           Options.Applicative.Simple
 import qualified Paths_haskell_ide_engine              as Meta
 import           System.Directory
-import           System.FilePath
 import           System.Environment
 import qualified System.Log.Logger as L
 import           System.Process
 import           System.Info
+import           System.FilePath
 
 -- ---------------------------------------------------------------------
 
@@ -73,15 +74,12 @@ run opts = do
   logm $ "Operating system:" ++ os
 
   -- Get the cabal directory from the cradle
-  conf <- findCradle (d </> "File.hs")
-  cr <- case conf of
-    Just yaml -> loadCradle yaml
-    Nothing -> loadImplicitCradle (d </> "File.hs")
-  let dir = cradleRootDir cr
+  cradle <- findLocalCradle (d </> "File.hs")
+  let dir = cradleRootDir cradle
   logm $ "Cradle directory:" ++ dir
   setCurrentDirectory dir
 
-  ghcVersion <- getProjectGhcVersion
+  ghcVersion <- getProjectGhcVersion cradle
   logm $ "Project GHC version:" ++ ghcVersion
 
   let

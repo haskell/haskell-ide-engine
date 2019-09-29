@@ -20,6 +20,7 @@ import           Development.GitRev              (gitCommitCount)
 import           Distribution.System             (buildArch)
 import           Distribution.Text               (display)
 import           Haskell.Ide.Engine.MonadTypes
+import qualified HIE.Bios.Types as BIOS
 import           Options.Applicative.Simple      (simpleVersion)
 import qualified Paths_haskell_ide_engine        as Meta
 
@@ -105,11 +106,11 @@ version =
 hieGhcDisplayVersion :: String
 hieGhcDisplayVersion = compilerName ++ "-" ++ VERSION_ghc
 
-getProjectGhcVersion :: IO String
-getProjectGhcVersion = do
+getProjectGhcVersion :: BIOS.Cradle -> IO String
+getProjectGhcVersion crdl = do
   isStackProject   <- doesFileExist "stack.yaml"
   isStackInstalled <- isJust <$> findExecutable "stack"
-  if isStackProject && isStackInstalled
+  if BIOS.actionName (BIOS.cradleOptsProg crdl) == "stack" && isStackProject && isStackInstalled
     then do
       L.infoM "hie" "Using stack GHC version"
       catch (tryCommand "stack ghc -- --numeric-version") $ \e -> do
