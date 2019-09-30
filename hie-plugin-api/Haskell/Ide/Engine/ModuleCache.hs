@@ -26,7 +26,9 @@ module Haskell.Ide.Engine.ModuleCache
   , ModuleCache(..)
   ) where
 
+
 import           Control.Monad
+import           Control.Exception
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Control
 import           Control.Monad.Trans.Free
@@ -43,8 +45,11 @@ import qualified GHC
 import qualified GHC.IO as GHCIO
 import qualified GhcMake as GHC
 import qualified HscMain as GHC
+
+import qualified Data.Aeson as Aeson
 import qualified Data.Trie.Convenience as T
 import qualified Data.Trie as T
+import qualified Data.Text as Text
 import qualified HIE.Bios as BIOS
 import qualified HIE.Bios.Types as BIOS
 import qualified Data.ByteString.Char8 as B
@@ -57,6 +62,8 @@ import           Haskell.Ide.Engine.MultiThreadState
 import           Haskell.Ide.Engine.PluginsIdeMonads
 import           Haskell.Ide.Engine.GhcCompat
 import           Haskell.Ide.Engine.GhcUtils
+import           Haskell.Ide.Engine.PluginUtils
+import           Haskell.Ide.Engine.MonadFunctions
 -- ---------------------------------------------------------------------
 
 modifyCache :: (HasGhcModuleCache m) => (GhcModuleCache -> GhcModuleCache) -> m ()
@@ -71,66 +78,104 @@ modifyCache f = do
 -- Sets the current directory to the cradle root dir
 -- in either case
 runActionWithContext :: (MonadIde m, GHC.GhcMonad m, HasGhcModuleCache m, MonadBaseControl IO m)
-                     => GHC.DynFlags -> Maybe FilePath -> m a -> m a
+                     => GHC.DynFlags -> Maybe FilePath -> m a -> m (IdeResult a)
 runActionWithContext _df Nothing action =
   -- Cradle with no additional flags
   -- dir <- liftIO $ getCurrentDirectory
   --This causes problems when loading a later package which sets the
   --packageDb
   -- loadCradle df (BIOS.defaultCradle dir)
-  action
-runActionWithContext df (Just uri) action =
-  getCradle uri (\lc -> loadCradle df lc >> action)
+  fmap IdeResultOk action
+runActionWithContext df (Just uri) action = do
+  mcradle <- getCradle uri
+  loadCradle df mcradle >>= \case
+    IdeResultOk () -> fmap IdeResultOk action
+    IdeResultFail err -> return $ IdeResultFail err
+
 
 loadCradle :: (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m
-              , MonadBaseControl IO m) => GHC.DynFlags -> LookupCradleResult -> m ()
-loadCradle _ ReuseCradle =
-    traceM ("Reusing cradle" :: String)
-loadCradle iniDynFlags (NewCradle fp) = do
-    traceShowM ("New cradle" :: String , fp)
-    -- Cache the existing cradle
-    maybe (return ()) cacheCradle =<< (currentCradle <$> getModuleCache)
+              , MonadBaseControl IO m) => GHC.DynFlags -> LookupCradleResult -> m (IdeResult ())
+loadCradle _ ReuseCradle = do
+  traceM ("Reusing cradle" :: String)
+  return (IdeResultOk ())
 
-    -- Now load the new cradle
-    cradle <- liftIO $ findLocalCradle fp
-    traceShowM cradle
-    liftIO (GHC.newHscEnv iniDynFlags) >>= GHC.setSession
-    liftIO $ setCurrentDirectory (BIOS.cradleRootDir cradle)
-
-    withProgress "Initialising Cradle" NotCancellable $ \f -> do
-      GHC.gcatch
-            ( do
-                let msg = Just (toMessager f)
-                -- Reimplements "initializeFlagsWithCradleWithMessage"
-                -- to add a fp to stack cradle actions
-                -- This is a fix for: https://github.com/mpickering/haskell-ide-engine/issues/10
-                compOpts <- liftIO $ BIOS.getCompilerOptions fp cradle
-                case compOpts of
-                  Left err -> liftIO $ GHCIO.throwIO err
-                  Right (BIOS.CompilerOptions xs) -> do
-                    let opts' = BIOS.CompilerOptions (if isStackCradle cradle then xs ++ [fp] else xs)
-
-                    targets <- BIOS.initSession opts'
-                    GHC.setTargets targets
-                    -- Get the module graph using the function `getModuleGraph`
-                    mod_graph <- GHC.depanal [] True
-                    void $ GHC.load' GHC.LoadAllTargets msg mod_graph
-            )
-            (\(err :: GHC.GhcException) -> traceShowM ("Failed to initialise cradle" :: String, err))
-      return ()
-
-    setCurrentCradle cradle
-    where
-      isStackCradle :: BIOS.Cradle -> Bool
-      isStackCradle c = BIOS.actionName (BIOS.cradleOptsProg c) == "stack"
 loadCradle _iniDynFlags (LoadCradle (CachedCradle crd env)) = do
-    traceShowM ("Reload Cradle" :: String, crd)
-    -- Cache the existing cradle
-    maybe (return ()) cacheCradle =<< (currentCradle <$> getModuleCache)
-    GHC.setSession env
-    setCurrentCradle crd
+  traceShowM ("Reload Cradle" :: String, crd)
+  -- Cache the existing cradle
+  maybe (return ()) cacheCradle =<< (currentCradle <$> getModuleCache)
+  GHC.setSession env
+  setCurrentCradle crd
+  return (IdeResultOk ())
+
+loadCradle iniDynFlags (NewCradle fp) = do
+  traceShowM ("New cradle" :: String, fp)
+  -- Cache the existing cradle
+  maybe (return ()) cacheCradle =<< (currentCradle <$> getModuleCache)
+
+  -- Now load the new cradle
+  cradle <- liftIO $ findLocalCradle fp
+  traceShowM cradle
+  liftIO (GHC.newHscEnv iniDynFlags) >>= GHC.setSession
+  liftIO $ setCurrentDirectory (BIOS.cradleRootDir cradle)
+  res <- gcatches
+    (do
+      withProgress "Initialising Cradle" NotCancellable (initializeCradle cradle)
+      return $ IdeResultOk ()
+    )
+    [ ErrorHandler $
+      \(err :: GHC.GhcException) -> do
+      logm $ "GhcException on cradle initialisation" ++ show err
+      return $ IdeResultFail $ IdeError
+          { ideCode    = OtherError
+          , ideMessage = Text.pack $ show err
+          , ideInfo    = Aeson.Null
+          }
+    , ErrorHandler $  \(err :: IOException) -> do
+      logm $ "IOException on cradle initialisation" ++ show err
+      return $ IdeResultFail $ IdeError
+          { ideCode    = OtherError
+          , ideMessage = Text.pack $ show err
+          , ideInfo    = Aeson.Null
+          }
+    , ErrorHandler $  \(err :: ErrorCall) -> do
+      logm $ "ErrorCall on cradle initialisation" ++ show err
+      return $ IdeResultFail $ IdeError
+          { ideCode    = OtherError
+          , ideMessage = Text.pack $ show err
+          , ideInfo    = Aeson.Null
+          }
+    ]
 
 
+  case res of
+    IdeResultOk () -> do
+      setCurrentCradle cradle
+      return (IdeResultOk ())
+    err -> return err
+ where
+  isStackCradle :: BIOS.Cradle -> Bool
+  isStackCradle c = BIOS.actionName (BIOS.cradleOptsProg c) == "stack"
+
+  -- initializeCradle ::
+  initializeCradle :: GHC.GhcMonad m => BIOS.Cradle -> (Progress -> IO ()) -> m ()
+  initializeCradle cradle f = do
+    let msg = Just (toMessager f)
+    -- Reimplements "initializeFlagsWithCradleWithMessage"
+    -- to add a fp to stack cradle actions
+    -- This is a fix for: https://github.com/mpickering/haskell-ide-engine/issues/10
+    compOpts <- liftIO $ BIOS.getCompilerOptions fp cradle
+    case compOpts of
+      Left  err                       -> liftIO $ GHCIO.throwIO err
+      Right (BIOS.CompilerOptions xs) -> do
+        let
+          opts' = BIOS.CompilerOptions
+            (if isStackCradle cradle then xs ++ [fp] else xs)
+
+        targets <- BIOS.initSession opts'
+        GHC.setTargets targets
+        -- Get the module graph using the function `getModuleGraph`
+        mod_graph <- GHC.depanal [] True
+        void $ GHC.load' GHC.LoadAllTargets msg mod_graph
 
 setCurrentCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => BIOS.Cradle -> m ()
 setCurrentCradle cradle = do
@@ -152,11 +197,11 @@ cacheCradle (ds, c) = do
 --getCradle :: (GM.GmEnv m, MonadIO m, HasGhcModuleCache m, GM.GmLog m
 --             , MonadBaseControl IO m, ExceptionMonad m, GM.GmOut m)
 getCradle :: (GHC.GhcMonad m, HasGhcModuleCache m)
-         => FilePath -> (LookupCradleResult -> m r) -> m r
-getCradle fp k = do
-      canon_fp <- liftIO $ canonicalizePath fp
-      mcache <- getModuleCache
-      k (lookupCradle canon_fp mcache)
+         => FilePath -> m LookupCradleResult
+getCradle fp = do
+  canon_fp <- liftIO $ canonicalizePath fp
+  mcache <- getModuleCache
+  return $ lookupCradle canon_fp mcache
 
 ifCachedInfo :: (HasGhcModuleCache m, MonadIO m) => FilePath -> a -> (CachedInfo -> m a) -> m a
 ifCachedInfo fp def callback = do

@@ -129,8 +129,11 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
             reactorFunc = react $ reactor rin diagIn
 
         let errorHandler :: Scheduler.ErrorHandler
-            errorHandler lid code e =
+            errorHandler (Just lid) code e =
               Core.sendErrorResponseS (Core.sendFunc lf) (J.responseId lid) code e
+            errorHandler Nothing _code e =
+              Core.sendErrorShowS (Core.sendFunc lf) e
+
             callbackHandler :: Scheduler.CallbackHandler R
             callbackHandler f x = react $ f x
 

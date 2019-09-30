@@ -49,7 +49,8 @@ import qualified Data.Text                             as T
 import qualified Data.Text.IO                          as T
 import           Data.Maybe
 import           FastString
-import           Haskell.Ide.Engine.MonadTypes
+import           Haskell.Ide.Engine.PluginsIdeMonads
+import           Haskell.Ide.Engine.GhcModuleCache
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.ArtifactMap
 import           Language.Haskell.LSP.VFS

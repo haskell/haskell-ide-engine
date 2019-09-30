@@ -105,10 +105,10 @@ where
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Free
-import Control.Monad.Trans.Control
-import Control.Monad.Base
+import           Control.Monad.Trans.Control
+import           Control.Monad.Base
 import           UnliftIO
-import Control.Applicative
+import           Control.Applicative
 
 import           Data.Aeson                    hiding (defaultOptions)
 import qualified Data.ConstrainedDynamic       as CD
