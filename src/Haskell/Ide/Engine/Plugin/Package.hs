@@ -338,11 +338,19 @@ codeActionProvider plId docId _ context = do
 -- | Extract a module name from an error message.
 extractModuleName :: T.Text -> Maybe Package
 extractModuleName msg
-  | T.isPrefixOf "Could not find module " msg = Just $ T.tail $ T.init nameAndQuotes
-  | T.isPrefixOf "Could not load module " msg = Just $ T.tail $ T.init nameAndQuotes
+  | T.isPrefixOf "Could not find module " msg = Just $ extractTerm line
+  | T.isPrefixOf "Could not load module " msg = Just $ extractTerm line
   | otherwise = Nothing
   where line = head $ T.lines msg
-        nameAndQuotes = T.dropWhileEnd (/= '’') $ T.dropWhile (/= '‘') line
+
+extractTerm :: T.Text -> T.Text
+extractTerm txt =
+  case extract '‘' '’' txt of
+    ""  -> extract '`' '\'' txt -- Needed for windows
+    term -> term
+  where extract b e = T.dropWhile (== b)
+                    . T.dropWhileEnd (== e)
+                    . T.dropAround (\c -> c /= b && c /= e)
 
 -- Example error messages
 {- GHC 8.6.2 error message is
