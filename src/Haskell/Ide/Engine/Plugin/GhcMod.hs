@@ -304,27 +304,18 @@ extractRenamableTerms msg
   | "ot in scope:" `T.isInfixOf` msg = extractSuggestions msg
   | otherwise = []
   where
-    extractSuggestions = map extractTerm
+    extractSuggestions = map Hie.extractTerm
                        . concatMap singleSuggestions
                        . filter isKnownSymbol
                        . T.lines
     singleSuggestions = T.splitOn "), " -- Each suggestion is comma delimited
     isKnownSymbol t = " (imported from" `T.isInfixOf` t  || " (line " `T.isInfixOf` t
 
-extractTerm :: T.Text -> T.Text
-extractTerm txt =
-  case extract '‘' '’' txt of
-    ""  -> extract '`' '\'' txt -- Needed for windows
-    term -> term
-  where extract b e = T.dropWhile (== b)
-                    . T.dropWhileEnd (== e)
-                    . T.dropAround (\c -> c /= b && c /= e)
-
 extractRedundantImport :: T.Text -> Maybe T.Text
 extractRedundantImport msg =
   if ("The import of " `T.isPrefixOf` firstLine || "The qualified import of " `T.isPrefixOf` firstLine)
       && " is redundant" `T.isSuffixOf` firstLine
-    then Just $ extractTerm firstLine
+    then Just $ Hie.extractTerm firstLine
     else Nothing
   where
     firstLine = case T.lines msg of
@@ -397,7 +388,7 @@ extractMissingSignature msg = extractSignature <$> stripMessageStart msg
     extractSignature = T.strip
 
 extractUnusedTerm :: T.Text -> Maybe T.Text
-extractUnusedTerm msg = extractTerm <$> stripMessageStart msg
+extractUnusedTerm msg = Hie.extractTerm <$> stripMessageStart msg
   where
     stripMessageStart = T.stripPrefix "Defined but not used:"
                       . T.strip
