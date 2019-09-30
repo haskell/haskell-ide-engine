@@ -39,12 +39,14 @@ import           System.Directory
 
 import Debug.Trace
 
-import qualified GHC           as GHC
-import qualified HscMain       as GHC
+import qualified GHC
+import qualified GHC.IO as GHCIO
+import qualified GhcMake as GHC
+import qualified HscMain as GHC
 import qualified Data.Trie.Convenience as T
 import qualified Data.Trie as T
 import qualified HIE.Bios as BIOS
-import qualified HIE.Bios.Ghc.Api as BIOS
+import qualified HIE.Bios.Types as BIOS
 import qualified Data.ByteString.Char8 as B
 
 import           Haskell.Ide.Engine.ArtifactMap
@@ -97,11 +99,30 @@ loadCradle iniDynFlags (NewCradle fp) = do
 
     withProgress "Initialising Cradle" NotCancellable $ \f -> do
       GHC.gcatch
-            (BIOS.initializeFlagsWithCradleWithMessage (Just $ toMessager f) fp cradle)
+            ( do
+                let msg = Just (toMessager f)
+                -- Reimplements "initializeFlagsWithCradleWithMessage"
+                -- to add a fp to stack cradle actions
+                -- This is a fix for: https://github.com/mpickering/haskell-ide-engine/issues/10
+                compOpts <- liftIO $ BIOS.getCompilerOptions fp cradle
+                case compOpts of
+                  Left err -> liftIO $ GHCIO.throwIO err
+                  Right (BIOS.CompilerOptions xs) -> do
+                    let opts' = BIOS.CompilerOptions (if isStackCradle cradle then xs ++ [fp] else xs)
+
+                    targets <- BIOS.initSession opts'
+                    GHC.setTargets targets
+                    -- Get the module graph using the function `getModuleGraph`
+                    mod_graph <- GHC.depanal [] True
+                    void $ GHC.load' GHC.LoadAllTargets msg mod_graph
+            )
             (\(err :: GHC.GhcException) -> traceShowM ("Failed to initialise cradle" :: String, err))
       return ()
 
     setCurrentCradle cradle
+    where
+      isStackCradle :: BIOS.Cradle -> Bool
+      isStackCradle c = BIOS.actionName (BIOS.cradleOptsProg c) == "stack"
 loadCradle _iniDynFlags (LoadCradle (CachedCradle crd env)) = do
     traceShowM ("Reload Cradle" :: String, crd)
     -- Cache the existing cradle

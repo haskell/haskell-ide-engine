@@ -96,7 +96,7 @@ library
                      , vector
                      , versions
                      , yaml >= 0.8.31
-                     , hie-bios
+                     , hie-bios == 0.2.1
                      , bytestring-trie
                      , unliftio
   if impl(ghc < 8.4)
