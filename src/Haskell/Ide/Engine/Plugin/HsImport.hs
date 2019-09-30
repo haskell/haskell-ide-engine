@@ -483,17 +483,19 @@ extractImportableTerm dirtyMsg = do
       $ T.unlines
       $ map T.strip
       $ T.lines
+      $ T.replace "* " "" -- Needed for Windows
       $ T.replace "• " "" dirtyMsg
 
+    extractTerm prefix symTy =
+      importMsg
+          >>= T.stripPrefix prefix
+          >>= \name -> Just (name, Import symTy)
+
+    extractType b =
+      extractTerm ("Not in scope: type constructor or class " <> b) Type
+
     extractedTerm = asum
-      [ importMsg
-          >>= T.stripPrefix "Variable not in scope: "
-          >>= \name -> Just (name, Import Symbol)
-      , importMsg
-          >>= T.stripPrefix "Not in scope: type constructor or class ‘"
-          >>= \name -> Just (T.init name, Import Type)
-      , importMsg
-          >>= T.stripPrefix "Data constructor not in scope: "
-          >>= \name -> Just (name, Import Constructor)]
-
-
+      [ extractTerm "Variable not in scope: " Symbol
+      , extractType "‘"
+      , extractType "`" -- Needed for windows
+      , extractTerm "Data constructor not in scope: " Constructor]
