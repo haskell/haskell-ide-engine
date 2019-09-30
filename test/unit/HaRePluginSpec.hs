@@ -52,7 +52,10 @@ runWithContext :: Uri -> IdeGhcM a -> IdeGhcM a
 runWithContext uri act = case uriToFilePath uri of
   Just fp -> do
     df <- getSessionDynFlags
-    runActionWithContext df (Just fp) act
+    res <- runActionWithContext df (Just fp) act
+    case res of
+      IdeResultOk a -> return a
+      IdeResultFail err -> error $ "Could not run in context: " ++ show err
   Nothing -> error $ "uri not valid: " ++ show uri
 
 hareSpec :: Spec

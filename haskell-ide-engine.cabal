@@ -316,8 +316,10 @@ test-suite wrapper-test
   build-depends:       base
                      , hspec
                      , directory
+                     , filepath
                      , process
                      , haskell-ide-engine
+                     , hie-plugin-api
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror
