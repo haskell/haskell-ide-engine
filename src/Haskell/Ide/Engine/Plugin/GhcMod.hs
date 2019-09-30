@@ -304,24 +304,27 @@ extractRenamableTerms msg
   | "ot in scope:" `T.isInfixOf` msg = extractSuggestions msg
   | otherwise = []
   where
-    extractSuggestions = map getEnclosed
+    extractSuggestions = map extractTerm
                        . concatMap singleSuggestions
                        . filter isKnownSymbol
                        . T.lines
     singleSuggestions = T.splitOn "), " -- Each suggestion is comma delimited
     isKnownSymbol t = " (imported from" `T.isInfixOf` t  || " (line " `T.isInfixOf` t
-    getEnclosed' b e = T.dropWhile (== b)
-                     . T.dropWhileEnd (== e)
-                     . T.dropAround (\c -> c /= b && c /= e)
-    getEnclosed txt = case getEnclosed' '‘' '’' txt of
-                        ""  -> getEnclosed' '`' '\'' txt -- Needed for windows
-                        enc -> enc
+
+extractTerm :: T.Text -> T.Text
+extractTerm txt =
+  case extract '‘' '’' txt of
+    ""  -> extract '`' '\'' txt -- Needed for windows
+    term -> term
+  where extract b e = T.dropWhile (== b)
+                    . T.dropWhileEnd (== e)
+                    . T.dropAround (\c -> c /= b && c /= e)
 
 extractRedundantImport :: T.Text -> Maybe T.Text
 extractRedundantImport msg =
   if ("The import of " `T.isPrefixOf` firstLine || "The qualified import of " `T.isPrefixOf` firstLine)
       && " is redundant" `T.isSuffixOf` firstLine
-    then Just $ T.init $ T.tail $ T.dropWhileEnd (/= '’') $ T.dropWhile (/= '‘') firstLine
+    then Just $ extractTerm firstLine
     else Nothing
   where
     firstLine = case T.lines msg of
@@ -398,9 +401,6 @@ extractUnusedTerm msg = extractTerm <$> stripMessageStart msg
   where
     stripMessageStart = T.stripPrefix "Defined but not used:"
                       . T.strip
-    extractTerm       = T.dropWhile (== '‘')
-                      . T.dropWhileEnd (== '’')
-                      . T.dropAround (\c -> c /= '‘' && c /= '’')
 
 -- ---------------------------------------------------------------------
 
