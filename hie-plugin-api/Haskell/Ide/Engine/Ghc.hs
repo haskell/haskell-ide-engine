@@ -141,6 +141,8 @@ captureDiagnostics rfm action = do
   errRef <- liftIO $ newIORef []
   let setLogger df = df { log_action = logDiag rfm errRef diagRef }
       unsetWErr df = unSetGeneralFlag' Opt_WarnIsError (emptyFatalWarningFlags df)
+      unsetMissingHomeModules = flip wopt_unset Opt_WarnMissingHomeModules
+      setRawTokenStream = setGeneralFlag' Opt_KeepRawTokenStream
 
       ghcErrRes msg = pure (mempty, [T.pack msg], Nothing)
       to_diag x = do
@@ -152,7 +154,7 @@ captureDiagnostics rfm action = do
       handlers = errorHandlers ghcErrRes to_diag
 
       action' = do
-        r <- BIOS.withDynFlags (setLogger . BIOS.setDeferTypeErrors . unsetWErr) $
+        r <- BIOS.withDynFlags (setRawTokenStream . unsetMissingHomeModules . setLogger . BIOS.setDeferTypeErrors . unsetWErr) $
                 action
         diags <- liftIO $ readIORef diagRef
         errs <- liftIO $ readIORef errRef

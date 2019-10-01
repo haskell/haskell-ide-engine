@@ -124,21 +124,21 @@ loadCradle iniDynFlags (NewCradle fp) = do
     )
     [ ErrorHandler $
       \(err :: GHC.GhcException) -> do
-      logm $ "GhcException on cradle initialisation" ++ show err
+      logm $ "GhcException on cradle initialisation: " ++ show err
       return $ IdeResultFail $ IdeError
           { ideCode    = OtherError
           , ideMessage = Text.pack $ show err
           , ideInfo    = Aeson.Null
           }
     , ErrorHandler $  \(err :: IOException) -> do
-      logm $ "IOException on cradle initialisation" ++ show err
+      logm $ "IOException on cradle initialisation: " ++ show err
       return $ IdeResultFail $ IdeError
           { ideCode    = OtherError
           , ideMessage = Text.pack $ show err
           , ideInfo    = Aeson.Null
           }
     , ErrorHandler $  \(err :: ErrorCall) -> do
-      logm $ "ErrorCall on cradle initialisation" ++ show err
+      logm $ "ErrorCall on cradle initialisation: " ++ show err
       return $ IdeResultFail $ IdeError
           { ideCode    = OtherError
           , ideMessage = Text.pack $ show err
