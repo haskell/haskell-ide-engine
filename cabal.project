@@ -16,5 +16,4 @@ allow-newer: floskell:all
 
 profiling: true
 
-
-
+write-ghc-environment-files: never
