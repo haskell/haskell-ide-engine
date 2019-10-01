@@ -29,5 +29,5 @@
 
 [submodule "hie-bios"]
 	path = hie-bios
-	url = https://github.com/mpickering/hie-bios/
+	url = https://github.com/mpickering/hie-bios.git
 	branch = multi-cradle
