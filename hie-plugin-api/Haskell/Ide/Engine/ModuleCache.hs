@@ -165,11 +165,14 @@ loadCradle iniDynFlags (NewCradle fp) = do
     -- This is a fix for: https://github.com/mpickering/haskell-ide-engine/issues/10
     compOpts <- liftIO $ BIOS.getCompilerOptions fp cradle
     case compOpts of
-      Left  err                       -> liftIO $ GHCIO.throwIO err
-      Right (BIOS.CompilerOptions xs) -> do
+      BIOS.CradleNone -> return ()
+      BIOS.CradleFail err -> liftIO $ GHCIO.throwIO err
+      BIOS.CradleSuccess opts -> do
         let
-          opts' = BIOS.CompilerOptions
-            (if isStackCradle cradle then xs ++ [fp] else xs)
+          opts' = opts
+                    { BIOS.componentOptions =
+                        BIOS.componentOptions opts ++ [fp | isStackCradle cradle]
+                    }
 
         targets <- BIOS.initSession opts'
         GHC.setTargets targets

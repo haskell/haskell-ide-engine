@@ -4,6 +4,7 @@ packages:
 - hie-plugin-api
 
 extra-deps:
+- ./hie-bios
 - ./submodules/HaRe
 - ./submodules/cabal-helper
 - ./submodules/ghc-mod
@@ -38,7 +39,7 @@ extra-deps:
 - unix-time-0.4.7
 - ghc-boot-8.2.2
 ## introduced by hie-bios
-- hie-bios-0.2.1
+#- hie-bios-0.2.1
 - extra-1.6.18
 - unix-compat-0.5.2
 - yaml-0.11.1.2

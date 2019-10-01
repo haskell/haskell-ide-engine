@@ -1,6 +1,7 @@
 packages:
          ./
          ./hie-plugin-api/
+	 ./hie-bios/
 
          ./submodules/HaRe
          ./submodules/cabal-helper/
