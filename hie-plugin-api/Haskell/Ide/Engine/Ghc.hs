@@ -1,10 +1,9 @@
 {-# LANGUAGE CPP                 #-}
-{-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE LambdaCase          #-}
 -- | This module provides the interface to GHC, mainly for loading
 -- modules while updating the module cache.
 
@@ -19,6 +18,7 @@ module Haskell.Ide.Engine.Ghc
 
 import           Bag
 import           Control.Monad.IO.Class
+import           Control.Monad                  ( when )
 import           Data.IORef
 import qualified Data.Map.Strict                   as Map
 import qualified Data.IntMap.Strict                   as IM
@@ -34,27 +34,27 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 
 import           DynFlags
-import qualified EnumSet as ES
 import           GHC
 import           IOEnv                             as G
-import           HscTypes
+import qualified HscTypes
 import           Outputable                        (renderWithStyle)
 import           Language.Haskell.LSP.Types        ( NormalizedUri(..), toNormalizedUri )
 
 import           Haskell.Ide.Engine.GhcUtils
+import           Haskell.Ide.Engine.GhcCompat as Compat
 --import qualified Haskell.Ide.Engine.Plugin.HieExtras as Hie
 
 import           Outputable hiding ((<>))
 -- This function should be defined in HIE probably, nothing in particular
 -- to do with BIOS
-import qualified HIE.Bios.GHCApi as BIOS (withDynFlags, CradleError,setDeferTypeErrors)
-import qualified HIE.Bios as BIOS
+import qualified HIE.Bios.Ghc.Api as BIOS (withDynFlags, setDeferTypeErrors)
+import qualified HIE.Bios.Ghc.Load as BIOS
+import qualified HIE.Bios.Flags as BIOS (CradleError)
 import Debug.Trace
 
 import System.Directory
 
 import GhcProject.Types as GM
-import Digraph (Node(..), verticesG)
 import GhcMake ( moduleGraphNodes )
 import GhcMonad
 
@@ -103,10 +103,10 @@ lspSev _ _           = DsInfo
 srcErrToDiag :: MonadIO m
   => DynFlags
   -> (FilePath -> FilePath)
-  -> SourceError -> m (Diagnostics, AdditionalErrs)
+  -> HscTypes.SourceError -> m (Diagnostics, AdditionalErrs)
 srcErrToDiag df rfm se = do
   debugm "in srcErrToDiag"
-  let errMsgs = bagToList $ srcErrorMessages se
+  let errMsgs = bagToList $ HscTypes.srcErrorMessages se
       processMsg err = do
         let sev = Just DsError
             unqual = errMsgContext err
@@ -140,11 +140,13 @@ captureDiagnostics rfm action = do
   diagRef <- liftIO $ newIORef $ Diagnostics mempty
   errRef <- liftIO $ newIORef []
   let setLogger df = df { log_action = logDiag rfm errRef diagRef }
-      unsetWErr df = unSetGeneralFlag' Opt_WarnIsError (df {fatalWarningFlags = ES.empty})
+      unsetWErr df = unSetGeneralFlag' Opt_WarnIsError (emptyFatalWarningFlags df)
+      unsetMissingHomeModules = flip wopt_unset Opt_WarnMissingHomeModules
+      setRawTokenStream = setGeneralFlag' Opt_KeepRawTokenStream
 
       ghcErrRes msg = pure (mempty, [T.pack msg], Nothing)
       to_diag x = do
-        (d1, e1) <- srcErrToDiag (hsc_dflags env) rfm x
+        (d1, e1) <- srcErrToDiag (HscTypes.hsc_dflags env) rfm x
         diags <- liftIO $ readIORef diagRef
         errs <- liftIO $ readIORef errRef
         return (d1 <> diags, e1 ++ errs, Nothing)
@@ -152,7 +154,7 @@ captureDiagnostics rfm action = do
       handlers = errorHandlers ghcErrRes to_diag
 
       action' = do
-        r <- BIOS.withDynFlags (setLogger . BIOS.setDeferTypeErrors . unsetWErr) $
+        r <- BIOS.withDynFlags (setRawTokenStream . unsetMissingHomeModules . setLogger . BIOS.setDeferTypeErrors . unsetWErr) $
                 action
         diags <- liftIO $ readIORef diagRef
         errs <- liftIO $ readIORef errRef
@@ -180,7 +182,7 @@ logDiag rfm eref dref df reason sev spn style msg = do
       return ()
 
 
-errorHandlers :: (String -> m a) -> (SourceError -> m a) -> [ErrorHandler m a]
+errorHandlers :: (String -> m a) -> (HscTypes.SourceError -> m a) -> [ErrorHandler m a]
 errorHandlers ghcErrRes renderSourceError = handlers
   where
       -- ghc throws GhcException, SourceError, GhcApiError and
@@ -188,9 +190,9 @@ errorHandlers ghcErrRes renderSourceError = handlers
       handlers =
         [ ErrorHandler $ \(ex :: IOEnvFailure) ->
             ghcErrRes (show ex)
-        , ErrorHandler $ \(ex :: GhcApiError) ->
+        , ErrorHandler $ \(ex :: HscTypes.GhcApiError) ->
             ghcErrRes (show ex)
-        , ErrorHandler $ \(ex :: SourceError) ->
+        , ErrorHandler $ \(ex :: HscTypes.SourceError) ->
             renderSourceError ex
         , ErrorHandler $ \(ex :: IOError) ->
             ghcErrRes (show ex)
@@ -220,14 +222,13 @@ setTypecheckedModule uri =
 copyHsBoot :: FilePath -> FilePath -> IO ()
 copyHsBoot fp mapped_fp = do
   ex <- doesFileExist (fp <> "-boot")
-  if ex
-    then copyFile (fp <> "-boot") (mapped_fp <> "-boot")
-    else return ()
+  when ex $ copyFile (fp <> "-boot") (mapped_fp <> "-boot")
+
 
 loadFile :: (FilePath -> FilePath) -> (FilePath, FilePath)
          -> IdeGhcM (Diagnostics, AdditionalErrs,
                      Maybe (Maybe TypecheckedModule, [TypecheckedModule]))
-loadFile rfm t = do
+loadFile rfm t =
     withProgress "loading" NotCancellable $ \f -> (captureDiagnostics rfm $ BIOS.loadFileWithMessage (Just $ toMessager f) t)
 
 -- | Actually load the module if it's not in the cache
@@ -236,56 +237,58 @@ setTypecheckedModule_load uri =
   pluginGetFile "setTypecheckedModule: " uri $ \fp -> do
     debugm "setTypecheckedModule: before ghc-mod"
     debugm "Loading file"
-    mapped_fp <- persistVirtualFile uri
-    liftIO $ copyHsBoot fp mapped_fp
-    rfm <- reverseFileMap
-    -- TODO:AZ: loading this one module may/should trigger loads of any
-    -- other modules which currently have a VFS entry.  Need to make
-    -- sure that their diagnostics are reported, and their module
-    -- cache entries are updated.
-    -- TODO: Are there any hooks we can use to report back on the progress?
-    (Diagnostics diags', errs, mmods) <- loadFile rfm (fp, mapped_fp)
-    debugm "File, loaded"
-    canonUri <- toNormalizedUri <$> canonicalizeUri uri
-    let diags = Map.insertWith Set.union canonUri Set.empty diags'
-    debugm "setTypecheckedModule: after ghc-mod"
-    debugm ("Diags: " <> show diags')
-    let collapse Nothing = (Nothing, [])
-        collapse (Just (n, xs)) = (n, xs)
+    getPersistedFile uri >>= \case
+      Nothing -> return $ IdeResultOk (Diagnostics mempty, [])
+      Just mapped_fp -> do
+        liftIO $ copyHsBoot fp mapped_fp
+        rfm <- reverseFileMap
+        -- TODO:AZ: loading this one module may/should trigger loads of any
+        -- other modules which currently have a VFS entry.  Need to make
+        -- sure that their diagnostics are reported, and their module
+        -- cache entries are updated.
+        -- TODO: Are there any hooks we can use to report back on the progress?
+        (Diagnostics diags', errs, mmods) <- loadFile rfm (fp, mapped_fp)
+        debugm "File, loaded"
+        canonUri <- toNormalizedUri <$> canonicalizeUri uri
+        let diags = Map.insertWith Set.union canonUri Set.empty diags'
+        debugm "setTypecheckedModule: after ghc-mod"
+        debugm ("Diags: " <> show diags')
+        let collapse Nothing = (Nothing, [])
+            collapse (Just (n, xs)) = (n, xs)
 
-    case collapse mmods of
-      --Just (Just pm, Nothing) -> do
-      --  debugm $ "setTypecheckedModule: Did get parsed module for: " ++ show fp
-       -- cacheModule fp (Left pm)
-       -- debugm "setTypecheckedModule: done"
-      --  return diags
+        case collapse mmods of
+          --Just (Just pm, Nothing) -> do
+          --  debugm $ "setTypecheckedModule: Did get parsed module for: " ++ show fp
+          -- cacheModule fp (Left pm)
+          -- debugm "setTypecheckedModule: done"
+          --  return diags
 
-      (Just _tm, ts) -> do
-        debugm $ "setTypecheckedModule: Did get typechecked module for: " ++ show fp
-        --sess <- fmap GM.gmgsSession . GM.gmGhcSession <$> GM.gmsGet
+          (Just _tm, ts) -> do
+            debugm $ "setTypecheckedModule: Did get typechecked module for: " ++ show fp
+            --sess <- fmap GM.gmgsSession . GM.gmGhcSession <$> GM.gmsGet
 
-        -- set the session before we cache the module, so that deferred
-        -- responses triggered by cacheModule can access it
+            -- set the session before we cache the module, so that deferred
+            -- responses triggered by cacheModule can access it
 
-        Session sess <- GhcT pure
-        modifyMTS (\s -> s {ghcSession = Just sess})
-        cacheModules rfm ts
-        --cacheModules rfm [tm]
-        debugm "setTypecheckedModule: done"
+            Session sess <- GhcT pure
+            modifyMTS (\s -> s {ghcSession = Just sess})
+            cacheModules rfm ts
+            --cacheModules rfm [tm]
+            debugm "setTypecheckedModule: done"
 
-      (Nothing, ts) -> do
-        debugm $ "setTypecheckedModule: Didn't get typechecked or parsed module for: " ++ show fp
-        --debugm $ "setTypecheckedModule: errs: " ++ show errs
-        cacheModules rfm ts
-        failModule fp
+          (Nothing, ts) -> do
+            debugm $ "setTypecheckedModule: Didn't get typechecked or parsed module for: " ++ show fp
+            --debugm $ "setTypecheckedModule: errs: " ++ show errs
+            cacheModules rfm ts
+            failModule fp
 
-    return $ IdeResultOk (Diagnostics diags,errs)
+        return $ IdeResultOk (Diagnostics diags,errs)
 
 -- TODO: make this work for all components
 cabalModuleGraphs :: IdeGhcM [GM.GmModuleGraph]
 cabalModuleGraphs = do
   mg <- getModuleGraph
-  let (graph, _) = moduleGraphNodes False (mgModSummaries mg)
+  let (graph, _) = moduleGraphNodes False (Compat.mgModSummaries mg)
       msToModulePath ms =
         case ml_hs_file (ms_location ms) of
           Nothing -> []

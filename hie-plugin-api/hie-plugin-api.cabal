@@ -1,5 +1,5 @@
 name:                hie-plugin-api
-version:             0.11.0.0
+version:             0.12.0.0
 synopsis:            Haskell IDE API for plugin communication
 license:             BSD3
 license-file:        LICENSE
@@ -20,6 +20,7 @@ library
   exposed-modules:
                        Haskell.Ide.Engine.ArtifactMap
                        Haskell.Ide.Engine.Compat
+                       Haskell.Ide.Engine.Cradle
                        Haskell.Ide.Engine.GhcCompat
                        Haskell.Ide.Engine.GhcUtils
                        Haskell.Ide.Engine.Config

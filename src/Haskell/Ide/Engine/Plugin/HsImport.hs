@@ -14,7 +14,7 @@ import           Data.Monoid                    ( (<>) )
 import qualified Data.Text                     as T
 import qualified Data.Text.IO                  as T
 import qualified GHC.Generics                  as Generics
-import           HsImport
+import qualified HsImport
 import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.MonadTypes
 import qualified Haskell.Ide.Engine.Support.HieExtras as Hie
@@ -127,8 +127,13 @@ importModule
 importModule uri impStyle modName =
   pluginGetFile "hsimport cmd: " uri $ \origInput -> do
     shouldFormat <- formatOnImportOn <$> getConfig
-    fileMap <- reverseFileMap
-    withMappedFile origInput $ \input -> do
+    fileMap      <- reverseFileMap
+    let resultFail = return $ IdeResultFail
+          (IdeError PluginError
+                    (T.pack $ "hsImport: no access to the persisted file.")
+                    Null
+          )
+    withMappedFile origInput resultFail $ \input -> do
       tmpDir            <- liftIO getTemporaryDirectory
       (output, outputH) <- liftIO $ openTempFile tmpDir "hsimportOutput"
       liftIO $ hClose outputH

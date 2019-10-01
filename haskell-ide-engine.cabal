@@ -21,6 +21,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Haskell.Ide.Engine.Channel
                        Haskell.Ide.Engine.LSP.CodeActions
+                       Haskell.Ide.Engine.LSP.Completions
                        Haskell.Ide.Engine.Plugin.Base
                        Haskell.Ide.Engine.LSP.Reactor
                        Haskell.Ide.Engine.Options
@@ -73,7 +74,6 @@ library
                      , haskell-lsp-types == 0.15.*
                      , haskell-src-exts
                      , hie-plugin-api
-                     , hlint (>= 2.0.11 && < 2.1.18) || >= 2.1.22
                      , hoogle >= 5.0.13
                      , hsimport
                      , hslogger
@@ -99,6 +99,11 @@ library
                      , hie-bios
                      , bytestring-trie
                      , unliftio
+  if impl(ghc < 8.4)
+    build-depends:     hlint >= 2.0.11 && < 2.1.18
+  else
+    build-depends:     hlint >= 2.2.2
+
   ghc-options:         -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror
@@ -110,6 +115,7 @@ executable hie
   other-modules:       Paths_haskell_ide_engine
   build-depends:       base
                      , directory
+                     , filepath
                      , hie-bios
                      , haskell-ide-engine
                      , haskell-lsp
@@ -129,6 +135,7 @@ executable hie-wrapper
   other-modules:       Paths_haskell_ide_engine
   build-depends:       base
                      , directory
+                     , filepath
                      , hie-bios
                      , haskell-ide-engine
                      , haskell-lsp
@@ -174,6 +181,7 @@ test-suite unit-test
   main-is:             Main.hs
   other-modules:       ApplyRefactPluginSpec
                        CodeActionsSpec
+                       ContextSpec
                        DiffSpec
                        ExtensibleStateSpec
                        GhcModPluginSpec
@@ -194,6 +202,7 @@ test-suite unit-test
                      , directory
                      , filepath
                      , free
+                     , ghc
                      , haskell-ide-engine
                      , haskell-lsp-types >= 0.15.0.0
                      , hie-test-utils
@@ -307,8 +316,10 @@ test-suite wrapper-test
   build-depends:       base
                      , hspec
                      , directory
+                     , filepath
                      , process
                      , haskell-ide-engine
+                     , hie-plugin-api
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror

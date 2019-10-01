@@ -37,9 +37,11 @@ import qualified Data.Set as S
 import qualified Data.SortedList as SL
 import qualified Data.Text as T
 import           Data.Text.Encoding
+import           Haskell.Ide.Engine.Cradle (findLocalCradle)
 import           Haskell.Ide.Engine.Config
 import qualified Haskell.Ide.Engine.Ghc   as HIE
 import           Haskell.Ide.Engine.LSP.CodeActions
+import qualified Haskell.Ide.Engine.LSP.Completions      as Completions
 import           Haskell.Ide.Engine.LSP.Reactor
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
@@ -61,11 +63,13 @@ import           Language.Haskell.LSP.Types.Capabilities as C
 import qualified Language.Haskell.LSP.Types.Lens         as J
 import qualified Language.Haskell.LSP.Utility            as U
 import qualified Language.Haskell.LSP.VFS                as VFS
+import           System.Directory (getCurrentDirectory)
+import           System.FilePath ((</>))
 import           System.Exit
 import qualified System.Log.Logger                       as L
 import qualified Data.Rope.UTF16                         as Rope
 
-import Outputable hiding ((<>))
+import qualified Outputable hiding ((<>))
 
 -- ---------------------------------------------------------------------
 {-# ANN module ("hlint: ignore Eta reduce" :: String) #-}
@@ -125,8 +129,11 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
             reactorFunc = react $ reactor rin diagIn
 
         let errorHandler :: Scheduler.ErrorHandler
-            errorHandler lid code e =
+            errorHandler (Just lid) code e =
               Core.sendErrorResponseS (Core.sendFunc lf) (J.responseId lid) code e
+            errorHandler Nothing _code e =
+              Core.sendErrorShowS (Core.sendFunc lf) e
+
             callbackHandler :: Scheduler.CallbackHandler R
             callbackHandler f x = react $ f x
 
@@ -217,16 +224,22 @@ mapFileFromVfs :: (MonadIO m, MonadReader REnv m)
 mapFileFromVfs tn vtdi = do
   let uri = vtdi ^. J.uri
       ver = fromMaybe 0 (vtdi ^. J.version)
+  lf <- asks lspFuncs
   vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
   mvf <- liftIO $ vfsFunc (J.toNormalizedUri uri)
   case (mvf, uriToFilePath uri) of
-    (Just (VFS.VirtualFile _ yitext _), Just fp) -> do
-      let text' = Rope.toString yitext
+    (Just (VFS.VirtualFile _ _ _), Just _fp) -> do
+      -- let text' = Rope.toString yitext
           -- text = "{-# LINE 1 \"" ++ fp ++ "\"#-}\n" <> text'
+      -- TODO: @fendor, better document that, why do we even have this?
+      -- We have it to cancel operations that would operate on stale file versions
+      -- Maybe NotDidCloseDocument should call it, too?
       let req = GReq tn (Just uri) Nothing Nothing (const $ return ())
-                  $ IdeResultOk <$> do
-                      persistVirtualFile uri
+                  $ return (IdeResultOk ())
+
       updateDocumentRequest uri ver req
+      _ <- liftIO $ getPersistedFile' lf uri
+      return ()
     (_, _) -> return ()
 
 -- TODO: generalise this and move it to GhcMod.ModuleLoader
@@ -409,8 +422,10 @@ reactor inp diagIn = do
           reactorSend $ NotLogMessage $
                   fmServerLogMessageNotification J.MtLog $ "Using hie version: " <> T.pack version
 
+          d <- liftIO getCurrentDirectory
+          cradle <- liftIO $ findLocalCradle (d </> "File.hs")
           -- Check for mismatching GHC versions
-          projGhcVersion <- liftIO getProjectGhcVersion
+          projGhcVersion <- liftIO $ getProjectGhcVersion cradle
           when (projGhcVersion /= hieGhcVersion) $ do
             let msg = T.pack $ "Mismatching GHC versions: Project is " ++ projGhcVersion ++ ", HIE is " ++ hieGhcVersion
                       ++ "\nYou may want to use hie-wrapper. Check the README for more information"
@@ -640,9 +655,9 @@ reactor inp diagIn = do
           case mprefix of
             Nothing -> callback []
             Just prefix -> do
-              snippets <- Hie.WithSnippets <$> configVal completionSnippetsOn
+              snippets <- Completions.WithSnippets <$> configVal completionSnippetsOn
               let hreq = IReq tn (req ^. J.id) callback
-                           $ lift $ Hie.getCompletions doc prefix snippets
+                           $ lift $ Completions.getCompletions doc prefix snippets
               makeRequest hreq
 
         ReqCompletionItemResolve req -> do
@@ -652,7 +667,7 @@ reactor inp diagIn = do
                 let rspMsg = Core.makeResponseMessage req $ res
                 reactorSend $ RspCompletionItemResolve rspMsg
               hreq = IReq tn (req ^. J.id) callback $ runIdeResultT $ do
-                lift $ lift $ Hie.resolveCompletion origCompl
+                lift $ lift $ Completions.resolveCompletion origCompl
           makeRequest hreq
 
         -- -------------------------------
@@ -936,7 +951,7 @@ requestDiagnosticsNormal tn file mVer = do
         let ds = Map.toList $ S.toList <$> pd
         case ds of
           [] -> sendEmpty
-          _ -> pprTrace "Diags" (text (show ds)) $ mapM_ (sendOneGhc "bios") ds
+          _ -> Outputable.pprTrace "Diags" (Outputable.text (show ds)) $ mapM_ (sendOneGhc "bios") ds
 
   makeRequest reqg
 

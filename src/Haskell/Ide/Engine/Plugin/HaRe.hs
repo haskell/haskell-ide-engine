@@ -214,7 +214,7 @@ makeRefactorResult changedFiles = do
       uri <- canonicalizeUri $ filePathToUri fp
       mvf <- getVirtualFile uri
       origText <- case mvf of
-        Nothing -> withMappedFile fp $ liftIO . T.readFile
+        Nothing -> withMappedFile fp undefined $ liftIO . T.readFile
         Just vf -> pure (Rope.toText $ _text vf)
       -- TODO: remove this logging once we are sure we have a working solution
       logm $ "makeRefactorResult:groupedDiff = " ++ show (getGroupedDiff (lines $ T.unpack origText) (lines $ T.unpack newText))
@@ -295,12 +295,14 @@ codeActionProvider pId docId (J.Range pos _) _ =
                 J.CodeActionRefactor "Duplicate definition of " name
             ]
         _   -> case getArtifactsAtPos pos (locMap info) of
-               [h] -> do
-                let name = Hie.showName $ snd h
-                IdeResultOk <$> sequence [
-                    mkAction "casesplit"
-                      J.CodeActionRefactorRewrite $ "Case split on " <> name
-                  ]
+              -- TODO: disabled casesplit command
+              -- TODO: @fendor: add github issue link
+              --  [h] -> do
+              --   let name = Hie.showName $ snd h
+              --   IdeResultOk <$> sequence [
+              --       mkAction "casesplit"
+              --         J.CodeActionRefactorRewrite $ "Case split on " <> name
+              --     ]
                _   -> return $ IdeResultOk []
   where
     mkAction aId kind title = do

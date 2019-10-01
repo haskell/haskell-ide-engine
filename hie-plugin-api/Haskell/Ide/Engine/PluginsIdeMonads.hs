@@ -11,9 +11,9 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE DerivingVia #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 
@@ -67,6 +67,9 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , withProgress
   , withIndefiniteProgress
   , persistVirtualFile
+  , persistVirtualFile'
+  , getPersistedFile
+  , getPersistedFile'
   , reverseFileMap
   , withMappedFile
   , Core.Progress(..)
@@ -102,10 +105,10 @@ where
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Free
-import Control.Monad.Trans.Control
-import Control.Monad.Base
+import           Control.Monad.Trans.Control
+import           Control.Monad.Base
 import           UnliftIO
-import Control.Applicative
+import           Control.Applicative
 
 import           Data.Aeson                    hiding (defaultOptions)
 import qualified Data.ConstrainedDynamic       as CD
@@ -122,9 +125,9 @@ import           Data.Typeable                  ( TypeRep
                                                 )
 import System.Directory
 import GhcMonad
-import qualified HIE.Bios as BIOS
+import qualified HIE.Bios.Ghc.Api as BIOS
 import           GHC.Generics
-import           GHC                            ( HscEnv, GhcT )
+import           GHC                            ( HscEnv )
 import Exception
 
 import           Haskell.Ide.Engine.Compat
@@ -419,12 +422,36 @@ getVirtualFile uri = do
     Just lf -> liftIO $ Core.getVirtualFileFunc lf (toNormalizedUri uri)
     Nothing -> return Nothing
 
+-- | Persist a virtual file as a temporary file in the filesystem.
+-- If the virtual file associated to the given uri does not exist, an error
+-- is thrown.
+--
+-- This is useful to not directly operate on the real sources.
+--
+-- Note: Due to this unsafe nature, it is very susceptible to races.
+-- E.g. when the document is closed, but a code action wants to operate
+-- on the closed file and tries to use this function to access the file contents,
+-- it will fail.
+-- Prefer 'getPersistedFile' and 'getPersistedFile'' which is more thread-safe.
 persistVirtualFile :: (MonadIde m, MonadIO m) => Uri -> m FilePath
 persistVirtualFile uri = do
   mlf <- ideEnvLspFuncs <$> getIdeEnv
   case mlf of
-    Just lf ->  liftIO $ Core.persistVirtualFileFunc lf (toNormalizedUri uri)
+    Just lf -> liftIO $ persistVirtualFile' lf uri
     Nothing -> maybe (error "persist") return (uriToFilePath uri)
+
+-- | Worker function for persistVirtualFile without monad constraints.
+--
+-- Persist a virtual file as a temporary file in the filesystem.
+-- If the virtual file associated to the given uri does not exist, an error
+-- is thrown.
+-- Note: Due to this unsafe nature, it is very susceptible to races.
+-- E.g. when the document is closed, but a code action wants to operate
+-- on the closed file and tries to use this function to access the file contents,
+-- it will fail.
+-- Prefer 'getPersistedFile' and 'getPersistedFile'' which is more thread-safe.
+persistVirtualFile' :: Core.LspFuncs Config -> Uri -> IO FilePath
+persistVirtualFile' lf uri = Core.persistVirtualFileFunc lf (toNormalizedUri uri)
 
 reverseFileMap :: (MonadIde m, MonadIO m) => m (FilePath -> FilePath)
 reverseFileMap = do
@@ -433,12 +460,46 @@ reverseFileMap = do
       Just lf -> liftIO $ Core.reverseFileMapFunc lf
       Nothing -> return id
 
-withMappedFile :: (MonadIde m, MonadIO m) => FilePath -> (FilePath -> m a) -> m a
-withMappedFile fp k = do
-  canon <- liftIO $ canonicalizePath fp
-  fp' <- persistVirtualFile (filePathToUri canon)
-  k fp'
+-- | Worker function for getPersistedFile without monad constraints.
+--
+-- Get the location of the virtual file persisted to the file system associated
+-- to the given Uri.
+-- If the virtual file does exist but is not persisted to the filesystem yet,
+-- it will be persisted. However, this is susceptible to the same race as 'persistVirtualFile',
+-- but less likely to throw an error and rather give Nothing.
+getPersistedFile' :: Core.LspFuncs Config -> Uri -> IO (Maybe FilePath)
+getPersistedFile' lf uri =
+  Core.getVirtualFileFunc lf (toNormalizedUri uri) >>= \case
+    Just (VirtualFile _ _ (Just file)) -> do
+      return (Just file)
+    Just (VirtualFile _ _ Nothing) -> do
+      file <- persistVirtualFile' lf uri
+      return (Just file)
+    Nothing -> return Nothing
 
+-- | Get the location of the virtual file persisted to the file system associated
+-- to the given Uri.
+-- If the virtual file does exist but is not persisted to the filesystem yet,
+-- it will be persisted. However, this is susceptible to the same race as 'persistVirtualFile',
+-- but less likely to throw an error and rather give Nothing.
+getPersistedFile :: (MonadIde m, MonadIO m) => Uri -> m (Maybe FilePath)
+getPersistedFile uri = do
+  mlf <- ideEnvLspFuncs <$> getIdeEnv
+  case mlf of
+    Just lf -> liftIO $ getPersistedFile' lf uri
+    Nothing -> return $ uriToFilePath uri
+
+-- | Execute an action on the temporary file associated to the given FilePath.
+-- If the file is not in the current Virtual File System, the given action is not executed
+-- and instead returns the default value.
+-- Susceptible to a race between removing the Virtual File from the Virtual File System
+-- and trying to persist the Virtual File to the File System.
+withMappedFile :: (MonadIde m, MonadIO m) => FilePath -> m a -> (FilePath -> m a) -> m a
+withMappedFile fp m k = do
+  canon <- liftIO $ canonicalizePath fp
+  getPersistedFile (filePathToUri canon) >>= \case
+    Just fp' -> k fp'
+    Nothing -> m
 
 getConfig :: (MonadIde m, MonadIO m) => m Config
 getConfig = do
@@ -623,9 +684,74 @@ instance ExceptionMonad m => ExceptionMonad (ReaderT e m) where
 instance MonadTrans GhcT where
   lift m = liftGhcT m
 
-deriving via (ReaderT Session IO) instance MonadUnliftIO Ghc
-deriving via (ReaderT Session IdeM) instance MonadUnliftIO (GhcT IdeM)
-deriving via (ReaderT Session IdeM) instance MonadBaseControl IO (GhcT IdeM)
-deriving via (ReaderT Session IdeM) instance MonadBase IO (GhcT IdeM)
-deriving via (ReaderT Session IdeM) instance MonadPlus (GhcT IdeM)
-deriving via (ReaderT Session IdeM) instance Alternative (GhcT IdeM)
+
+instance MonadUnliftIO Ghc where
+    {-# INLINE askUnliftIO #-}
+    askUnliftIO = Ghc $ \s ->
+                  withUnliftIO $ \u ->
+                  return (UnliftIO (unliftIO u . flip unGhc s))
+
+    {-# INLINE withRunInIO #-}
+    withRunInIO inner =
+      Ghc $ \s ->
+      withRunInIO $ \run ->
+      inner (run . flip unGhc s)
+
+instance MonadUnliftIO (GhcT IdeM) where
+    {-# INLINE askUnliftIO #-}
+    askUnliftIO = GhcT $ \s ->
+                  withUnliftIO $ \u ->
+                  return (UnliftIO (unliftIO u . flip unGhcT s))
+
+    {-# INLINE withRunInIO #-}
+    withRunInIO inner =
+      GhcT $ \s ->
+      withRunInIO $ \run ->
+      inner (run . flip unGhcT s)
+
+instance MonadTransControl GhcT where
+    type StT GhcT a = a
+
+    {-# INLINABLE liftWith #-}
+    liftWith f = GhcT $ \s -> f $ \t -> unGhcT t s
+
+    {-# INLINABLE restoreT #-}
+    restoreT = GhcT . const
+
+instance MonadBaseControl IO (GhcT IdeM) where
+    type StM (GhcT IdeM) a = ComposeSt GhcT IdeM a;
+
+    {-# INLINABLE liftBaseWith #-}
+    liftBaseWith = defaultLiftBaseWith
+
+    {-# INLINABLE restoreM #-}
+    restoreM = defaultRestoreM
+
+instance MonadBase IO (GhcT IdeM) where
+
+    {-# INLINABLE liftBase #-}
+    liftBase = liftBaseDefault
+
+
+instance MonadPlus (GhcT IdeM) where
+    {-# INLINE mzero #-}
+    mzero = lift mzero
+
+    {-# INLINE mplus #-}
+    m `mplus` n = GhcT $ \s -> unGhcT m s `mplus` unGhcT n s
+
+instance Alternative (GhcT IdeM) where
+    {-# INLINE empty #-}
+    empty = lift empty
+
+    {-# INLINE (<|>) #-}
+    m <|> n = GhcT $ \s ->  unGhcT m s <|> unGhcT n s
+
+-- ghc-8.6 required
+-- {-# LANGUAGE DerivingVia #-}
+-- deriving via (ReaderT Session IO) instance MonadUnliftIO Ghc
+-- deriving via (ReaderT Session IdeM) instance MonadUnliftIO (GhcT IdeM)
+-- deriving via (ReaderT Session IdeM) instance MonadBaseControl IO (GhcT IdeM)
+-- deriving via (ReaderT Session IdeM) instance MonadBase IO (GhcT IdeM)
+-- deriving via (ReaderT Session IdeM) instance MonadPlus (GhcT IdeM)
+-- deriving via (ReaderT Session IdeM) instance Alternative (GhcT IdeM)

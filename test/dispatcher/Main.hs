@@ -85,7 +85,7 @@ startServer = do
 
 -- ---------------------------------------------------------------------
 
-type LogVal = (String, Either (LspId, ErrorCode, T.Text) DynamicJSON)
+type LogVal = (String, Either (Maybe LspId, ErrorCode, T.Text) DynamicJSON)
 
 logToChan :: TChan LogVal -> LogVal -> IO ()
 logToChan c t = atomically $ writeTChan c t

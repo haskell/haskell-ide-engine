@@ -5,6 +5,7 @@ module Main where
 import           Control.Monad
 import           Data.Monoid                           ((<>))
 import           Data.Version                          (showVersion)
+import           Haskell.Ide.Engine.Cradle (findLocalCradle)
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Options
@@ -15,10 +16,11 @@ import qualified Language.Haskell.LSP.Core             as Core
 import           Options.Applicative.Simple
 import qualified Paths_haskell_ide_engine              as Meta
 import           System.Directory
+import           System.FilePath ((</>))
 import           System.Environment
 import qualified System.Log.Logger                     as L
-import HIE.Bios.Types
-import System.IO
+import           HIE.Bios.Types
+import           System.IO
 
 -- ---------------------------------------------------------------------
 -- plugins
@@ -112,7 +114,11 @@ run opts = do
 
   Core.setupLogger mLogFileName ["hie"] logLevel
 
-  projGhcVersion <- getProjectGhcVersion
+  d <- getCurrentDirectory
+  -- Get the cabal directory from the cradle
+  cradle <- findLocalCradle (d </> "File.hs")
+
+  projGhcVersion <- getProjectGhcVersion cradle
   when (projGhcVersion /= hieGhcVersion) $
     warningm $ "Mismatching GHC versions: Project is " ++ projGhcVersion
             ++ ", HIE is " ++ hieGhcVersion
@@ -123,7 +129,6 @@ run opts = do
 
   progName <- getProgName
   logm $  "Run entered for HIE(" ++ progName ++ ") " ++ version
-  d <- getCurrentDirectory
   logm $ "Current directory:" ++ d
 
   let initOpts = defaultCradleOpts { cradleOptsVerbosity = verbosity }

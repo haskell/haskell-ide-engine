@@ -41,9 +41,16 @@ globalOptsParser = GlobalOpts
       <> short 'r'
       <> metavar "PROJECTROOT"
       <> help "Root directory of project, defaults to cwd"))
-  <*> switch
-       ( long "bios-verbose"
-       <> help "enable verbose logging for hie-bios")
+  <*> (switch
+          ( long "bios-verbose"
+          <> help "enable verbose logging for hie-bios"
+          )
+       <|>
+       switch
+          ( long "vomit"
+          <> help "(deprecated) enable verbose logging for hie-bios"
+          )
+      )
   <*> optional (strOption
        ( long "capture"
       <> short 'c'

@@ -58,8 +58,8 @@ module Haskell.Ide.Engine.PluginApi
   , HIE.CachedInfo(..)
 
   -- * used for tests in HaRe
-  , BiosLogLevel(..)
-  , BiosOptions(..)
+  , BiosLogLevel
+  , BiosOptions
   , defaultOptions
   ) where
 
@@ -73,8 +73,10 @@ import qualified Haskell.Ide.Engine.PluginsIdeMonads as HIE
 import qualified Language.Haskell.LSP.Types          as LSP ( filePathToUri )
 import qualified HIE.Bios.Types as HIE
 
+defaultOptions :: HIE.CradleOpts
 defaultOptions = HIE.defaultCradleOpts
 type BiosLogLevel = HIE.BIOSVerbosity
 
 type BiosOptions = HIE.CradleOpts
+runIdeGhcMBare :: a
 runIdeGhcMBare = error "Not implemented"

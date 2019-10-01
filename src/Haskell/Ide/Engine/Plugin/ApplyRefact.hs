@@ -80,14 +80,20 @@ applyOneCmd = CmdSync $ \(AOP uri pos title) -> do
 
 applyOneCmd' :: Uri -> OneHint -> IdeGhcM (IdeResult WorkspaceEdit)
 applyOneCmd' uri oneHint = pluginGetFile "applyOne: " uri $ \fp -> do
-      revMapp <- reverseFileMap
-      res <- withMappedFile fp $ \file' -> liftToGhc $ applyHint file' (Just oneHint) revMapp
-      logm $ "applyOneCmd:file=" ++ show fp
-      logm $ "applyOneCmd:res=" ++ show res
-      case res of
-        Left err -> return $ IdeResultFail (IdeError PluginError
-                      (T.pack $ "applyOne: " ++ show err) Null)
-        Right fs -> return (IdeResultOk fs)
+  revMapp <- reverseFileMap
+  let resultFail = return $ IdeResultFail
+        (IdeError PluginError
+                  (T.pack "applyOne: no access to the persisted file.")
+                  Null
+        )
+  withMappedFile fp resultFail $ \file' -> do
+    res <- liftToGhc $ applyHint file' (Just oneHint) revMapp
+    logm $ "applyOneCmd:file=" ++ show fp
+    logm $ "applyOneCmd:res=" ++ show res
+    case res of
+      Left err -> return $ IdeResultFail
+        (IdeError PluginError (T.pack $ "applyOne: " ++ show err) Null)
+      Right fs -> return (IdeResultOk fs)
 
 
 -- ---------------------------------------------------------------------
@@ -98,13 +104,19 @@ applyAllCmd = CmdSync $ \uri -> do
 
 applyAllCmd' :: Uri -> IdeGhcM (IdeResult WorkspaceEdit)
 applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \fp -> do
-      revMapp <- reverseFileMap
-      res <- withMappedFile fp $ \file' -> liftToGhc $ applyHint file' Nothing revMapp
-      logm $ "applyAllCmd:res=" ++ show res
-      case res of
-        Left err -> return $ IdeResultFail (IdeError PluginError
-                      (T.pack $ "applyAll: " ++ show err) Null)
-        Right fs -> return (IdeResultOk fs)
+  let resultFail = return $ IdeResultFail
+        (IdeError PluginError
+                  (T.pack "applyAll: no access to the persisted file.")
+                  Null
+        )
+  revMapp <- reverseFileMap
+  withMappedFile fp resultFail $ \file' -> do
+    res <- liftToGhc $ applyHint file' Nothing revMapp
+    logm $ "applyAllCmd:res=" ++ show res
+    case res of
+      Left err -> return $ IdeResultFail (IdeError PluginError
+                    (T.pack $ "applyAll: " ++ show err) Null)
+      Right fs -> return (IdeResultOk fs)
 
 -- ---------------------------------------------------------------------
 
@@ -115,24 +127,30 @@ lintCmd = CmdSync $ \uri -> do
 -- AZ:TODO: Why is this in IdeGhcM?
 lintCmd' :: Uri -> IdeGhcM (IdeResult PublishDiagnosticsParams)
 lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
-  eitherErrorResult <- withMappedFile fp $ \file' ->
-    liftIO (try $ runExceptT $ runLintCmd file' [] :: IO (Either IOException (Either [Diagnostic] [Idea])))
-  case eitherErrorResult of
-    Left err ->
-      return
-        $ IdeResultFail (IdeError PluginError
-        (T.pack $ "lintCmd: " ++ show err) Null)
-    Right res -> case res of
-      Left diags ->
-        return
-          (IdeResultOk
-            (PublishDiagnosticsParams (filePathToUri fp) $ List diags)
-          )
-      Right fs ->
-        return
-          $ IdeResultOk
-          $ PublishDiagnosticsParams (filePathToUri fp)
-          $ List (map hintToDiagnostic $ stripIgnores fs)
+  let resultFail = return $ IdeResultFail
+        (IdeError PluginError
+                  (T.pack "lintCmd: no access to the persisted file.")
+                  Null
+        )
+  withMappedFile fp resultFail $ \file' -> do
+    eitherErrorResult <- liftIO
+      (try $ runExceptT $ runLintCmd file' [] :: IO
+          (Either IOException (Either [Diagnostic] [Idea]))
+      )
+    case eitherErrorResult of
+      Left err -> return $ IdeResultFail
+        (IdeError PluginError (T.pack $ "lintCmd: " ++ show err) Null)
+      Right res -> case res of
+        Left diags ->
+          return
+            (IdeResultOk
+              (PublishDiagnosticsParams (filePathToUri fp) $ List diags)
+            )
+        Right fs ->
+          return
+            $ IdeResultOk
+            $ PublishDiagnosticsParams (filePathToUri fp)
+            $ List (map hintToDiagnostic $ stripIgnores fs)
 
 runLintCmd :: FilePath -> [String] -> ExceptT [Diagnostic] IO [Idea]
 runLintCmd fp args = do

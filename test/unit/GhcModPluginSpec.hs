@@ -3,11 +3,7 @@
 module GhcModPluginSpec where
 
 import           Control.Exception
-import qualified Data.HashMap.Strict                 as H
 import qualified Data.Map                            as Map
-#if __GLASGOW_HASKELL__ < 804
-import           Data.Monoid
-#endif
 import qualified Data.Set                            as S
 import qualified Data.Text                           as T
 import           Haskell.Ide.Engine.Ghc
@@ -15,8 +11,7 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Plugin.Generic
 import           Haskell.Ide.Engine.Plugin.Bios
 import           Haskell.Ide.Engine.PluginUtils
-import           Haskell.Ide.Engine.Support.HieExtras
-import           Language.Haskell.LSP.Types          (TextEdit (..), toNormalizedUri)
+import           Language.Haskell.LSP.Types          (toNormalizedUri)
 import           System.Directory
 import           TestUtils
 
@@ -487,9 +482,9 @@ ghcmodSpec =
               , (Range (toPos (33, 15)) (toPos (33, 19)), "Int -> Test -> ShowS")
               , (Range (toPos (33, 15)) (toPos (33, 19)), "Test -> String")
               , (Range (toPos (33, 15)) (toPos (33, 19)), "[Test] -> ShowS")
-              , (Range (toPos (33, 15)) (toPos (33, 19)), "Int -> Test -> ShowS")
 #if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)))
 #else
+              , (Range (toPos (33, 15)) (toPos (33, 19)), "Int -> Test -> ShowS")
               , (Range (toPos (33, 15)) (toPos (33, 19)), "[Test] -> ShowS")
 #endif
               ]
@@ -506,9 +501,9 @@ ghcmodSpec =
               [ (Range (toPos (33, 21)) (toPos (33, 23)), "(Test -> Test -> Bool) -> (Test -> Test -> Bool) -> Eq Test")
               , (Range (toPos (33, 21)) (toPos (33, 23)), "Test -> Test -> Bool")
               , (Range (toPos (33, 21)) (toPos (33, 23)), "Test -> Test -> Bool")
-              , (Range (toPos (33, 21)) (toPos (33, 23)), "Test -> Test -> Bool")
 #if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)))
 #else
+              , (Range (toPos (33, 21)) (toPos (33, 23)), "Test -> Test -> Bool")
               , (Range (toPos (33, 21)) (toPos (33, 23)), "Test -> Test -> Bool")
 #endif
               ]

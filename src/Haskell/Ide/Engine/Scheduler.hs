@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses     #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE RankNTypes                #-}
@@ -119,7 +120,7 @@ newScheduler plugins cradleOpts = do
     }
 
 -- | A handler for any errors that the dispatcher may encounter.
-type ErrorHandler = J.LspId -> J.ErrorCode -> T.Text -> IO ()
+type ErrorHandler = Maybe J.LspId -> J.ErrorCode -> T.Text -> IO ()
 
 -- | A handler to run the requests' callback in your monad of choosing.
 type CallbackHandler m = forall a. RequestCallback m a -> a -> IO ()
@@ -274,7 +275,7 @@ ideDispatcher env errorHandler callbackHandler pin =
         case result of
           IdeResultOk x -> callbackHandler callback x
           IdeResultFail (IdeError _ msg _) ->
-            errorHandler lid J.InternalError msg
+            errorHandler (Just lid) J.InternalError msg
  where
   queueDeferred (Defer fp cacheCb) = lift $ modifyMTState $ \s ->
     let oldQueue = requestQueue s
@@ -301,16 +302,16 @@ ghcDispatcher env@DispatcherEnv { docVersionTVar } errorHandler callbackHandler 
   iniDynFlags <- getSessionDynFlags
   forever $ do
     debugm "ghcDispatcher: top of loop"
-    (GhcRequest tn context mver mid callback action) <- liftIO
+    GhcRequest tn context mver mid callback action <- liftIO
       $ Channel.readChan pin
     debugm $ "ghcDispatcher:got request " ++ show tn ++ " with id: " ++ show mid
 
     let
-      runner = case context of
-        Nothing  -> runActionWithContext iniDynFlags Nothing
+      runner act = case context of
+        Nothing  -> runActionWithContext iniDynFlags Nothing act
         Just uri -> case uriToFilePath uri of
-          Just fp -> runActionWithContext iniDynFlags (Just fp)
-          Nothing -> \act -> do
+          Just fp -> runActionWithContext iniDynFlags (Just fp) act
+          Nothing -> do
             debugm
               "ghcDispatcher:Got malformed uri, running action with default context"
             runActionWithContext iniDynFlags Nothing act
@@ -318,12 +319,11 @@ ghcDispatcher env@DispatcherEnv { docVersionTVar } errorHandler callbackHandler 
     let
       runWithCallback = do
         result <- runner action
-        liftIO $ case result of
+        liftIO $ case join result of
           IdeResultOk   x                      -> callbackHandler callback x
-          IdeResultFail err@(IdeError _ msg _) -> case mid of
-            Just lid -> errorHandler lid J.InternalError msg
-            Nothing ->
-              debugm $ "ghcDispatcher:Got error for a request: " ++ show err
+          IdeResultFail err@(IdeError _ msg _) -> do
+            logm $ "ghcDispatcher:Got error for a request: " ++ show err ++ " with mid: " ++ show mid
+            errorHandler mid J.InternalError msg
 
     let
       runIfVersionMatch = case mver of
@@ -358,7 +358,7 @@ unlessCancelled env lid errorHandler callback = do
       -- remove from cancelled and wip list
       STM.atomically $ STM.modifyTVar' (cancelReqsTVar env) (Set.delete lid)
       completedReq env lid
-      errorHandler lid J.RequestCancelled ""
+      errorHandler (Just lid) J.RequestCancelled ""
     else callback
   where isCancelled = Set.member lid <$> STM.readTVar (cancelReqsTVar env)
 

@@ -9,16 +9,19 @@ module Haskell.Ide.Engine.TypeMap where
 import qualified Data.IntervalMap.FingerTree   as IM
 
 import qualified GHC
-import           GHC                            ( TypecheckedModule )
+import           GHC                            ( TypecheckedModule, GhcMonad )
+import           Bag
+import           BasicTypes
 
 import           Data.Data                     as Data
 import           Control.Monad.IO.Class
+import           Control.Applicative
 import           Data.Maybe
 import qualified TcHsSyn
 import qualified CoreUtils
 import qualified Type
 import qualified Desugar
-import           Haskell.Ide.Engine.Compat
+import qualified Haskell.Ide.Engine.Compat as Compat
 
 import           Haskell.Ide.Engine.ArtifactMap
 
@@ -27,44 +30,57 @@ import           Haskell.Ide.Engine.ArtifactMap
 genTypeMap :: GHC.GhcMonad m => TypecheckedModule -> m TypeMap
 genTypeMap tm = do
   let typecheckedSource = GHC.tm_typechecked_source tm
-  hs_env <- GHC.getSession
-  liftIO $ types hs_env typecheckedSource
+  everythingInTypecheckedSourceM typecheckedSource
 
 
 everythingInTypecheckedSourceM
-  :: Data x => (forall a . Data a => a -> IO TypeMap) -> x -> IO TypeMap
-everythingInTypecheckedSourceM = everythingButTypeM @GHC.Id
+  :: GhcMonad m => GHC.TypecheckedSource -> m TypeMap
+everythingInTypecheckedSourceM xs = bs
+  where
+    bs = foldBag (liftA2 IM.union) processBind (return IM.empty) xs
 
+processBind :: GhcMonad m => GHC.LHsBindLR Compat.GhcTc Compat.GhcTc -> m TypeMap
+processBind x@(GHC.L (GHC.RealSrcSpan spn) b) =
+  case b of
+    Compat.FunBindGen t fmatches ->
+      case GHC.mg_origin fmatches of
+        Generated -> return IM.empty
+        FromSource -> do
+          im <- types fmatches
+          return $ IM.singleton (rspToInt spn) t `IM.union` im
+    Compat.AbsBinds bs -> everythingInTypecheckedSourceM bs
+    _ -> types x
+processBind _ = return IM.empty
 
 -- | Obtain details map for types.
-types :: GHC.HscEnv -> GHC.TypecheckedSource -> IO TypeMap
-types hs_env = everythingInTypecheckedSourceM (ty `combineM` fun `combineM` funBind)
+types :: forall m a . (GhcMonad m, Data a) => a -> m TypeMap
+types = everythingButTypeM @GHC.Id (ty `combineM` fun `combineM` funBind)
  where
-  ty :: forall a . Data a => a -> IO TypeMap
+  ty :: forall a' . (GhcMonad m, Data a') => a' -> m TypeMap
   ty term = case cast term of
     (Just lhsExprGhc@(GHC.L (GHC.RealSrcSpan spn) _)) ->
-      getType hs_env lhsExprGhc >>= \case
+      getType lhsExprGhc >>= \case
         Nothing       -> return IM.empty
         Just (_, typ) -> return (IM.singleton (rspToInt spn) typ)
     _ -> return IM.empty
 
-  fun :: forall a . Data a => a -> IO TypeMap
+  fun :: forall a' . (GhcMonad m, Data a') => a' -> m TypeMap
   fun term = case cast term of
     (Just (GHC.L (GHC.RealSrcSpan spn) hsPatType)) ->
       return (IM.singleton (rspToInt spn) (TcHsSyn.hsPatType hsPatType))
     _ -> return IM.empty
 
-  funBind :: forall a . Data a => a -> IO TypeMap
+  funBind :: forall a' . (GhcMonad m, Data a') => a' -> m TypeMap
   funBind term = case cast term of
-    (Just (GHC.L (GHC.RealSrcSpan spn) (FunBindType t))) ->
+    (Just (GHC.L (GHC.RealSrcSpan spn) (Compat.FunBindType t))) ->
       return (IM.singleton (rspToInt spn) t)
     _ -> return IM.empty
 
 -- | Combine two queries into one using alternative combinator.
 combineM
-  :: (forall a . Data a => a -> IO TypeMap)
-  -> (forall a . Data a => a -> IO TypeMap)
-  -> (forall a . Data a => a -> IO TypeMap)
+  :: (forall a . (Monad m, Data a) => a -> m TypeMap)
+  -> (forall a . (Monad m, Data a) => a -> m TypeMap)
+  -> (forall a . (Monad m, Data a) => a -> m TypeMap)
 combineM f g x = do
   a <- f x
   b <- g x
@@ -73,10 +89,10 @@ combineM f g x = do
 -- | Variation of "everything" that does not recurse into children of type t
 -- requires AllowAmbiguousTypes
 everythingButTypeM
-  :: forall t
+  :: forall t m
    . (Typeable t)
-  => (forall a . Data a => a -> IO TypeMap)
-  -> (forall a . Data a => a -> IO TypeMap)
+  => (forall a . (Monad m, Data a) => a -> m TypeMap)
+  -> (forall a . (Monad m, Data a) => a -> m TypeMap)
 everythingButTypeM f = everythingButM $ (,) <$> f <*> isType @t
 
 -- | Returns true if a == t.
@@ -87,8 +103,8 @@ isType _ = isJust $ eqT @a @b
 -- | Variation of "everything" with an added stop condition
 -- Just like 'everything', this is stolen from SYB package.
 everythingButM
-  :: (forall a . Data a => a -> (IO TypeMap, Bool))
-  -> (forall a . Data a => a -> IO TypeMap)
+  :: forall m . (forall a . (Monad m, Data a) => a -> (m TypeMap, Bool))
+  -> (forall a . (Monad m, Data a) => a -> m TypeMap)
 everythingButM f x = do
   let (v, stop) = f x
   if stop
@@ -111,19 +127,19 @@ everythingButM f x = do
 --
 -- See #16233<https://gitlab.haskell.org/ghc/ghc/issues/16233>
 getType
-  :: GHC.HscEnv -> GHC.LHsExpr GhcTc -> IO (Maybe (GHC.SrcSpan, Type.Type))
-getType hs_env e@(GHC.L spn e') =
+  :: GhcMonad m => GHC.LHsExpr Compat.GhcTc -> m (Maybe (GHC.SrcSpan, Type.Type))
+getType e@(GHC.L spn e') =
   -- Some expression forms have their type immediately available
   let
     tyOpt = case e' of
-      HsOverLitType t -> Just t
-      HsLitType t -> Just t
-      HsLamType t -> Just t
-      HsLamCaseType t -> Just t
-      HsCaseType t -> Just t
-      ExplicitListType t -> Just t
-      ExplicitSumType t -> Just t
-      HsMultiIfType t -> Just t
+      Compat.HsOverLitType t -> Just t
+      Compat.HsLitType t -> Just t
+      Compat.HsLamType t -> Just t
+      Compat.HsLamCaseType t -> Just t
+      Compat.HsCaseType t -> Just t
+      Compat.ExplicitListType t -> Just t
+      Compat.ExplicitSumType t -> Just t
+      Compat.HsMultiIfType t -> Just t
 
       _                        -> Nothing
   in  case tyOpt of
@@ -131,7 +147,8 @@ getType hs_env e@(GHC.L spn e') =
         Nothing
           | skipDesugaring e' -> pure Nothing
           | otherwise -> do
-            (_, mbe) <- Desugar.deSugarExpr hs_env e
+            hsc_env <- GHC.getSession
+            (_, mbe) <- liftIO $ Desugar.deSugarExpr hsc_env e
             let res = (spn, ) . CoreUtils.exprType <$> mbe
             pure res
  where
