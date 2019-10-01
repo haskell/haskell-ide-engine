@@ -295,12 +295,14 @@ codeActionProvider pId docId (J.Range pos _) _ =
                 J.CodeActionRefactor "Duplicate definition of " name
             ]
         _   -> case getArtifactsAtPos pos (locMap info) of
-               [h] -> do
-                let name = Hie.showName $ snd h
-                IdeResultOk <$> sequence [
-                    mkAction "casesplit"
-                      J.CodeActionRefactorRewrite $ "Case split on " <> name
-                  ]
+              -- TODO: disabled casesplit command
+              -- TODO: @fendor: add github issue link
+              --  [h] -> do
+              --   let name = Hie.showName $ snd h
+              --   IdeResultOk <$> sequence [
+              --       mkAction "casesplit"
+              --         J.CodeActionRefactorRewrite $ "Case split on " <> name
+              --     ]
                _   -> return $ IdeResultOk []
   where
     mkAction aId kind title = do
