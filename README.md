@@ -34,8 +34,7 @@ we talk to clients.__
         - [Install specific GHC Version](#install-specific-ghc-version)
         - [Multiple versions of HIE (optional)](#multiple-versions-of-hie-optional)
   - [Configuration](#configuration)
-  - [hie-bios](#hie-bios)
-    - [Explicit Configuration](#explicit-configuration)
+  - [Explicit Configuration](#explicit-configuration)
   - [Editor Integration](#editor-integration)
     - [Using HIE with VS Code](#using-hie-with-vs-code)
       - [Using VS Code with Nix](#using-vs-code-with-nix)
@@ -305,37 +304,7 @@ There are some settings that can be configured via a `settings.json` file:
 - VS Code: These settings will show up in the settings window
 - LanguageClient-neovim: Create this file in `$projectdir/.vim/settings.json` or set `g:LanguageClient_settingsPath`
 
-## [hie-bios](https://github.com/mpickering/hie-bios)
-
-`hie-bios` is the way which
-[`hie`](https://github.com/haskell/haskell-ide-engine) sets up a GHC API session.
-
-Given a Haskell project that is managed by Stack, Cabal, or other package tools,
-`hie` needs to know the full set of flags to pass to GHC in order to build the
-project. `hie-bios` satisfies this need.
-
-Its design is motivated by the guiding principle:
-
-> It is the responsibility of the build tool to describe the environment
-> which a package should be built in.
-
-Using this principle, it is possible
-to easily support a wide range of tools including `cabal-install`, `stack`,
-`rules_haskell`, `hadrian` and `obelisk` without major contortions.
-`hie-bios` does not depend on the `Cabal` library nor does not
-read any complicated build products and so on.
-
-How does a tool specify a session? A session is fully specified by a set of
-standard GHC flags. Most tools already produce this information if they support
-a `repl` command. Launching a repl is achieved by calling `ghci` with the
-right flags to specify the package database. `hie-bios` needs a way to get
-these flags and then it can set up GHC API session correctly.
-
-Futher it means that any failure to set up the API session is the responsibility
-of the build tool. It is up to them to provide the correct information if they
-want `hie` to work correctly.
-
-### Explicit Configuration
+## Explicit Configuration
 
 **For a full explanation of possible configuration, we refer to [hie-bios/README](https://github.com/mpickering/hie-bios/blob/master/README.md).**
 
@@ -385,6 +354,48 @@ cradle:
 
 dependencies:
   - someDep
+```
+
+There is also support for multiple cradles in a single `hie.yaml`. An example configuration for Haskell IDE Engine:
+
+```yaml
+cradle:
+  multi:
+    - path: ./test/dispatcher/
+      config:
+        cradle:
+          cabal:
+            component: "test:dispatcher-test"
+    - path: ./test/functional/
+      config:
+        cradle:
+          cabal:
+            component: "test:func-test"
+    - path: ./test/unit/
+      config:
+        cradle:
+          cabal:
+            component: "test:unit-test"
+    - path: ./hie-plugin-api/
+      config:
+        cradle:
+          cabal:
+            component: "lib:hie-plugin-api"
+    - path: ./app/MainHie.hs
+      config:
+        cradle:
+          cabal:
+            component: "exe:hie"
+    - path: ./app/HieWrapper.hs
+      config:
+        cradle:
+          cabal:
+            component: "exe:hie-wrapper"
+    - path: ./
+      config:
+        cradle:
+          cabal:
+            component: "lib:haskell-ide-engine"
 ```
 
 ## Editor Integration
