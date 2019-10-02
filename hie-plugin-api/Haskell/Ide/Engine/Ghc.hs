@@ -263,7 +263,7 @@ setTypecheckedModule_load uri =
           -- debugm "setTypecheckedModule: done"
           --  return diags
 
-          (Just _tm, ts) -> do
+          (Just _tm, _ts) -> do
             debugm $ "setTypecheckedModule: Did get typechecked module for: " ++ show fp
             --sess <- fmap GM.gmgsSession . GM.gmGhcSession <$> GM.gmsGet
 
@@ -279,7 +279,7 @@ setTypecheckedModule_load uri =
           (Nothing, ts) -> do
             debugm $ "setTypecheckedModule: Didn't get typechecked or parsed module for: " ++ show fp
             --debugm $ "setTypecheckedModule: errs: " ++ show errs
-            cacheModules rfm ts
+            --cacheModules rfm ts
             failModule fp
 
         return $ IdeResultOk (Diagnostics diags,errs)
