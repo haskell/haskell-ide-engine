@@ -67,14 +67,9 @@ spec = describe "window/progress" $ do
 
       skipMany loggingNotification
 
-      -- Initial hlint notifications
-      _ <- publishDiagnosticsNotification
-
+      -- Initial project setup progress notifications
       _ <- message :: Session ProgressStartNotification
       _ <- message :: Session ProgressDoneNotification
-
-      -- the ghc-mod diagnostics
-      _ <- publishDiagnosticsNotification
 
       -- Enable liquid haskell plugin
       let config = def { liquidOn  = True, hlintOn = False }
@@ -84,7 +79,9 @@ spec = describe "window/progress" $ do
       sendNotification TextDocumentDidSave (DidSaveTextDocumentParams doc)
 
       -- hlint notifications
-      _ <- publishDiagnosticsNotification
+      -- TODO: potential race between typechecking, e.g. context intialisation
+      -- TODO: and disabling hlint notifications
+      -- _ <- publishDiagnosticsNotification
 
       let startPred (NotProgressStart m) =
             m ^. L.params . L.title == "Running Liquid Haskell on Evens.hs"
