@@ -229,7 +229,7 @@ loadFile :: (FilePath -> FilePath) -> (FilePath, FilePath)
          -> IdeGhcM (Diagnostics, AdditionalErrs,
                      Maybe (Maybe TypecheckedModule, [TypecheckedModule]))
 loadFile rfm t =
-    withProgress "loading" NotCancellable $ \f -> (captureDiagnostics rfm $ BIOS.loadFileWithMessage (Just $ toMessager f) t)
+    captureDiagnostics rfm (withProgress "loading" NotCancellable $ \f -> BIOS.loadFileWithMessage (Just $ toMessager f) t)
 
 -- | Actually load the module if it's not in the cache
 setTypecheckedModule_load :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
@@ -272,8 +272,8 @@ setTypecheckedModule_load uri =
 
             Session sess <- GhcT pure
             modifyMTS (\s -> s {ghcSession = Just sess})
-            cacheModules rfm ts
-            --cacheModules rfm [tm]
+--            cacheModules rfm ts
+            cacheModules rfm [_tm]
             debugm "setTypecheckedModule: done"
 
           (Nothing, ts) -> do
