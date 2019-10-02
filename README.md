@@ -30,16 +30,19 @@ we talk to clients.__
       - [Windows-specific pre-requirements (optional)](#windows-specific-pre-requirements-optional)
       - [Download the source code](#download-the-source-code)
       - [Building](#building)
+        - [Install via cabal](#install-via-cabal)
         - [Install specific GHC Version](#install-specific-ghc-version)
         - [Multiple versions of HIE (optional)](#multiple-versions-of-hie-optional)
   - [Configuration](#configuration)
+  - [hie-bios](#hie-bios)
+    - [Explicit Configuration](#explicit-configuration)
   - [Editor Integration](#editor-integration)
     - [Using HIE with VS Code](#using-hie-with-vs-code)
       - [Using VS Code with Nix](#using-vs-code-with-nix)
     - [Using HIE with Sublime Text](#using-hie-with-sublime-text)
     - [Using HIE with Vim or Neovim](#using-hie-with-vim-or-neovim)
-      - [Coc](#Coc)
-      - [LanguageClient-neovim](#LanguageClient-neovim)
+      - [Coc](#coc)
+      - [LanguageClient-neovim](#languageclient-neovim)
         - [vim-plug](#vim-plug)
         - [Clone the LanguageClient-neovim repo](#clone-the-languageclient-neovim-repo)
         - [Sample `~/.vimrc`](#sample-vimrc)
@@ -301,6 +304,88 @@ There are some settings that can be configured via a `settings.json` file:
 
 - VS Code: These settings will show up in the settings window
 - LanguageClient-neovim: Create this file in `$projectdir/.vim/settings.json` or set `g:LanguageClient_settingsPath`
+
+## [hie-bios](https://github.com/mpickering/hie-bios)
+
+`hie-bios` is the way which
+[`hie`](https://github.com/haskell/haskell-ide-engine) sets up a GHC API session.
+
+Given a Haskell project that is managed by Stack, Cabal, or other package tools,
+`hie` needs to know the full set of flags to pass to GHC in order to build the
+project. `hie-bios` satisfies this need.
+
+Its design is motivated by the guiding principle:
+
+> It is the responsibility of the build tool to describe the environment
+> which a package should be built in.
+
+Using this principle, it is possible
+to easily support a wide range of tools including `cabal-install`, `stack`,
+`rules_haskell`, `hadrian` and `obelisk` without major contortions.
+`hie-bios` does not depend on the `Cabal` library nor does not
+read any complicated build products and so on.
+
+How does a tool specify a session? A session is fully specified by a set of
+standard GHC flags. Most tools already produce this information if they support
+a `repl` command. Launching a repl is achieved by calling `ghci` with the
+right flags to specify the package database. `hie-bios` needs a way to get
+these flags and then it can set up GHC API session correctly.
+
+Futher it means that any failure to set up the API session is the responsibility
+of the build tool. It is up to them to provide the correct information if they
+want `hie` to work correctly.
+
+### Explicit Configuration
+
+**For a full explanation of possible configuration, we refer to [hie-bios/README](https://github.com/mpickering/hie-bios/blob/master/README.md).**
+
+The user can place a `hie.yaml` file in the root of the workspace which
+describes how to setup the environment. For example, to explicitly state
+that you want to use `stack` then the configuration file would look like:
+
+```yaml
+cradle: {stack}
+```
+
+If you use `cabal` then you probably need to specify which component you want
+to use.
+
+```yaml
+cradle:
+  cabal:
+    component: "lib:haskell-ide-engine"
+```
+
+Or you can explicitly state the program which should be used to collect
+the options by supplying the path to the program. It is interpreted
+relative to the current working directory if it is not an absolute path.
+
+```yaml
+cradle:
+  bios:
+    program: ".hie-bios"
+```
+
+The complete configuration is a subset of
+
+```yaml
+cradle:
+  cabal:
+    component: "optional component name"
+  stack:
+  bazel:
+  obelisk:
+  bios:
+    program: "program to run"
+    dependency-program: "optional program to run"
+  direct:
+    arguments: ["list","of","ghc","arguments"]
+  default:
+  none:
+
+dependencies:
+  - someDep
+```
 
 ## Editor Integration
 
