@@ -51,6 +51,7 @@ import qualified Data.Trie.Convenience as T
 import qualified Data.Trie as T
 import qualified Data.Text as Text
 import qualified HIE.Bios as BIOS
+import qualified HIE.Bios.Ghc.Api as BIOS
 import qualified HIE.Bios.Types as BIOS
 import qualified Data.ByteString.Char8 as B
 
@@ -117,68 +118,37 @@ loadCradle iniDynFlags (NewCradle fp) = do
   traceShowM cradle
   liftIO (GHC.newHscEnv iniDynFlags) >>= GHC.setSession
   liftIO $ setCurrentDirectory (BIOS.cradleRootDir cradle)
-  res <- gcatches
-    (do
-      withProgress "Initialising Cradle" NotCancellable (initializeCradle cradle)
-      return $ IdeResultOk ()
-    )
-    [ ErrorHandler $
-      \(err :: GHC.GhcException) -> do
+  res <- withProgress "Initialising Cradle" NotCancellable (\f ->
+          BIOS.initializeFlagsWithCradleWithMessage (Just (toMessager f)) fp (fixCradle cradle)
+         )
+  case res of
+    BIOS.CradleNone -> return (IdeResultOk ())
+    BIOS.CradleFail err -> do
       logm $ "GhcException on cradle initialisation: " ++ show err
       return $ IdeResultFail $ IdeError
           { ideCode    = OtherError
           , ideMessage = Text.pack $ show err
           , ideInfo    = Aeson.Null
           }
-    , ErrorHandler $  \(err :: IOException) -> do
-      logm $ "IOException on cradle initialisation: " ++ show err
-      return $ IdeResultFail $ IdeError
-          { ideCode    = OtherError
-          , ideMessage = Text.pack $ show err
-          , ideInfo    = Aeson.Null
-          }
-    , ErrorHandler $  \(err :: ErrorCall) -> do
-      logm $ "ErrorCall on cradle initialisation: " ++ show err
-      return $ IdeResultFail $ IdeError
-          { ideCode    = OtherError
-          , ideMessage = Text.pack $ show err
-          , ideInfo    = Aeson.Null
-          }
-    ]
-
-
-  case res of
-    IdeResultOk () -> do
+    BIOS.CradleSuccess init -> do
       setCurrentCradle cradle
-      return (IdeResultOk ())
-    err -> return err
+      IdeResultOk <$> init
  where
   isStackCradle :: BIOS.Cradle -> Bool
   isStackCradle c = BIOS.actionName (BIOS.cradleOptsProg c) == "stack"
 
-  -- initializeCradle ::
-  initializeCradle :: GHC.GhcMonad m => BIOS.Cradle -> (Progress -> IO ()) -> m ()
-  initializeCradle cradle f = do
-    let msg = Just (toMessager f)
-    -- Reimplements "initializeFlagsWithCradleWithMessage"
-    -- to add a fp to stack cradle actions
-    -- This is a fix for: https://github.com/mpickering/haskell-ide-engine/issues/10
-    compOpts <- liftIO $ BIOS.getCompilerOptions fp cradle
-    case compOpts of
-      BIOS.CradleNone -> return ()
-      BIOS.CradleFail err -> liftIO $ GHCIO.throwIO err
-      BIOS.CradleSuccess opts -> do
-        let
-          opts' = opts
-                    { BIOS.componentOptions =
-                        BIOS.componentOptions opts ++ [fp | isStackCradle cradle]
-                    }
-
-        targets <- BIOS.initSession opts'
-        GHC.setTargets targets
-        -- Get the module graph using the function `getModuleGraph`
-        mod_graph <- GHC.depanal [] True
-        void $ GHC.load' GHC.LoadAllTargets msg mod_graph
+  -- The stack cradle doesn't return the target as well, so add the
+  -- FilePath onto the end of the options to make sure at least one target
+  -- is returned.
+  fixCradle :: BIOS.Cradle -> BIOS.Cradle
+  fixCradle cradle = do
+    if isStackCradle cradle
+      -- We need a lens
+      then cradle { BIOS.cradleOptsProg = (BIOS.cradleOptsProg cradle)
+                  { BIOS.runCradle = \fp ->  fmap addOption <$> BIOS.runCradle (BIOS.cradleOptsProg cradle) fp } }
+      else cradle
+    where
+      addOption (BIOS.ComponentOptions os ds) = BIOS.ComponentOptions (os ++ [fp]) ds
 
 setCurrentCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => BIOS.Cradle -> m ()
 setCurrentCradle cradle = do
