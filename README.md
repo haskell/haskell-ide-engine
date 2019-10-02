@@ -30,16 +30,18 @@ we talk to clients.__
       - [Windows-specific pre-requirements (optional)](#windows-specific-pre-requirements-optional)
       - [Download the source code](#download-the-source-code)
       - [Building](#building)
+        - [Install via cabal](#install-via-cabal)
         - [Install specific GHC Version](#install-specific-ghc-version)
         - [Multiple versions of HIE (optional)](#multiple-versions-of-hie-optional)
   - [Configuration](#configuration)
+  - [Explicit Configuration](#explicit-configuration)
   - [Editor Integration](#editor-integration)
     - [Using HIE with VS Code](#using-hie-with-vs-code)
       - [Using VS Code with Nix](#using-vs-code-with-nix)
     - [Using HIE with Sublime Text](#using-hie-with-sublime-text)
     - [Using HIE with Vim or Neovim](#using-hie-with-vim-or-neovim)
-      - [Coc](#Coc)
-      - [LanguageClient-neovim](#LanguageClient-neovim)
+      - [Coc](#coc)
+      - [LanguageClient-neovim](#languageclient-neovim)
         - [vim-plug](#vim-plug)
         - [Clone the LanguageClient-neovim repo](#clone-the-languageclient-neovim-repo)
         - [Sample `~/.vimrc`](#sample-vimrc)
@@ -301,6 +303,100 @@ There are some settings that can be configured via a `settings.json` file:
 
 - VS Code: These settings will show up in the settings window
 - LanguageClient-neovim: Create this file in `$projectdir/.vim/settings.json` or set `g:LanguageClient_settingsPath`
+
+## Explicit Configuration
+
+**For a full explanation of possible configuration, we refer to [hie-bios/README](https://github.com/mpickering/hie-bios/blob/master/README.md).**
+
+The user can place a `hie.yaml` file in the root of the workspace which
+describes how to setup the environment. For example, to explicitly state
+that you want to use `stack` then the configuration file would look like:
+
+```yaml
+cradle: {stack}
+```
+
+If you use `cabal` then you probably need to specify which component you want
+to use.
+
+```yaml
+cradle:
+  cabal:
+    component: "lib:haskell-ide-engine"
+```
+
+Or you can explicitly state the program which should be used to collect
+the options by supplying the path to the program. It is interpreted
+relative to the current working directory if it is not an absolute path.
+
+```yaml
+cradle:
+  bios:
+    program: ".hie-bios"
+```
+
+The complete configuration is a subset of
+
+```yaml
+cradle:
+  cabal:
+    component: "optional component name"
+  stack:
+  bazel:
+  obelisk:
+  bios:
+    program: "program to run"
+    dependency-program: "optional program to run"
+  direct:
+    arguments: ["list","of","ghc","arguments"]
+  default:
+  none:
+
+dependencies:
+  - someDep
+```
+
+There is also support for multiple cradles in a single `hie.yaml`. An example configuration for Haskell IDE Engine:
+
+```yaml
+cradle:
+  multi:
+    - path: ./test/dispatcher/
+      config:
+        cradle:
+          cabal:
+            component: "test:dispatcher-test"
+    - path: ./test/functional/
+      config:
+        cradle:
+          cabal:
+            component: "test:func-test"
+    - path: ./test/unit/
+      config:
+        cradle:
+          cabal:
+            component: "test:unit-test"
+    - path: ./hie-plugin-api/
+      config:
+        cradle:
+          cabal:
+            component: "lib:hie-plugin-api"
+    - path: ./app/MainHie.hs
+      config:
+        cradle:
+          cabal:
+            component: "exe:hie"
+    - path: ./app/HieWrapper.hs
+      config:
+        cradle:
+          cabal:
+            component: "exe:hie-wrapper"
+    - path: ./
+      config:
+        cradle:
+          cabal:
+            component: "lib:haskell-ide-engine"
+```
 
 ## Editor Integration
 
