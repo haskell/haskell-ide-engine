@@ -43,12 +43,6 @@ data UriCache = UriCache
   , cachedData   :: !(Map.Map TypeRep Dynamic)
   }
 
-newtype ModuleHash = ModuleHash BS.ByteString deriving (Show, Eq)
-
-hashModule :: FilePath -> IO ModuleHash
-hashModule f = ModuleHash . hash <$> BS.readFile f
-
-
 instance Show UriCache where
   show (UriCache _ _ (Just _) dat) =
     "UriCache { cachedTcMod, cachedData { " ++ show dat ++ " } }"
