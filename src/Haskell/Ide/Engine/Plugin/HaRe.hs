@@ -213,8 +213,13 @@ makeRefactorResult changedFiles = do
     diffOne (fp, newText) = do
       uri <- canonicalizeUri $ filePathToUri fp
       mvf <- getVirtualFile uri
+      let resultFail = return $ IdeResultFail
+            (IdeError PluginError
+                      (T.pack "makeRefactorResult: no access to the persisted file.")
+                      Null
+            )
       origText <- case mvf of
-        Nothing -> withMappedFile fp undefined $ liftIO . T.readFile
+        Nothing -> withMappedFile fp resultFail $ liftIO . T.readFile
         Just vf -> pure (Rope.toText $ _text vf)
       -- TODO: remove this logging once we are sure we have a working solution
       logm $ "makeRefactorResult:groupedDiff = " ++ show (getGroupedDiff (lines $ T.unpack origText) (lines $ T.unpack newText))
