@@ -41,6 +41,13 @@ extra-deps:
   - yaml-0.11.1.2@sha256:cbc4ddb233c564967aad27ee47c1cd8fd6a06b9183353e76fe66c9be7c9dfd76
   - unordered-containers-0.2.10.0@sha256:5e9b095a9283d9e2f064fec73a81a6b6ea0b7fda3f219a8175785d2d2a3de204
 
+flags:
+  haskell-ide-engine:
+    pedantic: true
+  hie-plugin-api:
+    pedantic: true
+
+
 # allow-newer: true
 
 nix:
