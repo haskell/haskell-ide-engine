@@ -18,7 +18,6 @@ import           Data.Foldable
 import           Data.Monoid
 #endif
 import qualified Data.Text                                    as T
-import qualified Data.Text.IO                                 as T
 import           Exception
 import           GHC.Generics                                 (Generic)
 import           Haskell.Ide.Engine.ArtifactMap
@@ -206,27 +205,34 @@ getRefactorResult = map getNewFile . filter fileModified
   where fileModified ((_,m),_) = m == RefacModified
         getNewFile ((file,_),(ann, parsed)) = (file, T.pack $ exactPrint parsed ann)
 
-makeRefactorResult :: [(FilePath,T.Text)] -> IdeGhcM WorkspaceEdit
+makeRefactorResult :: [(FilePath,T.Text)] -> IdeGhcM (IdeResult WorkspaceEdit)
 makeRefactorResult changedFiles = do
   let
-    diffOne :: (FilePath, T.Text) -> IdeGhcM WorkspaceEdit
+    diffOne :: (FilePath, T.Text) -> IdeGhcM (IdeResult WorkspaceEdit)
     diffOne (fp, newText) = do
       uri <- canonicalizeUri $ filePathToUri fp
       mvf <- getVirtualFile uri
-      let resultFail = return $ IdeResultFail
-            (IdeError PluginError
-                      (T.pack "makeRefactorResult: no access to the persisted file.")
-                      Null
-            )
-      origText <- case mvf of
-        Nothing -> withMappedFile fp resultFail $ liftIO . T.readFile
-        Just vf -> pure (Rope.toText $ _text vf)
-      -- TODO: remove this logging once we are sure we have a working solution
-      logm $ "makeRefactorResult:groupedDiff = " ++ show (getGroupedDiff (lines $ T.unpack origText) (lines $ T.unpack newText))
-      logm $ "makeRefactorResult:diffops = " ++ show (diffToLineRanges $ getGroupedDiff (lines $ T.unpack origText) (lines $ T.unpack newText))
-      liftToGhc $ diffText (filePathToUri fp, origText) newText IncludeDeletions
-  diffs <- mapM diffOne changedFiles
-  return $ Core.reverseSortEdit $ fold diffs
+
+      case mvf of
+        Nothing ->
+          -- if there is no virtual file, dont try to persist it!
+          return $ IdeResultFail
+              (IdeError PluginError
+                (T.pack "makeRefactorResult: no access to the persisted file.")
+                Null
+              )
+        Just vf -> do
+          let origText = Rope.toText $ _text vf
+          -- TODO: remove this logging once we are sure we have a working solution
+          logm $ "makeRefactorResult:groupedDiff = " ++ show (getGroupedDiff (lines $ T.unpack origText) (lines $ T.unpack newText))
+          logm $ "makeRefactorResult:diffops = " ++ show (diffToLineRanges $ getGroupedDiff (lines $ T.unpack origText) (lines $ T.unpack newText))
+          liftToGhc $ IdeResultOk <$> diffText (filePathToUri fp, origText) newText IncludeDeletions
+
+  diffResults <- mapM diffOne changedFiles
+  let diffs = sequenceA diffResults
+  case diffs of
+    IdeResultOk diffs' -> return $ IdeResultOk $ Core.reverseSortEdit $ fold diffs'
+    IdeResultFail err -> return $ IdeResultFail err
 
 -- ---------------------------------------------------------------------
 
@@ -242,8 +248,7 @@ runHareCommand name cmd = do
                            Null))
        Right res -> do
             let changes = getRefactorResult res
-            refactRes <- makeRefactorResult changes
-            pure (IdeResultOk refactRes)
+            makeRefactorResult changes
 
 -- ---------------------------------------------------------------------
 
