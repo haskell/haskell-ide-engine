@@ -18,14 +18,14 @@ extra-deps:
 - ghc-lib-parser-8.8.0.20190723
 - haddock-api-2.20.0
 - haddock-library-1.6.0
-- haskell-lsp-0.15.0.0
-- haskell-lsp-types-0.15.0.0
+- haskell-lsp-0.16.0.0
+- haskell-lsp-types-0.16.0.0
 - haskell-src-exts-1.21.0
 - haskell-src-exts-util-0.2.5
 - hlint-2.2.2
 - hoogle-5.0.17.9
 - hsimport-0.10.0
-- lsp-test-0.6.0.0
+- lsp-test-0.7.0.0
 - monad-dijkstra-0.1.1.2
 - optparse-simple-0.1.0
 - pretty-show-1.9.5

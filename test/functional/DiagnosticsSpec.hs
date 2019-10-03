@@ -35,7 +35,7 @@ spec = describe "diagnostics providers" $ do
           length diags `shouldBe` 2
           reduceDiag ^. LSP.range `shouldBe` Range (Position 1 0) (Position 1 12)
           reduceDiag ^. LSP.severity `shouldBe` Just DsInfo
-          reduceDiag ^. LSP.code `shouldBe` Just "Eta reduce"
+          reduceDiag ^. LSP.code `shouldBe` Just (StringValue "Eta reduce")
           reduceDiag ^. LSP.source `shouldBe` Just "hlint"
 
         diags2a <- waitForDiagnostics

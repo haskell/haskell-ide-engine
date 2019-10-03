@@ -33,7 +33,7 @@ spec = describe "liquid haskell diagnostics" $ do
           length diags `shouldBe` 2
           reduceDiag ^. range `shouldBe` Range (Position 5 18) (Position 5 22)
           reduceDiag ^. severity `shouldBe` Just DsHint
-          reduceDiag ^. code `shouldBe` Just "Use negate"
+          reduceDiag ^. code `shouldBe` Just (StringValue "Use negate")
           reduceDiag ^. source `shouldBe` Just "hlint"
 
         -- liftIO $ putStrLn "b"
@@ -77,7 +77,7 @@ spec = describe "liquid haskell diagnostics" $ do
           length diags `shouldBe` 2
           reduceDiag ^. range `shouldBe` Range (Position 5 18) (Position 5 22)
           reduceDiag ^. severity `shouldBe` Just DsHint
-          reduceDiag ^. code `shouldBe` Just "Use negate"
+          reduceDiag ^. code `shouldBe` Just (StringValue "Use negate")
           reduceDiag ^. source `shouldBe` Just "hlint"
 
         -- Enable liquid haskell plugin and disable hlint

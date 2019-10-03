@@ -34,7 +34,7 @@ spec = describe "code actions" $ do
         length diags `shouldBe` 2
         reduceDiag ^. L.range `shouldBe` Range (Position 1 0) (Position 1 12)
         reduceDiag ^. L.severity `shouldBe` Just DsInfo
-        reduceDiag ^. L.code `shouldBe` Just "Eta reduce"
+        reduceDiag ^. L.code `shouldBe` Just (StringValue "Eta reduce")
         reduceDiag ^. L.source `shouldBe` Just "hlint"
 
       (CACodeAction ca:_) <- getAllCodeActions doc
@@ -79,7 +79,7 @@ spec = describe "code actions" $ do
         length diags `shouldBe` 2
         reduceDiag ^. L.range `shouldBe` Range (Position 1 0) (Position 1 12)
         reduceDiag ^. L.severity `shouldBe` Just DsInfo
-        reduceDiag ^. L.code `shouldBe` Just "Eta reduce"
+        reduceDiag ^. L.code `shouldBe` Just (StringValue "Eta reduce")
         reduceDiag ^. L.source `shouldBe` Just "hlint"
 
       (CACodeAction ca:_) <- getAllCodeActions doc
