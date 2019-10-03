@@ -131,8 +131,8 @@ loadCradle iniDynFlags (NewCradle fp) = do
           , ideInfo    = Aeson.Null
           }
     BIOS.CradleSuccess init -> do
-      setCurrentCradle cradle
-      IdeResultOk <$> init
+      init
+      IdeResultOk <$> setCurrentCradle cradle
  where
   isStackCradle :: BIOS.Cradle -> Bool
   isStackCradle c = BIOS.actionName (BIOS.cradleOptsProg c) == "stack"
