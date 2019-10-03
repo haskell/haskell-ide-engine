@@ -28,7 +28,6 @@ import           System.IO
 import           Haskell.Ide.Engine.Plugin.ApplyRefact
 import           Haskell.Ide.Engine.Plugin.Base
 import           Haskell.Ide.Engine.Plugin.Brittany
-import           Haskell.Ide.Engine.Plugin.Build
 import           Haskell.Ide.Engine.Plugin.Example2
 import           Haskell.Ide.Engine.Plugin.Bios
 import           Haskell.Ide.Engine.Plugin.HaRe
@@ -55,7 +54,6 @@ plugins includeExamples = pluginDescToIdePlugins allPlugins
       [ applyRefactDescriptor "applyrefact"
       , baseDescriptor        "base"
       , brittanyDescriptor    "brittany"
-      , buildPluginDescriptor "build"
       , haddockDescriptor     "haddock"
       , hareDescriptor        "hare"
       , hoogleDescriptor      "hoogle"
