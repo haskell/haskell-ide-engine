@@ -5,9 +5,8 @@ stdenv.mkDerivation {
     gmp
     zlib
     ncurses
+    
     haskellPackages.cabal-install
-    haskell.compiler.ghc864
-    haskellPackages.stack
   ];
   src = null;
   shellHook = ''
