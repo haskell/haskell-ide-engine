@@ -18,6 +18,7 @@ import           Data.Foldable
 import           Data.Monoid
 #endif
 import qualified Data.Text                                    as T
+import qualified Data.Text.IO                                 as T
 import           Exception
 import           GHC.Generics                                 (Generic)
 import           Haskell.Ide.Engine.ArtifactMap
@@ -213,16 +214,21 @@ makeRefactorResult changedFiles = do
       uri <- canonicalizeUri $ filePathToUri fp
       mvf <- getVirtualFile uri
 
-      case mvf of
-        Nothing ->
-          -- if there is no virtual file, dont try to persist it!
-          return $ IdeResultFail
-              (IdeError PluginError
-                (T.pack "makeRefactorResult: no access to the persisted file.")
-                Null
-              )
-        Just vf -> do
-          let origText = Rope.toText $ _text vf
+      origTextResult <- case mvf of
+        Nothing -> do
+          let resultFail = return $ IdeResultFail
+                          (IdeError PluginError
+                            (T.pack "makeRefactorResult: no access to the persisted file.")
+                            Null
+                          )
+          withMappedFile fp resultFail (fmap IdeResultOk . liftIO . T.readFile)
+        Just vf -> return $ IdeResultOk $ Rope.toText $ _text vf
+
+      case origTextResult of
+        IdeResultFail err -> do
+          logm "makeRefactorResult:could not retrieve original text"
+          return $ IdeResultFail err
+        IdeResultOk origText -> do
           -- TODO: remove this logging once we are sure we have a working solution
           logm $ "makeRefactorResult:groupedDiff = " ++ show (getGroupedDiff (lines $ T.unpack origText) (lines $ T.unpack newText))
           logm $ "makeRefactorResult:diffops = " ++ show (diffToLineRanges $ getGroupedDiff (lines $ T.unpack origText) (lines $ T.unpack newText))
