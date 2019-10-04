@@ -112,7 +112,7 @@ applyRefactSpec = do
                [Diagnostic {_range = Range { _start = Position {_line = 13, _character = 0}
                                            , _end = Position {_line = 13, _character = 100000}}
                            , _severity = Just DsInfo
-                           , _code = Just "parser"
+                           , _code = Just (StringValue "parser")
                            , _source = Just "hlint"
                            , _message = "Parse error: virtual }\n  data instance Sing (z :: (a :~: b)) where\n      SRefl :: Sing Refl +\n> \n\n"
                            , _relatedInformation = Nothing }]}
