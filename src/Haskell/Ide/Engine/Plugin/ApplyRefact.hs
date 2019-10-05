@@ -164,7 +164,7 @@ parseErrorToDiagnostic (Hlint.ParseError l msg contents) =
   [Diagnostic
       { _range    = srcLoc2Range l
       , _severity = Just DsInfo -- Not displayed
-      , _code     = Just "parser"
+      , _code     = Just (LSP.StringValue "parser")
       , _source   = Just "hlint"
       , _message  = T.unlines [T.pack msg,T.pack contents]
       , _relatedInformation = Nothing
@@ -208,7 +208,7 @@ hintToDiagnostic idea
   = Diagnostic
       { _range    = ss2Range (ideaSpan idea)
       , _severity = Just (hintSeverityMap $ ideaSeverity idea)
-      , _code     = Just (T.pack $ ideaHint idea)
+      , _code     = Just (LSP.StringValue $ T.pack $ ideaHint idea)
       , _source   = Just "hlint"
       , _message  = idea2Message idea
       , _relatedInformation = Nothing
@@ -331,7 +331,7 @@ codeActionProvider plId docId _ context = IdeResultOk <$> hlintActions
     hlintActions = catMaybes <$> mapM mkHlintAction (filter validCommand diags)
 
     -- |Some hints do not have an associated refactoring
-    validCommand (LSP.Diagnostic _ _ (Just code) (Just "hlint") _ _) =
+    validCommand (LSP.Diagnostic _ _ (Just (LSP.StringValue code)) (Just "hlint") _ _) =
       case code of
         "Eta reduce" -> False
         _            -> True
@@ -340,7 +340,7 @@ codeActionProvider plId docId _ context = IdeResultOk <$> hlintActions
     LSP.List diags = context ^. LSP.diagnostics
 
     mkHlintAction :: LSP.Diagnostic -> IdeM (Maybe LSP.CodeAction)
-    mkHlintAction diag@(LSP.Diagnostic (LSP.Range start _) _s (Just code) (Just "hlint") m _) =
+    mkHlintAction diag@(LSP.Diagnostic (LSP.Range start _) _s (Just (LSP.StringValue code)) (Just "hlint") m _) =
       Just . codeAction <$> mkLspCommand plId "applyOne" title (Just args)
      where
        codeAction cmd = LSP.CodeAction title (Just LSP.CodeActionRefactor) (Just (LSP.List [diag])) Nothing (Just cmd)

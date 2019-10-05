@@ -34,7 +34,7 @@ spec = describe "code actions" $ do
         length diags `shouldBe` 2
         reduceDiag ^. L.range `shouldBe` Range (Position 1 0) (Position 1 12)
         reduceDiag ^. L.severity `shouldBe` Just DsInfo
-        reduceDiag ^. L.code `shouldBe` Just "Eta reduce"
+        reduceDiag ^. L.code `shouldBe` Just (StringValue "Eta reduce")
         reduceDiag ^. L.source `shouldBe` Just "hlint"
 
       (CACodeAction ca:_) <- getAllCodeActions doc
@@ -79,7 +79,7 @@ spec = describe "code actions" $ do
         length diags `shouldBe` 2
         reduceDiag ^. L.range `shouldBe` Range (Position 1 0) (Position 1 12)
         reduceDiag ^. L.severity `shouldBe` Just DsInfo
-        reduceDiag ^. L.code `shouldBe` Just "Eta reduce"
+        reduceDiag ^. L.code `shouldBe` Just (StringValue "Eta reduce")
         reduceDiag ^. L.source `shouldBe` Just "hlint"
 
       (CACodeAction ca:_) <- getAllCodeActions doc
@@ -221,11 +221,12 @@ spec = describe "code actions" $ do
       -- ignore the first empty hlint diagnostic publish
       [_,diag:_] <- count 2 waitForDiagnostics
 
-      if ghcVersion == GHC86
-        then
-          liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not load module \8216Data.Text\8217"
-         else
-          liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "Could not find module ‘Data.Text’"
+      let prefixes = [ "Could not load module `Data.Text'" -- Windows && GHC >= 8.6
+                     , "Could not find module `Data.Text'" -- Windows
+                     , "Could not load module ‘Data.Text’" -- GHC >= 8.6
+                     , "Could not find module ‘Data.Text’"
+                     ]
+        in liftIO $ diag ^. L.message `shouldSatisfy` \m -> any (`T.isPrefixOf` m) prefixes
 
       acts <- getAllCodeActions doc
       let (CACodeAction action:_) = acts
@@ -247,10 +248,12 @@ spec = describe "code actions" $ do
         -- ignore the first empty hlint diagnostic publish
         [_,diag:_] <- count 2 waitForDiagnostics
 
-        let preds = [ T.isPrefixOf "Could not load module ‘Codec.Compression.GZip’"
-                    , T.isPrefixOf "Could not find module ‘Codec.Compression.GZip’"
-                    ]
-          in liftIO $ diag ^. L.message `shouldSatisfy` \x -> any (\f -> f x) preds
+        let prefixes = [ "Could not load module `Codec.Compression.GZip'" -- Windows && GHC >= 8.6
+                       , "Could not find module `Codec.Compression.GZip'" -- Windows
+                       , "Could not load module ‘Codec.Compression.GZip’" -- GHC >= 8.6
+                       , "Could not find module ‘Codec.Compression.GZip’"
+                       ]
+          in liftIO $ diag ^. L.message `shouldSatisfy` \m -> any (`T.isPrefixOf` m) prefixes
 
         mActions <- getAllCodeActions doc
         let allActions = map fromAction mActions
@@ -279,7 +282,10 @@ spec = describe "code actions" $ do
         -- ignore the first empty hlint diagnostic publish
         [_,diag:_] <- count 2 waitForDiagnostics
 
-        liftIO $ diag ^. L.message `shouldSatisfy` T.isPrefixOf "The import of ‘Data.List’ is redundant"
+        let prefixes = [ "The import of `Data.List' is redundant" -- Windows
+                       , "The import of ‘Data.List’ is redundant"
+                       ]
+          in liftIO $ diag ^. L.message `shouldSatisfy` \m -> any (`T.isPrefixOf` m) prefixes
 
         mActions <- getAllCodeActions doc
 
