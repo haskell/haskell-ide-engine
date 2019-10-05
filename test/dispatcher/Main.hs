@@ -252,7 +252,7 @@ funcSpec = describe "functional dispatch" $ do
                         [ Diagnostic
                             (Range (Position 9 6) (Position 10 18))
                             (Just DsInfo)
-                            (Just "Redundant do")
+                            (Just (StringValue "Redundant do"))
                             (Just "hlint")
                             "Redundant do\nFound:\n  do putStrLn \"hello\"\nWhy not:\n  putStrLn \"hello\"\n"
                             Nothing

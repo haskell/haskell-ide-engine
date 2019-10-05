@@ -12,6 +12,7 @@ module Haskell.Ide.Engine.Support.HieExtras
   , getSymbolsAtPoint
   , getReferencesInDoc
   , getModule
+  , extractTerm
   , findDef
   , findTypeDef
   , showName
@@ -220,6 +221,18 @@ getModule df n = do
   let uid = moduleUnitId m
   let pkg = showName . packageName <$> lookupPackage df uid
   return (pkg, T.pack $ moduleNameString $ moduleName m)
+
+-- | Extract a term from a compiler message.
+-- It looks for terms delimited between '‘' and '’' falling back to '`' and '\''
+-- (the used ones in Windows systems).
+extractTerm :: T.Text -> T.Text
+extractTerm txt =
+  case extract '‘' '’' txt of
+    ""  -> extract '`' '\'' txt -- Needed for windows
+    term -> term
+  where extract b e = T.dropWhile (== b)
+                    . T.dropWhileEnd (== e)
+                    . T.dropAround (\c -> c /= b && c /= e)
 
 -- ---------------------------------------------------------------------
 

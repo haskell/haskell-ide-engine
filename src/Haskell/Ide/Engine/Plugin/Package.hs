@@ -9,6 +9,7 @@ module Haskell.Ide.Engine.Plugin.Package where
 import           Haskell.Ide.Engine.MonadTypes
 import qualified Haskell.Ide.Engine.Plugin.Hoogle as Hoogle
 import           Haskell.Ide.Engine.PluginUtils
+import           Haskell.Ide.Engine.Support.HieExtras as Hie
 import           GHC.Generics
 import           GHC.Exts
 import           Control.Lens
@@ -337,11 +338,10 @@ codeActionProvider plId docId _ context = do
 -- | Extract a module name from an error message.
 extractModuleName :: T.Text -> Maybe Package
 extractModuleName msg
-  | T.isPrefixOf "Could not find module " msg = Just $ T.tail $ T.init nameAndQuotes
-  | T.isPrefixOf "Could not load module " msg = Just $ T.tail $ T.init nameAndQuotes
+  | T.isPrefixOf "Could not find module " msg = Just $ Hie.extractTerm line
+  | T.isPrefixOf "Could not load module " msg = Just $ Hie.extractTerm line
   | otherwise = Nothing
   where line = head $ T.lines msg
-        nameAndQuotes = T.dropWhileEnd (/= '’') $ T.dropWhile (/= '‘') line
 
 -- Example error messages
 {- GHC 8.6.2 error message is
