@@ -186,7 +186,7 @@ errorHandlers :: (String -> m a) -> (HscTypes.SourceError -> m a) -> [ErrorHandl
 errorHandlers ghcErrRes renderSourceError = handlers
   where
       -- ghc throws GhcException, SourceError, GhcApiError and
-      -- IOEnvFailure. ghc-mod-core throws GhcModError.
+      -- IOEnvFailure. hie-bios throws CradleError.
       handlers =
         [ ErrorHandler $ \(ex :: IOEnvFailure) ->
             ghcErrRes (show ex)
@@ -198,6 +198,8 @@ errorHandlers ghcErrRes renderSourceError = handlers
             ghcErrRes (show ex)
         , ErrorHandler $ \(ex :: BIOS.CradleError) ->
             ghcErrRes (show ex)
+        , ErrorHandler $ \(ex :: GhcException) ->
+            ghcErrRes (showGhcException ex "")
         ]
 
 
@@ -253,19 +255,13 @@ setTypecheckedModule_load uri =
         let diags = Map.insertWith Set.union canonUri Set.empty diags'
         debugm "setTypecheckedModule: after ghc-mod"
         debugm ("Diags: " <> show diags')
-        let collapse Nothing = (Nothing, [])
-            collapse (Just (n, xs)) = (n, xs)
+        let collapse Nothing = Nothing
+            collapse (Just (n, _xs)) = n
 
-        case collapse mmods of
-          --Just (Just pm, Nothing) -> do
-          --  debugm $ "setTypecheckedModule: Did get parsed module for: " ++ show fp
-          -- cacheModule fp (Left pm)
-          -- debugm "setTypecheckedModule: done"
-          --  return diags
-
-          (Just _tm, _ts) -> do
+            mtypechecked_module = collapse mmods
+        case mtypechecked_module of
+          Just _tm -> do
             debugm $ "setTypecheckedModule: Did get typechecked module for: " ++ show fp
-            --sess <- fmap GM.gmgsSession . GM.gmGhcSession <$> GM.gmsGet
 
             -- set the session before we cache the module, so that deferred
             -- responses triggered by cacheModule can access it
@@ -276,13 +272,24 @@ setTypecheckedModule_load uri =
             cacheModules rfm [_tm]
             debugm "setTypecheckedModule: done"
 
-          (Nothing, ts) -> do
+          Nothing -> do
             debugm $ "setTypecheckedModule: Didn't get typechecked or parsed module for: " ++ show fp
             --debugm $ "setTypecheckedModule: errs: " ++ show errs
-            --cacheModules rfm ts
             failModule fp
 
-        return $ IdeResultOk (Diagnostics diags,errs)
+        -- Turn any fatal exceptions thrown by GHC into a diagnostic for
+        -- this module so it appears somewhere permanent in the UI.
+        let diags2 =
+              case mtypechecked_module of
+                Nothing ->
+                  let sev = Just DsError
+                      range = Range (Position 0 0) (Position 1 0)
+                      msgTxt = T.unlines errs
+                      d = Diagnostic range sev Nothing (Just "bios") msgTxt Nothing
+                  in Map.insertWith Set.union canonUri (Set.singleton d) diags
+                Just {} -> diags
+
+        return $ IdeResultOk (Diagnostics diags2,errs)
 
 -- TODO: make this work for all components
 cabalModuleGraphs :: IdeGhcM [GM.GmModuleGraph]
