@@ -28,7 +28,6 @@ module Haskell.Ide.Engine.ModuleCache
 
 
 import           Control.Monad
-import           Control.Exception
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Control
 import           Control.Monad.Trans.Free
@@ -42,8 +41,6 @@ import           System.Directory
 import Debug.Trace
 
 import qualified GHC
-import qualified GHC.IO as GHCIO
-import qualified GhcMake as GHC
 import qualified HscMain as GHC
 
 import qualified Data.Aeson as Aeson
@@ -130,9 +127,24 @@ loadCradle iniDynFlags (NewCradle fp) = do
           , ideMessage = Text.pack $ show err
           , ideInfo    = Aeson.Null
           }
-    BIOS.CradleSuccess init -> do
-      init
-      IdeResultOk <$> setCurrentCradle cradle
+    BIOS.CradleSuccess init_session -> do
+      init_res <- gcatches (Right <$> init_session)
+              [ErrorHandler (\(ex :: GHC.GhcException)
+                -> return $ Left (GHC.showGhcException ex ""))]
+      case init_res of
+        Left err -> do
+          logm $ "GhcException on cradle initialisation: " ++ show err
+          return $ IdeResultFail $ IdeError
+            { ideCode    = OtherError
+            , ideMessage = Text.pack $ show err
+            , ideInfo    = Aeson.Null
+            }
+          -- Note: Don't setCurrentCradle because we want to try to reload
+          -- it on a save whilst there are errors. Subsequent loads won't
+          -- be that slow, even though the cradle isn't cached because the
+          -- `.hi` files will be saved.
+        Right () ->
+          IdeResultOk <$> setCurrentCradle cradle
  where
   isStackCradle :: BIOS.Cradle -> Bool
   isStackCradle c = BIOS.actionName (BIOS.cradleOptsProg c) == "stack"
@@ -145,7 +157,7 @@ loadCradle iniDynFlags (NewCradle fp) = do
     if isStackCradle cradle
       -- We need a lens
       then cradle { BIOS.cradleOptsProg = (BIOS.cradleOptsProg cradle)
-                  { BIOS.runCradle = \fp ->  fmap addOption <$> BIOS.runCradle (BIOS.cradleOptsProg cradle) fp } }
+                  { BIOS.runCradle = \fp' ->  fmap addOption <$> BIOS.runCradle (BIOS.cradleOptsProg cradle) fp' } }
       else cradle
     where
       addOption (BIOS.ComponentOptions os ds) = BIOS.ComponentOptions (os ++ [fp]) ds

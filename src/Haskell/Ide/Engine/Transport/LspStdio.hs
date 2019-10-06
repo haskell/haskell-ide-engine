@@ -502,7 +502,7 @@ reactor inp diagIn = do
             updatePositionMap uri changes
 
           -- By default we don't run diagnostics on each change, unless configured
-          -- by the clietn explicitly
+          -- by the client explicitly
           shouldRunDiag <- configVal diagnosticsOnChange
           when shouldRunDiag
                (queueDiagnosticsRequest diagIn DiagnosticOnChange tn uri ver)
