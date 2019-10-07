@@ -115,39 +115,44 @@ loadCradle iniDynFlags (NewCradle fp) = do
   traceShowM cradle
   liftIO (GHC.newHscEnv iniDynFlags) >>= GHC.setSession
   liftIO $ setCurrentDirectory (BIOS.cradleRootDir cradle)
-  res <- withProgress "Initialising Cradle" NotCancellable (\f ->
-          BIOS.initializeFlagsWithCradleWithMessage (Just (toMessager f)) fp (fixCradle cradle)
-         )
-  case res of
-    BIOS.CradleNone -> return (IdeResultOk ())
-    BIOS.CradleFail err -> do
-      logm $ "GhcException on cradle initialisation: " ++ show err
-      return $ IdeResultFail $ IdeError
-          { ideCode    = OtherError
-          , ideMessage = Text.pack $ show err
-          , ideInfo    = Aeson.Null
-          }
-    BIOS.CradleSuccess init_session -> do
-      init_res <- gcatches (Right <$> init_session)
-              [ErrorHandler (\(ex :: GHC.GhcException)
-                -> return $ Left (GHC.showGhcException ex ""))]
-      case init_res of
-        Left err -> do
-          logm $ "GhcException on cradle initialisation: " ++ show err
-          return $ IdeResultFail $ IdeError
+  withProgress "Initialising Cradle" NotCancellable (initialiseCradle cradle)
+
+ where
+  isStackCradle :: BIOS.Cradle -> Bool
+  isStackCradle c = BIOS.actionName (BIOS.cradleOptsProg c) == "stack"
+
+  -- | Initialise the given cradle. This might fail and return an error via `IdeResultFail`.
+  initialiseCradle :: (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m, MonadBaseControl IO m)
+                  => BIOS.Cradle -> (Progress -> IO ()) -> m (IdeResult ())
+  initialiseCradle cradle f = do
+    res <- BIOS.initializeFlagsWithCradleWithMessage (Just (toMessager f)) fp (fixCradle cradle)
+    case res of
+      BIOS.CradleNone -> return (IdeResultOk ())
+      BIOS.CradleFail err -> do
+        logm $ "GhcException on cradle initialisation: " ++ show err
+        return $ IdeResultFail $ IdeError
             { ideCode    = OtherError
             , ideMessage = Text.pack $ show err
             , ideInfo    = Aeson.Null
             }
-          -- Note: Don't setCurrentCradle because we want to try to reload
-          -- it on a save whilst there are errors. Subsequent loads won't
-          -- be that slow, even though the cradle isn't cached because the
-          -- `.hi` files will be saved.
-        Right () ->
-          IdeResultOk <$> setCurrentCradle cradle
- where
-  isStackCradle :: BIOS.Cradle -> Bool
-  isStackCradle c = BIOS.actionName (BIOS.cradleOptsProg c) == "stack"
+      BIOS.CradleSuccess init_session -> do
+        init_res <- gcatches (Right <$> init_session)
+                [ErrorHandler (\(ex :: GHC.GhcException)
+                  -> return $ Left (GHC.showGhcException ex ""))]
+        case init_res of
+          Left err -> do
+            logm $ "GhcException on cradle initialisation: " ++ show err
+            return $ IdeResultFail $ IdeError
+              { ideCode    = OtherError
+              , ideMessage = Text.pack $ show err
+              , ideInfo    = Aeson.Null
+              }
+            -- Note: Don't setCurrentCradle because we want to try to reload
+            -- it on a save whilst there are errors. Subsequent loads won't
+            -- be that slow, even though the cradle isn't cached because the
+            -- `.hi` files will be saved.
+          Right () ->
+            IdeResultOk <$> setCurrentCradle cradle
 
   -- The stack cradle doesn't return the target as well, so add the
   -- FilePath onto the end of the options to make sure at least one target
