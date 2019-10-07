@@ -12,8 +12,6 @@ import           Data.Typeable (TypeRep)
 import qualified HIE.Bios as BIOS
 import qualified Data.Trie as T
 import qualified Data.ByteString.Char8 as B
-import qualified Data.ByteString as BS
-import Crypto.Hash.SHA1
 
 import           GHC (TypecheckedModule, ParsedModule, HscEnv)
 
