@@ -246,7 +246,7 @@ spec = describe "code actions" $ do
         doc <- openDoc "app/Asdf.hs" "haskell"
 
         -- ignore the first empty hlint diagnostic publish
-        [_,diag:_] <- count 2 waitForDiagnostics
+        [_,_:diag:_] <- count 2 waitForDiagnostics
 
         let prefixes = [ "Could not load module `Codec.Compression.GZip'" -- Windows && GHC >= 8.6
                        , "Could not find module `Codec.Compression.GZip'" -- Windows

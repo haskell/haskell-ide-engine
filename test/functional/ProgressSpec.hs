@@ -34,6 +34,9 @@ spec = describe "window/progress" $ do
         reportNotification ^. L.params . L.message `shouldBe` Just "Main"
         reportNotification ^. L.params . L.id `shouldBe` "0"
 
+      -- may produce diagnostics
+      skipMany publishDiagnosticsNotification
+
       doneNotification <- message :: Session ProgressDoneNotification
       liftIO $ doneNotification ^. L.params . L.id `shouldBe` "0"
 
