@@ -140,8 +140,15 @@ captureDiagnostics rfm action = do
   diagRef <- liftIO $ newIORef $ Diagnostics mempty
   errRef <- liftIO $ newIORef []
   let setLogger df = df { log_action = logDiag rfm errRef diagRef }
+      -- Running HIE on projects with -Werror breaks most of the features since all warnings
+      -- will be treated with the same severity of type errors. In order to offer a more useful
+      -- experience, we make sure warnings are always reported as warnings by setting -Wwarn
       unsetWErr df = unSetGeneralFlag' Opt_WarnIsError (emptyFatalWarningFlags df)
+      -- Dont report the missing module warnings. Before disabling this warning, it was
+      -- repeatedly shown to the user.
       unsetMissingHomeModules = flip wopt_unset Opt_WarnMissingHomeModules
+      -- Dont get rid of comments while typechecking.
+      -- Important for various operations that work on a typechecked module.
       setRawTokenStream = setGeneralFlag' Opt_KeepRawTokenStream
 
       ghcErrRes msg = pure (mempty, [T.pack msg], Nothing)
