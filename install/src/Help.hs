@@ -10,6 +10,7 @@ import           Env
 import           Print
 import           Version
 import           BuildSystem
+import           Cabal
 
 printUsage :: Action ()
 printUsage = do
@@ -83,6 +84,7 @@ helpMessage versions@BuildableVersions {..} = do
       , stackTarget buildAllTarget
       , stackTarget buildDataTarget
       ]
+      ++ (if isRunFromStack then [stackTarget installCabalTarget] else [])
       ++ map (stackTarget . hieTarget) stackVersions
 
   cabalTargets =
@@ -134,6 +136,12 @@ cabalGhcsTarget :: TargetDescription
 cabalGhcsTarget =
   ( "cabal-ghcs"
   , "Show all GHC versions that can be installed via `cabal-build` and `cabal-build-all`."
+  )
+
+installCabalTarget :: TargetDescription
+installCabalTarget =
+  ( "install-cabal"
+  , "Install the cabal executable. It will install the required minimum version for hie (currently " ++ versionToString requiredCabalVersion ++ ") if it isn't already present in $PATH"
   )
 
 -- | Creates a message of the form "a, b, c and d", where a,b,c,d are GHC versions.

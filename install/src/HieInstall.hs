@@ -91,6 +91,7 @@ defaultMain = do
       )
 
     -- stack specific targets
+    when isRunFromStack (phony "stack-install-cabal" (need ["cabal"]))
     phony "stack-build"     (need (reverse $ map ("stack-hie-" ++) hieVersions))
     phony "stack-build-all" (need ["build-data", "build"])
     phony "stack-build-data" $ do
