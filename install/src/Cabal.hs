@@ -57,11 +57,20 @@ cabalInstallHie versionNumber = do
     , "--overwrite-policy=always"
     ]
     ++ installMethod
+
+  let minorVerExe = "hie-" ++ versionNumber <.> exe
+      majorVerExe = "hie-" ++ dropExtension versionNumber <.> exe  
+
   liftIO $ do
-    copyFile (localBin </> "hie" <.> exe)
-             (localBin </> "hie-" ++ versionNumber <.> exe)
-    copyFile (localBin </> "hie" <.> exe)
-             (localBin </> "hie-" ++ dropExtension versionNumber <.> exe)
+    copyFile (localBin </> "hie" <.> exe) (localBin </> minorVerExe)
+    copyFile (localBin </> "hie" <.> exe) (localBin </> majorVerExe)
+
+  printLine $   "Copied executables "
+             ++ ("hie-wrapper" <.> exe) ++ ", "
+             ++ ("hie" <.> exe) ++ ", "
+             ++ majorVerExe ++ " and "
+             ++ minorVerExe
+             ++ " to " ++ localBin
 
 installCabal :: Action ()
 installCabal = do
@@ -70,9 +79,11 @@ installCabal = do
     c <- liftIO (findExecutable "cabal")
     when (isJust c) checkCabal
     return $ isJust c
-
+  
   -- install `cabal-install` if not already installed
-  unless cabalExeOk $ execStackShake_ ["install", "cabal-install"]
+  if cabalExeOk
+    then printLine "There is already a cabal executable in $PATH with the required minimum version."
+    else execStackShake_ ["install", "cabal-install"]
 
 -- | check `cabal` has the required version
 checkCabal :: Action ()
