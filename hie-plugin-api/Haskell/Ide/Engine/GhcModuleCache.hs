@@ -89,7 +89,16 @@ emptyModuleCache = GhcModuleCache T.empty Map.empty Nothing
 
 data LookupCradleResult = ReuseCradle | LoadCradle CachedCradle | NewCradle FilePath
 
--- The boolean indicates whether we have to reload the cradle or not
+-- | Lookup for the given File if the module cache has a fitting Cradle.
+-- Checks if the File belongs to the current Cradle and if it is,
+-- the current Cradle can be reused for the given Module/File.
+--
+-- If the Module is part of another Cradle that has already been loaded,
+-- return the Cradle.
+-- Otherwise, a new Cradle for the given FilePath needs to be created.
+--
+-- After loading, the cradle needs to be set as the current Cradle
+-- via 'setCurrentCradle' before the Cradle can be cached via 'cacheCradle'.
 lookupCradle :: FilePath -> GhcModuleCache -> LookupCradleResult
 lookupCradle fp gmc = traceShow ("lookupCradle", fp, gmc) $
   case currentCradle gmc of
@@ -105,10 +114,10 @@ instance Show CachedCradle where
 
 data GhcModuleCache = GhcModuleCache
   { cradleCache :: !(T.Trie CachedCradle)
-              -- ^ map from dirs to cradles
+              -- ^ map from FilePath to cradles
   , uriCaches  :: !UriCaches
   , currentCradle :: Maybe ([FilePath], BIOS.Cradle)
-              -- ^ The current cradle and which directories it is
+              -- ^ The current cradle and which FilePath's it is
               -- responsible for
   } deriving (Show)
 

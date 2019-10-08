@@ -70,13 +70,20 @@ modifyCache f = do
   setModuleCache (f mc)
 
 -- ---------------------------------------------------------------------
--- | Runs an action in a ghc-mod Cradle found from the
--- directory of the given file. If no file is found
--- then runs the action in the default cradle.
--- Sets the current directory to the cradle root dir
--- in either case
+-- | Run the given action in context and initialise a session with hie-bios.
+-- If a context is given, the context is used to initialise a session for GHC.
+-- The project "hie-bios" is used to find a Cradle and setup a GHC session
+-- for diagnostics.
+-- If no context is given, just execute the action.
+-- Executing an action without context is useful, if you want to only
+-- mutate ModuleCache or something similar without potentially loading
+-- the whole GHC session for a component.
 runActionWithContext :: (MonadIde m, GHC.GhcMonad m, HasGhcModuleCache m, MonadBaseControl IO m)
-                     => GHC.DynFlags -> Maybe FilePath -> m a -> m (IdeResult a)
+                     => GHC.DynFlags
+                     -> Maybe FilePath -- ^ Context for the Action
+                     -> m a -- ^ Action to execute
+                     -> m (IdeResult a) -- ^ Result of the action or error in
+                                        -- the context initialisation.
 runActionWithContext _df Nothing action =
   -- Cradle with no additional flags
   -- dir <- liftIO $ getCurrentDirectory
@@ -91,6 +98,11 @@ runActionWithContext df (Just uri) action = do
     IdeResultFail err -> return $ IdeResultFail err
 
 
+-- | Load the Cradle based on the given DynFlags and Cradle lookup Result.
+-- Reuses a Cradle if possible and sets up a GHC session for a new Cradle
+-- if needed.
+-- This function may take a long time to execute, since it potentially has
+-- to set up the Session, including downloading all dependencies of a Cradle.
 loadCradle :: (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m
               , MonadBaseControl IO m) => GHC.DynFlags -> LookupCradleResult -> m (IdeResult ())
 loadCradle _ ReuseCradle = do
@@ -122,6 +134,7 @@ loadCradle iniDynFlags (NewCradle fp) = do
   isStackCradle c = BIOS.actionName (BIOS.cradleOptsProg c) == "stack"
 
   -- | Initialise the given cradle. This might fail and return an error via `IdeResultFail`.
+  -- Reports its progress to the client.
   initialiseCradle :: (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m, MonadBaseControl IO m)
                   => BIOS.Cradle -> (Progress -> IO ()) -> m (IdeResult ())
   initialiseCradle cradle f = do
@@ -136,6 +149,10 @@ loadCradle iniDynFlags (NewCradle fp) = do
             , ideInfo    = Aeson.Null
             }
       BIOS.CradleSuccess init_session -> do
+        -- Note that init_session contains a Hook to 'f'.
+        -- So, it can still provide Progress Reports.
+        -- Therefore, invocation of 'init_session' must happen
+        -- while 'f' is still valid.
         init_res <- gcatches (Right <$> init_session)
                 [ErrorHandler (\(ex :: GHC.GhcException)
                   -> return $ Left (GHC.showGhcException ex ""))]
@@ -167,6 +184,11 @@ loadCradle iniDynFlags (NewCradle fp) = do
     where
       addOption (BIOS.ComponentOptions os ds) = BIOS.ComponentOptions (os ++ [fp]) ds
 
+-- | Sets the current cradle for caching.
+-- Retrieves the current GHC Module Graph, to find all modules
+-- that belong to this cradle.
+-- If the cradle does not load any module, it is responsible for an empty
+-- list of Modules.
 setCurrentCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => BIOS.Cradle -> m ()
 setCurrentCradle cradle = do
     mg <- GHC.getModuleGraph
@@ -175,7 +197,11 @@ setCurrentCradle cradle = do
     ps' <- liftIO $ mapM canonicalizePath ps
     modifyCache (\s -> s { currentCradle = Just (ps', cradle) })
 
-
+-- | Cache the given Cradle.
+-- Caches the given Cradle together with all Modules this Cradle is responsible
+-- for.
+-- Via 'lookupCradle' it can be checked if a given FilePath is managed by
+-- a any Cradle that has already been loaded.
 cacheCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => ([FilePath], BIOS.Cradle) -> m ()
 cacheCradle (ds, c) = do
   env <- GHC.getSession
@@ -183,9 +209,9 @@ cacheCradle (ds, c) = do
       new_map = T.fromList (map (, cc) (map B.pack ds))
   modifyCache (\s -> s { cradleCache = T.unionWith (\a _ -> a) new_map (cradleCache s) })
 
--- | Get the Cradle that should be used for a given URI
---getCradle :: (GM.GmEnv m, MonadIO m, HasGhcModuleCache m, GM.GmLog m
---             , MonadBaseControl IO m, ExceptionMonad m, GM.GmOut m)
+-- | Get the Cradle that should be used for a given FilePath.
+-- Looks up the cradle in the Module Cache and checks if the given
+-- FilePath is managed by any already loaded Cradle.
 getCradle :: (GHC.GhcMonad m, HasGhcModuleCache m)
          => FilePath -> m LookupCradleResult
 getCradle fp = do
