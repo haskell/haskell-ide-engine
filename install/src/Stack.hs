@@ -4,12 +4,14 @@ import           Development.Shake
 import           Development.Shake.Command
 import           Development.Shake.FilePath
 import           Control.Monad
+import           Data.List
 import           System.Directory                         ( copyFile )
-
+import           System.FilePath                          ( searchPathSeparator )
+import           System.Environment                       ( lookupEnv, setEnv, getEnvironment )
+import           BuildSystem
 import           Version
 import           Print
 import           Env
-
 
 stackBuildHie :: VersionNumber -> Action ()
 stackBuildHie versionNumber = execStackWithGhc_ versionNumber ["build"]
@@ -96,3 +98,33 @@ stackBuildFailMsg =
     ++ "Try running `stack clean` and restart the build\n"
     ++ "If this does not work, open an issue at \n"
     ++ "\thttps://github.com/haskell/haskell-ide-engine"
+
+-- | Run actions with the original user path, without stack additions
+withOriginalPath :: Action a -> Action a
+withOriginalPath action = do
+  mbPath <- liftIO (lookupEnv "PATH")
+
+  case (mbPath,isRunFromStack) of
+
+    (Just paths, True) -> do
+      snapshotDir <- trimmedStdout <$> execStackShake ["path", "--snapshot-install-root"]
+                                                      
+      let origPaths = removePathsContaining snapshotDir paths
+
+      liftIO (setEnv "PATH" origPaths)
+
+      a <- action
+
+      liftIO (setEnv "PATH" paths)
+      
+      return a
+
+    otherwise -> action
+
+  where removePathsContaining str path =
+          intercalate [searchPathSeparator] (filter (not.(isInfixOf str)) (splitPaths path))
+        splitPaths s =
+          case dropWhile (== searchPathSeparator) s of
+                      "" -> []
+                      s' -> w : words s''
+                            where (w, s'') = break (== searchPathSeparator) s'

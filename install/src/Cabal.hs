@@ -12,17 +12,21 @@ import           System.Directory                         ( findExecutable
                                                           , copyFile
                                                           )
 
+import           BuildSystem
 import           Version
 import           Print
 import           Env
 import           Stack
-
+import           Debug.Trace
 
 execCabal :: CmdResult r => [String] -> Action r
-execCabal = command [] "cabal"
+execCabal = execCabalWithOriginalPath
 
 execCabal_ :: [String] -> Action ()
-execCabal_ = command_ [] "cabal"
+execCabal_ = execCabalWithOriginalPath
+
+execCabalWithOriginalPath :: CmdResult r => [String] -> Action r
+execCabalWithOriginalPath = withOriginalPath . (command [] "cabal")
 
 cabalBuildData :: Action ()
 cabalBuildData = do
@@ -76,7 +80,8 @@ installCabal :: Action ()
 installCabal = do
   -- try to find existing `cabal` executable with appropriate version
   cabalExeOk <- do
-    c <- liftIO (findExecutable "cabal")
+    c <- withOriginalPath (liftIO (findExecutable "cabal"))
+    liftIO $ traceIO $ show c
     when (isJust c) checkCabal
     return $ isJust c
   

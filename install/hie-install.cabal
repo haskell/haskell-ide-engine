@@ -21,6 +21,7 @@ library
   build-depends:       base >= 4.9 && < 5
                      , shake == 0.17.8
                      , directory
+                     , filepath
                      , extra
                      , text
   default-extensions: LambdaCase
