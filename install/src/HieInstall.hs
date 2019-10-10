@@ -117,9 +117,9 @@ defaultMain = do
     forM_
       ghcVersions
       (\version -> phony ("cabal-hie-" ++ version) $ do
-        validateCabalNewInstallIsSupported
         need ["submodules"]
         need ["cabal"]
+        validateCabalNewInstallIsSupported
         cabalBuildHie version
         cabalInstallHie version
       )
