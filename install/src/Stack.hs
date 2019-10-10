@@ -104,7 +104,7 @@ withOriginalPath :: Action a -> Action a
 withOriginalPath action = do
   mbPath <- liftIO (lookupEnv "PATH")
 
-  case (mbPath,isRunFromStack) of
+  case (mbPath, isRunFromStack) of
 
     (Just paths, True) -> do
       snapshotDir <- trimmedStdout <$> execStackShake ["path", "--snapshot-install-root"]
@@ -122,7 +122,8 @@ withOriginalPath action = do
     otherwise -> action
 
   where removePathsContaining str path =
-          intercalate [searchPathSeparator] (filter (not.(isInfixOf str)) (splitPaths path))
+           joinPaths (filter (not.(isInfixOf str)) (splitPaths path))
+        joinPaths = intercalate [searchPathSeparator]
         splitPaths s =
           case dropWhile (== searchPathSeparator) s of
                       "" -> []

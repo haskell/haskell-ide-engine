@@ -63,7 +63,7 @@ defaultMain = do
     want ["short-help"]
     -- general purpose targets
     phony "submodules"  updateSubmodules
-    phony "cabal"       installCabal
+    phony "cabal"       installCabalWithStack
     phony "short-help"  shortHelpMessage
     phony "all"         shortHelpMessage
     phony "help"        (helpMessage versions)
