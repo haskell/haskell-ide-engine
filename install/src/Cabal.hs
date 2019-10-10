@@ -12,7 +12,6 @@ import           System.Directory                         ( findExecutable
                                                           , copyFile
                                                           )
 
-import           BuildSystem
 import           Version
 import           Print
 import           Env
