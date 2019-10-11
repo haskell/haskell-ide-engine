@@ -69,8 +69,6 @@ import           System.Exit
 import qualified System.Log.Logger                       as L
 import qualified Data.Rope.UTF16                         as Rope
 
-import qualified Outputable hiding ((<>))
-
 -- ---------------------------------------------------------------------
 {-# ANN module ("hlint: ignore Eta reduce" :: String) #-}
 {-# ANN module ("hlint: ignore Redundant do" :: String) #-}
@@ -951,7 +949,9 @@ requestDiagnosticsNormal tn file mVer = do
         let ds = Map.toList $ S.toList <$> pd
         case ds of
           [] -> sendEmpty
-          _ -> Outputable.pprTrace "Diags" (Outputable.text (show ds)) $ mapM_ (sendOneGhc "bios") ds
+          _ -> do
+            debugm ("Diags: " ++ show ds)
+            mapM_ (sendOneGhc "bios") ds
 
   makeRequest reqg
 

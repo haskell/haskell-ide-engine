@@ -50,7 +50,6 @@ import           Outputable hiding ((<>))
 import qualified HIE.Bios.Ghc.Api as BIOS (withDynFlags, setDeferTypeErrors)
 import qualified HIE.Bios.Ghc.Load as BIOS
 import qualified HIE.Bios.Flags as BIOS (CradleError)
-import Debug.Trace
 
 import System.Directory
 
@@ -174,17 +173,17 @@ logDiag :: (FilePath -> FilePath) -> IORef AdditionalErrs -> IORef Diagnostics -
 -- type LogAction = DynFlags -> WarnReason -> Severity -> SrcSpan -> PprStyle -> MsgDoc -> IO ()
 logDiag rfm eref dref df reason sev spn style msg = do
   eloc <- srcSpan2Loc rfm spn
-  traceShowM (spn, eloc)
+  debugm $ "Diagnostics at Location: " <> show (spn, eloc)
   let msgTxt = T.pack $ renderWithStyle df msg style
   case eloc of
     Right (Location uri range) -> do
       let update = Map.insertWith Set.union (toNormalizedUri uri) l
             where l = Set.singleton diag
           diag = Diagnostic range (Just $ lspSev reason sev) Nothing (Just "bios") msgTxt Nothing
-      debugm $ "Writing diag" <> (show diag)
+      debugm $ "Writing diag " <> (show diag)
       modifyIORef' dref (\(Diagnostics u) -> Diagnostics (update u))
     Left _ -> do
-      debugm $ "Writing err" <> (show msgTxt)
+      debugm $ "Writing err " <> (show msgTxt)
       modifyIORef' eref (msgTxt:)
       return ()
 

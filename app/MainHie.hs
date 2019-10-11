@@ -111,7 +111,7 @@ run opts = do
                    then L.DEBUG
                    else L.INFO
 
-  Core.setupLogger mLogFileName ["hie"] logLevel
+  Core.setupLogger mLogFileName ["hie", "hie-bios"] logLevel
 
   d <- getCurrentDirectory
   -- Get the cabal directory from the cradle
@@ -132,9 +132,12 @@ run opts = do
 
   let initOpts = defaultCradleOpts { cradleOptsVerbosity = verbosity }
       verbosity = if optBiosVerbose opts then Verbose else Silent
+      -- biosLogLevel = if optBiosVerbose opts then L.DEBUG else L.INFO
+
+  -- Core.setupLogger mLogFileName ["hie-bios"] biosLogLevel
 
   when (optBiosVerbose opts) $
-    logm "Enabling verbose mode for hie-bios. Output will be on stderr"
+    logm "Enabling verbose mode for hie-bios. This option currently doesn't do anything."
 
   when (optExamplePlugin opts) $
     logm "Enabling Example2 plugin, will insert constant diagnostics etc."

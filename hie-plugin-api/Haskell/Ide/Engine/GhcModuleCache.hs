@@ -20,7 +20,6 @@ import Data.List
 import Haskell.Ide.Engine.ArtifactMap
 
 import Language.Haskell.LSP.Types
-import Debug.Trace
 
 type UriCaches = Map.Map FilePath UriCacheResult
 
@@ -100,11 +99,11 @@ data LookupCradleResult = ReuseCradle | LoadCradle CachedCradle | NewCradle File
 -- After loading, the cradle needs to be set as the current Cradle
 -- via 'setCurrentCradle' before the Cradle can be cached via 'cacheCradle'.
 lookupCradle :: FilePath -> GhcModuleCache -> LookupCradleResult
-lookupCradle fp gmc = traceShow ("lookupCradle", fp, gmc) $
+lookupCradle fp gmc =
   case currentCradle gmc of
-    Just (dirs, _c) | traceShow ("just", fp, dirs) (any (\d -> d `isPrefixOf` fp) dirs) -> ReuseCradle
+    Just (dirs, _c) | (any (\d -> d `isPrefixOf` fp) dirs) -> ReuseCradle
     _ -> case T.match  (cradleCache gmc) (B.pack fp) of
-           Just (k, c, suf) -> traceShow ("matchjust",k, suf) $ LoadCradle c
+           Just (_k, c, _suf) -> LoadCradle c
            Nothing  -> NewCradle fp
 
 data CachedCradle = CachedCradle BIOS.Cradle HscEnv
