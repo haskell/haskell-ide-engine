@@ -6,7 +6,7 @@ import           Development.Shake.FilePath
 import           Control.Monad
 import           Data.List
 import           System.Directory                         ( copyFile )
-import           System.FilePath                          ( searchPathSeparator )
+import           System.FilePath                          ( searchPathSeparator, (</>) )
 import           System.Environment                       ( lookupEnv, setEnv, getEnvironment )
 import           BuildSystem
 import           Version
@@ -108,22 +108,24 @@ withOriginalPath action = do
 
     (Just paths, True) -> do
       snapshotDir <- trimmedStdout <$> execStackShake ["path", "--snapshot-install-root"]
-                                                      
-      let origPaths = removePathsContaining snapshotDir paths
+      localInstallDir <- trimmedStdout <$> execStackShake ["path", "--local-install-dir"]
+
+      let cacheBinPaths = [snapshotDir </> "bin", localInstallDir </> "bin"]
+      let origPaths = removePathsContaining cacheBinPaths paths
 
       liftIO (setEnv "PATH" origPaths)
-
       a <- action
-
       liftIO (setEnv "PATH" paths)
-      
       return a
 
     otherwise -> action
 
-  where removePathsContaining str path =
-           joinPaths (filter (not.(isInfixOf str)) (splitPaths path))
+  where removePathsContaining strs path =
+           joinPaths (filter (not . containsAny) (splitPaths path))
+           where containsAny p = any (`isInfixOf` p) strs
+        
         joinPaths = intercalate [searchPathSeparator]
+        
         splitPaths s =
           case dropWhile (== searchPathSeparator) s of
                       "" -> []
