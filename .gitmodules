@@ -19,13 +19,14 @@
 	path = submodules/cabal-helper
 	# url = https://github.com/arbor/cabal-helper.git
 	# url = https://github.com/alanz/cabal-helper.git
-	# url = https://github.com/DanielG/cabal-helper.git
 	url = https://github.com/DanielG/cabal-helper.git
+	# url = https://github.com/bubba/cabal-helper.git
 
 [submodule "submodules/ghc-mod"]
 	path = submodules/ghc-mod
 	# url = https://github.com/arbor/ghc-mod.git
-	url = https://github.com/bubba/ghc-mod.git
+	# url = https://github.com/bubba/ghc-mod.git
+	url = https://github.com/fendor/ghc-mod.git
   #url = https://github.com/mpickering/ghc-mod.git
 
 [submodule "hie-bios"]

@@ -111,7 +111,7 @@ loadCradle _ ReuseCradle = do
 
 loadCradle _iniDynFlags (LoadCradle (CachedCradle crd env)) = do
   -- Reloading a cradle happens on component switch
-  logm $ "Reload Cradle: " ++ show crd
+  logm $ "Switch to cradle: " ++ show crd
   -- Cache the existing cradle
   maybe (return ()) cacheCradle =<< (currentCradle <$> getModuleCache)
   GHC.setSession env
