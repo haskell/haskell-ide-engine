@@ -7,8 +7,6 @@ extra-deps:
 - ./hie-bios
 - ./submodules/HaRe
 - ./submodules/cabal-helper
-- ./submodules/ghc-mod
-- ./submodules/ghc-mod/core
 - ./submodules/ghc-mod/ghc-project-types
 
 - base-compat-0.9.3
