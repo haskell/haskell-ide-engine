@@ -32,28 +32,29 @@ spec = describe "window/progress" $ do
         startNotification ^. L.params . L.title `shouldBe` "Typechecking ApplyRefact2.hs"
         startNotification ^. L.params . L.id `shouldBe` "0"
 
-      doneNotification <- message :: Session ProgressDoneNotification
+      doneNotification <- skipManyTill loggingNotification (message :: Session ProgressDoneNotification)
       liftIO $ doneNotification ^. L.params . L.id `shouldBe` "0"
 
       -- the ghc-mod diagnostics
-      _ <- publishDiagnosticsNotification
+      _ <- skipManyTill loggingNotification publishDiagnosticsNotification
 
       -- Test incrementing ids
       sendNotification TextDocumentDidSave (DidSaveTextDocumentParams doc)
 
       -- hlint notifications
-      _ <- publishDiagnosticsNotification
+      _ <- skipManyTill loggingNotification publishDiagnosticsNotification
 
-      startNotification' <- message :: Session ProgressStartNotification
+      startNotification' <- skipManyTill loggingNotification (message :: Session ProgressStartNotification)
       liftIO $ do
         startNotification' ^. L.params . L.title `shouldBe` "Typechecking ApplyRefact2.hs"
         startNotification' ^. L.params . L.id `shouldBe` "1"
 
-      doneNotification' <- message :: Session ProgressDoneNotification
+      doneNotification' <- skipManyTill loggingNotification (message :: Session ProgressDoneNotification)
       liftIO $ doneNotification' ^. L.params . L.id `shouldBe` "1"
 
       -- the ghc-mod diagnostics
-      const () <$> publishDiagnosticsNotification
+      const () <$> skipManyTill loggingNotification publishDiagnosticsNotification
+
   it "sends indefinite progress notifications with liquid" $
     -- Testing that Liquid Haskell sends progress notifications
     runSession hieCommand progressCaps "test/testdata" $ do
@@ -62,13 +63,13 @@ spec = describe "window/progress" $ do
       skipMany loggingNotification
 
       -- Initial hlint notifications
-      _ <- publishDiagnosticsNotification
+      _ <- skipManyTill loggingNotification publishDiagnosticsNotification
 
       _ <- message :: Session ProgressStartNotification
       _ <- message :: Session ProgressDoneNotification
 
       -- the ghc-mod diagnostics
-      _ <- publishDiagnosticsNotification
+      _ <- skipManyTill loggingNotification publishDiagnosticsNotification
 
       -- Enable liquid haskell plugin
       let config = def { liquidOn  = True, hlintOn = False }
@@ -78,7 +79,7 @@ spec = describe "window/progress" $ do
       sendNotification TextDocumentDidSave (DidSaveTextDocumentParams doc)
 
       -- hlint notifications
-      _ <- publishDiagnosticsNotification
+      _ <- skipManyTill loggingNotification publishDiagnosticsNotification
 
       let startPred (NotProgressStart m) =
             m ^. L.params . L.title == "Running Liquid Haskell on Evens.hs"

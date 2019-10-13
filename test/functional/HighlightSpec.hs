@@ -12,7 +12,7 @@ spec :: Spec
 spec = describe "highlight" $
   it "works" $ runSession hieCommand fullCaps "test/testdata" $ do
     doc <- openDoc "Highlight.hs" "haskell"
-    _ <- skipManyTill loggingNotification $ count 2 noDiagnostics
+    _ <- count 2 $ skipManyTill loggingNotification noDiagnostics
     highlights <- getHighlights doc (Position 2 2)
     liftIO $ do
       let hls =
