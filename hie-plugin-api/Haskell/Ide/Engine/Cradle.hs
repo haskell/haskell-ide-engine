@@ -46,7 +46,10 @@ cabalHelperCradle file' = do
   logm $ "Cabal Helper dirs: " ++ show [root, file]
   projs <- findProjects root
   case projs of
+    []          -> error $ "Could not find a Project for file: " ++ file'
     (Ex proj:_) -> do
+      -- Create a suffix for the cradle name.
+      -- Purpose is mainly for easier debugging.
       let actionNameSuffix = case proj of
             ProjLocV1CabalFile {} -> "Cabal-V1"
             ProjLocV1Dir {}       -> "Cabal-V1-Dir"
@@ -57,25 +60,31 @@ cabalHelperCradle file' = do
       env <- mkQueryEnv proj dist_dir
       packages <- runQuery projectPackages env
       -- Find the package the given file may belong to
-      let realPackage = packages `findPackageFor` file
-      -- Field `pSourceDir` often has the form `<cwd>/./plugin`
-      -- but we only want `<cwd>/plugin`
-      let normalisedPackageLocation = normalise $ pSourceDir realPackage
-      -- Given the current directory: /projectRoot and the package is in
-      -- /projectRoot/plugin, we only want ./plugin
-      let relativePackageLocation = makeRelative root normalisedPackageLocation
-      return
-        Cradle { cradleRootDir = normalise (root </> relativePackageLocation)
-               , cradleOptsProg = CradleAction { actionName = "Cabal-Helper-"
-                                                   ++ actionNameSuffix
-                                               , runCradle = cabalHelperAction
-                                                   env
-                                                   realPackage
-                                                   normalisedPackageLocation
-                                               }
-               }
-    -- TODO: fix this undefined, probably an errorIO
-    _           -> undefined
+      case packages `findPackageFor` file of
+        Nothing          -> error
+          $ "Could not find a Package to which the file \""
+          ++ file'
+          ++ "\" belongs to."
+        Just realPackage -> do
+          -- Field `pSourceDir` often has the form `<cwd>/./plugin`
+          -- but we only want `<cwd>/plugin`
+          let normalisedPackageLocation = normalise $ pSourceDir realPackage
+          -- Given the current directory: /projectRoot and the package is in
+          -- /projectRoot/plugin, we only want ./plugin
+          let relativePackageLocation =
+                makeRelative root normalisedPackageLocation
+          return
+            Cradle { cradleRootDir = normalise
+                       (root </> relativePackageLocation)
+                   , cradleOptsProg =
+                       CradleAction { actionName =
+                                        "Cabal-Helper-" ++ actionNameSuffix
+                                    , runCradle = cabalHelperAction
+                                        env
+                                        realPackage
+                                        normalisedPackageLocation
+                                    }
+                   }
   where
     cabalHelperAction :: QueryEnv v
                       -> Package v
@@ -129,8 +138,8 @@ hasParent :: FilePath -> FilePath -> Bool
 hasParent child parent =
   any (equalFilePath parent) (map joinPath $ inits $ splitPath child)
 
-findPackageFor :: NonEmpty (Package pt) -> FilePath -> Package pt
+findPackageFor :: NonEmpty (Package pt) -> FilePath -> Maybe (Package pt)
 findPackageFor packages fp = packages
   & NonEmpty.filter (\p -> normalise (pSourceDir p) `isPrefixOf` fp)
   & sortOn (Down . length . pSourceDir)
-  & head -- this head is unreasonable
+  & listToMaybe
