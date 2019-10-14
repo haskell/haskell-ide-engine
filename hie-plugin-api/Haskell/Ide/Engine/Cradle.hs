@@ -15,9 +15,9 @@ import           Data.List.NonEmpty (NonEmpty)
 import           System.FilePath
 import           System.Directory
 import qualified Data.Map as M
-import           Data.List (inits, sortOn, isPrefixOf)
+import           Data.List (inits, sortOn, isPrefixOf, find)
 import           Data.Maybe (listToMaybe)
-import           Data.Ord
+import           Data.Ord (Down(..))
 import           System.Exit
 
 -- | Find the cradle that the given File belongs to.
@@ -90,7 +90,7 @@ cabalHelperCradle file' = do
       case getComponent fpRelativeDir unitInfos_ of
         Just comp -> do
           let fs = getFlags comp
-          let targets = getTargets comp
+          let targets = getTargets comp fpRelativeDir
           let ghcOptions = fs ++ targets
           debugm $ "Flags for \"" ++ fp ++ "\": " ++ show ghcOptions
           return
@@ -114,13 +114,16 @@ getComponent dir ui = listToMaybe
 getFlags :: ChComponentInfo -> [String]
 getFlags = ciGhcOptions
 
-getTargets :: ChComponentInfo -> [String]
-getTargets comp = case ciEntrypoints comp of
+getTargets :: ChComponentInfo -> FilePath -> [String]
+getTargets comp fp = case ciEntrypoints comp of
   ChSetupEntrypoint {} -> []
   ChLibEntrypoint { chExposedModules, chOtherModules }
     -> map unChModuleName (chExposedModules ++ chOtherModules)
   ChExeEntrypoint { chMainIs, chOtherModules }
-    -> chMainIs:map unChModuleName chOtherModules
+    -> [sourceDir </> chMainIs | Just sourceDir <- [sourceDirs]]
+    ++ map unChModuleName chOtherModules
+    where
+      sourceDirs = find (`isPrefixOf` fp) (ciSourceDirs comp)
 
 hasParent :: FilePath -> FilePath -> Bool
 hasParent child parent =
