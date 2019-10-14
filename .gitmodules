@@ -12,8 +12,8 @@
 
 [submodule "submodules/HaRe"]
 	path = submodules/HaRe
-	url = https://github.com/bubba/HaRe.git
-	# url = https://github.com/wz1000/HaRe.git
+	# url = https://github.com/bubba/HaRe.git
+	url = https://github.com/wz1000/HaRe.git
 
 [submodule "submodules/cabal-helper"]
 	path = submodules/cabal-helper
