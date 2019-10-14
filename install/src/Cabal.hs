@@ -24,7 +24,7 @@ execCabal_ :: [String] -> Action ()
 execCabal_ = execCabalWithOriginalPath
 
 execCabalWithOriginalPath :: CmdResult r => [String] -> Action r
-execCabalWithOriginalPath = withOriginalPath . (command [] "cabal")
+execCabalWithOriginalPath = withoutStackCachedBinaries . (command [] "cabal")
 
 cabalBuildData :: Action ()
 cabalBuildData = do
@@ -77,7 +77,7 @@ cabalInstallHie versionNumber = do
 installCabalWithStack :: Action ()
 installCabalWithStack = do
   -- try to find existing `cabal` executable with appropriate version
-  mbc <- withOriginalPath (liftIO (findExecutable "cabal"))
+  mbc <- withoutStackCachedBinaries (liftIO (findExecutable "cabal"))
 
   case mbc of
     Just c  -> do

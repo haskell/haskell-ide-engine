@@ -99,16 +99,16 @@ stackBuildFailMsg =
     ++ "If this does not work, open an issue at \n"
     ++ "\thttps://github.com/haskell/haskell-ide-engine"
 
--- | Run actions with the original user path, without stack additions
-withOriginalPath :: Action a -> Action a
-withOriginalPath action = do
+-- |Run actions without the stack cached binaries 
+withoutStackCachedBinaries :: Action a -> Action a
+withoutStackCachedBinaries action = do
   mbPath <- liftIO (lookupEnv "PATH")
 
   case (mbPath, isRunFromStack) of
 
     (Just paths, True) -> do
       snapshotDir <- trimmedStdout <$> execStackShake ["path", "--snapshot-install-root"]
-      localInstallDir <- trimmedStdout <$> execStackShake ["path", "--local-install-dir"]
+      localInstallDir <- trimmedStdout <$> execStackShake ["path", "--local-install-root"]
 
       let cacheBinPaths = [snapshotDir </> "bin", localInstallDir </> "bin"]
       let origPaths = removePathsContaining cacheBinPaths paths
