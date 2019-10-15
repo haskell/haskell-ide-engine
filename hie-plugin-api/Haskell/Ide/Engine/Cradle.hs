@@ -38,28 +38,78 @@ findLocalCradle fp = do
     Just yaml -> BIOS.loadCradle yaml
     Nothing   -> cabalHelperCradle fp
 
+-- | Finds a Cabal v2-project, Cabal v1-project or a Stack project
+-- relative to the given FilePath.
+-- Cabal v2-project and Stack have priority over Cabal v1-project.
+-- This entails that if a Cabal v1-project can be identified, it is
+-- first checked whether there are Stack projects or Cabal v2-projects
+-- before it is concluded that this is the project root.
+-- Cabal v2-projects and Stack projects are equally important.
+-- Due to the lack of user-input we have to guess which project it
+-- should rather be.
+-- This guessing has no guarantees and may change any-time.
+findCabalHelperEntryPoint :: FilePath -> IO (Maybe (Ex ProjLoc))
+findCabalHelperEntryPoint fp = do
+  projs <- concat <$> mapM findProjects subdirs
+  case filter (\p -> isCabalNewProject p || isStackProject p) projs of
+    (x:_) -> return $ Just x
+    []    -> case filter isCabalOldProject projs of
+      (x:_) -> return $ Just x
+      []    -> return Nothing
+  where
+    -- | Subdirectories of a given FilePath.
+    -- Directory closest to the FilePath `fp` is the head,
+    -- followed by one directory taken away.
+    subdirs :: [FilePath]
+    subdirs = reverse . map joinPath . tail . inits $ splitDirectories (takeDirectory fp)
+
+    isStackProject (Ex ProjLocStackYaml {}) = True
+    isStackProject _ = False
+
+    isCabalNewProject (Ex ProjLocV2Dir {}) = True
+    isCabalNewProject (Ex ProjLocV2File {}) = True
+    isCabalNewProject _ = False
+
+    isCabalOldProject (Ex ProjLocV1Dir {}) = True
+    isCabalOldProject (Ex ProjLocV1CabalFile {}) = True
+    isCabalOldProject _ = False
+
+projectRootDir :: ProjLoc qt -> FilePath
+projectRootDir ProjLocV1CabalFile { plProjectDirV1 } = plProjectDirV1
+projectRootDir ProjLocV1Dir { plProjectDirV1 } = plProjectDirV1
+projectRootDir ProjLocV2File { plProjectDirV2 } = plProjectDirV2
+projectRootDir ProjLocV2Dir { plProjectDirV2 } = plProjectDirV2
+projectRootDir ProjLocStackYaml { plStackYaml } = takeDirectory plStackYaml
+
+projectSuffix :: ProjLoc qt -> FilePath
+projectSuffix ProjLocV1CabalFile { } = "Cabal-V1"
+projectSuffix ProjLocV1Dir { } =  "Cabal-V1-Dir"
+projectSuffix ProjLocV2File { } = "Cabal-V2"
+projectSuffix ProjLocV2Dir { } = "Cabal-V2-Dir"
+projectSuffix ProjLocStackYaml {  } = "Stack"
+
 cabalHelperCradle :: FilePath -> IO Cradle
 cabalHelperCradle file' = do
-  -- TODO: recursive search
-  root <- getCurrentDirectory
-  file <- canonicalizePath file'
-  logm $ "Cabal Helper dirs: " ++ show [root, file]
-  projs <- findProjects root
-  case projs of
-    []          -> error $ "Could not find a Project for file: " ++ file'
-    (Ex proj:_) -> do
+  file <- canonicalizePath file' -- This is probably unneeded.
+  projM <- findCabalHelperEntryPoint file'
+  case projM of
+    Nothing        -> error $ "Could not find a Project for file: " ++ file'
+    Just (Ex proj) -> do
+      -- Find the root of the project based on project type.
+      let root = projectRootDir proj
       -- Create a suffix for the cradle name.
       -- Purpose is mainly for easier debugging.
-      let actionNameSuffix = case proj of
-            ProjLocV1CabalFile {} -> "Cabal-V1"
-            ProjLocV1Dir {}       -> "Cabal-V1-Dir"
-            ProjLocV2File {}      -> "Cabal-V2"
-            ProjLocV2Dir {}       -> "Cabal-V2-Dir"
-            ProjLocStackYaml {}   -> "Stack"
+      let actionNameSuffix = projectSuffix proj
+
+      logm $ "Cabal Helper dirs: " ++ show [root, file]
+
       let dist_dir = getDefaultDistDir proj
       env <- mkQueryEnv proj dist_dir
       packages <- runQuery projectPackages env
-      -- Find the package the given file may belong to
+      -- Find the package the given file may belong to.
+      -- If it does not belong to any package, create a none-cradle.
+      -- We might want to find a cradle without actually loading anything.
+      -- Useful if we only want to determine a ghc version to use.
       case packages `findPackageFor` file of
         Nothing          -> do
           debugm $ "Could not find a package for the file: " ++ file
@@ -68,22 +118,20 @@ cabalHelperCradle file' = do
           return
             Cradle { cradleRootDir = root
                    , cradleOptsProg =
-                       CradleAction { actionName =
-                                        "Cabal-Helper-" ++ actionNameSuffix
+                       CradleAction { actionName = "Cabal-Helper-"
+                                        ++ actionNameSuffix
+                                        ++ "-None"
                                     , runCradle = \_ -> return CradleNone
                                     }
                    }
         Just realPackage -> do
           -- Field `pSourceDir` often has the form `<cwd>/./plugin`
           -- but we only want `<cwd>/plugin`
+          debugm $ "Package: " ++ show realPackage
           let normalisedPackageLocation = normalise $ pSourceDir realPackage
-          -- Given the current directory: /projectRoot and the package is in
-          -- /projectRoot/plugin, we only want ./plugin
-          let relativePackageLocation =
-                makeRelative root normalisedPackageLocation
+          debugm $ "normalisedPackageLocation: " ++ normalisedPackageLocation
           return
-            Cradle { cradleRootDir = normalise
-                       (root </> relativePackageLocation)
+            Cradle { cradleRootDir = normalisedPackageLocation
                    , cradleOptsProg =
                        CradleAction { actionName =
                                         "Cabal-Helper-" ++ actionNameSuffix
@@ -102,8 +150,11 @@ cabalHelperCradle file' = do
     cabalHelperAction env package relativeDir fp = do
       let units = pUnits package
       -- Get all unit infos the given FilePath may belong to
+      -- TODO: lazily initialise units as needed
       unitInfos_ <- mapM (\unit -> runQuery (unitInfo unit) env) units
       let fpRelativeDir = takeDirectory $ makeRelative relativeDir fp
+      debugm $ "relativeDir: " ++ relativeDir
+      debugm $ "fpRelativeDir: " ++ fpRelativeDir
       case getComponent fpRelativeDir unitInfos_ of
         Just comp -> do
           let fs = getFlags comp
@@ -119,6 +170,7 @@ cabalHelperCradle file' = do
           $ CradleFail
           $ CradleError (ExitFailure 2) ("Could not obtain flags for " ++ fp)
 
+-- TODO: This can be a complete match
 getComponent :: FilePath -> NonEmpty UnitInfo -> Maybe ChComponentInfo
 getComponent dir ui = listToMaybe
   $ map snd
@@ -140,7 +192,7 @@ getTargets comp fp = case ciEntrypoints comp of
     -> [sourceDir </> chMainIs | Just sourceDir <- [sourceDirs]]
     ++ map unChModuleName chOtherModules
     where
-      sourceDirs = find (`isPrefixOf` fp) (ciSourceDirs comp)
+      sourceDirs = find (`isFilePathPrefixOf` fp) (ciSourceDirs comp)
 
 hasParent :: FilePath -> FilePath -> Bool
 hasParent child parent =
@@ -148,6 +200,10 @@ hasParent child parent =
 
 findPackageFor :: NonEmpty (Package pt) -> FilePath -> Maybe (Package pt)
 findPackageFor packages fp = packages
-  & NonEmpty.filter (\p -> normalise (pSourceDir p) `isPrefixOf` fp)
-  & sortOn (Down . length . pSourceDir)
+  & NonEmpty.toList
+  & sortOn (Down . pSourceDir)
+  & filter (\p -> pSourceDir p `isFilePathPrefixOf` fp)
   & listToMaybe
+
+isFilePathPrefixOf :: FilePath -> FilePath -> Bool
+isFilePathPrefixOf dir fp = normalise dir `isPrefixOf` normalise fp
