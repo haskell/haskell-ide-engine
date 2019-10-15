@@ -61,10 +61,18 @@ cabalHelperCradle file' = do
       packages <- runQuery projectPackages env
       -- Find the package the given file may belong to
       case packages `findPackageFor` file of
-        Nothing          -> error
-          $ "Could not find a Package to which the file \""
-          ++ file'
-          ++ "\" belongs to."
+        Nothing          -> do
+          debugm $ "Could not find a package for the file: " ++ file
+          debugm
+            "This is perfectly fine if we only want to determine the GHC version."
+          return
+            Cradle { cradleRootDir = root
+                   , cradleOptsProg =
+                       CradleAction { actionName =
+                                        "Cabal-Helper-" ++ actionNameSuffix
+                                    , runCradle = \_ -> return CradleNone
+                                    }
+                   }
         Just realPackage -> do
           -- Field `pSourceDir` often has the form `<cwd>/./plugin`
           -- but we only want `<cwd>/plugin`
