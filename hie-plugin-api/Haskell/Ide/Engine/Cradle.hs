@@ -74,20 +74,6 @@ findCabalHelperEntryPoint fp = do
     isCabalOldProject (Ex ProjLocV1CabalFile {}) = True
     isCabalOldProject _ = False
 
-projectRootDir :: ProjLoc qt -> FilePath
-projectRootDir ProjLocV1CabalFile { plProjectDirV1 } = plProjectDirV1
-projectRootDir ProjLocV1Dir { plProjectDirV1 } = plProjectDirV1
-projectRootDir ProjLocV2File { plProjectDirV2 } = plProjectDirV2
-projectRootDir ProjLocV2Dir { plProjectDirV2 } = plProjectDirV2
-projectRootDir ProjLocStackYaml { plStackYaml } = takeDirectory plStackYaml
-
-projectSuffix :: ProjLoc qt -> FilePath
-projectSuffix ProjLocV1CabalFile { } = "Cabal-V1"
-projectSuffix ProjLocV1Dir { } =  "Cabal-V1-Dir"
-projectSuffix ProjLocV2File { } = "Cabal-V2"
-projectSuffix ProjLocV2Dir { } = "Cabal-V2-Dir"
-projectSuffix ProjLocStackYaml {  } = "Stack"
-
 cabalHelperCradle :: FilePath -> IO Cradle
 cabalHelperCradle file' = do
   file <- canonicalizePath file' -- This is probably unneeded.
@@ -183,6 +169,12 @@ getComponent dir ui = listToMaybe
 getFlags :: ChComponentInfo -> [String]
 getFlags = ciGhcOptions
 
+-- | Get all Targets of a Component, since we want to load all components.
+-- FilePath is needed for the special case that the Component is an Exe.
+-- The Exe contains a Path to the Main which is relative to some entry in the 'ciSourceDirs'.
+-- We monkey patch this by supplying the FilePath we want to load,
+-- which is part of this component, and select the 'ciSourceDir' we actually want.
+-- See the Documenation of 'ciCourceDir' to why this contains multiple entries.
 getTargets :: ChComponentInfo -> FilePath -> [String]
 getTargets comp fp = case ciEntrypoints comp of
   ChSetupEntrypoint {} -> []
@@ -207,3 +199,17 @@ findPackageFor packages fp = packages
 
 isFilePathPrefixOf :: FilePath -> FilePath -> Bool
 isFilePathPrefixOf dir fp = normalise dir `isPrefixOf` normalise fp
+
+projectRootDir :: ProjLoc qt -> FilePath
+projectRootDir ProjLocV1CabalFile { plProjectDirV1 } = plProjectDirV1
+projectRootDir ProjLocV1Dir { plProjectDirV1 } = plProjectDirV1
+projectRootDir ProjLocV2File { plProjectDirV2 } = plProjectDirV2
+projectRootDir ProjLocV2Dir { plProjectDirV2 } = plProjectDirV2
+projectRootDir ProjLocStackYaml { plStackYaml } = takeDirectory plStackYaml
+
+projectSuffix :: ProjLoc qt -> FilePath
+projectSuffix ProjLocV1CabalFile { } = "Cabal-V1"
+projectSuffix ProjLocV1Dir { } =  "Cabal-V1-Dir"
+projectSuffix ProjLocV2File { } = "Cabal-V2"
+projectSuffix ProjLocV2Dir { } = "Cabal-V2-Dir"
+projectSuffix ProjLocStackYaml { } = "Stack"
