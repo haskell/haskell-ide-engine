@@ -63,7 +63,7 @@ defaultMain = do
     want ["short-help"]
     -- general purpose targets
     phony "submodules"  updateSubmodules
-    phony "cabal"       installCabal
+    phony "cabal"       installCabalWithStack
     phony "short-help"  shortHelpMessage
     phony "all"         shortHelpMessage
     phony "help"        (helpMessage versions)
@@ -117,9 +117,9 @@ defaultMain = do
     forM_
       ghcVersions
       (\version -> phony ("cabal-hie-" ++ version) $ do
-        validateCabalNewInstallIsSupported
         need ["submodules"]
         need ["cabal"]
+        validateCabalNewInstallIsSupported
         cabalBuildHie version
         cabalInstallHie version
       )

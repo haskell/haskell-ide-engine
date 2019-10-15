@@ -17,12 +17,14 @@ import           Print
 import           Env
 import           Stack
 
-
 execCabal :: CmdResult r => [String] -> Action r
-execCabal = command [] "cabal"
+execCabal = execCabalWithOriginalPath
 
 execCabal_ :: [String] -> Action ()
-execCabal_ = command_ [] "cabal"
+execCabal_ = execCabalWithOriginalPath
+
+execCabalWithOriginalPath :: CmdResult r => [String] -> Action r
+execCabalWithOriginalPath = withoutStackCachedBinaries . (command [] "cabal")
 
 cabalBuildData :: Action ()
 cabalBuildData = do
@@ -72,18 +74,17 @@ cabalInstallHie versionNumber = do
              ++ minorVerExe
              ++ " to " ++ localBin
 
-installCabal :: Action ()
-installCabal = do
+installCabalWithStack :: Action ()
+installCabalWithStack = do
   -- try to find existing `cabal` executable with appropriate version
-  cabalExeOk <- do
-    c <- liftIO (findExecutable "cabal")
-    when (isJust c) checkCabal
-    return $ isJust c
-  
-  -- install `cabal-install` if not already installed
-  if cabalExeOk
-    then printLine "There is already a cabal executable in $PATH with the required minimum version."
-    else execStackShake_ ["install", "cabal-install"]
+  mbc <- withoutStackCachedBinaries (liftIO (findExecutable "cabal"))
+
+  case mbc of
+    Just c  -> do
+      checkCabal
+      printLine "There is already a cabal executable in $PATH with the required minimum version."
+     -- install `cabal-install` if not already installed
+    Nothing ->  execStackShake_ ["install", "cabal-install"]
 
 -- | check `cabal` has the required version
 checkCabal :: Action ()
@@ -117,7 +118,7 @@ cabalInstallNotSuportedFailMsg =
 -- | Error message when the `cabal` binary is an older version
 cabalInstallIsOldFailMsg :: String -> String
 cabalInstallIsOldFailMsg cabalVersion =
-  "The `cabal` executable is outdated.\n"
+  "The `cabal` executable found in $PATH is outdated.\n"
     ++ "found version is `"
     ++ cabalVersion
     ++ "`.\n"
