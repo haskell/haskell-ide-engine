@@ -119,6 +119,8 @@ run opts = do
   logm $  "Run entered for HIE(" ++ progName ++ ") " ++ version
   d <- getCurrentDirectory
   logm $ "Current directory:" ++ d
+  args <- getArgs
+  logm $ "args:" ++ show args
 
   let vomitOptions = defaultOptions { boLogging = BlVomit}
   let defaultOpts = if optGhcModVomit opts then vomitOptions else defaultOptions
