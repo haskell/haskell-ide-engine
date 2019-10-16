@@ -132,15 +132,12 @@ loadCradle iniDynFlags (NewCradle fp) = do
   withProgress "Initialising Cradle" NotCancellable (initialiseCradle cradle)
 
  where
-  isStackCradle :: BIOS.Cradle -> Bool
-  isStackCradle c = BIOS.actionName (BIOS.cradleOptsProg c) == "stack"
-
   -- | Initialise the given cradle. This might fail and return an error via `IdeResultFail`.
   -- Reports its progress to the client.
   initialiseCradle :: (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m, MonadBaseControl IO m)
                   => BIOS.Cradle -> (Progress -> IO ()) -> m (IdeResult ())
   initialiseCradle cradle f = do
-    res <- BIOS.initializeFlagsWithCradleWithMessage (Just (toMessager f)) fp (fixCradle cradle)
+    res <- BIOS.initializeFlagsWithCradleWithMessage (Just (toMessager f)) fp cradle
     case res of
       BIOS.CradleNone -> return (IdeResultOk ())
       BIOS.CradleFail err -> do
@@ -172,19 +169,6 @@ loadCradle iniDynFlags (NewCradle fp) = do
             -- `.hi` files will be saved.
           Right () ->
             IdeResultOk <$> setCurrentCradle cradle
-
-  -- The stack cradle doesn't return the target as well, so add the
-  -- FilePath onto the end of the options to make sure at least one target
-  -- is returned.
-  fixCradle :: BIOS.Cradle -> BIOS.Cradle
-  fixCradle cradle = do
-    if isStackCradle cradle
-      -- We need a lens
-      then cradle { BIOS.cradleOptsProg = (BIOS.cradleOptsProg cradle)
-                  { BIOS.runCradle = \fp' ->  fmap addOption <$> BIOS.runCradle (BIOS.cradleOptsProg cradle) fp' } }
-      else cradle
-    where
-      addOption (BIOS.ComponentOptions os ds) = BIOS.ComponentOptions (os ++ [fp]) ds
 
 -- | Sets the current cradle for caching.
 -- Retrieves the current GHC Module Graph, to find all modules
