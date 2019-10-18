@@ -43,7 +43,7 @@ import           Haskell.Ide.Engine.Plugin.Generic
 main :: IO ()
 main = do
   hSetBuffering stderr LineBuffering
-  setupStackFiles
+  setupBuildToolFiles
   config <- getHspecFormattedConfig "dispatcher"
   withFileLogging "main-dispatcher.log" $ do
     hspecWith config funcSpec
