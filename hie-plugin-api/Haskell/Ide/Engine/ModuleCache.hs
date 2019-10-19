@@ -77,24 +77,34 @@ modifyCache f = do
 -- Executing an action without context is useful, if you want to only
 -- mutate ModuleCache or something similar without potentially loading
 -- the whole GHC session for a component.
+--
+-- There are three possibilities for loading a cradle
+-- 1. Load succeeds and we get a new cradle to execute the action in
+-- 2. Load fails, so we report an error using IdeResultFail
+-- 3. The bios reports CradleNone, which means we should completely ignore
+-- the file.
+--
+-- In the third case, we
+-- 1. Don't execute the action which we told to run, as we should behave as
+-- though we know nothing about the file.
+-- 2. Return the default value for the specific action.
 runActionWithContext :: (MonadIde m, GHC.GhcMonad m, HasGhcModuleCache m, MonadBaseControl IO m)
                      => GHC.DynFlags
                      -> Maybe FilePath -- ^ Context for the Action
+                     -> a -- ^ Default value for none cradle
                      -> m a -- ^ Action to execute
                      -> m (IdeResult a) -- ^ Result of the action or error in
                                         -- the context initialisation.
-runActionWithContext _df Nothing action =
+runActionWithContext _df Nothing _def action =
   -- Cradle with no additional flags
   -- dir <- liftIO $ getCurrentDirectory
   --This causes problems when loading a later package which sets the
   --packageDb
   -- loadCradle df (BIOS.defaultCradle dir)
   fmap IdeResultOk action
-runActionWithContext df (Just uri) action = do
+runActionWithContext df (Just uri) def action = do
   mcradle <- getCradle uri
-  loadCradle df mcradle >>= \case
-    IdeResultOk () -> fmap IdeResultOk action
-    IdeResultFail err -> return $ IdeResultFail err
+  loadCradle df mcradle def action
 
 
 -- | Load the Cradle based on the given DynFlags and Cradle lookup Result.
@@ -102,23 +112,28 @@ runActionWithContext df (Just uri) action = do
 -- if needed.
 -- This function may take a long time to execute, since it potentially has
 -- to set up the Session, including downloading all dependencies of a Cradle.
-loadCradle :: (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m
-              , MonadBaseControl IO m) => GHC.DynFlags -> LookupCradleResult -> m (IdeResult ())
-loadCradle _ ReuseCradle = do
+loadCradle :: forall a m . (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m
+              , MonadBaseControl IO m)
+              => GHC.DynFlags
+              -> LookupCradleResult
+              -> a
+              -> m a
+              -> m (IdeResult a)
+loadCradle _ ReuseCradle _def action = do
   -- Since we expect this message to show up often, only show in debug mode
   debugm "Reusing cradle"
-  return (IdeResultOk ())
+  IdeResultOk <$> action
 
-loadCradle _iniDynFlags (LoadCradle (CachedCradle crd env)) = do
+loadCradle _iniDynFlags (LoadCradle (CachedCradle crd env)) _def action = do
   -- Reloading a cradle happens on component switch
   logm $ "Switch to cradle: " ++ show crd
   -- Cache the existing cradle
   maybe (return ()) cacheCradle =<< (currentCradle <$> getModuleCache)
   GHC.setSession env
   setCurrentCradle crd
-  return (IdeResultOk ())
+  IdeResultOk <$> action
 
-loadCradle iniDynFlags (NewCradle fp) = do
+loadCradle iniDynFlags (NewCradle fp) def action = do
   -- If this message shows up a lot in the logs, it is an indicator for a bug
   logm $ "New cradle: " ++ fp
   -- Cache the existing cradle
@@ -127,19 +142,20 @@ loadCradle iniDynFlags (NewCradle fp) = do
   -- Now load the new cradle
   cradle <- liftIO $ findLocalCradle fp
   logm $ "Found cradle: " ++ show cradle
-  liftIO (GHC.newHscEnv iniDynFlags) >>= GHC.setSession
-  liftIO $ setCurrentDirectory (BIOS.cradleRootDir cradle)
   withProgress "Initialising Cradle" NotCancellable (initialiseCradle cradle)
 
  where
   -- | Initialise the given cradle. This might fail and return an error via `IdeResultFail`.
   -- Reports its progress to the client.
   initialiseCradle :: (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m, MonadBaseControl IO m)
-                  => BIOS.Cradle -> (Progress -> IO ()) -> m (IdeResult ())
+                  => BIOS.Cradle -> (Progress -> IO ()) -> m (IdeResult a)
   initialiseCradle cradle f = do
     res <- BIOS.initializeFlagsWithCradleWithMessage (Just (toMessager f)) fp cradle
     case res of
-      BIOS.CradleNone -> return (IdeResultOk ())
+      BIOS.CradleNone ->
+        -- Note: The action is not run if we are in the none cradle, we
+        -- just pretend the file doesn't exist.
+        return $ IdeResultOk def
       BIOS.CradleFail err -> do
         logm $ "GhcException on cradle initialisation: " ++ show err
         return $ IdeResultFail $ IdeError
@@ -152,6 +168,8 @@ loadCradle iniDynFlags (NewCradle fp) = do
         -- So, it can still provide Progress Reports.
         -- Therefore, invocation of 'init_session' must happen
         -- while 'f' is still valid.
+        liftIO (GHC.newHscEnv iniDynFlags) >>= GHC.setSession
+        liftIO $ setCurrentDirectory (BIOS.cradleRootDir cradle)
         init_res <- gcatches (Right <$> init_session)
                 [ErrorHandler (\(ex :: GHC.GhcException)
                   -> return $ Left (GHC.showGhcException ex ""))]
@@ -167,8 +185,9 @@ loadCradle iniDynFlags (NewCradle fp) = do
             -- it on a save whilst there are errors. Subsequent loads won't
             -- be that slow, even though the cradle isn't cached because the
             -- `.hi` files will be saved.
-          Right () ->
-            IdeResultOk <$> setCurrentCradle cradle
+          Right () -> do
+            setCurrentCradle cradle
+            IdeResultOk <$> action
 
 -- | Sets the current cradle for caching.
 -- Retrieves the current GHC Module Graph, to find all modules

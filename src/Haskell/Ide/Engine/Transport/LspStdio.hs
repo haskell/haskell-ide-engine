@@ -232,7 +232,7 @@ mapFileFromVfs tn vtdi = do
       -- TODO: @fendor, better document that, why do we even have this?
       -- We have it to cancel operations that would operate on stale file versions
       -- Maybe NotDidCloseDocument should call it, too?
-      let req = GReq tn (Just uri) Nothing Nothing (const $ return ())
+      let req = GReq tn (Just uri) Nothing Nothing (const $ return ()) ()
                   $ return (IdeResultOk ())
 
       updateDocumentRequest uri ver req
@@ -439,7 +439,7 @@ reactor inp diagIn = do
 
 
           lf <- ask
-          let hreq = GReq tn Nothing Nothing Nothing callback $ IdeResultOk <$> Hoogle.initializeHoogleDb
+          let hreq = GReq tn Nothing Nothing Nothing callback Nothing $ IdeResultOk <$> Hoogle.initializeHoogleDb
               callback Nothing = flip runReaderT lf $
                 reactorSend $ NotShowMessage $
                   fmServerShowMessageNotification J.MtWarning "No hoogle db found. Check the README for instructions to generate one"
@@ -495,7 +495,7 @@ reactor inp diagIn = do
               ver  = vtdi ^. J.version
               J.List changes = params ^. J.contentChanges
           mapFileFromVfs tn vtdi
-          makeRequest $ GReq tn (Just uri) Nothing Nothing (const $ return ()) $
+          makeRequest $ GReq tn (Just uri) Nothing Nothing (const $ return ()) () $
             -- Important - Call this before requestDiagnostics
             updatePositionMap uri changes
 
@@ -512,7 +512,7 @@ reactor inp diagIn = do
           let
               uri = notification ^. J.params . J.textDocument . J.uri
           -- unmapFileFromVfs versionTVar cin uri
-          makeRequest $ GReq tn (Just uri) Nothing Nothing (const $ return ()) $ do
+          makeRequest $ GReq tn (Just uri) Nothing Nothing (const $ return ()) () $ do
             forM_ (uriToFilePath uri)
               deleteCachedModule
             return $ IdeResultOk ()
@@ -524,7 +524,7 @@ reactor inp diagIn = do
           let (params, doc, pos) = reqParams req
               newName  = params ^. J.newName
               callback = reactorSend . RspRename . Core.makeResponseMessage req
-          let hreq = GReq tn (Just doc) Nothing (Just $ req ^. J.id) callback
+          let hreq = GReq tn (Just doc) Nothing (Just $ req ^. J.id) callback mempty
                        $ HaRe.renameCmd' doc pos newName
           makeRequest hreq
 
@@ -624,7 +624,7 @@ reactor inp diagIn = do
                                                 "Invalid fallbackCodeAction params"
                   -- Just an ordinary HIE command
                   Just (plugin, cmd) ->
-                    let preq = GReq tn Nothing Nothing (Just $ req ^. J.id) callback
+                    let preq = GReq tn Nothing Nothing (Just $ req ^. J.id) callback (toDynJSON (Nothing :: Maybe J.WorkspaceEdit))
                                $ runPluginCommand plugin cmd cmdParams
                     in makeRequest preq
 
@@ -932,14 +932,14 @@ requestDiagnosticsNormal tn file mVer = do
   let sendHlint = hlintOn clientConfig
   when sendHlint $ do
     -- get hlint diagnostics
-    let reql = GReq tn (Just file) (Just (file,ver)) Nothing callbackl
+    let reql = GReq tn (Just file) (Just (file,ver)) Nothing callbackl (PublishDiagnosticsParams file mempty)
                  $ ApplyRefact.lintCmd' file
         callbackl (PublishDiagnosticsParams fp (List ds))
              = sendOne "hlint" (J.toNormalizedUri fp, ds)
     makeRequest reql
 
   -- get GHC diagnostics and loads the typechecked module into the cache
-  let reqg = GReq tn (Just file) (Just (file,ver)) Nothing callbackg
+  let reqg = GReq tn (Just file) (Just (file,ver)) Nothing callbackg mempty
                $ BIOS.setTypecheckedModule file
       callbackg (HIE.Diagnostics pd, errs) = do
         forM_ errs $ \e -> do

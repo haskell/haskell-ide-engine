@@ -48,11 +48,11 @@ dispatchRequestPGoto =
 
 -- ---------------------------------------------------------------------
 
-runWithContext :: Uri -> IdeGhcM a -> IdeGhcM a
+runWithContext :: Monoid a => Uri -> IdeGhcM (IdeResult a) -> IdeGhcM (IdeResult a)
 runWithContext uri act = case uriToFilePath uri of
   Just fp -> do
     df <- getSessionDynFlags
-    res <- runActionWithContext df (Just fp) act
+    res <- runActionWithContext df (Just fp) (IdeResultOk mempty) act
     case res of
       IdeResultOk a -> return a
       IdeResultFail err -> error $ "Could not run in context: " ++ show err
