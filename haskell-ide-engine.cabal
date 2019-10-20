@@ -71,8 +71,8 @@ library
                      , gitrev >= 1.1
                      , haddock-api
                      , haddock-library
-                     , haskell-lsp == 0.16.*
-                     , haskell-lsp-types == 0.16.*
+                     , haskell-lsp == 0.17.*
+                     , haskell-lsp-types == 0.17.*
                      , haskell-src-exts
                      , hie-plugin-api
                      , hoogle >= 5.0.13
@@ -199,7 +199,7 @@ test-suite unit-test
                      , free
                      , ghc
                      , haskell-ide-engine
-                     , haskell-lsp-types == 0.16.*
+                     , haskell-lsp-types == 0.17.*
                      , hie-test-utils
                      , hie-plugin-api
                      , hoogle > 5.0.11
@@ -285,10 +285,10 @@ test-suite func-test
                      , data-default
                      , directory
                      , filepath
-                     , lsp-test >= 0.6.0.0
+                     , lsp-test >= 0.8.0.0
                      , haskell-ide-engine
-                     , haskell-lsp-types == 0.16.*
-                     , haskell-lsp == 0.16.*
+                     , haskell-lsp-types == 0.17.*
+                     , haskell-lsp == 0.17.*
                      , hie-test-utils
                      , hie-plugin-api
                      , hspec

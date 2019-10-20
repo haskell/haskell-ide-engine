@@ -30,7 +30,7 @@ spec = do
       doc <- openDoc "Format.hs" "haskell"
       formatRange doc (FormattingOptions 5 True) (Range (Position 4 0) (Position 7 19))
       documentContents doc >>= liftIO . (`shouldBe` formattedRangeTabSize5)
-  
+
   describe "formatting provider" $ do
     let formatLspConfig provider =
           object [ "languageServerHaskell" .= object ["formattingProvider" .= (provider :: Value)] ]
@@ -42,7 +42,7 @@ spec = do
 
       formatDoc doc (FormattingOptions 2 True)
       documentContents doc >>= liftIO . (`shouldBe` orig)
-      
+
       formatRange doc (FormattingOptions 2 True) (Range (Position 1 0) (Position 3 10))
       documentContents doc >>= liftIO . (`shouldBe` orig)
 
@@ -60,18 +60,18 @@ spec = do
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (formatLspConfig "brittany"))
       formatDoc doc (FormattingOptions 2 True)
       documentContents doc >>= liftIO . (`shouldBe` formattedBrittanyPostFloskell)
-  
+
   describe "brittany" $ do
     it "formats a document with LF endings" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "BrittanyLF.hs" "haskell"
-      let opts = DocumentFormattingParams doc (FormattingOptions 4 True)
+      let opts = DocumentFormattingParams doc (FormattingOptions 4 True) Nothing
       ResponseMessage _ _ (Just edits) _ <- request TextDocumentFormatting opts
       liftIO $ edits `shouldBe` [TextEdit (Range (Position 0 0) (Position 3 0))
                                   "foo :: Int -> String -> IO ()\nfoo x y = do\n    print x\n    return 42\n"]
 
     it "formats a document with CRLF endings" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "BrittanyCRLF.hs" "haskell"
-      let opts = DocumentFormattingParams doc (FormattingOptions 4 True)
+      let opts = DocumentFormattingParams doc (FormattingOptions 4 True) Nothing
       ResponseMessage _ _ (Just edits) _ <- request TextDocumentFormatting opts
       liftIO $ edits `shouldBe` [TextEdit (Range (Position 0 0) (Position 3 0))
                                   "foo :: Int -> String -> IO ()\nfoo x y = do\n    print x\n    return 42\n"]
@@ -79,7 +79,7 @@ spec = do
     it "formats a range with LF endings" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "BrittanyLF.hs" "haskell"
       let range = Range (Position 1 0) (Position 2 22)
-          opts = DocumentRangeFormattingParams doc range (FormattingOptions 4 True)
+          opts = DocumentRangeFormattingParams doc range (FormattingOptions 4 True) Nothing
       ResponseMessage _ _ (Just edits) _ <- request TextDocumentRangeFormatting opts
       liftIO $ edits `shouldBe` [TextEdit (Range (Position 1 0) (Position 3 0))
                                     "foo x y = do\n    print x\n    return 42\n"]
@@ -87,7 +87,7 @@ spec = do
     it "formats a range with CRLF endings" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "BrittanyCRLF.hs" "haskell"
       let range = Range (Position 1 0) (Position 2 22)
-          opts = DocumentRangeFormattingParams doc range (FormattingOptions 4 True)
+          opts = DocumentRangeFormattingParams doc range (FormattingOptions 4 True) Nothing
       ResponseMessage _ _ (Just edits) _ <- request TextDocumentRangeFormatting opts
       liftIO $ edits `shouldBe` [TextEdit (Range (Position 1 0) (Position 3 0))
                                     "foo x y = do\n    print x\n    return 42\n"]
