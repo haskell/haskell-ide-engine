@@ -16,7 +16,7 @@ import Test.Hspec
 import TestUtils
 
 spec :: Spec
-spec = describe "window/progress" $ do
+spec = describe "window/workDoneProgress" $ do
   it "sends indefinite progress notifications" $
     -- Testing that ghc-mod sends progress notifications
     runSession hieCommand progressCaps "test/testdata" $ do
@@ -27,13 +27,17 @@ spec = describe "window/progress" $ do
       -- Initial hlint notifications
       _ <- publishDiagnosticsNotification
 
-      startNotification <- message :: Session ProgressStartNotification
+      createRequest <- message :: Session WorkDoneProgressCreateRequest
       liftIO $ do
-        startNotification ^. L.params . L.title `shouldBe` "Typechecking ApplyRefact2.hs"
-        startNotification ^. L.params . L.id `shouldBe` "0"
+        createRequest ^. L.params `shouldBe` WorkDoneProgressCreateParams (ProgressNumericToken 0)
 
-      doneNotification <- skipManyTill loggingNotification (message :: Session ProgressDoneNotification)
-      liftIO $ doneNotification ^. L.params . L.id `shouldBe` "0"
+      startNotification <- message :: Session WorkDoneProgressBeginNotification
+      liftIO $ do
+        startNotification ^. L.params . L.value . L.title `shouldBe` "Typechecking ApplyRefact2.hs"
+        startNotification ^. L.params . L.token `shouldBe` (ProgressNumericToken 0)
+
+      doneNotification <- skipManyTill loggingNotification (message :: Session WorkDoneProgressEndNotification)
+      liftIO $ doneNotification ^. L.params . L.token `shouldBe` (ProgressNumericToken 0)
 
       -- the ghc-mod diagnostics
       _ <- skipManyTill loggingNotification publishDiagnosticsNotification
@@ -44,13 +48,17 @@ spec = describe "window/progress" $ do
       -- hlint notifications
       _ <- skipManyTill loggingNotification publishDiagnosticsNotification
 
-      startNotification' <- skipManyTill loggingNotification (message :: Session ProgressStartNotification)
+      createRequest' <- skipManyTill loggingNotification (message :: Session WorkDoneProgressCreateRequest)
       liftIO $ do
-        startNotification' ^. L.params . L.title `shouldBe` "Typechecking ApplyRefact2.hs"
-        startNotification' ^. L.params . L.id `shouldBe` "1"
+        createRequest' ^. L.params `shouldBe` WorkDoneProgressCreateParams (ProgressNumericToken 1)
 
-      doneNotification' <- skipManyTill loggingNotification (message :: Session ProgressDoneNotification)
-      liftIO $ doneNotification' ^. L.params . L.id `shouldBe` "1"
+      startNotification' <- message :: Session WorkDoneProgressBeginNotification
+      liftIO $ do
+        startNotification' ^. L.params . L.value . L.title `shouldBe` "Typechecking ApplyRefact2.hs"
+        startNotification' ^. L.params . L.token `shouldBe` (ProgressNumericToken 1)
+
+      doneNotification' <- skipManyTill loggingNotification (message :: Session WorkDoneProgressEndNotification)
+      liftIO $ doneNotification' ^. L.params . L.token `shouldBe` (ProgressNumericToken 1)
 
       -- the ghc-mod diagnostics
       const () <$> skipManyTill loggingNotification publishDiagnosticsNotification
@@ -65,8 +73,9 @@ spec = describe "window/progress" $ do
       -- Initial hlint notifications
       _ <- skipManyTill loggingNotification publishDiagnosticsNotification
 
-      _ <- message :: Session ProgressStartNotification
-      _ <- message :: Session ProgressDoneNotification
+      _ <- message :: Session  WorkDoneProgressCreateRequest
+      _ <- message :: Session WorkDoneProgressBeginNotification
+      _ <- message :: Session WorkDoneProgressEndNotification
 
       -- the ghc-mod diagnostics
       _ <- skipManyTill loggingNotification publishDiagnosticsNotification
@@ -81,11 +90,11 @@ spec = describe "window/progress" $ do
       -- hlint notifications
       _ <- skipManyTill loggingNotification publishDiagnosticsNotification
 
-      let startPred (NotProgressStart m) =
-            m ^. L.params . L.title == "Running Liquid Haskell on Evens.hs"
+      let startPred (NotWorkDoneProgressBegin m) =
+            m ^. L.params . L.value . L.title == "Running Liquid Haskell on Evens.hs"
           startPred _ = False
 
-      let donePred (NotProgressDone _) = True
+      let donePred (NotWorkDoneProgressEnd _) = True
           donePred _ = False
 
       _ <- skipManyTill anyMessage $ between (satisfy startPred) (satisfy donePred) $
