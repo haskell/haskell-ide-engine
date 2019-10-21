@@ -26,7 +26,6 @@ extra-deps:
 - monad-dijkstra-0.1.1.2@rev:1
 - syz-0.2.0.0
 - temporary-1.2.1.1
-# - yaml-0.8.32
 
 flags:
   haskell-ide-engine:
