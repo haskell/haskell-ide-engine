@@ -25,18 +25,18 @@ spec = do
     it "do not affect hover requests" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "FuncTest.hs" "haskell"
 
-      id1 <- sendRequest TextDocumentHover (TextDocumentPositionParams doc (Position 4 2))
+      id1 <- sendRequest TextDocumentHover (TextDocumentPositionParams doc (Position 4 2) Nothing)
 
       skipMany anyNotification
       hoverRsp <- message :: Session HoverResponse
       liftIO $ hoverRsp ^? result . _Just . _Just . contents `shouldBe` Nothing
       liftIO $ hoverRsp ^. LSP.id `shouldBe` responseId id1
 
-      id2 <- sendRequest TextDocumentDocumentSymbol (DocumentSymbolParams doc)
+      id2 <- sendRequest TextDocumentDocumentSymbol (DocumentSymbolParams doc Nothing)
       symbolsRsp <- skipManyTill anyNotification message :: Session DocumentSymbolsResponse
       liftIO $ symbolsRsp ^. LSP.id `shouldBe` responseId id2
 
-      id3 <- sendRequest TextDocumentHover (TextDocumentPositionParams doc (Position 4 2))
+      id3 <- sendRequest TextDocumentHover (TextDocumentPositionParams doc (Position 4 2) Nothing)
       hoverRsp2 <- skipManyTill anyNotification message :: Session HoverResponse
       liftIO $ hoverRsp2 ^. LSP.id `shouldBe` responseId id3
 
@@ -44,8 +44,8 @@ spec = do
       liftIO $ contents2 `shouldNotSatisfy` null
 
       -- Now that we have cache the following request should be instant
-      let highlightParams = TextDocumentPositionParams doc (Position 7 0)
-      highlightRsp <- request TextDocumentDocumentHighlight highlightParams :: Session DocumentHighlightsResponse
+      let highlightParams = TextDocumentPositionParams doc (Position 7 0) Nothing
+      highlightRsp <- request TextDocumentDocumentHighlight highlightParams
       let (Just (List locations)) = highlightRsp ^. result
       liftIO $ locations `shouldBe` [ DocumentHighlight
                      { _range = Range
@@ -128,7 +128,7 @@ spec = do
       let args' = H.fromList [("pos", toJSON (Position 7 0)), ("file", toJSON testUri)]
           args = List [Object args']
 
-      executeRsp <- request WorkspaceExecuteCommand (ExecuteCommandParams "hare:demote" (Just args))
+      executeRsp <- request WorkspaceExecuteCommand (ExecuteCommandParams "hare:demote" (Just args) Nothing)
       liftIO $ executeRsp ^. result `shouldBe` Just (Object H.empty)
 
       editReq <- message :: Session ApplyWorkspaceEditRequest

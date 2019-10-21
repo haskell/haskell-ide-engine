@@ -12,6 +12,7 @@ import           Haskell.Ide.Engine.Plugin.Generic
 import           Haskell.Ide.Engine.Plugin.HaRe
 import           Haskell.Ide.Engine.Support.HieExtras
 import           Haskell.Ide.Engine.Config
+import           Language.Haskell.LSP.Types
 
 import           Data.Aeson
 import           Test.Hspec
@@ -87,7 +88,10 @@ instance Arbitrary TextDocumentIdentifier where
   arbitrary = TextDocumentIdentifier <$> arbitrary
 
 instance Arbitrary TextDocumentPositionParams where
-  arbitrary = TextDocumentPositionParams <$> arbitrary <*> arbitrary
+  arbitrary = TextDocumentPositionParams <$> arbitrary <*> arbitrary <*> arbitrary
+
+instance Arbitrary ProgressToken where
+  arbitrary = oneof [ProgressTextToken <$> arbitrary, ProgressNumericToken <$> arbitrary]
 
 instance Arbitrary IdeErrorCode where
   arbitrary = arbitraryBoundedEnum

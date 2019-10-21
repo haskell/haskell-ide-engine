@@ -16,7 +16,7 @@ import Test.Hspec
 import TestUtils
 
 spec :: Spec
-spec = describe "window/progress" $ do
+spec = describe "window/workDoneProgress" $ do
   it "sends indefinite progress notifications" $
     -- Testing that ghc-mod sends progress notifications
     runSession hieCommand progressCaps "test/testdata" $ do
@@ -24,44 +24,44 @@ spec = describe "window/progress" $ do
 
       skipMany loggingNotification
 
-      startNotification <- message :: Session ProgressStartNotification
-      liftIO $ do
-        startNotification ^. L.params . L.title `shouldBe` "Initialising Cradle"
-        startNotification ^. L.params . L.id `shouldBe` "0"
-
-      reportNotification <- message :: Session ProgressReportNotification
-      liftIO $ do
-        reportNotification ^. L.params . L.message `shouldBe` Just "Main"
-        reportNotification ^. L.params . L.id `shouldBe` "0"
-
-      -- may produce diagnostics
-      skipMany publishDiagnosticsNotification
-
-      doneNotification <- message :: Session ProgressDoneNotification
-      liftIO $ doneNotification ^. L.params . L.id `shouldBe` "0"
-
       -- Initial hlint notifications
       _ <- publishDiagnosticsNotification
+
+      createRequest <- message :: Session WorkDoneProgressCreateRequest
+      liftIO $ do
+        createRequest ^. L.params `shouldBe` WorkDoneProgressCreateParams (ProgressNumericToken 0)
+
+      startNotification <- message :: Session WorkDoneProgressBeginNotification
+      liftIO $ do
+        startNotification ^. L.params . L.value . L.title `shouldBe` "Typechecking ApplyRefact2.hs"
+        startNotification ^. L.params . L.token `shouldBe` (ProgressNumericToken 0)
+
+      doneNotification <- skipManyTill loggingNotification (message :: Session WorkDoneProgressEndNotification)
+      liftIO $ doneNotification ^. L.params . L.token `shouldBe` (ProgressNumericToken 0)
+
+      -- the ghc-mod diagnostics
+      _ <- skipManyTill loggingNotification publishDiagnosticsNotification
 
       -- Test incrementing ids
       sendNotification TextDocumentDidSave (DidSaveTextDocumentParams doc)
 
-      startNotification' <- message :: Session ProgressStartNotification
-      liftIO $ do
-        startNotification' ^. L.params . L.title `shouldBe` "loading"
-        startNotification' ^. L.params . L.id `shouldBe` "1"
-
-      reportNotification' <- message :: Session ProgressReportNotification
-      liftIO $ do
-        reportNotification' ^. L.params . L.message `shouldBe` Just "Main"
-        reportNotification' ^. L.params . L.id `shouldBe` "1"
-
-      doneNotification' <- message :: Session ProgressDoneNotification
-      liftIO $ doneNotification' ^. L.params . L.id `shouldBe` "1"
-
       -- hlint notifications
-      _ <- publishDiagnosticsNotification
-      return ()
+      _ <- skipManyTill loggingNotification publishDiagnosticsNotification
+
+      createRequest' <- skipManyTill loggingNotification (message :: Session WorkDoneProgressCreateRequest)
+      liftIO $ do
+        createRequest' ^. L.params `shouldBe` WorkDoneProgressCreateParams (ProgressNumericToken 1)
+
+      startNotification' <- message :: Session WorkDoneProgressBeginNotification
+      liftIO $ do
+        startNotification' ^. L.params . L.value . L.title `shouldBe` "Typechecking ApplyRefact2.hs"
+        startNotification' ^. L.params . L.token `shouldBe` (ProgressNumericToken 1)
+
+      doneNotification' <- skipManyTill loggingNotification (message :: Session WorkDoneProgressEndNotification)
+      liftIO $ doneNotification' ^. L.params . L.token `shouldBe` (ProgressNumericToken 1)
+
+      -- the ghc-mod diagnostics
+      const () <$> skipManyTill loggingNotification publishDiagnosticsNotification
 
   it "sends indefinite progress notifications with liquid" $
     -- Testing that Liquid Haskell sends progress notifications
@@ -70,9 +70,15 @@ spec = describe "window/progress" $ do
 
       skipMany loggingNotification
 
-      -- Initial project setup progress notifications
-      _ <- message :: Session ProgressStartNotification
-      _ <- message :: Session ProgressDoneNotification
+      -- Initial hlint notifications
+      _ <- skipManyTill loggingNotification publishDiagnosticsNotification
+
+      _ <- message :: Session  WorkDoneProgressCreateRequest
+      _ <- message :: Session WorkDoneProgressBeginNotification
+      _ <- message :: Session WorkDoneProgressEndNotification
+
+      -- the ghc-mod diagnostics
+      _ <- skipManyTill loggingNotification publishDiagnosticsNotification
 
       -- Enable liquid haskell plugin
       let config = def { liquidOn  = True, hlintOn = False }
@@ -82,15 +88,13 @@ spec = describe "window/progress" $ do
       sendNotification TextDocumentDidSave (DidSaveTextDocumentParams doc)
 
       -- hlint notifications
-      -- TODO: potential race between typechecking, e.g. context intialisation
-      -- TODO: and disabling hlint notifications
-      -- _ <- publishDiagnosticsNotification
+      _ <- skipManyTill loggingNotification publishDiagnosticsNotification
 
-      let startPred (NotProgressStart m) =
-            m ^. L.params . L.title == "Running Liquid Haskell on Evens.hs"
+      let startPred (NotWorkDoneProgressBegin m) =
+            m ^. L.params . L.value . L.title == "Running Liquid Haskell on Evens.hs"
           startPred _ = False
 
-      let donePred (NotProgressDone _) = True
+      let donePred (NotWorkDoneProgressEnd _) = True
           donePred _ = False
 
       _ <- skipManyTill anyMessage $ between (satisfy startPred) (satisfy donePred) $
