@@ -1,4 +1,4 @@
-resolver: nightly-2019-07-31 # GHC 8.6.5
+resolver: nightly-2019-09-21 # Last GHC 8.6.5
 packages:
 - .
 - hie-plugin-api
@@ -12,21 +12,20 @@ extra-deps:
 
 - ansi-terminal-0.8.2
 - ansi-wl-pprint-0.6.8.2
-- brittany-0.12.0.0
+- brittany-0.12.1.0
 - cabal-plan-0.4.0.0
 - constrained-dynamic-0.1.0.0
 - floskell-0.10.1
-- ghc-lib-parser-8.8.0.20190723
+- ghc-lib-parser-8.8.1
 - haddock-api-2.22.0
 - haskell-lsp-0.17.0.0
 - haskell-lsp-types-0.17.0.0
-- hlint-2.2.2
-- hsimport-0.10.0
+- hlint-2.2.3
+- hsimport-0.11.0
 - lsp-test-0.8.0.0
 - monad-dijkstra-0.1.1.2@rev:1
 - syz-0.2.0.0
 - temporary-1.2.1.1
-- yaml-0.8.32
 
 flags:
   haskell-ide-engine:

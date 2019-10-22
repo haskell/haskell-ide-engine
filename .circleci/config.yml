@@ -40,7 +40,7 @@ defaults: &defaults
 
     - run:
         name: Install Hoogle
-        command: stack --stack-yaml=${STACK_FILE} install hoogle
+        command: stack -j 1 --stack-yaml=${STACK_FILE} install hoogle
 
     - run:
         name: Build (we need the exe for tests)
