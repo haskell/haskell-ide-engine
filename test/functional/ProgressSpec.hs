@@ -78,8 +78,9 @@ spec = describe "window/workDoneProgress" $ do
 
       skipMany loggingNotification
 
-      _ <- message :: Session  WorkDoneProgressCreateRequest
+      _ <- message :: Session WorkDoneProgressCreateRequest
       _ <- message :: Session WorkDoneProgressBeginNotification
+      _ <- message :: Session WorkDoneProgressReportNotification
       _ <- message :: Session WorkDoneProgressEndNotification
 
       -- the hie-bios diagnostics
