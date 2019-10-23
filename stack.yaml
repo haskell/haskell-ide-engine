@@ -1,4 +1,4 @@
-resolver: nightly-2019-07-31 # GHC 8.6.5
+resolver: nightly-2019-09-21 # Last GHC 8.6.5
 packages:
 - .
 - hie-plugin-api
@@ -9,29 +9,26 @@ extra-deps:
 - ./submodules/cabal-helper
 - ./submodules/ghc-mod/ghc-project-types
 
-- deque-0.2.7@sha256:ab8ac7a379347fdb8e083297d3bc95372e420c8a96833ddb10a9c8d11ae1f278,1202
+- deque-0.4.3@sha256:b988c70a1599b10c7cb643e9c8b0ae4d0166bb2f39c1e13c06a0aeaff29bd9cb,1873
 - ansi-terminal-0.8.2
-- butcher-1.3.2.1
 - bytestring-trie-0.2.5.0
 - ansi-wl-pprint-0.6.8.2
-- brittany-0.12.0.0
+- brittany-0.12.1.0
 - cabal-plan-0.4.0.0
 - constrained-dynamic-0.1.0.0
 - floskell-0.10.1
-- ghc-lib-parser-8.8.0.20190723
+- ghc-lib-parser-8.8.1
 - haddock-api-2.22.0
 - haskell-lsp-0.17.0.0
 - haskell-lsp-types-0.17.0.0
-- hlint-2.2.2
-- hsimport-0.10.0
+- hlint-2.2.3
+- hsimport-0.11.0
 - lsp-test-0.8.0.0
 - monad-dijkstra-0.1.1.2@rev:1
 - syz-0.2.0.0
 - temporary-1.2.1.1
+
 # - hie-bios-0.2.1@sha256:5f98a3516ce65e0a3ffd88bf6fb416b04cc084371d0fbf0e1762780de1d652ce,3219
-- extra-1.6.18@sha256:5f1fff126f0ae47b701fff5aa8462dc63cb44465d5a724b0afd20a3d731903af
-- unix-compat-0.5.2@sha256:16763f1fae4a25abf61ac6195eb530ce838474bd04d86c7d353340aee8716bbb
-- yaml-0.11.1.2@sha256:cbc4ddb233c564967aad27ee47c1cd8fd6a06b9183353e76fe66c9be7c9dfd76
 
 flags:
   haskell-ide-engine:

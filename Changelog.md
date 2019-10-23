@@ -1,3 +1,86 @@
+# 0.13.0.0
+
+- Bump resolvers and deps `lts-14.11` for GHC 8.6.5, and
+`nightly-2019-09-21` for nightyly build, the last one to support GHC
+8.6.5.
+
+  Key deps updated
+  - brittany-0.12.1
+  - floskell-0.10.1
+  - hlint-2.2.3
+  - hsimport-0.11.0
+
+  ([#1419](https://github.com/haskell/haskell-ide-engine/pull/1419), by @alanz)
+
+- Update haskell-lsp to 0.17
+([#1418](https://github.com/haskell/haskell-ide-engine/pull/1418), by @alanz)
+
+- Add instructions about install cabal with stack in the README
+([#1414](https://github.com/haskell/haskell-ide-engine/pull/1414), by @jneira)
+
+- Robust tests
+([#1413](https://github.com/haskell/haskell-ide-engine/pull/1413), by @alanz)
+
+- Find and run cabal in user original $PATH
+([#1406](https://github.com/haskell/haskell-ide-engine/pull/1406), by @jneira)
+
+- Add stack-install-cabal target and confirmation messages
+([#1405](https://github.com/haskell/haskell-ide-engine/pull/1405), by @jneira)
+
+- Haskell lsp 0.16
+([#1402](https://github.com/haskell/haskell-ide-engine/pull/1402), by @alanz)
+
+- Handling Windows specific delimiters in func tests
+([#1400](https://github.com/haskell/haskell-ide-engine/pull/1400), by @jneira)
+
+- Fix more code actions in windows
+([#1399](https://github.com/haskell/haskell-ide-engine/pull/1399), by @jneira)
+
+- Upgrade network to 3.0.1.1
+([#1395](https://github.com/haskell/haskell-ide-engine/pull/1395), by @jneira)
+
+- Use the new key format in one line for azure cache
+([#1394](https://github.com/haskell/haskell-ide-engine/pull/1394), by @jneira)
+
+- Fix code renaming in windows
+([#1392](https://github.com/haskell/haskell-ide-engine/pull/1392), by @jneira)
+
+- Add CodeTriage badge
+([#1381](https://github.com/haskell/haskell-ide-engine/pull/1381), by @NickSeagull)
+
+- Add support for building with cabal-3.0.0.0
+([#1379](https://github.com/haskell/haskell-ide-engine/pull/1379), by @jneira)
+
+- Refactor backtick aware completion
+([#1377](https://github.com/haskell/haskell-ide-engine/pull/1377), by @fendor)
+
+- Add different Contexts for Module, import etc...
+([#1375](https://github.com/haskell/haskell-ide-engine/pull/1375), by @fendor)
+
+- Do not traverse into Generated bindings when creating TypeMap
+([#1372](https://github.com/haskell/haskell-ide-engine/pull/1372), by @fendor)
+
+- Readme: Mention cabal configure and restarting HIE for troubleshooting
+([#1370](https://github.com/haskell/haskell-ide-engine/pull/1370), by @Infinisil)
+
+- Split out completion from HieExtras
+([#1369](https://github.com/haskell/haskell-ide-engine/pull/1369), by @bubba)
+
+- Remove cabal check from stack builds
+([#1368](https://github.com/haskell/haskell-ide-engine/pull/1368), by @ollef)
+
+- Recommend Coc over LanguageClient-neovim
+([#1367](https://github.com/haskell/haskell-ide-engine/pull/1367), by @Avi-D-coder)
+
+- Install: Fix broken stack-build target and fix cabal run help msg
+([#1363](https://github.com/haskell/haskell-ide-engine/pull/1363), by @fendor)
+
+- Fix error message if outdated cabal dependency
+([#1361](https://github.com/haskell/haskell-ide-engine/pull/1361), by @fendor)
+
+- Made hlint dependency properly depend on version of ghc.
+([#1355](https://github.com/haskell/haskell-ide-engine/pull/1355), by @LinuxUser404)
+
 # 0.12.0.0
 
 - Monthly resolver bump, `lts-13.30` for GHC 8.6.5, and `nightly-2019-07-31` for
