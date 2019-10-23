@@ -56,7 +56,7 @@ spec = describe "window/workDoneProgress" $ do
 
       startNotification' <- message :: Session WorkDoneProgressBeginNotification
       liftIO $ do
-        startNotification' ^. L.params . L.value . L.title `shouldBe` "Initialising Cradle"
+        startNotification' ^. L.params . L.value . L.title `shouldBe` "loading"
         startNotification' ^. L.params . L.token `shouldBe` (ProgressNumericToken 1)
 
       reportNotification' <- message :: Session WorkDoneProgressReportNotification
