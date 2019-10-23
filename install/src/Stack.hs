@@ -4,12 +4,14 @@ import           Development.Shake
 import           Development.Shake.Command
 import           Development.Shake.FilePath
 import           Control.Monad
+import           Data.List
 import           System.Directory                         ( copyFile )
-
+import           System.FilePath                          ( searchPathSeparator, (</>) )
+import           System.Environment                       ( lookupEnv, setEnv, getEnvironment )
+import           BuildSystem
 import           Version
 import           Print
 import           Env
-
 
 stackBuildHie :: VersionNumber -> Action ()
 stackBuildHie versionNumber = execStackWithGhc_ versionNumber ["build"]
@@ -96,3 +98,36 @@ stackBuildFailMsg =
     ++ "Try running `stack clean` and restart the build\n"
     ++ "If this does not work, open an issue at \n"
     ++ "\thttps://github.com/haskell/haskell-ide-engine"
+
+-- |Run actions without the stack cached binaries 
+withoutStackCachedBinaries :: Action a -> Action a
+withoutStackCachedBinaries action = do
+  mbPath <- liftIO (lookupEnv "PATH")
+
+  case (mbPath, isRunFromStack) of
+
+    (Just paths, True) -> do
+      snapshotDir <- trimmedStdout <$> execStackShake ["path", "--snapshot-install-root"]
+      localInstallDir <- trimmedStdout <$> execStackShake ["path", "--local-install-root"]
+
+      let cacheBinPaths = [snapshotDir </> "bin", localInstallDir </> "bin"]
+      let origPaths = removePathsContaining cacheBinPaths paths
+
+      liftIO (setEnv "PATH" origPaths)
+      a <- action
+      liftIO (setEnv "PATH" paths)
+      return a
+
+    otherwise -> action
+
+  where removePathsContaining strs path =
+           joinPaths (filter (not . containsAny) (splitPaths path))
+           where containsAny p = any (`isInfixOf` p) strs
+        
+        joinPaths = intercalate [searchPathSeparator]
+        
+        splitPaths s =
+          case dropWhile (== searchPathSeparator) s of
+                      "" -> []
+                      s' -> w : words s''
+                            where (w, s'') = break (== searchPathSeparator) s'

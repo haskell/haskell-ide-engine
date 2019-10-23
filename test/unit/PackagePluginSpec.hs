@@ -47,7 +47,7 @@ packageSpec = do
         let fp = testdata </> cabal
         packageType <- findPackageType fp
         packageType `shouldBe` CabalPackage "add-package-test.cabal"
-    it "Find no project description if none is present " $ do
+    it "Find no project description if none is present" $ do
       let fp = cwd </> testdata </> "invalid"
       packageType <- findPackageType fp
       packageType `shouldBe` NoPackage
@@ -55,7 +55,7 @@ packageSpec = do
       let fp = testdata </> "unknownPath"
       findPackageType fp `shouldThrow` anyIOException
   describe "Add the package to the correct file" $ do
-    it "Add package to .cabal to executable component"
+    it "Adds package to .cabal to executable component"
       $ withCurrentDirectory (testdata </> "cabal-exe")
       $ do
           let
@@ -167,7 +167,7 @@ packageSpec = do
           testCommand testPlugins act "package" "add" args res
 
 
-    it "Add package to package.yaml to executable component"
+    it "Adds package to package.yaml to executable component"
       $ withCurrentDirectory (testdata </> "hpack-exe")
       $ do
           let

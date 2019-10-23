@@ -26,6 +26,10 @@ defaults: &defaults
           - stack-cache-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
           - stack-cache-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
 
+    # - run:
+    #     name: Stack upgrade
+    #     command: stack upgrade
+
     - run:
         name: Stack setup
         command: stack -j 2 --stack-yaml=${STACK_FILE} setup
@@ -36,7 +40,7 @@ defaults: &defaults
 
     - run:
         name: Install Hoogle
-        command: stack --stack-yaml=${STACK_FILE} install hoogle
+        command: stack -j 1 --stack-yaml=${STACK_FILE} install hoogle
 
     - run:
         name: Build (we need the exe for tests)

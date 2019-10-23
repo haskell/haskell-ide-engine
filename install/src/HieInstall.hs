@@ -63,7 +63,7 @@ defaultMain = do
     want ["short-help"]
     -- general purpose targets
     phony "submodules"  updateSubmodules
-    phony "cabal"       installCabal
+    phony "cabal"       installCabalWithStack
     phony "short-help"  shortHelpMessage
     phony "all"         shortHelpMessage
     phony "help"        (helpMessage versions)
@@ -91,6 +91,7 @@ defaultMain = do
       )
 
     -- stack specific targets
+    when isRunFromStack (phony "stack-install-cabal" (need ["cabal"]))
     phony "stack-build"     (need (reverse $ map ("stack-hie-" ++) hieVersions))
     phony "stack-build-all" (need ["build-data", "build"])
     phony "stack-build-data" $ do
@@ -116,9 +117,9 @@ defaultMain = do
     forM_
       ghcVersions
       (\version -> phony ("cabal-hie-" ++ version) $ do
-        validateCabalNewInstallIsSupported
         need ["submodules"]
         need ["cabal"]
+        validateCabalNewInstallIsSupported
         cabalBuildHie version
         cabalInstallHie version
       )

@@ -15,7 +15,7 @@ spec :: Spec
 spec = describe "hover" $
   it "works" $ runSession hieCommand fullCaps "test/testdata" $ do
     doc <- openDoc "Hover.hs" "haskell"
-    _ <- skipManyTill loggingNotification $ count 2 noDiagnostics
+    _ <- count 2 $ skipManyTill loggingNotification noDiagnostics
     Just h <- getHover doc (Position 1 19)
     liftIO $ do
       h ^. range `shouldBe` Just (Range (Position 1 16) (Position 1 19))

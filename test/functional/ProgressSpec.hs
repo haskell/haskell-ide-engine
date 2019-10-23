@@ -16,7 +16,7 @@ import Test.Hspec
 import TestUtils
 
 spec :: Spec
-spec = describe "window/progress" $ do
+spec = describe "window/workDoneProgress" $ do
   it "sends indefinite progress notifications" $
     -- Testing that ghc-mod sends progress notifications
     runSession hieCommand progressCaps "test/testdata" $ do
@@ -24,21 +24,25 @@ spec = describe "window/progress" $ do
 
       skipMany loggingNotification
 
-      startNotification <- message :: Session ProgressStartNotification
+      createRequest <- message :: Session WorkDoneProgressCreateRequest
       liftIO $ do
-        startNotification ^. L.params . L.title `shouldBe` "Initialising Cradle"
-        startNotification ^. L.params . L.id `shouldBe` "0"
+        createRequest ^. L.params `shouldBe` WorkDoneProgressCreateParams (ProgressNumericToken 0)
 
-      reportNotification <- message :: Session ProgressReportNotification
+      startNotification <- message :: Session WorkDoneProgressBeginNotification
       liftIO $ do
-        reportNotification ^. L.params . L.message `shouldBe` Just "Main"
-        reportNotification ^. L.params . L.id `shouldBe` "0"
+        startNotification ^. L.params . L.value . L.title `shouldBe` "Initialising Cradle"
+        startNotification ^. L.params . L.token `shouldBe` (ProgressNumericToken 0)
+
+      reportNotification <- message :: Session WorkDoneProgressReportNotification
+      liftIO $ do
+        reportNotification ^. L.params . L.value . L.message `shouldBe` Just "Main"
+        reportNotification ^. L.params . L.token `shouldBe` (ProgressNumericToken 0)
 
       -- may produce diagnostics
       skipMany publishDiagnosticsNotification
-
-      doneNotification <- message :: Session ProgressDoneNotification
-      liftIO $ doneNotification ^. L.params . L.id `shouldBe` "0"
+      
+      doneNotification <- message :: Session WorkDoneProgressEndNotification
+      liftIO $ doneNotification ^. L.params . L.token `shouldBe` (ProgressNumericToken 0)
 
       -- Initial hlint notifications
       _ <- publishDiagnosticsNotification
@@ -46,20 +50,24 @@ spec = describe "window/progress" $ do
       -- Test incrementing ids
       sendNotification TextDocumentDidSave (DidSaveTextDocumentParams doc)
 
-      startNotification' <- message :: Session ProgressStartNotification
+      createRequest' <- skipManyTill loggingNotification (message :: Session WorkDoneProgressCreateRequest)
       liftIO $ do
-        startNotification' ^. L.params . L.title `shouldBe` "loading"
-        startNotification' ^. L.params . L.id `shouldBe` "1"
+        createRequest' ^. L.params `shouldBe` WorkDoneProgressCreateParams (ProgressNumericToken 1)
 
-      reportNotification' <- message :: Session ProgressReportNotification
+      startNotification' <- message :: Session WorkDoneProgressBeginNotification
       liftIO $ do
-        reportNotification' ^. L.params . L.message `shouldBe` Just "Main"
-        reportNotification' ^. L.params . L.id `shouldBe` "1"
+        startNotification' ^. L.params . L.value . L.title `shouldBe` "loading"
+        startNotification' ^. L.params . L.token `shouldBe` (ProgressNumericToken 1)
 
-      doneNotification' <- message :: Session ProgressDoneNotification
-      liftIO $ doneNotification' ^. L.params . L.id `shouldBe` "1"
+      reportNotification' <- message :: Session WorkDoneProgressReportNotification
+      liftIO $ do
+        reportNotification' ^. L.params . L.value . L.message `shouldBe` Just "Main"
+        reportNotification' ^. L.params . L.token `shouldBe` (ProgressNumericToken 1)
 
-      -- hlint notifications
+      doneNotification' <- message :: Session WorkDoneProgressEndNotification
+      liftIO $ doneNotification' ^. L.params . L.token `shouldBe` (ProgressNumericToken 1)
+
+      -- Initial hlint notifications
       _ <- publishDiagnosticsNotification
       return ()
 
@@ -70,9 +78,13 @@ spec = describe "window/progress" $ do
 
       skipMany loggingNotification
 
-      -- Initial project setup progress notifications
-      _ <- message :: Session ProgressStartNotification
-      _ <- message :: Session ProgressDoneNotification
+      _ <- message :: Session WorkDoneProgressCreateRequest
+      _ <- message :: Session WorkDoneProgressBeginNotification
+      _ <- message :: Session WorkDoneProgressReportNotification
+      _ <- message :: Session WorkDoneProgressEndNotification
+
+      -- the hie-bios diagnostics
+      _ <- skipManyTill loggingNotification publishDiagnosticsNotification
 
       -- Enable liquid haskell plugin
       let config = def { liquidOn  = True, hlintOn = False }
@@ -84,13 +96,13 @@ spec = describe "window/progress" $ do
       -- hlint notifications
       -- TODO: potential race between typechecking, e.g. context intialisation
       -- TODO: and disabling hlint notifications
-      -- _ <- publishDiagnosticsNotification
+      -- _ <- skipManyTill loggingNotification publishDiagnosticsNotification
 
-      let startPred (NotProgressStart m) =
-            m ^. L.params . L.title == "Running Liquid Haskell on Evens.hs"
+      let startPred (NotWorkDoneProgressBegin m) =
+            m ^. L.params . L.value . L.title == "Running Liquid Haskell on Evens.hs"
           startPred _ = False
 
-      let donePred (NotProgressDone _) = True
+      let donePred (NotWorkDoneProgressEnd _) = True
           donePred _ = False
 
       _ <- skipManyTill anyMessage $ between (satisfy startPred) (satisfy donePred) $

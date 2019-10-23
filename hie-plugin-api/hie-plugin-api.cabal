@@ -1,5 +1,5 @@
 name:                hie-plugin-api
-version:             0.12.0.0
+version:             0.13.0.0
 synopsis:            Haskell IDE API for plugin communication
 license:             BSD3
 license-file:        LICENSE
@@ -51,7 +51,7 @@ library
                      , ghc
                      , hie-bios
                      , ghc-project-types >= 5.9.0.0
-                     , haskell-lsp == 0.16.*
+                     , haskell-lsp == 0.17.*
                      , hslogger
                      , unliftio
                      , monad-control

@@ -24,7 +24,7 @@ spec = describe "commands" $ do
   it "get de-prefixed" $ runSession hieCommand fullCaps "test/testdata/" $ do
     ResponseMessage _ _ _ (Just err) <- request
             WorkspaceExecuteCommand
-            (ExecuteCommandParams "1234:package:add" (Just (List []))) :: Session ExecuteCommandResponse
+            (ExecuteCommandParams "1234:package:add" (Just (List [])) Nothing) :: Session ExecuteCommandResponse
     let ResponseError _ msg _ = err
     -- We expect an error message about the dud arguments, but should pickup "add" and "package"
     liftIO $ msg `shouldSatisfy` T.isInfixOf "while parsing args for add in plugin package"

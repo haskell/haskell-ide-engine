@@ -2,6 +2,7 @@
 
 module DiagnosticsSpec where
 
+import Control.Applicative.Combinators
 import           Control.Lens hiding (List)
 import           Control.Monad.IO.Class
 import           Data.Aeson (toJSON)
@@ -87,7 +88,7 @@ spec = describe "diagnostics providers" $ do
 
         let te = TextEdit (Range (Position 0 0) (Position 0 13)) ""
         _ <- applyEdit doc te
-        noDiagnostics
+        skipManyTill loggingNotification noDiagnostics
 
         sendNotification TextDocumentDidSave (DidSaveTextDocumentParams doc)
         diags2 <- waitForDiagnostics

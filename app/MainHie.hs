@@ -129,6 +129,8 @@ run opts = do
   progName <- getProgName
   logm $  "Run entered for HIE(" ++ progName ++ ") " ++ version
   logm $ "Current directory:" ++ d
+  args <- getArgs
+  logm $ "args:" ++ show args
 
   let initOpts = defaultCradleOpts { cradleOptsVerbosity = verbosity }
       verbosity = if optBiosVerbose opts then Verbose else Silent

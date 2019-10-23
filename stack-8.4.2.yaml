@@ -4,48 +4,48 @@ packages:
   - hie-plugin-api
 
 extra-deps:
-  - ./hie-bios
-  - ./submodules/HaRe
-  - ./submodules/cabal-helper
-  - ./submodules/ghc-mod
-  - ./submodules/ghc-mod/core
-  - ./submodules/ghc-mod/ghc-project-types
+- ./hie-bios
+- ./submodules/HaRe
+- ./submodules/cabal-helper
+- ./submodules/ghc-mod
+- ./submodules/ghc-mod/core
+- ./submodules/ghc-mod/ghc-project-types
 
-  - brittany-0.12.0.0
-  - base-compat-0.9.3
-  - bytestring-trie-0.2.5.0
-  - cabal-plan-0.3.0.0
-  - constrained-dynamic-0.1.0.0
-  - floskell-0.10.0
-  - ghc-exactprint-0.5.8.2
-  - ghc-lib-parser-8.8.0.20190723
-  - haddock-api-2.20.0
-  - haddock-library-1.6.0
-  - haskell-lsp-0.16.0.0
-  - haskell-lsp-types-0.16.0.0
-  - haskell-src-exts-1.21.0
-  - haskell-src-exts-util-0.2.5
-  - hlint-2.2.2
-  - hoogle-5.0.17.9
-  - hsimport-0.10.0
-  - lsp-test-0.7.0.0
-  - monad-dijkstra-0.1.1.2
-  - pretty-show-1.8.2
-  - rope-utf16-splay-0.3.1.0
-  - syz-0.2.0.0
-  - temporary-1.2.1.1
-  # To make build work in windows 7
-  - unix-time-0.4.7
-  - windns-0.1.0.0
-  - yi-rope-0.11
- # - hie-bios-0.2.1@sha256:5f98a3516ce65e0a3ffd88bf6fb416b04cc084371d0fbf0e1762780de1d652ce,3219
+- brittany-0.12.1.0
+- base-compat-0.9.3
+- bytestring-trie-0.2.5.0
+- cabal-plan-0.3.0.0
+- constrained-dynamic-0.1.0.0
+- floskell-0.10.1
+- ghc-exactprint-0.5.8.2
+- ghc-lib-parser-8.8.1
+- haddock-api-2.20.0
+- haddock-library-1.6.0
+- haskell-lsp-0.17.0.0
+- haskell-lsp-types-0.17.0.0
+- haskell-src-exts-1.21.1
+- haskell-src-exts-util-0.2.5
+- hlint-2.2.3
+- hoogle-5.0.17.11
+- hsimport-0.11.0
+- lsp-test-0.8.0.0
+- monad-dijkstra-0.1.1.2
+- pretty-show-1.8.2
+- rope-utf16-splay-0.3.1.0
+- syz-0.2.0.0
+- temporary-1.2.1.1
+# To make build work in windows 7
+- unix-time-0.4.7
+- windns-0.1.0.0
+- yi-rope-0.11
+# - hie-bios-0.2.1@sha256:5f98a3516ce65e0a3ffd88bf6fb416b04cc084371d0fbf0e1762780de1d652ce,3219
 
-  - extra-1.6.18@sha256:5f1fff126f0ae47b701fff5aa8462dc63cb44465d5a724b0afd20a3d731903af
-  - unix-compat-0.5.2@sha256:16763f1fae4a25abf61ac6195eb530ce838474bd04d86c7d353340aee8716bbb
-  - yaml-0.11.1.2@sha256:cbc4ddb233c564967aad27ee47c1cd8fd6a06b9183353e76fe66c9be7c9dfd76
-  - file-embed-0.0.11@sha256:77bb3b1dc219ccd682706b1d3dfbc5bf2db5beb1af6c108ed9e0f5b4d58a5a0a,1325
-  - libyaml-0.1.1.0@sha256:b3fcd8c44622c75e054c2267f3fec39a58a311748000310cbc8257a4683d3f02,2090
-  - unordered-containers-0.2.10.0@sha256:5e9b095a9283d9e2f064fec73a81a6b6ea0b7fda3f219a8175785d2d2a3de204
+- extra-1.6.18@sha256:5f1fff126f0ae47b701fff5aa8462dc63cb44465d5a724b0afd20a3d731903af
+- unix-compat-0.5.2@sha256:16763f1fae4a25abf61ac6195eb530ce838474bd04d86c7d353340aee8716bbb
+- yaml-0.11.1.2@sha256:cbc4ddb233c564967aad27ee47c1cd8fd6a06b9183353e76fe66c9be7c9dfd76
+- file-embed-0.0.11@sha256:77bb3b1dc219ccd682706b1d3dfbc5bf2db5beb1af6c108ed9e0f5b4d58a5a0a,1325
+- libyaml-0.1.1.0@sha256:b3fcd8c44622c75e054c2267f3fec39a58a311748000310cbc8257a4683d3f02,2090
+- unordered-containers-0.2.10.0@sha256:5e9b095a9283d9e2f064fec73a81a6b6ea0b7fda3f219a8175785d2d2a3de204
 
 flags:
   haskell-ide-engine:
@@ -54,6 +54,6 @@ flags:
     pedantic: true
 
 nix:
-  packages: [icu libcxx zlib]
+  packages: [ icu libcxx zlib ]
 
 concurrent-tests: false
