@@ -33,6 +33,7 @@ library
                        Haskell.Ide.Engine.Plugin.HfaAlign
                        Haskell.Ide.Engine.Plugin.HsImport
                        Haskell.Ide.Engine.Plugin.Liquid
+                       Haskell.Ide.Engine.Plugin.Ormolu
                        Haskell.Ide.Engine.Plugin.Package
                        Haskell.Ide.Engine.Plugin.Package.Compat
                        Haskell.Ide.Engine.Plugin.Pragmas
@@ -81,6 +82,7 @@ library
                      , monoid-subclasses > 0.4
                      , mtl
                      , optparse-simple >= 0.0.3
+                     , ormolu
                      , parsec
                      , process
                      , safe

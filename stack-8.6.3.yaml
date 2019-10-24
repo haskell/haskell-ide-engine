@@ -31,6 +31,7 @@ extra-deps:
 - multistate-0.8.0.1
 - optparse-simple-0.1.0
 - parser-combinators-1.2.1
+- ormolu-0.0.2.0
 - rope-utf16-splay-0.3.1.0
 - syz-0.2.0.0
 - temporary-1.2.1.1

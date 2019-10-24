@@ -33,6 +33,7 @@ extra-deps:
 - monad-memo-0.4.1
 - multistate-0.8.0.1
 - parser-combinators-1.2.1
+- ormolu-0.0.2.0
 - rope-utf16-splay-0.3.1.0
 - strict-list-0.1.5
 - syz-0.2.0.0
