@@ -21,20 +21,31 @@ main = do
   callCommand "git fetch --tags"
   tags <- filter (isPrefixOf "0.") . lines <$>
     readProcess "git" ["tag", "--list", "--sort=v:refname"] ""
-  let lastTag = last tags
-  messages <- lines <$>
-    readProcess "git" ["log", last tags <> "..HEAD", "--merges", "--reverse", "--pretty=format:\"%s\""] ""
+  messages <- lines <$> readProcess "git" [ "log",
+                                          , last tags <> "..HEAD"
+                                          , "--merges"
+                                          , "--revers",
+                                          , "--pretty=format:\"%s\""
+                                          ] ""
 
-  let prNums = map (filter isDigit) $ map head $ filter (not . null) $ map (filter (isPrefixOf "#") . words) messages
+  let -- try to get "1334" out of "merge PR #1334"
+      prNums = map (filter isDigit) $
+                map head $
+                filter (not . null) $
+                map (filter (isPrefixOf "#") . words) messages
       prUrls = map ("https://github.com/haskell/haskell-ide-engine/pull/" <>) prNums
 
   (flip mapM_) prUrls $ \url -> do
     body <- getResponseBody <$> httpLBS (parseRequest_ url)
     let cursor = fromDocument (parseLBS body)
+
         titles = (descendant >=> attributeIs "class" "js-issue-title" >=> child >=> content) cursor
         title = T.unpack $ T.strip $ head titles
+
         checkAuthor :: Element -> Bool
         checkAuthor e = maybe False (T.isInfixOf "author") (M.lookup "class" (elementAttributes e))
         authors = (descendant >=> checkElement checkAuthor >=> child >=> content) cursor
         author = T.unpack $ T.strip $ authors !! 2 -- second author is the pr author
+
+    -- generate markdown
     putStrLn $ "- [" <> title <> "](" <> url <> ") (@" <> author <> ")"
