@@ -13,7 +13,6 @@ import           Data.Function ((&))
 import qualified Data.List.NonEmpty as NonEmpty
 import           Data.List.NonEmpty (NonEmpty)
 import           System.FilePath
-import           System.Directory
 import qualified Data.Map as M
 import           Data.List (inits, sortOn, isPrefixOf, find)
 import           Data.Maybe (listToMaybe)
@@ -55,7 +54,7 @@ isStackCradle = (`elem` ["stack", "Cabal-Helper-Stack"]) . BIOS.actionName . BIO
 -- Cabal v2-projects and Stack projects are equally important.
 -- Due to the lack of user-input we have to guess which project it
 -- should rather be.
--- This guessing has no guarantees and may change any-time.
+-- This guessing has no guarantees and may change at any time.
 findCabalHelperEntryPoint :: FilePath -> IO (Maybe (Ex ProjLoc))
 findCabalHelperEntryPoint fp = do
   projs <- concat <$> mapM findProjects subdirs
