@@ -31,4 +31,4 @@
 
 [submodule "hie-bios"]
 	path = hie-bios
-	url = git@github.com:mpickering/hie-bios.git
+	url = https://github.com/mpickering/hie-bios.git
