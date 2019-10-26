@@ -648,12 +648,13 @@ reactor inp diagIn = do
 
         ReqCompletionItemResolve req -> do
           liftIO $ U.logs $ "reactor:got CompletionItemResolveRequest:" ++ show req
+          snippets <- Completions.WithSnippets <$> configVal completionSnippetsOn
           let origCompl = req ^. J.params
               callback res = do
                 let rspMsg = Core.makeResponseMessage req $ res
                 reactorSend $ RspCompletionItemResolve rspMsg
               hreq = IReq tn (req ^. J.id) callback $ runIdeResultT $ do
-                lift $ lift $ Completions.resolveCompletion origCompl
+                lift $ lift $ Completions.resolveCompletion snippets origCompl
           makeRequest hreq
 
         -- -------------------------------
