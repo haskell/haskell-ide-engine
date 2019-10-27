@@ -973,6 +973,8 @@ hieOptions commandIds =
       -- Hopefully the end May 2018 vscode release will stabilise
       -- this, it is a major rework of the machinery anyway.
       , Core.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List commandIds))
+      , Core.renameProvider = Just (J.RenameOptions (Just True))
+      , Core.implementationProvider = Just (J.GotoOptionsStatic True)
       }
 
 
