@@ -1,5 +1,6 @@
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE GADTs #-}
 
 module Haskell.Ide.Engine.Cradle (findLocalCradle, isStackCradle) where
@@ -14,9 +15,10 @@ import qualified Data.List.NonEmpty as NonEmpty
 import           Data.List.NonEmpty (NonEmpty)
 import           System.FilePath
 import qualified Data.Map as M
-import           Data.List (inits, sortOn, isPrefixOf, find)
-import           Data.Maybe (listToMaybe)
+import           Data.List (inits, sortOn, isPrefixOf, find, stripPrefix)
+import           Data.Maybe (listToMaybe, mapMaybe)
 import           Data.Ord (Down(..))
+import           Data.Foldable (toList)
 import           System.Exit
 
 -- | Find the cradle that the given File belongs to.
@@ -31,19 +33,19 @@ import           System.Exit
 -- of the project that may or may not be accurate.
 findLocalCradle :: FilePath -> IO Cradle
 findLocalCradle fp = do
-  -- Get the cabal directory from the cradle
   cradleConf <- BIOS.findCradle fp
   case cradleConf of
     Just yaml -> fixCradle <$> BIOS.loadCradle yaml
-
     Nothing   -> cabalHelperCradle fp
 
 -- | Check if the given Cradle is a stack cradle.
 -- This might be used to determine the GHC version to use on the project.
--- If it is a stack-Cradle, we have to use `stack path --compile-exe`
+-- If it is a stack-Cradle, we have to use `stack path --compiler-exe`
 -- otherwise we may ask `ghc` directly what version it is.
 isStackCradle :: Cradle -> Bool
-isStackCradle = (`elem` ["stack", "Cabal-Helper-Stack"]) . BIOS.actionName . BIOS.cradleOptsProg
+isStackCradle = (`elem` ["stack", "Cabal-Helper-Stack"])
+  . BIOS.actionName
+  . BIOS.cradleOptsProg
 
 -- | Finds a Cabal v2-project, Cabal v1-project or a Stack project
 -- relative to the given FilePath.
@@ -63,27 +65,31 @@ findCabalHelperEntryPoint fp = do
     []    -> case filter isCabalOldProject projs of
       (x:_) -> return $ Just x
       []    -> return Nothing
-  where
-    -- | Subdirectories of a given FilePath.
-    -- Directory closest to the FilePath `fp` is the head,
-    -- followed by one directory taken away.
-    subdirs :: [FilePath]
-    subdirs = reverse . map joinPath . tail . inits $ splitDirectories (takeDirectory fp)
 
-    isStackProject (Ex ProjLocStackYaml {}) = True
-    isStackProject _ = False
+    where
+      -- | Subdirectories of a given FilePath.
+      -- Directory closest to the FilePath `fp` is the head,
+      -- followed by one directory taken away.
+      subdirs :: [FilePath]
+      subdirs = reverse . map joinPath . tail . inits
+        $ splitDirectories (takeDirectory fp)
 
-    isCabalNewProject (Ex ProjLocV2Dir {}) = True
-    isCabalNewProject (Ex ProjLocV2File {}) = True
-    isCabalNewProject _ = False
+      isStackProject (Ex ProjLocStackYaml {}) = True
+      isStackProject _ = False
 
-    isCabalOldProject (Ex ProjLocV1Dir {}) = True
-    isCabalOldProject (Ex ProjLocV1CabalFile {}) = True
-    isCabalOldProject _ = False
+      isCabalNewProject (Ex ProjLocV2Dir {}) = True
+      isCabalNewProject (Ex ProjLocV2File {}) = True
+      isCabalNewProject _ = False
+
+      isCabalOldProject (Ex ProjLocV1Dir {}) = True
+      isCabalOldProject (Ex ProjLocV1CabalFile {}) = True
+      isCabalOldProject _ = False
 
 -- | Given a FilePath, find the Cradle the FilePath belongs to.
 --
--- TODO: document how and why this works.
+-- Finds the Cabal Package the FilePath is most likely a part of
+-- and creates a cradle whose root directory is the directory
+-- of the package the File belongs to.
 cabalHelperCradle :: FilePath -> IO Cradle
 cabalHelperCradle file = do
   projM <- findCabalHelperEntryPoint file
@@ -97,9 +103,7 @@ cabalHelperCradle file = do
       -- Create a suffix for the cradle name.
       -- Purpose is mainly for easier debugging.
       let actionNameSuffix = projectSuffix proj
-
       logm $ "Cabal-Helper dirs: " ++ show [root, file]
-
       let dist_dir = getDefaultDistDir proj
       env <- mkQueryEnv proj dist_dir
       packages <- runQuery projectPackages env
@@ -126,7 +130,9 @@ cabalHelperCradle file = do
           -- Field `pSourceDir` often has the form `<cwd>/./plugin`
           -- but we only want `<cwd>/plugin`
           let normalisedPackageLocation = normalise $ pSourceDir realPackage
-          debugm $ "Cabal-Helper normalisedPackageLocation: " ++ normalisedPackageLocation
+          debugm
+            $ "Cabal-Helper normalisedPackageLocation: "
+            ++ normalisedPackageLocation
           return
             Cradle { cradleRootDir = normalisedPackageLocation
                    , cradleOptsProg =
@@ -138,49 +144,104 @@ cabalHelperCradle file = do
                                         normalisedPackageLocation
                                     }
                    }
+    where
+      -- | Cradle Action to query for the ComponentOptions that are needed
+      -- to load the given FilePath.
+      -- This Function is not supposed to throw any exceptions and use
+      -- 'CradleLoadResult' to indicate errors.
+      cabalHelperAction :: QueryEnv v -- ^ Query Env created by 'mkQueryEnv'
+                                      -- with the appropriate 'distdir'
+                        -> Package v -- ^ Package this Cradle is part for.
+                        -> FilePath -- ^ Root directory of the cradle
+                                    -- this action belongs to.
+                        -> FilePath -- ^ FilePath to load, expected to be an absolute path.
+                        -> IO (CradleLoadResult ComponentOptions)
+      cabalHelperAction env package root fp = do
+        -- Get all unit infos the given FilePath may belong to
+        let units = pUnits package
+        -- make the FilePath to load relative to the root of the cradle.
+        let relativeFp = makeRelative root fp
+        debugm $ "Relative Module FilePath: " ++ relativeFp
+        getComponent env (toList units) relativeFp
+          >>= \case
+            Just comp -> do
+              let fs = getFlags comp
+              let targets = getTargets comp relativeFp
+              let ghcOptions = fs ++ targets
+              debugm $ "Flags for \"" ++ fp ++ "\": " ++ show ghcOptions
+              debugm $ "Component Infos: " ++ show comp
+              return
+                $ CradleSuccess
+                  ComponentOptions { componentOptions = ghcOptions
+                                   , componentDependencies = []
+                                   }
+            Nothing   -> return
+              $ CradleFail
+              $ CradleError
+                (ExitFailure 2)
+                ("Could not obtain flags for " ++ fp)
+
+-- | Get the component the given FilePath most likely belongs to.
+-- Lazily ask units whether the given FilePath is part of their component.
+-- If a Module belongs to multiple components, it is not specified which
+-- component will be loaded.
+-- The given FilePath must be relative to the Root of the project
+-- the given units belong to.
+getComponent
+  :: QueryEnv pt -> [Unit pt] -> FilePath -> IO (Maybe ChComponentInfo)
+getComponent _env [] _fp = return Nothing
+getComponent env (unit:units) fp = do
+  ui <- runQuery (unitInfo unit) env
+  let components = M.elems (uiComponents ui)
+  debugm $ "Unit Info: " ++ show ui
+  case find (fp `partOfComponent`) components of
+    Nothing -> getComponent env units fp
+    comp {- Just component -} -> return comp
+
+-- | Check whether the given FilePath is part of the Component.
+-- A FilePath is part of the Component if and only if:
+--
+--   * One Component's 'ciSourceDirs' is a prefix of the FilePath
+--   * The FilePath, after converted to a Module name,
+--     is a in the Component's Targets, or the FilePath is
+--     the executable in the component.
+--
+-- The latter is achieved by making the FilePath relative to the 'ciSourceDirs'
+-- and then replacing Path separators with ".".
+-- To check whether the given FilePath is the executable of the Component,
+-- we have to check whether the FilePath, including 'ciSourceDirs',
+-- is part of the targets in the Component.
+partOfComponent ::
+  -- | FilePath relative to the package root.
+  FilePath ->
+  -- | Component to check whether the given FilePath is part of it.
+  ChComponentInfo ->
+  Bool
+partOfComponent fp comp
+  | Just normFp <- normalisedFp fp (ciSourceDirs comp), normFp `inTargets` getTargets comp fp = True
+  | otherwise = False
   where
-    -- | Cradle Action to query for the ComponentOptions that are needed
-    -- to load the given FilePath.
-    -- This Function is not supposed to throw any exceptions and use
-    -- 'CradleLoadResult' to indicate errors.
-    cabalHelperAction :: QueryEnv v -- ^ Query Env created by 'mkQueryEnv'
-                                    -- with the appropriate 'distdir'
-                      -> Package v -- ^ Package this Cradle is part for.
-                      -> FilePath -- ^ Absolute directory of the package.
-                      -> FilePath -- ^ FilePath to load.
-                      -> IO (CradleLoadResult ComponentOptions)
-    cabalHelperAction env package root fp = do
-      let units = pUnits package
-      -- Get all unit infos the given FilePath may belong to
-      -- TODO: lazily initialise units as needed
-      unitInfos_ <- mapM (\unit -> runQuery (unitInfo unit) env) units
-      let fpRelativeDir = takeDirectory $ makeRelative root fp
-      debugm $ "Module FilePath relative to the package root: " ++ fpRelativeDir
-      case getComponent unitInfos_ fpRelativeDir of
-        Just comp -> do
-          let fs = getFlags comp
-          let targets = getTargets comp fpRelativeDir
-          let ghcOptions = fs ++ targets
-          debugm $ "Flags for \"" ++ fp ++ "\": " ++ show ghcOptions
-          return
-            $ CradleSuccess
-              ComponentOptions { componentOptions = ghcOptions
-                               , componentDependencies = []
-                               }
-        Nothing   -> return
-          $ CradleFail
-          $ CradleError (ExitFailure 2) ("Could not obtain flags for " ++ fp)
+    -- | Assuming a FilePath "src/Lib/Lib.hs" and a ciSourceDirs ["src"]
+    -- into 'Just "Lib"'
+    -- >>> normalisedFp "src/Lib/Lib.hs" ["src"]
+    -- Just "Lib/Lib.hs"
+    --
+    -- >>> normalisedFp "src/Lib/Lib.hs" ["app"]
+    -- Nothing
+    normalisedFp file sourceDirs = listToMaybe
+      $ mapMaybe ((`stripPrefix` file) . addTrailingPathSeparator) sourceDirs
 
--- TODO: This can be a complete match, it actually should be
-getComponent :: NonEmpty UnitInfo -> FilePath -> Maybe ChComponentInfo
-getComponent ui dir = listToMaybe
-  $ map snd
-  $ filter (hasParent dir . fst)
-  $ sortOn (Down . length . fst)
-  $ concatMap (\ci -> map (, ci) (ciSourceDirs ci))
-  $ concat
-  $ M.elems . uiComponents <$> ui
+    inTargets :: FilePath -> [String] -> Bool
+    inTargets modFp targets =
+      -- Change a FilePath of the Form "Haskell/IDE/Engine/Cradle.hs" -> "Haskell.IDE.Engine.Cradle"
+      let modName = map
+            (\c -> if isPathSeparator c
+                   then '.'
+                   else c)
+            (dropExtension modFp)
+      in any (`elem` targets) [modName, fp]
 
+-- | Get the flags necessary to compile the given component.
 getFlags :: ChComponentInfo -> [String]
 getFlags = ciGhcOptions
 
@@ -190,7 +251,7 @@ getFlags = ciGhcOptions
 -- in 'ciSourceDirs'.
 -- We monkey-patch this by supplying the FilePath we want to load,
 -- which is part of this component, and select the 'ciSourceDir' we actually want.
--- See the Documentation of 'ciCourceDir' to why this contains multiple entries.
+-- See the Documentation of 'ciSourceDir' to why this contains multiple entries.
 getTargets :: ChComponentInfo -> FilePath -> [String]
 getTargets comp fp = case ciEntrypoints comp of
   ChSetupEntrypoint {} -> []
@@ -202,11 +263,6 @@ getTargets comp fp = case ciEntrypoints comp of
     where
       sourceDirs = find (`isFilePathPrefixOf` fp) (ciSourceDirs comp)
 
-hasParent :: FilePath -> FilePath -> Bool
-hasParent child parent =
-  any (equalFilePath parent) (map joinPath $ inits $ splitPath child)
-
-
 -- | For all packages in a project, find the project the given FilePath
 -- belongs to most likely.
 findPackageFor :: NonEmpty (Package pt) -> FilePath -> Maybe (Package pt)
@@ -217,7 +273,20 @@ findPackageFor packages fp = packages
   & listToMaybe
 
 -- | Helper function to make sure that both FilePaths are normalised.
+-- Checks whether the first FilePath is a Prefix of the second FilePath.
+-- Intended usage:
 --
+-- >>> isFilePathPrefixOf "./src/" "./src/File.hs"
+-- True
+--
+-- >>> isFilePathPrefixOf "./src" "./src/File.hs"
+-- True
+--
+-- >>> isFilePathPrefixOf "./src/././" "./src/File.hs"
+-- True
+--
+-- >>> isFilePathPrefixOf "./src" "./src-dir/File.hs"
+-- True -- This is not really intended.
 isFilePathPrefixOf :: FilePath -> FilePath -> Bool
 isFilePathPrefixOf dir fp = normalise dir `isPrefixOf` normalise fp
 
@@ -229,11 +298,11 @@ projectRootDir ProjLocV2Dir { plProjectDirV2 } = plProjectDirV2
 projectRootDir ProjLocStackYaml { plStackYaml } = takeDirectory plStackYaml
 
 projectSuffix :: ProjLoc qt -> FilePath
-projectSuffix ProjLocV1CabalFile { } = "Cabal-V1"
-projectSuffix ProjLocV1Dir { } =  "Cabal-V1-Dir"
-projectSuffix ProjLocV2File { } = "Cabal-V2"
-projectSuffix ProjLocV2Dir { } = "Cabal-V2-Dir"
-projectSuffix ProjLocStackYaml { } = "Stack"
+projectSuffix ProjLocV1CabalFile {} = "Cabal-V1"
+projectSuffix ProjLocV1Dir {} = "Cabal-V1-Dir"
+projectSuffix ProjLocV2File {} = "Cabal-V2"
+projectSuffix ProjLocV2Dir {} = "Cabal-V2-Dir"
+projectSuffix ProjLocStackYaml {} = "Stack"
 
 -- | The hie-bios stack cradle doesn't return the target as well, so add the
 -- FilePath onto the end of the options to make sure at least one target
@@ -243,9 +312,17 @@ fixCradle cradle =
   -- Normally this would also succeed for the 'Cabal-Helper-Stack' cradle.
   -- Make sure that the cradle is definitely the one created by "HIE.Bios.Cradle.loadCradle"
   if isStackCradle cradle
+  then
     -- We need a lens
-    then cradle { BIOS.cradleOptsProg = (BIOS.cradleOptsProg cradle)
-                { BIOS.runCradle = \fp' ->  fmap (addOption fp') <$> BIOS.runCradle (BIOS.cradleOptsProg cradle) fp' } }
-    else cradle
+    cradle { BIOS.cradleOptsProg =
+               (BIOS.cradleOptsProg
+                  cradle) { BIOS.runCradle = \fp' -> fmap (addOption fp')
+                              <$> BIOS.runCradle
+                                (BIOS.cradleOptsProg cradle)
+                                fp'
+                          }
+           }
+  else cradle
   where
-    addOption fp (BIOS.ComponentOptions os ds) = BIOS.ComponentOptions (os ++ [fp]) ds
+    addOption fp (BIOS.ComponentOptions os ds) =
+      BIOS.ComponentOptions (os ++ [fp]) ds
