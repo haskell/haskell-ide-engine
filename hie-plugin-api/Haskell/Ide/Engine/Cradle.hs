@@ -13,7 +13,7 @@ import           Data.Function ((&))
 import qualified Data.List.NonEmpty as NonEmpty
 import           Data.List.NonEmpty (NonEmpty)
 import           System.FilePath
-import           System.Directory (getCurrentDirectory)
+import           System.Directory (getCurrentDirectory, canonicalizePath)
 import qualified Data.Map as M
 import           Data.List (sortOn, find)
 import           Data.Maybe (listToMaybe, mapMaybe, isJust)
@@ -128,7 +128,7 @@ cabalHelperCradle file = do
           debugm $ "Cabal-Helper cradle package: " ++ show realPackage
           -- Field `pSourceDir` often has the form `<cwd>/./plugin`
           -- but we only want `<cwd>/plugin`
-          let normalisedPackageLocation = normalise $ pSourceDir realPackage
+          normalisedPackageLocation <- canonicalizePath $ pSourceDir realPackage
           debugm
             $ "Cabal-Helper normalisedPackageLocation: "
             ++ normalisedPackageLocation
