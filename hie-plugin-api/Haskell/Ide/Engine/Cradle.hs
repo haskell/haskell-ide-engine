@@ -2,7 +2,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE GADTs #-}
 
-module Haskell.Ide.Engine.Cradle (findLocalCradle, isStackCradle) where
+module Haskell.Ide.Engine.Cradle  where
 
 import           HIE.Bios as BIOS
 import           HIE.Bios.Types as BIOS
@@ -14,7 +14,7 @@ import qualified Data.List.NonEmpty as NonEmpty
 import           Data.List.NonEmpty (NonEmpty)
 import           System.FilePath
 import qualified Data.Map as M
-import           Data.List (inits, sortOn, find)
+import           Data.List (sortOn, find)
 import           Data.Maybe (listToMaybe, mapMaybe, isJust)
 import           Data.Ord (Down(..))
 import           Data.Foldable (toList)
@@ -58,7 +58,7 @@ isStackCradle = (`elem` ["stack", "Cabal-Helper-Stack"])
 -- This guessing has no guarantees and may change at any time.
 findCabalHelperEntryPoint :: FilePath -> IO (Maybe (Ex ProjLoc))
 findCabalHelperEntryPoint fp = do
-  projs <- concat <$> mapM findProjects subdirs
+  projs <- concat <$> mapM findProjects (ancestors (takeDirectory fp))
   case filter (\p -> isCabalNewProject p || isStackProject p) projs of
     (x:_) -> return $ Just x
     []    -> case filter isCabalOldProject projs of
@@ -66,13 +66,6 @@ findCabalHelperEntryPoint fp = do
       []    -> return Nothing
 
     where
-      -- | Subdirectories of a given FilePath.
-      -- Directory closest to the FilePath `fp` is the head,
-      -- followed by one directory taken away.
-      subdirs :: [FilePath]
-      subdirs = reverse . map joinPath . tail . inits
-        $ splitDirectories (takeDirectory fp)
-
       isStackProject (Ex ProjLocStackYaml {}) = True
       isStackProject _ = False
 
@@ -374,3 +367,26 @@ fixCradle cradle =
   where
     addOption fp (BIOS.ComponentOptions os ds) =
       BIOS.ComponentOptions (os ++ [fp]) ds
+
+-- | Obtain all ancestors from a given directory.
+--
+-- >>> ancestors "a/b/c/d/e"
+-- [ "a/b/c/d/e", "a/b/c/d", "a/b/c", "a/b", "a", "." ]
+--
+-- >>> ancestors "/a/b/c/d/e"
+-- [ "/a/b/c/d/e", "/a/b/c/d", "/a/b/c", "/a/b", "/a", "/" ]
+--
+-- >>> ancestors "/a/b.hs"
+-- [ "/a/b.hs", "/a", "/" ]
+--
+-- >>> ancestors "a/b.hs"
+-- [ "a/b.hs", "a", "." ]
+--
+-- >>> ancestors "a/b/"
+-- [ "a/b" ]
+ancestors :: FilePath -> [FilePath]
+ancestors dir
+  | subdir `equalFilePath` dir = [dir]
+  | otherwise = dir : ancestors subdir
+  where
+    subdir = takeDirectory dir
