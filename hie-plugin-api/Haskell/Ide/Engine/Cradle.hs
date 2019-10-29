@@ -13,6 +13,7 @@ import           Data.Function ((&))
 import qualified Data.List.NonEmpty as NonEmpty
 import           Data.List.NonEmpty (NonEmpty)
 import           System.FilePath
+import           System.Directory (getCurrentDirectory)
 import qualified Data.Map as M
 import           Data.List (sortOn, find)
 import           Data.Maybe (listToMaybe, mapMaybe, isJust)
@@ -64,7 +65,6 @@ findCabalHelperEntryPoint fp = do
     []    -> case filter isCabalOldProject projs of
       (x:_) -> return $ Just x
       []    -> return Nothing
-
     where
       isStackProject (Ex ProjLocStackYaml {}) = True
       isStackProject _ = False
@@ -88,7 +88,14 @@ cabalHelperCradle file = do
   case projM of
     Nothing        -> do
       errorm $ "Could not find a Project for file: " ++ file
-      error $ "Could not find a Project for file: " ++ file
+      cwd <- getCurrentDirectory
+      return
+        Cradle { cradleRootDir = cwd
+               , cradleOptsProg =
+                   CradleAction { actionName = "Cabal-Helper-None"
+                                , runCradle = \_ -> return CradleNone
+                                }
+               }
     Just (Ex proj) -> do
       -- Find the root of the project based on project type.
       let root = projectRootDir proj
