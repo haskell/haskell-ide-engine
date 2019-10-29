@@ -109,9 +109,8 @@ hieGhcDisplayVersion = compilerName ++ "-" ++ VERSION_ghc
 
 getProjectGhcVersion :: BIOS.Cradle -> IO String
 getProjectGhcVersion crdl = do
-  isStackProject   <- doesFileExist "stack.yaml"
   isStackInstalled <- isJust <$> findExecutable "stack"
-  if isStackCradle crdl && isStackProject && isStackInstalled
+  if isStackCradle crdl && isStackInstalled
     then do
       L.infoM "hie" "Using stack GHC version"
       catch (tryCommand "stack ghc -- --numeric-version") $ \e -> do
