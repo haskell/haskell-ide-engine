@@ -236,17 +236,6 @@ partOfComponent fp' comp
             else c)
       (dropExtension fp)
 
--- | Assuming a FilePath "src/Lib/Lib.hs" and a ciSourceDirs ["src"]
--- into 'Just "Lib"'
--- >>> relativeTo "src/Lib/Lib.hs" ["src"]
--- Just "Lib/Lib.hs"
---
--- >>> relativeTo "src/Lib/Lib.hs" ["app"]
--- Nothing
-relativeTo :: FilePath -> [FilePath] -> Maybe FilePath
-relativeTo file sourceDirs = listToMaybe
-  $ mapMaybe (`stripFilePath` file) sourceDirs
-
 -- | Get the flags necessary to compile the given component.
 getFlags :: ChComponentInfo -> [String]
 getFlags = ciGhcOptions
@@ -397,3 +386,14 @@ ancestors dir
   | otherwise = dir : ancestors subdir
   where
     subdir = takeDirectory dir
+
+-- | Assuming a FilePath "src/Lib/Lib.hs" and a ciSourceDirs ["src"]
+-- into 'Just "Lib"'
+-- >>> relativeTo "src/Lib/Lib.hs" ["src"]
+-- Just "Lib/Lib.hs"
+--
+-- >>> relativeTo "src/Lib/Lib.hs" ["app"]
+-- Nothing
+relativeTo :: FilePath -> [FilePath] -> Maybe FilePath
+relativeTo file sourceDirs = listToMaybe
+  $ mapMaybe (`stripFilePath` file) sourceDirs
