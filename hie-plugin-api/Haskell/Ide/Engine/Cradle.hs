@@ -14,8 +14,8 @@ import qualified Data.List.NonEmpty as NonEmpty
 import           Data.List.NonEmpty (NonEmpty)
 import           System.FilePath
 import qualified Data.Map as M
-import           Data.List (inits, sortOn, isPrefixOf, find, stripPrefix)
-import           Data.Maybe (listToMaybe, mapMaybe)
+import           Data.List (inits, sortOn, find)
+import           Data.Maybe (listToMaybe, mapMaybe, isJust)
 import           Data.Ord (Down(..))
 import           Data.Foldable (toList)
 import           System.Exit
@@ -201,7 +201,7 @@ getComponent env (unit:units) fp = do
 -- A FilePath is part of the Component if and only if:
 --
 --   * One Component's 'ciSourceDirs' is a prefix of the FilePath
---   * The FilePath, after converted to a Module name,
+--   * The FilePath, after converted to a module name,
 --     is a in the Component's Targets, or the FilePath is
 --     the executable in the component.
 --
@@ -216,29 +216,36 @@ partOfComponent ::
   -- | Component to check whether the given FilePath is part of it.
   ChComponentInfo ->
   Bool
-partOfComponent fp comp
-  | Just normFp <- normalisedFp fp (ciSourceDirs comp), normFp `inTargets` getTargets comp fp = True
-  | otherwise = False
+partOfComponent fp' comp
+  | inTargets (ciSourceDirs comp) fp' (getTargets comp fp')
+  = True
+  | otherwise
+  = False
   where
-    -- | Assuming a FilePath "src/Lib/Lib.hs" and a ciSourceDirs ["src"]
-    -- into 'Just "Lib"'
-    -- >>> normalisedFp "src/Lib/Lib.hs" ["src"]
-    -- Just "Lib/Lib.hs"
-    --
-    -- >>> normalisedFp "src/Lib/Lib.hs" ["app"]
-    -- Nothing
-    normalisedFp file sourceDirs = listToMaybe
-      $ mapMaybe ((`stripPrefix` file) . addTrailingPathSeparator) sourceDirs
+    inTargets :: [FilePath] -> FilePath -> [String] -> Bool
+    inTargets sourceDirs fp targets
+      | Just relative <- relativeTo fp sourceDirs
+      = any (`elem` targets) [getModuleName relative, fp]
+      | otherwise
+      = False
 
-    inTargets :: FilePath -> [String] -> Bool
-    inTargets modFp targets =
-      -- Change a FilePath of the Form "Haskell/IDE/Engine/Cradle.hs" -> "Haskell.IDE.Engine.Cradle"
-      let modName = map
-            (\c -> if isPathSeparator c
-                   then '.'
-                   else c)
-            (dropExtension modFp)
-      in any (`elem` targets) [modName, fp]
+    getModuleName :: FilePath -> String
+    getModuleName fp = map
+      (\c -> if isPathSeparator c
+            then '.'
+            else c)
+      (dropExtension fp)
+
+-- | Assuming a FilePath "src/Lib/Lib.hs" and a ciSourceDirs ["src"]
+-- into 'Just "Lib"'
+-- >>> relativeTo "src/Lib/Lib.hs" ["src"]
+-- Just "Lib/Lib.hs"
+--
+-- >>> relativeTo "src/Lib/Lib.hs" ["app"]
+-- Nothing
+relativeTo :: FilePath -> [FilePath] -> Maybe FilePath
+relativeTo file sourceDirs = listToMaybe
+  $ mapMaybe (`stripFilePath` file) sourceDirs
 
 -- | Get the flags necessary to compile the given component.
 getFlags :: ChComponentInfo -> [String]
@@ -285,9 +292,51 @@ findPackageFor packages fp = packages
 -- True
 --
 -- >>> isFilePathPrefixOf "./src" "./src-dir/File.hs"
--- True -- This is not really intended.
+-- False
 isFilePathPrefixOf :: FilePath -> FilePath -> Bool
-isFilePathPrefixOf dir fp = normalise dir `isPrefixOf` normalise fp
+isFilePathPrefixOf dir fp = isJust $ stripFilePath dir fp
+
+-- | Strip the given directory from the filepath if and only if
+-- the given directory is a prefix of the filepath.
+--
+-- >>> stripFilePath "app" "app/File.hs"
+-- Just "File.hs"
+
+-- >>> stripFilePath "src" "app/File.hs"
+-- Nothing
+
+-- >>> stripFilePath "src" "src-dir/File.hs"
+-- Nothing
+
+-- >>> stripFilePath "." "src/File.hs"
+-- Just "src/File.hs"
+
+-- >>> stripFilePath "app/" "./app/Lib/File.hs"
+-- Just "Lib/File.hs"
+
+-- >>> stripFilePath "/app/" "./app/Lib/File.hs"
+-- Nothing -- Nothing since '/app/' is absolute
+
+-- >>> stripFilePath "/app" "/app/Lib/File.hs"
+-- Just "Lib/File.hs"
+stripFilePath :: FilePath -> FilePath -> Maybe FilePath
+stripFilePath "." fp
+  | isRelative fp = Just fp
+  | otherwise = Nothing
+stripFilePath dir' fp'
+  | Just relativeFpParts <- splitDir `stripPrefix` splitFp = Just (joinPath relativeFpParts)
+  | otherwise = Nothing
+  where
+    dir = normalise dir'
+    fp = normalise fp'
+    splitFp = splitPath fp
+    splitDir = splitPath dir
+    stripPrefix (x:xs) (y:ys)
+      | x `equalFilePath` y = stripPrefix xs ys
+      | otherwise = Nothing
+    stripPrefix [] ys = Just ys
+    stripPrefix _ [] = Nothing
+
 
 projectRootDir :: ProjLoc qt -> FilePath
 projectRootDir ProjLocV1CabalFile { plProjectDirV1 } = plProjectDirV1
