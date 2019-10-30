@@ -1,6 +1,5 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Haskell.Ide.Engine.Plugin.Hoogle where
 
@@ -11,9 +10,6 @@ import           Control.Applicative (liftA2)
 import           Data.Aeson
 import           Data.Bifunctor
 import           Data.Maybe
-#if __GLASGOW_HASKELL__ < 804
-import           Data.Monoid
-#endif
 import qualified Data.Text                          as T
 import Data.List
 import           Haskell.Ide.Engine.MonadTypes
