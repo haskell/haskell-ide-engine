@@ -64,7 +64,6 @@ packageSpec = do
             args      = AddParams fp (fp </> "AddPackage.hs") "text"
             act       = addCmd' args
             textEdits =
-#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)))
               List
                 [ TextEdit (Range (Position 0 0) (Position 7 27)) $ T.concat
                   [ "cabal-version: >=1.10\n"
@@ -85,25 +84,6 @@ packageSpec = do
                   , "        text -any"
                   ]
                 ]
-#else
-              List -- TODO: this seems to indicate that the command does nothing
-                [ TextEdit (Range (Position 0 0) (Position 7 27)) $ T.concat
-                  [ "name: add-package-test\n"
-                  , "version: 0.1.0.0\n"
-                  , "cabal-version: >=1.10\n"
-                  , "build-type: Simple\n"
-                  , "license: BSD3\n"
-                  , "maintainer: luke_lau@icloud.com\n"
-                  , "author: Luke Lau\n"
-                  , "extra-source-files:\n"
-                  , "    ChangeLog.md"
-                  ]
-                , TextEdit (Range (Position 9 0) (Position 13 34)) $ T.concat
-                  [ "executable  AddPackage\n"
-                  , "    main-is: AddPackage.hs\n"
-                  ]
-                ]
-#endif
             res = IdeResultOk
               $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
           testCommand testPlugins act "package" "add" args res
@@ -117,7 +97,6 @@ packageSpec = do
             args      = AddParams fp (fp </> "AddPackage.hs") "text"
             act       = addCmd' args
             textEdits =
-#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)))
               List
                 [ TextEdit (Range (Position 0 0) (Position 7 27)) $ T.concat
                   [ "cabal-version: >=1.10\n"
@@ -139,29 +118,6 @@ packageSpec = do
                   , "        text -any"
                   ]
                 ]
-#else
-              List
-                [ TextEdit (Range (Position 0 0) (Position 7 27)) $ T.concat
-                  [ "name: add-package-test\n"
-                  , "version: 0.1.0.0\n"
-                  , "cabal-version: >=1.10\n"
-                  , "build-type: Simple\n"
-                  , "license: BSD3\n"
-                  , "maintainer: luke_lau@icloud.com\n"
-                  , "author: Luke Lau\n"
-                  , "extra-source-files:\n"
-                  , "    ChangeLog.md"
-                  ]
-                , TextEdit (Range (Position 10 0) (Position 13 34)) $ T.concat
-                  [ "    exposed-modules:\n"
-                  , "        AddPackage\n"
-                  , "    build-depends:\n"
-                  , "        base >=4.7 && <5,\n"
-                  , "        text -any\n"
-                  , "    default-language: Haskell2010\n"
-                  ]
-                ]
-#endif
             res = IdeResultOk
               $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
           testCommand testPlugins act "package" "add" args res
@@ -239,7 +195,7 @@ packageSpec = do
                     ]
                 ]
           testCommand testPlugins act "package" "add" args res
-          
+
     it "Do nothing on NoPackage"
       $ withCurrentDirectory (testdata </> "invalid")
       $ do
