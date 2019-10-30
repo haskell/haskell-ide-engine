@@ -13,13 +13,7 @@ module Haskell.Ide.Engine.Plugin.Build where
 #endif
 
 import qualified Data.Aeson                             as J
-#if __GLASGOW_HASKELL__ < 802
-import qualified Data.Aeson.Types                       as J
-#endif
 import           Data.Maybe                             (fromMaybe)
-#if __GLASGOW_HASKELL__ < 804
-import           Data.Monoid
-#endif
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Reader
