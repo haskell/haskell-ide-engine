@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE CPP #-}
 
 module FunctionalCodeActionsSpec where
 
@@ -213,8 +212,6 @@ spec = describe "code actions" $ do
         ]
       ]
   describe "add package suggestions" $ do
-    -- Only execute this test with ghc 8.4.4, below seems to be broken in the package.
-#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)))
     it "adds to .cabal files" $ runSession hieCommand fullCaps "test/testdata/addPackageTest/cabal-exe" $ do
       doc <- openDoc "AddPackage.hs" "haskell"
 
@@ -240,7 +237,7 @@ spec = describe "code actions" $ do
 
       contents <- getDocumentEdit . TextDocumentIdentifier =<< getDocUri "add-package-test.cabal"
       liftIO $ T.lines contents `shouldSatisfy` \x -> any (\l -> "text -any" `T.isSuffixOf` (x !! l)) [15, 16]
-#endif
+
     it "adds to hpack package.yaml files" $
       runSession hieCommand fullCaps "test/testdata/addPackageTest/hpack-exe" $ do
         doc <- openDoc "app/Asdf.hs" "haskell"

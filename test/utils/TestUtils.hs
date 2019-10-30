@@ -151,12 +151,6 @@ stackYaml =
   "stack-8.4.3.yaml"
 #elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,2,0)))
   "stack-8.4.2.yaml"
-#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,2,2,0)))
-  "stack-8.2.2.yaml"
-#elif __GLASGOW_HASKELL__ >= 802
-  "stack-8.2.1.yaml"
-#else
-  "stack-8.0.2.yaml"
 #endif
 
 logFilePath :: String
