@@ -267,6 +267,50 @@ findPackageFor packages fp = packages
   & filter (\p -> pSourceDir p `isFilePathPrefixOf` fp)
   & listToMaybe
 
+
+projectRootDir :: ProjLoc qt -> FilePath
+projectRootDir ProjLocV1CabalFile { plProjectDirV1 } = plProjectDirV1
+projectRootDir ProjLocV1Dir { plProjectDirV1 } = plProjectDirV1
+projectRootDir ProjLocV2File { plProjectDirV2 } = plProjectDirV2
+projectRootDir ProjLocV2Dir { plProjectDirV2 } = plProjectDirV2
+projectRootDir ProjLocStackYaml { plStackYaml } = takeDirectory plStackYaml
+
+projectSuffix :: ProjLoc qt -> FilePath
+projectSuffix ProjLocV1CabalFile {} = "Cabal-V1"
+projectSuffix ProjLocV1Dir {} = "Cabal-V1-Dir"
+projectSuffix ProjLocV2File {} = "Cabal-V2"
+projectSuffix ProjLocV2Dir {} = "Cabal-V2-Dir"
+projectSuffix ProjLocStackYaml {} = "Stack"
+
+-- | The hie-bios stack cradle doesn't return the target as well, so add the
+-- FilePath onto the end of the options to make sure at least one target
+-- is returned.
+fixCradle :: BIOS.Cradle -> BIOS.Cradle
+fixCradle cradle =
+  -- Normally this would also succeed for the 'Cabal-Helper-Stack' cradle.
+  -- Make sure that the cradle is definitely the one created by "HIE.Bios.Cradle.loadCradle"
+  if isStackCradle cradle
+  then
+    -- We need a lens
+    cradle { BIOS.cradleOptsProg =
+                (BIOS.cradleOptsProg
+                  cradle) { BIOS.runCradle = \fp' -> fmap (addOption fp')
+                              <$> BIOS.runCradle
+                                (BIOS.cradleOptsProg cradle)
+                                fp'
+                          }
+            }
+  else cradle
+  where
+    addOption fp (BIOS.ComponentOptions os ds) =
+      BIOS.ComponentOptions (os ++ [fp]) ds
+
+-- ----------------------------------------------------------------------------
+--
+-- Utility functions to manipulate FilePath's
+--
+-- ----------------------------------------------------------------------------
+
 -- | Helper function to make sure that both FilePaths are normalised.
 -- Checks whether the first FilePath is a Prefix of the second FilePath.
 -- Intended usage:
@@ -327,42 +371,6 @@ stripFilePath dir' fp'
     stripPrefix _ [] = Nothing
 
 
-projectRootDir :: ProjLoc qt -> FilePath
-projectRootDir ProjLocV1CabalFile { plProjectDirV1 } = plProjectDirV1
-projectRootDir ProjLocV1Dir { plProjectDirV1 } = plProjectDirV1
-projectRootDir ProjLocV2File { plProjectDirV2 } = plProjectDirV2
-projectRootDir ProjLocV2Dir { plProjectDirV2 } = plProjectDirV2
-projectRootDir ProjLocStackYaml { plStackYaml } = takeDirectory plStackYaml
-
-projectSuffix :: ProjLoc qt -> FilePath
-projectSuffix ProjLocV1CabalFile {} = "Cabal-V1"
-projectSuffix ProjLocV1Dir {} = "Cabal-V1-Dir"
-projectSuffix ProjLocV2File {} = "Cabal-V2"
-projectSuffix ProjLocV2Dir {} = "Cabal-V2-Dir"
-projectSuffix ProjLocStackYaml {} = "Stack"
-
--- | The hie-bios stack cradle doesn't return the target as well, so add the
--- FilePath onto the end of the options to make sure at least one target
--- is returned.
-fixCradle :: BIOS.Cradle -> BIOS.Cradle
-fixCradle cradle =
-  -- Normally this would also succeed for the 'Cabal-Helper-Stack' cradle.
-  -- Make sure that the cradle is definitely the one created by "HIE.Bios.Cradle.loadCradle"
-  if isStackCradle cradle
-  then
-    -- We need a lens
-    cradle { BIOS.cradleOptsProg =
-               (BIOS.cradleOptsProg
-                  cradle) { BIOS.runCradle = \fp' -> fmap (addOption fp')
-                              <$> BIOS.runCradle
-                                (BIOS.cradleOptsProg cradle)
-                                fp'
-                          }
-           }
-  else cradle
-  where
-    addOption fp (BIOS.ComponentOptions os ds) =
-      BIOS.ComponentOptions (os ++ [fp]) ds
 
 -- | Obtain all ancestors from a given directory.
 --
