@@ -38,25 +38,68 @@ findLocalCradle fp = do
     Just yaml -> fixCradle <$> BIOS.loadCradle yaml
     Nothing   -> cabalHelperCradle fp
 
--- | Check if the given Cradle is a stack cradle.
+-- | Check if the given cradle is a stack cradle.
 -- This might be used to determine the GHC version to use on the project.
--- If it is a stack-Cradle, we have to use `stack path --compiler-exe`
+-- If it is a stack-cradle, we have to use `stack path --compiler-exe`
 -- otherwise we may ask `ghc` directly what version it is.
 isStackCradle :: Cradle -> Bool
-isStackCradle = (`elem` ["stack", "Cabal-Helper-Stack"])
+isStackCradle = (`elem` ["stack", "Cabal-Helper-Stack", "Cabal-Helper-Stack-None"])
   . BIOS.actionName
   . BIOS.cradleOptsProg
 
--- | Finds a Cabal v2-project, Cabal v1-project or a Stack project
--- relative to the given FilePath.
--- Cabal v2-project and Stack have priority over Cabal v1-project.
--- This entails that if a Cabal v1-project can be identified, it is
--- first checked whether there are Stack projects or Cabal v2-projects
--- before it is concluded that this is the project root.
--- Cabal v2-projects and Stack projects are equally important.
--- Due to the lack of user-input we have to guess which project it
--- should rather be.
--- This guessing has no guarantees and may change at any time.
+{- | Finds a Cabal v2-project, Cabal v1-project or a Stack project
+relative to the given FilePath.
+Cabal v2-project and Stack have priority over Cabal v1-project.
+This entails that if a Cabal v1-project can be identified, it is
+first checked whether there are Stack projects or Cabal v2-projects
+before it is concluded that this is the project root.
+Cabal v2-projects and Stack projects are equally important.
+Due to the lack of user-input we have to guess which project it
+should rather be.
+This guessing has no guarantees and may change at any time.
+
+=== Example:
+
+Assume the following project structure:
+  /
+  └── Foo/
+      ├── Foo.cabal
+      ├── stack.yaml
+      ├── cabal.project
+      ├── src
+      │   ├── Lib.hs
+      └── B/
+          ├── B.cabal
+          └── src/
+              └── Lib2.hs
+
+Assume the call @findCabalHelperEntryPoint "/Foo/B/src/Lib2.hs"@.
+We now want to know to which project "/Foo/B/src/Lib2.hs" belongs to
+and what the projects root is. If we only do a naive search to find the
+first occurrence of either "B.cabal", "stack.yaml", "cabal.project"
+or "Foo.cabal", we might assume that the location  of "B.cabal" marks
+the project's root directory of which "/Foo/B/src/Lib2.hs" is part of.
+However, there is also a "cabal.project" and "stack.yaml" in the parent
+directory, which add the package "B" as a package.
+So, the compilation of the package "B", and the file "src/Lib2.hs" in it,
+does not only depend on the definitions in "B.cabal", but also
+on "stack.yaml" and "cabal.project".
+The project root is therefore "/Foo/".
+Only if there is no "stack.yaml" or "cabal.project" in any of the ancestor
+directories, it is safe to assume that "B.cabal" marks the root of the project.
+
+Thus:
+>>> findCabalHelperEntryPoint "/Foo/B/src/Lib2.hs
+Just (Ex (ProjLocStackYaml { plStackYaml = "/Foo/B/"}))
+
+or
+>>> findCabalHelperEntryPoint "/Foo/B/src/Lib2.hs
+Just (Ex (ProjLocV2File { plProjectDirV2 = "/Foo/B/"}))
+
+In the given example, it is not guaranteed which project type is found,
+it is only guaranteed that it will not identify the project
+as a cabal v1-project.
+-}
 findCabalHelperEntryPoint :: FilePath -> IO (Maybe (Ex ProjLoc))
 findCabalHelperEntryPoint fp = do
   projs <- concat <$> mapM findProjects (ancestors (takeDirectory fp))
@@ -77,11 +120,167 @@ findCabalHelperEntryPoint fp = do
       isCabalOldProject (Ex ProjLocV1CabalFile {}) = True
       isCabalOldProject _ = False
 
--- | Given a FilePath, find the Cradle the FilePath belongs to.
---
--- Finds the Cabal Package the FilePath is most likely a part of
--- and creates a cradle whose root directory is the directory
--- of the package the File belongs to.
+{- | Given a FilePath, find the cradle the FilePath belongs to.
+
+Finds the Cabal Package the FilePath is most likely a part of
+and creates a cradle whose root directory is the directory
+of the package the File belongs to.
+
+It is not required that the FilePath given actually exists. If it does not
+exist or is not part of any of the packages in the project, a "None"-cradle is
+produced.
+See <https://github.com/mpickering/hie-bios> for what a "None"-cradle is.
+The "None"-cradle can still be used to query for basic information, such as
+the GHC version used to build the project. However, it can not be used to
+load any of the files in the project.
+
+== General Approach
+
+Given a FilePath that we want to load, we need to create a cradle
+that can compile and load the given FilePath.
+In Cabal-Helper, there is no notion of a cradle, but a project
+consists of multiple packages that contain multiple units.
+Each unit may consist of multiple components.
+A unit is the smallest part of code that Cabal (the library) can compile.
+Examples are executables, libraries, tests or benchmarks are all units.
+Each of this units has a name that is unique within a build-plan,
+such as "exe:hie" which represents the executable of the Haskell IDE Engine.
+
+In principle, a unit is what hie-bios considers to be a cradle.
+
+Thus, to find the options required to compile and load the given FilePath,
+we have to do the following:
+
+  1. Identify the package that contains the FilePath (should be unique)
+     Happens in 'cabalHelperCradle'
+  2. Find the unit that that contains the FilePath (May be non-unique)
+     Happens in 'cabalHelperAction'
+  3. Find the component that exposes the FilePath (May be non-unique)
+     Happens in 'cabalHelperAction'
+
+=== Identify the package that contains the FilePath
+
+The function 'cabalHelperCradle' does the first step only.
+It starts by querying Cabal-Helper to find the project's root.
+See 'findCabalHelperEntryPoint' for details how this is done.
+Once the root of the project is defined, we query Cabal-Helper for all packages
+that are defined in the project and match by the packages source directory
+which package the given FilePath is most likely to be a part of.
+E.g. if the source directory of the package is the most concrete
+prefix of the FilePath, the FilePath is in that package.
+After the package is identified, we create a cradle where cradle's root
+directory is set to the package's source directory. This is necessary,
+because compiler options obtained from a component, are relative
+to the source directory of the package the component is part of.
+
+=== Find the unit that that contains the FilePath
+
+In 'cabalHelperAction' we want to load a given FilePath, already knowing
+which package the FilePath is part of. Now we obtain all Units that are part
+of the package and match by the source directories (plural is intentional),
+to which unit the given FilePath most likely belongs to. If no unit can be
+obtained, e.g. for every unit, no source directory is a prefix of the FilePath,
+we return an error code, since this is not allowed to happen.
+If there are multiple matches, which is possible, we check whether any of the
+components defined in the unit exposes or defines the given FilePath as a module.
+
+=== Find the component that exposes the FilePath
+
+A component defines the options that are necessary to compile a FilePath that
+is in the component. It also defines which modules are in the component.
+Therefore, we translate the given FilePath into a module name, relative to
+the unit's source directory, and check if the module name is exposed by the
+component. There is a special case, executables define a FilePath, for the
+file that contains the 'main'-function, that is relative to the unit's source
+directory.
+
+After the component has been identified, we can actually retrieve the options
+required to load and compile the given file.
+
+== Examples
+
+=== Mono-Repo
+
+Assume the project structure:
+  /
+  └── Mono/
+      ├── cabal.project
+      ├── stack.yaml
+      ├── A/
+      │   ├── A.cabal
+      │   └── Lib.hs
+      └── B/
+          ├── B.cabal
+          └── Exe.hs
+
+Currently, Haskell IDE Engine needs to know on startup which GHC version is
+needed to compile the project. This information is needed to show warnings to
+the user if the GHC version on the project does not agree with the GHC version
+that was used to compile Haskell IDE Engine.
+
+Therefore, the function 'findLocalCradle' is invoked with a dummy FilePath,
+such as "/Mono/Lib.hs". Since there will be no package that contains this
+dummy FilePath, the result will be a None-cradle.
+
+Either
+>>> findLocalCradle "/Mono/Lib.hs"
+Cradle { cradleRootDir = "/Mono/", CradleAction { actionName = "Cabal-Helper-Stack-None", ..} }
+
+or:
+>>> findLocalCradle "/Mono/Lib.hs"
+Cradle { cradleRootDir = "/Mono/", CradleAction { actionName = "Cabal-Helper-Cabal-V2-None", ..} }
+
+The cradle result of this invocation is only used to obtain the GHC version,
+which is safe, since it only checks if the cradle is a 'stack' project or
+a 'cabal' project.
+
+
+If we are trying to load the executable:
+>>> findLocalCradle "/Mono/B/Exe.hs"
+Cradle { cradleRootDir = "/Mono/", CradleAction { actionName = "Cabal-Helper-Cabal-V2", ..} }
+
+containing the compiler options retrieved from the package "B",
+the unit "exe:B" and the appropriate component.
+
+=== No explicit executable folder
+
+Assume the project structure:
+  /
+  └── Library/
+      ├── cabal.project
+      ├── stack.yaml
+      ├── Library.cabal
+      └── src
+          ├── Lib.hs
+          └── Exe.hs
+
+There probably are different dependencies for the library "Lib.hs" and the
+executable "Exe.hs". If we are trying to load the executable "src/Exe.hs"
+we will correctly identify the executable unit.
+It will be correct even if we check the unit "lib:Library" before
+the "exe:Library" because the unit "lib:Library" does not expose a module "Exe".
+
+=== Sub package
+
+Assume the project structure:
+  /
+  └── Repo/
+      ├── cabal.project
+      ├── stack.yaml
+      ├── Library.cabal
+      ├── src
+      |   └── Lib.hs
+      └── SubRepo
+          ├── SubRepo.cabal
+          └── Lib2.hs
+
+When we try to load "/Repo/SubRepo/Lib2.hs", we need to identify root
+of the project, which is "/Repo/" but set the root directory of the cradle
+responsible to load "/Repo/SubRepo/Lib2.hs" to "/Repo/SubRepo", since
+the compiler options obtained from Cabal-Helper are relative to the package
+source directory, which is "/Repo/SubRepo".
+
+-}
 cabalHelperCradle :: FilePath -> IO Cradle
 cabalHelperCradle file = do
   projM <- findCabalHelperEntryPoint file
@@ -144,13 +343,13 @@ cabalHelperCradle file = do
                                     }
                    }
     where
-      -- | Cradle Action to query for the ComponentOptions that are needed
+      -- | cradle Action to query for the ComponentOptions that are needed
       -- to load the given FilePath.
       -- This Function is not supposed to throw any exceptions and use
       -- 'CradleLoadResult' to indicate errors.
       cabalHelperAction :: QueryEnv v -- ^ Query Env created by 'mkQueryEnv'
                                       -- with the appropriate 'distdir'
-                        -> Package v -- ^ Package this Cradle is part for.
+                        -> Package v -- ^ Package this cradle is part for.
                         -> FilePath -- ^ Root directory of the cradle
                                     -- this action belongs to.
                         -> FilePath -- ^ FilePath to load, expected to be an absolute path.
@@ -369,8 +568,6 @@ stripFilePath dir' fp'
       | otherwise = Nothing
     stripPrefix [] ys = Just ys
     stripPrefix _ [] = Nothing
-
-
 
 -- | Obtain all ancestors from a given directory.
 --
