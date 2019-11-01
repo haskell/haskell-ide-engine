@@ -67,7 +67,7 @@ Assume the following project structure:
       ├── stack.yaml
       ├── cabal.project
       ├── src
-      │   ├── Lib.hs
+      │   └── Lib.hs
       └── B/
           ├── B.cabal
           └── src/
@@ -147,6 +147,11 @@ Each of this units has a name that is unique within a build-plan,
 such as "exe:hie" which represents the executable of the Haskell IDE Engine.
 
 In principle, a unit is what hie-bios considers to be a cradle.
+However, to find out to which unit a FilePath belongs, we have to initialise
+the unit, e.g. configure its dependencies and so on. When discovering a cradle
+we do not want to pay for this upfront, but rather when we actually want to
+load a Module in the project. Therefore, we only identify the package the
+FilePath is part of and decide which unit to load when 'runCradle' is executed.
 
 Thus, to find the options required to compile and load the given FilePath,
 we have to do the following:
@@ -380,7 +385,8 @@ cabalHelperCradle file = do
                 ("Could not obtain flags for " ++ fp)
 
 -- | Get the component the given FilePath most likely belongs to.
--- Lazily ask units whether the given FilePath is part of their component.
+-- Lazily ask units whether the given FilePath is part of one of their
+-- component's.
 -- If a Module belongs to multiple components, it is not specified which
 -- component will be loaded.
 -- The given FilePath must be relative to the Root of the project
@@ -592,13 +598,22 @@ ancestors dir
   where
     subdir = takeDirectory dir
 
--- | Assuming a FilePath "src/Lib/Lib.hs" and a ciSourceDirs ["src"]
--- into 'Just "Lib"'
+-- | Assuming a FilePath "src/Lib/Lib.hs" and a list of directories
+-- such as ["src", "app"], returns either the given FilePath
+-- with a matching directory stripped away.
+-- If there are multiple matches, e.g. multiple directories are a prefix
+-- of the given FilePath, return the first match in the list.
+-- Returns Nothing, if not a single
+-- given directory is a prefix of the FilePath.
+--
 -- >>> relativeTo "src/Lib/Lib.hs" ["src"]
 -- Just "Lib/Lib.hs"
 --
 -- >>> relativeTo "src/Lib/Lib.hs" ["app"]
 -- Nothing
+--
+-- >>> relativeTo "src/Lib/Lib.hs" ["src", "src/Lib"]
+-- Just "Lib/Lib.hs"
 relativeTo :: FilePath -> [FilePath] -> Maybe FilePath
 relativeTo file sourceDirs = listToMaybe
   $ mapMaybe (`stripFilePath` file) sourceDirs
