@@ -9,9 +9,12 @@ jobs:
     
     strategy:
       matrix:
-        os: [ubuntu-latest, macOS-latest, windows-latest]
+        os: [ubuntu-latest, macOS-latest] # , windows-latest]
 
     steps:
+    - name: Install ghc and cabal-install
+      if: startsWith(matrix.os, "macOS")
+      run: brew install ghc cabal-install
     - uses: actions/checkout@v1
       with: 
         submodules: recursive
