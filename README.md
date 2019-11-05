@@ -793,3 +793,19 @@ can happen because cabal-helper compiles and runs above executable at runtime wi
 
 Liquid Haskell requires an SMT solver on the path. We do not take care of installing one, thus, Liquid Haskell will not run until one is installed.
 The recommended SMT solver is [z3](https://github.com/Z3Prover/z3). To run the tests, it is also required to have an SMT solver on the path, otherwise the tests will fail for Liquid Haskell.
+
+### Profiling `haskell-ide-engine`.
+
+If you think `haskell-ide-engine` is using a lot of memory then the most useful
+thing you can do is prepare a profile of the memory usage whilst you're using
+the program.
+
+1. Add `profiling: True` to the cabal.project file of `haskell-ide-engine
+2. `cabal new-build hie`
+3. (IMPORTANT) Add `profiling: True` to the `cabal.project` file of the project you want to profile.
+4. Make a wrapper script which calls the `hie` you built in step 2 with the additional options `+RTS -hd -l-au`
+5. Modify your editor settings to call this wrapper script instead of looking for `hie` on the path
+6. Try using `h-i-e` as normal and then process the `*.eventlog` which will be created using  `eventlog2html`.
+7. Repeat the process again using different profiling options if you like.
+
+
