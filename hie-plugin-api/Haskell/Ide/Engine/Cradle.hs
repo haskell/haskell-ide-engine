@@ -90,11 +90,11 @@ directories, it is safe to assume that "B.cabal" marks the root of the project.
 
 Thus:
 >>> findCabalHelperEntryPoint "/Foo/B/src/Lib2.hs
-Just (Ex (ProjLocStackYaml { plStackYaml = "/Foo/B/"}))
+Just (Ex (ProjLocStackYaml { plStackYaml = "/Foo/"}))
 
 or
 >>> findCabalHelperEntryPoint "/Foo/B/src/Lib2.hs
-Just (Ex (ProjLocV2File { plProjectDirV2 = "/Foo/B/"}))
+Just (Ex (ProjLocV2File { plProjectDirV2 = "/Foo/"}))
 
 In the given example, it is not guaranteed which project type is found,
 it is only guaranteed that it will not identify the project
