@@ -102,7 +102,7 @@ lookupCradle :: FilePath -> GhcModuleCache -> LookupCradleResult
 lookupCradle fp gmc =
   case currentCradle gmc of
     Just (dirs, _c) | (any (\d -> d `isPrefixOf` fp) dirs) -> ReuseCradle
-    _ -> case T.match  (cradleCache gmc) (B.pack fp) of
+    _ -> case T.match (cradleCache gmc) (B.pack fp) of
            Just (_k, c, _suf) -> LoadCradle c
            Nothing  -> NewCradle fp
 

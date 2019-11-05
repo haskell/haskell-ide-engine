@@ -51,6 +51,7 @@ library
                      , ghc
                      , hie-bios
                      , ghc-project-types >= 5.9.0.0
+                     , cabal-helper
                      , haskell-lsp == 0.17.*
                      , hslogger
                      , unliftio
