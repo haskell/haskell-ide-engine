@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE GADTs #-}
@@ -7,18 +8,24 @@ module Haskell.Ide.Engine.Cradle  where
 import           HIE.Bios as BIOS
 import           HIE.Bios.Types as BIOS
 import           Haskell.Ide.Engine.MonadFunctions
-import           Distribution.Helper
-import           Distribution.Helper.Discover
+import           Distribution.Helper (Package, projectPackages, pUnits,
+                                      pSourceDir, ChComponentInfo(..),
+                                      unChModuleName, Ex(..), ProjLoc(..),
+                                      QueryEnv, mkQueryEnv, runQuery,
+                                      Unit, unitInfo, uiComponents,
+                                      ChEntrypoint(..))
+import           Distribution.Helper.Discover (findProjects, getDefaultDistDir)
 import           Data.Function ((&))
 import qualified Data.List.NonEmpty as NonEmpty
 import           Data.List.NonEmpty (NonEmpty)
-import           System.FilePath
-import           System.Directory (getCurrentDirectory, canonicalizePath)
 import qualified Data.Map as M
 import           Data.List (sortOn, find)
 import           Data.Maybe (listToMaybe, mapMaybe, isJust)
 import           Data.Ord (Down(..))
 import           Data.Foldable (toList)
+import           Control.Exception (IOException, try)
+import           System.FilePath
+import           System.Directory (getCurrentDirectory, canonicalizePath)
 import           System.Exit
 
 -- | Find the cradle that the given File belongs to.
@@ -394,13 +401,23 @@ cabalHelperCradle file = do
 getComponent
   :: QueryEnv pt -> [Unit pt] -> FilePath -> IO (Maybe ChComponentInfo)
 getComponent _env [] _fp = return Nothing
-getComponent env (unit:units) fp = do
-  ui <- runQuery (unitInfo unit) env
-  let components = M.elems (uiComponents ui)
-  debugm $ "Unit Info: " ++ show ui
-  case find (fp `partOfComponent`) components of
-    Nothing -> getComponent env units fp
-    comp {- Just component -} -> return comp
+getComponent env (unit : units) fp =
+  try (runQuery (unitInfo unit) env) >>= \case
+    Left (e :: IOException) -> do
+      warningm $ "Catching and swallowing an IOException: " ++ show e
+      warningm
+        $  "The Exception was thrown in the context of finding"
+        ++ " a component for \""
+        ++ fp
+        ++ "\" in the unit: "
+        ++ show unit
+      getComponent env units fp
+    Right ui -> do
+      let components = M.elems (uiComponents ui)
+      debugm $ "Unit Info: " ++ show ui
+      case find (fp `partOfComponent`) components of
+        Nothing -> getComponent env units fp
+        comp    -> return comp
 
 -- | Check whether the given FilePath is part of the Component.
 -- A FilePath is part of the Component if and only if:
