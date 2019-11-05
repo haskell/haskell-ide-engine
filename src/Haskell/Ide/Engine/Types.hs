@@ -22,9 +22,10 @@ pattern GReq :: TrackingNumber
              -> Maybe (Uri, Int)
              -> Maybe J.LspId
              -> RequestCallback m a1
+             -> a1
              -> IdeGhcM (IdeResult a1)
              -> PluginRequest m
-pattern GReq a b c d e f = Right (GhcRequest   a b c d e f)
+pattern GReq a b c d e f  g= Right (GhcRequest   a b c d e f g)
 
 pattern IReq :: TrackingNumber -> J.LspId -> RequestCallback m a -> IdeDeferM (IdeResult a) -> Either (IdeRequest m) b
 pattern IReq a b c d   = Left  (IdeRequest a b c d)
@@ -37,6 +38,7 @@ data GhcRequest m = forall a. GhcRequest
   , pinDocVer    :: Maybe (J.Uri, Int)
   , pinLspReqId  :: Maybe J.LspId
   , pinCallback  :: RequestCallback m a
+  , pinDefault   :: a
   , pinReq       :: IdeGhcM (IdeResult a)
   }
 

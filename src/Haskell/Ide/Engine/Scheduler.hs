@@ -302,23 +302,24 @@ ghcDispatcher env@DispatcherEnv { docVersionTVar } errorHandler callbackHandler 
   iniDynFlags <- getSessionDynFlags
   forever $ do
     debugm "ghcDispatcher: top of loop"
-    GhcRequest tn context mver mid callback action <- liftIO
+    GhcRequest tn context mver mid callback def action <- liftIO
       $ Channel.readChan pin
     debugm $ "ghcDispatcher:got request " ++ show tn ++ " with id: " ++ show mid
 
     let
-      runner act = case context of
-        Nothing  -> runActionWithContext iniDynFlags Nothing act
+      runner :: a -> IdeGhcM a -> IdeGhcM (IdeResult  a)
+      runner d act = case context of
+        Nothing  -> runActionWithContext iniDynFlags Nothing d act
         Just uri -> case uriToFilePath uri of
-          Just fp -> runActionWithContext iniDynFlags (Just fp) act
+          Just fp -> runActionWithContext iniDynFlags (Just fp) d act
           Nothing -> do
             debugm
               "ghcDispatcher:Got malformed uri, running action with default context"
-            runActionWithContext iniDynFlags Nothing act
+            runActionWithContext iniDynFlags Nothing d act
 
     let
       runWithCallback = do
-        result <- runner action
+        result <- runner (pure def) action
         liftIO $ case join result of
           IdeResultOk   x                      -> callbackHandler callback x
           IdeResultFail err@(IdeError _ msg _) -> do
