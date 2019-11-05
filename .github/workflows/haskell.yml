@@ -13,7 +13,7 @@ jobs:
 
     steps:
     - name: Install ghc and cabal-install
-      if: startsWith(matrix.os, "macOS")
+      if: startsWith(matrix.os, 'macOS')
       run: brew install ghc cabal-install
     - uses: actions/checkout@v1
       with: 
