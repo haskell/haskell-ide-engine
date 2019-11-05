@@ -5,16 +5,20 @@ on: [push, pull_request]
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: ${{matrix.os}}
+    
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
 
     steps:
     - uses: actions/checkout@v1
+      with: 
+        submodules: recursive
     - uses: actions/setup-haskell@v1
       with:
         ghc-version: '8.6.5'
         cabal-version: '3.0'
-    - name: Init git submodules
-      run: git submodule update --recursive --init
     - name: Install dependencies
       run: |
         cabal update
