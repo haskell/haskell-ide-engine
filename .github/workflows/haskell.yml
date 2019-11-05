@@ -13,17 +13,17 @@ jobs:
         ghc: ['8.6.5', '8.4.4']
 
     steps:
-    - name: Install ghc and cabal-install
-      if: startsWith(matrix.os, 'macOS')
-      run: brew install ghc cabal-install
+#     - name: Install ghc and cabal-install
+#       if: startsWith(matrix.os, 'macOS')
+#       run: brew install ghc cabal-install
     - uses: actions/checkout@v1
       with: 
         submodules: recursive
-    - uses: actions/setup-haskell@v1
+    - uses: haskell-works/setup-haskell@macos-ghcup
       with:
         ghc-version: ${{matrix.ghc}}
         cabal-version: '3.0'
-      if: startsWith(matrix.os, 'ubuntu')
+#       if: startsWith(matrix.os, 'ubuntu')
     - name: Install dependencies
       run: |
         cabal update
