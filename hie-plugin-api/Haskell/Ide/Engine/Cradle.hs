@@ -249,10 +249,11 @@ a 'cabal' project.
 
 If we are trying to load the executable:
 >>> findLocalCradle "/Mono/B/Exe.hs"
-Cradle { cradleRootDir = "/Mono/", CradleAction { actionName = "Cabal-Helper-Cabal-V2", ..} }
+Cradle { cradleRootDir = "/Mono/B/", CradleAction { actionName = "Cabal-Helper-Cabal-V2", ..} }
 
-containing the compiler options retrieved from the package "B",
-the unit "exe:B" and the appropriate component.
+we will detect correctly the compiler options, by first finding the appropriate
+package, followed by traversing the units in the package and finding the
+component that exposes the executable by FilePath.
 
 === No explicit executable folder
 
@@ -266,11 +267,13 @@ Assume the project structure:
           ├── Lib.hs
           └── Exe.hs
 
-There probably are different dependencies for the library "Lib.hs" and the
+There are different dependencies for the library "Lib.hs" and the
 executable "Exe.hs". If we are trying to load the executable "src/Exe.hs"
-we will correctly identify the executable unit.
-It will be correct even if we check the unit "lib:Library" before
-the "exe:Library" because the unit "lib:Library" does not expose a module "Exe".
+we will correctly identify the executable unit, and correctly initialise
+dependencies of "exe:Library".
+It will be correct even if we load the unit "lib:Library" before
+the "exe:Library" because the unit "lib:Library" does not expose
+a module "Exe".
 
 === Sub package
 
