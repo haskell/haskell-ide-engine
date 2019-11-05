@@ -966,16 +966,14 @@ syncOptions = J.TextDocumentSyncOptions
 hieOptions :: [T.Text] -> Core.Options
 hieOptions commandIds =
   def { Core.textDocumentSync       = Just syncOptions
-      , Core.completionProvider     = Just (J.CompletionOptions (Just True) (Just ["."]))
+      , Core.completionKinds        = Just ["."]
       -- As of 2018-05-24, vscode needs the commands to be registered
       -- otherwise they will not be available as codeActions (will be
       -- silently ignored, despite UI showing to the contrary).
       --
       -- Hopefully the end May 2018 vscode release will stabilise
       -- this, it is a major rework of the machinery anyway.
-      , Core.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List commandIds))
-      , Core.renameProvider = Just (J.RenameOptions (Just True))
-      , Core.implementationProvider = Just (J.GotoOptionsStatic True)
+      , Core.executeCommandCommands = commandIds
       }
 
 
