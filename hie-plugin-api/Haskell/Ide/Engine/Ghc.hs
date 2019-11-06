@@ -174,18 +174,25 @@ logDiag :: (FilePath -> FilePath) -> IORef AdditionalErrs -> IORef Diagnostics -
 logDiag rfm eref dref df reason sev spn style msg = do
   eloc <- srcSpan2Loc rfm spn
   debugm $ "Diagnostics at Location: " <> show (spn, eloc)
-  let msgTxt = T.pack $ renderWithStyle df msg style
-  case eloc of
-    Right (Location uri range) -> do
-      let update = Map.insertWith Set.union (toNormalizedUri uri) l
-            where l = Set.singleton diag
-          diag = Diagnostic range (Just $ lspSev reason sev) Nothing (Just "bios") msgTxt Nothing
-      debugm $ "Writing diag " <> (show diag)
-      modifyIORef' dref (\(Diagnostics u) -> Diagnostics (update u))
-    Left _ -> do
-      debugm $ "Writing err " <> (show msgTxt)
-      modifyIORef' eref (msgTxt:)
-      return ()
+  let msgString = renderWithStyle df msg style
+      msgTxt = T.pack msgString
+  case sev of
+    SevOutput -> debugm msgString
+    SevDump -> debugm msgString
+    SevInfo -> debugm msgString
+    _ ->  do
+      logm (show sev)
+      case eloc of
+        Right (Location uri range) -> do
+          let update = Map.insertWith Set.union (toNormalizedUri uri) l
+                where l = Set.singleton diag
+              diag = Diagnostic range (Just $ lspSev reason sev) Nothing (Just "bios") msgTxt Nothing
+          debugm $ "Writing diag " <> (show diag)
+          modifyIORef' dref (\(Diagnostics u) -> Diagnostics (update u))
+        Left _ -> do
+          debugm $ "Writing err " <> (show msgTxt)
+          modifyIORef' eref (msgTxt:)
+          return ()
 
 
 errorHandlers :: (String -> m a) -> (HscTypes.SourceError -> m a) -> [ErrorHandler m a]
