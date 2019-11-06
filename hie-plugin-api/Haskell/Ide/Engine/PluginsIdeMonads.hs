@@ -346,7 +346,7 @@ getDiagnosticProvidersConfig c = Map.fromList [("applyrefact",hlintOn c)
 -- Monads
 -- ---------------------------------------------------------------------
 
--- | IdeM that allows for interaction with the ghc-mod session
+-- | IdeM that allows for interaction with the Ghc session
 type IdeGhcM = GhcT IdeM
 
 --instance GM.MonadIO (GhcT IdeM) where
