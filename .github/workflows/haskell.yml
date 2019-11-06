@@ -24,23 +24,26 @@ jobs:
     - uses: actions/checkout@v1
       with: 
         submodules: recursive
+
     - uses: bubba/setup-haskell@macos-ghcup
       with:
         ghc-version: ${{matrix.ghc}}
         cabal-version: '3.0'
-  
+
     - name: Cache
       uses: actions/cache@v1
       with:
         path: dist-newstyle
         key: ${{ runner.OS }}-${{ matrix.ghc }}-dist-newstyle
-    
+
     - name: Install dependencies
       run: |
         cabal update
         cabal install hoogle
         hoogle generate
+
     - name: Build
       run: cabal build
-#     - name: Run tests
-#       run: cabal test
+
+    - name: Run tests
+      run: cabal test
