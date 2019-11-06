@@ -68,6 +68,7 @@ import           System.FilePath ((</>))
 import           System.Exit
 import qualified System.Log.Logger                       as L
 import qualified Data.Rope.UTF16                         as Rope
+import GHC.Conc
 
 -- ---------------------------------------------------------------------
 {-# ANN module ("hlint: ignore Eta reduce" :: String) #-}
@@ -154,9 +155,9 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
         -- haskell lsp sets the current directory to the project root in the InitializeRequest
         -- We launch the dispatcher after that so that the default cradle is
         -- recognized properly by ghc-mod
-        _ <- forkIO $ Scheduler.runScheduler scheduler errorHandler callbackHandler (Just lf)
-        _ <- forkIO   reactorFunc
-        _ <- forkIO $ diagnosticsQueue tr
+        flip labelThread "scheduler" =<< (forkIO $ Scheduler.runScheduler scheduler errorHandler callbackHandler (Just lf))
+        flip labelThread "reactor" =<< (forkIO reactorFunc)
+        flip labelThread "diagnostics" =<< (forkIO $ diagnosticsQueue tr)
         return Nothing
 
       diagnosticProviders :: Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]
@@ -439,7 +440,7 @@ reactor inp diagIn = do
 
 
           lf <- ask
-          let hreq = GReq tn Nothing Nothing Nothing callback Nothing $ IdeResultOk <$> Hoogle.initializeHoogleDb
+          let hreq = GReq tn "init-hoogle" Nothing Nothing Nothing callback Nothing $ IdeResultOk <$> Hoogle.initializeHoogleDb
               callback Nothing = flip runReaderT lf $
                 reactorSend $ NotShowMessage $
                   fmServerShowMessageNotification J.MtWarning "No hoogle db found. Check the README for instructions to generate one"
@@ -512,7 +513,7 @@ reactor inp diagIn = do
           let
               uri = notification ^. J.params . J.textDocument . J.uri
           -- unmapFileFromVfs versionTVar cin uri
-          makeRequest $ GReq tn (Just uri) Nothing Nothing (const $ return ()) () $ do
+          makeRequest $ GReq tn "delete-cache" (Just uri) Nothing Nothing (const $ return ()) () $ do
             forM_ (uriToFilePath uri)
               deleteCachedModule
             return $ IdeResultOk ()
@@ -524,7 +525,7 @@ reactor inp diagIn = do
           let (params, doc, pos) = reqParams req
               newName  = params ^. J.newName
               callback = reactorSend . RspRename . Core.makeResponseMessage req
-          let hreq = GReq tn (Just doc) Nothing (Just $ req ^. J.id) callback mempty
+          let hreq = GReq tn "HaRe-rename" (Just doc) Nothing (Just $ req ^. J.id) callback mempty
                        $ HaRe.renameCmd' doc pos newName
           makeRequest hreq
 
@@ -554,7 +555,7 @@ reactor inp diagIn = do
                 in reactorSend $ RspHover $ Core.makeResponseMessage req h
 
               hreq :: PluginRequest R
-              hreq = IReq tn (req ^. J.id) callback $
+              hreq = IReq tn "hover" (req ^. J.id) callback $
                 sequence <$> mapM (\hp -> lift $ hp doc pos) hps
           makeRequest hreq
           liftIO $ U.logs "reactor:HoverRequest done"
@@ -624,7 +625,7 @@ reactor inp diagIn = do
                                                 "Invalid fallbackCodeAction params"
                   -- Just an ordinary HIE command
                   Just (plugin, cmd) ->
-                    let preq = GReq tn Nothing Nothing (Just $ req ^. J.id) callback (toDynJSON (Nothing :: Maybe J.WorkspaceEdit))
+                    let preq = GReq tn "plugin" Nothing Nothing (Just $ req ^. J.id) callback (toDynJSON (Nothing :: Maybe J.WorkspaceEdit))
                                $ runPluginCommand plugin cmd cmdParams
                     in makeRequest preq
 
@@ -654,7 +655,7 @@ reactor inp diagIn = do
             Nothing -> callback []
             Just prefix -> do
               snippets <- Completions.WithSnippets <$> configVal completionSnippetsOn
-              let hreq = IReq tn (req ^. J.id) callback
+              let hreq = IReq tn "completion" (req ^. J.id) callback
                            $ lift $ Completions.getCompletions doc prefix snippets
               makeRequest hreq
 
@@ -664,7 +665,7 @@ reactor inp diagIn = do
               callback res = do
                 let rspMsg = Core.makeResponseMessage req $ res
                 reactorSend $ RspCompletionItemResolve rspMsg
-              hreq = IReq tn (req ^. J.id) callback $ runIdeResultT $ do
+              hreq = IReq tn "completion" (req ^. J.id) callback $ runIdeResultT $ do
                 lift $ lift $ Completions.resolveCompletion origCompl
           makeRequest hreq
 
@@ -674,7 +675,7 @@ reactor inp diagIn = do
           liftIO $ U.logs $ "reactor:got DocumentHighlightsRequest:" ++ show req
           let (_, doc, pos) = reqParams req
               callback = reactorSend . RspDocumentHighlights . Core.makeResponseMessage req . J.List
-          let hreq = IReq tn (req ^. J.id) callback
+          let hreq = IReq tn "highlights" (req ^. J.id) callback
                    $ Hie.getReferencesInDoc doc pos
           makeRequest hreq
 
@@ -686,7 +687,7 @@ reactor inp diagIn = do
               doc = params ^. J.textDocument . J.uri
               pos = params ^. J.position
               callback = reactorSend . RspDefinition . Core.makeResponseMessage req
-          let hreq = IReq tn (req ^. J.id) callback
+          let hreq = IReq tn "find-def" (req ^. J.id) callback
                        $ fmap J.MultiLoc <$> Hie.findDef doc pos
           makeRequest hreq
 
@@ -696,7 +697,7 @@ reactor inp diagIn = do
               doc = params ^. J.textDocument . J.uri
               pos = params ^. J.position
               callback = reactorSend . RspTypeDefinition . Core.makeResponseMessage req
-          let hreq = IReq tn (req ^. J.id) callback
+          let hreq = IReq tn "type-def" (req ^. J.id) callback
                        $ fmap J.MultiLoc <$> Hie.findTypeDef doc pos
           makeRequest hreq
 
@@ -705,7 +706,7 @@ reactor inp diagIn = do
           -- TODO: implement project-wide references
           let (_, doc, pos) = reqParams req
               callback = reactorSend . RspFindReferences.  Core.makeResponseMessage req . J.List
-          let hreq = IReq tn (req ^. J.id) callback
+          let hreq = IReq tn "references" (req ^. J.id) callback
                    $ fmap (map (J.Location doc . (^. J.range)))
                    <$> Hie.getReferencesInDoc doc pos
           makeRequest hreq
@@ -719,7 +720,7 @@ reactor inp diagIn = do
               doc = params ^. J.textDocument . J.uri
           withDocumentContents (req ^. J.id) doc $ \text ->
             let callback = reactorSend . RspDocumentFormatting . Core.makeResponseMessage req . J.List
-                hreq = IReq tn (req ^. J.id) callback $ lift $ provider text doc FormatText (params ^. J.options)
+                hreq = IReq tn "format" (req ^. J.id) callback $ lift $ provider text doc FormatText (params ^. J.options)
               in makeRequest hreq
 
         -- -------------------------------
@@ -732,7 +733,7 @@ reactor inp diagIn = do
           withDocumentContents (req ^. J.id) doc $ \text ->
             let range = params ^. J.range
                 callback = reactorSend . RspDocumentRangeFormatting . Core.makeResponseMessage req . J.List
-                hreq = IReq tn (req ^. J.id) callback $ lift $ provider text doc (FormatRange range) (params ^. J.options)
+                hreq = IReq tn "range-format" (req ^. J.id) callback $ lift $ provider text doc (FormatRange range) (params ^. J.options)
               in makeRequest hreq
 
         -- -------------------------------
@@ -757,7 +758,7 @@ reactor inp diagIn = do
                       in [si] <> children
 
               callback = reactorSend . RspDocumentSymbols . Core.makeResponseMessage req . convertSymbols . concat
-          let hreq = IReq tn (req ^. J.id) callback (sequence <$> mapM (\f -> f uri) sps)
+          let hreq = IReq tn "symbols" (req ^. J.id) callback (sequence <$> mapM (\f -> f uri) sps)
           makeRequest hreq
 
         -- -------------------------------
@@ -886,10 +887,10 @@ requestDiagnostics DiagnosticsRequest{trigger, file, trackingNumber, documentVer
         let fakeId = J.IdString ("fake,remove:pid=" <> pid) -- TODO:AZ: IReq should take a Maybe LspId
         let reql = case ds of
               DiagnosticProviderSync dps ->
-                IReq trackingNumber fakeId callbackl
+                IReq trackingNumber "diagnostics" fakeId callbackl
                      $ dps trigger file
               DiagnosticProviderAsync dpa ->
-                IReq trackingNumber fakeId pure
+                IReq trackingNumber "diagnostics-a" fakeId pure
                      $ dpa trigger file callbackl
             -- This callback is used in R for the dispatcher normally,
             -- but also in IO if the plugin chooses to spawn an
@@ -932,14 +933,14 @@ requestDiagnosticsNormal tn file mVer = do
   let sendHlint = hlintOn clientConfig
   when sendHlint $ do
     -- get hlint diagnostics
-    let reql = GReq tn (Just file) (Just (file,ver)) Nothing callbackl (PublishDiagnosticsParams file mempty)
+    let reql = GReq tn "apply-refact" (Just file) (Just (file,ver)) Nothing callbackl (PublishDiagnosticsParams file mempty)
                  $ ApplyRefact.lintCmd' file
         callbackl (PublishDiagnosticsParams fp (List ds))
              = sendOne "hlint" (J.toNormalizedUri fp, ds)
     makeRequest reql
 
   -- get GHC diagnostics and loads the typechecked module into the cache
-  let reqg = GReq tn (Just file) (Just (file,ver)) Nothing callbackg mempty
+  let reqg = GReq tn "typecheck" (Just file) (Just (file,ver)) Nothing callbackg mempty
                $ BIOS.setTypecheckedModule file
       callbackg (HIE.Diagnostics pd, errs) = do
         forM_ errs $ \e -> do

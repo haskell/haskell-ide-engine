@@ -42,9 +42,9 @@ handleCodeActionReq tn req = do
 
       providersCb providers =
         let reqs = map (\f -> lift (f docId range context)) providers
-        in makeRequests reqs tn (req ^. J.id) (send . filter wasRequested . concat)
+        in makeRequests reqs "code-actions" tn (req ^. J.id) (send . filter wasRequested . concat)
 
-  makeRequest (IReq tn (req ^. J.id) providersCb getProviders)
+  makeRequest (IReq tn "code-actions" (req ^. J.id) providersCb getProviders)
 
   where
     params = req ^. J.params

@@ -16,6 +16,8 @@ module Haskell.Ide.Engine.Ghc
   , makeRevRedirMapFunc
   ) where
 
+import Debug.Trace
+
 import           Bag
 import           Control.Monad.IO.Class
 import           Control.Monad                  ( when )
@@ -219,13 +221,16 @@ errorHandlers ghcErrRes renderSourceError = handlers
 -- | Load a module from a filepath into the cache, first check the cache
 -- to see if it's already there.
 setTypecheckedModule :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
-setTypecheckedModule uri =
+setTypecheckedModule uri = do
+  liftIO $ traceEventIO ("START typecheck" ++ show uri)
   pluginGetFile "setTypecheckedModule: " uri $ \_fp -> do
     debugm "setTypecheckedModule: before ghc-mod"
     debugm "Loading file"
     -- mapped_fp <- persistVirtualFile uri
     -- ifCachedModuleM mapped_fp (setTypecheckedModule_load uri) cont
-    setTypecheckedModule_load uri
+    res <- setTypecheckedModule_load uri
+    liftIO $ traceEventIO ("STOP typecheck" ++ show uri)
+    return res
 
 -- Hacky, need to copy hs-boot file if one exists for a module
 -- This is because the virtual file gets created at VFS-1234.hs and

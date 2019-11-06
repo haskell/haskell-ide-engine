@@ -124,15 +124,16 @@ cancelRequest lid =
 -- | Execute multiple ide requests sequentially
 makeRequests
   :: [IdeDeferM (IdeResult a)] -- ^ The requests to make
+  -> String
   -> TrackingNumber
   -> J.LspId
   -> ([a] -> R ())          -- ^ Callback with the request inputs and results
   -> R ()
 makeRequests = go []
  where
-  go acc [] _ _ callback = callback acc
-  go acc (x : xs) tn reqId callback =
-    let reqCallback result = go (acc ++ [result]) xs tn reqId callback
-    in  makeRequest $ IReq tn reqId reqCallback x
+  go acc [] _ _ _ callback = callback acc
+  go acc (x : xs) d tn reqId callback =
+    let reqCallback result = go (acc ++ [result]) xs d tn reqId callback
+    in  makeRequest $ IReq tn d reqId reqCallback x
 
 -- ---------------------------------------------------------------------
