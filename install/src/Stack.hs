@@ -106,7 +106,7 @@ withoutStackCachedBinaries :: Action a -> Action a
 withoutStackCachedBinaries action = do
   mbPath <- liftIO (catch
                     (lookupEnv "PATH")
-                    (\(_ :: SomeException) -> return Nothing))
+                    (\(_ :: IOException) -> return Nothing))
 
   case (mbPath, isRunFromStack) of
 
