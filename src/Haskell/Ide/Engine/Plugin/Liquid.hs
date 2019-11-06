@@ -166,10 +166,19 @@ runLiquidHaskell fp = do
           cp = (shell cmd) { cwd = Just dir }
       -- logm $ "runLiquidHaskell:cmd=[" ++ cmd ++ "]"
       mpp <- lookupEnv "GHC_PACKAGE_PATH"
+      mge <- lookupEnv "GHC_ENVIRONMENT"
       -- logm $ "runLiquidHaskell:mpp=[" ++ show mpp ++ "]"
+      -- env <- getEnvironment
+      -- logm $ "runLiquidHaskell:env=[" ++ show env ++ "]"
       (ec,o,e) <- bracket
-        (unsetEnv "GHC_PACKAGE_PATH")
-        (\_ -> mapM_ (setEnv "GHC_PACKAGE_PATH") mpp)
+        (do
+            unsetEnv "GHC_ENVIRONMENT"
+            unsetEnv "GHC_PACKAGE_PATH"
+        )
+        (\_ -> do
+            mapM_ (setEnv "GHC_PACKAGE_PATH") mpp
+            mapM_ (setEnv "GHC_ENVIRONMENT" ) mge
+        )
         (\_ -> readCreateProcessWithExitCode cp "")
       -- logm $ "runLiquidHaskell:v=" ++ show (ec,o,e)
       return $ Just (ec,[o,e])
