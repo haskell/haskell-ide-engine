@@ -1,8 +1,10 @@
+{-# LANGUAGE ScopedTypeVariables #-} 
 module Stack where
 
 import           Development.Shake
 import           Development.Shake.Command
 import           Development.Shake.FilePath
+import           Control.Exception
 import           Control.Monad
 import           Data.List
 import           System.Directory                         ( copyFile )
@@ -102,7 +104,9 @@ stackBuildFailMsg =
 -- |Run actions without the stack cached binaries 
 withoutStackCachedBinaries :: Action a -> Action a
 withoutStackCachedBinaries action = do
-  mbPath <- liftIO (lookupEnv "PATH")
+  mbPath <- liftIO (catch
+                    (lookupEnv "PATH")
+                    (\(_ :: SomeException) -> return Nothing))
 
   case (mbPath, isRunFromStack) of
 
