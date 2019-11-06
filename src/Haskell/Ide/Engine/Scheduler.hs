@@ -183,19 +183,12 @@ sendRequest
   :: forall m
    . Scheduler m
     -- ^ The scheduler to send the request to.
-  -> Maybe DocUpdate
-    -- ^ If not Nothing, the version for the given document is updated before dispatching.
-  -> PluginRequest m
+   -> PluginRequest m
     -- ^ The request to dispatch.
   -> IO ()
-sendRequest Scheduler {..} docUpdate req = do
+sendRequest Scheduler {..} req = do
   let (ghcChanIn, _) = ghcChan
       (ideChanIn, _) = ideChan
-
-  case docUpdate of
-    Nothing -> pure ()
-    Just (uri, ver) ->
-      STM.atomically $ STM.modifyTVar' documentVersions (Map.insert uri ver)
 
   case req of
     Right ghcRequest@GhcRequest { pinLspReqId = Nothing } ->
@@ -227,7 +220,7 @@ makeRequest
   -> m ()
 makeRequest req = do
   env <- ask
-  liftIO $ sendRequest (getScheduler env) Nothing req
+  liftIO $ sendRequest (getScheduler env) req
 
 -- | Updates the version of a document and then sends the request to be processed
 -- asynchronously.
@@ -239,7 +232,20 @@ updateDocumentRequest
   -> m ()
 updateDocumentRequest uri ver req = do
   env <- ask
-  liftIO $ sendRequest (getScheduler env) (Just (uri, ver)) req
+  let sched = (getScheduler env)
+  liftIO $ do
+    updateDocument sched uri ver
+    sendRequest sched req
+
+-- | Updates the version of a document and then sends the request to be processed
+-- asynchronously.
+updateDocument
+  :: Scheduler a
+  -> Uri
+  -> Int
+  -> IO ()
+updateDocument sched uri ver =
+  STM.atomically $ STM.modifyTVar' (documentVersions sched) (Map.insert uri ver)
 
 -------------------------------------------------------------------------------
 -- Dispatcher

@@ -9,6 +9,7 @@ module Haskell.Ide.Engine.LSP.Reactor
   , makeRequest
   , makeRequests
   , updateDocumentRequest
+  , updateDocument
   , cancelRequest
   , asksLspFuncs
   , getClientConfig
@@ -115,6 +116,11 @@ makeRequest = Scheduler.makeRequest
 updateDocumentRequest
   :: (MonadIO m, MonadReader REnv m) => Uri -> Int -> PluginRequest R -> m ()
 updateDocumentRequest = Scheduler.updateDocumentRequest
+
+updateDocument :: (MonadIO m, MonadReader REnv m) => Uri -> Int -> m ()
+updateDocument uri ver = do
+  re <- scheduler <$> ask
+  liftIO $ Scheduler.updateDocument re uri ver
 
 -- | Marks a s requests as cencelled by its LspId
 cancelRequest :: (MonadIO m, MonadReader REnv m) => J.LspId -> m ()

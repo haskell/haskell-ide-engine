@@ -217,30 +217,6 @@ getPrefixAtPos uri pos = do
 -- ---------------------------------------------------------------------
 
 
-mapFileFromVfs :: (MonadIO m, MonadReader REnv m)
-               => TrackingNumber
-               -> J.VersionedTextDocumentIdentifier -> m ()
-mapFileFromVfs tn vtdi = do
-  let uri = vtdi ^. J.uri
-      ver = fromMaybe 0 (vtdi ^. J.version)
-  lf <- asks lspFuncs
-  vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
-  mvf <- liftIO $ vfsFunc (J.toNormalizedUri uri)
-  case (mvf, uriToFilePath uri) of
-    (Just (VFS.VirtualFile _ _ _), Just _fp) -> do
-      -- let text' = Rope.toString yitext
-          -- text = "{-# LINE 1 \"" ++ fp ++ "\"#-}\n" <> text'
-      -- TODO: @fendor, better document that, why do we even have this?
-      -- We have it to cancel operations that would operate on stale file versions
-      -- Maybe NotDidCloseDocument should call it, too?
-      let req = GReq tn (Just uri) Nothing Nothing (const $ return ()) ()
-                  $ return (IdeResultOk ())
-
-      updateDocumentRequest uri ver req
-      _ <- liftIO $ getPersistedFile' lf uri
-      return ()
-    (_, _) -> return ()
-
 -- TODO: generalise this and move it to GhcMod.ModuleLoader
 updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeGhcM (IdeResult ())
 updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file ->
@@ -456,10 +432,10 @@ reactor inp diagIn = do
           let
               td  = notification ^. J.params . J.textDocument
               uri = td ^. J.uri
-              ver = Just $ td ^. J.version
-          mapFileFromVfs tn $ J.VersionedTextDocumentIdentifier uri ver
+              ver = td ^. J.version
+          updateDocument uri ver
           -- We want to execute diagnostics for a newly opened file as soon as possible
-          requestDiagnostics $ DiagnosticsRequest DiagnosticOnOpen tn uri ver
+          requestDiagnostics $ DiagnosticsRequest DiagnosticOnOpen tn uri (Just ver)
 
         -- -------------------------------
 
@@ -479,11 +455,9 @@ reactor inp diagIn = do
           let
               td  = notification ^. J.params . J.textDocument
               uri = td ^. J.uri
-              -- ver = Just $ td ^. J.version
-              ver = Nothing
-          mapFileFromVfs tn $ J.VersionedTextDocumentIdentifier uri ver
+          updateDocument uri 0
           -- don't debounce/queue diagnostics when saving
-          requestDiagnostics (DiagnosticsRequest DiagnosticOnSave tn uri ver)
+          requestDiagnostics (DiagnosticsRequest DiagnosticOnSave tn uri Nothing)
 
         -- -------------------------------
 
@@ -495,8 +469,7 @@ reactor inp diagIn = do
               uri  = vtdi ^. J.uri
               ver  = vtdi ^. J.version
               J.List changes = params ^. J.contentChanges
-          mapFileFromVfs tn vtdi
-          makeRequest $ GReq tn (Just uri) Nothing Nothing (const $ return ()) () $
+          updateDocumentRequest uri (fromMaybe 0 ver) $ GReq tn "update-position" (Just uri) Nothing Nothing (const $ return ()) () $
             -- Important - Call this before requestDiagnostics
             updatePositionMap uri changes
 

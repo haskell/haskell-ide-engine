@@ -103,7 +103,7 @@ run scheduler = flip E.catches handlers $ do
                   $ runPluginCommand (plugin req) (command req) (arg req)
                 rid = reqId req
                 callback = sendResponse rid . dynToJSON
-            Scheduler.sendRequest scheduler Nothing preq
+            Scheduler.sendRequest scheduler preq
 
 getNextReq :: IO (Maybe ReactorInput)
 getNextReq = do

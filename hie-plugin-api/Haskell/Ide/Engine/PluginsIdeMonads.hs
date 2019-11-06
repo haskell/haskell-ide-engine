@@ -469,13 +469,7 @@ reverseFileMap = do
 -- but less likely to throw an error and rather give Nothing.
 getPersistedFile' :: Core.LspFuncs Config -> Uri -> IO (Maybe FilePath)
 getPersistedFile' lf uri =
-  Core.getVirtualFileFunc lf (toNormalizedUri uri) >>= \case
-    Just (VirtualFile _ _ (Just file)) -> do
-      return (Just file)
-    Just (VirtualFile _ _ Nothing) -> do
-      file <- persistVirtualFile' lf uri
-      return (Just file)
-    Nothing -> return Nothing
+    Just <$> persistVirtualFile' lf uri
 
 -- | Get the location of the virtual file persisted to the file system associated
 -- to the given Uri.

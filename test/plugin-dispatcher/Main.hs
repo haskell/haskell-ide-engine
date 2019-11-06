@@ -40,14 +40,15 @@ newPluginSpec = do
           req3 = GReq 3 "3" Nothing (Just (filePathToUri "test", 2)) Nothing          defCallback $ return $ IdeResultOk "none" $ T.pack "text3"
           req4 = GReq 4 "4" Nothing Nothing                          (Just $ IdInt 3) defCallback $ return $ IdeResultOk "none" $ T.pack "text4"
 
-      let makeReq = sendRequest scheduler Nothing
+      let makeReq = sendRequest scheduler
 
       pid <- forkIO $ runScheduler scheduler
                               (\_ _ _ -> return ())
                               (\f x -> f x)
                               def
 
-      sendRequest scheduler (Just (filePathToUri "test", 3)) req0
+      updateDocument scheduler (filePathToUri "test") 3
+      sendRequest scheduler req0
       makeReq req1
       makeReq req2
       cancelRequest scheduler (IdInt 2)
