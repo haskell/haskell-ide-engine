@@ -16,6 +16,9 @@ jobs:
         # fails because of libgmp
         - os: macOS-latest
           ghc: '8.6.2'
+          # fails because of -lnuma
+        - os: ubuntu-latest
+          ghc: '8.4.3'
 
     steps:
     - uses: actions/checkout@v1
