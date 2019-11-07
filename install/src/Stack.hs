@@ -10,6 +10,7 @@ import           Data.List
 import           System.Directory                         ( copyFile )
 import           System.FilePath                          ( searchPathSeparator, (</>) )
 import           System.Environment                       ( lookupEnv, setEnv, getEnvironment )
+import           System.IO.Error                          ( isDoesNotExistError )
 import           BuildSystem
 import           Version
 import           Print
@@ -104,9 +105,11 @@ stackBuildFailMsg =
 -- |Run actions without the stack cached binaries 
 withoutStackCachedBinaries :: Action a -> Action a
 withoutStackCachedBinaries action = do
-  mbPath <- liftIO (catch
-                    (lookupEnv "PATH")
-                    (\(_ :: IOException) -> return Nothing))
+
+  let getEnvErrorHandler e | isDoesNotExistError e = return Nothing
+                           | otherwise = throwIO e
+
+  mbPath <- liftIO (lookupEnv "PATH" `catch` getEnvErrorHandler)
 
   case (mbPath, isRunFromStack) of
 
