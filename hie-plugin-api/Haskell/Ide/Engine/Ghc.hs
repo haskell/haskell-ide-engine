@@ -179,11 +179,14 @@ logDiag rfm eref dref df reason sev spn style msg = do
   let msgString = renderWithStyle df msg style
       msgTxt = T.pack msgString
   case sev of
+    -- These three verbosity levels are triggered by increasing verbosity.
+    -- Normally the verbosity is set to 0 when the session is initialised but
+    -- sometimes for debugging it is useful to override this and piping the messages
+    -- to the normal debugging framework means they just show up in the normal log.
     SevOutput -> debugm msgString
     SevDump -> debugm msgString
     SevInfo -> debugm msgString
     _ ->  do
-      logm (show sev)
       case eloc of
         Right (Location uri range) -> do
           let update = Map.insertWith Set.union (toNormalizedUri uri) l
@@ -226,8 +229,6 @@ setTypecheckedModule uri = do
   pluginGetFile "setTypecheckedModule: " uri $ \_fp -> do
     debugm "setTypecheckedModule: before ghc-mod"
     debugm "Loading file"
-    -- mapped_fp <- persistVirtualFile uri
-    -- ifCachedModuleM mapped_fp (setTypecheckedModule_load uri) cont
     res <- setTypecheckedModule_load uri
     liftIO $ traceEventIO ("STOP typecheck" ++ show uri)
     return res

@@ -808,4 +808,24 @@ the program.
 6. Try using `h-i-e` as normal and then process the `*.eventlog` which will be created using  `eventlog2html`.
 7. Repeat the process again using different profiling options if you like.
 
+#### Using `ghc-events-analyze`
+
+`haskell-ide-engine` contains the necessary tracing functions to work with [`ghc-events-analyze`](http://www.well-typed.com/blog/2014/02/ghc-events-analyze/). Each
+request which is made will emit an event to the eventlog when it starts andcompletes. This way you
+can see if there are any requests which are taking a long time to complete or are blocking.
+
+1. Make sure that `hie` is linked with the `-eventlog` option. This can be achieved by adding the flag
+to the `ghc-options` field in the cabal file.
+2. Run `hie` as normal but with the addition of `+RTS -l`. This will produce an eventlog called `hie.eventlog`.
+3. Run `ghc-events-analyze` on the `hie.eventlog` file to produce the rendered SVG. Warning, this might take a while and produce a big SVG file.
+
+The default options for `ghc-events-analyze` will produce quite a wide chart which is difficult to view. You can try using less buckets in order
+to make the chart quicker to generate and faster to render.
+
+```
+ghc-events-analyze hie.eventlog -b 100
+```
+
+This support is similar to the logging capabilities [built into GHC](https://www.haskell.org/ghc/blog/20190924-eventful-ghc.html).
+
 
