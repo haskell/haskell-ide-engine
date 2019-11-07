@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-} 
 module Stack where
 
 import           Development.Shake
