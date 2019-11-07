@@ -164,7 +164,7 @@ runLiquidHaskell fp = do
       let cmd = lh ++ " --json \"" ++ fp ++ "\""
           dir = takeDirectory fp
           cp = (shell cmd) { cwd = Just dir }
-      -- logm $ "runLiquidHaskell:cmd=[" ++ cmd ++ "]"
+      logm $ "runLiquidHaskell:cmd=[" ++ cmd ++ "]"
       mpp <- lookupEnv "GHC_PACKAGE_PATH"
       mge <- lookupEnv "GHC_ENVIRONMENT"
       -- logm $ "runLiquidHaskell:mpp=[" ++ show mpp ++ "]"

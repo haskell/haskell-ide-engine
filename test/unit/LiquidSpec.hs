@@ -15,7 +15,7 @@ import           System.Directory
 import           System.Exit
 import           System.FilePath
 import           Test.Hspec
-import Control.Monad.IO.Class
+-- import Control.Monad.IO.Class
 
 main :: IO ()
 main = hspec spec
@@ -37,8 +37,10 @@ spec = do
       let
         fp = cwd </> "test/testdata/liquid/Evens.hs"
       Just (ef, (msg:_)) <- runLiquidHaskell fp
-      liftIO $ putStrLn $ "msg=" ++ msg
-      msg `shouldSatisfy` isPrefixOf "RESULT\n[{\"start\":{\"line\""
+      -- liftIO $ putStrLn $ "msg=" ++ msg
+      -- liftIO $ putStrLn $ "msg=" ++ unlines (drop 3 (lines msg))
+      let msg' = unlines (drop 3 (lines msg))
+      msg' `shouldSatisfy` isInfixOf "RESULT\n[{\"start\":{\"line\""
       ef `shouldBe` ExitFailure 1
 
     -- ---------------------------------
@@ -60,12 +62,15 @@ spec = do
       let Just v = decode jf :: Maybe LiquidJson
       let [LE { start, stop, message }] = errors v
       start `shouldBe` LP 9 1
-      stop `shouldBe` LP 9 8
+      stop `shouldBe` LP 9 12
       message `shouldSatisfy` T.isPrefixOf
-               ("Error: Liquid Type Mismatch\n  Inferred type\n" <>
-                "    VV : {v : Int | v == (7 : int)}\n \n" <>
+               ("Error: Liquid Type Mismatch\n" <>
+                "  Inferred type\n" <>
+                "    VV : {v : GHC.Types.Int | v == 7}\n" <>
+                " \n" <>
                 "  not a subtype of Required type\n" <>
-                "    VV : {VV : Int | VV mod 2 == 0}\n")
+                "    VV : {VV : GHC.Types.Int | VV mod 2 == 0}\n" <>
+                " ")
 
     -- ---------------------------------
 
@@ -100,8 +105,8 @@ spec = do
       take 2 ts
         `shouldBe`
           [LE (LP 1 1) (LP 1 1) "GHC.Types.Module"
-          ,LE (LP 6 1) (LP 6 10) "[{v : GHC.Types.Int | v mod 2 == 0}]"]
-      length ts `shouldBe` 38
+          ,LE (LP 6 1) (LP 6 10) "[{VV : GHC.Types.Int | VV mod 2 == 0}]"]
+      length ts `shouldBe` 53
 
     -- ---------------------------------
 
@@ -112,8 +117,8 @@ spec = do
       take 2 ts
         `shouldBe`
           [LE (LP 1 1) (LP 1 1) "GHC.Types.Module"
-          ,LE (LP 6 1) (LP 6 10) "[{v : GHC.Types.Int | v mod 2 == 0}]"]
-      length ts `shouldBe` 38
+          ,LE (LP 6 1) (LP 6 10) "[{VV : GHC.Types.Int | VV mod 2 == 0}]"]
+      length ts `shouldBe` 53
 
     -- ---------------------------------
 
