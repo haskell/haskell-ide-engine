@@ -811,7 +811,7 @@ the program.
 #### Using `ghc-events-analyze`
 
 `haskell-ide-engine` contains the necessary tracing functions to work with [`ghc-events-analyze`](http://www.well-typed.com/blog/2014/02/ghc-events-analyze/). Each
-request which is made will emit an event to the eventlog when it starts andcompletes. This way you
+request which is made will emit an event to the eventlog when it starts and finishes. This way you
 can see if there are any requests which are taking a long time to complete or are blocking.
 
 1. Make sure that `hie` is linked with the `-eventlog` option. This can be achieved by adding the flag
