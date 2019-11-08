@@ -64,8 +64,7 @@ import           Haskell.Ide.Engine.MonadFunctions
 -- ---------------------------------------------------------------------
 
 modifyCache :: (HasGhcModuleCache m) => (GhcModuleCache -> GhcModuleCache) -> m ()
-modifyCache f = do
-  modifyModuleCache (f mc)
+modifyCache f = modifyModuleCache f
 
 -- ---------------------------------------------------------------------
 -- | Run the given action in context and initialise a session with hie-bios.
