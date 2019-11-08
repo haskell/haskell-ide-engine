@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveAnyClass #-}
@@ -10,7 +9,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE LambdaCase #-}
@@ -359,8 +357,7 @@ type IdeGhcM = GhcT IdeM
 runIdeGhcM :: IdePlugins -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeGhcM a -> IO a
 runIdeGhcM plugins mlf stateVar f = do
   env <- IdeEnv <$> pure mlf <*> getProcessID <*> pure plugins
-  eres <- flip runReaderT stateVar $ flip runReaderT env $ BIOS.withGhcT f
-  return eres
+  flip runReaderT stateVar $ flip runReaderT env $ BIOS.withGhcT f
 
 {-
 -- | Run an IdeGhcM in an external context (e.g. HaRe), with no plugins or LSP functions
@@ -571,20 +568,20 @@ instance LiftsToGhc IdeGhcM where
 
 instance HasGhcModuleCache IdeGhcM where
   getModuleCache = lift getModuleCache
-  setModuleCache = lift . setModuleCache
+  modifyModuleCache = lift . modifyModuleCache
 
 instance HasGhcModuleCache IdeDeferM where
   getModuleCache = lift getModuleCache
-  setModuleCache = lift . setModuleCache
+  modifyModuleCache = lift . modifyModuleCache
 
 instance HasGhcModuleCache IdeM where
   getModuleCache = do
     tvar <- lift ask
     state <- readTVarIO tvar
     return (moduleCache state)
-  setModuleCache !mc = do
+  modifyModuleCache f = do
     tvar <- lift ask
-    atomically $ modifyTVar' tvar (\st -> st { moduleCache = mc })
+    atomically $ modifyTVar' tvar (\st -> st { moduleCache = f (moduleCache st) })
 
 -- ---------------------------------------------------------------------
 

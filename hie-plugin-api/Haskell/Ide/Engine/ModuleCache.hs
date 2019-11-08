@@ -65,8 +65,7 @@ import           Haskell.Ide.Engine.MonadFunctions
 
 modifyCache :: (HasGhcModuleCache m) => (GhcModuleCache -> GhcModuleCache) -> m ()
 modifyCache f = do
-  mc <- getModuleCache
-  setModuleCache (f mc)
+  modifyModuleCache (f mc)
 
 -- ---------------------------------------------------------------------
 -- | Run the given action in context and initialise a session with hie-bios.
@@ -411,7 +410,9 @@ failModule fp = do
 
 runDeferredActions :: FilePath -> UriCacheResult -> IdeGhcM ()
 runDeferredActions uri res = do
-      actions <- fmap (fromMaybe [] . Map.lookup uri) (requestQueue <$> readMTS)
+      -- In general it is unsafe to read and then modify but the modification doesn't
+      -- capture the previously read state.
+      actions <- fromMaybe [] . Map.lookup uri . requestQueue <$> readMTS
       -- remove queued actions
       modifyMTS $ \s -> s { requestQueue = Map.delete uri (requestQueue s) }
 

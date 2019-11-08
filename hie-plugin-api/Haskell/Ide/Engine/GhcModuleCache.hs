@@ -1,7 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TupleSections #-}
 
 module Haskell.Ide.Engine.GhcModuleCache where
 
@@ -79,9 +78,9 @@ getThingsAtPos cm pos ts =
 -- ---------------------------------------------------------------------
 -- The following to move into ghc-mod-core
 
-class (Monad m) => HasGhcModuleCache m where
+class Monad m => HasGhcModuleCache m where
   getModuleCache :: m GhcModuleCache
-  setModuleCache :: GhcModuleCache -> m ()
+  modifyModuleCache :: (GhcModuleCache -> GhcModuleCache) -> m ()
 
 emptyModuleCache :: GhcModuleCache
 emptyModuleCache = GhcModuleCache T.empty Map.empty Nothing
