@@ -212,31 +212,33 @@ spec = describe "code actions" $ do
         ]
       ]
   describe "add package suggestions" $ do
-    it "adds to .cabal files" $ runSession hieCommand fullCaps "test/testdata/addPackageTest/cabal-exe" $ do
-      doc <- openDoc "AddPackage.hs" "haskell"
+    it "adds to .cabal files" $ do
+      flushStackEnvironment
+      runSession hieCommand fullCaps "test/testdata/addPackageTest/cabal-exe" $ do
+        doc <- openDoc "AddPackage.hs" "haskell"
 
-      -- ignore the first empty hlint diagnostic publish
-      [_,diag:_] <- count 2 waitForDiagnostics
+        -- ignore the first empty hlint diagnostic publish
+        [_,diag:_] <- count 2 waitForDiagnostics
 
-      let prefixes = [ "Could not load module `Data.Text'" -- Windows && GHC >= 8.6
-                     , "Could not find module `Data.Text'" -- Windows
-                     , "Could not load module ‘Data.Text’" -- GHC >= 8.6
-                     , "Could not find module ‘Data.Text’"
-                     ]
-        in liftIO $ diag ^. L.message `shouldSatisfy` \m -> any (`T.isPrefixOf` m) prefixes
+        let prefixes = [ "Could not load module `Data.Text'" -- Windows && GHC >= 8.6
+                       , "Could not find module `Data.Text'" -- Windows
+                       , "Could not load module ‘Data.Text’" -- GHC >= 8.6
+                       , "Could not find module ‘Data.Text’"
+                       ]
+          in liftIO $ diag ^. L.message `shouldSatisfy` \m -> any (`T.isPrefixOf` m) prefixes
 
-      acts <- getAllCodeActions doc
-      let (CACodeAction action:_) = acts
+        acts <- getAllCodeActions doc
+        let (CACodeAction action:_) = acts
 
-      liftIO $ do
-        action ^. L.title `shouldBe` "Add text as a dependency"
-        action ^. L.kind `shouldBe` Just CodeActionQuickFix
-        action ^. L.command . _Just . L.command `shouldSatisfy` T.isSuffixOf "package:add"
+        liftIO $ do
+          action ^. L.title `shouldBe` "Add text as a dependency"
+          action ^. L.kind `shouldBe` Just CodeActionQuickFix
+          action ^. L.command . _Just . L.command `shouldSatisfy` T.isSuffixOf "package:add"
 
-      executeCodeAction action
+        executeCodeAction action
 
-      contents <- getDocumentEdit . TextDocumentIdentifier =<< getDocUri "add-package-test.cabal"
-      liftIO $ T.lines contents `shouldSatisfy` \x -> any (\l -> "text -any" `T.isSuffixOf` (x !! l)) [15, 16]
+        contents <- getDocumentEdit . TextDocumentIdentifier =<< getDocUri "add-package-test.cabal"
+        liftIO $ T.lines contents `shouldSatisfy` \x -> any (\l -> "text -any" `T.isSuffixOf` (x !! l)) [15, 16]
 
     it "adds to hpack package.yaml files" $
       runSession hieCommand fullCaps "test/testdata/addPackageTest/hpack-exe" $ do

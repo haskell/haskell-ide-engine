@@ -71,12 +71,13 @@ startServer :: IO (Scheduler IO, TChan LogVal, ThreadId)
 startServer = do
   scheduler <- newScheduler plugins testOptions
   logChan  <- newTChanIO
-  dispatcher <- forkIO $
+  dispatcher <- forkIO $ do
+    flushStackEnvironment
     runScheduler
-    scheduler
-    (\lid errCode e -> logToChan logChan ("received an error", Left (lid, errCode, e)))
-    (\g x -> g x)
-    def
+      scheduler
+      (\lid errCode e -> logToChan logChan ("received an error", Left (lid, errCode, e)))
+      (\g x -> g x)
+      def
 
   return (scheduler, logChan, dispatcher)
 
