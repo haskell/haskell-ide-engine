@@ -15,6 +15,7 @@ module TestUtils
   , hieCommandVomit
   , hieCommandExamplePlugin
   , getHspecFormattedConfig
+  , flushStackEnvironment
   ) where
 
 import           Control.Concurrent.STM
@@ -54,6 +55,7 @@ testOptions = defaultOptions {
 testCommand :: (ToJSON a, Typeable b, ToJSON b, Show b, Eq b)
             => IdePlugins -> IdeGhcM (IdeResult b) -> PluginId -> CommandName -> a -> IdeResult b -> IO ()
 testCommand testPlugins act plugin cmd arg res = do
+  flushStackEnvironment
   (newApiRes, oldApiRes) <- runIGM testPlugins $ do
     new <- act
     old <- makeRequest plugin cmd arg
@@ -285,3 +287,14 @@ xmlFormatter = silent {
 
 -- ---------------------------------------------------------------------
 
+flushStackEnvironment :: IO ()
+flushStackEnvironment = do
+  -- We need to clear these environment variables to prevent
+  -- collisions with stack usages
+  -- See https://github.com/commercialhaskell/stack/issues/4875
+  unsetEnv "GHC_PACKAGE_PATH"
+  unsetEnv "GHC_ENVIRONMENT"
+  unsetEnv "HASKELL_PACKAGE_SANDBOX"
+  unsetEnv "HASKELL_PACKAGE_SANDBOXES"
+
+-- ---------------------------------------------------------------------

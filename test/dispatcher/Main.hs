@@ -21,7 +21,6 @@ import           Haskell.Ide.Engine.Types
 import           Language.Haskell.LSP.Types
 import           TestUtils
 import           System.Directory
-import           System.Environment
 import           System.FilePath
 
 import           Test.Hspec
@@ -73,13 +72,7 @@ startServer = do
   scheduler <- newScheduler plugins testOptions
   logChan  <- newTChanIO
   dispatcher <- forkIO $ do
-    -- We need to clear these environment variables to prevent
-    -- collisions with stack usages
-    -- See https://github.com/commercialhaskell/stack/issues/4875
-    unsetEnv "GHC_PACKAGE_PATH"
-    unsetEnv "GHC_ENVIRONMENT"
-    unsetEnv "HASKELL_PACKAGE_SANDBOX"
-    unsetEnv "HASKELL_PACKAGE_SANDBOXES"
+    flushStackEnvironment
     runScheduler
       scheduler
       (\lid errCode e -> logToChan logChan ("received an error", Left (lid, errCode, e)))
