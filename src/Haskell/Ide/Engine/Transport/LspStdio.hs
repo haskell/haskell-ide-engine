@@ -30,6 +30,7 @@ import qualified Data.ByteString.Lazy as BL
 import           Data.Coerce (coerce)
 import           Data.Default
 import           Data.Foldable
+import           Data.List.NonEmpty ( nonEmpty )
 import qualified Data.Map as Map
 import           Data.Maybe
 import           Data.Semigroup (Semigroup(..), Option(..), option)
@@ -219,8 +220,8 @@ mapFileFromVfs tn vtdi = do
   vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
   mvf <- liftIO $ vfsFunc (J.toNormalizedUri uri)
   case (mvf, uriToFilePath uri) of
-    (Just (VFS.VirtualFile _ yitext _), Just fp) -> do
-      let text' = Rope.toString yitext
+    (Just (VFS.VirtualFile _ rope), Just fp) -> do
+      let text' = Rope.toString rope
           -- text = "{-# LINE 1 \"" ++ fp ++ "\"#-}\n" <> text'
       let req = GReq tn (Just uri) Nothing Nothing (const $ return ())
                   $ IdeResultOk <$> do
@@ -798,7 +799,7 @@ withDocumentContents reqId uri f = do
         (J.responseId reqId)
         J.InvalidRequest
         "Document was not open"
-    Just (VFS.VirtualFile _ txt _) -> f (Rope.toText txt)
+    Just (VFS.VirtualFile _ txt) -> f (Rope.toText txt)
 
 -- | Get the currently configured formatter provider.
 -- The currently configured formatter provider is defined in @Config@ by PluginId.
@@ -966,16 +967,34 @@ syncOptions = J.TextDocumentSyncOptions
 hieOptions :: [T.Text] -> Core.Options
 hieOptions commandIds =
   def { Core.textDocumentSync       = Just syncOptions
-      , Core.completionProvider     = Just (J.CompletionOptions (Just True) (Just ["."]))
-      -- As of 2018-05-24, vscode needs the commands to be registered
-      -- otherwise they will not be available as codeActions (will be
-      -- silently ignored, despite UI showing to the contrary).
-      --
-      -- Hopefully the end May 2018 vscode release will stabilise
-      -- this, it is a major rework of the machinery anyway.
-      , Core.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List commandIds))
-      , Core.renameProvider = Just (J.RenameOptions (Just True))
-      , Core.implementationProvider = Just (J.GotoOptionsStatic True)
+      -- The characters that trigger completion automatically.
+      , Core.completionTriggerCharacters = Just ['.']
+
+      -- The list of all possible characters that commit a completion. This field can be used
+      -- if clients don't support individual commmit characters per completion item. See
+      -- `_commitCharactersSupport`.
+      -- , completionAllCommitCharacters    :: Maybe [Char]
+
+      -- The characters that trigger signature help automatically.
+      -- , signatureHelpTriggerCharacters   :: Maybe [Char]
+
+      -- List of characters that re-trigger signature help.
+      -- These trigger characters are only active when signature help is already showing. All trigger characters
+      -- are also counted as re-trigger characters.
+      -- , signatureHelpRetriggerCharacters :: Maybe [Char]
+
+      -- CodeActionKinds that this server may return.
+      -- The list of kinds may be generic, such as `CodeActionKind.Refactor`, or the server
+      -- may list out every specific kind they provide.
+      -- , codeActionKinds                  :: Maybe [J.CodeActionKind]
+
+      -- The list of characters that triggers on type formatting.
+      -- If you set `documentOnTypeFormattingHandler`, you **must** set this.
+      , Core.documentOnTypeFormattingTriggerCharacters = nonEmpty []
+
+      -- The commands to be executed on the server.
+      -- If you set `executeCommandHandler`, you **must** set this.
+      , Core.executeCommandCommands           = Just commandIds
       }
 
 
