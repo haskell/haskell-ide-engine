@@ -307,7 +307,10 @@ codeActionProvider plId docId _ context = IdeResultOk <$> hlintActions
   where
 
     hlintActions :: IdeM [LSP.CodeAction]
-    hlintActions = catMaybes <$> mapM mkHlintAction (filter validCommand diags)
+    hlintActions = do
+      actions <- mapM mkHlintAction (filter validCommand diags)
+      applyAll <- mkApplyAllAction
+      return (catMaybes $ applyAll:actions)
 
     -- |Some hints do not have an associated refactoring
     validCommand (LSP.Diagnostic _ _ (Just (LSP.StringValue code)) (Just "hlint") _ _) =
@@ -327,3 +330,10 @@ codeActionProvider plId docId _ context = IdeResultOk <$> hlintActions
        -- need 'file', 'start_pos' and hint title (to distinguish between alternative suggestions at the same location)
        args = [toJSON (AOP (docId ^. LSP.uri) start code)]
     mkHlintAction (LSP.Diagnostic _r _s _c _source _m _) = return Nothing
+
+    mkApplyAllAction :: IdeM (Maybe LSP.CodeAction)
+    mkApplyAllAction  =
+      Just . codeAction <$> mkLspCommand plId "applyAll" title (Just [toJSON (docId ^. LSP.uri)])
+     where
+       title = "Apply all hints"
+       codeAction cmd = LSP.CodeAction title (Just LSP.CodeActionRefactor) Nothing Nothing (Just cmd)
