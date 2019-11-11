@@ -8,12 +8,12 @@ import qualified Data.ByteString.Lazy as BS
 import qualified Data.Text            as T
 import qualified Data.Text.IO         as T
 import           Data.Monoid ((<>))
-import           Data.Maybe (isJust)
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Plugin.Liquid
 import           System.Directory
 import           System.Exit
 import           System.FilePath
+import           System.Process
 import           Test.Hspec
 -- import Control.Monad.IO.Class
 
@@ -27,7 +27,13 @@ spec = do
 
     -- ---------------------------------
 
-    it "finds liquid haskell exe in $PATH" $ findExecutable "liquid" >>= (`shouldSatisfy` isJust)
+    it "the liquid haskell exe in $PATH has the supported version" $ do
+      mexe <- findExecutable "liquid"
+      case mexe of
+        Nothing -> expectationFailure "liquid haskell exe is NOT in $PATH"
+        Just exe -> do
+          version <- readProcess exe ["--numeric-version"] ""
+          version `shouldSatisfy` isPrefixOf "0.8.6.2"
 
     -- ---------------------------------
 
