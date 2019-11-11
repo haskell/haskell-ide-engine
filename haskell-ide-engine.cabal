@@ -201,6 +201,7 @@ test-suite unit-test
                      , hie-plugin-api
                      , hoogle > 5.0.11
                      , hspec
+                     , process
                      , quickcheck-instances
                      , text
                      , unordered-containers
