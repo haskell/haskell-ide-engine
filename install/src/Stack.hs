@@ -106,7 +106,10 @@ withoutStackCachedBinaries :: Action a -> Action a
 withoutStackCachedBinaries action = do
 
   let getEnvErrorHandler :: IOException -> IO (Maybe String)
-      getEnvErrorHandler _ = return Nothing
+      getEnvErrorHandler e = do
+        printLine "Error trying to get $PATH environment variable:"
+        printLine (show e)
+        return Nothing
 
   mbPath <- liftIO (lookupEnv "PATH" `catch` getEnvErrorHandler)
 
