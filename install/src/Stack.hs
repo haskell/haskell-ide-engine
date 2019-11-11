@@ -105,8 +105,8 @@ stackBuildFailMsg =
 withoutStackCachedBinaries :: Action a -> Action a
 withoutStackCachedBinaries action = do
 
-  let getEnvErrorHandler e | isDoesNotExistError e = return Nothing
-                           | otherwise = throwIO e
+  let getEnvErrorHandler :: IOException -> IO (Maybe String)
+      getEnvErrorHandler _ = return Nothing
 
   mbPath <- liftIO (lookupEnv "PATH" `catch` getEnvErrorHandler)
 
