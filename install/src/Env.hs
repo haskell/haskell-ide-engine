@@ -40,6 +40,15 @@ existsExecutable executable = liftIO $ isJust <$> findExecutable executable
 isWindowsSystem :: Bool
 isWindowsSystem = os `elem` ["mingw32", "win32"]
 
+-- | Defines all different hie versions that are supported.
+-- On windows, `8.6.3` is excluded as this version of ghc does not work there
+supportedGhcVersions :: [VersionNumber]
+supportedGhcVersions = sort (commonVersions ++ osVersions)
+  where commonVersions = ["8.4.2", "8.4.3", "8.4.4", "8.6.1", "8.6.2", "8.6.4", "8.6.5"]
+        -- the following lines exclude `8.6.3` on windows systems
+        osVersions | isWindowsSystem = []
+                   | otherwise = ["8.6.3"]
+
 findInstalledGhcs :: IO [(VersionNumber, GhcPath)]
 findInstalledGhcs = do
   hieVersions <- getHieVersions :: IO [VersionNumber]
@@ -49,7 +58,8 @@ findInstalledGhcs = do
       Just p  -> return $ Just (version, p)
     )
     (reverse hieVersions)
-  availableGhcs <- getGhcPaths
+  -- filter out not supported ghc versions
+  availableGhcs <- filter ((`elem` supportedGhcVersions) . fst) <$> getGhcPaths
   return
     -- nub by version. knownGhcs takes precedence.
     $ nubBy ((==) `on` fst)
@@ -99,8 +109,7 @@ getHieVersions = do
           & mapMaybe
               (T.stripPrefix stackYamlPrefix >=> T.stripSuffix stackYamlSuffix)
           & map T.unpack
-        -- the following line excludes `8.6.3` on windows systems
-          & filter (\p -> not isWindowsSystem || p /= "8.6.3")
+          & filter (\p -> p `elem` supportedGhcVersions)
           & sort
   return hieVersions
 
