@@ -12,13 +12,23 @@ import           Version
 import           BuildSystem
 import           Cabal
 
+stackCommand :: String -> String
+stackCommand target = "stack install.hs " ++ target
+
+cabalCommand :: String -> String
+cabalCommand target = "cabal new-run install.hs --project-file install/shake.project " ++ target
+
+buildCommand :: String -> String
+buildCommand | isRunFromCabal = cabalCommand
+             | otherwise = stackCommand
+
 printUsage :: Action ()
 printUsage = do
   printLine ""
   printLine "Usage:"
-  printLineIndented "stack install.hs <target>"
+  printLineIndented (stackCommand "<target>")
   printLineIndented "or"
-  printLineIndented "cabal new-run install.hs --project-file install/shake.project <target>"
+  printLineIndented (cabalCommand "<target>")
 
 -- | short help message is printed by default
 shortHelpMessage :: Action ()
@@ -76,7 +86,7 @@ helpMessage versions@BuildableVersions {..} = do
   -- All targets with their respective help message.
   generalTargets = [helpTarget]
 
-  defaultTargets = [buildTarget, buildAllTarget, buildDataTarget]
+  defaultTargets = [buildTarget, buildLastestTarget, buildAllTarget, buildDataTarget]
     ++ map hieTarget (getDefaultBuildSystemVersions versions)
 
   stackTargets =
@@ -114,7 +124,10 @@ hieTarget version =
   ("hie-" ++ version, "Builds hie for GHC version " ++ version)
 
 buildTarget :: TargetDescription
-buildTarget = ("build", "Builds hie with all installed GHCs")
+buildTarget = ("build", "Build hie with the lastest available GHC and the data files")
+
+buildLastestTarget :: TargetDescription
+buildLastestTarget = ("build-lastest", "Build hie with the lastest available GHC")
 
 buildDataTarget :: TargetDescription
 buildDataTarget =
@@ -122,9 +135,20 @@ buildDataTarget =
 
 buildAllTarget :: TargetDescription
 buildAllTarget =
-  ("build-all", "Builds hie for all installed GHC versions and the data files")
+  ( "build-all"
+  , "Builds hie for all installed GHC versions and the data files. "
+  ++ buildAllWarning)
 
--- speical targets
+buildAllWarning :: String
+buildAllWarning = "WARNING: This command may take a long time and computer resources"
+
+buildAllWarningAlt :: String
+buildAllWarningAlt = "Consider build only the needed ghc versions using:\n"
+                 ++ "  " ++ buildCommand "build-${ghcVersion}\n"
+                 ++ "or the lastest available one with:\n"
+                 ++ "  " ++ buildCommand "build-lastest\n"
+
+-- special targets
 
 macosIcuTarget :: TargetDescription
 macosIcuTarget = ("icu-macos-fix", "Fixes icu related problems in MacOS")
@@ -141,7 +165,9 @@ cabalGhcsTarget =
 installCabalTarget :: TargetDescription
 installCabalTarget =
   ( "install-cabal"
-  , "Install the cabal executable. It will install the required minimum version for hie (currently " ++ versionToString requiredCabalVersion ++ ") if it isn't already present in $PATH"
+  , "Install the cabal executable. It will install the required minimum version for hie (currently "
+  ++ versionToString requiredCabalVersion
+  ++ ") if it isn't already present in $PATH"
   )
 
 -- | Creates a message of the form "a, b, c and d", where a,b,c,d are GHC versions.

@@ -18,7 +18,7 @@ printLineIndented = printLine . ("    " ++)
 
 embedInStars :: String -> String
 embedInStars str =
-  let starsLine = "\n" <> replicate 30 '*' <> "\n"
+  let starsLine = "\n" <> replicate 80 '*' <> "\n"
   in  starsLine <> str <> starsLine
 
 printInStars :: MonadIO m => String -> m ()

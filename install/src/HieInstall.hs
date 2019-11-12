@@ -57,6 +57,8 @@ defaultMain = do
                                    , cabalVersions = ghcVersions
                                    }
 
+  let lastestVersion = last hieVersions
+
   putStrLn $ "run from: " ++ buildSystem
 
   shakeArgs shakeOptions { shakeFiles = "_build" } $ do
@@ -82,6 +84,7 @@ defaultMain = do
 
     -- default-targets
     phony "build" $ need [buildSystem ++ "-build"]
+    phony "build-lastest" $ need [buildSystem ++ "-build-lastest"]
     phony "build-all" $ need [buildSystem ++ "-build-all"]
     phony "build-data" $ need [buildSystem ++ "-build-data"]
     forM_
@@ -92,8 +95,12 @@ defaultMain = do
 
     -- stack specific targets
     when isRunFromStack (phony "stack-install-cabal" (need ["cabal"]))
-    phony "stack-build"     (need (reverse $ map ("stack-hie-" ++) hieVersions))
-    phony "stack-build-all" (need ["build-data", "build"])
+    phony "stack-build-lastest" (need ["stack-hie-" ++ last hieVersions])
+    phony "stack-build"  (need ["build-data", "stack-build-lastest"])
+    phony "stack-build-all" $ do
+      printInStars (buildAllWarning ++ ".\n" ++ buildAllWarningAlt)
+      need (["build-data"] ++ (reverse $ map ("stack-hie-" ++) hieVersions))
+
     phony "stack-build-data" $ do
       need ["submodules"]
       need ["check-stack"]
@@ -108,8 +115,12 @@ defaultMain = do
       )
 
     -- cabal specific targets
-    phony "cabal-build"     (need (map ("cabal-hie-" ++) ghcVersions))
-    phony "cabal-build-all" (need ["cabal-build-data", "cabal-build"])
+    phony "cabal-build-lastest" (need ["cabal-hie-" ++ last ghcVersions])
+    phony "cabal-build"  (need ["build-data", "cabal-build-lastest"])
+    phony "cabal-build-all" $ do
+      printInStars (buildAllWarning ++ ".\n" ++ buildAllWarningAlt)
+      need (["cabal-build-data"] ++ (map ("cabal-hie-" ++) ghcVersions))
+
     phony "cabal-build-data" $ do
       need ["submodules"]
       need ["cabal"]
