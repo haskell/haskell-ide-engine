@@ -54,8 +54,8 @@ findInstalledGhcs = do
   hieVersions <- getHieVersions :: IO [VersionNumber]
   knownGhcs <- mapMaybeM
     (\version -> getGhcPathOf version >>= \case
-      Nothing -> return Nothing
-      Just p  -> return $ Just (version, p)
+        Nothing -> return Nothing
+        Just p  -> return $ Just (version, p)
     )
     (reverse hieVersions)
   -- filter out not supported ghc versions
@@ -63,7 +63,7 @@ findInstalledGhcs = do
   return
     -- nub by version. knownGhcs takes precedence.
     $ nubBy ((==) `on` fst)
-    -- filter out stack provided GHCs
+    -- filter out stack provided GHCs (assuming that stack programs path is the default one in linux)
     $ filter (not . isInfixOf ".stack" . snd) (knownGhcs ++ availableGhcs)
 
 -- | Get the path to a GHC that has the version specified by `VersionNumber`
@@ -73,9 +73,11 @@ findInstalledGhcs = do
 -- command fits to the desired version.
 getGhcPathOf :: MonadIO m => VersionNumber -> m (Maybe GhcPath)
 getGhcPathOf ghcVersion =
-  liftIO $ findExecutable ("ghc-" ++ ghcVersion) >>= \case
+  liftIO $ findExecutable ("ghc-" ++ ghcVersion <.> exe) >>= \case
     Nothing -> lookup ghcVersion <$> getGhcPaths
     path -> return path
+  where exe | isWindowsSystem = "exe"
+            | otherwise = ""
 
 -- | Get a list of GHCs that are available in $PATH
 getGhcPaths :: MonadIO m => m [(VersionNumber, GhcPath)]
@@ -97,7 +99,6 @@ ghcVersionNotFoundFailMsg versionNumber =
 -- | Defines all different hie versions that are buildable.
 --
 -- The current directory is scanned for `stack-*.yaml` files.
--- On windows, `8.6.3` is excluded as this version of ghc does not work there
 getHieVersions :: MonadIO m => m [VersionNumber]
 getHieVersions = do
   let stackYamlPrefix = T.pack "stack-"
