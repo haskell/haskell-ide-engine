@@ -135,5 +135,5 @@ withoutStackCachedBinaries action = do
         splitPaths s =
           case dropWhile (== searchPathSeparator) s of
                       "" -> []
-                      s' -> w : words s''
+                      s' -> w : splitPaths s''
                             where (w, s'') = break (== searchPathSeparator) s'
