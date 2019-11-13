@@ -17,9 +17,11 @@ import           Data.Function                            ( (&)
                                                           , on
                                                           )
 import           Data.List                                ( sort
+                                                          , sortBy
                                                           , isInfixOf
                                                           , nubBy
                                                           )
+import           Data.Ord                                 ( comparing )
 import           Control.Monad.Extra                      ( mapMaybeM )
 import           Data.Maybe                               ( isNothing
                                                           , mapMaybe
@@ -61,6 +63,8 @@ findInstalledGhcs = do
   -- filter out not supported ghc versions
   availableGhcs <- filter ((`elem` supportedGhcVersions) . fst) <$> getGhcPaths
   return
+    -- sort by version to make it coherent with getHieVersions
+    $ sortBy (comparing fst)
     -- nub by version. knownGhcs takes precedence.
     $ nubBy ((==) `on` fst)
     -- filter out stack provided GHCs (assuming that stack programs path is the default one in linux)
