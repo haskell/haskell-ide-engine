@@ -12,13 +12,13 @@ import           Version
 import           BuildSystem
 import           Cabal
 
-stackCommand :: String -> String
-stackCommand target = "stack install.hs " ++ target
+stackCommand :: TargetDescription -> String
+stackCommand target = "stack install.hs " ++ fst target
 
-cabalCommand :: String -> String
-cabalCommand target = "cabal new-run install.hs --project-file install/shake.project " ++ target
+cabalCommand :: TargetDescription -> String
+cabalCommand target = "cabal new-run install.hs --project-file install/shake.project " ++ fst target
 
-buildCommand :: String -> String
+buildCommand :: TargetDescription -> String
 buildCommand | isRunFromCabal = cabalCommand
              | otherwise = stackCommand
 
@@ -26,9 +26,9 @@ printUsage :: Action ()
 printUsage = do
   printLine ""
   printLine "Usage:"
-  printLineIndented (stackCommand "<target>")
+  printLineIndented (stackCommand templateTarget)
   printLineIndented "or"
-  printLineIndented (cabalCommand "<target>")
+  printLineIndented (cabalCommand templateTarget)
 
 -- | short help message is printed by default
 shortHelpMessage :: Action ()
@@ -109,6 +109,9 @@ helpMessage versions@BuildableVersions {..} = do
 emptyTarget :: (String, String)
 emptyTarget = ("", "")
 
+templateTarget :: (String, String)
+templateTarget = ("<target>", "")
+
 targetWithBuildSystem :: String -> TargetDescription -> TargetDescription
 targetWithBuildSystem system (target, description) =
   (system ++ "-" ++ target, description ++ "; with " ++ system)
@@ -144,9 +147,9 @@ buildAllWarning = "WARNING: This command may take a long time and computer resou
 
 buildAllWarningAlt :: String
 buildAllWarningAlt = "Consider build only the needed ghc versions using:\n"
-                 ++ "  " ++ buildCommand "build-${ghcVersion}\n"
+                 ++ "  " ++ buildCommand (hieTarget "<ghc-version>") ++ "\n"
                  ++ "or the lastest available one with:\n"
-                 ++ "  " ++ buildCommand "build-lastest\n"
+                 ++ "  " ++ buildCommand (hieTarget "<ghc-version>") ++ "\n"
 
 -- special targets
 
