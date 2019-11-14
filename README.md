@@ -214,7 +214,7 @@ cabal v2-run ./install.hs --project-file install/shake.project <target>
 
 Running the script with cabal on windows requires a cabal version greater or equal to `3.0.0.0`.
 
-Unfortunately, it is still required to have `stack` installed so that the install-script can locate the `local-bin` directory (on Linux `~/.local/bin`) and copy the `hie` binaries to `hie-x.y.z`, which is required for the `hie-wrapper` to function as expected.
+Unfortunately, it is still required to have `stack` installed so that the install-script can locate the `local-bin` directory (on Linux `~/.local/bin`) and copy the `hie` binaries to `hie-x.y.z`, which is required for the `hie-wrapper` to function as expected. There are plans to remove this requirement and let users build hie only with one build tool or another.
 
 For brevity, only the `stack`-based commands are presented in the following sections.
 
@@ -246,7 +246,6 @@ stack ./install.hs build-data
 
 The Haskell IDE Engine can also be built with `cabal new-build` instead of `stack build`.
 This has the advantage that you can decide how the GHC versions have been installed.
-However, this approach does currently not work for windows due to a missing feature upstream.
 To see what GHC versions are available, the command `stack install.hs cabal-ghcs` can be used.
 It will list all GHC versions that are on the path and their respective installation directory.
 If you think, this list is incomplete, you can try to modify the PATH variable, such that the executables can be found.
