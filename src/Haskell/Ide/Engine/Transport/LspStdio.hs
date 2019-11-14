@@ -420,8 +420,10 @@ reactor inp diagIn = do
           reactorSend $ NotLogMessage $
                   fmServerLogMessageNotification J.MtLog $ "Using hie version: " <> T.pack version
 
-          d <- liftIO getCurrentDirectory
-          cradle <- liftIO $ findLocalCradle (d </> "File.hs")
+          lspRootDir <- asksLspFuncs Core.rootPath
+          currentDir <- liftIO getCurrentDirectory
+
+          cradle <- liftIO $ findLocalCradle ((fromMaybe currentDir lspRootDir) </> "File.hs")
           -- Check for mismatching GHC versions
           projGhcVersion <- liftIO $ getProjectGhcVersion cradle
           when (projGhcVersion /= hieGhcVersion) $ do
@@ -437,13 +439,12 @@ reactor inp diagIn = do
             reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
             reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg
 
-
-          lf <- ask
+          renv <- ask
           let hreq = GReq tn Nothing Nothing Nothing callback Nothing $ IdeResultOk <$> Hoogle.initializeHoogleDb
-              callback Nothing = flip runReaderT lf $
+              callback Nothing = flip runReaderT renv $
                 reactorSend $ NotShowMessage $
                   fmServerShowMessageNotification J.MtWarning "No hoogle db found. Check the README for instructions to generate one"
-              callback (Just db) = flip runReaderT lf $ do
+              callback (Just db) = flip runReaderT renv $ do
                 reactorSend $ NotLogMessage $
                   fmServerLogMessageNotification J.MtLog $ "Using hoogle db at: " <> T.pack db
           makeRequest hreq

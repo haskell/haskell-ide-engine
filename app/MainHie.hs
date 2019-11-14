@@ -111,22 +111,13 @@ run opts = do
 
   Core.setupLogger mLogFileName ["hie", "hie-bios"] logLevel
 
-  d <- getCurrentDirectory
-  -- Get the cabal directory from the cradle
-  cradle <- findLocalCradle (d </> "File.hs")
-
-  projGhcVersion <- getProjectGhcVersion cradle
-  when (projGhcVersion /= hieGhcVersion) $
-    warningm $ "Mismatching GHC versions: Project is " ++ projGhcVersion
-            ++ ", HIE is " ++ hieGhcVersion
-
   origDir <- getCurrentDirectory
 
   maybe (pure ()) setCurrentDirectory $ projectRoot opts
 
   progName <- getProgName
   logm $  "Run entered for HIE(" ++ progName ++ ") " ++ version
-  logm $ "Current directory:" ++ d
+  logm $ "Current directory:" ++ origDir
   args <- getArgs
   logm $ "args:" ++ show args
 
