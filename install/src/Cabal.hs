@@ -64,7 +64,7 @@ cabalInstallHie versionNumber = do
     [ "v2-install"
     , "-w", ghcPath
     , "--write-ghc-environment-files=never"
-    , installDirOpt ++ "=" ++ localBin
+    , installDirOpt, localBin
     , "exe:hie"
     , "--overwrite-policy=always"
     ]
