@@ -149,7 +149,7 @@ buildAllWarningAlt :: String
 buildAllWarningAlt = "Consider build only the needed ghc versions using:\n"
                  ++ "  " ++ buildCommand (hieTarget "<ghc-version>") ++ "\n"
                  ++ "or the lastest available one with:\n"
-                 ++ "  " ++ buildCommand (hieTarget "<ghc-version>") ++ "\n"
+                 ++ "  " ++ buildCommand buildLastestTarget ++ "\n"
 
 -- special targets
 
