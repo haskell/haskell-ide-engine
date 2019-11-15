@@ -148,7 +148,7 @@ buildAllWarning :: String
 buildAllWarning = "WARNING: This command may take a long time and computer resources"
 
 buildAllWarningAlt :: String
-buildAllWarningAlt = "Consider build only the needed ghc versions using:\n"
+buildAllWarningAlt = "Consider building only the ghc versions you need using:\n"
                  ++ "  " ++ buildCommand (hieTarget "<ghc-version>") ++ "\n"
                  ++ "or the latest available one with:\n"
                  ++ "  " ++ buildCommand buildLatestTarget ++ "\n"
