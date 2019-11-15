@@ -16,7 +16,7 @@ stackCommand :: TargetDescription -> String
 stackCommand target = "stack install.hs " ++ fst target
 
 cabalCommand :: TargetDescription -> String
-cabalCommand target = "cabal new-run install.hs --project-file install/shake.project " ++ fst target
+cabalCommand target = "cabal v2-run install.hs --project-file install/shake.project " ++ fst target
 
 buildCommand :: TargetDescription -> String
 buildCommand | isRunFromCabal = cabalCommand
