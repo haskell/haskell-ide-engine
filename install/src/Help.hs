@@ -45,7 +45,7 @@ shortHelpMessage = do
     [ ("help", "Show help message including all targets")
     , emptyTarget
     , buildTarget
-    , buildAllTarget
+    , buildLatestTarget
     , hieTarget $ last hieVersions
     , buildDataTarget
     , cabalGhcsTarget
@@ -86,13 +86,12 @@ helpMessage versions@BuildableVersions {..} = do
   -- All targets with their respective help message.
   generalTargets = [helpTarget]
 
-  defaultTargets = [buildTarget, buildLatestTarget, buildAllTarget, buildDataTarget]
+  defaultTargets = [buildTarget, buildLatestTarget, buildDataTarget]
     ++ map hieTarget (getDefaultBuildSystemVersions versions)
 
   stackTargets =
     [ stackTarget buildTarget
       , stackTarget buildLatestTarget
-      , stackTarget buildAllTarget
       , stackTarget buildDataTarget
       ]
       ++ (if isRunFromStack then [stackTarget installCabalTarget] else [])
@@ -102,7 +101,6 @@ helpMessage versions@BuildableVersions {..} = do
     [ cabalGhcsTarget
       , cabalTarget buildTarget
       , cabalTarget buildLatestTarget
-      , cabalTarget buildAllTarget
       , cabalTarget buildDataTarget
       ]
       ++ map (cabalTarget . hieTarget) cabalVersions
@@ -138,21 +136,6 @@ buildDataTarget :: TargetDescription
 buildDataTarget =
   ("build-data", "Get the required data-files for `hie` (Hoogle DB)")
 
-buildAllTarget :: TargetDescription
-buildAllTarget =
-  ( "build-all"
-  , "Builds hie for all installed GHC versions and the data files. "
-  ++ buildAllWarning)
-
-buildAllWarning :: String
-buildAllWarning = "WARNING: This command may take a long time and computer resources"
-
-buildAllWarningAlt :: String
-buildAllWarningAlt = "Consider building only the ghc versions you need using:\n"
-                 ++ "  " ++ buildCommand (hieTarget "<ghc-version>") ++ "\n"
-                 ++ "or the latest available one with:\n"
-                 ++ "  " ++ buildCommand buildLatestTarget ++ "\n"
-
 -- special targets
 
 macosIcuTarget :: TargetDescription
@@ -164,7 +147,7 @@ helpTarget = ("help", "Show help message including all targets")
 cabalGhcsTarget :: TargetDescription
 cabalGhcsTarget =
   ( "cabal-ghcs"
-  , "Show all GHC versions that can be installed via `cabal-build` and `cabal-build-all`."
+  , "Show all GHC versions that can be installed via `cabal-build`."
   )
 
 installCabalTarget :: TargetDescription

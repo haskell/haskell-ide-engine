@@ -13,7 +13,6 @@ The design of the build system has the following main goals:
     - `stack`
     - `git`
 * is completely functional right after a simple `git clone` and after every `git pull`
-* one-stop-shop for building and naming all executables required for using `hie` in IDEs.
 * prevents certain build failures by either identifying a failed precondition (such as wrong `stack` version) or by performing the necessary steps so users can't forget them (such as invoking `git` to update submodules)
 
 
@@ -29,7 +28,6 @@ The build script `install.hs` defines several targets using the `shake` build sy
 
 * `hie-*`: builds and installs the `hie` binaries. Also renames the binaries to contain the correct version-number.
 * `build-latest`: builds and installs `hie` for the latest available and supported `ghc` version.
-* `build-all`: builds and installs `hie` binaries for all supported `ghc` versions. This option may take a long time and computer resources so use it with caution.
 * `build-data`: builds the hoogle-db required by `hie`
 * `build`:  builds and installs `hie` for the latest supported `ghc` version (like `build-latest`) and the hoogle-db (like `build-data`)
 * `cabal-*`: execute the same task as the original target, but with `cabal` instead of `stack`
