@@ -49,15 +49,15 @@ Installing `hie` is a multi-step process:
 
 1. `git submodule sync && git submodule update --init`
 2. `hoogle generate` (`hoogle>=5.0.17` to be safe)
-3. `stack --stack-yaml=stack-<X>.yaml install` or `cabal new-install -w ghc-<X>`
+3. `stack --stack-yaml=stack-<X>.yaml install` or `cabal v2-install -w ghc-<X>`
 4. rename `hie` binary to `hie-<X>` in `$HOME/.local/bin`, where `<X>` is the GHC version used
-5. repeat step 4 and 5 for all desired GHC versions
+5. repeat step 3 and 4 for all desired GHC versions
 
 This ensures that a complete install is always possible after each `git pull` or a `git clone`.
 
 #### Building `hie` with profiling support
 
-To build `hie` with profiling enabled `cabal new-install` needs to be used instead of `stack`.
+To build `hie` with profiling enabled `cabal v2-install` needs to be used instead of `stack`.
 
 Configure `cabal` to enable profiling by setting `profiling: True` in `cabal.project.local` for all packages. If that file does not already exist, create it as follows:
 
@@ -72,7 +72,7 @@ Then `hie` can be compiled for a specific GHC version:
 
 ```bash
 export GHCP=<path-to-ghc-binary>
-cabal new-install exe:hie -w $GHCP \
+cabal v2-install exe:hie -w $GHCP \
   --write-ghc-environment-files=never --symlink-bindir=$HOME/.local/bin \
   --overwrite-policy=always --reinstall
 ```
