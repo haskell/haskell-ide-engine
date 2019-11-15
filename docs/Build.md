@@ -28,10 +28,10 @@ See the project's `README` for detailed information about installing `hie`.
 The build script `install.hs` defines several targets using the `shake` build system. The targets are roughly:
 
 * `hie-*`: builds and installs the `hie` binaries. Also renames the binaries to contain the correct version-number.
-* `build-lastest`: builds ad installs `hie` for the lastest available and supported `ghc` version.
+* `build-latest`: builds ad installs `hie` for the latest available and supported `ghc` version.
 * `build-all`: builds and installs `hie` binaries for all supported `ghc` versions. This option may take a long time and computer resources so use it with caution.
 * `build-data`: builds the hoogle-db required by `hie`
-* `build`:  builds ad installs `hie` for the lastest supported `ghc` version (like `build-lastest`) and the hoogle-db (like `build-data`)
+* `build`:  builds ad installs `hie` for the latest supported `ghc` version (like `build-latest`) and the hoogle-db (like `build-data`)
 * `cabal-*`: execute the same task as the original target, but with `cabal` instead of `stack`
 
 Each `stack-*.yaml` contains references to packages in the submodules. Calling `stack` with one of those causes the build to fail if the submodules have not been initialized already. The file `shake.yaml` solves this issue invoking the `git` binary itself to update the submodules. Moreover, it specifies the correct version of `shake` and is used for installing all run-time dependencies such as `cabal` and `hoogle` if necessary.

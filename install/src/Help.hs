@@ -86,11 +86,12 @@ helpMessage versions@BuildableVersions {..} = do
   -- All targets with their respective help message.
   generalTargets = [helpTarget]
 
-  defaultTargets = [buildTarget, buildLastestTarget, buildAllTarget, buildDataTarget]
+  defaultTargets = [buildTarget, buildLatestTarget, buildAllTarget, buildDataTarget]
     ++ map hieTarget (getDefaultBuildSystemVersions versions)
 
   stackTargets =
     [ stackTarget buildTarget
+      , stackTarget buildLatestTarget
       , stackTarget buildAllTarget
       , stackTarget buildDataTarget
       ]
@@ -100,6 +101,7 @@ helpMessage versions@BuildableVersions {..} = do
   cabalTargets =
     [ cabalGhcsTarget
       , cabalTarget buildTarget
+      , cabalTarget buildLatestTarget
       , cabalTarget buildAllTarget
       , cabalTarget buildDataTarget
       ]
@@ -127,10 +129,10 @@ hieTarget version =
   ("hie-" ++ version, "Builds hie for GHC version " ++ version)
 
 buildTarget :: TargetDescription
-buildTarget = ("build", "Build hie with the lastest available GHC and the data files")
+buildTarget = ("build", "Build hie with the latest available GHC and the data files")
 
-buildLastestTarget :: TargetDescription
-buildLastestTarget = ("build-lastest", "Build hie with the lastest available GHC")
+buildLatestTarget :: TargetDescription
+buildLatestTarget = ("build-latest", "Build hie with the latest available GHC")
 
 buildDataTarget :: TargetDescription
 buildDataTarget =
@@ -148,8 +150,8 @@ buildAllWarning = "WARNING: This command may take a long time and computer resou
 buildAllWarningAlt :: String
 buildAllWarningAlt = "Consider build only the needed ghc versions using:\n"
                  ++ "  " ++ buildCommand (hieTarget "<ghc-version>") ++ "\n"
-                 ++ "or the lastest available one with:\n"
-                 ++ "  " ++ buildCommand buildLastestTarget ++ "\n"
+                 ++ "or the latest available one with:\n"
+                 ++ "  " ++ buildCommand buildLatestTarget ++ "\n"
 
 -- special targets
 
