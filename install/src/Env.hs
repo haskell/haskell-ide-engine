@@ -8,7 +8,10 @@ import           Development.Shake.FilePath
 import           System.Info                              ( os
                                                           , arch
                                                           )
-import           Data.Maybe                               ( isJust )
+import           Data.Maybe                               ( isJust
+                                                          , isNothing
+                                                          , mapMaybe
+                                                          )
 import           System.Directory                         ( findExecutable
                                                           , findExecutables
                                                           , listDirectory
@@ -23,9 +26,7 @@ import           Data.List                                ( sort
                                                           )
 import           Data.Ord                                 ( comparing )
 import           Control.Monad.Extra                      ( mapMaybeM )
-import           Data.Maybe                               ( isNothing
-                                                          , mapMaybe
-                                                          )
+
 import qualified Data.Text                     as T
 
 import           Version
@@ -80,8 +81,6 @@ getGhcPathOf ghcVersion =
   liftIO $ findExecutable ("ghc-" ++ ghcVersion <.> exe) >>= \case
     Nothing -> lookup ghcVersion <$> getGhcPaths
     path -> return path
-  where exe | isWindowsSystem = "exe"
-            | otherwise = ""
 
 -- | Get a list of GHCs that are available in $PATH
 getGhcPaths :: MonadIO m => m [(VersionNumber, GhcPath)]
