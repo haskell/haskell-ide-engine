@@ -1,18 +1,23 @@
 sudo: false
-language: c
-os: osx
+language: generic
 
 addons:
+  apt:
+    update: true
+    packages:
+    - libgmp-dev
   homebrew:
+    update: true
     packages:
     - z3
-    - stack
     - upx
+    - gnu-tar
 
 cache:
   directories:
   - $HOME/.stack
   - $HOME/.cabal/
+  - $HOME/.local/bin
   - $TRAVIS_BUILD_DIR/.stack-work
   - $TRAVIS_BUILD_DIR/submodules/brittany/.stack-work
   - $TRAVIS_BUILD_DIR/submodules/HaRe/.stack-work
@@ -22,104 +27,521 @@ cache:
   - $TRAVIS_BUILD_DIR/submodules/haskell-lsp/haskell-lsp-types/.stack-work
   - $TRAVIS_BUILD_DIR/submodules/cabal-helper/.stack-work
   - $TRAVIS_BUILD_DIR/hie-plugin-api/.stack-work
-  timeout: 800
+  timeout: 2000
 before_cache:
   - rm -rf $TRAVIS_BUILD_DIR/.stack-work/logs/
 
 stages:
   - setup
+  - lens
   - dependencies
+  - build
   - test
-  - deploy
 
 jobs:
    include:
-     - stage: setup
-       env: GHC_VER="8.4.4"
-       script: &setup
-         - ls .stack-work/install/*/*/*/bin/hie || true
-         - travis_retry stack --no-terminal --install-ghc --stack-yaml=stack-$GHC_VER.yaml setup
-         # Build a big package to offload the next stage from doing too much work
-         - stack --stack-yaml=stack-$GHC_VER.yaml build lens
 
-     - stage: setup
-       env: GHC_VER="8.4.3"
-       script: *setup
+   # Ubuntu
+   - stage: setup
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.2"
+     script: &setup
+       - export DIR=$HOME/.local/bin
+       - if [ ! -d "$DIR" ]; then mkdir -p $HOME/.local/bin; fi
+       - export PATH=$HOME/.local/bin:$PATH
+       - travis_retry curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+       - stack --version
+       - travis_retry stack --no-terminal --install-ghc --stack-yaml=stack-$GHC_VER.yaml setup
 
-     - stage: setup
-       env: GHC_VER="8.4.2"
-       script: *setup
+   - stage: setup
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.3"
+     script: *setup
 
-     - stage: setup
-       env: GHC_VER="8.2.2"
-       script: *setup
+   - stage: setup
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.4"
+     script: *setup
 
-     - stage: dependencies
-       env: GHC_VER="8.4.4"
-       script: &dependencies
-         - travis_retry stack --no-terminal --install-ghc --stack-yaml=stack-$GHC_VER.yaml build --only-dependencies
+   - stage: setup
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.1"
+     script: *setup
 
-     - stage: dependencies
-       env: GHC_VER="8.4.3"
-       script: *dependencies
+   - stage: setup
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.2"
+     script: *setup
 
-     - stage: dependencies
-       env: GHC_VER="8.4.2"
-       script: *dependencies
+   - stage: setup
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.3"
+     script: *setup
 
-     - stage: dependencies
-       env: GHC_VER="8.2.2"
-       script: *dependencies
+   - stage: setup
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.4"
+     script: *setup
 
-     - stage: test
-       env: GHC_VER="8.4.4"
-       script: &test
-         - stack --no-terminal --stack-yaml=stack-$GHC_VER.yaml install
+   - stage: setup
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.5"
+     script: *setup
 
-     - stage: test
-       env: GHC_VER="8.4.3"
-       script: *test
+   - stage: lens
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.2"
+     script: &lens
+       - export PATH=$HOME/.local/bin:$PATH
+       - ls .stack-work/install/*/*/*/bin/hie || true
+       # Build a big package to offload the next stage from doing too much work
+       - stack --stack-yaml=stack-$GHC_VER.yaml build lens aeson alex conduit
 
-     - stage: test
-       env: GHC_VER="8.4.2"
-       script: *test
+   - stage: lens
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.3"
+     script: *lens
 
-     - stage: test
-       env: GHC_VER="8.2.2"
-       script: *test
+   - stage: lens
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.4"
+     script: *lens
 
-     - stage: deploy
-       env: GHC_VER="8.4.4"
-       script: &deploy
-         - mkdir -p $HOME/hie-macos
-         - cp .stack-work/install/*/*/$GHC_VER/bin/hie $HOME/hie-macos
-         - cp .stack-work/install/*/*/$GHC_VER/bin/hie-wrapper $HOME/hie-macos
-         - upx --best $HOME/hie-macos/hie
-         - upx --best $HOME/hie-macos/hie-wrapper
-         - tar czf "hie-$GHC_VER-Darwin.tar.gz" $HOME/hie-macos
-       deploy: &upload
-         provider: releases
-         api_key:
-           secure: K12xUSzK+VWpnS4gRo04rJjfi71sBi0zuMWKmAcsK1igvmdbsEjyuyX4SxFI58/sM4x5qlyXg/nWSPfECKjpQS7/Q/GG1ub+AjU9kq5iyiWACWjXpDLN9Jz9iLBceyPLaf3y3rswri45v7LdwvMNwSI/wYNKEz97IfJ3VkCR16kWv/cqHGdJUYWZk7lBJX/BL94Bof4zOoXwSiy0GbaSCptcSHm1qwtN1qYsYnmihgLYR0RtLRz6tvBPHmqDjsWAXMDhaEyi0zfZ06igITkm7E4at+c3/wssYfgSg15AT2fd5T+v9keyzyanBzGh9xHYcMmflIA9dAvQawl/vw8sGsnQRaddhmTd0bqKFrtrnMO5dRsbkIyu1r178BQCJVjvy5KqyVpXy1ycDcO17E5qONVr2V838x6eg9uPJBNGR30XMg3ZF+GPsbz0xhzxf2Hhab82pJ+lAAsBlnaPdDNVchs/wjEFMp94hcL+IL4ydaXk91piPVhs3VPsLfGboQ72sUnyPUI2aiKfkk5P4Xug+2UqbX17fXfLgnkRbfyCd/4IeM4IwHgRAKa3tT7017KGSZBShihqe2dDJBjS8MlIxDD+U69HR2TIkAJaDnJe+UFAndoc8w4Ajd2OJ1/C+ey236SZq9R7D3dqyFi6Sxc1kSpNguVmjjvlEUk/Jpz1ckA=
-         file:
-           - "hie-$GHC_VER-Darwin.tar.gz"
-         skip_cleanup: true
-         draft: true
-         tag_name: "${TRAVIS_TAG}"
-         on:
-          tags: true
+   - stage: lens
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.1"
+     script: *lens
 
-     - stage: deploy
-       env: GHC_VER="8.4.3"
-       script: *deploy
-       deploy: *upload
+   - stage: lens
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.2"
+     script: *lens
 
-     - stage: deploy
-       env: GHC_VER="8.4.2"
-       script: *deploy
-       deploy: *upload
+   - stage: lens
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.3"
+     script: *lens
 
-     - stage: deploy
-       env: GHC_VER="8.2.2"
-       script: *deploy
-       deploy: *upload
+   - stage: lens
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.4"
+     script: *lens
+
+   - stage: lens
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.5"
+     script: *lens
+
+   - stage: dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.2"
+     script: &dependencies
+       - export PATH=$HOME/.local/bin:$PATH
+       - travis_retry stack --no-terminal --install-ghc --stack-yaml=stack-$GHC_VER.yaml build --only-dependencies
+
+   - stage: dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.3"
+     script: *dependencies
+
+   - stage: dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.4"
+     script: *dependencies
+
+   - stage: dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.1"
+     script: *dependencies
+
+   - stage: dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.2"
+     script: *dependencies
+
+   - stage: dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.3"
+     script: *dependencies
+
+   - stage: dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.4"
+     script: *dependencies
+
+   - stage: dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.5"
+     script: *dependencies
+
+   - stage: build
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.2"
+     script: &build
+       - export PATH=$HOME/.local/bin:$PATH
+       - stack --no-terminal --stack-yaml=stack-$GHC_VER.yaml build
+       - stack --no-terminal --stack-yaml=stack-$GHC_VER.yaml install
+
+   - stage: build
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.3"
+     script: *build
+
+   - stage: build
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.4"
+     script: *build
+
+   - stage: build
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.1"
+     script: *build
+
+   - stage: build
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.2"
+     script: *build
+
+   - stage: build
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.3"
+     script: *build
+
+   - stage: build
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.4"
+     script: *build
+
+   - stage: build
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.5"
+     script: *build
+
+   - stage: test
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.2"
+     script: &test
+       - export PATH=$HOME/.local/bin:$PATH
+       - stack --no-terminal --stack-yaml=stack-$GHC_VER.yaml test
+
+   - stage: test
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.3"
+     script: *test
+
+   - stage: test
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.4"
+     script: *test
+
+   - stage: test
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.1"
+     script: *test
+
+   - stage: test
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.2"
+     script: *test
+
+   - stage: test
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.3"
+     script: *test
+
+   - stage: test
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.4"
+     script: *test
+
+   - stage: test
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.5"
+     script: *test
+
+   # OS X
+   - stage: setup
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.2"
+     script: &setuposx
+       - export DIR=$HOME/.local/bin
+       - if [ ! -d "$DIR" ]; then mkdir -p $HOME/.local/bin; fi
+       - export PATH=$HOME/.local/bin:$PATH
+       - travis_retry curl -L https://get.haskellstack.org/stable/osx-x86_64.tar.gz | gtar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+       - stack --version
+       - travis_retry stack --no-terminal --install-ghc --stack-yaml=stack-$GHC_VER.yaml setup
+
+   - stage: setup
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.3"
+     script: *setuposx
+
+   - stage: setup
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.4"
+     script: *setuposx
+
+   - stage: setup
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.1"
+     script: *setuposx
+
+   - stage: setup
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.2"
+     script: *setuposx
+
+   - stage: setup
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.3"
+     script: *setuposx
+
+   - stage: setup
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.4"
+     script: *setuposx
+
+   - stage: setup
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.5"
+     script: *setuposx
+
+   - stage: lens
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.2"
+     script: *lens
+
+   - stage: lens
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.3"
+     script: *lens
+
+   - stage: lens
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.4"
+     script: *lens
+
+   - stage: lens
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.1"
+     script: *lens
+
+   - stage: lens
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.2"
+     script: *lens
+
+   - stage: lens
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.3"
+     script: *lens
+
+   - stage: lens
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.4"
+     script: *lens
+
+   - stage: lens
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.5"
+     script: *lens
+
+   - stage: dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.2"
+     script: *dependencies
+
+   - stage: dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.3"
+     script: *dependencies
+
+   - stage: dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.4"
+     script: *dependencies
+
+   - stage: dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.1"
+     script: *dependencies
+
+   - stage: dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.2"
+     script: *dependencies
+
+   - stage: dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.3"
+     script: *dependencies
+
+   - stage: dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.4"
+     script: *dependencies
+
+   - stage: dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.5"
+     script: *dependencies
+
+   - stage: build
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.2"
+     script: *build
+
+   - stage: build
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.3"
+     script: *build
+
+   - stage: build
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.4"
+     script: *build
+
+   - stage: build
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.1"
+     script: *build
+
+   - stage: build
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.2"
+     script: *build
+
+   - stage: build
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.3"
+     script: *build
+
+   - stage: build
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.4"
+     script: *build
+
+   - stage: build
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.5"
+     script: *build
+
+   - stage: test
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.2"
+     script: *test
+
+   - stage: test
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.3"
+     script: *test
+
+   - stage: test
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.4"
+     script: *test
+
+   - stage: test
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.1"
+     script: *test
+
+   - stage: test
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.2"
+     script: *test
+
+   - stage: test
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.3"
+     script: *test
+
+   - stage: test
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.4"
+     script: *test
+
+   - stage: test
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.5"
+     script: *test
