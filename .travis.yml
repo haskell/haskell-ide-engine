@@ -104,7 +104,7 @@ jobs:
        - export PATH=$HOME/.local/bin:$PATH
        - ls .stack-work/install/*/*/*/bin/hie || true
        # Build some dependencies to offload the next stage from doing too much work
-       - stack --stack-yaml=stack-$GHC_VER.yaml build lens aeson alex conduit x509 tls haskell-lexer Strafunski-StrategyLib HaRe streaming-commons
+       - travis_retry stack --stack-yaml=stack-$GHC_VER.yaml build lens aeson alex conduit x509 tls haskell-lexer Strafunski-StrategyLib HaRe streaming-commons
 
    - stage: some_dependencies
      os: linux
@@ -204,8 +204,8 @@ jobs:
      env: GHC_VER="8.4.2"
      script: &build
        - export PATH=$HOME/.local/bin:$PATH
-       - stack --no-terminal --stack-yaml=stack-$GHC_VER.yaml build
-       - stack --no-terminal --stack-yaml=stack-$GHC_VER.yaml install
+       - travis_retry stack --no-terminal --stack-yaml=stack-$GHC_VER.yaml build
+       - travis_retry stack --no-terminal --stack-yaml=stack-$GHC_VER.yaml install
 
    - stage: build
      os: linux
