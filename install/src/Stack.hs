@@ -7,7 +7,7 @@ import           Control.Exception
 import           Control.Monad
 import           Data.List
 import           System.Directory                         ( copyFile )
-import           System.FilePath                          ( searchPathSeparator, (</>) )
+import           System.FilePath                          ( splitSearchPath, searchPathSeparator, (</>) )
 import           System.Environment                       ( lookupEnv, setEnv, getEnvironment )
 import           System.IO.Error                          ( isDoesNotExistError )
 import           BuildSystem
@@ -124,13 +124,7 @@ withoutStackCachedBinaries action = do
     otherwise -> action
 
   where removePathsContaining strs path =
-           joinPaths (filter (not . containsAny) (splitPaths path))
+           joinPaths (filter (not . containsAny) (splitSearchPath path))
            where containsAny p = any (`isInfixOf` p) strs
         
         joinPaths = intercalate [searchPathSeparator]
-        
-        splitPaths s =
-          case dropWhile (== searchPathSeparator) s of
-                      "" -> []
-                      s' -> w : splitPaths s''
-                            where (w, s'') = break (== searchPathSeparator) s'
