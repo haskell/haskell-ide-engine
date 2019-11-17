@@ -33,7 +33,7 @@ before_cache:
 
 stages:
   - setup
-  - lens
+  - some_dependencies
   - dependencies
   - build
   - test
@@ -96,57 +96,57 @@ jobs:
      env: GHC_VER="8.6.5"
      script: *setup
 
-   - stage: lens
+   - stage: some_dependencies
      os: linux
      dist: bionic
      env: GHC_VER="8.4.2"
-     script: &lens
+     script: &some_dependencies
        - export PATH=$HOME/.local/bin:$PATH
        - ls .stack-work/install/*/*/*/bin/hie || true
-       # Build a big package to offload the next stage from doing too much work
-       - stack --stack-yaml=stack-$GHC_VER.yaml build lens aeson alex conduit
+       # Build some dependencies to offload the next stage from doing too much work
+       - stack --stack-yaml=stack-$GHC_VER.yaml build lens aeson alex conduit x509 tls haskell-lexer Strafunski-StrategyLib HaRe streaming-commons
 
-   - stage: lens
+   - stage: some_dependencies
      os: linux
      dist: bionic
      env: GHC_VER="8.4.3"
-     script: *lens
+     script: *some_dependencies
 
-   - stage: lens
+   - stage: some_dependencies
      os: linux
      dist: bionic
      env: GHC_VER="8.4.4"
-     script: *lens
+     script: *some_dependencies
 
-   - stage: lens
+   - stage: some_dependencies
      os: linux
      dist: bionic
      env: GHC_VER="8.6.1"
-     script: *lens
+     script: *some_dependencies
 
-   - stage: lens
+   - stage: some_dependencies
      os: linux
      dist: bionic
      env: GHC_VER="8.6.2"
-     script: *lens
+     script: *some_dependencies
 
-   - stage: lens
+   - stage: some_dependencies
      os: linux
      dist: bionic
      env: GHC_VER="8.6.3"
-     script: *lens
+     script: *some_dependencies
 
-   - stage: lens
+   - stage: some_dependencies
      os: linux
      dist: bionic
      env: GHC_VER="8.6.4"
-     script: *lens
+     script: *some_dependencies
 
-   - stage: lens
+   - stage: some_dependencies
      os: linux
      dist: bionic
      env: GHC_VER="8.6.5"
-     script: *lens
+     script: *some_dependencies
 
    - stage: dependencies
      os: linux
@@ -354,53 +354,53 @@ jobs:
      env: GHC_VER="8.6.5"
      script: *setuposx
 
-   - stage: lens
+   - stage: some_dependencies
      os: osx
      osx_image: xcode11.2
      env: GHC_VER="8.4.2"
-     script: *lens
+     script: *some_dependencies
 
-   - stage: lens
+   - stage: some_dependencies
      os: osx
      osx_image: xcode11.2
      env: GHC_VER="8.4.3"
-     script: *lens
+     script: *some_dependencies
 
-   - stage: lens
+   - stage: some_dependencies
      os: osx
      osx_image: xcode11.2
      env: GHC_VER="8.4.4"
-     script: *lens
+     script: *some_dependencies
 
-   - stage: lens
+   - stage: some_dependencies
      os: osx
      osx_image: xcode11.2
      env: GHC_VER="8.6.1"
-     script: *lens
+     script: *some_dependencies
 
-   - stage: lens
+   - stage: some_dependencies
      os: osx
      osx_image: xcode11.2
      env: GHC_VER="8.6.2"
-     script: *lens
+     script: *some_dependencies
 
-   - stage: lens
+   - stage: some_dependencies
      os: osx
      osx_image: xcode11.2
      env: GHC_VER="8.6.3"
-     script: *lens
+     script: *some_dependencies
 
-   - stage: lens
+   - stage: some_dependencies
      os: osx
      osx_image: xcode11.2
      env: GHC_VER="8.6.4"
-     script: *lens
+     script: *some_dependencies
 
-   - stage: lens
+   - stage: some_dependencies
      os: osx
      osx_image: xcode11.2
      env: GHC_VER="8.6.5"
-     script: *lens
+     script: *some_dependencies
 
    - stage: dependencies
      os: osx
