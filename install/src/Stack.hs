@@ -3,11 +3,13 @@ module Stack where
 import           Development.Shake
 import           Development.Shake.Command
 import           Development.Shake.FilePath
+import           Control.Exception
 import           Control.Monad
 import           Data.List
 import           System.Directory                         ( copyFile )
 import           System.FilePath                          ( searchPathSeparator, (</>) )
 import           System.Environment                       ( lookupEnv, setEnv, getEnvironment )
+import           System.IO.Error                          ( isDoesNotExistError )
 import           BuildSystem
 import           Version
 import           Print
@@ -102,7 +104,11 @@ stackBuildFailMsg =
 -- |Run actions without the stack cached binaries 
 withoutStackCachedBinaries :: Action a -> Action a
 withoutStackCachedBinaries action = do
-  mbPath <- liftIO (lookupEnv "PATH")
+
+  let getEnvErrorHandler e | isDoesNotExistError e = return Nothing
+                           | otherwise = throwIO e
+
+  mbPath <- liftIO (lookupEnv "PATH" `catch` getEnvErrorHandler)
 
   case (mbPath, isRunFromStack) of
 

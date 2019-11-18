@@ -98,11 +98,16 @@ spec = describe "liquid haskell diagnostics" $ do
         -- liftIO $ show diags3 `shouldBe` ""
         liftIO $ do
           length diags3 `shouldBe` 1
-          d ^. range `shouldBe` Range (Position 8 0) (Position 8 7)
+          d ^. range `shouldBe` Range (Position 8 0) (Position 8 11)
           d ^. severity `shouldBe` Just DsError
           d ^. code `shouldBe` Nothing
           d ^. source `shouldBe` Just "liquid"
-          d ^. message `shouldSatisfy` (T.isPrefixOf "Error: Liquid Type Mismatch\n  Inferred type\n    VV : {v : Int | v == (7 : int)}\n \n  not a subtype of Required type\n    VV : {VV : Int | VV mod 2 == 0}\n")
+          d ^. message `shouldSatisfy` T.isPrefixOf ("Error: Liquid Type Mismatch\n" <>
+                                        "  Inferred type\n" <>
+                                        "    VV : {v : GHC.Types.Int | v == 7}\n" <>
+                                        " \n" <>
+                                        "  not a subtype of Required type\n" <>
+                                        "    VV : {VV : GHC.Types.Int | VV mod 2 == 0}\n ")
 
 
 -- ---------------------------------------------------------------------
