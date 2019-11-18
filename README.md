@@ -27,7 +27,7 @@ we talk to clients.__
     - [Installation from source](#installation-from-source)
       - [Common pre-requirements](#common-pre-requirements)
       - [Linux-specific pre-requirements](#linux-specific-pre-requirements)
-      - [Windows-specific pre-requirements (optional)](#windows-specific-pre-requirements-optional)
+      - [Windows-specific pre-requirements](#windows-specific-pre-requirements)
       - [Download the source code](#download-the-source-code)
       - [Building](#building)
         - [Install specific GHC Version](#install-specific-ghc-version)
@@ -172,15 +172,15 @@ sudo apt install libicu-dev libtinfo-dev libgmp-dev
 sudo dnf install libicu-devel ncurses-devel
 ```
 
-#### Windows-specific pre-requirements (optional)
+#### Windows-specific pre-requirements
 
-In order to avoid problems with long paths on Windows you can do the following:
+In order to avoid problems with long paths on Windows you can do either one of the following:
 
-1. In the `Local Group Policy Editor`: `Local Computer Policy -> Computer Configuration -> Administrative Templates -> System -> Filesystem` set `Enable Win32 long paths` to `Enabled` (Works
-   only for Windows 10).
+1. Clone the `haskell-ide-engine` to the root of your logical drive (e.g. to
+   `C:\hie`). If this doesn't work try the second option.
 
-2. Clone the `haskell-ide-engine` to the root of your logical drive (e.g. to
-   `C:\hie`)
+2. In the `Local Group Policy Editor`: `Local Computer Policy -> Computer Configuration -> Administrative Templates -> System -> Filesystem` set `Enable Win32 long paths` to `Enabled` (Works
+   only for Windows 10). Also you need to configure git to allow longer paths by using unicode paths. To set this for all your git repositories use `git config --system core.longpaths true` (you probably need an administrative shell for this) or for just this one repository use `git config core.longpaths true`.
 
 #### Download the source code
 
