@@ -5,7 +5,6 @@ module Main where
 import           Control.Monad
 import           Data.Monoid                           ((<>))
 import           Data.Version                          (showVersion)
-import           Haskell.Ide.Engine.Cradle (findLocalCradle)
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Options
@@ -16,7 +15,6 @@ import qualified Language.Haskell.LSP.Core             as Core
 import           Options.Applicative.Simple
 import qualified Paths_haskell_ide_engine              as Meta
 import           System.Directory
-import           System.FilePath ((</>))
 import           System.Environment
 import qualified System.Log.Logger                     as L
 import           HIE.Bios.Types
