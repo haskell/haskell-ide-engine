@@ -25,7 +25,7 @@ import           Data.Ord (Down(..))
 import           Data.Foldable (toList)
 import           Control.Exception (IOException, try)
 import           System.FilePath
-import           System.Directory (getCurrentDirectory, canonicalizePath)
+import           System.Directory (getCurrentDirectory, canonicalizePath, findExecutable)
 import           System.Exit
 
 -- | Find the cradle that the given File belongs to.
@@ -106,16 +106,36 @@ Just (Ex (ProjLocV2File { plProjectDirV2 = "/Foo/"}))
 In the given example, it is not guaranteed which project type is found,
 it is only guaranteed that it will not identify the project
 as a cabal v1-project.
+
+Note that this will not return any project types for which the corresponding
+build tool is not on the PATH. This is "stack" and "cabal" for stack and cabal
+(both v1 and v2) projects respectively.
 -}
 findCabalHelperEntryPoint :: FilePath -> IO (Maybe (Ex ProjLoc))
 findCabalHelperEntryPoint fp = do
-  projs <- concat <$> mapM findProjects (ancestors (takeDirectory fp))
-  case filter (\p -> isCabalNewProject p || isStackProject p) projs of
+  allProjs <- concat <$> mapM findProjects (ancestors (takeDirectory fp))
+
+  debugm $ "Cabal-Helper found these projects: " ++ show (map (\(Ex x) -> show x) allProjs)
+
+  -- We only want to return projects that we have the build tools installed for
+  isStackInstalled <- isJust <$> findExecutable "stack"
+  isCabalInstalled <- isJust <$> findExecutable "cabal"
+  let supportedProjs = filter (\x -> supported x isStackInstalled isCabalInstalled) allProjs
+  debugm $ "These projects have the build tools installed: " ++ show (map (\(Ex x) -> show x) supportedProjs)
+
+  case filter (\p -> isCabalNewProject p || isStackProject p) supportedProjs of
     (x:_) -> return $ Just x
-    []    -> case filter isCabalOldProject projs of
+    []    -> case filter isCabalOldProject supportedProjs of
       (x:_) -> return $ Just x
       []    -> return Nothing
     where
+      supported :: (Ex ProjLoc) -> Bool -> Bool -> Bool
+      supported (Ex ProjLocStackYaml {}) stackInstalled _ = stackInstalled
+      supported (Ex ProjLocV2Dir {}) _ cabalInstalled = cabalInstalled
+      supported (Ex ProjLocV2File {}) _ cabalInstalled = cabalInstalled
+      supported (Ex ProjLocV1Dir {}) _ cabalInstalled = cabalInstalled
+      supported (Ex ProjLocV1CabalFile {}) _ cabalInstalled = cabalInstalled
+
       isStackProject (Ex ProjLocStackYaml {}) = True
       isStackProject _ = False
 
