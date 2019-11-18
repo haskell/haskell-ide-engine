@@ -425,6 +425,7 @@ reactor inp diagIn = do
           currentDir <- liftIO getCurrentDirectory
 
           -- Check for mismatching GHC versions
+          -- Ignore hie.yaml parse errors. They get reported in ModuleCache.hs
           let parseErrorHandler (_ :: Yaml.ParseException) = return Nothing
               dummyCradleFile = (fromMaybe currentDir lspRootDir) </> "File.hs"
           cradleRes <- liftIO $ E.catch (Just <$> findLocalCradle dummyCradleFile) parseErrorHandler
