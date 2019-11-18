@@ -64,6 +64,7 @@ library
                      , transformers
                      , unordered-containers
                      , transformers-base
+                     , yaml >= 0.8.11
   if os(windows)
     build-depends:     Win32
   else
