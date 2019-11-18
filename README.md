@@ -176,7 +176,7 @@ sudo dnf install libicu-devel ncurses-devel
 
 In order to avoid problems with long paths on Windows you can do the following:
 
-1. Edit the group policy: set "Enable Win32 long paths" to "Enabled" (Works
+1. In the `Local Group Policy Editor`: `Local Computer Policy -> Computer Configuration -> Administrative Templates -> System -> Filesystem` set `Enable Win32 long paths` to `Enabled` (Works
    only for Windows 10).
 
 2. Clone the `haskell-ide-engine` to the root of your logical drive (e.g. to
