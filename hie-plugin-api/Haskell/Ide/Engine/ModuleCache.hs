@@ -27,6 +27,7 @@ module Haskell.Ide.Engine.ModuleCache
   ) where
 
 
+import           Control.Exception
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Control
@@ -46,6 +47,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.Trie.Convenience as T
 import qualified Data.Trie as T
 import qualified Data.Text as Text
+import qualified Data.Yaml as Yaml
 import qualified HIE.Bios as BIOS
 import qualified HIE.Bios.Ghc.Api as BIOS
 import qualified HIE.Bios.Types as BIOS
@@ -137,10 +139,19 @@ loadCradle iniDynFlags (NewCradle fp) def action = do
   -- Cache the existing cradle
   maybe (return ()) cacheCradle =<< (currentCradle <$> getModuleCache)
 
-  -- Now load the new cradle
-  cradle <- liftIO $ findLocalCradle fp
-  logm $ "Found cradle: " ++ show cradle
-  withProgress "Initialising Cradle" NotCancellable (initialiseCradle cradle)
+  -- Now load the new cradle, accounting for hie.yaml parse errors
+  let parseErrorHandler = return . Left . Yaml.prettyPrintParseException
+  cradleRes <- liftIO $ catch (Right <$> findLocalCradle fp) parseErrorHandler
+  case cradleRes of
+    Right cradle -> do
+      logm $ "Found cradle: " ++ show cradle
+      withProgress "Initialising Cradle" NotCancellable (initialiseCradle cradle)
+    Left yamlErr ->
+      return $ IdeResultFail $ IdeError
+        { ideCode    = OtherError
+        , ideMessage = Text.pack $ "Couldn't parse hie.yaml: " <> yamlErr
+        , ideInfo    = Aeson.Null
+        }
 
  where
   -- | Initialise the given cradle. This might fail and return an error via `IdeResultFail`.

@@ -37,6 +37,7 @@ import qualified Data.Set as S
 import qualified Data.SortedList as SL
 import qualified Data.Text as T
 import           Data.Text.Encoding
+import qualified Data.Yaml as Yaml
 import           Haskell.Ide.Engine.Cradle (findLocalCradle)
 import           Haskell.Ide.Engine.Config
 import qualified Haskell.Ide.Engine.Ghc   as HIE
@@ -397,30 +398,40 @@ reactor inp diagIn = do
           reactorSend $ NotLogMessage $
                   fmServerLogMessageNotification J.MtLog $ "Using hie version: " <> T.pack version
 
-          d <- liftIO getCurrentDirectory
-          cradle <- liftIO $ findLocalCradle (d </> "File.hs")
+          lspRootDir <- asksLspFuncs Core.rootPath
+          currentDir <- liftIO getCurrentDirectory
+
           -- Check for mismatching GHC versions
-          projGhcVersion <- liftIO $ getProjectGhcVersion cradle
-          when (projGhcVersion /= hieGhcVersion) $ do
-            let msg = T.pack $ "Mismatching GHC versions: Project is " ++ projGhcVersion ++ ", HIE is " ++ hieGhcVersion
-                      ++ "\nYou may want to use hie-wrapper. Check the README for more information"
-            reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
-            reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg
+          -- Ignore hie.yaml parse errors. They get reported in ModuleCache.hs
+          let parseErrorHandler (_ :: Yaml.ParseException) = return Nothing
+              dummyCradleFile = (fromMaybe currentDir lspRootDir) </> "File.hs"
+          cradleRes <- liftIO $ E.catch (Just <$> findLocalCradle dummyCradleFile) parseErrorHandler
 
-          -- Check cabal is installed
-          hasCabal <- liftIO checkCabalInstall
-          unless hasCabal $ do
-            let msg = T.pack "cabal-install is not installed. Check the README for more information"
-            reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
-            reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg
+          case cradleRes of
+            Just cradle -> do
+              projGhcVersion <- liftIO $ getProjectGhcVersion cradle
+              when (projGhcVersion /= hieGhcVersion) $ do
+                let msg = T.pack $ "Mismatching GHC versions: Project is " ++ projGhcVersion ++ ", HIE is " ++ hieGhcVersion
+                          ++ "\nYou may want to use hie-wrapper. Check the README for more information"
+                reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
+                reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg
 
+                -- Check cabal is installed
+                -- TODO: only do this check if its a cabal cradle
+                hasCabal <- liftIO checkCabalInstall
+                unless hasCabal $ do
+                  let cabalMsg = T.pack "cabal-install is not installed. Check the README for more information"
+                  reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning cabalMsg
+                  reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning cabalMsg
 
-          lf <- ask
+            Nothing -> return ()
+
+          renv <- ask
           let hreq = GReq tn "init-hoogle" Nothing Nothing Nothing callback Nothing $ IdeResultOk <$> Hoogle.initializeHoogleDb
-              callback Nothing = flip runReaderT lf $
+              callback Nothing = flip runReaderT renv $
                 reactorSend $ NotShowMessage $
                   fmServerShowMessageNotification J.MtWarning "No hoogle db found. Check the README for instructions to generate one"
-              callback (Just db) = flip runReaderT lf $ do
+              callback (Just db) = flip runReaderT renv $ do
                 reactorSend $ NotLogMessage $
                   fmServerLogMessageNotification J.MtLog $ "Using hoogle db at: " <> T.pack db
           makeRequest hreq

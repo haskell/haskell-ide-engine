@@ -212,12 +212,11 @@ makeRefactorResult changedFiles = do
 
       origTextResult <- case mvf of
         Nothing -> do
-          let resultFail = return $ IdeResultFail
-                          (IdeError PluginError
-                            (T.pack "makeRefactorResult: no access to the persisted file.")
-                            Null
-                          )
-          withMappedFile fp resultFail (fmap IdeResultOk . liftIO . T.readFile)
+          let defaultResult = do
+                debugm "makeRefactorResult: no access to the persisted file."
+                return $ IdeResultOk mempty
+
+          withMappedFile fp defaultResult (fmap IdeResultOk . liftIO . T.readFile)
         Just vf -> return $ IdeResultOk $ Rope.toText $ _text vf
 
       case origTextResult of

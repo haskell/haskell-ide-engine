@@ -274,6 +274,7 @@ test-suite func-test
                      , FunctionalLiquidSpec
                      , FunctionalSpec
                      , HaReSpec
+                     , HieBiosSpec
                      , HighlightSpec
                      , HoverSpec
                      , ProgressSpec

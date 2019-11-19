@@ -8,7 +8,7 @@ import           TestUtils
 
 main :: IO ()
 main = do
-  setupStackFiles
+  setupBuildToolFiles
   -- run a test session to warm up the cache to prevent timeouts in other tests
   putStrLn "Warming up HIE cache..."
   runSessionWithConfig (defaultConfig { messageTimeout = 120 }) hieCommand fullCaps "test/testdata" $

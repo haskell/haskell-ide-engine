@@ -76,12 +76,10 @@ applyOneCmd = CmdSync $ \(AOP uri pos title) -> do
 applyOneCmd' :: Uri -> OneHint -> IdeGhcM (IdeResult WorkspaceEdit)
 applyOneCmd' uri oneHint = pluginGetFile "applyOne: " uri $ \fp -> do
   revMapp <- reverseFileMap
-  let resultFail = return $ IdeResultFail
-        (IdeError PluginError
-                  (T.pack "applyOne: no access to the persisted file.")
-                  Null
-        )
-  withMappedFile fp resultFail $ \file' -> do
+  let defaultResult = do
+        debugm "applyOne: no access to the persisted file."
+        return $ IdeResultOk mempty
+  withMappedFile fp defaultResult $ \file' -> do
     res <- liftToGhc $ applyHint file' (Just oneHint) revMapp
     logm $ "applyOneCmd:file=" ++ show fp
     logm $ "applyOneCmd:res=" ++ show res
@@ -99,13 +97,11 @@ applyAllCmd = CmdSync $ \uri -> do
 
 applyAllCmd' :: Uri -> IdeGhcM (IdeResult WorkspaceEdit)
 applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \fp -> do
-  let resultFail = return $ IdeResultFail
-        (IdeError PluginError
-                  (T.pack "applyAll: no access to the persisted file.")
-                  Null
-        )
+  let defaultResult = do
+        debugm "applyAll: no access to the persisted file."
+        return $ IdeResultOk mempty
   revMapp <- reverseFileMap
-  withMappedFile fp resultFail $ \file' -> do
+  withMappedFile fp defaultResult $ \file' -> do
     res <- liftToGhc $ applyHint file' Nothing revMapp
     logm $ "applyAllCmd:res=" ++ show res
     case res of
@@ -122,12 +118,12 @@ lintCmd = CmdSync $ \uri -> do
 -- AZ:TODO: Why is this in IdeGhcM?
 lintCmd' :: Uri -> IdeGhcM (IdeResult PublishDiagnosticsParams)
 lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
-  let resultFail = return $ IdeResultFail
-        (IdeError PluginError
-                  (T.pack "lintCmd: no access to the persisted file.")
-                  Null
-        )
-  withMappedFile fp resultFail $ \file' -> do
+  let
+    defaultResult = do
+      debugm "lintCmd: no access to the persisted file."
+      return
+        $ IdeResultOk (PublishDiagnosticsParams (filePathToUri fp) $ List [])
+  withMappedFile fp defaultResult $ \file' -> do
     eitherErrorResult <- liftIO
       (try $ runExceptT $ runLintCmd file' [] :: IO
           (Either IOException (Either [Diagnostic] [Idea]))

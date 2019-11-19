@@ -17,6 +17,7 @@ import qualified GHC.Generics                  as Generics
 import qualified HsImport
 import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.MonadTypes
+import           Haskell.Ide.Engine.MonadFunctions (debugm)
 import qualified Haskell.Ide.Engine.Support.HieExtras as Hie
 import qualified Language.Haskell.LSP.Types      as J
 import qualified Language.Haskell.LSP.Types.Lens as J
@@ -128,12 +129,10 @@ importModule uri impStyle modName =
   pluginGetFile "hsimport cmd: " uri $ \origInput -> do
     shouldFormat <- formatOnImportOn <$> getConfig
     fileMap      <- reverseFileMap
-    let resultFail = return $ IdeResultFail
-          (IdeError PluginError
-                    (T.pack $ "hsImport: no access to the persisted file.")
-                    Null
-          )
-    withMappedFile origInput resultFail $ \input -> do
+    let defaultResult = do
+          debugm "hsimport: no access to the persisted file."
+          return $ IdeResultOk mempty
+    withMappedFile origInput defaultResult $ \input -> do
       tmpDir            <- liftIO getTemporaryDirectory
       (output, outputH) <- liftIO $ openTempFile tmpDir "hsimportOutput"
       liftIO $ hClose outputH

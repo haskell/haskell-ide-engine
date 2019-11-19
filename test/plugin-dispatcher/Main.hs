@@ -19,7 +19,7 @@ import           Test.Hspec.Runner
 
 main :: IO ()
 main = do
-  setupStackFiles
+  setupBuildToolFiles
   config <- getHspecFormattedConfig "plugin-dispatcher"
   withFileLogging "plugin-dispatcher.log" $ hspecWith config newPluginSpec
 
