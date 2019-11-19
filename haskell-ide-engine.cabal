@@ -1,5 +1,5 @@
 name:                haskell-ide-engine
-version:             0.13.0.0
+version:             1.0.0.0
 synopsis:            Provide a common engine to power any Haskell IDE
 description:         Please see README.md
 homepage:            http://github.com/githubuser/haskell-ide-engine#readme
@@ -69,8 +69,8 @@ library
                      , gitrev >= 1.1
                      , haddock-api
                      , haddock-library
-                     , haskell-lsp == 0.17.*
-                     , haskell-lsp-types == 0.17.*
+                     , haskell-lsp == 0.18.*
+                     , haskell-lsp-types == 0.18.*
                      , haskell-src-exts
                      , hie-plugin-api
                      , hoogle >= 5.0.13
@@ -98,10 +98,7 @@ library
                      , hie-bios
                      , bytestring-trie
                      , unliftio
-  if impl(ghc < 8.4)
-    build-depends:     hlint >= 2.0.11 && < 2.1.18
-  else
-    build-depends:     hlint >= 2.2.2
+                     , hlint >= 2.2.2
 
   ghc-options:         -Wall -Wredundant-constraints
   if flag(pedantic)
@@ -203,11 +200,12 @@ test-suite unit-test
                      , free
                      , ghc
                      , haskell-ide-engine
-                     , haskell-lsp-types == 0.17.*
+                     , haskell-lsp-types == 0.18.*
                      , hie-test-utils
                      , hie-plugin-api
                      , hoogle > 5.0.11
                      , hspec
+                     , process
                      , quickcheck-instances
                      , text
                      , unordered-containers
@@ -292,8 +290,8 @@ test-suite func-test
                      , filepath
                      , lsp-test >= 0.8.0.0
                      , haskell-ide-engine
-                     , haskell-lsp-types == 0.17.*
-                     , haskell-lsp == 0.17.*
+                     , haskell-lsp-types == 0.18.*
+                     , haskell-lsp == 0.18.*
                      , hie-test-utils
                      , hie-plugin-api
                      , hspec

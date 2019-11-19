@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -21,9 +20,6 @@ import           Control.Monad.IO.Class
 import qualified Data.Aeson                            as J
 import qualified Data.ByteString.Builder               as B
 import qualified Data.ByteString.Lazy.Char8            as B
-#if __GLASGOW_HASKELL__ < 804
-import           Data.Monoid
-#endif
 import qualified Data.Text                             as T
 import           GHC.Generics
 import           Haskell.Ide.Engine.PluginsIdeMonads
@@ -99,11 +95,11 @@ run scheduler = flip E.catches handlers $ do
         case mreq of
           Nothing -> return()
           Just req -> do
-            let preq = GReq 0 (context req) Nothing (Just $ J.IdInt rid) (liftIO . callback) (toDynJSON (Nothing :: Maybe ()))
+            let preq = GReq 0 "" (context req) Nothing (Just $ J.IdInt rid) (liftIO . callback) (toDynJSON (Nothing :: Maybe ()))
                   $ runPluginCommand (plugin req) (command req) (arg req)
                 rid = reqId req
                 callback = sendResponse rid . dynToJSON
-            Scheduler.sendRequest scheduler Nothing preq
+            Scheduler.sendRequest scheduler preq
 
 getNextReq :: IO (Maybe ReactorInput)
 getNextReq = do

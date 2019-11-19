@@ -3,11 +3,13 @@ module Stack where
 import           Development.Shake
 import           Development.Shake.Command
 import           Development.Shake.FilePath
+import           Control.Exception
 import           Control.Monad
 import           Data.List
 import           System.Directory                         ( copyFile )
-import           System.FilePath                          ( searchPathSeparator, (</>) )
+import           System.FilePath                          ( splitSearchPath, searchPathSeparator, (</>) )
 import           System.Environment                       ( lookupEnv, setEnv, getEnvironment )
+import           System.IO.Error                          ( isDoesNotExistError )
 import           BuildSystem
 import           Version
 import           Print
@@ -102,6 +104,7 @@ stackBuildFailMsg =
 -- |Run actions without the stack cached binaries 
 withoutStackCachedBinaries :: Action a -> Action a
 withoutStackCachedBinaries action = do
+
   mbPath <- liftIO (lookupEnv "PATH")
 
   case (mbPath, isRunFromStack) of
@@ -121,13 +124,7 @@ withoutStackCachedBinaries action = do
     otherwise -> action
 
   where removePathsContaining strs path =
-           joinPaths (filter (not . containsAny) (splitPaths path))
+           joinPaths (filter (not . containsAny) (splitSearchPath path))
            where containsAny p = any (`isInfixOf` p) strs
         
         joinPaths = intercalate [searchPathSeparator]
-        
-        splitPaths s =
-          case dropWhile (== searchPathSeparator) s of
-                      "" -> []
-                      s' -> w : words s''
-                            where (w, s'') = break (== searchPathSeparator) s'

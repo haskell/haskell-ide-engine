@@ -11,9 +11,6 @@ import           Data.Aeson
 import           Data.Foldable
 import qualified Data.Map                        as Map
 import           Data.Maybe
-#if __GLASGOW_HASKELL__ < 804
-import           Data.Semigroup
-#endif
 import qualified Data.Text                       as T
 import qualified Data.Versions                   as V
 import           Development.GitRev              (gitCommitCount)

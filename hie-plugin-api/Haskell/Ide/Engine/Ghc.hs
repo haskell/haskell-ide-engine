@@ -16,6 +16,8 @@ module Haskell.Ide.Engine.Ghc
   , makeRevRedirMapFunc
   ) where
 
+import Debug.Trace
+
 import           Bag
 import           Control.Monad.IO.Class
 import           Control.Monad                  ( when )
@@ -174,18 +176,28 @@ logDiag :: (FilePath -> FilePath) -> IORef AdditionalErrs -> IORef Diagnostics -
 logDiag rfm eref dref df reason sev spn style msg = do
   eloc <- srcSpan2Loc rfm spn
   debugm $ "Diagnostics at Location: " <> show (spn, eloc)
-  let msgTxt = T.pack $ renderWithStyle df msg style
-  case eloc of
-    Right (Location uri range) -> do
-      let update = Map.insertWith Set.union (toNormalizedUri uri) l
-            where l = Set.singleton diag
-          diag = Diagnostic range (Just $ lspSev reason sev) Nothing (Just "bios") msgTxt Nothing
-      debugm $ "Writing diag " <> (show diag)
-      modifyIORef' dref (\(Diagnostics u) -> Diagnostics (update u))
-    Left _ -> do
-      debugm $ "Writing err " <> (show msgTxt)
-      modifyIORef' eref (msgTxt:)
-      return ()
+  let msgString = renderWithStyle df msg style
+      msgTxt = T.pack msgString
+  case sev of
+    -- These three verbosity levels are triggered by increasing verbosity.
+    -- Normally the verbosity is set to 0 when the session is initialised but
+    -- sometimes for debugging it is useful to override this and piping the messages
+    -- to the normal debugging framework means they just show up in the normal log.
+    SevOutput -> debugm msgString
+    SevDump -> debugm msgString
+    SevInfo -> debugm msgString
+    _ ->  do
+      case eloc of
+        Right (Location uri range) -> do
+          let update = Map.insertWith Set.union (toNormalizedUri uri) l
+                where l = Set.singleton diag
+              diag = Diagnostic range (Just $ lspSev reason sev) Nothing (Just "bios") msgTxt Nothing
+          debugm $ "Writing diag " <> (show diag)
+          modifyIORef' dref (\(Diagnostics u) -> Diagnostics (update u))
+        Left _ -> do
+          debugm $ "Writing err " <> (show msgTxt)
+          modifyIORef' eref (msgTxt:)
+          return ()
 
 
 errorHandlers :: (String -> m a) -> (HscTypes.SourceError -> m a) -> [ErrorHandler m a]
@@ -212,13 +224,14 @@ errorHandlers ghcErrRes renderSourceError = handlers
 -- | Load a module from a filepath into the cache, first check the cache
 -- to see if it's already there.
 setTypecheckedModule :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
-setTypecheckedModule uri =
+setTypecheckedModule uri = do
+  liftIO $ traceEventIO ("START typecheck" ++ show uri)
   pluginGetFile "setTypecheckedModule: " uri $ \_fp -> do
     debugm "setTypecheckedModule: before ghc-mod"
     debugm "Loading file"
-    -- mapped_fp <- persistVirtualFile uri
-    -- ifCachedModuleM mapped_fp (setTypecheckedModule_load uri) cont
-    setTypecheckedModule_load uri
+    res <- setTypecheckedModule_load uri
+    liftIO $ traceEventIO ("STOP typecheck" ++ show uri)
+    return res
 
 -- Hacky, need to copy hs-boot file if one exists for a module
 -- This is because the virtual file gets created at VFS-1234.hs and

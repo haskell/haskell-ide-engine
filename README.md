@@ -178,7 +178,7 @@ sudo dnf install libicu-devel ncurses-devel
 
 In order to avoid problems with long paths on Windows you can do the following:
 
-1. Edit the group policy: set "Enable Win32 long paths" to "Enabled" (Works
+1. In the `Local Group Policy Editor`: `Local Computer Policy -> Computer Configuration -> Administrative Templates -> System -> Filesystem` set `Enable Win32 long paths` to `Enabled` (Works
    only for Windows 10).
 
 2. Clone the `haskell-ide-engine` to the root of your logical drive (e.g. to
@@ -216,7 +216,7 @@ cabal v2-run ./install.hs --project-file install/shake.project <target>
 
 Running the script with cabal on windows requires a cabal version greater or equal to `3.0.0.0`.
 
-Unfortunately, it is still required to have `stack` installed so that the install-script can locate the `local-bin` directory (on Linux `~/.local/bin`) and copy the `hie` binaries to `hie-x.y.z`, which is required for the `hie-wrapper` to function as expected.
+Unfortunately, it is still required to have `stack` installed so that the install-script can locate the `local-bin` directory (on Linux `~/.local/bin`) and copy the `hie` binaries to `hie-x.y.z`, which is required for the `hie-wrapper` to function as expected. There are plans to remove this requirement and let users build hie only with one build tool or another.
 
 For brevity, only the `stack`-based commands are presented in the following sections.
 
@@ -246,13 +246,12 @@ stack ./install.hs hie-8.4.4
 stack ./install.hs build-data
 ```
 
-The Haskell IDE Engine can also be built with `cabal new-build` instead of `stack build`.
+The Haskell IDE Engine can also be built with `cabal v2-build` instead of `stack build`.
 This has the advantage that you can decide how the GHC versions have been installed.
-However, this approach does currently not work for windows due to a missing feature upstream.
 To see what GHC versions are available, the command `stack install.hs cabal-ghcs` can be used.
 It will list all GHC versions that are on the path and their respective installation directory.
 If you think, this list is incomplete, you can try to modify the PATH variable, such that the executables can be found.
-Note, that the targets `cabal-build`, `cabal-build-data` and `cabal-build-all` depend on the found GHC versions.
+Note, that the targets `cabal-build` and `cabal-build-data` depend on the found GHC versions.
 They install Haskell IDE Engine only for the found GHC versions.
 
 An example output is:
@@ -272,12 +271,6 @@ If your desired ghc has been found, you use it to install Haskell IDE Engine.
 ```bash
 stack install.hs cabal-hie-8.4.4
 stack install.hs cabal-build-data
-```
-
-To install HIE for all GHC versions that are present on your system, use:
-
-```bash
-stack ./install.hs cabal-build-all
 ```
 
 In general, targets that use `cabal` instead of `stack` are prefixed with `cabal-*` and are identical to their counterpart, except they do not install a GHC if it is missing but fail.
@@ -503,7 +496,7 @@ Then issue `:CocConfig` and add the following to your Coc config file.
     "initializationOptions": {
       "languageServerHaskell": {
       }
-    },
+    }
   }
 }
 ```
@@ -800,12 +793,32 @@ If you think `haskell-ide-engine` is using a lot of memory then the most useful
 thing you can do is prepare a profile of the memory usage whilst you're using
 the program.
 
-1. Add `profiling: True` to the cabal.project file of `haskell-ide-engine
+1. Add `profiling: True` to the cabal.project file of `haskell-ide-engine`
 2. `cabal new-build hie`
 3. (IMPORTANT) Add `profiling: True` to the `cabal.project` file of the project you want to profile.
 4. Make a wrapper script which calls the `hie` you built in step 2 with the additional options `+RTS -hd -l-au`
 5. Modify your editor settings to call this wrapper script instead of looking for `hie` on the path
-6. Try using `h-i-e` as normal and then process the `*.eventlog` which will be created using  `eventlog2html`.
+6. Try using `h-i-e` as normal and then process the `*.eventlog` which will be created using  [`eventlog2html`](http://hackage.haskell.org/package/eventlog2html).
 7. Repeat the process again using different profiling options if you like.
+
+#### Using `ghc-events-analyze`
+
+`haskell-ide-engine` contains the necessary tracing functions to work with [`ghc-events-analyze`](http://www.well-typed.com/blog/2014/02/ghc-events-analyze/). Each
+request which is made will emit an event to the eventlog when it starts and finishes. This way you
+can see if there are any requests which are taking a long time to complete or are blocking.
+
+1. Make sure that `hie` is linked with the `-eventlog` option. This can be achieved by adding the flag
+to the `ghc-options` field in the cabal file.
+2. Run `hie` as normal but with the addition of `+RTS -l`. This will produce an eventlog called `hie.eventlog`.
+3. Run `ghc-events-analyze` on the `hie.eventlog` file to produce the rendered SVG. Warning, this might take a while and produce a big SVG file.
+
+The default options for `ghc-events-analyze` will produce quite a wide chart which is difficult to view. You can try using less buckets in order
+to make the chart quicker to generate and faster to render.
+
+```
+ghc-events-analyze hie.eventlog -b 100
+```
+
+This support is similar to the logging capabilities [built into GHC](https://www.haskell.org/ghc/blog/20190924-eventful-ghc.html).
 
 

@@ -3,16 +3,19 @@
 module LiquidSpec where
 
 import           Data.Aeson
+import           Data.List
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.Text            as T
 import qualified Data.Text.IO         as T
 import           Data.Monoid ((<>))
-import           Data.Maybe (isJust)
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Plugin.Liquid
 import           System.Directory
+import           System.Exit
 import           System.FilePath
+import           System.Process
 import           Test.Hspec
+-- import Control.Monad.IO.Class
 
 main :: IO ()
 main = hspec spec
@@ -24,22 +27,27 @@ spec = do
 
     -- ---------------------------------
 
-    it "finds liquid haskell exe in $PATH" $ findExecutable "liquid" >>= (`shouldSatisfy` isJust)
+    it "the liquid haskell exe in $PATH has the supported version" $ do
+      mexe <- findExecutable "liquid"
+      case mexe of
+        Nothing -> expectationFailure "liquid haskell exe is NOT in $PATH"
+        Just exe -> do
+          version <- readProcess exe ["--numeric-version"] ""
+          version `shouldSatisfy` isPrefixOf "0.8.6.2"
 
     -- ---------------------------------
 
-    -- AZ: this test has been moved to func-tests, stack > 2.1 sets
-    -- its own package environment, we can't run it from here.
-
-    -- -- This produces some products in /test/testdata/liquid/.liquid/ that is used in subsequent test
-    -- it "runs the liquid haskell exe" $ do
-    --   let
-    --     fp = cwd </> "test/testdata/liquid/Evens.hs"
-    --     -- fp = "/home/alanz/tmp/haskell-proc-play/Evens.hs"
-    --     -- uri = filePathToUri fp
-    --   Just (ef, (msg:_)) <- runLiquidHaskell fp
-    --   msg `shouldSatisfy` isPrefixOf "RESULT\n[{\"start\":{\"line\":9,\"column\":1},\"stop\":{\"line\":9,\"column\":8},\"message\":\"Error: Liquid Type Mismatch\\n  Inferred type\\n    VV : {v : Int | v == (7 : int)}\\n \\n  not a subtype of Required type\\n    VV : {VV : Int | VV mod 2 == 0}\\n"
-    --   ef `shouldBe` ExitFailure 1
+    -- This produces some products in /test/testdata/liquid/.liquid/
+    -- that are used in subsequent test
+    it "runs the liquid haskell exe" $ do
+      let
+        fp = cwd </> "test/testdata/liquid/Evens.hs"
+      Just (ef, (msg:_)) <- runLiquidHaskell fp
+      -- liftIO $ putStrLn $ "msg=" ++ msg
+      -- liftIO $ putStrLn $ "msg=" ++ unlines (drop 3 (lines msg))
+      let msg' = unlines (drop 3 (lines msg))
+      msg' `shouldSatisfy` isInfixOf "RESULT\n[{\"start\":{\"line\""
+      ef `shouldBe` ExitFailure 1
 
     -- ---------------------------------
     it "gets annot file paths" $ do
@@ -60,12 +68,15 @@ spec = do
       let Just v = decode jf :: Maybe LiquidJson
       let [LE { start, stop, message }] = errors v
       start `shouldBe` LP 9 1
-      stop `shouldBe` LP 9 8
+      stop `shouldBe` LP 9 12
       message `shouldSatisfy` T.isPrefixOf
-               ("Error: Liquid Type Mismatch\n  Inferred type\n" <>
-                "    VV : {v : Int | v == (7 : int)}\n \n" <>
+               ("Error: Liquid Type Mismatch\n" <>
+                "  Inferred type\n" <>
+                "    VV : {v : GHC.Types.Int | v == 7}\n" <>
+                " \n" <>
                 "  not a subtype of Required type\n" <>
-                "    VV : {VV : Int | VV mod 2 == 0}\n")
+                "    VV : {VV : GHC.Types.Int | VV mod 2 == 0}\n" <>
+                " ")
 
     -- ---------------------------------
 
@@ -100,8 +111,8 @@ spec = do
       take 2 ts
         `shouldBe`
           [LE (LP 1 1) (LP 1 1) "GHC.Types.Module"
-          ,LE (LP 6 1) (LP 6 10) "[{v : GHC.Types.Int | v mod 2 == 0}]"]
-      length ts `shouldBe` 38
+          ,LE (LP 6 1) (LP 6 10) "[{VV : GHC.Types.Int | VV mod 2 == 0}]"]
+      length ts `shouldBe` 53
 
     -- ---------------------------------
 
@@ -112,8 +123,8 @@ spec = do
       take 2 ts
         `shouldBe`
           [LE (LP 1 1) (LP 1 1) "GHC.Types.Module"
-          ,LE (LP 6 1) (LP 6 10) "[{v : GHC.Types.Int | v mod 2 == 0}]"]
-      length ts `shouldBe` 38
+          ,LE (LP 6 1) (LP 6 10) "[{VV : GHC.Types.Int | VV mod 2 == 0}]"]
+      length ts `shouldBe` 53
 
     -- ---------------------------------
 

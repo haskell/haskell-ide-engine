@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveAnyClass #-}
@@ -10,7 +9,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE LambdaCase #-}
@@ -346,7 +344,7 @@ getDiagnosticProvidersConfig c = Map.fromList [("applyrefact",hlintOn c)
 -- Monads
 -- ---------------------------------------------------------------------
 
--- | IdeM that allows for interaction with the ghc-mod session
+-- | IdeM that allows for interaction with the Ghc session
 type IdeGhcM = GhcT IdeM
 
 --instance GM.MonadIO (GhcT IdeM) where
@@ -359,8 +357,7 @@ type IdeGhcM = GhcT IdeM
 runIdeGhcM :: IdePlugins -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeGhcM a -> IO a
 runIdeGhcM plugins mlf stateVar f = do
   env <- IdeEnv <$> pure mlf <*> getProcessID <*> pure plugins
-  eres <- flip runReaderT stateVar $ flip runReaderT env $ BIOS.withGhcT f
-  return eres
+  flip runReaderT stateVar $ flip runReaderT env $ BIOS.withGhcT f
 
 {-
 -- | Run an IdeGhcM in an external context (e.g. HaRe), with no plugins or LSP functions
@@ -469,13 +466,7 @@ reverseFileMap = do
 -- but less likely to throw an error and rather give Nothing.
 getPersistedFile' :: Core.LspFuncs Config -> Uri -> IO (Maybe FilePath)
 getPersistedFile' lf uri =
-  Core.getVirtualFileFunc lf (toNormalizedUri uri) >>= \case
-    Just (VirtualFile _ _ (Just file)) -> do
-      return (Just file)
-    Just (VirtualFile _ _ Nothing) -> do
-      file <- persistVirtualFile' lf uri
-      return (Just file)
-    Nothing -> return Nothing
+    Just <$> persistVirtualFile' lf uri
 
 -- | Get the location of the virtual file persisted to the file system associated
 -- to the given Uri.
@@ -577,20 +568,20 @@ instance LiftsToGhc IdeGhcM where
 
 instance HasGhcModuleCache IdeGhcM where
   getModuleCache = lift getModuleCache
-  setModuleCache = lift . setModuleCache
+  modifyModuleCache = lift . modifyModuleCache
 
 instance HasGhcModuleCache IdeDeferM where
   getModuleCache = lift getModuleCache
-  setModuleCache = lift . setModuleCache
+  modifyModuleCache = lift . modifyModuleCache
 
 instance HasGhcModuleCache IdeM where
   getModuleCache = do
     tvar <- lift ask
     state <- readTVarIO tvar
     return (moduleCache state)
-  setModuleCache !mc = do
+  modifyModuleCache f = do
     tvar <- lift ask
-    atomically $ modifyTVar' tvar (\st -> st { moduleCache = mc })
+    atomically $ modifyTVar' tvar (\st -> st { moduleCache = f (moduleCache st) })
 
 -- ---------------------------------------------------------------------
 

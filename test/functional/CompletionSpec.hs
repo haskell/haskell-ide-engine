@@ -120,7 +120,7 @@ spec = describe "completions" $ do
       item ^. label `shouldBe` "OPTIONS_GHC"
       item ^. kind `shouldBe` Just CiKeyword
       item ^. insertTextFormat `shouldBe` Just Snippet
-      item ^. insertText `shouldBe` Just ("OPTIONS_GHC -${1:option} #-}")
+      item ^. insertText `shouldBe` Just "OPTIONS_GHC -${1:option} #-}"
 
   -- -----------------------------------
 
@@ -358,4 +358,12 @@ spec = describe "completions" $ do
         item ^. kind `shouldBe` Just CiFunction
         item ^. insertTextFormat `shouldBe` Just PlainText
         item ^. insertText `shouldBe` Nothing
+
+      resolvedRes <- request CompletionItemResolve item
+      let Just (resolved :: CompletionItem) = resolvedRes ^. result
+      liftIO $ do
+        resolved ^. label `shouldBe` "foldl"
+        resolved ^. kind `shouldBe` Just CiFunction
+        resolved ^. insertTextFormat `shouldBe` Just PlainText
+        resolved ^. insertText `shouldBe` Nothing
     noSnippetsCaps = (textDocument . _Just . completion . _Just . completionItem . _Just . snippetSupport ?~ False) fullCaps
