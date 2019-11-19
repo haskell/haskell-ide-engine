@@ -10,7 +10,11 @@ import Test.Hspec
 import TestUtils
 
 spec :: Spec
-spec = describe "hie-bios" $
+spec = describe "hie-bios" $ do
+  it "loads modules inside main-is" $ runSession hieCommand fullCaps "test/testdata/hieBiosMainIs" $ do
+    _ <- openDoc "Main.hs" "haskell"
+    _ <- count 2 waitForDiagnostics
+    return ()
   it "reports errors in hie.yaml" $ runSession hieCommand fullCaps "test/testdata/hieBiosError" $ do
     _ <- openDoc "Foo.hs" "haskell"
     _ <- skipManyTill loggingNotification (satisfy isMessage)

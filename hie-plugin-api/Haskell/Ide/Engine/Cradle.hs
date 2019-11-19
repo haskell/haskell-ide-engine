@@ -467,10 +467,17 @@ partOfComponent fp' comp
   | otherwise
   = False
   where
+    -- Check if the FilePath is in an executable or setup's main-is field
+    inMainIs :: FilePath -> Bool
+    inMainIs fp
+      | ChExeEntrypoint mainIs _ <- ciEntrypoints comp = mainIs == fp
+      | ChSetupEntrypoint mainIs <- ciEntrypoints comp = mainIs == fp
+      | otherwise = False
+
     inTargets :: [FilePath] -> FilePath -> [String] -> Bool
     inTargets sourceDirs fp targets
       | Just relative <- relativeTo fp sourceDirs
-      = any (`elem` targets) [getModuleName relative, fp]
+      = any (`elem` targets) [getModuleName relative, fp] || inMainIs relative
       | otherwise
       = False
 
