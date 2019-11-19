@@ -963,6 +963,10 @@ syncOptions = J.TextDocumentSyncOptions
   , J._save              = Just $ J.SaveOptions $ Just False
   }
 
+-- | Create 'Language.Haskell.LSP.Core.Options'.
+-- There may need to be more options configured, depending on what handlers
+-- are registered.
+-- Consult the haskell-lsp haddocks to see all possible options.
 hieOptions :: [T.Text] -> Core.Options
 hieOptions commandIds =
   def { Core.textDocumentSync       = Just syncOptions
