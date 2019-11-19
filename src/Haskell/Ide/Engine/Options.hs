@@ -1,9 +1,6 @@
 {-# LANGUAGE CPP #-}
 module Haskell.Ide.Engine.Options where
 
-#if __GLASGOW_HASKELL__ < 804
-import           Data.Semigroup             hiding (option)
-#endif
 import           Options.Applicative.Simple
 
 data GlobalOpts = GlobalOpts

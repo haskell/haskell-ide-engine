@@ -7,7 +7,6 @@ environment:
   - GHCVER: 8.4.4
   - GHCVER: 8.4.3
   - GHCVER: 8.4.2
-  - GHCVER: 8.2.2
 install:
 - cmd: >-
     git submodule update --init --recursive

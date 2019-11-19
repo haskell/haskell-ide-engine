@@ -100,7 +100,6 @@ applyRefactSpec = do
             PublishDiagnosticsParams
              { _uri = filePath
              , _diagnostics = List
-#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)))
                [Diagnostic {_range = Range { _start = Position {_line = 12, _character = 23}
                                            , _end = Position {_line = 12, _character = 100000}}
                            , _severity = Just DsInfo
@@ -108,23 +107,6 @@ applyRefactSpec = do
                            , _source = Just "hlint"
                            , _message = T.pack filePathNoUri <> ":13:24: error:\n    Operator applied to too few arguments: +\n  data instance Sing (z :: (a :~: b)) where\n>     SRefl :: Sing Refl +\n\n"
                            , _relatedInformation = Nothing }]}
-#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,2,2,0)))
-               [Diagnostic {_range = Range { _start = Position {_line = 13, _character = 0}
-                                           , _end = Position {_line = 13, _character = 100000}}
-                           , _severity = Just DsInfo
-                           , _code = Just (StringValue "parser")
-                           , _source = Just "hlint"
-                           , _message = "Parse error: virtual }\n  data instance Sing (z :: (a :~: b)) where\n      SRefl :: Sing Refl +\n> \n\n"
-                           , _relatedInformation = Nothing }]}
-#else
-               [Diagnostic {_range = Range { _start = Position {_line = 11, _character = 28}
-                                           , _end = Position {_line = 11, _character = 100000}}
-                           , _severity = Just DsInfo
-                           , _code = Just "parser"
-                           , _source = Just "hlint"
-                           , _message = "Parse error: :~:\n  import           Data.Type.Equality            ((:~:) (..), (:~~:) (..))\n  \n> data instance Sing (z :: (a :~: b)) where\n      SRefl :: Sing Refl +\n\n"
-                           , _relatedInformation = Nothing }]}
-#endif
       testCommand testPlugins act "applyrefact" "lint" arg res
 
     -- ---------------------------------

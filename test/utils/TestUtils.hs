@@ -15,6 +15,7 @@ module TestUtils
   , hieCommandExamplePlugin
   , getHspecFormattedConfig
   , testOptions
+  , flushStackEnvironment
   ) where
 
 import           Control.Concurrent.STM
@@ -52,6 +53,7 @@ testOptions = HIE.defaultOptions { cradleOptsVerbosity = Verbose }
 testCommand :: (ToJSON a, Typeable b, ToJSON b, Show b, Eq b)
             => IdePlugins -> IdeGhcM (IdeResult b) -> PluginId -> CommandName -> a -> IdeResult b -> IO ()
 testCommand testPlugins act plugin cmd arg res = do
+  flushStackEnvironment
   (newApiRes, oldApiRes) <- runIGM testPlugins $ do
     new <- act
     old <- makeRequest plugin cmd arg
@@ -150,12 +152,6 @@ stackYaml =
   "stack-8.4.3.yaml"
 #elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,2,0)))
   "stack-8.4.2.yaml"
-#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,2,2,0)))
-  "stack-8.2.2.yaml"
-#elif __GLASGOW_HASKELL__ >= 802
-  "stack-8.2.1.yaml"
-#else
-  "stack-8.0.2.yaml"
 #endif
 
 logFilePath :: String
@@ -297,3 +293,14 @@ xmlFormatter = silent {
 
 -- ---------------------------------------------------------------------
 
+flushStackEnvironment :: IO ()
+flushStackEnvironment = do
+  -- We need to clear these environment variables to prevent
+  -- collisions with stack usages
+  -- See https://github.com/commercialhaskell/stack/issues/4875
+  unsetEnv "GHC_PACKAGE_PATH"
+  unsetEnv "GHC_ENVIRONMENT"
+  unsetEnv "HASKELL_PACKAGE_SANDBOX"
+  unsetEnv "HASKELL_PACKAGE_SANDBOXES"
+
+-- ---------------------------------------------------------------------

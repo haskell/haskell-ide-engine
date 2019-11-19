@@ -634,12 +634,13 @@ reactor inp diagIn = do
 
         ReqCompletionItemResolve req -> do
           liftIO $ U.logs $ "reactor:got CompletionItemResolveRequest:" ++ show req
+          snippets <- Completions.WithSnippets <$> configVal completionSnippetsOn
           let origCompl = req ^. J.params
               callback res = do
                 let rspMsg = Core.makeResponseMessage req $ res
                 reactorSend $ RspCompletionItemResolve rspMsg
               hreq = IReq tn "completion" (req ^. J.id) callback $ runIdeResultT $ do
-                lift $ lift $ Completions.resolveCompletion origCompl
+                lift $ lift $ Completions.resolveCompletion snippets origCompl
           makeRequest hreq
 
         -- -------------------------------
@@ -950,18 +951,22 @@ syncOptions = J.TextDocumentSyncOptions
   , J._save              = Just $ J.SaveOptions $ Just False
   }
 
+-- | Create 'Language.Haskell.LSP.Core.Options'.
+-- There may need to be more options configured, depending on what handlers
+-- are registered.
+-- Consult the haskell-lsp haddocks to see all possible options.
 hieOptions :: [T.Text] -> Core.Options
 hieOptions commandIds =
   def { Core.textDocumentSync       = Just syncOptions
-      , Core.completionProvider     = Just (J.CompletionOptions (Just True) (Just ["."]))
-      , Core.typeDefinitionProvider = Just (J.GotoOptionsStatic True)
+      -- The characters that trigger completion automatically.
+      , Core.completionTriggerCharacters = Just ['.']
       -- As of 2018-05-24, vscode needs the commands to be registered
       -- otherwise they will not be available as codeActions (will be
       -- silently ignored, despite UI showing to the contrary).
       --
       -- Hopefully the end May 2018 vscode release will stabilise
       -- this, it is a major rework of the machinery anyway.
-      , Core.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List commandIds))
+      , Core.executeCommandCommands = Just commandIds
       }
 
 
