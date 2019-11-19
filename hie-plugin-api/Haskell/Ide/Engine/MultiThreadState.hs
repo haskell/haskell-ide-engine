@@ -33,8 +33,6 @@ runMTState m s = do
 class MonadIO m => MonadMTState s m | m -> s where
   readMTS :: m s
   modifyMTS :: (s -> s) -> m ()
-  writeMTS :: s -> m ()
-  writeMTS s = modifyMTS (const s)
 
 instance MonadMTState s (MultiThreadState s) where
   readMTS = readMTState
