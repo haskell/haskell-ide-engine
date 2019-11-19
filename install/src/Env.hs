@@ -8,7 +8,10 @@ import           Development.Shake.FilePath
 import           System.Info                              ( os
                                                           , arch
                                                           )
-import           Data.Maybe                               ( isJust )
+import           Data.Maybe                               ( isJust
+                                                          , isNothing
+                                                          , mapMaybe
+                                                          )
 import           System.Directory                         ( findExecutable
                                                           , findExecutables
                                                           , listDirectory
@@ -17,13 +20,13 @@ import           Data.Function                            ( (&)
                                                           , on
                                                           )
 import           Data.List                                ( sort
+                                                          , sortBy
                                                           , isInfixOf
                                                           , nubBy
                                                           )
+import           Data.Ord                                 ( comparing )
 import           Control.Monad.Extra                      ( mapMaybeM )
-import           Data.Maybe                               ( isNothing
-                                                          , mapMaybe
-                                                          )
+
 import qualified Data.Text                     as T
 
 import           Version
@@ -45,15 +48,18 @@ findInstalledGhcs = do
   hieVersions <- getHieVersions :: IO [VersionNumber]
   knownGhcs <- mapMaybeM
     (\version -> getGhcPathOf version >>= \case
-      Nothing -> return Nothing
-      Just p  -> return $ Just (version, p)
+        Nothing -> return Nothing
+        Just p  -> return $ Just (version, p)
     )
     (reverse hieVersions)
-  availableGhcs <- getGhcPaths
+  -- filter out not supported ghc versions
+  availableGhcs <- filter ((`elem` hieVersions) . fst) <$> getGhcPaths
   return
+    -- sort by version to make it coherent with getHieVersions
+    $ sortBy (comparing fst)
     -- nub by version. knownGhcs takes precedence.
     $ nubBy ((==) `on` fst)
-    -- filter out stack provided GHCs
+    -- filter out stack provided GHCs (assuming that stack programs path is the default one in linux)
     $ filter (not . isInfixOf ".stack" . snd) (knownGhcs ++ availableGhcs)
 
 -- | Get the path to a GHC that has the version specified by `VersionNumber`
@@ -63,7 +69,7 @@ findInstalledGhcs = do
 -- command fits to the desired version.
 getGhcPathOf :: MonadIO m => VersionNumber -> m (Maybe GhcPath)
 getGhcPathOf ghcVersion =
-  liftIO $ findExecutable ("ghc-" ++ ghcVersion) >>= \case
+  liftIO $ findExecutable ("ghc-" ++ ghcVersion <.> exe) >>= \case
     Nothing -> lookup ghcVersion <$> getGhcPaths
     path -> return path
 
@@ -87,7 +93,6 @@ ghcVersionNotFoundFailMsg versionNumber =
 -- | Defines all different hie versions that are buildable.
 --
 -- The current directory is scanned for `stack-*.yaml` files.
--- On windows, `8.6.3` is excluded as this version of ghc does not work there
 getHieVersions :: MonadIO m => m [VersionNumber]
 getHieVersions = do
   let stackYamlPrefix = T.pack "stack-"

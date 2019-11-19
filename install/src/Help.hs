@@ -12,13 +12,23 @@ import           Version
 import           BuildSystem
 import           Cabal
 
+stackCommand :: TargetDescription -> String
+stackCommand target = "stack install.hs " ++ fst target
+
+cabalCommand :: TargetDescription -> String
+cabalCommand target = "cabal v2-run install.hs --project-file install/shake.project " ++ fst target
+
+buildCommand :: TargetDescription -> String
+buildCommand | isRunFromCabal = cabalCommand
+             | otherwise = stackCommand
+
 printUsage :: Action ()
 printUsage = do
   printLine ""
   printLine "Usage:"
-  printLineIndented "stack install.hs <target>"
+  printLineIndented (stackCommand templateTarget)
   printLineIndented "or"
-  printLineIndented "cabal new-run install.hs --project-file install/shake.project <target>"
+  printLineIndented (cabalCommand templateTarget)
 
 -- | short help message is printed by default
 shortHelpMessage :: Action ()
@@ -35,7 +45,7 @@ shortHelpMessage = do
     [ ("help", "Show help message including all targets")
     , emptyTarget
     , buildTarget
-    , buildAllTarget
+    , buildLatestTarget
     , hieTarget $ last hieVersions
     , buildDataTarget
     , cabalGhcsTarget
@@ -76,12 +86,12 @@ helpMessage versions@BuildableVersions {..} = do
   -- All targets with their respective help message.
   generalTargets = [helpTarget]
 
-  defaultTargets = [buildTarget, buildAllTarget, buildDataTarget]
+  defaultTargets = [buildTarget, buildLatestTarget, buildDataTarget]
     ++ map hieTarget (getDefaultBuildSystemVersions versions)
 
   stackTargets =
     [ stackTarget buildTarget
-      , stackTarget buildAllTarget
+      , stackTarget buildLatestTarget
       , stackTarget buildDataTarget
       ]
       ++ (if isRunFromStack then [stackTarget installCabalTarget] else [])
@@ -90,7 +100,7 @@ helpMessage versions@BuildableVersions {..} = do
   cabalTargets =
     [ cabalGhcsTarget
       , cabalTarget buildTarget
-      , cabalTarget buildAllTarget
+      , cabalTarget buildLatestTarget
       , cabalTarget buildDataTarget
       ]
       ++ map (cabalTarget . hieTarget) cabalVersions
@@ -98,6 +108,9 @@ helpMessage versions@BuildableVersions {..} = do
 -- | Empty target. Purpose is to introduce a newline between the targets
 emptyTarget :: (String, String)
 emptyTarget = ("", "")
+
+templateTarget :: (String, String)
+templateTarget = ("<target>", "")
 
 targetWithBuildSystem :: String -> TargetDescription -> TargetDescription
 targetWithBuildSystem system (target, description) =
@@ -114,17 +127,16 @@ hieTarget version =
   ("hie-" ++ version, "Builds hie for GHC version " ++ version)
 
 buildTarget :: TargetDescription
-buildTarget = ("build", "Builds hie with all installed GHCs")
+buildTarget = ("build", "Build hie with the latest available GHC and the data files")
+
+buildLatestTarget :: TargetDescription
+buildLatestTarget = ("build-latest", "Build hie with the latest available GHC")
 
 buildDataTarget :: TargetDescription
 buildDataTarget =
   ("build-data", "Get the required data-files for `hie` (Hoogle DB)")
 
-buildAllTarget :: TargetDescription
-buildAllTarget =
-  ("build-all", "Builds hie for all installed GHC versions and the data files")
-
--- speical targets
+-- special targets
 
 macosIcuTarget :: TargetDescription
 macosIcuTarget = ("icu-macos-fix", "Fixes icu related problems in MacOS")
@@ -135,13 +147,15 @@ helpTarget = ("help", "Show help message including all targets")
 cabalGhcsTarget :: TargetDescription
 cabalGhcsTarget =
   ( "cabal-ghcs"
-  , "Show all GHC versions that can be installed via `cabal-build` and `cabal-build-all`."
+  , "Show all GHC versions that can be installed via `cabal-build`."
   )
 
 installCabalTarget :: TargetDescription
 installCabalTarget =
   ( "install-cabal"
-  , "Install the cabal executable. It will install the required minimum version for hie (currently " ++ versionToString requiredCabalVersion ++ ") if it isn't already present in $PATH"
+  , "Install the cabal executable. It will install the required minimum version for hie (currently "
+  ++ versionToString requiredCabalVersion
+  ++ ") if it isn't already present in $PATH"
   )
 
 -- | Creates a message of the form "a, b, c and d", where a,b,c,d are GHC versions.

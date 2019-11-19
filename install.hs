@@ -14,6 +14,7 @@ build-depends:
 -- * `stack install.hs <target>`
 
 -- TODO: set `shake.project` in cabal-config above, when supported
+-- (see https://github.com/haskell/cabal/issues/6353)
 
 import HieInstall (defaultMain)
 
