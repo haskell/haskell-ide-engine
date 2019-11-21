@@ -328,14 +328,14 @@ ghcDispatcher env@DispatcherEnv { docVersionTVar } errorHandler callbackHandler 
 
     let
       runner :: a -> IdeGhcM a -> IdeGhcM (IdeResult  a)
-      runner d act = case context of
-        Nothing  -> runActionWithContext iniDynFlags Nothing d act
+      runner a act = case context of
+        Nothing  -> runActionWithContext iniDynFlags Nothing a act
         Just uri -> case uriToFilePath uri of
-          Just fp -> runActionWithContext iniDynFlags (Just fp) d act
+          Just fp -> runActionWithContext iniDynFlags (Just fp) a act
           Nothing -> do
             debugm
               "ghcDispatcher:Got malformed uri, running action with default context"
-            runActionWithContext iniDynFlags Nothing d act
+            runActionWithContext iniDynFlags Nothing a act
 
     let
       runWithCallback = do
