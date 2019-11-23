@@ -46,7 +46,6 @@ we talk to clients.__
     - [Using HIE with Atom](#using-hie-with-atom)
     - [Using HIE with Emacs](#using-hie-with-emacs)
     - [Using HIE with Spacemacs](#using-hie-with-spacemacs)
-    - [Using HIE with Spacemacs on Nix Based Projects](#using-hie-with-spacemacs-on-nix-based-projects)
     - [Using HIE with Oni](#using-hie-with-oni)
   - [Docs on hover/completion](#docs-on-hovercompletion)
   - [Contributing](#contributing)
@@ -493,42 +492,13 @@ Install HIE, and then add the following to your `.spacemacs` config,
    ;; ...
    dotspacemacs-configuration-layers
    '(
+     (haskell :variables haskell-completion-backend 'lsp)
      lsp
-     (haskell :variables ;; Or optionally just haskell without the variables.
-              haskell-completion-backend 'ghci
-              haskell-process-type 'stack-ghci)
      )
-   dotspacemacs-additional-packages '(
-      (lsp-haskell :location (recipe :fetcher github :repo "emacs-lsp/lsp-haskell"))
-      )
-    ;; ...
     ))
 ```
 
-and then activate [`lsp-haskell`](https://github.com/emacs-lsp/lsp-haskell) in your `user-config` section,
-
-```lisp
-(defun dotspacemacs/user-config ()
-  "..."
-  (setq lsp-haskell-process-path-hie "hie-wrapper")
-  (require 'lsp-haskell)
-  (add-hook 'haskell-mode-hook #'lsp)
-  )
-```
-
-Now you should be able to use HIE in Spacemacs. I still recommend checking out [lsp-ui](https://github.com/emacs-lsp/lsp-ui) and [lsp-mode](https://github.com/emacs-lsp/lsp-mode).
-
-### Using HIE with Spacemacs on Nix Based Projects
-
-If you use HIE with spacemacs on nix-built haskell projects, you may want to try
-out [this spacemacs layer](https://github.com/benkolera/spacemacs-hie-nix). It
-has installation instructions which includes a nix expression to install
-everything that hie needs in your environment. It wraps the hie binary calls to
-use nix-sandbox to find the closest ancestor directory that has nixfiles.
-
-It is still pretty new and may change drastically as the author understands the
-lsp, lsp-ui, lsp-haskell, hie stack a bit better. PRs and feedback are very
-welcome on the layer's repo if you find it useful and/or lacking in some way.
+Now you should be able to use HIE in Spacemacs.
 
 ### Using HIE with Oni
 
