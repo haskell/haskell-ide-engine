@@ -40,7 +40,7 @@ toMessager hsc_env mod_index recomp mod_summary =
                 ++ reason
 -}
 
--- Handles for each type of error that ghc can throw
+-- Handlers for each type of error that ghc can throw
 errorHandlers :: (String -> m a) -> (HscTypes.SourceError -> m a) -> [ErrorHandler m a]
 errorHandlers onGhcError onSourceError = handlers
   where
