@@ -220,7 +220,7 @@ For brevity, only the `stack`-based commands are presented in the following sect
 
 Although you can use hie for stack based projects (those which have a `stack.yaml` in the project base directory) without having cabal installed, you will need it for cabal based projects (with only a `<projectName>.cabal` file or a `cabal.project` one in the project base directory).
 
-You can install an appropiate cabal version using stack by running:
+You can install an appropriate cabal version using stack by running:
 
 ```bash
 stack ./install.hs stack-install-cabal
