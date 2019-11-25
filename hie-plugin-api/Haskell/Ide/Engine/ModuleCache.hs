@@ -181,7 +181,9 @@ loadCradle iniDynFlags (NewCradle fp) def action = do
         liftIO $ setCurrentDirectory (BIOS.cradleRootDir cradle)
 
         let onGhcError = return . Left
-        let onSourceError = const . return $ Right ()
+        let onSourceError srcErr = do
+              logm $ "Source error on cradle initialisation: " ++ show srcErr
+              return $ Right ()
         -- We continue setting the cradle in case the file has source errors
         -- cause they will be reported to user by diagnostics
         init_res <- gcatches 
@@ -202,6 +204,7 @@ loadCradle iniDynFlags (NewCradle fp) def action = do
             -- `.hi` files will be saved.
           Right () -> do
             setCurrentCradle cradle
+            logm $ "Cradle set succesfully"
             IdeResultOk <$> action
 
 -- | Sets the current cradle for caching.
