@@ -1,4 +1,4 @@
--- | This module provides an API that software intented to be
+-- | This module provides an API that software intended to be
 -- integrated into HIE can use, so that they can make use of the
 -- shared BIOS features.
 
