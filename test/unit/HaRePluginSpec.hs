@@ -11,6 +11,7 @@ import           Data.Aeson
 import qualified Data.Map                      as M
 import qualified Data.HashMap.Strict           as H
 import           Haskell.Ide.Engine.Ghc
+import           Haskell.Ide.Engine.PluginApi
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Plugin.HaRe
@@ -21,7 +22,6 @@ import           Language.Haskell.LSP.Types     ( Location(..)
 import           System.Directory
 import           System.FilePath
 import           TestUtils
-import GhcMonad
 import           Test.Hspec
 
 -- ---------------------------------------------------------------------
@@ -57,6 +57,8 @@ runWithContext uri act = case uriToFilePath uri of
       IdeResultOk a -> return a
       IdeResultFail err -> error $ "Could not run in context: " ++ show err
   Nothing -> error $ "uri not valid: " ++ show uri
+
+-- ---------------------------------------------------------------------
 
 hareSpec :: Spec
 hareSpec = do

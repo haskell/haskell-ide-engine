@@ -328,6 +328,7 @@ ghcDispatcher env@DispatcherEnv { docVersionTVar } errorHandler callbackHandler 
 
     let
       runner :: a -> IdeGhcM a -> IdeGhcM (IdeResult  a)
+
       runner a act = case context of
         Nothing  -> runActionWithContext iniDynFlags Nothing a act
         Just uri -> case uriToFilePath uri of

@@ -106,6 +106,7 @@ runActionWithContext df (Just uri) def action = do
   mcradle <- getCradle uri
   loadCradle df mcradle def action
 
+-- ---------------------------------------------------------------------
 
 -- | Load the Cradle based on the given DynFlags and Cradle lookup Result.
 -- Reuses a Cradle if possible and sets up a GHC session for a new Cradle

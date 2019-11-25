@@ -57,7 +57,7 @@ import           Language.Haskell.LSP.VFS
 import           Language.Haskell.LSP.Types.Capabilities
 import qualified Language.Haskell.LSP.Types            as J
 import           Prelude                               hiding (log)
-import           SrcLoc
+import           SrcLoc (SrcSpan(..), RealSrcSpan(..))
 import           Exception
 import           System.Directory
 import           System.FilePath
