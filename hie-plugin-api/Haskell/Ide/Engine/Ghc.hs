@@ -13,7 +13,6 @@ module Haskell.Ide.Engine.Ghc
   , AdditionalErrs
   , cabalModuleGraphs
   , makeRevRedirMapFunc
-  , errorHandlers
   ) where
 
 import Debug.Trace
