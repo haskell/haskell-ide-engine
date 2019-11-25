@@ -1,7 +1,6 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE LambdaCase          #-}
 -- | This module provides the interface to GHC, mainly for loading
@@ -14,6 +13,7 @@ module Haskell.Ide.Engine.Ghc
   , AdditionalErrs
   , cabalModuleGraphs
   , makeRevRedirMapFunc
+  , errorHandlers
   ) where
 
 import Debug.Trace
@@ -37,7 +37,6 @@ import           Haskell.Ide.Engine.PluginUtils
 
 import           DynFlags
 import           GHC
-import           IOEnv                             as G
 import qualified HscTypes
 import           Outputable                        (renderWithStyle)
 import           Language.Haskell.LSP.Types        ( NormalizedUri(..), toNormalizedUri )
@@ -51,7 +50,6 @@ import           Outputable hiding ((<>))
 -- to do with BIOS
 import qualified HIE.Bios.Ghc.Api as BIOS (withDynFlags, setDeferTypeErrors)
 import qualified HIE.Bios.Ghc.Load as BIOS
-import qualified HIE.Bios.Flags as BIOS (CradleError)
 
 import System.Directory
 
@@ -198,28 +196,6 @@ logDiag rfm eref dref df reason sev spn style msg = do
           debugm $ "Writing err " <> (show msgTxt)
           modifyIORef' eref (msgTxt:)
           return ()
-
-
-errorHandlers :: (String -> m a) -> (HscTypes.SourceError -> m a) -> [ErrorHandler m a]
-errorHandlers ghcErrRes renderSourceError = handlers
-  where
-      -- ghc throws GhcException, SourceError, GhcApiError and
-      -- IOEnvFailure. hie-bios throws CradleError.
-      handlers =
-        [ ErrorHandler $ \(ex :: IOEnvFailure) ->
-            ghcErrRes (show ex)
-        , ErrorHandler $ \(ex :: HscTypes.GhcApiError) ->
-            ghcErrRes (show ex)
-        , ErrorHandler $ \(ex :: HscTypes.SourceError) ->
-            renderSourceError ex
-        , ErrorHandler $ \(ex :: IOError) ->
-            ghcErrRes (show ex)
-        , ErrorHandler $ \(ex :: BIOS.CradleError) ->
-            ghcErrRes (show ex)
-        , ErrorHandler $ \(ex :: GhcException) ->
-            ghcErrRes (showGhcException ex "")
-        ]
-
 
 -- | Load a module from a filepath into the cache, first check the cache
 -- to see if it's already there.

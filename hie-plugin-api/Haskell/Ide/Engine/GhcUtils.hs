@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 module Haskell.Ide.Engine.GhcUtils where
 
 import qualified Language.Haskell.LSP.Core as Core
@@ -5,7 +6,13 @@ import qualified Language.Haskell.LSP.Core as Core
 import qualified HscMain as G
 import           Module
 import           HscTypes
+import           GHC
+import           IOEnv   as G
 import qualified Data.Text as T
+
+import qualified HIE.Bios.Flags as BIOS (CradleError)
+
+import           Haskell.Ide.Engine.PluginUtils (ErrorHandler(..))
 
 -- Convert progress continuation to a messager
 toMessager :: (Core.Progress -> IO ()) -> G.Messager
@@ -32,3 +39,24 @@ toMessager hsc_env mod_index recomp mod_summary =
                               (recompileRequired recomp) mod_summary)
                 ++ reason
 -}
+
+-- Handles for each type of error that ghc can throw
+errorHandlers :: (String -> m a) -> (HscTypes.SourceError -> m a) -> [ErrorHandler m a]
+errorHandlers onGhcError onSourceError = handlers
+  where
+      -- ghc throws GhcException, SourceError, GhcApiError and
+      -- IOEnvFailure. hie-bios throws CradleError.
+      handlers =
+        [ ErrorHandler $ \(ex :: IOEnvFailure) ->
+            onGhcError (show ex)
+        , ErrorHandler $ \(ex :: GhcApiError) ->
+            onGhcError (show ex)
+        , ErrorHandler $ \(ex :: SourceError) ->
+            onSourceError ex
+        , ErrorHandler $ \(ex :: IOError) ->
+            onGhcError (show ex)
+        , ErrorHandler $ \(ex :: BIOS.CradleError) ->
+            onGhcError (show ex)
+        , ErrorHandler $ \(ex :: GhcException) ->
+            onGhcError (showGhcException ex "")
+        ]
