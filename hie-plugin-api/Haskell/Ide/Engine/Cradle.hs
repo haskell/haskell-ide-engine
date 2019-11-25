@@ -16,6 +16,7 @@ import           Distribution.Helper (Package, projectPackages, pUnits,
                                       ChEntrypoint(..))
 import           Distribution.Helper.Discover (findProjects, getDefaultDistDir)
 import           Data.Function ((&))
+import           Data.List (isPrefixOf)
 import qualified Data.List.NonEmpty as NonEmpty
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.Map as M
@@ -378,6 +379,20 @@ cabalHelperCradle file = do
                                     }
                    }
     where
+
+      -- | Fix occurrences of "-i." to "-i<cradle-root-dir>"
+      -- Flags obtained from cabal-helper are relative to the package
+      -- source directory. This is less resilient to using absolute paths,
+      -- thus, we fix it here.
+      fixImportDirs :: FilePath -> String -> String
+      fixImportDirs base_dir arg =
+        if "-i" `isPrefixOf` arg
+          then let dir = drop 2 arg
+          -- the flag "-i" has special meaning.
+          in if not (null dir) && isRelative dir then ("-i" ++ base_dir </> dir)
+                                    else arg
+          else arg
+          
       -- | cradle Action to query for the ComponentOptions that are needed
       -- to load the given FilePath.
       -- This Function is not supposed to throw any exceptions and use
@@ -398,7 +413,8 @@ cabalHelperCradle file = do
         getComponent env (toList units) relativeFp
           >>= \case
             Just comp -> do
-              let fs = getFlags comp
+              let fs' = getFlags comp
+              let fs = map (fixImportDirs root) fs'
               let targets = getTargets comp relativeFp
               let ghcOptions = fs ++ targets
               debugm $ "Flags for \"" ++ fp ++ "\": " ++ show ghcOptions
