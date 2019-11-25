@@ -179,12 +179,18 @@ loadCradle iniDynFlags (NewCradle fp) def action = do
         -- while 'f' is still valid.
         liftIO (GHC.newHscEnv iniDynFlags) >>= GHC.setSession
         liftIO $ setCurrentDirectory (BIOS.cradleRootDir cradle)
-        init_res <- gcatches (Right <$> init_session)
-                [ErrorHandler (\(ex :: GHC.GhcException)
-                  -> return $ Left (GHC.showGhcException ex ""))]
+
+        let onGhcError = return . Left
+        let onSourceError = const . return $ Right ()
+        -- We continue setting the cradle in case the file has source errors
+        -- cause they will be reported to user by diagnostics
+        init_res <- gcatches 
+                      (Right <$> init_session)
+                      (errorHandlers onGhcError onSourceError)
+ 
         case init_res of
           Left err -> do
-            logm $ "GhcException on cradle initialisation: " ++ show err
+            logm $ "Ghc error on cradle initialisation: " ++ show err
             return $ IdeResultFail $ IdeError
               { ideCode    = OtherError
               , ideMessage = Text.pack $ show err
