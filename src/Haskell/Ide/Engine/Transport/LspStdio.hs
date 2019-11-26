@@ -68,7 +68,6 @@ import           System.Directory (getCurrentDirectory)
 import           System.FilePath ((</>))
 import           System.Exit
 import qualified System.Log.Logger                       as L
-import qualified Data.Rope.UTF16                         as Rope
 import GHC.Conc
 
 -- ---------------------------------------------------------------------
@@ -796,7 +795,7 @@ withDocumentContents reqId uri f = do
         (J.responseId reqId)
         J.InvalidRequest
         "Document was not open"
-    Just (VFS.VirtualFile _ txt) -> f (Rope.toText txt)
+    Just vf -> f (VFS.virtualFileText vf)
 
 -- | Get the currently configured formatter provider.
 -- The currently configured formatter provider is defined in @Config@ by PluginId.

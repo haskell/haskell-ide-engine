@@ -61,7 +61,6 @@ import           SrcLoc (SrcSpan(..), RealSrcSpan(..))
 import           Exception
 import           System.Directory
 import           System.FilePath
-import qualified Data.Rope.UTF16 as Rope
 
 -- ---------------------------------------------------------------------
 
@@ -279,7 +278,7 @@ readVFS :: (MonadIde m, MonadIO m) => Uri -> m (Maybe T.Text)
 readVFS uri = do
   mvf <- getVirtualFile uri
   case mvf of
-    Just (VirtualFile _ txt) -> return $ Just (Rope.toText txt)
+    Just vf -> return $ Just (virtualFileText vf)
     Nothing -> return Nothing
 
 getRangeFromVFS :: (MonadIde m, MonadIO m) => Uri -> Range -> m (Maybe T.Text)

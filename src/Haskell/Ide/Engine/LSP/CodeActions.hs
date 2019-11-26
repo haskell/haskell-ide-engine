@@ -32,7 +32,7 @@ handleCodeActionReq :: TrackingNumber -> J.CodeActionRequest -> R ()
 handleCodeActionReq tn req = do
 
   vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
-  docVersion <- fmap _version <$> liftIO (vfsFunc (J.toNormalizedUri docUri))
+  docVersion <- fmap virtualFileVersion <$> liftIO (vfsFunc (J.toNormalizedUri docUri))
   let docId = J.VersionedTextDocumentIdentifier docUri docVersion
 
   let getProvider p = pluginCodeActionProvider p <*> return (pluginId p)

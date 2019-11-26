@@ -66,7 +66,6 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , persistVirtualFile
   , persistVirtualFile'
   , getPersistedFile
-  , getPersistedFile'
   , reverseFileMap
   , withMappedFile
   , Core.Progress(..)
@@ -407,34 +406,17 @@ getVirtualFile uri = do
     Nothing -> return Nothing
 
 -- | Persist a virtual file as a temporary file in the filesystem.
--- If the virtual file associated to the given uri does not exist, an error
--- is thrown.
---
--- This is useful to not directly operate on the real sources.
---
--- Note: Due to this unsafe nature, it is very susceptible to races.
--- E.g. when the document is closed, but a code action wants to operate
--- on the closed file and tries to use this function to access the file contents,
--- it will fail.
--- Prefer 'getPersistedFile' and 'getPersistedFile'' which is more thread-safe.
+-- If the virtual file associated to the given URI does not exist then
+-- the FilePath parsed from the URI is returned.
 persistVirtualFile :: (MonadIde m, MonadIO m) => Uri -> m FilePath
-persistVirtualFile uri = do
-  mlf <- ideEnvLspFuncs <$> getIdeEnv
-  case mlf of
-    Just lf -> liftIO $ persistVirtualFile' lf uri
-    Nothing -> maybe (error "persist") return (uriToFilePath uri)
+persistVirtualFile uri = fromMaybe (error "persist")  <$> getPersistedFile uri
 
 -- | Worker function for persistVirtualFile without monad constraints.
 --
 -- Persist a virtual file as a temporary file in the filesystem.
--- If the virtual file associated to the given uri does not exist, an error
--- is thrown.
--- Note: Due to this unsafe nature, it is very susceptible to races.
--- E.g. when the document is closed, but a code action wants to operate
--- on the closed file and tries to use this function to access the file contents,
--- it will fail.
--- Prefer 'getPersistedFile' and 'getPersistedFile'' which is more thread-safe.
-persistVirtualFile' :: Core.LspFuncs Config -> Uri -> IO FilePath
+-- If the virtual file associated to the given uri does not exist, Nothing
+-- is returned.
+persistVirtualFile' :: Core.LspFuncs Config -> Uri -> IO (Maybe FilePath)
 persistVirtualFile' lf uri = Core.persistVirtualFileFunc lf (toNormalizedUri uri)
 
 reverseFileMap :: (MonadIde m, MonadIO m) => m (FilePath -> FilePath)
@@ -444,34 +426,18 @@ reverseFileMap = do
       Just lf -> liftIO $ Core.reverseFileMapFunc lf
       Nothing -> return id
 
--- | Worker function for getPersistedFile without monad constraints.
---
--- Get the location of the virtual file persisted to the file system associated
--- to the given Uri.
--- If the virtual file does exist but is not persisted to the filesystem yet,
--- it will be persisted. However, this is susceptible to the same race as 'persistVirtualFile',
--- but less likely to throw an error and rather give Nothing.
-getPersistedFile' :: Core.LspFuncs Config -> Uri -> IO (Maybe FilePath)
-getPersistedFile' lf uri =
-    Just <$> persistVirtualFile' lf uri
-
 -- | Get the location of the virtual file persisted to the file system associated
 -- to the given Uri.
--- If the virtual file does exist but is not persisted to the filesystem yet,
--- it will be persisted. However, this is susceptible to the same race as 'persistVirtualFile',
--- but less likely to throw an error and rather give Nothing.
 getPersistedFile :: (MonadIde m, MonadIO m) => Uri -> m (Maybe FilePath)
 getPersistedFile uri = do
   mlf <- ideEnvLspFuncs <$> getIdeEnv
   case mlf of
-    Just lf -> liftIO $ getPersistedFile' lf uri
+    Just lf -> liftIO $ persistVirtualFile' lf uri
     Nothing -> return $ uriToFilePath uri
 
 -- | Execute an action on the temporary file associated to the given FilePath.
 -- If the file is not in the current Virtual File System, the given action is not executed
 -- and instead returns the default value.
--- Susceptible to a race between removing the Virtual File from the Virtual File System
--- and trying to persist the Virtual File to the File System.
 withMappedFile :: (MonadIde m, MonadIO m) => FilePath -> m a -> (FilePath -> m a) -> m a
 withMappedFile fp m k = do
   canon <- liftIO $ canonicalizePath fp
