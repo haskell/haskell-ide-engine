@@ -18,6 +18,7 @@ cache:
   - $HOME/.stack
   - $HOME/.cabal/
   - $HOME/.local/bin
+  - $TRAVIS_BUILD_DIR/../.stack-work
   - $TRAVIS_BUILD_DIR/.stack-work
   - $TRAVIS_BUILD_DIR/submodules/brittany/.stack-work
   - $TRAVIS_BUILD_DIR/submodules/HaRe/.stack-work
@@ -34,8 +35,11 @@ before_cache:
 stages:
   - setup
   - some_dependencies
+  - some_more_dependencies
   - dependencies
   - build
+  - some_test_dependencies
+  - some_more_test_dependencies
   - test
 
 jobs:
@@ -104,7 +108,7 @@ jobs:
        - export PATH=$HOME/.local/bin:$PATH
        - ls .stack-work/install/*/*/*/bin/hie || true
        # Build some dependencies to offload the next stage from doing too much work
-       - travis_retry stack --stack-yaml=stack-$GHC_VER.yaml build lens aeson alex conduit x509 tls haskell-lexer Strafunski-StrategyLib HaRe streaming-commons
+       - travis_retry stack --stack-yaml=stack-$GHC_VER.yaml build x509 tls haskell-lexer Strafunski-StrategyLib HaRe streaming-commons
 
    - stage: some_dependencies
      os: linux
@@ -147,6 +151,58 @@ jobs:
      dist: bionic
      env: GHC_VER="8.6.5"
      script: *some_dependencies
+
+   - stage: some_more_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.2"
+     script: &some_more_dependencies
+       - export PATH=$HOME/.local/bin:$PATH
+       - ls .stack-work/install/*/*/*/bin/hie || true
+       # Build some dependencies to offload the next stage from doing too much work
+       - travis_retry stack --stack-yaml=stack-$GHC_VER.yaml build lens aeson alex
+
+   - stage: some_more_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.3"
+     script: *some_more_dependencies
+
+   - stage: some_more_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.4"
+     script: *some_more_dependencies
+
+   - stage: some_more_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.1"
+     script: *some_more_dependencies
+
+   - stage: some_more_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.2"
+     script: *some_more_dependencies
+
+   - stage: some_more_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.3"
+     script: *some_more_dependencies
+
+   - stage: some_more_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.4"
+     script: *some_more_dependencies
+
+   - stage: some_more_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.5"
+     script: *some_more_dependencies
 
    - stage: dependencies
      os: linux
@@ -249,12 +305,119 @@ jobs:
      env: GHC_VER="8.6.5"
      script: *build
 
+   - stage: some_test_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.2"
+     script: &testdependencies
+       - export PATH=$HOME/.local/bin:$PATH
+       - cd ..
+       - stack build --resolver=lts-14.15 liquid-fixpoint-0.8.0.2 liquidhaskell-0.8.6.2
+
+   - stage: some_test_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.3"
+     script: *testdependencies
+
+   - stage: some_test_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.4"
+     script: *testdependencies
+
+   - stage: some_test_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.1"
+     script: *testdependencies
+
+   - stage: some_test_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.2"
+     script: *testdependencies
+
+   - stage: some_test_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.3"
+     script: *testdependencies
+
+   - stage: some_test_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.4"
+     script: *testdependencies
+
+   - stage: some_test_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.5"
+     script: *testdependencies
+
+   - stage: some_more_test_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.2"
+     script: &moretestdependencies
+       - export PATH=$HOME/.local/bin:$PATH
+       - cd ..
+       - stack install --resolver=lts-14.15 liquid-fixpoint-0.8.0.2 liquidhaskell-0.8.6.2
+       - cd $TRAVIS_BUILD_DIR
+       - travis_wait stack --no-terminal --stack-yaml=stack-$GHC_VER.yaml --no-run-tests test
+
+   - stage: some_more_test_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.3"
+     script: *moretestdependencies
+
+   - stage: some_more_test_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.4.4"
+     script: *moretestdependencies
+
+   - stage: some_more_test_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.1"
+     script: *moretestdependencies
+
+   - stage: some_more_test_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.2"
+     script: *moretestdependencies
+
+   - stage: some_more_test_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.3"
+     script: *moretestdependencies
+
+   - stage: some_more_test_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.4"
+     script: *moretestdependencies
+
+   - stage: some_more_test_dependencies
+     os: linux
+     dist: bionic
+     env: GHC_VER="8.6.5"
+     script: *moretestdependencies
+
    - stage: test
      os: linux
      dist: bionic
      env: GHC_VER="8.4.2"
      script: &test
        - export PATH=$HOME/.local/bin:$PATH
+       - cd ..
+       - stack install --resolver=lts-14.15 liquid-fixpoint-0.8.0.2 liquidhaskell-0.8.6.2
+       - cd $TRAVIS_BUILD_DIR
        - stack --no-terminal --stack-yaml=stack-$GHC_VER.yaml test
 
    - stage: test
@@ -402,6 +565,54 @@ jobs:
      env: GHC_VER="8.6.5"
      script: *some_dependencies
 
+   - stage: some_more_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.2"
+     script: *some_more_dependencies
+
+   - stage: some_more_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.3"
+     script: *some_more_dependencies
+
+   - stage: some_more_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.4"
+     script: *some_more_dependencies
+
+   - stage: some_more_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.1"
+     script: *some_more_dependencies
+
+   - stage: some_more_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.2"
+     script: *some_more_dependencies
+
+   - stage: some_more_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.3"
+     script: *some_more_dependencies
+
+   - stage: some_more_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.4"
+     script: *some_more_dependencies
+
+   - stage: some_more_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.5"
+     script: *some_more_dependencies
+
    - stage: dependencies
      os: osx
      osx_image: xcode11.2
@@ -497,6 +708,102 @@ jobs:
      osx_image: xcode11.2
      env: GHC_VER="8.6.5"
      script: *build
+
+   - stage: some_test_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.2"
+     script: *testdependencies
+
+   - stage: some_test_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.3"
+     script: *testdependencies
+
+   - stage: some_test_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.4"
+     script: *testdependencies
+
+   - stage: some_test_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.1"
+     script: *testdependencies
+
+   - stage: some_test_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.2"
+     script: *testdependencies
+
+   - stage: some_test_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.3"
+     script: *testdependencies
+
+   - stage: some_test_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.4"
+     script: *testdependencies
+
+   - stage: some_test_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.5"
+     script: *testdependencies
+
+   - stage: some_more_test_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.2"
+     script: *moretestdependencies
+
+   - stage: some_more_test_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.3"
+     script: *moretestdependencies
+
+   - stage: some_more_test_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.4.4"
+     script: *moretestdependencies
+
+   - stage: some_more_test_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.1"
+     script: *moretestdependencies
+
+   - stage: some_more_test_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.2"
+     script: *moretestdependencies
+
+   - stage: some_more_test_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.3"
+     script: *moretestdependencies
+
+   - stage: some_more_test_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.4"
+     script: *moretestdependencies
+
+   - stage: some_more_test_dependencies
+     os: osx
+     osx_image: xcode11.2
+     env: GHC_VER="8.6.5"
+     script: *moretestdependencies
 
    - stage: test
      os: osx
