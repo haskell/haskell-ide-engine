@@ -168,7 +168,7 @@ sudo apt install libicu-dev libtinfo-dev libgmp-dev
 **Fedora**:
 
 ```bash
-sudo dnf install libicu-devel ncurses-devel
+sudo dnf install libicu-devel ncurses-devel # also zlib-devel if not already installed
 ```
 
 #### Windows-specific pre-requirements
