@@ -271,7 +271,7 @@ codeActionProvider :: CodeActionProvider
 codeActionProvider plId docId _ context = do
   let J.List diags = context ^. J.diagnostics
       terms        = mapMaybe getImportables diags
-  -- Search for the given diagnostics and produce appropiate import actions.
+  -- Search for the given diagnostics and produce appropriate import actions.
   actions <- importActionsForTerms Exact terms
 
   if null actions
@@ -288,7 +288,7 @@ codeActionProvider plId docId _ context = do
   -- e.g. instead of `take :: Int -> [a] -> [a]` use `take` as the search term.
   --
   -- List of Diagnostics with the associated term to look for.
-  -- Diagnostic that is supposed to import the appropiate term.
+  -- Diagnostic that is supposed to import the appropriate term.
   --
   -- Result may produce several import actions, or none.
   importActionsForTerms

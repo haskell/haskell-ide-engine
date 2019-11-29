@@ -31,20 +31,29 @@ cabalBuildData = do
   execCabal_ ["v2-build", "hoogle"]
   execCabal_ ["v2-exec", "hoogle", "generate"]
 
-cabalBuildHie :: VersionNumber -> Action ()
-cabalBuildHie versionNumber = do
-  ghcPath <- getGhcPathOf versionNumber >>= \case
+getGhcPathOfOrThrowError :: VersionNumber -> Action GhcPath
+getGhcPathOfOrThrowError versionNumber = 
+  getGhcPathOf versionNumber >>= \case
     Nothing -> do
       printInStars $ ghcVersionNotFoundFailMsg versionNumber
       error (ghcVersionNotFoundFailMsg versionNumber)
     Just p -> return p
+
+cabalBuildHie :: VersionNumber -> Action ()
+cabalBuildHie versionNumber = do
+  ghcPath <- getGhcPathOfOrThrowError versionNumber
   execCabal_
-    ["v2-build", "-w", ghcPath, "--write-ghc-environment-files=never", "--max-backjumps=5000", "--disable-tests"]
+    [ "v2-build"
+    , "-w", ghcPath
+    , "--write-ghc-environment-files=never"
+    , "--max-backjumps=5000"
+    , "--disable-tests"]
 
 cabalInstallHie :: VersionNumber -> Action ()
 cabalInstallHie versionNumber = do
   localBin <- getLocalBin
   cabalVersion <- getCabalVersion
+  ghcPath <- getGhcPathOfOrThrowError versionNumber
 
   let isCabal3 = checkVersion [3,0,0,0] cabalVersion
       installDirOpt | isCabal3 = "--installdir"
@@ -53,8 +62,9 @@ cabalInstallHie versionNumber = do
                     | otherwise = []
   execCabal_ $
     [ "v2-install"
+    , "-w", ghcPath
     , "--write-ghc-environment-files=never"
-    , installDirOpt ++ "=" ++ localBin
+    , installDirOpt, localBin
     , "exe:hie"
     , "--overwrite-policy=always"
     ]

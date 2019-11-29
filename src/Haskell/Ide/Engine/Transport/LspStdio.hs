@@ -100,7 +100,7 @@ data DiagnosticsRequest = DiagnosticsRequest
     -- ^ The current version of the document at the time of this request
   }
 
--- | Represents the most recent occurance of a certin event. We use this
+-- | Represents the most recent occurrence of a certin event. We use this
 -- to diagnostics requests and only dispatch the most recent one.
 newtype MostRecent a = MostRecent a
 
@@ -219,8 +219,8 @@ mapFileFromVfs tn vtdi = do
   vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
   mvf <- liftIO $ vfsFunc (J.toNormalizedUri uri)
   case (mvf, uriToFilePath uri) of
-    (Just (VFS.VirtualFile _ yitext _), Just fp) -> do
-      let text' = Rope.toString yitext
+    (Just (VFS.VirtualFile _ rope), Just fp) -> do
+      let text' = Rope.toString rope
           -- text = "{-# LINE 1 \"" ++ fp ++ "\"#-}\n" <> text'
       let req = GReq tn (Just uri) Nothing Nothing (const $ return ())
                   $ IdeResultOk <$> do
@@ -798,7 +798,7 @@ withDocumentContents reqId uri f = do
         (J.responseId reqId)
         J.InvalidRequest
         "Document was not open"
-    Just (VFS.VirtualFile _ txt _) -> f (Rope.toText txt)
+    Just (VFS.VirtualFile _ txt) -> f (Rope.toText txt)
 
 -- | Get the currently configured formatter provider.
 -- The currently configured formatter provider is defined in @Config@ by PluginId.
@@ -963,19 +963,22 @@ syncOptions = J.TextDocumentSyncOptions
   , J._save              = Just $ J.SaveOptions $ Just False
   }
 
+-- | Create 'Language.Haskell.LSP.Core.Options'.
+-- There may need to be more options configured, depending on what handlers
+-- are registered.
+-- Consult the haskell-lsp haddocks to see all possible options.
 hieOptions :: [T.Text] -> Core.Options
 hieOptions commandIds =
   def { Core.textDocumentSync       = Just syncOptions
-      , Core.completionProvider     = Just (J.CompletionOptions (Just True) (Just ["."]))
+      -- The characters that trigger completion automatically.
+      , Core.completionTriggerCharacters = Just ['.']
       -- As of 2018-05-24, vscode needs the commands to be registered
       -- otherwise they will not be available as codeActions (will be
       -- silently ignored, despite UI showing to the contrary).
       --
       -- Hopefully the end May 2018 vscode release will stabilise
       -- this, it is a major rework of the machinery anyway.
-      , Core.executeCommandProvider = Just (J.ExecuteCommandOptions (J.List commandIds))
-      , Core.renameProvider = Just (J.RenameOptions (Just True))
-      , Core.implementationProvider = Just (J.GotoOptionsStatic True)
+      , Core.executeCommandCommands = Just commandIds
       }
 
 

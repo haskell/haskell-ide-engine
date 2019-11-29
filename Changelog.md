@@ -120,7 +120,7 @@
 - Fix typos in Challenges.md
 ([#1329](https://github.com/haskell/haskell-ide-engine/pull/1329), by @mb720)
 
-- Remove unnecesary extra-dep unix-time
+- Remove unnecessary extra-dep unix-time
 ([#1326](https://github.com/haskell/haskell-ide-engine/pull/1326), by @jneira)
 
 - Use hlint-2.2
@@ -439,7 +439,7 @@ is a complex effort, and will take some time, but is being tackled by
 
  - LSP mode is now the default, and the `--lsp` flag has no effect
    - The `--json` flag can be used for JSON transport
- - HIE now warns you if there is mismatch between the HIE GHC verison and the project GHC version
+ - HIE now warns you if there is mismatch between the HIE GHC version and the project GHC version
  - Add Liquid Haskell support
  - Add support for hierarchical document symbols
  - Add many new types of code actions
