@@ -365,7 +365,7 @@ jobs:
        - cd ..
        - stack install --resolver=lts-14.15 liquid-fixpoint-0.8.0.2 liquidhaskell-0.8.6.2
        - cd $TRAVIS_BUILD_DIR
-       - travis_wait stack --no-terminal --stack-yaml=stack-$GHC_VER.yaml --no-run-tests test
+       - travis_wait stack build --test --no-terminal --stack-yaml=stack-$GHC_VER.yaml --no-run-tests
 
    - stage: some_more_test_dependencies
      os: linux
@@ -418,7 +418,7 @@ jobs:
        - cd ..
        - stack install --resolver=lts-14.15 liquid-fixpoint-0.8.0.2 liquidhaskell-0.8.6.2
        - cd $TRAVIS_BUILD_DIR
-       - stack --no-terminal --stack-yaml=stack-$GHC_VER.yaml test
+       - stack --verbose --no-terminal --stack-yaml=stack-$GHC_VER.yaml test
 
    - stage: test
      os: linux
