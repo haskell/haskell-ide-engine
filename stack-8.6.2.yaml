@@ -15,6 +15,7 @@ extra-deps:
 - cabal-plan-0.4.0.0
 - constrained-dynamic-0.1.0.0
 - deque-0.4.3
+- filepattern-0.1.1
 - floskell-0.10.2
 - ghc-lib-parser-8.8.1
 - haddock-api-2.21.0

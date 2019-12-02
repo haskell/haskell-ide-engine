@@ -13,6 +13,7 @@ extra-deps:
 - brittany-0.12.1.0
 - cabal-plan-0.4.0.0
 - constrained-dynamic-0.1.0.0
+- filepattern-0.1.1
 - floskell-0.10.2
 - ghc-exactprint-0.5.8.2
 - ghc-lib-parser-8.8.1
