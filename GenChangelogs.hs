@@ -1,6 +1,6 @@
 #!/usr/bin/env cabal
 {- cabal:
-build-depends: base, process, html-conduit, http-conduit, xml-conduit, text
+build-depends: base, process, html-conduit, http-conduit, xml-conduit, text, containers
 -}
 
 {-# LANGUAGE OverloadedStrings #-}
@@ -21,10 +21,10 @@ main = do
   callCommand "git fetch --tags"
   tags <- filter (isPrefixOf "0.") . lines <$>
     readProcess "git" ["tag", "--list", "--sort=v:refname"] ""
-  messages <- lines <$> readProcess "git" [ "log",
+  messages <- lines <$> readProcess "git" [ "log"
                                           , last tags <> "..HEAD"
                                           , "--merges"
-                                          , "--revers",
+                                          , "--reverse"
                                           , "--pretty=format:\"%s\""
                                           ] ""
 
