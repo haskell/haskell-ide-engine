@@ -32,7 +32,9 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Control
 import           Control.Monad.Trans.Free
+import           Data.Char
 import           Data.Dynamic (toDyn, fromDynamic, Dynamic)
+import           Data.List
 import           Data.Generics (Proxy(..), TypeRep, typeRep, typeOf)
 import qualified Data.Map as Map
 import           Data.Maybe
@@ -146,7 +148,7 @@ loadCradle iniDynFlags (NewCradle fp) def action = do
   case cradleRes of
     Right cradle -> do
       logm $ "Found cradle: " ++ show cradle
-      withProgress "Initialising Cradle" NotCancellable (initialiseCradle cradle)
+      withProgress ("Initializing " <> cradleDisplay cradle) NotCancellable (initialiseCradle cradle)
     Left yamlErr ->
       return $ IdeResultFail $ IdeError
         { ideCode    = OtherError
@@ -155,6 +157,16 @@ loadCradle iniDynFlags (NewCradle fp) def action = do
         }
 
  where
+  -- | Get a user facing display name for the cradle type.
+  cradleDisplay :: BIOS.Cradle -> Text.Text
+  cradleDisplay cradle
+    | "stack" `isInfixOf` name = "Stack project"
+    | "cabal-v1" `isInfixOf` name = "Cabal (V1) project"
+    | "cabal" `isInfixOf` name = "Cabal project"
+    | "direct" `isInfixOf` name = "GHC session"
+    | otherwise = "project"
+    where name = map toLower $ BIOS.actionName (BIOS.cradleOptsProg cradle)
+
   -- | Initialise the given cradle. This might fail and return an error via `IdeResultFail`.
   -- Reports its progress to the client.
   initialiseCradle :: (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m, MonadBaseControl IO m)
@@ -187,10 +199,10 @@ loadCradle iniDynFlags (NewCradle fp) def action = do
               return $ Right ()
         -- We continue setting the cradle in case the file has source errors
         -- cause they will be reported to user by diagnostics
-        init_res <- gcatches 
+        init_res <- gcatches
                       (Right <$> init_session)
                       (errorHandlers onGhcError onSourceError)
- 
+
         case init_res of
           Left err -> do
             logm $ "Ghc error on cradle initialisation: " ++ show err
