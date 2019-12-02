@@ -15,12 +15,12 @@ extra-deps:
 - brittany-0.12.1.0
 - cabal-plan-0.4.0.0
 - constrained-dynamic-0.1.0.0
-- floskell-0.10.1
+- floskell-0.10.2
 - ghc-lib-parser-8.8.1
 - haddock-api-2.22.0
 - haskell-lsp-0.18.0.0
 - haskell-lsp-types-0.18.0.0
-- hlint-2.2.3
+- hlint-2.2.4
 - hsimport-0.11.0
 - lsp-test-0.8.2.0
 - monad-dijkstra-0.1.1.2@rev:1
