@@ -231,14 +231,14 @@ stack ./install.hs stack-install-cabal
 Install **Nightly** (and hoogle docs):
 
 ```bash
-stack ./install.hs hie-8.6.4
+stack ./install.hs hie-$(stack exec ghc -- --version | sed 's/.*version //')
 stack ./install.hs build-data
 ```
 
 Install **LTS** (and hoogle docs):
 
 ```bash
-stack ./install.hs hie-8.4.4
+stack ./install.hs hie-$(stack exec ghc -- --version | sed 's/.*version //')
 stack ./install.hs build-data
 ```
 
