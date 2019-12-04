@@ -10,6 +10,7 @@ import           Control.Monad.IO.Class
 import           Data.Aeson
 import qualified Data.Map                      as M
 import qualified Data.HashMap.Strict           as H
+import           GHC                           ( getSessionDynFlags )
 import           Haskell.Ide.Engine.Ghc
 import           Haskell.Ide.Engine.PluginApi
 import           Haskell.Ide.Engine.MonadTypes

@@ -28,6 +28,7 @@ extra-deps:
 - syz-0.2.0.0
 - temporary-1.2.1.1
 - clock-0.7.2
+- ghc-exactprint-0.6.2 # for HaRe
 # - hie-bios-0.2.1@sha256:5f98a3516ce65e0a3ffd88bf6fb416b04cc084371d0fbf0e1762780de1d652ce,3219
 - extra-1.6.18@sha256:5f1fff126f0ae47b701fff5aa8462dc63cb44465d5a724b0afd20a3d731903af
 - unix-compat-0.5.2@sha256:16763f1fae4a25abf61ac6195eb530ce838474bd04d86c7d353340aee8716bbb

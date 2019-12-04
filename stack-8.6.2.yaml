@@ -17,6 +17,7 @@ extra-deps:
 - deque-0.4.3
 - floskell-0.10.1
 - ghc-lib-parser-8.8.1
+- ghc-exactprint-0.6.2 # for HaRe
 - haddock-api-2.21.0
 - haskell-lsp-0.18.0.0
 - haskell-lsp-types-0.18.0.0
