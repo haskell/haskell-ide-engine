@@ -21,12 +21,13 @@ import           GHC.Generics
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
+import           Haskell.Ide.Engine.Support.FromHaRe
 import qualified Haskell.Ide.Engine.GhcCompat as C ( GhcPs )
 import qualified Haskell.Ide.Engine.Support.HieExtras as Hie
 import           Haskell.Ide.Engine.ArtifactMap
 import qualified Language.Haskell.LSP.Types        as LSP
 import qualified Language.Haskell.LSP.Types.Lens   as LSP
-import           Language.Haskell.Refact.API       (hsNamessRdr)
+-- import           Language.Haskell.Refact.API       (hsNamessRdr)
 import           HIE.Bios.Ghc.Doc
 
 import           GHC

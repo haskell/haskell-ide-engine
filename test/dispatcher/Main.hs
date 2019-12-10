@@ -33,7 +33,7 @@ import System.IO
 import           Haskell.Ide.Engine.Plugin.ApplyRefact
 import           Haskell.Ide.Engine.Plugin.Base
 import           Haskell.Ide.Engine.Plugin.Example2
-import           Haskell.Ide.Engine.Plugin.HaRe
+-- import           Haskell.Ide.Engine.Plugin.HaRe
 import           Haskell.Ide.Engine.Plugin.Bios
 import           Haskell.Ide.Engine.Plugin.Generic
 
@@ -66,7 +66,6 @@ plugins = pluginDescToIdePlugins
   [applyRefactDescriptor "applyrefact"
   ,example2Descriptor "eg2"
   ,biosDescriptor "bios"
-  ,hareDescriptor "hare"
   ,baseDescriptor "base"
   ]
 
@@ -241,6 +240,8 @@ funcSpec = describe "functional dispatch" $ do
                       }
                     ])
 
+    -- -----------------------------------------------------
+
     it "returns hints as diagnostics" $ do
 
       dispatchGhcRequest 5 (Just testUri) "r5" 5 scheduler logChan "applyrefact" "lint" testUri
@@ -262,7 +263,8 @@ funcSpec = describe "functional dispatch" $ do
                     )
 
       let req6 = HP testUri (toPos (8, 1))
-      dispatchGhcRequest 6 (Just testUri) "r6" 6 scheduler logChan "hare" "demote" req6
+      -- dispatchGhcRequest 6 (Just testUri) "r6" 6 scheduler logChan "hare" "demote" req6
+      dispatchGhcRequest 6 (Just testUri) "r6" 6 scheduler logChan "bios" "check" req6
 
       hr6 <- atomically $ readTChan logChan
       -- show hr6 `shouldBe` "hr6"
@@ -273,6 +275,8 @@ funcSpec = describe "functional dispatch" $ do
           (Just $ H.singleton r6uri textEdits)
           Nothing
         ))
+
+    -- -----------------------------------------------------
 
     it "instantly responds to failed modules with no cache with the default" $ do
 

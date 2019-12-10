@@ -49,10 +49,11 @@ import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
+import           Haskell.Ide.Engine.Support.FromHaRe
 import           HscTypes
 import qualified Language.Haskell.LSP.Types                   as J
 import qualified Language.Haskell.LSP.VFS                     as VFS
-import           Language.Haskell.Refact.Utils.MonadFunctions
+-- import           Language.Haskell.Refact.Utils.MonadFunctions
 import           Name
 import           NameCache
 import           Outputable                                   (Outputable)
@@ -438,3 +439,5 @@ getFormattingPlugin config plugins = do
   fmtPlugin <- Map.lookup providerName (ipMap plugins)
   fmtProvider <- pluginFormattingProvider fmtPlugin
   return (fmtPlugin, fmtProvider)
+
+-- ---------------------------------------------------------------------

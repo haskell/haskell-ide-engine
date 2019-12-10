@@ -48,7 +48,7 @@ import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import qualified Haskell.Ide.Engine.Plugin.ApplyRefact   as ApplyRefact
 import           Haskell.Ide.Engine.Plugin.Base
-import qualified Haskell.Ide.Engine.Plugin.HaRe          as HaRe
+-- import qualified Haskell.Ide.Engine.Plugin.HaRe          as HaRe
 import qualified Haskell.Ide.Engine.Plugin.Hoogle        as Hoogle
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Scheduler            as Scheduler
@@ -506,13 +506,13 @@ reactor inp diagIn = do
 
         ReqRename req -> do
           liftIO $ U.logs $ "reactor:got RenameRequest:" ++ show req
-          let (params, doc, pos) = reqParams req
-              newName  = params ^. J.newName
-              callback = reactorSend . RspRename . Core.makeResponseMessage req
-          let hreq = GReq tn "HaRe-rename" (Just doc) Nothing (Just $ req ^. J.id) callback mempty
-                       $ HaRe.renameCmd' doc pos newName
-          makeRequest hreq
-
+          -- let (params, doc, pos) = reqParams req
+          --     newName  = params ^. J.newName
+          --     callback = reactorSend . RspRename . Core.makeResponseMessage req
+          -- let hreq = GReq tn "HaRe-rename" (Just doc) Nothing (Just $ req ^. J.id) callback mempty
+          --              $ HaRe.renameCmd' doc pos newName
+          -- makeRequest hreq
+          reactorSend $ RspRename $ Core.makeResponseMessage req mempty
 
         -- -------------------------------
 
@@ -984,7 +984,7 @@ hieOptions commandIds =
 hieHandlers :: TChan ReactorInput -> Core.Handlers
 hieHandlers rin
   = def { Core.initializedHandler                       = Just $ passHandler rin NotInitialized
-        , Core.renameHandler                            = Just $ passHandler rin ReqRename
+        -- , Core.renameHandler                            = Just $ passHandler rin ReqRename
         , Core.definitionHandler                        = Just $ passHandler rin ReqDefinition
         , Core.typeDefinitionHandler                    = Just $ passHandler rin ReqTypeDefinition
         , Core.referencesHandler                        = Just $ passHandler rin ReqFindReferences

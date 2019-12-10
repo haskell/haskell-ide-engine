@@ -30,7 +30,7 @@ library
                        Haskell.Ide.Engine.Plugin.Example2
                        Haskell.Ide.Engine.Plugin.Floskell
                        Haskell.Ide.Engine.Plugin.Bios
-                       Haskell.Ide.Engine.Plugin.HaRe
+                       -- Haskell.Ide.Engine.Plugin.HaRe
                        Haskell.Ide.Engine.Plugin.Haddock
                        Haskell.Ide.Engine.Plugin.HfaAlign
                        Haskell.Ide.Engine.Plugin.Hoogle
@@ -41,6 +41,7 @@ library
                        Haskell.Ide.Engine.Plugin.Pragmas
                        Haskell.Ide.Engine.Plugin.Generic
                        Haskell.Ide.Engine.Scheduler
+                       Haskell.Ide.Engine.Support.FromHaRe
                        Haskell.Ide.Engine.Support.Fuzzy
                        Haskell.Ide.Engine.Support.HieExtras
                        Haskell.Ide.Engine.Transport.JsonStdio
@@ -49,7 +50,7 @@ library
   other-modules:       Paths_haskell_ide_engine
   build-depends:       Cabal >= 1.22
                      , Diff
-                     , HaRe
+                     -- , HaRe
                      , aeson
                      , apply-refact
                      , async
@@ -87,6 +88,7 @@ library
                      , safe
                      , sorted-list >= 0.2.1.0
                      , stm
+                     , syb
                      , tagsoup
                      , text
                      , transformers
@@ -181,7 +183,7 @@ test-suite unit-test
                        DiffSpec
                        ExtensibleStateSpec
                        GhcModPluginSpec
-                       HaRePluginSpec
+                       -- HaRePluginSpec
                        HooglePluginSpec
                        JsonSpec
                        LiquidSpec
@@ -273,7 +275,7 @@ test-suite func-test
                      , FunctionalCodeActionsSpec
                      , FunctionalLiquidSpec
                      , FunctionalSpec
-                     , HaReSpec
+                     -- , HaReSpec
                      , HieBiosSpec
                      , HighlightSpec
                      , HoverSpec

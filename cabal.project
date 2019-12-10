@@ -1,9 +1,9 @@
 packages:
          ./
          ./hie-plugin-api/
-	 ./hie-bios/
+         ./hie-bios/
 
-         ./submodules/HaRe
+         -- ./submodules/HaRe
          ./submodules/cabal-helper/
          ./submodules/ghc-mod/ghc-project-types
 

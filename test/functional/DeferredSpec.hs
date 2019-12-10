@@ -7,8 +7,8 @@ import Control.Applicative.Combinators
 import Control.Monad.IO.Class
 import Control.Lens hiding (List)
 import Control.Monad
-import Data.Aeson
-import qualified Data.HashMap.Strict as H
+-- import Data.Aeson
+-- import qualified Data.HashMap.Strict as H
 import Data.Maybe
 import Language.Haskell.LSP.Test
 import Language.Haskell.LSP.Types
@@ -91,6 +91,8 @@ spec = do
                      }
                    ]
 
+    -- -----------------------------------
+
     it "instantly respond to failed modules with no cache" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "FuncTestFail.hs" "haskell"
       defs <- getDefinitions doc (Position 1 11)
@@ -103,6 +105,8 @@ spec = do
     --     doc <- openDoc "FuncTestFail.hs" "haskell"
     --     (Left (sym:_)) <- getDocumentSymbols doc
     --     liftIO $ sym ^. name `shouldBe` "main"
+
+    -- -----------------------------------
 
     it "returns hints as diagnostics" $ runSession hieCommand fullCaps "test/testdata" $ do
       _ <- openDoc "FuncTest.hs" "haskell"
@@ -125,18 +129,18 @@ spec = do
                 }
               )
 
-      let args' = H.fromList [("pos", toJSON (Position 7 0)), ("file", toJSON testUri)]
-          args = List [Object args']
+      -- let args' = H.fromList [("pos", toJSON (Position 7 0)), ("file", toJSON testUri)]
+      --     args = List [Object args']
+      --
+      -- executeRsp <- request WorkspaceExecuteCommand (ExecuteCommandParams "hare:demote" (Just args) Nothing)
+      -- liftIO $ executeRsp ^. result `shouldBe` Just (Object H.empty)
 
-      executeRsp <- request WorkspaceExecuteCommand (ExecuteCommandParams "hare:demote" (Just args) Nothing)
-      liftIO $ executeRsp ^. result `shouldBe` Just (Object H.empty)
-
-      editReq <- message :: Session ApplyWorkspaceEditRequest
-      let expectedTextEdits = List [TextEdit (Range (Position 6 0) (Position 7 6)) "  where\n    bb = 5"]
-          expectedTextDocEdits = List [TextDocumentEdit (VersionedTextDocumentIdentifier testUri (Just 0)) expectedTextEdits]
-      liftIO $ editReq ^. params . edit `shouldBe` WorkspaceEdit
-            Nothing
-            (Just expectedTextDocEdits)
+      -- editReq <- message :: Session ApplyWorkspaceEditRequest
+      -- let expectedTextEdits = List [TextEdit (Range (Position 6 0) (Position 7 6)) "  where\n    bb = 5"]
+      --     expectedTextDocEdits = List [TextDocumentEdit (VersionedTextDocumentIdentifier testUri (Just 0)) expectedTextEdits]
+      -- liftIO $ editReq ^. params . edit `shouldBe` WorkspaceEdit
+      --       Nothing
+      --       (Just expectedTextDocEdits)
 
   -- -----------------------------------
 
