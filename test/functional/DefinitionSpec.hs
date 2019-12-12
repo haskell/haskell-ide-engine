@@ -61,6 +61,7 @@ spec = describe "definitions" $ do
         defs `shouldBe` [Location (filePathToUri fp) zeroRange]
       liftIO $ putStrLn "E" -- AZ
 
+      noDiagnostics
 
 
 zeroRange :: Range

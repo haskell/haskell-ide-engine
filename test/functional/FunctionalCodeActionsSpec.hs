@@ -21,6 +21,8 @@ import qualified Language.Haskell.LSP.Types.Capabilities as C
 import           Test.Hspec
 import           TestUtils
 
+{-# ANN module ("HLint: ignore Reduce duplication"::String) #-}
+
 spec :: Spec
 spec = describe "code actions" $ do
   describe "hlint suggestions" $ do
@@ -46,7 +48,7 @@ spec = describe "code actions" $ do
       contents <- getDocumentEdit doc
       liftIO $ contents `shouldBe` "main = undefined\nfoo x = x\n"
 
-      noDiagnostics
+      -- noDiagnostics
 
     -- ---------------------------------
 
@@ -65,7 +67,9 @@ spec = describe "code actions" $ do
       contents <- skipManyTill publishDiagnosticsNotification $ getDocumentEdit doc
       liftIO $ contents `shouldBe` "main = undefined\nfoo x = x\n"
 
-      noDiagnostics
+      -- noDiagnostics
+
+    -- ---------------------------------
 
     it "runs diagnostics on save" $ runSession hieCommand fullCaps "test/testdata" $ do
       let config = def { diagnosticsOnChange = False }
@@ -92,7 +96,7 @@ spec = describe "code actions" $ do
       liftIO $ contents `shouldBe` "main = undefined\nfoo x = x\n"
       sendNotification TextDocumentDidSave (DidSaveTextDocumentParams doc)
 
-      noDiagnostics
+      -- noDiagnostics
 
   -- -----------------------------------
 
@@ -126,6 +130,9 @@ spec = describe "code actions" $ do
         liftIO $ x `shouldBe` "foo = putStrLn \"world\""
 
   describe "import suggestions" $ do
+
+    -- ---------------------------------
+
     describe "formats with brittany" $ hsImportSpec "brittany"
       [ -- Expected output for simple format.
         [ "import qualified Data.Maybe"
@@ -576,6 +583,8 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
       contents <- getDocumentEdit doc
       liftIO $ T.lines contents `shouldMatchList` e2
 
+    -- ---------------------------------
+
     it "multiple import-list formats" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImportList.hs" "haskell"
 
@@ -591,6 +600,8 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
       contents <- executeAllCodeActions doc wantedCodeActionTitles
 
       liftIO $ Set.fromList (T.lines contents) `shouldBe` Set.fromList e3
+
+    -- ---------------------------------
 
     it "respects format config, multiple import-list" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImportList.hs" "haskell"
@@ -742,6 +753,7 @@ hsImportSpec formatter args =
     ++ T.unpack formatter
     ++ ")\", expected 4, got "
     ++ show (length args)
+
 -- ---------------------------------------------------------------------
 
 fromAction :: CAResult -> CodeAction
