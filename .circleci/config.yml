@@ -44,8 +44,9 @@ defaults: &defaults
 
     - run:
         name: Build (we need the exe for tests)
-        command: stack -j 1 --stack-yaml=${STACK_FILE} install
-                       # need j1, else ghc-lib-parser triggers OOM
+        command:
+          stack -j 1 --stack-yaml=${STACK_FILE} install
+          # need j1, else ghc-lib-parser triggers OOM
         no_output_timeout: 30m
 
     - run:
@@ -101,6 +102,92 @@ defaults: &defaults
 
 version: 2
 jobs:
+  ghc-8.4.4-mac:
+    environment:
+      - STACK_FILE: "stack-8.4.4.yaml"
+    <<: *defaults
+    macos:
+      xcode: "10.2.1"
+    steps:
+      - checkout
+      - run:
+          command: git submodule sync --recursive
+      - run:
+          command: git submodule update --recursive --init
+      - run:
+          name: Install stack
+          command: curl -sSL https://get.haskellstack.org/ | sh
+      - run:
+          name: Write provided stack.yaml with predictable name
+          command: cp ${STACK_FILE} stack-build.txt
+      - run:
+          name: Figure out resolver for better caching
+          command: grep '^resolver:' stack-build.txt > resolver.txt
+      - run:
+          name: Create a composite cabal file for changes detection
+          command: find . -name "*.cabal" | grep -v -e "stack-work" -e "dist-newstyle" -e "submodules" -e "testdata" | sort | xargs cat > all-cabal.txt
+      - restore_cache:
+          keys:
+            - stack-cache-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
+            - stack-cache-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
+            - stack-cache-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
+      - run:
+          name: Stack setup
+          command: stack -j 2 --stack-yaml=${STACK_FILE} setup
+      - run:
+          name: Install happy
+          command: stack --stack-yaml=${STACK_FILE} install happy
+      - run:
+          name: Install Hoogle
+          command: stack -j 1 --stack-yaml=${STACK_FILE} install hoogle
+      - run:
+          name: Build (we need the exe for tests)
+          command:
+            stack -j 1 --stack-yaml=${STACK_FILE} install
+            # need j1, else ghc-lib-parser triggers OOM
+          no_output_timeout: 30m
+      - run:
+          name: Build Testsuite without running it
+          command: stack -j 2 --stack-yaml=${STACK_FILE}  build --test --no-run-tests
+          no_output_timeout: 30m
+      - store_artifacts:
+          path: ~/.local/bin
+          destination: bin
+      - run:
+          name: Generate Hoogle database
+          command: if [ ! -d ~/.hoogle ]; then stack --stack-yaml=${STACK_FILE} exec hoogle generate; fi
+      - run:
+          name: Clear cabal-helper cache
+          command: rm -fr ~/.cache/cabal-helper
+      - save_cache:
+          key: stack-cache-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
+          paths: &cache_paths
+            - ~/.stack
+            - ~/.cache
+            - ~/.hoogle
+            - ~/build/.stack-work
+            - ~/build/hie-plugin-api/.stack-work
+            - ~/build/submodules/HaRe/.stack-work
+            - ~/build/submodules/brittany/.stack-work
+            - ~/build/submodules/ghc-mod/core/.stack-work
+            - ~/build/submodules/ghc-mod/.stack-work
+            - ~/build/submodules/cabal-helper/.stack-work
+      - run:
+          name: Test
+          # Tests MUST run with -j1, since multiple ghc-mod sessions are not allowed
+          command: stack -j 1 --stack-yaml=${STACK_FILE} test --dump-logs
+          no_output_timeout: 120m
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: test-logs
+      - save_cache:
+          key: stack-cache-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
+          paths: *cache_paths
+      - save_cache:
+          key: stack-cache-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}-{{ checksum "all-cabal.txt" }}
+          paths: *cache_paths
+
   ghc-8.4.2:
     environment:
       - STACK_FILE: "stack-8.4.2.yaml"
@@ -179,18 +266,18 @@ jobs:
           paths:
             - ~/.cabal
 
-
 workflows:
   version: 2
   multiple-ghcs:
     jobs:
-      - ghc-8.4.2
-      - ghc-8.4.3
+      # - ghc-8.4.2
+      # - ghc-8.4.3
+      - ghc-8.4.4-mac
       - ghc-8.4.4
-      - ghc-8.6.1
-      - ghc-8.6.2
-      # - ghc-8.6.3
-      - ghc-8.6.4
-      - ghc-8.6.5
-      - ghc-nightly
-      - cabal
+      # - ghc-8.6.1
+      # - ghc-8.6.2
+      # # - ghc-8.6.3
+      # - ghc-8.6.4
+      # - ghc-8.6.5
+      # - ghc-nightly
+      # - cabal
