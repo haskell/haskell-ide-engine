@@ -7,7 +7,7 @@ import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
 import           Control.Monad.STM
 import           Data.Aeson
-import qualified Data.HashMap.Strict                   as H
+-- import qualified Data.HashMap.Strict                   as H
 import           Data.Typeable
 import qualified Data.Text as T
 import           Data.Default
@@ -33,7 +33,7 @@ import System.IO
 import           Haskell.Ide.Engine.Plugin.ApplyRefact
 import           Haskell.Ide.Engine.Plugin.Base
 import           Haskell.Ide.Engine.Plugin.Example2
-import           Haskell.Ide.Engine.Plugin.HaRe
+-- import           Haskell.Ide.Engine.Plugin.HaRe
 import           Haskell.Ide.Engine.Plugin.Bios
 import           Haskell.Ide.Engine.Plugin.Generic
 
@@ -66,7 +66,6 @@ plugins = pluginDescToIdePlugins
   [applyRefactDescriptor "applyrefact"
   ,example2Descriptor "eg2"
   ,biosDescriptor "bios"
-  ,hareDescriptor "hare"
   ,baseDescriptor "base"
   ]
 
@@ -149,6 +148,7 @@ funcSpec = describe "functional dispatch" $ do
       unpackRes (r,Right md) = (r, fromDynJSON md)
       unpackRes r            = error $ "unpackRes:" ++ show r
 
+    -- ---------------------------------
 
     it "defers responses until module is loaded" $ do
 
@@ -187,6 +187,8 @@ funcSpec = describe "functional dispatch" $ do
       hoverReq 3 (IdInt 3) testUri
       hr3 <- atomically $ readTChan logChan
       unpackRes hr3 `shouldBe` ("IReq IdInt 3",Just Cached)
+
+    -- ---------------------------------
 
     it "instantly responds to deferred requests if cache is available" $ do
       -- deferred responses should return something now immediately
@@ -241,6 +243,8 @@ funcSpec = describe "functional dispatch" $ do
                       }
                     ])
 
+    -- -----------------------------------------------------
+
     it "returns hints as diagnostics" $ do
 
       dispatchGhcRequest 5 (Just testUri) "r5" 5 scheduler logChan "applyrefact" "lint" testUri
@@ -261,18 +265,23 @@ funcSpec = describe "functional dispatch" $ do
                       }
                     )
 
-      let req6 = HP testUri (toPos (8, 1))
-      dispatchGhcRequest 6 (Just testUri) "r6" 6 scheduler logChan "hare" "demote" req6
-
+      -- let req6 = HP testUri (toPos (8, 1))
+      -- dispatchGhcRequest 6 (Just testUri) "r6" 6 scheduler logChan "hare" "demote" req6
+      --
+      -- hr6 <- atomically $ readTChan logChan
+      -- -- show hr6 `shouldBe` "hr6"
+      -- let textEdits = List [TextEdit (Range (Position 6 0) (Position 7 6)) "  where\n    bb = 5"]
+      --     r6uri = testUri
+      -- unpackRes hr6 `shouldBe` ("r6",Just
+      --   (WorkspaceEdit
+      --     (Just $ H.singleton r6uri textEdits)
+      --     Nothing
+      --   ))
+      dispatchGhcRequest 6 (Just testUri) "r6" 6 scheduler logChan "bios" "check" (toJSON testUri)
       hr6 <- atomically $ readTChan logChan
-      -- show hr6 `shouldBe` "hr6"
-      let textEdits = List [TextEdit (Range (Position 6 0) (Position 7 6)) "  where\n    bb = 5"]
-          r6uri = testUri
-      unpackRes hr6 `shouldBe` ("r6",Just
-        (WorkspaceEdit
-          (Just $ H.singleton r6uri textEdits)
-          Nothing
-        ))
+      unpackRes hr6 `shouldBe` ("r6",Nothing :: Maybe Int)
+
+    -- -----------------------------------------------------
 
     it "instantly responds to failed modules with no cache with the default" $ do
 
