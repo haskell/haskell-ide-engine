@@ -49,7 +49,7 @@ library
                      , fingertree
                      , free
                      , ghc
-                     , hie-bios
+                     , hie-bios == 0.3.*
                      , ghc-project-types >= 5.9.0.0
                      , cabal-helper
                      , haskell-lsp == 0.19.*

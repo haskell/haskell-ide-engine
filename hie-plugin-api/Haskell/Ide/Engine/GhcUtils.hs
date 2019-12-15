@@ -10,7 +10,7 @@ import           GHC
 import           IOEnv   as G
 import qualified Data.Text as T
 
-import qualified HIE.Bios.Flags as BIOS (CradleError)
+import           HIE.Bios.Types (CradleError)
 
 import           Haskell.Ide.Engine.PluginUtils (ErrorHandler(..))
 
@@ -55,7 +55,7 @@ errorHandlers onGhcError onSourceError = handlers
             onSourceError ex
         , ErrorHandler $ \(ex :: IOError) ->
             onGhcError (show ex)
-        , ErrorHandler $ \(ex :: BIOS.CradleError) ->
+        , ErrorHandler $ \(ex :: CradleError) ->
             onGhcError (show ex)
         , ErrorHandler $ \(ex :: GhcException) ->
             onGhcError (showGhcException ex "")

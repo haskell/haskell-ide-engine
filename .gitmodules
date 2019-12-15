@@ -19,7 +19,3 @@
 [submodule "submodules/ghc-mod"]
 	path = submodules/ghc-mod
 	url = https://github.com/fendor/ghc-mod.git
-
-[submodule "hie-bios"]
-	path = hie-bios
-	url = https://github.com/mpickering/hie-bios.git

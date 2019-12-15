@@ -4,7 +4,6 @@ packages:
   - hie-plugin-api
 
 extra-deps:
-- ./hie-bios
 # - ./submodules/HaRe
 - ./submodules/cabal-helper
 - ./submodules/ghc-mod/ghc-project-types
@@ -23,6 +22,7 @@ extra-deps:
 - haskell-lsp-types-0.19.0.0
 - haskell-src-exts-1.21.1
 - haskell-src-exts-util-0.2.5
+- hie-bios-0.3.0
 - hlint-2.2.3
 - hoogle-5.0.17.11
 - hsimport-0.11.0

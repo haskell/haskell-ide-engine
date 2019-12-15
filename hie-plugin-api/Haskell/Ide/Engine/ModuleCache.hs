@@ -184,7 +184,7 @@ loadCradle iniDynFlags (NewCradle fp) def action = do
         let onGhcError = return . Left
         let onSourceError srcErr = do
               logm $ "Source error on cradle initialisation: " ++ show srcErr
-              return $ Right ()
+              return $ Right BIOS.Failed
         -- We continue setting the cradle in case the file has source errors
         -- cause they will be reported to user by diagnostics
         init_res <- gcatches
@@ -203,9 +203,14 @@ loadCradle iniDynFlags (NewCradle fp) def action = do
             -- it on a save whilst there are errors. Subsequent loads won't
             -- be that slow, even though the cradle isn't cached because the
             -- `.hi` files will be saved.
-          Right () -> do
+          Right BIOS.Succeeded -> do
             setCurrentCradle cradle
-            logm $ "Cradle set succesfully"
+            logm "Cradle set succesfully"
+            IdeResultOk <$> action
+
+          Right BIOS.Failed -> do
+            setCurrentCradle cradle
+            logm "Cradle did not load succesfully"
             IdeResultOk <$> action
 
 -- | Sets the current cradle for caching.

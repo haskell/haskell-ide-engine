@@ -45,7 +45,7 @@ findLocalCradle :: FilePath -> IO Cradle
 findLocalCradle fp = do
   cradleConf <- BIOS.findCradle fp
   case cradleConf of
-    Just yaml -> fixCradle <$> BIOS.loadCradle yaml
+    Just yaml -> BIOS.loadCradle yaml
     Nothing   -> cabalHelperCradle fp
 
 -- | Check if the given cradle is a stack cradle.
@@ -330,7 +330,7 @@ cabalHelperCradle file = do
         Cradle { cradleRootDir = cwd
                , cradleOptsProg =
                    CradleAction { actionName = "Cabal-Helper-None"
-                                , runCradle = \_ -> return CradleNone
+                                , runCradle = \_ _ -> return CradleNone
                                 }
                }
     Just (Ex proj) -> do
@@ -358,7 +358,7 @@ cabalHelperCradle file = do
                        CradleAction { actionName = "Cabal-Helper-"
                                         ++ actionNameSuffix
                                         ++ "-None"
-                                    , runCradle = \_ -> return CradleNone
+                                    , runCradle = \_ _ -> return CradleNone
                                     }
                    }
         Just realPackage -> do
@@ -374,10 +374,11 @@ cabalHelperCradle file = do
                    , cradleOptsProg =
                        CradleAction { actionName =
                                         "Cabal-Helper-" ++ actionNameSuffix
-                                    , runCradle = cabalHelperAction
+                                    , runCradle = \_ fp -> cabalHelperAction
                                         env
                                         realPackage
                                         normalisedPackageLocation
+                                        fp
                                     }
                    }
     where
@@ -394,7 +395,7 @@ cabalHelperCradle file = do
           in if not (null dir) && isRelative dir then ("-i" ++ base_dir </> dir)
                                     else arg
           else arg
-          
+
       -- | cradle Action to query for the ComponentOptions that are needed
       -- to load the given FilePath.
       -- This Function is not supposed to throw any exceptions and use
@@ -430,7 +431,7 @@ cabalHelperCradle file = do
               $ CradleFail
               $ CradleError
                 (ExitFailure 2)
-                ("Could not obtain flags for " ++ fp)
+                ["Could not obtain flags for " ++ fp]
 
 -- | Get the component the given FilePath most likely belongs to.
 -- Lazily ask units whether the given FilePath is part of one of their
@@ -551,29 +552,6 @@ projectSuffix ProjLocV1Dir {} = "Cabal-V1-Dir"
 projectSuffix ProjLocV2File {} = "Cabal-V2"
 projectSuffix ProjLocV2Dir {} = "Cabal-V2-Dir"
 projectSuffix ProjLocStackYaml {} = "Stack"
-
--- | The hie-bios stack cradle doesn't return the target as well, so add the
--- FilePath onto the end of the options to make sure at least one target
--- is returned.
-fixCradle :: BIOS.Cradle -> BIOS.Cradle
-fixCradle cradle =
-  -- Normally this would also succeed for the 'Cabal-Helper-Stack' cradle.
-  -- Make sure that the cradle is definitely the one created by "HIE.Bios.Cradle.loadCradle"
-  if isStackCradle cradle
-  then
-    -- We need a lens
-    cradle { BIOS.cradleOptsProg =
-                (BIOS.cradleOptsProg
-                  cradle) { BIOS.runCradle = \fp' -> fmap (addOption fp')
-                              <$> BIOS.runCradle
-                                (BIOS.cradleOptsProg cradle)
-                                fp'
-                          }
-            }
-  else cradle
-  where
-    addOption fp (BIOS.ComponentOptions os ds) =
-      BIOS.ComponentOptions (os ++ [fp]) ds
 
 -- ----------------------------------------------------------------------------
 --

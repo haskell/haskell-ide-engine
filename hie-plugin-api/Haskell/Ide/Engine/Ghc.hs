@@ -47,7 +47,7 @@ import           Haskell.Ide.Engine.GhcCompat as Compat
 import           Outputable hiding ((<>))
 -- This function should be defined in HIE probably, nothing in particular
 -- to do with BIOS
-import qualified HIE.Bios.Ghc.Api as BIOS (withDynFlags, setDeferTypeErrors)
+import qualified HIE.Bios.Ghc.Api as BIOS (withDynFlags)
 import qualified HIE.Bios.Ghc.Load as BIOS
 
 import System.Directory
@@ -158,8 +158,15 @@ captureDiagnostics rfm action = do
 
       handlers = errorHandlers ghcErrRes to_diag
 
+      foldDFlags :: (a -> DynFlags -> DynFlags) -> [a] -> DynFlags -> DynFlags
+      foldDFlags f xs x = foldr f x xs
+      
+      setDeferTypeErrors =
+          foldDFlags (flip wopt_set) [Opt_WarnTypedHoles, Opt_WarnDeferredTypeErrors, Opt_WarnDeferredOutOfScopeVariables]
+          . foldDFlags setGeneralFlag' [Opt_DeferTypedHoles, Opt_DeferTypeErrors, Opt_DeferOutOfScopeVariables]
+
       action' = do
-        r <- BIOS.withDynFlags (setRawTokenStream . unsetMissingHomeModules . setLogger . BIOS.setDeferTypeErrors . unsetWErr) $
+        r <- BIOS.withDynFlags (setRawTokenStream . unsetMissingHomeModules . setLogger . setDeferTypeErrors . unsetWErr) $
                 action
         diags <- liftIO $ readIORef diagRef
         errs <- liftIO $ readIORef errRef
