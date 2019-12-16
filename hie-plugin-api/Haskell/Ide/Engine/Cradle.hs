@@ -671,6 +671,7 @@ cradleDisplay cradle = fromString result
       | "cabal-v1" `isInfixOf` name = "Cabal (V1) project"
       | "cabal" `isInfixOf` name = "Cabal project"
       | "direct" `isInfixOf` name = "GHC session"
+      | "multi" `isInfixOf` name = "Multi Component project"
       | otherwise = "project"
     name = map toLower $ BIOS.actionName (BIOS.cradleOptsProg cradle)
 

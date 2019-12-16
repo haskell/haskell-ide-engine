@@ -30,7 +30,8 @@ spec = describe "window/workDoneProgress" $ do
 
       startNotification <- message :: Session WorkDoneProgressBeginNotification
       liftIO $ do
-        startNotification ^. L.params . L.value . L.title `shouldBe` "Initializing Stack project"
+        -- Expect a multi cradle, since testdata project has multiple executables
+        startNotification ^. L.params . L.value . L.title `shouldBe` "Initializing Multi Component project"
         startNotification ^. L.params . L.token `shouldBe` (ProgressNumericToken 0)
 
       reportNotification <- message :: Session WorkDoneProgressReportNotification
@@ -40,7 +41,7 @@ spec = describe "window/workDoneProgress" $ do
 
       -- may produce diagnostics
       skipMany publishDiagnosticsNotification
-      
+
       doneNotification <- message :: Session WorkDoneProgressEndNotification
       liftIO $ doneNotification ^. L.params . L.token `shouldBe` (ProgressNumericToken 0)
 
