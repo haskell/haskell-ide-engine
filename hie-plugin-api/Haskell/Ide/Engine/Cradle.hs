@@ -15,14 +15,16 @@ import           Distribution.Helper (Package, projectPackages, pUnits,
                                       Unit, unitInfo, uiComponents,
                                       ChEntrypoint(..))
 import           Distribution.Helper.Discover (findProjects, getDefaultDistDir)
+import           Data.Char (toLower)
 import           Data.Function ((&))
-import           Data.List (isPrefixOf)
+import           Data.List (isPrefixOf, isInfixOf)
 import qualified Data.List.NonEmpty as NonEmpty
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.Map as M
 import           Data.List (sortOn, find)
 import           Data.Maybe (listToMaybe, mapMaybe, isJust)
 import           Data.Ord (Down(..))
+import           Data.String (IsString(..))
 import           Data.Foldable (toList)
 import           Control.Exception (IOException, try)
 import           System.FilePath
@@ -680,3 +682,17 @@ ancestors dir
 relativeTo :: FilePath -> [FilePath] -> Maybe FilePath
 relativeTo file sourceDirs = listToMaybe
   $ mapMaybe (`stripFilePath` file) sourceDirs
+
+-- | Returns a user facing display name for the cradle type,
+-- e.g. "Stack project" or "GHC session"
+cradleDisplay :: IsString a => BIOS.Cradle -> a
+cradleDisplay cradle = fromString result
+  where
+    result
+      | "stack" `isInfixOf` name = "Stack project"
+      | "cabal-v1" `isInfixOf` name = "Cabal (V1) project"
+      | "cabal" `isInfixOf` name = "Cabal project"
+      | "direct" `isInfixOf` name = "GHC session"
+      | otherwise = "project"
+    name = map toLower $ BIOS.actionName (BIOS.cradleOptsProg cradle)
+
