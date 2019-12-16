@@ -505,6 +505,8 @@ spec = describe "code actions" $ do
 
         liftIO $ edit `shouldBe` T.unlines expected
 
+  -- See https://microsoft.github.io/language-server-protocol/specifications/specification-3-15/#textDocument_codeAction
+  -- `CodeActionContext`
   it "respect 'only' parameter" $ runSession hieCommand fullCaps "test/testdata" $ do
     doc <- openDoc "CodeActionOnly.hs" "haskell"
     _ <- count 2 waitForDiagnostics -- need to wait for both hlint and ghcmod
