@@ -13,6 +13,11 @@ executable applyrefact2
   main-is:             ApplyRefact2.hs
   default-language:    Haskell2010
 
+executable codeactionrename
+  build-depends:       base
+  main-is:             CodeActionRename.hs
+  default-language:    Haskell2010
+
 executable hover
   build-depends:       base
   main-is:             Hover.hs

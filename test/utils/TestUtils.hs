@@ -225,6 +225,8 @@ testdataHieYamlCradleStackContents = unlines
   , "      component: \"testdata:exe:applyrefact\""
   , "    - path: \"ApplyRefact2.hs\""
   , "      component: \"testdata:exe:applyrefact2\""
+  , "    - path: \"CodeActionRename.hs\""
+  , "      component: \"testdata:exe:codeactionrename\""
   , "    - path: \"Hover.hs\""
   , "      component: \"testdata:exe:hover\""
   , "    - path: \"Symbols.hs\""
