@@ -32,9 +32,7 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Control
 import           Control.Monad.Trans.Free
-import           Data.Char
 import           Data.Dynamic (toDyn, fromDynamic, Dynamic)
-import           Data.List
 import           Data.Generics (Proxy(..), TypeRep, typeRep, typeOf)
 import qualified Data.Map as Map
 import           Data.Maybe
@@ -52,11 +50,10 @@ import qualified Data.Text as Text
 import qualified Data.Yaml as Yaml
 import qualified HIE.Bios as BIOS
 import qualified HIE.Bios.Ghc.Api as BIOS
-import qualified HIE.Bios.Types as BIOS
 import qualified Data.ByteString.Char8 as B
 
 import           Haskell.Ide.Engine.ArtifactMap
-import           Haskell.Ide.Engine.Cradle (findLocalCradle)
+import           Haskell.Ide.Engine.Cradle (findLocalCradle, cradleDisplay)
 import           Haskell.Ide.Engine.TypeMap
 import           Haskell.Ide.Engine.GhcModuleCache
 import           Haskell.Ide.Engine.MultiThreadState
@@ -157,16 +154,6 @@ loadCradle iniDynFlags (NewCradle fp) def action = do
         }
 
  where
-  -- | Get a user facing display name for the cradle type.
-  cradleDisplay :: BIOS.Cradle -> Text.Text
-  cradleDisplay cradle
-    | "stack" `isInfixOf` name = "Stack project"
-    | "cabal-v1" `isInfixOf` name = "Cabal (V1) project"
-    | "cabal" `isInfixOf` name = "Cabal project"
-    | "direct" `isInfixOf` name = "GHC session"
-    | otherwise = "project"
-    where name = map toLower $ BIOS.actionName (BIOS.cradleOptsProg cradle)
-
   -- | Initialise the given cradle. This might fail and return an error via `IdeResultFail`.
   -- Reports its progress to the client.
   initialiseCradle :: (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m, MonadBaseControl IO m)

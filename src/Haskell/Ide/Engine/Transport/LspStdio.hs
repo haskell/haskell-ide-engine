@@ -38,7 +38,7 @@ import qualified Data.SortedList as SL
 import qualified Data.Text as T
 import           Data.Text.Encoding
 import qualified Data.Yaml as Yaml
-import           Haskell.Ide.Engine.Cradle (findLocalCradle)
+import           Haskell.Ide.Engine.Cradle (findLocalCradle, cradleDisplay)
 import           Haskell.Ide.Engine.Config
 import qualified Haskell.Ide.Engine.Ghc   as HIE
 import           Haskell.Ide.Engine.LSP.CodeActions
@@ -411,7 +411,8 @@ reactor inp diagIn = do
             Just cradle -> do
               projGhcVersion <- liftIO $ getProjectGhcVersion cradle
               when (projGhcVersion /= hieGhcVersion) $ do
-                let msg = T.pack $ "Mismatching GHC versions: Project is " ++ projGhcVersion ++ ", HIE is " ++ hieGhcVersion
+                let msg = T.pack $ "Mismatching GHC versions: " ++ cradleDisplay cradle ++
+                          " is " ++ projGhcVersion ++ ", HIE is " ++ hieGhcVersion
                           ++ "\nYou may want to use hie-wrapper. Check the README for more information"
                 reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
                 reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg
