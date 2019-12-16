@@ -27,7 +27,7 @@ we talk to clients.__
     - [Installation from source](#installation-from-source)
       - [Common pre-requirements](#common-pre-requirements)
       - [Linux-specific pre-requirements](#linux-specific-pre-requirements)
-      - [Windows-specific pre-requirements (optional)](#windows-specific-pre-requirements-optional)
+      - [Windows-specific pre-requirements](#windows-specific-pre-requirements)
       - [Download the source code](#download-the-source-code)
       - [Building](#building)
         - [Install via cabal](#install-via-cabal)
@@ -48,7 +48,6 @@ we talk to clients.__
     - [Using HIE with Atom](#using-hie-with-atom)
     - [Using HIE with Emacs](#using-hie-with-emacs)
     - [Using HIE with Spacemacs](#using-hie-with-spacemacs)
-    - [Using HIE with Spacemacs on Nix Based Projects](#using-hie-with-spacemacs-on-nix-based-projects)
     - [Using HIE with Oni](#using-hie-with-oni)
   - [Docs on hover/completion](#docs-on-hovercompletion)
   - [Contributing](#contributing)
@@ -171,18 +170,17 @@ sudo apt install libicu-dev libtinfo-dev libgmp-dev
 **Fedora**:
 
 ```bash
-sudo dnf install libicu-devel ncurses-devel
+sudo dnf install libicu-devel ncurses-devel # also zlib-devel if not already installed
 ```
 
-#### Windows-specific pre-requirements (optional)
+#### Windows-specific pre-requirements
 
-In order to avoid problems with long paths on Windows you can do the following:
+In order to avoid problems with long paths on Windows you can do either one of the following:
 
-1. In the `Local Group Policy Editor`: `Local Computer Policy -> Computer Configuration -> Administrative Templates -> System -> Filesystem` set `Enable Win32 long paths` to `Enabled` (Works
-   only for Windows 10).
+1. Clone the `haskell-ide-engine` to a short path, for example the root of your logical drive (e.g. to
+   `C:\hie`). If this doesn't work or you want to use a longer path, try the second option.
 
-2. Clone the `haskell-ide-engine` to the root of your logical drive (e.g. to
-   `C:\hie`)
+2. If the `Local Group Policy Editor` is available on your system, go to: `Local Computer Policy -> Computer Configuration -> Administrative Templates -> System -> Filesystem` set `Enable Win32 long paths` to `Enabled`. If you don't have the policy editor you can use regedit by using the following instructions [here](https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#enable-long-paths-in-windows-10-version-1607-and-later). You also need to configure git to allow longer paths by using unicode paths. To set this for all your git repositories use `git config --system core.longpaths true` (you probably need an administrative shell for this) or for just this one repository use `git config core.longpaths true`.
 
 #### Download the source code
 
@@ -224,7 +222,7 @@ For brevity, only the `stack`-based commands are presented in the following sect
 
 Although you can use hie for stack based projects (those which have a `stack.yaml` in the project base directory) without having cabal installed, you will need it for cabal based projects (with only a `<projectName>.cabal` file or a `cabal.project` one in the project base directory).
 
-You can install an appropiate cabal version using stack by running:
+You can install an appropriate cabal version using stack by running:
 
 ```bash
 stack ./install.hs stack-install-cabal
@@ -590,42 +588,13 @@ Install HIE, and then add the following to your `.spacemacs` config,
    ;; ...
    dotspacemacs-configuration-layers
    '(
+     (haskell :variables haskell-completion-backend 'lsp)
      lsp
-     (haskell :variables ;; Or optionally just haskell without the variables.
-              haskell-completion-backend 'ghci
-              haskell-process-type 'stack-ghci)
      )
-   dotspacemacs-additional-packages '(
-      (lsp-haskell :location (recipe :fetcher github :repo "emacs-lsp/lsp-haskell"))
-      )
-    ;; ...
     ))
 ```
 
-and then activate [`lsp-haskell`](https://github.com/emacs-lsp/lsp-haskell) in your `user-config` section,
-
-```lisp
-(defun dotspacemacs/user-config ()
-  "..."
-  (setq lsp-haskell-process-path-hie "hie-wrapper")
-  (require 'lsp-haskell)
-  (add-hook 'haskell-mode-hook #'lsp)
-  )
-```
-
-Now you should be able to use HIE in Spacemacs. I still recommend checking out [lsp-ui](https://github.com/emacs-lsp/lsp-ui) and [lsp-mode](https://github.com/emacs-lsp/lsp-mode).
-
-### Using HIE with Spacemacs on Nix Based Projects
-
-If you use HIE with spacemacs on nix-built haskell projects, you may want to try
-out [this spacemacs layer](https://github.com/benkolera/spacemacs-hie-nix). It
-has installation instructions which includes a nix expression to install
-everything that hie needs in your environment. It wraps the hie binary calls to
-use nix-sandbox to find the closest ancestor directory that has nixfiles.
-
-It is still pretty new and may change drastically as the author understands the
-lsp, lsp-ui, lsp-haskell, hie stack a bit better. PRs and feedback are very
-welcome on the layer's repo if you find it useful and/or lacking in some way.
+Now you should be able to use HIE in Spacemacs.
 
 ### Using HIE with Oni
 

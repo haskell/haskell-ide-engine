@@ -104,7 +104,7 @@ data DiagnosticsRequest = DiagnosticsRequest
     -- ^ The current version of the document at the time of this request
   }
 
--- | Represents the most recent occurance of a certin event. We use this
+-- | Represents the most recent occurrence of a certin event. We use this
 -- to diagnostics requests and only dispatch the most recent one.
 newtype MostRecent a = MostRecent a
 

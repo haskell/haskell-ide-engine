@@ -50,7 +50,6 @@ import qualified Data.Text as Text
 import qualified Data.Yaml as Yaml
 import qualified HIE.Bios as BIOS
 import qualified HIE.Bios.Ghc.Api as BIOS
-import qualified HIE.Bios.Types as BIOS
 import qualified Data.ByteString.Char8 as B
 
 import           Haskell.Ide.Engine.ArtifactMap
@@ -472,7 +471,7 @@ deleteCachedModule uri = do
 -- | A ModuleCache is valid for the lifetime of a CachedModule
 -- It is generated on need and the cache is invalidated
 -- when a new CachedModule is loaded.
--- Allows the caching of arbitary data linked to a particular
+-- Allows the caching of arbitrary data linked to a particular
 -- TypecheckedModule.
 -- TODO: this name is confusing, given GhcModuleCache. Change it
 class Typeable a => ModuleCache a where

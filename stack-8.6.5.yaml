@@ -1,4 +1,4 @@
-resolver: lts-14.11
+resolver: lts-14.16
 packages:
   - .
   - hie-plugin-api
@@ -14,14 +14,14 @@ extra-deps:
 - bytestring-trie-0.2.5.0
 - cabal-plan-0.5.0.0
 - constrained-dynamic-0.1.0.0
-- floskell-0.10.1
+- floskell-0.10.2
 - ghc-lib-parser-8.8.1
 - ghc-exactprint-0.6.2 # for HaRe
 - haddock-api-2.22.0
 - haskell-lsp-0.19.0.0
 - haskell-lsp-types-0.19.0.0
 - hie-bios-0.3.0
-- hlint-2.2.3
+- hlint-2.2.4
 - hsimport-0.11.0
 - hoogle-5.0.17.11
 - lsp-test-0.9.0.0
