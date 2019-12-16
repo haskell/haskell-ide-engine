@@ -482,28 +482,28 @@ spec = describe "code actions" $ do
   -- -----------------------------------
 
   describe "unused term code actions" $
-    it "Prefixes with '_'" $
-      runSession hieCommand fullCaps "test/testdata/" $ do
-        doc <- openDoc "UnusedTerm.hs" "haskell"
-
-        _ <- waitForDiagnosticsSource "bios"
-        cas <- map fromAction <$> getAllCodeActions doc
-
-        liftIO $ map (^. L.title) cas `shouldContain` [ "Prefix imUnused with _"]
-
-        executeCodeAction $ head cas
-
-        edit <- getDocumentEdit doc
-
-        let expected = [ "{-# OPTIONS_GHC -Wall #-}"
-                       , "module UnusedTerm () where"
-                       , "_imUnused :: Int -> Int"
-                       , "_imUnused 1 = 1"
-                       , "_imUnused 2 = 2"
-                       , "_imUnused _ = 3"
-                       ]
-
-        liftIO $ edit `shouldBe` T.unlines expected
+    it "Prefixes with '_'" $ pendingWith "removed because of HaRe"
+  --     runSession hieCommand fullCaps "test/testdata/" $ do
+  --       doc <- openDoc "UnusedTerm.hs" "haskell"
+  --
+  --       _ <- waitForDiagnosticsSource "bios"
+  --       cas <- map fromAction <$> getAllCodeActions doc
+  --
+  --       liftIO $ map (^. L.title) cas `shouldContain` [ "Prefix imUnused with _"]
+  --
+  --       executeCodeAction $ head cas
+  --
+  --       edit <- getDocumentEdit doc
+  --
+  --       let expected = [ "{-# OPTIONS_GHC -Wall #-}"
+  --                      , "module UnusedTerm () where"
+  --                      , "_imUnused :: Int -> Int"
+  --                      , "_imUnused 1 = 1"
+  --                      , "_imUnused 2 = 2"
+  --                      , "_imUnused _ = 3"
+  --                      ]
+  --
+  --       liftIO $ edit `shouldBe` T.unlines expected
 
   -- See https://microsoft.github.io/language-server-protocol/specifications/specification-3-15/#textDocument_codeAction
   -- `CodeActionContext`
