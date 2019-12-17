@@ -50,7 +50,6 @@ import qualified Data.Text as Text
 import qualified Data.Yaml as Yaml
 import qualified HIE.Bios as BIOS
 import qualified HIE.Bios.Ghc.Api as BIOS
-import qualified HIE.Bios.Types as BIOS
 import qualified Data.ByteString.Char8 as B
 
 import           Haskell.Ide.Engine.ArtifactMap
