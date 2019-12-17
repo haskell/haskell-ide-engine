@@ -517,7 +517,8 @@ spec = describe "code actions" $ do
     let cas = map fromAction res
         kinds = map (^. L.kind) cas
     liftIO $ do
-      kinds `shouldNotSatisfy` null
+      -- TODO: When HaRe is back this should be uncommented
+      -- kinds `shouldNotSatisfy` null
       kinds `shouldNotSatisfy` any (Just CodeActionRefactorInline /=)
       kinds `shouldSatisfy` all (Just CodeActionRefactorInline ==)
 
