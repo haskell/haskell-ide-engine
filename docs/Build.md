@@ -38,7 +38,7 @@ Each `stack-*.yaml` contains references to packages in the submodules. Calling `
 
 `hie` depends on a correct environment in order to function properly:
 
-* `cabal-install`: This dependency is required by `hie` to handle correctly projects that are not `stack` based (without `stack.yaml`). You can install an appropiate version using `stack` with the `stack-install-cabal` target.
+* `cabal-install`: This dependency is required by `hie` to handle correctly projects that are not `stack` based (without `stack.yaml`). You can install an appropriate version using `stack` with the `stack-install-cabal` target.
 * The `hoogle` database: `hoogle generate` needs to be called with the most-recent `hoogle` version.
 
 ### Steps to build `hie`

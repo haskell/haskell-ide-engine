@@ -1,7 +1,53 @@
+# 0.14.0.0
+
+- Bump resolvers and deps `lts-14.16` for GHC 8.6.5.
+
+  Key deps updated
+  - floskell-0.10.2
+  - hlint-2.2.4
+
+- Hack awful script for generating changelog
+([#1423](https://github.com/haskell/haskell-ide-engine/pull/1423), by @bubba)
+- Update README.md
+([#1472](https://github.com/haskell/haskell-ide-engine/pull/1472), by @Shenmin-Z)
+- Fix typos; should be non-semantic
+([#1469](https://github.com/haskell/haskell-ide-engine/pull/1469), by @bwignall)
+- Update the instructions for Spacemacs
+([#1466](https://github.com/haskell/haskell-ide-engine/pull/1466), by @sei40kr)
+- Relax bounds of shake and use latest hie resolver
+([#1464](https://github.com/haskell/haskell-ide-engine/pull/1464), by @jneira)
+- Update README.md
+([#1459](https://github.com/haskell/haskell-ide-engine/pull/1459), by @flip111)
+- Various improvements and fixes over shake install
+([#1452](https://github.com/haskell/haskell-ide-engine/pull/1452), by @jneira)
+- Update LSP options for new haskell-lsp-0.18
+([#1461](https://github.com/haskell/haskell-ide-engine/pull/1461), by @bubba)
+- README.md > vim/coc setup > last comma in the json object doesn't parse.
+([#1463](https://github.com/haskell/haskell-ide-engine/pull/1463), by @bChiquet)
+- Update README.md
+([#1458](https://github.com/haskell/haskell-ide-engine/pull/1458), by @flip111)
+- Bump haskell-lsp et al to 0.18.0.0
+([#1457](https://github.com/haskell/haskell-ide-engine/pull/1457), by @alanz)
+- Unit test over the liquid haskell supported version
+([#1449](https://github.com/haskell/haskell-ide-engine/pull/1449), by @jneira)
+- Adapt liquid haskell tests for version 0.8.6.2
+([#1440](https://github.com/haskell/haskell-ide-engine/pull/1440), by @alanz)
+- Ignore the PATH fix if it is not set
+([#1437](https://github.com/haskell/haskell-ide-engine/pull/1437), by @jneira)
+- Make sure the liquid haskell test files are generated for unit-test
+([#1438](https://github.com/haskell/haskell-ide-engine/pull/1438), by @alanz)
+- Drop stack support for GHC 8.2.2
+([#1430](https://github.com/haskell/haskell-ide-engine/pull/1430), by @fendor)
+- Register rename and implementation provider
+([#1427](https://github.com/haskell/haskell-ide-engine/pull/1427), by @bubba)
+- Fix snippets configuration option not working
+([#1424](https://github.com/haskell/haskell-ide-engine/pull/1424), by @bubba)
+
+
 # 0.13.0.0
 
 - Bump resolvers and deps `lts-14.11` for GHC 8.6.5, and
-`nightly-2019-09-21` for nightyly build, the last one to support GHC
+`nightly-2019-09-21` for nightly build, the last one to support GHC
 8.6.5.
 
   Key deps updated
@@ -120,7 +166,7 @@
 - Fix typos in Challenges.md
 ([#1329](https://github.com/haskell/haskell-ide-engine/pull/1329), by @mb720)
 
-- Remove unnecesary extra-dep unix-time
+- Remove unnecessary extra-dep unix-time
 ([#1326](https://github.com/haskell/haskell-ide-engine/pull/1326), by @jneira)
 
 - Use hlint-2.2
@@ -439,7 +485,7 @@ is a complex effort, and will take some time, but is being tackled by
 
  - LSP mode is now the default, and the `--lsp` flag has no effect
    - The `--json` flag can be used for JSON transport
- - HIE now warns you if there is mismatch between the HIE GHC verison and the project GHC version
+ - HIE now warns you if there is mismatch between the HIE GHC version and the project GHC version
  - Add Liquid Haskell support
  - Add support for hierarchical document symbols
  - Add many new types of code actions
