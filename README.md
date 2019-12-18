@@ -31,6 +31,7 @@ we talk to clients.__
       - [Download the source code](#download-the-source-code)
       - [Building](#building)
         - [Install via cabal](#install-via-cabal)
+        - [Install cabal using stack](#install-cabal-using-stack)
         - [Install specific GHC Version](#install-specific-ghc-version)
         - [Multiple versions of HIE (optional)](#multiple-versions-of-hie-optional)
   - [Configuration](#configuration)
@@ -68,6 +69,8 @@ we talk to clients.__
       - [Otherwise](#otherwise)
     - [Nix: cabal-helper, No such file or directory](#nix-cabal-helper-no-such-file-or-directory)
     - [Liquid Haskell](#liquid-haskell)
+    - [Profiling `haskell-ide-engine`.](#profiling-haskell-ide-engine)
+      - [Using `ghc-events-analyze`](#using-ghc-events-analyze)
 
 ## Features
 
@@ -313,7 +316,9 @@ describes how to setup the environment. For example, to explicitly state
 that you want to use `stack` then the configuration file would look like:
 
 ```yaml
-cradle: {stack}
+cradle:
+  stack:
+    component: "haskell-ide-engine:lib"
 ```
 
 If you use `cabal` then you probably need to specify which component you want
@@ -323,6 +328,49 @@ to use.
 cradle:
   cabal:
     component: "lib:haskell-ide-engine"
+```
+
+If you have a project with multiple components, you can use a cabal-multi
+cradle:
+
+```yaml
+cradle:
+  cabal:
+    - path: "./test/dispatcher/"
+      component: "test:dispatcher-test"
+    - path: "./test/functional/"
+      component: "test:func-test"
+    - path: "./test/unit/"
+      component: "test:unit-test"
+    - path: "./hie-plugin-api/"
+      component: "lib:hie-plugin-api"
+    - path: "./app/MainHie.hs"
+      component: "exe:hie"
+    - path: "./app/HieWrapper.hs"
+      component: "exe:hie-wrapper"
+    - path: "./"
+      component: "lib:haskell-ide-engine"
+```
+
+Equivalently, you can use stack:
+
+```yaml
+cradle:
+  stack:
+    - path: "./test/dispatcher/"
+      component: "haskell-ide-engine:test:dispatcher-test"
+    - path: "./test/functional/"
+      component: "haskell-ide-engine:test:func-test"
+    - path: "./test/unit/"
+      component: "haskell-ide-engine:test:unit-test"
+    - path: "./hie-plugin-api/"
+      component: "hie-plugin-api:lib"
+    - path: "./app/MainHie.hs"
+      component: "haskell-ide-engine:exe:hie"
+    - path: "./app/HieWrapper.hs"
+      component: "haskell-ide-engine:exe:hie-wrapper"
+    - path: "./"
+      component: "haskell-ide-engine:lib"
 ```
 
 Or you can explicitly state the program which should be used to collect
@@ -342,8 +390,7 @@ cradle:
   cabal:
     component: "optional component name"
   stack:
-  bazel:
-  obelisk:
+    component: "optional component name"
   bios:
     program: "program to run"
     dependency-program: "optional program to run"
