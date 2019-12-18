@@ -30,12 +30,8 @@ provider :: FormattingProvider
 provider contents uri typ _opts =
   case typ of 
     -- // TODO Adequately throw an error on the following line
-    FormatRange r -> return $ IdeResultFail (IdeError PluginError (T.pack $  "ormoluCmd: " ++ show r) Null)
+    FormatRange _ -> return $ IdeResultFail (IdeError PluginError (T.pack $  "ormoluCmd: Selection formatting not supported.") Null)
     FormatText -> pluginGetFile contents uri $ \file -> do
-        -- INFO: Selection Formatting currently not supported, the below comment is just for temporal information
-        -- let (range, selectedContents) = case typ of
-        --       FormatText    -> (fullRange contents, contents)
-        --       FormatRange r -> (r, extractRange r contents)
         result <- liftIO $ try @OrmoluException (ormolu defaultConfig file (T.unpack contents))
         case result of
           Left  err -> return $ IdeResultFail (IdeError PluginError (T.pack $  "ormoluCmd: " ++ show err) Null)
