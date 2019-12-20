@@ -10,7 +10,7 @@ The design of the build system has the following main goals:
 
 * works identically on every platform
 * has minimal run-time dependencies:
-    - `stack`
+    - `stack` or `cabal`
     - `git`
 * is completely functional right after a simple `git clone` and after every `git pull`
 * prevents certain build failures by either identifying a failed precondition (such as wrong `stack` version) or by performing the necessary steps so users can't forget them (such as invoking `git` to update submodules)
@@ -38,7 +38,7 @@ Each `stack-*.yaml` contains references to packages in the submodules. Calling `
 
 `hie` depends on a correct environment in order to function properly:
 
-* `cabal-install`: This dependency is required by `hie` to handle correctly projects that are not `stack` based (without `stack.yaml`). You can install an appropriate version using `stack` with the `stack-install-cabal` target.
+* `cabal-install`: This dependency is required by `hie` to handle correctly projects that are not `stack` based. You can install an appropriate version using `stack` with the `stack-install-cabal` target.
 * The `hoogle` database: `hoogle generate` needs to be called with the most-recent `hoogle` version.
 
 ### Steps to build `hie`
@@ -89,7 +89,7 @@ The final step is to configure the `hie` client to use a custom `hie-wrapper` sc
 The `install.hs` script performs some checks to ensure that a correct installation is possible and provide meaningful error messages for known issues.
 
 * `stack` needs to be up-to-date. Version `1.9.3` is required
-* `cabal` needs to be up-to-date. Version `2.4.1.0` is required to *use* haskell-ide-engine until the pull request #1126 is merged. Unfortunately cabal version `3.0.0.0` is needed to *install* hie in windows systems but that inconsistence will be fixed by the mentioned pull request.
+* `cabal` needs to be up-to-date. Version `3.0.0.0` is required for windows systems and `2.4.1.0` for other ones.
 * `ghc-8.6.3` is broken on windows. Trying to install `hie-8.6.3` on windows is not possible.
 * When the build fails, an error message, that suggests to remove `.stack-work` directory, is displayed.
 
@@ -104,3 +104,5 @@ Currently, `stack` is needed even if you run the script with `cabal` to get the 
 Before the code in `install.hs` can be executed, `stack` installs a `GHC`, depending on the `resolver` field in `shake.yaml`. This is necessary if `install.hs` should be completely functional right after a fresh `git clone` without further configuration.
 
 This may lead to an extra `GHC` to be installed by `stack` if not all versions of `haskell-ide-engine` are installed.
+
+However, you always could change the resolver in `shake.yaml` to match the appropiate one.
