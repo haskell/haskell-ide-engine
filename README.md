@@ -34,7 +34,7 @@ we talk to clients.__
         - [Install specific GHC Version](#install-specific-ghc-version)
         - [Multiple versions of HIE (optional)](#multiple-versions-of-hie-optional)
   - [Configuration](#configuration)
-  - [Explicit Configuration](#explicit-configuration)
+  - [Project Configuration](#project-configuration)
   - [Editor Integration](#editor-integration)
     - [Using HIE with VS Code](#using-hie-with-vs-code)
       - [Using VS Code with Nix](#using-vs-code-with-nix)
@@ -305,13 +305,16 @@ There are some settings that can be configured via a `settings.json` file:
 - VS Code: These settings will show up in the settings window
 - LanguageClient-neovim: Create this file in `$projectdir/.vim/settings.json` or set `g:LanguageClient_settingsPath`
 
-## Explicit Configuration
+## Project Configuration
 
-**For a full explanation of possible configuration, we refer to [hie-bios/README](https://github.com/mpickering/hie-bios/blob/master/README.md).**
+**For a full explanation of possible configurations, refer to [hie-bios/README](https://github.com/mpickering/hie-bios/blob/master/README.md).**
 
-The user can place a `hie.yaml` file in the root of the workspace which
-describes how to setup the environment. For example, to explicitly state
-that you want to use `stack` then the configuration file would look like:
+HIE will attempt to automatically detect your project configuration and set up
+the environment for GHC. 
+
+However, you can also place a `hie.yaml` file in the root of the workspace to
+**explicitly** describe how to setup the environment. For example, to state that
+you want to use `stack` then the configuration file would look like:
 
 ```yaml
 cradle: {stack}
