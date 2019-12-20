@@ -123,7 +123,6 @@ run opts = do
       verbosity = if optBiosVerbose opts then Verbose else Silent
       -- biosLogLevel = if optBiosVerbose opts then L.DEBUG else L.INFO
 
-  -- Core.setupLogger mLogFileName ["hie-bios"] biosLogLevel
 
   when (optBiosVerbose opts) $
     logm "Enabling verbose mode for hie-bios. This option currently doesn't do anything."
