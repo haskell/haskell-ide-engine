@@ -106,7 +106,7 @@ newScheduler
   :: IdePlugins
      -- ^ The list of plugins that will be used for responding to requests
   -> CradleOpts
-   -- ^ Options for the ghc-mod session. Since we only keep a single ghc-mod session
+   -- ^ Options for the bios session. Since we only keep a single bios option record.
   -> IO (Scheduler m)
 newScheduler plugins cradleOpts = do
   cancelTVar  <- STM.atomically $ STM.newTVar Set.empty

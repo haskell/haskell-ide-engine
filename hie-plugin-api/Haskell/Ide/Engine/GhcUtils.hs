@@ -21,25 +21,6 @@ toMessager k _hsc_env (nk, n) _rc_reason ms =
       mod_name = T.pack $ moduleNameString (moduleName (ms_mod ms))
   in k prog
 
-{-
-toMessager :: Messager
-toMessager hsc_env mod_index recomp mod_summary =
-    case recomp of
-        MustCompile -> showMsg "Compiling " ""
-        UpToDate
-            | verbosity (hsc_dflags hsc_env) >= 2 -> showMsg "Skipping  " ""
-            | otherwise -> return ()
-        RecompBecause reason -> showMsg "Compiling " (" [" ++ reason ++ "]")
-    where
-        dflags = hsc_dflags hsc_env
-        showMsg msg reason =
-            compilationProgressMsg dflags $
-            (showModuleIndex mod_index ++
-            msg ++ showModMsg dflags (hscTarget dflags)
-                              (recompileRequired recomp) mod_summary)
-                ++ reason
--}
-
 -- Handlers for each type of error that ghc can throw
 errorHandlers :: (String -> m a) -> (HscTypes.SourceError -> m a) -> [ErrorHandler m a]
 errorHandlers onGhcError onSourceError = handlers

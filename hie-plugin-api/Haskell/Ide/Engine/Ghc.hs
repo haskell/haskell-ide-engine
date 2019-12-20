@@ -160,7 +160,7 @@ captureDiagnostics rfm action = do
 
       foldDFlags :: (a -> DynFlags -> DynFlags) -> [a] -> DynFlags -> DynFlags
       foldDFlags f xs x = foldr f x xs
-      
+
       setDeferTypeErrors =
           foldDFlags (flip wopt_set) [Opt_WarnTypedHoles, Opt_WarnDeferredTypeErrors, Opt_WarnDeferredOutOfScopeVariables]
           . foldDFlags setGeneralFlag' [Opt_DeferTypedHoles, Opt_DeferTypeErrors, Opt_DeferOutOfScopeVariables]
@@ -269,13 +269,11 @@ setTypecheckedModule_load uri =
 
             Session sess <- GhcT pure
             modifyMTS (\s -> s {ghcSession = Just sess})
---            cacheModules rfm ts
             cacheModules rfm [_tm]
             debugm "setTypecheckedModule: done"
 
           Nothing -> do
             debugm $ "setTypecheckedModule: Didn't get typechecked or parsed module for: " ++ show fp
-            --debugm $ "setTypecheckedModule: errs: " ++ show errs
             failModule fp
 
         -- Turn any fatal exceptions thrown by GHC into a diagnostic for

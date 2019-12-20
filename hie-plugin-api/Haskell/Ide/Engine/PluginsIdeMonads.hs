@@ -63,7 +63,6 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , getPlugins
   , withProgress
   , withIndefiniteProgress
-  , persistVirtualFile
   , persistVirtualFile'
   , getPersistedFile
   , reverseFileMap
@@ -405,12 +404,6 @@ getVirtualFile uri = do
     Just lf -> liftIO $ Core.getVirtualFileFunc lf (toNormalizedUri uri)
     Nothing -> return Nothing
 
--- | Persist a virtual file as a temporary file in the filesystem.
--- If the virtual file associated to the given URI does not exist then
--- the FilePath parsed from the URI is returned.
-persistVirtualFile :: (MonadIde m, MonadIO m) => Uri -> m FilePath
-persistVirtualFile uri = fromMaybe (error "persist")  <$> getPersistedFile uri
-
 -- | Worker function for persistVirtualFile without monad constraints.
 --
 -- Persist a virtual file as a temporary file in the filesystem.
@@ -490,7 +483,7 @@ withIndefiniteProgress t c f = do
 data IdeState = IdeState
   { moduleCache :: !GhcModuleCache
   -- | A queue of requests to be performed once a module is loaded
-  , requestQueue :: Map.Map FilePath [UriCacheResult -> IdeM ()]
+  , requestQueue :: !(Map.Map FilePath [UriCacheResult -> IdeM ()])
   , extensibleState :: !(Map.Map TypeRep Dynamic)
   , ghcSession  :: !(Maybe (IORef HscEnv))
   }
@@ -535,17 +528,6 @@ instance HasGhcModuleCache IdeM where
   modifyModuleCache f = do
     tvar <- lift ask
     atomically $ modifyTVar' tvar (\st -> st { moduleCache = f (moduleCache st) })
-
--- ---------------------------------------------------------------------
-
-{-
-instance GHC.HasDynFlags IdeGhcM where
-  getDynFlags = GHC.hsc_dflags <$> GHC.getSession
-
-instance GHC.GhcMonad IdeGhcM where
-  getSession     = GM.unGmlT GM.gmlGetSession
-  setSession env = GM.unGmlT (GM.gmlSetSession env)
-  -}
 
 -- ---------------------------------------------------------------------
 -- Results
