@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
-module GhcModPluginSpec where
+module GenericPluginSpec where
 
 import           Control.Exception
 import qualified Data.Map                            as Map

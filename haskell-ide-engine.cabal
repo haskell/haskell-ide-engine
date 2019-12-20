@@ -181,7 +181,7 @@ test-suite unit-test
                        ContextSpec
                        DiffSpec
                        ExtensibleStateSpec
-                       GhcModPluginSpec
+                       GenericPluginSpec
                        -- HaRePluginSpec
                        HooglePluginSpec
                        JsonSpec
