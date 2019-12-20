@@ -121,7 +121,6 @@ run opts = do
 
   let initOpts = defaultCradleOpts { cradleOptsVerbosity = verbosity }
       verbosity = if optBiosVerbose opts then Verbose else Silent
-      -- biosLogLevel = if optBiosVerbose opts then L.DEBUG else L.INFO
 
 
   when (optBiosVerbose opts) $
