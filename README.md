@@ -106,7 +106,7 @@ we talk to clients.__
 
    ![Formatting](https://i.imgur.com/cqZZ8HC.gif)
 
- - Renaming via HaRe (NOTE: HaRe it's not available temporary)
+ - Renaming via HaRe (NOTE: HaRe is temporarily disabled)
 
    ![Renaming](https://i.imgur.com/z03G2a5.gif)
 
