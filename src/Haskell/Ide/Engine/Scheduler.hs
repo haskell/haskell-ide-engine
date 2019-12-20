@@ -23,7 +23,7 @@ module Haskell.Ide.Engine.Scheduler
 where
 
 import           Control.Concurrent.Async
-import GHC.Conc
+import           GHC.Conc
 import qualified Control.Concurrent.STM        as STM
 import           Control.Monad.IO.Class         ( liftIO
                                                 , MonadIO
@@ -36,10 +36,10 @@ import           Control.Monad
 import qualified Data.Set                      as Set
 import qualified Data.Map                      as Map
 import qualified Data.Text                     as T
-import HIE.Bios.Types
+import           HIE.Bios.Types
 import qualified Language.Haskell.LSP.Core     as Core
 import qualified Language.Haskell.LSP.Types    as J
-import GhcMonad
+import           GhcMonad
 
 import           Haskell.Ide.Engine.GhcModuleCache
 import           Haskell.Ide.Engine.Config
@@ -49,7 +49,7 @@ import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 
-import Debug.Trace
+import           Debug.Trace
 
 
 -- | A Scheduler is a coordinator between the two main processes the ide engine uses

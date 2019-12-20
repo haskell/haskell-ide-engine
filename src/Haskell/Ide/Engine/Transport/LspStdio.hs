@@ -506,6 +506,7 @@ reactor inp diagIn = do
 
         ReqRename req -> do
           liftIO $ U.logs $ "reactor:got RenameRequest:" ++ show req
+          -- TODO: re-enable HaRe
           -- let (params, doc, pos) = reqParams req
           --     newName  = params ^. J.newName
           --     callback = reactorSend . RspRename . Core.makeResponseMessage req
