@@ -33,7 +33,7 @@ spec = do
         Nothing -> expectationFailure "liquid haskell exe is NOT in $PATH"
         Just exe -> do
           version <- readProcess exe ["--numeric-version"] ""
-          version `shouldSatisfy` isPrefixOf "0.8.6.2"
+          version `shouldSatisfy` ("0.8.6" `isPrefixOf`)
 
     -- ---------------------------------
 
