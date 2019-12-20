@@ -106,7 +106,7 @@ we talk to clients.__
 
    ![Formatting](https://i.imgur.com/cqZZ8HC.gif)
 
- - Renaming via HaRe
+ - Renaming via HaRe (NOTE: HaRe it's not available temporary)
 
    ![Renaming](https://i.imgur.com/z03G2a5.gif)
 
@@ -230,17 +230,16 @@ stack ./install.hs stack-install-cabal
 
 ##### Install specific GHC Version
 
-Install **Nightly** (and hoogle docs):
+Install hie for the latest available and supported GHC version (and hoogle docs):
 
 ```bash
-stack ./install.hs hie-8.6.4
-stack ./install.hs build-data
+stack ./install.hs build
 ```
 
-Install **LTS** (and hoogle docs):
+Install hie for a specific GHC version (and hoogle docs):
 
 ```bash
-stack ./install.hs hie-8.4.4
+stack ./install.hs hie-8.6.5
 stack ./install.hs build-data
 ```
 
@@ -641,10 +640,10 @@ Or you can set the environment variable `HIE_HOOGLE_DATABASE` to specify a speci
 ### Planned Features
 
  - [x] Multiproject support
+ - [x] New-build support
  - [ ] Project wide references
  - [ ] Cross project find definition
- - [ ] New-build support
- - [ ] HaRe refactorings
+ - [ ] More HaRe refactorings
  - [ ] More code actions
  - [ ] Cross project/dependency Find Definition
  - [ ] Case splitting, type insertion etc.
@@ -739,17 +738,6 @@ Delete any `.ghc.environment*` files in your project root and try again. (At the
 
 #### Otherwise
 Try running `cabal update`.
-
-### Nix: cabal-helper, No such file or directory
-
-An error on stderr like
-
-```
-cabal-helper-wrapper: /home/<...>/.cache/cabal-helper/cabal-helper<...>: createProcess: runInteractiveProcess:
-  exec: does not exist (No such file or directory)
-```
-
-can happen because cabal-helper compiles and runs above executable at runtime without using nix-build, which means a Nix garbage collection can delete the paths it depends on. Delete ~/.cache/cabal-helper and restart HIE to fix this.
 
 ### Liquid Haskell
 
