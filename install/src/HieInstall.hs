@@ -70,7 +70,7 @@ defaultMain = do
     phony "all"         shortHelpMessage
     phony "help"        (helpMessage versions)
     phony "check-stack" checkStack
-    phony "check-cabal" checkCabal
+    phony "check-cabal" checkCabal_
 
     phony "cabal-ghcs" $ do
       let
@@ -122,7 +122,6 @@ defaultMain = do
       (\version -> phony ("cabal-hie-" ++ version) $ do
         need ["submodules"]
         need ["cabal"]
-        validateCabalNewInstallIsSupported
         cabalBuildHie version
         cabalInstallHie version
       )
