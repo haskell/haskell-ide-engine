@@ -312,6 +312,13 @@ There are some settings that can be configured via a `settings.json` file:
 HIE will attempt to automatically detect your project configuration and set up
 the environment for GHC. 
 
+| `cabal.project` | `stack.yaml` | `*.cabal` | Project selected |
+|-----------------|--------------|-----------|------------------|
+| ✅              | -            | -         | Cabal v2         |
+| ❌              | ✅           | -         | Stack            |
+| ❌              | ❌           | ✅        | Cabal (v2 or v1) |
+| ❌              | ❌           | ❌        | Plain GHC        |
+
 However, you can also place a `hie.yaml` file in the root of the workspace to
 **explicitly** describe how to setup the environment. For example, to state that
 you want to use `stack` then the configuration file would look like:
