@@ -317,7 +317,7 @@ the environment for GHC.
 | ✅              | -            | -         | Cabal v2         |
 | ❌              | ✅           | -         | Stack            |
 | ❌              | ❌           | ✅        | Cabal (v2 or v1) |
-| ❌              | ❌           | ❌        | Plain GHC        |
+| ❌              | ❌           | ❌        | None             |
 
 However, you can also place a `hie.yaml` file in the root of the workspace to
 **explicitly** describe how to setup the environment. For example, to state that
