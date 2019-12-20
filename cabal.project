@@ -11,6 +11,4 @@ tests: true
 package haskell-ide-engine
   test-show-details: direct
 
-allow-newer: floskell:all
-
 write-ghc-environment-files: never
