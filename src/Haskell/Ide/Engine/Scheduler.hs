@@ -1,9 +1,11 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses     #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE RecordWildCards           #-}
 {-# LANGUAGE NamedFieldPuns            #-}
 {-# LANGUAGE OverloadedStrings         #-}
+{-# LANGUAGE AllowAmbiguousTypes       #-}
 module Haskell.Ide.Engine.Scheduler
   ( Scheduler
   , DocUpdate
@@ -16,10 +18,12 @@ module Haskell.Ide.Engine.Scheduler
   , cancelRequest
   , makeRequest
   , updateDocumentRequest
+  , updateDocument
   )
 where
 
-import           Control.Concurrent.Async       ( race_ )
+import           Control.Concurrent.Async
+import           GHC.Conc
 import qualified Control.Concurrent.STM        as STM
 import           Control.Monad.IO.Class         ( liftIO
                                                 , MonadIO
@@ -32,8 +36,10 @@ import           Control.Monad
 import qualified Data.Set                      as Set
 import qualified Data.Map                      as Map
 import qualified Data.Text                     as T
+import           HIE.Bios.Types
 import qualified Language.Haskell.LSP.Core     as Core
 import qualified Language.Haskell.LSP.Types    as J
+import           GhcMonad
 
 import           Haskell.Ide.Engine.GhcModuleCache
 import           Haskell.Ide.Engine.Config
@@ -42,6 +48,8 @@ import           Haskell.Ide.Engine.PluginsIdeMonads
 import           Haskell.Ide.Engine.Types
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
+
+import           Debug.Trace
 
 
 -- | A Scheduler is a coordinator between the two main processes the ide engine uses
@@ -59,9 +67,8 @@ data Scheduler m = Scheduler
  { plugins :: IdePlugins
    -- ^ The list of plugins that will be used for responding to requests
 
- , biosOptions :: BiosOptions
-   -- ^ Options for the bios session. Since we only keep a single bios session
-   -- at a time, this cannot be changed a runtime.
+ , biosOpts :: CradleOpts
+   -- ^ Options for the hie-bios cradle finding
 
  , requestsToCancel :: STM.TVar (Set.Set J.LspId)
    -- ^ The request IDs that were canceled by the client. This causes requests to
@@ -98,10 +105,10 @@ class HasScheduler a m where
 newScheduler
   :: IdePlugins
      -- ^ The list of plugins that will be used for responding to requests
-  -> BiosOptions
-   -- ^ Options for the bios session. Since we only keep a single bios session
+  -> CradleOpts
+   -- ^ Options for the bios session. Since we only keep a single bios option record.
   -> IO (Scheduler m)
-newScheduler plugins biosOpts = do
+newScheduler plugins cradleOpts = do
   cancelTVar  <- STM.atomically $ STM.newTVar Set.empty
   wipTVar     <- STM.atomically $ STM.newTVar Set.empty
   versionTVar <- STM.atomically $ STM.newTVar Map.empty
@@ -109,7 +116,7 @@ newScheduler plugins biosOpts = do
   ghcChan     <- Channel.newChan
   return $ Scheduler
     { plugins            = plugins
-    , biosOptions        = biosOpts
+    , biosOpts           = cradleOpts
     , requestsToCancel   = cancelTVar
     , requestsInProgress = wipTVar
     , documentVersions   = versionTVar
@@ -118,7 +125,7 @@ newScheduler plugins biosOpts = do
     }
 
 -- | A handler for any errors that the dispatcher may encounter.
-type ErrorHandler = J.LspId -> J.ErrorCode -> T.Text -> IO ()
+type ErrorHandler = Maybe J.LspId -> J.ErrorCode -> T.Text -> IO ()
 
 -- | A handler to run the requests' callback in your monad of choosing.
 type CallbackHandler m = forall a. RequestCallback m a -> a -> IO ()
@@ -151,13 +158,18 @@ runScheduler Scheduler {..} errorHandler callbackHandler mlf = do
 
   stateVar <- STM.newTVarIO initialState
 
-  let runGhcDisp = runIdeGhcM biosOptions plugins mlf stateVar $
+  let runGhcDisp = runIdeGhcM plugins mlf stateVar $
                     ghcDispatcher dEnv errorHandler callbackHandler ghcChanOut
       runIdeDisp = runIdeM plugins mlf stateVar $
                     ideDispatcher dEnv errorHandler callbackHandler ideChanOut
 
 
-  runGhcDisp `race_` runIdeDisp
+  withAsync runGhcDisp $ \a ->
+    withAsync runIdeDisp $ \b -> do
+      flip labelThread "ghc" $ asyncThreadId a
+      flip labelThread "ide" $ asyncThreadId b
+      waitEither_ a b
+
 
 
 -- | Sends a request to the scheduler so that it can be dispatched to the handler
@@ -171,19 +183,12 @@ sendRequest
   :: forall m
    . Scheduler m
     -- ^ The scheduler to send the request to.
-  -> Maybe DocUpdate
-    -- ^ If not Nothing, the version for the given document is updated before dispatching.
-  -> PluginRequest m
+   -> PluginRequest m
     -- ^ The request to dispatch.
   -> IO ()
-sendRequest Scheduler {..} docUpdate req = do
+sendRequest Scheduler {..} req = do
   let (ghcChanIn, _) = ghcChan
       (ideChanIn, _) = ideChan
-
-  case docUpdate of
-    Nothing -> pure ()
-    Just (uri, ver) ->
-      STM.atomically $ STM.modifyTVar' documentVersions (Map.insert uri ver)
 
   case req of
     Right ghcRequest@GhcRequest { pinLspReqId = Nothing } ->
@@ -215,7 +220,7 @@ makeRequest
   -> m ()
 makeRequest req = do
   env <- ask
-  liftIO $ sendRequest (getScheduler env) Nothing req
+  liftIO $ sendRequest (getScheduler env) req
 
 -- | Updates the version of a document and then sends the request to be processed
 -- asynchronously.
@@ -227,7 +232,20 @@ updateDocumentRequest
   -> m ()
 updateDocumentRequest uri ver req = do
   env <- ask
-  liftIO $ sendRequest (getScheduler env) (Just (uri, ver)) req
+  let sched = (getScheduler env)
+  liftIO $ do
+    updateDocument sched uri ver
+    sendRequest sched req
+
+-- | Updates the version of a document and then sends the request to be processed
+-- asynchronously.
+updateDocument
+  :: Scheduler a
+  -> Uri
+  -> Int
+  -> IO ()
+updateDocument sched uri ver =
+  STM.atomically $ STM.modifyTVar' (documentVersions sched) (Map.insert uri ver)
 
 -------------------------------------------------------------------------------
 -- Dispatcher
@@ -259,7 +277,8 @@ ideDispatcher
 ideDispatcher env errorHandler callbackHandler pin =
   forever $ do
     debugm "ideDispatcher: top of loop"
-    (IdeRequest tn lid callback action) <- liftIO $ Channel.readChan pin
+    (IdeRequest tn d lid callback action) <- liftIO $ Channel.readChan pin
+    liftIO $ traceEventIO $ "START " ++ show tn ++ "ide:" ++ d
     debugm
       $  "ideDispatcher: got request "
       ++ show tn
@@ -273,7 +292,9 @@ ideDispatcher env errorHandler callbackHandler pin =
         case result of
           IdeResultOk x -> callbackHandler callback x
           IdeResultFail (IdeError _ msg _) ->
-            errorHandler lid J.InternalError msg
+            errorHandler (Just lid) J.InternalError msg
+
+    liftIO $ traceEventIO $ "STOP " ++ show tn ++ "ide:" ++ d
  where
   queueDeferred (Defer fp cacheCb) = lift $ modifyMTState $ \s ->
     let oldQueue = requestQueue s
@@ -296,31 +317,35 @@ ghcDispatcher
   -> Channel.OutChan (GhcRequest m)
   -> IdeGhcM void
 ghcDispatcher env@DispatcherEnv { docVersionTVar } errorHandler callbackHandler pin
-  = forever $ do
+  = do
+  iniDynFlags <- getSessionDynFlags
+  forever $ do
     debugm "ghcDispatcher: top of loop"
-    (GhcRequest tn context mver mid callback action) <- liftIO
+    GhcRequest tn d context mver mid callback def action <- liftIO
       $ Channel.readChan pin
     debugm $ "ghcDispatcher:got request " ++ show tn ++ " with id: " ++ show mid
+    liftIO $ traceEventIO $ "START " ++ show tn ++ "ghc:"  ++ d
 
     let
-      runner = case context of
-        Nothing  -> runActionWithContext Nothing
+      runner :: a -> IdeGhcM a -> IdeGhcM (IdeResult  a)
+
+      runner a act = case context of
+        Nothing  -> runActionWithContext iniDynFlags Nothing a act
         Just uri -> case uriToFilePath uri of
-          Just fp -> runActionWithContext (Just fp)
-          Nothing -> \act -> do
+          Just fp -> runActionWithContext iniDynFlags (Just fp) a act
+          Nothing -> do
             debugm
               "ghcDispatcher:Got malformed uri, running action with default context"
-            runActionWithContext Nothing act
+            runActionWithContext iniDynFlags Nothing a act
 
     let
       runWithCallback = do
-        result <- runner action
-        liftIO $ case result of
+        result <- runner (pure def) action
+        liftIO $ case join result of
           IdeResultOk   x                      -> callbackHandler callback x
-          IdeResultFail err@(IdeError _ msg _) -> case mid of
-            Just lid -> errorHandler lid J.InternalError msg
-            Nothing ->
-              debugm $ "ghcDispatcher:Got error for a request: " ++ show err
+          IdeResultFail err@(IdeError _ msg _) -> do
+            logm $ "ghcDispatcher:Got error for a request: " ++ show err ++ " with mid: " ++ show mid
+            errorHandler mid J.InternalError msg
 
     let
       runIfVersionMatch = case mver of
@@ -343,11 +368,11 @@ ghcDispatcher env@DispatcherEnv { docVersionTVar } errorHandler callbackHandler 
       Just lid -> unlessCancelled env lid errorHandler $ do
         liftIO $ completedReq env lid
         runIfVersionMatch
+    liftIO $ traceEventIO $ "STOP " ++ show tn ++ "ghc:" ++ d
 
 -- | Runs the passed monad only if the request identified by the passed LspId
 -- has not already been cancelled.
 unlessCancelled
-  -- :: GM.MonadIO m => DispatcherEnv -> J.LspId -> ErrorHandler -> m () -> m ()
   :: MonadIO m => DispatcherEnv -> J.LspId -> ErrorHandler -> m () -> m ()
 unlessCancelled env lid errorHandler callback = do
   cancelled <- liftIO $ STM.atomically isCancelled
@@ -356,7 +381,7 @@ unlessCancelled env lid errorHandler callback = do
       -- remove from cancelled and wip list
       STM.atomically $ STM.modifyTVar' (cancelReqsTVar env) (Set.delete lid)
       completedReq env lid
-      errorHandler lid J.RequestCancelled ""
+      errorHandler (Just lid) J.RequestCancelled ""
     else callback
   where isCancelled = Set.member lid <$> STM.readTVar (cancelReqsTVar env)
 

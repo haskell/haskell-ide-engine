@@ -8,9 +8,9 @@ module JsonSpec where
 import           Haskell.Ide.Engine.MonadTypes
 
 import           Haskell.Ide.Engine.Plugin.ApplyRefact
-import           Haskell.Ide.Engine.Plugin.GhcMod
-import           Haskell.Ide.Engine.Plugin.HaRe
-import           Haskell.Ide.Engine.Support.HieExtras
+import           Haskell.Ide.Engine.Plugin.Generic
+-- import           Haskell.Ide.Engine.Plugin.HaRe
+-- import           Haskell.Ide.Engine.Support.HieExtras
 import           Haskell.Ide.Engine.Config
 import           Language.Haskell.LSP.Types
 
@@ -39,9 +39,9 @@ jsonSpec = do
   -- Plugin params
     prop "ApplyOneParams"    (propertyJsonRoundtrip :: ApplyOneParams -> Bool)
     prop "TypeParams"        (propertyJsonRoundtrip :: TypeParams -> Bool)
-    prop "HarePoint"         (propertyJsonRoundtrip :: HarePoint -> Bool)
-    prop "HarePointWithText" (propertyJsonRoundtrip :: HarePointWithText -> Bool)
-    prop "HareRange"         (propertyJsonRoundtrip :: HareRange -> Bool)
+    -- prop "HarePoint"         (propertyJsonRoundtrip :: HarePoint -> Bool)
+    -- prop "HarePointWithText" (propertyJsonRoundtrip :: HarePointWithText -> Bool)
+    -- prop "HareRange"         (propertyJsonRoundtrip :: HareRange -> Bool)
   -- Plugin Api types
     prop "IdeErrorCode"      (propertyJsonRoundtrip :: IdeErrorCode -> Bool)
     prop "IdeError"          (propertyJsonRoundtrip :: IdeError -> Bool)
@@ -66,14 +66,14 @@ instance Arbitrary ApplyOneParams where
 instance Arbitrary TypeParams where
   arbitrary = TP <$> arbitrary <*> arbitrary <*> arbitrary
 
-instance Arbitrary HarePoint where
-  arbitrary = HP <$> arbitrary <*> arbitrary
+-- instance Arbitrary HarePoint where
+--   arbitrary = HP <$> arbitrary <*> arbitrary
 
-instance Arbitrary HarePointWithText where
-  arbitrary = HPT <$> arbitrary <*> arbitrary <*> arbitrary
+-- instance Arbitrary HarePointWithText where
+--   arbitrary = HPT <$> arbitrary <*> arbitrary <*> arbitrary
 
-instance Arbitrary HareRange where
-  arbitrary = HR <$> arbitrary <*> arbitrary <*> arbitrary
+-- instance Arbitrary HareRange where
+--   arbitrary = HR <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance Arbitrary Uri where
   arbitrary = filePathToUri <$> arbitrary

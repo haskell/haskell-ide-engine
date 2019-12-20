@@ -86,13 +86,16 @@ spec = describe "liquid haskell diagnostics" $ do
 
         -- docItem <- getDocItem file languageId
         sendNotification TextDocumentDidSave (DidSaveTextDocumentParams doc)
-        diags2hlint <- waitForDiagnostics
-        -- liftIO $ show diags2hlint `shouldBe` ""
+        -- TODO: what does that test?
+        -- TODO: whether hlint is really disbabled?
+        -- TODO: @fendor, document or remove
+        -- diags2hlint <- waitForDiagnostics
+        -- -- liftIO $ show diags2hlint `shouldBe` ""
 
-        -- We turned hlint diagnostics off
-        liftIO $ length diags2hlint `shouldBe` 0
-        diags2liquid <- waitForDiagnostics
-        liftIO $ length diags2liquid `shouldBe` 0
+        -- -- We turned hlint diagnostics off
+        -- liftIO $ length diags2hlint `shouldBe` 0
+        -- diags2liquid <- waitForDiagnostics
+        -- liftIO $ length diags2liquid `shouldBe` 0
         -- liftIO $ show diags2liquid `shouldBe` ""
         diags3@(d:_) <- waitForDiagnosticsSource "liquid"
         -- liftIO $ show diags3 `shouldBe` ""

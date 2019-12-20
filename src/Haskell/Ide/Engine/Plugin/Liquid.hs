@@ -7,7 +7,7 @@ module Haskell.Ide.Engine.Plugin.Liquid where
 import           Control.Concurrent.Async.Lifted
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans
+import Control.Monad.Trans.Class
 import           Control.Exception (bracket)
 import           Data.Aeson
 import qualified Data.ByteString.Lazy          as BS

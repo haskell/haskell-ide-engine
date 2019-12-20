@@ -134,7 +134,7 @@ packageSpec = do
             res  = IdeResultOk
               $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
             textEdits = List
-              [ TextEdit (Range (Position 0 0) (Position 34 0)) $ T.concat
+              [ TextEdit (Range (Position 0 0) (Position 32 0)) $ T.concat
                   [ "copyright: 2018 Author name here\n"
                   , "maintainer: example@example.com\n"
                   , "dependencies:\n"
@@ -156,8 +156,6 @@ packageSpec = do
                   , "    - -threaded\n"
                   , "    - -rtsopts\n"
                   , "    - -with-rtsopts=-N\n"
-                  , "    dependencies:\n"
-                  , "    - asdf\n"
                   , "description: Please see the README on GitHub at <https://github.com/githubuser/asdf#readme>\n"
                   ]
               ]

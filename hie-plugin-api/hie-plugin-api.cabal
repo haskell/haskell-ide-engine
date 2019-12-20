@@ -20,6 +20,9 @@ library
   exposed-modules:
                        Haskell.Ide.Engine.ArtifactMap
                        Haskell.Ide.Engine.Compat
+                       Haskell.Ide.Engine.Cradle
+                       Haskell.Ide.Engine.GhcCompat
+                       Haskell.Ide.Engine.GhcUtils
                        Haskell.Ide.Engine.Config
                        Haskell.Ide.Engine.Context
                        Haskell.Ide.Engine.Ghc
@@ -35,6 +38,9 @@ library
   build-depends:       base >= 4.9 && < 5
                      , Diff
                      , aeson
+                     , bytestring-trie
+                     , bytestring
+                     , cryptohash-sha1
                      , constrained-dynamic
                      , containers
                      , data-default
@@ -43,18 +49,21 @@ library
                      , fingertree
                      , free
                      , ghc
-                     , ghc-mod-core >= 5.9.0.0
+                     , hie-bios >= 0.3.2 && < 0.4.0
                      , ghc-project-types >= 5.9.0.0
-                     , haskell-lsp == 0.18.*
+                     , cabal-helper
+                     , haskell-lsp == 0.19.*
                      , hslogger
+                     , unliftio
                      , monad-control
                      , mtl
-                     , rope-utf16-splay >= 0.3.1.0
                      , stm
                      , syb
                      , text
                      , transformers
                      , unordered-containers
+                     , transformers-base
+                     , yaml >= 0.8.11
   if os(windows)
     build-depends:     Win32
   else

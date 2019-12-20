@@ -1,5 +1,5 @@
 name:                haskell-ide-engine
-version:             0.14.0.0
+version:             1.0.0.0
 synopsis:            Provide a common engine to power any Haskell IDE
 description:         Please see README.md
 homepage:            http://github.com/githubuser/haskell-ide-engine#readme
@@ -27,11 +27,10 @@ library
                        Haskell.Ide.Engine.Options
                        Haskell.Ide.Engine.Plugin.ApplyRefact
                        Haskell.Ide.Engine.Plugin.Brittany
-                       Haskell.Ide.Engine.Plugin.Build
                        Haskell.Ide.Engine.Plugin.Example2
                        Haskell.Ide.Engine.Plugin.Floskell
-                       Haskell.Ide.Engine.Plugin.GhcMod
-                       Haskell.Ide.Engine.Plugin.HaRe
+                       Haskell.Ide.Engine.Plugin.Bios
+                       -- Haskell.Ide.Engine.Plugin.HaRe
                        Haskell.Ide.Engine.Plugin.Haddock
                        Haskell.Ide.Engine.Plugin.HfaAlign
                        Haskell.Ide.Engine.Plugin.Hoogle
@@ -40,7 +39,9 @@ library
                        Haskell.Ide.Engine.Plugin.Package
                        Haskell.Ide.Engine.Plugin.Package.Compat
                        Haskell.Ide.Engine.Plugin.Pragmas
+                       Haskell.Ide.Engine.Plugin.Generic
                        Haskell.Ide.Engine.Scheduler
+                       Haskell.Ide.Engine.Support.FromHaRe
                        Haskell.Ide.Engine.Support.Fuzzy
                        Haskell.Ide.Engine.Support.HieExtras
                        Haskell.Ide.Engine.Transport.JsonStdio
@@ -49,7 +50,7 @@ library
   other-modules:       Paths_haskell_ide_engine
   build-depends:       Cabal >= 1.22
                      , Diff
-                     , HaRe
+                     -- , HaRe
                      , aeson
                      , apply-refact
                      , async
@@ -57,7 +58,7 @@ library
                      , brittany
                      , bytestring
                      , Cabal
-                     , cabal-helper >= 0.8.0.4
+                     , cabal-helper >= 1.0 && < 1.1
                      , containers
                      , data-default
                      , directory
@@ -66,13 +67,11 @@ library
                      , fold-debounce
                      , ghc >= 8.0.1
                      , ghc-exactprint
-                     , ghc-mod >= 5.9.0.0
-                     , ghc-mod-core >= 5.9.0.0
                      , gitrev >= 1.1
                      , haddock-api
                      , haddock-library
-                     , haskell-lsp == 0.18.*
-                     , haskell-lsp-types == 0.18.*
+                     , haskell-lsp == 0.19.*
+                     , haskell-lsp-types == 0.19.*
                      , haskell-src-exts
                      , hie-plugin-api
                      , hoogle >= 5.0.13
@@ -80,16 +79,15 @@ library
                      , hslogger
                      , lifted-async
                      , lens >= 4.15.2
-                     , monad-control
                      , monoid-subclasses > 0.4
                      , mtl
                      , optparse-simple >= 0.0.3
                      , parsec
                      , process
-                     , rope-utf16-splay >= 0.3.1.0
                      , safe
                      , sorted-list >= 0.2.1.0
                      , stm
+                     , syb
                      , tagsoup
                      , text
                      , transformers
@@ -98,6 +96,9 @@ library
                      , vector
                      , versions
                      , yaml >= 0.8.31
+                     , hie-bios >= 0.3.2 && < 0.4.0
+                     , bytestring-trie
+                     , unliftio
                      , hlint >= 2.2.2
 
   ghc-options:         -Wall -Wredundant-constraints
@@ -111,6 +112,8 @@ executable hie
   other-modules:       Paths_haskell_ide_engine
   build-depends:       base
                      , directory
+                     , filepath
+                     , hie-bios
                      , haskell-ide-engine
                      , haskell-lsp
                      , hie-plugin-api
@@ -129,7 +132,8 @@ executable hie-wrapper
   other-modules:       Paths_haskell_ide_engine
   build-depends:       base
                      , directory
-                     , ghc-mod-core
+                     , filepath
+                     , hie-bios
                      , haskell-ide-engine
                      , haskell-lsp
                      , hie-plugin-api
@@ -148,6 +152,7 @@ library hie-test-utils
   build-depends:       base
                      , haskell-ide-engine
                      , haskell-lsp
+                     , hie-bios
                      , hie-plugin-api
                      , aeson
                      , blaze-markup
@@ -155,7 +160,6 @@ library hie-test-utils
                      , data-default
                      , directory
                      , filepath
-                     , ghc-mod-core
                      , hslogger
                      , hspec
                      , hspec-core
@@ -177,8 +181,8 @@ test-suite unit-test
                        ContextSpec
                        DiffSpec
                        ExtensibleStateSpec
-                       GhcModPluginSpec
-                       HaRePluginSpec
+                       GenericPluginSpec
+                       -- HaRePluginSpec
                        HooglePluginSpec
                        JsonSpec
                        LiquidSpec
@@ -188,6 +192,7 @@ test-suite unit-test
   build-tool-depends:  cabal-helper:cabal-helper-main, hspec-discover:hspec-discover
   build-depends:       QuickCheck
                      , aeson
+                     , ghc
                      , base
                      , bytestring
                      , containers
@@ -196,7 +201,7 @@ test-suite unit-test
                      , free
                      , ghc
                      , haskell-ide-engine
-                     , haskell-lsp-types == 0.18.*
+                     , haskell-lsp-types == 0.19.*
                      , hie-test-utils
                      , hie-plugin-api
                      , hoogle > 5.0.11
@@ -269,7 +274,8 @@ test-suite func-test
                      , FunctionalCodeActionsSpec
                      , FunctionalLiquidSpec
                      , FunctionalSpec
-                     , HaReSpec
+                     -- , HaReSpec
+                     , HieBiosSpec
                      , HighlightSpec
                      , HoverSpec
                      , ProgressSpec
@@ -283,10 +289,10 @@ test-suite func-test
                      , data-default
                      , directory
                      , filepath
-                     , lsp-test >= 0.8.0.0
+                     , lsp-test >= 0.9.0.0
                      , haskell-ide-engine
-                     , haskell-lsp-types == 0.18.*
-                     , haskell-lsp == 0.18.*
+                     , haskell-lsp-types == 0.19.*
+                     , haskell-lsp == 0.19.*
                      , hie-test-utils
                      , hie-plugin-api
                      , hspec
@@ -309,8 +315,10 @@ test-suite wrapper-test
   build-depends:       base
                      , hspec
                      , directory
+                     , filepath
                      , process
                      , haskell-ide-engine
+                     , hie-plugin-api
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
      ghc-options:      -Werror

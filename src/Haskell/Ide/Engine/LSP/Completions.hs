@@ -27,8 +27,6 @@ import           Data.Semigroup (Semigroup(..))
 import           Data.Typeable
 import           GHC.Generics                   ( Generic )
 
-import qualified GhcModCore                    as GM
-                                                ( listVisibleModuleNames )
 
 import           HscTypes
 import qualified DynFlags                      as GHC
@@ -38,9 +36,10 @@ import           Name
 import           TcRnTypes
 import           Type
 import           Var
+import           Packages (listVisibleModuleNames)
 
 
-import           Language.Haskell.Refact.API    ( showGhc )
+-- import           Language.Haskell.Refact.API    ( showGhc )
 
 import qualified Language.Haskell.LSP.Types    as J
 import qualified Language.Haskell.LSP.Types.Capabilities
@@ -58,6 +57,10 @@ import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Context
+
+import           Language.Haskell.GHC.ExactPrint.Utils
+
+-- ---------------------------------------------------------------------
 
 data CompItem = CI
   { origName     :: Name           -- ^ Original name, such as Maybe, //, or find.
@@ -244,7 +247,7 @@ instance ModuleCache CachedCompletions where
         importDeclerations = map unLoc limports
 
         -- The list of all importable Modules from all packages
-        moduleNames = map showModName (GM.listVisibleModuleNames (getDynFlags tm))
+        moduleNames = map showModName (listVisibleModuleNames (getDynFlags tm))
 
         -- The given namespaces for the imported modules (ie. full name, or alias if used)
         allModNamesAsNS = map (showModName . asNamespace) importDeclerations

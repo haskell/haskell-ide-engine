@@ -66,7 +66,7 @@ codeActionProvider plId docId _ (J.CodeActionContext (J.List diags) _monly) = do
   return $ IdeResultOk cmds
   where
     -- Filter diagnostics that are from ghcmod
-    ghcDiags = filter (\d -> d ^. J.source == Just "ghcmod") diags
+    ghcDiags = filter (\d -> d ^. J.source == Just "bios") diags
     -- Get all potential Pragmas for all diagnostics.
     pragmas = concatMap (\d -> findPragma (d ^. J.message)) ghcDiags
     mkCommand pragmaName = do

@@ -21,6 +21,8 @@ import qualified Language.Haskell.LSP.Types.Capabilities as C
 import           Test.Hspec
 import           TestUtils
 
+{-# ANN module ("HLint: ignore Reduce duplication"::String) #-}
+
 spec :: Spec
 spec = describe "code actions" $ do
   describe "hlint suggestions" $ do
@@ -46,7 +48,7 @@ spec = describe "code actions" $ do
       contents <- getDocumentEdit doc
       liftIO $ contents `shouldBe` "main = undefined\nfoo x = x\n"
 
-      noDiagnostics
+      -- noDiagnostics
 
     -- ---------------------------------
 
@@ -65,7 +67,9 @@ spec = describe "code actions" $ do
       contents <- skipManyTill publishDiagnosticsNotification $ getDocumentEdit doc
       liftIO $ contents `shouldBe` "main = undefined\nfoo x = x\n"
 
-      noDiagnostics
+      -- noDiagnostics
+
+    -- ---------------------------------
 
     it "runs diagnostics on save" $ runSession hieCommand fullCaps "test/testdata" $ do
       let config = def { diagnosticsOnChange = False }
@@ -92,7 +96,7 @@ spec = describe "code actions" $ do
       liftIO $ contents `shouldBe` "main = undefined\nfoo x = x\n"
       sendNotification TextDocumentDidSave (DidSaveTextDocumentParams doc)
 
-      noDiagnostics
+      -- noDiagnostics
 
   -- -----------------------------------
 
@@ -100,7 +104,7 @@ spec = describe "code actions" $ do
     it "works" $ runSession hieCommand noLiteralCaps "test/testdata" $ do
       doc <- openDoc "CodeActionRename.hs" "haskell"
 
-      _ <- waitForDiagnosticsSource "ghcmod"
+      _ <- waitForDiagnosticsSource "bios"
 
       CACommand cmd:_ <- getAllCodeActions doc
       executeCommand cmd
@@ -111,7 +115,7 @@ spec = describe "code actions" $ do
       runSession hieCommand noLiteralCaps "test/testdata" $ do
         doc <- openDoc "CodeActionRename.hs" "haskell"
 
-        _ <- waitForDiagnosticsSource "ghcmod"
+        _ <- waitForDiagnosticsSource "bios"
 
         CACommand cmd <- (!! 2) <$> getAllCodeActions doc
         let Just (List [Object args]) = cmd ^. L.arguments
@@ -126,6 +130,9 @@ spec = describe "code actions" $ do
         liftIO $ x `shouldBe` "foo = putStrLn \"world\""
 
   describe "import suggestions" $ do
+
+    -- ---------------------------------
+
     describe "formats with brittany" $ hsImportSpec "brittany"
       [ -- Expected output for simple format.
         [ "import qualified Data.Maybe"
@@ -245,7 +252,7 @@ spec = describe "code actions" $ do
         doc <- openDoc "app/Asdf.hs" "haskell"
 
         -- ignore the first empty hlint diagnostic publish
-        [_,diag:_] <- count 2 waitForDiagnostics
+        [_,_:diag:_] <- count 2 waitForDiagnostics
 
         let prefixes = [ "Could not load module `Codec.Compression.GZip'" -- Windows && GHC >= 8.6
                        , "Could not find module `Codec.Compression.GZip'" -- Windows
@@ -303,7 +310,7 @@ spec = describe "code actions" $ do
         -- provides workspace edit property which skips round trip to
         -- the server
         contents <- documentContents doc
-        liftIO $ contents `shouldBe` "main :: IO ()\nmain = putStrLn \"hello\""
+        liftIO $ contents `shouldBe` "module CodeActionRedundant where\nmain :: IO ()\nmain = putStrLn \"hello\""
     it "doesn't touch other imports" $ runSession hieCommand noLiteralCaps "test/testdata/redundantImportTest/" $ do
       doc <- openDoc "src/MultipleImports.hs" "haskell"
 
@@ -328,7 +335,7 @@ spec = describe "code actions" $ do
       it "works" $
         runSession hieCommand fullCaps "test/testdata" $ do
           doc <- openDoc "TypedHoles.hs" "haskell"
-          _ <- waitForDiagnosticsSource "ghcmod"
+          _ <- waitForDiagnosticsSource "bios"
           cas <- map (\(CACodeAction x)-> x) <$> getAllCodeActions doc
 
           suggestion <-
@@ -368,7 +375,7 @@ spec = describe "code actions" $ do
       it "shows more suggestions" $
         runSession hieCommand fullCaps "test/testdata" $ do
           doc <- openDoc "TypedHoles2.hs" "haskell"
-          _ <- waitForDiagnosticsSource "ghcmod"
+          _ <- waitForDiagnosticsSource "bios"
           cas <- map fromAction <$> getAllCodeActions doc
 
           suggestion <-
@@ -416,7 +423,7 @@ spec = describe "code actions" $ do
       runSession hieCommand fullCaps "test/testdata/" $ do
         doc <- openDoc "TopLevelSignature.hs" "haskell"
 
-        _ <- waitForDiagnosticsSource "ghcmod"
+        _ <- waitForDiagnosticsSource "bios"
         cas <- map fromAction <$> getAllCodeActions doc
 
         liftIO $ map (^. L.title) cas `shouldContain` [ "Add signature: main :: IO ()"]
@@ -442,7 +449,7 @@ spec = describe "code actions" $ do
       runSession hieCommand fullCaps "test/testdata/addPragmas" $ do
         doc <- openDoc "NeedsPragmas.hs" "haskell"
 
-        _ <- waitForDiagnosticsSource "ghcmod"
+        _ <- waitForDiagnosticsSource "bios"
         cas <- map fromAction <$> getAllCodeActions doc
 
         liftIO $ map (^. L.title) cas `shouldContain` [ "Add \"TypeSynonymInstances\""]
@@ -475,29 +482,31 @@ spec = describe "code actions" $ do
   -- -----------------------------------
 
   describe "unused term code actions" $
-    it "Prefixes with '_'" $
-      runSession hieCommand fullCaps "test/testdata/" $ do
-        doc <- openDoc "UnusedTerm.hs" "haskell"
+    it "Prefixes with '_'" $ pendingWith "removed because of HaRe"
+  --     runSession hieCommand fullCaps "test/testdata/" $ do
+  --       doc <- openDoc "UnusedTerm.hs" "haskell"
+  --
+  --       _ <- waitForDiagnosticsSource "bios"
+  --       cas <- map fromAction <$> getAllCodeActions doc
+  --
+  --       liftIO $ map (^. L.title) cas `shouldContain` [ "Prefix imUnused with _"]
+  --
+  --       executeCodeAction $ head cas
+  --
+  --       edit <- getDocumentEdit doc
+  --
+  --       let expected = [ "{-# OPTIONS_GHC -Wall #-}"
+  --                      , "module UnusedTerm () where"
+  --                      , "_imUnused :: Int -> Int"
+  --                      , "_imUnused 1 = 1"
+  --                      , "_imUnused 2 = 2"
+  --                      , "_imUnused _ = 3"
+  --                      ]
+  --
+  --       liftIO $ edit `shouldBe` T.unlines expected
 
-        _ <- waitForDiagnosticsSource "ghcmod"
-        cas <- map fromAction <$> getAllCodeActions doc
-
-        liftIO $ map (^. L.title) cas `shouldContain` [ "Prefix imUnused with _"]
-
-        executeCodeAction $ head cas
-
-        edit <- getDocumentEdit doc
-
-        let expected = [ "{-# OPTIONS_GHC -Wall #-}"
-                       , "module UnusedTerm () where"
-                       , "_imUnused :: Int -> Int"
-                       , "_imUnused 1 = 1"
-                       , "_imUnused 2 = 2"
-                       , "_imUnused _ = 3"
-                       ]
-
-        liftIO $ edit `shouldBe` T.unlines expected
-
+  -- See https://microsoft.github.io/language-server-protocol/specifications/specification-3-15/#textDocument_codeAction
+  -- `CodeActionContext`
   it "respect 'only' parameter" $ runSession hieCommand fullCaps "test/testdata" $ do
     doc <- openDoc "CodeActionOnly.hs" "haskell"
     _ <- count 2 waitForDiagnostics -- need to wait for both hlint and ghcmod
@@ -508,7 +517,8 @@ spec = describe "code actions" $ do
     let cas = map fromAction res
         kinds = map (^. L.kind) cas
     liftIO $ do
-      kinds `shouldNotSatisfy` null
+      -- TODO: When HaRe is back this should be uncommented
+      -- kinds `shouldNotSatisfy` null
       kinds `shouldNotSatisfy` any (Just CodeActionRefactorInline /=)
       kinds `shouldSatisfy` all (Just CodeActionRefactorInline ==)
 
@@ -550,7 +560,7 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
 
     it "formats" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
-      _ <- waitForDiagnosticsSource "ghcmod"
+      _ <- waitForDiagnosticsSource "bios"
 
       let config = def { formattingProvider = formatterName }
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
@@ -564,7 +574,7 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
 
     it "import-list formats" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
-      _ <- waitForDiagnosticsSource "ghcmod"
+      _ <- waitForDiagnosticsSource "bios"
 
       let config = def { formattingProvider = formatterName }
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
@@ -575,6 +585,8 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
 
       contents <- getDocumentEdit doc
       liftIO $ T.lines contents `shouldMatchList` e2
+
+    -- ---------------------------------
 
     it "multiple import-list formats" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImportList.hs" "haskell"
@@ -591,6 +603,8 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
       contents <- executeAllCodeActions doc wantedCodeActionTitles
 
       liftIO $ Set.fromList (T.lines contents) `shouldBe` Set.fromList e3
+
+    -- ---------------------------------
 
     it "respects format config, multiple import-list" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImportList.hs" "haskell"
@@ -619,7 +633,7 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
           ]
     it "respects format config" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
-      _ <- waitForDiagnosticsSource "ghcmod"
+      _ <- waitForDiagnosticsSource "bios"
 
       let config = def { formatOnImportOn = False, formattingProvider = formatterName }
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
@@ -638,7 +652,7 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
 
     it "import-list respects format config" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
-      _ <- waitForDiagnosticsSource "ghcmod"
+      _ <- waitForDiagnosticsSource "bios"
 
       let config = def { formatOnImportOn = False, formattingProvider = formatterName }
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
@@ -657,7 +671,7 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
 
     it "complex import-list" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImportListElaborate.hs" "haskell"
-      _ <- waitForDiagnosticsSource "ghcmod"
+      _ <- waitForDiagnosticsSource "bios"
 
       let config = def { formatOnImportOn = True, formattingProvider = formatterName }
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
@@ -678,7 +692,7 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
 
     it "complex import-list respects format config" $ runSession hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "CodeActionImportListElaborate.hs" "haskell"
-      _ <- waitForDiagnosticsSource "ghcmod"
+      _ <- waitForDiagnosticsSource "bios"
 
       let config = def { formatOnImportOn = False, formattingProvider = formatterName }
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
@@ -714,10 +728,10 @@ hsImportSpec formatterName [e1, e2, e3, e4] =
     executeAllCodeActions :: TextDocumentIdentifier -> [T.Text] -> Session T.Text
     executeAllCodeActions doc names =
       foldM (\_ _ -> do
-          _ <- waitForDiagnosticsSource "ghcmod"
+          _ <- waitForDiagnosticsSource "bios"
           executeCodeActionByName doc names
           content <- skipManyTill publishDiagnosticsNotification $ getDocumentEdit doc
-          _ <- waitForDiagnosticsSource "ghcmod"
+          _ <- waitForDiagnosticsSource "bios"
           return content
         )
         (T.pack "")
@@ -742,6 +756,7 @@ hsImportSpec formatter args =
     ++ T.unpack formatter
     ++ ")\", expected 4, got "
     ++ show (length args)
+
 -- ---------------------------------------------------------------------
 
 fromAction :: CAResult -> CodeAction

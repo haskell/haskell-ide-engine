@@ -2,8 +2,8 @@ module Haskell.Ide.Engine.Context where
 
 import Data.Generics
 import Language.Haskell.LSP.Types
-import GHC
-import qualified GhcModCore as GM (GhcPs) -- for GHC 8.2.2
+import qualified GHC
+import Haskell.Ide.Engine.GhcCompat (GhcPs) -- for GHC 8.2.2
 import Haskell.Ide.Engine.PluginUtils
 import Control.Applicative ( (<|>) )
 
@@ -23,13 +23,13 @@ data Context = TypeContext
 
 -- | Generates a map of where the context is a type and where the context is a value
 -- i.e. where are the value decls and the type decls
-getContext :: Position -> ParsedModule -> Maybe Context
+getContext :: Position -> GHC.ParsedModule -> Maybe Context
 getContext pos pm
-  | Just (L (RealSrcSpan r) modName) <- moduleHeader
+  | Just (GHC.L (GHC.RealSrcSpan r) modName) <- moduleHeader
   , pos `isInsideRange` r
-  = Just (ModuleContext (moduleNameString modName))
+  = Just (ModuleContext (GHC.moduleNameString modName))
 
-  | Just (L (RealSrcSpan r) _) <- exportList
+  | Just (GHC.L (GHC.RealSrcSpan r) _) <- exportList
   , pos `isInsideRange` r
   = Just ExportContext
 
@@ -42,21 +42,21 @@ getContext pos pm
   | otherwise
   = Nothing
 
-  where decl = hsmodDecls $ unLoc $ pm_parsed_source pm
-        moduleHeader = hsmodName $ unLoc $ pm_parsed_source pm
-        exportList = hsmodExports $ unLoc $ pm_parsed_source pm
-        imports = hsmodImports $ unLoc $ pm_parsed_source pm
+  where decl = GHC.hsmodDecls $ GHC.unLoc $ GHC.pm_parsed_source pm
+        moduleHeader = GHC.hsmodName $ GHC.unLoc $ GHC.pm_parsed_source pm
+        exportList = GHC.hsmodExports $ GHC.unLoc $ GHC.pm_parsed_source pm
+        imports = GHC.hsmodImports $ GHC.unLoc $ GHC.pm_parsed_source pm
 
-        go :: LHsDecl GM.GhcPs -> Maybe Context
-        go (L (RealSrcSpan r) SigD {})
+        go :: GHC.LHsDecl GhcPs -> Maybe Context
+        go (GHC.L (GHC.RealSrcSpan r) GHC.SigD {})
           | pos `isInsideRange` r = Just TypeContext
           | otherwise = Nothing
-        go (L (GHC.RealSrcSpan r) GHC.ValD {})
+        go (GHC.L (GHC.RealSrcSpan r) GHC.ValD {})
           | pos `isInsideRange` r = Just ValueContext
           | otherwise = Nothing
         go _ = Nothing
 
-        goInline :: GHC.LHsType GM.GhcPs -> Maybe Context
+        goInline :: GHC.LHsType GhcPs -> Maybe Context
         goInline (GHC.L (GHC.RealSrcSpan r) _)
           | pos `isInsideRange` r = Just TypeContext
           | otherwise = Nothing
@@ -65,22 +65,22 @@ getContext pos pm
         p `isInsideRange` r = sp <= p && p <= ep
           where (sp, ep) = unpackRealSrcSpan r
 
-        importGo :: GHC.LImportDecl GM.GhcPs -> Maybe Context
-        importGo (L (RealSrcSpan r) impDecl)
+        importGo :: GHC.LImportDecl GhcPs -> Maybe Context
+        importGo (GHC.L (GHC.RealSrcSpan r) impDecl)
           | pos `isInsideRange` r
-          = importInline importModuleName (ideclHiding impDecl)
+          = importInline importModuleName (GHC.ideclHiding impDecl)
           <|> Just (ImportContext importModuleName)
 
           | otherwise = Nothing
-          where importModuleName = moduleNameString $ unLoc $ ideclName impDecl
+          where importModuleName = GHC.moduleNameString $ GHC.unLoc $ GHC.ideclName impDecl
 
         importGo _ = Nothing
 
-        importInline :: String -> Maybe (Bool,  GHC.Located [GHC.LIE GM.GhcPs]) -> Maybe Context
-        importInline modName (Just (True, L (RealSrcSpan r) _))
+        importInline :: String -> Maybe (Bool,  GHC.Located [GHC.LIE GhcPs]) -> Maybe Context
+        importInline modName (Just (True, GHC.L (GHC.RealSrcSpan r) _))
           | pos `isInsideRange` r = Just $ ImportHidingContext modName
           | otherwise = Nothing
-        importInline modName (Just (False, L (RealSrcSpan r) _))
+        importInline modName (Just (False, GHC.L (GHC.RealSrcSpan r) _))
           | pos `isInsideRange` r = Just $ ImportListContext modName
           | otherwise = Nothing
         importInline _ _ = Nothing

@@ -8,9 +8,13 @@ import qualified Data.Map as Map
 import           Data.Dynamic (Dynamic)
 import           Data.Typeable (TypeRep)
 
-import qualified GhcModCore                      as GM ( Cradle(..) )
+import qualified HIE.Bios as BIOS
+import qualified Data.Trie as T
+import qualified Data.ByteString.Char8 as B
 
-import           GHC                               (TypecheckedModule, ParsedModule)
+import           GHC (TypecheckedModule, ParsedModule, HscEnv)
+
+import Data.List
 
 import Haskell.Ide.Engine.ArtifactMap
 
@@ -74,17 +78,45 @@ getThingsAtPos cm pos ts =
 -- ---------------------------------------------------------------------
 -- The following to move into ghc-mod-core
 
-class (Monad m) => HasGhcModuleCache m where
+class Monad m => HasGhcModuleCache m where
   getModuleCache :: m GhcModuleCache
-  setModuleCache :: GhcModuleCache -> m ()
+  modifyModuleCache :: (GhcModuleCache -> GhcModuleCache) -> m ()
 
 emptyModuleCache :: GhcModuleCache
-emptyModuleCache = GhcModuleCache Map.empty Map.empty
+emptyModuleCache = GhcModuleCache T.empty Map.empty Nothing
+
+data LookupCradleResult = ReuseCradle | LoadCradle CachedCradle | NewCradle FilePath
+
+-- | Lookup for the given File if the module cache has a fitting Cradle.
+-- Checks if the File belongs to the current Cradle and if it is,
+-- the current Cradle can be reused for the given Module/File.
+--
+-- If the Module is part of another Cradle that has already been loaded,
+-- return the Cradle.
+-- Otherwise, a new Cradle for the given FilePath needs to be created.
+--
+-- After loading, the cradle needs to be set as the current Cradle
+-- via 'setCurrentCradle' before the Cradle can be cached via 'cacheCradle'.
+lookupCradle :: FilePath -> GhcModuleCache -> LookupCradleResult
+lookupCradle fp gmc =
+  case currentCradle gmc of
+    Just (dirs, _c) | (any (\d -> d `isPrefixOf` fp) dirs) -> ReuseCradle
+    _ -> case T.match (cradleCache gmc) (B.pack fp) of
+           Just (_k, c, _suf) -> LoadCradle c
+           Nothing  -> NewCradle fp
+
+data CachedCradle = CachedCradle BIOS.Cradle HscEnv
+
+instance Show CachedCradle where
+  show (CachedCradle x _) = show x
 
 data GhcModuleCache = GhcModuleCache
-  { cradleCache :: !(Map.Map FilePath GM.Cradle)
-              -- ^ map from dirs to cradles
+  { cradleCache :: !(T.Trie CachedCradle)
+              -- ^ map from FilePath to cradles
   , uriCaches  :: !UriCaches
+  , currentCradle :: Maybe ([FilePath], BIOS.Cradle)
+              -- ^ The current cradle and which FilePath's it is
+              -- responsible for
   } deriving (Show)
 
 -- ---------------------------------------------------------------------

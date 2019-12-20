@@ -14,10 +14,10 @@ import           Data.Monoid                    ( (<>) )
 import qualified Data.Text                     as T
 import qualified Data.Text.IO                  as T
 import qualified GHC.Generics                  as Generics
-import qualified GhcModCore                    as GM ( mkRevRedirMapFunc, withMappedFile )
 import qualified HsImport
 import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.MonadTypes
+import           Haskell.Ide.Engine.MonadFunctions (debugm)
 import qualified Haskell.Ide.Engine.Support.HieExtras as Hie
 import qualified Language.Haskell.LSP.Types      as J
 import qualified Language.Haskell.LSP.Types.Lens as J
@@ -128,9 +128,11 @@ importModule
 importModule uri impStyle modName =
   pluginGetFile "hsimport cmd: " uri $ \origInput -> do
     shouldFormat <- formatOnImportOn <$> getConfig
-    fileMap      <- GM.mkRevRedirMapFunc
-    GM.withMappedFile origInput $ \input -> do
-
+    fileMap      <- reverseFileMap
+    let defaultResult = do
+          debugm "hsimport: no access to the persisted file."
+          return $ IdeResultOk mempty
+    withMappedFile origInput defaultResult $ \input -> do
       tmpDir            <- liftIO getTemporaryDirectory
       (output, outputH) <- liftIO $ openTempFile tmpDir "hsimportOutput"
       liftIO $ hClose outputH
@@ -461,7 +463,7 @@ codeActionProvider plId docId _ context = do
   -- | For a Diagnostic, get an associated function name.
   -- If Ghc-Mod can not find any candidates, Nothing is returned.
   getImportables :: J.Diagnostic -> Maybe ImportDiagnostic
-  getImportables diag@(J.Diagnostic _ _ _ (Just "ghcmod") msg _) =
+  getImportables diag@(J.Diagnostic _ _ _ (Just "bios") msg _) =
     uncurry (ImportDiagnostic diag) <$> extractImportableTerm msg
   getImportables _ = Nothing
 

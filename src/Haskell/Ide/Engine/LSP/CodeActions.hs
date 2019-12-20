@@ -32,7 +32,7 @@ handleCodeActionReq :: TrackingNumber -> J.CodeActionRequest -> R ()
 handleCodeActionReq tn req = do
 
   vfsFunc <- asksLspFuncs Core.getVirtualFileFunc
-  docVersion <- fmap _version <$> liftIO (vfsFunc (J.toNormalizedUri docUri))
+  docVersion <- fmap virtualFileVersion <$> liftIO (vfsFunc (J.toNormalizedUri docUri))
   let docId = J.VersionedTextDocumentIdentifier docUri docVersion
 
   let getProvider p = pluginCodeActionProvider p <*> return (pluginId p)
@@ -42,9 +42,9 @@ handleCodeActionReq tn req = do
 
       providersCb providers =
         let reqs = map (\f -> lift (f docId range context)) providers
-        in makeRequests reqs tn (req ^. J.id) (send . filter wasRequested . concat)
+        in makeRequests reqs "code-actions" tn (req ^. J.id) (send . filter wasRequested . concat)
 
-  makeRequest (IReq tn (req ^. J.id) providersCb getProviders)
+  makeRequest (IReq tn "code-actions" (req ^. J.id) providersCb getProviders)
 
   where
     params = req ^. J.params
@@ -77,4 +77,4 @@ handleCodeActionReq tn req = do
       body <- J.List . catMaybes <$> mapM wrapCodeAction codeActions
       reactorSend $ RspCodeAction $ Core.makeResponseMessage req body
 
-  -- TODO: make context specific commands for all sorts of things, such as refactorings          
+  -- TODO: make context specific commands for all sorts of things, such as refactorings

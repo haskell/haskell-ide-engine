@@ -30,16 +30,19 @@ we talk to clients.__
       - [Windows-specific pre-requirements](#windows-specific-pre-requirements)
       - [Download the source code](#download-the-source-code)
       - [Building](#building)
+        - [Install via cabal](#install-via-cabal)
+        - [Install cabal using stack](#install-cabal-using-stack)
         - [Install specific GHC Version](#install-specific-ghc-version)
         - [Multiple versions of HIE (optional)](#multiple-versions-of-hie-optional)
   - [Configuration](#configuration)
+  - [Project Configuration](#project-configuration)
   - [Editor Integration](#editor-integration)
     - [Using HIE with VS Code](#using-hie-with-vs-code)
       - [Using VS Code with Nix](#using-vs-code-with-nix)
     - [Using HIE with Sublime Text](#using-hie-with-sublime-text)
     - [Using HIE with Vim or Neovim](#using-hie-with-vim-or-neovim)
-      - [Coc](#Coc)
-      - [LanguageClient-neovim](#LanguageClient-neovim)
+      - [Coc](#coc)
+      - [LanguageClient-neovim](#languageclient-neovim)
         - [vim-plug](#vim-plug)
         - [Clone the LanguageClient-neovim repo](#clone-the-languageclient-neovim-repo)
         - [Sample `~/.vimrc`](#sample-vimrc)
@@ -66,6 +69,8 @@ we talk to clients.__
       - [Otherwise](#otherwise)
     - [Nix: cabal-helper, No such file or directory](#nix-cabal-helper-no-such-file-or-directory)
     - [Liquid Haskell](#liquid-haskell)
+    - [Profiling `haskell-ide-engine`.](#profiling-haskell-ide-engine)
+      - [Using `ghc-events-analyze`](#using-ghc-events-analyze)
 
 ## Features
 
@@ -104,7 +109,7 @@ we talk to clients.__
 
    ![Formatting](https://i.imgur.com/cqZZ8HC.gif)
 
- - Renaming via HaRe
+ - Renaming via HaRe (NOTE: HaRe is temporarily disabled)
 
    ![Renaming](https://i.imgur.com/z03G2a5.gif)
 
@@ -228,17 +233,16 @@ stack ./install.hs stack-install-cabal
 
 ##### Install specific GHC Version
 
-Install **Nightly** (and hoogle docs):
+Install hie for the latest available and supported GHC version (and hoogle docs):
 
 ```bash
-stack ./install.hs hie-8.6.4
-stack ./install.hs build-data
+stack ./install.hs build
 ```
 
-Install **LTS** (and hoogle docs):
+Install hie for a specific GHC version (and hoogle docs):
 
 ```bash
-stack ./install.hs hie-8.4.4
+stack ./install.hs hie-8.6.5
 stack ./install.hs build-data
 ```
 
@@ -302,6 +306,154 @@ There are some settings that can be configured via a `settings.json` file:
 
 - VS Code: These settings will show up in the settings window
 - LanguageClient-neovim: Create this file in `$projectdir/.vim/settings.json` or set `g:LanguageClient_settingsPath`
+
+## Project Configuration
+
+**For a full explanation of possible configurations, refer to [hie-bios/README](https://github.com/mpickering/hie-bios/blob/master/README.md).**
+
+HIE will attempt to automatically detect your project configuration and set up
+the environment for GHC. 
+
+| `cabal.project` | `stack.yaml` | `*.cabal` | Project selected |
+|-----------------|--------------|-----------|------------------|
+| ✅              | -            | -         | Cabal v2         |
+| ❌              | ✅           | -         | Stack            |
+| ❌              | ❌           | ✅        | Cabal (v2 or v1) |
+| ❌              | ❌           | ❌        | None             |
+
+However, you can also place a `hie.yaml` file in the root of the workspace to
+**explicitly** describe how to setup the environment. For example, to state that
+you want to use `stack` then the configuration file would look like:
+
+```yaml
+cradle:
+  stack:
+    component: "haskell-ide-engine:lib"
+```
+
+If you use `cabal` then you probably need to specify which component you want
+to use.
+
+```yaml
+cradle:
+  cabal:
+    component: "lib:haskell-ide-engine"
+```
+
+If you have a project with multiple components, you can use a cabal-multi
+cradle:
+
+```yaml
+cradle:
+  cabal:
+    - path: "./test/dispatcher/"
+      component: "test:dispatcher-test"
+    - path: "./test/functional/"
+      component: "test:func-test"
+    - path: "./test/unit/"
+      component: "test:unit-test"
+    - path: "./hie-plugin-api/"
+      component: "lib:hie-plugin-api"
+    - path: "./app/MainHie.hs"
+      component: "exe:hie"
+    - path: "./app/HieWrapper.hs"
+      component: "exe:hie-wrapper"
+    - path: "./"
+      component: "lib:haskell-ide-engine"
+```
+
+Equivalently, you can use stack:
+
+```yaml
+cradle:
+  stack:
+    - path: "./test/dispatcher/"
+      component: "haskell-ide-engine:test:dispatcher-test"
+    - path: "./test/functional/"
+      component: "haskell-ide-engine:test:func-test"
+    - path: "./test/unit/"
+      component: "haskell-ide-engine:test:unit-test"
+    - path: "./hie-plugin-api/"
+      component: "hie-plugin-api:lib"
+    - path: "./app/MainHie.hs"
+      component: "haskell-ide-engine:exe:hie"
+    - path: "./app/HieWrapper.hs"
+      component: "haskell-ide-engine:exe:hie-wrapper"
+    - path: "./"
+      component: "haskell-ide-engine:lib"
+```
+
+Or you can explicitly state the program which should be used to collect
+the options by supplying the path to the program. It is interpreted
+relative to the current working directory if it is not an absolute path.
+
+```yaml
+cradle:
+  bios:
+    program: ".hie-bios"
+```
+
+The complete configuration is a subset of
+
+```yaml
+cradle:
+  cabal:
+    component: "optional component name"
+  stack:
+    component: "optional component name"
+  bios:
+    program: "program to run"
+    dependency-program: "optional program to run"
+  direct:
+    arguments: ["list","of","ghc","arguments"]
+  default:
+  none:
+
+dependencies:
+  - someDep
+```
+
+There is also support for multiple cradles in a single `hie.yaml`. An example configuration for Haskell IDE Engine:
+
+```yaml
+cradle:
+  multi:
+    - path: ./test/dispatcher/
+      config:
+        cradle:
+          cabal:
+            component: "test:dispatcher-test"
+    - path: ./test/functional/
+      config:
+        cradle:
+          cabal:
+            component: "test:func-test"
+    - path: ./test/unit/
+      config:
+        cradle:
+          cabal:
+            component: "test:unit-test"
+    - path: ./hie-plugin-api/
+      config:
+        cradle:
+          cabal:
+            component: "lib:hie-plugin-api"
+    - path: ./app/MainHie.hs
+      config:
+        cradle:
+          cabal:
+            component: "exe:hie"
+    - path: ./app/HieWrapper.hs
+      config:
+        cradle:
+          cabal:
+            component: "exe:hie-wrapper"
+    - path: ./
+      config:
+        cradle:
+          cabal:
+            component: "lib:haskell-ide-engine"
+```
 
 ## Editor Integration
 
@@ -545,10 +697,10 @@ Or you can set the environment variable `HIE_HOOGLE_DATABASE` to specify a speci
 ### Planned Features
 
  - [x] Multiproject support
+ - [x] New-build support
  - [ ] Project wide references
  - [ ] Cross project find definition
- - [ ] New-build support
- - [ ] HaRe refactorings
+ - [ ] More HaRe refactorings
  - [ ] More code actions
  - [ ] Cross project/dependency Find Definition
  - [ ] Case splitting, type insertion etc.
@@ -644,18 +796,43 @@ Delete any `.ghc.environment*` files in your project root and try again. (At the
 #### Otherwise
 Try running `cabal update`.
 
-### Nix: cabal-helper, No such file or directory
-
-An error on stderr like
-
-```
-cabal-helper-wrapper: /home/<...>/.cache/cabal-helper/cabal-helper<...>: createProcess: runInteractiveProcess:
-  exec: does not exist (No such file or directory)
-```
-
-can happen because cabal-helper compiles and runs above executable at runtime without using nix-build, which means a Nix garbage collection can delete the paths it depends on. Delete ~/.cache/cabal-helper and restart HIE to fix this.
-
 ### Liquid Haskell
 
 Liquid Haskell requires an SMT solver on the path. We do not take care of installing one, thus, Liquid Haskell will not run until one is installed.
 The recommended SMT solver is [z3](https://github.com/Z3Prover/z3). To run the tests, it is also required to have an SMT solver on the path, otherwise the tests will fail for Liquid Haskell.
+
+### Profiling `haskell-ide-engine`.
+
+If you think `haskell-ide-engine` is using a lot of memory then the most useful
+thing you can do is prepare a profile of the memory usage whilst you're using
+the program.
+
+1. Add `profiling: True` to the cabal.project file of `haskell-ide-engine`
+2. `cabal new-build hie`
+3. (IMPORTANT) Add `profiling: True` to the `cabal.project` file of the project you want to profile.
+4. Make a wrapper script which calls the `hie` you built in step 2 with the additional options `+RTS -hd -l-au`
+5. Modify your editor settings to call this wrapper script instead of looking for `hie` on the path
+6. Try using `h-i-e` as normal and then process the `*.eventlog` which will be created using  [`eventlog2html`](http://hackage.haskell.org/package/eventlog2html).
+7. Repeat the process again using different profiling options if you like.
+
+#### Using `ghc-events-analyze`
+
+`haskell-ide-engine` contains the necessary tracing functions to work with [`ghc-events-analyze`](http://www.well-typed.com/blog/2014/02/ghc-events-analyze/). Each
+request which is made will emit an event to the eventlog when it starts and finishes. This way you
+can see if there are any requests which are taking a long time to complete or are blocking.
+
+1. Make sure that `hie` is linked with the `-eventlog` option. This can be achieved by adding the flag
+to the `ghc-options` field in the cabal file.
+2. Run `hie` as normal but with the addition of `+RTS -l`. This will produce an eventlog called `hie.eventlog`.
+3. Run `ghc-events-analyze` on the `hie.eventlog` file to produce the rendered SVG. Warning, this might take a while and produce a big SVG file.
+
+The default options for `ghc-events-analyze` will produce quite a wide chart which is difficult to view. You can try using less buckets in order
+to make the chart quicker to generate and faster to render.
+
+```
+ghc-events-analyze hie.eventlog -b 100
+```
+
+This support is similar to the logging capabilities [built into GHC](https://www.haskell.org/ghc/blog/20190924-eventful-ghc.html).
+
+

@@ -26,9 +26,9 @@ defaults: &defaults
           - stack-cache-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "stack-build.txt" }}
           - stack-cache-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "resolver.txt" }}
 
-    # - run:
-    #     name: Stack upgrade
-    #     command: stack upgrade
+    - run:
+        name: Stack upgrade
+        command: stack upgrade
 
     - run:
         name: Stack setup

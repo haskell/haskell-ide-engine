@@ -9,10 +9,9 @@ import           Data.Semigroup
 import           Data.List
 import           Data.Foldable
 import           Data.Version                          (showVersion)
-import qualified GhcMod.Monad                          as GM
-import qualified GhcMod.Monad.Types                    as GM
-import qualified GhcMod.Types                          as GM
+import           HIE.Bios
 import           Haskell.Ide.Engine.MonadFunctions
+import           Haskell.Ide.Engine.Cradle (findLocalCradle)
 import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.Plugin.Base
 import qualified Language.Haskell.LSP.Core             as Core
@@ -23,6 +22,7 @@ import           System.Environment
 import qualified System.Log.Logger as L
 import           System.Process
 import           System.Info
+import           System.FilePath
 
 -- ---------------------------------------------------------------------
 
@@ -73,15 +73,13 @@ run opts = do
   logm $ "Current directory:" ++ d
   logm $ "Operating system:" ++ os
 
-  -- Get the cabal directory from the ghc-mod cradle
-  (mcr,_) <- GM.runGhcModT GM.defaultOptions GM.cradle
-  dir <- case mcr of
-    Left err -> error (show err)
-    Right cr -> return $ GM.cradleRootDir cr
+  -- Get the cabal directory from the cradle
+  cradle <- findLocalCradle (d </> "File.hs")
+  let dir = cradleRootDir cradle
   logm $ "Cradle directory:" ++ dir
   setCurrentDirectory dir
 
-  ghcVersion <- getProjectGhcVersion
+  ghcVersion <- getProjectGhcVersion cradle
   logm $ "Project GHC version:" ++ ghcVersion
 
   let

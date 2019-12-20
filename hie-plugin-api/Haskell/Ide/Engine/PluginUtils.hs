@@ -32,6 +32,9 @@ module Haskell.Ide.Engine.PluginUtils
   , readVFS
   , getRangeFromVFS
   , rangeLinesFromVfs
+
+  , gcatches
+  , ErrorHandler(..)
   ) where
 
 import           Control.Monad.IO.Class
@@ -45,19 +48,19 @@ import           Data.Monoid
 import qualified Data.Text                             as T
 import qualified Data.Text.IO                          as T
 import           Data.Maybe
-import qualified GhcModCore                          as GM ( makeAbsolute' )
 import           FastString
-import           Haskell.Ide.Engine.MonadTypes
+import           Haskell.Ide.Engine.PluginsIdeMonads
+import           Haskell.Ide.Engine.GhcModuleCache
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.ArtifactMap
 import           Language.Haskell.LSP.VFS
 import           Language.Haskell.LSP.Types.Capabilities
 import qualified Language.Haskell.LSP.Types            as J
 import           Prelude                               hiding (log)
-import           SrcLoc
+import           SrcLoc (SrcSpan(..), RealSrcSpan(..))
+import           Exception
 import           System.Directory
 import           System.FilePath
-import qualified Data.Rope.UTF16 as Rope
 
 -- ---------------------------------------------------------------------
 
@@ -151,7 +154,7 @@ makeDiffResult :: FilePath -> T.Text -> (FilePath -> FilePath) -> IdeM Workspace
 makeDiffResult orig new fileMap = do
   origText <- liftIO $ T.readFile orig
   let fp' = fileMap orig
-  fp <- liftIO $ GM.makeAbsolute' fp'
+  fp <- liftIO $ makeAbsolute fp'
   diffText (filePathToUri fp,origText) new IncludeDeletions
 
 -- | A version of 'makeDiffResult' that has does not insert any deletions
@@ -159,7 +162,7 @@ makeAdditiveDiffResult :: FilePath -> T.Text -> (FilePath -> FilePath) -> IdeM W
 makeAdditiveDiffResult orig new fileMap = do
   origText <- liftIO $ T.readFile orig
   let fp' = fileMap orig
-  fp <- liftIO $ GM.makeAbsolute' fp'
+  fp <- liftIO $ makeAbsolute fp'
   diffText (filePathToUri fp,origText) new SkipDeletions
 
 -- | Generate a 'WorkspaceEdit' value from a pair of source Text
@@ -275,7 +278,7 @@ readVFS :: (MonadIde m, MonadIO m) => Uri -> m (Maybe T.Text)
 readVFS uri = do
   mvf <- getVirtualFile uri
   case mvf of
-    Just (VirtualFile _ txt) -> return $ Just (Rope.toText txt)
+    Just vf -> return $ Just (virtualFileText vf)
     Nothing -> return Nothing
 
 getRangeFromVFS :: (MonadIde m, MonadIO m) => Uri -> Range -> m (Maybe T.Text)
@@ -285,4 +288,15 @@ getRangeFromVFS uri rg = do
     Just vfs -> return $ Just $ rangeLinesFromVfs vfs rg
     Nothing  -> return Nothing
 
--- ---------------------------------------------------------------------
+
+-- Error catching utilities
+
+data ErrorHandler m a = forall e . Exception e => ErrorHandler (e -> m a)
+
+gcatches :: forall m a . (MonadIO m, ExceptionMonad m) => m a -> [ErrorHandler m a] -> m a
+gcatches act handlers = gcatch act h
+  where
+    h :: SomeException -> m a
+    h e = foldr (\(ErrorHandler hand) me -> maybe me hand (fromException e)) (liftIO $ throw e) handlers
+
+

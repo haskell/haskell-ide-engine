@@ -91,39 +91,25 @@ installCabalWithStack = do
 
   case mbc of
     Just c  -> do
-      checkCabal
-      printLine "There is already a cabal executable in $PATH with the required minimum version."
+      cabalVersion <- checkCabal
+      printLine $ "There is already a cabal executable in $PATH with the required minimum version: " ++ cabalVersion
      -- install `cabal-install` if not already installed
     Nothing ->  execStackShake_ ["install", "cabal-install"]
 
+checkCabal_ :: Action ()
+checkCabal_ = checkCabal >> return ()
+
 -- | check `cabal` has the required version
-checkCabal :: Action ()
+checkCabal :: Action String
 checkCabal = do
   cabalVersion <- getCabalVersion
   unless (checkVersion requiredCabalVersion cabalVersion) $ do
     printInStars $ cabalInstallIsOldFailMsg cabalVersion
     error $ cabalInstallIsOldFailMsg cabalVersion
+  return cabalVersion
 
 getCabalVersion :: Action String
 getCabalVersion = trimmedStdout <$> execCabal ["--numeric-version"]
-
-validateCabalNewInstallIsSupported :: Action ()
-validateCabalNewInstallIsSupported = do
-  cabalVersion <- getCabalVersion
-  let isUnsupportedVersion =
-        not $ checkVersion requiredCabalVersionForWindows cabalVersion 
-  when (isWindowsSystem && isUnsupportedVersion) $ do
-    printInStars cabalInstallNotSuportedFailMsg
-    error cabalInstallNotSuportedFailMsg
-
--- | Error message when a windows system tries to install HIE via `cabal v2-install`
-cabalInstallNotSuportedFailMsg :: String
-cabalInstallNotSuportedFailMsg =
-  "This system has been identified as a windows system.\n"
-    ++ "Unfortunately, `cabal v2-install` is supported since version "++ cabalVersion ++".\n"
-    ++ "Please upgrade your cabal executable or use one of the stack-based targets.\n\n"
-    ++ "If this system has been falsely identified, please open an issue at:\n\thttps://github.com/haskell/haskell-ide-engine\n"
-  where cabalVersion = versionToString requiredCabalVersionForWindows
 
 -- | Error message when the `cabal` binary is an older version
 cabalInstallIsOldFailMsg :: String -> String
@@ -138,7 +124,8 @@ cabalInstallIsOldFailMsg cabalVersion =
 
 
 requiredCabalVersion :: RequiredVersion
-requiredCabalVersion = [2, 4, 1, 0]
+requiredCabalVersion | isWindowsSystem = requiredCabalVersionForWindows
+                     | otherwise = [2, 4, 1, 0]
 
 requiredCabalVersionForWindows :: RequiredVersion
 requiredCabalVersionForWindows = [3, 0, 0, 0]

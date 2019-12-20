@@ -2,13 +2,13 @@ packages:
          ./
          ./hie-plugin-api/
 
-         ./submodules/HaRe
+         -- ./submodules/HaRe
          ./submodules/cabal-helper/
-         ./submodules/ghc-mod/
-         ./submodules/ghc-mod/core/
          ./submodules/ghc-mod/ghc-project-types
 
 tests: true
 
 package haskell-ide-engine
   test-show-details: direct
+
+write-ghc-environment-files: never

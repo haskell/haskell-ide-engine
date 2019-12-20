@@ -45,7 +45,6 @@ import           System.FilePath
 #endif
 import           Control.Monad.IO.Class
 import           System.Directory
-import qualified GhcModCore                  as GM ( mkRevRedirMapFunc )
 import           Distribution.Types.GenericPackageDescription
 import           Distribution.Types.CondTree
 import qualified Distribution.PackageDescription.PrettyPrint as PP
@@ -98,7 +97,7 @@ addCmd = CmdSync addCmd'
 addCmd' :: AddParams -> IdeGhcM (IdeResult J.WorkspaceEdit)
 addCmd' (AddParams rootDir modulePath pkg) = do
   packageType <- liftIO $ findPackageType rootDir
-  fileMap <- GM.mkRevRedirMapFunc
+  fileMap <- reverseFileMap
 
   case packageType of
     CabalPackage relFp -> do
@@ -333,7 +332,7 @@ codeActionProvider plId docId _ context = do
      _ -> return Nothing
 
     getAddablePackages :: J.Diagnostic -> Maybe (J.Diagnostic, Package)
-    getAddablePackages diag@(J.Diagnostic _ _ _ (Just "ghcmod") msg _) = (diag,) <$> extractModuleName msg
+    getAddablePackages diag@(J.Diagnostic _ _ _ (Just "bios") msg _) = (diag,) <$> extractModuleName msg
     getAddablePackages _ = Nothing
 
 -- | Extract a module name from an error message.
