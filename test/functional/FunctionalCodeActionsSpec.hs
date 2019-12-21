@@ -48,7 +48,7 @@ spec = describe "code actions" $ do
       contents <- getDocumentEdit doc
       liftIO $ contents `shouldBe` "main = undefined\nfoo x = x\n"
 
-      -- noDiagnostics
+      noDiagnostics
 
     -- ---------------------------------
 
@@ -67,7 +67,7 @@ spec = describe "code actions" $ do
       contents <- skipManyTill publishDiagnosticsNotification $ getDocumentEdit doc
       liftIO $ contents `shouldBe` "main = undefined\nfoo x = x\n"
 
-      -- noDiagnostics
+      noDiagnostics
 
     -- ---------------------------------
 
@@ -96,7 +96,7 @@ spec = describe "code actions" $ do
       liftIO $ contents `shouldBe` "main = undefined\nfoo x = x\n"
       sendNotification TextDocumentDidSave (DidSaveTextDocumentParams doc)
 
-      -- noDiagnostics
+      noDiagnostics
 
   -- -----------------------------------
 
