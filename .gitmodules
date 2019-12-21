@@ -15,7 +15,3 @@
 	# url = https://github.com/DanielG/cabal-helper.git
 	# Change this back once https://github.com/DanielG/cabal-helper/pull/85/ merged
 	url = https://github.com/bubba/cabal-helper.git
-
-[submodule "submodules/ghc-mod"]
-	path = submodules/ghc-mod
-	url = https://github.com/fendor/ghc-mod.git
