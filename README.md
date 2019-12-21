@@ -165,11 +165,18 @@ then it means you have the command in PATH.
 
 On Linux you will need install a couple of extra libraries (for Unicode ([ICU](http://site.icu-project.org/)) and [NCURSES](https://www.gnu.org/software/ncurses/)):
 
-**Debian/Ubuntu**:
+**Debian 9/Ubuntu 18.04 or earlier**:
 
 ```bash
 sudo apt install libicu-dev libtinfo-dev libgmp-dev
 ```
+
+**Debian 10/Ubuntu 18.10 or later**:
+
+```bash
+sudo apt install libicu-dev libncurses-dev libgmp-dev
+```
+
 **Fedora**:
 
 ```bash
