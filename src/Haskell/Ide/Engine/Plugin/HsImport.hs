@@ -22,7 +22,7 @@ import qualified Haskell.Ide.Engine.Support.HieExtras as Hie
 import qualified Language.Haskell.LSP.Types      as J
 import qualified Language.Haskell.LSP.Types.Lens as J
 import           Haskell.Ide.Engine.PluginUtils
-import qualified Haskell.Ide.Engine.Plugin.Hoogle
+import qualified Haskell.Ide.Engine.Support.Hoogle
                                                as Hoogle
 import           System.Directory
 import           System.IO

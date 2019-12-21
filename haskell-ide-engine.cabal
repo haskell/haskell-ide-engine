@@ -33,7 +33,6 @@ library
                        -- Haskell.Ide.Engine.Plugin.HaRe
                        Haskell.Ide.Engine.Plugin.Haddock
                        Haskell.Ide.Engine.Plugin.HfaAlign
-                       Haskell.Ide.Engine.Plugin.Hoogle
                        Haskell.Ide.Engine.Plugin.HsImport
                        Haskell.Ide.Engine.Plugin.Liquid
                        Haskell.Ide.Engine.Plugin.Package
@@ -42,9 +41,9 @@ library
                        Haskell.Ide.Engine.Plugin.Generic
                        Haskell.Ide.Engine.Scheduler
                        Haskell.Ide.Engine.Support.FromHaRe
+                       Haskell.Ide.Engine.Support.Hoogle
                        Haskell.Ide.Engine.Support.Fuzzy
                        Haskell.Ide.Engine.Support.HieExtras
-                       Haskell.Ide.Engine.Transport.JsonStdio
                        Haskell.Ide.Engine.Transport.LspStdio
                        Haskell.Ide.Engine.Types
   other-modules:       Paths_haskell_ide_engine

@@ -10,7 +10,6 @@ import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.Scheduler
 import           Haskell.Ide.Engine.Transport.LspStdio
-import           Haskell.Ide.Engine.Transport.JsonStdio
 import qualified Language.Haskell.LSP.Core             as Core
 import           Options.Applicative.Simple
 import qualified Paths_haskell_ide_engine              as Meta
@@ -31,7 +30,6 @@ import           Haskell.Ide.Engine.Plugin.Bios
 -- import           Haskell.Ide.Engine.Plugin.HaRe
 import           Haskell.Ide.Engine.Plugin.Haddock
 import           Haskell.Ide.Engine.Plugin.HfaAlign
-import           Haskell.Ide.Engine.Plugin.Hoogle
 import           Haskell.Ide.Engine.Plugin.HsImport
 import           Haskell.Ide.Engine.Plugin.Liquid
 import           Haskell.Ide.Engine.Plugin.Package
@@ -54,7 +52,6 @@ plugins includeExamples = pluginDescToIdePlugins allPlugins
       , brittanyDescriptor    "brittany"
       , haddockDescriptor     "haddock"
       -- , hareDescriptor        "hare"
-      , hoogleDescriptor      "hoogle"
       , hsimportDescriptor    "hsimport"
       , liquidDescriptor      "liquid"
       , packageDescriptor     "package"
@@ -132,9 +129,5 @@ run opts = do
   let plugins' = plugins (optExamplePlugin opts)
 
   -- launch the dispatcher.
-  if optJson opts then do
-    scheduler <- newScheduler plugins' initOpts
-    jsonStdioTransport scheduler
-  else do
-    scheduler <- newScheduler plugins' initOpts
-    lspStdioTransport scheduler origDir plugins' (optCaptureFile opts)
+  scheduler <- newScheduler plugins' initOpts
+  lspStdioTransport scheduler origDir plugins' (optCaptureFile opts)
