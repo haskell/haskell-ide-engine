@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE RankNTypes            #-}
@@ -32,7 +33,10 @@ import           Data.Default
 import           Data.Foldable
 import qualified Data.Map as Map
 import           Data.Maybe
-import           Data.Semigroup (Semigroup(..), Option(..), option)
+import           Data.Semigroup (Option(..), option)
+#if __GLASGOW_HASKELL__ < 808
+import           Data.Semigroup (Semigroup(..), )
+#endif
 import qualified Data.Set as S
 import qualified Data.SortedList as SL
 import qualified Data.Text as T

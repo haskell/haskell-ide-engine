@@ -1,9 +1,12 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes   #-}
 module Main where
 
 import           Control.Monad
+#if __GLASGOW_HASKELL__ < 808
 import           Data.Monoid                           ((<>))
+#endif
 import           Data.Version                          (showVersion)
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes

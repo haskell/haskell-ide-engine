@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -19,7 +20,11 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
 import           Data.Aeson                        hiding (Error)
 import           Data.Maybe
+
+#if __GLASGOW_HASKELL__ < 808
 import           Data.Monoid                       ((<>))
+#endif
+
 import qualified Data.Text                         as T
 import           GHC.Generics
 import           Haskell.Ide.Engine.MonadFunctions

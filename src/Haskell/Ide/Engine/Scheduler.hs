@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses     #-}
 {-# LANGUAGE ExistentialQuantification #-}
@@ -25,9 +26,11 @@ where
 import           Control.Concurrent.Async
 import           GHC.Conc
 import qualified Control.Concurrent.STM        as STM
-import           Control.Monad.IO.Class         ( liftIO
-                                                , MonadIO
-                                                )
+import           Control.Monad.IO.Class         ( MonadIO )
+#if __GLASGOW_HASKELL__ < 808
+import           Control.Monad.IO.Class         ( liftIO )
+#endif
+
 import           Control.Monad.Reader.Class     ( ask
                                                 , MonadReader
                                                 )

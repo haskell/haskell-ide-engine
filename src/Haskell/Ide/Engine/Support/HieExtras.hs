@@ -26,7 +26,11 @@ module Haskell.Ide.Engine.Support.HieExtras
   , getFormattingPlugin
   ) where
 
+#if __GLASGOW_HASKELL__ < 808
 import           Data.Semigroup (Semigroup(..))
+import           Var
+#endif
+
 import           ConLike
 import           Control.Monad.Reader
 import           Control.Monad.Except
@@ -63,7 +67,6 @@ import           Packages
 import           SrcLoc
 import           TcEnv
 import           Type
-import           Var
 import           Module hiding (getModule)
 
 -- ---------------------------------------------------------------------

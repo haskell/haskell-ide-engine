@@ -22,11 +22,14 @@ import qualified Data.ByteString as B
 import           Data.Foldable
 import           Data.List
 import qualified Data.HashMap.Strict           as HM
-import qualified Data.Set                      as S
 import qualified Data.Text                     as T
 import qualified Data.Text.Encoding            as T
 import           Data.Maybe
+#if __GLASGOW_HASKELL__ < 808
 import           Data.Monoid ((<>))
+#else
+import qualified Data.Set                      as S
+#endif
 #if MIN_VERSION_Cabal(2,2,0)
 import           Distribution.PackageDescription.Parsec
 import           Distribution.Types.VersionRange

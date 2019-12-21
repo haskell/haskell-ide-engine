@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE OverloadedStrings      #-}
@@ -23,7 +24,9 @@ import qualified Data.List                     as List
 import qualified Data.Text                     as T
 import qualified Data.Map                      as Map
 import           Data.Maybe
+#if __GLASGOW_HASKELL__ < 808
 import           Data.Semigroup (Semigroup(..))
+#endif
 import           Data.Typeable
 import           GHC.Generics                   ( Generic )
 
