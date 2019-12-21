@@ -31,7 +31,6 @@ import System.IO
 -- plugins
 
 import           Haskell.Ide.Engine.Plugin.ApplyRefact
-import           Haskell.Ide.Engine.Plugin.Base
 import           Haskell.Ide.Engine.Plugin.Example2
 -- import           Haskell.Ide.Engine.Plugin.HaRe
 import           Haskell.Ide.Engine.Plugin.Bios
@@ -66,7 +65,6 @@ plugins = pluginDescToIdePlugins
   [applyRefactDescriptor "applyrefact"
   ,example2Descriptor "eg2"
   ,biosDescriptor "bios"
-  ,baseDescriptor "base"
   ]
 
 startServer :: IO (Scheduler IO, TChan LogVal, ThreadId)

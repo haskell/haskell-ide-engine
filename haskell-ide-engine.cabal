@@ -22,7 +22,6 @@ library
   exposed-modules:     Haskell.Ide.Engine.Channel
                        Haskell.Ide.Engine.CodeActions
                        Haskell.Ide.Engine.Completions
-                       Haskell.Ide.Engine.Plugin.Base
                        Haskell.Ide.Engine.Reactor
                        Haskell.Ide.Engine.Options
                        Haskell.Ide.Engine.Plugin.ApplyRefact
@@ -46,6 +45,7 @@ library
                        Haskell.Ide.Engine.Support.HieExtras
                        Haskell.Ide.Engine.Server
                        Haskell.Ide.Engine.Types
+                       Haskell.Ide.Engine.Version
   other-modules:       Paths_haskell_ide_engine
   build-depends:       Cabal >= 1.22
                      , Diff

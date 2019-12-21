@@ -47,7 +47,6 @@ import           Haskell.Ide.Engine.Reactor
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import qualified Haskell.Ide.Engine.Plugin.ApplyRefact   as ApplyRefact
-import           Haskell.Ide.Engine.Plugin.Base
 -- import qualified Haskell.Ide.Engine.Plugin.HaRe          as HaRe
 import qualified Haskell.Ide.Engine.Support.Hoogle        as Hoogle
 import           Haskell.Ide.Engine.PluginUtils
@@ -55,6 +54,7 @@ import qualified Haskell.Ide.Engine.Scheduler            as Scheduler
 import qualified Haskell.Ide.Engine.Support.HieExtras     as Hie
 import           Haskell.Ide.Engine.Types
 import qualified Haskell.Ide.Engine.Plugin.Bios          as BIOS
+import           Haskell.Ide.Engine.Version
 import qualified Language.Haskell.LSP.Control            as CTRL
 import qualified Language.Haskell.LSP.Core               as Core
 import           Language.Haskell.LSP.Diagnostics
@@ -395,7 +395,7 @@ reactor inp diagIn = do
             reactorSend $ ReqRegisterCapability $ fmServerRegisterCapabilityRequest rid registrations
 
           reactorSend $ NotLogMessage $
-                  fmServerLogMessageNotification J.MtLog $ "Using hie version: " <> T.pack version
+                  fmServerLogMessageNotification J.MtLog $ "Using hie version: " <> T.pack hieVersion
 
           lspRootDir <- asksLspFuncs Core.rootPath
           currentDir <- liftIO getCurrentDirectory

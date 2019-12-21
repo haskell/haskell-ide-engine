@@ -13,7 +13,7 @@ import           HIE.Bios
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.Cradle (findLocalCradle)
 import           Haskell.Ide.Engine.Options
-import           Haskell.Ide.Engine.Plugin.Base
+import           Haskell.Ide.Engine.Version
 import qualified Language.Haskell.LSP.Core             as Core
 import           Options.Applicative.Simple
 import qualified Paths_haskell_ide_engine              as Meta
@@ -44,7 +44,7 @@ main = do
     -- Parse the options and run
     (global, ()) <-
         simpleOptions
-            version
+            hieVersion
             "hie-wrapper - Launch the appropriate haskell-ide-engine for a given project"
             ""
             (numericVersion <*> compiler <*> globalOptsParser)
@@ -68,7 +68,7 @@ run opts = do
 
 
   progName <- getProgName
-  logm $  "run entered for hie-wrapper(" ++ progName ++ ") " ++ version
+  logm $  "run entered for hie-wrapper(" ++ progName ++ ") " ++ hieVersion
   d <- getCurrentDirectory
   logm $ "Current directory:" ++ d
   logm $ "Operating system:" ++ os

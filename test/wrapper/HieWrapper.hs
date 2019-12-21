@@ -2,7 +2,7 @@ module Main where
 
 import Control.Monad.IO.Class (liftIO)
 import Haskell.Ide.Engine.Cradle (findLocalCradle)
-import Haskell.Ide.Engine.Plugin.Base
+import Haskell.Ide.Engine.Version
 import Test.Hspec
 import System.Directory
 import System.FilePath
