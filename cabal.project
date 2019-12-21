@@ -4,7 +4,6 @@ packages:
 
          -- ./submodules/HaRe
          ./submodules/cabal-helper/
-         ./submodules/ghc-mod/ghc-project-types
 
 tests: true
 

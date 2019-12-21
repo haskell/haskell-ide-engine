@@ -6,7 +6,6 @@ packages:
 extra-deps:
 # - ./submodules/HaRe
 - ./submodules/cabal-helper
-- ./submodules/ghc-mod/ghc-project-types
 
 - brittany-0.12.1.0
 - bytestring-trie-0.2.5.0
