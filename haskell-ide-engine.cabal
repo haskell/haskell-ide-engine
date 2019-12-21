@@ -14,7 +14,7 @@ build-type:          Simple
 cabal-version:       >=2.0
 
 flag pedantic
-  Description: Enable -Werror
+  Description: Enable -Werror -Wwarn=unused-imports
   Default:     False
 
 library
@@ -101,7 +101,7 @@ library
 
   ghc-options:         -Wall -Wredundant-constraints
   if flag(pedantic)
-     ghc-options:      -Werror
+     ghc-options:      -Werror -Wwarn=unused-imports
   default-language:    Haskell2010
 
 executable hie
@@ -120,7 +120,7 @@ executable hie
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
                        -with-rtsopts=-T
   if flag(pedantic)
-     ghc-options:      -Werror
+     ghc-options:      -Werror -Wwarn=unused-imports
   default-language:    Haskell2010
 
 
@@ -141,7 +141,7 @@ executable hie-wrapper
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
                        -with-rtsopts=-T
   if flag(pedantic)
-     ghc-options:      -Werror
+     ghc-options:      -Werror -Wwarn=unused-imports
   default-language:    Haskell2010
 
 library hie-test-utils
@@ -167,7 +167,7 @@ library hie-test-utils
                      , yaml
   ghc-options:         -Wall -Wredundant-constraints
   if flag(pedantic)
-     ghc-options:      -Werror
+     ghc-options:      -Werror -Wwarn=unused-imports
   default-language:    Haskell2010
 
 test-suite unit-test
@@ -211,7 +211,7 @@ test-suite unit-test
 
   ghc-options:         -Wall -Wredundant-constraints
   if flag(pedantic)
-     ghc-options:      -Werror
+     ghc-options:      -Werror -Wwarn=unused-imports
   default-language:    Haskell2010
 
 test-suite dispatcher-test
@@ -235,7 +235,7 @@ test-suite dispatcher-test
 
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
-     ghc-options:      -Werror
+     ghc-options:      -Werror -Wwarn=unused-imports
   default-language:    Haskell2010
   build-tool-depends:  hspec-discover:hspec-discover
 
@@ -255,7 +255,7 @@ test-suite plugin-dispatcher-test
 
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
-     ghc-options:      -Werror
+     ghc-options:      -Werror -Wwarn=unused-imports
   default-language:    Haskell2010
 
 test-suite func-test
@@ -300,7 +300,7 @@ test-suite func-test
                      , containers
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
-     ghc-options:      -Werror
+     ghc-options:      -Werror -Wwarn=unused-imports
   default-language:    Haskell2010
   build-tool-depends:  hspec-discover:hspec-discover
                      , haskell-ide-engine:hie
@@ -319,7 +319,7 @@ test-suite wrapper-test
                      , hie-plugin-api
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
   if flag(pedantic)
-     ghc-options:      -Werror
+     ghc-options:      -Werror -Wwarn=unused-imports
   default-language:    Haskell2010
 
 

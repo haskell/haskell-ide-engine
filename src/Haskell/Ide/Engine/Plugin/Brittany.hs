@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-unused-imports #-}
 {-# LANGUAGE OverloadedStrings #-}
 -- | Brittany is a tool to format source code.
 module Haskell.Ide.Engine.Plugin.Brittany where
