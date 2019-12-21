@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE OverloadedStrings      #-}
-module Haskell.Ide.Engine.LSP.Completions
+module Haskell.Ide.Engine.Completions
   ( WithSnippets(..)
   , getCompletions
   , resolveCompletion

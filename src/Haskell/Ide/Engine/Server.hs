@@ -10,9 +10,9 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 
-module Haskell.Ide.Engine.Transport.LspStdio
+module Haskell.Ide.Engine.Server
   (
-    lspStdioTransport
+    server
   ) where
 
 import           Control.Concurrent
@@ -41,9 +41,9 @@ import qualified Data.Yaml as Yaml
 import           Haskell.Ide.Engine.Cradle (findLocalCradle, cradleDisplay)
 import           Haskell.Ide.Engine.Config
 import qualified Haskell.Ide.Engine.Ghc   as HIE
-import           Haskell.Ide.Engine.LSP.CodeActions
-import qualified Haskell.Ide.Engine.LSP.Completions      as Completions
-import           Haskell.Ide.Engine.LSP.Reactor
+import           Haskell.Ide.Engine.CodeActions
+import qualified Haskell.Ide.Engine.Completions      as Completions
+import           Haskell.Ide.Engine.Reactor
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import qualified Haskell.Ide.Engine.Plugin.ApplyRefact   as ApplyRefact
@@ -76,13 +76,13 @@ import GHC.Conc
 {-# ANN module ("hlint: ignore Use tuple-section" :: String) #-}
 -- ---------------------------------------------------------------------
 
-lspStdioTransport
+server
   :: Scheduler.Scheduler R
   -> FilePath
   -> IdePlugins
   -> Maybe FilePath
   -> IO ()
-lspStdioTransport scheduler origDir plugins captureFp = do
+server scheduler origDir plugins captureFp = do
   run scheduler origDir plugins captureFp >>= \case
     0 -> exitSuccess
     c -> exitWith . ExitFailure $ c

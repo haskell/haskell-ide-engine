@@ -1,7 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
-module Haskell.Ide.Engine.LSP.Reactor
+module Haskell.Ide.Engine.Reactor
   ( R
   , runReactor
   , reactorSend

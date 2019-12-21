@@ -9,7 +9,7 @@ import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.Scheduler
-import           Haskell.Ide.Engine.Transport.LspStdio
+import           Haskell.Ide.Engine.Server
 import qualified Language.Haskell.LSP.Core             as Core
 import           Options.Applicative.Simple
 import qualified Paths_haskell_ide_engine              as Meta
@@ -130,4 +130,4 @@ run opts = do
 
   -- launch the dispatcher.
   scheduler <- newScheduler plugins' initOpts
-  lspStdioTransport scheduler origDir plugins' (optCaptureFile opts)
+  server scheduler origDir plugins' (optCaptureFile opts)
