@@ -271,14 +271,13 @@ data PluginDescriptor =
                    } deriving (Generic)
 
 instance Show PluginCommand where
-  show (PluginCommand name _ _) = "PluginCommand { name = " ++ T.unpack name ++ " }"
+  show (PluginCommand name _) = "PluginCommand { name = " ++ T.unpack name ++ " }"
 
 type PluginId = T.Text
 type CommandName = T.Text
 
 data PluginCommand = forall a b. (FromJSON a, ToJSON b, Typeable b) =>
   PluginCommand { commandName :: CommandName
-                , commandDesc :: T.Text
                 , commandFunc :: a -> IdeGhcM (IdeResult b)
                 }
 
@@ -308,7 +307,7 @@ runPluginCommand p com arg = do
     Just PluginDescriptor { pluginCommands = xs } -> case List.find ((com ==) . commandName) xs of
       Nothing -> return $ IdeResultFail $
         IdeError UnknownCommand ("Command " <> com <> " isn't defined for plugin " <> p <> ". Legal commands are: " <> T.pack(show $ map commandName xs)) Null
-      Just (PluginCommand _ _ f) -> case fromJSON arg of
+      Just (PluginCommand _ f) -> case fromJSON arg of
         Error err -> return $ IdeResultFail $
           IdeError ParameterError ("error while parsing args for " <> com <> " in plugin " <> p <> ": " <> T.pack err) Null
         Success a -> do
@@ -323,7 +322,7 @@ newtype IdePlugins = IdePlugins
 -- TODO:AZ this is a defective instance, do we actually need it?
 -- Perhaps rather make a separate type explicitly for this purpose.
 instance ToJSON IdePlugins where
-  toJSON (IdePlugins m) = toJSON $ fmap (\x -> (commandName x, commandDesc x)) <$> fmap pluginCommands m
+  toJSON (IdePlugins m) = toJSON $ fmap commandName <$> fmap pluginCommands m
 
 -- | For the diagnostic providers in the config, return a map of
 -- current enabled state, indexed by the plugin id.

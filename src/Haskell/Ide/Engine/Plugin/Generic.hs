@@ -43,7 +43,7 @@ import           PprTyThing
 genericDescriptor :: PluginId -> PluginDescriptor
 genericDescriptor plId = PluginDescriptor
   { pluginId = plId
-  , pluginCommands = [PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmd]
+  , pluginCommands = [PluginCommand "type" typeCmd]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Just hoverProvider

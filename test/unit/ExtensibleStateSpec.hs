@@ -36,8 +36,8 @@ testDescriptor :: PluginId -> PluginDescriptor
 testDescriptor plId = PluginDescriptor
   { pluginId = plId
   , pluginCommands = [
-        PluginCommand "cmd1" "description" cmd1
-      , PluginCommand "cmd2" "description" cmd2
+        PluginCommand "cmd1" cmd1
+      , PluginCommand "cmd2" cmd2
       ]
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Nothing

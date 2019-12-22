@@ -42,8 +42,8 @@ applyRefactDescriptor :: PluginId -> PluginDescriptor
 applyRefactDescriptor plId = PluginDescriptor
   { pluginId = plId
   , pluginCommands =
-      [ PluginCommand "applyOne" "Apply a single hint" applyOneCmd
-      , PluginCommand "applyAll" "Apply all hints to the file" applyAllCmd
+      [ PluginCommand "applyOne" applyOneCmd
+      , PluginCommand "applyAll" applyAllCmd
       ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing

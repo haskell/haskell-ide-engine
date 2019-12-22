@@ -29,7 +29,7 @@ hfaAlignDescriptor :: PluginId -> PluginDescriptor
 hfaAlignDescriptor plId = PluginDescriptor
   { pluginId = plId
   , pluginCommands =
-      [ PluginCommand "align" "Align = in active range" alignCmd
+      [ PluginCommand "align" alignCmd
       ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing

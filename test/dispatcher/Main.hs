@@ -13,6 +13,7 @@ import qualified Data.Text as T
 import           Data.Default
 import           GHC                            ( TypecheckedModule )
 import           GHC.Generics
+import           Haskell.Ide.Engine.Ghc
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Scheduler
@@ -33,7 +34,6 @@ import System.IO
 import           Haskell.Ide.Engine.Plugin.ApplyRefact
 import           Haskell.Ide.Engine.Plugin.Example2
 -- import           Haskell.Ide.Engine.Plugin.HaRe
-import           Haskell.Ide.Engine.Plugin.Bios
 import           Haskell.Ide.Engine.Plugin.Generic
 
 {-# ANN module ("HLint: ignore Redundant do"       :: String) #-}
@@ -64,7 +64,6 @@ plugins :: IdePlugins
 plugins = pluginDescToIdePlugins
   [applyRefactDescriptor "applyrefact"
   ,example2Descriptor "eg2"
-  ,biosDescriptor "bios"
   ]
 
 startServer :: IO (Scheduler IO, TChan LogVal, ThreadId)
@@ -90,17 +89,17 @@ logToChan c t = atomically $ writeTChan c t
 
 -- ---------------------------------------------------------------------
 
-dispatchGhcRequest :: ToJSON a
+dispatchGhcRequest :: (Typeable a, ToJSON a)
                    => TrackingNumber -> Maybe Uri -> String -> Int
                    -> Scheduler IO -> TChan LogVal
-                   -> PluginId -> CommandName -> a -> IO ()
-dispatchGhcRequest tn uri ctx n scheduler lc plugin com arg = do
+                   -> IdeGhcM (IdeResult a) -> IO ()
+dispatchGhcRequest tn uri ctx n scheduler lc f = do
   let
     logger :: RequestCallback IO DynamicJSON
     logger x = logToChan lc (ctx, Right x)
 
   let req = GReq tn "plugin-command" uri Nothing (Just (IdInt n)) logger (toDynJSON (Nothing :: Maybe ())) $
-        runPluginCommand plugin com (toJSON arg)
+        fmap toDynJSON <$> f
   sendRequest scheduler req
 
 
@@ -163,7 +162,7 @@ funcSpec = describe "functional dispatch" $ do
       show rrr `shouldBe` "Nothing"
 
       -- need to typecheck the module to trigger deferred response
-      dispatchGhcRequest 2 (Just testUri) "req2" 2 scheduler logChan "bios" "check" (toJSON testUri)
+      dispatchGhcRequest 2 (Just testUri) "req2" 2 scheduler logChan $ setTypecheckedModule testUri
 
       -- And now we get the deferred response (once the module is loaded)
       ("req1",Right res) <- atomically $ readTChan logChan
@@ -245,7 +244,7 @@ funcSpec = describe "functional dispatch" $ do
 
     it "returns hints as diagnostics" $ do
 
-      dispatchGhcRequest 5 (Just testUri) "r5" 5 scheduler logChan "applyrefact" "lint" testUri
+      dispatchGhcRequest 5 (Just testUri) "r5" 5 scheduler logChan $ lint testUri
 
       hr5 <- atomically $ readTChan logChan
       unpackRes hr5 `shouldBe` ("r5",
@@ -275,7 +274,7 @@ funcSpec = describe "functional dispatch" $ do
       --     (Just $ H.singleton r6uri textEdits)
       --     Nothing
       --   ))
-      dispatchGhcRequest 6 (Just testUri) "r6" 6 scheduler logChan "bios" "check" (toJSON testUri)
+      dispatchGhcRequest 6 (Just testUri) "r6" 6 scheduler logChan $ setTypecheckedModule testUri
       hr6 <- atomically $ readTChan logChan
       unpackRes hr6 `shouldBe` ("r6",Nothing :: Maybe Int)
 
@@ -285,7 +284,7 @@ funcSpec = describe "functional dispatch" $ do
 
       dispatchIdeRequest 7 "req7" scheduler logChan (IdInt 7) $ findDef testFailUri (Position 1 2)
 
-      dispatchGhcRequest 8 (Just testUri) "req8" 8 scheduler logChan "bios" "check" (toJSON testFailUri)
+      dispatchGhcRequest 8 (Just testUri) "req8" 8 scheduler logChan $ setTypecheckedModule testFailUri
 
       hr7 <- atomically $ readTChan logChan
       unpackRes hr7 `shouldBe` ("req7", Just ([] :: [Location]))

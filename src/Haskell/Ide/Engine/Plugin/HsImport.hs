@@ -31,7 +31,7 @@ import qualified Safe as S
 hsimportDescriptor :: PluginId -> PluginDescriptor
 hsimportDescriptor plId = PluginDescriptor
   { pluginId = plId
-  , pluginCommands = [PluginCommand "import" "Import a module" importModule]
+  , pluginCommands = [PluginCommand "import" importModule]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Nothing
