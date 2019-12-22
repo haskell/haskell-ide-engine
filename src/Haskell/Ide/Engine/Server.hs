@@ -53,7 +53,6 @@ import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Scheduler            as Scheduler
 import qualified Haskell.Ide.Engine.Support.HieExtras     as Hie
 import           Haskell.Ide.Engine.Types
-import qualified Haskell.Ide.Engine.Plugin.Bios          as BIOS
 import           Haskell.Ide.Engine.Version
 import qualified Language.Haskell.LSP.Control            as CTRL
 import qualified Language.Haskell.LSP.Core               as Core
@@ -927,7 +926,7 @@ requestDiagnosticsNormal tn file mVer = do
 
   -- get GHC diagnostics and loads the typechecked module into the cache
   let reqg = GReq tn "typecheck" (Just file) (Just (file,ver)) Nothing callbackg mempty
-               $ BIOS.setTypecheckedModule file
+               $ HIE.setTypecheckedModule file
       callbackg (HIE.Diagnostics pd, errs) = do
         forM_ errs $ \e -> do
           reactorSend $ NotShowMessage $

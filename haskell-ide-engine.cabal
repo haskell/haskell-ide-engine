@@ -28,7 +28,6 @@ library
                        Haskell.Ide.Engine.Plugin.Brittany
                        Haskell.Ide.Engine.Plugin.Example2
                        Haskell.Ide.Engine.Plugin.Floskell
-                       Haskell.Ide.Engine.Plugin.Bios
                        -- Haskell.Ide.Engine.Plugin.HaRe
                        Haskell.Ide.Engine.Plugin.Haddock
                        Haskell.Ide.Engine.Plugin.HfaAlign

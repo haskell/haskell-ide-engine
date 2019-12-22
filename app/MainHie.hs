@@ -26,7 +26,6 @@ import           System.IO
 import           Haskell.Ide.Engine.Plugin.ApplyRefact
 import           Haskell.Ide.Engine.Plugin.Brittany
 import           Haskell.Ide.Engine.Plugin.Example2
-import           Haskell.Ide.Engine.Plugin.Bios
 -- import           Haskell.Ide.Engine.Plugin.HaRe
 import           Haskell.Ide.Engine.Plugin.Haddock
 import           Haskell.Ide.Engine.Plugin.HfaAlign
@@ -56,7 +55,6 @@ plugins includeExamples = pluginDescToIdePlugins allPlugins
       , packageDescriptor     "package"
       , pragmasDescriptor     "pragmas"
       , floskellDescriptor    "floskell"
-      , biosDescriptor        "bios"
       , genericDescriptor     "generic"
       ]
     examplePlugins =
