@@ -436,7 +436,7 @@ splitCaseCmd' uri newPos =
 getFormattingPlugin :: Config -> IdePlugins -> Maybe (PluginDescriptor, FormattingProvider)
 getFormattingPlugin config plugins = do
   let providerName = formattingProvider config
-  fmtPlugin <- Map.lookup providerName (ipMap plugins)
+  fmtPlugin <- Map.lookup (PluginId providerName) (ipMap plugins)
   fmtProvider <- pluginFormattingProvider fmtPlugin
   return (fmtPlugin, fmtProvider)
 
