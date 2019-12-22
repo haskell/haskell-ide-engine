@@ -6,7 +6,6 @@ packages:
 extra-deps:
 # - ./submodules/HaRe
 - ./submodules/cabal-helper
-- ./submodules/ghc-mod/ghc-project-types
 
 - base-compat-0.9.3
 - brittany-0.12.1.0

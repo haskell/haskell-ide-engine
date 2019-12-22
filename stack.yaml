@@ -6,7 +6,6 @@ packages:
 extra-deps:
 # - ./submodules/HaRe
 - ./submodules/cabal-helper
-- ./submodules/ghc-mod/ghc-project-types
 
 - deque-0.4.3
 - ansi-terminal-0.8.2

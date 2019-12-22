@@ -11,7 +11,7 @@ module Haskell.Ide.Engine.Ghc
     setTypecheckedModule
   , Diagnostics(..)
   , AdditionalErrs
-  , cabalModuleGraphs
+  -- , cabalModuleGraphs
   , makeRevRedirMapFunc
   ) where
 
@@ -22,7 +22,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad                  ( when )
 import           Data.IORef
 import qualified Data.Map.Strict                   as Map
-import qualified Data.IntMap.Strict                   as IM
+-- import qualified Data.IntMap.Strict                   as IM
 import           Data.Semigroup ((<>), Semigroup)
 import qualified Data.Set                          as Set
 import qualified Data.Text                         as T
@@ -52,10 +52,10 @@ import qualified HIE.Bios.Ghc.Load as BIOS
 
 import System.Directory
 
-import GhcProject.Types as GM
-import GhcMake ( moduleGraphNodes )
+-- import GhcMake ( moduleGraphNodes )
 import GhcMonad
 
+-- ---------------------------------------------------------------------
 
 newtype Diagnostics = Diagnostics (Map.Map NormalizedUri (Set.Set Diagnostic))
   deriving (Show, Eq)
@@ -290,6 +290,11 @@ setTypecheckedModule_load uri =
 
         return $ IdeResultOk (Diagnostics diags2,errs)
 
+{-
+
+-- TODO: Come up with a reasonable approach to generate a module graph
+-- for a given component or package.
+
 -- TODO: make this work for all components
 cabalModuleGraphs :: IdeGhcM [GM.GmModuleGraph]
 cabalModuleGraphs = do
@@ -313,6 +318,7 @@ cabalModuleGraphs = do
                                ]
                   ]
   pure [GmModuleGraph gmg]
+-}
 
 -- ---------------------------------------------------------------------
 

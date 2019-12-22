@@ -28,14 +28,8 @@ setTypecheckedModule
 
 module Haskell.Ide.Engine.PluginApi
   (
-  -- ** Re-exported from ghc-mod via ghc-project-types
-    GP.GmModuleGraph(..)
-  , GP.ModulePath(..)
-  , GP.GmComponent(..)
-  , GP.GmComponentType(..)
-
   -- * IDE monads
-  , HIE.IdeState(..)
+    HIE.IdeState(..)
   , HIE.IdeGhcM
   , HIE.runIdeGhcM
   , HIE.runActionWithContext
@@ -46,7 +40,7 @@ module Haskell.Ide.Engine.PluginApi
   , HIE.iterT
   , HIE.LiftsToGhc(..)
   , HIE.HasGhcModuleCache(..)
-  , HIE.cabalModuleGraphs
+  -- , HIE.cabalModuleGraphs
   , HIE.makeRevRedirMapFunc
 
   -- * Using the HIE module cache etc
@@ -72,7 +66,6 @@ module Haskell.Ide.Engine.PluginApi
 
 
 
-import qualified GhcProject.Types                    as GP
 import qualified Haskell.Ide.Engine.Ghc              as HIE
 import qualified Haskell.Ide.Engine.GhcModuleCache   as HIE (CachedInfo(..),HasGhcModuleCache(..),emptyModuleCache)
 import qualified Haskell.Ide.Engine.ModuleCache      as HIE (ifCachedModule,runActionWithContext )

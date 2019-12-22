@@ -6,7 +6,6 @@ packages:
 extra-deps:
 # - ./submodules/HaRe
 - ./submodules/cabal-helper
-- ./submodules/ghc-mod/ghc-project-types
 
 - ansi-terminal-0.8.2
 - ansi-wl-pprint-0.6.8.2

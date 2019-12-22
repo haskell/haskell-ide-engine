@@ -50,7 +50,6 @@ library
                      , free
                      , ghc
                      , hie-bios >= 0.3.2 && < 0.4.0
-                     , ghc-project-types >= 5.9.0.0
                      , cabal-helper
                      , haskell-lsp == 0.19.*
                      , hslogger
