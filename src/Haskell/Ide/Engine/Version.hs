@@ -1,4 +1,6 @@
-{-# LANGUAGE CPP, TemplateHaskell, OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
 -- | Information and display strings for HIE's version
 -- and the current project's version
 module Haskell.Ide.Engine.Version where

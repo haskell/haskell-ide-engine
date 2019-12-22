@@ -181,7 +181,7 @@ searchTargets f term = do
 
 -- | 'lookup' @n term@ looks up the given Text in the local Hoogle database.
 -- Takes the first @n@ matches.
-  -- May fail with a HoogleError that can be shown to the user.
+-- May fail with a HoogleError that can be shown to the user.
 lookup :: Int -> T.Text -> IdeM (Either HoogleError [T.Text])
 lookup n term = do
   HoogleDb mdb <- get
