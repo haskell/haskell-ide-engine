@@ -67,8 +67,7 @@ applyRefactSpec = do
 
     it "returns hints as diagnostics" $ do
 
-      let act = lint arg
-          arg = applyRefactPath
+      let act = lint applyRefactPath
           res = IdeResultOk
             PublishDiagnosticsParams
              { _uri = applyRefactPath
@@ -86,7 +85,7 @@ applyRefactSpec = do
                             "Redundant bracket\nFound:\n  (x + 1)\nWhy not:\n  x + 1\n"
                             Nothing
                ]}
-      testCommand testPlugins act "applyrefact" "lint" arg res
+      runIGM testPlugins act `shouldReturn` res
 
     -- ---------------------------------
 
@@ -94,8 +93,7 @@ applyRefactSpec = do
       filePathNoUri  <- makeAbsolute "./test/testdata/HlintParseFail.hs"
       let filePath = filePathToUri filePathNoUri
 
-      let act = lint arg
-          arg = filePath
+      let act = lint filePath
           res = IdeResultOk
             PublishDiagnosticsParams
              { _uri = filePath
@@ -107,7 +105,7 @@ applyRefactSpec = do
                            , _source = Just "hlint"
                            , _message = T.pack filePathNoUri <> ":13:24: error:\n    Operator applied to too few arguments: +\n  data instance Sing (z :: (a :~: b)) where\n>     SRefl :: Sing Refl +\n\n"
                            , _relatedInformation = Nothing }]}
-      testCommand testPlugins act "applyrefact" "lint" arg res
+      runIGM testPlugins act `shouldReturn` res
 
     -- ---------------------------------
 
