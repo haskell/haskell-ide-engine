@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE OverloadedStrings      #-}
-module Haskell.Ide.Engine.LSP.Completions
+module Haskell.Ide.Engine.Completions
   ( WithSnippets(..)
   , getCompletions
   , resolveCompletion
@@ -48,7 +48,7 @@ import qualified Language.Haskell.LSP.Types.Lens
                                                as J
 import qualified Haskell.Ide.Engine.Support.Fuzzy
                                                as Fuzzy
-import qualified Haskell.Ide.Engine.Plugin.Hoogle
+import qualified Haskell.Ide.Engine.Support.Hoogle
                                                as Hoogle
 import qualified Language.Haskell.LSP.VFS      as VFS
 
@@ -102,7 +102,7 @@ resolveCompletion :: WithSnippets -> J.CompletionItem -> IdeM J.CompletionItem
 resolveCompletion withSnippets origCompl =
   case fromJSON <$> origCompl ^. J.xdata of
     Just (J.Success compdata) -> do
-      mdocs <- Hoogle.infoCmd' $ hoogleQuery compdata
+      mdocs <- Hoogle.info $ hoogleQuery compdata
       let docText = case mdocs of
             Right x -> Just x
             _ -> Nothing

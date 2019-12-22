@@ -10,9 +10,9 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 
-module Haskell.Ide.Engine.Transport.LspStdio
+module Haskell.Ide.Engine.Server
   (
-    lspStdioTransport
+    server
   ) where
 
 import           Control.Concurrent
@@ -41,20 +41,20 @@ import qualified Data.Yaml as Yaml
 import           Haskell.Ide.Engine.Cradle (findLocalCradle, cradleDisplay)
 import           Haskell.Ide.Engine.Config
 import qualified Haskell.Ide.Engine.Ghc   as HIE
-import           Haskell.Ide.Engine.LSP.CodeActions
-import qualified Haskell.Ide.Engine.LSP.Completions      as Completions
-import           Haskell.Ide.Engine.LSP.Reactor
+import           Haskell.Ide.Engine.CodeActions
+import qualified Haskell.Ide.Engine.Completions      as Completions
+import           Haskell.Ide.Engine.Reactor
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import qualified Haskell.Ide.Engine.Plugin.ApplyRefact   as ApplyRefact
-import           Haskell.Ide.Engine.Plugin.Base
 -- import qualified Haskell.Ide.Engine.Plugin.HaRe          as HaRe
-import qualified Haskell.Ide.Engine.Plugin.Hoogle        as Hoogle
+import qualified Haskell.Ide.Engine.Support.Hoogle        as Hoogle
 import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Scheduler            as Scheduler
 import qualified Haskell.Ide.Engine.Support.HieExtras     as Hie
 import           Haskell.Ide.Engine.Types
 import qualified Haskell.Ide.Engine.Plugin.Bios          as BIOS
+import           Haskell.Ide.Engine.Version
 import qualified Language.Haskell.LSP.Control            as CTRL
 import qualified Language.Haskell.LSP.Core               as Core
 import           Language.Haskell.LSP.Diagnostics
@@ -76,13 +76,13 @@ import GHC.Conc
 {-# ANN module ("hlint: ignore Use tuple-section" :: String) #-}
 -- ---------------------------------------------------------------------
 
-lspStdioTransport
+server
   :: Scheduler.Scheduler R
   -> FilePath
   -> IdePlugins
   -> Maybe FilePath
   -> IO ()
-lspStdioTransport scheduler origDir plugins captureFp = do
+server scheduler origDir plugins captureFp = do
   run scheduler origDir plugins captureFp >>= \case
     0 -> exitSuccess
     c -> exitWith . ExitFailure $ c
@@ -395,7 +395,7 @@ reactor inp diagIn = do
             reactorSend $ ReqRegisterCapability $ fmServerRegisterCapabilityRequest rid registrations
 
           reactorSend $ NotLogMessage $
-                  fmServerLogMessageNotification J.MtLog $ "Using hie version: " <> T.pack version
+                  fmServerLogMessageNotification J.MtLog $ "Using hie version: " <> T.pack hieVersion
 
           lspRootDir <- asksLspFuncs Core.rootPath
           currentDir <- liftIO getCurrentDirectory

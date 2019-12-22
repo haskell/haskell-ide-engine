@@ -17,7 +17,7 @@ import           GHC
 import           GhcMonad
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
-import qualified Haskell.Ide.Engine.Plugin.Hoogle             as Hoogle
+import qualified Haskell.Ide.Engine.Support.Hoogle             as Hoogle
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Support.HieExtras
 import           HscTypes

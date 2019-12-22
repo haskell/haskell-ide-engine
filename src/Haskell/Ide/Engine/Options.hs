@@ -6,8 +6,6 @@ import           Options.Applicative.Simple
 data GlobalOpts = GlobalOpts
   { optDebugOn       :: Bool
   , optLogFile       :: Maybe String
-  , optLsp           :: Bool
-  , optJson          :: Bool
   , projectRoot      :: Maybe String
   , optBiosVerbose   :: Bool
   , optCaptureFile   :: Maybe FilePath
@@ -27,12 +25,6 @@ globalOptsParser = GlobalOpts
       <> metavar "LOGFILE"
       <> help "File to log to, defaults to stdout"
        ))
-  <*> flag True True
-       ( long "lsp"
-       <> help "Enable the Language Server Protocol transport on STDIO (default)")
-  <*> switch
-       ( long "json"
-       <> help "Enable JSON transport on STDIO")
   <*> optional (strOption
        ( long "project-root"
       <> short 'r'

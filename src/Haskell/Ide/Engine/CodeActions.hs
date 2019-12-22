@@ -3,7 +3,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE FlexibleContexts      #-}
-module Haskell.Ide.Engine.LSP.CodeActions where
+module Haskell.Ide.Engine.CodeActions where
 
 import Control.Lens
 import Control.Monad.Reader
@@ -11,7 +11,7 @@ import qualified Data.Aeson as J
 import Data.Maybe
 import Data.Foldable
 import qualified GHC.Generics as G
-import Haskell.Ide.Engine.LSP.Reactor
+import Haskell.Ide.Engine.Reactor
 import Haskell.Ide.Engine.Types
 import qualified Language.Haskell.LSP.Core as Core
 import qualified Language.Haskell.LSP.Types as J

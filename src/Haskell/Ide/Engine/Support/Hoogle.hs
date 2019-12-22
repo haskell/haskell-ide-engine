@@ -1,7 +1,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Haskell.Ide.Engine.Plugin.Hoogle where
+module Haskell.Ide.Engine.Support.Hoogle where
 
 import           Control.Monad.IO.Class
 import           Control.Monad (join)
@@ -19,27 +19,6 @@ import           System.Directory
 import           System.Environment
 import           Text.HTML.TagSoup
 import           Text.HTML.TagSoup.Tree
-
--- ---------------------------------------------------------------------
-
-hoogleDescriptor :: PluginId -> PluginDescriptor
-hoogleDescriptor plId = PluginDescriptor
-  { pluginId = plId
-  , pluginName = "hoogle"
-  , pluginDesc =
-         "Hoogle is a Haskell API search engine, which allows you to search "
-      <> "many standard Haskell libraries by either function name, or by approximate "
-      <> "type signature. "
-  , pluginCommands =
-      [ PluginCommand "info" "Look up the documentation for an identifier in the hoogle database" infoCmd
-      , PluginCommand "lookup" "Search the hoogle database with a string" lookupCmd
-      ]
-  , pluginCodeActionProvider = Nothing
-  , pluginDiagnosticProvider = Nothing
-  , pluginHoverProvider = Nothing
-  , pluginSymbolProvider = Nothing
-  , pluginFormattingProvider = Nothing
-  }
 
 -- ---------------------------------------------------------------------
 
@@ -86,15 +65,8 @@ initializeHoogleDb = do
   else
     return Nothing
 
-infoCmd :: CommandFunc T.Text T.Text
-infoCmd = CmdSync $ \expr -> do
-  res <- liftToGhc $ bimap hoogleErrorToIdeError id <$> infoCmd' expr
-  return $ case res of
-    Left err -> IdeResultFail err
-    Right x -> IdeResultOk x
-
-infoCmd' :: T.Text -> IdeM (Either HoogleError T.Text)
-infoCmd' expr = do
+info :: T.Text -> IdeM (Either HoogleError T.Text)
+info expr = do
   HoogleDb mdb <- get
   liftIO $ runHoogleQuery mdb expr $ \case
     [] -> Left NoResults
@@ -116,8 +88,8 @@ renderTargetInfo t =
 -- If no result can be found for the identifier, a hoogle error is returned
 -- that can be shown to the client by converting it
 -- to an IdeError with 'hoogleErrorToIdeError'.
-infoCmdFancyRender :: T.Text -> IdeM (Either HoogleError T.Text)
-infoCmdFancyRender expr = do
+infoFancyRender :: T.Text -> IdeM (Either HoogleError T.Text)
+infoFancyRender expr = do
   HoogleDb mdb <- get
   liftIO $ runHoogleQuery mdb expr $ \case
     [] -> Left NoResults
@@ -207,24 +179,14 @@ searchTargets f term = do
 
 ------------------------------------------------------------------------
 
--- | Lookup the given Text in the local Hoogle database.
--- Is limited to collect at most ten matches.
+-- | 'lookup' @n term@ looks up the given Text in the local Hoogle database.
+-- Takes the first @n@ matches.
 -- May fail with a HoogleError that can be shown to the user.
-lookupCmd :: CommandFunc T.Text [T.Text]
-lookupCmd = CmdSync $ \term -> do
-  res <- liftToGhc $ bimap hoogleErrorToIdeError id <$> lookupCmd' 10 term
-  return $ case res of
-    Left err -> IdeResultFail err
-    Right x -> IdeResultOk x
-
--- | Lookup the given Text in the local Hoogle database.
--- Takes the first `n` matches.
--- May fail with a HoogleError that can be shown to the user.
-lookupCmd' :: Int -> T.Text -> IdeM (Either HoogleError [T.Text])
-lookupCmd' n term = do
+lookup :: Int -> T.Text -> IdeM (Either HoogleError [T.Text])
+lookup n term = do
   HoogleDb mdb <- get
-  liftIO $ runHoogleQuery mdb term
-    (Right . map (T.pack . targetResultDisplay False) . take n)
+  liftIO $ runHoogleQuery mdb term $
+    Right . map (T.pack . targetResultDisplay False) . take n
 
 ------------------------------------------------------------------------
 
@@ -290,7 +252,7 @@ getDocsForName name pkg modName' = do
            <> " module:" <> modName
            <> " is:exact"
   debugm $ "hoogle query: " ++ T.unpack query
-  res <- infoCmdFancyRender query
+  res <- infoFancyRender query
   case res of
     Right x -> return $ Just x
     Left _ -> return Nothing
