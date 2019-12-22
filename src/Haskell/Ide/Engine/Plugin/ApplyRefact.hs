@@ -41,8 +41,6 @@ type HintTitle = T.Text
 applyRefactDescriptor :: PluginId -> PluginDescriptor
 applyRefactDescriptor plId = PluginDescriptor
   { pluginId = plId
-  , pluginName = "ApplyRefact"
-  , pluginDesc = "apply-refact applies refactorings specified by the refact package. It is currently integrated into hlint to enable the automatic application of suggestions."
   , pluginCommands =
       [ PluginCommand "applyOne" "Apply a single hint" applyOneCmd
       , PluginCommand "applyAll" "Apply all hints to the file" applyAllCmd

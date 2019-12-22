@@ -33,8 +33,6 @@ import           Text.Parsec.Text
 liquidDescriptor :: PluginId -> PluginDescriptor
 liquidDescriptor plId = PluginDescriptor
   { pluginId = plId
-  , pluginName = "Liquid Haskell"
-  , pluginDesc = "Integration with Liquid Haskell"
   , pluginCommands = []
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Just (DiagnosticProvider

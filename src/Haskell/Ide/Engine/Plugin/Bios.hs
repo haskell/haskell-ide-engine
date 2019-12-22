@@ -15,8 +15,6 @@ import           Haskell.Ide.Engine.Ghc
 biosDescriptor :: PluginId -> PluginDescriptor
 biosDescriptor plId = PluginDescriptor
   { pluginId                 = plId
-  , pluginName               = "bios"
-  , pluginDesc               = "bios"
   , pluginCommands           =
     [PluginCommand "check" "check a file for GHC warnings and errors" checkCmd]
   , pluginCodeActionProvider = Nothing

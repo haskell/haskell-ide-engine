@@ -35,8 +35,6 @@ testPlugins = pluginDescToIdePlugins [testDescriptor "test"]
 testDescriptor :: PluginId -> PluginDescriptor
 testDescriptor plId = PluginDescriptor
   { pluginId = plId
-  , pluginName = "testDescriptor"
-  , pluginDesc = "PluginDescriptor for testing Dispatcher"
   , pluginCommands = [
         PluginCommand "cmd1" "description" cmd1
       , PluginCommand "cmd2" "description" cmd2

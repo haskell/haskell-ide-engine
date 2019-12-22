@@ -262,8 +262,6 @@ type FormattingProvider = T.Text -- ^ Text to format
 
 data PluginDescriptor =
   PluginDescriptor { pluginId                 :: PluginId
-                   , pluginName               :: T.Text
-                   , pluginDesc               :: T.Text
                    , pluginCommands           :: [PluginCommand]
                    , pluginCodeActionProvider :: Maybe CodeActionProvider
                    , pluginDiagnosticProvider :: Maybe DiagnosticProvider
@@ -596,7 +594,7 @@ instance ExceptionMonad m => ExceptionMonad (ReaderT e m) where
           q u (ReaderT b) = ReaderT (u . b)
 
 instance MonadTrans GhcT where
-  lift m = liftGhcT m
+  lift = liftGhcT
 
 
 instance MonadUnliftIO Ghc where

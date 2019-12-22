@@ -53,8 +53,6 @@ import qualified Data.Yaml as Y
 packageDescriptor :: T.Text -> PluginDescriptor
 packageDescriptor plId = PluginDescriptor
   { pluginId       = plId
-  , pluginName     = "package"
-  , pluginDesc     = "Tools for editing .cabal and package.yaml files."
   , pluginCommands = [PluginCommand "add" "Add a packge" addCmd]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing

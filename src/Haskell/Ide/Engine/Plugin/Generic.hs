@@ -43,8 +43,6 @@ import           PprTyThing
 genericDescriptor :: PluginId -> PluginDescriptor
 genericDescriptor plId = PluginDescriptor
   { pluginId = plId
-  , pluginName = "generic"
-  , pluginDesc = "generic actions"
   , pluginCommands = [PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmd]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
