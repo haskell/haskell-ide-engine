@@ -46,7 +46,6 @@ applyRefactDescriptor plId = PluginDescriptor
   , pluginCommands =
       [ PluginCommand "applyOne" "Apply a single hint" applyOneCmd
       , PluginCommand "applyAll" "Apply all hints to the file" applyAllCmd
-      , PluginCommand "lint" "Run hlint on the file to generate hints" lintCmd
       ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
@@ -69,12 +68,9 @@ data OneHint = OneHint
   , oneHintTitle :: HintTitle
   } deriving (Eq, Show)
 
-applyOneCmd :: CommandFunc ApplyOneParams WorkspaceEdit
-applyOneCmd = CmdSync $ \(AOP uri pos title) -> do
-  applyOneCmd' uri (OneHint pos title)
-
-applyOneCmd' :: Uri -> OneHint -> IdeGhcM (IdeResult WorkspaceEdit)
-applyOneCmd' uri oneHint = pluginGetFile "applyOne: " uri $ \fp -> do
+applyOneCmd :: ApplyOneParams -> IdeGhcM (IdeResult WorkspaceEdit)
+applyOneCmd (AOP uri pos title) = pluginGetFile "applyOne: " uri $ \fp -> do
+  let oneHint = OneHint pos title
   revMapp <- reverseFileMap
   let defaultResult = do
         debugm "applyOne: no access to the persisted file."
@@ -91,12 +87,8 @@ applyOneCmd' uri oneHint = pluginGetFile "applyOne: " uri $ \fp -> do
 
 -- ---------------------------------------------------------------------
 
-applyAllCmd :: CommandFunc Uri WorkspaceEdit
-applyAllCmd = CmdSync $ \uri -> do
-  applyAllCmd' uri
-
-applyAllCmd' :: Uri -> IdeGhcM (IdeResult WorkspaceEdit)
-applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \fp -> do
+applyAllCmd :: Uri -> IdeGhcM (IdeResult WorkspaceEdit)
+applyAllCmd uri = pluginGetFile "applyAll: " uri $ \fp -> do
   let defaultResult = do
         debugm "applyAll: no access to the persisted file."
         return $ IdeResultOk mempty
@@ -111,26 +103,22 @@ applyAllCmd' uri = pluginGetFile "applyAll: " uri $ \fp -> do
 
 -- ---------------------------------------------------------------------
 
-lintCmd :: CommandFunc Uri PublishDiagnosticsParams
-lintCmd = CmdSync $ \uri -> do
-  lintCmd' uri
-
 -- AZ:TODO: Why is this in IdeGhcM?
-lintCmd' :: Uri -> IdeGhcM (IdeResult PublishDiagnosticsParams)
-lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
+lint :: Uri -> IdeGhcM (IdeResult PublishDiagnosticsParams)
+lint uri = pluginGetFile "lint: " uri $ \fp -> do
   let
     defaultResult = do
-      debugm "lintCmd: no access to the persisted file."
+      debugm "lint: no access to the persisted file."
       return
         $ IdeResultOk (PublishDiagnosticsParams (filePathToUri fp) $ List [])
   withMappedFile fp defaultResult $ \file' -> do
     eitherErrorResult <- liftIO
-      (try $ runExceptT $ runLintCmd file' [] :: IO
+      (try $ runExceptT $ runLint file' [] :: IO
           (Either IOException (Either [Diagnostic] [Idea]))
       )
     case eitherErrorResult of
       Left err -> return $ IdeResultFail
-        (IdeError PluginError (T.pack $ "lintCmd: " ++ show err) Null)
+        (IdeError PluginError (T.pack $ "lint: " ++ show err) Null)
       Right res -> case res of
         Left diags ->
           return
@@ -143,8 +131,8 @@ lintCmd' uri = pluginGetFile "lintCmd: " uri $ \fp -> do
             $ PublishDiagnosticsParams (filePathToUri fp)
             $ List (map hintToDiagnostic $ stripIgnores fs)
 
-runLintCmd :: FilePath -> [String] -> ExceptT [Diagnostic] IO [Idea]
-runLintCmd fp args = do
+runLint :: FilePath -> [String] -> ExceptT [Diagnostic] IO [Idea]
+runLint fp args = do
   (flags,classify,hint) <- liftIO $ argsSettings args
   let myflags = flags { hseFlags = (hseFlags flags) { extensions = EnableExtension TypeApplications:extensions (hseFlags flags)}}
   res <- bimapExceptT parseErrorToDiagnostic id $ ExceptT $ parseModuleEx myflags fp Nothing

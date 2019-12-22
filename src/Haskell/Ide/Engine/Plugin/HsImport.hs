@@ -33,7 +33,7 @@ hsimportDescriptor plId = PluginDescriptor
   { pluginId = plId
   , pluginName = "HsImport"
   , pluginDesc = "A tool for extending the import list of a Haskell source file."
-  , pluginCommands = [PluginCommand "import" "Import a module" importCmd]
+  , pluginCommands = [PluginCommand "import" "Import a module" importModule]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Nothing
@@ -114,18 +114,13 @@ data ImportParams = ImportParams
   }
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
-importCmd :: CommandFunc ImportParams J.WorkspaceEdit
-importCmd = CmdSync $ \(ImportParams uri style modName) ->
-  importModule uri style modName
-
 -- | Import the given module for the given file.
 -- May take an explicit function name to perform an import-list import.
 -- Multiple import-list imports will result in merged imports,
 -- e.g. two consecutive imports for the same module will result in a single
 -- import line.
-importModule
-  :: Uri -> ImportStyle -> ModuleName -> IdeGhcM (IdeResult J.WorkspaceEdit)
-importModule uri impStyle modName =
+importModule :: ImportParams -> IdeGhcM (IdeResult J.WorkspaceEdit)
+importModule (ImportParams uri impStyle modName) =
   pluginGetFile "hsimport cmd: " uri $ \origInput -> do
     shouldFormat <- formatOnImportOn <$> getConfig
     fileMap      <- reverseFileMap

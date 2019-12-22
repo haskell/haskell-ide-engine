@@ -42,7 +42,7 @@ applyRefactSpec = do
     it "applies one hint only" $ do
 
       let furi = applyRefactPath
-          act = applyOneCmd' furi (OneHint (toPos (2,8)) "Redundant bracket")
+          act = applyOneCmd arg
           arg = AOP furi (toPos (2,8)) "Redundant bracket"
           textEdits = List [TextEdit (Range (Position 1 0) (Position 1 25)) "main = putStrLn \"hello\""]
           res = IdeResultOk $ WorkspaceEdit
@@ -54,7 +54,7 @@ applyRefactSpec = do
 
     it "applies all hints" $ do
 
-      let act = applyAllCmd' arg
+      let act = applyAllCmd arg
           arg = applyRefactPath
           textEdits = List [ TextEdit (Range (Position 1 0) (Position 1 25)) "main = putStrLn \"hello\""
                            , TextEdit (Range (Position 3 0) (Position 3 15)) "foo x = x + 1" ]
@@ -67,7 +67,7 @@ applyRefactSpec = do
 
     it "returns hints as diagnostics" $ do
 
-      let act = lintCmd' arg
+      let act = lint arg
           arg = applyRefactPath
           res = IdeResultOk
             PublishDiagnosticsParams
@@ -94,7 +94,7 @@ applyRefactSpec = do
       filePathNoUri  <- makeAbsolute "./test/testdata/HlintParseFail.hs"
       let filePath = filePathToUri filePathNoUri
 
-      let act = lintCmd' arg
+      let act = lint arg
           arg = filePath
           res = IdeResultOk
             PublishDiagnosticsParams
@@ -114,7 +114,7 @@ applyRefactSpec = do
     it "respects hlint pragmas in the source file" $ do
       filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/HlintPragma.hs"
 
-      let req = lintCmd' filePath
+      let req = lint filePath
       r <- runIGM testPlugins req
       r `shouldBe`
         (IdeResultOk
@@ -136,7 +136,7 @@ applyRefactSpec = do
     it "respects hlint config files in project root dir" $ do
       filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/HlintPragma.hs"
 
-      let req = lintCmd' filePath
+      let req = lint filePath
       r <- withCurrentDirectory "./test/testdata" $ runIGM testPlugins req
       r `shouldBe`
         (IdeResultOk
@@ -152,7 +152,7 @@ applyRefactSpec = do
     it "reports error without crash" $ do
       filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/ApplyRefactError.hs"
 
-      let req = applyAllCmd' filePath
+      let req = applyAllCmd filePath
           isExpectedError (IdeResultFail (IdeError PluginError err _)) =
               "Illegal symbol '.' in type" `T.isInfixOf` err
           isExpectedError _ = False

@@ -87,15 +87,8 @@ type Package = T.Text
 -- May fail if no project dependency specification can be found.
 -- Supported are `*.cabal` and `package.yaml` specifications.
 -- Moreover, may fail with an IOException in case of a filesystem problem.
-addCmd :: CommandFunc AddParams J.WorkspaceEdit
-addCmd = CmdSync addCmd'
-
--- | Add a package to the project's dependencies.
--- May fail if no project dependency specification can be found.
--- Supported are `*.cabal` and `package.yaml` specifications.
--- Moreover, may fail with an IOException in case of a filesystem problem.
-addCmd' :: AddParams -> IdeGhcM (IdeResult J.WorkspaceEdit)
-addCmd' (AddParams rootDir modulePath pkg) = do
+addCmd :: AddParams -> IdeGhcM (IdeResult J.WorkspaceEdit)
+addCmd (AddParams rootDir modulePath pkg) = do
   packageType <- liftIO $ findPackageType rootDir
   fileMap <- reverseFileMap
 

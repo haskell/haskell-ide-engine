@@ -50,13 +50,13 @@ testDescriptor plId = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-cmd1 :: CommandFunc () T.Text
-cmd1 = CmdSync $ \_ -> do
+cmd1 :: () -> IdeGhcM (IdeResult T.Text)
+cmd1 () = do
   put (MS1 "foo")
   return (IdeResultOk (T.pack "result:put foo"))
 
-cmd2 :: CommandFunc () T.Text
-cmd2 = CmdSync $ \_ -> do
+cmd2 :: () -> IdeGhcM (IdeResult T.Text)
+cmd2 () = do
   (MS1 v) <- get
   return (IdeResultOk (T.pack $ "result:got:" ++ show v))
 

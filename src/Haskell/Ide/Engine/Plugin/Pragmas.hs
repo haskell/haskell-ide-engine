@@ -43,8 +43,8 @@ data AddPragmaParams = AddPragmaParams
 -- Pragma is added to the first line of the Uri.
 -- It is assumed that the pragma name is a valid pragma,
 -- thus, not validated.
-addPragmaCmd :: CommandFunc AddPragmaParams J.WorkspaceEdit
-addPragmaCmd = CmdSync $ \(AddPragmaParams uri pragmaName) -> do
+addPragmaCmd :: AddPragmaParams -> IdeGhcM (IdeResult J.WorkspaceEdit)
+addPragmaCmd (AddPragmaParams uri pragmaName) = do
   let
     pos = J.Position 0 0
     textEdits = J.List

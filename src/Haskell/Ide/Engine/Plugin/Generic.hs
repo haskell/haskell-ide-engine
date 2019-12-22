@@ -66,15 +66,14 @@ instance FromJSON TypeParams where
 instance ToJSON TypeParams where
   toJSON = genericToJSON customOptions
 
-typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
-typeCmd = CmdSync $ \(TP _bool uri pos) ->
-  liftToGhc $ newTypeCmd pos uri
+typeCmd :: TypeParams -> IdeGhcM (IdeResult [(Range,T.Text)])
+typeCmd (TP _bool uri pos) = liftToGhc $ newTypeCmd pos uri
 
 newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
 newTypeCmd newPos uri =
   pluginGetFile "newTypeCmd: " uri $ \fp ->
     ifCachedModule fp (IdeResultOk []) $ \tm info -> do
-      debugm $ "newTypeCmd: " <> (show (newPos, uri))
+      debugm $ "newTypeCmd: " <> show (newPos, uri)
       return $ IdeResultOk $ pureTypeCmd newPos tm info
 
 pureTypeCmd :: Position -> GHC.TypecheckedModule -> CachedInfo -> [(Range,T.Text)]

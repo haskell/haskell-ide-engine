@@ -48,8 +48,8 @@ data AlignParams = AlignParams
   }
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
-alignCmd :: CommandFunc AlignParams J.WorkspaceEdit
-alignCmd = CmdSync $ \(AlignParams uri rg) -> do
+alignCmd :: AlignParams -> IdeGhcM (IdeResult J.WorkspaceEdit)
+alignCmd (AlignParams uri rg) = do
   mtext <- getRangeFromVFS uri rg
   case mtext of
     Nothing -> return $ IdeResultOk $ J.WorkspaceEdit Nothing Nothing

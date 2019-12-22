@@ -29,7 +29,6 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , PluginDescriptor(..)
   , pluginDescToIdePlugins
   , PluginCommand(..)
-  , CommandFunc(..)
   , runPluginCommand
   , DynamicJSON
   , dynToJSON
@@ -279,12 +278,10 @@ instance Show PluginCommand where
 type PluginId = T.Text
 type CommandName = T.Text
 
-newtype CommandFunc a b = CmdSync (a -> IdeGhcM (IdeResult b))
-
 data PluginCommand = forall a b. (FromJSON a, ToJSON b, Typeable b) =>
   PluginCommand { commandName :: CommandName
                 , commandDesc :: T.Text
-                , commandFunc :: CommandFunc a b
+                , commandFunc :: a -> IdeGhcM (IdeResult b)
                 }
 
 pluginDescToIdePlugins :: [PluginDescriptor] -> IdePlugins
@@ -313,7 +310,7 @@ runPluginCommand p com arg = do
     Just PluginDescriptor { pluginCommands = xs } -> case List.find ((com ==) . commandName) xs of
       Nothing -> return $ IdeResultFail $
         IdeError UnknownCommand ("Command " <> com <> " isn't defined for plugin " <> p <> ". Legal commands are: " <> T.pack(show $ map commandName xs)) Null
-      Just (PluginCommand _ _ (CmdSync f)) -> case fromJSON arg of
+      Just (PluginCommand _ _ f) -> case fromJSON arg of
         Error err -> return $ IdeResultFail $
           IdeError ParameterError ("error while parsing args for " <> com <> " in plugin " <> p <> ": " <> T.pack err) Null
         Success a -> do

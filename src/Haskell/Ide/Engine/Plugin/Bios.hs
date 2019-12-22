@@ -26,7 +26,7 @@ biosDescriptor plId = PluginDescriptor
   , pluginFormattingProvider = Nothing
   }
 
-checkCmd :: CommandFunc Uri (Diagnostics, AdditionalErrs)
-checkCmd = CmdSync setTypecheckedModule
+checkCmd :: Uri -> IdeGhcM (IdeResult (Diagnostics, AdditionalErrs))
+checkCmd = setTypecheckedModule
 
 -- ---------------------------------------------------------------------

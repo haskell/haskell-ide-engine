@@ -62,7 +62,7 @@ packageSpec = do
             fp        = cwd </> testdata </> "cabal-exe"
             uri       = filePathToUri $ fp </> "add-package-test.cabal"
             args      = AddParams fp (fp </> "AddPackage.hs") "text"
-            act       = addCmd' args
+            act       = addCmd args
             textEdits =
               List
                 [ TextEdit (Range (Position 0 0) (Position 7 27)) $ T.concat
@@ -95,7 +95,7 @@ packageSpec = do
             fp        = cwd </> testdata </> "cabal-lib"
             uri       = filePathToUri $ fp </> "add-package-test.cabal"
             args      = AddParams fp (fp </> "AddPackage.hs") "text"
-            act       = addCmd' args
+            act       = addCmd args
             textEdits =
               List
                 [ TextEdit (Range (Position 0 0) (Position 7 27)) $ T.concat
@@ -130,7 +130,7 @@ packageSpec = do
             fp   = cwd </> testdata </> "hpack-exe"
             uri  = filePathToUri $ fp </> "package.yaml"
             args = AddParams fp (fp </> "app" </> "Asdf.hs") "zlib"
-            act  = addCmd' args
+            act  = addCmd args
             res  = IdeResultOk
               $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
             textEdits = List
@@ -168,7 +168,7 @@ packageSpec = do
             fp   = cwd </> testdata </> "hpack-lib"
             uri  = filePathToUri $ fp </> "package.yaml"
             args = AddParams fp (fp </> "app" </> "Asdf.hs") "zlib"
-            act  = addCmd' args
+            act  = addCmd args
             res  = IdeResultOk
               $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
             textEdits =
@@ -200,7 +200,7 @@ packageSpec = do
           let
             fp   = cwd </> testdata </> "invalid"
             args = AddParams fp (fp </> "app" </> "Asdf.hs") "zlib"
-            act  = addCmd' args
+            act  = addCmd args
             res =
               IdeResultFail
                 (IdeError PluginError

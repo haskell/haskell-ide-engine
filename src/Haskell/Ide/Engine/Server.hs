@@ -920,7 +920,7 @@ requestDiagnosticsNormal tn file mVer = do
   when sendHlint $ do
     -- get hlint diagnostics
     let reql = GReq tn "apply-refact" (Just file) (Just (file,ver)) Nothing callbackl (PublishDiagnosticsParams file mempty)
-                 $ ApplyRefact.lintCmd' file
+                 $ ApplyRefact.lint file
         callbackl (PublishDiagnosticsParams fp (List ds))
              = sendOne "hlint" (J.toNormalizedUri fp, ds)
     makeRequest reql
