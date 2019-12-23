@@ -86,7 +86,7 @@ packageSpec = do
                 ]
             res = IdeResultOk
               $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
-          testCommand testPlugins act "package" "add" args res
+          testCommand testPlugins fp act "package" "add" args res
 
     it "Add package to .cabal to library component"
       $ withCurrentDirectory (testdata </> "cabal-lib")
@@ -120,7 +120,7 @@ packageSpec = do
                 ]
             res = IdeResultOk
               $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
-          testCommand testPlugins act "package" "add" args res
+          testCommand testPlugins fp act "package" "add" args res
 
 
     it "Adds package to package.yaml to executable component"
@@ -159,7 +159,7 @@ packageSpec = do
                   , "description: Please see the README on GitHub at <https://github.com/githubuser/asdf#readme>\n"
                   ]
               ]
-          testCommand testPlugins act "package" "add" args res
+          testCommand testPlugins fp act "package" "add" args res
 
     it "Add package to package.yaml to library component"
       $ withCurrentDirectory (testdata </> "hpack-lib")
@@ -192,7 +192,7 @@ packageSpec = do
                     , "description: Please see the README on GitHub at <https://github.com/githubuser/asdf#readme>\n"
                     ]
                 ]
-          testCommand testPlugins act "package" "add" args res
+          testCommand testPlugins fp act "package" "add" args res
 
     it "Do nothing on NoPackage"
       $ withCurrentDirectory (testdata </> "invalid")
@@ -207,4 +207,4 @@ packageSpec = do
                           "No package.yaml or .cabal found"
                           Json.Null
                 )
-          testCommand testPlugins act "package" "add" args res
+          testCommand testPlugins fp act "package" "add" args res

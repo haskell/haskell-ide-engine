@@ -157,8 +157,11 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
 
         -- Check for mismatching GHC versions
         -- Ignore hie.yaml parse errors. They get reported in ModuleCache.hs
-        let parseErrorHandler (_ :: Yaml.ParseException) = return Nothing
-            dummyCradleFile = (fromMaybe currentDir lspRootDir) </> "File.hs"
+        let parseErrorHandler (_ :: Yaml.ParseException) = do
+              logm "Caught a yaml parse exception"
+              return Nothing
+            dummyCradleFile = fromMaybe currentDir lspRootDir </> "File.hs"
+        logm $ "Dummy Cradle File: " ++ dummyCradleFile
         mcradle <- liftIO $ E.catch (Just <$> findLocalCradle dummyCradleFile) parseErrorHandler
 
         -- haskell lsp sets the current directory to the project root in the InitializeRequest
@@ -410,13 +413,12 @@ reactor inp diagIn = do
           currentDir <- liftIO getCurrentDirectory
 
           -- Check for mismatching GHC versions
-          -- Ignore hie.yaml parse errors. They get reported in ModuleCache.hs
-          let parseErrorHandler (_ :: Yaml.ParseException) = return Nothing
-              dummyCradleFile = (fromMaybe currentDir lspRootDir) </> "File.hs"
-          cradleRes <- liftIO $ E.catch (Just <$> findLocalCradle dummyCradleFile) parseErrorHandler
+          let dummyCradleFile = (fromMaybe currentDir lspRootDir) </> "File.hs"
+          logm $ "Dummy Cradle file result: " ++ dummyCradleFile
+          cradleRes <- liftIO $ E.try (findLocalCradle dummyCradleFile)
 
           case cradleRes of
-            Just cradle -> do
+            Right cradle -> do
               projGhcVersion <- liftIO $ getProjectGhcVersion cradle
               when (projGhcVersion /= hieGhcVersion) $ do
                 let msg = T.pack $ "Mismatching GHC versions: " ++ cradleDisplay cradle ++
@@ -433,7 +435,9 @@ reactor inp diagIn = do
                   reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning cabalMsg
                   reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning cabalMsg
 
-            Nothing -> return ()
+            Left (_ :: Yaml.ParseException) -> do
+              logm "Failed to parse it"
+              reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtError "Couldn't parse hie.yaml"
 
           renv <- ask
           let hreq = GReq tn "init-hoogle" Nothing Nothing Nothing callback Nothing $ IdeResultOk <$> Hoogle.initializeHoogleDb

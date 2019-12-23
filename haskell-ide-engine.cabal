@@ -245,6 +245,8 @@ test-suite plugin-dispatcher-test
   main-is:             Main.hs
   build-depends:       base
                      , data-default
+                     , directory
+                     , filepath
                      , haskell-ide-engine
                      , haskell-lsp-types
                      , hie-plugin-api

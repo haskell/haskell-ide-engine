@@ -31,6 +31,7 @@ import           Data.Maybe
 -- import qualified GhcMod.Types as GM
 import qualified Language.Haskell.LSP.Core as Core
 import           Haskell.Ide.Engine.MonadTypes
+import qualified Haskell.Ide.Engine.Cradle as Bios
 import           System.Directory
 import           System.Environment
 import           System.FilePath
@@ -51,30 +52,32 @@ testOptions = HIE.defaultOptions { cradleOptsVerbosity = Verbose }
 
 
 testCommand :: (ToJSON a, Typeable b, ToJSON b, Show b, Eq b)
-            => IdePlugins -> IdeGhcM (IdeResult b) -> PluginId -> CommandId -> a -> IdeResult b -> IO ()
-testCommand testPlugins act plugin cmd arg res = do
+            => IdePlugins -> FilePath -> IdeGhcM (IdeResult b) -> PluginId -> CommandId -> a -> IdeResult b -> IO ()
+testCommand testPlugins fp act plugin cmd arg res = do
   flushStackEnvironment
-  (newApiRes, oldApiRes) <- runIGM testPlugins $ do
+  (newApiRes, oldApiRes) <- runIGM testPlugins fp $ do
     new <- act
     old <- makeRequest plugin cmd arg
     return (new, old)
   newApiRes `shouldBe` res
   fmap fromDynJSON oldApiRes `shouldBe` fmap Just res
 
-runSingle :: IdePlugins -> IdeGhcM (IdeResult b) -> IO (IdeResult b)
-runSingle testPlugins act = runIGM testPlugins  act
+runSingle :: IdePlugins -> FilePath -> IdeGhcM (IdeResult b) -> IO (IdeResult b)
+runSingle testPlugins fp act = runIGM testPlugins fp act
 
 runSingleReq :: ToJSON a
-             => IdePlugins -> PluginId -> CommandId -> a -> IO (IdeResult DynamicJSON)
-runSingleReq testPlugins plugin com arg = runIGM testPlugins (makeRequest plugin com arg)
+             => IdePlugins -> FilePath -> PluginId -> CommandId -> a -> IO (IdeResult DynamicJSON)
+runSingleReq testPlugins fp plugin com arg = runIGM testPlugins fp (makeRequest plugin com arg)
 
 makeRequest :: ToJSON a => PluginId -> CommandId -> a -> IdeGhcM (IdeResult DynamicJSON)
 makeRequest plugin com arg = runPluginCommand plugin com (toJSON arg)
 
-runIGM :: IdePlugins -> IdeGhcM a -> IO a
-runIGM testPlugins f = do
+runIGM :: IdePlugins -> FilePath -> IdeGhcM a -> IO a
+runIGM testPlugins fp f = do
   stateVar <- newTVarIO $ IdeState emptyModuleCache Map.empty Map.empty Nothing
-  runIdeGhcM Nothing testPlugins Nothing stateVar f
+  crdl <- Bios.findLocalCradle fp
+  mlibdir <- Bios.getProjectGhcLibDir crdl
+  runIdeGhcM mlibdir testPlugins Nothing stateVar f
 
 withFileLogging :: FilePath -> IO a -> IO a
 withFileLogging logFile f = do

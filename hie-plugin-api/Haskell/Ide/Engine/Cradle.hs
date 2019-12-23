@@ -81,16 +81,26 @@ getProjectGhcPath :: Cradle -> IO (Maybe FilePath)
 getProjectGhcPath crdl = do
   isStackInstalled <- isJust <$> findExecutable "stack"
   isCabalInstalled <- isJust <$> findExecutable "cabal"
-  if isStackCradle crdl && isStackInstalled
+  ghcpath <- if isStackCradle crdl && isStackInstalled
     then
-      catch (Just <$> tryCommand "stack path --compiler-exe") $ \(_ :: IOException) ->
+      catch (Just <$> tryCommand "stack path --compiler-exe") $ \(_ :: IOException) -> do
+        errorm "Command `stack path --compiler-exe` failed."
         return Nothing
     else if isCabalCradle crdl && isCabalInstalled then do
-      Just ghcCabalVersion <- catch (Just <$> tryCommand "cabal v2-exec ghc -- --numeric-version") $ \(_ ::IOException) ->
+      ghcCabalVersion <- catch (Just <$> tryCommand "cabal v2-exec -v0 ghc -- --numeric-version") $ \(_ ::IOException) -> do
+        errorm "Command `cabal v2-exec -v0 ghc -- --numeric-version` failed."
         return Nothing
-      findExecutable ("ghc-" ++ ghcCabalVersion)
-    else
+      case ghcCabalVersion of
+        Just ghcNumericVersion -> do
+          let ghcVersion = "ghc-" ++ ghcNumericVersion
+          logm $ "Ghc Version to find: " ++ ghcVersion
+          findExecutable ghcVersion
+        Nothing -> return Nothing
+    else do
+      logm "Neither cabal nor stack project, look for ghc project."
       findExecutable "ghc"
+  logm $ "Found ghc path: " ++ show ghcpath
+  return ghcpath
 
 tryCommand :: String -> IO String
 tryCommand cmd =

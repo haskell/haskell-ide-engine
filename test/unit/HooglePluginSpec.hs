@@ -3,11 +3,13 @@
 module HooglePluginSpec where
 
 import           Control.Monad
+import           Control.Monad.IO.Class
 import           Data.Maybe
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Support.Hoogle
 import           Hoogle
 import           System.Directory
+import           System.FilePath
 import           Test.Hspec
 import           TestUtils
 
@@ -26,7 +28,9 @@ testPlugins :: IdePlugins
 testPlugins = pluginDescToIdePlugins []
 
 dispatchRequestP :: IdeGhcM a -> IO a
-dispatchRequestP = runIGM testPlugins
+dispatchRequestP act = do
+  cwd <- liftIO $ getCurrentDirectory
+  runIGM testPlugins (cwd </> "test" </> "testdata" </> "File.hs") act
 
 -- ---------------------------------------------------------------------
 

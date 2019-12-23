@@ -20,15 +20,14 @@ spec = beforeAll_ (writeFile (hieBiosErrorPath </> "hie.yaml") "") $ do
       _ <- openDoc "Main.hs" "haskell"
       _ <- count 2 waitForDiagnostics
       return ()
-  
+
     it "reports errors in hie.yaml" $ runSession hieCommand fullCaps hieBiosErrorPath $ do
       _ <- openDoc "Foo.hs" "haskell"
       _ <- skipManyTill loggingNotification (satisfy isMessage)
       return ()
-  
+
   where hieBiosErrorPath = "test/testdata/hieBiosError"
-  
+
         isMessage (NotShowMessage (NotificationMessage _ _ (ShowMessageParams MtError s))) =
           "Couldn't parse hie.yaml" `T.isInfixOf` s
         isMessage _ = False
-        

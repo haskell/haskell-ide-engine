@@ -7,6 +7,7 @@ import           Control.Concurrent.STM.TChan
 import           Control.Monad.STM
 import qualified Data.Text as T
 import           Data.Default
+import qualified Haskell.Ide.Engine.Cradle as Bios
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Scheduler
 import           Haskell.Ide.Engine.Types
@@ -14,6 +15,8 @@ import           Language.Haskell.LSP.Types
 import           TestUtils
 import           Test.Hspec
 import           Test.Hspec.Runner
+import           System.Directory (getCurrentDirectory)
+import           System.FilePath
 
 -- ---------------------------------------------------------------------
 
@@ -42,11 +45,14 @@ newPluginSpec = do
 
       let makeReq = sendRequest scheduler
 
+      cwd <- getCurrentDirectory
+      crdl <- Bios.findLocalCradle (cwd </> "test" </> "testdata" </> "File.hs")
+
       pid <- forkIO $ runScheduler scheduler
                               (\_ _ _ -> return ())
                               (\f x -> f x)
                               def
-                              Nothing
+                              (Just crdl)
 
       updateDocument scheduler (filePathToUri "test") 3
       sendRequest scheduler req0
