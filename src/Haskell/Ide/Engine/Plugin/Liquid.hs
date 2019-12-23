@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE NamedFieldPuns        #-}
 
 -- | Integration with Liquid Haskell with diagnostics and hover information
 module Haskell.Ide.Engine.Plugin.Liquid where

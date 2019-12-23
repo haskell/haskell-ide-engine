@@ -854,7 +854,7 @@ requestDiagnostics DiagnosticsRequest{trigger, file, trackingNumber, documentVer
       forM_ dss $ \(pid,ds) -> do
         debugm $ "requestDiagnostics: calling diagFunc for plugin:" ++ show pid
         let
-          pid' = coerce pid
+          PluginId pid' = pid
           enabled = Map.findWithDefault True pid dpsEnabled
           publishDiagnosticsIO = Core.publishDiagnosticsFunc lf
           maxToSend = maxNumberOfProblems clientConfig

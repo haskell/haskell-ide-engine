@@ -105,7 +105,6 @@ import           UnliftIO
 import           Control.Applicative
 
 import           Data.Aeson                    hiding (defaultOptions)
-import           Data.Coerce
 import qualified Data.ConstrainedDynamic       as CD
 import           Data.Default
 import qualified Data.List                     as List
@@ -189,9 +188,9 @@ allLspCmdIds (IdePlugins m) = concat <$> mapM go (Map.toList (pluginCommands <$>
     go (plid, cmds) = mapM (mkLspCmdId plid . commandId) cmds
 
 mkLspCmdId :: HasPidCache m => PluginId -> CommandId -> m T.Text
-mkLspCmdId plid cid = do
+mkLspCmdId (PluginId plid) (CommandId cid) = do
   pid <- T.pack . show <$> getPidCache
-  return $ pid <> ":" <> coerce plid <> ":" <> coerce cid
+  return $ pid <> ":" <> plid <> ":" <> cid
 
 -- ---------------------------------------------------------------------
 -- Plugins
@@ -309,16 +308,18 @@ toDynJSON = CD.toDyn
 runPluginCommand :: PluginId -> CommandId -> Value
                   -> IdeGhcM (IdeResult DynamicJSON)
 runPluginCommand p com arg = do
+  let PluginId p' = p
+      CommandId com' = com
   IdePlugins m <- getPlugins
   case Map.lookup p m of
     Nothing -> return $
-      IdeResultFail $ IdeError UnknownPlugin ("Plugin " <> coerce p <> " doesn't exist") Null
+      IdeResultFail $ IdeError UnknownPlugin ("Plugin " <> p' <> " doesn't exist") Null
     Just PluginDescriptor { pluginCommands = xs } -> case List.find ((com ==) . commandId) xs of
       Nothing -> return $ IdeResultFail $
-        IdeError UnknownCommand ("Command " <> coerce com <> " isn't defined for plugin " <> coerce p <> ". Legal commands are: " <> T.pack(show $ map commandId xs)) Null
+        IdeError UnknownCommand ("Command " <> com' <> " isn't defined for plugin " <> p' <> ". Legal commands are: " <> T.pack(show $ map commandId xs)) Null
       Just (PluginCommand _ f) -> case fromJSON arg of
         Error err -> return $ IdeResultFail $
-          IdeError ParameterError ("error while parsing args for " <> coerce com <> " in plugin " <> coerce p <> ": " <> T.pack err) Null
+          IdeError ParameterError ("error while parsing args for " <> com' <> " in plugin " <> p' <> ": " <> T.pack err) Null
         Success a -> do
             res <- f a
             return $ fmap toDynJSON res
