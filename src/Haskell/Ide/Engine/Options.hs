@@ -6,6 +6,7 @@ import           Options.Applicative.Simple
 data GlobalOpts = GlobalOpts
   { optDebugOn       :: Bool
   , optLogFile       :: Maybe String
+  , _optLsp          :: Bool -- Kept for a while, to not break legacy clients
   , projectRoot      :: Maybe String
   , optBiosVerbose   :: Bool
   , optCaptureFile   :: Maybe FilePath
@@ -25,6 +26,9 @@ globalOptsParser = GlobalOpts
       <> metavar "LOGFILE"
       <> help "File to log to, defaults to stdout"
        ))
+  <*> flag True True
+       ( long "lsp"
+       <> help "Legacy flag, no longer used, to enable LSP mode. Not required.")
   <*> optional (strOption
        ( long "project-root"
       <> short 'r'
