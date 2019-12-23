@@ -17,19 +17,20 @@ import           Distribution.Helper (Package, projectPackages, pUnits,
 import           Distribution.Helper.Discover (findProjects, getDefaultDistDir)
 import           Data.Char (toLower)
 import           Data.Function ((&))
-import           Data.List (isPrefixOf, isInfixOf)
+import           Data.List (isPrefixOf, isInfixOf, sortOn, find)
 import qualified Data.List.NonEmpty as NonEmpty
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.Map as M
-import           Data.List (sortOn, find)
 import           Data.Maybe (listToMaybe, mapMaybe, isJust)
 import           Data.Ord (Down(..))
 import           Data.String (IsString(..))
+import qualified Data.Text as T
 import           Data.Foldable (toList)
-import           Control.Exception (IOException, try)
+import           Control.Exception (IOException, try, catch)
 import           System.FilePath
 import           System.Directory (getCurrentDirectory, canonicalizePath, findExecutable)
 import           System.Exit
+import           System.Process (readCreateProcess, shell)
 
 -- | Find the cradle that the given File belongs to.
 --
@@ -56,6 +57,54 @@ isStackCradle :: Cradle -> Bool
 isStackCradle = (`elem` ["stack", "Cabal-Helper-Stack", "Cabal-Helper-Stack-None"])
   . BIOS.actionName
   . BIOS.cradleOptsProg
+
+  -- | Check if the given cradle is a cabal cradle.
+-- This might be used to determine the GHC version to use on the project.
+-- If it is a stack-cradle, we have to use `stack path --compiler-exe`
+-- otherwise we may ask `ghc` directly what version it is.
+isCabalCradle :: Cradle -> Bool
+isCabalCradle =
+  (`elem`
+    ["cabal"
+    , "Cabal-Helper-Cabal-V1"
+    , "Cabal-Helper-Cabal-V2"
+    , "Cabal-Helper-Cabal-V1-Dir"
+    , "Cabal-Helper-Cabal-V2-Dir"
+    , "Cabal-Helper-Cabal-None"
+    ]
+  )
+  . BIOS.actionName
+  . BIOS.cradleOptsProg
+
+
+getProjectGhcPath :: Cradle -> IO (Maybe FilePath)
+getProjectGhcPath crdl = do
+  isStackInstalled <- isJust <$> findExecutable "stack"
+  isCabalInstalled <- isJust <$> findExecutable "cabal"
+  if isStackCradle crdl && isStackInstalled
+    then
+      catch (Just <$> tryCommand "stack path --compiler-exe") $ \(_ :: IOException) ->
+        return Nothing
+    else if isCabalCradle crdl && isCabalInstalled then do
+      Just ghcCabalVersion <- catch (Just <$> tryCommand "cabal v2-exec ghc -- --numeric-version") $ \(_ ::IOException) ->
+        return Nothing
+      findExecutable ("ghc-" ++ ghcCabalVersion)
+    else
+      findExecutable "ghc"
+
+tryCommand :: String -> IO String
+tryCommand cmd =
+  T.unpack . T.strip .T.pack <$> readCreateProcess (shell cmd) ""
+
+getProjectGhcLibDir :: Cradle -> IO (Maybe FilePath)
+getProjectGhcLibDir crdl = do
+  mGhcPath <- getProjectGhcPath crdl
+  case mGhcPath of
+    Nothing -> return Nothing
+    Just ghcPath -> catch (Just <$> tryCommand (ghcPath ++ " --print-libdir")) $ \(_ :: IOException) -> return Nothing
+
+  -- ---------------------------------------------------------------------
+
 
 {- | Finds a Cabal v2-project, Cabal v1-project or a Stack project
 relative to the given FilePath.

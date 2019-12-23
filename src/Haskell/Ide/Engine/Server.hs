@@ -151,10 +151,20 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
           (Debounce.forMonoid $ react . dispatchDiagnostics)
           (Debounce.def { Debounce.delay = debounceDuration, Debounce.alwaysResetTimer = True })
 
+
+        let lspRootDir = Core.rootPath lf
+        currentDir <- liftIO getCurrentDirectory
+
+        -- Check for mismatching GHC versions
+        -- Ignore hie.yaml parse errors. They get reported in ModuleCache.hs
+        let parseErrorHandler (_ :: Yaml.ParseException) = return Nothing
+            dummyCradleFile = (fromMaybe currentDir lspRootDir) </> "File.hs"
+        mcradle <- liftIO $ E.catch (Just <$> findLocalCradle dummyCradleFile) parseErrorHandler
+
         -- haskell lsp sets the current directory to the project root in the InitializeRequest
         -- We launch the dispatcher after that so that the default cradle is
         -- recognized properly by ghc-mod
-        flip labelThread "scheduler" =<< (forkIO $ Scheduler.runScheduler scheduler errorHandler callbackHandler (Just lf))
+        flip labelThread "scheduler" =<< (forkIO $ Scheduler.runScheduler scheduler errorHandler callbackHandler (Just lf) mcradle)
         flip labelThread "reactor" =<< (forkIO reactorFunc)
         flip labelThread "diagnostics" =<< (forkIO $ diagnosticsQueue tr)
         return Nothing

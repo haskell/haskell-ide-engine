@@ -120,9 +120,8 @@ import           Data.Typeable                  ( TypeRep
                                                 )
 import System.Directory
 import GhcMonad
-import qualified HIE.Bios.Ghc.Api as BIOS
 import           GHC.Generics
-import           GHC                            ( HscEnv )
+import           GHC                            ( HscEnv, runGhcT )
 import Exception
 
 import           Haskell.Ide.Engine.Compat
@@ -345,10 +344,10 @@ getDiagnosticProvidersConfig c = Map.fromList [("applyrefact",hlintOn c)
 type IdeGhcM = GhcT IdeM
 
 -- | Run an IdeGhcM with Cradle found from the current directory
-runIdeGhcM :: IdePlugins -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeGhcM a -> IO a
-runIdeGhcM plugins mlf stateVar f = do
+runIdeGhcM :: Maybe FilePath -> IdePlugins -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeGhcM a -> IO a
+runIdeGhcM mlibdir plugins mlf stateVar f = do
   env <- IdeEnv <$> pure mlf <*> getProcessID <*> pure plugins
-  flip runReaderT stateVar $ flip runReaderT env $ BIOS.withGhcT f
+  flip runReaderT stateVar $ flip runReaderT env $ runGhcT mlibdir f
 
 -- | A computation that is deferred until the module is cached.
 -- Note that the module may not typecheck, in which case 'UriCacheFailed' is passed

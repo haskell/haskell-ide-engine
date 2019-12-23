@@ -46,6 +46,7 @@ newPluginSpec = do
                               (\_ _ _ -> return ())
                               (\f x -> f x)
                               def
+                              Nothing
 
       updateDocument scheduler (filePathToUri "test") 3
       sendRequest scheduler req0

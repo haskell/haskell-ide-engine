@@ -77,6 +77,7 @@ startServer = do
       (\lid errCode e -> logToChan logChan ("received an error", Left (lid, errCode, e)))
       (\g x -> g x)
       def
+      Nothing
 
   return (scheduler, logChan, dispatcher)
 
