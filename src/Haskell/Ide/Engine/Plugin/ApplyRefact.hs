@@ -2,6 +2,9 @@
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings     #-}
+-- | apply-refact applies refactorings specified by the refact package. It is
+-- currently integrated into hlint to enable the automatic application of
+-- suggestions.
 module Haskell.Ide.Engine.Plugin.ApplyRefact where
 
 import           Control.Arrow

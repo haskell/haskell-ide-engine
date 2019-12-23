@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings #-}
+-- | An example of writing an HIE plugin
 module Haskell.Ide.Engine.Plugin.Example2 where
 
 import           Control.Lens

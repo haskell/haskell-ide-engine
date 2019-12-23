@@ -5,7 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeFamilies        #-}
--- Generic actions which require a typechecked module
+-- | Generic actions which require a typechecked module
 module Haskell.Ide.Engine.Plugin.Generic where
 
 import           Control.Lens hiding (cons, children)

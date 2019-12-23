@@ -1,8 +1,9 @@
-{-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts    #-}
+
+-- | Provides haddock documentation on hover.
 module Haskell.Ide.Engine.Plugin.Haddock where
 
 import           Control.Monad.State

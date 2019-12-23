@@ -3,7 +3,7 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 
--- Simple example plugin showing how easy it is to make a plugin, using the operations from
+-- | Simple example plugin showing how easy it is to make a plugin, using the operations from
 -- http://www.haskellforall.com/2018/10/detailed-walkthrough-for-beginner.html
 module Haskell.Ide.Engine.Plugin.HfaAlign where
 
@@ -20,7 +20,6 @@ import qualified Language.Haskell.LSP.Types.Lens as J
 import Data.Text (Text)
 
 import qualified Data.Text
--- import qualified Data.Text.IO
 import qualified Safe
 
 -- ---------------------------------------------------------------------
@@ -110,5 +109,3 @@ adjustText oldText = newText
 
     newText = Data.Text.unlines newLines
 
--- main :: IO ()
--- main = Data.Text.IO.interact adjustText

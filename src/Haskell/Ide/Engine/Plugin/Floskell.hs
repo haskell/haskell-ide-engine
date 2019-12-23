@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+-- | A flexible Haskell source code pretty printer.
 module Haskell.Ide.Engine.Plugin.Floskell
   ( floskellDescriptor
   )

@@ -2,6 +2,9 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE LambdaCase #-}
+
+-- | A tool for extending the import list of a Haskell source file.
+-- Provides code actions and commands.
 module Haskell.Ide.Engine.Plugin.HsImport where
 
 import           Control.Lens.Operators
@@ -370,8 +373,8 @@ codeActionProvider plId docId _ context = do
       codeActions = case termType impDiagnostic of
         Hiding _ -> [] {- If we are hiding an import, we can not import
                           a module hiding everything from it. -}
+                    -- Simple import, import the whole module
         Import _ -> [mkImportAction moduleName impDiagnostic Nothing]
-                    -- ^ Simple import, import the whole module
         ++ importListActions
 
       -- | Retrieve the function signature of a term such as
@@ -433,7 +436,7 @@ codeActionProvider plId docId _ context = do
       <> modName
       <> case termType importDiagnostic of
         Hiding _ -> "hiding"
-        -- ^ Note, that it must never happen
+        -- Note, that it must never happen
         -- in combination with `symbolType == Nothing`
         Import _ -> ""
       <> case symbolType of

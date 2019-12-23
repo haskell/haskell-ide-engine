@@ -1,6 +1,8 @@
 {-# LANGUAGE DeriveAnyClass    #-}
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
+
+-- | Provides code actions to add missing pragmas (whenever GHC suggests to)
 module Haskell.Ide.Engine.Plugin.Pragmas where
 
 import           Control.Lens

@@ -4,6 +4,9 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TupleSections #-}
+
+-- | Commands and code actions for adding package dependencies into .cabal and
+-- package.yaml files
 module Haskell.Ide.Engine.Plugin.Package where
 
 import           Haskell.Ide.Engine.MonadTypes
