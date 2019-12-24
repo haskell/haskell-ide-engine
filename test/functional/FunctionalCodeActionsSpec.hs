@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module FunctionalCodeActionsSpec where
@@ -11,7 +12,9 @@ import           Data.Default
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Set as Set
 import           Data.Maybe
+#if __GLASGOW_HASKELL__ < 808
 import           Data.Monoid ((<>))
+#endif
 import qualified Data.Text as T
 import           Haskell.Ide.Engine.Config
 import           Language.Haskell.LSP.Test as Test

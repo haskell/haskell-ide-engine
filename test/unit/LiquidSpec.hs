@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
 module LiquidSpec where
@@ -7,7 +8,9 @@ import           Data.List
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.Text            as T
 import qualified Data.Text.IO         as T
+#if __GLASGOW_HASKELL__ < 808
 import           Data.Monoid ((<>))
+#endif
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Plugin.Liquid
 import           System.Directory
