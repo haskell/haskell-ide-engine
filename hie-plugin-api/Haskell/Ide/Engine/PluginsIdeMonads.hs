@@ -310,9 +310,7 @@ toDynJSON = CD.toDyn
 -- arguments in the form of a JSON object.
 runPluginCommand :: PluginId -> CommandId -> Value
                   -> IdeGhcM (IdeResult DynamicJSON)
-runPluginCommand p com arg = do
-  let PluginId p' = p
-      CommandId com' = com
+runPluginCommand p@(PluginId p') com@(CommandId com') arg = do
   IdePlugins m <- getPlugins
   case Map.lookup p m of
     Nothing -> return $
