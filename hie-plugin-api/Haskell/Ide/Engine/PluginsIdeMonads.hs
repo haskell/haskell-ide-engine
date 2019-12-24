@@ -268,6 +268,8 @@ instance IsString PluginId where
 
 data PluginDescriptor =
   PluginDescriptor { pluginId                 :: PluginId
+                   , pluginName               :: T.Text
+                   , pluginDesc               :: T.Text
                    , pluginCommands           :: [PluginCommand]
                    , pluginCodeActionProvider :: Maybe CodeActionProvider
                    , pluginDiagnosticProvider :: Maybe DiagnosticProvider
@@ -277,7 +279,7 @@ data PluginDescriptor =
                    } deriving (Generic)
 
 instance Show PluginCommand where
-  show (PluginCommand i _) = "PluginCommand { name = " ++ show i ++ " }"
+  show (PluginCommand i _ _) = "PluginCommand { name = " ++ show i ++ " }"
 
 newtype CommandId = CommandId T.Text
   deriving (Show, Read, Eq, Ord)
@@ -286,6 +288,7 @@ instance IsString CommandId where
 
 data PluginCommand = forall a b. (FromJSON a, ToJSON b, Typeable b) =>
   PluginCommand { commandId   :: CommandId
+                , commandDesc :: T.Text
                 , commandFunc :: a -> IdeGhcM (IdeResult b)
                 }
 
@@ -317,7 +320,7 @@ runPluginCommand p com arg = do
     Just PluginDescriptor { pluginCommands = xs } -> case List.find ((com ==) . commandId) xs of
       Nothing -> return $ IdeResultFail $
         IdeError UnknownCommand ("Command " <> com' <> " isn't defined for plugin " <> p' <> ". Legal commands are: " <> T.pack(show $ map commandId xs)) Null
-      Just (PluginCommand _ f) -> case fromJSON arg of
+      Just (PluginCommand _ _ f) -> case fromJSON arg of
         Error err -> return $ IdeResultFail $
           IdeError ParameterError ("error while parsing args for " <> com' <> " in plugin " <> p' <> ": " <> T.pack err) Null
         Success a -> do

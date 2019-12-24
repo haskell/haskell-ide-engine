@@ -27,8 +27,10 @@ import qualified Safe
 hfaAlignDescriptor :: PluginId -> PluginDescriptor
 hfaAlignDescriptor plId = PluginDescriptor
   { pluginId = plId
+  , pluginName = "Align Equals"
+  , pluginDesc = "An example of writing an HIE plugin\nbased on http://www.haskellforall.com/2018/10/detailed-walkthrough-for-beginner.html"
   , pluginCommands =
-      [ PluginCommand "align" alignCmd
+      [ PluginCommand "align" "Align = in active range" alignCmd
       ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing

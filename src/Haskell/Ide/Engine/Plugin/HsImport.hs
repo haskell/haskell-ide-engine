@@ -34,7 +34,9 @@ import qualified Safe as S
 hsimportDescriptor :: PluginId -> PluginDescriptor
 hsimportDescriptor plId = PluginDescriptor
   { pluginId = plId
-  , pluginCommands = [PluginCommand "import" importModule]
+  , pluginName = "HsImport"
+  , pluginDesc = "A tool for extending the import list of a Haskell source file."
+  , pluginCommands = [PluginCommand "import" "Import a module" importModule]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Nothing

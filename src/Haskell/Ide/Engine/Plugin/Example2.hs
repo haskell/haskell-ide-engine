@@ -23,10 +23,12 @@ import qualified Language.Haskell.LSP.Types.Lens as J
 example2Descriptor :: PluginId -> PluginDescriptor
 example2Descriptor plId = PluginDescriptor
   { pluginId = plId
+  , pluginName = "Hello World"
+  , pluginDesc = "An example of writing an HIE plugin"
   , pluginCommands =
-      [ PluginCommand "sayHello" sayHelloCmd
-      , PluginCommand "sayHelloTo" sayHelloToCmd
-      , PluginCommand "todo" todoCmd
+      [ PluginCommand "sayHello" "Say hello" sayHelloCmd
+      , PluginCommand "sayHelloTo" "Say hello to the passed in param" sayHelloToCmd
+      , PluginCommand "todo" "Add a TODO marker" todoCmd
       ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider

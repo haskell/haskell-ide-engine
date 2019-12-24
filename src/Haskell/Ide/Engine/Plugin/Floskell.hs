@@ -18,6 +18,8 @@ import           Haskell.Ide.Engine.PluginUtils
 floskellDescriptor :: PluginId -> PluginDescriptor
 floskellDescriptor plId = PluginDescriptor
   { pluginId                 = plId
+  , pluginName               = "Floskell"
+  , pluginDesc               = "A flexible Haskell source code pretty printer."
   , pluginCommands           = []
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Nothing

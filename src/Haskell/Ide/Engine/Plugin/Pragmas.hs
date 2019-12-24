@@ -20,8 +20,10 @@ import qualified Language.Haskell.LSP.Types.Lens as J
 pragmasDescriptor :: PluginId -> PluginDescriptor
 pragmasDescriptor plId = PluginDescriptor
   { pluginId = plId
+  , pluginName = "Add Missing Pragmas"
+  , pluginDesc = "Provide code actions to add missing pragmas when GHC suggests this"
   , pluginCommands =
-      [ PluginCommand "addPragma" addPragmaCmd
+      [ PluginCommand "addPragma" "add the given pragma" addPragmaCmd
       ]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing

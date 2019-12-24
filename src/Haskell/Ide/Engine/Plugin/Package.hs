@@ -56,7 +56,9 @@ import qualified Data.Yaml as Y
 packageDescriptor :: PluginId -> PluginDescriptor
 packageDescriptor plId = PluginDescriptor
   { pluginId       = plId
-  , pluginCommands = [PluginCommand "add" addCmd]
+  , pluginName     = "package"
+  , pluginDesc     = "Tools for editing .cabal and package.yaml files."
+  , pluginCommands = [PluginCommand "add" "Add a packge" addCmd]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Nothing

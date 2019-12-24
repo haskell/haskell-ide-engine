@@ -43,7 +43,9 @@ import           PprTyThing
 genericDescriptor :: PluginId -> PluginDescriptor
 genericDescriptor plId = PluginDescriptor
   { pluginId = plId
-  , pluginCommands = [PluginCommand "type" typeCmd]
+  , pluginName = "generic"
+  , pluginDesc = "Generic actions which require a typechecked module."
+  , pluginCommands = [PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmd]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Just hoverProvider
