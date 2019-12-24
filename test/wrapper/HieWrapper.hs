@@ -11,16 +11,16 @@ import System.Process
 main :: IO ()
 main = hspec $
   describe "version checking" $ do
-    it "picks up a stack.yaml with 8.2.1" $
-      withCurrentDirectory "test/testdata/wrapper/8.2.1" $ do
+    it "picks up a stack.yaml with 8.8.1" $
+      withCurrentDirectory "test/testdata/wrapper/8.8.1" $ do
         d <- getCurrentDirectory
         cradle <- liftIO (findLocalCradle (d </> "File.hs"))
-        getProjectGhcVersion cradle `shouldReturn` "8.2.1"
-    it "picks up a stack.yaml with 8.2.2" $
-      withCurrentDirectory "test/testdata/wrapper/lts-11.14" $ do
+        getProjectGhcVersion cradle `shouldReturn` "8.8.1"
+    it "picks up a stack.yaml with 8.6.5" $
+      withCurrentDirectory "test/testdata/wrapper/lts-14.18" $ do
         d <- getCurrentDirectory
         cradle <- liftIO (findLocalCradle (d </> "File.hs"))
-        getProjectGhcVersion cradle `shouldReturn` "8.2.2"
+        getProjectGhcVersion cradle `shouldReturn` "8.6.5"
     it "picks up whatever version of ghc is on this machine" $
       withCurrentDirectory "test/testdata/wrapper/ghc" $ do
         d <- getCurrentDirectory
