@@ -9,7 +9,6 @@ import qualified Data.Text                           as T
 import           Haskell.Ide.Engine.Ghc
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Plugin.Generic
-import           Haskell.Ide.Engine.Plugin.Bios
 import           Haskell.Ide.Engine.PluginUtils
 import           Language.Haskell.LSP.Types          (toNormalizedUri)
 import           System.Directory
@@ -29,7 +28,7 @@ spec = do
 -- ---------------------------------------------------------------------
 
 testPlugins :: IdePlugins
-testPlugins = pluginDescToIdePlugins [biosDescriptor "bios", genericDescriptor "generic" ]
+testPlugins = pluginDescToIdePlugins [genericDescriptor "generic" ]
 
 -- ---------------------------------------------------------------------
 
@@ -56,7 +55,7 @@ ghcmodSpec =
                             "Variable not in scope: x"
                             Nothing
 
-      testCommand testPlugins act "bios" "check" arg res
+      runIGM testPlugins (setTypecheckedModule arg) `shouldReturn` res
 
     -- ---------------------------------
 

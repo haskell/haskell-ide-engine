@@ -24,12 +24,11 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , allLspCmdIds
   , mkLspCmdId
   -- * Plugins
-  , PluginId
-  , CommandName
+  , PluginId(..)
+  , CommandId(..)
   , PluginDescriptor(..)
   , pluginDescToIdePlugins
   , PluginCommand(..)
-  , CommandFunc(..)
   , runPluginCommand
   , DynamicJSON
   , dynToJSON
@@ -114,6 +113,7 @@ import qualified Data.Map                      as Map
 import           Data.Maybe
 import           Data.Monoid                    ( (<>) )
 import qualified Data.Set                      as S
+import           Data.String
 import qualified Data.Text                     as T
 import           Data.Typeable                  ( TypeRep
                                                 , Typeable
@@ -176,7 +176,7 @@ instance HasPidCache IO where
 instance HasPidCache m => HasPidCache (IdeResultT m) where
   getPidCache = lift getPidCache
 
-mkLspCommand :: HasPidCache m => PluginId -> CommandName -> T.Text -> Maybe [Value] -> m Command
+mkLspCommand :: HasPidCache m => PluginId -> CommandId -> T.Text -> Maybe [Value] -> m Command
 mkLspCommand plid cn title args' = do
   cmdId <- mkLspCmdId plid cn
   let args = List <$> args'
@@ -185,12 +185,12 @@ mkLspCommand plid cn title args' = do
 allLspCmdIds :: HasPidCache m => IdePlugins -> m [T.Text]
 allLspCmdIds (IdePlugins m) = concat <$> mapM go (Map.toList (pluginCommands <$> m))
   where
-    go (plid, cmds) = mapM (mkLspCmdId plid . commandName) cmds
+    go (plid, cmds) = mapM (mkLspCmdId plid . commandId) cmds
 
-mkLspCmdId :: HasPidCache m => PluginId -> CommandName -> m T.Text
-mkLspCmdId plid cn = do
+mkLspCmdId :: HasPidCache m => PluginId -> CommandId -> m T.Text
+mkLspCmdId (PluginId plid) (CommandId cid) = do
   pid <- T.pack . show <$> getPidCache
-  return $ pid <> ":" <> plid <> ":" <> cn
+  return $ pid <> ":" <> plid <> ":" <> cid
 
 -- ---------------------------------------------------------------------
 -- Plugins
@@ -261,6 +261,11 @@ type FormattingProvider = T.Text -- ^ Text to format
         -> FormattingOptions -- ^ Options for the formatter
         -> IdeM (IdeResult [TextEdit]) -- ^ Result of the formatting or the unchanged text.
 
+newtype PluginId = PluginId T.Text
+  deriving (Show, Read, Eq, Ord)
+instance IsString PluginId where
+  fromString = PluginId . T.pack
+
 data PluginDescriptor =
   PluginDescriptor { pluginId                 :: PluginId
                    , pluginName               :: T.Text
@@ -274,17 +279,17 @@ data PluginDescriptor =
                    } deriving (Generic)
 
 instance Show PluginCommand where
-  show (PluginCommand name _ _) = "PluginCommand { name = " ++ T.unpack name ++ " }"
+  show (PluginCommand i _ _) = "PluginCommand { name = " ++ show i ++ " }"
 
-type PluginId = T.Text
-type CommandName = T.Text
-
-newtype CommandFunc a b = CmdSync (a -> IdeGhcM (IdeResult b))
+newtype CommandId = CommandId T.Text
+  deriving (Show, Read, Eq, Ord)
+instance IsString CommandId where
+  fromString = CommandId . T.pack
 
 data PluginCommand = forall a b. (FromJSON a, ToJSON b, Typeable b) =>
-  PluginCommand { commandName :: CommandName
+  PluginCommand { commandId   :: CommandId
                 , commandDesc :: T.Text
-                , commandFunc :: CommandFunc a b
+                , commandFunc :: a -> IdeGhcM (IdeResult b)
                 }
 
 pluginDescToIdePlugins :: [PluginDescriptor] -> IdePlugins
@@ -301,21 +306,21 @@ fromDynJSON = CD.fromDynamic
 toDynJSON :: (Typeable a, ToJSON a) => a -> DynamicJSON
 toDynJSON = CD.toDyn
 
--- | Runs a plugin command given a PluginId, CommandName and
+-- | Runs a plugin command given a PluginId, CommandId and
 -- arguments in the form of a JSON object.
-runPluginCommand :: PluginId -> CommandName -> Value
+runPluginCommand :: PluginId -> CommandId -> Value
                   -> IdeGhcM (IdeResult DynamicJSON)
-runPluginCommand p com arg = do
+runPluginCommand p@(PluginId p') com@(CommandId com') arg = do
   IdePlugins m <- getPlugins
   case Map.lookup p m of
     Nothing -> return $
-      IdeResultFail $ IdeError UnknownPlugin ("Plugin " <> p <> " doesn't exist") Null
-    Just PluginDescriptor { pluginCommands = xs } -> case List.find ((com ==) . commandName) xs of
+      IdeResultFail $ IdeError UnknownPlugin ("Plugin " <> p' <> " doesn't exist") Null
+    Just PluginDescriptor { pluginCommands = xs } -> case List.find ((com ==) . commandId) xs of
       Nothing -> return $ IdeResultFail $
-        IdeError UnknownCommand ("Command " <> com <> " isn't defined for plugin " <> p <> ". Legal commands are: " <> T.pack(show $ map commandName xs)) Null
-      Just (PluginCommand _ _ (CmdSync f)) -> case fromJSON arg of
+        IdeError UnknownCommand ("Command " <> com' <> " isn't defined for plugin " <> p' <> ". Legal commands are: " <> T.pack(show $ map commandId xs)) Null
+      Just (PluginCommand _ _ f) -> case fromJSON arg of
         Error err -> return $ IdeResultFail $
-          IdeError ParameterError ("error while parsing args for " <> com <> " in plugin " <> p <> ": " <> T.pack err) Null
+          IdeError ParameterError ("error while parsing args for " <> com' <> " in plugin " <> p' <> ": " <> T.pack err) Null
         Success a -> do
             res <- f a
             return $ fmap toDynJSON res
@@ -324,11 +329,6 @@ runPluginCommand p com arg = do
 newtype IdePlugins = IdePlugins
   { ipMap :: Map.Map PluginId PluginDescriptor
   } deriving (Generic)
-
--- TODO:AZ this is a defective instance, do we actually need it?
--- Perhaps rather make a separate type explicitly for this purpose.
-instance ToJSON IdePlugins where
-  toJSON (IdePlugins m) = toJSON $ fmap (\x -> (commandName x, commandDesc x)) <$> fmap pluginCommands m
 
 -- | For the diagnostic providers in the config, return a map of
 -- current enabled state, indexed by the plugin id.
@@ -599,7 +599,7 @@ instance ExceptionMonad m => ExceptionMonad (ReaderT e m) where
           q u (ReaderT b) = ReaderT (u . b)
 
 instance MonadTrans GhcT where
-  lift m = liftGhcT m
+  lift = liftGhcT
 
 
 instance MonadUnliftIO Ghc where

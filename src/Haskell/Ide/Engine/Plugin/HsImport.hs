@@ -2,6 +2,9 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE LambdaCase #-}
+
+-- | A tool for extending the import list of a Haskell source file.
+-- Provides code actions and commands.
 module Haskell.Ide.Engine.Plugin.HsImport where
 
 import           Control.Lens.Operators
@@ -33,7 +36,7 @@ hsimportDescriptor plId = PluginDescriptor
   { pluginId = plId
   , pluginName = "HsImport"
   , pluginDesc = "A tool for extending the import list of a Haskell source file."
-  , pluginCommands = [PluginCommand "import" "Import a module" importCmd]
+  , pluginCommands = [PluginCommand "import" "Import a module" importModule]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
   , pluginHoverProvider = Nothing
@@ -114,18 +117,13 @@ data ImportParams = ImportParams
   }
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
-importCmd :: CommandFunc ImportParams J.WorkspaceEdit
-importCmd = CmdSync $ \(ImportParams uri style modName) ->
-  importModule uri style modName
-
 -- | Import the given module for the given file.
 -- May take an explicit function name to perform an import-list import.
 -- Multiple import-list imports will result in merged imports,
 -- e.g. two consecutive imports for the same module will result in a single
 -- import line.
-importModule
-  :: Uri -> ImportStyle -> ModuleName -> IdeGhcM (IdeResult J.WorkspaceEdit)
-importModule uri impStyle modName =
+importModule :: ImportParams -> IdeGhcM (IdeResult J.WorkspaceEdit)
+importModule (ImportParams uri impStyle modName) =
   pluginGetFile "hsimport cmd: " uri $ \origInput -> do
     shouldFormat <- formatOnImportOn <$> getConfig
     fileMap      <- reverseFileMap
@@ -377,8 +375,8 @@ codeActionProvider plId docId _ context = do
       codeActions = case termType impDiagnostic of
         Hiding _ -> [] {- If we are hiding an import, we can not import
                           a module hiding everything from it. -}
+                    -- Simple import, import the whole module
         Import _ -> [mkImportAction moduleName impDiagnostic Nothing]
-                    -- ^ Simple import, import the whole module
         ++ importListActions
 
       -- | Retrieve the function signature of a term such as
@@ -440,7 +438,7 @@ codeActionProvider plId docId _ context = do
       <> modName
       <> case termType importDiagnostic of
         Hiding _ -> "hiding"
-        -- ^ Note, that it must never happen
+        -- Note, that it must never happen
         -- in combination with `symbolType == Nothing`
         Import _ -> ""
       <> case symbolType of

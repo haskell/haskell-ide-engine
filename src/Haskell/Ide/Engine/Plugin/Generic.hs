@@ -5,7 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeFamilies        #-}
--- Generic actions which require a typechecked module
+-- | Generic actions which require a typechecked module
 module Haskell.Ide.Engine.Plugin.Generic where
 
 import           Control.Lens hiding (cons, children)
@@ -44,7 +44,7 @@ genericDescriptor :: PluginId -> PluginDescriptor
 genericDescriptor plId = PluginDescriptor
   { pluginId = plId
   , pluginName = "generic"
-  , pluginDesc = "generic actions"
+  , pluginDesc = "Generic actions which require a typechecked module."
   , pluginCommands = [PluginCommand "type" "Get the type of the expression under (LINE,COL)" typeCmd]
   , pluginCodeActionProvider = Just codeActionProvider
   , pluginDiagnosticProvider = Nothing
@@ -66,15 +66,14 @@ instance FromJSON TypeParams where
 instance ToJSON TypeParams where
   toJSON = genericToJSON customOptions
 
-typeCmd :: CommandFunc TypeParams [(Range,T.Text)]
-typeCmd = CmdSync $ \(TP _bool uri pos) ->
-  liftToGhc $ newTypeCmd pos uri
+typeCmd :: TypeParams -> IdeGhcM (IdeResult [(Range,T.Text)])
+typeCmd (TP _bool uri pos) = liftToGhc $ newTypeCmd pos uri
 
 newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
 newTypeCmd newPos uri =
   pluginGetFile "newTypeCmd: " uri $ \fp ->
     ifCachedModule fp (IdeResultOk []) $ \tm info -> do
-      debugm $ "newTypeCmd: " <> (show (newPos, uri))
+      debugm $ "newTypeCmd: " <> show (newPos, uri)
       return $ IdeResultOk $ pureTypeCmd newPos tm info
 
 pureTypeCmd :: Position -> GHC.TypecheckedModule -> CachedInfo -> [(Range,T.Text)]

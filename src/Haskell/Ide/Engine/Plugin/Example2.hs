@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings #-}
+-- | An example of writing an HIE plugin
 module Haskell.Ide.Engine.Plugin.Example2 where
 
 import           Control.Lens
@@ -25,8 +26,8 @@ example2Descriptor plId = PluginDescriptor
   , pluginName = "Hello World"
   , pluginDesc = "An example of writing an HIE plugin"
   , pluginCommands =
-      [ PluginCommand "sayHello" "say hello" sayHelloCmd
-      , PluginCommand "sayHelloTo ""say hello to the passed in param" sayHelloToCmd
+      [ PluginCommand "sayHello" "Say hello" sayHelloCmd
+      , PluginCommand "sayHelloTo" "Say hello to the passed in param" sayHelloToCmd
       , PluginCommand "todo" "Add a TODO marker" todoCmd
       ]
   , pluginCodeActionProvider = Just codeActionProvider
@@ -39,11 +40,11 @@ example2Descriptor plId = PluginDescriptor
 
 -- ---------------------------------------------------------------------
 
-sayHelloCmd :: CommandFunc () T.Text
-sayHelloCmd = CmdSync $ \_ -> return (IdeResultOk sayHello)
+sayHelloCmd :: () -> IdeGhcM (IdeResult T.Text)
+sayHelloCmd () = return (IdeResultOk sayHello)
 
-sayHelloToCmd :: CommandFunc T.Text T.Text
-sayHelloToCmd = CmdSync $ \n -> do
+sayHelloToCmd :: T.Text -> IdeGhcM (IdeResult T.Text)
+sayHelloToCmd n = do
   r <- liftIO $ sayHelloTo n
   return $ IdeResultOk r
 
@@ -78,8 +79,8 @@ data TodoParams = TodoParams
   }
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
-todoCmd :: CommandFunc TodoParams J.WorkspaceEdit
-todoCmd = CmdSync $ \(TodoParams uri r) -> return $ IdeResultOk $ makeTodo uri r
+todoCmd :: TodoParams -> IdeGhcM (IdeResult J.WorkspaceEdit)
+todoCmd (TodoParams uri r) = return $ IdeResultOk $ makeTodo uri r
 
 makeTodo :: J.Uri -> J.Range -> J.WorkspaceEdit
 makeTodo uri (J.Range (J.Position startLine _) _) = res

@@ -53,7 +53,6 @@ import           Haskell.Ide.Engine.PluginUtils
 import qualified Haskell.Ide.Engine.Scheduler            as Scheduler
 import qualified Haskell.Ide.Engine.Support.HieExtras     as Hie
 import           Haskell.Ide.Engine.Types
-import qualified Haskell.Ide.Engine.Plugin.Bios          as BIOS
 import           Haskell.Ide.Engine.Version
 import qualified Language.Haskell.LSP.Control            as CTRL
 import qualified Language.Haskell.LSP.Core               as Core
@@ -559,10 +558,10 @@ reactor inp diagIn = do
 
           let params = req ^. J.params
 
-              parseCmdId :: T.Text -> Maybe (T.Text, T.Text)
+              parseCmdId :: T.Text -> Maybe (PluginId, CommandId)
               parseCmdId x = case T.splitOn ":" x of
-                [plugin, command] -> Just (plugin, command)
-                [_, plugin, command] -> Just (plugin, command)
+                [plugin, command] -> Just (PluginId plugin, CommandId command)
+                [_, plugin, command] -> Just (PluginId plugin, CommandId command)
                 _ -> Nothing
 
               callback obj = do
@@ -855,22 +854,23 @@ requestDiagnostics DiagnosticsRequest{trigger, file, trackingNumber, documentVer
       forM_ dss $ \(pid,ds) -> do
         debugm $ "requestDiagnostics: calling diagFunc for plugin:" ++ show pid
         let
+          PluginId pid' = pid
           enabled = Map.findWithDefault True pid dpsEnabled
           publishDiagnosticsIO = Core.publishDiagnosticsFunc lf
           maxToSend = maxNumberOfProblems clientConfig
           sendOne (fileUri,ds') = do
             debugm $ "LspStdio.sendone:(fileUri,ds')=" ++ show(fileUri,ds')
-            publishDiagnosticsIO maxToSend (J.toNormalizedUri fileUri) Nothing (Map.fromList [(Just pid,SL.toSortedList ds')])
+            publishDiagnosticsIO maxToSend (J.toNormalizedUri fileUri) Nothing (Map.fromList [(Just pid',SL.toSortedList ds')])
 
           sendEmpty = do
             debugm "LspStdio.sendempty"
-            publishDiagnosticsIO maxToSend (J.toNormalizedUri file) Nothing (Map.fromList [(Just pid,SL.toSortedList [])])
+            publishDiagnosticsIO maxToSend (J.toNormalizedUri file) Nothing (Map.fromList [(Just pid',SL.toSortedList [])])
 
           -- fv = case documentVersion of
           --   Nothing -> Nothing
           --   Just v -> Just (file,v)
         -- let fakeId = J.IdString "fake,remove" -- TODO:AZ: IReq should take a Maybe LspId
-        let fakeId = J.IdString ("fake,remove:pid=" <> pid) -- TODO:AZ: IReq should take a Maybe LspId
+        let fakeId = J.IdString ("fake,remove:pid=" <> pid') -- TODO:AZ: IReq should take a Maybe LspId
         let reql = case ds of
               DiagnosticProviderSync dps ->
                 IReq trackingNumber "diagnostics" fakeId callbackl
@@ -920,14 +920,14 @@ requestDiagnosticsNormal tn file mVer = do
   when sendHlint $ do
     -- get hlint diagnostics
     let reql = GReq tn "apply-refact" (Just file) (Just (file,ver)) Nothing callbackl (PublishDiagnosticsParams file mempty)
-                 $ ApplyRefact.lintCmd' file
+                 $ ApplyRefact.lint file
         callbackl (PublishDiagnosticsParams fp (List ds))
              = sendOne "hlint" (J.toNormalizedUri fp, ds)
     makeRequest reql
 
   -- get GHC diagnostics and loads the typechecked module into the cache
   let reqg = GReq tn "typecheck" (Just file) (Just (file,ver)) Nothing callbackg mempty
-               $ BIOS.setTypecheckedModule file
+               $ HIE.setTypecheckedModule file
       callbackg (HIE.Diagnostics pd, errs) = do
         forM_ errs $ \e -> do
           reactorSend $ NotShowMessage $

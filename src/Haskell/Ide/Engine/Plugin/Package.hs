@@ -4,6 +4,9 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TupleSections #-}
+
+-- | Commands and code actions for adding package dependencies into .cabal and
+-- package.yaml files
 module Haskell.Ide.Engine.Plugin.Package where
 
 import           Haskell.Ide.Engine.MonadTypes
@@ -50,7 +53,7 @@ import           Distribution.Types.CondTree
 import qualified Distribution.PackageDescription.PrettyPrint as PP
 import qualified Data.Yaml as Y
 
-packageDescriptor :: T.Text -> PluginDescriptor
+packageDescriptor :: PluginId -> PluginDescriptor
 packageDescriptor plId = PluginDescriptor
   { pluginId       = plId
   , pluginName     = "package"
@@ -87,15 +90,8 @@ type Package = T.Text
 -- May fail if no project dependency specification can be found.
 -- Supported are `*.cabal` and `package.yaml` specifications.
 -- Moreover, may fail with an IOException in case of a filesystem problem.
-addCmd :: CommandFunc AddParams J.WorkspaceEdit
-addCmd = CmdSync addCmd'
-
--- | Add a package to the project's dependencies.
--- May fail if no project dependency specification can be found.
--- Supported are `*.cabal` and `package.yaml` specifications.
--- Moreover, may fail with an IOException in case of a filesystem problem.
-addCmd' :: AddParams -> IdeGhcM (IdeResult J.WorkspaceEdit)
-addCmd' (AddParams rootDir modulePath pkg) = do
+addCmd :: AddParams -> IdeGhcM (IdeResult J.WorkspaceEdit)
+addCmd (AddParams rootDir modulePath pkg) = do
   packageType <- liftIO $ findPackageType rootDir
   fileMap <- reverseFileMap
 

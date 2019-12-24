@@ -1,8 +1,9 @@
-{-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts    #-}
+
+-- | Provides haddock documentation on hover.
 module Haskell.Ide.Engine.Plugin.Haddock where
 
 import           Control.Monad.State
@@ -35,7 +36,7 @@ haddockDescriptor :: PluginId -> PluginDescriptor
 haddockDescriptor plId = PluginDescriptor
   { pluginId = plId
   , pluginName = "Haddock"
-  , pluginDesc = "Fishy documentation"
+  , pluginDesc = "Fishy documentation."
   , pluginCommands = []
   , pluginCodeActionProvider = Nothing
   , pluginDiagnosticProvider = Nothing
