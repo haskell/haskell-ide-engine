@@ -248,7 +248,9 @@ spec = describe "code actions" $ do
         executeCodeAction action
 
         contents <- getDocumentEdit . TextDocumentIdentifier =<< getDocUri "add-package-test.cabal"
-        liftIO $ T.lines contents `shouldSatisfy` \x -> any (\l -> "text -any" `T.isSuffixOf` (x !! l)) [15, 16]
+        liftIO $
+          T.lines contents `shouldSatisfy` \x ->
+            any (\l -> "text -any" `T.isSuffixOf` l || "text : {} -any" `T.isSuffixOf` l) x
 
     it "adds to hpack package.yaml files" $
       runSession hieCommand fullCaps "test/testdata/addPackageTest/hpack-exe" $ do
@@ -343,6 +345,14 @@ spec = describe "code actions" $ do
 
           suggestion <-
             case ghcVersion of
+              GHC88 -> do
+                liftIO $ map (^. L.title) cas `shouldMatchList`
+                  [ "Substitute hole (Int) with x ([Int])"
+                  , "Substitute hole (Int) with foo ([Int] -> Int Valid hole fits include)"
+                  , "Substitute hole (Int) with maxBound (forall a. Bounded a => a with maxBound @Int)"
+                  , "Substitute hole (Int) with minBound (forall a. Bounded a => a with minBound @Int)"
+                  ]
+                return "x"
               GHC86 -> do
                 liftIO $ map (^. L.title) cas `shouldMatchList`
                   [ "Substitute hole (Int) with x ([Int])"
@@ -383,6 +393,13 @@ spec = describe "code actions" $ do
 
           suggestion <-
             case ghcVersion of
+              GHC88 -> do
+                liftIO $ map (^. L.title) cas `shouldMatchList`
+                  [ "Substitute hole (A) with stuff (A -> A)"
+                  , "Substitute hole (A) with x ([A])"
+                  , "Substitute hole (A) with foo2 ([A] -> A)"
+                  ]
+                return "stuff"
               GHC86 -> do
                 liftIO $ map (^. L.title) cas `shouldMatchList`
                   [ "Substitute hole (A) with stuff (A -> A)"

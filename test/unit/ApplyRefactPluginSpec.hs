@@ -152,7 +152,7 @@ applyRefactSpec = do
 
       let req = applyAllCmd filePath
           isExpectedError (IdeResultFail (IdeError PluginError err _)) =
-              "Illegal symbol '.' in type" `T.isInfixOf` err
+              "Illegal symbol " `T.isInfixOf` err
           isExpectedError _ = False
       r <- withCurrentDirectory "./test/testdata" $ runIGM testPlugins req
       r `shouldSatisfy` isExpectedError

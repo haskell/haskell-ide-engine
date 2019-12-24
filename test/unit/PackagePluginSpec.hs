@@ -63,27 +63,48 @@ packageSpec = do
             uri       = filePathToUri $ fp </> "add-package-test.cabal"
             args      = AddParams fp (fp </> "AddPackage.hs") "text"
             act       = addCmd args
-            textEdits =
-              List
-                [ TextEdit (Range (Position 0 0) (Position 7 27)) $ T.concat
-                  [ "cabal-version: >=1.10\n"
-                  , "name: add-package-test\n"
-                  , "version: 0.1.0.0\n"
-                  , "license: BSD3\n"
-                  , "maintainer: luke_lau@icloud.com\n"
-                  , "author: Luke Lau\n"
-                  , "build-type: Simple\n"
-                  , "extra-source-files:\n"
-                  , "    ChangeLog.md"
+            textEdits = case ghcVersion of
+              GHC88 ->
+                List
+                  [ TextEdit (Range (Position 0 0) (Position 7 27)) $ T.concat
+                    [ "cabal-version:      >=1.10\n"
+                    , "name:               add-package-test\n"
+                    , "version:            0.1.0.0\n"
+                    , "license:            BSD3\n"
+                    , "maintainer:         luke_lau@icloud.com\n"
+                    , "author:             Luke Lau\n"
+                    , "build-type:         Simple\n"
+                    , "extra-source-files: ChangeLog.md"
+                    ]
+                  , TextEdit (Range (Position 10 0) (Position 13 34)) $ T.concat
+                    [ "    main-is:          AddPackage.hs\n"
+                    , "    default-language: Haskell2010\n"
+                    , "    build-depends:\n"
+                    , "        base >=4.7 && <5,\n"
+                    , "        text : {} -any"
+                    ]
                   ]
-                , TextEdit (Range (Position 10 0) (Position 13 34)) $ T.concat
-                  [ "    main-is: AddPackage.hs\n"
-                  , "    default-language: Haskell2010\n"
-                  , "    build-depends:\n"
-                  , "        base >=4.7 && <5,\n"
-                  , "        text -any"
+              _     ->
+                List
+                  [ TextEdit (Range (Position 0 0) (Position 7 27)) $ T.concat
+                    [ "cabal-version: >=1.10\n"
+                    , "name: add-package-test\n"
+                    , "version: 0.1.0.0\n"
+                    , "license: BSD3\n"
+                    , "maintainer: luke_lau@icloud.com\n"
+                    , "author: Luke Lau\n"
+                    , "build-type: Simple\n"
+                    , "extra-source-files:\n"
+                    , "    ChangeLog.md"
+                    ]
+                  , TextEdit (Range (Position 10 0) (Position 13 34)) $ T.concat
+                    [ "    main-is: AddPackage.hs\n"
+                    , "    default-language: Haskell2010\n"
+                    , "    build-depends:\n"
+                    , "        base >=4.7 && <5,\n"
+                    , "        text -any"
+                    ]
                   ]
-                ]
             res = IdeResultOk
               $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
           testCommand testPlugins act "package" "add" args res
@@ -96,28 +117,49 @@ packageSpec = do
             uri       = filePathToUri $ fp </> "add-package-test.cabal"
             args      = AddParams fp (fp </> "AddPackage.hs") "text"
             act       = addCmd args
-            textEdits =
-              List
-                [ TextEdit (Range (Position 0 0) (Position 7 27)) $ T.concat
-                  [ "cabal-version: >=1.10\n"
-                  , "name: add-package-test\n"
-                  , "version: 0.1.0.0\n"
-                  , "license: BSD3\n"
-                  , "maintainer: luke_lau@icloud.com\n"
-                  , "author: Luke Lau\n"
-                  , "build-type: Simple\n"
-                  , "extra-source-files:\n"
-                  , "    ChangeLog.md"
+            textEdits = case ghcVersion of
+              GHC88 ->
+                List
+                  [ TextEdit (Range (Position 0 0) (Position 7 27)) $ T.concat
+                    [ "cabal-version:      >=1.10\n"
+                    , "name:               add-package-test\n"
+                    , "version:            0.1.0.0\n"
+                    , "license:            BSD3\n"
+                    , "maintainer:         luke_lau@icloud.com\n"
+                    , "author:             Luke Lau\n"
+                    , "build-type:         Simple\n"
+                    , "extra-source-files: ChangeLog.md"
+                    ]
+                  , TextEdit (Range (Position 10 0) (Position 13 34)) $ T.concat
+                    [ "    exposed-modules:  AddPackage\n"
+                    , "    default-language: Haskell2010\n"
+                    , "    build-depends:\n"
+                    , "        base >=4.7 && <5,\n"
+                    , "        text : {} -any"
+                    ]
                   ]
-                , TextEdit (Range (Position 10 0) (Position 13 34)) $ T.concat
-                  [ "    exposed-modules:\n"
-                  , "        AddPackage\n"
-                  , "    default-language: Haskell2010\n"
-                  , "    build-depends:\n"
-                  , "        base >=4.7 && <5,\n"
-                  , "        text -any"
+              _     ->
+                List
+                  [ TextEdit (Range (Position 0 0) (Position 7 27)) $ T.concat
+                    [ "cabal-version: >=1.10\n"
+                    , "name: add-package-test\n"
+                    , "version: 0.1.0.0\n"
+                    , "license: BSD3\n"
+                    , "maintainer: luke_lau@icloud.com\n"
+                    , "author: Luke Lau\n"
+                    , "build-type: Simple\n"
+                    , "extra-source-files:\n"
+                    , "    ChangeLog.md"
+                    ]
+                  , TextEdit (Range (Position 10 0) (Position 13 34)) $ T.concat
+                    [ "    exposed-modules:\n"
+                    , "        AddPackage\n"
+                    , "    default-language: Haskell2010\n"
+                    , "    build-depends:\n"
+                    , "        base >=4.7 && <5,\n"
+                    , "        text -any"
+                    ]
                   ]
-                ]
             res = IdeResultOk
               $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
           testCommand testPlugins act "package" "add" args res
