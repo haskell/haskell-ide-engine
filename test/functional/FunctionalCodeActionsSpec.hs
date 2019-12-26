@@ -368,12 +368,6 @@ spec = describe "code actions" $ do
                   , "Substitute hole (Int) with undefined (forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a)"
                   ]
                 return "maxBound"
-              GHCPre84 -> do
-                liftIO $ map (^. L.title) cas `shouldMatchList`
-                  [ "Substitute hole (Int) with x ([Int])"
-                  , "Substitute hole (Int) with foo ([Int] -> Int)"
-                  ]
-                return "x"
 
           executeCodeAction $ head cas
 
@@ -415,13 +409,6 @@ spec = describe "code actions" $ do
                   , "Substitute hole (A) with foo2 ([A] -> A)"
                   ]
                 return "undefined"
-              GHCPre84 -> do
-                liftIO $ map (^. L.title) cas `shouldMatchList`
-                  [ "Substitute hole (A) with stuff (A -> A)"
-                  , "Substitute hole (A) with x ([A])"
-                  , "Substitute hole (A) with foo2 ([A] -> A)"
-                  ]
-                return "stuff"
 
           executeCodeAction $ head cas
 

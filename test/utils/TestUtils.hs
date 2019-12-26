@@ -141,7 +141,6 @@ data GhcVersion
   = GHC88
   | GHC86
   | GHC84
-  | GHCPre84
   deriving (Eq,Show)
 
 ghcVersion :: GhcVersion
@@ -151,8 +150,6 @@ ghcVersion = GHC88
 ghcVersion = GHC86
 #elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,4,0,0)))
 ghcVersion = GHC84
-#else
-ghcVersion = GHCPre84
 #endif
 
 stackYaml :: FilePath
