@@ -45,7 +45,7 @@ getProjectGhcVersion crdl = do
   if isStackCradle crdl && isStackInstalled
     then do
       L.infoM "hie" "Using stack GHC version"
-      catch (tryCommand "stack ghc -- --numeric-version") $ \e -> do
+      catch (last . lines <$> tryCommand "stack ghc -- --numeric-version") $ \e -> do
         L.errorM "hie" $ show (e :: SomeException)
         L.infoM "hie" "Couldn't find stack version, falling back to plain GHC"
         getGhcVersion
