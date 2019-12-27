@@ -167,9 +167,25 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
         -- haskell lsp sets the current directory to the project root in the InitializeRequest
         -- We launch the dispatcher after that so that the default cradle is
         -- recognized properly by ghc-mod
-        flip labelThread "scheduler" =<< (forkIO $ Scheduler.runScheduler scheduler errorHandler callbackHandler (Just lf) mcradle)
-        flip labelThread "reactor" =<< (forkIO reactorFunc)
-        flip labelThread "diagnostics" =<< (forkIO $ diagnosticsQueue tr)
+        flip labelThread "scheduler" =<<
+            (forkIO (
+              Scheduler.runScheduler scheduler errorHandler callbackHandler (Just lf) mcradle
+              `E.catch` \(e :: E.SomeException) ->
+              (errorm $ "Scheduler thread exited unexpectedly: " ++ show e)
+            ))
+        flip labelThread "reactor" =<<
+            (forkIO (
+              reactorFunc
+              `E.onException`
+              errorm "Reactor thread exited unexpectedly"
+            ))
+        flip labelThread "diagnostics" =<<
+            (forkIO (
+              diagnosticsQueue tr
+              `E.onException`
+              errorm "diagnostics thread exited unexpectedly"
+            ))
+
         return Nothing
 
       diagnosticProviders :: Map.Map DiagnosticTrigger [(PluginId,DiagnosticProviderFunc)]

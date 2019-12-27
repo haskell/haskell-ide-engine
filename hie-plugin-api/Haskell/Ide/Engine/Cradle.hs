@@ -26,11 +26,11 @@ import           Data.Ord (Down(..))
 import           Data.String (IsString(..))
 import qualified Data.Text as T
 import           Data.Foldable (toList)
-import           Control.Exception (IOException, try, catch)
+import           Control.Exception
 import           System.FilePath
 import           System.Directory (getCurrentDirectory, canonicalizePath, findExecutable)
 import           System.Exit
-import           System.Process (readCreateProcess, shell)
+import           System.Process (readCreateProcessWithExitCode, shell)
 
 -- | Find the cradle that the given File belongs to.
 --
@@ -76,42 +76,76 @@ isCabalCradle =
   . BIOS.actionName
   . BIOS.cradleOptsProg
 
-
-getProjectGhcPath :: Cradle -> IO (Maybe FilePath)
-getProjectGhcPath crdl = do
+-- | Execute @ghc@ that is based on the given cradle.
+-- Output must be a single line. If an error is raised, e.g. the command
+-- failed, a @Nothing@ is returned.
+-- The exact error is written to logs.
+--
+-- E.g. for a stack cradle, we use `stack ghc` and for a cabal cradle
+-- we are taking the @ghc@ that is on the path.
+execProjectGhc :: Cradle -> [String] -> IO (Maybe String)
+execProjectGhc crdl args = do
   isStackInstalled <- isJust <$> findExecutable "stack"
-  isCabalInstalled <- isJust <$> findExecutable "cabal"
+  -- isCabalInstalled <- isJust <$> findExecutable "cabal"
   ghcpath <- if isStackCradle crdl && isStackInstalled
-    then
-      catch (Just <$> tryCommand "stack path --compiler-exe") $ \(_ :: IOException) -> do
-        errorm "Command `stack path --compiler-exe` failed."
-        return Nothing
-    else if isCabalCradle crdl && isCabalInstalled then do
-      ghcCabalVersion <- catch (Just <$> tryCommand "cabal v2-exec -v0 ghc -- --numeric-version") $ \(_ ::IOException) -> do
-        errorm "Command `cabal v2-exec -v0 ghc -- --numeric-version` failed."
-        return Nothing
-      case ghcCabalVersion of
-        Just ghcNumericVersion -> do
-          let ghcVersion = "ghc-" ++ ghcNumericVersion
-          logm $ "Ghc Version to find: " ++ ghcVersion
-          findExecutable ghcVersion
-        Nothing -> return Nothing
+    then do
+      logm "Use Stack GHC"
+      catch (Just <$> tryCommand stackCmd) $ \(_ :: IOException) -> do
+        errorm $ "Command `" ++ stackCmd ++"` failed."
+        execWithGhc
+    -- The command `cabal v2-exec -v0 ghc` only works if the project has been
+    -- built already.
+    -- This command must work though before the project is build.
+    -- Therefore, fallback to "ghc" on the path.
+    --
+    -- else if isCabalCradle crdl && isCabalInstalled then do
+    --   let cmd = "cabal v2-exec -v0 ghc -- " ++ unwords args
+    --   catch (Just <$> tryCommand cmd) $ \(_ ::IOException) -> do
+    --     errorm $ "Command `" ++ cmd ++ "` failed."
+    --     return Nothing
     else do
-      logm "Neither cabal nor stack project, look for ghc project."
-      findExecutable "ghc"
-  logm $ "Found ghc path: " ++ show ghcpath
+      logm "Use Plain GHC"
+      execWithGhc
+  debugm $ "Output from: " ++ show ghcpath
   return ghcpath
+  where
+    stackCmd = "stack ghc -- " ++ unwords args
+    plainCmd = "ghc " ++ unwords args
+
+    execWithGhc =
+      catch (Just <$> tryCommand plainCmd) $ \(_ :: IOException) -> do
+        errorm $ "Command `" ++ plainCmd ++"` failed."
+        return Nothing
 
 tryCommand :: String -> IO String
-tryCommand cmd =
-  T.unpack . T.strip .T.pack <$> readCreateProcess (shell cmd) ""
+tryCommand cmd = do
+  (code, sout, serr) <- readCreateProcessWithExitCode (shell cmd) ""
+  case code of
+    ExitFailure e -> do
+      let errmsg = concat
+            [ "`"
+            , cmd
+            , "`: Exit failure: "
+            , show e
+            , ", stdout: "
+            , sout
+            , ", stderr: "
+            , serr
+            ]
+      errorm errmsg
+      throwIO $ userError errmsg
 
+    ExitSuccess -> return $ T.unpack . T.strip . head . T.lines $ T.pack sout
+
+
+-- | Get the directory of the libdir based on the project ghc.
 getProjectGhcLibDir :: Cradle -> IO (Maybe FilePath)
-getProjectGhcLibDir crdl = do
-  mGhcPath <- getProjectGhcPath crdl
-  case mGhcPath of
-    Nothing -> return Nothing
-    Just ghcPath -> catch (Just <$> tryCommand (ghcPath ++ " --print-libdir")) $ \(_ :: IOException) -> return Nothing
+getProjectGhcLibDir crdl =
+  catch
+    (execProjectGhc crdl ["--print-libdir"])
+    $ \(_ :: IOException) -> do
+      logm "Could not obtain the libdir."
+      return Nothing
 
   -- ---------------------------------------------------------------------
 
