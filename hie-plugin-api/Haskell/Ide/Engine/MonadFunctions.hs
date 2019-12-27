@@ -37,7 +37,7 @@ warningm :: MonadIO m => String -> m ()
 warningm s = liftIO $ warningM "hie" s
 
 errorm :: MonadIO m => String -> m ()
-errorm s = liftIO $ warningM "hie" s
+errorm s = liftIO $ errorM "hie" s
 
 -- ---------------------------------------------------------------------
 -- Extensible state, based on
