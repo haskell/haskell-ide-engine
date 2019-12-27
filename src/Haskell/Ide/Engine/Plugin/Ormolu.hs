@@ -30,7 +30,7 @@ provider :: FormattingProvider
 provider contents uri typ _opts =
   case typ of 
     -- // TODO Adequately throw an error on the following line
-    FormatRange _ -> return $ IdeResultFail (IdeError PluginError (T.pack $  "Selection formatting for Ormolu is not currently supported.") Null)
+    FormatRange _ -> return $ IdeResultFail (IdeError PluginError (T.pack "Selection formatting for Ormolu is not currently supported.") Null)
     FormatText -> pluginGetFile contents uri $ \file -> do
         result <- liftIO $ try @OrmoluException (ormolu defaultConfig file (T.unpack contents))
         case result of
