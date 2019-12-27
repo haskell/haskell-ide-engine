@@ -16,7 +16,7 @@ import Ormolu
 import Ormolu.Config (defaultConfig)
 import Ormolu.Exception (OrmoluException)
 #else
-import System.Log.Logger
+import Haskell.Ide.Engine.MonadFunctions
 #endif
 
 ormoluDescriptor :: PluginId -> PluginDescriptor
@@ -45,9 +45,9 @@ provider contents uri typ _opts =
 #else
 -- Work in progress
 provider :: FormattingProvider
-provider contents _uri typ _opts = do
-  errorM "hie" "This version of HIE does not support Ormolu as a formatter"
+provider _contents _uri typ _opts = do
+  errorm "This version of HIE does not support Ormolu as a formatter"
   case typ of 
     FormatRange _ -> return $ IdeResultFail (IdeError PluginError (pack "Selection formatting for Ormolu is not currently supported.") Null)
     FormatText -> return $ IdeResultOk []
-#endif
+#endif 
