@@ -49,5 +49,5 @@ provider contents _uri typ _opts = do
   errorM "hie" "This version of HIE does not support Ormolu as a formatter"
   case typ of 
     FormatRange _ -> return $ IdeResultFail (IdeError PluginError (pack "Selection formatting for Ormolu is not currently supported.") Null)
-    FormatText -> return $ IdeResultOk [TextEdit (fullRange contents) contents]
+    FormatText -> return $ IdeResultOk []
 #endif
