@@ -33,6 +33,7 @@ library
                        Haskell.Ide.Engine.Plugin.HfaAlign
                        Haskell.Ide.Engine.Plugin.HsImport
                        Haskell.Ide.Engine.Plugin.Liquid
+                       Haskell.Ide.Engine.Plugin.Ormolu
                        Haskell.Ide.Engine.Plugin.Package
                        Haskell.Ide.Engine.Plugin.Package.Compat
                        Haskell.Ide.Engine.Plugin.Pragmas
@@ -46,8 +47,6 @@ library
                        Haskell.Ide.Engine.Server
                        Haskell.Ide.Engine.Types
                        Haskell.Ide.Engine.Version
-  if impl(ghc >= 8.6)
-     exposed-modules: Haskell.Ide.Engine.Plugin.Ormolu
 
   other-modules:       Paths_haskell_ide_engine
   build-depends:       Cabal >= 1.22
