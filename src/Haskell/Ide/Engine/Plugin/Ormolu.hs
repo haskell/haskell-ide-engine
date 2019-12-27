@@ -10,12 +10,13 @@ import Data.Aeson ( Value ( Null ) )
 import Data.Text
 import Haskell.Ide.Engine.MonadTypes
 import Haskell.Ide.Engine.PluginUtils
-import System.Log
 
 #if __GLASGOW_HASKELL__ >= 806
 import Ormolu
 import Ormolu.Config (defaultConfig)
 import Ormolu.Exception (OrmoluException)
+#else
+import System.Log.Logger
 #endif
 
 ormoluDescriptor :: PluginId -> PluginDescriptor
