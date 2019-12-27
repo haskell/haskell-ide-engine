@@ -33,7 +33,6 @@ library
                        Haskell.Ide.Engine.Plugin.HfaAlign
                        Haskell.Ide.Engine.Plugin.HsImport
                        Haskell.Ide.Engine.Plugin.Liquid
-                       Haskell.Ide.Engine.Plugin.Ormolu
                        Haskell.Ide.Engine.Plugin.Package
                        Haskell.Ide.Engine.Plugin.Package.Compat
                        Haskell.Ide.Engine.Plugin.Pragmas
@@ -47,6 +46,9 @@ library
                        Haskell.Ide.Engine.Server
                        Haskell.Ide.Engine.Types
                        Haskell.Ide.Engine.Version
+  if impl(ghc > 8.4)
+     exposed-modules: Haskell.Ide.Engine.Plugin.Ormolu
+
   other-modules:       Paths_haskell_ide_engine
   build-depends:       Cabal >= 1.22
                      , Diff
@@ -82,7 +84,6 @@ library
                      , monoid-subclasses > 0.4
                      , mtl
                      , optparse-simple >= 0.0.3
-                     , ormolu
                      , parsec
                      , process
                      , safe
@@ -101,6 +102,8 @@ library
                      , bytestring-trie
                      , unliftio
                      , hlint >= 2.2.2
+  if impl(ghc > 8.4)
+     build-depends: ormolu
 
   ghc-options:         -Wall -Wredundant-constraints
   if flag(pedantic)
