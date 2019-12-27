@@ -46,7 +46,7 @@ library
                        Haskell.Ide.Engine.Server
                        Haskell.Ide.Engine.Types
                        Haskell.Ide.Engine.Version
-  if impl(ghc > 8.4)
+  if impl(ghc >= 8.6)
      exposed-modules: Haskell.Ide.Engine.Plugin.Ormolu
 
   other-modules:       Paths_haskell_ide_engine
@@ -102,7 +102,7 @@ library
                      , bytestring-trie
                      , unliftio
                      , hlint >= 2.2.2
-  if impl(ghc > 8.4)
+  if impl(ghc >= 8.6)
      build-depends: ormolu
 
   ghc-options:         -Wall -Wredundant-constraints
