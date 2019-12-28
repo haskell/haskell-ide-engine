@@ -37,6 +37,7 @@ library
                        Haskell.Ide.Engine.Plugin.Package.Compat
                        Haskell.Ide.Engine.Plugin.Pragmas
                        Haskell.Ide.Engine.Plugin.Generic
+                       Haskell.Ide.Engine.Plugin.GhcMod
                        Haskell.Ide.Engine.Scheduler
                        Haskell.Ide.Engine.Support.FromHaRe
                        Haskell.Ide.Engine.Support.Hoogle
@@ -180,6 +181,7 @@ test-suite unit-test
                        DiffSpec
                        ExtensibleStateSpec
                        GenericPluginSpec
+                       GhcModPluginSpec
                        -- HaRePluginSpec
                        HooglePluginSpec
                        JsonSpec

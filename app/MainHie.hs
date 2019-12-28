@@ -35,6 +35,7 @@ import           Haskell.Ide.Engine.Plugin.Package
 import           Haskell.Ide.Engine.Plugin.Pragmas
 import           Haskell.Ide.Engine.Plugin.Floskell
 import           Haskell.Ide.Engine.Plugin.Generic
+import           Haskell.Ide.Engine.Plugin.GhcMod
 
 -- ---------------------------------------------------------------------
 
@@ -56,6 +57,7 @@ plugins includeExamples = pluginDescToIdePlugins allPlugins
       , pragmasDescriptor     "pragmas"
       , floskellDescriptor    "floskell"
       , genericDescriptor     "generic"
+      , ghcmodDescriptor      "ghcmod"
       ]
     examplePlugins =
       [example2Descriptor "eg2"
