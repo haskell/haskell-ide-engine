@@ -37,9 +37,9 @@ hieGhcDisplayVersion = compilerName ++ "-" ++ VERSION_ghc
 
 getProjectGhcVersion :: Bios.Cradle -> IO String
 getProjectGhcVersion crdl =
-  execProjectGhc crdl ["--numeric-version"] >>= \case
-    Just version -> return version
-    Nothing -> return "No System GHC Found."
+  fmap
+    (fromMaybe "No System GHC Found.")
+    (execProjectGhc crdl ["--numeric-version"])
 
 
 hieGhcVersion :: String

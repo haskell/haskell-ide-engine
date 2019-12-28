@@ -87,7 +87,7 @@ execProjectGhc :: Cradle -> [String] -> IO (Maybe String)
 execProjectGhc crdl args = do
   isStackInstalled <- isJust <$> findExecutable "stack"
   -- isCabalInstalled <- isJust <$> findExecutable "cabal"
-  ghcpath <- if isStackCradle crdl && isStackInstalled
+  ghcOutput <- if isStackCradle crdl && isStackInstalled
     then do
       logm "Use Stack GHC"
       catch (Just <$> tryCommand stackCmd) $ \(_ :: IOException) -> do
@@ -106,8 +106,8 @@ execProjectGhc crdl args = do
     else do
       logm "Use Plain GHC"
       execWithGhc
-  debugm $ "Output from: " ++ show ghcpath
-  return ghcpath
+  debugm $ "GHC Output: \"" ++ show ghcOutput ++ "\""
+  return ghcOutput
   where
     stackCmd = "stack ghc -- " ++ unwords args
     plainCmd = "ghc " ++ unwords args
@@ -141,11 +141,11 @@ tryCommand cmd = do
 -- | Get the directory of the libdir based on the project ghc.
 getProjectGhcLibDir :: Cradle -> IO (Maybe FilePath)
 getProjectGhcLibDir crdl =
-  catch
-    (execProjectGhc crdl ["--print-libdir"])
-    $ \(_ :: IOException) -> do
+  execProjectGhc crdl ["--print-libdir"] >>= \case
+    Nothing -> do
       logm "Could not obtain the libdir."
       return Nothing
+    mlibdir -> return mlibdir
 
   -- ---------------------------------------------------------------------
 

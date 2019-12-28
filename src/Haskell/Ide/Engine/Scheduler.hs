@@ -146,6 +146,8 @@ runScheduler
   -> Maybe (Core.LspFuncs Config)
      -- ^ The LspFuncs provided by haskell-lsp, if using LSP.
   -> Maybe Bios.Cradle
+     -- ^ Context in which the ghc thread is executed.
+     -- Neccessary to obtain the libdir, for example.
   -> IO ()
 runScheduler Scheduler {..} errorHandler callbackHandler mlf mcrdl = do
   let dEnv = DispatcherEnv
