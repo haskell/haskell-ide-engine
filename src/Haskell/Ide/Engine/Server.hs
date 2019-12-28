@@ -158,7 +158,7 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
 
         -- Check for mismatching GHC versions
         let dummyCradleFile = fromMaybe currentDir lspRootDir </> "File.hs"
-        logm $ "Dummy Cradle file result: " ++ dummyCradleFile
+        debugm $ "Dummy Cradle file result: " ++ dummyCradleFile
         cradleRes <- liftIO $ E.try (findLocalCradle dummyCradleFile)
         let sf = Core.sendFunc lf
 
@@ -180,9 +180,9 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
                   sf $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning cabalMsg
                   sf $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning cabalMsg
 
-          Left (_ :: Yaml.ParseException) -> do
-            logm "Failed to parse it"
-            sf $ NotShowMessage $ fmServerShowMessageNotification J.MtError "Couldn't parse hie.yaml"
+          Left (e :: Yaml.ParseException) -> do
+            logm $ "Failed to parse `hie.yaml`: " ++ show e
+            sf $ NotShowMessage $ fmServerShowMessageNotification J.MtError ("Couldn't parse hie.yaml: \n" <> T.pack (show e))
 
         let mcradle = case cradleRes of
               Left _ -> Nothing
