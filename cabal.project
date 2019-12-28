@@ -4,6 +4,7 @@ packages:
 
          -- ./submodules/HaRe
          ./submodules/cabal-helper/
+         ./submodules/apply-refact
 
 tests: true
 

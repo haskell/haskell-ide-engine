@@ -8,27 +8,29 @@ extra-deps:
 - ./submodules/cabal-helper
 - ./submodules/apply-refact
 
-- hie-bios-0.3.2
 - bytestring-trie-0.2.5.0
+- clock-0.7.2
 - constrained-dynamic-0.1.0.0
 - floskell-0.10.2
 - fold-debounce-0.2.0.9
 - haddock-api-2.23.0
 - haddock-library-1.8.0
-- hoogle-5.0.17.13
+- haskell-src-exts-1.21.1
+- hie-bios-0.3.2
+# - hoogle-5.0.17.13
+- hoogle-5.0.17.11
 - hsimport-0.11.0
 - monad-dijkstra-0.1.1.2
+- semigroups-0.18.5
+- temporary-1.2.1.1
 
-allow-newer: true
+# allow-newer: true
 
 flags:
   haskell-ide-engine:
     pedantic: true
   hie-plugin-api:
     pedantic: true
-
-
-# allow-newer: true
 
 nix:
   packages: [ icu libcxx zlib ]
