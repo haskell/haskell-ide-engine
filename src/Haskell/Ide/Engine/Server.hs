@@ -38,7 +38,8 @@ import qualified Data.SortedList as SL
 import qualified Data.Text as T
 import           Data.Text.Encoding
 import qualified Data.Yaml as Yaml
-import           Haskell.Ide.Engine.Cradle (findLocalCradle, cradleDisplay)
+import           Haskell.Ide.Engine.Cradle (findLocalCradle, cradleDisplay
+                                           , isCabalCradle)
 import           Haskell.Ide.Engine.Config
 import qualified Haskell.Ide.Engine.Ghc   as HIE
 import           Haskell.Ide.Engine.CodeActions
@@ -156,13 +157,36 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
         currentDir <- liftIO getCurrentDirectory
 
         -- Check for mismatching GHC versions
-        -- Ignore hie.yaml parse errors. They get reported in ModuleCache.hs
-        let parseErrorHandler (_ :: Yaml.ParseException) = do
-              logm "Caught a yaml parse exception"
-              return Nothing
-            dummyCradleFile = fromMaybe currentDir lspRootDir </> "File.hs"
-        logm $ "Dummy Cradle File: " ++ dummyCradleFile
-        mcradle <- liftIO $ E.catch (Just <$> findLocalCradle dummyCradleFile) parseErrorHandler
+        let dummyCradleFile = fromMaybe currentDir lspRootDir </> "File.hs"
+        logm $ "Dummy Cradle file result: " ++ dummyCradleFile
+        cradleRes <- liftIO $ E.try (findLocalCradle dummyCradleFile)
+        let sf = Core.sendFunc lf
+
+        case cradleRes of
+          Right cradle -> do
+            projGhcVersion <- liftIO $ getProjectGhcVersion cradle
+            when (projGhcVersion /= hieGhcVersion) $ do
+              let msg = T.pack $ "Mismatching GHC versions: " ++ cradleDisplay cradle ++
+                        " is " ++ projGhcVersion ++ ", HIE is " ++ hieGhcVersion
+                        ++ "\nYou may want to use hie-wrapper. Check the README for more information"
+              sf $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
+              sf $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg
+
+              -- Check cabal is installed
+              when (isCabalCradle cradle) $ do
+                hasCabal <- liftIO checkCabalInstall
+                unless hasCabal $ do
+                  let cabalMsg = T.pack "cabal-install is not installed. Check the README for more information"
+                  sf $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning cabalMsg
+                  sf $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning cabalMsg
+
+          Left (_ :: Yaml.ParseException) -> do
+            logm "Failed to parse it"
+            sf $ NotShowMessage $ fmServerShowMessageNotification J.MtError "Couldn't parse hie.yaml"
+
+        let mcradle = case cradleRes of
+              Left _ -> Nothing
+              Right c -> Just c
 
         -- haskell lsp sets the current directory to the project root in the InitializeRequest
         -- We launch the dispatcher after that so that the default cradle is
@@ -176,14 +200,14 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
         flip labelThread "reactor" =<<
             (forkIO (
               reactorFunc
-              `E.onException`
-              errorm "Reactor thread exited unexpectedly"
+              `E.catch` \(e :: E.SomeException) ->
+              (errorm $ "Reactor thread exited unexpectedly: " ++ show e)
             ))
         flip labelThread "diagnostics" =<<
             (forkIO (
               diagnosticsQueue tr
-              `E.onException`
-              errorm "diagnostics thread exited unexpectedly"
+              `E.catch` \(e :: E.SomeException) ->
+              (errorm $ "Diagnostic thread exited unexpectedly: " ++ show e)
             ))
 
         return Nothing
@@ -424,36 +448,6 @@ reactor inp diagIn = do
 
           reactorSend $ NotLogMessage $
                   fmServerLogMessageNotification J.MtLog $ "Using hie version: " <> T.pack hieVersion
-
-          lspRootDir <- asksLspFuncs Core.rootPath
-          currentDir <- liftIO getCurrentDirectory
-
-          -- Check for mismatching GHC versions
-          let dummyCradleFile = (fromMaybe currentDir lspRootDir) </> "File.hs"
-          logm $ "Dummy Cradle file result: " ++ dummyCradleFile
-          cradleRes <- liftIO $ E.try (findLocalCradle dummyCradleFile)
-
-          case cradleRes of
-            Right cradle -> do
-              projGhcVersion <- liftIO $ getProjectGhcVersion cradle
-              when (projGhcVersion /= hieGhcVersion) $ do
-                let msg = T.pack $ "Mismatching GHC versions: " ++ cradleDisplay cradle ++
-                          " is " ++ projGhcVersion ++ ", HIE is " ++ hieGhcVersion
-                          ++ "\nYou may want to use hie-wrapper. Check the README for more information"
-                reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
-                reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg
-
-                -- Check cabal is installed
-                -- TODO: only do this check if its a cabal cradle
-                hasCabal <- liftIO checkCabalInstall
-                unless hasCabal $ do
-                  let cabalMsg = T.pack "cabal-install is not installed. Check the README for more information"
-                  reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning cabalMsg
-                  reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning cabalMsg
-
-            Left (_ :: Yaml.ParseException) -> do
-              logm "Failed to parse it"
-              reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtError "Couldn't parse hie.yaml"
 
           renv <- ask
           let hreq = GReq tn "init-hoogle" Nothing Nothing Nothing callback Nothing $ IdeResultOk <$> Hoogle.initializeHoogleDb
