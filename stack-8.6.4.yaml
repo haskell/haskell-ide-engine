@@ -23,7 +23,7 @@ extra-deps:
 - hlint-2.2.4
 - hoogle-5.0.17.11
 - hsimport-0.11.0
-- lsp-test-0.9.0.0
+- lsp-test-0.10.0.0
 - monad-dijkstra-0.1.1.2@rev:1
 - monad-memo-0.4.1
 - multistate-0.8.0.1
@@ -37,6 +37,7 @@ extra-deps:
 - unix-compat-0.5.2@sha256:16763f1fae4a25abf61ac6195eb530ce838474bd04d86c7d353340aee8716bbb
 - yaml-0.11.1.2@sha256:cbc4ddb233c564967aad27ee47c1cd8fd6a06b9183353e76fe66c9be7c9dfd76
 - unordered-containers-0.2.10.0@sha256:5e9b095a9283d9e2f064fec73a81a6b6ea0b7fda3f219a8175785d2d2a3de204
+- parser-combinators-1.2.1@sha256:16c3490e007ec10b1255a2b36fb483d000156d555269107131241d9e0fa96412,1788
 
 
 flags:

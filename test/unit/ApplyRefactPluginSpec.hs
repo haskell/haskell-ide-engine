@@ -35,8 +35,8 @@ testPlugins = pluginDescToIdePlugins [applyRefactDescriptor "applyrefact"]
 applyRefactSpec :: Spec
 applyRefactSpec = do
   describe "apply-refact plugin commands" $ do
-    applyRefactPath  <- runIO $ filePathToUri <$> makeAbsolute "./test/testdata/ApplyRefact.hs"
-
+    applyRefactFp  <- runIO $ makeAbsolute "./test/testdata/ApplyRefact.hs"
+    let applyRefactPath = filePathToUri applyRefactFp
     -- ---------------------------------
 
     it "applies one hint only" $ do
@@ -48,7 +48,7 @@ applyRefactSpec = do
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton applyRefactPath textEdits)
             Nothing
-      testCommand testPlugins act "applyrefact" "applyOne" arg res
+      testCommand testPlugins applyRefactFp act "applyrefact" "applyOne" arg res
 
     -- ---------------------------------
 
@@ -61,7 +61,7 @@ applyRefactSpec = do
           res = IdeResultOk $ WorkspaceEdit
             (Just $ H.singleton applyRefactPath textEdits)
             Nothing
-      testCommand testPlugins act "applyrefact" "applyAll" arg res
+      testCommand testPlugins applyRefactFp act "applyrefact" "applyAll" arg res
 
     -- ---------------------------------
 
@@ -85,7 +85,7 @@ applyRefactSpec = do
                             "Redundant bracket\nFound:\n  (x + 1)\nWhy not:\n  x + 1\n"
                             Nothing
                ]}
-      runIGM testPlugins act `shouldReturn` res
+      runIGM testPlugins applyRefactFp act `shouldReturn` res
 
     -- ---------------------------------
 
@@ -105,15 +105,15 @@ applyRefactSpec = do
                            , _source = Just "hlint"
                            , _message = T.pack filePathNoUri <> ":13:24: error:\n    Operator applied to too few arguments: +\n  data instance Sing (z :: (a :~: b)) where\n>     SRefl :: Sing Refl +\n\n"
                            , _relatedInformation = Nothing }]}
-      runIGM testPlugins act `shouldReturn` res
+      runIGM testPlugins applyRefactFp act `shouldReturn` res
 
     -- ---------------------------------
 
     it "respects hlint pragmas in the source file" $ do
-      filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/HlintPragma.hs"
-
+      fp  <- makeAbsolute "./test/testdata/HlintPragma.hs"
+      let filePath = filePathToUri fp
       let req = lint filePath
-      r <- runIGM testPlugins req
+      r <- runIGM testPlugins fp req
       r `shouldBe`
         (IdeResultOk
            (PublishDiagnosticsParams
@@ -132,10 +132,11 @@ applyRefactSpec = do
     -- ---------------------------------
 
     it "respects hlint config files in project root dir" $ do
-      filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/HlintPragma.hs"
+      fp  <- makeAbsolute "./test/testdata/HlintPragma.hs"
+      let filePath = filePathToUri fp
 
       let req = lint filePath
-      r <- withCurrentDirectory "./test/testdata" $ runIGM testPlugins req
+      r <- withCurrentDirectory "./test/testdata" $ runIGM testPlugins fp req
       r `shouldBe`
         (IdeResultOk
            (PublishDiagnosticsParams
@@ -148,11 +149,11 @@ applyRefactSpec = do
     -- ---------------------------------
 
     it "reports error without crash" $ do
-      filePath  <- filePathToUri <$> makeAbsolute "./test/testdata/ApplyRefactError.hs"
-
+      fp <- makeAbsolute "./test/testdata/ApplyRefactError.hs"
+      let filePath = filePathToUri fp
       let req = applyAllCmd filePath
           isExpectedError (IdeResultFail (IdeError PluginError err _)) =
               "Illegal symbol '.' in type" `T.isInfixOf` err
           isExpectedError _ = False
-      r <- withCurrentDirectory "./test/testdata" $ runIGM testPlugins req
+      r <- withCurrentDirectory "./test/testdata" $ runIGM testPlugins fp req
       r `shouldSatisfy` isExpectedError
