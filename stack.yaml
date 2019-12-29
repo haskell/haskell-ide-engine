@@ -5,10 +5,10 @@ packages:
 
 extra-deps:
 # - ./submodules/HaRe
-- ./submodules/cabal-helper
 - ./submodules/apply-refact
 
 - bytestring-trie-0.2.5.0
+- cabal-helper-1.0.0.0
 - clock-0.7.2
 - constrained-dynamic-0.1.0.0
 - floskell-0.10.2
