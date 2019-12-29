@@ -144,7 +144,7 @@ runScheduler
   -> CallbackHandler m
      -- ^ A handler to run the requests' callback in your monad of choosing.
   -> Core.LspFuncs Config
-     -- ^ The LspFuncs provided by haskell-lsp, if using LSP.
+      -- ^ The LspFuncs provided by haskell-lsp.
   -> Maybe Bios.Cradle
      -- ^ Context in which the ghc thread is executed.
      -- Neccessary to obtain the libdir, for example.
