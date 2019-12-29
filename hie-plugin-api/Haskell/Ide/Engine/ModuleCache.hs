@@ -166,7 +166,7 @@ loadCradle iniDynFlags (NewCradle fp) def action = do
         -- just pretend the file doesn't exist.
         return $ IdeResultOk def
       BIOS.CradleFail err -> do
-        logm $ "GhcException on cradle initialisation: " ++ show err
+        logm $ "Fail on cradle initialisation: " ++ show err
         return $ IdeResultFail $ IdeError
             { ideCode    = OtherError
             , ideMessage = Text.pack $ show err

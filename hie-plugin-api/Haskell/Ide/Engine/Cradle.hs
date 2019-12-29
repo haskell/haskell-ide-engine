@@ -13,11 +13,11 @@ import           Distribution.Helper (Package, projectPackages, pUnits,
                                       unChModuleName, Ex(..), ProjLoc(..),
                                       QueryEnv, mkQueryEnv, runQuery,
                                       Unit, unitInfo, uiComponents,
-                                      ChEntrypoint(..))
+                                      ChEntrypoint(..), uComponentName)
 import           Distribution.Helper.Discover (findProjects, getDefaultDistDir)
 import           Data.Char (toLower)
 import           Data.Function ((&))
-import           Data.List (isPrefixOf, isInfixOf, sortOn, find)
+import           Data.List (isPrefixOf, isInfixOf, sortOn, find, intercalate)
 import qualified Data.List.NonEmpty as NonEmpty
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.Map as M
@@ -45,10 +45,13 @@ import           System.Process (readCreateProcessWithExitCode, shell)
 findLocalCradle :: FilePath -> IO Cradle
 findLocalCradle fp = do
   cradleConf <- BIOS.findCradle fp
-  case cradleConf of
-    Just yaml -> BIOS.loadCradle yaml
+  crdl <- case cradleConf of
+    Just yaml -> do
+      debugm $ "Found \"" ++ yaml ++ "\" for \"" ++ fp ++ "\""
+      BIOS.loadCradle yaml
     Nothing   -> cabalHelperCradle fp
-
+  logm $ "Module \"" ++ fp ++ "\" is loaded by Cradle: " ++ show crdl
+  return crdl
 -- | Check if the given cradle is a stack cradle.
 -- This might be used to determine the GHC version to use on the project.
 -- If it is a stack-cradle, we have to use `stack path --compiler-exe`
@@ -512,7 +515,7 @@ cabalHelperCradle file = do
         debugm $ "Relative Module FilePath: " ++ relativeFp
         getComponent env (toList units) relativeFp
           >>= \case
-            Just comp -> do
+            Right comp -> do
               let fs' = getFlags comp
               let fs = map (fixImportDirs root) fs'
               let targets = getTargets comp relativeFp
@@ -524,11 +527,11 @@ cabalHelperCradle file = do
                   ComponentOptions { componentOptions = ghcOptions
                                    , componentDependencies = []
                                    }
-            Nothing   -> return
+            Left err   -> return
               $ CradleFail
               $ CradleError
                 (ExitFailure 2)
-                ["Could not obtain flags for " ++ fp]
+                [err]
 
 -- | Get the component the given FilePath most likely belongs to.
 -- Lazily ask units whether the given FilePath is part of one of their
@@ -538,25 +541,59 @@ cabalHelperCradle file = do
 -- The given FilePath must be relative to the Root of the project
 -- the given units belong to.
 getComponent
-  :: QueryEnv pt -> [Unit pt] -> FilePath -> IO (Maybe ChComponentInfo)
-getComponent _env [] _fp = return Nothing
-getComponent env (unit : units) fp =
-  try (runQuery (unitInfo unit) env) >>= \case
-    Left (e :: IOException) -> do
-      warningm $ "Catching and swallowing an IOException: " ++ show e
-      warningm
-        $  "The Exception was thrown in the context of finding"
-        ++ " a component for \""
-        ++ fp
-        ++ "\" in the unit: "
-        ++ show unit
-      getComponent env units fp
-    Right ui -> do
-      let components = M.elems (uiComponents ui)
-      debugm $ "Unit Info: " ++ show ui
-      case find (fp `partOfComponent`) components of
-        Nothing -> getComponent env units fp
-        comp    -> return comp
+  :: forall pt. QueryEnv pt -> [Unit pt] -> FilePath -> IO (Either String ChComponentInfo)
+getComponent env unitCandidates fp = getComponent' [] [] unitCandidates >>=
+    \case
+      (tried, failed, Nothing) -> return (Left $ buildErrorMsg tried failed)
+      (_, _, Just comp) -> return (Right comp)
+  where
+    getComponent' :: [Unit pt] -> [Unit pt] -> [Unit pt] -> IO ([Unit pt], [Unit pt], Maybe ChComponentInfo)
+    getComponent' triedUnits failedUnits [] = return (triedUnits, failedUnits, Nothing)
+    getComponent' triedUnits failedUnits (unit : units) =
+      try (runQuery (unitInfo unit) env) >>= \case
+        Left (e :: IOException) -> do
+          warningm $ "Catching and swallowing an IOException: " ++ show e
+          warningm
+            $  "The Exception was thrown in the context of finding"
+            ++ " a component for \""
+            ++ fp
+            ++ "\" in the unit: "
+            ++ show unit
+          getComponent' triedUnits (unit:failedUnits) units
+        Right ui -> do
+          let components = M.elems (uiComponents ui)
+          debugm $ "Unit Info: " ++ show ui
+          case find (fp `partOfComponent`) components of
+            Nothing -> getComponent' (unit:triedUnits) failedUnits units
+            comp    -> return (triedUnits, failedUnits, comp)
+
+    buildErrorMsg :: [Unit pt] -> [Unit pt] -> String
+    buildErrorMsg triedUnits failedUnits = unlines $
+            [ "Could not obtain flags for: \"" ++ fp ++ "\"."]
+            ++
+            [ unlines
+              [ "The given File was not part of any component."
+              , "No component exposes this module, we tried the following:"
+              , intercalate "," (map showUnitInfo triedUnits)
+              , "If you dont know how to expose a module take a look at: "
+              , "https://www.haskell.org/cabal/users-guide/developing-packages.html"
+              ]
+            | not( null triedUnits)
+            ]
+            ++
+            [ unlines
+              [ "We could not build all components."
+              , "If one of these components exposes the module, make sure these compile."
+              , "The following components failed to compile:"
+              , intercalate "," (map showUnitInfo failedUnits)
+              ]
+            | not (null failedUnits)
+            ]
+
+    -- TODO: this is terrible
+    showUnitInfo :: Unit pt -> String
+    showUnitInfo unit = maybe (show unit) show (uComponentName unit)
+
 
 -- | Check whether the given FilePath is part of the Component.
 -- A FilePath is part of the Component if and only if:

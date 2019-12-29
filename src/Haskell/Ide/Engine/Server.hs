@@ -182,7 +182,12 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
 
           Left (e :: Yaml.ParseException) -> do
             logm $ "Failed to parse `hie.yaml`: " ++ show e
-            sf $ NotShowMessage $ fmServerShowMessageNotification J.MtError ("Couldn't parse hie.yaml: \n" <> T.pack (show e))
+            sf $ NotShowMessage
+               $ fmServerShowMessageNotification
+                  J.MtError
+                    (  "Couldn't parse hie.yaml: \n"
+                    <> T.pack (Yaml.prettyPrintParseException e)
+                    )
 
         let mcradle = case cradleRes of
               Left _ -> Nothing
