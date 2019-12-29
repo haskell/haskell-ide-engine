@@ -3,7 +3,6 @@ packages:
          ./hie-plugin-api/
 
          -- ./submodules/HaRe
-         ./submodules/cabal-helper/
 
 tests: true
 
