@@ -143,13 +143,13 @@ runScheduler
      -- ^ A handler for any errors that the dispatcher may encounter.
   -> CallbackHandler m
      -- ^ A handler to run the requests' callback in your monad of choosing.
-  -> Maybe (Core.LspFuncs Config)
+  -> Core.LspFuncs Config
      -- ^ The LspFuncs provided by haskell-lsp, if using LSP.
   -> Maybe Bios.Cradle
      -- ^ Context in which the ghc thread is executed.
      -- Neccessary to obtain the libdir, for example.
   -> IO ()
-runScheduler Scheduler {..} errorHandler callbackHandler mlf mcrdl = do
+runScheduler Scheduler {..} errorHandler callbackHandler lf mcradle = do
   let dEnv = DispatcherEnv
         { cancelReqsTVar = requestsToCancel
         , wipReqsTVar    = requestsInProgress
@@ -163,13 +163,13 @@ runScheduler Scheduler {..} errorHandler callbackHandler mlf mcrdl = do
 
   stateVar <- STM.newTVarIO initialState
 
-  mlibdir <- case mcrdl of
+  mlibdir <- case mcradle of
     Nothing -> return Nothing
     Just crdl -> Bios.getProjectGhcLibDir crdl
 
-  let runGhcDisp = runIdeGhcM mlibdir plugins mlf stateVar $
+  let runGhcDisp = runIdeGhcM mlibdir plugins lf stateVar $
                     ghcDispatcher dEnv errorHandler callbackHandler ghcChanOut
-      runIdeDisp = runIdeM plugins mlf stateVar $
+      runIdeDisp = runIdeM plugins lf stateVar $
                     ideDispatcher dEnv errorHandler callbackHandler ideChanOut
 
 

@@ -10,7 +10,6 @@ import           Data.Aeson
 -- import qualified Data.HashMap.Strict                   as H
 import           Data.Typeable
 import qualified Data.Text as T
-import           Data.Default
 import           GHC                            ( TypecheckedModule )
 import           GHC.Generics
 import           Haskell.Ide.Engine.Ghc
@@ -81,7 +80,7 @@ startServer = do
       scheduler
       (\lid errCode e -> logToChan logChan ("received an error", Left (lid, errCode, e)))
       (\g x -> g x)
-      def
+      dummyLspFuncs
       (Just crdl)
 
   return (scheduler, logChan, dispatcher)
