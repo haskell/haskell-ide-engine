@@ -5,17 +5,19 @@ packages:
 
 extra-deps:
 # - ./submodules/HaRe
-- ./submodules/cabal-helper
 
-- brittany-0.12.1.0
 - base-compat-0.9.3
+- brittany-0.12.1.0
 - bytestring-trie-0.2.5.0
+- cabal-helper-1.0.0.0
 - cabal-plan-0.5.0.0
 - connection-0.3.1 # for network and network-bsd
 - constrained-dynamic-0.1.0.0
-- ghc-exactprint-0.6.2 # for HaRe
+- extra-1.6.18
+- file-embed-0.0.11
 - filepattern-0.1.1
 - floskell-0.10.2
+- ghc-exactprint-0.6.2 # for HaRe
 - ghc-lib-parser-8.8.1
 - haddock-api-2.20.0
 - haddock-library-1.6.0
@@ -28,16 +30,21 @@ extra-deps:
 - hoogle-5.0.17.11
 - hsimport-0.11.0
 - hslogger-1.3.1.0
+- libyaml-0.1.1.0
 - lsp-test-0.10.0.0
 - monad-dijkstra-0.1.1.2
 - network-3.1.1.1 # for hslogger
 - network-bsd-2.8.1.0 # for hslogger
+- parser-combinators-1.2.1
 - pretty-show-1.8.2
 - rope-utf16-splay-0.3.1.0
-- syz-0.2.0.0
 - simple-sendfile-0.2.30 # for network and network-bsd
 - socks-0.6.1 # for network and network-bsd
+- syz-0.2.0.0
 - temporary-1.2.1.1
+- unix-compat-0.5.2
+- unordered-containers-0.2.10.0
+- yaml-0.11.1.2
 # To make build work in windows 7
 - unix-time-0.4.7
 - windns-0.1.0.0
@@ -46,14 +53,6 @@ extra-deps:
 - warp-3.2.28 # for network and network-bsd
 - wai-3.2.2.1 # for network and network-bsd
 
-
-- extra-1.6.18@sha256:5f1fff126f0ae47b701fff5aa8462dc63cb44465d5a724b0afd20a3d731903af
-- unix-compat-0.5.2@sha256:16763f1fae4a25abf61ac6195eb530ce838474bd04d86c7d353340aee8716bbb
-- yaml-0.11.1.2@sha256:cbc4ddb233c564967aad27ee47c1cd8fd6a06b9183353e76fe66c9be7c9dfd76
-- file-embed-0.0.11@sha256:77bb3b1dc219ccd682706b1d3dfbc5bf2db5beb1af6c108ed9e0f5b4d58a5a0a,1325
-- libyaml-0.1.1.0@sha256:b3fcd8c44622c75e054c2267f3fec39a58a311748000310cbc8257a4683d3f02,2090
-- unordered-containers-0.2.10.0@sha256:5e9b095a9283d9e2f064fec73a81a6b6ea0b7fda3f219a8175785d2d2a3de204
-- parser-combinators-1.2.1@sha256:16c3490e007ec10b1255a2b36fb483d000156d555269107131241d9e0fa96412,1788
 
 flags:
   haskell-ide-engine:
