@@ -39,7 +39,7 @@ ghcmodSpec =
       fp <- makeAbsolute "./FileWithWarning.hs"
       let act = setTypecheckedModule arg
           arg = filePathToUri fp
-      IdeResultOk (_,env) <- runSingle testPlugins act
+      IdeResultOk (_,env) <- runSingle testPlugins fp act
       case env of
         [] -> return ()
         [s] -> T.unpack s `shouldStartWith` "Loaded package environment from"
@@ -55,7 +55,7 @@ ghcmodSpec =
                             "Variable not in scope: x"
                             Nothing
 
-      testCommand testPlugins act "ghcmod" "check" arg res
+      testCommand testPlugins fp act "ghcmod" "check" arg res
 
 
 -- ----------------------------------------------------------------------------
@@ -72,7 +72,7 @@ ghcmodSpec =
             , (Range (toPos (5,1)) (toPos (5,14)), "Int -> Int")
             ]
 
-      testCommand testPlugins act "ghcmod" "type" arg res
+      testCommand testPlugins fp act "ghcmod" "type" arg res
 
 
 -- ----------------------------------------------------------------------------
