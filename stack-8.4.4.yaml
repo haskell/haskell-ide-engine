@@ -27,7 +27,7 @@ extra-deps:
 - hoogle-5.0.17.11
 - hsimport-0.11.0
 - hslogger-1.3.1.0
-- lsp-test-0.9.0.0
+- lsp-test-0.10.0.0
 - monad-dijkstra-0.1.1.2
 - network-3.1.1.1 # for hslogger
 - network-bsd-2.8.1.0 # for hslogger
@@ -50,6 +50,7 @@ extra-deps:
 - unordered-containers-0.2.10.0@sha256:5e9b095a9283d9e2f064fec73a81a6b6ea0b7fda3f219a8175785d2d2a3de204
 - file-embed-0.0.11@sha256:77bb3b1dc219ccd682706b1d3dfbc5bf2db5beb1af6c108ed9e0f5b4d58a5a0a,1325
 - libyaml-0.1.1.0@sha256:b3fcd8c44622c75e054c2267f3fec39a58a311748000310cbc8257a4683d3f02,2090
+- parser-combinators-1.2.1@sha256:16c3490e007ec10b1255a2b36fb483d000156d555269107131241d9e0fa96412,1788
 
 flags:
   haskell-ide-engine:

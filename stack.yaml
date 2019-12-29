@@ -22,7 +22,7 @@ extra-deps:
 - hie-bios-0.3.2
 - hlint-2.2.4
 - hsimport-0.11.0
-- lsp-test-0.9.0.0
+- lsp-test-0.10.0.0
 - monad-dijkstra-0.1.1.2@rev:1
 - syz-0.2.0.0
 - temporary-1.2.1.1
@@ -31,6 +31,7 @@ extra-deps:
 - extra-1.6.18
 - unix-compat-0.5.2
 - yaml-0.11.1.2
+- parser-combinators-1.2.1@sha256:16c3490e007ec10b1255a2b36fb483d000156d555269107131241d9e0fa96412,1788
 
 flags:
   haskell-ide-engine:
