@@ -10,6 +10,3 @@
 #     rm -rf path_to_submodule
 
 
-[submodule "submodules/apply-refact"]
-	path = submodules/apply-refact
-	url = https://github.com/mpickering/apply-refact.git

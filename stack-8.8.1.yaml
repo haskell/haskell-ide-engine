@@ -5,8 +5,8 @@ packages:
 
 extra-deps:
 # - ./submodules/HaRe
-- ./submodules/apply-refact
 
+- apply-refact-0.7.0.0
 - bytestring-trie-0.2.5.0
 - cabal-helper-1.0.0.0
 - clock-0.7.2
