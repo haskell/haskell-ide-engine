@@ -14,10 +14,7 @@
 [appveyor]: https://ci.appveyor.com/project/Bubba/haskell-ide-engine-74xec
 
 
-This project aims to be __the universal interface__ to __a growing number of Haskell tools__, providing a __full-featured and easy to query backend__ for editors and IDEs that require Haskell-specific functionality.
-
-__We are currently focusing on using the [Language Server Protocol](https://github.com/Microsoft/language-server-protocol/blob/master/protocol.md) as the interface via which
-we talk to clients.__
+This project aims to be __the universal interface__ to __a growing number of Haskell tools__, providing a __fully-featured [Language Server Protocol](https://github.com/Microsoft/language-server-protocol/blob/master/protocol.md) server__ for editors and IDEs that require Haskell-specific functionality.
 
 - [Haskell IDE Engine (HIE)](#haskell-ide-engine-hie)
   - [Features](#features)
@@ -545,9 +542,10 @@ Then issue `:CocConfig` and add the following to your Coc config file.
   "haskell": {
     "command": "hie-wrapper",
     "rootPatterns": [
-      ".stack.yaml",
-      "cabal.config",
-      "package.yaml"
+      "*.cabal",
+      "stack.yaml",
+      "cabal.project",
+      "package.yaml",
     ],
     "filetypes": [
       "hs",
