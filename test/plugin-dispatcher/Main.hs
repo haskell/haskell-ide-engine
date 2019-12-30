@@ -6,7 +6,6 @@ import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
 import           Control.Monad.STM
 import qualified Data.Text as T
-import           Data.Default
 import qualified Haskell.Ide.Engine.Cradle as Bios
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Scheduler
@@ -51,7 +50,7 @@ newPluginSpec = do
       pid <- forkIO $ runScheduler scheduler
                               (\_ _ _ -> return ())
                               (\f x -> f x)
-                              def
+                              dummyLspFuncs
                               (Just crdl)
 
       updateDocument scheduler (filePathToUri "test") 3

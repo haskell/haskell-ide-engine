@@ -193,7 +193,7 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
         -- recognized properly by ghc-mod
         flip labelThread "scheduler" =<<
             (forkIO (
-              Scheduler.runScheduler scheduler errorHandler callbackHandler (Just lf) mcradle
+              Scheduler.runScheduler scheduler errorHandler callbackHandler lf mcradle
               `E.catch` \(e :: E.SomeException) ->
               (errorm $ "Scheduler thread exited unexpectedly: " ++ show e)
             ))
