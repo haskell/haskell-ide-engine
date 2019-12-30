@@ -145,11 +145,12 @@ runScheduler
      -- ^ A handler to run the requests' callback in your monad of choosing.
   -> Core.LspFuncs Config
       -- ^ The LspFuncs provided by haskell-lsp.
+  -> PublishDiagnostics
   -> Maybe Bios.Cradle
      -- ^ Context in which the ghc thread is executed.
      -- Neccessary to obtain the libdir, for example.
   -> IO ()
-runScheduler Scheduler {..} errorHandler callbackHandler lf mcradle = do
+runScheduler Scheduler {..} errorHandler callbackHandler lf pubDiags  mcradle = do
   let dEnv = DispatcherEnv
         { cancelReqsTVar = requestsToCancel
         , wipReqsTVar    = requestsInProgress
@@ -168,7 +169,7 @@ runScheduler Scheduler {..} errorHandler callbackHandler lf mcradle = do
     Just crdl -> Bios.getProjectGhcLibDir crdl
 
   let runGhcDisp = runIdeGhcM mlibdir plugins lf stateVar $
-                    ghcDispatcher dEnv errorHandler callbackHandler ghcChanOut
+                    ghcDispatcher dEnv errorHandler pubDiags callbackHandler ghcChanOut
       runIdeDisp = runIdeM plugins lf stateVar $
                     ideDispatcher dEnv errorHandler callbackHandler ideChanOut
 
@@ -322,10 +323,11 @@ ghcDispatcher
   :: forall void m
    . DispatcherEnv
   -> ErrorHandler
+  -> PublishDiagnostics
   -> CallbackHandler m
   -> Channel.OutChan (GhcRequest m)
   -> IdeGhcM void
-ghcDispatcher env@DispatcherEnv { docVersionTVar } errorHandler callbackHandler pin
+ghcDispatcher env@DispatcherEnv { docVersionTVar } errorHandler publishDiagnostics callbackHandler pin
   = do
   iniDynFlags <- getSessionDynFlags
   forever $ do
@@ -339,13 +341,13 @@ ghcDispatcher env@DispatcherEnv { docVersionTVar } errorHandler callbackHandler 
       runner :: a -> IdeGhcM a -> IdeGhcM (IdeResult  a)
 
       runner a act = case context of
-        Nothing  -> runActionWithContext iniDynFlags Nothing a act
+        Nothing  -> runActionWithContext publishDiagnostics iniDynFlags Nothing a act
         Just uri -> case uriToFilePath uri of
-          Just fp -> runActionWithContext iniDynFlags (Just fp) a act
+          Just fp -> runActionWithContext publishDiagnostics iniDynFlags (Just fp) a act
           Nothing -> do
             debugm
               "ghcDispatcher:Got malformed uri, running action with default context"
-            runActionWithContext iniDynFlags Nothing a act
+            runActionWithContext publishDiagnostics iniDynFlags Nothing a act
 
     let
       runWithCallback = do

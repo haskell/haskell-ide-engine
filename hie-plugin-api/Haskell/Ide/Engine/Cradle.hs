@@ -434,12 +434,13 @@ cabalHelperCradle file = do
                                 }
                }
     Just (Ex proj) -> do
+      logm $ "Cabal-Helper decided to use: " ++ show proj
       -- Find the root of the project based on project type.
       let root = projectRootDir proj
       -- Create a suffix for the cradle name.
       -- Purpose is mainly for easier debugging.
       let actionNameSuffix = projectSuffix proj
-      logm $ "Cabal-Helper dirs: " ++ show [root, file]
+      debugm $ "Cabal-Helper dirs: " ++ show [root, file]
       let dist_dir = getDefaultDistDir proj
       env <- mkQueryEnv proj dist_dir
       packages <- runQuery projectPackages env
@@ -531,7 +532,7 @@ cabalHelperCradle file = do
               $ CradleFail
               $ CradleError
                 (ExitFailure 2)
-                [err]
+                err
 
 -- | Get the component the given FilePath most likely belongs to.
 -- Lazily ask units whether the given FilePath is part of one of their
@@ -541,7 +542,7 @@ cabalHelperCradle file = do
 -- The given FilePath must be relative to the Root of the project
 -- the given units belong to.
 getComponent
-  :: forall pt. QueryEnv pt -> [Unit pt] -> FilePath -> IO (Either String ChComponentInfo)
+  :: forall pt. QueryEnv pt -> [Unit pt] -> FilePath -> IO (Either [String] ChComponentInfo)
 getComponent env unitCandidates fp = getComponent' [] [] unitCandidates >>=
     \case
       (tried, failed, Nothing) -> return (Left $ buildErrorMsg tried failed)
@@ -567,33 +568,28 @@ getComponent env unitCandidates fp = getComponent' [] [] unitCandidates >>=
             Nothing -> getComponent' (unit:triedUnits) failedUnits units
             comp    -> return (triedUnits, failedUnits, comp)
 
-    buildErrorMsg :: [Unit pt] -> [Unit pt] -> String
-    buildErrorMsg triedUnits failedUnits = unlines $
-            [ "Could not obtain flags for: \"" ++ fp ++ "\"."]
-            ++
-            [ unlines
-              [ "The given File was not part of any component."
-              , "No component exposes this module, we tried the following:"
-              , intercalate "," (map showUnitInfo triedUnits)
-              , "If you dont know how to expose a module take a look at: "
-              , "https://www.haskell.org/cabal/users-guide/developing-packages.html"
-              ]
-            | not( null triedUnits)
+    buildErrorMsg :: [Unit pt] -> [Unit pt] -> [String]
+    buildErrorMsg triedUnits failedUnits =
+            [ "Could not obtain flags for: \"" ++ fp ++ "\"."
+            , ""
             ]
-            ++
-            [ unlines
-              [ "We could not build all components."
-              , "If one of these components exposes the module, make sure these compile."
-              , "The following components failed to compile:"
-              , intercalate "," (map showUnitInfo failedUnits)
+            ++ concat
+              [
+                [ "This Module was not part of any component we are aware of."
+                , ""
+                , "If you dont know how to expose a module, take a look at: "
+                , "https://www.haskell.org/cabal/users-guide/developing-packages.html"
+                , ""
+                ]
+              | not (null triedUnits)
               ]
-            | not (null failedUnits)
-            ]
-
-    -- TODO: this is terrible
-    showUnitInfo :: Unit pt -> String
-    showUnitInfo unit = maybe (show unit) show (uComponentName unit)
-
+            ++ concat
+              [
+                [ "We could not build all components."
+                , "If one of these components exposes this Module, make sure they compile."
+                ]
+              | not (null failedUnits)
+              ]
 
 -- | Check whether the given FilePath is part of the Component.
 -- A FilePath is part of the Component if and only if:

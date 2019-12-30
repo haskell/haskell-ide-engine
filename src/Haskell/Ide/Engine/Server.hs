@@ -197,23 +197,27 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
         -- We launch the dispatcher after that so that the default cradle is
         -- recognized properly by ghc-mod
         flip labelThread "scheduler" =<<
-            (forkIO (
-              Scheduler.runScheduler scheduler errorHandler callbackHandler lf mcradle
-              `E.catch` \(e :: E.SomeException) ->
-              (errorm $ "Scheduler thread exited unexpectedly: " ++ show e)
-            ))
+            forkIO
+              ( Scheduler.runScheduler scheduler errorHandler callbackHandler lf (publishDiagnostics' lf) mcradle
+                `E.catch`
+                \(e :: E.SomeException) ->
+                  errorm $ "Scheduler thread exited unexpectedly: " ++ show e
+              )
         flip labelThread "reactor" =<<
-            (forkIO (
-              reactorFunc
-              `E.catch` \(e :: E.SomeException) ->
-              (errorm $ "Reactor thread exited unexpectedly: " ++ show e)
-            ))
+            forkIO
+              ( reactorFunc
+                `E.catch`
+                \(e :: E.SomeException) ->
+                  errorm $ "Reactor thread exited unexpectedly: " ++ show e
+              )
+
         flip labelThread "diagnostics" =<<
-            (forkIO (
-              diagnosticsQueue tr
-              `E.catch` \(e :: E.SomeException) ->
-              (errorm $ "Diagnostic thread exited unexpectedly: " ++ show e)
-            ))
+            forkIO
+              ( diagnosticsQueue tr
+                `E.catch`
+                 \(e :: E.SomeException) ->
+                  errorm $ "Diagnostic thread exited unexpectedly: " ++ show e
+              )
 
         return Nothing
 
@@ -358,7 +362,14 @@ publishDiagnostics :: (MonadIO m, MonadReader REnv m)
   => Int -> J.NormalizedUri -> J.TextDocumentVersion -> DiagnosticsBySource -> m ()
 publishDiagnostics maxToSend uri' mv diags = do
   lf <- asks lspFuncs
+  publishDiagnostics' lf maxToSend uri' mv diags
+
+
+publishDiagnostics' :: MonadIO m
+  => Core.LspFuncs c  -> Int -> J.NormalizedUri -> J.TextDocumentVersion -> DiagnosticsBySource -> m ()
+publishDiagnostics' lf maxToSend uri' mv diags =
   liftIO $ Core.publishDiagnosticsFunc lf maxToSend uri' mv diags
+
 
 -- ---------------------------------------------------------------------
 

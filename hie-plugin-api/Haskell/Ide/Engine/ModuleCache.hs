@@ -4,7 +4,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -24,6 +23,7 @@ module Haskell.Ide.Engine.ModuleCache
   , cacheInfoNoClear
   , runActionWithContext
   , ModuleCache(..)
+  , PublishDiagnostics
   ) where
 
 
@@ -32,26 +32,28 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Control
 import           Control.Monad.Trans.Free
+import qualified Data.Aeson as Aeson
+import qualified Data.ByteString.Char8 as B
 import           Data.Dynamic (toDyn, fromDynamic, Dynamic)
 import           Data.Generics (Proxy(..), TypeRep, typeRep, typeOf)
 import qualified Data.Map as Map
 import           Data.Maybe
+import qualified Data.SortedList as SL
+import qualified Data.Trie.Convenience as T
+import qualified Data.Trie as T
+import qualified Data.Text as Text
 import           Data.Typeable (Typeable)
+import qualified Data.Yaml as Yaml
 import           System.Directory
 
 
 import qualified GHC
 import qualified HscMain as GHC
+import qualified HIE.Bios as Bios
+import qualified HIE.Bios.Ghc.Api as Bios
 
-import qualified Data.Aeson as Aeson
-import qualified Data.Trie.Convenience as T
-import qualified Data.Trie as T
-import qualified Data.Text as Text
-import qualified Data.Yaml as Yaml
-import qualified HIE.Bios as BIOS
-import qualified HIE.Bios.Ghc.Api as BIOS
-import qualified Data.ByteString.Char8 as B
-
+import qualified Language.Haskell.LSP.Types as J
+import qualified Language.Haskell.LSP.Diagnostics as J
 import           Haskell.Ide.Engine.ArtifactMap
 import           Haskell.Ide.Engine.Cradle (findLocalCradle, cradleDisplay)
 import           Haskell.Ide.Engine.TypeMap
@@ -68,6 +70,9 @@ modifyCache :: (HasGhcModuleCache m) => (GhcModuleCache -> GhcModuleCache) -> m 
 modifyCache f = modifyModuleCache f
 
 -- ---------------------------------------------------------------------
+
+type PublishDiagnostics = Int -> J.NormalizedUri -> J.TextDocumentVersion -> J.DiagnosticsBySource -> IO ()
+
 -- | Run the given action in context and initialise a session with hie-bios.
 -- If a context is given, the context is used to initialise a session for GHC.
 -- The project "hie-bios" is used to find a Cradle and setup a GHC session
@@ -88,22 +93,23 @@ modifyCache f = modifyModuleCache f
 -- though we know nothing about the file.
 -- 2. Return the default value for the specific action.
 runActionWithContext :: (MonadIde m, GHC.GhcMonad m, HasGhcModuleCache m, MonadBaseControl IO m)
-                     => GHC.DynFlags
+                     => PublishDiagnostics
+                     -> GHC.DynFlags
                      -> Maybe FilePath -- ^ Context for the Action
                      -> a -- ^ Default value for none cradle
                      -> m a -- ^ Action to execute
                      -> m (IdeResult a) -- ^ Result of the action or error in
                                         -- the context initialisation.
-runActionWithContext _df Nothing _def action =
+runActionWithContext _pub _df Nothing _def action =
   -- Cradle with no additional flags
   -- dir <- liftIO $ getCurrentDirectory
   --This causes problems when loading a later package which sets the
   --packageDb
-  -- loadCradle df (BIOS.defaultCradle dir)
+  -- loadCradle df (Bios.defaultCradle dir)
   fmap IdeResultOk action
-runActionWithContext df (Just uri) def action = do
+runActionWithContext publishDiagnostics df (Just uri) def action = do
   mcradle <- getCradle uri
-  loadCradle df mcradle def action
+  loadCradle publishDiagnostics df mcradle def action
 
 -- ---------------------------------------------------------------------
 
@@ -114,17 +120,18 @@ runActionWithContext df (Just uri) def action = do
 -- to set up the Session, including downloading all dependencies of a Cradle.
 loadCradle :: forall a m . (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m
               , MonadBaseControl IO m)
-              => GHC.DynFlags
+              => PublishDiagnostics
+              -> GHC.DynFlags
               -> LookupCradleResult
               -> a
               -> m a
               -> m (IdeResult a)
-loadCradle _ ReuseCradle _def action = do
+loadCradle _ _ ReuseCradle _def action = do
   -- Since we expect this message to show up often, only show in debug mode
   debugm "Reusing cradle"
   IdeResultOk <$> action
 
-loadCradle _iniDynFlags (LoadCradle (CachedCradle crd env)) _def action = do
+loadCradle _ _iniDynFlags (LoadCradle (CachedCradle crd env)) _def action = do
   -- Reloading a cradle happens on component switch
   logm $ "Switch to cradle: " ++ show crd
   -- Cache the existing cradle
@@ -133,7 +140,7 @@ loadCradle _iniDynFlags (LoadCradle (CachedCradle crd env)) _def action = do
   setCurrentCradle crd
   IdeResultOk <$> action
 
-loadCradle iniDynFlags (NewCradle fp) def action = do
+loadCradle publishDiagnostics iniDynFlags (NewCradle fp) def action = do
   -- If this message shows up a lot in the logs, it is an indicator for a bug
   logm $ "New cradle: " ++ fp
   -- Cache the existing cradle
@@ -156,34 +163,49 @@ loadCradle iniDynFlags (NewCradle fp) def action = do
  where
   -- | Initialise the given cradle. This might fail and return an error via `IdeResultFail`.
   -- Reports its progress to the client.
-  initialiseCradle :: (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m, MonadBaseControl IO m)
-                  => BIOS.Cradle -> (Progress -> IO ()) -> m (IdeResult a)
+  initialiseCradle :: (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m)
+                  => Bios.Cradle -> (Progress -> IO ()) -> m (IdeResult a)
   initialiseCradle cradle f = do
-    res <- BIOS.initializeFlagsWithCradleWithMessage (Just (toMessager f)) fp cradle
+    res <- Bios.initializeFlagsWithCradleWithMessage (Just (toMessager f)) fp cradle
     case res of
-      BIOS.CradleNone ->
+      Bios.CradleNone ->
         -- Note: The action is not run if we are in the none cradle, we
         -- just pretend the file doesn't exist.
         return $ IdeResultOk def
-      BIOS.CradleFail err -> do
-        logm $ "Fail on cradle initialisation: " ++ show err
+      Bios.CradleFail (Bios.CradleError code msg) -> do
+        warningm $ "Fail on cradle initialisation: (" ++ show code ++ ")" ++ show msg
+
+        -- Send a detailed diagnostic to the user.
+
+        let normalizedUri = J.toNormalizedUri (filePathToUri fp)
+            sev = Just DsError
+            range = Range (Position 0 0) (Position 1 0)
+            msgTxt =
+              [ "Fail on initialisation for \"" <> Text.pack fp <> "\"."
+              ] <> map Text.pack msg
+            source = Just "bios"
+            diag = Diagnostic range sev Nothing source (Text.unlines msgTxt) Nothing
+
+        liftIO $ publishDiagnostics maxBound normalizedUri Nothing
+            (Map.singleton source (SL.singleton diag))
+
         return $ IdeResultFail $ IdeError
             { ideCode    = OtherError
-            , ideMessage = Text.pack $ show err
+            , ideMessage = Text.unwords  (take 2 msgTxt)
             , ideInfo    = Aeson.Null
             }
-      BIOS.CradleSuccess init_session -> do
+      Bios.CradleSuccess init_session -> do
         -- Note that init_session contains a Hook to 'f'.
         -- So, it can still provide Progress Reports.
         -- Therefore, invocation of 'init_session' must happen
         -- while 'f' is still valid.
         liftIO (GHC.newHscEnv iniDynFlags) >>= GHC.setSession
-        liftIO $ setCurrentDirectory (BIOS.cradleRootDir cradle)
+        liftIO $ setCurrentDirectory (Bios.cradleRootDir cradle)
 
         let onGhcError = return . Left
         let onSourceError srcErr = do
               logm $ "Source error on cradle initialisation: " ++ show srcErr
-              return $ Right BIOS.Failed
+              return $ Right Bios.Failed
         -- We continue setting the cradle in case the file has source errors
         -- cause they will be reported to user by diagnostics
         init_res <- gcatches
@@ -202,12 +224,12 @@ loadCradle iniDynFlags (NewCradle fp) def action = do
             -- it on a save whilst there are errors. Subsequent loads won't
             -- be that slow, even though the cradle isn't cached because the
             -- `.hi` files will be saved.
-          Right BIOS.Succeeded -> do
+          Right Bios.Succeeded -> do
             setCurrentCradle cradle
             logm "Cradle set succesfully"
             IdeResultOk <$> action
 
-          Right BIOS.Failed -> do
+          Right Bios.Failed -> do
             setCurrentCradle cradle
             logm "Cradle did not load succesfully"
             IdeResultOk <$> action
@@ -217,7 +239,7 @@ loadCradle iniDynFlags (NewCradle fp) def action = do
 -- that belong to this cradle.
 -- If the cradle does not load any module, it is responsible for an empty
 -- list of Modules.
-setCurrentCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => BIOS.Cradle -> m ()
+setCurrentCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => Bios.Cradle -> m ()
 setCurrentCradle cradle = do
     mg <- GHC.getModuleGraph
     let ps = mapMaybe (GHC.ml_hs_file . GHC.ms_location) (mgModSummaries mg)
@@ -230,7 +252,7 @@ setCurrentCradle cradle = do
 -- for.
 -- Via 'lookupCradle' it can be checked if a given FilePath is managed by
 -- a any Cradle that has already been loaded.
-cacheCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => ([FilePath], BIOS.Cradle) -> m ()
+cacheCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => ([FilePath], Bios.Cradle) -> m ()
 cacheCradle (ds, c) = do
   env <- GHC.getSession
   let cc = CachedCradle c env
