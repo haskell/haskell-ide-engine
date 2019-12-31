@@ -235,12 +235,12 @@ findCabalHelperEntryPoint fp = do
       isStackProject (Ex ProjLocStackYaml {}) = True
       isStackProject _ = False
 
-      isCabalNewProject (Ex ProjLocV2Dir {}) = True
       isCabalNewProject (Ex ProjLocV2File {}) = True
       isCabalNewProject _ = False
 
       isCabalOldProject (Ex ProjLocV1Dir {}) = True
       isCabalOldProject (Ex ProjLocV1CabalFile {}) = True
+      isCabalOldProject (Ex ProjLocV2Dir {}) = True
       isCabalOldProject _ = False
 
 {- | Given a FilePath, find the cradle the FilePath belongs to.
