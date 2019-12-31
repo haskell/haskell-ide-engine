@@ -1,5 +1,8 @@
 cradle:
   cabal:
+    - path: "./hie-plugin-api/Haskell"
+      component: "lib:hie-plugin-api"
+
     - path: "./test/dispatcher/"
       component: "haskell-ide-engine:dispatcher-test"
 
@@ -15,14 +18,14 @@ cradle:
     - path: "./test/wrapper/"
       component: "haskell-ide-engine:wrapper-test"
 
-    - path: "./hie-plugin-api/"
-      component: "lib:hie-plugin-api"
+    - path: "./test/utils/"
+      component: "haskell-ide-engine:hie-test-utils"
 
     - path: "./app/MainHie.hs"
-      component: "haskell-ide-engine:hie:exe"
+      component: "haskell-ide-engine:hie"
 
     - path: "./app/HieWrapper.hs"
-      component: "haskell-ide-engine:hie-wrapper:exe"
+      component: "haskell-ide-engine:hie-wrapper"
 
     - path: "./"
       component: "lib:haskell-ide-engine"
