@@ -96,7 +96,6 @@ spec = do
   describe "ormolu" $ do
     let formatLspConfig provider =
           object [ "languageServerHaskell" .= object ["formattingProvider" .= (provider :: Value)] ]
-        formatConfig provider = defaultConfig { lspConfig = Just (formatLspConfig provider) }
         
     it "formats correctly" $ runSession hieCommand fullCaps "test/testdata" $ do
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (formatLspConfig "ormolu"))
