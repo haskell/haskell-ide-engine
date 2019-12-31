@@ -17,19 +17,20 @@ import           Distribution.Helper (Package, projectPackages, pUnits,
 import           Distribution.Helper.Discover (findProjects, getDefaultDistDir)
 import           Data.Char (toLower)
 import           Data.Function ((&))
-import           Data.List (isPrefixOf, isInfixOf)
+import           Data.List (isPrefixOf, isInfixOf, sortOn, find)
 import qualified Data.List.NonEmpty as NonEmpty
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.Map as M
-import           Data.List (sortOn, find)
 import           Data.Maybe (listToMaybe, mapMaybe, isJust)
 import           Data.Ord (Down(..))
 import           Data.String (IsString(..))
+import qualified Data.Text as T
 import           Data.Foldable (toList)
-import           Control.Exception (IOException, try)
+import           Control.Exception
 import           System.FilePath
 import           System.Directory (getCurrentDirectory, canonicalizePath, findExecutable)
 import           System.Exit
+import           System.Process (readCreateProcessWithExitCode, shell)
 
 -- | Find the cradle that the given File belongs to.
 --
@@ -56,6 +57,98 @@ isStackCradle :: Cradle -> Bool
 isStackCradle = (`elem` ["stack", "Cabal-Helper-Stack", "Cabal-Helper-Stack-None"])
   . BIOS.actionName
   . BIOS.cradleOptsProg
+
+  -- | Check if the given cradle is a cabal cradle.
+-- This might be used to determine the GHC version to use on the project.
+-- If it is a stack-cradle, we have to use `stack path --compiler-exe`
+-- otherwise we may ask `ghc` directly what version it is.
+isCabalCradle :: Cradle -> Bool
+isCabalCradle =
+  (`elem`
+    ["cabal"
+    , "Cabal-Helper-Cabal-V1"
+    , "Cabal-Helper-Cabal-V2"
+    , "Cabal-Helper-Cabal-V1-Dir"
+    , "Cabal-Helper-Cabal-V2-Dir"
+    , "Cabal-Helper-Cabal-None"
+    ]
+  )
+  . BIOS.actionName
+  . BIOS.cradleOptsProg
+
+-- | Execute @ghc@ that is based on the given cradle.
+-- Output must be a single line. If an error is raised, e.g. the command
+-- failed, a @Nothing@ is returned.
+-- The exact error is written to logs.
+--
+-- E.g. for a stack cradle, we use `stack ghc` and for a cabal cradle
+-- we are taking the @ghc@ that is on the path.
+execProjectGhc :: Cradle -> [String] -> IO (Maybe String)
+execProjectGhc crdl args = do
+  isStackInstalled <- isJust <$> findExecutable "stack"
+  -- isCabalInstalled <- isJust <$> findExecutable "cabal"
+  ghcOutput <- if isStackCradle crdl && isStackInstalled
+    then do
+      logm "Use Stack GHC"
+      catch (Just <$> tryCommand stackCmd) $ \(_ :: IOException) -> do
+        errorm $ "Command `" ++ stackCmd ++"` failed."
+        execWithGhc
+    -- The command `cabal v2-exec -v0 ghc` only works if the project has been
+    -- built already.
+    -- This command must work though before the project is build.
+    -- Therefore, fallback to "ghc" on the path.
+    --
+    -- else if isCabalCradle crdl && isCabalInstalled then do
+    --   let cmd = "cabal v2-exec -v0 ghc -- " ++ unwords args
+    --   catch (Just <$> tryCommand cmd) $ \(_ ::IOException) -> do
+    --     errorm $ "Command `" ++ cmd ++ "` failed."
+    --     return Nothing
+    else do
+      logm "Use Plain GHC"
+      execWithGhc
+  debugm $ "GHC Output: \"" ++ show ghcOutput ++ "\""
+  return ghcOutput
+  where
+    stackCmd = "stack ghc -- " ++ unwords args
+    plainCmd = "ghc " ++ unwords args
+
+    execWithGhc =
+      catch (Just <$> tryCommand plainCmd) $ \(_ :: IOException) -> do
+        errorm $ "Command `" ++ plainCmd ++"` failed."
+        return Nothing
+
+tryCommand :: String -> IO String
+tryCommand cmd = do
+  (code, sout, serr) <- readCreateProcessWithExitCode (shell cmd) ""
+  case code of
+    ExitFailure e -> do
+      let errmsg = concat
+            [ "`"
+            , cmd
+            , "`: Exit failure: "
+            , show e
+            , ", stdout: "
+            , sout
+            , ", stderr: "
+            , serr
+            ]
+      errorm errmsg
+      throwIO $ userError errmsg
+
+    ExitSuccess -> return $ T.unpack . T.strip . head . T.lines $ T.pack sout
+
+
+-- | Get the directory of the libdir based on the project ghc.
+getProjectGhcLibDir :: Cradle -> IO (Maybe FilePath)
+getProjectGhcLibDir crdl =
+  execProjectGhc crdl ["--print-libdir"] >>= \case
+    Nothing -> do
+      logm "Could not obtain the libdir."
+      return Nothing
+    mlibdir -> return mlibdir
+
+  -- ---------------------------------------------------------------------
+
 
 {- | Finds a Cabal v2-project, Cabal v1-project or a Stack project
 relative to the given FilePath.

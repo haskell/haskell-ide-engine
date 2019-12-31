@@ -125,9 +125,8 @@ import           Data.Typeable                  ( Typeable )
 
 import System.Directory
 import GhcMonad
-import qualified HIE.Bios.Ghc.Api as BIOS
 import           GHC.Generics
-import           GHC                            ( HscEnv )
+import           GHC                            ( HscEnv, runGhcT )
 import Exception
 
 import           Haskell.Ide.Engine.Compat
@@ -350,10 +349,10 @@ getDiagnosticProvidersConfig c = Map.fromList [("applyrefact",hlintOn c)
 type IdeGhcM = GhcT IdeM
 
 -- | Run an IdeGhcM with Cradle found from the current directory
-runIdeGhcM :: IdePlugins -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeGhcM a -> IO a
-runIdeGhcM plugins mlf stateVar f = do
-  env <- IdeEnv <$> pure mlf <*> getProcessID <*> pure plugins
-  flip runReaderT stateVar $ flip runReaderT env $ BIOS.withGhcT f
+runIdeGhcM :: Maybe FilePath -> IdePlugins -> Core.LspFuncs Config -> TVar IdeState -> IdeGhcM a -> IO a
+runIdeGhcM mlibdir plugins lf stateVar f = do
+  env <- IdeEnv <$> pure lf <*> getProcessID <*> pure plugins
+  flip runReaderT stateVar $ flip runReaderT env $ runGhcT mlibdir f
 
 -- | A computation that is deferred until the module is cached.
 -- Note that the module may not typecheck, in which case 'UriCacheFailed' is passed
@@ -363,14 +362,14 @@ type IdeDeferM = FreeT Defer IdeM
 type IdeM = ReaderT IdeEnv (MultiThreadState IdeState)
 
 -- | Run an IdeM
-runIdeM :: IdePlugins -> Maybe (Core.LspFuncs Config) -> TVar IdeState -> IdeM a -> IO a
-runIdeM plugins mlf stateVar f = do
-  env <- IdeEnv <$> pure mlf <*> getProcessID <*> pure plugins
+runIdeM :: IdePlugins -> Core.LspFuncs Config -> TVar IdeState -> IdeM a -> IO a
+runIdeM plugins lf stateVar f = do
+  env <- IdeEnv <$> pure lf <*> getProcessID <*> pure plugins
   -- TODO: AZ run a single ReaderT, with a composite R.
   flip runReaderT stateVar $ runReaderT f env
 
 data IdeEnv = IdeEnv
-  { ideEnvLspFuncs :: Maybe (Core.LspFuncs Config)
+  { ideEnvLspFuncs :: Core.LspFuncs Config
   -- | The pid of this instance of hie
   , ideEnvPidCache :: Int
   , idePlugins  :: IdePlugins
@@ -390,18 +389,12 @@ instance MonadIde IdeGhcM where
   getIdeEnv = lift ask
 
 getRootPath :: MonadIde m => m (Maybe FilePath)
-getRootPath = do
-  mlf <- ideEnvLspFuncs <$> getIdeEnv
-  case mlf of
-    Just lf -> return (Core.rootPath lf)
-    Nothing -> return Nothing
+getRootPath = Core.rootPath . ideEnvLspFuncs <$> getIdeEnv
 
 getVirtualFile :: (MonadIde m, MonadIO m) => Uri -> m (Maybe VirtualFile)
 getVirtualFile uri = do
-  mlf <- ideEnvLspFuncs <$> getIdeEnv
-  case mlf of
-    Just lf -> liftIO $ Core.getVirtualFileFunc lf (toNormalizedUri uri)
-    Nothing -> return Nothing
+  lf <- ideEnvLspFuncs <$> getIdeEnv
+  liftIO $ Core.getVirtualFileFunc lf (toNormalizedUri uri)
 
 -- | Worker function for persistVirtualFile without monad constraints.
 --
@@ -413,19 +406,15 @@ persistVirtualFile' lf uri = Core.persistVirtualFileFunc lf (toNormalizedUri uri
 
 reverseFileMap :: (MonadIde m, MonadIO m) => m (FilePath -> FilePath)
 reverseFileMap = do
-    mlf <- ideEnvLspFuncs <$> getIdeEnv
-    case mlf of
-      Just lf -> liftIO $ Core.reverseFileMapFunc lf
-      Nothing -> return id
+  lf <- ideEnvLspFuncs <$> getIdeEnv
+  liftIO $ Core.reverseFileMapFunc lf
 
 -- | Get the location of the virtual file persisted to the file system associated
 -- to the given Uri.
 getPersistedFile :: (MonadIde m, MonadIO m) => Uri -> m (Maybe FilePath)
 getPersistedFile uri = do
-  mlf <- ideEnvLspFuncs <$> getIdeEnv
-  case mlf of
-    Just lf -> liftIO $ persistVirtualFile' lf uri
-    Nothing -> return $ uriToFilePath uri
+  lf <- ideEnvLspFuncs <$> getIdeEnv
+  liftIO $ persistVirtualFile' lf uri
 
 -- | Execute an action on the temporary file associated to the given FilePath.
 -- If the file is not in the current Virtual File System, the given action is not executed
@@ -439,17 +428,11 @@ withMappedFile fp m k = do
 
 getConfig :: (MonadIde m, MonadIO m) => m Config
 getConfig = do
-  mlf <- ideEnvLspFuncs <$> getIdeEnv
-  case mlf of
-    Just lf -> fromMaybe def <$> liftIO (Core.config lf)
-    Nothing -> return def
+  lf <- ideEnvLspFuncs <$> getIdeEnv
+  fromMaybe def <$> liftIO (Core.config lf)
 
 getClientCapabilities :: MonadIde m => m ClientCapabilities
-getClientCapabilities = do
-  mlf <- ideEnvLspFuncs <$> getIdeEnv
-  case mlf of
-    Just lf -> return (Core.clientCapabilities lf)
-    Nothing -> return def
+getClientCapabilities = Core.clientCapabilities . ideEnvLspFuncs <$> getIdeEnv
 
 getPlugins :: MonadIde m => m IdePlugins
 getPlugins = idePlugins <$> getIdeEnv
@@ -462,10 +445,7 @@ withProgress :: (MonadIde m , MonadIO m, MonadBaseControl IO m)
              -> ((Core.Progress -> IO ()) -> m a) -> m a
 withProgress t c f = do
   lf <- ideEnvLspFuncs <$> getIdeEnv
-  let mWp = Core.withProgress <$> lf
-  case mWp of
-    Nothing -> f (const $ return ())
-    Just wp -> control $ \run -> wp t c $ \update -> run (f update)
+  control $ \run -> Core.withProgress lf t c $ \update -> run (f update)
 
 
 -- | 'withIndefiniteProgress' @title cancellable f@ is the same as the 'withProgress' but for tasks
@@ -474,10 +454,7 @@ withIndefiniteProgress :: (MonadIde m, MonadBaseControl IO m)
                        => T.Text -> Core.ProgressCancellable -> m a -> m a
 withIndefiniteProgress t c f = do
   lf <- ideEnvLspFuncs <$> getIdeEnv
-  let mWp = Core.withIndefiniteProgress <$> lf
-  case mWp of
-    Nothing -> f
-    Just wp -> control $ \run -> wp t c (run f)
+  control $ \run -> Core.withIndefiniteProgress lf t c (run f)
 
 data IdeState = IdeState
   { moduleCache :: !GhcModuleCache

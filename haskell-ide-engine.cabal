@@ -37,6 +37,7 @@ library
                        Haskell.Ide.Engine.Plugin.Package.Compat
                        Haskell.Ide.Engine.Plugin.Pragmas
                        Haskell.Ide.Engine.Plugin.Generic
+                       Haskell.Ide.Engine.Plugin.GhcMod
                        Haskell.Ide.Engine.Scheduler
                        Haskell.Ide.Engine.Support.FromHaRe
                        Haskell.Ide.Engine.Support.Hoogle
@@ -180,6 +181,7 @@ test-suite unit-test
                        DiffSpec
                        ExtensibleStateSpec
                        GenericPluginSpec
+                       GhcModPluginSpec
                        -- HaRePluginSpec
                        HooglePluginSpec
                        JsonSpec
@@ -245,6 +247,8 @@ test-suite plugin-dispatcher-test
   main-is:             Main.hs
   build-depends:       base
                      , data-default
+                     , directory
+                     , filepath
                      , haskell-ide-engine
                      , haskell-lsp-types
                      , hie-plugin-api
@@ -287,7 +291,7 @@ test-suite func-test
                      , data-default
                      , directory
                      , filepath
-                     , lsp-test >= 0.9.0.0
+                     , lsp-test >= 0.10.0.0
                      , haskell-ide-engine
                      , haskell-lsp-types == 0.19.*
                      , haskell-lsp == 0.19.*

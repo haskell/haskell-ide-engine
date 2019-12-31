@@ -23,7 +23,7 @@ spec = describe "Context of different cursor positions" $ do
               fp <- makeAbsolute "./ExampleContext.hs"
               let arg = filePathToUri fp
               let res = IdeResultOk (Nothing :: Maybe Context)
-              actual <- runSingle (IdePlugins mempty) $ do
+              actual <- runSingle (IdePlugins mempty) fp $ do
                   _ <- setTypecheckedModule arg
                   return $ IdeResultOk Nothing
 
@@ -243,7 +243,7 @@ spec = describe "Context of different cursor positions" $ do
 getContextAt :: FilePath -> Position -> IO (IdeResult (Maybe Context))
 getContextAt fp pos = do
     let arg = filePathToUri fp
-    runSingle (IdePlugins mempty) $ do
+    runSingle (IdePlugins mempty) fp $ do
         _ <- setTypecheckedModule arg
         pluginGetFile "getContext: " arg $ \fp_ ->
             ifCachedModuleAndData fp_ (IdeResultOk Nothing) $ \tm _ () ->

@@ -10,10 +10,10 @@ import           Data.Aeson
 -- import qualified Data.HashMap.Strict                   as H
 import           Data.Typeable
 import qualified Data.Text as T
-import           Data.Default
 import           GHC                            ( TypecheckedModule )
 import           GHC.Generics
 import           Haskell.Ide.Engine.Ghc
+import qualified Haskell.Ide.Engine.Cradle as Bios
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           Haskell.Ide.Engine.Scheduler
@@ -26,7 +26,7 @@ import           System.FilePath
 
 import           Test.Hspec
 import           Test.Hspec.Runner
-import System.IO
+import           System.IO
 
 -- ---------------------------------------------------------------------
 -- plugins
@@ -70,13 +70,18 @@ startServer :: IO (Scheduler IO, TChan LogVal, ThreadId)
 startServer = do
   scheduler <- newScheduler plugins testOptions
   logChan  <- newTChanIO
+  -- This is correct because we set the working directory to
+  -- "test/testdata" in the function set-up.
+  cwd <- getCurrentDirectory
+  crdl <- Bios.findLocalCradle (cwd </> "File.hs")
   dispatcher <- forkIO $ do
     flushStackEnvironment
     runScheduler
       scheduler
       (\lid errCode e -> logToChan logChan ("received an error", Left (lid, errCode, e)))
       (\g x -> g x)
-      def
+      dummyLspFuncs
+      (Just crdl)
 
   return (scheduler, logChan, dispatcher)
 
@@ -126,6 +131,7 @@ instance ToJSON   Cached where
 
 funcSpec :: Spec
 funcSpec = describe "functional dispatch" $ do
+    -- required to not kill the 'findLocalCradle' logic in 'startServer'.
     runIO $ setCurrentDirectory "test/testdata"
     (scheduler, logChan, dispatcher) <- runIO startServer
 

@@ -6,6 +6,8 @@ import           Data.Typeable
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.MonadFunctions
 import           TestUtils
+import           System.Directory
+import           System.FilePath
 
 import           Test.Hspec
 
@@ -20,7 +22,9 @@ extensibleStateSpec :: Spec
 extensibleStateSpec =
   describe "stores and retrieves in the state" $
     it "stores the first one" $ do
-      r <- runIGM testPlugins $ do
+      cwd <- getCurrentDirectory
+      let fp = cwd </> "test" </> "testdata" </> "File.hs"
+      r <- runIGM testPlugins fp $ do
           r1 <- makeRequest "test" "cmd1" ()
           r2 <- makeRequest "test" "cmd2" ()
           return (r1,r2)

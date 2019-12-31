@@ -44,7 +44,9 @@ import qualified Language.Haskell.LSP.Core     as Core
 import qualified Language.Haskell.LSP.Types    as J
 import           GhcMonad
 
+import qualified HIE.Bios.Types as Bios
 import           Haskell.Ide.Engine.GhcModuleCache
+import qualified Haskell.Ide.Engine.Cradle as Bios
 import           Haskell.Ide.Engine.Config
 import qualified Haskell.Ide.Engine.Channel    as Channel
 import           Haskell.Ide.Engine.PluginsIdeMonads
@@ -144,10 +146,13 @@ runScheduler
      -- ^ A handler for any errors that the dispatcher may encounter.
   -> CallbackHandler m
      -- ^ A handler to run the requests' callback in your monad of choosing.
-  -> Maybe (Core.LspFuncs Config)
-     -- ^ The LspFuncs provided by haskell-lsp, if using LSP.
+  -> Core.LspFuncs Config
+      -- ^ The LspFuncs provided by haskell-lsp.
+  -> Maybe Bios.Cradle
+     -- ^ Context in which the ghc thread is executed.
+     -- Neccessary to obtain the libdir, for example.
   -> IO ()
-runScheduler Scheduler {..} errorHandler callbackHandler mlf = do
+runScheduler Scheduler {..} errorHandler callbackHandler lf mcradle = do
   let dEnv = DispatcherEnv
         { cancelReqsTVar = requestsToCancel
         , wipReqsTVar    = requestsInProgress
@@ -161,9 +166,13 @@ runScheduler Scheduler {..} errorHandler callbackHandler mlf = do
 
   stateVar <- STM.newTVarIO initialState
 
-  let runGhcDisp = runIdeGhcM plugins mlf stateVar $
+  mlibdir <- case mcradle of
+    Nothing -> return Nothing
+    Just crdl -> Bios.getProjectGhcLibDir crdl
+
+  let runGhcDisp = runIdeGhcM mlibdir plugins lf stateVar $
                     ghcDispatcher dEnv errorHandler callbackHandler ghcChanOut
-      runIdeDisp = runIdeM plugins mlf stateVar $
+      runIdeDisp = runIdeM plugins lf stateVar $
                     ideDispatcher dEnv errorHandler callbackHandler ideChanOut
 
 

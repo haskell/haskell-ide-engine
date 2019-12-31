@@ -32,11 +32,12 @@ extra-deps:
 - hoogle-5.0.17.11
 - hsimport-0.11.0
 - libyaml-0.1.1.0
-- lsp-test-0.9.0.0
+- lsp-test-0.10.0.0
 - monad-dijkstra-0.1.1.2
 - monad-memo-0.4.1
 - monoid-subclasses-0.4.6.1
 - multistate-0.8.0.1
+- parser-combinators-1.2.1
 - primes-0.2.1.0
 - resolv-0.1.1.2
 - rope-utf16-splay-0.3.1.0
@@ -46,9 +47,9 @@ extra-deps:
 - unix-compat-0.5.2
 - unordered-containers-0.2.10.0
 - yaml-0.11.1.2
+
 # To make build work in windows 7
 - unix-time-0.4.7
-
 
 flags:
   haskell-ide-engine:
