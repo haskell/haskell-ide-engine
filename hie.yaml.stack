@@ -1,0 +1,31 @@
+cradle:
+  stack:
+    - path: "./hie-plugin-api/"
+      component: "hie-plugin-api:lib"
+
+    - path: "./test/dispatcher/"
+      component: "haskell-ide-engine:test:dispatcher-test"
+
+    - path: "./test/functional/"
+      component: "haskell-ide-engine:test:func-test"
+
+    - path: "./test/unit/"
+      component: "haskell-ide-engine:test:unit-test"
+
+    - path: "./test/plugin-dispatcher/"
+      component: "haskell-ide-engine:test:plugin-dispatcher-test"
+
+    - path: "./test/wrapper/"
+      component: "haskell-ide-engine:test:wrapper-test"
+
+    - path: "./test/utils/"
+      component: "haskell-ide-engine:lib:hie-test-utils"
+
+    - path: "./app/MainHie.hs"
+      component: "haskell-ide-engine:exe:hie"
+
+    - path: "./app/HieWrapper.hs"
+      component: "haskell-ide-engine:exe:hie-wrapper"
+
+    - path: "./"
+      component: "haskell-ide-engine:lib"
