@@ -95,9 +95,13 @@ spec = do
 -- Work in progress
   describe "ormolu" $ do
     it "formats correctly" $ runSession hieCommand fullCaps "test/testdata" $ do
+      sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (formatLspConfig "ormolu"))
       doc <- openDoc "Format.hs" "haskell"
       formatDoc doc (FormattingOptions 2 True)
-      documentContents doc >>= liftIO . (`shouldBe` formattedOrmolu)
+      docContent <- documentContents doc
+      case ghcVersion of
+        GHC86 -> liftIO $ docContent `shouldBe` formattedOrmolu
+        _ -> liftIO $ docContent `shouldBe` unchangedOrmolu
 
 
 formattedDocTabSize2 :: T.Text
@@ -185,3 +189,15 @@ formattedOrmolu =
   \bar s = do\n\
   \  x <- return \"hello\"\n\
   \  return \"asdf\"\n"
+
+unchangedOrmolu :: T.Text
+unchangedOrmolu = 
+  "module    Format where\n\
+  \foo   :: Int ->  Int\n\
+  \foo  3 = 2\n\
+  \foo    x  = x\n\
+  \bar   :: String ->   IO String\n\
+  \bar s =  do\n\
+  \      x <- return \"hello\"\n\
+  \      return \"asdf\"\n\
+  \      \n"
