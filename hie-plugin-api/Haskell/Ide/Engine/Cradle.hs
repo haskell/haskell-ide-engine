@@ -201,10 +201,10 @@ Just (Ex (ProjLocV2File { plProjectDirV2 = "/Foo/"}))
 
 In the given example, it is not guaranteed which project type is found,
 it is only guaranteed that it will not identify the project
-as a cabal v1-project. Note that with latest cabal-helper, by default a *.cabal file
-is identified as a 'ProjLocV2Dir' project. The same issue as before exists
-and we look for a 'ProjLocV2File' or 'ProjLocStackYaml' before deciding
-that 'ProjLocV2Dir' marks the project root.
+as a cabal v1-project. Note that with cabal-helper version (1.0),
+by default a *.cabal file is identified as a 'ProjLocV2Dir' project.
+The same issue as before exists and we look for a 'ProjLocV2File' or
+'ProjLocStackYaml' before deciding that 'ProjLocV2Dir' marks the project root.
 
 Note that this will not return any project types for which the corresponding
 build tool is not on the PATH. This is "stack" and "cabal" for stack and cabal
