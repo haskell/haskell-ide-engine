@@ -64,7 +64,6 @@ This project aims to be __the universal interface__ to __a growing number of Has
       - [Is \<package\> base-x?](#is-package-base-x)
       - [Is there a hash (#) after \<package\>?](#is-there-a-hash--after-package)
       - [Otherwise](#otherwise)
-    - [Nix: cabal-helper, No such file or directory](#nix-cabal-helper-no-such-file-or-directory)
     - [Liquid Haskell](#liquid-haskell)
     - [Profiling `haskell-ide-engine`.](#profiling-haskell-ide-engine)
       - [Using `ghc-events-analyze`](#using-ghc-events-analyze)
