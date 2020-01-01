@@ -13,14 +13,14 @@ import           Distribution.Helper (Package, projectPackages, pUnits,
                                       unChModuleName, Ex(..), ProjLoc(..),
                                       QueryEnv, mkQueryEnv, runQuery,
                                       Unit, unitInfo, uiComponents,
-                                      ChEntrypoint(..), uComponentName)
+                                      ChEntrypoint(..), UnitInfo(..))
 import           Distribution.Helper.Discover (findProjects, getDefaultDistDir)
 import           Data.Char (toLower)
 import           Data.Function ((&))
-import           Data.List (isPrefixOf, isInfixOf, sortOn, find, intercalate)
+import           Data.List (isPrefixOf, isInfixOf, sortOn, find)
 import qualified Data.List.NonEmpty as NonEmpty
 import           Data.List.NonEmpty (NonEmpty)
-import qualified Data.Map as M
+import qualified Data.Map as Map
 import           Data.Maybe (listToMaybe, mapMaybe, isJust)
 import           Data.Ord (Down(..))
 import           Data.String (IsString(..))
@@ -146,7 +146,7 @@ getProjectGhcLibDir :: Cradle -> IO (Maybe FilePath)
 getProjectGhcLibDir crdl =
   execProjectGhc crdl ["--print-libdir"] >>= \case
     Nothing -> do
-      logm "Could not obtain the libdir."
+      errorm "Could not obtain the libdir."
       return Nothing
     mlibdir -> return mlibdir
 
@@ -548,7 +548,7 @@ getComponent env unitCandidates fp = getComponent' [] [] unitCandidates >>=
       (tried, failed, Nothing) -> return (Left $ buildErrorMsg tried failed)
       (_, _, Just comp) -> return (Right comp)
   where
-    getComponent' :: [Unit pt] -> [Unit pt] -> [Unit pt] -> IO ([Unit pt], [Unit pt], Maybe ChComponentInfo)
+    getComponent' :: [UnitInfo] -> [(Unit pt, IOException)] -> [Unit pt] -> IO ([UnitInfo], [(Unit pt, IOException)], Maybe ChComponentInfo)
     getComponent' triedUnits failedUnits [] = return (triedUnits, failedUnits, Nothing)
     getComponent' triedUnits failedUnits (unit : units) =
       try (runQuery (unitInfo unit) env) >>= \case
@@ -560,15 +560,15 @@ getComponent env unitCandidates fp = getComponent' [] [] unitCandidates >>=
             ++ fp
             ++ "\" in the unit: "
             ++ show unit
-          getComponent' triedUnits (unit:failedUnits) units
+          getComponent' triedUnits ((unit, e):failedUnits) units
         Right ui -> do
-          let components = M.elems (uiComponents ui)
+          let components = Map.elems (uiComponents ui)
           debugm $ "Unit Info: " ++ show ui
           case find (fp `partOfComponent`) components of
-            Nothing -> getComponent' (unit:triedUnits) failedUnits units
+            Nothing -> getComponent' (ui:triedUnits) failedUnits units
             comp    -> return (triedUnits, failedUnits, comp)
 
-    buildErrorMsg :: [Unit pt] -> [Unit pt] -> [String]
+    buildErrorMsg :: [UnitInfo] -> [(Unit pt, IOException)] -> [String]
     buildErrorMsg triedUnits failedUnits =
             [ "Could not obtain flags for: \"" ++ fp ++ "\"."
             , ""
@@ -577,19 +577,43 @@ getComponent env unitCandidates fp = getComponent' [] [] unitCandidates >>=
               [
                 [ "This Module was not part of any component we are aware of."
                 , ""
-                , "If you dont know how to expose a module, take a look at: "
-                , "https://www.haskell.org/cabal/users-guide/developing-packages.html"
-                , ""
                 ]
+                ++ concatMap ppShowUnitInfo triedUnits
+                ++ [ ""
+                   , ""
+                   , "If you dont know how to expose a module, take a look at:"
+                   , "https://www.haskell.org/cabal/users-guide/developing-packages.html"
+                   , ""
+                   ]
               | not (null triedUnits)
               ]
             ++ concat
               [
                 [ "We could not build all components."
                 , "If one of these components exposes this Module, make sure they compile."
+                , "You can try to invoke the commands yourself."
+                , "The following commands failed:"
                 ]
+                ++ concatMap (ppShowIOException . snd) failedUnits
               | not (null failedUnits)
               ]
+
+    ppShowUnitInfo :: UnitInfo -> [String]
+    ppShowUnitInfo u =
+      u
+      & uiComponents
+      & Map.toList
+      & map
+        (\(name, info) ->
+          "Component: " ++ show name ++ " with source directory: " ++ show (ciSourceDirs info)
+        )
+
+
+    ppShowIOException :: IOException -> [String]
+    ppShowIOException e =
+        [ ""
+        , show e
+        ]
 
 -- | Check whether the given FilePath is part of the Component.
 -- A FilePath is part of the Component if and only if:
