@@ -118,6 +118,7 @@ executable hie
                      , hie-plugin-api
                      , hslogger
                      , optparse-simple
+                     , yaml
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
                        -with-rtsopts=-T
   if flag(pedantic)

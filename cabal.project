@@ -9,4 +9,9 @@ tests: true
 package haskell-ide-engine
   test-show-details: direct
 
+-- Match the flag settings we use in stac builds
+constraints:
+        haskell-ide-engine +pedantic
+        hie-plugin-api     +pedantic
+
 write-ghc-environment-files: never
