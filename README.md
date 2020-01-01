@@ -726,6 +726,15 @@ This project is not started from scratch:
  - Fork this repo and hack as much as you can.
  - Ask @alanz or @hvr to join the project.
 
+### Hacking on haskell-ide-engine
+
+Haskell-ide-engine can be used on its own project.  We have supplied
+preset samples of `hie.yaml` files for stack and cabal, simply copy
+the appropriate template to `hie.yaml` and it shoule work.
+
+- `hie.yaml.cbl` for cabal
+- `hie.yaml.stack` for stack
+
 ## Documentation
 
 All the documentation is in [the docs folder](/docs) at the root of this project.
