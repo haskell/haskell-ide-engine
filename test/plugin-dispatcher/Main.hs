@@ -51,6 +51,7 @@ newPluginSpec = do
                               (\_ _ _ -> return ())
                               (\f x -> f x)
                               dummyLspFuncs
+                              (\_ _ _ -> return ())
                               (Just crdl)
 
       updateDocument scheduler (filePathToUri "test") 3
@@ -65,5 +66,3 @@ newPluginSpec = do
       killThread pid
       resp1 `shouldBe` "text1"
       resp2 `shouldBe` "text4"
-
-
