@@ -231,8 +231,8 @@ findCabalHelperEntryPoint fp = do
       supported :: Ex ProjLoc -> Bool -> Bool -> Bool
       supported proj stackInstalled cabalInstalled
         | isCabalProject proj = cabalInstalled
-        -- isStackProject proj
-        | otherwise = stackInstalled
+        | isStackProject proj = stackInstalled
+        | otherwise = False
 
       isStackProject (Ex ProjLocStackYaml {}) = True
       isStackProject _ = False
