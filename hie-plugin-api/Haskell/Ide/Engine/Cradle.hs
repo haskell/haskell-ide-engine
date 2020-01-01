@@ -229,10 +229,11 @@ findCabalHelperEntryPoint fp = do
       []    -> return Nothing
     where
       supported :: Ex ProjLoc -> Bool -> Bool -> Bool
-      supported proj stackInstalled cabalInstalled
-        | isCabalProject proj = cabalInstalled
-        | isStackProject proj = stackInstalled
-        | otherwise = False
+      supported (Ex ProjLocStackYaml {}) stackInstalled _ = stackInstalled
+      supported (Ex ProjLocV2Dir {}) _ cabalInstalled = cabalInstalled
+      supported (Ex ProjLocV2File {}) _ cabalInstalled = cabalInstalled
+      supported (Ex ProjLocV1Dir {}) _ cabalInstalled = cabalInstalled
+      supported (Ex ProjLocV1CabalFile {}) _ cabalInstalled = cabalInstalled
 
       isStackProject (Ex ProjLocStackYaml {}) = True
       isStackProject _ = False
