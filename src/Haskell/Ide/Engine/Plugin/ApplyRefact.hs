@@ -1,6 +1,9 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 -- | apply-refact applies refactorings specified by the refact package. It is
 -- currently integrated into hlint to enable the automatic application of
@@ -17,6 +20,7 @@ import           Control.Exception              ( IOException
 import           Control.Lens            hiding ( List )
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
+import           Control.Monad                  ( filterM, forM_ )
 import           Data.Aeson                        hiding (Error)
 import           Data.Maybe
 import           Data.Monoid                       ((<>))
@@ -32,6 +36,18 @@ import           Language.Haskell.HLint4           as Hlint
 import qualified Language.Haskell.LSP.Types        as LSP
 import qualified Language.Haskell.LSP.Types.Lens   as LSP
 import           Refact.Apply
+import           System.Environment             ( lookupEnv )
+import           System.Directory               ( doesFileExist
+                                                , getXdgDirectory
+                                                , XdgDirectory(..)
+                                                , findExecutable
+                                                , listDirectory
+                                                , copyFile
+                                                )
+import           System.FilePath                ( (</>) )
+import           System.Process
+import           System.IO.Temp                 ( withSystemTempDirectory )
+import           System.Exit                    ( ExitCode(..) )
 
 -- ---------------------------------------------------------------------
 {-# ANN module ("HLint: ignore Eta reduce"         :: String) #-}
@@ -105,6 +121,103 @@ applyAllCmd uri = pluginGetFile "applyAll: " uri $ \fp -> do
       Right fs -> return (IdeResultOk fs)
 
 -- ---------------------------------------------------------------------
+
+newtype HlintDataDir = HlintDataDir
+  { getHlintDataDir :: Maybe FilePath
+  }
+  deriving (Show, Eq, Read, Ord)
+
+
+instance ExtensionClass HlintDataDir where
+  initialValue = HlintDataDir Nothing
+
+data InitialisationError
+  = NoDataFiles FilePath
+  | InvalidDataDir FilePath
+  | Other
+
+ppInitialisationError :: InitialisationError -> String
+ppInitialisationError (NoDataFiles fp) =
+  "We could not find the data-files at: \"" <> fp <> "\""
+ppInitialisationError (InvalidDataDir fp) =
+  "The location \""
+    <> fp
+    <> "\" does not exist. We obtained that location from the environment variable: "
+    <> hlintDataDirEnvironmentVariable
+ppInitialisationError Other = "We could not determine why it failed."
+
+data Tool = Stack | Cabal
+
+showTool :: Tool -> String
+showTool Stack = "stack"
+showTool Cabal = "cabal"
+
+hlintName :: String
+hlintName = "hlint-" ++ VERSION_hlint
+
+hlintDataDirDefaultLocation :: MonadIO m => m FilePath
+hlintDataDirDefaultLocation = liftIO $ getXdgDirectory XdgData ("hie" </> "hlint")
+
+hlintDataDirEnvironmentVariable :: String
+hlintDataDirEnvironmentVariable = "HIE_HLINT_DATADIR"
+
+initializeHlint :: IdeGhcM (Either InitialisationError FilePath)
+initializeHlint = do
+  explicitDataDirLocation <- liftIO $ lookupEnv hlintDataDirEnvironmentVariable
+  hieHlintDataDir <- hlintDataDirDefaultLocation
+  dataDirExists <- liftIO (doesFileExist hieHlintDataDir)
+  result <- case explicitDataDirLocation of
+    Just explicitDir -> do
+      liftIO (doesFileExist explicitDir)
+        >>= \case
+          True ->
+            return $ Right explicitDir
+          False ->
+            return $ Left $ InvalidDataDir explicitDir
+    Nothing ->
+      if dataDirExists
+        then return $ Right hieHlintDataDir
+        else return $ Left $ NoDataFiles hieHlintDataDir
+
+  case result of
+    Right dataDir -> put $ HlintDataDir $ Just dataDir
+    _ -> return ()
+
+  return result
+
+downloadHlintDatafiles :: IO ()
+downloadHlintDatafiles = do
+  defaultLocation <- hlintDataDirDefaultLocation
+  availTools      <- liftIO
+    $ filterM (fmap isJust . findExecutable . showTool) [Stack, Cabal]
+  case availTools of
+    []       -> return ()
+    tool : _ -> withSystemTempDirectory "hie-hlint-datafiles" $ \tmpDir -> do
+      let toolArgs t = case t of
+            Cabal -> ["get", hlintName]
+            Stack -> ["unpack", hlintName]
+
+      let process =
+            (proc (showTool tool) (toolArgs tool)) { cwd = Just tmpDir }
+
+      (exitCode, _sout, _serr) <- liftIO
+        $ readCreateProcessWithExitCode process ""
+
+      case exitCode of
+        ExitFailure _ ->
+          error
+            $  "Command `"
+            ++ unwords (showTool tool : toolArgs tool)
+            ++ "` failed."
+        ExitSuccess -> do
+          let dirPath = tmpDir </> hlintName </> "data"
+          dataFiles <- liftIO $ listDirectory dirPath
+          forM_ dataFiles
+            $ \dataFile -> do
+              let absoluteFile = dirPath </> dataFile
+              logm $ "Copy File \"" ++ absoluteFile ++ "\" to \"" ++ defaultLocation ++ "\""
+              liftIO $ copyFile absoluteFile defaultLocation
+
 
 -- AZ:TODO: Why is this in IdeGhcM?
 lint :: Uri -> IdeGhcM (IdeResult PublishDiagnosticsParams)
@@ -238,8 +351,9 @@ ss2Range ss = Range ps pe
 
 applyHint :: FilePath -> Maybe OneHint -> (FilePath -> FilePath) -> IdeM (Either String WorkspaceEdit)
 applyHint fp mhint fileMap = do
+  dataDir :: HlintDataDir <- get
   runExceptT $ do
-    ideas <- getIdeas fp mhint
+    ideas <- getIdeas dataDir fp mhint
     let commands = map (show &&& ideaRefactoring) ideas
     liftIO $ logm $ "applyHint:apply=" ++ show commands
     -- set Nothing as "position" for "applyRefactorings" because
@@ -270,9 +384,9 @@ applyHint fp mhint fileMap = do
         throwE (show err)
 
 -- | Gets HLint ideas for
-getIdeas :: MonadIO m => FilePath -> Maybe OneHint -> ExceptT String m [Idea]
-getIdeas lintFile mhint = do
-  let hOpts = hlintOpts lintFile (oneHintPos <$> mhint)
+getIdeas :: MonadIO m => HlintDataDir -> FilePath -> Maybe OneHint -> ExceptT String m [Idea]
+getIdeas dataDir lintFile mhint = do
+  let hOpts = hlintOpts dataDir lintFile (oneHintPos <$> mhint)
   ideas <- runHlint lintFile hOpts
   pure $ maybe ideas (`filterIdeas` ideas) mhint
 
@@ -285,12 +399,14 @@ filterIdeas (OneHint (Position l c) title) ideas =
     ideaPos = (srcSpanStartLine &&& srcSpanStartColumn) . ideaSpan
   in filter (\i -> ideaHint i == title' && ideaPos i == (l+1, c+1)) ideas
 
-hlintOpts :: FilePath -> Maybe Position -> [String]
-hlintOpts lintFile mpos =
+hlintOpts :: HlintDataDir -> FilePath -> Maybe Position -> [String]
+hlintOpts dataDir lintFile mpos =
   let
     posOpt (Position l c) = " --pos " ++ show (l+1) ++ "," ++ show (c+1)
     opts = maybe "" posOpt mpos
-  in [lintFile, "--quiet", "--refactor", "--refactor-options=" ++ opts ]
+  in [ lintFile, "--quiet", "--refactor", "--refactor-options=" ++ opts
+     ]
+     ++ [ "--datadir=" <> dir | HlintDataDir (Just dir) <- [dataDir] ]
 
 runHlint :: MonadIO m => FilePath -> [String] -> ExceptT String m [Idea]
 runHlint fp args =

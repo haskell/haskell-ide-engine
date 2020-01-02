@@ -457,7 +457,29 @@ reactor inp diagIn = do
               callback (Just db) = flip runReaderT renv $ do
                 reactorSend $ NotLogMessage $
                   fmServerLogMessageNotification J.MtLog $ "Using hoogle db at: " <> T.pack db
+
+          let hlintReq = GReq tn "init-hlint" Nothing Nothing Nothing
+                  hlintCallback (Left ApplyRefact.Other) $ do
+                    logm "Initialise hlint"
+                    res <- ApplyRefact.initializeHlint
+                    logm $ "Finished hlint initialisation: " ++ either ApplyRefact.ppInitialisationError show res
+                    return $ IdeResultOk res
+
+              hlintCallback :: Either ApplyRefact.InitialisationError FilePath -> R ()
+              hlintCallback (Left err) = flip runReaderT renv $ do
+                reactorSend
+                  $ NotShowMessage
+                  $ fmServerShowMessageNotification J.MtWarning
+                  $ "Required HLint files are missing: " <> T.pack (ApplyRefact.ppInitialisationError err)
+                logm "Downloading hlint data-files now."
+                liftIO ApplyRefact.downloadHlintDatafiles
+                logm "Finished downloading."
+              hlintCallback (Right dataDir) = flip runReaderT renv $
+                reactorSend $ NotShowMessage $
+                  fmServerShowMessageNotification J.MtLog $ "Using hlint data-files at: " <> T.pack dataDir
+
           makeRequest hreq
+          makeRequest hlintReq
 
         -- -------------------------------
 
