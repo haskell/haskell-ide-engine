@@ -581,7 +581,7 @@ getComponent env unitCandidates fp = getComponent' [] [] unitCandidates >>=
                 ++ concatMap ppShowUnitInfo triedUnits
                 ++ [ ""
                    , ""
-                   , "If you dont know how to expose a module, take a look at:"
+                   , "To expose a module, refer to:"
                    , "https://www.haskell.org/cabal/users-guide/developing-packages.html"
                    , ""
                    ]
@@ -828,4 +828,3 @@ cradleDisplay cradle = fromString result
       | "multi" `isInfixOf` name = "Multi Component project"
       | otherwise = "project"
     name = map toLower $ BIOS.actionName (BIOS.cradleOptsProg cradle)
-
