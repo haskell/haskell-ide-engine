@@ -21,6 +21,7 @@ import qualified Paths_haskell_ide_engine              as Meta
 import           System.Directory
 import           System.Environment
 import           System.FilePath ((</>))
+import           System.Info
 import           System.IO
 import qualified System.Log.Logger                     as L
 
@@ -119,8 +120,10 @@ run opts = do
   if optLsp opts
     then do
       -- Start up in LSP mode
-      logm $  "Run entered for HIE(" ++ progName ++ ") " ++ hieVersion
+      logm $ "Run entered for HIE(" ++ progName ++ ") " ++ hieVersion
+      logm $ "Operating as a LSP server on stdio"
       logm $ "Current directory:" ++ origDir
+      logm $ "Operating system:" ++ os
       logm $ "args:" ++ show args
 
       let initOpts = defaultCradleOpts { cradleOptsVerbosity = verbosity }
@@ -142,6 +145,7 @@ run opts = do
       -- Provide debug info
       cliOut $  "Running HIE(" ++ progName ++ ")"
       cliOut $  "  " ++ hieVersion
+      cliOut $ "To run as a LSP server on stdio, provide the '--lsp' argument"
       cliOut $ "Current directory:" ++ origDir
       -- args <- getArgs
       cliOut $ "\nargs:" ++ show args

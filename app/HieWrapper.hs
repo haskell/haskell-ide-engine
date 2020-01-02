@@ -72,6 +72,8 @@ run opts = do
   d <- getCurrentDirectory
   logm $ "Current directory:" ++ d
   logm $ "Operating system:" ++ os
+  args <- getArgs
+  logm $ "args:" ++ show args
 
   -- Get the cabal directory from the cradle
   cradle <- findLocalCradle (d </> "File.hs")
@@ -99,7 +101,6 @@ run opts = do
     Nothing -> logm $ "cannot find any hie exe, looked for:" ++ intercalate ", " candidates
     Just e -> do
       logm $ "found hie exe at:" ++ e
-      args <- getArgs
       logm $ "args:" ++ show args
       logm "launching ....\n\n\n"
       callProcess e args
