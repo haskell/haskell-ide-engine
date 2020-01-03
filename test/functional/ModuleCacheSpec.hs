@@ -2,6 +2,7 @@
 module ModuleCacheSpec where
 
 import Control.Applicative.Combinators
+import Control.Exception
 import Control.Monad.IO.Class
 import qualified Data.Aeson as J
 import qualified Data.Text as T
@@ -14,9 +15,8 @@ import Test.Hspec
 import TestUtils
 
 spec :: Spec
-spec = describe "module cache" $ do
-  it "caches cradle outside of component" $ do
-    setEnv "HIE_TELEMETRY" "1"
+spec = around_ setTelemetry $ describe "module cache" $ do
+  it "caches cradle outside of component" $
     runSession hieCommand fullCaps "test/testdata/multiComponent" $ do
       doc <- openDoc "Main.hs" "haskell"
       NotTelemetry (NotificationMessage _ _ (J.String v)) <- skipManyTill loggingNotification (satisfy isTelemetry)
@@ -27,3 +27,4 @@ spec = describe "module cache" $ do
       liftIO $ v' `shouldBe` "loadCradle:ReuseCradle"
   where isTelemetry (NotTelemetry _) = True
         isTelemetry _                = False
+        setTelemetry f = bracket_ (setEnv "HIE_TELEMETRY" "1") (unsetEnv "HIE_TELEMETRY") f
