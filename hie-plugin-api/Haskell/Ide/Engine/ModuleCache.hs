@@ -130,11 +130,13 @@ loadCradle :: forall a m . (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m
 loadCradle _ _ ReuseCradle _def action = do
   -- Since we expect this message to show up often, only show in debug mode
   debugm "Reusing cradle"
+  sendTelemetry $ Aeson.String "loadCradle:ReuseCradle"
   IdeResultOk <$> action
 
 loadCradle _ _iniDynFlags (LoadCradle (CachedCradle crd env co)) _def action = do
   -- Reloading a cradle happens on component switch
   logm $ "Switch to cradle: " ++ show crd
+  sendTelemetry $ Aeson.String "loadCradle:LoadCradle"
   -- Cache the existing cradle
   maybe (return ()) cacheCradle =<< (currentCradle <$> getModuleCache)
   GHC.setSession env
@@ -144,6 +146,7 @@ loadCradle _ _iniDynFlags (LoadCradle (CachedCradle crd env co)) _def action = d
 loadCradle publishDiagnostics iniDynFlags (NewCradle fp) def action = do
   -- If this message shows up a lot in the logs, it is an indicator for a bug
   logm $ "New cradle: " ++ fp
+  sendTelemetry $ Aeson.String $ Text.pack $ "loadCradle:NewCradle:" <> fp
   -- Cache the existing cradle
   -- And append this module (fp) to the cradle if it isn't already in it
   -- This can happen if fp is outside of the module graph of the cradle, but should

@@ -63,6 +63,7 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , getPlugins
   , withProgress
   , withIndefiniteProgress
+  , sendTelemetry
   , persistVirtualFile'
   , getPersistedFile
   , reverseFileMap
@@ -124,6 +125,7 @@ import           Data.Typeable                  ( Typeable )
 #endif
 
 import System.Directory
+import System.Environment
 import GhcMonad
 import           GHC.Generics
 import           GHC                            ( HscEnv, runGhcT )
@@ -159,6 +161,7 @@ import           Language.Haskell.LSP.Types     ( Command(..)
                                                 , uriToFilePath
                                                 , toNormalizedUri
                                                 )
+import           Language.Haskell.LSP.Messages
 
 import           Language.Haskell.LSP.VFS       ( VirtualFile(..) )
 
@@ -455,6 +458,17 @@ withIndefiniteProgress :: (MonadIde m, MonadBaseControl IO m)
 withIndefiniteProgress t c f = do
   lf <- ideEnvLspFuncs <$> getIdeEnv
   control $ \run -> Core.withIndefiniteProgress lf t c (run f)
+
+-- | Sends a telemetry/event notification to the client, if the environment variable
+-- @HIE_TELEMETRY@ is set.
+-- Useful for testing internal properties.
+sendTelemetry :: (MonadIde m, MonadIO m) => Value -> m ()
+sendTelemetry x = do
+  telemetrySet <- liftIO $ isJust <$> lookupEnv "HIE_TELEMETRY"
+  when telemetrySet $ do
+    lf <- ideEnvLspFuncs <$> getIdeEnv
+    let sf = Core.sendFunc lf
+    liftIO $ sf (NotTelemetry $ fmServerTelemetryNotification x)
 
 data IdeState = IdeState
   { moduleCache :: !GhcModuleCache

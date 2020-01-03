@@ -299,6 +299,7 @@ test-suite func-test
                      , HieBiosSpec
                      , HighlightSpec
                      , HoverSpec
+                     , ModuleCacheSpec
                      , ProgressSpec
                      , ReferencesSpec
                      , RenameSpec

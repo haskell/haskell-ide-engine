@@ -153,6 +153,7 @@ files =
    , "./test/testdata/gototest/"
    , "./test/testdata/redundantImportTest/"
    , "./test/testdata/wErrorTest/"
+   , "./test/testdata/multiComponent/"
   ]
 
 data GhcVersion
