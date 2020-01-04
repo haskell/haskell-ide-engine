@@ -4,18 +4,18 @@
 
 module Haskell.Ide.Engine.Plugin.Ormolu ( ormoluDescriptor ) where
 
+import Haskell.Ide.Engine.MonadTypes
+
 #if __GLASGOW_HASKELL__ >= 806
 import Control.Exception
 import Control.Monad.IO.Class ( liftIO , MonadIO(..) )
 import Data.Aeson ( Value ( Null ) )
 import Data.Text
-import Haskell.Ide.Engine.MonadTypes
+import Haskell.Ide.Engine.MonadFunctions
 import Ormolu
 import Ormolu.Config (defaultConfig)
 import Ormolu.Exception (OrmoluException)
 import Haskell.Ide.Engine.PluginUtils
-#else
-import Haskell.Ide.Engine.MonadFunctions
 #endif
 
 ormoluDescriptor :: PluginId -> PluginDescriptor
