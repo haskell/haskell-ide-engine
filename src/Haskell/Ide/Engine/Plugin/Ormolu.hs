@@ -11,7 +11,6 @@ import Control.Exception
 import Control.Monad.IO.Class ( liftIO , MonadIO(..) )
 import Data.Aeson ( Value ( Null ) )
 import Data.Text
-import Haskell.Ide.Engine.MonadFunctions
 import Ormolu
 import Ormolu.Config (defaultConfig)
 import Ormolu.Exception (OrmoluException)
