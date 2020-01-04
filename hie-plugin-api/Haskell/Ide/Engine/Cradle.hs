@@ -238,17 +238,20 @@ findCabalHelperEntryPoint fp = do
       supported (Ex ProjLocV1Dir {}) _ cabalInstalled = cabalInstalled
       supported (Ex ProjLocV1CabalFile {}) _ cabalInstalled = cabalInstalled
 
-      isStackProject (Ex ProjLocStackYaml {}) = True
-      isStackProject _ = False
+isStackProject :: Ex ProjLoc -> Bool
+isStackProject (Ex ProjLocStackYaml {}) = True
+isStackProject _ = False
 
-      isCabalV2FileProject (Ex ProjLocV2File {}) = True
-      isCabalV2FileProject _ = False
+isCabalV2FileProject :: Ex ProjLoc -> Bool
+isCabalV2FileProject (Ex ProjLocV2File {}) = True
+isCabalV2FileProject _ = False
 
-      isCabalProject (Ex ProjLocV1CabalFile {}) = True
-      isCabalProject (Ex ProjLocV1Dir {}) = True
-      isCabalProject (Ex ProjLocV2File {}) = True
-      isCabalProject (Ex ProjLocV2Dir {}) = True
-      isCabalProject _ = False
+isCabalProject :: Ex ProjLoc -> Bool
+isCabalProject (Ex ProjLocV1CabalFile {}) = True
+isCabalProject (Ex ProjLocV1Dir {}) = True
+isCabalProject (Ex ProjLocV2File {}) = True
+isCabalProject (Ex ProjLocV2Dir {}) = True
+isCabalProject _ = False
 
 {- | Given a FilePath, find the cradle the FilePath belongs to.
 
@@ -476,6 +479,7 @@ cabalHelperCradle file = do
                        CradleAction { actionName =
                                         "Cabal-Helper-" ++ actionNameSuffix
                                     , runCradle = \_ fp -> cabalHelperAction
+                                        (Ex proj)
                                         env
                                         realPackage
                                         normalisedPackageLocation
@@ -497,24 +501,27 @@ cabalHelperCradle file = do
                                     else arg
           else arg
 
-      -- | cradle Action to query for the ComponentOptions that are needed
+      -- | Cradle Action to query for the ComponentOptions that are needed
       -- to load the given FilePath.
       -- This Function is not supposed to throw any exceptions and use
       -- 'CradleLoadResult' to indicate errors.
-      cabalHelperAction :: QueryEnv v -- ^ Query Env created by 'mkQueryEnv'
+      cabalHelperAction :: Ex ProjLoc -- ^ Project location, can be used
+                                      -- to present error build-tool
+                                      -- agnostic error messages.
+                        -> QueryEnv v -- ^ Query Env created by 'mkQueryEnv'
                                       -- with the appropriate 'distdir'
                         -> Package v -- ^ Package this cradle is part for.
                         -> FilePath -- ^ Root directory of the cradle
                                     -- this action belongs to.
                         -> FilePath -- ^ FilePath to load, expected to be an absolute path.
                         -> IO (CradleLoadResult ComponentOptions)
-      cabalHelperAction env package root fp = do
+      cabalHelperAction proj env package root fp = do
         -- Get all unit infos the given FilePath may belong to
         let units = pUnits package
         -- make the FilePath to load relative to the root of the cradle.
         let relativeFp = makeRelative root fp
         debugm $ "Relative Module FilePath: " ++ relativeFp
-        getComponent env (toList units) relativeFp
+        getComponent proj env (toList units) relativeFp
           >>= \case
             Right comp -> do
               let fs' = getFlags comp
@@ -542,8 +549,8 @@ cabalHelperCradle file = do
 -- The given FilePath must be relative to the Root of the project
 -- the given units belong to.
 getComponent
-  :: forall pt. QueryEnv pt -> [Unit pt] -> FilePath -> IO (Either [String] ChComponentInfo)
-getComponent env unitCandidates fp = getComponent' [] [] unitCandidates >>=
+  :: forall pt. Ex ProjLoc -> QueryEnv pt -> [Unit pt] -> FilePath -> IO (Either [String] ChComponentInfo)
+getComponent proj env unitCandidates fp = getComponent' [] [] unitCandidates >>=
     \case
       (tried, failed, Nothing) -> return (Left $ buildErrorMsg tried failed)
       (_, _, Just comp) -> return (Right comp)
@@ -570,33 +577,51 @@ getComponent env unitCandidates fp = getComponent' [] [] unitCandidates >>=
 
     buildErrorMsg :: [UnitInfo] -> [(Unit pt, IOException)] -> [String]
     buildErrorMsg triedUnits failedUnits =
-            [ "Could not obtain flags for: \"" ++ fp ++ "\"."
+        concat
+          [ [ "Could not obtain flags for: \"" ++ fp ++ "\"."
             , ""
             ]
-            ++ concat
-              [
-                [ "This Module was not part of any component we are aware of."
+          , concat
+            [ concat
+              [ [ "This Module was not part of any component we are aware of."
                 , ""
                 ]
-                ++ concatMap ppShowUnitInfo triedUnits
-                ++ [ ""
-                   , ""
-                   , "To expose a module, refer to:"
-                   , "https://www.haskell.org/cabal/users-guide/developing-packages.html"
-                   , ""
-                   ]
-              | not (null triedUnits)
-              ]
-            ++ concat
-              [
-                [ "We could not build all components."
-                , "If one of these components exposes this Module, make sure they compile."
-                , "You can try to invoke the commands yourself."
-                , "The following commands failed:"
+              , concatMap ppShowUnitInfo triedUnits
+              , [ ""
+                , ""
                 ]
-                ++ concatMap (ppShowIOException . snd) failedUnits
-              | not (null failedUnits)
+              , if isStackProject proj
+                  then stackSpecificInstructions
+                  else cabalSpecificInstructions
               ]
+            | not (null triedUnits)
+            ]
+          , concat
+            [
+              [ "We could not build all components."
+              , "If one of these components exposes this Module, make sure they compile."
+              , "You can try to invoke the commands yourself."
+              , "The following commands failed:"
+              ]
+              ++ concatMap (ppShowIOException . snd) failedUnits
+            | not (null failedUnits)
+            ]
+        ]
+
+    stackSpecificInstructions :: [String]
+    stackSpecificInstructions =
+      [ "To expose a module, refer to:"
+      , "https://docs.haskellstack.org/en/stable/GUIDE/"
+      , "If you are using `package.yaml` then you don't have manually expose modules."
+      , "Maybe you didn't set the source directories for your project correctly."
+      ]
+
+    cabalSpecificInstructions :: [String]
+    cabalSpecificInstructions =
+      [ "To expose a module, refer to:"
+      , "https://www.haskell.org/cabal/users-guide/developing-packages.html"
+      , ""
+      ]
 
     ppShowUnitInfo :: UnitInfo -> [String]
     ppShowUnitInfo u =
