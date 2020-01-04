@@ -51,6 +51,7 @@ newPluginSpec = do
                               (\_ _ _ -> return ())
                               (\f x -> f x)
                               dummyLspFuncs
+                              (\_ _ _ -> return ())
                               (Just crdl)
 
       updateDocument scheduler (filePathToUri "test") 3

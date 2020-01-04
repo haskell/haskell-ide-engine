@@ -71,7 +71,7 @@ modifyCache f = modifyModuleCache f
 
 -- ---------------------------------------------------------------------
 
-type PublishDiagnostics = Int -> J.NormalizedUri -> J.TextDocumentVersion -> J.DiagnosticsBySource -> IO ()
+type PublishDiagnostics = J.NormalizedUri -> J.TextDocumentVersion -> J.DiagnosticsBySource -> IO ()
 
 -- | Run the given action in context and initialise a session with hie-bios.
 -- If a context is given, the context is used to initialise a session for GHC.
@@ -186,7 +186,7 @@ loadCradle publishDiagnostics iniDynFlags (NewCradle fp) def action = do
             source = Just "bios"
             diag = Diagnostic range sev Nothing source (Text.unlines msgTxt) Nothing
 
-        liftIO $ publishDiagnostics maxBound normalizedUri Nothing
+        liftIO $ publishDiagnostics normalizedUri Nothing
             (Map.singleton source (SL.singleton diag))
 
         return $ IdeResultFail $ IdeError
