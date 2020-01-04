@@ -81,7 +81,6 @@ startServer = do
       (\lid errCode e -> logToChan logChan ("received an error", Left (lid, errCode, e)))
       (\g x -> g x)
       dummyLspFuncs
-      (\_ _ _ -> return ())
       (Just crdl)
 
   return (scheduler, logChan, dispatcher)

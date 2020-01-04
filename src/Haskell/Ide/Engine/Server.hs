@@ -198,7 +198,7 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
         -- recognized properly by ghc-mod
         flip labelThread "scheduler" =<<
             forkIO
-              ( Scheduler.runScheduler scheduler errorHandler callbackHandler lf (passPublishDiagnostics rin) mcradle
+              ( Scheduler.runScheduler scheduler errorHandler callbackHandler lf (publishDiagnostics' lf) mcradle
                 `E.catch`
                 \(e :: E.SomeException) ->
                   errorm $ "Scheduler thread exited unexpectedly: " ++ show e
@@ -256,13 +256,9 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
 
 -- ---------------------------------------------------------------------
 
-data ReactorInput
-  = CM FromClientMessage
-      -- ^ injected into the reactor input by each of the individual
-      -- callback handlers
-    | PD J.NormalizedUri J.TextDocumentVersion DiagnosticsBySource
-      -- ^ injected into the reactor input by any scheduler needing to
-      -- publish additional diagnostics
+type ReactorInput
+  = FromClientMessage
+      -- ^ injected into the reactor input by each of the individual callback handlers
 
 -- ---------------------------------------------------------------------
 
@@ -363,10 +359,8 @@ updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file 
 -- ---------------------------------------------------------------------
 
 publishDiagnostics :: (MonadIO m, MonadReader REnv m)
-  => J.NormalizedUri -> J.TextDocumentVersion -> DiagnosticsBySource -> m ()
-publishDiagnostics uri' mv diags = do
-  clientConfig <- getClientConfig
-  let maxToSend = maxNumberOfProblems clientConfig
+  => Int -> J.NormalizedUri -> J.TextDocumentVersion -> DiagnosticsBySource -> m ()
+publishDiagnostics maxToSend uri' mv diags = do
   lf <- asks lspFuncs
   publishDiagnostics' lf maxToSend uri' mv diags
 
@@ -421,7 +415,7 @@ reactor inp diagIn = do
       liftIO $ U.logs $ "****** reactor: got message number:" ++ show tn
 
       case inval of
-        CM (RspFromClient resp@(J.ResponseMessage _ _ _ merr)) -> do
+        RspFromClient resp@(J.ResponseMessage _ _ _ merr) -> do
           liftIO $ U.logs $ "reactor:got RspFromClient:" ++ show resp
           case merr of
             Nothing -> return ()
@@ -429,7 +423,7 @@ reactor inp diagIn = do
 
         -- -------------------------------
 
-        CM (NotInitialized _notification) -> do
+        NotInitialized _notification -> do
           liftIO $ U.logm "****** reactor: processing Initialized Notification"
           -- Server is ready, register any specific capabilities we need
 
@@ -483,7 +477,7 @@ reactor inp diagIn = do
 
         -- -------------------------------
 
-        CM (NotDidOpenTextDocument notification) -> do
+        NotDidOpenTextDocument notification -> do
           liftIO $ U.logm "****** reactor: processing NotDidOpenTextDocument"
           let
               td  = notification ^. J.params . J.textDocument
@@ -495,17 +489,17 @@ reactor inp diagIn = do
 
         -- -------------------------------
 
-        CM (NotDidChangeWatchedFiles _notification) -> do
+        NotDidChangeWatchedFiles _notification -> do
           liftIO $ U.logm "****** reactor: not processing NotDidChangeWatchedFiles"
 
         -- -------------------------------
 
-        CM (NotWillSaveTextDocument _notification) -> do
+        NotWillSaveTextDocument _notification -> do
           liftIO $ U.logm "****** reactor: not processing NotWillSaveTextDocument"
 
         -- -------------------------------
 
-        CM (NotDidSaveTextDocument notification) -> do
+        NotDidSaveTextDocument notification -> do
           -- This notification is redundant, as we get the NotDidChangeTextDocument
           liftIO $ U.logm "****** reactor: processing NotDidSaveTextDocument"
           let
@@ -517,7 +511,7 @@ reactor inp diagIn = do
 
         -- -------------------------------
 
-        CM (NotDidChangeTextDocument notification) -> do
+        NotDidChangeTextDocument notification -> do
           liftIO $ U.logm "****** reactor: processing NotDidChangeTextDocument"
           let
               params = notification ^. J.params
@@ -537,7 +531,7 @@ reactor inp diagIn = do
 
         -- -------------------------------
 
-        CM (NotDidCloseTextDocument notification) -> do
+        NotDidCloseTextDocument notification -> do
           liftIO $ U.logm "****** reactor: processing NotDidCloseTextDocument"
           let
               uri = notification ^. J.params . J.textDocument . J.uri
@@ -549,7 +543,7 @@ reactor inp diagIn = do
 
         -- -------------------------------
 
-        CM (ReqRename req) -> do
+        ReqRename req -> do
           liftIO $ U.logs $ "reactor:got RenameRequest:" ++ show req
           -- TODO: re-enable HaRe
           -- let (params, doc, pos) = reqParams req
@@ -562,7 +556,7 @@ reactor inp diagIn = do
 
         -- -------------------------------
 
-        CM (ReqHover req) -> do
+        ReqHover req -> do
           liftIO $ U.logs $ "reactor:got HoverRequest:" ++ show req
           let params = req ^. J.params
               pos = params ^. J.position
@@ -592,13 +586,13 @@ reactor inp diagIn = do
 
         -- -------------------------------
 
-        CM (ReqCodeAction req) -> do
+        ReqCodeAction req -> do
           liftIO $ U.logs $ "reactor:got CodeActionRequest:" ++ show req
           handleCodeActionReq tn req
 
         -- -------------------------------
 
-        CM (ReqExecuteCommand req) -> do
+        ReqExecuteCommand req -> do
           liftIO $ U.logs $ "reactor:got ExecuteCommandRequest:" ++ show req
           lf <- asks lspFuncs
 
@@ -671,7 +665,7 @@ reactor inp diagIn = do
 
         -- -------------------------------
 
-        CM (ReqCompletion req) -> do
+        ReqCompletion req -> do
           liftIO $ U.logs $ "reactor:got CompletionRequest:" ++ show req
           let (_, doc, pos) = reqParams req
 
@@ -689,7 +683,7 @@ reactor inp diagIn = do
                            $ lift $ Completions.getCompletions doc prefix snippets
               makeRequest hreq
 
-        CM (ReqCompletionItemResolve req) -> do
+        ReqCompletionItemResolve req -> do
           liftIO $ U.logs $ "reactor:got CompletionItemResolveRequest:" ++ show req
           snippets <- Completions.WithSnippets <$> configVal completionSnippetsOn
           let origCompl = req ^. J.params
@@ -702,7 +696,7 @@ reactor inp diagIn = do
 
         -- -------------------------------
 
-        CM (ReqDocumentHighlights req) -> do
+        ReqDocumentHighlights req -> do
           liftIO $ U.logs $ "reactor:got DocumentHighlightsRequest:" ++ show req
           let (_, doc, pos) = reqParams req
               callback = reactorSend . RspDocumentHighlights . Core.makeResponseMessage req . J.List
@@ -712,7 +706,7 @@ reactor inp diagIn = do
 
         -- -------------------------------
 
-        CM (ReqDefinition req) -> do
+        ReqDefinition req -> do
           liftIO $ U.logs $ "reactor:got DefinitionRequest:" ++ show req
           let params = req ^. J.params
               doc = params ^. J.textDocument . J.uri
@@ -722,7 +716,7 @@ reactor inp diagIn = do
                        $ fmap J.MultiLoc <$> Hie.findDef doc pos
           makeRequest hreq
 
-        CM (ReqTypeDefinition req) -> do
+        ReqTypeDefinition req -> do
           liftIO $ U.logs $ "reactor:got DefinitionTypeRequest:" ++ show req
           let params = req ^. J.params
               doc = params ^. J.textDocument . J.uri
@@ -732,7 +726,7 @@ reactor inp diagIn = do
                        $ fmap J.MultiLoc <$> Hie.findTypeDef doc pos
           makeRequest hreq
 
-        CM (ReqFindReferences req) -> do
+        ReqFindReferences req -> do
           liftIO $ U.logs $ "reactor:got FindReferences:" ++ show req
           -- TODO: implement project-wide references
           let (_, doc, pos) = reqParams req
@@ -744,7 +738,7 @@ reactor inp diagIn = do
 
         -- -------------------------------
 
-        CM (ReqDocumentFormatting req) -> do
+        ReqDocumentFormatting req -> do
           liftIO $ U.logs $ "reactor:got FormatRequest:" ++ show req
           provider <- getFormattingProvider
           let params = req ^. J.params
@@ -756,7 +750,7 @@ reactor inp diagIn = do
 
         -- -------------------------------
 
-        CM (ReqDocumentRangeFormatting req) -> do
+        ReqDocumentRangeFormatting req -> do
           liftIO $ U.logs $ "reactor:got FormatRequest:" ++ show req
           provider <- getFormattingProvider
           let params = req ^. J.params
@@ -769,7 +763,7 @@ reactor inp diagIn = do
 
         -- -------------------------------
 
-        CM (ReqDocumentSymbols req) -> do
+        ReqDocumentSymbols req -> do
           liftIO $ U.logs $ "reactor:got Document symbol request:" ++ show req
           sps <- asks symbolProviders
           C.ClientCapabilities _ tdc _ _ <- asksLspFuncs Core.clientCapabilities
@@ -794,14 +788,14 @@ reactor inp diagIn = do
 
         -- -------------------------------
 
-        CM (NotCancelRequestFromClient notif) -> do
+        NotCancelRequestFromClient notif -> do
           liftIO $ U.logs $ "reactor:got CancelRequest:" ++ show notif
           let lid = notif ^. J.params . J.id
           cancelRequest lid
 
         -- -------------------------------
 
-        CM (NotDidChangeConfiguration notif) -> do
+        NotDidChangeConfiguration notif -> do
           liftIO $ U.logs $ "reactor:didChangeConfiguration notification:" ++ show notif
           -- if hlint has been turned off, flush the diagnostics
           diagsOn              <- configVal hlintOn
@@ -814,15 +808,8 @@ reactor inp diagIn = do
             else flushDiagnosticsBySource maxDiagnosticsToSend (Just "hlint")
 
         -- -------------------------------
-
-        CM om -> do
+        om -> do
           liftIO $ U.logs $ "reactor:got HandlerRequest:" ++ show om
-
-        -- -------------------------------
-
-        PD uri version diagnostics -> do
-          publishDiagnostics uri version diagnostics
-
       loop (tn + 1)
 
   -- Actually run the thing
@@ -956,17 +943,18 @@ requestDiagnosticsNormal tn file mVer = do
     sendOneGhc :: J.DiagnosticSource -> (J.NormalizedUri, [Diagnostic]) -> R ()
     sendOneGhc pid (fileUri,ds) = do
       if any (hasSeverity J.DsError) ds
-        then publishDiagnostics fileUri Nothing
+        then publishDiagnostics maxToSend fileUri Nothing
                (Map.fromList [(Just "hlint",SL.toSortedList []),(Just pid,SL.toSortedList ds)])
         else sendOne pid (fileUri,ds)
 
     sendOne pid (fileUri,ds) = do
-      publishDiagnostics fileUri Nothing (Map.fromList [(Just pid,SL.toSortedList ds)])
+      publishDiagnostics maxToSend fileUri Nothing (Map.fromList [(Just pid,SL.toSortedList ds)])
 
     hasSeverity :: J.DiagnosticSeverity -> J.Diagnostic -> Bool
     hasSeverity sev (J.Diagnostic _ (Just s) _ _ _ _) = s == sev
     hasSeverity _ _ = False
-    sendEmpty = publishDiagnostics (J.toNormalizedUri file) Nothing (Map.fromList [(Just "bios",SL.toSortedList [])])
+    sendEmpty = publishDiagnostics maxToSend (J.toNormalizedUri file) Nothing (Map.fromList [(Just "bios",SL.toSortedList [])])
+    maxToSend = maxNumberOfProblems clientConfig
 
   let sendHlint = hlintOn clientConfig
   when sendHlint $ do
@@ -1065,14 +1053,6 @@ hieHandlers rin
 
 passHandler :: TChan ReactorInput -> (a -> FromClientMessage) -> Core.Handler a
 passHandler rin c notification = do
-  atomically $ writeTChan rin (CM (c notification))
-
--- ---------------------------------------------------------------------
-
--- | Generate a 'PublishDiagnostics' function that will simply insert
--- the request into the main server loop
-passPublishDiagnostics :: TChan ReactorInput -> PublishDiagnostics
-passPublishDiagnostics rin uri version diagnostics = do
-  atomically $ writeTChan rin (PD uri version diagnostics)
+  atomically $ writeTChan rin (c notification)
 
 -- ---------------------------------------------------------------------
