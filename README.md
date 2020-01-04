@@ -218,6 +218,12 @@ The install-script can be invoked via `cabal` instead of `stack` with the comman
 cabal v2-run ./install.hs --project-file install/shake.project <target>
 ```
 
+or using the existing alias script
+
+```bash
+cabal-hie-install <target>
+```
+
 Running the script with cabal on windows requires a cabal version greater or equal to `3.0.0.0`.
 
 Unfortunately, it is still required to have `stack` installed so that the install-script can locate the `local-bin` directory (on Linux `~/.local/bin`) and copy the `hie` binaries to `hie-x.y.z`, which is required for the `hie-wrapper` to function as expected. There are plans to remove this requirement and let users build hie only with one build tool or another.
