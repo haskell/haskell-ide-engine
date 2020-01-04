@@ -32,10 +32,11 @@ ormoluDescriptor plId = PluginDescriptor
   , pluginFormattingProvider = Just provider
   }
 
-#if __GLASGOW_HASKELL__ >= 806
+
 provider :: FormattingProvider
 provider contents uri typ _opts =
   case typ of 
+#if __GLASGOW_HASKELL__ >= 806
     FormatRange _ -> return $ IdeResultFail (IdeError PluginError (pack "Selection formatting for Ormolu is not currently supported.") Null)
     FormatText -> pluginGetFile contents uri $ \file -> do
         result <- liftIO $ try @OrmoluException (ormolu defaultConfig file (unpack contents))
@@ -43,11 +44,6 @@ provider contents uri typ _opts =
           Left  err -> return $ IdeResultFail (IdeError PluginError (pack $  "ormoluCmd: " ++ show err) Null)
           Right new -> return $ IdeResultOk [TextEdit (fullRange contents) new]
 #else
--- Work in progress
-provider :: FormattingProvider
-provider _contents _uri typ _opts = do
-  errorm "This version of HIE does not support Ormolu as a formatter"
-  case typ of 
-    FormatRange _ -> return $ IdeResultFail (IdeError PluginError (pack "Selection formatting for Ormolu is not currently supported.") Null)
+    FormatRange _ -> return $ IdeResultOk []
     FormatText -> return $ IdeResultOk []
 #endif 
