@@ -583,7 +583,7 @@ getComponent proj env unitCandidates fp = getComponent' [] [] unitCandidates >>=
             ]
           , concat
             [ concat
-              [ [ "This Module was not part of any component we are aware of."
+              [ [ "This module was not part of any component we are aware of."
                 , ""
                 ]
               , concatMap ppShowUnitInfo triedUnits
@@ -612,7 +612,7 @@ getComponent proj env unitCandidates fp = getComponent' [] [] unitCandidates >>=
     stackSpecificInstructions =
       [ "To expose a module, refer to:"
       , "https://docs.haskellstack.org/en/stable/GUIDE/"
-      , "If you are using `package.yaml` then you don't have manually expose modules."
+      , "If you are using `package.yaml` then you don't have to manually expose modules."
       , "Maybe you didn't set the source directories for your project correctly."
       ]
 
