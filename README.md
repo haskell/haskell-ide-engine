@@ -221,7 +221,7 @@ cabal v2-run ./install.hs --project-file install/shake.project <target>
 or using the existing alias script
 
 ```bash
-cabal-hie-install <target>
+./cabal-hie-install <target>
 ```
 
 Running the script with cabal on windows requires a cabal version greater or equal to `3.0.0.0`.
