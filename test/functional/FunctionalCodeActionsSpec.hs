@@ -218,7 +218,8 @@ spec = describe "code actions" $ do
         , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
         ]
       ]
-    describe "formats with ormolu" $ hsImportSpec "ormolu"
+#if __GLASGOW_HASKELL__ >= 806
+    describe "formats with ormolu" $ hsImportSpec "ormolu" -- Ormolu only works with GHC 8.6.x
       [ -- Expected output for simple format.
         [ "import Control.Monad"
         , "import qualified Data.Maybe"
@@ -232,7 +233,6 @@ spec = describe "code actions" $ do
         , "main = when True $ putStrLn \"hello\""
         ]
       , -- Multiple import lists, should not introduce multiple newlines.
-      -- WIP (Haddock issues) ;TODO
         [ "import System.IO (hPutStrLn, stdout)"
         , "import Control.Monad (when)"
         , "import Data.Maybe (fromMaybe)"
@@ -244,7 +244,6 @@ spec = describe "code actions" $ do
         , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
         ]
       ,  -- Complex imports for Constructos and functions
-      -- WIP (Haddock issues) ;TODO
         [ "{-# LANGUAGE NoImplicitPrelude #-}"
         , "import System.IO (IO, hPutStrLn, stderr)"
         , "import Prelude (Bool (..))"
@@ -259,7 +258,7 @@ spec = describe "code actions" $ do
         , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
         ]
       ]
-
+#endif
   describe "add package suggestions" $ do
     it "adds to .cabal files" $ do
       flushStackEnvironment
