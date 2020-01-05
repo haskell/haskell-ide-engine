@@ -72,7 +72,7 @@ library
                      , haskell-lsp == 0.19.*
                      , haskell-lsp-types == 0.19.*
                      , haskell-src-exts
-                     , hie-plugin-api
+                     , hie-plugin-api >= 1.0
                      , hoogle >= 5.0.13
                      , hsimport
                      , hslogger
