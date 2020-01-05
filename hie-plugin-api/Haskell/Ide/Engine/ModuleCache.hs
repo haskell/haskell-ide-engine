@@ -148,22 +148,7 @@ loadCradle publishDiagnostics iniDynFlags (NewCradle fp) def action = do
   logm $ "New cradle: " ++ fp
   sendTelemetry $ Aeson.String $ Text.pack $ "loadCradle:NewCradle:" <> fp
   -- Cache the existing cradle
-  -- And append this module (fp) to the cradle if it isn't already in it
-  -- This can happen if fp is outside of the module graph of the cradle, but should
-  -- still use that cradle. e.g.
-  --
-  -- Components                         | Modules in component
-  -- -----------------------------------+----------------------
-  -- pkg:lib <-- cradle is set to this  | Lib.hs
-  -- pkg:exe                            | Exe.hs
-  --
-  -- Exe.hs might import across a component Lib.hs. So it *won't* appeari n the module graph
-  -- And so won't appear in the currentCradle. We need to manually append it otherwise the
-  -- cradle will never get cached for it.
-  let appendThisModule (fps, c)
-        | fp `notElem` fps = (fp:fps, c)
-        | otherwise = (fps, c)
-  maybe (return ()) cacheCradle =<< (fmap appendThisModule . currentCradle <$> getModuleCache)
+  maybe (return ()) cacheCradle =<< (currentCradle <$> getModuleCache)
 
   -- Now load the new cradle, accounting for hie.yaml parse errors
   let parseErrorHandler = return . Left . Yaml.prettyPrintParseException
