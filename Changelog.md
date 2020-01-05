@@ -6,6 +6,21 @@
   [hie-bios](https://github.com/mpickering/hie-bios) from @mpickering
   (and a host of others).
 
+Some of the implications of this are
+
+- Cabal 3.0 support.
+- Support for stack scripts.
+- Work on test, executable, benchmark and library components at the same time.
+- You can set the build-tool (stack or cabal) explicitly.
+- Various memory leaks have been fixed.
+- Various performance improvements.
+
+Also, until `hie-bios` provides a means to get a full module graph for
+the project, we haved disabled HaRe (rename, caseSplitCmd, etc...).
+It is better to not have a tool, than one that sort-of works, and we
+did not want to hold back all the other work that has been done.
+
+
 Changes
 
 - Bump resolvers `lts-14.20` for GHC 8.6.5.
