@@ -57,6 +57,7 @@ library
                      , monad-control
                      , mtl
                      , process
+                     , sorted-list
                      , stm
                      , syb
                      , text
