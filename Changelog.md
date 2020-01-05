@@ -23,6 +23,9 @@ did not want to hold back all the other work that has been done.
 
 ## Changes
 
+- Fallback to direct cradle if no project context can be found
+([#1551](https://github.com/haskell/haskell-ide-engine/pull/1551), by @fendor)
+
 - Bump resolvers `lts-14.20` for GHC 8.6.5.
 ([#1547](https://github.com/haskell/haskell-ide-engine/pull/1547), by @alanz)
 
