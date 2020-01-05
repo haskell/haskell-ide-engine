@@ -432,8 +432,14 @@ cabalHelperCradle file = do
       return
         Cradle { cradleRootDir = cwd
                , cradleOptsProg =
-                   CradleAction { actionName = "Cabal-Helper-None"
-                                , runCradle = \_ _ -> return CradleNone
+                   CradleAction { actionName = "Direct"
+                                , runCradle = \_ _ ->
+                                      return
+                                      $ CradleSuccess
+                                        ComponentOptions
+                                          { componentOptions = [file, fixImportDirs cwd "-i."]
+                                          , componentDependencies = []
+                                          }
                                 }
                }
     Just (Ex proj) -> do
