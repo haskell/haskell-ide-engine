@@ -1,3 +1,93 @@
+# 1.0.0.0
+
+- NOTE: 1.0 status does **not** mean it is now stable.
+- This is a major version bump, because the internal architecture has
+  changed to make use of the new
+  [hie-bios](https://github.com/mpickering/hie-bios) from @mpickering
+  (and a host of others).
+
+Changes
+
+- Bump resolvers `lts-14.20` for GHC 8.6.5.
+([#1547](https://github.com/haskell/haskell-ide-engine/pull/1547), by @alanz)
+
+- Improve quality and information density of error message
+([#1522](https://github.com/haskell/haskell-ide-engine/pull/1522), by @fendor)
+
+- Add cmd script to install with cabal
+([#1542](https://github.com/haskell/haskell-ide-engine/pull/1542), by @jneira)
+
+- Tweak hie-wrapper and hie exe startup messages
+([#1539](https://github.com/haskell/haskell-ide-engine/pull/1539), by @alanz)
+
+- First pass at printing out debug info if started without --lsp
+([#1538](https://github.com/haskell/haskell-ide-engine/pull/1538), by @alanz)
+
+- Return hlint code actions as type 'quickfix'
+([#1537](https://github.com/haskell/haskell-ide-engine/pull/1537), by @alanz)
+
+- Readme: Remove non-existing troubleshooting entry
+([#1534](https://github.com/haskell/haskell-ide-engine/pull/1534), by @andys8)
+
+- Add sample hie.yaml files for stack and cabal
+([#1533](https://github.com/haskell/haskell-ide-engine/pull/1533), by @alanz)
+
+- Look for stack.yaml before selecting .cabal location as project root
+([#1531](https://github.com/haskell/haskell-ide-engine/pull/1531), by @fendor)
+
+- Change Maybe LspFuncs to LspFuncs inside IdeEnv
+([#1523](https://github.com/haskell/haskell-ide-engine/pull/1523), by @bubba)
+
+- Replaced cabal-helper submodule with hackage version
+([#1521](https://github.com/haskell/haskell-ide-engine/pull/1521), by @alanz)
+
+- Adapt GhcModPluginSpec after merge of #1496
+([#1507](https://github.com/haskell/haskell-ide-engine/pull/1507), by @alanz)
+
+- Find the libdir directory of ghc at run-time
+([#1496](https://github.com/haskell/haskell-ide-engine/pull/1496), by @fendor)
+
+- Restore the ghcmod plugin command routing
+([#1505](https://github.com/haskell/haskell-ide-engine/pull/1505), by @alanz)
+
+- Make errorm use errorM instead of warningM
+([#1502](https://github.com/haskell/haskell-ide-engine/pull/1502), by @DavSanchez)
+
+- Refactor plugins and commands now that JSON transport is gone
+([#1492](https://github.com/haskell/haskell-ide-engine/pull/1492), by @bubba)
+
+- Retain the --lsp option, to not break existing clients
+([#1494](https://github.com/haskell/haskell-ide-engine/pull/1494), by @alanz)
+updated 14 days ago
+
+- Remove JSON transport
+([#1489](https://github.com/haskell/haskell-ide-engine/pull/1489), by @bubba)
+
+- Remove ghc-project-types
+([#1487](https://github.com/haskell/haskell-ide-engine/pull/1487), by @alanz)
+
+- Switch back to @DanielG cabal-helper
+([#1488](https://github.com/haskell/haskell-ide-engine/pull/1488), by @bubba)
+
+- Update Ubuntu dependency
+([#1485](https://github.com/haskell/haskell-ide-engine/pull/1485), by @leifmetcalf)
+
+- Some tidying up for tests
+([#1483](https://github.com/haskell/haskell-ide-engine/pull/1483), by @bubba)
+
+- Disable travis for now
+([#1484](https://github.com/haskell/haskell-ide-engine/pull/1484), by @bubba)
+
+- Implement the HIE Bios
+([#1126](https://github.com/haskell/haskell-ide-engine/pull/1126), by @mpickering)
+
+- Add mac build
+([#1479](https://github.com/haskell/haskell-ide-engine/pull/1479), by @liam-ly)
+
+- Unit test over the liquid haskell supported version
+([#1449](https://github.com/haskell/haskell-ide-engine/pull/1449), by @jneira)
+
+
 # 0.14.0.0
 
 - Bump resolvers and deps `lts-14.16` for GHC 8.6.5.
