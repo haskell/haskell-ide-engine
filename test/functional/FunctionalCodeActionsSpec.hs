@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 
 module FunctionalCodeActionsSpec where
 
@@ -219,7 +220,7 @@ spec = describe "code actions" $ do
         ]
       ]
 #if __GLASGOW_HASKELL__ >= 806
-    describe "formats with ormolu" $ hsImportSpec "ormolu" -- Ormolu only works with GHC 8.6.x
+    describe "formats with ormolu" $ hsImportSpec "ormolu"
       [ -- Expected output for simple format.
         [ "import Control.Monad"
         , "import qualified Data.Maybe"
@@ -258,6 +259,8 @@ spec = describe "code actions" $ do
         , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
         ]
       ]
+#else 
+    describe "formats with ormolu" $ pendingWith "Ormolu only works with GHC >= 8.6. Need to restore this."
 #endif
   describe "add package suggestions" $ do
     it "adds to .cabal files" $ do
