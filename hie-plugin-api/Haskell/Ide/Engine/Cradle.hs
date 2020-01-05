@@ -437,7 +437,7 @@ cabalHelperCradle file = do
                                       return
                                       $ CradleSuccess
                                         ComponentOptions
-                                          { componentOptions = []
+                                          { componentOptions = [file]
                                           , componentDependencies = []
                                           }
                                 }
