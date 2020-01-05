@@ -21,7 +21,7 @@ It is better to not have a tool, than one that sort-of works, and we
 did not want to hold back all the other work that has been done.
 
 
-Changes
+## Changes
 
 - Bump resolvers `lts-14.20` for GHC 8.6.5.
 ([#1547](https://github.com/haskell/haskell-ide-engine/pull/1547), by @alanz)
