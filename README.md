@@ -546,6 +546,7 @@ Then issue `:CocConfig` and add the following to your Coc config file.
 "languageserver": {
   "haskell": {
     "command": "hie-wrapper",
+    "args": ["--lsp"],
     "rootPatterns": [
       "*.cabal",
       "stack.yaml",
