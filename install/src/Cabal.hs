@@ -42,8 +42,10 @@ getGhcPathOfOrThrowError versionNumber =
 cabalBuildHie :: VersionNumber -> Action ()
 cabalBuildHie versionNumber = do
   ghcPath <- getGhcPathOfOrThrowError versionNumber
+  projectFile <- getCabalProjectFile versionNumber
   execCabal_
     [ "v2-build"
+    , "--project-file=" <> projectFile
     , "-w", ghcPath
     , "--write-ghc-environment-files=never"
     , "--max-backjumps=5000"
@@ -54,6 +56,7 @@ cabalInstallHie versionNumber = do
   localBin <- getLocalBin
   cabalVersion <- getCabalVersion
   ghcPath <- getGhcPathOfOrThrowError versionNumber
+  projectFile <- getCabalProjectFile versionNumber
 
   let isCabal3 = checkVersion [3,0,0,0] cabalVersion
       installDirOpt | isCabal3 = "--installdir"
@@ -62,6 +65,7 @@ cabalInstallHie versionNumber = do
                     | otherwise = []
   execCabal_ $
     [ "v2-install"
+    , "--project-file=" <> projectFile
     , "-w", ghcPath
     , "--write-ghc-environment-files=never"
     , installDirOpt, localBin
@@ -129,3 +133,15 @@ requiredCabalVersion | isWindowsSystem = requiredCabalVersionForWindows
 
 requiredCabalVersionForWindows :: RequiredVersion
 requiredCabalVersionForWindows = [3, 0, 0, 0]
+
+
+defaultProjectFile :: FilePath
+defaultProjectFile = "cabal.project"
+
+getCabalProjectFile :: VersionNumber -> Action FilePath
+getCabalProjectFile versionNumber = do
+  let versionedProjectFile = "cabal.project." <> versionNumber
+  tryFile <- doesFileExist versionedProjectFile
+  case tryFile of
+       True  -> need [versionedProjectFile] >> pure versionedProjectFile
+       False -> need [defaultProjectFile] >> pure defaultProjectFile
