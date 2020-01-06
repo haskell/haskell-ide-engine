@@ -92,7 +92,6 @@ spec = do
       liftIO $ edits `shouldBe` [TextEdit (Range (Position 1 0) (Position 3 0))
                                     "foo x y = do\n    print x\n    return 42\n"]
 
--- Work in progress
   describe "ormolu" $ do
     let formatLspConfig provider =
           object [ "languageServerHaskell" .= object ["formattingProvider" .= (provider :: Value)] ]
