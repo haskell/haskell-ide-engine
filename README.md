@@ -589,7 +589,7 @@ into `~/.vim/pack/XXX/start/`, where `XXX` is just a name for your "plugin suite
 
 ```vim
 set rtp+=~/.vim/pack/XXX/start/LanguageClient-neovim
-let g:LanguageClient_serverCommands = { 'haskell': ['hie-wrapper'] }
+let g:LanguageClient_serverCommands = { 'haskell': ['hie-wrapper', '--lsp'] }
 ```
 
 You'll probably want to add some mappings for common commands:
