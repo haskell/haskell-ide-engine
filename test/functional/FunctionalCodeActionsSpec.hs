@@ -260,8 +260,9 @@ spec = describe "code actions" $ do
         ]
       ]
 #else 
-    describe "formats with ormolu" $ do
-      pendingWith "Ormolu only supported by GHC >= 8.6. Need to restore this."
+    describe "formats with ormolu" $
+      it "is NOP formatter" $
+        pendingWith "Ormolu only supported by GHC >= 8.6. Need to restore this."
 #endif
   describe "add package suggestions" $ do
     it "adds to .cabal files" $ do
