@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE CPP #-}
 
 module FunctionalCodeActionsSpec where
 
@@ -219,51 +218,50 @@ spec = describe "code actions" $ do
         , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
         ]
       ]
-#if __GLASGOW_HASKELL__ >= 806
-    describe "formats with ormolu" $ hsImportSpec "ormolu"
-      [ -- Expected output for simple format.
-        [ "import Control.Monad"
-        , "import qualified Data.Maybe"
-        , "main :: IO ()"
-        , "main = when True $ putStrLn \"hello\""
-        ]
-      , -- Use an import list and format the output.
-        [ "import Control.Monad (when)"
-        , "import qualified Data.Maybe"
-        , "main :: IO ()"
-        , "main = when True $ putStrLn \"hello\""
-        ]
-      , -- Multiple import lists, should not introduce multiple newlines.
-        [ "import System.IO (hPutStrLn, stdout)"
-        , "import Control.Monad (when)"
-        , "import Data.Maybe (fromMaybe)"
-        , "-- | Main entry point to the program"
-        , "main :: IO ()"
-        , "main ="
-        , "    when True"
-        , "        $ hPutStrLn stdout"
-        , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
-        ]
-      ,  -- Complex imports for Constructos and functions
-        [ "{-# LANGUAGE NoImplicitPrelude #-}"
-        , "import System.IO (IO, hPutStrLn, stderr)"
-        , "import Prelude (Bool (..))"
-        , "import Control.Monad (when)"
-        , "import Data.Function (($))"
-        , "import Data.Maybe (Maybe (Just), fromMaybe)"
-        , "-- | Main entry point to the program"
-        , "main :: IO ()"
-        , "main ="
-        , "    when True"
-        , "        $ hPutStrLn stderr"
-        , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
-        ]
-      ]
-#else 
-    describe "formats with ormolu" $
-      it "is NOP formatter" $
-        pendingWith "Ormolu only supported by GHC >= 8.6. Need to restore this."
-#endif
+    describe "formats with ormolu" $ 
+      case ghcVersion of
+        GHC86 -> hsImportSpec "ormolu"
+          [ -- Expected output for simple format.
+            [ "import Control.Monad"
+            , "import qualified Data.Maybe"
+            , "main :: IO ()"
+            , "main = when True $ putStrLn \"hello\""
+            ]
+          , -- Use an import list and format the output.
+            [ "import Control.Monad (when)"
+            , "import qualified Data.Maybe"
+            , "main :: IO ()"
+            , "main = when True $ putStrLn \"hello\""
+            ]
+          , -- Multiple import lists, should not introduce multiple newlines.
+            [ "import System.IO (hPutStrLn, stdout)"
+            , "import Control.Monad (when)"
+            , "import Data.Maybe (fromMaybe)"
+            , "-- | Main entry point to the program"
+            , "main :: IO ()"
+            , "main ="
+            , "    when True"
+            , "        $ hPutStrLn stdout"
+            , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
+            ]
+          ,  -- Complex imports for Constructos and functions
+            [ "{-# LANGUAGE NoImplicitPrelude #-}"
+            , "import System.IO (IO, hPutStrLn, stderr)"
+            , "import Prelude (Bool (..))"
+            , "import Control.Monad (when)"
+            , "import Data.Function (($))"
+            , "import Data.Maybe (Maybe (Just), fromMaybe)"
+            , "-- | Main entry point to the program"
+            , "main :: IO ()"
+            , "main ="
+            , "    when True"
+            , "        $ hPutStrLn stderr"
+            , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
+            ]
+          ]
+        _ -> it "is NOP formatter" $
+          pendingWith "Ormolu only supported by GHC >= 8.6. Need to restore this."
+          
   describe "add package suggestions" $ do
     it "adds to .cabal files" $ do
       flushStackEnvironment
