@@ -226,19 +226,7 @@ or using the existing alias script
 
 Running the script with cabal on windows requires a cabal version greater or equal to `3.0.0.0`.
 
-Unfortunately, it is still required to have `stack` installed so that the install-script can locate the `local-bin` directory (on Linux `~/.local/bin`) and copy the `hie` binaries to `hie-x.y.z`, which is required for the `hie-wrapper` to function as expected. There are plans to remove this requirement and let users build hie only with one build tool or another.
-
 For brevity, only the `stack`-based commands are presented in the following sections.
-
-##### Install cabal using stack
-
-Although you can use hie for stack based projects (those which have a `stack.yaml` in the project base directory) without having cabal installed, you will need it for cabal based projects (with only a `<projectName>.cabal` file or a `cabal.project` one in the project base directory).
-
-You can install an appropriate cabal version using stack by running:
-
-```bash
-stack ./install.hs stack-install-cabal
-```
 
 ##### Install specific GHC Version
 

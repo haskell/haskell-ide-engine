@@ -65,7 +65,6 @@ defaultMain = do
     want ["short-help"]
     -- general purpose targets
     phony "submodules"  updateSubmodules
-    phony "cabal"       installCabalWithStack
     phony "short-help"  shortHelpMessage
     phony "all"         shortHelpMessage
     phony "help"        (helpMessage versions)
@@ -93,37 +92,35 @@ defaultMain = do
       )
 
     -- stack specific targets
-    when isRunFromStack (phony "stack-install-cabal" (need ["cabal"]))
-    phony "stack-build-latest" (need ["stack-hie-" ++ last hieVersions])
-    phony "stack-build"  (need ["build-data", "stack-build-latest"])
-    
-    phony "stack-build-data" $ do
-      need ["submodules"]
-      need ["check-stack"]
-      stackBuildData
-    forM_
-      hieVersions
-      (\version -> phony ("stack-hie-" ++ version) $ do
+    when isRunFromStack $ do
+      phony "stack-build-latest" (need ["stack-hie-" ++ last hieVersions])
+      phony "stack-build"  (need ["build-data", "stack-build-latest"])
+      phony "stack-build-data" $ do
         need ["submodules"]
         need ["check-stack"]
-        stackBuildHie version
-        stackInstallHie version
-      )
+        stackBuildData
+      forM_
+        hieVersions
+        (\version -> phony ("stack-hie-" ++ version) $ do
+          need ["submodules"]
+          need ["check-stack"]
+          stackBuildHie version
+          stackInstallHie version
+        )
 
     -- cabal specific targets
-    phony "cabal-build-latest" (need ["cabal-hie-" ++ last ghcVersions])
-    phony "cabal-build"  (need ["build-data", "cabal-build-latest"])
-    phony "cabal-build-data" $ do
-      need ["submodules"]
-      need ["cabal"]
-      cabalBuildData
-    forM_
-      ghcVersions
-      (\version -> phony ("cabal-hie-" ++ version) $ do
+    when isRunFromCabal $ do
+      phony "cabal-build-latest" (need ["cabal-hie-" ++ last ghcVersions])
+      phony "cabal-build"  (need ["build-data", "cabal-build-latest"])
+      phony "cabal-build-data" $ do
         need ["submodules"]
-        need ["cabal"]
-        cabalInstallHie version
-      )
+        cabalBuildData
+      forM_
+        ghcVersions
+        (\version -> phony ("cabal-hie-" ++ version) $ do
+          need ["submodules"]
+          cabalInstallHie version
+        )
 
     -- macos specific targets
     phony "icu-macos-fix"
