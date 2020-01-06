@@ -122,7 +122,6 @@ defaultMain = do
       (\version -> phony ("cabal-hie-" ++ version) $ do
         need ["submodules"]
         need ["cabal"]
-        cabalBuildHie version
         cabalInstallHie version
       )
 
