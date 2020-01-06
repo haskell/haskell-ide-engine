@@ -1,0 +1,9 @@
+cabal-version:       >=2.0
+name:                C
+version:             0.1.0.0
+build-type:          Simple
+
+library
+  exposed-modules:     MyLib
+  build-depends:       base>= 4.9 && < 5
+  default-language:    Haskell2010

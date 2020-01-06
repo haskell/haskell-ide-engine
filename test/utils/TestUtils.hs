@@ -10,6 +10,7 @@ module TestUtils
   , runIGM
   , ghcVersion, GhcVersion(..)
   , logFilePath
+  , readResolver
   , hieCommand
   , hieCommandVomit
   , hieCommandExamplePlugin

@@ -68,11 +68,12 @@ isStackCradle = (`elem` ["stack", "Cabal-Helper-Stack", "Cabal-Helper-Stack-None
 isCabalCradle :: Cradle -> Bool
 isCabalCradle =
   (`elem`
-    ["cabal"
+    [ "cabal"
     , "Cabal-Helper-Cabal-V1"
     , "Cabal-Helper-Cabal-V2"
     , "Cabal-Helper-Cabal-V1-Dir"
     , "Cabal-Helper-Cabal-V2-Dir"
+    , "Cabal-Helper-Cabal-V2-None"
     , "Cabal-Helper-Cabal-None"
     ]
   )
