@@ -78,8 +78,7 @@ helpMessage versions@BuildableVersions {..} = do
     [emptyTarget]
     [ generalTargets
     , defaultTargets
-    , stackTargets
-    , cabalTargets
+    , if isRunFromCabal then [cabalGhcsTarget] else []
     , [macosIcuTarget]
     ]
 
@@ -88,22 +87,6 @@ helpMessage versions@BuildableVersions {..} = do
 
   defaultTargets = [buildTarget, buildLatestTarget, buildDataTarget]
     ++ map hieTarget (getDefaultBuildSystemVersions versions)
-
-  stackTargets =
-    [ stackTarget buildTarget
-      , stackTarget buildLatestTarget
-      , stackTarget buildDataTarget
-      ]
-      ++ (if isRunFromStack then [stackTarget installCabalTarget] else [])
-      ++ map (stackTarget . hieTarget) stackVersions
-
-  cabalTargets =
-    [ cabalGhcsTarget
-      , cabalTarget buildTarget
-      , cabalTarget buildLatestTarget
-      , cabalTarget buildDataTarget
-      ]
-      ++ map (cabalTarget . hieTarget) cabalVersions
 
 -- | Empty target. Purpose is to introduce a newline between the targets
 emptyTarget :: (String, String)
@@ -116,25 +99,19 @@ targetWithBuildSystem :: String -> TargetDescription -> TargetDescription
 targetWithBuildSystem system (target, description) =
   (system ++ "-" ++ target, description ++ "; with " ++ system)
 
-stackTarget :: TargetDescription -> TargetDescription
-stackTarget = targetWithBuildSystem "stack"
-
-cabalTarget :: TargetDescription -> TargetDescription
-cabalTarget = targetWithBuildSystem "cabal"
-
 hieTarget :: String -> TargetDescription
 hieTarget version =
   ("hie-" ++ version, "Builds hie for GHC version " ++ version)
 
 buildTarget :: TargetDescription
-buildTarget = ("build", "Build hie with the latest available GHC and the data files")
+buildTarget = ("hie", "Build hie with the latest available GHC and the data files")
 
 buildLatestTarget :: TargetDescription
-buildLatestTarget = ("build-latest", "Build hie with the latest available GHC")
+buildLatestTarget = ("latest", "Build hie with the latest available GHC")
 
 buildDataTarget :: TargetDescription
 buildDataTarget =
-  ("build-data", "Get the required data-files for `hie` (Hoogle DB)")
+  ("data", "Get the required data-files for `hie` (Hoogle DB)")
 
 -- special targets
 
@@ -146,25 +123,6 @@ helpTarget = ("help", "Show help message including all targets")
 
 cabalGhcsTarget :: TargetDescription
 cabalGhcsTarget =
-  ( "cabal-ghcs"
+  ( "ghcs"
   , "Show all GHC versions that can be installed via `cabal-build`."
   )
-
-installCabalTarget :: TargetDescription
-installCabalTarget =
-  ( "install-cabal"
-  , "Install the cabal executable. It will install the required minimum version for hie (currently "
-  ++ versionToString requiredCabalVersion
-  ++ ") if it isn't already present in $PATH"
-  )
-
--- | Creates a message of the form "a, b, c and d", where a,b,c,d are GHC versions.
--- If there is no GHC in the list of `hieVersions`
-allVersionMessage :: [String] -> String
-allVersionMessage wordList = case wordList of
-  []  -> ""
-  [a] -> show a
-  (a : as) ->
-    let msg         = intersperse ", " wordList
-        lastVersion = last msg
-    in  concat $ init (init msg) ++ [" and ", lastVersion]
