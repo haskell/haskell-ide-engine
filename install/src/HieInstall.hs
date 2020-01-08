@@ -86,7 +86,7 @@ defaultMain = do
       )
 
     phony "latest" (need ["hie-" ++ latestVersion])
-    phony "build"  (need ["data", "latest"])
+    phony "hie"  (need ["data", "latest"])
 
     -- cabal specific targets
     when isRunFromCabal $ do
