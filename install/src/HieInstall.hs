@@ -48,85 +48,64 @@ defaultMain = do
 
   -- used for cabal-based targets
   ghcPaths <- findInstalledGhcs
-  let ghcVersions = map fst ghcPaths
+  let cabalVersions = map fst ghcPaths
 
   -- used for stack-based targets
-  hieVersions <- getHieVersions
+  stackVersions <- getHieVersions
 
-  let versions = BuildableVersions { stackVersions = hieVersions
-                                   , cabalVersions = ghcVersions
-                                   }
+  let versions = if isRunFromStack then stackVersions else cabalVersions 
 
-  let latestVersion = last hieVersions
+  let toolsVersions = BuildableVersions stackVersions cabalVersions
 
-  putStrLn $ "run from: " ++ buildSystem
+  let latestVersion = last versions
 
   shakeArgs shakeOptions { shakeFiles = "_build" } $ do
     want ["short-help"]
     -- general purpose targets
     phony "submodules"  updateSubmodules
     phony "short-help"  shortHelpMessage
-    phony "all"         shortHelpMessage
-    phony "help"        (helpMessage versions)
-    phony "check-stack" checkStack
-    phony "check-cabal" checkCabal_
+    phony "help"        (helpMessage toolsVersions)
+    
+    phony "check" (if isRunFromStack then checkStack else checkCabal_)
 
-    phony "cabal-ghcs" $ do
-      let
-        msg =
-          "Found the following GHC paths: \n"
-            ++ unlines
-                 (map (\(version, path) -> "ghc-" ++ version ++ ": " ++ path)
-                      ghcPaths
-                 )
-      printInStars msg
+    phony "data" $ do
+      need ["submodules"]
+      need ["check"]
+      if isRunFromStack then stackBuildData else cabalBuildData
 
-    -- default-targets
-    phony "build" $ need [buildSystem ++ "-build"]
-    phony "build-latest" $ need [buildSystem ++ "-build-latest"]
-    phony "build-data" $ need [buildSystem ++ "-build-data"]
     forM_
-      (getDefaultBuildSystemVersions versions)
-      (\version ->
-        phony ("hie-" ++ version) $ need [buildSystem ++ "-hie-" ++ version]
-      )
-
-    -- stack specific targets
-    when isRunFromStack $ do
-      phony "stack-build-latest" (need ["stack-hie-" ++ last hieVersions])
-      phony "stack-build"  (need ["build-data", "stack-build-latest"])
-      phony "stack-build-data" $ do
+      versions
+      (\version -> phony ("hie-" ++ version) $ do
         need ["submodules"]
-        need ["check-stack"]
-        stackBuildData
-      forM_
-        hieVersions
-        (\version -> phony ("stack-hie-" ++ version) $ do
-          need ["submodules"]
-          need ["check-stack"]
+        need ["check"]
+        if isRunFromStack then do 
           stackBuildHie version
           stackInstallHie version
-        )
+        else
+          cabalInstallHie version
+      )
+
+    phony "latest" (need ["hie-" ++ latestVersion])
+    phony "build"  (need ["data", "latest"])
 
     -- cabal specific targets
     when isRunFromCabal $ do
-      phony "cabal-build-latest" (need ["cabal-hie-" ++ last ghcVersions])
-      phony "cabal-build"  (need ["build-data", "cabal-build-latest"])
-      phony "cabal-build-data" $ do
-        need ["submodules"]
-        cabalBuildData
-      forM_
-        ghcVersions
-        (\version -> phony ("cabal-hie-" ++ version) $ do
-          need ["submodules"]
-          cabalInstallHie version
-        )
+
+      phony "ghcs" $ do
+        let
+          msg =
+            "Found the following GHC paths: \n"
+              ++ unlines
+                  (map (\(version, path) -> "ghc-" ++ version ++ ": " ++ path)
+                        ghcPaths
+                  )
+        printInStars msg
 
     -- macos specific targets
     phony "icu-macos-fix"
           (need ["icu-macos-fix-install"] >> need ["icu-macos-fix-build"])
     phony "icu-macos-fix-install" (command_ [] "brew" ["install", "icu4c"])
-    phony "icu-macos-fix-build" $ mapM_ buildIcuMacosFix hieVersions
+    phony "icu-macos-fix-build" $ mapM_ buildIcuMacosFix versions
 
 
 buildIcuMacosFix :: VersionNumber -> Action ()
