@@ -96,7 +96,7 @@ The final step is to configure the `hie` client to use a custom `hie-wrapper` sc
 
 The `install.hs` script performs some checks to ensure that a correct installation is possible and provide meaningful error messages for known issues.
 
-* `stack` needs to be up-to-date. Version `1.9.3` is required
+* `stack` needs to be up-to-date. Version `2.1.1` is required
 * `cabal` needs to be up-to-date. Version `3.0.0.0` is required for windows systems and `2.4.1.0` for other ones.
 * `ghc-8.6.3` is broken on windows. Trying to install `hie-8.6.3` on windows is not possible.
 * When the build fails, an error message, that suggests to remove `.stack-work` directory, is displayed.
