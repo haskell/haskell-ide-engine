@@ -95,10 +95,6 @@ emptyTarget = ("", "")
 templateTarget :: (String, String)
 templateTarget = ("<target>", "")
 
-targetWithBuildSystem :: String -> TargetDescription -> TargetDescription
-targetWithBuildSystem system (target, description) =
-  (system ++ "-" ++ target, description ++ "; with " ++ system)
-
 hieTarget :: String -> TargetDescription
 hieTarget version =
   ("hie-" ++ version, "Builds hie for GHC version " ++ version)

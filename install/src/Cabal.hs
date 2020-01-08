@@ -51,16 +51,6 @@ getGhcPathOfOrThrowError versionNumber =
       error (ghcVersionNotFoundFailMsg versionNumber)
     Just p -> return p
 
-cabalBuildHie :: VersionNumber -> Action ()
-cabalBuildHie versionNumber = do
-  ghcPath <- getGhcPathOfOrThrowError versionNumber
-  execCabal_
-    [ "v2-build"
-    , "-w", ghcPath
-    , "--write-ghc-environment-files=never"
-    , "--max-backjumps=5000"
-    , "--disable-tests"]
-
 cabalInstallHie :: VersionNumber -> Action ()
 cabalInstallHie versionNumber = do
   localBin <- liftIO $ getInstallDir
@@ -77,6 +67,7 @@ cabalInstallHie versionNumber = do
     , "-w", ghcPath
     , "--write-ghc-environment-files=never"
     , installDirOpt, localBin
+    , "--max-backjumps=5000"
     , "exe:hie"
     , "--overwrite-policy=always"
     ]

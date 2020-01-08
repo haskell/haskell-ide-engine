@@ -31,11 +31,6 @@ stackInstallHie versionNumber = do
     copyFile (localBinDir </> hie)
              (localBinDir </> "hie-" ++ dropExtension versionNumber <.> exe)
 
-buildCopyCompilerTool :: VersionNumber -> Action ()
-buildCopyCompilerTool versionNumber =
-  execStackWithGhc_ versionNumber ["build", "--copy-compiler-tool"]
-
-
 -- | check `stack` has the required version
 checkStack :: Action ()
 checkStack = do
