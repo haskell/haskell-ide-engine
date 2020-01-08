@@ -31,6 +31,8 @@ library
 
   if flag(run-from-stack)
     cpp-options:       -DRUN_FROM_STACK
+  else
+    build-depends: cabal-install-parsers
 
 flag run-from-stack
   description:         Inform the application that it is run from stack

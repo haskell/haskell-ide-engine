@@ -27,18 +27,17 @@ See the project's `README` for detailed information about installing `hie`.
 The build script `install.hs` defines several targets using the `shake` build system. The targets are roughly:
 
 * `hie-*`: builds and installs the `hie` binaries. Also renames the binaries to contain the correct version-number.
-* `build-latest`: builds and installs `hie` for the latest available and supported `ghc` version.
-* `build-data`: builds the hoogle-db required by `hie`
-* `build`:  builds and installs `hie` for the latest supported `ghc` version (like `build-latest`) and the hoogle-db (like `build-data`)
-* `cabal-*`: execute the same task as the original target, but with `cabal` instead of `stack`
+* `latest`: builds and installs `hie` for the latest available and supported `ghc` version.
+* `data`: builds the hoogle-db required by `hie`
+* `hie`:  builds and installs `hie` for the latest supported `ghc` version (like `latest`) and the hoogle-db (like `data`)
 
-Each `stack-*.yaml` contains references to packages in the submodules. Calling `stack` with one of those causes the build to fail if the submodules have not been initialized already. The file `shake.yaml` solves this issue invoking the `git` binary itself to update the submodules. Moreover, it specifies the correct version of `shake` and is used for installing all run-time dependencies such as `cabal` and `hoogle` if necessary.
+Each `stack-*.yaml` contains references to packages in the submodules. Calling `stack` with one of those causes the build to fail if the submodules have not been initialized already. The file `shake.yaml` solves this issue invoking the `git` binary itself to update the submodules. Moreover, it specifies the correct version of `shake` and is used for installing all run-time dependencies such as `hoogle` if necessary.
 
 ### Run-time dependencies
 
 `hie` depends on a correct environment in order to function properly:
 
-* `cabal-install`: This dependency is required by `hie` to handle correctly projects that are not `stack` based. You can install an appropriate version using `stack` with the `stack-install-cabal` target.
+* `cabal-install`: This dependency is required by `hie` to handle correctly projects that are not `stack` based. You can install it using one of the methods listed here: https://www.haskell.org/cabal/#install-upgrade
 * The `hoogle` database: `hoogle generate` needs to be called with the most-recent `hoogle` version.
 
 ### Steps to build `hie`
@@ -68,12 +67,21 @@ EOF
 
 Then `hie` can be compiled for a specific GHC version:
 
+* For cabal prior to 3.0.0.0
 ```bash
 export GHCP=<path-to-ghc-binary>
 cabal v2-install exe:hie -w $GHCP \
   --write-ghc-environment-files=never --symlink-bindir=$HOME/.local/bin \
   --overwrite-policy=always --reinstall
 ```
+* For cabal 3.0.0.0 or newer
+```bash
+export GHCP=<path-to-ghc-binary>
+cabal v2-install exe:hie -w $GHCP \
+  --write-ghc-environment-files=never --installdir=$HOME/.local/bin \
+  --overwrite-policy=always --reinstall
+```
+* For windows you will need cabal 3.0.0.0 and add the argument `--install-method=copy`
 
 The final step is to configure the `hie` client to use a custom `hie-wrapper` script that enables the runtime options for profiling. Such a script could look like this:
 
@@ -88,16 +96,12 @@ The final step is to configure the `hie` client to use a custom `hie-wrapper` sc
 
 The `install.hs` script performs some checks to ensure that a correct installation is possible and provide meaningful error messages for known issues.
 
-* `stack` needs to be up-to-date. Version `1.9.3` is required
+* `stack` needs to be up-to-date. Version `2.1.1` is required
 * `cabal` needs to be up-to-date. Version `3.0.0.0` is required for windows systems and `2.4.1.0` for other ones.
 * `ghc-8.6.3` is broken on windows. Trying to install `hie-8.6.3` on windows is not possible.
 * When the build fails, an error message, that suggests to remove `.stack-work` directory, is displayed.
 
 ### Tradeoffs
-
-#### `stack` is a build dependency
-
-Currently, `stack` is needed even if you run the script with `cabal` to get the path where install the binaries but there are plans to remove that dependency (see #1380).
 
 #### run `install.hs` with `stack` installs a GHC before running
 

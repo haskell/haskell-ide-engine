@@ -31,11 +31,6 @@ stackInstallHie versionNumber = do
     copyFile (localBinDir </> hie)
              (localBinDir </> "hie-" ++ dropExtension versionNumber <.> exe)
 
-buildCopyCompilerTool :: VersionNumber -> Action ()
-buildCopyCompilerTool versionNumber =
-  execStackWithGhc_ versionNumber ["build", "--copy-compiler-tool"]
-
-
 -- | check `stack` has the required version
 checkStack :: Action ()
 checkStack = do
@@ -101,30 +96,3 @@ stackBuildFailMsg =
     ++ "If this does not work, open an issue at \n"
     ++ "\thttps://github.com/haskell/haskell-ide-engine"
 
--- |Run actions without the stack cached binaries 
-withoutStackCachedBinaries :: Action a -> Action a
-withoutStackCachedBinaries action = do
-
-  mbPath <- liftIO (lookupEnv "PATH")
-
-  case (mbPath, isRunFromStack) of
-
-    (Just paths, True) -> do
-      snapshotDir <- trimmedStdout <$> execStackShake ["path", "--snapshot-install-root"]
-      localInstallDir <- trimmedStdout <$> execStackShake ["path", "--local-install-root"]
-
-      let cacheBinPaths = [snapshotDir </> "bin", localInstallDir </> "bin"]
-      let origPaths = removePathsContaining cacheBinPaths paths
-
-      liftIO (setEnv "PATH" origPaths)
-      a <- action
-      liftIO (setEnv "PATH" paths)
-      return a
-
-    otherwise -> action
-
-  where removePathsContaining strs path =
-           joinPaths (filter (not . containsAny) (splitSearchPath path))
-           where containsAny p = any (`isInfixOf` p) strs
-        
-        joinPaths = intercalate [searchPathSeparator]
