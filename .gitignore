@@ -36,6 +36,7 @@
 /docs/source/__pycache__/
 /docs/source/plugins/
 /elisp/.cask/
+/test/testdata/*.exe
 /test/testdata/FuncTest.refactored.hs
 /test/testdata/HaReAddRmParam.refactored.hs
 /test/testdata/HaReCase.refactored.hs
