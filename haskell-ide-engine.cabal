@@ -110,18 +110,23 @@ library
 executable hie
   hs-source-dirs:      app
   main-is:             MainHie.hs
-  other-modules:       Paths_haskell_ide_engine
+  other-modules:       Paths_haskell_ide_engine, RunTest
   autogen-modules:     Paths_haskell_ide_engine
   build-depends:       base
+                     , containers
                      , directory
                      , filepath
+                     , ghc
                      , hie-bios
                      , haskell-ide-engine
                      , haskell-lsp
                      , hie-plugin-api
                      , hslogger
                      , optparse-simple
+                     , text
                      , yaml
+                     -- TODO: this is horrible
+                     , hie-test-utils
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
                        -with-rtsopts=-T
   if flag(pedantic)
