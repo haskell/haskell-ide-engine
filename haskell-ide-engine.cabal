@@ -181,6 +181,7 @@ test-suite unit-test
   hs-source-dirs:      test/unit
   main-is:             Main.hs
   other-modules:       ApplyRefactPluginSpec
+                       CabalHelperSpec
                        CodeActionsSpec
                        ContextSpec
                        DiffSpec
@@ -197,6 +198,7 @@ test-suite unit-test
   build-tool-depends:  cabal-helper:cabal-helper-main, hspec-discover:hspec-discover
   build-depends:       QuickCheck
                      , aeson
+                     , cabal-helper 
                      , ghc
                      , base
                      , bytestring

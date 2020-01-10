@@ -74,6 +74,7 @@ isCabalCradle =
     , "Cabal-Helper-Cabal-V2"
     , "Cabal-Helper-Cabal-V1-Dir"
     , "Cabal-Helper-Cabal-V2-Dir"
+    , "Cabal-Helper-Cabal-V2-None"
     , "Cabal-Helper-Cabal-None"
     ]
   )
