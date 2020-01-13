@@ -10,7 +10,7 @@ module RunTest
 where
 
 import           GhcMonad
-import           GHC
+import qualified GHC
 import           Control.Monad
 import qualified Control.Concurrent.STM        as STM
 import           Data.List                      ( isPrefixOf )
@@ -69,7 +69,7 @@ findFilesRecursively p exclude dir = do
 -- ---------------------------------------------------------------------
 
 compileTarget
-  :: DynFlags
+  :: GHC.DynFlags
   -> FilePath
   -> IdeGhcM (IdeResult (Ghc.Diagnostics, Ghc.AdditionalErrs))
 compileTarget dynFlags fp = do
