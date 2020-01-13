@@ -11,27 +11,39 @@ where
 
 import           GhcMonad
 import           GHC
+import           Control.Monad
+import qualified Control.Concurrent.STM        as STM
+import           Data.List                      ( isPrefixOf )
 import qualified Data.Text                     as T
+import qualified Data.Map                      as Map
+import           Data.Default
 import           System.Directory               ( doesDirectoryExist
                                                 , listDirectory
                                                 , canonicalizePath
-                                                , getCurrentDirectory
+                                                , doesFileExist
                                                 )
+import           System.FilePath
+import           Language.Haskell.LSP.Core
+import           Language.Haskell.LSP.Types
 import           Haskell.Ide.Engine.PluginsIdeMonads
+                                         hiding ( withIndefiniteProgress
+                                                , withProgress
+                                                )
+import           Haskell.Ide.Engine.GhcModuleCache
 import qualified Haskell.Ide.Engine.ModuleCache
                                                as MC
 import qualified Haskell.Ide.Engine.Ghc        as Ghc
-import           System.FilePath
-import           Control.Monad
-import           Data.List                      ( isPrefixOf )
-import           TestUtils                      ( runIGM )
 
 findAllSourceFiles :: FilePath -> IO [FilePath]
-findAllSourceFiles dir = do
-  absDir <- canonicalizePath dir
-  findFilesRecursively isHaskellSource
-                       (\fp -> any (\p -> p fp) [isHidden, isSpecialDir])
-                       absDir
+findAllSourceFiles fp = do
+  absFp <- canonicalizePath fp
+  isDir <- doesDirectoryExist absFp
+  if isDir
+    then findFilesRecursively
+      isHaskellSource
+      (\path -> any (\p -> p path) [isHidden, isSpecialDir])
+      absFp
+    else filterM doesFileExist [absFp]
  where
   isHaskellSource = (== ".hs") . takeExtension
   isHidden        = ("." `isPrefixOf`) . takeFileName
@@ -74,12 +86,15 @@ compileTarget dynFlags fp = do
 -- ---------------------------------------------------------------------
 
 runServer
-  :: IdePlugins
+  :: Maybe FilePath
+  -> IdePlugins
   -> [FilePath]
   -> IO [(FilePath, IdeResult (Ghc.Diagnostics, Ghc.AdditionalErrs))]
-runServer ideplugins targets = do
-  cwd <- getCurrentDirectory
-  runIGM ideplugins (cwd </> "File.hs") $ do
+runServer mlibdir ideplugins targets = do
+  let initialState = IdeState emptyModuleCache Map.empty Map.empty Nothing
+  stateVar <- STM.newTVarIO initialState
+
+  runIdeGhcM mlibdir ideplugins dummyLspFuncs stateVar $ do
     dynFlags <- getSessionDynFlags
     mapM (\fp -> (fp, ) <$> compileTarget dynFlags fp) targets
 
@@ -87,11 +102,27 @@ runServer ideplugins targets = do
 
 prettyPrintDiags
   :: FilePath -> IdeResult (Ghc.Diagnostics, Ghc.AdditionalErrs) -> T.Text
-prettyPrintDiags fp diags =
-    T.pack fp <> ": " <>
-      case diags of
-        IdeResultFail IdeError { ideMessage }  -> "FAILED\n\t" <> ideMessage
-        IdeResultOk (_diags, errs) ->
-          if null errs
-            then "OK"
-            else T.unlines (map (T.append "\t") errs)
+prettyPrintDiags fp diags = T.pack fp <> ": " <> case diags of
+  IdeResultFail IdeError { ideMessage } -> "FAILED\n\t" <> ideMessage
+  IdeResultOk (_diags, errs) ->
+    if null errs then "OK" else T.unlines (map (T.append "\t") errs)
+
+-- ---------------------------------------------------------------------
+
+dummyLspFuncs :: Default a => LspFuncs a
+dummyLspFuncs = LspFuncs
+  { clientCapabilities           = def
+  , config                       = return (Just def)
+  , sendFunc                     = const (return ())
+  , getVirtualFileFunc           = const (return Nothing)
+  , persistVirtualFileFunc       = \uri ->
+                                     return (uriToFilePath (fromNormalizedUri uri))
+  , reverseFileMapFunc           = return id
+  , publishDiagnosticsFunc       = mempty
+  , flushDiagnosticsBySourceFunc = mempty
+  , getNextReqId                 = pure (IdInt 0)
+  , rootPath                     = Nothing
+  , getWorkspaceFolders          = return Nothing
+  , withProgress                 = \_ _ f -> f (const (return ()))
+  , withIndefiniteProgress       = \_ _ f -> f
+  }

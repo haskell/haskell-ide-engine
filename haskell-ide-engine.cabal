@@ -114,19 +114,20 @@ executable hie
   autogen-modules:     Paths_haskell_ide_engine
   build-depends:       base
                      , containers
+                     , data-default
                      , directory
                      , filepath
                      , ghc
                      , hie-bios
                      , haskell-ide-engine
                      , haskell-lsp
+                     , haskell-lsp-types
                      , hie-plugin-api
                      , hslogger
                      , optparse-simple
+                     , stm
                      , text
                      , yaml
-                     -- TODO: this is horrible
-                     , hie-test-utils
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
                        -with-rtsopts=-T
   if flag(pedantic)

@@ -164,35 +164,31 @@ run opts = do
         Right cradle -> do
           projGhc <- getProjectGhcVersion cradle
           mlibdir <- getProjectGhcLibDir cradle
-          cliOut ""
-          cliOut ""
-          cliOut "###################################################"
-          cliOut ""
+          cliOut "\n\n###################################################\n"
           cliOut $ "Cradle: " ++ cradleDisplay cradle
           cliOut $ "Project Ghc version: " ++ projGhc
           cliOut $ "Libdir: " ++ show mlibdir
           cliOut "Searching for Haskell source files..."
-          targets <- findAllSourceFiles origDir
-          cliOut $ "Found " ++ show (length targets) ++ " Haskell source files."
-          cliOut "Load them all now. This may take a very long time."
-          cliOut ""
-          cliOut "###################################################"
-          cliOut ""
-          cliOut ""
-          loadDiagnostics <- runServer plugins' targets
+          targets <- case optFiles opts of
+            [] -> findAllSourceFiles origDir
+            xs -> concat <$> mapM findAllSourceFiles xs
 
-          cliOut ""
+          cliOut $ "Found " ++ show (length targets) ++ " Haskell source files.\n"
           cliOut "###################################################"
-          cliOut "###################################################"
+          cliOut "\nFound the following files:\n"
+          mapM_ cliOut targets
           cliOut ""
-          cliOut "Dumping diagnostics:"
-          cliOut ""
-          cliOut ""
-          mapM_ (cliOut' . uncurry prettyPrintDiags) loadDiagnostics
-          cliOut ""
-          cliOut ""
-          cliOut ""
-          cliOut "Note: loading of 'Setup.hs' is not supported."
+
+          unless (optDryRun opts) $ do
+            loadDiagnostics <- runServer mlibdir plugins' targets
+
+            cliOut ""
+            cliOut "###################################################"
+            cliOut "###################################################"
+            cliOut "\nLoad them all now. This may take a very long time.\n"
+            cliOut "\nDumping diagnostics:\n\n"
+            mapM_ (cliOut' . uncurry prettyPrintDiags) loadDiagnostics
+            cliOut "\n\n\nNote: loading of 'Setup.hs' is not supported."
 
 
 -- ---------------------------------------------------------------------
