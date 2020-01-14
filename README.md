@@ -152,6 +152,7 @@ HIE builds from source code, so there's a couple of extra steps.
 * `stack` must be in your PATH
 * `git` must be in your PATH
 * Stack local bin directory must be in your PATH. Get it with `stack path --local-bin`
+* To make hlint suggestions work, `hie` must locate the [hlint configuration yaml file](https://raw.githubusercontent.com/ndmitchell/hlint/master/data/hlint.yaml). As last resort it will look for it in a subdirectory named `data` in the same directory where the `hie` executable is. 
 
 Tip: you can quickly check if some command is in your path by running the command.
 If you receive some meaningful output instead of "command not found"-like message
