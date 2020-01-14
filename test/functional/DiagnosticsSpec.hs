@@ -54,7 +54,7 @@ spec = describe "diagnostics providers" $ do
         diags3@(d:_) <- waitForDiagnostics
         -- liftIO $ show diags3 `shouldBe` ""
         liftIO $ do
-          length diags3 `shouldBe` 3
+          length diags3 `shouldSatisfy` \ n -> n == 2 || n == 3
           d ^. LSP.range `shouldBe` Range (Position 0 0) (Position 1 0)
           d ^. LSP.severity `shouldBe` Nothing
           d ^. LSP.code `shouldBe` Nothing
