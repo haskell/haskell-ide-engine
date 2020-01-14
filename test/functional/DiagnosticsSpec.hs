@@ -40,25 +40,18 @@ spec = describe "diagnostics providers" $ do
           reduceDiag ^. LSP.source `shouldBe` Just "hlint"
 
         diags2a <- waitForDiagnostics
-        -- liftIO $ show diags2a `shouldBe` ""
+        
         liftIO $ length diags2a `shouldBe` 2
 
-        -- docItem <- getDocItem file languageId
         sendNotification TextDocumentDidSave (DidSaveTextDocumentParams doc)
-        -- diags2hlint <- waitForDiagnostics
-        -- -- liftIO $ show diags2hlint `shouldBe` ""
-        -- liftIO $ length diags2hlint `shouldBe` 3
-        -- diags2liquid <- waitForDiagnostics
-        -- liftIO $ length diags2liquid `shouldBe` 3
-        -- -- liftIO $ show diags2 `shouldBe` ""
-        diags3@(d:_) <- waitForDiagnostics
-        -- liftIO $ show diags3 `shouldBe` ""
+        
+        diags3@(d:_) <- waitForDiagnosticsSource "eg2"
+        
         liftIO $ do
-          length diags3 `shouldSatisfy` \ n -> n == 2 || n == 3
+          length diags3 `shouldBe` 1
           d ^. LSP.range `shouldBe` Range (Position 0 0) (Position 1 0)
           d ^. LSP.severity `shouldBe` Nothing
           d ^. LSP.code `shouldBe` Nothing
-          d ^. LSP.source `shouldBe` Just "eg2"
           d ^. LSP.message `shouldBe` T.pack "Example plugin diagnostic, triggered byDiagnosticOnSave"
 
   describe "typed hole errors" $
