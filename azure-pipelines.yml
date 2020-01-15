@@ -26,6 +26,7 @@ pr:
 
 jobs:
 - template: ./.azure/linux-stack.yml
+- template: ./.azure/linux-cabal.yml
 - template: ./.azure/windows-stack.yml
 - template: ./.azure/macos-stack.yml
 - template: ./.azure/linux-installhs-stack.yml
