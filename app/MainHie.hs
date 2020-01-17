@@ -180,15 +180,15 @@ run opts = do
           cliOut ""
 
           unless (optDryRun opts) $ do
+            cliOut "\nLoad them all now. This may take a very long time.\n"
             loadDiagnostics <- runServer mlibdir plugins' targets
 
             cliOut ""
             cliOut "###################################################"
             cliOut "###################################################"
-            cliOut "\nLoad them all now. This may take a very long time.\n"
             cliOut "\nDumping diagnostics:\n\n"
             mapM_ (cliOut' . uncurry prettyPrintDiags) loadDiagnostics
-            cliOut "\n\n\nNote: loading of 'Setup.hs' is not supported."
+            cliOut "\n\nNote: loading of 'Setup.hs' is not supported."
 
 
 -- ---------------------------------------------------------------------
