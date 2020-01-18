@@ -13,14 +13,14 @@ import           Distribution.Helper (Package, projectPackages, pUnits,
                                       unChModuleName, Ex(..), ProjLoc(..),
                                       QueryEnv, mkQueryEnv, runQuery,
                                       Unit, unitInfo, uiComponents,
-                                      ChEntrypoint(..))
+                                      ChEntrypoint(..), UnitInfo(..))
 import           Distribution.Helper.Discover (findProjects, getDefaultDistDir)
 import           Data.Char (toLower)
 import           Data.Function ((&))
 import           Data.List (isPrefixOf, isInfixOf, sortOn, find)
 import qualified Data.List.NonEmpty as NonEmpty
 import           Data.List.NonEmpty (NonEmpty)
-import qualified Data.Map as M
+import qualified Data.Map as Map
 import           Data.Maybe (listToMaybe, mapMaybe, isJust)
 import           Data.Ord (Down(..))
 import           Data.String (IsString(..))
@@ -45,31 +45,36 @@ import           System.Process (readCreateProcessWithExitCode, shell)
 findLocalCradle :: FilePath -> IO Cradle
 findLocalCradle fp = do
   cradleConf <- BIOS.findCradle fp
-  case cradleConf of
-    Just yaml -> BIOS.loadCradle yaml
+  crdl <- case cradleConf of
+    Just yaml -> do
+      debugm $ "Found \"" ++ yaml ++ "\" for \"" ++ fp ++ "\""
+      BIOS.loadCradle yaml
     Nothing   -> cabalHelperCradle fp
+  logm $ "Module \"" ++ fp ++ "\" is loaded by Cradle: " ++ show crdl
+  return crdl
 
 -- | Check if the given cradle is a stack cradle.
 -- This might be used to determine the GHC version to use on the project.
--- If it is a stack-cradle, we have to use `stack path --compiler-exe`
+-- If it is a stack-cradle, we have to use @"stack path --compiler-exe"@
 -- otherwise we may ask `ghc` directly what version it is.
 isStackCradle :: Cradle -> Bool
 isStackCradle = (`elem` ["stack", "Cabal-Helper-Stack", "Cabal-Helper-Stack-None"])
   . BIOS.actionName
   . BIOS.cradleOptsProg
 
-  -- | Check if the given cradle is a cabal cradle.
+-- | Check if the given cradle is a cabal cradle.
 -- This might be used to determine the GHC version to use on the project.
--- If it is a stack-cradle, we have to use `stack path --compiler-exe`
--- otherwise we may ask `ghc` directly what version it is.
+-- If it is a stack-cradle, we have to use @"stack path --compiler-exe"@
+-- otherwise we may ask @ghc@ directly what version it is.
 isCabalCradle :: Cradle -> Bool
 isCabalCradle =
   (`elem`
-    ["cabal"
+    [ "cabal"
     , "Cabal-Helper-Cabal-V1"
     , "Cabal-Helper-Cabal-V2"
     , "Cabal-Helper-Cabal-V1-Dir"
     , "Cabal-Helper-Cabal-V2-Dir"
+    , "Cabal-Helper-Cabal-V2-None"
     , "Cabal-Helper-Cabal-None"
     ]
   )
@@ -78,10 +83,10 @@ isCabalCradle =
 
 -- | Execute @ghc@ that is based on the given cradle.
 -- Output must be a single line. If an error is raised, e.g. the command
--- failed, a @Nothing@ is returned.
+-- failed, a 'Nothing' is returned.
 -- The exact error is written to logs.
 --
--- E.g. for a stack cradle, we use `stack ghc` and for a cabal cradle
+-- E.g. for a stack cradle, we use @stack ghc@ and for a cabal cradle
 -- we are taking the @ghc@ that is on the path.
 execProjectGhc :: Cradle -> [String] -> IO (Maybe String)
 execProjectGhc crdl args = do
@@ -143,7 +148,7 @@ getProjectGhcLibDir :: Cradle -> IO (Maybe FilePath)
 getProjectGhcLibDir crdl =
   execProjectGhc crdl ["--print-libdir"] >>= \case
     Nothing -> do
-      logm "Could not obtain the libdir."
+      errorm "Could not obtain the libdir."
       return Nothing
     mlibdir -> return mlibdir
 
@@ -164,6 +169,8 @@ This guessing has no guarantees and may change at any time.
 === Example:
 
 Assume the following project structure:
+
+@
   /
   └── Foo/
       ├── Foo.cabal
@@ -175,33 +182,39 @@ Assume the following project structure:
           ├── B.cabal
           └── src/
               └── Lib2.hs
+@
 
-Assume the call @findCabalHelperEntryPoint "/Foo/B/src/Lib2.hs"@.
-We now want to know to which project "/Foo/B/src/Lib2.hs" belongs to
+Assume the call @findCabalHelperEntryPoint "\/Foo\/B\/src\/Lib2.hs"@.
+We now want to know to which project "\/Foo\/B\/src\/Lib2.hs" belongs to
 and what the projects root is. If we only do a naive search to find the
 first occurrence of either "B.cabal", "stack.yaml", "cabal.project"
 or "Foo.cabal", we might assume that the location  of "B.cabal" marks
-the project's root directory of which "/Foo/B/src/Lib2.hs" is part of.
+the project's root directory of which "\/Foo\/B\/src\/Lib2.hs" is part of.
 However, there is also a "cabal.project" and "stack.yaml" in the parent
-directory, which add the package "B" as a package.
-So, the compilation of the package "B", and the file "src/Lib2.hs" in it,
+directory, which add the package @B@ as a package.
+So, the compilation of the package @B@, and the file "src\/Lib2.hs" in it,
 does not only depend on the definitions in "B.cabal", but also
 on "stack.yaml" and "cabal.project".
-The project root is therefore "/Foo/".
+The project root is therefore "\/Foo\/".
 Only if there is no "stack.yaml" or "cabal.project" in any of the ancestor
 directories, it is safe to assume that "B.cabal" marks the root of the project.
 
 Thus:
+
 >>> findCabalHelperEntryPoint "/Foo/B/src/Lib2.hs
 Just (Ex (ProjLocStackYaml { plStackYaml = "/Foo/"}))
 
 or
->>> findCabalHelperEntryPoint "/Foo/B/src/Lib2.hs
+
+>>> findCabalHelperEntryPoint "/Foo/B/src/Lib2.hs"
 Just (Ex (ProjLocV2File { plProjectDirV2 = "/Foo/"}))
 
 In the given example, it is not guaranteed which project type is found,
 it is only guaranteed that it will not identify the project
-as a cabal v1-project.
+as a cabal v1-project. Note that with cabal-helper version (1.0),
+by default a *.cabal file is identified as a 'ProjLocV2Dir' project.
+The same issue as before exists and we look for a 'ProjLocV2File' or
+'ProjLocStackYaml' before deciding that 'ProjLocV2Dir' marks the project root.
 
 Note that this will not return any project types for which the corresponding
 build tool is not on the PATH. This is "stack" and "cabal" for stack and cabal
@@ -219,29 +232,33 @@ findCabalHelperEntryPoint fp = do
   let supportedProjs = filter (\x -> supported x isStackInstalled isCabalInstalled) allProjs
   debugm $ "These projects have the build tools installed: " ++ show (map (\(Ex x) -> show x) supportedProjs)
 
-  case filter (\p -> isCabalNewProject p || isStackProject p) supportedProjs of
+  case filter (\p -> isCabalV2FileProject p || isStackProject p) supportedProjs of
     (x:_) -> return $ Just x
-    []    -> case filter isCabalOldProject supportedProjs of
+    []    -> case filter isCabalProject supportedProjs of
       (x:_) -> return $ Just x
       []    -> return Nothing
     where
-      supported :: (Ex ProjLoc) -> Bool -> Bool -> Bool
+      supported :: Ex ProjLoc -> Bool -> Bool -> Bool
       supported (Ex ProjLocStackYaml {}) stackInstalled _ = stackInstalled
       supported (Ex ProjLocV2Dir {}) _ cabalInstalled = cabalInstalled
       supported (Ex ProjLocV2File {}) _ cabalInstalled = cabalInstalled
       supported (Ex ProjLocV1Dir {}) _ cabalInstalled = cabalInstalled
       supported (Ex ProjLocV1CabalFile {}) _ cabalInstalled = cabalInstalled
 
-      isStackProject (Ex ProjLocStackYaml {}) = True
-      isStackProject _ = False
+isStackProject :: Ex ProjLoc -> Bool
+isStackProject (Ex ProjLocStackYaml {}) = True
+isStackProject _ = False
 
-      isCabalNewProject (Ex ProjLocV2Dir {}) = True
-      isCabalNewProject (Ex ProjLocV2File {}) = True
-      isCabalNewProject _ = False
+isCabalV2FileProject :: Ex ProjLoc -> Bool
+isCabalV2FileProject (Ex ProjLocV2File {}) = True
+isCabalV2FileProject _ = False
 
-      isCabalOldProject (Ex ProjLocV1Dir {}) = True
-      isCabalOldProject (Ex ProjLocV1CabalFile {}) = True
-      isCabalOldProject _ = False
+isCabalProject :: Ex ProjLoc -> Bool
+isCabalProject (Ex ProjLocV1CabalFile {}) = True
+isCabalProject (Ex ProjLocV1Dir {}) = True
+isCabalProject (Ex ProjLocV2File {}) = True
+isCabalProject (Ex ProjLocV2Dir {}) = True
+isCabalProject _ = False
 
 {- | Given a FilePath, find the cradle the FilePath belongs to.
 
@@ -330,6 +347,8 @@ required to load and compile the given file.
 === Mono-Repo
 
 Assume the project structure:
+
+@
   /
   └── Mono/
       ├── cabal.project
@@ -340,6 +359,7 @@ Assume the project structure:
       └── B/
           ├── B.cabal
           └── Exe.hs
+@
 
 Currently, Haskell IDE Engine needs to know on startup which GHC version is
 needed to compile the project. This information is needed to show warnings to
@@ -347,14 +367,16 @@ the user if the GHC version on the project does not agree with the GHC version
 that was used to compile Haskell IDE Engine.
 
 Therefore, the function 'findLocalCradle' is invoked with a dummy FilePath,
-such as "/Mono/Lib.hs". Since there will be no package that contains this
+such as "\/Mono\/Lib.hs". Since there will be no package that contains this
 dummy FilePath, the result will be a None-cradle.
 
 Either
+
 >>> findLocalCradle "/Mono/Lib.hs"
 Cradle { cradleRootDir = "/Mono/", CradleAction { actionName = "Cabal-Helper-Stack-None", ..} }
 
-or:
+or
+
 >>> findLocalCradle "/Mono/Lib.hs"
 Cradle { cradleRootDir = "/Mono/", CradleAction { actionName = "Cabal-Helper-Cabal-V2-None", ..} }
 
@@ -364,8 +386,9 @@ a 'cabal' project.
 
 
 If we are trying to load the executable:
+
 >>> findLocalCradle "/Mono/B/Exe.hs"
-Cradle { cradleRootDir = "/Mono/B/", CradleAction { actionName = "Cabal-Helper-Cabal-V2", ..} }
+Cradle { cradleRootDir = "/Mono/", CradleAction { actionName = "Cabal-Helper-Cabal-V2", ..} }
 
 we will detect correctly the compiler options, by first finding the appropriate
 package, followed by traversing the units in the package and finding the
@@ -374,6 +397,8 @@ component that exposes the executable by FilePath.
 === No explicit executable folder
 
 Assume the project structure:
+
+@
   /
   └── Library/
       ├── cabal.project
@@ -382,18 +407,21 @@ Assume the project structure:
       └── src
           ├── Lib.hs
           └── Exe.hs
+@
 
 There are different dependencies for the library "Lib.hs" and the
-executable "Exe.hs". If we are trying to load the executable "src/Exe.hs"
+executable "Exe.hs". If we are trying to load the executable "src\/Exe.hs"
 we will correctly identify the executable unit, and correctly initialise
 dependencies of "exe:Library".
 It will be correct even if we load the unit "lib:Library" before
 the "exe:Library" because the unit "lib:Library" does not expose
-a module "Exe".
+a module @"Exe"@.
 
 === Sub package
 
 Assume the project structure:
+
+@
   /
   └── Repo/
       ├── cabal.project
@@ -404,12 +432,13 @@ Assume the project structure:
       └── SubRepo
           ├── SubRepo.cabal
           └── Lib2.hs
+@
 
-When we try to load "/Repo/SubRepo/Lib2.hs", we need to identify root
-of the project, which is "/Repo/" but set the root directory of the cradle
-responsible to load "/Repo/SubRepo/Lib2.hs" to "/Repo/SubRepo", since
+When we try to load "\/Repo\/SubRepo\/Lib2.hs", we need to identify root
+of the project, which is "\/Repo\/" but set the root directory of the cradle
+responsible to load "\/Repo\/SubRepo\/Lib2.hs" to "\/Repo\/SubRepo", since
 the compiler options obtained from Cabal-Helper are relative to the package
-source directory, which is "/Repo/SubRepo".
+source directory, which is "\/Repo\/SubRepo".
 
 -}
 cabalHelperCradle :: FilePath -> IO Cradle
@@ -422,17 +451,24 @@ cabalHelperCradle file = do
       return
         Cradle { cradleRootDir = cwd
                , cradleOptsProg =
-                   CradleAction { actionName = "Cabal-Helper-None"
-                                , runCradle = \_ _ -> return CradleNone
+                   CradleAction { actionName = "Direct"
+                                , runCradle = \_ _ ->
+                                      return
+                                      $ CradleSuccess
+                                        ComponentOptions
+                                          { componentOptions = [file, fixImportDirs cwd "-i."]
+                                          , componentDependencies = []
+                                          }
                                 }
                }
     Just (Ex proj) -> do
+      logm $ "Cabal-Helper decided to use: " ++ show proj
       -- Find the root of the project based on project type.
       let root = projectRootDir proj
       -- Create a suffix for the cradle name.
       -- Purpose is mainly for easier debugging.
       let actionNameSuffix = projectSuffix proj
-      logm $ "Cabal-Helper dirs: " ++ show [root, file]
+      debugm $ "Cabal-Helper dirs: " ++ show [root, file]
       let dist_dir = getDefaultDistDir proj
       env <- mkQueryEnv proj dist_dir
       packages <- runQuery projectPackages env
@@ -468,63 +504,67 @@ cabalHelperCradle file = do
                        CradleAction { actionName =
                                         "Cabal-Helper-" ++ actionNameSuffix
                                     , runCradle = \_ fp -> cabalHelperAction
+                                        (Ex proj)
                                         env
                                         realPackage
                                         normalisedPackageLocation
                                         fp
                                     }
                    }
-    where
 
-      -- | Fix occurrences of "-i." to "-i<cradle-root-dir>"
-      -- Flags obtained from cabal-helper are relative to the package
-      -- source directory. This is less resilient to using absolute paths,
-      -- thus, we fix it here.
-      fixImportDirs :: FilePath -> String -> String
-      fixImportDirs base_dir arg =
-        if "-i" `isPrefixOf` arg
-          then let dir = drop 2 arg
-          -- the flag "-i" has special meaning.
-          in if not (null dir) && isRelative dir then ("-i" ++ base_dir </> dir)
-                                    else arg
-          else arg
+-- | Cradle Action to query for the ComponentOptions that are needed
+-- to load the given FilePath.
+-- This Function is not supposed to throw any exceptions and use
+-- 'CradleLoadResult' to indicate errors.
+cabalHelperAction :: Ex ProjLoc -- ^ Project location, can be used
+                                -- to present build-tool
+                                -- agnostic error messages.
+                  -> QueryEnv v -- ^ Query Env created by 'mkQueryEnv'
+                                -- with the appropriate 'distdir'
+                  -> Package v -- ^ Package this cradle is part for.
+                  -> FilePath -- ^ Root directory of the cradle
+                              -- this action belongs to.
+                  -> FilePath -- ^ FilePath to load, expected to be an absolute path.
+                  -> IO (CradleLoadResult ComponentOptions)
+cabalHelperAction proj env package root fp = do
+  -- Get all unit infos the given FilePath may belong to
+  let units = pUnits package
+  -- make the FilePath to load relative to the root of the cradle.
+  let relativeFp = makeRelative root fp
+  debugm $ "Relative Module FilePath: " ++ relativeFp
+  getComponent proj env (toList units) relativeFp
+    >>= \case
+      Right comp -> do
+        let fs' = getFlags comp
+        let fs = map (fixImportDirs root) fs'
+        let targets = getTargets comp relativeFp
+        let ghcOptions = fs ++ targets
+        debugm $ "Flags for \"" ++ fp ++ "\": " ++ show ghcOptions
+        debugm $ "Component Infos: " ++ show comp
+        return
+          $ CradleSuccess
+            ComponentOptions { componentOptions = ghcOptions
+                              , componentDependencies = []
+                              }
+      Left err   -> return
+        $ CradleFail
+        $ CradleError
+          (ExitFailure 2)
+          err
 
-      -- | cradle Action to query for the ComponentOptions that are needed
-      -- to load the given FilePath.
-      -- This Function is not supposed to throw any exceptions and use
-      -- 'CradleLoadResult' to indicate errors.
-      cabalHelperAction :: QueryEnv v -- ^ Query Env created by 'mkQueryEnv'
-                                      -- with the appropriate 'distdir'
-                        -> Package v -- ^ Package this cradle is part for.
-                        -> FilePath -- ^ Root directory of the cradle
-                                    -- this action belongs to.
-                        -> FilePath -- ^ FilePath to load, expected to be an absolute path.
-                        -> IO (CradleLoadResult ComponentOptions)
-      cabalHelperAction env package root fp = do
-        -- Get all unit infos the given FilePath may belong to
-        let units = pUnits package
-        -- make the FilePath to load relative to the root of the cradle.
-        let relativeFp = makeRelative root fp
-        debugm $ "Relative Module FilePath: " ++ relativeFp
-        getComponent env (toList units) relativeFp
-          >>= \case
-            Just comp -> do
-              let fs' = getFlags comp
-              let fs = map (fixImportDirs root) fs'
-              let targets = getTargets comp relativeFp
-              let ghcOptions = fs ++ targets
-              debugm $ "Flags for \"" ++ fp ++ "\": " ++ show ghcOptions
-              debugm $ "Component Infos: " ++ show comp
-              return
-                $ CradleSuccess
-                  ComponentOptions { componentOptions = ghcOptions
-                                   , componentDependencies = []
-                                   }
-            Nothing   -> return
-              $ CradleFail
-              $ CradleError
-                (ExitFailure 2)
-                ["Could not obtain flags for " ++ fp]
+-- | Fix occurrences of "-i." to "-i<cradle-root-dir>"
+-- Flags obtained from cabal-helper are relative to the package
+-- source directory. This is less resilient to using absolute paths,
+-- thus, we fix it here.
+fixImportDirs :: FilePath -> String -> String
+fixImportDirs base_dir arg =
+  if "-i" `isPrefixOf` arg
+    then let dir = drop 2 arg
+    -- the flag "-i" has special meaning.
+    in if not (null dir) && isRelative dir then ("-i" ++ base_dir </> dir)
+                              else arg
+    else arg
+
 
 -- | Get the component the given FilePath most likely belongs to.
 -- Lazily ask units whether the given FilePath is part of one of their
@@ -534,25 +574,96 @@ cabalHelperCradle file = do
 -- The given FilePath must be relative to the Root of the project
 -- the given units belong to.
 getComponent
-  :: QueryEnv pt -> [Unit pt] -> FilePath -> IO (Maybe ChComponentInfo)
-getComponent _env [] _fp = return Nothing
-getComponent env (unit : units) fp =
-  try (runQuery (unitInfo unit) env) >>= \case
-    Left (e :: IOException) -> do
-      warningm $ "Catching and swallowing an IOException: " ++ show e
-      warningm
-        $  "The Exception was thrown in the context of finding"
-        ++ " a component for \""
-        ++ fp
-        ++ "\" in the unit: "
-        ++ show unit
-      getComponent env units fp
-    Right ui -> do
-      let components = M.elems (uiComponents ui)
-      debugm $ "Unit Info: " ++ show ui
-      case find (fp `partOfComponent`) components of
-        Nothing -> getComponent env units fp
-        comp    -> return comp
+  :: forall pt. Ex ProjLoc -> QueryEnv pt -> [Unit pt] -> FilePath -> IO (Either [String] ChComponentInfo)
+getComponent proj env unitCandidates fp = getComponent' [] [] unitCandidates >>=
+    \case
+      (tried, failed, Nothing) -> return (Left $ buildErrorMsg tried failed)
+      (_, _, Just comp) -> return (Right comp)
+  where
+    getComponent' :: [UnitInfo] -> [(Unit pt, IOException)] -> [Unit pt] -> IO ([UnitInfo], [(Unit pt, IOException)], Maybe ChComponentInfo)
+    getComponent' triedUnits failedUnits [] = return (triedUnits, failedUnits, Nothing)
+    getComponent' triedUnits failedUnits (unit : units) =
+      try (runQuery (unitInfo unit) env) >>= \case
+        Left (e :: IOException) -> do
+          warningm $ "Catching and swallowing an IOException: " ++ show e
+          warningm
+            $  "The Exception was thrown in the context of finding"
+            ++ " a component for \""
+            ++ fp
+            ++ "\" in the unit: "
+            ++ show unit
+          getComponent' triedUnits ((unit, e):failedUnits) units
+        Right ui -> do
+          let components = Map.elems (uiComponents ui)
+          debugm $ "Unit Info: " ++ show ui
+          case find (fp `partOfComponent`) components of
+            Nothing -> getComponent' (ui:triedUnits) failedUnits units
+            comp    -> return (triedUnits, failedUnits, comp)
+
+    buildErrorMsg :: [UnitInfo] -> [(Unit pt, IOException)] -> [String]
+    buildErrorMsg triedUnits failedUnits =
+        concat
+          [ [ "Could not obtain flags for: \"" ++ fp ++ "\"."
+            , ""
+            ]
+          , concat
+            [ concat
+              [ [ "This module was not part of any component we are aware of."
+                , ""
+                ]
+              , concatMap ppShowUnitInfo triedUnits
+              , [ ""
+                , ""
+                ]
+              , if isStackProject proj
+                  then stackSpecificInstructions
+                  else cabalSpecificInstructions
+              ]
+            | not (null triedUnits)
+            ]
+          , concat
+            [
+              [ "We could not build all components."
+              , "If one of these components exposes this Module, make sure they compile."
+              , "You can try to invoke the commands yourself."
+              , "The following commands failed:"
+              ]
+              ++ concatMap (ppShowIOException . snd) failedUnits
+            | not (null failedUnits)
+            ]
+        ]
+
+    stackSpecificInstructions :: [String]
+    stackSpecificInstructions =
+      [ "To expose a module, refer to:"
+      , "https://docs.haskellstack.org/en/stable/GUIDE/"
+      , "If you are using `package.yaml` then you don't have to manually expose modules."
+      , "Maybe you didn't set the source directories for your project correctly."
+      ]
+
+    cabalSpecificInstructions :: [String]
+    cabalSpecificInstructions =
+      [ "To expose a module, refer to:"
+      , "https://www.haskell.org/cabal/users-guide/developing-packages.html"
+      , ""
+      ]
+
+    ppShowUnitInfo :: UnitInfo -> [String]
+    ppShowUnitInfo u =
+      u
+      & uiComponents
+      & Map.toList
+      & map
+        (\(name, info) ->
+          "Component: " ++ show name ++ " with source directory: " ++ show (ciSourceDirs info)
+        )
+
+
+    ppShowIOException :: IOException -> [String]
+    ppShowIOException e =
+        [ ""
+        , show e
+        ]
 
 -- | Check whether the given FilePath is part of the Component.
 -- A FilePath is part of the Component if and only if:
@@ -734,8 +845,8 @@ ancestors dir
   where
     subdir = takeDirectory dir
 
--- | Assuming a FilePath "src/Lib/Lib.hs" and a list of directories
--- such as ["src", "app"], returns either the given FilePath
+-- | Assuming a FilePath @"src\/Lib\/Lib.hs"@ and a list of directories
+-- such as @["src", "app"]@, returns either the given FilePath
 -- with a matching directory stripped away.
 -- If there are multiple matches, e.g. multiple directories are a prefix
 -- of the given FilePath, return the first match in the list.
@@ -767,4 +878,3 @@ cradleDisplay cradle = fromString result
       | "multi" `isInfixOf` name = "Multi Component project"
       | otherwise = "project"
     name = map toLower $ BIOS.actionName (BIOS.cradleOptsProg cradle)
-

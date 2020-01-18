@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 module Cabal where
 
 import           Development.Shake
@@ -15,16 +17,26 @@ import           System.Directory                         ( findExecutable
 import           Version
 import           Print
 import           Env
-import           Stack
+import           Data.Functor.Identity
+#if RUN_FROM_STACK
+import           Control.Exception                        ( throwIO )
+#else
+import           Cabal.Config
+#endif
+
+getInstallDir :: IO FilePath
+#if RUN_FROM_STACK
+-- we should never hit this codepath
+getInstallDir = throwIO $ userError "Stack and cabal should never be mixed"
+#else
+getInstallDir = runIdentity . cfgInstallDir <$> readConfig
+#endif
 
 execCabal :: CmdResult r => [String] -> Action r
-execCabal = execCabalWithOriginalPath
+execCabal = command [] "cabal"
 
 execCabal_ :: [String] -> Action ()
-execCabal_ = execCabalWithOriginalPath
-
-execCabalWithOriginalPath :: CmdResult r => [String] -> Action r
-execCabalWithOriginalPath = withoutStackCachedBinaries . (command [] "cabal")
+execCabal_ = command [] "cabal"
 
 cabalBuildData :: Action ()
 cabalBuildData = do
@@ -39,19 +51,9 @@ getGhcPathOfOrThrowError versionNumber =
       error (ghcVersionNotFoundFailMsg versionNumber)
     Just p -> return p
 
-cabalBuildHie :: VersionNumber -> Action ()
-cabalBuildHie versionNumber = do
-  ghcPath <- getGhcPathOfOrThrowError versionNumber
-  execCabal_
-    [ "v2-build"
-    , "-w", ghcPath
-    , "--write-ghc-environment-files=never"
-    , "--max-backjumps=5000"
-    , "--disable-tests"]
-
 cabalInstallHie :: VersionNumber -> Action ()
 cabalInstallHie versionNumber = do
-  localBin <- getLocalBin
+  localBin <- liftIO $ getInstallDir
   cabalVersion <- getCabalVersion
   ghcPath <- getGhcPathOfOrThrowError versionNumber
 
@@ -65,6 +67,7 @@ cabalInstallHie versionNumber = do
     , "-w", ghcPath
     , "--write-ghc-environment-files=never"
     , installDirOpt, localBin
+    , "--max-backjumps=5000"
     , "exe:hie"
     , "--overwrite-policy=always"
     ]
@@ -83,18 +86,6 @@ cabalInstallHie versionNumber = do
              ++ majorVerExe ++ " and "
              ++ minorVerExe
              ++ " to " ++ localBin
-
-installCabalWithStack :: Action ()
-installCabalWithStack = do
-  -- try to find existing `cabal` executable with appropriate version
-  mbc <- withoutStackCachedBinaries (liftIO (findExecutable "cabal"))
-
-  case mbc of
-    Just c  -> do
-      cabalVersion <- checkCabal
-      printLine $ "There is already a cabal executable in $PATH with the required minimum version: " ++ cabalVersion
-     -- install `cabal-install` if not already installed
-    Nothing ->  execStackShake_ ["install", "cabal-install"]
 
 checkCabal_ :: Action ()
 checkCabal_ = checkCabal >> return ()

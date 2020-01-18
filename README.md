@@ -64,7 +64,6 @@ This project aims to be __the universal interface__ to __a growing number of Has
       - [Is \<package\> base-x?](#is-package-base-x)
       - [Is there a hash (#) after \<package\>?](#is-there-a-hash--after-package)
       - [Otherwise](#otherwise)
-    - [Nix: cabal-helper, No such file or directory](#nix-cabal-helper-no-such-file-or-directory)
     - [Liquid Haskell](#liquid-haskell)
     - [Profiling `haskell-ide-engine`.](#profiling-haskell-ide-engine)
       - [Using `ghc-events-analyze`](#using-ghc-events-analyze)
@@ -153,6 +152,10 @@ HIE builds from source code, so there's a couple of extra steps.
 * `stack` must be in your PATH
 * `git` must be in your PATH
 * Stack local bin directory must be in your PATH. Get it with `stack path --local-bin`
+* To make hlint suggestions work, `hie` must locate the [hlint configuration yaml file](https://raw.githubusercontent.com/ndmitchell/hlint/master/data/hlint.yaml). The file is searched in order in the following locations:
+  * In the directory pointed by the environment variable `$HLINT_DATADIR`.
+  * If hie was installed using stack or cabal, in a tool-specific internal installation directory.
+  * And finally in a subdirectory named `data` inside the directory where the `hie` executable is. 
 
 Tip: you can quickly check if some command is in your path by running the command.
 If you receive some meaningful output instead of "command not found"-like message
@@ -219,49 +222,43 @@ The install-script can be invoked via `cabal` instead of `stack` with the comman
 cabal v2-run ./install.hs --project-file install/shake.project <target>
 ```
 
-Running the script with cabal on windows requires a cabal version greater or equal to `3.0.0.0`.
-
-Unfortunately, it is still required to have `stack` installed so that the install-script can locate the `local-bin` directory (on Linux `~/.local/bin`) and copy the `hie` binaries to `hie-x.y.z`, which is required for the `hie-wrapper` to function as expected. There are plans to remove this requirement and let users build hie only with one build tool or another.
-
-For brevity, only the `stack`-based commands are presented in the following sections.
-
-##### Install cabal using stack
-
-Although you can use hie for stack based projects (those which have a `stack.yaml` in the project base directory) without having cabal installed, you will need it for cabal based projects (with only a `<projectName>.cabal` file or a `cabal.project` one in the project base directory).
-
-You can install an appropriate cabal version using stack by running:
+or using the existing alias script
 
 ```bash
-stack ./install.hs stack-install-cabal
+./cabal-hie-install <target>
 ```
+
+Running the script with cabal on windows requires a cabal version greater or equal to `3.0.0.0`.
+
+For brevity, only the `stack`-based commands are presented in the following sections.
 
 ##### Install specific GHC Version
 
 Install hie for the latest available and supported GHC version (and hoogle docs):
 
 ```bash
-stack ./install.hs build
+stack ./install.hs hie
 ```
 
 Install hie for a specific GHC version (and hoogle docs):
 
 ```bash
 stack ./install.hs hie-8.6.5
-stack ./install.hs build-data
+stack ./install.hs data
 ```
 
 The Haskell IDE Engine can also be built with `cabal v2-build` instead of `stack build`.
 This has the advantage that you can decide how the GHC versions have been installed.
-To see what GHC versions are available, the command `stack install.hs cabal-ghcs` can be used.
+To see what GHC versions are available, the command `cabal-hie-install ghcs` can be used.
 It will list all GHC versions that are on the path and their respective installation directory.
 If you think, this list is incomplete, you can try to modify the PATH variable, such that the executables can be found.
-Note, that the targets `cabal-build` and `cabal-build-data` depend on the found GHC versions.
+Note, that the targets `hie` and `data` depend on the found GHC versions.
 They install Haskell IDE Engine only for the found GHC versions.
 
 An example output is:
 
 ```bash
-> stack install.hs cabal-ghcs
+> cabal-hie-install ghcs
 ******************************************************************
 Found the following GHC paths:
 ghc-8.4.4: /opt/bin/ghc-8.4.4
@@ -273,11 +270,11 @@ ghc-8.6.2: /opt/bin/ghc-8.6.2
 If your desired ghc has been found, you use it to install Haskell IDE Engine.
 
 ```bash
-stack install.hs cabal-hie-8.4.4
-stack install.hs cabal-build-data
+cabal-hie-install hie-8.4.4
+cabal-hie-install data
 ```
 
-In general, targets that use `cabal` instead of `stack` are prefixed with `cabal-*` and are identical to their counterpart, except they do not install a GHC if it is missing but fail.
+In general, executing targets with `cabal` instead of `stack` have the same behaviour, except they do not install a GHC if it is missing but fail.
 
 ##### Multiple versions of HIE (optional)
 
@@ -541,6 +538,7 @@ Then issue `:CocConfig` and add the following to your Coc config file.
 "languageserver": {
   "haskell": {
     "command": "hie-wrapper",
+    "args": ["--lsp"],
     "rootPatterns": [
       "*.cabal",
       "stack.yaml",
@@ -583,7 +581,7 @@ into `~/.vim/pack/XXX/start/`, where `XXX` is just a name for your "plugin suite
 
 ```vim
 set rtp+=~/.vim/pack/XXX/start/LanguageClient-neovim
-let g:LanguageClient_serverCommands = { 'haskell': ['hie-wrapper'] }
+let g:LanguageClient_serverCommands = { 'haskell': ['hie-wrapper', '--lsp'] }
 ```
 
 You'll probably want to add some mappings for common commands:
@@ -725,6 +723,15 @@ This project is not started from scratch:
  - Join [our IRC channel](https://webchat.freenode.net/?channels=haskell-ide-engine) at `#haskell-ide-engine` on `freenode`.
  - Fork this repo and hack as much as you can.
  - Ask @alanz or @hvr to join the project.
+
+### Hacking on haskell-ide-engine
+
+Haskell-ide-engine can be used on its own project.  We have supplied
+preset samples of `hie.yaml` files for stack and cabal, simply copy
+the appropriate template to `hie.yaml` and it shoule work.
+
+- `hie.yaml.cbl` for cabal
+- `hie.yaml.stack` for stack
 
 ## Documentation
 

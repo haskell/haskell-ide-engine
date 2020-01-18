@@ -16,6 +16,7 @@ cabal-version:       >=2.0
 flag pedantic
   Description: Enable -Werror
   Default:     False
+  Manual:      True
 
 library
   hs-source-dirs:      src
@@ -47,6 +48,7 @@ library
                        Haskell.Ide.Engine.Types
                        Haskell.Ide.Engine.Version
   other-modules:       Paths_haskell_ide_engine
+  autogen-modules:     Paths_haskell_ide_engine
   build-depends:       Cabal >= 1.22
                      , Diff
                      -- , HaRe
@@ -72,7 +74,7 @@ library
                      , haskell-lsp == 0.19.*
                      , haskell-lsp-types == 0.19.*
                      , haskell-src-exts
-                     , hie-plugin-api
+                     , hie-plugin-api >= 1.0
                      , hoogle >= 5.0.13
                      , hsimport
                      , hslogger
@@ -108,16 +110,24 @@ library
 executable hie
   hs-source-dirs:      app
   main-is:             MainHie.hs
-  other-modules:       Paths_haskell_ide_engine
+  other-modules:       Paths_haskell_ide_engine, RunTest
+  autogen-modules:     Paths_haskell_ide_engine
   build-depends:       base
+                     , containers
+                     , data-default
                      , directory
                      , filepath
+                     , ghc
                      , hie-bios
                      , haskell-ide-engine
                      , haskell-lsp
+                     , haskell-lsp-types
                      , hie-plugin-api
                      , hslogger
                      , optparse-simple
+                     , stm
+                     , text
+                     , yaml
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wredundant-constraints
                        -with-rtsopts=-T
   if flag(pedantic)
@@ -129,6 +139,7 @@ executable hie-wrapper
   hs-source-dirs:      app
   main-is:             HieWrapper.hs
   other-modules:       Paths_haskell_ide_engine
+  autogen-modules:     Paths_haskell_ide_engine
   build-depends:       base
                      , directory
                      , filepath
@@ -176,6 +187,7 @@ test-suite unit-test
   hs-source-dirs:      test/unit
   main-is:             Main.hs
   other-modules:       ApplyRefactPluginSpec
+                       CabalHelperSpec
                        CodeActionsSpec
                        ContextSpec
                        DiffSpec
@@ -192,6 +204,7 @@ test-suite unit-test
   build-tool-depends:  cabal-helper:cabal-helper-main, hspec-discover:hspec-discover
   build-depends:       QuickCheck
                      , aeson
+                     , cabal-helper 
                      , ghc
                      , base
                      , bytestring

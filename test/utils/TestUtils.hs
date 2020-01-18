@@ -10,6 +10,7 @@ module TestUtils
   , runIGM
   , ghcVersion, GhcVersion(..)
   , logFilePath
+  , readResolver
   , hieCommand
   , hieCommandVomit
   , hieCommandExamplePlugin
@@ -187,7 +188,7 @@ logFilePath = "hie-" ++ stackYaml ++ ".log"
 -- on PATH. Cabal seems to respond to @build-tool-depends@ specifically while
 -- stack just puts all project executables on PATH.
 hieCommand :: String
-hieCommand = "hie --bios-verbose -d -l test-logs/" ++ logFilePath
+hieCommand = "hie --lsp --bios-verbose -d -l test-logs/" ++ logFilePath
 
 hieCommandVomit :: String
 hieCommandVomit = hieCommand ++ " --vomit"

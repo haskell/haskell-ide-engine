@@ -186,7 +186,12 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
 
           Left (e :: Yaml.ParseException) -> do
             logm $ "Failed to parse `hie.yaml`: " ++ show e
-            sf $ NotShowMessage $ fmServerShowMessageNotification J.MtError ("Couldn't parse hie.yaml: \n" <> T.pack (show e))
+            sf $ NotShowMessage
+               $ fmServerShowMessageNotification
+                  J.MtError
+                    (  "Couldn't parse hie.yaml: \n"
+                    <> T.pack (Yaml.prettyPrintParseException e)
+                    )
 
         let mcradle = case cradleRes of
               Left _ -> Nothing
@@ -196,23 +201,27 @@ run scheduler _origDir plugins captureFp = flip E.catches handlers $ do
         -- We launch the dispatcher after that so that the default cradle is
         -- recognized properly by ghc-mod
         flip labelThread "scheduler" =<<
-            (forkIO (
-              Scheduler.runScheduler scheduler errorHandler callbackHandler lf mcradle
-              `E.catch` \(e :: E.SomeException) ->
-              (errorm $ "Scheduler thread exited unexpectedly: " ++ show e)
-            ))
+            forkIO
+              ( Scheduler.runScheduler scheduler errorHandler callbackHandler lf (publishDiagnostics' lf) mcradle
+                `E.catch`
+                \(e :: E.SomeException) ->
+                  errorm $ "Scheduler thread exited unexpectedly: " ++ show e
+              )
         flip labelThread "reactor" =<<
-            (forkIO (
-              reactorFunc
-              `E.catch` \(e :: E.SomeException) ->
-              (errorm $ "Reactor thread exited unexpectedly: " ++ show e)
-            ))
+            forkIO
+              ( reactorFunc
+                `E.catch`
+                \(e :: E.SomeException) ->
+                  errorm $ "Reactor thread exited unexpectedly: " ++ show e
+              )
+
         flip labelThread "diagnostics" =<<
-            (forkIO (
-              diagnosticsQueue tr
-              `E.catch` \(e :: E.SomeException) ->
-              (errorm $ "Diagnostic thread exited unexpectedly: " ++ show e)
-            ))
+            forkIO
+              ( diagnosticsQueue tr
+                `E.catch`
+                 \(e :: E.SomeException) ->
+                  errorm $ "Diagnostic thread exited unexpectedly: " ++ show e
+              )
 
         return Nothing
 
@@ -354,10 +363,18 @@ updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file 
 -- ---------------------------------------------------------------------
 
 publishDiagnostics :: (MonadIO m, MonadReader REnv m)
-  => Int -> J.NormalizedUri -> J.TextDocumentVersion -> DiagnosticsBySource -> m ()
-publishDiagnostics maxToSend uri' mv diags = do
+  => J.NormalizedUri -> J.TextDocumentVersion -> DiagnosticsBySource -> m ()
+publishDiagnostics uri' mv diags = do
   lf <- asks lspFuncs
-  liftIO $ Core.publishDiagnosticsFunc lf maxToSend uri' mv diags
+  publishDiagnostics' lf uri' mv diags
+
+
+publishDiagnostics' :: MonadIO m
+  => Core.LspFuncs Config -> J.NormalizedUri -> J.TextDocumentVersion -> DiagnosticsBySource -> m ()
+publishDiagnostics' lf uri' mv diags = do
+  config <- liftIO $ fromMaybe Data.Default.def <$> Core.config lf
+  liftIO $ Core.publishDiagnosticsFunc lf (maxNumberOfProblems config) uri' mv diags
+
 
 -- ---------------------------------------------------------------------
 
@@ -931,18 +948,17 @@ requestDiagnosticsNormal tn file mVer = do
     sendOneGhc :: J.DiagnosticSource -> (J.NormalizedUri, [Diagnostic]) -> R ()
     sendOneGhc pid (fileUri,ds) = do
       if any (hasSeverity J.DsError) ds
-        then publishDiagnostics maxToSend fileUri Nothing
+        then publishDiagnostics fileUri Nothing
                (Map.fromList [(Just "hlint",SL.toSortedList []),(Just pid,SL.toSortedList ds)])
         else sendOne pid (fileUri,ds)
 
     sendOne pid (fileUri,ds) = do
-      publishDiagnostics maxToSend fileUri Nothing (Map.fromList [(Just pid,SL.toSortedList ds)])
+      publishDiagnostics fileUri Nothing (Map.fromList [(Just pid,SL.toSortedList ds)])
 
     hasSeverity :: J.DiagnosticSeverity -> J.Diagnostic -> Bool
     hasSeverity sev (J.Diagnostic _ (Just s) _ _ _ _) = s == sev
     hasSeverity _ _ = False
-    sendEmpty = publishDiagnostics maxToSend (J.toNormalizedUri file) Nothing (Map.fromList [(Just "bios",SL.toSortedList [])])
-    maxToSend = maxNumberOfProblems clientConfig
+    sendEmpty = publishDiagnostics (J.toNormalizedUri file) Nothing (Map.fromList [(Just "bios",SL.toSortedList [])])
 
   let sendHlint = hlintOn clientConfig
   when sendHlint $ do

@@ -1,7 +1,35 @@
+# Build master, branches starting with `azure` and tags commits
+trigger:
+  batch: false
+  branches:
+    include:
+      - master
+      - azure*
+  tags:
+    include:
+      - '*'
+  paths:
+    exclude:
+      - .circleci
+      - docs
+      - licenses
+      - logos
+      - LICENSE
+      - '*.md'
+
+# Enable PR triggers that target the master branch
+pr:
+  autoCancel: true # cancel previous builds on push
+  branches:
+    include:
+      - master
+
 jobs:
 - template: ./.azure/linux-stack.yml
+- template: ./.azure/linux-cabal.yml
 - template: ./.azure/windows-stack.yml
 - template: ./.azure/macos-stack.yml
 - template: ./.azure/linux-installhs-stack.yml
 - template: ./.azure/windows-installhs-stack.yml
+- template: ./.azure/windows-installhs-cabal.yml
 - template: ./.azure/macos-installhs-stack.yml

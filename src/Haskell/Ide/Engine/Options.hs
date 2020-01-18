@@ -6,11 +6,13 @@ import           Options.Applicative.Simple
 data GlobalOpts = GlobalOpts
   { optDebugOn       :: Bool
   , optLogFile       :: Maybe String
-  , _optLsp          :: Bool -- Kept for a while, to not break legacy clients
+  , optLsp           :: Bool
   , projectRoot      :: Maybe String
   , optBiosVerbose   :: Bool
   , optCaptureFile   :: Maybe FilePath
   , optExamplePlugin :: Bool
+  , optDryRun        :: Bool
+  , optFiles         :: [FilePath]
   } deriving (Show)
 
 globalOptsParser :: Parser GlobalOpts
@@ -26,9 +28,9 @@ globalOptsParser = GlobalOpts
       <> metavar "LOGFILE"
       <> help "File to log to, defaults to stdout"
        ))
-  <*> flag True True
+  <*> flag False True
        ( long "lsp"
-       <> help "Legacy flag, no longer used, to enable LSP mode. Not required.")
+       <> help "Start HIE as an LSP server. Otherwise it dumps debug info to stdout")
   <*> optional (strOption
        ( long "project-root"
       <> short 'r'
@@ -53,3 +55,13 @@ globalOptsParser = GlobalOpts
   <*> switch
        ( long "example"
        <> help "Enable Example2 plugin. Useful for developers only")
+  <*> flag False True
+     (  long "dry-run"
+     <> help "Perform a dry-run of loading files. Only searches for Haskell source files to load. Does nothing if run as LSP server."
+     )
+  <*> many
+     ( argument str
+       (  metavar "FILES..."
+       <> help "Directories and Filepaths to load. Does nothing if run as LSP server.")
+     )
+

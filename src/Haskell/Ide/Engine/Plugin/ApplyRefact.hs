@@ -330,7 +330,7 @@ codeActionProvider plId docId _ context = IdeResultOk <$> hlintActions
     mkHlintAction diag@(LSP.Diagnostic (LSP.Range start _) _s (Just (LSP.StringValue code)) (Just "hlint") m _) =
       Just . codeAction <$> mkLspCommand plId "applyOne" title (Just args)
      where
-       codeAction cmd = LSP.CodeAction title (Just LSP.CodeActionRefactor) (Just (LSP.List [diag])) Nothing (Just cmd)
+       codeAction cmd = LSP.CodeAction title (Just LSP.CodeActionQuickFix) (Just (LSP.List [diag])) Nothing (Just cmd)
        title = "Apply hint:" <> head (T.lines m)
        -- need 'file', 'start_pos' and hint title (to distinguish between alternative suggestions at the same location)
        args = [toJSON (AOP (docId ^. LSP.uri) start code)]
