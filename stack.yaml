@@ -1,4 +1,4 @@
-resolver: nightly-2020-01-17
+resolver: nightly-2019-09-21 # Last GHC 8.6.5
 packages:
 - .
 - hie-plugin-api
@@ -6,22 +6,32 @@ packages:
 extra-deps:
 # - ./submodules/HaRe
 
-- apply-refact-0.7.0.0
+- ansi-terminal-0.8.2
+- ansi-wl-pprint-0.6.8.2
+- brittany-0.12.1.0
 - bytestring-trie-0.2.5.0
 - cabal-helper-1.0.0.0
+- cabal-plan-0.5.0.0
 - clock-0.7.2
 - constrained-dynamic-0.1.0.0
+- deque-0.4.3
+- extra-1.6.18
 - floskell-0.10.2
-- haddock-api-2.23.0
-- haddock-library-1.8.0
+- ghc-exactprint-0.6.2 # for HaRe
+- ghc-lib-parser-8.8.1
+- haddock-api-2.22.0
+- haskell-lsp-0.19.0.0
+- haskell-lsp-types-0.19.0.0
 - hie-bios-0.3.2
-- hoogle-5.0.17.11
+- hlint-2.2.4
 - hsimport-0.11.0
-- semigroups-0.18.5
+- lsp-test-0.10.0.0
+- monad-dijkstra-0.1.1.2@rev:1
+- parser-combinators-1.2.1
+- syz-0.2.0.0
 - temporary-1.2.1.1
-- haskell-src-exts-1.21.1
-- ilist-0.3.1.0
-- monad-dijkstra-0.1.1.2
+- unix-compat-0.5.2
+- yaml-0.11.1.2
 
 flags:
   haskell-ide-engine:
