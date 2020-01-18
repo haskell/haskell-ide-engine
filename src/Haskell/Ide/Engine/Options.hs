@@ -6,11 +6,13 @@ import           Options.Applicative.Simple
 data GlobalOpts = GlobalOpts
   { optDebugOn       :: Bool
   , optLogFile       :: Maybe String
-  , optLsp           :: Bool -- Kept for a while, to not break legacy clients
+  , optLsp           :: Bool
   , projectRoot      :: Maybe String
   , optBiosVerbose   :: Bool
   , optCaptureFile   :: Maybe FilePath
   , optExamplePlugin :: Bool
+  , optDryRun        :: Bool
+  , optFiles         :: [FilePath]
   } deriving (Show)
 
 globalOptsParser :: Parser GlobalOpts
@@ -53,3 +55,13 @@ globalOptsParser = GlobalOpts
   <*> switch
        ( long "example"
        <> help "Enable Example2 plugin. Useful for developers only")
+  <*> flag False True
+     (  long "dry-run"
+     <> help "Perform a dry-run of loading files. Only searches for Haskell source files to load. Does nothing if run as LSP server."
+     )
+  <*> many
+     ( argument str
+       (  metavar "FILES..."
+       <> help "Directories and Filepaths to load. Does nothing if run as LSP server.")
+     )
+

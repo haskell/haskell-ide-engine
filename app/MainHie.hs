@@ -6,9 +6,11 @@ import qualified Control.Exception                     as E
 import           Control.Monad
 import           Data.Monoid                           ((<>))
 import           Data.Version                          (showVersion)
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import qualified Data.Yaml as Yaml
 import           HIE.Bios.Types
-import           Haskell.Ide.Engine.Cradle (findLocalCradle, cradleDisplay)
+import           Haskell.Ide.Engine.Cradle (findLocalCradle, cradleDisplay, getProjectGhcLibDir)
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Options
@@ -20,10 +22,14 @@ import           Options.Applicative.Simple
 import qualified Paths_haskell_ide_engine              as Meta
 import           System.Directory
 import           System.Environment
-import           System.FilePath ((</>))
+import           System.FilePath
 import           System.Info
 import           System.IO
 import qualified System.Log.Logger                     as L
+
+-- ---------------------------------------------------------------------
+
+import           RunTest
 
 -- ---------------------------------------------------------------------
 -- plugins
@@ -117,6 +123,8 @@ run opts = do
   progName <- getProgName
   args <- getArgs
 
+  let plugins' = plugins (optExamplePlugin opts)
+
   if optLsp opts
     then do
       -- Start up in LSP mode
@@ -136,8 +144,6 @@ run opts = do
       when (optExamplePlugin opts) $
         logm "Enabling Example2 plugin, will insert constant diagnostics etc."
 
-      let plugins' = plugins (optExamplePlugin opts)
-
       -- launch the dispatcher.
       scheduler <- newScheduler plugins' initOpts
       server scheduler origDir plugins' (optCaptureFile opts)
@@ -155,7 +161,35 @@ run opts = do
       ecradle <- getCradleInfo origDir
       case ecradle of
         Left e       -> cliOut $ "Could not get cradle:" ++ show e
-        Right cradle -> cliOut $ "Cradle:" ++ cradleDisplay cradle
+        Right cradle -> do
+          projGhc <- getProjectGhcVersion cradle
+          mlibdir <- getProjectGhcLibDir cradle
+          cliOut "\n\n###################################################\n"
+          cliOut $ "Cradle: " ++ cradleDisplay cradle
+          cliOut $ "Project Ghc version: " ++ projGhc
+          cliOut $ "Libdir: " ++ show mlibdir
+          cliOut "Searching for Haskell source files..."
+          targets <- case optFiles opts of
+            [] -> findAllSourceFiles origDir
+            xs -> concat <$> mapM findAllSourceFiles xs
+
+          cliOut $ "Found " ++ show (length targets) ++ " Haskell source files.\n"
+          cliOut "###################################################"
+          cliOut "\nFound the following files:\n"
+          mapM_ cliOut targets
+          cliOut ""
+
+          unless (optDryRun opts) $ do
+            cliOut "\nLoad them all now. This may take a very long time.\n"
+            loadDiagnostics <- runServer mlibdir plugins' targets
+
+            cliOut ""
+            cliOut "###################################################"
+            cliOut "###################################################"
+            cliOut "\nDumping diagnostics:\n\n"
+            mapM_ (cliOut' . uncurry prettyPrintDiags) loadDiagnostics
+            cliOut "\n\nNote: loading of 'Setup.hs' is not supported."
+
 
 -- ---------------------------------------------------------------------
 
@@ -169,5 +203,8 @@ getCradleInfo currentDir = do
 
 cliOut :: String -> IO ()
 cliOut = putStrLn
+
+cliOut' :: T.Text -> IO ()
+cliOut' = T.putStrLn
 
 -- ---------------------------------------------------------------------
