@@ -5,5 +5,5 @@ build-type:          Simple
 
 library
   exposed-modules:     MyLib
-  build-depends:       base>= 4.9 && < 5
+  build-depends:       base
   default-language:    Haskell2010
