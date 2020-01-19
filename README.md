@@ -1,4 +1,4 @@
-Test azure
+Are azure tests deterministic?
 # Haskell IDE Engine (HIE)
 <img src="https://github.com/haskell/haskell-ide-engine/raw/master/logos/HIE_logo_512.png" width="256" style="margin:25px;" align="right"/>
 
