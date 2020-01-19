@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
@@ -13,7 +14,9 @@ import           Control.Monad
 import           Data.Aeson
 import           Data.Foldable
 import           Data.Maybe
+#if __GLASGOW_HASKELL__ < 808
 import           Data.Monoid                    ( (<>) )
+#endif
 import qualified Data.Text                     as T
 import qualified Data.Text.IO                  as T
 import qualified GHC.Generics                  as Generics

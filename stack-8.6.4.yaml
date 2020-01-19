@@ -40,7 +40,6 @@ extra-deps:
 - unix-time-0.4.7
 
 
-
 flags:
   haskell-ide-engine:
     pedantic: true

@@ -23,7 +23,6 @@ import           Control.Monad                  ( when )
 import           Data.IORef
 import qualified Data.Map.Strict                   as Map
 -- import qualified Data.IntMap.Strict                   as IM
-import           Data.Semigroup ((<>), Semigroup)
 import qualified Data.Set                          as Set
 import qualified Data.Text                         as T
 import qualified Data.Aeson
@@ -37,7 +36,12 @@ import           Haskell.Ide.Engine.PluginUtils
 import           DynFlags
 import           GHC
 import qualified HscTypes
+
+#if __GLASGOW_HASKELL__ < 808
+import           Data.Semigroup ((<>), Semigroup)
 import           Outputable                        (renderWithStyle)
+#endif
+
 import           Language.Haskell.LSP.Types        ( NormalizedUri(..), toNormalizedUri )
 
 import           Haskell.Ide.Engine.GhcUtils

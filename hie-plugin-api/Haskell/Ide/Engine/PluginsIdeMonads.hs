@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveAnyClass #-}
@@ -111,13 +112,17 @@ import qualified Data.List                     as List
 import           Data.Dynamic                   ( Dynamic )
 import qualified Data.Map                      as Map
 import           Data.Maybe
-import           Data.Monoid                    ( (<>) )
+
 import qualified Data.Set                      as S
 import           Data.String
 import qualified Data.Text                     as T
-import           Data.Typeable                  ( TypeRep
-                                                , Typeable
-                                                )
+import           Data.Typeable                  ( TypeRep )
+
+#if __GLASGOW_HASKELL__ < 808
+import           Data.Monoid                    ( (<>) )
+import           Data.Typeable                  ( Typeable )
+#endif
+
 import System.Directory
 import GhcMonad
 import           GHC.Generics

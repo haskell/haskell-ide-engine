@@ -25,7 +25,11 @@ import qualified Data.HashMap.Strict           as HM
 import qualified Data.Text                     as T
 import qualified Data.Text.Encoding            as T
 import           Data.Maybe
+#if __GLASGOW_HASKELL__ < 808
 import           Data.Monoid ((<>))
+#else
+import qualified Data.Set                      as S
+#endif
 #if MIN_VERSION_Cabal(2,2,0)
 import           Distribution.PackageDescription.Parsec
 import           Distribution.Types.VersionRange
@@ -297,7 +301,11 @@ editCabalPackage file modulePath pkgName fileMap = do
             -- Add it to the bottom of the dependencies list
             -- TODO: we could sort the depencies and then insert it,
             -- or insert it in order iff the list is already sorted.
+#if __GLASGOW_HASKELL__ >= 808
+            newDeps = oldDeps ++ [Dependency (mkPackageName (T.unpack dep)) anyVersion S.empty]
+#else
             newDeps = oldDeps ++ [Dependency (mkPackageName (T.unpack dep)) anyVersion]
+#endif
 
 -- | Provide a code action to add a package to the local package.yaml or cabal file.
 -- Reads from diagnostics the unknown import module path and searches for it on Hoogle.

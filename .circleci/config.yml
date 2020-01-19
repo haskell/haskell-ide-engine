@@ -149,7 +149,7 @@ jobs:
   cabal:
     working_directory: ~/build
     docker:
-      - image: quay.io/haskell_works/ghc-8.6.5
+      - image: haskell:8.8.1
     steps:
       - checkout
       - run:
@@ -162,17 +162,14 @@ jobs:
           keys:
             - cabal-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
       - run:
-          name: Cabal version
-          command: cabal --version
-      - run:
           name: Update
-          command: cabal new-update
+          command: cabal update
       - run:
           name: Configure
-          command: cabal new-configure --enable-tests
+          command: cabal configure --enable-tests
       - run:
           name: Build
-          command: cabal new-build -j1 # need j1, else ghc-lib-parser triggers OOM
+          command: cabal build -j1 # need j1, else ghc-lib-parser triggers OOM
           no_output_timeout: 30m
       - save_cache:
           key: cabal-{{ .Environment.HIE_CACHE }}-{{ arch }}-{{ .Environment.CIRCLE_JOB }}

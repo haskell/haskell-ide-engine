@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module FunctionalCodeActionsSpec where
@@ -11,7 +12,9 @@ import           Data.Default
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Set as Set
 import           Data.Maybe
+#if __GLASGOW_HASKELL__ < 808
 import           Data.Monoid ((<>))
+#endif
 import qualified Data.Text as T
 import           Haskell.Ide.Engine.Config
 import           Language.Haskell.LSP.Test as Test
@@ -289,7 +292,9 @@ spec = describe "code actions" $ do
         executeCodeAction action
 
         contents <- getDocumentEdit . TextDocumentIdentifier =<< getDocUri "add-package-test.cabal"
-        liftIO $ T.lines contents `shouldSatisfy` \x -> any (\l -> "text -any" `T.isSuffixOf` (x !! l)) [15, 16]
+        liftIO $
+          T.lines contents `shouldSatisfy` \x ->
+            any (\l -> "text -any" `T.isSuffixOf` l || "text : {} -any" `T.isSuffixOf` l) x
 
     it "adds to hpack package.yaml files" $
       runSession hieCommand fullCaps "test/testdata/addPackageTest/hpack-exe" $ do
@@ -384,6 +389,14 @@ spec = describe "code actions" $ do
 
           suggestion <-
             case ghcVersion of
+              GHC88 -> do
+                liftIO $ map (^. L.title) cas `shouldMatchList`
+                  [ "Substitute hole (Int) with x ([Int])"
+                  , "Substitute hole (Int) with foo ([Int] -> Int Valid hole fits include)"
+                  , "Substitute hole (Int) with maxBound (forall a. Bounded a => a with maxBound @Int)"
+                  , "Substitute hole (Int) with minBound (forall a. Bounded a => a with minBound @Int)"
+                  ]
+                return "x"
               GHC86 -> do
                 liftIO $ map (^. L.title) cas `shouldMatchList`
                   [ "Substitute hole (Int) with x ([Int])"
@@ -399,12 +412,6 @@ spec = describe "code actions" $ do
                   , "Substitute hole (Int) with undefined (forall (a :: TYPE r). GHC.Stack.Types.HasCallStack => a)"
                   ]
                 return "maxBound"
-              GHCPre84 -> do
-                liftIO $ map (^. L.title) cas `shouldMatchList`
-                  [ "Substitute hole (Int) with x ([Int])"
-                  , "Substitute hole (Int) with foo ([Int] -> Int)"
-                  ]
-                return "x"
 
           executeCodeAction $ head cas
 
@@ -424,6 +431,13 @@ spec = describe "code actions" $ do
 
           suggestion <-
             case ghcVersion of
+              GHC88 -> do
+                liftIO $ map (^. L.title) cas `shouldMatchList`
+                  [ "Substitute hole (A) with stuff (A -> A)"
+                  , "Substitute hole (A) with x ([A])"
+                  , "Substitute hole (A) with foo2 ([A] -> A)"
+                  ]
+                return "stuff"
               GHC86 -> do
                 liftIO $ map (^. L.title) cas `shouldMatchList`
                   [ "Substitute hole (A) with stuff (A -> A)"
@@ -439,13 +453,6 @@ spec = describe "code actions" $ do
                   , "Substitute hole (A) with foo2 ([A] -> A)"
                   ]
                 return "undefined"
-              GHCPre84 -> do
-                liftIO $ map (^. L.title) cas `shouldMatchList`
-                  [ "Substitute hole (A) with stuff (A -> A)"
-                  , "Substitute hole (A) with x ([A])"
-                  , "Substitute hole (A) with foo2 ([A] -> A)"
-                  ]
-                return "stuff"
 
           executeCodeAction $ head cas
 

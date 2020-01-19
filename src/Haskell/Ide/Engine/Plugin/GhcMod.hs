@@ -26,7 +26,9 @@ module Haskell.Ide.Engine.Plugin.GhcMod
   ) where
 
 import           Data.Aeson
+#if __GLASGOW_HASKELL__ < 808
 import           Data.Monoid ((<>))
+#endif
 import           GHC.Generics
 import qualified Haskell.Ide.Engine.Ghc as HIE
 import           Haskell.Ide.Engine.MonadTypes

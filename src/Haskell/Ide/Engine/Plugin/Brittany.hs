@@ -15,7 +15,8 @@ import           Haskell.Ide.Engine.PluginUtils
 import           Language.Haskell.Brittany
 import qualified Language.Haskell.LSP.Types            as J
 import qualified Language.Haskell.LSP.Types.Lens       as J
-import           System.FilePath (FilePath, takeDirectory)
+
+import           System.FilePath
 import           Data.Maybe (maybeToList)
 
 brittanyDescriptor :: PluginId -> PluginDescriptor

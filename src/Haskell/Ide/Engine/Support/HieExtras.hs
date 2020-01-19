@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -25,7 +26,11 @@ module Haskell.Ide.Engine.Support.HieExtras
   , getFormattingPlugin
   ) where
 
+#if __GLASGOW_HASKELL__ < 808
 import           Data.Semigroup (Semigroup(..))
+import           Var
+#endif
+
 import           ConLike
 import           Control.Monad.Reader
 import           Control.Monad.Except
@@ -62,7 +67,6 @@ import           Packages
 import           SrcLoc
 import           TcEnv
 import           Type
-import           Var
 import           Module hiding (getModule)
 
 -- ---------------------------------------------------------------------
@@ -336,7 +340,11 @@ gotoModule rfm mn = do
         flushFinderCaches env
         findImportedModule env mn Nothing
       case fr of
+#if __GLASGOW_HASKELL__ < 808
         Found (ModLocation (Just src) _ _) _ -> do
+#else
+        Found (ModLocation (Just src) _ _ _) _ -> do
+#endif
           fp <- reverseMapFile rfm src
 
           let r = Range (Position 0 0) (Position 0 0)

@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -107,7 +108,11 @@ getDocsForName df name = do
   case mf of
     Nothing -> return Nothing
     Just f -> do
+#if __GLASGOW_HASKELL__ >= 808
+      ehi <- readInterfaceFile nameCacheFromIdeM f True
+#else
       ehi <- readInterfaceFile nameCacheFromIdeM f
+#endif
       case ehi of
         Left message -> do
           debugm $ "Haddock docs couldn't be loaded as readInterfaceFile failed with: " ++ message
@@ -152,8 +157,15 @@ prettyprintType n t = T.unlines
   , "```\n"
   ]
 
+unwrap :: Foldable w => w a -> a
+unwrap = foldl1 (const id)
+
 renderDocs :: MDoc Name -> T.Text
+#if __GLASGOW_HASKELL__ >= 808
+renderDocs = markup renderMarkDown . _doc . fmap unwrap
+#else
 renderDocs = markup renderMarkDown . _doc
+#endif
 
 renderMarkDown :: DocMarkup Name T.Text
 renderMarkDown =
@@ -162,7 +174,11 @@ renderMarkDown =
          , markupParagraph = (<> "\n\n")
          , markupAppend = mappend
          , markupIdentifier = surround "`" . T.pack . getOccString
+#if __GLASGOW_HASKELL__ >= 808
+         , markupIdentifierUnchecked = T.pack . occNameString . snd . unwrap
+#else
          , markupIdentifierUnchecked = T.pack . occNameString . snd
+#endif
          , markupModule = surround "**" . T.pack
          , markupWarning = surround "*"
          , markupEmphasis = surround "*"
@@ -174,9 +190,16 @@ renderMarkDown =
          , markupDefList = T.unlines . map (\(a, b) -> a <> " :: " <> b)
          , markupCodeBlock = \x -> "\n```haskell\n" <> removeInner x <> "\n```\n"
          , markupHyperlink = \h ->
-             T.pack $ maybe
+#if __GLASGOW_HASKELL__ >= 808
+           let url = T.pack $ hyperlinkUrl h
+             in maybe
+               url
+               (\l -> "["<>l<>"]("<>url<>")")
+#else
+           T.pack $ maybe
                (hyperlinkUrl h)
                (\l -> "["<>l<>"]("<>hyperlinkUrl h<>")")
+#endif
                (hyperlinkLabel h)
          , markupAName = T.pack
          , markupPic = const ""

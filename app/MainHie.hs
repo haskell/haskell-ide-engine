@@ -1,10 +1,13 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes   #-}
 module Main where
 
 import qualified Control.Exception                     as E
 import           Control.Monad
+#if __GLASGOW_HASKELL__ < 808
 import           Data.Monoid                           ((<>))
+#endif
 import           Data.Version                          (showVersion)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T

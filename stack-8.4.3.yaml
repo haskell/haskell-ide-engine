@@ -52,7 +52,6 @@ extra-deps:
 - wai-3.2.2.1 # for network and network-bsd
 
 
-
 flags:
   haskell-ide-engine:
     pedantic: true

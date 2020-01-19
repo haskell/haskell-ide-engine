@@ -14,7 +14,9 @@ import           Data.Function
 import qualified Data.HashMap.Strict               as HM
 import           Data.List
 import           Data.Maybe
+#if __GLASGOW_HASKELL__ < 808
 import           Data.Monoid ((<>))
+#endif
 import qualified Data.Text                         as T
 import           Name
 import           GHC.Generics
