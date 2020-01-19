@@ -220,6 +220,7 @@ test-suite unit-test
                      , ghc
                      , haskell-ide-engine
                      , haskell-lsp-types == 0.19.*
+                     , hie-bios
                      , hie-test-utils
                      , hie-plugin-api
                      , hoogle > 5.0.11
