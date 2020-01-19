@@ -92,6 +92,19 @@ spec = do
       liftIO $ edits `shouldBe` [TextEdit (Range (Position 1 0) (Position 3 0))
                                     "foo x y = do\n    print x\n    return 42\n"]
 
+  describe "ormolu" $ do
+    let formatLspConfig provider =
+          object [ "languageServerHaskell" .= object ["formattingProvider" .= (provider :: Value)] ]
+        
+    it "formats correctly" $ runSession hieCommand fullCaps "test/testdata" $ do
+      sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (formatLspConfig "ormolu"))
+      doc <- openDoc "Format.hs" "haskell"
+      formatDoc doc (FormattingOptions 2 True)
+      docContent <- documentContents doc
+      case ghcVersion of
+        GHC86 -> liftIO $ docContent `shouldBe` formattedOrmolu
+        _ -> liftIO $ docContent `shouldBe` unchangedOrmolu
+
 
 formattedDocTabSize2 :: T.Text
 formattedDocTabSize2 =
@@ -165,3 +178,28 @@ formattedBrittanyPostFloskell =
   \bar s = do\n\
   \  x <- return \"hello\"\n\
   \  return \"asdf\"\n\n"
+
+formattedOrmolu :: T.Text
+formattedOrmolu =
+  "module Format where\n\
+  \\n\
+  \foo :: Int -> Int\n\
+  \foo 3 = 2\n\
+  \foo x = x\n\
+  \\n\
+  \bar :: String -> IO String\n\
+  \bar s = do\n\
+  \  x <- return \"hello\"\n\
+  \  return \"asdf\"\n"
+
+unchangedOrmolu :: T.Text
+unchangedOrmolu = 
+  "module    Format where\n\
+  \foo   :: Int ->  Int\n\
+  \foo  3 = 2\n\
+  \foo    x  = x\n\
+  \bar   :: String ->   IO String\n\
+  \bar s =  do\n\
+  \      x <- return \"hello\"\n\
+  \      return \"asdf\"\n\
+  \      \n"
