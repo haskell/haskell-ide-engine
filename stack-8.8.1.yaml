@@ -1,10 +1,12 @@
-resolver: nightly-2020-01-17
+resolver: nightly-2020-01-19
 packages:
 - .
 - hie-plugin-api
 
 extra-deps:
 # - ./submodules/HaRe
+- git: https://github.com/Avi-D-coder/ormolu.git
+  commit: e2968da568b0402b67f36b34f992573519704044
 
 - apply-refact-0.7.0.0
 - bytestring-trie-0.2.5.0
@@ -14,7 +16,6 @@ extra-deps:
 - floskell-0.10.2
 - haddock-api-2.23.0
 - haddock-library-1.8.0
-- hie-bios-0.3.2
 - hoogle-5.0.17.11
 - hsimport-0.11.0
 - semigroups-0.18.5
