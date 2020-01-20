@@ -95,14 +95,16 @@ spec = do
   describe "ormolu" $ do
     let formatLspConfig provider =
           object [ "languageServerHaskell" .= object ["formattingProvider" .= (provider :: Value)] ]
-        
+
     it "formats correctly" $ runSession hieCommand fullCaps "test/testdata" $ do
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (formatLspConfig "ormolu"))
       doc <- openDoc "Format.hs" "haskell"
       formatDoc doc (FormattingOptions 2 True)
       docContent <- documentContents doc
+      let formatted = liftIO $ docContent `shouldBe` formattedOrmolu
       case ghcVersion of
-        GHC86 -> liftIO $ docContent `shouldBe` formattedOrmolu
+        GHC86 -> formatted
+        GHC88 -> formatted
         _ -> liftIO $ docContent `shouldBe` unchangedOrmolu
 
 
@@ -193,7 +195,7 @@ formattedOrmolu =
   \  return \"asdf\"\n"
 
 unchangedOrmolu :: T.Text
-unchangedOrmolu = 
+unchangedOrmolu =
   "module    Format where\n\
   \foo   :: Int ->  Int\n\
   \foo  3 = 2\n\
