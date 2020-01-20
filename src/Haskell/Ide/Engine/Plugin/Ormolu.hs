@@ -12,8 +12,6 @@ import Control.Monad.IO.Class ( liftIO , MonadIO(..) )
 import Data.Aeson ( Value ( Null ) )
 import Data.Text
 import Ormolu
-import Ormolu.Config (defaultConfig)
-import Ormolu.Exception (OrmoluException)
 import Haskell.Ide.Engine.PluginUtils
 #endif
 
@@ -34,7 +32,7 @@ ormoluDescriptor plId = PluginDescriptor
 provider :: FormattingProvider
 provider _contents _uri _typ _opts =
 #if __GLASGOW_HASKELL__ >= 806
-  case _typ of 
+  case _typ of
     FormatRange _ -> return $ IdeResultFail (IdeError PluginError (pack "Selection formatting for Ormolu is not currently supported.") Null)
     FormatText -> pluginGetFile _contents _uri $ \file -> do
         result <- liftIO $ try @OrmoluException (ormolu defaultConfig file (unpack _contents))

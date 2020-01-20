@@ -6,7 +6,7 @@ packages:
 extra-deps:
 # - ./submodules/HaRe
 - git: https://github.com/Avi-D-coder/ormolu.git
-  commit: e2968da568b0402b67f36b34f992573519704044
+  commit: dbd93d753cf5370620e235fea91cc029f2e988fb
 
 - apply-refact-0.7.0.0
 - bytestring-trie-0.2.5.0
