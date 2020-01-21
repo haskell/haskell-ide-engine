@@ -8,15 +8,19 @@ import Haskell.Ide.Engine.MonadTypes
 
 #if __GLASGOW_HASKELL__ >= 806
 import Control.Exception
+import Control.Monad
 import Control.Monad.IO.Class ( liftIO , MonadIO(..) )
 import Data.Aeson ( Value ( Null ) )
-import Data.Text
+import Data.List
+import Data.Maybe
+import qualified Data.Text as T
 import Ormolu
 #if __GLASGOW_HASKELL__ < 808
 import Ormolu.Config (defaultConfig)
 import Ormolu.Exception (OrmoluException)
 #endif
 import Haskell.Ide.Engine.PluginUtils
+import HIE.Bios.Types
 #endif
 
 ormoluDescriptor :: PluginId -> PluginDescriptor
@@ -37,12 +41,21 @@ provider :: FormattingProvider
 provider _contents _uri _typ _opts =
 #if __GLASGOW_HASKELL__ >= 806
   case _typ of
-    FormatRange _ -> return $ IdeResultFail (IdeError PluginError (pack "Selection formatting for Ormolu is not currently supported.") Null)
+    FormatRange _ -> return $ IdeResultFail (IdeError PluginError (T.pack "Selection formatting for Ormolu is not currently supported.") Null)
     FormatText -> pluginGetFile _contents _uri $ \file -> do
-        result <- liftIO $ try @OrmoluException (ormolu defaultConfig file (unpack _contents))
+        opts <- getComponentOptions file
+        let opts' = map DynOption $ filter exop $ join $ maybeToList $ componentOptions <$> opts
+            conf  = Config opts' False False True False
+        result <- liftIO $ try @OrmoluException (ormolu conf file (T.unpack _contents))
+
         case result of
-          Left  err -> return $ IdeResultFail (IdeError PluginError (pack $  "ormoluCmd: " ++ show err) Null)
+          Left  err -> return $ IdeResultFail (IdeError PluginError (T.pack $ "ormoluCmd: " ++ show err) Null)
           Right new -> return $ IdeResultOk [TextEdit (fullRange _contents) new]
+  where
+    exop s =
+      "-X" `isPrefixOf` s
+      || "-fplugin=" `isPrefixOf` s
+      || "-pgmF=" `isPrefixOf` s
 #else
   return $ IdeResultOk [] -- NOP formatter
 #endif
