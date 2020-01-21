@@ -1,10 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 module CabalHelperSpec where
 
+import Data.Maybe (isJust)
 import Haskell.Ide.Engine.Cradle
 import Test.Hspec
 import System.FilePath
-import System.Directory (getCurrentDirectory, removeFile)
+import System.Directory (findExecutable, getCurrentDirectory, removeFile)
 import TestUtils
 
 rootPath :: FilePath -> FilePath
@@ -27,6 +28,13 @@ simpleStackPath cwd = rootPath cwd </> "simple-stack"
 
 spec :: Spec
 spec = beforeAll_ setupStackFiles $ do
+  describe "stack and cabal executables should be accesible" $ do
+    it "cabal is accesible" $ do
+      stack <- findExecutable "cabal"
+      stack `shouldSatisfy` isJust
+    it "stack is accesible" $ do
+      cabal <- findExecutable "stack"
+      cabal `shouldSatisfy` isJust
   describe "cabal-helper spec" $ do
     describe "find cabal entry point spec" findCabalHelperEntryPointSpec
     describe "cradle discovery" cabalHelperCradleSpec
