@@ -19,6 +19,7 @@ extra-deps:
 - floskell-0.10.2
 - ghc-exactprint-0.6.2 # for HaRe
 - ghc-lib-parser-8.8.1
+- ghc-lib-parser-ex-8.8.2
 - haddock-api-2.20.0
 - haddock-library-1.6.0
 - haskell-lsp-0.19.0.0
@@ -26,7 +27,7 @@ extra-deps:
 - haskell-src-exts-1.21.1
 - haskell-src-exts-util-0.2.5
 - hie-bios-0.3.2
-- hlint-2.2.4
+- hlint-2.2.8
 - hoogle-5.0.17.11
 - hsimport-0.11.0
 - hslogger-1.3.1.0
@@ -46,12 +47,12 @@ extra-deps:
 - unordered-containers-0.2.10.0
 - yaml-0.11.1.2
 # To make build work in windows 7
+- time-manager-0.0.0 # for http2
 - unix-time-0.4.7
+- wai-3.2.2.1 # for network and network-bsd
+- warp-3.2.28 # for network and network-bsd
 - windns-0.1.0.0
 - yi-rope-0.11
-- time-manager-0.0.0 # for http2
-- warp-3.2.28 # for network and network-bsd
-- wai-3.2.2.1 # for network and network-bsd
 
 
 flags:
