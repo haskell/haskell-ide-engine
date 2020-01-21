@@ -24,13 +24,10 @@ spec = describe "diagnostics providers" $ do
   describe "diagnostics triggers" $
     it "runs diagnostics on save" $
       runSession hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
-      -- runSessionWithConfig logConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
         logm "starting DiagnosticSpec.runs diagnostic on save"
         doc <- openDoc "ApplyRefact2.hs" "haskell"
 
         diags@(reduceDiag:_) <- waitForDiagnostics
-
-        -- liftIO $ show diags `shouldBe` ""
 
         liftIO $ do
           length diags `shouldBe` 2
