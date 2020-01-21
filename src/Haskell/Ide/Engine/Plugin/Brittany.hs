@@ -35,14 +35,8 @@ brittanyDescriptor plId = PluginDescriptor
 -- | Formatter provider of Brittany.
 -- Formats the given source in either a given Range or the whole Document.
 -- If the provider fails an error is returned that can be displayed to the user.
-provider
-  :: MonadIO m
-  => Text
-  -> Uri
-  -> FormattingType
-  -> FormattingOptions
-  -> m (IdeResult [TextEdit])
-provider text uri formatType opts = pluginGetFile "brittanyCmd: " uri $ \fp -> do
+provider :: FormattingProvider
+provider text uri _ formatType opts = pluginGetFile "brittanyCmd: " uri $ \fp -> do
   confFile <- liftIO $ getConfFile fp
   let (range, selectedContents) = case formatType of
         FormatText    -> (fullRange text, text)

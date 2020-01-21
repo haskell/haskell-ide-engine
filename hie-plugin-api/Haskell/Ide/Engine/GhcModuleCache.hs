@@ -100,10 +100,16 @@ data LookupCradleResult = ReuseCradle | LoadCradle CachedCradle | NewCradle File
 lookupCradle :: FilePath -> GhcModuleCache -> LookupCradleResult
 lookupCradle fp gmc =
   case currentCradle gmc of
-    Just (dirs, _c) | (any (\d -> d `isPrefixOf` fp) dirs) -> ReuseCradle
+    Just (dirs, _c) | any (`isPrefixOf` fp) dirs -> ReuseCradle
     _ -> case T.match (cradleCache gmc) (B.pack fp) of
            Just (_k, c, _suf) -> LoadCradle c
            Nothing  -> NewCradle fp
+
+getCachedCradle :: GhcModuleCache -> FilePath -> Maybe BIOS.Cradle
+getCachedCradle gmc fp = case lookupCradle fp gmc of
+                     ReuseCradle -> snd <$> currentCradle gmc
+                     LoadCradle (CachedCradle c _) -> Just c
+                     NewCradle _ -> Nothing
 
 data CachedCradle = CachedCradle BIOS.Cradle HscEnv
 

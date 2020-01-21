@@ -22,6 +22,7 @@ import qualified Data.Text.IO                  as T
 import qualified GHC.Generics                  as Generics
 import qualified HsImport
 import           Haskell.Ide.Engine.Config
+import           Haskell.Ide.Engine.GhcModuleCache
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.MonadFunctions (debugm)
 import qualified Haskell.Ide.Engine.Support.HieExtras as Hie
@@ -197,8 +198,10 @@ importModule (ImportParams uri impStyle modName) =
                       formatEdit :: J.TextEdit -> IdeGhcM J.TextEdit
                       formatEdit origEdit@(J.TextEdit r t) = do
                         -- TODO: are these default FormattingOptions ok?
+                        mc <- getModuleCache
+                        let cc = getCachedCradle mc <$> uriToFilePath uri
                         formatEdits <-
-                          liftToGhc $ provider t uri FormatText (FormattingOptions 2 True) >>= \case
+                          liftToGhc $ provider t uri (join cc) FormatText (FormattingOptions 2 True) >>= \case
                             IdeResultOk xs -> return xs
                             _              -> return [origEdit]
                         -- let edits = foldl' J.editTextEdit origEdit formatEdits -- TODO: this seems broken.

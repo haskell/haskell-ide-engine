@@ -32,7 +32,7 @@ floskellDescriptor plId = PluginDescriptor
 -- Formats the given source in either a given Range or the whole Document.
 -- If the provider fails an error is returned that can be displayed to the user.
 provider :: FormattingProvider
-provider contents uri typ _opts =
+provider contents uri _ typ _opts =
   pluginGetFile "Floskell: " uri $ \file -> do
     config <- liftIO $ findConfigOrDefault file
     let (range, selectedContents) = case typ of

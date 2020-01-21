@@ -134,6 +134,8 @@ import           Haskell.Ide.Engine.Config
 import           Haskell.Ide.Engine.GhcModuleCache
 import           Haskell.Ide.Engine.MultiThreadState
 
+import           HIE.Bios
+
 import qualified Language.Haskell.LSP.Core     as Core
 import           Language.Haskell.LSP.Types.Capabilities
 import           Language.Haskell.LSP.Types     ( Command(..)
@@ -261,6 +263,7 @@ data FormattingType = FormatText
 -- and file uri, does not suffice.
 type FormattingProvider = T.Text -- ^ Text to format
         -> Uri -- ^ Uri of the file being formatted
+        -> Maybe Cradle -- ^ HIE.Bios Cradle containing the file being formatted
         -> FormattingType  -- ^ How much to format
         -> FormattingOptions -- ^ Options for the formatter
         -> IdeM (IdeResult [TextEdit]) -- ^ Result of the formatting or the unchanged text.

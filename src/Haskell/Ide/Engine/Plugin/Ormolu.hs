@@ -32,7 +32,7 @@ ormoluDescriptor plId = PluginDescriptor
 
 
 provider :: FormattingProvider
-provider _contents _uri _typ _opts =
+provider _contents _uri _ _typ _opts =
 #if __GLASGOW_HASKELL__ >= 806
   case _typ of 
     FormatRange _ -> return $ IdeResultFail (IdeError PluginError (pack "Selection formatting for Ormolu is not currently supported.") Null)

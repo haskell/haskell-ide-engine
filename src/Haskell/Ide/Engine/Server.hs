@@ -49,6 +49,7 @@ import qualified Haskell.Ide.Engine.Ghc   as HIE
 import           Haskell.Ide.Engine.CodeActions
 import qualified Haskell.Ide.Engine.Completions      as Completions
 import           Haskell.Ide.Engine.Reactor
+import           Haskell.Ide.Engine.GhcModuleCache
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import qualified Haskell.Ide.Engine.Plugin.ApplyRefact   as ApplyRefact
@@ -750,7 +751,10 @@ reactor inp diagIn = do
               doc = params ^. J.textDocument . J.uri
           withDocumentContents (req ^. J.id) doc $ \text ->
             let callback = reactorSend . RspDocumentFormatting . Core.makeResponseMessage req . J.List
-                hreq = IReq tn "format" (req ^. J.id) callback $ lift $ provider text doc FormatText (params ^. J.options)
+                hreq = IReq tn "format" (req ^. J.id) callback $ lift $ do
+                  mc <- getModuleCache
+                  let cc = join $ getCachedCradle mc <$> uriToFilePath doc
+                  provider text doc cc FormatText (params ^. J.options)
               in makeRequest hreq
 
         -- -------------------------------
@@ -763,7 +767,10 @@ reactor inp diagIn = do
           withDocumentContents (req ^. J.id) doc $ \text ->
             let range = params ^. J.range
                 callback = reactorSend . RspDocumentRangeFormatting . Core.makeResponseMessage req . J.List
-                hreq = IReq tn "range-format" (req ^. J.id) callback $ lift $ provider text doc (FormatRange range) (params ^. J.options)
+                hreq = IReq tn "range-format" (req ^. J.id) callback $ lift $ do
+                  mc <- getModuleCache
+                  let cc = join $ getCachedCradle mc <$> uriToFilePath doc
+                  provider text doc cc (FormatRange range) (params ^. J.options)
               in makeRequest hreq
 
         -- -------------------------------
@@ -862,7 +869,7 @@ getFormattingProvider = do
         let msg = providerName <> " is not a recognised plugin for formatting. Check your config"
         reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
         reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg
-      return (\_ _ _ _ -> return (IdeResultOk [])) -- nop formatter
+      return (\_ _ _ _ _ -> return (IdeResultOk [])) -- nop formatter
     Just (_, provider) -> return provider
 
 -- ---------------------------------------------------------------------
