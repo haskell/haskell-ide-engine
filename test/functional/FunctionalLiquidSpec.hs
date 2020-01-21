@@ -21,13 +21,9 @@ spec :: Spec
 spec = describe "liquid haskell diagnostics" $ do
     it "runs diagnostics on save, no liquid" $
       runSession hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
-      -- runSessionWithConfig logConfig hieCommandExamplePlugin codeActionSupportCaps "test/testdata" $ do
         doc <- openDoc "liquid/Evens.hs" "haskell"
 
         diags@(reduceDiag:_) <- waitForDiagnostics
-
-        -- liftIO $ show diags `shouldBe` ""
-        -- liftIO $ putStrLn "a"
 
         liftIO $ do
           length diags `shouldBe` 2
@@ -36,31 +32,20 @@ spec = describe "liquid haskell diagnostics" $ do
           reduceDiag ^. code `shouldBe` Just (StringValue "Use negate")
           reduceDiag ^. source `shouldBe` Just "hlint"
 
-        -- liftIO $ putStrLn "b"
-
         diags2hlint <- waitForDiagnostics
-        -- liftIO $ putStrLn "c"
-        -- liftIO $ show diags2hlint `shouldBe` ""
+
         liftIO $ length diags2hlint `shouldBe` 2
 
-        -- docItem <- getDocItem file languageId
         sendNotification TextDocumentDidSave (DidSaveTextDocumentParams doc)
 
-        -- diags2liquid <- waitForDiagnostics
-        -- liftIO $ putStrLn "d"
-        -- liftIO $ length diags2liquid `shouldBe` 3
-        -- -- liftIO $ show diags2liquid `shouldBe` ""
-
-        diags3@(d:_) <- waitForDiagnostics
-        -- liftIO $ putStrLn "e"
-        -- liftIO $ show diags3 `shouldBe` ""
+        diags3@(d:_) <- waitForDiagnosticsSource "eg2"
+        
         liftIO $ do
-          length diags3 `shouldBe` 3
-          d ^. range `shouldBe` Range (Position 0 0) (Position 1 0)
-          d ^. severity `shouldBe` Nothing
-          d ^. code `shouldBe` Nothing
-          d ^. source `shouldBe` Just "eg2"
-          d ^. message `shouldBe` (T.pack "Example plugin diagnostic, triggered byDiagnosticOnSave")
+          length diags3 `shouldBe` 1
+          d ^. LSP.range `shouldBe` Range (Position 0 0) (Position 1 0)
+          d ^. LSP.severity `shouldBe` Nothing
+          d ^. LSP.code `shouldBe` Nothing
+          d ^. LSP.message `shouldBe` T.pack "Example plugin diagnostic, triggered byDiagnosticOnSave"
 
     -- ---------------------------------
 
