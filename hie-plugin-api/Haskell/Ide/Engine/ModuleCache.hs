@@ -131,7 +131,7 @@ loadCradle _ _ ReuseCradle _def action = do
   debugm "Reusing cradle"
   IdeResultOk <$> action
 
-loadCradle _ _iniDynFlags (LoadCradle (CachedCradle crd env)) _def action = do
+loadCradle _ _iniDynFlags (LoadCradle (CachedCradle crd env _)) _def action = do
   -- Reloading a cradle happens on component switch
   logm $ "Switch to cradle: " ++ show crd
   -- Cache the existing cradle
@@ -245,17 +245,17 @@ setCurrentCradle cradle = do
     let ps = mapMaybe (GHC.ml_hs_file . GHC.ms_location) (mgModSummaries mg)
     debugm $ "Modules in the cradle: " ++ show ps
     ps' <- liftIO $ mapM canonicalizePath ps
-    modifyCache (\s -> s { currentCradle = Just (ps', cradle) })
+    modifyCache (\s -> s { currentCradle = Just (ps', cradle, Nothing) })
 
 -- | Cache the given Cradle.
 -- Caches the given Cradle together with all Modules this Cradle is responsible
 -- for.
 -- Via 'lookupCradle' it can be checked if a given FilePath is managed by
 -- a any Cradle that has already been loaded.
-cacheCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => ([FilePath], Bios.Cradle) -> m ()
-cacheCradle (ds, c) = do
+cacheCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => ([FilePath], Bios.Cradle, Maybe Bios.ComponentOptions) -> m ()
+cacheCradle (ds, c, co) = do
   env <- GHC.getSession
-  let cc = CachedCradle c env
+  let cc = CachedCradle c env co
       new_map = T.fromList (map (, cc) (map B.pack ds))
   modifyCache (\s -> s { cradleCache = T.unionWith (\a _ -> a) new_map (cradleCache s) })
 
