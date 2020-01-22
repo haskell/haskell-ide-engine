@@ -10,7 +10,6 @@ import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Default
 import qualified Data.HashMap.Strict as HM
-import qualified Data.Set as Set
 import           Data.Maybe
 #if __GLASGOW_HASKELL__ < 808
 import           Data.Monoid ((<>))
@@ -132,139 +131,39 @@ spec = describe "code actions" $ do
         _:x:_ <- T.lines <$> documentContents doc
         liftIO $ x `shouldBe` "foo = putStrLn \"world\""
 
-  describe "import suggestions" $ do
+  describe "import suggestions" $
+    it "works with 3.8 code action kinds" $ runSession hieCommand fullCaps "test/testdata" $ do
+      doc <- openDoc "CodeActionImport.hs" "haskell"
+      -- No Formatting:
+      let config = def { formattingProvider = "none" }
+      sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
+
+      -- ignore the first empty hlint diagnostic publish
+      [_,diag:_] <- count 2 waitForDiagnostics
+      liftIO $ diag ^. L.message `shouldBe` "Variable not in scope: when :: Bool -> IO () -> IO ()"
+
+      actionsOrCommands <- getAllCodeActions doc
+      let actns = map fromAction actionsOrCommands
+
+      liftIO $ do
+        head actns        ^. L.title `shouldBe` "Import module Control.Monad"
+        head (tail actns) ^. L.title `shouldBe` "Import module Control.Monad (when)"
+        forM_ actns $ \a -> do
+          a ^. L.kind `shouldBe` Just CodeActionQuickFix
+          a ^. L.command `shouldSatisfy` isJust
+          a ^. L.edit `shouldBe` Nothing
+          let hasOneDiag (Just (List [_])) = True
+              hasOneDiag _ = False
+          a ^. L.diagnostics `shouldSatisfy` hasOneDiag
+        length actns `shouldBe` 10
+
+      executeCodeAction (head actns)
+
+      contents <- getDocumentEdit doc
+      liftIO $ contents `shouldBe` "import Control.Monad\nmain :: IO ()\nmain = when True $ putStrLn \"hello\""
 
     -- ---------------------------------
 
-    describe "formats with brittany" $ hsImportSpec "brittany"
-      [ -- Expected output for simple format.
-        [ "import qualified Data.Maybe"
-        , "import           Control.Monad"
-        , "main :: IO ()"
-        , "main = when True $ putStrLn \"hello\""
-        ]
-      , -- Use an import list and format the output.
-        [ "import qualified Data.Maybe"
-        , "import           Control.Monad                  ( when )"
-        , "main :: IO ()"
-        , "main = when True $ putStrLn \"hello\""
-        ]
-      , -- Multiple import lists, should not introduce multiple newlines.
-        [ "import           System.IO                      ( stdout"
-        , "                                                , hPutStrLn"
-        , "                                                )"
-        , "import           Control.Monad                  ( when )"
-        , "import           Data.Maybe                     ( fromMaybe )"
-        , "-- | Main entry point to the program"
-        , "main :: IO ()"
-        , "main ="
-        , "    when True"
-        , "        $ hPutStrLn stdout"
-        , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
-        ]
-      , -- Complex imports for Constructos and functions
-        [ "{-# LANGUAGE NoImplicitPrelude #-}"
-        , "import           System.IO                      ( IO"
-        , "                                                , hPutStrLn"
-        , "                                                , stderr"
-        , "                                                )"
-        , "import           Prelude                        ( Bool(..) )"
-        , "import           Control.Monad                  ( when )"
-        , "import           Data.Function                  ( ($) )"
-        , "import           Data.Maybe                     ( fromMaybe"
-        , "                                                , Maybe(Just)"
-        , "                                                )"
-        , "-- | Main entry point to the program"
-        , "main :: IO ()"
-        , "main ="
-        , "    when True"
-        , "        $ hPutStrLn stderr"
-        , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
-        ]
-      ]
-    describe "formats with floskell" $ hsImportSpec "floskell"
-      [ -- Expected output for simple format.
-        [ "import qualified Data.Maybe"
-        , "import           Control.Monad"
-        , "main :: IO ()"
-        , "main = when True $ putStrLn \"hello\""
-        ]
-      , -- Use an import list and format the output.
-        [ "import qualified Data.Maybe"
-        , "import           Control.Monad (when)"
-        , "main :: IO ()"
-        , "main = when True $ putStrLn \"hello\""
-        ]
-      , -- Multiple import lists, should not introduce multiple newlines.
-        [ "import           System.IO (stdout, hPutStrLn)"
-        , "import           Control.Monad (when)"
-        , "import           Data.Maybe (fromMaybe)"
-        , "-- | Main entry point to the program"
-        , "main :: IO ()"
-        , "main ="
-        , "    when True"
-        , "        $ hPutStrLn stdout"
-        , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
-        ]
-      ,  -- Complex imports for Constructos and functions
-        [ "{-# LANGUAGE NoImplicitPrelude #-}"
-        , "import           System.IO (IO, hPutStrLn, stderr)"
-        , "import           Prelude (Bool(..))"
-        , "import           Control.Monad (when)"
-        , "import           Data.Function (($))"
-        , "import           Data.Maybe (fromMaybe, Maybe(Just))"
-        , "-- | Main entry point to the program"
-        , "main :: IO ()"
-        , "main ="
-        , "    when True"
-        , "        $ hPutStrLn stderr"
-        , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
-        ]
-      ]
-    describe "formats with ormolu" $ 
-      case ghcVersion of
-        GHC86 -> hsImportSpec "ormolu"
-          [ -- Expected output for simple format.
-            [ "import Control.Monad"
-            , "import qualified Data.Maybe"
-            , "main :: IO ()"
-            , "main = when True $ putStrLn \"hello\""
-            ]
-          , -- Use an import list and format the output.
-            [ "import Control.Monad (when)"
-            , "import qualified Data.Maybe"
-            , "main :: IO ()"
-            , "main = when True $ putStrLn \"hello\""
-            ]
-          , -- Multiple import lists, should not introduce multiple newlines.
-            [ "import System.IO (hPutStrLn, stdout)"
-            , "import Control.Monad (when)"
-            , "import Data.Maybe (fromMaybe)"
-            , "-- | Main entry point to the program"
-            , "main :: IO ()"
-            , "main ="
-            , "    when True"
-            , "        $ hPutStrLn stdout"
-            , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
-            ]
-          ,  -- Complex imports for Constructos and functions
-            [ "{-# LANGUAGE NoImplicitPrelude #-}"
-            , "import System.IO (IO, hPutStrLn, stderr)"
-            , "import Prelude (Bool (..))"
-            , "import Control.Monad (when)"
-            , "import Data.Function (($))"
-            , "import Data.Maybe (Maybe (Just), fromMaybe)"
-            , "-- | Main entry point to the program"
-            , "main :: IO ()"
-            , "main ="
-            , "    when True"
-            , "        $ hPutStrLn stderr"
-            , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
-            ]
-          ]
-        _ -> it "is NOP formatter" $
-          pendingWith "Ormolu only supported by GHC >= 8.6. Need to restore this."
-          
   describe "add package suggestions" $ do
     it "adds to .cabal files" $ do
       flushStackEnvironment
@@ -572,241 +471,6 @@ spec = describe "code actions" $ do
       -- kinds `shouldNotSatisfy` null
       kinds `shouldNotSatisfy` any (Just CodeActionRefactorInline /=)
       kinds `shouldSatisfy` all (Just CodeActionRefactorInline ==)
-
--- ---------------------------------------------------------------------
--- Parameterized HsImport Spec.
--- ---------------------------------------------------------------------
-hsImportSpec :: T.Text -> [[T.Text]]-> Spec
-hsImportSpec formatterName [e1, e2, e3, e4] =
-  describe ("Execute HsImport with formatter " <> T.unpack formatterName) $ do
-    it "works with 3.8 code action kinds" $ runSession hieCommand fullCaps "test/testdata" $ do
-      doc <- openDoc "CodeActionImport.hs" "haskell"
-      -- No Formatting:
-      let config = def { formattingProvider = "none" }
-      sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
-
-      -- ignore the first empty hlint diagnostic publish
-      [_,diag:_] <- count 2 waitForDiagnostics
-      liftIO $ diag ^. L.message `shouldBe` "Variable not in scope: when :: Bool -> IO () -> IO ()"
-
-      actionsOrCommands <- getAllCodeActions doc
-      let actns = map fromAction actionsOrCommands
-
-      liftIO $ do
-        head actns        ^. L.title `shouldBe` "Import module Control.Monad"
-        head (tail actns) ^. L.title `shouldBe` "Import module Control.Monad (when)"
-        forM_ actns $ \a -> do
-          a ^. L.kind `shouldBe` Just CodeActionQuickFix
-          a ^. L.command `shouldSatisfy` isJust
-          a ^. L.edit `shouldBe` Nothing
-          let hasOneDiag (Just (List [_])) = True
-              hasOneDiag _ = False
-          a ^. L.diagnostics `shouldSatisfy` hasOneDiag
-        length actns `shouldBe` 10
-
-      executeCodeAction (head actns)
-
-      contents <- getDocumentEdit doc
-      liftIO $ contents `shouldBe` "import Control.Monad\nmain :: IO ()\nmain = when True $ putStrLn \"hello\""
-
-    it "formats" $ runSession hieCommand fullCaps "test/testdata" $ do
-      doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
-      _ <- waitForDiagnosticsSource "bios"
-
-      let config = def { formattingProvider = formatterName }
-      sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
-
-      actionsOrCommands <- getAllCodeActions doc
-      let action:_ = map fromAction actionsOrCommands
-      executeCodeAction action
-
-      contents <- getDocumentEdit doc
-      liftIO $ T.lines contents `shouldMatchList` e1
-
-    it "import-list formats" $ runSession hieCommand fullCaps "test/testdata" $ do
-      doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
-      _ <- waitForDiagnosticsSource "bios"
-
-      let config = def { formattingProvider = formatterName }
-      sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
-
-      actionsOrCommands <- getAllCodeActions doc
-      let _:action:_ = map fromAction actionsOrCommands
-      executeCodeAction action
-
-      contents <- getDocumentEdit doc
-      liftIO $ T.lines contents `shouldMatchList` e2
-
-    -- ---------------------------------
-
-    it "multiple import-list formats" $ runSession hieCommand fullCaps "test/testdata" $ do
-      doc <- openDoc "CodeActionImportList.hs" "haskell"
-
-      let config = def { formattingProvider = formatterName }
-      sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
-
-      let wantedCodeActionTitles = [ "Import module System.IO (hPutStrLn)"
-                                   , "Import module System.IO (stdout)"
-                                   , "Import module Control.Monad (when)"
-                                   , "Import module Data.Maybe (fromMaybe)"
-                                   ]
-
-      contents <- executeAllCodeActions doc wantedCodeActionTitles
-
-      liftIO $ Set.fromList (T.lines contents) `shouldBe` Set.fromList e3
-
-    -- ---------------------------------
-
-    it "respects format config, multiple import-list" $ runSession hieCommand fullCaps "test/testdata" $ do
-      doc <- openDoc "CodeActionImportList.hs" "haskell"
-
-      let config = def { formatOnImportOn = False, formattingProvider = formatterName }
-      sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
-
-      let wantedCodeActionTitles = [ "Import module System.IO (hPutStrLn)"
-                                   , "Import module System.IO (stdout)"
-                                   , "Import module Control.Monad (when)"
-                                   , "Import module Data.Maybe (fromMaybe)"
-                                   ]
-
-      contents <- executeAllCodeActions doc wantedCodeActionTitles
-      liftIO $ Set.fromList (T.lines contents) `shouldBe`
-        Set.fromList
-          [ "import System.IO (stdout, hPutStrLn)"
-          , "import Control.Monad (when)"
-          , "import Data.Maybe (fromMaybe)"
-          , "-- | Main entry point to the program"
-          , "main :: IO ()"
-          , "main ="
-          , "    when True"
-          , "        $ hPutStrLn stdout"
-          , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
-          ]
-    it "respects format config" $ runSession hieCommand fullCaps "test/testdata" $ do
-      doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
-      _ <- waitForDiagnosticsSource "bios"
-
-      let config = def { formatOnImportOn = False, formattingProvider = formatterName }
-      sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
-
-      actionsOrCommands <- getAllCodeActions doc
-      let action:_ = map fromAction actionsOrCommands
-      executeCodeAction action
-
-      contents <- getDocumentEdit doc
-      liftIO $ do
-        let [l1, l2, l3, l4] = T.lines contents
-        l1 `shouldBe` "import qualified Data.Maybe"
-        l2 `shouldBe` "import Control.Monad"
-        l3 `shouldBe` "main :: IO ()"
-        l4 `shouldBe` "main = when True $ putStrLn \"hello\""
-
-    it "import-list respects format config" $ runSession hieCommand fullCaps "test/testdata" $ do
-      doc <- openDoc "CodeActionImportBrittany.hs" "haskell"
-      _ <- waitForDiagnosticsSource "bios"
-
-      let config = def { formatOnImportOn = False, formattingProvider = formatterName }
-      sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
-
-      actionsOrCommands <- getAllCodeActions doc
-      let _:action:_ = map fromAction actionsOrCommands
-      executeCodeAction action
-
-      contents <- getDocumentEdit doc
-      liftIO $ do
-        let [l1, l2, l3, l4] = T.lines contents
-        l1 `shouldBe` "import qualified Data.Maybe"
-        l2 `shouldBe` "import Control.Monad (when)"
-        l3 `shouldBe` "main :: IO ()"
-        l4 `shouldBe` "main = when True $ putStrLn \"hello\""
-
-    it "complex import-list" $ runSession hieCommand fullCaps "test/testdata" $ do
-      doc <- openDoc "CodeActionImportListElaborate.hs" "haskell"
-      _ <- waitForDiagnosticsSource "bios"
-
-      let config = def { formatOnImportOn = True, formattingProvider = formatterName }
-      sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
-
-      let wantedCodeActionTitles = [ "Import module System.IO (hPutStrLn)"
-                                   , "Import module Control.Monad (when)"
-                                   , "Import module Data.Maybe (fromMaybe)"
-                                   , "Import module Data.Function (($))"
-                                   , "Import module Data.Maybe (Maybe (Just))"
-                                   , "Import module Prelude (Bool (..))"
-                                   , "Import module System.IO (stderr)"
-                                   ]
-
-      contents <- executeAllCodeActions doc wantedCodeActionTitles
-
-      liftIO $
-        T.lines contents `shouldBe` e4
-
-    it "complex import-list respects format config" $ runSession hieCommand fullCaps "test/testdata" $ do
-      doc <- openDoc "CodeActionImportListElaborate.hs" "haskell"
-      _ <- waitForDiagnosticsSource "bios"
-
-      let config = def { formatOnImportOn = False, formattingProvider = formatterName }
-      sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (toJSON config))
-
-      let wantedCodeActionTitles = [ "Import module System.IO (hPutStrLn)"
-                                   , "Import module Control.Monad (when)"
-                                   , "Import module Data.Maybe (fromMaybe)"
-                                   , "Import module Data.Function (($))"
-                                   , "Import module Data.Maybe (Maybe (Just))"
-                                   , "Import module Prelude (Bool (..))"
-                                   , "Import module System.IO (stderr)"
-                                   ]
-
-      contents <- executeAllCodeActions doc wantedCodeActionTitles
-
-      liftIO $
-        T.lines contents `shouldBe`
-          [ "{-# LANGUAGE NoImplicitPrelude #-}"
-          , "import System.IO (IO, hPutStrLn, stderr)"
-          , "import Prelude (Bool(..))"
-          , "import Control.Monad (when)"
-          , "import Data.Function (($))"
-          , "import Data.Maybe (fromMaybe, Maybe(Just))"
-          , "-- | Main entry point to the program"
-          , "main :: IO ()"
-          , "main ="
-          , "    when True"
-          , "        $ hPutStrLn stderr"
-          , "        $ fromMaybe \"Good night, World!\" (Just \"Hello, World!\")"
-          ]
-
-  where
-    executeAllCodeActions :: TextDocumentIdentifier -> [T.Text] -> Session T.Text
-    executeAllCodeActions doc names =
-      foldM (\_ _ -> do
-          _ <- waitForDiagnosticsSource "bios"
-          executeCodeActionByName doc names
-          content <- skipManyTill publishDiagnosticsNotification $ getDocumentEdit doc
-          _ <- waitForDiagnosticsSource "bios"
-          return content
-        )
-        (T.pack "")
-        [ 1 .. length names ]
-
-    executeCodeActionByName :: TextDocumentIdentifier -> [T.Text] -> Session ()
-    executeCodeActionByName doc names = do
-      actionsOrCommands <- getAllCodeActions doc
-      let allActions = map fromAction actionsOrCommands
-      let actions = filter (\actn -> actn ^. L.title `elem` names) allActions
-      case actions of
-        (action:_) -> executeCodeAction action
-        [] ->
-          error
-            $  "No action found to be executed!"
-            ++ "\n Actual actions titles: " ++ show (map (^. L.title) allActions)
-            ++ "\n Expected actions titles: " ++ show names
-
--- Silence warnings
-hsImportSpec formatter args =
-  error $ "Not the right amount of arguments for \"hsImportSpec ("
-    ++ T.unpack formatter
-    ++ ")\", expected 4, got "
-    ++ show (length args)
 
 -- ---------------------------------------------------------------------
 
