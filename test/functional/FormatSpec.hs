@@ -101,8 +101,10 @@ spec = do
       doc <- openDoc "Format.hs" "haskell"
       formatDoc doc (FormattingOptions 2 True)
       docContent <- documentContents doc
+      let formatted = liftIO $ docContent `shouldBe` formattedOrmolu
       case ghcVersion of
-        GHC86 -> liftIO $ docContent `shouldBe` formattedOrmolu
+        GHC88 -> formatted
+        GHC86 -> formatted
         _ -> liftIO $ docContent `shouldBe` unchangedOrmolu
 
 
