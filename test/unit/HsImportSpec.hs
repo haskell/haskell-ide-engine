@@ -33,12 +33,15 @@ testPlugins = pluginDescToIdePlugins
     , Ormolu.ormoluDescriptor "ormolu"
     ]
 
-brittanyFilePath :: FilePath
-brittanyFilePath = "test" </> "testdata" </> "CodeActionImportList.hs"
+codeActionImportList :: FilePath
+codeActionImportList = "test" </> "testdata" </> "CodeActionImportList.hs"
+
+codeActionBigImportList :: FilePath
+codeActionBigImportList = "test" </> "testdata" </> "CodeActionImportListElaborate.hs"
 
 dispatchRequestP :: IdeGhcM a -> IO a
 dispatchRequestP act = do
-  cwd <- liftIO $ getCurrentDirectory
+  cwd <- liftIO getCurrentDirectory
   runIGM testPlugins (cwd </> "test" </> "testdata" </> "File.hs") act
 
 -- ---------------------------------------------------------------------
@@ -59,6 +62,26 @@ hsImportSpec = do
       ]
     , [ TextEdit (Range (toPos (2, 1)) (toPos (2, 1))) "import           Data.Function                  ( ($) )\n"
       ]
+    , [ TextEdit (Range (toPos (2, 1)) (toPos (2, 32))) $
+        "import           System.IO                      ( IO\n" <>
+        "                                                , hPutStrLn\n" <>
+        "                                                )"
+      ]
+    , [ TextEdit (Range (toPos (3, 1)) (toPos (3, 99))) $
+        "import           Data.List                      ( find\n" <>
+        "                                                , head\n" <>
+        "                                                , last\n" <>
+        "                                                , tail\n" <>
+        "                                                , init\n" <>
+        "                                                , union\n" <>
+        "                                                , (\\\\)\n" <>
+        "                                                , null\n" <>
+        "                                                , length\n" <>
+        "                                                , cons\n" <>
+        "                                                , uncons\n" <>
+        "                                                , reverse\n" <>
+        "                                                )"
+      ]
     ]
   describe "formats with floskell" $ hsImportSpecRunner "floskell"
     [ -- Expected output for simple format.
@@ -73,6 +96,12 @@ hsImportSpec = do
     , [ TextEdit (Range (toPos (2, 1)) (toPos (2, 1))) "import           Data.Maybe (Maybe(Nothing))\n"
       ]
     , [ TextEdit (Range (toPos (2, 1)) (toPos (2, 1))) "import           Data.Function (($))\n"
+      ]
+    , [ TextEdit (Range (toPos (2, 1)) (toPos (2, 32))) "import           System.IO (IO, hPutStrLn)"
+      ]
+    , [ TextEdit (Range (toPos (3, 1)) (toPos (3, 99))) $
+        "import           Data.List (find, head, last, tail, init, union, (\\\\), null\n" <>
+        "                          , length, cons, uncons, reverse)"
       ]
     ]
   describe "formats with ormolu" $ case ghcVersion of
@@ -90,6 +119,10 @@ hsImportSpec = do
           ]
         , [ TextEdit (Range (toPos (2, 1)) (toPos (2, 1))) "import Data.Function (($))\n"
           ]
+        , [ TextEdit (Range (toPos (2, 1)) (toPos (2, 32))) "import System.IO (IO, hPutStrLn)"
+          ]
+        , [ TextEdit (Range (toPos (3, 1)) (toPos (3, 99))) "import Data.List ((\\\\), cons, find, head, init, last, length, null, reverse, tail, uncons, union)"
+          ]
         ]
       _ -> it "is NOP formatter" $
             pendingWith "Ormolu only supported by GHC >= 8.6. Need to restore this."
@@ -98,9 +131,9 @@ hsImportSpec = do
 -- Parameterized HsImport Spec.
 -- ---------------------------------------------------------------------
 hsImportSpecRunner :: T.Text -> [[TextEdit]] -> Spec
-hsImportSpecRunner formatterName [e1, e2, e3, e4, e5, e6] = do
+hsImportSpecRunner formatterName [e1, e2, e3, e4, e5, e6, e7, e8] = do
     it "formats" $ do
-      fp <- makeAbsolute brittanyFilePath
+      fp <- makeAbsolute codeActionImportList
       let uri = filePathToUri fp
       let act = importModule (ImportParams uri Simple "Control.Monad")
 
@@ -110,7 +143,7 @@ hsImportSpecRunner formatterName [e1, e2, e3, e4, e5, e6] = do
           Nothing -> fail "No Change found"
 
     it "import-list formats" $ do
-      fp <- makeAbsolute brittanyFilePath
+      fp <- makeAbsolute codeActionImportList
       let uri = filePathToUri fp
       let act = importModule (ImportParams uri (Complex (Import $ Only "when")) "Control.Monad")
 
@@ -120,7 +153,7 @@ hsImportSpecRunner formatterName [e1, e2, e3, e4, e5, e6] = do
           Nothing -> fail "No Change found"
 
     it "import-list type formats" $ do
-      fp <- makeAbsolute brittanyFilePath
+      fp <- makeAbsolute codeActionImportList
       let uri = filePathToUri fp
       let act = importModule (ImportParams uri (Complex (Import $ Only "Maybe")) "Data.Maybe")
 
@@ -130,7 +163,7 @@ hsImportSpecRunner formatterName [e1, e2, e3, e4, e5, e6] = do
           Nothing -> fail "No Change found"
 
     it "import-list constructor formats" $ do
-      fp <- makeAbsolute brittanyFilePath
+      fp <- makeAbsolute codeActionImportList
       let uri = filePathToUri fp
       let act = importModule (ImportParams uri (Complex (Import $ AllOf "Maybe")) "Data.Maybe")
 
@@ -140,7 +173,7 @@ hsImportSpecRunner formatterName [e1, e2, e3, e4, e5, e6] = do
           Nothing -> fail "No Change found"
 
     it "import-list constructor formats" $ do
-      fp <- makeAbsolute brittanyFilePath
+      fp <- makeAbsolute codeActionImportList
       let uri = filePathToUri fp
       let act = importModule (ImportParams uri (Complex (Import $ OneOf "Maybe" "Nothing")) "Data.Maybe")
 
@@ -150,7 +183,7 @@ hsImportSpecRunner formatterName [e1, e2, e3, e4, e5, e6] = do
           Nothing -> fail "No Change found"
 
     it "import-list infix function formats" $ do
-      fp <- makeAbsolute brittanyFilePath
+      fp <- makeAbsolute codeActionImportList
       let uri = filePathToUri fp
       let act = importModule (ImportParams uri (Complex (Import $ Only "$")) "Data.Function")
 
@@ -158,6 +191,27 @@ hsImportSpecRunner formatterName [e1, e2, e3, e4, e5, e6] = do
       case Map.lookup uri changes of
           Just (List val) -> val `shouldBe` e6
           Nothing -> fail "No Change found"
+
+    it "import-list with existing entry formats" $ do
+      fp <- makeAbsolute codeActionBigImportList
+      let uri = filePathToUri fp
+      let act = importModule (ImportParams uri (Complex (Import $ Only "hPutStrLn")) "System.IO")
+
+      IdeResultOk (WorkspaceEdit (Just changes) _) <- runSingle' (setFormatter formatterName) testPlugins fp act
+      case Map.lookup uri changes of
+          Just (List val) -> val `shouldBe` e7
+          Nothing -> fail "No Change found"
+
+    it "import-list with forced overflow formats" $ do
+      fp <- makeAbsolute codeActionBigImportList
+      let uri = filePathToUri fp
+      let act = importModule (ImportParams uri (Complex (Import $ Only "reverse")) "Data.List")
+
+      IdeResultOk (WorkspaceEdit (Just changes) _) <- runSingle' (setFormatter formatterName) testPlugins fp act
+      case Map.lookup uri changes of
+          Just (List val) -> val `shouldBe` e8
+          Nothing -> fail "No Change found"
+
 
 -- Silence warnings
 hsImportSpecRunner formatter args =
