@@ -200,6 +200,7 @@ test-suite unit-test
                        GhcModPluginSpec
                        -- HaRePluginSpec
                        HooglePluginSpec
+                       HsImportSpec
                        JsonSpec
                        LiquidSpec
                        PackagePluginSpec
@@ -208,7 +209,7 @@ test-suite unit-test
   build-tool-depends:  cabal-helper:cabal-helper-main, hspec-discover:hspec-discover
   build-depends:       QuickCheck
                      , aeson
-                     , cabal-helper 
+                     , cabal-helper
                      , ghc
                      , base
                      , bytestring

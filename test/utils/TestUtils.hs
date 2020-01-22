@@ -5,9 +5,11 @@ module TestUtils
   , setupBuildToolFiles
   , testCommand
   , runSingle
+  , runSingle'
   , runSingleReq
   , makeRequest
   , runIGM
+  , runIGM'
   , ghcVersion, GhcVersion(..)
   , logFilePath
   , readResolver
@@ -34,6 +36,7 @@ import           Language.Haskell.LSP.Core
 import           Language.Haskell.LSP.Types (LspId(IdInt), fromNormalizedUri)
 import           Haskell.Ide.Engine.MonadTypes hiding (withProgress, withIndefiniteProgress)
 import qualified Haskell.Ide.Engine.Cradle as Bios
+import qualified Haskell.Ide.Engine.Config as Config
 import           System.Directory
 import           System.Environment
 import           System.FilePath
@@ -65,7 +68,10 @@ testCommand testPlugins fp act plugin cmd arg res = do
   fmap fromDynJSON oldApiRes `shouldBe` fmap Just res
 
 runSingle :: IdePlugins -> FilePath -> IdeGhcM (IdeResult b) -> IO (IdeResult b)
-runSingle testPlugins fp act = runIGM testPlugins fp act
+runSingle = runSingle' id
+
+runSingle' :: (Config.Config -> Config.Config) -> IdePlugins -> FilePath -> IdeGhcM (IdeResult b) -> IO (IdeResult b)
+runSingle' modifyConfig testPlugins fp act = runIGM' modifyConfig testPlugins fp act
 
 runSingleReq :: ToJSON a
              => IdePlugins -> FilePath -> PluginId -> CommandId -> a -> IO (IdeResult DynamicJSON)
@@ -75,11 +81,18 @@ makeRequest :: ToJSON a => PluginId -> CommandId -> a -> IdeGhcM (IdeResult Dyna
 makeRequest plugin com arg = runPluginCommand plugin com (toJSON arg)
 
 runIGM :: IdePlugins -> FilePath -> IdeGhcM a -> IO a
-runIGM testPlugins fp f = do
+runIGM = runIGM' id
+
+runIGM' :: (Config.Config -> Config.Config) -> IdePlugins -> FilePath -> IdeGhcM a -> IO a
+runIGM' modifyConfig testPlugins fp f = do
   stateVar <- newTVarIO $ IdeState emptyModuleCache Map.empty Map.empty Nothing
   crdl <- Bios.findLocalCradle fp
   mlibdir <- Bios.getProjectGhcLibDir crdl
-  runIdeGhcM mlibdir testPlugins dummyLspFuncs stateVar f
+  let tmpFuncs :: LspFuncs Config.Config
+      tmpFuncs = dummyLspFuncs
+      lspFuncs :: LspFuncs Config.Config
+      lspFuncs = tmpFuncs { config = (fmap . fmap) modifyConfig (config tmpFuncs)}
+  runIdeGhcM mlibdir testPlugins lspFuncs stateVar f
 
 withFileLogging :: FilePath -> IO a -> IO a
 withFileLogging logFile f = do
