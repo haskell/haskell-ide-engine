@@ -136,81 +136,49 @@ hsImportSpecRunner formatterName [e1, e2, e3, e4, e5, e6, e7, e8] = do
       fp <- makeAbsolute codeActionImportList
       let uri = filePathToUri fp
       let act = importModule (ImportParams uri Simple "Control.Monad")
-
-      IdeResultOk (WorkspaceEdit (Just changes) _) <- runSingle' (setFormatter formatterName) testPlugins fp act
-      case Map.lookup uri changes of
-          Just (List val) -> val `shouldBe` e1
-          Nothing -> fail "No Change found"
+      expectHsImportResult formatterName fp uri e1 act
 
     it "import-list formats" $ do
       fp <- makeAbsolute codeActionImportList
       let uri = filePathToUri fp
       let act = importModule (ImportParams uri (Complex (Import $ Only "when")) "Control.Monad")
-
-      IdeResultOk (WorkspaceEdit (Just changes) _) <- runSingle' (setFormatter formatterName) testPlugins fp act
-      case Map.lookup uri changes of
-          Just (List val) -> val `shouldBe` e2
-          Nothing -> fail "No Change found"
+      expectHsImportResult formatterName fp uri e2 act
 
     it "import-list type formats" $ do
       fp <- makeAbsolute codeActionImportList
       let uri = filePathToUri fp
       let act = importModule (ImportParams uri (Complex (Import $ Only "Maybe")) "Data.Maybe")
-
-      IdeResultOk (WorkspaceEdit (Just changes) _) <- runSingle' (setFormatter formatterName) testPlugins fp act
-      case Map.lookup uri changes of
-          Just (List val) -> val `shouldBe` e3
-          Nothing -> fail "No Change found"
+      expectHsImportResult formatterName fp uri e3 act
 
     it "import-list constructor formats" $ do
       fp <- makeAbsolute codeActionImportList
       let uri = filePathToUri fp
       let act = importModule (ImportParams uri (Complex (Import $ AllOf "Maybe")) "Data.Maybe")
-
-      IdeResultOk (WorkspaceEdit (Just changes) _) <- runSingle' (setFormatter formatterName) testPlugins fp act
-      case Map.lookup uri changes of
-          Just (List val) -> val `shouldBe` e4
-          Nothing -> fail "No Change found"
+      expectHsImportResult formatterName fp uri e4 act
 
     it "import-list constructor formats" $ do
       fp <- makeAbsolute codeActionImportList
       let uri = filePathToUri fp
       let act = importModule (ImportParams uri (Complex (Import $ OneOf "Maybe" "Nothing")) "Data.Maybe")
-
-      IdeResultOk (WorkspaceEdit (Just changes) _) <- runSingle' (setFormatter formatterName) testPlugins fp act
-      case Map.lookup uri changes of
-          Just (List val) -> val `shouldBe` e5
-          Nothing -> fail "No Change found"
+      expectHsImportResult formatterName fp uri e5 act
 
     it "import-list infix function formats" $ do
       fp <- makeAbsolute codeActionImportList
       let uri = filePathToUri fp
       let act = importModule (ImportParams uri (Complex (Import $ Only "$")) "Data.Function")
-
-      IdeResultOk (WorkspaceEdit (Just changes) _) <- runSingle' (setFormatter formatterName) testPlugins fp act
-      case Map.lookup uri changes of
-          Just (List val) -> val `shouldBe` e6
-          Nothing -> fail "No Change found"
+      expectHsImportResult formatterName fp uri e6 act
 
     it "import-list with existing entry formats" $ do
       fp <- makeAbsolute codeActionBigImportList
       let uri = filePathToUri fp
       let act = importModule (ImportParams uri (Complex (Import $ Only "hPutStrLn")) "System.IO")
-
-      IdeResultOk (WorkspaceEdit (Just changes) _) <- runSingle' (setFormatter formatterName) testPlugins fp act
-      case Map.lookup uri changes of
-          Just (List val) -> val `shouldBe` e7
-          Nothing -> fail "No Change found"
+      expectHsImportResult formatterName fp uri e7 act
 
     it "import-list with forced overflow formats" $ do
       fp <- makeAbsolute codeActionBigImportList
       let uri = filePathToUri fp
       let act = importModule (ImportParams uri (Complex (Import $ Only "reverse")) "Data.List")
-
-      IdeResultOk (WorkspaceEdit (Just changes) _) <- runSingle' (setFormatter formatterName) testPlugins fp act
-      case Map.lookup uri changes of
-          Just (List val) -> val `shouldBe` e8
-          Nothing -> fail "No Change found"
+      expectHsImportResult formatterName fp uri e8 act
 
 
 -- Silence warnings
@@ -222,3 +190,10 @@ hsImportSpecRunner formatter args =
 
 setFormatter :: T.Text -> Config.Config -> Config.Config
 setFormatter formatterName cfg = cfg { Config.formattingProvider = formatterName }
+
+expectHsImportResult :: T.Text -> FilePath -> Uri -> [TextEdit] -> IdeGhcM (IdeResult WorkspaceEdit) -> IO ()
+expectHsImportResult formatterName fp uri expectedChanges act = do
+  IdeResultOk (WorkspaceEdit (Just changes) _) <- runSingle' (setFormatter formatterName) testPlugins fp act
+  case Map.lookup uri changes of
+      Just (List val) -> val `shouldBe` expectedChanges
+      Nothing -> fail "No Change found"
