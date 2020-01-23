@@ -167,14 +167,13 @@ loadCradle publishDiagnostics iniDynFlags (NewCradle fp) def action = do
   initialiseCradle :: (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m)
                   => Bios.Cradle -> (Progress -> IO ()) -> m (IdeResult a)
   initialiseCradle cradle f = do
-    co <- liftIO $ Bios.getCompilerOptions fp cradle
-    res <- fmap (initSessionWithMessage (Just (toMessager f))) <$> return co
-    case (co, res) of
-      (_, Bios.CradleNone) ->
+    res <- initializeFlagsWithCradleWithMessage (Just (toMessager f)) fp cradle
+    case res of
+      Bios.CradleNone ->
         -- Note: The action is not run if we are in the none cradle, we
         -- just pretend the file doesn't exist.
         return $ IdeResultOk def
-      (_, Bios.CradleFail (Bios.CradleError code msg)) -> do
+      Bios.CradleFail (Bios.CradleError code msg) -> do
         warningm $ "Fail on cradle initialisation: (" ++ show code ++ ")" ++ show msg
 
         -- Send a detailed diagnostic to the user.
@@ -196,7 +195,7 @@ loadCradle publishDiagnostics iniDynFlags (NewCradle fp) def action = do
             , ideMessage = Text.unwords  (take 2 msgTxt)
             , ideInfo    = Aeson.Null
             }
-      (Bios.CradleSuccess co', Bios.CradleSuccess init_session) -> do
+      Bios.CradleSuccess (init_session, copts) -> do
         -- Note that init_session contains a Hook to 'f'.
         -- So, it can still provide Progress Reports.
         -- Therefore, invocation of 'init_session' must happen
@@ -227,27 +226,35 @@ loadCradle publishDiagnostics iniDynFlags (NewCradle fp) def action = do
             -- be that slow, even though the cradle isn't cached because the
             -- `.hi` files will be saved.
           Right Bios.Succeeded -> do
-            setCurrentCradle cradle co'
+            setCurrentCradle cradle copts
             logm "Cradle set succesfully"
             IdeResultOk <$> action
 
           Right Bios.Failed -> do
-            setCurrentCradle cradle co'
+            setCurrentCradle cradle copts
             logm "Cradle did not load succesfully"
             IdeResultOk <$> action
-      _ -> return (IdeResultFail $ IdeError OtherError "Not Reachable" Aeson.Null)
 
--- TODO remove when it's exposed by hie-bios
+-- TODO remove after hie-bios update
+initializeFlagsWithCradleWithMessage ::
+  GHC.GhcMonad m
+  => Maybe GHC.Messager
+  -> FilePath -- ^ The file we are loading the 'Cradle' because of
+  -> Bios.Cradle -- ^ The cradle we want to load
+  -> m (Bios.CradleLoadResult (m GHC.SuccessFlag, Bios.ComponentOptions)) -- ^ Whether we actually loaded the cradle or not.
+initializeFlagsWithCradleWithMessage msg fp cradle =
+    fmap (initSessionWithMessage msg) <$> liftIO (Bios.getCompilerOptions fp cradle)
+
 initSessionWithMessage :: (GHC.GhcMonad m)
             => Maybe GHC.Messager
             -> Bios.ComponentOptions
-            -> m GHC.SuccessFlag
-initSessionWithMessage msg co = do
-    targets <- Bios.initSession co
+            -> (m GHC.SuccessFlag, Bios.ComponentOptions)
+initSessionWithMessage msg copts = (do
+    targets <- Bios.initSession copts
     GHC.setTargets targets
     -- Get the module graph using the function `getModuleGraph`
     mod_graph <- GHC.depanal [] True
-    GHC.load' GHC.LoadAllTargets msg mod_graph
+    GHC.load' GHC.LoadAllTargets msg mod_graph, copts)
 
 -- | Sets the current cradle for caching.
 -- Retrieves the current GHC Module Graph, to find all modules
