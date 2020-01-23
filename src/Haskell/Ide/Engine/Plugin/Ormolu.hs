@@ -43,7 +43,7 @@ provider _contents _uri _typ _opts =
   case _typ of
     FormatRange _ -> return $ IdeResultFail (IdeError PluginError (T.pack "Selection formatting for Ormolu is not currently supported.") Null)
     FormatText -> pluginGetFile _contents _uri $ \file -> do
-        opts <- getComponentOptions file
+        opts <- lookupComponentOptions file
         let opts' = map DynOption $ filter exop $ join $ maybeToList $ componentOptions <$> opts
             conf  = Config opts' False False True False
         result <- liftIO $ try @OrmoluException (ormolu conf file (T.unpack _contents))

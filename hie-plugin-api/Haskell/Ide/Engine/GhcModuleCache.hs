@@ -99,21 +99,26 @@ data LookupCradleResult = ReuseCradle | LoadCradle CachedCradle | NewCradle File
 -- via 'setCurrentCradle' before the Cradle can be cached via 'cacheCradle'.
 lookupCradle :: FilePath -> GhcModuleCache -> LookupCradleResult
 lookupCradle fp gmc =
-  case currentCradle gmc of
-    Just (dirs, _c, _) | any (`isPrefixOf` fp) dirs -> ReuseCradle
-    _ -> case T.match (cradleCache gmc) (B.pack fp) of
-           Just (_k, c, _suf) -> LoadCradle c
-           Nothing  -> NewCradle fp
+  lookupInCache fp gmc (const $ const ReuseCradle) LoadCradle $ NewCradle fp
 
-getComponentOptions
+lookupComponentOptions
   :: HasGhcModuleCache m => FilePath -> m (Maybe BIOS.ComponentOptions)
-getComponentOptions fp = do
-  mc <- getModuleCache
-  case currentCradle mc of
-    Just (dirs, _, co) | any (`isPrefixOf` fp) dirs -> return $ Just co
-    _ -> case T.match (cradleCache mc) (B.pack fp) of
-      Just (_, CachedCradle _ _ co, _) -> return $ Just co
-      _ -> return Nothing
+lookupComponentOptions fp = do
+  gmc <- getModuleCache
+  return $ lookupInCache fp gmc (const Just) (Just . compOpts) Nothing
+
+lookupInCache
+  :: FilePath
+  -> GhcModuleCache
+  -> (BIOS.Cradle -> BIOS.ComponentOptions -> a)
+  -> (CachedCradle -> a)
+  -> a
+  -> a
+lookupInCache fp gmc cur cached def = case currentCradle gmc of
+  Just (dirs, c, co) | any (`isPrefixOf` fp) dirs -> cur c co
+  _ -> case T.match (cradleCache gmc) (B.pack fp) of
+    Just (_k, c, _suf) -> cached c
+    Nothing            -> def
 
 data CachedCradle = CachedCradle
   { ccradle :: BIOS.Cradle
