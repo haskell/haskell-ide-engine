@@ -1,9 +1,7 @@
 version: 1.0.{build}
 environment:
   matrix:
-#  - GHCVER: 8.6.4
-  - GHCVER: 8.6.2
-  - GHCVER: 8.6.1
+  - GHCVER: 8.6.5
   - GHCVER: 8.4.4
   - GHCVER: 8.4.3
   - GHCVER: 8.4.2
