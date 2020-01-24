@@ -22,8 +22,7 @@ extra-deps:
 - hsimport-0.11.0
 - ilist-0.3.1.0
 - monad-dijkstra-0.1.1.2
-- optparse-applicative-0.15.1.0
-- ormolu-0.0.3.0
+- ormolu-0.0.3.1
 - semigroups-0.18.5
 - temporary-1.2.1.1
 
@@ -33,8 +32,7 @@ flags:
   hie-plugin-api:
     pedantic: true
 
-# Required to build ormolu with optparse-applicative-0.15.1.0
-allow-newer: true
+# allow-newer: true
 
 nix:
   packages: [ icu libcxx zlib ]
