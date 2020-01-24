@@ -14,6 +14,7 @@ module Haskell.Ide.Engine.Support.HieExtras
   , getReferencesInDoc
   , getModule
   , extractTerm
+  , extractTerm'
   , findDef
   , findTypeDef
   , showName
@@ -238,6 +239,21 @@ extractTerm txt =
   where extract b e = T.dropWhile (== b)
                     . T.dropWhileEnd (== e)
                     . T.dropAround (\c -> c /= b && c /= e)
+
+-- | Extract a term from a compiler message.
+-- Removes whitespace and tries to extract a message between '‘' and '’' falling back to '`' and '\''
+-- (the used ones in Windows systems).
+-- Different to @extractTerm@, it does not require that the term is actually surrounded
+-- and can be used to sanitize the input.
+extractTerm' :: T.Text -> T.Text
+extractTerm' txt =
+  case extract '‘' '’' txt of
+    ""  -> extract '`' '\'' txt -- Needed for windows
+    term -> term
+  where extract b e = T.dropWhile (== b)
+                    . T.dropWhileEnd (== e)
+                    . T.strip
+
 
 -- ---------------------------------------------------------------------
 

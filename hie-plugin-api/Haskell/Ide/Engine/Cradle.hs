@@ -787,22 +787,22 @@ isFilePathPrefixOf dir fp = isJust $ stripFilePath dir fp
 --
 -- >>> stripFilePath "app" "app/File.hs"
 -- Just "File.hs"
-
+--
 -- >>> stripFilePath "src" "app/File.hs"
 -- Nothing
-
+--
 -- >>> stripFilePath "src" "src-dir/File.hs"
 -- Nothing
-
+--
 -- >>> stripFilePath "." "src/File.hs"
 -- Just "src/File.hs"
-
+--
 -- >>> stripFilePath "app/" "./app/Lib/File.hs"
 -- Just "Lib/File.hs"
-
+--
 -- >>> stripFilePath "/app/" "./app/Lib/File.hs"
 -- Nothing -- Nothing since '/app/' is absolute
-
+--
 -- >>> stripFilePath "/app" "/app/Lib/File.hs"
 -- Just "Lib/File.hs"
 stripFilePath :: FilePath -> FilePath -> Maybe FilePath
