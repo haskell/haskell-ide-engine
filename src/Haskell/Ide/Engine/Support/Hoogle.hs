@@ -11,7 +11,7 @@ import           Data.Aeson
 import           Data.Bifunctor
 import           Data.Maybe
 import qualified Data.Text                          as T
-import Data.List
+import           Data.List
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.MonadFunctions
 import           Hoogle

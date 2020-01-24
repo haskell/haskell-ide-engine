@@ -339,7 +339,7 @@ codeActionProvider plId docId _ context = do
   importModuleAction
     :: SearchStyle -> ImportDiagnostic -> ModuleName -> SymbolName -> IdeM [J.CodeAction]
   importModuleAction searchStyle impDiagnostic moduleName symbolTerm =
-    catMaybes <$> sequenceA codeActions
+    catMaybes <$> sequenceA importListActions
     where
       importListActions :: [IdeM (Maybe J.CodeAction)]
       importListActions = case searchStyle of
@@ -353,34 +353,42 @@ codeActionProvider plId docId _ context = do
             -- If the term to import is a simple symbol, such as a function,
             -- import only this function
             Symbol
-              -> [ mkImportAction moduleName impDiagnostic . Just . Only
+              -> [ Just importModuleCodeAction
+                 , mkImportAction moduleName impDiagnostic . Just . Only
                      <$> symName symbolTerm
-                ]
+                 ]
             -- Constructors can be imported in two ways, either all
             -- constructors of a type or only a subset.
             -- We can only import a single constructor at a time though.
             Constructor
-              -> [ mkImportAction moduleName impDiagnostic . Just . AllOf
-                     <$> datatypeName symbolTerm
-                 , (\dt sym -> mkImportAction moduleName impDiagnostic . Just
-                    $ OneOf dt sym)
-                     <$> datatypeName symbolTerm
-                     <*> symName symbolTerm
-                 ]
+              -> case typeDeclaration symbolTerm of
+                -- If the symbolTerm is actually a data declaration
+                -- dont generate code actions for them.
+                Just _ -> []
+                Nothing ->
+                  [ Just importModuleCodeAction
+                  , mkImportAction moduleName impDiagnostic . Just . AllOf
+                      <$> datatypeName symbolTerm
+                  , (\dt sym -> mkImportAction moduleName impDiagnostic . Just
+                      $ OneOf dt sym)
+                      <$> datatypeName symbolTerm
+                      <*> symName symbolTerm
+                  ]
             -- If we are looking for a type, import it as just a symbol
             Type
-              -> [ mkImportAction moduleName impDiagnostic . Just . Only
-                     <$> symName symbolTerm]
+              -> case typeDeclaration symbolTerm of
+                Nothing -> []
+                -- Only generate code actions,
+                -- if the symbolTerm is actually a data declaration
+                Just dataTerm ->
+                  [ Just importModuleCodeAction
+                  , Just $ mkImportAction moduleName impDiagnostic (Just $ Only dataTerm)
+                  , Just $ mkImportAction moduleName impDiagnostic (Just $ AllOf dataTerm)
+                  ]
 
-      -- | All code actions that may be available
-      -- Currently, omits all
-      codeActions :: [IdeM (Maybe J.CodeAction)]
-      codeActions = case termType impDiagnostic of
-        Hiding _ -> [] {- If we are hiding an import, we can not import
-                          a module hiding everything from it. -}
-                    -- Simple import, import the whole module
-        Import _ -> [mkImportAction moduleName impDiagnostic Nothing]
-        ++ importListActions
+      -- | Plain Code Action to import the given module as a whole.
+      importModuleCodeAction :: IdeM (Maybe J.CodeAction)
+      importModuleCodeAction = mkImportAction moduleName impDiagnostic Nothing
 
       -- | Retrieve the function signature of a term such as
       -- >>> signatureOf "take :: Int -> [a] -> [a]"
@@ -390,6 +398,40 @@ codeActionProvider plId docId _ context = do
         let parts =  T.splitOn "::" sig
         typeSig <- S.tailMay parts
         S.headMay typeSig
+
+      -- | Given a term 'data Sum f g a', extract the name of the type 'Sum'.
+      --
+      -- Can be used to obtain the Type name.
+      -- Can also be used to check whether the given term is from the
+      -- Type level or Value level.
+      -- Constructors and Types are sometimes indistinguishable,
+      -- e.g. querying for 'Sum', possible results include:
+      --
+      -- * "data Sum f g a"
+      -- * "Sum :: a -> Sum a"
+      --
+      -- Depending on whether we are looking for a Type or Value,
+      -- we want to generate different Code Actions.
+      -- Important to generate the correct Code Actions.
+      --
+      -- >>> typeDeclaration "data Sum f g a"
+      -- Just "Sum"
+      --
+      -- >>> typeDeclaration "Sum :: Int -> Sum a"
+      -- Nothing
+      typeDeclaration :: T.Text -> Maybe T.Text
+      typeDeclaration arg = do
+        let parts = T.words arg
+        case parts of
+          declaration : typeName : _typeArgs
+            | declaration `elem` typeDeclarations ->
+              Just typeName
+          _ ->
+              Nothing
+
+      -- | Declarations for types in the Haskell language.
+      typeDeclarations :: [T.Text]
+      typeDeclarations = ["data", "newtype", "type"]
 
       -- | Retrieve the datatype name of a Constructor.
       --
@@ -492,13 +534,13 @@ extractImportableTerm dirtyMsg = do
     extractTerm prefix symTy =
       importMsg
           >>= T.stripPrefix prefix
+          >>= Just . Hie.extractTerm' . T.strip
           >>= \name -> Just (name, Import symTy)
 
-    extractType b =
-      extractTerm ("Not in scope: type constructor or class " <> b) Type
+    extractType =
+      extractTerm "Not in scope: type constructor or class" Type
 
     extractedTerm = asum
       [ extractTerm "Variable not in scope: " Symbol
-      , extractType "‘"
-      , extractType "`" -- Needed for windows
+      , extractType
       , extractTerm "Data constructor not in scope: " Constructor]
