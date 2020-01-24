@@ -115,7 +115,7 @@ lookupInCache
   -> (BIOS.Cradle -> BIOS.ComponentOptions -> a)
   -- | Called when file is a member of a cached cradle
   -> (CachedCradle -> a)
-  -- | Default value to return is a cradle is not found
+  -- | Default value to return if a cradle is not found
   -> a
   -> a
 lookupInCache fp gmc cur cached def = case currentCradle gmc of
