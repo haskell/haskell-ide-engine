@@ -684,11 +684,8 @@ partOfComponent ::
   -- | Component to check whether the given FilePath is part of it.
   ChComponentInfo ->
   Bool
-partOfComponent fp' comp
-  | inTargets (ciSourceDirs comp) fp' (getTargets comp fp')
-  = True
-  | otherwise
-  = False
+partOfComponent fp' comp =
+  inTargets (ciSourceDirs comp) fp' (getTargets comp fp')
   where
     -- Check if the FilePath is in an executable or setup's main-is field
     inMainIs :: FilePath -> Bool
@@ -698,11 +695,15 @@ partOfComponent fp' comp
       | otherwise = False
 
     inTargets :: [FilePath] -> FilePath -> [String] -> Bool
-    inTargets sourceDirs fp targets
-      | Just relative <- relativeTo fp sourceDirs
-      = any (`elem` targets) [getModuleName relative, fp] || inMainIs relative
-      | otherwise
-      = False
+    inTargets sourceDirs fp targets =
+      let candidates = relativeTo fp sourceDirs
+      in any (existsInTargets targets fp) candidates
+
+    existsInTargets :: [String] -> FilePath -> FilePath -> Bool
+    existsInTargets targets absFp relFp = or
+        [ any (`elem` targets) [getModuleName relFp, absFp]
+        , inMainIs relFp
+        ]
 
     getModuleName :: FilePath -> String
     getModuleName fp = map
@@ -846,24 +847,23 @@ ancestors dir
     subdir = takeDirectory dir
 
 -- | Assuming a FilePath @"src\/Lib\/Lib.hs"@ and a list of directories
--- such as @["src", "app"]@, returns either the given FilePath
+-- such as @["src", "app"]@, returns the given FilePath
 -- with a matching directory stripped away.
 -- If there are multiple matches, e.g. multiple directories are a prefix
--- of the given FilePath, return the first match in the list.
--- Returns Nothing, if not a single
--- given directory is a prefix of the FilePath.
+-- of the given FilePath we return all matches.
+-- Returns an empty list if no prefix matches the given FilePath.
 --
 -- >>> relativeTo "src/Lib/Lib.hs" ["src"]
--- Just "Lib/Lib.hs"
+-- ["Lib/Lib.hs"]
 --
 -- >>> relativeTo "src/Lib/Lib.hs" ["app"]
--- Nothing
+-- []
 --
 -- >>> relativeTo "src/Lib/Lib.hs" ["src", "src/Lib"]
--- Just "Lib/Lib.hs"
-relativeTo :: FilePath -> [FilePath] -> Maybe FilePath
-relativeTo file sourceDirs = listToMaybe
-  $ mapMaybe (`stripFilePath` file) sourceDirs
+-- ["Lib/Lib.hs", "Lib.hs"]
+relativeTo :: FilePath -> [FilePath] -> [FilePath]
+relativeTo file sourceDirs =
+  mapMaybe (`stripFilePath` file) sourceDirs
 
 -- | Returns a user facing display name for the cradle type,
 -- e.g. "Stack project" or "GHC session"
