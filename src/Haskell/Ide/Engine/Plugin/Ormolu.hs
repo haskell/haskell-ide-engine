@@ -15,10 +15,6 @@ import Data.List
 import Data.Maybe
 import qualified Data.Text as T
 import Ormolu
-#if __GLASGOW_HASKELL__ < 808
-import Ormolu.Config (defaultConfig)
-import Ormolu.Exception (OrmoluException)
-#endif
 import Haskell.Ide.Engine.PluginUtils
 import HIE.Bios.Types
 #endif
