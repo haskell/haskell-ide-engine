@@ -101,6 +101,7 @@ lookupCradle :: FilePath -> GhcModuleCache -> LookupCradleResult
 lookupCradle fp gmc =
   lookupInCache fp gmc (const $ const ReuseCradle) LoadCradle $ NewCradle fp
 
+-- | Find the cradle wide 'ComponentOptions' that apply to a 'FilePath'
 lookupComponentOptions
   :: HasGhcModuleCache m => FilePath -> m (Maybe BIOS.ComponentOptions)
 lookupComponentOptions fp = do
@@ -110,8 +111,11 @@ lookupComponentOptions fp = do
 lookupInCache
   :: FilePath
   -> GhcModuleCache
+  -- | Called when file is in the current cradle
   -> (BIOS.Cradle -> BIOS.ComponentOptions -> a)
+  -- | Called when file is a member of a cached cradle
   -> (CachedCradle -> a)
+  -- | Default value to return is a cradle is not found
   -> a
   -> a
 lookupInCache fp gmc cur cached def = case currentCradle gmc of
@@ -120,6 +124,7 @@ lookupInCache fp gmc cur cached def = case currentCradle gmc of
     Just (_k, c, _suf) -> cached c
     Nothing            -> def
 
+-- | A 'Cradle', it's 'HscEnv' and 'ComponentOptions'
 data CachedCradle = CachedCradle
   { ccradle :: BIOS.Cradle
   , hscEnv :: HscEnv
@@ -131,12 +136,12 @@ instance Show CachedCradle where
 
 data GhcModuleCache = GhcModuleCache
   { cradleCache :: !(T.Trie CachedCradle)
-              -- ^ map from FilePath to cradles
+              -- ^ map from FilePath to cradle and it's config.
               -- May not include currentCradle
   , uriCaches  :: !UriCaches
   , currentCradle :: Maybe ([FilePath], BIOS.Cradle, BIOS.ComponentOptions)
-              -- ^ The current cradle and which FilePath's it is
-              -- responsible for
+              -- ^ The current cradle, it's config,
+              -- and which FilePath's it is responsible for.
   } deriving (Show)
 
 -- ---------------------------------------------------------------------
