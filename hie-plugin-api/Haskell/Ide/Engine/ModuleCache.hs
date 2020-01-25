@@ -164,8 +164,7 @@ loadCradle publishDiagnostics iniDynFlags (NewCradle fp) def action = do
  where
   -- | Initialise the given cradle. This might fail and return an error via `IdeResultFail`.
   -- Reports its progress to the client.
-  initialiseCradle :: (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m)
-                  => Bios.Cradle -> (Progress -> IO ()) -> m (IdeResult a)
+  initialiseCradle :: Bios.Cradle -> (Progress -> IO ()) -> m (IdeResult a)
   initialiseCradle cradle f = do
     res <- initializeFlagsWithCradleWithMessage (Just (toMessager f)) fp cradle
     case res of
@@ -333,7 +332,7 @@ ifCachedModuleM fp k callback = do
 -- available.
 -- If you are in IdeDeferM and would like to wait until a cached module is available,
 -- see also 'withCachedModuleAndData'.
-ifCachedModuleAndData :: forall a b m. (ModuleCache a, HasGhcModuleCache m, MonadIO m, MonadMTState IdeState m)
+ifCachedModuleAndData :: forall a b m. (ModuleCache a, HasGhcModuleCache m, MonadMTState IdeState m)
                       => FilePath -> b -> (GHC.TypecheckedModule -> CachedInfo -> a -> m b) -> m b
 ifCachedModuleAndData fp def callback = do
   muc <- getUriCache fp
@@ -388,7 +387,7 @@ deferIfNotCached fp cb = do
     Just res -> cb res
     Nothing -> wrap (Defer fp cb)
 
-lookupCachedData :: forall a m. (HasGhcModuleCache m, MonadMTState IdeState m, MonadIO m, Typeable a, ModuleCache a)
+lookupCachedData :: forall a m. (HasGhcModuleCache m, MonadMTState IdeState m, ModuleCache a)
                  => FilePath -> GHC.TypecheckedModule -> CachedInfo -> (Map.Map TypeRep Dynamic) -> m a
 lookupCachedData fp tm info dat = do
   canonical_fp <- liftIO $ canonicalizePath fp
@@ -520,7 +519,7 @@ deleteCachedModule uri = do
 -- TODO: this name is confusing, given GhcModuleCache. Change it
 class Typeable a => ModuleCache a where
     -- | Defines an initial value for the state extension
-    cacheDataProducer :: (MonadIO m, MonadMTState IdeState m)
+    cacheDataProducer :: (MonadMTState IdeState m)
                       => GHC.TypecheckedModule -> CachedInfo -> m a
 
 instance ModuleCache () where
