@@ -9,6 +9,6 @@ library
   default-language:    Haskell2010
 executable exe
   main-is:             Main.hs
-  other-modules:       OtherMain
+  other-modules:       OtherMain, Foo
   build-depends:       base >= 4, multi-component
   default-language:    Haskell2010
