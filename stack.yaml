@@ -30,6 +30,7 @@ extra-deps:
 - monad-dijkstra-0.1.1.2@rev:1
 - parser-combinators-1.2.1
 - ormolu-0.0.3.1
+- stylish-haskell-0.9.4.4
 - syz-0.2.0.0
 - temporary-1.2.1.1
 - unix-compat-0.5.2

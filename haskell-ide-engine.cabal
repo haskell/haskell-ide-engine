@@ -38,6 +38,7 @@ library
                        Haskell.Ide.Engine.Plugin.Package
                        Haskell.Ide.Engine.Plugin.Package.Compat
                        Haskell.Ide.Engine.Plugin.Pragmas
+                       Haskell.Ide.Engine.Plugin.Stylish
                        Haskell.Ide.Engine.Plugin.Generic
                        Haskell.Ide.Engine.Plugin.GhcMod
                        Haskell.Ide.Engine.Scheduler
@@ -90,6 +91,7 @@ library
                      , safe
                      , sorted-list >= 0.2.1.0
                      , stm
+                     , stylish-haskell
                      , syb
                      , tagsoup
                      , text
