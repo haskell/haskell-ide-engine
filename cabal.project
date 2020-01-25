@@ -16,5 +16,4 @@ constraints:
 
 write-ghc-environment-files: never
 
-index-state: 2020-01-21T18:23:31Z
-allow-newer: ormolu:optparse-applicative
+index-state: 2020-01-24T16:47:33Z

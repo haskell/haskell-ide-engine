@@ -99,24 +99,49 @@ data LookupCradleResult = ReuseCradle | LoadCradle CachedCradle | NewCradle File
 -- via 'setCurrentCradle' before the Cradle can be cached via 'cacheCradle'.
 lookupCradle :: FilePath -> GhcModuleCache -> LookupCradleResult
 lookupCradle fp gmc =
-  case currentCradle gmc of
-    Just (dirs, _c) | (any (\d -> d `isPrefixOf` fp) dirs) -> ReuseCradle
-    _ -> case T.match (cradleCache gmc) (B.pack fp) of
-           Just (_k, c, _suf) -> LoadCradle c
-           Nothing  -> NewCradle fp
+  lookupInCache fp gmc (const $ const ReuseCradle) LoadCradle $ NewCradle fp
 
-data CachedCradle = CachedCradle BIOS.Cradle HscEnv
+-- | Find the cradle wide 'ComponentOptions' that apply to a 'FilePath'
+lookupComponentOptions
+  :: HasGhcModuleCache m => FilePath -> m (Maybe BIOS.ComponentOptions)
+lookupComponentOptions fp = do
+  gmc <- getModuleCache
+  return $ lookupInCache fp gmc (const Just) (Just . compOpts) Nothing
+
+lookupInCache
+  :: FilePath
+  -> GhcModuleCache
+  -- | Called when file is in the current cradle
+  -> (BIOS.Cradle -> BIOS.ComponentOptions -> a)
+  -- | Called when file is a member of a cached cradle
+  -> (CachedCradle -> a)
+  -- | Default value to return if a cradle is not found
+  -> a
+  -> a
+lookupInCache fp gmc cur cached def = case currentCradle gmc of
+  Just (dirs, c, co) | any (`isPrefixOf` fp) dirs -> cur c co
+  _ -> case T.match (cradleCache gmc) (B.pack fp) of
+    Just (_k, c, _suf) -> cached c
+    Nothing            -> def
+
+-- | A 'Cradle', it's 'HscEnv' and 'ComponentOptions'
+data CachedCradle = CachedCradle
+  { ccradle :: BIOS.Cradle
+  , hscEnv :: HscEnv
+  , compOpts :: BIOS.ComponentOptions
+  }
 
 instance Show CachedCradle where
-  show (CachedCradle x _) = show x
+  show (CachedCradle x _ _) = show x
 
 data GhcModuleCache = GhcModuleCache
   { cradleCache :: !(T.Trie CachedCradle)
-              -- ^ map from FilePath to cradles
+              -- ^ map from FilePath to cradle and it's config.
+              -- May not include currentCradle
   , uriCaches  :: !UriCaches
-  , currentCradle :: Maybe ([FilePath], BIOS.Cradle)
-              -- ^ The current cradle and which FilePath's it is
-              -- responsible for
+  , currentCradle :: Maybe ([FilePath], BIOS.Cradle, BIOS.ComponentOptions)
+              -- ^ The current cradle, it's config,
+              -- and which FilePath's it is responsible for.
   } deriving (Show)
 
 -- ---------------------------------------------------------------------

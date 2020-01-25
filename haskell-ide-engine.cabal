@@ -104,7 +104,7 @@ library
                      , unliftio
                      , hlint >= 2.2.8
   if impl(ghc >= 8.6)
-     build-depends: ormolu
+     build-depends: ormolu >= 0.0.3.1
 
   ghc-options:         -Wall -Wredundant-constraints
   if flag(pedantic)

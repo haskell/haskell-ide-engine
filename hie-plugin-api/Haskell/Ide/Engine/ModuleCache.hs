@@ -48,6 +48,7 @@ import           System.Directory
 
 
 import qualified GHC
+import qualified GhcMake as GHC
 import qualified HscMain as GHC
 import qualified HIE.Bios as Bios
 import qualified HIE.Bios.Ghc.Api as Bios
@@ -131,13 +132,13 @@ loadCradle _ _ ReuseCradle _def action = do
   debugm "Reusing cradle"
   IdeResultOk <$> action
 
-loadCradle _ _iniDynFlags (LoadCradle (CachedCradle crd env)) _def action = do
+loadCradle _ _iniDynFlags (LoadCradle (CachedCradle crd env co)) _def action = do
   -- Reloading a cradle happens on component switch
   logm $ "Switch to cradle: " ++ show crd
   -- Cache the existing cradle
   maybe (return ()) cacheCradle =<< (currentCradle <$> getModuleCache)
   GHC.setSession env
-  setCurrentCradle crd
+  setCurrentCradle crd co
   IdeResultOk <$> action
 
 loadCradle publishDiagnostics iniDynFlags (NewCradle fp) def action = do
@@ -166,7 +167,7 @@ loadCradle publishDiagnostics iniDynFlags (NewCradle fp) def action = do
   initialiseCradle :: (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m)
                   => Bios.Cradle -> (Progress -> IO ()) -> m (IdeResult a)
   initialiseCradle cradle f = do
-    res <- Bios.initializeFlagsWithCradleWithMessage (Just (toMessager f)) fp cradle
+    res <- initializeFlagsWithCradleWithMessage (Just (toMessager f)) fp cradle
     case res of
       Bios.CradleNone ->
         -- Note: The action is not run if we are in the none cradle, we
@@ -194,7 +195,7 @@ loadCradle publishDiagnostics iniDynFlags (NewCradle fp) def action = do
             , ideMessage = Text.unwords  (take 2 msgTxt)
             , ideInfo    = Aeson.Null
             }
-      Bios.CradleSuccess init_session -> do
+      Bios.CradleSuccess (init_session, copts) -> do
         -- Note that init_session contains a Hook to 'f'.
         -- So, it can still provide Progress Reports.
         -- Therefore, invocation of 'init_session' must happen
@@ -225,37 +226,58 @@ loadCradle publishDiagnostics iniDynFlags (NewCradle fp) def action = do
             -- be that slow, even though the cradle isn't cached because the
             -- `.hi` files will be saved.
           Right Bios.Succeeded -> do
-            setCurrentCradle cradle
+            setCurrentCradle cradle copts
             logm "Cradle set succesfully"
             IdeResultOk <$> action
 
           Right Bios.Failed -> do
-            setCurrentCradle cradle
+            setCurrentCradle cradle copts
             logm "Cradle did not load succesfully"
             IdeResultOk <$> action
+
+-- TODO remove after hie-bios update
+initializeFlagsWithCradleWithMessage ::
+  GHC.GhcMonad m
+  => Maybe GHC.Messager
+  -> FilePath -- ^ The file we are loading the 'Cradle' because of
+  -> Bios.Cradle -- ^ The cradle we want to load
+  -> m (Bios.CradleLoadResult (m GHC.SuccessFlag, Bios.ComponentOptions)) -- ^ Whether we actually loaded the cradle or not.
+initializeFlagsWithCradleWithMessage msg fp cradle =
+    fmap (initSessionWithMessage msg) <$> liftIO (Bios.getCompilerOptions fp cradle)
+
+initSessionWithMessage :: (GHC.GhcMonad m)
+            => Maybe GHC.Messager
+            -> Bios.ComponentOptions
+            -> (m GHC.SuccessFlag, Bios.ComponentOptions)
+initSessionWithMessage msg copts = (do
+    targets <- Bios.initSession copts
+    GHC.setTargets targets
+    -- Get the module graph using the function `getModuleGraph`
+    mod_graph <- GHC.depanal [] True
+    GHC.load' GHC.LoadAllTargets msg mod_graph, copts)
 
 -- | Sets the current cradle for caching.
 -- Retrieves the current GHC Module Graph, to find all modules
 -- that belong to this cradle.
 -- If the cradle does not load any module, it is responsible for an empty
 -- list of Modules.
-setCurrentCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => Bios.Cradle -> m ()
-setCurrentCradle cradle = do
+setCurrentCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => Bios.Cradle -> Bios.ComponentOptions -> m ()
+setCurrentCradle cradle co = do
     mg <- GHC.getModuleGraph
     let ps = mapMaybe (GHC.ml_hs_file . GHC.ms_location) (mgModSummaries mg)
     debugm $ "Modules in the cradle: " ++ show ps
     ps' <- liftIO $ mapM canonicalizePath ps
-    modifyCache (\s -> s { currentCradle = Just (ps', cradle) })
+    modifyCache (\s -> s { currentCradle = Just (ps', cradle, co) })
 
 -- | Cache the given Cradle.
 -- Caches the given Cradle together with all Modules this Cradle is responsible
 -- for.
 -- Via 'lookupCradle' it can be checked if a given FilePath is managed by
 -- a any Cradle that has already been loaded.
-cacheCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => ([FilePath], Bios.Cradle) -> m ()
-cacheCradle (ds, c) = do
+cacheCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => ([FilePath], Bios.Cradle, Bios.ComponentOptions) -> m ()
+cacheCradle (ds, c, co) = do
   env <- GHC.getSession
-  let cc = CachedCradle c env
+  let cc = CachedCradle c env co
       new_map = T.fromList (map (, cc) (map B.pack ds))
   modifyCache (\s -> s { cradleCache = T.unionWith (\a _ -> a) new_map (cradleCache s) })
 
