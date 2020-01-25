@@ -11,6 +11,7 @@ import qualified Haskell.Ide.Engine.Config as Config
 import qualified Haskell.Ide.Engine.Plugin.Brittany as Brittany
 import qualified Haskell.Ide.Engine.Plugin.Ormolu   as Ormolu
 import qualified Haskell.Ide.Engine.Plugin.Floskell as Floskell
+import qualified Haskell.Ide.Engine.Plugin.Stylish  as Stylish
 import           System.Directory
 import           System.FilePath
 import           Test.Hspec
@@ -31,6 +32,7 @@ testPlugins = pluginDescToIdePlugins
     [ Brittany.brittanyDescriptor "brittany"
     , Floskell.floskellDescriptor "floskell"
     , Ormolu.ormoluDescriptor "ormolu"
+    , Stylish.stylishDescriptor "stylish"
     ]
 
 codeActionImportList :: FilePath
@@ -126,7 +128,27 @@ hsImportSpec = do
         ]
       _ -> it "is NOP formatter" $
             pendingWith "Ormolu only supported by GHC >= 8.6. Need to restore this."
-
+  describe "formats with stylish" $ hsImportSpecRunner "stylish"
+    [ -- Expected output for simple format.
+      [ TextEdit (Range (toPos (2, 1)) (toPos (2, 1))) "import           Control.Monad\n"
+      ]
+    , [ TextEdit (Range (toPos (2, 1)) (toPos (2, 1))) "import           Control.Monad (when)\n"
+      ]
+    , [ TextEdit (Range (toPos (2, 1)) (toPos (2, 1))) "import           Data.Maybe (Maybe)\n"
+      ]
+    , [ TextEdit (Range (toPos (2, 1)) (toPos (2, 1))) "import           Data.Maybe (Maybe(..))\n"
+      ]
+    , [ TextEdit (Range (toPos (2, 1)) (toPos (2, 1))) "import           Data.Maybe (Maybe(Nothing))\n"
+      ]
+    , [ TextEdit (Range (toPos (2, 1)) (toPos (2, 1))) "import           Data.Function (($))\n"
+      ]
+    , [ TextEdit (Range (toPos (2, 1)) (toPos (2, 32))) "import           System.IO (IO, hPutStrLn)"
+      ]
+    , [ TextEdit (Range (toPos (3, 1)) (toPos (3, 99))) $
+        "import           Data.List (find, head, last, tail, init, union, (\\\\), null\n" <>
+        "                          , length, cons, uncons, reverse)"
+      ]
+    ]
 -- ---------------------------------------------------------------------
 -- Parameterized HsImport Spec.
 -- ---------------------------------------------------------------------
