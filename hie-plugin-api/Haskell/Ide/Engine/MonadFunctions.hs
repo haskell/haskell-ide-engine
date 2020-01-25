@@ -16,28 +16,13 @@ module Haskell.Ide.Engine.MonadFunctions
   , get
   ) where
 
-import Control.Monad.IO.Class
-import System.Log.Logger
 import Data.Typeable
 import Data.Dynamic
 import qualified Data.Map as Map
 
 import Haskell.Ide.Engine.MultiThreadState
+import Haskell.Ide.Engine.Logger (logm, debugm, warningm, errorm)
 import Haskell.Ide.Engine.PluginsIdeMonads
-
--- ---------------------------------------------------------------------
-
-logm :: MonadIO m => String -> m ()
-logm s = liftIO $ infoM "hie" s
-
-debugm :: MonadIO m => String -> m ()
-debugm s = liftIO $ debugM "hie" s
-
-warningm :: MonadIO m => String -> m ()
-warningm s = liftIO $ warningM "hie" s
-
-errorm :: MonadIO m => String -> m ()
-errorm s = liftIO $ errorM "hie" s
 
 -- ---------------------------------------------------------------------
 -- Extensible state, based on

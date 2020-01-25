@@ -9,7 +9,8 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import qualified Data.Yaml as Yaml
 import           HIE.Bios.Types
-import           Haskell.Ide.Engine.Cradle (findLocalCradle, cradleDisplay, getProjectGhcLibDir)
+import           Haskell.Ide.Engine.Cradle (findLocalCradle, cradleDisplay
+                                           , getProjectGhcLibDir, CabalHelper)
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Options
@@ -151,8 +152,11 @@ main = do
 
 -- ---------------------------------------------------------------------
 
-getCradleInfo :: FilePath -> IO (Either Yaml.ParseException Cradle)
-getCradleInfo currentDir = E.try $ findLocalCradle $ currentDir </> "File.hs"
+getCradleInfo :: FilePath -> IO (Either Yaml.ParseException (Cradle CabalHelper))
+getCradleInfo currentDir = do
+        let dummyCradleFile = currentDir </> "File.hs"
+        cradleRes <- E.try (findLocalCradle dummyCradleFile)
+        return cradleRes
 
 -- ---------------------------------------------------------------------
 

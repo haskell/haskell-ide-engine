@@ -6,6 +6,7 @@ packages:
 extra-deps:
 # - ./submodules/HaRe
 
+- aeson-1.4.6.0
 - apply-refact-0.7.0.0
 - bytestring-trie-0.2.5.0
 - cabal-helper-1.0.0.0
@@ -16,7 +17,7 @@ extra-deps:
 - haddock-api-2.23.0
 - haddock-library-1.8.0
 - haskell-src-exts-1.21.1
-- hie-bios-0.3.2
+- hie-bios-0.4.0
 - hlint-2.2.8
 - hoogle-5.0.17.11
 - hsimport-0.11.0

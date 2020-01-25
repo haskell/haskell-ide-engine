@@ -56,7 +56,7 @@ import qualified HIE.Bios.Ghc.Api as Bios
 import qualified Language.Haskell.LSP.Types as J
 import qualified Language.Haskell.LSP.Diagnostics as J
 import           Haskell.Ide.Engine.ArtifactMap
-import           Haskell.Ide.Engine.Cradle (findLocalCradle, cradleDisplay)
+import           Haskell.Ide.Engine.Cradle (findLocalCradle, cradleDisplay, CabalHelper)
 import           Haskell.Ide.Engine.TypeMap
 import           Haskell.Ide.Engine.GhcModuleCache
 import           Haskell.Ide.Engine.MultiThreadState
@@ -164,7 +164,7 @@ loadCradle publishDiagnostics iniDynFlags (NewCradle fp) def action = do
  where
   -- | Initialise the given cradle. This might fail and return an error via `IdeResultFail`.
   -- Reports its progress to the client.
-  initialiseCradle :: Bios.Cradle -> (Progress -> IO ()) -> m (IdeResult a)
+  initialiseCradle :: Bios.Cradle CabalHelper -> (Progress -> IO ()) -> m (IdeResult a)
   initialiseCradle cradle f = do
     res <- initializeFlagsWithCradleWithMessage (Just (toMessager f)) fp cradle
     case res of
@@ -239,7 +239,7 @@ initializeFlagsWithCradleWithMessage ::
   GHC.GhcMonad m
   => Maybe GHC.Messager
   -> FilePath -- ^ The file we are loading the 'Cradle' because of
-  -> Bios.Cradle -- ^ The cradle we want to load
+  -> Bios.Cradle CabalHelper -- ^ The cradle we want to load
   -> m (Bios.CradleLoadResult (m GHC.SuccessFlag, Bios.ComponentOptions)) -- ^ Whether we actually loaded the cradle or not.
 initializeFlagsWithCradleWithMessage msg fp cradle =
     fmap (initSessionWithMessage msg) <$> liftIO (Bios.getCompilerOptions fp cradle)
@@ -260,7 +260,7 @@ initSessionWithMessage msg copts = (do
 -- that belong to this cradle.
 -- If the cradle does not load any module, it is responsible for an empty
 -- list of Modules.
-setCurrentCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => Bios.Cradle -> Bios.ComponentOptions -> m ()
+setCurrentCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => Bios.Cradle CabalHelper -> Bios.ComponentOptions -> m ()
 setCurrentCradle cradle co = do
     mg <- GHC.getModuleGraph
     let ps = mapMaybe (GHC.ml_hs_file . GHC.ms_location) (mgModSummaries mg)
@@ -273,7 +273,7 @@ setCurrentCradle cradle co = do
 -- for.
 -- Via 'lookupCradle' it can be checked if a given FilePath is managed by
 -- a any Cradle that has already been loaded.
-cacheCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => ([FilePath], Bios.Cradle, Bios.ComponentOptions) -> m ()
+cacheCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => ([FilePath], Bios.Cradle CabalHelper, Bios.ComponentOptions) -> m ()
 cacheCradle (ds, c, co) = do
   env <- GHC.getSession
   let cc = CachedCradle c env co

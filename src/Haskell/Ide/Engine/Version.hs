@@ -11,7 +11,8 @@ import           Distribution.System             (buildArch)
 import           Distribution.Text               (display)
 import           Options.Applicative.Simple      (simpleVersion)
 import           Haskell.Ide.Engine.Cradle       (execProjectGhc)
-import qualified HIE.Bios.Types as Bios
+import qualified HIE.Bios.Types                  as Bios
+import qualified Haskell.Ide.Engine.Cradle       as Bios
 import qualified Paths_haskell_ide_engine        as Meta
 import           System.Directory
 import           System.Info
@@ -34,7 +35,7 @@ hieVersion =
 hieGhcDisplayVersion :: String
 hieGhcDisplayVersion = compilerName ++ "-" ++ VERSION_ghc
 
-getProjectGhcVersion :: Bios.Cradle -> IO String
+getProjectGhcVersion :: Bios.Cradle Bios.CabalHelper -> IO String
 getProjectGhcVersion crdl =
   fmap
     (fromMaybe "No System GHC Found.")
