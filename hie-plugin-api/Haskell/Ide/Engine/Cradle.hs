@@ -94,7 +94,7 @@ execProjectGhc crdl args = do
   -- isCabalInstalled <- isJust <$> findExecutable "cabal"
   ghcOutput <- if isStackCradle crdl && isStackInstalled
     then do
-      logm "Use Stack GHC"
+      logm $ "Executing Stack GHC with args: " <> unwords args
       catch (Just <$> tryCommand stackCmd) $ \(_ :: IOException) -> do
         errorm $ "Command `" ++ stackCmd ++"` failed."
         execWithGhc
@@ -109,7 +109,7 @@ execProjectGhc crdl args = do
     --     errorm $ "Command `" ++ cmd ++ "` failed."
     --     return Nothing
     else do
-      logm "Use Plain GHC"
+      logm $ "Executing GHC on path with args: " <> unwords args
       execWithGhc
   debugm $ "GHC Output: \"" ++ show ghcOutput ++ "\""
   return ghcOutput
