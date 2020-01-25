@@ -293,10 +293,8 @@ getRangeFromVFS uri rg = do
 
 data ErrorHandler m a = forall e . Exception e => ErrorHandler (e -> m a)
 
-gcatches :: forall m a . (MonadIO m, ExceptionMonad m) => m a -> [ErrorHandler m a] -> m a
+gcatches :: forall m a . (ExceptionMonad m) => m a -> [ErrorHandler m a] -> m a
 gcatches act handlers = gcatch act h
   where
     h :: SomeException -> m a
     h e = foldr (\(ErrorHandler hand) me -> maybe me hand (fromException e)) (liftIO $ throw e) handlers
-
-

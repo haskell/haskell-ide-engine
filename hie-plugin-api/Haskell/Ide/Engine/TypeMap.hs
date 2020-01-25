@@ -56,7 +56,7 @@ processBind _ = return IM.empty
 types :: forall m a . (GhcMonad m, Data a) => a -> m TypeMap
 types = everythingButTypeM @GHC.Id (ty `combineM` fun `combineM` funBind)
  where
-  ty :: forall a' . (GhcMonad m, Data a') => a' -> m TypeMap
+  ty :: forall a' . (Data a') => a' -> m TypeMap
   ty term = case cast term of
     (Just lhsExprGhc@(GHC.L (GHC.RealSrcSpan spn) _)) ->
       getType lhsExprGhc >>= \case
@@ -64,13 +64,13 @@ types = everythingButTypeM @GHC.Id (ty `combineM` fun `combineM` funBind)
         Just (_, typ) -> return (IM.singleton (rspToInt spn) typ)
     _ -> return IM.empty
 
-  fun :: forall a' . (GhcMonad m, Data a') => a' -> m TypeMap
+  fun :: forall a' . (Data a') => a' -> m TypeMap
   fun term = case cast term of
     (Just (GHC.L (GHC.RealSrcSpan spn) hsPatType)) ->
       return (IM.singleton (rspToInt spn) (TcHsSyn.hsPatType hsPatType))
     _ -> return IM.empty
 
-  funBind :: forall a' . (GhcMonad m, Data a') => a' -> m TypeMap
+  funBind :: forall a' . (Data a') => a' -> m TypeMap
   funBind term = case cast term of
     (Just (GHC.L (GHC.RealSrcSpan spn) (Compat.FunBindType t))) ->
       return (IM.singleton (rspToInt spn) t)

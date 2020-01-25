@@ -440,7 +440,7 @@ getPlugins = idePlugins <$> getIdeEnv
 -- | 'withProgress' @title cancellable f@ wraps a progress reporting session for long running tasks.
 -- f is passed a reporting function that can be used to give updates on the progress
 -- of the task.
-withProgress :: (MonadIde m , MonadIO m, MonadBaseControl IO m)
+withProgress :: (MonadIde m , MonadBaseControl IO m)
              => T.Text -> Core.ProgressCancellable
              -> ((Core.Progress -> IO ()) -> m a) -> m a
 withProgress t c f = do
