@@ -6,4 +6,6 @@ bar   :: String ->   IO String
 bar s =  do
       x <- return "hello"
       return "asdf"
-      
+
+data Baz = Baz { a :: Int, b :: String }
+
