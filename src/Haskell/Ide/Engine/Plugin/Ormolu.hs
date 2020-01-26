@@ -62,10 +62,23 @@ provider contents uri typ _ = pluginGetFile contents uri $ \fp -> do
         txt = T.lines $ extractRange r contents
         lineRange (Range (Position sl _) (Position el _)) =
           Range (Position sl 0) $ Position el $ T.length $ last txt
-        -- Pragmas will not be picked up in a non standard location.
-        pragmas = (takeWhile ("{-#" `T.isPrefixOf`) $ T.lines contents) <> [""]
+        -- Pragmas will not be picked up in a non standard location,
+        -- or when range starts on a Pragma
+        extPragmas = takeWhile ("{-#" `T.isPrefixOf`)
+        pragmas =
+          let cp = extPragmas $ T.lines contents
+              rp = not $ null $ extPragmas txt
+          in  if null cp || rp
+                then []
+                -- head txt is safe when extractRange txt is safe
+                else cp <> if T.all isSpace $ head txt then [] else [""]
+        fixLine t = if T.all isSpace $ last txt then t else T.init t
         unStrip ws new =
-          T.init $ T.unlines $ map (ws `T.append`) $ drop (length pragmas) $ T.lines new
+          fixLine
+            $ T.unlines
+            $ map (ws `T.append`)
+            $ drop (length pragmas)
+            $ T.lines new
         mStrip = case txt of
           (l : _) ->
             let ws = fst $ T.span isSpace l
