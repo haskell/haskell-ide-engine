@@ -16,4 +16,10 @@ constraints:
 
 write-ghc-environment-files: never
 
+source-repository-package
+    type: git
+    location: https://github.com/haskell/haddock.git
+    tag: be8b02c4e3cffe7d45b3dad0a0f071d35a274d65
+    subdir: haddock-api
+
 index-state: 2020-01-24T16:47:33Z
