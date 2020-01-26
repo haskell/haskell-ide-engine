@@ -20,9 +20,13 @@ import           Data.Char
 import           Data.List
 import           Data.Maybe
 import qualified Data.Text                     as T
+import           GHC
 import           Ormolu
 import           Haskell.Ide.Engine.PluginUtils
+import           Haskell.Ide.Engine.Support.HieExtras
 import           HIE.Bios.Types
+import qualified DynFlags                      as D
+import qualified EnumSet                       as S
 #endif
 
 ormoluDescriptor :: PluginId -> PluginDescriptor
@@ -44,62 +48,58 @@ provider :: FormattingProvider
 {-# LANGUAGE BlockArguments #-}
 provider contents uri typ _ = pluginGetFile contents uri $ \fp -> do
   opts <- lookupComponentOptions fp
-  let opts' =
+  let cradleOpts =
         map DynOption
           $   filter exop
           $   join
           $   maybeToList
           $   componentOptions
           <$> opts
-      conf = Config opts' False False True False
-      fmt :: T.Text -> IdeM (Either OrmoluException T.Text)
-      fmt cont = liftIO $ try @OrmoluException (ormolu conf fp $ T.unpack cont)
+
+      fromDyn tcm _ () =
+        let
+          df = getDynFlags tcm
+          pp =
+            let p = D.sPgm_F $ D.settings df
+            in  if null p then [] else ["-pgmF=" <> p]
+          pm = map (("-fplugin=" <>) . moduleNameString) $ D.pluginModNames df
+          ex = map (("-X" <>) . show) $ S.toList $ D.extensionFlags df
+        in
+          return $ map DynOption $ pp <> pm <> ex
+  fileOpts <- ifCachedModuleAndData fp cradleOpts fromDyn
+  let
+    conf o = Config o False False True False
+    fmt :: T.Text -> [DynOption] -> IdeM (Either OrmoluException T.Text)
+    fmt cont o =
+      liftIO $ try @OrmoluException (ormolu (conf o) fp $ T.unpack cont)
 
   case typ of
-    FormatText -> ret (fullRange contents) <$> fmt contents
+    FormatText -> ret (fullRange contents) <$> fmt contents cradleOpts
     FormatRange r ->
       let
         txt = T.lines $ extractRange r contents
         lineRange (Range (Position sl _) (Position el _)) =
           Range (Position sl 0) $ Position el $ T.length $ last txt
-        -- Pragmas will not be picked up in a non standard location,
-        -- or when range starts on a Pragma
-        extPragmas = takeWhile ("{-#" `T.isPrefixOf`)
-        pragmas =
-          let cp = extPragmas $ T.lines contents
-              rp = not $ null $ extPragmas txt
-          in  if null cp || rp
-                then []
-                -- head txt is safe when extractRange txt is safe
-                else cp <> if T.all isSpace $ head txt then [] else [""]
         fixLine t = if T.all isSpace $ last txt then t else T.init t
         unStrip ws new =
-          fixLine
-            $ T.unlines
-            $ map (ws `T.append`)
-            $ drop (length pragmas)
-            $ T.lines new
+          fixLine $ T.unlines $ map (ws `T.append`) $ T.lines new
         mStrip = case txt of
           (l : _) ->
             let ws = fst $ T.span isSpace l
             in  (,) ws . T.unlines <$> traverse (T.stripPrefix ws) txt
           _ -> Nothing
-      in
-        maybe
-          (return $ IdeResultFail
-            (IdeError
-              PluginError
-              (T.pack
-                "You must format a whole block of code. Ormolu does not support arbitrary ranges."
-              )
-              Null
+        err = return $ IdeResultFail
+          (IdeError
+            PluginError
+            (T.pack
+              "You must format a whole block of code. Ormolu does not support arbitrary ranges."
             )
+            Null
           )
-          (\(ws, striped) ->
-            ret (lineRange r)
-              <$> (fmap (unStrip ws) <$> fmt (T.unlines pragmas <> striped))
-          )
-          mStrip
+        fmt' (ws, striped) =
+          ret (lineRange r) <$> (fmap (unStrip ws) <$> fmt striped fileOpts)
+      in
+        maybe err fmt' mStrip
  where
   ret _ (Left err) = IdeResultFail
     (IdeError PluginError (T.pack $ "ormoluCmd: " ++ show err) Null)
