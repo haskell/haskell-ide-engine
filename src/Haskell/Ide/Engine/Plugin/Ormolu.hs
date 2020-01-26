@@ -108,5 +108,5 @@ provider contents uri typ _ = pluginGetFile contents uri $ \fp -> do
   exop s =
     "-X" `isPrefixOf` s || "-fplugin=" `isPrefixOf` s || "-pgmF=" `isPrefixOf` s
 #else
-  provider _ _ _ _ = return $ IdeResultOk [] -- NOP formatter
+provider _ _ _ _ = return $ IdeResultOk [] -- NOP formatter
 #endif
