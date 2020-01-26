@@ -1,4 +1,3 @@
-{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
@@ -42,6 +41,7 @@ ormoluDescriptor plId = PluginDescriptor
 
 provider :: FormattingProvider
 #if __GLASGOW_HASKELL__ >= 806
+{-# LANGUAGE BlockArguments #-}
 provider contents uri typ _ = pluginGetFile contents uri $ \fp -> do
   opts <- lookupComponentOptions fp
   let opts' =
