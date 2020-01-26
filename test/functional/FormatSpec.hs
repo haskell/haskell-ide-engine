@@ -95,7 +95,7 @@ spec = do
   describe "ormolu" $ do
     let formatLspConfig provider =
           object [ "languageServerHaskell" .= object ["formattingProvider" .= (provider :: Value)] ]
-        
+
     it "formats correctly" $ runSession hieCommand fullCaps "test/testdata" $ do
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (formatLspConfig "ormolu"))
       doc <- openDoc "Format.hs" "haskell"
@@ -117,7 +117,8 @@ formattedDocTabSize2 =
   \bar :: String -> IO String\n\
   \bar s = do\n\
   \  x <- return \"hello\"\n\
-  \  return \"asdf\"\n\n"
+  \  return \"asdf\"\n\n\
+  \data Baz = Baz { a :: Int, b :: String }\n\n"
 
 formattedDocTabSize5 :: T.Text
 formattedDocTabSize5 =
@@ -128,7 +129,8 @@ formattedDocTabSize5 =
   \bar :: String -> IO String\n\
   \bar s = do\n\
   \     x <- return \"hello\"\n\
-  \     return \"asdf\"\n\n"
+  \     return \"asdf\"\n\n\
+  \data Baz = Baz { a :: Int, b :: String }\n\n"
 
 formattedRangeTabSize2 :: T.Text
 formattedRangeTabSize2 =
@@ -140,7 +142,8 @@ formattedRangeTabSize2 =
   \bar s =  do\n\
   \      x <- return \"hello\"\n\
   \      return \"asdf\"\n\
-  \      \n"
+  \\n\
+  \data Baz = Baz { a :: Int, b :: String }\n\n"
 
 formattedRangeTabSize5 :: T.Text
 formattedRangeTabSize5 =
@@ -152,7 +155,8 @@ formattedRangeTabSize5 =
   \bar s = do\n\
   \     x <- return \"hello\"\n\
   \     return \"asdf\"\n\
-  \      \n"
+  \\n\
+  \data Baz = Baz { a :: Int, b :: String }\n\n"
 
 formattedFloskell :: T.Text
 formattedFloskell =
@@ -166,7 +170,7 @@ formattedFloskell =
   \bar s = do\n\
   \  x <- return \"hello\"\n\
   \  return \"asdf\"\n\n\
-  \"
+  \data Baz = Baz { a :: Int, b :: String }\n\n"
 
 formattedBrittanyPostFloskell :: T.Text
 formattedBrittanyPostFloskell =
@@ -179,7 +183,8 @@ formattedBrittanyPostFloskell =
   \bar :: String -> IO String\n\
   \bar s = do\n\
   \  x <- return \"hello\"\n\
-  \  return \"asdf\"\n\n"
+  \  return \"asdf\"\n\n\
+  \data Baz = Baz { a :: Int, b :: String }\n\n"
 
 formattedOrmolu :: T.Text
 formattedOrmolu =
@@ -192,10 +197,11 @@ formattedOrmolu =
   \bar :: String -> IO String\n\
   \bar s = do\n\
   \  x <- return \"hello\"\n\
-  \  return \"asdf\"\n"
-
+  \  return \"asdf\"\n\n\
+  \data Baz = Baz {a :: Int, b :: String}\n"
+  
 unchangedOrmolu :: T.Text
-unchangedOrmolu = 
+unchangedOrmolu =
   "module    Format where\n\
   \foo   :: Int ->  Int\n\
   \foo  3 = 2\n\
@@ -204,4 +210,5 @@ unchangedOrmolu =
   \bar s =  do\n\
   \      x <- return \"hello\"\n\
   \      return \"asdf\"\n\
-  \      \n"
+  \      \n\
+  \data Baz = Baz { a :: Int, b :: String }\n\n"
