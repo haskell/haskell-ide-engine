@@ -143,7 +143,7 @@ Using [Aura](https://github.com/aurapm/aura):
 
 ### Installation from source
 
-To install HIE, you need stack version >= 1.7.1.
+To install HIE, you need stack version >= 2.1.1.
 
 HIE builds from source code, so there's a couple of extra steps.
 
