@@ -223,7 +223,7 @@ renderMarkDown =
 
 hoverProvider :: HoverProvider
 hoverProvider doc pos = pluginGetFile "haddock:hoverProvider" doc $ \fp ->
-  ifCachedModule fp (IdeResultOk mempty) $ \tm info -> runIdeResultT $ do
+  ifCachedModule fp (Right mempty) $ \tm info -> runExceptT $ do
     let df = getDynFlags tm
         names = mapMaybe pickName $ groupBy f $ sortBy f' $ getSymbolsAtPoint pos info
     docs <- forM names $ \(_,name) -> do

@@ -245,7 +245,7 @@ setTypecheckedModule_load uri =
     debugm "setTypecheckedModule: before ghc-mod"
     debugm "Loading file"
     getPersistedFile uri >>= \case
-      Nothing -> return $ IdeResultOk (Diagnostics mempty, [])
+      Nothing -> return $ Right (Diagnostics mempty, [])
       Just mapped_fp -> do
         liftIO $ copyHsBoot fp mapped_fp
         rfm <- reverseFileMap
@@ -292,7 +292,7 @@ setTypecheckedModule_load uri =
                   in Map.insertWith Set.union canonUri (Set.singleton d) diags
                 Just {} -> diags
 
-        return $ IdeResultOk (Diagnostics diags2,errs)
+        return $ Right (Diagnostics diags2,errs)
 
 {-
 

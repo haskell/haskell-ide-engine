@@ -56,6 +56,7 @@ library
                      , haskell-lsp == 0.19.*
                      , hslogger
                      , unliftio
+                     , lens
                      , monad-control
                      , mtl
                      , process

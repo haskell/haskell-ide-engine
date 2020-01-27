@@ -51,7 +51,7 @@ alignCmd :: AlignParams -> IdeGhcM (IdeResult J.WorkspaceEdit)
 alignCmd (AlignParams uri rg) = do
   mtext <- getRangeFromVFS uri rg
   case mtext of
-    Nothing -> return $ IdeResultOk $ J.WorkspaceEdit Nothing Nothing
+    Nothing -> return $ Right $ J.WorkspaceEdit Nothing Nothing
     Just txt -> do
       let
         adjusted = adjustText txt
@@ -59,14 +59,14 @@ alignCmd (AlignParams uri rg) = do
         res = J.WorkspaceEdit
           (Just $ H.singleton uri textEdits)
           Nothing
-      return $ IdeResultOk res
+      return $ Right res
 
 -- ---------------------------------------------------------------------
 
 codeActionProvider :: CodeActionProvider
 codeActionProvider plId docId (Range (Position sl _) (Position el _)) _context = do
   cmd <- mkLspCommand plId "align" title  (Just cmdParams)
-  return $ IdeResultOk [codeAction cmd]
+  return $ Right [codeAction cmd]
   where
     codeAction :: J.Command -> J.CodeAction
     codeAction cmd = J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [])) Nothing (Just cmd)

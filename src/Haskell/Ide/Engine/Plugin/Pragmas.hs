@@ -59,7 +59,7 @@ addPragmaCmd (AddPragmaParams uri pragmaName) = do
     res = J.WorkspaceEdit
       (Just $ H.singleton uri textEdits)
       Nothing
-  return $ IdeResultOk res
+  return $ Right res
 
 -- ---------------------------------------------------------------------
 
@@ -68,7 +68,7 @@ addPragmaCmd (AddPragmaParams uri pragmaName) = do
 codeActionProvider :: CodeActionProvider
 codeActionProvider plId docId _ (J.CodeActionContext (J.List diags) _monly) = do
   cmds <- mapM mkCommand pragmas
-  return $ IdeResultOk cmds
+  return $ Right cmds
   where
     -- Filter diagnostics that are from ghcmod
     ghcDiags = filter (\d -> d ^. J.source == Just "bios") diags

@@ -40,7 +40,6 @@ module Haskell.Ide.Engine.PluginUtils
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Except
-import           Data.Aeson
 import           Data.Algorithm.Diff
 import           Data.Algorithm.DiffOutput
 import qualified Data.HashMap.Strict                   as H
@@ -124,15 +123,14 @@ srcSpan2Loc revMapp spn = runExceptT $ do
 
 -- | Helper function that extracts a filepath from a Uri if the Uri
 -- is well formed (i.e. begins with a file:// )
--- fails with an IdeResultFail otherwise
+-- fails with an ideError otherwise
 pluginGetFile
   :: Monad m
   => T.Text -> Uri -> (FilePath -> m (IdeResult a)) -> m (IdeResult a)
 pluginGetFile name uri f =
   case uriToFilePath uri of
     Just file -> f file
-    Nothing -> return $ IdeResultFail (IdeError PluginError
-                 (name <> "Couldn't resolve uri" <> getUri uri) Null)
+    Nothing -> ideError PluginError $ name <> "Couldn't resolve uri" <> getUri uri
 
 -- ---------------------------------------------------------------------
 -- courtesy of http://stackoverflow.com/questions/19891061/mapeithers-function-in-haskell

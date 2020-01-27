@@ -193,7 +193,7 @@ setFormatter formatterName cfg = cfg { Config.formattingProvider = formatterName
 
 expectHsImportResult :: T.Text -> FilePath -> Uri -> [TextEdit] -> IdeGhcM (IdeResult WorkspaceEdit) -> IO ()
 expectHsImportResult formatterName fp uri expectedChanges act = do
-  IdeResultOk (WorkspaceEdit (Just changes) _) <- runSingle' (setFormatter formatterName) testPlugins fp act
+  Right (WorkspaceEdit (Just changes) _) <- runSingle' (setFormatter formatterName) testPlugins fp act
   case Map.lookup uri changes of
       Just (List val) -> val `shouldBe` expectedChanges
       Nothing -> fail "No Change found"

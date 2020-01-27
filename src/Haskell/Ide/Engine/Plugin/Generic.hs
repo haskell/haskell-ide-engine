@@ -74,9 +74,9 @@ typeCmd (TP _bool uri pos) = liftToGhc $ newTypeCmd pos uri
 newTypeCmd :: Position -> Uri -> IdeM (IdeResult [(Range, T.Text)])
 newTypeCmd newPos uri =
   pluginGetFile "newTypeCmd: " uri $ \fp ->
-    ifCachedModule fp (IdeResultOk []) $ \tm info -> do
+    ifCachedModule fp (Right []) $ \tm info -> do
       debugm $ "newTypeCmd: " <> show (newPos, uri)
-      return $ IdeResultOk $ pureTypeCmd newPos tm info
+      return $ Right $ pureTypeCmd newPos tm info
 
 pureTypeCmd :: Position -> GHC.TypecheckedModule -> CachedInfo -> [(Range,T.Text)]
 pureTypeCmd newPos tm info =
@@ -162,12 +162,12 @@ codeActionProvider' supportsDocChanges _ docId _ context =
       topLevelSignatureActions = map (uncurry mkMissingSignatureAction) missingSignatures
       unusedTerms = mapMaybe getUnusedTerms diags
       unusedTermActions = map (uncurry mkUnusedTermAction) unusedTerms
-  in return $ IdeResultOk $ concat [ renameActions
-                                   , redundantActions
-                                   , typedHoleActions
-                                   , topLevelSignatureActions
-                                   , unusedTermActions
-                                   ]
+  in return $ Right $ concat [ renameActions
+                             , redundantActions
+                             , typedHoleActions
+                             , topLevelSignatureActions
+                             , unusedTermActions
+                             ]
 
   where
 
@@ -383,17 +383,16 @@ extractUnusedTerm msg = Hie.extractTerm <$> stripMessageStart msg
 -- ---------------------------------------------------------------------
 
 hoverProvider :: HoverProvider
-hoverProvider doc pos = runIdeResultT $ do
-  info' <- IdeResultT $ newTypeCmd pos doc
-  names' <- IdeResultT $ pluginGetFile "ghc-mod:hoverProvider" doc $ \fp ->
-    ifCachedModule fp (IdeResultOk []) $ \(_ :: GHC.ParsedModule) info ->
-      return $ IdeResultOk $ Hie.getSymbolsAtPoint pos info
+hoverProvider doc pos = runExceptT $ do
+  info' <- ExceptT $ newTypeCmd pos doc
+  names' <- ExceptT $ pluginGetFile "ghc-mod:hoverProvider" doc $ \fp ->
+    ifCachedModule fp (Right []) $ \(_ :: GHC.ParsedModule) info ->
+      return $ Right $ Hie.getSymbolsAtPoint pos info
   let
     f = (==) `on` (Hie.showName . snd)
     f' = compare `on` (Hie.showName . snd)
     names = mapMaybe pickName $ groupBy f $ sortBy f' names'
     pickName [] = Nothing
-    pickName [x] = Just x
     pickName xs@(x:_) = case find (isJust . nameModule_maybe . snd) xs of
       Nothing -> Just x
       Just a -> Just a
@@ -423,7 +422,7 @@ data Decl = Decl LSP.SymbolKind (Located RdrName) [Decl] SrcSpan
 
 symbolProvider :: Uri -> IdeDeferM (IdeResult [LSP.DocumentSymbol])
 symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
-  \file -> withCachedModule file (IdeResultOk []) $ \pm _ -> do
+  \file -> withCachedModule file (Right []) $ \pm _ -> do
     let hsMod = unLoc $ pm_parsed_source pm
         imports = hsmodImports hsMod
         imps  = concatMap goImport imports
@@ -594,4 +593,4 @@ symbolProvider uri = pluginGetFile "ghc-mod symbolProvider: " uri $
             _ -> return childrenSymbols
 
     symInfs <- concat <$> mapM declsToSymbolInf (imps ++ decls)
-    return $ IdeResultOk symInfs
+    return $ Right symInfs

@@ -5,6 +5,7 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE TypeApplications    #-}
 module Haskell.Ide.Engine.Support.HieExtras
   ( getDynFlags
   , getTypeForName
@@ -184,14 +185,14 @@ symbolFromTypecheckedModule lm pos =
 getReferencesInDoc :: Uri -> Position -> IdeDeferM (IdeResult [J.DocumentHighlight])
 getReferencesInDoc uri pos =
   pluginGetFile "getReferencesInDoc: " uri $ \file ->
-    withCachedModuleAndData file (IdeResultOk []) $
+    withCachedModuleAndData file (Right []) $
       \tcMod info NMD{inverseNameMap} -> do
         let lm = locMap info
             pm = tm_parsed_module tcMod
             cfile = ml_hs_file $ ms_location $ pm_mod_summary pm
             mpos = newPosToOld info pos
         case mpos of
-          Nothing -> return $ IdeResultOk []
+          Nothing -> return $ Right []
           Just pos' -> return $ fmap concat $
             forM (getArtifactsAtPos pos' lm) $ \(_,name) -> do
                 let usages = fromMaybe [] $ Map.lookup name inverseNameMap
@@ -265,7 +266,7 @@ findTypeDef :: Uri -> Position -> IdeDeferM (IdeResult [Location])
 findTypeDef uri pos = pluginGetFile "findTypeDef: " uri $ \file ->
   withCachedInfo
     file
-    (IdeResultOk []) -- Default result
+    (Right []) -- Default result
     (\info -> do
       let rfm    = revMap info
           tmap   = typeMap info
@@ -297,7 +298,7 @@ findTypeDef uri pos = pluginGetFile "findTypeDef: " uri $ \file ->
             Just s  -> Right s
 
       runExceptT (getTypeSrcSpanFromPosition oldPos) >>= \case
-        Left () -> return $ IdeResultOk []
+        Left () -> return $ Right []
         Right realSpan ->
           lift $ srcSpanToFileLocation "hare:findTypeDef" rfm realSpan
     )
@@ -305,7 +306,7 @@ findTypeDef uri pos = pluginGetFile "findTypeDef: " uri $ \file ->
 -- | Return the definition
 findDef :: Uri -> Position -> IdeDeferM (IdeResult [Location])
 findDef uri pos = pluginGetFile "findDef: " uri $ \file ->
-  withCachedInfo file (IdeResultOk []) (\info -> do
+  withCachedInfo file (Right []) (\info -> do
     let rfm = revMap info
         lm = locMap info
         mm = moduleMap info
@@ -314,10 +315,10 @@ findDef uri pos = pluginGetFile "findDef: " uri $ \file ->
     case (\x -> Just $ getArtifactsAtPos x mm) =<< oldPos of
       Just ((_,mn):_) -> gotoModule rfm mn
       _ -> case symbolFromTypecheckedModule lm =<< oldPos of
-        Nothing -> return $ IdeResultOk []
+        Nothing -> return $ Right []
         Just (_, n) ->
           case nameSrcSpan n of
-            UnhelpfulSpan _ -> return $ IdeResultOk []
+            UnhelpfulSpan _ -> return $ Right []
             realSpan   -> lift $ srcSpanToFileLocation "hare:findDef" rfm realSpan
   )
 
@@ -332,17 +333,14 @@ srcSpanToFileLocation invoker rfm srcSpan = do
   case res of
     Right l@(J.Location luri range) ->
       case uriToFilePath luri of
-        Nothing -> return $ IdeResultOk [l]
-        Just fp -> ifCachedModule fp (IdeResultOk [l]) $ \(_ :: ParsedModule) info' ->
+        Nothing -> return $ Right [l]
+        Just fp -> ifCachedModule fp (Right [l]) $ \(_ :: ParsedModule) info' ->
           case oldRangeToNew info' range of
-            Just r  -> return $ IdeResultOk [J.Location luri r]
-            Nothing -> return $ IdeResultOk [l]
+            Just r  -> return $ Right [J.Location luri r]
+            Nothing -> return $ Right [l]
     Left x -> do
       debugm (T.unpack invoker <> ": name srcspan not found/valid")
-      pure (IdeResultFail
-            (IdeError PluginError
-                      (invoker <> ": \"" <> x <> "\"")
-                      Null))
+      ideError PluginError $ invoker <> ": \"" <> x <> "\""
 
 -- | Goto given module.
 gotoModule :: (FilePath -> FilePath) -> ModuleName -> IdeDeferM (IdeResult [Location])
@@ -365,10 +363,9 @@ gotoModule rfm mn = do
 
           let r = Range (Position 0 0) (Position 0 0)
               loc = Location (filePathToUri fp) r
-          return (IdeResultOk [loc])
-        _ -> return (IdeResultOk [])
-    Nothing -> return $ IdeResultFail
-      (IdeError PluginError "Couldn't get hscEnv when finding import" Null)
+          return $ Right [loc]
+        _ -> return $ Right []
+    Nothing -> ideError @String PluginError "Couldn't get hscEnv when finding import"
 -- ---------------------------------------------------------------------
 
 data HarePoint =
@@ -390,11 +387,9 @@ instance ToJSON HarePoint where
 runGhcModCommand :: IdeGhcM a
                  -> IdeGhcM (IdeResult a)
 runGhcModCommand cmd =
-  (IdeResultOk <$> cmd) `gcatch`
+  (Right <$> cmd) `gcatch`
     \(e :: GM.GhcModError) ->
-      return $
-      IdeResultFail $
-      IdeError PluginError (T.pack $ "hie-ghc-mod: " ++ show e) Null
+      ideErrorFrom PluginError "hie-ghc-mod" $ show e
       -}
 
 -- ---------------------------------------------------------------------
@@ -407,7 +402,7 @@ splitCaseCmd' :: Uri -> Position -> IdeGhcM (IdeResult WorkspaceEdit)
 splitCaseCmd' uri newPos =
   pluginGetFile "splitCaseCmd: " uri $ \path -> do
     origText <- GM.withMappedFile path $ liftIO . T.readFile
-    ifCachedModule path (IdeResultOk mempty) $ \tm info -> runGhcModCommand $
+    ifCachedModule path (Right mempty) $ \tm info -> runGhcModCommand $
       case newPosToOld info newPos of
         Just oldPos -> do
           let (line, column) = unPos oldPos

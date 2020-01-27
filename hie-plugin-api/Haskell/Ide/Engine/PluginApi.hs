@@ -52,7 +52,7 @@ module Haskell.Ide.Engine.PluginApi
   , LSP.Uri
   , HIE.ifCachedModule
   , HIE.CachedInfo(..)
-  , HIE.IdeResult(..)
+  , HIE.IdeResult
 
   -- * used for tests in HaRe
   , BiosLogLevel

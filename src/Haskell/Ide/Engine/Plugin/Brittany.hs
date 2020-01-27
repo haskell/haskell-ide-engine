@@ -5,11 +5,9 @@ module Haskell.Ide.Engine.Plugin.Brittany where
 import           Control.Lens
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Maybe (MaybeT, runMaybeT)
-import           Data.Aeson
 import           Data.Coerce
 import           Data.Semigroup
 import           Data.Text                             (Text)
-import qualified Data.Text                             as T
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.PluginUtils
 import           Language.Haskell.Brittany
@@ -50,14 +48,10 @@ provider text uri formatType opts = pluginGetFile "brittanyCmd: " uri $ \fp -> d
 
   res <- formatText confFile opts selectedContents
   case res of
-    Left err -> return $ IdeResultFail
-      (IdeError PluginError
-                (T.pack $ "brittanyCmd: " ++ unlines (map showErr err))
-                Null
-      )
+    Left err -> ideErrorFrom PluginError "brittanyCmd: " $ unlines $ map showErr err
     Right newText -> do
       let textEdit = J.TextEdit range newText
-      return $ IdeResultOk [textEdit]
+      return $ Right [textEdit]
 
 -- | Primitive to format text with the given option.
 -- May not throw exceptions but return a Left value.

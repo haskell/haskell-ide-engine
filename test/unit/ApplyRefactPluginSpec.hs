@@ -45,7 +45,7 @@ applyRefactSpec = do
           act = applyOneCmd arg
           arg = AOP furi (toPos (2,8)) "Redundant bracket"
           textEdits = List [TextEdit (Range (Position 1 0) (Position 1 25)) "main = putStrLn \"hello\""]
-          res = IdeResultOk $ WorkspaceEdit
+          res = Right $ WorkspaceEdit
             (Just $ H.singleton applyRefactPath textEdits)
             Nothing
       testCommand testPlugins applyRefactFp act "applyrefact" "applyOne" arg res
@@ -58,7 +58,7 @@ applyRefactSpec = do
           arg = applyRefactPath
           textEdits = List [ TextEdit (Range (Position 1 0) (Position 1 25)) "main = putStrLn \"hello\""
                            , TextEdit (Range (Position 3 0) (Position 3 15)) "foo x = x + 1" ]
-          res = IdeResultOk $ WorkspaceEdit
+          res = Right $ WorkspaceEdit
             (Just $ H.singleton applyRefactPath textEdits)
             Nothing
       testCommand testPlugins applyRefactFp act "applyrefact" "applyAll" arg res
@@ -68,7 +68,7 @@ applyRefactSpec = do
     it "returns hints as diagnostics" $ do
 
       let act = lint applyRefactPath
-          res = IdeResultOk
+          res = Right
             PublishDiagnosticsParams
              { _uri = applyRefactPath
              , _diagnostics = List $
@@ -94,7 +94,7 @@ applyRefactSpec = do
       let filePath = filePathToUri filePathNoUri
 
       let act = lint filePath
-          res = IdeResultOk
+          res = Right
             PublishDiagnosticsParams
              { _uri = filePath
              , _diagnostics = List
@@ -114,20 +114,19 @@ applyRefactSpec = do
       let filePath = filePathToUri fp
       let req = lint filePath
       r <- runIGM testPlugins fp req
-      r `shouldBe`
-        (IdeResultOk
-           (PublishDiagnosticsParams
-            { _uri = filePath
-            , _diagnostics = List
-              [ Diagnostic (Range (Position 3 11) (Position 3 20))
-                           (Just DsInfo)
-                           (Just (StringValue "Redundant bracket"))
-                           (Just "hlint")
-                           "Redundant bracket\nFound:\n  (\"hello\")\nWhy not:\n  \"hello\"\n"
-                           Nothing
-              ]
-            }
-           ))
+      r `shouldBe` Right
+        PublishDiagnosticsParams
+          { _uri = filePath
+          , _diagnostics = List
+            [ Diagnostic (Range (Position 3 11) (Position 3 20))
+                          (Just DsInfo)
+                          (Just (StringValue "Redundant bracket"))
+                          (Just "hlint")
+                          "Redundant bracket\nFound:\n  (\"hello\")\nWhy not:\n  \"hello\"\n"
+                          Nothing
+            ]
+          }
+           
 
     -- ---------------------------------
 
@@ -137,14 +136,12 @@ applyRefactSpec = do
 
       let req = lint filePath
       r <- withCurrentDirectory "./test/testdata" $ runIGM testPlugins fp req
-      r `shouldBe`
-        (IdeResultOk
-           (PublishDiagnosticsParams
-            -- { _uri = filePathToUri "./HlintPragma.hs"
-            { _uri = filePath
-            , _diagnostics = List []
-            }
-           ))
+      r `shouldBe` Right
+        PublishDiagnosticsParams
+        -- { _uri = filePathToUri "./HlintPragma.hs"
+        { _uri = filePath
+        , _diagnostics = List []
+        }
 
     -- ---------------------------------
 
@@ -152,7 +149,7 @@ applyRefactSpec = do
       fp <- makeAbsolute "./test/testdata/ApplyRefactError.hs"
       let filePath = filePathToUri fp
       let req = applyAllCmd filePath
-          isExpectedError (IdeResultFail (IdeError PluginError err _)) =
+          isExpectedError (Left (IdeError PluginError err _)) =
               "Illegal symbol " `T.isInfixOf` err
           isExpectedError _ = False
       r <- withCurrentDirectory "./test/testdata" $ runIGM testPlugins fp req

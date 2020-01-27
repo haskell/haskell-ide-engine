@@ -285,7 +285,7 @@ getPrefixAtPos uri pos = do
 -- TODO: generalise this and move it to GhcMod.ModuleLoader
 updatePositionMap :: Uri -> [J.TextDocumentContentChangeEvent] -> IdeGhcM (IdeResult ())
 updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file ->
-  ifCachedInfo file (IdeResultOk ()) $ \info -> do
+  ifCachedInfo file (Right ()) $ \info -> do
     let n2oOld = newPosToOld info
         o2nOld = oldPosToNew info
         (n2o,o2n) = foldl' go (n2oOld, o2nOld) changes
@@ -294,7 +294,7 @@ updatePositionMap uri changes = pluginGetFile "updatePositionMap: " uri $ \file 
         go _ _ = (const Nothing, const Nothing)
     let info' = info {newPosToOld = n2o, oldPosToNew = o2n}
     cacheInfoNoClear file info'
-    return $ IdeResultOk ()
+    return $ Right ()
   where
     f (+/-) (J.Range (Position sl sc) (Position el ec)) txt p@(Position l c)
 
@@ -471,7 +471,7 @@ reactor inp diagIn = do
                   fmServerLogMessageNotification J.MtLog $ "Using hie version: " <> T.pack hieVersion
 
           renv <- ask
-          let hreq = GReq tn "init-hoogle" Nothing Nothing Nothing callback Nothing $ IdeResultOk <$> Hoogle.initializeHoogleDb
+          let hreq = GReq tn "init-hoogle" Nothing Nothing Nothing callback Nothing $ Right <$> Hoogle.initializeHoogleDb
               callback Nothing = flip runReaderT renv $
                 reactorSend $ NotShowMessage $
                   fmServerShowMessageNotification J.MtWarning "No hoogle db found. Check the README for instructions to generate one"
@@ -544,7 +544,7 @@ reactor inp diagIn = do
           makeRequest $ GReq tn "delete-cache" (Just uri) Nothing Nothing (const $ return ()) () $ do
             forM_ (uriToFilePath uri)
               deleteCachedModule
-            return $ IdeResultOk ()
+            return $ Right ()
 
         -- -------------------------------
 
@@ -695,7 +695,7 @@ reactor inp diagIn = do
               callback res = do
                 let rspMsg = Core.makeResponseMessage req $ res
                 reactorSend $ RspCompletionItemResolve rspMsg
-              hreq = IReq tn "completion" (req ^. J.id) callback $ runIdeResultT $ do
+              hreq = IReq tn "completion" (req ^. J.id) callback $ runExceptT $
                 lift $ lift $ Completions.resolveCompletion snippets origCompl
           makeRequest hreq
 
@@ -862,7 +862,7 @@ getFormattingProvider = do
         let msg = providerName <> " is not a recognised plugin for formatting. Check your config"
         reactorSend $ NotShowMessage $ fmServerShowMessageNotification J.MtWarning msg
         reactorSend $ NotLogMessage $ fmServerLogMessageNotification J.MtWarning msg
-      return (\_ _ _ _ -> return (IdeResultOk [])) -- nop formatter
+      return $ \_ _ _ _ -> return $ Right [] -- nop formatter
     Just (_, provider) -> return provider
 
 -- ---------------------------------------------------------------------
