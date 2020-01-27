@@ -7,9 +7,7 @@ module Haskell.Ide.Engine.Plugin.Floskell
 where
 
 import           Control.Monad.IO.Class         (liftIO)
-import           Data.Aeson                     (Value (Null))
 import qualified Data.ByteString.Lazy           as BS
-import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as T
 import           Floskell
 import           Haskell.Ide.Engine.MonadTypes
@@ -38,10 +36,9 @@ provider contents uri typ _opts =
     let (range, selectedContents) = case typ of
           FormatText    -> (fullRange contents, contents)
           FormatRange r -> (r, extractRange r contents)
-        result = reformat config (Just file) (BS.fromStrict (T.encodeUtf8 selectedContents))
-    case result of
-      Left  err -> return $ IdeResultFail (IdeError PluginError (T.pack $  "floskellCmd: " ++ err) Null)
-      Right new -> return $ IdeResultOk [TextEdit range (T.decodeUtf8 (BS.toStrict new))]
+    case reformat config (Just file) $ BS.fromStrict $ T.encodeUtf8 selectedContents of
+      Left  err -> ideErrorFrom PluginError "floskellCmd" err
+      Right new -> return $ Right [TextEdit range $ T.decodeUtf8 $ BS.toStrict new]
 
 -- | Find Floskell Config, user and system wide or provides a default style.
 -- Every directory of the filepath will be searched to find a user configuration.

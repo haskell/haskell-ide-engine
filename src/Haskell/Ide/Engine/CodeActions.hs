@@ -38,7 +38,7 @@ handleCodeActionReq tn req = do
   let getProvider p = pluginCodeActionProvider p <*> return (pluginId p)
       getProviders = do
         IdePlugins m <- getPlugins
-        return $ IdeResultOk $ mapMaybe getProvider $ toList m
+        return $ Right $ mapMaybe getProvider $ toList m
 
       providersCb providers =
         let reqs = map (\f -> lift (f docId range context)) providers

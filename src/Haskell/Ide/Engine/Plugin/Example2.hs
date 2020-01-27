@@ -41,12 +41,12 @@ example2Descriptor plId = PluginDescriptor
 -- ---------------------------------------------------------------------
 
 sayHelloCmd :: () -> IdeGhcM (IdeResult T.Text)
-sayHelloCmd () = return (IdeResultOk sayHello)
+sayHelloCmd () = return (Right sayHello)
 
 sayHelloToCmd :: T.Text -> IdeGhcM (IdeResult T.Text)
 sayHelloToCmd n = do
   r <- liftIO $ sayHelloTo n
-  return $ IdeResultOk r
+  return $ Right r
 
 -- ---------------------------------------------------------------------
 
@@ -69,7 +69,7 @@ diagnosticProvider trigger uri = do
               , _message = "Example plugin diagnostic, triggered by" <> T.pack (show trigger)
               , _relatedInformation = Nothing
               }
-  return $ IdeResultOk $ Map.fromList [(uri,S.singleton diag)]
+  return $ Right $ Map.fromList [(uri,S.singleton diag)]
 
 -- ---------------------------------------------------------------------
 
@@ -80,7 +80,7 @@ data TodoParams = TodoParams
   deriving (Show, Eq, Generics.Generic, ToJSON, FromJSON)
 
 todoCmd :: TodoParams -> IdeGhcM (IdeResult J.WorkspaceEdit)
-todoCmd (TodoParams uri r) = return $ IdeResultOk $ makeTodo uri r
+todoCmd (TodoParams uri r) = return $ Right $ makeTodo uri r
 
 makeTodo :: J.Uri -> J.Range -> J.WorkspaceEdit
 makeTodo uri (J.Range (J.Position startLine _) _) = res
@@ -100,7 +100,7 @@ makeTodo uri (J.Range (J.Position startLine _) _) = res
 codeActionProvider :: CodeActionProvider
 codeActionProvider plId docId r _context = do
   cmd <- mkLspCommand plId "todo" title  (Just cmdParams)
-  return $ IdeResultOk [codeAction cmd]
+  return $ Right [codeAction cmd]
   where
     codeAction :: J.Command -> J.CodeAction
     codeAction cmd = J.CodeAction title (Just J.CodeActionQuickFix) (Just (J.List [])) Nothing (Just cmd)

@@ -4,6 +4,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeApplications #-}
 
 -- | Commands and code actions for adding package dependencies into .cabal and
 -- package.yaml files
@@ -109,7 +110,7 @@ addCmd (AddParams rootDir modulePath pkg) = do
       absFp <- liftIO $ canonicalizePath relFp
       let relModulePath = makeRelative (takeDirectory absFp) modulePath
       liftToGhc $ editHpackPackage absFp relModulePath pkg
-    NoPackage -> return $ IdeResultFail (IdeError PluginError "No package.yaml or .cabal found" Null)
+    NoPackage -> ideError @String PluginError "No package.yaml or .cabal found"
 
 data PackageType = CabalPackage FilePath -- ^ Location of Cabal File. May be relative.
                  | HpackPackage FilePath -- ^ Location of `package.yaml`. May be relative.
@@ -190,8 +191,8 @@ editHpackPackage fp modulePath pkgName = do
                 then J.WorkspaceEdit Nothing (Just (J.List [textDocEdit]))
                 else J.WorkspaceEdit (Just (HM.singleton docUri (J.List [textEdit]))) Nothing
 
-        return $ IdeResultOk wsEdit
-    Nothing -> return $ IdeResultFail (IdeError PluginError "Couldn't parse package.yaml" Null)
+        return $ Right wsEdit
+    Nothing -> ideError @String PluginError "Couldn't parse package.yaml"
 
   where
 
@@ -269,7 +270,7 @@ editCabalPackage file modulePath pkgName fileMap = do
 
   let newContents = T.pack $ PP.showGenericPackageDescription newPackage
 
-  IdeResultOk <$> makeAdditiveDiffResult file newContents fileMap
+  Right <$> makeAdditiveDiffResult file newContents fileMap
 
   where
 
@@ -320,7 +321,7 @@ codeActionProvider plId docId _ context = do
   res <- mapM (bimapM return Hoogle.searchPackages) pkgs
   actions <- catMaybes <$> mapM (uncurry (mkAddPackageAction mRootDir)) (concatPkgs res)
 
-  return (IdeResultOk actions)
+  return $ Right actions
 
   where
     concatPkgs = concatMap (\(d, ts) -> map (d,) ts)

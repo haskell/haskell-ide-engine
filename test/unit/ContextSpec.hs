@@ -22,10 +22,10 @@ spec = describe "Context of different cursor positions" $ do
         $ do
               fp <- makeAbsolute "./ExampleContext.hs"
               let arg = filePathToUri fp
-              let res = IdeResultOk (Nothing :: Maybe Context)
+              let res = Right (Nothing :: Maybe Context)
               actual <- runSingle (IdePlugins mempty) fp $ do
                   _ <- setTypecheckedModule arg
-                  return $ IdeResultOk Nothing
+                  return $ Right Nothing
 
               actual `shouldBe` res
 
@@ -33,7 +33,7 @@ spec = describe "Context of different cursor positions" $ do
         $ withCurrentDirectory "./test/testdata/context"
         $ do
               fp <- makeAbsolute "./ExampleContext.hs"
-              let res = IdeResultOk (Just (ModuleContext "ExampleContext"))
+              let res = Right $ Just $ ModuleContext "ExampleContext"
 
               actual <- getContextAt fp (toPos (1, 10))
 
@@ -44,42 +44,42 @@ spec = describe "Context of different cursor positions" $ do
         $ withCurrentDirectory "./test/testdata/context"
         $ do
               fp <- makeAbsolute "./ExampleContext.hs"
-              let res = IdeResultOk (Just ExportContext)
+              let res = Right $ Just ExportContext
               actual <- getContextAt fp (toPos (1, 24))
 
               actual `shouldBe` res
 
     it "value context" $ withCurrentDirectory "./test/testdata/context" $ do
         fp <- makeAbsolute "./ExampleContext.hs"
-        let res = IdeResultOk (Just ValueContext)
+        let res = Right $ Just ValueContext
         actual <- getContextAt fp (toPos (7, 6))
 
         actual `shouldBe` res
 
     it "value addition context" $ withCurrentDirectory "./test/testdata/context" $ do
         fp <- makeAbsolute "./ExampleContext.hs"
-        let res = IdeResultOk (Just ValueContext)
+        let res = Right $ Just ValueContext
         actual <- getContextAt fp (toPos (7, 12))
 
         actual `shouldBe` res
 
     it "import context" $ withCurrentDirectory "./test/testdata/context" $ do
         fp <- makeAbsolute "./ExampleContext.hs"
-        let res = IdeResultOk (Just (ImportContext "Data.List"))
+        let res = Right $ Just $ ImportContext "Data.List"
         actual <- getContextAt fp (toPos (3, 8))
 
         actual `shouldBe` res
 
     it "import list context" $ withCurrentDirectory "./test/testdata/context" $ do
         fp <- makeAbsolute "./ExampleContext.hs"
-        let res = IdeResultOk (Just (ImportListContext "Data.List"))
+        let res = Right $ Just $ ImportListContext "Data.List"
         actual <- getContextAt fp (toPos (3, 20))
 
         actual `shouldBe` res
 
     it "import hiding context" $ withCurrentDirectory "./test/testdata/context" $ do
         fp <- makeAbsolute "./ExampleContext.hs"
-        let res = IdeResultOk (Just (ImportHidingContext "Control.Monad"))
+        let res = Right $ Just $ ImportHidingContext "Control.Monad"
         actual <- getContextAt fp (toPos (4, 32))
 
         actual `shouldBe` res
@@ -88,7 +88,7 @@ spec = describe "Context of different cursor positions" $ do
         $ withCurrentDirectory "./test/testdata/context"
         $ do
               fp <- makeAbsolute "./ExampleContext.hs"
-              let res = IdeResultOk (Just TypeContext)
+              let res = Right $ Just TypeContext
               actual <- getContextAt fp (toPos (6, 1))
 
               actual `shouldBe` res
@@ -97,7 +97,7 @@ spec = describe "Context of different cursor positions" $ do
         $ withCurrentDirectory "./test/testdata/context"
         $ do
             fp <- makeAbsolute "./ExampleContext.hs"
-            let res = IdeResultOk (Just TypeContext)
+            let res = Right $ Just TypeContext
             actual <- getContextAt fp (toPos (6, 8))
             actual `shouldBe` res
 
@@ -106,7 +106,7 @@ spec = describe "Context of different cursor positions" $ do
         $ withCurrentDirectory "./test/testdata/context"
         $ do
               fp <- makeAbsolute "./ExampleContext.hs"
-              let res = IdeResultOk (Just ValueContext)
+              let res = Right $ Just ValueContext
               actual <- getContextAt fp (toPos (7, 1))
               actual `shouldBe` res
 
@@ -119,7 +119,7 @@ spec = describe "Context of different cursor positions" $ do
         $ withCurrentDirectory "./test/testdata/context"
         $ do
             fp <- makeAbsolute "./ExampleContext.hs"
-            let res = IdeResultOk (Just ValueContext)
+            let res = Right $ Just ValueContext
             actual <- getContextAt fp (toPos (9, 10))
             actual `shouldBe` res
 
@@ -127,7 +127,7 @@ spec = describe "Context of different cursor positions" $ do
         $ withCurrentDirectory "./test/testdata/context"
         $ do
             fp <- makeAbsolute "./ExampleContext.hs"
-            let res = IdeResultOk (Just ValueContext)
+            let res = Right $ Just ValueContext
             actual <- getContextAt fp (toPos (10, 10))
             actual `shouldBe` res
 
@@ -137,7 +137,7 @@ spec = describe "Context of different cursor positions" $ do
         $ withCurrentDirectory "./test/testdata/context"
         $ do
             fp <- makeAbsolute "./ExampleContext.hs"
-            let res = IdeResultOk Nothing
+            let res = Right Nothing
             actual <- getContextAt fp (toPos (12, 8))
             actual `shouldBe` res
 
@@ -146,7 +146,7 @@ spec = describe "Context of different cursor positions" $ do
         $ withCurrentDirectory "./test/testdata/context"
         $ do
             fp <- makeAbsolute "./ExampleContext.hs"
-            let res = IdeResultOk (Just TypeContext)
+            let res = Right $ Just TypeContext
             actual <- getContextAt fp (toPos (12, 18))
             actual `shouldBe` res
 
@@ -155,7 +155,7 @@ spec = describe "Context of different cursor positions" $ do
         $ withCurrentDirectory "./test/testdata/context"
         $ do
             fp <- makeAbsolute "./ExampleContext.hs"
-            let res = IdeResultOk Nothing
+            let res = Right Nothing
             actual <- getContextAt fp (toPos (15, 8))
             actual `shouldBe` res
 
@@ -165,7 +165,7 @@ spec = describe "Context of different cursor positions" $ do
         $ withCurrentDirectory "./test/testdata/context"
         $ do
             fp <- makeAbsolute "./ExampleContext.hs"
-            let res = IdeResultOk Nothing
+            let res = Right Nothing
             actual <- getContextAt fp (toPos (16, 7))
             actual `shouldBe` res
 
@@ -173,7 +173,7 @@ spec = describe "Context of different cursor positions" $ do
         $ withCurrentDirectory "./test/testdata/context"
         $ do
             fp <- makeAbsolute "./ExampleContext.hs"
-            let res = IdeResultOk Nothing
+            let res = Right Nothing
             actual <- getContextAt fp (toPos (18, 7))
             actual `shouldBe` res
 
@@ -183,7 +183,7 @@ spec = describe "Context of different cursor positions" $ do
             $ withCurrentDirectory "./test/testdata/context"
             $ do
                 fp <- makeAbsolute "./ExampleContext.hs"
-                let res = IdeResultOk Nothing
+                let res = Right Nothing
                 actual <- getContextAt fp (toPos (19, 6))
                 actual `shouldBe` res
 
@@ -194,7 +194,7 @@ spec = describe "Context of different cursor positions" $ do
         $ withCurrentDirectory "./test/testdata/context"
         $ do
             fp <- makeAbsolute "./ExampleContext.hs"
-            let res = IdeResultOk Nothing
+            let res = Right Nothing
             actual <- getContextAt fp (toPos (13, 9))
             actual `shouldBe` res
 
@@ -206,7 +206,7 @@ spec = describe "Context of different cursor positions" $ do
         $ withCurrentDirectory "./test/testdata/context"
         $ do
             fp <- makeAbsolute "./ExampleContext.hs"
-            let res = IdeResultOk Nothing
+            let res = Right Nothing
             actual <- getContextAt fp (toPos (13, 14))
             actual `shouldBe` res
 
@@ -220,7 +220,7 @@ spec = describe "Context of different cursor positions" $ do
         $ withCurrentDirectory "./test/testdata/context"
         $ do
             fp <- makeAbsolute "./ExampleContext.hs"
-            let res = IdeResultOk (Just TypeContext)
+            let res = Right (Just TypeContext)
             actual <- getContextAt fp (toPos (13, 15))
             actual `shouldBe` res
 
@@ -228,7 +228,7 @@ spec = describe "Context of different cursor positions" $ do
         $ withCurrentDirectory "./test/testdata/context"
         $ do
             fp <- makeAbsolute "./ExampleContext.hs"
-            let res = IdeResultOk (Just TypeContext)
+            let res = Right (Just TypeContext)
             actual <- getContextAt fp (toPos (13, 18))
             actual `shouldBe` res
 
@@ -236,7 +236,7 @@ spec = describe "Context of different cursor positions" $ do
     -- There is no context
     it "nothing" $ withCurrentDirectory "./test/testdata/context" $ do
         fp <- makeAbsolute "./ExampleContext.hs"
-        let res = IdeResultOk Nothing
+        let res = Right Nothing
         actual <- getContextAt fp (toPos (2, 1))
         actual `shouldBe` res
 
@@ -246,5 +246,5 @@ getContextAt fp pos = do
     runSingle (IdePlugins mempty) fp $ do
         _ <- setTypecheckedModule arg
         pluginGetFile "getContext: " arg $ \fp_ ->
-            ifCachedModuleAndData fp_ (IdeResultOk Nothing) $ \tm _ () ->
-                return $ IdeResultOk $ getContext pos (tm_parsed_module tm)
+            ifCachedModuleAndData fp_ (Right Nothing) $ \tm _ () ->
+                return $ Right $ getContext pos (tm_parsed_module tm)

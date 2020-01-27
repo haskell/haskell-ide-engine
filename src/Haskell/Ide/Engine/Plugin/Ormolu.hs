@@ -10,7 +10,6 @@ import Haskell.Ide.Engine.MonadTypes
 import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class ( liftIO , MonadIO(..) )
-import Data.Aeson ( Value ( Null ) )
 import Data.List
 import Data.Maybe
 import qualified Data.Text as T
@@ -37,21 +36,20 @@ provider :: FormattingProvider
 provider _contents _uri _typ _opts =
 #if __GLASGOW_HASKELL__ >= 806
   case _typ of
-    FormatRange _ -> return $ IdeResultFail (IdeError PluginError (T.pack "Selection formatting for Ormolu is not currently supported.") Null)
+    FormatRange _ -> ideError @String PluginError "Selection formatting for Ormolu is not currently supported."
     FormatText -> pluginGetFile _contents _uri $ \file -> do
         opts <- lookupComponentOptions file
         let opts' = map DynOption $ filter exop $ join $ maybeToList $ componentOptions <$> opts
             conf  = Config opts' False False True False
-        result <- liftIO $ try @OrmoluException (ormolu conf file (T.unpack _contents))
-
+        result <- liftIO $ try @OrmoluException $ ormolu conf file $ T.unpack _contents
         case result of
-          Left  err -> return $ IdeResultFail (IdeError PluginError (T.pack $ "ormoluCmd: " ++ show err) Null)
-          Right new -> return $ IdeResultOk [TextEdit (fullRange _contents) new]
+          Left  err -> ideErrorFrom PluginError "ormoluCmd" $ show err
+          Right new -> return $ Right [TextEdit (fullRange _contents) new]
   where
     exop s =
       "-X" `isPrefixOf` s
       || "-fplugin=" `isPrefixOf` s
       || "-pgmF=" `isPrefixOf` s
 #else
-  return $ IdeResultOk [] -- NOP formatter
+  return $ Right [] -- NOP formatter
 #endif

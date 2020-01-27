@@ -32,7 +32,6 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Control
 import           Control.Monad.Trans.Free
-import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Char8 as B
 import           Data.Dynamic (toDyn, fromDynamic, Dynamic)
 import           Data.Generics (Proxy(..), TypeRep, typeRep, typeOf)
@@ -85,7 +84,7 @@ type PublishDiagnostics = J.NormalizedUri -> J.TextDocumentVersion -> J.Diagnost
 --
 -- There are three possibilities for loading a cradle
 -- 1. Load succeeds and we get a new cradle to execute the action in
--- 2. Load fails, so we report an error using IdeResultFail
+-- 2. Load fails, so we report an error using ideRrror
 -- 3. The bios reports CradleNone, which means we should completely ignore
 -- the file.
 --
@@ -107,7 +106,7 @@ runActionWithContext _pub _df Nothing _def action =
   --This causes problems when loading a later package which sets the
   --packageDb
   -- loadCradle df (Bios.defaultCradle dir)
-  fmap IdeResultOk action
+  fmap Right action
 runActionWithContext publishDiagnostics df (Just uri) def action = do
   mcradle <- getCradle uri
   loadCradle publishDiagnostics df mcradle def action
@@ -130,7 +129,7 @@ loadCradle :: forall a m . (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m
 loadCradle _ _ ReuseCradle _def action = do
   -- Since we expect this message to show up often, only show in debug mode
   debugm "Reusing cradle"
-  IdeResultOk <$> action
+  Right <$> action
 
 loadCradle _ _iniDynFlags (LoadCradle (CachedCradle crd env co)) _def action = do
   -- Reloading a cradle happens on component switch
@@ -139,7 +138,7 @@ loadCradle _ _iniDynFlags (LoadCradle (CachedCradle crd env co)) _def action = d
   maybe (return ()) cacheCradle =<< (currentCradle <$> getModuleCache)
   GHC.setSession env
   setCurrentCradle crd co
-  IdeResultOk <$> action
+  Right <$> action
 
 loadCradle publishDiagnostics iniDynFlags (NewCradle fp) def action = do
   -- If this message shows up a lot in the logs, it is an indicator for a bug
@@ -154,15 +153,10 @@ loadCradle publishDiagnostics iniDynFlags (NewCradle fp) def action = do
     Right cradle -> do
       logm $ "Found cradle: " ++ show cradle
       withProgress ("Initializing " <> cradleDisplay cradle) NotCancellable (initialiseCradle cradle)
-    Left yamlErr ->
-      return $ IdeResultFail $ IdeError
-        { ideCode    = OtherError
-        , ideMessage = Text.pack $ "Couldn't parse hie.yaml: " <> yamlErr
-        , ideInfo    = Aeson.Null
-        }
+    Left yamlErr -> ideErrorFrom OtherError "Couldn't parse hie.yaml" yamlErr
 
  where
-  -- | Initialise the given cradle. This might fail and return an error via `IdeResultFail`.
+  -- | Initialise the given cradle. This might fail and return an error via `ideError`.
   -- Reports its progress to the client.
   initialiseCradle :: Bios.Cradle -> (Progress -> IO ()) -> m (IdeResult a)
   initialiseCradle cradle f = do
@@ -171,7 +165,7 @@ loadCradle publishDiagnostics iniDynFlags (NewCradle fp) def action = do
       Bios.CradleNone ->
         -- Note: The action is not run if we are in the none cradle, we
         -- just pretend the file doesn't exist.
-        return $ IdeResultOk def
+        return $ Right def
       Bios.CradleFail (Bios.CradleError code msg) -> do
         warningm $ "Fail on cradle initialisation: (" ++ show code ++ ")" ++ show msg
 
@@ -189,11 +183,7 @@ loadCradle publishDiagnostics iniDynFlags (NewCradle fp) def action = do
         liftIO $ publishDiagnostics normalizedUri Nothing
             (Map.singleton source (SL.singleton diag))
 
-        return $ IdeResultFail $ IdeError
-            { ideCode    = OtherError
-            , ideMessage = Text.unwords  (take 2 msgTxt)
-            , ideInfo    = Aeson.Null
-            }
+        ideError OtherError $ Text.unwords $ take 2 msgTxt
       Bios.CradleSuccess (init_session, copts) -> do
         -- Note that init_session contains a Hook to 'f'.
         -- So, it can still provide Progress Reports.
@@ -215,11 +205,7 @@ loadCradle publishDiagnostics iniDynFlags (NewCradle fp) def action = do
         case init_res of
           Left err -> do
             logm $ "Ghc error on cradle initialisation: " ++ show err
-            return $ IdeResultFail $ IdeError
-              { ideCode    = OtherError
-              , ideMessage = Text.pack $ show err
-              , ideInfo    = Aeson.Null
-              }
+            ideError OtherError $ Text.pack $ show err
             -- Note: Don't setCurrentCradle because we want to try to reload
             -- it on a save whilst there are errors. Subsequent loads won't
             -- be that slow, even though the cradle isn't cached because the
@@ -227,12 +213,12 @@ loadCradle publishDiagnostics iniDynFlags (NewCradle fp) def action = do
           Right Bios.Succeeded -> do
             setCurrentCradle cradle copts
             logm "Cradle set succesfully"
-            IdeResultOk <$> action
+            Right <$> action
 
           Right Bios.Failed -> do
             setCurrentCradle cradle copts
             logm "Cradle did not load succesfully"
-            IdeResultOk <$> action
+            Right <$> action
 
 -- TODO remove after hie-bios update
 initializeFlagsWithCradleWithMessage ::

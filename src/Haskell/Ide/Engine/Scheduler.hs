@@ -303,8 +303,8 @@ ideDispatcher env errorHandler callbackHandler pin =
       unlessCancelled env lid errorHandler $ liftIO $ do
         completedReq env lid
         case result of
-          IdeResultOk x -> callbackHandler callback x
-          IdeResultFail (IdeError _ msg _) ->
+          Right x -> callbackHandler callback x
+          Left (IdeError _ msg _) ->
             errorHandler (Just lid) J.InternalError msg
 
     liftIO $ traceEventIO $ "STOP " ++ show tn ++ "ide:" ++ d
@@ -356,8 +356,8 @@ ghcDispatcher env@DispatcherEnv { docVersionTVar } errorHandler publishDiagnosti
       runWithCallback = do
         result <- runner (pure def) action
         liftIO $ case join result of
-          IdeResultOk   x                      -> callbackHandler callback x
-          IdeResultFail err@(IdeError _ msg _) -> do
+          Right x -> callbackHandler callback x
+          Left err@(IdeError _ msg _) -> do
             logm $ "ghcDispatcher:Got error for a request: " ++ show err ++ " with mid: " ++ show mid
             errorHandler mid J.InternalError msg
 

@@ -143,11 +143,11 @@ funcSpec = describe "functional dispatch" $ do
 
     let
       hoverReqHandler :: TypecheckedModule -> CachedInfo -> IdeDeferM (IdeResult Cached)
-      hoverReqHandler _ _ = return (IdeResultOk Cached)
+      hoverReqHandler _ _ = return $ Right Cached
       -- Model a hover request
       hoverReq tn idVal doc = dispatchIdeRequest tn ("IReq " ++ show idVal) scheduler logChan idVal $ do
         pluginGetFile "hoverReq" doc $ \fp ->
-          ifCachedModule fp (IdeResultOk NotCached) hoverReqHandler
+          ifCachedModule fp (Right NotCached) hoverReqHandler
 
       unpackRes (r,Right md) = (r, fromDynJSON md)
       unpackRes r            = error $ "unpackRes:" ++ show r

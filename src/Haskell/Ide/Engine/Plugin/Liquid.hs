@@ -93,7 +93,7 @@ instance ExtensionClass LiquidData where
 
 diagnosticProvider :: DiagnosticProviderFuncAsync
 diagnosticProvider DiagnosticOnSave uri cb = pluginGetFile "Liquid.diagnosticProvider:" uri $ \file ->
-  withCachedModuleAndData file (IdeResultOk ()) $ \_tm _info () -> do
+  withCachedModuleAndData file (Right ()) $ \_tm _info () -> do
     -- New save, kill any prior instance that was running
     LiquidData mtid <- get
     mapM_ (liftIO . cancel) mtid
@@ -105,8 +105,8 @@ diagnosticProvider DiagnosticOnSave uri cb = pluginGetFile "Liquid.diagnosticPro
 
     put (LiquidData (Just tid))
 
-    return $ IdeResultOk ()
-diagnosticProvider _ _ _ = return (IdeResultOk ())
+    return $ Right ()
+diagnosticProvider _ _ _ = return $ Right ()
 
 -- ---------------------------------------------------------------------
 
@@ -240,11 +240,11 @@ liquidFileFor uri ext =
 hoverProvider :: HoverProvider
 hoverProvider uri pos =
   pluginGetFile "Liquid.hoverProvider: " uri $ \file ->
-    ifCachedModuleAndData file (IdeResultOk []) $
+    ifCachedModuleAndData file (Right []) $
       \_ info () -> do
         merrs <- liftIO $ readVimAnnot uri
         case merrs of
-          Nothing -> return (IdeResultOk [])
+          Nothing -> return $ Right []
           Just lerrs -> do
             let perrs = map (\le@(LE s e _) -> (lpToPos s,lpToPos e,le)) lerrs
                 ls    = getThingsAtPos info pos perrs
@@ -252,7 +252,7 @@ hoverProvider uri pos =
               let msgs = T.splitOn "\\n" msg
                   msgm = J.markedUpContent "haskell" (T.unlines msgs)
               return $ J.Hover (J.HoverContents msgm) (Just r)
-            return (IdeResultOk hs)
+            return $ Right hs
 
 -- ---------------------------------------------------------------------
 

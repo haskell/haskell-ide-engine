@@ -29,10 +29,10 @@
             |         IdeResult                                            |
             |          +    +                                              |
             |          v    |                                              |
-            | IdeResultFail |                                              |
-            |               v                                              |
-            |          IdeResultOk                                         |
-            |               +                                              |
+            |      IdeError |                                              |
+            |               |                                              |
+            |               |                                              |
+            |               |                                              |
             |               v                                              |
             |          RequestCallback                                     |
             v               +                                              v

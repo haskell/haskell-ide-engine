@@ -39,13 +39,13 @@ ghcmodSpec =
       fp <- makeAbsolute "./FileWithWarning.hs"
       let act = setTypecheckedModule arg
           arg = filePathToUri fp
-      IdeResultOk (_,env) <- runSingle testPlugins fp act
+      Right (_,env) <- runSingle testPlugins fp act
       case env of
         [] -> return ()
         [s] -> T.unpack s `shouldStartWith` "Loaded package environment from"
         ss -> fail $ "got:" ++ show ss
       let
-          res = IdeResultOk $
+          res = Right
             (Diagnostics (Map.singleton (toNormalizedUri arg) (S.singleton diag)), env)
           diag = Diagnostic (Range (toPos (4,7))
                                    (toPos (4,8)))
@@ -67,7 +67,7 @@ ghcmodSpec =
             _ <- setTypecheckedModule uri
             liftToGhc $ newTypeCmd (toPos (5,9)) uri
           arg = TP False uri (toPos (5,9))
-          res = IdeResultOk
+          res = Right
             [ (Range (toPos (5,9)) (toPos (5,10)), "Int")
             , (Range (toPos (5,1)) (toPos (5,14)), "Int -> Int")
             ]
@@ -85,7 +85,7 @@ ghcmodSpec =
     --         -- splitCaseCmd' uri (toPos (5,5))
     --         splitCaseCmd uri (toPos (5,5))
     --       arg = HP uri (toPos (5,5))
-    --       res = IdeResultOk $ WorkspaceEdit
+    --       res = Right $ WorkspaceEdit
     --         (Just $ H.singleton uri
     --                             $ List [TextEdit (Range (Position 4 0) (Position 4 10))
     --                                       "foo Nothing = ()\nfoo (Just x) = ()"])

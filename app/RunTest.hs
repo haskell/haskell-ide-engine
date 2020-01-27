@@ -103,8 +103,8 @@ runServer mlibdir ideplugins targets = do
 prettyPrintDiags
   :: FilePath -> IdeResult (Ghc.Diagnostics, Ghc.AdditionalErrs) -> T.Text
 prettyPrintDiags fp diags = T.pack fp <> ": " <> case diags of
-  IdeResultFail IdeError { ideMessage } -> "FAILED\n\t" <> ideMessage
-  IdeResultOk (_diags, errs) ->
+  Left IdeError { ideMessage } -> "FAILED\n\t" <> ideMessage
+  Right (_diags, errs) ->
     if null errs then "OK" else T.unlines (map (T.append "\t") errs)
 
 -- ---------------------------------------------------------------------

@@ -132,7 +132,7 @@ importModule (ImportParams uri impStyle modName) =
     fileMap      <- reverseFileMap
     let defaultResult = do
           debugm "hsimport: no access to the persisted file."
-          return $ IdeResultOk mempty
+          return $ Right mempty
     withMappedFile origInput defaultResult $ \input -> do
       tmpDir            <- liftIO getTemporaryDirectory
       (output, outputH) <- liftIO $ openTempFile tmpDir "hsimportOutput"
@@ -147,8 +147,7 @@ importModule (ImportParams uri impStyle modName) =
       case maybeErr of
         Just err -> do
           liftIO $ removeFile output
-          let msg = T.pack $ show err
-          return $ IdeResultFail (IdeError PluginError msg Null)
+          ideError PluginError $ show err
         Nothing -> do
           -- Since no error happened, calculate the differences of
           -- the original file and after the import has been done.
@@ -168,7 +167,7 @@ importModule (ImportParams uri impStyle modName) =
                 -- Client may have no formatter selected
                 -- but still the option to format on import.
                 Nothing ->
-                  return $ IdeResultOk (J.WorkspaceEdit mChanges mDocChanges)
+                  return $ Right $ J.WorkspaceEdit mChanges mDocChanges
 
                 Just (_, provider) -> do
                   let
@@ -198,9 +197,9 @@ importModule (ImportParams uri impStyle modName) =
                       formatEdit origEdit@(J.TextEdit r t) = do
                         -- TODO: are these default FormattingOptions ok?
                         formatEdits <-
-                          liftToGhc $ provider t uri FormatText (FormattingOptions 2 True) >>= \case
-                            IdeResultOk xs -> return xs
-                            _              -> return [origEdit]
+                          liftToGhc $ provider t uri FormatText (FormattingOptions 2 True) <&> \case
+                            Right xs -> xs
+                            _        -> [origEdit]
                         -- let edits = foldl' J.editTextEdit origEdit formatEdits -- TODO: this seems broken.
                         return (J.TextEdit r (renormalise t . J._newText $ head formatEdits))
 
@@ -213,9 +212,8 @@ importModule (ImportParams uri impStyle modName) =
                           return $ J.TextDocumentEdit vids newEdits
                     mapM cmd change
 
-                  return
-                    $ IdeResultOk (J.WorkspaceEdit newChanges newDocChanges)
-            else return $ IdeResultOk (J.WorkspaceEdit mChanges mDocChanges)
+                  return $ Right $ J.WorkspaceEdit newChanges newDocChanges
+            else return $ Right $ J.WorkspaceEdit mChanges mDocChanges
 
 -- | Convert the import style arguments into HsImport arguments.
 -- Takes an input and an output file as well as a module name.
@@ -282,8 +280,8 @@ codeActionProvider plId docId _ context = do
       -- If we didn't find any exact matches, relax the search terms.
       -- Only looks for the function names, not the exact siganture.
       relaxedActions <- importActionsForTerms ExactName terms
-      return $ IdeResultOk relaxedActions
-    else return $ IdeResultOk actions
+      return $ Right relaxedActions
+    else return $ Right actions
 
  where
   -- | Creates CodeActions from the diagnostics to add imports.

@@ -73,8 +73,10 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , iterT
   , LiftsToGhc(..)
   -- * IdeResult
-  , IdeResult(..)
-  , IdeResultT(..)
+  , IdeResult
+  , IdeResultT
+  , ideError
+  , ideErrorFrom
   , Defer(..)
   , IdeError(..)
   , IdeErrorCode(..)
@@ -94,11 +96,14 @@ module Haskell.Ide.Engine.PluginsIdeMonads
   , PublishDiagnosticsParams(..)
   , List(..)
   , FormattingOptions(..)
+  , ExceptT(..)
+  , runExceptT
   )
 where
 
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
+import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Free
 import           Control.Monad.Trans.Control
 import           Control.Monad.Base
@@ -116,6 +121,8 @@ import           Data.Maybe
 import qualified Data.Set                      as S
 import           Data.String
 import qualified Data.Text                     as T
+import           Data.Text.Lens                as T
+import qualified Control.Lens                  as L
 import           Data.Typeable                  ( TypeRep )
 
 #if __GLASGOW_HASKELL__ < 808
@@ -251,7 +258,7 @@ data FormattingType = FormatText
 -- The Uri is mainly used to discover formatting configurations in the file's path.
 --
 -- Fails if the formatter can not parse the source.
--- Failing means here that a IdeResultFail is returned.
+-- Failing means here that an ideError is returned.
 -- This can be used to display errors to the user, unless the error is an Internal one.
 -- The record 'IdeError' and 'IdeErrorCode' can be used to determine the type of error.
 --
@@ -317,14 +324,13 @@ runPluginCommand :: PluginId -> CommandId -> Value
 runPluginCommand p@(PluginId p') com@(CommandId com') arg = do
   IdePlugins m <- getPlugins
   case Map.lookup p m of
-    Nothing -> return $
-      IdeResultFail $ IdeError UnknownPlugin ("Plugin " <> p' <> " doesn't exist") Null
+    Nothing -> ideError UnknownPlugin $ "Plugin " <> p' <> " doesn't exist"
     Just PluginDescriptor { pluginCommands = xs } -> case List.find ((com ==) . commandId) xs of
-      Nothing -> return $ IdeResultFail $
-        IdeError UnknownCommand ("Command " <> com' <> " isn't defined for plugin " <> p' <> ". Legal commands are: " <> T.pack(show $ map commandId xs)) Null
+      Nothing -> ideError UnknownCommand
+        $ "Command " <> com' <> " isn't defined for plugin " <> p' <> ". Legal commands are: " <> T.pack (show $ map commandId xs)
       Just (PluginCommand _ _ f) -> case fromJSON arg of
-        Error err -> return $ IdeResultFail $
-          IdeError ParameterError ("error while parsing args for " <> com' <> " in plugin " <> p' <> ": " <> T.pack err) Null
+        Error err -> ideError ParameterError
+          $ "error while parsing args for " <> com' <> " in plugin " <> p' <> ": " <> T.pack err
         Success a -> do
             res <- f a
             return $ fmap toDynJSON res
@@ -508,45 +514,14 @@ instance HasGhcModuleCache IdeM where
 
 -- | The result of a plugin action, containing the result and an error if
 -- it failed. IdeGhcM usually skips IdeResponse and jumps straight to this.
-data IdeResult a = IdeResultOk a
-                 | IdeResultFail IdeError
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+type IdeResult = Either IdeError
+type IdeResultT = ExceptT IdeError
 
-instance Functor IdeResult where
-  fmap f (IdeResultOk x) = IdeResultOk (f x)
-  fmap _ (IdeResultFail err) = IdeResultFail err
+ideError :: (IsText t, Monad m) => IdeErrorCode -> t -> m (IdeResult a)
+ideError code msg = return $ Left $ IdeError code (T.pack $ msg L.^. L.re T.packed) Null
 
-instance Applicative IdeResult where
-  pure = return
-  (IdeResultFail err) <*> _ = IdeResultFail err
-  _ <*> (IdeResultFail err) = IdeResultFail err
-  (IdeResultOk f) <*> (IdeResultOk x) = IdeResultOk (f x)
-
-instance Monad IdeResult where
-  return = IdeResultOk
-  IdeResultOk x >>= f = f x
-  IdeResultFail err >>= _ = IdeResultFail err
-
-newtype IdeResultT m a = IdeResultT { runIdeResultT :: m (IdeResult a) }
-
-instance Monad m => Functor (IdeResultT m) where
-  fmap = liftM
-
-instance Monad m => Applicative (IdeResultT m) where
-  pure = return
-  (<*>) = ap
-
-instance (Monad m) => Monad (IdeResultT m) where
-  return = IdeResultT . return . IdeResultOk
-
-  m >>= f = IdeResultT $ do
-    v <- runIdeResultT m
-    case v of
-      IdeResultOk x -> runIdeResultT (f x)
-      IdeResultFail err -> return $ IdeResultFail err
-
-instance MonadTrans IdeResultT where
-  lift m = IdeResultT (fmap IdeResultOk m)
+ideErrorFrom :: (IsText t, Monad m) => IdeErrorCode -> String -> t -> m (IdeResult a)
+ideErrorFrom code source msg = return $ Left $ IdeError code (T.pack $ source ++ " :" ++ msg L.^. L.re T.packed) Null
 
 -- | Error codes. Add as required
 data IdeErrorCode

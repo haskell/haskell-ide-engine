@@ -105,7 +105,7 @@ packageSpec = do
                     , "        text -any"
                     ]
                   ]
-            res = IdeResultOk
+            res = Right
               $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
           testCommand testPlugins fp act "package" "add" args res
 
@@ -160,7 +160,7 @@ packageSpec = do
                     , "        text -any"
                     ]
                   ]
-            res = IdeResultOk
+            res = Right
               $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
           testCommand testPlugins fp act "package" "add" args res
 
@@ -173,7 +173,7 @@ packageSpec = do
             uri  = filePathToUri $ fp </> "package.yaml"
             args = AddParams fp (fp </> "app" </> "Asdf.hs") "zlib"
             act  = addCmd args
-            res  = IdeResultOk
+            res  = Right
               $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
             textEdits = List
               [ TextEdit (Range (Position 0 0) (Position 32 0)) $ T.concat
@@ -211,7 +211,7 @@ packageSpec = do
             uri  = filePathToUri $ fp </> "package.yaml"
             args = AddParams fp (fp </> "app" </> "Asdf.hs") "zlib"
             act  = addCmd args
-            res  = IdeResultOk
+            res  = Right
               $ WorkspaceEdit (Just $ H.singleton uri textEdits) Nothing
             textEdits =
               List
@@ -243,10 +243,8 @@ packageSpec = do
             fp   = cwd </> testdata </> "invalid"
             args = AddParams fp (fp </> "app" </> "Asdf.hs") "zlib"
             act  = addCmd args
-            res =
-              IdeResultFail
-                (IdeError PluginError
-                          "No package.yaml or .cabal found"
-                          Json.Null
-                )
+            res = Left $ IdeError
+              PluginError
+              "No package.yaml or .cabal found"
+              Json.Null
           testCommand testPlugins fp act "package" "add" args res

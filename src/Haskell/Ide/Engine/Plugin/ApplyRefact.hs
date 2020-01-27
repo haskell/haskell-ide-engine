@@ -82,15 +82,13 @@ applyOneCmd (AOP uri pos title) = pluginGetFile "applyOne: " uri $ \fp -> do
   revMapp <- reverseFileMap
   let defaultResult = do
         debugm "applyOne: no access to the persisted file."
-        return $ IdeResultOk mempty
+        return $ Right mempty
   withMappedFile fp defaultResult $ \file' -> do
     res <- liftToGhc $ applyHint file' (Just oneHint) revMapp
     logm $ "applyOneCmd:file=" ++ show fp
     logm $ "applyOneCmd:res=" ++ show res
-    case res of
-      Left err -> return $ IdeResultFail
-        (IdeError PluginError (T.pack $ "applyOne: " ++ show err) Null)
-      Right fs -> return (IdeResultOk fs)
+    return $ res & _Left %~ \err ->
+      IdeError PluginError (T.pack $ "applyOne: " ++ show err) Null
 
 
 -- ---------------------------------------------------------------------
@@ -99,15 +97,13 @@ applyAllCmd :: Uri -> IdeGhcM (IdeResult WorkspaceEdit)
 applyAllCmd uri = pluginGetFile "applyAll: " uri $ \fp -> do
   let defaultResult = do
         debugm "applyAll: no access to the persisted file."
-        return $ IdeResultOk mempty
+        return $ Right mempty
   revMapp <- reverseFileMap
   withMappedFile fp defaultResult $ \file' -> do
     res <- liftToGhc $ applyHint file' Nothing revMapp
     logm $ "applyAllCmd:res=" ++ show res
-    case res of
-      Left err -> return $ IdeResultFail (IdeError PluginError
-                    (T.pack $ "applyAll: " ++ show err) Null)
-      Right fs -> return (IdeResultOk fs)
+    return $ res & _Left %~ \err ->
+      IdeError PluginError (T.pack $ "applyAll: " ++ show err) Null
 
 -- ---------------------------------------------------------------------
 
@@ -118,26 +114,18 @@ lint uri = pluginGetFile "lint: " uri $ \fp -> do
     defaultResult = do
       debugm "lint: no access to the persisted file."
       return
-        $ IdeResultOk (PublishDiagnosticsParams (filePathToUri fp) $ List [])
+        $ Right $ PublishDiagnosticsParams (filePathToUri fp) $ List []
   withMappedFile fp defaultResult $ \file' -> do
     eitherErrorResult <- liftIO
       (try $ runExceptT $ runLint file' [] :: IO
           (Either IOException (Either [Diagnostic] [Idea]))
       )
     case eitherErrorResult of
-      Left err -> return $ IdeResultFail
-        (IdeError PluginError (T.pack $ "lint: " ++ show err) Null)
-      Right res -> case res of
-        Left diags ->
-          return
-            (IdeResultOk
-              (PublishDiagnosticsParams (filePathToUri fp) $ List diags)
-            )
-        Right fs ->
-          return
-            $ IdeResultOk
-            $ PublishDiagnosticsParams (filePathToUri fp)
-            $ List (map hintToDiagnostic $ stripIgnores fs)
+      Left err -> ideErrorFrom PluginError "lint" $ show err
+      Right res -> return $ Right $
+        PublishDiagnosticsParams (filePathToUri fp) $ List $ case res of
+          Left diags -> diags
+          Right fs -> map hintToDiagnostic $ stripIgnores fs
 
 runLint :: FilePath -> [String] -> ExceptT [Diagnostic] IO [Idea]
 runLint fp args = do
@@ -311,7 +299,7 @@ showParseError (Hlint.ParseError location message content) =
 -- ---------------------------------------------------------------------
 
 codeActionProvider :: CodeActionProvider
-codeActionProvider plId docId _ context = IdeResultOk <$> hlintActions
+codeActionProvider plId docId _ context = Right <$> hlintActions
   where
 
     hlintActions :: IdeM [LSP.CodeAction]

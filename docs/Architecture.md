@@ -188,7 +188,7 @@ If there is no cached module available, then it will automatically defer your re
 or return a default if that then fails to typecheck:
 
 ```haskell
-withCachedModule file (IdeResultOk []) $ \cm -> do
+withCachedModule file (Right []) $ \cm -> do
   -- poke about with cm here
 ```
 

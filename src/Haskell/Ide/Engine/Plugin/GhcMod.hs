@@ -5,6 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeApplications    #-}
 module Haskell.Ide.Engine.Plugin.GhcMod
   (
     ghcmodDescriptor
@@ -74,7 +75,7 @@ checkCmd = HIE.setTypecheckedModule
 
 splitCaseCmd :: Hie.HarePoint -> IdeGhcM (IdeResult WorkspaceEdit)
 splitCaseCmd (Hie.HP _uri _pos)
-  = return (IdeResultFail (IdeError PluginError "splitCaseCmd not implemented" Null))
+  = ideError @String PluginError "splitCaseCmd not implemented"
 
 -- ---------------------------------------------------------------------
 
