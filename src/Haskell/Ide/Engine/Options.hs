@@ -1,9 +1,6 @@
 {-# LANGUAGE CPP #-}
 module Haskell.Ide.Engine.Options where
 
-#if __GLASGOW_HASKELL__ < 804
-import           Data.Semigroup
-#endif
 #if __GLASGOW_HASKELL__ < 808
 import           Data.Monoid                           ((<>))
 #endif
@@ -29,6 +26,7 @@ data GlobalOpts = GlobalOpts
   , optFiles         :: [FilePath]
   } deriving (Show)
 
+-- | Introduced as the common prefix of app/HieWrapper.hs/main and app/MainHie.hs/main
 initApp :: String -> IO GlobalOpts
 initApp namedesc = do
   hSetBuffering stderr LineBuffering
