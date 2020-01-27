@@ -3,23 +3,15 @@
 -- https://github.com/alanz/vscode-hie-server
 module Main where
 
-#if __GLASGOW_HASKELL__ < 804
-import           Data.Semigroup
-#endif
 import           Data.List
 import           Data.Foldable
-import           Data.Version                          (showVersion)
 import           HIE.Bios
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.Cradle (findLocalCradle)
 import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.Version
-import qualified Language.Haskell.LSP.Core             as Core
-import           Options.Applicative.Simple
-import qualified Paths_haskell_ide_engine              as Meta
 import           System.Directory
 import           System.Environment
-import qualified System.Log.Logger as L
 import           System.Process
 import           System.Info
 import           System.FilePath
@@ -28,45 +20,8 @@ import           System.FilePath
 
 main :: IO ()
 main = do
-    let
-        numericVersion :: Parser (a -> a)
-        numericVersion =
-            infoOption
-                (showVersion Meta.version)
-                (long "numeric-version" <>
-                 help "Show only version number")
-        compiler :: Parser (a -> a)
-        compiler =
-            infoOption
-                hieGhcDisplayVersion
-                (long "compiler" <>
-                 help "Show only compiler and version supported")
-    -- Parse the options and run
-    (global, ()) <-
-        simpleOptions
-            hieVersion
-            "hie-wrapper - Launch the appropriate haskell-ide-engine for a given project"
-            ""
-            (numericVersion <*> compiler <*> globalOptsParser)
-            empty
-
-    run global
-
--- ---------------------------------------------------------------------
-
-run :: GlobalOpts -> IO ()
-run opts = do
-  let mLogFileName = optLogFile opts
-
-      logLevel = if optDebugOn opts
-                   then L.DEBUG
-                   else L.INFO
-
-  Core.setupLogger mLogFileName ["hie"] logLevel
-
-  maybe (pure ()) setCurrentDirectory $ projectRoot opts
-
-
+  _opts <- initApp
+    "hie-wrapper - Launch the appropriate haskell-ide-engine for a given project"
   progName <- getProgName
   logm $  "run entered for hie-wrapper(" ++ progName ++ ") " ++ hieVersion
   d <- getCurrentDirectory

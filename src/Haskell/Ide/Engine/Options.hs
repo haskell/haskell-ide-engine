@@ -1,7 +1,21 @@
 {-# LANGUAGE CPP #-}
 module Haskell.Ide.Engine.Options where
 
+#if __GLASGOW_HASKELL__ < 804
+import           Data.Semigroup
+#endif
+#if __GLASGOW_HASKELL__ < 808
+import           Data.Monoid                           ((<>))
+#endif
+import           Data.Version                          (showVersion)
+import           Haskell.Ide.Engine.Version
+import qualified Language.Haskell.LSP.Core             as Core
 import           Options.Applicative.Simple
+import qualified Paths_haskell_ide_engine              as Meta
+import           System.Directory
+import           System.IO
+import qualified System.Log.Logger                     as L
+import           Data.Foldable
 
 data GlobalOpts = GlobalOpts
   { optDebugOn       :: Bool
@@ -14,6 +28,27 @@ data GlobalOpts = GlobalOpts
   , optDryRun        :: Bool
   , optFiles         :: [FilePath]
   } deriving (Show)
+
+initApp :: String -> IO GlobalOpts
+initApp namedesc = do
+  hSetBuffering stderr LineBuffering
+  let numericVersion :: Parser (a -> a)
+      numericVersion = infoOption (showVersion Meta.version)
+        (long "numeric-version" <> help "Show only version number")
+      compiler :: Parser (a -> a)
+      compiler = infoOption hieGhcDisplayVersion
+        (long "compiler" <> help "Show only compiler and version supported")
+    -- Parse the options and run
+  (opts, ()) <- simpleOptions
+    hieVersion
+    namedesc
+    ""
+    (numericVersion <*> compiler <*> globalOptsParser)
+    empty             
+  Core.setupLogger (optLogFile opts) ["hie", "hie-bios"]
+    $ if optDebugOn opts then L.DEBUG else L.INFO
+  traverse_ setCurrentDirectory $ projectRoot opts
+  return opts
 
 globalOptsParser :: Parser GlobalOpts
 globalOptsParser = GlobalOpts
