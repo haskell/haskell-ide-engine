@@ -79,9 +79,12 @@ provider contents uri typ _ = pluginGetFile contents uri $ \fp -> do
         txt = T.lines $ extractRange r contents
         lineRange (Range (Position sl _) (Position el _)) =
           Range (Position sl 0) $ Position el $ T.length $ last txt
-        fixLine t = if T.all isSpace $ last txt then t else T.init t
+        hIsSpace (h : _) = T.all isSpace h
+        hIsSpace _       = True
+        fixS t = if hIsSpace txt && (not $ hIsSpace t) then "" : t else t
+        fixE t = if T.all isSpace $ last txt then t else T.init t
         unStrip ws new =
-          fixLine $ T.unlines $ map (ws `T.append`) $ T.lines new
+          fixE $ T.unlines $ map (ws `T.append`) $ fixS $ T.lines new
         mStrip = case txt of
           (l : _) ->
             let ws = fst $ T.span isSpace l
