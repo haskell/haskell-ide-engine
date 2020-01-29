@@ -78,7 +78,7 @@ helpMessage versions@BuildableVersions {..} = do
     [emptyTarget]
     [ generalTargets
     , defaultTargets
-    , if isRunFromCabal then [cabalGhcsTarget] else []
+    , if isRunFromCabal then [cabalGhcsTarget] else [stackDevTarget]
     , [macosIcuTarget]
     ]
 
@@ -97,13 +97,13 @@ templateTarget = ("<target>", "")
 
 hieTarget :: String -> TargetDescription
 hieTarget version =
-  ("hie-" ++ version, "Builds hie for GHC version " ++ version)
+  ("hie-" ++ version, "Install hie for GHC version " ++ version)
 
 buildTarget :: TargetDescription
-buildTarget = ("hie", "Build hie with the latest available GHC and the data files")
+buildTarget = ("hie", "Install hie with the latest available GHC and the data files")
 
 buildLatestTarget :: TargetDescription
-buildLatestTarget = ("latest", "Build hie with the latest available GHC")
+buildLatestTarget = ("latest", "Install hie with the latest available GHC")
 
 buildDataTarget :: TargetDescription
 buildDataTarget =
@@ -122,3 +122,6 @@ cabalGhcsTarget =
   ( "ghcs"
   , "Show all GHC versions that can be installed via `cabal-build`."
   )
+
+stackDevTarget :: TargetDescription
+stackDevTarget = ("dev", "Install hie with the default stack.yaml")

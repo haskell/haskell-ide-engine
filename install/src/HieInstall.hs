@@ -78,15 +78,19 @@ defaultMain = do
       (\version -> phony ("hie-" ++ version) $ do
         need ["submodules"]
         need ["check"]
-        if isRunFromStack then do 
-          stackBuildHie version
-          stackInstallHie version
+        if isRunFromStack then do
+          stackInstallHieWithErrMsg (Just version)
         else
           cabalInstallHie version
       )
 
     phony "latest" (need ["hie-" ++ latestVersion])
     phony "hie"  (need ["data", "latest"])
+
+    -- stack specific targets
+    when isRunFromStack $ do
+
+      phony "dev" $ stackInstallHieWithErrMsg Nothing
 
     -- cabal specific targets
     when isRunFromCabal $ do
