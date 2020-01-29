@@ -78,8 +78,7 @@ execStackWithGhc versionNumber args = do
 
 -- | Execute a stack command for a specified stack.yaml file, discarding the output
 execStackWithCfgFile_ :: String -> [String] -> Action ()
-execStackWithCfgFile_ stackFile args = 
-  command_ [] "stack" (("--stack-yaml=" ++ stackFile) : args)
+execStackWithCfgFile_ = execStackWithCfgFile
 
 -- | Execute a stack command for a specified stack.yaml file
 execStackWithCfgFile :: CmdResult r => String -> [String] -> Action r
