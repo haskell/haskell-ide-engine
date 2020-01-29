@@ -4,6 +4,11 @@ packages:
 
          -- ./submodules/HaRe
 
+source-repository-package
+    type: git
+    location: https://github.com/alanz/haskell-lsp.git
+    tag: 14f55c5ab6a0ff82288380054874bf3f12e498f4
+
 tests: true
 
 package haskell-ide-engine
