@@ -4,7 +4,7 @@ Currently the main development effort is focused in [integrating haskell-ide-eng
 
 https://github.com/haskell/ide
 
-Until the new `haskell-ide` doesn't reach the feature level and stability of `haskell-ide-engine`, we aim to continue doing monthly releases. However, in general, bug fixes will be favored over new features and refactorings. They could be redirected to the new repo to avoid duplicated efforts.
+Until the new `haskell-ide` reaches the feature level and stability of `haskell-ide-engine`, we aim to continue doing monthly releases. However, in general, bug fixes will be favored over new features and refactorings. They could be redirected to the new repo to avoid duplicated efforts.
 
 You still can contribute to improve the haskell ide experience! If you are not sure if you contribution should belong to this repo or the new one, feel free to ask in [any of the communication channels](#its-time-to-join-the-project).  
 
