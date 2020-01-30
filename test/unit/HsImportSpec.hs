@@ -2,16 +2,16 @@
 module HsImportSpec where
 
 import           Control.Monad.IO.Class
-import qualified Data.Text as T
-import qualified Data.HashMap.Strict as Map
+import qualified Data.HashMap.Strict                as Map
+import qualified Data.Text                          as T
+import qualified Haskell.Ide.Engine.Config          as Config
 import           Haskell.Ide.Engine.MonadTypes
-import           Haskell.Ide.Engine.PluginUtils
-import           Haskell.Ide.Engine.Plugin.HsImport
-import qualified Haskell.Ide.Engine.Config as Config
 import qualified Haskell.Ide.Engine.Plugin.Brittany as Brittany
-import qualified Haskell.Ide.Engine.Plugin.Ormolu   as Ormolu
 import qualified Haskell.Ide.Engine.Plugin.Floskell as Floskell
+import           Haskell.Ide.Engine.Plugin.HsImport
+import qualified Haskell.Ide.Engine.Plugin.Ormolu   as Ormolu
 import qualified Haskell.Ide.Engine.Plugin.Stylish  as Stylish
+import           Haskell.Ide.Engine.PluginUtils
 import           System.Directory
 import           System.FilePath
 import           Test.Hspec
@@ -136,17 +136,17 @@ hsImportSpec = do
       ]
     , [ TextEdit (Range (toPos (2, 1)) (toPos (2, 1))) "import           Data.Maybe (Maybe)\n"
       ]
-    , [ TextEdit (Range (toPos (2, 1)) (toPos (2, 1))) "import           Data.Maybe (Maybe(..))\n"
+    , [ TextEdit (Range (toPos (2, 1)) (toPos (2, 1))) "import           Data.Maybe (Maybe (..))\n"
       ]
-    , [ TextEdit (Range (toPos (2, 1)) (toPos (2, 1))) "import           Data.Maybe (Maybe(Nothing))\n"
+    , [ TextEdit (Range (toPos (2, 1)) (toPos (2, 1))) "import           Data.Maybe (Maybe (Nothing))\n"
       ]
     , [ TextEdit (Range (toPos (2, 1)) (toPos (2, 1))) "import           Data.Function (($))\n"
       ]
     , [ TextEdit (Range (toPos (2, 1)) (toPos (2, 32))) "import           System.IO (IO, hPutStrLn)"
       ]
     , [ TextEdit (Range (toPos (3, 1)) (toPos (3, 99))) $
-        "import           Data.List (find, head, last, tail, init, union, (\\\\), null\n" <>
-        "                          , length, cons, uncons, reverse)"
+        "import           Data.List (cons, find, head, init, last, length, null, reverse,\n" <>
+        "                            tail, uncons, union, (\\\\))"
       ]
     ]
 -- ---------------------------------------------------------------------
@@ -218,4 +218,4 @@ expectHsImportResult formatterName fp uri expectedChanges act = do
   IdeResultOk (WorkspaceEdit (Just changes) _) <- runSingle' (setFormatter formatterName) testPlugins fp act
   case Map.lookup uri changes of
       Just (List val) -> val `shouldBe` expectedChanges
-      Nothing -> fail "No Change found"
+      Nothing         -> fail "No Change found"
