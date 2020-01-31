@@ -26,7 +26,7 @@ extra-deps:
 - hie-bios-0.3.2
 - hlint-2.2.8
 - hsimport-0.11.0
-- HsYAML-0.2.1.0@sha256:e4677daeba57f7a1e9a709a1f3022fe937336c91513e893166bd1f023f530d68,5311
+- HsYAML-0.2.1.0
 - HsYAML-aeson-0.2.0.0@sha256:04796abfc01cffded83f37a10e6edba4f0c0a15d45bef44fc5bb4313d9c87757,1791
 - lsp-test-0.10.0.0
 - monad-dijkstra-0.1.1.2@rev:1
