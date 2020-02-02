@@ -30,8 +30,9 @@ spec = describe "window/workDoneProgress" $ do
 
       startNotification <- message :: Session WorkDoneProgressBeginNotification
       liftIO $ do
-        -- Expect a multi cradle, since testdata project has multiple executables
-        startNotification ^. L.params . L.value . L.title `shouldBe` "Initializing Multi Component project"
+        -- Expect a stack cradle, since the given `hie.yaml` is expected
+        -- to contain a multi-stack cradle.
+        startNotification ^. L.params . L.value . L.title `shouldBe` "Initializing Stack project"
         startNotification ^. L.params . L.token `shouldBe` (ProgressNumericToken 0)
 
       reportNotification <- message :: Session WorkDoneProgressReportNotification

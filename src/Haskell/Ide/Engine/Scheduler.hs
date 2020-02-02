@@ -149,7 +149,7 @@ runScheduler
   -> Core.LspFuncs Config
       -- ^ The LspFuncs provided by haskell-lsp.
   -> PublishDiagnostics
-  -> Maybe Bios.Cradle
+  -> Maybe (Bios.Cradle Bios.CabalHelper)
      -- ^ Context in which the ghc thread is executed.
      -- Neccessary to obtain the libdir, for example.
   -> IO ()
