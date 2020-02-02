@@ -103,7 +103,7 @@ library
                      , vector
                      , versions
                      , yaml >= 0.8.31
-                     , hie-bios >= 0.3.2 && < 0.4.0
+                     , hie-bios >= 0.4 && < 0.5.0
                      , bytestring-trie
                      , unliftio
                      , hlint >= 2.2.8

@@ -1,7 +1,6 @@
 packages:
          ./
          ./hie-plugin-api/
-
          -- ./submodules/HaRe
 
 tests: true

@@ -56,7 +56,7 @@ import qualified HIE.Bios.Ghc.Api as Bios
 import qualified Language.Haskell.LSP.Types as J
 import qualified Language.Haskell.LSP.Diagnostics as J
 import           Haskell.Ide.Engine.ArtifactMap
-import           Haskell.Ide.Engine.Cradle (findLocalCradle, cradleDisplay)
+import           Haskell.Ide.Engine.Cradle (findLocalCradle, cradleDisplay, CabalHelper)
 import           Haskell.Ide.Engine.TypeMap
 import           Haskell.Ide.Engine.GhcModuleCache
 import           Haskell.Ide.Engine.MultiThreadState
@@ -164,8 +164,7 @@ loadCradle publishDiagnostics iniDynFlags (NewCradle fp) def action = do
  where
   -- | Initialise the given cradle. This might fail and return an error via `IdeResultFail`.
   -- Reports its progress to the client.
-  initialiseCradle :: (MonadIde m, HasGhcModuleCache m, GHC.GhcMonad m)
-                  => Bios.Cradle -> (Progress -> IO ()) -> m (IdeResult a)
+  initialiseCradle :: Bios.Cradle CabalHelper -> (Progress -> IO ()) -> m (IdeResult a)
   initialiseCradle cradle f = do
     res <- initializeFlagsWithCradleWithMessage (Just (toMessager f)) fp cradle
     case res of
@@ -240,7 +239,7 @@ initializeFlagsWithCradleWithMessage ::
   GHC.GhcMonad m
   => Maybe GHC.Messager
   -> FilePath -- ^ The file we are loading the 'Cradle' because of
-  -> Bios.Cradle -- ^ The cradle we want to load
+  -> Bios.Cradle CabalHelper -- ^ The cradle we want to load
   -> m (Bios.CradleLoadResult (m GHC.SuccessFlag, Bios.ComponentOptions)) -- ^ Whether we actually loaded the cradle or not.
 initializeFlagsWithCradleWithMessage msg fp cradle =
     fmap (initSessionWithMessage msg) <$> liftIO (Bios.getCompilerOptions fp cradle)
@@ -261,7 +260,7 @@ initSessionWithMessage msg copts = (do
 -- that belong to this cradle.
 -- If the cradle does not load any module, it is responsible for an empty
 -- list of Modules.
-setCurrentCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => Bios.Cradle -> Bios.ComponentOptions -> m ()
+setCurrentCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => Bios.Cradle CabalHelper -> Bios.ComponentOptions -> m ()
 setCurrentCradle cradle co = do
     mg <- GHC.getModuleGraph
     let ps = mapMaybe (GHC.ml_hs_file . GHC.ms_location) (mgModSummaries mg)
@@ -274,7 +273,7 @@ setCurrentCradle cradle co = do
 -- for.
 -- Via 'lookupCradle' it can be checked if a given FilePath is managed by
 -- a any Cradle that has already been loaded.
-cacheCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => ([FilePath], Bios.Cradle, Bios.ComponentOptions) -> m ()
+cacheCradle :: (HasGhcModuleCache m, GHC.GhcMonad m) => ([FilePath], Bios.Cradle CabalHelper, Bios.ComponentOptions) -> m ()
 cacheCradle (ds, c, co) = do
   env <- GHC.getSession
   let cc = CachedCradle c env co
@@ -333,7 +332,7 @@ ifCachedModuleM fp k callback = do
 -- available.
 -- If you are in IdeDeferM and would like to wait until a cached module is available,
 -- see also 'withCachedModuleAndData'.
-ifCachedModuleAndData :: forall a b m. (ModuleCache a, HasGhcModuleCache m, MonadIO m, MonadMTState IdeState m)
+ifCachedModuleAndData :: forall a b m. (ModuleCache a, HasGhcModuleCache m, MonadMTState IdeState m)
                       => FilePath -> b -> (GHC.TypecheckedModule -> CachedInfo -> a -> m b) -> m b
 ifCachedModuleAndData fp def callback = do
   muc <- getUriCache fp
@@ -388,7 +387,7 @@ deferIfNotCached fp cb = do
     Just res -> cb res
     Nothing -> wrap (Defer fp cb)
 
-lookupCachedData :: forall a m. (HasGhcModuleCache m, MonadMTState IdeState m, MonadIO m, Typeable a, ModuleCache a)
+lookupCachedData :: forall a m. (HasGhcModuleCache m, MonadMTState IdeState m, ModuleCache a)
                  => FilePath -> GHC.TypecheckedModule -> CachedInfo -> (Map.Map TypeRep Dynamic) -> m a
 lookupCachedData fp tm info dat = do
   canonical_fp <- liftIO $ canonicalizePath fp
@@ -520,7 +519,7 @@ deleteCachedModule uri = do
 -- TODO: this name is confusing, given GhcModuleCache. Change it
 class Typeable a => ModuleCache a where
     -- | Defines an initial value for the state extension
-    cacheDataProducer :: (MonadIO m, MonadMTState IdeState m)
+    cacheDataProducer :: (MonadMTState IdeState m)
                       => GHC.TypecheckedModule -> CachedInfo -> m a
 
 instance ModuleCache () where

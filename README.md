@@ -1,3 +1,13 @@
+# Integration with `ghcide`: the new `haskell-ide`
+
+Currently the main development effort is focused in [integrating haskell-ide-engine](https://github.com/haskell/haskell-ide-engine/issues/1416) and [ghcide](https://github.com/digital-asset/ghcide) under a common repository:
+
+https://github.com/haskell/haskell-language-server
+
+Until the new `haskell-language-server` reaches the feature level and stability of `haskell-ide-engine`, we aim to continue doing monthly releases. However, in general, bug fixes will be favored over new features and refactorings. They could be redirected to the new repo to avoid duplicated efforts.
+
+You still can contribute to improve the haskell ide experience! If you are not sure if you contribution should belong to this repo or the new one, feel free to ask in [any of the communication channels](#its-time-to-join-the-project).  
+
 # Haskell IDE Engine (HIE)
 <img src="https://github.com/haskell/haskell-ide-engine/raw/master/logos/HIE_logo_512.png" width="256" style="margin:25px;" align="right"/>
 
@@ -14,6 +24,8 @@
 [appveyor]: https://ci.appveyor.com/project/Bubba/haskell-ide-engine-74xec
 
 
+
+
 This project aims to be __the universal interface__ to __a growing number of Haskell tools__, providing a __fully-featured [Language Server Protocol](https://github.com/Microsoft/language-server-protocol/blob/master/protocol.md) server__ for editors and IDEs that require Haskell-specific functionality.
 
 - [Haskell IDE Engine (HIE)](#haskell-ide-engine-hie)
@@ -21,6 +33,7 @@ This project aims to be __the universal interface__ to __a growing number of Has
   - [Installation](#installation)
     - [Installation with Nix](#installation-with-nix)
     - [Installation on ArchLinux](#installation-on-archlinux)
+    - [Installation with GHC and HIE as a VS Code Devcontainer](#installation-with-ghc-and-hie-as-a-vs-code-devcontainer)
     - [Installation from source](#installation-from-source)
       - [Common pre-requirements](#common-pre-requirements)
       - [Linux-specific pre-requirements](#linux-specific-pre-requirements)
@@ -140,10 +153,19 @@ Using [Aura](https://github.com/aurapm/aura):
 # aura -A haskell-ide-engine
 ```
 
+### Installation with GHC and HIE as a VS Code Devcontainer
+
+VS Code provides the ability to develop applications inside of a Docker container (called _Devcontainers_)
+https://code.visualstudio.com/docs/remote/containers
+
+There is a community Devcontainer setup which installs and configures GHC + HIE 8.6.5 and the necessary VS Code extensions to integrate them into the editor.
+
+https://github.com/hmemcpy/haskell-hie-devcontainer
+
 
 ### Installation from source
 
-To install HIE, you need stack version >= 1.7.1.
+To install HIE, you need stack version >= 2.1.1.
 
 HIE builds from source code, so there's a couple of extra steps.
 
@@ -693,16 +715,7 @@ Or you can set the environment variable `HIE_HOOGLE_DATABASE` to specify a speci
 
 ## Contributing
 
-### Planned Features
-
- - [x] Multiproject support
- - [x] New-build support
- - [ ] Project wide references
- - [ ] Cross project find definition
- - [ ] More HaRe refactorings
- - [ ] More code actions
- - [ ] Cross project/dependency Find Definition
- - [ ] Case splitting, type insertion etc.
+Please see the [note above](#integration-with-ghcide-the-new-haskell-ide) about the new `haskell-ide` project.
 
 This project is not started from scratch:
 

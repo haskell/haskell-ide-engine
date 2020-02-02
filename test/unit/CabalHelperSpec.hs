@@ -91,14 +91,14 @@ cabalHelperCradleSpec = do
       let fp = multiSourceDirsPath cwd </> "src" </> "BetterLib.hs"
       componentTest fp isStackCradle
 
-componentTest :: FilePath -> (Cradle -> Bool) -> Expectation
+componentTest :: FilePath -> (Cradle CabalHelper -> Bool) -> Expectation
 componentTest fp testCradleType = do
   crdl <- cabalHelperCradle  fp
   crdl `shouldSatisfy` testCradleType
   -- TODO: this works but CI crashes
   -- loadComponent crdl fp
 
-loadComponent :: Cradle -> FilePath -> Expectation
+loadComponent :: Cradle CabalHelper -> FilePath -> Expectation
 loadComponent crdl fp = do
   result <- runCradle (cradleOptsProg crdl) (\_ -> return ()) fp
   case result of

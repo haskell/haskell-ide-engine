@@ -29,6 +29,7 @@ library
                        Haskell.Ide.Engine.Context
                        Haskell.Ide.Engine.Ghc
                        Haskell.Ide.Engine.GhcModuleCache
+                       Haskell.Ide.Engine.Logger
                        Haskell.Ide.Engine.ModuleCache
                        Haskell.Ide.Engine.MonadFunctions
                        Haskell.Ide.Engine.MonadTypes
@@ -51,7 +52,7 @@ library
                      , fingertree
                      , free
                      , ghc
-                     , hie-bios >= 0.3.2 && < 0.4.0
+                     , hie-bios
                      , cabal-helper
                      , haskell-lsp == 0.19.*
                      , hslogger

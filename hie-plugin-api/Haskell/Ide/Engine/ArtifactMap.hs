@@ -8,7 +8,7 @@ import qualified GHC
 import           GHC                               (TypecheckedModule)
 import qualified SrcLoc                            as GHC
 import qualified Var
-import Haskell.Ide.Engine.GhcCompat
+import           Haskell.Ide.Engine.GhcCompat
 
 import           Language.Haskell.LSP.Types
 

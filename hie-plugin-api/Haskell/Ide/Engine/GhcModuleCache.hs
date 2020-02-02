@@ -4,21 +4,19 @@
 
 module Haskell.Ide.Engine.GhcModuleCache where
 
-import qualified Data.Map as Map
+import qualified Data.ByteString.Char8 as B
 import           Data.Dynamic (Dynamic)
+import           Data.List
+import qualified Data.Map as Map
+import qualified Data.Trie as T
 import           Data.Typeable (TypeRep)
 
-import qualified HIE.Bios as BIOS
-import qualified Data.Trie as T
-import qualified Data.ByteString.Char8 as B
-
+import qualified HIE.Bios as Bios
 import           GHC (TypecheckedModule, ParsedModule, HscEnv)
 
-import Data.List
-
-import Haskell.Ide.Engine.ArtifactMap
-
-import Language.Haskell.LSP.Types
+import           Haskell.Ide.Engine.ArtifactMap
+import           Haskell.Ide.Engine.Cradle
+import           Language.Haskell.LSP.Types
 
 type UriCaches = Map.Map FilePath UriCacheResult
 
@@ -103,7 +101,7 @@ lookupCradle fp gmc =
 
 -- | Find the cradle wide 'ComponentOptions' that apply to a 'FilePath'
 lookupComponentOptions
-  :: HasGhcModuleCache m => FilePath -> m (Maybe BIOS.ComponentOptions)
+  :: HasGhcModuleCache m => FilePath -> m (Maybe Bios.ComponentOptions)
 lookupComponentOptions fp = do
   gmc <- getModuleCache
   return $ lookupInCache fp gmc (const Just) (Just . compOpts) Nothing
@@ -112,7 +110,7 @@ lookupInCache
   :: FilePath
   -> GhcModuleCache
   -- | Called when file is in the current cradle
-  -> (BIOS.Cradle -> BIOS.ComponentOptions -> a)
+  -> (Bios.Cradle CabalHelper -> Bios.ComponentOptions -> a)
   -- | Called when file is a member of a cached cradle
   -> (CachedCradle -> a)
   -- | Default value to return if a cradle is not found
@@ -126,9 +124,9 @@ lookupInCache fp gmc cur cached def = case currentCradle gmc of
 
 -- | A 'Cradle', it's 'HscEnv' and 'ComponentOptions'
 data CachedCradle = CachedCradle
-  { ccradle :: BIOS.Cradle
+  { ccradle :: Bios.Cradle CabalHelper
   , hscEnv :: HscEnv
-  , compOpts :: BIOS.ComponentOptions
+  , compOpts :: Bios.ComponentOptions
   }
 
 instance Show CachedCradle where
@@ -139,7 +137,7 @@ data GhcModuleCache = GhcModuleCache
               -- ^ map from FilePath to cradle and it's config.
               -- May not include currentCradle
   , uriCaches  :: !UriCaches
-  , currentCradle :: Maybe ([FilePath], BIOS.Cradle, BIOS.ComponentOptions)
+  , currentCradle :: Maybe ([FilePath], Bios.Cradle CabalHelper, Bios.ComponentOptions)
               -- ^ The current cradle, it's config,
               -- and which FilePath's it is responsible for.
   } deriving (Show)

@@ -5,30 +5,22 @@ module Main where
 
 import qualified Control.Exception                     as E
 import           Control.Monad
-#if __GLASGOW_HASKELL__ < 808
-import           Data.Monoid                           ((<>))
-#endif
-import           Data.Version                          (showVersion)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import qualified Data.Yaml as Yaml
 import           HIE.Bios.Types
-import           Haskell.Ide.Engine.Cradle (findLocalCradle, cradleDisplay, getProjectGhcLibDir)
+import           Haskell.Ide.Engine.Cradle (findLocalCradle, cradleDisplay
+                                           , getProjectGhcLibDir, CabalHelper)
 import           Haskell.Ide.Engine.MonadFunctions
 import           Haskell.Ide.Engine.MonadTypes
 import           Haskell.Ide.Engine.Options
 import           Haskell.Ide.Engine.Scheduler
 import           Haskell.Ide.Engine.Server
 import           Haskell.Ide.Engine.Version
-import qualified Language.Haskell.LSP.Core             as Core
-import           Options.Applicative.Simple
-import qualified Paths_haskell_ide_engine              as Meta
 import           System.Directory
 import           System.Environment
 import           System.FilePath
 import           System.Info
-import           System.IO
-import qualified System.Log.Logger                     as L
 
 -- ---------------------------------------------------------------------
 
@@ -86,47 +78,9 @@ plugins includeExamples = pluginDescToIdePlugins allPlugins
 
 main :: IO ()
 main = do
-    let
-        numericVersion :: Parser (a -> a)
-        numericVersion =
-            infoOption
-                (showVersion Meta.version)
-                (long "numeric-version" <>
-                 help "Show only version number")
-        compiler :: Parser (a -> a)
-        compiler =
-            infoOption
-                hieGhcDisplayVersion
-                (long "compiler" <>
-                 help "Show only compiler and version supported")
-    -- Parse the options and run
-    (global, ()) <-
-        simpleOptions
-            hieVersion
-            "haskell-ide-engine - Provide a common engine to power any Haskell IDE"
-            ""
-            (numericVersion <*> compiler <*> globalOptsParser)
-            empty
-
-    run global
-
--- ---------------------------------------------------------------------
-
-run :: GlobalOpts -> IO ()
-run opts = do
-  hSetBuffering stderr LineBuffering
-  let mLogFileName = optLogFile opts
-
-      logLevel = if optDebugOn opts
-                   then L.DEBUG
-                   else L.INFO
-
-  Core.setupLogger mLogFileName ["hie", "hie-bios"] logLevel
-
   origDir <- getCurrentDirectory
-
-  maybe (pure ()) setCurrentDirectory $ projectRoot opts
-
+  opts <- initApp
+    "haskell-ide-engine - Provide a common engine to power any Haskell IDE"
   progName <- getProgName
   args <- getArgs
 
@@ -200,7 +154,7 @@ run opts = do
 
 -- ---------------------------------------------------------------------
 
-getCradleInfo :: FilePath -> IO (Either Yaml.ParseException Cradle)
+getCradleInfo :: FilePath -> IO (Either Yaml.ParseException (Cradle CabalHelper))
 getCradleInfo currentDir = do
         let dummyCradleFile = currentDir </> "File.hs"
         cradleRes <- E.try (findLocalCradle dummyCradleFile)
