@@ -81,6 +81,8 @@ library
                      , hoogle >= 5.0.13
                      , hsimport
                      , hslogger
+                     , HsYAML >= 0.2.1.0
+                     , HsYAML-aeson >= 0.2.0.0
                      , lifted-async
                      , lens >= 4.15.2
                      , monoid-subclasses > 0.4
