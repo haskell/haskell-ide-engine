@@ -91,7 +91,7 @@ library
                      , safe
                      , sorted-list >= 0.2.1.0
                      , stm
-                     , stylish-haskell
+                     , stylish-haskell >= 0.10.0.0
                      , syb
                      , tagsoup
                      , text
