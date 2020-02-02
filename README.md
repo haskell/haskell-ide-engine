@@ -33,6 +33,7 @@ This project aims to be __the universal interface__ to __a growing number of Has
   - [Installation](#installation)
     - [Installation with Nix](#installation-with-nix)
     - [Installation on ArchLinux](#installation-on-archlinux)
+    - [Installation with GHC and HIE as a VS Code Devcontainer](#installation-with-ghc-and-hie-as-a-vs-code-devcontainer)
     - [Installation from source](#installation-from-source)
       - [Common pre-requirements](#common-pre-requirements)
       - [Linux-specific pre-requirements](#linux-specific-pre-requirements)
@@ -151,6 +152,15 @@ Using [Aura](https://github.com/aurapm/aura):
 ```
 # aura -A haskell-ide-engine
 ```
+
+### Installation with GHC and HIE as a VS Code Devcontainer
+
+VS Code provides the ability to develop applications inside of a Docker container (called _Devcontainers_)
+https://code.visualstudio.com/docs/remote/containers
+
+There is a community Devcontainer setup which installs and configures GHC + HIE 8.6.5 and the necessary VS Code extensions to integrate them into the editor.
+
+https://github.com/hmemcpy/haskell-hie-devcontainer
 
 
 ### Installation from source
