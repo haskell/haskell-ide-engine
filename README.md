@@ -2,9 +2,9 @@
 
 Currently the main development effort is focused in [integrating haskell-ide-engine](https://github.com/haskell/haskell-ide-engine/issues/1416) and [ghcide](https://github.com/digital-asset/ghcide) under a common repository:
 
-https://github.com/haskell/ide
+https://github.com/haskell/haskell-language-server
 
-Until the new `haskell-ide` reaches the feature level and stability of `haskell-ide-engine`, we aim to continue doing monthly releases. However, in general, bug fixes will be favored over new features and refactorings. They could be redirected to the new repo to avoid duplicated efforts.
+Until the new `haskell-language-server` reaches the feature level and stability of `haskell-ide-engine`, we aim to continue doing monthly releases. However, in general, bug fixes will be favored over new features and refactorings. They could be redirected to the new repo to avoid duplicated efforts.
 
 You still can contribute to improve the haskell ide experience! If you are not sure if you contribution should belong to this repo or the new one, feel free to ask in [any of the communication channels](#its-time-to-join-the-project).  
 
