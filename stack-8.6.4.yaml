@@ -32,6 +32,7 @@ extra-deps:
 - ormolu-0.0.3.1
 - parser-combinators-1.2.1
 - rope-utf16-splay-0.3.1.0
+- stylish-haskell-0.10.0.0
 - syz-0.2.0.0
 - temporary-1.2.1.1
 - unix-compat-0.5.2

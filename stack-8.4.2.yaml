@@ -41,6 +41,7 @@ extra-deps:
 - rope-utf16-splay-0.3.1.0
 - simple-sendfile-0.2.30 # for network and network-bsd
 - socks-0.6.1 # for network and network-bsd
+- stylish-haskell-0.10.0.0
 - syz-0.2.0.0
 - temporary-1.2.1.1
 - unix-compat-0.5.2
