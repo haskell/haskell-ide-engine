@@ -1,4 +1,3 @@
-export CABAL_DIR="D:\cabal"
 export GHCS_PATH=$(cygpath $ProgramData)/chocolatey/lib/ghc/tools
 export GHC_PATH=$GHCS_PATH/ghc-$GHC_VERSION
 export CABAL_ROOT=$(cygpath $CABAL_DIR)
