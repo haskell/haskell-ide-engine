@@ -51,21 +51,20 @@ extra-deps:
 - simple-sendfile-0.2.30 # for network and network-bsd
 - socks-0.6.1 # for network and network-bsd
 - syz-0.2.0.0
-- temporary-1.2.1.1
 - type-equality-1
 - unix-compat-0.5.2
 - unordered-containers-0.2.10.0
 - yaml-0.11.2.0
 - th-abstraction-0.3.1.0
-# To make build work in windows 7
-- time-compat-1.9.2.2
-- time-manager-0.0.0 # for http2
-- unix-time-0.4.7
-- wai-3.2.2.1 # for network and network-bsd
-- warp-3.2.28 # for network and network-bsd
 - windns-0.1.0.0
 - yi-rope-0.11
-
+# To make build work in windows 7
+- unix-time-0.4.7
+- temporary-1.2.1.1
+- time-compat-1.9.2.2
+- time-manager-0.0.0 # for http2
+- wai-3.2.2.1 # for network and network-bsd
+- warp-3.2.28 # for network and network-bsd
 
 flags:
   haskell-ide-engine:
