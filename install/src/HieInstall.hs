@@ -88,7 +88,9 @@ defaultMain = do
     phony "hie"  (need ["data", "latest"])
 
     -- stack specific targets
-    when isRunFromStack $ do
+    -- Default `stack.yaml` uses ghc-8.8.2 and we can't build hie in windows
+    -- TODO: Enable for windows when it uses ghc-8.8.3
+    when (isRunFromStack && not isWindowsSystem) $ do
 
       phony "dev" $ stackInstallHieWithErrMsg Nothing
 
