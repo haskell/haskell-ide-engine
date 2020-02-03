@@ -67,24 +67,21 @@ extra-deps:
 - socks-0.6.1 # for network and network-bsd
 - splitmix-0.0.3
 - tagged-0.8.6
-- temporary-1.2.1.1
 - th-abstraction-0.3.1.0
 - these-1.0.1
-- time-compat-1.9.2.2
 - topograph-1
 - type-equality-1
 - unix-compat-0.5.2
-- unix-time-0.4.7
 - unordered-containers-0.2.10.0
 - vector-0.12.1.2
 - yaml-0.11.2.0
 # To make build work in windows 7
-# - unix-time-0.4.7
-# - temporary-1.2.1.1
-# - time-compat-1.9.2.2
-# - time-manager-0.0.0 # for http2
-# - warp-3.2.28 # for network and network-bsd
-# - wai-3.2.2.1 # for network and network-bsd
+- unix-time-0.4.7
+- temporary-1.2.1.1
+- time-compat-1.9.2.2
+- time-manager-0.0.0 # for http2
+- warp-3.2.28 # for network and network-bsd
+- wai-3.2.2.1 # for network and network-bsd
 
 
 flags:
