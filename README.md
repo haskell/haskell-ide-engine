@@ -1,4 +1,4 @@
-# Integration with `ghcide`: the new `haskell-ide`
+# Integration with `ghcide`: the new `haskell-language-server`
 
 Currently the main development effort is focused in [integrating haskell-ide-engine](https://github.com/haskell/haskell-ide-engine/issues/1416) and [ghcide](https://github.com/digital-asset/ghcide) under a common repository:
 
