@@ -113,7 +113,6 @@ cabalInstallIsOldFailMsg cabalVersion =
     ++ versionToString requiredCabalVersion
     ++ "`."
 
-
 requiredCabalVersion :: RequiredVersion
 requiredCabalVersion | isWindowsSystem = requiredCabalVersionForWindows
                      | otherwise = [2, 4, 1, 0]

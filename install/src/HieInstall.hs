@@ -78,34 +78,27 @@ defaultMain = do
       (\version -> phony ("hie-" ++ version) $ do
         need ["submodules"]
         need ["check"]
-        if isRunFromStack then do
+        if isRunFromStack then
           stackInstallHieWithErrMsg (Just version)
         else
           cabalInstallHie version
       )
-
-    phony "latest" (need ["hie-" ++ latestVersion])
-    phony "hie"  (need ["data", "latest"])
+    
+    unless (null versions) $ do
+      phony "latest" (need ["hie-" ++ latestVersion])
+      phony "hie"  (need ["data", "latest"])
 
     -- stack specific targets
     -- Default `stack.yaml` uses ghc-8.8.2 and we can't build hie in windows
     -- TODO: Enable for windows when it uses ghc-8.8.3
-    when (isRunFromStack && not isWindowsSystem) $ do
-
+    when (isRunFromStack && not isWindowsSystem) $
       phony "dev" $ stackInstallHieWithErrMsg Nothing
 
     -- cabal specific targets
     when isRunFromCabal $ do
-
-      phony "ghcs" $ do
-        let
-          msg =
-            "Found the following GHC paths: \n"
-              ++ unlines
-                  (map (\(version, path) -> "ghc-" ++ version ++ ": " ++ path)
-                        ghcPaths
-                  )
-        printInStars msg
+      -- It throws an error if there is no ghc in $PATH
+      checkInstalledGhcs ghcPaths
+      phony "ghcs" $ showInstalledGhcs ghcPaths
 
     -- macos specific targets
     phony "icu-macos-fix"
