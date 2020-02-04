@@ -119,5 +119,3 @@ requiredCabalVersion | isWindowsSystem = requiredCabalVersionForWindows
 
 requiredCabalVersionForWindows :: RequiredVersion
 requiredCabalVersionForWindows = [3, 0, 0, 0]
-
-
