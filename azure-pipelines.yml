@@ -22,6 +22,14 @@ pr:
   branches:
     include:
       - master
+  paths:
+    exclude:
+      - .circleci
+      - docs
+      - licenses
+      - logos
+      - LICENSE
+      - '*.md'
 
 jobs:
 - template: ./.azure/linux-stack.yml
