@@ -1,4 +1,4 @@
-# Integration with `ghcide`: the new `haskell-ide`
+# Integration with `ghcide`: the new `haskell-language-server`
 
 Currently the main development effort is focused in [integrating haskell-ide-engine](https://github.com/haskell/haskell-ide-engine/issues/1416) and [ghcide](https://github.com/digital-asset/ghcide) under a common repository:
 
@@ -209,6 +209,8 @@ In order to avoid problems with long paths on Windows you can do either one of t
    `C:\hie`). If this doesn't work or you want to use a longer path, try the second option.
 
 2. If the `Local Group Policy Editor` is available on your system, go to: `Local Computer Policy -> Computer Configuration -> Administrative Templates -> System -> Filesystem` set `Enable Win32 long paths` to `Enabled`. If you don't have the policy editor you can use regedit by using the following instructions [here](https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#enable-long-paths-in-windows-10-version-1607-and-later). You also need to configure git to allow longer paths by using unicode paths. To set this for all your git repositories use `git config --system core.longpaths true` (you probably need an administrative shell for this) or for just this one repository use `git config core.longpaths true`.
+
+In addition make sure `hie.exe` is not running by closing your editor, otherwise in case of an upgrade the executable can not be installed.
 
 #### Download the source code
 
