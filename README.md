@@ -563,7 +563,7 @@ Then issue `:CocConfig` and add the following to your Coc config file.
       "*.cabal",
       "stack.yaml",
       "cabal.project",
-      "package.yaml",
+      "package.yaml"
     ],
     "filetypes": [
       "hs",
