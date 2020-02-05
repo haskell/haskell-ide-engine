@@ -12,6 +12,7 @@ extra-deps:
 - bifunctors-5.5.6
 - brittany-0.12.1.1
 - bytestring-trie-0.2.5.0
+- Cabal-3.0.0.0@sha256:1ba37b8d80e89213b17db7b8b9ea0108da55ca65f8c0cbb7433881a284c5cf67,26027
 - cabal-helper-1.0.0.0
 - cabal-plan-0.5.0.0
 - connection-0.3.1 # for network and network-bsd
