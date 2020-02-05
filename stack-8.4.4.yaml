@@ -64,6 +64,7 @@ extra-deps:
 - temporary-1.2.1.1
 - time-compat-1.9.2.2
 - time-manager-0.0.0 # for http2
+- vector-0.12.1.2
 - warp-3.2.28 # for network and network-bsd
 - wai-3.2.2.1 # for network and network-bsd
 
