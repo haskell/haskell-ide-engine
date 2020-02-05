@@ -1,5 +1,5 @@
 name:                haskell-ide-engine
-version:             1.0.0.0
+version:             1.1
 synopsis:            Provide a common engine to power any Haskell IDE
 description:         Please see README.md
 homepage:            http://github.com/githubuser/haskell-ide-engine#readme
@@ -76,7 +76,7 @@ library
                      , haskell-lsp == 0.19.*
                      , haskell-lsp-types == 0.19.*
                      , haskell-src-exts
-                     , hie-plugin-api >= 1.0
+                     , hie-plugin-api >= 1.1
                      , hoogle >= 5.0.13
                      , hsimport
                      , hslogger
