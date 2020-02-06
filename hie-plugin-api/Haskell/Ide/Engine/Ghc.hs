@@ -26,7 +26,6 @@ import qualified Data.Map.Strict                   as Map
 import qualified Data.Set                          as Set
 import qualified Data.Text                         as T
 import qualified Data.Aeson
-import           Data.Coerce
 import           ErrUtils
 
 import           Haskell.Ide.Engine.MonadFunctions
@@ -73,7 +72,8 @@ instance Monoid Diagnostics where
 
 instance Data.Aeson.ToJSON Diagnostics where
   toJSON (Diagnostics d) = Data.Aeson.toJSON
-    (Map.mapKeys coerce d :: Map.Map T.Text (Set.Set Diagnostic))
+    (Map.mapKeys extractUri d :: Map.Map T.Text (Set.Set Diagnostic))
+    where extractUri (NormalizedUri _ t) =  t
 
 type AdditionalErrs = [T.Text]
 
