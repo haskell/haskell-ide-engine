@@ -17,6 +17,9 @@ extra-deps:
 - ghc-lib-parser-ex-8.8.4.0
 - haddock-api-2.23.0
 - haddock-library-1.8.0
+- haskell-lsp-0.20.0.0
+- haskell-lsp-types-0.20.0.0
+- lsp-test-0.10.1.0
 - haskell-src-exts-1.21.1
 - hie-bios-0.4.0
 - hlint-2.2.10

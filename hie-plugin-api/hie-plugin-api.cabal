@@ -54,7 +54,7 @@ library
                      , ghc
                      , hie-bios
                      , cabal-helper
-                     , haskell-lsp == 0.19.*
+                     , haskell-lsp == 0.20.*
                      , hslogger
                      , unliftio
                      , monad-control
