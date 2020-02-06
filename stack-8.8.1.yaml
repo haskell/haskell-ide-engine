@@ -17,6 +17,8 @@ extra-deps:
 - ghc-lib-parser-ex-8.8.4.0
 - haddock-api-2.23.0
 - haddock-library-1.8.0
+- haskell-lsp-0.20.0.0
+- haskell-lsp-types-0.20.0.0
 - haskell-src-exts-1.21.1
 - hie-bios-0.4.0
 - hlint-2.2.10
@@ -27,7 +29,6 @@ extra-deps:
 - ormolu-0.0.3.1
 - semigroups-0.18.5
 - temporary-1.2.1.1
-- haskell-lsp-0.20.0.0
 
 flags:
   haskell-ide-engine:
