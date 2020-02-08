@@ -22,8 +22,8 @@ extra-deps:
 - ghc-lib-parser-8.8.2
 - ghc-lib-parser-ex-8.8.4.0
 - haddock-api-2.22.0
-- haskell-lsp-0.19.0.0
-- haskell-lsp-types-0.19.0.0
+- haskell-lsp-0.20.0.0
+- haskell-lsp-types-0.20.0.0
 - hie-bios-0.4.0
 - hlint-2.2.10
 - hoogle-5.0.17.11
@@ -31,7 +31,7 @@ extra-deps:
 - HsYAML-0.2.1.0
 - HsYAML-aeson-0.2.0.0
 - indexed-profunctors-0.1
-- lsp-test-0.10.0.0
+- lsp-test-0.10.1.0
 - monad-dijkstra-0.1.1.2
 - optics-core-0.2
 - optparse-applicative-0.15.1.0
@@ -41,6 +41,7 @@ extra-deps:
 - stylish-haskell-0.10.0.0
 - temporary-1.2.1.1
 - topograph-1
+
 flags:
   haskell-ide-engine:
     pedantic: true

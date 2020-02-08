@@ -20,8 +20,8 @@ extra-deps:
 - ghc-lib-parser-8.8.2
 - ghc-lib-parser-ex-8.8.4.0
 - haddock-api-2.22.0
-- haskell-lsp-0.19.0.0
-- haskell-lsp-types-0.19.0.0
+- haskell-lsp-0.20.0.0
+- haskell-lsp-types-0.20.0.0
 - haskell-src-exts-1.21.1
 - hie-bios-0.4.0
 - hlint-2.2.10
@@ -29,7 +29,7 @@ extra-deps:
 - hsimport-0.11.0
 - HsYAML-0.2.1.0
 - HsYAML-aeson-0.2.0.0
-- lsp-test-0.10.0.0
+- lsp-test-0.10.1.0
 - monad-dijkstra-0.1.1.2@rev:1
 - monad-memo-0.4.1
 - multistate-0.8.0.1
