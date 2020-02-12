@@ -717,7 +717,7 @@ Or you can set the environment variable `HIE_HOOGLE_DATABASE` to specify a speci
 
 ## Contributing
 
-Please see the [note above](#integration-with-ghcide-the-new-haskell-ide) about the new `haskell-ide` project.
+Please see the [note above](#integration-with-ghcide-the-new-haskell-ide) about the new `haskell-language-server` project.
 
 This project is not started from scratch:
 
