@@ -14,39 +14,65 @@ import           System.IO
 import qualified System.Log.Logger                     as L
 import           Data.Foldable
 
+data ProjectLoadingOpts = ProjectLoadingOpts
+  { optDryRun        :: Bool
+  , optFiles         :: [FilePath]
+  } deriving (Show, Eq)
+
+data RunMode = LspMode | ProjectLoadingMode ProjectLoadingOpts
+  deriving (Show, Eq)
+
 data GlobalOpts = GlobalOpts
   { optDebugOn       :: Bool
   , optLogFile       :: Maybe String
-  , optLsp           :: Bool
   , projectRoot      :: Maybe String
   , optBiosVerbose   :: Bool
   , optCaptureFile   :: Maybe FilePath
   , optExamplePlugin :: Bool
-  , optDryRun        :: Bool
-  , optFiles         :: [FilePath]
-  } deriving (Show)
+  , optMode          :: RunMode
+  } deriving (Show, Eq)
 
 -- | Introduced as the common prefix of app/HieWrapper.hs/main and app/MainHie.hs/main
 initApp :: String -> IO GlobalOpts
 initApp namedesc = do
   hSetBuffering stderr LineBuffering
-  let numericVersion :: Parser (a -> a)
-      numericVersion = infoOption (showVersion Meta.version)
-        (long "numeric-version" <> help "Show only version number")
-      compiler :: Parser (a -> a)
-      compiler = infoOption hieGhcDisplayVersion
-        (long "compiler" <> help "Show only compiler and version supported")
     -- Parse the options and run
   (opts, ()) <- simpleOptions
     hieVersion
     namedesc
     ""
-    (numericVersion <*> compiler <*> globalOptsParser)
+    optionParser
     empty             
   Core.setupLogger (optLogFile opts) ["hie", "hie-bios"]
     $ if optDebugOn opts then L.DEBUG else L.INFO
   traverse_ setCurrentDirectory $ projectRoot opts
   return opts
+
+optionParser :: Parser GlobalOpts
+optionParser = numericVersion <*> compiler <*> globalOptsParser
+
+numericVersion :: Parser (a -> a)
+numericVersion = infoOption (showVersion Meta.version)
+  (long "numeric-version" <> help "Show only version number")
+
+compiler :: Parser (a -> a)
+compiler = infoOption hieGhcDisplayVersion
+  (long "compiler" <> help "Show only compiler and version supported")
+
+projectLoadingModeParser :: Parser RunMode
+projectLoadingModeParser =
+  ProjectLoadingMode
+  <$> (ProjectLoadingOpts
+       <$> flag False True
+          (  long "dry-run"
+            <> help "Perform a dry-run of loading files. Only searches for Haskell source files to load. Does nothing if run as LSP server."
+          )
+       <*> many
+          ( argument str
+            (  metavar "FILES..."
+            <> help "Directories and Filepaths to load. Does nothing if run as LSP server.")
+          )
+      )
 
 globalOptsParser :: Parser GlobalOpts
 globalOptsParser = GlobalOpts
@@ -61,9 +87,6 @@ globalOptsParser = GlobalOpts
       <> metavar "LOGFILE"
       <> help "File to log to, defaults to stdout"
        ))
-  <*> flag False True
-       ( long "lsp"
-       <> help "Start HIE as an LSP server. Otherwise it dumps debug info to stdout")
   <*> optional (strOption
        ( long "project-root"
       <> short 'r'
@@ -88,13 +111,9 @@ globalOptsParser = GlobalOpts
   <*> switch
        ( long "example"
        <> help "Enable Example2 plugin. Useful for developers only")
-  <*> flag False True
-     (  long "dry-run"
-     <> help "Perform a dry-run of loading files. Only searches for Haskell source files to load. Does nothing if run as LSP server."
-     )
-  <*> many
-     ( argument str
-       (  metavar "FILES..."
-       <> help "Directories and Filepaths to load. Does nothing if run as LSP server.")
-     )
-
+  <*> (flag' LspMode
+       ( long "lsp"
+       <> help "Start HIE as an LSP server. Otherwise it dumps debug info to stdout")
+       <|>
+       projectLoadingModeParser
+      )

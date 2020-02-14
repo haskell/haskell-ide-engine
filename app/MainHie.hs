@@ -84,8 +84,8 @@ main = do
 
   let plugins' = plugins (optExamplePlugin opts)
 
-  if optLsp opts
-    then do
+  case optMode opts of
+    LspMode -> do
       -- Start up in LSP mode
       logm $ "Run entered for HIE(" ++ progName ++ ") " ++ hieVersion
       logm $ "Operating as a LSP server on stdio"
@@ -106,7 +106,7 @@ main = do
       -- launch the dispatcher.
       scheduler <- newScheduler plugins' initOpts
       server scheduler origDir plugins' (optCaptureFile opts)
-    else do
+    ProjectLoadingMode projectLoadingOpts -> do
       -- Provide debug info
       cliOut $  "Running HIE(" ++ progName ++ ")"
       cliOut $  "  " ++ hieVersion
@@ -128,7 +128,7 @@ main = do
           cliOut $ "Project Ghc version: " ++ projGhc
           cliOut $ "Libdir: " ++ show mlibdir
           cliOut "Searching for Haskell source files..."
-          targets <- case optFiles opts of
+          targets <- case optFiles projectLoadingOpts of
             [] -> findAllSourceFiles origDir
             xs -> concat <$> mapM findAllSourceFiles xs
 
@@ -138,7 +138,7 @@ main = do
           mapM_ cliOut targets
           cliOut ""
 
-          unless (optDryRun opts) $ do
+          unless (optDryRun projectLoadingOpts) $ do
             cliOut "\nLoad them all now. This may take a very long time.\n"
             loadDiagnostics <- runServer mlibdir plugins' targets
 

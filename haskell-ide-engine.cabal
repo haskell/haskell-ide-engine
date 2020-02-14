@@ -203,6 +203,7 @@ test-suite unit-test
                        HsImportSpec
                        JsonSpec
                        LiquidSpec
+                       OptionsSpec
                        PackagePluginSpec
                        Spec
   -- Technically cabal-helper should be a 'run-tool-depends', but that doesn't exist yet
@@ -225,6 +226,7 @@ test-suite unit-test
                      , hie-plugin-api
                      , hoogle > 5.0.11
                      , hspec
+                     , optparse-applicative
                      , process
                      , quickcheck-instances
                      , text
