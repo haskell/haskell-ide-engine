@@ -25,10 +25,13 @@ extra-deps:
 - hlint-2.2.10
 - hoogle-5.0.17.11
 - hsimport-0.11.0
+- HsYAML-0.2.1.0
+- HsYAML-aeson-0.2.0.0
 - ilist-0.3.1.0
 - monad-dijkstra-0.1.1.2
 - ormolu-0.0.3.1
 - semigroups-0.18.5
+- stylish-haskell-0.10.0.0
 - temporary-1.2.1.1
 
 flags:

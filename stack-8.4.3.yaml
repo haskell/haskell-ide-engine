@@ -45,6 +45,8 @@ extra-deps:
 - hspec-2.7.1
 - hspec-core-2.7.1
 - hspec-discover-2.7.1
+- HsYAML-0.2.1.0
+- HsYAML-aeson-0.2.0.0
 - indexed-profunctors-0.1
 - invariant-0.5.3
 - lens-4.18.1
@@ -66,6 +68,7 @@ extra-deps:
 - singleton-bool-0.1.5
 - socks-0.6.1 # for network and network-bsd
 - splitmix-0.0.3
+- stylish-haskell-0.10.0.0
 - tagged-0.8.6
 - th-abstraction-0.3.1.0
 - these-1.0.1

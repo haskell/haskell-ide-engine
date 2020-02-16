@@ -32,9 +32,7 @@ spec = do
       documentContents doc >>= liftIO . (`shouldBe` formattedRangeTabSize5)
 
   describe "formatting provider" $ do
-    let formatLspConfig provider =
-          object [ "languageServerHaskell" .= object ["formattingProvider" .= (provider :: Value)] ]
-        formatConfig provider = defaultConfig { lspConfig = Just (formatLspConfig provider) }
+    let formatConfig provider = defaultConfig { lspConfig = Just (formatLspConfig provider) }
 
     it "respects none" $ runSessionWithConfig (formatConfig "none") hieCommand fullCaps "test/testdata" $ do
       doc <- openDoc "Format.hs" "haskell"
@@ -93,9 +91,7 @@ spec = do
                                     "foo x y = do\n    print x\n    return 42\n"]
 
   describe "ormolu" $ do
-    let formatLspConfig provider =
-          object [ "languageServerHaskell" .= object ["formattingProvider" .= (provider :: Value)] ]
-        
+
     it "formats correctly" $ runSession hieCommand fullCaps "test/testdata" $ do
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (formatLspConfig "ormolu"))
       doc <- openDoc "Format.hs" "haskell"
@@ -107,6 +103,9 @@ spec = do
         GHC86 -> formatted
         _ -> liftIO $ docContent `shouldBe` unchangedOrmolu
 
+formatLspConfig :: Value -> Value
+formatLspConfig provider =
+  object [ "languageServerHaskell" .= object ["formattingProvider" .= provider] ]
 
 formattedDocTabSize2 :: T.Text
 formattedDocTabSize2 =

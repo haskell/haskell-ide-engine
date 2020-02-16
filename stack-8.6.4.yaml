@@ -27,6 +27,8 @@ extra-deps:
 - hlint-2.2.10
 - hoogle-5.0.17.11
 - hsimport-0.11.0
+- HsYAML-0.2.1.0
+- HsYAML-aeson-0.2.0.0
 - lsp-test-0.10.1.0
 - monad-dijkstra-0.1.1.2@rev:1
 - monad-memo-0.4.1
@@ -34,6 +36,7 @@ extra-deps:
 - ormolu-0.0.3.1
 - parser-combinators-1.2.1
 - rope-utf16-splay-0.3.1.0
+- stylish-haskell-0.10.0.0
 - syz-0.2.0.0
 - temporary-1.2.1.1
 - time-compat-1.9.2.2

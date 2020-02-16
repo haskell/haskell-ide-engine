@@ -43,6 +43,7 @@ import           Haskell.Ide.Engine.Plugin.Liquid
 import           Haskell.Ide.Engine.Plugin.Ormolu
 import           Haskell.Ide.Engine.Plugin.Package
 import           Haskell.Ide.Engine.Plugin.Pragmas
+import           Haskell.Ide.Engine.Plugin.Stylish     (stylishDescriptor)
 
 -- ---------------------------------------------------------------------
 
@@ -66,6 +67,7 @@ plugins includeExamples = pluginDescToIdePlugins allPlugins
       , genericDescriptor     "generic"
       , ghcmodDescriptor      "ghcmod"
       , ormoluDescriptor      "ormolu"
+      , stylishDescriptor     "stylish"
       ]
     examplePlugins =
       [example2Descriptor "eg2"

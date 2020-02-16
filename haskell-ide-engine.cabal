@@ -38,6 +38,7 @@ library
                        Haskell.Ide.Engine.Plugin.Package
                        Haskell.Ide.Engine.Plugin.Package.Compat
                        Haskell.Ide.Engine.Plugin.Pragmas
+                       Haskell.Ide.Engine.Plugin.Stylish
                        Haskell.Ide.Engine.Plugin.Generic
                        Haskell.Ide.Engine.Plugin.GhcMod
                        Haskell.Ide.Engine.Scheduler
@@ -80,6 +81,8 @@ library
                      , hoogle >= 5.0.13
                      , hsimport
                      , hslogger
+                     , HsYAML >= 0.2.1.0
+                     , HsYAML-aeson >= 0.2.0.0
                      , lifted-async
                      , lens >= 4.15.2
                      , monoid-subclasses > 0.4
@@ -90,6 +93,7 @@ library
                      , safe
                      , sorted-list >= 0.2.1.0
                      , stm
+                     , stylish-haskell >= 0.10.0.0
                      , syb
                      , tagsoup
                      , text
