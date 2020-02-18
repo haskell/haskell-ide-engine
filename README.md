@@ -13,6 +13,7 @@ You still can contribute to improve the haskell ide experience! If you are not s
 
 [![License BSD3][badge-license]][license]
 [![CircleCI][badge-circleci]][circleci]
+[![Azure Pipeline][badge-azure-pipeline]][azure-pipeline]
 [![AppVeyor][badge-appveyor]][appveyor]
 [![Open Source Helpers](https://www.codetriage.com/haskell/haskell-ide-engine/badges/users.svg)](https://www.codetriage.com/haskell/haskell-ide-engine)
 
@@ -22,9 +23,8 @@ You still can contribute to improve the haskell ide experience! If you are not s
 [circleci]: https://circleci.com/gh/haskell/haskell-ide-engine/
 [badge-appveyor]: https://ci.appveyor.com/api/projects/status/6hit7mxvgdrao3q0?svg=true
 [appveyor]: https://ci.appveyor.com/project/Bubba/haskell-ide-engine-74xec
-
-
-
+[azure-pipeline]: https://dev.azure.com/hvriedel/hvriedel/_build?definitionId=1&_a=summary
+[badge-azure-pipeline]: https://dev.azure.com/hvriedel/hvriedel/_apis/build/status/haskell.haskell-ide-engine?branchName=master
 
 This project aims to be __the universal interface__ to __a growing number of Haskell tools__, providing a __fully-featured [Language Server Protocol](https://github.com/Microsoft/language-server-protocol/blob/master/protocol.md) server__ for editors and IDEs that require Haskell-specific functionality.
 
