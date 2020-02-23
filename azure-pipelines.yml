@@ -40,4 +40,5 @@ jobs:
 - template: ./.azure/linux-installhs-stack.yml
 - template: ./.azure/windows-installhs-stack.yml
 - template: ./.azure/windows-installhs-cabal.yml
+- template: ./.azure/macos-installhs-cabal.yml
 - template: ./.azure/macos-installhs-stack.yml
