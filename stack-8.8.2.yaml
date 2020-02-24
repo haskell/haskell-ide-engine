@@ -16,6 +16,8 @@ extra-deps:
 - constrained-dynamic-0.1.0.0
 - floskell-0.10.2
 - ghc-lib-parser-ex-8.8.4.0
+# To avoid build error with ghc-8.8.2
+# See https://github.com/haskell/haddock/issues/1123
 - git: https://github.com/haskell/haddock.git
   commit: be8b02c4e3cffe7d45b3dad0a0f071d35a274d65
   subdirs:
