@@ -13,6 +13,7 @@ import           Env
 import           Control.Exception                        ( throwIO )
 #else
 import           Cabal.Config
+import           Data.Functor.Identity
 #endif
 
 getInstallDir :: IO FilePath
