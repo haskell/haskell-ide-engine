@@ -1,3 +1,9 @@
+if [ -z "$PROJECT_FILE" ]; then
+  export PROJECT_FILE="cabal.project"
+  if [ -f "cabal.project-$GHC_VERSION" ]; then
+    export PROJECT_FILE="cabal.project-$GHC_VERSION"
+  fi
+fi
 if [ -z "$CABAL_DIR" ]; then
   CABAL_DIR="$APPDATA\\cabal"
 fi
