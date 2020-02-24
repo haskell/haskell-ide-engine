@@ -1,5 +1,5 @@
 name:                hie-install
-version:             0.8.0.0
+version:             0.8.1.0
 synopsis:            Install the haskell-ide-engine
 license:             BSD3
 author:              Many, TBD when we release

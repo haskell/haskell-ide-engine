@@ -1,7 +1,19 @@
 # Used to provide a different environment for the shake build script
-resolver: lts-14.11 # GHC 8.6.5
+resolver: lts-13.19 # last lts with GHC 8.6.5
+# resolver: nightly-2020-01-31 # GHC 8.8.2
+# resolver: nightly-2020-01-21 # last nightly GHC 8.8.1
+# resolver: lts-13.19 # last lts GHC 8.6.4
+# resolver: lts-12.26 # last lts GHC 8.4.4
+# resolver: lts-12.14 # last lts GHC 8.4.3
+# resolver: nightly-2018-05-30 # last nightly for GHC 8.4.2
 packages:
 - .
+
+extra-deps:
+- shake-0.18.5
+# for resolvers with ghc < 8.6
+# - shake-0.17
+
 
 nix:
   packages: [ zlib ]
