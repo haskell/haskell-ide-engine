@@ -29,19 +29,16 @@ defaultMain = do
 
   let latestVersion = last versions
 
-  shakeArgs shakeOptions { shakeFiles = "_build", shakeThreads = 0 } $ do
+  shakeArgs shakeOptions { shakeFiles = "_build" } $ do
 
     shakeOptionsRules <- getShakeOptionsRules
 
-    let jobsArg = "-j" ++ show (shakeThreads shakeOptionsRules)
-
     let verbosityArg = if isRunFromStack then Stack.getVerbosityArg else Cabal.getVerbosityArg
 
-    let args = [jobsArg, verbosityArg (shakeVerbosity shakeOptionsRules)]
+    let args = [verbosityArg (shakeVerbosity shakeOptionsRules)]
 
     phony "show-options" $ do
       putNormal $ "Options:"
-      putNormal $ "    Number of jobs: " ++ show (shakeThreads shakeOptionsRules)
       putNormal $ "    Verbosity level: " ++ show (shakeVerbosity shakeOptionsRules)
 
     want ["short-help"]
