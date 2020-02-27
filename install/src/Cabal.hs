@@ -1,27 +1,19 @@
 {-# LANGUAGE CPP #-}
-
 module Cabal where
 
 import           Development.Shake
-import           Development.Shake.Command
 import           Development.Shake.FilePath
 import           Control.Monad
-import           Data.Maybe                               ( isNothing
-                                                          , isJust
-                                                          )
-import           Control.Monad.Extra                      ( whenMaybe )
-import           System.Directory                         ( findExecutable
-                                                          , copyFile
-                                                          )
+import           System.Directory                         ( copyFile )
 
 import           Version
 import           Print
 import           Env
-import           Data.Functor.Identity
 #if RUN_FROM_STACK
 import           Control.Exception                        ( throwIO )
 #else
 import           Cabal.Config
+import           Data.Functor.Identity
 #endif
 
 getInstallDir :: IO FilePath
@@ -38,23 +30,23 @@ execCabal = command [] "cabal"
 execCabal_ :: [String] -> Action ()
 execCabal_ = execCabal
 
-cabalBuildData :: Action ()
-cabalBuildData = do
-  execCabal_ ["v2-build", "hoogle"]
-  execCabal_ ["v2-exec", "hoogle", "generate"]
+cabalBuildData :: [String] -> Action ()
+cabalBuildData args = do
+  execCabal_ $ ["v2-build", "hoogle"] ++ args
+  execCabal_ $ ["v2-exec", "hoogle", "generate"] ++ args
 
 getGhcPathOfOrThrowError :: VersionNumber -> Action GhcPath
-getGhcPathOfOrThrowError versionNumber = 
+getGhcPathOfOrThrowError versionNumber =
   getGhcPathOf versionNumber >>= \case
     Nothing -> do
       printInStars $ ghcVersionNotFoundFailMsg versionNumber
       error (ghcVersionNotFoundFailMsg versionNumber)
     Just p -> return p
 
-cabalInstallHie :: VersionNumber -> Action ()
-cabalInstallHie versionNumber = do
+cabalInstallHie :: VersionNumber -> [String] -> Action ()
+cabalInstallHie versionNumber args = do
   localBin <- liftIO $ getInstallDir
-  cabalVersion <- getCabalVersion
+  cabalVersion <- getCabalVersion args
   ghcPath <- getGhcPathOfOrThrowError versionNumber
 
   let isCabal3 = checkVersion [3,0,0,0] cabalVersion
@@ -62,19 +54,24 @@ cabalInstallHie versionNumber = do
                     | otherwise = "--symlink-bindir"
       installMethod | isWindowsSystem && isCabal3 = ["--install-method=copy"]
                     | otherwise = []
+
+  projectFile <- getProjectFile versionNumber
+
   execCabal_ $
     [ "v2-install"
     , "-w", ghcPath
     , "--write-ghc-environment-files=never"
     , installDirOpt, localBin
     , "--max-backjumps=5000"
-    , "exe:hie"
+    , "exe:hie", "exe:hie-wrapper"
     , "--overwrite-policy=always"
+    , "--project-file=" ++ projectFile
     ]
     ++ installMethod
+    ++ args
 
   let minorVerExe = "hie-" ++ versionNumber <.> exe
-      majorVerExe = "hie-" ++ dropExtension versionNumber <.> exe  
+      majorVerExe = "hie-" ++ dropExtension versionNumber <.> exe
 
   liftIO $ do
     copyFile (localBin </> "hie" <.> exe) (localBin </> minorVerExe)
@@ -87,20 +84,27 @@ cabalInstallHie versionNumber = do
              ++ minorVerExe
              ++ " to " ++ localBin
 
-checkCabal_ :: Action ()
-checkCabal_ = checkCabal >> return ()
+getProjectFile :: VersionNumber -> Action FilePath
+getProjectFile ver = do
+  existFile <- doesFileExist $ "cabal.project-" ++ ver
+  return $ if existFile
+            then "cabal.project-" ++ ver
+            else "cabal.project"
+
+checkCabal_ :: [String] -> Action ()
+checkCabal_ args = checkCabal args >> return ()
 
 -- | check `cabal` has the required version
-checkCabal :: Action String
-checkCabal = do
-  cabalVersion <- getCabalVersion
+checkCabal :: [String] -> Action String
+checkCabal args = do
+  cabalVersion <- getCabalVersion args
   unless (checkVersion requiredCabalVersion cabalVersion) $ do
     printInStars $ cabalInstallIsOldFailMsg cabalVersion
     error $ cabalInstallIsOldFailMsg cabalVersion
   return cabalVersion
 
-getCabalVersion :: Action String
-getCabalVersion = trimmedStdout <$> execCabal ["--numeric-version"]
+getCabalVersion :: [String] -> Action String
+getCabalVersion args = trimmedStdout <$> (execCabal $ ["--numeric-version"] ++ args)
 
 -- | Error message when the `cabal` binary is an older version
 cabalInstallIsOldFailMsg :: String -> String
@@ -119,3 +123,21 @@ requiredCabalVersion | isWindowsSystem = requiredCabalVersionForWindows
 
 requiredCabalVersionForWindows :: RequiredVersion
 requiredCabalVersionForWindows = [3, 0, 0, 0]
+
+getVerbosityArg :: Verbosity -> String
+getVerbosityArg v = "-v" ++ cabalVerbosity
+  where cabalVerbosity = case v of
+          Silent ->     "0"
+#if MIN_VERSION_shake(0,18,4)
+          Error ->      "0"
+          Warn ->       "1"
+          Info ->       "1"
+          Verbose ->    "2"
+#else
+          Quiet ->      "0"
+          Normal ->     "1"
+          Loud ->       "2"
+          Chatty ->     "2"
+#endif
+          Diagnostic -> "3"
+
