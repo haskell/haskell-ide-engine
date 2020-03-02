@@ -9,7 +9,20 @@ source-repository-package
     location: https://github.com/jneira/cabal-helper.git
     tag: ffb1f57a5ffc6b7ac3c46a9974c4420a6d2bb9b2
 
+source-repository-package
+    type: git
+    location: https://github.com/dan-t/hsimport
+    tag: 9528ba4aac4cd70b29cfdda166e94923b61ff23b
+
+source-repository-package
+    type: git
+    location: https://github.com/ennocramer/floskell
+    tag: 8434743f1b82f9da9bb6888d1c09cc95b641ba5c
+
 tests: true
+
+package hsimport
+  tests:false
 
 package haskell-ide-engine
   test-show-details: direct
