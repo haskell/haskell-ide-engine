@@ -16,17 +16,17 @@ extra-deps:
   commit: ffb1f57a5ffc6b7ac3c46a9974c4420a6d2bb9b2
 - cabal-plan-0.5.0.0
 - constrained-dynamic-0.1.0.0
-- extra-1.6.18
+- extra-1.6.21
 - floskell-0.10.2
 - ghc-exactprint-0.6.2 # for HaRe
-- ghc-lib-parser-8.8.2
-- ghc-lib-parser-ex-8.8.4.0
+- ghc-lib-parser-8.8.2.20200205
+- ghc-lib-parser-ex-8.8.5.3
 - haddock-api-2.22.0
 - haskell-lsp-0.20.0.0
 - haskell-lsp-types-0.20.0.0
 - haskell-src-exts-1.21.1
 - hie-bios-0.4.0
-- hlint-2.2.10
+- hlint-2.2.11
 - hoogle-5.0.17.11
 - hsimport-0.11.0
 - lsp-test-0.10.1.0
@@ -40,6 +40,7 @@ extra-deps:
 - temporary-1.2.1.1
 - time-compat-1.9.2.2
 - unix-compat-0.5.2
+- unliftio-0.2.12
 - unordered-containers-0.2.10.0
 - yaml-0.11.2.0
 # To make build work in windows 7

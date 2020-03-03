@@ -15,8 +15,9 @@ extra-deps:
   commit: ffb1f57a5ffc6b7ac3c46a9974c4420a6d2bb9b2
 - clock-0.7.2
 - constrained-dynamic-0.1.0.0
+- extra-1.6.21
 - floskell-0.10.2
-- ghc-lib-parser-ex-8.8.4.0
+- ghc-lib-parser-ex-8.8.5.3
 - haddock-api-2.23.0
 - haddock-library-1.8.0
 - haskell-lsp-0.20.0.0
@@ -24,7 +25,7 @@ extra-deps:
 - lsp-test-0.10.1.0
 - haskell-src-exts-1.21.1
 - hie-bios-0.4.0
-- hlint-2.2.10
+- hlint-2.2.11
 - hoogle-5.0.17.11
 - hsimport-0.11.0
 - ilist-0.3.1.0
