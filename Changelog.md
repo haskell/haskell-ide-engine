@@ -1,3 +1,48 @@
+# 1.2
+
+NOTE: haskell-ide-engine is in transition, the new home for it will be
+[haskell-language-server](https://github.com/haskell/haskell-language-server),
+which does not currently have feature parity with `hie`. In particular
+it does not support multi-cradles, so can only open a single component
+of a project, as configured into its `hie.yaml` file.
+
+Once that hurdle is crossed, the main emphasis will be there, and
+`hie` will eventually be deprecated.
+
+## In this version
+
+- cabal now index state 2020-03-01T07:49:28Z
+- GHC 8.8.2 is lts-15.2
+- GHC 8.6.5 is lts-14.22
+- hlint is 2.2.11
+- brittany is 0.12.1.1
+
+## Changes
+
+- Bump resolvers and hlint to 2.2.11
+([#1678](https://github.com/haskell/haskell-ide-engine/pull/1678), by @alanz)
+- Improvements of install script and macos-installhs-cabal new azure job
+([#1665](https://github.com/haskell/haskell-ide-engine/pull/1665), by @jneira)
+- Azure: try to generate hoogle twice to avoid 403 http errors for macos
+([#1662](https://github.com/haskell/haskell-ide-engine/pull/1662), by @jneira)
+- Enable some more tests in windows
+([#1659](https://github.com/haskell/haskell-ide-engine/pull/1659), by @jneira)
+- Add azure badge to README
+([#1661](https://github.com/haskell/haskell-ide-engine/pull/1661), by @jneira)
+- Azure: not trigger pr builds by path
+([#1633](https://github.com/haskell/haskell-ide-engine/pull/1633), by @jneira)
+- Fix failing tests in windows (reloaded)
+([#1655](https://github.com/haskell/haskell-ide-engine/pull/1655), by @jneira)
+- Replace one more haskell-ide ocurrence
+([#1652](https://github.com/haskell/haskell-ide-engine/pull/1652), by @jneira)
+- Set current working directory when executing project ghc
+([#1654](https://github.com/haskell/haskell-ide-engine/pull/1654), by @fendor)
+- Use haskell-lsp-0.20
+([#1645](https://github.com/haskell/haskell-ide-engine/pull/1645), by @jneira)
+- Remove Comma
+([#1642](https://github.com/haskell/haskell-ide-engine/pull/1642), by @nilsmartel)
+
+
 # 1.1
 
 NOTE: haskell-ide-engine is in transition, the new home for it will be
@@ -20,89 +65,89 @@ Once that hurdle is crossed, the main emphasis will be there, and
 ## Changes
 
 - Install script with cabal: check there is one ghc in $PATH
-([#1632](https://github.com/haskell/haskell-ide-engine/pull/1551), by @jneira)
+([#1632](https://github.com/haskell/haskell-ide-engine/pull/1632), by @jneira)
 - Update README.md
-([#1636](https://github.com/haskell/haskell-ide-engine/pull/1551), by @flip111)
+([#1636](https://github.com/haskell/haskell-ide-engine/pull/1636), by @flip111)
 - Azure: not trigger pr builds by path
-([#1633](https://github.com/haskell/haskell-ide-engine/pull/1551), by @jneira)
+([#1633](https://github.com/haskell/haskell-ide-engine/pull/1633), by @jneira)
 - Add dev target to stack install.hs
-([#1615](https://github.com/haskell/haskell-ide-engine/pull/1551), by @jneira)
+([#1615](https://github.com/haskell/haskell-ide-engine/pull/1615), by @jneira)
 - Fix cabal-hie-install in windows azure ci
-([#1627](https://github.com/haskell/haskell-ide-engine/pull/1551), by @jneira)
+([#1627](https://github.com/haskell/haskell-ide-engine/pull/1627), by @jneira)
 - Replace one more haskell-ide in README
-([#1630](https://github.com/haskell/haskell-ide-engine/pull/1551), by @jneira)
+([#1630](https://github.com/haskell/haskell-ide-engine/pull/1630), by @jneira)
 - Bump resolvers, hlint, brittany
-([#1622](https://github.com/haskell/haskell-ide-engine/pull/1551), by @alanz)
+([#1622](https://github.com/haskell/haskell-ide-engine/pull/1622), by @alanz)
 - Update HIE to use latest hie-bios
-([#1601](https://github.com/haskell/haskell-ide-engine/pull/1551), by @fendor)
+([#1601](https://github.com/haskell/haskell-ide-engine/pull/1601), by @fendor)
 - Add instructions for installing HIE + GHC as a VS Code Devcontainer
-([#1624](https://github.com/haskell/haskell-ide-engine/pull/1551), by @GavinRay97)
+([#1624](https://github.com/haskell/haskell-ide-engine/pull/1624), by @GavinRay97)
 - Readme: haskell-ide -> haskell-language-server
-([#1625](https://github.com/haskell/haskell-ide-engine/pull/1551), by @andys8)
+([#1625](https://github.com/haskell/haskell-ide-engine/pull/1625), by @andys8)
 - Deduplicate main for hie/hie-wrapper
-([#1610](https://github.com/haskell/haskell-ide-engine/pull/1551), by @Gurkenglas)
+([#1610](https://github.com/haskell/haskell-ide-engine/pull/1610), by @Gurkenglas)
 - Azure fix win cabal 8.4.4
-([#1619](https://github.com/haskell/haskell-ide-engine/pull/1551), by @jneira)
+([#1619](https://github.com/haskell/haskell-ide-engine/pull/1619), by @jneira)
 - Mention the new haskell-ide in the README
-([#1612](https://github.com/haskell/haskell-ide-engine/pull/1551), by @jneira)
+([#1612](https://github.com/haskell/haskell-ide-engine/pull/1612), by @jneira)
 - Ormolu range format support
-([#1602](https://github.com/haskell/haskell-ide-engine/pull/1551), by @Avi-D-coder)
+([#1602](https://github.com/haskell/haskell-ide-engine/pull/1602), by @Avi-D-coder)
 - Add 8.8.2 stack file and CI
-([#1607](https://github.com/haskell/haskell-ide-engine/pull/1551), by @bubba)
+([#1607](https://github.com/haskell/haskell-ide-engine/pull/1607), by @bubba)
 - Azure update macos and try to fix windows+stack builds
-([#1609](https://github.com/haskell/haskell-ide-engine/pull/1551), by @jneira)
+([#1609](https://github.com/haskell/haskell-ide-engine/pull/1609), by @jneira)
 - Update required stack version
-([#1603](https://github.com/haskell/haskell-ide-engine/pull/1551), by @wataru86)
+([#1603](https://github.com/haskell/haskell-ide-engine/pull/1603), by @wataru86)
 - Remove compiler warnings
-([#1600](https://github.com/haskell/haskell-ide-engine/pull/1551), by @EncodePanda)
+([#1600](https://github.com/haskell/haskell-ide-engine/pull/1600), by @EncodePanda)
 - Remove hlint.yaml from azure releases and readme
-([#1598](https://github.com/haskell/haskell-ide-engine/pull/1551), by @jneira)
+([#1598](https://github.com/haskell/haskell-ide-engine/pull/1598), by @jneira)
 - Fix error message parsing to import types
-([#1597](https://github.com/haskell/haskell-ide-engine/pull/1551), by @fendor)
+([#1597](https://github.com/haskell/haskell-ide-engine/pull/1597), by @fendor)
 - Pass Ormolu cradle flags & default-extensions
-([#1589](https://github.com/haskell/haskell-ide-engine/pull/1551), by @Avi-D-coder)
+([#1589](https://github.com/haskell/haskell-ide-engine/pull/1589), by @Avi-D-coder)
 - Fix multi source directories
-([#1577](https://github.com/haskell/haskell-ide-engine/pull/1551), by @fendor)
+([#1577](https://github.com/haskell/haskell-ide-engine/pull/1577), by @fendor)
 - azure: add windows+cabal job and other improvements
-([#1595](https://github.com/haskell/haskell-ide-engine/pull/1551), by @jneira)
+([#1595](https://github.com/haskell/haskell-ide-engine/pull/1595), by @jneira)
 - Allow newer optparse-applicative for ormolu (stack version)
-([#1586](https://github.com/haskell/haskell-ide-engine/pull/1551), by @jneira)
+([#1586](https://github.com/haskell/haskell-ide-engine/pull/1586), by @jneira)
 - Azure builds improvements
-([#1584](https://github.com/haskell/haskell-ide-engine/pull/1551), by @jneira)
+([#1584](https://github.com/haskell/haskell-ide-engine/pull/1584), by @jneira)
 - Drop GHC version 8.6.1, 8.6.2 and 8.6.3 (#1592)
-([#1594](https://github.com/haskell/haskell-ide-engine/pull/1551), by @fendor)
+([#1594](https://github.com/haskell/haskell-ide-engine/pull/1594), by @fendor)
 - Demote HsImport func-tests to unit-test
-([#1591](https://github.com/haskell/haskell-ide-engine/pull/1551), by @fendor)
+([#1591](https://github.com/haskell/haskell-ide-engine/pull/1591), by @fendor)
 - Update hlint to 2.2.8 and ormolu to 0.0.3
-([#1588](https://github.com/haskell/haskell-ide-engine/pull/1551), by @alanz)
+([#1588](https://github.com/haskell/haskell-ide-engine/pull/1588), by @alanz)
 - Allow newer optparse-applicative for ormolu
-([#1583](https://github.com/haskell/haskell-ide-engine/pull/1551), by @bubba)
+([#1583](https://github.com/haskell/haskell-ide-engine/pull/1583), by @bubba)
 - Make cabal-hie-install executable
-([#1581](https://github.com/haskell/haskell-ide-engine/pull/1551), by @maoe)
+([#1581](https://github.com/haskell/haskell-ide-engine/pull/1581), by @maoe)
 - Ormolu formatter support
-([#1481](https://github.com/haskell/haskell-ide-engine/pull/1551), by @DavSanchez)
+([#1481](https://github.com/haskell/haskell-ide-engine/pull/1481), by @DavSanchez)
 - GHC 8.8 support
-([#1482](https://github.com/haskell/haskell-ide-engine/pull/1551), by @Avi-D-coder)
+([#1482](https://github.com/haskell/haskell-ide-engine/pull/1482), by @Avi-D-coder)
 - Load all possible haskell source files
-([#1569](https://github.com/haskell/haskell-ide-engine/pull/1551), by @fendor)
+([#1569](https://github.com/haskell/haskell-ide-engine/pull/1569), by @fendor)
 - Enable all working test suites and add linux-cabal job in Azure
-([#1571](https://github.com/haskell/haskell-ide-engine/pull/1551), by @jneira)
+([#1571](https://github.com/haskell/haskell-ide-engine/pull/1571), by @jneira)
 - Mention hlint data file handling in readme
-([#1573](https://github.com/haskell/haskell-ide-engine/pull/1551), by @jneira)
+([#1573](https://github.com/haskell/haskell-ide-engine/pull/1573), by @jneira)
 - Enable azure releases and some fixes
-([#1545](https://github.com/haskell/haskell-ide-engine/pull/1551), by @jneira)
+([#1545](https://github.com/haskell/haskell-ide-engine/pull/1545), by @jneira)
 - Add cabal freeze files and use them automatically
-([#1561](https://github.com/haskell/haskell-ide-engine/pull/1551), by @hasufell)
+([#1561](https://github.com/haskell/haskell-ide-engine/pull/1561), by @hasufell)
 - Add unit-tests for Cabal-Helper cradles
-([#1552](https://github.com/haskell/haskell-ide-engine/pull/1551), by @fendor)
+([#1552](https://github.com/haskell/haskell-ide-engine/pull/1552), by @fendor)
 - Don't mix stack with cabal
-([#1557](https://github.com/haskell/haskell-ide-engine/pull/1551), by @hasufell)
+([#1557](https://github.com/haskell/haskell-ide-engine/pull/1557), by @hasufell)
 - Avoid building HIE twice
-([#1562](https://github.com/haskell/haskell-ide-engine/pull/1551), by @hasufell)
+([#1562](https://github.com/haskell/haskell-ide-engine/pull/1562), by @hasufell)
 - Readme lsp flag
-([#1559](https://github.com/haskell/haskell-ide-engine/pull/1551), by @Anrock)
+([#1559](https://github.com/haskell/haskell-ide-engine/pull/1559), by @Anrock)
 - Fix haddock documentation for Cradle.hs
-([#1549](https://github.com/haskell/haskell-ide-engine/pull/1551), by @fendor)
+([#1549](https://github.com/haskell/haskell-ide-engine/pull/1549), by @fendor)
 
 
 # 1.0.0.0
