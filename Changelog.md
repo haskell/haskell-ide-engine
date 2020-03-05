@@ -11,7 +11,7 @@ Once that hurdle is crossed, the main emphasis will be there, and
 
 ## In this version
 
-- cabal now index state 2020-03-01T07:49:28Z
+- cabal now index state 2020-03-03T21:13:56Z
 - GHC 8.8.2 is lts-15.2
 - GHC 8.6.5 is lts-14.22
 - hlint is 2.2.11
