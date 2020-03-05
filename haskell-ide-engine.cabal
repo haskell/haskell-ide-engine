@@ -75,7 +75,7 @@ library
                      , haddock-library
                      , haskell-lsp == 0.20.*
                      , haskell-lsp-types == 0.20.*
-                     , haskell-src-exts
+                     , haskell-src-exts >= 1.22
                      , hie-plugin-api >= 1.2
                      , hoogle >= 5.0.13
                      , hsimport

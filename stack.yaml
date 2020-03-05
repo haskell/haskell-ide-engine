@@ -17,20 +17,19 @@ extra-deps:
 - floskell-0.10.2
 - ghc-lib-parser-8.8.2.20200205
 - ghc-lib-parser-ex-8.8.5.3
+# - haddock-api-2.23.0
 - git: https://github.com/haskell/haddock.git
   commit: be8b02c4e3cffe7d45b3dad0a0f071d35a274d65
   subdirs:
     - haddock-api
-# - haddock-api-2.23.0
 - haddock-library-1.8.0
 - haskell-lsp-0.20.0.0
 - haskell-lsp-types-0.20.0.0
 - lsp-test-0.10.1.0
-- haskell-src-exts-1.21.1
 - hie-bios-0.4.0
 - hlint-2.2.11
-- hoogle-5.0.17.11
-- hsimport-0.11.0
+- hoogle-5.0.17.15
+- hsimport-0.11.0@rev1
 - ilist-0.3.1.0
 - monad-dijkstra-0.1.1.2
 - ormolu-0.0.3.1
