@@ -19,6 +19,9 @@ Once that hurdle is crossed, the main emphasis will be there, and
 
 ## Changes
 
+- Use haskell-src-exts 1.22
+([#1679](https://github.com/haskell/haskell-ide-engine/pull/1679/files), by @jneira)
+
 - Bump resolvers and hlint to 2.2.11
 ([#1678](https://github.com/haskell/haskell-ide-engine/pull/1678), by @alanz)
 - Improvements of install script and macos-installhs-cabal new azure job
@@ -796,4 +799,3 @@ Add more code actions for various diagnostics:
 Include case split command, from @txsmith
 
 # 0.2.0.0
-
