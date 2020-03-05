@@ -16,6 +16,8 @@ Once that hurdle is crossed, the main emphasis will be there, and
 - GHC 8.6.5 is lts-14.22
 - hlint is 2.2.11
 - brittany is 0.12.1.1
+- hoogle is 5.0.17.15
+- haskell-src-exts is 1.22.0
 
 ## Changes
 
