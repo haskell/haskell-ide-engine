@@ -32,7 +32,7 @@ This project aims to be __the universal interface__ to __a growing number of Has
   - [Features](#features)
   - [Installation](#installation)
     - [Installation with Nix](#installation-with-nix)
-    - [Installation on ArchLinux](#installation-on-archlinux)
+    - [Installation on Arch Linux](#installation-on-arch-linux)
     - [Installation with GHC and HIE as a VS Code Devcontainer](#installation-with-ghc-and-hie-as-a-vs-code-devcontainer)
     - [Installation from source](#installation-from-source)
       - [Common pre-requirements](#common-pre-requirements)
@@ -143,15 +143,26 @@ This project aims to be __the universal interface__ to __a growing number of Has
 Follow the instructions at https://github.com/Infinisil/all-hies
 
 
-### Installation on ArchLinux
+### Installation on Arch Linux
 
-An [haskell-ide-engine](https://aur.archlinux.org/packages/haskell-ide-engine/) package is available on the AUR.
+A [haskell-ide-engine](https://aur.archlinux.org/packages/haskell-ide-engine/) package is available on the AUR.
 
-Using [Aura](https://github.com/aurapm/aura):
+Install it using [Aura](https://github.com/aurapm/aura):
 
 ```
 # aura -A haskell-ide-engine
 ```
+
+To change which GHC versions are supported by HIE, use
+
+```
+# aura -A --hotedit haskell-ide-engine
+```
+
+and modify the value of `_enabled_ghc_versions`.
+
+Reducing the number of supported GHC versions makes HIE compile faster.
+
 
 ### Installation with GHC and HIE as a VS Code Devcontainer
 
@@ -857,5 +868,4 @@ ghc-events-analyze hie.eventlog -b 100
 ```
 
 This support is similar to the logging capabilities [built into GHC](https://www.haskell.org/ghc/blog/20190924-eventful-ghc.html).
-
 
