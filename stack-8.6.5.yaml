@@ -31,7 +31,7 @@ extra-deps:
 - hie-bios-0.4.0
 - hlint-2.2.11
 - hoogle-5.0.17.15
-- hsimport-0.11.0@rev1
+- hsimport-0.11.0@sha256:e8f1774aff97215d7cc3a6c81635fae75b80af182f732f8fe28d1ed6eb9c7401,3170
 - indexed-profunctors-0.1
 - lsp-test-0.10.1.0
 - monad-dijkstra-0.1.1.2
