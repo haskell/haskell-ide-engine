@@ -39,6 +39,7 @@ extra-deps:
 - optparse-applicative-0.15.1.0
 - ormolu-0.0.3.1
 - parser-combinators-1.2.1
+- resourcet-1.2.3 # forced by unliftio-core >= 0.2
 - semialign-1.1
 - temporary-1.2.1.1
 - topograph-1

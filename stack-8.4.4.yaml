@@ -49,6 +49,7 @@ extra-deps:
 - parser-combinators-1.2.1
 - pretty-show-1.9.5
 - profunctors-5.5.1
+- resourcet-1.2.3 # forced by unliftio-core >= 0.2
 - rope-utf16-splay-0.3.1.0
 - simple-sendfile-0.2.30 # for network and network-bsd
 - socks-0.6.1 # for network and network-bsd
