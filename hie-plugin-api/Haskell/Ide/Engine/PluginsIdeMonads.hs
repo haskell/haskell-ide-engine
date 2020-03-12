@@ -585,11 +585,6 @@ instance MonadTrans GhcT where
 
 
 instance MonadUnliftIO Ghc where
-    {-# INLINE askUnliftIO #-}
-    askUnliftIO = Ghc $ \s ->
-                  withUnliftIO $ \u ->
-                  return (UnliftIO (unliftIO u . flip unGhc s))
-
     {-# INLINE withRunInIO #-}
     withRunInIO inner =
       Ghc $ \s ->
@@ -597,11 +592,6 @@ instance MonadUnliftIO Ghc where
       inner (run . flip unGhc s)
 
 instance MonadUnliftIO (GhcT IdeM) where
-    {-# INLINE askUnliftIO #-}
-    askUnliftIO = GhcT $ \s ->
-                  withUnliftIO $ \u ->
-                  return (UnliftIO (unliftIO u . flip unGhcT s))
-
     {-# INLINE withRunInIO #-}
     withRunInIO inner =
       GhcT $ \s ->

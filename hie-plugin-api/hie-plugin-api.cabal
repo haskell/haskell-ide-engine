@@ -57,6 +57,7 @@ library
                      , haskell-lsp == 0.20.*
                      , hslogger
                      , unliftio
+                     , unliftio-core ^>= 0.2.0.1
                      , monad-control
                      , mtl
                      , process

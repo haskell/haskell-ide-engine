@@ -16,8 +16,6 @@ package haskell-ide-engine
 
 -- Match the flag settings we use in stac builds
 constraints:
-        -- to avoid temporary a breaking change: https://github.com/haskell/haskell-ide-engine/issues/1680
-        unliftio-core < 0.2.0.0,
         haskell-ide-engine +pedantic,
         hie-plugin-api     +pedantic
 
