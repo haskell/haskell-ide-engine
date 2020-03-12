@@ -55,7 +55,8 @@ extra-deps:
 - syz-0.2.0.0
 - type-equality-1
 - unix-compat-0.5.2
-- unliftio-0.2.12
+- unliftio-0.2.12.1
+- unliftio-core-0.2.0.1
 - unordered-containers-0.2.10.0
 - yaml-0.11.2.0
 - th-abstraction-0.3.1.0

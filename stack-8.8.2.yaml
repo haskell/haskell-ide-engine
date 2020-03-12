@@ -37,6 +37,8 @@ extra-deps:
 - ormolu-0.0.3.1
 - semigroups-0.18.5
 - temporary-1.2.1.1
+- unliftio-0.2.12.1
+- unliftio-core-0.2.0.1
 
 flags:
   haskell-ide-engine:

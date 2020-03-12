@@ -42,6 +42,8 @@ extra-deps:
 - semialign-1.1
 - temporary-1.2.1.1
 - topograph-1
+- unliftio-0.2.12.1
+- unliftio-core-0.2.0.1
 
 flags:
   haskell-ide-engine:
