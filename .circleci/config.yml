@@ -136,6 +136,11 @@ jobs:
       - STACK_FILE: "stack-8.8.2.yaml"
     <<: *defaults
 
+  ghc-8.8.3:
+    environment:
+      - STACK_FILE: "stack-8.8.3.yaml"
+    <<: *defaults
+
   ghc-nightly:
     environment:
       - STACK_FILE: "stack.yaml"
