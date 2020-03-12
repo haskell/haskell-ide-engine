@@ -109,12 +109,12 @@ lookupComponentOptions fp = do
 lookupInCache
   :: FilePath
   -> GhcModuleCache
-  -- | Called when file is in the current cradle
   -> (Bios.Cradle CabalHelper -> Bios.ComponentOptions -> a)
-  -- | Called when file is a member of a cached cradle
+  -- ^ Called when file is in the current cradle
   -> (CachedCradle -> a)
-  -- | Default value to return if a cradle is not found
+  -- ^ Called when file is a member of a cached cradle
   -> a
+  -- ^ Default value to return if a cradle is not found
   -> a
 lookupInCache fp gmc cur cached def = case currentCradle gmc of
   Just (dirs, c, co) | any (`isPrefixOf` fp) dirs -> cur c co
