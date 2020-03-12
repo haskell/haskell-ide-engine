@@ -2,11 +2,13 @@ module OptionsSpec where
 
 import Prelude hiding (unzip)
 import Data.List.NonEmpty(unzip)
+import Data.Version (showVersion)
 import Test.Hspec
 import Options.Applicative
 import Haskell.Ide.Engine.Options(GlobalOpts(..), RunMode(..), ProjectLoadingOpts(..), optionParser)
 import System.Exit(ExitCode(..))
 import Data.List(isPrefixOf)
+import Paths_haskell_ide_engine as HIE (version)
 
 main :: IO ()
 main = hspec spec
@@ -39,7 +41,7 @@ spec = do
       let (maybeMessage, maybeStatusCode) = unzip $ getParseFailure result
 
       it "should return version" $
-        maybeMessage `shouldBe` Just "1.1"
+        maybeMessage `shouldBe` Just (showVersion HIE.version)
       it "shoud return exit code 0" $
         maybeStatusCode `shouldBe` Just ExitSuccess
 
