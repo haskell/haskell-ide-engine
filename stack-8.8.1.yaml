@@ -30,6 +30,7 @@ extra-deps:
 - ilist-0.3.1.0
 - monad-dijkstra-0.1.1.2
 - ormolu-0.0.3.1
+- resourcet-1.2.3 # forced by unliftio-core >= 0.2
 - semigroups-0.18.5
 - temporary-1.2.1.1
 - unliftio-0.2.12.1
