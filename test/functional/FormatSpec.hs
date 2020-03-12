@@ -210,5 +210,5 @@ unchangedOrmolu =
   \bar s =  do\n\
   \      x <- return \"hello\"\n\
   \      return \"asdf\"\n\
-  \      \n\
+  \\n\
   \data Baz = Baz { a :: Int, b :: String }\n\n"
