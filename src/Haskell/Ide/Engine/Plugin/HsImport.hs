@@ -13,6 +13,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad
 import           Data.Aeson
 import           Data.Foldable
+import           Data.List                      ( partition )
 import           Data.Maybe
 #if __GLASGOW_HASKELL__ < 808
 import           Data.Monoid                    ( (<>) )
@@ -294,12 +295,18 @@ codeActionProvider plId docId _ context = do
   -- Diagnostic that is supposed to import the appropriate term.
   --
   -- Result may produce several import actions, or none.
+  --
+  -- Actions which import from a module whose name components contain
+  -- 'Internal' are returned last for each diagnostic.
   importActionsForTerms
     :: SearchStyle -> [ImportDiagnostic] -> IdeM [J.CodeAction]
   importActionsForTerms style importDiagnostics = do
     let searchTerms   = map (applySearchStyle style . term) importDiagnostics
     searchResults <- mapM Hoogle.searchModules' searchTerms
-    let importTerms = zip searchResults importDiagnostics
+    let deprioritizeInternal = uncurry (++)
+          . partition (("Internal" `notElem`) . T.splitOn "." . fst)
+        prioritizedSearchResults = deprioritizeInternal <$> searchResults
+        importTerms = zip prioritizedSearchResults importDiagnostics
     concat <$> mapM (uncurry (termToActions style)) importTerms
 
   -- | Apply the search style to given term.
