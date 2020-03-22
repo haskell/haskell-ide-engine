@@ -1,4 +1,4 @@
-resolver: nightly-2020-03-12
+resolver: lts-15.4
 packages:
 - .
 - hie-plugin-api
@@ -7,7 +7,7 @@ extra-deps:
 # - ./submodules/HaRe
 
 - apply-refact-0.7.0.0
-- bytestring-trie-0.2.5.0
+- bytestring-trie-0.2.5.0@rev1
 # - cabal-helper-1.0.0.0
 - github: jneira/cabal-helper
   commit: ffb1f57a5ffc6b7ac3c46a9974c4420a6d2bb9b2
@@ -27,14 +27,13 @@ extra-deps:
 - monad-dijkstra-0.1.1.2
 - semigroups-0.18.5
 - temporary-1.2.1.1
+- unliftio-core-0.2.0.1
 
 flags:
   haskell-ide-engine:
     pedantic: true
   hie-plugin-api:
     pedantic: true
-
-# allow-newer: true
 
 nix:
   packages: [ icu libcxx zlib ]
