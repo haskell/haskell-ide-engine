@@ -13,6 +13,7 @@ extra-deps:
 - shake-0.18.5
 # for resolvers with ghc < 8.6
 # - shake-0.17
+- unix-time-0.4.7
 
 
 nix:
