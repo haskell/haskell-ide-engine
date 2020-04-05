@@ -4,14 +4,6 @@ packages:
 
          -- ./submodules/HaRe
 
--- To avoid build error with ghc-8.8.2
--- See https://github.com/haskell/haddock/issues/1123
-source-repository-package
-    type: git
-    location: https://github.com/haskell/haddock.git
-    subdir: haddock-api
-    tag: be8b02c4e3cffe7d45b3dad0a0f071d35a274d65
-
 source-repository-package
     type: git
     location: https://github.com/jneira/cabal-helper.git
@@ -24,8 +16,6 @@ package haskell-ide-engine
 
 -- Match the flag settings we use in stac builds
 constraints:
-        -- to avoid temporary a breaking change: https://github.com/haskell/haskell-ide-engine/issues/1680
-        unliftio-core < 0.2.0.0,
         haskell-ide-engine +pedantic,
         hie-plugin-api     +pedantic
 
