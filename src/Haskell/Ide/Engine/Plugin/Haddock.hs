@@ -63,14 +63,15 @@ lookupSrcHtmlForModule =
 
 lookupHtmlForModule :: (FilePath -> FilePath -> FilePath) -> DynFlags -> Module -> IO (Maybe FilePath)
 lookupHtmlForModule mkDocPath df m = do
-  let mfp = go <$> (listToMaybe =<< lookupHtmls df ui)
-  exists <- maybe (pure False) doesFileExist mfp
-  return $ if exists then mfp else Nothing
+  let mfs = go <$> (listToMaybe =<< lookupHtmls df ui)
+  htmls <- filterM doesFileExist (concat . maybeToList $ mfs)
+  return $ listToMaybe htmls
   where
-    go pkgDocDir = mkDocPath pkgDocDir mn
+    -- The file might use "." or "-" as separator
+    go pkgDocDir = [mkDocPath pkgDocDir mn | mn <- [mndot,mndash]]
     ui = moduleUnitId m
-    mn = map (\x -> if x == '.' then '-' else x) mns
-    mns = moduleNameString $ moduleName m
+    mndash = map (\x -> if x == '.' then '-' else x) mndot
+    mndot = moduleNameString $ moduleName m
 
 nameCacheFromGhcMonad :: GhcMonad m => NameCacheAccessor m
 nameCacheFromGhcMonad = ( read_from_session , write_to_session )
