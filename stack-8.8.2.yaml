@@ -1,4 +1,4 @@
-resolver: lts-15.2
+resolver: lts-15.3 # Last 8.8.2
 packages:
 - .
 - hie-plugin-api
@@ -10,20 +10,14 @@ extra-deps:
 - brittany-0.12.1.1
 - bytestring-trie-0.2.5.0
 # - cabal-helper-1.0.0.0
-- github: jneira/cabal-helper
-  commit: ffb1f57a5ffc6b7ac3c46a9974c4420a6d2bb9b2
+- github: DanielG/cabal-helper
+  commit: a18bbb2af92e9b4337e7f930cb80754f2408bcfd
 - clock-0.7.2
 - constrained-dynamic-0.1.0.0
 - floskell-0.10.2
 - ghc-lib-parser-8.8.2.20200205
 - ghc-lib-parser-ex-8.8.5.3
-# To avoid build error with ghc-8.8.2
-# See https://github.com/haskell/haddock/issues/1123
-- git: https://github.com/haskell/haddock.git
-  commit: be8b02c4e3cffe7d45b3dad0a0f071d35a274d65
-  subdirs:
-    - haddock-api
-# - haddock-api-2.23.0
+- haddock-api-2.23.1
 - haddock-library-1.8.0
 - haskell-lsp-0.20.0.0
 - haskell-lsp-types-0.20.0.0

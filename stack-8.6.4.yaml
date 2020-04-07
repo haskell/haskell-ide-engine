@@ -12,8 +12,8 @@ extra-deps:
 - butcher-1.3.2.1
 - bytestring-trie-0.2.5.0
 # - cabal-helper-1.0.0.0
-- github: jneira/cabal-helper
-  commit: ffb1f57a5ffc6b7ac3c46a9974c4420a6d2bb9b2
+- github: DanielG/cabal-helper
+  commit: a18bbb2af92e9b4337e7f930cb80754f2408bcfd
 - cabal-plan-0.5.0.0
 - constrained-dynamic-0.1.0.0
 - extra-1.6.21
