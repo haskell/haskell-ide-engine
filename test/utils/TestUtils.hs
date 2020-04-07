@@ -172,7 +172,9 @@ ghcVersion = GHC84
 
 stackYaml :: FilePath
 stackYaml =
-#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,8,2,0)))
+#if (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,8,3,0)))
+  "stack-8.8.3.yaml"
+#elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,8,2,0)))
   "stack-8.8.2.yaml"
 #elif (defined(MIN_VERSION_GLASGOW_HASKELL) && (MIN_VERSION_GLASGOW_HASKELL(8,8,1,0)))
   "stack-8.8.1.yaml"
