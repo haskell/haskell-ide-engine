@@ -1,4 +1,44 @@
-# 1.2
+## 1.3
+
+NOTE: haskell-ide-engine is in transition, the new home for it will be
+[haskell-language-server](https://github.com/haskell/haskell-language-server),
+which does not currently have feature parity with `hie`. In particular
+it does not support multi-cradles, so can only open a single component
+of a project, as configured into its `hie.yaml` file.
+
+Once that hurdle is crossed, the main emphasis will be there, and
+`hie` will eventually be deprecated.
+
+## In this version
+
+- cabal now index state 2020-04-06T20:27:36Z
+- GHC 8.8.2 is lts-15.3
+
+## Changes
+
+- Make install script use unix-time-0.4.7
+([#1715](https://github.com/haskell/haskell-ide-engine/pull/1715) by @jneira)
+- HsImport: Return codeactions importing from Internal modules last
+([#1703](https://github.com/haskell/haskell-ide-engine/pull/1703) by @expipiplus1)
+- Extend FormatSpec with a data types
+([#1605](https://github.com/haskell/haskell-ide-engine/pull/1605) by @EncodePanda)
+- Update hie-plugin-api to use unliftio-core 0.2.0.1
+([#1698](https://github.com/haskell/haskell-ide-engine/pull/1698) by @fendor)
+- Use sha instead revision for hsimport and other fixes
+([#1694](https://github.com/haskell/haskell-ide-engine/pull/1694) by @jneira)
+- Fix: haddock for hie-plugin-api
+([#1696](https://github.com/haskell/haskell-ide-engine/pull/1696) by @fendor)
+- Fix #1578 - Redesign option parsing for main executable
+([#1671](https://github.com/haskell/haskell-ide-engine/pull/1671) by @gdziadkiewicz)
+- Report progress as a percentage
+([#1692](https://github.com/haskell/haskell-ide-engine/pull/1692) by @expipiplus1)
+- Correct pull request url and formatting in the changelog
+([#1684](https://github.com/haskell/haskell-ide-engine/pull/1684) by @jneira)
+- Fix typos in README. Add hint to speed up HIE compilation
+([#1685](https://github.com/haskell/haskell-ide-engine/pull/1685) by @mb720)
+
+
+## 1.2
 
 NOTE: haskell-ide-engine is in transition, the new home for it will be
 [haskell-language-server](https://github.com/haskell/haskell-language-server),
