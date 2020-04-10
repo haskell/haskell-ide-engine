@@ -226,16 +226,13 @@ In addition make sure `hie.exe` is not running by closing your editor, otherwise
 #### Download the source code
 
 ```bash
-git clone https://github.com/haskell/haskell-ide-engine --recurse-submodules
+git clone https://github.com/haskell/haskell-ide-engine
 cd haskell-ide-engine
 ```
 
 #### Building
 
-Uses the [shake](https://shakebuild.com/) build system for predictable builds.
-
-Note, on first invocation of the build script, a GHC is being installed for execution.
-The GHC used for the `install.hs` can be adjusted in `shake.yaml` by using a different resolver.
+Note, on first invocation of the build script, a GHC is installed for execution. If you'd like to use a specific version of GHC for the `install.hs`, you can adjust the resolver in the `install/shake.yaml` file, as this project's build uses the [shake](https://shakebuild.com/) build tool.
 
 Available commands can be seen with:
 
