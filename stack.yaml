@@ -1,4 +1,5 @@
-resolver: nightly-2020-03-09  # Last GHC 8.8.2
+resolver: nightly-2020-04-09
+
 packages:
 - .
 - hie-plugin-api
@@ -7,8 +8,7 @@ extra-deps:
 # - ./submodules/HaRe
 
 - apply-refact-0.7.0.0
-- brittany-0.12.1.1
-- bytestring-trie-0.2.5.0
+- bytestring-trie-0.2.5.0@sha256:9efa9c6f556314d28486be2470ff789419c5238ed2e354870623a3cbbd28fbe2,3349
 # - cabal-helper-1.0.0.0
 - github: DanielG/cabal-helper
   commit: a18bbb2af92e9b4337e7f930cb80754f2408bcfd
@@ -21,18 +21,14 @@ extra-deps:
 - haddock-library-1.8.0
 - haskell-lsp-0.20.0.0
 - haskell-lsp-types-0.20.0.0
+- haskell-src-exts-1.22.0
 - lsp-test-0.10.1.0
-- hie-bios-0.4.0
-- hlint-2.2.11
 - hoogle-5.0.17.15
 - hsimport-0.11.0@sha256:e8f1774aff97215d7cc3a6c81635fae75b80af182f732f8fe28d1ed6eb9c7401,3170
 - ilist-0.3.1.0
 - monad-dijkstra-0.1.1.2
-- ormolu-0.0.3.1
-- resourcet-1.2.3 # forced by unliftio-core >= 0.2
 - semigroups-0.18.5
 - temporary-1.2.1.1
-- unliftio-0.2.12.1
 - unliftio-core-0.2.0.1
 
 flags:
@@ -40,8 +36,6 @@ flags:
     pedantic: true
   hie-plugin-api:
     pedantic: true
-
-# allow-newer: true
 
 nix:
   packages: [ icu libcxx zlib ]
