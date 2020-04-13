@@ -543,7 +543,7 @@ cabalHelperAction proj env package root fp = do
         let fs' = getFlags comp
         let fs = map (fixImportDirs root) fs'
         let targets = getTargets comp relativeFp
-        let ghcOptions = fs ++ targets
+        let ghcOptions = removeRTS (fs ++ targets)
         debugm $ "Flags for \"" ++ fp ++ "\": " ++ show ghcOptions
         debugm $ "Component Infos: " ++ show comp
         return
@@ -556,6 +556,16 @@ cabalHelperAction proj env package root fp = do
         $ CradleError
           (ExitFailure 2)
           err
+  where
+  -- | Strip out any ["+RTS", ..., "-RTS"] sequences in the command string list.
+  removeRTS :: [String] -> [String]
+  removeRTS ("+RTS" : xs)  =
+    case dropWhile (/= "-RTS") xs of
+      [] -> []
+      (_ : ys) -> removeRTS ys
+  removeRTS (y:ys)         = y : removeRTS ys
+  removeRTS []             = []
+
 
 -- | Fix occurrences of "-i." to "-i<cradle-root-dir>"
 -- Flags obtained from cabal-helper are relative to the package
