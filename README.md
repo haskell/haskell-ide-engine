@@ -539,7 +539,7 @@ in
 {
 "clients": {
   "haskell-ide-engine": {
-    "command": ["hie"],
+    "command": ["hie", "--lsp"],
     "scopes": ["source.haskell"],
     "syntaxes": ["Packages/Haskell/Haskell.sublime-syntax"],
     "languageId": "haskell",
