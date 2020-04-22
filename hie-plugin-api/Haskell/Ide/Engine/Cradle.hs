@@ -14,10 +14,11 @@ import           Distribution.Helper (Package, projectPackages, pUnits,
                                       unChModuleName, Ex(..), ProjLoc(..),
                                       QueryEnv, mkQueryEnv, runQuery,
                                       Unit, unitInfo, uiComponents,
-                                      ChEntrypoint(..), UnitInfo(..))
+                                      ChEntrypoint(..), UnitInfo(..),
+                                      pPackageName)
 import           Distribution.Helper.Discover (findProjects, getDefaultDistDir)
 import           Data.Function ((&))
-import           Data.List (isPrefixOf, sortOn, find)
+import           Data.List (isPrefixOf, sortOn, find, intercalate)
 import qualified Data.List.NonEmpty as NonEmpty
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.Map as Map
@@ -304,18 +305,23 @@ FilePath is part of and decide which unit to load when 'runCradle' is executed.
 Thus, to find the options required to compile and load the given FilePath,
 we have to do the following:
 
-  1. Identify the package that contains the FilePath (should be unique)
+  1. Find the project type of the project.
      Happens in 'cabalHelperCradle'
-  2. Find the unit that that contains the FilePath (May be non-unique)
+  2. Identify the package that contains the FilePath (should be unique).
      Happens in 'cabalHelperAction'
-  3. Find the component that exposes the FilePath (May be non-unique)
+  3. Find the unit that that contains the FilePath (May be non-unique).
+     Happens in 'cabalHelperAction'
+  4. Find the component that exposes the FilePath (May be non-unique).
      Happens in 'cabalHelperAction'
 
-=== Identify the package that contains the FilePath
+=== Find the project type of the project.
 
 The function 'cabalHelperCradle' does the first step only.
 It starts by querying Cabal-Helper to find the project's root.
 See 'findCabalHelperEntryPoint' for details how this is done.
+
+=== Identify the package that contains the FilePath
+
 Once the root of the project is defined, we query Cabal-Helper for all packages
 that are defined in the project and match by the packages source directory
 which package the given FilePath is most likely to be a part of.
@@ -479,43 +485,16 @@ cabalHelperCradle file = do
       debugm $ "Cabal-Helper dirs: " ++ show [root, file]
       let dist_dir = getDefaultDistDir proj
       env <- mkQueryEnv proj dist_dir
-      packages <- runQuery projectPackages env
-      -- Find the package the given file may belong to.
-      -- If it does not belong to any package, create a none-cradle.
-      -- We might want to find a cradle without actually loading anything.
-      -- Useful if we only want to determine a ghc version to use.
-      case packages `findPackageFor` file of
-        Nothing          -> do
-          debugm $ "Could not find a package for the file: " ++ file
-          debugm
-            "This is perfectly fine if we only want to determine the GHC version."
-          return
-            Cradle { cradleRootDir = root
-                   , cradleOptsProg =
-                       CradleAction { actionName = Bios.Other (projectNoneType proj)
-                                    , runCradle = \_ _ -> return CradleNone
-                                    }
-                   }
-        Just realPackage -> do
-          debugm $ "Cabal-Helper cradle package: " ++ show realPackage
-          -- Field `pSourceDir` often has the form `<cwd>/./plugin`
-          -- but we only want `<cwd>/plugin`
-          normalisedPackageLocation <- canonicalizePath $ pSourceDir realPackage
-          debugm
-            $ "Cabal-Helper normalisedPackageLocation: "
-            ++ normalisedPackageLocation
-          return
-            Cradle { cradleRootDir = normalisedPackageLocation
-                   , cradleOptsProg =
-                       CradleAction { actionName = Bios.Other actionNameSuffix
-                                    , runCradle = \_ fp -> cabalHelperAction
-                                        (Ex proj)
-                                        env
-                                        realPackage
-                                        normalisedPackageLocation
-                                        fp
-                                    }
-                   }
+      return
+        Cradle { cradleRootDir = root
+                , cradleOptsProg =
+                    CradleAction { actionName = Bios.Other actionNameSuffix
+                                , runCradle = \_ fp -> cabalHelperAction
+                                    (Ex proj)
+                                    env
+                                    fp
+                                }
+                }
 
 -- | Cradle Action to query for the ComponentOptions that are needed
 -- to load the given FilePath.
@@ -526,36 +505,59 @@ cabalHelperAction :: Ex ProjLoc -- ^ Project location, can be used
                                 -- agnostic error messages.
                   -> QueryEnv v -- ^ Query Env created by 'mkQueryEnv'
                                 -- with the appropriate 'distdir'
-                  -> Package v -- ^ Package this cradle is part for.
-                  -> FilePath -- ^ Root directory of the cradle
-                              -- this action belongs to.
                   -> FilePath -- ^ FilePath to load, expected to be an absolute path.
                   -> IO (CradleLoadResult ComponentOptions)
-cabalHelperAction proj env package root fp = do
-  -- Get all unit infos the given FilePath may belong to
-  let units = pUnits package
-  -- make the FilePath to load relative to the root of the cradle.
-  let relativeFp = makeRelative root fp
-  debugm $ "Relative Module FilePath: " ++ relativeFp
-  getComponent proj env (toList units) relativeFp
-    >>= \case
-      Right comp -> do
-        let fs' = getFlags comp
-        let fs = map (fixImportDirs root) fs'
-        let targets = getTargets comp relativeFp
-        let ghcOptions = removeRTS (fs ++ targets)
-        debugm $ "Flags for \"" ++ fp ++ "\": " ++ show ghcOptions
-        debugm $ "Component Infos: " ++ show comp
-        return
-          $ CradleSuccess
-            ComponentOptions { componentOptions = ghcOptions
-                              , componentDependencies = []
-                              }
-      Left err   -> return
-        $ CradleFail
-        $ CradleError
-          (ExitFailure 2)
-          err
+cabalHelperAction proj env fp = do
+  -- This builds all packages in the project.
+  packages <- runQuery projectPackages env
+  -- Find the package the given file may belong to.
+  -- If it does not belong to any package, fail the loading process
+  case packages `findPackageFor` fp of
+    Nothing -> do
+      debugm $ "Failed to find a package for: " ++ fp
+      return $ CradleFail $
+        CradleError
+          (ExitFailure 1)
+          [ "Failed to find a package for: " ++ fp,
+            "No Prefix matched.",
+            "Following packages were searched: "
+              ++ intercalate "; "
+                 (map
+                  (\p -> pPackageName p ++ "(" ++ pSourceDir p ++ ")")
+                  $ NonEmpty.toList packages)
+          ]
+    Just package -> do
+      debugm $ "Cabal-Helper cradle package: " ++ show package
+      -- Field `pSourceDir` often has the form `<cwd>/./plugin`
+      -- but we only want `<cwd>/plugin`
+      packageRoot <- canonicalizePath $ pSourceDir package
+      debugm
+        $ "Cabal-Helper normalisedPackageLocation: "
+        ++ packageRoot
+      -- Get all unit infos the given FilePath may belong to
+      let units = pUnits package
+      -- make the FilePath to load relative to the root of the cradle.
+      let relativeFp = makeRelative packageRoot fp
+      debugm $ "Relative Module FilePath: " ++ relativeFp
+      getComponent proj env (toList units) relativeFp
+        >>= \case
+          Right comp -> do
+            let fs' = getFlags comp
+            let fs = map (fixImportDirs packageRoot) fs'
+            let targets = getTargets comp relativeFp
+            let ghcOptions = removeRTS (fs ++ targets)
+            debugm $ "Flags for \"" ++ fp ++ "\": " ++ show ghcOptions
+            debugm $ "Component Infos: " ++ show comp
+            return
+              $ CradleSuccess
+                ComponentOptions { componentOptions = ghcOptions
+                                 , componentDependencies = []
+                                 }
+          Left err   -> return
+            $ CradleFail
+            $ CradleError
+              (ExitFailure 2)
+              err
   where
   -- | Strip out any ["+RTS", ..., "-RTS"] sequences in the command string list.
   removeRTS :: [String] -> [String]
