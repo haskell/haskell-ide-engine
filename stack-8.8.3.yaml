@@ -1,4 +1,4 @@
-resolver: lts-15.4
+resolver: lts-15.10
 packages:
 - .
 - hie-plugin-api
@@ -14,11 +14,11 @@ extra-deps:
 - clock-0.7.2
 - constrained-dynamic-0.1.0.0
 - floskell-0.10.2
-- haddock-api-2.23.1
-- hoogle-5.0.17.15
-- hsimport-0.11.0@sha256:e8f1774aff97215d7cc3a6c81635fae75b80af182f732f8fe28d1ed6eb9c7401,3170
 - ghc-lib-parser-8.8.2.20200205
 - ghc-lib-parser-ex-8.8.5.3
+- haddock-api-2.23.1
+- hoogle-5.0.17.15
+- hsimport-0.11.0
 - ilist-0.3.1.0
 - monad-dijkstra-0.1.1.2
 - semigroups-0.18.5

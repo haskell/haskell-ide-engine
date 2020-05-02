@@ -1,4 +1,4 @@
-resolver: nightly-2020-04-09
+resolver: nightly-2020-05-01
 
 packages:
 - .
@@ -8,25 +8,26 @@ extra-deps:
 # - ./submodules/HaRe
 
 - apply-refact-0.7.0.0
-- bytestring-trie-0.2.5.0@sha256:9efa9c6f556314d28486be2470ff789419c5238ed2e354870623a3cbbd28fbe2,3349
+- bytestring-trie-0.2.5.0
 # - cabal-helper-1.0.0.0
 - github: DanielG/cabal-helper
   commit: a18bbb2af92e9b4337e7f930cb80754f2408bcfd
 - clock-0.7.2
 - constrained-dynamic-0.1.0.0
 - floskell-0.10.2
-- ghc-lib-parser-8.8.2.20200205
+- ghc-lib-parser-8.8.3.20200412.1
 - ghc-lib-parser-ex-8.8.5.3
 - haddock-api-2.23.1
 - haddock-library-1.8.0
 - haskell-lsp-0.20.0.0
 - haskell-lsp-types-0.20.0.0
 - haskell-src-exts-1.22.0
-- lsp-test-0.10.1.0
 - hoogle-5.0.17.15
-- hsimport-0.11.0@sha256:e8f1774aff97215d7cc3a6c81635fae75b80af182f732f8fe28d1ed6eb9c7401,3170
+- hsimport-0.11.0
 - ilist-0.3.1.0
+- lsp-test-0.10.1.0
 - monad-dijkstra-0.1.1.2
+- ormolu-0.0.3.1
 - semigroups-0.18.5
 - temporary-1.2.1.1
 - unliftio-core-0.2.0.1
