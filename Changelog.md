@@ -1,3 +1,34 @@
+## 1.4
+
+NOTE: haskell-ide-engine is in transition, the new home for it will be
+[haskell-language-server](https://github.com/haskell/haskell-language-server),
+which does not currently have feature parity with `hie`.
+Once that hurdle is crossed, the main emphasis will be there, and
+`hie` will eventually be deprecated.
+
+## In this version
+
+- cabal to 2020-05-02T10:11:15Z
+- stack-8.8.3 to lts-15.10
+- stack to nightly-2020-05-01
+
+## Changes
+
+- Bump resolvers
+([#1757](https://github.com/haskell/haskell-ide-engine/pull/1757) by @alanz)
+- Move finding the package for a filepath
+([#1750](https://github.com/haskell/haskell-ide-engine/pull/1750) by @fendor)
+- Update Sublime Text HIE command
+([#1742](https://github.com/haskell/haskell-ide-engine/pull/1742) by @ssanj)
+- Use installed ghc in stack linux builds
+([#1737](https://github.com/haskell/haskell-ide-engine/pull/1737) by @jneira)
+- Strip RTS flags, since we cant honor them
+([#1736](https://github.com/haskell/haskell-ide-engine/pull/1736) by @fendor)
+- Support for ghc-8.8.3
+([#1697](https://github.com/haskell/haskell-ide-engine/pull/1697) by @jneira)
+- Haddock source file names may use either dot or dash as separator
+([#1723](https://github.com/haskell/haskell-ide-engine/pull/1723) by @wz1000)
+
 ## 1.3
 
 NOTE: haskell-ide-engine is in transition, the new home for it will be
