@@ -1,5 +1,5 @@
 name:                hie-plugin-api
-version:             1.3
+version:             1.4
 synopsis:            Haskell IDE API for plugin communication
 description:         Please see README.md
 license:             BSD3
