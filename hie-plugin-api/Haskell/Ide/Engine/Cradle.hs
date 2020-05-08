@@ -471,6 +471,7 @@ cabalHelperCradle file = do
                                       $ CradleSuccess
                                         ComponentOptions
                                           { componentOptions = [file, fixImportDirs cwd "-i."]
+                                          , componentRoot = cwd
                                           , componentDependencies = []
                                           }
                                 }
@@ -542,8 +543,7 @@ cabalHelperAction proj env fp = do
       getComponent proj env (toList units) relativeFp
         >>= \case
           Right comp -> do
-            let fs' = getFlags comp
-            let fs = map (fixImportDirs packageRoot) fs'
+            let fs = getFlags comp
             let targets = getTargets comp relativeFp
             let ghcOptions = removeRTS (fs ++ targets)
             debugm $ "Flags for \"" ++ fp ++ "\": " ++ show ghcOptions
@@ -551,6 +551,7 @@ cabalHelperAction proj env fp = do
             return
               $ CradleSuccess
                 ComponentOptions { componentOptions = ghcOptions
+                                 , componentRoot = packageRoot
                                  , componentDependencies = []
                                  }
           Left err   -> return
