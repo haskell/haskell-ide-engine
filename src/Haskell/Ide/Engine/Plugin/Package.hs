@@ -27,7 +27,8 @@ import qualified Data.Text.Encoding            as T
 import           Data.Maybe
 #if __GLASGOW_HASKELL__ < 808
 import           Data.Monoid ((<>))
-#else
+#endif
+#if MIN_VERSION_Cabal(3,0,0)
 import qualified Data.Set                      as S
 #endif
 #if MIN_VERSION_Cabal(2,2,0)
@@ -301,7 +302,7 @@ editCabalPackage file modulePath pkgName fileMap = do
             -- Add it to the bottom of the dependencies list
             -- TODO: we could sort the depencies and then insert it,
             -- or insert it in order iff the list is already sorted.
-#if __GLASGOW_HASKELL__ >= 808
+#if MIN_VERSION_Cabal(3,0,0)
             newDeps = oldDeps ++ [Dependency (mkPackageName (T.unpack dep)) anyVersion S.empty]
 #else
             newDeps = oldDeps ++ [Dependency (mkPackageName (T.unpack dep)) anyVersion]
