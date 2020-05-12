@@ -61,7 +61,7 @@ library
                      , brittany
                      , bytestring
                      , Cabal
-                     , cabal-helper >= 1.0 && < 1.1
+                     , cabal-helper >= 1.1 && < 1.2
                      , containers
                      , data-default
                      , directory
