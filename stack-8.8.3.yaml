@@ -7,7 +7,7 @@ extra-deps:
 # - ./submodules/HaRe
 
 - apply-refact-0.7.0.0
-- bytestring-trie-0.2.5.0@rev1
+- bytestring-trie-0.2.5.0@rev:1
 # - cabal-helper-1.0.0.0
 - github: DanielG/cabal-helper
   commit: a18bbb2af92e9b4337e7f930cb80754f2408bcfd
