@@ -7,7 +7,7 @@ extra-deps:
 # - ./submodules/HaRe
 
 - apply-refact-0.7.0.0
-- bytestring-trie-0.2.5.0@rev1
+- bytestring-trie-0.2.5.0@rev:1
 - Cabal-3.0.2.0
 - cabal-helper-1.1.0.0
 - clock-0.7.2
