@@ -4,11 +4,6 @@ packages:
 
          -- ./submodules/HaRe
 
-source-repository-package
-    type: git
-    location: https://github.com/DanielG/cabal-helper.git
-    tag: a18bbb2af92e9b4337e7f930cb80754f2408bcfd
-
 tests: true
 
 package haskell-ide-engine
@@ -17,8 +12,9 @@ package haskell-ide-engine
 -- Match the flag settings we use in stac builds
 constraints:
         haskell-ide-engine +pedantic,
-        hie-plugin-api     +pedantic
+        hie-plugin-api     +pedantic,
+        ghc-lib-parser == 8.8.2.20200205
 
 write-ghc-environment-files: never
 
-index-state: 2020-05-10T18:26:01Z
+index-state: 2020-05-12T16:28:12Z
