@@ -311,7 +311,7 @@ In general, executing targets with `cabal` instead of `stack` have the same beha
 
 If you installed multiple versions of HIE then you will need to use a wrapper script.
 Wrapper script will analyze your project, find suitable version of HIE and launch it.
-Enable it by editing VS Code settings like that:
+Enable it by editing VS Code settings like this:
 
 ```json
 "languageServerHaskell.useCustomHieWrapper": true,
@@ -321,7 +321,7 @@ Enable it by editing VS Code settings like that:
 ## Configuration
 There are some settings that can be configured via a `settings.json` file:
 
-```json
+```
 {
     "languageServerHaskell": {
         "hlintOn": Boolean,
