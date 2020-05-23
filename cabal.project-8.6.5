@@ -1,0 +1,25 @@
+packages:
+         ./
+         ./hie-plugin-api/
+
+         -- ./submodules/HaRe
+
+tests: true
+
+-- The build is failing due a cabal bug involving haddock
+-- see https://github.com/haskell/haskell-ide-engine/issues/1741
+package haddock-api
+  documentation: False
+
+package haskell-ide-engine
+  test-show-details: direct
+
+-- Match the flag settings we use in stac builds
+constraints:
+        haskell-ide-engine +pedantic,
+        hie-plugin-api     +pedantic,
+        ghc-lib-parser == 8.8.2.20200205
+
+write-ghc-environment-files: never
+
+index-state: 2020-05-12T16:28:12Z
