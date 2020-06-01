@@ -12,7 +12,8 @@ package haskell-ide-engine
 -- Match the flag settings we use in stac builds
 constraints:
         haskell-ide-engine +pedantic,
-        hie-plugin-api     +pedantic
+        hie-plugin-api     +pedantic,
+        ghc-lib-parse  == 8.8.3.20200412.1
 
 write-ghc-environment-files: never
 
