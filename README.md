@@ -203,7 +203,7 @@ sudo apt install libicu-dev libtinfo-dev libgmp-dev
 **Debian 10/Ubuntu 18.10 or later**:
 
 ```bash
-sudo apt install libicu-dev libncurses-dev libgmp-dev
+sudo apt install libicu-dev libncurses-dev libgmp-dev # also zlib1g-dev if not installed
 ```
 
 **Fedora**:
