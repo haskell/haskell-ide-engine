@@ -33,7 +33,7 @@ spec = do
 
   describe "formatting provider" $ do
     let formatLspConfig provider =
-          object [ "languageServerHaskell" .= object ["formattingProvider" .= (provider :: Value)] ]
+          object [ "haskell" .= object ["formattingProvider" .= (provider :: Value)] ]
         formatConfig provider = defaultConfig { lspConfig = Just (formatLspConfig provider) }
 
     it "respects none" $ runSessionWithConfig (formatConfig "none") hieCommand fullCaps "test/testdata" $ do
@@ -94,7 +94,7 @@ spec = do
 
   describe "ormolu" $ do
     let formatLspConfig provider =
-          object [ "languageServerHaskell" .= object ["formattingProvider" .= (provider :: Value)] ]
+          object [ "haskell" .= object ["formattingProvider" .= (provider :: Value)] ]
 
     it "formats correctly" $ runSession hieCommand fullCaps "test/testdata" $ do
       sendNotification WorkspaceDidChangeConfiguration (DidChangeConfigurationParams (formatLspConfig "ormolu"))
@@ -199,7 +199,7 @@ formattedOrmolu =
   \  x <- return \"hello\"\n\
   \  return \"asdf\"\n\n\
   \data Baz = Baz {a :: Int, b :: String}\n"
-  
+
 unchangedOrmolu :: T.Text
 unchangedOrmolu =
   "module    Format where\n\
