@@ -6,7 +6,7 @@ https://github.com/haskell/haskell-language-server
 
 Until the new `haskell-language-server` reaches the feature level and stability of `haskell-ide-engine`, we aim to continue doing monthly releases. However, in general, bug fixes will be favored over new features and refactorings. They could be redirected to the new repo to avoid duplicated efforts.
 
-You still can contribute to improve the haskell ide experience! If you are not sure if you contribution should belong to this repo or the new one, feel free to ask in [any of the communication channels](#its-time-to-join-the-project).  
+You still can contribute to improve the haskell ide experience! If you are not sure if you contribution should belong to this repo or the new one, feel free to ask in [any of the communication channels](#its-time-to-join-the-project).
 
 # Haskell IDE Engine (HIE)
 <img src="https://github.com/haskell/haskell-ide-engine/raw/master/logos/HIE_logo_512.png" width="256" style="margin:25px;" align="right"/>
@@ -314,8 +314,8 @@ Wrapper script will analyze your project, find suitable version of HIE and launc
 Enable it by editing VS Code settings like this:
 
 ```json
-"languageServerHaskell.useCustomHieWrapper": true,
-"languageServerHaskell.useCustomHieWrapperPath": "hie-wrapper",
+"haskell.useCustomHieWrapper": true,
+"haskell.useCustomHieWrapperPath": "hie-wrapper",
 ```
 
 ## Configuration
@@ -323,7 +323,7 @@ There are some settings that can be configured via a `settings.json` file:
 
 ```
 {
-    "languageServerHaskell": {
+    "haskell": {
         "hlintOn": Boolean,
         "maxNumberOfProblems": Number
         "diagnosticsDebounceDuration" : Number
@@ -344,7 +344,7 @@ There are some settings that can be configured via a `settings.json` file:
 **For a full explanation of possible configurations, refer to [hie-bios/README](https://github.com/mpickering/hie-bios/blob/master/README.md).**
 
 HIE will attempt to automatically detect your project configuration and set up
-the environment for GHC. 
+the environment for GHC.
 
 | `cabal.project` | `stack.yaml` | `*.cabal` | Project selected |
 |-----------------|--------------|-----------|------------------|
@@ -582,7 +582,7 @@ Then issue `:CocConfig` and add the following to your Coc config file.
       "haskell"
     ],
     "initializationOptions": {
-      "languageServerHaskell": {
+      "haskell": {
       }
     }
   }
