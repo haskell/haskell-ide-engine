@@ -55,16 +55,18 @@ instance Default Config where
 -- TODO: Add API for plugins to expose their own LSP config options
 instance FromJSON Config where
   parseJSON = withObject "Config" $ \v -> do
-    s <- v .: "haskell" <|> v.: "languageServerHaskell"
-    flip (withObject "Config.settings") s $ \o -> Config
-      <$> o .:? "hlintOn"                     .!= hlintOn def
-      <*> o .:? "diagnosticsOnChange"         .!= diagnosticsOnChange def
-      <*> o .:? "maxNumberOfProblems"         .!= maxNumberOfProblems def
-      <*> o .:? "diagnosticsDebounceDuration" .!= diagnosticsDebounceDuration def
-      <*> o .:? "liquidOn"                    .!= liquidOn def
-      <*> o .:? "completionSnippetsOn"        .!= completionSnippetsOn def
-      <*> o .:? "formatOnImportOn"            .!= formatOnImportOn def
-      <*> o .:? "formattingProvider"          .!= formattingProvider def
+    c <- v .:? "haskell" <|> v.:? "languageServerHaskell"
+    case c of
+      Nothing -> return def
+      Just s -> flip (withObject "Config.settings") s $ \o -> Config
+        <$> o .:? "hlintOn"                     .!= hlintOn def
+        <*> o .:? "diagnosticsOnChange"         .!= diagnosticsOnChange def
+        <*> o .:? "maxNumberOfProblems"         .!= maxNumberOfProblems def
+        <*> o .:? "diagnosticsDebounceDuration" .!= diagnosticsDebounceDuration def
+        <*> o .:? "liquidOn"                    .!= liquidOn def
+        <*> o .:? "completionSnippetsOn"        .!= completionSnippetsOn def
+        <*> o .:? "formatOnImportOn"            .!= formatOnImportOn def
+        <*> o .:? "formattingProvider"          .!= formattingProvider def
 
 -- 2017-10-09 23:22:00.710515298 [ThreadId 11] - ---> {"jsonrpc":"2.0","method":"workspace/didChangeConfiguration","params":{"settings":{"haskell":{"maxNumberOfProblems":100,"hlintOn":true}}}}
 -- 2017-10-09 23:22:00.710667381 [ThreadId 15] - reactor:got didChangeConfiguration notification:
