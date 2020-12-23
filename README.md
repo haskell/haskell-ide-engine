@@ -232,7 +232,7 @@ cd haskell-ide-engine
 
 #### Building
 
-Note, on first invocation of the build script, a GHC is installed for execution. If you'd like to use a specific version of GHC for the `install.hs`, you can adjust the resolver in the `install/shake.yaml` file, as this project's build uses the [shake](https://shakebuild.com/) build tool.
+Note, on first invocation of the build script, a GHC is installed for execution. If you'd like to use a specific version of GHC for the `install.hs`, you can adjust the resolver in the `install/shake.yaml` file.
 
 Available commands can be seen with:
 
